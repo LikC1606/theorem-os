@@ -402,54 +402,6 @@ export interface IProvider {
 export type TProviderWithModel = Omit<IProvider, 'models'> & {
     use_model: string;
 };
-export interface MedicalEvidenceConfig {
-    enabled?: boolean;
-    paperclipApiKey?: string;
-    paperclipBaseUrl?: string;
-    defaultSources?: Array<'pmc' | 'abstracts' | 'abstracts_only' | 'biorxiv' | 'medrxiv' | 'arxiv' | 'fda' | 'fda/jp' | 'fda/eu' | 'trials' | 'trials/us' | 'trials/cn' | 'trials/jp' | 'trials/eu' | 'clinicaltrials'>;
-    strictAnchors?: boolean;
-    timeoutMs?: number;
-}
-export interface ResearchEvidenceConfig {
-    enabled?: boolean;
-    paperclipApiKey?: string;
-    paperclipBaseUrl?: string;
-    defaultSources?: string[];
-    timeoutMs?: number;
-    literatureSearchEnabled?: boolean;
-    literatureSearchDefaultSources?: string[];
-    semanticScholarApiKey?: string;
-    openAlexApiKey?: string;
-    openAlexEmail?: string;
-    crossrefEmail?: string;
-    crossrefApiToken?: string;
-    bioToolsEnabled?: boolean;
-    bioToolsPythonPath?: string;
-    bioToolsServerRoot?: string;
-    bioToolsDefaultDomains?: string[];
-}
-export interface ScienceArtifactConfig {
-    enabled?: boolean;
-    strictProvenance?: boolean;
-    writeProjectManifest?: boolean;
-    defaultSkillIds?: string[];
-    allowedDatabaseHosts?: string[];
-    /** Provider reference used by the optional AlphaSchema factor-mining runtime. */
-    alphaSchemaProviderId?: string;
-    /** Model name inside alphaSchemaProviderId. Provider credentials remain in IProvider. */
-    alphaSchemaModel?: string;
-}
-export interface AlphaDojoFinanceConfig {
-    enabled?: boolean;
-    endpoint?: string;
-    defaultMarket?: 'us' | 'cn' | 'hk' | 'cross_market';
-    timezone?: string;
-    currency?: string;
-    imagePrivacy?: 'local_only' | 'ask_each_time' | 'allow_cloud';
-    allowSimulationWrites?: boolean;
-    allowScheduledMonitoring?: boolean;
-    timeoutMs?: number;
-}
 export interface IMcpServerTransportStdio {
     type: 'stdio';
     command: string;
@@ -500,17 +452,4 @@ export interface IMcpTool {
     description?: string;
     input_schema?: unknown;
     _meta?: Record<string, unknown>;
-}
-/**
- * CSS 主题配置接口 / CSS Theme configuration interface
- * 用于存储用户自定义的 CSS 皮肤 / Used to store user-defined CSS skins
- */
-export interface ICssTheme {
-    id: string; // 唯一标识 / Unique identifier
-    name: string; // 主题名称 / Theme name
-    cover?: string; // 封面图片 base64 或 URL / Cover image base64 or URL
-    css: string; // CSS 样式代码 / CSS style code
-    is_preset?: boolean; // 是否为预设主题 / Whether it's a preset theme
-    created_at: number; // 创建时间 / Creation time
-    updated_at: number; // 更新时间 / Update time
 }
