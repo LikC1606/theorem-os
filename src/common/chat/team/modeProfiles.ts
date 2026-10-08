@@ -240,7 +240,6 @@ export function createHeadlessMathematicsTeamProfile(
   researchPolicy?: MathematicsResearchPolicyId,
   options: Readonly<{
     unlimitedTokens?: boolean;
-    mathematicsRouteDiscovery?: boolean;
     benchmarkMethod?: 'deepscientist_team' | 'single_worker';
     secondProofOwner?: boolean;
   }> = {}

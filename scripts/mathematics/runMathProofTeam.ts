@@ -1768,7 +1768,6 @@ export function buildMathProofTeamLaunchContext(
     throw new TypeError('Invalid solver project path');
   }
   const profile = createHeadlessMathematicsTeamProfile(undefined, {
-    mathematicsRouteDiscovery: input.benchmarkMethod === 'single_worker' ? false : true,
     benchmarkMethod: input.benchmarkMethod,
     secondProofOwner: input.secondProofOwner === true,
   });
