@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { ICreateConversationParams } from "../../coreConversation";
 import type { ICreateTeamParams } from "../../adapter/teamMapper";
 import type { Assistant, CreateAssistantRequest } from "../agent/assistantTypes";
 import type { IMcpServer, ISessionMcpServer, TeamInitialMessage } from "../../config/storage";
@@ -77,7 +76,17 @@ const RESEARCH_TEAM_MCP_SERVER_NAME_PREFIX = 'ds-team';
 const RESEARCH_TEAM_PREPARATION_CONCURRENCY = 4;
 const RESEARCH_TEAM_MAX_PREPARATION_CONCURRENCY = 8;
 
-export type ResearchTeamRoleConversationParams = Pick<ICreateConversationParams, 'name' | 'extra'>;
+export type ResearchTeamRoleConversationParams = {
+  name?: string;
+  extra: Record<string, unknown> & {
+    preset_context?: string;
+    preset_rules?: string;
+    selected_session_mcp_servers?: ISessionMcpServer[];
+    session_mcp_servers?: ISessionMcpServer[];
+    headless_proof_search?: boolean;
+    headless_proof_mainline?: boolean;
+  };
+};
 
 export type ProvisionResearchTeamInput = {
   profile: ResearchTeamProfile;
@@ -877,10 +886,8 @@ function createRoleRule(
           : normalized.includes(role.prompt)
             ? normalized
             : `${normalized}\n\n${role.prompt}`;
-  const headlessProofSearch =
-    (params.extra as unknown as Readonly<Record<string, unknown>>).headless_proof_search === true;
-  const headlessProofMainline =
-    (params.extra as unknown as Readonly<Record<string, unknown>>).headless_proof_mainline === true;
+  const headlessProofSearch = params.extra.headless_proof_search === true;
+  const headlessProofMainline = params.extra.headless_proof_mainline === true;
   return `${roleRule.trim()}\n\n${createSharedTeamOperatingContract(
     role,
     projectMemoryEnabled,
