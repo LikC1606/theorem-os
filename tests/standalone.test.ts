@@ -2,9 +2,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { createInterface } from 'node:readline';
 import { afterEach, describe, expect, it } from 'vitest';
-import { mathBuildFile, mathBuildSource, readMathBuildManifest, MATH_BUILD_INPUTS, MATH_RUNTIME_BUNDLES } from '../src/math/mathBuildManifest';
+import { mathBuildFile, mathBuildSource, readMathBuildManifest, verifyMathRuntimeProcess, MATH_BUILD_INPUTS, MATH_RUNTIME_BUNDLES } from '../src/math/mathBuildManifest';
 
 const roots: string[] = [];
 const temp = () => {
@@ -65,64 +66,83 @@ describe('standalone build identity', () => {
 });
 
 describe('standalone CLI process boundary', () => {
-  const cli = path.resolve('bin/math.ts');
-  it('starts the supplied Core on loopback and preserves arguments containing spaces', () => {
-    const root = temp();
-    const bundle = path.join(root, 'core bundle');
-    fs.mkdirSync(path.join(bundle, 'managed-resources'), { recursive: true });
-    const binary = path.join(bundle, 'deepscientist-core');
-    fs.writeFileSync(binary, '#!/usr/bin/env node\nprocess.stdout.write(JSON.stringify(process.argv.slice(2)));\n');
-    fs.chmodSync(binary, 0o700);
-    const data = path.join(root, 'data with spaces');
-    const result = spawnSync('bun', [cli, 'core', '--bundle', bundle, '--data-dir', data, '--port', '25821'], {
-      cwd: root, encoding: 'utf8', timeout: 10_000, maxBuffer: 32_768,
-      env: { ...process.env, CODEX_HOME: path.join(root, 'isolated-profile') },
+  const project = path.resolve('.');
+  const cli = path.join(project, 'bin/math.ts');
+  const children: ChildProcess[] = [];
+  afterEach(async () => {
+    await Promise.all(children.splice(0).map(async child => {
+      if (child.exitCode !== null) return;
+      const closed = new Promise<void>(resolve => child.once('close', () => resolve()));
+      child.kill('SIGTERM');
+      await closed;
+    }));
+  });
+  async function ready(args: string[]) {
+    const child = spawn('bun', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    children.push(child);
+    let diagnostics = '';
+    child.stderr!.on('data', data => { diagnostics = (diagnostics + data).slice(-4096); });
+    const lines = createInterface({ input: child.stdout! });
+    const value = await new Promise<any>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('runtime readiness timeout')), 10_000);
+      lines.once('line', line => { clearTimeout(timer); try { resolve(JSON.parse(line)); } catch (error) { reject(error); } });
+      child.once('exit', () => { clearTimeout(timer); reject(new Error(diagnostics)); });
+      child.once('error', reject);
     });
-    expect(result.status).toBe(0);
-    const args = JSON.parse(result.stdout);
-    expect(args).toEqual(expect.arrayContaining(['127.0.0.1', '--local', data, '25821', '--managed-resources-mode', 'bundled']));
-  });
-  it('propagates a failing child exit code', () => {
-    const root = temp();
-    fs.mkdirSync(path.join(root, 'managed-resources'));
-    const binary = path.join(root, 'deepscientist-core');
-    fs.writeFileSync(binary, '#!/usr/bin/env node\nprocess.exit(7);\n');
-    fs.chmodSync(binary, 0o700);
-    const result = spawnSync('bun', [cli, 'core', '--bundle', root], { encoding: 'utf8', timeout: 10_000, maxBuffer: 32_768 });
-    expect(result.status).toBe(7);
-  });
-});
-
-describe('portable Core bundle import', () => {
-  function fixture() {
-    const root = temp();
-    const source = path.join(root, 'supplied');
-    fs.mkdirSync(path.join(source, 'managed-resources', 'node'), { recursive: true });
-    fs.mkdirSync(path.join(source, 'managed-resources', 'acp'));
-    fs.writeFileSync(path.join(source, 'manifest.json'), JSON.stringify({ platform: process.platform, arch: process.arch, version: 'v0.1.50' }));
-    fs.writeFileSync(path.join(source, 'managed-resources', 'manifest.json'), '{}');
-    fs.writeFileSync(path.join(source, 'deepscientist-core'), 'fixture binary');
-    const script = path.join(root, 'standalone', 'scripts', 'importCore.ts');
-    fs.mkdirSync(path.dirname(script), { recursive: true });
-    fs.copyFileSync(path.resolve('scripts/importCore.ts'), script);
-    return { root, source, script, target: path.join(root, 'standalone', 'runtime', `${process.platform}-${process.arch}`) };
+    lines.close();
+    return { child, value };
   }
-  it('rebinds historical absolute links to the corresponding bundled file', () => {
-    const f = fixture();
-    const file = path.join(f.source, 'managed-resources', 'node', 'npm-cli.js');
-    fs.writeFileSync(file, 'fixture npm');
-    fs.symlinkSync('/discarded-build/managed-resources/node/npm-cli.js', path.join(f.source, 'managed-resources', 'node', 'npm'));
-    const result = spawnSync('bun', [f.script, '--bundle', f.source], { encoding: 'utf8', timeout: 10_000, maxBuffer: 32_768 });
-    expect(result.status).toBe(0);
-    const link = path.join(f.target, 'managed-resources', 'node', 'npm');
-    expect(path.isAbsolute(fs.readlinkSync(link))).toBe(false);
-    expect(fs.realpathSync(link)).toBe(path.join(f.target, 'managed-resources', 'node', 'npm-cli.js'));
+  async function stop(child: ChildProcess) {
+    const closed = new Promise<number | null>(resolve => child.once('close', code => resolve(code)));
+    child.kill('SIGTERM');
+    expect(await closed).toBe(0);
+  }
+  it('starts the bundled Bun runtime on loopback, verifies its identity and forwards shutdown', async () => {
+    const directory = path.join(temp(), 'data with spaces');
+    const { child, value } = await ready([cli, 'runtime', '--data-dir', directory, '--port', '0']);
+    expect(new URL(value.runtimeUrl).hostname).toBe('127.0.0.1');
+    const response = await fetch(`${value.runtimeUrl}/api/conversations/runtime-capabilities`);
+    const { data } = await response.json() as any;
+    expect(data.math_run_inputs.supported_versions).toContain(2);
+    const binary = fs.realpathSync(`/proc/${value.pid}/exe`);
+    const mcpRoot = path.join(project, 'out/main');
+    const manifest = { core: mathBuildFile(binary), mcpRoot,
+      bundles: [mathBuildFile(path.join(mcpRoot, 'math-runtime.js'))] };
+    expect(() => verifyMathRuntimeProcess(manifest as any, data)).not.toThrow();
+    expect(() => verifyMathRuntimeProcess(manifest as any, { ...data, runtime_entry: {} })).toThrow();
+    const ws = new WebSocket(value.runtimeUrl.replace('http:', 'ws:') + '/ws');
+    const subscription = new Promise<any>((resolve, reject) => {
+      ws.onopen = () => ws.send(JSON.stringify({ name: 'runtime.subscribe' }));
+      ws.onmessage = message => resolve(JSON.parse(String(message.data)));
+      ws.onerror = reject;
+    });
+    expect((await subscription).name).toBe('runtime.subscriptionReady');
+    ws.close();
+    await stop(child);
+    expect(fs.existsSync(path.join(directory, 'math-runtime.lock'))).toBe(false);
+    expect(() => process.kill(value.pid, 0)).toThrow();
   });
-  it('rejects external links that have no shipped counterpart before copying', () => {
-    const f = fixture();
-    fs.symlinkSync('/external-private-file', path.join(f.source, 'managed-resources', 'node', 'npm'));
-    const result = spawnSync('bun', [f.script, '--bundle', f.source], { encoding: 'utf8', timeout: 10_000, maxBuffer: 32_768 });
-    expect(result.status).not.toBe(0);
-    expect(fs.existsSync(f.target)).toBe(false);
+  it('reuses a private per-output endpoint and shuts down the owned host', async () => {
+    const directory = temp();
+    const output = path.join(directory, 'run with spaces.json');
+    const driver = path.join(directory, 'launch.ts');
+    fs.writeFileSync(driver, `import { launchMathRuntime } from ${JSON.stringify(path.join(project, 'src/runtime/launchRuntime.ts'))};
+const runtime = await launchMathRuntime(${JSON.stringify(project)}, ${JSON.stringify(output)}, process.env);
+console.log(JSON.stringify({ runtimeUrl: runtime.runtimeUrl }));
+process.once('SIGTERM', async () => { await runtime.stop(); process.exit(0); });
+`);
+    const first = await ready([driver]);
+    await stop(first.child);
+    const second = await ready([driver]);
+    expect(second.value.runtimeUrl).toBe(first.value.runtimeUrl);
+    await stop(second.child);
+    expect(fs.existsSync(`${output}.runtime/math-runtime.lock`)).toBe(false);
+  });
+  it('automatically stops the runtime when the proof runner rejects invalid arguments', () => {
+    const output = path.join(temp(), 'run.json');
+    const result = spawnSync('bun', [cli, 'run', '--output', output], { encoding: 'utf8', timeout: 10_000, maxBuffer: 16_384 });
+    expect(result.status).toBe(1);
+    expect(fs.existsSync(`${output}.runtime/endpoint.json`)).toBe(true);
+    expect(fs.existsSync(`${output}.runtime/math-runtime.lock`)).toBe(false);
   });
 });

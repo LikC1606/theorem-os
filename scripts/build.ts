@@ -18,10 +18,10 @@ const option = (name: string): string | undefined => {
   return value;
 };
 if (args.includes('--help') || args.includes('-h')) {
-  console.log('Usage: bun run build [--core BINARY] [--state-root DIRECTORY]\nBuilds only headless mathematics bundles. Core is supplied separately.');
+  console.log('Usage: bun run build [--state-root DIRECTORY]\nBuilds the mathematics runtime and headless MCP bundles using Bun.');
 } else {
   const startedAt = new Date().toISOString();
-  const core = fs.realpathSync(option('--core') || path.join(root, 'runtime', `${process.platform}-${process.arch}`, 'deepscientist-core'));
+  const core = fs.realpathSync(process.execPath);
   const stateRoot = path.resolve(option('--state-root') || path.join(root, '..', '.deepscientist-math-standalone-state'));
   if (isMathPathWithin(root, stateRoot)) throw new Error('math_build_state_root_must_be_external');
   const source = mathBuildSource(root);
@@ -32,6 +32,7 @@ if (args.includes('--help') || args.includes('-h')) {
     ['math-evaluator-supervisor.js', 'src/math/mathEvaluatorSupervisor.ts'],
     ['math-model-isolation.js', 'src/math/mathModelIsolationLauncher.ts'],
     ['math-conjecture-worker.js', 'src/workers/mathConjectureWorker.ts'],
+    ['math-runtime.js', 'scripts/startRuntime.ts'],
   ] as const;
   const mcpRoot = path.join(root, 'out', 'main');
   // Reject any reintroduced desktop dependency instead of leaving a runtime stub.
@@ -58,7 +59,7 @@ if (args.includes('--help') || args.includes('-h')) {
   const manifest = path.join(directory, 'manifest.json');
   writeMathJsonDurable(manifest, {
     schema: 'deepscientist.math.build-manifest.v1', buildId, startedAt, finishedAt: new Date().toISOString(), source,
-    versions: { node: process.version, bun: process.versions.bun ?? 'not_used', rust: 'prebuilt_core', cargo: 'not_used' },
+    versions: { node: process.version, bun: process.versions.bun ?? 'not_used', rust: 'not_used', cargo: 'not_used' },
     environment: { NODE_ENV: process.env.NODE_ENV ?? '', RUSTFLAGS: '', CARGO_PROFILE_RELEASE_LTO: '' },
     core: mathBuildFile(core), mcpRoot,
     bundles: MATH_RUNTIME_BUNDLES.map(name => mathBuildFile(path.join(mcpRoot, name))),

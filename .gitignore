@@ -1,6 +1,7 @@
 node_modules/
 out/
-runtime/
+/runtime/
 coverage/
 *.log
 .state/
+*.runtime/

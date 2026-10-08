@@ -160,7 +160,7 @@ import {
 import {
   mathBuildFile,
   readMathBuildManifest,
-  verifyMathCoreProcess,
+  verifyMathRuntimeProcess,
 } from "../../src/math/mathBuildManifest";
 import {
   assertMathCanonicalPath,
@@ -2743,7 +2743,7 @@ async function main(): Promise<void> {
   }
   if (flags.has('help')) {
     console.log(
-      'Usage: bun scripts/mathematics/runMathProofTeam.ts --core-url URL --build-manifest FILE --workspace GIT_WORKTREE --task-file FILE --output FILE --receipt-file ACTIVE_PROBLEM_JSON [--evaluator-command CMD --evaluator-cgroup-root DIR] [--model MODEL] [--lead-model MODEL] [--worker-model MODEL] [--lead-thought-level LEVEL] [--worker-thought-level LEVEL] [--timeout-seconds N] [--max-run-seconds N] [--no-progress-seconds N] [--evaluator-timeout-seconds N] [--mcp-root DIR] [--startup-only] [--no-token-limit] [--check-provider-only 1] [--route-discovery] [--cleanup-team-run-file FILE]\nNew-run defaults: all roles use gpt-6.1-sol with xhigh reasoning.\nEvaluation recovery: bun scripts/mathematics/runMathProofTeam.ts --build-manifest FILE --resume-evaluation-request FILE [--mcp-root DIR]'
+      'Usage: bun scripts/mathematics/runMathProofTeam.ts --runtime-url URL --build-manifest FILE --workspace GIT_WORKTREE --task-file FILE --output FILE --receipt-file ACTIVE_PROBLEM_JSON [--evaluator-command CMD --evaluator-cgroup-root DIR] [--model MODEL] [--lead-model MODEL] [--worker-model MODEL] [--lead-thought-level LEVEL] [--worker-thought-level LEVEL] [--timeout-seconds N] [--max-run-seconds N] [--no-progress-seconds N] [--evaluator-timeout-seconds N] [--mcp-root DIR] [--startup-only] [--no-token-limit] [--check-provider-only 1] [--route-discovery] [--cleanup-team-run-file FILE]\nNew-run defaults: all roles use gpt-6.1-sol with xhigh reasoning.\nEvaluation recovery: bun scripts/mathematics/runMathProofTeam.ts --build-manifest FILE --resume-evaluation-request FILE [--mcp-root DIR]'
     );
     // Imported desktop services may open storage/MCP handles before the flag
     // is parsed. Help is terminal, so do not leave those handles alive.
@@ -2770,7 +2770,7 @@ async function main(): Promise<void> {
       process.removeListener('SIGTERM', abort);
     }
   }
-  const coreUrl = new URL(required(flags, 'core-url')).origin;
+  const coreUrl = new URL(flags.get('runtime-url') || required(flags, 'core-url')).origin;
   if (!['127.0.0.1', '[::1]', 'localhost'].includes(new URL(coreUrl).hostname))
     throw new Error('math_core_must_be_local');
   const cleanupManifest = flags.get('cleanup-team-run-file')?.trim();
@@ -3368,7 +3368,7 @@ async function main(): Promise<void> {
     capabilities = await request('/api/conversations/runtime-capabilities', {}, 10_000);
     return capabilities;
   }, mathRunInputsVersion);
-  verifyMathCoreProcess(buildManifest, capabilities);
+  verifyMathRuntimeProcess(buildManifest, capabilities);
   const modelIsolationPolicyFile = flags.get('model-isolation-policy');
   const modelIsolation = modelIsolationPolicyFile
     ? verifyMathModelIsolationCore({

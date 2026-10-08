@@ -50,10 +50,11 @@ export const MATH_RUNTIME_BUNDLES = [
   'math-evaluator-supervisor.js',
   'math-model-isolation.js',
   'math-conjecture-worker.js',
+  'math-runtime.js',
 ] as const;
 export const MATH_BUILD_INPUTS = [
   'bun.lock', 'package.json', '.npmrc', 'tsconfig.json', 'extraction.json',
-  'scripts/build.ts', 'scripts/startCore.ts', 'bin/math.ts',
+  'scripts/build.ts', 'scripts/startRuntime.ts', 'bin/math.ts',
 ] as const;
 
 function hashDescriptor(fd: number): Readonly<{ bytes: number; sha256: string }> {
@@ -157,7 +158,7 @@ export function readMathBuildManifest(file: string, root: string, mcpRoot: strin
 }
 
 /** The authenticated endpoint identifies the running process, not a caller-supplied binary path. */
-export function verifyMathCoreProcess(manifest: MathBuildManifest, capabilities: unknown): void {
+export function verifyMathRuntimeProcess(manifest: MathBuildManifest, capabilities: unknown): void {
   const pid =
     capabilities && typeof capabilities === 'object' && !Array.isArray(capabilities)
       ? (capabilities as Record<string, unknown>).runtime_process_id
@@ -166,6 +167,12 @@ export function verifyMathCoreProcess(manifest: MathBuildManifest, capabilities:
     throw new Error('math_core_build_identity_unavailable');
   const executable = `/proc/${pid}/exe`;
   try {
+    const runtime = capabilities as Record<string, unknown>;
+    const entry = manifest.bundles.find(bundle => bundle.path === path.join(manifest.mcpRoot, 'math-runtime.js'));
+    const arguments_ = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0');
+    if (runtime.runtime_kind !== 'deepscientist-math.bun.v1' || !entry ||
+        canonicalMathJson(runtime.runtime_entry) !== canonicalMathJson(entry) ||
+        !arguments_[1] || fs.realpathSync(arguments_[1]) !== entry.path) throw new Error();
     if (fs.realpathSync(executable) !== manifest.core.path) throw new Error();
     // /proc/<pid>/exe is a kernel-owned link; hash its opened image rather than reopening the named binary.
     const fd = fs.openSync(executable, fs.constants.O_RDONLY | fs.constants.O_NONBLOCK);
