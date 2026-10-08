@@ -7,7 +7,7 @@
 import type { ICreateConversationParams } from "../../coreConversation";
 import type { ICreateTeamParams } from "../../adapter/teamMapper";
 import type { Assistant, CreateAssistantRequest } from "../agent/assistantTypes";
-import type { IMcpServer, ISessionMcpServer, TChatConversation, TeamInitialMessage } from "../../config/storage";
+import type { IMcpServer, ISessionMcpServer, TeamInitialMessage } from "../../config/storage";
 import type { ITeamRunAck, TTeam, TeamAgent } from "./teamTypes";
 import type { ResearchTeamProfile, ResearchTeamRoleContract } from "./researchTeamContracts";
 import { PROJECT_WORKSPACE_ENV_KEYS } from "../../chat/projectWorkspace";
@@ -21,7 +21,10 @@ import {
 
 type UpdateConversationParams = {
   id: string;
-  updates: Partial<TChatConversation>;
+  updates: {
+    name?: string;
+    extra?: Record<string, unknown>;
+  };
   merge_extra?: boolean;
 };
 
@@ -381,7 +384,7 @@ export async function provisionResearchTeam(
               preset_context: runtimeRules[index],
               // Clear the legacy alias explicitly because this is a merge patch.
               preset_rules: headlessMathematics ? '' : runtimeRules[index],
-            } as TChatConversation['extra'],
+            },
           },
           merge_extra: true,
         });
