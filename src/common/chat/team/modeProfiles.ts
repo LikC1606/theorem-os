@@ -19,7 +19,7 @@ import {
   type ResearchTeamRoleContract,
   type ResearchTeamToolActionPolicy,
 } from "../../types/team/researchTeamContracts";
-import { DEEPSCIENTIST_TEAM_MIN_AGENT_LIMIT, type DeepScientistTeamConfig } from "./deepScientistTeam";
+import type { DeepScientistTeamConfig } from "./deepScientistTeam";
 
 export type DeepScientistTeamModeProfileId = 'mathematics-research-team';
 
@@ -209,30 +209,20 @@ export function createDeepScientistModeTeamProfile(
   config: DeepScientistTeamConfig
 ): ResearchTeamProfile {
   const profileDescriptor = resolveDescriptor(modeStack);
-  const isMathematics = profileDescriptor.id === 'mathematics-research-team';
   // One persistent proof owner; auxiliary capacity is available only for useful disjoint work.
   const pool = createResearchTeamPoolContract(
     {
-      executionProfile: isMathematics ? 'assist' : 'parallel',
-      agentLimit: isMathematics ? Math.min(3, config.agentLimit) : config.agentLimit,
-      reasoningConcurrency: isMathematics ? Math.min(3, config.reasoningConcurrency) : config.reasoningConcurrency,
+      executionProfile: 'assist',
+      agentLimit: Math.min(3, config.agentLimit),
+      reasoningConcurrency: Math.min(3, config.reasoningConcurrency),
     },
-    {
-      minimumAgentLimit: isMathematics ? RESEARCH_TEAM_MIN_AGENT_LIMIT : DEEPSCIENTIST_TEAM_MIN_AGENT_LIMIT,
-      maximumAgentLimit: 50,
-      maximumReasoningConcurrency: 10,
-    }
+    { minimumAgentLimit: RESEARCH_TEAM_MIN_AGENT_LIMIT, maximumAgentLimit: 50, maximumReasoningConcurrency: 10 }
   );
-  const workerLanes = isMathematics
-    ? createMathematicsWorkerLanes(
-        profileDescriptor.lanes,
-        pool.agentLimit,
-        config.mathematicsSecondProofOwner === true
-      )
-    : Array.from(
-        { length: pool.agentLimit },
-        (_, index) => profileDescriptor.lanes[index % profileDescriptor.lanes.length]
-      );
+  const workerLanes = createMathematicsWorkerLanes(
+    profileDescriptor.lanes,
+    pool.agentLimit,
+    config.mathematicsSecondProofOwner === true
+  );
   const leadRoleId = `${profileDescriptor.id}-lead`;
   const roles = Object.freeze([
     createLeadRole(profileDescriptor, leadRoleId),
@@ -275,22 +265,11 @@ export function createDeepScientistModeTeamProfile(
     lanes: profileDescriptor.lanes,
     roles,
     exclusiveCapabilities: Object.freeze(exclusiveCapabilities),
-    coordinationRules: Object.freeze(
-      isMathematics
-        ? [
-            'Keep one persistent proof owner and up to two optional complementary researchers. Do not fill slots or wait for a whole batch; act on usable findings while checking unresolved dependencies.',
-            'Choose disjoint structural extraction, backward reasoning, targeted challenge or independent auxiliary proofs from the current gap. Only the Lead integrates the mainline proof and owns submission.',
-            profileDescriptor.publicationGate,
-          ]
-        : [
-            'The Lead plans independent bounded assignments. The first wave uses at most one Worker per distinct lane; later waves may add a duplicate lane only for a new, explicitly disjoint evidence source, method, or review question.',
-            'No wave exceeds reasoningConcurrency, and unused reusable Worker slots stay idle.',
-            'Artifact Workers use isolated Git worktrees and deliver exact commits. Advisory Workers return read-only structured analysis without branch creation or integration.',
-            'Delivery is event-driven. The Lead ends its turn while Workers run and does not poll unchanged status.',
-            'Only the Lead integrates reviewed commits, mutates canonical state, checkpoints, submits, or publishes.',
-            profileDescriptor.publicationGate,
-          ]
-    ),
+    coordinationRules: Object.freeze([
+      'Keep one persistent proof owner and up to two optional complementary researchers. Do not fill slots or wait for a whole batch; act on usable findings while checking unresolved dependencies.',
+      'Choose disjoint structural extraction, backward reasoning, targeted challenge or independent auxiliary proofs from the current gap. Only the Lead integrates the mainline proof and owns submission.',
+      profileDescriptor.publicationGate,
+    ]),
   });
 }
 
