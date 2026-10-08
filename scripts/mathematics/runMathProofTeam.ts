@@ -7,7 +7,7 @@ import {
 import { resolveMathematicsLakePackagesCache } from "../../src/math/verifier";
 import { verifyMathV2SourceCommit } from "../../src/math/mathIntegrationPromotion";
 /**
- * Run a proof-only mathematics task through the native DeepScientist Research
+ * Run a proof-only mathematics task through the standalone Mathematics Research
  * Team runtime.  This runner deliberately does not use the IOAI competition
  * bootstrap or its submission protocol. IMO2026 uses host-owned Lean-kernel
  * evaluation by default; an explicit external evaluator takes precedence.
@@ -45,12 +45,6 @@ import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { parse as parseToml } from 'smol-toml';
 import { isDeepStrictEqual } from 'node:util';
-import {
-  MathBudgetTeamSession,
-  type MathBudgetRole,
-} from "../../src/math/mathBudgetTeamSession";
-import { DurableMathBudgetLedger } from "../../src/math/mathBudgetLedger";
-import { createDeepseekTokenCounter } from "../../src/math/deepseekTokenCounter";
 import { createMathBudgetHostClient } from "../../src/math/mathBudgetHostClient";
 import { buildMathematicsConversationExtra } from "../../src/common/chat/mathematics";
 import {
@@ -60,7 +54,6 @@ import {
 import {
   mathematicsResearchPolicy,
   MATHEMATICS_RESEARCH_POLICY_ENV,
-  type MathematicsResearchPolicyId,
 } from "../../src/common/chat/team/mathematicsResearchPolicy";
 import { prepareResearchTeamRoleMcpServers } from "../../src/common/types/team/researchTeamMcp";
 import {
@@ -626,16 +619,6 @@ const MATH_OWNERLESS_RECOVERY_RETRY_MS = 5_000;
 // turn started by that wake can therefore predate `deliveredAt` by a few
 // milliseconds; leave that fresh turn alone and let it process the delivery.
 const LEAD_DELIVERY_START_RACE_MS = 250;
-
-function requireMathResearchBudgetTransport(policy: MathematicsResearchPolicyId | undefined): void {
-  if (policy === undefined) return;
-  // Estimated mode is explicit and keeps the same broker/output controls while
-  // acknowledging that the local tokenizer is not a provider-exact upper bound.
-  if (process.env.DEEPSCIENTIST_MATH_ALLOW_ESTIMATE === '1') return;
-  throw new Error(
-    'math_budget_transport_unavailable: set DEEPSCIENTIST_MATH_ALLOW_ESTIMATE=1 only for explicitly estimated runs; strict provider-exact accounting remains unavailable.'
-  );
-}
 
 /**
  * Keep one model across the Lead and Worker roles.  Mathematics runs may use
@@ -1452,13 +1435,11 @@ export async function collectMathRecoveryContext(
 /** Shared reconciliation gate: only unfinished live work may schedule recovery. */
 export function shouldContinueMathRunObservation(
   observation: Pick<MathRunObservation, 'state' | 'pendingAssignmentQuiescent'>,
-  budgetExhausted = false,
   hasRecoverableSlot = false
 ): boolean {
   return (
     (observation.state === 'waiting' || observation.state === 'incomplete') &&
-    (observation.state === 'incomplete' || observation.pendingAssignmentQuiescent || hasRecoverableSlot) &&
-    !budgetExhausted
+    (observation.state === 'incomplete' || observation.pendingAssignmentQuiescent || hasRecoverableSlot)
   );
 }
 
@@ -1646,8 +1627,6 @@ export function planMathPendingAssignmentContinuation(
 let pendingProofEnvironmentCleanup: (() => Promise<void>) | undefined;
 let pendingStartupCleanup: ((removeTeam: boolean) => Promise<void>) | undefined;
 let pendingEventCleanup: (() => void) | undefined;
-let pendingBudgetCleanup: (() => Promise<void>) | undefined;
-let budgetStartupSignal: ((signal: NodeJS.Signals) => void) | undefined;
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const HEADLESS_DISABLED_SKILLS = [
@@ -1660,11 +1639,6 @@ const HEADLESS_DISABLED_SKILLS = [
 ] as const;
 
 const quoteShellArgument = (value: string): string => `'${value.replaceAll("'", `'"'"'`)}'`;
-
-// Estimated mode records a local tokenizer estimate rather than a provider
-// guarantee. Keep the multiplier explicit so strict accounting cannot inherit
-// this relaxed behavior.
-const ESTIMATED_INPUT_SAFETY_FACTOR = 1.15;
 
 const stableLeanEvalBranchSegment = (value: string): string => {
   const normalized = value
@@ -1739,24 +1713,15 @@ export function buildMathLiteVerificationTargets(contract: MathProblemContract) 
   );
 }
 
-export type MathStartIntent =
-  | Readonly<{ kind: 'formalize'; targetSlotId: string }>
-  | Readonly<{ kind: 'route_discovery'; targetSlotId: string }>;
+export type MathStartIntent = Readonly<{ kind: 'formalize'; targetSlotId: string }>;
 
-/** Resolve the first useful lane from Core's authenticated runtime roster. */
+/** Resolve the proof owner from the authenticated runtime roster. */
 export function resolveMathStartIntent(
-  roster: readonly Pick<ResearchTeamRuntimeRosterMember, 'slotId' | 'roleKind' | 'laneId'>[],
-  routeDiscovery: boolean
+  roster: readonly Pick<ResearchTeamRuntimeRosterMember, 'slotId' | 'roleKind' | 'laneId'>[]
 ): MathStartIntent {
-  const laneId = routeDiscovery ? 'strategy-exploration' : 'lean-engineering';
-  const target = roster.find((member) => member.roleKind === 'worker' && member.laneId === laneId);
-  if (!target) {
-    throw new Error(routeDiscovery ? 'math_route_discovery_slot_unavailable' : 'math_formalize_slot_unavailable');
-  }
-  return Object.freeze({
-    kind: routeDiscovery ? ('route_discovery' as const) : ('formalize' as const),
-    targetSlotId: target.slotId,
-  });
+  const target = roster.find((member) => member.roleKind === 'worker' && member.laneId === 'lean-engineering');
+  if (!target) throw new Error('math_formalize_slot_unavailable');
+  return Object.freeze({ kind: 'formalize', targetSlotId: target.slotId });
 }
 
 export function buildMathProofTeamLaunchContext(
@@ -1773,9 +1738,6 @@ export function buildMathProofTeamLaunchContext(
     environmentInstruction: string;
     runBindingRef?: string;
     assignmentId?: string;
-    researchPolicy?: MathematicsResearchPolicyId;
-    tokenLimit?: number | null;
-    routeDiscovery?: boolean;
     benchmarkMethod?: 'deepscientist_team' | 'single_worker';
     secondProofOwner?: boolean;
     /** False when the run froze no retrieval corpus, so premise search cannot answer. */
@@ -1805,9 +1767,7 @@ export function buildMathProofTeamLaunchContext(
   ) {
     throw new TypeError('Invalid solver project path');
   }
-  const routeDiscovery = input.routeDiscovery === true;
-  const profile = createHeadlessMathematicsTeamProfile(input.researchPolicy, {
-    unlimitedTokens: input.tokenLimit === null,
+  const profile = createHeadlessMathematicsTeamProfile(undefined, {
     mathematicsRouteDiscovery: input.benchmarkMethod === 'single_worker' ? false : true,
     benchmarkMethod: input.benchmarkMethod,
     secondProofOwner: input.secondProofOwner === true,
@@ -1816,10 +1776,7 @@ export function buildMathProofTeamLaunchContext(
   // Run 23 attempt 14: the second proof owner spent a turn on searchMode=premises
   // and got an unavailable-corpus reply, because this run freezes no retrieval corpus.
   const premiseSearchAvailable = input.premiseSearchAvailable !== false;
-  const firstDispatch = routeDiscovery
-    ? 'dispatch exactly one Strategy Worker for one bounded, actionable advisory bridge. After that delivery, dispatch exactly one Lean Engineer as the persistent owner of the complete original theorem, starting from the next concrete source obligation'
-    : 'dispatch exactly one Lean Engineer as the persistent owner of the complete original theorem, starting from the next concrete source obligation. In the same dispatch call, when the decisive mathematical step is uncertain, also give one Researcher a bounded investigation of that step so research runs in parallel with formalization. For a necessary helper with known inputs and a stable consumer interface, assign checked auxiliary Lean code instead of a broad report. Use a second available Researcher in this same call when another independent necessary helper has ready inputs; do not wait for the proof owner to block or finish another bound. Leave slots idle when no distinct useful task is ready';
-  const startDescription = routeDiscovery ? 'begin route discovery' : 'begin useful formalization';
+  const firstDispatch = 'dispatch exactly one Lean Engineer as the persistent owner of the complete original theorem, starting from the next concrete source obligation. In the same dispatch call, when the decisive mathematical step is uncertain, also give one Researcher a bounded investigation of that step so research runs in parallel with formalization. For a necessary helper with known inputs and a stable consumer interface, assign checked auxiliary Lean code instead of a broad report. Use a second available Researcher in this same call when another independent necessary helper has ready inputs; do not wait for the proof owner to block or finish another bound. Leave slots idle when no distinct useful task is ready';
   const secondOwnerRule =
     input.secondProofOwner === true
       ? 'This Team has a second Lean Engineer. You may give it at most one assignment on the complete original theorem through a structurally different decomposition from the primary Lean Engineer; name the differing mechanism in its task. Never give both the same route. The first host-verified integration wins and the other attempt is superseded automatically; integrate a completed proof before anything else.'
@@ -1853,13 +1810,12 @@ export function buildMathProofTeamLaunchContext(
   return Object.freeze({
     profile,
     workerObjective,
-    routeDiscovery,
     initialMessage: [
       `Public task:\n${input.task}`,
       `Frozen task file: ${input.taskFile}.${input.runBindingRef ? ` Run binding (v2): ${input.runBindingRef}.` : ''} Runtime problem receipt: ${input.legacyContractFile}. Canonical dispatch base commit: ${input.baseCommit}.`,
       `The authorized solver project is ${solverProjectRelativePath} inside the assigned worktree; all proof edits belong there and nowhere else.`,
       'Runtime-owned files are read-only: do not edit, move, copy, regenerate, or reinterpret active-problem.json, the run binding, the frozen task, or any other receipt/input file. Edit only the authorized Submission.lean in the assigned solver project; use the injected project/worktree identity as authoritative.',
-      `Understand the goal and autonomously ${startDescription}. Read the live roster; the runtime supplies assignment, project, worktree, statement, verification, and source identities. If rejected, repair only target_slot_id or task.`,
+      `Understand the goal and autonomously begin useful formalization. Read the live roster; the runtime supplies assignment, project, worktree, statement, verification, and source identities. If rejected, repair only target_slot_id or task.`,
     ].join('\n'),
     roleContext: (role: ResearchTeamRoleContract): string =>
       role.kind === 'lead'
@@ -1872,9 +1828,7 @@ export function buildMathProofTeamLaunchContext(
               'The following Lean proof-owner instructions apply only when the current assignment.kind is "formalize". For "research", follow the scoped research instructions above and deliver its report.',
               'For a formalize assignment, you are the Lean Engineer. Own the complete theorem through bounded proof obligations; edit only authorized solver files in git.worktreePath and retain compiling commits.',
               workerObjective,
-              input.tokenLimit === null
-                ? 'Continue from Lean feedback for as many model calls as the proof needs; never stop because a library query misses.'
-                : `The run shares ${(input.tokenLimit ?? 64_000).toLocaleString('en-US')} estimated tokens. Continue from Lean feedback; never stop because a library query misses.`,
+              'Continue from Lean feedback; never stop because a library query misses.',
               `The process starts at the assigned Git worktree root (the runtime-selected cwd). The solver project is ${solverProjectRelativePath}; enter that relative directory once. The assignment's sourceRootRelative is relative to this Lean project, not the Git root. Edit and check Submission.lean under that assigned source directory, and deliver it using files relative to the assigned source directory; the project-root Submission.lean is only the original seed. Inspect the public Challenge.lean, authorized solver sources, local diffs and installed library definitions as needed. Keep searches inside these authorized roots. Do not read README.md, reference answers, prior submissions, other runs or evaluator-private material.`,
               'Runtime-owned active-problem.json, run-binding, frozen task, receipt, and input files are read-only. Never edit, move, copy, or regenerate them; the injected project/worktree identity is authoritative. Only Submission.lean and ordinary working notes in the assigned worktree are solver-owned.',
               `Read the public goal and existing solver files before editing. The installed Mathlib source is ${mathlibSourcePath}. For ordinary candidate checkpoints, call the assignment-bound lean_workspace probe with {action:"probe"}; the runtime selects the current assignment and private target source and returns the frozen diagnostic and linked evidence. For targets in multiple files, supply proofSession.sourceFile. Use terminal lake env lean for focused experiments, environment diagnosis, or when MCP is unavailable, and do not repeat a terminal compile already represented by the same host-frozen result. The independent official verification command remains ${quoteShellArgument(officialVerificationCommand)}. Do not install packages, source environment files or replace the pinned toolchain.`,
@@ -2743,7 +2697,7 @@ async function main(): Promise<void> {
   }
   if (flags.has('help')) {
     console.log(
-      'Usage: bun scripts/mathematics/runMathProofTeam.ts --runtime-url URL --build-manifest FILE --workspace GIT_WORKTREE --task-file FILE --output FILE --receipt-file ACTIVE_PROBLEM_JSON [--evaluator-command CMD --evaluator-cgroup-root DIR] [--model MODEL] [--lead-model MODEL] [--worker-model MODEL] [--lead-thought-level LEVEL] [--worker-thought-level LEVEL] [--timeout-seconds N] [--max-run-seconds N] [--no-progress-seconds N] [--evaluator-timeout-seconds N] [--mcp-root DIR] [--startup-only] [--no-token-limit] [--check-provider-only 1] [--route-discovery] [--cleanup-team-run-file FILE]\nNew-run defaults: all roles use gpt-6.1-sol with xhigh reasoning.\nEvaluation recovery: bun scripts/mathematics/runMathProofTeam.ts --build-manifest FILE --resume-evaluation-request FILE [--mcp-root DIR]'
+      'Usage: bun scripts/mathematics/runMathProofTeam.ts --runtime-url URL --build-manifest FILE --workspace GIT_WORKTREE --task-file FILE --output FILE --receipt-file ACTIVE_PROBLEM_JSON [--evaluator-command CMD --evaluator-cgroup-root DIR] [--model MODEL] [--lead-model MODEL] [--worker-model MODEL] [--lead-thought-level LEVEL] [--worker-thought-level LEVEL] [--timeout-seconds N] [--max-run-seconds N] [--no-progress-seconds N] [--evaluator-timeout-seconds N] [--mcp-root DIR] [--startup-only] [--no-token-limit] [--check-provider-only 1] [--cleanup-team-run-file FILE]\nNew-run defaults: all roles use gpt-6.1-sol with xhigh reasoning.\nEvaluation recovery: bun scripts/mathematics/runMathProofTeam.ts --build-manifest FILE --resume-evaluation-request FILE [--mcp-root DIR]'
     );
     // Imported desktop services may open storage/MCP handles before the flag
     // is parsed. Help is terminal, so do not leave those handles alive.
@@ -2804,8 +2758,6 @@ async function main(): Promise<void> {
   const benchmarkMethodFlag = flags.get('benchmark-method');
   if (benchmarkMethodFlag !== undefined && !['deepscientist_team', 'single_worker'].includes(benchmarkMethodFlag))
     throw new Error('Unsupported benchmark method');
-  const usesBudgetBroker = Boolean(researchPolicy) && !noTokenLimit;
-  requireMathResearchBudgetTransport(usesBudgetBroker ? researchPolicy?.id : undefined);
   const budgetAccounting = noTokenLimit
     ? {
         mode: 'unlimited',
@@ -2814,18 +2766,6 @@ async function main(): Promise<void> {
         tokenLimitEnforced: false,
         strictTokenGuarantee: false,
       }
-    : researchPolicy
-      ? {
-          mode: 'estimated',
-          basis: 'deepseek_chat_template_plus_tool_json',
-          safetyFactor: ESTIMATED_INPUT_SAFETY_FACTOR,
-          totalTokenLimit: researchPolicy.totalTokenLimit,
-          tokenLimitEnforced: true,
-          strictTokenGuarantee: false,
-        }
-      : undefined;
-  const effectiveResearchPolicy = researchPolicy
-    ? Object.freeze({ ...researchPolicy, totalTokenLimit: noTokenLimit ? null : researchPolicy.totalTokenLimit })
     : undefined;
   const workspace = fs.realpathSync(required(flags, 'workspace'));
   const sourceTaskFile = fs.realpathSync(required(flags, 'task-file'));
@@ -2993,7 +2933,7 @@ async function main(): Promise<void> {
       resume.benchmarkMethod !== benchmarkMethod ||
       (resume.repetition ?? 1) !== repetition ||
       resume.evaluationMode !== evaluationMode ||
-      resume.researchPolicy !== (researchPolicy?.id ?? null))
+      resume.researchPolicy !== null)
   )
     throw new Error('recovery_unavailable: retained run identity differs');
   if (resume) {
@@ -3204,7 +3144,6 @@ async function main(): Promise<void> {
   };
   const manifestAssistantIds: string[] = [...(resume?.assistantIds ?? [])];
   const manifestMcpServerIds: string[] = [...(resume?.mcpServerIds ?? [])];
-  const budgetConversationIds: string[] = [];
   let manifestTeamId: string | undefined = resume?.teamId;
   let manifestTeamRunId: string | undefined = resume?.teamRunId;
   let retainedRuntime: Pick<MathProofResumeState, 'roster' | 'conversations'> | undefined = resume
@@ -3230,10 +3169,8 @@ async function main(): Promise<void> {
             mcpServerIds: [...new Set(manifestMcpServerIds)],
           })
         : null,
-      ...(usesBudgetBroker ? { budget_conversation_ids: [...budgetConversationIds] } : {}),
       run_inputs: frozen.inputs,
       lifecycle_state: lifecycleState,
-      research_policy: effectiveResearchPolicy,
       budget_accounting: budgetAccounting,
       cleanup: cleanupOutcome,
       result_ref: output,
@@ -3262,7 +3199,7 @@ async function main(): Promise<void> {
         benchmarkMethod,
         repetition,
         evaluationMode,
-        researchPolicy: researchPolicy?.id ?? null,
+        researchPolicy: null,
         teamId: manifestTeamId,
         teamRunId: manifestTeamRunId,
         resourceIdentityDigest: manifestTeamId
@@ -3424,31 +3361,11 @@ async function main(): Promise<void> {
     lakeExecutable,
     environmentInstruction: mathEnvInstruction,
     runBindingRef: frozen.inputs.binding!.path,
-    researchPolicy: researchPolicy?.id,
-    tokenLimit: noTokenLimit ? null : researchPolicy?.totalTokenLimit,
-    routeDiscovery: flags.has('route-discovery'),
     benchmarkMethod: benchmarkMethod as 'deepscientist_team' | 'single_worker',
     secondProofOwner: runtimeEnv[MATHEMATICS_SECOND_PROOF_OWNER_ENV] === 'true',
     premiseSearchAvailable: Boolean(readMathRetrievalCorpusEnvironment(runtimeEnv)),
   });
   const { profile, initialMessage, workerObjective } = launchContext;
-  const policySnapshot = researchPolicy
-    ? {
-        policy: effectiveResearchPolicy,
-        budgetAccounting,
-        profile,
-        profileSha256: mathDigest(canonicalMathJson(profile)),
-        runInputsDigest: mathDigest(canonicalMathJson(frozen.inputs)),
-      }
-    : undefined;
-  const runtimePolicySnapshot = policySnapshot
-    ? {
-        policy: policySnapshot.policy,
-        budgetAccounting: policySnapshot.budgetAccounting,
-        profileSha256: policySnapshot.profileSha256,
-        runInputsDigest: policySnapshot.runInputsDigest,
-      }
-    : undefined;
   const modeExtra: JsonRecord = {
     // Bind mathematical conversations to the generated solver project. The
     // outer workspace remains the run container, but project-bound MCP tools
@@ -3462,9 +3379,7 @@ async function main(): Promise<void> {
     mode_stack: { schema: 'deepscientist.mode_stack.v1', primary: 'science', overlays: ['mathematical-research'] },
     mathematical_research: buildMathematicsConversationExtra(receiptProjectRoot),
     mathematics_runtime: {
-      ...(usesBudgetBroker ? { budget_required: true } : {}),
       run_inputs: frozen.inputs,
-      research_policy: runtimePolicySnapshot,
       envFile: runtimeEnv.DEEPSCIENTIST_MATH_ENV_FILE,
       instruction: mathematicsRuntimeInstruction(runtimeEnv.DEEPSCIENTIST_MATH_ENV_FILE),
     },
@@ -3496,8 +3411,6 @@ async function main(): Promise<void> {
   let waitTimeoutTimer: ReturnType<typeof setTimeout> | undefined;
   let proofStartedAt: number | undefined = proofClockStartedAt;
   let lastRunState: JsonRecord = {};
-  let budgetRoles: readonly MathBudgetRole[] = [];
-  let budgetExhausted = false;
   let directDispatchRuntime:
     | Readonly<{
         teamId: string;
@@ -3581,82 +3494,7 @@ async function main(): Promise<void> {
         method: 'POST',
         body: JSON.stringify({ mode: session_mode }),
       }),
-    ensureSession: async ({ team_id }) => {
-      const endpoint = `/api/teams/${encodeURIComponent(team_id)}/session`;
-      if (!usesBudgetBroker || !researchPolicy) return request(endpoint, { method: 'POST' }, 600_000);
-      // This assembly remains behind requireMathResearchBudgetTransport. The local
-      // estimator is not an implementation of the strict provider-count contract.
-      const directory = `${output}.budget`;
-      fs.mkdirSync(directory, { mode: 0o700 });
-      const ledger = new DurableMathBudgetLedger({
-        directory,
-        workspace,
-        flockExecutable: '/usr/bin/flock',
-        policy: {
-          runId: runBinding.runId,
-          inputDigest: mathDigest(canonicalMathJson(frozen.inputs)),
-          limit: researchPolicy.totalTokenLimit,
-          finalReserve: 1024,
-        },
-      });
-      await ledger.initialize();
-      const countDeepseekInput = createDeepseekTokenCounter({
-        python: process.env.DEEPSCIENTIST_DEEPSEEK_PYTHON ?? '',
-        tokenizer: process.env.DEEPSCIENTIST_DEEPSEEK_TOKENIZER ?? '',
-        script: path.join(ROOT, 'scripts/mathematics/countDeepseekTokens.py'),
-      });
-      const session = new MathBudgetTeamSession({
-        coreUrl,
-        hostSecret: process.env.DEEPSCIENTIST_MATH_BUDGET_HOST_SECRET ?? '',
-        runId: runBinding.runId,
-        inputDigest: mathDigest(canonicalMathJson(frozen.inputs)),
-        ledger,
-        outputTokens: 1024,
-        countInput: async (request) => {
-          const estimate = await countDeepseekInput(request);
-          const reservedInputTokens = Math.ceil(estimate.estimatedInputTokens * ESTIMATED_INPUT_SAFETY_FACTOR);
-          progress('budget_input_estimated', {
-            promptTokens: estimate.promptTokens,
-            toolDefinitionTokens: estimate.toolDefinitionTokens,
-            reservedInputTokens,
-          });
-          return reservedInputTokens;
-        },
-        onRegistrationAttempt: (id) => {
-          budgetConversationIds.push(id);
-          writeCleanupManifest();
-        },
-        onBrokerReject: (actorId, code) => {
-          if (code === 'math_budget_exhausted' || code === 'math_budget_admission_closed') {
-            budgetExhausted = true;
-            progress('budget_exhausted', { slotId: actorId, reason: code });
-          }
-          progress('budget_request_rejected', { slotId: actorId, reason: code });
-        },
-      });
-      pendingBudgetCleanup = () => session.close();
-      budgetStartupSignal = (signal) => {
-        void session.close().then(
-          () => process.exit(signal === 'SIGINT' ? 130 : 143),
-          () => {
-            console.error('math_budget_team_cleanup_failed');
-            process.exit(1);
-          }
-        );
-      };
-      process.once('SIGINT', budgetStartupSignal);
-      process.once('SIGTERM', budgetStartupSignal);
-      return session.ensure(budgetRoles, (signal) =>
-        request(
-          endpoint,
-          {
-            method: 'POST',
-            signal: AbortSignal.any([signal, AbortSignal.timeout(600_000)]),
-          },
-          600_000
-        )
-      );
-    },
+    ensureSession: ({ team_id }) => request(`/api/teams/${encodeURIComponent(team_id)}/session`, { method: 'POST' }, 600_000),
     // Fresh headless math runs start the Lead before warming every Worker.
     // The delivery gate wakes a Worker on demand when Core reports
     // runtime_starting; resumed runs still restore all retained runtimes below.
@@ -3738,7 +3576,7 @@ async function main(): Promise<void> {
       }
       // Recovery must restore the proof owner even when startup selected a
       // preliminary Researcher task instead of the formalization lane.
-      const originalProofSlotId = resolveMathStartIntent(dispatchRuntime.roster, false).targetSlotId;
+      const originalProofSlotId = resolveMathStartIntent(dispatchRuntime.roster).targetSlotId;
       const url = new URL('/ws', coreUrl);
       url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
       eventStream = new ResearchTeamEventStream({ teamId: team_id, createSocket: () => new WebSocket(url) });
@@ -3923,7 +3761,6 @@ async function main(): Promise<void> {
           if (
             shouldContinueMathRunObservation(
               observation,
-              budgetExhausted,
               hasIdleOwner || hasRecoverableProofSlot || pendingTransport
             )
           ) {
@@ -4300,7 +4137,6 @@ async function main(): Promise<void> {
             recoveryExhausted,
             ownerlessRecoveryBlocked
           ) ||
-            (budgetExhausted && observation.state !== 'waiting') ||
             (startupOnly && observation.workerDispatched)
             ? observation
             : undefined;
@@ -4488,7 +4324,7 @@ async function main(): Promise<void> {
       directDispatchRuntime = {
         teamId: team.id,
         lead,
-        startIntent: resolveMathStartIntent(resume.roster, launchContext.routeDiscovery),
+        startIntent: resolveMathStartIntent(resume.roster),
         roster: resume.roster,
       };
       phase = 'worker_runtime_wakeup';
@@ -4549,17 +4385,9 @@ async function main(): Promise<void> {
           disabledBuiltinSkillIds: launchContext.disabledSkillIds,
           onLaunchProgress: (event) => progress('team_launch_progress', { ...event }),
           onRuntimeReady: async ({ team, agents, roster }) => {
-            if (usesBudgetBroker) {
-              budgetRoles = agents.map((agent) => ({
-                actorId: agent.slot_id,
-                conversationId: agent.conversation_id,
-                model: agent.model ?? '',
-                backend: agent.agent_type,
-              }));
-            }
             const lead = roster.find((member) => member.roleKind === 'lead');
             if (!lead) throw new Error('math_lead_unavailable');
-            const startIntent = resolveMathStartIntent(roster, launchContext.routeDiscovery);
+            const startIntent = resolveMathStartIntent(roster);
             progress('math_start_intent_resolved', { state: startIntent.kind, slotId: startIntent.targetSlotId });
             directDispatchRuntime = Object.freeze({ teamId: team.id, lead, startIntent, roster });
             retainedRuntime = {
@@ -4676,7 +4504,6 @@ async function main(): Promise<void> {
       cleanupOutcome = { status, reason, resourcesRemoved: false, manifestRetained: true };
       writeCleanupManifest();
     };
-    await pendingBudgetCleanup?.();
     if (!removed) {
       try {
         // Always refresh the authoritative snapshot. The retained run ID can
@@ -4866,11 +4693,6 @@ async function main(): Promise<void> {
   };
   process.once('SIGINT', handleTerminationSignal);
   process.once('SIGTERM', handleTerminationSignal);
-  if (budgetStartupSignal) {
-    process.removeListener('SIGINT', budgetStartupSignal);
-    process.removeListener('SIGTERM', budgetStartupSignal);
-    budgetStartupSignal = undefined;
-  }
   progress('team_provisioned', {
     teamId,
     teamRunId,
@@ -5399,7 +5221,6 @@ async function main(): Promise<void> {
     run_binding_digest: frozen.inputs.binding!.digest,
     build_manifest_ref: buildManifestRef,
     build_manifest_digest: mathDigest(fs.readFileSync(buildManifestRef)),
-    research_policy: policySnapshot,
     budget_accounting: budgetAccounting,
     model,
     lead_model: leadModel,
@@ -5466,7 +5287,6 @@ async function main(): Promise<void> {
       writeCleanupManifest();
       if (startupOnly || runLimitReason) await pendingStartupCleanup?.(false);
       if (removeResources) await pendingStartupCleanup?.(true);
-      await pendingBudgetCleanup?.();
       await pendingProofEnvironmentCleanup?.();
       return cleanupOutcome;
     },
@@ -5780,7 +5600,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     pendingEventCleanup?.();
     try {
       try {
-        await pendingBudgetCleanup?.();
         await pendingStartupCleanup?.(false);
       } finally {
         await pendingProofEnvironmentCleanup?.();

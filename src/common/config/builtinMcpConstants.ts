@@ -12,7 +12,6 @@ export const BUILTIN_SCIENCE_ARTIFACT_NAME = 'deepscientist-science-artifact';
 export const BUILTIN_RESEARCH_TEAM_NAME = 'deepscientist-research-team';
 export const BUILTIN_RESEARCH_EVIDENCE_NAME = 'deepscientist-research-evidence';
 export const BUILTIN_USER_INPUT_NAME = 'deepscientist-user-input';
-export const RESEARCH_TEAM_RUNTIME_ENV = 'DEEPSCIENTIST_RESEARCH_TEAM_RUNTIME';
 export const RESEARCH_TEAM_CORE_BASE_URL_ENV = 'DEEPSCIENTIST_RESEARCH_TEAM_CORE_BASE_URL';
 export const IOAI_COMPETITION_CAPABILITY_SCHEMA = 'deepscientist.ioai.mcp-capability.v2';
 export const IOAI_COMPETITION_CAPABILITY_SCHEMA_ENV = 'DEEPSCIENTIST_IOAI_CAPABILITY_SCHEMA';
@@ -27,8 +26,7 @@ export const IOAI_COMPETITION_TEAM_ROSTER_ENV = 'DEEPSCIENTIST_IOAI_TEAM_ROSTER'
 export const IOAI_COMPETITION_CORE_BASE_URL_ENV = 'DEEPSCIENTIST_IOAI_CORE_BASE_URL';
 export const IOAI_COMPETITION_KAGGLE_SUBMISSION_ENABLED_ENV = 'DEEPSCIENTIST_IOAI_KAGGLE_SUBMISSION_ENABLED';
 
-// The Challenge bundle also hosts the domain-neutral Research Team orchestration
-// tool. Role-scoped runtime copies receive only one of these capability families.
+// Research Team orchestration receives a role-scoped capability.
 export const RESEARCH_TEAM_CAPABILITY_SCHEMA = 'deepscientist.research-team.mcp-capability.v1';
 export const RESEARCH_TEAM_CAPABILITY_SCHEMA_ENV = 'DEEPSCIENTIST_RESEARCH_TEAM_CAPABILITY_SCHEMA';
 export const RESEARCH_TEAM_CAPABILITY_PROFILE_ENV = 'DEEPSCIENTIST_RESEARCH_TEAM_PROFILE';

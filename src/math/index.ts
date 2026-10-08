@@ -14,10 +14,8 @@ export {
   runMathematicsSandboxedCommand,
   runFormalVerification,
 } from "./verifier";
-export { MathBudgetBrokerRegistry } from "./mathBudgetBrokerRegistry";
 export { createMathBudgetHostClient } from "./mathBudgetHostClient";
 export type { MathBudgetHostBinding, MathBudgetHostClientOptions } from "./mathBudgetHostClient";
-export type { MathBudgetBrokerHandle, MathBudgetBrokerBinding } from "./mathBudgetBroker";
 export {
   commitMathV2PromotionWorktree,
   prepareMathV2Promotion,
@@ -36,9 +34,6 @@ export type {
   MathV2VerificationDisposition,
   MathPorcelainStatusEntry,
 } from "./mathIntegrationPromotion";
-export { createDeepseekEstimatedInputCounter, createDeepseekTokenCounter } from "./deepseekTokenCounter";
-export { MathBudgetTeamSession } from "./mathBudgetTeamSession";
-export type { MathBudgetRole } from "./mathBudgetTeamSession";
 export { MathArtifactStore, MathArtifactError } from "./mathArtifactStore";
 export type { MathArtifactAccess } from "./mathArtifactStore";
 export { MathAssignmentRegistry } from "./mathAssignmentRegistry";
