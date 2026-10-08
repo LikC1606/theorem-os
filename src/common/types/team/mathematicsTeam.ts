@@ -3452,16 +3452,6 @@ export function normalizeMathProofState(input: MathProofState): MathProofState {
   return normalized;
 }
 
-export function mathActionableFrontierNodeIds(nodes: readonly MathPlanNode[]): readonly string[] {
-  const normalized = normalizeMathActionablePlanNodes(nodes);
-  return Object.freeze(computeMathActionableFrontierNodeIds(normalized));
-}
-
-export function rankMathActionablePlanNodeIds(nodes: readonly MathPlanNode[]): readonly string[] {
-  const normalized = normalizeMathActionablePlanNodes(nodes);
-  return Object.freeze(rankMathActionablePlanNodeIdsFromNormalized(normalized));
-}
-
 export function mathActionablePlanSchedule(nodes: readonly MathPlanNode[]): Readonly<{
   rootNodeId: string;
   openFrontierNodeIds: readonly string[];
@@ -3574,27 +3564,11 @@ function rankMathActionablePlanNodeIdsFromNormalized(
   });
 }
 
-export function isMathPremiseBundleReady(bundle: MathPremiseBundle): boolean {
-  if (!Array.isArray((bundle as Partial<MathPremiseBundle>).coverage)) return false;
-  const normalized = normalizeMathPremiseBundle(bundle);
-  return isNormalizedMathPremiseBundleReady(normalized);
-}
-
 function isNormalizedMathPremiseBundleReady(bundle: MathPremiseBundle): boolean {
   return (
     bundle.unresolvedNeeds.length === 0 &&
     deriveMathPremiseCoverageRows(bundle).every((row) => row.status === 'covered')
   );
-}
-
-export function mathPremiseCoverageMatrix(card: MathRouteCard): readonly MathPremiseCoverageRow[] {
-  const normalized = normalizeMathRouteCard(card);
-  return deriveMathPremiseCoverageRows(normalized.premiseBundle);
-}
-
-export function rankMathPremiseGapNodeIds(card: MathRouteCard): readonly string[] {
-  const normalized = normalizeMathRouteCard(card);
-  return rankMathPremiseGapNodeIdsFromNormalized(normalized);
 }
 
 export function mathPremiseRouteSchedule(card: MathRouteCard): Readonly<{
@@ -3631,30 +3605,8 @@ function rankMathPremiseGapNodeIdsFromNormalized(
   return Object.freeze(gapNodeIds);
 }
 
-export function mathRouteUtility(card: MathRouteCard): number {
-  const normalized = normalizeMathRouteCard(card);
-  return mathRouteUtilityFromNormalized(normalized);
-}
-
-function mathRouteUtilityFromNormalized(card: MathRouteCard): number {
-  return card.expectedInformationGain * 2 - card.estimatedCost - card.formalizationRisk;
-}
-
-export function mathRouteExecutionEstimate(card: MathRouteCard): MathRouteExecutionEstimate {
-  return deriveMathRouteExecutionEstimate(normalizeMathRouteCard(card));
-}
-
-export function mathRouteStructureSignature(card: MathRouteCard): string {
-  return mathRouteStructureSignatureFromNormalized(normalizeMathRouteCard(card));
-}
-
 export function mathRouteStructureSignatureFromNormalized(card: MathRouteCard): string {
   return deriveMathRouteStructureSignature(card);
-}
-
-export function assertMathRouteCardsStructurallyDistinct(cards: readonly MathRouteCard[]): void {
-  if (!Array.isArray(cards)) throw new TypeError('Mathematics route cards must be an array');
-  assertNormalizedMathRouteCardsStructurallyDistinct(cards.map(normalizeMathRouteCard));
 }
 
 export function assertNormalizedMathRouteCardsStructurallyDistinct(cards: readonly MathRouteCard[]): void {
@@ -3693,43 +3645,6 @@ function isNormalizedMathRouteSelectable(card: MathRouteCard): boolean {
     assessment.decompositionUsefulness === 'pass' &&
     ['supported', 'kernel_verified'].includes(assessment.probeOutcome)
   );
-}
-
-export function rankMathRouteCards(cards: readonly MathRouteCard[]): readonly MathRouteCard[] {
-  const normalized = cards.map(normalizeMathRouteCard);
-  return Object.freeze(rankNormalizedMathRouteCards(normalized));
-}
-
-function rankNormalizedMathRouteCards(cards: readonly MathRouteCard[]): MathRouteCard[] {
-  const selectableByCard = new Map<MathRouteCard, boolean>();
-  const executionEstimates = new Map<MathRouteCard, MathRouteExecutionEstimate>();
-  for (const card of cards) {
-    selectableByCard.set(card, isNormalizedMathRouteSelectable(card));
-    executionEstimates.set(card, deriveMathRouteExecutionEstimate(card));
-  }
-  return rankNormalizedMathRouteCardsWithIndex(cards, selectableByCard, executionEstimates);
-}
-
-function rankNormalizedMathRouteCardsWithIndex(
-  cards: readonly MathRouteCard[],
-  selectableByCard: ReadonlyMap<MathRouteCard, boolean>,
-  executionEstimates: ReadonlyMap<MathRouteCard, MathRouteExecutionEstimate>
-): MathRouteCard[] {
-  return cards.toSorted(
-    (left, right) =>
-      compareMathRouteEvidence(right, left, executionEstimates, selectableByCard) ||
-      left.routeFingerprint.localeCompare(right.routeFingerprint)
-  );
-}
-
-export function normalizeMathRouteSelection(
-  input: MathRouteSelection,
-  cards: readonly MathRouteCard[]
-): MathRouteSelection {
-  if (!Array.isArray(cards) || cards.length < 1) {
-    throw new TypeError('Mathematics route selection requires at least one route card');
-  }
-  return normalizeMathRouteSelectionFromNormalized(input, cards.map(normalizeMathRouteCard));
 }
 
 export function normalizeMathRouteSelectionFromNormalized(

@@ -250,16 +250,6 @@ export function deriveMathematicsSourceProgress(
 
 export const MATHEMATICS_RESEARCH_HANDOFF_ROOT = '.deepscientist/science-artifacts/math-research-handoffs' as const;
 
-export function mathematicsAssignmentRequiresExactLeanHandoff(assignment: ResearchTeamAssignment): boolean {
-  // Keep the exported predicate for callers that still import the old
-  // protocol, but do not allow a Strategy assignment to opt into executable
-  // Lean work. Strategy is always advisory; compiler validation belongs to a
-  // Lean Engineer or the independent evaluator. In particular, this avoids a
-  // legacy/partially hydrated assignment starting an unbounded handoff job.
-  void assignment;
-  return false;
-}
-
 /**
  * Detect an advisory task that asks the Worker to perform executable Lean
  * work. This is deliberately narrower than the legacy exact-handoff matcher:
@@ -319,15 +309,6 @@ export function mathematicsAdvisoryRequestsExecutableLeanWork(assignment: Resear
       );
     return !negatedTarget;
   });
-}
-
-export function mathematicsExactLeanHandoffArtifactPath(assignment: ResearchTeamAssignment): string {
-  const key = crypto.createHash('sha256').update(assignment.assignmentId, 'utf8').digest('hex').slice(0, 24);
-  return `${MATHEMATICS_RESEARCH_HANDOFF_ROOT}/${key}.lean`;
-}
-
-export function mathematicsExactLeanHandoffCompileReceiptPath(assignment: ResearchTeamAssignment): string {
-  return `${mathematicsExactLeanHandoffArtifactPath(assignment)}.compile.json`;
 }
 
 const activeMathRouteCard = (assignment: ResearchTeamAssignment): MathRouteCard | undefined => {

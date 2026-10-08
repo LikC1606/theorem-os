@@ -33,8 +33,6 @@ export function mathematicsResearchPolicy(value: unknown) {
   });
 }
 
-export type MathematicsResearchPolicy = ReturnType<typeof mathematicsResearchPolicy>;
-
 /** Organization varies by experiment; the underlying mathematics permissions remain shared. */
 export function applyMathematicsResearchPolicy(
   profile: ResearchTeamProfile,

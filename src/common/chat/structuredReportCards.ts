@@ -26,14 +26,6 @@ const uniqueStrings = (maxItems: number, maxLength = 160) =>
     });
 
 const previewTargetSchema = z.discriminatedUnion('kind', [
-  z
-    .object({
-      kind: z.literal('financial_research'),
-      artifactId: boundedString(160),
-      view: boundedString(80).optional(),
-    })
-    .strict(),
-  z.object({ kind: z.literal('science_factor'), artifactId: boundedString(160) }).strict(),
   z.object({ kind: z.literal('artifact'), artifactId: boundedString(160) }).strict(),
   z.object({ kind: z.literal('evidence'), evidenceId: boundedString(160) }).strict(),
 ]);
@@ -49,8 +41,9 @@ const cardBase = z.object({
   lifecycle: z.enum(['loading', 'ready', 'empty', 'error', 'unsupported']),
   freshness: z.enum(['current', 'stale', 'no_change']),
   completeness: z.enum(['complete', 'partial']),
-  dataMode: z.enum(['HISTORICAL', 'SIMULATION', 'LIVE_READ_ONLY']),
-  tradeCapability: z.literal('disabled'),
+  dataMode: z.enum(['HISTORICAL', 'SIMULATION', 'LIVE_READ_ONLY']).optional(),
+  /** Compatibility metadata from previously saved report cards. */
+  tradeCapability: z.literal('disabled').optional(),
   previewTarget: previewTargetSchema,
   moduleId: boundedString(80).optional(),
   reportSectionRole: boundedString(80).optional(),
@@ -282,9 +275,7 @@ export function validateStructuredReportCards(
     }
     const linkedArtifactRefs = [
       parsed.data.simulationAssumptionsArtifactRef,
-      parsed.data.previewTarget.kind === 'artifact' ||
-      parsed.data.previewTarget.kind === 'science_factor' ||
-      parsed.data.previewTarget.kind === 'financial_research'
+      parsed.data.previewTarget.kind === 'artifact'
         ? { artifactId: parsed.data.previewTarget.artifactId, version: parsed.data.artifactRef.version }
         : undefined,
     ].filter((ref): ref is { artifactId: string; version: number } => Boolean(ref));

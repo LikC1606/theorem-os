@@ -6,31 +6,20 @@
 
 export {
   DEFAULT_AGENT_WORKTREE_GIT_TIMEOUT_MS,
-  bindManagedProjectConversation,
   cloneProjectGit,
   activateProjectGitResearchBranch,
   compareProjectGitResearchBranches,
   createProjectGitCheckpoint,
   discoverProjectGit,
   getProjectGitBlob,
-  getProjectGitCommit,
-  getProjectGitDiff,
-  getProjectGitTree,
   getProjectGitWorkingTree,
-  getProjectGitWorkingDiff,
-  inspectProjectGitWorkspace,
   integrateProjectGitAgentBranch,
   listProjectGitGraph,
   listProjectGitResearchFrontier,
-  notifyProjectGitChanged,
-  onProjectGitChanged,
-  finalizeProjectWorkspaceDeletion,
-  planProjectWorkspaceDeletion,
   prepareProjectGitResearchBranch,
   prepareProjectGitAgentWorktree,
   reconcileProjectGitAgentWorktrees,
   discardProjectGitAgentWorktree,
-  prepareProjectWorkspace,
   createProjectGitResearchTeamDeliveryId,
   createProjectGitResearchTeamTransportIdempotencyKey,
   createProjectGitResearchTeamPayloadHash,
@@ -42,14 +31,10 @@ export {
   listProjectGitResearchTeamAssignments,
   completeProjectGitResearchTeamAssignment,
   supersedeProjectGitResearchTeamAssignment,
-  prepareManagedProject,
-  prepareGoalProjectWorkspace,
-  prepareManagedGoalProject,
   resolveAgentWorktreeGitTimeoutMs,
   resolveProjectGitCommit,
   isProjectGitCommitAncestor,
   runProjectGitRepositoryMutation,
-  runProjectGitOperationInWorker,
 } from "./ProjectGitService";
 export type {
   ProjectGitCheckpointRequest,
@@ -73,14 +58,7 @@ export type {
   ProjectGitResearchTeamUsageBaseline,
   ProjectGitResearchTeamDelivery,
   ProjectGitResearchTeamDeliveryRequest,
-  ProjectWorkspaceDeletionPlan,
-  ProjectWorkspaceDeletionPlanRequest,
-  ProjectGitWorkerOperation,
 } from "./ProjectGitService";
 export type { ProjectGitCloneRequest, ProjectGitCloneResult } from "../common/types/office/preview";
-export {
-  authorizeProjectWorkspaceDeletion,
-  type ProjectWorkspaceDeletionAuthorization,
-  type ProjectWorkspaceDeletionConversationRecord,
-} from "./projectWorkspaceDeletionGuard";
+
 export { mergeProjectManifest, PROJECT_MANIFEST_SCHEMA } from "./projectManifest";

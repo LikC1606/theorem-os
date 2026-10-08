@@ -201,7 +201,7 @@ export function createResearchTeamResultContract(
 
   const genericOptional = [
     'roleTemplateId',
-    'roleKind=xalpha|generic',
+    'roleKind=generic',
     'roleLabel',
     'executionMode=advisory|artifact; omission means artifact',
     'git.{branch,headCommit} required for artifact and omitted for advisory',

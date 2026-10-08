@@ -71,8 +71,6 @@ const MATHEMATICS_RESEARCHER_ALLOWED_TOOLS: readonly ResearchTeamToolActionPolic
 const MATHEMATICS_WORKER_DENIED_TOOLS: readonly ResearchTeamToolActionPolicy[] = Object.freeze([
   Object.freeze({ toolName: 'science_artifact', actions: Object.freeze(['publish']) }),
   Object.freeze({ toolName: 'project_workspace', actions: Object.freeze(['checkpoint']) }),
-  Object.freeze({ toolName: 'target_portfolio', actions: Object.freeze(['submit']) }),
-  Object.freeze({ toolName: 'factor_submit', actions: '*' as const }),
   Object.freeze({
     toolName: 'math_portfolio',
     actions: Object.freeze(['submit', 'request_review', 'submit_review']),

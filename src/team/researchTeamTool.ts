@@ -52,7 +52,6 @@ import {
   normalizeMathWorkflowStage,
   mathRouteStructureSignatureFromNormalized,
   isMathFoundationalLeanAxiom,
-  normalizeMathProblemContract,
   updateMathProgressState,
   type MathLocalGateReceipt,
   type MathLeanFailureKind,
@@ -112,7 +111,6 @@ import {
   completeProjectGitResearchTeamAssignment,
   supersedeProjectGitResearchTeamAssignment,
   discardProjectGitAgentWorktree,
-  notifyProjectGitChanged,
   prepareProjectGitAgentWorktree,
   resolveProjectGitCommit,
   isProjectGitCommitAncestor,
@@ -242,7 +240,7 @@ export type ResearchTeamDispatchItemInput = Readonly<{
   task?: string | Record<string, unknown>;
   baseCommit?: string;
   roleTemplateId?: string;
-  roleKind?: 'xalpha' | 'generic';
+  roleKind?: 'generic';
   roleLabel?: string;
   roleInstructions?: string;
   executionMode?: ResearchTeamExecutionMode;
@@ -7071,15 +7069,6 @@ async function deliverResult(
         leadPayloadBytes: Buffer.byteLength(serializedDelivery, 'utf8'),
       })
     : undefined;
-  if (resultPayload.executionMode !== 'advisory') {
-    notifyProjectGitChanged({
-      workspace: resultPayload.git.projectRoot,
-      repoRoot: resultPayload.git.projectRoot,
-      reason: 'agent-delivered',
-      branch: resultPayload.git.branch,
-      head: resultPayload.git.headCommit,
-    });
-  }
   const resultPayloadBytes =
     durableDelivery?.delivery?.resultPayloadBytes ?? Buffer.byteLength(JSON.stringify(resultPayload), 'utf8');
   const leadPayloadBytes = durableDelivery?.delivery?.leadPayloadBytes ?? Buffer.byteLength(serializedDelivery, 'utf8');
@@ -9893,31 +9882,6 @@ async function attachBoundImoRoutePreflight(
   });
 }
 
-function isActionableDirectFormalizationBrief(contract: MathResearchProblemContract | undefined): boolean {
-  if (!contract?.nextAction) return false;
-  const usefulStateChanges = (contract.probeSummary ?? []).reduce((total, summary) => total + summary.usefulChanges, 0);
-  return usefulStateChanges > 0 && (Boolean(contract.solutionSketchRef) || Boolean(contract.establishedClaims?.length));
-}
-
-function isActionableIntegratedFormalizationFinding(
-  entry: IntegratedMathematicsResearchFinding,
-  assignment: ResearchTeamAssignment
-): boolean {
-  const math = assignment.math;
-  return Boolean(
-    math &&
-    entry.sourceStage &&
-    entry.sourceBaseCommit === assignment.git.baseCommit &&
-    entry.sourceRouteFingerprint === normalizeMathRouteFingerprint(math.routeFingerprint) &&
-    entry.sourceRouteDisposition === 'advance' &&
-    entry.finding.mainlineImpact === 'mainline_advanced' &&
-    entry.finding.mechanism &&
-    (entry.finding.solutionSketchRef || entry.finding.establishedClaims.length > 0) &&
-    entry.finding.evidenceRefs.length > 0 &&
-    entry.finding.nextAction
-  );
-}
-
 function materializeLatestExpandedMathematicsPlan(
   math: NonNullable<ResearchTeamAssignment['math']>,
   assignmentHistory: readonly ProjectGitResearchTeamAssignmentReceipt[]
@@ -10865,7 +10829,7 @@ function withMathematicsPortfolioLock<T>(canonicalRoot: string, operation: () =>
   try {
     // Write the owner record completely before publishing the lock path. A
     // hard-link is the atomic exclusive publish primitive available on the
-    // local filesystems used by both Electron processes; this removes the
+    // local filesystems shared by runtime processes; this removes the
     // crash window where an empty lock could otherwise become permanent.
     const metadataDescriptor = fs.openSync(temporaryPath, 'w', 0o600);
     try {
@@ -13858,31 +13822,6 @@ function shouldReadMathAgentUsage(
   return Boolean(continuationPurpose);
 }
 
-function latestMathematicsRoutePerformance(
-  durableReceipt: ProjectGitResearchTeamAssignmentReceipt | undefined,
-  statementHash: string | undefined,
-  assignmentHistory: readonly ProjectGitResearchTeamAssignmentReceipt[]
-): NonNullable<MathDurableProgressCheckpoint['routePerformance']> {
-  if (!statementHash) return Object.freeze([]);
-  if (durableReceipt?.state === 'integrated') {
-    return durableReceipt.mathProgress?.routePerformance ?? Object.freeze([]);
-  }
-  let latest = durableReceipt?.mathProgress?.statementHash === statementHash ? durableReceipt.mathProgress : undefined;
-  for (const receipt of assignmentHistory) {
-    const progress = receipt.mathProgress;
-    if (
-      receipt.assignmentId === durableReceipt?.assignmentId ||
-      receipt.state !== 'integrated' ||
-      progress?.statementHash !== statementHash ||
-      (latest && progress.updatedAt <= latest.updatedAt)
-    ) {
-      continue;
-    }
-    latest = progress;
-  }
-  return latest?.routePerformance ?? Object.freeze([]);
-}
-
 function deriveIntegratedMathProgressControl(
   result: ResearchTeamResult,
   dispatchedAssignment: ResearchTeamAssignment | undefined,
@@ -14518,7 +14457,7 @@ function describeCapability(capability: ResearchTeamToolCapability): Record<stri
               required: ['target_slot_id', 'task', 'base_commit', 'idempotency_key'],
               optional: [
                 'role_template_id',
-                'role_kind=xalpha|generic',
+                'role_kind=generic',
                 'role_label',
                 'role_instructions',
                 'execution_mode=advisory|artifact',
@@ -14561,7 +14500,7 @@ function describeCapability(capability: ResearchTeamToolCapability): Record<stri
             ],
             optional: [
               'roleTemplateId',
-              'roleKind=xalpha|generic',
+              'roleKind=generic',
               'roleLabel',
               'roleInstructions (at most 4000 characters)',
               'executionMode=advisory|artifact; omission keeps the strict artifact default',
@@ -14575,7 +14514,7 @@ function describeCapability(capability: ResearchTeamToolCapability): Record<stri
               'math.fastCheck.runtimeProbe is host-executed bounded evidence; a witness may trigger a canonical-negation follow-up but cannot by itself produce refuted status.',
               'runtimeProbe.precondition filters samples that violate the declared domain; it never turns a bounded sweep into a universal claim.',
               'For artifact work the tool creates branch and worktree identities; never invent them. Advisory work creates neither.',
-              'Choose an injected domain roleTemplateId when it fits, or create a bounded generic role with roleKind=generic, roleLabel, and roleInstructions.',
+              'Use the mathematical lane or a bounded generic role with roleKind=generic, roleLabel, and roleInstructions.',
             ],
           },
           result: createResearchTeamResultContract(capability),

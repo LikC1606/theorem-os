@@ -10,7 +10,6 @@ import type { IMcpServer, ISessionMcpServer, TeamInitialMessage } from "../../co
 import type { ITeamRunAck, TTeam, TeamAgent } from "./teamTypes";
 import type { ResearchTeamProfile, ResearchTeamRoleContract } from "./researchTeamContracts";
 import { PROJECT_WORKSPACE_ENV_KEYS } from "../../chat/projectWorkspace";
-import { canUseDeepScientistTeam } from "../../chat/team/deepScientistTeam";
 import {
   createResearchTeamRuntimeRosterPrompt,
   scopeResearchTeamRoleMcpServers,
@@ -43,7 +42,6 @@ export type ResearchTeamProvisioningDeps = {
   removeMcpServer: (params: { id: string }) => Promise<unknown>;
   createTeam: (params: ICreateTeamParams) => Promise<TTeam>;
   removeTeam: (params: { id: string }) => Promise<unknown>;
-  stopSession?: (params: { team_id: string }) => Promise<unknown>;
   setSessionMode: (params: { team_id: string; session_mode: string }) => Promise<unknown>;
   ensureSession: (params: { team_id: string }) => Promise<unknown>;
   /** Optional Core runtime wake-up for dormant Team slots before first Lead turn. */
@@ -69,7 +67,6 @@ const TEAM_MCP_READY_PER_AGENT_TIMEOUT_MS = 10_000;
 const TEAM_MCP_READY_MAX_TIMEOUT_MS = 10 * 60_000;
 const RESEARCH_TEAM_MCP_SERVER_NAME_PREFIX = 'ds-team';
 const RESEARCH_TEAM_PREPARATION_CONCURRENCY = 4;
-const RESEARCH_TEAM_MAX_PREPARATION_CONCURRENCY = 8;
 
 export type ResearchTeamRoleConversationParams = {
   name?: string;
@@ -94,23 +91,9 @@ export type ProvisionResearchTeamInput = {
   workerModel?: string;
   leadThoughtLevel?: string;
   workerThoughtLevel?: string;
-  /** Optional thought-level overrides for individual Worker lanes. */
-  workerThoughtLevelByLane?: Readonly<Record<string, string>>;
   sessionMode: string;
-  /** Optional role-specific permission mode applied before Core starts sessions. */
-  sessionModeForRole?: (role: ResearchTeamRoleContract) => string | undefined;
-  /**
-   * Headless orchestrators may defer the first Lead message until they have
-   * prepared a typed assignment. Interactive callers keep the native default.
-   */
-  sendInitialMessage?: boolean;
-  /** Newly created Teams have no old session; headless callers can skip reset. */
-  stopSessionBeforeEnsure?: boolean;
-  /** Optional bounded preparation width for callers provisioning large rosters. */
-  rolePreparationConcurrency?: number;
   initialMessage: string;
   files?: string[];
-  plannedConversationId?: string;
   /** Durable mode metadata shared by every role conversation. */
   modeConversationExtra?: Readonly<Record<string, unknown>>;
   /** Leader-only runtime state. Keep loop control out of Worker conversations. */
@@ -122,27 +105,11 @@ export type ProvisionResearchTeamInput = {
     role: ResearchTeamRoleContract,
     initialPromptSha256: string
   ) => ResearchTeamRoleConversationParams;
-  buildRuntimeIdentityPrompt?: (
-    role: ResearchTeamRoleContract,
-    identity: Readonly<{ conversationId: string; teamId: string; slotId: string }>
-  ) => string;
   onRuntimeReady?: (
     runtime: Readonly<{
       team: TTeam;
       agents: readonly TeamAgent[];
       roster: readonly ResearchTeamRuntimeRosterMember[];
-    }>
-  ) => Promise<void>;
-  onLeaderReady?: (
-    runtime: Readonly<{
-      team: TTeam;
-      leaderConversationId: string;
-    }>
-  ) => Promise<void>;
-  onProvisioningFailed?: (
-    runtime: Readonly<{
-      team: TTeam;
-      leaderConversationId: string;
     }>
   ) => Promise<void>;
   onLaunchProgress?: (progress: ResearchTeamLaunchProgress) => void;
@@ -181,8 +148,7 @@ export type ResearchTeamRuntimeResources = Readonly<{
 export type ProvisionResearchTeamResult = {
   team: TTeam;
   leaderConversationId: string;
-  /** Undefined when sendInitialMessage=false and the caller owns the first dispatch. */
-  run?: ITeamRunAck;
+  run: ITeamRunAck;
   runtimeResources: ResearchTeamRuntimeResources;
 };
 
@@ -206,7 +172,7 @@ export async function provisionResearchTeam(
   if (input.profile.id !== 'mathematics-research-team' || input.modeConversationExtra?.headless_proof_search !== true) {
     throw new Error('RESEARCH_TEAM_HEADLESS_MATHEMATICS_REQUIRED');
   }
-  if (!canUseDeepScientistTeam(input.backend)) {
+  if (input.backend !== 'codex') {
     throw new Error('RESEARCH_TEAM_BACKEND_UNSUPPORTED');
   }
   if (!input.sessionMode.trim()) throw new Error('RESEARCH_TEAM_SESSION_MODE_REQUIRED');
@@ -218,7 +184,6 @@ export async function provisionResearchTeam(
     createdAt: Date.now(),
   };
   const roleModels = input.profile.roles.map((role) => resolveRoleRuntime(input, role).model ?? 'default');
-  const roleSessionModes = input.profile.roles.map((role) => resolveRoleSessionMode(input, role));
   const assistant = resolveResearchTeamAssistant(await deps.listAssistants(), input.backend);
   const runtimeToken = createRuntimeToken();
   emitLaunchProgress(input, { phase: 'preparing', total: input.profile.roles.length });
@@ -230,8 +195,7 @@ export async function provisionResearchTeam(
     deps,
     runtimeToken,
     assistant.agent_id!,
-    initialPromptSha256,
-    roleSessionModes
+    initialPromptSha256
   );
   const prepared = preparedResult.results
     .filter((item): item is { index: number; runtime: PreparedRoleRuntime } => item.runtime !== undefined)
@@ -327,17 +291,8 @@ export async function provisionResearchTeam(
     );
     const runtimeRules = agents.map((agent, index) => {
       const role = input.profile.roles[index];
-      const runtimeIdentity =
-        input.buildRuntimeIdentityPrompt?.(role, {
-          conversationId: agent.conversation_id,
-          teamId: team.id,
-          slotId: agent.slot_id,
-        }) ?? createDefaultRuntimeIdentityPrompt(agent.conversation_id, team.id, agent.slot_id);
-      const baseRule = replacePlannedConversationIdentity(
-        createRoleRule(prepared[index].conversationParams, role),
-        input.plannedConversationId,
-        agent.conversation_id
-      );
+      const runtimeIdentity = createDefaultRuntimeIdentityPrompt(agent.conversation_id, team.id, agent.slot_id);
+      const baseRule = createRoleRule(prepared[index].conversationParams, role);
       const roleIdentity = appendRuntimeIdentity(baseRule, runtimeIdentity);
       const rule =
         role.kind === 'worker'
@@ -451,23 +406,7 @@ export async function provisionResearchTeam(
         });
       }
     );
-    if (deps.stopSession && input.stopSessionBeforeEnsure !== false) {
-      await deps.stopSession({ team_id: team.id });
-    }
     await deps.setSessionMode({ team_id: team.id, session_mode: input.sessionMode });
-    await settleProvisioningOperations(
-      agents.flatMap((agent, index) => {
-        const sessionMode = roleSessionModes[index];
-        if (sessionMode === input.sessionMode) return [];
-        return [
-          deps.updateConversation({
-            id: agent.conversation_id,
-            updates: { extra: { session_mode: sessionMode } },
-            merge_extra: true,
-          }),
-        ];
-      })
-    );
     // Team creation only registers the slots. Start the Core sessions after
     // the final role-scoped MCP transports are bound so the readiness events
     // we are already listening for can actually be emitted.
@@ -491,21 +430,11 @@ export async function provisionResearchTeam(
     // conclude that its required tools do not exist. Keep the bounded catalog
     // observer as the authoritative first-turn barrier.
     await leaderMcpToolsReady;
-    // The Team message endpoint can remain pending while Core starts a large
-    // roster. Notify the host once the Team identity and permission mode are
-    // durable, before the first model turn.
-    await input.onLeaderReady?.({
-      team: { ...team, session_mode: input.sessionMode },
-      leaderConversationId: agents[0].conversation_id,
+    const run = await deps.sendMessage({
+      team_id: team.id,
+      input: input.initialMessage.trim(),
+      ...(input.files?.length ? { files: input.files } : {}),
     });
-    const run =
-      input.sendInitialMessage === false
-        ? undefined
-        : await deps.sendMessage({
-            team_id: team.id,
-            input: input.initialMessage.trim(),
-            ...(input.files?.length ? { files: input.files } : {}),
-          });
     return {
       team: { ...team, session_mode: input.sessionMode },
       leaderConversationId: agents[0].conversation_id,
@@ -518,14 +447,6 @@ export async function provisionResearchTeam(
   } catch (error) {
     provisioningActive = false;
     await cleanupProvisionedResources(deps, prepared, team.id);
-    try {
-      await input.onProvisioningFailed?.({
-        team,
-        leaderConversationId: agents[0].conversation_id,
-      });
-    } catch (rollbackError) {
-      console.warn('[Research Team] Provisioning failure observer failed:', rollbackError);
-    }
     throw error;
   }
 }
@@ -536,11 +457,6 @@ function emitLaunchProgress(input: ProvisionResearchTeamInput, progress: Researc
   } catch (error) {
     console.warn('[Research Team] Launch progress observer failed:', error);
   }
-}
-
-function resolveRoleSessionMode(input: ProvisionResearchTeamInput, role: ResearchTeamRoleContract): string {
-  const override = input.sessionModeForRole?.(role)?.trim();
-  return override || input.sessionMode;
 }
 
 export function resolveTeamMcpReadyTimeoutMs(agentCount: number): number {
@@ -620,8 +536,7 @@ async function prepareRoleRuntimesConcurrently(
   deps: ResearchTeamProvisioningDeps,
   runtimeToken: string,
   assistantAgentId: string,
-  initialPromptSha256: string,
-  roleSessionModes: readonly string[]
+  initialPromptSha256: string
 ): Promise<{
   results: Array<{ index: number; runtime?: PreparedRoleRuntime }>;
   error?: unknown;
@@ -630,15 +545,7 @@ async function prepareRoleRuntimesConcurrently(
   let nextIndex = 0;
   let preparationFailed = false;
   let firstError: unknown;
-  const requestedConcurrency = input.rolePreparationConcurrency ?? RESEARCH_TEAM_PREPARATION_CONCURRENCY;
-  if (
-    !Number.isSafeInteger(requestedConcurrency) ||
-    requestedConcurrency < 1 ||
-    requestedConcurrency > RESEARCH_TEAM_MAX_PREPARATION_CONCURRENCY
-  ) {
-    throw new TypeError(`RESEARCH_TEAM_PREPARATION_CONCURRENCY_INVALID:${String(requestedConcurrency)}`);
-  }
-  const workerCount = Math.min(requestedConcurrency, input.profile.roles.length);
+  const workerCount = Math.min(RESEARCH_TEAM_PREPARATION_CONCURRENCY, input.profile.roles.length);
   // Keep the total number of in-flight Core MCP mutations bounded even when
   // several role runtimes are prepared concurrently.
   const mcpConcurrencyPerRole = Math.max(1, Math.floor(RESEARCH_TEAM_PREPARATION_CONCURRENCY / workerCount));
@@ -657,8 +564,7 @@ async function prepareRoleRuntimesConcurrently(
         runtimeToken,
         assistantAgentId,
         initialPromptSha256,
-        mcpConcurrencyPerRole,
-        roleSessionModes[index]!
+        mcpConcurrencyPerRole
       );
       results.push({ index, runtime });
       emitLaunchProgress(input, {
@@ -690,8 +596,7 @@ async function prepareRoleRuntime(
   runtimeToken: string,
   assistantAgentId: string,
   initialPromptSha256: string,
-  mcpConcurrency: number,
-  sessionMode: string
+  mcpConcurrency: number
 ): Promise<PreparedRoleRuntime> {
   const conversationParams = input.buildConversationParams(role, initialPromptSha256);
   const requiredMcpServers = input.requiredMcpServers(role);
@@ -762,7 +667,7 @@ async function prepareRoleRuntime(
       models: roleRuntime.model ? [roleRuntime.model] : [],
       defaults: {
         model: { mode: 'fixed', value: roleRuntime.model ?? 'default' },
-        permission: { mode: 'fixed', value: sessionMode },
+        permission: { mode: 'fixed', value: input.sessionMode },
         skills: { mode: 'fixed', value: requiredSkillIds },
         mcps: { mode: 'fixed', value: createdMcpServers.map((server) => server.id) },
       },
@@ -773,21 +678,9 @@ async function prepareRoleRuntime(
     // is written once below, before ensureSession starts any agent turn.
     return { role, conversationParams, assistantId, mcpServers: createdMcpServers, sourceMcpServers };
   } catch (error) {
-    const cleanupWarnings: string[] = [];
-    if (assistantId) {
-      try {
-        await deps.removeAssistant({ id: assistantId });
-      } catch (cleanupError) {
-        cleanupWarnings.push(cleanupError instanceof Error ? cleanupError.message : String(cleanupError));
-      }
-    }
-    const mcpResults = await Promise.allSettled(
-      createdMcpServers.map((server) => deps.removeMcpServer({ id: server.id }))
-    );
-    cleanupWarnings.push(
-      ...mcpResults
-        .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
-        .map((result) => (result.reason instanceof Error ? result.reason.message : String(result.reason)))
+    const cleanupWarnings = await removeResearchTeamRuntimeResources(
+      { assistantIds: assistantId ? [assistantId] : [], mcpServersByRole: [createdMcpServers] },
+      deps
     );
     if (cleanupWarnings.length) {
       console.warn('[Research Team] Role provisioning rollback was incomplete:', cleanupWarnings.join('; '));
@@ -888,12 +781,6 @@ function appendRuntimeIdentity(base: string, runtimeIdentity: string): string {
   return base.trim() ? `${base.trim()}\n\n${identity}` : identity;
 }
 
-function replacePlannedConversationIdentity(base: string, planned: string | undefined, actual: string): string {
-  const plannedId = planned?.trim();
-  if (!plannedId || plannedId === actual) return base;
-  return base.split(plannedId).join(actual);
-}
-
 function createDefaultRuntimeIdentityPrompt(conversationId: string, teamId: string, slotId: string): string {
   return [
     '# Research Team Runtime Identity',
@@ -951,30 +838,11 @@ function resolveRoleRuntime(input: ProvisionResearchTeamInput, role: ResearchTea
       }
     : {
         model: normalizeOptionalText(input.workerModel) ?? normalizeOptionalText(input.model),
-        thoughtLevel:
-          normalizeOptionalText(role.laneId ? input.workerThoughtLevelByLane?.[role.laneId] : undefined) ??
-          normalizeOptionalText(input.workerThoughtLevel),
+        thoughtLevel: normalizeOptionalText(input.workerThoughtLevel),
       };
 }
 
 const normalizeOptionalText = (value: string | undefined): string | undefined => value?.trim() || undefined;
-
-async function cleanupRuntimeResources(
-  deps: ResearchTeamProvisioningDeps,
-  prepared: readonly PreparedRoleRuntime[]
-): Promise<readonly string[]> {
-  const assistantResults = await Promise.allSettled(
-    prepared.map((item) => deps.removeAssistant({ id: item.assistantId }))
-  );
-  const mcpResults = await Promise.allSettled(
-    prepared.flatMap((item) => item.mcpServers.map((server) => deps.removeMcpServer({ id: server.id })))
-  );
-  return Object.freeze(
-    [...assistantResults, ...mcpResults]
-      .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
-      .map((result) => (result.reason instanceof Error ? result.reason.message : String(result.reason)))
-  );
-}
 
 async function cleanupProvisionedResources(
   deps: ResearchTeamProvisioningDeps,
@@ -997,7 +865,10 @@ async function cleanupProvisionedResources(
       }
     }
   }
-  warnings.push(...(await cleanupRuntimeResources(deps, prepared)));
+  warnings.push(...(await removeResearchTeamRuntimeResources(
+    { assistantIds: prepared.map((item) => item.assistantId), mcpServersByRole: prepared.map((item) => item.mcpServers) },
+    deps
+  )));
   if (warnings.length) {
     console.warn('[Research Team] Provisioning rollback was incomplete:', warnings.join('; '));
   }

@@ -7,7 +7,6 @@
 import {
   BUILTIN_RESEARCH_TEAM_NAME,
   BUILTIN_RESEARCH_EVIDENCE_NAME,
-  BUILTIN_IOAI_COMPETITION_NAME,
   BUILTIN_SCIENCE_ARTIFACT_NAME,
   RESEARCH_TEAM_AGENT_LIMIT_ENV,
   RESEARCH_TEAM_CAPABILITY_ACTIONS_ENV,
@@ -170,10 +169,7 @@ function projectRoleMcpServers(
   const actions = getResearchTeamRoleMcpActions(role, profile.id);
   let orchestrationServerCount = 0;
   const projected = servers.map((server) => {
-    // Keep the historical Challenge name valid for existing sessions while
-    // allowing new Teams to use the domain-neutral Research Team source.
-    const isOrchestrationServer =
-      server.name === BUILTIN_IOAI_COMPETITION_NAME || server.name === BUILTIN_RESEARCH_TEAM_NAME;
+    const isOrchestrationServer = server.name === BUILTIN_RESEARCH_TEAM_NAME;
     const isScienceArtifactServer = server.name === BUILTIN_SCIENCE_ARTIFACT_NAME;
     const isResearchEvidenceServer = server.name === BUILTIN_RESEARCH_EVIDENCE_NAME;
     if (!isOrchestrationServer && !isScienceArtifactServer && !isResearchEvidenceServer) return server;

@@ -14,12 +14,15 @@ import {
   BUILTIN_RESEARCH_TEAM_NAME,
   BUILTIN_SCIENCE_ARTIFACT_NAME,
   RESEARCH_TEAM_CAPABILITY_ACTIONS_ENV,
+  RESEARCH_TEAM_CAPABILITY_PROFILE_ENV,
+  RESEARCH_TEAM_CAPABILITY_WORKFLOW_ENV,
 } from '../src/common/config/builtinMcpConstants';
 import { createHeadlessMathematicsTeamProfile } from '../src/common/chat/team/modeProfiles';
 import {
   getResearchTeamRoleMcpActions,
   prepareResearchTeamRoleMcpServers,
 } from '../src/common/types/team/researchTeamMcp';
+import { readResearchTeamRoleCapability } from '../src/team/toolCapability';
 import { freezeMathRunInputs } from '../src/math/mathRunInputs';
 import {
   MATHEMATICS_INTERACTION_PROFILE_ENV,
@@ -59,6 +62,13 @@ function fixture(kind: 'lead' | 'worker', science = false) {
 }
 
 describe('mathematics MCP entrypoint', () => {
+  it.each([RESEARCH_TEAM_CAPABILITY_PROFILE_ENV, RESEARCH_TEAM_CAPABILITY_WORKFLOW_ENV])(
+    'rejects an unrelated %s before binding a runtime', key => {
+      const { env } = fixture('lead');
+      env[key] = 'financial-factor-research';
+      expect(() => readResearchTeamRoleCapability(env)).toThrow('requires a mathematics profile and workflow');
+    }
+  );
   it.each(['lead', 'worker'] as const)('preserves the %s tool catalog and action ceiling', async kind => {
     const { env, actions } = fixture(kind);
     // The removed Competition runtime cannot influence the mathematical catalog.
@@ -116,6 +126,12 @@ describe('mathematics tool service', () => {
       expect((artifact.inputSchema.properties!.action as { enum: string[] }).enum).not.toEqual(expect.arrayContaining(['submit_idea']));
       const description = await call({ action: 'describe' });
       expect(description.text).not.toMatch(/financeCompletion|target_portfolio|get_optimization_frontier/);
+      for (const payload of [{ type: 'molecule' }, { type: 'figure', viewer: { kind: 'molstar' } }]) {
+        const rejected = await call({ action: 'create', runId: 'report-fixture',
+          target: { kind: 'artifact', id: 'unsupported' }, payload });
+        expect(rejected.result.isError).toBe(true);
+        expect(rejected.text).toContain('Unsupported mathematics artifact');
+      }
       const created = await call({ action: 'create', runId: 'report-fixture', target: { kind: 'evidence', id: 'source-1' },
         payload: { title: 'Checked local source', sourceType: 'file', confidence: 'high', summary: 'Original source' } });
       expect(created.result.isError).not.toBe(true);

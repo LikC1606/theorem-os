@@ -168,9 +168,6 @@ export type ResearchTeamRoleContract = Readonly<{
   kind: ResearchTeamRoleKind;
   displayName: string;
   laneId?: string;
-  /** Optional role provenance used by domain Team profiles. */
-  source?: 'xalpha' | 'generic';
-  roleTemplateId?: string;
   authority: ResearchTeamAuthority;
   allowedTools: readonly ResearchTeamToolActionPolicy[];
   deniedTools: readonly ResearchTeamToolActionPolicy[];
@@ -290,7 +287,7 @@ export type ResearchTeamAssignment = Readonly<{
   assignmentId: string;
   workflowId: string;
   laneId: string;
-  /** Lead-selected XAlpha template or a bounded generic role. */
+  /** Legacy role metadata retained for persisted assignment identity. */
   roleTemplateId?: string;
   roleKind?: 'xalpha' | 'generic';
   /** Optional human-readable label and bounded instructions for a generic role. */
@@ -369,7 +366,7 @@ export type ResearchTeamResult = Readonly<{
   assignmentId: string;
   workflowId: string;
   laneId: string;
-  /** Lead-selected XAlpha template or bounded generic role metadata. */
+  /** Legacy role metadata retained for persisted delivery identity. */
   roleTemplateId?: string;
   roleKind?: 'xalpha' | 'generic';
   roleLabel?: string;

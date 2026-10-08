@@ -209,7 +209,7 @@ export function fromBackendTeamRunAck(
   };
 }
 
-// ── Frontend → Backend ─────────────────────────────────────────────────
+// ── Runtime records → Backend ──────────────────────────────────────────
 
 export function toBackendAgent(a: Omit<TeamAgent, 'slot_id' | 'conversation_id'>): Record<string, unknown> {
   const assistantId = a.assistant_id ?? a.custom_agent_id;

@@ -123,6 +123,12 @@ export function readResearchTeamRoleCapability(
   if (env[RESEARCH_TEAM_CAPABILITY_SCHEMA_ENV] !== RESEARCH_TEAM_CAPABILITY_SCHEMA) {
     throw new Error('Research Team MCP capability schema is unsupported');
   }
+  if (
+    env[RESEARCH_TEAM_CAPABILITY_PROFILE_ENV] !== 'mathematics-research-team' ||
+    env[RESEARCH_TEAM_CAPABILITY_WORKFLOW_ENV] !== 'science.mathematics.v1'
+  ) {
+    throw new Error('Research Team MCP requires a mathematics profile and workflow');
+  }
 
   const roleKind = readRoleKind(env[RESEARCH_TEAM_CAPABILITY_ROLE_KIND_ENV], 'role_kind');
   const actions = readActions(env[RESEARCH_TEAM_CAPABILITY_ACTIONS_ENV]);

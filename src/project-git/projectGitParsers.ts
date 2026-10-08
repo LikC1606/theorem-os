@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { PROJECT_GIT_DOMAINS } from "../common/types/office/preview";
 import type {
   ProjectGitTargetSummary,
   ProjectGitCheckpointArtifactRef,
@@ -23,18 +24,6 @@ import {
 
 const RECORD_SEPARATOR = '\x1e';
 const FIELD_SEPARATOR = '\x1f';
-
-const PROJECT_GIT_DOMAINS = new Set<ProjectGitDomain>([
-  'general',
-  'research',
-  'medical_evidence',
-  'knowledge_deposition',
-  'financial',
-  'financial_factor',
-  'target_discovery',
-  'mathematics',
-  'challenge',
-]);
 
 export const PROJECT_GIT_LOG_FORMAT = ['%H', '%h', '%P', '%s', '%b', '%an', '%ae', '%aI', '%D'].join('%x1f') + '%x1e';
 
@@ -233,7 +222,7 @@ export const parseCheckpointMetadata = (value: string): ProjectGitCommitSummary[
     .filter((metric): metric is ProjectGitPerformanceMetric => Boolean(metric));
   const rawDomain = trailers.get('domain')?.[0];
   const domain =
-    rawDomain && PROJECT_GIT_DOMAINS.has(rawDomain as ProjectGitDomain) ? (rawDomain as ProjectGitDomain) : undefined;
+    rawDomain && PROJECT_GIT_DOMAINS.includes(rawDomain as ProjectGitDomain) ? (rawDomain as ProjectGitDomain) : undefined;
   const artifactRef = parseArtifactRef(trailers.get('artifact')?.[0]);
   const targetSummary = parseTargetSummary(trailers.get('targetsummary')?.[0]);
   const metricContext = parseMetricContext(trailers.get('metriccontext')?.[0]);
@@ -326,54 +315,6 @@ export const parseGitLog = (value: string): ProjectGitCommitSummary[] =>
       );
     })
     .filter((commit) => /^[a-f0-9]{40}$/u.test(commit.sha));
-
-export const parseNumstat = (
-  value: string
-): Map<string, { additions?: number; deletions?: number; binary: boolean }> => {
-  const result = new Map<string, { additions?: number; deletions?: number; binary: boolean }>();
-  value.split(/\r?\n/u).forEach((line) => {
-    if (!line) return;
-    const [added, deleted, ...pathParts] = line.split('\t');
-    const rawPath = pathParts.join('\t').trim();
-    const path =
-      rawPath.includes('{') && rawPath.includes(' => ')
-        ? rawPath.replace(/\{[^{}]* => ([^{}]*)\}/gu, '$1')
-        : rawPath.includes(' => ')
-          ? rawPath.split(' => ').at(-1)?.trim() || rawPath
-          : rawPath;
-    if (!path) return;
-    const binary = added === '-' || deleted === '-';
-    result.set(path, {
-      additions: binary ? undefined : Number.parseInt(added, 10) || 0,
-      deletions: binary ? undefined : Number.parseInt(deleted, 10) || 0,
-      binary,
-    });
-  });
-  return result;
-};
-
-export const parseNameStatus = (value: string, numstat?: ReturnType<typeof parseNumstat>): ProjectGitChangedFile[] => {
-  const files: ProjectGitChangedFile[] = [];
-  value.split(/\r?\n/u).forEach((line) => {
-    if (!line) return;
-    const [rawStatus, ...rawPaths] = line.split('\t');
-    const status = mapGitStatus(rawStatus);
-    const renamed = status === 'renamed' || status === 'copied';
-    const oldPath = renamed ? rawPaths[0]?.trim() : undefined;
-    const filePath = (renamed ? rawPaths[1] : rawPaths[0])?.trim();
-    if (!filePath) return;
-    const stats = numstat?.get(filePath) || (oldPath ? numstat?.get(oldPath) : undefined);
-    files.push({
-      path: filePath,
-      oldPath,
-      status,
-      additions: stats?.additions,
-      deletions: stats?.deletions,
-      binary: stats?.binary === true,
-    });
-  });
-  return files;
-};
 
 export const summarizeNumstat = (
   value: string

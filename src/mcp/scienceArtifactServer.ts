@@ -47,6 +47,8 @@ import {
   SCIENCE_REPORT_VISUAL_ROLES,
   SCIENCE_EVENT_SCHEMA,
   SCIENCE_PANEL_SCHEMA,
+  SCIENCE_ARTIFACT_TYPES,
+  SCIENCE_ARTIFACT_VIEWER_KINDS,
   validateResearchRouteBranchSelection,
   validateResearchRouteMap,
   type ResearchRouteMap,
@@ -82,12 +84,13 @@ import {
   REPORT_CHART_SCHEMA_V2,
   validateReportChartSpec,
 } from "../common/chat/reportChart";
-import type {
-  ProjectGitDomain,
-  ProjectGitMetricContext,
-  ProjectGitPerformanceMetric,
-  ProjectGitResearchStageReceipt,
-  ProjectGitWorkspaceBinding,
+import {
+  PROJECT_GIT_DOMAINS,
+  type ProjectGitDomain,
+  type ProjectGitMetricContext,
+  type ProjectGitPerformanceMetric,
+  type ProjectGitResearchStageReceipt,
+  type ProjectGitWorkspaceBinding,
 } from "../common/types/office/preview";
 import {
   MATHEMATICS_EVENT_SCHEMA,
@@ -688,19 +691,7 @@ const resolveLeanWorkspaceProjectRoot = async (
 
 const normalizeProjectDomain = (value: unknown, fallback: ProjectGitDomain = 'general'): ProjectGitDomain => {
   const candidate = asString(value, '').toLowerCase();
-  return (
-    [
-      'general',
-      'research',
-      'medical_evidence',
-      'knowledge_deposition',
-      'financial',
-      'financial_factor',
-      'target_discovery',
-      'mathematics',
-      'challenge',
-    ] as const
-  ).includes(candidate as ProjectGitDomain)
+  return PROJECT_GIT_DOMAINS.includes(candidate as ProjectGitDomain)
     ? (candidate as ProjectGitDomain)
     : fallback;
 };
@@ -776,19 +767,20 @@ const ARTIFACT_VIEWER_PATH_KEYS = [
   'indexPath',
   'sourcePath',
   'tablePath',
-  'modelPath',
   'logPath',
   'schemaPath',
-  'codebookPath',
-  'variableDictionaryPath',
-  'dagPath',
-  'mapPath',
 ] as const;
 
 const normalizeArtifactViewer = (value: unknown): ScienceArtifact['viewer'] => {
   if (!isRecord(value)) return undefined;
   const viewer: JsonRecord = { ...value };
   const requestedKind = asString(value.kind, '');
+  if (
+    requestedKind &&
+    !SCIENCE_ARTIFACT_VIEWER_KINDS.includes(requestedKind as NonNullable<ScienceArtifact['viewer']>['kind'])
+  ) {
+    throw new Error(`Unsupported mathematics artifact viewer: ${requestedKind}.`);
+  }
   for (const key of ARTIFACT_VIEWER_PATH_KEYS) {
     const snakeKey = key.replace(/[A-Z]/gu, (letter) => `_${letter.toLowerCase()}`);
     const normalizedPath = asLocalPath(value[key] ?? value[snakeKey], `viewer.${key}`);
@@ -1605,7 +1597,7 @@ const assertBaseRevision = (current: { revision?: string } | undefined, baseRevi
   if (!current) return;
   if (!baseRevision) {
     throw new Error(
-      'baseRevision is required before mutating an existing object. Reuse currentRevision/resultingRevision from the latest successful mutation. If no receipt is available, call math_portfolio(action="get") for mathematics, target_portfolio(action="get") for targets, factor_registry(action="get") for factors, or science_artifact(action="get") for other resources.'
+      'baseRevision is required before mutating an existing object. Reuse currentRevision/resultingRevision from the latest successful mutation. If no receipt is available, call math_portfolio(action="get") for mathematics or science_artifact(action="get") for other resources.'
     );
   }
   if (current.revision && current.revision !== baseRevision) {
@@ -1753,6 +1745,8 @@ const normalizeEvidence = (run: ScienceRunState, value: JsonRecord): ScienceEvid
 
 const normalizeArtifact = (run: ScienceRunState, value: JsonRecord): ScienceArtifact => {
   const id = asString(value.id, makeId('artifact'));
+  const type = (asString(value.type, 'run_bundle') || 'run_bundle') as ScienceArtifact['type'];
+  if (!SCIENCE_ARTIFACT_TYPES.includes(type)) throw new Error(`Unsupported mathematics artifact type: ${type}.`);
   const version = asNumber(value.version, 1);
   // Auto-infer primaryPath from fallback fields when agent omits it
   const rawPrimaryPath = asLocalPath(value.primaryPath || value.primary_path || value.path, 'primaryPath');
@@ -1843,7 +1837,7 @@ const normalizeArtifact = (run: ScienceRunState, value: JsonRecord): ScienceArti
   const artifact: ScienceArtifact = {
     id,
     runId: run.runId,
-    type: (asString(value.type, 'run_bundle') as ScienceArtifact['type']) || 'run_bundle',
+    type,
     title: asString(value.title, id),
     version,
     versionGroupId: asString(value.versionGroupId || value.version_group_id, id),
@@ -3163,12 +3157,6 @@ const validateGraph = (run: ScienceRunState): ScienceGraphWarning[] => {
         'manuscript',
         'pdf',
         'latex',
-        'regression_table',
-        'model_diagnostic',
-        'causal_dag',
-        'survey_codebook',
-        'geospatial_map',
-        'qualitative_coding',
         'replication_package',
       ].includes(artifact.type) &&
       !artifact.execution?.logPath
@@ -3334,7 +3322,7 @@ const fallbackBlocks = (run: ScienceRunState): ScienceReportBlock[] => {
   }
   if (artifacts.length) {
     return artifacts.map((artifact) =>
-      ['figure', 'html', 'pdf', 'latex', 'table', 'regression_table', 'notebook'].includes(artifact.type)
+      ['figure', 'html', 'pdf', 'latex', 'table', 'notebook'].includes(artifact.type)
         ? ({ type: 'artifact_embed', artifactId: artifact.id } satisfies ScienceReportBlock)
         : ({ type: 'artifact_ref', artifactId: artifact.id } satisfies ScienceReportBlock)
     );

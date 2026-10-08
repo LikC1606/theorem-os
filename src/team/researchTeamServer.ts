@@ -12,9 +12,6 @@ import {
   publishMathLiteBlockerBoundary,
   readMathLiteBlockerLineage,
 } from "../math/mathLiteBlockerContext";
-
-// Matches the public mathAssignmentShape inputs limit.
-const MATH_ASSIGNMENT_INPUT_LIMIT = 16;
 import { McpServer, type ToolCallback } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
@@ -35,10 +32,7 @@ import {
   readLatestMathLiteProgress,
 } from "../math/mathLiteFeedback";
 import { installMathMcpShutdown } from "../math/mathMcpShutdown";
-import {
-  IOAI_COMPETITION_CORE_BASE_URL_ENV,
-  RESEARCH_TEAM_CORE_BASE_URL_ENV,
-} from "../common/config/builtinMcpConstants";
+import { RESEARCH_TEAM_CORE_BASE_URL_ENV } from "../common/config/builtinMcpConstants";
 import type { ResearchTeamMcpAction } from "../common/types/team/researchTeamMcp";
 import { TEAM_WAIT_LEVELS } from "../common/types/team/teamWaitPolicy";
 import {
@@ -140,11 +134,6 @@ import {
   isProjectGitCommitAncestor,
   resolveProjectGitCommit,
   type ProjectGitIntegrateAgentBranchRequest,
-  type ProjectGitResearchTeamAssignmentRequest,
-  type ProjectGitResearchTeamAssignmentListRequest,
-  type ProjectGitResearchTeamDeliveryRequest,
-  type ProjectGitPrepareAgentWorktreeRequest,
-  type ProjectGitResolveCommitRequest,
   type ProjectGitDiscardAgentWorktreeRequest,
 } from "../project-git/index";
 import {
@@ -152,6 +141,9 @@ import {
   readResearchTeamRoleCapability,
   resolveResearchTeamRuntimeCapability,
 } from "./toolCapability";
+
+// Matches the public mathAssignmentShape inputs limit.
+const MATH_ASSIGNMENT_INPUT_LIMIT = 16;
 
 const RESEARCH_TEAM_SERVER_NAME = 'DeepScientist Research Team';
 
@@ -409,7 +401,7 @@ async function main(): Promise<void> {
         .describe(
           'Optional assignment specialization; the Worker keeps its system-preconfigured role and authority.'
         ),
-      role_kind: z.enum(['xalpha', 'generic']).optional(),
+      role_kind: z.literal('generic').optional(),
       role_label: z.string().optional(),
       role_instructions: z.string().max(4000).optional(),
       execution_mode: z.enum(['advisory', 'artifact']).optional(),
@@ -543,7 +535,7 @@ async function main(): Promise<void> {
             task: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
             base_commit: z.string().optional(),
             role_template_id: z.string().optional(),
-            role_kind: z.enum(['xalpha', 'generic']).optional(),
+            role_kind: z.literal('generic').optional(),
             role_label: z.string().optional(),
             role_instructions: z.string().max(4000).optional(),
             execution_mode: z.enum(['advisory', 'artifact']).optional(),
@@ -671,7 +663,7 @@ async function main(): Promise<void> {
     task?: string | Record<string, unknown>;
     base_commit?: string;
     role_template_id?: string;
-    role_kind?: 'xalpha' | 'generic';
+    role_kind?: 'generic';
     role_label?: string;
     role_instructions?: string;
     execution_mode?: 'advisory' | 'artifact';
@@ -694,7 +686,7 @@ async function main(): Promise<void> {
     task?: string | Record<string, unknown>;
     base_commit?: string;
     role_template_id?: string;
-    role_kind?: 'xalpha' | 'generic';
+    role_kind?: 'generic';
     role_label?: string;
     role_instructions?: string;
     execution_mode?: 'advisory' | 'artifact';
@@ -2569,7 +2561,6 @@ function resolveActiveCoreBaseUrl(): string | undefined {
   return (
     process.env.AIONUI_BASE_URL?.trim() ||
     process.env[RESEARCH_TEAM_CORE_BASE_URL_ENV]?.trim() ||
-    process.env[IOAI_COMPETITION_CORE_BASE_URL_ENV]?.trim() ||
     undefined
   );
 }

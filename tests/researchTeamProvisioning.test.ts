@@ -116,4 +116,14 @@ describe('headless mathematics Team provisioning', () => {
     expect(deps.removeAssistant).toHaveBeenCalledTimes(input.profile.roles.length);
     expect(deps.removeMcpServer).toHaveBeenCalledTimes(input.profile.roles.length);
   });
+
+  it('cleans every prepared MCP when assistant creation fails', async () => {
+    const { input, deps } = fixture();
+    const failure = new Error('assistant creation failed');
+    vi.mocked(deps.createAssistant).mockRejectedValueOnce(failure);
+    await expect(provisionResearchTeam(input, deps)).rejects.toBe(failure);
+    expect(deps.createTeam).not.toHaveBeenCalled();
+    expect(deps.removeAssistant).toHaveBeenCalledTimes(input.profile.roles.length);
+    expect(deps.removeMcpServer).toHaveBeenCalledTimes(input.profile.roles.length);
+  });
 });

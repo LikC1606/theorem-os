@@ -8,8 +8,7 @@ import { resolveMathematicsLakePackagesCache } from "../../src/math/verifier";
 import { verifyMathV2SourceCommit } from "../../src/math/mathIntegrationPromotion";
 /**
  * Run a proof-only mathematics task through the standalone Mathematics Research
- * Team runtime.  This runner deliberately does not use the IOAI competition
- * bootstrap or its submission protocol. IMO2026 uses host-owned Lean-kernel
+ * Team runtime. IMO2026 uses host-owned Lean-kernel
  * evaluation by default; an explicit external evaluator takes precedence.
  */
 
@@ -1640,46 +1639,6 @@ const HEADLESS_DISABLED_SKILLS = [
 
 const quoteShellArgument = (value: string): string => `'${value.replaceAll("'", `'"'"'`)}'`;
 
-const stableLeanEvalBranchSegment = (value: string): string => {
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/gu, '-')
-    .replace(/^-+|-+$/gu, '')
-    .slice(0, 36);
-  if (!normalized) throw new Error('Lean-Eval assignment cannot form a stable branch segment');
-  return normalized;
-};
-
-/** Build one fixed, narrow Mathlib query from the rarest qualified name in the target declaration. */
-export function buildMathlibPremiseQuery(formalStatement: string, mathlibSourcePath: string): string {
-  const declarationStart = formalStatement.search(/\b(?:theorem|lemma|example)\b/u);
-  const declaration = declarationStart >= 0 ? formalStatement.slice(declarationStart) : formalStatement;
-  const qualifiedNames = [
-    ...new Set(
-      [...declaration.matchAll(/\b[A-Z][A-Za-z0-9_']*(?:\.[A-Za-z][A-Za-z0-9_']*)+\b/gu)].map((match) => match[0])
-    ),
-  ].sort((left, right) => {
-    const depth = right.split('.').length - left.split('.').length;
-    return depth || right.length - left.length || left.localeCompare(right);
-  });
-  const targetName =
-    qualifiedNames[0] ?? declaration.match(/\b(?:theorem|lemma|example)\s+([A-Za-z_][A-Za-z0-9_']*)/u)?.[1];
-  if (!targetName) throw new Error('math_target_has_no_premise_name');
-  const pattern = targetName.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-  return [
-    'rg',
-    '--line-number',
-    '--max-count',
-    '40',
-    '--glob',
-    quoteShellArgument('*.lean'),
-    '--',
-    quoteShellArgument(pattern),
-    quoteShellArgument(mathlibSourcePath),
-  ].join(' ');
-}
-
 /** New launches have one planning behavior; legacy policy values are read only from old records. */
 export function buildMathWorkerObjective(_formalStatement: string, _solverProjectRelativePath?: string): string {
   return 'Own the original theorem, not the first proof route; preserve useful checked work. In RESEARCH.md retain the mechanism, exact hypotheses, missing implication and evidence that could revive earlier work. A residual goal belongs to its chosen inference, not automatically to the original theorem. At a mathematical obstacle, trace burdens from a helper, representation or candidate family and seek a concrete alternative connection. For a missing construction, identify the object type and required relations, justify a candidate form, substitute it and refine unmet conditions. Distinguish sufficient choices from necessary conditions; a failed candidate family does not refute the target. Let actual remaining obligations shape the claim and task; exploration may discover the interface first. Test uncertain uses with explicit parameters in authorized private drafts, never added original premises. Simple local repairs need no planning ceremony. When no usable route is known, use definitions, targeted examples or a better representation. Do not always select the hardest, easiest or weakest lemma. After a failed check, compare the exact goal and diagnostic with the previous attempt; if they are unchanged, do not repeat the same search or tactic. Change one concrete premise, representation, theorem interface or research question so the next check can distinguish progress from repetition. Before a substantial retry, inspect applicable earlier evidence; reuse old work only with new facts or a targeted revision. Failure to prove is not refutation. Read a relevant worked example only when useful; align objects, operations, essential assumptions and return to the goal. Distinguish direct theorem reuse from mechanism transfer; never invent stronger structure. Query the intended transformation using local definitions, relations and namespaces through lean_workspace searchMode=premises and premiseQuery with the live goal (applyBest=false checks without adoption). Inspect full local declarations, including section assumptions and #check @ or #print as needed, then instantiate in this context. Let applicable results revise the connection and delegate only remaining gaps; preserve specified witnesses and formulas. Use lean_workspace with {"action":"probe"} for ordinary assignment-bound candidate checks; read its diagnostic, feedback and cited artifacts first. Continue the same authorized assignment until the original target is verified or an exact blocker requires handoff.';
@@ -2393,35 +2352,6 @@ export function shouldQueueLeadDeliveryWake(
   if (input.alreadyQueued || input.leadTurnId?.trim()) return false;
   if (!isRecord(input.leadSlot) || input.leadSlot.state !== 'idle') return false;
   return true;
-}
-
-/**
- * Elapsed time is not evidence that a live Lead turn is stuck. A slow model
- * response can still be doing useful research, so recovery must come from a
- * terminal transport error or durable Team state rather than a clock.
- */
-export function shouldRecoverUnassignedLeadTurn(
-  _runState: JsonRecord,
-  _leadSlot: unknown,
-  _hasWorkerAssignment: boolean,
-  _nowMs = Date.now(),
-  _thresholdMs = 180_000
-): boolean {
-  return false;
-}
-
-/**
- * Core's `active_turn_slow` bit is observability metadata. It must not cancel
- * an active Strategy turn; transport failures are recovered through the
- * structured retry path and completed turns through durable assignment state.
- */
-export function shouldRecoverStalledStrategyTurn(
-  _runState: JsonRecord,
-  _leadSlot: unknown,
-  _strategySlot: unknown,
-  _assignment: Pick<ProjectGitResearchTeamAssignmentReceipt, 'state' | 'delivery' | 'slotId'>
-): boolean {
-  return false;
 }
 
 /**
@@ -4371,9 +4301,6 @@ async function main(): Promise<void> {
           leadThoughtLevel,
           workerThoughtLevel,
           sessionMode: 'agent-full-access',
-          // This runner always creates a fresh Core Team. There is no prior
-          // session to reset, so avoid the generic stop-session round trip.
-          stopSessionBeforeEnsure: false,
           initialMessage,
           modeConversationExtra: modeExtra,
           // The first Lead dispatch uses the outer Git workspace. Bind it
@@ -5582,9 +5509,7 @@ function stableRunnerResourceIds(value: unknown, field: string): readonly string
 }
 
 function getRequiredMcpNames(role: ResearchTeamRoleContract): readonly string[] {
-  // Keep this local to the proof runner so an accidental IOAI mode change
-  // cannot add a challenge acquisition adapter or a second coordinator.
-  void role;
+  // One coordinator plus the mathematical and role-authorized evidence tools.
   return [
     BUILTIN_RESEARCH_TEAM_NAME,
     BUILTIN_SCIENCE_ARTIFACT_NAME,

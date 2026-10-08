@@ -94,8 +94,6 @@ export type MathematicsReviewStatus =
 export type MathematicsVerificationStatus = 'pending' | 'kernel_verified' | 'failed' | 'blocked' | 'unavailable';
 export type MathematicsVerificationClaim = 'statement' | 'negation';
 
-export type MathematicsVerificationAuthority = 'agent' | 'lean-process' | 'lean-kernel';
-
 export type MathematicsGoalState = {
   stateId: string;
   target: string;

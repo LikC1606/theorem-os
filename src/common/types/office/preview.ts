@@ -38,7 +38,19 @@ export interface ProjectGitRepository {
     dirtyFileCount: number;
 }
 export type ProjectGitWorkspaceStrategy = 'managed' | 'isolated-worktree' | 'current-worktree' | 'cloned' | 'disabled';
-export type ProjectGitDomain = 'general' | 'research' | 'medical_evidence' | 'knowledge_deposition' | 'financial' | 'financial_factor' | 'target_discovery' | 'mathematics' | 'challenge';
+/** Includes historical checkpoint domains so existing Git records remain readable. */
+export const PROJECT_GIT_DOMAINS = Object.freeze([
+    'general',
+    'research',
+    'medical_evidence',
+    'knowledge_deposition',
+    'financial',
+    'financial_factor',
+    'target_discovery',
+    'mathematics',
+    'challenge',
+] as const);
+export type ProjectGitDomain = (typeof PROJECT_GIT_DOMAINS)[number];
 export interface ProjectGitWorkspaceBinding {
     schema: 'deepscientist.project_git.v1';
     strategy: ProjectGitWorkspaceStrategy;
@@ -155,47 +167,7 @@ export interface ProjectGitChangedFile {
 export interface ProjectGitCommitRequest extends ProjectGitDiscoverRequest {
     sha: string;
 }
-export interface ProjectGitCommitResult extends ProjectGitDiscoverResult {
-    commit?: ProjectGitCommitSummary & {
-        body?: string;
-        files: ProjectGitChangedFile[];
-    };
-}
-export interface ProjectGitDiffRequest extends ProjectGitCommitRequest {
-    path?: string;
-    parent?: string;
-    contextLines?: number;
-}
-export interface ProjectGitDiffResult extends ProjectGitDiscoverResult {
-    sha?: string;
-    base?: string;
-    path?: string;
-    content: string;
-    truncated: boolean;
-    binary: boolean;
-}
-export interface ProjectGitTreeRequest extends ProjectGitCommitRequest {
-    path?: string;
-}
-export interface ProjectGitTreeEntry {
-    path: string;
-    name: string;
-    kind: 'file' | 'directory' | 'submodule';
-    mode: string;
-    objectId: string;
-    changedInRevision?: boolean;
-    lastCommit?: {
-        sha: string;
-        shortSha: string;
-        subject: string;
-        authoredAt?: string;
-    };
-}
-export interface ProjectGitTreeResult extends ProjectGitDiscoverResult {
-    sha?: string;
-    path?: string;
-    entries: ProjectGitTreeEntry[];
-}
+
 export interface ProjectGitBlobRequest extends ProjectGitCommitRequest {
     path: string;
 }
@@ -211,42 +183,7 @@ export interface ProjectGitBlobResult extends ProjectGitDiscoverResult {
 export interface ProjectGitWorkingTreeResult extends ProjectGitDiscoverResult {
     files: ProjectGitChangedFile[];
 }
-export interface ProjectGitWorkingDiffRequest extends ProjectGitDiscoverRequest {
-    path: string;
-    contextLines?: number;
-}
-export interface ProjectGitWorkingDiffResult extends ProjectGitDiscoverResult {
-    path?: string;
-    content: string;
-    truncated: boolean;
-    binary: boolean;
-}
-export interface ProjectGitPreflightRequest {
-    workspace: string;
-}
-export interface ProjectGitPreflightResult {
-    ok: boolean;
-    kind?: 'git' | 'non-git';
-    repository?: ProjectGitRepository;
-    canIsolate?: boolean;
-    error?: string;
-}
-export interface ProjectGitPrepareWorkspaceRequest {
-    baseDir: string;
-    goal: string;
-    conversationId: string;
-    strategy: Exclude<ProjectGitWorkspaceStrategy, 'disabled'>;
-    sourceWorkspace?: string;
-    branchKind?: 'discovery' | 'conversation-fork';
-}
-export interface ProjectGitPrepareWorkspaceResult {
-    ok: boolean;
-    workspace?: string;
-    projectId?: string;
-    created?: boolean;
-    binding?: ProjectGitWorkspaceBinding;
-    error?: string;
-}
+
 export interface ProjectGitCloneRequest {
     /** HTTPS or SSH remote URL; loopback HTTP is accepted only for local development. */
     remoteUrl: string;
@@ -272,38 +209,10 @@ export interface ProjectGitCloneResult {
     remoteRef?: string;
     error?: string;
 }
-export interface ProjectGitBindConversationRequest extends ProjectGitDiscoverRequest {
-    conversationId: string;
-}
-export interface ProjectGitBindConversationResult extends ProjectGitDiscoverResult {
-    commit?: string;
-    shortCommit?: string;
-}
-export interface ProjectGitPrepareManagedRequest {
-    baseDir: string;
-    goal: string;
-}
-export interface ProjectGitPrepareManagedResult {
-    ok: boolean;
-    workspace?: string;
-    projectId?: string;
-    created?: boolean;
-    error?: string;
-}
-export type ProjectWorkspaceDeletionKind = 'managed' | 'isolated-worktree' | 'temporary';
-export interface ProjectWorkspaceDeletionRequest {
-    conversationId: string;
-    deletingConversationIds?: string[];
-}
+
 export type ProjectGitResearchBranchStatus = 'active' | 'candidate' | 'parked' | 'rejected' | 'promoted' | 'completed';
 export type ProjectGitAgentWorktreeState = 'clean' | 'dirty' | 'missing';
-export interface ProjectGitChangedEvent {
-    workspace: string;
-    repoRoot?: string;
-    reason: 'worktree-prepared' | 'agent-delivered' | 'checkpoint-created' | 'branch-changed' | 'branch-integrated' | 'worktree-discarded' | 'cloned';
-    branch?: string;
-    head?: string;
-}
+
 export interface ProjectGitResearchBranchAgent {
     teamId: string;
     slotId: string;

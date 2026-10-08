@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { ProjectGitDomain } from "../types/office/preview";
+import { PROJECT_GIT_DOMAINS,type ProjectGitDomain } from "../types/office/preview";
 
 export const PROJECT_WORKSPACE_TOOL_NAME = 'project_workspace' as const;
 
@@ -16,15 +16,9 @@ export const PROJECT_WORKSPACE_ENV_KEYS = {
   checkpointStages: 'DEEPSCIENTIST_PROJECT_CHECKPOINT_STAGES',
 } as const;
 
-const RESEARCH_STRATEGY_DOMAINS = new Set<ProjectGitDomain>([
-  'research',
-  'medical_evidence',
-  'financial',
-  'financial_factor',
-  'target_discovery',
-  'mathematics',
-  'challenge',
-]);
+const RESEARCH_STRATEGY_DOMAINS = new Set<ProjectGitDomain>(
+  PROJECT_GIT_DOMAINS.filter((domain) => domain !== 'general' && domain !== 'knowledge_deposition')
+);
 
 const RESEARCH_STRATEGY_EXEMPT_STAGES = new Set(['project', 'report', 'writing', 'review', 'final']);
 

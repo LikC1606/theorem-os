@@ -4,25 +4,18 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { PROJECT_GIT_DOMAINS } from "../common/types/office/preview";
 import type {
-  ProjectGitTargetSummary,
   ProjectGitCheckpointArtifactRef,
-  ProjectGitChangedEvent,
   ProjectGitBlobRequest,
   ProjectGitBlobResult,
-  ProjectGitBindConversationRequest,
-  ProjectGitBindConversationResult,
   ProjectGitActivateResearchBranchRequest,
   ProjectGitActivateResearchBranchResult,
-  ProjectGitCommitRequest,
-  ProjectGitCommitResult,
   ProjectGitCommitSummary,
   ProjectGitCloneRequest,
   ProjectGitCloneResult,
   ProjectGitCompareResearchBranchesRequest,
   ProjectGitCompareResearchBranchesResult,
-  ProjectGitDiffRequest,
-  ProjectGitDiffResult,
   ProjectGitDiscoverRequest,
   ProjectGitDiscoverResult,
   ProjectGitDomain,
@@ -30,14 +23,8 @@ import type {
   ProjectGitGraphResult,
   ProjectGitMetricComparison,
   ProjectGitMetricContext,
-  ProjectGitPreflightRequest,
-  ProjectGitPreflightResult,
-  ProjectGitPrepareManagedRequest,
-  ProjectGitPrepareManagedResult,
   ProjectGitPrepareResearchBranchRequest,
   ProjectGitPrepareResearchBranchResult,
-  ProjectGitPrepareWorkspaceRequest,
-  ProjectGitPrepareWorkspaceResult,
   ProjectGitPerformanceMetric,
   ProjectGitRepository,
   ProjectGitResearchBranch,
@@ -47,15 +34,8 @@ import type {
   ProjectGitResearchFrontierRequest,
   ProjectGitResearchFrontierResult,
   ProjectGitResearchStageReceipt,
-  ProjectGitTreeEntry,
-  ProjectGitTreeRequest,
-  ProjectGitTreeResult,
-  ProjectGitWorkingDiffRequest,
-  ProjectGitWorkingDiffResult,
   ProjectGitWorkingTreeResult,
   ProjectGitWorkspaceBinding,
-  ProjectWorkspaceDeletionKind,
-  ProjectWorkspaceDeletionRequest,
 } from "../common/types/office/preview";
 import {
   formatResearchCommitSubject,
@@ -84,19 +64,15 @@ import { createResearchTeamTransportKey } from "../common/types/team/researchTea
 import { decodeMathAssignmentJournal, isRuntimeMathAssignment } from "../math/mathAssignmentJournal";
 import { isMathWorkerProofRuntimeRecordPath, readMathJson } from "../math/mathRuntimeIo";
 import { spawnSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
-import { Worker, parentPort } from 'node:worker_threads';
 import { isDeepStrictEqual } from 'node:util';
 import {
   parseGitLog,
   parseLogNumstats,
-  parseNameStatus,
-  parseNumstat,
   parsePorcelainStatus,
   PROJECT_GIT_LOG_FORMAT,
   summarizeNumstat,
 } from "./projectGitParsers";
-import { createProjectId, mergeProjectManifest } from "./projectManifest";
+import { createProjectId } from "./projectManifest";
 import { lockOwnerRecord, lockOwnerState } from "../shared/services/lockOwnerLiveness";
 
 const MAX_TEXT_BYTES = 5 * 1024 * 1024;
@@ -104,11 +80,6 @@ const MAX_BINARY_BYTES = 20 * 1024 * 1024;
 const MAX_GIT_BUFFER = 24 * 1024 * 1024;
 const DEFAULT_GIT_TIMEOUT_MS = 15_000;
 export const DEFAULT_AGENT_WORKTREE_GIT_TIMEOUT_MS = 10 * 60_000;
-const EMPTY_TREE_SHA = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
-const PATH_LOG_RECORD_SEPARATOR = '\x1e';
-const PATH_LOG_METADATA_SEPARATOR = '\x1d';
-const PATH_LOG_FIELD_SEPARATOR = '\x1f';
-const PATH_LOG_FORMAT = ['%H', '%h', '%s', '%aI'].join('%x1f');
 
 const writeFileAtomicDurable = (filePath: string, content: string): void => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -132,169 +103,6 @@ const writeFileAtomicDurable = (filePath: string, content: string): void => {
   } finally {
     if (fs.existsSync(temporaryPath)) fs.rmSync(temporaryPath, { force: true });
   }
-};
-
-type ProjectGitChangedListener = (event: ProjectGitChangedEvent) => void;
-
-const projectGitChangedListeners = new Set<ProjectGitChangedListener>();
-
-export const onProjectGitChanged = (listener: ProjectGitChangedListener): (() => void) => {
-  projectGitChangedListeners.add(listener);
-  return () => projectGitChangedListeners.delete(listener);
-};
-
-export const notifyProjectGitChanged = (event: ProjectGitChangedEvent): void => {
-  projectGitReadCache.clear();
-  // Utility-thread operations relay change notifications to their owner
-  // process; the main-process bridge subscribes there and forwards them over
-  // IPC.  Local MCP/CLI callers still receive the in-process notification.
-  parentPort?.postMessage({ type: 'project-git-changed', event });
-  projectGitChangedListeners.forEach((listener) => {
-    try {
-      listener(event);
-    } catch (error) {
-      console.warn('[ProjectGitService] Project Git change listener failed:', error);
-    }
-  });
-};
-
-/** Operations exposed by the Electron main-process Project Git bridge. */
-export type ProjectGitWorkerOperation =
-  | 'inspectProjectGitWorkspace'
-  | 'prepareProjectWorkspace'
-  | 'cloneProjectGit'
-  | 'bindManagedProjectConversation'
-  | 'prepareManagedProject'
-  | 'discoverProjectGit'
-  | 'listProjectGitGraph'
-  | 'listProjectGitResearchFrontier'
-  | 'prepareProjectGitResearchBranch'
-  | 'activateProjectGitResearchBranch'
-  | 'compareProjectGitResearchBranches'
-  | 'getProjectGitCommit'
-  | 'getProjectGitDiff'
-  | 'getProjectGitTree'
-  | 'getProjectGitBlob'
-  | 'getProjectGitWorkingTree'
-  | 'getProjectGitWorkingDiff';
-
-/**
- * Execute a Project Git operation in a utility thread.  The legacy service
- * functions intentionally remain synchronous for MCP/CLI callers, but the
- * Electron bridge must never run those functions on the main event loop: a
- * clone or worktree operation can legitimately take minutes.
- */
-const PROJECT_GIT_READ_CACHE_MS = 250;
-const PROJECT_GIT_CACHEABLE_OPERATIONS = new Set<ProjectGitWorkerOperation>([
-  'inspectProjectGitWorkspace',
-  'listProjectGitGraph',
-  'listProjectGitResearchFrontier',
-  'getProjectGitCommit',
-  'getProjectGitTree',
-  'getProjectGitWorkingTree',
-]);
-const MAX_PROJECT_GIT_READ_CACHE_ENTRIES = 64;
-const projectGitReadCache = new Map<string, { expiresAt: number; result: unknown }>();
-const projectGitReadInFlight = new Map<string, Promise<unknown>>();
-
-const runProjectGitOperationInWorkerUncached = <T>(
-  operation: ProjectGitWorkerOperation,
-  request: unknown,
-  onChanged?: (event: ProjectGitChangedEvent) => void
-): Promise<T> =>
-  new Promise<T>((resolve, reject) => {
-    // electron-vite bundles this service into `out/main/chunks`, while the
-    // worker entrypoint is emitted at `out/main/projectGitWorker.js`.  A
-    // module-relative URL would therefore incorrectly resolve to
-    // `out/main/chunks/projectGitWorker.js` in packaged builds.  Resolve the
-    // sibling of the compiled main entry first and keep the module URL as a
-    // development/source fallback.
-    const compiledWorkerCandidates = [
-      // electron-builder may unpack the worker (and its shared chunk) so
-      // worker_threads receives a real filesystem path instead of an asar
-      // virtual path. Prefer that copy when it exists.
-      path.resolve(
-        __dirname.replace(`${path.sep}app.asar${path.sep}`, `${path.sep}app.asar.unpacked${path.sep}`),
-        '../projectGitWorker.js'
-      ),
-      path.resolve(__dirname, '../projectGitWorker.js'),
-    ];
-    const compiledWorkerPath = compiledWorkerCandidates.find((candidate) => fs.existsSync(candidate));
-    const workerUrl = compiledWorkerPath
-      ? pathToFileURL(compiledWorkerPath)
-      : new URL('./projectGitWorker.js', import.meta.url);
-    const worker = new Worker(workerUrl, {
-      workerData: { operation, request },
-    });
-    let settled = false;
-    const finish = (callback: () => void): void => {
-      if (settled) return;
-      settled = true;
-      callback();
-      void worker.terminate();
-    };
-    worker.on(
-      'message',
-      (message: { type?: string; event?: ProjectGitChangedEvent; ok?: boolean; result?: T; error?: string }) => {
-        if (message.type === 'project-git-changed' && message.event) {
-          try {
-            onChanged?.(message.event);
-          } catch (error) {
-            // Event forwarding is observational and must never turn a completed
-            // Git operation into an IPC/worker failure (nor crash Electron's
-            // main process when a renderer listener is already disposed).
-            console.warn('[ProjectGit] worker change listener failed:', error);
-          }
-          return;
-        }
-        finish(() => {
-          if (message.ok) resolve(message.result as T);
-          else reject(new Error(message.error || `Project Git worker operation ${operation} failed.`));
-        });
-      }
-    );
-    worker.once('error', (error) => finish(() => reject(error)));
-    worker.once('exit', (code) => {
-      if (code !== 0) finish(() => reject(new Error(`Project Git worker exited with status ${code}.`)));
-      else if (!settled)
-        finish(() => reject(new Error(`Project Git worker exited without a result for ${operation}.`)));
-    });
-  });
-
-export const runProjectGitOperationInWorker = <T>(
-  operation: ProjectGitWorkerOperation,
-  request: unknown,
-  onChanged?: (event: ProjectGitChangedEvent) => void
-): Promise<T> => {
-  if (!PROJECT_GIT_CACHEABLE_OPERATIONS.has(operation)) {
-    return runProjectGitOperationInWorkerUncached<T>(operation, request, onChanged);
-  }
-  let key: string;
-  try {
-    key = `${operation}:${JSON.stringify(request)}`;
-  } catch {
-    return runProjectGitOperationInWorkerUncached<T>(operation, request, onChanged);
-  }
-  const now = Date.now();
-  const cached = projectGitReadCache.get(key);
-  if (cached && cached.expiresAt > now) return Promise.resolve(cached.result as T);
-  const existing = projectGitReadInFlight.get(key);
-  if (existing) return existing as Promise<T>;
-  const requestPromise = runProjectGitOperationInWorkerUncached<T>(operation, request, onChanged)
-    .then((result) => {
-      projectGitReadCache.set(key, { expiresAt: Date.now() + PROJECT_GIT_READ_CACHE_MS, result });
-      while (projectGitReadCache.size > MAX_PROJECT_GIT_READ_CACHE_ENTRIES) {
-        const oldest = projectGitReadCache.keys().next().value as string | undefined;
-        if (oldest === undefined) break;
-        projectGitReadCache.delete(oldest);
-      }
-      return result;
-    })
-    .finally(() => {
-      projectGitReadInFlight.delete(key);
-    });
-  projectGitReadInFlight.set(key, requestPromise);
-  return requestPromise;
 };
 
 type GitResult = {
@@ -340,7 +148,6 @@ export type ProjectGitCheckpointRequest = {
   conversationId?: string;
   domain?: ProjectGitDomain;
   artifactRef?: ProjectGitCheckpointArtifactRef;
-  targetSummary?: ProjectGitTargetSummary;
   researchStage?: ProjectGitResearchStageReceipt;
   directionDecision?: ProjectGitDirectionDecision;
 };
@@ -362,7 +169,6 @@ export type ProjectGitCheckpointResult = {
   goalId?: string;
   domain?: ProjectGitDomain;
   artifactRef?: ProjectGitCheckpointArtifactRef;
-  targetSummary?: ProjectGitTargetSummary;
   researchStage?: ProjectGitResearchStageReceipt;
   directionDecision?: ProjectGitDirectionDecision;
   error?: string;
@@ -635,17 +441,6 @@ const runGit = (
     stdout: Buffer.isBuffer(result.stdout) ? result.stdout : Buffer.from(result.stdout || ''),
     stderr: Buffer.isBuffer(result.stderr) ? result.stderr.toString('utf8').trim() : String(result.stderr || '').trim(),
   };
-};
-
-const initializeMainRepository = (workspace: string): void => {
-  const initialized = runGit(workspace, ['init']);
-  if (initialized.status !== 0) {
-    throw new Error(errorMessage(initialized, 'Unable to initialize the Git repository.'));
-  }
-  const selectedMain = runGit(workspace, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
-  if (selectedMain.status !== 0) {
-    throw new Error(errorMessage(selectedMain, 'Unable to select the main Git branch.'));
-  }
 };
 
 const runStandaloneGit = (args: string[], cwd?: string, timeout = 120_000, maxBuffer = MAX_GIT_BUFFER): GitResult => {
@@ -1180,10 +975,7 @@ const withResearchTeamAssignmentLock = <T>(
         if ((statError as NodeJS.ErrnoException).code === 'ENOENT') continue;
         throw statError;
       }
-      // This service is called from Electron's process/IPC path.  A
-      // synchronous sleep here would freeze the main process while another
-      // worker owns the lock.  Surface contention immediately; callers can
-      // retry through their existing async orchestration instead.
+      // Surface contention immediately so the asynchronous caller can retry.
       throw new Error('Research Team assignment receipt is busy in another process; retry asynchronously.', {
         cause: error,
       });
@@ -2158,7 +1950,7 @@ const withProjectGitFileLock = <T>(lockPath: string, busyMessage: string, operat
   // Nested calls in one service invocation (for example prepare → reconcile →
   // metadata update) already hold the same repository lock. Keep the lock
   // re-entrant in-process while the lock file still serializes other workers
-  // and other Electron/MCP processes.
+  // and other CLI/MCP processes.
   if (heldProjectGitLocks.has(lockPath)) return operation();
   fs.mkdirSync(path.dirname(lockPath), { recursive: true });
   const lockToken = crypto.randomUUID();
@@ -2200,9 +1992,7 @@ const withProjectGitFileLock = <T>(lockPath: string, busyMessage: string, operat
         if ((statError as NodeJS.ErrnoException).code === 'ENOENT') continue;
         throw statError;
       }
-      // Never block Electron's process event loop waiting on a filesystem
-      // lock.  The operation is intentionally fail-fast and can be retried by
-      // the caller without holding the UI/IPC thread hostage.
+      // Never block the event loop waiting for another process's lock.
       throw new Error(busyMessage, { cause: error });
     }
   }
@@ -2505,18 +2295,6 @@ const CHECKPOINT_IGNORED_SEGMENTS = new Set([
   '.venv',
 ]);
 
-const PROJECT_GIT_DOMAINS = new Set<ProjectGitDomain>([
-  'general',
-  'research',
-  'medical_evidence',
-  'knowledge_deposition',
-  'financial',
-  'financial_factor',
-  'target_discovery',
-  'mathematics',
-  'challenge',
-]);
-
 const isSensitiveCheckpointPath = (value: string): boolean => {
   const normalized = value.replace(/\\/gu, '/').toLowerCase();
   const basename = normalized.split('/').at(-1) || normalized;
@@ -2668,86 +2446,8 @@ const getCommitSummary = (repoRoot: string, sha: string) => {
   return commit;
 };
 
-const getPathCommitSummaries = (
-  repository: ProjectGitRepository,
-  sha: string,
-  relativePath: string,
-  entryNames: string[]
-): Map<string, NonNullable<ProjectGitTreeEntry['lastCommit']>> => {
-  const summaries = new Map<string, NonNullable<ProjectGitTreeEntry['lastCommit']>>();
-  if (!entryNames.length) return summaries;
-  const targetNames = new Set(entryNames);
-  const repoPath = [repository.workspacePrefix, relativePath].filter(Boolean).join('/');
-  const result = runGit(repository.repoRoot, [
-    '-c',
-    'core.quotepath=false',
-    'log',
-    '--date=iso-strict',
-    `--format=%x1e${PATH_LOG_FORMAT}%x1d`,
-    '--name-only',
-    sha,
-    ...(repoPath ? ['--', repoPath] : []),
-  ]);
-  if (result.status !== 0) return summaries;
-  result.stdout
-    .toString('utf8')
-    .split(PATH_LOG_RECORD_SEPARATOR)
-    .filter(Boolean)
-    .forEach((record) => {
-      const metadataEnd = record.indexOf(PATH_LOG_METADATA_SEPARATOR);
-      if (metadataEnd < 0) return;
-      const [commitSha, shortSha, subject, authoredAt] = record
-        .slice(0, metadataEnd)
-        .trim()
-        .split(PATH_LOG_FIELD_SEPARATOR);
-      if (!commitSha || !shortSha) return;
-      record
-        .slice(metadataEnd + 1)
-        .split(/\r?\n/u)
-        .map((item) => item.trim())
-        .filter(Boolean)
-        .forEach((changedRepoPath) => {
-          const workspacePath = toWorkspacePath(repository, changedRepoPath);
-          if (!workspacePath) return;
-          const currentPrefix = relativePath ? `${relativePath}/` : '';
-          if (currentPrefix && !workspacePath.startsWith(currentPrefix)) return;
-          const entryName = workspacePath.slice(currentPrefix.length).split('/')[0];
-          if (!targetNames.has(entryName) || summaries.has(entryName)) return;
-          summaries.set(entryName, { sha: commitSha, shortSha, subject, authoredAt: authoredAt || undefined });
-        });
-    });
-  return summaries;
-};
-
-const getCommitBase = (repoRoot: string, sha: string, requestedParent?: string): string => {
-  if (requestedParent) {
-    const parent = resolveCommit(repoRoot, requestedParent);
-    const parents = getCommitSummary(repoRoot, sha).parents;
-    if (!parents.includes(parent)) throw new Error('The selected comparison base is not a parent of this commit.');
-    return parent;
-  }
-  return getCommitSummary(repoRoot, sha).parents[0] || EMPTY_TREE_SHA;
-};
-
 export const discoverProjectGit = (request: ProjectGitDiscoverRequest): ProjectGitDiscoverResult =>
   withRepository<ProjectGitDiscoverResult>(request, {}, (repository) => ({ ok: true, repository }));
-
-export const inspectProjectGitWorkspace = (request: ProjectGitPreflightRequest): ProjectGitPreflightResult => {
-  try {
-    const workspace = resolveWorkspace(request.workspace);
-    const rootResult = runGit(workspace, ['rev-parse', '--show-toplevel']);
-    if (rootResult.status !== 0) return { ok: true, kind: 'non-git', canIsolate: false };
-    const repository = discoverRepository(workspace);
-    return {
-      ok: true,
-      kind: 'git',
-      repository,
-      canIsolate: Boolean(repository.head && !repository.bare && !repository.workspacePrefix),
-    };
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
-  }
-};
 
 export const listProjectGitGraph = (request: ProjectGitGraphRequest): ProjectGitGraphResult =>
   withRepository<ProjectGitGraphResult>(request, { commits: [], hasMore: false }, (repository) => {
@@ -2949,13 +2649,7 @@ export const prepareProjectGitResearchBranch = (
         repository: nextRepository,
         branch: listResearchBranches(nextRepository, request.goalId).find((item) => item.name === branch),
       };
-      notifyProjectGitChanged({
-        workspace: request.workspace,
-        repoRoot: nextRepository.repoRoot,
-        reason: 'branch-changed',
-        branch,
-        head: nextRepository.head,
-      });
+
       return response;
     });
   } catch (error) {
@@ -3056,13 +2750,7 @@ export const prepareProjectGitAgentWorktree = (
         branch: listResearchBranches(refreshed).find((item) => item.name === branch),
         workspace: assignedWorkspace,
       };
-      notifyProjectGitChanged({
-        workspace: request.workspace,
-        repoRoot: refreshed.repoRoot,
-        reason: 'worktree-prepared',
-        branch,
-        head: response.branch?.head,
-      });
+
       return response;
     });
   } catch (error) {
@@ -3199,12 +2887,7 @@ export const discardProjectGitAgentWorktree = (
           });
         });
       }
-      notifyProjectGitChanged({
-        workspace: request.workspace,
-        repoRoot: repository.repoRoot,
-        reason: 'worktree-discarded',
-        ...(branch ? { branch } : {}),
-      });
+
       // Keep the prepared WAL entry when reconciliation needs to record a
       // terminal supersession. Dispatch compensation retains the historical
       // deletion behavior unless it explicitly opts into this handoff.
@@ -3327,13 +3010,7 @@ export const integrateProjectGitAgentBranch = (
         mergedCommit: refreshed.head,
         alreadyIntegrated,
       };
-      notifyProjectGitChanged({
-        workspace: request.workspace,
-        repoRoot: refreshed.repoRoot,
-        reason: 'branch-integrated',
-        branch,
-        head: refreshed.head,
-      });
+
       return response;
     });
   } catch (error) {
@@ -3371,13 +3048,7 @@ export const activateProjectGitResearchBranch = (
         repository: nextRepository,
         branch: listResearchBranches(nextRepository).find((item) => item.name === branch),
       };
-      notifyProjectGitChanged({
-        workspace: request.workspace,
-        repoRoot: nextRepository.repoRoot,
-        reason: 'branch-changed',
-        branch,
-        head: nextRepository.head,
-      });
+
       return response;
     });
   } catch (error) {
@@ -3494,142 +3165,6 @@ export const compareProjectGitResearchBranches = (
   }
 };
 
-export const getProjectGitCommit = (request: ProjectGitCommitRequest): ProjectGitCommitResult =>
-  withRepository<ProjectGitCommitResult>(request, {}, (repository) => {
-    const sha = resolveCommit(repository.repoRoot, request.sha);
-    const summary = getCommitSummary(repository.repoRoot, sha);
-    const base = summary.parents[0] || EMPTY_TREE_SHA;
-    const pathspec = scopePathspec(repository);
-    const nameStatus = runGit(repository.repoRoot, ['diff', '--name-status', '-M20%', base, sha, ...pathspec]);
-    const numstat = runGit(repository.repoRoot, ['diff', '--numstat', '-M20%', base, sha, ...pathspec]);
-    const stats = parseNumstat(numstat.stdout.toString('utf8'));
-    const files = parseNameStatus(nameStatus.stdout.toString('utf8'), stats).map((file) =>
-      Object.assign({}, file, {
-        path: toWorkspacePath(repository, file.path) || file.path,
-        oldPath: toWorkspacePath(repository, file.oldPath),
-      })
-    );
-    const body = textOutput(runGit(repository.repoRoot, ['show', '-s', '--format=%B', sha]));
-    return {
-      ok: true,
-      repository,
-      commit: {
-        ...summary,
-        ...summarizeNumstat(numstat.stdout.toString('utf8')),
-        body,
-        files,
-      },
-    };
-  });
-
-export const getProjectGitDiff = (request: ProjectGitDiffRequest): ProjectGitDiffResult =>
-  withRepository<ProjectGitDiffResult>(request, { content: '', truncated: false, binary: false }, (repository) => {
-    const sha = resolveCommit(repository.repoRoot, request.sha);
-    const base = getCommitBase(repository.repoRoot, sha, request.parent);
-    const contextLines = Math.max(0, Math.min(request.contextLines ?? 3, 20));
-    const relativePath = normalizeRelativePath(request.path);
-    const pathspec = scopePathspec(repository, relativePath);
-    const result = runGit(repository.repoRoot, [
-      'diff',
-      '--find-renames',
-      '--no-color',
-      `--unified=${contextLines}`,
-      base,
-      sha,
-      ...pathspec,
-    ]);
-    if (result.status !== 0) throw new Error(errorMessage(result, 'Unable to read Git diff.'));
-    const full = result.stdout.toString('utf8');
-    const truncated = Buffer.byteLength(full, 'utf8') > MAX_TEXT_BYTES;
-    const content = truncated ? Buffer.from(full).subarray(0, MAX_TEXT_BYTES).toString('utf8') : full;
-    return {
-      ok: true,
-      repository,
-      sha,
-      base,
-      path: relativePath,
-      content,
-      truncated,
-      binary: /Binary files .* differ|GIT binary patch/u.test(full),
-    };
-  });
-
-export const getProjectGitTree = (request: ProjectGitTreeRequest): ProjectGitTreeResult =>
-  withRepository<ProjectGitTreeResult>(request, { entries: [] }, (repository) => {
-    const sha = resolveCommit(repository.repoRoot, request.sha);
-    const commit = getCommitSummary(repository.repoRoot, sha);
-    const base = commit.parents[0] || EMPTY_TREE_SHA;
-    const relativePath = normalizeRelativePath(request.path);
-    const scopedPath = [repository.workspacePrefix, relativePath].filter(Boolean).join('/');
-    const treeish = scopedPath ? `${sha}:${scopedPath}` : sha;
-    const result = runGit(repository.repoRoot, ['ls-tree', '-z', treeish]);
-    if (result.status !== 0) throw new Error(errorMessage(result, 'Unable to read the Git tree.'));
-    const changedResult = runGit(repository.repoRoot, [
-      'diff',
-      '--name-only',
-      '-z',
-      '-M',
-      base,
-      sha,
-      ...scopePathspec(repository),
-    ]);
-    if (changedResult.status !== 0) {
-      throw new Error(errorMessage(changedResult, 'Unable to compare the current Git revision.'));
-    }
-    const changedPaths = new Set(
-      changedResult.stdout
-        .toString('utf8')
-        .split('\0')
-        .filter(Boolean)
-        .map((filePath) => toWorkspacePath(repository, filePath))
-        .filter((filePath): filePath is string => Boolean(filePath))
-    );
-    const changedPathList = [...changedPaths];
-    const entries: ProjectGitTreeEntry[] = result.stdout
-      .toString('utf8')
-      .split('\0')
-      .filter(Boolean)
-      .map((line) => {
-        const match = /^(\d+)\s+(blob|tree|commit)\s+([a-f0-9]+)\t(.+)$/u.exec(line);
-        if (!match) return undefined;
-        const [, mode, rawKind, objectId, name] = match;
-        const entryPath = [relativePath, name].filter(Boolean).join('/');
-        const changedInRevision = changedPathList.some(
-          (changedPath) => changedPath === entryPath || changedPath.startsWith(`${entryPath}/`)
-        );
-        return {
-          path: entryPath,
-          name,
-          kind:
-            rawKind === 'tree'
-              ? ('directory' as const)
-              : rawKind === 'commit'
-                ? ('submodule' as const)
-                : ('file' as const),
-          mode,
-          objectId,
-          changedInRevision,
-        };
-      })
-      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
-    const pathCommitSummaries = getPathCommitSummaries(
-      repository,
-      sha,
-      relativePath,
-      entries.map((entry) => entry.name)
-    );
-    entries.forEach((entry) => {
-      entry.lastCommit = pathCommitSummaries.get(entry.name);
-    });
-    return {
-      ok: true,
-      repository,
-      sha,
-      path: relativePath,
-      entries,
-    };
-  });
-
 export const getProjectGitBlob = (request: ProjectGitBlobRequest): ProjectGitBlobResult =>
   withRepository<ProjectGitBlobResult>(request, { binary: false, truncated: false }, (repository) => {
     const sha = resolveCommit(repository.repoRoot, request.sha);
@@ -3684,59 +3219,6 @@ export const getProjectGitWorkingTree = (request: ProjectGitDiscoverRequest): Pr
     );
     return { ok: true, repository, files };
   });
-
-export const getProjectGitWorkingDiff = (request: ProjectGitWorkingDiffRequest): ProjectGitWorkingDiffResult =>
-  withRepository<ProjectGitWorkingDiffResult>(
-    request,
-    { content: '', truncated: false, binary: false },
-    (repository) => {
-      const relativePath = normalizeRelativePath(request.path);
-      if (!relativePath) throw new Error('A project-relative file path is required.');
-      const repoPath = [repository.workspacePrefix, relativePath].filter(Boolean).join('/');
-      const contextLines = Math.max(0, Math.min(request.contextLines ?? 3, 20));
-      const status = runGit(repository.repoRoot, [
-        'status',
-        '--porcelain=v1',
-        '--untracked-files=normal',
-        '--',
-        repoPath,
-      ]);
-      if (status.status !== 0) throw new Error(errorMessage(status, 'Unable to inspect the working file.'));
-      const untracked = porcelainOutput(status)
-        .split(/\r?\n/u)
-        .some((line) => line.startsWith('?? '));
-      const result = untracked
-        ? runGit(repository.repoRoot, [
-            'diff',
-            '--no-index',
-            '--no-color',
-            `--unified=${contextLines}`,
-            process.platform === 'win32' ? 'NUL' : '/dev/null',
-            path.join(repository.repoRoot, repoPath),
-          ])
-        : runGit(repository.repoRoot, [
-            'diff',
-            '--no-color',
-            `--unified=${contextLines}`,
-            repository.head ? 'HEAD' : '--cached',
-            '--',
-            repoPath,
-          ]);
-      if (result.status !== 0 && !(untracked && result.status === 1)) {
-        throw new Error(errorMessage(result, 'Unable to read the working file diff.'));
-      }
-      const full = result.stdout.toString('utf8');
-      const truncated = Buffer.byteLength(full, 'utf8') > MAX_TEXT_BYTES;
-      return {
-        ok: true,
-        repository,
-        path: relativePath,
-        content: truncated ? Buffer.from(full).subarray(0, MAX_TEXT_BYTES).toString('utf8') : full,
-        truncated,
-        binary: /Binary files .* differ|GIT binary patch/u.test(full),
-      };
-    }
-  );
 
 const normalizeTrailerValue = (value?: string, maxLength = 180): string | undefined =>
   String(value || '')
@@ -3884,30 +3366,6 @@ const normalizeResearchStageReceipt = (
   };
 };
 
-const normalizeSummaryCount = (value: number): number => (Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0);
-
-const normalizeTargetSummary = (value?: ProjectGitTargetSummary): ProjectGitTargetSummary | undefined => {
-  if (!value) return undefined;
-  const leadingCoverage =
-    typeof value.leadingCoverage === 'number' && Number.isFinite(value.leadingCoverage)
-      ? Math.max(0, Math.min(1, value.leadingCoverage))
-      : undefined;
-  return {
-    candidateCount: normalizeSummaryCount(value.candidateCount),
-    advanceCount: normalizeSummaryCount(value.advanceCount),
-    validationCount: normalizeSummaryCount(value.validationCount),
-    blockerCount: normalizeSummaryCount(value.blockerCount),
-    sourceReadyCount: normalizeSummaryCount(value.sourceReadyCount),
-    sourceCount: normalizeSummaryCount(value.sourceCount),
-    branchCount: normalizeSummaryCount(value.branchCount),
-    ...(leadingCoverage == null ? {} : { leadingCoverage }),
-    topTargets: (value.topTargets || [])
-      .map((item) => normalizeTrailerValue(item, 32))
-      .filter((item): item is string => Boolean(item))
-      .slice(0, 3),
-  };
-};
-
 const checkpointCommitBody = (options: {
   stage: string;
   researchStrategy?: ResearchStrategy;
@@ -3921,7 +3379,6 @@ const checkpointCommitBody = (options: {
   goalId?: string;
   domain?: ProjectGitDomain;
   artifactRef?: ProjectGitCheckpointArtifactRef;
-  targetSummary?: ProjectGitTargetSummary;
   researchStage?: ProjectGitResearchStageReceipt;
   directionDecision?: ProjectGitDirectionDecision;
 }): string => {
@@ -3957,8 +3414,6 @@ const checkpointCommitBody = (options: {
   if (options.domain) lines.push(`DeepScientist-Domain: ${options.domain}`);
   const artifactRef = normalizeCheckpointArtifactRef(options.artifactRef);
   if (artifactRef) lines.push(`DeepScientist-Artifact: ${JSON.stringify(artifactRef)}`);
-  const targetSummary = normalizeTargetSummary(options.targetSummary);
-  if (targetSummary) lines.push(`DeepScientist-TargetSummary: ${JSON.stringify(targetSummary)}`);
   const researchStage = normalizeResearchStageReceipt(options.researchStage);
   if (researchStage) lines.push(`DeepScientist-ResearchStage: ${JSON.stringify(researchStage)}`);
   if (directionDecision) lines.push(`DeepScientist-Decision: ${JSON.stringify(directionDecision)}`);
@@ -4128,9 +3583,8 @@ export const createProjectGitCheckpoint = (request: ProjectGitCheckpointRequest)
       const metrics = normalizeCheckpointMetrics(request.metrics);
       const metricContext = metrics.length ? normalizeMetricContext(request.metricContext) : undefined;
       const goalId = normalizeTrailerValue(request.goalId, 120);
-      const domain = request.domain && PROJECT_GIT_DOMAINS.has(request.domain) ? request.domain : undefined;
+      const domain = request.domain && PROJECT_GIT_DOMAINS.includes(request.domain) ? request.domain : undefined;
       const artifactRef = normalizeCheckpointArtifactRef(request.artifactRef);
-      const targetSummary = domain === 'target_discovery' ? normalizeTargetSummary(request.targetSummary) : undefined;
       const researchStage = normalizeResearchStageReceipt(request.researchStage);
       if (request.researchStage && !researchStage) {
         throw new Error(
@@ -4182,7 +3636,6 @@ export const createProjectGitCheckpoint = (request: ProjectGitCheckpointRequest)
             goalId,
             domain,
             artifactRef,
-            targetSummary,
             researchStage,
             directionDecision,
           }),
@@ -4215,17 +3668,10 @@ export const createProjectGitCheckpoint = (request: ProjectGitCheckpointRequest)
         ...(goalId ? { goalId } : {}),
         ...(domain ? { domain } : {}),
         ...(artifactRef ? { artifactRef } : {}),
-        ...(targetSummary ? { targetSummary } : {}),
         ...(researchStage ? { researchStage } : {}),
         ...(directionDecision ? { directionDecision } : {}),
       };
-      notifyProjectGitChanged({
-        workspace: request.workspace,
-        repoRoot: repository.repoRoot,
-        reason: 'checkpoint-created',
-        branch: repository.branch,
-        head: commit,
-      });
+
       return response;
     });
   } catch (error) {
@@ -4237,26 +3683,6 @@ export const createProjectGitCheckpoint = (request: ProjectGitCheckpointRequest)
 };
 
 const PROJECT_MANIFEST_RELATIVE_PATH = '.deepscientist/project.json';
-const DEEPSCIENTIST_GITIGNORE_RELATIVE_PATH = '.deepscientist/.gitignore';
-const DEEPSCIENTIST_GITIGNORE_RULES = ['/artifact-repo/', '/science-artifacts/', '/exports/'];
-const LOCAL_PROJECT_EXCLUDES = [
-  ...LOCAL_AGENT_RUNTIME_EXCLUDE_RULES.map((entry) => entry.slice(1)),
-  '.deepscientist/artifact-repo/',
-  '.deepscientist/science-artifacts/',
-  '.deepscientist/exports/',
-  '.deepscientist/factor-search/',
-];
-
-const ensureDeepScientistGitignore = (workspace: string): void => {
-  const gitignorePath = path.join(workspace, ...DEEPSCIENTIST_GITIGNORE_RELATIVE_PATH.split('/'));
-  fs.mkdirSync(path.dirname(gitignorePath), { recursive: true });
-  const current = fs.existsSync(gitignorePath) ? fs.readFileSync(gitignorePath, 'utf8') : '';
-  const lines = current.split(/\r?\n/u).filter(Boolean);
-  const existing = new Set(lines);
-  const missing = DEEPSCIENTIST_GITIGNORE_RULES.filter((entry) => !existing.has(entry));
-  if (!missing.length && current.endsWith('\n')) return;
-  fs.writeFileSync(gitignorePath, `${[...lines, ...missing].join('\n')}\n`, 'utf8');
-};
 
 const readProjectManifest = (workspace: string): unknown => {
   const manifestPath = path.join(workspace, ...PROJECT_MANIFEST_RELATIVE_PATH.split('/'));
@@ -4305,148 +3731,6 @@ const resolveProjectId = (workspace: string, repoRoot: string, workspacePrefix?:
         .digest('hex')
         .slice(0, 16)}`
     : readOrCreateRepositoryProjectId(repoRoot));
-
-const writeProjectManifest = (
-  workspace: string,
-  options: { goal: string; managed: boolean; projectId?: string; createdAt?: number }
-): string => {
-  const manifestPath = path.join(workspace, ...PROJECT_MANIFEST_RELATIVE_PATH.split('/'));
-  fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
-  const { manifest, projectId } = mergeProjectManifest(readProjectManifest(workspace), {
-    projectId: options.projectId,
-    name: options.goal.slice(0, 120),
-    goal: options.goal,
-    managed: options.managed,
-    createdAt: options.createdAt,
-    updatedAt: Date.now(),
-  });
-  const temporaryPath = `${manifestPath}.${process.pid}.${Date.now()}.tmp`;
-  fs.writeFileSync(temporaryPath, `${JSON.stringify(manifest, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
-  fs.renameSync(temporaryPath, manifestPath);
-  ensureDeepScientistGitignore(workspace);
-  return projectId;
-};
-
-const addLocalProjectExcludes = (workspace: string): void => {
-  const gitDirResult = runGit(workspace, ['rev-parse', '--git-dir']);
-  if (gitDirResult.status !== 0) throw new Error(errorMessage(gitDirResult, 'Unable to locate Git metadata.'));
-  const rawGitDir = textOutput(gitDirResult);
-  const gitDir = path.isAbsolute(rawGitDir) ? rawGitDir : path.resolve(workspace, rawGitDir);
-  const excludePath = path.join(gitDir, 'info', 'exclude');
-  fs.mkdirSync(path.dirname(excludePath), { recursive: true });
-  const existing = fs.existsSync(excludePath) ? fs.readFileSync(excludePath, 'utf8') : '';
-  const lines = new Set(
-    existing
-      .split(/\r?\n/u)
-      .map((line) => line.trim())
-      .filter(Boolean)
-  );
-  const missing = LOCAL_PROJECT_EXCLUDES.filter((entry) => !lines.has(entry));
-  if (!missing.length) return;
-  const separator = existing && !existing.endsWith('\n') ? '\n' : '';
-  fs.appendFileSync(excludePath, `${separator}${missing.join('\n')}\n`, 'utf8');
-};
-
-const createSelectedProjectBaseline = (options: {
-  workspace: string;
-  goal: string;
-  conversationId: string;
-}): { projectId: string; commit: string } => {
-  const projectId = writeProjectManifest(options.workspace, { goal: options.goal, managed: false });
-  addLocalProjectExcludes(options.workspace);
-  const baselinePaths = [DEEPSCIENTIST_GITIGNORE_RELATIVE_PATH, PROJECT_MANIFEST_RELATIVE_PATH];
-  const add = runGit(options.workspace, ['add', '--', ...baselinePaths]);
-  if (add.status !== 0) throw new Error(errorMessage(add, 'Unable to stage the DeepScientist project manifest.'));
-  const commit = runGit(options.workspace, [
-    '-c',
-    'user.name=DeepScientist',
-    '-c',
-    'user.email=checkpoint@deepscientist.local',
-    'commit',
-    '-m',
-    '[project] initialize project history',
-    '-m',
-    checkpointCommitBody({ stage: 'project', conversationId: options.conversationId }),
-  ]);
-  if (commit.status !== 0) {
-    runGit(options.workspace, ['rm', '--cached', '--quiet', '--', ...baselinePaths]);
-    throw new Error(errorMessage(commit, 'Unable to create the project history baseline.'));
-  }
-  return { projectId, commit: resolveCommit(options.workspace, 'HEAD') };
-};
-
-export const prepareManagedProject = (request: ProjectGitPrepareManagedRequest): ProjectGitPrepareManagedResult => {
-  try {
-    const baseDir = String(request.baseDir || '').trim();
-    const goal = String(request.goal || '').trim();
-    if (!baseDir) throw new Error('A managed project base directory is required.');
-    if (!goal) throw new Error('A goal is required to create a managed project.');
-    fs.mkdirSync(baseDir, { recursive: true });
-    const resolvedBase = fs.realpathSync(baseDir);
-    return withProjectGitPathLock(resolvedBase, () => {
-      const managedRoot = path.join(resolvedBase, 'managed-projects');
-      fs.mkdirSync(managedRoot, { recursive: true });
-      const createdAt = new Date();
-      const projectId = `project_${createdAt.toISOString().slice(0, 10).replace(/-/gu, '')}_${crypto.randomBytes(4).toString('hex')}`;
-      const workspace = path.join(managedRoot, projectId);
-      fs.mkdirSync(workspace, { recursive: true });
-      writeProjectManifest(workspace, { projectId, goal, managed: true, createdAt: createdAt.getTime() });
-      fs.writeFileSync(
-        path.join(workspace, '.gitignore'),
-        [
-          '.DS_Store',
-          '.deepscientist/artifact-repo/',
-          '.deepscientist/science-artifacts/',
-          '.deepscientist/factor-search/',
-          '.agents/skills/',
-          '.codex/skills/',
-          'node_modules/',
-          'out/',
-          'dist/',
-          'build/',
-          'coverage/',
-          '.cache/',
-          '__pycache__/',
-          '.pytest_cache/',
-          '*.log',
-          '.env',
-          '.env.*',
-          '*.pem',
-          '*.key',
-          '',
-        ].join('\n'),
-        'utf8'
-      );
-      fs.writeFileSync(path.join(workspace, 'README.md'), `# DeepScientist Project\n\n## Goal\n\n${goal}\n`, 'utf8');
-      initializeMainRepository(workspace);
-      addLocalProjectExcludes(workspace);
-      runGit(workspace, ['config', 'user.name', 'DeepScientist']);
-      runGit(workspace, ['config', 'user.email', 'checkpoint@deepscientist.local']);
-      const add = runGit(workspace, [
-        'add',
-        '--',
-        '.gitignore',
-        'README.md',
-        DEEPSCIENTIST_GITIGNORE_RELATIVE_PATH,
-        PROJECT_MANIFEST_RELATIVE_PATH,
-      ]);
-      if (add.status !== 0) throw new Error(errorMessage(add, 'Unable to stage the managed project manifest.'));
-      const commit = runGit(workspace, [
-        'commit',
-        '-m',
-        '[project] initialize managed project',
-        '-m',
-        checkpointCommitBody({ stage: 'project' }),
-      ]);
-      if (commit.status !== 0) throw new Error(errorMessage(commit, 'Unable to create the managed project baseline.'));
-      return { ok: true, workspace, projectId, created: true };
-    });
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
-  }
-};
-
-export const prepareManagedGoalProject = prepareManagedProject;
 
 /**
  * Clone a user-approved remote into a fresh local workspace. This is kept
@@ -4513,13 +3797,7 @@ export const cloneProjectGit = (request: ProjectGitCloneRequest): ProjectGitClon
         remoteRef: request.ref,
         trustState: 'unreviewed',
       };
-      notifyProjectGitChanged({
-        workspace,
-        repoRoot: repository.repoRoot,
-        reason: 'cloned',
-        branch: repository.branch,
-        head: repository.head,
-      });
+
       return {
         ok: true,
         workspace,
@@ -4536,385 +3814,5 @@ export const cloneProjectGit = (request: ProjectGitCloneRequest): ProjectGitClon
       ok: false,
       error: error instanceof Error ? error.message : String(error),
     };
-  }
-};
-
-const safeWorkspaceId = (value: string): string =>
-  String(value || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/gu, '-')
-    .replace(/^-+|-+$/gu, '')
-    .slice(0, 56) || crypto.randomBytes(8).toString('hex');
-
-export const prepareProjectWorkspace = (
-  request: ProjectGitPrepareWorkspaceRequest
-): ProjectGitPrepareWorkspaceResult => {
-  try {
-    const baseDir = String(request.baseDir || '').trim();
-    const goal = String(request.goal || '').trim();
-    const conversationId = safeWorkspaceId(request.conversationId);
-    if (!baseDir) throw new Error('A DeepScientist data directory is required.');
-    if (!goal) throw new Error('A goal is required to prepare the project workspace.');
-
-    if (request.strategy === 'managed') {
-      const managed = prepareManagedProject({ baseDir, goal });
-      if (!managed.ok || !managed.workspace) return managed;
-      const initialRepository = discoverRepository(managed.workspace);
-      const amend = withProjectGitRepositoryLock(initialRepository.repoRoot, () =>
-        runGit(managed.workspace, [
-          '-c',
-          'user.name=DeepScientist',
-          '-c',
-          'user.email=checkpoint@deepscientist.local',
-          'commit',
-          '--amend',
-          '-m',
-          '[project] initialize managed project',
-          '-m',
-          checkpointCommitBody({ stage: 'project', conversationId: request.conversationId }),
-        ])
-      );
-      if (amend.status !== 0) {
-        throw new Error(errorMessage(amend, 'Unable to bind the managed project baseline to the conversation.'));
-      }
-      const repository = discoverRepository(managed.workspace);
-      return {
-        ...managed,
-        binding: {
-          schema: 'deepscientist.project_git.v1',
-          strategy: 'managed',
-          projectId: managed.projectId,
-          sourceRoot: managed.workspace,
-          workspaceRoot: managed.workspace,
-          branch: repository.branch,
-          baseCommit: repository.head,
-          sourceDirty: false,
-        },
-      };
-    }
-
-    if (!request.sourceWorkspace) throw new Error('A source workspace is required for this project strategy.');
-    const sourceWorkspace = resolveWorkspace(request.sourceWorkspace);
-    const preflight = inspectProjectGitWorkspace({ workspace: sourceWorkspace });
-    if (!preflight.ok) throw new Error(preflight.error || 'Unable to inspect the selected project.');
-
-    if (request.strategy === 'current-worktree') {
-      let initializedProject: { projectId: string; commit: string } | undefined;
-      if (preflight.kind === 'non-git') {
-        initializedProject = withProjectGitPathLock(sourceWorkspace, () => {
-          initializeMainRepository(sourceWorkspace);
-          const repository = discoverRepository(sourceWorkspace);
-          return withProjectGitRepositoryLock(repository.repoRoot, () =>
-            createSelectedProjectBaseline({
-              workspace: sourceWorkspace,
-              goal,
-              conversationId: request.conversationId,
-            })
-          );
-        });
-      }
-      const repository = discoverRepository(sourceWorkspace);
-      const projectId =
-        initializedProject?.projectId ||
-        resolveProjectId(sourceWorkspace, repository.repoRoot, repository.workspacePrefix);
-      return {
-        ok: true,
-        workspace: sourceWorkspace,
-        projectId,
-        created: preflight.kind === 'non-git',
-        binding: {
-          schema: 'deepscientist.project_git.v1',
-          strategy: 'current-worktree',
-          projectId,
-          sourceRoot: sourceWorkspace,
-          workspaceRoot: sourceWorkspace,
-          branch: repository.branch,
-          baseCommit: repository.head,
-          sourceDirty: repository.dirty,
-        },
-      };
-    }
-
-    const repository = preflight.repository;
-    if (!repository || !repository.head || repository.bare) {
-      throw new Error(
-        'The selected Git project needs a non-bare baseline commit before an isolated workspace can be created.'
-      );
-    }
-    assertRepositoryRootWriteScope(repository, 'Creating an isolated project worktree');
-    fs.mkdirSync(baseDir, { recursive: true });
-    const resolvedBase = fs.realpathSync(baseDir);
-    const repoId = crypto.createHash('sha256').update(repository.repoRoot).digest('hex').slice(0, 12);
-    const worktreeParent = path.join(resolvedBase, 'project-worktrees', repoId);
-    const worktreeRoot = path.join(worktreeParent, conversationId);
-    fs.mkdirSync(worktreeParent, { recursive: true });
-    if (fs.existsSync(worktreeRoot)) throw new Error('The isolated project workspace already exists.');
-    const branchNamespace = request.branchKind === 'conversation-fork' ? 'fork' : 'discovery';
-    const branch = `deepscientist/${branchNamespace}/${conversationId}`;
-    const add = withProjectGitRepositoryLock(repository.repoRoot, () =>
-      runGit(repository.repoRoot, ['worktree', 'add', '-b', branch, worktreeRoot, repository.head])
-    );
-    if (add.status !== 0) throw new Error(errorMessage(add, 'Unable to create the isolated research workspace.'));
-    const workspace = repository.workspacePrefix ? path.join(worktreeRoot, repository.workspacePrefix) : worktreeRoot;
-    if (!fs.existsSync(workspace))
-      throw new Error('The selected project subdirectory is missing from the new worktree.');
-    const projectId =
-      readProjectId(workspace) ||
-      readProjectId(worktreeRoot) ||
-      resolveProjectId(repository.repoRoot, repository.repoRoot);
-    return {
-      ok: true,
-      workspace,
-      projectId,
-      created: true,
-      binding: {
-        schema: 'deepscientist.project_git.v1',
-        strategy: 'isolated-worktree',
-        projectId,
-        sourceRoot: sourceWorkspace,
-        workspaceRoot: workspace,
-        branch,
-        baseCommit: repository.head,
-        sourceDirty: repository.dirty,
-      },
-    };
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
-  }
-};
-
-export const prepareGoalProjectWorkspace = prepareProjectWorkspace;
-
-export const bindManagedProjectConversation = (
-  request: ProjectGitBindConversationRequest
-): ProjectGitBindConversationResult =>
-  withRepository<ProjectGitBindConversationResult>(request, {}, (discoveredRepository) =>
-    withProjectGitRepositoryLock(discoveredRepository.repoRoot, () => {
-      const repository = discoverRepository(request.workspace);
-      assertRepositoryRootWriteScope(repository, 'Binding a managed project baseline');
-      if (!repository.head) throw new Error('The managed project has no baseline commit.');
-      const summary = getCommitSummary(repository.repoRoot, repository.head);
-      if (summary.checkpoint?.stage !== 'project') {
-        throw new Error('The managed project baseline is not a DeepScientist project checkpoint.');
-      }
-      if (summary.checkpoint.conversationId === request.conversationId) {
-        return { ok: true, repository, commit: summary.sha, shortCommit: summary.shortSha };
-      }
-      const amend = runGit(repository.repoRoot, [
-        '-c',
-        'user.name=DeepScientist',
-        '-c',
-        'user.email=checkpoint@deepscientist.local',
-        'commit',
-        '--amend',
-        '-m',
-        summary.subject,
-        '-m',
-        checkpointCommitBody({
-          stage: summary.checkpoint.stage,
-          runId: summary.checkpoint.runId,
-          conversationId: request.conversationId,
-          verification: summary.checkpoint.verification,
-          metrics: summary.checkpoint.metrics,
-        }),
-      ]);
-      if (amend.status !== 0)
-        throw new Error(errorMessage(amend, 'Unable to bind the managed baseline to the conversation.'));
-      const commit = resolveCommit(repository.repoRoot, 'HEAD');
-      return {
-        ok: true,
-        repository: discoverRepository(request.workspace),
-        commit,
-        shortCommit: commit.slice(0, 7),
-      };
-    })
-  );
-
-export type ProjectWorkspaceDeletionPlan = {
-  kind: ProjectWorkspaceDeletionKind;
-  targetPath: string;
-  worktreesRoot?: string;
-  sourceRepositoryRoot?: string;
-  branch?: string;
-};
-
-export type ProjectWorkspaceDeletionPlanRequest = ProjectWorkspaceDeletionRequest & {
-  workspace: string;
-  binding?: ProjectGitWorkspaceBinding;
-  temporary?: boolean;
-};
-
-export type ProjectWorkspaceDeletionPlanResult = {
-  ok: boolean;
-  plan?: ProjectWorkspaceDeletionPlan;
-  error?: string;
-};
-
-const isDirectChild = (parent: string, candidate: string): boolean => path.dirname(candidate) === parent;
-
-const isNestedTwoLevelsBelow = (parent: string, candidate: string): boolean => {
-  const relative = path.relative(parent, candidate);
-  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return false;
-  return relative.split(path.sep).length === 2;
-};
-
-const deletionConversationIds = (request: ProjectWorkspaceDeletionPlanRequest): Set<string> =>
-  new Set([request.conversationId, ...(request.deletingConversationIds ?? [])]);
-
-const assertManagedProjectOwnership = (
-  request: ProjectWorkspaceDeletionPlanRequest,
-  workspace: string,
-  managedRoot: string
-): void => {
-  if (!isDirectChild(managedRoot, workspace)) {
-    throw new Error('Only a direct child of the DeepScientist managed-projects directory can be deleted.');
-  }
-  const manifest = readProjectManifest(workspace);
-  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
-    throw new Error('The managed project manifest is missing or invalid.');
-  }
-  const record = manifest as Record<string, unknown>;
-  if (record.schema !== 'deepscientist.project.v1' || record.managed !== true) {
-    throw new Error('The workspace is not marked as a DeepScientist-managed project.');
-  }
-  const manifestProjectId = typeof record.projectId === 'string' ? record.projectId : record.id;
-  if (request.binding?.projectId && manifestProjectId !== request.binding.projectId) {
-    throw new Error('The managed project id does not match the conversation binding.');
-  }
-  const repository = discoverRepository(workspace);
-  if (repository.repoRoot !== workspace || !repository.head) {
-    throw new Error('The managed project repository root could not be verified.');
-  }
-  const rootsResult = runGit(repository.repoRoot, ['rev-list', '--max-parents=0', 'HEAD']);
-  if (rootsResult.status !== 0) {
-    throw new Error(errorMessage(rootsResult, 'Unable to verify the managed project baseline.'));
-  }
-  const rootCommits = rootsResult.stdout
-    .toString('utf8')
-    .split(/\r?\n/u)
-    .map((value) => value.trim())
-    .filter(Boolean);
-  if (rootCommits.length !== 1) {
-    throw new Error('The managed project must have exactly one baseline commit.');
-  }
-  const summary = getCommitSummary(repository.repoRoot, rootCommits[0]);
-  if (
-    summary.checkpoint?.stage !== 'project' ||
-    !summary.checkpoint.conversationId ||
-    !deletionConversationIds(request).has(summary.checkpoint.conversationId)
-  ) {
-    throw new Error('The managed project is not owned by this conversation.');
-  }
-};
-
-const planIsolatedWorktreeDeletion = (
-  request: ProjectWorkspaceDeletionPlanRequest,
-  workspace: string,
-  worktreesRoot: string
-): ProjectWorkspaceDeletionPlan => {
-  const binding = request.binding;
-  if (!binding || binding.strategy !== 'isolated-worktree') {
-    throw new Error('The conversation does not contain an isolated-worktree binding.');
-  }
-  const repository = discoverRepository(workspace);
-  if (!isNestedTwoLevelsBelow(worktreesRoot, repository.repoRoot)) {
-    throw new Error('The worktree is outside the DeepScientist project-worktrees directory.');
-  }
-  const workspaceId = Array.from(deletionConversationIds(request))
-    .map((conversationId) => safeWorkspaceId(conversationId))
-    .find((candidate) => path.basename(repository.repoRoot) === candidate);
-  if (!workspaceId) {
-    throw new Error('The worktree directory is not owned by this conversation.');
-  }
-  const branch = binding.branch;
-  if (
-    !branch ||
-    ![`deepscientist/discovery/${workspaceId}`, `deepscientist/fork/${workspaceId}`].includes(branch) ||
-    repository.branch !== branch
-  ) {
-    throw new Error('The worktree branch does not match the conversation binding.');
-  }
-  const sourceRepository = discoverRepository(binding.sourceRoot);
-  if (gitCommonDir(sourceRepository.repoRoot) !== gitCommonDir(repository.repoRoot)) {
-    throw new Error('The worktree and source repository do not share Git metadata.');
-  }
-  return {
-    kind: 'isolated-worktree',
-    targetPath: repository.repoRoot,
-    worktreesRoot,
-    sourceRepositoryRoot: sourceRepository.repoRoot,
-    branch,
-  };
-};
-
-export const planProjectWorkspaceDeletion = (
-  request: ProjectWorkspaceDeletionPlanRequest & { baseDir: string }
-): ProjectWorkspaceDeletionPlanResult => {
-  try {
-    const baseDir = fs.realpathSync(request.baseDir);
-    const workspace = resolveWorkspace(request.workspace);
-    const managedRoot = path.join(baseDir, 'managed-projects');
-    const worktreesRoot = path.join(baseDir, 'project-worktrees');
-    const temporaryRoot = path.join(baseDir, 'conversations');
-
-    if (request.binding?.strategy === 'managed') {
-      const resolvedManagedRoot = fs.realpathSync(managedRoot);
-      assertManagedProjectOwnership(request, workspace, resolvedManagedRoot);
-      return { ok: true, plan: { kind: 'managed', targetPath: workspace } };
-    }
-
-    if (request.binding?.strategy === 'isolated-worktree') {
-      const resolvedWorktreesRoot = fs.realpathSync(worktreesRoot);
-      return { ok: true, plan: planIsolatedWorktreeDeletion(request, workspace, resolvedWorktreesRoot) };
-    }
-
-    if (request.temporary === true) {
-      const resolvedTemporaryRoot = fs.realpathSync(temporaryRoot);
-      if (
-        !isDirectChild(resolvedTemporaryRoot, workspace) ||
-        !/^[a-z0-9_-]+-temp-[a-f0-9]{8}$/iu.test(path.basename(workspace))
-      ) {
-        throw new Error('The temporary workspace is not owned by DeepScientist.');
-      }
-      return { ok: true, plan: { kind: 'temporary', targetPath: workspace } };
-    }
-
-    throw new Error('User-selected project directories cannot be deleted with a conversation.');
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
-  }
-};
-
-export const finalizeProjectWorkspaceDeletion = (
-  plan: ProjectWorkspaceDeletionPlan
-): { ok: boolean; error?: string } => {
-  try {
-    if (plan.kind !== 'isolated-worktree') return { ok: true };
-    if (!plan.sourceRepositoryRoot || !plan.branch || !plan.worktreesRoot) {
-      throw new Error('The isolated-worktree deletion plan is incomplete.');
-    }
-    return withProjectGitRepositoryLock(plan.sourceRepositoryRoot, () => {
-      const prune = runGit(plan.sourceRepositoryRoot, ['worktree', 'prune', '--expire', 'now']);
-      if (prune.status !== 0) throw new Error(errorMessage(prune, 'Unable to prune the deleted Git worktree.'));
-      const branchExists = runGit(plan.sourceRepositoryRoot, [
-        'show-ref',
-        '--verify',
-        '--quiet',
-        `refs/heads/${plan.branch}`,
-      ]);
-      if (branchExists.status === 0) {
-        const removeBranch = runGit(plan.sourceRepositoryRoot, ['branch', '-D', plan.branch]);
-        if (removeBranch.status !== 0) {
-          throw new Error(errorMessage(removeBranch, 'Unable to delete the isolated Git branch.'));
-        }
-      }
-      const parent = path.dirname(plan.targetPath);
-      if (isDirectChild(plan.worktreesRoot, parent) && fs.existsSync(parent) && fs.readdirSync(parent).length === 0) {
-        fs.rmdirSync(parent);
-      }
-      return { ok: true };
-    });
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }
 };

@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export const BUILTIN_IOAI_COMPETITION_NAME = 'deepscientist-challenge';
 
 export const BUILTIN_SCIENCE_ARTIFACT_NAME = 'deepscientist-science-artifact';
 /** Dedicated source name for role-scoped Research Team orchestration. */
@@ -13,7 +12,6 @@ export const BUILTIN_RESEARCH_EVIDENCE_NAME = 'deepscientist-research-evidence';
 
 export const RESEARCH_TEAM_CORE_BASE_URL_ENV = 'DEEPSCIENTIST_RESEARCH_TEAM_CORE_BASE_URL';
 
-export const IOAI_COMPETITION_CORE_BASE_URL_ENV = 'DEEPSCIENTIST_IOAI_CORE_BASE_URL';
 
 // Research Team orchestration receives a role-scoped capability.
 export const RESEARCH_TEAM_CAPABILITY_SCHEMA = 'deepscientist.research-team.mcp-capability.v1';

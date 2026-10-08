@@ -140,29 +140,11 @@ export interface ScienceClaimVerification {
   blockingWarningIds: string[];
 }
 
-export type ScienceArtifactType =
-  | 'report'
-  | 'figure'
-  | 'table'
-  | 'dataset'
-  | 'code'
-  | 'notebook'
-  | 'manuscript'
-  | 'pdf'
-  | 'latex'
-  | 'html'
-  | 'molecule'
-  | 'protein_structure'
-  | 'genome_track'
-  | 'alignment'
-  | 'regression_table'
-  | 'model_diagnostic'
-  | 'causal_dag'
-  | 'survey_codebook'
-  | 'geospatial_map'
-  | 'qualitative_coding'
-  | 'replication_package'
-  | 'run_bundle';
+export const SCIENCE_ARTIFACT_TYPES = Object.freeze([
+  'report', 'figure', 'table', 'dataset', 'code', 'notebook', 'manuscript',
+  'pdf', 'latex', 'html', 'replication_package', 'run_bundle',
+] as const);
+export type ScienceArtifactType = (typeof SCIENCE_ARTIFACT_TYPES)[number];
 
 export type ScienceArtifactInspectorTab =
   | 'overview'
@@ -174,72 +156,20 @@ export type ScienceArtifactInspectorTab =
   | 'history'
   | 'review';
 
-export type ScienceStructureViewerKind = 'auto' | '3dmol' | 'molstar' | 'rcsb_molstar';
-
-export type ScienceStructureRepresentation = 'auto' | 'cartoon' | 'stick' | 'sphere' | 'line' | 'surface';
-export type ScienceStructureColorBy = 'auto' | 'chain' | 'element' | 'spectrum' | 'plddt' | 'secondary_structure';
-export type ScienceArtifactViewerKind =
-  | ScienceStructureViewerKind
-  | 'igv'
-  | 'ketcher'
-  | 'vitessce'
-  | 'msa'
-  | 'regression_table'
-  | 'model_diagnostic'
-  | 'causal_dag'
-  | 'map'
-  | 'codebook'
-  | 'qualitative_coding'
-  | 'target_discovery'
-  | 'financial_factor'
-  | 'financial_research'
-  | 'mathematics'
-  | 'report_chart'
-  | 'proof_trace';
-
-export interface ScienceStructureViewerSelection {
-  chain?: string;
-  residueStart?: number;
-  residueEnd?: number;
-  residues?: number[];
-  ligand?: string;
-  atomIds?: number[];
-}
-
-export interface ScienceStructureViewerAnnotation extends ScienceStructureViewerSelection {
-  label: string;
-  evidenceIds?: string[];
-  color?: string;
-}
+export const SCIENCE_ARTIFACT_VIEWER_KINDS = Object.freeze(['mathematics', 'report_chart', 'proof_trace'] as const);
+export type ScienceArtifactViewerKind = (typeof SCIENCE_ARTIFACT_VIEWER_KINDS)[number];
 
 export interface ScienceArtifactViewerSpec {
   kind?: ScienceArtifactViewerKind;
-  format?: string;
-  representation?: ScienceStructureRepresentation;
-  colorBy?: ScienceStructureColorBy;
-  background?: 'light' | 'dark' | 'transparent';
-  focus?: ScienceStructureViewerSelection | Record<string, unknown>;
-  annotations?: Array<ScienceStructureViewerAnnotation | Record<string, unknown>>;
   configPath?: string;
   dataPath?: string;
   indexPath?: string;
   sourcePath?: string;
   tablePath?: string;
-  modelPath?: string;
   logPath?: string;
   schemaPath?: string;
-  codebookPath?: string;
-  variableDictionaryPath?: string;
-  dagPath?: string;
-  mapPath?: string;
   editable?: boolean;
   savePolicy?: 'read_only' | 'new_version_required' | 'overwrite_allowed';
-  tracks?: Array<Record<string, unknown>>;
-  datasets?: Array<Record<string, unknown>>;
-  layers?: Array<Record<string, unknown>>;
-  variables?: Array<Record<string, unknown>>;
-  diagnostics?: Array<Record<string, unknown>>;
-  assumptions?: Array<Record<string, unknown>>;
   evidenceIds?: string[];
   chartSpec?: ReportChartSpec;
 }
@@ -1156,17 +1086,7 @@ export interface ScienceArtifactPage {
     | 'latex'
     | 'notebook'
     | 'pdf'
-    | 'provenance'
-    | 'structure'
-    | 'regression_table'
-    | 'model_diagnostic'
-    | 'causal_dag'
-    | 'codebook'
-    | 'map'
-    | 'qualitative_coding'
-    | 'target_discovery'
-    | 'financial_factor'
-    | 'financial_research';
+    | 'provenance';
   layout: 'report_artifact_inspector' | 'single_preview' | 'split_editor_preview' | 'ledger' | 'drawer';
   panes: Array<{
     id: string;
@@ -1180,18 +1100,7 @@ export interface ScienceArtifactPage {
       | 'compiled_pdf'
       | 'notebook'
       | 'evidence_ledger'
-      | 'provenance_chain'
-      | 'structure_viewer'
-      | 'social_science_viewer'
-      | 'regression_table'
-      | 'model_diagnostic'
-      | 'causal_dag'
-      | 'map'
-      | 'codebook'
-      | 'qualitative_coding'
-      | 'target_discovery'
-      | 'financial_factor'
-      | 'financial_research';
+      | 'provenance_chain';
     target?: {
       artifactId?: string;
       artifactVersion?: number;
@@ -1508,31 +1417,8 @@ export interface ScienceReportVisualReview {
 }
 
 const SCIENCE_REPORT_VISUAL_RENDERERS = new Set(['image', 'svg', 'report_chart', 'proof_trace']);
-const SCIENCE_REPORT_VISUAL_ARTIFACT_TYPES = new Set<ScienceArtifactType>([
-  'figure',
-  'molecule',
-  'protein_structure',
-  'genome_track',
-  'alignment',
-  'model_diagnostic',
-  'causal_dag',
-  'geospatial_map',
-  'qualitative_coding',
-]);
-const SCIENCE_REPORT_VISUAL_VIEWERS = new Set<ScienceArtifactViewerKind>([
-  '3dmol',
-  'molstar',
-  'rcsb_molstar',
-  'igv',
-  'vitessce',
-  'msa',
-  'model_diagnostic',
-  'causal_dag',
-  'map',
-  'qualitative_coding',
-  'report_chart',
-  'proof_trace',
-]);
+const SCIENCE_REPORT_VISUAL_ARTIFACT_TYPES = new Set<ScienceArtifactType>(['figure']);
+const SCIENCE_REPORT_VISUAL_VIEWERS = new Set<ScienceArtifactViewerKind>(['report_chart', 'proof_trace']);
 const SCIENCE_REPORT_IMAGE_PATH = /\.(?:gif|jpe?g|png|svg|tiff?|webp)$/iu;
 
 const structuredNumericObservationCount = (
