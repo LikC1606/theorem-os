@@ -2,14 +2,29 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { afterEach, describe, expect, it } from 'vitest';
+import {
+  afterEach,
+  describe,
+  expect,
+  it,
+} from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { getDefaultEnvironment, StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { BUILTIN_RESEARCH_TEAM_NAME, BUILTIN_SCIENCE_ARTIFACT_NAME, RESEARCH_TEAM_CAPABILITY_ACTIONS_ENV } from '../src/common/config/builtinMcpConstants';
+import {
+  BUILTIN_RESEARCH_TEAM_NAME,
+  BUILTIN_SCIENCE_ARTIFACT_NAME,
+  RESEARCH_TEAM_CAPABILITY_ACTIONS_ENV,
+} from '../src/common/config/builtinMcpConstants';
 import { createHeadlessMathematicsTeamProfile } from '../src/common/chat/team/modeProfiles';
-import { getResearchTeamRoleMcpActions, prepareResearchTeamRoleMcpServers } from '../src/common/types/team/researchTeamMcp';
+import {
+  getResearchTeamRoleMcpActions,
+  prepareResearchTeamRoleMcpServers,
+} from '../src/common/types/team/researchTeamMcp';
 import { freezeMathRunInputs } from '../src/math/mathRunInputs';
-import { MATHEMATICS_INTERACTION_PROFILE_ENV, MATHEMATICS_LITE_INTERACTION_PROFILE } from '../src/math/mathRuntimeEnvironment';
+import {
+  MATHEMATICS_INTERACTION_PROFILE_ENV,
+  MATHEMATICS_LITE_INTERACTION_PROFILE,
+} from '../src/math/mathRuntimeEnvironment';
 
 const bundle = path.resolve('out/main/builtin-mcp-research-team.js');
 const roots: string[] = [];
@@ -86,6 +101,45 @@ describe('mathematics MCP entrypoint', () => {
 });
 
 describe('mathematics tool service', () => {
+  it('keeps evidence transactions atomic and publishes ordinary mathematical reports', async () => {
+    const client = new Client({ name: 'math-report-test', version: '1.0.0' });
+    await client.connect(new StdioClientTransport({ command: process.execPath,
+      args: [path.resolve('out/main/builtin-mcp-science-artifact.js')], env: getDefaultEnvironment(), stderr: 'pipe' }));
+    const call = async (args: Record<string, unknown>) => {
+      const result = await client.callTool({ name: 'science_artifact', arguments: args });
+      const text = (result.content as Array<{ text: string }>)[0].text;
+      return { result, text, json: () => JSON.parse(text) };
+    };
+    try {
+      const { tools } = await client.listTools();
+      const artifact = tools.find(tool => tool.name === 'science_artifact')!;
+      expect((artifact.inputSchema.properties!.action as { enum: string[] }).enum).not.toEqual(expect.arrayContaining(['submit_idea']));
+      const description = await call({ action: 'describe' });
+      expect(description.text).not.toMatch(/financeCompletion|target_portfolio|get_optimization_frontier/);
+      const created = await call({ action: 'create', runId: 'report-fixture', target: { kind: 'evidence', id: 'source-1' },
+        payload: { title: 'Checked local source', sourceType: 'file', confidence: 'high', summary: 'Original source' } });
+      expect(created.result.isError).not.toBe(true);
+      const revision = created.json().object.revision;
+      const failed = await call({ action: 'transact', runId: 'report-fixture', operations: [
+        { opId: 'first', action: 'patch', target: { kind: 'evidence', id: 'source-1' }, baseRevision: revision,
+          payload: { summary: 'Must roll back' } },
+        { opId: 'second', action: 'patch', target: { kind: 'evidence', id: 'missing-source' }, payload: { title: 'Missing' } },
+      ] });
+      expect(failed.result.isError).toBe(true);
+      const unchanged = await call({ action: 'get', runId: 'report-fixture', target: { kind: 'evidence', id: 'source-1' } });
+      expect(unchanged.json().object).toMatchObject({ summary: 'Original source', revision });
+      const publication = await call({ action: 'publish', runId: 'report-fixture', payload: {
+        status: 'partial', report: { title: 'Mathematical progress', sections: [{ id: 'summary', heading: 'Result',
+          blocks: [{ type: 'paragraph', text: 'A local result is recorded; the full proof remains open.', evidenceIds: ['source-1'] }] }] },
+      } });
+      expect(publication.result.isError).not.toBe(true);
+      expect(publication.json().panel).toMatchObject({ status: 'partial', report: { title: 'Mathematical progress' } });
+      expect(publication.json()).not.toHaveProperty('financeReceipt');
+    } finally {
+      await client.close();
+    }
+  });
+
   it.each(['lead', 'worker'] as const)('preserves the %s catalog and publication boundary', async kind => {
     const { env } = fixture(kind, true);
     const transport = new StdioClientTransport({ command: process.execPath,

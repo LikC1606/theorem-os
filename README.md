@@ -70,6 +70,6 @@ bun run test
 - `resources/skills/deepscientist-mathematics/`：数学 SOP 和参考材料。
 - `extraction.json`：原始 commit、文件来源和原始文件哈希。
 
-兼容层仍包含通用 Science/Artifact 和部分历史领域契约。独立 MCP 已移除金融、目标发现、报告图表和 Challenge 专用工具的注册；后续精简内部兼容层应继续守住现有数学协议边界。
+兼容层仅保留数学入口使用的通用 Artifact、报告、图表与证据能力；金融、目标发现、竞赛和旧桌面模块已移除。文献检索支持公共论文搜索和 PaperClip。历史 Git 元数据及回执密钥的环境变量、路径和签名格式保留兼容。
 
 验证使用独立 bundle 构建、CLI 进程边界测试，以及原项目中覆盖数学状态、源码集成、恢复和精确代数的回归测试。测试不会启动真实模型；模型求解效果和真实题目的评测通过率需要另行实验。

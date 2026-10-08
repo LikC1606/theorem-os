@@ -32,30 +32,13 @@ import {
 } from "../common/chat/projectWorkspace";
 import { LOOP_GOAL_ENV_KEYS } from "../common/chat/loopGoal";
 import {
-  FINANCIAL_FACTOR_PORTFOLIO_PATH,
-  FINANCIAL_FACTOR_PORTFOLIO_ARTIFACT_ID,
-  readFinancialFactorPortfolio,
-} from "../common/chat/financialFactor";
-import {
-  FINANCE_ARTIFACT_KINDS,
-  FINANCE_TOOL_RECEIPT_SCHEMA,
-  buildStructuredReportCardAuthoringGuide,
-  financeArtifactMetadataSchema,
-  financeCompletionManifestSchema,
-  getFinanceTaskContract,
-  materializeStructuredReportCardDrafts,
-  preflightFinanceCompletion,
-  readFinanceArtifactKind,
-  readFinanceArtifactMetadata,
   validateStructuredReportCards,
-  type FinanceCompletionManifest,
-  type FinanceCompletionPreflightResult,
-  type FinanceToolRequirementCondition,
-  type FinanceToolReceipt,
   type StructuredReportCard,
-  type StructuredReportCardDraftContext,
-} from "../common/chat/finance/index";
-import { normalizeProjectGitDirectionDecision, normalizeResearchStrategy } from "../common/chat/researchStrategy";
+} from "../common/chat/structuredReportCards";
+import {
+  normalizeProjectGitDirectionDecision,
+  normalizeResearchStrategy,
+} from "../common/chat/researchStrategy";
 import {
   buildResearchRoutePresentation,
   readResearchRouteMap,
@@ -76,18 +59,6 @@ import {
   type ScienceArtifactPage,
   type ScienceArtifactResourceKind,
   type ScienceArtifactSnapshotIncludePath,
-  type ScienceOptimizationArtifactMetadata,
-  type ScienceOptimizationCandidateQuality,
-  type ScienceOptimizationDispatchDecision,
-  type ScienceOptimizationDispatchTarget,
-  type ScienceOptimizationFusionEvidence,
-  type ScienceOptimizationFailureClass,
-  type ScienceOptimizationLessonCapsule,
-  type ScienceOptimizationMetric,
-  type ScienceOptimizationRoute,
-  type ScienceOptimizationStabilityAssessment,
-  type ScienceOptimizationStrongestAlternative,
-  type ScienceOptimizationTaskScope,
   type ScienceClaim,
   type ScienceClaimVerification,
   type ScienceEvidenceItem,
@@ -118,14 +89,6 @@ import type {
   ProjectGitResearchStageReceipt,
   ProjectGitWorkspaceBinding,
 } from "../common/types/office/preview";
-import {
-  inspectTargetDiscoveryPortfolio,
-  readTargetDiscoveryPortfolio,
-  summarizeTargetDiscoveryPortfolio,
-  TARGET_DISCOVERY_PORTFOLIO_ARTIFACT_ID,
-  TARGET_DISCOVERY_PORTFOLIO_PATH,
-  type TargetDiscoveryPortfolio,
-} from "../common/chat/targetDiscovery";
 import {
   MATHEMATICS_EVENT_SCHEMA,
   MATHEMATICS_PORTFOLIO_ARTIFACT_ID,
@@ -181,13 +144,7 @@ import {
   readScienceArtifactRunSnapshot,
   searchScienceArtifactEvidenceIndex,
 } from "../shared/services/scienceArtifactGitStore";
-import {
-  commitLoadedTargetDiscoveryImport,
-  loadTargetDiscoveryImport,
-  readTargetDiscoveryProjectPortfolio,
-  reconcileTargetDiscoveryProject,
-} from "../shared/services/targetDiscoveryImport";
-import { BUILTIN_SCIENCE_ARTIFACT_NAME } from "./constants";
+import { BUILTIN_SCIENCE_ARTIFACT_NAME } from "../common/config/builtinMcpConstants";
 import {
   PROJECT_WORKSPACE_TOOL_DESCRIPTION,
   SCIENCE_ARTIFACT_FULL_CONTRACT,
@@ -240,10 +197,7 @@ import {
 } from "../math/leanEvalProblemAnalyzer";
 import { runLeanEvalLeanProbe } from "../math/leanEvalLeanProbe";
 import { runLeanEvalCounterexampleProbe } from "../math/leanEvalCounterexampleProbe";
-import {
-  materializeLeanEvalProblemBinding,
-  prepareLeanEvalProblemBinding,
-} from "../math/leanEvalAdapter";
+import { materializeLeanEvalProblemBinding, prepareLeanEvalProblemBinding } from "../math/leanEvalAdapter";
 import {
   rankUpstreamLeanPremises,
   retrieveLeanPremisesForFailure,
@@ -259,18 +213,9 @@ import {
 } from "../math/leanEvalIntake";
 import { bootstrapLeanEvalProblem, runPersistedLeanEvalOfficialGate } from "../math/leanEvalBootstrap";
 import { findLeanEvalTeamReceipt } from "../math/leanEvalTeamWorkspace";
-import {
-  readLeanEvalOutcomeLedgerRevision,
-  readLeanEvalOutcomeSummary,
-} from "../math/leanEvalOutcomeLedger";
-import {
-  readLeanProjectCompatibility,
-  searchUpstreamLeanPackages,
-} from "../math/upstreamPackageSearch";
-import {
-  adoptUpstreamLeanPackage,
-  adoptUpstreamLeanPackages,
-} from "../math/leanDependencyAdoption";
+import { readLeanEvalOutcomeLedgerRevision, readLeanEvalOutcomeSummary } from "../math/leanEvalOutcomeLedger";
+import { readLeanProjectCompatibility, searchUpstreamLeanPackages } from "../math/upstreamPackageSearch";
+import { adoptUpstreamLeanPackage, adoptUpstreamLeanPackages } from "../math/leanDependencyAdoption";
 import {
   searchInstalledLeanPackagePremises,
   validateInstalledLeanPremiseHeaders,
@@ -282,19 +227,12 @@ import {
   readMathRunRetrievalCorpus,
   verifyMathRunInputs,
 } from "../math/mathRunInputs";
-import {
-  isMathPathWithin,
-  readMathRunBinding,
-  resolveMathRunProjectPaths,
-} from "../math/mathRunBinding";
+import { isMathPathWithin, readMathRunBinding, resolveMathRunProjectPaths } from "../math/mathRunBinding";
 import { isMathWorkerOwnedRoot, selectMathWorkerProbeScope } from "../math/mathWorkerProbeScope";
 import { readMathRunHistoryIdentity } from "../math/mathRunHistory";
 import { isAllowedMathProofSource } from "../math/mathProofSourcePolicy";
 import { signMathResearchObservation } from "../math/mathResearchEvidence";
-import {
-  prepareMathRouteRefutationTarget,
-  verifyMathRouteRefutation,
-} from "../math/mathRouteRefutation";
+import { prepareMathRouteRefutationTarget, verifyMathRouteRefutation } from "../math/mathRouteRefutation";
 import {
   resolveMathSearchPlan,
   runMathWorkerProofAction,
@@ -303,10 +241,7 @@ import {
 import { readMathResearchPolicy } from "../math/mathResearchPolicy";
 import { assertMathMcpRunning, installMathMcpShutdown } from "../math/mathMcpShutdown";
 import { leanSourceProbeInput, runLeanSourceProbe } from "../math/leanSourceProbe";
-import {
-  readMathResearchWorkflowState,
-  updateMathResearchWorkflow,
-} from "../math/mathResearchWorkflow";
+import { readMathResearchWorkflowState, updateMathResearchWorkflow } from "../math/mathResearchWorkflow";
 import { canonicalMathJson, mathDigest } from "../math/mathRuntimeIo";
 import {
   resolveMathAssignmentContext,
@@ -321,11 +256,6 @@ import {
   assertMathRunPortfolioPremises,
   bindMathRunPortfolio,
 } from "../math/mathRunPortfolio";
-import {
-  readFinanceReceiptSecret,
-  signFinanceToolReceipt,
-  verifiedFinanceReceiptIds,
-} from "../shared/services/finance/receiptAttestation";
 
 type JsonRecord = Record<string, unknown>;
 type TargetRef = {
@@ -369,8 +299,7 @@ export type ScienceRunState = {
   visualWaiverReason?: string;
   cards: StructuredReportCard[];
   cardDiagnostics: string[];
-  financeCompletion?: FinanceCompletionManifest;
-  financePreflight?: SciencePanelData['financePreflight'];
+
   statsPatch?: Partial<SciencePanelData['stats']>;
   evidence: Map<string, ScienceEvidenceItem>;
   artifacts: Map<string, ScienceArtifact>;
@@ -823,11 +752,6 @@ const asNumber = (value: unknown, fallback: number): number =>
   typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 
 const asArray = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
-
-const asStringArray = (value: unknown): string[] =>
-  asArray(value)
-    .map((item) => asString(item))
-    .filter(Boolean);
 
 const asLocalPath = (value: unknown, field: string): string | undefined => {
   const candidate = asString(value, '');
@@ -1392,19 +1316,6 @@ const assertProjectPathHasNoSymlinkEscape = (projectRoot: string, targetPath: st
   }
 };
 
-const isFactorPortfolioArtifactMutation = (action: string, body: JsonRecord): boolean => {
-  if (!['create', 'patch', 'replace', 'version'].includes(action)) return false;
-  const artifactType = asString(body.artifactType || body.artifact_type || body.type, '').toLowerCase();
-  const candidatePath = asString(body.primaryPath || body.primary_path || body.path, '')
-    .replaceAll('\\', '/')
-    .replace(/^\.\//u, '');
-  return (
-    artifactType === 'factor_portfolio' ||
-    artifactType === 'financial_factor_portfolio' ||
-    candidatePath === FINANCIAL_FACTOR_PORTFOLIO_PATH
-  );
-};
-
 const isMathematicsPortfolioArtifactMutation = (action: string, body: JsonRecord): boolean => {
   if (!['create', 'patch', 'replace', 'version'].includes(action)) return false;
   const artifactType = asString(body.artifactType || body.artifact_type || body.type, '').toLowerCase();
@@ -1595,10 +1506,7 @@ const hydrateRun = (id: string, projectRoot?: string): ScienceRunState | undefin
   const artifacts = hydrateArtifacts(state.artifacts);
   const cards = validateCardsAgainstResources(state.cards ?? panel.cards ?? [], artifacts, evidence);
   const cardErrors = cards.ok === false ? cards.errors : [];
-  const rawFinanceCompletion = state.financeCompletion ?? panel.financeCompletion;
-  const financeCompletion = rawFinanceCompletion
-    ? financeCompletionManifestSchema.safeParse(rawFinanceCompletion)
-    : undefined;
+
   const persistedCardDiagnostics = stringArray(state.cardDiagnostics ?? panel.cardDiagnostics);
   const trustedMathematicsState = snapshot.source === 'git';
   const legacyMathematicsVerification =
@@ -1656,20 +1564,7 @@ const hydrateRun = (id: string, projectRoot?: string): ScienceRunState | undefin
     visualWaiverReason,
     cards: cards.cards,
     cardDiagnostics: [...new Set([...persistedCardDiagnostics, ...cardErrors])],
-    financeCompletion: financeCompletion?.success ? (financeCompletion.data as FinanceCompletionManifest) : undefined,
-    financePreflight: isRecord(state.financePreflight)
-      ? (state.financePreflight as SciencePanelData['financePreflight'])
-      : isRecord(panel.financePreflight)
-        ? (panel.financePreflight as SciencePanelData['financePreflight'])
-        : rawFinanceCompletion && financeCompletion?.success === false
-          ? {
-              status: 'blocked',
-              gaps: financeCompletion.error.issues.map(
-                (issue) => `financeCompletion.${issue.path.join('.') || 'manifest'}: ${issue.message}`
-              ),
-              verifiedAt: new Date(createdAt).toISOString(),
-            }
-          : undefined,
+
     statsPatch: isRecord(state.statsPatch) ? (state.statsPatch as Partial<SciencePanelData['stats']>) : undefined,
     evidence,
     artifacts,
@@ -1718,39 +1613,6 @@ const assertBaseRevision = (current: { revision?: string } | undefined, baseRevi
   }
 };
 
-const FINANCE_PUBLICATION_INVALIDATING_ACTIONS = new Set<ScienceArtifactAction>([
-  'transact',
-  'create',
-  'patch',
-  'replace',
-  'append',
-  'version',
-  'checkpoint',
-  'prepare_branch',
-  'activate_branch',
-  'snapshot',
-  'annotate',
-]);
-
-const invalidateFinancePublication = (
-  run: ScienceRunState,
-  action: ScienceArtifactAction,
-  panel?: SciencePanelData
-): void => {
-  if (!run.financeCompletion || !FINANCE_PUBLICATION_INVALIDATING_ACTIONS.has(action)) return;
-  const financePreflight: NonNullable<SciencePanelData['financePreflight']> = {
-    status: 'partial',
-    gaps: [...new Set([...(run.financePreflight?.gaps ?? []), `stale_after_mutation:${action}`])],
-    verifiedAt: new Date(now()).toISOString(),
-  };
-  run.financePreflight = financePreflight;
-  if (run.status === 'completed') run.status = 'partial';
-  if (panel) {
-    panel.financePreflight = financePreflight;
-    if (panel.status === 'completed') panel.status = 'partial';
-  }
-};
-
 export const eventFor = (
   run: ScienceRunState,
   action: ScienceArtifactAction,
@@ -1758,7 +1620,7 @@ export const eventFor = (
   extra?: Partial<ScienceArtifactEvent>,
   includePaths?: ScienceArtifactSnapshotIncludePath[]
 ): ScienceArtifactEvent => {
-  invalidateFinancePublication(run, action, extra?.panel);
+
   const evt: ScienceArtifactEvent = {
     schema: SCIENCE_EVENT_SCHEMA,
     eventId: eventId(),
@@ -1905,27 +1767,16 @@ const normalizeArtifact = (run: ScienceRunState, value: JsonRecord): ScienceArti
   const primaryPath = rawPrimaryPath || outputPaths[0] || codePath || undefined;
   const meta = fileMeta(primaryPath, run.projectRoot);
   const metadata = isRecord(value.metadata) ? value.metadata : undefined;
-  const hasTargetDiscoveryMetadata = Boolean(metadata && Object.hasOwn(metadata, 'targetDiscovery'));
-  const hasFinancialFactorMetadata = Boolean(metadata && Object.hasOwn(metadata, 'financialFactor'));
+
   const hasResearchRouteMetadata = Boolean(metadata && Object.hasOwn(metadata, 'researchRoute'));
-  const targetPortfolio = readTargetDiscoveryPortfolio(metadata);
-  const factorPortfolio = readFinancialFactorPortfolio(metadata);
+
   const researchRouteValidation = hasResearchRouteMetadata
     ? validateResearchRouteMap(metadata?.researchRoute)
     : undefined;
   if (hasResearchRouteMetadata && id !== RESEARCH_ROUTE_ARTIFACT_ID) {
     throw new Error(`metadata.researchRoute must be stored on the stable ${RESEARCH_ROUTE_ARTIFACT_ID} artifact.`);
   }
-  if (hasTargetDiscoveryMetadata && !targetPortfolio) {
-    throw new Error(
-      'metadata.targetDiscovery must be a complete deepscientist.target_discovery.portfolio.v1 object. Use schema and numeric version=1 plus title, stage, status, updatedAt, context, branches, candidates, sourceHealth, blockers, and nextActions; portfolioVersion or a status-only stub is not valid.'
-    );
-  }
-  if (hasFinancialFactorMetadata && !factorPortfolio) {
-    throw new Error(
-      'metadata.financialFactor must be a complete deepscientist.financial_factor.portfolio.v1 object. Every factor requires id, name, expression, hypothesis, selectionReason, decisionReason, status, checks, evidenceIds, and updatedAt; measured metrics also require metricContext.'
-    );
-  }
+
   if (researchRouteValidation?.ok === false) {
     throw new Error(`metadata.researchRoute is invalid: ${researchRouteValidation.error}.`);
   }
@@ -1942,73 +1793,11 @@ const normalizeArtifact = (run: ScienceRunState, value: JsonRecord): ScienceArti
   const artifactEvidenceIds = asArray(value.evidenceIds || value.evidence_ids).filter(
     (item): item is string => typeof item === 'string'
   );
-  const financeKind = metadata
-    ? asString(
-        (isRecord(metadata.finance) ? metadata.finance.kind : undefined) || metadata.financeKind || metadata.kind,
-        ''
-      )
-    : '';
-  const isFinanceArtifact = FINANCE_ARTIFACT_KINDS.includes(financeKind as (typeof FINANCE_ARTIFACT_KINDS)[number]);
-  const inputFinanceMetadata = metadata && isRecord(metadata.finance) ? metadata.finance : metadata;
-  const financeCurrencies = inputFinanceMetadata
-    ? asArray(inputFinanceMetadata.currencies).filter((item): item is string => typeof item === 'string')
-    : [];
-  const financeEvidenceIds = inputFinanceMetadata
-    ? asArray(inputFinanceMetadata.evidenceIds).filter((item): item is string => typeof item === 'string')
-    : [];
-  const normalizedFinanceDataMode = inputFinanceMetadata
-    ? asString(inputFinanceMetadata.dataMode, financeKind === 'research_portfolio' ? 'SIMULATION' : 'HISTORICAL')
-    : 'HISTORICAL';
-  const normalizedFinanceMetadata =
-    isFinanceArtifact && inputFinanceMetadata
-      ? {
-          schema: asString(inputFinanceMetadata.schema, 'deepscientist.finance.artifact.v1'),
-          kind: financeKind,
-          ...(inputFinanceMetadata.contractId ? { contractId: asString(inputFinanceMetadata.contractId) } : {}),
-          ...(inputFinanceMetadata.contractVersion
-            ? { contractVersion: asString(inputFinanceMetadata.contractVersion) }
-            : {}),
-          ...(inputFinanceMetadata.contractHash ? { contractHash: asString(inputFinanceMetadata.contractHash) } : {}),
-          snapshotId: asString(inputFinanceMetadata.snapshotId, artifactRevision),
-          asOf: asString(inputFinanceMetadata.asOf, new Date(artifactCreatedAt).toISOString()),
-          refreshedAt: asString(
-            inputFinanceMetadata.refreshedAt || inputFinanceMetadata.asOf,
-            new Date(artifactCreatedAt).toISOString()
-          ),
-          timezone: asString(inputFinanceMetadata.timezone, 'UTC'),
-          currency:
-            asString(inputFinanceMetadata.currency, '') || financeCurrencies.find((currency) => currency.trim()),
-          ...(financeCurrencies.length ? { currencies: financeCurrencies } : {}),
-          dataMode: normalizedFinanceDataMode,
-          tradeCapability: 'disabled',
-          sopId: asString(inputFinanceMetadata.sopId || inputFinanceMetadata.contractId, `finance.${financeKind}`),
-          sopVersion: asString(inputFinanceMetadata.sopVersion || inputFinanceMetadata.contractVersion, '1.0.0'),
-          evidenceIds: financeEvidenceIds.length ? financeEvidenceIds : artifactEvidenceIds,
-          ...(inputFinanceMetadata.status ? { status: asString(inputFinanceMetadata.status) } : {}),
-          ...(inputFinanceMetadata.sourceManifestPath
-            ? { sourceManifestPath: asString(inputFinanceMetadata.sourceManifestPath) }
-            : {}),
-          ...(inputFinanceMetadata.dataRevision ? { dataRevision: asString(inputFinanceMetadata.dataRevision) } : {}),
-          ...(inputFinanceMetadata.contentSha256
-            ? { contentSha256: asString(inputFinanceMetadata.contentSha256) }
-            : {}),
-          ...(isRecord(inputFinanceMetadata.simulation) ? { simulation: inputFinanceMetadata.simulation } : {}),
-        }
-      : undefined;
-  if (normalizedFinanceMetadata) {
-    const parsed = financeArtifactMetadataSchema.safeParse(normalizedFinanceMetadata);
-    if (!parsed.success) {
-      throw new Error(
-        `metadata.finance is invalid: ${parsed.error.issues
-          .map((issue) => `${issue.path.join('.') || 'finance'}: ${issue.message}`)
-          .join(' | ')}`
-      );
-    }
-  }
+
   const normalizedMetadata: JsonRecord | undefined = metadata
     ? {
         ...metadata,
-        ...(normalizedFinanceMetadata ? { finance: normalizedFinanceMetadata } : {}),
+
         ...(researchRouteValidation?.ok ? { researchRoute: researchRouteValidation.value } : {}),
       }
     : undefined;
@@ -2106,13 +1895,7 @@ const normalizeArtifact = (run: ScienceRunState, value: JsonRecord): ScienceArti
     reviewStatus:
       (asString(value.reviewStatus || value.review_status, 'not_reviewed') as ScienceArtifact['reviewStatus']) ||
       'not_reviewed',
-    viewer: targetPortfolio
-      ? { ...(viewer || {}), kind: 'target_discovery' }
-      : factorPortfolio
-        ? { ...(viewer || {}), kind: 'financial_factor' }
-        : isFinanceArtifact
-          ? { ...(viewer || {}), kind: 'financial_research' }
-          : viewer,
+    viewer,
     metadata: normalizedMetadata,
     createdAt: artifactCreatedAt,
   };
@@ -2626,76 +2409,6 @@ const applyRunCards = (run: ScienceRunState, value: unknown): void => {
   run.cardDiagnostics = [];
 };
 
-const rawFinanceMetadata = (artifact: ScienceArtifact): JsonRecord | undefined => {
-  if (!isRecord(artifact.metadata)) return undefined;
-  return isRecord(artifact.metadata.finance) ? artifact.metadata.finance : artifact.metadata;
-};
-
-const financeCardDraftContext = (run: ScienceRunState): StructuredReportCardDraftContext => {
-  const artifacts = [...run.artifacts.values()];
-  const primaryRef = run.financeCompletion?.artifactRefs.find((ref) => ref.role === 'primary');
-  const artifact =
-    (primaryRef
-      ? artifacts.find(
-          (candidate) => candidate.id === primaryRef.artifactId && candidate.version === primaryRef.version
-        )
-      : undefined) ||
-    artifacts
-      .filter((candidate) => Boolean(readFinanceArtifactKind(candidate.metadata)))
-      .toSorted((left, right) => right.createdAt - left.createdAt || right.version - left.version)[0];
-  if (!artifact) {
-    throw new Error('cardDrafts require a versioned financial Artifact registered in the same run.');
-  }
-
-  const parsedMetadata = readFinanceArtifactMetadata(artifact.metadata);
-  const rawMetadata = rawFinanceMetadata(artifact);
-  const rawMode = asString(rawMetadata?.dataMode, '');
-  const dataMode =
-    parsedMetadata?.dataMode ||
-    (['HISTORICAL', 'SIMULATION', 'LIVE_READ_ONLY'].includes(rawMode)
-      ? (rawMode as StructuredReportCardDraftContext['dataMode'])
-      : readFinanceArtifactKind(artifact.metadata) === 'research_portfolio'
-        ? 'SIMULATION'
-        : 'HISTORICAL');
-  const refreshedAt =
-    parsedMetadata?.refreshedAt ||
-    asString(rawMetadata?.refreshedAt || rawMetadata?.asOf, '') ||
-    new Date(artifact.createdAt || now()).toISOString();
-  const artifactRef = {
-    artifactId: artifact.id,
-    version: artifact.version,
-    ...(artifact.revision ? { revision: artifact.revision } : {}),
-    ...(artifact.contentHash ? { contentSha256: artifact.contentHash } : {}),
-  };
-  return {
-    artifactRef,
-    snapshotId:
-      parsedMetadata?.snapshotId ||
-      asString(rawMetadata?.snapshotId, '') ||
-      artifact.revision ||
-      `${artifact.id}@${artifact.version}`,
-    refreshedAt,
-    dataMode,
-    completeness: run.status === 'completed' ? 'complete' : 'partial',
-    evidence: [...run.evidence.values()].map((item) => ({
-      evidenceId: item.id,
-      title: item.title,
-      source: item.database?.name || item.sourceType,
-      asOf: new Date(item.createdAt || Date.parse(refreshedAt) || now()).toISOString(),
-      ...(item.summary ? { detail: item.summary } : {}),
-    })),
-    ...(dataMode === 'SIMULATION' ? { simulationAssumptionsArtifactRef: artifactRef } : {}),
-  };
-};
-
-const optionalFinanceCardDraftContext = (run: ScienceRunState): StructuredReportCardDraftContext | undefined => {
-  try {
-    return financeCardDraftContext(run);
-  } catch {
-    return undefined;
-  }
-};
-
 const attachPlacedCardsToReport = (run: ScienceRunState): void => {
   if (!run.report) return;
   const referencedCardIds = new Set(
@@ -2718,35 +2431,8 @@ const attachPlacedCardsToReport = (run: ScienceRunState): void => {
 };
 
 const applyRunCardPayload = (run: ScienceRunState, payload: JsonRecord): void => {
-  if (payload.cards !== undefined && payload.cardDrafts !== undefined) {
-    throw new Error('Pass either payload.cards or payload.cardDrafts, not both.');
-  }
-  if (payload.cards !== undefined) {
-    applyRunCards(run, payload.cards);
-    attachPlacedCardsToReport(run);
-    return;
-  }
-  if (payload.cardDrafts === undefined) {
-    attachPlacedCardsToReport(run);
-    return;
-  }
-  const result = materializeStructuredReportCardDrafts(payload.cardDrafts, financeCardDraftContext(run));
-  if (result.ok === false) throw new Error(`Invalid financial cardDrafts: ${result.errors.join(' | ')}`);
-  run.cards = result.cards;
-  run.cardDiagnostics = [];
+  if (payload.cards !== undefined) applyRunCards(run, payload.cards);
   attachPlacedCardsToReport(run);
-};
-
-const applyFinanceCompletion = (run: ScienceRunState, value: unknown): void => {
-  const result = financeCompletionManifestSchema.safeParse(value);
-  if (!result.success) {
-    throw new Error(
-      `Invalid Finance completion manifest: ${result.error.issues
-        .map((issue) => `${issue.path.join('.') || 'manifest'}: ${issue.message}`)
-        .join(' | ')}`
-    );
-  }
-  run.financeCompletion = result.data as FinanceCompletionManifest;
 };
 
 const upsertEdge = (run: ScienceRunState, edge: ScienceProvenanceEdge): void => {
@@ -3696,116 +3382,6 @@ const requireAnsweredResearchRouteBranchSelection = (run: ScienceRunState | unde
   return selection;
 };
 
-const financeEnvironmentSet = (name: string): Set<string> => {
-  const raw = process.env[name]?.trim();
-  if (!raw) return new Set();
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (Array.isArray(parsed)) return new Set(parsed.filter((item): item is string => typeof item === 'string'));
-  } catch {
-    // A comma-delimited value is retained as a simple deployment fallback.
-  }
-  return new Set(
-    raw
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean)
-  );
-};
-
-const projectWorkspaceStatusFinanceReceipt = (input: {
-  runId?: string;
-  conversationId?: string;
-  projectId?: string;
-  projectRoot: string;
-  head?: string;
-  branch?: string;
-  dirtyPaths: string[];
-}): FinanceToolReceipt | undefined => {
-  const secret = readFinanceReceiptSecret(input.runId);
-  if (!secret || !input.runId) return undefined;
-  const issuedAt = new Date(now()).toISOString();
-  const requestHash = crypto
-    .createHash('sha256')
-    .update(
-      JSON.stringify({
-        action: 'status',
-        runId: input.runId,
-        projectRoot: input.projectRoot,
-        head: input.head,
-        branch: input.branch,
-        dirtyPaths: input.dirtyPaths,
-      })
-    )
-    .digest('hex');
-  return signFinanceToolReceipt(
-    {
-      schema: FINANCE_TOOL_RECEIPT_SCHEMA,
-      receiptId: `finance_receipt_${crypto.randomUUID()}`,
-      runId: input.runId,
-      sessionId: input.conversationId || input.projectId || 'bound-project-session',
-      callId: `project_status_${crypto.randomUUID()}`,
-      toolName: 'project_workspace',
-      status: 'succeeded',
-      dataStatus: 'available',
-      requestHash,
-      evidenceIds: [],
-      artifactRefs: [],
-      capabilities: [],
-      warnings: [],
-      issuedAt,
-    },
-    secret
-  );
-};
-
-const scienceArtifactFinanceReceipt = (
-  run: ScienceRunState,
-  action: string,
-  toolName: FinanceToolReceipt['toolName'] = 'science_artifact',
-  capabilities: string[] = ['science.artifact'],
-  requestContext?: JsonRecord,
-  outcome?: Pick<FinanceToolReceipt, 'status' | 'dataStatus' | 'warnings'>
-): FinanceToolReceipt | undefined => {
-  const secret = readFinanceReceiptSecret(run.runId);
-  const boundDomain = sessionEnvValue(PROJECT_WORKSPACE_ENV_KEYS.domain);
-  if (!secret || (boundDomain !== 'financial' && boundDomain !== 'financial_factor' && !run.financeCompletion)) {
-    return undefined;
-  }
-  return signFinanceToolReceipt(
-    {
-      schema: FINANCE_TOOL_RECEIPT_SCHEMA,
-      receiptId: `finance_receipt_${crypto.randomUUID()}`,
-      runId: run.runId,
-      sessionId: run.conversationId || 'finance-session',
-      callId: run.toolCallId || `${toolName}_${crypto.randomUUID()}`,
-      toolName,
-      status: outcome?.status || 'succeeded',
-      dataStatus: outcome?.dataStatus || 'available',
-      requestHash: crypto
-        .createHash('sha256')
-        .update(
-          JSON.stringify({
-            action,
-            runId: run.runId,
-            updatedAt: run.updatedAt,
-            artifactGit: run.git?.commit,
-            ...(requestContext ? { requestContext } : {}),
-          })
-        )
-        .digest('hex'),
-      evidenceIds: [...run.evidence.keys()].slice(0, 100),
-      artifactRefs: [...run.artifacts.values()]
-        .slice(0, 100)
-        .map((artifact) => ({ artifactId: artifact.id, version: artifact.version, revision: artifact.revision })),
-      capabilities,
-      warnings: outcome?.warnings || [],
-      issuedAt: new Date(now()).toISOString(),
-    },
-    secret
-  );
-};
-
 const stableMathematicsRunId = (
   requestedRunId: string | undefined,
   projectRoot: string | undefined,
@@ -3847,277 +3423,11 @@ const collectCardDiagnostics = (
   return diagnostics;
 };
 
-const financeArtifactKindsForRun = (run: ScienceRunState): Set<string> => {
-  const kinds = new Set<string>();
-  run.artifacts.forEach((artifact) => {
-    const financeMetadata = isRecord(artifact.metadata?.finance) ? artifact.metadata.finance : undefined;
-    const candidate = asString(financeMetadata?.kind || artifact.metadata?.financeKind || artifact.metadata?.kind);
-    if (FINANCE_ARTIFACT_KINDS.includes(candidate as (typeof FINANCE_ARTIFACT_KINDS)[number])) kinds.add(candidate);
-    if (artifact.id === FINANCIAL_FACTOR_PORTFOLIO_ARTIFACT_ID || artifact.viewer?.kind === 'financial_factor') {
-      kinds.add('factor_research');
-    }
-  });
-  return kinds;
-};
-
-const preflightRunFinanceCompletion = (
-  run: ScienceRunState,
-  report: SciencePanelData['report'],
-  cards: readonly StructuredReportCard[]
-): SciencePanelData['financePreflight'] => {
-  const verifiedAt = new Date(now()).toISOString();
-  const boundDomain = sessionEnvValue(PROJECT_WORKSPACE_ENV_KEYS.domain);
-  const isFinancialRun =
-    Boolean(run.financeCompletion) || boundDomain === 'financial' || boundDomain === 'financial_factor';
-  if (!isFinancialRun) return undefined;
-  if (!run.financeCompletion) {
-    return { status: 'legacy_uncontracted', gaps: ['legacy_uncontracted'], verifiedAt };
-  }
-
-  const cardsById = new Map(cards.map((card) => [card.id, card]));
-  const referencedCardIds = new Set(
-    report.sections.flatMap((section) =>
-      section.blocks.flatMap((block) => (block.type === 'card_ref' ? [block.cardId] : []))
-    )
-  );
-  const referencedCards = [...referencedCardIds]
-    .map((cardId) => cardsById.get(cardId))
-    .filter((card): card is StructuredReportCard => Boolean(card));
-  const verifiedReceiptIds = verifiedFinanceReceiptIds(
-    run.financeCompletion.toolReceipts,
-    readFinanceReceiptSecret(run.runId)
-  );
-
-  const result: FinanceCompletionPreflightResult = preflightFinanceCompletion(run.financeCompletion, {
-    runId: run.runId,
-    projectRoot: run.projectRoot,
-    projectGitHead: run.sourceGit?.commit,
-    artifactGitCommit: run.git?.commit,
-    activeConditions: financeEnvironmentSet('DEEPSCIENTIST_FINANCE_CONDITIONS') as Set<FinanceToolRequirementCondition>,
-    activeCapabilities: new Set([
-      ...financeEnvironmentSet('DEEPSCIENTIST_FINANCE_CAPABILITIES'),
-      ...run.financeCompletion.toolReceipts
-        .filter((receipt) => receipt.status === 'succeeded' || receipt.status === 'partial')
-        .flatMap((receipt) => receipt.capabilities),
-    ]),
-    verifiedReceiptIds,
-    artifactKinds: financeArtifactKindsForRun(run),
-    artifactRefs: new Set(run.artifacts.keys()),
-    evidenceIds: new Set(run.evidence.keys()),
-    cardIds: new Set(cards.map((card) => card.id)),
-    referencedCardIds,
-    cardKinds: new Set(referencedCards.map((card) => card.kind)),
-    sectionIds: new Set(report.sections.map((section) => section.id)),
-    sectionRoles: new Set(report.sections.map((section) => section.role || section.id)),
-    hasResultSummary: report.sections.some((section) =>
-      section.blocks.some((block) => block.type === 'result_summary')
-    ),
-    hasLimitations: report.sections.some((section) => (section.role || section.id) === 'limitations'),
-    hasReviewableOutput:
-      report.sections.some((section) => section.blocks.length > 0) || run.evidence.size > 0 || run.artifacts.size > 0,
-  });
-  const observedGaps = [
-    ...(!run.sourceGit?.commit ? ['project_git_checkpoint_unobserved'] : []),
-    ...(!run.git?.commit ? ['artifact_git_snapshot_unobserved'] : []),
-  ];
-  if (result.ok && !observedGaps.length) return { status: 'completed', gaps: [], verifiedAt };
-  const resultGaps = result.ok === false ? result.gaps : [];
-  const resultStatus = result.ok === false ? result.status : 'partial';
-  const gaps = [...new Set([...resultGaps, ...observedGaps])];
-  return {
-    status: resultStatus,
-    gaps,
-    verifiedAt,
-  };
-};
-
-const buildFinancePublicationGap = (preflight: SciencePanelData['financePreflight']): JsonRecord | undefined => {
-  if (!preflight || preflight.status === 'completed') return undefined;
-  const gaps = preflight.gaps || [];
-  const suffixes = (prefixes: readonly string[]): string[] =>
-    gaps
-      .filter((gap) => prefixes.some((prefix) => gap.startsWith(prefix)))
-      .map((gap) => gap.slice(gap.indexOf(':') + 1))
-      .filter(Boolean);
-  return {
-    code: 'finance_publication_gap',
-    status: preflight.status === 'blocked' ? 'blocked' : 'partial',
-    missingSections: suffixes(['missing_section_role:']),
-    missingCards: suffixes(['missing_card_kind:', 'unreferenced_report_card:', 'unknown_card:']),
-    missingReceipts: suffixes([
-      'missing_tool_receipt:',
-      'failed_tool_receipt:',
-      'partial_tool_receipt:',
-      'unverified_tool_receipt:',
-    ]),
-    missingCapabilities: suffixes(['missing_capability:', 'provider_capability_unavailable:']),
-    gaps,
-    repairable: preflight.status !== 'blocked',
-  };
-};
-
-const buildFinanceCompletionGuide = (value: unknown, run: ScienceRunState): JsonRecord | undefined => {
-  const contractId = asString(value, '');
-  if (!contractId) return undefined;
-  const contract = getFinanceTaskContract(contractId);
-  if (!contract) {
-    throw new Error(
-      `Unknown Finance task contract: ${contractId}. Use the exact id from Runtime Financial Task Route.`
-    );
-  }
-  const availableReceipts = (run.financeCompletion?.toolReceipts || []).map((receipt) => ({
-    receiptId: receipt.receiptId,
-    toolName: receipt.toolName,
-    status: receipt.status,
-    dataStatus: receipt.dataStatus,
-    capabilities: receipt.capabilities,
-  }));
-  const availableCapabilities = new Set([
-    ...financeEnvironmentSet('DEEPSCIENTIST_FINANCE_CAPABILITIES'),
-    ...availableReceipts
-      .filter((receipt) => receipt.status === 'succeeded' || receipt.status === 'partial')
-      .flatMap((receipt) => receipt.capabilities),
-  ]);
-  const publicationMode = run.financeCompletion
-    ? run.financePreflight?.status === 'completed'
-      ? 'complete'
-      : run.financePreflight?.status === 'blocked'
-        ? 'blocked'
-        : 'partial'
-    : 'pending';
-  return {
-    schema: 'deepscientist.finance.completion_guide.v1',
-    reportProtocol: 'ScienceReportV1',
-    domain: 'finance',
-    publicationMode,
-    taskKind: contract.taskKind,
-    taskContract: {
-      id: contract.id,
-      version: contract.version,
-      contractHash: contract.contractHash,
-    },
-    sopReference: contract.sopReference,
-    requiredCapabilities: contract.requiredCapabilities,
-    requiredTools: contract.requiredTools,
-    requiredArtifactKinds: contract.requiredArtifactKinds,
-    requiredReport: contract.requiredReport,
-    requiredSections: contract.requiredReport.sectionRoles,
-    requiredCardKinds: contract.requiredReport.cardKinds,
-    availableReceipts,
-    missingCapabilities: contract.requiredCapabilities.filter((capability) => !availableCapabilities.has(capability)),
-    currentPublicationGap: buildFinancePublicationGap(run.financePreflight),
-    cardAuthoring: buildStructuredReportCardAuthoringGuide(optionalFinanceCardDraftContext(run), contract.id),
-    visualDelivery: {
-      rule: 'When verified structured values support comparison, trend, distribution, interval, exposure, drawdown, or scenario analysis, provide one lead visual before completed status.',
-      targetCount: { min: 1, max: 4 },
-      composition:
-        'Use two to four total visuals only for distinct reader questions; place the lead visual before long evidence and risk detail.',
-      noDataFallback:
-        'When no meaningful visual data exists, pass the concrete reason only as payload.internalVisualWaiverReason. It is private validation metadata and must never appear in the report, cards, limitations, data gaps, Evidence, or final reply.',
-    },
-    allowedPartialReasons: contract.allowedPartialReasons,
-    publishPlacement: 'science_artifact.payload.financeCompletion',
-    terminalPublication: {
-      action: 'publish',
-      displayIntent: 'open',
-      target: { kind: 'report', id: 'report' },
-      requiresExplicitReport: true,
-      artifactAloneIsDelivery: false,
-      exceptions: ['terminal_preflight_without_reviewable_data', 'monitor_no_change'],
-    },
-    researchWorkflow: {
-      schema: 'deepscientist.finance.research_workflow.v1',
-      stages: [
-        { id: 'lock', output: 'raw_result_envelope_and_receipt' },
-        { id: 'compute', output: 'derived_evidence_with_inputs' },
-        { id: 'publish', output: 'selected_cards_and_one_reader_first_report' },
-      ],
-      decisionFrame: ['facts', 'interpretation', 'implication', 'triggers_or_risks', 'limitations'],
-      rules: [
-        'Use registered evidenceIds for every decision-bearing claim or card.',
-        'Use Git-tracked project files or Science artifacts as the durable research record.',
-        'Make the evidence-conditioned visual delivery decision before composing the final report.',
-        'Do not force empty modules or duplicate one result as prose, a card, and a chart.',
-      ],
-    },
-    requiredManifestFields: [
-      'schema',
-      'runId',
-      'taskKind',
-      'taskContract',
-      'gate',
-      'toolReceipts',
-      'asOf',
-      'evidenceIds',
-      'artifactRefs',
-      'report',
-      'verifiedAt',
-      'status',
-      'reproducible',
-      'gaps',
-    ],
-    manifestAuthoring: {
-      runId: run.runId,
-      schema: 'deepscientist.finance.completion.v1',
-      taskContract: {
-        requiredKeys: ['id', 'version', 'contractHash', 'routeSource'],
-        fixedValues: {
-          id: contract.id,
-          version: contract.version,
-          contractHash: contract.contractHash,
-        },
-        routeSourceValues: ['deterministic', 'agent_selected', 'user_confirmed'],
-        rule: 'Copy routeSource from Runtime Financial Task Route. Do not add specialist or sopReference to taskContract.',
-      },
-      gate: {
-        unboundReadOnlyShape: {
-          kind: 'unbound_read_only',
-          gateId: `unbound-${run.runId}`,
-        },
-        boundWriteRequiredKeys: ['kind="bound_write"', 'workspaceStatusReceiptId', 'workspace'],
-        rule: 'Choose exactly one gate shape and include every key in that shape.',
-      },
-      toolReceipts: {
-        sources: ['finance tool output .receipt', 'platform tool output .financeReceipt'],
-        rule: 'Copy each complete receipt object byte-for-byte from the tool output. Never retype, shorten, repair, recompute, or summarize requestHash, attestation.value, receiptId, or any other receipt field.',
-        validation:
-          'requestHash and attestation.value are lowercase 64-character SHA-256 values. If a copied object does not satisfy that shape, return to the original tool output instead of editing the value.',
-      },
-      scalarFormats: {
-        asOf: 'ISO-8601 datetime string copied from the selected evidence cutoff',
-        verifiedAt: 'current ISO-8601 datetime string',
-        reproducible: 'true only for completed; false for partial or blocked',
-        gaps: 'empty array only for completed; explicit strings for partial or blocked',
-      },
-      report: {
-        requiredKeys: ['panelId', 'sectionIds', 'cardIds'],
-        rule: 'Use ids from the report and cards in the same publish payload. Do not put the report body or financeCompletion inside this reference object.',
-      },
-    },
-    instructions: [
-      'Copy routeSource from Runtime Financial Task Route; do not infer or recompute it.',
-      'Use only attested receipts returned by tools in this run. Copy complete .receipt and .financeReceipt objects exactly; never hand-transcribe hashes or signatures.',
-      'Pass the manifest directly as payload.financeCompletion, never inside payload.report or payload.completion.',
-      'Checkpoint material project changes before composing the completion manifest.',
-      'After reviewable data exists, publish exactly once with displayIntent=open and an explicit report, cardDrafts or exact cards, and financeCompletion. Creating an artifact alone is not delivery.',
-      'Give every finance card draft a moduleId. The server links it into the module default report section; override reportSectionRole only with a role allowed by the module.',
-      'Only cards actually referenced by report card_ref blocks satisfy completion requirements.',
-      'When verified structured numeric data exists, put one lead chart or chart-card before long evidence detail; use two to four total visuals only for distinct questions. Otherwise pass payload.internalVisualWaiverReason as private validation metadata and do not repeat it in reader-facing content.',
-      'For unbound_read_only, publish a partial non-reproducible report without invented Project Git or Artifact Git references.',
-    ],
-  };
-};
-
 const buildReportAuthoringGuide = (run: ScienceRunState): JsonRecord => {
-  const boundDomain = sessionEnvValue(PROJECT_WORKSPACE_ENV_KEYS.domain);
-  const isFinancial =
-    Boolean(run.financeCompletion) || boundDomain === 'financial' || boundDomain === 'financial_factor';
   return {
     schema: 'deepscientist.report.authoring_guide.v1',
     reportProtocol: 'ScienceReportV1',
-    recommendedSkills: isFinancial
-      ? ['report-authoring', 'financial-report-research']
-      : ['report-authoring', 'science'],
+    recommendedSkills: ['report-authoring', 'science'],
     optionalSkills: ['report-chart', 'ds-paper-plot', 'ds-nature-figure'],
     skillPolicy: {
       editorialGuidance: 'advisory',
@@ -4236,8 +3546,7 @@ const buildPanel = (run: ScienceRunState): SciencePanelData => {
     cards,
     cardDiagnostics: cardDiagnostics.length ? cardDiagnostics : undefined,
     visualReview,
-    financeCompletion: run.financeCompletion,
-    financePreflight: run.financePreflight,
+
     mathematics,
     pages: [...run.pages.values()],
     claims,
@@ -4288,8 +3597,7 @@ function persistRunSnapshot(
       visualWaiverReason: run.visualWaiverReason,
       cards: panel.cards,
       cardDiagnostics: panel.cardDiagnostics,
-      financeCompletion: run.financeCompletion,
-      financePreflight: run.financePreflight,
+
       statsPatch: run.statsPatch,
       createdAt: run.createdAt,
       updatedAt: run.updatedAt,
@@ -4359,8 +3667,7 @@ const getResource = (run: ScienceRunState, target?: TargetRef): unknown => {
       status: run.status,
       cards: run.cards,
       cardDiagnostics: run.cardDiagnostics,
-      financeCompletion: run.financeCompletion,
-      financePreflight: run.financePreflight,
+
     };
   if (target.kind === 'report') return publicScienceReport(run.report);
   if (target.kind === 'artifact' && target.id) return run.artifacts.get(artifactKey(target.id, target.version || 1));
@@ -4408,8 +3715,7 @@ const scienceRunSnapshotVersion = (run: ScienceRunState): string => {
       status: run.status,
       cards: run.cards,
       cardDiagnostics: run.cardDiagnostics,
-      financeCompletion: run.financeCompletion,
-      financePreflight: run.financePreflight,
+
     },
     report: publicScienceReport(run.report),
     visualWaiverReason: run.visualWaiverReason,
@@ -4678,7 +3984,7 @@ const createOrReplaceResource = (
     run.status = normalizePanelStatus(payload.status, run.status, payload.status != null);
     if (isRecord(payload.stats)) run.statsPatch = payload.stats as Partial<SciencePanelData['stats']>;
     applyRunCardPayload(run, payload);
-    if (payload.financeCompletion !== undefined) applyFinanceCompletion(run, payload.financeCompletion);
+
     return { object: getResource(run, { kind: 'run' }), target: { kind: 'run', id: run.runId } };
   }
 
@@ -4690,7 +3996,7 @@ const createOrReplaceResource = (
     }
     run.report = normalizeReport(nextReportPayload);
     applyRunCardPayload(run, payload);
-    if (payload.financeCompletion !== undefined) applyFinanceCompletion(run, payload.financeCompletion);
+
     syncReportResources(run, run.report);
     return { object: run.report, target: { kind: 'report', id: 'report' } };
   }
@@ -4848,1614 +4154,6 @@ const createOrReplaceResource = (
   throw new Error(`Unsupported Science artifact kind: ${kind}`);
 };
 
-const OPTIMIZATION_SCHEMA = 'deepscientist.optimization.v1' as const;
-const OPTIMIZATION_TERMINAL_LINE_STATUSES = new Set(['stopped', 'rejected', 'archived']);
-const OPTIMIZATION_TERMINAL_CANDIDATE_STATUSES = new Set(['promoted', 'rejected', 'archived']);
-const OPTIMIZATION_FAILED_ATTEMPT_STATUSES = new Set(['failed', 'smoke_failed', 'archived']);
-const OPTIMIZATION_ACTIVE_ATTEMPT_STATUSES = new Set([
-  'proposed',
-  'smoke_running',
-  'smoke_passed',
-  'promoted',
-  'full_eval_running',
-]);
-const OPTIMIZATION_DISPATCHABLE_ATTEMPT_STATUSES = new Set(['proposed', 'smoke_passed', 'promoted']);
-const OPTIMIZATION_RUNNING_ATTEMPT_STATUSES = new Set(['smoke_running', 'full_eval_running']);
-const IOAI_CANDIDATE_DISPATCH_SCHEMA = 'deepscientist.ioai.candidate-dispatch.v1' as const;
-const IOAI_CANDIDATE_DISPATCH_MAX_PARALLEL = 2 as const;
-const IOAI_CANDIDATE_QUALITY_SCHEMA = 'deepscientist.ioai.candidate-quality.v1' as const;
-const IOAI_CHANGE_LAYERS = new Set(['Tier1', 'Tier2', 'Tier3']);
-const IOAI_COMPETITION_LESSON_PREFIX = 'competition_lesson:';
-const IOAI_EXTERNAL_RESEARCH_PREFIX = 'external_research:';
-const IOAI_EXTERNAL_RESEARCH_REF_PATTERN = /^external_research:[a-z0-9][a-z0-9._-]{0,63}@(high|medium|low)$/u;
-const IOAI_COMPETITION_RESEARCH_PACKET_PATH = 'artifacts/idea/competition_research.md';
-const IOAI_CURATED_COMPETITION_LESSON_REFS = new Set([
-  'competition_lesson:validation_structure_alignment@medium',
-  'competition_lesson:metric_aligned_postprocessing@low',
-  'competition_lesson:complementary_oof_fusion@low',
-]);
-const IOAI_SOURCE_LENSES = new Set([
-  'baseline_refinement',
-  'orthogonal_mechanism',
-  'failure_repair',
-  'cross_domain_transfer',
-  'objective_shift',
-  'search_widening',
-]);
-const IOAI_ALTERNATIVE_DISPOSITIONS = new Set(['evaluated', 'rejected', 'budget_excluded', 'not_applicable']);
-
-const optimizationArtifactId = (kind: string, identity: string): string =>
-  `optimization_${kind}_${crypto.createHash('sha256').update(identity).digest('hex').slice(0, 16)}`;
-
-const readOptimizationMetadata = (
-  artifact: ScienceArtifact | undefined
-): ScienceOptimizationArtifactMetadata | undefined => {
-  const value = artifact?.metadata?.deepScientistOptimization;
-  if (!isRecord(value) || value.schema !== OPTIMIZATION_SCHEMA) return undefined;
-  if (
-    !['idea_candidate', 'optimization_line', 'implementation_attempt', 'main_experiment'].includes(asString(value.kind))
-  )
-    return undefined;
-  return value as unknown as ScienceOptimizationArtifactMetadata;
-};
-
-const latestArtifactVersion = (run: ScienceRunState, id: string): ScienceArtifact | undefined =>
-  [...run.artifacts.values()]
-    .filter((artifact) => artifact.id === id)
-    .sort((left, right) => right.version - left.version)[0];
-
-const latestOptimizationArtifacts = (run: ScienceRunState): ScienceArtifact[] => {
-  const latest = new Map<string, ScienceArtifact>();
-  for (const artifact of run.artifacts.values()) {
-    if (!readOptimizationMetadata(artifact)) continue;
-    const previous = latest.get(artifact.id);
-    if (!previous || artifact.version > previous.version) latest.set(artifact.id, artifact);
-  }
-  return [...latest.values()].sort(
-    (left, right) => left.createdAt - right.createdAt || left.id.localeCompare(right.id)
-  );
-};
-
-const findOptimizationArtifact = (
-  run: ScienceRunState,
-  kind: ScienceOptimizationArtifactMetadata['kind'],
-  identity: string
-): ScienceArtifact | undefined =>
-  latestOptimizationArtifacts(run).find((artifact) => {
-    const metadata = readOptimizationMetadata(artifact);
-    if (!metadata || metadata.kind !== kind) return false;
-    if (kind === 'idea_candidate') return metadata.ideaId === identity;
-    if (kind === 'optimization_line') return metadata.lineId === identity || metadata.ideaId === identity;
-    if (kind === 'implementation_attempt') return metadata.attemptId === identity;
-    return metadata.runId === identity;
-  });
-
-const writeOptimizationArtifactVersion = (
-  run: ScienceRunState,
-  options: {
-    id: string;
-    type: ScienceArtifact['type'];
-    title: string;
-    status?: ScienceArtifact['status'];
-    metadata: ScienceOptimizationArtifactMetadata;
-    evidenceIds?: string[];
-    changeSummary?: string;
-  }
-): ScienceArtifact => {
-  const previous = latestArtifactVersion(run, options.id);
-  const version = previous ? previous.version + 1 : 1;
-  const artifact = normalizeArtifact(run, {
-    ...(previous || {}),
-    id: options.id,
-    type: options.type,
-    title: options.title,
-    status: options.status || 'available',
-    version,
-    versionGroupId: previous?.versionGroupId || options.id,
-    previousArtifactId: previous?.id,
-    previousVersion: previous?.version,
-    changeSummary: options.changeSummary,
-    evidenceIds: options.evidenceIds || previous?.evidenceIds || [],
-    metadata: {
-      ...(previous?.metadata || {}),
-      deepScientistOptimization: options.metadata,
-    },
-    createdAt: now(),
-    revision: revision(),
-  });
-  run.artifacts.set(artifactKey(artifact.id, artifact.version), artifact);
-  syncArtifactEdges(run, artifact);
-  return artifact;
-};
-
-const normalizeSelectionScores = (value: unknown): Record<string, number> | undefined => {
-  if (!isRecord(value)) return undefined;
-  const entries = Object.entries(value).filter(
-    (entry): entry is [string, number] => typeof entry[1] === 'number' && Number.isFinite(entry[1])
-  );
-  return entries.length ? Object.fromEntries(entries) : undefined;
-};
-
-const normalizeOptimizationMetrics = (body: JsonRecord): ScienceOptimizationMetric[] => {
-  const rows = asArray(body.metricRows || body.metric_rows || (Array.isArray(body.metrics) ? body.metrics : undefined));
-  const normalized = new Map<string, ScienceOptimizationMetric>();
-  for (const item of rows) {
-    if (!isRecord(item)) continue;
-    const metricId = asString(item.metricId || item.metric_id || item.key || item.name);
-    const rawValue = item.value;
-    if (!metricId || typeof rawValue !== 'number' || !Number.isFinite(rawValue)) continue;
-    const rawDirection = asString(item.direction, 'higher').toLowerCase();
-    const baselineValue = item.baselineValue ?? item.baseline_value;
-    const split = asString(item.split) || undefined;
-    normalized.set(`${metricId}\u0000${split || 'aggregate'}`, {
-      metricId,
-      value: rawValue,
-      direction: ['lower', 'lower_better', 'minimize'].includes(rawDirection) ? 'lower' : 'higher',
-      baselineValue: typeof baselineValue === 'number' && Number.isFinite(baselineValue) ? baselineValue : undefined,
-      split,
-      primary: item.primary === true,
-    });
-  }
-  const baselineComparison = body.baselineComparison || body.baseline_comparison;
-  if (isRecord(baselineComparison)) {
-    const metricId = asString(baselineComparison.metricId || baselineComparison.metric_id);
-    const value = baselineComparison.candidateScore ?? baselineComparison.candidate_score;
-    const baselineValue = baselineComparison.baselineScore ?? baselineComparison.baseline_score;
-    const direction = asString(baselineComparison.direction, 'maximize').toLowerCase();
-    const key = `${metricId}\u0000aggregate`;
-    if (metricId && !normalized.has(key) && typeof value === 'number' && Number.isFinite(value)) {
-      normalized.set(key, {
-        metricId,
-        value,
-        direction: ['lower', 'lower_better', 'minimize'].includes(direction) ? 'lower' : 'higher',
-        baselineValue: typeof baselineValue === 'number' && Number.isFinite(baselineValue) ? baselineValue : undefined,
-        primary: true,
-      });
-    }
-  }
-  const summaries = [
-    body.metricsSummary,
-    body.metrics_summary,
-    !Array.isArray(body.metrics) ? body.metrics : undefined,
-  ];
-  for (const summary of summaries) {
-    if (!isRecord(summary)) continue;
-    for (const [metricId, rawValue] of Object.entries(summary)) {
-      const key = `${metricId}\u0000aggregate`;
-      if (normalized.has(key) || typeof rawValue !== 'number' || !Number.isFinite(rawValue)) continue;
-      normalized.set(key, { metricId, value: rawValue, direction: 'higher' });
-    }
-  }
-  const result = [...normalized.values()];
-  if (result.length && !result.some((metric) => metric.primary))
-    (result.find((metric) => !metric.split) || result[0]).primary = true;
-  return result;
-};
-
-const metricImprovement = (metric: ScienceOptimizationMetric): number | undefined => {
-  if (metric.baselineValue == null) return undefined;
-  const rawDelta = metric.value - metric.baselineValue;
-  return metric.direction === 'lower' ? -rawDelta : rawDelta;
-};
-
-const metricUtility = (metric: ScienceOptimizationMetric): number =>
-  metric.direction === 'lower' ? -metric.value : metric.value;
-
-const primaryOptimizationMetric = (
-  metadata: ScienceOptimizationArtifactMetadata
-): ScienceOptimizationMetric | undefined =>
-  metadata.metrics?.find((metric) => metric.primary && !metric.split) ||
-  metadata.metrics?.find((metric) => !metric.split) ||
-  metadata.metrics?.find((metric) => metric.primary) ||
-  metadata.metrics?.[0];
-
-const isOptimizationExecutionFailure = (failureKind: string, status: string): boolean => {
-  if (
-    /(worker|process|launch|timeout|wall_clock|network_isolation|execution_contract|cancel|resource|environment)/u.test(
-      failureKind
-    )
-  )
-    return true;
-  return !failureKind && ['failed', 'error', 'cancelled'].includes(status);
-};
-
-const classifyOptimizationResult = (
-  metadata: Pick<ScienceOptimizationArtifactMetadata, 'status' | 'valid' | 'failureKind' | 'metrics'>
-): ScienceOptimizationFailureClass => {
-  const status = asString(metadata.status).toLowerCase();
-  const failureKind = asString(metadata.failureKind).toLowerCase();
-  if (metadata.valid === false)
-    return isOptimizationExecutionFailure(failureKind, status) ? 'execution_error' : 'invalid_result';
-  if (isOptimizationExecutionFailure(failureKind, status)) return 'execution_error';
-  const primary = primaryOptimizationMetric(metadata as ScienceOptimizationArtifactMetadata);
-  const primaryImprovements = (metadata.metrics || [])
-    .filter((metric) => metric.metricId === primary?.metricId && metric.direction === primary.direction)
-    .map(metricImprovement)
-    .filter((value): value is number => value != null);
-  const improvement = primary?.split
-    ? primaryImprovements.length
-      ? primaryImprovements.reduce((sum, value) => sum + value, 0) / primaryImprovements.length
-      : undefined
-    : primary
-      ? metricImprovement(primary)
-      : undefined;
-  return improvement != null && improvement > 0 ? 'valid_gain' : 'valid_no_gain';
-};
-
-const assessOptimizationStability = (
-  metadata: Pick<ScienceOptimizationArtifactMetadata, 'valid' | 'metrics'>,
-  deterministicSimpleTask: boolean
-): ScienceOptimizationStabilityAssessment => {
-  if (metadata.valid === false)
-    return {
-      aggregateImprovement: null,
-      minimumImprovement: 0,
-      splitCount: 0,
-      worstSplitImprovement: null,
-      promotionEligible: false,
-      evidenceBasis: 'invalid_result',
-      reason: 'Invalid or failed results cannot be promoted.',
-    };
-  const primary = primaryOptimizationMetric(metadata as ScienceOptimizationArtifactMetadata);
-  const aggregateImprovement = primary && !primary.split ? metricImprovement(primary) : undefined;
-  const splitImprovements = (metadata.metrics || [])
-    .filter(
-      (metric) =>
-        Boolean(metric.split) &&
-        metric.metricId === primary?.metricId &&
-        metric.direction === primary.direction &&
-        metricImprovement(metric) != null
-    )
-    .map((metric) => metricImprovement(metric) as number);
-  const splitCount = splitImprovements.length;
-  const worstSplitImprovement = splitCount ? Math.min(...splitImprovements) : null;
-  if (deterministicSimpleTask) {
-    const promotionEligible = aggregateImprovement != null && aggregateImprovement > 0;
-    return {
-      aggregateImprovement: aggregateImprovement ?? null,
-      minimumImprovement: 0,
-      splitCount,
-      worstSplitImprovement,
-      promotionEligible,
-      evidenceBasis: 'deterministic_simple_task',
-      reason: promotionEligible
-        ? 'The established deterministic-simple-task route does not require a noise recheck.'
-        : 'The deterministic result did not establish a positive improvement.',
-    };
-  }
-  if (splitCount >= 2) {
-    const mean = splitImprovements.reduce((sum, value) => sum + value, 0) / splitCount;
-    const variance = splitImprovements.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (splitCount - 1);
-    const minimumImprovement = 1.96 * (Math.sqrt(variance) / Math.sqrt(splitCount));
-    const effectiveImprovement = aggregateImprovement ?? mean;
-    const promotionEligible =
-      effectiveImprovement > minimumImprovement && (worstSplitImprovement as number) >= -minimumImprovement;
-    return {
-      aggregateImprovement: aggregateImprovement ?? mean,
-      minimumImprovement,
-      splitCount,
-      worstSplitImprovement,
-      promotionEligible,
-      evidenceBasis: 'split_evidence',
-      reason: promotionEligible
-        ? 'Improvement clears the split-noise threshold without a collapsing split.'
-        : 'Aggregate improvement is too noisy or hides a collapsing split.',
-    };
-  }
-  const promotionEligible = aggregateImprovement != null && aggregateImprovement > 0;
-  return {
-    aggregateImprovement: aggregateImprovement ?? null,
-    minimumImprovement: 0,
-    splitCount,
-    worstSplitImprovement,
-    promotionEligible,
-    evidenceBasis: 'aggregate_only',
-    reason: promotionEligible
-      ? 'Positive aggregate-only evidence is compatible but has no split-noise estimate.'
-      : 'Aggregate-only evidence does not establish a positive improvement.',
-  };
-};
-
-const optimizationLesson = (
-  body: JsonRecord,
-  metadata: ScienceOptimizationArtifactMetadata,
-  line: ScienceOptimizationArtifactMetadata
-): ScienceOptimizationLessonCapsule => {
-  const lessonValue = body.lesson || body.lessonCapsule || body.lesson_capsule;
-  const provided = isRecord(lessonValue) ? (lessonValue as JsonRecord) : {};
-  const providedObservedEffect = asString(provided.observedEffect || provided.observed_effect);
-  const providedFailedAssumption = asString(provided.failedAssumption || provided.failed_assumption);
-  const providedUsefulComponent = asString(provided.usefulComponent || provided.useful_component);
-  const providedDoNotRepeat = asString(provided.doNotRepeat || provided.do_not_repeat);
-  const providedNextSearchBoundary = asString(provided.nextSearchBoundary || provided.next_search_boundary);
-  const providedEvidenceRefs = asStringArray(provided.evidenceRefs || provided.evidence_refs);
-  if (metadata.taskId && metadata.sealId) {
-    if (!isRecord(lessonValue))
-      throw new Error('Task-scoped record_main_experiment requires a complete lesson capsule.');
-    const missing = [
-      ['observedEffect', providedObservedEffect],
-      ['failedAssumption', providedFailedAssumption],
-      ['usefulComponent', providedUsefulComponent],
-      ['doNotRepeat', providedDoNotRepeat],
-      ['nextSearchBoundary', providedNextSearchBoundary],
-      ['evidenceRefs', providedEvidenceRefs.length ? 'present' : ''],
-    ]
-      .filter(([, value]) => !value)
-      .map(([field]) => field);
-    if (missing.length) throw new Error(`Task-scoped lesson capsule is incomplete: ${missing.join(', ')}.`);
-  }
-  const primary = primaryOptimizationMetric(metadata);
-  const improvement = primary ? metricImprovement(primary) : undefined;
-  const failureKind = metadata.failureKind ? ` (${metadata.failureKind})` : '';
-  const observedEffect =
-    metadata.failureClass === 'execution_error'
-      ? `The run produced no valid evaluation because execution failed${failureKind}.`
-      : metadata.failureClass === 'invalid_result'
-        ? `The evaluator rejected the candidate result${failureKind}.`
-        : improvement != null
-          ? `The primary metric changed by ${improvement} versus its fixed baseline.`
-          : 'The valid run did not establish a baseline-relative gain.';
-  const defaultAssumption =
-    metadata.failureClass === 'execution_error'
-      ? 'The candidate would complete under the sealed execution contract.'
-      : metadata.failureClass === 'invalid_result'
-        ? 'The candidate would emit a schema-valid evaluator result.'
-        : metadata.failureClass === 'valid_no_gain'
-          ? 'The tested mechanism would improve the fixed primary metric.'
-          : 'No tested mechanism assumption was falsified by this result.';
-  return {
-    observedEffect: providedObservedEffect || observedEffect,
-    failedAssumption: providedFailedAssumption || defaultAssumption,
-    usefulComponent: asString(
-      providedUsefulComponent,
-      metadata.failureClass === 'valid_gain'
-        ? line.mechanism || line.mechanismFamily || 'The measured mechanism remains useful.'
-        : 'No reusable component was established.'
-    ),
-    doNotRepeat: asString(
-      providedDoNotRepeat,
-      `Do not repeat run ${metadata.runId} without new evidence or a bounded repair.`
-    ),
-    nextSearchBoundary: asString(
-      providedNextSearchBoundary,
-      metadata.failureClass === 'execution_error' || metadata.failureClass === 'invalid_result'
-        ? 'Allow one bounded repair on this line, then archive it if repair fails.'
-        : metadata.failureClass === 'valid_no_gain'
-          ? 'Stay outside this exact implementation and reassess the mechanism after repeated valid non-gains.'
-          : 'Promote only if the stability assessment is eligible.'
-    ),
-    evidenceRefs: [
-      ...new Set([
-        `run:${metadata.runId}`,
-        ...providedEvidenceRefs,
-        ...(metadata.evidenceBasis || []),
-        ...(metadata.evidencePaths || []),
-      ]),
-    ],
-  };
-};
-
-type OptimizationDispatchItem = ScienceOptimizationArtifactMetadata & {
-  artifactId?: string;
-  stagnant?: boolean;
-};
-
-const optimizationItemId = (item: OptimizationDispatchItem): string =>
-  asString(item.attemptId || item.runId || item.lineId || item.ideaId || item.artifactId);
-
-const optimizationEvidenceRefs = (item: OptimizationDispatchItem): string[] => [
-  ...new Set(
-    [...(item.evidenceBasis || []), ...(item.evidencePaths || [])].map((value) => asString(value)).filter(Boolean)
-  ),
-];
-
-const verifyOptimizationEvidencePaths = (
-  evidencePaths: string[] | undefined,
-  projectRoot?: string
-): { verified: string[]; unverified: string[] } => {
-  const verified: string[] = [];
-  const unverified: string[] = [];
-  for (const evidencePath of asStringArray(evidencePaths)) {
-    try {
-      const resolved = projectRoot ? resolveProjectOwnedPath(projectRoot, evidencePath, 'evidencePath') : '';
-      if (resolved && fs.existsSync(resolved) && fs.statSync(resolved).isFile()) verified.push(evidencePath);
-      else unverified.push(evidencePath);
-    } catch {
-      unverified.push(evidencePath);
-    }
-  }
-  return { verified, unverified };
-};
-
-const normalizeOptimizationStrongestAlternative = (
-  value: unknown,
-  fallback?: unknown
-): ScienceOptimizationStrongestAlternative | undefined => {
-  const source = isRecord(value) ? value : isRecord(fallback) ? fallback : undefined;
-  if (!source) return undefined;
-  const mechanismFamily = asString(source.mechanismFamily || source.mechanism_family);
-  const disposition = asString(source.disposition).toLowerCase();
-  const reason = asString(source.reason);
-  const evidenceRefs = asStringArray(source.evidenceRefs || source.evidence_refs);
-  if (!mechanismFamily && !disposition && !reason && !evidenceRefs.length) return undefined;
-  return {
-    mechanismFamily,
-    disposition: disposition as ScienceOptimizationStrongestAlternative['disposition'],
-    reason,
-    evidenceRefs,
-  };
-};
-
-export const assessOptimizationCandidateQuality = (
-  candidate: ScienceOptimizationArtifactMetadata,
-  projectRoot?: string
-): ScienceOptimizationCandidateQuality => {
-  const missingFields: string[] = [];
-  const requiredText: Array<[string, unknown]> = [
-    ['problem', candidate.problem],
-    ['whyCurrentLineIsLimited', candidate.whyCurrentLineIsLimited],
-    ['mechanism', candidate.mechanism],
-    ['mechanismFamily', candidate.mechanismFamily],
-    ['whyNow', candidate.whyNow],
-    ['implementationSurface', candidate.implementationSurface],
-    ['falsificationPlan', candidate.falsificationPlan],
-    ['abandonmentCondition', candidate.abandonmentCondition],
-    ['expectedGain', candidate.expectedGain],
-  ];
-  for (const [field, value] of requiredText) if (!asString(value)) missingFields.push(field);
-  const alternative = candidate.strongestAlternative;
-  if (!alternative) {
-    missingFields.push('strongestAlternative');
-  } else {
-    if (!asString(alternative.mechanismFamily)) missingFields.push('strongestAlternative.mechanismFamily');
-    if (!IOAI_ALTERNATIVE_DISPOSITIONS.has(asString(alternative.disposition)))
-      missingFields.push('strongestAlternative.disposition');
-    if (!asString(alternative.reason)) missingFields.push('strongestAlternative.reason');
-    if (!asStringArray(alternative.evidenceRefs).length) missingFields.push('strongestAlternative.evidenceRefs');
-    if (
-      alternative.disposition !== 'not_applicable' &&
-      asString(alternative.mechanismFamily).toLowerCase() === asString(candidate.mechanismFamily).toLowerCase()
-    )
-      missingFields.push('strongestAlternative.distinctMechanismFamily');
-  }
-  if (!IOAI_CHANGE_LAYERS.has(asString(candidate.changeLayer))) missingFields.push('changeLayer');
-  if (!IOAI_SOURCE_LENSES.has(asString(candidate.sourceLens))) missingFields.push('sourceLens');
-  if (!asStringArray(candidate.keepUnchanged).length) missingFields.push('keepUnchanged');
-  if (!asStringArray(candidate.mainRisks).length) missingFields.push('mainRisks');
-  const pathEvidence = verifyOptimizationEvidencePaths(candidate.evidencePaths, projectRoot);
-  const evidenceBasis = asStringArray(candidate.evidenceBasis);
-  const competitionLessonRefs = [
-    ...new Set(evidenceBasis.filter((value) => value.startsWith(IOAI_COMPETITION_LESSON_PREFIX))),
-  ];
-  const externalResearchRefs = [
-    ...new Set(evidenceBasis.filter((value) => value.startsWith(IOAI_EXTERNAL_RESEARCH_PREFIX))),
-  ];
-  const rawExternalUrls = evidenceBasis.filter((value) => /^https?:\/\//iu.test(value));
-  const qualifyingNarrativeEvidence = evidenceBasis.some(
-    (value) =>
-      !value.startsWith(IOAI_COMPETITION_LESSON_PREFIX) &&
-      !value.startsWith(IOAI_EXTERNAL_RESEARCH_PREFIX) &&
-      !/^https?:\/\//iu.test(value)
-  );
-  const qualifyingArtifactEvidence = pathEvidence.verified.filter(
-    (value) => value.replace(/\\/gu, '/').toLowerCase() !== IOAI_COMPETITION_RESEARCH_PACKET_PATH
-  );
-  const hasResearchPacket = pathEvidence.verified.some(
-    (value) => value.replace(/\\/gu, '/').toLowerCase() === IOAI_COMPETITION_RESEARCH_PACKET_PATH
-  );
-  const hasIndependentTaskEvidence = qualifyingNarrativeEvidence || qualifyingArtifactEvidence.length > 0;
-  if (competitionLessonRefs.some((value) => !IOAI_CURATED_COMPETITION_LESSON_REFS.has(value)))
-    missingFields.push('competitionLessonRefs.known');
-  if (competitionLessonRefs.length > 2) missingFields.push('competitionLessonRefs.maxTwo');
-  if (competitionLessonRefs.length > 0 && !hasIndependentTaskEvidence)
-    missingFields.push('competitionLessonRefs.taskEvidence');
-  if (externalResearchRefs.some((value) => !IOAI_EXTERNAL_RESEARCH_REF_PATTERN.test(value)))
-    missingFields.push('externalResearchRefs.valid');
-  if (externalResearchRefs.length > 0 && !hasResearchPacket) missingFields.push('externalResearchRefs.researchPacket');
-  if (rawExternalUrls.length > 0) missingFields.push('externalResearchRefs.packetReferenceRequired');
-  if (externalResearchRefs.length > 0 && !hasIndependentTaskEvidence)
-    missingFields.push('externalResearchRefs.taskEvidence');
-  if (!hasIndependentTaskEvidence) missingFields.push('evidence');
-  const estimatedCostMinutes =
-    typeof candidate.estimatedCostMinutes === 'number' &&
-    Number.isFinite(candidate.estimatedCostMinutes) &&
-    candidate.estimatedCostMinutes > 0
-      ? candidate.estimatedCostMinutes
-      : null;
-  if (estimatedCostMinutes === null) missingFields.push('estimatedCostMinutes');
-  if (candidate.taskId && !candidate.metricContractId) missingFields.push('metricContractId');
-  return {
-    schema: IOAI_CANDIDATE_QUALITY_SCHEMA,
-    eligible: missingFields.length === 0,
-    missingFields,
-    evidenceLevel: qualifyingArtifactEvidence.length ? 'artifact' : qualifyingNarrativeEvidence ? 'narrative' : 'none',
-    verifiedEvidencePaths: pathEvidence.verified,
-    unverifiedEvidencePaths: pathEvidence.unverified,
-    estimatedCostMinutes,
-  };
-};
-
-const evidenceLevelRank = (level: ScienceOptimizationCandidateQuality['evidenceLevel']): number =>
-  level === 'artifact' ? 0 : level === 'narrative' ? 1 : 2;
-
-const changeLayerRank = (layer: unknown): number => {
-  const normalized = asString(layer);
-  if (normalized === 'Tier1') return 0;
-  if (normalized === 'Tier2') return 1;
-  if (normalized === 'Tier3') return 2;
-  return 3;
-};
-
-const optimizationTaskScope = (
-  taskId: unknown,
-  sealId: unknown,
-  field = 'optimization task scope'
-): ScienceOptimizationTaskScope | undefined => {
-  const normalizedTaskId = asString(taskId);
-  const normalizedSealId = asString(sealId);
-  if (Boolean(normalizedTaskId) !== Boolean(normalizedSealId))
-    throw new Error(`${field} requires both taskId and sealId.`);
-  return normalizedTaskId ? { taskId: normalizedTaskId, sealId: normalizedSealId } : undefined;
-};
-
-const optimizationItemMatchesScope = (
-  item: ScienceOptimizationArtifactMetadata | undefined,
-  scope: ScienceOptimizationTaskScope | undefined
-): boolean => !scope || (item?.taskId === scope.taskId && item.sealId === scope.sealId);
-
-const selectDiverseOptimizationItems = <T extends OptimizationDispatchItem>(values: T[], limit: number): T[] => {
-  const selected: T[] = [];
-  const families = new Set<string>();
-  const layers = new Set<string>();
-  while (selected.length < limit) {
-    const eligible = values.filter((value) => {
-      const family = asString(value.mechanismFamily).toLowerCase();
-      return family && !families.has(family) && !selected.includes(value);
-    });
-    if (!eligible.length) break;
-    const value =
-      eligible.find((candidate) => {
-        const layer = asString(candidate.changeLayer);
-        return layer && !layers.has(layer);
-      }) || eligible[0];
-    const family = asString(value.mechanismFamily).toLowerCase();
-    selected.push(value);
-    families.add(family);
-    if (value.changeLayer) layers.add(value.changeLayer);
-  }
-  return selected;
-};
-
-export const decideOptimizationDispatch = (input: {
-  projectRoot?: string;
-  taskScope?: ScienceOptimizationTaskScope;
-  route: ScienceOptimizationRoute;
-  candidateBriefs: OptimizationDispatchItem[];
-  lines: OptimizationDispatchItem[];
-  implementationAttempts: OptimizationDispatchItem[];
-  bestLineId?: string;
-  fusionOpportunity?: {
-    lineIds: string[];
-    evidenceIds?: string[];
-    evidencePaths?: string[];
-  };
-  repairableFailure?: OptimizationDispatchItem;
-}): ScienceOptimizationDispatchDecision => {
-  const occupiedSlots = Math.min(
-    IOAI_CANDIDATE_DISPATCH_MAX_PARALLEL,
-    input.implementationAttempts.filter((attempt) =>
-      OPTIMIZATION_RUNNING_ATTEMPT_STATUSES.has(asString(attempt.status).toLowerCase())
-    ).length
-  );
-  const availableSlots = IOAI_CANDIDATE_DISPATCH_MAX_PARALLEL - occupiedSlots;
-  const activeLines = input.lines.filter(
-    (line) => !OPTIMIZATION_TERMINAL_LINE_STATUSES.has(asString(line.status).toLowerCase())
-  );
-  const linesById = new Map(activeLines.map((line) => [asString(line.lineId), line] as const));
-  const activeBriefs = input.candidateBriefs.filter(
-    (brief) => !OPTIMIZATION_TERMINAL_CANDIDATE_STATUSES.has(asString(brief.status).toLowerCase())
-  );
-  const bestLine = activeLines.find((line) => line.lineId === input.bestLineId);
-  const metricContractId = asString(
-    bestLine?.metricContractId ||
-      activeLines.find((line) => line.metricContractId)?.metricContractId ||
-      activeBriefs.find((brief) => brief.metricContractId)?.metricContractId
-  );
-  const matchesMetricContract = (item: OptimizationDispatchItem): boolean =>
-    !input.taskScope || (Boolean(metricContractId) && item.metricContractId === metricContractId);
-  const finish = (
-    action: ScienceOptimizationDispatchDecision['action'],
-    selected: ScienceOptimizationDispatchTarget[],
-    considered: OptimizationDispatchItem[],
-    reason: string,
-    route = input.route
-  ): ScienceOptimizationDispatchDecision => {
-    const selectedIds = new Set(selected.map((target) => target.id));
-    return {
-      schema: IOAI_CANDIDATE_DISPATCH_SCHEMA,
-      taskScope: input.taskScope || null,
-      metricContractId: metricContractId || null,
-      route,
-      action,
-      maxParallel: IOAI_CANDIDATE_DISPATCH_MAX_PARALLEL,
-      occupiedSlots,
-      availableSlots,
-      selected,
-      heldIds: considered.map(optimizationItemId).filter((id) => id && !selectedIds.has(id)),
-      reason,
-    };
-  };
-  const target = (
-    kind: ScienceOptimizationDispatchTarget['kind'],
-    item: OptimizationDispatchItem,
-    family = asString(item.mechanismFamily)
-  ): ScienceOptimizationDispatchTarget => ({
-    kind,
-    id: optimizationItemId(item),
-    lineId: asString(item.lineId) || null,
-    mechanismFamily: family || null,
-    evidenceRefs: [
-      ...new Set([
-        ...(item.evidenceBasis || []),
-        ...verifyOptimizationEvidencePaths(item.evidencePaths, input.projectRoot).verified,
-      ]),
-    ],
-  });
-
-  if (input.route === 'stop') return finish('stop', [], [], 'The native optimization frontier is exhausted.');
-  if (!availableSlots) return finish('wait', [], [], 'Both bounded execution slots already contain running attempts.');
-  if (input.taskScope && (activeLines.length || activeBriefs.length) && !metricContractId)
-    return finish(
-      'wait',
-      [],
-      [...activeLines, ...activeBriefs],
-      'CV contract gate is blocked: record one frozen metricContractId before candidate dispatch.'
-    );
-
-  if (input.route === 'debug') {
-    const failure = input.repairableFailure;
-    const line = failure ? linesById.get(asString(failure.lineId)) : undefined;
-    if (!failure || !line)
-      return finish('wait', [], [], 'The debug route has no eligible one-repair failure on an active line.');
-    const repairTarget = target('main_experiment', {
-      ...failure,
-      mechanismFamily: line.mechanismFamily,
-    });
-    repairTarget.evidenceRefs = [
-      ...new Set([`run:${failure.runId}`, ...repairTarget.evidenceRefs, asString(failure.failureKind)].filter(Boolean)),
-    ];
-    return finish(
-      'prepare_repair',
-      [repairTarget],
-      [failure],
-      `Prepare the only permitted bounded repair for run ${failure.runId}; preserve its mechanism and comparison contract.`
-    );
-  }
-
-  if (input.route === 'fusion' && input.fusionOpportunity?.lineIds.length) {
-    const fusionLines = [...new Set(input.fusionOpportunity.lineIds)]
-      .map((lineId) => linesById.get(lineId))
-      .filter((line): line is OptimizationDispatchItem => Boolean(line && matchesMetricContract(line)));
-    if (new Set(fusionLines.map((line) => asString(line.mechanismFamily).toLowerCase())).size >= 2) {
-      return finish(
-        'fuse_lines',
-        [
-          {
-            kind: 'fusion',
-            id: fusionLines.map((line) => asString(line.lineId)).join('+'),
-            lineId: null,
-            mechanismFamily: null,
-            evidenceRefs: [
-              ...new Set([
-                ...(input.fusionOpportunity.evidenceIds || []),
-                ...(input.fusionOpportunity.evidencePaths || []),
-              ]),
-            ],
-          },
-        ],
-        fusionLines,
-        'Prepare one bounded fusion from distinct measured mechanism families.'
-      );
-    }
-  }
-
-  const dispatchableAttempts = input.implementationAttempts
-    .filter((attempt) => {
-      const line = linesById.get(asString(attempt.lineId));
-      return (
-        Boolean(optimizationItemId(attempt) && line && !line.stagnant) &&
-        matchesMetricContract(line as OptimizationDispatchItem) &&
-        OPTIMIZATION_DISPATCHABLE_ATTEMPT_STATUSES.has(asString(attempt.status).toLowerCase())
-      );
-    })
-    .map((attempt) => ({ ...attempt, mechanismFamily: linesById.get(asString(attempt.lineId))?.mechanismFamily }))
-    .sort((left, right) => {
-      const leftBest = left.lineId === input.bestLineId ? 0 : 1;
-      const rightBest = right.lineId === input.bestLineId ? 0 : 1;
-      return leftBest - rightBest || optimizationItemId(left).localeCompare(optimizationItemId(right));
-    });
-  const selectedAttempts = selectDiverseOptimizationItems(dispatchableAttempts, availableSlots);
-  if (selectedAttempts.length)
-    return finish(
-      'dispatch_attempt',
-      selectedAttempts.map((attempt) => target('implementation_attempt', attempt)),
-      dispatchableAttempts,
-      'Dispatch prepared attempts immediately, preserving mechanism diversity when two slots are free.'
-    );
-
-  const readyLines = activeLines
-    .filter((line) => line.lineId && line.mechanismFamily && !line.stagnant && matchesMetricContract(line))
-    .sort((left, right) => {
-      const leftBest = left.lineId === input.bestLineId ? 0 : 1;
-      const rightBest = right.lineId === input.bestLineId ? 0 : 1;
-      return leftBest - rightBest || optimizationItemId(left).localeCompare(optimizationItemId(right));
-    });
-  const selectedLines = selectDiverseOptimizationItems(readyLines, availableSlots);
-  if (selectedLines.length)
-    return finish(
-      'prepare_attempt',
-      selectedLines.map((line) => target('optimization_line', line)),
-      readyLines,
-      'Prepare one atomic attempt per selected line; do not fill slots with same-family parameter variants.'
-    );
-
-  const stagnantFamilies = new Set(
-    activeLines
-      .filter((line) => line.stagnant)
-      .map((line) => asString(line.mechanismFamily).toLowerCase())
-      .filter(Boolean)
-  );
-  const readyBriefs = activeBriefs
-    .filter(
-      (brief) =>
-        brief.ideaId &&
-        brief.mechanismFamily &&
-        brief.mechanism &&
-        brief.falsificationPlan &&
-        optimizationEvidenceRefs(brief).length &&
-        matchesMetricContract(brief) &&
-        (!input.taskScope || assessOptimizationCandidateQuality(brief, input.projectRoot).eligible) &&
-        !stagnantFamilies.has(asString(brief.mechanismFamily).toLowerCase())
-    )
-    .sort((left, right) => {
-      const leftQuality = assessOptimizationCandidateQuality(left, input.projectRoot);
-      const rightQuality = assessOptimizationCandidateQuality(right, input.projectRoot);
-      const evidenceDelta =
-        evidenceLevelRank(leftQuality.evidenceLevel) - evidenceLevelRank(rightQuality.evidenceLevel);
-      if (evidenceDelta) return evidenceDelta;
-      const costDelta =
-        (leftQuality.estimatedCostMinutes ?? Number.POSITIVE_INFINITY) -
-        (rightQuality.estimatedCostMinutes ?? Number.POSITIVE_INFINITY);
-      if (costDelta) return costDelta;
-      const layerDelta = changeLayerRank(left.changeLayer) - changeLayerRank(right.changeLayer);
-      return layerDelta || optimizationItemId(left).localeCompare(optimizationItemId(right));
-    });
-  const selectedBriefs = selectDiverseOptimizationItems(readyBriefs, availableSlots);
-  if (selectedBriefs.length)
-    return finish(
-      'promote_candidate',
-      selectedBriefs.map((brief) => target('idea_candidate', brief)),
-      readyBriefs,
-      'Promote only evidence-ready briefs from distinct mechanism families.'
-    );
-
-  return finish(
-    'generate_candidate',
-    [],
-    [],
-    activeLines.some((line) => line.stagnant)
-      ? 'All live lines are stagnant; generate one evidence-backed candidate from an orthogonal mechanism family.'
-      : 'No dispatch-ready evidence-backed candidate exists; generate a small differentiated brief slate.',
-    'explore'
-  );
-};
-
-export const submitOptimizationIdea = (
-  run: ScienceRunState,
-  body: JsonRecord
-): {
-  artifact: ScienceArtifact;
-  promotedCandidate?: ScienceArtifact;
-  metadata: ScienceOptimizationArtifactMetadata;
-} => {
-  const mode = asString(body.mode, 'create').toLowerCase();
-  if (!['create', 'revise'].includes(mode)) throw new Error('submit_idea mode must be "create" or "revise".');
-  const submissionMode = asString(body.submissionMode || body.submission_mode, 'line').toLowerCase();
-  if (!['candidate', 'line'].includes(submissionMode))
-    throw new Error('submit_idea submissionMode must be "candidate" or "line".');
-
-  const sourceCandidateId = asString(
-    body.sourceCandidateId || body.source_candidate_id,
-    undefined as unknown as string
-  );
-  const sourceCandidate = sourceCandidateId
-    ? findOptimizationArtifact(run, 'idea_candidate', sourceCandidateId)
-    : undefined;
-  if (sourceCandidateId && !sourceCandidate)
-    throw new Error(`Candidate brief ${sourceCandidateId} does not exist in this Science run.`);
-  const source = readOptimizationMetadata(sourceCandidate);
-  const ideaId = asString(
-    body.ideaId || body.idea_id,
-    mode === 'revise'
-      ? source?.ideaId || ''
-      : `idea_${Date.now().toString(36)}_${crypto.randomBytes(3).toString('hex')}`
-  );
-  if (!ideaId) throw new Error('submit_idea requires ideaId when mode="revise".');
-
-  const existing =
-    submissionMode === 'candidate'
-      ? findOptimizationArtifact(run, 'idea_candidate', ideaId)
-      : findOptimizationArtifact(run, 'optimization_line', asString(body.lineId || body.line_id, ideaId));
-  if (mode === 'create' && existing)
-    throw new Error(
-      `${submissionMode === 'candidate' ? 'Candidate brief' : 'Optimization line'} ${ideaId} already exists.`
-    );
-  if (mode === 'revise' && !existing)
-    throw new Error(
-      `${submissionMode === 'candidate' ? 'Candidate brief' : 'Optimization line'} ${ideaId} does not exist.`
-    );
-  const previous = readOptimizationMetadata(existing);
-  const requestedTaskScope = optimizationTaskScope(
-    body.taskId || body.task_id,
-    body.sealId || body.seal_id,
-    'submit_idea task scope'
-  );
-  const inheritedTaskScope = optimizationTaskScope(
-    source?.taskId || previous?.taskId,
-    source?.sealId || previous?.sealId,
-    'stored optimization task scope'
-  );
-  const taskScope = requestedTaskScope || inheritedTaskScope;
-  for (const item of [source, previous]) {
-    if (taskScope && item?.taskId && (item.taskId !== taskScope.taskId || item.sealId !== taskScope.sealId))
-      throw new Error('submit_idea cannot move a candidate or line to another task scope.');
-  }
-
-  const field = (camel: string, snake: string): unknown => body[camel] ?? body[snake];
-  const title = asString(body.title, source?.title || previous?.title || '');
-  const problem = asString(body.problem, source?.problem || previous?.problem || '');
-  const hypothesis = asString(body.hypothesis, source?.hypothesis || previous?.hypothesis || '');
-  const mechanism = asString(body.mechanism, source?.mechanism || previous?.mechanism || '');
-  const decisionReason = asString(
-    field('decisionReason', 'decision_reason'),
-    source?.decisionReason || previous?.decisionReason || ''
-  );
-  const evidenceBasis =
-    asStringArray(field('evidenceBasis', 'evidence_basis')).length > 0
-      ? asStringArray(field('evidenceBasis', 'evidence_basis'))
-      : source?.evidenceBasis || previous?.evidenceBasis || [];
-  const evidencePaths =
-    asStringArray(field('evidencePaths', 'evidence_paths')).length > 0
-      ? asStringArray(field('evidencePaths', 'evidence_paths'))
-      : source?.evidencePaths || previous?.evidencePaths || [];
-  const falsificationPlan = asString(
-    field('falsificationPlan', 'falsification_plan'),
-    source?.falsificationPlan || previous?.falsificationPlan || ''
-  );
-  const metricContractId = asString(
-    field('metricContractId', 'metric_contract_id'),
-    source?.metricContractId || previous?.metricContractId || ''
-  );
-  const whyCurrentLineIsLimited = asString(
-    field('whyCurrentLineIsLimited', 'why_current_line_is_limited'),
-    source?.whyCurrentLineIsLimited || previous?.whyCurrentLineIsLimited || ''
-  );
-  const keepUnchanged = asStringArray(field('keepUnchanged', 'keep_unchanged')).length
-    ? asStringArray(field('keepUnchanged', 'keep_unchanged'))
-    : source?.keepUnchanged || previous?.keepUnchanged || [];
-  const implementationSurface = asString(
-    field('implementationSurface', 'implementation_surface'),
-    source?.implementationSurface || previous?.implementationSurface || ''
-  );
-  const mainRisks = asStringArray(field('mainRisks', 'main_risks')).length
-    ? asStringArray(field('mainRisks', 'main_risks'))
-    : source?.mainRisks || previous?.mainRisks || [];
-  const rawEstimatedCost = field('estimatedCostMinutes', 'estimated_cost_minutes');
-  const estimatedCostMinutes =
-    typeof rawEstimatedCost === 'number' && Number.isFinite(rawEstimatedCost)
-      ? rawEstimatedCost
-      : source?.estimatedCostMinutes || previous?.estimatedCostMinutes;
-  const strongestAlternative = normalizeOptimizationStrongestAlternative(
-    field('strongestAlternative', 'strongest_alternative'),
-    source?.strongestAlternative || previous?.strongestAlternative
-  );
-  if (taskScope && !metricContractId)
-    throw new Error('IOAI-scoped submit_idea requires a frozen metricContractId before candidate search.');
-  const missing = [
-    ['title', title],
-    ['problem', problem],
-    ['hypothesis', hypothesis],
-    ['mechanism', mechanism],
-    ['decisionReason', decisionReason],
-    ['falsificationPlan', falsificationPlan],
-  ].filter(([, value]) => !value);
-  if (missing.length)
-    throw new Error(`submit_idea requires evidence-shaped fields: ${missing.map(([name]) => name).join(', ')}.`);
-  if (!evidenceBasis.length && !evidencePaths.length)
-    throw new Error('submit_idea requires evidenceBasis or evidencePaths; parameter guesses are not durable ideas.');
-
-  const timestamp = now();
-  const lineId =
-    submissionMode === 'line' ? asString(body.lineId || body.line_id, previous?.lineId || ideaId) : undefined;
-  const lineageIntent = asString(body.lineageIntent || body.lineage_intent, previous?.lineageIntent || '');
-  if (lineageIntent && !['continue_line', 'branch_alternative'].includes(lineageIntent))
-    throw new Error('lineageIntent must be "continue_line" or "branch_alternative".');
-  const foundationValue = body.foundationRef ?? body.foundation_ref ?? previous?.foundationRef;
-  const foundationRef = typeof foundationValue === 'string' || isRecord(foundationValue) ? foundationValue : undefined;
-  const metadata: ScienceOptimizationArtifactMetadata = {
-    schema: OPTIMIZATION_SCHEMA,
-    kind: submissionMode === 'candidate' ? 'idea_candidate' : 'optimization_line',
-    ideaId,
-    lineId,
-    taskId: taskScope?.taskId,
-    sealId: taskScope?.sealId,
-    sourceCandidateId: sourceCandidateId || previous?.sourceCandidateId,
-    parentLineId: asString(
-      body.parentLineId || body.parent_line_id,
-      previous?.parentLineId || (undefined as unknown as string)
-    ),
-    branch: asString(body.branch, previous?.branch || (undefined as unknown as string)),
-    foundationRef,
-    lineageIntent: lineageIntent as ScienceOptimizationArtifactMetadata['lineageIntent'],
-    status: asString(body.status, previous?.status || (submissionMode === 'candidate' ? 'proposed' : 'active')),
-    title,
-    problem,
-    hypothesis,
-    mechanism,
-    methodBrief: asString(
-      field('methodBrief', 'method_brief'),
-      source?.methodBrief || previous?.methodBrief || (undefined as unknown as string)
-    ),
-    mechanismFamily: asString(
-      field('mechanismFamily', 'mechanism_family'),
-      source?.mechanismFamily || previous?.mechanismFamily || (undefined as unknown as string)
-    ),
-    changeLayer: asString(
-      field('changeLayer', 'change_layer'),
-      source?.changeLayer || previous?.changeLayer || (undefined as unknown as string)
-    ),
-    sourceLens: asString(
-      field('sourceLens', 'source_lens'),
-      source?.sourceLens || previous?.sourceLens || (undefined as unknown as string)
-    ),
-    whyNow: asString(
-      field('whyNow', 'why_now'),
-      source?.whyNow || previous?.whyNow || (undefined as unknown as string)
-    ),
-    whyCurrentLineIsLimited,
-    keepUnchanged,
-    implementationSurface,
-    mainRisks,
-    estimatedCostMinutes,
-    strongestAlternative,
-    evidenceBasis,
-    evidencePaths,
-    falsificationPlan,
-    abandonmentCondition: asString(
-      field('abandonmentCondition', 'abandonment_condition'),
-      source?.abandonmentCondition || previous?.abandonmentCondition || (undefined as unknown as string)
-    ),
-    decisionReason,
-    selectionScores:
-      normalizeSelectionScores(field('selectionScores', 'selection_scores')) ||
-      source?.selectionScores ||
-      previous?.selectionScores,
-    expectedGain: asString(
-      field('expectedGain', 'expected_gain'),
-      source?.expectedGain || previous?.expectedGain || (undefined as unknown as string)
-    ),
-    metricContractId,
-    latestResultArtifactId: previous?.latestResultArtifactId,
-    latestRunId: previous?.latestRunId,
-    createdAt: previous?.createdAt || timestamp,
-    updatedAt: timestamp,
-  };
-  if (taskScope) {
-    const quality = assessOptimizationCandidateQuality(metadata, run.projectRoot);
-    if (!quality.eligible) throw new Error(`IOAI candidate quality gate failed: ${quality.missingFields.join(', ')}.`);
-  }
-  const artifactId = optimizationArtifactId(metadata.kind, submissionMode === 'candidate' ? ideaId : lineId || ideaId);
-  const artifact = writeOptimizationArtifactVersion(run, {
-    id: artifactId,
-    type: 'report',
-    title,
-    metadata,
-    evidenceIds: asStringArray(body.evidenceIds || body.evidence_ids),
-    changeSummary: mode === 'revise' ? 'Revised durable idea contract.' : 'Recorded durable idea contract.',
-  });
-
-  let promotedCandidate: ScienceArtifact | undefined;
-  if (submissionMode === 'line' && source && sourceCandidate) {
-    promotedCandidate = writeOptimizationArtifactVersion(run, {
-      id: sourceCandidate.id,
-      type: sourceCandidate.type,
-      title: sourceCandidate.title,
-      metadata: {
-        ...source,
-        status: 'promoted',
-        lineId,
-        updatedAt: timestamp,
-      },
-      evidenceIds: sourceCandidate.evidenceIds,
-      changeSummary: `Promoted into durable optimization line ${lineId}.`,
-    });
-  }
-  return { artifact, promotedCandidate, metadata };
-};
-
-const resolveOptimizationLine = (run: ScienceRunState, requestedLineId?: string): ScienceArtifact => {
-  if (requestedLineId) {
-    const line = findOptimizationArtifact(run, 'optimization_line', requestedLineId);
-    if (!line) throw new Error(`Optimization line ${requestedLineId} does not exist in this Science run.`);
-    return line;
-  }
-  const active = latestOptimizationArtifacts(run).filter((artifact) => {
-    const metadata = readOptimizationMetadata(artifact);
-    return (
-      metadata?.kind === 'optimization_line' &&
-      !OPTIMIZATION_TERMINAL_LINE_STATUSES.has(asString(metadata.status).toLowerCase())
-    );
-  });
-  if (active.length !== 1)
-    throw new Error('record_main_experiment requires lineId when there is not exactly one active optimization line.');
-  return active[0];
-};
-
-const normalizeFusionEvidence = (
-  run: ScienceRunState,
-  value: unknown,
-  currentLineId: string
-): ScienceOptimizationFusionEvidence | undefined => {
-  if (value == null) return undefined;
-  if (!isRecord(value)) throw new Error('fusionEvidence must be an object.');
-  const complementaryLineIds = [...new Set(asStringArray(value.complementaryLineIds || value.complementary_line_ids))];
-  if (complementaryLineIds.length < 2)
-    throw new Error('fusionEvidence requires at least two unique complementaryLineIds.');
-  if (!complementaryLineIds.includes(currentLineId))
-    throw new Error('fusionEvidence complementaryLineIds must include the current experiment lineId.');
-  const missingLines = complementaryLineIds.filter(
-    (lineId) => !findOptimizationArtifact(run, 'optimization_line', lineId)
-  );
-  if (missingLines.length)
-    throw new Error(`fusionEvidence references unknown optimization line(s): ${missingLines.join(', ')}.`);
-  const basis = asString(value.basis).toLowerCase();
-  if (!['prediction_correlation', 'error_correlation', 'error_cluster'].includes(basis))
-    throw new Error('fusionEvidence basis must be prediction_correlation, error_correlation, or error_cluster.');
-  const summary = asString(value.summary);
-  if (!summary) throw new Error('fusionEvidence requires a non-empty summary.');
-  return {
-    complementaryLineIds,
-    basis: basis as ScienceOptimizationFusionEvidence['basis'],
-    summary,
-    evidenceIds: asStringArray(value.evidenceIds || value.evidence_ids),
-    evidencePaths: asStringArray(value.evidencePaths || value.evidence_paths),
-  };
-};
-
-export const recordOptimizationMainExperiment = (
-  run: ScienceRunState,
-  body: JsonRecord
-): {
-  resultArtifact: ScienceArtifact;
-  lineArtifact: ScienceArtifact;
-  metadata: ScienceOptimizationArtifactMetadata;
-} => {
-  const runIdentifier = asString(body.runId || body.run_id);
-  if (!runIdentifier) throw new Error('record_main_experiment requires runId.');
-  if (findOptimizationArtifact(run, 'main_experiment', runIdentifier))
-    throw new Error(`Main experiment ${runIdentifier} is already recorded and immutable.`);
-  const requestedLineId = asString(body.lineId || body.line_id || body.ideaId || body.idea_id);
-  const line = resolveOptimizationLine(run, requestedLineId || undefined);
-  const lineMetadata = readOptimizationMetadata(line);
-  if (!lineMetadata?.lineId) throw new Error('The selected optimization line has no durable lineId.');
-  const requestedTaskScope = optimizationTaskScope(
-    body.taskId || body.task_id,
-    body.sealId || body.seal_id,
-    'record_main_experiment task scope'
-  );
-  const lineTaskScope = optimizationTaskScope(lineMetadata.taskId, lineMetadata.sealId, 'optimization line task scope');
-  if (
-    requestedTaskScope &&
-    lineTaskScope &&
-    (requestedTaskScope.taskId !== lineTaskScope.taskId || requestedTaskScope.sealId !== lineTaskScope.sealId)
-  )
-    throw new Error('record_main_experiment task scope does not match its optimization line.');
-  const taskScope = requestedTaskScope || lineTaskScope;
-
-  const status = asString(body.status, 'completed').toLowerCase();
-  const failureKind = asString(body.failureKind || body.failure_kind) || undefined;
-  const explicitValid = body.valid;
-  const valid = typeof explicitValid === 'boolean' ? explicitValid : status === 'completed' && !failureKind;
-  const metrics = normalizeOptimizationMetrics(body);
-  if (valid && !metrics.length)
-    throw new Error('A valid main experiment requires at least one finite metric row or metric summary.');
-  const timestamp = now();
-  const evaluationSummary = isRecord(body.evaluationSummary || body.evaluation_summary)
-    ? ((body.evaluationSummary || body.evaluation_summary) as JsonRecord)
-    : undefined;
-  const comparable = valid && body.comparable !== false && evaluationSummary?.comparability !== 'none';
-  const evidencePaths = asStringArray(body.evidencePaths || body.evidence_paths);
-  const evidenceIds = asStringArray(body.evidenceIds || body.evidence_ids);
-  const fusionEvidence = normalizeFusionEvidence(run, body.fusionEvidence || body.fusion_evidence, lineMetadata.lineId);
-  const repairOfRunId = asString(body.repairOfRunId || body.repair_of_run_id) || undefined;
-  if (repairOfRunId) {
-    const original = findOptimizationArtifact(run, 'main_experiment', repairOfRunId);
-    const originalMetadata = readOptimizationMetadata(original);
-    if (!originalMetadata || originalMetadata.lineId !== lineMetadata.lineId)
-      throw new Error('repairOfRunId must reference a main experiment on the same optimization line.');
-    const originalClass = originalMetadata.failureClass || classifyOptimizationResult(originalMetadata);
-    if (!['execution_error', 'invalid_result'].includes(originalClass))
-      throw new Error('repairOfRunId must reference an execution_error or invalid_result.');
-    const priorRepair = latestOptimizationArtifacts(run).find((artifact) => {
-      const candidate = readOptimizationMetadata(artifact);
-      return (
-        candidate?.kind === 'main_experiment' && candidate.lineId === lineMetadata.lineId && candidate.repairOfRunId
-      );
-    });
-    if (priorRepair) throw new Error(`Optimization line ${lineMetadata.lineId} has already used its one repair.`);
-  }
-  const metadata: ScienceOptimizationArtifactMetadata = {
-    schema: OPTIMIZATION_SCHEMA,
-    kind: 'main_experiment',
-    ideaId: lineMetadata.ideaId,
-    lineId: lineMetadata.lineId,
-    attemptId: asString(body.attemptId || body.attempt_id, undefined as unknown as string),
-    runId: runIdentifier,
-    taskId: taskScope?.taskId,
-    sealId: taskScope?.sealId,
-    status,
-    valid,
-    failureKind,
-    repairOfRunId,
-    title: asString(body.title, runIdentifier),
-    hypothesis: asString(body.hypothesis, lineMetadata.hypothesis || (undefined as unknown as string)),
-    mechanism: lineMetadata.mechanism,
-    mechanismFamily: lineMetadata.mechanismFamily,
-    evidenceBasis: asStringArray(body.evidenceBasis || body.evidence_basis),
-    evidencePaths,
-    metrics,
-    metricContractId: asString(
-      body.metricContractId || body.metric_contract_id,
-      lineMetadata.metricContractId || (undefined as unknown as string)
-    ),
-    comparable,
-    verdict: asString(body.verdict, undefined as unknown as string),
-    conclusion: asString(body.conclusion, undefined as unknown as string),
-    evaluationSummary,
-    fusionEvidence,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  };
-  metadata.failureClass = classifyOptimizationResult(metadata);
-  const deterministicSimpleTask =
-    body.deterministicSimpleTask === true ||
-    body.deterministic_simple_task === true ||
-    evaluationSummary?.deterministicSimpleTask === true ||
-    evaluationSummary?.taskProfile === 'deterministic-simple-task.v1';
-  metadata.stabilityAssessment = assessOptimizationStability(metadata, deterministicSimpleTask);
-  metadata.lesson = optimizationLesson(body, metadata, lineMetadata);
-  const resultArtifact = writeOptimizationArtifactVersion(run, {
-    id: optimizationArtifactId('main_experiment', runIdentifier),
-    type: 'run_bundle',
-    title: metadata.title || runIdentifier,
-    status: valid ? 'available' : 'failed',
-    metadata,
-    evidenceIds,
-    changeSummary: `Recorded real measured result for ${lineMetadata.lineId}.`,
-  });
-  const repairFailed = Boolean(repairOfRunId) && ['execution_error', 'invalid_result'].includes(metadata.failureClass);
-  const lineStatus = repairFailed
-    ? 'archived'
-    : asString(
-        body.lineStatus || body.line_status,
-        body.stopLine === true || body.stop_line === true ? 'stopped' : lineMetadata.status || 'active'
-      );
-  const lineArtifact = writeOptimizationArtifactVersion(run, {
-    id: line.id,
-    type: line.type,
-    title: line.title,
-    metadata: {
-      ...lineMetadata,
-      status: lineStatus,
-      latestResultArtifactId: resultArtifact.id,
-      latestRunId: runIdentifier,
-      updatedAt: timestamp,
-    },
-    evidenceIds: [...new Set([...(line.evidenceIds || []), ...evidenceIds])],
-    changeSummary: `Linked main experiment ${runIdentifier}.`,
-  });
-  return { resultArtifact, lineArtifact, metadata };
-};
-
-export const buildOptimizationFrontier = (run: ScienceRunState, taskScope?: ScienceOptimizationTaskScope) => {
-  const artifacts = latestOptimizationArtifacts(run).filter((artifact) =>
-    optimizationItemMatchesScope(readOptimizationMetadata(artifact), taskScope)
-  );
-  const candidateArtifacts = artifacts.filter(
-    (artifact) => readOptimizationMetadata(artifact)?.kind === 'idea_candidate'
-  );
-  const lineArtifacts = artifacts.filter(
-    (artifact) => readOptimizationMetadata(artifact)?.kind === 'optimization_line'
-  );
-  const attemptArtifacts = artifacts.filter(
-    (artifact) => readOptimizationMetadata(artifact)?.kind === 'implementation_attempt'
-  );
-  const resultArtifacts = artifacts.filter(
-    (artifact) => readOptimizationMetadata(artifact)?.kind === 'main_experiment'
-  );
-  const candidateBriefs = candidateArtifacts.map((artifact) => {
-    const metadata = readOptimizationMetadata(artifact) as ScienceOptimizationArtifactMetadata;
-    return {
-      artifactId: artifact.id,
-      version: artifact.version,
-      ...metadata,
-      quality: assessOptimizationCandidateQuality(metadata, run.projectRoot),
-    };
-  });
-  const implementationAttempts = attemptArtifacts.map((artifact) => ({
-    artifactId: artifact.id,
-    version: artifact.version,
-    ...readOptimizationMetadata(artifact),
-  }));
-  const mainExperiments = resultArtifacts.map((artifact) => ({
-    artifactId: artifact.id,
-    version: artifact.version,
-    ...readOptimizationMetadata(artifact),
-  }));
-  const resultsByLine = new Map<string, ScienceOptimizationArtifactMetadata[]>();
-  for (const artifact of resultArtifacts) {
-    const metadata = readOptimizationMetadata(artifact);
-    if (!metadata?.lineId) continue;
-    const values = resultsByLine.get(metadata.lineId) || [];
-    values.push(metadata);
-    resultsByLine.set(metadata.lineId, values);
-  }
-  for (const values of resultsByLine.values())
-    values.sort(
-      (left, right) => left.updatedAt - right.updatedAt || asString(left.runId).localeCompare(asString(right.runId))
-    );
-
-  const failedAttemptsByLine = new Map<string, number>();
-  for (const artifact of attemptArtifacts) {
-    const metadata = readOptimizationMetadata(artifact);
-    if (!metadata?.lineId || !OPTIMIZATION_FAILED_ATTEMPT_STATUSES.has(asString(metadata.status).toLowerCase()))
-      continue;
-    failedAttemptsByLine.set(metadata.lineId, (failedAttemptsByLine.get(metadata.lineId) || 0) + 1);
-  }
-  const lines = lineArtifacts.map((artifact) => {
-    const metadata = readOptimizationMetadata(artifact) as ScienceOptimizationArtifactMetadata;
-    const results = resultsByLine.get(metadata.lineId || '') || [];
-    let consecutiveObjectiveFailures = 0;
-    for (const result of [...results].reverse()) {
-      const failureClass = result.failureClass || classifyOptimizationResult(result);
-      if (failureClass === 'valid_no_gain') consecutiveObjectiveFailures += 1;
-      else if (failureClass === 'execution_error' || failureClass === 'invalid_result') continue;
-      else break;
-    }
-    const failedAttemptCount = failedAttemptsByLine.get(metadata.lineId || '') || 0;
-    const repairs = results.filter((result) => result.repairOfRunId);
-    const latestResult = results.at(-1);
-    return {
-      artifactId: artifact.id,
-      version: artifact.version,
-      ...metadata,
-      resultCount: results.length,
-      failedAttemptCount,
-      consecutiveObjectiveFailures,
-      repairUsed: repairs.length > 0,
-      repairExhausted: repairs.some((result) =>
-        ['execution_error', 'invalid_result'].includes(result.failureClass || classifyOptimizationResult(result))
-      ),
-      stagnant: consecutiveObjectiveFailures >= 2,
-      latestResult,
-    };
-  });
-
-  const comparableResults = resultArtifacts
-    .map((artifact) => ({
-      artifact,
-      metadata: readOptimizationMetadata(artifact) as ScienceOptimizationArtifactMetadata,
-    }))
-    .filter(({ metadata }) => metadata.comparable && metadata.valid !== false && primaryOptimizationMetric(metadata));
-  const comparisonGroups = new Map<string, typeof comparableResults>();
-  for (const value of comparableResults) {
-    const primary = primaryOptimizationMetric(value.metadata) as ScienceOptimizationMetric;
-    const key = `${value.metadata.metricContractId || 'default'}:${primary.metricId}:${primary.direction}`;
-    const group = comparisonGroups.get(key) || [];
-    group.push(value);
-    comparisonGroups.set(key, group);
-  }
-  const dominantGroup = [...comparisonGroups.entries()].sort(
-    ([leftKey, left], [rightKey, right]) => right.length - left.length || leftKey.localeCompare(rightKey)
-  )[0];
-  const rankedDominantResults = dominantGroup
-    ? [...dominantGroup[1]].sort((left, right) => {
-        const leftMetric = primaryOptimizationMetric(left.metadata) as ScienceOptimizationMetric;
-        const rightMetric = primaryOptimizationMetric(right.metadata) as ScienceOptimizationMetric;
-        const leftImprovement = metricImprovement(leftMetric);
-        const rightImprovement = metricImprovement(rightMetric);
-        if (leftImprovement != null && rightImprovement != null && leftImprovement !== rightImprovement)
-          return rightImprovement - leftImprovement;
-        const utilityDelta = metricUtility(rightMetric) - metricUtility(leftMetric);
-        if (utilityDelta) return utilityDelta;
-        return asString(left.metadata.lineId).localeCompare(asString(right.metadata.lineId));
-      })
-    : [];
-  const scoreLeader = rankedDominantResults[0];
-  const bestResult = rankedDominantResults.find(({ metadata }) => {
-    const assessment = metadata.stabilityAssessment || assessOptimizationStability(metadata, false);
-    return assessment.promotionEligible;
-  });
-  const bestLine = bestResult
-    ? lines.find((line) => line.lineId === bestResult.metadata.lineId)
-    : lines.find((line) => !OPTIMIZATION_TERMINAL_LINE_STATUSES.has(asString(line.status).toLowerCase()));
-
-  const positiveComparableResults = comparableResults.filter(({ metadata }) => {
-    const primary = primaryOptimizationMetric(metadata);
-    const improvement = primary ? metricImprovement(primary) : undefined;
-    const stability = metadata.stabilityAssessment || assessOptimizationStability(metadata, false);
-    return Boolean(
-      metadata.metricContractId &&
-      metadata.lineId &&
-      improvement != null &&
-      improvement > 0 &&
-      stability.promotionEligible
-    );
-  });
-  const validFusionOpportunities = resultArtifacts
-    .map((artifact) => readOptimizationMetadata(artifact) as ScienceOptimizationArtifactMetadata)
-    .filter((metadata) => Boolean(metadata.fusionEvidence))
-    .map((metadata) => {
-      const primary = primaryOptimizationMetric(metadata);
-      const evidence = metadata.fusionEvidence as ScienceOptimizationFusionEvidence;
-      if (!metadata.metricContractId || !primary || !metadata.comparable || metadata.status !== 'completed')
-        return undefined;
-      const matchedResults = evidence.complementaryLineIds.map(
-        (lineId) =>
-          positiveComparableResults
-            .filter(({ metadata: candidate }) => {
-              const candidatePrimary = primaryOptimizationMetric(candidate);
-              return (
-                candidate.lineId === lineId &&
-                candidate.metricContractId === metadata.metricContractId &&
-                candidatePrimary?.metricId === primary.metricId &&
-                candidatePrimary.direction === primary.direction
-              );
-            })
-            .sort(
-              (left, right) =>
-                right.metadata.updatedAt - left.metadata.updatedAt ||
-                asString(left.metadata.runId).localeCompare(asString(right.metadata.runId))
-            )[0]?.metadata
-      );
-      if (matchedResults.some((result) => !result)) return undefined;
-      return {
-        lineIds: evidence.complementaryLineIds,
-        basis: evidence.basis,
-        summary: evidence.summary,
-        evidenceIds: evidence.evidenceIds,
-        evidencePaths: evidence.evidencePaths,
-        evidenceRunId: metadata.runId,
-        metricContractId: metadata.metricContractId,
-        primaryMetricId: primary.metricId,
-        direction: primary.direction,
-        matchedRunIds: matchedResults.map((result) => result?.runId),
-        recordedAt: metadata.updatedAt,
-      };
-    })
-    .filter((item): item is NonNullable<typeof item> => Boolean(item))
-    .sort(
-      (left, right) =>
-        right.recordedAt - left.recordedAt || asString(left.evidenceRunId).localeCompare(asString(right.evidenceRunId))
-    );
-  const fusionOpportunity = validFusionOpportunities[0];
-  const activeCandidateBriefs = candidateBriefs.filter(
-    (candidate) => !OPTIMIZATION_TERMINAL_CANDIDATE_STATUSES.has(asString(candidate.status).toLowerCase())
-  );
-  const candidateQuality = {
-    schema: 'deepscientist.ioai.candidate-quality-summary.v1',
-    eligibleCandidateIds: activeCandidateBriefs
-      .filter((candidate) => candidate.quality.eligible)
-      .map((candidate) => asString(candidate.ideaId)),
-    rejectedCandidates: activeCandidateBriefs
-      .filter((candidate) => !candidate.quality.eligible)
-      .map((candidate) => ({
-        candidateId: asString(candidate.ideaId),
-        missingFields: candidate.quality.missingFields,
-        unverifiedEvidencePaths: candidate.quality.unverifiedEvidencePaths,
-      })),
-    mechanismFamilies: [
-      ...new Set(activeCandidateBriefs.map((candidate) => asString(candidate.mechanismFamily)).filter(Boolean)),
-    ],
-    changeLayers: [
-      ...new Set(activeCandidateBriefs.map((candidate) => asString(candidate.changeLayer)).filter(Boolean)),
-    ],
-  };
-  const activeLines = lines.filter(
-    (line) => !OPTIMIZATION_TERMINAL_LINE_STATUSES.has(asString(line.status).toLowerCase())
-  );
-  const activeAttempts = implementationAttempts.filter((attempt) =>
-    OPTIMIZATION_ACTIVE_ATTEMPT_STATUSES.has(asString(attempt.status).toLowerCase())
-  );
-  const nonStagnantActiveLines = activeLines.filter((line) => !line.stagnant);
-  const repairableFailure = activeLines
-    .filter((line) => {
-      const latest = line.latestResult;
-      if (!latest || line.repairUsed) return false;
-      const failureClass = latest.failureClass || classifyOptimizationResult(latest);
-      return ['execution_error', 'invalid_result'].includes(failureClass);
-    })
-    .map((line) => ({
-      ...(line.latestResult as ScienceOptimizationArtifactMetadata),
-      mechanismFamily: line.mechanismFamily,
-    }))
-    .sort(
-      (left, right) => right.updatedAt - left.updatedAt || asString(left.runId).localeCompare(asString(right.runId))
-    )[0];
-
-  let route: ScienceOptimizationRoute;
-  let reason: string;
-  if (!candidateBriefs.length && !lines.length) {
-    route = 'explore';
-    reason =
-      'No candidate brief or durable line exists, so the next justified move is evidence-backed idea generation.';
-  } else if (!activeLines.length && !activeCandidateBriefs.length) {
-    route = 'stop';
-    reason = 'Every recorded candidate and durable line is terminal; the current frontier is exhausted.';
-  } else if (repairableFailure) {
-    route = 'debug';
-    reason = `Run ${repairableFailure.runId} has a concrete ${repairableFailure.failureClass} and this line has not used its one bounded repair.`;
-  } else if (fusionOpportunity) {
-    route = 'fusion';
-    reason = `Audited ${fusionOpportunity.basis} evidence shows complementary errors or predictions between positive comparable lines.`;
-  } else if (activeAttempts.length || nonStagnantActiveLines.length) {
-    route = 'exploit';
-    reason = bestResult
-      ? 'A comparable measured incumbent exists and at least one durable line still has justified execution capacity.'
-      : 'A durable line or implementation attempt is active and still needs its first decisive measured result.';
-  } else if (activeCandidateBriefs.length) {
-    route = 'explore';
-    reason = 'Existing lines are stagnant, while unpromoted evidence-backed candidate briefs remain available.';
-  } else if (activeLines.length) {
-    route = 'explore';
-    reason = 'Every active line is stagnant, so the next move must pivot to an orthogonal evidence-backed mechanism.';
-  } else {
-    route = 'stop';
-    reason = 'No active optimization line or unpromoted candidate brief remains.';
-  }
-
-  const dispatchDecision = decideOptimizationDispatch({
-    projectRoot: run.projectRoot,
-    taskScope,
-    route,
-    candidateBriefs,
-    lines,
-    implementationAttempts,
-    bestLineId: bestLine?.lineId,
-    fusionOpportunity,
-    repairableFailure,
-  });
-
-  const recommendedNextActions: Record<ScienceOptimizationRoute, string[]> = {
-    explore: [
-      'Generate or rank evidence-backed candidate briefs at the mechanism-family level.',
-      'Promote only a differentiated brief with a cheap falsification path.',
-    ],
-    exploit: [
-      'Run the cheapest decisive implementation attempt on the strongest durable line.',
-      'Record the next real comparable result with record_main_experiment.',
-    ],
-    fusion: [
-      `Test a bounded fusion of audited complementary lines: ${fusionOpportunity?.lineIds.join(', ') || ''}.`,
-      'Keep the component-line metrics and the fusion result directly comparable.',
-    ],
-    debug: [
-      `Repair run ${repairableFailure?.runId || ''} once without changing its mechanism hypothesis.`,
-      'Archive the line if the bounded repair also fails or remains invalid.',
-    ],
-    stop: ['Record the exhausted frontier and avoid additional low-information parameter churn.'],
-  };
-
-  const recentLessons = [...mainExperiments]
-    .filter((experiment) => experiment.lesson)
-    .sort(
-      (left, right) => right.updatedAt - left.updatedAt || asString(right.runId).localeCompare(asString(left.runId))
-    )
-    .slice(0, 5)
-    .map((experiment) => ({
-      runId: experiment.runId,
-      lineId: experiment.lineId,
-      failureClass: experiment.failureClass,
-      updatedAt: experiment.updatedAt,
-      ...experiment.lesson,
-    }));
-
-  return {
-    schema: OPTIMIZATION_SCHEMA,
-    taskScope: taskScope || null,
-    route,
-    reason,
-    bestLine,
-    bestRun: bestResult?.metadata,
-    scoreLeader: scoreLeader?.metadata,
-    comparisonGroup: dominantGroup?.[0],
-    candidateBriefs,
-    lines,
-    implementationAttempts,
-    mainExperiments,
-    stagnantLines: lines.filter((line) => line.stagnant),
-    fusionOpportunity,
-    candidateQuality,
-    dispatchDecision,
-    recentLessons,
-    counts: {
-      candidateBriefs: candidateBriefs.length,
-      activeCandidateBriefs: activeCandidateBriefs.length,
-      durableLines: lines.length,
-      activeLines: activeLines.length,
-      implementationAttempts: implementationAttempts.length,
-      activeImplementationAttempts: activeAttempts.length,
-      mainExperiments: mainExperiments.length,
-    },
-    recommendedNextActions: recommendedNextActions[route],
-  };
-};
-
-const synchronizeTargetDiscoveryPortfolio = (
-  run: ScienceRunState,
-  target: TargetRef,
-  current: ScienceArtifact | undefined
-): ScienceArtifact | undefined => {
-  if (!run.projectRoot) return current;
-  const snapshot = readTargetDiscoveryProjectPortfolio(run.projectRoot);
-  if (snapshot.status === 'missing') return current;
-  if (snapshot.status === 'invalid') {
-    throw new Error(
-      `${TARGET_DISCOVERY_PORTFOLIO_PATH} is invalid. Repair the canonical project portfolio before using target_portfolio.`
-    );
-  }
-
-  const currentPortfolio = readTargetDiscoveryPortfolio(current?.metadata);
-  if (
-    currentPortfolio &&
-    current?.primaryPath === snapshot.path &&
-    JSON.stringify(currentPortfolio) === JSON.stringify(snapshot.portfolio)
-  ) {
-    return current;
-  }
-
-  const result = createOrReplaceResource(
-    run,
-    current ? 'patch' : 'create',
-    target,
-    current
-      ? {
-          title: snapshot.portfolio.title,
-          metadata: { targetDiscovery: snapshot.portfolio },
-          primaryPath: snapshot.path,
-          changeSummary: 'Synchronized from the canonical target portfolio.',
-        }
-      : {
-          type: 'table',
-          title: snapshot.portfolio.title,
-          status: 'available',
-          viewer: { kind: 'target_discovery' },
-          metadata: { targetDiscovery: snapshot.portfolio },
-          primaryPath: snapshot.path,
-          changeSummary: 'Loaded from the canonical target portfolio.',
-        },
-    current?.revision,
-    false
-  );
-  const artifact = result.object as ScienceArtifact;
-  artifact.revision = `target_file_${crypto
-    .createHash('sha256')
-    .update(JSON.stringify(snapshot.portfolio))
-    .digest('hex')
-    .slice(0, 24)}`;
-  return artifact;
-};
-
 const synchronizeMathematicsPortfolio = (
   run: ScienceRunState,
   target: TargetRef,
@@ -6512,142 +4210,6 @@ const synchronizeMathematicsPortfolio = (
   const artifact = result.object as ScienceArtifact;
   artifact.revision = `math_file_${portfolioSnapshot.rawHash.slice(0, 24)}`;
   return artifact;
-};
-
-const targetRankingSignature = (portfolio: TargetDiscoveryPortfolio): string =>
-  JSON.stringify({
-    candidates: portfolio.candidates.map((candidate) => ({
-      id: candidate.id,
-      symbol: candidate.symbol,
-      rank: candidate.rank,
-      priorityIndex: candidate.priorityIndex,
-      maxPriorityIndex: candidate.maxPriorityIndex,
-      coverage: candidate.coverage,
-      rankStability: candidate.rankStability,
-    })),
-    branches: portfolio.branches.map((branch) => ({ id: branch.id, candidateIds: branch.candidateIds })),
-  });
-
-const synchronizeProjectTargetArtifact = (run: ScienceRunState): void => {
-  const target = { kind: 'artifact' as const, id: TARGET_DISCOVERY_PORTFOLIO_ARTIFACT_ID, version: 1 };
-  synchronizeTargetDiscoveryPortfolio(run, target, run.artifacts.get(artifactKey(target.id, target.version)));
-};
-
-const synchronizeTargetDiscoveryDelivery = async (run: ScienceRunState): Promise<void> => {
-  if (!run.projectRoot) return;
-  const snapshot = readTargetDiscoveryProjectPortfolio(run.projectRoot);
-  const reconciled = await reconcileTargetDiscoveryProject({ projectRoot: run.projectRoot });
-  if (!reconciled.valid) {
-    const details = reconciled.issues
-      .filter((item) => item.severity === 'error')
-      .slice(0, 5)
-      .map((item) => (item.row ? `Row ${item.row}: ${item.message}` : item.message))
-      .join(' ');
-    throw new Error(`The canonical target candidate registry is invalid.${details ? ` ${details}` : ''}`);
-  }
-  if (reconciled.canonicalRegistryExists) {
-    synchronizeProjectTargetArtifact(run);
-    return;
-  }
-
-  if (snapshot.status !== 'ready') return;
-  synchronizeProjectTargetArtifact(run);
-
-  const freezePath = path.join(run.projectRoot, 'ranking_freeze.json');
-  if (!fs.existsSync(freezePath)) return;
-  let freeze: JsonRecord;
-  try {
-    const parsed = JSON.parse(fs.readFileSync(freezePath, 'utf8'));
-    if (!isRecord(parsed)) return;
-    freeze = parsed;
-  } catch {
-    throw new Error('ranking_freeze.json is invalid; repair it before publishing the target-discovery report.');
-  }
-  if (freeze.frozen !== true || freeze.status !== 'frozen' || !isRecord(freeze.outputs)) return;
-
-  const topEntry = freeze.outputs['top100_genes.csv'];
-  if (!isRecord(topEntry)) {
-    throw new Error(
-      'The target ranking is frozen but ranking_freeze.json does not register top100_genes.csv. Repair the freeze manifest before publishing.'
-    );
-  }
-  const relativeSourcePath = asString(topEntry.path, 'top100_genes.csv');
-  const expectedHash = asString(topEntry.sha256, '').toLowerCase();
-  const sourcePath = path.resolve(run.projectRoot, relativeSourcePath);
-  const relative = path.relative(run.projectRoot, sourcePath);
-  if (relative.startsWith(`..${path.sep}`) || relative === '..' || path.isAbsolute(relative)) {
-    throw new Error('The frozen target candidate table must stay inside projectRoot.');
-  }
-  if (!fs.existsSync(sourcePath) || !fs.statSync(sourcePath).isFile()) {
-    throw new Error(`The frozen target candidate table is missing: ${relativeSourcePath}.`);
-  }
-  const actualHash = crypto.createHash('sha256').update(fs.readFileSync(sourcePath)).digest('hex');
-  if (!expectedHash || actualHash !== expectedHash) {
-    throw new Error(
-      `The frozen target candidate table hash does not match ranking_freeze.json: ${relativeSourcePath}. Re-freeze the ranking before publishing.`
-    );
-  }
-
-  const loaded = await loadTargetDiscoveryImport({
-    projectRoot: run.projectRoot,
-    sourcePath,
-    mode: 'replace',
-    portfolio: snapshot.portfolio,
-    knownEvidenceIds: [...run.evidence.keys()],
-    requireSourceInProject: true,
-  });
-  if (!loaded.valid || !loaded.portfolio) {
-    const details = loaded.issues
-      .filter((item) => item.severity === 'error')
-      .slice(0, 5)
-      .map((item) => (item.row ? `Row ${item.row}: ${item.message}` : item.message))
-      .join(' ');
-    throw new Error(
-      `The ranking is frozen but its Top 100 could not be synchronized with target_portfolio.${details ? ` ${details}` : ''}`
-    );
-  }
-  if (targetRankingSignature(snapshot.portfolio) !== targetRankingSignature(loaded.portfolio)) {
-    commitLoadedTargetDiscoveryImport(run.projectRoot, loaded);
-  }
-  synchronizeProjectTargetArtifact(run);
-};
-
-const assertTargetDiscoveryPublicationReady = (run: ScienceRunState): void => {
-  for (const artifact of run.artifacts.values()) {
-    const portfolio = readTargetDiscoveryPortfolio(artifact.metadata);
-    if (!portfolio) continue;
-    const integrity = inspectTargetDiscoveryPortfolio(portfolio);
-    const errors = integrity.diagnostics.filter((item) => item.severity === 'error');
-    if (errors.length) {
-      throw new Error(`Target portfolio integrity check failed: ${errors.map((item) => item.message).join(' ')}`);
-    }
-    const finalDelivery =
-      run.status === 'completed' || portfolio.stage === 'complete' || portfolio.status === 'complete';
-    if (finalDelivery && integrity.quality.saturated) {
-      throw new Error(
-        'The final target ranking has insufficient score discrimination. Review clipping, caps, ties, and deterministic tie-breakers, then import the corrected complete candidate registry before publishing.'
-      );
-    }
-    const policy = portfolio.context.researchPolicy;
-    for (const candidate of portfolio.candidates.filter((item) => item.status === 'advance')) {
-      if (policy?.patientDataRequired) {
-        const missingEvidenceIds = (candidate.patientEvidence?.computedEvidenceIds || []).filter(
-          (evidenceId) => !run.evidence.has(evidenceId)
-        );
-        if (missingEvidenceIds.length) {
-          throw new Error(
-            `Target ${candidate.id} references unregistered computed patient evidence: ${missingEvidenceIds.join(', ')}.`
-          );
-        }
-      }
-      if (
-        policy?.independentAuditRequired &&
-        ![...run.artifacts.values()].some((candidateArtifact) => candidateArtifact.id === candidate.auditArtifactId)
-      ) {
-        throw new Error(`Target ${candidate.id} references an unavailable independent audit artifact.`);
-      }
-    }
-  }
 };
 
 const checkpointVerificationItemInput = z.union([
@@ -7956,15 +5518,7 @@ async function main() {
         if (!graph.ok) throw new Error(graph.error || 'The project checkpoint history could not be read.');
         const workingTree = getProjectGitWorkingTree({ workspace: resolvedProjectRoot });
         if (!workingTree.ok) throw new Error(workingTree.error || 'The project working tree could not be read.');
-        const financeReceipt = projectWorkspaceStatusFinanceReceipt({
-          runId: effectiveRunId,
-          conversationId: resolvedConversationId,
-          projectId,
-          projectRoot: resolvedProjectRoot,
-          head: discovered.repository.head,
-          branch: discovered.repository.branch,
-          dirtyPaths: workingTree.files.map((file) => file.path),
-        });
+
         const allowedStages = boundCheckpointStages();
         const checkpointDomain = sessionEnvValue(PROJECT_WORKSPACE_ENV_KEYS.domain);
         const normalizedCheckpointDomain = normalizeProjectDomain(checkpointDomain, 'general');
@@ -8000,7 +5554,7 @@ async function main() {
           latestCheckpoint: graph.commits.find((commit) => Boolean(commit.checkpoint)) || null,
           completedResearchStages,
           workingTree: workingTree.files,
-          financeReceipt,
+
           checkpointContract: {
             domain: checkpointDomain || null,
             allowedStages,
@@ -8153,11 +5707,10 @@ async function main() {
         requestedRun && target?.kind === 'artifact' && target.id
           ? requestedRun.artifacts.get(artifactKey(target.id, target.version || 1))
           : undefined;
-      const targetPortfolio = readTargetDiscoveryPortfolio(linkedArtifact?.metadata);
-      const factorPortfolio = readFinancialFactorPortfolio(linkedArtifact?.metadata);
+
       const mathematicsPortfolio = readMathematicsPortfolio(linkedArtifact?.metadata);
       const requestedStage = asString(
-        body.stage || (targetPortfolio ? `target-${targetPortfolio.stage.replaceAll('_', '-')}` : undefined),
+        body.stage,
         ''
       );
       if (!requestedStage) {
@@ -8169,13 +5722,7 @@ async function main() {
       }
       const domain = resolveBoundProjectDomain(
         body.domain || body.workflow,
-        targetPortfolio
-          ? 'target_discovery'
-          : factorPortfolio
-            ? 'financial_factor'
-            : mathematicsPortfolio
-              ? 'mathematics'
-              : 'general'
+        mathematicsPortfolio ? 'mathematics' : 'general'
       );
       const requestedResearchStrategy = body.routeMode || body.route_mode || body.strategy;
       const explicitResearchStrategy = normalizeResearchStrategy(requestedResearchStrategy);
@@ -8249,7 +5796,7 @@ async function main() {
               revision: linkedArtifact.revision,
             }
           : undefined,
-        targetSummary: targetPortfolio ? summarizeTargetDiscoveryPortfolio(targetPortfolio) : undefined,
+
       });
       if (!checkpoint.ok || !checkpoint.commit || !checkpoint.shortCommit || !checkpoint.subject) {
         throw new Error(checkpoint.error || 'The project Git checkpoint could not be created.');
@@ -8266,7 +5813,7 @@ async function main() {
         repairsNodeId: checkpoint.repairsNodeId,
         domain: checkpoint.domain,
         artifactRef: checkpoint.artifactRef,
-        targetSummary: checkpoint.targetSummary,
+
         changedFiles: checkpoint.changedFiles,
         verification: checkpoint.verification,
         metrics: checkpoint.metrics,
@@ -8288,18 +5835,6 @@ async function main() {
   );
 
   if (!workspaceActions.length) workspaceTool.disable();
-
-  
-
-  
-
-  
-
-  
-
-  
-
-  
 
   if (!isMathLiteRunEnvironment(process.env)) {
     const { registerMathResearchCompatibilityTool } = await import("./mathResearchCompatibility");
@@ -11491,8 +9026,6 @@ async function main() {
     );
   }
 
-  
-
   server.tool(
     'science_artifact',
     SCIENCE_ARTIFACT_TOOL_DESCRIPTION,
@@ -11510,9 +9043,6 @@ async function main() {
         'replace',
         'append',
         'version',
-        'submit_idea',
-        'get_optimization_frontier',
-        'record_main_experiment',
         'checkpoint',
         'research_frontier',
         'prepare_branch',
@@ -11595,21 +9125,13 @@ async function main() {
       }
       const body = payload || {};
       const specializedMutationPayloads = operations?.map((operation) => operation.payload) || [];
-      if (isFactorPortfolioArtifactMutation(action, body)) {
-        throw new Error(
-          `Financial factor portfolios must be registered with factor_registry(action="register"). Do not create or version ${FINANCIAL_FACTOR_PORTFOLIO_PATH} with science_artifact; factor_registry validates the complete portfolio, updates the dedicated Viewer, and writes that project mirror atomically.`
-        );
-      }
+
       if (isMathematicsPortfolioArtifactMutation(action, body)) {
         throw new Error(
           `Mathematics portfolios must be registered with math_portfolio(action="submit"). Do not create or version ${MATHEMATICS_PORTFOLIO_PATH} with science_artifact; math_portfolio validates the typed state, prevents fabricated verification, updates the dedicated Viewer, and writes the project mirror.`
         );
       }
-      if (specializedMutationPayloads.some((item) => isFactorPortfolioArtifactMutation('create', item))) {
-        throw new Error(
-          'science_artifact transactions cannot mutate a Financial factor portfolio; use factor_registry.'
-        );
-      }
+
       if (specializedMutationPayloads.some((item) => isMathematicsPortfolioArtifactMutation('create', item))) {
         throw new Error('science_artifact transactions cannot mutate a Mathematics portfolio; use math_portfolio.');
       }
@@ -11630,10 +9152,7 @@ async function main() {
       applyRunContext(run, body, { conversationId: resolvedConversationId, messageId, toolCallId });
 
       if (action === 'status') {
-        const financeCompletionGuide = buildFinanceCompletionGuide(
-          body.financeTaskContractId || body.finance_task_contract_id,
-          run
-        );
+
         return jsonText({
           schema: SCIENCE_EVENT_SCHEMA,
           action,
@@ -11641,7 +9160,7 @@ async function main() {
           panel: buildPanel(run),
           openRuns: [...runs.keys()],
           reportAuthoringGuide: buildReportAuthoringGuide(run),
-          ...(financeCompletionGuide ? { financeCompletionGuide } : {}),
+
         });
       }
 
@@ -11731,15 +9250,7 @@ async function main() {
           ) {
             throw new Error(`Operation ${operation.opId} must use math_portfolio for Mathematics state.`);
           }
-          if (
-            operation.target.id === FINANCIAL_FACTOR_PORTFOLIO_ARTIFACT_ID ||
-            isFactorPortfolioArtifactMutation(operation.action, operation.payload)
-          ) {
-            throw new Error(`Operation ${operation.opId} must use factor_registry for Financial factor state.`);
-          }
-          if (operation.target.id === TARGET_DISCOVERY_PORTFOLIO_ARTIFACT_ID) {
-            throw new Error(`Operation ${operation.opId} must use target_portfolio for Target Discovery state.`);
-          }
+
           const result = createOrReplaceResource(
             candidate,
             operation.action,
@@ -11805,7 +9316,7 @@ async function main() {
             ),
             snapshotVersion: scienceRunSnapshotVersion(run),
           },
-          financeReceipt: scienceArtifactFinanceReceipt(run, action),
+
         };
         if (effectiveCommandId) {
           run.commandReceipts.set(effectiveCommandId, {
@@ -11911,85 +9422,10 @@ async function main() {
         });
       }
 
-      if (action === 'get_optimization_frontier') {
-        const taskScope = optimizationTaskScope(
-          body.taskId || body.task_id,
-          body.sealId || body.seal_id,
-          'get_optimization_frontier task scope'
-        );
-        return jsonText({
-          schema: SCIENCE_EVENT_SCHEMA,
-          eventId: eventId(),
-          runId: run.runId,
-          action,
-          timestamp: now(),
-          optimizationFrontier: buildOptimizationFrontier(run, taskScope),
-        });
-      }
-
-      if (action === 'submit_idea') {
-        const result = submitOptimizationIdea(run, body);
-        const evt = eventFor(
-          run,
-          action,
-          { kind: 'artifact', id: result.artifact.id, version: result.artifact.version },
-          {
-            resultingRevision: result.artifact.revision,
-            artifactIds: [result.artifact.id, ...(result.promotedCandidate ? [result.promotedCandidate.id] : [])],
-            evidenceIds: result.artifact.evidenceIds,
-            displayIntent: displayIntent || 'background',
-          }
-        );
-        return jsonText({
-          ...evt,
-          operation: result.metadata.kind === 'idea_candidate' ? 'candidate_recorded' : 'line_recorded',
-          submissionMode: result.metadata.kind === 'idea_candidate' ? 'candidate' : 'line',
-          ideaId: result.metadata.ideaId,
-          lineId: result.metadata.lineId,
-          sourceCandidateId: result.metadata.sourceCandidateId,
-          object: result.artifact,
-          promotedCandidate: result.promotedCandidate,
-        });
-      }
-
-      if (action === 'record_main_experiment') {
-        const result = recordOptimizationMainExperiment(run, body);
-        const evt = eventFor(
-          run,
-          action,
-          { kind: 'artifact', id: result.resultArtifact.id, version: result.resultArtifact.version },
-          {
-            resultingRevision: result.resultArtifact.revision,
-            artifactIds: [result.resultArtifact.id, result.lineArtifact.id],
-            evidenceIds: result.resultArtifact.evidenceIds,
-            displayIntent: displayIntent || 'background',
-          }
-        );
-        return jsonText({
-          ...evt,
-          operation: 'main_experiment_recorded',
-          runIdentifier: result.metadata.runId,
-          lineId: result.metadata.lineId,
-          resultArtifact: result.resultArtifact,
-          lineArtifact: result.lineArtifact,
-          optimizationFrontier: buildOptimizationFrontier(
-            run,
-            optimizationTaskScope(result.metadata.taskId, result.metadata.sealId)
-          ),
-        });
-      }
-
       if (action === 'create' || action === 'patch' || action === 'replace') {
         const result = createOrReplaceResource(run, action, target, body, baseRevision, createIfMissing);
-        const targetPortfolio =
-          result.target.kind === 'artifact'
-            ? readTargetDiscoveryPortfolio((result.object as ScienceArtifact).metadata)
-            : undefined;
-        const factorPortfolio =
-          result.target.kind === 'artifact'
-            ? readFinancialFactorPortfolio((result.object as ScienceArtifact).metadata)
-            : undefined;
-        const resolvedDisplayIntent = displayIntent || (targetPortfolio || factorPortfolio ? 'focus' : undefined);
+
+        const resolvedDisplayIntent = displayIntent;
         const evt = eventFor(run, action, result.target, {
           baseRevision,
           resultingRevision: result.resultingRevision,
@@ -12010,7 +9446,7 @@ async function main() {
             currentRevision: result.resultingRevision,
             reuseAsBaseRevision: true,
           },
-          financeReceipt: scienceArtifactFinanceReceipt(run, action),
+
         });
       }
 
@@ -12029,7 +9465,7 @@ async function main() {
         }
         Object.assign(run, candidate);
         const evt = eventFor(run, action, target, { warnings: validateGraph(run) });
-        return jsonText({ ...evt, items: created, financeReceipt: scienceArtifactFinanceReceipt(run, action) });
+        return jsonText({ ...evt, items: created,  });
       }
 
       if (action === 'version') {
@@ -12051,9 +9487,8 @@ async function main() {
         const artifact = normalizeArtifact(run, { ...nextPayload, revision: revision() });
         run.artifacts.set(artifactKey(artifact.id, artifact.version), artifact);
         syncArtifactEdges(run, artifact);
-        const targetPortfolio = readTargetDiscoveryPortfolio(artifact.metadata);
-        const factorPortfolio = readFinancialFactorPortfolio(artifact.metadata);
-        const resolvedDisplayIntent = displayIntent || (targetPortfolio || factorPortfolio ? 'focus' : undefined);
+
+        const resolvedDisplayIntent = displayIntent;
         const evt = eventFor(
           run,
           action,
@@ -12076,7 +9511,7 @@ async function main() {
             currentRevision: artifact.revision,
             reuseAsBaseRevision: true,
           },
-          financeReceipt: scienceArtifactFinanceReceipt(run, action),
+
         });
       }
 
@@ -12180,16 +9615,9 @@ async function main() {
           target?.kind === 'artifact' && target.id
             ? run.artifacts.get(artifactKey(target.id, target.version || 1))
             : undefined;
-        const targetPortfolio = readTargetDiscoveryPortfolio(linkedArtifact?.metadata);
-        const factorPortfolio = readFinancialFactorPortfolio(linkedArtifact?.metadata);
+
         const mathematicsPortfolio = readMathematicsPortfolio(linkedArtifact?.metadata);
-        const checkpointDomainFallback = targetPortfolio
-          ? 'target_discovery'
-          : factorPortfolio
-            ? 'financial_factor'
-            : mathematicsPortfolio
-              ? 'mathematics'
-              : 'research';
+        const checkpointDomainFallback = mathematicsPortfolio ? 'mathematics' : 'research';
         const checkpointDomain = sessionEnvValue(PROJECT_WORKSPACE_ENV_KEYS.domain)
           ? resolveBoundProjectDomain(body.domain || body.workflow, checkpointDomainFallback)
           : normalizeProjectDomain(body.domain || body.workflow, checkpointDomainFallback);
@@ -12213,7 +9641,7 @@ async function main() {
               revision: linkedArtifact.revision,
             }
           : undefined;
-        const targetSummary = targetPortfolio ? summarizeTargetDiscoveryPortfolio(targetPortfolio) : undefined;
+
         const requestedResearchStrategy = body.routeMode || body.route_mode || body.strategy;
         const explicitResearchStrategy = normalizeResearchStrategy(requestedResearchStrategy);
         if (requestedResearchStrategy && !explicitResearchStrategy) {
@@ -12269,7 +9697,7 @@ async function main() {
           conversationId: run.conversationId,
           domain: checkpointDomain,
           artifactRef,
-          targetSummary,
+
         });
         if (!checkpoint.ok || !checkpoint.commit || !checkpoint.shortCommit || !checkpoint.subject) {
           throw new Error(checkpoint.error || 'The project Git checkpoint could not be created.');
@@ -12286,7 +9714,7 @@ async function main() {
           repairsNodeId: checkpoint.repairsNodeId,
           domain: checkpoint.domain,
           artifactRef: checkpoint.artifactRef,
-          targetSummary: checkpoint.targetSummary,
+
           changedFiles: checkpoint.changedFiles,
           verification: checkpoint.verification,
           metrics: checkpoint.metrics,
@@ -12377,7 +9805,7 @@ async function main() {
           artifactIds: annotation.artifactId ? [annotation.artifactId] : undefined,
           pageIds: annotation.pageId ? [annotation.pageId] : undefined,
         });
-        return jsonText({ ...evt, object: annotation, financeReceipt: scienceArtifactFinanceReceipt(run, action) });
+        return jsonText({ ...evt, object: annotation,  });
       }
 
       if (action === 'focus_page') {
@@ -12412,14 +9840,13 @@ async function main() {
       }
 
       if (action === 'publish') {
-        await synchronizeTargetDiscoveryDelivery(run);
+
         const candidate: ScienceRunState = {
           ...run,
           report: run.report ? clone(run.report) : undefined,
           cards: clone(run.cards),
           cardDiagnostics: [...run.cardDiagnostics],
-          financeCompletion: run.financeCompletion ? clone(run.financeCompletion) : undefined,
-          financePreflight: run.financePreflight ? clone(run.financePreflight) : undefined,
+
           statsPatch: run.statsPatch ? clone(run.statsPatch) : undefined,
           evidence: new Map(run.evidence),
           artifacts: new Map(run.artifacts),
@@ -12450,8 +9877,7 @@ async function main() {
           syncReportResources(candidate, candidate.report);
         }
         applyRunCardPayload(candidate, body);
-        if (body.financeCompletion !== undefined) applyFinanceCompletion(candidate, body.financeCompletion);
-        assertTargetDiscoveryPublicationReady(candidate);
+
         assertResultSummaryEvidence(candidate);
         if (isRecord(body.stats)) candidate.statsPatch = body.stats as Partial<SciencePanelData['stats']>;
         const candidateWarnings = validateGraph(candidate);
@@ -12463,27 +9889,7 @@ async function main() {
         ) {
           candidate.status = 'partial';
         }
-        candidate.financePreflight = preflightRunFinanceCompletion(
-          candidate,
-          candidate.report || {
-            title: candidate.question || 'Science Artifact Report',
-            sections: [{ id: 'summary', heading: 'Research Output', blocks: fallbackBlocks(candidate) }],
-          },
-          candidate.cards
-        );
-        // Presentation helpers are advisory for Finance Mode.  A reader-first
-        // report with verified evidence must remain publishable even when a
-        // provider, card suggestion, or optional section is unavailable.  The
-        // preflight result keeps those gaps visible and marks the panel partial.
-        if (candidate.financePreflight?.status === 'blocked') {
-          candidate.status = 'blocked';
-        } else if (
-          candidate.financePreflight &&
-          candidate.financePreflight.status !== 'completed' &&
-          candidate.status !== 'failed'
-        ) {
-          candidate.status = 'partial';
-        }
+
         Object.assign(run, candidate);
         let panel = buildPanel(run);
         let visualReview =
@@ -12515,9 +9921,9 @@ async function main() {
           ...evt,
           verification: panel.verification,
           visualReview,
-          publicationGap: buildFinancePublicationGap(panel.financePreflight),
+
           displayIntent: displayIntent || 'open',
-          financeReceipt: scienceArtifactFinanceReceipt(run, action),
+
         });
       }
 

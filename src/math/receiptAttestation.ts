@@ -10,7 +10,7 @@ import {
   type MathRouteProbeReceipt,
   type MathSolverReadyReceipt,
 } from "../common/types/team/mathematicsTeam";
-import { readFinanceReceiptSecret } from "../shared/services/finance/receiptAttestation";
+import { readMathReceiptMasterSecret } from "./receiptKey";
 
 type UnsignedOfficialReceipt = Omit<MathOfficialGateReceipt, 'attestation'>;
 type UnsignedCandidateReview = Omit<MathCandidateReview, 'source' | 'attestation'>;
@@ -35,7 +35,7 @@ export const deriveMathematicsReceiptSecret = (masterSecret: string): string =>
   crypto.createHmac('sha256', masterSecret).update('deepscientist.mathematics.receipt-key.v1').digest('hex');
 
 export const readMathematicsReceiptSecret = (): string | undefined => {
-  const master = readFinanceReceiptSecret();
+  const master = readMathReceiptMasterSecret();
   return master ? deriveMathematicsReceiptSecret(master) : undefined;
 };
 

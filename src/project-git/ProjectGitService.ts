@@ -5,6 +5,7 @@
  */
 
 import type {
+  ProjectGitTargetSummary,
   ProjectGitCheckpointArtifactRef,
   ProjectGitChangedEvent,
   ProjectGitBlobRequest,
@@ -56,7 +57,6 @@ import type {
   ProjectWorkspaceDeletionKind,
   ProjectWorkspaceDeletionRequest,
 } from "../common/types/office/preview";
-import type { TargetDiscoveryProgressSummary } from "../common/chat/targetDiscovery";
 import {
   formatResearchCommitSubject,
   normalizeProjectGitDirectionDecision,
@@ -340,7 +340,7 @@ export type ProjectGitCheckpointRequest = {
   conversationId?: string;
   domain?: ProjectGitDomain;
   artifactRef?: ProjectGitCheckpointArtifactRef;
-  targetSummary?: TargetDiscoveryProgressSummary;
+  targetSummary?: ProjectGitTargetSummary;
   researchStage?: ProjectGitResearchStageReceipt;
   directionDecision?: ProjectGitDirectionDecision;
 };
@@ -362,7 +362,7 @@ export type ProjectGitCheckpointResult = {
   goalId?: string;
   domain?: ProjectGitDomain;
   artifactRef?: ProjectGitCheckpointArtifactRef;
-  targetSummary?: TargetDiscoveryProgressSummary;
+  targetSummary?: ProjectGitTargetSummary;
   researchStage?: ProjectGitResearchStageReceipt;
   directionDecision?: ProjectGitDirectionDecision;
   error?: string;
@@ -3886,7 +3886,7 @@ const normalizeResearchStageReceipt = (
 
 const normalizeSummaryCount = (value: number): number => (Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0);
 
-const normalizeTargetSummary = (value?: TargetDiscoveryProgressSummary): TargetDiscoveryProgressSummary | undefined => {
+const normalizeTargetSummary = (value?: ProjectGitTargetSummary): ProjectGitTargetSummary | undefined => {
   if (!value) return undefined;
   const leadingCoverage =
     typeof value.leadingCoverage === 'number' && Number.isFinite(value.leadingCoverage)
@@ -3921,7 +3921,7 @@ const checkpointCommitBody = (options: {
   goalId?: string;
   domain?: ProjectGitDomain;
   artifactRef?: ProjectGitCheckpointArtifactRef;
-  targetSummary?: TargetDiscoveryProgressSummary;
+  targetSummary?: ProjectGitTargetSummary;
   researchStage?: ProjectGitResearchStageReceipt;
   directionDecision?: ProjectGitDirectionDecision;
 }): string => {

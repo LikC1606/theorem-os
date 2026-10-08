@@ -21,7 +21,6 @@
     "@modelcontextprotocol/sdk": "1.27.1",
     "diff": "8.0.3",
     "smol-toml": "1.6.1",
-    "xlsx-republish": "0.20.3",
     "zod": "3.25.76"
   },
   "devDependencies": {

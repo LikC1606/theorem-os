@@ -4,24 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import {
-  isStructuredReportChartCard,
-  type FinanceCompletionManifest,
-  type StructuredReportCard,
-} from "./finance/index";
+import { isStructuredReportChartCard, type StructuredReportCard } from "./structuredReportCards";
 import type { ReportChartSpec } from "./reportChart";
 import { getReportChartVisualDefinition } from "./reportChartVisualRegistry";
 import type { ResearchStrategy } from "./researchStrategy";
-import type { SCIENCE_SKILL_PACK_MANIFEST_PATH } from "./scienceSkills.generated";
 
-export const SCIENCE_MODE_ID = 'science';
 export const SCIENCE_EVENT_SCHEMA = 'deepscientist.science.event.v1';
 export const SCIENCE_PANEL_SCHEMA = 'deepscientist.science.panel.v1';
 export const RESEARCH_ROUTE_SCHEMA = 'deepscientist.science.research_route.v1' as const;
 export const RESEARCH_ROUTE_ARTIFACT_ID = 'research_roadmap' as const;
-export const SCIENCE_CORE_SKILL_NAME = 'deepscientist-science';
-export const SCIENCE_ARTIFACT_SKILL_NAME = 'deepscientist-science-artifact';
-export const SCIENCE_VENDOR_CATALOG_SKILL_NAME = 'deepscientist-science-vendor-catalog';
 
 export type ScienceEvidenceSourceType =
   | 'file'
@@ -184,7 +175,7 @@ export type ScienceArtifactInspectorTab =
   | 'review';
 
 export type ScienceStructureViewerKind = 'auto' | '3dmol' | 'molstar' | 'rcsb_molstar';
-export type ScienceStructureFormat = 'pdb' | 'cif' | 'mmcif' | 'pqr' | 'sdf' | 'mol' | 'mol2' | 'xyz' | 'unknown';
+
 export type ScienceStructureRepresentation = 'auto' | 'cartoon' | 'stick' | 'sphere' | 'line' | 'surface';
 export type ScienceStructureColorBy = 'auto' | 'chain' | 'element' | 'spectrum' | 'plddt' | 'secondary_structure';
 export type ScienceArtifactViewerKind =
@@ -221,16 +212,6 @@ export interface ScienceStructureViewerAnnotation extends ScienceStructureViewer
   color?: string;
 }
 
-export interface ScienceStructureViewerSpec {
-  kind?: ScienceStructureViewerKind;
-  format?: ScienceStructureFormat;
-  representation?: ScienceStructureRepresentation;
-  colorBy?: ScienceStructureColorBy;
-  background?: 'light' | 'dark' | 'transparent';
-  focus?: ScienceStructureViewerSelection;
-  annotations?: ScienceStructureViewerAnnotation[];
-}
-
 export interface ScienceArtifactViewerSpec {
   kind?: ScienceArtifactViewerKind;
   format?: string;
@@ -261,167 +242,6 @@ export interface ScienceArtifactViewerSpec {
   assumptions?: Array<Record<string, unknown>>;
   evidenceIds?: string[];
   chartSpec?: ReportChartSpec;
-}
-
-export type ScienceOptimizationArtifactKind =
-  | 'idea_candidate'
-  | 'optimization_line'
-  | 'implementation_attempt'
-  | 'main_experiment';
-
-export type ScienceOptimizationRoute = 'explore' | 'exploit' | 'fusion' | 'debug' | 'stop';
-
-export type ScienceOptimizationFailureClass = 'execution_error' | 'invalid_result' | 'valid_no_gain' | 'valid_gain';
-
-export interface ScienceOptimizationTaskScope {
-  taskId: string;
-  sealId: string;
-}
-
-export type ScienceOptimizationDispatchAction =
-  | 'dispatch_attempt'
-  | 'prepare_attempt'
-  | 'prepare_repair'
-  | 'promote_candidate'
-  | 'fuse_lines'
-  | 'generate_candidate'
-  | 'wait'
-  | 'stop';
-
-export interface ScienceOptimizationDispatchTarget {
-  kind: 'implementation_attempt' | 'optimization_line' | 'idea_candidate' | 'main_experiment' | 'fusion';
-  id: string;
-  lineId: string | null;
-  mechanismFamily: string | null;
-  evidenceRefs: string[];
-}
-
-export interface ScienceOptimizationDispatchDecision {
-  schema: 'deepscientist.ioai.candidate-dispatch.v1';
-  taskScope: ScienceOptimizationTaskScope | null;
-  metricContractId: string | null;
-  route: ScienceOptimizationRoute;
-  action: ScienceOptimizationDispatchAction;
-  maxParallel: 2;
-  occupiedSlots: number;
-  availableSlots: number;
-  selected: ScienceOptimizationDispatchTarget[];
-  heldIds: string[];
-  reason: string;
-}
-
-export interface ScienceOptimizationCandidateQuality {
-  schema: 'deepscientist.ioai.candidate-quality.v1';
-  eligible: boolean;
-  missingFields: string[];
-  evidenceLevel: 'artifact' | 'narrative' | 'none';
-  verifiedEvidencePaths: string[];
-  unverifiedEvidencePaths: string[];
-  estimatedCostMinutes: number | null;
-}
-
-export interface ScienceOptimizationStrongestAlternative {
-  mechanismFamily: string;
-  disposition: 'evaluated' | 'rejected' | 'budget_excluded' | 'not_applicable';
-  reason: string;
-  evidenceRefs: string[];
-}
-
-export interface ScienceOptimizationMetric {
-  metricId: string;
-  value: number;
-  direction: 'higher' | 'lower';
-  baselineValue?: number;
-  split?: string;
-  primary?: boolean;
-}
-
-export interface ScienceOptimizationStabilityAssessment {
-  aggregateImprovement: number | null;
-  minimumImprovement: number;
-  splitCount: number;
-  worstSplitImprovement: number | null;
-  promotionEligible: boolean;
-  evidenceBasis: 'split_evidence' | 'aggregate_only' | 'deterministic_simple_task' | 'invalid_result';
-  reason: string;
-}
-
-export interface ScienceOptimizationLessonCapsule {
-  observedEffect: string;
-  failedAssumption: string;
-  usefulComponent: string;
-  doNotRepeat: string;
-  nextSearchBoundary: string;
-  evidenceRefs: string[];
-}
-
-export interface ScienceOptimizationFusionEvidence {
-  complementaryLineIds: string[];
-  basis: 'prediction_correlation' | 'error_correlation' | 'error_cluster';
-  summary: string;
-  evidenceIds?: string[];
-  evidencePaths?: string[];
-}
-
-/**
- * Durable optimization state stored inside a versioned Science artifact.
- * Candidate briefs, promoted lines, implementation attempts, and measured
- * results intentionally share one envelope but remain different object kinds.
- */
-export interface ScienceOptimizationArtifactMetadata {
-  schema: 'deepscientist.optimization.v1';
-  kind: ScienceOptimizationArtifactKind;
-  ideaId?: string;
-  lineId?: string;
-  attemptId?: string;
-  runId?: string;
-  taskId?: string;
-  sealId?: string;
-  sourceCandidateId?: string;
-  parentLineId?: string;
-  branch?: string;
-  foundationRef?: string | Record<string, unknown>;
-  lineageIntent?: 'continue_line' | 'branch_alternative';
-  status?: string;
-  title?: string;
-  problem?: string;
-  hypothesis?: string;
-  mechanism?: string;
-  methodBrief?: string;
-  mechanismFamily?: string;
-  changeLayer?: string;
-  sourceLens?: string;
-  whyNow?: string;
-  whyCurrentLineIsLimited?: string;
-  keepUnchanged?: string[];
-  implementationSurface?: string;
-  mainRisks?: string[];
-  estimatedCostMinutes?: number;
-  strongestAlternative?: ScienceOptimizationStrongestAlternative;
-  evidenceBasis?: string[];
-  evidencePaths?: string[];
-  falsificationPlan?: string;
-  abandonmentCondition?: string;
-  decisionReason?: string;
-  selectionScores?: Record<string, number>;
-  expectedGain?: string;
-  valid?: boolean;
-  failureKind?: string;
-  failureClass?: ScienceOptimizationFailureClass;
-  repairOfRunId?: string;
-  metrics?: ScienceOptimizationMetric[];
-  metricContractId?: string;
-  comparable?: boolean;
-  verdict?: string;
-  conclusion?: string;
-  evaluationSummary?: Record<string, unknown>;
-  stabilityAssessment?: ScienceOptimizationStabilityAssessment;
-  lesson?: ScienceOptimizationLessonCapsule;
-  fusionEvidence?: ScienceOptimizationFusionEvidence;
-  latestResultArtifactId?: string;
-  latestRunId?: string;
-  createdAt: number;
-  updatedAt: number;
 }
 
 export interface ScienceArtifact {
@@ -489,7 +309,6 @@ export interface ScienceArtifact {
   reviewStatus?: 'not_reviewed' | 'passed' | 'warnings' | 'failed';
   viewer?: ScienceArtifactViewerSpec;
   metadata?: Record<string, unknown> & {
-    deepScientistOptimization?: ScienceOptimizationArtifactMetadata;
   };
   git?: ScienceArtifactGitRef;
   createdAt: number;
@@ -1611,24 +1430,6 @@ export type ScienceReportBlock =
   | { type: 'code_ref'; artifactId: string }
   | { type: 'card_ref'; cardId: string };
 
-export type ScienceReportTextField =
-  | 'question'
-  | 'summary'
-  | 'report.title'
-  | 'section.heading'
-  | 'block.text'
-  | 'bullet.text'
-  | 'checklist.label'
-  | 'checklist.detail'
-  | 'artifact.caption';
-
-export interface ScienceReportTextTarget {
-  field: ScienceReportTextField;
-  sectionId?: string;
-  blockIndex?: number;
-  itemIndex?: number;
-}
-
 export interface SciencePanelData {
   schema: typeof SCIENCE_PANEL_SCHEMA;
   runId: string;
@@ -1666,12 +1467,6 @@ export interface SciencePanelData {
   cards?: StructuredReportCard[];
   cardDiagnostics?: string[];
   visualReview?: ScienceReportVisualReview;
-  financeCompletion?: FinanceCompletionManifest;
-  financePreflight?: {
-    status: 'completed' | 'partial' | 'blocked' | 'legacy_uncontracted';
-    gaps: string[];
-    verifiedAt: string;
-  };
   /** Trusted process projection for the Mathematics Viewer; the renderer never verifies local HMAC receipts. */
   mathematics?: {
     portfolioIntegrity?: 'trusted' | 'untrusted_terminal';
@@ -1965,9 +1760,6 @@ export type ScienceArtifactAction =
   | 'replace'
   | 'append'
   | 'version'
-  | 'submit_idea'
-  | 'get_optimization_frontier'
-  | 'record_main_experiment'
   | 'checkpoint'
   | 'research_frontier'
   | 'prepare_branch'
@@ -2106,7 +1898,7 @@ export interface ScienceSourceGitRef {
     version: number;
     revision?: string;
   };
-  targetSummary?: import("./targetDiscovery").TargetDiscoveryProgressSummary;
+  targetSummary?: import("../types/office/preview").ProjectGitTargetSummary;
   changedFiles: string[];
   verification?: string[];
   metrics?: Array<{
@@ -2172,37 +1964,4 @@ export interface ScienceArtifactFileProvenanceResult {
   record?: ScienceArtifactFileProvenanceRecord;
   history?: ScienceArtifactFileProvenanceHistoryItem[];
   error?: string;
-}
-
-export interface ScienceConversationExtra {
-  enabled: true;
-  mode: typeof SCIENCE_MODE_ID;
-  projectRoot?: string;
-  sopVersion: 1;
-  report: {
-    enabled: true;
-    render: 'inline_structured';
-    artifacts: true;
-    provenance: true;
-    figures: true;
-    artifactInspector: true;
-  };
-  evidence: {
-    searchTool: 'research_evidence';
-    sharedWithMedicalEvidence: true;
-  };
-  provenance: {
-    evidenceIds: true;
-    claimTypes: true;
-    contentHash: true;
-    environment: true;
-    graphWarnings: true;
-  };
-  skills: {
-    rootDiscipline: typeof SCIENCE_CORE_SKILL_NAME;
-    artifactSkill: typeof SCIENCE_ARTIFACT_SKILL_NAME;
-    materializedSkillPackManifestPath: typeof SCIENCE_SKILL_PACK_MANIFEST_PATH;
-    vendorCatalogSkill?: typeof SCIENCE_VENDOR_CATALOG_SKILL_NAME;
-    enabledSkillIds: string[];
-  };
 }

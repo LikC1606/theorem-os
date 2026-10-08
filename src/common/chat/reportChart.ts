@@ -8,22 +8,9 @@ export const REPORT_CHART_SCHEMA_V2 = 'deepscientist.report_chart.v2' as const;
  * migrated. New chart producers should use REPORT_CHART_CURRENT_SCHEMA.
  */
 export const REPORT_CHART_SCHEMA = REPORT_CHART_SCHEMA_V1;
-export const REPORT_CHART_CURRENT_SCHEMA = REPORT_CHART_SCHEMA_V2;
 
 export const REPORT_CHART_PALETTES = ['auto', 'mono', 'nature'] as const;
-export const REPORT_CHART_V1_KINDS = ['bar', 'line', 'interval', 'scatter', 'matrix'] as const;
-export const REPORT_CHART_V2_KINDS = [
-  'bar',
-  'line',
-  'pair',
-  'distribution',
-  'composition',
-  'flow',
-  'timeline',
-  'hierarchy',
-  'scale',
-  'sequence',
-] as const;
+
 export const REPORT_CHART_KINDS = [
   'bar',
   'line',
@@ -56,46 +43,6 @@ export const REPORT_CHART_HIERARCHY_RECIPES = ['hierarchy.tree'] as const;
 export const REPORT_CHART_SCALE_RECIPES = ['scale.bipolar'] as const;
 export const REPORT_CHART_SEQUENCE_RECIPES = ['sequence.rainfall'] as const;
 
-export const REPORT_CHART_BAR_RECIPES = [...REPORT_CHART_V1_BAR_RECIPES, ...REPORT_CHART_V2_BAR_RECIPES] as const;
-export const REPORT_CHART_LINE_RECIPES = [...REPORT_CHART_V1_LINE_RECIPES, ...REPORT_CHART_V2_LINE_RECIPES] as const;
-
-export const REPORT_CHART_V1_RECIPES_BY_KIND = {
-  bar: REPORT_CHART_V1_BAR_RECIPES,
-  line: REPORT_CHART_V1_LINE_RECIPES,
-  interval: REPORT_CHART_INTERVAL_RECIPES,
-  scatter: REPORT_CHART_SCATTER_RECIPES,
-  matrix: REPORT_CHART_MATRIX_RECIPES,
-} as const;
-
-export const REPORT_CHART_V2_RECIPES_BY_KIND = {
-  bar: REPORT_CHART_V2_BAR_RECIPES,
-  line: REPORT_CHART_V2_LINE_RECIPES,
-  pair: REPORT_CHART_PAIR_RECIPES,
-  distribution: REPORT_CHART_DISTRIBUTION_RECIPES,
-  composition: REPORT_CHART_COMPOSITION_RECIPES,
-  flow: REPORT_CHART_FLOW_RECIPES,
-  timeline: REPORT_CHART_TIMELINE_RECIPES,
-  hierarchy: REPORT_CHART_HIERARCHY_RECIPES,
-  scale: REPORT_CHART_SCALE_RECIPES,
-  sequence: REPORT_CHART_SEQUENCE_RECIPES,
-} as const;
-
-export const REPORT_CHART_RECIPES_BY_KIND = {
-  bar: REPORT_CHART_BAR_RECIPES,
-  line: REPORT_CHART_LINE_RECIPES,
-  interval: REPORT_CHART_INTERVAL_RECIPES,
-  scatter: REPORT_CHART_SCATTER_RECIPES,
-  matrix: REPORT_CHART_MATRIX_RECIPES,
-  pair: REPORT_CHART_PAIR_RECIPES,
-  distribution: REPORT_CHART_DISTRIBUTION_RECIPES,
-  composition: REPORT_CHART_COMPOSITION_RECIPES,
-  flow: REPORT_CHART_FLOW_RECIPES,
-  timeline: REPORT_CHART_TIMELINE_RECIPES,
-  hierarchy: REPORT_CHART_HIERARCHY_RECIPES,
-  scale: REPORT_CHART_SCALE_RECIPES,
-  sequence: REPORT_CHART_SEQUENCE_RECIPES,
-} as const;
-
 export const REPORT_CHART_RECIPES = [
   ...REPORT_CHART_V1_BAR_RECIPES,
   ...REPORT_CHART_V1_LINE_RECIPES,
@@ -114,30 +61,7 @@ export const REPORT_CHART_RECIPES = [
   ...REPORT_CHART_SEQUENCE_RECIPES,
 ] as const;
 
-export const REPORT_CHART_V1_RECIPES = [
-  ...REPORT_CHART_V1_BAR_RECIPES,
-  ...REPORT_CHART_V1_LINE_RECIPES,
-  ...REPORT_CHART_INTERVAL_RECIPES,
-  ...REPORT_CHART_SCATTER_RECIPES,
-  ...REPORT_CHART_MATRIX_RECIPES,
-] as const;
-
-export const REPORT_CHART_V2_RECIPES = [
-  ...REPORT_CHART_V2_BAR_RECIPES,
-  ...REPORT_CHART_V2_LINE_RECIPES,
-  ...REPORT_CHART_PAIR_RECIPES,
-  ...REPORT_CHART_DISTRIBUTION_RECIPES,
-  ...REPORT_CHART_COMPOSITION_RECIPES,
-  ...REPORT_CHART_FLOW_RECIPES,
-  ...REPORT_CHART_TIMELINE_RECIPES,
-  ...REPORT_CHART_HIERARCHY_RECIPES,
-  ...REPORT_CHART_SCALE_RECIPES,
-  ...REPORT_CHART_SEQUENCE_RECIPES,
-] as const;
-
 export type ReportChartRecipe = (typeof REPORT_CHART_RECIPES)[number];
-export type ReportChartRecipeForKind<K extends keyof typeof REPORT_CHART_RECIPES_BY_KIND> =
-  (typeof REPORT_CHART_RECIPES_BY_KIND)[K][number];
 
 export type ReportChartRecipeCatalogEntry = {
   kind: (typeof REPORT_CHART_KINDS)[number];
@@ -1740,8 +1664,6 @@ export const reportChartSpecV2Schema = reportChartSpecV2BaseSchema.superRefine((
 export type ReportChartSpecV2 = z.infer<typeof reportChartSpecV2Schema>;
 export const reportChartSpecSchema = z.union([reportChartSpecV1Schema, reportChartSpecV2Schema]);
 export type ReportChartSpec = ReportChartSpecV1 | ReportChartSpecV2;
-export type ReportChartKind = ReportChartSpec['kind'];
-export type ReportChartPalette = (typeof REPORT_CHART_PALETTES)[number];
 
 export type ReportChartValidationIssue = {
   path: string;
@@ -1775,32 +1697,6 @@ export const validateReportChartSpec = (input: unknown): ReportChartValidationRe
   };
 };
 
-export function normalizeReportChartSpec(
-  input: { schema: typeof REPORT_CHART_SCHEMA_V1 } & Record<string, unknown>
-): ReportChartSpecV1;
-export function normalizeReportChartSpec(
-  input: { schema: typeof REPORT_CHART_SCHEMA_V2 } & Record<string, unknown>
-): ReportChartSpecV2;
-export function normalizeReportChartSpec(input: unknown): ReportChartSpec;
-export function normalizeReportChartSpec(input: unknown): ReportChartSpec {
-  const schema =
-    typeof input === 'object' && input !== null && 'schema' in input
-      ? (input as { schema?: unknown }).schema
-      : undefined;
-  if (schema === REPORT_CHART_SCHEMA_V1) return reportChartSpecV1Schema.parse(input);
-  if (schema === REPORT_CHART_SCHEMA_V2) return reportChartSpecV2Schema.parse(input);
-  return reportChartSpecSchema.parse(input);
-}
-
-export const isReportChartSpec = (input: unknown): input is ReportChartSpec => validateReportChartSpec(input).ok;
-
-export type ReportChartTabularData = {
-  columns: string[];
-  rows: Array<Array<string | number>>;
-  emphasizedRows?: number[];
-};
-
-const evidenceList = (ids?: string[]): string => (ids?.length ? ids.join(', ') : '');
 const inheritedEvidenceIds = (...candidates: Array<string[] | undefined>): string[] | undefined =>
   candidates.find((candidate) => candidate?.length);
 
@@ -1960,251 +1856,4 @@ export const collectReportChartEvidenceIds = (spec: ReportChartSpec): string[] =
     spec.data.forEach((item) => ids.push(...(item.evidenceIds || [])));
   }
   return [...new Set(ids)];
-};
-
-export const reportChartToTabularData = (spec: ReportChartSpec): ReportChartTabularData => {
-  if (spec.schema === REPORT_CHART_SCHEMA_V2) {
-    if (spec.recipe === 'bar.grouped' || spec.recipe === 'bar.stacked') {
-      const categories = new Map(spec.categories.map((category) => [category.id, category.label]));
-      const series = new Map(spec.series.map((item) => [item.id, item.label]));
-      return {
-        columns: ['Category', 'Series', 'Value', 'Evidence'],
-        rows: spec.values.map((value) => [
-          categories.get(value.categoryId) || value.categoryId,
-          series.get(value.seriesId) || value.seriesId,
-          value.value,
-          evidenceList(inheritedEvidenceIds(value.evidenceIds, spec.evidenceIds)),
-        ]),
-        emphasizedRows: spec.values.flatMap((value, index) => (value.emphasis ? [index] : [])),
-      };
-    }
-    if (spec.recipe === 'bar.waterfall') {
-      return {
-        columns: ['Label', 'Kind', 'Start', 'End', 'Delta', 'Evidence'],
-        rows: spec.steps.map((step) => [
-          step.label,
-          step.kind,
-          step.start,
-          step.end,
-          step.delta,
-          evidenceList(inheritedEvidenceIds(step.evidenceIds, spec.evidenceIds)),
-        ]),
-        emphasizedRows: spec.steps.flatMap((step, index) => (step.emphasis ? [index] : [])),
-      };
-    }
-    if (spec.recipe === 'line.area') {
-      const series = spec.series[0];
-      return {
-        columns: ['Series', 'X', 'Y', 'Baseline', 'Evidence'],
-        rows: series.points.map((point) => [
-          series.label,
-          point.x,
-          point.y,
-          spec.baseline,
-          evidenceList(inheritedEvidenceIds(point.evidenceIds, series.evidenceIds, spec.evidenceIds)),
-        ]),
-        emphasizedRows: series.points.flatMap((point, index) => (point.emphasis || series.emphasis ? [index] : [])),
-      };
-    }
-    if (spec.recipe === 'pair.dumbbell') {
-      return {
-        columns: ['Label', spec.endpoints[0].label, spec.endpoints[1].label, 'Difference', 'Evidence'],
-        rows: spec.rows.map((row) => [
-          row.label,
-          row.first,
-          row.second,
-          row.second - row.first,
-          evidenceList(inheritedEvidenceIds(row.evidenceIds, spec.evidenceIds)),
-        ]),
-        emphasizedRows: spec.rows.flatMap((row, index) => (row.emphasis ? [index] : [])),
-      };
-    }
-    if (spec.recipe === 'distribution.box') {
-      return {
-        columns: [
-          'Label',
-          'N',
-          'Lower whisker',
-          'Q1',
-          'Median',
-          'Q3',
-          'Upper whisker',
-          'Outliers',
-          'Whisker meaning',
-          'Evidence',
-        ],
-        rows: spec.data.map((datum) => [
-          datum.label,
-          datum.n,
-          datum.lowerWhisker,
-          datum.q1,
-          datum.median,
-          datum.q3,
-          datum.upperWhisker,
-          (datum.outliers || []).join(', '),
-          datum.whiskerMeaning,
-          evidenceList(inheritedEvidenceIds(datum.evidenceIds, spec.evidenceIds)),
-        ]),
-        emphasizedRows: spec.data.flatMap((datum, index) => (datum.emphasis ? [index] : [])),
-      };
-    }
-    if (spec.recipe === 'composition.waffle') {
-      return {
-        columns: ['Part', 'Value', 'Share', 'Units', 'Evidence'],
-        rows: spec.parts.map((part) => [
-          part.label,
-          part.value,
-          part.value / spec.total,
-          part.value / spec.unit,
-          evidenceList(inheritedEvidenceIds(part.evidenceIds, spec.evidenceIds)),
-        ]),
-        emphasizedRows: spec.parts.flatMap((part, index) => (part.emphasis ? [index] : [])),
-      };
-    }
-    if (spec.recipe === 'flow.funnel') {
-      return {
-        columns: ['Stage', 'Value', 'Retained from previous', 'Retained from start', 'Evidence'],
-        rows: spec.stages.map((stage, index) => [
-          stage.label,
-          stage.value,
-          index === 0 || spec.stages[index - 1].value === 0 ? 1 : stage.value / spec.stages[index - 1].value,
-          spec.stages[0].value === 0 ? 0 : stage.value / spec.stages[0].value,
-          evidenceList(inheritedEvidenceIds(stage.evidenceIds, spec.evidenceIds)),
-        ]),
-        emphasizedRows: spec.stages.flatMap((stage, index) => (stage.emphasis ? [index] : [])),
-      };
-    }
-    if (spec.recipe === 'timeline.lineage') {
-      return {
-        columns: ['Event', 'At', 'State', 'Note', 'Evidence'],
-        rows: spec.events.map((event) => [
-          event.label,
-          event.at,
-          event.state,
-          event.note || '',
-          evidenceList(inheritedEvidenceIds(event.evidenceIds, spec.evidenceIds)),
-        ]),
-        emphasizedRows: spec.events.flatMap((event, index) => (event.emphasis ? [index] : [])),
-      };
-    }
-    if (spec.recipe === 'hierarchy.tree') {
-      const labels = new Map(spec.nodes.map((node) => [node.id, node.label]));
-      return {
-        columns: ['Node', 'Parent', 'Value', 'State', 'Evidence'],
-        rows: spec.nodes.map((node) => [
-          node.label,
-          node.parentId ? labels.get(node.parentId) || node.parentId : '',
-          node.value ?? '',
-          node.state,
-          evidenceList(inheritedEvidenceIds(node.evidenceIds, spec.evidenceIds)),
-        ]),
-        emphasizedRows: spec.nodes.flatMap((node, index) => (node.emphasis ? [index] : [])),
-      };
-    }
-    if (spec.recipe === 'scale.bipolar') {
-      return {
-        columns: ['Item', 'Value', spec.endpoints[0].label, spec.endpoints[1].label, 'Evidence'],
-        rows: spec.items.map((item) => [
-          item.label,
-          item.value,
-          spec.domain[0],
-          spec.domain[1],
-          evidenceList(inheritedEvidenceIds(item.evidenceIds, spec.evidenceIds)),
-        ]),
-        emphasizedRows: spec.items.flatMap((item, index) => (item.emphasis ? [index] : [])),
-      };
-    }
-    if (spec.recipe === 'sequence.rainfall') {
-      return {
-        columns: ['Observation', spec.series[0].label, spec.series[1].label, 'Difference', 'Evidence'],
-        rows: spec.points.map((point) => [
-          point.label,
-          point.first,
-          point.second,
-          point.second - point.first,
-          evidenceList(inheritedEvidenceIds(point.evidenceIds, spec.evidenceIds)),
-        ]),
-        emphasizedRows: spec.points.flatMap((point, index) => (point.emphasis ? [index] : [])),
-      };
-    }
-    return { columns: [], rows: [], emphasizedRows: [] };
-  }
-
-  if (spec.kind === 'bar') {
-    return {
-      columns: ['Label', 'Value', 'Group', 'Evidence'],
-      rows: spec.data.map((item) => [
-        item.label,
-        item.value,
-        item.group || '',
-        evidenceList(inheritedEvidenceIds(item.evidenceIds, spec.evidenceIds)),
-      ]),
-      emphasizedRows: spec.data.flatMap((item, index) => (item.emphasis ? [index] : [])),
-    };
-  }
-  if (spec.kind === 'line') {
-    const includesUncertainty = spec.series.some((series) =>
-      series.points.some((point) => point.low !== undefined && point.high !== undefined)
-    );
-    const rows = spec.series.flatMap((series) =>
-      series.points.map((point) => [
-        series.label,
-        point.x,
-        point.y,
-        ...(includesUncertainty ? [point.low ?? '', point.high ?? ''] : []),
-        evidenceList(inheritedEvidenceIds(point.evidenceIds, series.evidenceIds, spec.evidenceIds)),
-      ])
-    );
-    let rowIndex = 0;
-    const emphasizedRows = spec.series.flatMap((series) =>
-      series.points.flatMap((point) => {
-        const currentIndex = rowIndex;
-        rowIndex += 1;
-        return point.emphasis || series.emphasis ? [currentIndex] : [];
-      })
-    );
-    return {
-      columns: ['Series', 'X', 'Y', ...(includesUncertainty ? ['Low', 'High'] : []), 'Evidence'],
-      rows,
-      emphasizedRows,
-    };
-  }
-  if (spec.kind === 'interval') {
-    return {
-      columns: ['Label', 'Estimate', 'Low', 'High', 'Weight', 'Evidence'],
-      rows: spec.data.map((item) => [
-        item.label,
-        item.estimate,
-        item.low,
-        item.high,
-        item.weight ?? '',
-        evidenceList(inheritedEvidenceIds(item.evidenceIds, spec.evidenceIds)),
-      ]),
-      emphasizedRows: spec.data.flatMap((item, index) => (item.emphasis ? [index] : [])),
-    };
-  }
-  if (spec.kind === 'scatter') {
-    return {
-      columns: ['Label', 'X', 'Y', 'Group', 'Evidence'],
-      rows: spec.data.map((item) => [
-        item.label || item.id,
-        item.x,
-        item.y,
-        item.group || '',
-        evidenceList(inheritedEvidenceIds(item.evidenceIds, spec.evidenceIds)),
-      ]),
-      emphasizedRows: spec.data.flatMap((item, index) => (item.emphasis ? [index] : [])),
-    };
-  }
-  return {
-    columns: ['Row', 'Column', 'Value', 'Status', 'Evidence'],
-    rows: spec.cells.map((cell) => [
-      cell.row,
-      cell.column,
-      cell.value ?? '',
-      cell.status || '',
-      evidenceList(inheritedEvidenceIds(cell.evidenceIds, spec.evidenceIds)),
-    ]),
-    emphasizedRows: spec.cells.flatMap((cell, index) => (cell.emphasis ? [index] : [])),
-  };
 };

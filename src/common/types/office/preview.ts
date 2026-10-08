@@ -3,8 +3,25 @@
  * Copyright 2025 DeepScientist (deepscientist.cc)
  * SPDX-License-Identifier: Apache-2.0
  */
-import type { TargetDiscoveryProgressSummary } from "../../chat/targetDiscovery";
 import type { ProjectGitDirectionDecision, ResearchStrategy } from "../../chat/researchStrategy";
+
+/** Historical Git checkpoint metadata; no target-discovery runtime is required. */
+export interface ProjectGitTargetSummary {
+  candidateCount: number;
+  advanceCount: number;
+  validationCount: number;
+  blockerCount: number;
+  sourceReadyCount: number;
+  sourceCount: number;
+  branchCount: number;
+  coveredBranchCount?: number;
+  requiredBranchCount?: number;
+  unresolvedRequiredBranchCount?: number;
+  generationLaneCount?: number;
+  leadingCoverage?: number;
+  topTargets: string[];
+}
+
 export type ProjectGitFileStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'unmerged' | 'unknown';
 export interface ProjectGitRepository {
     workspaceRoot: string;
@@ -107,7 +124,7 @@ export interface ProjectGitCommitSummary {
         conversationId?: string;
         domain?: ProjectGitDomain;
         artifactRef?: ProjectGitCheckpointArtifactRef;
-        targetSummary?: TargetDiscoveryProgressSummary;
+        targetSummary?: ProjectGitTargetSummary;
         verification: string[];
         metrics?: ProjectGitPerformanceMetric[];
         metricContext?: ProjectGitMetricContext;

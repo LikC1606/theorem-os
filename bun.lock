@@ -8,7 +8,6 @@
         "@modelcontextprotocol/sdk": "1.27.1",
         "diff": "8.0.3",
         "smol-toml": "1.6.1",
-        "xlsx-republish": "0.20.3",
         "zod": "3.25.76"
       },
       "devDependencies": {
@@ -1850,16 +1849,6 @@
       "https://registry.npmmirror.com/wrappy/-/wrappy-1.0.2.tgz",
       {},
       "sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ=="
-    ],
-    "xlsx-republish": [
-      "xlsx-republish@0.20.3",
-      "https://registry.npmmirror.com/xlsx-republish/-/xlsx-republish-0.20.3.tgz",
-      {
-        "bin": {
-          "xlsx": "bin/xlsx.njs"
-        }
-      },
-      "sha512-iIO8XheF1Ml+78jeZQuowobWIpRW/IxVmQEUA0JUNhtdLvgn5xxWTiIkr2dslnDjVANtqRhUvYDfr+Nw3fw3Ug=="
     ],
     "zod": [
       "zod@3.25.76",

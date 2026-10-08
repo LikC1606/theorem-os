@@ -5,6 +5,7 @@
  */
 
 import type {
+  ProjectGitTargetSummary,
   ProjectGitCheckpointArtifactRef,
   ProjectGitChangedFile,
   ProjectGitCommitSummary,
@@ -14,7 +15,6 @@ import type {
   ProjectGitPerformanceMetric,
   ProjectGitResearchStageReceipt,
 } from "../common/types/office/preview";
-import type { TargetDiscoveryProgressSummary } from "../common/chat/targetDiscovery";
 import {
   normalizeProjectGitDirectionDecision,
   normalizeResearchStrategy,
@@ -121,7 +121,7 @@ const parseArtifactRef = (value?: string): ProjectGitCheckpointArtifactRef | und
   }
 };
 
-const parseTargetSummary = (value?: string): TargetDiscoveryProgressSummary | undefined => {
+const parseTargetSummary = (value?: string): ProjectGitTargetSummary | undefined => {
   if (!value) return undefined;
   try {
     const candidate = JSON.parse(value) as Record<string, unknown>;

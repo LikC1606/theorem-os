@@ -6,7 +6,6 @@ import http from 'node:http';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { legacyEnvName } from "../common/config/legacyIdentifiers";
 import { once } from 'node:events';
 import { z } from 'zod';
 import {
@@ -27,6 +26,11 @@ import {
 } from "./mathProofEnvironment";
 import { readMathRunBinding } from "./mathRunBinding";
 import type { MathRunBinding } from "../common/types/team/mathRuntimeContracts";
+import {
+  MATH_RECEIPT_KEY_PATH_ENV as RECEIPT_KEY_PATH_ENV,
+  MATH_RECEIPT_SECRET_ENV as RECEIPT_SECRET_ENV,
+  resolveMathReceiptKeyPath,
+} from "./receiptKey";
 
 const insideRoot = '/run/math-isolation';
 const insideLauncher = '/opt/math-model-isolation.js';
@@ -102,28 +106,9 @@ const MCP_ENV_ALLOWLIST = new Set([
 
 /** Sandbox path of the host receipt key; only trusted MCP children receive it. */
 export const MATH_ISOLATION_RECEIPT_KEY_PATH = '/run/math-receipt/receipt-signing.key';
-const RECEIPT_KEY_PATH_ENV = 'DEEPSCIENTIST_FINANCE_RECEIPT_KEY_PATH';
-const RECEIPT_SECRET_ENV = 'DEEPSCIENTIST_FINANCE_RECEIPT_SECRET';
 
-/**
- * Mirror of resolveBuiltinFinanceReceiptKeyPath (builtinMcp/constants.ts). The
- * launcher bundle cannot import that module (it uses `@/` aliases); a unit test
- * asserts both resolvers agree. The runner verifies solver-ready receipts with
- * this host key, so the MCP that signs them must use the same file.
- */
 export function resolveMathIsolationReceiptKeyPath(env: NodeJS.ProcessEnv = process.env): string {
-  const explicit = env[RECEIPT_KEY_PATH_ENV]?.trim();
-  if (explicit) return explicit;
-  const isMultiInstance = env.DEEPSCIENTIST_MULTI_INSTANCE === '1' || env[legacyEnvName('MULTI_INSTANCE')] === '1';
-  const environment = env.NODE_ENV === 'development' ? (isMultiInstance ? 'dev-2' : 'dev') : 'production';
-  const identity = (
-    env.VITEST
-      ? `test-${process.pid}`
-      : `${String(typeof process.getuid === 'function' ? process.getuid() : env.USERNAME || 'user')}-${environment}`
-  )
-    .replace(/[^a-zA-Z0-9_-]/g, '_')
-    .slice(0, 64);
-  return path.join(os.tmpdir(), `deepscientist-finance-receipt-${identity}.key`);
+  return resolveMathReceiptKeyPath(env);
 }
 
 /**
