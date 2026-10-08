@@ -5,7 +5,6 @@ import { mathWorkspaceRoleActions } from "./mathToolContract";
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { createFactorResearchTeamProfile } from "../finance/factorResearchTeamProfile";
 import { applyMathematicsResearchPolicy, type MathematicsResearchPolicyId } from "./mathematicsResearchPolicy";
 import type { ModeStack } from "../../types/modes/types";
 import { BUILTIN_IOAI_COMPETITION_NAME, BUILTIN_SCIENCE_ARTIFACT_NAME } from "../../config/builtinMcpConstants";
@@ -22,14 +21,7 @@ import {
 } from "../../types/team/researchTeamContracts";
 import { DEEPSCIENTIST_TEAM_MIN_AGENT_LIMIT, type DeepScientistTeamConfig } from "./deepScientistTeam";
 
-export type DeepScientistTeamModeProfileId =
-  | 'science-research-team'
-  | 'medical-evidence-team'
-  | 'target-discovery-team'
-  | 'mathematics-research-team'
-  | 'financial-research-team'
-  | 'project-research-team'
-  | 'financial-factor-research';
+export type DeepScientistTeamModeProfileId = 'mathematics-research-team';
 
 /** Slot specialization never replaces the authenticated assignment's scope. */
 export const MATHEMATICS_WORKER_ASSIGNMENT_SCOPE = [
@@ -76,7 +68,7 @@ export function getDeepScientistTeamRequiredMcpNames(
 }
 
 type ProfileDescriptor = Readonly<{
-  id: Exclude<DeepScientistTeamModeProfileId, 'financial-factor-research'>;
+  id: DeepScientistTeamModeProfileId;
   workflowId: string;
   displayName: string;
   leadName: string;
@@ -172,94 +164,8 @@ const SHARED_WORKER_INSTRUCTIONS = [
 ].join('\n');
 
 const DESCRIPTORS: Readonly<
-  Record<Exclude<DeepScientistTeamModeProfileId, 'financial-factor-research'>, ProfileDescriptor>
+  Record<DeepScientistTeamModeProfileId, ProfileDescriptor>
 > = Object.freeze({
-  'science-research-team': makeDescriptor(
-    'science-research-team',
-    'science.research.v1',
-    'Science Research Team',
-    'Science Lead',
-    [
-      makeLane('hypothesis', 'Hypothesis Scout', 'Develop distinct falsifiable explanations.', [
-        'hypothesis brief',
-        'decisive test',
-      ]),
-      makeLane('experiment', 'Experiment Designer', 'Design reproducible analyses and controls.', [
-        'analysis plan',
-        'implementation artifact',
-      ]),
-      makeLane('evidence', 'Evidence Auditor', 'Find and appraise directly relevant evidence.', [
-        'evidence map',
-        'applicability limits',
-      ]),
-      makeLane('reproducibility', 'Reproducibility Reviewer', 'Challenge methods, results, and provenance.', [
-        'failure analysis',
-        'verification record',
-      ]),
-    ],
-    [
-      'Separate independent hypotheses before parallel work; do not split one tightly coupled operation across Workers.',
-    ],
-    'Before publishing a report, independently review integrated evidence, failed tests, reproducibility, and claim boundaries; then make one Lead-owned second confirmation.'
-  ),
-  'medical-evidence-team': makeDescriptor(
-    'medical-evidence-team',
-    'medical.evidence.v1',
-    'Medical Evidence Team',
-    'Evidence Lead',
-    [
-      makeLane('retrieval', 'Retrieval Specialist', 'Search current primary and authoritative sources.', [
-        'search record',
-        'source set',
-      ]),
-      makeLane('appraisal', 'Evidence Appraiser', 'Assess bias, certainty, and indirectness.', [
-        'appraisal table',
-        'certainty notes',
-      ]),
-      makeLane('applicability', 'Clinical Applicability Reviewer', 'Audit population fit, safety, and boundaries.', [
-        'applicability memo',
-        'safety limits',
-      ]),
-      makeLane('synthesis', 'Synthesis Auditor', 'Test whether conclusions follow from cited evidence.', [
-        'contradiction audit',
-        'recommendation',
-      ]),
-    ],
-    [
-      'Keep retrieval, appraisal, applicability, and synthesis attributable; never let source count replace quality assessment.',
-    ],
-    'Before publishing the evidence report, verify every material claim against registered evidence and perform one Lead-owned safety and applicability review.'
-  ),
-  'target-discovery-team': makeDescriptor(
-    'target-discovery-team',
-    'science.target-discovery.v1',
-    'Target Discovery Team',
-    'Target Discovery Lead',
-    [
-      makeLane('causality', 'Genetics & Causality', 'Test human genetics and causal support.', [
-        'causal evidence map',
-        'confounder audit',
-      ]),
-      makeLane('dependency', 'Omics & Dependency', 'Test disease-context dependency and expression.', [
-        'context matrix',
-        'robustness result',
-      ]),
-      makeLane('tractability', 'Tractability & Safety', 'Assess modality, selectivity, and liabilities.', [
-        'tractability brief',
-        'safety flags',
-      ]),
-      makeLane('validation', 'Validation Falsifier', 'Design decisive validation and counterexamples.', [
-        'validation ladder',
-        'discard criteria',
-      ]),
-    ],
-    [
-      'Keep target identity, disease context, evidence channel, and release provenance explicit in every assignment.',
-      'Dispatch only independent causality, dependency, tractability/safety, or validation/falsification lanes. Treat a failed or missing delivery as an explicit evidence gap; never simulate consensus or silently replace it.',
-    ],
-    'Before target_portfolio(action="submit"), review every integrated candidate, evidence id, contrary result, identity mapping, and validation gap; then make one Lead-owned second confirmation. Workers never submit targets.',
-    { toolName: 'target_portfolio', actions: ['submit'] }
-  ),
   'mathematics-research-team': makeDescriptor(
     'mathematics-research-team',
     'science.mathematics.v1',
@@ -295,68 +201,13 @@ const DESCRIPTORS: Readonly<
     'Before publishing, review assumptions, gaps, counterexamples, and kernel verification, then confirm once.',
     { toolName: 'math_portfolio', actions: ['submit', 'patch', 'request_review', 'submit_review', 'official_gate'] }
   ),
-  'financial-research-team': makeDescriptor(
-    'financial-research-team',
-    'finance.research.v1',
-    'Financial Research Team',
-    'Financial Research Lead',
-    [
-      makeLane('data', 'Data Provenance Auditor', 'Audit timestamps, coverage, and field semantics.', [
-        'data contract',
-        'leakage audit',
-      ]),
-      makeLane('method', 'Method Researcher', 'Develop testable financial hypotheses.', [
-        'method brief',
-        'simulation plan',
-      ]),
-      makeLane('risk', 'Risk Reviewer', 'Stress assumptions, costs, and regimes.', ['risk register', 'stress result']),
-      makeLane('replication', 'Replication Reviewer', 'Reproduce and challenge reported performance.', [
-        'replication record',
-        'failure analysis',
-      ]),
-    ],
-    [
-      'Keep research, simulation, and real trading strictly separated; real trading remains prohibited.',
-      'Route the financial task contract before dispatch. Factor research uses the XAlpha/generic Team route and one Lead-owned factor_submit handoff; other contracts remain on their selected financial route.',
-    ],
-    'Before publishing or registering any result, independently review point-in-time safety, costs, robustness, evidence, and failed tests; then make one Lead-owned second confirmation.'
-  ),
-  'project-research-team': makeDescriptor(
-    'project-research-team',
-    'project.general.v1',
-    'Project Team',
-    'Project Lead',
-    [
-      makeLane('implementation', 'Implementation Worker', 'Produce one bounded implementation.', [
-        'committed change',
-        'verification',
-      ]),
-      makeLane('review', 'Independent Reviewer', 'Audit correctness and regressions.', ['review memo', 'risk list']),
-      makeLane('evidence', 'Evidence Worker', 'Collect attributable supporting evidence.', [
-        'evidence set',
-        'claim map',
-      ]),
-      makeLane('falsification', 'Falsification Worker', 'Try to disprove the proposed result.', [
-        'counterexample',
-        'decision recommendation',
-      ]),
-    ],
-    ['Use parallel Workers only for independent, bounded work that can be merged through exact Git commits.'],
-    'Before user-facing publication, the Lead reviews exact integrated commits, evidence, verification, and falsification, then makes one final confirmation.'
-  ),
+
 });
 
 export function createDeepScientistModeTeamProfile(
   modeStack: ModeStack,
   config: DeepScientistTeamConfig
 ): ResearchTeamProfile {
-  if (modeStack.primary === 'financial-factor-mining' || modeStack.overlays.includes('factor-research')) {
-    return createFactorResearchTeamProfile({
-      executionProfile: 'parallel',
-      agentLimit: config.agentLimit,
-      reasoningConcurrency: config.reasoningConcurrency,
-    });
-  }
   const profileDescriptor = resolveDescriptor(modeStack);
   const isMathematics = profileDescriptor.id === 'mathematics-research-team';
   // One persistent proof owner; auxiliary capacity is available only for useful disjoint work.
@@ -565,13 +416,8 @@ export function createHeadlessMathematicsTeamProfile(
   });
 }
 
-function resolveDescriptor(modeStack: ModeStack): ProfileDescriptor {
-  if (modeStack.overlays.includes('target-discovery')) return DESCRIPTORS['target-discovery-team'];
-  if (modeStack.overlays.includes('mathematical-research')) return DESCRIPTORS['mathematics-research-team'];
-  if (modeStack.primary === 'medical-evidence') return DESCRIPTORS['medical-evidence-team'];
-  if (modeStack.primary === 'financial') return DESCRIPTORS['financial-research-team'];
-  if (modeStack.primary === 'science') return DESCRIPTORS['science-research-team'];
-  return DESCRIPTORS['project-research-team'];
+function resolveDescriptor(_modeStack: ModeStack): ProfileDescriptor {
+  return DESCRIPTORS['mathematics-research-team'];
 }
 
 function createLeadRole(profileDescriptor: ProfileDescriptor, roleId: string): ResearchTeamRoleContract {
