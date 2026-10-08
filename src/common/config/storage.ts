@@ -10,7 +10,7 @@ import type { TargetDiscoveryConversationExtra } from "../chat/targetDiscovery";
 import type { ProjectMemoryConversationExtra } from "../chat/projectMemory/index";
 import type { ComputeConfig, ComputeConversationExtra } from "../types/compute";
 import type { ModeStack } from "../types/modes/types";
-import type { DeepScientistTeamConfig, DeepScientistTeamConversationExtra } from "../chat/team/deepScientistTeam";
+import type { DeepScientistTeamConversationExtra } from "../chat/team/deepScientistTeam";
 /**
  * Conversation source type - identifies where the conversation was created
  * 会话来源类型 - 标识会话创建的来源

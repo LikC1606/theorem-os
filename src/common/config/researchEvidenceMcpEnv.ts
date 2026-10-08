@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { ConfigKeyMap } from "./configKeys";
+import type { MedicalEvidenceConfig, ResearchEvidenceConfig } from "./storage";
 import { MEDICAL_EVIDENCE_DEFAULT_PAPERCLIP_SOURCES } from "../chat/medicalEvidenceDefaults";
 import { resolvePaperclipCredentialFields } from "./paperclipConfig";
 
@@ -51,14 +51,14 @@ export type ResearchEvidenceMcpEnvResolveResult =
   | {
       ok: true;
       env: Record<string, string>;
-      config: NonNullable<ConfigKeyMap['tools.researchEvidence']>;
+      config: ResearchEvidenceConfig;
     }
   | {
       ok: false;
       reason: 'no_provider';
       message: string;
       env: Record<string, string>;
-      config?: ConfigKeyMap['tools.researchEvidence'];
+      config?: ResearchEvidenceConfig;
     };
 
 export function resolveBioToolsPythonPath(configuredPath?: string, bundledPath?: string): string | undefined {
@@ -77,9 +77,9 @@ export function removeResearchEvidenceEnvKeys(env?: Record<string, string>): Rec
 }
 
 export function resolveResearchEvidenceMcpEnv(
-  config?: ConfigKeyMap['tools.researchEvidence'],
+  config?: ResearchEvidenceConfig,
   existingEnv?: Record<string, string>,
-  fallbackMedicalConfig?: ConfigKeyMap['tools.medicalEvidence']
+  fallbackMedicalConfig?: MedicalEvidenceConfig
 ): ResearchEvidenceMcpEnvResolveResult {
   const shared = resolvePaperclipCredentialFields(
     config,

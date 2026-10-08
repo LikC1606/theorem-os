@@ -5,7 +5,7 @@
  */
 
 import { normalizeScienceDefaultSkillIds } from "../chat/science";
-import type { ConfigKeyMap } from "./configKeys";
+import type { ScienceArtifactConfig } from "./storage";
 
 export const SCIENCE_ARTIFACT_ENV_KEYS = {
   strictProvenance: 'DEEPSCIENTIST_STRICT_PROVENANCE',
@@ -18,7 +18,7 @@ export const SCIENCE_ARTIFACT_ENV_KEYS = {
 export type ScienceArtifactMcpEnvResolveResult = {
   ok: true;
   env: Record<string, string>;
-  config: NonNullable<ConfigKeyMap['tools.scienceArtifact']>;
+  config: ScienceArtifactConfig;
 };
 
 export function removeScienceArtifactEnvKeys(env?: Record<string, string>): Record<string, string> {
@@ -30,7 +30,7 @@ export function removeScienceArtifactEnvKeys(env?: Record<string, string>): Reco
 }
 
 export function resolveScienceArtifactMcpEnv(
-  config?: ConfigKeyMap['tools.scienceArtifact'],
+  config?: ScienceArtifactConfig,
   existingEnv?: Record<string, string>
 ): ScienceArtifactMcpEnvResolveResult {
   const strictProvenance =
