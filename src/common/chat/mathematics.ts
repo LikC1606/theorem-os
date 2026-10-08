@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { getPromptLanguageInstruction } from "./language";
 import {
   MATH_WORKFLOW_STAGES,
   aggregateMathCandidateReviews,
@@ -47,7 +46,6 @@ export { rankMathFeasibilityCandidates } from "../types/team/mathematicsTeam";
 
 export const MATHEMATICS_MODE_ID = 'mathematical-research' as const;
 export const MATHEMATICS_SKILL_NAME = 'deepscientist-mathematics' as const;
-export const MATHEMATICS_SKILL_PATH = 'resources/skills/deepscientist-mathematics/SKILL.md' as const;
 export const MATHEMATICS_PORTFOLIO_SCHEMA = 'deepscientist.mathematics.portfolio.v1' as const;
 export const MATHEMATICS_PORTFOLIO_ARTIFACT_ID = 'mathematics_portfolio' as const;
 export const MATHEMATICS_PORTFOLIO_PATH = 'mathematics/portfolio.json' as const;
@@ -2663,14 +2661,6 @@ const summarizeMathematicsEvidenceInto = (
   };
 };
 
-export function summarizeMathematicsEvidence(
-  portfolio: Pick<MathematicsPortfolio, 'evidence'>,
-  problemId?: string,
-  statementHash?: string
-): MathematicsEvidenceSummary {
-  return summarizeMathematicsEvidenceInto(portfolio, problemId, statementHash);
-}
-
 const hasLinkedScienceEvidence = (item: MathematicsEvidence): boolean =>
   item.evidenceIds.length > 0 && isNonEmptyString(item.commit) && item.commit !== 'WORKTREE';
 
@@ -2685,44 +2675,6 @@ const isReproducibleRefutingEvidence = (item: MathematicsEvidence): boolean =>
   ['refuting', 'formal'].includes(item.strength) &&
   ['reproduced', 'independent', 'formal'].includes(item.reproducibility) &&
   hasLinkedScienceEvidence(item);
-
-export function countMathematicsEvidence(
-  portfolio: Pick<MathematicsPortfolio, 'evidence'> | readonly MathematicsEvidence[],
-  problemId?: string,
-  statementHash?: string
-): MathematicsEvidenceCounts {
-  const records = Array.isArray(portfolio)
-    ? portfolio
-    : (portfolio as Pick<MathematicsPortfolio, 'evidence'>).evidence || [];
-  const counts: MathematicsEvidenceCounts = {
-    total: 0,
-    supporting: 0,
-    refuting: 0,
-    context: 0,
-    exactStatementSupporting: 0,
-    exactStatementRefuting: 0,
-    qualifiedSupporting: 0,
-    reproducibleRefuting: 0,
-  };
-  for (const item of records) {
-    if (problemId && item.problemId !== problemId) continue;
-    counts.total += 1;
-    if (item.polarity === 'supporting') {
-      counts.supporting += 1;
-      if (statementHash && item.statementHash !== statementHash) continue;
-      counts.exactStatementSupporting += 1;
-      if (isQualifiedSupportingEvidence(item)) counts.qualifiedSupporting += 1;
-    } else if (item.polarity === 'refuting') {
-      counts.refuting += 1;
-      if (statementHash && item.statementHash !== statementHash) continue;
-      counts.exactStatementRefuting += 1;
-      if (isReproducibleRefutingEvidence(item)) counts.reproducibleRefuting += 1;
-    } else {
-      counts.context += 1;
-    }
-  }
-  return counts;
-}
 
 /**
  * Computes the evidence gates without mutating the portfolio. The server can
@@ -3092,51 +3044,4 @@ export function buildMathematicsConversationExtra(projectRoot?: string): Mathema
     projectRoot,
     defaultSkill: MATHEMATICS_SKILL_NAME,
   };
-}
-
-export function buildMathematicsModePrompt(
-  _preferredLocale?: string,
-  options?: Readonly<{ headlessProofSearch?: boolean }>
-): string {
-  if (options?.headlessProofSearch) {
-    return [
-      '## Mathematical Proof Runtime',
-      '- The runner supplies the bound workspace, public task, and pinned Lean environment. Preserve the statement, assumptions, protected files, and authorized write scope.',
-      '- Follow the Team assignment and its runtime-injected result contract. Retain useful proof work and use concrete Lean diagnostics for repairs in the same Worker session.',
-      '- Finite checks, compilation, and model prose are scoped evidence, not a universal proof. Report unfinished obligations honestly; do not fabricate checks or receipts.',
-      '- Only after the complete problem is solved and the accepted work is integrated, wait for solver_ready_receipt and end the turn. The runner owns independent evaluation; do not read reference answers or evaluator-only material.',
-    ].join('\n');
-  }
-  return [
-    '## Mathematical Research Extension',
-    'This extension supplies mathematical evidence rules inside Science Mode; it does not create another scheduler, memory store, repository, or publication protocol.',
-    '- Read `deepscientist-mathematics` before substantive work and `deepscientist-report-chart` only when a verified visual is useful. Discovery requires project_workspace, math_portfolio, and science_artifact. Use lean_workspace only after a candidate explicitly enters formalization; report an unavailable surface instead of emulating it. In ordinary projects, eligible exact Reservoir packages are actionable dependencies: the assigned Lean Worker may adopt one or several with lean_workspace(action="adopt_package" or action="adopt_packages"), then rebind the session and compile import probes before relying on them. Protected LeanEval projects remain Mathlib-only.',
-    '- Treat bound Project Git as canonical memory and math_portfolio/Science Artifact as projections. Resume only meaningful committed mathematics state; an initializer-only repository is fresh.',
-    '- Start with a natural-language researchContract: objective, known results, current conjectures, failed approaches, open obligations, and the highest-information next action. For Lean-Eval intake, pass the read-only benchmark checkout to math_portfolio get so the runtime verifies the pinned catalog commit, derives active/v1/visible eligibility, accepted-credit novelty, public Challenge hole DAGs, import/toolchain probes, and evidence provenance. Choose only from eligible zero-credit candidates using solve probability; novelty is a separate signal. Keep the statement provisional during exploration and do not assign stable candidate identity or hashes to disposable ideas. Only when a candidate is ready for formal proof, freeze MathProblemContract with the exact informal/formal statements, assumptions, hashes, traps, acceptance criteria, and official verification command; record whether the formal statement is equivalent, stronger, weaker, or unknown.',
-    '- Bounded checks, literature, compilation, solver output, and an unsuccessful search are scoped evidence, not a universal proof or refutation.',
-    '- Verified requires a matching named-theorem Lean kernel receipt from a clean committed revision (the receipt itself satisfies the formal evidence lane; duplicate model-authored evidence is optional) and one passed independent review for the same statementHash. In Team Mode the fresh semantic gate requires one sound CandidateReview on the frozen commit before the official gate. The receipt binds the caller statement identity to the committed source and records theoremDeclarationHash; review must confirm that declaration formalizes the claimed statement. Refuted requires the immutable contract to freeze a canonical Lean negation, then matching negation kernel and signed official-comparator receipts. Counterexamples remain scoped diagnostic evidence and never establish a terminal refutation by themselves. Model prose, UI status, native computation, external solvers, sorry/admit, unfinished goals, dirty files, stale commits, and unreviewed axioms never establish Verified or Refuted.',
-    '- In Team Mode persist MathFailureLedger and MathRecoveryCheckpoint only at a pause/resume, route-change, or infrastructure-failure boundary; a local solver stall uses runtime-owned progress and does not require a full recovery checkpoint. Resume the active route, first Lean error, latest receipt, do-not-repeat refs, and exactly one next objective from an existing checkpoint instead of reconstructing them from chat.',
-    '- Borrow the Humanize review rhythm without creating a second scheduler: before formalization, complete the typed statement/alignment preflight; after each meaningful Team wave, write a concise summary of changed belief, evidence, failure, and one next action. Run a full alignment audit when the route or statement changes before dispatching more proof work.',
-    '- If Discovery Mode is active, it is the sole persistent continuation controller. Do not call Codex create_goal/get_goal/update_goal or create a second Goal. If absent, do not infer a long-running Goal merely because the conjecture is difficult.',
-    '- Follow the mathematical Skill for portfolio mutations, Lean batching, independent review, and publication. Publish only when the portfolio, evidence, formal receipt, review, report, statementHash, and committed revision agree; otherwise remain partial or blocked.',
-    '- If Team Mode is active, its injected mathematics Lead/Worker contract exclusively governs dispatch and integration; this extension does not define another Team policy. Map Lean-Eval failures to identity, stale benchmark, trusted-file, missing-hole, import/olean, toolchain, sandbox, comparator/nanoda, or actual-proof categories and retry only according to the category policy.',
-  ].join('\n');
-}
-
-export function buildMathematicsReviewPrompt(preferredLocale?: string): string {
-  return [
-    '## Independent Mathematical Review',
-    'Review only the frozen target commit and the registered Mathematics Portfolio. Git is the canonical memory; do not trust chat text, UI state, or the proposer conclusion.',
-    '- Check natural-language/formal-statement alignment, assumptions, vacuity, quantifiers, domains, definitions, and declared axioms.',
-    '- Check that every supporting or refuting item states its scope, command, input/output references, seed, and commit, and that the evidence actually concerns the exact statementHash.',
-    '- Reconcile the two evidence lanes explicitly. Distinguish “no counterexample found” from a refutation, and reject a terminal verdict that omits the other lane’s scope or limitation.',
-    '- Do not pass a verified decision without a matching statement kernel receipt and an independent passed review; a separate duplicate evidence row is not required. Do not pass a refuted decision without a contract-bound negation kernel receipt and its matching signed official comparator receipt.',
-    '- For a Team problem carrying MathProblemContract, verified requires the unchanged candidate to have matching localGateReceipt and officialGateReceipt records. The official receipt must use the exact contract command and bind the same statementHash, route, commit, local receipt, one sound review, exitCode=0, and timedOut=false. Never downgrade this to a prose claim or a local-only kernel check.',
-    '- Try to refute first with boundary cases, generated examples, finite checks, and the smallest reproducible counterexample. Failure to find one is inconclusive.',
-    '- Run lean_workspace certification from a clean checkout and reject sorry, admit, open goals, stale target commits, untracked dependencies, unavailable toolchains, and mismatched hashes.',
-    '- Return structured review events and one verdict: passed, changes_requested, refuted, or inconclusive. In Team Mode also return CandidateReview with sound|gap|wrong, firstFault, repairTarget, targetCommit, statementHash, reviewerSessionId, and evidenceRefs. One sound independent Team review plus a matching verifier result may enter the official gate.',
-    '- Include optional machine-readable findings for each material issue with severity blocker|major|minor|note, a mathematics-specific kind, a concise message, an actionable repairTarget when known, and evidenceRefs. A blocker or major finding must keep the review from advancing; never hide it only in prose.',
-    '- Never expose hidden chain-of-thought. Record only concise findings, evidence ids, file/line anchors, commands, hashes, and the next action.',
-    getPromptLanguageInstruction(preferredLocale),
-  ].join('\n');
 }
