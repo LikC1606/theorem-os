@@ -5,7 +5,6 @@
  */
 
 import type { IMessageAcpToolCall, IMessageToolCall, IMessageToolGroup } from "./chatLib";
-import { getPromptLanguageInstruction } from "./language";
 import { readFinancialFactorPortfolio } from "./financialFactor";
 import {
   isStructuredReportChartCard,
@@ -17,8 +16,7 @@ import { readTargetDiscoveryPortfolio } from "./targetDiscovery";
 import type { ReportChartSpec } from "./reportChart";
 import { getReportChartVisualDefinition } from "./reportChartVisualRegistry";
 import type { ResearchStrategy } from "./researchStrategy";
-import { SCIENCE_MATERIALIZED_SKILL_IDS, SCIENCE_SKILL_PACK_MANIFEST_PATH } from "./scienceSkills.generated";
-import { buildDeepScientistUserInputRoutingPrompt } from "./toolRouting";
+import type { SCIENCE_SKILL_PACK_MANIFEST_PATH } from "./scienceSkills.generated";
 
 export const SCIENCE_MODE_ID = 'science';
 export const SCIENCE_EVENT_SCHEMA = 'deepscientist.science.event.v1';
@@ -26,157 +24,8 @@ export const SCIENCE_PANEL_SCHEMA = 'deepscientist.science.panel.v1';
 export const RESEARCH_ROUTE_SCHEMA = 'deepscientist.science.research_route.v1' as const;
 export const RESEARCH_ROUTE_ARTIFACT_ID = 'research_roadmap' as const;
 export const SCIENCE_CORE_SKILL_NAME = 'deepscientist-science';
-export const SCIENCE_CORE_SKILL_PATH = 'resources/skills/science/SKILL.md';
 export const SCIENCE_ARTIFACT_SKILL_NAME = 'deepscientist-science-artifact';
-export const SCIENCE_ARTIFACT_SKILL_PATH = 'resources/skills/science-artifact/SKILL.md';
-export const SCIENCE_REPORT_CHART_SKILL_NAME = 'deepscientist-report-chart';
-export const SCIENCE_REPORT_CHART_SKILL_PATH = 'resources/skills/report-chart/SKILL.md';
-export const REPORT_AUTHORING_SKILL_NAME = 'report-authoring';
-export const REPORT_AUTHORING_SKILL_PATH = 'resources/skills/report-authoring/SKILL.md';
-export const SCIENCE_VISUALS_SKILL_NAME = 'deepscientist-scientific-visuals';
-export const SCIENCE_VISUALS_SKILL_PATH = 'resources/skills/deepscientist-scientific-visuals/SKILL.md';
-export const SCIENCE_WORKFLOW_SKILL_NAME = 'deepscientist-workflow';
-export const SCIENCE_WORKFLOW_SKILL_PATH = 'resources/skills/workflow/SKILL.md';
-export const SCIENCE_IDEA_SKILL_NAME = 'ds-idea';
-export const SCIENCE_IDEA_SKILL_PATH = 'resources/skills/ds-idea/SKILL.md';
-export const SCIENCE_ONBOARDING_SKILL_NAME = 'deepscientist-onboarding';
-export const SCIENCE_ONBOARDING_SKILL_PATH = 'resources/skills/onboarding/SKILL.md';
-export const SCIENCE_WRITING_SKILL_NAME = 'deepscientist-writing';
-export const SCIENCE_WRITING_SKILL_PATH = 'resources/skills/writing/SKILL.md';
-export const SCIENCE_PRESENTATION_SKILL_NAME = 'deepscientist-presentation';
-export const SCIENCE_PRESENTATION_SKILL_PATH = 'resources/skills/presentation/SKILL.md';
-export const SCIENCE_DATABASES_SKILL_NAME = 'deepscientist-databases';
-export const SCIENCE_DATABASES_SKILL_PATH = 'resources/skills/databases/SKILL.md';
-export const SCIENCE_BIO_SKILL_NAME = 'deepscientist-bio';
-export const SCIENCE_BIO_SKILL_PATH = 'resources/skills/deepscientist-bio/SKILL.md';
-export const SCIENCE_BIOMODELS_SKILL_NAME = 'deepscientist-biomodels';
-export const SCIENCE_BIOMODELS_SKILL_PATH = 'resources/skills/biomodels/SKILL.md';
-export const SCIENCE_SINGLECELL_SKILL_NAME = 'deepscientist-singlecell';
-export const SCIENCE_SINGLECELL_SKILL_PATH = 'resources/skills/singlecell/SKILL.md';
-export const SCIENCE_COMPUTE_SKILL_NAME = 'deepscientist-compute';
-export const SCIENCE_COMPUTE_SKILL_PATH = 'resources/skills/compute/SKILL.md';
-export const SCIENCE_EMPIRICAL_SKILL_NAME = 'deepscientist-empirical';
-export const SCIENCE_EMPIRICAL_SKILL_PATH = 'resources/skills/empirical/SKILL.md';
 export const SCIENCE_VENDOR_CATALOG_SKILL_NAME = 'deepscientist-science-vendor-catalog';
-export const SCIENCE_VENDOR_CATALOG_SKILL_PATH = 'resources/skills/science-vendor-catalog/SKILL.md';
-
-export const LEGACY_SCIENCE_DEFAULT_SKILL_IDS = [
-  SCIENCE_CORE_SKILL_NAME,
-  SCIENCE_ARTIFACT_SKILL_NAME,
-  SCIENCE_VENDOR_CATALOG_SKILL_NAME,
-] as const;
-
-const PREVIOUS_DOMAIN_ROUTER_DEFAULT_SKILL_IDS = [
-  SCIENCE_CORE_SKILL_NAME,
-  SCIENCE_ARTIFACT_SKILL_NAME,
-  SCIENCE_ONBOARDING_SKILL_NAME,
-  SCIENCE_WORKFLOW_SKILL_NAME,
-  SCIENCE_IDEA_SKILL_NAME,
-  SCIENCE_WRITING_SKILL_NAME,
-  SCIENCE_PRESENTATION_SKILL_NAME,
-  SCIENCE_DATABASES_SKILL_NAME,
-  SCIENCE_BIOMODELS_SKILL_NAME,
-  SCIENCE_SINGLECELL_SKILL_NAME,
-  SCIENCE_COMPUTE_SKILL_NAME,
-  SCIENCE_EMPIRICAL_SKILL_NAME,
-] as const;
-
-const PREVIOUS_COMPACT_DOMAIN_DEFAULT_SKILL_IDS = [
-  SCIENCE_CORE_SKILL_NAME,
-  SCIENCE_ARTIFACT_SKILL_NAME,
-  SCIENCE_ONBOARDING_SKILL_NAME,
-  SCIENCE_WORKFLOW_SKILL_NAME,
-  SCIENCE_IDEA_SKILL_NAME,
-  SCIENCE_WRITING_SKILL_NAME,
-  SCIENCE_PRESENTATION_SKILL_NAME,
-  SCIENCE_DATABASES_SKILL_NAME,
-  SCIENCE_BIO_SKILL_NAME,
-  SCIENCE_COMPUTE_SKILL_NAME,
-  SCIENCE_EMPIRICAL_SKILL_NAME,
-] as const;
-
-const PREVIOUS_MINIMAL_SCIENCE_DEFAULT_SKILL_IDS = [SCIENCE_CORE_SKILL_NAME, SCIENCE_ARTIFACT_SKILL_NAME] as const;
-const PREVIOUS_REPORT_CHART_DEFAULT_SKILL_IDS = [
-  SCIENCE_CORE_SKILL_NAME,
-  SCIENCE_ARTIFACT_SKILL_NAME,
-  SCIENCE_REPORT_CHART_SKILL_NAME,
-] as const;
-
-export const DEFAULT_SCIENCE_SKILL_IDS = [
-  SCIENCE_CORE_SKILL_NAME,
-  SCIENCE_ARTIFACT_SKILL_NAME,
-  SCIENCE_VISUALS_SKILL_NAME,
-  SCIENCE_REPORT_CHART_SKILL_NAME,
-  REPORT_AUTHORING_SKILL_NAME,
-] as const;
-
-export const SCIENCE_SKILL_RESOURCE_PATH_BY_ID = {
-  [SCIENCE_CORE_SKILL_NAME]: SCIENCE_CORE_SKILL_PATH,
-  [SCIENCE_ARTIFACT_SKILL_NAME]: SCIENCE_ARTIFACT_SKILL_PATH,
-  [SCIENCE_VISUALS_SKILL_NAME]: SCIENCE_VISUALS_SKILL_PATH,
-  [SCIENCE_REPORT_CHART_SKILL_NAME]: SCIENCE_REPORT_CHART_SKILL_PATH,
-  [REPORT_AUTHORING_SKILL_NAME]: REPORT_AUTHORING_SKILL_PATH,
-  [SCIENCE_ONBOARDING_SKILL_NAME]: SCIENCE_ONBOARDING_SKILL_PATH,
-  [SCIENCE_WORKFLOW_SKILL_NAME]: SCIENCE_WORKFLOW_SKILL_PATH,
-  [SCIENCE_IDEA_SKILL_NAME]: SCIENCE_IDEA_SKILL_PATH,
-  [SCIENCE_WRITING_SKILL_NAME]: SCIENCE_WRITING_SKILL_PATH,
-  [SCIENCE_PRESENTATION_SKILL_NAME]: SCIENCE_PRESENTATION_SKILL_PATH,
-  [SCIENCE_DATABASES_SKILL_NAME]: SCIENCE_DATABASES_SKILL_PATH,
-  [SCIENCE_BIO_SKILL_NAME]: SCIENCE_BIO_SKILL_PATH,
-  [SCIENCE_COMPUTE_SKILL_NAME]: SCIENCE_COMPUTE_SKILL_PATH,
-  [SCIENCE_EMPIRICAL_SKILL_NAME]: SCIENCE_EMPIRICAL_SKILL_PATH,
-} as const;
-
-export const DEFAULT_SCIENCE_SKILL_RESOURCE_PATH_BY_ID = {
-  [SCIENCE_CORE_SKILL_NAME]: SCIENCE_CORE_SKILL_PATH,
-  [SCIENCE_ARTIFACT_SKILL_NAME]: SCIENCE_ARTIFACT_SKILL_PATH,
-  [SCIENCE_VISUALS_SKILL_NAME]: SCIENCE_VISUALS_SKILL_PATH,
-  [SCIENCE_REPORT_CHART_SKILL_NAME]: SCIENCE_REPORT_CHART_SKILL_PATH,
-  [REPORT_AUTHORING_SKILL_NAME]: REPORT_AUTHORING_SKILL_PATH,
-} as const satisfies Record<(typeof DEFAULT_SCIENCE_SKILL_IDS)[number], string>;
-
-export function normalizeScienceDefaultSkillIds(skillIds?: readonly string[]): string[] {
-  if (!skillIds?.length) return [...DEFAULT_SCIENCE_SKILL_IDS];
-  const hasSameSkillIds = (expected: readonly string[]): boolean =>
-    skillIds.length === expected.length && expected.every((id) => skillIds.includes(id));
-  if (hasSameSkillIds(PREVIOUS_MINIMAL_SCIENCE_DEFAULT_SKILL_IDS)) return [...DEFAULT_SCIENCE_SKILL_IDS];
-  if (hasSameSkillIds(PREVIOUS_REPORT_CHART_DEFAULT_SKILL_IDS)) return [...DEFAULT_SCIENCE_SKILL_IDS];
-  const isLegacyDefault =
-    skillIds.length === LEGACY_SCIENCE_DEFAULT_SKILL_IDS.length &&
-    LEGACY_SCIENCE_DEFAULT_SKILL_IDS.every((id) => skillIds.includes(id));
-  const isLegacyCatalogOnly =
-    skillIds.includes(SCIENCE_VENDOR_CATALOG_SKILL_NAME) &&
-    skillIds.every((id) =>
-      LEGACY_SCIENCE_DEFAULT_SKILL_IDS.includes(id as (typeof LEGACY_SCIENCE_DEFAULT_SKILL_IDS)[number])
-    );
-  if (isLegacyDefault || isLegacyCatalogOnly) {
-    return [...DEFAULT_SCIENCE_SKILL_IDS];
-  }
-  const previousCompactDomainDefault = PREVIOUS_DOMAIN_ROUTER_DEFAULT_SKILL_IDS.filter(
-    (id) => id !== SCIENCE_PRESENTATION_SKILL_NAME
-  );
-  if (hasSameSkillIds(PREVIOUS_DOMAIN_ROUTER_DEFAULT_SKILL_IDS) || hasSameSkillIds(previousCompactDomainDefault)) {
-    return [...DEFAULT_SCIENCE_SKILL_IDS];
-  }
-  const previousCompactRouterDefault = PREVIOUS_COMPACT_DOMAIN_DEFAULT_SKILL_IDS.filter(
-    (id) => id !== SCIENCE_PRESENTATION_SKILL_NAME
-  );
-  if (hasSameSkillIds(PREVIOUS_COMPACT_DOMAIN_DEFAULT_SKILL_IDS) || hasSameSkillIds(previousCompactRouterDefault)) {
-    return [...DEFAULT_SCIENCE_SKILL_IDS];
-  }
-  const materializedDefaultSet = new Set<string>([
-    SCIENCE_CORE_SKILL_NAME,
-    SCIENCE_ARTIFACT_SKILL_NAME,
-    SCIENCE_WORKFLOW_SKILL_NAME,
-    ...SCIENCE_MATERIALIZED_SKILL_IDS,
-  ]);
-  const isPreviousMaterializedDefault =
-    skillIds.length === materializedDefaultSet.size && skillIds.every((id) => materializedDefaultSet.has(id));
-  if (isPreviousMaterializedDefault) {
-    return [...DEFAULT_SCIENCE_SKILL_IDS];
-  }
-  return [...skillIds];
-}
 
 export type ScienceEvidenceSourceType =
   | 'file'
@@ -2395,94 +2244,6 @@ export interface ScienceConversationExtra {
     enabledSkillIds: string[];
   };
 }
-
-export const buildScienceConversationExtra = (projectRoot?: string): ScienceConversationExtra => ({
-  enabled: true,
-  mode: SCIENCE_MODE_ID,
-  projectRoot,
-  sopVersion: 1,
-  report: {
-    enabled: true,
-    render: 'inline_structured',
-    artifacts: true,
-    provenance: true,
-    figures: true,
-    artifactInspector: true,
-  },
-  evidence: {
-    searchTool: 'research_evidence',
-    sharedWithMedicalEvidence: true,
-  },
-  provenance: {
-    evidenceIds: true,
-    claimTypes: true,
-    contentHash: true,
-    environment: true,
-    graphWarnings: true,
-  },
-  skills: {
-    rootDiscipline: SCIENCE_CORE_SKILL_NAME,
-    artifactSkill: SCIENCE_ARTIFACT_SKILL_NAME,
-    materializedSkillPackManifestPath: SCIENCE_SKILL_PACK_MANIFEST_PATH,
-    enabledSkillIds: [...DEFAULT_SCIENCE_SKILL_IDS],
-  },
-});
-
-/**
- * DeepScientist default identity prompt — injected into every conversation's preset_context
- * to override Codex CLI's built-in self-introduction as "Codex".
- */
-export const buildDeepScientistIdentityPrompt = (preferredLocale?: string): string =>
-  [
-    '# Identity',
-    '',
-    "You are **DeepScientist**, an AI-powered scientific research assistant running inside the user's local workspace.",
-    '',
-    '- **Never** introduce yourself as "Codex", "ChatGPT", "Claude", or any other model/product name.',
-    '- When users ask who you are, identify yourself as **DeepScientist**, the local AI research assistant.',
-    getPromptLanguageInstruction(preferredLocale),
-    '- Use only the files, tools, and Skills provided by the runtime; keep claims tied to observable results.',
-    '',
-    '## Working with the user',
-    '- Use `user_input` only when missing information or approval could materially change the result or block safe progress. Ask at most 3 concise, actionable questions and prefer enumerated choices when the options are known.',
-    '- After opening `user_input`, wait for that answer. Do not call another tool, continue the analysis, update the report, or send more assistant text while the question is still open.',
-    '- Never claim that a command ran, a source was retrieved, a metric was measured, or an artifact was verified unless the runtime result actually supports that claim.',
-    '- Read the Skill id provided by the runtime on demand. Do not search guessed application folders or invent a path to `SKILL.md`.',
-    '',
-    buildDeepScientistUserInputRoutingPrompt(),
-    '',
-  ].join('\n');
-
-export const buildScienceModePrompt = (_projectRoot?: string, _preferredLocale?: string): string =>
-  [
-    '# DeepScientist Science Mode',
-    '',
-    'Science Mode is the default project mode for natural science, engineering, data analysis, computational experiments, and manuscript-producing work.',
-    '',
-    '## How to work',
-    '- Follow `deepscientist-science` and `deepscientist-science-artifact`. Read `report-authoring` for reader-first structure and visual hierarchy.',
-    '- Open a workflow or subject-specific Skill only when the current task needs it.',
-    '- Perform computation and inspection in the real runtime; MCP tools save sources, results, files, and history but do not replace analysis.',
-    '- When `DEEPSCIENTIST_SCIENCE_PYTHON` is available, use it for scientific Python instead of host Python; treat the prepared environment as read-only.',
-    '- Use `research_evidence` for sources, `science_artifact` for the report and support, and `project_workspace` for Git history.',
-    '- Continue one clear, low-risk route. At a meaningful verified checkpoint, optionally attach one compact `directionDecision` with reason, 1-3 decisive references, next test, and stop condition; never create an empty decision commit.',
-    '- Keep a compact persistent research state: question, acceptance criteria, evidence, open items, and next action. On resume, update the checkpoint; do not restart or duplicate terminal reports.',
-    '- For a paper-like result, optionally use an abstract-style answer, scope, Figure 1 or result table, methods and reproducibility, observed versus interpreted results, limitations, and conclusion.',
-    '- Ask `deepscientist-scientific-visuals` for a visual decision. Two comparable values or a real series require one lead chart. Use `deepscientist-report-chart`, `research-figure-diagram`, `ds-nature-figure`, a verified Viewer, or reviewed `deepscientist_image_generation`; `payload.internalVisualWaiverReason` must never appear in the report; never add decorative or fabricated evidence.',
-    '- answer the question first, then scope, key result/figure, methods, interpretation, limitations/next check, and conclusion. Organize by the research question, not MCP chronology; give every visual units/sample size, evidence ids, and a nearby takeaway.',
-    '- Use science_artifact query_many for independent reads and transact for related writes. Reuse receipts and nextContext; reread only when resuming or resolving a conflict.',
-    '- Unless the user asks only to brainstorm, create or update the task Science report and connect its conclusions to supporting material before the final reply.',
-    '- Keep one `runId` and ids; update them instead of duplicating.',
-    '',
-  ].join('\n');
-
-export const isScienceConversationExtra = (extra: unknown): extra is { science: ScienceConversationExtra } => {
-  if (!extra || typeof extra !== 'object' || Array.isArray(extra)) return false;
-  const science = (extra as Record<string, unknown>).science;
-  if (!science || typeof science !== 'object' || Array.isArray(science)) return false;
-  const record = science as Partial<ScienceConversationExtra> & Record<string, unknown>;
-  return record.enabled === true && (record.mode === SCIENCE_MODE_ID || record.report !== undefined);
-};
 
 const toRecord = (value: unknown): Record<string, unknown> | undefined =>
   value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
