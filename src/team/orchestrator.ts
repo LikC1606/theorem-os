@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { setTimeout as delay } from 'node:timers/promises';
 import { isTeamRunAckPersisted, type ITeamRunAck } from "../common/types/team/teamTypes";
 import {
   canonicalResearchTeamIdempotencyKey,
@@ -1059,26 +1060,10 @@ function stableId(value: unknown, field: string): string {
   return normalized;
 }
 
-function abortableSleep(milliseconds: number, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(signal.reason ?? new Error('Research Team wait was cancelled'));
-      return;
-    }
-    let timer: NodeJS.Timeout;
-    let onAbort: () => void;
-    const cleanup = () => {
-      clearTimeout(timer);
-      signal?.removeEventListener('abort', onAbort);
-    };
-    onAbort = () => {
-      cleanup();
-      reject(signal?.reason ?? new Error('Research Team wait was cancelled'));
-    };
-    timer = setTimeout(() => {
-      cleanup();
-      resolve();
-    }, milliseconds);
-    signal?.addEventListener('abort', onAbort, { once: true });
-  });
+async function abortableSleep(milliseconds: number, signal?: AbortSignal): Promise<void> {
+  try {
+    await delay(milliseconds, undefined, { signal });
+  } catch (error) {
+    throw signal?.reason ?? error;
+  }
 }

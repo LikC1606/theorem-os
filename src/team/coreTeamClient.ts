@@ -5,6 +5,7 @@
  */
 
 import process from 'node:process';
+import { setTimeout as delay } from 'node:timers/promises';
 import { fromBackendTeamRunAck } from "../common/adapter/teamMapper";
 import type { ITeamRunAck, TeamSlotBlockedReason, TeamSlotWorkState } from "../common/types/team/teamTypes";
 import { canonicalResearchTeamIdempotencyKey } from "../common/types/team/researchTeamIdentity";
@@ -132,7 +133,6 @@ export function createResearchCoreTeamClient(input: {
   // Core request proves that the session has gone away (for example after a
   // Core restart).
   const sessionReady = new Set<string>();
-  const sessionReadyOrder: string[] = [];
   const sessionRestore = new Map<string, Promise<void>>();
   const runStateCache = new Map<string, { expiresAt: number; state: ResearchCoreRunState }>();
   const runStateInFlight = new Map<string, Promise<ResearchCoreRunState>>();
@@ -140,9 +140,8 @@ export function createResearchCoreTeamClient(input: {
   const teamMetadataInFlight = new Map<string, Promise<Record<string, unknown>>>();
 
   const touchSession = (teamId: string): void => {
-    const index = sessionReadyOrder.indexOf(teamId);
-    if (index >= 0) sessionReadyOrder.splice(index, 1);
-    sessionReadyOrder.push(teamId);
+    sessionReady.delete(teamId);
+    sessionReady.add(teamId);
   };
 
   const ensureSession = async (teamId: string, signal?: AbortSignal): Promise<void> => {
@@ -164,12 +163,9 @@ export function createResearchCoreTeamClient(input: {
         'Team session restore',
         requestOptions
       );
-      if (!sessionReady.has(stableTeamId)) sessionReadyOrder.push(stableTeamId);
-      sessionReady.add(stableTeamId);
       touchSession(stableTeamId);
-      while (sessionReadyOrder.length > MAX_SESSION_CACHE_ENTRIES) {
-        const evicted = sessionReadyOrder.shift();
-        if (evicted) sessionReady.delete(evicted);
+      while (sessionReady.size > MAX_SESSION_CACHE_ENTRIES) {
+        sessionReady.delete(sessionReady.values().next().value);
       }
       runStateCache.delete(stableTeamId);
       teamMetadataCache.delete(stableTeamId);
@@ -193,8 +189,6 @@ export function createResearchCoreTeamClient(input: {
       if (signal?.aborted) throw error;
       const stableTeamId = stableId(teamId, 'team_id');
       sessionReady.delete(stableTeamId);
-      const sessionIndex = sessionReadyOrder.indexOf(stableTeamId);
-      if (sessionIndex >= 0) sessionReadyOrder.splice(sessionIndex, 1);
       // A failed request can mean that Core restarted or replaced the Team
       // session. Do not let a short-lived cache window replay snapshots from
       // the previous session after recovery.
@@ -715,27 +709,11 @@ async function awaitWithAbort<T>(promise: Promise<T>, signal?: AbortSignal): Pro
 
 async function abortableSleep(delayMs: number, signal?: AbortSignal): Promise<void> {
   if (delayMs <= 0) return;
-  await new Promise<void>((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(signal.reason ?? new DOMException('Aborted', 'AbortError'));
-      return;
-    }
-    let timer: NodeJS.Timeout;
-    let onAbort: () => void;
-    const cleanup = () => {
-      clearTimeout(timer);
-      signal?.removeEventListener('abort', onAbort);
-    };
-    onAbort = () => {
-      cleanup();
-      reject(signal?.reason ?? new DOMException('Aborted', 'AbortError'));
-    };
-    timer = setTimeout(() => {
-      cleanup();
-      resolve();
-    }, delayMs);
-    signal?.addEventListener('abort', onAbort, { once: true });
-  });
+  try {
+    await delay(delayMs, undefined, { signal });
+  } catch (error) {
+    throw signal?.reason ?? error;
+  }
 }
 
 function normalizePositiveDuration(value: number | undefined, fallback: number): number {
