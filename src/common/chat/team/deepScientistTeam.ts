@@ -12,12 +12,6 @@ export type DeepScientistTeamConfig = Readonly<{
   agentLimit: number;
   reasoningConcurrency: number;
   /**
-   * Keep one advisory Strategy Worker available for bound IMO runs whose
-   * FAST_CHECK requires route discovery before formalization.  Ordinary
-   * mathematics Teams retain the single persistent Formalizer by default.
-   */
-  mathematicsRouteDiscovery?: boolean;
-  /**
    * Replace one Strategy Worker with a second Lean Engineer that owns the
    * complete original theorem through a structurally different decomposition.
    * The Team size is unchanged; the first host-verified integration wins.

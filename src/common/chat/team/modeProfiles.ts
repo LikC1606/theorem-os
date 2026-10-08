@@ -6,7 +6,6 @@ import { mathWorkspaceRoleActions } from "./mathToolContract";
  */
 
 import { applyMathematicsResearchPolicy, type MathematicsResearchPolicyId } from "./mathematicsResearchPolicy";
-import type { ModeStack } from "../../types/modes/types";
 import {
   RESEARCH_TEAM_PROFILE_SCHEMA,
   RESEARCH_TEAM_MIN_AGENT_LIMIT,
@@ -60,17 +59,12 @@ const WORKER_AUTHORITY: ResearchTeamAuthority = Object.freeze({
   publishReport: false,
 });
 
-const LEAD_ALLOWED_TOOLS: readonly ResearchTeamToolActionPolicy[] = Object.freeze([
+const MATHEMATICS_LEAD_ALLOWED_TOOLS: readonly ResearchTeamToolActionPolicy[] = Object.freeze([
   Object.freeze({ toolName: 'research_team', actions: '*' as const }),
   Object.freeze({ toolName: 'research_evidence', actions: '*' as const }),
   Object.freeze({ toolName: 'science_artifact', actions: '*' as const }),
   Object.freeze({ toolName: 'project_workspace', actions: '*' as const }),
   Object.freeze({ toolName: 'user_input', actions: '*' as const }),
-]);
-
-const WORKER_ALLOWED_TOOLS: readonly ResearchTeamToolActionPolicy[] = Object.freeze([
-  Object.freeze({ toolName: 'research_team', actions: Object.freeze(['deliver']) }),
-  Object.freeze({ toolName: 'research_evidence', actions: Object.freeze(['search', 'read']) }),
 ]);
 
 // Runtime injects the mathematics assignment and result contracts. Workers
@@ -101,34 +95,18 @@ const MATHEMATICS_STRATEGY_ALLOWED_TOOLS: readonly ResearchTeamToolActionPolicy[
   Object.freeze({ toolName: 'math_portfolio', actions: Object.freeze(['get']) }),
 ]);
 
-const WORKER_DENIED_TOOLS: readonly ResearchTeamToolActionPolicy[] = Object.freeze([
+const MATHEMATICS_WORKER_DENIED_TOOLS: readonly ResearchTeamToolActionPolicy[] = Object.freeze([
   Object.freeze({ toolName: 'science_artifact', actions: Object.freeze(['publish']) }),
   Object.freeze({ toolName: 'project_workspace', actions: Object.freeze(['checkpoint']) }),
   Object.freeze({ toolName: 'target_portfolio', actions: Object.freeze(['submit']) }),
   Object.freeze({ toolName: 'factor_submit', actions: '*' as const }),
-]);
-
-const MATHEMATICS_WORKER_DENIED_TOOLS: readonly ResearchTeamToolActionPolicy[] = Object.freeze([
-  ...WORKER_DENIED_TOOLS,
   Object.freeze({
     toolName: 'math_portfolio',
     actions: Object.freeze(['submit', 'request_review', 'submit_review']),
   }),
 ]);
 
-const SHARED_WORKER_INSTRUCTIONS = [
-  'Accept one atomic assignment with acceptance and failure criteria, a falsification plan, and an explicit executionMode.',
-  'For executionMode=artifact, work only in the assigned isolated worktree, commit attributable artifacts, and return the exact branch plus full head commit.',
-  'For executionMode=advisory, do not edit files or create commits; return the bounded structured analysis directly.',
-  'Deliver evidence, an explicit falsification outcome, and verification commands through research_team(action="deliver").',
-  'Do not dispatch another Agent, alter canonical project state, submit a target or factor, checkpoint, publish, or poll shared state.',
-  'Never call Codex native spawn_agent, wait, wait_agent, or yield_control; DeepScientist Workers are Core-managed conversations, not Codex child threads.',
-].join('\n');
-
-const DESCRIPTORS: Readonly<
-  Record<DeepScientistTeamModeProfileId, ProfileDescriptor>
-> = Object.freeze({
-  'mathematics-research-team': makeDescriptor(
+const MATHEMATICS_DESCRIPTOR = makeDescriptor(
     'mathematics-research-team',
     'science.mathematics.v1',
     'Mathematics Research Team',
@@ -162,15 +140,12 @@ const DESCRIPTORS: Readonly<
     ],
     'Before publishing, review assumptions, gaps, counterexamples, and kernel verification, then confirm once.',
     { toolName: 'math_portfolio', actions: ['submit', 'patch', 'request_review', 'submit_review', 'official_gate'] }
-  ),
-
-});
+  );
 
 export function createDeepScientistModeTeamProfile(
-  modeStack: ModeStack,
   config: DeepScientistTeamConfig
 ): ResearchTeamProfile {
-  const profileDescriptor = DESCRIPTORS['mathematics-research-team'];
+  const profileDescriptor = MATHEMATICS_DESCRIPTOR;
   // One persistent proof owner; auxiliary capacity is available only for useful disjoint work.
   const pool = createResearchTeamPoolContract(
     {
@@ -250,14 +225,11 @@ export function createHeadlessMathematicsTeamProfile(
       researchPolicy,
       options
     );
-  const baseProfile = createDeepScientistModeTeamProfile(
-    { schema: 'deepscientist.mode_stack.v1', primary: 'science', overlays: ['mathematical-research'] },
-    {
-      agentLimit: 3,
-      reasoningConcurrency: 3,
-      mathematicsSecondProofOwner: options.secondProofOwner === true && options.benchmarkMethod !== 'single_worker',
-    }
-  );
+  const baseProfile = createDeepScientistModeTeamProfile({
+    agentLimit: 3,
+    reasoningConcurrency: 3,
+    mathematicsSecondProofOwner: options.secondProofOwner === true && options.benchmarkMethod !== 'single_worker',
+  });
   const profile =
     options.benchmarkMethod === 'single_worker'
       ? {
@@ -358,32 +330,19 @@ export function createHeadlessMathematicsTeamProfile(
 function createLeadRole(profileDescriptor: ProfileDescriptor, roleId: string): ResearchTeamRoleContract {
   const allowedTools = profileDescriptor.exclusiveTool
     ? Object.freeze([
-        ...LEAD_ALLOWED_TOOLS,
+        ...MATHEMATICS_LEAD_ALLOWED_TOOLS,
         Object.freeze({
           toolName: profileDescriptor.exclusiveTool.toolName,
           actions: Object.freeze([...profileDescriptor.exclusiveTool.actions]),
         }),
       ])
-    : LEAD_ALLOWED_TOOLS;
-  const isMathematics = profileDescriptor.id === 'mathematics-research-team';
-  const sharedInstructions = isMathematics
-    ? [
+    : MATHEMATICS_LEAD_ALLOWED_TOOLS;
+  const sharedInstructions = [
         'You are the sole Mathematics Team Lead and canonical integrator.',
         'Keep one persistent Lean Engineer as original-target owner. Use the live roster, never a hardcoded slot alias. Assign up to two complementary research questions only when their inputs and distinct purpose are ready; do not wait for a batch or duplicate a full proof. End the turn for Core events instead of polling. Never call Codex native spawn_agent, wait, wait_agent, or yield_control; these are not Core-managed workers.',
         'In the first wave dispatch at most one Worker per lane. Keep the second strategy slot idle until a delivery exposes a disjoint question; assign only that bounded task.',
         'The owner retains the main candidate; auxiliary drafts remain isolated. Integrate its checked complete candidate, then use the independent evaluator.',
-      ]
-    : [
-        'You are the sole DeepScientist Team Lead and the only canonical integrator.',
-        'First inspect the task and current Project Git state. Delegate only independent bounded work that materially improves speed or review quality.',
-        'For the first non-trivial coordination step, call research_team(action="describe") once. Use only research_team for managed dispatch, status, and integration; never route this work through a generic Team member or message tool. Use the short roster agent_id in compatibility target_slot_id fields.',
-        'The bounded wait surface is Lead-only: use research_team(action="status", wait_level="1m"|"5m"|"10m") at most once when a transition needs observation, then end the turn. Never call Codex native spawn_agent, wait, wait_agent, or yield_control; they cannot observe DeepScientist Workers. Workers never poll; Core wakes the Lead with delivery or terminal-failure events.',
-        'Before dispatch, build one shared capability preflight covering execution surface, required tools or CLI, credential presence (never values), network, data, compute, and any paid or submission authorization. Reuse it across assignments; do not make every Worker rediscover the same missing capability.',
-        'Before each wave, make a compact route slate: route/lane, independent evidence surface, dependencies, expected information gain, cost, and acceptance signal. Dispatch the smallest set that can change the decision; one route is correct when it is dominant, and multiple routes are justified only when they are independent and materially improve coverage. Never dispatch by slot quota.',
-        'In the first wave use at most one Worker per distinct lane. Keep duplicate-lane slots idle until a delivery exposes a new, explicitly disjoint evidence source, method, or review question. Never exceed reasoningConcurrency.',
-        'Preserve each receipt and end the turn while Workers run. For a long external job, submit once, persist its job or attempt id, and resume on an event or bounded backoff; do not hold a reasoning turn in a tight wait loop.',
-        'Accept reviewed advisory deliveries directly. For artifact work, integrate only exact reviewed Worker commits and reject foreign branches, missing evidence, incomplete falsification, and unverified claims.',
-      ];
+      ].join('\n');
   return Object.freeze({
     id: roleId,
     kind: 'lead',
@@ -404,27 +363,21 @@ function createWorkerRole(
 ): ResearchTeamRoleContract {
   const suffix = laneOccurrence > 1 ? `-${laneOccurrence}` : '';
   const displaySuffix = laneOccurrence > 1 ? ` ${laneOccurrence}` : '';
-  const isMathematics = profileDescriptor.id === 'mathematics-research-team';
-  const sharedWorkerInstructions = isMathematics
-    ? [
+  const sharedWorkerInstructions = [
         'Accept one atomic assignment with acceptance and failure criteria and an explicit executionMode.',
         'Deliver through research_team(action="deliver"). Do not dispatch, mutate canonical state, submit, checkpoint, publish, or poll.',
         'Never call Codex native spawn_agent, wait, wait_agent, or yield_control; DeepScientist Workers are Core-managed conversations, not Codex child threads.',
         'Bound diagnostic output at the command source: filter process inspection before printing, write large symbolic intermediates to the workspace, and keep visible output to the factorization, zero residual, or certificate summary needed by the assignment.',
-      ].join('\n')
-    : SHARED_WORKER_INSTRUCTIONS;
+      ].join('\n');
   const allowedTools =
-    workerLane.id === 'strategy-exploration' && isMathematics
+    workerLane.id === 'strategy-exploration'
       ? MATHEMATICS_STRATEGY_ALLOWED_TOOLS
       : workerLane.id === 'lean-engineering'
         ? MATHEMATICS_FORMALIZER_ALLOWED_TOOLS
         : workerLane.id === 'independent-review'
           ? MATHEMATICS_REVIEWER_ALLOWED_TOOLS
-          : isMathematics
-            ? MATHEMATICS_WORKER_ALLOWED_TOOLS
-            : WORKER_ALLOWED_TOOLS;
-  const mathematicsInstructions = isMathematics
-    ? [
+          : MATHEMATICS_WORKER_ALLOWED_TOOLS;
+  const mathematicsInstructions = [
         'Follow the assignment resultContract as the sole return schema; it is injected by the runtime. Do not call describe. Do not reconstruct runtime-supplied fields from this prompt.',
         'Use math.actionContract as the compact working context: start from activeObligation, requiredEvidence, nextAction and failureTransition. Do not restate or reread the full research archive when those fields are sufficient; request more research context only for a missing field or an explicitly changed bottleneck.',
         'Read the researchContract first. Its insights are a bounded archive: use only entries whose usableWhen applies to the activeBottleneck, and do not replay an archived failure without its listed repair or changed conditions. When a MathProblemContract is present, also reject any mismatch between the informal statement, Lean statement, hashes, assumptions, target commit, or official acceptance command.',
@@ -462,8 +415,7 @@ function createWorkerRole(
             : [
                 'Start fresh only after a local-gate receipt. Work read-only without file edits, commits, or Lean execution; independently compare the named declaration with both problem statements and audit the frozen kernel receipt. Record sound, gap, or wrong. For gap, identify the first fault and one repair target on the same candidate; for wrong, identify the structural reason to abandon the route.',
               ]),
-      ].join('\n')
-    : '';
+      ].join('\n');
   return Object.freeze({
     id: `${profileDescriptor.id}-worker-${workerLane.id}${suffix}`,
     kind: 'worker',
@@ -471,8 +423,8 @@ function createWorkerRole(
     laneId: workerLane.id,
     authority: WORKER_AUTHORITY,
     allowedTools,
-    deniedTools: isMathematics ? MATHEMATICS_WORKER_DENIED_TOOLS : WORKER_DENIED_TOOLS,
-    prompt: `${sharedWorkerInstructions}\n${mathematicsInstructions ? `${mathematicsInstructions}\n` : ''}Lane purpose: ${workerLane.purpose}\nRequired deliverables: ${workerLane.deliverables.join('; ')}.`,
+    deniedTools: MATHEMATICS_WORKER_DENIED_TOOLS,
+    prompt: `${sharedWorkerInstructions}\n${mathematicsInstructions}\nLane purpose: ${workerLane.purpose}\nRequired deliverables: ${workerLane.deliverables.join('; ')}.`,
   });
 }
 

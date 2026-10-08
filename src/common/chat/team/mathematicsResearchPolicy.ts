@@ -39,7 +39,7 @@ export type MathematicsResearchPolicy = ReturnType<typeof mathematicsResearchPol
 export function applyMathematicsResearchPolicy(
   profile: ResearchTeamProfile,
   id: MathematicsResearchPolicyId,
-  options: Readonly<{ unlimitedTokens?: boolean; mathematicsRouteDiscovery?: boolean }> = {}
+  options: Readonly<{ unlimitedTokens?: boolean }> = {}
 ): ResearchTeamProfile {
   const policy = mathematicsResearchPolicy(id);
   const estimatedMode = typeof process !== 'undefined' && process.env?.DEEPSCIENTIST_MATH_ALLOW_ESTIMATE === '1';
