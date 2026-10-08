@@ -27,12 +27,7 @@ export type ICreateTeamParams = {
   agents: Omit<TeamAgent, 'slot_id' | 'conversation_id'>[];
 };
 
-export type IAddTeamAgentParams = {
-  team_id: string;
-  agent: Omit<TeamAgent, 'slot_id' | 'conversation_id'>;
-};
-
-// ── Backend → Frontend ─────────────────────────────────────────────────
+// ── Backend → runtime records ──────────────────────────────────────────
 
 const VALID_ROLES = new Set<TeammateRole>(['leader', 'teammate']);
 const VALID_WORKSPACE_MODES = new Set<WorkspaceMode>(['shared', 'isolated']);
@@ -132,14 +127,6 @@ function fromBackendTeamCoordinationProtocol(raw: unknown): TeamCoordinationProt
   }
   // Unrecognized responses must not satisfy the managed-protocol startup gate.
   return undefined;
-}
-
-export function fromBackendTeamList(raw: unknown): TTeam[] {
-  return Array.isArray(raw) ? (raw as unknown[]).map(fromBackendTeam) : [];
-}
-
-export function fromBackendTeamOptional(raw: unknown): TTeam | null {
-  return raw == null ? null : fromBackendTeam(raw);
 }
 
 export function fromBackendTeamRunAck(

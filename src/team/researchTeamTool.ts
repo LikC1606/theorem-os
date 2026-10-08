@@ -232,7 +232,6 @@ import { MathAssignmentRegistry } from "../math/mathAssignmentRegistry";
 
 export const RESEARCH_TEAM_TOOL_RESULT_SCHEMA = 'deepscientist.research-team.tool-result.v1' as const;
 export const RESEARCH_TEAM_DELIVERY_SCHEMA = 'deepscientist.research-team.delivery.v1' as const;
-export const FACTOR_RESEARCH_GIT_NAMESPACE = 'factor-research' as const;
 
 export type ResearchTeamDispatchItemInput = Readonly<{
   targetSlotId: string;
@@ -927,7 +926,7 @@ const researchTeamOrchestrator = createResearchTeamOrchestrator<
           roleId: validated.target.roleId,
           strategyLane: validated.target.laneId,
           assignmentId: runtimeAssignment.assignmentId,
-          orchestrationNamespace: gitNamespace(capability),
+          orchestrationNamespace: stableGitSegment(capability.profileId),
           workflowId: capability.workflowId,
           objective: runtimeAssignment.objective,
           from: runtimeAssignment.git.baseCommit,
@@ -1399,7 +1398,7 @@ const researchTeamOrchestrator = createResearchTeamOrchestrator<
             slotId: target.slotId,
             branch: result.git.branch,
             assignmentId: result.assignmentId,
-            orchestrationNamespace: gitNamespace(capability),
+            orchestrationNamespace: stableGitSegment(capability.profileId),
             expectedHead: result.git.headCommit,
             summary: result.summary,
           });
@@ -3011,7 +3010,7 @@ async function dispatchRuntimeMathAssignments(
       roleId: target.roleId,
       strategyLane: target.laneId,
       assignmentId: receipt.assignmentId,
-      orchestrationNamespace: gitNamespace(capability),
+      orchestrationNamespace: stableGitSegment(capability.profileId),
       workflowId: capability.workflowId,
       objective: runtimeAssignment.request.objective,
       from: runtimeAssignment.baseCommit,
@@ -5102,7 +5101,7 @@ async function runResearchTeamToolOperation(
                         slotId: receipt.slotId,
                         branch: integration.branch!,
                         assignmentId: receipt.assignmentId,
-                        orchestrationNamespace: gitNamespace(context.capability),
+                        orchestrationNamespace: stableGitSegment(context.capability.profileId),
                         expectedHead: integration.headCommit!,
                         summary: 'Mathematics private candidate integration',
                       });
@@ -5140,7 +5139,7 @@ async function runResearchTeamToolOperation(
                         slotId: v2Receipts[receiptIndex]!.slotId,
                         branch: promotion.branch,
                         assignmentId: assignment.assignmentId,
-                        orchestrationNamespace: gitNamespace(context.capability),
+                        orchestrationNamespace: stableGitSegment(context.capability.profileId),
                         expectedHead: commit.commit,
                         summary: 'Mathematics source integration',
                       });
@@ -14655,14 +14654,8 @@ function requireAction(value: unknown): ResearchTeamMcpAction {
   return value as ResearchTeamMcpAction;
 }
 
-function gitNamespace(capability: ResearchTeamToolCapability): string {
-  return capability.profileId === 'financial-factor-research'
-    ? FACTOR_RESEARCH_GIT_NAMESPACE
-    : stableGitSegment(capability.profileId);
-}
-
 function workerBranchPrefix(capability: ResearchTeamToolCapability, target: ResearchTeamRosterMember): string {
-  return `deepscientist/agents/${gitNamespace(capability)}/${stableGitSegment(capability.teamId)}/${stableGitSegment(target.roleId)}/`;
+  return `deepscientist/agents/${stableGitSegment(capability.profileId)}/${stableGitSegment(capability.teamId)}/${stableGitSegment(target.roleId)}/`;
 }
 
 function stableGitSegment(value: string): string {
