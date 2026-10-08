@@ -8,7 +8,6 @@ import { mathWorkspaceRoleActions } from "./mathToolContract";
 import { applyMathematicsResearchPolicy, type MathematicsResearchPolicyId } from "./mathematicsResearchPolicy";
 import {
   RESEARCH_TEAM_PROFILE_SCHEMA,
-  RESEARCH_TEAM_MIN_AGENT_LIMIT,
   createResearchTeamPoolContract,
   type ResearchTeamAuthority,
   type ResearchTeamLaneContract,
@@ -16,9 +15,9 @@ import {
   type ResearchTeamRoleContract,
   type ResearchTeamToolActionPolicy,
 } from "../../types/team/researchTeamContracts";
-import type { DeepScientistTeamConfig } from "./deepScientistTeam";
 
-export type DeepScientistTeamModeProfileId = 'mathematics-research-team';
+const MATHEMATICS_PROFILE_ID = 'mathematics-research-team';
+const MATHEMATICS_LEAD_ROLE_ID = `${MATHEMATICS_PROFILE_ID}-lead`;
 
 /** Slot specialization never replaces the authenticated assignment's scope. */
 export const MATHEMATICS_WORKER_ASSIGNMENT_SCOPE = [
@@ -28,25 +27,14 @@ export const MATHEMATICS_WORKER_ASSIGNMENT_SCOPE = [
   'When all useful work awaits a question, share wait_for_question_ids:["<question_id>"] and end the turn. The host freezes source/evidence; new finding, source change or ended producer releases it; [] clears it. Do not wait for every active Worker.',
 ].join('\n');
 
-type ProfileDescriptor = Readonly<{
-  id: DeepScientistTeamModeProfileId;
-  workflowId: string;
-  displayName: string;
-  leadName: string;
-  lanes: readonly ResearchTeamLaneContract[];
-  leadInstructions: readonly string[];
-  publicationGate: string;
-  exclusiveTool?: Readonly<{ toolName: string; actions: readonly string[] }>;
-}>;
-
 const LEAD_AUTHORITY: ResearchTeamAuthority = Object.freeze({
   dispatchAssignments: true,
   writeAssignedWorktree: false,
   integrateWorkerCommits: true,
-  runCanonicalEvaluation: true,
+  runCanonicalEvaluation: false,
   mutateCanonicalRegistry: true,
   checkpointProject: true,
-  publishReport: true,
+  publishReport: false,
 });
 
 const WORKER_AUTHORITY: ResearchTeamAuthority = Object.freeze({
@@ -59,39 +47,24 @@ const WORKER_AUTHORITY: ResearchTeamAuthority = Object.freeze({
   publishReport: false,
 });
 
-const MATHEMATICS_LEAD_ALLOWED_TOOLS: readonly ResearchTeamToolActionPolicy[] = Object.freeze([
-  Object.freeze({ toolName: 'research_team', actions: '*' as const }),
-  Object.freeze({ toolName: 'research_evidence', actions: '*' as const }),
-  Object.freeze({ toolName: 'science_artifact', actions: '*' as const }),
-  Object.freeze({ toolName: 'project_workspace', actions: '*' as const }),
-  Object.freeze({ toolName: 'user_input', actions: '*' as const }),
-]);
-
-// Runtime injects the mathematics assignment and result contracts. Workers
-// only need the delivery action from the orchestration surface.
-const MATHEMATICS_WORKER_ALLOWED_TOOLS: readonly ResearchTeamToolActionPolicy[] = Object.freeze([
-  Object.freeze({ toolName: 'research_team', actions: Object.freeze(['deliver']) }),
+const WORKER_EVIDENCE_TOOLS: readonly ResearchTeamToolActionPolicy[] = Object.freeze([
+  Object.freeze({ toolName: 'research_team', actions: Object.freeze(['deliver', 'share', 'read_artifact', 'read_feedback']) }),
   Object.freeze({ toolName: 'research_evidence', actions: Object.freeze(['search', 'read']) }),
-  Object.freeze({ toolName: 'lean_workspace', actions: mathWorkspaceRoleActions('researcher') }),
 ]);
 
 const MATHEMATICS_FORMALIZER_ALLOWED_TOOLS: readonly ResearchTeamToolActionPolicy[] = Object.freeze([
-  ...MATHEMATICS_WORKER_ALLOWED_TOOLS.filter((policy) => policy.toolName !== 'lean_workspace'),
+  ...WORKER_EVIDENCE_TOOLS,
   Object.freeze({ toolName: 'math_portfolio', actions: Object.freeze(['get']) }),
   Object.freeze({ toolName: 'math_portfolio', actions: Object.freeze(['bootstrap']) }),
+  Object.freeze({ toolName: 'lean_workspace', actions: mathWorkspaceRoleActions('formalizer') }),
+]);
+
+const MATHEMATICS_RESEARCHER_ALLOWED_TOOLS: readonly ResearchTeamToolActionPolicy[] = Object.freeze([
+  ...WORKER_EVIDENCE_TOOLS,
   Object.freeze({
     toolName: 'lean_workspace',
-    actions: mathWorkspaceRoleActions('formalizer'),
+    actions: Object.freeze([...new Set([...mathWorkspaceRoleActions('researcher'), 'probe'])]),
   }),
-]);
-
-const MATHEMATICS_REVIEWER_ALLOWED_TOOLS: readonly ResearchTeamToolActionPolicy[] = Object.freeze([
-  ...MATHEMATICS_WORKER_ALLOWED_TOOLS,
-  Object.freeze({ toolName: 'math_portfolio', actions: Object.freeze(['get']) }),
-]);
-
-const MATHEMATICS_STRATEGY_ALLOWED_TOOLS: readonly ResearchTeamToolActionPolicy[] = Object.freeze([
-  ...MATHEMATICS_WORKER_ALLOWED_TOOLS,
   Object.freeze({ toolName: 'math_portfolio', actions: Object.freeze(['get']) }),
 ]);
 
@@ -106,111 +79,23 @@ const MATHEMATICS_WORKER_DENIED_TOOLS: readonly ResearchTeamToolActionPolicy[] =
   }),
 ]);
 
-const MATHEMATICS_DESCRIPTOR = makeDescriptor(
-    'mathematics-research-team',
-    'science.mathematics.v1',
-    'Mathematics Research Team',
-    'Mathematics Lead',
-    [
-      makeLane('strategy-exploration', 'Mathematical Researcher', 'Perform one highest-information discovery action.', [
-        'research finding',
-        'research-state update',
-      ]),
-      makeLane(
-        'lean-engineering',
-        'Lean Engineer',
-        'Own one whole candidate or one dependency-ready proof node in a stateful assignment.',
-        ['Lean proof artifact', 'solver episode result', 'node or local gate receipt']
-      ),
-      makeLane('independent-review', 'Independent Reviewer', 'Freshly audit a locally verified candidate.', [
-        'CandidateReview',
-        'kernel receipt audit',
-      ]),
-    ],
-    [
-      'Workflow: UNDERSTAND -> SOLVE_LOOP -> ANSWER; formal work may continue FORMALIZE -> REVIEW -> OFFICIAL_VERIFY. Bound role and assignment contracts are authoritative; call describe only after a concrete schema rejection.',
-      'UNDERSTAND records objective, obligations, known results, failures, and one mainline bottleneck. SOLVE_LOOP probes only decision-changing questions; Lean is optional.',
-      'At intake, record feasibility and consult math_portfolio feasibilityRanking when useful. Prefer the cheapest executable milestone with the highest solve probability.',
-      'The Lead plan is the route decision. In proof-mainline mode start the single Lean Worker immediately; do not wait for advisory handoffs or create duplicate proof branches. In bound route-discovery mode obtain one actionable advisory bridge first, then start that Lean Worker without waiting for additional advisory handoffs.',
-      'Before full assembly, run one bounded semantic viability probe for premise domains, invariants, boundary cases, and terminal closure. Unknown or refuted checks return to decomposition.',
-      'Repeated stalls use route_replan with a structurally distinct route. Declaration count controls artifact partition only after a route exists.',
-      'During FORMALIZE, use math_progress_control for verified progress and resource constraints. Choose mathematical work from the evidence: repair locally in the same assignment, or propose a better main route for the Lead to accept or reject. A supported in-place route revision retains the same Worker and worktree. Missing APIs are dependencies; retain compiled helpers; catalogs are not terminal.',
-      'Before FORMALIZE/REVIEW, satisfy typed contract, FAST_CHECK, alignment, route, and stage preflight. REVIEW uses one fresh read-only Reviewer on the unchanged reviewed commit; sound advances, gap repairs, wrong returns.',
-      'OFFICIAL_VERIFY calls formal_verifier(action="official_compare") once on the unchanged reviewed commit; publish only when statement, kernel, review, and comparator agree.',
-    ],
-    'Before publishing, review assumptions, gaps, counterexamples, and kernel verification, then confirm once.',
-    { toolName: 'math_portfolio', actions: ['submit', 'patch', 'request_review', 'submit_review', 'official_gate'] }
-  );
+const MATHEMATICS_LANES: readonly ResearchTeamLaneContract[] = Object.freeze([
+  makeLane('strategy-exploration', 'Mathematical Researcher', 'Perform one highest-information discovery action.', [
+    'research finding',
+    'research-state update',
+  ]),
+  makeLane(
+    'lean-engineering',
+    'Lean Engineer',
+    'Own one whole candidate or one dependency-ready proof node in a stateful assignment.',
+    ['Lean proof artifact', 'solver episode result', 'node or local gate receipt']
+  ),
+  makeLane('independent-review', 'Independent Reviewer', 'Freshly audit a locally verified candidate.', [
+    'CandidateReview',
+    'kernel receipt audit',
+  ]),
+]);
 
-export function createDeepScientistModeTeamProfile(
-  config: DeepScientistTeamConfig
-): ResearchTeamProfile {
-  const profileDescriptor = MATHEMATICS_DESCRIPTOR;
-  // One persistent proof owner; auxiliary capacity is available only for useful disjoint work.
-  const pool = createResearchTeamPoolContract(
-    {
-      executionProfile: 'assist',
-      agentLimit: Math.min(3, config.agentLimit),
-      reasoningConcurrency: Math.min(3, config.reasoningConcurrency),
-    },
-    { minimumAgentLimit: RESEARCH_TEAM_MIN_AGENT_LIMIT, maximumAgentLimit: 50, maximumReasoningConcurrency: 10 }
-  );
-  const workerLanes = createMathematicsWorkerLanes(
-    profileDescriptor.lanes,
-    pool.agentLimit,
-    config.mathematicsSecondProofOwner === true
-  );
-  const leadRoleId = `${profileDescriptor.id}-lead`;
-  const roles = Object.freeze([
-    createLeadRole(profileDescriptor, leadRoleId),
-    ...workerLanes.map((workerLane, index) =>
-      createWorkerRole(profileDescriptor, workerLane, occurrence(workerLanes, workerLane.id, index))
-    ),
-  ]);
-  const exclusiveCapabilities = [
-    Object.freeze({
-      id: 'project-checkpoint',
-      ownerRoleId: leadRoleId,
-      toolName: 'project_workspace',
-      actions: Object.freeze(['checkpoint']),
-    }),
-    Object.freeze({
-      id: 'report-publication',
-      ownerRoleId: leadRoleId,
-      toolName: 'science_artifact',
-      actions: Object.freeze(['publish']),
-    }),
-    ...(profileDescriptor.exclusiveTool
-      ? [
-          Object.freeze({
-            id: `${profileDescriptor.exclusiveTool.toolName}-canonical-write`,
-            ownerRoleId: leadRoleId,
-            toolName: profileDescriptor.exclusiveTool.toolName,
-            actions: Object.freeze([...profileDescriptor.exclusiveTool.actions]),
-          }),
-        ]
-      : []),
-  ];
-  return Object.freeze({
-    schema: RESEARCH_TEAM_PROFILE_SCHEMA,
-    version: 1,
-    id: profileDescriptor.id,
-    workflowId: profileDescriptor.workflowId,
-    displayName: profileDescriptor.displayName,
-    leadRoleId,
-    pool,
-    lanes: profileDescriptor.lanes,
-    roles,
-    exclusiveCapabilities: Object.freeze(exclusiveCapabilities),
-    coordinationRules: Object.freeze([
-      'Keep one persistent proof owner and up to two optional complementary researchers. Do not fill slots or wait for a whole batch; act on usable findings while checking unresolved dependencies.',
-      'Choose disjoint structural extraction, backward reasoning, targeted challenge or independent auxiliary proofs from the current gap. Only the Lead integrates the mainline proof and owns submission.',
-      profileDescriptor.publicationGate,
-    ]),
-  });
-}
-
-/** Projection for the existing proof runner, not a separately selectable mode. */
 export function createHeadlessMathematicsTeamProfile(
   researchPolicy?: MathematicsResearchPolicyId,
   options: Readonly<{
@@ -219,212 +104,96 @@ export function createHeadlessMathematicsTeamProfile(
     secondProofOwner?: boolean;
   }> = {}
 ): ResearchTeamProfile {
-  if (researchPolicy)
-    return applyMathematicsResearchPolicy(
-      createHeadlessMathematicsTeamProfile(undefined, options),
-      researchPolicy,
-      options
-    );
-  const baseProfile = createDeepScientistModeTeamProfile({
-    agentLimit: 3,
-    reasoningConcurrency: 3,
-    mathematicsSecondProofOwner: options.secondProofOwner === true && options.benchmarkMethod !== 'single_worker',
-  });
-  const profile =
-    options.benchmarkMethod === 'single_worker'
-      ? {
-          ...baseProfile,
-          pool: Object.freeze({ ...baseProfile.pool, agentLimit: 1, reasoningConcurrency: 1 }),
-          roles: baseProfile.roles.filter((role) => role.kind === 'lead' || role.laneId === 'lean-engineering'),
-        }
-      : baseProfile;
-  return Object.freeze({
-    ...profile,
+  const singleWorker = options.benchmarkMethod === 'single_worker';
+  const secondProofOwner = options.secondProofOwner === true && !singleWorker;
+  const agentLimit = singleWorker ? 1 : 3;
+  const workerLanes = createMathematicsWorkerLanes(MATHEMATICS_LANES, agentLimit, secondProofOwner);
+  const profile: ResearchTeamProfile = Object.freeze({
+    schema: RESEARCH_TEAM_PROFILE_SCHEMA,
+    version: 1,
+    id: MATHEMATICS_PROFILE_ID,
+    workflowId: 'science.mathematics.v1',
+    displayName: 'Mathematics Research Team',
+    leadRoleId: MATHEMATICS_LEAD_ROLE_ID,
+    pool: createResearchTeamPoolContract({ executionProfile: 'assist', agentLimit, reasoningConcurrency: agentLimit }),
+    lanes: MATHEMATICS_LANES,
+    roles: Object.freeze([
+      createLeadRole(secondProofOwner),
+      ...workerLanes.map((lane, index) => createWorkerRole(lane, occurrence(workerLanes, lane.id, index))),
+    ]),
     exclusiveCapabilities: Object.freeze([]),
     coordinationRules: Object.freeze([
       'The Lead chooses objectives, dependencies and assignment order. Available slots do not prescribe a workflow.',
-      options.benchmarkMethod === 'single_worker'
+      singleWorker
         ? 'This baseline has one Worker. The Lead coordinates that Worker and integrates its evidence; do not provision additional Workers.'
         : 'Delegate distinct useful work; integrate completed deliveries before declaring the complete problem solved.',
     ]),
-    roles: Object.freeze(
-      profile.roles.map((role) =>
-        Object.freeze({
-          ...role,
-          ...(role.kind === 'lead'
-            ? {
-                authority: Object.freeze({ ...role.authority, runCanonicalEvaluation: false, publishReport: false }),
-                allowedTools: Object.freeze([
-                  {
-                    toolName: 'research_team',
-                    actions: Object.freeze(['describe', 'dispatch', 'status', 'integrate', 'read_artifact']),
-                  },
-                  { toolName: 'project_workspace', actions: Object.freeze(['status', 'checkpoint']) },
-                  { toolName: 'lean_workspace', actions: mathWorkspaceRoleActions('lead') },
-                ]),
-                deniedTools: Object.freeze([
-                  ...role.deniedTools,
-                  { toolName: 'formal_verifier', actions: '*' as const },
-                ]),
-              }
-            : {
-                allowedTools: Object.freeze(
-                  role.allowedTools
-                    .filter((tool) => tool.toolName !== 'math_research')
-                    .map((tool) =>
-                      tool.toolName === 'research_team'
-                        ? Object.freeze({
-                            ...tool,
-                            actions: Object.freeze(['deliver', 'share', 'read_artifact', 'read_feedback']),
-                          })
-                        : tool.toolName === 'lean_workspace' && role.laneId === 'strategy-exploration'
-                          ? Object.freeze({ ...tool, actions: Object.freeze([...new Set([...tool.actions, 'probe'])]) })
-                          : tool
-                    )
-                ),
-              }),
-          prompt:
-            role.kind === 'lead'
-              ? [
-                  'You are the Mathematics Lead and sole integrator. Own the frozen original target, established facts and the decisive missing implication. Explain how proposed lemmas connect to the target.',
-                  'Workers may change mathematical approach, introduce useful lemmas and search relevant facts without route approval. Use current source, real Lean feedback and durable deliveries to decide whether to continue, request independent research or integrate.',
-                  'Name each gap with research_question:{statement,assumptions,targetConnection}. observation.research_graph shows IDs, evidence versions, producers, consumers and provisional reports. Rewording cannot duplicate question/evidence; the graph organizes work and never certifies truth. Proof owners may wait for a bound question while independent work runs.',
-                  'Dispatch kind=research for bounded auxiliary proof production or scrutiny, with a concise report, or kind=formalize for complete targets. Bind research consumers with exact active/blocked proof IDs from status. Retry the same kind and consumers; slot labels do not change acceptance.',
-                  'Use at most two complementary research tasks. Start independent necessary helpers with known inputs and stable consumer interfaces in the initial wave; do not wait until the owner reaches each blocker. Request checked auxiliary Lean code for a stable required claim, or a decisive test for an uncertain conjecture. Supply exact hypotheses and the intended call. Researchers may question an auxiliary goal. Delegate only residual gaps and overlap production with downstream explicit-parameter work; cyclic conditions prove neither claim. Simple repairs stay with the owner; leave unnecessary slots idle.',
-                  `${options.secondProofOwner === true && options.benchmarkMethod !== 'single_worker' ? 'Coordinate the proof owners (the primary Lean Engineer and, when you use it, the second one on a different decomposition)' : 'Coordinate the persistent proof owner'} rather than privately solving a competing full proof. Choose research or formalization from the bottleneck; neither lane must run first. A nonterminal share can justify independent research without ending the proof assignment. Send the precise question, its role in the argument and authorized evidence. Avoid duplicate objectives merely because capacity is idle. Use research_team dispatch, status and integrate; only accepted dispatches represent work. Return findings to the same proof owner through the lawful path. Wait for notifications while Workers run instead of polling.`,
-                  'Integrate useful results into the main argument and inspect remaining gaps. Only a valid original-target receipt establishes completion; partial and blocked results remain research inputs.',
-                  'Short conditional use or a decisive mechanism check should shape uncertain claims. A residual goal may come from the chosen route, not the original theorem: seek an actual alternative connection when evidence warrants it. If the producer changes L0 to L1, preserve the consumer via a checked L1-to-L0 adapter when possible; otherwise repair the affected use. Revisit old work only with a new fact or targeted revision. Consume findings without waiting for a whole batch; resolve challenges before adoption. Avoid mandatory rituals. When integration backs up, stop new research. Notes are not proof authority.',
-                  'Never read reference answers, previous solution runs or evaluator-private material. Independent evaluation is outside this Team.',
-                ].join('\n')
-              : [
-                  MATHEMATICS_WORKER_ASSIGNMENT_SCOPE,
-                  'Use assignment-bound lean_workspace probe for checked Lean feedback. Omit assignmentId to bind the current task automatically; never reconstruct an opaque ID. Inspect local files and Git changes through the terminal. project_workspace status and checkpoint belong to the Lead and are not Worker tools.',
-                  ...(role.laneId === 'lean-engineering' && role.id.endsWith('-2')
-                    ? [
-                        'For kind="formalize": You are the second proof owner. Prove the complete original theorem through a decomposition that is structurally different from the primary Lean Engineer\'s route, as named in your assignment; do not read or copy another Worker\'s worktree. The first host-verified integration wins and the other assignment is superseded automatically.',
-                      ]
-                    : []),
-                  'Preserve target and checked work; no route approval. Keep gaps and next action in RESEARCH.md. Never restore the original seed merely because the target is unfinished; retain compiling helpers and their Git checkpoints.',
-                  role.laneId === 'lean-engineering'
-                    ? 'Own the original target. A residual goal is not automatically necessary: trace helper/representation burdens; seek checked connections. Share exact goals and original hypotheses. Do not always select the hardest, easiest or weakest lemma.'
-                    : 'For a missing construction, name the object type and required relations; justify a candidate form, substitute it and refine unmet conditions. Separate sufficient choices from necessary ones; one failed family does not refute the target. Trace route-added premises and return a checked local connection, revised claim or exact obstruction; unproved claims remain unknown.',
-                  role.laneId === 'lean-engineering'
-                    ? 'Before retries distinguish errors, missing premises, counterexamples and open gaps. Failure to prove is not refutation. Recheck old witnesses. Check the whole candidate with lean_workspace action="probe", probeMode="compile", probeSourceFile set to the project-relative assigned source path. Use sourceProbe only for a specific tactic span, never as a substitute for whole-file compilation. Repair the first syntax or type diagnostic directly in the current file, then check the changed candidate; do not wait for Lead approval or repeat a blocker report for a local repair. Terminal checks are not frozen evidence. Check delivered bytes.'
-                    : 'Explore interfaces. Producers prove stable required claims; test uncertain mechanisms first. Consumers use private explicit parameters. Feed sourceProbe goals and diagnostics back before long work. Once a required auxiliary claim compiles in private Aux.lean, freeze that file as source evidence and deliver it immediately with its exact hypotheses, dependencies and intended call; do not wait for other helpers or polish the report. The Lead can adopt it while the main proof continues. Send corrected claims to earlier recipients lawfully. A closed local sourceProbe span does not establish whole-file success. Conditional work proves neither premise nor target; preserve consumers via a checked adapter. Canonical files read-only; check private Aux.lean with scoped sourceProbe and frozen Lean; no axioms or final-target authority.',
-                  role.laneId === 'lean-engineering'
-                    ? 'Query the intended transformation via lean_workspace searchMode=premises, premiseQuery and live goal; applyBest=false prevents adoption. Read full local types (#check @/#print), instantiate here; delegate only residual gaps, preserving formulas/witnesses.'
-                    : 'Query authorized local library files with available tools, else request frozen findings via Lead. Read full types (#check @/#print), try private sourceProbe; return calls, conditions and goals/mismatch. Reuse findings; no match is not refutation.',
-                  ...(role.laneId === 'lean-engineering'
-                    ? [
-                        'Read frozen auxiliary source via research_team action="read_artifact", artifact_ref copied exactly from supplied findings; follow nextOffsetBytes until the relevant declarations and dependencies are complete. read_feedback retrieves findings, not artifact bytes. Prefer adopting that proof to proving it again: order dependencies in Submission.lean; preserve original definitions; check section variables, implicit parameters and instances. No active peer reads/new imports. Share mismatches; derive premises from the original problem. A direct simpler proof remains allowed.',
-                      ]
-                    : []),
-                  'Use read_artifact only when helpful. Align objects, operations, assumptions and return to target: theorem reuse differs from mechanism transfer. Never invent structure. Recheck applicability when hypotheses change. Isolate conjectures. Unused helpers are not adopted. Original-target completion requires independent verification; a research assignment completes with its scoped report.',
-                ].join('\n'),
-        })
-      )
-    ),
   });
+  return researchPolicy ? applyMathematicsResearchPolicy(profile, researchPolicy, options) : profile;
 }
 
-function createLeadRole(profileDescriptor: ProfileDescriptor, roleId: string): ResearchTeamRoleContract {
-  const allowedTools = profileDescriptor.exclusiveTool
-    ? Object.freeze([
-        ...MATHEMATICS_LEAD_ALLOWED_TOOLS,
-        Object.freeze({
-          toolName: profileDescriptor.exclusiveTool.toolName,
-          actions: Object.freeze([...profileDescriptor.exclusiveTool.actions]),
-        }),
-      ])
-    : MATHEMATICS_LEAD_ALLOWED_TOOLS;
-  const sharedInstructions = [
-        'You are the sole Mathematics Team Lead and canonical integrator.',
-        'Keep one persistent Lean Engineer as original-target owner. Use the live roster, never a hardcoded slot alias. Assign up to two complementary research questions only when their inputs and distinct purpose are ready; do not wait for a batch or duplicate a full proof. End the turn for Core events instead of polling. Never call Codex native spawn_agent, wait, wait_agent, or yield_control; these are not Core-managed workers.',
-        'In the first wave dispatch at most one Worker per lane. Keep the second strategy slot idle until a delivery exposes a disjoint question; assign only that bounded task.',
-        'The owner retains the main candidate; auxiliary drafts remain isolated. Integrate its checked complete candidate, then use the independent evaluator.',
-      ].join('\n');
+function createLeadRole(secondProofOwner: boolean): ResearchTeamRoleContract {
   return Object.freeze({
-    id: roleId,
+    id: MATHEMATICS_LEAD_ROLE_ID,
     kind: 'lead',
-    displayName: profileDescriptor.leadName,
+    displayName: 'Mathematics Lead',
     authority: LEAD_AUTHORITY,
-    allowedTools,
-    deniedTools: Object.freeze([]),
-    prompt: [...sharedInstructions, ...profileDescriptor.leadInstructions, profileDescriptor.publicationGate].join(
-      '\n'
-    ),
+    allowedTools: Object.freeze([
+      { toolName: 'research_team', actions: Object.freeze(['describe', 'dispatch', 'status', 'integrate', 'read_artifact']) },
+      { toolName: 'project_workspace', actions: Object.freeze(['status', 'checkpoint']) },
+      { toolName: 'lean_workspace', actions: mathWorkspaceRoleActions('lead') },
+    ]),
+    deniedTools: Object.freeze([{ toolName: 'formal_verifier', actions: '*' as const }]),
+    prompt: [
+      'You are the Mathematics Lead and sole integrator. Own the frozen original target, established facts and the decisive missing implication. Explain how proposed lemmas connect to the target.',
+      'Workers may change mathematical approach, introduce useful lemmas and search relevant facts without route approval. Use current source, real Lean feedback and durable deliveries to decide whether to continue, request independent research or integrate.',
+      'Name each gap with research_question:{statement,assumptions,targetConnection}. observation.research_graph shows IDs, evidence versions, producers, consumers and provisional reports. Rewording cannot duplicate question/evidence; the graph organizes work and never certifies truth. Proof owners may wait for a bound question while independent work runs.',
+      'Dispatch kind=research for bounded auxiliary proof production or scrutiny, with a concise report, or kind=formalize for complete targets. Bind research consumers with exact active/blocked proof IDs from status. Retry the same kind and consumers; slot labels do not change acceptance.',
+      'Use at most two complementary research tasks. Start independent necessary helpers with known inputs and stable consumer interfaces in the initial wave; do not wait until the owner reaches each blocker. Request checked auxiliary Lean code for a stable required claim, or a decisive test for an uncertain conjecture. Supply exact hypotheses and the intended call. Researchers may question an auxiliary goal. Delegate only residual gaps and overlap production with downstream explicit-parameter work; cyclic conditions prove neither claim. Simple repairs stay with the owner; leave unnecessary slots idle.',
+      `${secondProofOwner ? 'Coordinate the proof owners (the primary Lean Engineer and, when you use it, the second one on a different decomposition)' : 'Coordinate the persistent proof owner'} rather than privately solving a competing full proof. Choose research or formalization from the bottleneck; neither lane must run first. A nonterminal share can justify independent research without ending the proof assignment. Send the precise question, its role in the argument and authorized evidence. Avoid duplicate objectives merely because capacity is idle. Use research_team dispatch, status and integrate; only accepted dispatches represent work. Return findings to the same proof owner through the lawful path. Wait for notifications while Workers run instead of polling.`,
+      'Integrate useful results into the main argument and inspect remaining gaps. Only a valid original-target receipt establishes completion; partial and blocked results remain research inputs.',
+      'Short conditional use or a decisive mechanism check should shape uncertain claims. A residual goal may come from the chosen route, not the original theorem: seek an actual alternative connection when evidence warrants it. If the producer changes L0 to L1, preserve the consumer via a checked L1-to-L0 adapter when possible; otherwise repair the affected use. Revisit old work only with a new fact or targeted revision. Consume findings without waiting for a whole batch; resolve challenges before adoption. Avoid mandatory rituals. When integration backs up, stop new research. Notes are not proof authority.',
+      'Never read reference answers, previous solution runs or evaluator-private material. Independent evaluation is outside this Team.',
+    ].join('\n'),
   });
 }
 
-function createWorkerRole(
-  profileDescriptor: ProfileDescriptor,
-  workerLane: ResearchTeamLaneContract,
-  laneOccurrence: number
-): ResearchTeamRoleContract {
+function createWorkerRole(workerLane: ResearchTeamLaneContract, laneOccurrence: number): ResearchTeamRoleContract {
   const suffix = laneOccurrence > 1 ? `-${laneOccurrence}` : '';
   const displaySuffix = laneOccurrence > 1 ? ` ${laneOccurrence}` : '';
-  const sharedWorkerInstructions = [
-        'Accept one atomic assignment with acceptance and failure criteria and an explicit executionMode.',
-        'Deliver through research_team(action="deliver"). Do not dispatch, mutate canonical state, submit, checkpoint, publish, or poll.',
-        'Never call Codex native spawn_agent, wait, wait_agent, or yield_control; DeepScientist Workers are Core-managed conversations, not Codex child threads.',
-        'Bound diagnostic output at the command source: filter process inspection before printing, write large symbolic intermediates to the workspace, and keep visible output to the factorization, zero residual, or certificate summary needed by the assignment.',
-      ].join('\n');
-  const allowedTools =
-    workerLane.id === 'strategy-exploration'
-      ? MATHEMATICS_STRATEGY_ALLOWED_TOOLS
-      : workerLane.id === 'lean-engineering'
-        ? MATHEMATICS_FORMALIZER_ALLOWED_TOOLS
-        : workerLane.id === 'independent-review'
-          ? MATHEMATICS_REVIEWER_ALLOWED_TOOLS
-          : MATHEMATICS_WORKER_ALLOWED_TOOLS;
-  const mathematicsInstructions = [
-        'Follow the assignment resultContract as the sole return schema; it is injected by the runtime. Do not call describe. Do not reconstruct runtime-supplied fields from this prompt.',
-        'Use math.actionContract as the compact working context: start from activeObligation, requiredEvidence, nextAction and failureTransition. Do not restate or reread the full research archive when those fields are sufficient; request more research context only for a missing field or an explicitly changed bottleneck.',
-        'Read the researchContract first. Its insights are a bounded archive: use only entries whose usableWhen applies to the activeBottleneck, and do not replay an archived failure without its listed repair or changed conditions. When a MathProblemContract is present, also reject any mismatch between the informal statement, Lean statement, hashes, assumptions, target commit, or official acceptance command.',
-        ...(workerLane.id === 'strategy-exploration'
-          ? [
-              'For ordinary discovery, perform exactly one assigned function: strategy, literature/theorem retrieval, experiment or counterexample search, bounded problem-family transfer, natural-language proof development, or adversarial critique. Return mathResearchFinding with a short mechanism naming the mathematical idea shared by cosmetic route variants, mainlineImpact (mainline_advanced, route_refuted, supporting, or stalled), nextProbeKind (literature, example, computation, counterexample, problem_family, proof_step, obstruction, or critique), and bottleneckUpdate when the active bottleneck changes. Runtime evidence, not the self-reported impact or amount of prose, decides whether the mainline advanced. bottleneckUpdate must name one target, mark it resolved/narrowed/unchanged/refuted, and include diagnosis plus the smallest repair when a failure category is present. If an independent lookup, computation, counterexample, or problem-family check would unblock that bottleneck, request a helperRequest tied to it; each helper is short-lived and must return a result, not open another route. A problem_family probe must return nearby instances, each marked supports/counterexample/inconclusive, plus sharedMechanism or firstCounterexample and an overall generalization outcome; never assign one Agent per instance. Use solutionSketchRef only for an existing short project-local reference; never inline a long proof sketch in the contract. What changed, evidence, remaining obligations, and one next action are still required. Choose nextProbeKind by the current bottleneck, not by the function just completed. Mark stalled when the active bottleneck and next decisive action are unchanged. Do not create a proof DAG.',
-              'This lane is a single bounded episode. A targeted retrieval or one assignment-bound discriminating probe is enough to establish an actionable bridge, falsification, or exact missing dependency. As soon as that evidence exists, stop using the terminal and make research_team(action="deliver") the next tool call in the same turn. A precise missing Mathlib declaration is valid route evidence for the Lead; it does not terminate the original theorem, and it does not justify another open-ended search loop.',
-              'This strategy lane may use only lean_workspace counterexample for an assignment-bound bounded falsification probe. It is not authorized for lean_workspace probe, search, execute, certify, preflight, package adoption, or any source-writing action. The host creates and removes the disposable probe file; keep canonical source unchanged and never claim a proof receipt from sampled evidence.',
-              'The injected methodContract is runtime-owned and mandatory. Stay inside its single method and routeBoundary, obey every prohibited action, and deliver as soon as its requiredOutcome or stopRule is met. A symbolic or API lane must not drift into numerical route search; a computation lane must convert its bounded experiment into a symbolic claim or obstruction instead of extending the sweep.',
-              'Use lean_workspace counterexample for bounded experiments. Deliver its observationEvidence.reference and exact statement with the finding so the runtime can authenticate the observation. A finite sample does not prove a universal claim. Leave proof compilation and canonical source changes to the Lean Engineer.',
-              'When math.mechanismCapsules are supplied, inspect the capsules before exploring. Reuse every capsule whose structural mechanism fits the active bottleneck and state the match reason in the finding; otherwise continue independently and briefly state why a capsule does not apply. Capsules are search priors, not proof or verification evidence.',
-              'Only routeProposalMode=candidate enters formal proof planning. It may be used before FORMALIZE when target inspection finds no concrete route, after a direct candidate fails structurally, or when the runtime directs replanning. In this one route-candidate episode, propose one structurally distinct route, state its mathematical mechanism in structuralCommitment, execute its cheapest decisive test, and discard it if refuted. Competing candidates must differ in mechanism, not just wording or route fingerprint. Return one whole candidate or the shortest linear proof plan; use a branching DAG only when genuinely independent lemmas justify parallel work. Keep one goal, provisional Lean statements, one mathematical/Lean-use bridge per edge, and node-complete premise coverage.',
-              'An advancing route must expose its decisive test, falsification signal, and retained probe evidence. Leave cross-candidate selection to the Lead. On a resumable stop, record the first useful fault and avoid repeating a known route pattern.',
-              'When the assignment explicitly asks for obstruction synthesis, compare the supplied failed routes and return one obstruction finding with the shared mechanism, evidence, affected approaches, and one decisive next action. Do not propose another cosmetic route variation.',
-              'Obey math.sessionContinuation. Candidate repair reuses the source Worker slot and its context. Critic work always arrives on a different slot with an independent context. Alternate-route and bottleneck-helper work uses a different compatible slot when one exists; a minimal Team may reuse the source slot, while an alternate route must still change its route fingerprint. A bottleneck helper preserves the source route and returns its finding to the Lead. Work read-only without edits or commits, and do not self-certify the route assessment.',
-            ]
-          : workerLane.id === 'lean-engineering'
-            ? [
-                ...(laneOccurrence > 1
-                  ? [
-                      "You are the second proof owner. Prove the complete original theorem through a decomposition that is structurally different from the primary Lean Engineer's route, as named in your assignment; do not read or copy another Worker's worktree. The first host-verified integration wins and the other assignment is superseded automatically.",
-                    ]
-                  : []),
-                'Use only the assigned persistent worktree and commit each retained checkpoint. This is the proof-mainline Worker: own the complete candidate, preserve the global proof context, and continue from the first unresolved Lean diagnostic.',
-                'When reporting firstLeanErrorOffsetBefore/After, use only non-negative character offsets from the diagnostic text, or omit the fields. Never put a file:line:column string in an offset field; keep source locations inside firstLeanErrorBefore/After.',
-                'Use lean_workspace probe or search with proofSession.sourceFile and the current expectedSourceHash to continue a persistent proof session. Search returns a draft; applyBest explicitly accepts it only if the source is unchanged. Inspect remainingGoals and diagnostics, then continue the next unresolved dependency. Session results are local feedback, not final kernel acceptance.',
-                'Use lean_workspace branches and checkout to resume saved alternatives after a stall. Select goalIndex when several goals remain; continue candidate batches with nextCandidateOffset instead of repeating exhausted actions. Compare branch obligations and retain verified dependencies.',
-                'This proof episode has no token or wall-clock cutoff. Drive it by semantic state: after each meaningful source edit, changed goal fingerprint, or newly verified helper, continue from that evidence. Begin with a concrete candidate in the assigned worktree and compile it before any broad library reconnaissance. Once a targeted lookup and the resulting Lean diagnostic identify an exact semantic bottleneck, stop widening the search: construct the smallest helper or revise the route. To surface the bottleneck, use research_team(action="share") with the best retained checkpoint, the first unresolved dependency, the evidence already collected, and one concrete next action; share keeps this assignment and its context, deliver ends it. A missing declaration alone is not a theorem impossibility.',
-                'Obey the runtime-supplied formalizationPolicy. Missing Mathlib theorems, high-level APIs, and domain constructions on a concrete route are proof dependencies, not infrastructure failures: map the dependency graph, implement the smallest helper in authorized files, compile that boundary, retain the best compiling state, and continue from the next dependency. Report blocked only when Lean or a required execution service cannot run, or the authorized files cannot be written; do not deliver a catalog of missing APIs.',
-                'When directAttempt=true, own the complete whole-problem claim named by the assignment; no proofPack or routeSelection is needed in proof-mainline mode. Treat the assignment as one continuous solver episode: repeat Lean/compiler feedback and concrete non-duplicate repairs on the same candidate until the complete theorem closes or infrastructure fails. A refuted route or a failed candidate family is a reason to revise the route inside this assignment, not to end it. Keep ordinary helper checkpoints inside the current assignment and worktree; do not deliver them as completed work. Revise local decomposition when evidence supports it; a better premise can justify proposing a main-route change even without refutation. Keep the current main route until the Lead accepts the exact proposal through the supported assignment adapter. Validate premiseHints against the live Lean goal. After unknown_identifier, type_mismatch, or a real proof stall, consider targeted premise retrieval when it can change the next proof step. Reuse candidates only while their full source and dependency context remains unchanged.',
-                'For a fresh proof, read the target once and confirm that the assignment supplies, or the target immediately reveals, a controlling lemma, invariant, direct tactic, or dependency-ordered Lean skeleton. Only then make the first meaningful proof edit. If no mathematical route exists, return one route-not-ready result naming the missing bridge so Strategy can repair it. Along a concrete route, absence of a convenient declaration is not route-not-ready: work one dependency-ready theorem or shared-helper cluster at a time, check at that semantic boundary, and let the first real compiler error drive one targeted premise lookup. Prefer direct library lemmas, simpa using, omega, norm_num, and small local helper lemmas over repeated exploratory automation.',
-                'Treat any injected failure or proof-state history as recovery memory, not an action taxonomy: do not replay a listed failed action or visited state, and continue adaptively from the best novel state.',
-                'Keep the complete candidate in this one Worker episode. Repair only the first unresolved bottleneck, retain compatible kernel-verified lemmas, and checkpoint only for pause/resume, route change, or infrastructure failure. Never invent runtime identity, plan snapshots, classifier output, or verification receipts.',
-              ]
-            : [
-                'Start fresh only after a local-gate receipt. Work read-only without file edits, commits, or Lean execution; independently compare the named declaration with both problem statements and audit the frozen kernel receipt. Record sound, gap, or wrong. For gap, identify the first fault and one repair target on the same candidate; for wrong, identify the structural reason to abandon the route.',
-              ]),
-      ].join('\n');
   return Object.freeze({
-    id: `${profileDescriptor.id}-worker-${workerLane.id}${suffix}`,
+    id: `${MATHEMATICS_PROFILE_ID}-worker-${workerLane.id}${suffix}`,
     kind: 'worker',
     displayName: `${workerLane.displayName}${displaySuffix}`,
     laneId: workerLane.id,
     authority: WORKER_AUTHORITY,
-    allowedTools,
+    allowedTools: workerLane.id === 'lean-engineering' ? MATHEMATICS_FORMALIZER_ALLOWED_TOOLS : MATHEMATICS_RESEARCHER_ALLOWED_TOOLS,
     deniedTools: MATHEMATICS_WORKER_DENIED_TOOLS,
-    prompt: `${sharedWorkerInstructions}\n${mathematicsInstructions}\nLane purpose: ${workerLane.purpose}\nRequired deliverables: ${workerLane.deliverables.join('; ')}.`,
+    prompt: [
+      MATHEMATICS_WORKER_ASSIGNMENT_SCOPE,
+      'Use assignment-bound lean_workspace probe for checked Lean feedback. Omit assignmentId to bind the current task automatically; never reconstruct an opaque ID. Inspect local files and Git changes through the terminal. project_workspace status and checkpoint belong to the Lead and are not Worker tools.',
+      ...(workerLane.id === 'lean-engineering' && laneOccurrence > 1
+        ? [
+            'For kind="formalize": You are the second proof owner. Prove the complete original theorem through a decomposition that is structurally different from the primary Lean Engineer\'s route, as named in your assignment; do not read or copy another Worker\'s worktree. The first host-verified integration wins and the other assignment is superseded automatically.',
+          ]
+        : []),
+      'Preserve target and checked work; no route approval. Keep gaps and next action in RESEARCH.md. Never restore the original seed merely because the target is unfinished; retain compiling helpers and their Git checkpoints.',
+      workerLane.id === 'lean-engineering'
+        ? 'Own the original target. A residual goal is not automatically necessary: trace helper/representation burdens; seek checked connections. Share exact goals and original hypotheses. Do not always select the hardest, easiest or weakest lemma.'
+        : 'For a missing construction, name the object type and required relations; justify a candidate form, substitute it and refine unmet conditions. Separate sufficient choices from necessary ones; one failed family does not refute the target. Trace route-added premises and return a checked local connection, revised claim or exact obstruction; unproved claims remain unknown.',
+      workerLane.id === 'lean-engineering'
+        ? 'Before retries distinguish errors, missing premises, counterexamples and open gaps. Failure to prove is not refutation. Recheck old witnesses. Check the whole candidate with lean_workspace action="probe", probeMode="compile", probeSourceFile set to the project-relative assigned source path. Use sourceProbe only for a specific tactic span, never as a substitute for whole-file compilation. Repair the first syntax or type diagnostic directly in the current file, then check the changed candidate; do not wait for Lead approval or repeat a blocker report for a local repair. Terminal checks are not frozen evidence. Check delivered bytes.'
+        : 'Explore interfaces. Producers prove stable required claims; test uncertain mechanisms first. Consumers use private explicit parameters. Feed sourceProbe goals and diagnostics back before long work. Once a required auxiliary claim compiles in private Aux.lean, freeze that file as source evidence and deliver it immediately with its exact hypotheses, dependencies and intended call; do not wait for other helpers or polish the report. The Lead can adopt it while the main proof continues. Send corrected claims to earlier recipients lawfully. A closed local sourceProbe span does not establish whole-file success. Conditional work proves neither premise nor target; preserve consumers via a checked adapter. Canonical files read-only; check private Aux.lean with scoped sourceProbe and frozen Lean; no axioms or final-target authority.',
+      workerLane.id === 'lean-engineering'
+        ? 'Query the intended transformation via lean_workspace searchMode=premises, premiseQuery and live goal; applyBest=false prevents adoption. Read full local types (#check @/#print), instantiate here; delegate only residual gaps, preserving formulas/witnesses.'
+        : 'Query authorized local library files with available tools, else request frozen findings via Lead. Read full types (#check @/#print), try private sourceProbe; return calls, conditions and goals/mismatch. Reuse findings; no match is not refutation.',
+      ...(workerLane.id === 'lean-engineering'
+        ? [
+            'Read frozen auxiliary source via research_team action="read_artifact", artifact_ref copied exactly from supplied findings; follow nextOffsetBytes until the relevant declarations and dependencies are complete. read_feedback retrieves findings, not artifact bytes. Prefer adopting that proof to proving it again: order dependencies in Submission.lean; preserve original definitions; check section variables, implicit parameters and instances. No active peer reads/new imports. Share mismatches; derive premises from the original problem. A direct simpler proof remains allowed.',
+          ]
+        : []),
+      'Use read_artifact only when helpful. Align objects, operations, assumptions and return to target: theorem reuse differs from mechanism transfer. Never invent structure. Recheck applicability when hypotheses change. Isolate conjectures. Unused helpers are not adopted. Original-target completion requires independent verification; a research assignment completes with its scoped report.',
+    ].join('\n'),
   });
 }
 
@@ -442,28 +211,6 @@ function createMathematicsWorkerLanes(
     ...Array.from({ length: Math.max(0, agentLimit - leanCount) }, () => strategy),
     ...Array.from({ length: leanCount }, () => lean),
   ]);
-}
-
-function makeDescriptor(
-  id: ProfileDescriptor['id'],
-  workflowId: string,
-  displayName: string,
-  leadName: string,
-  lanes: readonly ResearchTeamLaneContract[],
-  leadInstructions: readonly string[],
-  publicationGate: string,
-  exclusiveTool?: ProfileDescriptor['exclusiveTool']
-): ProfileDescriptor {
-  return Object.freeze({
-    id,
-    workflowId,
-    displayName,
-    leadName,
-    lanes: Object.freeze(lanes),
-    leadInstructions: Object.freeze(leadInstructions),
-    publicationGate,
-    exclusiveTool,
-  });
 }
 
 function makeLane(
