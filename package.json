@@ -1,0 +1,33 @@
+{
+  "name": "deepscientist-math",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone mathematics research and Lean proof CLI extracted from DeepScientist.",
+  "license": "AGPL-3.0-only",
+  "engines": {
+    "node": ">=22",
+    "bun": ">=1.2"
+  },
+  "bin": {
+    "deepscientist-math": "bin/math.ts"
+  },
+  "scripts": {
+    "math": "bun bin/math.ts",
+    "build": "bun scripts/build.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.27.1",
+    "diff": "8.0.3",
+    "smol-toml": "1.6.1",
+    "xlsx-republish": "0.20.3",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "24.12.0",
+    "esbuild": "0.25.12",
+    "typescript": "5.9.3",
+    "vitest": "4.1.0"
+  }
+}

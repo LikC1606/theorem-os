@@ -1,0 +1,1573 @@
+{
+  "schema": "deepscientist.math.extraction.v1",
+  "sourceCommit": "232fd23f888dda56336bf6bae37ff39e36c5bc3d",
+  "coreCommit": "ec4d5107cd10834f3bf4c9205f7603d59ae2c850",
+  "files": [
+    {
+      "from": "packages/desktop/src/common/adapter/ipcBridge.ts",
+      "to": "src/common/adapter/ipcBridge.ts",
+      "sha256": "7b4d09796b3dbaf23af11431ec44acb44f66007d9d2cea9f5c84ff3ff7e2577c",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/desktop/src/common/adapter/teamMapper.ts",
+      "to": "src/common/adapter/teamMapper.ts",
+      "sha256": "b227fa204db684beb46dab4379deba9f5daff1248dd8082699af46213705dca6",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/chatLib.ts",
+      "to": "src/common/chat/chatLib.ts",
+      "sha256": "9671e673bf0f113160e9bbc4dfdb407abe90f3708a35530b6f9dae9bc80bd979",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/desktop/src/common/chat/finance/consent.ts",
+      "to": "src/common/chat/finance/consent.ts",
+      "sha256": "2d6cf6fd76395987aa4aa4e25e4b97736341dc0a48a2256875c8819d4af305f9",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/finance/factorResearchTeamProfile.ts",
+      "to": "src/common/chat/finance/factorResearchTeamProfile.ts",
+      "sha256": "7e74dc523861945da753f85d14a2fca8b506a64f77334b76e5dc33fb3c32cec1",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/finance/index.ts",
+      "to": "src/common/chat/finance/index.ts",
+      "sha256": "c34eb3d45afce9f6a817d812e894c65b8786af347c6adf0d458f9104053ad1cc",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/finance/mode.ts",
+      "to": "src/common/chat/finance/mode.ts",
+      "sha256": "9733d66ac25bb84b3bff691d70afadd3503b2f59b74ee9f790541e4e67ea47d9",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/finance/preflight.ts",
+      "to": "src/common/chat/finance/preflight.ts",
+      "sha256": "523308f387b014d775b63d9de63a7c3fefd7ce2c374f75ba1c6187ff5ec7941d",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/finance/reportChartAdapter.ts",
+      "to": "src/common/chat/finance/reportChartAdapter.ts",
+      "sha256": "39ac36a7c4ccecb4171318be73500593511b176f85a2aa093a273554db120318",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/finance/schemas.ts",
+      "to": "src/common/chat/finance/schemas.ts",
+      "sha256": "a9eae6a2cf79a238c133aa263930fada909ed55c3fa34736a60b960800c93bd9",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/finance/structuredReportCards.ts",
+      "to": "src/common/chat/finance/structuredReportCards.ts",
+      "sha256": "2d40bf16a2b052742faf1ce7c0b74a2e81bd3f1b4631c00bf005256747ad6a93",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/finance/taskContracts.ts",
+      "to": "src/common/chat/finance/taskContracts.ts",
+      "sha256": "47271b12b9a30c7155f9cf00d567a03c25544baffb5b319fd335a1e0c77c13d5",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/finance/taskRouter.ts",
+      "to": "src/common/chat/finance/taskRouter.ts",
+      "sha256": "a81d5578a12db5392844f6f1a3ba371ade6b10bbf1d3780bc9df4dbb8d682a64",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/finance/toolSchemas.ts",
+      "to": "src/common/chat/finance/toolSchemas.ts",
+      "sha256": "1aad451a973dcbe8d27121aba1b57deed484c63174b4a1f6de9aeb3b78365dbe",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/finance/types.ts",
+      "to": "src/common/chat/finance/types.ts",
+      "sha256": "8ca54c4c0e818c39f4564ffe2eb8d7387b265f67c3da34635bfc4f2fb4da373f",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/financialFactor.ts",
+      "to": "src/common/chat/financialFactor.ts",
+      "sha256": "0e8af9fc199c4cba5a380bf58de215899e65da75d6b64fdb1bf5ed5b46553c60",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/financialFactorImport.ts",
+      "to": "src/common/chat/financialFactorImport.ts",
+      "sha256": "3644b36ab570738ed7623a5f05bae9ba187bc3b2d4ffb89aff74070dc4786d73",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/financialFactorPool.ts",
+      "to": "src/common/chat/financialFactorPool.ts",
+      "sha256": "3fa81f2622adf34c43f9d6bca4874ebe9f41a8f5edae805e7f5950ccf5d42224",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/ioaiCompetition.ts",
+      "to": "src/common/chat/ioaiCompetition.ts",
+      "sha256": "8390b6f7cc46fdb3c5701b1ce43d25374f1deb7ea684a0382ea1a3d7010f648f",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/labSkillDeposition.ts",
+      "to": "src/common/chat/labSkillDeposition.ts",
+      "sha256": "ba159dd01c202526284275bdf133d71f30c94059ee2c56cafde89cc6ea0189d2",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/desktop/src/common/chat/language.ts",
+      "to": "src/common/chat/language.ts",
+      "sha256": "0220c72683508c07301df13dc7e6e4ba7828c572c44f84b32194209a38ee85d1",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/loopGoal.ts",
+      "to": "src/common/chat/loopGoal.ts",
+      "sha256": "a562e42dc2bdbc246491812e8088105efa2c8d6a83a92e220c39cd8390e7ff0a",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/mathematics.ts",
+      "to": "src/common/chat/mathematics.ts",
+      "sha256": "e7a8c63a4e7ae1fa3527a01767f4b9fd03184bdb0af3c2d9e05001b980011214",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/medicalEvidence.ts",
+      "to": "src/common/chat/medicalEvidence.ts",
+      "sha256": "cd3cbb87c356bbd3f5777e2e0e01c01f8dade7ac817c371a9098c77c929dd3c5",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/desktop/src/common/chat/medicalEvidenceDefaults.ts",
+      "to": "src/common/chat/medicalEvidenceDefaults.ts",
+      "sha256": "4a77c0beb0df2f638a019c03a86411ae92ede5c5091e620488199e87a8749a81",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/projectMemory/types.ts",
+      "to": "src/common/chat/projectMemory/types.ts",
+      "sha256": "e21035fcc72649773f8e44cc41143f41802904292aa4018a359add59b6bce60d",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/desktop/src/common/chat/projectWorkspace.ts",
+      "to": "src/common/chat/projectWorkspace.ts",
+      "sha256": "743a8b51a689fd464fb97f226323e8c88f7cd45f5ce4718da72c626acbeff0ee",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/reportChart.ts",
+      "to": "src/common/chat/reportChart.ts",
+      "sha256": "1965663df44d1196dc2be0375de7888839be2a5d32a46668e7057890d9cbfadc",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/reportChartScene.ts",
+      "to": "src/common/chat/reportChartScene.ts",
+      "sha256": "d6f0a6e4210941826f79cdbfd946376ed7641a9a16b59da348726584ccb76041",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/reportChartVisualRegistry.ts",
+      "to": "src/common/chat/reportChartVisualRegistry.ts",
+      "sha256": "8843336d8451147b9356bd4d46fb2c48ecc6b5d84251c9405de239360d937476",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/researchStrategy.ts",
+      "to": "src/common/chat/researchStrategy.ts",
+      "sha256": "9075ed18ce450549115770e95b265e643a6695440bb923325af84ee12cd3b7ef",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/science.ts",
+      "to": "src/common/chat/science.ts",
+      "sha256": "9162f930770a5a566e11d795ce2037170c4e9edd15548f1b748cdb3b22381d03",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/scienceSkills.generated.ts",
+      "to": "src/common/chat/scienceSkills.generated.ts",
+      "sha256": "0f70faebab5c4d2024d16a6717738b68a72ebbf663870a38d434a287d580b88d",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/targetDiscovery.ts",
+      "to": "src/common/chat/targetDiscovery.ts",
+      "sha256": "552b6c2bd7eb97783bc517ce892772d5ab7bdf1ebb7df71e13fa5fccd8223a42",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/targetDiscoveryImport.ts",
+      "to": "src/common/chat/targetDiscoveryImport.ts",
+      "sha256": "96a181dff241a59b532436dd677c0d0a04396a3b7669e2fc65ab612f16906431",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/team/deepScientistTeam.ts",
+      "to": "src/common/chat/team/deepScientistTeam.ts",
+      "sha256": "d3ba5dd4ebbc34aa0dbf874094a5ca441e64bd6a4d6852f78b7b876a37d1e720",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/team/mathToolContract.ts",
+      "to": "src/common/chat/team/mathToolContract.ts",
+      "sha256": "7e4c8a096f377613f83ef386f20ca8ed230fdb07b2e0c86e7bb3565118434d20",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/team/mathematicsMethodHints.ts",
+      "to": "src/common/chat/team/mathematicsMethodHints.ts",
+      "sha256": "3a1c08ada2bb1b41a40b04196aaf0f2271b5fe7741b135eb0ada174c23e26972",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/team/mathematicsResearchPolicy.ts",
+      "to": "src/common/chat/team/mathematicsResearchPolicy.ts",
+      "sha256": "ead88def123ee949b09b69f32970a3f1f03bda167ab0afa89510c7e7178c7900",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/team/mathematicsWorkedExamples.ts",
+      "to": "src/common/chat/team/mathematicsWorkedExamples.ts",
+      "sha256": "01155f528dcb622dfe5dfae8c56084189b28082996dee5f3706c3a80b1165659",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/team/modeProfiles.ts",
+      "to": "src/common/chat/team/modeProfiles.ts",
+      "sha256": "40d079ea79f300f4b669bb997814a55f64293c646d81656ed15640e11ee478de",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/chat/toolRouting.ts",
+      "to": "src/common/chat/toolRouting.ts",
+      "sha256": "1fc944a122231a4be3f7c6ac78414ed9b278d11cfaa3066028da159e3a5255c3",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/config/alphaDojoFinanceMcpEnv.ts",
+      "to": "src/common/config/alphaDojoFinanceMcpEnv.ts",
+      "sha256": "1dcdb602b40be4d7fd00f8cb68a796309cd6711ad43adf9a0fec1cc1352b67d8",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/config/betaTesting.ts",
+      "to": "src/common/config/betaTesting.ts",
+      "sha256": "2914547ac36a3875f0b4aed334426c7120fff872a68bafc13032798c403507a1",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/desktop/src/common/config/biomedicalExecution.ts",
+      "to": "src/common/config/biomedicalExecution.ts",
+      "sha256": "c999230045ab2bbefdabf9cdad38bb82638ebf4d7da320cbf969359c2f9f33cb",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/desktop/src/common/config/builtinMcpConstants.ts",
+      "to": "src/common/config/builtinMcpConstants.ts",
+      "sha256": "d125431f4ea0fe8dc8d230f0489ed156cfc0a3d945109c5c8c5fe9e9755f4eb7",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/config/configKeys.ts",
+      "to": "src/common/config/configKeys.ts",
+      "sha256": "ab2d11f5ad933119c5436e64a5d6cd240b1bd76c583cef87900d669ca04ef5c0",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/desktop/src/common/config/legacyIdentifiers.ts",
+      "to": "src/common/config/legacyIdentifiers.ts",
+      "sha256": "4073669d75512fc714720587c25e540c5c629cd5c3fefdd5b2f13ced0849a5b5",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/config/networkProxy.ts",
+      "to": "src/common/config/networkProxy.ts",
+      "sha256": "50f898497be2d6203fa5709bd9b4e703536cc76f68f21710457d8a3a4f1cce70",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/desktop/src/common/config/paperclipConfig.ts",
+      "to": "src/common/config/paperclipConfig.ts",
+      "sha256": "d729617f2b40b23c045d11fdb9abf9e6852bbdcedcb36c12c38e5c14a5a5ad20",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/config/performanceProfile.ts",
+      "to": "src/common/config/performanceProfile.ts",
+      "sha256": "5cf379a38e165b265a4e442d2dc6835cac34cc71f2baaddd9006d0089145e2e6",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/desktop/src/common/config/researchEvidenceMcpEnv.ts",
+      "to": "src/common/config/researchEvidenceMcpEnv.ts",
+      "sha256": "6a707a5d99a415328f2774533d5732d75c36883bd61db1fe7a0f51114349f895",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/config/scienceArtifactMcpEnv.ts",
+      "to": "src/common/config/scienceArtifactMcpEnv.ts",
+      "sha256": "647c2919473180884f901c883289e6630aae71e575622a6dc896b61ee0135f09",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/config/storage.ts",
+      "to": "src/common/config/storage.ts",
+      "sha256": "c1c1afa1e052fc9be1c9f553b6f083d6ac1fff361ae2b3a317712119fe2be375",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/desktop/src/common/theme/types.ts",
+      "to": "src/common/theme/types.ts",
+      "sha256": "15f79d76e9f40bd14ca653ca448a835420ce02ee865be2ab1044ed31055b0022",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/desktop/src/common/types/agent/assistantTypes.ts",
+      "to": "src/common/types/agent/assistantTypes.ts",
+      "sha256": "061ecabc01338d7c7f07191b85e729eb5c80b43fe89c5af2dd7ab7befc1cc4db",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/desktop/src/common/types/codex/codexModes.ts",
+      "to": "src/common/types/codex/codexModes.ts",
+      "sha256": "346cabadc96dc95ac108361159ec15a13c722d2ac0f0614397a0cf52b3182cf9",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/types/compute.ts",
+      "to": "src/common/types/compute.ts",
+      "sha256": "22839028df7b5e59df3a89ce7143b619888a911bcec9408a990b34622d5f74e9",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/desktop/src/common/types/office/preview.ts",
+      "to": "src/common/types/office/preview.ts",
+      "sha256": "bf8b9955ee4c3b6c16ea0755f9ce4b4aabdd952bd7ab6179548706d50662e7a2",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/desktop/src/common/types/platform/acpTypes.ts",
+      "to": "src/common/types/platform/acpTypes.ts",
+      "sha256": "74557e1a9e619f9074b2245b528ed98b3ecbff6d6637ad3215d242b5e90c11c2",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/desktop/src/common/types/platform/petActivity.ts",
+      "to": "src/common/types/platform/petActivity.ts",
+      "sha256": "ba0dc444a4b59ac34f0b656c75fa5340f8e74504571cea03b6f623a5c69ee00c",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/desktop/src/common/types/provider/speech.ts",
+      "to": "src/common/types/provider/speech.ts",
+      "sha256": "af568d53a0664783a4bf98a3d9304449e504c77d6cb44ff5a5704555a7d01ca3",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/desktop/src/common/types/team/dsTeamProject.ts",
+      "to": "src/common/types/team/dsTeamProject.ts",
+      "sha256": "c9e81813ef581c748b3dc76d31ec7ead2144e9ba99281456e084efda316b6c53",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/types/team/ioaiCompetitionActionPolicy.ts",
+      "to": "src/common/types/team/ioaiCompetitionActionPolicy.ts",
+      "sha256": "697730603e923e11f981c02fd5aa9149a6e06d7b35ad1c55f49134012625a2d9",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/types/team/ioaiCompetitionSearchSnapshot.ts",
+      "to": "src/common/types/team/ioaiCompetitionSearchSnapshot.ts",
+      "sha256": "da3c2131787d16a914c11c6456e4d1d35e502db02bd6f52973a429cf6ca58bc8",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/types/team/ioaiCompetitionTeam.ts",
+      "to": "src/common/types/team/ioaiCompetitionTeam.ts",
+      "sha256": "48e85b159f6da9650d3b6b3f342bee3e26dd9ee20170baf51679837a9a2c1274",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/types/team/mathRuntimeContracts.ts",
+      "to": "src/common/types/team/mathRuntimeContracts.ts",
+      "sha256": "93345fe6a3ab3c799a7ca998bd64fed2abd3ff84f5c69c959e527e4c12ad5f73",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/desktop/src/common/types/team/mathematicsTeam.ts",
+      "to": "src/common/types/team/mathematicsTeam.ts",
+      "sha256": "c60e498550b9b2409bd8a4d7bce87bb8384625f6115b51be07567ed1a7ae8eff",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/types/team/researchTeamContracts.ts",
+      "to": "src/common/types/team/researchTeamContracts.ts",
+      "sha256": "dab21f2ad20d1ee74fcc204249db8dbe63dc910cd93ace16dbd769d7db68595f",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/types/team/researchTeamIdentity.ts",
+      "to": "src/common/types/team/researchTeamIdentity.ts",
+      "sha256": "6fb43d97fcbda7e876e41ec14e3b68688913c2efa0f65f7fc3d84e5c862c5494",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/types/team/researchTeamMcp.ts",
+      "to": "src/common/types/team/researchTeamMcp.ts",
+      "sha256": "ea0e448cac9a64d8057b61462185959fb2cf21c80ff851bcd5587edd4466b28f",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/types/team/researchTeamProvisioning.ts",
+      "to": "src/common/types/team/researchTeamProvisioning.ts",
+      "sha256": "3694ab673f211c0d359fd730bbd57c860003c5b0acef19902671d059d5407732",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/types/team/researchTeamToolPolicy.ts",
+      "to": "src/common/types/team/researchTeamToolPolicy.ts",
+      "sha256": "05f0fa2905b939e8de463c21b23b64cb0adc9c6a36139b70341a0080d8506c43",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/types/team/teamAgentIds.ts",
+      "to": "src/common/types/team/teamAgentIds.ts",
+      "sha256": "f38e51c1587012c7e79ab4f69a9b8de0d92e47412b9d45429f3c5acbd33586a0",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/types/team/teamTypes.ts",
+      "to": "src/common/types/team/teamTypes.ts",
+      "sha256": "bd83ce476eb0ded0e5333b75b8ba93ff276088f127b19cb80e245b58033a155e",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/types/team/teamWaitPolicy.ts",
+      "to": "src/common/types/team/teamWaitPolicy.ts",
+      "sha256": "50851af01eb9a15d4112e6e3c24ce15b7d50fffe57297e0e20e240566b2a9d51",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/utils/index.ts",
+      "to": "src/common/utils/index.ts",
+      "sha256": "2e00b00e28967d762eefcfd7b5276b0c4a8f188b49e730ad093166220d62a1a5",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/utils/localFileReference.ts",
+      "to": "src/common/utils/localFileReference.ts",
+      "sha256": "78dcbe5709598967f3f1f46980ac5dc21def4032e2976082517b4dc43f86f86a",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/common/utils/utils.ts",
+      "to": "src/common/utils/utils.ts",
+      "sha256": "9ccc5d3e2632f9ed7ed6984f75fb3fe266c8dd31264a479d9b665eb97360ad90",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/modes/types.ts",
+      "to": "src/common/types/modes/types.ts",
+      "sha256": "b1385b9cd9ae6093dd2c42dd725a53746dc9093013e5833b92d1484ac385342b",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/desktop/src/process/competition/engineDiscovery.ts",
+      "to": "src/team/competition-runtime/engineDiscovery.ts",
+      "sha256": "311168f1f49588712765ae4c9ff9a41ef4e5a7e2b1bc0e85451336a8f6125554",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/competition/jsonlClient.ts",
+      "to": "src/team/competition-runtime/jsonlClient.ts",
+      "sha256": "a7eb80997631689ca777c692b3c3d54968cf6e19a093a556fc0a5584669ef124",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/competition/protocol.ts",
+      "to": "src/team/competition-runtime/protocol.ts",
+      "sha256": "bd635b7f377e294231b31741b85c8c831770fe43be4d72076ddaf2f715639752",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/competition/registration.ts",
+      "to": "src/team/competition-runtime/registration.ts",
+      "sha256": "75657a6cf4096a54bf61ff13a9eafb567423e4855935d199936c799d0ceb8595",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/competition/runtimeManifest.ts",
+      "to": "src/team/competition-runtime/runtimeManifest.ts",
+      "sha256": "90788238cb99b665820148eeeca8fa45a554c36080ac8e984a5cfb76593ec9df",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/builtinMcp/constants.ts",
+      "to": "src/mcp/constants.ts",
+      "sha256": "734de9493e9ff6cd368cb07a77bf4ce07f6dab5faa4f50aa25d3a766b8c266d1",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/builtinMcp/literatureSearch.ts",
+      "to": "src/mcp/literatureSearch.ts",
+      "sha256": "723b516fff498ee257cc83079b7f357a489556e84e562aab89422d7f111d5c20",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/builtinMcp/mathPortfolioMutationInput.ts",
+      "to": "src/mcp/mathPortfolioMutationInput.ts",
+      "sha256": "debfc7712d749a69b1e11d77ab4014ef5fd9b2fe70817596fb9fdd280d906d72",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/builtinMcp/mathPortfolioToolInput.ts",
+      "to": "src/mcp/mathPortfolioToolInput.ts",
+      "sha256": "c565a1b83e842e1dd2f478546ae36d39531d883c580cddf2ed20c7887e7edbf1",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/builtinMcp/mathResearchCompatibility.ts",
+      "to": "src/mcp/mathResearchCompatibility.ts",
+      "sha256": "df373bed3e7017f6760b57c18306ac7e948dd1fa971a966e8a66609ebdcde521",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/builtinMcp/origeneGateway.ts",
+      "to": "src/mcp/origeneGateway.ts",
+      "sha256": "484addfdf0892adaa8e5d5c9bab071a87f1ea9036c0115a101e8410fba6cafa2",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/builtinMcp/researchEvidencePayload.ts",
+      "to": "src/mcp/researchEvidencePayload.ts",
+      "sha256": "fc85ef6428f42fc746d29f5e41cfc5bfadb7f05a612bb395bd76400a79bba53e",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/builtinMcp/researchEvidenceServer.ts",
+      "to": "src/mcp/researchEvidenceServer.ts",
+      "sha256": "b5476348c910a2896149bb917b25f34dc77cea55578f4071388a2e4ef3e80e26",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/builtinMcp/researchEvidenceTargetDiscovery.ts",
+      "to": "src/mcp/researchEvidenceTargetDiscovery.ts",
+      "sha256": "8f8acf1e032aa920da956cafe793ce5b51b84a335ed444b43fe813bbcf671b01",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/builtinMcp/scienceArtifactPrompt.ts",
+      "to": "src/mcp/scienceArtifactPrompt.ts",
+      "sha256": "c5531ad57855d6cd6aceebeb12d204f7419394f8c572258d59e22d85235e959a",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/builtinMcp/scienceArtifactServer.ts",
+      "to": "src/mcp/scienceArtifactServer.ts",
+      "sha256": "fbd1cfefb729b9109076e7f6fc54d8fffc4fbc94e9ae655d2c3b1ceac26f348a",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/competition/benchmarkActions.ts",
+      "to": "src/team/compatibility/benchmarkActions.ts",
+      "sha256": "654987410f9ace9f64f52fa18247ba31efe5d78d1049b44d9dce1e811a366c9e",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/competition/candidateAttribution.ts",
+      "to": "src/team/compatibility/candidateAttribution.ts",
+      "sha256": "7a53859aff9907abd216bb0a811f5c1db7e687ced8a8f54d73372b43eaa0ff2b",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/competition/competitionServer.ts",
+      "to": "src/team/compatibility/competitionServer.ts",
+      "sha256": "960bfa59e215e9bdd14015cf86caa389273ad1b0778354e3fb509f857403ed93",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/competition/competitionTool.ts",
+      "to": "src/team/compatibility/competitionTool.ts",
+      "sha256": "06996061cd18a225cb9186f647c8ca178ca42cbf246af9c5bc651e545659df41",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/competition/contestSnapshot.ts",
+      "to": "src/team/compatibility/contestSnapshot.ts",
+      "sha256": "ab38d3eab4ebac725f6365325445815d45a053b8e9d0559a4a66c0e94c67d336",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/competition/executionActions.ts",
+      "to": "src/team/compatibility/executionActions.ts",
+      "sha256": "eae83e7a631b6b13ec2fffcd41fa87af7ea0ff79e238bcedfcc865d9cf218c82",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/competition/frontierSnapshot.ts",
+      "to": "src/team/compatibility/frontierSnapshot.ts",
+      "sha256": "413361354d7ce83cd801818c441e362b983a155a4a3a3f1d480823e1fbd01aee",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/competition/orchestration/coreTeamClient.ts",
+      "to": "src/team/compatibility/orchestration/coreTeamClient.ts",
+      "sha256": "80b5bf42cdb032d68b4dac8b59effe9cde274ef098a12147dfe31dc4f63d8cc2",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/competition/orchestration/workerTools.ts",
+      "to": "src/team/compatibility/orchestration/workerTools.ts",
+      "sha256": "65cc7c0fe577b65025aeff9eb360817ddd35702f0a53a9bb593a300d997e8b25",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/competition/submissionActions.ts",
+      "to": "src/team/compatibility/submissionActions.ts",
+      "sha256": "c72cf04289afdc6d2d5cbd15f0e0bfdbffd0f5fc352875e3f3ac7c22649c844a",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/competition/systemStatus.ts",
+      "to": "src/team/compatibility/systemStatus.ts",
+      "sha256": "0744719494eb8734462c7f56225a4f0f8b99a26dff3afb44fa945ffffcb59a94",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/competition/toolCapability.ts",
+      "to": "src/team/compatibility/toolCapability.ts",
+      "sha256": "e37d6b57887b25c7940ddbfbde3a28972eddd756c49b7ac074eaf4e412a15bfc",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/competition/workflowActions.ts",
+      "to": "src/team/compatibility/workflowActions.ts",
+      "sha256": "4739f89decdcc546c5dfabc0fe4086e9f67cec864ab7f66b68c3b3bd79d4234c",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/research-team/coreTeamClient.ts",
+      "to": "src/team/coreTeamClient.ts",
+      "sha256": "ab8dda07b021c4755225f77a0a94ee55e5a5e01abb1476756c183d5c528b2f3b",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/research-team/coreTeamEventWaiter.ts",
+      "to": "src/team/coreTeamEventWaiter.ts",
+      "sha256": "f330bab4a2caa62f3dd2dbbbe2fa43d3f604518f4246e7280e9b826659abd767",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/research-team/coreTeamEvents.ts",
+      "to": "src/team/coreTeamEvents.ts",
+      "sha256": "e873ae0deb6d8c08715f59251a45f9a2062824755ceb481d906b9cb84dafa879",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/research-team/mathAgentScheduling.ts",
+      "to": "src/team/mathAgentScheduling.ts",
+      "sha256": "624d7e623d606135448ef0be362e4d391e953b526108be0d74204602fc569065",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/research-team/mathResearchFindingProgress.ts",
+      "to": "src/team/mathResearchFindingProgress.ts",
+      "sha256": "e006b22893a9833c81a48f28ea2132a4c5ce0cbf7b3162b307c21dbfb28bbfbe",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/research-team/mathematicsDispatchPolicy.ts",
+      "to": "src/team/mathematicsDispatchPolicy.ts",
+      "sha256": "288237fc2fa3102be874943aa0753e0ba20c627f51d32e41899deec2c6c0eea2",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/research-team/mathematicsMcpValidation.ts",
+      "to": "src/team/mathematicsMcpValidation.ts",
+      "sha256": "2a33c8fb6ecc6f330c11112bf449093864b0f3e02698333f0f8cd8ab85d9f7fd",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/research-team/mathematicsProtocolErrors.ts",
+      "to": "src/team/mathematicsProtocolErrors.ts",
+      "sha256": "356428a19c96ee297054b08e5c8b9fb2c0b354967f255908b09ec53a74db8d9f",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/research-team/mathematicsTeamAdapter.ts",
+      "to": "src/team/mathematicsTeamAdapter.ts",
+      "sha256": "77a589bc21ef1ad6c147db5479c320cc551e7cea23e777c3036bf90b8a84a2a2",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/research-team/orchestrator.ts",
+      "to": "src/team/orchestrator.ts",
+      "sha256": "8e33cb24c762928255df6c2562d61ee3f2558fa6447cb19425dceaabb973be10",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/research-team/researchTeamResultContract.ts",
+      "to": "src/team/researchTeamResultContract.ts",
+      "sha256": "61b28bcade07c3cb6556d6965632cb31cde32a524cc623b7cc8ffce093f4f4d3",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/research-team/researchTeamServer.ts",
+      "to": "src/team/researchTeamServer.ts",
+      "sha256": "4ac6b30a4f8281913f443f1bfea5b997d917ba1d8b9b70fd97b3fefbd07acc44",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/research-team/researchTeamTool.ts",
+      "to": "src/team/researchTeamTool.ts",
+      "sha256": "85de2f7f8452bfdb1492c92396734f4a64f20a61a5842f4442417aa7d421cd25",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/resources/research-team/toolCapability.ts",
+      "to": "src/team/toolCapability.ts",
+      "sha256": "7f4dc6174d032f37e5e61d3a7d9cc1beaaab38d07f754e884154c58ce82d8846",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/finance/alphaSchemaAdapter.ts",
+      "to": "src/shared/services/finance/alphaSchemaAdapter.ts",
+      "sha256": "c60fd4e9038974b07f5b28ebb0cbd38f0534c151b3b2dc11b8fe2dee99a4ba9e",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/finance/client.ts",
+      "to": "src/shared/services/finance/client.ts",
+      "sha256": "fe3366c2a5245f206740c7dc0c67f85b9af85392644ffe68800c68354faba0bc",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/finance/consentClient.ts",
+      "to": "src/shared/services/finance/consentClient.ts",
+      "sha256": "f7ee952e00d476a89288ad24b87b0fa0499053f003249be55771e55f538ffdf3",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/finance/consentStore.ts",
+      "to": "src/shared/services/finance/consentStore.ts",
+      "sha256": "66f116509f0747e46410cb6f5ee4ffd5edc170139c63d56578c54fb4b845b12d",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/finance/receiptAttestation.ts",
+      "to": "src/shared/services/finance/receiptAttestation.ts",
+      "sha256": "65f8483aeefc613dad58fa28871d4063784b89feca6e41f666a8d515bad38114",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/financialFactorImport.ts",
+      "to": "src/shared/services/financialFactorImport.ts",
+      "sha256": "c2c167284d8a3375e8b226d283d00093aa2fa336b1b9c27c7a7dd46c65b5af06",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/lockOwnerLiveness.ts",
+      "to": "src/shared/services/lockOwnerLiveness.ts",
+      "sha256": "d41703e2bc280ec7145cd0ee3e2f15e453299dc628b9f3193d21fb7f92c6cd54",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/deepseekTokenCounter.ts",
+      "to": "src/math/deepseekTokenCounter.ts",
+      "sha256": "85a8f13c54c02750aa7eb91f3cdae1b8a81d8591b980e517a488c261613d6338",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/imo2026Adapter.ts",
+      "to": "src/math/imo2026Adapter.ts",
+      "sha256": "f13be3694ee99ec5ad1f5ead7d3bd117ff2a27aab3a90383c1292b4f5bbaa693",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/index.ts",
+      "to": "src/math/index.ts",
+      "sha256": "5fb2be9e7356b266af33d4dbe8b00bd1f034aab7379618b4a6da0f52fb8fcf81",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/installedPackageSearch.ts",
+      "to": "src/math/installedPackageSearch.ts",
+      "sha256": "ac4a64801eaa71f90dc115d79e53b077292cd438481069f5bd28bcbd267d7d72",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanDependencyAdoption.ts",
+      "to": "src/math/leanDependencyAdoption.ts",
+      "sha256": "674f2797ed26e177ee80e5f81b41d655fe75227e64beb308377dbdc979f62e42",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanEvalActionLedger.ts",
+      "to": "src/math/leanEvalActionLedger.ts",
+      "sha256": "59237c489d480b5966ac43aa565b8a4f320aeb0d6b811e0f76b4b24a58491f9e",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanEvalAdapter.ts",
+      "to": "src/math/leanEvalAdapter.ts",
+      "sha256": "cd7d53c8b13842572f0e9c2d013bb647d0dddf3ad161e499f96392279e718257",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanEvalBootstrap.ts",
+      "to": "src/math/leanEvalBootstrap.ts",
+      "sha256": "05e1d16f48c35d786ad808dc7b0bfce7c964db39a206f067adb396c57c0fea35",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanEvalCatalogAdapter.ts",
+      "to": "src/math/leanEvalCatalogAdapter.ts",
+      "sha256": "0156270564986b6fbc393fafa1f8c783a8bd9187cb6fc6d79ece5dcf21c5e96e",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanEvalCleanup.ts",
+      "to": "src/math/leanEvalCleanup.ts",
+      "sha256": "ff4f9050569983aa9f4e8bcf13d3b07cf51d51028584c2f809172f44680558b9",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanEvalCounterexampleProbe.ts",
+      "to": "src/math/leanEvalCounterexampleProbe.ts",
+      "sha256": "06a7d1c1a10578a42631280f4cd4f456c41e5fd41a9a4c1fdf577d1d19183c54",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanEvalEpisodeLedger.ts",
+      "to": "src/math/leanEvalEpisodeLedger.ts",
+      "sha256": "0781186ac6bd3def38f7b4a89620a4dea93be544457440fee64c73acfb641b8c",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanEvalFailurePolicy.ts",
+      "to": "src/math/leanEvalFailurePolicy.ts",
+      "sha256": "b5204c2e4008f7fd9f681874055f1f9a0e9fd0b9e3dd37f7c97aa56da7af1e7f",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanEvalHeldOutEvaluation.ts",
+      "to": "src/math/leanEvalHeldOutEvaluation.ts",
+      "sha256": "66b525122664b843a224ccb46641e16fe1319daed05ac1240d4d28d4884e5f5b",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanEvalHoleDag.ts",
+      "to": "src/math/leanEvalHoleDag.ts",
+      "sha256": "d107072e3efd58c5755ccbb0d2d7a2dc81e6935854eb38608fa206b163cc80c8",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanEvalIntake.ts",
+      "to": "src/math/leanEvalIntake.ts",
+      "sha256": "169e97cfb9046958698b4db473deb0ddfe4ee3f895c48752ad970fb2dd3f43a7",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanEvalLeanProbe.ts",
+      "to": "src/math/leanEvalLeanProbe.ts",
+      "sha256": "6fc8698622c1f16a0e9a92ed8e6af8ce7ea504d2bdde9ea7d7c1901210e109d0",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanEvalOutcomeLedger.ts",
+      "to": "src/math/leanEvalOutcomeLedger.ts",
+      "sha256": "51b46601274d47dbc632fddaeb3138a2eab419dec13ab58fa9c206ddb6437d69",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanEvalPremiseValidation.ts",
+      "to": "src/math/leanEvalPremiseValidation.ts",
+      "sha256": "b8a479e182db76cc374a67104dd6d1316c934ce57c5e7161b5254dfbc2a1fa07",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanEvalProblemAnalyzer.ts",
+      "to": "src/math/leanEvalProblemAnalyzer.ts",
+      "sha256": "8b19bffac5897e5ebc8f28196ff94088dcbc76c544bad527f6d765c4fa4fb30f",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanEvalProofLoop.ts",
+      "to": "src/math/leanEvalProofLoop.ts",
+      "sha256": "7af691724b6d1df281860f7b1e86b5282a646b42965edc56b1b025199cd90854",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanEvalRouting.ts",
+      "to": "src/math/leanEvalRouting.ts",
+      "sha256": "f19a225f897503bf783aae304f0c86d891601f844c1930798b0cfd014d6f4d79",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanEvalSanityProbe.ts",
+      "to": "src/math/leanEvalSanityProbe.ts",
+      "sha256": "cb61e52a45879724df78e115281eb7ace59a49eb03da0f61cc221cb12d843036",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanEvalStructuredSearch.ts",
+      "to": "src/math/leanEvalStructuredSearch.ts",
+      "sha256": "dbb55ebd3916beb768b225a444b8f882cd5affb10868fcd81b8e22f6de855650",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanEvalTeamSession.ts",
+      "to": "src/math/leanEvalTeamSession.ts",
+      "sha256": "8df23fd067d33662f6f4df6cc2fe1c77429e820a9e1027a5bd14db015e35523a",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanEvalTeamWorkspace.ts",
+      "to": "src/math/leanEvalTeamWorkspace.ts",
+      "sha256": "58e2b0f3e6249b491b0cc9ea3ad06b0d98e3013e23b9b017719b5717e3baf1fb",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanHelperVerification.ts",
+      "to": "src/math/leanHelperVerification.ts",
+      "sha256": "aa9da556903e01f702495ddfdcda3cbb1717e586a083ea24d1964debf060a987",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanInteractiveSession.ts",
+      "to": "src/math/leanInteractiveSession.ts",
+      "sha256": "47d1ae6c30a33467a42fa8d46a86384c48602d12c248da1065f884c49185801b",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanLspSession.ts",
+      "to": "src/math/leanLspSession.ts",
+      "sha256": "287315cb79b0e131508aee1ccc141ec4d0d31f29e06ba3659869a26985c71fb5",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanProbeSnapshot.ts",
+      "to": "src/math/leanProbeSnapshot.ts",
+      "sha256": "c69deb211a670ea912a76c08c040b5687204020df5624fedffb7621635be295d",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanProofActionArchive.ts",
+      "to": "src/math/leanProofActionArchive.ts",
+      "sha256": "4ad9f53f7a2f2621bbfc8e5656b2dfdf2689b4ea3ccdebf27646fe915ff58bac",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanProofActionSearch.ts",
+      "to": "src/math/leanProofActionSearch.ts",
+      "sha256": "cc93f49bd9d6cf4fcafdfebbb13c9ff8240fd29c48d8e239e077d84089293a13",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanProofFrontier.ts",
+      "to": "src/math/leanProofFrontier.ts",
+      "sha256": "101381bda3b6ce6d6acba957f8de9318a36a4517c2d9a3e5a6c511d6a9053205",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanSharedEnvironmentNative.ts",
+      "to": "src/math/leanSharedEnvironmentNative.ts",
+      "sha256": "0555644e8cabf90aa308354fa65ca4990786da7eba0300216f7e488096b36a5d",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanSharedPackages.ts",
+      "to": "src/math/leanSharedPackages.ts",
+      "sha256": "019011dd28bc11868825351800aaa601e931182d845e3dc6d1e85eabc7032be6",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanSourceProbe.ts",
+      "to": "src/math/leanSourceProbe.ts",
+      "sha256": "c5b4d31e2425d1ce65be1d0098f78ac0f53b8e64753395211643319b48a4a4b8",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/leanToolchainReadiness.ts",
+      "to": "src/math/leanToolchainReadiness.ts",
+      "sha256": "e038cac4104dded72b684471c3e5eda87266e04bb00f0fb6e3b7f3e2d69aa8e2",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathArtifactStore.ts",
+      "to": "src/math/mathArtifactStore.ts",
+      "sha256": "6337b20d60049f14c01b7102cd959304346ec4586613a0d11c777e884b1d71d4",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathAssignmentContext.ts",
+      "to": "src/math/mathAssignmentContext.ts",
+      "sha256": "cbeb2192ea08fa116b057ba1e29d81244cef1e3421ed99a6b0e9c6eb13b29b43",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathAssignmentExecutionAdapter.ts",
+      "to": "src/math/mathAssignmentExecutionAdapter.ts",
+      "sha256": "41900ae0dda4559d2cee4be91dc99fd57fb54de8415facffb85db857889fdf27",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathAssignmentJournal.ts",
+      "to": "src/math/mathAssignmentJournal.ts",
+      "sha256": "79ec8930127b729a83130e920eaa6b2c48ebfbcb71850a8556d2a00738f6a4da",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathAssignmentRegistry.ts",
+      "to": "src/math/mathAssignmentRegistry.ts",
+      "sha256": "731c479668f38d6f7387ad83d11ed6107fa097af3b502c4631c6a2f2310bf468",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathAssignmentResearchGraph.ts",
+      "to": "src/math/mathAssignmentResearchGraph.ts",
+      "sha256": "5ddf67e888af62092939a77967288eac04997382b10c410da459642ac802c5c0",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathBudgetBroker.ts",
+      "to": "src/math/mathBudgetBroker.ts",
+      "sha256": "2d58f5b5d7dae26ff5695ae5623c9643e938aa0e38da4cd00d5ce7b61945369c",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathBudgetBrokerRegistry.ts",
+      "to": "src/math/mathBudgetBrokerRegistry.ts",
+      "sha256": "a406b2406a0f9790b49f9ec16e2ca906e08062bf1ed88ccecbac49f74ae8a095",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathBudgetHostClient.ts",
+      "to": "src/math/mathBudgetHostClient.ts",
+      "sha256": "7e1454fee37f11bd9c7354e7f463f90ec0a5d87520eaa2e67a43d95cd23abb42",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathBudgetLedger.ts",
+      "to": "src/math/mathBudgetLedger.ts",
+      "sha256": "67bb9a2d0c53befa8c04bdd4f14b8f83572edbb4e91febcb6ee6d7eb5f0cb586",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathBudgetTeamSession.ts",
+      "to": "src/math/mathBudgetTeamSession.ts",
+      "sha256": "82b60956a4d3a4d59fe7a024ff44ac537915c8d0ea0ba477a17686aaefca5d02",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathBuildManifest.ts",
+      "to": "src/math/mathBuildManifest.ts",
+      "sha256": "510a40735ad9ee2c154207ae51cbe27652af0b5919f8feac0f00823c6997c5e3",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathConjectureSynthesis.ts",
+      "to": "src/math/mathConjectureSynthesis.ts",
+      "sha256": "8a8f60e9c93f52b37cef124cd84ef66e52e917399a28455cbb9f34d40c261e7b",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathConjectureSynthesisRuntime.ts",
+      "to": "src/math/mathConjectureSynthesisRuntime.ts",
+      "sha256": "12cd37bcda0addb706c7edc28be6ff7d3ddc7b3fec1cda6b5af07c8875cb9e86",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathConstructionSources.ts",
+      "to": "src/math/mathConstructionSources.ts",
+      "sha256": "0fde6f1c4c50195f3e7b0f1257f4c3e2942ce5213cf6c838916a76f281ccad38",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathDiagnostics.ts",
+      "to": "src/math/mathDiagnostics.ts",
+      "sha256": "eb0ef5eb06a077f647a06ac8e9cfd11a07a06c170e1a8e408349d4a88fac9c39",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathDiscoveryFrontier.ts",
+      "to": "src/math/mathDiscoveryFrontier.ts",
+      "sha256": "abc120657b8dfb9a44b07b96a74bdc131ccec6beb128ecc4fe0a3873a93af406",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathEvaluator.ts",
+      "to": "src/math/mathEvaluator.ts",
+      "sha256": "5394c476fa5c82fddb057a0cae0017a0f1f71efaa9625067cf2ad337c1c38045",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathEvaluatorContainer.ts",
+      "to": "src/math/mathEvaluatorContainer.ts",
+      "sha256": "4eb3f7bcfc49f184af6eb89b0739c984ea6cb750412a880864a43d7e8bd965a2",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathEvaluatorPolicy.ts",
+      "to": "src/math/mathEvaluatorPolicy.ts",
+      "sha256": "2499371029842d55855c0bee43d8531244cf55c4b35b2cde7f34c29cbb779b26",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathEvaluatorSupervisor.ts",
+      "to": "src/math/mathEvaluatorSupervisor.ts",
+      "sha256": "8281325c95a98df81bf24493d1703ac14edb918f0a57e7c9f57843e61db68b38",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathExactAlgebra.ts",
+      "to": "src/math/mathExactAlgebra.ts",
+      "sha256": "48b6f229363f3c3e29b2bde1232b8073f5712e73cca806328484842d404dca05",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathExploration.ts",
+      "to": "src/math/mathExploration.ts",
+      "sha256": "dd7fe6dda30bbd114e2ca6168efaaa3cbd79459cd192da720f03ec7adb4c629f",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathIntegrationJournal.ts",
+      "to": "src/math/mathIntegrationJournal.ts",
+      "sha256": "df9048bda002d0ff336917b90e2fe6f1cacda2ea041d6b5488f3c5cda0980f6d",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathIntegrationPromotion.ts",
+      "to": "src/math/mathIntegrationPromotion.ts",
+      "sha256": "74473a17accaf1bd1fb18dc3519de6e43d977c2dfbaf994ae092d6f2e5800941",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathIntegrationSelector.ts",
+      "to": "src/math/mathIntegrationSelector.ts",
+      "sha256": "d5d2efd95e2c4f8b3cfafa7e123db52e049a9bf5adc1c03a0159ded437eb298d",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathIntegrationSourcePlan.ts",
+      "to": "src/math/mathIntegrationSourcePlan.ts",
+      "sha256": "11acbcfe6ced5bc89c3a36e9a14e04aaa2ac1f03f5ad98a4e3e2dbe696874151",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathIsolatedProvider.ts",
+      "to": "src/math/mathIsolatedProvider.ts",
+      "sha256": "eecdc33657c71404ff3580fdf6695030c933db3044775da61aa7392704cf8ce8",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathLeanCheckpoint.ts",
+      "to": "src/math/mathLeanCheckpoint.ts",
+      "sha256": "0e59244a391f2e7cc8efbe6b5d4152bb29e5c67e5bdab464d4a89cb4d45bde3a",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathLiteBlockerContext.ts",
+      "to": "src/math/mathLiteBlockerContext.ts",
+      "sha256": "e03c6cf49c1f209a36c62bbec3022f4e708646c58ef5a336743e9365f91ea70b",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathLiteFeedback.ts",
+      "to": "src/math/mathLiteFeedback.ts",
+      "sha256": "ec13ffe6f9f394ac1a13fe28f1073d40533403f07b02e73bda8d65bc5a267331",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathLocalClosure.ts",
+      "to": "src/math/mathLocalClosure.ts",
+      "sha256": "7d71f0eb4e0d840a01370cbba966812a52f726f00493542e441157f5f9d256d7",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathMcpShutdown.ts",
+      "to": "src/math/mathMcpShutdown.ts",
+      "sha256": "db40e077123d6b7837c2f83bd1812772baf0635f8ac5eadaf0f72c2e029c4593",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathModelIsolation.ts",
+      "to": "src/math/mathModelIsolation.ts",
+      "sha256": "be5cdf07c11806e47836817ec29c13968a60962b6cce82c50c862fd7938806ac",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathModelIsolationEvidence.ts",
+      "to": "src/math/mathModelIsolationEvidence.ts",
+      "sha256": "f662cb59cd1c578abeba47b5b6060d45ee9b25b53f3af240105a20173eaa231b",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathModelIsolationLauncher.ts",
+      "to": "src/math/mathModelIsolationLauncher.ts",
+      "sha256": "3a8acdd6e58dd3c8b7123d9ecae32e2c9764d462c600ee066fb949af028354af",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathOwnerlessRecovery.ts",
+      "to": "src/math/mathOwnerlessRecovery.ts",
+      "sha256": "8f465add32e71faf24a92599669c1762e75a1ade966b6c2f50ad838e0fd3f74b",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathPlanningContext.ts",
+      "to": "src/math/mathPlanningContext.ts",
+      "sha256": "6d56159072469a2a0482dfafec8b555aac58be72f83b6db179023ab5bdb3f9f2",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathProofBlocks.ts",
+      "to": "src/math/mathProofBlocks.ts",
+      "sha256": "9a3fa51f9a863f727fa7e41889adac02e45330712c30a89ffe17012042a3e0d5",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathProofEfficiencyExecution.ts",
+      "to": "src/math/mathProofEfficiencyExecution.ts",
+      "sha256": "8459aa536506913a5a7bf824e1ab3c4565ef9011e3da1a73b4bee53e07958261",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathProofEnvironment.ts",
+      "to": "src/math/mathProofEnvironment.ts",
+      "sha256": "8553ae71838b65c560f676bfe264f06718d389f24d5185c18b006ed297e3b984",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathProofEnvironmentCache.ts",
+      "to": "src/math/mathProofEnvironmentCache.ts",
+      "sha256": "2ec1125567740d02e0bf3ac419e7f87f6d02aef026bca3fdba48854d296966e9",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathProofImpact.ts",
+      "to": "src/math/mathProofImpact.ts",
+      "sha256": "f271b7aae2b132d33556c59ab5e41d75ae59e87656879797b863e8b1a3644c74",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathProofRunReport.ts",
+      "to": "src/math/mathProofRunReport.ts",
+      "sha256": "9d41f2aff56b3cf5477eed614a89a7f2ef1c96685918fcd92134ef7dee949e61",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathProofSourcePolicy.ts",
+      "to": "src/math/mathProofSourcePolicy.ts",
+      "sha256": "a5f0f6bd26fcdec27d5673a6e69916aaecf79d17f606845c8d6e5ad6508b8ed1",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathProofWorkFrontier.ts",
+      "to": "src/math/mathProofWorkFrontier.ts",
+      "sha256": "2f51cd7df89c3191d58519e16b14d121dc3754c895709b1329aa48e544b57229",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathPublicWire.ts",
+      "to": "src/math/mathPublicWire.ts",
+      "sha256": "5d855aa4fecb4cb7c377d0c7d02bec9edb787dc7e7f0c15ab31e40c6baeb9275",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathQuiescentProofExecution.ts",
+      "to": "src/math/mathQuiescentProofExecution.ts",
+      "sha256": "a00e1c5950858bfcf1984a51fe2e1a62561bb820e771d9182ef82d5b7f4ac42d",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathRequestGateway.ts",
+      "to": "src/math/mathRequestGateway.ts",
+      "sha256": "b987548af253b21bab907c004151270c773ce7b8c6af0bbdf17032ab5146ec85",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathResearchEvidence.ts",
+      "to": "src/math/mathResearchEvidence.ts",
+      "sha256": "75467f7297c0e56df90a20725b98a4dd46094137d9084f6a0b6a1ebff4f2ae27",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathResearchGraph.ts",
+      "to": "src/math/mathResearchGraph.ts",
+      "sha256": "d117a23cb3d01cbd37778758500facfc5f5e8c162b92bf7b374dd84b631273f9",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathResearchPolicy.ts",
+      "to": "src/math/mathResearchPolicy.ts",
+      "sha256": "7d2d5df6cb0266c29be26db643bc2ef5885c51d9ce10f81ebe09ea7fb3a86f4b",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathResearchWorkflow.ts",
+      "to": "src/math/mathResearchWorkflow.ts",
+      "sha256": "ce212a818c4c52020882d4cf63b431bd27665df24d2ce908381b8d0e30fd20c1",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathRetrievalCorpus.ts",
+      "to": "src/math/mathRetrievalCorpus.ts",
+      "sha256": "20bddfd0ea1ce095c802de18969e4d343b12b24cc2d6e42009e0db03364047bd",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathRouteRefutation.ts",
+      "to": "src/math/mathRouteRefutation.ts",
+      "sha256": "fc0e842d979444c4c384549116a94e3cfca02d18f10b60e8edd352773c3375dc",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathRunBinding.ts",
+      "to": "src/math/mathRunBinding.ts",
+      "sha256": "3445a685841e965b07dd257004a32eeda4b24f063a80e0cdfe1f908792fb883c",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathRunHistory.ts",
+      "to": "src/math/mathRunHistory.ts",
+      "sha256": "bddfc9e74863d96fa1041159e16588e5d73ec785ac6538aed027b39905f1990b",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathRunInputs.ts",
+      "to": "src/math/mathRunInputs.ts",
+      "sha256": "77aef764ee3ac25fe3c4de59eec514794e0cf64108124f1b7871103f796690d3",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathRunLifecycle.ts",
+      "to": "src/math/mathRunLifecycle.ts",
+      "sha256": "6eb22499a23b4bb279dc663bb295b76569537cbde9ffb490634b5a44c7d31a38",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathRunObservation.ts",
+      "to": "src/math/mathRunObservation.ts",
+      "sha256": "185e6cd8d0dac8efddfc4786d4ad2ec6eda84958d58e90ee366db5aa3cbe4e96",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathRunPortfolio.ts",
+      "to": "src/math/mathRunPortfolio.ts",
+      "sha256": "579c188fc16d708b0cac43afde15b56725cb9b403c656c7da137e8d42220a18d",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathRuntimeEnvironment.ts",
+      "to": "src/math/mathRuntimeEnvironment.ts",
+      "sha256": "7f8471be0616de790c85e903000e47f747095012f3b4ca00b7a8862d6dfd5e06",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathRuntimeIo.ts",
+      "to": "src/math/mathRuntimeIo.ts",
+      "sha256": "107735814714352408e29011f12affdb27da009d4d732272b70e2fa0b01934b8",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathSealedEnvironmentHelper.ts",
+      "to": "src/math/mathSealedEnvironmentHelper.ts",
+      "sha256": "74efcc5f6bcc8ab665d13740b2d18ef5a177a7beaaa1a48e22a6d24d25069d81",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathSearchState.ts",
+      "to": "src/math/mathSearchState.ts",
+      "sha256": "da3174f6532cd61ed0b53f68ceab2bcb9862451a2f8534d159f81c3edd1a2ee1",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathSourceArtifact.ts",
+      "to": "src/math/mathSourceArtifact.ts",
+      "sha256": "508f34c42ea438b352b3505845cb1553eb81f0f947302f86e2187d9244c7a9e2",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathSourceStaging.ts",
+      "to": "src/math/mathSourceStaging.ts",
+      "sha256": "ae84164bd6c4d82597f6a9a83cb0d3a9e1b711d74a855877618cdf8eabfede35",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathStructuredSamples.ts",
+      "to": "src/math/mathStructuredSamples.ts",
+      "sha256": "f88271488123a89a7f2969b6eef70d2dc5947e80c176c91256d98b75188de3e9",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathToolInteraction.ts",
+      "to": "src/math/mathToolInteraction.ts",
+      "sha256": "23c231928d936e8faa423d1974cb5affa3d61b2ab4878c47fdf4a6236364342d",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathWorkerDeliveryAdapter.ts",
+      "to": "src/math/mathWorkerDeliveryAdapter.ts",
+      "sha256": "eb6a77af61fb0ac4df92c0f3e525daee0585d0cd3b351fe0c9173ca28f6ff184",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathWorkerProbeScope.ts",
+      "to": "src/math/mathWorkerProbeScope.ts",
+      "sha256": "0800d049688814e416f89188b53019484584467a87772e1529c3a2c8537e7adb",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/mathWorkerProofSession.ts",
+      "to": "src/math/mathWorkerProofSession.ts",
+      "sha256": "d14c0ca38c7a48c4ef30413fd7ce326cebeefada618d188d1ba345219dddda07",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/receiptAttestation.ts",
+      "to": "src/math/receiptAttestation.ts",
+      "sha256": "d7ad4685e9bd4dc00cce4c86cbdb76c68536a2840faf8f9002a72b813790374e",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/routePreflight.ts",
+      "to": "src/math/routePreflight.ts",
+      "sha256": "ea5891962e41871be16183ff795906b39b658ae8ee3d1ef469977a0597b3a717",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/upstreamPackageSearch.ts",
+      "to": "src/math/upstreamPackageSearch.ts",
+      "sha256": "d52088957cdaed3183fe4136404b063ac77144e672aa9ff4b1390ca2c5af25cf",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/upstreamPremiseSearch.ts",
+      "to": "src/math/upstreamPremiseSearch.ts",
+      "sha256": "7e7cac64210c05b9980264860ec3842512d9147c90753d71ec947a8a556b31d2",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/mathematics/verifier.ts",
+      "to": "src/math/verifier.ts",
+      "sha256": "afc0dbdd5f5ea5ffb6f3dd3b612acfa43566badc08d3746ec96eca2f0c2a7d94",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/project-git/ProjectGitService.ts",
+      "to": "src/project-git/ProjectGitService.ts",
+      "sha256": "3c068e4839f47c822732e962d962cce711df05f10243d0fa8347ef860bf98f66",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/project-git/index.ts",
+      "to": "src/project-git/index.ts",
+      "sha256": "cccaeef824eadfc4118df6785f190664746b791421c23b4c71ef7d920339b847",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/project-git/projectGitParsers.ts",
+      "to": "src/project-git/projectGitParsers.ts",
+      "sha256": "123f0b9ae2f6609f91d97f923c0f0406b8fe77498f29352b703a4d4335fbed18",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/project-git/projectManifest.ts",
+      "to": "src/project-git/projectManifest.ts",
+      "sha256": "2dc19acfdc848b8889a72233e0d062e7284b6624753d2a220bd3990f23664c14",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/project-git/projectWorkspaceDeletionGuard.ts",
+      "to": "src/project-git/projectWorkspaceDeletionGuard.ts",
+      "sha256": "36bc8c8e35b73b49f575c7bbf0f737cac6837f5800c831fc5fe58b73727733d3",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/reportChartSvg.ts",
+      "to": "src/shared/services/reportChartSvg.ts",
+      "sha256": "b90d9582539485cfc25163a7606c2bb7448999dfda27db81db5a74642b8338f1",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/scienceArtifactGitStore.ts",
+      "to": "src/shared/services/scienceArtifactGitStore.ts",
+      "sha256": "21b69f3ca75d90ff969351434b9380b003fc31b9e68219c239d8aa67881a0bff",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/services/targetDiscoveryImport.ts",
+      "to": "src/shared/services/targetDiscoveryImport.ts",
+      "sha256": "b64ec7af3b0c6926ea58682b53425ad4b5b51a2a22c23a55f44aedbd1aab6b22",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/desktop/src/process/worker/mathConjectureWorker.ts",
+      "to": "src/workers/mathConjectureWorker.ts",
+      "sha256": "6d914810e1a7c14cf84ad5ace2b181e642890aa8ad32152411e7464edc80fb15",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "packages/runtime-contracts/src/financial-factor.ts",
+      "to": "src/contracts/financial-factor.ts",
+      "sha256": "8fb3185064fd9ddcf31b28fd2519a2ebe17b655e96adf9f2689c9831dc3de5fa",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/runtime-contracts/src/index.ts",
+      "to": "src/contracts/index.ts",
+      "sha256": "775cd52eccfe0b8a2f138162d51c2e5338c25447ccb1fa431355aef8c0a1ae94",
+      "typeDeclarationsOnly": true
+    },
+    {
+      "from": "packages/shared-scripts/src/ioai-competition-runtime-manifest.js",
+      "to": "src/shared/ioai-competition-runtime-manifest.js",
+      "sha256": "0d7c81a7538a915041bdee70726443e1100be87e627f0adb9b240ee5c52a9a78",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "scripts/mathematics/bootstrapImo2026.ts",
+      "to": "scripts/mathematics/bootstrapImo2026.ts",
+      "sha256": "f6d06ddd575bbb69ea81866d49d1cdbc782806daaf01e13657b278438066c0e6",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "scripts/mathematics/bootstrapLeanEvalHeldOut.ts",
+      "to": "scripts/mathematics/bootstrapLeanEvalHeldOut.ts",
+      "sha256": "1571c69f609e0acc8d49cb09882cf63ea2bcd595749e24ba390d8c8230576af3",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "scripts/mathematics/freezeMathRetrievalCorpus.ts",
+      "to": "scripts/mathematics/freezeMathRetrievalCorpus.ts",
+      "sha256": "e5b5730c4b83f01374004d7fcacbe28dab902b94b7db6dd8137bfc90f7c8967e",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "scripts/mathematics/runMathProofTeam.ts",
+      "to": "scripts/mathematics/runMathProofTeam.ts",
+      "sha256": "565ee1b10f06d36fdb857b64cf7495264e88c10105b6493a6226654157fe9042",
+      "typeDeclarationsOnly": false
+    },
+    {
+      "from": "scripts/mathematics/summarizeMathProofRuns.ts",
+      "to": "scripts/mathematics/summarizeMathProofRuns.ts",
+      "sha256": "249bfa83c8a848d0e8794f46fa43fc8da7cc181c696800962dc4b3215b47558a",
+      "typeDeclarationsOnly": false
+    }
+  ]
+}
