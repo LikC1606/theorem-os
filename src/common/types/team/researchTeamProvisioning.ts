@@ -12,7 +12,6 @@ import type { ResearchTeamProfile, ResearchTeamRoleContract } from "./researchTe
 import { PROJECT_WORKSPACE_ENV_KEYS } from "../../chat/projectWorkspace";
 import { canUseDeepScientistTeam } from "../../chat/team/deepScientistTeam";
 import {
-  createResearchTeamDeferredToolRoutingPrompt,
   createResearchTeamRuntimeRosterPrompt,
   scopeResearchTeamRoleMcpServers,
   type ResearchTeamRuntimeRosterMember,
@@ -62,10 +61,6 @@ export type ResearchTeamProvisioningDeps = {
      */
     registerSessionReady?: (notify: () => void) => void;
   }) => Promise<void>;
-  setConfigOption?: (params: { conversation_id: string; option_id: string; value: string }) => Promise<{
-    confirmation?: string;
-    config_options?: ReadonlyArray<Readonly<{ id: string; current_value?: string | null }>> | null;
-  }>;
   sendMessage: (params: { team_id: string; input: string; files?: string[] }) => Promise<ITeamRunAck>;
 };
 
@@ -208,6 +203,9 @@ export async function provisionResearchTeam(
   deps: ResearchTeamProvisioningDeps
 ): Promise<ProvisionResearchTeamResult> {
   assertProfile(input.profile);
+  if (input.profile.id !== 'mathematics-research-team' || input.modeConversationExtra?.headless_proof_search !== true) {
+    throw new Error('RESEARCH_TEAM_HEADLESS_MATHEMATICS_REQUIRED');
+  }
   if (!canUseDeepScientistTeam(input.backend)) {
     throw new Error('RESEARCH_TEAM_BACKEND_UNSUPPORTED');
   }
@@ -245,8 +243,6 @@ export async function provisionResearchTeam(
     throw new Error('RESEARCH_TEAM_ROLE_RUNTIME_PREPARATION_INVALID');
   }
 
-  const headlessMathematics =
-    input.profile.id === 'mathematics-research-team' && input.modeConversationExtra?.headless_proof_search === true;
   let team: TTeam;
   let provisioningActive = true;
   try {
@@ -265,10 +261,7 @@ export async function provisionResearchTeam(
     await cleanupProvisionedResources(deps, prepared);
     throw new Error('RESEARCH_TEAM_CREATE_INVALID');
   }
-  if (
-    headlessMathematics &&
-    (team.coordination_protocol?.kind !== 'managed_mcp' || team.coordination_protocol.logicalTool !== 'research_team')
-  ) {
+  if (team.coordination_protocol?.kind !== 'managed_mcp' || team.coordination_protocol.logicalTool !== 'research_team') {
     await cleanupProvisionedResources(deps, prepared, team.id);
     throw new Error('RESEARCH_TEAM_COORDINATION_PROTOCOL_NOT_OBSERVED');
   }
@@ -315,7 +308,6 @@ export async function provisionResearchTeam(
       profile: input.profile,
       teamId: team.id,
       members: roster,
-      headlessMathematics,
     });
     await settleProvisioningOperations(
       agents.flatMap((agent, roleIndex) => {
@@ -342,19 +334,13 @@ export async function provisionResearchTeam(
           slotId: agent.slot_id,
         }) ?? createDefaultRuntimeIdentityPrompt(agent.conversation_id, team.id, agent.slot_id);
       const baseRule = replacePlannedConversationIdentity(
-        createRoleRule(
-          prepared[index].conversationParams,
-          role,
-          isProjectMemoryEnabled(input.modeConversationExtra),
-          isScienceReportEnabled(input.modeConversationExtra),
-          headlessMathematics
-        ),
+        createRoleRule(prepared[index].conversationParams, role),
         input.plannedConversationId,
         agent.conversation_id
       );
       const roleIdentity = appendRuntimeIdentity(baseRule, runtimeIdentity);
       const rule =
-        headlessMathematics && role.kind === 'worker'
+        role.kind === 'worker'
           ? roleIdentity
           : appendRuntimeIdentity(roleIdentity, runtimeRoster);
       return rule;
@@ -392,7 +378,7 @@ export async function provisionResearchTeam(
                 : {}),
               preset_context: runtimeRules[index],
               // Clear the legacy alias explicitly because this is a merge patch.
-              preset_rules: headlessMathematics ? '' : runtimeRules[index],
+              preset_rules: '',
             },
           },
           merge_extra: true,
@@ -501,14 +487,13 @@ export async function provisionResearchTeam(
     notifySessionReady?.();
     // session_ready confirms that Core created the runtime session; it does
     // not prove that the Lead has received its MCP catalog. Starting the first
-    // model turn before mcp_tools_ready can make a healthy financial workflow
+    // model turn before mcp_tools_ready can make a healthy mathematics workflow
     // conclude that its required tools do not exist. Keep the bounded catalog
     // observer as the authoritative first-turn barrier.
     await leaderMcpToolsReady;
     // The Team message endpoint can remain pending while Core starts a large
-    // roster. Let the UI enter the canonical Lead conversation as soon as the
-    // Team identity and permission mode are durable instead of tying routing to
-    // every Worker startup or to the first model turn.
+    // roster. Notify the host once the Team identity and permission mode are
+    // durable, before the first model turn.
     await input.onLeaderReady?.({
       team: { ...team, session_mode: input.sessionMode },
       leaderConversationId: agents[0].conversation_id,
@@ -613,9 +598,7 @@ function createCoreTeamParams(
   assistantIds: readonly string[]
 ): ICreateTeamParams {
   return {
-    ...(input.profile.id === 'mathematics-research-team' && input.modeConversationExtra?.headless_proof_search === true
-      ? { coordination_protocol: { kind: 'managed_mcp' as const, logicalTool: 'research_team' as const } }
-      : {}),
+    coordination_protocol: { kind: 'managed_mcp', logicalTool: 'research_team' },
     user_id: requiredText(input.userId, 'userId'),
     name: normalizeTeamName(input.teamName),
     workspace: requiredText(input.projectRoot, 'projectRoot'),
@@ -865,137 +848,37 @@ function bindConversationIdentity(servers: readonly ISessionMcpServer[], convers
 
 function createRoleRule(
   params: ResearchTeamRoleConversationParams,
-  role: ResearchTeamRoleContract,
-  projectMemoryEnabled: boolean,
-  scienceReportEnabled: boolean,
-  headlessMathematics: boolean
+  role: ResearchTeamRoleContract
 ): string {
-  const base = headlessMathematics
-    ? params.extra.preset_context?.trim() || params.extra.preset_rules
-    : (params.extra.preset_context ?? params.extra.preset_rules);
+  const base = params.extra.preset_context?.trim() || params.extra.preset_rules;
   const normalized = typeof base === 'string' ? base.trim() : '';
-  const roleRule =
-    headlessMathematics && normalized
-      ? normalized.includes(role.prompt)
-        ? normalized
-        : `${normalized}\n\n${role.prompt}`
-      : role.kind === 'worker' && !headlessMathematics
-        ? role.prompt
-        : !normalized
-          ? role.prompt
-          : normalized.includes(role.prompt)
-            ? normalized
-            : `${normalized}\n\n${role.prompt}`;
-  const headlessProofSearch = params.extra.headless_proof_search === true;
-  const headlessProofMainline = params.extra.headless_proof_mainline === true;
-  return `${roleRule.trim()}\n\n${createSharedTeamOperatingContract(
-    role,
-    projectMemoryEnabled,
-    scienceReportEnabled,
-    headlessProofSearch,
-    headlessProofMainline,
-    headlessMathematics
-  )}`;
+  const roleRule = !normalized
+    ? role.prompt
+    : normalized.includes(role.prompt)
+      ? normalized
+      : `${normalized}\n\n${role.prompt}`;
+  return `${roleRule.trim()}\n\n${createSharedTeamOperatingContract(role)}`;
 }
 
-function isProjectMemoryEnabled(extra: Readonly<Record<string, unknown>> | undefined): boolean {
-  const config = extra?.knowledge_deposition;
-  return typeof config === 'object' && config !== null && 'enabled' in config && config.enabled === true;
-}
-
-function isScienceReportEnabled(extra: Readonly<Record<string, unknown>> | undefined): boolean {
-  const science = extra?.science;
-  if (typeof science !== 'object' || science === null) return true;
-  const report = 'report' in science ? science.report : undefined;
-  if (typeof report !== 'object' || report === null) return true;
-  return !('enabled' in report) || report.enabled !== false;
-}
-
-function createSharedTeamOperatingContract(
-  role: ResearchTeamRoleContract,
-  projectMemoryEnabled: boolean,
-  scienceReportEnabled: boolean,
-  headlessProofSearch: boolean,
-  headlessProofMainline: boolean,
-  headlessMathematics: boolean
-): string {
-  if (headlessMathematics) {
-    return [
-      '# Mathematics Team Operating Contract',
-      '- Use the language of the latest user request for visible progress and delivery summaries.',
-      '- Coordinate only through research_team. Select ALL_TOOLS names ending with __research_team and invoke the unique match. Only if absent, search its logical description for hashed names. Missing/ambiguous: report the runtime fault and end the turn.',
-      '- Code mode: call tools[entry.name](args) and return its result in the same exec cell as discovery; discovery without invocation is not progress.',
-      ...(role.kind === 'worker'
-        ? [
-            '- Current assignment and frozen original target are authoritative; use your worktree and pinned Lean; research is read-only.',
-            '- Share early with research_team(action="share", result={summary}); shares are provisional. Attach private .md/.lean by worktree-relative path. Use target_slot_id only for a related research recipient; send corrections explicitly.',
-            '- Use the current Lean checkpoint diagnostic and attached feedback first. Read research_team(action="read_feedback") for missing or changed findings. Do not reread unchanged findings, poll, or cancel slow turns.',
-            '- Deliver via research_team(action="deliver", result={status:"completed" or "blocked",summary,files,blockers}); blockers only if blocked, and files must exist and be relative. Host freezes bytes/identity; never invent success. Do not dispatch, integrate, or poll.',
-          ]
-        : [
-            '- Plan from the supplied task/environment. Dispatch an exact Worker target, concrete task and optional kind, research_question and consumer_assignment_ids; the host supplies identity and verification targets.',
-            '- Dispatch useful independent work within the configured concurrency, then end the turn for Core delivery events. An unaccepted dispatch is not a running Worker.',
-            '- A share is provisional context from an active assignment. Call status once to reconcile progress feedback and capacity. Use its frozen evidence to dispatch an independent mathematical question to an idle Researcher while the Lean Worker continues useful base lemmas. Never replace the active proof assignment or treat shared text as completion.',
-            '- Review and integrate accepted deliveries. completion_deferred closes only that assignment; it is not full-problem completion. Do not redispatch closed work.',
-            '- After solving the complete problem, receive solver_ready_receipt for the integrated commit and end the turn. Do not emit a completion marker or perform further validation, checkpointing, or dispatch. The outer runner owns independent evaluation.',
-          ]),
-    ].join('\n');
-  }
-  const common = [
-    '# DeepScientist Team Operating Contract',
-    scienceReportEnabled
-      ? '- Use the language of the latest user request for visible progress, delivery summaries, report titles, and report prose unless a source format requires another language.'
-      : '- Use the language of the latest user request for visible progress, delivery summaries, and the task-defined completion summary unless a source format requires another language.',
-    '- Core-native team_members, team_send_message, team_task_*, team_spawn_agent, team_rename_agent, and team_shutdown_agent are transport internals in this managed Team. Never call them. Use research_team exclusively for roster description, dispatch, status, delivery, and integration.',
-    createResearchTeamDeferredToolRoutingPrompt(),
-  ];
-  if (role.kind === 'worker') {
-    return [
-      ...common,
-      '- Treat the current assignment as the complete scope. Do not run Lead-owned project intake, roadmap, persistent-goal, portfolio, publication, or project-memory reconciliation workflows.',
-      headlessProofSearch && role.laneId?.startsWith('lean-engineering') === true
-        ? '- This headless proof-search runtime has preloaded the complete assignment contract and required runtime policy. Do not read Team/Mathematics Skill files, references, project state, or capability checks before editing; the assignment and runner policy are authoritative.'
-        : '- Load only `deepscientist-team` and the smallest assignment-relevant domain Skill or reference. Do not reopen unchanged Skills, project state, or capability checks during the same assignment.',
-      '- The assignment JSON is authoritative. For executionMode=artifact, work only inside its exact git.worktreePath and git.branch. For executionMode=advisory, treat projectRoot and git.baseCommit as a read-only reference: do not edit files, create a branch, or commit.',
-      '- For claim-bearing research, report evidence and the cheapest decisive falsification. For deterministic operational work, test the most likely failure condition and report concrete verification without inventing a scientific claim.',
-      '- For artifact work, commit attributable files and verification evidence, then deliver the exact full head commit through research_team(action="deliver"). For advisory work, deliver the read-only structured result without Git delivery fields. Mathematics Workers omit assignmentBinding and other runtime-supplied fields; the server binds them from the durable assignment. If delivery validation fails, repair only the named field path and retry once. If the Team tool remains unavailable after its bounded startup retry, record the precise blocker and end the turn; do not claim success or wait silently. Runtime recovery will retry a failed Worker once or notify the Lead.',
-      ...(projectMemoryEnabled
-        ? [
-            '- When the assignment reveals a reusable method, confirmed project fact, or failure lesson, include a concise memory candidate and exact source pointers in the delivery. Do not edit shared project memory or create memory-only work.',
-          ]
-        : []),
-    ].join('\n');
-  }
+function createSharedTeamOperatingContract(role: ResearchTeamRoleContract): string {
   return [
-    ...common,
-    headlessProofMainline
-      ? '- This headless proof runner owns the bound project, Lean environment, and external evaluator. Require only the research_team tool for coordination; do not call project_workspace, science_artifact, research_evidence, or user_input during the proof run.'
-      : scienceReportEnabled
-        ? '- Before substantive work, require the research_team, project_workspace, and science_artifact tools. If a first catalog is empty, apply the bounded MCP startup retry above before deciding that a tool is unavailable. Only after that retry reports a Team runtime fault; leave any active loop goal resumable and stop this turn, never substitute generic Team member/message tools or shared-workspace edits.'
-        : '- Before substantive work, require the research_team and project_workspace tools. This headless session has no report publication stage; if a first catalog is empty, apply the bounded MCP startup retry above before deciding that a tool is unavailable. Only after that retry reports a Team runtime fault; leave any active loop goal resumable and stop this turn, never substitute generic Team member/message or shared-workspace edits.',
-    headlessProofMainline
-      ? '- The runner has already performed the immutable statement, workspace, toolchain, and environment preflight. Do not repeat status, capability, portfolio, or history probes before the first dispatch.'
-      : '- Before an artifact dispatch wave, call project_workspace(action="status") once. If workingTree is non-empty, verify the intended Lead-owned changes and checkpoint only their explicit paths before dispatch; never create Worker worktrees from a dirty Lead tree. A read-only advisory wave does not require a checkpoint.',
-    headlessProofMainline
-      ? '- The runner supplies the exact base commit and task contract. Dispatch the assigned Worker immediately after the compact plan; do not wait for an advisory handoff or create another route.'
-      : '- Before the first dispatch wave, record one shared capability preflight: execution surface, required tool or CLI availability, credential presence without values, network, data, compute, and paid or submission authorization. Assign privileged actions to one authorized owner and pass the receipt to Workers instead of repeating probes.',
-    '- The first wave uses at most one Worker per distinct lane. Duplicate-lane Workers stay idle until a real delivery identifies a new, explicitly disjoint source, method, implementation, or review question.',
-    '- Use the exact full repository head returned after the clean checkpoint as every artifact assignment baseCommit, and the current exact head as an advisory assignment read boundary. A retryable preflight failure is not an accepted dispatch; repair it and retry without claiming that any Worker started.',
-    '- For long external jobs, submit once, persist the job or attempt id in project evidence, and resume on an event or bounded exponential backoff. Do not keep a reasoning turn alive by repeatedly polling unchanged state.',
-    scienceReportEnabled
-      ? '- After reviewing and integrating exact Worker deliveries, checkpoint meaningful additional Lead-owned canonical changes with project_workspace before final publication.'
-      : '- Managed artifact integration already creates the canonical commit. After integration, call project_workspace checkpoint only for additional explicit Lead-owned file changes; when the tree is clean, do not create an empty checkpoint.',
-    ...(projectMemoryEnabled
+    '# Mathematics Team Operating Contract',
+    '- Use the language of the latest user request for visible progress and delivery summaries.',
+    '- Coordinate only through research_team. Select ALL_TOOLS names ending with __research_team and invoke the unique match. Only if absent, search its logical description for hashed names. Missing/ambiguous: report the runtime fault and end the turn.',
+    '- Code mode: call tools[entry.name](args) and return its result in the same exec cell as discovery; discovery without invocation is not progress.',
+    ...(role.kind === 'worker'
       ? [
-          '- Knowledge Deposition is active. Before the final checkpoint or publication, load `deepscientist-project-memory` once and reconcile only the newly integrated verified diffs against relevant existing memory. If durable reusable knowledge exists, write or update one to three `memory/` entries and include their exact paths in the same checkpoint. Zero entries is allowed only after this assessment; record the short no-entry reason in the completion summary instead of silently skipping it.',
-        ]
-      : []),
-    ...(scienceReportEnabled
-      ? [
-          '- A substantive Team result ends with one Lead-owned science_artifact report publication using displayIntent="open". Put the answer, evidence balance, verification, integrated work, limitations, and next action in that report so it opens in Artifact Preview; then summarize it concisely in chat.',
+          '- Current assignment and frozen original target are authoritative; use your worktree and pinned Lean; research is read-only.',
+          '- Share early with research_team(action="share", result={summary}); shares are provisional. Attach private .md/.lean by worktree-relative path. Use target_slot_id only for a related research recipient; send corrections explicitly.',
+          '- Use the current Lean checkpoint diagnostic and attached feedback first. Read research_team(action="read_feedback") for missing or changed findings. Do not reread unchanged findings, poll, or cancel slow turns.',
+          '- Deliver via research_team(action="deliver", result={status:"completed" or "blocked",summary,files,blockers}); blockers only if blocked, and files must exist and be relative. Host freezes bytes/identity; never invent success. Do not dispatch, integrate, or poll.',
         ]
       : [
-          '- This headless Team has no report publication stage. A closed assignment with completion_deferred is not full-problem completion: wait for and integrate the remaining deliveries, and do not emit a completion marker or redispatch that closed assignment. Only when Mathematics integration returns solver_complete, immediately emit one final assistant message whose only content is the explicit task-defined completion marker for that merged_commit, then end the turn. A marker names one commit; if later integration changes HEAD, the old marker is stale and the current merged_commit requires a fresh marker. Do not validate, review, checkpoint, dispatch, or call another project tool after solver_complete; the outer runner performs all authoritative evaluation afterward.',
+          '- Plan from the supplied task/environment. Dispatch an exact Worker target, concrete task and optional kind, research_question and consumer_assignment_ids; the host supplies identity and verification targets.',
+          '- Dispatch useful independent work within the configured concurrency, then end the turn for Core delivery events. An unaccepted dispatch is not a running Worker.',
+          '- A share is provisional context from an active assignment. Call status once to reconcile progress feedback and capacity. Use its frozen evidence to dispatch an independent mathematical question to an idle Researcher while the Lean Worker continues useful base lemmas. Never replace the active proof assignment or treat shared text as completion.',
+          '- Review and integrate accepted deliveries. completion_deferred closes only that assignment; it is not full-problem completion. Do not redispatch closed work.',
+          '- After solving the complete problem, receive solver_ready_receipt for the integrated commit and end the turn. Do not emit a completion marker or perform further validation, checkpointing, or dispatch. The outer runner owns independent evaluation.',
         ]),
   ].join('\n');
 }

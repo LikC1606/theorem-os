@@ -32,7 +32,6 @@ import type { ResearchTeamProfile, ResearchTeamRoleContract } from "./researchTe
 import { createTeamAgentId } from "./teamAgentIds";
 import { TEAM_WAIT_LEVELS, TEAM_WAIT_LEVEL_SECONDS, type TeamWaitLevel } from "./teamWaitPolicy";
 
-export const RESEARCH_TEAM_MCP_TOOL = 'research_team' as const;
 export const RESEARCH_TEAM_MCP_ACTIONS = [
   'describe',
   'dispatch',
@@ -46,20 +45,6 @@ export const RESEARCH_TEAM_MCP_ACTIONS = [
 export type ResearchTeamMcpAction = (typeof RESEARCH_TEAM_MCP_ACTIONS)[number];
 export { TEAM_WAIT_LEVELS, TEAM_WAIT_LEVEL_SECONDS };
 export type { TeamWaitLevel };
-
-export const createResearchTeamDeferredToolRoutingPrompt = (): string =>
-  [
-    'Codex deferred MCP routing:',
-    '- Skill loading and MCP tool routing are independent checks. A missing or failed Skill does not prove that an MCP tool is absent, and a hidden MCP tool does not prove that its supporting Skill failed to load.',
-    '- MCP tools in this Team are runtime-namespaced and may be omitted from the directly displayed tool catalog. Absence there does not mean that a logical tool is unavailable.',
-    '- Before using or declaring a required MCP tool unavailable, resolve and invoke it in the same exec JavaScript cell: filter ALL_TOOLS for the unique entry whose name ends with `__<logical_tool_name>`, or, when the runtime hashes the tool name, for the unique entry whose description identifies that logical tool. Then call `await tools[match.name](arguments)`. Never assume a literal `tools.research_team`, `tools.project_workspace`, or `tools.science_artifact` handle.',
-    '- Example for the startup gate: find exactly one ALL_TOOLS entry ending in `__research_team`; if the runtime name is hashed, use the unique description beginning with the Research Team tool description instead. Call `await tools[match.name]({action:"describe"})` in that same exec cell. Apply the same pattern to the other required logical tools.',
-    '- If all required Team tools are absent on the first catalog snapshot, treat this as the bounded MCP startup race: wait briefly and repeat the resolution once. Do not conclude that the project is unsupported from that first empty snapshot. If the second check is still empty, record a retryable runtime fault, leave the loop goal active, and end the current turn without declaring the research complete; the next continuation will retry.',
-    '- Do not use an exact-interface enumeration, the directly displayed catalog, or a Skill warning as a substitute for the ALL_TOOLS suffix resolution above. Complete this gate once, then continue instead of repeating equivalent preflights.',
-    '- Do not inspect Skill folders, project files, Git state, or shell command availability to infer whether an MCP tool exists.',
-    '- Report a Team runtime fault only when the ALL_TOOLS match count is not exactly one or the resolved call returns a real unavailable or handshake error. Include the logical tool name and match count or returned error; never replace it with a generic Agent or manual Git workflow.',
-    '- Waiting is Lead-only: research_team(action="status") may use wait_level="1m", "5m", or "10m" for one bounded observation window. Omit wait_level for an immediate snapshot. Workers do not poll; Core wakes the Lead on delivery or terminal failure.',
-  ].join('\n');
 
 export type ResearchTeamRuntimeRosterMember = Readonly<{
   slotId: string;
@@ -270,46 +255,25 @@ export function createResearchTeamRuntimeRosterPrompt(input: {
   profile: ResearchTeamProfile;
   teamId: string;
   members: readonly ResearchTeamRuntimeRosterMember[];
-  headlessMathematics?: boolean;
 }): string {
-  const teamId = stableId(input.teamId, 'teamId');
+  stableId(input.teamId, 'teamId');
   const members = input.members.map(
     (member, index) =>
       `- agent_id=${createTeamAgentId(index)} role_id=${stableId(member.roleId, 'roleId')} role_kind=${member.roleKind} display_name=${JSON.stringify(requiredText(member.displayName, 'displayName'))}${member.laneId ? ` lane_id=${stableId(member.laneId, 'laneId')}` : ''}`
   );
-  if (input.headlessMathematics && input.profile.id === 'mathematics-research-team') {
-    // Derived from the roster: a second proof owner shifts the Lean slots.
-    const leanIds = input.members.flatMap((member, index) =>
-      member.laneId === 'lean-engineering' ? [createTeamAgentId(index)] : []
-    );
-    const leanText =
-      leanIds.length > 1
-        ? `${leanIds[0]} is the primary Lean Engineer and ${leanIds.slice(1).join(', ')} the second proof owner`
-        : `${leanIds[0] ?? 'A003'} is the Lean Engineer`;
-    return [
-      'Core-authenticated Research Team roster:',
-      ...members,
-      `Concurrency: ${input.profile.pool.reasoningConcurrency}. Use agent_id in target_slot_id; Core resolves and authorizes the slot.`,
-      `For proof-mainline mathematics, ${leanText}. Never copy opaque status slot_id values into dispatch; use the roster agent_id alias.`,
-    ].join('\n');
-  }
+  // Derived from the roster: a second proof owner shifts the Lean slots.
+  const leanIds = input.members.flatMap((member, index) =>
+    member.laneId === 'lean-engineering' ? [createTeamAgentId(index)] : []
+  );
+  const leanText =
+    leanIds.length > 1
+      ? `${leanIds[0]} is the primary Lean Engineer and ${leanIds.slice(1).join(', ')} the second proof owner`
+      : `${leanIds[0] ?? 'A003'} is the Lean Engineer`;
   return [
     'Core-authenticated Research Team roster:',
-    `profile_id: ${input.profile.id}`,
-    `workflow_id: ${input.profile.workflowId}`,
-    `team_id: ${teamId}`,
     ...members,
-    '',
-    '- agent_id is the real, short, session-local routing identifier accepted by the MCP tools; it is not a display placeholder. Even though the compatibility fields are named target_slot_id and target_slot_ids, pass agent_id (for example A002). The server resolves it to the canonical Core slot before authorization.',
-    '- Canonical slot ids are intentionally omitted from this routing roster. They remain server-owned audit identities for Git, runtime attribution, and delivery evidence; never guess or memorize them.',
-    `- The Lead dispatches one wave of at most ${input.profile.pool.reasoningConcurrency} independent assignments in one research_team call, then ends its turn while Workers run. Idle slots may receive a later wave only after a real delivery.`,
-    '- Roster membership means available, not summoned. Call a Worker dispatched or summoned only when that dispatch item is accepted. Report the receipt accepted_count and the exact accepted agent_id values; when a batch is partial or deferred, state the smaller real count and never imply the requested count was started.',
-    '- accepted_count=0 means no Worker started, even if the requested assignments were already named in the conversation. When blocker.code=lead_checkpoint_required, checkpoint the verified explicit Lead changes through project_workspace, rebuild every assignment from the returned full commit, and retry the wave.',
-    '- Worker delivery is event-driven through research_team(action="deliver"); do not poll each Worker or reread unchanged project state. If Core sends a terminal reconciliation message, that Worker is no longer active: inspect the named turn and explicitly retry, reassign, or continue. Never wait for a delivery that was not accepted.',
-    '- If a short observation is genuinely useful, the Lead may call research_team(action="status", wait_level="1m"|"5m"|"10m") once. This is bounded monitoring, not a completion loop; never make Workers wait or poll.',
-    '- Never call Codex native spawn_agent, wait, wait_agent, or yield_control. DeepScientist Workers are Core-managed ACP conversations, not Codex child threads; after dispatch or one status snapshot, end the current assistant turn so Core can process deliveries.',
-    '- Every Worker terminal turn produces a receipt to the Lead, including completed turns that already delivered successfully. Treat completed_with_delivery as an informational acknowledgement and completed_without_delivery/failed/cancelled as a recovery decision; never assume that a silent or waiting Worker will resume by itself.',
-    '- Mathematics Workers send the compact lane result and omit assignmentBinding; the runtime reconstructs the exact binding from the durable accepted assignment. Never restate runtime-owned binding coordinates. Kernel certification completes FORMALIZE; Workers never run a separate LOCAL_GATE or OFFICIAL_GATE wave.',
+    `Concurrency: ${input.profile.pool.reasoningConcurrency}. Use agent_id in target_slot_id; Core resolves and authorizes the slot.`,
+    `For proof-mainline mathematics, ${leanText}. Never copy opaque status slot_id values into dispatch; use the roster agent_id alias.`,
   ].join('\n');
 }
 
