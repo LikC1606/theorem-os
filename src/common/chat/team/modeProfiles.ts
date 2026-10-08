@@ -7,8 +7,6 @@ import { mathWorkspaceRoleActions } from "./mathToolContract";
 
 import { applyMathematicsResearchPolicy, type MathematicsResearchPolicyId } from "./mathematicsResearchPolicy";
 import type { ModeStack } from "../../types/modes/types";
-import { BUILTIN_IOAI_COMPETITION_NAME, BUILTIN_SCIENCE_ARTIFACT_NAME } from "../../config/builtinMcpConstants";
-import { BUILTIN_RESEARCH_EVIDENCE_NAME, BUILTIN_USER_INPUT_NAME } from "../../config/builtinMcpConstants";
 import {
   RESEARCH_TEAM_PROFILE_SCHEMA,
   RESEARCH_TEAM_MIN_AGENT_LIMIT,
@@ -30,42 +28,6 @@ export const MATHEMATICS_WORKER_ASSIGNMENT_SCOPE = [
   'For kind="formalize", own the complete original target through authorized proof and verification. Proof-owner instructions below apply only to this kind.',
   'When all useful work awaits a question, share wait_for_question_ids:["<question_id>"] and end the turn. The host freezes source/evidence; new finding, source change or ended producer releases it; [] clears it. Do not wait for every active Worker.',
 ].join('\n');
-
-/**
- * Every managed Team uses the same coordination and evidence substrate.
- * Domain MCPs are appended for the Lead, while Workers stay bounded to
- * delivery plus read-only evidence retrieval.
- */
-export const DEEPSCIENTIST_TEAM_LEAD_BASE_MCP_NAMES = Object.freeze([
-  BUILTIN_IOAI_COMPETITION_NAME,
-  BUILTIN_SCIENCE_ARTIFACT_NAME,
-  BUILTIN_RESEARCH_EVIDENCE_NAME,
-  BUILTIN_USER_INPUT_NAME,
-]);
-
-export const DEEPSCIENTIST_TEAM_WORKER_BASE_MCP_NAMES = Object.freeze([
-  BUILTIN_IOAI_COMPETITION_NAME,
-  BUILTIN_RESEARCH_EVIDENCE_NAME,
-]);
-
-export function getDeepScientistTeamRequiredMcpNames(
-  role: ResearchTeamRoleContract,
-  modeRequiredMcpNames: readonly string[]
-): readonly string[] {
-  if (role.kind === 'lead') {
-    return Array.from(new Set([...DEEPSCIENTIST_TEAM_LEAD_BASE_MCP_NAMES, ...modeRequiredMcpNames]));
-  }
-  const needsLeanWorkspace = role.laneId === 'lean-engineering' || role.laneId === 'independent-review';
-  return Array.from(
-    new Set([
-      ...DEEPSCIENTIST_TEAM_WORKER_BASE_MCP_NAMES,
-      ...(role.laneId === 'strategy-exploration' && role.id.startsWith('mathematics-research-team')
-        ? [BUILTIN_SCIENCE_ARTIFACT_NAME]
-        : []),
-      ...(needsLeanWorkspace ? [BUILTIN_SCIENCE_ARTIFACT_NAME] : []),
-    ])
-  );
-}
 
 type ProfileDescriptor = Readonly<{
   id: DeepScientistTeamModeProfileId;
@@ -208,7 +170,7 @@ export function createDeepScientistModeTeamProfile(
   modeStack: ModeStack,
   config: DeepScientistTeamConfig
 ): ResearchTeamProfile {
-  const profileDescriptor = resolveDescriptor(modeStack);
+  const profileDescriptor = DESCRIPTORS['mathematics-research-team'];
   // One persistent proof owner; auxiliary capacity is available only for useful disjoint work.
   const pool = createResearchTeamPoolContract(
     {
@@ -294,7 +256,6 @@ export function createHeadlessMathematicsTeamProfile(
     {
       agentLimit: 3,
       reasoningConcurrency: 3,
-      mathematicsRouteDiscovery: options.mathematicsRouteDiscovery ?? true,
       mathematicsSecondProofOwner: options.secondProofOwner === true && options.benchmarkMethod !== 'single_worker',
     }
   );
@@ -393,10 +354,6 @@ export function createHeadlessMathematicsTeamProfile(
       )
     ),
   });
-}
-
-function resolveDescriptor(_modeStack: ModeStack): ProfileDescriptor {
-  return DESCRIPTORS['mathematics-research-team'];
 }
 
 function createLeadRole(profileDescriptor: ProfileDescriptor, roleId: string): ResearchTeamRoleContract {
