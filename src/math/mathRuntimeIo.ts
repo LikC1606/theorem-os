@@ -3,12 +3,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 
-/** Content-addressed proof-session records, never Lean source or arbitrary drafts. */
-export const isMathWorkerProofRuntimeRecordPath = (relative: string): boolean =>
-  /^\.deepscientist\/math\/worker-proof\/[a-f0-9]{64}(?:(?:\.branch-[a-f0-9]{64}|\.identity|\.branches\.index)?\.json|\.(?:actions|attempts|observations)\.jsonl)$/u.test(
-    relative
-  );
-
 const normalizeJson = (item: unknown): unknown => {
   if (Array.isArray(item)) return item.map(normalizeJson);
   if (item && typeof item === 'object') {

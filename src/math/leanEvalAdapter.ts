@@ -9,15 +9,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { parse as parseToml } from 'smol-toml';
-import {
-  canonicalMathProblemStatementPayloads,
-  normalizeMathOfficialProblemManifest,
-  normalizeMathProblemContract,
-  type MathOfficialProblemManifest,
-  type MathProblemContract,
-} from "../common/types/team/mathematicsTeam";
+import { canonicalMathProblemStatementPayloads, normalizeMathOfficialProblemManifest, normalizeMathProblemContract, type MathOfficialProblemManifest, type MathProblemContract } from "./contracts";
 import { canonicalMathOfficialManifestPayload, hashMathFormalSourceDeclaration } from "./verifier";
-import { assertLeanEvalSubmissionComplete } from "./leanEvalHoleDag";
+import { assertLeanEvalSubmissionComplete } from "./leanEvalSubmission";
 
 const LEAN_EVAL_ADAPTER_ID = 'lean-eval' as const;
 const LEAN_EVAL_ADAPTER_VERSION = '1' as const;
@@ -77,6 +71,7 @@ export type LeanEvalProblemBinding = Readonly<{
   problemRelativePath: string;
   baselineCommit: string;
   holeNames: readonly string[];
+  publicObligations: readonly Readonly<{ name: string; kind: 'theorem' | 'def'; declarationHash: string }>[];
   solverOwnedPaths: readonly string[];
   officialManifestPath: typeof LEAN_EVAL_MANIFEST_PATH;
   authorityPath: typeof LEAN_EVAL_AUTHORITY_PATH;
@@ -494,6 +489,11 @@ export const prepareLeanEvalProblemBinding = (request: LeanEvalProblemBindingReq
     problemRelativePath,
     baselineCommit,
     holeNames,
+    publicObligations: Object.freeze(holes.map(hole => Object.freeze({
+      name: hole.name,
+      kind: hole.kind,
+      declarationHash: hashMathFormalSourceDeclaration(hole.body, hole.basename),
+    }))),
     solverOwnedPaths: Object.freeze(sortedSolverOwnedPaths),
     officialManifestPath: LEAN_EVAL_MANIFEST_PATH,
     authorityPath: LEAN_EVAL_AUTHORITY_PATH,

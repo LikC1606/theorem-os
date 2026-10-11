@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { legacyEnvName } from "../common/config/legacyIdentifiers";
+import { legacyEnvName } from "./legacyIdentifiers";
 
 // Preserve the existing key identity so saved mathematical receipts remain valid.
 export const MATH_RECEIPT_SECRET_ENV = 'DEEPSCIENTIST_FINANCE_RECEIPT_SECRET';

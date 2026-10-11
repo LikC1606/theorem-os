@@ -2,9 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import net from 'node:net';
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { z } from 'zod';
-import { assertMathCanonicalPath } from "./mathRunBinding";
+import { assertMathCanonicalPath } from "./paths";
 import { canonicalMathJson, mathDigest } from "./mathRuntimeIo";
 import { listLeanProbePackageInputs, readLeanProbeSnapshotFile } from "./leanProbeSnapshot";
 import { MATH_SEALED_ENVIRONMENT_HELPER } from "./mathSealedEnvironmentHelper";
@@ -80,6 +80,20 @@ const metadataSchema = z
     stats: statistics,
   })
   .strict();
+
+function proofEnvironmentBlocked(message: unknown): Error {
+  const reason = [
+    'requires Linux',
+    'insufficient available disk',
+    'requires squashfuse, fusermount, and mksquashfs',
+    'mksquashfs failed',
+    'squashfuse failed',
+    'could not detach immutable mount',
+    'image is not squashfs',
+    'cached image digest changed',
+  ].find(known => String(message ?? '').includes(known)) ?? 'helper failed before publication';
+  return new Error(`Proof environment blocked: ${reason}.`);
+}
 export type MathProofEnvironment = Readonly<{
   packagesRoot: string;
   identity: string;
@@ -163,48 +177,6 @@ export function resolveMathProofEnvironment(
     stats: Object.freeze(descriptor.stats),
     verify,
   });
-}
-
-/**
- * Host side of the sandbox handoff: verify the descriptor while the host pid is
- * visible, open its root, and return the bwrap arguments that bind that exact
- * directory and the lease socket at fixed sandbox paths. The caller passes the
- * returned fd as child fd 3 and closes it after spawn.
- */
-export function openMathProofEnvironmentSandboxBinding(
-  projectRoot: string,
-  env: NodeJS.ProcessEnv,
-  sandboxRoot: string
-): Readonly<{ fd: number; args: string[]; mapping: string }> | undefined {
-  const encoded = env[MATH_PROOF_ENVIRONMENT_ENV];
-  if (encoded === undefined) return undefined;
-  const { [MATH_PROOF_ENVIRONMENT_SANDBOX_ENV]: _ignored, ...hostEnv } = env;
-  const sealed = resolveMathProofEnvironment(projectRoot, hostEnv)!;
-  const descriptor = descriptorSchema.parse(JSON.parse(encoded));
-  const fd = fs.openSync(sealed.packagesRoot, fs.constants.O_RDONLY | fs.constants.O_DIRECTORY);
-  try {
-    const opened = fs.fstatSync(fd, { bigint: true });
-    if (!opened.isDirectory() || String(opened.dev) !== descriptor.device || String(opened.ino) !== descriptor.inode)
-      throw new Error('Sealed proof environment root changed before sandbox binding.');
-    const rootPath = path.posix.join(sandboxRoot, 'proof-environment');
-    const leaseSocket = path.posix.join(sandboxRoot, 'proof-environment.sock');
-    const mapping = JSON.stringify(
-      sandboxMappingSchema.parse({
-        schema: 'deepscientist.math.proof-environment-sandbox.v1',
-        identity: descriptor.identity,
-        rootPath,
-        leaseSocket,
-      })
-    );
-    return Object.freeze({
-      fd,
-      args: ['--ro-bind-fd', '3', rootPath, '--bind', descriptor.leaseSocket, leaseSocket],
-      mapping,
-    });
-  } catch (error) {
-    fs.closeSync(fd);
-    throw error;
-  }
 }
 
 /** A live socket pins the helper and base across sandbox execution and owner shutdown. */
@@ -344,6 +316,18 @@ export async function prepareMathProofEnvironment(
   const fingerprint = cache ? sourceFingerprint(inputs, config) : undefined;
   const cached = fingerprint ? cache?.read(fingerprint) : undefined;
   report(cached ? 'cache_hit' : 'cache_miss', { files: inputs.length, bytes, cacheHit: Boolean(cached) });
+  const preflight = spawnSync('/usr/bin/python3', [
+    '-c', MATH_SEALED_ENVIRONMENT_HELPER, '--check-tools', cached ? 'mount' : 'build',
+  ], {
+    env: options.env ?? process.env, encoding: 'utf8', maxBuffer: 4096,
+    timeout: Math.max(1, Math.min(5000, (options.deadlineAt ?? Infinity) - Date.now())),
+  });
+  let readiness: { state?: unknown; error?: unknown } | null;
+  try { readiness = JSON.parse(preflight.stdout || ''); }
+  catch { throw proofEnvironmentBlocked(undefined); }
+  if (preflight.error || preflight.status !== 0 || readiness?.state !== 'ready')
+    throw proofEnvironmentBlocked(readiness?.error);
+  checkpoint();
   // Source staging and its immutable disk image may coexist. This is a preparation
   // resource check, independent from the unchanged private editable-source quota.
   const capacity = fs.statfsSync('/var/tmp', { bigint: true });
@@ -370,13 +354,14 @@ export async function prepareMathProofEnvironment(
     if (!published && exportedImage) fs.rmSync(exportedImage, { force: true });
   };
   try {
+    const buffer = Buffer.alloc(1024 * 1024);
+    const readInput = (file: string, target?: string) =>
+      readLeanProbeSnapshotFile(file, checkpoint, target, buffer);
     const files: { path: string; digest: string; identity: string; mode: number }[] = [];
     for (const [index, input] of (cached ? [] : inputs).entries()) {
       report('copying_dependencies', { files: index, bytes });
       const target = path.join(source, input.relative);
-      const copied = readLeanProbeSnapshotFile(input.source, checkpoint, target);
-      const times = fs.statSync(input.source);
-      fs.utimesSync(target, times.atime, times.mtime);
+      const copied = readInput(input.source, target);
       files.push({ path: input.relative, digest: copied.digest, identity: copied.identity, mode: copied.mode });
       if (index % 64 === 0) await new Promise<void>((resolve) => setImmediate(resolve));
     }
@@ -388,7 +373,7 @@ export async function prepareMathProofEnvironment(
         throw new Error('Proof environment dependency set changed during preparation.');
       for (const [index, input] of inputs.entries()) {
         report('verifying_source', { files: index, bytes });
-        const current = readLeanProbeSnapshotFile(input.source, checkpoint);
+        const current = readInput(input.source);
         if (current.digest !== files[index].digest || current.identity !== files[index].identity)
           throw new Error('Proof environment dependency changed during preparation.');
         if (index % 64 === 0) await new Promise<void>((resolve) => setImmediate(resolve));
@@ -468,19 +453,7 @@ export async function prepareMathProofEnvironment(
         try {
           const value = JSON.parse(output.slice(0, newline));
           if (value.state !== 'ready') {
-            const message = String(value.error ?? '');
-            const reason =
-              [
-                'requires Linux',
-                'insufficient available disk',
-                'requires squashfuse, fusermount, and mksquashfs',
-                'mksquashfs failed',
-                'squashfuse failed',
-                'could not detach immutable mount',
-                'image is not squashfs',
-                'cached image digest changed',
-              ].find((known) => message.includes(known)) ?? 'helper failed before publication';
-            return finish(new Error(`Proof environment blocked: ${reason}.`));
+            return finish(proofEnvironmentBlocked(value.error));
           }
           finish(undefined, value);
         } catch {
@@ -539,7 +512,6 @@ export async function prepareMathProofEnvironment(
       canonicalMathJson(sealedPaths.toSorted()) !== canonicalMathJson(files.map((file) => file.path).toSorted())
     )
       throw new Error('Sealed proof environment input set differs from the authorized source.');
-    const buffer = Buffer.alloc(1024 * 1024);
     for (const [index, file] of files.entries()) {
       report('verifying_mounted_dependencies', { files: index, bytes });
       const fd = fs.openSync(

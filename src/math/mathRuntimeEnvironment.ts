@@ -26,27 +26,9 @@ const ENV_FILE_KEYS = new Set([
 ]);
 const OPTIONAL_ENV_FILE_KEYS = new Set([
   'DEEPSCIENTIST_MATH_PROOF_ENVIRONMENT',
-  'DEEPSCIENTIST_DEEPSEEK_TOKENIZER',
-  'DEEPSCIENTIST_MATH_INTERACTION_PROFILE',
-  'DEEPSCIENTIST_MATH_SECOND_PROOF_OWNER',
-  'DEEPSCIENTIST_MATH_PLANNING_POLICY',
-  'DEEPSCIENTIST_MATH_RESEARCH_POLICY',
   'DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS',
   'DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS_SHA256',
 ]);
-
-export const MATHEMATICS_INTERACTION_PROFILE_ENV = 'DEEPSCIENTIST_MATH_INTERACTION_PROFILE';
-/** Frozen by the runner when the Team has a second Lean Engineer proof owner. */
-export const MATHEMATICS_SECOND_PROOF_OWNER_ENV = 'DEEPSCIENTIST_MATH_SECOND_PROOF_OWNER';
-export const MATHEMATICS_LITE_INTERACTION_PROFILE = 'math-lite-v1';
-export const MATHEMATICS_PLANNING_POLICY_ENV = 'DEEPSCIENTIST_MATH_PLANNING_POLICY';
-export type MathematicsPlanningPolicy = 'current' | 'failure-guided';
-
-export function parseMathematicsPlanningPolicy(value: string | undefined): MathematicsPlanningPolicy {
-  if (value === undefined || value === 'current') return 'current';
-  if (value === 'failure-guided') return value;
-  throw new Error('math_planning_policy_invalid');
-}
 
 export const DEFAULT_MATHEMATICS_ENV_FILE = path.join(os.homedir(), '.config', 'deepscientist-math', 'math.env');
 
@@ -149,7 +131,7 @@ export function resolveMathematicsRuntimeEnvironment(
       .join(path.delimiter);
   }
   return Object.fromEntries(
-    Object.entries(merged).filter(([key]) => key === 'DEEPSCIENTIST_DEEPSEEK_TOKENIZER' || !SECRET_KEY.test(key))
+    Object.entries(merged).filter(([key]) => !SECRET_KEY.test(key))
   );
 }
 

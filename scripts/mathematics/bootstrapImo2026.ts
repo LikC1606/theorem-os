@@ -4,12 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  bootstrapImo2026Problem,
-  IMO2026_SUPPORTED_PROBLEMS,
-  readImo2026BootstrapReceipt,
-  verifyImo2026BootstrapReceipt,
-} from "../../src/math/imo2026Adapter";
+import { bootstrapImo2026Problem, IMO2026_SUPPORTED_PROBLEMS, verifyImo2026BootstrapReceipt } from "../../src/math/imo2026Adapter";
 
 const parseFlags = (argv: readonly string[]): Map<string, string> => {
   const flags = new Map<string, string>();

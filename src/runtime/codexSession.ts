@@ -12,18 +12,20 @@ export type MathAgentOptions = {
   model: string;
   effort: string;
   instructions: string;
-  mcpServers: Json;
+  environment?: NodeJS.ProcessEnv;
   threadId?: string;
+  turnTimeoutMs?: number;
   onUsage: (usage: Json) => void;
 };
 export type MathAgentSession = {
   threadId: string;
+  readonly lastError?: string;
   run: (message: string, messageId: string, workspace: string, onStarted: (turnId: string) => void) => Promise<string>;
   interrupt: () => Promise<void>;
   close: () => Promise<void>;
 };
 
-/** One persistent Codex app-server per role; all protocol traffic stays on stdio. */
+/** One persistent Codex app-server; all protocol traffic stays on stdio. */
 class CodexRpc {
   private child: ChildProcessWithoutNullStreams;
   private nextId = 0;
@@ -33,9 +35,9 @@ class CodexRpc {
   onNotification: (method: string, params: Json) => void = () => {};
   onFailure: (error: Error) => void = () => {};
 
-  constructor(executable: string, profile: string) {
+  constructor(executable: string, profile: string, environment: NodeJS.ProcessEnv = process.env) {
     this.child = spawn(executable, ['app-server', '--listen', 'stdio://'], {
-      env: { ...process.env, CODEX_HOME: profile }, stdio: 'pipe',
+      env: { ...environment, CODEX_HOME: profile }, stdio: 'pipe',
     });
     // Do not forward provider diagnostics, which can contain credentials or task text.
     this.child.stderr.resume();
@@ -102,10 +104,11 @@ class CodexRpc {
 }
 
 export async function createCodexMathSession(options: MathAgentOptions): Promise<MathAgentSession> {
-  const rpc = new CodexRpc(options.executable, options.profile);
+  const rpc = new CodexRpc(options.executable, options.profile, options.environment);
   let activeTurn: string | undefined;
-  let completion: { resolve: (status: string) => void; reject: (error: Error) => void } | undefined;
-  const earlyCompletions = new Map<string, string>();
+  let completion: { resolve: (turn: Json) => void; reject: (error: Error) => void } | undefined;
+  const earlyCompletions = new Map<string, Json>();
+  let lastError: string | undefined;
   let transportFailure: Error | undefined;
   rpc.onFailure = error => { transportFailure = error; completion?.reject(error); };
   rpc.onNotification = (method, params) => {
@@ -113,8 +116,8 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
     if (method === 'turn/completed') {
       const turn = params.turn;
       if (!turn || typeof turn.id !== 'string') return;
-      if (turn.id === activeTurn && completion) completion.resolve(turn.status);
-      else earlyCompletions.set(turn.id, turn.status);
+      if (turn.id === activeTurn && completion) completion.resolve(turn);
+      else earlyCompletions.set(turn.id, turn);
     }
   };
   try {
@@ -127,7 +130,7 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
       approvalPolicy: 'never', sandbox: 'workspace-write',
       developerInstructions: options.instructions,
       config: {
-        mcp_servers: { ...disabled, ...options.mcpServers },
+        mcp_servers: disabled,
         model_reasoning_effort: options.effort,
         'sandbox_workspace_write.network_access': true,
       },
@@ -137,37 +140,25 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
     });
     const threadId = result.thread?.id;
     if (typeof threadId !== 'string' || !threadId) throw new Error('math_codex_thread_missing');
+    if (options.threadId && threadId !== options.threadId) throw new Error('math_codex_session_binding_mismatch');
     if (result.model !== options.model || result.reasoningEffort !== options.effort || result.approvalPolicy !== 'never')
       throw new Error('math_codex_session_binding_mismatch');
-    // Check the actual role catalog before allowing its first model turn.
-    const deadline = Date.now() + 60_000;
-    for (;;) {
-      let cursor: string | null = null;
-      const catalogs: Json[] = [];
-      do {
-        const page = await rpc.request('mcpServerStatus/list', { threadId, cursor, limit: 100 });
-        if (!Array.isArray(page.data)) throw new Error('math_codex_mcp_catalog_invalid');
-        catalogs.push(...page.data);
-        cursor = page.nextCursor ?? null;
-      } while (cursor);
-      if (Object.keys(options.mcpServers).every(name => {
-        const catalog = catalogs.find(item => item.name === name);
-        return catalog && !catalog.toolsError && Object.keys(catalog.tools ?? {}).length && catalog.runtimeStatus === 'connected';
-      })) break;
-      if (Date.now() >= deadline) throw new Error('math_codex_mcp_not_ready');
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
     return {
       threadId,
+      get lastError() { return lastError; },
       run: async (message, messageId, workspace, onStarted) => {
         if (transportFailure) throw transportFailure;
         if (completion) throw new Error('math_codex_turn_already_running');
-        let resolve!: (status: string) => void;
+        lastError = undefined;
+        let resolve!: (turn: Json) => void;
         let reject!: (error: Error) => void;
-        const done = new Promise<string>((yes, no) => { resolve = yes; reject = no; });
+        const done = new Promise<Json>((yes, no) => { resolve = yes; reject = no; });
         // Attach immediately so a transport failure during turn/start is handled.
         void done.catch(() => {});
         completion = { resolve, reject };
+        let checkpoint = false;
+        let timer: NodeJS.Timeout | undefined;
+        let interruptDeadline: NodeJS.Timeout | undefined;
         try {
           const started = await rpc.request('turn/start', {
             threadId, clientUserMessageId: messageId, cwd: workspace,
@@ -178,11 +169,22 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
           activeTurn = started.turn?.id;
           if (!activeTurn) throw new Error('math_codex_turn_missing');
           onStarted(activeTurn);
+          if (options.turnTimeoutMs) timer = setTimeout(() => {
+            checkpoint = true;
+            // Only check sources after turn/completed confirms the writer stopped.
+            interruptDeadline = setTimeout(() => { void rpc.close(); }, 10_000);
+            void rpc.request('turn/interrupt', { threadId, turnId: activeTurn }).catch(() => { void rpc.close(); });
+          }, options.turnTimeoutMs);
           const early = earlyCompletions.get(activeTurn);
           earlyCompletions.delete(activeTurn);
           if (early) resolve(early);
-          return await done;
-        } finally { activeTurn = undefined; completion = undefined; }
+          const finished = await done;
+          if (finished.status === 'failed' && typeof finished.error?.message === 'string') lastError = finished.error.message;
+          return checkpoint && finished.status === 'interrupted' ? 'checkpoint' : finished.status;
+        } finally {
+          clearTimeout(timer); clearTimeout(interruptDeadline);
+          activeTurn = undefined; completion = undefined;
+        }
       },
       interrupt: async () => {
         if (activeTurn) await rpc.request('turn/interrupt', { threadId, turnId: activeTurn });

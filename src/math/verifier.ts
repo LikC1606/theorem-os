@@ -1,3 +1,4 @@
+
 import { resolveMathProofEnvironment, acquireMathProofEnvironmentLease } from "./mathProofEnvironment";
 /**
  * @license
@@ -6,44 +7,17 @@ import { resolveMathProofEnvironment, acquireMathProofEnvironmentLease } from ".
  */
 
 import crypto from 'node:crypto';
-import { assertMathConstructionSources, pruneMathConstructionCheckout } from "./mathConstructionSources";
+import { assertMathConstructionSources, mathLocalModuleBuildOrder, pruneMathConstructionCheckout } from "./mathConstructionSources";
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
-import type { SharedLeanPackagesLease } from "./leanSharedPackages";
 import os from 'node:os';
 import path from 'node:path';
-import {
-  MATHEMATICS_VERIFICATION_EVENT_SCHEMA,
-  type MathematicsVerificationEvent,
-  type MathematicsVerificationEventKind,
-  type MathematicsVerificationEventPayloadMap,
-  type MathematicsVerificationCapability,
-} from "../common/chat/mathematics";
-import {
-  assertMathProblemContractMatchesOfficialManifest,
-  isMathFoundationalLeanAxiom,
-  normalizeMathOfficialProblemManifest,
-  type MathOfficialProblemManifest,
-  type MathProblemContract,
-} from "../common/types/team/mathematicsTeam";
+import { MATHEMATICS_VERIFICATION_EVENT_SCHEMA, type MathematicsVerificationEvent, type MathematicsVerificationEventKind, type MathematicsVerificationEventPayloadMap } from "./leanTypes";
+import { assertMathProblemContractMatchesOfficialManifest, isMathFoundationalLeanAxiom, normalizeMathOfficialProblemManifest, type MathOfficialProblemManifest, type MathProblemContract } from "./contracts";
 import { readMathematicsReceiptSecret } from "./receiptAttestation";
 import { resolveMathematicsRuntimeEnvironment } from "./mathRuntimeEnvironment";
-import { isMathWorkerProofRuntimeRecordPath } from "./mathRuntimeIo";
-
-export type { MathematicsVerificationEvent, MathematicsVerificationEventKind } from "../common/chat/mathematics";
-
-export type MathematicsVerifierRequest = {
-  projectRoot: string;
-  proofPath: string;
-  theoremName?: string;
-  statementHash: string;
-  /** Hash of the canonical Lean proposition from the immutable problem contract. */
-  leanStatementHash?: string;
-  expectedSourceDeclarationHash?: string;
-  claim?: 'statement' | 'negation';
-  targetCommit?: string;
-  timeoutMs?: number;
-};
+import { createMathOperationLimiter } from "./concurrency";
+import { maskLeanCommentsAndStrings } from "./leanSyntax";
 
 export type MathematicsVerifierBatchItem = {
   id?: string;
@@ -61,8 +35,9 @@ export type MathematicsVerifierBatchRequest = {
   projectRoot: string;
   items: MathematicsVerifierBatchItem[];
   targetCommit?: string;
+  /** Positive Infinity disables the per-file deadline. */
   timeoutMs?: number;
-  /** Overall deadline for preparation plus all unique proof files. */
+  /** Overall deadline for preparation plus all unique proof files; Infinity disables it. */
   batchTimeoutMs?: number;
 };
 
@@ -80,11 +55,11 @@ export type MathematicsVerifierExecutionOptions = {
   trustedLakePackagesRoots?: readonly string[];
   verifierCommandPath?: string;
   onEvent?: (event: MathematicsVerificationEvent) => void;
-  /** Build the selected helper module in the disposable checkout, excluding unrelated drafts. */
+  /** Compile project-local imports in the disposable checkout without rebuilding packages. */
   prepareLocalDependencies?: boolean;
   /** Restrict source staging to construction files while preserving verifier source checks. */
   constructionSourcesOnly?: boolean;
-  /** Exact closed type checked after importing the helper outside its source section. */
+  /** Exact closed type checked outside the source section, inline or after a module import. */
   expectedDeclarationType?: string;
   forbiddenImportModules?: readonly string[];
   /** Report which selected declarations occur in the compiled proof dependency closure. */
@@ -145,7 +120,7 @@ export type MathematicsOfficialComparatorRequest = {
   /** Relative path in the committed checkout to the official problem manifest. */
   officialManifestPath?: string;
   officialManifest?: MathOfficialProblemManifest;
-  /** Immutable contract recovered from the Team portfolio. */
+  /** Frozen contract for the original problem. */
   expectedContract?: MathProblemContract;
   problemId?: string;
   statementHash?: string;
@@ -534,10 +509,17 @@ const resolveLakePackagesCaches = (projectRoot: string, env: NodeJS.ProcessEnv =
 const seedDetachedLakeCache = (
   sourceProjectRoot: string,
   targetProjectRoot: string,
-  env: NodeJS.ProcessEnv = process.env
+  env: NodeJS.ProcessEnv = process.env,
+  prepareManifest = false
 ): string | undefined => {
   const sourceManifest = path.join(sourceProjectRoot, 'lake-manifest.json');
   const targetManifest = path.join(targetProjectRoot, 'lake-manifest.json');
+  // An ignored bootstrap lock is usable only with its verified, pinned cache.
+  if (prepareManifest && !fs.existsSync(targetManifest) && fs.existsSync(sourceManifest)) {
+    assertNoSymlinkTraversal(sourceProjectRoot, sourceManifest, 'Helper package manifest');
+    if (resolveVerifiedLakePackagesCache(sourceProjectRoot, sourceProjectRoot, env))
+      fs.copyFileSync(sourceManifest, targetManifest, fs.constants.COPYFILE_EXCL);
+  }
   let packageLockMatches = false;
   try {
     packageLockMatches =
@@ -550,7 +532,14 @@ const seedDetachedLakeCache = (
   const packages = packageLockMatches
     ? resolveVerifiedLakePackagesCache(sourceProjectRoot, targetProjectRoot, env)
     : undefined;
-  if (packages) fs.mkdirSync(path.join(targetProjectRoot, '.lake', 'packages'), { recursive: true });
+  if (packages) {
+    fs.mkdirSync(path.join(targetProjectRoot, '.lake', 'packages'), { recursive: true });
+    assertNoSymlinkTraversal(targetProjectRoot, path.join(targetProjectRoot, '.lake'), 'Lake cache directory');
+    const overridesPath = path.join(targetProjectRoot, '.lake', 'package-overrides.json');
+    if (fs.existsSync(overridesPath)) assertNoSymlinkTraversal(targetProjectRoot, overridesPath, 'Lake package overrides');
+    // The sandbox replaces these entries with paths to the verified cache.
+    fs.writeFileSync(overridesPath, JSON.stringify({ schemaVersion: '1.2.0', packages: [] }) + '\n', { mode: 0o600 });
+  }
   // Never copy generated build output into an immutable checkout.  Build
   // products may contain artifacts produced by a different target commit;
   // Lean/Lake must rebuild them in the disposable checkout instead.
@@ -667,10 +656,8 @@ const BWRAP_RESERVED_ROOTS = [
   '/runtime',
 ];
 /**
- * A Worker worktree links .lake/packages to the Team package cache with an
- * absolute path. Inside bwrap that link dangles, so the probe was refused with
- * "mount target must be a regular directory" (run 23). The trusted cache is then
- * bound at the link's own absolute target instead; the link only picks a path,
+ * A worktree may link .lake/packages to an external cache. Inside bwrap the
+ * link dangles, so bind the cache at the link's absolute target. The link only picks a path,
  * never the content, and cannot name a sandbox-owned or checkout path.
  * Returns that sandbox mount path, or undefined for an ordinary directory.
  */
@@ -748,113 +735,11 @@ const assertNoSymlinkTraversal = (
   return canonicalTarget;
 };
 
-let activeVerificationCount = 0;
-type VerificationWaiter = {
-  resolve: () => void;
-  reject: (reason?: unknown) => void;
-  signal?: AbortSignal;
-  onAbort?: () => void;
-  cancelled: boolean;
-};
-const verificationWaiters: VerificationWaiter[] = [];
-
 const abortReason = (signal: AbortSignal): unknown => signal.reason ?? new DOMException('Aborted', 'AbortError');
 
-const wakeNextVerificationWaiter = (): void => {
-  while (verificationWaiters.length > 0) {
-    const waiter = verificationWaiters.shift();
-    if (!waiter || waiter.cancelled) continue;
-    if (waiter.signal && waiter.onAbort) waiter.signal.removeEventListener('abort', waiter.onAbort);
-    waiter.resolve();
-    return;
-  }
-};
-
-const withVerificationSlot = async <T>(operation: () => Promise<T>, signal?: AbortSignal): Promise<T> => {
-  if (signal?.aborted) throw abortReason(signal);
-  if (activeVerificationCount >= configuredVerificationConcurrency()) {
-    await new Promise<void>((resolve, reject) => {
-      const waiter: VerificationWaiter = { resolve, reject, signal, cancelled: false };
-      const onAbort = (): void => {
-        waiter.cancelled = true;
-        const index = verificationWaiters.indexOf(waiter);
-        if (index >= 0) verificationWaiters.splice(index, 1);
-        reject(abortReason(signal as AbortSignal));
-      };
-      waiter.onAbort = onAbort;
-      if (signal) {
-        if (signal.aborted) {
-          onAbort();
-          return;
-        }
-        signal.addEventListener('abort', onAbort, { once: true });
-      }
-      verificationWaiters.push(waiter);
-    });
-    if (signal?.aborted) throw abortReason(signal);
-  }
-  activeVerificationCount += 1;
-  try {
-    return await operation();
-  } finally {
-    activeVerificationCount -= 1;
-    wakeNextVerificationWaiter();
-  }
-};
-
-// Batch slots and Lean process slots are separate resources: one batch may
-// contain several independent files, while the host still needs one global
-// ceiling for actual toolchain processes.
-let activeLeanProcessCount = 0;
-const leanProcessWaiters: VerificationWaiter[] = [];
-const VERIFIER_CAPABILITY_CACHE_TTL_MS = 30_000;
-const VERIFIER_CAPABILITY_CACHE_MAX_ENTRIES = 64;
-const verifierCapabilityCache = new Map<
-  string,
-  Readonly<{ expiresAt: number; value: MathematicsVerificationCapability }>
->();
-
-const wakeNextLeanProcessWaiter = (): void => {
-  while (leanProcessWaiters.length > 0) {
-    const waiter = leanProcessWaiters.shift();
-    if (!waiter || waiter.cancelled) continue;
-    if (waiter.signal && waiter.onAbort) waiter.signal.removeEventListener('abort', waiter.onAbort);
-    waiter.resolve();
-    return;
-  }
-};
-
-const withLeanProcessSlot = async <T>(operation: () => Promise<T>, signal?: AbortSignal): Promise<T> => {
-  if (signal?.aborted) throw abortReason(signal);
-  if (activeLeanProcessCount >= configuredVerificationConcurrency()) {
-    await new Promise<void>((resolve, reject) => {
-      const waiter: VerificationWaiter = { resolve, reject, signal, cancelled: false };
-      const onAbort = (): void => {
-        waiter.cancelled = true;
-        const index = leanProcessWaiters.indexOf(waiter);
-        if (index >= 0) leanProcessWaiters.splice(index, 1);
-        reject(abortReason(signal as AbortSignal));
-      };
-      waiter.onAbort = onAbort;
-      if (signal) {
-        if (signal.aborted) {
-          onAbort();
-          return;
-        }
-        signal.addEventListener('abort', onAbort, { once: true });
-      }
-      leanProcessWaiters.push(waiter);
-    });
-    if (signal?.aborted) throw abortReason(signal);
-  }
-  activeLeanProcessCount += 1;
-  try {
-    return await operation();
-  } finally {
-    activeLeanProcessCount -= 1;
-    wakeNextLeanProcessWaiter();
-  }
-};
+// A batch can contain several files, so batches and Lean processes need separate pools.
+const withVerificationSlot = createMathOperationLimiter(configuredVerificationConcurrency);
+const withLeanProcessSlot = createMathOperationLimiter(configuredVerificationConcurrency);
 
 const appendTail = (current: string, chunk: Buffer | string): string => {
   const value = chunk.toString();
@@ -873,6 +758,7 @@ const preview = (value: string | null | undefined): string | undefined => {
 
 const clampTimeout = (timeoutMs: number | undefined): number => {
   if (timeoutMs === undefined) return DEFAULT_TIMEOUT_MS;
+  if (timeoutMs === Infinity) return Infinity;
   if (!Number.isFinite(timeoutMs) || timeoutMs < MIN_TIMEOUT_MS) {
     throw new Error(`formal_verifier timeoutMs must be at least ${MIN_TIMEOUT_MS}.`);
   }
@@ -881,6 +767,7 @@ const clampTimeout = (timeoutMs: number | undefined): number => {
 
 const clampBatchTimeout = (timeoutMs: number | undefined): number => {
   if (timeoutMs === undefined) return DEFAULT_BATCH_TIMEOUT_MS;
+  if (timeoutMs === Infinity) return Infinity;
   if (!Number.isFinite(timeoutMs) || timeoutMs < MIN_TIMEOUT_MS) {
     throw new Error(`formal_verifier batchTimeoutMs must be at least ${MIN_TIMEOUT_MS}.`);
   }
@@ -905,9 +792,6 @@ const stopProcess = (child: ChildProcess, signal: NodeJS.Signals): void => {
 };
 
 const liveDuplexChildren = new Set<ChildProcess>();
-process.once('exit', () => {
-  for (const child of liveDuplexChildren) stopProcess(child, 'SIGTERM');
-});
 
 const runProcess = (
   command: string,
@@ -1025,7 +909,7 @@ const runProcess = (
       options.onDuplexSpawn(child);
       return;
     }
-    timeout = setTimeout(() => {
+    if (Number.isFinite(options.timeoutMs)) timeout = setTimeout(() => {
       timedOut = true;
       requestStop();
     }, options.timeoutMs);
@@ -1075,6 +959,7 @@ const cleanupVerifierWorktree = async (
 
 const clampOfficialTimeout = (timeoutMs: number | undefined): number => {
   if (timeoutMs === undefined) return DEFAULT_OFFICIAL_TIMEOUT_MS;
+  if (timeoutMs === Infinity) return Infinity;
   if (!Number.isFinite(timeoutMs) || timeoutMs < MIN_TIMEOUT_MS) {
     throw new Error(`Official comparator timeoutMs must be at least ${MIN_TIMEOUT_MS}.`);
   }
@@ -1702,7 +1587,6 @@ const runLeanSandboxed = async (input: {
   lakePackagesPath?: string;
   /** Sandbox path of a linked .lake/packages target; supported only by bwrap. */
   lakePackagesMountPath?: string;
-  sharedPackages?: SharedLeanPackagesLease;
   outputCapture?: 'head' | 'tail';
   onDuplexSpawn?: (child: ChildProcess) => void;
 }): Promise<ProcessResult> => {
@@ -1734,19 +1618,10 @@ const runLeanSandboxed = async (input: {
     }
     if (proofLease && input.lakePackagesPath !== proofLease.packagesRoot)
       return unavailableProcessResult('Lean sandbox sealed package binding mismatch.');
-    if (proofLease && input.sharedPackages)
-      return unavailableProcessResult('Sealed proof environments cannot be combined with shared Lean packages.');
-    // Callers that run on a live Worker project (the capability preflight) do not
-    // resolve the mount point themselves. There `.lake/packages` is an absolute
-    // link to the Team cache; binding onto the link makes bwrap follow it inside
-    // the new root, where it dangles ("Can't bind mount ... on
-    // /newroot/workspace/.lake/packages: No such file or directory", run 23
-    // attempt 10). Bind at the validated link target instead, like
-    // runMathematicsSandboxedCommand does.
+    // Bind linked package caches at their validated target inside the sandbox.
     if (
       input.lakePackagesPath &&
       !input.lakePackagesMountPath &&
-      !input.sharedPackages &&
       fs
         .lstatSync(path.join(input.checkoutRoot, input.projectRelative, '.lake', 'packages'), {
           throwIfNoEntry: false,
@@ -1766,15 +1641,13 @@ const runLeanSandboxed = async (input: {
     const environmentKey = sandboxEnvironmentKey(input.env);
     const capability = inspectMathematicsSandboxBackends(input.env || process.env);
     const unavailableReason = sandboxUnavailableReasons.get(environmentKey);
-    if (unavailableReason && !input.sharedPackages) return unavailableProcessResult(unavailableReason);
+    if (unavailableReason) return unavailableProcessResult(unavailableReason);
     // A procfs magic link cannot safely be resolved again inside a new user
     // namespace or by a container daemon. Bind the already verified descriptor.
     // Other existing backends currently have no equivalent descriptor handoff.
-    const backends = input.sharedPackages
-      ? [{ kind: 'bwrap' as const, executable: '/usr/bin/bwrap' }]
-      : resolveSandboxBackends(input.env).filter(
-          (backend) => (!proofLease && !input.lakePackagesMountPath) || backend.kind === 'bwrap'
-        );
+    const backends = resolveSandboxBackends(input.env).filter(
+      (backend) => (!proofLease && !input.lakePackagesMountPath) || backend.kind === 'bwrap'
+    );
     if (backends.length === 0) {
       if (proofLease)
         return unavailableProcessResult('Sealed proof environments require the bwrap file-descriptor mount backend.');
@@ -1807,13 +1680,19 @@ const runLeanSandboxed = async (input: {
       input.env,
       trustedElanHome
     );
+    // Elan may link a toolchain outside ELAN_HOME. Mount the selected real
+    // installation, so neither that link nor a relative path can escape it.
+    const mountedElanHome = trustedToolchainBin ? path.dirname(trustedToolchainBin) : trustedElanHome;
     const mountedToolchainBin = trustedToolchainBin
-      ? `/toolchains/elan/${path.relative(trustedElanHome, trustedToolchainBin).replaceAll(path.sep, '/')}`
+      ? '/toolchains/elan/bin'
       : '';
     const trustedCommandRoot = (candidate: string): boolean => {
       try {
         const canonical = fs.realpathSync(candidate);
-        return Boolean(trustedElanHome && canonical === path.join(trustedElanHome, 'bin', sandboxCommand));
+        return Boolean(
+          (trustedElanHome && canonical === path.join(trustedElanHome, 'bin', sandboxCommand)) ||
+          (trustedToolchainBin && canonical === path.join(trustedToolchainBin, sandboxCommand))
+        );
       } catch {
         return false;
       }
@@ -1858,21 +1737,16 @@ exec /runtime/pinned-lean/bin/lean "$@" -j1
     if (input.lakePackagesPath && (proofLease || fs.existsSync(projectOverridesPath))) {
       if (proofLease && !fs.existsSync(projectOverridesPath)) {
         fs.mkdirSync(path.dirname(projectOverridesPath), { recursive: true, mode: 0o700 });
-        // This file is only a bind-mount target, but it lands in the Worker's real
-        // project: a bare `{}` made every later local `lake` fail with "property
-        // not found: schemaVersion" (run 23 attempt 10). Keep it a valid, empty
-        // override so host-side Lake still resolves the pinned manifest.
+        // Lake also reads this mount target on the host, so use a valid empty override.
         fs.writeFileSync(projectOverridesPath, `${JSON.stringify({ schemaVersion: '1.2.0', packages: [] })}\n`, {
           flag: 'wx',
           mode: 0o600,
         });
       }
       sandboxPackageOverridesPath = path.join(temporaryRoot, 'package-overrides.json');
-      const manifest = proofLease
-        ? JSON.parse(
-            fs.readFileSync(path.join(input.checkoutRoot, input.projectRelative, 'lake-manifest.json'), 'utf8')
-          )
-        : { packages: [] };
+      const manifest = JSON.parse(
+        fs.readFileSync(path.join(input.checkoutRoot, input.projectRelative, 'lake-manifest.json'), 'utf8')
+      );
       const packages = manifest.packages.map((entry: Record<string, unknown>) => {
         const name = typeof entry.name === 'string' ? entry.name : '';
         if (!name || /[/\\]/u.test(name) || name.includes('\0') || name === '.' || name === '..')
@@ -1927,46 +1801,17 @@ exec /runtime/pinned-lean/bin/lean "$@" -j1
     const runtimeRoot = path.resolve(path.dirname(nodeExecutable || process.execPath), '..');
     const configuredRuntimeRoot =
       input.env?.DEEPSCIENTIST_MATH_TRUSTED_RUNTIME_ROOT || process.env.DEEPSCIENTIST_MATH_TRUSTED_RUNTIME_ROOT;
+    const configuredToolsRoot = input.env?.DEEPSCIENTIST_LEAN_EVAL_TOOLS_ROOT;
     let trustedRuntimeRoot = '';
-    if (customCommand) {
+    if (customCommand || configuredToolsRoot) {
       try {
-        const canonicalRuntime = fs.realpathSync(configuredRuntimeRoot || runtimeRoot);
+        const canonicalRuntime = fs.realpathSync(customCommand ? configuredRuntimeRoot || runtimeRoot : configuredToolsRoot!);
         if (fs.statSync(canonicalRuntime).isDirectory()) trustedRuntimeRoot = canonicalRuntime;
       } catch {
         trustedRuntimeRoot = '';
       }
     }
     try {
-      const mountedElanHome = trustedElanHome;
-      if (input.sharedPackages) {
-        const { assertSharedLeanPackagesLease } = await import("./leanSharedPackages");
-        assertSharedLeanPackagesLease(input.sharedPackages);
-        if (input.onDuplexSpawn)
-          return unavailableProcessResult('Shared Lean dependency leases do not support persistent sessions.');
-        const result = await input.sharedPackages.run(
-          buildBwrapArguments({
-            candidateRoot: input.checkoutRoot,
-            projectRelative: input.projectRelative.replaceAll(path.sep, '/'),
-            toolchainRoot: mountedElanHome,
-            toolchainBin: mountedToolchainBin,
-            runtimeRoot: trustedRuntimeRoot,
-            lakePackagesPath: '__DEEPSCIENTIST_SHARED_PACKAGES__',
-            writablePackageOverlay: true,
-            command: commandForSandbox,
-            commandArgs: input.args,
-            testCounter: testCounterPath ? '/workspace/.deepscientist-test-counter' : '',
-            testAxioms: input.env?.DEEPSCIENTIST_TEST_LEAN_AXIOMS || '',
-          }),
-          {
-            cwd: path.join(input.checkoutRoot, input.projectRelative),
-            timeoutMs: input.timeoutMs,
-            signal: input.signal,
-            stdin: input.stdin,
-            outputCapture: input.outputCapture,
-          }
-        );
-        return { ...result, sandboxBackend: 'bwrap' };
-      }
       const runBackend = (backend: MathematicsSandboxBackend): Promise<ProcessResult> =>
         backend.kind === 'unshare'
           ? runProcess(
@@ -2136,7 +1981,6 @@ export async function runMathematicsSandboxedCommand(input: {
   env?: NodeJS.ProcessEnv;
   lakePackagesPath?: string;
   /** Opaque host-owned transport for immutable construction-time packages. */
-  sharedPackages?: SharedLeanPackagesLease;
   /** Preserve the first bounded output segment for JSON-lines diagnostic consumers. */
   outputCapture?: 'head' | 'tail';
   /** Use package copies already inside a disposable checkout without attaching shared caches. */
@@ -2191,12 +2035,6 @@ export async function runMathematicsSandboxedCommand(input: {
   }
   const sealed = resolveMathProofEnvironment(projectRoot, runtimeEnv);
   let lakePackagesPath: string | undefined;
-  if (input.sharedPackages) {
-    const { assertSharedLeanPackagesLease } = await import("./leanSharedPackages");
-    assertSharedLeanPackagesLease(input.sharedPackages);
-    if (!input.useWorkspacePackagesOnly || input.lakePackagesPath || input.onDuplexSpawn)
-      return unavailableProcessResult('Shared Lean packages require a disposable workspace and a bounded command.');
-  }
   if (input.useWorkspacePackagesOnly && input.lakePackagesPath) {
     return unavailableProcessResult('Private workspace packages cannot be combined with an external package mount.');
   }
@@ -2236,67 +2074,8 @@ export async function runMathematicsSandboxedCommand(input: {
     signal: input.signal,
     env: runtimeEnv,
     lakePackagesPath,
-    sharedPackages: input.sharedPackages,
     outputCapture: input.outputCapture,
     onDuplexSpawn: input.onDuplexSpawn,
-  });
-}
-
-export type MathematicsSandboxDuplex = Readonly<{
-  input: NonNullable<ChildProcess['stdin']>;
-  output: NonNullable<ChildProcess['stdout']>;
-  done: Promise<MathematicsSandboxCommandResult>;
-  close: () => Promise<void>;
-}>;
-
-/** Start a duplex command through the same mounts and executable policy as verification. */
-export function startMathematicsSandboxedSession(
-  input: Omit<Parameters<typeof runMathematicsSandboxedCommand>[0], 'stdin' | 'onDuplexSpawn' | 'timeoutMs'>
-): Promise<MathematicsSandboxDuplex> {
-  return new Promise((resolve, reject) => {
-    const controller = new AbortController();
-    const abort = () => controller.abort(input.signal?.reason);
-    input.signal?.addEventListener('abort', abort, { once: true });
-    if (input.signal?.aborted) abort();
-    let supplied = false;
-    const done = runMathematicsSandboxedCommand({
-      ...input,
-      signal: controller.signal,
-      timeoutMs: 0,
-      onDuplexSpawn: (child) => {
-        if (supplied) return;
-        supplied = true;
-        // Let the command promise initialize before exposing its lifetime handle.
-        queueMicrotask(() => {
-          if (!child.stdin || !child.stdout) {
-            controller.abort();
-            reject(new Error('Lean sandbox did not provide duplex streams'));
-            return;
-          }
-          resolve(
-            Object.freeze({
-              input: child.stdin,
-              output: child.stdout,
-              done,
-              close: async () => {
-                controller.abort();
-                await done;
-              },
-            })
-          );
-        });
-      },
-    });
-    void done.then(
-      (result) => {
-        input.signal?.removeEventListener('abort', abort);
-        if (!supplied) reject(new Error(result.errorMessage || 'Lean sandbox session could not start'));
-      },
-      (error) => {
-        input.signal?.removeEventListener('abort', abort);
-        reject(error);
-      }
-    );
   });
 }
 
@@ -2322,19 +2101,7 @@ const readGitStatus = async (
   options: MathematicsVerifierExecutionOptions
 ): Promise<{ ok: boolean; output?: string }> => {
   const result = await runGit(projectRoot, ['status', '--porcelain=v1', '--untracked-files=all'], options);
-  const output = String(result.stdout || '')
-    .split(/\r?\n/u)
-    .filter((line) => {
-      const filePath = line.slice(3).trim();
-      return !(
-        filePath === 'mathematics/verification-trace.json' ||
-        filePath === '.deepscientist/science-artifacts/mathematics/verification-live.json' ||
-        filePath.startsWith('.deepscientist/science-artifacts/math-research-handoffs/') ||
-        filePath.startsWith('mathematics/report-traces/') ||
-        (line.startsWith('?? ') && isMathWorkerProofRuntimeRecordPath(filePath))
-      );
-    })
-    .join('\n');
+  const output = String(result.stdout || '');
   return {
     ok: result.exitCode === 0,
     output: preview(output) || preview(result.stderr),
@@ -2405,77 +2172,10 @@ const readGitBlobIds = async (
   return result;
 };
 
-const stripLeanCommentsAndStrings = (source: string, keepStrings = false): string => {
-  const chunks: string[] = [];
-  let visibleStart = 0;
-  let hiddenStart = -1;
-  let blockDepth = 0;
-  let inLineComment = false;
-  let inString = false;
-  let escaped = false;
-  const beginHidden = (index: number): void => {
-    chunks.push(source.slice(visibleStart, index));
-    hiddenStart = index;
-  };
-  const endHidden = (index: number): void => {
-    chunks.push(' ');
-    visibleStart = index;
-    hiddenStart = -1;
-  };
-  for (let index = 0; index < source.length; index += 1) {
-    const current = source[index];
-    const next = source[index + 1];
-    if (inLineComment) {
-      if (current === '\n') {
-        inLineComment = false;
-        endHidden(index + 1);
-      }
-      continue;
-    }
-    if (blockDepth > 0) {
-      if (current === '/' && next === '-') {
-        blockDepth += 1;
-        index += 1;
-      } else if (current === '-' && next === '/') {
-        blockDepth -= 1;
-        if (blockDepth === 0) endHidden(index + 2);
-        index += 1;
-      }
-      continue;
-    }
-    if (inString) {
-      if (escaped) escaped = false;
-      else if (current === '\\') escaped = true;
-      else if (current === '"') {
-        inString = false;
-        if (!keepStrings) endHidden(index + 1);
-      }
-      continue;
-    }
-    if (current === '-' && next === '-') {
-      beginHidden(index);
-      inLineComment = true;
-      index += 1;
-    } else if (current === '/' && next === '-') {
-      beginHidden(index);
-      blockDepth = 1;
-      index += 1;
-    } else if (current === '"') {
-      if (!keepStrings) beginHidden(index);
-      inString = true;
-    }
-  }
-  if (hiddenStart >= 0) endHidden(source.length);
-  else chunks.push(source.slice(visibleStart));
-  return chunks.join('');
-};
-
-export const stripLeanComments = (source: string): string => stripLeanCommentsAndStrings(source, true);
-
 export const inspectLeanSource = (
   source: string
 ): Pick<MathematicsVerifierResult, 'sorryCount' | 'admitCount' | 'axioms'> => {
-  const inspectedSource = stripLeanCommentsAndStrings(source);
+  const inspectedSource = maskLeanCommentsAndStrings(source);
   let sorryCount = 0;
   let admitCount = 0;
   const axioms: string[] = [];
@@ -2502,6 +2202,7 @@ type LeanSourceDeclaration = Readonly<{
 }>;
 
 export type MathematicsLeanSourceDeclaration = Readonly<{
+  startOffset: number;
   name: string;
   declarationType: string;
   kind: MathematicsLeanSourceDeclarationKind;
@@ -2519,7 +2220,9 @@ const isLeanNameCharacter = (value: string | undefined): boolean =>
  * apostrophes in identifiers, so a single quote is not a string delimiter here.
  */
 function* leanSourceDeclarations(source: string): Generator<LeanSourceDeclaration, void, void> {
-  const declarationKeywords = ['theorem', 'lemma', 'def', 'instance', 'opaque', 'abbrev'] as const;
+  const declarationKeywords: Readonly<Record<string, string>> = {
+    t: 'theorem', l: 'lemma', d: 'def', i: 'instance', o: 'opaque', a: 'abbrev',
+  };
   const codePointBefore = (offset: number): string | undefined => {
     if (offset <= 0) return undefined;
     const previous = source.charCodeAt(offset - 1);
@@ -2678,9 +2381,10 @@ function* leanSourceDeclarations(source: string): Generator<LeanSourceDeclaratio
       index += 1;
       continue;
     }
-    const keyword = declarationKeywords.find((candidate) => source.startsWith(candidate, index));
+    const keyword = declarationKeywords[current!];
     if (
       !keyword ||
+      !source.startsWith(keyword, index) ||
       isLeanNameCharacter(codePointBefore(index)) ||
       isLeanNameCharacter(codePointAt(index + keyword.length))
     ) {
@@ -2855,8 +2559,8 @@ export const hashMathFormalSourceDeclaration = (formalStatement: string, theorem
  */
 export const inspectLeanDeclarations = (source: string): readonly MathematicsLeanSourceDeclaration[] =>
   Object.freeze(
-    [...cachedLeanSourceDeclarations(source)].map(({ name, kind, canonicalHeader }) =>
-      Object.freeze({ name, kind, declarationType: canonicalHeader })
+    [...cachedLeanSourceDeclarations(source)].map(({ startOffset, name, kind, canonicalHeader }) =>
+      Object.freeze({ startOffset, name, kind, declarationType: canonicalHeader })
     )
   );
 
@@ -3005,7 +2709,7 @@ const prepareLeanDeclarationQuery = async (
   file: PreparedFile,
   items: readonly PreparedItem[],
   options?: Readonly<{
-    moduleName: string;
+    moduleName?: string;
     expectedDeclarationType?: string;
     forbiddenImportModules?: readonly string[];
     dependencyCandidates?: readonly string[];
@@ -3055,8 +2759,8 @@ const prepareLeanDeclarationQuery = async (
     throw new Error('Helper expected type requires one bounded declaration.');
   const externalChecks = options
     ? [
-        'import Lean',
-        `import ${options.moduleName}`,
+        options.moduleName ? 'import Lean' : 'import Lean.Elab.BuiltinCommand\nimport Lean.Elab.SyntheticMVars',
+        options.moduleName ? `import ${options.moduleName}` : file.source,
         ...(options.forbiddenImportModules?.length
           ? [
               'run_cmd do',
@@ -3073,6 +2777,8 @@ const prepareLeanDeclarationQuery = async (
               '    | .error message => throwError "{message}"',
               '  let expected <- Lean.Elab.Term.elabType parsedType',
               '  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing',
+              '  let expected <- Lean.instantiateMVars expected',
+              '  if expected.hasMVar || expected.hasFVar then throwError "Helper expected type must be closed without metavariables"',
               `  let declaration <- Lean.Meta.mkConstWithFreshMVarLevels (${JSON.stringify(theoremNames[0])}.toName)`,
               '  let actual <- Lean.Meta.inferType declaration',
               '  unless (<- Lean.Meta.isDefEq actual expected) do throwError "Helper declaration has a different type or additional assumptions"',
@@ -3209,116 +2915,6 @@ const isUnavailableProcess = (result: ProcessResult): boolean => {
     `${result.stderr}\n${result.stdout}`
   );
 };
-
-export async function inspectFormalVerifierCapability(
-  projectRoot: string,
-  options: MathematicsVerifierExecutionOptions = {}
-): Promise<MathematicsVerificationCapability> {
-  const runtimeEnvironment = resolveMathematicsRuntimeEnvironment(options.env || process.env);
-  const resolvedRoot = canonicalProjectRoot(projectRoot);
-  const lakeFile = ['lakefile.toml', 'lakefile.lean'].find((file) => fs.existsSync(path.join(resolvedRoot, file)));
-  const command: 'lake' | 'lean' = lakeFile ? 'lake' : 'lean';
-  const executable = options.verifierCommandPath || command;
-  const executablePath = resolveCommandForFingerprint(executable, runtimeEnvironment);
-  const effectiveEnvironment = runtimeEnvironment;
-  const lakePackagesPath = lakeFile
-    ? resolveMathematicsLakePackagesCache(resolvedRoot, effectiveEnvironment)
-    : undefined;
-  const capabilityEnvironment = [
-    'PATH',
-    'ELAN_HOME',
-    'LEAN_PATH',
-    'LAKE_HOME',
-    'DEEPSCIENTIST_MATH_SANDBOX_BACKEND',
-    'DEEPSCIENTIST_MATH_SANDBOX_IMAGE',
-    'DEEPSCIENTIST_MATH_TRUSTED_CACHE_ROOTS',
-    'DEEPSCIENTIST_MATH_TRUSTED_ELAN_ROOTS',
-    'DEEPSCIENTIST_MATH_TRUSTED_RUNTIME_ROOT',
-  ]
-    .map((key) => [key, runtimeEnvironment[key] ?? ''])
-    .toSorted(([left], [right]) => left.localeCompare(right));
-  const cacheKey = JSON.stringify({
-    root: resolvedRoot,
-    command,
-    executable,
-    executablePath,
-    executableFingerprint: executablePath ? memoizedFingerprintPath(executablePath) : undefined,
-    lakeFile,
-    lakePackagesPath,
-    environment: capabilityEnvironment,
-  });
-  if (!options.signal) {
-    const cached = verifierCapabilityCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      verifierCapabilityCache.delete(cacheKey);
-      verifierCapabilityCache.set(cacheKey, cached);
-      return cached.value;
-    }
-    if (cached) verifierCapabilityCache.delete(cacheKey);
-  }
-  const manifestPath = path.join(resolvedRoot, 'lake-manifest.json');
-  let manifestRequiresPackages = false;
-  try {
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as Record<string, unknown>;
-    manifestRequiresPackages = Array.isArray(manifest.packages) && manifest.packages.length > 0;
-  } catch {
-    // Let Lake report a missing or malformed manifest itself.
-  }
-  const result =
-    lakeFile && manifestRequiresPackages && !lakePackagesPath
-      ? unavailableProcessResult(
-          'Lean verification capability unavailable: no manifest-compatible Lake package cache is configured; sandboxed verification never downloads dependencies.'
-        )
-      : await withLeanProcessSlot(
-          () =>
-            runLeanSandboxed({
-              checkoutRoot: resolvedRoot,
-              projectRelative: '',
-              command: executable,
-              args: lakeFile ? ['env', 'lean', '--version'] : ['--version'],
-              timeoutMs: 5_000,
-              signal: options.signal,
-              env: runtimeEnvironment,
-              lakePackagesPath,
-            }),
-          options.signal
-        );
-  const available = result.exitCode === 0 && !isUnavailableProcess(result);
-  const sandboxUnavailable = result.errorCode === 'SANDBOX_UNAVAILABLE';
-  const version = preview(result.stdout) || preview(result.stderr);
-  const capability = Object.freeze({
-    available,
-    command,
-    executable,
-    ...(version ? { version: version.split('\n')[0] } : {}),
-    ...(!available
-      ? {
-          reason: sandboxUnavailable
-            ? result.errorMessage || 'The required Linux namespace sandbox is unavailable.'
-            : isUnavailableProcess(result)
-              ? `${command} is not installed or could not be started.`
-              : `The ${command} toolchain preflight exited with status ${result.exitCode ?? 'unknown'}.`,
-        }
-      : {}),
-    sandboxBackends: inspectMathematicsSandboxBackends(effectiveEnvironment).available,
-    batchCertification: true,
-    liveGoals: false,
-    persistentSession: false,
-  });
-  if (!options.signal) {
-    verifierCapabilityCache.delete(cacheKey);
-    verifierCapabilityCache.set(cacheKey, {
-      expiresAt: Date.now() + VERIFIER_CAPABILITY_CACHE_TTL_MS,
-      value: capability,
-    });
-    while (verifierCapabilityCache.size > VERIFIER_CAPABILITY_CACHE_MAX_ENTRIES) {
-      const oldest = verifierCapabilityCache.keys().next().value;
-      if (oldest === undefined) break;
-      verifierCapabilityCache.delete(oldest);
-    }
-  }
-  return capability;
-}
 
 async function checkManyFormalVerificationsUnbounded(
   request: MathematicsVerifierBatchRequest,
@@ -3562,16 +3158,6 @@ async function checkManyFormalVerificationsUnbounded(
       } else {
         const verificationProjectRoot = path.join(checkoutRoot, relativeProjectRoot);
         if (options.prepareLocalDependencies) {
-          const targetManifest = path.join(verificationProjectRoot, 'lake-manifest.json');
-          const sourceManifest = path.join(projectRoot, 'lake-manifest.json');
-          // Bootstrap locks can be ignored by Git. Only materialize a lock whose
-          // package revisions already match the explicitly trusted local cache.
-          if (!fs.existsSync(targetManifest) && fs.existsSync(sourceManifest)) {
-            assertNoSymlinkTraversal(projectRoot, sourceManifest, 'Helper package manifest');
-            if (resolveVerifiedLakePackagesCache(projectRoot, projectRoot, runtimeEnvironment)) {
-              fs.copyFileSync(sourceManifest, targetManifest, fs.constants.COPYFILE_EXCL);
-            }
-          }
           const buildPath = path.join(verificationProjectRoot, '.lake', 'build');
           const lakePath = path.dirname(buildPath);
           if (fs.existsSync(lakePath)) assertNoSymlinkTraversal(checkoutRoot, lakePath, 'Helper Lake directory');
@@ -3580,7 +3166,8 @@ async function checkManyFormalVerificationsUnbounded(
             fs.rmSync(buildPath, { recursive: true, force: true });
           }
         }
-        const lakePackagesPath = seedDetachedLakeCache(projectRoot, verificationProjectRoot, runtimeEnvironment);
+        const lakePackagesPath = seedDetachedLakeCache(projectRoot, verificationProjectRoot, runtimeEnvironment,
+          options.prepareLocalDependencies);
         const cleanupOptions: MathematicsVerifierExecutionOptions = { ...options, signal: undefined };
         try {
           if (options.constructionSourcesOnly) pruneMathConstructionCheckout(checkoutRoot, verificationProjectRoot);
@@ -3737,19 +3324,21 @@ async function checkManyFormalVerificationsUnbounded(
             // The temporary query is the exact committed proof plus #check markers,
             // so one Lean kernel run both compiles the proof and exports declaration types.
             // eslint-disable-next-line no-await-in-loop
+            const localModules = options.prepareLocalDependencies && lakeFile
+              ? mathLocalModuleBuildOrder(verificationProjectRoot, file.relativeProofPath) : undefined;
             const helperModule =
-              options.prepareLocalDependencies && lakeFile
-                ? file.relativeProofPath.replace(/\.lean$/u, '').replaceAll('/', '.')
+              localModules && (options.expectedDeclarationType || options.forbiddenImportModules || options.dependencyCandidates)
+                ? localModules!.at(-1)!.module
                 : undefined;
             if (helperModule && !/^[A-Za-z_][A-Za-z0-9_']*(?:\.[A-Za-z_][A-Za-z0-9_']*)*$/u.test(helperModule))
               throw new Error('Helper proof path cannot be represented as a Lake module target.');
-            if ((options.expectedDeclarationType || options.dependencyCandidates) && !helperModule)
-              throw new Error('Exact helper type validation requires a Lake module.');
+            if ((options.dependencyCandidates || options.forbiddenImportModules) && !helperModule)
+              throw new Error('Helper dependency validation requires a Lake module.');
             const declarationQuery = await prepareLeanDeclarationQuery(
               verificationProjectRoot,
               file,
               verifiableItems,
-              helperModule
+              helperModule || options.expectedDeclarationType
                 ? {
                     moduleName: helperModule,
                     expectedDeclarationType: options.expectedDeclarationType,
@@ -3769,16 +3358,18 @@ async function checkManyFormalVerificationsUnbounded(
                 const availableMs = batchDeadlineAt - Date.now();
                 if (availableMs < MIN_TIMEOUT_MS) throw new FormalVerificationBatchDeadlineError();
                 let dependencyBuild: ProcessResult | undefined;
-                if (options.prepareLocalDependencies && lakeFile) {
-                  const moduleName = file.relativeProofPath.replace(/\.lean$/u, '').replaceAll('/', '.');
-                  if (!/^[A-Za-z_][A-Za-z0-9_']*(?:\.[A-Za-z_][A-Za-z0-9_']*)*$/u.test(moduleName)) {
-                    throw new Error('Helper proof path cannot be represented as a Lake module target.');
-                  }
+                const modulesToBuild = helperModule ? localModules : localModules?.slice(0, -1);
+                if (modulesToBuild?.length) {
+                  const quote = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`;
+                  const commands = modulesToBuild.map(module => {
+                    const output = `.lake/build/lib/lean/${path.posix.relative(module.sourceRoot, module.file).replace(/\.lean$/u, '.olean')}`;
+                    return `mkdir -p ${quote(path.posix.dirname(output))}\nlean -j1 -R ${quote(module.sourceRoot)} -o ${quote(output)} ${quote(module.file)}`;
+                  }).join('\n');
                   dependencyBuild = await runLeanSandboxed({
                     checkoutRoot,
                     projectRelative: relativeProjectRoot,
                     command: verifierCommand,
-                    args: ['build', `+${moduleName}:olean`],
+                    args: ['env', '/bin/sh', '-ceu', commands],
                     env: runtimeEnvironment,
                     signal: options.signal,
                     timeoutMs: Math.min(requestedTimeoutMs, availableMs),
@@ -4081,28 +3672,6 @@ const isDurableCacheAttested = (cached: CachedFormalVerification, secret?: strin
   return actual.length === wanted.length && crypto.timingSafeEqual(actual, wanted);
 };
 
-const formalVerificationResultIdentity = (result: MathematicsVerifierResult): string =>
-  JSON.stringify({
-    receiptId: result.receiptId,
-    checkId: result.checkId,
-    status: result.status,
-    verifier: result.verifier,
-    targetCommit: result.targetCommit,
-    proofPath: result.proofPath,
-    proofHash: result.proofHash,
-    statementHash: result.statementHash,
-    leanStatementHash: result.leanStatementHash,
-    claim: result.claim,
-    theoremName: result.theoremName,
-    theoremDeclarationHash: result.theoremDeclarationHash,
-    sourceDeclarationHash: result.sourceDeclarationHash,
-    goalsRemaining: result.goalsRemaining,
-    sorryCount: result.sorryCount,
-    admitCount: result.admitCount,
-    axioms: [...result.axioms].toSorted(),
-    toolchain: result.toolchain,
-  });
-
 const readDurableFormalVerificationCache = (cacheKey: string): CachedFormalVerification | undefined => {
   try {
     const parsed = JSON.parse(fs.readFileSync(durableFormalVerificationCachePath(cacheKey), 'utf8')) as
@@ -4127,82 +3696,6 @@ const readDurableFormalVerificationCache = (cacheKey: string): CachedFormalVerif
     return undefined;
   }
 };
-
-const findCachedFormalVerificationReceiptsInternal = (
-  projectRoot: string,
-  receiptIds: Iterable<string>
-): ReadonlyMap<string, MathematicsVerifierResult> => {
-  const wanted = new Set<string>();
-  for (const receiptId of receiptIds) {
-    const stableReceiptId = receiptId.trim();
-    if (stableReceiptId) wanted.add(stableReceiptId);
-  }
-  if (!wanted.size) return new Map();
-  let projectRootHash: string;
-  try {
-    projectRootHash = crypto.createHash('sha256').update(canonicalProjectRoot(projectRoot)).digest('hex');
-  } catch {
-    return new Map();
-  }
-  const directory = durableFormalVerificationCacheDirectory();
-  if (!fs.existsSync(directory)) return new Map();
-  const found = new Map<string, MathematicsVerifierResult>();
-  const now = Date.now();
-  const entries = fs
-    .readdirSync(directory, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && /^[0-9a-f]{64}\.json$/u.test(entry.name));
-  if (!entries.length) return found;
-  const secret = readMathematicsReceiptSecret();
-  if (!secret) return found;
-  const ambiguous = new Set<string>();
-  for (const entry of entries) {
-    try {
-      const parsed = JSON.parse(fs.readFileSync(path.join(directory, entry.name), 'utf8')) as CachedFormalVerification;
-      if (
-        !Number.isFinite(parsed.expiresAt) ||
-        parsed.expiresAt <= now ||
-        !/^[0-9a-f]{64}$/u.test(parsed.projectRootHash) ||
-        !parsed.attestation ||
-        parsed.result?.schema !== 'deepscientist.mathematics.verification-batch/v1' ||
-        parsed.result.status !== 'kernel_verified' ||
-        !Array.isArray(parsed.result.results) ||
-        parsed.result.results.some((item) => item.status !== 'kernel_verified') ||
-        parsed.projectRootHash !== projectRootHash ||
-        !isDurableCacheAttested(parsed, secret)
-      )
-        continue;
-      for (const result of parsed.result.results) {
-        if (result.status !== 'kernel_verified' || !wanted.has(result.receiptId) || ambiguous.has(result.receiptId)) {
-          continue;
-        }
-        const previous = found.get(result.receiptId);
-        if (previous) {
-          if (formalVerificationResultIdentity(previous) !== formalVerificationResultIdentity(result)) {
-            found.delete(result.receiptId);
-            ambiguous.add(result.receiptId);
-          }
-          continue;
-        }
-        found.set(result.receiptId, Object.freeze({ ...result }));
-      }
-    } catch {
-      // Ignore one malformed cache entry and continue looking for the exact receipt.
-    }
-  }
-  return found;
-};
-
-export const findCachedFormalVerificationReceipts = (
-  projectRoot: string,
-  receiptIds: Iterable<string>
-): ReadonlyMap<string, MathematicsVerifierResult> =>
-  findCachedFormalVerificationReceiptsInternal(projectRoot, receiptIds);
-
-export const findCachedFormalVerificationReceipt = (
-  projectRoot: string,
-  receiptId: string
-): MathematicsVerifierResult | undefined =>
-  findCachedFormalVerificationReceiptsInternal(projectRoot, [receiptId]).get(receiptId.trim());
 
 const writeDurableFormalVerificationCache = (cacheKey: string, cached: CachedFormalVerification): void => {
   const directory = durableFormalVerificationCacheDirectory();
@@ -4433,7 +3926,7 @@ async function buildFormalVerificationCacheKey(
     verifierExecutablePath ? memoizedFingerprintPath(verifierExecutablePath) : null,
   ];
   // Only values that can change Lean/Lake resolution belong in this identity.
-  // Credentials, proxies, temporary directories, and Team/runtime metadata
+  // Credentials, proxies, temporary directories, and runtime metadata
   // must not turn an otherwise identical proof into a cache miss.
   const cacheEnvironmentKeys = [
     'PATH',
@@ -4501,7 +3994,7 @@ export async function checkManyFormalVerifications(
   };
   // A successful receipt is immutable for a clean commit, exact proof bytes,
   // theorem declaration, statement hash, and toolchain. Reusing it avoids
-  // repeatedly creating worktrees and starting Lean during Worker retries.
+  // repeatedly creating worktrees and starting Lean during proof retries.
   if (runtimeOptions.signal?.aborted) {
     return withVerificationSlot(
       () => checkManyFormalVerificationsUnbounded(request, runtimeOptions),
@@ -4584,8 +4077,6 @@ export async function checkManyFormalVerifications(
     runtimeOptions.signal
   );
 }
-
-export const certifyFormalVerifications = checkManyFormalVerifications;
 
 export const canonicalMathOfficialManifestPayload = (
   manifest: Omit<MathOfficialProblemManifest, 'manifestHash'> | MathOfficialProblemManifest
@@ -4947,7 +4438,8 @@ async function runOfficialComparatorUnbounded(
       const staleCache = path.join(executionCommandRoot, relativePath);
       if (fs.existsSync(staleCache)) fs.rmSync(staleCache, { recursive: true, force: true });
     }
-    const lakePackagesPath = seedDetachedLakeCache(projectRoot, executionCommandRoot, runtimeEnvironment);
+    const lakePackagesPath = seedDetachedLakeCache(projectRoot, executionCommandRoot, runtimeEnvironment,
+      options.prepareLocalDependencies);
     processResult = await runLeanSandboxed({
       checkoutRoot: executionRoot,
       projectRelative: relativeProjectRoot.replaceAll(path.sep, '/'),
@@ -5047,32 +4539,4 @@ export async function runOfficialComparator(
     env: resolveMathematicsRuntimeEnvironment(options.env || process.env),
   };
   return withVerificationSlot(() => runOfficialComparatorUnbounded(request, runtimeOptions), runtimeOptions.signal);
-}
-
-export async function runFormalVerification(
-  request: MathematicsVerifierRequest,
-  options: MathematicsVerifierExecutionOptions = {}
-): Promise<MathematicsVerifierResult> {
-  const batch = await checkManyFormalVerifications(
-    {
-      projectRoot: request.projectRoot,
-      targetCommit: request.targetCommit,
-      timeoutMs: request.timeoutMs,
-      items: [
-        {
-          id: 'single',
-          proofPath: request.proofPath,
-          theoremName: request.theoremName,
-          statementHash: request.statementHash,
-          leanStatementHash: request.leanStatementHash,
-          expectedSourceDeclarationHash: request.expectedSourceDeclarationHash,
-          claim: request.claim,
-        },
-      ],
-    },
-    options
-  );
-  const result = batch.results[0];
-  if (!result) throw new Error('Formal verification completed without producing a result.');
-  return { ...result, events: batch.events };
 }

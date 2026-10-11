@@ -1,20 +1,10 @@
+
 /**
  * @license
  * Copyright 2026 DeepScientist contributors
  * SPDX-License-Identifier: Apache-2.0
  */
-
 import { canonicalMathJson, mathDigest } from "./mathRuntimeIo";
-
-/** A host observation of the proof-search state, never model-authored success. */
-export type MathProofSearchObservation = Readonly<{
-  routeFingerprint?: string;
-  proofStateFingerprint?: string;
-  routeRevision?: number;
-  decision?: 'continue' | 'pivot' | 'stop' | 'complete' | string;
-  /** Cumulative compiler calls at this observation, when the state exposes it. */
-  compilerCalls?: number;
-}>;
 
 export type MathProofRunMetric = Readonly<{
   schema: 'deepscientist.math.proof-run-metrics.v1';
@@ -44,18 +34,6 @@ export type MathProofRunMetric = Readonly<{
   tokenUsageSource: 'provider' | 'estimated' | null;
   /** Optional local tokenizer estimate, retained separately from provider usage. */
   estimatedInputTokens: number | null;
-  /** Null means no host search observation exposed the compiler counter. */
-  compilerCalls: number | null;
-  /** Null means no route/proof-state fingerprints were available. */
-  repeatedFingerprintCount: number | null;
-  /** Number of pivot decisions observed by the host. */
-  pivotCount: number | null;
-  /** Number of pivots followed by a materially different route. */
-  pivotNewRouteCount: number | null;
-  /** Null when no pivot was observed. */
-  pivotNewRouteRate: number | null;
-  /** Compatibility name used by the benchmark specification. */
-  pivotNewRouteRatio: number | null;
   /** Null when the verifier was not independently classified. */
   verifierFailure: boolean | null;
   /** Null when no configured evaluator result was available. */
@@ -96,75 +74,7 @@ export type MathProofPairedComparison = Readonly<{
   problemWeightedSolveRateDifference: number | null;
 }>;
 
-export type MathProofRunReport = Readonly<{
-  schema: 'deepscientist.math.proof-run-report.v1';
-  slate: MathProofBenchmarkSlate;
-  generatedAt: number;
-  sourceLedgerRevision: string | null;
-  sourceIndexHash: string | null;
-  generatorVersion: string;
-  totalRuns: number;
-  /** Runs with a terminal evaluator/verifier result; primary solve-rate denominator. */
-  evaluableRuns: number;
-  rightCensoredRuns: number;
-  unavailableRuns: number;
-  verifiedSolves: number;
-  verifiedSolveRate: number;
-  verifiedSolveConfidenceInterval: Readonly<{ lower: number; upper: number; level: number }>;
-  averageTimeToProofMs: number | null;
-  medianTimeToProofMs: number | null;
-  iqrTimeToProofMs: number | null;
-  averageTokensToProof: number | null;
-  medianTokensToProof: number | null;
-  iqrTokensToProof: number | null;
-  averageCompilerCalls: number | null;
-  repeatedFingerprintCount: number | null;
-  pivotCount: number | null;
-  pivotNewRouteCount: number | null;
-  pivotNewRouteRate: number | null;
-  pivotNewRouteRatio: number | null;
-  rightCensoredElapsedMs: number | null;
-  verifierFailureRate: number | null;
-  evaluatorFailureRate: number | null;
-  observedVerifierRuns: number;
-  observedEvaluatorRuns: number;
-  /** Number of runs excluded from the primary solve-rate denominator. */
-  excludedRuns: number;
-  byMethod: Readonly<Record<string, MathProofMethodSummary>>;
-  pairedComparisons: readonly MathProofPairedComparison[];
-  runs: readonly MathProofRunMetric[];
-  reportHash: string;
-}>;
-
-export type MathProofMethodSummary = Readonly<{
-  totalRuns: number;
-  evaluableRuns: number;
-  rightCensoredRuns: number;
-  unavailableRuns: number;
-  verifiedSolves: number;
-  verifiedSolveRate: number;
-  verifiedSolveConfidenceInterval: Readonly<{ lower: number; upper: number; level: number }>;
-  averageTimeToProofMs: number | null;
-  medianTimeToProofMs: number | null;
-  iqrTimeToProofMs: number | null;
-  averageTokensToProof: number | null;
-  medianTokensToProof: number | null;
-  iqrTokensToProof: number | null;
-  averageCompilerCalls: number | null;
-  repeatedFingerprintCount: number | null;
-  pivotCount: number | null;
-  pivotNewRouteCount: number | null;
-  pivotNewRouteRate: number | null;
-  pivotNewRouteRatio: number | null;
-  rightCensoredElapsedMs: number | null;
-  verifierFailureRate: number | null;
-  evaluatorFailureRate: number | null;
-  observedVerifierRuns: number;
-  observedEvaluatorRuns: number;
-  excludedRuns: number;
-}>;
-
-type ProofTeamReceipt = Readonly<Record<string, unknown>>;
+type ProofRunReceipt = Readonly<Record<string, unknown>>;
 
 const nonNegativeInteger = (value: unknown): number | null =>
   Number.isSafeInteger(value) && Number(value) >= 0 ? Number(value) : null;
@@ -172,10 +82,10 @@ const nonNegativeInteger = (value: unknown): number | null =>
 const nonNegativeFinite = (value: unknown): number | null =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
 
-const receiptObject = (value: unknown): ProofTeamReceipt | undefined =>
-  value && typeof value === 'object' && !Array.isArray(value) ? (value as ProofTeamReceipt) : undefined;
+const receiptObject = (value: unknown): ProofRunReceipt | undefined =>
+  value && typeof value === 'object' && !Array.isArray(value) ? (value as ProofRunReceipt) : undefined;
 
-const readReceiptNumber = (receipt: ProofTeamReceipt, key: string): number | null => {
+const readReceiptNumber = (receipt: ProofRunReceipt, key: string): number | null => {
   const direct = nonNegativeFinite(receipt[key]);
   if (direct !== null) return direct;
   const durations = receiptObject(receipt.durations_ms);
@@ -223,13 +133,9 @@ const wilsonInterval = (
   return Object.freeze({ lower: Math.max(0, center - radius), upper: Math.min(1, center + radius), level: 0.95 });
 };
 
-const methodSummary = (runs: readonly MathProofRunMetric[]): MathProofMethodSummary => {
+const methodSummary = (runs: readonly MathProofRunMetric[]) => {
   const verifier = booleanRate(runs.map((run) => run.verifierFailure));
   const evaluator = booleanRate(runs.map((run) => run.evaluatorFailure));
-  const pivots = runs.map((run) => run.pivotCount).filter((value): value is number => value !== null);
-  const pivotNewRoutes = runs.map((run) => run.pivotNewRouteCount).filter((value): value is number => value !== null);
-  const pivotTotal = pivots.length ? pivots.reduce((sum, value) => sum + value, 0) : null;
-  const pivotNewRouteTotal = pivotNewRoutes.length ? pivotNewRoutes.reduce((sum, value) => sum + value, 0) : null;
   const evaluableRuns = runs.filter((run) => run.evaluable).length;
   const rightCensoredRuns = runs.filter((run) => run.rightCensored).length;
   const unavailableRuns = runs.filter((run) => run.evaluationDisposition === 'unavailable').length;
@@ -253,16 +159,6 @@ const methodSummary = (runs: readonly MathProofRunMetric[]): MathProofMethodSumm
     averageTokensToProof: average(tokens),
     medianTokensToProof: median(tokens),
     iqrTokensToProof: iqr(tokens),
-    averageCompilerCalls: average(
-      runs.map((run) => run.compilerCalls).filter((value): value is number => value !== null)
-    ),
-    repeatedFingerprintCount: runs.some((run) => run.repeatedFingerprintCount !== null)
-      ? runs.reduce((sum, run) => sum + (run.repeatedFingerprintCount ?? 0), 0)
-      : null,
-    pivotCount: pivotTotal,
-    pivotNewRouteCount: pivotNewRouteTotal,
-    pivotNewRouteRate: pivotTotal && pivotNewRouteTotal !== null ? pivotNewRouteTotal / pivotTotal : null,
-    pivotNewRouteRatio: pivotTotal && pivotNewRouteTotal !== null ? pivotNewRouteTotal / pivotTotal : null,
     verifierFailureRate: verifier.rate,
     evaluatorFailureRate: evaluator.rate,
     observedVerifierRuns: verifier.observed,
@@ -344,7 +240,7 @@ const pairRuns = (
 };
 
 /**
- * Convert a runner receipt and host-owned search observations into a stable row.
+ * Convert a host runner receipt into a stable row.
  * Missing telemetry remains unavailable; it is never converted to zero.
  */
 export function deriveMathProofRunMetric(
@@ -352,11 +248,10 @@ export function deriveMathProofRunMetric(
     runId: string;
     problemId: string;
     benchmarkMethod: string;
-    receipt: ProofTeamReceipt;
+    receipt: ProofRunReceipt;
     runIdentity?: string;
     repetition?: number;
-    searchObservations?: readonly MathProofSearchObservation[];
-    /** Trusted usage from the gateway/broker, not model-reported text. */
+    /** Optional host usage override; otherwise use provider usage in the receipt. */
     totalTokens?: number;
     tokenUsageSource?: 'provider' | 'estimated';
     estimatedInputTokens?: number;
@@ -366,44 +261,10 @@ export function deriveMathProofRunMetric(
   if (!input.runId.trim() || !input.problemId.trim() || !input.benchmarkMethod.trim())
     throw new Error('math_proof_run_metric_identity_invalid');
   const receipt = input.receipt;
+  const totalTokens = nonNegativeInteger(input.totalTokens ?? receiptObject(receipt.usage)?.totalTokens);
   const evaluator = receiptObject(receipt.evaluator);
   const evaluatorStatus = typeof evaluator?.status === 'string' ? evaluator.status : undefined;
   const receiptStatus = typeof receipt.status === 'string' ? receipt.status : undefined;
-  const observations = [...(input.searchObservations ?? [])];
-  const fingerprints = observations.flatMap((observation) =>
-    observation.routeFingerprint && observation.proofStateFingerprint
-      ? [[observation.routeFingerprint, observation.proofStateFingerprint] as const]
-      : []
-  );
-  const seen = new Set<string>();
-  let repeatedFingerprintCount = 0;
-  for (const fingerprint of fingerprints) {
-    const key = JSON.stringify(fingerprint);
-    if (seen.has(key)) repeatedFingerprintCount += 1;
-    else seen.add(key);
-  }
-  const pivots = observations.filter((observation) => observation.decision === 'pivot');
-  let pivotNewRouteCount = 0;
-  for (const [index, pivot] of observations.entries()) {
-    if (pivot.decision !== 'pivot') continue;
-    const next = observations
-      .slice(index + 1)
-      .find(
-        (candidate) =>
-          candidate.routeFingerprint &&
-          (candidate.routeFingerprint !== pivot.routeFingerprint || candidate.routeRevision !== pivot.routeRevision)
-      );
-    if (next) pivotNewRouteCount += 1;
-  }
-  const pivotCount = pivots.length;
-  const compilerCalls = observations.length
-    ? (() => {
-        const values = observations
-          .map((observation) => nonNegativeInteger(observation.compilerCalls))
-          .filter((value): value is number => value !== null);
-        return values.length ? Math.max(...values) : null;
-      })()
-    : null;
   const verifierFailure =
     input.verifierStatus === undefined
       ? null
@@ -475,23 +336,17 @@ export function deriveMathProofRunMetric(
     evaluable: evaluationDisposition === 'evaluable',
     rightCensored: evaluationDisposition === 'right_censored',
     censorReason,
-    timeToProofMs: verifiedSolve ? readReceiptNumber(receipt, 'proof') : null,
+    timeToProofMs: verifiedSolve ? elapsedProof : null,
     rightCensoredElapsedMs: evaluationDisposition === 'right_censored' ? elapsedMs : null,
     tokensToProof:
-      verifiedSolve && input.tokenUsageSource !== 'estimated' ? nonNegativeInteger(input.totalTokens) : null,
+      verifiedSolve && input.tokenUsageSource !== 'estimated' ? totalTokens : null,
     tokenUsageSource:
-      input.totalTokens !== undefined
+      totalTokens !== null
         ? (input.tokenUsageSource ?? 'provider')
         : input.estimatedInputTokens !== undefined
           ? 'estimated'
           : null,
     estimatedInputTokens: nonNegativeInteger(input.estimatedInputTokens),
-    compilerCalls,
-    repeatedFingerprintCount: fingerprints.length ? repeatedFingerprintCount : null,
-    pivotCount: observations.length ? pivotCount : null,
-    pivotNewRouteCount: observations.length ? pivotNewRouteCount : null,
-    pivotNewRouteRate: pivotCount ? pivotNewRouteCount / pivotCount : null,
-    pivotNewRouteRatio: pivotCount ? pivotNewRouteCount / pivotCount : null,
     verifierFailure,
     evaluatorFailure,
   });
@@ -500,13 +355,8 @@ export function deriveMathProofRunMetric(
 /** Aggregate rows from one frozen experiment slate. */
 export function summarizeMathProofRunMetrics(
   runs: readonly MathProofRunMetric[],
-  generatedAtOrOptions: number | MathProofRunReportOptions = Date.now(),
-  slateOverride?: MathProofBenchmarkSlate
-): MathProofRunReport {
-  const options: MathProofRunReportOptions =
-    typeof generatedAtOrOptions === 'number'
-      ? { generatedAt: generatedAtOrOptions, slate: slateOverride }
-      : generatedAtOrOptions;
+  options: MathProofRunReportOptions = {}
+) {
   const generatedAt = options.generatedAt ?? Date.now();
   if (!Number.isFinite(generatedAt) || generatedAt <= 0) throw new Error('math_proof_run_report_timestamp_invalid');
   const slate = options.slate ?? defaultSlate(runs);
@@ -520,8 +370,6 @@ export function summarizeMathProofRunMetrics(
     if (identities.has(key)) throw new Error('math_proof_run_duplicate_repetition');
     identities.add(key);
   }
-  const verifier = booleanRate(runs.map((run) => run.verifierFailure));
-  const evaluator = booleanRate(runs.map((run) => run.evaluatorFailure));
   const all = methodSummary(runs);
   const byMethod = Object.fromEntries(
     [...new Set(runs.map((run) => run.benchmarkMethod))]
@@ -531,31 +379,7 @@ export function summarizeMathProofRunMetrics(
   const base = {
     schema: 'deepscientist.math.proof-run-report.v1' as const,
     generatedAt,
-    totalRuns: all.totalRuns,
-    evaluableRuns: all.evaluableRuns,
-    rightCensoredRuns: all.rightCensoredRuns,
-    unavailableRuns: all.unavailableRuns,
-    verifiedSolves: all.verifiedSolves,
-    verifiedSolveRate: all.verifiedSolveRate,
-    verifiedSolveConfidenceInterval: all.verifiedSolveConfidenceInterval,
-    averageTimeToProofMs: all.averageTimeToProofMs,
-    medianTimeToProofMs: all.medianTimeToProofMs,
-    iqrTimeToProofMs: all.iqrTimeToProofMs,
-    rightCensoredElapsedMs: all.rightCensoredElapsedMs,
-    averageTokensToProof: all.averageTokensToProof,
-    medianTokensToProof: all.medianTokensToProof,
-    iqrTokensToProof: all.iqrTokensToProof,
-    averageCompilerCalls: all.averageCompilerCalls,
-    repeatedFingerprintCount: all.repeatedFingerprintCount,
-    pivotCount: all.pivotCount,
-    pivotNewRouteCount: all.pivotNewRouteCount,
-    pivotNewRouteRate: all.pivotNewRouteRate,
-    pivotNewRouteRatio: all.pivotNewRouteRatio,
-    verifierFailureRate: verifier.rate,
-    evaluatorFailureRate: evaluator.rate,
-    observedVerifierRuns: verifier.observed,
-    observedEvaluatorRuns: evaluator.observed,
-    excludedRuns: all.excludedRuns,
+    ...all,
     byMethod,
     runs: Object.freeze([...runs]),
     slate,
@@ -569,3 +393,5 @@ export function summarizeMathProofRunMetrics(
   };
   return Object.freeze({ ...base, reportHash: mathDigest(canonicalMathJson(base)) });
 }
+
+export type MathProofRunReport = ReturnType<typeof summarizeMathProofRunMetrics>;

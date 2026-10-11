@@ -1,0 +1,138 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
+import { resolveMathProofEnvironment } from '../math/mathProofEnvironment';
+import { checkManyFormalVerifications, hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions } from '../math/verifier';
+import { git, type SolverProblem } from './problem';
+import type { ProofCheck } from './modules/evidence';
+
+export type LemmaPlan = Readonly<{ proofPath: string; target: string; lemma: string; type: string }>;
+export type LemmaEvidence = ProofCheck & Readonly<{
+  obligation: 'bridge' | 'lemma';
+  sourceCommit: string;
+  planDigest: string;
+  projectionDigest: string;
+  unchangedFailures: number;
+  reused: boolean;
+}>;
+export type LemmaResearch = { plan?: LemmaPlan; error?: string; bridge?: LemmaEvidence; lemma?: LemmaEvidence };
+
+// Archive records cannot authorize reuse: only receipts checked in this process can.
+const checkedProjections = new WeakMap<LemmaEvidence, { environmentDigest: string; projectionDigest: string; reusable: boolean }>();
+
+/** Proposals in RESEARCH.md are instructions, never mathematical evidence. */
+export function readLemmaPlan(task: SolverProblem, worktree: string): LemmaPlan {
+  const file = path.join(worktree, 'RESEARCH.md');
+  if (!fs.existsSync(file) || fs.statSync(file).size > 64_000) throw new Error('math_lemma_plan_missing_or_too_large');
+  const blocks = [...fs.readFileSync(file, 'utf8').matchAll(/```math-lemma\s*\n([\s\S]*?)\n```/gu)];
+  if (blocks.length !== 1) throw new Error('math_lemma_plan_requires_one_block');
+  const plan = JSON.parse(blocks[0]![1]!) as LemmaPlan;
+  if (!plan || typeof plan.type !== 'string' || !plan.type.trim() || plan.type.length > 8_000 ||
+      typeof plan.lemma !== 'string' || !/^[A-Za-z_][A-Za-z0-9_']*(?:\.[A-Za-z_][A-Za-z0-9_']*)*$/u.test(plan.lemma) ||
+      !task.targets.some(target => target.proofPath === plan.proofPath && target.theoremName === plan.target))
+    throw new Error('math_lemma_plan_invalid');
+  return { proofPath: plan.proofPath, target: plan.target, lemma: plan.lemma, type: plan.type };
+}
+
+/** Check conditional connection and lemma separately, without relaxing the strict verifier. */
+export async function checkLemmaResearch(task: SolverProblem, worktree: string, env: NodeJS.ProcessEnv,
+  signal: AbortSignal, source: ProofCheck, plan: LemmaPlan, previous?: LemmaResearch): Promise<LemmaResearch> {
+  const sourceFile = fs.readFileSync(path.join(worktree, task.projectRelative, plan.proofPath), 'utf8');
+  const regions = inspectLeanDeclarationRegions(sourceFile);
+  const local = (name: string) => name.split('.').at(-1)!;
+  const helpers = regions.filter(region => local(region.name) === local(plan.lemma));
+  if (helpers.length !== 1 || !/^(?:theorem|lemma)\s/u.test(sourceFile.slice(helpers[0]!.startOffset, helpers[0]!.bodyOffset)) ||
+      Object.values(task.declarations).some(declarations => declarations.some(item => local(item.name) === local(plan.lemma))))
+    return { plan, error: 'math_lemma_requires_new_unambiguous_theorem' };
+  const helper = helpers[0]!;
+  const target = task.targets.find(item => item.proofPath === plan.proofPath && item.theoremName === plan.target)!;
+  const selected = regions.find(region => local(region.name) === local(plan.target));
+  if (!selected || helper.startOffset >= selected.startOffset)
+    return { plan, error: 'math_lemma_must_precede_target' };
+  // Conservative declaration regions are suitable only for ordinary := theorem bodies.
+  if (sourceFile.slice(helper.bodyOffset - 2, helper.bodyOffset) !== ':=' ||
+      sourceFile.slice(selected.bodyOffset - 2, selected.bodyOffset) !== ':=')
+    return { plan, error: 'math_lemma_requires_assignment_proofs' };
+  const planDigest = mathDigest(canonicalMathJson({ plan, declarationHash: hashMathFormalSourceDeclaration(sourceFile, plan.lemma),
+    targetHash: target.declarationHash, problemReceiptDigest: task.receiptDigest }));
+  const environmentDigest = mathDigest(canonicalMathJson(env));
+  const packages = path.join(worktree, task.projectRelative, '.lake', 'packages');
+  const sealed = resolveMathProofEnvironment(path.join(worktree, task.projectRelative), env);
+  const reusable = (!fs.existsSync(packages) || !!sealed) && !env.LEAN_PATH?.trim();
+  const check = async (obligation: 'bridge' | 'lemma'): Promise<LemmaEvidence> => {
+    signal.throwIfAborted();
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'math-lemma-'));
+    const checkout = path.join(directory, 'worktree');
+    let added = false;
+    try {
+      git(worktree, ['worktree', 'add', '--quiet', '--detach', checkout, source.commit]); added = true;
+      const project = path.join(checkout, task.projectRelative);
+      for (const file of task.ownedFiles.filter(file => file.endsWith('.lean'))) {
+        const absolute = path.join(project, file);
+        let text = fs.readFileSync(absolute, 'utf8');
+        const originalNames = new Set(task.declarations[file]!.map(item => item.name));
+        for (const region of inspectLeanDeclarationRegions(text).reverse()) {
+          const isTarget = file === plan.proofPath && local(region.name) === local(plan.target);
+          const isHelper = file === plan.proofPath && local(region.name) === local(plan.lemma);
+          if (obligation === 'bridge' && isTarget) {
+            const header = text.slice(region.startOffset, region.bodyOffset - 2);
+            const match = /^(?:theorem|lemma)\s+[^\s(\[{:]+/u.exec(header);
+            if (!match) throw new Error('math_lemma_target_header_unsupported');
+            const conditional = `${match[0]} (${local(plan.lemma)} : ${plan.type})${header.slice(match[0].length)}`;
+            text = text.slice(0, region.startOffset) + conditional + text.slice(region.bodyOffset - 2);
+          } else if ((originalNames.has(region.name) && /^(?:theorem|lemma)\s/u.test(text.slice(region.startOffset, region.bodyOffset))) ||
+              (obligation === 'bridge' && isHelper)) {
+            text = text.slice(0, region.startOffset) + text.slice(region.endOffset);
+          }
+        }
+        fs.writeFileSync(absolute, text);
+      }
+      // The journal guides research; it is excluded from a proof obligation's inputs.
+      git(checkout, ['rm', '--quiet', '--force', '--ignore-unmatch', '--', 'RESEARCH.md']);
+      git(checkout, ['add', '--', ...task.ownedFiles.map(file => path.join(task.projectRelative, file))]);
+      git(checkout, ['-c', 'user.name=DeepScientist Math', '-c', 'user.email=math@localhost', 'commit', '--allow-empty', '--no-gpg-sign', '--quiet', '-m', `Check ${obligation} obligation`]);
+      const commit = git(checkout, ['rev-parse', 'HEAD']);
+      const projectionDigest = git(checkout, ['rev-parse', 'HEAD^{tree}']);
+      const prior = previous?.[obligation];
+      const provenance = prior && checkedProjections.get(prior);
+      const sameInput = prior?.obligation === obligation && prior.planDigest === planDigest &&
+        provenance?.environmentDigest === environmentDigest && provenance.projectionDigest === projectionDigest;
+      if (sameInput && prior.passed && reusable && provenance.reusable) {
+        const receipt = { ...prior, sourceCommit: source.commit, sourceDigest: source.sourceDigest, reused: true };
+        checkedProjections.set(receipt, { environmentDigest, projectionDigest, reusable });
+        return receipt;
+      }
+      const name = obligation === 'lemma' ? plan.lemma : plan.target;
+      const projected = fs.readFileSync(path.join(project, plan.proofPath), 'utf8');
+      const declarationHash = hashMathFormalSourceDeclaration(projected, name);
+      if (!declarationHash) throw new Error('math_lemma_projection_missing_declaration');
+      if (fs.existsSync(packages)) {
+        fs.mkdirSync(path.join(project, '.lake'), { recursive: true });
+        fs.symlinkSync(fs.realpathSync(packages), path.join(project, '.lake', 'packages'), 'dir');
+      }
+      const verification = await checkManyFormalVerifications({ projectRoot: project, targetCommit: commit, timeoutMs: 180_000,
+        items: [{ proofPath: plan.proofPath, theoremName: name, expectedSourceDeclarationHash: declarationHash,
+          statementHash: planDigest, leanStatementHash: planDigest, claim: 'statement' }] },
+      { env, signal, trustedLakePackagesRoots: (env.DEEPSCIENTIST_MATH_TRUSTED_CACHE_ROOTS || '').split(path.delimiter).filter(Boolean),
+        ...(obligation === 'lemma' ? { expectedDeclarationType: plan.type } : {}) });
+      const result = verification.results[0];
+      const passed = verification.status === 'kernel_verified' && verification.targetCommit === commit && verification.results.length === 1 &&
+        result?.status === 'kernel_verified' && result.targetCommit === commit && result.proofPath === plan.proofPath && result.theoremName === name &&
+        result.sourceDeclarationHash === declarationHash && result.statementHash === planDigest && result.leanStatementHash === planDigest && result.claim === 'statement';
+      const unchangedFailures = !passed && verification.status === 'failed'
+        ? sameInput && !prior.passed ? prior.unchangedFailures + 1 : 1 : 0;
+      const receipt = { obligation, sourceCommit: source.commit, sourceDigest: source.sourceDigest, planDigest,
+        projectionDigest, unchangedFailures, reused: false, commit, passed, verification };
+      checkedProjections.set(receipt, { environmentDigest, projectionDigest, reusable });
+      return receipt;
+    } finally {
+      if (added) git(worktree, ['worktree', 'remove', '--force', checkout]);
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+  };
+  const bridge = await check('bridge');
+  // Spend the shared budget on the lemma only after its intended use checks.
+  const lemma = bridge.passed ? await check('lemma') : undefined;
+  return { plan, bridge, lemma };
+}

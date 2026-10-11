@@ -9,57 +9,16 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import {
-  mathActionablePlanSchedule,
-  canonicalMathProblemNegationPayload,
-  canonicalMathProblemStatementPayloads,
-  isMathFoundationalLeanAxiom,
-  normalizeMathProblemContract,
-  normalizeMathRouteCard,
-  normalizeMathExecutionPolicy,
-  type MathExecutionPolicy,
-  type MathProblemContract,
-  type MathPlanNode,
-  type MathRouteCard,
-} from "../common/types/team/mathematicsTeam";
-import {
-  fetchLeanEvalLeaderboardCredits,
-  findLeanEvalCatalogProblem,
-  readLeanEvalCatalog,
-  LEAN_EVAL_BENCHMARK_COMMIT,
-  LEAN_EVAL_LEADERBOARD_URL,
-  LEAN_EVAL_REPOSITORY_URL,
-  type LeanEvalCatalog,
-  type LeanEvalCatalogProblem,
-} from "./leanEvalCatalogAdapter";
-import {
-  analyzeLeanEvalProblem,
-  runLeanEvalSandboxedElaborationProbe,
-  type LeanEvalProblemAnalysis,
-} from "./leanEvalProblemAnalyzer";
-import {
-  collectLeanEvalSubmissionFiles,
-  materializeLeanEvalProblemBinding,
-  prepareLeanEvalProblemBinding,
-  type LeanEvalProblemBinding,
-} from "./leanEvalAdapter";
-import { executionPolicyFromLeanEvalRoute, routeLeanEvalProblem, type LeanEvalRoute } from "./leanEvalRouting";
-import {
-  checkManyFormalVerifications,
-  hashMathFormalSourceDeclaration,
-  inspectLeanDeclarations,
-  resolveMathematicsLakePackagesCache,
-  runOfficialComparator,
-  type MathematicsVerifierBatchResult,
-  type MathematicsVerifierResult,
-  type MathematicsOfficialComparatorResult,
-  type MathematicsVerifierExecutionOptions,
-} from "./verifier";
+import { canonicalMathProblemNegationPayload, canonicalMathProblemStatementPayloads, isMathFoundationalLeanAxiom, normalizeMathProblemContract, type MathProblemContract } from "./contracts";
+import { fetchLeanEvalLeaderboardCredits, findLeanEvalCatalogProblem, readLeanEvalCatalog, LEAN_EVAL_BENCHMARK_COMMIT, LEAN_EVAL_LEADERBOARD_URL, LEAN_EVAL_REPOSITORY_URL, type LeanEvalCatalog, type LeanEvalCatalogProblem } from "./leanEvalCatalogAdapter";
+import { collectLeanEvalSubmissionFiles, materializeLeanEvalProblemBinding, prepareLeanEvalProblemBinding, type LeanEvalProblemBinding } from "./leanEvalAdapter";
+import { checkManyFormalVerifications, inspectLeanDeclarations, resolveMathematicsLakePackagesCache, runOfficialComparator, type MathematicsVerifierBatchResult, type MathematicsVerifierResult, type MathematicsOfficialComparatorResult, type MathematicsVerifierExecutionOptions } from "./verifier";
 import { resolveMathematicsRuntimeEnvironment } from "./mathRuntimeEnvironment";
-import { readCachedLeanEvalAnalysis, writeCachedLeanEvalAnalysis } from "./leanEvalIntake";
 import { readMathematicsReceiptSecret, signMathOfficialGateReceipt } from "./receiptAttestation";
-import type { MathOfficialGateReceipt } from "../common/types/team/mathematicsTeam";
-import { reapLeanEvalArtifacts } from "./leanEvalCleanup";
+import type { MathOfficialGateReceipt } from "./contracts";
+import { assertMathCanonicalPath } from "./paths";
+import { readMathJson, writeMathJsonDurable } from "./mathRuntimeIo";
+import { resolveLeanEvalSubmissionName } from "./leanEvalSubmission";
 
 export type LeanEvalBootstrapReceipt = Readonly<{
   schema: 'deepscientist.mathematics.lean-eval-bootstrap-receipt.v1';
@@ -71,12 +30,11 @@ export type LeanEvalBootstrapReceipt = Readonly<{
   leaderboardSource: string;
   leaderboardHash?: string;
   leaderboardGeneratedAt?: number;
-  routeFingerprint: string;
-  /** Frozen assignment policy derived from the same analysis as routeFingerprint. */
-  executionPolicy?: MathExecutionPolicy;
+  /** Preserved when loading receipts from the former planning runtime. */
+  routeFingerprint?: string;
   contract: MathProblemContract;
   /** Public input obligations; none may be replaced by an organizational parent. */
-  publicObligations?: readonly Readonly<{ name: string; declarationHash: string; dependsOn: readonly string[] }>[];
+  publicObligations?: readonly Readonly<{ name: string; declarationHash: string }>[];
   workspaceRoot: string;
   projectRoot: string;
   /** Git worktree that owns the immutable benchmark binding and later commits. */
@@ -87,16 +45,12 @@ export type LeanEvalBootstrapReceipt = Readonly<{
   solverOwnedFiles: readonly string[];
   activeProblemPath: string;
   createdAt: number;
-  toolchain?: string;
 }>;
 
 export type LeanEvalBootstrapResult = Readonly<{
   catalog: LeanEvalCatalog;
   problem: LeanEvalCatalogProblem;
-  analysis: LeanEvalProblemAnalysis;
   binding: LeanEvalProblemBinding;
-  routeCard: MathRouteCard;
-  route: LeanEvalRoute;
   receipt: LeanEvalBootstrapReceipt;
 }>;
 
@@ -274,14 +228,9 @@ export async function runPersistedLeanEvalOfficialGate(options: {
       throw new Error('Persisted Lean-Eval bootstrap catalog hash no longer matches the pinned receipt');
     }
     const problem = findLeanEvalCatalogProblem(catalog, receipt.problemId);
-    if (!problem || !problem.eligible) throw new Error('Persisted Lean-Eval bootstrap problem is no longer eligible');
+    if (!problem) throw new Error('Persisted Lean-Eval bootstrap problem is no longer eligible');
+    assertLeanEvalBootstrapEligibility(problem, receipt.evaluationMode);
     assertLeanEvalBootstrapProjectPath(receipt.workspaceRoot, receipt.projectRoot, problem.generatedPath);
-    const analysis = await analyzeLeanEvalProblem(problem, {
-      repositoryRoot: sourceRoot,
-      benchmarkCommit: LEAN_EVAL_BENCHMARK_COMMIT,
-      elaborationProbe: (problemRoot, declarations, dependencyTargets) =>
-        runLeanEvalSandboxedElaborationProbe(problemRoot, declarations, 30_000, dependencyTargets),
-    });
     const verifierRoot = receipt.verifierProjectRoot;
     if (!verifierRoot) throw new Error('Persisted Lean-Eval bootstrap has no verifier worktree');
     if (!fs.existsSync(verifierRoot)) throw new Error('Persisted Lean-Eval verifier worktree is missing');
@@ -314,24 +263,11 @@ export async function runPersistedLeanEvalOfficialGate(options: {
     ) {
       throw new Error('Persisted Lean-Eval bootstrap file ownership no longer matches the pinned benchmark tree');
     }
-    const routeCard = buildRouteCard(analysis, binding.problemContract.statementHash, 'bootstrap:reload');
-    if (routeCard.routeFingerprint !== receipt.routeFingerprint) {
-      throw new Error('Persisted Lean-Eval bootstrap route fingerprint no longer matches the pinned analysis');
-    }
-    if (
-      receipt.executionPolicy &&
-      JSON.stringify(receipt.executionPolicy) !==
-        JSON.stringify(executionPolicyFromLeanEvalRoute(routeLeanEvalProblem(analysis)))
-    ) {
-      throw new Error('Persisted Lean-Eval bootstrap execution policy no longer matches the pinned analysis');
-    }
+    assertLeanEvalPublicObligations(receipt.publicObligations, binding.publicObligations);
     const bootstrapped = Object.freeze({
       catalog,
       problem,
-      analysis,
       binding,
-      routeCard,
-      route: routeLeanEvalProblem(analysis),
       receipt,
     });
     return await runLeanEvalOfficialGate(bootstrapped, options);
@@ -353,14 +289,11 @@ export type LeanEvalBootstrapOptions = Readonly<{
   evaluationMode?: 'official' | 'benchmark';
   workspaceRoot?: string;
   workspaceParent?: string;
-  /** Optional deterministic fixture credits; formal MCP entry points use official credits instead. */
+  /** Optional deterministic fixture credits; CLI runs use official credits. */
   credits?: readonly Record<string, unknown>[];
   useOfficialCredits?: boolean;
   setId?: string;
   cleanupOnFailure?: boolean;
-  supportedToolchains?: readonly string[];
-  /** Run a bounded public-declaration elaborator probe during bootstrap. */
-  enableElaborationProbe?: boolean;
 }>;
 
 export function assertLeanEvalBootstrapEligibility(
@@ -368,80 +301,24 @@ export function assertLeanEvalBootstrapEligibility(
   evaluationMode: 'official' | 'benchmark' = 'official'
 ): void {
   if (!['official', 'benchmark'].includes(evaluationMode)) throw new Error('Invalid LeanEval evaluation mode');
-  const reasons = problem.eligibilityReasons.filter(
-    (reason) => evaluationMode !== 'benchmark' || reason !== 'accepted_credit_exists'
-  );
+  const reasons = problem.eligibilityReasons.filter((reason) => evaluationMode !== 'benchmark' ||
+    !['accepted_credit_exists', 'not_in_v1', 'inactive', 'hidden'].includes(reason));
   if (reasons.length || (!problem.eligible && !problem.eligibilityReasons.length))
     throw new Error(`LeanEval problem is not eligible: ${reasons.join(', ') || 'unknown'}`);
 }
 
-/**
- * A static analysis cache is sufficient for the fast bootstrap path, but a
- * caller that requests elaboration evidence must never silently downgrade to
- * that cache. Keep this boundary explicit and pure so it is easy to verify.
- */
-export const canReuseLeanEvalAnalysisCache = (
-  cachedAnalysis: LeanEvalProblemAnalysis | undefined,
-  enableElaborationProbe?: boolean
-): cachedAnalysis is LeanEvalProblemAnalysis =>
-  Boolean(cachedAnalysis && (enableElaborationProbe === false || cachedAnalysis.elaborationProbe?.attempted === true));
-
-const bootstrapAnalysisCache = new Map<string, LeanEvalProblemAnalysis>();
-const bootstrapAnalysisCacheKey = (repositoryRoot: string, problemId: string): string =>
-  `${path.resolve(repositoryRoot)}\0${LEAN_EVAL_BENCHMARK_COMMIT}\0${problemId}`;
-
-/** Share bootstrap analysis with the team session in the same process. */
-export const rememberLeanEvalBootstrapAnalysis = (repositoryRoot: string, analysis: LeanEvalProblemAnalysis): void => {
-  const key = bootstrapAnalysisCacheKey(repositoryRoot, analysis.problemId);
-  bootstrapAnalysisCache.delete(key);
-  bootstrapAnalysisCache.set(key, analysis);
-  while (bootstrapAnalysisCache.size > 64) {
-    const oldest = bootstrapAnalysisCache.keys().next().value;
-    if (oldest === undefined) break;
-    bootstrapAnalysisCache.delete(oldest);
+export function assertLeanEvalPublicObligations(
+  persisted: LeanEvalBootstrapReceipt['publicObligations'],
+  expected: LeanEvalProblemBinding['publicObligations']
+): void {
+  if (persisted === undefined) return;
+  if (persisted.length !== expected.length || persisted.some((item, index) =>
+    item.name !== expected[index]!.name || item.declarationHash !== expected[index]!.declarationHash)) {
+    throw new Error('Persisted Lean-Eval public obligations no longer match the pinned problem');
   }
-};
-
-export const getLeanEvalBootstrapAnalysis = (
-  repositoryRoot: string,
-  problemId: string
-): LeanEvalProblemAnalysis | undefined => {
-  const key = bootstrapAnalysisCacheKey(repositoryRoot, problemId);
-  const analysis = bootstrapAnalysisCache.get(key);
-  if (!analysis) return undefined;
-  bootstrapAnalysisCache.delete(key);
-  bootstrapAnalysisCache.set(key, analysis);
-  return analysis;
-};
+}
 
 const sha256 = (value: string): string => crypto.createHash('sha256').update(value, 'utf8').digest('hex');
-const writeFileDurably = (target: string, contents: string | Uint8Array): void => {
-  const temporary = `${target}.${process.pid}.${crypto.randomUUID()}.tmp`;
-  const noFollow = typeof fs.constants.O_NOFOLLOW === 'number' ? fs.constants.O_NOFOLLOW : 0;
-  const flags = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | noFollow;
-  let descriptor: number | undefined;
-  try {
-    descriptor = fs.openSync(temporary, flags, 0o600);
-    fs.writeFileSync(descriptor, contents);
-    fs.fsyncSync(descriptor);
-    fs.closeSync(descriptor);
-    descriptor = undefined;
-    fs.renameSync(temporary, target);
-    try {
-      const directory = fs.openSync(path.dirname(target), 'r');
-      try {
-        fs.fsyncSync(directory);
-      } finally {
-        fs.closeSync(directory);
-      }
-    } catch {
-      // Directory fsync is unavailable on some supported filesystems.
-    }
-  } finally {
-    if (descriptor !== undefined) fs.closeSync(descriptor);
-    fs.rmSync(temporary, { force: true });
-  }
-};
 const git = (root: string, args: readonly string[]): string => {
   const result = spawnSync('git', ['-C', root, ...args], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
   if (result.status !== 0) throw new Error(result.stderr?.trim() || `git ${args.join(' ')} failed`);
@@ -482,19 +359,8 @@ const safeRelative = (value: string): string => {
 
 const ensureDirectoryNoSymlink = (directory: string): string => {
   const resolved = path.resolve(directory);
-  const segments = resolved.split(path.sep);
-  let current = segments.shift() === '' ? path.sep : segments.shift()!;
-  for (const segment of segments) {
-    current = path.join(current, segment);
-    if (!fs.existsSync(current)) {
-      fs.mkdirSync(current, { mode: 0o700 });
-      continue;
-    }
-    const stat = fs.lstatSync(current);
-    if (stat.isSymbolicLink() || !stat.isDirectory()) {
-      throw new Error(`LeanEval workspace path is not a regular directory: ${current}`);
-    }
-  }
+  assertMathCanonicalPath(resolved);
+  fs.mkdirSync(resolved, { recursive: true, mode: 0o700 });
   return resolved;
 };
 
@@ -520,57 +386,25 @@ const writeGitFile = (
 
 type LeanEvalLakeManifestRecord = Record<string, unknown>;
 
-const parseLeanEvalLakeManifest = (contents: string, source: string): LeanEvalLakeManifestRecord => {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(contents);
-  } catch (error) {
-    throw new Error(`LeanEval Lake manifest is invalid: ${source}`, { cause: error });
-  }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error(`LeanEval Lake manifest must be a JSON object: ${source}`);
-  }
-  return parsed as LeanEvalLakeManifestRecord;
-};
-
-/**
- * Lake manifests generated at repository root describe the umbrella
- * `lean-eval` package.  A solver workspace is an independent package, so its
- * manifest must carry the selected problem name while retaining the frozen
- * dependency revisions from the pinned benchmark commit.
- */
-const normalizeSolverLakeManifest = (contents: string, source: string, problemId: string): string => {
-  const manifest = parseLeanEvalLakeManifest(contents, source);
-  const normalized: LeanEvalLakeManifestRecord = {
-    ...manifest,
-    version: manifest.version ?? manifest.schemaVersion ?? '1.2.0',
-    name: problemId,
-    lakeDir: '.lake',
-    packagesDir: '.lake/packages',
-  };
-  return `${JSON.stringify(normalized, null, 2)}\n`;
-};
-
 /**
  * Point Lake's dependency entries at the validated shared cache.  Lake reads
  * this workspace-local file automatically, so the normal `lake build`
  * command remains usable without cloning or rebuilding Mathlib.
  */
-const writeSolverLakePackageOverrides = (projectRoot: string, manifestPath: string): boolean => {
+const writeSolverLakePackageOverrides = (projectRoot: string, manifest: LeanEvalLakeManifestRecord): void => {
   const packagesRoot = resolveMathematicsLakePackagesCache(projectRoot, resolveMathematicsRuntimeEnvironment());
-  if (!packagesRoot) return false;
-  const manifest = parseLeanEvalLakeManifest(fs.readFileSync(manifestPath, 'utf8'), manifestPath);
-  if (!Array.isArray(manifest.packages) || manifest.packages.length === 0) return false;
+  if (!packagesRoot) return;
+  if (!Array.isArray(manifest.packages) || manifest.packages.length === 0) return;
   const overrides: LeanEvalLakeManifestRecord[] = [];
   for (const item of manifest.packages) {
-    if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return;
     const entry = item as LeanEvalLakeManifestRecord;
     const name = typeof entry.name === 'string' ? entry.name : '';
-    if (!name) return false;
+    if (!name) return;
     const packageDirectory = [name, name.replace(/^«(.+)»$/u, '$1')].find((candidate) =>
       fs.existsSync(path.join(packagesRoot, candidate))
     );
-    if (!packageDirectory) return false;
+    if (!packageDirectory) return;
     const override: LeanEvalLakeManifestRecord = {
       name,
       type: 'path',
@@ -584,11 +418,8 @@ const writeSolverLakePackageOverrides = (projectRoot: string, manifestPath: stri
   }
   const lakeDirectory = path.join(projectRoot, '.lake');
   ensureDirectoryNoSymlink(lakeDirectory);
-  writeFileDurably(
-    path.join(lakeDirectory, 'package-overrides.json'),
-    `${JSON.stringify({ schemaVersion: '1.2.0', packages: overrides }, null, 2)}\n`
-  );
-  return true;
+  writeMathJsonDurable(path.join(lakeDirectory, 'package-overrides.json'),
+    { schemaVersion: '1.2.0', packages: overrides });
 };
 
 /** Materialize only public/trusted files and solver-owned files. Solution.lean is deliberately excluded. */
@@ -600,52 +431,27 @@ const materializeSolverWorkspace = (
 ): Readonly<{ projectRoot: string; trustedFiles: readonly string[]; solverOwnedFiles: readonly string[] }> => {
   const projectRoot = path.join(workspaceRoot, problem.generatedPath);
   ensureDirectoryNoSymlink(projectRoot);
-  const prefix = `${safeRelative(problem.generatedPath)}/`;
-  const tree = git(repositoryRoot, ['ls-tree', '-r', '--name-only', baselineCommit, '--', problem.generatedPath])
-    .split('\n')
-    .map((item) => item.trim())
-    .filter(Boolean);
-  const trustedFiles: string[] = [];
-  const solverOwnedFiles: string[] = [];
-  let problemManifestWritten = false;
-  for (const absoluteRelative of tree) {
-    if (!absoluteRelative.startsWith(prefix)) continue;
-    const relative = absoluteRelative.slice(prefix.length);
-    safeRelative(relative);
-    // Keep evaluator-only files and benchmark prose out of the blind solver
-    // view even when a future benchmark nests them below the problem root.
-    if (['Solution.lean', 'WorkspaceTest.lean', 'README.md'].includes(path.posix.basename(relative))) continue;
-    if (
-      !relative.endsWith('.lean') &&
-      !['config.json', 'holes.json', 'lakefile.toml', 'lakefile.lean', 'lake-manifest.json', 'lean-toolchain'].includes(
-        relative
-      )
-    )
-      continue;
-    writeGitFile(repositoryRoot, baselineCommit, absoluteRelative, path.join(projectRoot, relative));
-    if (relative === 'lake-manifest.json') problemManifestWritten = true;
-    if (relative === 'Submission.lean' || (relative.startsWith('Submission/') && relative.endsWith('.lean')))
-      solverOwnedFiles.push(relative);
-    else trustedFiles.push(relative);
+  const ownership = pinnedOwnership(repositoryRoot, problem, baselineCommit);
+  for (const file of [...ownership.trustedFiles, ...ownership.solverOwnedFiles]) {
+    const source = file === 'lake-manifest.json' &&
+      !fs.existsSync(path.join(repositoryRoot, problem.generatedPath, file)) ? file : `${problem.generatedPath}/${file}`;
+    writeGitFile(repositoryRoot, baselineCommit, source, path.join(projectRoot, file));
   }
-  if (!solverOwnedFiles.includes('Submission.lean')) throw new Error(`LeanEval ${problem.id} has no Submission.lean`);
+  if (!ownership.solverOwnedFiles.includes('Submission.lean')) throw new Error(`LeanEval ${problem.id} has no Submission.lean`);
   const manifestPath = path.join(projectRoot, 'lake-manifest.json');
-  if (!problemManifestWritten && fs.existsSync(path.join(repositoryRoot, 'lake-manifest.json')))
-    writeGitFile(repositoryRoot, baselineCommit, 'lake-manifest.json', manifestPath);
   if (fs.existsSync(manifestPath)) {
-    const manifestStat = fs.lstatSync(manifestPath);
-    if (manifestStat.isSymbolicLink() || !manifestStat.isFile())
-      throw new Error('LeanEval lake-manifest.json is invalid');
-    writeFileDurably(
-      manifestPath,
-      normalizeSolverLakeManifest(fs.readFileSync(manifestPath, 'utf8'), manifestPath, problem.id)
-    );
-    writeSolverLakePackageOverrides(projectRoot, manifestPath);
+    const manifest = readMathJson(manifestPath) as LeanEvalLakeManifestRecord;
+    if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest))
+      throw new Error(`LeanEval Lake manifest must be a JSON object: ${manifestPath}`);
+    // Keep pinned dependency revisions while making this an independent package.
+    const normalized = { ...manifest, version: manifest.version ?? manifest.schemaVersion ?? '1.2.0',
+      name: problem.id, lakeDir: '.lake', packagesDir: '.lake/packages' };
+    writeMathJsonDurable(manifestPath, normalized);
+    writeSolverLakePackageOverrides(projectRoot, normalized);
   }
   return Object.freeze({
     projectRoot,
-    trustedFiles: Object.freeze(trustedFiles.toSorted()),
-    solverOwnedFiles: Object.freeze(solverOwnedFiles.toSorted()),
+    ...ownership,
   });
 };
 
@@ -669,7 +475,7 @@ const pinnedOwnership = (
     .map((item) => item.trim())
     .filter(Boolean)) {
     if (!absoluteRelative.startsWith(prefix)) continue;
-    const relative = absoluteRelative.slice(prefix.length);
+    const relative = safeRelative(absoluteRelative.slice(prefix.length));
     if (['Solution.lean', 'WorkspaceTest.lean', 'README.md'].includes(path.posix.basename(relative))) continue;
     if (
       !relative.endsWith('.lean') &&
@@ -682,6 +488,8 @@ const pinnedOwnership = (
       solverOwnedFiles.push(relative);
     else trustedFiles.push(relative);
   }
+  if (!trustedFiles.includes('lake-manifest.json') && fs.existsSync(path.join(repositoryRoot, 'lake-manifest.json')))
+    trustedFiles.push('lake-manifest.json');
   return Object.freeze({
     trustedFiles: Object.freeze(trustedFiles.toSorted()),
     solverOwnedFiles: Object.freeze(solverOwnedFiles.toSorted()),
@@ -691,117 +499,8 @@ const pinnedOwnership = (
 const sameStringList = (left: readonly string[], right: readonly string[]): boolean =>
   left.length === right.length && left.every((value, index) => value === right[index]);
 
-const decisiveHole = (analysis: LeanEvalProblemAnalysis): LeanEvalProblemAnalysis['holes'][number] | undefined =>
-  analysis.holes.toReversed().find((hole) => hole.kind === 'theorem') ?? analysis.holes.at(-1);
-
-export const buildLeanEvalBootstrapRouteCard = (
-  analysis: Pick<LeanEvalProblemAnalysis, 'holeDag' | 'holes' | 'challengeSha256' | 'problemId' | 'feasibility'>,
-  statementHash: string,
-  sessionId: string
-): MathRouteCard => {
-  const planNodes: MathPlanNode[] = analysis.holeDag.map((node) => ({
-    ...node,
-    estimatedEffort:
-      node.estimatedEffort === undefined ? undefined : Math.min(5, Math.max(1, Math.round(node.estimatedEffort))),
-  }));
-  const byId = new Map(planNodes.map((node) => [node.id, node]));
-  const reached = new Set<string>();
-  const visit = (id: string): void => {
-    if (reached.has(id)) return;
-    reached.add(id);
-    byId.get(id)?.dependsOn.forEach(visit);
-  };
-  const declaredGoal = planNodes.find((node) => node.role === 'goal');
-  if (declaredGoal) visit(declaredGoal.id);
-  if (declaredGoal && reached.size !== planNodes.length) {
-    let completionId = 'public-obligations-completion';
-    while (byId.has(completionId)) completionId += '-group';
-    const dependencies = new Set(planNodes.flatMap((node) => node.dependsOn));
-    // Containment records joint completion, not a mathematical implication
-    // between independent public declarations. The official gate still checks each hole.
-    for (let index = 0; index < planNodes.length; index += 1) {
-      const node = planNodes[index]!;
-      planNodes[index] = {
-        ...node,
-        role: node.role === 'goal' ? 'reduction' : node.role,
-        ...(!dependencies.has(node.id) ? { parentNodeId: completionId } : {}),
-      };
-    }
-    planNodes.push({
-      id: completionId,
-      role: 'goal',
-      informalClaim: `Complete every public proof obligation for ${analysis.problemId}; organizational completion only.`,
-      provisionalLeanStatement: analysis.holes.map((hole) => hole.declarationBody).join('\n\n'),
-      dependsOn: [],
-      status: 'proposed',
-      evidenceRefs: [],
-      expectedProgress:
-        'Every original public obligation is verified by the unchanged official whole-submission gate. This grouping does not introduce a Lean declaration.',
-      successCriteria: analysis.holes.map((hole) => `Verify the original public obligation ${hole.name}.`),
-    });
-  }
-  const schedule = mathActionablePlanSchedule(planNodes);
-  const rootNodeId = schedule.rootNodeId;
-  const routePayload = JSON.stringify({
-    statement: analysis.challengeSha256,
-    nodes: planNodes.map((node) =>
-      node.parentNodeId ? [node.id, node.dependsOn, node.parentNodeId] : [node.id, node.dependsOn]
-    ),
-  });
-  const routeFingerprint = `lean-eval:${sha256(routePayload).slice(0, 48)}`;
-  const card = {
-    statementHash,
-    routeFingerprint,
-    proposerSessionId: sessionId,
-    structuralCommitment: `Public Challenge hole DAG for ${analysis.problemId}`,
-    decisiveLemma: analysis.holes.at(-1)?.name ?? analysis.problemId,
-    decisiveTest: 'Compile the active Submission wave with the pinned Lean toolchain.',
-    falsificationSignal: 'A public Challenge compile error or a target exact-probe failure.',
-    premiseBundle: {
-      strategySketch: 'Solve dependency-ready holes in wave order, preserving exact declarations.',
-      leanSkeleton: 'namespace Submission\n\nend Submission',
-      premises: [] as readonly [],
-      coverage: planNodes.map((node) => ({
-        planNodeId: node.id,
-        premiseDeclarationNames: [] as readonly [],
-        selfContained: false,
-        unresolvedNeed: `Retrieve exact premises after a live-goal miss for ${node.id}.`,
-      })),
-      unresolvedNeeds: planNodes.map((node) => `Retrieve exact premises after a live-goal miss for ${node.id}.`),
-    },
-    planNodes,
-    bridges: planNodes.flatMap((node) =>
-      node.dependsOn.map((dependencyNodeId) => ({
-        dependencyNodeId,
-        consumerNodeId: node.id,
-        mathematicalBridge: `Use ${dependencyNodeId} as the dependency for ${node.id}.`,
-        leanUse: `Apply the compiled declaration represented by ${dependencyNodeId}.`,
-      }))
-    ),
-    rootNodeId,
-    ...(schedule.rankedNodeIds[0] ? { bottleneckNodeId: schedule.rankedNodeIds[0] } : {}),
-    openFrontierNodeIds: schedule.openFrontierNodeIds,
-    expectedInformationGain: 3,
-    estimatedCost: Math.min(5, Math.max(1, Math.ceil(analysis.holes.length / 3))),
-    formalizationRisk: Math.min(
-      5,
-      Math.max(
-        1,
-        Math.ceil(
-          (analysis.feasibility.formalDegeneracyPotential + analysis.feasibility.missingFoundationDepth / 2) * 5
-        )
-      )
-    ),
-  } satisfies MathRouteCard;
-  return normalizeMathRouteCard(card);
-};
-
-const buildRouteCard = buildLeanEvalBootstrapRouteCard;
-
-/** Build a reproducible, solver-safe Lean-Eval project and route contract. */
 export async function bootstrapLeanEvalProblem(options: LeanEvalBootstrapOptions): Promise<LeanEvalBootstrapResult> {
   const repositoryRoot = fs.realpathSync(path.resolve(options.repositoryRoot));
-  reapLeanEvalArtifacts({ repositoryRoot });
   const baselineCommit = LEAN_EVAL_BENCHMARK_COMMIT;
   // The caller checkout may be dirty or on another branch.  Require only that
   // it contains the official object, then read every public input from a
@@ -811,10 +510,7 @@ export async function bootstrapLeanEvalProblem(options: LeanEvalBootstrapOptions
   } catch {
     throw new Error(`LeanEval checkout does not contain pinned benchmark commit ${baselineCommit}`);
   }
-  // Reserve the solver workspace name before creating the pinned source
-  // worktree. The Team workspace index binds detached paths to
-  // `<workspace>.source` and `<workspace>.git`, so the default path must use
-  // that same identity rather than an unrelated random source directory.
+  // Reserve the solver name before creating its pinned source and verifier worktrees.
   const workspaceParent = options.workspaceParent
     ? ensureDirectoryNoSymlink(options.workspaceParent)
     : ensureDirectoryNoSymlink(os.tmpdir());
@@ -895,66 +591,8 @@ export async function bootstrapLeanEvalProblem(options: LeanEvalBootstrapOptions
     git(verifierProjectRoot, ['sparse-checkout', 'disable']);
     // The solver view is deliberately separate from the Git worktree.  The
     // latter retains protected evaluator files for official comparison while
-    // the former never materializes Solution.lean into a Worker workspace.
+    // the former never materializes Solution.lean into a solver workspace.
     const materialized = materializeSolverWorkspace(sourceWorktree, selectedProblem, baselineCommit, workspaceRoot);
-    const runtimeEnvironment = resolveMathematicsRuntimeEnvironment();
-    const toolchain = (() => {
-      for (const candidate of [
-        path.join(sourceWorktree, selectedProblem.generatedPath, 'lean-toolchain'),
-        path.join(sourceWorktree, 'lean-toolchain'),
-      ]) {
-        try {
-          const value = fs.readFileSync(candidate, 'utf8').trim();
-          if (value) return value;
-        } catch {
-          // Try the next pinned toolchain declaration.
-        }
-      }
-      return 'unknown';
-    })();
-    const analysisCacheRoot = runtimeEnvironment.DEEPSCIENTIST_LEAN_EVAL_ROOT?.trim();
-    const analysisCacheOptions = analysisCacheRoot
-      ? {
-          cacheRoot: analysisCacheRoot,
-          benchmarkCommit: baselineCommit,
-          catalogHash: catalog.catalogHash,
-          problemId: selectedProblem.id,
-          toolchain,
-        }
-      : undefined;
-    const cachedAnalysis = analysisCacheOptions ? readCachedLeanEvalAnalysis(analysisCacheOptions) : undefined;
-    // The cache key intentionally stays compatible with the shared intake
-    // cache. Probe availability is therefore checked at the value boundary:
-    // enabling elaboration may upgrade a cache that was created by a fast
-    // static-only bootstrap, while disabling it can reuse either form.
-    let analysis = canReuseLeanEvalAnalysisCache(cachedAnalysis, options.enableElaborationProbe)
-      ? cachedAnalysis
-      : undefined;
-    if (!analysis) {
-      analysis = await analyzeLeanEvalProblem(selectedProblem, {
-        repositoryRoot: sourceWorktree,
-        benchmarkCommit: baselineCommit,
-        supportedToolchains: options.supportedToolchains,
-        ...(options.enableElaborationProbe === false
-          ? {}
-          : {
-              elaborationProbe: (
-                problemRoot: string,
-                declarations: readonly string[],
-                dependencyTargets: readonly string[]
-              ) => runLeanEvalSandboxedElaborationProbe(problemRoot, declarations, 30_000, dependencyTargets),
-            }),
-      });
-      if (analysisCacheOptions) {
-        try {
-          writeCachedLeanEvalAnalysis(analysisCacheOptions, analysis);
-        } catch {
-          // Analysis caching is an acceleration only; a read-only or full
-          // cache root must never make a valid bootstrap fail.
-        }
-      }
-    }
-    rememberLeanEvalBootstrapAnalysis(repositoryRoot, analysis);
     const binding = prepareLeanEvalProblemBinding({
       projectRoot: path.join(verifierProjectRoot, selectedProblem.generatedPath),
       problemId: selectedProblem.id,
@@ -969,12 +607,9 @@ export async function bootstrapLeanEvalProblem(options: LeanEvalBootstrapOptions
     // committed together with the solver files so the comparator can resolve
     // the exact manifest from targetCommit rather than from mutable state.
     materializeLeanEvalProblemBinding(binding);
-    const routeCard = buildRouteCard(analysis, binding.problemContract.statementHash, `bootstrap:${process.pid}`);
-    const route = routeLeanEvalProblem(analysis);
-    const executionPolicy = executionPolicyFromLeanEvalRoute(route);
     const receipt: LeanEvalBootstrapReceipt = Object.freeze({
       schema: 'deepscientist.mathematics.lean-eval-bootstrap-receipt.v1',
-      receiptId: `lean-eval-bootstrap:${selectedProblem.id}:${sha256(`${catalog.catalogHash}\0${routeCard.routeFingerprint}`).slice(0, 24)}`,
+      receiptId: `lean-eval-bootstrap:${selectedProblem.id}:${sha256(`${catalog.catalogHash}\0${binding.problemContract.leanStatementHash}`).slice(0, 24)}`,
       problemId: selectedProblem.id,
       benchmarkCommit: baselineCommit,
       catalogHash: catalog.catalogHash,
@@ -990,18 +625,9 @@ export async function bootstrapLeanEvalProblem(options: LeanEvalBootstrapOptions
             leaderboardGeneratedAt: official.generatedAt,
           }
         : {}),
-      routeFingerprint: routeCard.routeFingerprint,
-      executionPolicy,
       contract: binding.problemContract,
-      publicObligations: Object.freeze(
-        analysis.holes.map((hole) =>
-          Object.freeze({
-            name: hole.name,
-            declarationHash: hashMathFormalSourceDeclaration(hole.declarationBody, hole.basename),
-            dependsOn: Object.freeze([...hole.dependsOn]),
-          })
-        )
-      ),
+      publicObligations: Object.freeze(binding.publicObligations.map(({ name, declarationHash }) =>
+        Object.freeze({ name, declarationHash }))),
       workspaceRoot,
       projectRoot: materialized.projectRoot,
       verifierProjectRoot,
@@ -1010,10 +636,17 @@ export async function bootstrapLeanEvalProblem(options: LeanEvalBootstrapOptions
       solverOwnedFiles: materialized.solverOwnedFiles,
       activeProblemPath: path.join(workspaceRoot, 'active-problem.json'),
       createdAt: Date.now(),
-      ...(analysis.feasibility.toolchainCompatibility ? { toolchain: 'pinned' } : {}),
     });
-    writeFileDurably(receipt.activeProblemPath, `${JSON.stringify(receipt, null, 2)}\n`);
-    return Object.freeze({ catalog, problem: selectedProblem, analysis, binding, routeCard, route, receipt });
+    writeMathJsonDurable(receipt.activeProblemPath, receipt);
+    // This repository contains only the public solver view, never reference proofs.
+    git(workspaceRoot, ['init', '--quiet']);
+    git(workspaceRoot, ['add', '-f', '--', ...[...receipt.trustedFiles, ...receipt.solverOwnedFiles]
+      .map(file => path.join(selectedProblem.generatedPath, file))]);
+    git(workspaceRoot, ['-c', 'user.name=DeepScientist Math', '-c', 'user.email=math@localhost',
+      'commit', '--no-gpg-sign', '--quiet', '-m', 'Public Lean-Eval solver baseline']);
+    fs.appendFileSync(path.join(workspaceRoot, '.git', 'info', 'exclude'),
+      '\n/active-problem.json\n/bootstrap-result.json\n/.deepscientist/\n**/.lake/\n');
+    return Object.freeze({ catalog, problem: selectedProblem, binding, receipt });
   } catch (error) {
     if (verifierWorktreeCreated) {
       try {
@@ -1039,13 +672,11 @@ export async function bootstrapLeanEvalProblem(options: LeanEvalBootstrapOptions
 }
 
 /** Reload a bootstrap receipt after a process restart without trusting mutable
- * workspace metadata. The caller must still rebuild catalog/analysis before
+ * workspace metadata. The caller must still rebuild catalog/binding before
  * executing a gate. */
 export function readLeanEvalBootstrapReceipt(activeProblemPath: string): LeanEvalBootstrapReceipt {
   const absolute = path.resolve(activeProblemPath);
-  const stat = fs.lstatSync(absolute);
-  if (stat.isSymbolicLink() || !stat.isFile()) throw new Error('LeanEval bootstrap receipt is not a regular file');
-  const parsed = JSON.parse(fs.readFileSync(absolute, 'utf8')) as Partial<LeanEvalBootstrapReceipt>;
+  const parsed = readMathJson(absolute) as Partial<LeanEvalBootstrapReceipt>;
   if (
     parsed.schema !== 'deepscientist.mathematics.lean-eval-bootstrap-receipt.v1' ||
     typeof parsed.receiptId !== 'string' ||
@@ -1067,8 +698,6 @@ export function readLeanEvalBootstrapReceipt(activeProblemPath: string): LeanEva
       (typeof parsed.leaderboardHash !== 'string' || !/^[0-9a-f]{64}$/iu.test(parsed.leaderboardHash))) ||
     (parsed.leaderboardGeneratedAt !== undefined &&
       (!Number.isFinite(parsed.leaderboardGeneratedAt) || Number(parsed.leaderboardGeneratedAt) <= 0)) ||
-    typeof parsed.routeFingerprint !== 'string' ||
-    !parsed.routeFingerprint.trim() ||
     typeof parsed.workspaceRoot !== 'string' ||
     typeof parsed.projectRoot !== 'string' ||
     typeof parsed.activeProblemPath !== 'string' ||
@@ -1089,9 +718,7 @@ export function readLeanEvalBootstrapReceipt(activeProblemPath: string): LeanEva
           !item ||
           typeof item.name !== 'string' ||
           !item.name.trim() ||
-          !/^[a-f0-9]{64}$/u.test(item.declarationHash) ||
-          !Array.isArray(item.dependsOn) ||
-          item.dependsOn.some((name: unknown) => typeof name !== 'string' || !name.trim())
+          !/^[a-f0-9]{64}$/u.test(item.declarationHash)
       ) ||
       new Set(parsed.publicObligations.map((item) => item.name)).size !== parsed.publicObligations.length)
   ) {
@@ -1121,27 +748,8 @@ export function readLeanEvalBootstrapReceipt(activeProblemPath: string): LeanEva
   if (contract.problemId !== parsed.problemId) {
     throw new Error('LeanEval bootstrap receipt contract problemId does not match the receipt problemId');
   }
-  const executionPolicy = parsed.executionPolicy
-    ? normalizeMathExecutionPolicy(parsed.executionPolicy as MathExecutionPolicy)
-    : undefined;
   const workspaceRoot = path.resolve(parsed.workspaceRoot);
   const projectRoot = path.resolve(parsed.projectRoot);
-  const assertNoSymlinkComponents = (candidate: string, label: string): void => {
-    const resolved = path.resolve(candidate);
-    const parsedPath = path.parse(resolved);
-    let cursor = parsedPath.root;
-    for (const segment of resolved.slice(parsedPath.root.length).split(path.sep).filter(Boolean)) {
-      cursor = path.join(cursor, segment);
-      try {
-        const candidateStat = fs.lstatSync(cursor);
-        if (candidateStat.isSymbolicLink()) throw new Error(`${label} must not traverse a symbolic link`);
-      } catch (error) {
-        if (error instanceof Error && error.message.includes('must not traverse')) throw error;
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') break;
-        throw error;
-      }
-    }
-  };
   if (
     path.resolve(parsed.activeProblemPath) !== absolute ||
     !path.isAbsolute(parsed.workspaceRoot) ||
@@ -1152,9 +760,9 @@ export function readLeanEvalBootstrapReceipt(activeProblemPath: string): LeanEva
   ) {
     throw new Error('LeanEval bootstrap receipt paths are invalid or inconsistent');
   }
-  assertNoSymlinkComponents(workspaceRoot, 'LeanEval bootstrap workspaceRoot');
-  assertNoSymlinkComponents(projectRoot, 'LeanEval bootstrap projectRoot');
-  assertNoSymlinkComponents(absolute, 'LeanEval bootstrap activeProblemPath');
+  assertMathCanonicalPath(workspaceRoot);
+  assertMathCanonicalPath(projectRoot);
+  assertMathCanonicalPath(absolute);
   const ownership = new Set<string>();
   for (const file of [...parsed.solverOwnedFiles, ...parsed.trustedFiles]) {
     if (
@@ -1183,7 +791,7 @@ export function readLeanEvalBootstrapReceipt(activeProblemPath: string): LeanEva
     ) {
       throw new Error('LeanEval bootstrap receipt contains an unsafe detached worktree path');
     }
-    if (candidate !== undefined) assertNoSymlinkComponents(path.resolve(candidate), 'LeanEval detached worktree');
+    if (candidate !== undefined) assertMathCanonicalPath(path.resolve(candidate));
   }
   return Object.freeze({
     ...parsed,
@@ -1191,7 +799,6 @@ export function readLeanEvalBootstrapReceipt(activeProblemPath: string): LeanEva
     projectRoot,
     activeProblemPath: absolute,
     contract,
-    ...(executionPolicy ? { executionPolicy } : {}),
     trustedFiles: Object.freeze([...parsed.trustedFiles]),
     solverOwnedFiles: Object.freeze([...parsed.solverOwnedFiles]),
   } as LeanEvalBootstrapReceipt);
@@ -1365,7 +972,8 @@ export async function runLeanEvalOfficialGate(
   // Eligibility is an authority decision, so a cached intake snapshot is not
   // sufficient. Refresh immediately before any submission commit/gate and
   // fail closed if the leaderboard cannot be reached.
-  if (bootstrapped.receipt.leaderboardSource === LEAN_EVAL_LEADERBOARD_URL) {
+  if (bootstrapped.receipt.evaluationMode !== 'benchmark' &&
+      bootstrapped.receipt.leaderboardSource === LEAN_EVAL_LEADERBOARD_URL) {
     let freshLeaderboard: Readonly<{
       credits: readonly { problemId: string; statementRevision: number }[];
       generatedAt: number;
@@ -1407,6 +1015,13 @@ export async function runLeanEvalOfficialGate(
   }
   assertSubmissionCommitDelta(bootstrapped, submission.targetCommit);
   const solverProjectRoot = path.resolve(bootstrapped.receipt.projectRoot);
+  const verifierProject = path.join(verifierRoot, bootstrapped.problem.generatedPath);
+  const verifierManifest = path.join(verifierProject, 'lake-manifest.json');
+  if (!fs.existsSync(verifierManifest) && fs.existsSync(path.join(verifierRoot, 'lake-manifest.json'))) {
+    const pinned = JSON.parse(git(verifierRoot, ['show', `${bootstrapped.receipt.benchmarkCommit}:lake-manifest.json`]));
+    writeMathJsonDurable(verifierManifest, { ...pinned, version: pinned.version ?? pinned.schemaVersion ?? '1.2.0',
+      name: bootstrapped.problem.id, lakeDir: '.lake', packagesDir: '.lake/packages' });
+  }
   const proofFiles = bootstrapped.receipt.solverOwnedFiles.filter((file) => file.endsWith('.lean'));
   const declarationFile = new Map<string, string>();
   for (const relative of proofFiles) {
@@ -1418,24 +1033,29 @@ export async function runLeanEvalOfficialGate(
       if (local) declarationFile.set(local, relative);
     }
   }
-  const localItems = bootstrapped.analysis.holes.map((hole) => ({
-    id: hole.name,
-    proofPath: declarationFile.get(hole.name) || declarationFile.get(hole.basename) || 'Submission.lean',
-    theoremName: hole.name,
-    statementHash: bootstrapped.binding.problemContract.statementHash,
-    leanStatementHash: bootstrapped.binding.problemContract.leanStatementHash,
-    expectedSourceDeclarationHash: hashMathFormalSourceDeclaration(hole.declarationBody, hole.basename),
-  }));
+  const localItems = bootstrapped.binding.publicObligations.map((hole) => {
+    const relative = declarationFile.get(hole.name.replace(/^LeanEval\./u, 'Submission.')) ||
+      declarationFile.get(hole.name) || declarationFile.get(hole.name.split('.').at(-1)!) || 'Submission.lean';
+    return {
+      id: hole.name,
+      proofPath: relative,
+      theoremName: resolveLeanEvalSubmissionName(hole.name, fs.readFileSync(path.join(solverProjectRoot, relative), 'utf8')),
+      statementHash: bootstrapped.binding.problemContract.statementHash,
+      leanStatementHash: bootstrapped.binding.problemContract.leanStatementHash,
+      expectedSourceDeclarationHash: hole.declarationHash,
+    };
+  });
   const localGate = await checkManyFormalVerifications(
     {
-      projectRoot: verifierRoot,
+      projectRoot: verifierProject,
       targetCommit: submission.targetCommit,
       timeoutMs: options.timeoutMs,
       items: localItems,
     },
-    options.signal ? { signal: options.signal, env: options.env } : { env: options.env }
+    { signal: options.signal, env: options.env, prepareLocalDependencies: true }
   );
-  const decisive = decisiveHole(bootstrapped.analysis);
+  const decisive = bootstrapped.binding.publicObligations.toReversed().find(hole => hole.kind === 'theorem')
+    ?? bootstrapped.binding.publicObligations.at(-1);
   const hasAllKernelReceipts =
     decisive !== undefined && hasCompleteLeanEvalLocalGateResults(localItems, localGate, submission.targetCommit);
   if (
@@ -1465,12 +1085,13 @@ export async function runLeanEvalOfficialGate(
     });
   }
   const execution: MathematicsVerifierExecutionOptions = {
+    prepareLocalDependencies: true,
     ...(options.signal ? { signal: options.signal } : {}),
     ...(options.env ? { env: options.env } : {}),
   };
   const comparison = await runOfficialComparator(
     {
-      projectRoot: verifierRoot,
+      projectRoot: verifierProject,
       targetCommit: submission.targetCommit,
       command: bootstrapped.binding.problemContract.officialVerificationCommand,
       officialManifestPath: bootstrapped.binding.officialManifestPath,
@@ -1484,7 +1105,7 @@ export async function runLeanEvalOfficialGate(
   );
   let officialGateReceipt: MathOfficialGateReceipt | undefined;
   if (comparison.status === 'official_verified') {
-    const decisiveItem = decisive ? localItems.find((item) => item.theoremName === decisive.name) : undefined;
+    const decisiveItem = decisive ? localItems.find((item) => item.id === decisive.name) : undefined;
     const local = decisiveItem
       ? localGate.results.find((result) =>
           isLeanEvalLocalGateResultBound(decisiveItem, result, submission.targetCommit)
@@ -1500,7 +1121,7 @@ export async function runLeanEvalOfficialGate(
         targetCommit: submission.targetCommit,
         statementHash: local.statementHash,
         claim: local.claim,
-        routeFingerprint: bootstrapped.receipt.routeFingerprint,
+        ...(bootstrapped.receipt.routeFingerprint ? { routeFingerprint: bootstrapped.receipt.routeFingerprint } : {}),
         localGateReceiptId: local.receiptId,
         theoremName: local.theoremName,
         proofHash: local.proofHash,
@@ -1534,32 +1155,7 @@ export async function runLeanEvalOfficialGate(
       'official-gate-receipt.json'
     );
     ensureDirectoryNoSymlink(path.dirname(receiptPath));
-    writeFileDurably(receiptPath, `${JSON.stringify(officialGateReceipt, null, 2)}\n`);
+    writeMathJsonDurable(receiptPath, officialGateReceipt);
   }
   return Object.freeze({ submission, localGate, comparison, ...(officialGateReceipt ? { officialGateReceipt } : {}) });
-}
-
-/** Remove the detached verifier worktree and disposable solver view. */
-export function cleanupLeanEvalBootstrap(bootstrapped: LeanEvalBootstrapResult): void {
-  const verifierRoot = bootstrapped.receipt.verifierProjectRoot;
-  if (verifierRoot && fs.existsSync(verifierRoot)) {
-    try {
-      git(bootstrapped.binding.repositoryRoot, ['worktree', 'remove', '--force', verifierRoot]);
-      git(bootstrapped.binding.repositoryRoot, ['worktree', 'prune']);
-    } catch {
-      // Keep cleanup best-effort; callers still receive the primary result.
-    }
-  }
-  const sourceRoot = bootstrapped.receipt.sourceProjectRoot;
-  if (sourceRoot && fs.existsSync(sourceRoot)) {
-    try {
-      git(bootstrapped.binding.repositoryRoot, ['worktree', 'remove', '--force', sourceRoot]);
-      git(bootstrapped.binding.repositoryRoot, ['worktree', 'prune']);
-    } catch {
-      // Best effort; the reaper can remove an orphaned detached worktree.
-    }
-  }
-  if (fs.existsSync(bootstrapped.receipt.workspaceRoot)) {
-    fs.rmSync(bootstrapped.receipt.workspaceRoot, { recursive: true, force: true });
-  }
 }

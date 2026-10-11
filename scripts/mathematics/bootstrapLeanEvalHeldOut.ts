@@ -16,10 +16,6 @@ const parseFlags = (argv: readonly string[]): Map<string, string> => {
       flags.set('help', 'true');
       continue;
     }
-    if (key === '--elaboration-probe') {
-      flags.set('elaboration-probe', 'true');
-      continue;
-    }
     if (!key?.startsWith('--')) throw new Error(`Invalid argument: ${key}`);
     const value = argv[i + 1];
     if (!value || value.startsWith('--')) throw new Error(`${key} requires a value`);
@@ -40,7 +36,7 @@ async function main(): Promise<void> {
   const flags = parseFlags(process.argv.slice(2));
   if (flags.has('help')) {
     console.log(
-      'Usage: bun scripts/mathematics/bootstrapLeanEvalHeldOut.ts --repo DIR --problem ID --workspace DIR [--receipt FILE] [--elaboration-probe]'
+      'Usage: bun scripts/mathematics/bootstrapLeanEvalHeldOut.ts --repo DIR --problem ID --workspace DIR [--receipt FILE]'
     );
     return;
   }
@@ -61,7 +57,6 @@ async function main(): Promise<void> {
     problemId: required(flags, 'problem'),
     evaluationMode: evaluationMode as 'official' | 'benchmark',
     workspaceRoot,
-    enableElaborationProbe: flags.has('elaboration-probe'),
   });
   const receiptPath = path.resolve(flags.get('receipt') || path.join(workspaceRoot, 'bootstrap-result.json'));
   const descriptor = fs.openSync(receiptPath, 'wx', 0o600);
@@ -76,11 +71,7 @@ async function main(): Promise<void> {
           benchmarkCommit: result.catalog.benchmarkCommit,
           catalogHash: result.catalog.catalogHash,
           receipt: result.receipt,
-          routeCard: result.routeCard,
-          analysis: {
-            holeCount: result.analysis.holes.length,
-            feasibility: result.analysis.feasibility,
-          },
+          obligationCount: result.binding.publicObligations.length,
         },
         null,
         2
@@ -97,7 +88,6 @@ async function main(): Promise<void> {
       projectRoot: result.receipt.projectRoot,
       activeProblemPath: result.receipt.activeProblemPath,
       receiptPath,
-      routeFingerprint: result.receipt.routeFingerprint,
     })
   );
 }

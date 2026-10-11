@@ -63,6 +63,7 @@ def main():
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--source')
     group.add_argument('--image')
+    group.add_argument('--check-tools', choices=['mount', 'build'])
     parser.add_argument('--export-image')
     parser.add_argument('--expected-image-sha256')
     args = parser.parse_args()
@@ -88,8 +89,11 @@ def main():
         snapfuse = shutil.which('snapfuse') or shutil.which('squashfuse')
         unmount = shutil.which('fusermount3') or shutil.which('fusermount')
         compressor_bin = shutil.which('mksquashfs')
-        if not snapfuse or not unmount or (args.source and not compressor_bin):
+        if not snapfuse or not unmount or ((args.source or args.check_tools == 'build') and not compressor_bin):
             raise RuntimeError('sealed dependency environment requires squashfuse, fusermount, and mksquashfs')
+        if args.check_tools:
+            emit({'state': 'ready'})
+            return 0
         signal.signal(signal.SIGTERM, terminate)
         signal.signal(signal.SIGINT, terminate)
         cancelled()
@@ -113,7 +117,7 @@ def main():
                 compressor = subprocess.Popen(
                     [compressor_bin, str(source), str(image_path),
                      '-noappend', '-quiet', '-no-progress', '-processors', '2',
-                     '-mem', '128M', '-noD', '-noF', '-noI'],
+                     '-mem', '128M', '-comp', 'zstd', '-Xcompression-level', '1'],
                     stdin=subprocess.DEVNULL,
                     stdout=subprocess.DEVNULL, stderr=diagnostics)
                 while compressor.poll() is None:

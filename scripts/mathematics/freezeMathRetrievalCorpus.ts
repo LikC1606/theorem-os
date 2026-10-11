@@ -4,11 +4,7 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { createMathRetrievalCorpus } from "../../src/math/mathRetrievalCorpus";
-import {
-  canonicalMathJson,
-  mathDigest,
-  syncMathDirectory,
-} from "../../src/math/mathRuntimeIo";
+import { canonicalMathJson, mathDigest, syncMathDirectory } from "../../src/math/mathRuntimeIo";
 
 export async function freezeMathRetrievalCorpus(args: readonly string[]) {
   const { values } = parseArgs({

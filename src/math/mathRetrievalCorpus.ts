@@ -1,19 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import crypto from 'node:crypto';
 import { z } from 'zod';
-import { symbolicMathTokens } from "../common/chat/mathematics";
-import {
-  captureInstalledLeanSources,
-  INSTALLED_CORPUS_POLICY,
-  MAX_INSTALLED_SOURCE_FILE_BYTES,
-  isAllowedInstalledLeanSource,
-  rankInstalledLeanSources,
-} from "./installedPackageSearch";
+import { captureInstalledLeanSources, INSTALLED_CORPUS_POLICY, MAX_INSTALLED_SOURCE_FILE_BYTES, isAllowedInstalledLeanSource } from "./installedPackageSearch";
 import { canonicalMathJson, mathDigest } from "./mathRuntimeIo";
-
-export const MATH_RETRIEVAL_CORPUS_ENV = 'DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS';
-export const MATH_RETRIEVAL_CORPUS_SHA_ENV = 'DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS_SHA256';
+import { inspectLeanDeclarations } from './verifier';
+import { maskLeanCommentsAndStrings } from './leanSyntax';
 const MAX_FILE_BYTES = MAX_INSTALLED_SOURCE_FILE_BYTES;
 const digestSchema = z.string().regex(/^[0-9a-f]{64}$/u);
 const relativeFileSchema = z
@@ -82,45 +73,6 @@ const corpusSchema = z
 
 export type MathRetrievalCorpus = z.infer<typeof corpusSchema>;
 
-/** The runtime entry is a bundled program, so its identity covers transitive retrieval code. */
-export function verifyMathRetrievalImplementation(
-  file: string,
-  expected: NonNullable<MathRetrievalCorpus['implementation']>
-): void {
-  if (!path.isAbsolute(file) || fs.realpathSync(file) !== file) throw new Error('math_corpus_implementation_changed');
-  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
-  try {
-    const before = fs.fstatSync(fd, { bigint: true });
-    if (!before.isFile() || before.size !== BigInt(expected.bytes))
-      throw new Error('math_corpus_implementation_changed');
-    const hash = crypto.createHash('sha256');
-    const buffer = Buffer.alloc(65536);
-    let length = 0;
-    while (length <= expected.bytes) {
-      const count = fs.readSync(fd, buffer, 0, Math.min(buffer.length, expected.bytes + 1 - length), length);
-      if (!count) break;
-      hash.update(buffer.subarray(0, count));
-      length += count;
-    }
-    const after = fs.fstatSync(fd, { bigint: true });
-    const named = fs.lstatSync(file, { bigint: true });
-    if (
-      length !== expected.bytes ||
-      hash.digest('hex') !== expected.sha256 ||
-      before.mtimeNs !== after.mtimeNs ||
-      before.ctimeNs !== after.ctimeNs ||
-      before.size !== after.size ||
-      before.dev !== named.dev ||
-      before.ino !== named.ino ||
-      fs.realpathSync(file) !== file
-    ) {
-      throw new Error('math_corpus_implementation_changed');
-    }
-  } finally {
-    fs.closeSync(fd);
-  }
-}
-
 function readSource(root: string, relative: string): Buffer {
   relativeFileSchema.parse(relative);
   const file = path.join(fs.realpathSync(root), relative);
@@ -174,89 +126,15 @@ function environmentIdentity(root: string, relative: string) {
 
 const packagePrefix = '.lake/packages/';
 
-function sourceLocation(projectRoot: string, corpus: MathRetrievalCorpus, relative: string) {
-  if (!corpus.packageSourceRoot || !relative.startsWith(packagePrefix)) return { root: projectRoot, relative };
-  if (fs.realpathSync(corpus.packageSourceRoot) !== corpus.packageSourceRoot)
+function sourceLocation(projectRoot: string, corpus: Pick<MathRetrievalCorpus, 'packageSourceRoot'>, relative: string) {
+  if (!relative.startsWith(packagePrefix)) return { root: projectRoot, relative };
+  const lakeRoot = path.join(projectRoot, '.lake');
+  if (!corpus.packageSourceRoot && fs.realpathSync(lakeRoot) !== lakeRoot) throw new Error('math_corpus_symlink');
+  // Only the packages entry may point to a shared cache; reads below reject links inside it.
+  const packageRoot = corpus.packageSourceRoot || fs.realpathSync(path.join(lakeRoot, 'packages'));
+  if (fs.realpathSync(packageRoot) !== packageRoot)
     throw new Error('math_corpus_package_root_changed');
-  return { root: corpus.packageSourceRoot, relative: relative.slice(packagePrefix.length) };
-}
-
-/** Bind an already verified dependency snapshot to a solver project using exact trusted Lake overrides. */
-export function bindMathRetrievalCorpusToProject(
-  sourceProjectRoot: string,
-  targetProjectRoot: string,
-  value: unknown
-): MathRetrievalCorpus {
-  const { corpus } = verifyMathRetrievalCorpus(sourceProjectRoot, value);
-  if (corpus.projectSubdirectory || corpus.packageSourceRoot || corpus.implementation || corpus.originSha256)
-    throw new Error('math_corpus_rebinding_requires_origin');
-  const sourceRoot = fs.realpathSync(sourceProjectRoot);
-  const targetRoot = fs.realpathSync(targetProjectRoot);
-  const targetEnvironment = [
-    'lean-toolchain',
-    'lake-manifest.json',
-    'lakefile.toml',
-    'lakefile.lean',
-    '.lake/package-overrides.json',
-  ].map((file) => ({ path: file, identity: environmentIdentity(targetRoot, file) }));
-  if (mathDigest(readSource(sourceRoot, 'lean-toolchain')) !== mathDigest(readSource(targetRoot, 'lean-toolchain')))
-    throw new Error('math_corpus_toolchain_mismatch');
-  const packageSourceRoot = path.join(sourceRoot, '.lake', 'packages');
-  if (fs.realpathSync(packageSourceRoot) !== packageSourceRoot) throw new Error('math_corpus_package_root_changed');
-  const manifestSchema = z.object({
-    packages: z.array(z.object({ name: z.string(), rev: z.string().optional(), type: z.string() })),
-  });
-  const sourceManifest = manifestSchema.parse(
-    JSON.parse(readSource(sourceRoot, 'lake-manifest.json').toString('utf8'))
-  );
-  const targetManifest = manifestSchema.parse(
-    JSON.parse(readSource(targetRoot, 'lake-manifest.json').toString('utf8'))
-  );
-  const overrides = z
-    .object({ packages: z.array(z.object({ name: z.string(), type: z.string(), dir: z.string().optional() })) })
-    .parse(JSON.parse(readSource(targetRoot, '.lake/package-overrides.json').toString('utf8')));
-  const canonicalName = (name: string) => name.replace(/^«|»$/gu, '').toLowerCase();
-  for (const packageName of new Set(corpus.sources.map((source) => source.packageName))) {
-    const matches = (entry: { name: string }) => canonicalName(entry.name) === canonicalName(packageName);
-    const origins = sourceManifest.packages.filter(matches);
-    const targets = targetManifest.packages.filter(matches);
-    const paths = overrides.packages.filter(matches);
-    if (
-      origins.length !== 1 ||
-      targets.length !== 1 ||
-      paths.length !== 1 ||
-      !origins[0]!.rev ||
-      origins[0]!.type !== 'git' ||
-      targets[0]!.type !== 'git' ||
-      targets[0]!.rev !== origins[0]!.rev ||
-      paths[0]!.type !== 'path' ||
-      !paths[0]!.dir
-    )
-      throw new Error('math_corpus_package_revision_mismatch');
-    const packageDirectories = new Set(
-      corpus.sources
-        .filter((source) => source.packageName === packageName)
-        .map((source) => source.identity.path.slice(packagePrefix.length).split('/')[0]!)
-    );
-    if (packageDirectories.size !== 1) throw new Error('math_corpus_package_path_mismatch');
-    const expectedRoot = path.join(packageSourceRoot, [...packageDirectories][0]!);
-    if (
-      corpus.sources.some((source) => source.packageName === packageName && source.packageRevision !== origins[0]!.rev)
-    )
-      throw new Error('math_corpus_package_revision_mismatch');
-    if (paths[0]!.dir !== expectedRoot || fs.realpathSync(expectedRoot) !== expectedRoot)
-      throw new Error('math_corpus_package_path_mismatch');
-  }
-  const bound = corpusSchema.parse({
-    ...corpus,
-    packageSourceRoot,
-    environment: [
-      ...corpus.environment.filter((entry) => entry.path.startsWith(packagePrefix)),
-      ...targetEnvironment,
-    ].toSorted((a, b) => compare(a.path, b.path)),
-  });
-  verifyMathRetrievalCorpus(targetRoot, bound);
-  return bound;
+  return { root: packageRoot, relative: relative.slice(packagePrefix.length) };
 }
 
 export async function createMathRetrievalCorpus(root: string, scopes: readonly string[]): Promise<MathRetrievalCorpus> {
@@ -274,7 +152,11 @@ export async function createMathRetrievalCorpus(root: string, scopes: readonly s
     scopes: [...scopes],
     environment: [...environmentPaths]
       .toSorted(compare)
-      .map((file) => ({ path: file, identity: environmentIdentity(root, file) })),
+      .map((file) => {
+        const location = sourceLocation(fs.realpathSync(root), {}, file);
+        const actual = environmentIdentity(location.root, location.relative);
+        return { path: file, identity: actual ? { ...actual, path: file } : null };
+      }),
     sources: sources
       .map((source) => ({
         identity: identity(source.sourceFile, Buffer.from(source.source, 'utf8')),
@@ -285,15 +167,33 @@ export async function createMathRetrievalCorpus(root: string, scopes: readonly s
       .toSorted((a, b) => compare(a.identity.path, b.identity.path)),
   });
   // Re-capture at publication to detect changes in package metadata or file selection during creation.
-  if (canonicalMathJson(await captureInstalledLeanSources(root, scopes)) !== canonicalMathJson(sources)) {
+  const recaptured = await captureInstalledLeanSources(root, scopes);
+  if (recaptured.length !== sources.length || recaptured.some((source, index) => {
+    const original = sources[index]!;
+    return source.packageName !== original.packageName || source.packageRevision !== original.packageRevision ||
+      source.packageRoot !== original.packageRoot || source.sourceModule !== original.sourceModule ||
+      source.sourceFile !== original.sourceFile || source.source !== original.source;
+  })) {
     throw new Error('math_corpus_capture_changed');
   }
-  verifyMathRetrievalCorpus(root, corpus);
+  assertMathRetrievalCorpus(root, corpus);
   return corpus;
 }
 
-/** Read and hash every selected source before exposing any declaration. No partial fallback. */
-export function verifyMathRetrievalCorpus(root: string, value: unknown) {
+type VerifiedMathRetrievalSource = Readonly<{
+  sourceFile: string;
+  sourceModule: string;
+  packageName: string;
+  packageRevision?: string;
+  source: string;
+}>;
+
+/** Verify every frozen source; an optional visitor avoids retaining the full corpus in memory. */
+function verifyMathRetrievalCorpusWithVisitor(
+  root: string,
+  value: unknown,
+  visit?: (source: VerifiedMathRetrievalSource) => void
+) {
   const corpus = corpusSchema.parse(value);
   const projectRoot = path.join(fs.realpathSync(root), corpus.projectSubdirectory ?? '');
   if (fs.realpathSync(projectRoot) !== projectRoot) throw new Error('math_corpus_project_path_invalid');
@@ -320,7 +220,8 @@ export function verifyMathRetrievalCorpus(root: string, value: unknown) {
       throw new Error('math_corpus_environment_changed');
     }
   }
-  const sources = corpus.sources.map((entry) => {
+  const sources: VerifiedMathRetrievalSource[] = [];
+  for (const entry of corpus.sources) {
     if (!entry.identity.path.startsWith('.lake/packages/')) throw new Error('math_corpus_source_outside_packages');
     if (!isAllowedInstalledLeanSource(entry.identity.path.slice('.lake/packages/'.length)))
       throw new Error('math_corpus_source_excluded');
@@ -328,7 +229,7 @@ export function verifyMathRetrievalCorpus(root: string, value: unknown) {
     const bytes = readSource(location.root, location.relative);
     if (bytes.length !== entry.identity.bytes || mathDigest(bytes) !== entry.identity.sha256)
       throw new Error('math_corpus_source_changed');
-    return {
+    const source = {
       sourceFile: corpus.packageSourceRoot
         ? path.join(location.root, location.relative)
         : corpus.projectSubdirectory
@@ -339,61 +240,209 @@ export function verifyMathRetrievalCorpus(root: string, value: unknown) {
       packageRevision: entry.packageRevision,
       source: new TextDecoder('utf-8', { fatal: true }).decode(bytes),
     };
-  });
+    if (visit) visit(source);
+    else sources.push(source);
+  }
   return { corpus, sources };
 }
 
-export function searchMathRetrievalCorpus(
-  root: string,
-  value: unknown,
-  query: readonly string[],
-  resultLimit = 15,
-  offset = 0
-) {
-  if (!Number.isSafeInteger(resultLimit) || resultLimit < 1 || resultLimit > 64)
-    throw new Error('math_corpus_invalid_limit');
-  if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('math_corpus_invalid_offset');
-  const { corpus, sources } = verifyMathRetrievalCorpus(root, value);
-  const ranked = rankInstalledLeanSources(sources, symbolicMathTokens(query)).toSorted(
-    (a, b) =>
-      b.score - a.score ||
-      compare(a.premise.declarationName, b.premise.declarationName) ||
-      compare(a.premise.sourceModule, b.premise.sourceModule) ||
-      compare(a.premise.sourceFile, b.premise.sourceFile)
+/** Read and hash every selected source before exposing any declaration. No partial fallback. */
+export function verifyMathRetrievalCorpus(root: string, value: unknown) {
+  return verifyMathRetrievalCorpusWithVisitor(root, value);
+}
+
+export function assertMathRetrievalCorpus(root: string, value: unknown): void {
+  verifyMathRetrievalCorpusWithVisitor(root, value, () => {});
+}
+
+/** Track ordinary source scopes; names remain lookup hints until checked in Lean. */
+function searchableDeclarations(source: string) {
+  const clean = maskLeanCommentsAndStrings(source);
+  const commands = clean.matchAll(
+    /^[ \t]*(?:(?:noncomputable|public|private|meta)[ \t]+)*(namespace|section|end|variable|open)(?:[ \t]+([^\n]*))?[ \t]*\r?$/gmu
   );
-  const premises = ranked
-    .slice(offset, offset + resultLimit)
-    .map(({ premise }, index) => ({ ...premise, providerRank: offset + index + 1 }));
-  return {
-    premises,
-    attempts: [{ scope: 'frozen-corpus', status: 'ok' as const, resultCount: premises.length }],
-    corpusDigest: mathDigest(canonicalMathJson(corpus)),
-    coverage: {
-      sourceFiles: sources.length,
-      complete: true,
-      matchedDeclarations: ranked.length,
-      nextOffset: offset + premises.length < ranked.length ? offset + premises.length : null,
-      semantics: 'lexical-declaration-headers' as const,
-    },
+  const scopes: string[] = [];
+  const context: string[][] = [[]];
+  let command = commands.next();
+  let sourceLine = 1;
+  let newline = source.indexOf('\n');
+  return inspectLeanDeclarations(source).map(declaration => {
+    while (!command.done && command.value.index < declaration.startOffset) {
+      const [, kind, rest] = command.value;
+      const name = rest?.trim();
+      if (kind === 'namespace' && name) { scopes.push(name); context.push([]); }
+      else if (kind === 'section') { scopes.push(''); context.push([]); }
+      else if (kind === 'end') { scopes.pop(); if (context.length > 1) context.pop(); }
+      else if (kind === 'variable' || (kind === 'open' && name && !/\bin\s*$/u.test(name))) {
+        let text = command.value[0].trim();
+        let end = command.value.index + command.value[0].length;
+        const balance = (s: string) => [...s].reduce((n, c) => n + ('([{'.includes(c) ? 1 : ')]}'.includes(c) ? -1 : 0), 0);
+        while (kind === 'variable' && balance(text) > 0 && end < declaration.startOffset) {
+          const next = clean.indexOf('\n', end + 1);
+          const finish = Math.min(next < 0 ? clean.length : next, declaration.startOffset);
+          text += clean.slice(end, finish); end = finish;
+        }
+        const sectionContext = context.at(-1)!;
+        sectionContext.push(text.trim());
+      }
+      command = commands.next();
+    }
+    while (newline >= 0 && newline < declaration.startOffset) {
+      sourceLine++;
+      newline = source.indexOf('\n', newline + 1);
+    }
+    const qualifiedName = declaration.name.startsWith('_root_.') ? declaration.name.slice('_root_.'.length) :
+      [...scopes.filter(Boolean), declaration.name].join('.');
+    const sourceContext = context.flat().join('\n');
+    return { ...declaration, qualifiedName, sourceLine, sourceContext: sourceContext.slice(0, 2000),
+      contextTruncated: sourceContext.length > 2000 };
+  });
+}
+
+/** Surface syntax ranks lookup hints; Lean still decides whether a premise applies. */
+function goalRanker(goal: string) {
+  const relations: Record<string, string> = { '=': 'Eq', '≠': 'Ne', '<': 'LT.lt', '>': 'GT.gt', '≤': 'LE.le', '≥': 'GE.ge',
+    '<=': 'LE.le', '>=': 'GE.ge', '∈': 'Membership.mem', '∧': 'And', '∨': 'Or', '↔': 'Iff', '¬': 'Not' };
+  const aliases: Record<string, string> = { 'ℕ': 'Nat', 'ℤ': 'Int', 'ℚ': 'Rat', 'ℝ': 'Real', 'ℂ': 'Complex' };
+  const identifiers = /[\p{L}_][\p{L}\p{M}\p{N}_'.]*/gu;
+  const topLevel = (tokens: readonly string[]) => {
+    const indexes: number[] = [];
+    let depth = 0;
+    for (const [index, token] of tokens.entries()) {
+      if ('([{'.includes(token)) { if (depth === 0) indexes.push(index); depth++; }
+      else if (')]}'.includes(token)) { depth--; if (depth === 0) indexes.push(index); }
+      else if (depth === 0) indexes.push(index);
+    }
+    return indexes;
+  };
+  const shape = (source: string, context = '', declaration = false) => {
+    const clean = maskLeanCommentsAndStrings(source);
+    const scope = context ? `${context}\n${clean}` : clean;
+    const bound = new Set<string>();
+    for (const match of scope.matchAll(/(?:^|[\n({∀∃])\s*([\p{L}\p{M}\p{N}_'\s]+?)\s*:/gu))
+      for (const name of match[1].match(identifiers) ?? []) bound.add(name);
+    for (const match of scope.matchAll(/(?:[∀∃]|\bforall)\s+([\p{L}\p{M}\p{N}_'\s]+?)\s*,/gu))
+      for (const name of match[1].match(identifiers) ?? []) bound.add(name);
+    const marker = Math.max(clean.lastIndexOf('⊢'), clean.lastIndexOf('|-'));
+    const target = marker < 0 ? clean : clean.slice(marker + (clean[marker] === '⊢' ? 1 : 2));
+    let tokens: string[] = target.match(/[\p{L}_][\p{L}\p{M}\p{N}_'.]*|->|<=|>=|\S/gu) ?? [];
+    if (declaration) {
+      const colon = topLevel(tokens).find(index => tokens[index] === ':');
+      tokens = colon === undefined ? [] : tokens.slice(colon + 1);
+    }
+    let head: string | undefined;
+    while (tokens.length) {
+      const indexes = topLevel(tokens);
+      if (tokens[0] === '(' && tokens.at(-1) === ')' && indexes.length === 2) {
+        tokens = tokens.slice(1, -1);
+        continue;
+      }
+      if (tokens[0] === '∃') { head = 'Exists'; break; }
+      if (tokens[0] === '∀' || tokens[0] === 'forall') {
+        const comma = indexes.find(index => tokens[index] === ',');
+        if (comma === undefined) break;
+        tokens = tokens.slice(comma + 1);
+        continue;
+      }
+      const outer = indexes.map(index => tokens[index]);
+      if (outer.includes('↔')) { head = 'Iff'; break; }
+      const arrow = indexes.find(index => tokens[index] === '→' || tokens[index] === '->');
+      if (arrow !== undefined) { tokens = tokens.slice(arrow + 1); continue; }
+      const connective = ['∨', '∧', '¬'].find(token => outer.includes(token));
+      head = (connective ? relations[connective] : outer.map(token => relations[token]).find(Boolean)) ??
+        outer.find(token => /^[\p{L}_]/u.test(token) && !bound.has(token));
+      break;
+    }
+    const terms = new Set((scope.match(identifiers) ?? []).filter(token => !bound.has(token) &&
+      !['variable', 'open', 'scoped', 'Type', 'Prop', 'Sort', 'forall'].includes(token))
+      .flatMap(token => (aliases[token] ?? token).split('.')));
+    return { head, terms };
+  };
+  const target = shape(goal);
+  return (header: string, context: string) => {
+    const candidate = shape(header.slice(0, 4000), context, true);
+    // Keep this bonus below the exact-name bonus; local variable names add no relevance.
+    return (target.head && target.head === candidate.head ? 8 : 0) +
+      Math.min(8, [...target.terms].filter(term => candidate.terms.has(term)).length);
   };
 }
 
-/** Only trusted process startup configuration selects a frozen corpus, never model tool arguments. */
-export function readMathRetrievalCorpusEnvironment(
-  env: NodeJS.ProcessEnv = process.env,
-  runtimeEntry?: string
-): MathRetrievalCorpus | undefined {
-  const file = env[MATH_RETRIEVAL_CORPUS_ENV];
-  const expected = env[MATH_RETRIEVAL_CORPUS_SHA_ENV];
-  if (file === undefined && expected === undefined) return undefined;
-  if (!file || !path.isAbsolute(file) || !expected || !digestSchema.safeParse(expected).success) {
-    throw new Error('math_corpus_configuration_invalid');
+/** Source headers are lookup hints, not closed Lean types or proof evidence. */
+export function searchMathRetrievalCorpus(root: string, value: unknown, query: string, limit = 15, goal?: string) {
+  return searchMathRetrievalCorpusBatch(root, value, [query], limit, goal).queries[0]!;
+}
+
+/** Verify and parse the installed library once for several independent lookups. */
+export function searchMathRetrievalCorpusBatch(root: string, value: unknown, queries: readonly string[], limit = 15, goal?: string) {
+  if (!queries.length || queries.length > 8) throw new Error('math_search_invalid_queries');
+  if (goal !== undefined && (!goal.trim() || goal.includes('\0') || Buffer.byteLength(goal) > 16_000))
+    throw new Error('math_search_invalid_goal');
+  const rankGoal = goal === undefined ? undefined : goalRanker(goal);
+  type Match = { name: string; qualifiedName: string; sourceLine: number; kind: string; sourceHeader: string; headerTruncated: boolean;
+    sourceContext: string; contextTruncated: boolean; sourceModule: string; sourceFile: string; packageName: string; score: number };
+  const compareMatches = (a: Match, b: Match) => b.score - a.score || compare(a.name, b.name) ||
+    compare(a.sourceModule, b.sourceModule) || compare(a.sourceFile, b.sourceFile);
+  const parsed = queries.map(query => {
+    const normalized = query.toLowerCase();
+    const terms = [...new Set(normalized.match(/[\p{L}\p{M}\p{N}]+/gu) || [])];
+    if (!terms.length || Buffer.byteLength(query) > 256) throw new Error('math_search_invalid_query');
+    return { query, terms, exact: normalized.trim(), totalMatches: 0, matches: [] as Match[] };
+  });
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > INSTALLED_CORPUS_POLICY.maxResultLimit)
+    throw new Error('math_search_invalid_limit');
+  // All sources remain verified; only plausible matches need declaration parsing.
+  verifyMathRetrievalCorpusWithVisitor(root, value, source => {
+    const text = source.source.toLowerCase();
+    const module = source.sourceModule.toLowerCase();
+    const candidates = parsed.filter(({ terms }) => terms.every(term => text.includes(term) || module.includes(term)));
+    if (!candidates.length) return;
+    // Normalize each declaration once, and release this file's headers after all candidate queries.
+    for (const declaration of searchableDeclarations(source.source)) {
+      const name = declaration.qualifiedName.toLowerCase();
+      const header = declaration.declarationType.toLowerCase();
+      const context = declaration.sourceContext.toLowerCase();
+      const localName = declaration.name.toLowerCase();
+      let goalScore: number | undefined;
+      for (const candidate of candidates) {
+        const { terms, exact, matches } = candidate;
+        if (!terms.every(term => name.includes(term) || header.includes(term) || context.includes(term) || module.includes(term))) continue;
+        candidate.totalMatches++;
+        goalScore ??= rankGoal?.(declaration.declarationType.slice(declaration.name.length), declaration.sourceContext) ?? 0;
+        const score = (name === exact || localName === exact ? 20 : 0) +
+          terms.reduce((sum, term) => sum + (name.includes(term) ? 4 : header.includes(term) ? 2 : 1), 0) + goalScore;
+        matches.push({ name: declaration.name, qualifiedName: declaration.qualifiedName,
+          sourceLine: declaration.sourceLine, kind: declaration.kind, sourceHeader: declaration.declarationType.slice(0, 800),
+          headerTruncated: declaration.declarationType.length > 800, sourceContext: declaration.sourceContext,
+          contextTruncated: declaration.contextTruncated, sourceModule: source.sourceModule, sourceFile: source.sourceFile,
+          packageName: source.packageName, score });
+        if (matches.length === 2 * limit) { matches.sort(compareMatches); matches.length = limit; }
+      }
+    }
+  });
+  const budget = Math.floor((24_000 - 64) / queries.length);
+  return { queries: parsed.map(({ query, totalMatches, matches }) => {
+  const result = { query, totalMatches, truncated: false, results: [] as Match[] };
+  matches.sort(compareMatches);
+  for (const match of matches.slice(0, limit)) {
+    result.results.push(match);
+    const fits = () => Buffer.byteLength(JSON.stringify(result)) <= budget;
+    // Keep the first declaration useful when multibyte context exceeds its query budget.
+    if (result.results.length === 1) {
+      while (!fits() && match.sourceContext.length) {
+        match.sourceContext = match.sourceContext.slice(0, Math.floor(match.sourceContext.length / 2));
+        match.contextTruncated = true;
+      }
+      while (!fits() && match.sourceHeader.length) {
+        match.sourceHeader = match.sourceHeader.slice(0, Math.floor(match.sourceHeader.length / 2));
+        match.headerTruncated = true;
+      }
+    }
+    if (!fits()) {
+      result.results.pop();
+      break;
+    }
   }
-  const bytes = readSource(path.dirname(file), path.basename(file));
-  if (mathDigest(bytes) !== expected) throw new Error('math_corpus_manifest_changed');
-  const corpus = corpusSchema.parse(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)));
-  if (Boolean(corpus.implementation) !== Boolean(corpus.originSha256))
-    throw new Error('math_corpus_implementation_missing');
-  if (runtimeEntry && corpus.implementation) verifyMathRetrievalImplementation(runtimeEntry, corpus.implementation);
-  return corpus;
+  result.truncated = result.results.length < totalMatches;
+  return result;
+  }) };
 }

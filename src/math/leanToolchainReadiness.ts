@@ -8,7 +8,6 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { resolveMathematicsRuntimeEnvironment } from "./mathRuntimeEnvironment";
 
 export type LeanToolchainReadinessStatus = 'ready' | 'unavailable' | 'invalid';
 
@@ -65,47 +64,6 @@ function executableInPath(name: string, env: NodeJS.ProcessEnv): string | undefi
   return undefined;
 }
 
-/** Resolve an executable from the project-selected elan toolchain.
- *
- * The public elan shim is commonly a shared hardlink and therefore is not a
- * stable artifact for the run binding. `elan which` identifies the actual
- * toolchain binary selected by the project's `lean-toolchain` file.
- */
-export function resolvePinnedLeanToolchainExecutable(
-  request: Readonly<{ projectRoot: string; executable?: 'lake' | 'lean'; env?: NodeJS.ProcessEnv }>
-): string | undefined {
-  const projectRoot = path.resolve(request.projectRoot);
-  const executable = request.executable ?? 'lake';
-  const env = request.env ?? process.env;
-  const elan = executableInPath('elan', env);
-  if (!elan) return undefined;
-  let resolved: ReturnType<typeof spawnSync>;
-  try {
-    resolved = spawnSync(elan, ['which', executable], {
-      cwd: projectRoot,
-      env,
-      encoding: 'utf8',
-      timeout: DEFAULT_TIMEOUT_MS,
-      maxBuffer: 32 * 1024,
-    });
-  } catch {
-    return undefined;
-  }
-  if (resolved.error || resolved.status !== 0) return undefined;
-  const candidate = typeof resolved.stdout === 'string' ? resolved.stdout.trim() : '';
-  if (!candidate || !path.isAbsolute(candidate) || candidate.includes('\0') || /[\r\n]/u.test(candidate))
-    return undefined;
-  try {
-    const canonical = fs.realpathSync(candidate);
-    const stat = fs.lstatSync(canonical);
-    if (!stat.isFile() || stat.isSymbolicLink() || (process.platform !== 'win32' && (stat.mode & 0o111) === 0))
-      return undefined;
-    return canonical;
-  } catch {
-    return undefined;
-  }
-}
-
 function readToolchain(projectRoot: string): string | undefined {
   const file = path.join(projectRoot, 'lean-toolchain');
   const stat = fs.lstatSync(file);
@@ -121,11 +79,6 @@ function readToolchain(projectRoot: string): string | undefined {
     throw new Error('lean-toolchain must contain exactly one non-empty toolchain identifier');
   }
   return lines[0];
-}
-
-/** Check the pinned Lean environment before a proof assignment is dispatched. */
-export function checkLeanToolchainReadiness(request: LeanToolchainReadinessRequest): LeanToolchainReadiness {
-  return probeLeanToolchainReadiness(request, () => resolveMathematicsRuntimeEnvironment(request.env ?? process.env));
 }
 
 /** Probe exactly the caller's resolved snapshot without reopening a mutable env file. */

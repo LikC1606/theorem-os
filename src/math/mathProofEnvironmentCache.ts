@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
 import { canonicalMathJson } from "./mathRuntimeIo";
-import { assertMathCanonicalPath } from "./mathRunBinding";
+import { assertMathCanonicalPath } from "./paths";
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/u);
 const entrySchema = z.object({

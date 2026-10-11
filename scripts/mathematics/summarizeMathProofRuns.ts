@@ -1,16 +1,11 @@
 #!/usr/bin/env bun
 
-/** Aggregate frozen proof-team receipts into the v14 cross-run report schema. */
+/** Aggregate host proof-run receipts into a cross-run report. */
 
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  deriveMathProofRunMetric,
-  summarizeMathProofRunMetrics,
-  type MathProofBenchmarkSlate,
-  type MathProofRunMetric,
-} from "../../src/math/mathProofRunReport";
+import { deriveMathProofRunMetric, summarizeMathProofRunMetrics, type MathProofBenchmarkSlate, type MathProofRunMetric } from "../../src/math/mathProofRunReport";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -82,9 +77,8 @@ export function buildMathProofRunReportFromJson(
       receipt,
       totalTokens: Number.isSafeInteger(row.totalTokens) ? Number(row.totalTokens) : undefined,
       verifierStatus: verifierStatus as 'passed' | 'failed' | 'missing' | 'unavailable' | undefined,
-      searchObservations: Array.isArray(row.searchObservations)
-        ? (row.searchObservations as Parameters<typeof deriveMathProofRunMetric>[0]['searchObservations'])
-        : undefined,
+      tokenUsageSource: row.tokenUsageSource === 'estimated' ? 'estimated' : undefined,
+      estimatedInputTokens: Number.isSafeInteger(row.estimatedInputTokens) ? Number(row.estimatedInputTokens) : undefined,
     });
   });
   return summarizeMathProofRunMetrics(metrics, {

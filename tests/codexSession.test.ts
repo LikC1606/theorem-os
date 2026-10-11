@@ -24,7 +24,7 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   if (call.method === 'initialize') result({});
   if (call.method === 'thread/start' || call.method === 'thread/resume') {
     settings = call.params;
-    result({ thread: { id: settings.threadId || 'thread-fixture' },
+    result({ thread: { id: settings.developerInstructions === 'wrong-thread' ? 'wrong-thread' : settings.threadId || 'thread-fixture' },
       model: settings.developerInstructions === 'mismatch' ? 'wrong-model' : settings.model,
       approvalPolicy: settings.approvalPolicy, reasoningEffort: settings.config.model_reasoning_effort });
   }
@@ -37,7 +37,11 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     if (message === 'crash') return process.exit(9);
     if (message !== 'wait') {
       send({ method: 'thread/tokenUsage/updated', params: { threadId: 'thread-fixture', tokenUsage: { total: { totalTokens: 21 } } } });
-      send({ method: 'turn/completed', params: { threadId: 'thread-fixture', turn: { ...turn, status: 'completed' } } });
+      const failed = message === 'rate-limit' || message === 'late-rate-limit';
+      const complete = () => send({ method: 'turn/completed', params: { threadId: 'thread-fixture', turn: { ...turn,
+        status: failed ? 'failed' : 'completed', ...(failed ? { error: { message: 'Concurrency limit exceeded for account' } } : {}) } } });
+      if (message === 'late-rate-limit') setImmediate(complete);
+      else complete();
     }
     result({ turn });
   }
@@ -49,12 +53,12 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
 `);
     fs.chmodSync(executable, 0o700);
     options = { executable, profile: root, workspace: root, model: 'gpt-6.1-sol', effort: 'xhigh',
-      instructions: 'Math role', mcpServers: { mathematics: { command: 'fake-mcp', enabled: true } }, onUsage: vi.fn() };
+      instructions: 'Prove the mathematical target', onUsage: vi.fn() };
     session = undefined;
   });
   afterEach(async () => { await session?.close(); fs.rmSync(root, { recursive: true, force: true }); });
 
-  it('waits for the MCP catalog, disables unrelated tools and handles completion before the start response', async () => {
+  it('disables inherited MCP tools and handles completion before the start response', async () => {
     session = await createCodexMathSession(options);
     const started = vi.fn();
     expect(await session.run('proof', 'message-1', root, started)).toBe('completed');
@@ -63,7 +67,8 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     const calls = fs.readFileSync(path.join(root, 'calls.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
     const start = calls.find(call => call.method === 'thread/start').params;
     expect(start.config.mcp_servers.unrelated).toEqual({ enabled: false });
-    expect(start.config.mcp_servers.mathematics).toEqual(options.mcpServers.mathematics);
+    expect(Object.keys(start.config.mcp_servers)).toEqual(['unrelated']);
+    expect(calls.some(call => call.method === 'mcpServerStatus/list')).toBe(false);
     const turn = calls.find(call => call.method === 'turn/start').params;
     expect(turn).toMatchObject({ model: 'gpt-6.1-sol', effort: 'xhigh', approvalPolicy: 'never',
       sandboxPolicy: { type: 'workspaceWrite', writableRoots: [root] } });
@@ -80,8 +85,25 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     expect(await done).toBe('interrupted');
   });
 
+  it.each(['rate-limit', 'late-rate-limit'])('retains the failure reason and clears it on the next turn (%s)', async message => {
+    session = await createCodexMathSession(options);
+    expect(await session.run(message, 'failed-turn', root, () => {})).toBe('failed');
+    expect(session.lastError).toBe('Concurrency limit exceeded for account');
+    expect(await session.run('proof', 'next-turn', root, () => {})).toBe('completed');
+    expect(session.lastError).toBeUndefined();
+  });
+
+  it('interrupts a long turn for a checkpoint and keeps the session usable', async () => {
+    session = await createCodexMathSession({ ...options, turnTimeoutMs: 30 });
+    expect(await session.run('wait', 'long-turn', root, () => {})).toBe('checkpoint');
+    expect(await session.run('proof', 'next-turn', root, () => {})).toBe('completed');
+    const calls = fs.readFileSync(path.join(root, 'calls.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
+    expect(calls.filter(call => call.method === 'turn/interrupt')).toHaveLength(1);
+  });
+
   it('rejects a mismatched model before any provider request and fails a disconnected turn', async () => {
     await expect(createCodexMathSession({ ...options, instructions: 'mismatch' })).rejects.toThrow('math_codex_session_binding_mismatch');
+    await expect(createCodexMathSession({ ...options, threadId: 'retained-thread', instructions: 'wrong-thread' })).rejects.toThrow('math_codex_session_binding_mismatch');
     const calls = fs.readFileSync(path.join(root, 'calls.jsonl'), 'utf8');
     expect(calls).not.toContain('turn/start');
     session = await createCodexMathSession(options);

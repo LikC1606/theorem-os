@@ -97,11 +97,7 @@ const assertRegularSource = (root: string, relative: string): string => {
   return file;
 };
 
-/** Validate paths before reading them, including the transitive project-local import closure. */
-export function assertMathConstructionSources(rootInput: string, files: readonly string[]): void {
-  for (const file of files)
-    if (!isAllowedMathProofSource(file)) throw new Error(`math_construction_source_excluded: ${file}`);
-  const root = fs.realpathSync(rootInput);
+function localSourceDirectories(root: string): Set<string> {
   const directories = new Set(['', 'src']);
   const config = path.join(root, 'lakefile.toml');
   if (fs.existsSync(config)) {
@@ -121,6 +117,15 @@ export function assertMathConstructionSources(rootInput: string, files: readonly
       }
     }
   }
+  return directories;
+}
+
+/** Validate paths before reading them, including the transitive project-local import closure. */
+export function assertMathConstructionSources(rootInput: string, files: readonly string[]): void {
+  for (const file of files)
+    if (!isAllowedMathProofSource(file)) throw new Error(`math_construction_source_excluded: ${file}`);
+  const root = fs.realpathSync(rootInput);
+  const directories = localSourceDirectories(root);
   const queue = [...files];
   const visited = new Set<string>();
   for (let index = 0; index < queue.length; index++) {
@@ -140,6 +145,42 @@ export function assertMathConstructionSources(rootInput: string, files: readonly
       }
     }
   }
+}
+
+/** Compile only the project-local import closure, reusing frozen package artifacts. */
+export function mathLocalModuleBuildOrder(rootInput: string, relative: string): { file: string; sourceRoot: string; module: string }[] {
+  const root = fs.realpathSync(rootInput);
+  const directories = [...localSourceDirectories(root)];
+  const ordered: { file: string; sourceRoot: string; module: string }[] = [];
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
+  const visit = (file: string, sourceRoot: string): void => {
+    if (visited.has(file)) return;
+    if (visiting.has(file)) throw new Error('math_local_module_import_cycle');
+    const absolute = path.resolve(root, file);
+    if (path.relative(root, absolute).startsWith('..') || !file.endsWith('.lean') ||
+        fs.realpathSync(absolute) !== absolute || !fs.lstatSync(absolute).isFile())
+      throw new Error('math_local_module_source_invalid');
+    visiting.add(file);
+    for (const name of mathConstructionImports(fs.readFileSync(absolute, 'utf8'))) {
+      const parts = (name.match(/«[^»]+»|[^.]+/gu) ?? []).map(part => part.replaceAll('«', '').replaceAll('»', ''));
+      if (parts.some(part => !part || part === '.' || part === '..' || /[/\\\0]/u.test(part)))
+        throw new Error('math_local_module_import_invalid');
+      const moduleFile = `${parts.join('/')}.lean`;
+      for (const directory of directories) {
+        const candidate = directory ? `${directory}/${moduleFile}` : moduleFile;
+        if (fs.existsSync(path.join(root, candidate))) { visit(candidate, directory); break; }
+      }
+    }
+    visiting.delete(file);
+    visited.add(file);
+    ordered.push({ file, sourceRoot: sourceRoot || '.',
+      module: path.posix.relative(sourceRoot || '.', file).replace(/\.lean$/u, '').replaceAll('/', '.') });
+  };
+  const sourceRoot = directories.filter(directory => directory && relative.startsWith(`${directory}/`))
+    .sort((a, b) => b.length - a.length)[0] || '';
+  visit(relative, sourceRoot);
+  return ordered;
 }
 
 /** Called only on the disposable verifier checkout, before it is mounted for Lean. */

@@ -3,14 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import {
-  canonicalMathProblemStatementPayloads,
-  normalizeMathFastCheck,
-  normalizeMathProblemContract,
-  type MathFastCheck,
-  type MathProblemContract,
-} from "../common/types/team/mathematicsTeam";
-import { runLeanEvalLeanProbe } from "./leanEvalLeanProbe";
+import { canonicalMathProblemStatementPayloads, normalizeMathProblemContract, type MathProblemContract } from "./contracts";
 
 export const IMO2026_ADAPTER_ID = 'imo2026' as const;
 export const IMO2026_ADAPTER_VERSION = '1' as const;
@@ -557,56 +550,4 @@ export function verifyImo2026BootstrapReceipt(receipt: Imo2026BootstrapReceipt):
     throw new Error('imo2026_evaluator_policy_mismatch');
   }
   assertRegularFile(path.join(project, 'Submission.lean'), 'submission');
-}
-
-/**
- * Run the adapter-owned preflight used to establish the first FAST_CHECK for
- * a bound IMO proof-mainline. This deliberately checks only the pinned public
- * challenge in a disposable Lean probe. A successful compile is evidence that
- * the bound statement/toolchain is available; it is never treated as a proof
- * or a counterexample sweep, so the resulting decision remains inconclusive.
- */
-export async function runImo2026HostFastCheck(
-  options: Readonly<{
-    /** Solver workspace containing active-problem.json and generated/<problem>. */
-    workspaceRoot: string;
-    baseCommit?: string;
-    signal?: AbortSignal;
-  }>
-): Promise<MathFastCheck> {
-  const workspaceRoot = path.resolve(options.workspaceRoot);
-  const activeProblemPath = path.join(workspaceRoot, 'active-problem.json');
-  const receipt = readImo2026BootstrapReceipt(activeProblemPath);
-  verifyImo2026BootstrapReceipt(receipt);
-  const projectRoot = path.resolve(receipt.projectRoot);
-  if (!projectRoot.startsWith(`${workspaceRoot}${path.sep}`)) {
-    throw new Error('IMO2026 FAST_CHECK project root does not match the bound receipt');
-  }
-  const head = git(workspaceRoot, ['rev-parse', 'HEAD']).toLowerCase();
-  if (options.baseCommit && head !== options.baseCommit.trim().toLowerCase()) {
-    throw new Error('IMO2026 FAST_CHECK commit is stale');
-  }
-  const probe = await runLeanEvalLeanProbe({
-    workspaceRoot,
-    projectRelative: path.relative(workspaceRoot, projectRoot),
-    sourceFile: 'Challenge.lean',
-    mode: 'compile',
-    timeoutMs: 30_000,
-    ...(options.signal ? { signal: options.signal } : {}),
-  });
-  if (probe.status !== 'passed') {
-    throw new Error(`IMO2026 FAST_CHECK host probe failed: ${probe.error || probe.diagnostics || probe.status}`);
-  }
-  return normalizeMathFastCheck({
-    statementHash: receipt.contract.statementHash,
-    checkedAt: Date.now(),
-    method: 'imo2026-host-owned-public-challenge-preflight-v1',
-    checkedCaseCount: 1,
-    outcome: 'inconclusive',
-    candidateClaim: 'statement',
-    directAttemptRecommended: false,
-    summary:
-      'The host-owned Lean probe compiled the pinned public Challenge.lean under the bound toolchain. No bounded mathematical counterexample sweep was run; proof search must treat this FAST_CHECK as inconclusive.',
-    evidenceRefs: [`imo2026-host-probe:${receipt.receiptId}:${probe.proofStateFingerprint}`],
-  });
 }
