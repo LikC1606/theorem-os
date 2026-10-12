@@ -66,6 +66,89 @@ describe('bounded local Lean diagnostics', () => {
     expect(run).toHaveBeenCalledTimes(6);
   });
 
+  it('rechecks dependants when rebuilding an imported artifact produces different bytes', async () => {
+    const input = { projectRoot: root, files: ['Submission.lean'], timeoutMs: 1000 };
+    await runLeanDiagnostics(input);
+    fs.writeFileSync(path.join(root, '.lake/build/lib/lean/ChallengeDeps.olean'), 'tampered');
+    run.mockImplementationOnce(async () => {
+      fs.writeFileSync(path.join(root, '.lake/build/lib/lean/ChallengeDeps.olean'), 'different rebuilt artifact');
+      return { started: true, exitCode: 0, timedOut: false, aborted: false, durationMs: 1, stdout: '', stderr: '' };
+    });
+    const rebuilt = await runLeanDiagnostics(input);
+    expect(rebuilt.phases.map(phase => phase.cached)).toEqual([false, false]);
+    expect(run).toHaveBeenCalledTimes(4);
+  });
+
+  it.each(['.private', '.server', '.ir', '.ir.sig'])('rebuilds missing Lean companion artifacts (%s)', async suffix => {
+    const companionPath = (output: string) => suffix.startsWith('.ir') ? output.replace(/\.olean$/u, suffix) : output + suffix;
+    const compile = run.getMockImplementation()!;
+    run.mockImplementation(async input => {
+      const result = await compile(input);
+      const output = input.args.at(-1).match(/-o '([^']+)'/)[1];
+      fs.writeFileSync(path.join(root, companionPath(output)), 'companion');
+      return result;
+    });
+    const input = { projectRoot: root, files: ['Submission.lean'], timeoutMs: 1000 };
+    await runLeanDiagnostics(input);
+    const companion = path.join(root, companionPath('.lake/build/lib/lean/ChallengeDeps.olean'));
+    fs.unlinkSync(companion);
+    const repaired = await runLeanDiagnostics(input);
+    expect(repaired.phases.map(phase => phase.cached)).toEqual([false, true]);
+    expect(fs.readFileSync(companion, 'utf8')).toBe('companion');
+    expect(run).toHaveBeenCalledTimes(3);
+  });
+
+  it('includes worker lease and toolchain readiness in the diagnostic deadline', async () => {
+    fs.writeFileSync(path.join(root, 'Submission.lean'), 'theorem result : True := by trivial\n');
+    const compiler = path.join(root, 'lean'), marker = path.join(root, 'compiler-started');
+    fs.writeFileSync(compiler, `#!${process.execPath}\nrequire('node:fs').writeFileSync(${JSON.stringify(marker)}, 'started');\n`);
+    fs.chmodSync(compiler, 0o700);
+    const packages = path.join(root, 'packages'); fs.mkdirSync(packages);
+    const release = vi.fn();
+    lease.mockImplementation(async () => {
+      await new Promise(resolve => setTimeout(resolve, 60));
+      return { packagesRoot: packages, release };
+    });
+    readiness.mockImplementation(() => {
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 60);
+      return { status: 'ready', leanPath: compiler };
+    });
+    const result = await runLeanDiagnostics({ projectRoot: root, files: ['Submission.lean'], timeoutMs: 100,
+      env: { DEEPSCIENTIST_MATH_PROOF_ENVIRONMENT_SANDBOX: 'host-bound-mapping' } });
+    expect(result.timedOut).toBe(true);
+    expect(fs.existsSync(marker)).toBe(false);
+    expect(release).toHaveBeenCalledOnce();
+  });
+
+  it.each(['timeout', 'abort'])('stops the worker compiler and its children on %s', async reason => {
+    fs.writeFileSync(path.join(root, 'Submission.lean'), 'theorem result : True := by trivial\n');
+    const compiler = path.join(root, 'lean'), marker = path.join(root, 'compiler-pids.json');
+    fs.writeFileSync(compiler, `#!${process.execPath}\nconst child = require('node:child_process').spawn(process.execPath,
+['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+require('node:fs').writeFileSync(${JSON.stringify(marker)}, JSON.stringify([process.pid, child.pid]));
+setInterval(() => {}, 1000);\n`);
+    fs.chmodSync(compiler, 0o700);
+    const packages = path.join(root, 'packages'); fs.mkdirSync(packages);
+    const release = vi.fn(); lease.mockResolvedValue({ packagesRoot: packages, release });
+    readiness.mockReturnValue({ status: 'ready', leanPath: compiler });
+    const controller = new AbortController();
+    const pending = runLeanDiagnostics({ projectRoot: root, files: ['Submission.lean'],
+      timeoutMs: reason === 'timeout' ? 1000 : Infinity, signal: controller.signal,
+      env: { DEEPSCIENTIST_MATH_PROOF_ENVIRONMENT_SANDBOX: 'host-bound-mapping' } });
+    await vi.waitFor(() => expect(fs.existsSync(marker)).toBe(true));
+    if (reason === 'abort') controller.abort();
+    const result = await pending;
+    expect(result).toMatchObject({ timedOut: reason === 'timeout', aborted: reason === 'abort' });
+    expect(release).toHaveBeenCalledOnce();
+    for (const pid of JSON.parse(fs.readFileSync(marker, 'utf8'))) {
+      await vi.waitFor(() => {
+        try { expect(fs.readFileSync(`/proc/${pid}/stat`, 'utf8')).toMatch(/\) Z /u); }
+        catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+      });
+    }
+    expect(fs.existsSync(path.join(root, '.lake/lean-diagnostics.json'))).toBe(false);
+  });
+
   it.each([{ exitCode: 1, timedOut: false }, { exitCode: null, timedOut: true }])
     ('preserves errors/timeouts and stops before checking dependants (%j)', async failure => {
       run.mockResolvedValueOnce({ started: true, aborted: false, durationMs: 50,

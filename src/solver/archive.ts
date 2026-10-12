@@ -21,6 +21,7 @@ export type SolverRunState = {
   worktree: string;
   threadId?: string;
   previousThreadIds?: string[];
+  lastInputTokens?: number;
   phase: 'prepared' | 'running' | 'checking' | 'evaluating' | 'finished';
   turns: number;
   usage?: Record<string, unknown>;

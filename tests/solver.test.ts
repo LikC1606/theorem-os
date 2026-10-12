@@ -138,7 +138,7 @@ describe('isolated solver and host acceptance', () => {
     expect(() => assertSolverProjectSources(problem, project)).toThrow('math_original_declaration_changed');
   });
 
-  it('starts a fresh context from bounded current notes while retaining proof sources, failures and cumulative usage', async () => {
+  it.each([false, true])('starts a fresh context with notes, proof sources, failures and cumulative usage (resume: %s)', async resume => {
     let turn = 0;
     const messages: string[] = [];
     const closes = [vi.fn(), vi.fn()];
@@ -166,7 +166,11 @@ describe('isolated solver and host acceptance', () => {
           return 'completed';
         } };
     });
-    expect(await runSolver([...args, '--max-turns', '2'], directory)).toBe(0);
+    if (resume) {
+      expect(await runSolver(args, directory)).toBe(4);
+      expect(JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8')).lastInputTokens).toBe(100000);
+    }
+    expect(await runSolver([...args, '--max-turns', '2', ...(resume ? ['--resume'] : [])], directory)).toBe(0);
     const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
     expect(state.previousThreadIds).toEqual(['large-thread']);
     expect(state.threadId).toBe('continued-thread');

@@ -12,17 +12,26 @@ import { checkResolvedLeanToolchainReadiness } from './leanToolchainReadiness';
 /** Advisory checks already inside the host's isolated worker must not nest a namespace sandbox. */
 async function runWorkerLean(project: string, module: { file: string; sourceRoot: string }, output: string,
   env: NodeJS.ProcessEnv, timeoutMs: number, signal?: AbortSignal) {
-  const lease = await acquireMathProofEnvironmentLease(project, env, signal, Date.now() + timeoutMs);
+  const startedAt = Date.now(), deadlineAt = startedAt + timeoutMs;
+  const stopped = () => ({ started: false, exitCode: null, timedOut: !signal?.aborted, aborted: Boolean(signal?.aborted),
+    durationMs: Date.now() - startedAt, stdout: '', stderr: '' });
+  let lease;
+  try { lease = await acquireMathProofEnvironmentLease(project, env, signal, deadlineAt); }
+  catch (error) {
+    if (signal?.aborted || (error instanceof Error && error.name === 'TimeoutError')) return stopped();
+    throw error;
+  }
   if (!lease) throw new Error('math_diagnostics_worker_environment_missing');
   try {
-    const readiness = checkResolvedLeanToolchainReadiness({ projectRoot: project, env });
+    if (signal?.aborted || Date.now() >= deadlineAt) return stopped();
+    const readiness = checkResolvedLeanToolchainReadiness({ projectRoot: project, env, timeoutMs: Math.min(10_000, deadlineAt - Date.now()) });
+    if (signal?.aborted || Date.now() >= deadlineAt) return stopped();
     if (readiness.status !== 'ready' || !readiness.leanPath) throw new Error('math_diagnostics_lean_unavailable');
     const libraries = [path.join(project, '.lake/build/lib/lean'),
       ...fs.readdirSync(lease.packagesRoot).map(name => path.join(lease.packagesRoot, name, '.lake/build/lib/lean'))]
       .filter(file => fs.existsSync(file));
     fs.mkdirSync(path.dirname(path.join(project, output)), { recursive: true });
     signal?.throwIfAborted();
-    const startedAt = Date.now();
     return await new Promise<{ started: boolean; exitCode: number | null; timedOut: boolean; aborted: boolean;
       durationMs: number; stdout: string; stderr: string }>(resolve => {
       const child = spawn(readiness.leanPath!, ['-j1', '-R', module.sourceRoot, '-o', output, module.file], {
@@ -38,7 +47,7 @@ async function runWorkerLean(project: string, module: { file: string; sourceRoot
       const stop = () => { if (child.pid) { try { process.kill(-child.pid, 'SIGKILL'); } catch { /* Already exited. */ } } };
       const abort = () => { aborted = true; stop(); };
       signal?.addEventListener('abort', abort, { once: true });
-      const timer = Number.isFinite(timeoutMs) ? setTimeout(() => { timedOut = true; stop(); }, timeoutMs) : undefined;
+      const timer = Number.isFinite(deadlineAt) ? setTimeout(() => { timedOut = true; stop(); }, Math.max(0, deadlineAt - Date.now())) : undefined;
       child.once('close', exitCode => {
         clearTimeout(timer); signal?.removeEventListener('abort', abort);
         resolve({ started, exitCode, timedOut, aborted, durationMs: Date.now() - startedAt,
@@ -82,6 +91,12 @@ export async function runLeanDiagnostics(input: {
   const deadline = Date.now() + input.timeoutMs;
   const phases: { file: string; cached: boolean; durationMs: number; exitCode: number | null }[] = [];
   const cap = (text: string) => Buffer.from(text).subarray(0, 8000).toString('utf8');
+  const artifactDigest = (output: string) => mathDigest(JSON.stringify([
+    output, output + '.private', output + '.server', output.replace(/\.olean$/u, '.ir'), output.replace(/\.olean$/u, '.ir.sig'),
+  ].map(file => {
+    assertMathCanonicalPath(file);
+    return fs.existsSync(file) ? mathDigest(fs.readFileSync(file)) : null;
+  })));
   let stdout = '', stderr = '';
   const quote = (value: string) => "'" + value.replaceAll("'", "'\\''") + "'";
   for (const module of modules) {
@@ -93,11 +108,11 @@ export async function runLeanDiagnostics(input: {
     assertMathCanonicalPath(absoluteOutput);
     const digest = mathDigest(JSON.stringify([environmentIdentity, config, sources]));
     const saved = cache[module.file];
-    if (saved?.source === digest && fs.existsSync(absoluteOutput) &&
-      saved.output === mathDigest(fs.readFileSync(absoluteOutput))) {
+    if (saved?.source === digest && fs.existsSync(absoluteOutput) && saved.output === artifactDigest(absoluteOutput)) {
       phases.push({ file: module.file, cached: true, durationMs: 0, exitCode: 0 });
       stdout = cap(stdout + (typeof saved.stdout === 'string' ? saved.stdout : ''));
       stderr = cap(stderr + (typeof saved.stderr === 'string' ? saved.stderr : ''));
+      sources.push(saved.output);
       continue;
     }
     input.onProgress?.(module.file);
@@ -117,8 +132,10 @@ export async function runLeanDiagnostics(input: {
       ...result, stdout: cap(result.stdout), stderr: cap(result.stderr), sourceDigest, phases,
     };
     if (fs.existsSync(absoluteOutput)) {
-      cache[module.file] = { source: digest, output: mathDigest(fs.readFileSync(absoluteOutput)),
+      const artifact = artifactDigest(absoluteOutput);
+      cache[module.file] = { source: digest, output: artifact,
         stdout: cap(result.stdout), stderr: cap(result.stderr) };
+      sources.push(artifact);
       fs.mkdirSync(path.dirname(cacheFile), { recursive: true });
       fs.writeFileSync(cacheFile, JSON.stringify(cache) + '\n', { mode: 0o600 });
     }

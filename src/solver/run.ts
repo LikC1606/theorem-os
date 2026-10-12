@@ -221,6 +221,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
         turnTimeoutMs: Number.isFinite(maxTurnMs) ? maxTurnMs : undefined,
         threadId: state.threadId, instructions: context.instructions,
         onUsage: usage => {
+          state.lastInputTokens = session?.lastInputTokens ?? state.lastInputTokens;
           state.usage = { ...state.usageBeforeThread, ...usage };
           for (const [key, value] of Object.entries(usage)) {
             const previous = state.usageBeforeThread?.[key];
@@ -250,11 +251,11 @@ export async function runSolver(args: string[], root: string, customModules?: So
       try {
         while ((resumeEvaluation || state.turns < maxTurns) && !signal.aborted) {
           if (!resumeEvaluation) {
-            if (session && (session.lastInputTokens ?? 0) >= 96_000) {
-              const previous = session.threadId;
-              await session.close(); session = undefined;
+            if (state.threadId && Math.max(session?.lastInputTokens ?? 0, state.lastInputTokens ?? 0) >= 96_000) {
+              const previous = state.threadId;
+              await session?.close(); session = undefined;
               state.previousThreadIds = [...(state.previousThreadIds ?? []), previous];
-              state.threadId = undefined; state.usageBeforeThread = state.usage; save();
+              state.threadId = undefined; state.lastInputTokens = undefined; state.usageBeforeThread = state.usage; save();
               context = buildContext(solverSourceFeedback(state.problem, state.worktree));
               emit('context_restarted', { previousThreadId: previous, turns: state.turns });
             }
@@ -280,6 +281,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
               turnId => emit('turn_started', { turnId, turn: state.turns }));
             if (candidate.worktree !== state.worktree || candidate.problemReceiptDigest !== state.problem.receiptDigest || candidate.operation !== action.operation)
               throw new Error('math_candidate_identity_changed');
+            state.lastInputTokens = session?.lastInputTokens ?? state.lastInputTokens;
             state.candidate = candidate;
             const turn = candidate.status;
             if (turn !== 'completed' && turn !== 'failed' && turn !== 'checkpoint') break;
