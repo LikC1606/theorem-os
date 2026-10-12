@@ -15,6 +15,7 @@ import { createMathRetrievalCorpus } from '../src/math/mathRetrievalCorpus';
 import * as retrievalCorpus from '../src/math/mathRetrievalCorpus';
 import type { MathAgentOptions } from '../src/runtime/codexSession';
 import { checkLemmaResearch, readLemmaPlan } from '../src/solver/lemma';
+import { readCooperativePlan, readCooperationPlan, type CooperativeAction, type CooperativeTask, type RouteGroup } from '../src/solver/cooperation';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn(), officialGate: vi.fn(), build: vi.fn(), delay: vi.fn(),
   prepare: vi.fn(), freeze: vi.fn(), packages: undefined as string | undefined }));
@@ -89,7 +90,7 @@ describe('isolated solver and host acceptance', () => {
     output = path.join(directory, 'run.json');
     const task = path.join(directory, 'task.md'); const build = path.join(directory, 'build.json');
     fs.writeFileSync(task, 'Prove the original targets'); fs.writeFileSync(build, '{}');
-    args = ['--workspace', workspace, '--task-file', task, '--build-manifest', build, '--output', output, '--max-turns', '1'];
+    args = ['--workspace', workspace, '--task-file', task, '--build-manifest', build, '--output', output, '--max-turns', '1', '--workers', '1'];
     host.verify.mockImplementation(async request => verified(request));
     host.officialGate.mockResolvedValue({ comparison: { status: 'official_verified' } });
     host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.threadId || 'fixture-thread',
@@ -348,12 +349,12 @@ describe('isolated solver and host acceptance', () => {
   it('allows replacing context construction without replacing the executor or final acceptance', async () => {
     const execute = vi.fn(directSolverModules.M1.execute);
     const check = vi.fn(directSolverModules.M2.check);
-    const build = vi.fn((...inputs: Parameters<typeof directSolverModules.M5.build>) => {
-      const context = directSolverModules.M5.build(...inputs);
+    const build = vi.fn((...inputs: Parameters<typeof directSolverModules.M4.build>) => {
+      const context = directSolverModules.M4.build(...inputs);
       return { ...context, message: `${context.message}\nTest context policy`, instructions: `${context.instructions}\nTest context policy` };
     });
     const modules = { ...directSolverModules, M1: { ...directSolverModules.M1, execute },
-      M2: { ...directSolverModules.M2, check }, M5: { version: 'test-context-v1', build } };
+      M2: { ...directSolverModules.M2, check }, M4: { version: 'test-context-v1', build } };
     expect(await runSolver(args, directory, modules)).toBe(0);
     expect(execute.mock.calls[0][1]).toMatchObject({ scope: 'original-problem-and-allowed-library',
       sources: { problemReceiptDigest: problem.receiptDigest } });
@@ -366,6 +367,430 @@ describe('isolated solver and host acceptance', () => {
     expect(state.candidate).toMatchObject({ problemReceiptDigest: problem.receiptDigest, operation: 'direct',
       provenance: { workerId: 'solver', threadId: 'fixture-thread' } });
     expect(state.methodDigest).toMatch(/^[0-9a-f]{64}$/u);
+  });
+
+  const planTasks = (): CooperativeTask[] => [
+    ...['a', 'b'].map(id => ({ id, kind: 'lemma' as const, objective: `Prove helper ${id}`, dependsOn: [],
+      proofPath: 'Submission.lean', theoremName: `Submission.${id}`, type: 'True', revision: 0 })),
+    { id: 'first', kind: 'goal', objective: 'Combine both helpers', dependsOn: ['a', 'b'],
+      proofPath: 'Submission.lean', theoremName: 'Submission.first', revision: 0 },
+    { id: 'second', kind: 'goal', objective: 'Use the checked first goal', dependsOn: ['first'],
+      proofPath: 'Submission.lean', theoremName: 'Submission.second', revision: 0 },
+  ];
+  const writePlan = (worktree: string, tasks: readonly CooperativeTask[], groups?: readonly RouteGroup[]) =>
+    fs.writeFileSync(path.join(worktree, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify({ tasks, groups }) + '\n```\n');
+  const assignmentFrom = (message: string) => JSON.parse(message.match(/Cooperative assignment:\n([^\n]+)/u)![1]) as CooperativeAction;
+  function configureCooperation(run?: (action: CooperativeAction, options: MathAgentOptions, message: string) => Promise<string>) {
+    host.verify.mockImplementation(async (request, options) => {
+      const source = fs.readFileSync(path.join(request.projectRoot, 'Submission.lean'), 'utf8');
+      const wrongType = options.expectedDeclarationType && request.items.some(item =>
+        source.includes(`${item.theoremName.split('.').at(-1)} : False`));
+      const checked = verified(request);
+      return !source.includes('sorry') && !wrongType ? checked : { ...checked, status: 'failed',
+        results: checked.results.map(item => ({ ...item, status: 'failed',
+          stdoutPreview: 'Submission.lean:3:1: error: task type mismatch or unfinished proof\n⊢ True' })) };
+    });
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => {
+      let calls = 0;
+      return {
+        threadId: options.threadId || `thread-${options.environment!.DEEPSCIENTIST_MATH_WORKER_ID}`,
+        close: vi.fn(), interrupt: vi.fn(), run: async (message: string) => {
+          calls++; options.onUsage({ inputTokens: calls * 1000, totalTokens: calls * 1200 });
+          const action = assignmentFrom(message);
+          if (run) return run(action, options, message);
+          finishAssignment(action, options);
+          return 'completed';
+        },
+      };
+    });
+  }
+  function finishAssignment(action: CooperativeAction, options: MathAgentOptions) {
+    if (action.kind === 'lead') { writePlan(options.workspace, planTasks()); return; }
+    if (action.kind === 'review') {
+      fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), '```math-review\n' + JSON.stringify({
+        commit: action.seedCommit, verdict: 'accepted', summary: 'Both original targets are proved with matching premises.', evidenceRefs: ['Submission.first', 'Submission.second'],
+      }) + '\n```'); return;
+    }
+    if (action.kind !== 'task') throw new Error('assembly_must_not_call_model');
+    const file = path.join(options.workspace, 'generated/p/Submission.lean');
+    const source = fs.readFileSync(file, 'utf8');
+    const id = action.task.id;
+    if (action.task.kind === 'lemma') fs.writeFileSync(file, source.includes(`lemma ${id} : True`)
+      ? source.replace(`lemma ${id} : True := by sorry`, `lemma ${id} : True := by trivial`)
+      : source.replace('theorem first', `lemma ${id} : True := by trivial\ntheorem first`));
+    else if (id === 'first') {
+      expect(source).toContain('lemma a : True := by trivial');
+      expect(source).toContain('lemma b : True := by trivial');
+      fs.writeFileSync(file, source.replace('first : True := by sorry', 'first : True := by exact And.left (And.intro a b)'));
+    } else fs.writeFileSync(file, source.replace('second : True := by sorry', 'second : True := by exact first'));
+  }
+
+  it('runs distinct helpers concurrently, combines same-file changes and checks the canonical proof after the turn budget is exhausted', async () => {
+    let started = 0;
+    let release!: () => void;
+    const bothStarted = new Promise<void>(resolve => { release = resolve; });
+    configureCooperation(async (action, options) => {
+      if (action.kind === 'task' && action.task.kind === 'lemma') {
+        expect(fs.readFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), 'utf8')).toBe(original);
+        if (++started === 2) release();
+        await bothStarted;
+      }
+      finishAssignment(action, options); return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '6'], directory)).toBe(0);
+    expect(started).toBe(2);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state.cooperation.tasks.map(node => node.status)).toEqual(['integrated', 'integrated', 'integrated', 'integrated']);
+    expect(state.turns).toBe(6);
+    expect(state.winningWorker).toBe('solver');
+    expect(state.usage).toMatchObject({ inputTokens: 6000, totalTokens: 7200 });
+    const source = fs.readFileSync(path.join(state.worktree, 'generated/p/Submission.lean'), 'utf8');
+    expect(source).toContain('lemma a'); expect(source).toContain('lemma b'); expect(source).not.toContain('sorry');
+    const events = vi.mocked(console.log).mock.calls.map(([event]) => JSON.parse(event));
+    const assigned = events.findIndex(event => event.event === 'task_assigned' && event.taskId === 'first');
+    for (const id of ['a', 'b']) expect(events.findIndex(event => event.event === 'task_integrated' && event.taskId === id)).toBeLessThan(assigned);
+    expect(host.verify.mock.calls.filter(([request]) => request.items.length === 2)).toHaveLength(2);
+    expect(host.officialGate).toHaveBeenCalledOnce();
+    for (const result of await Promise.all(host.createSession.mock.results.map(result => result.value)))
+      expect(result.close).toHaveBeenCalledBefore(host.officialGate);
+  });
+
+  it('does not accept checked partial proofs as a solution and rechecks integrated evidence on resume', async () => {
+    configureCooperation();
+    const parallelArgs = [...args, '--workers', '4', '--max-turns', '3'];
+    expect(await runSolver(parallelArgs, directory)).toBe(4);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state.cooperation.tasks.slice(0, 2).map(node => node.status)).toEqual(['integrated', 'integrated']);
+    expect(state.check).toBeUndefined();
+    expect(host.officialGate).not.toHaveBeenCalled();
+    const before = fs.readFileSync(output, 'utf8');
+    expect(await runSolver([...parallelArgs, '--resume', '--workers', '2'], directory)).toBe(1);
+    expect(fs.readFileSync(output, 'utf8')).toBe(before);
+    const checks = host.verify.mock.calls.length;
+    expect(await runSolver([...parallelArgs, '--resume', '--max-turns', '6'], directory)).toBe(0);
+    expect(host.verify.mock.calls.slice(checks, checks + 2).map(([request]) => request.items[0].theoremName)).toEqual(['Submission.a', 'Submission.b']);
+    for (const [options] of host.createSession.mock.calls.slice(3)) expect(options.threadId).toBe(
+      options.environment.DEEPSCIENTIST_MATH_WORKER_ID === 'engineer' || options.instructions.includes('You are the Independent Reviewer') ? undefined : `thread-${options.environment.DEEPSCIENTIST_MATH_WORKER_ID}`);
+    expect(host.officialGate).toHaveBeenCalledOnce();
+  });
+
+  it('keeps cooperative partial checks unlimited when the total solving limit is disabled', async () => {
+    configureCooperation();
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '0', '--max-run-seconds', '0'], directory)).toBe(0);
+    const partialChecks = host.verify.mock.calls.filter(([request]) => request.items.length === 1);
+    expect(partialChecks).toHaveLength(8);
+    for (const [request] of partialChecks) expect(request).toMatchObject({ timeoutMs: Infinity, batchTimeoutMs: Infinity });
+  });
+
+  const routeGroups = (): RouteGroup[] => [
+    { id: 'main', objective: 'Prove the original obligations', status: 'active', revision: 0, engineerId: 'engineer' },
+    { id: 'alternative', objective: 'Test an alternative bridge', status: 'active', revision: 0, maxTurns: 2, maxConcurrent: 1 },
+  ];
+  const groupedTasks = () => planTasks().map(task => ({ ...task, groupId: task.id === 'b' ? 'alternative' : 'main',
+    sharing: task.id === 'b' ? 'problem' as const : 'group' as const }));
+
+  it('reuses a checked cross-route lemma with its explicit sharing, producer and version', async () => {
+    configureCooperation(async (action, options, message) => {
+      if (action.kind === 'lead') writePlan(options.workspace, groupedTasks(), routeGroups());
+      else {
+        if (action.kind === 'task' && action.task.id === 'first') {
+          expect(message).toContain('"groupId":"alternative"');
+          expect(message).toContain('"producer":"researcher-');
+          expect(message).toContain('checkedSourceDigest');
+          expect(message).toContain('integratedCommit');
+        }
+        finishAssignment(action, options);
+      }
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '6'], directory)).toBe(0);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state.cooperation.groups.map(route => [route.group.id, route.turns])).toEqual([['main', 3], ['alternative', 1]]);
+    const bridge = state.cooperation.tasks.find(node => node.task.id === 'b');
+    expect(bridge.assignment).toMatchObject({ groupId: 'alternative', canonicalCommit: expect.any(String) });
+    expect(bridge.integratedCheck.passed).toBe(true);
+    expect(state.cooperation.tasks.filter(node => node.task.kind === 'goal').every(node => node.assignment.workerId === 'engineer')).toBe(true);
+  });
+
+  it.each(['paused', 'stopped', 'budget'] as const)('keeps inactive-route work idle and continues independent tasks (%s)', async mode => {
+    const groups = routeGroups();
+    groups[1] = { ...groups[1], ...(mode === 'budget' ? { maxTurns: 0 } : { status: mode }) };
+    const tasks = groupedTasks();
+    tasks[3] = { ...tasks[3], dependsOn: [] };
+    let started = 0;
+    configureCooperation(async (action, options) => {
+      if (action.kind === 'lead') writePlan(options.workspace, tasks, groups);
+      else if (action.kind === 'task' && action.task.id === 'second') {
+        const file = path.join(options.workspace, 'generated/p/Submission.lean');
+        fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('second : True := by sorry', 'second : True := by trivial'));
+        started++;
+      } else finishAssignment(action, options);
+      return 'completed';
+    });
+    // Spare global turns must not be spent repeatedly asking the Lead to restart an inactive route.
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '10'], directory)).toBe(4);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(started).toBe(1);
+    expect(state.turns).toBe(3);
+    expect(state.cooperation.tasks.map(node => node.status)).toEqual(['integrated', 'pending', 'pending', 'integrated']);
+    expect(state.cooperation.groups[1].turns).toBe(0);
+    expect(host.officialGate).not.toHaveBeenCalled();
+  });
+
+  it('enforces per-route concurrency and preserves the accumulated route budget when extended on resume', async () => {
+    const groups = [{ ...routeGroups()[0], maxTurns: 1, maxConcurrent: 1 }];
+    let active = 0, peak = 0;
+    configureCooperation(async (action, options) => {
+      if (action.kind === 'lead') writePlan(options.workspace, planTasks(), groups);
+      else {
+        active++; peak = Math.max(peak, active);
+        await Promise.resolve();
+        finishAssignment(action, options); active--;
+      }
+      return 'completed';
+    });
+    const parallelArgs = [...args, '--workers', '4', '--max-turns', '10'];
+    expect(await runSolver(parallelArgs, directory)).toBe(4);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state.cooperation.groups[0].turns).toBe(1);
+    expect(state.turns).toBe(2);
+    expect(state.cooperation.tasks[0].status).toBe('integrated');
+    writePlan(state.worktree, planTasks(), [{ ...groups[0], maxTurns: 4 }]);
+    expect(await runSolver([...parallelArgs, '--resume'], directory)).toBe(0);
+    const resumed = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(resumed.cooperation.groups[0].turns).toBe(4);
+    expect(resumed.cooperation.tasks[0].attempts).toBe(1);
+    expect(resumed.cooperation.history).toBeUndefined();
+    expect(peak).toBe(1);
+  });
+
+  it('shows only a route\'s own artifacts and checked public findings in its task context and seeded source', async () => {
+    const tasks: CooperativeTask[] = [
+      { ...planTasks()[0], groupId: 'alternative', sharing: 'group' },
+      ...planTasks().slice(2).map(task => ({ ...task, groupId: 'main', dependsOn: task.id === 'first' ? [] : ['first'] })),
+    ];
+    configureCooperation(async (action, options, message) => {
+      if (action.kind === 'lead') writePlan(options.workspace, tasks, routeGroups());
+      else if (action.kind === 'task' && action.task.kind === 'goal') {
+        expect(message).not.toContain('Prove helper a');
+        const file = path.join(options.workspace, 'generated/p/Submission.lean');
+        const source = fs.readFileSync(file, 'utf8');
+        expect(source).not.toContain('lemma a');
+        fs.writeFileSync(file, source.replace(`${action.task.id} : True := by sorry`, `${action.task.id} : True := by trivial`));
+      } else finishAssignment(action, options);
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '5'], directory)).toBe(0);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(fs.readFileSync(path.join(state.worktree, 'generated/p/Submission.lean'), 'utf8')).toContain('lemma a');
+  });
+
+  it('reactivates a paused route on resume and retains unrelated integrated work', async () => {
+    const groups = routeGroups();
+    groups[1] = { ...groups[1], status: 'paused' };
+    configureCooperation(async (action, options) => {
+      if (action.kind === 'lead') writePlan(options.workspace, groupedTasks(), groups);
+      else finishAssignment(action, options);
+      return 'completed';
+    });
+    const parallelArgs = [...args, '--workers', '4', '--max-turns', '10'];
+    expect(await runSolver(parallelArgs, directory)).toBe(4);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state.cooperation.tasks[0].status).toBe('integrated');
+    writePlan(state.worktree, groupedTasks(), routeGroups());
+    expect(await runSolver([...parallelArgs, '--resume'], directory)).toBe(0);
+    const resumed = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(resumed.cooperation.tasks.map(node => node.attempts)).toEqual([1, 1, 1, 1]);
+    expect(resumed.cooperation.groups.map(route => route.turns)).toEqual([3, 1]);
+    expect(resumed.cooperation.history).toBeUndefined();
+  });
+
+  it('invalidates a revised route and cross-route consumers while preserving the other route\'s verified lemma', async () => {
+    configureCooperation(async (action, options) => {
+      if (action.kind === 'lead') writePlan(options.workspace, groupedTasks(), routeGroups());
+      else finishAssignment(action, options);
+      return 'completed';
+    });
+    const parallelArgs = [...args, '--workers', '4', '--max-turns', '5'];
+    expect(await runSolver(parallelArgs, directory)).toBe(4);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state.cooperation.tasks.every(node => node.status === 'integrated')).toBe(true);
+    const groups = routeGroups();
+    groups[1] = { ...groups[1], revision: 1 };
+    writePlan(state.worktree, groupedTasks(), groups);
+    expect(await runSolver([...parallelArgs, '--resume', '--max-turns', '9'], directory)).toBe(0);
+    const resumed = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(resumed.cooperation.tasks.map(node => node.attempts)).toEqual([1, 2, 2, 2]);
+    expect(resumed.cooperation.history.map(node => node.task.id)).toEqual(['b', 'first', 'second']);
+    expect(resumed.cooperation.groups[1].turns).toBe(2);
+  });
+
+  it.each(['unknown', 'private-dependency', 'concurrency', 'duplicate', 'budget'] as const)('rejects an invalid route plan (%s)', flaw => {
+    const tasks = groupedTasks();
+    const groups = routeGroups();
+    if (flaw === 'unknown') tasks[0] = { ...tasks[0], groupId: 'unknown' };
+    if (flaw === 'private-dependency') tasks[1] = { ...tasks[1], sharing: undefined };
+    if (flaw === 'concurrency') groups[1] = { ...groups[1], maxConcurrent: 0 };
+    if (flaw === 'duplicate') groups.push(groups[0]);
+    if (flaw === 'budget') groups[1] = { ...groups[1], maxTurns: -1 };
+    writePlan(workspace, tasks, groups);
+    expect(() => readCooperationPlan(problem, workspace)).toThrow(/math_plan/u);
+  });
+
+  it('lets the Engineer prove an independent goal while both Researchers work on helpers', async () => {
+    let started = 0;
+    let release!: () => void;
+    const threeStarted = new Promise<void>(resolve => { release = resolve; });
+    configureCooperation(async (action, options) => {
+      if (action.kind === 'lead') {
+        writePlan(options.workspace, planTasks().map(task => task.id === 'second' ? { ...task, dependsOn: [] } : task));
+      } else if (action.kind === 'task' && action.task.id !== 'first') {
+        if (++started === 3) release();
+        await threeStarted;
+        if (action.task.id === 'second') {
+          const file = path.join(options.workspace, 'generated/p/Submission.lean');
+          fs.writeFileSync(file, original.replace('second : True := by sorry', 'second : True := by trivial'));
+        } else finishAssignment(action, options);
+      } else finishAssignment(action, options);
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '6'], directory)).toBe(0);
+    expect(started).toBe(3);
+  });
+
+  it('applies a local task revision on resume, invalidates consumers and keeps unrelated checked work', async () => {
+    configureCooperation();
+    const parallelArgs = [...args, '--workers', '4', '--max-turns', '3'];
+    expect(await runSolver(parallelArgs, directory)).toBe(4);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    writePlan(state.worktree, planTasks().map(task => task.id === 'a' ? { ...task, revision: 1 } : task));
+    expect(await runSolver([...parallelArgs, '--resume', '--max-turns', '7'], directory)).toBe(0);
+    const resumed = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(resumed.cooperation.tasks.slice(0, 2).map(node => node.attempts)).toEqual([2, 1]);
+    expect(resumed.cooperation.history.map(node => node.task.id)).toEqual(['a', 'first', 'second']);
+    expect(resumed.cooperation.tasks[0].task.revision).toBe(1);
+  });
+
+  it('rechecks modified canonical helpers and prevents consumers from using invalid evidence on resume', async () => {
+    configureCooperation();
+    const parallelArgs = [...args, '--workers', '4', '--max-turns', '3'];
+    expect(await runSolver(parallelArgs, directory)).toBe(4);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    const file = path.join(state.worktree, 'generated/p/Submission.lean');
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('lemma a : True := by trivial', 'lemma a : True := by sorry'));
+    expect(await runSolver([...parallelArgs, '--resume', '--max-turns', '4'], directory)).toBe(4);
+    const resumed = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(resumed.cooperation.tasks[0].status).toBe('blocked');
+    expect(resumed.cooperation.tasks[1].status).toBe('integrated');
+    expect(resumed.cooperation.tasks.slice(2).every(node => node.attempts === 0)).toBe(true);
+    expect(host.officialGate).not.toHaveBeenCalled();
+  });
+
+  it('rejects a Reviewer that changes the fixed proof and keeps review separate from Lean acceptance', async () => {
+    configureCooperation(async (action, options) => {
+      finishAssignment(action, options);
+      if (action.kind === 'review') {
+        const file = path.join(options.workspace, 'generated/p/Submission.lean');
+        fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('by exact first', 'by trivial'));
+      }
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '6'], directory)).toBe(4);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state.cooperation.review).toMatchObject({ status: 'changes_requested', summary: 'math_review_source_changed' });
+    expect(state.check).toBeUndefined();
+    expect(host.officialGate).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])('blocks the wrong helper type and retries only after a Lead revision (revise: %s)', async revise => {
+    let leadTurns = 0, helperTurns = 0;
+    configureCooperation(async (action, options, message) => {
+      if (action.kind === 'lead') {
+        const tasks = planTasks();
+        if (++leadTurns > 1) {
+          expect(message).toContain('task type mismatch');
+          if (revise) tasks[0] = { ...tasks[0], revision: 1 };
+        }
+        writePlan(options.workspace, tasks);
+      } else if (action.kind === 'task' && action.task.id === 'a' && ++helperTurns === 1) {
+        const file = path.join(options.workspace, 'generated/p/Submission.lean');
+        fs.writeFileSync(file, original.replace('theorem first', 'lemma a : False := by trivial\ntheorem first'));
+      } else finishAssignment(action, options);
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '8'], directory)).toBe(revise ? 0 : 4);
+    expect(helperTurns).toBe(revise ? 2 : 1);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state.cooperation.tasks[0].status).toBe(revise ? 'integrated' : 'blocked');
+    expect(host.verify.mock.calls.filter(([, options]) => options.expectedDeclarationType).every(([, options]) => options.expectedDeclarationType === 'True')).toBe(true);
+  });
+
+  it.each(['cycle', 'missing', 'duplicate', 'coverage', 'target'])('rejects a %s plan before dispatch', flaw => {
+    const tasks = planTasks();
+    if (flaw === 'cycle') tasks[0] = { ...tasks[0], dependsOn: ['first'] };
+    if (flaw === 'missing') tasks[0] = { ...tasks[0], dependsOn: ['unknown'] };
+    if (flaw === 'duplicate') tasks.push({ ...tasks[2], id: 'duplicate' });
+    if (flaw === 'coverage') tasks.pop();
+    if (flaw === 'target') tasks[2] = { ...tasks[2], theoremName: 'Submission.changed' };
+    writePlan(workspace, tasks);
+    expect(() => readCooperativePlan(problem, workspace)).toThrow(/math_plan/u);
+  });
+
+  it('returns research findings to the Lead as advice without accepting them as proof', async () => {
+    const tasks: CooperativeTask[] = [{ id: 'route', kind: 'research', objective: 'Review the route and look for counterexamples', dependsOn: [], revision: 0 },
+      ...planTasks().slice(2).map(task => ({ ...task, dependsOn: ['route'] }))];
+    let leadTurns = 0;
+    configureCooperation(async (action, options, message) => {
+      if (action.kind === 'lead') {
+        if (++leadTurns > 1) expect(message).toContain('Use True.intro');
+        writePlan(options.workspace, tasks);
+      } else if (action.kind === 'task' && action.task.kind === 'research') {
+        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), '```math-result\n' +
+          JSON.stringify({ taskId: 'route', summary: 'Use True.intro', conclusion: 'supporting', evidenceRefs: ['Lean core: True.intro'] }) + '\n```');
+      } else if (action.kind === 'review') finishAssignment(action, options);
+      else if (action.kind === 'task') {
+        const file = path.join(options.workspace, 'generated/p/Submission.lean');
+        const name = action.task.id;
+        fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(`${name} : True := by sorry`, `${name} : True := by trivial`));
+      }
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '6'], directory)).toBe(0);
+    expect(leadTurns).toBe(2);
+    expect(host.verify.mock.calls.some(([request]) => request.items.some(item => item.theoremName === 'route'))).toBe(false);
+  });
+
+  it('cancels active task sessions, preserves drafts and resumes the same assignments', async () => {
+    let started = 0;
+    const stop = new Map<string, () => void>();
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({
+      threadId: `thread-${options.environment!.DEEPSCIENTIST_MATH_WORKER_ID}`, interrupt: vi.fn(),
+      close: vi.fn(async () => { stop.get(options.workspace)?.(); }),
+      run: async (message: string) => {
+        const action = assignmentFrom(message);
+        if (action.kind === 'lead') { finishAssignment(action, options); return 'completed'; }
+        if (action.kind !== 'task') throw new Error('unexpected_action');
+        const file = path.join(options.workspace, 'generated/p/Submission.lean');
+        fs.writeFileSync(file, original.replace('theorem first', `lemma ${action.task.id} : True := by sorry\ntheorem first`));
+        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), `Draft ${action.task.id}`);
+        const stopped = new Promise<void>(resolve => { stop.set(options.workspace, resolve); });
+        if (++started === 2) process.emit('SIGTERM');
+        await stopped; return 'interrupted';
+      },
+    }));
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '3'], directory)).toBe(4);
+    expect(host.verify).not.toHaveBeenCalled();
+    for (const result of await Promise.all(host.createSession.mock.results.map(result => result.value))) expect(result.close).toHaveBeenCalledOnce();
+    configureCooperation(async (action, options) => {
+      if (action.kind === 'task' && action.task.kind === 'lemma') {
+        expect(options.threadId).toBe(`thread-${options.environment!.DEEPSCIENTIST_MATH_WORKER_ID}`);
+        expect(fs.readFileSync(path.join(options.workspace, 'RESEARCH.md'), 'utf8')).toBe(`Draft ${action.task.id}`);
+        const file = path.join(options.workspace, 'generated/p/Submission.lean');
+        fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(`lemma ${action.task.id} : True := by sorry`, `lemma ${action.task.id} : True := by trivial`));
+      } else finishAssignment(action, options);
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '8', '--resume'], directory)).toBe(0);
   });
 
   function configureLemmaRun(proveHelper = true) {
@@ -545,13 +970,12 @@ describe('isolated solver and host acceptance', () => {
   it('keeps value estimates separate from stopping decisions and proof acceptance', async () => {
     const estimate = vi.fn(() => [{ operation: 'direct' as const, target: 'remaining-turns' as const,
       value: 100, uncertainty: null, calibration: 'uncalibrated' as const }]);
-    const select = vi.fn((...inputs: Parameters<typeof directSolverModules.M4.select>) => {
+    const select = vi.fn((...inputs: Parameters<typeof directSolverModules.M3.select>) => {
       expect(inputs[2][0].value).toBe(100);
       expect(inputs[3]).toMatchObject({ maxTurns: 1, aborted: false });
       return { operation: 'stop' as const, reason: 'no-operation' as const };
     });
-    const modules = { ...directSolverModules, M3: { version: 'test-cost-v1', estimate },
-      M4: { ...directSolverModules.M4, version: 'test-stop-v1', select } };
+    const modules = { ...directSolverModules, M3: { ...directSolverModules.M3, estimate, version: 'test-stop-v1', select } };
     expect(await runSolver(args, directory, modules)).toBe(4);
     expect(estimate).toHaveBeenCalledTimes(1);
     expect(select).toHaveBeenCalledTimes(1);
@@ -564,7 +988,7 @@ describe('isolated solver and host acceptance', () => {
   it('keeps the host turn limit when a replacement search policy requests more work', async () => {
     host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
       results: verified(request).results.map(item => ({ ...item, status: 'failed' })) }));
-    const modules = { ...directSolverModules, M4: { ...directSolverModules.M4, version: 'test-continue-v1',
+    const modules = { ...directSolverModules, M3: { ...directSolverModules.M3, version: 'test-continue-v1',
       select: () => ({ operation: 'direct' as const, reason: 'continue' as const }) } };
     expect(await runSolver(args, directory, modules)).toBe(4);
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'incomplete', turns: 1 });
@@ -609,7 +1033,7 @@ describe('isolated solver and host acceptance', () => {
   it('rejects a changed component version on resume before invoking a model', async () => {
     expect(await runSolver([...args, '--startup-only'], directory)).toBe(0);
     const prepared = fs.readFileSync(output, 'utf8');
-    const modules = { ...directSolverModules, M5: { ...directSolverModules.M5, version: 'different-context-v1' } };
+    const modules = { ...directSolverModules, M4: { ...directSolverModules.M4, version: 'different-context-v1' } };
     expect(await runSolver([...args, '--resume'], directory, modules)).toBe(1);
     expect(fs.readFileSync(output, 'utf8')).toBe(prepared);
     expect(host.createSession).not.toHaveBeenCalled();

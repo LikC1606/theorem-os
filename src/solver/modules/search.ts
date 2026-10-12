@@ -1,5 +1,6 @@
 import type { SolverRunState } from '../archive';
 import type { ResearchOperation, ValueEstimate } from './value';
+import { taskGroup, type TaskRecord, type RouteRecord } from '../cooperation';
 
 export type ResearchBudget = Readonly<{ maxTurns: number; remainingMs: number; aborted: boolean }>;
 export type ActionPlan = Readonly<{
@@ -7,7 +8,20 @@ export type ActionPlan = Readonly<{
   reason: 'continue' | 'budget-exhausted' | 'no-operation' | 'direct-proof-gap' | 'repair-bridge' | 'prove-needed-lemma' | 'dependencies-checked' | 'stalled-obligation';
 }>;
 
-/** M4 chooses actions; estimates never change mathematical acceptance. */
+/** Select dependency-ready work; worker identities belong to M5. */
+export function routeAllowsTask(task: TaskRecord['task'], tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): boolean {
+  if (!groups) return true;
+  const route = groups.find(record => record.group.id === taskGroup(task));
+  return Boolean(route && route.group.status === 'active' && route.turns < (route.group.maxTurns ?? Infinity) &&
+    tasks.filter(node => node.status === 'running' && taskGroup(node.task) === route.group.id).length < (route.group.maxConcurrent ?? 3));
+}
+
+export function readyResearchTasks(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): TaskRecord[] {
+  return tasks.filter(node => node.status === 'pending' && routeAllowsTask(node.task, tasks, groups) && node.task.dependsOn.every(id =>
+    tasks.some(dependency => dependency.task.id === id && ['integrated', 'completed'].includes(dependency.status))));
+}
+
+/** M3 chooses actions; estimates never change mathematical acceptance. */
 export function selectResearchAction(state: Readonly<SolverRunState>, options: readonly ResearchOperation[],
   _estimates: readonly ValueEstimate[], budget: ResearchBudget): ActionPlan {
   if (budget.aborted || budget.remainingMs <= 0 || state.turns >= budget.maxTurns)

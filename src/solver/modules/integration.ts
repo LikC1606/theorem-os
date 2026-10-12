@@ -8,7 +8,7 @@ export type IntegrationResult = Readonly<{
   pendingVerification: SolverProblem['targets'];
 }>;
 
-/** M7 adopts a complete checked proof; integration still requires independent host rechecking. */
+/** The host adopts a complete checked proof; integration still requires independent host rechecking. */
 export function integrateResearch(task: SolverProblem, artifacts: readonly ProofArtifact[], receipts: readonly ProofCheck[]): IntegrationResult {
   const candidate = artifacts.find(artifact => receipts.some(receipt => receipt.passed &&
     receipt.commit === artifact.commit && receipt.sourceDigest === artifact.sourceDigest));

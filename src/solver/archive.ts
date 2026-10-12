@@ -4,6 +4,17 @@ import type { ProofCheck } from './modules/evidence';
 import type { SolverFailure } from './feedback';
 import type { ResearchCandidate } from './modules/execution';
 import type { LemmaResearch } from './lemma';
+import type { ResearchRole } from './modules/organization';
+import type { CooperationState } from './cooperation';
+
+export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | 'previousThreadIds' |
+  'lastInputTokens' | 'phase' | 'turns' | 'usage' | 'usageBeforeThread' | 'check' | 'candidate' | 'lemmaResearch' | 'failures'> & {
+  id: string;
+  role: ResearchRole;
+  sessionRole?: ResearchRole;
+  sessionGroupId?: string;
+  error?: string;
+};
 
 /** S1: resumable records; storing a candidate never grants proof acceptance. */
 export type SolverRunState = {
@@ -30,6 +41,10 @@ export type SolverRunState = {
   candidate?: ResearchCandidate;
   lemmaResearch?: LemmaResearch;
   failures?: SolverFailure[];
+  workerCount?: number;
+  workers?: SolverWorkerState[];
+  cooperation?: CooperationState;
+  winningWorker?: string;
 };
 
 export const readSolverRunState = (file: string): SolverRunState => readMathJson(file) as SolverRunState;

@@ -3,8 +3,6 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { parseArgs } from 'node:util';
-import { setTimeout as delay } from 'node:timers/promises';
-import type { MathAgentSession } from '../runtime/codexSession';
 import { readMathBuildManifest } from '../math/mathBuildManifest';
 import { canonicalMathJson, mathDigest, readMathJson, withMathRuntimeLease, writeMathJsonDurable } from '../math/mathRuntimeIo';
 import { projectMathematicsRuntimeEnvironment, resolveMathematicsRuntimeEnvironment } from '../math/mathRuntimeEnvironment';
@@ -14,14 +12,13 @@ import { resolveMathematicsLakePackagesCache } from '../math/verifier';
 import { prepareLeanDiagnosticOverrides, runLeanDiagnostics } from '../math/leanDiagnostics';
 import { assertMathCanonicalPath, isMathPathWithin } from '../math/paths';
 import { git, readSolverProblem, assertSolverSources } from './problem';
-import { rememberSolverFailure, solverSourceFeedback } from './feedback';
+import { solverSourceFeedback } from './feedback';
 import { assertMathRetrievalCorpus, createMathRetrievalCorpus, type MathRetrievalCorpus } from '../math/mathRetrievalCorpus';
+import { integrateResearch } from './modules/integration';
 import { readSolverRunState, writeSolverRunState, type SolverRunState } from './archive';
 import { directSolverModules, lemmaSolverModules, type SolverModules } from './modules';
-import type { ProofCheck } from './modules/evidence';
-import type { ResearchWorker } from './modules/organization';
-import type { ResearchBudget } from './modules/search';
-import type { ResearchOperation } from './modules/value';
+import { researchWorkers } from './modules/organization';
+import { runResearchWorkers, type WorkerAccess } from './research';
 import { evaluateSolverProof } from './evaluation';
 
 export async function runSolver(args: string[], root: string, customModules?: SolverModules): Promise<number> {
@@ -33,10 +30,10 @@ export async function runSolver(args: string[], root: string, customModules?: So
     'prepare-timeout-seconds': { type: 'string', default: '1800' }, 'max-turn-seconds': { type: 'string', default: '180' },
     'evaluator-command': { type: 'string' }, 'evaluator-timeout-seconds': { type: 'string', default: '1800' },
     'proof-environment-cache-dir': { type: 'string' }, 'startup-only': { type: 'boolean' }, help: { type: 'boolean' },
-    method: { type: 'string', default: 'direct' },
+    method: { type: 'string', default: 'direct' }, workers: { type: 'string', default: '4' },
   } });
   if (values.help) {
-    console.log('Usage: deepscientist-math run --workspace DIR --task-file FILE --output FILE --build-manifest FILE [--receipt-file FILE] [--resume] [--method direct|lemma] [--model MODEL --effort LEVEL] [--max-run-seconds N --max-turns N --max-turn-seconds N] [--prepare-timeout-seconds N] [--evaluator-command CMD --evaluator-timeout-seconds N] [--proof-environment-cache-dir DIR] [--startup-only]\nUse 0 for --max-run-seconds, --max-turns, --max-turn-seconds or --evaluator-timeout-seconds to disable that limit. Unlimited total solving time also disables proof verification deadlines.');
+    console.log('Usage: deepscientist-math run --workspace DIR --task-file FILE --output FILE --build-manifest FILE [--receipt-file FILE] [--resume] [--method direct|lemma] [--workers 1|2|3|4] [--model MODEL --effort LEVEL] [--max-run-seconds N --max-turns N --max-turn-seconds N] [--prepare-timeout-seconds N] [--evaluator-command CMD --evaluator-timeout-seconds N] [--proof-environment-cache-dir DIR] [--startup-only]\nUse 0 for --max-run-seconds, --max-turns, --max-turn-seconds or --evaluator-timeout-seconds to disable that limit. Unlimited total solving time also disables proof verification deadlines.');
     return 0;
   }
   if (!['direct', 'lemma'].includes(values.method!)) throw new Error('invalid --method');
@@ -56,6 +53,8 @@ export async function runSolver(args: string[], root: string, customModules?: So
   const maxTurnMs = limit('max-turn-seconds', true) * 1000;
   const maxTurns = limit('max-turns', true);
   const evaluatorMs = limit('evaluator-timeout-seconds', true) * 1000;
+  const workerCount = limit('workers');
+  if (workerCount > 4) throw new Error('invalid --workers');
   const workspace = fs.realpathSync(required('workspace'));
   const output = path.resolve(required('output'));
   assertMathCanonicalPath(output);
@@ -76,7 +75,6 @@ export async function runSolver(args: string[], root: string, customModules?: So
   let deadline = Infinity;
   let timer: ReturnType<typeof setTimeout> | undefined = setTimeout(abort, preparationMs);
   let ownedState: SolverRunState | undefined;
-  let session: MathAgentSession | undefined;
   let proofEnvironment: Awaited<ReturnType<typeof prepareMathProofEnvironment>> | undefined;
   let ownsRun = false;
   const emit = (event: string, details = {}) => console.log(JSON.stringify({ event, at: Date.now(), ...details }));
@@ -108,6 +106,12 @@ export async function runSolver(args: string[], root: string, customModules?: So
       if (values.resume) {
         state = readSolverRunState(stateFile);
         if (!state.methodDigest && modules === directSolverModules) state.methodDigest = identity.methodDigest;
+        if ((state.workerCount ?? 1) !== workerCount) throw new Error('math_resume_worker_count_changed');
+        const expectedWorkers = researchWorkers(path.join(directory, 'worktree'), problem.ownedFiles, workerCount);
+        if (workerCount > 1 && (!state.workers || state.workers.length !== workerCount ||
+            state.workers.some((worker, index) => worker.id !== expectedWorkers[index].id ||
+              worker.role !== expectedWorkers[index].role || worker.worktree !== expectedWorkers[index].worktree)))
+          throw new Error('math_resume_worker_identity_changed');
         if (state.schema !== 'deepscientist.math.solver.v1' || state.problem.workspace !== workspace ||
           state.problem.receiptDigest !== problem.receiptDigest ||
           Object.entries(identity).some(([key, value]) => state[key] !== value) ||
@@ -126,13 +130,20 @@ export async function runSolver(args: string[], root: string, customModules?: So
         if (git(workspace, ['status', '--porcelain', '--untracked-files=no'])) throw new Error('math_workspace_has_uncommitted_sources');
         ownsRun = true;
         state = { schema: 'deepscientist.math.solver.v1', runId: crypto.randomUUID(), problem, ...identity,
-          worktree: path.join(directory, 'worktree'), phase: 'prepared', turns: 0 };
+          worktree: path.join(directory, 'worktree'), phase: 'prepared', turns: 0, workerCount };
+        if (workerCount > 1) state.workers = researchWorkers(state.worktree, problem.ownedFiles, workerCount)
+          .map(worker => ({ id: worker.id, role: worker.role, worktree: worker.worktree, phase: 'prepared', turns: 0 }));
         git(workspace, ['worktree', 'add', '--detach', state.worktree, problem.baseCommit]);
         writeSolverRunState(stateFile, state);
       }
       ownsRun = true;
       ownedState = state;
       const save = () => writeSolverRunState(stateFile, state);
+      const workers = researchWorkers(state.worktree, problem.ownedFiles, workerCount);
+      for (const worker of workers.slice(1)) {
+        signal.throwIfAborted();
+        if (!fs.existsSync(worker.worktree)) git(workspace, ['worktree', 'add', '--detach', worker.worktree, problem.baseCommit]);
+      }
       const project = path.join(state.worktree, state.problem.projectRelative);
       if (!values.resume) sourceFeedback = solverSourceFeedback(state.problem, state.worktree);
       fs.mkdirSync(path.join(project, '.lake'), { recursive: true });
@@ -188,7 +199,41 @@ export async function runSolver(args: string[], root: string, customModules?: So
         if (!corpusCreated) assertMathRetrievalCorpus(retrievalRoot, corpus);
         emit('library_index', { phase: 'ready', sourceFiles: corpus!.sources.length });
       }
-      emit('ready', { runId: state.runId, worktree: state.worktree });
+      const workerAccess = new Map<string, WorkerAccess>();
+      workerAccess.set('solver', { environment: env, corpusFile, retrievalRoot });
+      for (const worker of workers.slice(1)) {
+        signal.throwIfAborted();
+        const workerProject = path.join(worker.worktree, problem.projectRelative);
+        const lake = path.join(workerProject, '.lake');
+        fs.mkdirSync(lake, { recursive: true });
+        writeMathJsonDurable(path.join(lake, 'source-constraints.json'), {
+          trustedFiles: state.problem.trustedFiles, declarations: state.problem.declarations,
+          sourceStructure: state.problem.sourceStructure,
+        }, 0o400);
+        if (sourcePackages) {
+          const packages = path.join(lake, 'packages');
+          if (!fs.existsSync(packages)) fs.symlinkSync(sourcePackages, packages, 'dir');
+          prepareLeanDiagnosticOverrides(workerProject);
+        }
+        const prepared = await runLeanDiagnostics({ projectRoot: workerProject,
+          files: [...new Set(problem.targets.map(target => target.proofPath))], dependenciesOnly: true,
+          excludedFiles: problem.ownedFiles, env, signal, timeoutMs: preparationMs - (Date.now() - preparationStarted),
+          onProgress: file => emit('dependency_check', { workerId: worker.id, file }) });
+        writeMathJsonDurable(path.join(directory, `preparation-${worker.id}.json`), prepared);
+        if (prepared.exitCode !== 0 || prepared.timedOut) throw new Error('math_lean_dependencies_failed');
+        let workerCorpusFile: string | undefined;
+        if (corpusFile) {
+          workerCorpusFile = path.join(lake, 'retrieval-corpus.json');
+          const bytes = fs.readFileSync(corpusFile);
+          assertMathCanonicalPath(workerCorpusFile);
+          if (fs.existsSync(workerCorpusFile) && mathDigest(fs.readFileSync(workerCorpusFile)) !== mathDigest(bytes))
+            throw new Error('math_corpus_identity_changed');
+          fs.writeFileSync(workerCorpusFile, bytes, { mode: 0o400 });
+        }
+        workerAccess.set(worker.id, { environment: { ...env, DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS: workerCorpusFile },
+          corpusFile: workerCorpusFile, retrievalRoot: corpus?.projectSubdirectory ? worker.worktree : workerProject });
+      }
+      emit('ready', { runId: state.runId, worktree: state.worktree, workers });
       emit('preparation_finished', { durationMs: Date.now() - preparationStarted, dependencies: diagnostics.phases });
       if (values['startup-only']) {
         writeMathJsonDurable(output, { schema: 'deepscientist.math.run.v2', runId: state.runId,
@@ -202,152 +247,37 @@ export async function runSolver(args: string[], root: string, customModules?: So
       deadline = Date.now() + maxRunMs;
       timer = Number.isFinite(maxRunMs) ? setTimeout(abort, maxRunMs) : undefined;
       emit('solve_started', { budgetMs: maxRunMs, maxTurnMs });
-      const resumeEvaluation = state.check?.passed === true && ['checking', 'evaluating', 'finished'].includes(state.phase) &&
-        git(state.worktree, ['rev-parse', 'HEAD']) === state.check.commit &&
-        !git(state.worktree, ['status', '--porcelain', '--', ...state.problem.ownedFiles.map(file => path.join(state.problem.projectRelative, file))]);
-      if (state.check?.passed && !resumeEvaluation) { state.check = undefined; save(); }
-      // Restored auxiliary receipts are advisory until checked again in this pinned environment.
-      if (values.resume && state.lemmaResearch) {
-        state.lemmaResearch = { plan: state.lemmaResearch.plan, error: state.lemmaResearch.error }; save();
+      if (values.resume) {
+        // Persisted auxiliary receipts cannot authorize reuse after a process restart.
+        for (const research of state.workers ?? [state]) if (research.lemmaResearch)
+          research.lemmaResearch = { plan: research.lemmaResearch.plan, error: research.lemmaResearch.error };
+        save();
       }
-      const budget = (): ResearchBudget => ({ maxTurns, remainingMs: Math.max(0, deadline - Date.now()), aborted: signal.aborted });
-      const buildContext = (feedback?: string, previousCheck?: ProofCheck, previousFailures = state.failures, operation?: ResearchOperation) =>
-        modules.M5.build(state.problem, state, { root, worktree: state.worktree, environment: env, taskText: task,
-          corpusFile, retrievalRoot, sourceFeedback: feedback, previousCheck, previousFailures, operation });
-      let context = buildContext(sourceFeedback);
-      const startSession = () => modules.M1.open({ executable: values.codex || process.env.DEEPSCIENTIST_MATH_CODEX_EXECUTABLE || 'codex',
+      const winner = await runResearchWorkers({ state, workers, access: workerAccess, modules, root, buildFile, taskText: task,
+        executable: values.codex || process.env.DEEPSCIENTIST_MATH_CODEX_EXECUTABLE || 'codex',
         profile: process.env.CODEX_HOME || path.join(os.homedir(), '.config/deepscientist/math-sol-codex'),
-        workspace: state.worktree, environment: env, model: state.model, effort: state.effort,
-        turnTimeoutMs: Number.isFinite(maxTurnMs) ? maxTurnMs : undefined,
-        threadId: state.threadId, instructions: context.instructions,
-        onUsage: usage => {
-          state.lastInputTokens = session?.lastInputTokens ?? state.lastInputTokens;
-          state.usage = { ...state.usageBeforeThread, ...usage };
-          for (const [key, value] of Object.entries(usage)) {
-            const previous = state.usageBeforeThread?.[key];
-            if (typeof value === 'number' && typeof previous === 'number') state.usage[key] = previous + value;
-          }
-          save();
-        } });
-      const workers: ResearchWorker[] = [{ id: 'solver', worktree: state.worktree, ownedFiles: state.problem.ownedFiles }];
-      const cancelSession = () => { void session?.close(); };
-      signal.addEventListener('abort', cancelSession, { once: true });
-      if (signal.aborted) cancelSession();
-      save();
+        signal, deadline, maxTurns, maxTurnMs, proofTimeoutMs: maxRunMs === Infinity ? Infinity : undefined, save, emit });
       let evaluation: Record<string, unknown> = { status: 'skipped', reason: 'proof_incomplete' };
-      let lastCheck: ProofCheck | undefined;
-      let retries = 0;
-      const retryFailedTurn = async (error?: string): Promise<boolean> => {
-        const retry = modules.M4.retry(error, retries, state, budget());
-        if (!retry) return false;
-        retries = retry.attempt;
-        emit('turn_retry', { reason: 'model_concurrency_limit', attempt: retries, delayMs: retry.delayMs });
-        await delay(retry.delayMs, undefined, { signal });
-        signal.throwIfAborted();
-        session = await startSession();
-        state.threadId = session.threadId; save();
-        return true;
-      };
-      try {
-        while ((resumeEvaluation || state.turns < maxTurns) && !signal.aborted) {
-          if (!resumeEvaluation) {
-            if (state.threadId && Math.max(session?.lastInputTokens ?? 0, state.lastInputTokens ?? 0) >= 96_000) {
-              const previous = state.threadId;
-              await session?.close(); session = undefined;
-              state.previousThreadIds = [...(state.previousThreadIds ?? []), previous];
-              state.threadId = undefined; state.lastInputTokens = undefined; state.usageBeforeThread = state.usage; save();
-              context = buildContext(solverSourceFeedback(state.problem, state.worktree));
-              emit('context_restarted', { previousThreadId: previous, turns: state.turns });
-            }
-            const options: readonly ResearchOperation[] = modules.M2.checkLemma
-              ? ['direct', 'decompose', 'bridge', 'prove-lemma', 'integrate-lemma'] : ['direct'];
-            const estimates = modules.M3.estimate(state, options);
-            const action = modules.M4.select(state, options, estimates, budget());
-            if (action.operation === 'stop') break;
-            if (!options.includes(action.operation)) throw new Error('math_research_operation_unavailable');
-            emit('research_action', { operation: action.operation, reason: action.reason, estimates });
-            const team = modules.M6.organize(action, workers, budget());
-            if (!workers.includes(team.worker)) throw new Error('math_solver_worker_outside_ownership');
-            readMathBuildManifest(buildFile, root, bundleRoot);
-            const repair = solverSourceFeedback(state.problem, state.worktree);
-            if (repair) { state.check = undefined; context = buildContext(repair); }
-            else if (action.operation !== 'direct') context = buildContext(undefined, undefined, state.failures, action.operation);
-            if (!session) {
-              session = await startSession();
-              state.threadId = session.threadId;
-            }
-            state.phase = 'running'; state.turns++; save();
-            const candidate = await modules.M1.execute(state.problem, context, action.operation, team.worker, session, signal,
-              turnId => emit('turn_started', { turnId, turn: state.turns }));
-            if (candidate.worktree !== state.worktree || candidate.problemReceiptDigest !== state.problem.receiptDigest || candidate.operation !== action.operation)
-              throw new Error('math_candidate_identity_changed');
-            state.lastInputTokens = session?.lastInputTokens ?? state.lastInputTokens;
-            state.candidate = candidate;
-            const turn = candidate.status;
-            if (turn !== 'completed' && turn !== 'failed' && turn !== 'checkpoint') break;
-            if (turn === 'checkpoint') emit('turn_checkpoint', { turn: state.turns });
-            const turnError = session?.lastError;
-            if (turn === 'failed') {
-              await session?.close(); session = undefined;
-              emit('turn_failed');
-            }
-            const sourceError = solverSourceFeedback(state.problem, state.worktree);
-            if (sourceError) {
-              state.check = undefined; state.lemmaResearch = undefined; context = buildContext(sourceError); save();
-              emit('source_rejected');
-              if (turn === 'failed' && !await retryFailedTurn(turnError)) break;
-              continue;
-            }
-            state.phase = 'checking'; save();
-            const previousCheck = state.check;
-            const previousFailures = state.failures;
-            const checkStarted = Date.now();
-            emit('proof_check_started', { turn: state.turns });
-            state.check = await modules.M2.check(state.problem, candidate.worktree, env, signal, lastCheck,
-              maxRunMs === Infinity ? Infinity : undefined);
-            const reused = state.check === lastCheck;
-            state.failures = rememberSolverFailure(state.check, previousFailures);
-            lastCheck = state.check; save();
-            emit('proof_checked', { passed: state.check.passed, commit: state.check.commit, reused,
-              durationMs: Date.now() - checkStarted });
-            if (!state.check.passed) {
-              if (['unavailable', 'blocked'].includes(state.check.verification.status)) throw new Error('math_verifier_unavailable');
-              if (modules.M2.checkLemma && action.operation !== 'direct') {
-                state.lemmaResearch = candidate.lemmaPlan
-                  ? await modules.M2.checkLemma(state.problem, candidate.worktree, env, signal, state.check, candidate.lemmaPlan, state.lemmaResearch)
-                  : { error: candidate.lemmaPlanError || 'math_lemma_plan_missing' };
-                save();
-                emit('lemma_checked', { bridge: state.lemmaResearch.bridge?.passed ?? false,
-                  lemma: state.lemmaResearch.lemma?.passed ?? false, error: state.lemmaResearch.error,
-                  bridgeReused: state.lemmaResearch.bridge?.reused ?? false, lemmaReused: state.lemmaResearch.lemma?.reused ?? false });
-                if ([state.lemmaResearch.bridge, state.lemmaResearch.lemma].some(receipt => receipt &&
-                    ['unavailable', 'blocked'].includes(receipt.verification.status))) throw new Error('math_verifier_unavailable');
-              }
-              context = buildContext(undefined, previousCheck, previousFailures);
-              if (turn === 'failed' && !await retryFailedTurn(turnError)) break;
-              continue;
-            }
-          }
-          await session?.close(); session = undefined;
-          state.phase = 'evaluating'; save();
-          readMathBuildManifest(buildFile, root, bundleRoot);
-          const integration = await modules.M7.integrate(state.problem,
-            [{ commit: state.check.commit, sourceDigest: state.check.sourceDigest }], [state.check]);
-          if (!integration.candidate || !integration.dependenciesClosed) break;
+      if (winner) {
+        state.phase = 'evaluating'; save();
+        readMathBuildManifest(buildFile, root, bundleRoot);
+        const integration = integrateResearch(state.problem,
+          [{ commit: winner.check.commit, sourceDigest: winner.check.sourceDigest }], [winner.check]);
+        if (integration.candidate && integration.dependenciesClosed) {
           const evaluationStarted = Date.now();
-          emit('evaluation_started');
-          evaluation = await evaluateSolverProof(state.problem, state.worktree, state.check, env, signal,
+          emit('evaluation_started', { workerId: state.winningWorker ?? 'solver' });
+          evaluation = await evaluateSolverProof(state.problem, winner.worktree, winner.check, env, signal,
             { command: values['evaluator-command'], timeoutMs: evaluatorMs });
           emit('evaluation_finished', { status: evaluation.status, durationMs: Date.now() - evaluationStarted });
-          break;
         }
-      } finally { signal.removeEventListener('abort', cancelSession); }
+      }
       state.phase = 'finished'; save();
       const status = signal.aborted ? 'limit_reached' : evaluation.status === 'passed' ? 'evaluated_passed' : evaluation.status === 'failed' ? 'evaluated_failed' : evaluation.status === 'error' ? 'runtime_error' : 'incomplete';
       const result = { schema: 'deepscientist.math.run.v2', runId: state.runId, problemId: state.problem.contract.problemId,
         status, run_outcome: status, solution_commit: state.check?.passed ? state.check.commit : null,
         solver_ready_receipt_valid: state.check?.passed === true, completion_signal_valid: evaluation.status === 'passed',
-        evaluator: evaluation, turns: state.turns, usage: state.usage, stateFile };
+        evaluator: evaluation, turns: state.turns, usage: state.usage, stateFile, winningWorker: state.winningWorker,
+        workers: state.workers?.map(worker => ({ id: worker.id, role: worker.role, turns: worker.turns, usage: worker.usage, error: worker.error })) };
       writeMathJsonDurable(output, result);
       emit('finished', { status, output });
       return status === 'evaluated_passed' ? 0 : status === 'evaluated_failed' ? 2 : status === 'runtime_error' ? 1 : 4;
@@ -365,7 +295,6 @@ export async function runSolver(args: string[], root: string, customModules?: So
   } finally {
     clearTimeout(timer);
     process.removeListener('SIGINT', abort); process.removeListener('SIGTERM', abort);
-    await session?.close();
     await proofEnvironment?.dispose();
   }
 }

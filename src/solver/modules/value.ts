@@ -9,7 +9,7 @@ export type ValueEstimate = Readonly<{
   calibration: 'uncalibrated' | 'calibrated';
 }>;
 
-/** M3: the direct baseline explicitly has no remaining-cost prediction. */
+/** M3 scoring: the direct baseline explicitly has no remaining-cost prediction. */
 export function estimateResearchValue(_state: Readonly<SolverRunState>, options: readonly ResearchOperation[]): readonly ValueEstimate[] {
   return options.map(operation => ({ operation, target: 'remaining-turns', value: null,
     uncertainty: null, calibration: 'uncalibrated' }));
