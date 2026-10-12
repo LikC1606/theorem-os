@@ -4,8 +4,14 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { prepareLeanDiagnosticOverrides, runLeanDiagnostics } from '../src/math/leanDiagnostics';
 
-const run = vi.hoisted(() => vi.fn());
+const { run, lease, readiness, environment } = vi.hoisted(() => ({ run: vi.fn(), lease: vi.fn(), readiness: vi.fn(), environment: vi.fn() }));
 vi.mock('../src/math/verifier', () => ({ runMathematicsSandboxedCommand: run }));
+vi.mock('../src/math/mathProofEnvironment', () => ({
+  MATH_PROOF_ENVIRONMENT_SANDBOX_ENV: 'DEEPSCIENTIST_MATH_PROOF_ENVIRONMENT_SANDBOX',
+  acquireMathProofEnvironmentLease: lease,
+  resolveMathProofEnvironment: environment,
+}));
+vi.mock('../src/math/leanToolchainReadiness', () => ({ checkResolvedLeanToolchainReadiness: readiness }));
 
 describe('bounded local Lean diagnostics', () => {
   let root: string;
@@ -19,6 +25,7 @@ describe('bounded local Lean diagnostics', () => {
       fs.writeFileSync(path.join(root, output), 'compiled');
       return { started: true, exitCode: 0, timedOut: false, aborted: false, durationMs: 1, stdout: '#check output', stderr: '' };
     });
+    lease.mockReset(); readiness.mockReset(); environment.mockReset();
   });
   afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
@@ -35,7 +42,27 @@ describe('bounded local Lean diagnostics', () => {
     await runLeanDiagnostics(input);
     expect(run).toHaveBeenCalledTimes(4);
     fs.writeFileSync(path.join(root, '.lake/build/lib/lean/ChallengeDeps.olean'), 'tampered');
+    const repaired = await runLeanDiagnostics(input);
+    expect(repaired.phases.map(phase => phase.cached)).toEqual([false, true]);
+    expect(fs.readFileSync(path.join(root, '.lake/build/lib/lean/ChallengeDeps.olean'), 'utf8')).toBe('compiled');
+    expect(run).toHaveBeenCalledTimes(5);
+  });
+
+  it('reuses an unchanged requested proof, but checks changes to source, environment and artifacts', async () => {
+    environment.mockReturnValue({ identity: 'fixed-frozen-packages' });
+    const input = { projectRoot: root, files: ['Submission.lean'], timeoutMs: 1000 };
+    const first = await runLeanDiagnostics(input);
+    const repeat = await runLeanDiagnostics(input);
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(repeat.phases.every(phase => phase.cached)).toBe(true);
+    expect(repeat.stdout).toBe(first.stdout);
+    fs.appendFileSync(path.join(root, 'Submission.lean'), '\n-- relevant source change\n');
     await runLeanDiagnostics(input);
+    expect(run).toHaveBeenCalledTimes(3);
+    fs.writeFileSync(path.join(root, '.lake/build/lib/lean/Submission.olean'), 'tampered');
+    await runLeanDiagnostics(input);
+    expect(run).toHaveBeenCalledTimes(4);
+    await runLeanDiagnostics({ ...input, env: { ELAN_HOME: '/different/toolchain' } });
     expect(run).toHaveBeenCalledTimes(6);
   });
 
@@ -55,6 +82,48 @@ describe('bounded local Lean diagnostics', () => {
     await expect(runLeanDiagnostics({ projectRoot: root, files: ['Submission.lean'], timeoutMs: 1000 }))
       .rejects.toThrow('math_construction_import_excluded');
     expect(run).not.toHaveBeenCalled();
+  });
+
+  it('rejects a diagnostic result if the saved sources changed during compilation', async () => {
+    run.mockImplementationOnce(async () => {
+      fs.appendFileSync(path.join(root, 'Submission.lean'), '\nnoncomputable section\n');
+      return { started: true, exitCode: 0, timedOut: false, aborted: false, durationMs: 1, stdout: '', stderr: '' };
+    });
+    const result = await runLeanDiagnostics({ projectRoot: root, files: ['Submission.lean'], timeoutMs: 1000 });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('math_diagnostics_source_changed');
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(fs.existsSync(path.join(root, '.lake/lean-diagnostics.json'))).toBe(false);
+  });
+
+  it('checks the saved file inside an authenticated worker without creating a nested sandbox', async () => {
+    const compiler = path.join(root, 'lean');
+    fs.writeFileSync(compiler, `#!${process.execPath}\nconst fs = require('node:fs');
+const args = process.argv.slice(2), file = args.at(-1), source = fs.readFileSync(file, 'utf8');
+if (file === 'Submission.lean' && source !== ${JSON.stringify(fs.readFileSync(path.join(root, 'Submission.lean'), 'utf8'))}) process.exit(9);
+fs.writeFileSync(args[args.indexOf('-o') + 1], source); console.log(file);
+`);
+    fs.chmodSync(compiler, 0o700);
+    const packages = path.join(root, 'packages'); fs.mkdirSync(packages);
+    const release = vi.fn(); lease.mockResolvedValue({ packagesRoot: packages, release });
+    readiness.mockReturnValue({ status: 'ready', leanPath: compiler });
+    const result = await runLeanDiagnostics({ projectRoot: root, files: ['Submission.lean'], timeoutMs: Infinity,
+      env: { DEEPSCIENTIST_MATH_PROOF_ENVIRONMENT_SANDBOX: 'host-bound-mapping' } });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('Submission.lean');
+    expect(run).not.toHaveBeenCalled();
+    expect(release).toHaveBeenCalledTimes(2);
+    expect(fs.readFileSync(path.join(root, '.lake/build/lib/lean/Submission.olean'), 'utf8'))
+      .toBe(fs.readFileSync(path.join(root, 'Submission.lean'), 'utf8'));
+  });
+
+  it('refuses worker diagnostics when the frozen environment lease cannot be verified', async () => {
+    lease.mockRejectedValue(new Error('Sealed proof environment binding changed.'));
+    await expect(runLeanDiagnostics({ projectRoot: root, files: ['Submission.lean'], timeoutMs: 1000,
+      env: { DEEPSCIENTIST_MATH_PROOF_ENVIRONMENT_SANDBOX: 'invalid-mapping' } }))
+      .rejects.toThrow('binding changed');
+    expect(run).not.toHaveBeenCalled();
+    expect(readiness).not.toHaveBeenCalled();
   });
 
   it('writes valid path overrides without changing the frozen manifest', () => {

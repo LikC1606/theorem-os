@@ -104,6 +104,69 @@ describe('Lean-Eval bootstrap without planning state', () => {
     return { activeProblemPath: receipt.activeProblemPath, repositoryRoot, fetchLeaderboard: async () => leaderboard };
   }
 
+  function freezeLeaderboard(activeProblemPath: string) {
+    const receipt = JSON.parse(fs.readFileSync(activeProblemPath, 'utf8'));
+    const file = path.join(path.dirname(activeProblemPath), '.deepscientist', 'leaderboard.json');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify({ credits: [],
+      generated_at: new Date(receipt.leaderboardGeneratedAt).toISOString() }));
+    return file;
+  }
+
+  it('restores missing official binding files from the checked pinned metadata on resume', async () => {
+    const options = makeOfficialReceipt();
+    const binding = bootstrapped.binding;
+    const files = [binding.officialManifestPath, binding.authorityPath]
+      .map(file => path.join(binding.repositoryRoot, file));
+    for (const file of files) fs.unlinkSync(file);
+    const result = await runPersistedLeanEvalOfficialGate(options);
+    expect(result.comparison.status).toBe('official_verified');
+    expect(fs.readFileSync(files[0]!, 'utf8')).toBe(binding.officialManifestContent);
+    expect(fs.readFileSync(files[1]!, 'utf8')).toBe(binding.authorityContent);
+  });
+
+  it('rejects an existing official binding with different contents on resume', async () => {
+    const options = makeOfficialReceipt();
+    const binding = bootstrapped.binding;
+    fs.writeFileSync(path.join(binding.repositoryRoot, binding.officialManifestPath), '{}');
+    await expect(runPersistedLeanEvalOfficialGate(options)).rejects.toThrow('already exists with different contents');
+    expect(host.verify).not.toHaveBeenCalled();
+    expect(host.compare).not.toHaveBeenCalled();
+  });
+
+  it('resumes a benchmark from its frozen leaderboard without depending on live updates', async () => {
+    const options = makeOfficialReceipt();
+    freezeLeaderboard(options.activeProblemPath);
+    const receipt = JSON.parse(fs.readFileSync(options.activeProblemPath, 'utf8'));
+    fs.writeFileSync(options.activeProblemPath, JSON.stringify({ ...receipt, evaluationMode: 'benchmark' }));
+    const fetchLeaderboard = vi.fn(async () => { throw new Error('live leaderboard changed'); });
+    const result = await runPersistedLeanEvalOfficialGate({ ...options, fetchLeaderboard });
+    expect(result.comparison.status).toBe('official_verified');
+    expect(fetchLeaderboard).not.toHaveBeenCalled();
+    expect(host.compare).toHaveBeenCalledOnce();
+  });
+
+  it('still checks live eligibility in official mode after loading the frozen snapshot', async () => {
+    const options = makeOfficialReceipt();
+    freezeLeaderboard(options.activeProblemPath);
+    const fetchLeaderboard = vi.fn(async () => ({ credits: [{ problemId: 'p', statementRevision: 1 }], generatedAt: 2 }));
+    await expect(runPersistedLeanEvalOfficialGate({ ...options, fetchLeaderboard }))
+      .rejects.toThrow('accepted leaderboard credit');
+    expect(fetchLeaderboard).toHaveBeenCalledOnce();
+    expect(host.compare).not.toHaveBeenCalled();
+  });
+
+  it.each(['credits', 'generated_at'])('rejects changed frozen leaderboard %s before verification', async field => {
+    const options = makeOfficialReceipt();
+    const file = freezeLeaderboard(options.activeProblemPath);
+    const snapshot = JSON.parse(fs.readFileSync(file, 'utf8'));
+    snapshot[field] = field === 'credits' ? [{ problemId: 'p', statementRevision: 1 }] : new Date(2).toISOString();
+    fs.writeFileSync(file, JSON.stringify(snapshot));
+    await expect(runPersistedLeanEvalOfficialGate(options)).rejects.toThrow('no longer matches the receipt');
+    expect(host.verify).not.toHaveBeenCalled();
+    expect(host.compare).not.toHaveBeenCalled();
+  });
+
   it('allows archived introductory problems only in benchmark mode', () => {
     const problem = { eligible: false, eligibilityReasons: ['not_in_v1', 'inactive', 'hidden'] };
     expect(() => assertLeanEvalBootstrapEligibility(problem, 'benchmark')).not.toThrow();

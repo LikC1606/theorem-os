@@ -79,7 +79,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
   let session: MathAgentSession | undefined;
   let proofEnvironment: Awaited<ReturnType<typeof prepareMathProofEnvironment>> | undefined;
   let ownsRun = false;
-  const emit = (event: string, details = {}) => console.log(JSON.stringify({ event, ...details }));
+  const emit = (event: string, details = {}) => console.log(JSON.stringify({ event, at: Date.now(), ...details }));
   try {
     return await withMathRuntimeLease({ lockPath: path.join(directory, 'run.lock'), flockExecutable: '/usr/bin/flock', signal: controller.signal }, async lease => {
       const signal = lease.signal;
@@ -135,6 +135,11 @@ export async function runSolver(args: string[], root: string, customModules?: So
       const save = () => writeSolverRunState(stateFile, state);
       const project = path.join(state.worktree, state.problem.projectRelative);
       if (!values.resume) sourceFeedback = solverSourceFeedback(state.problem, state.worktree);
+      fs.mkdirSync(path.join(project, '.lake'), { recursive: true });
+      writeMathJsonDurable(path.join(project, '.lake/source-constraints.json'), {
+        trustedFiles: state.problem.trustedFiles, declarations: state.problem.declarations,
+        sourceStructure: state.problem.sourceStructure,
+      }, 0o400);
       if (sourceFeedback) { state.check = undefined; save(); }
       const readiness = checkResolvedLeanToolchainReadiness({ projectRoot: project, env, timeoutMs: 180_000 });
       if (readiness.status !== 'ready') throw new Error('math_lean_toolchain_unavailable');
@@ -215,7 +220,14 @@ export async function runSolver(args: string[], root: string, customModules?: So
         workspace: state.worktree, environment: env, model: state.model, effort: state.effort,
         turnTimeoutMs: Number.isFinite(maxTurnMs) ? maxTurnMs : undefined,
         threadId: state.threadId, instructions: context.instructions,
-        onUsage: usage => { state.usage = usage; save(); } });
+        onUsage: usage => {
+          state.usage = { ...state.usageBeforeThread, ...usage };
+          for (const [key, value] of Object.entries(usage)) {
+            const previous = state.usageBeforeThread?.[key];
+            if (typeof value === 'number' && typeof previous === 'number') state.usage[key] = previous + value;
+          }
+          save();
+        } });
       const workers: ResearchWorker[] = [{ id: 'solver', worktree: state.worktree, ownedFiles: state.problem.ownedFiles }];
       const cancelSession = () => { void session?.close(); };
       signal.addEventListener('abort', cancelSession, { once: true });
@@ -238,6 +250,14 @@ export async function runSolver(args: string[], root: string, customModules?: So
       try {
         while ((resumeEvaluation || state.turns < maxTurns) && !signal.aborted) {
           if (!resumeEvaluation) {
+            if (session && (session.lastInputTokens ?? 0) >= 96_000) {
+              const previous = session.threadId;
+              await session.close(); session = undefined;
+              state.previousThreadIds = [...(state.previousThreadIds ?? []), previous];
+              state.threadId = undefined; state.usageBeforeThread = state.usage; save();
+              context = buildContext(solverSourceFeedback(state.problem, state.worktree));
+              emit('context_restarted', { previousThreadId: previous, turns: state.turns });
+            }
             const options: readonly ResearchOperation[] = modules.M2.checkLemma
               ? ['direct', 'decompose', 'bridge', 'prove-lemma', 'integrate-lemma'] : ['direct'];
             const estimates = modules.M3.estimate(state, options);
@@ -279,12 +299,15 @@ export async function runSolver(args: string[], root: string, customModules?: So
             state.phase = 'checking'; save();
             const previousCheck = state.check;
             const previousFailures = state.failures;
+            const checkStarted = Date.now();
+            emit('proof_check_started', { turn: state.turns });
             state.check = await modules.M2.check(state.problem, candidate.worktree, env, signal, lastCheck,
               maxRunMs === Infinity ? Infinity : undefined);
             const reused = state.check === lastCheck;
             state.failures = rememberSolverFailure(state.check, previousFailures);
             lastCheck = state.check; save();
-            emit('proof_checked', { passed: state.check.passed, commit: state.check.commit, reused });
+            emit('proof_checked', { passed: state.check.passed, commit: state.check.commit, reused,
+              durationMs: Date.now() - checkStarted });
             if (!state.check.passed) {
               if (['unavailable', 'blocked'].includes(state.check.verification.status)) throw new Error('math_verifier_unavailable');
               if (modules.M2.checkLemma && action.operation !== 'direct') {
@@ -309,8 +332,11 @@ export async function runSolver(args: string[], root: string, customModules?: So
           const integration = await modules.M7.integrate(state.problem,
             [{ commit: state.check.commit, sourceDigest: state.check.sourceDigest }], [state.check]);
           if (!integration.candidate || !integration.dependenciesClosed) break;
+          const evaluationStarted = Date.now();
+          emit('evaluation_started');
           evaluation = await evaluateSolverProof(state.problem, state.worktree, state.check, env, signal,
             { command: values['evaluator-command'], timeoutMs: evaluatorMs });
+          emit('evaluation_finished', { status: evaluation.status, durationMs: Date.now() - evaluationStarted });
           break;
         }
       } finally { signal.removeEventListener('abort', cancelSession); }

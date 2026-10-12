@@ -36,7 +36,7 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     const message = call.params.input[0].text;
     if (message === 'crash') return process.exit(9);
     if (message !== 'wait') {
-      send({ method: 'thread/tokenUsage/updated', params: { threadId: 'thread-fixture', tokenUsage: { total: { totalTokens: 21 } } } });
+      send({ method: 'thread/tokenUsage/updated', params: { threadId: 'thread-fixture', tokenUsage: { total: { totalTokens: 21 }, last: { inputTokens: 12345 } } } });
       const failed = message === 'rate-limit' || message === 'late-rate-limit';
       const complete = () => send({ method: 'turn/completed', params: { threadId: 'thread-fixture', turn: { ...turn,
         status: failed ? 'failed' : 'completed', ...(failed ? { error: { message: 'Concurrency limit exceeded for account' } } : {}) } } });
@@ -64,6 +64,7 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     expect(await session.run('proof', 'message-1', root, started)).toBe('completed');
     expect(started).toHaveBeenCalledWith('message-1');
     expect(options.onUsage).toHaveBeenCalledWith({ totalTokens: 21 });
+    expect(session.lastInputTokens).toBe(12345);
     const calls = fs.readFileSync(path.join(root, 'calls.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
     const start = calls.find(call => call.method === 'thread/start').params;
     expect(start.config.mcp_servers.unrelated).toEqual({ enabled: false });

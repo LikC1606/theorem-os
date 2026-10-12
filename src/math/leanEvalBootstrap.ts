@@ -10,7 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { canonicalMathProblemNegationPayload, canonicalMathProblemStatementPayloads, isMathFoundationalLeanAxiom, normalizeMathProblemContract, type MathProblemContract } from "./contracts";
-import { fetchLeanEvalLeaderboardCredits, findLeanEvalCatalogProblem, readLeanEvalCatalog, LEAN_EVAL_BENCHMARK_COMMIT, LEAN_EVAL_LEADERBOARD_URL, LEAN_EVAL_REPOSITORY_URL, type LeanEvalCatalog, type LeanEvalCatalogProblem } from "./leanEvalCatalogAdapter";
+import { fetchLeanEvalLeaderboardCredits, parseLeanEvalLeaderboardCredits, findLeanEvalCatalogProblem, readLeanEvalCatalog, LEAN_EVAL_BENCHMARK_COMMIT, LEAN_EVAL_LEADERBOARD_URL, LEAN_EVAL_REPOSITORY_URL, type LeanEvalCatalog, type LeanEvalCatalogProblem } from "./leanEvalCatalogAdapter";
 import { collectLeanEvalSubmissionFiles, materializeLeanEvalProblemBinding, prepareLeanEvalProblemBinding, type LeanEvalProblemBinding } from "./leanEvalAdapter";
 import { checkManyFormalVerifications, inspectLeanDeclarations, resolveMathematicsLakePackagesCache, runOfficialComparator, type MathematicsVerifierBatchResult, type MathematicsVerifierResult, type MathematicsOfficialComparatorResult, type MathematicsVerifierExecutionOptions } from "./verifier";
 import { resolveMathematicsRuntimeEnvironment } from "./mathRuntimeEnvironment";
@@ -205,9 +205,12 @@ export async function runPersistedLeanEvalOfficialGate(options: {
     assertRegisteredWorktree(repositoryRoot, sourceRoot, 'source');
   }
   try {
-    const persistedLeaderboard = await (options.fetchLeaderboard
-      ? options.fetchLeaderboard()
-      : fetchLeanEvalLeaderboardCredits({ forceRefresh: true }));
+    const snapshotFile = leaderboardSnapshotPath(receipt.activeProblemPath);
+    const persistedLeaderboard = fs.existsSync(snapshotFile)
+      ? parseLeanEvalLeaderboardCredits(readMathJson(snapshotFile))
+      : await (options.fetchLeaderboard
+          ? options.fetchLeaderboard()
+          : fetchLeanEvalLeaderboardCredits({ forceRefresh: true }));
     if (receipt.leaderboardHash && sha256(JSON.stringify(persistedLeaderboard.credits)) !== receipt.leaderboardHash) {
       throw new Error('Persisted Lean-Eval bootstrap leaderboard provenance no longer matches the receipt');
     }
@@ -264,6 +267,7 @@ export async function runPersistedLeanEvalOfficialGate(options: {
       throw new Error('Persisted Lean-Eval bootstrap file ownership no longer matches the pinned benchmark tree');
     }
     assertLeanEvalPublicObligations(receipt.publicObligations, binding.publicObligations);
+    materializeLeanEvalProblemBinding(binding);
     const bootstrapped = Object.freeze({
       catalog,
       problem,
@@ -319,6 +323,8 @@ export function assertLeanEvalPublicObligations(
 }
 
 const sha256 = (value: string): string => crypto.createHash('sha256').update(value, 'utf8').digest('hex');
+const leaderboardSnapshotPath = (receiptFile: string): string =>
+  path.join(path.dirname(receiptFile), '.deepscientist', 'leaderboard.json');
 const git = (root: string, args: readonly string[]): string => {
   const result = spawnSync('git', ['-C', root, ...args], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
   if (result.status !== 0) throw new Error(result.stderr?.trim() || `git ${args.join(' ')} failed`);
@@ -637,6 +643,14 @@ export async function bootstrapLeanEvalProblem(options: LeanEvalBootstrapOptions
       activeProblemPath: path.join(workspaceRoot, 'active-problem.json'),
       createdAt: Date.now(),
     });
+    if (official) {
+      const snapshotFile = leaderboardSnapshotPath(receipt.activeProblemPath);
+      ensureDirectoryNoSymlink(path.dirname(snapshotFile));
+      writeMathJsonDurable(snapshotFile, {
+        credits: official.credits,
+        generated_at: new Date(official.generatedAt).toISOString(),
+      }, 0o400);
+    }
     writeMathJsonDurable(receipt.activeProblemPath, receipt);
     // This repository contains only the public solver view, never reference proofs.
     git(workspaceRoot, ['init', '--quiet']);

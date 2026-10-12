@@ -12,11 +12,11 @@ import { checkLemmaResearch } from '../lemma';
 /** Frozen component versions compose one ordinary direct-proof program. */
 export const directSolverModules = {
   id: 'direct-v1',
-  M1: { version: 'bounded-codex-turn-v2', open: (options: MathAgentOptions) => createCodexMathSession(options), execute: executeResearch },
+  M1: { version: 'bounded-codex-turn-v3', open: (options: MathAgentOptions) => createCodexMathSession(options), execute: executeResearch },
   M2: { version: 'lean-kernel-v1', check: checkSolverProof },
   M3: { version: 'no-estimate-v1', estimate: estimateResearchValue },
   M4: { version: 'bounded-direct-v1', select: selectResearchAction, retry: planResearchRetry },
-  M5: { version: 'bounded-lean-feedback-v2', build: buildResearchContext },
+  M5: { version: 'checkpoint-context-v3', build: buildResearchContext },
   M6: { version: 'single-worker-v1', organize: organizeResearch },
   M7: { version: 'complete-proof-v1', integrate: integrateResearch },
 };

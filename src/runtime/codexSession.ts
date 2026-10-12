@@ -20,6 +20,7 @@ export type MathAgentOptions = {
 export type MathAgentSession = {
   threadId: string;
   readonly lastError?: string;
+  readonly lastInputTokens?: number;
   run: (message: string, messageId: string, workspace: string, onStarted: (turnId: string) => void) => Promise<string>;
   interrupt: () => Promise<void>;
   close: () => Promise<void>;
@@ -109,10 +110,14 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
   let completion: { resolve: (turn: Json) => void; reject: (error: Error) => void } | undefined;
   const earlyCompletions = new Map<string, Json>();
   let lastError: string | undefined;
+  let lastInputTokens = 0;
   let transportFailure: Error | undefined;
   rpc.onFailure = error => { transportFailure = error; completion?.reject(error); };
   rpc.onNotification = (method, params) => {
-    if (method === 'thread/tokenUsage/updated') options.onUsage(params.tokenUsage?.total ?? {});
+    if (method === 'thread/tokenUsage/updated') {
+      lastInputTokens = params.tokenUsage?.last?.inputTokens ?? 0;
+      options.onUsage(params.tokenUsage?.total ?? {});
+    }
     if (method === 'turn/completed') {
       const turn = params.turn;
       if (!turn || typeof turn.id !== 'string') return;
@@ -146,6 +151,7 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
     return {
       threadId,
       get lastError() { return lastError; },
+      get lastInputTokens() { return lastInputTokens; },
       run: async (message, messageId, workspace, onStarted) => {
         if (transportFailure) throw transportFailure;
         if (completion) throw new Error('math_codex_turn_already_running');

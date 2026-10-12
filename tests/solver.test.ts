@@ -6,7 +6,7 @@ import { canonicalMathProblemStatementPayloads, type MathProblemContract } from 
 import { LEAN_EVAL_BENCHMARK_COMMIT } from '../src/math/leanEvalCatalogAdapter';
 import { mathDigest } from '../src/math/mathRuntimeIo';
 import { hashMathFormalSourceDeclaration, type MathematicsVerifierBatchRequest, type MathematicsVerifierBatchResult } from '../src/math/verifier';
-import { readSolverProblem, assertSolverSources, git, type SolverProblem } from '../src/solver/problem';
+import { readSolverProblem, assertSolverSources, assertSolverProjectSources, git, type SolverProblem } from '../src/solver/problem';
 import { checkSolverProof } from '../src/solver/modules/evidence';
 import { directSolverModules } from '../src/solver/modules';
 import { runSolver } from '../src/solver/run';
@@ -121,6 +121,58 @@ describe('isolated solver and host acceptance', () => {
     fs.writeFileSync(path.join(project, 'Submission.lean'), original.replace('theorem first',
       'lemma helper : True := by trivial\ntheorem first'));
     expect(() => assertSolverSources(problem, workspace)).not.toThrow();
+  });
+
+  it('allows noncomputable new helpers without changing original declarations or context', () => {
+    const file = path.join(project, 'Submission.lean');
+    fs.writeFileSync(file, original.replace('theorem first', 'noncomputable def helper : Nat := 0\ntheorem first'));
+    expect(() => assertSolverSources(problem, workspace)).not.toThrow();
+    fs.writeFileSync(file, original.replace('def fixed', 'noncomputable def fixed'));
+    expect(() => assertSolverSources(problem, workspace)).toThrow('math_original_context_changed');
+  });
+
+  it('shares the original source checks with diagnostics before compiling a candidate', () => {
+    fs.writeFileSync(path.join(project, 'Submission.lean'), original.replace('theorem first', 'noncomputable section\ntheorem first'));
+    expect(() => assertSolverProjectSources(problem, project)).toThrow('math_original_context_changed');
+    fs.writeFileSync(path.join(project, 'Submission.lean'), original.replace('fixed : Nat := 2', 'fixed : Nat := 3'));
+    expect(() => assertSolverProjectSources(problem, project)).toThrow('math_original_declaration_changed');
+  });
+
+  it('starts a fresh context from bounded current notes while retaining proof sources, failures and cumulative usage', async () => {
+    let turn = 0;
+    const messages: string[] = [];
+    const closes = [vi.fn(), vi.fn()];
+    host.verify.mockImplementation(async request => turn === 1 ? { ...verified(request), status: 'failed',
+      results: verified(request).results.map(item => ({ ...item, status: 'failed',
+        stdoutPreview: 'Submission.lean:4:1: error: unsolved goals\n⊢ True' })) } : verified(request));
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => {
+      const first = host.createSession.mock.calls.length === 1;
+      return { threadId: first ? 'large-thread' : 'continued-thread', lastInputTokens: first ? 100_000 : 1000,
+        close: first ? closes[0] : closes[1], interrupt: vi.fn(), run: async (message: string) => {
+          messages.push(message); turn++;
+          if (first) {
+            fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), 'Checked helper: keep this proof.\n' + 'x'.repeat(20000));
+            fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replace('by sorry', 'by trivial'));
+          } else {
+            expect(options.threadId).toBeUndefined();
+            expect(message).toContain('Checked helper: keep this proof.');
+            expect(message).toContain('Original problem:');
+            expect(message).toContain('unsolved goals');
+            expect(Buffer.byteLength(message)).toBeLessThan(10000);
+            expect(fs.readFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), 'utf8')).toContain('first : True := by trivial');
+            fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+          }
+          options.onUsage({ inputTokens: first ? 100000 : 1000, totalTokens: first ? 110000 : 2000 });
+          return 'completed';
+        } };
+    });
+    expect(await runSolver([...args, '--max-turns', '2'], directory)).toBe(0);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state.previousThreadIds).toEqual(['large-thread']);
+    expect(state.threadId).toBe('continued-thread');
+    expect(state.usage).toMatchObject({ inputTokens: 101000, totalTokens: 112000 });
+    expect(state.failures).toHaveLength(1);
+    expect(closes[0]).toHaveBeenCalledOnce();
   });
 
   it.each([

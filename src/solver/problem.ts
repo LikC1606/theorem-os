@@ -37,12 +37,15 @@ export function git(root: string, args: string[]): string {
   return result.stdout.trim();
 }
 
+export type SolverSourceConstraints = Pick<SolverProblem, 'trustedFiles' | 'declarations' | 'sourceStructure'>;
+
 function sourceStructure(source: string, originalNames: ReadonlySet<string>): string {
   const regions = inspectLeanDeclarationRegions(source);
   let frozen = '';
   let cursor = 0;
   for (const region of regions) {
-    frozen += source.slice(cursor, region.startOffset);
+    const context = source.slice(cursor, region.startOffset);
+    frozen += originalNames.has(region.name) ? context : context.replace(/\bnoncomputable[ \t]+$/u, '');
     if (originalNames.has(region.name)) frozen += `${region.declarationType}\n`;
     cursor = region.endOffset;
   }
@@ -101,23 +104,12 @@ export function readSolverProblem(workspacePath: string, receiptFile: string): S
     ...('sourceProjectRoot' in receipt ? { sourceRepository: receipt.sourceProjectRoot } : {}) };
 }
 
-export function assertSolverSources(problem: SolverProblem, worktree: string): void {
-  const project = path.join(worktree, problem.projectRelative);
+/** Shared source preflight; diagnostic copies remain advisory, host checks use the frozen state. */
+export function assertSolverProjectSources(problem: SolverSourceConstraints, project: string): void {
   for (const [relative, digest] of Object.entries(problem.trustedFiles)) {
     const target = path.join(project, relative);
     assertMathCanonicalPath(target);
     if (mathDigest(fs.readFileSync(target)) !== digest) throw new Error('math_trusted_source_changed');
-  }
-  git(worktree, ['merge-base', '--is-ancestor', problem.baseCommit, 'HEAD']);
-  const changed = [...git(worktree, ['diff', '--name-only', problem.baseCommit]).split('\n'),
-    ...git(worktree, ['ls-files', '--others', '--exclude-standard']).split('\n')].filter(Boolean);
-  const allowed = new Set([...problem.ownedFiles.map(relative => path.join(problem.projectRelative, relative)), 'RESEARCH.md']);
-  for (const relative of changed) if (!allowed.has(relative)) throw new Error('math_source_outside_ownership');
-  for (const target of problem.targets) {
-    const file = path.join(project, target.proofPath);
-    assertMathCanonicalPath(file);
-    if (hashMathFormalSourceDeclaration(fs.readFileSync(file, 'utf8'), target.theoremName) !== target.declarationHash)
-      throw new SolverSourceError(target.proofPath, 'math_original_declaration_changed');
   }
   for (const [relative, originals] of Object.entries(problem.declarations)) {
     const file = path.join(project, relative);
@@ -133,6 +125,21 @@ export function assertSolverSources(problem: SolverProblem, worktree: string): v
     }
     if (sourceStructure(source, new Set(originals.map(item => item.name))) !== problem.sourceStructure[relative])
       throw new SolverSourceError(relative, 'math_original_context_changed');
+  }
+}
+
+export function assertSolverSources(problem: SolverProblem, worktree: string): void {
+  const project = path.join(worktree, problem.projectRelative);
+  assertSolverProjectSources(problem, project);
+  git(worktree, ['merge-base', '--is-ancestor', problem.baseCommit, 'HEAD']);
+  const changed = [...git(worktree, ['diff', '--name-only', problem.baseCommit]).split('\n'),
+    ...git(worktree, ['ls-files', '--others', '--exclude-standard']).split('\n')].filter(Boolean);
+  const allowed = new Set([...problem.ownedFiles.map(relative => path.join(problem.projectRelative, relative)), 'RESEARCH.md']);
+  for (const relative of changed) if (!allowed.has(relative)) throw new Error('math_source_outside_ownership');
+  for (const target of problem.targets) {
+    const file = path.join(project, target.proofPath);
+    if (hashMathFormalSourceDeclaration(fs.readFileSync(file, 'utf8'), target.theoremName) !== target.declarationHash)
+      throw new SolverSourceError(target.proofPath, 'math_original_declaration_changed');
   }
 }
 

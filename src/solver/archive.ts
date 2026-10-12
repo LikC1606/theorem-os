@@ -20,9 +20,11 @@ export type SolverRunState = {
   effort: string;
   worktree: string;
   threadId?: string;
+  previousThreadIds?: string[];
   phase: 'prepared' | 'running' | 'checking' | 'evaluating' | 'finished';
   turns: number;
   usage?: Record<string, unknown>;
+  usageBeforeThread?: Record<string, unknown>;
   check?: ProofCheck;
   candidate?: ResearchCandidate;
   lemmaResearch?: LemmaResearch;
