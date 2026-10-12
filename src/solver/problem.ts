@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { readImo2026BootstrapReceipt, verifyImo2026BootstrapReceipt, theoremQualifiedNamesFromSource } from '../math/imo2026Adapter';
@@ -8,6 +9,12 @@ import { canonicalMathJson, mathDigest, readMathJson } from '../math/mathRuntime
 import { assertMathCanonicalPath, isMathPathWithin } from '../math/paths';
 import { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions, inspectLeanDeclarations } from '../math/verifier';
 import type { MathProblemContract } from '../math/contracts';
+
+export function committedSource(worktree: string, commit: string, file: string): string {
+  const result = spawnSync('git', ['show', `${commit}:${file}`], { cwd: worktree, encoding: 'utf8', timeout: 30_000, maxBuffer: 1024 * 1024 });
+  if (result.error || result.status !== 0) throw new Error('math_task_source_unavailable');
+  return result.stdout;
+}
 
 export type ProofTarget = Readonly<{ proofPath: string; theoremName: string; declarationHash: string }>;
 export class SolverSourceError extends Error {
@@ -134,8 +141,8 @@ export function assertSolverSources(problem: SolverProblem, worktree: string): v
   git(worktree, ['merge-base', '--is-ancestor', problem.baseCommit, 'HEAD']);
   const changed = [...git(worktree, ['diff', '--name-only', problem.baseCommit]).split('\n'),
     ...git(worktree, ['ls-files', '--others', '--exclude-standard']).split('\n')].filter(Boolean);
-  const allowed = new Set([...problem.ownedFiles.map(relative => path.join(problem.projectRelative, relative)), 'RESEARCH.md']);
-  for (const relative of changed) if (!allowed.has(relative)) throw new Error('math_source_outside_ownership');
+  const allowed = new Set([...problem.ownedFiles.map(relative => path.join(problem.projectRelative, relative)), 'RESEARCH.md', 'DELIVERIES.jsonl', 'COOPERATION.json']);
+  for (const relative of changed) if (!allowed.has(relative) && !/^DELIVERIES-[a-f0-9]{64}\.jsonl$/u.test(relative)) throw new Error('math_source_outside_ownership');
   for (const target of problem.targets) {
     const file = path.join(project, target.proofPath);
     if (hashMathFormalSourceDeclaration(fs.readFileSync(file, 'utf8'), target.theoremName) !== target.declarationHash)
@@ -151,4 +158,18 @@ export function commitSolverSources(problem: SolverProblem, worktree: string): s
   if (git(worktree, ['diff', '--cached', '--name-only']))
     git(worktree, ['-c', 'user.name=DeepScientist Math', '-c', 'user.email=math@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Checkpoint mathematical proof']);
   return git(worktree, ['rev-parse', 'HEAD']);
+}
+
+/** Use a disposable checkout of a fixed commit and release it on every exit path. */
+export async function withSolverWorktree<T>(worktree: string, commit: string, run: (checkout: string) => Promise<T>): Promise<T> {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'math-check-'));
+  const checkout = path.join(directory, 'worktree');
+  let added = false;
+  try {
+    git(worktree, ['worktree', 'add', '--quiet', '--detach', checkout, commit]); added = true;
+    return await run(checkout);
+  } finally {
+    try { if (added) git(worktree, ['worktree', 'remove', '--force', checkout]); }
+    finally { fs.rmSync(directory, { recursive: true, force: true }); }
+  }
 }

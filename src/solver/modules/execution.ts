@@ -33,7 +33,7 @@ export async function executeResearch(task: SolverProblem, context: ContextBundl
   signal.throwIfAborted();
   let lemmaPlan: LemmaPlan | undefined;
   let lemmaPlanError: string | undefined;
-  if (operation !== 'direct') {
+  if (operation !== 'direct' && !context.assignment) {
     try { lemmaPlan = readLemmaPlan(task, worker.worktree); }
     catch (error) { lemmaPlanError = error instanceof Error ? error.message : 'math_lemma_plan_invalid'; }
   }

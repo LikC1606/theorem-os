@@ -1,5 +1,14 @@
 /** Mask comments and string literals while preserving line boundaries and source offsets. */
 export function maskLeanCommentsAndStrings(source: string): string {
+  return maskLeanText(source, true);
+}
+
+/** Preserve string-valued definitions when preparing a statement-only snapshot. */
+export function maskLeanComments(source: string): string {
+  return maskLeanText(source, false);
+}
+
+function maskLeanText(source: string, maskStrings: boolean): string {
   const chunks: string[] = [];
   let visibleStart = 0;
   let hiddenStart = -1;
@@ -30,13 +39,14 @@ export function maskLeanCommentsAndStrings(source: string): string {
     } else if (quote) {
       if (escaped) escaped = false;
       else if (current === '\\') escaped = true;
-      else if (current === '"') { quote = false; endHidden(index + 1); }
+      else if (current === '"') { quote = false; if (maskStrings) endHidden(index + 1); }
     } else if (current === '-' && next === '-') {
       beginHidden(index); lineComment = true; index++;
     } else if (current === '/' && next === '-') {
       beginHidden(index); blockDepth = 1; index++;
     } else if (current === '"') {
-      beginHidden(index); quote = true;
+      if (maskStrings) beginHidden(index);
+      quote = true;
     }
   }
   if (hiddenStart >= 0) endHidden(source.length);

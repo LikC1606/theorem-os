@@ -145,6 +145,24 @@ export async function runLeanDiagnostics(input: {
   return { exitCode: 0, timedOut: false, stdout, stderr, sourceDigest, phases };
 }
 
+/** Rebind an existing or broken package link without deleting a real package directory. */
+export function bindLeanPackages(project: string, authorizedPackagesRoot: string): void {
+  const root = fs.realpathSync(authorizedPackagesRoot);
+  if (!fs.statSync(root).isDirectory()) throw new Error('math_lean_packages_not_directory');
+  const packages = path.join(project, '.lake', 'packages');
+  assertMathCanonicalPath(path.dirname(packages));
+  fs.mkdirSync(path.dirname(packages), { recursive: true });
+  const existing = fs.lstatSync(packages, { throwIfNoEntry: false });
+  if (existing?.isSymbolicLink()) {
+    if (path.resolve(path.dirname(packages), fs.readlinkSync(packages)) === root) return;
+    fs.unlinkSync(packages);
+  } else if (existing) {
+    if (!existing.isDirectory()) throw new Error('math_lean_packages_not_directory');
+    return;
+  }
+  fs.symlinkSync(root, packages, 'dir');
+}
+
 /** Make ordinary model-side Lake commands consume the pinned packages without Git refreshes. */
 export function prepareLeanDiagnosticOverrides(project: string): void {
   const manifestFile = path.join(project, 'lake-manifest.json');

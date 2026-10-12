@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { maskLeanCommentsAndStrings } from '../src/math/leanSyntax';
+import { maskLeanCommentsAndStrings, maskLeanComments } from '../src/math/leanSyntax';
 import {
   assertLeanEvalHoleCompleteness,
   assertLeanEvalSubmissionComplete,
@@ -9,6 +9,15 @@ import {
 import { inspectLeanSource } from '../src/math/verifier';
 
 describe('Lean comment and string masking', () => {
+  it('preserves strings and escaped comment markers while removing nested comments', () => {
+    const source = 'def label := "-- /- \\"quoted\\" -/" /- outer /- hidden -/ end -/\n-- secret\ndef next := "kept"';
+    const masked = maskLeanComments(source);
+    expect(masked).toContain('def label := "-- /- \\"quoted\\" -/"');
+    expect(masked).toContain('def next := "kept"');
+    expect(masked).not.toMatch(/outer|hidden|secret/u);
+    expect(masked.length).toBe(source.length);
+    expect(masked.indexOf('def next')).toBe(source.indexOf('def next'));
+  });
   it('handles nested comments and escaped strings without moving source offsets', () => {
     const literal = '"/- \\"sorry\\" -- \u{1f600}"';
     const block = '/- outer\n/- inner -/ end -/';

@@ -22,6 +22,7 @@ export type MathAgentSession = {
   readonly lastError?: string;
   readonly lastInputTokens?: number;
   run: (message: string, messageId: string, workspace: string, onStarted: (turnId: string) => void) => Promise<string>;
+  notify?: (message: string) => Promise<void>;
   interrupt: () => Promise<void>;
   close: () => Promise<void>;
 };
@@ -194,6 +195,10 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
       },
       interrupt: async () => {
         if (activeTurn) await rpc.request('turn/interrupt', { threadId, turnId: activeTurn });
+      },
+      notify: async message => {
+        if (activeTurn) await rpc.request('turn/steer', { threadId, expectedTurnId: activeTurn,
+          input: [{ type: 'text', text: message, text_elements: [] }] });
       },
       close: () => rpc.close(),
     };

@@ -9,7 +9,7 @@ import { projectMathematicsRuntimeEnvironment, resolveMathematicsRuntimeEnvironm
 import { checkResolvedLeanToolchainReadiness } from '../math/leanToolchainReadiness';
 import { prepareMathProofEnvironment, MATH_PROOF_ENVIRONMENT_ENV } from '../math/mathProofEnvironment';
 import { resolveMathematicsLakePackagesCache } from '../math/verifier';
-import { prepareLeanDiagnosticOverrides, runLeanDiagnostics } from '../math/leanDiagnostics';
+import { bindLeanPackages, prepareLeanDiagnosticOverrides, runLeanDiagnostics } from '../math/leanDiagnostics';
 import { assertMathCanonicalPath, isMathPathWithin } from '../math/paths';
 import { git, readSolverProblem, assertSolverSources } from './problem';
 import { solverSourceFeedback } from './feedback';
@@ -86,6 +86,13 @@ export async function runSolver(args: string[], root: string, customModules?: So
       readMathBuildManifest(buildFile, root, bundleRoot);
       const task = fs.readFileSync(required('task-file'), 'utf8');
       const problem = readSolverProblem(workspace, values['receipt-file'] || path.join(workspace, 'active-problem.json'));
+      const slots = researchWorkers(path.join(directory, 'worktree'), problem.ownedFiles, workerCount);
+      const workers = modules.M5.workers(slots[0].worktree, [...problem.ownedFiles], workerCount);
+      if (workers.length !== workerCount || new Set(workers.map(worker => worker.id)).size !== workerCount ||
+          workers.some((worker, index) => !/^[a-zA-Z0-9_-]{1,64}$/u.test(worker.id) ||
+            worker.worktree !== slots[index].worktree || canonicalMathJson(worker.ownedFiles) !== canonicalMathJson(problem.ownedFiles) ||
+            (index === 0 ? worker.id !== 'solver' || worker.role !== 'lead' : !['researcher', 'engineer', 'reviewer'].includes(worker.role))))
+        throw new Error('math_solver_worker_outside_ownership');
       let env = resolveMathematicsRuntimeEnvironment();
       let corpusFile = env.DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS;
       const corpusBytes = corpusFile ? fs.readFileSync(corpusFile) : undefined;
@@ -107,10 +114,9 @@ export async function runSolver(args: string[], root: string, customModules?: So
         state = readSolverRunState(stateFile);
         if (!state.methodDigest && modules === directSolverModules) state.methodDigest = identity.methodDigest;
         if ((state.workerCount ?? 1) !== workerCount) throw new Error('math_resume_worker_count_changed');
-        const expectedWorkers = researchWorkers(path.join(directory, 'worktree'), problem.ownedFiles, workerCount);
         if (workerCount > 1 && (!state.workers || state.workers.length !== workerCount ||
-            state.workers.some((worker, index) => worker.id !== expectedWorkers[index].id ||
-              worker.role !== expectedWorkers[index].role || worker.worktree !== expectedWorkers[index].worktree)))
+            state.workers.some((worker, index) => worker.id !== workers[index].id ||
+              worker.role !== workers[index].role || worker.worktree !== workers[index].worktree)))
           throw new Error('math_resume_worker_identity_changed');
         if (state.schema !== 'deepscientist.math.solver.v1' || state.problem.workspace !== workspace ||
           state.problem.receiptDigest !== problem.receiptDigest ||
@@ -131,7 +137,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
         ownsRun = true;
         state = { schema: 'deepscientist.math.solver.v1', runId: crypto.randomUUID(), problem, ...identity,
           worktree: path.join(directory, 'worktree'), phase: 'prepared', turns: 0, workerCount };
-        if (workerCount > 1) state.workers = researchWorkers(state.worktree, problem.ownedFiles, workerCount)
+        if (workerCount > 1) state.workers = workers
           .map(worker => ({ id: worker.id, role: worker.role, worktree: worker.worktree, phase: 'prepared', turns: 0 }));
         git(workspace, ['worktree', 'add', '--detach', state.worktree, problem.baseCommit]);
         writeSolverRunState(stateFile, state);
@@ -139,7 +145,6 @@ export async function runSolver(args: string[], root: string, customModules?: So
       ownsRun = true;
       ownedState = state;
       const save = () => writeSolverRunState(stateFile, state);
-      const workers = researchWorkers(state.worktree, problem.ownedFiles, workerCount);
       for (const worker of workers.slice(1)) {
         signal.throwIfAborted();
         if (!fs.existsSync(worker.worktree)) git(workspace, ['worktree', 'add', '--detach', worker.worktree, problem.baseCommit]);
@@ -153,28 +158,39 @@ export async function runSolver(args: string[], root: string, customModules?: So
       }, 0o400);
       if (sourceFeedback) { state.check = undefined; save(); }
       const readiness = checkResolvedLeanToolchainReadiness({ projectRoot: project, env, timeoutMs: 180_000 });
-      if (readiness.status !== 'ready') throw new Error('math_lean_toolchain_unavailable');
+      writeMathJsonDurable(path.join(directory, 'toolchain-readiness.json'), readiness);
+      if (readiness.status !== 'ready') {
+        emit('preparation_failed', { workerId: 'solver', diagnostics: readiness.diagnostics });
+        throw new Error('math_lean_toolchain_unavailable');
+      }
       const sourcePackages = resolveMathematicsLakePackagesCache(path.join(workspace, problem.projectRelative), env);
       if (sourcePackages) {
-        const packages = path.join(project, '.lake', 'packages');
-        fs.mkdirSync(path.dirname(packages), { recursive: true });
-        if (!fs.existsSync(packages)) fs.symlinkSync(sourcePackages, packages, 'dir');
+        bindLeanPackages(project, sourcePackages);
         // Model-side path overrides are regenerated after binding the frozen packages.
         // Their worktree-specific paths must not invalidate the preparation cache on resume.
         const overrides = path.join(project, '.lake', 'package-overrides.json');
         assertMathCanonicalPath(overrides);
         fs.rmSync(overrides, { force: true });
         proofEnvironment = await prepareMathProofEnvironment(project, sourcePackages, { env, signal,
+          deadlineAt: preparationStarted + preparationMs,
           cacheRoot: values['proof-environment-cache-dir'], onProgress: phase => emit('proof_environment', { phase }) });
         env = { ...env, [MATH_PROOF_ENVIRONMENT_ENV]: proofEnvironment.environmentValue };
         prepareLeanDiagnosticOverrides(project);
       }
-      const diagnostics = await runLeanDiagnostics({ projectRoot: project, files: [...new Set(problem.targets.map(target => target.proofPath))],
-        dependenciesOnly: true, excludedFiles: problem.ownedFiles, env, signal,
-        timeoutMs: preparationMs - (Date.now() - preparationStarted),
-        onProgress: file => emit('dependency_check', { file }) });
-      writeMathJsonDurable(path.join(directory, 'preparation-diagnostics.json'), diagnostics);
-      if (diagnostics.exitCode !== 0 || diagnostics.timedOut) throw new Error('math_lean_dependencies_failed');
+      const checkDependencies = async (workerId: string, projectRoot: string) => {
+        const diagnostics = await runLeanDiagnostics({ projectRoot, files: [...new Set(problem.targets.map(target => target.proofPath))],
+          dependenciesOnly: true, excludedFiles: problem.ownedFiles, env, signal,
+          timeoutMs: preparationMs - (Date.now() - preparationStarted),
+          onProgress: file => emit('dependency_check', { workerId, file }) });
+        writeMathJsonDurable(path.join(directory, workerId === 'solver' ? 'preparation-diagnostics.json' : `preparation-${workerId}.json`), diagnostics);
+        if (diagnostics.exitCode !== 0 || diagnostics.timedOut) {
+          emit('preparation_failed', { workerId, timedOut: diagnostics.timedOut,
+            diagnostics: (diagnostics.stderr || diagnostics.stdout || 'Lean dependency check did not finish.').slice(0, 2000) });
+          throw new Error('math_lean_dependencies_failed');
+        }
+        return diagnostics;
+      };
+      const diagnostics = await checkDependencies('solver', project);
       let corpusCreated = false;
       if (!corpusFile && sourcePackages && fs.existsSync(path.join(sourcePackages, 'mathlib', 'Mathlib'))) {
         corpusFile = path.join(project, '.lake', 'retrieval-corpus.json');
@@ -211,16 +227,10 @@ export async function runSolver(args: string[], root: string, customModules?: So
           sourceStructure: state.problem.sourceStructure,
         }, 0o400);
         if (sourcePackages) {
-          const packages = path.join(lake, 'packages');
-          if (!fs.existsSync(packages)) fs.symlinkSync(sourcePackages, packages, 'dir');
+          bindLeanPackages(workerProject, sourcePackages);
           prepareLeanDiagnosticOverrides(workerProject);
         }
-        const prepared = await runLeanDiagnostics({ projectRoot: workerProject,
-          files: [...new Set(problem.targets.map(target => target.proofPath))], dependenciesOnly: true,
-          excludedFiles: problem.ownedFiles, env, signal, timeoutMs: preparationMs - (Date.now() - preparationStarted),
-          onProgress: file => emit('dependency_check', { workerId: worker.id, file }) });
-        writeMathJsonDurable(path.join(directory, `preparation-${worker.id}.json`), prepared);
-        if (prepared.exitCode !== 0 || prepared.timedOut) throw new Error('math_lean_dependencies_failed');
+        await checkDependencies(worker.id, workerProject);
         let workerCorpusFile: string | undefined;
         if (corpusFile) {
           workerCorpusFile = path.join(lake, 'retrieval-corpus.json');

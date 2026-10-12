@@ -49,6 +49,7 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     send({ method: 'turn/completed', params: { threadId: 'thread-fixture', turn: { ...turn, status: 'interrupted' } } });
     result({});
   }
+  if (call.method === 'turn/steer') result({ turnId: turn.id });
 });
 `);
     fs.chmodSync(executable, 0o700);
@@ -84,6 +85,22 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     await expect(session.run('second', 'message-3', root, () => {})).rejects.toThrow('math_codex_turn_already_running');
     await session.interrupt();
     expect(await done).toBe('interrupted');
+  });
+
+  it('steers a live turn with its exact turn precondition and skips idle notifications', async () => {
+    session = await createCodexMathSession(options);
+    await session.notify!('idle');
+    let started = false;
+    const done = session.run('wait', 'active-turn', root, () => { started = true; });
+    await expect.poll(() => started).toBe(true);
+    await session.notify!('A checked dependency is available');
+    await session.interrupt();
+    expect(await done).toBe('interrupted');
+    const calls = fs.readFileSync(path.join(root, 'calls.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
+    expect(calls.filter(call => call.method === 'turn/steer').map(call => call.params)).toEqual([{
+      threadId: 'thread-fixture', expectedTurnId: 'active-turn',
+      input: [{ type: 'text', text: 'A checked dependency is available', text_elements: [] }],
+    }]);
   });
 
   it.each(['rate-limit', 'late-rate-limit'])('retains the failure reason and clears it on the next turn (%s)', async message => {

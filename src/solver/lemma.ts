@@ -1,11 +1,12 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import { resolveMathProofEnvironment } from '../math/mathProofEnvironment';
+import { bindLeanPackages } from '../math/leanDiagnostics';
 import { checkManyFormalVerifications, hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions } from '../math/verifier';
-import { git, type SolverProblem } from './problem';
+import { git, withSolverWorktree, type SolverProblem } from './problem';
 import type { ProofCheck } from './modules/evidence';
+import { readMathResponse } from './deliveries';
 
 export type LemmaPlan = Readonly<{ proofPath: string; target: string; lemma: string; type: string }>;
 export type LemmaEvidence = ProofCheck & Readonly<{
@@ -23,11 +24,7 @@ const checkedProjections = new WeakMap<LemmaEvidence, { environmentDigest: strin
 
 /** Proposals in RESEARCH.md are instructions, never mathematical evidence. */
 export function readLemmaPlan(task: SolverProblem, worktree: string): LemmaPlan {
-  const file = path.join(worktree, 'RESEARCH.md');
-  if (!fs.existsSync(file) || fs.statSync(file).size > 64_000) throw new Error('math_lemma_plan_missing_or_too_large');
-  const blocks = [...fs.readFileSync(file, 'utf8').matchAll(/```math-lemma\s*\n([\s\S]*?)\n```/gu)];
-  if (blocks.length !== 1) throw new Error('math_lemma_plan_requires_one_block');
-  const plan = JSON.parse(blocks[0]![1]!) as LemmaPlan;
+  const plan = readMathResponse(worktree, 'math-lemma') as LemmaPlan;
   if (!plan || typeof plan.type !== 'string' || !plan.type.trim() || plan.type.length > 8_000 ||
       typeof plan.lemma !== 'string' || !/^[A-Za-z_][A-Za-z0-9_']*(?:\.[A-Za-z_][A-Za-z0-9_']*)*$/u.test(plan.lemma) ||
       !task.targets.some(target => target.proofPath === plan.proofPath && target.theoremName === plan.target))
@@ -62,11 +59,7 @@ export async function checkLemmaResearch(task: SolverProblem, worktree: string, 
   const reusable = (!fs.existsSync(packages) || !!sealed) && !env.LEAN_PATH?.trim();
   const check = async (obligation: 'bridge' | 'lemma'): Promise<LemmaEvidence> => {
     signal.throwIfAborted();
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'math-lemma-'));
-    const checkout = path.join(directory, 'worktree');
-    let added = false;
-    try {
-      git(worktree, ['worktree', 'add', '--quiet', '--detach', checkout, source.commit]); added = true;
+    return withSolverWorktree(worktree, source.commit, async checkout => {
       const project = path.join(checkout, task.projectRelative);
       for (const file of task.ownedFiles.filter(file => file.endsWith('.lean'))) {
         const absolute = path.join(project, file);
@@ -107,10 +100,7 @@ export async function checkLemmaResearch(task: SolverProblem, worktree: string, 
       const projected = fs.readFileSync(path.join(project, plan.proofPath), 'utf8');
       const declarationHash = hashMathFormalSourceDeclaration(projected, name);
       if (!declarationHash) throw new Error('math_lemma_projection_missing_declaration');
-      if (fs.existsSync(packages)) {
-        fs.mkdirSync(path.join(project, '.lake'), { recursive: true });
-        fs.symlinkSync(fs.realpathSync(packages), path.join(project, '.lake', 'packages'), 'dir');
-      }
+      if (fs.existsSync(packages)) bindLeanPackages(project, packages);
       const verification = await checkManyFormalVerifications({ projectRoot: project, targetCommit: commit, timeoutMs: 180_000,
         items: [{ proofPath: plan.proofPath, theoremName: name, expectedSourceDeclarationHash: declarationHash,
           statementHash: planDigest, leanStatementHash: planDigest, claim: 'statement' }] },
@@ -126,10 +116,7 @@ export async function checkLemmaResearch(task: SolverProblem, worktree: string, 
         projectionDigest, unchangedFailures, reused: false, commit, passed, verification };
       checkedProjections.set(receipt, { environmentDigest, projectionDigest, reusable });
       return receipt;
-    } finally {
-      if (added) git(worktree, ['worktree', 'remove', '--force', checkout]);
-      fs.rmSync(directory, { recursive: true, force: true });
-    }
+    });
   };
   const bridge = await check('bridge');
   // Spend the shared budget on the lemma only after its intended use checks.

@@ -1,22 +1,20 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
+import { maskLeanCommentsAndStrings } from '../math/leanSyntax';
+import { bindLeanPackages } from '../math/leanDiagnostics';
 import { checkManyFormalVerifications, hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions } from '../math/verifier';
-import { assertSolverSources, git, type SolverProblem } from './problem';
+import { assertSolverSources, committedSource, git, withSolverWorktree, type SolverProblem } from './problem';
 import type { ProofCheck } from './modules/evidence';
-import type { CooperativeTask, TaskAssignment } from './cooperation';
+import { taskVersion, type CooperativeTask, type TaskAssignment } from './tasks';
+import { captureProofReferences, type ProofReferences } from './proofReferences';
 
 export type DeclarationChange = { file: string; name: string; before?: string; after: string; beforeName?: string; tail?: string };
-export type TaskProof = ProofCheck & { taskDigest: string; seedCommit: string; changes: DeclarationChange[] };
+export type TaskProof = ProofCheck & { taskDigest: string; seedCommit: string; changes: DeclarationChange[];
+  conditions?: NonNullable<TaskAssignment['dependencies']>; references?: ProofReferences };
 const local = (name: string) => name.split('.').at(-1)!;
 
-export function committedSource(worktree: string, commit: string, file: string): string {
-  const result = spawnSync('git', ['show', `${commit}:${file}`], { cwd: worktree, encoding: 'utf8', timeout: 30_000, maxBuffer: 1024 * 1024 });
-  if (result.error || result.status !== 0) throw new Error('math_task_source_unavailable');
-  return result.stdout;
-}
+export { committedSource } from './problem';
 
 export function ownedSourceDigest(problem: SolverProblem, worktree: string, commit: string): string {
   return mathDigest(canonicalMathJson(problem.ownedFiles.map(file =>
@@ -36,13 +34,13 @@ export function omitTaskHelpers(problem: SolverProblem, file: string, source: st
 
 /** Freeze declaration changes while forbidding changes to another task's original goals or existing helpers. */
 export function taskChanges(problem: SolverProblem, worktree: string, sourceCommit: string,
-  task: CooperativeTask, assignment: TaskAssignment): DeclarationChange[] {
+  task: CooperativeTask | undefined, assignment: Pick<TaskAssignment, 'seedCommit'>): DeclarationChange[] {
   const changes: DeclarationChange[] = [];
   for (const file of problem.ownedFiles) {
     const read = (commit: string) => committedSource(worktree, commit, `${problem.projectRelative}/${file}`);
     const before = read(assignment.seedCommit), after = read(sourceCommit);
     if (before === after) continue;
-    if (task.kind === 'research' || file !== task.proofPath) throw new Error('math_task_source_outside_scope');
+    if (task && (['research', 'sketch'].includes(task.kind) || file !== task.proofPath)) throw new Error('math_task_source_outside_scope');
     const originals = inspectLeanDeclarationRegions(before), updated = inspectLeanDeclarationRegions(after);
     if (new Set(updated.map(region => local(region.name))).size !== updated.length)
       throw new Error('math_task_ambiguous_declaration');
@@ -55,7 +53,7 @@ export function taskChanges(problem: SolverProblem, worktree: string, sourceComm
       if (!current) throw new Error('math_task_existing_declaration_removed');
       const oldText = text(before, region), newText = text(after, current);
       if (oldText === newText) continue;
-      if (local(region.name) !== local(task.theoremName!))
+      if (task && local(region.name) !== local(task.theoremName!))
         throw new Error('math_task_existing_declaration_changed');
       changes.push({ file, name: region.name, before: oldText, after: newText });
     }
@@ -68,37 +66,62 @@ export function taskChanges(problem: SolverProblem, worktree: string, sourceComm
   return changes;
 }
 
+/** Deterministic proof projection shared by the checker and the host receipt boundary. */
+export function projectTaskSources(problem: SolverProblem, worktree: string, sourceCommit: string,
+  task: CooperativeTask, retainedGoals: readonly string[], excludedHelpers: readonly string[] = [],
+  conditions: readonly CooperativeTask[] = []): Map<string, string> {
+  const binders = conditions.map(dependency => `(${local(dependency.theoremName!)} : ${dependency.type})`).join(' ');
+  const declaration = committedSource(worktree, sourceCommit, `${problem.projectRelative}/${task.proofPath}`);
+  const matches = inspectLeanDeclarationRegions(declaration).filter(region => local(region.name) === local(task.theoremName!));
+  if (matches.length !== 1 || !/^(?:theorem|lemma)\s/u.test(declaration.slice(matches[0].startOffset, matches[0].bodyOffset)))
+    throw new Error('math_task_requires_unambiguous_theorem');
+  if (task.kind === 'lemma' && Object.values(problem.declarations).some(items => items.some(item => local(item.name) === local(task.theoremName!))))
+    throw new Error('math_task_helper_is_original_declaration');
+  const keep = new Set([task.theoremName!, ...retainedGoals].map(local));
+  const excluded = new Set(excludedHelpers.map(local));
+  const sources = new Map<string, string>();
+  for (const file of problem.ownedFiles) {
+    let source = committedSource(worktree, sourceCommit, `${problem.projectRelative}/${file}`);
+    if (!file.endsWith('.lean')) { sources.set(file, source); continue; }
+    const targets = problem.targets.filter(target => target.proofPath === file);
+    for (const region of inspectLeanDeclarationRegions(source).reverse()) {
+      if (conditions.length && file === task.proofPath && local(region.name) === local(task.theoremName!)) {
+        const header = source.slice(region.startOffset, region.bodyOffset - 2);
+        const name = /^(?:theorem|lemma)\s+[^\s(\[{:]+/u.exec(header);
+        if (!name || source.slice(region.bodyOffset - 2, region.bodyOffset) !== ':=') throw new Error('math_task_conditional_header_unsupported');
+        let body = source.slice(region.bodyOffset, region.endOffset);
+        // Qualified references must also refer to the explicit assumptions in this projection.
+        const references = [...maskLeanCommentsAndStrings(body).matchAll(/[A-Za-z_][A-Za-z0-9_']*(?:\.[A-Za-z_][A-Za-z0-9_']*)*/gu)];
+        for (const reference of references.reverse()) {
+          const dependency = conditions.find(item => item.theoremName === reference[0]);
+          if (dependency) body = body.slice(0, reference.index) + local(dependency.theoremName!) + body.slice(reference.index + reference[0].length);
+        }
+        source = source.slice(0, region.startOffset) + name[0] + ' ' + binders + header.slice(name[0].length) + ':=' + body + source.slice(region.endOffset);
+      } else if ((targets.some(target => local(target.theoremName) === local(region.name)) || excluded.has(local(region.name)) ||
+          conditions.some(dependency => dependency.proofPath === file && local(dependency.theoremName!) === local(region.name))) && !keep.has(local(region.name)))
+        source = source.slice(0, region.startOffset) + source.slice(region.endOffset);
+    }
+    sources.set(file, source);
+  }
+  return sources;
+}
+
 /** Isolate one exact helper or original goal; incomplete unrelated original goals are removed. */
 export async function checkTaskProof(problem: SolverProblem, worktree: string, sourceCommit: string,
   task: CooperativeTask, assignment: TaskAssignment, retainedGoals: readonly string[], env: NodeJS.ProcessEnv,
-  signal: AbortSignal, timeoutMs = 180_000, excludedHelpers: readonly string[] = []): Promise<TaskProof> {
+  signal: AbortSignal, timeoutMs = 180_000, excludedHelpers: readonly string[] = [], conditions: readonly CooperativeTask[] = [],
+  environmentDigest = mathDigest(canonicalMathJson(env))): Promise<TaskProof> {
   signal.throwIfAborted();
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'math-task-'));
-  const checkout = path.join(directory, 'worktree');
-  let added = false;
-  try {
-    git(worktree, ['worktree', 'add', '--quiet', '--detach', checkout, sourceCommit]); added = true;
+  if (conditions.some(dependency => !task.conditional || dependency.kind !== 'lemma' || !dependency.type ||
+      !assignment.dependencies?.some(version => version.taskId === dependency.id && version.taskDigest === taskVersion(dependency))))
+    throw new Error('math_task_condition_version_invalid');
+  const binders = conditions.map(dependency => `(${local(dependency.theoremName!)} : ${dependency.type})`).join(' ');
+  return withSolverWorktree(worktree, sourceCommit, async checkout => {
     assertSolverSources(problem, checkout);
     const changes = taskChanges(problem, checkout, sourceCommit, task, assignment);
     const project = path.join(checkout, problem.projectRelative);
-    const declaration = fs.readFileSync(path.join(project, task.proofPath!), 'utf8');
-    const matches = inspectLeanDeclarationRegions(declaration).filter(region => local(region.name) === local(task.theoremName!));
-    if (matches.length !== 1 || !/^(?:theorem|lemma)\s/u.test(declaration.slice(matches[0].startOffset, matches[0].bodyOffset)))
-      throw new Error('math_task_requires_unambiguous_theorem');
-    if (task.kind === 'lemma' && Object.values(problem.declarations).some(items => items.some(item => local(item.name) === local(task.theoremName!))))
-      throw new Error('math_task_helper_is_original_declaration');
-    const keep = new Set([task.theoremName!, ...retainedGoals].map(local));
-    const excluded = new Set(excludedHelpers.map(local));
-    for (const file of problem.ownedFiles.filter(file => file.endsWith('.lean'))) {
-      const absolute = path.join(project, file);
-      let source = fs.readFileSync(absolute, 'utf8');
-      const targets = problem.targets.filter(target => target.proofPath === file);
-      for (const region of inspectLeanDeclarationRegions(source).reverse()) {
-        if ((targets.some(target => local(target.theoremName) === local(region.name)) || excluded.has(local(region.name))) && !keep.has(local(region.name)))
-          source = source.slice(0, region.startOffset) + source.slice(region.endOffset);
-      }
-      fs.writeFileSync(absolute, source);
-    }
+    for (const [file, source] of projectTaskSources(problem, checkout, sourceCommit, task, retainedGoals, excludedHelpers, conditions))
+      fs.writeFileSync(path.join(project, file), source);
     git(checkout, ['rm', '--quiet', '--force', '--ignore-unmatch', '--', 'RESEARCH.md']);
     git(checkout, ['add', '--', ...problem.ownedFiles.map(file => path.join(problem.projectRelative, file))]);
     git(checkout, ['-c', 'user.name=DeepScientist Math', '-c', 'user.email=math@localhost', 'commit', '--allow-empty',
@@ -107,30 +130,28 @@ export async function checkTaskProof(problem: SolverProblem, worktree: string, s
     const source = fs.readFileSync(path.join(project, task.proofPath!), 'utf8');
     const declarationHash = hashMathFormalSourceDeclaration(source, task.theoremName!);
     if (!declarationHash) throw new Error('math_task_missing_declaration');
-    const taskDigest = mathDigest(canonicalMathJson(task));
+    const taskDigest = taskVersion(task);
     const packages = path.join(worktree, problem.projectRelative, '.lake', 'packages');
-    if (fs.existsSync(packages)) {
-      fs.mkdirSync(path.join(project, '.lake'), { recursive: true });
-      fs.symlinkSync(fs.realpathSync(packages), path.join(project, '.lake', 'packages'), 'dir');
-    }
+    if (fs.existsSync(packages)) bindLeanPackages(project, packages);
     const verification = await checkManyFormalVerifications({ projectRoot: project, targetCommit: commit,
       timeoutMs, batchTimeoutMs: timeoutMs === Infinity ? Infinity : undefined,
       items: [{ proofPath: task.proofPath!, theoremName: task.theoremName!, expectedSourceDeclarationHash: declarationHash,
         statementHash: taskDigest, leanStatementHash: taskDigest, claim: 'statement' }] },
-    { env, signal, prepareLocalDependencies: problem.kind === 'lean-eval',
+    { env, signal, prepareLocalDependencies: problem.kind === 'lean-eval', collectDeclarationReferences: true,
       trustedLakePackagesRoots: (env.DEEPSCIENTIST_MATH_TRUSTED_CACHE_ROOTS || '').split(path.delimiter).filter(Boolean),
-      ...(task.kind === 'lemma' ? { expectedDeclarationType: task.type } : {}) });
+      ...(task.kind === 'lemma' ? { expectedDeclarationType: conditions.length ? `∀ ${binders}, ${task.type}` : task.type } : {}) });
     const result = verification.results[0];
     const passed = verification.status === 'kernel_verified' && verification.targetCommit === commit && verification.results.length === 1 &&
       result?.status === 'kernel_verified' && result.targetCommit === commit && result.theoremName === task.theoremName &&
       result.proofPath === task.proofPath && result.sourceDeclarationHash === declarationHash && result.statementHash === taskDigest &&
       result.leanStatementHash === taskDigest && result.claim === 'statement';
+    const references = passed && !conditions.length && result.declarationReferences ? captureProofReferences(problem, checkout, sourceCommit,
+      { name: task.theoremName!, file: task.proofPath! }, result.declarationReferences, environmentDigest) : undefined;
     return { commit: sourceCommit, sourceDigest: ownedSourceDigest(problem, checkout, sourceCommit), passed, verification,
-      taskDigest, seedCommit: assignment.seedCommit, changes };
-  } finally {
-    if (added) git(worktree, ['worktree', 'remove', '--force', checkout]);
-    fs.rmSync(directory, { recursive: true, force: true });
-  }
+      taskDigest, seedCommit: assignment.seedCommit, changes,
+      ...(references ? { references } : {}),
+      ...(conditions.length ? { conditions: conditions.map(dependency => ({ taskId: dependency.id, taskDigest: taskVersion(dependency) })) } : {}) };
+  });
 }
 
 /** Merge disjoint declaration edits, including helpers sharing a file, without overwriting peer work. */

@@ -176,6 +176,12 @@ function probeLeanToolchainReadiness(
       diagnostics: `Lean toolchain probe failed${suffix}${output ? `: ${output}` : ''}`,
     });
   }
+  const expectedVersion = /^(?:leanprover\/lean4:)?v?(\d+\.\d+\.\d+(?:-rc\d+)?)$/u.exec(toolchain)?.[1];
+  const actualVersion = /\bLean \(version ([^\s,)]+)/u.exec(probe.stdout?.toString() || '')?.[1];
+  if (expectedVersion && actualVersion !== expectedVersion) return result({
+    ...base, status: 'invalid', lakePath, leanPath, toolchain,
+    diagnostics: `Pinned Lean version mismatch: expected ${expectedVersion}, found ${actualVersion ?? 'unrecognized version output'}. Check PATH and ELAN_HOME.`,
+  });
   return result({
     ...base,
     status: 'ready',

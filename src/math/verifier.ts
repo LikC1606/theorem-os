@@ -18,6 +18,7 @@ import { readMathematicsReceiptSecret } from "./receiptAttestation";
 import { resolveMathematicsRuntimeEnvironment } from "./mathRuntimeEnvironment";
 import { createMathOperationLimiter } from "./concurrency";
 import { maskLeanCommentsAndStrings } from "./leanSyntax";
+import { leanReferenceCommands, parseLeanReferences, type LeanDeclarationReferences } from './leanReferences';
 
 export type MathematicsVerifierBatchItem = {
   id?: string;
@@ -64,6 +65,8 @@ export type MathematicsVerifierExecutionOptions = {
   forbiddenImportModules?: readonly string[];
   /** Report which selected declarations occur in the compiled proof dependency closure. */
   dependencyCandidates?: readonly string[];
+  /** Export actual references to declarations in project-local modules, separately for type and proof. */
+  collectDeclarationReferences?: boolean;
 };
 
 export type MathematicsVerifierResult = {
@@ -81,6 +84,7 @@ export type MathematicsVerifierResult = {
   /** Hash of the exact source header checked against the frozen declaration before elaboration. */
   sourceDeclarationHash?: string;
   usedDeclarationDependencies?: string[];
+  declarationReferences?: LeanDeclarationReferences;
   statementBinding: 'caller-bound-to-committed-declaration';
   toolchain: MathematicsVerificationToolchain;
   verifier: 'lean-kernel' | 'bounded-check' | 'unavailable';
@@ -203,6 +207,7 @@ type PreparedFile = {
   sourceDeclarationHashes: Map<string, string>;
   axiomDependencies: Map<string, string[]>;
   usedDeclarationDependencies?: Map<string, string[]>;
+  declarationReferences?: Map<string, LeanDeclarationReferences>;
   proofHash: string;
   inspection: Pick<MathematicsVerifierResult, 'sorryCount' | 'admitCount' | 'axioms'>;
   items: PreparedItem[];
@@ -2700,6 +2705,7 @@ type LeanDeclarationQuery = Readonly<{
     types?: Map<string, string>;
     axioms?: Map<string, string[]>;
     usedDependencies?: Map<string, string[]>;
+    references?: Map<string, LeanDeclarationReferences>;
     error?: string;
   };
 }>;
@@ -2713,6 +2719,7 @@ const prepareLeanDeclarationQuery = async (
     expectedDeclarationType?: string;
     forbiddenImportModules?: readonly string[];
     dependencyCandidates?: readonly string[];
+    referenceModules?: readonly { module: string; file: string }[];
   }>
 ): Promise<LeanDeclarationQuery | undefined> => {
   const theoremNameSet = new Set<string>();
@@ -2755,11 +2762,12 @@ const prepareLeanDeclarationQuery = async (
   const dependencyMarkers = new Map(
     theoremNames.map((name) => [name, `DS_PROOF_DEPENDENCIES_${crypto.randomBytes(16).toString('hex')}:`])
   );
+  const referenceMarkers = new Map(theoremNames.map(name => [name, `DS_DECL_REFERENCES_${crypto.randomBytes(16).toString('hex')}:`]));
   if (expectedType && (expectedType.length > 12_000 || theoremNames.length !== 1))
     throw new Error('Helper expected type requires one bounded declaration.');
   const externalChecks = options
     ? [
-        options.moduleName ? 'import Lean' : 'import Lean.Elab.BuiltinCommand\nimport Lean.Elab.SyntheticMVars',
+        'import Lean.Elab.BuiltinCommand\nimport Lean.Elab.SyntheticMVars',
         options.moduleName ? `import ${options.moduleName}` : file.source,
         ...(options.forbiddenImportModules?.length
           ? [
@@ -2807,6 +2815,8 @@ const prepareLeanDeclarationQuery = async (
               `  Lean.logInfo m!"${dependencyMarkers.get(theoremName)!}{(Lean.toJson used).compress}"`,
             ])
           : []),
+        ...(options.referenceModules ? theoremNames.flatMap(name =>
+          leanReferenceCommands(name, options.referenceModules!, referenceMarkers.get(name)!)) : []),
       ].join('\n')
     : file.source;
   await fs.promises.writeFile(queryAbsolutePath, `${externalChecks}\n${queries}\n`, 'utf8');
@@ -2818,6 +2828,11 @@ const prepareLeanDeclarationQuery = async (
       const types = new Map<string, string>();
       const axioms = new Map<string, string[]>();
       const usedDependencies = new Map<string, string[]>();
+      const references = new Map<string, LeanDeclarationReferences>();
+      if (options?.referenceModules) for (const [name, marker] of referenceMarkers) {
+        const report = parseLeanReferences(stdout, marker, options.referenceModules.map(module => module.file));
+        if (report) references.set(name, report);
+      }
       if (dependencyCandidates) {
         for (const [theoremName, dependencyMarker] of dependencyMarkers) {
           const lines = stdout.split('\n').filter((line) => line.includes(dependencyMarker));
@@ -2877,7 +2892,7 @@ const prepareLeanDeclarationQuery = async (
         axioms.set(query.name, dependencies);
         if (query.localName) axioms.set(query.localName, dependencies);
       }
-      return { hashes, types, axioms, usedDependencies };
+      return { hashes, types, axioms, usedDependencies, references };
     },
   };
 };
@@ -3061,6 +3076,8 @@ async function checkManyFormalVerificationsUnbounded(
               ...(file.usedDeclarationDependencies?.has(theoremName)
                 ? { usedDeclarationDependencies: file.usedDeclarationDependencies.get(theoremName) }
                 : {}),
+              ...(file.declarationReferences?.has(theoremName)
+                ? { declarationReferences: file.declarationReferences.get(theoremName) } : {}),
             }
           : {}),
         statementBinding: 'caller-bound-to-committed-declaration',
@@ -3324,10 +3341,10 @@ async function checkManyFormalVerificationsUnbounded(
             // The temporary query is the exact committed proof plus #check markers,
             // so one Lean kernel run both compiles the proof and exports declaration types.
             // eslint-disable-next-line no-await-in-loop
-            const localModules = options.prepareLocalDependencies && lakeFile
+            const localModules = (options.prepareLocalDependencies || options.collectDeclarationReferences) && lakeFile
               ? mathLocalModuleBuildOrder(verificationProjectRoot, file.relativeProofPath) : undefined;
             const helperModule =
-              localModules && (options.expectedDeclarationType || options.forbiddenImportModules || options.dependencyCandidates)
+              localModules && (options.expectedDeclarationType || options.forbiddenImportModules || options.dependencyCandidates || options.collectDeclarationReferences)
                 ? localModules!.at(-1)!.module
                 : undefined;
             if (helperModule && !/^[A-Za-z_][A-Za-z0-9_']*(?:\.[A-Za-z_][A-Za-z0-9_']*)*$/u.test(helperModule))
@@ -3338,12 +3355,14 @@ async function checkManyFormalVerificationsUnbounded(
               verificationProjectRoot,
               file,
               verifiableItems,
-              helperModule || options.expectedDeclarationType
+              helperModule || options.expectedDeclarationType || options.collectDeclarationReferences
                 ? {
                     moduleName: helperModule,
                     expectedDeclarationType: options.expectedDeclarationType,
                     forbiddenImportModules: options.forbiddenImportModules,
                     dependencyCandidates: options.dependencyCandidates,
+                    referenceModules: options.collectDeclarationReferences
+                      ? localModules ?? [{ module: '', file: file.relativeProofPath }] : undefined,
                   }
                 : undefined
             );
@@ -3436,6 +3455,7 @@ async function checkManyFormalVerificationsUnbounded(
             if (declarationExport?.axioms) file.axiomDependencies = declarationExport.axioms;
             if (declarationExport?.usedDependencies)
               file.usedDeclarationDependencies = declarationExport.usedDependencies;
+            if (declarationExport?.references) file.declarationReferences = declarationExport.references;
 
             const axiomDependenciesFor = (item: PreparedItem): string[] => {
               if (!item.theoremName) return file.inspection.axioms;
@@ -3960,6 +3980,7 @@ async function buildFormalVerificationCacheKey(
         expectedDeclarationType: options.expectedDeclarationType ?? null,
         forbiddenImportModules: options.forbiddenImportModules ?? [],
         dependencyCandidates: options.dependencyCandidates ?? null,
+        collectDeclarationReferences: options.collectDeclarationReferences ?? false,
         verifierExecutable,
         environment,
         toolchainFiles,

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { prepareLeanDiagnosticOverrides, runLeanDiagnostics } from '../src/math/leanDiagnostics';
+import { bindLeanPackages, prepareLeanDiagnosticOverrides, runLeanDiagnostics } from '../src/math/leanDiagnostics';
 
 const { run, lease, readiness, environment } = vi.hoisted(() => ({ run: vi.fn(), lease: vi.fn(), readiness: vi.fn(), environment: vi.fn() }));
 vi.mock('../src/math/verifier', () => ({ runMathematicsSandboxedCommand: run }));
@@ -207,6 +207,31 @@ fs.writeFileSync(args[args.indexOf('-o') + 1], source); console.log(file);
       .rejects.toThrow('binding changed');
     expect(run).not.toHaveBeenCalled();
     expect(readiness).not.toHaveBeenCalled();
+  });
+
+  it.each(['missing', 'dangling', 'obsolete', 'correct'])('binds the pinned package cache when the link is %s', state => {
+    const pinned = path.join(root, 'pinned');
+    const packages = path.join(root, '.lake', 'packages');
+    fs.mkdirSync(pinned); fs.mkdirSync(path.dirname(packages));
+    if (state === 'obsolete') fs.mkdirSync(path.join(root, 'obsolete'));
+    if (state !== 'missing') fs.symlinkSync(state === 'correct' ? pinned : path.join(root, state), packages, 'dir');
+    bindLeanPackages(root, pinned);
+    expect(fs.realpathSync(packages)).toBe(pinned);
+    bindLeanPackages(root, pinned);
+    expect(fs.realpathSync(packages)).toBe(pinned);
+  });
+
+  it('preserves real package directories and rejects unavailable caches before changing links', () => {
+    const pinned = path.join(root, 'pinned');
+    const packages = path.join(root, '.lake', 'packages');
+    fs.mkdirSync(pinned); fs.mkdirSync(packages, { recursive: true });
+    fs.writeFileSync(path.join(packages, 'owned'), 'keep');
+    bindLeanPackages(root, pinned);
+    expect(fs.readFileSync(path.join(packages, 'owned'), 'utf8')).toBe('keep');
+    fs.rmSync(packages, { recursive: true });
+    fs.symlinkSync(pinned, packages, 'dir');
+    expect(() => bindLeanPackages(root, path.join(root, 'missing-cache'))).toThrow();
+    expect(fs.readlinkSync(packages)).toBe(pinned);
   });
 
   it('writes valid path overrides without changing the frozen manifest', () => {

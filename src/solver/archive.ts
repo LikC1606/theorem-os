@@ -13,6 +13,9 @@ export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | '
   role: ResearchRole;
   sessionRole?: ResearchRole;
   sessionGroupId?: string;
+  sessionTaskId?: string;
+  sessionTaskVersion?: string;
+  sessionStatementReview?: boolean;
   error?: string;
 };
 
