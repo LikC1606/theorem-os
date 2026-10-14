@@ -20,13 +20,14 @@ import { researchWorkers } from './modules/organization';
 import { runResearchWorkers, type WorkerAccess } from './research';
 import { evaluateSolverProof } from './evaluation';
 import { solverProofIsCurrent } from './modules/evidence';
+import { checkCodexProviderConnectivity } from '../runtime/codexConnectivity';
 
 export async function runSolver(args: string[], root: string, customModules?: SolverModules): Promise<number> {
   const { values } = parseArgs({ args, options: {
     workspace: { type: 'string' }, 'receipt-file': { type: 'string' }, 'task-file': { type: 'string' },
     output: { type: 'string' }, 'build-manifest': { type: 'string' }, model: { type: 'string', default: 'gpt-6.1-sol' },
     effort: { type: 'string', default: 'xhigh' }, codex: { type: 'string' }, resume: { type: 'boolean' },
-    'max-run-seconds': { type: 'string', default: '1800' }, 'max-turns': { type: 'string', default: '20' },
+    'max-run-seconds': { type: 'string', default: '1800' }, 'max-turns': { type: 'string', default: '200' },
     'prepare-timeout-seconds': { type: 'string', default: '1800' }, 'max-turn-seconds': { type: 'string', default: '180' },
     'evaluator-command': { type: 'string' }, 'evaluator-timeout-seconds': { type: 'string', default: '1800' },
     'proof-environment-cache-dir': { type: 'string' }, 'startup-only': { type: 'boolean' }, help: { type: 'boolean' },
@@ -147,10 +148,10 @@ export async function runSolver(args: string[], root: string, customModules?: So
         if (git(workspace, ['status', '--porcelain', '--untracked-files=no'])) throw new Error('math_workspace_has_uncommitted_sources');
         ownsRun = true;
         state = { schema: 'deepscientist.math.solver.v1', runId: crypto.randomUUID(), problem, ...identity,
-          worktree: path.join(directory, 'worktree'), phase: 'prepared', turns: 0, workerCount,
+          worktree: path.join(directory, 'worktree'), phase: 'prepared', turns: 0, dispatchCounts: {}, workerCount,
           coordination, moduleConfiguration };
         if (workerCount > 1) state.workers = workers
-          .map(worker => ({ id: worker.id, role: worker.role, worktree: worker.worktree, phase: 'prepared', turns: 0 }));
+          .map(worker => ({ id: worker.id, role: worker.role, worktree: worker.worktree, phase: 'prepared', turns: 0, dispatchCounts: {} }));
         git(workspace, ['worktree', 'add', '--detach', state.worktree, problem.baseCommit]);
         writeSolverRunState(stateFile, state);
       }
@@ -171,10 +172,27 @@ export async function runSolver(args: string[], root: string, customModules?: So
         if (sourcePackages) bindLeanPackages(project, sourcePackages);
         return project;
       };
-      const sourcePackages = resolveMathematicsLakePackagesCache(path.join(workspace, problem.projectRelative), env);
+      const sourceProject = path.join(workspace, problem.projectRelative);
+      const sourcePackages = resolveMathematicsLakePackagesCache(sourceProject, env);
+      if (!sourcePackages) {
+        const manifestFile = path.join(sourceProject, 'lake-manifest.json');
+        const manifest = fs.existsSync(manifestFile) ? readMathJson(manifestFile) as { packages?: unknown } : undefined;
+        if (Array.isArray(manifest?.packages) && manifest.packages.length) {
+          emit('preparation_failed', { workerId: 'solver', diagnostics:
+            'No manifest-compatible Lake package cache is configured. Supply a trusted cache with the pinned Git revisions; sandboxed verification never downloads dependencies.' });
+          throw new Error('math_lake_packages_unavailable');
+        }
+      }
       const project = prepareProject(state.worktree);
       if (!values.resume) sourceFeedback = solverSourceFeedback(state.problem, state.worktree);
       if (sourceFeedback) { state.check = undefined; save(); }
+      const connectivity = await checkCodexProviderConnectivity({ env, signal,
+        profile: process.env.CODEX_HOME || path.join(os.homedir(), '.config/deepscientist/math-sol-codex') });
+      writeMathJsonDurable(path.join(directory, 'provider-connectivity.json'), connectivity);
+      if (connectivity.status !== 'reachable') {
+        emit('preparation_failed', { workerId: 'solver', diagnostics: connectivity.diagnostics });
+        throw new Error('math_codex_provider_unreachable');
+      }
       const readiness = checkResolvedLeanToolchainReadiness({ projectRoot: project, env, timeoutMs: 180_000 });
       writeMathJsonDurable(path.join(directory, 'toolchain-readiness.json'), readiness);
       if (readiness.status !== 'ready') {
@@ -272,7 +290,9 @@ export async function runSolver(args: string[], root: string, customModules?: So
       signal.throwIfAborted();
       clearTimeout(timer);
       preparing = false;
-      deadline = Date.now() + maxRunMs;
+      state.solveStartedAt = Date.now();
+      state.solveFinishedAt = undefined;
+      deadline = state.solveStartedAt + maxRunMs;
       timer = Number.isFinite(maxRunMs) ? setTimeout(abort, maxRunMs) : undefined;
       emit('solve_started', { budgetMs: maxRunMs, maxTurnMs });
       if (values.resume) {
@@ -285,6 +305,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
         executable: values.codex || process.env.DEEPSCIENTIST_MATH_CODEX_EXECUTABLE || 'codex',
         profile: process.env.CODEX_HOME || path.join(os.homedir(), '.config/deepscientist/math-sol-codex'),
         signal, deadline, maxTurns, maxTurnMs, proofTimeoutMs: maxRunMs === Infinity ? Infinity : undefined, save, emit });
+      state.solveFinishedAt = Date.now();
       let evaluation: Record<string, unknown> = { status: 'skipped', reason: 'proof_incomplete' };
       if (winner?.check.passed) {
         state.phase = 'evaluating'; save();
@@ -300,8 +321,10 @@ export async function runSolver(args: string[], root: string, customModules?: So
       const result = { schema: 'deepscientist.math.run.v2', runId: state.runId, problemId: state.problem.contract.problemId,
         status, run_outcome: status, solution_commit: state.check?.passed ? state.check.commit : null,
         solver_ready_receipt_valid: state.check?.passed === true, completion_signal_valid: evaluation.status === 'passed',
-        evaluator: evaluation, turns: state.turns, usage: state.usage, stateFile, winningWorker: state.winningWorker,
-        workers: state.workers?.map(worker => ({ id: worker.id, role: worker.role, turns: worker.turns, usage: worker.usage, error: worker.error })) };
+        evaluator: evaluation, turns: state.turns, dispatchCounts: state.dispatchCounts,
+        solveWallMs: state.solveFinishedAt - state.solveStartedAt, usage: state.usage, stateFile, winningWorker: state.winningWorker,
+        workers: state.workers?.map(worker => ({ id: worker.id, role: worker.role, turns: worker.turns,
+          dispatchCounts: worker.dispatchCounts, usage: worker.usage, error: worker.error })) };
       writeMathJsonDurable(output, result);
       emit('finished', { status, output });
       return status === 'evaluated_passed' ? 0 : status === 'evaluated_failed' ? 2 : status === 'runtime_error' ? 1 : 4;
@@ -309,10 +332,18 @@ export async function runSolver(args: string[], root: string, customModules?: So
   } catch (error) {
     if (!ownsRun) { emit('rejected', { reason: error instanceof Error ? error.message : 'math_runtime_error' }); return 1; }
     const status = controller.signal.aborted ? 'limit_reached' : 'runtime_error';
-    if (ownedState) { ownedState.phase = 'finished'; writeSolverRunState(stateFile, ownedState); }
+    if (ownedState) {
+      ownedState.phase = 'finished';
+      if (ownedState.solveStartedAt && !ownedState.solveFinishedAt) ownedState.solveFinishedAt = Date.now();
+      ownedState.error = controller.signal.aborted ? undefined : error instanceof Error ? error.message : 'math_runtime_error';
+      writeSolverRunState(stateFile, ownedState);
+    }
     writeMathJsonDurable(output, { schema: 'deepscientist.math.run.v2', status, run_outcome: status,
       reason: controller.signal.aborted ? preparing ? 'math_preparation_stopped' : 'math_run_stopped' : error instanceof Error ? error.message : 'math_runtime_error',
-      runId: ownedState?.runId, problemId: ownedState?.problem.contract.problemId, turns: ownedState?.turns, usage: ownedState?.usage,
+      runId: ownedState?.runId, problemId: ownedState?.problem.contract.problemId, turns: ownedState?.turns,
+      dispatchCounts: ownedState?.dispatchCounts, usage: ownedState?.usage,
+      workers: ownedState?.workers?.map(worker => ({ id: worker.id, role: worker.role, turns: worker.turns,
+        dispatchCounts: worker.dispatchCounts, error: worker.error })),
       evaluator: { status: 'skipped' }, stateFile });
     emit('finished', { status, output });
     return controller.signal.aborted ? 4 : 1;

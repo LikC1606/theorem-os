@@ -1,14 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
-import { maskLeanCommentsAndStrings } from '../math/leanSyntax';
-import { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions } from '../math/leanSource';
+import { maskLeanComments, maskLeanCommentsAndStrings } from '../math/leanSyntax';
+import { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions, leanDeclarationContextCommands } from '../math/leanSource';
 import { assertSolverSources, committedSource, commitSolverProjection, solverMathlibImports, withSolverWorktree, type SolverProblem } from './problem';
 import { checkProjectedDeclaration, type ProofCheck } from './modules/evidence';
 import { taskVersion, type CooperativeTask, type TaskAssignment } from './tasks';
 import { captureProofReferences, type ProofReferences } from './proofReferences';
 
-export type DeclarationChange = { file: string; name: string; before?: string; after: string; beforeName?: string; tail?: string };
+export type DeclarationChange = { file: string; name: string; before?: string; after: string; beforeName?: string; afterName?: string; tail?: string };
 export type TaskProof = ProofCheck & { taskDigest: string; seedCommit: string; changes: DeclarationChange[];
   imports?: { file: string; module: string }[];
   conditions?: NonNullable<TaskAssignment['dependencies']>; references?: ProofReferences };
@@ -32,7 +32,7 @@ export function omitTaskHelpers(problem: SolverProblem, file: string, source: st
   return source;
 }
 
-/** Freeze declaration changes while forbidding changes to another task's original goals or existing helpers. */
+/** Freeze edits while preserving original goals, helper statements, and definition bodies. */
 export function taskChanges(problem: SolverProblem, worktree: string, sourceCommit: string,
   task: CooperativeTask | undefined, assignment: Pick<TaskAssignment, 'seedCommit'>): DeclarationChange[] {
   const changes: DeclarationChange[] = [];
@@ -40,7 +40,7 @@ export function taskChanges(problem: SolverProblem, worktree: string, sourceComm
     const read = (commit: string) => committedSource(worktree, commit, `${problem.projectRelative}/${file}`);
     const before = read(assignment.seedCommit), after = read(sourceCommit);
     if (before === after) continue;
-    if (task && (['research', 'sketch'].includes(task.kind) || file !== task.proofPath)) throw new Error('math_task_source_outside_scope');
+    if (task && (['research', 'sketch'].includes(task.kind) || !file.endsWith('.lean'))) throw new Error('math_task_source_outside_scope');
     const originals = inspectLeanDeclarationRegions(before), updated = inspectLeanDeclarationRegions(after);
     if (new Set(updated.map(region => local(region.name))).size !== updated.length)
       throw new Error('math_task_ambiguous_declaration');
@@ -53,11 +53,27 @@ export function taskChanges(problem: SolverProblem, worktree: string, sourceComm
       if (!current) throw new Error('math_task_existing_declaration_removed');
       const oldText = text(before, region), newText = text(after, current);
       if (oldText === newText) continue;
-      if (task && local(region.name) !== local(task.theoremName!))
+      const assigned = file === task?.proofPath && local(region.name) === local(task.theoremName!);
+      const proofRepair = !problem.declarations[file]?.some(item => item.name === region.name) &&
+        /^(?:theorem|lemma)\s/u.test(before.slice(region.startOffset, region.bodyOffset)) &&
+        /^(?:theorem|lemma)\s/u.test(after.slice(current.startOffset, current.bodyOffset)) &&
+        region.declarationType === current.declarationType;
+      if (task && !assigned && !proofRepair)
         throw new Error(`math_task_existing_declaration_changed\nFile: ${problem.projectRelative}/${file}\nDeclaration: ${region.name}\n` +
           `Restore this declaration's exact name, parameters, proof and namespace/section placement from git show ${assignment.seedCommit}:${problem.projectRelative}/${file}. ` +
-          'Preserve new proof work; do not reset the worktree. Add a differently named helper if different parameters are needed.');
+          'Proof-only repairs to solver-created lemmas are allowed; preserve their statements. Add a differently named helper if different parameters are needed. Do not reset the worktree.');
       changes.push({ file, name: region.name, before: oldText, after: newText });
+    }
+    const inherited = updated.filter(region => originals.some(original => original.name === region.name));
+    if (inherited.some((region, index) => region.name !== originals[index].name)) {
+      // Replay declaration order as well as proof edits; Lean cannot reference a later theorem.
+      for (let index = 1; index < inherited.length; index++) {
+        const region = inherited[index], previous = inherited[index - 1];
+        if (canonicalMathJson(leanDeclarationContextCommands(after, region.name)) !==
+            canonicalMathJson(leanDeclarationContextCommands(after, previous.name))) continue;
+        changes.push({ file, name: region.name, before: text(before, originals.find(item => item.name === region.name)!),
+          after: text(after, region), afterName: previous.name });
+      }
     }
     for (const region of updated.filter(item => !originals.some(original => original.name === item.name))) {
       const next = updated.find(item => item.startOffset > region.startOffset && originals.some(original => original.name === item.name));
@@ -70,8 +86,7 @@ export function taskChanges(problem: SolverProblem, worktree: string, sourceComm
 
 /** Deterministic proof projection shared by the checker and the host receipt boundary. */
 export function projectTaskSources(problem: SolverProblem, worktree: string, sourceCommit: string,
-  task: CooperativeTask, retainedGoals: readonly string[], excludedHelpers: readonly string[] = [],
-  conditions: readonly CooperativeTask[] = []): Map<string, string> {
+  task: CooperativeTask, retainedGoals: readonly string[], conditions: readonly CooperativeTask[] = []): Map<string, string> {
   const binders = conditions.map(dependency => `(${local(dependency.theoremName!)} : ${dependency.type})`).join(' ');
   const declaration = committedSource(worktree, sourceCommit, `${problem.projectRelative}/${task.proofPath}`);
   const matches = inspectLeanDeclarationRegions(declaration).filter(region => local(region.name) === local(task.theoremName!));
@@ -85,12 +100,30 @@ export function projectTaskSources(problem: SolverProblem, worktree: string, sou
   if (task.kind === 'lemma' && Object.values(problem.declarations).some(items => items.some(item => local(item.name) === local(task.theoremName!))))
     throw new Error('math_task_helper_is_original_declaration');
   const keep = new Set([task.theoremName!, ...retainedGoals].map(local));
-  const excluded = new Set(excludedHelpers.map(local));
-  const sources = new Map<string, string>();
+  const sources = new Map(problem.ownedFiles.map(file => [file,
+    committedSource(worktree, sourceCommit, `${problem.projectRelative}/${file}`)]));
+  const removed = new Set([...problem.targets.map(target => target.theoremName),
+    ...conditions.map(dependency => dependency.theoremName!)].map(local).filter(name => !keep.has(name)));
+  const declarations = [...sources].filter(([file]) => file.endsWith('.lean')).flatMap(([, source]) =>
+    inspectLeanDeclarationRegions(source).map(region => ({ name: local(region.name),
+      theorem: /^(?:theorem|lemma)\s/u.test(source.slice(region.startOffset, region.bodyOffset)), references:
+      [...maskLeanCommentsAndStrings(source.slice(region.startOffset, region.endOffset))
+        .matchAll(/[\p{L}_][\p{L}\p{M}\p{N}_']*(?:\.[\p{L}_][\p{L}\p{M}\p{N}_']*)*/gu)].map(match => local(match[0])) })));
+  for (const item of declarations) if (item.theorem && !keep.has(item.name) &&
+      item.references.some(name => name === 'sorry' || name === 'admit')) removed.add(item.name);
+  // Removing or parameterizing a theorem also invalidates unrelated saved wrappers that call it.
+  const changed = new Set([...removed, ...(conditions.length ? [local(task.theoremName!)] : [])]);
+  for (;;) {
+    const affected = declarations.filter(item => !keep.has(item.name) && !removed.has(item.name) &&
+      item.references.some(name => changed.has(name)));
+    if (!affected.length) break;
+    for (const item of affected) { removed.add(item.name); changed.add(item.name); }
+  }
   for (const file of problem.ownedFiles) {
-    let source = committedSource(worktree, sourceCommit, `${problem.projectRelative}/${file}`);
-    if (!file.endsWith('.lean')) { sources.set(file, source); continue; }
-    const targets = problem.targets.filter(target => target.proofPath === file);
+    let source = sources.get(file)!;
+    if (!file.endsWith('.lean')) continue;
+    // Doc comments require a following declaration, which this projection may remove.
+    source = maskLeanComments(source);
     for (const region of inspectLeanDeclarationRegions(source).reverse()) {
       if (conditions.length && file === task.proofPath && local(region.name) === local(task.theoremName!)) {
         const header = source.slice(region.startOffset, region.bodyOffset - 2);
@@ -104,8 +137,7 @@ export function projectTaskSources(problem: SolverProblem, worktree: string, sou
           if (dependency) body = body.slice(0, reference.index) + local(dependency.theoremName!) + body.slice(reference.index + reference[0].length);
         }
         source = source.slice(0, region.startOffset) + name[0] + ' ' + binders + header.slice(name[0].length) + ':=' + body + source.slice(region.endOffset);
-      } else if ((targets.some(target => local(target.theoremName) === local(region.name)) || excluded.has(local(region.name)) ||
-          conditions.some(dependency => dependency.proofPath === file && local(dependency.theoremName!) === local(region.name))) && !keep.has(local(region.name)))
+      } else if (removed.has(local(region.name)))
         source = source.slice(0, region.startOffset) + source.slice(region.endOffset);
     }
     sources.set(file, source);
@@ -116,7 +148,7 @@ export function projectTaskSources(problem: SolverProblem, worktree: string, sou
 /** Isolate one exact helper or original goal; incomplete unrelated original goals are removed. */
 export async function checkTaskProof(problem: SolverProblem, worktree: string, sourceCommit: string,
   task: CooperativeTask, assignment: TaskAssignment, retainedGoals: readonly string[], env: NodeJS.ProcessEnv,
-  signal: AbortSignal, timeoutMs = 180_000, excludedHelpers: readonly string[] = [], conditions: readonly CooperativeTask[] = [],
+  signal: AbortSignal, timeoutMs = 180_000, conditions: readonly CooperativeTask[] = [],
   environmentDigest = mathDigest(canonicalMathJson(env))): Promise<TaskProof> {
   signal.throwIfAborted();
   if (conditions.some(dependency => !task.conditional || dependency.kind !== 'lemma' || !dependency.type ||
@@ -132,7 +164,7 @@ export async function checkTaskProof(problem: SolverProblem, worktree: string, s
         .filter(module => !before.includes(module)).map(module => ({ file, module }));
     });
     const project = path.join(checkout, problem.projectRelative);
-    for (const [file, source] of projectTaskSources(problem, checkout, sourceCommit, task, retainedGoals, excludedHelpers, conditions))
+    for (const [file, source] of projectTaskSources(problem, checkout, sourceCommit, task, retainedGoals, conditions))
       fs.writeFileSync(path.join(project, file), source);
     const commit = commitSolverProjection(problem, checkout, `Check cooperative task ${task.id}`);
     const taskDigest = taskVersion(task);
@@ -162,9 +194,20 @@ export function applyTaskChanges(problem: SolverProblem, worktree: string, chang
     if (existing) {
       const start = source.lastIndexOf('\n', existing.startOffset - 1) + 1;
       const actual = source.slice(start, existing.endOffset).trimEnd() + '\n';
-      if (actual === change.after) continue;
-      if (!change.before || actual !== change.before) throw new Error('math_task_integration_conflict');
-      source = source.slice(0, start) + change.after + source.slice(existing.endOffset);
+      if (actual !== change.after && (!change.before || actual !== change.before)) throw new Error('math_task_integration_conflict');
+      if (change.afterName) {
+        const anchor = regions.find(region => region.name === change.afterName);
+        if (!anchor || canonicalMathJson(leanDeclarationContextCommands(source, change.name)) !==
+            canonicalMathJson(leanDeclarationContextCommands(source, change.afterName)))
+          throw new Error('math_task_integration_missing_context');
+        if (actual === change.after && anchor.endOffset === start) continue;
+        source = source.slice(0, start) + source.slice(existing.endOffset);
+        const offset = inspectLeanDeclarationRegions(source).find(region => region.name === change.afterName)!.endOffset;
+        source = source.slice(0, offset) + change.after + source.slice(offset);
+      } else {
+        if (actual === change.after) continue;
+        source = source.slice(0, start) + change.after + source.slice(existing.endOffset);
+      }
     } else {
       if (change.before) throw new Error('math_task_integration_missing_declaration');
       const anchor = change.beforeName && regions.find(region => region.name === change.beforeName);

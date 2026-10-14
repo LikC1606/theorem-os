@@ -132,9 +132,20 @@ export function selectLemmaAction(state: Readonly<SolverRunState>, options: read
   return { operation, reason };
 }
 
+export function researchFailureReason(error?: string): string {
+  if (/authentication|unauthorized|forbidden|invalid.*api.?key|\b(?:401|403)\b/iu.test(error ?? '')) return 'math_model_authentication_failed';
+  if (/Concurrency limit exceeded|rate.?limit|\b429\b/iu.test(error ?? '')) return 'math_model_concurrency_limit';
+  if (/^math_codex_transport_closed(?::|$)/u.test(error ?? '')) return 'math_codex_transport_closed';
+  if (/math_codex_rpc_timeout|timed?\s*out|timeout/iu.test(error ?? '')) return 'math_model_request_timeout';
+  if (/stream disconnected|error sending request|connection (?:reset|closed)|ECONNRESET|ECONNREFUSED|EAI_AGAIN|fetch failed|service unavailable|temporarily unavailable|\b(?:500|502|503|504)\b/iu.test(error ?? ''))
+    return 'math_model_request_failed';
+  return 'math_model_turn_failed';
+}
+
 export function planResearchRetry(error: string | undefined, attempts: number, state: Readonly<SolverRunState>,
-  budget: ResearchBudget): Readonly<{ attempt: number; delayMs: number }> | undefined {
-  if (!error || !/\bConcurrency limit exceeded\b/iu.test(error) || attempts >= 3 ||
+  budget: ResearchBudget): Readonly<{ attempt: number; delayMs: number; reason: string }> | undefined {
+  const reason = researchFailureReason(error);
+  if (['math_model_authentication_failed', 'math_model_turn_failed'].includes(reason) || attempts >= 3 ||
     state.turns >= budget.maxTurns || budget.aborted || budget.remainingMs <= 0) return undefined;
-  return { attempt: attempts + 1, delayMs: 10_000 * 2 ** attempts };
+  return { attempt: attempts + 1, delayMs: 10_000 * 2 ** attempts, reason };
 }

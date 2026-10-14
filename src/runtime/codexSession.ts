@@ -54,16 +54,17 @@ class CodexRpc {
     });
     // Do not forward provider diagnostics, which can contain credentials or task text.
     this.child.stderr.resume();
-    const fail = () => {
+    const fail = (reason: string) => {
       if (this.failure) return;
-      this.failure = new Error('math_codex_transport_closed');
+      this.failure = new Error(`math_codex_transport_closed:${reason}`);
       for (const call of this.pending.values()) { clearTimeout(call.timer); call.reject(this.failure); }
       this.pending.clear();
       this.onFailure(this.failure);
     };
-    this.child.once('error', fail);
-    this.child.once('close', fail);
-    this.child.stdin.on('error', fail);
+    const errorCode = (error: NodeJS.ErrnoException) => /^[A-Z0-9_]{1,32}$/u.test(error.code ?? '') ? error.code : 'unknown';
+    this.child.once('error', error => fail(`spawn_error:code=${errorCode(error)}`));
+    this.child.once('close', (code, signal) => fail(`process_exit:code=${code ?? 'none'}:signal=${signal ?? 'none'}`));
+    this.child.stdin.on('error', error => fail(`stdin_error:code=${errorCode(error)}`));
     const receive = (line: Buffer) => {
       try {
         const message = object(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(line)));
@@ -84,7 +85,7 @@ class CodexRpc {
           if (error) call.reject(new Error(`math_codex_rpc_failed:${error.code}`));
           else call.resolve(result!);
         }
-      } catch { fail(); void this.close(); }
+      } catch { fail('invalid_frame'); void this.close(); }
     };
     let parts: Buffer[] = [], bytes = 0;
     this.child.stdout.on('data', (chunk: Buffer) => {
@@ -93,7 +94,7 @@ class CodexRpc {
       while (start < chunk.length) {
         const newline = chunk.indexOf(10, start), end = newline < 0 ? chunk.length : newline;
         bytes += end - start;
-        if (bytes > 8 * 1024 * 1024) { parts = []; fail(); void this.close(); return; }
+        if (bytes > 8 * 1024 * 1024) { parts = []; fail('frame_too_large'); void this.close(); return; }
         parts.push(chunk.subarray(start, end));
         if (newline < 0) break;
         const line = Buffer.concat(parts, bytes); parts = []; bytes = 0;
@@ -152,7 +153,7 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
     lastStreamActivityAt = now;
     options.onActivity({ event, ...(itemType && /^[A-Za-z][A-Za-z0-9]{0,63}$/u.test(itemType) ? { itemType } : {}) });
   };
-  rpc.onFailure = error => { transportFailure = error; completion?.reject(error); };
+  rpc.onFailure = error => { transportFailure = error; lastError = error.message; completion?.reject(error); };
   rpc.onNotification = (method, params) => {
     if (threadId !== undefined && params.threadId !== undefined && params.threadId !== threadId) return;
     if (method === 'item/started' || method === 'item/completed') {
@@ -204,6 +205,8 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
       developerInstructions: options.instructions,
       config: {
         mcp_servers: disabled,
+        'features.apps': false,
+        'features.plugins': false,
         model_reasoning_effort: options.effort,
         'sandbox_workspace_write.network_access': true,
       },
@@ -262,6 +265,9 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
             if (typeof error.message === 'string') lastError = error.message;
           }
           return checkpoint && finished.status === 'interrupted' ? 'checkpoint' : finished.status;
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : 'math_codex_turn_failed';
+          throw error;
         } finally {
           clearTimeout(timer); clearTimeout(interruptDeadline);
           activeTurn = undefined; completion = undefined;

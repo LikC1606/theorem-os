@@ -13,11 +13,11 @@ import { canonicalMathJson, mathDigest } from '../../math/mathRuntimeIo';
 /** Frozen component versions compose one ordinary direct-proof program. */
 export const directSolverModules = {
   id: 'direct-v1',
-  M1: { version: 'bounded-codex-turn-v6', open: createCodexMathSession, execute: executeResearch },
-  M2: { version: 'lean-kernel-v4', check: checkSolverProof, checkTask: checkTaskProof },
-  M3: { version: 'route-budget-v4', select: selectResearchAction, retry: planResearchRetry, ready: readyResearchTasks },
-  M4: { version: 'checkpoint-context-v7', build: buildResearchContext, statement: buildStatementReviewContext },
-  M5: { version: 'route-cooperation-v6', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignResearchTask },
+  M1: { version: 'bounded-codex-turn-v8', open: createCodexMathSession, execute: executeResearch },
+  M2: { version: 'lean-kernel-v7', check: checkSolverProof, checkTask: checkTaskProof },
+  M3: { version: 'route-budget-v5', select: selectResearchAction, retry: planResearchRetry, ready: readyResearchTasks },
+  M4: { version: 'checkpoint-context-v10', build: buildResearchContext, statement: buildStatementReviewContext },
+  M5: { version: 'route-cooperation-v10', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignResearchTask },
 };
 
 export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M3' | 'M5'> & {
@@ -30,8 +30,8 @@ export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M3' | 'M5'>
 
 export const lemmaSolverModules: SolverModules = {
   ...directSolverModules, id: 'lemma-v1',
-  M2: { ...directSolverModules.M2, version: 'lean-obligations-v4', checkLemma: checkLemmaResearch },
-  M3: { ...directSolverModules.M3, version: 'lemma-route-search-v5', select: selectLemmaAction },
+  M2: { ...directSolverModules.M2, version: 'lean-obligations-v7', checkLemma: checkLemmaResearch },
+  M3: { ...directSolverModules.M3, version: 'lemma-route-search-v6', select: selectLemmaAction },
 };
 
 /** Named CLI policies replace M3 alone; host verification and ownership stay fixed. */

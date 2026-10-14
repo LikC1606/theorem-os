@@ -53,6 +53,7 @@ export class CooperativeResearch {
   private readonly lead: ResearchWorker;
   private readonly archive: CooperationState;
   private needsLead = false;
+  private lastLeadCommit?: string;
   private lastAssembly?: string;
   private waiters = new Set<() => void>();
   private reservedTurns = new Set<string>();
@@ -383,14 +384,12 @@ export class CooperativeResearch {
     const dependencies = this.dependencies(task), taskDigest = digest(task);
     conditions ??= task.conditional ? dependencies.filter(node => node.task.kind === 'lemma' && node.status !== 'integrated').map(node => node.task) : [];
     const retainedGoals = dependencies.filter(node => node.task.kind === 'goal' && node.status === 'integrated').map(node => node.task.theoremName!);
-    const required = new Set([task.id, ...dependencies.map(node => node.task.id)]);
-    const excluded = this.archive.tasks.filter(node => node.task.kind === 'lemma' && !required.has(node.task.id)).map(node => node.task.theoremName!);
     const proof = await (this.input.modules.M2.checkTask ?? checkTaskProof)(this.input.state.problem, worktree, commit, task, assignment, retainedGoals,
-      this.input.access.get(this.lead.id)!.environment, this.input.signal, this.input.timeoutMs, excluded, conditions, this.input.state.environmentDigest);
+      this.input.access.get(this.lead.id)!.environment, this.input.signal, this.input.timeoutMs, conditions, this.input.state.environmentDigest);
     const declarationHash = proof.passed && proof.verification.targetCommit && hashMathFormalSourceDeclaration(
       committedSource(worktree, proof.verification.targetCommit, `${this.input.state.problem.projectRelative}/${task.proofPath}`), task.theoremName!);
     const projected = proof.passed && projectTaskSources(this.input.state.problem, worktree, commit, task,
-      retainedGoals, excluded, conditions);
+      retainedGoals, conditions);
     const allowed = new Set(this.input.state.problem.ownedFiles.map(file => `${this.input.state.problem.projectRelative}/${file}`));
     allowed.add('RESEARCH.md');
     const projectionMatches = projected && proof.verification.targetCommit &&
@@ -416,7 +415,7 @@ export class CooperativeResearch {
   }
   /** Check isolated sources concurrently; only publishing and canonical integration are serialized. */
   private async publishTaskProof(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>,
-    commit: string, summary: string, options: Partial<DeliveryRecord> = {}) {
+    commit: string, summary: string, options: Partial<DeliveryRecord> = {}, recovering = false) {
     const proof = await this.check(action.task, action.assignment, worker.worktree, commit);
     return this.input.exclusiveCheck(async () => {
       if (!this.current(action) || !(proof.references?.tasks ?? []).every(reference =>
@@ -428,20 +427,37 @@ export class CooperativeResearch {
       }
       const node = this.node(action.task.id);
       if (['conditional', 'integrated'].includes(node.status)) return;
+      if (recovering && !proof.passed && proof.verification.status === 'failed') {
+        node.feedback = solverProofFeedback(proof);
+        this.interrupted(worker, action);
+        return proof;
+      }
       await this.deliverProof(worker, node, proof, summary, options);
       return proof;
     });
   }
   private referencesTask(references: ProofReferences, node: TaskRecord) {
-    return references.inputs.some(input => input.file === node.task.proofPath &&
-      input.name && [node.task.theoremName, ...(node.proof?.changes.map(change => change.name) ?? [])]
-        .some(name => name && name.split('.').at(-1) === input.name!.split('.').at(-1)));
+    const declarations = [{ file: node.task.proofPath, name: node.task.theoremName }, ...(node.proof?.changes ?? [])];
+    return references.inputs.some(input => input.name && declarations.some(declaration => declaration.file === input.file &&
+      declaration.name?.split('.').at(-1) === input.name!.split('.').at(-1)));
+  }
+  private retryTaskLocally(node: TaskRecord): boolean {
+    if (node.attempts !== 1 || !node.assignment || !this.liveWorkers.has(node.assignment.workerId)) return false;
+    node.status = 'pending';
+    this.input.emit('task_repair_requested', { taskId: node.task.id, workerId: node.assignment.workerId,
+      taskDigest: node.assignment.taskDigest });
+    return true;
   }
   private async deliverProof(worker: ResearchWorker, node: TaskRecord, proof: TaskProof, summary: string, options: Partial<DeliveryRecord> = {}) {
     node.proof = proof;
     if (['unavailable', 'blocked'].includes(proof.verification.status)) throw new Error('math_verifier_unavailable');
     node.status = proof.passed ? proof.conditions?.length ? 'conditional' : 'delivered' : 'blocked';
-    if (!proof.passed) { node.feedback = solverProofFeedback(proof); this.needsLead = true; }
+    if (!proof.passed) {
+      node.feedback = solverProofFeedback(proof);
+      const repairable = proof.verification.status === 'failed' && proof.verification.results.some(result =>
+        result.status === 'failed' && ((result.sorryCount ?? 0) > 0 || result.error === 'Lean exited with status 1.'));
+      if (!repairable || !this.retryTaskLocally(node)) this.needsLead = true;
+    }
     this.input.emit('task_checked', { taskId: node.task.id, passed: proof.passed, conditional: Boolean(proof.conditions?.length), commit: proof.commit });
     if (node.status === 'delivered') await this.integrate(node);
     const status = this.node(node.task.id).status;
@@ -602,16 +618,15 @@ export class CooperativeResearch {
     const { tasks, groups } = plan;
     for (const task of tasks) if (task.ownerId) {
       const owner = this.input.workers.find(worker => worker.id === task.ownerId);
-      if (!owner || owner.role === 'lead' || (task.kind === 'goal' ? owner.role !== 'engineer' : owner.role !== 'researcher'))
+      if (!owner || (task.kind === 'goal' ? !['engineer', 'researcher'].includes(owner.role) : owner.role !== 'researcher'))
         throw new Error('math_plan_task_owner_unavailable');
     }
     const previousGroups = new Map(this.archive.groups?.map(record => [record.group.id, record]));
-    const engineer = this.input.workers.find(worker => worker.role === 'engineer');
     const configuredGroups = groups.map(group => {
-      const engineerId = group.engineerId ?? engineer?.id;
+      const engineerId = group.engineerId;
       if (engineerId && !this.input.workers.some(worker => worker.id === engineerId && worker.role === 'engineer'))
         throw new Error('math_plan_group_engineer_unavailable');
-      return { ...group, ...(engineerId ? { engineerId } : {}) };
+      return { ...group };
     });
     const changedGroups = new Set(configuredGroups.filter(group => {
       const previous = previousGroups.get(group.id)?.group;
@@ -771,11 +786,19 @@ export class CooperativeResearch {
         if (this.archive.review && ['pending', 'running'].includes(this.archive.review.status)) { await this.wait(); continue; }
         if (!running && !this.needsLead && this.archive.tasks.length && (!this.archive.review || this.archive.review.status === 'changes_requested') &&
             !researchCanAdvance(this.archive.tasks, this.archive.groups, this.liveWorkers)) {
-          this.input.emit('routes_idle', { groups: this.archive.groups }); return;
+          const blocked = this.archive.tasks.filter(node => node.status === 'blocked' &&
+            routeAllowsTask(node.task, this.archive.tasks, this.archive.groups));
+          // New checked peer work can inform a blocked route; an unchanged snapshot gets one decision.
+          if (!blocked.length || head === this.lastLeadCommit) {
+            this.input.emit('routes_idle', { groups: this.archive.groups }); return;
+          }
+          this.needsLead = true;
+          this.input.emit('blocked_tasks_reconsidered', { taskIds: blocked.map(node => node.task.id), canonicalCommit: head });
         }
         if (this.needsLead || (!running && (!this.livePeers.length ||
             !this.input.modules.M3.ready(this.archive.tasks, this.archive.groups).some(node => this.archive.tasks.includes(node))))) {
           this.needsLead = false;
+          this.lastLeadCommit = head;
           this.syncPlanNotes();
           return { kind: 'lead', seedCommit: this.seed(worker, head), planVersion: this.archive.planVersion };
         }
@@ -933,7 +956,7 @@ export class CooperativeResearch {
     this.input.emit('statement_review_completed', { workerId: worker.id, taskId: review.taskId, reviewId: review.id, kind, status: review.status });
     return { checkWhole: false };
   }
-  async deliver(worker: ResearchWorker, action: CooperativeAction, commit: string): Promise<{ check?: ProofCheck; checkWhole: boolean }> {
+  async deliver(worker: ResearchWorker, action: CooperativeAction, commit: string, recovering = false): Promise<{ check?: ProofCheck; checkWhole: boolean }> {
     if (isStatementAction(action)) return this.deliverStatement(worker, action);
     if (action.kind === 'review') {
       const review = this.archive.review;
@@ -1013,14 +1036,15 @@ export class CooperativeResearch {
         this.input.emit('research_delivered', { taskId: node.task.id, conclusion: finding.conclusion });
       } else {
         const proof = await this.publishTaskProof(worker, action, commit,
-          'Fixed declaration checked; unresolved lemma assumptions remain obligations.');
+          'Fixed declaration checked; unresolved lemma assumptions remain obligations.', {}, recovering);
         return { check: proof, checkWhole: false };
       }
     } catch (error) {
       if (!this.current(action)) return { checkWhole: false };
       const feedback = error instanceof Error ? error.message : 'math_task_delivery_failed';
-      this.rejected(action, feedback, commit);
-      if (feedback === 'math_verifier_unavailable') throw error;
+      if (feedback === 'math_verifier_unavailable') { this.rejected(action, feedback, commit); throw error; }
+      if (recovering) { node.feedback = feedback; this.interrupted(worker, action); }
+      else this.rejected(action, feedback, commit);
     }
     return { checkWhole: false };
   }
@@ -1040,6 +1064,7 @@ export class CooperativeResearch {
     this.changed();
   }
   rejected(action: CooperativeAction, feedback: string, commit?: string) {
+    let localRepair = false;
     if (isStatementAction(action)) {
       const review = this.archive.statementReviews?.find(item => item.id === action.reviewId);
       if (!review || !this.current(action)) return;
@@ -1053,11 +1078,12 @@ export class CooperativeResearch {
       return;
     } else if (action.kind === 'task') {
       const node = this.node(action.task.id); node.status = 'blocked'; node.feedback = feedback;
+      if (feedback.startsWith('math_task_missing_declaration\n')) localRepair = this.retryTaskLocally(node);
     } else if (action.kind === 'review') {
       this.archive.review!.status = 'changes_requested'; this.archive.review!.summary = feedback;
     } else this.archive.error = feedback;
     const worker = action.kind === 'task' ? this.input.workers.find(item => item.id === action.assignment.workerId) : this.lead;
-    this.needsLead = true;
+    if (!localRepair) this.needsLead = true;
     if (worker) this.record(worker, action.kind === 'task' ? action.task : undefined, 'failure', 'failed', feedback, { commit });
     else this.changed();
   }

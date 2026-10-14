@@ -8,7 +8,23 @@ import {
   resolveLeanEvalSubmissionName,
 } from '../src/math/leanEvalSubmission';
 import { inspectLeanSource } from '../src/math/verifier';
-import { leanDeclarationContextCommands } from '../src/math/leanSource';
+import { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions, leanDeclarationContextCommands } from '../src/math/leanSource';
+
+describe('declaration type bindings', () => {
+  it('keeps nested let and letI assignments inside the full protected return type', () => {
+    const source = 'theorem target (n : Nat) :\n' +
+      '  let k := let j := n + 1; j + 1\n' +
+      '  letI : Inhabited Nat := ⟨k⟩\n' +
+      '  k = n + 2 := by\n  rfl\n';
+    const [region] = inspectLeanDeclarationRegions(source);
+    expect(source.slice(region.bodyOffset)).toBe(' by\n  rfl\n');
+    expect(region.declarationType).toContain('k = n + 2');
+    expect(hashMathFormalSourceDeclaration(source, 'target')).not.toBe(
+      hashMathFormalSourceDeclaration(source.replace('k = n + 2', 'k = n + 3'), 'target'));
+    expect(hashMathFormalSourceDeclaration(source, 'target')).toBe(
+      hashMathFormalSourceDeclaration(source.replace('by\n  rfl', 'by\n  simp'), 'target'));
+  });
+});
 
 describe('Lean declaration query context', () => {
   it('preserves active namespace and notation scopes without leaking closed scopes or proof-local commands', () => {

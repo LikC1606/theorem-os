@@ -10,6 +10,20 @@ function failed(sourceDigest: string, line = 10, goal = '⊢ x > 0'): ProofCheck
 }
 
 describe('proof progress feedback', () => {
+  it('preserves coded Lean errors before their dependent unsolved goals', () => {
+    const previous = failed('old-source');
+    previous.verification.results.forEach(result => {
+      result.stdoutPreview = 'Submission.lean:9:17: error(lean.unknownIdentifier): Unknown identifier `lower_bound`\n' + result.stdoutPreview;
+    });
+    const current = structuredClone(previous);
+    current.sourceDigest = 'new-source';
+    current.verification.results.forEach(result => { result.stdoutPreview = result.stdoutPreview!.replace(':9:17:', ':19:17:').replace(':10:2:', ':20:2:'); });
+    const feedback = solverProofFeedback(current, previous);
+    expect(feedback).toContain('Submission.lean:19:17: error(lean.unknownIdentifier)');
+    expect(feedback.indexOf('Unknown identifier')).toBeLessThan(feedback.indexOf('unsolved goals'));
+    expect(feedback).toContain('same Lean errors and goal contexts');
+  });
+
   it('recognizes repeated errors after positions move, while preserving the current location', () => {
     const current = failed('new-source', 24);
     const feedback = solverProofFeedback(current, failed('old-source'));

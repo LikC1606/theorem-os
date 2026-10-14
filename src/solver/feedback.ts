@@ -11,8 +11,8 @@ function bounded(text: string, bytes: number): string {
 }
 
 function leanErrorBlocks(output = ''): string[] {
-  return output.split(/(?=^.+:\d+:\d+:\s*(?:error|warning|info):)/mu)
-    .filter(block => /^.+:\d+:\d+:\s*error:/mu.test(block)).map(block => block.trim());
+  return output.split(/(?=^.+:\d+:\d+:\s*(?:error|warning|info)(?:\([^\n)]*\))?:)/mu)
+    .filter(block => /^.+:\d+:\d+:\s*error(?:\([^\n)]*\))?:/mu.test(block)).map(block => block.trim());
 }
 
 /** Compare errors and goals, ignoring locations that move when a proof is edited. */
@@ -27,7 +27,7 @@ function failureSignature(check: ProofCheck): string | undefined {
     }
     if (result.status !== 'failed') return;
     const errors = [...new Set([result.stdoutPreview, result.stderrPreview].flatMap(output => leanErrorBlocks(output))
-      .map(block => block.replace(/^(.+):\d+:\d+:\s*error:/gmu, '$1: error:').replace(/[ \t]+$/gmu, '')))].sort();
+      .map(block => block.replace(/^(.+):\d+:\d+:\s*(error(?:\([^\n)]*\))?):/gmu, '$1: $2:').replace(/[ \t]+$/gmu, '')))].sort();
     // Generic host failures or absent diagnostics cannot establish stalled proof work.
     if (!errors.length) return;
     targets.push(JSON.stringify([...target, errors]));

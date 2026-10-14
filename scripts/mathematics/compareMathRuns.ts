@@ -12,6 +12,7 @@ import { readRunInspection } from '../../src/solver/inspection';
 import { runMathBatch } from './runMathBatch';
 import { configuredSolverModules, solverMethodDigest } from '../../src/solver/modules';
 import { proofReceiptsMatch, type ProofCheck } from '../../src/solver/modules/evidence';
+import type { SolverRunState } from '../../src/solver/archive';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const arms = ['single', 'independent', 'cooperative'] as const;
@@ -51,6 +52,8 @@ export function comparisonReport(directory: string, plan: Plan) {
   const rows = plan.jobs.map(job => {
     const execution = batch?.jobs?.find((item: { launch: string }) => item.launch === job.launch);
     let status = 'missing', accepted = false, turns: number | null = null, usage: Record<string, unknown> | undefined;
+    let dispatchCounts: SolverRunState['dispatchCounts'];
+    let solveWallMs: number | null = null;
     let error: string | undefined;
     let workerErrors: { id: string; error: string }[] = [];
     let missingUsageWorkers: string[] = [];
@@ -68,6 +71,9 @@ export function comparisonReport(directory: string, plan: Plan) {
           (state.coordination ?? 'cooperative') !== (job.arm === 'cooperative' ? 'cooperative' : 'independent'))
         throw new Error('comparison_run_identity_mismatch');
       turns = state.turns; usage = state.usage;
+      dispatchCounts = state.dispatchCounts;
+      if (numeric(state.solveStartedAt) && numeric(state.solveFinishedAt) && state.solveFinishedAt >= state.solveStartedAt)
+        solveWallMs = state.solveFinishedAt - state.solveStartedAt;
       missingUsageWorkers = (state.workers ?? [{ id: 'solver', ...state }]).filter(worker =>
         (worker.turns > 0 || ('error' in worker && worker.error)) && tokens(worker.usage) === null).map(worker => worker.id);
       workerErrors = (state.workers ?? []).flatMap(worker => worker.error ? [{ id: worker.id, error: worker.error }] : []);
@@ -91,7 +97,7 @@ export function comparisonReport(directory: string, plan: Plan) {
     const totalTokens = missingUsageWorkers.length ? null : tokens(usage);
     const elapsed = execution?.startedAt && execution?.finishedAt
       ? Date.parse(execution.finishedAt) - Date.parse(execution.startedAt) : NaN;
-    return { arm: job.arm, repetition: job.repetition, status, accepted, turns,
+    return { arm: job.arm, repetition: job.repetition, status, accepted, turns, dispatches: turns, dispatchCounts, solveWallMs,
       totalTokens, missingUsageWorkers, usage, workerErrors, error, wallMs: Number.isFinite(elapsed) && elapsed >= 0 ? elapsed : null,
       exitCode: execution?.exitCode ?? null, result: job.output, log: execution?.log };
   });
@@ -108,9 +114,10 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
     console.log('Usage: deepscientist-math compare --phase prepare|run|report --directory DIR\n'
       + 'prepare also requires --repo PINNED_IMO_REPO --problem ID --task-file FILE --build-manifest FILE\n'
       + 'Optional: --repetitions 1 --workers 4 --model gpt-6.1-sol --effort xhigh --method direct --scheduler plan\n'
-      + '          --max-turns 20 --max-run-seconds 1800 --max-turn-seconds 180\n'
+      + '          --max-turns 200 --max-run-seconds 1800 --max-turn-seconds 180\n'
       + '          --proof-environment-cache-dir HOST_PRIVATE_DIR\n'
-      + 'prepare never invokes a model. run executes all three arms sequentially with shared per-arm limits.');
+      + 'prepare never invokes a model. run executes all three arms sequentially. Each arm uses a wall-time limit;\n'
+      + '--max-turns is a shared dispatch safety cap, not equal compute. Token usage includes all roles.');
     return 0;
   }
   const phase = required(flags, 'phase');
@@ -128,7 +135,7 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
     const method = flags.get('method') ?? 'direct', scheduler = flags.get('scheduler') ?? 'plan';
     if (!['direct', 'lemma'].includes(method) || !['plan', 'goals-first'].includes(scheduler)) throw new Error('invalid method or scheduler');
     const configuration = { model: flags.get('model') ?? 'gpt-6.1-sol', effort: flags.get('effort') ?? 'xhigh', method, scheduler,
-      workers, maxTurns: number('max-turns', 20), maxRunSeconds: number('max-run-seconds', 1800), maxTurnSeconds: number('max-turn-seconds', 180) };
+      workers, maxTurns: number('max-turns', 200), maxRunSeconds: number('max-run-seconds', 1800), maxTurnSeconds: number('max-turn-seconds', 180) };
     const repositoryRoot = fs.realpathSync(required(flags, 'repo'));
     const problem = required(flags, 'problem');
     if (!IMO2026_SUPPORTED_PROBLEMS.includes(problem as typeof IMO2026_SUPPORTED_PROBLEMS[number])) throw new Error('unsupported IMO problem');

@@ -23,7 +23,7 @@ export async function runResearchTurn(session: MathAgentSession, message: string
   try {
     status = await session.run(message, crypto.randomUUID(), worktree, onStarted);
   } catch (error) {
-    if (!(error instanceof Error) || error.message !== 'math_codex_transport_closed') throw error;
+    if (!(error instanceof Error) || !/^math_codex_(?:transport_closed|rpc_timeout:)/u.test(error.message)) throw error;
     status = 'failed';
   }
   signal.throwIfAborted();

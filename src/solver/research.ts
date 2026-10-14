@@ -14,6 +14,7 @@ import type { ContextBundle } from './modules/context';
 import type { ResearchWorker } from './modules/organization';
 import type { ResearchOperation } from './modules/value';
 import { runResearchTurn } from './modules/execution';
+import { researchFailureReason } from './modules/search';
 
 export type WorkerAccess = { environment: NodeJS.ProcessEnv; corpusFile?: string; retrievalRoot: string };
 
@@ -66,6 +67,7 @@ export async function runResearchWorkers(input: {
   };
   const errors: unknown[] = [];
   const cleanupErrors: unknown[] = [];
+  state.error = undefined;
   try {
     await cooperation?.restore();
     cooperation?.start();
@@ -75,7 +77,7 @@ export async function runResearchWorkers(input: {
       let closing: Promise<void> | undefined;
       let retries = 0;
       let lastCheck: ProofCheck | undefined;
-      if (parallel) (research as SolverWorkerState).error = undefined;
+      research.error = undefined;
       const access = input.access.get(worker.id)!;
       const view = (): SolverRunState => ({ ...state, ...research, turns: state.turns });
       const emit = (event: string, details = {}) => input.emit(event, { workerId: worker.id, ...details });
@@ -116,13 +118,13 @@ export async function runResearchWorkers(input: {
           const workspace = statement?.workspace ?? worker.worktree;
           const environment = statement ? { ...Object.fromEntries(Object.entries(access.environment).filter(([key]) =>
             !key.startsWith('DEEPSCIENTIST_MATH_') && key !== 'PWD' && key !== 'OLDPWD')), PWD: workspace } : access.environment;
-          session = await modules.M1.open({ executable: input.executable, profile: input.profile,
+          while (!session) try {
+            session = await modules.M1.open({ executable: input.executable, profile: input.profile,
             ...(!statement ? { proofProjectRoot: path.join(worker.worktree, state.problem.projectRelative) } : {}),
             workspace, environment: { ...environment,
               DEEPSCIENTIST_MATH_WORKER_ID: worker.id, DEEPSCIENTIST_MATH_WORKER_WORKTREE: workspace },
             model: state.model, effort: state.effort, threadId: research.threadId,
-            turnTimeoutMs: Number.isFinite(input.maxTurnMs)
-              ? assignment?.kind === 'lead' ? Math.min(input.maxTurnMs, 60_000) : input.maxTurnMs : undefined,
+            turnTimeoutMs: Number.isFinite(input.maxTurnMs) ? input.maxTurnMs : undefined,
             instructions: currentContext.instructions, onActivity: activity => {
               research.lastActivity = { ...activity, at: Date.now() };
               emit('worker_activity', { activity: activity.event, itemType: activity.itemType }); save();
@@ -135,11 +137,22 @@ export async function runResearchWorkers(input: {
               }
               updateUsage(); save();
             } });
+          } catch (error) {
+            signal.throwIfAborted();
+            if (!(error instanceof Error) || !/^math_codex_(?:transport_closed(?::|$)|rpc_timeout:)/u.test(error.message)) throw error;
+            await retryFailedTurn(error.message);
+          }
           if (signal.aborted) { await close(); signal.throwIfAborted(); }
           sessionInstructions = currentContext.instructions;
           research.threadId = session.threadId; save();
         }
         if (assignment && !cooperation!.started(worker, assignment)) return false;
+        const kind = assignment?.kind === 'lead' ? 'planning' : assignment && (assignment.kind === 'review' || isStatementAction(assignment))
+          ? 'review' : assignment?.kind === 'task' && ['research', 'sketch'].includes(assignment.task.kind) ? 'research' : 'proof';
+        for (const record of parallel ? [state, research] : [state]) {
+          record.dispatchCounts ??= {};
+          record.dispatchCounts[kind] = (record.dispatchCounts[kind] ?? 0) + 1;
+        }
         reservedTurn = false; unstarted = undefined;
         cooperation?.settleTurn(worker);
         if (assignment) cooperation!.activate(worker, assignment,
@@ -147,13 +160,13 @@ export async function runResearchWorkers(input: {
           async message => { if (!isStatementAction(assignment)) await session?.notify?.(message); });
         return true;
       };
-      const retryFailedTurn = async (error?: string): Promise<boolean> => {
-        const retry = modules.M3.retry(error, retries, view(), budget());
-        if (!retry) return false;
+      const retryFailedTurn = async (error?: string): Promise<void> => {
+        const retry = modules.M3.retry(error, retries, { ...view(), turns: state.turns - Number(reservedTurn) }, budget());
+        if (!retry) throw new Error(researchFailureReason(error));
         retries = retry.attempt;
-        emit('turn_retry', { reason: 'model_concurrency_limit', attempt: retries, delayMs: retry.delayMs });
+        emit('turn_retry', { reason: retry.reason, attempt: retries, delayMs: retry.delayMs,
+          ...(error?.startsWith('math_codex_transport_closed:') ? { detail: error } : {}) });
         await delay(retry.delayMs, undefined, { signal });
-        return true;
       };
       const rotateSession = async (reason: 'context' | 'responsibility' | 'route') => {
         const previous = research.threadId;
@@ -211,7 +224,8 @@ export async function runResearchWorkers(input: {
           if (state.turns >= input.maxTurns || budget().remainingMs <= 0) break;
           if (assignment) {
             const record = research as SolverWorkerState;
-            const role = assignment.kind === 'review' || isStatementAction(assignment) ? 'reviewer' : worker.role;
+            const role = assignment.kind === 'review' || isStatementAction(assignment) ? 'reviewer' :
+              assignment.kind === 'task' ? assignment.task.kind === 'goal' ? 'engineer' : 'researcher' : worker.role;
             const groupId = assignment.kind === 'task' ? taskGroup(assignment.task) : undefined;
             const roleChanged = record.sessionRole && record.sessionRole !== role;
             const groupChanged = record.sessionGroupId && record.sessionGroupId !== groupId;
@@ -262,17 +276,17 @@ export async function runResearchWorkers(input: {
               const status = await runResearchTurn(session!, currentContext.message, assignment.workspace, signal, onStarted);
               await cooperation!.pulse(worker.id);
               if (!cooperation!.current(assignment) || status === 'completed') {
+                retries = 0;
                 await close();
                 await exclusiveCheck(() => cooperation!.deliverStatement(worker, assignment));
               } else if (['interrupted', 'checkpoint'].includes(status)) {
+                retries = 0;
                 cooperation!.interrupted(worker, assignment); emit('turn_checkpoint', { turn: research.turns });
               } else {
                 const turnError = session?.lastError;
-                if (/\bConcurrency limit exceeded\b/iu.test(turnError ?? '')) {
-                  cooperation!.interrupted(worker, assignment);
-                  await close();
-                  if (!await retryFailedTurn(turnError)) break;
-                } else cooperation!.rejected(assignment, turnError ?? 'math_statement_review_turn_failed');
+                await close(); emit('turn_failed', { reason: researchFailureReason(turnError) });
+                cooperation!.interrupted(worker, assignment);
+                await retryFailedTurn(turnError);
               }
             } finally {
               try { await rotateSession('context'); } finally { cooperation!.deactivate(worker); }
@@ -306,12 +320,14 @@ export async function runResearchWorkers(input: {
           research.candidate = candidate;
           const turn = cooperation && assignment && candidate.status === 'interrupted' ? 'checkpoint' : candidate.status;
           if (!['completed', 'failed', 'checkpoint'].includes(turn)) break;
+          if (turn !== 'failed') retries = 0;
           if (turn === 'checkpoint') emit('turn_checkpoint', { turn: research.turns });
           const turnError = session?.lastError;
-          if (turn === 'failed') { await close(); emit('turn_failed'); }
-          if (cooperation && assignment && turn === 'failed' && /\bConcurrency limit exceeded\b/iu.test(turnError ?? '')) {
+          if (turn === 'failed') { await close(); emit('turn_failed', { reason: researchFailureReason(turnError) }); }
+          if (cooperation && assignment && turn === 'failed' &&
+              (assignment.kind !== 'task' || ['research', 'sketch'].includes(assignment.task.kind))) {
             cooperation.interrupted(worker, assignment);
-            if (!await retryFailedTurn(turnError)) break;
+            await retryFailedTurn(turnError);
             continue;
           }
           const sourceError = solverSourceFeedback(state.problem, worker.worktree);
@@ -319,31 +335,33 @@ export async function runResearchWorkers(input: {
             research.check = undefined; research.lemmaResearch = undefined;
             if (assignment) cooperation!.rejected(assignment, sourceError);
             save(); emit('source_rejected');
-            if (turn === 'failed' && !await retryFailedTurn(turnError)) break;
+            if (turn === 'failed') await retryFailedTurn(turnError);
             continue;
           }
           state.phase = research.phase = 'checking'; save();
           const previousCheck = research.check;
           const previousFailures = research.failures;
           let checkWholeRequired = true;
+          let savedTaskProof = false;
           if (cooperation && assignment) {
             const commit = commitSolverSources(state.problem, worker.worktree);
-            const deliver = () => cooperation.deliver(worker, assignment, commit);
+            const deliver = () => cooperation.deliver(worker, assignment, commit, turn === 'failed');
             const delivery = assignment.kind === 'task' ? await deliver() : await exclusiveCheck(deliver);
             if (assignment.kind === 'lead' && turn === 'checkpoint') await cooperation.startInitialTasks();
             research.check = delivery.check;
+            savedTaskProof = delivery.check?.passed === true;
             checkWholeRequired = delivery.checkWhole;
             if (!checkWholeRequired) save();
           }
           if (checkWholeRequired) await exclusiveCheck(() => checkWhole(candidate, operation));
           feedbackCheck = previousCheck; feedbackFailures = previousFailures;
-          if (!winner && turn === 'failed' && !await retryFailedTurn(turnError)) break;
+          if (!winner && turn === 'failed' && !savedTaskProof) await retryFailedTurn(turnError);
         }
       } catch (error) {
         if (!signal.aborted) {
           errors.push(error);
-          if (parallel) { (research as SolverWorkerState).error = error instanceof Error ? error.message : 'math_worker_failed';
-            emit('worker_failed', { reason: (research as SolverWorkerState).error }); }
+          research.error = error instanceof Error ? error.message : 'math_worker_failed';
+          emit('worker_failed', { reason: research.error });
           if (!parallel || (cooperation && worker.id === input.workers[0].id) ||
               (error instanceof Error && error.message === 'math_verifier_unavailable')) abort();
         }

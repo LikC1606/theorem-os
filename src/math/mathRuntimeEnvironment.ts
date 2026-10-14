@@ -31,6 +31,8 @@ const OPTIONAL_ENV_FILE_KEYS = new Set([
   'DEEPSCIENTIST_MATH_PROOF_ENVIRONMENT',
   'DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS',
   'DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS_SHA256',
+  'http_proxy', 'https_proxy', 'all_proxy', 'no_proxy',
+  'HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'NO_PROXY',
 ]);
 
 export const DEFAULT_MATHEMATICS_ENV_FILE = path.join(os.homedir(), '.config', 'deepscientist-math', 'math.env');

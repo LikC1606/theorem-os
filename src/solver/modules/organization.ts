@@ -8,11 +8,13 @@ export type TeamPlan = Readonly<{ workers: readonly ResearchWorker[] }>;
 /** Assign selected work by responsibility and preserve resumed ownership. */
 export function assignResearchTask(ready: readonly TaskRecord[], worker: ResearchWorker, live: readonly ResearchWorker[], groups?: readonly RouteRecord[]): TaskRecord | undefined {
   const researchers = live.some(item => item.role === 'researcher');
-  const engineer = live.some(item => item.role === 'engineer');
-  return ready.find(node => (node.task.kind === 'goal' ? worker.role === 'engineer' || !engineer : worker.role === 'researcher' || !researchers) &&
+  const eligible = ready.filter(node =>
     (node.task.kind !== 'goal' || !groups?.find(route => route.group.id === taskGroup(node.task))?.group.engineerId ||
       groups.find(route => route.group.id === taskGroup(node.task))!.group.engineerId === worker.id) &&
     (!node.task.ownerId || node.task.ownerId === worker.id) && (!node.assignment || node.assignment.workerId === worker.id));
+  if (worker.role === 'researcher') return eligible.find(node => node.task.kind !== 'goal') ?? eligible.find(node => node.task.kind === 'goal');
+  if (worker.role === 'engineer') return researchers ? eligible.find(node => node.task.kind === 'goal') : eligible[0];
+  return undefined;
 }
 
 export function researchWorkers(worktree: string, ownedFiles: readonly string[], count: number): ResearchWorker[] {

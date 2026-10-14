@@ -24,6 +24,7 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   if (call.method === 'initialize') result({});
   if (call.method === 'thread/start' || call.method === 'thread/resume') {
     settings = call.params;
+    if (settings.developerInstructions === 'startup-crash') return process.exit(27);
     result({ thread: { id: settings.developerInstructions === 'wrong-thread' ? 'wrong-thread' : settings.threadId || 'thread-fixture' },
       model: settings.developerInstructions === 'mismatch' ? 'wrong-model' : settings.model,
       approvalPolicy: settings.approvalPolicy, reasoningEffort: settings.config.model_reasoning_effort });
@@ -53,9 +54,10 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     }
     if (message !== 'wait') {
       send({ method: 'thread/tokenUsage/updated', params: { threadId: settings.threadId || 'thread-fixture', tokenUsage: { total: { totalTokens: 21 }, last: { inputTokens: 12345 } } } });
-      const failed = message === 'rate-limit' || message === 'late-rate-limit';
+      const failed = ['rate-limit', 'late-rate-limit', 'stream-disconnected'].includes(message);
       const complete = () => send({ method: 'turn/completed', params: { threadId: settings.threadId || 'thread-fixture', turn: { ...turn,
-        status: failed ? 'failed' : 'completed', ...(failed ? { error: { message: 'Concurrency limit exceeded for account' } } : {}) } } });
+        status: failed ? 'failed' : 'completed', ...(failed ? { error: { message: message === 'stream-disconnected'
+          ? 'stream disconnected before completion: error sending request' : 'Concurrency limit exceeded for account' } } : {}) } } });
       if (message === 'late-rate-limit') setImmediate(complete);
       else complete();
     }
@@ -83,6 +85,9 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     expect(options.onUsage).toHaveBeenCalledWith({ totalTokens: 21 });
     expect(session.lastInputTokens).toBe(12345);
     const calls = fs.readFileSync(path.join(root, 'calls.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
+    expect(calls.find(call => call.method === 'thread/start').params.config).toMatchObject({
+      'features.apps': false, 'features.plugins': false,
+    });
     const start = calls.find(call => call.method === 'thread/start').params;
     expect(start.config.mcp_servers.unrelated).toEqual({ enabled: false });
     expect(Object.keys(start.config.mcp_servers)).toEqual(['unrelated']);
@@ -95,6 +100,7 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   it.each(['oversized-frame', 'invalid-frame', 'invalid-result'])('rejects %s before a complete valid RPC frame', async message => {
     session = await createCodexMathSession(options);
     await expect(session.run(message, 'frame-test', root, () => {})).rejects.toThrow('math_codex_transport_closed');
+    expect(session.lastError).toBe('math_codex_transport_closed:' + (message === 'oversized-frame' ? 'frame_too_large' : 'invalid_frame'));
   });
 
   it('reports bounded activity and split lock markers without exposing content or unrelated threads', async () => {
@@ -150,10 +156,11 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     }]);
   });
 
-  it.each(['rate-limit', 'late-rate-limit'])('retains the failure reason and clears it on the next turn (%s)', async message => {
+  it.each(['rate-limit', 'late-rate-limit', 'stream-disconnected'])('retains the failure reason and clears it on the next turn (%s)', async message => {
     session = await createCodexMathSession(options);
     expect(await session.run(message, 'failed-turn', root, () => {})).toBe('failed');
-    expect(session.lastError).toBe('Concurrency limit exceeded for account');
+    expect(session.lastError).toBe(message === 'stream-disconnected'
+      ? 'stream disconnected before completion: error sending request' : 'Concurrency limit exceeded for account');
     expect(await session.run('proof', 'next-turn', root, () => {})).toBe('completed');
     expect(session.lastError).toBeUndefined();
   });
@@ -173,5 +180,11 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     expect(calls).not.toContain('turn/start');
     session = await createCodexMathSession(options);
     await expect(session.run('crash', 'message-4', root, () => {})).rejects.toThrow('math_codex_transport_closed');
+    expect(session.lastError).toBe('math_codex_transport_closed:process_exit:code=9:signal=none');
+  });
+
+  it('reports a process exit while restoring a saved thread', async () => {
+    await expect(createCodexMathSession({ ...options, threadId: 'retained-thread', instructions: 'startup-crash' }))
+      .rejects.toThrow('math_codex_transport_closed:process_exit:code=27:signal=none');
   });
 });

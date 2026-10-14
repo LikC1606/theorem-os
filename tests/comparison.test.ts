@@ -56,6 +56,7 @@ describe('configured research comparisons', () => {
         problem: { workspace: directory, receiptDigest: 'receipt' }, taskDigest: 'task', buildDigest: 'build',
         environmentDigest: 'environment', evaluatorDigest: mathDigest('host-default'), methodDigest: 'method', model: 'fixture', effort: 'xhigh',
         worktree: directory, phase: 'finished', turns: 2, coordination: 'independent', workerCount: job.arm === 'single' ? 1 : 2,
+        dispatchCounts: { proof: 2 }, solveStartedAt: 1000, solveFinishedAt: 5500,
         usage: { totalTokens: 100 }, workers: job.arm === 'single' ? undefined : [
           { id: 'solver', role: 'lead', worktree: directory, phase: 'finished', turns: 1, usage: { totalTokens: 100 } },
           { id: 'engineer', role: 'engineer', worktree: directory, phase: 'finished', turns: 1, error: 'provider failed' }] }));
@@ -65,6 +66,7 @@ describe('configured research comparisons', () => {
     const report = comparisonReport(directory, plan);
     expect(report.runs.map(row => row.status)).toEqual(['runtime_error', 'runtime_error', 'missing']);
     expect(report.runs.map(row => row.totalTokens)).toEqual([100, null, null]);
+    expect(report.runs[0]).toMatchObject({ dispatches: 2, dispatchCounts: { proof: 2 }, solveWallMs: 4500 });
     expect(report.runs[1].missingUsageWorkers).toEqual(['engineer']);
     expect(report.runs.every(row => !row.accepted)).toBe(true);
     expect(report.totals.every(row => row.planned === 1)).toBe(true);

@@ -8,6 +8,19 @@ const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
 
 describe('resolved mathematics environment', () => {
+  it('freezes the runner proxy route for subprocesses and resume', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'math-env-')); roots.push(root);
+    const file = path.join(root, 'math.json');
+    fs.writeFileSync(file, JSON.stringify(projectMathematicsRuntimeEnvironment({
+      DEEPSCIENTIST_MATH_ENV_FILE: file, HTTP_PROXY: 'http://runner:18082',
+    })));
+    const env = resolveMathematicsRuntimeEnvironment({ DEEPSCIENTIST_MATH_ENV_FILE: file,
+      HTTP_PROXY: 'http://127.0.0.1:18081', https_proxy: 'http://obsolete:18081' });
+    expect(env.HTTP_PROXY).toBe('http://runner:18082');
+    expect(env.https_proxy).toBeUndefined();
+    expect(projectMathematicsRuntimeEnvironment(env).HTTP_PROXY).toBe('http://runner:18082');
+  });
+
   it.each(['.env', '.json'])('keeps a host snapshot after its %s defaults change', extension => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'math-env-')); roots.push(root);
     const file = path.join(root, `math${extension}`);

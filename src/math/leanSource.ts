@@ -276,6 +276,7 @@ function* leanSourceDeclarations(source: string): Generator<LeanSourceDeclaratio
     let proofStart = -1;
     let bodyOffset = -1;
     let hasTopLevelMatchType = false;
+    let pendingLocalBindings = 0;
     while (cursor < source.length) {
       const value = source[cursor];
       const following = source[cursor + 1];
@@ -316,6 +317,15 @@ function* leanSourceDeclarations(source: string): Generator<LeanSourceDeclaratio
         cursor += 1;
         continue;
       }
+      if (parenDepth === 0 && bracketDepth === 0 && braceDepth === 0 &&
+          !isLeanNameCharacter(codePointBefore(cursor))) {
+        const binding = /^(?:letI|haveI|let|have)\b/u.exec(source.slice(cursor));
+        if (binding && !isLeanNameCharacter(codePointAt(cursor + binding[0].length))) {
+          pendingLocalBindings++;
+          cursor += binding[0].length;
+          continue;
+        }
+      }
       if (
         parenDepth === 0 &&
         bracketDepth === 0 &&
@@ -332,6 +342,7 @@ function* leanSourceDeclarations(source: string): Generator<LeanSourceDeclaratio
       else if (value === '{') braceDepth += 1;
       else if (value === '}') braceDepth = Math.max(0, braceDepth - 1);
       else if (value === ':' && following === '=' && parenDepth === 0 && bracketDepth === 0 && braceDepth === 0) {
+        if (pendingLocalBindings > 0) { pendingLocalBindings--; cursor += 2; continue; }
         proofStart = cursor;
         bodyOffset = cursor + 2;
         break;

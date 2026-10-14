@@ -10,7 +10,7 @@ export function readMathResponse(worktree: string, legacyFence: string, bindings
   const file = path.join(worktree, 'RESEARCH.md');
   const errorPrefix = legacyFence === 'math-lemma' ? 'math_lemma_plan' : `math_${legacyFence}`;
   let text: string;
-  try { assertMathCanonicalPath(file); text = readMathText(file, 64_000).trim(); }
+  try { assertMathCanonicalPath(file); text = readMathText(file).trim(); }
   catch { throw new Error(`${errorPrefix}_missing_or_too_large`); }
   const blocks = [...text.matchAll(new RegExp('```(?:math|json|' + legacyFence + ')\\s*\\n([\\s\\S]*?)\\n```', 'gu'))]
     .filter(block => !textField || block[1].trimStart().startsWith('{'));

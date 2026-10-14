@@ -26,7 +26,7 @@ import { applyTaskChanges, checkTaskProof, projectTaskSources, taskChanges } fro
 import { inspectScopedLeanDeclarations, leanDeclarationContextCommands } from '../src/math/leanSource';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn(), officialGate: vi.fn(), build: vi.fn(), delay: vi.fn(),
-  prepare: vi.fn(), freeze: vi.fn(), readiness: vi.fn(), packages: undefined as string | undefined }));
+  prepare: vi.fn(), freeze: vi.fn(), readiness: vi.fn(), connectivity: vi.fn(), packages: undefined as string | undefined }));
 vi.mock('../src/math/leanDiagnostics', async importOriginal => ({
   ...await importOriginal<typeof import('../src/math/leanDiagnostics')>(), runLeanDiagnostics: host.prepare,
 }));
@@ -35,6 +35,7 @@ vi.mock('node:timers/promises', async importOriginal => ({
 }));
 vi.mock('../src/math/mathBuildManifest', () => ({ readMathBuildManifest: host.build }));
 vi.mock('../src/math/leanToolchainReadiness', () => ({ checkResolvedLeanToolchainReadiness: host.readiness }));
+vi.mock('../src/runtime/codexConnectivity', () => ({ checkCodexProviderConnectivity: host.connectivity }));
 vi.mock('../src/math/verifier', async importOriginal => ({
   ...await importOriginal<typeof import('../src/math/verifier')>(),
   checkManyFormalVerifications: host.verify, resolveMathematicsLakePackagesCache: () => host.packages,
@@ -78,6 +79,7 @@ describe('isolated solver and host acceptance', () => {
       return { exitCode: 0, timedOut: false, phases: [] };
     });
     host.readiness.mockReset().mockReturnValue({ status: 'ready' });
+    host.connectivity.mockReset().mockResolvedValue({ status: 'reachable', httpStatus: 401 });
     host.freeze.mockReset().mockResolvedValue({ environmentValue: 'fixture', dispose: vi.fn() });
     host.delay.mockReset().mockResolvedValue(undefined);
     vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -139,10 +141,38 @@ describe('isolated solver and host acceptance', () => {
     expect(state.cooperation).toBeUndefined();
     expect(state.coordination).toBe('independent');
     expect(state.turns).toBe(2);
+    expect(state.dispatchCounts).toEqual({ proof: 2 });
+    expect(state.workers.map((worker: any) => worker.dispatchCounts)).toEqual([{ proof: 1 }, { proof: 1 }]);
+    expect(JSON.parse(fs.readFileSync(output, 'utf8')).solveWallMs).toBeGreaterThanOrEqual(0);
     expect(state.usage).toEqual({ totalTokens: 200, inputTokens: 160, outputTokens: 40 });
     expect(state.workers.map((worker: any) => worker.turns)).toEqual([1, 1]);
     expect(host.createSession).toHaveBeenCalledTimes(2);
     expect(host.officialGate).toHaveBeenCalledOnce();
+  });
+
+  it('lets independent proof work exceed twenty dispatches under the default wall-time budget', async () => {
+    const attempts = new Map<string, number>();
+    host.verify.mockImplementation(async request => {
+      const checked = verified(request);
+      return fs.readFileSync(path.join(request.projectRoot, 'Submission.lean'), 'utf8').includes('sorry')
+        ? { ...checked, status: 'failed', results: checked.results.map(result => ({ ...result, status: 'failed' })) } : checked;
+    });
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.workspace,
+      run: async () => {
+        const count = (attempts.get(options.workspace) ?? 0) + 1;
+        attempts.set(options.workspace, count);
+        await Promise.resolve();
+        if (count === 6) fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'),
+          original.replaceAll('by sorry', 'by trivial'));
+        return 'completed';
+      }, close: vi.fn(), interrupt: vi.fn() }));
+    const defaultBudget = args.filter((_, index) => args[index] !== '--max-turns' && args[index - 1] !== '--max-turns');
+    expect(await runSolver([...defaultBudget, '--workers', '4', '--coordination', 'independent'], directory)).toBe(0);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state.turns).toBeGreaterThan(20);
+    expect(state.turns).toBeLessThanOrEqual(24);
+    expect(state.dispatchCounts).toEqual({ proof: state.turns });
+    expect(state.workers.every((worker: any) => worker.turns >= 5)).toBe(true);
   });
 
   it('counts failed independent turns within one shared budget', async () => {
@@ -152,11 +182,13 @@ describe('isolated solver and host acceptance', () => {
       lastError: 'fixture model failure', run: async () => {
         options.onUsage({ totalTokens: 75 }); return 'failed';
       }, close: vi.fn(), interrupt: vi.fn() }));
-    expect(await runSolver([...args, '--workers', '4', '--max-turns', '3', '--coordination', 'independent'], directory)).toBe(4);
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '3', '--coordination', 'independent'], directory)).toBe(1);
     const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
     expect(state.turns).toBe(3);
     expect(state.usage.totalTokens).toBe(225);
     expect(host.createSession).toHaveBeenCalledTimes(3);
+    expect(state.error).toBe('math_model_turn_failed');
+    expect(state.workers.filter((worker: any) => worker.turns).every((worker: any) => worker.error === 'math_model_turn_failed')).toBe(true);
     expect(host.officialGate).not.toHaveBeenCalled();
   });
 
@@ -224,6 +256,30 @@ describe('isolated solver and host acceptance', () => {
     try { assertSolverProjectSources(problem, project); } catch (caught) { error = caught; }
     expect(error).toMatchObject({ message: 'math_original_declaration_changed', declarationName: 'fixed' });
     expect((error as SolverSourceError).recovery).toContain('fixed');
+  });
+
+  it.each(['first', 'second'])('projects documented declarations without orphan comments when keeping %s', target => {
+    const source = original
+      .replace('theorem first', '/-! Module documentation. -/\n/-- First /- nested -/ documentation. -/\ntheorem first')
+      .replace('theorem second', '/-- Second documentation. -/\ntheorem second')
+      .replace(`${target} : True := by sorry`, `${target} : True := by trivial`)
+      .replace('end Submission', 'def marker : String := "/-- literal -/"\n/-- Hidden helper documentation. -/\nlemma hidden : True := by trivial\nend Submission');
+    fs.writeFileSync(path.join(project, 'Submission.lean'), source);
+    git(workspace, ['add', 'generated/p/Submission.lean']);
+    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Documented baseline']);
+    problem = readSolverProblem(workspace, problem.activeProblemPath);
+    const commit = commitSolverSources(problem, workspace);
+    const task: CooperativeTask = { id: target, kind: 'goal', objective: 'Prove the target', dependsOn: [], revision: 0,
+      proofPath: 'Submission.lean', theoremName: `Submission.${target}` };
+    const projected = projectTaskSources(problem, workspace, commit, task, []).get('Submission.lean')!;
+    expect(projected).toContain(`theorem ${target} : True := by trivial`);
+    expect(projected).not.toContain(`theorem ${target === 'first' ? 'second' : 'first'}`);
+    expect(projected).toContain('lemma hidden');
+    expect(projected).not.toMatch(/documentation/iu);
+    expect(projected).toContain('def marker : String := "/-- literal -/"');
+    expect(projected).toContain('namespace Submission');
+    expect(projected).toContain('end Submission');
+    expect(fs.readFileSync(path.join(project, 'Submission.lean'), 'utf8')).toBe(source);
   });
 
   it.each([
@@ -706,10 +762,40 @@ describe('isolated solver and host acceptance', () => {
     expect(host.officialGate).toHaveBeenCalledOnce();
   }, 20_000);
 
+  it.each([false, true])('preserves cooperative saved work after a disconnected request, target saved=%s', async complete => {
+    let attempts = 0, seedCommit = '';
+    configureCooperation(async (action, options, message) => {
+      if (action.kind === 'task' && action.task.id === 'a') {
+        const file = path.join(options.workspace, 'generated/p/Submission.lean');
+        if (++attempts === 1) {
+          seedCommit = action.assignment.seedCommit;
+          fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('theorem first', 'lemma saved_support : True := by trivial\ntheorem first'));
+          fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), 'Saved partial proof; finish a next.');
+          if (complete) finishAssignment(action, options);
+          return 'failed';
+        }
+        expect(action.assignment.seedCommit).toBe(seedCommit);
+        expect(fs.readFileSync(file, 'utf8')).toContain('lemma saved_support : True := by trivial');
+        expect(fs.readFileSync(path.join(options.workspace, 'RESEARCH.md'), 'utf8')).toContain('Saved partial proof');
+        expect(message).toContain('math_task_missing_declaration');
+      }
+      finishAssignment(action, options); return 'completed';
+    });
+    const create = host.createSession.getMockImplementation()!;
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ ...await create(options),
+      lastError: 'stream disconnected before completion: error sending request' }));
+    expect(await runSolver([...args, '--workers', '2', '--max-turns', '8'], directory)).toBe(0);
+    expect(attempts).toBe(complete ? 1 : 2);
+    expect(host.delay).toHaveBeenCalledTimes(complete ? 0 : 1);
+    expect(cooperationState().tasks.every((node: any) => node.status === 'integrated')).toBe(true);
+    expect(cooperationState().deliveries.some((record: any) => record.taskId === 'a' && record.kind === 'failure')).toBe(false);
+    expect(host.officialGate).toHaveBeenCalledOnce();
+  });
+
   it.each([2, 4])('starts original goal work after an empty Lead checkpoint with %s workers', async count => {
     configureCooperation(async (action, options) => {
       if (action.kind === 'lead') {
-        expect(options.turnTimeoutMs).toBe(60_000);
+        expect(options.turnTimeoutMs).toBe(180_000);
         return 'checkpoint';
       }
       if (action.kind === 'task' && action.task.kind === 'research') {
@@ -734,7 +820,7 @@ describe('isolated solver and host acceptance', () => {
 
   it.each([180, 0])('keeps a valid task graph at a Lead checkpoint and respects turn limit %s', async seconds => {
     configureCooperation(async (action, options) => {
-      if (action.kind === 'lead') expect(options.turnTimeoutMs).toBe(seconds === 0 ? undefined : 60_000);
+      if (action.kind === 'lead') expect(options.turnTimeoutMs).toBe(seconds === 0 ? undefined : seconds * 1000);
       finishAssignment(action, options);
       return action.kind === 'lead' ? 'checkpoint' : 'completed';
     });
@@ -844,6 +930,8 @@ describe('isolated solver and host acceptance', () => {
     const spent = stoppedKind === 'review' ? 4 : stoppedKind === 'statement-review' ? 1 : 0;
     expect(state.cooperation.groups?.[0]?.turns ?? 0).toBe(spent);
     expect(state.turns).toBe(spent + (stoppedKind === 'lead' ? 0 : 1));
+    expect(Object.values(state.dispatchCounts).reduce((sum: number, value: any) => sum + value, 0)).toBe(state.turns);
+    expect(state.dispatchCounts.planning ?? 0).toBe(stoppedKind === 'lead' ? 0 : 1);
     expect(state.cooperation.tasks.every((node: any) => node.attempts === (stoppedKind === 'review' ? 1 : 0))).toBe(true);
     if (stoppedKind === 'review') expect(state.cooperation.review.status).toBe('pending');
     if (stoppedKind === 'backtranslate') expect(state.cooperation.statementReviews[0].status).toBe('pending');
@@ -1210,7 +1298,8 @@ describe('isolated solver and host acceptance', () => {
     const tasks = planTasks().slice(2).map(task => ({ ...task, dependsOn: [] }));
     const assignments: string[] = [];
     configureCooperation(async (action, options) => {
-      if (action.kind === 'lead') writePlan(options.workspace, tasks);
+      if (action.kind === 'lead') writePlan(options.workspace, tasks,
+        [{ id: 'main', objective: 'Prove the original obligations', status: 'active', revision: 0, engineerId: 'engineer' }]);
       else if (action.kind === 'task') {
         assignments.push(action.assignment.workerId);
         const file = path.join(options.workspace, 'generated/p/Submission.lean');
@@ -1304,7 +1393,9 @@ describe('isolated solver and host acceptance', () => {
     expect(deliveryDetails({ ...value, evidenceRefs: [123, 'STATEMENT.json'] }).evidenceRefs).toEqual(['STATEMENT.json']);
     expect(() => deliveryDetails({ ...value, remainingObligations: [123] })).toThrow('math_delivery_invalid');
     fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), 'x'.repeat(64001));
-    expect(() => readMathResponse(workspace, 'math-statement-review')).toThrow('missing_or_too_large');
+    expect(readMathResponse(workspace, 'math-result', {}, 'summary').summary).toHaveLength(64001);
+    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify({ ...value, summary: 'x'.repeat(100000) }));
+    expect(deliveryDetails(readMathResponse(workspace, 'math-statement-review')).summary).toHaveLength(3000);
   });
 
   it('preserves long mathematical explanations, premises and obligations without field quotas', () => {
@@ -1318,15 +1409,14 @@ describe('isolated solver and host acceptance', () => {
       remainingObligations: assumptions, evidenceRefs: ['STATEMENT.json'] });
   });
 
-  it.each(['parameters', 'proof'])('identifies a changed inherited helper %s and permits newly named helpers', change => {
+  it('identifies changed inherited helper parameters and permits newly named helpers', () => {
     const file = path.join(project, 'Submission.lean');
     const seedSource = original.replace('end Submission', 'lemma kept : True := by trivial\nend Submission');
     fs.writeFileSync(file, seedSource);
     const seedCommit = commitSolverSources(problem, workspace);
     const task: CooperativeTask = { id: 'candidate', kind: 'lemma', objective: 'Prove a new helper', dependsOn: [], revision: 0,
       proofPath: 'Submission.lean', theoremName: 'Submission.candidate', type: 'True' };
-    const edited = seedSource.replace('lemma kept : True := by trivial', change === 'parameters'
-      ? 'lemma kept (h : True) : True := by exact h' : 'lemma kept : True := by exact True.intro');
+    const edited = seedSource.replace('lemma kept : True := by trivial', 'lemma kept (h : True) : True := by exact h');
     fs.writeFileSync(file, edited);
     const rejectedCommit = commitSolverSources(problem, workspace);
     expect(() => taskChanges(problem, workspace, rejectedCommit, task, { seedCommit }))
@@ -1336,6 +1426,30 @@ describe('isolated solver and host acceptance', () => {
     expect(taskChanges(problem, workspace, acceptedCommit, task, { seedCommit })).toMatchObject([
       { file: 'Submission.lean', name: 'candidate', after: 'lemma candidate : True := by trivial\n' },
     ]);
+  });
+
+  it('merges prerequisite moves before an original goal without discarding peer additions', async () => {
+    const file = path.join(project, 'Submission.lean');
+    const helper = 'lemma prerequisite : True := by trivial\n';
+    const seed = original.replace('end Submission', helper + 'end Submission');
+    fs.writeFileSync(file, seed);
+    const seedCommit = commitSolverSources(problem, workspace);
+    const task: CooperativeTask = { id: 'first', kind: 'goal', objective: 'Prove the first target', dependsOn: [], revision: 0,
+      proofPath: 'Submission.lean', theoremName: 'Submission.first' };
+    const candidate = original.replace('theorem first', helper + 'theorem first').replace('first : True := by sorry', 'first : True := by exact prerequisite');
+    fs.writeFileSync(file, candidate);
+    const changes = taskChanges(problem, workspace, commitSolverSources(problem, workspace), task, { seedCommit });
+    await withSolverWorktree(workspace, seedCommit, async checkout => {
+      const mergedFile = path.join(checkout, problem.projectRelative, 'Submission.lean');
+      fs.writeFileSync(mergedFile, seed.replace('end Submission', 'lemma peer : True := by trivial\nend Submission'));
+      applyTaskChanges(problem, checkout, changes);
+      const merged = fs.readFileSync(mergedFile, 'utf8');
+      expect(merged.indexOf('lemma prerequisite')).toBeLessThan(merged.indexOf('theorem first'));
+      expect(merged).toContain('first : True := by exact prerequisite');
+      expect(merged).toContain('lemma peer : True := by trivial');
+      applyTaskChanges(problem, checkout, changes);
+      expect(fs.readFileSync(mergedFile, 'utf8')).toBe(merged);
+    });
   });
 
   it('merges independent helpers inside an initially empty namespace', async () => {
@@ -1349,9 +1463,11 @@ describe('isolated solver and host acceptance', () => {
     git(workspace, ['add', '--', `generated/p/${helper}`]);
     git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Owned helper module']);
     problem = readSolverProblem(workspace, problem.activeProblemPath);
+    const task: CooperativeTask = { id: 'first', kind: 'goal', objective: 'Prove the first target', dependsOn: [], revision: 0,
+      proofPath: 'Submission.lean', theoremName: 'Submission.first' };
     const changes = ['lemma a : True := by trivial\nlemma b : True := by trivial\n', 'lemma peer : True := by trivial\n'].map(proof => {
       fs.writeFileSync(path.join(project, helper), empty.replace('end Submission.Helpers', proof + 'end Submission.Helpers'));
-      return taskChanges(problem, workspace, commitSolverSources(problem, workspace), undefined, { seedCommit: problem.baseCommit });
+      return taskChanges(problem, workspace, commitSolverSources(problem, workspace), task, { seedCommit: problem.baseCommit });
     });
     await withSolverWorktree(workspace, problem.baseCommit, async checkout => {
       for (const change of changes) applyTaskChanges(problem, checkout, change);
@@ -1364,6 +1480,90 @@ describe('isolated solver and host acceptance', () => {
       for (const change of changes) applyTaskChanges(problem, checkout, change);
       expect(fs.readFileSync(file, 'utf8')).toBe(source);
     });
+  });
+
+  it('checks and merges proof-only repairs and new helpers across owned files while protecting statements', async () => {
+    const helper = 'Submission/Helpers.lean', module = 'Mathlib.Data.Nat.Basic';
+    const seed = 'namespace Submission.Helpers\ndef generatedValue : Nat := 2\nlemma kept : True := by trivial\nend Submission.Helpers\n';
+    fs.mkdirSync(path.join(project, 'Submission'));
+    fs.writeFileSync(path.join(project, helper), 'namespace Submission.Helpers\nend Submission.Helpers\n');
+    const receipt = JSON.parse(fs.readFileSync(problem.activeProblemPath, 'utf8'));
+    receipt.solverOwnedFiles.push(helper);
+    fs.writeFileSync(problem.activeProblemPath, JSON.stringify(receipt));
+    git(workspace, ['add', '--', `generated/p/${helper}`]);
+    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Owned helper module']);
+    problem = readSolverProblem(workspace, problem.activeProblemPath);
+    configureCooperation();
+    fs.writeFileSync(path.join(project, helper), seed);
+    const seedCommit = commitSolverSources(problem, workspace);
+    const task = planTasks()[0], assignment = { taskId: task.id, taskDigest: taskVersion(task), workerId: 'researcher', seedCommit };
+    const source = `import ${module}\n` + seed.replace('kept : True := by trivial', 'kept : True := by exact True.intro')
+      .replace('end Submission.Helpers', 'lemma support : True := by trivial\nend Submission.Helpers');
+    fs.writeFileSync(path.join(project, helper), source);
+    fs.writeFileSync(path.join(project, 'Submission.lean'), original.replace('theorem first', 'lemma a : True := by trivial\ntheorem first'));
+    const commit = commitSolverSources(problem, workspace);
+    const proof = await checkTaskProof(problem, workspace, commit, task, assignment, [], {}, new AbortController().signal);
+    expect(proof.passed).toBe(true);
+    expect(proof.changes.map(change => [change.file, change.name])).toEqual([
+      ['Submission.lean', 'a'], [helper, 'kept'], [helper, 'support'],
+    ]);
+    await withSolverWorktree(workspace, seedCommit, async checkout => {
+      applyTaskChanges(problem, checkout, proof.changes, proof.imports);
+      expect(fs.readFileSync(path.join(checkout, problem.projectRelative, helper), 'utf8')).toBe(source);
+    });
+    for (const modified of [source.replace('lemma kept : True', 'lemma kept (h : True) : True'),
+      source.replace('generatedValue : Nat := 2', 'generatedValue : Nat := 3'),
+      source.replace('lemma kept : True := by exact True.intro\n', '')]) {
+      fs.writeFileSync(path.join(project, helper), modified);
+      expect(() => taskChanges(problem, workspace, commitSolverSources(problem, workspace), task, assignment))
+        .toThrow(/math_task_existing_declaration_(?:changed|removed)/u);
+    }
+    fs.writeFileSync(path.join(project, helper), source);
+    fs.writeFileSync(path.join(project, 'Submission.lean'), original.replace('second : True := by sorry', 'second : True := by trivial'));
+    expect(() => taskChanges(problem, workspace, commitSolverSources(problem, workspace), task, assignment))
+      .toThrow('math_task_existing_declaration_changed');
+  });
+
+  it('removes orphan wrapper chains when a conditional task abstracts a saved dependency', () => {
+    const file = path.join(project, 'Submission.lean');
+    const source = original.replace('theorem first',
+      'lemma dependency : True := by trivial\nlemma dependency_wrapper : True := dependency\n' +
+      'lemma wrapper_chain : True := dependency_wrapper\nlemma parent : True := dependency\n' +
+      'lemma parent_wrapper : True := parent\ntheorem first');
+    fs.writeFileSync(file, source);
+    const commit = commitSolverSources(problem, workspace);
+    const dependency: CooperativeTask = { id: 'dependency', kind: 'lemma', objective: 'Prove the premise', dependsOn: [],
+      revision: 0, proofPath: 'Submission.lean', theoremName: 'Submission.dependency', type: 'True' };
+    const task: CooperativeTask = { id: 'parent', kind: 'lemma', objective: 'Prove the connection', dependsOn: ['dependency'],
+      revision: 0, proofPath: 'Submission.lean', theoremName: 'Submission.parent', type: 'True', conditional: true };
+    const unconditional = projectTaskSources(problem, workspace, commit, task, []).get('Submission.lean')!;
+    expect(unconditional).toContain('lemma dependency : True');
+    expect(unconditional).toContain('lemma dependency_wrapper : True');
+    const projected = projectTaskSources(problem, workspace, commit, task, [], [dependency]).get('Submission.lean')!;
+    expect(projected).toContain('lemma parent (dependency : True) : True := dependency');
+    for (const name of ['dependency', 'dependency_wrapper', 'wrapper_chain', 'parent_wrapper'])
+      expect(projected).not.toMatch(new RegExp(`lemma ${name} :`));
+    expect(fs.readFileSync(file, 'utf8')).toBe(source);
+  });
+
+  it.each(['sorry', 'admit'])('isolates unfinished peer proofs without assuming a required %s dependency', placeholder => {
+    const file = path.join(project, 'Submission.lean');
+    const source = original.replace('theorem first',
+      `lemma unfinished : True := by ${placeholder}\nlemma wrapper : True := unfinished\n` +
+      'lemma valid : True := by trivial\nlemma consumer : True := unfinished\ntheorem first');
+    fs.writeFileSync(file, source);
+    const commit = commitSolverSources(problem, workspace);
+    const task: CooperativeTask = { id: 'consumer', kind: 'lemma', objective: 'Check the consumer', dependsOn: [],
+      revision: 0, proofPath: 'Submission.lean', theoremName: 'Submission.consumer', type: 'True' };
+    const projected = projectTaskSources(problem, workspace, commit, task, []).get('Submission.lean')!;
+    expect(projected).not.toContain('lemma unfinished');
+    expect(projected).not.toContain('lemma wrapper');
+    expect(projected).toContain('lemma valid : True := by trivial');
+    expect(projected).toContain('lemma consumer : True := unfinished');
+    const targeted = projectTaskSources(problem, workspace, commit,
+      { ...task, theoremName: 'Submission.unfinished' }, []).get('Submission.lean')!;
+    expect(targeted).toContain(`lemma unfinished : True := by ${placeholder}`);
+    expect(fs.readFileSync(file, 'utf8')).toBe(source);
   });
 
   it('retains added Mathlib imports when checking and merging a helper proof', async () => {
@@ -1559,10 +1759,11 @@ describe('isolated solver and host acceptance', () => {
     expect(await runSolver([...parallelArgs, '--resume', '--workers', '2'], directory)).toBe(1);
     expect(fs.readFileSync(output, 'utf8')).toBe(before);
     const checks = host.verify.mock.calls.length;
+    const sessions = host.createSession.mock.calls.length;
     expect(await runSolver([...parallelArgs, '--resume', '--max-turns', '6'], directory)).toBe(0);
     expect(host.verify.mock.calls.slice(checks, checks + 2).map(([request]) => request.items[0].theoremName)).toEqual(['Submission.a', 'Submission.b']);
-    for (const [options] of host.createSession.mock.calls.slice(3)) expect(options.threadId).toBe(
-      options.environment.DEEPSCIENTIST_MATH_WORKER_ID === 'engineer' || options.instructions.includes('You are the Independent Reviewer') ? undefined : `thread-${options.environment.DEEPSCIENTIST_MATH_WORKER_ID}`);
+    for (const [options] of host.createSession.mock.calls.slice(sessions)) expect(options.threadId).toBe(
+      options.environment.DEEPSCIENTIST_MATH_WORKER_ID === 'solver' ? 'thread-solver' : undefined);
     expect(host.officialGate).toHaveBeenCalledOnce();
   });
 
@@ -1729,6 +1930,37 @@ describe('isolated solver and host acceptance', () => {
     expect(() => readCooperationPlan(problem, workspace)).toThrow(/math_plan/u);
   });
 
+  it.each([false, true])('proves ready original goals concurrently with idle Researchers (explicit owner: %s)', async pinned => {
+    const tasks = planTasks().slice(2).map((task, index) => ({ ...task, dependsOn: [],
+      ...(pinned ? { ownerId: index === 0 ? 'researcher-1' : 'engineer' } : {}) }));
+    const assignments: { taskId: string; workerId: string }[] = [];
+    let release!: () => void;
+    const bothStarted = new Promise<void>(resolve => { release = resolve; });
+    configureCooperation(async (action, options, message) => {
+      if (action.kind === 'lead') writePlan(options.workspace, tasks);
+      else if (action.kind === 'task') {
+        expect(action.task.kind).toBe('goal');
+        expect(message).toContain('Your role: engineer');
+        assignments.push({ taskId: action.task.id, workerId: action.assignment.workerId });
+        if (assignments.length === 2) release();
+        await bothStarted;
+        const file = path.join(options.workspace, 'generated/p/Submission.lean');
+        fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(
+          `${action.task.id} : True := by sorry`, `${action.task.id} : True := by trivial`));
+      } else finishAssignment(action, options);
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '4'], directory)).toBe(0);
+    expect(assignments).toHaveLength(2);
+    expect(new Set(assignments.map(item => item.workerId)).size).toBe(2);
+    expect(assignments.some(item => item.workerId.startsWith('researcher-'))).toBe(true);
+    if (pinned) expect(assignments).toEqual(expect.arrayContaining([
+      { taskId: 'first', workerId: 'researcher-1' }, { taskId: 'second', workerId: 'engineer' },
+    ]));
+    expect(cooperationState().tasks.every((node: any) => node.status === 'integrated')).toBe(true);
+    expect(host.officialGate).toHaveBeenCalledOnce();
+  });
+
   it('lets the Engineer prove an independent goal while both Researchers work on helpers', async () => {
     let started = 0;
     let release!: () => void;
@@ -1794,6 +2026,90 @@ describe('isolated solver and host acceptance', () => {
     expect(host.officialGate).not.toHaveBeenCalled();
   });
 
+  it.each(['missing', 'lean', 'sorry'].flatMap(failure => [false, true].map(repaired => ({ failure, repaired }))))
+  ('allows one local task repair before Lead escalation ($failure, repaired: $repaired)', async ({ failure, repaired }) => {
+    let leadTurns = 0, helperTurns = 0;
+    let firstAssignment: Extract<CooperativeAction, { kind: 'task' }>['assignment'] | undefined;
+    let firstWorkspace: string | undefined;
+    configureCooperation(async (action, options, message) => {
+      if (action.kind === 'lead') {
+        leadTurns++;
+        finishAssignment(action, options);
+      } else if (action.kind === 'task' && action.task.id === 'a') {
+        helperTurns++;
+        if (firstAssignment) {
+          expect(action.assignment).toEqual(firstAssignment);
+          expect(options.workspace).toBe(firstWorkspace);
+          expect(message).toContain(failure === 'missing' ? 'math_task_missing_declaration' :
+            failure === 'sorry' ? 'Proof source contains sorry or admit.' : 'Unknown identifier LOCAL_REPAIR_GAP');
+        } else { firstAssignment = { ...action.assignment }; firstWorkspace = options.workspace; }
+        if (helperTurns === 1 || !repaired) {
+          if (failure !== 'missing' && helperTurns === 1) {
+            const file = path.join(options.workspace, 'generated/p/Submission.lean');
+            const source = fs.readFileSync(file, 'utf8');
+            fs.writeFileSync(file, source.replace('theorem first',
+              `lemma a : True := by ${failure === 'sorry' ? 'sorry' : 'exact LOCAL_REPAIR_GAP'}\ntheorem first`));
+          }
+        } else {
+          const file = path.join(options.workspace, 'generated/p/Submission.lean');
+          fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('by exact LOCAL_REPAIR_GAP', 'by trivial'));
+          finishAssignment(action, options);
+        }
+      } else finishAssignment(action, options);
+      return 'completed';
+    });
+    const verify = host.verify.getMockImplementation()!;
+    host.verify.mockImplementation(async (request, options) => {
+      const source = fs.readFileSync(path.join(request.projectRoot, 'Submission.lean'), 'utf8');
+      if (source.includes('LOCAL_REPAIR_GAP') || /lemma a : True := by sorry/u.test(source)) {
+        const checked = verified(request);
+        return { ...checked, status: 'failed', results: checked.results.map(result => ({ ...result, status: 'failed',
+          error: failure === 'sorry' ? 'Proof source contains sorry or admit.' : 'Lean exited with status 1.',
+          sorryCount: failure === 'sorry' ? 1 : 0,
+          stderrPreview: failure === 'lean' ? 'Submission.lean:3:1: error: Unknown identifier LOCAL_REPAIR_GAP' : undefined })) };
+      }
+      return verify(request, options);
+    });
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '8'], directory)).toBe(repaired ? 0 : 4);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(helperTurns).toBe(2);
+    expect(leadTurns).toBe(repaired ? 1 : 2);
+    expect(state.turns).toBeLessThanOrEqual(8);
+    expect(state.cooperation.tasks[0]).toMatchObject({ attempts: 2, status: repaired ? 'integrated' : 'blocked' });
+    if (!repaired) expect(host.officialGate).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])('reconsiders blocked work once after new checked peer progress (revise: %s)', async revise => {
+    let leadTurns = 0, helperTurns = 0;
+    let releasePeer!: () => void;
+    const leadResponded = new Promise<void>(resolve => { releasePeer = resolve; });
+    configureCooperation(async (action, options) => {
+      if (action.kind === 'lead') {
+        const tasks = planTasks();
+        if (++leadTurns > 2) {
+          expect(cooperationState().tasks[0].status).toBe('blocked');
+          expect(cooperationState().tasks[1].status).toBe('integrated');
+          if (revise) tasks[0] = { ...tasks[0], revision: 1 };
+        }
+        writePlan(options.workspace, tasks);
+        if (leadTurns === 2) releasePeer();
+      } else if (action.kind === 'task' && action.task.id === 'a' && ++helperTurns === 1) {
+        const file = path.join(options.workspace, 'generated/p/Submission.lean');
+        fs.writeFileSync(file, original.replace('theorem first', 'lemma a : False := by trivial\ntheorem first'));
+      } else {
+        if (action.kind === 'task' && action.task.id === 'b') await leadResponded;
+        finishAssignment(action, options);
+      }
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '12'], directory)).toBe(revise ? 0 : 4);
+    expect(leadTurns).toBe(3);
+    expect(helperTurns).toBe(revise ? 2 : 1);
+    expect(cooperationState().tasks[0].status).toBe(revise ? 'integrated' : 'blocked');
+    expect(cooperationState().tasks[1].attempts).toBe(1);
+    expect(host.officialGate).toHaveBeenCalledTimes(revise ? 1 : 0);
+  });
+
   it.each([false, true])('blocks the wrong helper type and retries only after a Lead revision (revise: %s)', async revise => {
     let leadTurns = 0, helperTurns = 0;
     configureCooperation(async (action, options, message) => {
@@ -1849,6 +2165,8 @@ describe('isolated solver and host acceptance', () => {
     });
     expect(await runSolver([...args, '--workers', '4', '--max-turns', '6'], directory)).toBe(0);
     expect(leadTurns).toBe(1);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state.dispatchCounts).toEqual({ planning: 1, research: 1, proof: 2, review: 1 });
     expect(host.verify.mock.calls.some(([request]) => request.items.some(item => item.theoremName === 'route'))).toBe(false);
   });
 
@@ -2047,6 +2365,24 @@ describe('isolated solver and host acceptance', () => {
     expect(translations).toBe(1); expect(comparisons).toBe(2);
     const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
     expect(state.turns).toBe(9); expect(state.usage).toMatchObject({ inputTokens: 9000, totalTokens: 10800 });
+  });
+
+  it('retries a disconnected statement review without rejecting its statement or repeating the translation', async () => {
+    const tasks = statementTasks(); let translations = 0, comparisons = 0;
+    configureCooperation(async (action, options) => {
+      if (action.kind === 'lead') { writePlan(options.workspace, tasks); return 'completed'; }
+      if (action.kind === 'backtranslate') translations++;
+      if (action.kind === 'statement-review' && ++comparisons === 1) return 'failed';
+      finishAssignment(action, options); return 'completed';
+    });
+    const create = host.createSession.getMockImplementation()!;
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ ...await create(options),
+      lastError: 'stream disconnected before completion: error sending request' }));
+    expect(await runSolver([...args, '--workers', '2', '--max-turns', '10'], directory)).toBe(0);
+    expect(translations).toBe(1); expect(comparisons).toBe(2);
+    expect(host.delay).toHaveBeenCalledOnce();
+    expect(cooperationState().statementReviews[0].status).toBe('accepted');
+    expect(host.officialGate).toHaveBeenCalledOnce();
   });
 
   it('releases a paused statement session, resumes it freshly and keeps peer notifications out', async () => {
@@ -2301,6 +2637,7 @@ describe('isolated solver and host acceptance', () => {
 
   it('records kernel-reported actual dependencies separately from the planned graph and binds their source and environment', async () => {
     const tasks = planTasks();
+    tasks[2] = { ...tasks[2], dependsOn: ['a'] };
     configureCooperation(async (action, options) => {
       if (action.kind === 'lead') writePlan(options.workspace, tasks);
       else if (action.kind === 'task' && action.task.id === 'first') {
@@ -2310,15 +2647,52 @@ describe('isolated solver and host acceptance', () => {
       return 'completed';
     });
     configureReferenceReports({ first: ['b'], second: ['first', 'b'] });
+    const verify = host.verify.getMockImplementation()!;
+    host.verify.mockImplementation(async (request, options) => {
+      if (request.items.some(item => item.theoremName === 'Submission.first'))
+        expect(fs.readFileSync(path.join(request.projectRoot, 'Submission.lean'), 'utf8')).toContain('lemma b : True');
+      return verify(request, options);
+    });
     expect(await runSolver([...args, '--workers', '2', '--max-turns', '6'], directory)).toBe(0);
     const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
     const first = state.cooperation.tasks[2];
-    expect(first.task.dependsOn).toEqual(['a', 'b']);
+    expect(first.task.dependsOn).toEqual(['a']);
     expect(first.integratedCheck.references.tasks).toEqual([{ taskId: 'b', taskDigest: taskVersion(tasks[1]) }]);
     expect(first.integratedCheck.references).toMatchObject({ sourceCommit: first.integratedCheck.commit, environmentDigest: state.environmentDigest });
     expect(first.integratedCheck.references.inputs.map((input: any) => input.name)).toEqual(['b', 'first']);
     const live = JSON.parse(fs.readFileSync(path.join(state.worktree, 'COOPERATION.json'), 'utf8'));
     expect(live.peers[2].actualReferences.tasks).toEqual(first.integratedCheck.references.tasks);
+  });
+
+  it('records the producer task when its supporting helper is in another owned file', async () => {
+    const helper = 'Submission/Helpers.lean';
+    fs.mkdirSync(path.join(project, 'Submission'));
+    fs.writeFileSync(path.join(project, helper), 'namespace Submission.Helpers\nend Submission.Helpers\n');
+    const receipt = JSON.parse(fs.readFileSync(problem.activeProblemPath, 'utf8'));
+    receipt.solverOwnedFiles.push(helper);
+    fs.writeFileSync(problem.activeProblemPath, JSON.stringify(receipt));
+    git(workspace, ['add', '--', `generated/p/${helper}`]);
+    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Owned helper module']);
+    problem = readSolverProblem(workspace, problem.activeProblemPath);
+    configureCooperation(async (action, options) => {
+      finishAssignment(action, options);
+      if (action.kind === 'task' && action.task.id === 'a') {
+        fs.writeFileSync(path.join(options.workspace, problem.projectRelative, helper),
+          'namespace Submission.Helpers\nlemma support : True := by trivial\nend Submission.Helpers\n');
+      }
+      return 'completed';
+    });
+    const verify = host.verify.getMockImplementation()!;
+    host.verify.mockImplementation(async (request, options) => {
+      const result = await verify(request, options);
+      if (!options.collectDeclarationReferences) return result;
+      return { ...result, results: result.results.map(item => ({ ...item, declarationReferences: { statement: [],
+        proof: item.theoremName === 'Submission.first' ? [{ name: 'Submission.Helpers.support', file: helper }] : [] } })) };
+    });
+    expect(await runSolver([...args, '--workers', '2', '--max-turns', '6'], directory)).toBe(0);
+    const first = cooperationState().tasks.find((node: any) => node.task.id === 'first');
+    expect(first.integratedCheck.references.tasks).toEqual([{ taskId: 'a', taskDigest: taskVersion(planTasks()[0]) }]);
+    expect(first.integratedCheck.references.inputs).toContainEqual(expect.objectContaining({ file: helper, name: 'support' }));
   });
 
   it('rechecks a changed definition consumer while retaining the unrelated checked proof at its original receipt commit', async () => {
@@ -2464,7 +2838,7 @@ describe('isolated solver and host acceptance', () => {
       if (source.includes('theorem first (a : True) (b : True)')) {
         conditionalChecks++;
         expect(source).toContain('exact And.left (And.intro a b)');
-        expect(source).toContain('-- Submission.a remains a reference in this comment.');
+        expect(source).not.toContain('-- Submission.a remains a reference in this comment.');
         expect(source).not.toMatch(/lemma [ab]/u);
         expect(source).not.toContain('sorry');
       }
@@ -2479,6 +2853,7 @@ describe('isolated solver and host acceptance', () => {
     expect(records[1].remainingObligations).toEqual([]);
     const source = fs.readFileSync(path.join(project, 'Submission.lean'), 'utf8');
     expect(source).not.toContain('(a : True)');
+    expect(source).toContain('-- Submission.a remains a reference in this comment.');
     expect(source).toContain('And.intro Submission.a Submission.b');
     expect(host.officialGate).toHaveBeenCalledOnce();
   }, 20_000);
@@ -3303,16 +3678,17 @@ describe('isolated solver and host acceptance', () => {
     expect(host.officialGate).not.toHaveBeenCalled();
   });
 
-  it.each(['failed', 'transport_closed'])('checks a saved proof after a %s turn before independent evaluation', async status => {
+  it.each(['failed', 'transport_closed', 'stream_disconnected'])('checks a saved proof after a %s turn before independent evaluation', async status => {
     const run = vi.fn();
     const close = vi.fn();
     host.createSession.mockImplementation(async (options: MathAgentOptions) => {
       run.mockImplementation(async () => {
         fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
         if (status === 'transport_closed') throw new Error('math_codex_transport_closed');
-        return status;
+        return 'failed';
       });
-      return { threadId: 'fixture-thread', run, close, interrupt: vi.fn() };
+      return { threadId: 'fixture-thread', lastError: status === 'stream_disconnected'
+        ? 'stream disconnected before completion: error sending request' : undefined, run, close, interrupt: vi.fn() };
     });
     expect(await runSolver([...args, '--max-turns', '3'], directory)).toBe(0);
     expect(run).toHaveBeenCalledTimes(1);
@@ -3332,12 +3708,12 @@ describe('isolated solver and host acceptance', () => {
       return status;
     });
     host.createSession.mockResolvedValueOnce({ threadId: 'fixture-thread', run, close: vi.fn(), interrupt: vi.fn() });
-    expect(await runSolver([...args, '--max-turns', '3'], directory)).toBe(4);
+    expect(await runSolver([...args, '--max-turns', '1'], directory)).toBe(1);
     expect(run).toHaveBeenCalledTimes(1);
     expect(host.verify).toHaveBeenCalledTimes(1);
     expect(host.officialGate).not.toHaveBeenCalled();
     expect(git(workspace, ['rev-parse', 'HEAD'])).toBe(problem.baseCommit);
-    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'incomplete', turns: 1, solver_ready_receipt_valid: false });
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'runtime_error', turns: 1, reason: 'math_model_turn_failed' });
     const resumed = vi.fn();
     host.createSession.mockImplementation(async (options: MathAgentOptions) => {
       resumed.mockImplementation(async () => {
@@ -3352,7 +3728,7 @@ describe('isolated solver and host acceptance', () => {
     expect(host.verify).toHaveBeenCalledTimes(3);
   });
 
-  it('keeps an invalid source incomplete after a failed turn without retrying the closed session', async () => {
+  it('reports a failed turn with invalid sources without retrying the closed session', async () => {
     const run = vi.fn();
     host.createSession.mockImplementation(async (options: MathAgentOptions) => {
       run.mockImplementation(async () => {
@@ -3361,20 +3737,22 @@ describe('isolated solver and host acceptance', () => {
       });
       return { threadId: 'fixture-thread', run, close: vi.fn(), interrupt: vi.fn() };
     });
-    expect(await runSolver([...args, '--max-turns', '3'], directory)).toBe(4);
+    expect(await runSolver([...args, '--max-turns', '3'], directory)).toBe(1);
     expect(run).toHaveBeenCalledTimes(1);
     expect(host.verify).not.toHaveBeenCalled();
     expect(host.officialGate).not.toHaveBeenCalled();
-    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'incomplete', turns: 1, solver_ready_receipt_valid: false });
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'runtime_error', turns: 1, reason: 'math_model_turn_failed' });
   });
 
-  it('automatically resumes a rate-limited turn with saved proof and Lean feedback', async () => {
+  it.each(['stream disconnected before completion: Concurrency limit exceeded for account, please retry later',
+    'stream disconnected before completion: error sending request', 'math_codex_transport_closed', 'Service unavailable (503)'])
+  ('automatically resumes a failed request with saved proof and Lean feedback (%s)', async error => {
     const diagnostic = 'Submission.lean:4:1: error: unsolved goals\n⊢ True';
     const partial = original.replace('theorem first : True := by sorry', 'theorem first : True := by trivial');
     host.verify.mockImplementationOnce(async request => ({ ...verified(request), status: 'failed',
       results: verified(request).results.map(item => ({ ...item, status: 'failed', stdoutPreview: diagnostic })) }));
     host.createSession.mockImplementationOnce(async (options: MathAgentOptions) => ({ threadId: 'fixture-thread',
-      lastError: 'stream disconnected before completion: Concurrency limit exceeded for account, please retry later',
+      lastError: error,
       run: async () => {
         fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), partial);
         return 'failed';
@@ -3394,6 +3772,33 @@ describe('isolated solver and host acceptance', () => {
     expect(host.verify).toHaveBeenCalledTimes(3);
     expect(host.officialGate).toHaveBeenCalledTimes(1);
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'evaluated_passed', turns: 2 });
+  });
+
+  it('reopens a disconnected startup without spending another turn or discarding saved proof', async () => {
+    const partial = original.replace('first : True := by sorry', 'first : True := by trivial');
+    host.createSession.mockImplementationOnce(async (options: MathAgentOptions) => {
+      fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), partial);
+      throw new Error('math_codex_transport_closed:process_exit:code=9:signal=none');
+    });
+    host.createSession.mockImplementationOnce(async (options: MathAgentOptions) => ({ threadId: 'reopened',
+      run: async () => {
+        expect(fs.readFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), 'utf8')).toBe(partial);
+        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+        return 'completed';
+      }, close: vi.fn(), interrupt: vi.fn() }));
+    expect(await runSolver(args, directory)).toBe(0);
+    expect(host.createSession).toHaveBeenCalledTimes(2);
+    expect(host.delay).toHaveBeenCalledOnce();
+    expect(JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8')).turns).toBe(1);
+    expect(host.officialGate).toHaveBeenCalledOnce();
+  });
+
+  it('bounds disconnected session startup retries and releases its unstarted turn', async () => {
+    host.createSession.mockRejectedValue(new Error('math_codex_transport_closed:process_exit:code=9:signal=none'));
+    expect(await runSolver(args, directory)).toBe(1);
+    expect(host.createSession).toHaveBeenCalledTimes(4);
+    expect(host.delay.mock.calls.map(call => call[0])).toEqual([10_000, 20_000, 40_000]);
+    expect(JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8')).turns).toBe(0);
   });
 
   it('avoids preparing or opening a spare session when selection stops after retry backoff', async () => {
@@ -3416,17 +3821,18 @@ describe('isolated solver and host acceptance', () => {
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'incomplete', turns: 1 });
   });
 
-  it.each([2, 10])('bounds rate-limit retries by both retry and turn limits (%s turns)', async maxTurns => {
+  it.each([2, 10])('bounds request retries by both retry and turn limits (%s turns)', async maxTurns => {
     host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
       results: verified(request).results.map(item => ({ ...item, status: 'failed', stdoutPreview: 'Submission.lean:4:1: error: unsolved goals\n⊢ True' })) }));
     host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.threadId || 'fixture-thread',
       lastError: 'Concurrency limit exceeded for account', run: vi.fn().mockResolvedValue('failed'), close: vi.fn(), interrupt: vi.fn() }));
-    expect(await runSolver([...args, '--max-turns', String(maxTurns)], directory)).toBe(4);
+    expect(await runSolver([...args, '--max-turns', String(maxTurns)], directory)).toBe(1);
     const turns = Math.min(maxTurns, 4);
     expect(host.createSession).toHaveBeenCalledTimes(turns);
     expect(host.delay.mock.calls.map(call => call[0])).toEqual([10_000, 20_000, 40_000].slice(0, turns - 1));
     expect(host.officialGate).not.toHaveBeenCalled();
-    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'incomplete', turns });
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'runtime_error', turns, reason: 'math_model_concurrency_limit' });
+    expect(JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8')).error).toBe('math_model_concurrency_limit');
   });
 
   it('stops an aborted rate-limit backoff without creating another session', async () => {
@@ -3441,14 +3847,29 @@ describe('isolated solver and host acceptance', () => {
     expect(JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8')).check.passed).toBe(false);
   });
 
-  it('does not retry other provider failures', async () => {
+  it('resets the request retry count after successful turns', async () => {
+    let turns = 0;
+    host.verify.mockImplementation(async request => turns === 8 ? verified(request) : ({ ...verified(request), status: 'failed',
+      results: verified(request).results.map(item => ({ ...item, status: 'failed' })) }));
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.threadId || 'fixture-thread',
+      lastError: 'stream disconnected before completion: error sending request', run: async () => {
+        if (++turns === 8) fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+        return turns % 2 ? 'failed' : 'completed';
+      }, close: vi.fn(), interrupt: vi.fn() }));
+    expect(await runSolver([...args, '--max-turns', '10'], directory)).toBe(0);
+    expect(host.delay.mock.calls.map(call => call[0])).toEqual([10_000, 10_000, 10_000, 10_000]);
+    expect(host.officialGate).toHaveBeenCalledOnce();
+  });
+
+  it('reports authentication failures without retrying them', async () => {
     host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
       results: verified(request).results.map(item => ({ ...item, status: 'failed' })) }));
     host.createSession.mockResolvedValueOnce({ threadId: 'fixture-thread', lastError: 'Invalid authentication',
       run: vi.fn().mockResolvedValue('failed'), close: vi.fn(), interrupt: vi.fn() });
-    expect(await runSolver([...args, '--max-turns', '3'], directory)).toBe(4);
+    expect(await runSolver([...args, '--max-turns', '3'], directory)).toBe(1);
     expect(host.createSession).toHaveBeenCalledTimes(1);
     expect(host.delay).not.toHaveBeenCalled();
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'runtime_error', reason: 'math_model_authentication_failed' });
   });
 
   it('stops interrupted turns without starting verification', async () => {
@@ -3486,6 +3907,34 @@ describe('isolated solver and host acceptance', () => {
     expect(host.createSession).not.toHaveBeenCalled();
     expect(JSON.parse(fs.readFileSync(`${output}.runtime/toolchain-readiness.json`, 'utf8'))).toMatchObject({ status: 'invalid', diagnostics });
     expect(console.log).toHaveBeenCalledWith(expect.stringContaining(diagnostics));
+  });
+
+  it.each([false, true])('blocks an unreachable provider before dependencies or a model, startup=%s', async startup => {
+    host.connectivity.mockResolvedValue({ status: 'unavailable', diagnostics: 'Provider connection failed. Check the proxy on this host.' });
+    expect(await runSolver([...args, ...(startup ? ['--startup-only'] : [])], directory)).toBe(1);
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({
+      status: 'runtime_error', reason: 'math_codex_provider_unreachable', turns: 0,
+    });
+    expect(host.freeze).not.toHaveBeenCalled();
+    expect(host.prepare).not.toHaveBeenCalled();
+    expect(host.createSession).not.toHaveBeenCalled();
+    expect(JSON.parse(fs.readFileSync(`${output}.runtime/provider-connectivity.json`, 'utf8')).status).toBe('unavailable');
+  });
+
+  it.each([false, true])('blocks a missing pinned package cache before preparation or a model, startup=%s', async startup => {
+    fs.writeFileSync(path.join(project, 'lake-manifest.json'), JSON.stringify({ packages: [
+      { name: 'mathlib', rev: 'a'.repeat(40), type: 'git' },
+    ] }));
+    git(workspace, ['add', '--', 'generated/p/lake-manifest.json']);
+    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Pinned dependency']);
+    expect(await runSolver([...args, ...(startup ? ['--startup-only'] : [])], directory)).toBe(1);
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({
+      status: 'runtime_error', reason: 'math_lake_packages_unavailable', turns: 0,
+    });
+    expect(host.freeze).not.toHaveBeenCalled();
+    expect(host.prepare).not.toHaveBeenCalled();
+    expect(host.createSession).not.toHaveBeenCalled();
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('No manifest-compatible Lake package cache'));
   });
 
   it('repairs stale package links for every worker on resume before checking dependencies', async () => {
@@ -3705,6 +4154,7 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it('offers verified library lookup to the solver and rejects changed retrieval identities on resume', async () => {
+    host.packages = path.join(project, '.lake/packages');
     const library = path.join(project, '.lake/packages/mathlib/Mathlib/Order/Basic.lean');
     fs.mkdirSync(path.dirname(library), { recursive: true });
     fs.writeFileSync(library, 'lemma library_helper : True := by trivial');

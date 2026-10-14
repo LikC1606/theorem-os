@@ -10,7 +10,7 @@ import type { MathAgentActivity } from '../runtime/codexSession';
 import { z } from 'zod';
 
 export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | 'previousThreadIds' |
-  'lastInputTokens' | 'lastActivity' | 'phase' | 'turns' | 'usage' | 'usageBeforeThread' | 'check' | 'candidate' | 'lemmaResearch' | 'failures'> & {
+  'lastInputTokens' | 'lastActivity' | 'phase' | 'turns' | 'dispatchCounts' | 'usage' | 'usageBeforeThread' | 'check' | 'candidate' | 'lemmaResearch' | 'failures' | 'error'> & {
   id: string;
   role: ResearchRole;
   sessionRole?: ResearchRole;
@@ -18,7 +18,6 @@ export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | '
   sessionTaskId?: string;
   sessionTaskVersion?: string;
   sessionStatementReview?: boolean;
-  error?: string;
 };
 
 /** S1: resumable records; storing a candidate never grants proof acceptance. */
@@ -43,12 +42,17 @@ export type SolverRunState = {
   lastActivity?: MathAgentActivity & { at: number };
   phase: 'prepared' | 'running' | 'checking' | 'evaluating' | 'finished';
   turns: number;
+  /** Dispatches are scheduling events, not equal units of computation. */
+  dispatchCounts?: Partial<Record<'planning' | 'research' | 'proof' | 'review', number>>;
+  solveStartedAt?: number;
+  solveFinishedAt?: number;
   usage?: Record<string, unknown>;
   usageBeforeThread?: Record<string, unknown>;
   check?: ProofCheck;
   candidate?: ResearchCandidate;
   lemmaResearch?: LemmaResearch;
   failures?: SolverFailure[];
+  error?: string;
   workerCount?: number;
   workers?: SolverWorkerState[];
   cooperation?: CooperationState;
@@ -62,10 +66,12 @@ const check = z.object({ commit: z.string().min(1), sourceDigest: z.string().min
   verification: z.object({ status: z.enum(['kernel_verified', 'failed', 'blocked', 'unavailable']),
     targetCommit: z.string().optional(), results: z.array(record) }).passthrough() }).passthrough();
 const research = z.object({ worktree: z.string().min(1), phase, turns: count, threadId: z.string().optional(),
+  dispatchCounts: z.object({ planning: count.optional(), research: count.optional(), proof: count.optional(), review: count.optional() }).optional(),
+  solveStartedAt: count.optional(), solveFinishedAt: count.optional(),
   previousThreadIds: z.array(z.string()).optional(), lastInputTokens: count.optional(), check: check.optional(),
   lastActivity: z.object({ at: count, event: z.string().min(1).max(64), itemType: z.string().max(64).optional() }).optional(),
   usage: record.optional(), usageBeforeThread: record.optional(), candidate: record.optional(),
-  lemmaResearch: record.optional(), failures: z.array(record).optional() }).passthrough();
+  lemmaResearch: record.optional(), failures: z.array(record).optional(), error: z.string().optional() }).passthrough();
 const role = z.enum(['lead', 'researcher', 'engineer', 'reviewer']);
 const task = z.object({ id: z.string().min(1), kind: z.enum(['research', 'sketch', 'lemma', 'goal']),
   objective: z.string(), dependsOn: z.array(z.string()), revision: count }).passthrough();
