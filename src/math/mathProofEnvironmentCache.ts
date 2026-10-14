@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
-import { canonicalMathJson } from "./mathRuntimeIo";
+import { canonicalMathJson, mathFileIdentity, readMathFile } from "./mathRuntimeIo";
 import { assertMathCanonicalPath } from "./paths";
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/u);
@@ -22,21 +22,13 @@ const entrySchema = z.object({
 export type MathProofEnvironmentCacheEntry = z.infer<typeof entrySchema>;
 
 function readPrivateFile(file: string, maxBytes: number): Buffer {
-  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
-  try {
-    const stat = fs.fstatSync(fd);
-    if (
-      !stat.isFile() ||
-      stat.nlink !== 1 ||
-      (stat.mode & 0o077) !== 0 ||
-      (process.getuid && stat.uid !== process.getuid()) ||
-      stat.size > maxBytes
-    )
-      throw new Error('Invalid private proof environment cache file.');
-    return fs.readFileSync(fd);
-  } finally {
-    fs.closeSync(fd);
-  }
+  const stat = fs.lstatSync(file, { bigint: true });
+  if (!stat.isFile() || (stat.mode & BigInt(0o077)) !== BigInt(0) ||
+      (process.getuid && stat.uid !== BigInt(process.getuid())))
+    throw new Error('Invalid private proof environment cache file.');
+  const value = readMathFile(file, maxBytes);
+  if (value.identity !== mathFileIdentity(stat)) throw new Error('Private proof environment cache file changed.');
+  return value.bytes;
 }
 
 /** Host-private disk cache. Each run still receives its own unlinked image and mount. */

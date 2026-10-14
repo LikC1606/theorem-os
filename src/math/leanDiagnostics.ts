@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { runLeanProcess } from './mathProcess';
 import { assertMathConstructionSources, mathLocalModuleBuildOrder } from './mathConstructionSources';
 import { assertMathCanonicalPath } from './paths';
 import { mathDigest } from './mathRuntimeIo';
@@ -32,28 +32,13 @@ async function runWorkerLean(project: string, module: { file: string; sourceRoot
       .filter(file => fs.existsSync(file));
     fs.mkdirSync(path.dirname(path.join(project, output)), { recursive: true });
     signal?.throwIfAborted();
-    return await new Promise<{ started: boolean; exitCode: number | null; timedOut: boolean; aborted: boolean;
-      durationMs: number; stdout: string; stderr: string }>(resolve => {
-      const child = spawn(readiness.leanPath!, ['-j1', '-R', module.sourceRoot, '-o', output, module.file], {
-        cwd: project, env: { ...env, LEAN_PATH: libraries.join(path.delimiter), LEAN_NUM_THREADS: '1' },
-        detached: true, stdio: ['ignore', 'pipe', 'pipe'],
-      });
-      let stdout = Buffer.alloc(0), stderr = Buffer.alloc(0), timedOut = false, aborted = false, started = false;
-      const capture = (previous: Buffer, chunk: Buffer) => Buffer.concat([previous, chunk.subarray(0, Math.max(0, 8000 - previous.length))]);
-      child.stdout.on('data', chunk => { stdout = capture(stdout, chunk); });
-      child.stderr.on('data', chunk => { stderr = capture(stderr, chunk); });
-      child.once('spawn', () => { started = true; if (signal?.aborted) abort(); });
-      child.once('error', error => { stderr = capture(stderr, Buffer.from(error.message)); });
-      const stop = () => { if (child.pid) { try { process.kill(-child.pid, 'SIGKILL'); } catch { /* Already exited. */ } } };
-      const abort = () => { aborted = true; stop(); };
-      signal?.addEventListener('abort', abort, { once: true });
-      const timer = Number.isFinite(deadlineAt) ? setTimeout(() => { timedOut = true; stop(); }, Math.max(0, deadlineAt - Date.now())) : undefined;
-      child.once('close', exitCode => {
-        clearTimeout(timer); signal?.removeEventListener('abort', abort);
-        resolve({ started, exitCode, timedOut, aborted, durationMs: Date.now() - startedAt,
-          stdout: stdout.toString('utf8'), stderr: stderr.toString('utf8') });
-      });
+    const result = await runLeanProcess(readiness.leanPath!, ['-j1', '-R', module.sourceRoot, '-o', output, module.file], {
+      cwd: project, env: { ...env, LEAN_PATH: libraries.join(path.delimiter), LEAN_NUM_THREADS: '1' },
+      timeoutMs: Math.max(0, deadlineAt - Date.now()), signal, outputCapture: 'head', stopGraceMs: 0,
     });
+    const cap = (text: string) => Buffer.from(text).subarray(0, 8000).toString('utf8');
+    return { ...result, started: result.started && !result.errorCode, durationMs: Date.now() - startedAt,
+      stdout: cap(result.stdout), stderr: cap(result.stderr + (result.errorMessage ?? '')) };
   } finally { await lease.release(); }
 }
 
@@ -66,8 +51,7 @@ export async function runLeanDiagnostics(input: {
   const project = fs.realpathSync(input.projectRoot);
   const env = resolveMathematicsRuntimeEnvironment(input.env || process.env);
   assertMathConstructionSources(project, input.files);
-  const modules = [...new Map(input.files.flatMap(file => mathLocalModuleBuildOrder(project, file))
-    .map(module => [module.file, module])).values()];
+  const modules = mathLocalModuleBuildOrder(project, input.files);
   const excluded = new Set(input.excludedFiles ?? []);
   const cacheFile = path.join(project, '.lake', 'lean-diagnostics.json');
   assertMathCanonicalPath(cacheFile);

@@ -3,9 +3,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createMathRetrievalCorpus, searchMathRetrievalCorpus, searchMathRetrievalCorpusBatch } from '../src/math/mathRetrievalCorpus';
+import { assertMathRetrievalCorpus, createMathRetrievalCorpus, searchMathRetrievalCorpus, searchMathRetrievalCorpusBatch } from '../src/math/mathRetrievalCorpus';
 import { mathDigest } from '../src/math/mathRuntimeIo';
-import * as verifier from '../src/math/verifier';
+import * as verifier from '../src/math/leanSource';
 import * as installedPackageSearch from '../src/math/installedPackageSearch';
 
 describe('frozen Lean declaration lookup', () => {
@@ -216,6 +216,14 @@ describe('frozen Lean declaration lookup', () => {
     expect(() => searchMathRetrievalCorpus(root, corpus, 'exists_lt_nsmul')).toThrow('math_corpus_source_changed');
   });
 
+  it('validates UTF-8 when no source output is requested', async () => {
+    const corpus = await createMathRetrievalCorpus(root, ['mathlib']);
+    const bytes = Buffer.from([0xff]);
+    fs.writeFileSync(source, bytes);
+    corpus.sources[0].identity = { ...corpus.sources[0].identity, bytes: bytes.length, sha256: mathDigest(bytes) };
+    expect(() => assertMathRetrievalCorpus(root, corpus)).toThrow(TypeError);
+  });
+
   it('skips parsing unrelated sources while still verifying their frozen content', async () => {
     const unrelated = 'lemma unrelated : True := by trivial';
     const other = path.join(path.dirname(source), 'Other.lean');
@@ -300,6 +308,35 @@ describe('frozen Lean declaration lookup', () => {
     for (const queries of [[], Array(9).fill('helper')])
       expect(() => searchMathRetrievalCorpusBatch(root, corpus, queries)).toThrow('math_search_invalid_queries');
     expect(() => searchMathRetrievalCorpusBatch(root, corpus, ['helper', '---'])).toThrow('math_search_invalid_query');
+  });
+
+  it('reuses authenticated declaration hints across processes and rebuilds altered caches', async () => {
+    const corpus = await createMathRetrievalCorpus(root, ['mathlib']);
+    const cache = { directory: path.join(root, 'index'), implementation: mathDigest('fixture-parser'), secret: 'fixture-key' };
+    const inspect = vi.spyOn(verifier, 'inspectLeanDeclarations');
+    const lookup = () => searchMathRetrievalCorpus(root, corpus, 'exists_lt_nsmul', 15, undefined, cache);
+    const expected = lookup();
+    expect(inspect).toHaveBeenCalledOnce(); inspect.mockClear();
+    expect(lookup()).toEqual(expected); expect(inspect).not.toHaveBeenCalled();
+    const file = path.join(cache.directory, fs.readdirSync(cache.directory)[0]);
+    const stat = fs.statSync(file);
+    const corpusFile = path.join(root, 'corpus.json'); fs.writeFileSync(corpusFile, JSON.stringify(corpus));
+    const script = `import fs from 'node:fs'; import { searchMathRetrievalCorpus } from './src/math/mathRetrievalCorpus.ts';
+      const [root, file, cache] = process.argv.slice(1);
+      console.log(JSON.stringify(searchMathRetrievalCorpus(root, JSON.parse(fs.readFileSync(file, 'utf8')), 'exists_lt_nsmul', 15, undefined, JSON.parse(cache))));`;
+    const child = spawnSync('bun', ['-e', script, root, corpusFile, JSON.stringify(cache)], { encoding: 'utf8', timeout: 10_000, maxBuffer: 32_000 });
+    expect(child.status, child.stderr).toBe(0);
+    expect(JSON.parse(child.stdout)).toEqual(expected);
+    expect(fs.statSync(file)).toMatchObject({ ino: stat.ino, mtimeMs: stat.mtimeMs });
+    const changed = JSON.parse(fs.readFileSync(file, 'utf8'));
+    changed.payload = changed.payload.replaceAll('exists_lt_nsmul', 'forged_name');
+    fs.writeFileSync(file, JSON.stringify(changed));
+    expect(lookup()).toEqual(expected); expect(inspect).toHaveBeenCalledOnce(); inspect.mockClear();
+    expect(searchMathRetrievalCorpus(root, corpus, 'exists_lt_nsmul', 15, undefined,
+      { ...cache, implementation: mathDigest('updated-parser') })).toEqual(expected);
+    expect(inspect).toHaveBeenCalledOnce();
+    fs.appendFileSync(source, '\n-- changed');
+    expect(lookup).toThrow('math_corpus_source_changed');
   });
 
   it('caps the entire batch in bytes and marks shortened variable context', async () => {
@@ -393,13 +430,19 @@ describe('frozen Lean declaration lookup', () => {
     fs.writeFileSync(corpus, JSON.stringify(await createMathRetrievalCorpus(root, ['mathlib'])));
     const args = [path.resolve('bin/math.ts'), 'search-lean', '--workspace', root, '--corpus', corpus,
       '--query', 'exists_lt_nsmul', '--sha256', mathDigest(fs.readFileSync(corpus))];
-    const result = spawnSync('bun', args, { encoding: 'utf8', timeout: 10_000, maxBuffer: 32_000 });
+    const options = { encoding: 'utf8' as const, timeout: 10_000, maxBuffer: 32_000,
+      env: { ...process.env, DEEPSCIENTIST_FINANCE_RECEIPT_SECRET: 'fixture-cli-index' } };
+    const result = spawnSync('bun', args, options);
     expect(result.status).toBe(0);
     expect(JSON.parse(result.stdout).results[0]).toMatchObject({ name: 'exists_lt_nsmul',
       qualifiedName: 'Order.exists_lt_nsmul', sourceLine: 3 });
-    const batch = spawnSync('bun', [...args, '--query', 'Order.helper'], { encoding: 'utf8', timeout: 10_000, maxBuffer: 32_000 });
+    const index = path.join(root, 'retrieval-index');
+    const cached = fs.existsSync(index) ? fs.readdirSync(index).map(name => ({ file: path.join(index, name), stat: fs.statSync(path.join(index, name)) })) : [];
+    if (fs.existsSync(path.resolve('out/main/search-lean.js'))) expect(cached).toHaveLength(1);
+    const batch = spawnSync('bun', [...args, '--query', 'Order.helper'], options);
     expect(batch.status).toBe(0);
     expect(JSON.parse(batch.stdout).queries.map((query: { query: string }) => query.query)).toEqual(['exists_lt_nsmul', 'Order.helper']);
+    for (const { file, stat } of cached) expect(fs.statSync(file)).toMatchObject({ ino: stat.ino, mtimeMs: stat.mtimeMs });
     const goal = 'a b : Nat\n⊢ ∃ n : Nat, a < n * b';
     const ranked = spawnSync('bun', [...args, '--goal', goal], { encoding: 'utf8', timeout: 10_000, maxBuffer: 32_000 });
     expect(ranked.status).toBe(0);

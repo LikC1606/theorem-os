@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import os from 'node:os';
@@ -8,11 +9,15 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const commands: Readonly<Record<string, string>> = {
   build: 'scripts/build.ts',
   run: 'out/main/math-solver.js',
+  batch: 'scripts/mathematics/runMathBatch.ts',
   'bootstrap-imo': 'scripts/mathematics/bootstrapImo2026.ts',
   'bootstrap-lean-eval': 'scripts/mathematics/bootstrapLeanEvalHeldOut.ts',
   'freeze-retrieval': 'scripts/mathematics/freezeMathRetrievalCorpus.ts',
-  'search-lean': 'scripts/mathematics/searchLean.ts',
+  'search-lean': fs.existsSync(path.join(root, 'out/main/search-lean.js')) ? 'out/main/search-lean.js' : 'scripts/mathematics/searchLean.ts',
   'check-lean': 'scripts/mathematics/checkLean.ts',
+  inspect: 'scripts/mathematics/inspectMathRun.ts',
+  edit: 'scripts/mathematics/editMathRun.ts',
+  compare: 'scripts/mathematics/compareMathRuns.ts',
   summarize: 'scripts/mathematics/summarizeMathProofRuns.ts',
 };
 const [command, ...args] = process.argv.slice(2);
@@ -21,11 +26,15 @@ if (!command || ['help', '--help', '-h'].includes(command)) {
 
   build                Freeze mathematical sources and build the solver
   run                  Run or resume an isolated mathematics proof
+  batch                Run prepared problems concurrently in separate processes
   bootstrap-imo        Prepare an IMO2026 proof workspace
   bootstrap-lean-eval   Prepare a public Lean-Eval workspace
   freeze-retrieval     Freeze allowed local Lean declaration sources
   search-lean          Find declarations in verified local Lean packages
   check-lean           Check changed Lean files with bounded diagnostics
+  inspect              Read a research report or export a versioned task plan
+  edit                 Validate and queue a human plan edit
+  compare              Prepare, run or report three fixed-budget public baselines
   summarize           Summarize saved proof-run receipts
 
 Use deepscientist-math <command> --help for command arguments.`);

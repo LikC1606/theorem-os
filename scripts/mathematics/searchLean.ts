@@ -1,9 +1,11 @@
 #!/usr/bin/env bun
 import fs from 'node:fs';
+import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { searchMathRetrievalCorpus, searchMathRetrievalCorpusBatch } from '../../src/math/mathRetrievalCorpus';
-import { mathDigest } from '../../src/math/mathRuntimeIo';
+import { mathDigest, readMathText } from '../../src/math/mathRuntimeIo';
 import { resolveMathematicsRuntimeEnvironment } from '../../src/math/mathRuntimeEnvironment';
+import { readMathematicsReceiptSecret } from '../../src/math/receiptAttestation';
 
 try {
   const args = process.argv.slice(2);
@@ -19,12 +21,15 @@ try {
     const corpus = values.corpus || env.DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS;
     const digest = values.sha256 || env.DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS_SHA256;
     if (!values.workspace || !corpus || !values.query?.length) throw new Error('--workspace, --corpus and --query are required');
-    const bytes = fs.readFileSync(corpus);
-    if (digest && mathDigest(bytes) !== digest) throw new Error('math_corpus_identity_changed');
-    const library = JSON.parse(bytes.toString('utf8'));
+    const text = readMathText(corpus);
+    if (digest && mathDigest(text) !== digest) throw new Error('math_corpus_identity_changed');
+    const library = JSON.parse(text);
+    const secret = path.extname(process.argv[1] ?? '') === '.js' ? readMathematicsReceiptSecret() : undefined;
+    const cache = secret ? { directory: path.join(path.dirname(corpus), 'retrieval-index'),
+      implementation: mathDigest(fs.readFileSync(process.argv[1])), secret } : undefined;
     console.log(JSON.stringify(values.query.length === 1
-      ? searchMathRetrievalCorpus(values.workspace, library, values.query[0]!, Number(values.limit), values.goal)
-      : searchMathRetrievalCorpusBatch(values.workspace, library, values.query, Number(values.limit), values.goal)));
+      ? searchMathRetrievalCorpus(values.workspace, library, values.query[0]!, Number(values.limit), values.goal, cache)
+      : searchMathRetrievalCorpusBatch(values.workspace, library, values.query, Number(values.limit), values.goal, cache)));
   }
 } catch (error) {
   console.error(error instanceof Error ? error.message : 'math_search_failed');

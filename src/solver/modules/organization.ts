@@ -3,7 +3,7 @@ import { taskGroup, type TaskRecord, type RouteRecord } from '../tasks';
 
 export type ResearchRole = 'lead' | 'researcher' | 'engineer' | 'reviewer';
 export type ResearchWorker = Readonly<{ id: string; role: ResearchRole; worktree: string; ownedFiles: readonly string[] }>;
-export type TeamPlan = Readonly<{ workers: readonly ResearchWorker[]; communication: 'tasks' }>;
+export type TeamPlan = Readonly<{ workers: readonly ResearchWorker[] }>;
 
 /** Assign selected work by responsibility and preserve resumed ownership. */
 export function assignResearchTask(ready: readonly TaskRecord[], worker: ResearchWorker, live: readonly ResearchWorker[], groups?: readonly RouteRecord[]): TaskRecord | undefined {
@@ -33,5 +33,5 @@ export function assignResearchReviewer(live: readonly ResearchWorker[], producer
 export function organizeResearch(action: ActionPlan, workers: readonly ResearchWorker[], budget: ResearchBudget): TeamPlan {
   if (action.operation === 'stop' || !workers.length || budget.aborted || budget.remainingMs <= 0)
     throw new Error('math_solver_worker_unavailable');
-  return { workers, communication: 'tasks' };
+  return { workers };
 }

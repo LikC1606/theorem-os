@@ -1,3 +1,8 @@
+import { runMathProcess as runProcess, runLeanProcess, limitMathOutput, MATH_PROCESS_OUTPUT_LIMIT, type MathProcessResult } from './mathProcess';
+type ProcessResult = MathProcessResult & { sandboxBackend?: SandboxBackend };
+import { declarationHashes, inspectLeanSource } from './leanSource';
+export { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions, inspectLeanDeclarations, inspectLeanSource } from './leanSource';
+export type { MathematicsLeanSourceDeclaration } from './leanSource';
 
 import { resolveMathProofEnvironment, acquireMathProofEnvironmentLease } from "./mathProofEnvironment";
 /**
@@ -8,7 +13,7 @@ import { resolveMathProofEnvironment, acquireMathProofEnvironmentLease } from ".
 
 import crypto from 'node:crypto';
 import { assertMathConstructionSources, mathLocalModuleBuildOrder, pruneMathConstructionCheckout } from "./mathConstructionSources";
-import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { spawnSync, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -17,8 +22,10 @@ import { assertMathProblemContractMatchesOfficialManifest, isMathFoundationalLea
 import { readMathematicsReceiptSecret } from "./receiptAttestation";
 import { resolveMathematicsRuntimeEnvironment } from "./mathRuntimeEnvironment";
 import { createMathOperationLimiter } from "./concurrency";
+import { mathFileIdentity, readMathText } from './mathRuntimeIo';
 import { maskLeanCommentsAndStrings } from "./leanSyntax";
 import { leanReferenceCommands, parseLeanReferences, type LeanDeclarationReferences } from './leanReferences';
+import { leanDeclarationContextCommands } from './leanSource';
 
 export type MathematicsVerifierBatchItem = {
   id?: string;
@@ -157,22 +164,6 @@ export type MathematicsOfficialComparatorResult = {
   error?: string;
 };
 
-type ProcessResult = {
-  started: boolean;
-  exitCode: number | null;
-  signal: NodeJS.Signals | null;
-  stdout: string;
-  stderr: string;
-  stdoutSha256: string;
-  stderrSha256: string;
-  timedOut: boolean;
-  aborted: boolean;
-  durationMs: number;
-  errorCode?: string;
-  errorMessage?: string;
-  sandboxBackend?: SandboxBackend;
-};
-
 /** Result shape shared by construction-time Lean sessions.  The public
  * wrapper below deliberately exposes diagnostics without exposing verifier
  * internals or allowing callers to bypass the sandbox. */
@@ -213,13 +204,13 @@ type PreparedFile = {
   items: PreparedItem[];
 };
 
+type ProofSourceSnapshot = Readonly<{ source: string; hash: string; metadata: string }>;
+
 type FormalVerificationCachePreparation = Readonly<{
   cacheKey: string;
   resolvedTargetCommit: string;
   preparedItems: readonly PreparedItem[];
-  proofSourceByPath: ReadonlyMap<string, string>;
-  proofHashByPath: ReadonlyMap<string, string>;
-  proofMetadataByPath: ReadonlyMap<string, string>;
+  proofSources: ReadonlyMap<string, ProofSourceSnapshot>;
 }>;
 
 type ResultBase = Omit<
@@ -227,7 +218,7 @@ type ResultBase = Omit<
   'status' | 'verifier' | 'receiptId' | 'stdoutPreview' | 'stderrPreview' | 'error' | 'events'
 >;
 
-const MAX_OUTPUT = 12_000;
+const MAX_OUTPUT = MATH_PROCESS_OUTPUT_LIMIT;
 const MAX_PROOF_BYTES = 16 * 1024 * 1024;
 // Construction-time JSON adapters use stdin for one bounded request. Keep the
 // public sandbox entry point bounded too, so a future protocol adapter cannot
@@ -243,7 +234,6 @@ const MAX_BATCH_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_OFFICIAL_TIMEOUT_MS = 60 * 60 * 1000;
 const MAX_OFFICIAL_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 const MIN_TIMEOUT_MS = 100;
-const PROCESS_STOP_GRACE_MS = 1_000;
 const EVENT_SCHEMA = MATHEMATICS_VERIFICATION_EVENT_SCHEMA;
 
 class FormalVerificationBatchDeadlineError extends Error {
@@ -746,179 +736,23 @@ const abortReason = (signal: AbortSignal): unknown => signal.reason ?? new DOMEx
 const withVerificationSlot = createMathOperationLimiter(configuredVerificationConcurrency);
 const withLeanProcessSlot = createMathOperationLimiter(configuredVerificationConcurrency);
 
-const appendTail = (current: string, chunk: Buffer | string): string => {
-  const value = chunk.toString();
-  if (value.length >= MAX_OUTPUT) return value.slice(-MAX_OUTPUT);
-  if (current.length + value.length <= MAX_OUTPUT) return current + value;
-  return current.slice(value.length - MAX_OUTPUT) + value;
-};
-
-const appendHead = (current: string, chunk: Buffer | string): string =>
-  current.length >= MAX_OUTPUT ? current : `${current}${chunk.toString()}`.slice(0, MAX_OUTPUT);
-
 const preview = (value: string | null | undefined): string | undefined => {
   const normalized = value?.trim();
-  return normalized ? normalized.slice(-MAX_OUTPUT) : undefined;
+  return normalized ? limitMathOutput(normalized, MAX_OUTPUT) : undefined;
 };
 
-const clampTimeout = (timeoutMs: number | undefined): number => {
-  if (timeoutMs === undefined) return DEFAULT_TIMEOUT_MS;
+const clampTimeout = (timeoutMs: number | undefined, defaultMs = DEFAULT_TIMEOUT_MS,
+  maximumMs = MAX_TIMEOUT_MS, field = 'formal_verifier timeoutMs'): number => {
+  if (timeoutMs === undefined) return defaultMs;
   if (timeoutMs === Infinity) return Infinity;
   if (!Number.isFinite(timeoutMs) || timeoutMs < MIN_TIMEOUT_MS) {
-    throw new Error(`formal_verifier timeoutMs must be at least ${MIN_TIMEOUT_MS}.`);
+    throw new Error(`${field} must be at least ${MIN_TIMEOUT_MS}.`);
   }
-  return Math.min(Math.floor(timeoutMs), MAX_TIMEOUT_MS);
+  return Math.min(Math.floor(timeoutMs), maximumMs);
 };
 
-const clampBatchTimeout = (timeoutMs: number | undefined): number => {
-  if (timeoutMs === undefined) return DEFAULT_BATCH_TIMEOUT_MS;
-  if (timeoutMs === Infinity) return Infinity;
-  if (!Number.isFinite(timeoutMs) || timeoutMs < MIN_TIMEOUT_MS) {
-    throw new Error(`formal_verifier batchTimeoutMs must be at least ${MIN_TIMEOUT_MS}.`);
-  }
-  return Math.min(Math.floor(timeoutMs), MAX_BATCH_TIMEOUT_MS);
-};
-
-const stopProcess = (child: ChildProcess, signal: NodeJS.Signals): void => {
-  if (child.exitCode !== null || child.signalCode !== null) return;
-  if (process.platform !== 'win32' && child.pid) {
-    try {
-      process.kill(-child.pid, signal);
-      return;
-    } catch {
-      // Fall through when the process group has already exited or could not be created.
-    }
-  }
-  try {
-    child.kill(signal);
-  } catch {
-    // The process may have exited between the state check and kill.
-  }
-};
-
-const liveDuplexChildren = new Set<ChildProcess>();
-
-const runProcess = (
-  command: string,
-  args: string[],
-  options: {
-    cwd: string;
-    timeoutMs: number;
-    signal?: AbortSignal;
-    env?: NodeJS.ProcessEnv;
-    stdin?: string;
-    outputCapture?: 'head' | 'tail';
-    onDuplexSpawn?: (child: ChildProcess) => void;
-    inheritedFds?: readonly number[];
-  }
-): Promise<ProcessResult> =>
-  new Promise((resolve) => {
-    const startedAt = Date.now();
-    let child: ChildProcess;
-    let stdout = '';
-    let stderr = '';
-    const stdoutHash = crypto.createHash('sha256');
-    const stderrHash = crypto.createHash('sha256');
-    let timedOut = false;
-    let aborted = options.signal?.aborted || false;
-    let processError: NodeJS.ErrnoException | undefined;
-    let timeout: NodeJS.Timeout | undefined;
-    let forceStopTimeout: NodeJS.Timeout | undefined;
-    let fallbackTimeout: NodeJS.Timeout | undefined;
-    let settled = false;
-
-    const finish = (exitCode: number | null, signal: NodeJS.Signals | null, started: boolean): void => {
-      if (settled) return;
-      settled = true;
-      if (timeout) clearTimeout(timeout);
-      if (forceStopTimeout) clearTimeout(forceStopTimeout);
-      if (fallbackTimeout) clearTimeout(fallbackTimeout);
-      options.signal?.removeEventListener('abort', abort);
-      resolve({
-        started,
-        exitCode,
-        signal,
-        stdout,
-        stderr,
-        stdoutSha256: stdoutHash.digest('hex'),
-        stderrSha256: stderrHash.digest('hex'),
-        timedOut,
-        aborted,
-        durationMs: Date.now() - startedAt,
-        ...(processError?.code ? { errorCode: processError.code } : {}),
-        ...(processError?.message ? { errorMessage: processError.message } : {}),
-      });
-    };
-
-    const requestStop = (): void => {
-      stopProcess(child, 'SIGTERM');
-      forceStopTimeout = setTimeout(() => {
-        stopProcess(child, 'SIGKILL');
-        fallbackTimeout = setTimeout(() => finish(null, 'SIGKILL', true), PROCESS_STOP_GRACE_MS);
-      }, PROCESS_STOP_GRACE_MS);
-    };
-
-    const abort = (): void => {
-      aborted = true;
-      requestStop();
-    };
-
-    try {
-      child = spawn(command, args, {
-        cwd: options.cwd,
-        env: options.env || process.env,
-        detached: process.platform !== 'win32',
-        stdio: [
-          options.stdin === undefined && !options.onDuplexSpawn ? 'ignore' : 'pipe',
-          'pipe',
-          'pipe',
-          ...(options.inheritedFds ?? []),
-        ],
-      });
-    } catch (error) {
-      processError = error as NodeJS.ErrnoException;
-      finish(null, null, false);
-      return;
-    }
-
-    child.stdout?.on('data', (chunk: Buffer | string) => {
-      stdoutHash.update(chunk);
-      stdout = options.outputCapture === 'head' ? appendHead(stdout, chunk) : appendTail(stdout, chunk);
-    });
-    child.stderr?.on('data', (chunk: Buffer | string) => {
-      stderrHash.update(chunk);
-      stderr = options.outputCapture === 'head' ? appendHead(stderr, chunk) : appendTail(stderr, chunk);
-    });
-    child.once('error', (error: NodeJS.ErrnoException) => {
-      processError = error;
-    });
-    // A short-lived wrapper may close stdin before consuming the request
-    // (for example after rejecting its arguments). Treat that expected
-    // write-side failure as a normal process outcome instead of leaking an
-    // unhandled EPIPE from the Writable stream.
-    child.stdin?.on('error', (error: NodeJS.ErrnoException) => {
-      if (error.code !== 'EPIPE') processError = error;
-    });
-    child.once('close', (exitCode, signal) => finish(exitCode, signal, true));
-
-    if (options.stdin !== undefined) child.stdin?.end(options.stdin);
-
-    options.signal?.addEventListener('abort', abort, { once: true });
-    if (aborted) {
-      requestStop();
-      return;
-    }
-    if (options.onDuplexSpawn) {
-      liveDuplexChildren.add(child);
-      child.once('close', () => liveDuplexChildren.delete(child));
-      options.onDuplexSpawn(child);
-      return;
-    }
-    if (Number.isFinite(options.timeoutMs)) timeout = setTimeout(() => {
-      timedOut = true;
-      requestStop();
-    }, options.timeoutMs);
-  });
+const clampBatchTimeout = (timeoutMs: number | undefined): number =>
+  clampTimeout(timeoutMs, DEFAULT_BATCH_TIMEOUT_MS, MAX_BATCH_TIMEOUT_MS, 'formal_verifier batchTimeoutMs');
 
 const runGit = (
   projectRoot: string,
@@ -962,14 +796,8 @@ const cleanupVerifierWorktree = async (
   return failures;
 };
 
-const clampOfficialTimeout = (timeoutMs: number | undefined): number => {
-  if (timeoutMs === undefined) return DEFAULT_OFFICIAL_TIMEOUT_MS;
-  if (timeoutMs === Infinity) return Infinity;
-  if (!Number.isFinite(timeoutMs) || timeoutMs < MIN_TIMEOUT_MS) {
-    throw new Error(`Official comparator timeoutMs must be at least ${MIN_TIMEOUT_MS}.`);
-  }
-  return Math.min(Math.floor(timeoutMs), MAX_OFFICIAL_TIMEOUT_MS);
-};
+const clampOfficialTimeout = (timeoutMs: number | undefined): number =>
+  clampTimeout(timeoutMs, DEFAULT_OFFICIAL_TIMEOUT_MS, MAX_OFFICIAL_TIMEOUT_MS, 'Official comparator timeoutMs');
 
 const OFFICIAL_EXECUTABLE_ALLOWLIST = new Set([
   'lake',
@@ -1330,15 +1158,11 @@ const sandboxEnvironmentKey = (env: NodeJS.ProcessEnv | undefined): string =>
 
 const sandboxBackendKey = (environmentKey: string, backend: SandboxBackend): string => `${environmentKey}\0${backend}`;
 
-const resolveSandboxBackends = (env: NodeJS.ProcessEnv | undefined): MathematicsSandboxBackend[] => {
-  const capability = inspectMathematicsSandboxBackends(env || process.env);
+const resolveSandboxBackends = (env: NodeJS.ProcessEnv | undefined,
+  capability = inspectMathematicsSandboxBackends(env || process.env)): MathematicsSandboxBackend[] => {
   const environmentKey = sandboxEnvironmentKey(env);
   return capability.available
     .filter((kind) => !sandboxBackendFailures.has(sandboxBackendKey(environmentKey, kind)))
-    .filter(
-      (kind): kind is 'unshare' | 'bwrap' | 'docker' | 'podman' =>
-        kind === 'unshare' || kind === 'bwrap' || kind === 'docker' || kind === 'podman'
-    )
     .toSorted((left, right) => {
       if (left === capability.preferred) return -1;
       if (right === capability.preferred) return 1;
@@ -1594,6 +1418,7 @@ const runLeanSandboxed = async (input: {
   lakePackagesMountPath?: string;
   outputCapture?: 'head' | 'tail';
   onDuplexSpawn?: (child: ChildProcess) => void;
+  sandboxCapability?: ReturnType<typeof inspectMathematicsSandboxBackends>;
 }): Promise<ProcessResult> => {
   const leaseStartedAt = Date.now();
   let proofLease: Awaited<ReturnType<typeof acquireMathProofEnvironmentLease>>;
@@ -1612,6 +1437,8 @@ const runLeanSandboxed = async (input: {
     throw error;
   }
   let sealedRootFd: number | undefined;
+  let temporaryRoot: string | undefined;
+  let stagedCommandPath: string | undefined;
   try {
     if (proofLease) {
       input = { ...input, timeoutMs: input.timeoutMs - (Date.now() - leaseStartedAt) };
@@ -1644,13 +1471,13 @@ const runLeanSandboxed = async (input: {
       }
     }
     const environmentKey = sandboxEnvironmentKey(input.env);
-    const capability = inspectMathematicsSandboxBackends(input.env || process.env);
+    const capability = input.sandboxCapability ?? inspectMathematicsSandboxBackends(input.env || process.env);
     const unavailableReason = sandboxUnavailableReasons.get(environmentKey);
     if (unavailableReason) return unavailableProcessResult(unavailableReason);
     // A procfs magic link cannot safely be resolved again inside a new user
     // namespace or by a container daemon. Bind the already verified descriptor.
     // Other existing backends currently have no equivalent descriptor handoff.
-    const backends = resolveSandboxBackends(input.env).filter(
+    const backends = resolveSandboxBackends(input.env, capability).filter(
       (backend) => (!proofLease && !input.lakePackagesMountPath) || backend.kind === 'bwrap'
     );
     if (backends.length === 0) {
@@ -1710,7 +1537,7 @@ const runLeanSandboxed = async (input: {
         ? resolvedCommand
         : undefined;
     const customCommand = Boolean(customSourceCommand);
-    const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'deepscientist-lean-sandbox-'));
+    temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'deepscientist-lean-sandbox-'));
     const sandboxRoot = createMathematicsSandboxRoot(temporaryRoot);
     let leanLauncherPath: string | undefined;
     if (trustedToolchainBin && mountedToolchainBin) {
@@ -1774,26 +1601,23 @@ exec /runtime/pinned-lean/bin/lean "$@" -j1
       });
     }
     let commandForSandbox = sandboxCommand;
-    let stagedCommandPath: string | undefined;
     if (customCommand) {
       // Explicit test/toolchain commands are copied into the sandbox instead of
       // executing an arbitrary host path.  The copied executable still runs
       // with the same namespace and clean environment as Lean itself.
       const customName = `deepscientist-verifier-${crypto.randomUUID()}`;
       const customPath = path.join(input.checkoutRoot, `.${customName}`);
+      stagedCommandPath = customPath;
       try {
         fs.copyFileSync(customSourceCommand as string, customPath);
         fs.chmodSync(customPath, 0o755);
       } catch {
-        fs.rmSync(temporaryRoot, { recursive: true, force: true });
         return unavailableProcessResult(
           `Lean verifier executable could not be staged: ${customSourceCommand || input.command}`
         );
       }
-      stagedCommandPath = customPath;
       commandForSandbox = `/workspace/.${customName}`;
     } else if (!OFFICIAL_EXECUTABLE_ALLOWLIST.has(sandboxCommand)) {
-      fs.rmSync(temporaryRoot, { recursive: true, force: true });
       return unavailableProcessResult(`Lean verifier executable is not allowed in the sandbox: ${sandboxCommand}`);
     }
     const testCounterPath = input.env?.DEEPSCIENTIST_TEST_LEAN_COUNTER;
@@ -1817,104 +1641,40 @@ exec /runtime/pinned-lean/bin/lean "$@" -j1
       }
     }
     try {
-      const runBackend = (backend: MathematicsSandboxBackend): Promise<ProcessResult> =>
-        backend.kind === 'unshare'
-          ? runProcess(
-              backend.executable,
-              [
-                '--user',
-                '--map-root-user',
-                '--net',
-                '--mount',
-                '--pid',
-                '--fork',
-                '--kill-child=SIGKILL',
-                '/bin/sh',
-                '-ceu',
-                LEAN_SANDBOX_SCRIPT,
-                '--',
-                sandboxRoot,
-                input.checkoutRoot,
-                input.projectRelative.replaceAll(path.sep, '/'),
-                mountedElanHome,
-                mountedToolchainBin,
-                trustedRuntimeRoot,
-                '/workspace/.deepscientist-test-counter',
-                input.env?.DEEPSCIENTIST_TEST_LEAN_AXIOMS || '',
-                input.lakePackagesPath || '',
-                sandboxPackageOverridesPath || '',
-                commandForSandbox,
-                ...input.args,
-              ],
-              {
-                cwd: path.join(input.checkoutRoot, input.projectRelative),
-                timeoutMs: input.timeoutMs,
-                signal: input.signal,
-                env: sandboxEnv,
-                stdin: input.stdin,
-                outputCapture: input.outputCapture,
-                onDuplexSpawn: input.onDuplexSpawn,
-              }
-            )
+      const mounts = {
+        projectRelative: input.projectRelative.replaceAll(path.sep, '/'),
+        toolchainRoot: mountedElanHome, toolchainBin: mountedToolchainBin, runtimeRoot: trustedRuntimeRoot,
+        lakePackagesPath: input.lakePackagesPath || '', lakePackageOverridesPath: sandboxPackageOverridesPath,
+        command: commandForSandbox, commandArgs: input.args,
+        testCounter: testCounterPath ? '/workspace/.deepscientist-test-counter' : '',
+        testAxioms: input.env?.DEEPSCIENTIST_TEST_LEAN_AXIOMS || '',
+      };
+      const runBackend = (backend: MathematicsSandboxBackend): Promise<ProcessResult> => {
+        const args = backend.kind === 'unshare'
+          ? [
+              '--user', '--map-root-user', '--net', '--mount', '--pid', '--fork', '--kill-child=SIGKILL',
+              '/bin/sh', '-ceu', LEAN_SANDBOX_SCRIPT, '--', sandboxRoot, input.checkoutRoot,
+              mounts.projectRelative, mountedElanHome, mountedToolchainBin, trustedRuntimeRoot,
+              '/workspace/.deepscientist-test-counter', mounts.testAxioms, input.lakePackagesPath || '',
+              sandboxPackageOverridesPath || '', commandForSandbox, ...input.args,
+            ]
           : backend.kind === 'bwrap'
-            ? runProcess(
-                backend.executable,
-                buildBwrapArguments({
-                  candidateRoot: input.checkoutRoot,
-                  projectRelative: input.projectRelative.replaceAll(path.sep, '/'),
-                  toolchainRoot: mountedElanHome,
-                  toolchainBin: mountedToolchainBin,
-                  runtimeRoot: trustedRuntimeRoot,
-                  lakePackagesPath: input.lakePackagesPath || '',
-                  ...(input.lakePackagesMountPath ? { lakePackagesMountPath: input.lakePackagesMountPath } : {}),
-                  ...(sealedRootFd === undefined ? {} : { lakePackagesFd: 3 }),
-                  ...(leanLauncherPath ? { leanLauncherPath } : {}),
-                  ...(sandboxPackageOverridesPath ? { lakePackageOverridesPath: sandboxPackageOverridesPath } : {}),
-                  command: commandForSandbox,
-                  commandArgs: input.args,
-                  testCounter: testCounterPath ? '/workspace/.deepscientist-test-counter' : '',
-                  testAxioms: input.env?.DEEPSCIENTIST_TEST_LEAN_AXIOMS || '',
-                }),
-                {
-                  cwd: path.join(input.checkoutRoot, input.projectRelative),
-                  timeoutMs: input.timeoutMs,
-                  signal: input.signal,
-                  env: sandboxEnv,
-                  stdin: input.stdin,
-                  outputCapture: input.outputCapture,
-                  onDuplexSpawn: input.onDuplexSpawn,
-                  ...(sealedRootFd === undefined ? {} : { inheritedFds: [sealedRootFd] }),
-                }
-              )
-            : runProcess(
-                backend.executable,
-                buildContainerArguments({
-                  checkoutRoot: input.checkoutRoot,
-                  projectRelative: input.projectRelative.replaceAll(path.sep, '/'),
-                  toolchainRoot: mountedElanHome,
-                  toolchainBin: mountedToolchainBin,
-                  runtimeRoot: trustedRuntimeRoot,
-                  lakePackagesPath: input.lakePackagesPath || '',
-                  ...(sandboxPackageOverridesPath ? { lakePackageOverridesPath: sandboxPackageOverridesPath } : {}),
-                  command: commandForSandbox,
-                  commandArgs: input.args,
-                  interactive: Boolean(input.onDuplexSpawn || input.stdin !== undefined),
-                  cidfile: sessionContainerIdFile,
-                  testCounter: testCounterPath ? '/workspace/.deepscientist-test-counter' : '',
-                  testAxioms: input.env?.DEEPSCIENTIST_TEST_LEAN_AXIOMS || '',
-                  image:
-                    input.env?.DEEPSCIENTIST_MATH_SANDBOX_IMAGE || process.env.DEEPSCIENTIST_MATH_SANDBOX_IMAGE || '',
-                }),
-                {
-                  cwd: path.join(input.checkoutRoot, input.projectRelative),
-                  timeoutMs: input.timeoutMs,
-                  signal: input.signal,
-                  env: sandboxEnv,
-                  stdin: input.stdin,
-                  outputCapture: input.outputCapture,
-                  onDuplexSpawn: input.onDuplexSpawn,
-                }
-              );
+            ? buildBwrapArguments({
+                ...mounts, candidateRoot: input.checkoutRoot, lakePackagesMountPath: input.lakePackagesMountPath,
+                lakePackagesFd: sealedRootFd === undefined ? undefined : 3, leanLauncherPath,
+              })
+            : buildContainerArguments({
+                ...mounts, checkoutRoot: input.checkoutRoot,
+                interactive: Boolean(input.onDuplexSpawn || input.stdin !== undefined), cidfile: sessionContainerIdFile,
+                image: input.env?.DEEPSCIENTIST_MATH_SANDBOX_IMAGE || process.env.DEEPSCIENTIST_MATH_SANDBOX_IMAGE || '',
+              });
+        return runLeanProcess(backend.executable, args, {
+          cwd: path.join(input.checkoutRoot, input.projectRelative), timeoutMs: input.timeoutMs,
+          signal: input.signal, env: { ...sandboxEnv, DEEPSCIENTIST_MATH_LEAN_LOCK: input.env?.DEEPSCIENTIST_MATH_LEAN_LOCK }, stdin: input.stdin,
+          outputCapture: input.outputCapture, onDuplexSpawn: input.onDuplexSpawn,
+          ...(backend.kind === 'bwrap' && sealedRootFd !== undefined ? { inheritedFds: [sealedRootFd] } : {}),
+        });
+      };
       let result: ProcessResult | undefined;
       for (const backend of backends) {
         if (sessionContainerIdFile && (backend.kind === 'docker' || backend.kind === 'podman'))
@@ -1958,12 +1718,15 @@ exec /runtime/pinned-lean/bin/lean "$@" -j1
           });
         }
       }
-      if (stagedCommandPath) fs.rmSync(stagedCommandPath, { force: true });
-      fs.rmSync(temporaryRoot, { recursive: true, force: true });
     }
   } finally {
-    if (sealedRootFd !== undefined) fs.closeSync(sealedRootFd);
-    await proofLease?.release();
+    try {
+      if (stagedCommandPath) fs.rmSync(stagedCommandPath, { force: true });
+      if (temporaryRoot) fs.rmSync(temporaryRoot, { recursive: true, force: true });
+    } finally {
+      if (sealedRootFd !== undefined) fs.closeSync(sealedRootFd);
+      await proofLease?.release();
+    }
   }
 };
 
@@ -2177,429 +1940,11 @@ const readGitBlobIds = async (
   return result;
 };
 
-export const inspectLeanSource = (
-  source: string
-): Pick<MathematicsVerifierResult, 'sorryCount' | 'admitCount' | 'axioms'> => {
-  const inspectedSource = maskLeanCommentsAndStrings(source);
-  let sorryCount = 0;
-  let admitCount = 0;
-  const axioms: string[] = [];
-  for (const match of inspectedSource.matchAll(/\b(?:(sorry)\b|(admit)\b|axiom\s+([A-Za-z0-9_'.]+))/gu)) {
-    if (match[1]) sorryCount += 1;
-    else if (match[2]) admitCount += 1;
-    else if (axioms.length < 64) axioms.push(match[3]);
-  }
-  return {
-    sorryCount,
-    admitCount,
-    axioms,
-  };
-};
-
-type MathematicsLeanSourceDeclarationKind = 'theorem' | 'definition' | 'instance';
-
-type LeanSourceDeclaration = Readonly<{
-  startOffset: number;
-  bodyOffset: number;
-  name: string;
-  canonicalHeader: string;
-  kind: MathematicsLeanSourceDeclarationKind;
-}>;
-
-export type MathematicsLeanSourceDeclaration = Readonly<{
-  startOffset: number;
-  name: string;
-  declarationType: string;
-  kind: MathematicsLeanSourceDeclarationKind;
-}>;
-
-const isLeanNameCharacter = (value: string | undefined): boolean =>
-  Boolean(value && /[\p{L}\p{M}\p{N}_'.]/u.test(value));
-
-/**
- * Extract named declaration headers without mistaking a binder default such
- * as `(x : Nat := 0)` for the declaration/body boundary. This is deliberately
- * a small lexer rather than a regular expression: comments, strings, and
- * balanced delimiter groups are all skipped while searching for the top-level
- * `:=` or a line-leading equation clause `|`. Lean permits Unicode and
- * apostrophes in identifiers, so a single quote is not a string delimiter here.
- */
-function* leanSourceDeclarations(source: string): Generator<LeanSourceDeclaration, void, void> {
-  const declarationKeywords: Readonly<Record<string, string>> = {
-    t: 'theorem', l: 'lemma', d: 'def', i: 'instance', o: 'opaque', a: 'abbrev',
-  };
-  const codePointBefore = (offset: number): string | undefined => {
-    if (offset <= 0) return undefined;
-    const previous = source.charCodeAt(offset - 1);
-    if (previous >= 0xdc00 && previous <= 0xdfff && offset >= 2) return source.slice(offset - 2, offset);
-    return source[offset - 1];
-  };
-  const codePointAt = (offset: number): string | undefined => {
-    if (offset >= source.length) return undefined;
-    const value = source.codePointAt(offset);
-    return value === undefined ? undefined : String.fromCodePoint(value);
-  };
-  let index = 0;
-  let blockDepth = 0;
-  let lineComment = false;
-  let quote: '"' | undefined;
-  let escaped = false;
-
-  const skipTrivia = (start: number): number => {
-    let cursor = start;
-    while (cursor < source.length) {
-      if (/\s/u.test(source[cursor])) {
-        cursor += 1;
-        continue;
-      }
-      if (source[cursor] === '-' && source[cursor + 1] === '-') {
-        cursor += 2;
-        while (cursor < source.length && source[cursor] !== '\n') cursor += 1;
-        continue;
-      }
-      if (source[cursor] === '/' && source[cursor + 1] === '-') {
-        cursor += 2;
-        let depth = 1;
-        while (cursor < source.length && depth > 0) {
-          if (source[cursor] === '/' && source[cursor + 1] === '-') {
-            depth += 1;
-            cursor += 2;
-          } else if (source[cursor] === '-' && source[cursor + 1] === '/') {
-            depth -= 1;
-            cursor += 2;
-          } else cursor += 1;
-        }
-        continue;
-      }
-      break;
-    }
-    return cursor;
-  };
-
-  // Keep the canonicalizer beside the lexer state it serves; this parser is
-  // intentionally self-contained so declaration-header behavior stays local.
-  // eslint-disable-next-line unicorn/consistent-function-scoping
-  const canonicalize = (value: string): string => {
-    let result = '';
-    let cursor = 0;
-    let nestedBlockDepth = 0;
-    let inLineComment = false;
-    let stringQuote: '"' | undefined;
-    let stringEscaped = false;
-    let pendingSpace = false;
-    while (cursor < value.length) {
-      const current = value[cursor];
-      const next = value[cursor + 1];
-      if (inLineComment) {
-        if (current === '\n') {
-          inLineComment = false;
-          pendingSpace = true;
-        }
-        cursor += 1;
-        continue;
-      }
-      if (nestedBlockDepth > 0) {
-        if (current === '/' && next === '-') {
-          nestedBlockDepth += 1;
-          cursor += 2;
-        } else if (current === '-' && next === '/') {
-          nestedBlockDepth -= 1;
-          cursor += 2;
-          pendingSpace = true;
-        } else cursor += 1;
-        continue;
-      }
-      if (stringQuote) {
-        if (pendingSpace && result) result += ' ';
-        pendingSpace = false;
-        result += current;
-        if (stringEscaped) stringEscaped = false;
-        else if (current === '\\') stringEscaped = true;
-        else if (current === stringQuote) stringQuote = undefined;
-        cursor += 1;
-        continue;
-      }
-      if (current === '-' && next === '-') {
-        inLineComment = true;
-        cursor += 2;
-        continue;
-      }
-      if (current === '/' && next === '-') {
-        nestedBlockDepth = 1;
-        cursor += 2;
-        continue;
-      }
-      if (current === '"') {
-        if (pendingSpace && result) result += ' ';
-        pendingSpace = false;
-        stringQuote = current;
-        result += current;
-      } else if (/\s/u.test(current)) {
-        pendingSpace = true;
-      } else {
-        if (pendingSpace && result) result += ' ';
-        pendingSpace = false;
-        result += current;
-      }
-      cursor += 1;
-    }
-    return result.trim();
-  };
-
-  while (index < source.length) {
-    const current = source[index];
-    const next = source[index + 1];
-    if (lineComment) {
-      if (current === '\n') lineComment = false;
-      index += 1;
-      continue;
-    }
-    if (blockDepth > 0) {
-      if (current === '/' && next === '-') {
-        blockDepth += 1;
-        index += 2;
-      } else if (current === '-' && next === '/') {
-        blockDepth -= 1;
-        index += 2;
-      } else index += 1;
-      continue;
-    }
-    if (quote) {
-      if (escaped) escaped = false;
-      else if (current === '\\') escaped = true;
-      else if (current === quote) quote = undefined;
-      index += 1;
-      continue;
-    }
-    if (current === '-' && next === '-') {
-      lineComment = true;
-      index += 2;
-      continue;
-    }
-    if (current === '/' && next === '-') {
-      blockDepth = 1;
-      index += 2;
-      continue;
-    }
-    if (current === '"') {
-      quote = current;
-      index += 1;
-      continue;
-    }
-    const keyword = declarationKeywords[current!];
-    if (
-      !keyword ||
-      !source.startsWith(keyword, index) ||
-      isLeanNameCharacter(codePointBefore(index)) ||
-      isLeanNameCharacter(codePointAt(index + keyword.length))
-    ) {
-      index += 1;
-      continue;
-    }
-    const nameStart = skipTrivia(index + keyword.length);
-    const name = /^[\p{L}\p{M}\p{N}_'.]+/u.exec(source.slice(nameStart))?.[0] ?? '';
-    const nameEnd = nameStart + name.length;
-    if (!name) {
-      index += keyword.length;
-      continue;
-    }
-    let cursor = nameEnd;
-    let parenDepth = 0;
-    let bracketDepth = 0;
-    let braceDepth = 0;
-    let localBlockDepth = 0;
-    let localLineComment = false;
-    let localQuote: '"' | undefined;
-    let localEscaped = false;
-    let proofStart = -1;
-    let bodyOffset = -1;
-    let hasTopLevelMatchType = false;
-    while (cursor < source.length) {
-      const value = source[cursor];
-      const following = source[cursor + 1];
-      if (localLineComment) {
-        if (value === '\n') localLineComment = false;
-        cursor += 1;
-        continue;
-      }
-      if (localBlockDepth > 0) {
-        if (value === '/' && following === '-') {
-          localBlockDepth += 1;
-          cursor += 2;
-        } else if (value === '-' && following === '/') {
-          localBlockDepth -= 1;
-          cursor += 2;
-        } else cursor += 1;
-        continue;
-      }
-      if (localQuote) {
-        if (localEscaped) localEscaped = false;
-        else if (value === '\\') localEscaped = true;
-        else if (value === localQuote) localQuote = undefined;
-        cursor += 1;
-        continue;
-      }
-      if (value === '-' && following === '-') {
-        localLineComment = true;
-        cursor += 2;
-        continue;
-      }
-      if (value === '/' && following === '-') {
-        localBlockDepth = 1;
-        cursor += 2;
-        continue;
-      }
-      if (value === '"') {
-        localQuote = value;
-        cursor += 1;
-        continue;
-      }
-      if (
-        parenDepth === 0 &&
-        bracketDepth === 0 &&
-        braceDepth === 0 &&
-        source.startsWith('match', cursor) &&
-        !isLeanNameCharacter(codePointBefore(cursor)) &&
-        !isLeanNameCharacter(codePointAt(cursor + 5))
-      )
-        hasTopLevelMatchType = true;
-      if (value === '(') parenDepth += 1;
-      else if (value === ')') parenDepth = Math.max(0, parenDepth - 1);
-      else if (value === '[') bracketDepth += 1;
-      else if (value === ']') bracketDepth = Math.max(0, bracketDepth - 1);
-      else if (value === '{') braceDepth += 1;
-      else if (value === '}') braceDepth = Math.max(0, braceDepth - 1);
-      else if (value === ':' && following === '=' && parenDepth === 0 && bracketDepth === 0 && braceDepth === 0) {
-        proofStart = cursor;
-        bodyOffset = cursor + 2;
-        break;
-      } else if (
-        value === '|' &&
-        !hasTopLevelMatchType &&
-        following !== '|' &&
-        following !== '>' &&
-        parenDepth === 0 &&
-        bracketDepth === 0 &&
-        braceDepth === 0 &&
-        /^\s*$/u.test(source.slice(source.lastIndexOf('\n', cursor - 1) + 1, cursor))
-      ) {
-        // Equation clauses are the body itself, unlike the := separator.
-        // Include the first pipe in the protected body; defaults, strings and
-        // nested match expressions in binders were skipped above. A top-level
-        // match return type stays on the established := path conservatively.
-        proofStart = cursor;
-        bodyOffset = cursor;
-        break;
-      }
-      cursor += 1;
-    }
-    if (proofStart >= 0) {
-      const startOffset = index;
-      index = Math.max(bodyOffset, proofStart + 1);
-      const header = source.slice(nameStart, proofStart);
-      yield Object.freeze({
-        startOffset,
-        bodyOffset,
-        name,
-        kind:
-          keyword === 'theorem' || keyword === 'lemma' ? 'theorem' : keyword === 'instance' ? 'instance' : 'definition',
-        get canonicalHeader() {
-          return canonicalize(header);
-        },
-      });
-    } else index = nameEnd;
-  }
-}
-
-const leanSourceDeclarationCache = new Map<string, readonly LeanSourceDeclaration[]>();
-const LEAN_SOURCE_DECLARATION_CACHE_MAX_ENTRIES = 128;
-
-const cachedLeanSourceDeclarations = (source: string): readonly LeanSourceDeclaration[] => {
-  const key = hashBytes(source);
-  const cached = leanSourceDeclarationCache.get(key);
-  if (cached) {
-    leanSourceDeclarationCache.delete(key);
-    leanSourceDeclarationCache.set(key, cached);
-    return cached;
-  }
-  const declarations = Object.freeze([...leanSourceDeclarations(source)]);
-  leanSourceDeclarationCache.set(key, declarations);
-  while (leanSourceDeclarationCache.size > LEAN_SOURCE_DECLARATION_CACHE_MAX_ENTRIES) {
-    const oldest = leanSourceDeclarationCache.keys().next().value;
-    if (oldest === undefined) break;
-    leanSourceDeclarationCache.delete(oldest);
-  }
-  return declarations;
-};
-
-const sourceDeclarationHash = (declaration: LeanSourceDeclaration): string =>
-  crypto.createHash('sha256').update(declaration.canonicalHeader).digest('hex');
-
-const declarationHashes = (source: string): Map<string, string> => {
-  const hashes = new Map<string, string>();
-  for (const declaration of cachedLeanSourceDeclarations(source)) {
-    const declarationHash = sourceDeclarationHash(declaration);
-    hashes.set(declaration.name, declarationHash);
-    const local = declaration.name.split('.').at(-1);
-    if (local && local !== declaration.name) hashes.set(local, declarationHash);
-  }
-  return hashes;
-};
-
-export const hashMathFormalSourceDeclaration = (formalStatement: string, theoremName: string): string | undefined => {
-  const localRequestedName = theoremName.split('.').at(-1);
-  for (const declaration of cachedLeanSourceDeclarations(formalStatement)) {
-    const localDeclaredName = declaration.name.split('.').at(-1);
-    if (declaration.name !== theoremName && localDeclaredName !== localRequestedName) continue;
-    return sourceDeclarationHash(declaration);
-  }
-  return undefined;
-};
-
-/**
- * Return the named theorem, definition, and instance headers visible in a
- * Lean source file.
- * This is a read-only index primitive for bounded premise retrieval; it does
- * not execute Lean and therefore cannot be treated as proof evidence.
- */
-export const inspectLeanDeclarations = (source: string): readonly MathematicsLeanSourceDeclaration[] =>
-  Object.freeze(
-    [...cachedLeanSourceDeclarations(source)].map(({ startOffset, name, kind, canonicalHeader }) =>
-      Object.freeze({ startOffset, name, kind, declarationType: canonicalHeader })
-    )
-  );
-
-/** Conservative source regions for construction edits; kernel verification remains independent. */
-export const inspectLeanDeclarationRegions = (source: string) =>
-  [...cachedLeanSourceDeclarations(source)].map((declaration) => {
-    const lineStart = source.lastIndexOf('\n', declaration.startOffset - 1) + 1;
-    const indentation = source.slice(lineStart, declaration.startOffset).match(/^\s*/u)?.[0].length ?? 0;
-    let endOffset = source.length;
-    let cursor = source.indexOf('\n', declaration.bodyOffset);
-    while (cursor >= 0 && cursor + 1 < source.length) {
-      const start = cursor + 1;
-      const end = source.indexOf('\n', start);
-      const line = source.slice(start, end < 0 ? undefined : end);
-      if (line.trim() && !line.trimStart().startsWith('--') && (line.match(/^\s*/u)?.[0].length ?? 0) <= indentation) {
-        endOffset = start;
-        break;
-      }
-      cursor = end;
-    }
-    return {
-      name: declaration.name,
-      startOffset: declaration.startOffset,
-      declarationType: declaration.canonicalHeader,
-      bodyOffset: declaration.bodyOffset,
-      endOffset,
-    };
-  });
-
 const proofFileMetadataAsync = async (absolutePath: string): Promise<string | undefined> => {
   try {
-    const stat = await fs.promises.stat(absolutePath);
+    const stat = await fs.promises.lstat(absolutePath, { bigint: true });
     if (!stat.isFile()) return undefined;
-    return [stat.dev, stat.ino, stat.size, stat.mtimeMs, stat.ctimeMs].join(':');
+    return mathFileIdentity(stat);
   } catch {
     return undefined;
   }
@@ -2645,10 +1990,7 @@ const normalizeItems = (
 const prepareFiles = async (
   projectRoot: string,
   items: readonly PreparedItem[],
-  cachePreparation?: Pick<
-    FormalVerificationCachePreparation,
-    'proofSourceByPath' | 'proofHashByPath' | 'proofMetadataByPath'
-  >
+  cachePreparation?: Pick<FormalVerificationCachePreparation, 'proofSources'>
 ): Promise<PreparedFile[]> => {
   const grouped = new Map<string, PreparedItem[]>();
   items.forEach((item) => {
@@ -2660,14 +2002,11 @@ const prepareFiles = async (
     Array.from(grouped.values(), async (groupItems) => {
       const first = groupItems[0];
       let source: string;
-      const cachedSource = cachePreparation?.proofSourceByPath.get(first.relativeProofPath);
-      const cachedMetadata = cachePreparation?.proofMetadataByPath.get(first.relativeProofPath);
+      const cached = cachePreparation?.proofSources.get(first.relativeProofPath);
       const useCachedSource =
-        cachedSource !== undefined &&
-        cachedMetadata !== undefined &&
-        (await proofFileMetadataAsync(first.absoluteProofPath)) === cachedMetadata;
+        cached !== undefined && (await proofFileMetadataAsync(first.absoluteProofPath)) === cached.metadata;
       if (useCachedSource) {
-        source = cachedSource;
+        source = cached.source;
       } else {
         try {
           source = await fs.promises.readFile(first.absoluteProofPath, 'utf8');
@@ -2688,8 +2027,7 @@ const prepareFiles = async (
         sourceDeclarationHashes,
         axiomDependencies: new Map(),
         proofHash:
-          (useCachedSource ? cachePreparation?.proofHashByPath.get(first.relativeProofPath) : undefined) ||
-          crypto.createHash('sha256').update(source).digest('hex'),
+          useCachedSource ? cached.hash : crypto.createHash('sha256').update(source).digest('hex'),
         inspection: inspectLeanSource(source),
         items: groupItems,
       };
@@ -2765,6 +2103,7 @@ const prepareLeanDeclarationQuery = async (
   const referenceMarkers = new Map(theoremNames.map(name => [name, `DS_DECL_REFERENCES_${crypto.randomBytes(16).toString('hex')}:`]));
   if (expectedType && (expectedType.length > 12_000 || theoremNames.length !== 1))
     throw new Error('Helper expected type requires one bounded declaration.');
+  const typeContext = expectedType ? leanDeclarationContextCommands(file.source, theoremNames[0]) : undefined;
   const externalChecks = options
     ? [
         'import Lean.Elab.BuiltinCommand\nimport Lean.Elab.SyntheticMVars',
@@ -2779,6 +2118,7 @@ const prepareLeanDeclarationQuery = async (
           : []),
         ...(expectedType
           ? [
+              ...typeContext!.before,
               'run_cmd Lean.Elab.Command.liftTermElabM do',
               `  let parsedType <- match Lean.Parser.runParserCategory (<- Lean.getEnv) (Lean.Name.mkSimple "term") ${JSON.stringify(expectedType)} with`,
               '    | .ok stx => pure stx',
@@ -2790,6 +2130,7 @@ const prepareLeanDeclarationQuery = async (
               `  let declaration <- Lean.Meta.mkConstWithFreshMVarLevels (${JSON.stringify(theoremNames[0])}.toName)`,
               '  let actual <- Lean.Meta.inferType declaration',
               '  unless (<- Lean.Meta.isDefEq actual expected) do throwError "Helper declaration has a different type or additional assumptions"',
+              ...typeContext!.after,
             ]
           : []),
         ...(dependencyCandidates
@@ -2931,9 +2272,309 @@ const isUnavailableProcess = (result: ProcessResult): boolean => {
   );
 };
 
+function classifyLeanCheck(result: ProcessResult, context: {
+  command: string; batchDeadlineAt: number; projectRoot: string; packagesPath?: string; exportError?: string;
+}): Pick<MathematicsVerifierResult, 'status' | 'verifier' | 'error'> {
+  const blocked = (error: string) => ({ status: 'blocked' as const, verifier: 'lean-kernel' as const, error });
+  if (isUnavailableProcess(result)) return { status: 'unavailable', verifier: 'unavailable',
+    error: `${context.command} is not installed or could not be started.` };
+  if (result.aborted) return blocked('Formal verification was aborted.');
+  if (result.timedOut) return blocked(Date.now() >= context.batchDeadlineAt
+    ? 'Formal verification batch deadline exceeded.' : 'Lean verification timed out.');
+  if (result.errorMessage) return blocked(`Lean could not be executed: ${result.errorMessage}`);
+  if (result.exitCode !== 0) {
+    if (/(?:^|\n)(?:error: (?:external command 'git'|toolchain |failed to (?:fetch|download|clone))|git: 'remote-https' is not a git command)/u.test(result.stderr))
+      return blocked('Lean verification environment could not initialize; retry the same frozen candidate after restoring dependencies.');
+    if (hasUnavailablePinnedLeanModule(`${result.stdout}\n${result.stderr}`, context.projectRoot, context.packagesPath))
+      return blocked('Lean verification cannot load a module supplied by the pinned dependencies; restore the compiled cache or search path and retry the same frozen candidate.');
+    return { status: 'failed', verifier: 'lean-kernel', error: `Lean exited with status ${result.exitCode ?? 'unknown'}.` };
+  }
+  return context.exportError ? blocked(context.exportError) : { status: 'kernel_verified', verifier: 'lean-kernel' };
+}
+
+type FormalFileVerificationContext = {
+  request: MathematicsVerifierBatchRequest;
+  options: MathematicsVerifierExecutionOptions;
+  command: 'lake' | 'lean'; verifierCommand: string; lakeFile?: string;
+  requiresPackages: boolean; toolUnavailable: boolean; batchDeadlineAt: number;
+  verificationProjectRoot: string; relativeProjectRoot: string; checkoutRoot: string;
+  runtimeEnvironment: NodeJS.ProcessEnv; lakePackagesPath?: string;
+  sandboxCapability: ReturnType<typeof inspectMathematicsSandboxBackends>;
+  blobIdsByPath: ReadonlyMap<string, { committed?: string; working?: string }>;
+  emit: <Kind extends MathematicsVerificationEventKind>(kind: Kind, payload: MathematicsVerificationEventPayloadMap[Kind]) => void;
+  publishResults: (file: PreparedFile, status: MathematicsVerifierStatus, verifier: MathematicsVerifierResult['verifier'],
+    error?: string, output?: { stdoutPreview?: string; stderrPreview?: string }, selectedItems?: PreparedItem[]) => void;
+};
+
+/** Consume one prepared checkout; preparation, ordering and cleanup belong to the batch. */
+async function verifyFormalFile(file: PreparedFile, context: FormalFileVerificationContext): Promise<void> {
+  const { request, options, command, verifierCommand, lakeFile, requiresPackages, batchDeadlineAt,
+    verificationProjectRoot, relativeProjectRoot, checkoutRoot, runtimeEnvironment, lakePackagesPath, blobIdsByPath,
+    emit, publishResults } = context;
+  const reject = (message: string, items: PreparedItem[]) => {
+    emit('diagnostic.emitted', { source: 'safety', severity: 'error', message, proofPath: file.relativeProofPath });
+    publishResults(file, 'failed', 'lean-kernel', message, undefined, items);
+  };
+  if (options.signal?.aborted) {
+    publishResults(file, 'blocked', 'lean-kernel', 'Formal verification was aborted.');
+    return;
+  }
+  if (requiresPackages) {
+    publishResults(file, 'blocked', 'lean-kernel',
+      'Lean verification blocked: no manifest-compatible Lake package cache is configured; sandboxed verification never downloads dependencies.');
+    return;
+  }
+  const remainingBatchMs = batchDeadlineAt - Date.now();
+  if (remainingBatchMs < MIN_TIMEOUT_MS) {
+    const error = 'Formal verification batch deadline exceeded.';
+    emit('diagnostic.emitted', { source: 'process', severity: 'error', message: error });
+    publishResults(file, 'blocked', 'lean-kernel', error);
+    return;
+  }
+  if (context.toolUnavailable) {
+    publishResults(
+      file,
+      'unavailable',
+      'unavailable',
+      `${command} is not installed or could not be started.`
+    );
+    return;
+  }
+
+  // Check each immutable proof independently before starting Lean.
+  // The identities were collected in one batched Git pass above so
+  // large FORMALIZE waves do not pay two process startups per file.
+  const blobIds = blobIdsByPath.get(file.relativeProofPath);
+  const committedBlobId = blobIds?.committed;
+  const workingBlobId = blobIds?.working;
+  if (options.signal?.aborted) {
+    publishResults(file, 'blocked', 'lean-kernel', 'Formal verification was aborted.');
+    return;
+  }
+  if (!committedBlobId || !workingBlobId || committedBlobId !== workingBlobId) {
+    const error = 'The proof file must be tracked and byte-identical to the file at targetCommit.';
+    emit('diagnostic.emitted', {
+      source: 'git',
+      severity: 'error',
+      message: error,
+      proofPath: file.relativeProofPath,
+    });
+    publishResults(file, 'blocked', 'lean-kernel', error);
+    return;
+  }
+
+  const missingDeclarationItems: PreparedItem[] = [];
+  const declarationMismatchItems: PreparedItem[] = [];
+  const verifiableItems: PreparedItem[] = [];
+  for (const item of file.items) {
+    if (!item.theoremName) {
+      verifiableItems.push(item);
+      continue;
+    }
+    let excluded = false;
+    const localName = item.theoremName.split('.').at(-1) || item.theoremName;
+    if (!file.declarationHashes.has(item.theoremName) && !file.declarationHashes.has(localName)) {
+      missingDeclarationItems.push(item);
+      excluded = true;
+    }
+    if (item.expectedSourceDeclarationHash) {
+      const actual =
+        file.sourceDeclarationHashes.get(item.theoremName) || file.sourceDeclarationHashes.get(localName);
+      if (actual !== item.expectedSourceDeclarationHash) {
+        declarationMismatchItems.push(item);
+        excluded = true;
+      }
+    }
+    if (!excluded) verifiableItems.push(item);
+  }
+  for (const item of missingDeclarationItems)
+    reject(`The requested theorem declaration was not found in ${file.relativeProofPath}: ${item.theoremName}`, [item]);
+  for (const item of declarationMismatchItems)
+    reject(`The theorem declaration in ${file.relativeProofPath} does not match the immutable formal statement: ${item.theoremName}`, [item]);
+  if (verifiableItems.length === 0) return;
+
+  const draftAccepted =
+    file.inspection.sorryCount === 0 &&
+    file.inspection.admitCount === 0 &&
+    file.inspection.axioms.length === 0;
+  emit('check.draft_checked', {
+    proofPath: file.relativeProofPath,
+    status: draftAccepted ? 'accepted' : 'rejected',
+    ...file.inspection,
+  });
+  if (!draftAccepted) {
+    const error =
+      file.inspection.sorryCount > 0 || file.inspection.admitCount > 0
+        ? 'Proof source contains sorry or admit.'
+        : `Proof source declares explicit axioms: ${file.inspection.axioms.join(', ')}.`;
+    reject(error, verifiableItems);
+    return;
+  }
+
+  // The temporary query is the exact committed proof plus #check markers,
+  // so one Lean kernel run both compiles the proof and exports declaration types.
+  // eslint-disable-next-line no-await-in-loop
+  const localModules = (options.prepareLocalDependencies || options.collectDeclarationReferences) && lakeFile
+    ? mathLocalModuleBuildOrder(verificationProjectRoot, file.relativeProofPath) : undefined;
+  const helperModule =
+    localModules && (options.expectedDeclarationType || options.forbiddenImportModules || options.dependencyCandidates || options.collectDeclarationReferences)
+      ? localModules!.at(-1)!.module
+      : undefined;
+  if (helperModule && !/^[A-Za-z_][A-Za-z0-9_']*(?:\.[A-Za-z_][A-Za-z0-9_']*)*$/u.test(helperModule))
+    throw new Error('Helper proof path cannot be represented as a Lake module target.');
+  if ((options.dependencyCandidates || options.forbiddenImportModules) && !helperModule)
+    throw new Error('Helper dependency validation requires a Lake module.');
+  const declarationQuery = await prepareLeanDeclarationQuery(
+    verificationProjectRoot,
+    file,
+    verifiableItems,
+    helperModule || options.expectedDeclarationType || options.collectDeclarationReferences
+      ? {
+          moduleName: helperModule,
+          expectedDeclarationType: options.expectedDeclarationType,
+          forbiddenImportModules: options.forbiddenImportModules,
+          dependencyCandidates: options.dependencyCandidates,
+          referenceModules: options.collectDeclarationReferences
+            ? localModules ?? [{ module: '', file: file.relativeProofPath }] : undefined,
+        }
+      : undefined
+  );
+  const verificationPath = declarationQuery?.relativePath || file.relativeProofPath;
+  let processResult: ProcessResult;
+  const requestedTimeoutMs = clampTimeout(request.timeoutMs);
+  try {
+    processResult = await withLeanProcessSlot(async () => {
+      const availableMs = batchDeadlineAt - Date.now();
+      if (availableMs < MIN_TIMEOUT_MS) throw new FormalVerificationBatchDeadlineError();
+      const modulesToBuild = helperModule ? localModules : localModules?.slice(0, -1);
+      // Keep dependency compilation and declaration queries under one sandbox
+      // invocation, so the shared compiler lock covers the entire check.
+      let args = lakeFile ? ['env', 'lean', '-j', '1', verificationPath] : ['-j', '1', verificationPath];
+      if (modulesToBuild?.length) {
+        const quote = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`;
+        const commands = modulesToBuild.map(module => {
+          const output = `.lake/build/lib/lean/${path.posix.relative(module.sourceRoot, module.file).replace(/\.lean$/u, '.olean')}`;
+          return `mkdir -p ${quote(path.posix.dirname(output))}\nlean -j1 -R ${quote(module.sourceRoot)} -o ${quote(output)} ${quote(module.file)} 1>&2`;
+        }).join('\n');
+        args = ['env', '/bin/sh', '-ceu', `${commands}\nexec lean -j1 ${quote(verificationPath)}`];
+      }
+      return runLeanSandboxed({
+        checkoutRoot: checkoutRoot,
+        projectRelative: relativeProjectRoot,
+        command: verifierCommand,
+        args,
+        env: runtimeEnvironment,
+        sandboxCapability: context.sandboxCapability,
+        signal: options.signal,
+        timeoutMs: Math.min(requestedTimeoutMs, availableMs),
+        lakePackagesPath,
+      });
+    }, options.signal);
+  } catch (error) {
+    if (error instanceof FormalVerificationBatchDeadlineError) {
+      emit('diagnostic.emitted', {
+        source: 'process',
+        severity: 'error',
+        message: error.message,
+        proofPath: file.relativeProofPath,
+      });
+      publishResults(file, 'blocked', 'lean-kernel', error.message);
+      return;
+    }
+    if (!options.signal?.aborted) throw error;
+    publishResults(file, 'blocked', 'lean-kernel', 'Formal verification was aborted.');
+    return;
+  } finally {
+    if (declarationQuery) fs.rmSync(declarationQuery.absolutePath, { force: true });
+  }
+  const stdoutPreview = preview(processResult.stdout);
+  const stderrPreview = preview(processResult.stderr);
+  if (stdoutPreview) {
+    emit('diagnostic.emitted', {
+      source: 'stdout',
+      severity: processResult.exitCode === 0 ? 'info' : 'warning',
+      message: stdoutPreview,
+      proofPath: file.relativeProofPath,
+    });
+  }
+  if (stderrPreview) {
+    emit('diagnostic.emitted', {
+      source: 'stderr',
+      severity: processResult.exitCode === 0 ? 'warning' : 'error',
+      message: stderrPreview,
+      proofPath: file.relativeProofPath,
+    });
+  }
+
+  const declarationExport =
+    processResult.exitCode === 0 && declarationQuery
+      ? declarationQuery.parse(processResult.stdout)
+      : undefined;
+  if (declarationExport?.hashes) file.declarationHashes = declarationExport.hashes;
+  if (declarationExport?.types) file.elaboratedDeclarationTypes = declarationExport.types;
+  if (declarationExport?.axioms) file.axiomDependencies = declarationExport.axioms;
+  if (declarationExport?.usedDependencies)
+    file.usedDeclarationDependencies = declarationExport.usedDependencies;
+  if (declarationExport?.references) file.declarationReferences = declarationExport.references;
+
+  const axiomDependenciesFor = (item: PreparedItem): string[] => {
+    if (!item.theoremName) return file.inspection.axioms;
+    return (
+      file.axiomDependencies.get(item.theoremName) ||
+      file.axiomDependencies.get(item.theoremName.split('.').at(-1) || item.theoremName) ||
+      file.inspection.axioms
+    );
+  };
+  const unsupportedAxiomItems: PreparedItem[] = [];
+  const axiomSafeItems: PreparedItem[] = [];
+  const unsupportedAxioms = new Set<string>();
+  for (const item of verifiableItems) {
+    let hasUnsupportedAxiom = false;
+    for (const axiom of axiomDependenciesFor(item)) {
+      if (isMathFoundationalLeanAxiom(axiom)) continue;
+      hasUnsupportedAxiom = true;
+      unsupportedAxioms.add(axiom);
+    }
+    if (hasUnsupportedAxiom) {
+      unsupportedAxiomItems.push(item);
+    } else {
+      axiomSafeItems.push(item);
+    }
+  }
+  if (unsupportedAxiomItems.length > 0 && !declarationExport?.error) {
+    const error = `Theorem depends on non-foundational Lean axioms: ${[...unsupportedAxioms].join(', ')}.`;
+    reject(error, unsupportedAxiomItems);
+  }
+  if (axiomSafeItems.length === 0) return;
+
+  const { status, verifier, error } = classifyLeanCheck(processResult, {
+    command, batchDeadlineAt, projectRoot: verificationProjectRoot,
+    packagesPath: lakePackagesPath, exportError: declarationExport?.error,
+  });
+  context.toolUnavailable ||= status === 'unavailable';
+  emit('check.kernel_checked', {
+    proofPath: file.relativeProofPath,
+    status,
+    exitCode: processResult.exitCode,
+    signal: processResult.signal,
+    timedOut: processResult.timedOut,
+    aborted: processResult.aborted,
+    durationMs: processResult.durationMs,
+  });
+  if (error) {
+    emit('diagnostic.emitted', {
+      source: 'process',
+      severity: 'error',
+      message: error,
+      proofPath: file.relativeProofPath,
+    });
+  }
+  publishResults(file, status, verifier, error, { stdoutPreview, stderrPreview }, axiomSafeItems);
+}
+
 async function checkManyFormalVerificationsUnbounded(
   request: MathematicsVerifierBatchRequest,
-  options: MathematicsVerifierExecutionOptions = {},
+  options: MathematicsVerifierExecutionOptions & { env: NodeJS.ProcessEnv },
   cachePreparation?: FormalVerificationCachePreparation
 ): Promise<MathematicsVerifierBatchResult> {
   if (!Array.isArray(request.items) || request.items.length === 0) {
@@ -2941,7 +2582,7 @@ async function checkManyFormalVerificationsUnbounded(
   }
   if (request.items.length > 64) throw new Error('formal_verifier accepts at most 64 verification items per batch.');
 
-  const runtimeEnvironment = resolveMathematicsRuntimeEnvironment(options.env || process.env);
+  const runtimeEnvironment = { ...options.env };
 
   // These roots come from the host integration port, not model-controlled
   // environment overrides. Resolve the frozen projection first so it cannot
@@ -3173,20 +2814,20 @@ async function checkManyFormalVerificationsUnbounded(
           'git'
         );
       } else {
-        const verificationProjectRoot = path.join(checkoutRoot, relativeProjectRoot);
-        if (options.prepareLocalDependencies) {
-          const buildPath = path.join(verificationProjectRoot, '.lake', 'build');
-          const lakePath = path.dirname(buildPath);
-          if (fs.existsSync(lakePath)) assertNoSymlinkTraversal(checkoutRoot, lakePath, 'Helper Lake directory');
-          if (fs.existsSync(buildPath)) {
-            assertNoSymlinkTraversal(checkoutRoot, buildPath, 'Helper build output');
-            fs.rmSync(buildPath, { recursive: true, force: true });
-          }
-        }
-        const lakePackagesPath = seedDetachedLakeCache(projectRoot, verificationProjectRoot, runtimeEnvironment,
-          options.prepareLocalDependencies);
         const cleanupOptions: MathematicsVerifierExecutionOptions = { ...options, signal: undefined };
         try {
+          const verificationProjectRoot = path.join(checkoutRoot, relativeProjectRoot);
+          if (options.prepareLocalDependencies) {
+            const buildPath = path.join(verificationProjectRoot, '.lake', 'build');
+            const lakePath = path.dirname(buildPath);
+            if (fs.existsSync(lakePath)) assertNoSymlinkTraversal(checkoutRoot, lakePath, 'Helper Lake directory');
+            if (fs.existsSync(buildPath)) {
+              assertNoSymlinkTraversal(checkoutRoot, buildPath, 'Helper build output');
+              fs.rmSync(buildPath, { recursive: true, force: true });
+            }
+          }
+          const lakePackagesPath = seedDetachedLakeCache(projectRoot, verificationProjectRoot, runtimeEnvironment,
+            options.prepareLocalDependencies);
           if (options.constructionSourcesOnly) pruneMathConstructionCheckout(checkoutRoot, verificationProjectRoot);
           if (options.constructionSourcesOnly)
             assertMathConstructionSources(
@@ -3199,372 +2840,17 @@ async function checkManyFormalVerificationsUnbounded(
             preparedFiles.map((file) => file.relativeProofPath),
             options
           );
-          let toolUnavailable = false;
-          const verifyFile = async (file: PreparedFile): Promise<void> => {
-            if (options.signal?.aborted) {
-              publishResults(file, 'blocked', 'lean-kernel', 'Formal verification was aborted.');
-              return;
-            }
-            if (lakeFile && !lakePackagesPath) {
-              let requiresPackages = false;
-              try {
-                const manifest = JSON.parse(
-                  fs.readFileSync(path.join(verificationProjectRoot, 'lake-manifest.json'), 'utf8')
-                );
-                requiresPackages = Array.isArray(manifest.packages) && manifest.packages.length > 0;
-              } catch {
-                // Lake reports malformed configuration below; never infer a proof failure from startup errors.
-              }
-              if (requiresPackages) {
-                publishResults(
-                  file,
-                  'blocked',
-                  'lean-kernel',
-                  'Lean verification blocked: no manifest-compatible Lake package cache is configured; sandboxed verification never downloads dependencies.'
-                );
-                return;
-              }
-            }
-            const remainingBatchMs = batchDeadlineAt - Date.now();
-            if (remainingBatchMs < MIN_TIMEOUT_MS) {
-              const error = 'Formal verification batch deadline exceeded.';
-              emit('diagnostic.emitted', { source: 'process', severity: 'error', message: error });
-              publishResults(file, 'blocked', 'lean-kernel', error);
-              return;
-            }
-            if (toolUnavailable) {
-              publishResults(
-                file,
-                'unavailable',
-                'unavailable',
-                `${command} is not installed or could not be started.`
-              );
-              return;
-            }
-
-            // Check each immutable proof independently before starting Lean.
-            // The identities were collected in one batched Git pass above so
-            // large FORMALIZE waves do not pay two process startups per file.
-            const blobIds = blobIdsByPath.get(file.relativeProofPath);
-            const committedBlobId = blobIds?.committed;
-            const workingBlobId = blobIds?.working;
-            if (options.signal?.aborted) {
-              publishResults(file, 'blocked', 'lean-kernel', 'Formal verification was aborted.');
-              return;
-            }
-            if (!committedBlobId || !workingBlobId || committedBlobId !== workingBlobId) {
-              const error = 'The proof file must be tracked and byte-identical to the file at targetCommit.';
-              emit('diagnostic.emitted', {
-                source: 'git',
-                severity: 'error',
-                message: error,
-                proofPath: file.relativeProofPath,
-              });
-              publishResults(file, 'blocked', 'lean-kernel', error);
-              return;
-            }
-
-            const missingDeclarationItems: PreparedItem[] = [];
-            const declarationMismatchItems: PreparedItem[] = [];
-            const verifiableItems: PreparedItem[] = [];
-            for (const item of file.items) {
-              if (!item.theoremName) {
-                verifiableItems.push(item);
-                continue;
-              }
-              let excluded = false;
-              const localName = item.theoremName.split('.').at(-1) || item.theoremName;
-              if (!file.declarationHashes.has(item.theoremName) && !file.declarationHashes.has(localName)) {
-                missingDeclarationItems.push(item);
-                excluded = true;
-              }
-              if (item.expectedSourceDeclarationHash) {
-                const actual =
-                  file.sourceDeclarationHashes.get(item.theoremName) || file.sourceDeclarationHashes.get(localName);
-                if (actual !== item.expectedSourceDeclarationHash) {
-                  declarationMismatchItems.push(item);
-                  excluded = true;
-                }
-              }
-              if (!excluded) verifiableItems.push(item);
-            }
-            if (missingDeclarationItems.length > 0) {
-              for (const item of missingDeclarationItems) {
-                const error = `The requested theorem declaration was not found in ${file.relativeProofPath}: ${item.theoremName}`;
-                emit('diagnostic.emitted', {
-                  source: 'safety',
-                  severity: 'error',
-                  message: error,
-                  proofPath: file.relativeProofPath,
-                });
-                publishResults(file, 'failed', 'lean-kernel', error, undefined, [item]);
-              }
-            }
-            if (declarationMismatchItems.length > 0) {
-              for (const item of declarationMismatchItems) {
-                const error = `The theorem declaration in ${file.relativeProofPath} does not match the immutable formal statement: ${item.theoremName}`;
-                emit('diagnostic.emitted', {
-                  source: 'safety',
-                  severity: 'error',
-                  message: error,
-                  proofPath: file.relativeProofPath,
-                });
-                publishResults(file, 'failed', 'lean-kernel', error, undefined, [item]);
-              }
-            }
-            if (verifiableItems.length === 0) return;
-
-            const draftAccepted =
-              file.inspection.sorryCount === 0 &&
-              file.inspection.admitCount === 0 &&
-              file.inspection.axioms.length === 0;
-            emit('check.draft_checked', {
-              proofPath: file.relativeProofPath,
-              status: draftAccepted ? 'accepted' : 'rejected',
-              ...file.inspection,
-            });
-            if (!draftAccepted) {
-              const error =
-                file.inspection.sorryCount > 0 || file.inspection.admitCount > 0
-                  ? 'Proof source contains sorry or admit.'
-                  : `Proof source declares explicit axioms: ${file.inspection.axioms.join(', ')}.`;
-              emit('diagnostic.emitted', {
-                source: 'safety',
-                severity: 'error',
-                message: error,
-                proofPath: file.relativeProofPath,
-              });
-              publishResults(file, 'failed', 'lean-kernel', error, undefined, verifiableItems);
-              return;
-            }
-
-            // The temporary query is the exact committed proof plus #check markers,
-            // so one Lean kernel run both compiles the proof and exports declaration types.
-            // eslint-disable-next-line no-await-in-loop
-            const localModules = (options.prepareLocalDependencies || options.collectDeclarationReferences) && lakeFile
-              ? mathLocalModuleBuildOrder(verificationProjectRoot, file.relativeProofPath) : undefined;
-            const helperModule =
-              localModules && (options.expectedDeclarationType || options.forbiddenImportModules || options.dependencyCandidates || options.collectDeclarationReferences)
-                ? localModules!.at(-1)!.module
-                : undefined;
-            if (helperModule && !/^[A-Za-z_][A-Za-z0-9_']*(?:\.[A-Za-z_][A-Za-z0-9_']*)*$/u.test(helperModule))
-              throw new Error('Helper proof path cannot be represented as a Lake module target.');
-            if ((options.dependencyCandidates || options.forbiddenImportModules) && !helperModule)
-              throw new Error('Helper dependency validation requires a Lake module.');
-            const declarationQuery = await prepareLeanDeclarationQuery(
-              verificationProjectRoot,
-              file,
-              verifiableItems,
-              helperModule || options.expectedDeclarationType || options.collectDeclarationReferences
-                ? {
-                    moduleName: helperModule,
-                    expectedDeclarationType: options.expectedDeclarationType,
-                    forbiddenImportModules: options.forbiddenImportModules,
-                    dependencyCandidates: options.dependencyCandidates,
-                    referenceModules: options.collectDeclarationReferences
-                      ? localModules ?? [{ module: '', file: file.relativeProofPath }] : undefined,
-                  }
-                : undefined
-            );
-            const verificationPath = declarationQuery?.relativePath || file.relativeProofPath;
-            // Lean's CLI task manager has its own job count, independent of the
-            // runtime thread pool configured in the sandbox environment.
-            const args = lakeFile ? ['env', 'lean', '-j', '1', verificationPath] : ['-j', '1', verificationPath];
-            let processResult: ProcessResult;
-            const requestedTimeoutMs = clampTimeout(request.timeoutMs);
+          let requiresPackages = false;
+          if (lakeFile && !lakePackagesPath) {
             try {
-              processResult = await withLeanProcessSlot(async () => {
-                const availableMs = batchDeadlineAt - Date.now();
-                if (availableMs < MIN_TIMEOUT_MS) throw new FormalVerificationBatchDeadlineError();
-                let dependencyBuild: ProcessResult | undefined;
-                const modulesToBuild = helperModule ? localModules : localModules?.slice(0, -1);
-                if (modulesToBuild?.length) {
-                  const quote = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`;
-                  const commands = modulesToBuild.map(module => {
-                    const output = `.lake/build/lib/lean/${path.posix.relative(module.sourceRoot, module.file).replace(/\.lean$/u, '.olean')}`;
-                    return `mkdir -p ${quote(path.posix.dirname(output))}\nlean -j1 -R ${quote(module.sourceRoot)} -o ${quote(output)} ${quote(module.file)}`;
-                  }).join('\n');
-                  dependencyBuild = await runLeanSandboxed({
-                    checkoutRoot,
-                    projectRelative: relativeProjectRoot,
-                    command: verifierCommand,
-                    args: ['env', '/bin/sh', '-ceu', commands],
-                    env: runtimeEnvironment,
-                    signal: options.signal,
-                    timeoutMs: Math.min(requestedTimeoutMs, availableMs),
-                    lakePackagesPath,
-                  });
-                  if (dependencyBuild.exitCode !== 0) return dependencyBuild;
-                }
-                const queryAvailableMs = Math.min(availableMs, requestedTimeoutMs) - (dependencyBuild?.durationMs ?? 0);
-                if (queryAvailableMs < MIN_TIMEOUT_MS) throw new FormalVerificationBatchDeadlineError();
-                const checked = await runLeanSandboxed({
-                  checkoutRoot: checkoutRoot,
-                  projectRelative: relativeProjectRoot,
-                  command: verifierCommand,
-                  args,
-                  env: runtimeEnvironment,
-                  signal: options.signal,
-                  timeoutMs: queryAvailableMs,
-                  lakePackagesPath,
-                });
-                return { ...checked, durationMs: checked.durationMs + (dependencyBuild?.durationMs ?? 0) };
-              }, options.signal);
-            } catch (error) {
-              if (error instanceof FormalVerificationBatchDeadlineError) {
-                emit('diagnostic.emitted', {
-                  source: 'process',
-                  severity: 'error',
-                  message: error.message,
-                  proofPath: file.relativeProofPath,
-                });
-                publishResults(file, 'blocked', 'lean-kernel', error.message);
-                return;
-              }
-              if (!options.signal?.aborted) throw error;
-              publishResults(file, 'blocked', 'lean-kernel', 'Formal verification was aborted.');
-              return;
-            } finally {
-              if (declarationQuery) fs.rmSync(declarationQuery.absolutePath, { force: true });
-            }
-            const stdoutPreview = preview(processResult.stdout);
-            const stderrPreview = preview(processResult.stderr);
-            if (stdoutPreview) {
-              emit('diagnostic.emitted', {
-                source: 'stdout',
-                severity: processResult.exitCode === 0 ? 'info' : 'warning',
-                message: stdoutPreview,
-                proofPath: file.relativeProofPath,
-              });
-            }
-            if (stderrPreview) {
-              emit('diagnostic.emitted', {
-                source: 'stderr',
-                severity: processResult.exitCode === 0 ? 'warning' : 'error',
-                message: stderrPreview,
-                proofPath: file.relativeProofPath,
-              });
-            }
-
-            const declarationExport =
-              processResult.exitCode === 0 && declarationQuery
-                ? declarationQuery.parse(processResult.stdout)
-                : undefined;
-            if (declarationExport?.hashes) file.declarationHashes = declarationExport.hashes;
-            if (declarationExport?.types) file.elaboratedDeclarationTypes = declarationExport.types;
-            if (declarationExport?.axioms) file.axiomDependencies = declarationExport.axioms;
-            if (declarationExport?.usedDependencies)
-              file.usedDeclarationDependencies = declarationExport.usedDependencies;
-            if (declarationExport?.references) file.declarationReferences = declarationExport.references;
-
-            const axiomDependenciesFor = (item: PreparedItem): string[] => {
-              if (!item.theoremName) return file.inspection.axioms;
-              return (
-                file.axiomDependencies.get(item.theoremName) ||
-                file.axiomDependencies.get(item.theoremName.split('.').at(-1) || item.theoremName) ||
-                file.inspection.axioms
-              );
-            };
-            const unsupportedAxiomItems: PreparedItem[] = [];
-            const axiomSafeItems: PreparedItem[] = [];
-            const unsupportedAxioms = new Set<string>();
-            for (const item of verifiableItems) {
-              let hasUnsupportedAxiom = false;
-              for (const axiom of axiomDependenciesFor(item)) {
-                if (isMathFoundationalLeanAxiom(axiom)) continue;
-                hasUnsupportedAxiom = true;
-                unsupportedAxioms.add(axiom);
-              }
-              if (hasUnsupportedAxiom) {
-                unsupportedAxiomItems.push(item);
-              } else {
-                axiomSafeItems.push(item);
-              }
-            }
-            if (unsupportedAxiomItems.length > 0 && !declarationExport?.error) {
-              const error = `Theorem depends on non-foundational Lean axioms: ${[...unsupportedAxioms].join(', ')}.`;
-              emit('diagnostic.emitted', {
-                source: 'safety',
-                severity: 'error',
-                message: error,
-                proofPath: file.relativeProofPath,
-              });
-              publishResults(file, 'failed', 'lean-kernel', error, undefined, unsupportedAxiomItems);
-            }
-            if (axiomSafeItems.length === 0) return;
-
-            let status: MathematicsVerifierStatus;
-            let verifier: MathematicsVerifierResult['verifier'];
-            let error: string | undefined;
-            if (isUnavailableProcess(processResult)) {
-              status = 'unavailable';
-              verifier = 'unavailable';
-              error = `${command} is not installed or could not be started.`;
-              toolUnavailable = true;
-            } else if (processResult.aborted) {
-              status = 'blocked';
-              verifier = 'lean-kernel';
-              error = 'Formal verification was aborted.';
-            } else if (processResult.timedOut && Date.now() >= batchDeadlineAt) {
-              status = 'blocked';
-              verifier = 'lean-kernel';
-              error = 'Formal verification batch deadline exceeded.';
-            } else if (processResult.timedOut) {
-              status = 'blocked';
-              verifier = 'lean-kernel';
-              error = 'Lean verification timed out.';
-            } else if (processResult.errorMessage) {
-              status = 'blocked';
-              verifier = 'lean-kernel';
-              error = `Lean could not be executed: ${processResult.errorMessage}`;
-            } else if (
-              processResult.exitCode !== 0 &&
-              /(?:^|\n)(?:error: (?:external command 'git'|toolchain |failed to (?:fetch|download|clone))|git: 'remote-https' is not a git command)/u.test(
-                processResult.stderr
-              )
-            ) {
-              status = 'blocked';
-              verifier = 'lean-kernel';
-              error =
-                'Lean verification environment could not initialize; retry the same frozen candidate after restoring dependencies.';
-            } else if (processResult.exitCode !== 0) {
-              const missingPinnedModule = hasUnavailablePinnedLeanModule(
-                `${processResult.stdout}\n${processResult.stderr}`,
-                verificationProjectRoot,
-                lakePackagesPath
-              );
-              status = missingPinnedModule ? 'blocked' : 'failed';
-              verifier = 'lean-kernel';
-              error = missingPinnedModule
-                ? 'Lean verification cannot load a module supplied by the pinned dependencies; restore the compiled cache or search path and retry the same frozen candidate.'
-                : `Lean exited with status ${processResult.exitCode ?? 'unknown'}.`;
-            } else if (declarationExport?.error) {
-              status = 'blocked';
-              verifier = 'lean-kernel';
-              error = declarationExport.error;
-            } else {
-              status = 'kernel_verified';
-              verifier = 'lean-kernel';
-            }
-            emit('check.kernel_checked', {
-              proofPath: file.relativeProofPath,
-              status,
-              exitCode: processResult.exitCode,
-              signal: processResult.signal,
-              timedOut: processResult.timedOut,
-              aborted: processResult.aborted,
-              durationMs: processResult.durationMs,
-            });
-            if (error) {
-              emit('diagnostic.emitted', {
-                source: 'process',
-                severity: 'error',
-                message: error,
-                proofPath: file.relativeProofPath,
-              });
-            }
-            publishResults(file, status, verifier, error, { stdoutPreview, stderrPreview }, axiomSafeItems);
-          };
+              const manifest = JSON.parse(fs.readFileSync(path.join(verificationProjectRoot, 'lake-manifest.json'), 'utf8'));
+              requiresPackages = Array.isArray(manifest.packages) && manifest.packages.length > 0;
+            } catch { /* Lake reports malformed configuration; do not infer a proof failure from startup errors. */ }
+          }
+          const context: FormalFileVerificationContext = { request, options, command, verifierCommand, lakeFile,
+            requiresPackages, toolUnavailable: false, batchDeadlineAt, verificationProjectRoot, relativeProjectRoot,
+            checkoutRoot, runtimeEnvironment, lakePackagesPath, blobIdsByPath, emit, publishResults,
+            sandboxCapability: inspectMathematicsSandboxBackends(runtimeEnvironment) };
           // The outer semaphore limits concurrent batches.  Within one batch,
           // use the configured host capacity for independent proof files so
           // parallel FORMALIZE nodes do not become a serial queue.
@@ -3575,7 +2861,7 @@ async function checkManyFormalVerificationsUnbounded(
               const index = nextFileIndex++;
               if (index >= preparedFiles.length) return;
               // eslint-disable-next-line no-await-in-loop
-              await verifyFile(preparedFiles[index]);
+              await verifyFormalFile(preparedFiles[index], context);
             }
           };
           await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
@@ -3694,7 +2980,7 @@ const isDurableCacheAttested = (cached: CachedFormalVerification, secret?: strin
 
 const readDurableFormalVerificationCache = (cacheKey: string): CachedFormalVerification | undefined => {
   try {
-    const parsed = JSON.parse(fs.readFileSync(durableFormalVerificationCachePath(cacheKey), 'utf8')) as
+    const parsed = JSON.parse(readMathText(durableFormalVerificationCachePath(cacheKey), 64 * 1024 * 1024)) as
       | CachedFormalVerification
       | undefined;
     if (
@@ -3871,50 +3157,32 @@ async function buildFormalVerificationCacheKey(
   if (!resolvedTarget || resolvedTarget !== head) return undefined;
   const status = await readGitStatus(projectRoot, options);
   if (!status.ok || status.output) return undefined;
-  const proofHashByPath = new Map<string, string>();
-  const proofSourceByPath = new Map<string, string>();
-  const proofMetadataByPath = new Map<string, string>();
-  const proofMetadataRequests: Array<{ relativePath: string; absolutePath: string }> = [];
   let preparedItems: readonly PreparedItem[];
+  let proofSources: ReadonlyMap<string, ProofSourceSnapshot>;
   try {
     preparedItems = normalizeItems(projectRoot, request.items);
+    const paths = new Map(preparedItems.map(item => [item.relativeProofPath, item.absoluteProofPath]));
+    proofSources = new Map(await Promise.all([...paths].map(async ([relativePath, absolutePath]) => {
+      const metadata = await proofFileMetadataAsync(absolutePath);
+      const source = await fs.promises.readFile(absolutePath, 'utf8');
+      // A snapshot can be reused only when its identity belongs to the bytes read.
+      if (!metadata || (await proofFileMetadataAsync(absolutePath)) !== metadata)
+        throw new Error('formal_verifier_source_changed');
+      return [relativePath, { source, hash: crypto.createHash('sha256').update(source).digest('hex'), metadata }] as const;
+    })));
   } catch {
     return undefined;
   }
-  const fileInputs = [];
-  for (const item of preparedItems) {
-    try {
-      let hash = proofHashByPath.get(item.relativeProofPath);
-      if (!hash) {
-        const source = fs.readFileSync(item.absoluteProofPath, 'utf8');
-        hash = crypto.createHash('sha256').update(source).digest('hex');
-        proofHashByPath.set(item.relativeProofPath, hash);
-        proofSourceByPath.set(item.relativeProofPath, source);
-        proofMetadataRequests.push({ relativePath: item.relativeProofPath, absolutePath: item.absoluteProofPath });
-      }
-      fileInputs.push({
-        path: item.relativeProofPath,
-        hash,
-        theoremName: item.theoremName,
-        statementHash: item.statementHash,
-        leanStatementHash: item.leanStatementHash,
-        expectedSourceDeclarationHash: item.expectedSourceDeclarationHash,
-        claim: item.claim || 'statement',
-        id: item.id,
-      });
-    } catch {
-      return undefined;
-    }
-  }
-  const proofMetadataValues = await Promise.all(
-    proofMetadataRequests.map(async ({ relativePath, absolutePath }) => ({
-      relativePath,
-      metadata: await proofFileMetadataAsync(absolutePath),
-    }))
-  );
-  for (const { relativePath, metadata } of proofMetadataValues) {
-    if (metadata) proofMetadataByPath.set(relativePath, metadata);
-  }
+  const fileInputs = preparedItems.map(item => ({
+    path: item.relativeProofPath,
+    hash: proofSources.get(item.relativeProofPath)!.hash,
+    theoremName: item.theoremName,
+    statementHash: item.statementHash,
+    leanStatementHash: item.leanStatementHash,
+    expectedSourceDeclarationHash: item.expectedSourceDeclarationHash,
+    claim: item.claim || 'statement',
+    id: item.id,
+  }));
   const toolchainFiles = ['lean-toolchain', 'lakefile.toml', 'lakefile.lean', 'lake-manifest.json']
     .map((name) => {
       try {
@@ -3997,9 +3265,7 @@ async function buildFormalVerificationCacheKey(
     cacheKey,
     resolvedTargetCommit: resolvedTarget,
     preparedItems,
-    proofSourceByPath,
-    proofHashByPath,
-    proofMetadataByPath,
+    proofSources,
   };
 }
 
@@ -4009,7 +3275,7 @@ export async function checkManyFormalVerifications(
 ): Promise<MathematicsVerifierBatchResult> {
   // Resolve the pinned mathematics environment once at the public boundary so
   // cache identity, capability checks, and the actual Lean process agree.
-  const runtimeOptions: MathematicsVerifierExecutionOptions = {
+  const runtimeOptions: MathematicsVerifierExecutionOptions & { env: NodeJS.ProcessEnv } = {
     ...options,
     env: resolveMathematicsRuntimeEnvironment(options.env || process.env),
   };
@@ -4022,9 +3288,8 @@ export async function checkManyFormalVerifications(
       runtimeOptions.signal
     );
   }
-  // Cache-key preparation performs Git queries and bounded synchronous proof
-  // reads. Keep it behind the same semaphore as Lean work so a burst of cache
-  // misses cannot block the event loop or starve actual verification slots.
+  // Keep cache-key preparation behind the same semaphore as Lean work so a
+  // burst of Git queries and proof reads cannot starve actual verification.
   const cachePreparation = await withVerificationSlot(
     () => buildFormalVerificationCacheKey(request, runtimeOptions),
     runtimeOptions.signal
@@ -4331,9 +3596,9 @@ const readAndValidateOfficialManifest = (
 
 async function runOfficialComparatorUnbounded(
   request: MathematicsOfficialComparatorRequest,
-  options: MathematicsVerifierExecutionOptions = {}
+  options: MathematicsVerifierExecutionOptions & { env: NodeJS.ProcessEnv }
 ): Promise<MathematicsOfficialComparatorResult> {
-  const runtimeEnvironment = resolveMathematicsRuntimeEnvironment(options.env || process.env);
+  const runtimeEnvironment = { ...options.env };
   const projectRoot = canonicalProjectRoot(request.projectRoot);
   const command = request.command.trim();
   if (!command || command.includes('\0') || command.length > 8_192) {
@@ -4555,7 +3820,7 @@ export async function runOfficialComparator(
   request: MathematicsOfficialComparatorRequest,
   options: MathematicsVerifierExecutionOptions = {}
 ): Promise<MathematicsOfficialComparatorResult> {
-  const runtimeOptions: MathematicsVerifierExecutionOptions = {
+  const runtimeOptions: MathematicsVerifierExecutionOptions & { env: NodeJS.ProcessEnv } = {
     ...options,
     env: resolveMathematicsRuntimeEnvironment(options.env || process.env),
   };

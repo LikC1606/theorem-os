@@ -4,10 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { mathGitText, mathGitResult } from './mathGit';
+import { mathDigest as sha256, readMathText } from './mathRuntimeIo';
+import { assertMathCanonicalPath, isMathPathWithin } from './paths';
 import { parse as parseToml } from 'smol-toml';
 
 export const LEAN_EVAL_BENCHMARK_COMMIT = '96a09300f9debeef864d8037635d6e0248c43960' as const;
@@ -101,7 +102,6 @@ const stringList = (value: unknown): readonly string[] =>
   Array.isArray(value) ? Object.freeze(value.flatMap((item) => (text(item) ? [text(item)!] : []))) : Object.freeze([]);
 const positiveInt = (value: unknown, fallback = 1): number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : fallback;
-const sha256 = (value: string): string => crypto.createHash('sha256').update(value, 'utf8').digest('hex');
 const safeRelativePath = (value: string, field: string): string => {
   const normalized = value.trim();
   const parts = normalized.split('/');
@@ -122,35 +122,23 @@ const safeRelativePath = (value: string, field: string): string => {
 const assertNoSymlinkPath = (root: string, relativePath: string): void => {
   const resolvedRoot = path.resolve(root);
   const absolute = path.resolve(resolvedRoot, relativePath);
-  if (absolute !== resolvedRoot && !absolute.startsWith(`${resolvedRoot}${path.sep}`)) {
+  if (!isMathPathWithin(resolvedRoot, absolute)) {
     throw new Error(`LeanEval catalog path escapes the repository: ${relativePath}`);
   }
-  let current = resolvedRoot;
-  for (const segment of relativePath.split('/')) {
-    current = path.join(current, segment);
-    const stat = fs.lstatSync(current);
-    if (stat.isSymbolicLink()) throw new Error(`LeanEval catalog path must not traverse a symbolic link: ${relativePath}`);
-  }
+  try { assertMathCanonicalPath(absolute); }
+  catch { throw new Error(`LeanEval catalog path must not traverse a symbolic link: ${relativePath}`); }
 };
 
 const readFile = (root: string, relativePath: string): string => {
   assertNoSymlinkPath(root, relativePath);
   const absolute = path.join(root, relativePath);
-  const contents = fs.readFileSync(absolute, 'utf8');
-  if (contents.length > 16 * 1024 * 1024) throw new Error(`LeanEval catalog file is too large: ${relativePath}`);
-  return contents;
+  return readMathText(absolute, 16 * 1024 * 1024);
 };
 
-const gitText = (root: string, args: readonly string[]): string => {
-  const result = spawnSync('git', ['-C', root, ...args], { encoding: 'utf8', maxBuffer: 2 * 1024 * 1024 });
-  if (result.status !== 0) throw new Error(result.stderr?.trim() || `git ${args.join(' ')} failed`);
-  return result.stdout.trim();
-};
+const gitText = (root: string, args: readonly string[]) => mathGitText(root, args, { maxBuffer: 2 * 1024 * 1024 });
 
 const assertCatalogSourceIntegrity = (root: string, benchmarkCommit: string, files: readonly string[]): void => {
-  const dirty = spawnSync('git', ['-C', root, 'diff', '--quiet', benchmarkCommit, '--', ...files], {
-    encoding: 'utf8',
-  });
+  const dirty = mathGitResult(root, ['diff', '--quiet', benchmarkCommit, '--', ...files], { maxBuffer: 2 * 1024 * 1024 });
   if (dirty.status !== 0) throw new Error('LeanEval catalog source files differ from the pinned benchmark commit.');
   for (const file of files) {
     assertNoSymlinkPath(root, file);
@@ -361,8 +349,8 @@ export function readLeanEvalCatalog(options: LeanEvalCatalogReadOptions): LeanEv
   if (!/^[0-9a-f]{40}$/u.test(benchmarkCommit))
     throw new TypeError('LeanEval benchmarkCommit must be a full commit hash');
   if (options.verifyGitCommit) {
-    const result = spawnSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' });
-    const actual = result.status === 0 ? result.stdout.trim().toLowerCase() : '';
+    const result = mathGitResult(root, ['rev-parse', 'HEAD'], { maxBuffer: 2 * 1024 * 1024 });
+    const actual = result.status === 0 ? result.stdout.toString('utf8').trim().toLowerCase() : '';
     if (actual !== benchmarkCommit)
       throw new Error(`LeanEval checkout must be at ${benchmarkCommit}; got ${actual || 'unknown'}.`);
   }

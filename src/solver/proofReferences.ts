@@ -1,8 +1,8 @@
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import { maskLeanComments } from '../math/leanSyntax';
 import type { LeanDeclarationReferences } from '../math/leanReferences';
-import { inspectLeanDeclarationRegions } from '../math/verifier';
-import { committedSource } from './problem';
+import { inspectLeanDeclarationRegions } from '../math/leanSource';
+import { committedSource, git } from './problem';
 import type { SolverProblem } from './problem';
 
 export type ProofReferences = LeanDeclarationReferences & {
@@ -13,13 +13,17 @@ export type ProofReferences = LeanDeclarationReferences & {
   tasks?: { taskId: string; taskDigest: string }[];
 };
 
-/** Source is used to fingerprint Lean-selected declarations, never to infer their references. */
-export function captureProofReferences(problem: SolverProblem, worktree: string, sourceCommit: string,
-  root: ProofReferences['root'], references: LeanDeclarationReferences, environmentDigest: string,
-  scope?: 'statement'): ProofReferences | undefined {
-  const files = [...new Set([...Object.keys(problem.trustedFiles), ...problem.ownedFiles])].filter(file => file.endsWith('.lean'));
-  if ([root, ...references.statement, ...references.proof].some(item => !files.includes(item.file))) return;
-  const sources = new Map(files.map(file => [file, maskLeanComments(committedSource(worktree, sourceCommit, `${problem.projectRelative}/${file}`))]));
+/** Only committed content is cached; mutable worktree files never authorize reference reuse. */
+const snapshots = new Map<string, { sources: Map<string, string>; regions: Map<string, ReturnType<typeof inspectLeanDeclarationRegions>>;
+  contextDigest: string; bytes: number }>();
+let snapshotBytes = 0;
+function sourceSnapshot(problem: SolverProblem, worktree: string, sourceCommit: string, files: string[]) {
+  const repository = git(worktree, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
+  const commit = /^[a-f0-9]{40,64}$/u.test(sourceCommit) ? sourceCommit : git(worktree, ['rev-parse', `${sourceCommit}^{commit}`]);
+  const key = canonicalMathJson([repository, problem.projectRelative, problem.receiptDigest, commit, files]);
+  const cached = snapshots.get(key);
+  if (cached) { snapshots.delete(key); snapshots.set(key, cached); return cached; }
+  const sources = new Map(files.map(file => [file, maskLeanComments(committedSource(worktree, commit, `${problem.projectRelative}/${file}`))]));
   const regions = new Map([...sources].map(([file, source]) => [file, inspectLeanDeclarationRegions(source)]));
   const contextDigest = mathDigest(canonicalMathJson([...sources].map(([file, source]) => {
     for (const region of [...regions.get(file)!].reverse()) {
@@ -29,6 +33,26 @@ export function captureProofReferences(problem: SolverProblem, worktree: string,
     }
     return [file, source];
   })));
+  const bytes = [...sources.values()].reduce((total, source) => total + Buffer.byteLength(source), 0);
+  const snapshot = { sources, regions, contextDigest, bytes };
+  const limit = 16 * 1024 * 1024;
+  if (bytes <= limit) {
+    while (snapshots.size && (snapshots.size >= 8 || snapshotBytes + bytes > limit)) {
+      const oldest = snapshots.keys().next().value!;
+      snapshotBytes -= snapshots.get(oldest)!.bytes; snapshots.delete(oldest);
+    }
+    snapshots.set(key, snapshot); snapshotBytes += bytes;
+  }
+  return snapshot;
+}
+
+/** Source is used to fingerprint Lean-selected declarations, never to infer their references. */
+export function captureProofReferences(problem: SolverProblem, worktree: string, sourceCommit: string,
+  root: ProofReferences['root'], references: LeanDeclarationReferences, environmentDigest: string,
+  scope?: 'statement'): ProofReferences | undefined {
+  const files = [...new Set([...Object.keys(problem.trustedFiles), ...problem.ownedFiles])].filter(file => file.endsWith('.lean'));
+  if ([root, ...references.statement, ...references.proof].some(item => !files.includes(item.file))) return;
+  const { sources, regions, contextDigest } = sourceSnapshot(problem, worktree, sourceCommit, files);
   const inputs = new Map<string, ProofReferences['inputs'][number]>();
   for (const item of [root, ...references.statement, ...references.proof]) {
     const source = sources.get(item.file)!;

@@ -1,10 +1,19 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { createInterface } from 'node:readline';
+import { closeMathProcess } from '../math/mathProcess';
 import fs from 'node:fs';
 import path from 'node:path';
 import { parse as parseToml } from 'smol-toml';
+import { mathProofEnvironmentWorkerEnvironment } from '../math/mathProofEnvironment';
 
-type Json = Record<string, any>;
+type Json = Record<string, unknown>;
+const object = (value: unknown): Json => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('math_codex_invalid_message');
+  return value as Json;
+};
+export type MathAgentActivity = {
+  event: 'item_started' | 'item_completed' | 'reasoning' | 'message' | 'command_output' | 'lean_lock_waiting' | 'lean_lock_acquired';
+  itemType?: string;
+};
 export type MathAgentOptions = {
   executable: string;
   profile: string;
@@ -13,9 +22,11 @@ export type MathAgentOptions = {
   effort: string;
   instructions: string;
   environment?: NodeJS.ProcessEnv;
+  proofProjectRoot?: string;
   threadId?: string;
   turnTimeoutMs?: number;
   onUsage: (usage: Json) => void;
+  onActivity?: (activity: MathAgentActivity) => void;
 };
 export type MathAgentSession = {
   threadId: string;
@@ -33,17 +44,16 @@ class CodexRpc {
   private nextId = 0;
   private pending = new Map<number, { resolve: (result: Json) => void; reject: (error: Error) => void; timer: NodeJS.Timeout }>();
   private failure?: Error;
-  private exit: Promise<void>;
+  private closing?: Promise<void>;
   onNotification: (method: string, params: Json) => void = () => {};
   onFailure: (error: Error) => void = () => {};
 
   constructor(executable: string, profile: string, environment: NodeJS.ProcessEnv = process.env) {
     this.child = spawn(executable, ['app-server', '--listen', 'stdio://'], {
-      env: { ...environment, CODEX_HOME: profile }, stdio: 'pipe',
+      env: { ...environment, CODEX_HOME: profile }, stdio: 'pipe', detached: process.platform !== 'win32',
     });
     // Do not forward provider diagnostics, which can contain credentials or task text.
     this.child.stderr.resume();
-    this.exit = new Promise(resolve => this.child.once('close', () => resolve()));
     const fail = () => {
       if (this.failure) return;
       this.failure = new Error('math_codex_transport_closed');
@@ -54,24 +64,43 @@ class CodexRpc {
     this.child.once('error', fail);
     this.child.once('close', fail);
     this.child.stdin.on('error', fail);
-    createInterface({ input: this.child.stdout }).on('line', line => {
+    const receive = (line: Buffer) => {
       try {
-        if (line.length > 8 * 1024 * 1024) throw new Error();
-        const message: Json = JSON.parse(line);
+        const message = object(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(line)));
+        if (message.method !== undefined && typeof message.method !== 'string') throw new Error();
         if (message.method && message.id !== undefined) {
           // Headless math never grants an interactive permission request.
           this.write({ id: message.id, error: { code: -32601, message: 'Interactive requests are unavailable in headless mathematics' } });
         } else if (message.method) {
-          this.onNotification(message.method, message.params ?? {});
+          this.onNotification(message.method as string, object(message.params ?? {}));
         } else {
+          if (typeof message.id !== 'number') return;
           const call = this.pending.get(message.id);
           if (!call) return;
+          const error = message.error ? object(message.error) : undefined;
+          const result = error ? undefined : object(message.result ?? {});
           this.pending.delete(message.id);
           clearTimeout(call.timer);
-          if (message.error) call.reject(new Error(`math_codex_rpc_failed:${message.error.code}`));
-          else call.resolve(message.result ?? {});
+          if (error) call.reject(new Error(`math_codex_rpc_failed:${error.code}`));
+          else call.resolve(result!);
         }
-      } catch { fail(); this.child.kill('SIGTERM'); }
+      } catch { fail(); void this.close(); }
+    };
+    let parts: Buffer[] = [], bytes = 0;
+    this.child.stdout.on('data', (chunk: Buffer) => {
+      if (this.failure) return;
+      let start = 0;
+      while (start < chunk.length) {
+        const newline = chunk.indexOf(10, start), end = newline < 0 ? chunk.length : newline;
+        bytes += end - start;
+        if (bytes > 8 * 1024 * 1024) { parts = []; fail(); void this.close(); return; }
+        parts.push(chunk.subarray(start, end));
+        if (newline < 0) break;
+        const line = Buffer.concat(parts, bytes); parts = []; bytes = 0;
+        receive(line);
+        if (this.failure) return;
+        start = newline + 1;
+      }
     });
   }
 
@@ -89,7 +118,8 @@ class CodexRpc {
         reject(new Error(`math_codex_rpc_timeout:${method}`));
       }, 120_000);
       this.pending.set(id, { resolve, reject, timer });
-      this.write({ id, method, params });
+      try { this.write({ id, method, params }); }
+      catch (error) { clearTimeout(timer); this.pending.delete(id); reject(error); }
     });
   }
 
@@ -98,32 +128,69 @@ class CodexRpc {
     this.write({ method: 'initialized' });
   }
 
-  async close(): Promise<void> {
-    this.child.kill('SIGTERM');
-    const timer = setTimeout(() => this.child.kill('SIGKILL'), 3000);
-    try { await this.exit; } finally { clearTimeout(timer); }
-  }
+  close(): Promise<void> { return this.closing ??= closeMathProcess(this.child); }
 }
 
 export async function createCodexMathSession(options: MathAgentOptions): Promise<MathAgentSession> {
-  const rpc = new CodexRpc(options.executable, options.profile, options.environment);
+  const environment = options.proofProjectRoot
+    ? mathProofEnvironmentWorkerEnvironment(options.proofProjectRoot, options.environment ?? process.env)
+    : options.environment;
+  const rpc = new CodexRpc(options.executable, options.profile, environment);
   let activeTurn: string | undefined;
   let completion: { resolve: (turn: Json) => void; reject: (error: Error) => void } | undefined;
   const earlyCompletions = new Map<string, Json>();
   let lastError: string | undefined;
   let lastInputTokens = 0;
   let transportFailure: Error | undefined;
+  let threadId = options.threadId;
+  let lastStreamActivityAt = 0;
+  const outputTails = new Map<string, string>();
+  const activity = (event: MathAgentActivity['event'], itemType?: string, streaming = false) => {
+    if (!options.onActivity || !completion) return;
+    const now = Date.now();
+    if (streaming && now - lastStreamActivityAt < 30_000) return;
+    lastStreamActivityAt = now;
+    options.onActivity({ event, ...(itemType && /^[A-Za-z][A-Za-z0-9]{0,63}$/u.test(itemType) ? { itemType } : {}) });
+  };
   rpc.onFailure = error => { transportFailure = error; completion?.reject(error); };
   rpc.onNotification = (method, params) => {
+    if (threadId !== undefined && params.threadId !== undefined && params.threadId !== threadId) return;
+    if (method === 'item/started' || method === 'item/completed') {
+      const item = object(params.item);
+      activity(method === 'item/started' ? 'item_started' : 'item_completed', typeof item.type === 'string' ? item.type : undefined);
+      if (method === 'item/completed' && typeof item.id === 'string') outputTails.delete(item.id);
+    } else if (method === 'item/reasoning/textDelta' || method === 'item/reasoning/summaryTextDelta') {
+      activity('reasoning', undefined, true);
+    } else if (method === 'item/agentMessage/delta') {
+      activity('message', undefined, true);
+    } else if (method === 'item/commandExecution/outputDelta') {
+      const key = typeof params.itemId === 'string' ? params.itemId : '';
+      const delta = typeof params.delta === 'string' ? params.delta : '';
+      let tail = (outputTails.get(key) ?? '') + delta;
+      let reported = false;
+      for (const event of ['lean_lock_waiting', 'lean_lock_acquired'] as const) {
+        const marker = `"event":"${event}"`, index = tail.indexOf(marker);
+        if (index < 0) continue;
+        activity(event, 'commandExecution'); reported = true;
+        tail = tail.slice(index + marker.length);
+      }
+      if (!outputTails.has(key) && outputTails.size >= 32) outputTails.delete(outputTails.keys().next().value!);
+      outputTails.set(key, tail.slice(-128));
+      if (!reported) activity('command_output', 'commandExecution', true);
+    }
     if (method === 'thread/tokenUsage/updated') {
-      lastInputTokens = params.tokenUsage?.last?.inputTokens ?? 0;
-      options.onUsage(params.tokenUsage?.total ?? {});
+      const usage = object(params.tokenUsage ?? {}), last = object(usage.last ?? {});
+      lastInputTokens = typeof last.inputTokens === 'number' && Number.isSafeInteger(last.inputTokens) && last.inputTokens >= 0 ? last.inputTokens : 0;
+      options.onUsage(object(usage.total ?? {}));
     }
     if (method === 'turn/completed') {
-      const turn = params.turn;
-      if (!turn || typeof turn.id !== 'string') return;
+      const turn = object(params.turn);
+      if (typeof turn.id !== 'string') return;
       if (turn.id === activeTurn && completion) completion.resolve(turn);
-      else earlyCompletions.set(turn.id, turn);
+      else if (completion && !activeTurn) {
+        if (earlyCompletions.size >= 32) earlyCompletions.delete(earlyCompletions.keys().next().value!);
+        earlyCompletions.set(turn.id, turn);
+      }
     }
   };
   try {
@@ -144,8 +211,9 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
     const result = await rpc.request(options.threadId ? 'thread/resume' : 'thread/start', {
       ...settings, ...(options.threadId ? { threadId: options.threadId } : {}),
     });
-    const threadId = result.thread?.id;
-    if (typeof threadId !== 'string' || !threadId) throw new Error('math_codex_thread_missing');
+    const startedThreadId = object(result.thread).id;
+    if (typeof startedThreadId !== 'string' || !startedThreadId) throw new Error('math_codex_thread_missing');
+    threadId = startedThreadId;
     if (options.threadId && threadId !== options.threadId) throw new Error('math_codex_session_binding_mismatch');
     if (result.model !== options.model || result.reasoningEffort !== options.effort || result.approvalPolicy !== 'never')
       throw new Error('math_codex_session_binding_mismatch');
@@ -163,6 +231,7 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
         // Attach immediately so a transport failure during turn/start is handled.
         void done.catch(() => {});
         completion = { resolve, reject };
+        lastStreamActivityAt = 0; outputTails.clear();
         let checkpoint = false;
         let timer: NodeJS.Timeout | undefined;
         let interruptDeadline: NodeJS.Timeout | undefined;
@@ -173,8 +242,9 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
             sandboxPolicy: { type: 'workspaceWrite', writableRoots: [workspace], networkAccess: true, excludeTmpdirEnvVar: true, excludeSlashTmp: true },
             input: [{ type: 'text', text: message, text_elements: [] }],
           });
-          activeTurn = started.turn?.id;
-          if (!activeTurn) throw new Error('math_codex_turn_missing');
+          const turnId = object(started.turn).id;
+          if (typeof turnId !== 'string' || !turnId) throw new Error('math_codex_turn_missing');
+          activeTurn = turnId;
           onStarted(activeTurn);
           if (options.turnTimeoutMs) timer = setTimeout(() => {
             checkpoint = true;
@@ -186,11 +256,17 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
           earlyCompletions.delete(activeTurn);
           if (early) resolve(early);
           const finished = await done;
-          if (finished.status === 'failed' && typeof finished.error?.message === 'string') lastError = finished.error.message;
+          if (typeof finished.status !== 'string') throw new Error('math_codex_turn_status_missing');
+          if (finished.status === 'failed' && finished.error) {
+            const error = object(finished.error);
+            if (typeof error.message === 'string') lastError = error.message;
+          }
           return checkpoint && finished.status === 'interrupted' ? 'checkpoint' : finished.status;
         } finally {
           clearTimeout(timer); clearTimeout(interruptDeadline);
           activeTurn = undefined; completion = undefined;
+          earlyCompletions.clear();
+          outputTails.clear();
         }
       },
       interrupt: async () => {

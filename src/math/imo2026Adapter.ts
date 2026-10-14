@@ -1,8 +1,10 @@
-import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { mathGitBytes, mathGitText, mathGitResult } from './mathGit';
+import { mathDigest as sha256 } from './mathRuntimeIo';
+import { isMathPathWithin as isWithin } from './paths';
+import { inspectScopedLeanDeclarations } from './leanSource';
 import { canonicalMathProblemStatementPayloads, normalizeMathProblemContract, type MathProblemContract } from "./contracts";
 
 export const IMO2026_ADAPTER_ID = 'imo2026' as const;
@@ -122,7 +124,6 @@ export type Imo2026BootstrapOptions = Readonly<{
   workspaceRoot?: string;
 }>;
 
-const sha256 = (value: string | Uint8Array): string => crypto.createHash('sha256').update(value).digest('hex');
 const fullGitObjectId = /^[0-9a-f]{40,64}$/u;
 const hash = /^[0-9a-f]{64}$/u;
 
@@ -131,40 +132,27 @@ const asProblemId = (value: string): ImoProblemId => {
   return value as ImoProblemId;
 };
 
-const git = (cwd: string, args: readonly string[]): string => {
-  const result = spawnSync('git', ['-C', cwd, ...args], { encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 });
-  if (result.status !== 0 || result.error) throw new Error('imo2026_git_identity_unavailable');
-  return result.stdout.trim();
-};
+const git = (root: string, args: readonly string[]) => mathGitText(root, args,
+  { maxBuffer: 4 * 1024 * 1024, errorMessage: 'imo2026_git_identity_unavailable' });
 
 /** Read an immutable input from Git without normalising its bytes. */
 const gitBlob = (cwd: string, commit: string, relativePath: string): Buffer => {
   const object = `${commit}:${relativePath}`;
-  const tree = spawnSync('git', ['-C', cwd, 'ls-tree', '-z', commit, '--', relativePath], {
-    encoding: null,
-    maxBuffer: 1024 * 1024,
+  const tree = mathGitBytes(cwd, ['ls-tree', '-z', commit, '--', relativePath], {
+    maxBuffer: 1024 * 1024, errorMessage: 'imo2026_source_blob_unavailable',
   });
-  if (tree.status !== 0 || tree.error || !Buffer.isBuffer(tree.stdout)) throw new Error('imo2026_source_blob_unavailable');
-  const entries = tree.stdout.toString('utf8').split('\0').filter(Boolean);
+  const entries = tree.toString('utf8').split('\0').filter(Boolean);
   if (entries.length !== 1) throw new Error('imo2026_source_blob_unavailable');
   const treeEntry = entries[0]!.match(/^(\d{6}) (blob|tree|commit) [0-9a-f]{40,64}\t(.+)$/u);
   if (!treeEntry || treeEntry[3] !== relativePath || treeEntry[1] !== '100644' || treeEntry[2] !== 'blob')
     throw new Error('imo2026_source_blob_unavailable');
-  const type = spawnSync('git', ['-C', cwd, 'cat-file', '-t', object], {
-    encoding: 'utf8',
-    maxBuffer: 1024,
-  });
-  if (type.status !== 0 || type.error || type.stdout.trim() !== 'blob') {
+  if (mathGitText(cwd, ['cat-file', '-t', object],
+      { maxBuffer: 1024, errorMessage: 'imo2026_source_blob_unavailable' }) !== 'blob') {
     throw new Error('imo2026_source_blob_unavailable');
   }
-  const result = spawnSync('git', ['-C', cwd, 'cat-file', 'blob', object], {
-    encoding: null,
-    maxBuffer: 16 * 1024 * 1024,
+  return mathGitBytes(cwd, ['cat-file', 'blob', object], {
+    maxBuffer: 16 * 1024 * 1024, errorMessage: 'imo2026_source_blob_unavailable',
   });
-  if (result.status !== 0 || result.error || !Buffer.isBuffer(result.stdout)) {
-    throw new Error('imo2026_source_blob_unavailable');
-  }
-  return result.stdout;
 };
 
 const assertCanonicalDirectory = (directory: string, field: string): string => {
@@ -184,35 +172,14 @@ const assertRegularFile = (file: string, field: string): string => {
   return resolved;
 };
 
-const isWithin = (parent: string, candidate: string): boolean => {
-  const relative = path.relative(path.resolve(parent), path.resolve(candidate));
-  return relative === '' || (!path.isAbsolute(relative) && relative !== '..' && !relative.startsWith(`..${path.sep}`));
-};
-
 const theoremNamesFromSource = (source: string): readonly string[] => {
   const names = [...source.matchAll(/^\s*theorem\s+([A-Za-z_][A-Za-z0-9_']*)/gmu)].map((match) => match[1]!);
   return Object.freeze([...new Set(names)]);
 };
 
 export const theoremQualifiedNamesFromSource = (source: string): readonly string[] => {
-  const namespace: string[] = [];
-  const names: string[] = [];
-  for (const line of source.split(/\r?\n/u)) {
-    const namespaceMatch = line.match(/^\s*namespace\s+([A-Za-z_][A-Za-z0-9_'.]*)\s*$/u);
-    if (namespaceMatch) {
-      namespace.push(...namespaceMatch[1]!.split('.'));
-      continue;
-    }
-    const endMatch = line.match(/^\s*end(?:\s+([A-Za-z_][A-Za-z0-9_'.]*))?\s*$/u);
-    if (endMatch) {
-      if (endMatch[1]) namespace.splice(Math.max(0, namespace.length - endMatch[1].split('.').length));
-      else namespace.pop();
-      continue;
-    }
-    const theoremMatch = line.match(/^\s*(?:theorem|lemma|example)\s+([A-Za-z_][A-Za-z0-9_']*)/u);
-    if (theoremMatch) names.push([...namespace, theoremMatch[1]!].join('.'));
-  }
-  return Object.freeze([...new Set(names)]);
+  return Object.freeze([...new Set(inspectScopedLeanDeclarations(source).filter(declaration => declaration.kind === 'theorem')
+    .map(declaration => declaration.qualifiedName))]);
 };
 
 const sourceBytesFor = (repositoryRoot: string, relativePath: string): Buffer =>
@@ -222,21 +189,8 @@ const trustedSourceRelativePath = (relative: string): string =>
   relative === 'MathFlowBench/CacheWarm.lean' ? 'base/MathFlowBench/CacheWarm.lean' : `base/${relative}`;
 
 /** Read a pinned tree file and reject links/submodules before reading bytes. */
-const pinnedTrustedBytes = (repositoryRoot: string, relative: string): Buffer => {
-  const sourceRelative = trustedSourceRelativePath(relative);
-  const tree = spawnSync('git', ['-C', repositoryRoot, 'ls-tree', '-z', IMO2026_SOURCE_COMMIT, '--', sourceRelative], {
-    encoding: null,
-    maxBuffer: 1024 * 1024,
-  });
-  if (tree.status !== 0 || tree.error || !Buffer.isBuffer(tree.stdout)) throw new Error('imo2026_source_blob_unavailable');
-  const entries = tree.stdout.toString('utf8').split('\0').filter(Boolean);
-  if (entries.length !== 1) throw new Error('imo2026_source_blob_unavailable');
-  const match = entries[0]!.match(/^(\d{6}) (blob|tree|commit) [0-9a-f]{40,64}\t(.+)$/u);
-  if (!match || match[3] !== sourceRelative || match[1] !== '100644' || match[2] !== 'blob') {
-    throw new Error('imo2026_source_blob_unavailable');
-  }
-  return sourceBytesFor(repositoryRoot, sourceRelative);
-};
+const pinnedTrustedBytes = (repositoryRoot: string, relative: string): Buffer =>
+  sourceBytesFor(repositoryRoot, trustedSourceRelativePath(relative));
 
 const copyTrustedBytes = (bytes: Uint8Array, target: string): void => {
   fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
@@ -287,8 +241,7 @@ const initializeGit = (workspaceRoot: string): string => {
     ['add', '--', 'generated'],
     ['commit', '--quiet', '-m', 'IMO2026 public solver baseline'],
   ] as const) {
-    const result = spawnSync('git', args, { cwd: workspaceRoot, encoding: 'utf8' });
-    if (result.status !== 0) throw new Error('imo2026_workspace_git_init_failed');
+    mathGitText(workspaceRoot, args, { maxBuffer: 4 * 1024 * 1024, errorMessage: 'imo2026_workspace_git_init_failed' });
   }
   // The receipt is written after the baseline commit; Lake also creates local
   // build/cache files during preflight. Neither is candidate source. Keep them
@@ -508,10 +461,7 @@ export function verifyImo2026BootstrapReceipt(receipt: Imo2026BootstrapReceipt):
   // The bootstrap commit is the trust baseline. Solver work is expected to
   // advance the workspace HEAD, so require the current history to descend
   // from that baseline rather than requiring an unchanged HEAD.
-  const ancestry = spawnSync('git', ['-C', workspace, 'merge-base', '--is-ancestor', receipt.baseCommit, 'HEAD'], {
-    encoding: 'utf8',
-    maxBuffer: 4 * 1024 * 1024,
-  });
+  const ancestry = mathGitResult(workspace, ['merge-base', '--is-ancestor', receipt.baseCommit, 'HEAD'], { maxBuffer: 4 * 1024 * 1024 });
   if (ancestry.error) throw new Error('imo2026_git_identity_unavailable');
   if (ancestry.status !== 0) throw new Error('imo2026_workspace_commit_mismatch');
   if (sha256(fs.readFileSync(path.join(project, 'Challenge.lean')) as Buffer) !== receipt.sourceSha256)

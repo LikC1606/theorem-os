@@ -120,6 +120,17 @@ function localSourceDirectories(root: string): Set<string> {
   return directories;
 }
 
+const localModuleFile = (name: string): string => {
+  const parts = (name.match(/«[^»]+»|[^.]+/gu) ?? []).map(part => part.replaceAll('«', '').replaceAll('»', ''));
+  if (parts.some(part => !part || part === '.' || part === '..' || /[/\\\0]/u.test(part)))
+    throw new Error('math_local_module_import_invalid');
+  return `${parts.join('/')}.lean`;
+};
+const localImportFiles = (root: string, directories: Iterable<string>, moduleFile: string) => {
+  return [...directories].map(directory => ({ file: directory ? `${directory}/${moduleFile}` : moduleFile, sourceRoot: directory }))
+    .filter(candidate => fs.existsSync(path.join(root, candidate.file)));
+};
+
 /** Validate paths before reading them, including the transitive project-local import closure. */
 export function assertMathConstructionSources(rootInput: string, files: readonly string[]): void {
   for (const file of files)
@@ -135,20 +146,15 @@ export function assertMathConstructionSources(rootInput: string, files: readonly
     const file = assertRegularSource(root, relative);
     const source = fs.readFileSync(file, 'utf8');
     for (const name of mathConstructionImports(source)) {
-      const moduleFile =
-        (name.match(/«[^»]+»|[^.]+/gu) ?? []).map((part) => part.replaceAll('«', '').replaceAll('»', '')).join('/') +
-        '.lean';
+      const moduleFile = localModuleFile(name);
       if (!isAllowedMathProofSource(moduleFile)) throw new Error(`math_construction_import_excluded: ${name}`);
-      for (const directory of directories) {
-        const candidate = directory ? `${directory}/${moduleFile}` : moduleFile;
-        if (fs.existsSync(path.join(root, candidate))) queue.push(candidate);
-      }
+      queue.push(...localImportFiles(root, directories, moduleFile).map(candidate => candidate.file));
     }
   }
 }
 
 /** Compile only the project-local import closure, reusing frozen package artifacts. */
-export function mathLocalModuleBuildOrder(rootInput: string, relative: string): { file: string; sourceRoot: string; module: string }[] {
+export function mathLocalModuleBuildOrder(rootInput: string, input: string | readonly string[]): { file: string; sourceRoot: string; module: string }[] {
   const root = fs.realpathSync(rootInput);
   const directories = [...localSourceDirectories(root)];
   const ordered: { file: string; sourceRoot: string; module: string }[] = [];
@@ -163,23 +169,19 @@ export function mathLocalModuleBuildOrder(rootInput: string, relative: string): 
       throw new Error('math_local_module_source_invalid');
     visiting.add(file);
     for (const name of mathConstructionImports(fs.readFileSync(absolute, 'utf8'))) {
-      const parts = (name.match(/«[^»]+»|[^.]+/gu) ?? []).map(part => part.replaceAll('«', '').replaceAll('»', ''));
-      if (parts.some(part => !part || part === '.' || part === '..' || /[/\\\0]/u.test(part)))
-        throw new Error('math_local_module_import_invalid');
-      const moduleFile = `${parts.join('/')}.lean`;
-      for (const directory of directories) {
-        const candidate = directory ? `${directory}/${moduleFile}` : moduleFile;
-        if (fs.existsSync(path.join(root, candidate))) { visit(candidate, directory); break; }
-      }
+      const candidate = localImportFiles(root, directories, localModuleFile(name))[0];
+      if (candidate) visit(candidate.file, candidate.sourceRoot);
     }
     visiting.delete(file);
     visited.add(file);
     ordered.push({ file, sourceRoot: sourceRoot || '.',
       module: path.posix.relative(sourceRoot || '.', file).replace(/\.lean$/u, '').replaceAll('/', '.') });
   };
-  const sourceRoot = directories.filter(directory => directory && relative.startsWith(`${directory}/`))
-    .sort((a, b) => b.length - a.length)[0] || '';
-  visit(relative, sourceRoot);
+  for (const relative of typeof input === 'string' ? [input] : input) {
+    const sourceRoot = directories.filter(directory => directory && relative.startsWith(`${directory}/`))
+      .sort((a, b) => b.length - a.length)[0] || '';
+    visit(relative, sourceRoot);
+  }
   return ordered;
 }
 

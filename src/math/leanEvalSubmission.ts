@@ -4,34 +4,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { maskLeanCommentsAndStrings } from "./leanSyntax";
+import { maskLeanCommentsAndStrings } from './leanSyntax';
+import { inspectScopedLeanDeclarations } from './leanSource';
 
 type ScopedDeclaration = Readonly<{ basename: string; namespace: string }>;
 
 const scopedDeclarations = (cleaned: string): readonly ScopedDeclaration[] => {
-  const stack: string[] = [];
-  const entries: ScopedDeclaration[] = [];
-  for (const raw of cleaned.split('\n')) {
-    const namespace = /^\s*namespace\s+([\p{L}\p{M}\p{N}_][\p{L}\p{M}\p{N}_'.]*)(?![\p{L}\p{M}\p{N}_'])/u.exec(
-      raw
-    )?.[1];
-    if (namespace) stack.push(namespace);
-    const declaration =
-      /^\s*(?:noncomputable\s+)?(def|theorem|lemma|instance)\s+([\p{L}\p{M}\p{N}_][\p{L}\p{M}\p{N}_'.]*)(?![\p{L}\p{M}\p{N}_'])/u.exec(
-        raw
-      );
-    if (declaration) {
-      entries.push(
-        Object.freeze({ basename: declaration[2]!, namespace: stack.join('.') })
-      );
-    }
-    const end = /^\s*end(?:\s+([\p{L}\p{M}\p{N}_][\p{L}\p{M}\p{N}_'.]*)(?![\p{L}\p{M}\p{N}_']))?/u.exec(raw);
-    if (end && stack.length) {
-      const requested = end[1];
-      if (!requested || requested === stack.at(-1) || requested === stack.join('.')) stack.pop();
-    }
-  }
-  return Object.freeze(entries);
+  return Object.freeze(inspectScopedLeanDeclarations(cleaned).map(({ qualifiedName }) => {
+    const end = qualifiedName.lastIndexOf('.');
+    return Object.freeze({ basename: qualifiedName.slice(end + 1), namespace: qualifiedName.slice(0, Math.max(0, end)) });
+  }));
 };
 
 /** Generated workspaces may flatten the original LeanEval namespace. */

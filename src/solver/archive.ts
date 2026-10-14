@@ -6,9 +6,11 @@ import type { ResearchCandidate } from './modules/execution';
 import type { LemmaResearch } from './lemma';
 import type { ResearchRole } from './modules/organization';
 import type { CooperationState } from './cooperation';
+import type { MathAgentActivity } from '../runtime/codexSession';
+import { z } from 'zod';
 
 export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | 'previousThreadIds' |
-  'lastInputTokens' | 'phase' | 'turns' | 'usage' | 'usageBeforeThread' | 'check' | 'candidate' | 'lemmaResearch' | 'failures'> & {
+  'lastInputTokens' | 'lastActivity' | 'phase' | 'turns' | 'usage' | 'usageBeforeThread' | 'check' | 'candidate' | 'lemmaResearch' | 'failures'> & {
   id: string;
   role: ResearchRole;
   sessionRole?: ResearchRole;
@@ -29,6 +31,8 @@ export type SolverRunState = {
   environmentDigest: string;
   evaluatorDigest: string;
   methodDigest?: string;
+  coordination?: 'cooperative' | 'independent';
+  moduleConfiguration?: { id: string; versions: Record<string, string> };
   retrievalDigest?: string;
   model: string;
   effort: string;
@@ -36,6 +40,7 @@ export type SolverRunState = {
   threadId?: string;
   previousThreadIds?: string[];
   lastInputTokens?: number;
+  lastActivity?: MathAgentActivity & { at: number };
   phase: 'prepared' | 'running' | 'checking' | 'evaluating' | 'finished';
   turns: number;
   usage?: Record<string, unknown>;
@@ -50,5 +55,39 @@ export type SolverRunState = {
   winningWorker?: string;
 };
 
-export const readSolverRunState = (file: string): SolverRunState => readMathJson(file) as SolverRunState;
+const phase = z.enum(['prepared', 'running', 'checking', 'evaluating', 'finished']);
+const count = z.number().int().nonnegative();
+const record = z.record(z.unknown());
+const check = z.object({ commit: z.string().min(1), sourceDigest: z.string().min(1), passed: z.boolean(),
+  verification: z.object({ status: z.enum(['kernel_verified', 'failed', 'blocked', 'unavailable']),
+    targetCommit: z.string().optional(), results: z.array(record) }).passthrough() }).passthrough();
+const research = z.object({ worktree: z.string().min(1), phase, turns: count, threadId: z.string().optional(),
+  previousThreadIds: z.array(z.string()).optional(), lastInputTokens: count.optional(), check: check.optional(),
+  lastActivity: z.object({ at: count, event: z.string().min(1).max(64), itemType: z.string().max(64).optional() }).optional(),
+  usage: record.optional(), usageBeforeThread: record.optional(), candidate: record.optional(),
+  lemmaResearch: record.optional(), failures: z.array(record).optional() }).passthrough();
+const role = z.enum(['lead', 'researcher', 'engineer', 'reviewer']);
+const task = z.object({ id: z.string().min(1), kind: z.enum(['research', 'sketch', 'lemma', 'goal']),
+  objective: z.string(), dependsOn: z.array(z.string()), revision: count }).passthrough();
+const taskRecord = z.object({ task, status: z.enum(['pending', 'running', 'blocked', 'conditional', 'delivered', 'integrated', 'completed']),
+  attempts: count, proof: check.optional(), integratedCheck: check.optional(), assignment: z.object({ taskId: z.string(),
+    taskDigest: z.string(), workerId: z.string(), seedCommit: z.string() }).passthrough().optional() }).passthrough();
+const runState = research.extend({ schema: z.literal('deepscientist.math.solver.v1'), runId: z.string().min(1),
+  problem: z.object({ workspace: z.string(), receiptDigest: z.string() }).passthrough(),
+  taskDigest: z.string(), buildDigest: z.string(), environmentDigest: z.string(), evaluatorDigest: z.string(),
+  model: z.string(), effort: z.string(), workerCount: z.number().int().positive().optional(),
+  coordination: z.enum(['cooperative', 'independent']).optional(),
+  workers: z.array(research.extend({ id: z.string(), role, sessionRole: role.optional() })).optional(),
+  cooperation: z.object({ tasks: z.array(taskRecord), groups: z.array(z.object({ group: z.object({ id: z.string(),
+    status: z.enum(['active', 'paused', 'stopped']), revision: count }).passthrough(), turns: count }).passthrough()).optional(),
+    history: z.array(z.object({ task, proof: check.optional(), integratedCheck: check.optional() }).passthrough()).optional(),
+    deliveries: z.array(record).optional() }).passthrough().optional(),
+});
+
+/** Parse persisted control state once; optional advisory fields and older extra fields remain readable. */
+export const readSolverRunState = (file: string): SolverRunState => {
+  const parsed = runState.safeParse(readMathJson(file));
+  if (!parsed.success) throw new Error(`math_resume_state_invalid:${parsed.error.issues[0]?.path.join('.')}`);
+  return parsed.data as unknown as SolverRunState;
+};
 export const writeSolverRunState = (file: string, state: SolverRunState): void => writeMathJsonDurable(file, state);

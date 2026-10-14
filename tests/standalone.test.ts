@@ -3,7 +3,8 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { writeMathJsonDurable } from '../src/math/mathRuntimeIo';
 import { mathBuildFile, mathBuildSource, readMathBuildManifest, MATH_BUILD_INPUTS, MATH_RUNTIME_BUNDLES } from '../src/math/mathBuildManifest';
 
 const roots: string[] = [];
@@ -12,9 +13,43 @@ const temp = () => {
   roots.push(directory);
   return directory;
 };
-afterEach(() => { for (const directory of roots.splice(0)) fs.rmSync(directory, { recursive: true, force: true }); });
+afterEach(() => {
+  vi.restoreAllMocks();
+  for (const directory of roots.splice(0)) fs.rmSync(directory, { recursive: true, force: true });
+});
 
 describe('standalone build identity', () => {
+  it('reuses unchanged file hashes and detects edits with restored modification times', () => {
+    const root = temp(), file = path.join(root, 'input.txt');
+    fs.writeFileSync(file, 'original');
+    const before = mathBuildFile(file), stat = fs.statSync(file);
+    const read = vi.spyOn(fs, 'readSync');
+    expect(mathBuildFile(file)).toEqual(before);
+    expect(read).not.toHaveBeenCalled();
+    fs.writeFileSync(file, 'modified');
+    fs.utimesSync(file, stat.atime, stat.mtime);
+    expect(mathBuildFile(file).sha256).not.toBe(before.sha256);
+    expect(read).toHaveBeenCalled();
+    fs.writeFileSync(file + '.new', 'replacement');
+    fs.renameSync(file + '.new', file);
+    expect(mathBuildFile(file).sha256).toBe(crypto.createHash('sha256').update('replacement').digest('hex'));
+  });
+
+  it('avoids identical durable writes while repairing modified or missing outputs', () => {
+    const root = temp(), file = path.join(root, 'state.json'), value = { turns: 1 };
+    writeMathJsonDurable(file, value);
+    const rename = vi.spyOn(fs, 'renameSync');
+    writeMathJsonDurable(file, value);
+    expect(rename).not.toHaveBeenCalled();
+    fs.writeFileSync(file, 'changed');
+    writeMathJsonDurable(file, value);
+    expect(JSON.parse(fs.readFileSync(file, 'utf8'))).toEqual(value);
+    fs.unlinkSync(file);
+    writeMathJsonDurable(file, value);
+    expect(JSON.parse(fs.readFileSync(file, 'utf8'))).toEqual(value);
+    expect(rename).toHaveBeenCalledTimes(2);
+  });
+
   function fixture() {
     const directory = temp();
     const root = path.join(directory, 'source');

@@ -35,10 +35,26 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     turn = { id: call.params.clientUserMessageId, status: 'inProgress' };
     const message = call.params.input[0].text;
     if (message === 'crash') return process.exit(9);
+    if (message === 'oversized-frame') { process.stdout.write('数'.repeat(3 * 1024 * 1024)); return; }
+    if (message === 'invalid-frame') { process.stdout.write('[]\\n'); return; }
+    if (message === 'invalid-result') { result([]); return; }
+    if (message === 'noise') for (let i = 0; i < 100; i++) send({ method: 'turn/completed', params: {
+      threadId: settings.threadId || 'thread-fixture', turn: { id: 'unrelated-' + i, status: 'failed' } } });
+    if (message === 'activity') {
+      const notify = (method, extra, threadId = settings.threadId || 'thread-fixture') => send({ method, params: { threadId, ...extra } });
+      notify('item/started', { item: { id: 'unrelated', type: 'commandExecution', command: 'secret' } }, 'other-thread');
+      notify('item/started', { item: { id: 'tool', type: 'commandExecution', command: 'secret' } });
+      for (let i = 0; i < 100; i++) notify('item/commandExecution/outputDelta', { itemId: 'tool', delta: 'secret output' });
+      notify('item/commandExecution/outputDelta', { itemId: 'tool', delta: '{"event":"lean_lock_' });
+      notify('item/commandExecution/outputDelta', { itemId: 'tool', delta: 'waiting","at":1}\\n' });
+      notify('item/commandExecution/outputDelta', { itemId: 'tool', delta: '{"event":"lean_lock_acquired","at":2}\\n' });
+      notify('item/completed', { item: { id: 'tool', type: 'commandExecution', aggregatedOutput: 'secret' } });
+      for (let i = 0; i < 100; i++) notify('item/reasoning/textDelta', { delta: 'private reasoning' });
+    }
     if (message !== 'wait') {
-      send({ method: 'thread/tokenUsage/updated', params: { threadId: 'thread-fixture', tokenUsage: { total: { totalTokens: 21 }, last: { inputTokens: 12345 } } } });
+      send({ method: 'thread/tokenUsage/updated', params: { threadId: settings.threadId || 'thread-fixture', tokenUsage: { total: { totalTokens: 21 }, last: { inputTokens: 12345 } } } });
       const failed = message === 'rate-limit' || message === 'late-rate-limit';
-      const complete = () => send({ method: 'turn/completed', params: { threadId: 'thread-fixture', turn: { ...turn,
+      const complete = () => send({ method: 'turn/completed', params: { threadId: settings.threadId || 'thread-fixture', turn: { ...turn,
         status: failed ? 'failed' : 'completed', ...(failed ? { error: { message: 'Concurrency limit exceeded for account' } } : {}) } } });
       if (message === 'late-rate-limit') setImmediate(complete);
       else complete();
@@ -46,7 +62,7 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     result({ turn });
   }
   if (call.method === 'turn/interrupt') {
-    send({ method: 'turn/completed', params: { threadId: 'thread-fixture', turn: { ...turn, status: 'interrupted' } } });
+    send({ method: 'turn/completed', params: { threadId: settings.threadId || 'thread-fixture', turn: { ...turn, status: 'interrupted' } } });
     result({});
   }
   if (call.method === 'turn/steer') result({ turnId: turn.id });
@@ -74,6 +90,37 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     const turn = calls.find(call => call.method === 'turn/start').params;
     expect(turn).toMatchObject({ model: 'gpt-6.1-sol', effort: 'xhigh', approvalPolicy: 'never',
       sandboxPolicy: { type: 'workspaceWrite', writableRoots: [root] } });
+  });
+
+  it.each(['oversized-frame', 'invalid-frame', 'invalid-result'])('rejects %s before a complete valid RPC frame', async message => {
+    session = await createCodexMathSession(options);
+    await expect(session.run(message, 'frame-test', root, () => {})).rejects.toThrow('math_codex_transport_closed');
+  });
+
+  it('reports bounded activity and split lock markers without exposing content or unrelated threads', async () => {
+    const activities: unknown[] = [];
+    session = await createCodexMathSession({ ...options, onActivity: value => activities.push(value) });
+    expect(await session.run('activity', 'activity-turn', root, () => {})).toBe('completed');
+    expect(activities).toEqual([
+      { event: 'item_started', itemType: 'commandExecution' },
+      { event: 'lean_lock_waiting', itemType: 'commandExecution' },
+      { event: 'lean_lock_acquired', itemType: 'commandExecution' },
+      { event: 'item_completed', itemType: 'commandExecution' },
+    ]);
+    expect(JSON.stringify(activities)).not.toMatch(/secret|private reasoning/);
+    expect(options.onUsage).toHaveBeenCalledOnce();
+  });
+
+  it('rejects an invalid proof environment before launching the app-server', async () => {
+    await expect(createCodexMathSession({ ...options, proofProjectRoot: root,
+      environment: { DEEPSCIENTIST_MATH_PROOF_ENVIRONMENT: '{}' } })).rejects.toThrow();
+    expect(fs.existsSync(path.join(root, 'calls.jsonl'))).toBe(false);
+  });
+
+  it('bounds unrelated early completion messages and retains the current completion', async () => {
+    session = await createCodexMathSession(options);
+    expect(await session.run('noise', 'current', root, () => {})).toBe('completed');
+    expect(await session.run('proof', 'unrelated-99', root, () => {})).toBe('completed');
   });
 
   it('resumes the existing thread and interrupts an active turn', async () => {

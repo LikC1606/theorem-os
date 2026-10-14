@@ -5,8 +5,34 @@ import {
   assertLeanEvalSubmissionComplete,
   assertLeanEvalSubmissionNamespace,
   assertLeanEvalSubmissionOwned,
+  resolveLeanEvalSubmissionName,
 } from '../src/math/leanEvalSubmission';
 import { inspectLeanSource } from '../src/math/verifier';
+import { leanDeclarationContextCommands } from '../src/math/leanSource';
+
+describe('Lean declaration query context', () => {
+  it('preserves active namespace and notation scopes without leaking closed scopes or proof-local commands', () => {
+    const source = `open Nat
+section Closed
+open scoped Hidden
+end Closed
+namespace Submission
+section Active
+open scoped ENNReal
+theorem earlier : True := by
+  open Int in
+  trivial
+-- open scoped Comment
+theorem target : True := by trivial
+end Active
+end Submission
+open scoped Later
+`;
+    expect(leanDeclarationContextCommands(source, 'Submission.target')).toEqual({
+      before: ['open Nat', 'namespace Submission', 'section Active', 'open scoped ENNReal'], after: ['end Active', 'end Submission'],
+    });
+  });
+});
 
 describe('Lean comment and string masking', () => {
   it('preserves strings and escaped comment markers while removing nested comments', () => {
@@ -52,6 +78,11 @@ describe('Lean comment and string masking', () => {
 });
 
 describe('Lean-Eval submission checks', () => {
+  it.each(['section', 'section Local', 'noncomputable section', 'public section'])('preserves namespaces after %s ends', section => {
+    const source = `namespace Submission\n${section}\ntheorem first : True := by trivial\nend${section === 'section Local' ? ' Local' : ''}\ntheorem second : True := by trivial\nend Submission`;
+    expect(resolveLeanEvalSubmissionName('LeanEval.second', source)).toBe('Submission.second');
+    expect(() => assertLeanEvalSubmissionComplete(['first', 'second'], source)).not.toThrow();
+  });
   const valid = [
     'namespace Submission -- end Submission',
     'def message : String := "theorem missing : True := by sorry"',

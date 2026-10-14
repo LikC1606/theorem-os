@@ -17,32 +17,84 @@ export function routeAllowsTask(task: TaskRecord['task'], tasks: readonly TaskRe
     (route.busy ?? tasks.filter(node => node.status === 'running' && taskGroup(node.task) === route.group.id).length) < (route.group.maxConcurrent ?? 3));
 }
 
+/** Memoization lasts only for this selection; mutable task state never enters a global cache. */
+function taskReadiness(tasks: readonly TaskRecord[]) {
+  const nodes = new Map(tasks.map(node => [node.task.id, node]));
+  const checked = new Map<TaskRecord['task'], boolean>(), available = new Map<string, boolean>();
+  const versions = new Map<TaskRecord['task'], string>();
+  const version = (task: TaskRecord['task']) => {
+    if (!versions.has(task)) versions.set(task, taskVersion(task));
+    return versions.get(task)!;
+  };
+  const dependenciesReady = (task: TaskRecord['task']): boolean => {
+    if (checked.has(task)) return checked.get(task)!;
+    checked.set(task, false); // Cyclic or malformed restored plans fail closed.
+    const node = nodes.get(task.id);
+    const references = node?.task === task ? taskReferenceDependencies(node) : undefined;
+    const dependencies = references ?? task.dependsOn.map(taskId => ({ taskId }));
+    const ready = dependencies.every(reference => {
+      const dependency = nodes.get(reference.taskId);
+      return Boolean(dependency && (!('taskDigest' in reference) || reference.taskDigest === version(dependency.task)) &&
+        ['integrated', 'completed'].includes(dependency.status) && dependenciesReady(dependency.task));
+    });
+    checked.set(task, ready);
+    return ready;
+  };
+  const dependencyAvailable = (id: string): boolean => {
+    if (available.has(id)) return available.get(id)!;
+    available.set(id, false);
+    const dependency = nodes.get(id);
+    const ready = Boolean(dependency && (['integrated', 'completed'].includes(dependency.status) ||
+      (dependency.task.kind === 'lemma' && dependency.task.type)) && dependency.task.dependsOn.every(dependencyAvailable));
+    available.set(id, ready);
+    return ready;
+  };
+  const canStart = (task: TaskRecord['task']): boolean => ['research', 'sketch'].includes(task.kind) || dependenciesReady(task) ||
+    Boolean(task.conditional && task.dependsOn.every(dependencyAvailable));
+  return { dependenciesReady, canStart };
+}
+
 export function taskDependenciesReady(task: TaskRecord['task'], tasks: readonly TaskRecord[]): boolean {
-  const node = tasks.find(node => node.task === task);
-  const references = node && taskReferenceDependencies(node);
-  const dependencies = references?.map(reference => reference.taskId) ?? task.dependsOn;
-  return dependencies.every(id => {
-    const dependency = tasks.find(node => node.task.id === id);
-    return dependency && (!references || references.find(reference => reference.taskId === id)!.taskDigest === taskVersion(dependency.task)) &&
-      ['integrated', 'completed'].includes(dependency.status) && taskDependenciesReady(dependency.task, tasks);
-  });
+  return taskReadiness(tasks).dependenciesReady(task);
 }
 
 /** Fixed lemma statements can be assumed while constructing a conditional parent. */
 export function taskCanStart(task: TaskRecord['task'], tasks: readonly TaskRecord[]): boolean {
-  if (['research', 'sketch'].includes(task.kind) || taskDependenciesReady(task, tasks)) return true;
-  if (!task.conditional) return false;
-  const available = (id: string): boolean => {
-    const dependency = tasks.find(node => node.task.id === id);
-    return Boolean(dependency && (['integrated', 'completed'].includes(dependency.status) ||
-      (dependency.task.kind === 'lemma' && dependency.task.type)) && dependency.task.dependsOn.every(available));
-  };
-  return task.dependsOn.every(available);
+  return taskReadiness(tasks).canStart(task);
 }
 
 export function readyResearchTasks(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): TaskRecord[] {
+  const readiness = taskReadiness(tasks);
   return tasks.filter(node => node.status === 'pending' && routeAllowsTask(node.task, tasks, groups) &&
-    taskCanStart(node.task, tasks));
+    readiness.canStart(node.task));
+}
+
+/** A simple M3 ablation: prefer ready original goals, preserving all readiness gates. */
+export function goalsFirstResearchTasks(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): TaskRecord[] {
+  return readyResearchTasks(tasks, groups).toSorted((a, b) =>
+    Number(b.task.kind === 'goal') - Number(a.task.kind === 'goal'));
+}
+
+/** Future progress differs from immediate readiness: typed pending premises can still be proved. */
+export function researchCanAdvance(tasks: readonly TaskRecord[], groups: readonly RouteRecord[] | undefined,
+  liveWorkers: ReadonlySet<string>): boolean {
+  const nodes = new Map(tasks.map(node => [node.task.id, node]));
+  const memo = new Map<string, boolean>();
+  const visit = (id: string): boolean => {
+    if (memo.has(id)) return memo.get(id)!;
+    memo.set(id, false);
+    const node = nodes.get(id);
+    if (!node || node.status === 'blocked') return false;
+    if (['integrated', 'completed', 'delivered', 'running'].includes(node.status)) {
+      memo.set(id, true); return true;
+    }
+    if (node.status !== 'conditional' && ((node.task.ownerId && !liveWorkers.has(node.task.ownerId)) ||
+        (node.assignment && !liveWorkers.has(node.assignment.workerId)) || !routeAllowsTask(node.task, tasks, groups))) return false;
+    const ready = node.task.dependsOn.every(visit);
+    memo.set(id, ready);
+    return ready;
+  };
+  return tasks.some(node => ['pending', 'blocked'].includes(node.status) && visit(node.task.id));
 }
 
 /** M3 chooses actions; estimates never change mathematical acceptance. */

@@ -4,7 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { parseArgs } from 'node:util';
 import { readMathBuildManifest } from '../math/mathBuildManifest';
-import { canonicalMathJson, mathDigest, readMathJson, withMathRuntimeLease, writeMathJsonDurable } from '../math/mathRuntimeIo';
+import { canonicalMathJson, mathDigest, readMathJson, readMathText, withMathRuntimeLease, writeMathJsonDurable } from '../math/mathRuntimeIo';
 import { projectMathematicsRuntimeEnvironment, resolveMathematicsRuntimeEnvironment } from '../math/mathRuntimeEnvironment';
 import { checkResolvedLeanToolchainReadiness } from '../math/leanToolchainReadiness';
 import { prepareMathProofEnvironment, MATH_PROOF_ENVIRONMENT_ENV } from '../math/mathProofEnvironment';
@@ -14,12 +14,12 @@ import { assertMathCanonicalPath, isMathPathWithin } from '../math/paths';
 import { git, readSolverProblem, assertSolverSources } from './problem';
 import { solverSourceFeedback } from './feedback';
 import { assertMathRetrievalCorpus, createMathRetrievalCorpus, type MathRetrievalCorpus } from '../math/mathRetrievalCorpus';
-import { integrateResearch } from './modules/integration';
 import { readSolverRunState, writeSolverRunState, type SolverRunState } from './archive';
-import { directSolverModules, lemmaSolverModules, type SolverModules } from './modules';
+import { directSolverModules, configuredSolverModules, solverModuleConfiguration, solverMethodDigest, type SolverModules } from './modules';
 import { researchWorkers } from './modules/organization';
 import { runResearchWorkers, type WorkerAccess } from './research';
 import { evaluateSolverProof } from './evaluation';
+import { solverProofIsCurrent } from './modules/evidence';
 
 export async function runSolver(args: string[], root: string, customModules?: SolverModules): Promise<number> {
   const { values } = parseArgs({ args, options: {
@@ -31,13 +31,17 @@ export async function runSolver(args: string[], root: string, customModules?: So
     'evaluator-command': { type: 'string' }, 'evaluator-timeout-seconds': { type: 'string', default: '1800' },
     'proof-environment-cache-dir': { type: 'string' }, 'startup-only': { type: 'boolean' }, help: { type: 'boolean' },
     method: { type: 'string', default: 'direct' }, workers: { type: 'string', default: '4' },
+    scheduler: { type: 'string', default: 'plan' }, coordination: { type: 'string', default: 'cooperative' },
   } });
   if (values.help) {
-    console.log('Usage: deepscientist-math run --workspace DIR --task-file FILE --output FILE --build-manifest FILE [--receipt-file FILE] [--resume] [--method direct|lemma] [--workers 1|2|3|4] [--model MODEL --effort LEVEL] [--max-run-seconds N --max-turns N --max-turn-seconds N] [--prepare-timeout-seconds N] [--evaluator-command CMD --evaluator-timeout-seconds N] [--proof-environment-cache-dir DIR] [--startup-only]\nUse 0 for --max-run-seconds, --max-turns, --max-turn-seconds or --evaluator-timeout-seconds to disable that limit. Unlimited total solving time also disables proof verification deadlines.');
+    console.log('Usage: deepscientist-math run --workspace DIR --task-file FILE --output FILE --build-manifest FILE [--receipt-file FILE] [--resume] [--method direct|lemma] [--scheduler plan|goals-first] [--coordination cooperative|independent] [--workers 1|2|3|4] [--model MODEL --effort LEVEL] [--max-run-seconds N --max-turns N --max-turn-seconds N] [--prepare-timeout-seconds N] [--evaluator-command CMD --evaluator-timeout-seconds N] [--proof-environment-cache-dir DIR] [--startup-only]\nUse 0 for --max-run-seconds, --max-turns, --max-turn-seconds or --evaluator-timeout-seconds to disable that limit. Unlimited total solving time also disables proof verification deadlines.');
     return 0;
   }
-  if (!['direct', 'lemma'].includes(values.method!)) throw new Error('invalid --method');
-  const modules: SolverModules = customModules ?? (values.method === 'lemma' ? lemmaSolverModules : directSolverModules);
+  const configured = configuredSolverModules(values.method!, values.scheduler!);
+  if (customModules && values.scheduler !== 'plan') throw new Error('custom modules cannot combine with --scheduler');
+  const modules = customModules ?? configured;
+  if (!['cooperative', 'independent'].includes(values.coordination!)) throw new Error('invalid --coordination');
+  const coordination = values.coordination as 'cooperative' | 'independent';
   const required = (key: string): string => {
     const value = values[key];
     if (typeof value !== 'string' || !value.trim()) throw new Error(`--${key} is required`);
@@ -95,7 +99,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
         throw new Error('math_solver_worker_outside_ownership');
       let env = resolveMathematicsRuntimeEnvironment();
       let corpusFile = env.DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS;
-      const corpusBytes = corpusFile ? fs.readFileSync(corpusFile) : undefined;
+      let corpusBytes = corpusFile ? Buffer.from(readMathText(corpusFile), 'utf8') : undefined;
       let corpus = corpusBytes ? JSON.parse(corpusBytes.toString('utf8')) as MathRetrievalCorpus : undefined;
       if (corpusFile) {
         const digest = mathDigest(corpusBytes!);
@@ -106,13 +110,14 @@ export async function runSolver(args: string[], root: string, customModules?: So
       const identity = { taskDigest: mathDigest(task), buildDigest: mathDigest(fs.readFileSync(buildFile)),
         environmentDigest: mathDigest(canonicalMathJson(projectMathematicsRuntimeEnvironment(env))),
         evaluatorDigest: mathDigest(values['evaluator-command'] || 'host-default'), model: values.model!, effort: values.effort!,
-        methodDigest: mathDigest(canonicalMathJson({ id: modules.id, versions: Object.entries(modules)
-          .filter(([key]) => key !== 'id').map(([key, module]) => [key, (module as { version: string }).version]) })) };
+        methodDigest: solverMethodDigest(modules, coordination) };
+      const moduleConfiguration = solverModuleConfiguration(modules);
       let state: SolverRunState;
       let sourceFeedback: string | undefined;
       if (values.resume) {
         state = readSolverRunState(stateFile);
-        if (!state.methodDigest && modules === directSolverModules) state.methodDigest = identity.methodDigest;
+        if (!state.methodDigest && modules === directSolverModules && coordination === 'cooperative') state.methodDigest = identity.methodDigest;
+        if ((state.coordination ?? 'cooperative') !== coordination) throw new Error('math_resume_coordination_changed');
         if ((state.workerCount ?? 1) !== workerCount) throw new Error('math_resume_worker_count_changed');
         if (workerCount > 1 && (!state.workers || state.workers.length !== workerCount ||
             state.workers.some((worker, index) => worker.id !== workers[index].id ||
@@ -122,12 +127,18 @@ export async function runSolver(args: string[], root: string, customModules?: So
           state.problem.receiptDigest !== problem.receiptDigest ||
           Object.entries(identity).some(([key, value]) => state[key] !== value) ||
           state.worktree !== path.join(directory, 'worktree')) throw new Error('math_resume_identity_changed');
+        // Use the current authoritative receipt instead of trusting nested archived source policy.
+        state.problem = problem;
         sourceFeedback = solverSourceFeedback(state.problem, state.worktree);
         assertSolverSources(state.problem, workspace);
         if (state.phase === 'finished' && fs.existsSync(output)) {
-          const result = readMathJson(output) as { status: string };
+          const result = readMathJson(output) as { status: string; runId: string; solution_commit: string };
           if (result.status === 'evaluated_passed' || result.status === 'evaluated_failed') {
-            assertSolverSources(state.problem, state.worktree);
+            const winningWorktree = state.workers?.find(worker => worker.id === state.winningWorker)?.worktree ?? state.worktree;
+            assertSolverSources(state.problem, winningWorktree);
+            if (!state.check?.passed || result.runId !== state.runId || result.solution_commit !== state.check.commit ||
+                !solverProofIsCurrent(state.problem, winningWorktree, state.check) ||
+                !solverProofIsCurrent(state.problem, workspace, state.check)) throw new Error('math_resume_completed_proof_changed');
             return result.status === 'evaluated_passed' ? 0 : 2;
           }
         }
@@ -136,7 +147,8 @@ export async function runSolver(args: string[], root: string, customModules?: So
         if (git(workspace, ['status', '--porcelain', '--untracked-files=no'])) throw new Error('math_workspace_has_uncommitted_sources');
         ownsRun = true;
         state = { schema: 'deepscientist.math.solver.v1', runId: crypto.randomUUID(), problem, ...identity,
-          worktree: path.join(directory, 'worktree'), phase: 'prepared', turns: 0, workerCount };
+          worktree: path.join(directory, 'worktree'), phase: 'prepared', turns: 0, workerCount,
+          coordination, moduleConfiguration };
         if (workerCount > 1) state.workers = workers
           .map(worker => ({ id: worker.id, role: worker.role, worktree: worker.worktree, phase: 'prepared', turns: 0 }));
         git(workspace, ['worktree', 'add', '--detach', state.worktree, problem.baseCommit]);
@@ -149,13 +161,19 @@ export async function runSolver(args: string[], root: string, customModules?: So
         signal.throwIfAborted();
         if (!fs.existsSync(worker.worktree)) git(workspace, ['worktree', 'add', '--detach', worker.worktree, problem.baseCommit]);
       }
-      const project = path.join(state.worktree, state.problem.projectRelative);
+      const prepareProject = (worktree: string) => {
+        const project = path.join(worktree, state.problem.projectRelative);
+        fs.mkdirSync(path.join(project, '.lake'), { recursive: true });
+        writeMathJsonDurable(path.join(project, '.lake/source-constraints.json'), {
+          trustedFiles: state.problem.trustedFiles, declarations: state.problem.declarations,
+          sourceStructure: state.problem.sourceStructure, sourceImports: state.problem.sourceImports,
+        }, 0o400);
+        if (sourcePackages) bindLeanPackages(project, sourcePackages);
+        return project;
+      };
+      const sourcePackages = resolveMathematicsLakePackagesCache(path.join(workspace, problem.projectRelative), env);
+      const project = prepareProject(state.worktree);
       if (!values.resume) sourceFeedback = solverSourceFeedback(state.problem, state.worktree);
-      fs.mkdirSync(path.join(project, '.lake'), { recursive: true });
-      writeMathJsonDurable(path.join(project, '.lake/source-constraints.json'), {
-        trustedFiles: state.problem.trustedFiles, declarations: state.problem.declarations,
-        sourceStructure: state.problem.sourceStructure,
-      }, 0o400);
       if (sourceFeedback) { state.check = undefined; save(); }
       const readiness = checkResolvedLeanToolchainReadiness({ projectRoot: project, env, timeoutMs: 180_000 });
       writeMathJsonDurable(path.join(directory, 'toolchain-readiness.json'), readiness);
@@ -163,9 +181,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
         emit('preparation_failed', { workerId: 'solver', diagnostics: readiness.diagnostics });
         throw new Error('math_lean_toolchain_unavailable');
       }
-      const sourcePackages = resolveMathematicsLakePackagesCache(path.join(workspace, problem.projectRelative), env);
       if (sourcePackages) {
-        bindLeanPackages(project, sourcePackages);
         // Model-side path overrides are regenerated after binding the frozen packages.
         // Their worktree-specific paths must not invalidate the preparation cache on resume.
         const overrides = path.join(project, '.lake', 'package-overrides.json');
@@ -175,9 +191,9 @@ export async function runSolver(args: string[], root: string, customModules?: So
           deadlineAt: preparationStarted + preparationMs,
           cacheRoot: values['proof-environment-cache-dir'], onProgress: phase => emit('proof_environment', { phase }) });
         env = { ...env, [MATH_PROOF_ENVIRONMENT_ENV]: proofEnvironment.environmentValue };
-        prepareLeanDiagnosticOverrides(project);
       }
       const checkDependencies = async (workerId: string, projectRoot: string) => {
+        if (sourcePackages) prepareLeanDiagnosticOverrides(projectRoot);
         const diagnostics = await runLeanDiagnostics({ projectRoot, files: [...new Set(problem.targets.map(target => target.proofPath))],
           dependenciesOnly: true, excludedFiles: problem.ownedFiles, env, signal,
           timeoutMs: preparationMs - (Date.now() - preparationStarted),
@@ -201,8 +217,10 @@ export async function runSolver(args: string[], root: string, customModules?: So
           corpusCreated = true;
           signal.throwIfAborted();
           writeMathJsonDurable(corpusFile, corpus);
-        } else corpus = readMathJson(corpusFile) as MathRetrievalCorpus;
-        const digest = mathDigest(fs.readFileSync(corpusFile));
+        }
+        corpusBytes = Buffer.from(readMathText(corpusFile), 'utf8');
+        corpus ??= JSON.parse(corpusBytes.toString('utf8')) as MathRetrievalCorpus;
+        const digest = mathDigest(corpusBytes);
         if (state.retrievalDigest && state.retrievalDigest !== digest) throw new Error('math_corpus_identity_changed');
         state.retrievalDigest = digest; save();
         env = { ...env, DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS: corpusFile, DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS_SHA256: digest };
@@ -216,33 +234,33 @@ export async function runSolver(args: string[], root: string, customModules?: So
         emit('library_index', { phase: 'ready', sourceFiles: corpus!.sources.length });
       }
       const workerAccess = new Map<string, WorkerAccess>();
-      workerAccess.set('solver', { environment: env, corpusFile, retrievalRoot });
-      for (const worker of workers.slice(1)) {
+      const prepareAccess = (workerId: string, workerRoot: string, workerProject: string, workerCorpus?: string) => {
+        const environmentFile = path.join(directory, `environment-${workerId}.json`);
+        const environment = { ...env, DEEPSCIENTIST_MATH_ENV_FILE: environmentFile,
+          DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS: workerCorpus };
+        writeMathJsonDurable(environmentFile, projectMathematicsRuntimeEnvironment(environment), 0o400);
+        workerAccess.set(workerId, { environment: resolveMathematicsRuntimeEnvironment(environment), corpusFile: workerCorpus,
+          retrievalRoot: corpus?.projectSubdirectory ? workerRoot : workerProject });
+      };
+      prepareAccess('solver', state.worktree, project, corpusFile);
+      const peerPreparation = await Promise.allSettled(workers.slice(1).map(async worker => {
         signal.throwIfAborted();
-        const workerProject = path.join(worker.worktree, problem.projectRelative);
+        const workerProject = prepareProject(worker.worktree);
         const lake = path.join(workerProject, '.lake');
-        fs.mkdirSync(lake, { recursive: true });
-        writeMathJsonDurable(path.join(lake, 'source-constraints.json'), {
-          trustedFiles: state.problem.trustedFiles, declarations: state.problem.declarations,
-          sourceStructure: state.problem.sourceStructure,
-        }, 0o400);
-        if (sourcePackages) {
-          bindLeanPackages(workerProject, sourcePackages);
-          prepareLeanDiagnosticOverrides(workerProject);
-        }
         await checkDependencies(worker.id, workerProject);
         let workerCorpusFile: string | undefined;
         if (corpusFile) {
           workerCorpusFile = path.join(lake, 'retrieval-corpus.json');
-          const bytes = fs.readFileSync(corpusFile);
           assertMathCanonicalPath(workerCorpusFile);
-          if (fs.existsSync(workerCorpusFile) && mathDigest(fs.readFileSync(workerCorpusFile)) !== mathDigest(bytes))
-            throw new Error('math_corpus_identity_changed');
-          fs.writeFileSync(workerCorpusFile, bytes, { mode: 0o400 });
+          if (fs.existsSync(workerCorpusFile)) {
+            if (mathDigest(readMathText(workerCorpusFile)) !== env.DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS_SHA256)
+              throw new Error('math_corpus_identity_changed');
+          } else fs.writeFileSync(workerCorpusFile, corpusBytes!, { mode: 0o400, flag: 'wx' });
         }
-        workerAccess.set(worker.id, { environment: { ...env, DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS: workerCorpusFile },
-          corpusFile: workerCorpusFile, retrievalRoot: corpus?.projectSubdirectory ? worker.worktree : workerProject });
-      }
+        prepareAccess(worker.id, worker.worktree, workerProject, workerCorpusFile);
+      }));
+      const failedPreparation = peerPreparation.find(result => result.status === 'rejected');
+      if (failedPreparation?.status === 'rejected') throw failedPreparation.reason;
       emit('ready', { runId: state.runId, worktree: state.worktree, workers });
       emit('preparation_finished', { durationMs: Date.now() - preparationStarted, dependencies: diagnostics.phases });
       if (values['startup-only']) {
@@ -268,18 +286,14 @@ export async function runSolver(args: string[], root: string, customModules?: So
         profile: process.env.CODEX_HOME || path.join(os.homedir(), '.config/deepscientist/math-sol-codex'),
         signal, deadline, maxTurns, maxTurnMs, proofTimeoutMs: maxRunMs === Infinity ? Infinity : undefined, save, emit });
       let evaluation: Record<string, unknown> = { status: 'skipped', reason: 'proof_incomplete' };
-      if (winner) {
+      if (winner?.check.passed) {
         state.phase = 'evaluating'; save();
         readMathBuildManifest(buildFile, root, bundleRoot);
-        const integration = integrateResearch(state.problem,
-          [{ commit: winner.check.commit, sourceDigest: winner.check.sourceDigest }], [winner.check]);
-        if (integration.candidate && integration.dependenciesClosed) {
-          const evaluationStarted = Date.now();
-          emit('evaluation_started', { workerId: state.winningWorker ?? 'solver' });
-          evaluation = await evaluateSolverProof(state.problem, winner.worktree, winner.check, env, signal,
-            { command: values['evaluator-command'], timeoutMs: evaluatorMs });
-          emit('evaluation_finished', { status: evaluation.status, durationMs: Date.now() - evaluationStarted });
-        }
+        const evaluationStarted = Date.now();
+        emit('evaluation_started', { workerId: state.winningWorker ?? 'solver' });
+        evaluation = await evaluateSolverProof(state.problem, winner.worktree, winner.check, env, signal,
+          { command: values['evaluator-command'], timeoutMs: evaluatorMs });
+        emit('evaluation_finished', { status: evaluation.status, durationMs: Date.now() - evaluationStarted });
       }
       state.phase = 'finished'; save();
       const status = signal.aborted ? 'limit_reached' : evaluation.status === 'passed' ? 'evaluated_passed' : evaluation.status === 'failed' ? 'evaluated_failed' : evaluation.status === 'error' ? 'runtime_error' : 'incomplete';

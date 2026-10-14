@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { runLeanDiagnostics } from '../../src/math/leanDiagnostics';
 import { readMathJson } from '../../src/math/mathRuntimeIo';
-import { assertSolverProjectSources, type SolverSourceConstraints } from '../../src/solver/problem';
+import { assertSolverProjectSources, SolverSourceError, type SolverSourceConstraints } from '../../src/solver/problem';
 
 async function main() {
   const args = process.argv.slice(2);
@@ -34,6 +34,8 @@ async function main() {
   }
 }
 void main().catch(error => {
-  console.error(error instanceof Error ? error.message : 'math_diagnostics_failed');
+  console.error(error instanceof SolverSourceError
+    ? `${error.message}\nFile: ${error.proofPath}\n${error.recovery}\nRepair the saved file and rerun check-lean; no Lean compilation has started.`
+    : error instanceof Error ? error.message : 'math_diagnostics_failed');
   process.exitCode = 1;
 });

@@ -2,10 +2,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import { resolveMathProofEnvironment } from '../math/mathProofEnvironment';
-import { bindLeanPackages } from '../math/leanDiagnostics';
-import { checkManyFormalVerifications, hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions } from '../math/verifier';
-import { git, withSolverWorktree, type SolverProblem } from './problem';
-import type { ProofCheck } from './modules/evidence';
+import { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions } from '../math/leanSource';
+import { commitSolverProjection, git, withSolverWorktree, type SolverProblem } from './problem';
+import { checkProjectedDeclaration, type ProofCheck } from './modules/evidence';
 import { readMathResponse } from './deliveries';
 
 export type LemmaPlan = Readonly<{ proofPath: string; target: string; lemma: string; type: string }>;
@@ -25,7 +24,7 @@ const checkedProjections = new WeakMap<LemmaEvidence, { environmentDigest: strin
 /** Proposals in RESEARCH.md are instructions, never mathematical evidence. */
 export function readLemmaPlan(task: SolverProblem, worktree: string): LemmaPlan {
   const plan = readMathResponse(worktree, 'math-lemma') as LemmaPlan;
-  if (!plan || typeof plan.type !== 'string' || !plan.type.trim() || plan.type.length > 8_000 ||
+  if (!plan || typeof plan.type !== 'string' || !plan.type.trim() ||
       typeof plan.lemma !== 'string' || !/^[A-Za-z_][A-Za-z0-9_']*(?:\.[A-Za-z_][A-Za-z0-9_']*)*$/u.test(plan.lemma) ||
       !task.targets.some(target => target.proofPath === plan.proofPath && target.theoremName === plan.target))
     throw new Error('math_lemma_plan_invalid');
@@ -81,11 +80,7 @@ export async function checkLemmaResearch(task: SolverProblem, worktree: string, 
         }
         fs.writeFileSync(absolute, text);
       }
-      // The journal guides research; it is excluded from a proof obligation's inputs.
-      git(checkout, ['rm', '--quiet', '--force', '--ignore-unmatch', '--', 'RESEARCH.md']);
-      git(checkout, ['add', '--', ...task.ownedFiles.map(file => path.join(task.projectRelative, file))]);
-      git(checkout, ['-c', 'user.name=DeepScientist Math', '-c', 'user.email=math@localhost', 'commit', '--allow-empty', '--no-gpg-sign', '--quiet', '-m', `Check ${obligation} obligation`]);
-      const commit = git(checkout, ['rev-parse', 'HEAD']);
+      const commit = commitSolverProjection(task, checkout, `Check ${obligation} obligation`);
       const projectionDigest = git(checkout, ['rev-parse', 'HEAD^{tree}']);
       const prior = previous?.[obligation];
       const provenance = prior && checkedProjections.get(prior);
@@ -97,19 +92,10 @@ export async function checkLemmaResearch(task: SolverProblem, worktree: string, 
         return receipt;
       }
       const name = obligation === 'lemma' ? plan.lemma : plan.target;
-      const projected = fs.readFileSync(path.join(project, plan.proofPath), 'utf8');
-      const declarationHash = hashMathFormalSourceDeclaration(projected, name);
-      if (!declarationHash) throw new Error('math_lemma_projection_missing_declaration');
-      if (fs.existsSync(packages)) bindLeanPackages(project, packages);
-      const verification = await checkManyFormalVerifications({ projectRoot: project, targetCommit: commit, timeoutMs: 180_000,
-        items: [{ proofPath: plan.proofPath, theoremName: name, expectedSourceDeclarationHash: declarationHash,
-          statementHash: planDigest, leanStatementHash: planDigest, claim: 'statement' }] },
-      { env, signal, trustedLakePackagesRoots: (env.DEEPSCIENTIST_MATH_TRUSTED_CACHE_ROOTS || '').split(path.delimiter).filter(Boolean),
+      const { passed, verification } = await checkProjectedDeclaration(task, checkout, worktree, commit,
+        { proofPath: plan.proofPath, theoremName: name, digest: planDigest, missingError: 'math_lemma_projection_missing_declaration' },
+      { env, signal, timeoutMs: 180_000,
         ...(obligation === 'lemma' ? { expectedDeclarationType: plan.type } : {}) });
-      const result = verification.results[0];
-      const passed = verification.status === 'kernel_verified' && verification.targetCommit === commit && verification.results.length === 1 &&
-        result?.status === 'kernel_verified' && result.targetCommit === commit && result.proofPath === plan.proofPath && result.theoremName === name &&
-        result.sourceDeclarationHash === declarationHash && result.statementHash === planDigest && result.leanStatementHash === planDigest && result.claim === 'statement';
       const unchangedFailures = !passed && verification.status === 'failed'
         ? sameInput && !prior.passed ? prior.unchangedFailures + 1 : 1 : 0;
       const receipt = { obligation, sourceCommit: source.commit, sourceDigest: source.sourceDigest, planDigest,

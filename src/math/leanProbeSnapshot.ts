@@ -2,10 +2,9 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { assertMathCanonicalPath } from "./paths";
+import { mathFileIdentity as metadata } from './mathRuntimeIo';
 const MAX_FILES = 250_000;
 const MAX_BYTES = 8 * 1024 * 1024 * 1024;
-const metadata = (stat: fs.BigIntStats): string =>
-  [stat.dev, stat.ino, stat.size, stat.mode, stat.mtimeNs, stat.ctimeNs].join(':');
 
 export function readLeanProbeSnapshotFile(
   source: string,

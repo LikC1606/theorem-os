@@ -2,33 +2,10 @@
 /** Create one isolated solver workspace for a pinned Humanfia IMO2026 problem. */
 
 import fs from 'node:fs';
+import { parseFlags, required } from './arguments';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { bootstrapImo2026Problem, IMO2026_SUPPORTED_PROBLEMS, verifyImo2026BootstrapReceipt } from "../../src/math/imo2026Adapter";
-
-const parseFlags = (argv: readonly string[]): Map<string, string> => {
-  const flags = new Map<string, string>();
-  for (let index = 0; index < argv.length; index += 1) {
-    const key = argv[index];
-    if (key === '--help') {
-      flags.set('help', 'true');
-      continue;
-    }
-    if (!key?.startsWith('--')) throw new Error(`Invalid argument: ${key}`);
-    const value = argv[index + 1];
-    if (!value || value.startsWith('--')) throw new Error(`${key} requires a value`);
-    if (flags.has(key.slice(2))) throw new Error(`Duplicate argument: ${key}`);
-    flags.set(key.slice(2), value);
-    index += 1;
-  }
-  return flags;
-};
-
-const required = (flags: Map<string, string>, key: string): string => {
-  const value = flags.get(key)?.trim();
-  if (!value) throw new Error(`--${key} is required`);
-  return value;
-};
 
 const writeReceiptCopy = (file: string, receipt: unknown): void => {
   const resolved = path.resolve(file);
@@ -44,7 +21,7 @@ const writeReceiptCopy = (file: string, receipt: unknown): void => {
 };
 
 async function main(): Promise<void> {
-  const flags = parseFlags(process.argv.slice(2));
+  const flags = parseFlags(process.argv.slice(2), ['repo', 'problem', 'workspace', 'receipt']);
   if (flags.has('help')) {
     console.log(
       `Usage: bun scripts/mathematics/bootstrapImo2026.ts --repo DIR --problem ID --workspace DIR [--receipt FILE]\nSupported IDs: ${IMO2026_SUPPORTED_PROBLEMS.join(', ')}`

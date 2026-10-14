@@ -1,9 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { canonicalMathJson, mathDigest, writeMathJsonDurable } from '../math/mathRuntimeIo';
+import { bindLeanPackages, prepareLeanDiagnosticOverrides, runLeanDiagnostics } from '../math/leanDiagnostics';
+import { leanStatementContextCommands, parseLeanStatementContexts, type LeanStatementContext } from '../math/leanStatementContext';
 import { maskLeanComments } from '../math/leanSyntax';
-import { inspectLeanDeclarationRegions } from '../math/verifier';
-import { committedSource } from './problem';
+import { inspectLeanDeclarationRegions } from '../math/leanSource';
+import { committedSource, withSolverWorktree } from './problem';
+import { advisoryEvidenceRefs } from './deliveries';
 import type { CooperativeTask } from './tasks';
 import type { SolverProblem } from './problem';
 import type { ProofReferences } from './proofReferences';
@@ -22,9 +26,19 @@ export type StatementAction = { kind: 'backtranslate' | 'statement-review'; revi
 export const isStatementAction = (action: { kind: string }): action is StatementAction =>
   action.kind === 'backtranslate' || action.kind === 'statement-review';
 
+export function resetStatementReview(review: StatementReview): void {
+  if (review.status === 'translating') review.status = 'pending';
+  if (review.status === 'reviewing') review.status = 'translated';
+  review.workerId = undefined;
+}
+
+export function statementReviewSummary({ workspace: _workspace, files: _files, references, ...review }: StatementReview) {
+  return { ...review, actualReferences: references };
+}
+
 /** The blind view contains formal context and definitions, with no comments, proof bodies or journals. */
 export function statementSnapshot(problem: SolverProblem, task: CooperativeTask, worktree: string, commit: string,
-  environmentDigest: string, dependencies: readonly { task: CooperativeTask; taskDigest: string }[]) {
+  environmentDigest: string, dependencies: readonly { task: CooperativeTask; taskDigest: string }[], elaboration?: LeanStatementContext) {
   const leanStatement = task.kind === 'lemma' ? `theorem ${task.theoremName} : ${task.type}` :
     'theorem ' + problem.declarations[task.proofPath!]!.find(item => item.name.split('.').at(-1) === task.theoremName!.split('.').at(-1))!.header;
   const sources = [...new Set([...Object.keys(problem.trustedFiles), ...problem.ownedFiles])].filter(file => file.endsWith('.lean'));
@@ -39,12 +53,51 @@ export function statementSnapshot(problem: SolverProblem, task: CooperativeTask,
     if (bytes > 4_000_000) throw new Error('math_statement_snapshot_too_large');
     return { file, source };
   });
+  // Goal reviews certify the fixed original declaration. Helper task revisions do
+  // not change that declaration and must not force the same review to restart.
+  const snapshotDependencies = task.kind === 'goal' ? [] : dependencies;
   const input = { leanStatement: maskLeanComments(leanStatement), theoremName: task.theoremName, proofPath: task.proofPath, environmentDigest,
-    dependencies: dependencies.map(({ task: dependency, taskDigest }) => ({ taskId: dependency.id, taskDigest,
+    ...(elaboration ? { elaboration } : {}),
+    dependencies: snapshotDependencies.map(({ task: dependency, taskDigest }) => ({ taskId: dependency.id, taskDigest,
       theoremName: dependency.theoremName, leanType: dependency.type && maskLeanComments(dependency.type) })),
     definitions: definitions.map((definition, index) => ({ originalFile: definition.file, path: `definitions/${index}.lean` })) };
   const snapshotDigest = mathDigest(canonicalMathJson({ input, definitions }));
   return { input, definitions, snapshotDigest };
+}
+
+/** Elaborate all requested types together in a disposable, proof-erased projection. This is not proof evidence. */
+export async function captureStatementContexts(problem: SolverProblem, tasks: readonly CooperativeTask[], worktree: string,
+  commit: string, env: NodeJS.ProcessEnv, signal?: AbortSignal, timeoutMs = 180_000): Promise<Map<string, LeanStatementContext>> {
+  return withSolverWorktree(worktree, commit, async checkout => {
+    const project = path.join(checkout, problem.projectRelative);
+    const sources = [...new Set([...Object.keys(problem.trustedFiles), ...problem.ownedFiles])].filter(file => file.endsWith('.lean'));
+    for (const file of sources) {
+      let source = committedSource(worktree, commit, `${problem.projectRelative}/${file}`);
+      for (const region of inspectLeanDeclarationRegions(source).reverse())
+        if (/^(?:theorem|lemma)\s/u.test(source.slice(region.startOffset, region.bodyOffset)))
+          source = source.slice(0, region.bodyOffset) + ' by sorry\n' + source.slice(region.endOffset);
+      fs.writeFileSync(path.join(project, file), source);
+    }
+    const moduleName = (file: string) => file.replace(/\.lean$/u, '').replaceAll('/', '.');
+    const id = crypto.randomUUID().replaceAll('-', '');
+    const query = `StatementContext${id}.lean`, output = `.lake/statement-context-${id}.json`;
+    const roots = tasks.map((task, index) => ({ id: task.id, name: task.kind === 'lemma' ? `statementContext${id}_${index}` : task.theoremName! }));
+    const commands = ['import Lean', ...[...new Set(tasks.map(task => moduleName(task.proofPath!)))].map(module => `import ${module}`),
+      'set_option autoImplicit false',
+      ...tasks.flatMap((task, index) => task.kind === 'lemma' ? [`axiom ${roots[index].name} : ${task.type}`] : []),
+      leanStatementContextCommands(roots, sources.map(moduleName), output)].join('\n');
+    fs.writeFileSync(path.join(project, query), commands + '\n');
+    const packages = path.join(worktree, problem.projectRelative, '.lake', 'packages');
+    if (fs.existsSync(packages)) bindLeanPackages(project, packages);
+    prepareLeanDiagnosticOverrides(project);
+    const result = await runLeanDiagnostics({ projectRoot: project, files: [query], env, signal, timeoutMs });
+    const report = path.join(project, output);
+    if (result.exitCode !== 0 || result.timedOut || !fs.existsSync(report))
+      throw new Error('math_statement_elaboration_failed\n' + (result.stderr || result.stdout || 'Lean did not export statement context.').slice(0, 2000));
+    const stat = fs.lstatSync(report);
+    if (!stat.isFile() || stat.nlink !== 1 || stat.size > 4_000_000) throw new Error('math_statement_elaboration_invalid');
+    return parseLeanStatementContexts(fs.readFileSync(report, 'utf8'), tasks.map(task => task.id));
+  });
 }
 
 export function writeStatementSnapshot(workspace: string, snapshot: ReturnType<typeof statementSnapshot>): StatementReview['files'] {
@@ -77,10 +130,9 @@ export function assertStatementSnapshot(review: StatementReview): void {
 
 export function readBacktranslation(value: any): Backtranslation {
   value = value && { assumptions: [], definitions: [], evidenceRefs: [], ...value };
-  const strings = (items: unknown, count: number, length: number) => Array.isArray(items) && items.length <= count &&
-    items.every(item => typeof item === 'string' && item.length <= length);
-  if (!value || typeof value.mathematics !== 'string' || !value.mathematics.trim() || value.mathematics.length > 8000 ||
-      !strings(value.assumptions, 32, 2000) || !strings(value.definitions, 32, 2000) || !strings(value.evidenceRefs, 16, 1000))
+  const strings = (items: unknown) => Array.isArray(items) && items.every(item => typeof item === 'string');
+  if (!value || typeof value.mathematics !== 'string' || !value.mathematics.trim() ||
+      !strings(value.assumptions) || !strings(value.definitions))
     throw new Error('math_backtranslation_invalid');
-  return { mathematics: value.mathematics, assumptions: value.assumptions, definitions: value.definitions, evidenceRefs: value.evidenceRefs };
+  return { mathematics: value.mathematics, assumptions: value.assumptions, definitions: value.definitions, evidenceRefs: advisoryEvidenceRefs(value.evidenceRefs) };
 }

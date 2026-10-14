@@ -1,67 +1,310 @@
 # DeepScientist Math
 
-独立的数学证明 CLI。流程只有：准备公开题目 → Codex 在隔离 worktree 中写证明 → 宿主验证冻结提交 → 集成并独立评分。
+**让多个数学研究 Agent 协作，构造可由 Lean 内核验证的证明。**
 
-没有 Core、Team、前端、HTTP 服务、角色队列或 MCP 编排。默认模型为 `gpt-6.1-sol`，推理强度为 `xhigh`。
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+[![Bun](https://img.shields.io/badge/Bun-%E2%89%A5%201.2-black?logo=bun)](https://bun.sh/)
+[![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2022-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 
-## 使用
+DeepScientist Math 是面向数学研究与形式化证明实验的独立 CLI。Lead 拆解问题，Researcher 探索引理与路线，Lean Engineer 编写和修复证明；宿主检查固定版本的成果，逐项集成，最终独立验收原题。
 
-需要 Linux、Bun、Node.js 22+、Git、Codex CLI，以及已准备好的 Lean/Mathlib 环境。
+项目使用 TypeScript 与 Bun，通过 Codex 的 stdio 接口执行 Agent 会话。默认模型为 `gpt-6.1-sol`，推理强度为 `xhigh`，可通过参数调整。当前运行环境为 Linux，题目适配器支持 [Humanfia IMO2026](https://github.com/humanfia/imo2026) 与 [Lean-Eval](https://github.com/leanprover/lean-eval)。
+
+[快速开始](#快速开始) · [协作方式](#协作方式) · [验证与结果](#验证与结果) · [配置与命令](#配置与命令) · [架构与开发](#架构与开发)
+
+## 核心能力
+
+- **协作求解**：按任务依赖分配工作，各 Agent 使用独立会话和 Git worktree；成果随完成随检查、集成和通知。
+- **Lean 反馈驱动修复**：支持直接证明与辅助引理方法，保留局部检查、失败原因和待证义务。
+- **固定版本验收**：证明证据绑定题目、声明、源码提交和环境；集成后重新检查全部原题目标。
+- **持续研究**：保存任务图、证明版本、会话和累计用量，支持断点恢复、路线调整与共享预算。
+- **方法实验**：M1–M5 模块可替换，研究策略与最终评测分离，便于比较不同构造、搜索和协作方法。
+
+## 快速开始
+
+仓库提供了[固定版本的 IMO2026 Q1 复现案例](examples/imo2026/README.md)，包含环境模板、准备脚本、无模型预检和恢复命令。可先用它验证完整运行条件，再尝试其他题目。
+
+### 1. 准备环境并构建
+
+| 依赖 | 要求 |
+| --- | --- |
+| 系统与基础工具 | Linux、Git、Node.js 22+、Bun 1.2+、`/usr/bin/python3` |
+| 模型运行时 | 已安装并完成认证的 Codex CLI，且所选模型在当前 provider 中可用 |
+| 证明工具链 | Elan、与题目 `lean-toolchain` 匹配的 Lean，以及对应版本的 Mathlib/Lake 依赖 |
+| 验证环境 | Bubblewrap（`bwrap`）；只读依赖环境还需要 `squashfuse` 或 `snapfuse`、`fusermount3` 或 `fusermount`、`mksquashfs`，以及可用的 FUSE 挂载权限 |
 
 ```bash
+git clone https://github.com/LikC1606/deepscientist-math.git
+cd deepscientist-math
 bun install --frozen-lockfile
 bun run build
-
-bun run math bootstrap-imo \
-  --repo /absolute/humanfia-imo2026 \
-  --problem imo2026_q3 \
-  --workspace /absolute/new-proof-workspace
-
-bun run math run \
-  --build-manifest /absolute/build/manifest.json \
-  --workspace /absolute/new-proof-workspace \
-  --task-file /absolute/public-task.md \
-  --workers 4 \
-  --output /absolute/private-results/run.json
 ```
 
-`build` 生成 `out/main/math-solver.js`、`search-lean.js` 和 `check-lean.js`，并输出 `buildManifestRef`。源码和 bundle 均校验哈希；修改源码后需要重新构建。后两个 bundle 可挂载到隔离环境，供模型检索和编译诊断。
+构建生成 `out/main/math-solver.js`、`search-lean.js` 和 `check-lean.js`，并输出 JSON。记录其中的 **`buildManifestRef`**，运行时需要传入这个文件的绝对路径。源码与 bundle 均校验哈希，修改运行时代码后需重新构建。
 
-`run` 默认使用 `--workers 4`：1 个 Lead、2 个 Mathematical Researcher 和 1 个 Lean Engineer。Lead 写任务依赖图；Researcher 处理必要引理、替代路线或关键猜想；Engineer 持续负责原题证明节点。任务按依赖就绪并行执行，各自使用独立会话和 worktree，完成一项便检查、交付、合并一项。固定完整候选交给空闲 Researcher 切换为 Independent Reviewer，只读审阅；审阅意见与 Lean 证据分别保存，最后仍独立验收原题。`--workers 1` 使用单 agent；`2` 使用 Lead 和可兼任研究、审阅的 Engineer；`3` 使用 Lead、Researcher 和 Engineer。Lead 计入总人数，最多 3 个 worker 并发。
+CLI 默认使用 `~/.config/deepscientist/math-sol-codex` 中的 Codex profile。请先为该 profile 配置认证，或通过 `CODEX_HOME` 指向你已有的 profile。
 
-任务图、负责人、状态、固定源码版本、检查反馈和审阅保存在 `<output>.runtime/state.json`，进度事件写入标准输出。状态保存在 `<output>.runtime/` 私有目录中；用相同参数加 `--resume` 恢复各 agent 的证明、会话、失败记录和累计用量，恢复时不能改变 worker 数量。环境准备和依赖预编译使用独立的 `--prepare-timeout-seconds`（默认 1800）；之后才开始 `--max-run-seconds`（默认 1800）的共享解题预算。`--max-turns` 默认 20，计入所有 agent 的总轮次；`--max-turn-seconds` 默认 180，长轮次停止写入后由宿主检查已保存源码。时间和轮次限制可用 `0` 关闭。`check-lean --workspace DIR --file FILE` 提供默认 90 秒的局部诊断，保留失败退出码和最早错误；局部诊断不代表最终验收。`--startup-only` 只检查准备条件，不调用模型。历史 Team 状态不兼容，需要创建新运行。
+### 2. 准备一道公开题目
 
-`--method lemma` 启用辅助引理方法：先尝试原题，遇到失败后提出一个引理，分别检查条件性连接和引理证明，再完成原题。模型在 `RESEARCH.md` 的单个 `math-lemma` JSON 代码块记录 `proofPath`、原题完整名称 `target`、引理完整名称 `lemma` 和完整闭合 Lean 类型 `type`。引理使用普通 `:=` 证明，置于同一文件的目标之前；目标通过引理的局部名称引用它。宿主在临时 worktree 中将引理替换为目标的显式参数来检查连接，移除原题定理来独立检查引理及其完整类型。未证引理不能触发原题通过；所有操作共享原有预算，恢复时重新检查辅助义务。默认仍为 `--method direct`。
+以下示例使用 IMO2026 Q3，将题目仓库、求解工作区和结果放在项目目录之外：
 
-原题声明、已有定义和受保护文件不能修改；只有全部目标通过宿主 Lean 内核检查才进入评测。IMO 使用集成后再次执行的内核检查，Lean-Eval 使用独立官方评分；可用 `--evaluator-command` 指定额外评测。模型的完成消息不代表证明通过。
+```bash
+export MATH_RUN_ROOT="$PWD/../deepscientist-math-runs/imo-q3"
+mkdir -p "$MATH_RUN_ROOT"
 
-其他命令通过 `bun run math --help` 查看，包括 `bootstrap-lean-eval`、`freeze-retrieval` 和 `summarize`。
+git clone https://github.com/humanfia/imo2026.git "$MATH_RUN_ROOT/benchmark"
+git -C "$MATH_RUN_ROOT/benchmark" checkout --detach 834c01f2ecac89b648759b1c95bc6180b0ede149
 
-Codex 默认使用 `~/.config/deepscientist/math-sol-codex`；`CODEX_HOME` 可以指定已有 profile，`--codex` 可以指定可执行文件。认证信息不会复制到项目。数学环境默认读取 `~/.config/deepscientist-math/math.env`，可通过 `DEEPSCIENTIST_MATH_ENV_FILE` 指定。
+bun run math bootstrap-imo \
+  --repo "$MATH_RUN_ROOT/benchmark" \
+  --problem imo2026_q3 \
+  --workspace "$MATH_RUN_ROOT/workspace"
+```
 
-使用外部隔离启动器时，按每个子进程的 `DEEPSCIENTIST_MATH_WORKER_ID` 和 `DEEPSCIENTIST_MATH_WORKER_WORKTREE` 绑定对应工作区和独立会话存储；不要把启动器固定到第一个 worktree。各 agent 通过宿主分发的任务、固定成果和检查反馈交换信息。
+适配器从固定提交读取公开题目，生成 `Submission.lean`、题目契约与 `active-problem.json`。`--workspace` 必须是新的空目录；支持 `imo2026_q1` 至 `imo2026_q6`。
 
-## 源码
+为生成的 Lean 项目准备依赖。已有兼容缓存时可按[环境配置](#环境配置)指定，否则可在宿主上下载对应依赖与预编译缓存：
 
-- `src/solver/run.ts`：准备环境、恢复身份、集成和独立验收。
-- `src/solver/research.ts`：多个 agent 的异步调用、共享预算、取消和职责切换。
-- `src/solver/cooperation.ts`：依赖任务、逐项交付、主线集成、审阅和局部版本更新。
-- `src/solver/cooperativeProof.ts`：指定义务的隔离检查与声明合并。
-- `src/solver/lemma.ts`：引理提案、条件性连接和引理证明的隔离检查。
-- `src/solver/modules/`：按[设计文档第 2、4 节](https://ucnndba7qjef.feishu.cn/docx/Zy8rdyGJXonkChxYsLecn2Rbntg)拆分的可替换运行模块。
-- `src/runtime/codexSession.ts`：Codex stdio 协议适配。
-- `src/math/`：数学契约、题目准备、Lean 验证、证明环境和结果汇总。
-- `scripts/mathematics/`：CLI 命令入口。
+```bash
+(
+  cd "$MATH_RUN_ROOT/workspace/generated/imo2026_q3"
+  lake exe cache get
+)
+```
 
-| 模块 | 实现 | 输入与交付 |
+创建给求解器的任务说明；具体 Lean 声明由题目契约提供：
+
+```bash
+cat > "$MATH_RUN_ROOT/task.md" <<'TASK'
+Prove every target in the frozen IMO2026 Q3 statement.
+Preserve the original declarations, definitions, and protected files.
+Write complete Lean proofs in Submission.lean and repair them using compiler feedback.
+TASK
+```
+
+### 3. 开始求解
+
+将 `MATH_BUILD_MANIFEST` 替换为第 1 步输出的 `buildManifestRef`：
+
+```bash
+export MATH_BUILD_MANIFEST="/absolute/path/to/manifest.json"
+
+bun run math run \
+  --build-manifest "$MATH_BUILD_MANIFEST" \
+  --workspace "$MATH_RUN_ROOT/workspace" \
+  --task-file "$MATH_RUN_ROOT/task.md" \
+  --workers 4 \
+  --output "$MATH_RUN_ROOT/result.json"
+```
+
+默认启用四个 Agent，解题预算为 30 分钟、合计 20 轮。运行向标准输出发送 JSON 进度事件，并将结果写入 `result.json`。
+
+首次配置环境时，可在上述命令末尾加 `--startup-only`，只检查准备条件，不调用模型。预检会创建运行状态；之后使用相同参数加 `--resume` 开始求解。
+
+### 4. 恢复运行
+
+```bash
+bun run math run \
+  --build-manifest "$MATH_BUILD_MANIFEST" \
+  --workspace "$MATH_RUN_ROOT/workspace" \
+  --task-file "$MATH_RUN_ROOT/task.md" \
+  --workers 4 \
+  --output "$MATH_RUN_ROOT/result.json" \
+  --resume
+```
+
+恢复时使用原有题目、构建、环境、模型和 Agent 数量。宿主校验运行身份，并重新验证已有证明；会话、失败记录和累计用量保留在运行档案中。
+
+### 5. 查看研究状态与修改计划
+
+```bash
+bun run math inspect --run "$MATH_RUN_ROOT/result.json"
+bun run math inspect --run "$MATH_RUN_ROOT/result.json" \
+  --format plan --output "$MATH_RUN_ROOT/plan.json"
+```
+
+报告按路线和任务展示目标、负责人、已存档的证明检查、条件性依赖、声明回译、审阅与卡点。`inspect` 不调用模型或重跑 Lean；JSON 格式可用 `--format json` 导出。运行中尚未生成结果文件时，也可读取同一路径对应的 checkpoint。
+
+Lead 创建计划后，可以导出并修改引理类型、任务依赖、路线或暂停状态，然后提交修改：
+
+```bash
+bun run math edit --run "$MATH_RUN_ROOT/result.json" \
+  --plan "$MATH_RUN_ROOT/plan.json" --dry-run
+bun run math edit --run "$MATH_RUN_ROOT/result.json" \
+  --plan "$MATH_RUN_ROOT/plan.json"
+```
+
+保留导出计划的 `baseVersion` 和全部原题目标。`edit` 校验计划并追加到修改队列；运行中或恢复后的求解器继续检查版本、应用修改和重检受影响证明。`queued`、`applied` 与证明重检结果分别展示；过期计划需要重新导出。导出文件默认拒绝覆盖已有文件。
+
+### 6. 同时求解多道题
+
+分别准备每题的工作区和任务文件，将原有单题命令的完整参数数组保存到各自的 `launch.json`：
+
+```json
+{
+  "args": ["bun", "/absolute/path/to/deepscientist-math/out/main/math-solver.js", "--workspace", "/runs/q1/workspace", "--task-file", "/runs/q1/task.md", "--output", "/runs/q1/result.json", "--build-manifest", "/absolute/path/to/manifest.json", "--workers", "4"]
+}
+```
+
+```bash
+bun run math batch \
+  --launch /runs/q1/launch.json \
+  --launch /runs/q2/launch.json \
+  --launch /runs/q3/launch.json \
+  --concurrency 2 \
+  --output /runs/batch.json
+```
+
+默认同时运行两题，剩余题目依次补位；每题保留自己的 Agent、预算、检查和最终评测，一题失败不影响其他题。`batch.json` 记录进程状态，每题完整日志写入 `batch.json.logs/`；`completed` 只表示进程正常结束，证明是否通过仍以该题的结果和验收回执为准。
+
+启动文件可选 `cwd` 和 `envFile`，路径相对启动文件所在目录解析；默认工作目录为启动文件所在目录，环境继承调用者。需要恢复时在对应题目的参数中添加 `--resume`，并为新批次指定新的 `--output`。Ctrl+C 会通知运行中的求解器保存退出，并停止启动排队题目；30 秒后仍未退出的进程会被强制停止。并发题数与每题 `--workers` 一起决定资源占用。
+
+## 协作方式
+
+```mermaid
+flowchart LR
+    P[公开题目与固定环境] --> L[Lead：任务与依赖]
+    L --> R[Researcher：引理与路线]
+    L --> E[Engineer：Lean 证明]
+    R --> C[宿主检查与集成]
+    E --> C
+    C -. 诊断反馈 .-> R
+    C -. 诊断反馈 .-> E
+    C --> V[完整候选的独立审阅]
+    V --> A[原题重检与独立评测]
+```
+
+Lead 计入 `--workers` 的总人数。默认配置中，Engineer 持续负责原题，Researcher 处理辅助引理、替代路线和关键猜想；完整候选交给符合条件的同伴切换为只读 Reviewer。
+
+| `--workers` | 角色配置 |
+| --- | --- |
+| `1` | 单 Agent 求解 |
+| `2` | Lead + Engineer；Engineer 可兼任研究与审阅 |
+| `3` | Lead + Researcher + Engineer |
+| `4`（默认） | Lead + 两名 Researcher + Engineer |
+
+任务按依赖就绪异步执行，最多三个 worker 并发。多条路线共享 Agent 名额与原题预算，可以分别设置任务、负责人、暂停状态和路线预算。
+
+### 直接证明与辅助引理
+
+`--method direct` 为默认方法。`--method lemma` 启用辅助引理流程：尝试原题 → 提出引理 → 检查引理对原题的条件性连接 → 证明引理 → 完成原题。两种方法都支持协作运行。
+
+条件性检查在临时源码投影中将待证引理转换为显式参数，保留未完成义务；依赖闭合后再组合并检查普通证明。局部引理、研究笔记和审阅意见分别记录，最终验收检查全部原题目标。
+
+## 验证与结果
+
+**模型的完成消息是交付信号；证明通过由宿主验证与独立评测决定。**
+
+宿主保护原题声明、已有定义和受保护文件，将检查回执绑定到固定提交、源码摘要和目标声明。全部目标通过 Lean 内核检查后，集成候选，并再次检查原题。
+
+| 题目 / 评测方式 | 最终验收 |
+| --- | --- |
+| IMO2026 | 集成后对全部目标重新执行宿主 Lean 内核检查，记录 `official: false` |
+| Lean-Eval | 执行独立官方比较器，记录比较结果与对应题目身份 |
+| `--evaluator-command` | 使用指定命令作为最终评测，记录 `official: false`；它会覆盖默认评测器 |
+
+完整候选的模型审阅与 Lean 证据分别保存。局部编译、条件性证明和模型审阅提供各自范围的反馈。
+
+| 输出 | 内容 |
+| --- | --- |
+| `<output>` | 最终结果、评测状态、证明提交、轮次与用量 |
+| `<output>.runtime/state.json` | 可恢复状态，包括任务图、负责人、固定版本、检查反馈和审阅 |
+| `<output>.runtime/worktree*` | 各 Agent 的独立求解工作区 |
+| 标准输出 | JSON 进度事件 |
+
+最终 `status` 包括 `evaluated_passed`、`evaluated_failed`、`incomplete`、`limit_reached` 和 `runtime_error`；仅做启动预检时为 `prepared`。报告实验结果时，应注明题目版本、预算、评测方式，以及是否从已有成果续跑。
+
+## 配置与命令
+
+### 常用参数
+
+| 参数 | 默认值 | 作用 |
 | --- | --- | --- |
-| M1 证明构造 | `modules/execution.ts` | 题目、上下文、操作与执行者 → 候选版本、来源及待检查义务 |
-| M2 检查与反馈 | `modules/evidence.ts`、`cooperativeProof.ts` | 完整候选或局部义务 → 绑定目标、固定版本和环境的 Lean 证据；独立审阅分别记录 |
-| M3 搜索决策 | `modules/search.ts`、`modules/value.ts` | 状态、依赖、估计和预算 → 可推进任务、继续/停止及重试计划 |
-| M4 上下文选择 | `modules/context.ts` | 题目、当前任务及可见成果 → 指令、反馈和题目/回执/语料来源标识 |
-| M5 协作与复用 | `modules/organization.ts` | 选定任务与可用 agent → 职责匹配、明确写入负责人及隔离 worktree |
-| S1 任务与成果档案 | `archive.ts` | 保存和恢复任务身份、候选、回执、失败及运行状态 |
-| S3 环境与评测合同 | `problem.ts`、`evaluation.ts`、`src/math/` | 冻结任务与环境，集成后重新检查原题并执行独立评测 |
+| `--model` | `gpt-6.1-sol` | 所选 provider 提供的模型 ID |
+| `--effort` | `xhigh` | 推理强度 |
+| `--workers` | `4` | Agent 总数，支持 1–4 |
+| `--method` | `direct` | `direct` 或 `lemma` |
+| `--coordination` | `cooperative` | 协作，或 `independent` 独立并行尝试 |
+| `--scheduler` | `plan` | M3 按计划顺序调度；`goals-first` 优先处理已就绪的原题目标 |
+| `--prepare-timeout-seconds` | `1800` | 环境准备与依赖预编译预算 |
+| `--max-run-seconds` | `1800` | 准备完成后的共享解题时间预算 |
+| `--max-turns` | `20` | 所有 Agent 合计轮次 |
+| `--max-turn-seconds` | `180` | 单轮时间限制；停止写入后检查已保存源码 |
+| `--evaluator-timeout-seconds` | `1800` | 最终评测超时 |
+
+`--max-run-seconds`、`--max-turns`、`--max-turn-seconds` 与 `--evaluator-timeout-seconds` 可设为 `0` 关闭对应限制。关闭总解题时间限制时，证明检查的期限也会关闭。
+
+### 环境配置
+
+数学工具配置默认读取 `~/.config/deepscientist-math/math.env`，也可通过 `DEEPSCIENTIST_MATH_ENV_FILE` 指定。该文件保存工具路径与环境设置；Codex 认证由已有 profile 管理。
+
+| 环境变量 / 参数 | 用途 |
+| --- | --- |
+| `CODEX_HOME` | 指定已有 Codex profile；默认 `~/.config/deepscientist/math-sol-codex` |
+| `--codex` | 指定 Codex 可执行文件 |
+| `DEEPSCIENTIST_MATH_ENV_FILE` | 指定数学环境文件 |
+| `ELAN_HOME` | Elan 安装位置 |
+| `DEEPSCIENTIST_MATH_TRUSTED_CACHE_ROOTS` | 可复用的可信 Lean 依赖缓存根目录；多个路径用 `:` 分隔，内容须匹配冻结的 Lake manifest |
+| `DEEPSCIENTIST_MATH_SANDBOX_BACKEND` | 选择验证后端，例如 `bwrap`；只读依赖环境使用其文件描述符挂载能力 |
+| `DEEPSCIENTIST_LEAN_EVAL_ROOT` | 本地 Lean-Eval 仓库，供对应适配器使用 |
+
+使用外部隔离启动器时，按每个子进程的 `DEEPSCIENTIST_MATH_WORKER_ID` 和 `DEEPSCIENTIST_MATH_WORKER_WORKTREE` 绑定工作区与独立会话存储。
+
+### CLI 命令
+
+```bash
+bun run math --help
+bun run math run --help
+bun run math bootstrap-lean-eval --help
+```
+
+| 命令 | 用途 |
+| --- | --- |
+| `build` | 构建求解器与检查 / 检索工具，生成构建清单 |
+| `bootstrap-imo` | 从固定公开提交准备 IMO2026 题目 |
+| `bootstrap-lean-eval` | 准备 Lean-Eval 题目与评测绑定 |
+| `run` | 启动、预检或恢复运行 |
+| `inspect` | 查看存档研究报告，导出 JSON 或带版本的可编辑计划 |
+| `edit` | 校验并提交人工计划修改，支持 `--dry-run` |
+| `compare` | 准备、运行并汇总固定预算的单 Agent / 独立并行 / 协作对照 |
+| `check-lean` | 对保存的 Lean 文件获取局部诊断 |
+| `search-lean` | 检索已验证的本地 Lean 包声明 |
+| `freeze-retrieval` | 冻结允许检索的本地源码语料 |
+| `summarize` | 汇总保存的实验记录 |
+
+例如，检查指定 Lean 文件并设置 90 秒超时：
+
+```bash
+bun run math check-lean \
+  --workspace "$MATH_RUN_ROOT/workspace/generated/imo2026_q3" \
+  --file Submission.lean \
+  --timeout-seconds 90
+```
+
+`check-lean` 默认超时为 `0`（等待完成），保留失败退出码和最早错误；其诊断仅用于局部修复。
+
+## 架构与开发
+
+研究逻辑由 M1–M5 模块组成；S1 保存档案，S3 固定环境与最终评测。入口在 [run.ts](src/solver/run.ts)，Agent 执行循环在 [research.ts](src/solver/research.ts)，异步协作与集成在 [cooperation.ts](src/solver/cooperation.ts)。
+
+| 模块 | 职责 | 实现 |
+| --- | --- | --- |
+| M1 证明构造 | 执行模型轮次，记录候选与来源 | [execution.ts](src/solver/modules/execution.ts) |
+| M2 检查与反馈 | 固定版本的 Lean 证据与局部义务检查 | [evidence.ts](src/solver/modules/evidence.ts)、[cooperativeProof.ts](src/solver/cooperativeProof.ts) |
+| M3 搜索决策 | 依赖就绪、路线预算、继续 / 停止及重试 | [search.ts](src/solver/modules/search.ts)、[value.ts](src/solver/modules/value.ts) |
+| M4 上下文选择 | 当前任务、可见成果、反馈与来源标识 | [context.ts](src/solver/modules/context.ts) |
+| M5 协作与复用 | 职责匹配、写入负责人及隔离 worktree | [organization.ts](src/solver/modules/organization.ts) |
+| S1 任务与成果档案 | 保存与恢复候选、回执、失败和运行状态 | [archive.ts](src/solver/archive.ts) |
+| S3 环境与评测合同 | 冻结题目，集成后重检并独立评测 | [problem.ts](src/solver/problem.ts)、[evaluation.ts](src/solver/evaluation.ts)、[src/math/](src/math/) |
+
+[index.ts](src/solver/modules/index.ts) 绑定默认模块与版本；`runSolver(args, root, modules)` 支持替换模块，模块版本参与恢复身份。宿主固定执行源码边界检查、总预算限制和最终验收。当前 M3 采用规则与依赖调度，S2 跨任务学习尚未实现。
+
+命令行可用 `--scheduler goals-first` 单独替换 M3 的就绪任务排序；模块版本写入状态，恢复时校验。它是待测的消融变体，尚无性能提升结论。[三组对照实验](examples/imo2026/COMPARISON.md) 提供固定题目、模型和总预算的准备、运行与汇总步骤，保留失败、缺失记录和用量缺口。
+
+辅助引理方法在 [lemma.ts](src/solver/lemma.ts)；Codex stdio 协议适配在 [codexSession.ts](src/runtime/codexSession.ts)。
+
+<details>
+<summary>Agent 交付协议与提前共享</summary>
 
 agent 的常用协议只有两步：读取任务，写出成果。需要结构化回复时，在 `RESEARCH.md` 中保留一个 `math` JSON 代码块；普通说明可写在代码块外。
 
@@ -77,8 +320,14 @@ agent 的常用协议只有两步：读取任务，写出成果。需要结构�
 
 需要提前共享时，向提示词指定的分工日志追加一行 `{"summary":"进展或卡点"}`；提前交付证明则先提交源码，再追加 `{"kind":"proof","commit":"完整 Git 提交","summary":"成果"}`。宿主自动补充消息编号、任务和版本，去重并随完成随检查、接入和通知；无须等待 Lead 或整批任务结束。`COOPERATION.json` 提供只读同伴状态。旧的 `math-plan`、`math-result`、`math-review` 等代码块及带版本字段的 `DELIVERIES.jsonl` 仍可读取，以便已有运行继续恢复。
 
+单 Agent 的辅助引理提案使用 `RESEARCH.md` 中的 `math-lemma` JSON 代码块，包含 `proofPath`、原题完整名称 `target`、引理完整名称 `lemma` 和闭合 Lean 类型 `type`。引理置于目标之前，使用普通 `:=` 证明；目标通过引理的局部名称引用它。连接与引理分别在临时投影中检查。
+
+辅助义务仅在完整投影、提案和环境一致时复用本进程的成功回执；输入变化或进程恢复后重新检查。同一失败义务连续两次没有证明输入变化时，控制器重新分解路线并保留失败原因。
+
+</details>
+
 <details>
-<summary>可选协作配置与检查机制</summary>
+<summary>路线管理、人工修改与声明审阅</summary>
 
 形式任务可设 `conditional: true`，基于固定类型的待证引理先构造父证明；检查只在临时投影中添加显式引理参数。条件性成果保留未证义务，依赖闭合后自动组合并重检普通证明。猜想、研究、草图和审阅意见不能授予原题通过状态。
 
@@ -98,10 +347,20 @@ agent 的常用协议只有两步：读取任务，写出成果。需要结构�
 
 </details>
 
-`src/solver/modules/index.ts` 绑定默认模块及版本。`runSolver(args, root, modules)` 支持独立替换模块；模块版本参与恢复身份，宿主仍固定执行源码边界检查、总预算限制和最终验收。模块输出预测、生成候选或完成集成都不能直接授予原题通过状态。
+### 参与开发
 
-两种方法均可使用协作团队；单 agent 时保留直接证明和条件引理流程。M3 默认返回未校准估计，M5 按职责分配选定任务；`cooperation.ts` 作为方法运行循环处理异步通知、逐项集成和版本。辅助引理回执记录各自检查的投影提交、原候选提交和源码摘要；最终验收仍独立检查全部原题目标。S2 跨任务学习尚未实现。
+欢迎提交问题复现、Lean 适配器改进、搜索与协作策略，以及检查与恢复边界的测试。报告问题时，请附上命令、依赖版本、结果状态和相关诊断，并移除认证信息。
 
-辅助义务的完整投影内容、提案和环境都一致时，可复用本进程已检查的成功回执；研究日志不参与证明检查。证明输入或环境改变即重新检查，恢复后的档案回执不能授权复用。同一失败义务连续两次没有证明输入变化时，控制器重新分解路线，并保留失败原因供下一轮参考。
+```bash
+bun run test
+bun run typecheck
+bun run build
+```
 
-测试不调用真实模型。`bun run test` 验证运行边界；`bun run typecheck` 检查接口。
+测试使用本地 fixture 与模拟会话，不调用真实模型。修改运行时边界时，运行对应测试并重新构建；研究模块的输出须继续经过宿主最终验收。
+
+## 许可证与致谢
+
+本项目从 DeepScientist 的数学证明运行时抽取，使用 [AGPL-3.0-only](LICENSE)；来源与第三方声明见 [NOTICE](NOTICE)。保留独立许可证声明的文件遵循其各自条款。
+
+感谢 [Lean](https://lean-lang.org/)、[Mathlib](https://github.com/leanprover-community/mathlib4)、[Humanfia IMO2026](https://github.com/humanfia/imo2026) 与 [Lean-Eval](https://github.com/leanprover/lean-eval) 提供的形式化工具、数学库和公开评测资源。

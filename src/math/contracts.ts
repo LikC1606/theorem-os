@@ -53,20 +53,27 @@ export type MathOfficialProblemManifest = Readonly<{
   targetCommit?: string;
 }>;
 
+function normalizeStatementIdentity(input: MathProblemContract | MathOfficialProblemManifest, field: string) {
+  const problemId = requiredText(input.problemId, `${field}.problemId`);
+  const informalStatement = requiredText(input.informalStatement, `${field}.informalStatement`);
+  const formalStatement = requiredText(input.formalStatement, `${field}.formalStatement`);
+  const formalNegationStatement = optionalText(input.formalNegationStatement);
+  const assumptions = textList(input.assumptions, `${field}.assumptions`);
+  const statementHash = requiredHash(input.statementHash, `${field}.statementHash`);
+  const leanStatementHash = requiredHash(input.leanStatementHash, `${field}.leanStatementHash`);
+  const leanNegationHash = optionalText(input.leanNegationHash);
+  if (Boolean(formalNegationStatement) !== Boolean(leanNegationHash)) {
+    throw new TypeError(`${field === 'officialManifest' ? field : `Mathematics ${field}`} formal negation statement and hash must be supplied together`);
+  }
+  return { problemId, informalStatement, formalStatement,
+    ...(formalNegationStatement ? { formalNegationStatement } : {}), assumptions, statementHash, leanStatementHash,
+    ...(leanNegationHash ? { leanNegationHash: requiredHash(leanNegationHash, `${field}.leanNegationHash`) } : {}) };
+}
+
 export function normalizeMathOfficialProblemManifest(input: MathOfficialProblemManifest): MathOfficialProblemManifest {
   const manifestId = requiredText(input.manifestId, 'officialManifest.manifestId');
   const manifestHash = requiredHash(input.manifestHash, 'officialManifest.manifestHash');
-  const problemId = requiredText(input.problemId, 'officialManifest.problemId');
-  const informalStatement = requiredText(input.informalStatement, 'officialManifest.informalStatement');
-  const formalStatement = requiredText(input.formalStatement, 'officialManifest.formalStatement');
-  const formalNegationStatement = optionalText(input.formalNegationStatement);
-  const assumptions = textList(input.assumptions, 'officialManifest.assumptions');
-  const statementHash = requiredHash(input.statementHash, 'officialManifest.statementHash');
-  const leanStatementHash = requiredHash(input.leanStatementHash, 'officialManifest.leanStatementHash');
-  const leanNegationHash = optionalText(input.leanNegationHash);
-  if (Boolean(formalNegationStatement) !== Boolean(leanNegationHash)) {
-    throw new TypeError('officialManifest formal negation statement and hash must be supplied together');
-  }
+  const identity = normalizeStatementIdentity(input, 'officialManifest');
   const officialVerificationCommand = requiredText(
     input.officialVerificationCommand,
     'officialManifest.officialVerificationCommand'
@@ -114,16 +121,7 @@ export function normalizeMathOfficialProblemManifest(input: MathOfficialProblemM
     schema: 'deepscientist.mathematics.official-manifest.v1',
     manifestId,
     manifestHash,
-    problemId,
-    informalStatement,
-    formalStatement,
-    ...(formalNegationStatement ? { formalNegationStatement } : {}),
-    assumptions,
-    statementHash,
-    leanStatementHash,
-    ...(leanNegationHash
-      ? { leanNegationHash: requiredHash(leanNegationHash, 'officialManifest.leanNegationHash') }
-      : {}),
+    ...identity,
     officialVerificationCommand,
     repositoryUrl,
     baselineCommit,
@@ -253,30 +251,16 @@ export type MathOfficialGateReceipt = Readonly<{
 }>;
 
 export function normalizeMathProblemContract(input: MathProblemContract): MathProblemContract {
-  const assumptions = textList(input.assumptions, 'problemContract.assumptions');
+  const identity = normalizeStatementIdentity(input, 'problemContract');
   const knownTraps = textList(input.knownTraps, 'problemContract.knownTraps');
   const acceptanceCriteria = requiredTextList(input.acceptanceCriteria, 'problemContract.acceptanceCriteria');
   const officialManifestId = input.officialManifestId?.trim();
   const officialManifestHash = input.officialManifestHash?.trim();
-  const formalNegationStatement = optionalText(input.formalNegationStatement);
-  const leanNegationHash = optionalText(input.leanNegationHash);
-  if (Boolean(formalNegationStatement) !== Boolean(leanNegationHash)) {
-    throw new TypeError('Mathematics problemContract formal negation statement and hash must be supplied together');
-  }
   if (Boolean(officialManifestId) !== Boolean(officialManifestHash)) {
     throw new TypeError('Mathematics problemContract official manifest id and hash must be supplied together');
   }
   return Object.freeze({
-    problemId: requiredText(input.problemId, 'problemContract.problemId'),
-    informalStatement: requiredText(input.informalStatement, 'problemContract.informalStatement'),
-    formalStatement: requiredText(input.formalStatement, 'problemContract.formalStatement'),
-    ...(formalNegationStatement ? { formalNegationStatement } : {}),
-    assumptions,
-    statementHash: requiredHash(input.statementHash, 'problemContract.statementHash'),
-    leanStatementHash: requiredHash(input.leanStatementHash, 'problemContract.leanStatementHash'),
-    ...(leanNegationHash
-      ? { leanNegationHash: requiredHash(leanNegationHash, 'problemContract.leanNegationHash') }
-      : {}),
+    ...identity,
     knownTraps,
     acceptanceCriteria,
     officialVerificationCommand: requiredText(

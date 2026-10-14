@@ -8,16 +8,17 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import { canonicalMathProblemNegationPayload, canonicalMathProblemStatementPayloads, isMathFoundationalLeanAxiom, normalizeMathProblemContract, type MathProblemContract } from "./contracts";
 import { fetchLeanEvalLeaderboardCredits, parseLeanEvalLeaderboardCredits, findLeanEvalCatalogProblem, readLeanEvalCatalog, LEAN_EVAL_BENCHMARK_COMMIT, LEAN_EVAL_LEADERBOARD_URL, LEAN_EVAL_REPOSITORY_URL, type LeanEvalCatalog, type LeanEvalCatalogProblem } from "./leanEvalCatalogAdapter";
 import { collectLeanEvalSubmissionFiles, materializeLeanEvalProblemBinding, prepareLeanEvalProblemBinding, type LeanEvalProblemBinding } from "./leanEvalAdapter";
-import { checkManyFormalVerifications, inspectLeanDeclarations, resolveMathematicsLakePackagesCache, runOfficialComparator, type MathematicsVerifierBatchResult, type MathematicsVerifierResult, type MathematicsOfficialComparatorResult, type MathematicsVerifierExecutionOptions } from "./verifier";
+import { checkManyFormalVerifications, resolveMathematicsLakePackagesCache, runOfficialComparator, type MathematicsVerifierBatchResult, type MathematicsVerifierResult, type MathematicsOfficialComparatorResult, type MathematicsVerifierExecutionOptions } from "./verifier";
+import { inspectLeanDeclarations } from "./leanSource";
 import { resolveMathematicsRuntimeEnvironment } from "./mathRuntimeEnvironment";
 import { readMathematicsReceiptSecret, signMathOfficialGateReceipt } from "./receiptAttestation";
 import type { MathOfficialGateReceipt } from "./contracts";
 import { assertMathCanonicalPath } from "./paths";
-import { readMathJson, writeMathJsonDurable } from "./mathRuntimeIo";
+import { mathDigest as sha256, readMathJson, writeMathJsonDurable } from "./mathRuntimeIo";
+import { mathGitBytes, mathGitText } from './mathGit';
 import { resolveLeanEvalSubmissionName } from "./leanEvalSubmission";
 
 export type LeanEvalBootstrapReceipt = Readonly<{
@@ -322,14 +323,9 @@ export function assertLeanEvalPublicObligations(
   }
 }
 
-const sha256 = (value: string): string => crypto.createHash('sha256').update(value, 'utf8').digest('hex');
 const leaderboardSnapshotPath = (receiptFile: string): string =>
   path.join(path.dirname(receiptFile), '.deepscientist', 'leaderboard.json');
-const git = (root: string, args: readonly string[]): string => {
-  const result = spawnSync('git', ['-C', root, ...args], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
-  if (result.status !== 0) throw new Error(result.stderr?.trim() || `git ${args.join(' ')} failed`);
-  return result.stdout.trim();
-};
+const git = (root: string, args: readonly string[]) => mathGitText(root, args, { maxBuffer: 8 * 1024 * 1024 });
 
 const assertRegisteredWorktree = (repositoryRoot: string, worktreeRoot: string, label: string): void => {
   const canonical = fs.realpathSync(path.resolve(worktreeRoot));
@@ -383,11 +379,10 @@ const writeGitFile = (
     if (stat.isSymbolicLink() || !stat.isFile())
       throw new Error(`LeanEval destination is not a regular file: ${destination}`);
   }
-  const result = spawnSync('git', ['-C', repositoryRoot, 'show', `${baselineCommit}:${relativePath}`], {
-    maxBuffer: 16 * 1024 * 1024,
+  const bytes = mathGitBytes(repositoryRoot, ['show', `${baselineCommit}:${relativePath}`], {
+    maxBuffer: 16 * 1024 * 1024, errorMessage: `Unable to materialize LeanEval file ${relativePath}`,
   });
-  if (result.status !== 0) throw new Error(`Unable to materialize LeanEval file ${relativePath}`);
-  fs.writeFileSync(destination, result.stdout, { mode: 0o600 });
+  fs.writeFileSync(destination, bytes, { mode: 0o600 });
 };
 
 type LeanEvalLakeManifestRecord = Record<string, unknown>;
@@ -916,23 +911,8 @@ export function commitLeanEvalSubmission(
   // Project templates commonly ignore `.deepscientist/`; force-add only the
   // two generated binding files (the solver paths remain ordinary `git add`).
   git(verifierRoot, ['add', '-f', '--', ...commitFiles]);
-  const commitResult = spawnSync(
-    'git',
-    [
-      '-C',
-      verifierRoot,
-      '-c',
-      'user.name=DeepScientist Lean-Eval',
-      '-c',
-      'user.email=lean-eval@deepscientist.invalid',
-      'commit',
-      '--no-gpg-sign',
-      '-m',
-      message.slice(0, 200),
-    ],
-    { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }
-  );
-  if (commitResult.status !== 0) throw new Error(commitResult.stderr?.trim() || 'LeanEval submission commit failed');
+  mathGitText(verifierRoot, ['-c', 'user.name=DeepScientist Lean-Eval', '-c', 'user.email=lean-eval@deepscientist.invalid',
+    'commit', '--no-gpg-sign', '-m', message.slice(0, 200)], { maxBuffer: 8 * 1024 * 1024 });
   const targetCommit = git(verifierRoot, ['rev-parse', 'HEAD']).toLowerCase();
   return Object.freeze({ projectRoot: verifierRoot, targetCommit, files: Object.freeze(commitFiles) });
 }

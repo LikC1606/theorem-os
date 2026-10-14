@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { closeMathProcess } from './mathProcess';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import net from 'node:net';
@@ -179,6 +180,22 @@ export function resolveMathProofEnvironment(
   });
 }
 
+/** Codex mounts the host filesystem read-only but replaces /proc in its PID namespace. */
+export function mathProofEnvironmentWorkerEnvironment(projectRoot: string, env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const environment = resolveMathProofEnvironment(projectRoot, env);
+  if (!environment) return env;
+  const descriptor = descriptorSchema.parse(JSON.parse(env[MATH_PROOF_ENVIRONMENT_ENV]!));
+  const mapped = { ...env, [MATH_PROOF_ENVIRONMENT_SANDBOX_ENV]: JSON.stringify({
+    schema: 'deepscientist.math.proof-environment-sandbox.v1',
+    identity: environment.identity,
+    rootPath: fs.realpathSync(environment.packagesRoot),
+    leaseSocket: descriptor.leaseSocket,
+  }) };
+  // The attached path must still name the exact verified immutable root.
+  resolveMathProofEnvironment(projectRoot, mapped);
+  return mapped;
+}
+
 /** A live socket pins the helper and base across sandbox execution and owner shutdown. */
 export async function acquireMathProofEnvironmentLease(
   projectRoot: string,
@@ -338,21 +355,14 @@ export async function prepareMathProofEnvironment(
   const source = path.join(temporary, 'packages');
   fs.mkdirSync(source, { mode: 0o700 });
   let child: ChildProcessWithoutNullStreams | undefined;
-  let disposed = false;
+  let disposal: Promise<void> | undefined;
   let published = false;
   const exportedImage = cache && fingerprint && !cached ? cache.createImagePath(fingerprint) : undefined;
-  const dispose = async () => {
-    if (disposed) return;
-    disposed = true;
-    if (child && child.exitCode === null && child.signalCode === null) {
-      const stopped = new Promise<void>((resolve) => child!.once('close', () => resolve()));
-      child.stdin.end();
-      if (!published) child.kill('SIGTERM');
-      await stopped;
-    }
+  const dispose = () => disposal ??= (async () => {
+    if (child) await closeMathProcess(child, published);
     fs.rmSync(temporary, { recursive: true, force: true });
     if (!published && exportedImage) fs.rmSync(exportedImage, { force: true });
-  };
+  })();
   try {
     const buffer = Buffer.alloc(1024 * 1024);
     const readInput = (file: string, target?: string) =>
@@ -408,6 +418,7 @@ export async function prepareMathProofEnvironment(
       ],
       {
         env: options.env ?? process.env,
+        detached: process.platform !== 'win32',
         stdio: ['pipe', 'pipe', 'pipe'],
       }
     );

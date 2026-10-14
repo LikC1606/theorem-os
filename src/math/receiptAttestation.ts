@@ -1,20 +1,13 @@
 import crypto from 'node:crypto';
 import { normalizeMathOfficialGateReceipt, type MathOfficialGateReceipt, type MathReceiptAttestation } from "./contracts";
 import { readMathReceiptMasterSecret } from "./receiptKey";
+import { canonicalMathJson } from './mathRuntimeIo';
 
 type UnsignedOfficialReceipt = Omit<MathOfficialGateReceipt, 'attestation'>;
 
-const stableValue = (value: unknown): unknown => {
-  if (Array.isArray(value)) return value.map(stableValue);
-  if (!value || typeof value !== 'object') return value;
-  const input = value as Record<string, unknown>;
-  const keys = Object.keys(input).toSorted((left, right) => left.localeCompare(right));
-  const stable: Record<string, unknown> = {};
-  for (const key of keys) stable[key] = stableValue(input[key]);
-  return stable;
-};
-
-const canonical = (domain: string, value: unknown): string => `${domain}\u0000${JSON.stringify(stableValue(value))}`;
+// Keep the historical receipt ordering while sharing the canonical JSON implementation.
+const canonical = (domain: string, value: unknown): string =>
+  `${domain}\u0000${canonicalMathJson(value, (a, b) => a.localeCompare(b))}`;
 
 export const deriveMathematicsReceiptSecret = (masterSecret: string): string =>
   crypto.createHmac('sha256', masterSecret).update('deepscientist.mathematics.receipt-key.v1').digest('hex');

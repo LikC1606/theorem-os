@@ -9,6 +9,8 @@ import os from 'node:os';
 import path from 'node:path';
 
 const SECRET_KEY = /(?:API[_-]?KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|PRIVATE[_-]?KEY)/iu;
+const RESOLVED_ENVIRONMENT = Symbol('resolved mathematics environment');
+const withoutSecrets = (source: NodeJS.ProcessEnv) => Object.fromEntries(Object.entries(source).filter(([key]) => !SECRET_KEY.test(key)));
 const ENV_FILE_KEYS = new Set([
   'DEEPSCIENTIST_LEAN_EVAL_ROOT',
   'DEEPSCIENTIST_LEAN_EVAL_TOOLS_ROOT',
@@ -25,6 +27,7 @@ const ENV_FILE_KEYS = new Set([
   'PATH',
 ]);
 const OPTIONAL_ENV_FILE_KEYS = new Set([
+  'DEEPSCIENTIST_MATH_LEAN_LOCK',
   'DEEPSCIENTIST_MATH_PROOF_ENVIRONMENT',
   'DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS',
   'DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS_SHA256',
@@ -108,6 +111,9 @@ export function resolveMathematicsRuntimeEnvironment(
   source: NodeJS.ProcessEnv = process.env,
   envFile = source.DEEPSCIENTIST_MATH_ENV_FILE?.trim() || DEFAULT_MATHEMATICS_ENV_FILE
 ): NodeJS.ProcessEnv {
+  // The symbol survives host-side spreads but never enters subprocess env strings.
+  if ((source as NodeJS.ProcessEnv & { [RESOLVED_ENVIRONMENT]?: string })[RESOLVED_ENVIRONMENT] === envFile)
+    return Object.freeze({ ...withoutSecrets(source), [RESOLVED_ENVIRONMENT]: envFile });
   const values = readEnvFile(envFile, source);
   // The checked-in/local env file supplies defaults. Explicit values passed by
   // a runner or test remain authoritative, while the file's PATH still
@@ -130,9 +136,7 @@ export function resolveMathematicsRuntimeEnvironment(
       .filter((entry, index, entries) => entries.indexOf(entry) === index)
       .join(path.delimiter);
   }
-  return Object.fromEntries(
-    Object.entries(merged).filter(([key]) => !SECRET_KEY.test(key))
-  );
+  return Object.freeze({ ...withoutSecrets(merged), [RESOLVED_ENVIRONMENT]: envFile });
 }
 
 export function mathematicsRuntimeInstruction(envFile?: string): string {

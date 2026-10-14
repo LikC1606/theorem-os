@@ -44,7 +44,8 @@ describe('isolated local Lean dependencies', () => {
     expect(() => mathLocalModuleBuildOrder(root, 'Submission.lean')).toThrow('math_local_module_source_invalid');
   });
 
-  it.runIf(process.platform === 'linux').each([10_000, Infinity])('mounts the pinned toolchain with timeout %s when Elan links outside its home', async timeoutMs => {
+  it.runIf(process.platform === 'linux').each([[10_000, false], [Infinity, false], [10_000, true]] as const)
+  ('mounts and cleans up the pinned toolchain with timeout %s and setup failure=%s', async (timeoutMs, setupFailure) => {
     const project = path.join(root, 'project');
     const elan = path.join(root, 'elan');
     const toolchain = path.join(root, 'external-lean');
@@ -61,10 +62,26 @@ describe('isolated local Lean dependencies', () => {
     // A capturing backend tests the mount arguments without invoking a compiler.
     write(tools, 'bwrap', '#!/bin/sh\nsleep 0.05\nprintf "%s\\n" "$@"\n');
     const timers = vi.spyOn(globalThis, 'setTimeout');
-    const result = await runMathematicsSandboxedCommand({ checkoutRoot: project, command: 'lean', args: ['--version'],
+    const run = () => runMathematicsSandboxedCommand({ checkoutRoot: project, command: 'lean', args: ['--version'],
       timeoutMs, env: { PATH: `${tools}:${elan}/bin:/usr/bin:/bin`, ELAN_HOME: elan,
         DEEPSCIENTIST_MATH_ENV_FILE: path.join(root, 'absent.env'), DEEPSCIENTIST_MATH_SANDBOX_BACKEND: 'bwrap',
         DEEPSCIENTIST_LEAN_EVAL_TOOLS_ROOT: evalTools } });
+    if (setupFailure) {
+      let temporary: string | undefined;
+      const save = fs.writeFileSync;
+      vi.spyOn(fs, 'writeFileSync').mockImplementation((file, contents, options) => {
+        if (path.basename(String(file)) === 'lean-launcher') {
+          temporary = path.dirname(String(file));
+          throw new Error('fixture_sandbox_preparation_failed');
+        }
+        save(file, contents, options);
+      });
+      await expect(run()).rejects.toThrow('fixture_sandbox_preparation_failed');
+      expect(temporary).toBeDefined();
+      expect(fs.existsSync(temporary!)).toBe(false);
+      return;
+    }
+    const result = await run();
     expect(result.exitCode).toBe(0);
     expect(result.timedOut).toBe(false);
     expect(timers.mock.calls.some(([, ms]) => ms === Infinity)).toBe(false);

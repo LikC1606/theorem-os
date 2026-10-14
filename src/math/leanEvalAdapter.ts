@@ -4,13 +4,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { mathGitBytes, mathGitText } from './mathGit';
+import { mathDigest as sha256 } from './mathRuntimeIo';
 import { parse as parseToml } from 'smol-toml';
 import { canonicalMathProblemStatementPayloads, normalizeMathOfficialProblemManifest, normalizeMathProblemContract, type MathOfficialProblemManifest, type MathProblemContract } from "./contracts";
-import { canonicalMathOfficialManifestPayload, hashMathFormalSourceDeclaration } from "./verifier";
+import { canonicalMathOfficialManifestPayload } from "./verifier";
+import { hashMathFormalSourceDeclaration } from "./leanSource";
 import { assertLeanEvalSubmissionComplete } from "./leanEvalSubmission";
 
 const LEAN_EVAL_ADAPTER_ID = 'lean-eval' as const;
@@ -81,7 +82,6 @@ export type LeanEvalProblemBinding = Readonly<{
   authorityContent: string;
 }>;
 
-const sha256 = (value: Uint8Array | string): string => crypto.createHash('sha256').update(value).digest('hex');
 
 const requireText = (value: unknown, field: string): string => {
   if (typeof value !== 'string' || !value.trim()) throw new Error(`${field} must be a non-empty string.`);
@@ -108,24 +108,8 @@ const normalizeRepositoryUrl = (value: string): string =>
     .replace(/\.git$/u, '')
     .toLowerCase();
 
-const runGitText = (repositoryRoot: string, args: readonly string[]): string => {
-  const result = spawnSync('git', ['-C', repositoryRoot, ...args], {
-    encoding: 'utf8',
-    maxBuffer: MAX_GIT_OUTPUT_BYTES,
-  });
-  if (result.status !== 0) {
-    throw new Error(result.stderr.trim() || `git ${args.join(' ')} failed.`);
-  }
-  return result.stdout.trim();
-};
-
-const runGitBytes = (repositoryRoot: string, args: readonly string[]): Buffer => {
-  const result = spawnSync('git', ['-C', repositoryRoot, ...args], { maxBuffer: MAX_GIT_OUTPUT_BYTES });
-  if (result.status !== 0) {
-    throw new Error(result.stderr.toString('utf8').trim() || `git ${args.join(' ')} failed.`);
-  }
-  return result.stdout;
-};
+const runGitText = (root: string, args: readonly string[]) => mathGitText(root, args, { maxBuffer: MAX_GIT_OUTPUT_BYTES });
+const runGitBytes = (root: string, args: readonly string[]) => mathGitBytes(root, args, { maxBuffer: MAX_GIT_OUTPUT_BYTES });
 
 const normalizeRelativePath = (value: string, field: string): string => {
   const normalized = value.trim().replaceAll('\\', '/').replace(/^\.\//u, '');

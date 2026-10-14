@@ -3,6 +3,7 @@
 /** Aggregate host proof-run receipts into a cross-run report. */
 
 import fs from 'node:fs';
+import { parseFlags, required } from './arguments';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deriveMathProofRunMetric, summarizeMathProofRunMetrics, type MathProofBenchmarkSlate, type MathProofRunMetric } from "../../src/math/mathProofRunReport";
@@ -10,28 +11,6 @@ import { deriveMathProofRunMetric, summarizeMathProofRunMetrics, type MathProofB
 type JsonRecord = Record<string, unknown>;
 
 const readJson = (file: string): unknown => JSON.parse(fs.readFileSync(file, 'utf8')) as unknown;
-
-const required = (flags: ReadonlyMap<string, string>, name: string): string => {
-  const value = flags.get(name)?.trim();
-  if (!value) throw new Error(`--${name} is required`);
-  return value;
-};
-
-const parseFlags = (argv: readonly string[]): Map<string, string> => {
-  const flags = new Map<string, string>();
-  for (let index = 0; index < argv.length; index += 2) {
-    const key = argv[index];
-    if (key === '--help') {
-      flags.set('help', 'true');
-      continue;
-    }
-    const value = argv[index + 1];
-    if (!key?.startsWith('--') || !value || value.startsWith('--')) throw new Error(`Invalid argument: ${key}`);
-    if (flags.has(key.slice(2))) throw new Error(`Duplicate argument: ${key}`);
-    flags.set(key.slice(2), value);
-  }
-  return flags;
-};
 
 const object = (value: unknown, label: string): JsonRecord => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object`);
@@ -93,7 +72,7 @@ export function buildMathProofRunReportFromJson(
 }
 
 function main(): void {
-  const flags = parseFlags(process.argv.slice(2));
+  const flags = parseFlags(process.argv.slice(2), ['problem-ids', 'repetitions', 'output', 'input', 'benchmark-id', 'benchmark-commit', 'catalog-hash', 'random-seed', 'control-method', 'treatment-method', 'source-ledger-revision', 'source-index-hash', 'generator-version']);
   if (flags.has('help')) {
     console.log(
       'Usage: bun scripts/mathematics/summarizeMathProofRuns.ts --input FILE --output FILE --benchmark-id ID --benchmark-commit SHA --catalog-hash SHA --random-seed SEED --problem-ids ID1,ID2 --repetitions N [--control-method METHOD --treatment-method METHOD] [--source-ledger-revision SHA --source-index-hash SHA --generator-version VERSION]'

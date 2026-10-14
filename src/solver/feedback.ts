@@ -52,7 +52,7 @@ export function solverSourceFeedback(problem: SolverProblem, worktree: string): 
     assertSolverSources(problem, worktree);
   } catch (error) {
     if (!(error instanceof SolverSourceError)) throw error;
-    return `Host rejected the edited source before committing or checking it in Lean.\nFile: ${problem.projectRelative}/${error.proofPath}\nError: ${error.message}\nCompare this file with baseline commit ${problem.baseCommit} using git show. Restore every original declaration, definition, assumption and surrounding context while preserving valid proof work. Edit only the allowed files; do not reset or discard the worktree. The original source checks must pass before Lean acceptance.`;
+    return `Host rejected the edited source before committing or checking it in Lean.\nFile: ${problem.projectRelative}/${error.proofPath}\nError: ${error.message}\n${error.recovery}\nCompare this file with baseline commit ${problem.baseCommit} using git show. Edit only the allowed files; do not reset or discard the worktree. The original source checks must pass before Lean acceptance.`;
   }
 }
 

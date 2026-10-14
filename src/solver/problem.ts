@@ -1,25 +1,32 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { mathGitBytes, mathGitText } from '../math/mathGit';
 import { readImo2026BootstrapReceipt, verifyImo2026BootstrapReceipt, theoremQualifiedNamesFromSource } from '../math/imo2026Adapter';
 import { readLeanEvalBootstrapReceipt } from '../math/leanEvalBootstrap';
 import { resolveLeanEvalSubmissionName } from '../math/leanEvalSubmission';
 import { canonicalMathJson, mathDigest, readMathJson } from '../math/mathRuntimeIo';
 import { assertMathCanonicalPath, isMathPathWithin } from '../math/paths';
-import { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions, inspectLeanDeclarations } from '../math/verifier';
+import { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions, inspectLeanDeclarations } from '../math/leanSource';
+import { mathConstructionImports } from '../math/mathConstructionSources';
 import type { MathProblemContract } from '../math/contracts';
 
 export function committedSource(worktree: string, commit: string, file: string): string {
-  const result = spawnSync('git', ['show', `${commit}:${file}`], { cwd: worktree, encoding: 'utf8', timeout: 30_000, maxBuffer: 1024 * 1024 });
-  if (result.error || result.status !== 0) throw new Error('math_task_source_unavailable');
-  return result.stdout;
+  return mathGitBytes(worktree, ['show', `${commit}:${file}`],
+    { timeout: 30_000, maxBuffer: 1024 * 1024, errorMessage: 'math_task_source_unavailable' }).toString('utf8');
 }
 
 export type ProofTarget = Readonly<{ proofPath: string; theoremName: string; declarationHash: string }>;
 export class SolverSourceError extends Error {
-  constructor(readonly proofPath: string, reason: 'math_original_declaration_changed' | 'math_original_context_changed') {
+  constructor(readonly proofPath: string, reason: 'math_original_declaration_changed' | 'math_original_context_changed',
+    readonly declarationName?: string) {
     super(reason);
+  }
+  get recovery(): string {
+    return this.message === 'math_original_context_changed'
+      ? 'Restore the original imports, namespace/section placement, variables, opens, scopes and options from the seed commit. ' +
+        'Keep new helpers; move helper-specific scopes and instances inside their proofs. Only explicit Mathlib.* imports may be added.'
+      : `Restore the original name, parameters, type and any frozen definition body${this.declarationName ? ` of ${this.declarationName}` : ''} from the seed commit. Preserve new proof work.`;
   }
 }
 export type SolverProblem = Readonly<{
@@ -36,17 +43,51 @@ export type SolverProblem = Readonly<{
   sourceRepository?: string;
   declarations: Readonly<Record<string, readonly { name: string; header: string; body?: string }[]>>;
   sourceStructure: Readonly<Record<string, string>>;
+  sourceImports?: Readonly<Record<string, readonly string[]>>;
 }>;
 
 export function git(root: string, args: string[]): string {
-  const result = spawnSync('git', args, { cwd: root, encoding: 'utf8', timeout: 30_000, maxBuffer: 1024 * 1024 });
-  if (result.error || result.status !== 0) throw new Error(`math_git_failed:${args[0]}`);
-  return result.stdout.trim();
+  return mathGitText(root, args, { timeout: 30_000, maxBuffer: 1024 * 1024, errorMessage: `math_git_failed:${args[0]}` });
 }
 
-export type SolverSourceConstraints = Pick<SolverProblem, 'trustedFiles' | 'declarations' | 'sourceStructure'>;
+/** Journals guide research but never become inputs to a projected proof. */
+export function commitSolverProjection(problem: SolverProblem, worktree: string, message: string): string {
+  git(worktree, ['rm', '--quiet', '--force', '--ignore-unmatch', '--', 'RESEARCH.md']);
+  git(worktree, ['add', '--', ...problem.ownedFiles.map(file => path.join(problem.projectRelative, file))]);
+  git(worktree, ['-c', 'user.name=DeepScientist Math', '-c', 'user.email=math@localhost', 'commit',
+    '--allow-empty', '--no-gpg-sign', '--quiet', '-m', message]);
+  return git(worktree, ['rev-parse', 'HEAD']);
+}
 
-function sourceStructure(source: string, originalNames: ReadonlySet<string>): string {
+export type SolverSourceConstraints = Pick<SolverProblem, 'trustedFiles' | 'declarations' | 'sourceStructure' | 'sourceImports'>;
+
+/** Only explicit modules from the pinned Mathlib package may extend proof imports. */
+export function solverMathlibImports(source: string): string[] {
+  return mathConstructionImports(source).filter(module => /^Mathlib(?:\.[A-Za-z_][A-Za-z0-9_']*)+$/u.test(module));
+}
+
+/** Read-only instance queries allow simple names or balanced parenthesized types. */
+function isInstanceQuery(line: string): boolean {
+  const query = /^#synth[ \t]+[\p{L}_][\p{L}\p{M}\p{N}_'.]*(.*)$/u.exec(line);
+  if (!query || /["`#;]/u.test(query[1])) return false;
+  let depth = 0;
+  let bare = '';
+  const validBare = () => !bare || /^[\p{L}_][\p{L}\p{M}\p{N}_'.]*$|^[0-9]+$/u.test(bare) &&
+    !/^(?:import|public|private|meta|namespace|section|end|theorem|lemma|def|example|abbrev|opaque|instance|inductive|structure|class|axiom|constant|variable|universe|open|export|set_option|attribute|noncomputable|unsafe|syntax|macro|elab|notation|infix|infixl|infixr|prefix|postfix|initialize|builtin_initialize)$/u.test(bare);
+  for (const character of query[1]) {
+    if (character === '(') { if (!depth && !validBare()) return false; bare = ''; depth++; }
+    else if (character === ')') { if (--depth < 0) return false; }
+    else if (!depth) {
+      if (character === ' ' || character === '\t') { if (!validBare()) return false; bare = ''; }
+      else bare += character;
+    }
+  }
+  return depth === 0 && validBare();
+}
+
+function sourceStructure(source: string, originalNames: ReadonlySet<string>, originalImports?: readonly string[]): string {
+  const addedImports = new Set(originalImports === undefined ? [] :
+    solverMathlibImports(source).filter(module => !originalImports.includes(module)));
   const regions = inspectLeanDeclarationRegions(source);
   let frozen = '';
   let cursor = 0;
@@ -57,7 +98,10 @@ function sourceStructure(source: string, originalNames: ReadonlySet<string>): st
     cursor = region.endOffset;
   }
   frozen += source.slice(cursor);
-  return mathDigest(frozen.split('\n').map(line => line.trim()).filter(Boolean).join('\n'));
+  // Read-only name and instance queries leave the original proof context intact.
+  return mathDigest(frozen.split('\n').map(line => line.trim()).filter(line => line &&
+    !addedImports.has(/^import[ \t]+([^ \t]+)$/u.exec(line)?.[1] ?? '') &&
+    !/^#check[ \t]+[\p{L}_][\p{L}\p{M}\p{N}_'.]*$/u.test(line) && !isInstanceQuery(line)).join('\n'));
 }
 
 export function readSolverProblem(workspacePath: string, receiptFile: string): SolverProblem {
@@ -104,10 +148,12 @@ export function readSolverProblem(workspacePath: string, receiptFile: string): S
   }));
   const structures = Object.fromEntries(Object.entries(declarations).map(([file, originals]) =>
     [file, sourceStructure(fs.readFileSync(path.join(receipt.projectRoot, file), 'utf8'), new Set(originals.map(item => item.name)))]));
+  const sourceImports = Object.fromEntries(Object.keys(declarations).map(file =>
+    [file, mathConstructionImports(fs.readFileSync(path.join(receipt.projectRoot, file), 'utf8'))]));
   return { kind: receipt.schema.includes('imo2026') ? 'imo2026' : 'lean-eval', workspace, projectRelative,
     baseCommit: git(workspace, ['rev-parse', 'HEAD']), receiptDigest: mathDigest(canonicalMathJson(receipt)),
     contract: receipt.contract, targets, trustedFiles, ownedFiles: receipt.solverOwnedFiles,
-    declarations, sourceStructure: structures, activeProblemPath: receipt.activeProblemPath,
+    declarations, sourceStructure: structures, sourceImports, activeProblemPath: receipt.activeProblemPath,
     ...('sourceProjectRoot' in receipt ? { sourceRepository: receipt.sourceProjectRoot } : {}) };
 }
 
@@ -128,9 +174,9 @@ export function assertSolverProjectSources(problem: SolverSourceConstraints, pro
       const current = matches[0];
       if (matches.length !== 1 || current.declarationType !== original.header ||
           (original.body && mathDigest(source.slice(current.bodyOffset, current.endOffset).trim()) !== original.body))
-        throw new SolverSourceError(relative, 'math_original_declaration_changed');
+        throw new SolverSourceError(relative, 'math_original_declaration_changed', original.name);
     }
-    if (sourceStructure(source, new Set(originals.map(item => item.name))) !== problem.sourceStructure[relative])
+    if (sourceStructure(source, new Set(originals.map(item => item.name)), problem.sourceImports?.[relative]) !== problem.sourceStructure[relative])
       throw new SolverSourceError(relative, 'math_original_context_changed');
   }
 }
@@ -152,6 +198,15 @@ export function assertSolverSources(problem: SolverProblem, worktree: string): v
 
 export function commitSolverSources(problem: SolverProblem, worktree: string): string {
   assertSolverSources(problem, worktree);
+  // Host journals change independently of frozen proof commits. Ignore only their allowed root paths.
+  const exclude = path.resolve(worktree, git(worktree, ['rev-parse', '--git-path', 'info/exclude']));
+  const existing = fs.existsSync(exclude) ? fs.readFileSync(exclude, 'utf8').split('\n') : [];
+  const missing = ['/COOPERATION.json', '/DELIVERIES.jsonl', `/DELIVERIES-${'[a-f0-9]'.repeat(64)}.jsonl`]
+    .filter(rule => !existing.includes(rule));
+  if (missing.length) {
+    fs.mkdirSync(path.dirname(exclude), { recursive: true });
+    fs.appendFileSync(exclude, `\n${missing.join('\n')}\n`);
+  }
   const files = problem.ownedFiles.map(relative => path.join(problem.projectRelative, relative));
   if (fs.existsSync(path.join(worktree, 'RESEARCH.md'))) files.push('RESEARCH.md');
   git(worktree, ['add', '--', ...files]);

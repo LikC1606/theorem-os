@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
 import { assertMathCanonicalPath, isMathPathWithin } from './paths';
-import { canonicalMathJson, readMathJson } from './mathRuntimeIo';
+import { canonicalMathJson, mathFileIdentity, readMathJson } from './mathRuntimeIo';
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/u);
 const fileSchema = z.object({ path: z.string(), bytes: z.number().int().nonnegative(), sha256: hash }).strict();
@@ -19,6 +19,7 @@ const schema = z.object({
 export type MathBuildManifest = Readonly<z.infer<typeof schema>>;
 export const MATH_RUNTIME_BUNDLES = ['math-solver.js', 'search-lean.js', 'check-lean.js'] as const;
 export const MATH_BUILD_INPUTS = ['bun.lock', 'package.json', 'tsconfig.json', 'extraction.json', 'scripts/build.ts', 'bin/math.ts', 'scripts/mathematics/searchLean.ts'] as const;
+const checkedFiles = new Map<string, { identity: string; value: z.infer<typeof fileSchema> }>();
 
 export function mathBuildFile(file: string): z.infer<typeof fileSchema> {
   assertMathCanonicalPath(file);
@@ -26,15 +27,21 @@ export function mathBuildFile(file: string): z.infer<typeof fileSchema> {
   try {
     const stat = fs.fstatSync(fd, { bigint: true });
     if (!stat.isFile() || stat.nlink !== BigInt(1)) throw new Error('math_build_file_invalid');
+    const identity = mathFileIdentity(stat), previous = checkedFiles.get(file);
+    if (previous?.identity === identity && mathFileIdentity(fs.lstatSync(file, { bigint: true })) === identity)
+      return { ...previous.value };
     const digest = crypto.createHash('sha256');
     const buffer = Buffer.alloc(64 * 1024);
     let bytes = 0;
     for (;;) { const count = fs.readSync(fd, buffer, 0, buffer.length, bytes); if (!count) break; digest.update(buffer.subarray(0, count)); bytes += count; }
     const after = fs.fstatSync(fd, { bigint: true });
     const named = fs.lstatSync(file, { bigint: true });
-    if (stat.size !== after.size || stat.mtimeNs !== after.mtimeNs || stat.ctimeNs !== after.ctimeNs ||
-        stat.dev !== named.dev || stat.ino !== named.ino) throw new Error('math_build_file_changed');
-    return { path: file, bytes, sha256: digest.digest('hex') };
+    if (identity !== mathFileIdentity(after) || identity !== mathFileIdentity(named) || after.nlink !== BigInt(1))
+      throw new Error('math_build_file_changed');
+    const value = { path: file, bytes, sha256: digest.digest('hex') };
+    if (checkedFiles.size >= 1024) checkedFiles.delete(checkedFiles.keys().next().value!);
+    checkedFiles.set(file, { identity, value });
+    return { ...value };
   } finally { fs.closeSync(fd); }
 }
 
