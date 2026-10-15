@@ -3,6 +3,7 @@ import path from 'node:path';
 import { readSolverRunState, type SolverRunState } from './archive';
 import { readMathJson } from '../math/mathRuntimeIo';
 import { taskGroup, taskVersion, type TaskRecord } from './tasks';
+import { researchFailureCategory } from './modules/search';
 
 /** Reading a checkpoint does not revalidate its stored Lean evidence. */
 export function readRunInspection(run: string) {
@@ -26,6 +27,7 @@ function proofRecord(node: TaskRecord, state: SolverRunState) {
       result.status === 'kernel_verified' && result.targetCommit === proof.commit && result.receiptId);
   return {
     status: stale ? 'stale' : !proof.passed ? 'failed' : !hasReceipts ? 'unverified' : proof.conditions?.length ? 'conditional' : 'checked',
+    failureCategory: proof.passed ? undefined : ['blocked', 'unavailable'].includes(proof.verification.status) ? 'environment' : 'proof',
     commit: proof.commit, sourceDigest: proof.sourceDigest,
     conditions: proof.conditions ?? [],
     receiptIds: proof.verification.results.map(result => result.receiptId).filter(Boolean),
@@ -40,6 +42,8 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
     (result.status !== 'evaluated_passed' || Boolean(state.check?.passed && result.solution_commit === state.check.commit));
   const evaluator = resultMatches && result?.evaluator && typeof result.evaluator === 'object'
     ? result.evaluator as Record<string, unknown> : undefined;
+  const tasks = cooperative?.tasks ?? [];
+  const checked = tasks.filter(node => proofRecord(node, state).status === 'checked');
   return {
     schema: 'deepscientist.math.inspection.v1', runId: state.runId,
     evidence: 'recorded-not-replayed', phase: state.phase,
@@ -52,6 +56,10 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
       coordination: state.coordination ?? 'cooperative', modules: state.moduleConfiguration,
       buildDigest: state.buildDigest, environmentDigest: state.environmentDigest, methodDigest: state.methodDigest },
     turns: state.turns, usage: state.usage, planVersion: cooperative?.planVersion,
+    progress: { checkedProofTasks: checked.length,
+      conditionalProofTasks: tasks.filter(node => proofRecord(node, state).status === 'conditional').length,
+      completedResearchTasks: tasks.filter(node => ['research', 'sketch'].includes(node.task.kind) && node.status === 'completed').length,
+      openProofTasks: tasks.filter(node => ['lemma', 'goal'].includes(node.task.kind) && !checked.includes(node)).map(node => node.task.id) },
     groups: cooperative?.groups ?? [],
     tasks: (cooperative?.tasks ?? []).map(node => ({
       id: node.task.id, kind: node.task.kind, objective: node.task.objective,
@@ -65,15 +73,18 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
     workers: (state.workers ?? [{ id: 'solver', role: 'lead', ...state }]).map(worker => ({
       id: worker.id, role: worker.role, phase: worker.phase, turns: worker.turns,
       lastActivity: worker.lastActivity,
+      lastFailure: worker.lastFailure && { ...worker.lastFailure, category: researchFailureCategory(worker.lastFailure.reason) },
       task: 'sessionTaskId' in worker ? worker.sessionTaskId : undefined,
       failures: worker.failures, error: 'error' in worker ? worker.error : undefined,
+      failureCategory: researchFailureCategory(worker.error),
     })),
     statementReviews: (cooperative?.statementReviews ?? []).map(review => ({
       taskId: review.taskId, version: review.taskDigest, status: review.status,
       intendedStatement: review.intendedStatement, leanStatement: review.leanStatement,
       translation: review.translation, summary: review.summary,
     })),
-    review: cooperative?.review, edits: cooperative?.edits ?? [], error: cooperative?.error,
+    review: cooperative?.review, edits: cooperative?.edits ?? [], error: cooperative?.error ?? state.error,
+    failureCategory: researchFailureCategory(cooperative?.error ?? state.error),
   };
 }
 
@@ -95,16 +106,23 @@ export function renderRunInspection(report: Inspection): string {
     report.problem.id, report.phase, report.recordedOutcome, report.configuration.model, report.configuration.workers, report.turns]]));
   text += `\n${report.problem.statement}\n\nRun: ${report.runId}\n\nPlan version: ${report.planVersion ?? 'not yet planned'}\n`;
   text += section('Original targets', table(['Declaration', 'File'], report.problem.targets.map(target => [target.theoremName, target.proofPath])));
+  text += section('Recorded progress', `${report.progress.checkedProofTasks} checked proof tasks; ${report.progress.conditionalProofTasks} conditional; ${report.progress.completedResearchTasks} completed research tasks.\n\nOpen proof tasks: ${report.progress.openProofTasks.join(', ') || 'none'}. Dispatch counts include retries and do not measure mathematical progress.`);
   text += section('Workers', table(['Worker', 'Phase', 'Task', 'Last activity', 'At'], report.workers.map(worker => [
     worker.id, worker.phase, worker.task, worker.lastActivity?.event,
     worker.lastActivity ? new Date(worker.lastActivity.at).toISOString() : undefined])));
+  const failures = report.workers.filter(worker => worker.lastFailure || worker.error);
+  if (failures.length) text += section('Execution failures', table(['Worker', 'Category', 'Last failure', 'At'], failures.map(worker => [
+    worker.id, worker.failureCategory ?? worker.lastFailure?.category, worker.error ?? worker.lastFailure?.reason,
+    worker.lastFailure ? new Date(worker.lastFailure.at).toISOString() : undefined])));
   text += section('Routes', report.groups.length ? table(['Route', 'Objective', 'Control', 'Engineer', 'Turns'],
     report.groups.map(({ group, turns }) => [group.id, group.objective, group.status, group.engineerId, turns])) : 'No cooperative routes recorded.');
   text += section('Tasks', report.tasks.length ? table(['Task', 'Kind', 'Owner', 'Execution', 'Proof record', 'Planned dependencies'],
-    report.tasks.map(task => [task.id, task.kind, task.owner, task.status, task.proof.status, task.plannedDependencies.join(', ')])) : 'No cooperative tasks recorded.');
+    report.tasks.map(task => [task.id, task.kind, task.owner, task.status,
+      task.proof.status + ('failureCategory' in task.proof && task.proof.failureCategory ? ` (${task.proof.failureCategory})` : ''),
+      task.plannedDependencies.join(', ')])) : 'No cooperative tasks recorded.');
   for (const task of report.tasks) {
     text += section(`Task: ${cell(task.id)}`, task.objective);
-    text += `\nControl: ${task.control}; attempts: ${task.attempts}; version: ${task.version}\n`;
+    text += `\nControl: ${task.control}; dispatches (including retries): ${task.attempts}; version: ${task.version}\n`;
     if (task.theorem) text += `\nDeclaration: ${task.theorem}\n`;
     if (task.type) text += `\nLean type: ${task.type}\n`;
     if (task.informalStatement) text += `\nMathematical intent: ${task.informalStatement}\n`;

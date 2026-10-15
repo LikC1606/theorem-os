@@ -60,7 +60,7 @@ export function buildResearchContext(task: SolverProblem, state: Readonly<Solver
     : '';
   const instructions = `You prove the original mathematical problem in Lean. Work only in this isolated worktree.
 Edit only ${task.ownedFiles.map(file => path.join(task.projectRelative, file)).join(', ')}, RESEARCH.md${access.assignment?.kind === 'task' ? ', the assigned delivery log' : ''}.
-Preserve original declarations, definitions, assumptions, existing imports, options and namespace/section context. You may add explicit Mathlib.* imports at the top of owned Lean files from the pinned installed library; do not edit trusted problem or package files. Completed proofs must not use sorry, admit, native_decide, unsafe or new axioms. Do not read external candidate solutions.
+Preserve original declarations, definitions, assumptions, existing imports, options and namespace/section context. You may add explicit Mathlib.* imports from the pinned library or frozen local modules already imported by the original owned files, without import cycles; do not edit trusted problem or package files. Completed proofs must not use sorry, admit, native_decide, unsafe or new axioms. Do not read external candidate solutions.
 ${taskRules}Use installed library lemmas and test uncertain bridges early. Batch independent searches and reads, reuse results, bound output in bytes and show the earliest Lean error and goal. The host launches the cooperative agents; do not spawn agents inside this session. Lead planning saves a task graph and returns promptly; assigned workers investigate and prove it.
 For diagnostics, run ${command} check-lean --workspace ${shellArgument(path.join(access.worktree, task.projectRelative))} --file 'OWNED_FILE.lean' --timeout-seconds 0. It compiles saved sources with pinned imports and bounded output. Poll a returned process ID. A timeout is inconclusive. Repair the earliest error; avoid rebuilding dependencies or repeating unchanged checks. For math_original_context_changed or math_original_declaration_changed, use the reported file and recovery instructions to restore the offending context or declaration from the seed commit while preserving new proof work, then retry the saved-file check. Keep helper-specific scopes and instances inside their proofs. If the environment is unavailable or the same startup error remains after a repair, report it and return.
 Add helpers in owned modules; definitions may be noncomputable. For type lookup, add single-name #check commands such as #check Finset.sum_eq_single in the existing namespace. For instance lookup, use #synth MeasureSpace ℝ or parenthesize complex types, such as #synth Fintype (Fin 2). If a known library declaration is unavailable, find its module in the installed corpus and import that explicit Mathlib.* module in the owned file; an unknown name alone does not establish a missing library theorem. Check the actual saved file, remove probes before delivery, and save checked helpers, gaps and next steps in RESEARCH.md. Keep this file as a concise current checkpoint; replace obsolete status instead of appending transcripts. Earlier committed notes remain in git history. Then return for independent host checking. Turns may be checkpointed and resumed. Verify computational results in Lean.
@@ -72,11 +72,10 @@ ${access.corpusFile ? `For library lookup, run ${command} search-lean --workspac
   const cooperation = state.cooperation;
   if (cooperation) {
     const work = access.assignment?.kind === 'task' ? access.assignment.task : undefined;
-    const references = [...(cooperation.deliveries ?? [])]
-      .sort((a, b) => Number(work?.dependsOn.includes(a.taskId ?? '')) - Number(work?.dependsOn.includes(b.taskId ?? '')))
-      .slice(-8).map(({ evidence: _evidence, ...record }) => record);
+    const references = selectedDeliveries(cooperation, work?.dependsOn).map(({ evidence: _evidence, ...record }) =>
+      ({ ...record, summary: bounded(record.summary, 1000) }));
     message += '\n\nCurrent-version deliveries selected for this task (retain unproved obligations):\n' +
-      bounded(JSON.stringify(references), 12000);
+      JSON.stringify(references);
   }
   if (!state.threadId && state.previousThreadIds?.length) {
     if (message !== originalProblem) message = `${originalProblem}\n\n${message}`;
@@ -112,13 +111,29 @@ function shellArgument(value: string): string {
 
 /** Add role prompts and a bounded summary of the scoped cooperation view. */
 const bounded = (text: string, bytes: number) => limitMathOutput(text, bytes, 'head');
+function selectedDeliveries(cooperation: CooperationState, dependencies: readonly string[] = []) {
+  const seen = new Set<string>();
+  return [...(cooperation.deliveries ?? [])].reverse().filter(record => {
+    if (record.status === 'superseded') return false;
+    const key = JSON.stringify([record.taskId ?? record.id, record.taskDigest, record.kind, record.producer]);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).sort((a, b) => Number(dependencies.includes(b.taskId ?? '')) - Number(dependencies.includes(a.taskId ?? ''))).slice(0, 8);
+}
+
 function buildCooperativeContext(problem: SolverProblem, cooperation: CooperationState, context: ContextBundle,
   action: CooperativeAction, operation: ResearchOperation): ContextBundle {
+  const deliveredFindings = new Set(selectedDeliveries(cooperation, action.kind === 'task' ? action.task.dependsOn : [])
+    .filter(record => record.kind === 'research').map(record => record.taskId));
   const summary = cooperation.tasks.map(node => ({
-    ...(action.kind === 'task' && node.task.id === action.task.id ? { id: node.task.id } : node.task),
+    ...(action.kind === 'task' && node.task.id === action.task.id ? { id: node.task.id } :
+      { ...node.task, objective: bounded(node.task.objective, 600),
+        informalStatement: node.task.informalStatement && bounded(node.task.informalStatement, 600) }),
     status: node.status, attempts: node.attempts,
     groupId: taskGroup(node.task), producer: node.assignment?.workerId, sharing: node.task.sharing ?? 'problem',
-    feedback: node.feedback && bounded(node.feedback, 2500), finding: node.finding,
+    feedback: node.feedback && bounded(node.feedback, 1500),
+    finding: !deliveredFindings.has(node.task.id) && node.finding ? bounded(node.finding, 1500) : undefined,
     integratedCommit: node.integratedCheck?.commit, checkedSourceDigest: node.integratedCheck?.sourceDigest,
     actualReferences: (node.integratedCheck ?? node.proof)?.references }));
   const rules = action.kind === 'review'
@@ -135,9 +150,9 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
       : '';
   return { ...context, assignment: action, instructions: context.instructions + '\n' + rules +
     'Original declarations retain the frozen source order shown below. A goal cannot depend on a later original goal in the same file. Extract their shared argument into a newly named lemma before both goals; preserve every other original proof and declaration placement.\n' +
-    'COOPERATION.json contains live peer work, gaps and checked results; never edit it. Structured responses use one JSON object, plain or in a math/json fence, replacing old responses. The host manages versions, receipts and budgets, and independently checks all original targets. Unproved dependencies and reviews remain advisory.\n',
+    'COOPERATION.json contains full live peer work, findings, gaps and checked results; never edit it. Prompt summaries omit repeated progress and shorten advisory prose; consult the file for details. Structured responses use one JSON object, plain or in a math/json fence, replacing old responses. The host manages versions, receipts and budgets, and independently checks all original targets. Unproved dependencies and reviews remain advisory.\n',
     message: context.message + '\n\nCooperative assignment:\n' + JSON.stringify(action) +
-      '\n\nLead task graph and host feedback:\n' + bounded(JSON.stringify(summary), 14000) +
+      '\n\nLead task graph and host feedback:\n' + JSON.stringify(summary) +
       '\n\nRoute groups and budgets:\n' + bounded(JSON.stringify(cooperation.groups ?? []), 6000) +
       `\nPlan error: ${cooperation.error ?? 'none'}\nReview: ${JSON.stringify(cooperation.review ?? null)}` +
       '\nStatement reviews: ' + bounded(JSON.stringify(cooperation.statementReviews?.filter(review => review.status !== 'superseded')

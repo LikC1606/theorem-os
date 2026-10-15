@@ -72,6 +72,17 @@ describe('Lean dependency snapshots', () => {
     }
   });
 
+  it('excludes reference sources and artifacts without changing the source cache', () => {
+    for (const file of ['Solution.lean', '.lake/build/lib/lean/Solution.olean', '.lake/build/ir/Solution.c', 'Public.lean']) {
+      fs.mkdirSync(path.dirname(path.join(directory, file)), { recursive: true });
+      fs.writeFileSync(path.join(directory, file), 'bytes');
+    }
+    expect(listLeanProbePackageInputs(directory, () => {}).map(input => input.relative)).toEqual(['Public.lean']);
+    expect(fs.existsSync(path.join(directory, 'Solution.lean'))).toBe(true);
+    fs.symlinkSync('Solution.lean', path.join(directory, 'Alias.lean'));
+    expect(() => listLeanProbePackageInputs(directory, () => {})).toThrow('excluded reference module');
+  });
+
   it('rejects a directory link to an ancestor', () => {
     const dependency = path.join(directory, 'dependency');
     fs.mkdirSync(dependency);

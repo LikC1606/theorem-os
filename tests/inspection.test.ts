@@ -8,6 +8,7 @@ import { buildRunInspection, exportRunPlan, readRunInspection, renderRunInspecti
 import { queueRunEdit } from '../src/solver/humanEdit';
 import { taskVersion } from '../src/solver/tasks';
 import type { TaskProof } from '../src/solver/cooperativeProof';
+import { researchFailureCategory } from '../src/solver/modules/search';
 
 const roots: string[] = [];
 function fixture() {
@@ -38,6 +39,23 @@ function fixture() {
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
 
 describe('run inspection', () => {
+  it('reports infrastructure failures and dispatches without counting them as mathematical progress', () => {
+    const { state } = fixture();
+    state.cooperation!.tasks[0].attempts = 12;
+    state.workers![1].lastFailure = { at: 1234, reason: 'math_model_request_failed', taskId: 'goal' };
+    state.workers![1].error = 'math_lean_toolchain_unavailable';
+    const report = buildRunInspection(state);
+    expect(report.progress).toMatchObject({ checkedProofTasks: 0, completedResearchTasks: 0, openProofTasks: ['goal'] });
+    expect(report.workers[1]).toMatchObject({ failureCategory: 'environment', lastFailure: { category: 'network' } });
+    expect(renderRunInspection(report)).toContain('dispatches (including retries): 12');
+    expect(researchFailureCategory('unsolved goals')).toBe('proof');
+    expect(researchFailureCategory('math_original_context_changed')).toBe('source');
+    expect(researchFailureCategory('math_model_authentication_failed')).toBe('authentication');
+    expect(researchFailureCategory('math_model_concurrency_limit')).toBe('rate_limit');
+    expect(researchFailureCategory('math_verifier_unavailable')).toBe('environment');
+    expect(researchFailureCategory('math_codex_provider_unreachable')).toBe('network');
+  });
+
   it('reads a running checkpoint without a final receipt and exports a versioned plan', () => {
     const f = fixture(), before = fs.readFileSync(f.stateFile);
     const { state, result } = readRunInspection(f.run);

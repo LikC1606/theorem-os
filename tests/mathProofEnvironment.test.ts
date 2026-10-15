@@ -4,9 +4,10 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { prepareMathProofEnvironment, mathProofEnvironmentWorkerEnvironment,
-  MATH_PROOF_ENVIRONMENT_ENV, MATH_PROOF_ENVIRONMENT_SANDBOX_ENV } from '../src/math/mathProofEnvironment';
+  resolveMathProofEnvironment, MATH_PROOF_ENVIRONMENT_ENV, MATH_PROOF_ENVIRONMENT_SANDBOX_ENV } from '../src/math/mathProofEnvironment';
 import { projectMathematicsRuntimeEnvironment } from '../src/math/mathRuntimeEnvironment';
 import { MATH_SEALED_ENVIRONMENT_HELPER } from '../src/math/mathSealedEnvironmentHelper';
+import { withMathRuntimeLease } from '../src/math/mathRuntimeIo';
 
 describe.skipIf(process.platform !== 'linux')('proof environment tool preflight', () => {
   let directory: string;
@@ -42,6 +43,45 @@ describe.skipIf(process.platform !== 'linux')('proof environment tool preflight'
     }
   );
 
+  it('reuses a cache key across root package names while binding compiler options and dependency pins', async () => {
+    const cacheRoot = path.join(directory, 'cache');
+    fs.unlinkSync(path.join(tools, 'mksquashfs'));
+    const prepare = () => prepareMathProofEnvironment(project, packages, { cacheRoot, env: { PATH: tools } });
+    const configure = (name: string, revision: string, option = 'false') => {
+      fs.writeFileSync(path.join(project, 'lakefile.toml'), `name = "${name}"\n[leanOptions]\nautoImplicit = ${option}\n`);
+      fs.writeFileSync(path.join(project, 'lake-manifest.json'), JSON.stringify({ name, packages: [{ name: 'dependency', rev: revision }] }));
+    };
+    configure('first-problem', 'revision-a');
+    await expect(prepare()).rejects.toThrow('requires squashfuse');
+    const keys = () => fs.readdirSync(cacheRoot).filter(file => file.endsWith('.lock')).sort();
+    const first = keys();
+    configure('second-problem', 'revision-a');
+    await expect(prepare()).rejects.toThrow('requires squashfuse');
+    expect(keys()).toEqual(first);
+    configure('second-problem', 'revision-b');
+    await expect(prepare()).rejects.toThrow('requires squashfuse');
+    expect(keys()).toHaveLength(2);
+    configure('second-problem', 'revision-a', 'true');
+    await expect(prepare()).rejects.toThrow('requires squashfuse');
+    expect(keys()).toHaveLength(3);
+  });
+
+  it('waits for the process building the same image and allows cancellation without copying', async () => {
+    const cacheRoot = path.join(directory, 'cache');
+    fs.unlinkSync(path.join(tools, 'mksquashfs'));
+    await expect(prepareMathProofEnvironment(project, packages, { cacheRoot, env: { PATH: tools } })).rejects.toThrow();
+    const lockPath = path.join(cacheRoot, fs.readdirSync(cacheRoot).find(file => file.endsWith('.lock'))!);
+    const temporary = vi.spyOn(fs, 'mkdtempSync');
+    await withMathRuntimeLease({ lockPath, flockExecutable: '/usr/bin/flock' }, async () => {
+      const controller = new AbortController();
+      const phases: string[] = [];
+      await expect(prepareMathProofEnvironment(project, packages, { cacheRoot, env: { PATH: tools }, signal: controller.signal,
+        onProgress: phase => { phases.push(phase); if (phase === 'waiting_for_cached_image') controller.abort(); } })).rejects.toThrow();
+      expect(phases).toContain('waiting_for_cached_image');
+      expect(temporary).not.toHaveBeenCalled();
+    });
+  });
+
   it('requires the compressor for a new image but allows mounting cached images without it', () => {
     fs.unlinkSync(path.join(tools, 'mksquashfs'));
     for (const mode of ['mount', 'build']) {
@@ -63,6 +103,53 @@ describe.skipIf(process.platform !== 'linux')('proof environment tool preflight'
     expect(JSON.parse(probe.stdout)).toEqual({ state: 'ready' });
   });
 });
+
+it.skipIf(process.env.DEEPSCIENTIST_TEST_FUSE !== '1')(
+  'builds one real immutable image for concurrent projects and retains independent project bindings', async () => {
+    const root = fs.realpathSync(fs.mkdtempSync(path.join('/var/tmp', 'proof-environment-sharing-')));
+    const packages = path.join(root, 'packages'), cacheRoot = path.join(root, 'cache');
+    const projects = ['first', 'second'].map(name => path.join(root, name));
+    const prepared: Awaited<ReturnType<typeof prepareMathProofEnvironment>>[] = [];
+    try {
+      fs.mkdirSync(packages);
+      fs.writeFileSync(path.join(packages, 'Public.lean'), 'theorem helper : True := by trivial\n');
+      fs.writeFileSync(path.join(packages, 'Solution.lean'), 'excluded reference fixture\n');
+      for (const project of projects) {
+        fs.mkdirSync(project);
+        fs.writeFileSync(path.join(project, 'lean-toolchain'), 'leanprover/lean4:v4.35.0-rc3\n');
+        fs.writeFileSync(path.join(project, 'lakefile.toml'), `name = "${path.basename(project)}"\n`);
+        fs.writeFileSync(path.join(project, 'lake-manifest.json'), JSON.stringify({ name: path.basename(project), packages: [] }));
+      }
+      const phases: string[][] = [[], []];
+      const outcomes = await Promise.allSettled(projects.map(async (project, index) => {
+        const proof = await prepareMathProofEnvironment(project, packages, { cacheRoot,
+          env: { PATH: `${process.env.PATH ?? '/usr/bin:/bin'}:/usr/sbin` }, deadlineAt: Date.now() + 20_000,
+          onProgress: phase => phases[index].push(phase) });
+        prepared.push(proof);
+        return proof;
+      }));
+      for (const outcome of outcomes) if (outcome.status === 'rejected') throw outcome.reason;
+      const proofs = outcomes.map(outcome => (outcome as PromiseFulfilledResult<typeof prepared[number]>).value);
+      expect(fs.readdirSync(cacheRoot).filter(file => file.endsWith('.squashfs'))).toHaveLength(1);
+      expect(phases.filter(items => items.includes('building_image'))).toHaveLength(1);
+      expect(phases.filter(items => items.includes('cache_hit'))).toHaveLength(1);
+      const environments = projects.map((project, index) => resolveMathProofEnvironment(project,
+        { [MATH_PROOF_ENVIRONMENT_ENV]: proofs[index].environmentValue })!);
+      expect(environments[0].identity).toBe(environments[1].identity);
+      expect(environments[0].packagesRoot).not.toBe(environments[1].packagesRoot);
+      for (const environment of environments) {
+        expect(fs.readFileSync(path.join(environment.packagesRoot, 'Public.lean'), 'utf8')).toContain('by trivial');
+        expect(fs.existsSync(path.join(environment.packagesRoot, 'Solution.lean'))).toBe(false);
+      }
+      fs.appendFileSync(path.join(projects[1], 'lakefile.toml'), '[leanOptions]\nautoImplicit = false\n');
+      expect(() => environments[1].verify()).toThrow('does not match the project configuration');
+      expect(() => environments[0].verify()).not.toThrow();
+    } finally {
+      await Promise.all(prepared.map(proof => proof.dispose()));
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  }, 25_000,
+);
 
 // Opt in on hosts with Codex, FUSE, squashfs tools and the pinned Lean toolchain.
 it.skipIf(process.env.DEEPSCIENTIST_TEST_CODEX_SANDBOX !== '1')(

@@ -8,6 +8,7 @@ import { canonicalMathJson, mathDigest, readMathJson, readMathText, withMathRunt
 import { projectMathematicsRuntimeEnvironment, resolveMathematicsRuntimeEnvironment } from '../math/mathRuntimeEnvironment';
 import { checkResolvedLeanToolchainReadiness } from '../math/leanToolchainReadiness';
 import { prepareMathProofEnvironment, MATH_PROOF_ENVIRONMENT_ENV } from '../math/mathProofEnvironment';
+import { DEFAULT_MATH_PROOF_ENVIRONMENT_CACHE_ROOT } from '../math/mathProofEnvironmentCache';
 import { resolveMathematicsLakePackagesCache } from '../math/verifier';
 import { bindLeanPackages, prepareLeanDiagnosticOverrides, runLeanDiagnostics } from '../math/leanDiagnostics';
 import { assertMathCanonicalPath, isMathPathWithin } from '../math/paths';
@@ -209,7 +210,8 @@ export async function runSolver(args: string[], root: string, customModules?: So
         fs.rmSync(overrides, { force: true });
         proofEnvironment = await prepareMathProofEnvironment(project, sourcePackages, { env, signal,
           deadlineAt: preparationStarted + preparationMs,
-          cacheRoot: values['proof-environment-cache-dir'], onProgress: phase => emit('proof_environment', { phase }) });
+          cacheRoot: values['proof-environment-cache-dir'] || DEFAULT_MATH_PROOF_ENVIRONMENT_CACHE_ROOT,
+          onProgress: phase => emit('proof_environment', { phase }) });
         env = { ...env, [MATH_PROOF_ENVIRONMENT_ENV]: proofEnvironment.environmentValue };
       }
       const checkDependencies = async (workerId: string, projectRoot: string) => {

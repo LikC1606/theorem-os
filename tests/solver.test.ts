@@ -330,6 +330,29 @@ describe('isolated solver and host acceptance', () => {
     expect(() => assertSolverSources(problem, workspace)).toThrow('math_trusted_source_changed');
   });
 
+  it.each([false, true])('allows helpers to import frozen public modules and rejects cycles (cycle: %s)', cycle => {
+    const helper = 'Submission/Helpers.lean';
+    fs.mkdirSync(path.join(project, 'Submission'));
+    fs.writeFileSync(path.join(project, helper), '');
+    fs.writeFileSync(path.join(project, 'ChallengeDeps.lean'), (cycle ? 'import Submission.Helpers\n' : '') + 'def publicSeed : Nat := 1\n');
+    fs.writeFileSync(path.join(project, 'Submission.lean'), 'import ChallengeDeps\nimport Submission.Helpers\n' + original);
+    const receipt = JSON.parse(fs.readFileSync(problem.activeProblemPath, 'utf8'));
+    receipt.solverOwnedFiles.push(helper); receipt.trustedFiles.push('ChallengeDeps.lean');
+    fs.writeFileSync(problem.activeProblemPath, JSON.stringify(receipt));
+    git(workspace, ['add', 'generated']);
+    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Freeze public imports']);
+    problem = readSolverProblem(workspace, problem.activeProblemPath);
+    fs.writeFileSync(path.join(project, helper), 'import ChallengeDeps\n');
+    if (cycle) expect(() => assertSolverSources(problem, workspace)).toThrow('math_local_module_import_cycle');
+    else {
+      expect(() => assertSolverSources(problem, workspace)).not.toThrow();
+      fs.writeFileSync(path.join(project, helper), '');
+      applyTaskChanges(problem, workspace, [], [{ file: helper, module: 'ChallengeDeps' }]);
+      expect(fs.readFileSync(path.join(project, helper), 'utf8')).toBe('import ChallengeDeps\n');
+      expect(() => applyTaskChanges(problem, workspace, [], [{ file: helper, module: 'Solution' }])).toThrow('math_task_source_outside_scope');
+    }
+  });
+
   it('passes the frozen import policy to model-side diagnostic constraints', async () => {
     expect(await runSolver([...args, '--startup-only'], directory)).toBe(0);
     const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
@@ -1437,7 +1460,8 @@ describe('isolated solver and host acceptance', () => {
     expect(state.cooperation.tasks.slice(0, 2).map((node: any) => node.status)).toEqual(['integrated', 'integrated']);
     expect(state.cooperation.tasks.slice(0, 2).map((node: any) => node.attempts)).toEqual([1, 1]);
     expect(state.cooperation.groups[0].turns).toBe(2);
-    if (failure) expect(state.workers.find((worker: any) => worker.id === 'researcher-1').turns).toBe(2);
+    if (failure) expect(state.workers.filter((worker: any) => ['researcher-1', 'engineer'].includes(worker.id))
+      .reduce((turns: number, worker: any) => turns + worker.turns, 0)).toBe(2);
   });
 
 
@@ -4063,7 +4087,7 @@ describe('isolated solver and host acceptance', () => {
         return 'failed';
       }, close: vi.fn(), interrupt: vi.fn() }));
     const resumed = vi.fn();
-    host.createSession.mockImplementationOnce(async (options: MathAgentOptions) => ({ threadId: options.threadId!,
+    host.createSession.mockImplementationOnce(async (options: MathAgentOptions) => ({ threadId: options.threadId || 'resumed-thread',
       run: async (message: string) => {
         resumed(message);
         expect(fs.readFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), 'utf8')).toBe(partial);
@@ -4071,7 +4095,7 @@ describe('isolated solver and host acceptance', () => {
         return 'completed';
       }, close: vi.fn(), interrupt: vi.fn() }));
     expect(await runSolver([...args, '--max-turns', '3'], directory)).toBe(0);
-    expect(host.createSession.mock.calls[1][0].threadId).toBe('fixture-thread');
+    expect(host.createSession.mock.calls[1][0].threadId).toBe(error.includes('Concurrency limit') ? 'fixture-thread' : undefined);
     expect(resumed.mock.calls[0][0]).toContain(diagnostic);
     expect(host.delay).toHaveBeenCalledWith(10_000, undefined, { signal: expect.any(AbortSignal) });
     expect(host.verify).toHaveBeenCalledTimes(3);
@@ -4079,7 +4103,7 @@ describe('isolated solver and host acceptance', () => {
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'evaluated_passed', turns: 2 });
   });
 
-  it('starts a fresh thread after repeated request failures while retaining proof and feedback', async () => {
+  it('starts a fresh thread after the first request failure while retaining proof and feedback', async () => {
     const diagnostic = 'Submission.lean:4:1: error: unsolved goals\n⊢ True';
     const partial = original.replace('theorem first : True := by sorry', 'theorem first : True := by trivial');
     let turns = 0;
@@ -4090,10 +4114,10 @@ describe('isolated solver and host acceptance', () => {
       lastError: 'stream disconnected before completion: error sending request',
       run: async (message: string) => {
         turns++;
-        options.onUsage({ totalTokens: turns === 3 ? 5 : turns * 10 });
+        options.onUsage({ totalTokens: turns === 3 ? 15 : 10 });
         if (turns === 1) fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), partial);
         if (turns < 3) return 'failed';
-        expect(options.threadId).toBeUndefined();
+        expect(options.threadId).toBe('fresh-thread');
         expect(fs.readFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), 'utf8')).toBe(partial);
         expect(message).toContain(diagnostic);
         fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
@@ -4101,11 +4125,11 @@ describe('isolated solver and host acceptance', () => {
       }, close: vi.fn(), interrupt: vi.fn(),
     }));
     expect(await runSolver([...args, '--max-turns', '4'], directory)).toBe(0);
-    expect(host.createSession.mock.calls.map(call => call[0].threadId)).toEqual([undefined, 'fixture-thread', undefined]);
+    expect(host.createSession.mock.calls.map(call => call[0].threadId)).toEqual([undefined, undefined, 'fresh-thread']);
     expect(host.delay.mock.calls.map(call => call[0])).toEqual([10_000, 20_000]);
     const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
     expect(state).toMatchObject({ turns: 3, threadId: 'fresh-thread', previousThreadIds: ['fixture-thread'],
-      usage: { totalTokens: 25 }, usageBeforeThread: { totalTokens: 20 } });
+      usage: { totalTokens: 25 }, usageBeforeThread: { totalTokens: 10 }, lastFailure: { reason: 'math_model_request_failed' } });
     expect(host.officialGate).toHaveBeenCalledOnce();
   });
 

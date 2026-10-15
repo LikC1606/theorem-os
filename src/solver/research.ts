@@ -161,10 +161,13 @@ export async function runResearchWorkers(input: {
         return true;
       };
       const retryFailedTurn = async (error?: string): Promise<void> => {
+        research.lastFailure = { at: Date.now(), reason: researchFailureReason(error),
+          taskId: parallel ? (research as SolverWorkerState).sessionTaskId : undefined };
+        save();
         const retry = modules.M3.retry(error, retries, { ...view(), turns: state.turns - Number(reservedTurn) }, budget());
         if (!retry) throw new Error(researchFailureReason(error));
         retries = retry.attempt;
-        if (retries === 2 && research.threadId &&
+        if (retries === 1 && research.threadId &&
             ['math_model_request_failed', 'math_model_request_timeout', 'math_codex_transport_closed'].includes(retry.reason))
           await rotateSession('request');
         emit('turn_retry', { reason: retry.reason, attempt: retries, delayMs: retry.delayMs,

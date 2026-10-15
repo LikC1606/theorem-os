@@ -129,11 +129,12 @@ export function resolveMathematicsRuntimeEnvironment(
   }
   if (values.PATH) merged.PATH = values.PATH;
   const pathEntries = [
+    merged.DEEPSCIENTIST_LEAN_EVAL_TOOLS_ROOT && path.join(merged.DEEPSCIENTIST_LEAN_EVAL_TOOLS_ROOT, 'bin'),
     merged.DEEPSCIENTIST_LEAN_EVAL_TOOLS_ROOT,
     merged.ELAN_HOME && path.join(merged.ELAN_HOME, 'bin'),
   ].filter((entry): entry is string => Boolean(entry));
-  if (pathEntries.length) {
-    merged.PATH = [...pathEntries, ...(merged.PATH || '').split(path.delimiter)]
+  if (pathEntries.length || process.platform === 'linux') {
+    merged.PATH = [...pathEntries, ...(merged.PATH || '').split(path.delimiter), ...(process.platform === 'linux' ? ['/usr/sbin'] : [])]
       .filter(Boolean)
       .filter((entry, index, entries) => entries.indexOf(entry) === index)
       .join(path.delimiter);

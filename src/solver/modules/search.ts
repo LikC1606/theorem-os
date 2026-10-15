@@ -168,6 +168,7 @@ export function selectLemmaAction(state: Readonly<SolverRunState>, options: read
 }
 
 export function researchFailureReason(error?: string): string {
+  if (/^math_(?:model_(?:authentication_failed|concurrency_limit|request_failed|request_timeout|turn_failed)|codex_transport_closed)$/u.test(error ?? '')) return error!;
   if (/authentication|unauthorized|forbidden|invalid.*api.?key|\b(?:401|403)\b/iu.test(error ?? '')) return 'math_model_authentication_failed';
   if (/Concurrency limit exceeded|rate.?limit|\b429\b/iu.test(error ?? '')) return 'math_model_concurrency_limit';
   if (/^math_codex_transport_closed(?::|$)/u.test(error ?? '')) return 'math_codex_transport_closed';
@@ -175,6 +176,20 @@ export function researchFailureReason(error?: string): string {
   if (/stream disconnected|error sending request|connection (?:reset|closed)|ECONNRESET|ECONNREFUSED|EAI_AGAIN|fetch failed|service unavailable|temporarily unavailable|\b(?:500|502|503|504)\b/iu.test(error ?? ''))
     return 'math_model_request_failed';
   return 'math_model_turn_failed';
+}
+
+/** Advisory reporting only; categories never change Lean acceptance. */
+export function researchFailureCategory(error?: string): 'network' | 'environment' | 'source' | 'proof' | 'authentication' | 'rate_limit' | 'unknown' | undefined {
+  if (!error) return undefined;
+  if (/math_(?:lean_toolchain|lake_packages|verifier_unavailable|runtime_|path_|trusted_source)|proof environment|dependency cache|sandbox|FUSE|mksquashfs|squashfuse/iu.test(error)) return 'environment';
+  if (error === 'math_codex_provider_unreachable') return 'network';
+  if (/math_(?:original_|task_source|construction_|local_module_)/u.test(error)) return 'source';
+  const reason = researchFailureReason(error);
+  if (reason === 'math_model_authentication_failed') return 'authentication';
+  if (reason === 'math_model_concurrency_limit') return 'rate_limit';
+  if (['math_model_request_failed', 'math_model_request_timeout', 'math_codex_transport_closed'].includes(reason)) return 'network';
+  if (/unsolved goals|type mismatch|tactic.*failed|math_(?:proof_|task_proof_|lemma_)/iu.test(error)) return 'proof';
+  return 'unknown';
 }
 
 export function planResearchRetry(error: string | undefined, attempts: number, state: Readonly<SolverRunState>,

@@ -3,10 +3,12 @@ import { closeMathProcess } from './mathProcess';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import net from 'node:net';
+import { setTimeout as delay } from 'node:timers/promises';
+import { parse as parseToml } from 'smol-toml';
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { z } from 'zod';
 import { assertMathCanonicalPath } from "./paths";
-import { canonicalMathJson, mathDigest } from "./mathRuntimeIo";
+import { canonicalMathJson, mathDigest, readMathFile, withMathRuntimeLease } from "./mathRuntimeIo";
 import { listLeanProbePackageInputs, readLeanProbeSnapshotFile } from "./leanProbeSnapshot";
 import { MATH_SEALED_ENVIRONMENT_HELPER } from "./mathSealedEnvironmentHelper";
 import { openMathProofEnvironmentCache } from "./mathProofEnvironmentCache";
@@ -126,6 +128,13 @@ function projectConfiguration(root: string): Record<string, string | null> {
     CONFIG_FILES.map((relative) => {
       const file = path.join(root, relative);
       try {
+        if (relative === 'lakefile.toml' || relative === 'lake-manifest.json') {
+          // The root package label does not change the dependency payload. Keep every
+          // other option and pinned revision bound, including nested package names.
+          const text = readMathFile(file, 16 * 1024 * 1024).bytes.toString('utf8');
+          const { name: _name, ...configuration } = relative.endsWith('.toml') ? parseToml(text) : JSON.parse(text);
+          return [relative, mathDigest(canonicalMathJson(configuration))];
+        }
         return [relative, readLeanProbeSnapshotFile(file, () => {}).digest];
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [relative, null];
@@ -266,16 +275,23 @@ export async function acquireMathProofEnvironmentLease(
 }
 
 /** Once per new run; callers authorize the source cache against the pinned manifest first. */
-export async function prepareMathProofEnvironment(
+type PreparationOptions = Readonly<{
+  env?: NodeJS.ProcessEnv;
+  signal?: AbortSignal;
+  deadlineAt?: number;
+  cacheRoot?: string;
+  onProgress?: (phase: string, details: Readonly<Record<string, number | boolean>>) => void;
+}>;
+
+export function prepareMathProofEnvironment(projectRoot: string, authorizedPackagesRoot: string, options: PreparationOptions = {}) {
+  return prepareEnvironment(projectRoot, authorizedPackagesRoot, options);
+}
+
+async function prepareEnvironment(
   projectRoot: string,
   authorizedPackagesRoot: string,
-  options: Readonly<{
-    env?: NodeJS.ProcessEnv;
-    signal?: AbortSignal;
-    deadlineAt?: number;
-    cacheRoot?: string;
-    onProgress?: (phase: string, details: Readonly<Record<string, number | boolean>>) => void;
-  }> = {}
+  options: PreparationOptions,
+  lockedFingerprint?: string
 ): Promise<Readonly<{ environmentValue: string; dispose: () => Promise<void>; stats: z.infer<typeof statistics> }>> {
   const checkpoint = () => {
     options.signal?.throwIfAborted();
@@ -331,7 +347,25 @@ export async function prepareMathProofEnvironment(
   // Reuse the inventory just checked above. The final fingerprint still takes
   // a fresh inventory, including links and project configuration, before use.
   const fingerprint = cache ? sourceFingerprint(inputs, config) : undefined;
+  if (lockedFingerprint && fingerprint !== lockedFingerprint)
+    throw new Error('Proof environment dependency changed while waiting for preparation.');
   const cached = fingerprint ? cache?.read(fingerprint) : undefined;
+  if (cache && fingerprint && !cached && !lockedFingerprint) {
+    // Independent problem processes share one build; each still opens its own
+    // immutable image and verifies its project and source identity afterward.
+    for (;;) {
+      checkpoint();
+      try {
+        return await withMathRuntimeLease({ lockPath: path.join(options.cacheRoot!, `${fingerprint}.lock`),
+          flockExecutable: '/usr/bin/flock', signal: options.signal },
+        () => prepareEnvironment(projectRoot, authorizedPackagesRoot, options, fingerprint));
+      } catch (error) {
+        if (!(error instanceof Error) || error.message !== 'math_runtime_lease_busy') throw error;
+        report('waiting_for_cached_image');
+        await delay(1000, undefined, { signal: options.signal });
+      }
+    }
+  }
   report(cached ? 'cache_hit' : 'cache_miss', { files: inputs.length, bytes, cacheHit: Boolean(cached) });
   const preflight = spawnSync('/usr/bin/python3', [
     '-c', MATH_SEALED_ENVIRONMENT_HELPER, '--check-tools', cached ? 'mount' : 'build',
@@ -580,7 +614,7 @@ export async function prepareMathProofEnvironment(
     ) {
       cache.invalidate(fingerprint);
       report('cache_invalidated');
-      return prepareMathProofEnvironment(projectRoot, authorizedPackagesRoot, options);
+      return prepareEnvironment(projectRoot, authorizedPackagesRoot, options, lockedFingerprint);
     }
     throw error;
   }

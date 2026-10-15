@@ -17,7 +17,7 @@ export function assignResearchTask(ready: readonly TaskRecord[], worker: Researc
   const researchers = live.some(item => item.role === 'researcher');
   const eligible = eligibleResearchTasks(ready, worker, groups);
   if (worker.role === 'researcher') return eligible.find(node => node.task.kind !== 'goal') ?? eligible.find(node => node.task.kind === 'goal');
-  if (worker.role === 'engineer') return researchers ? eligible.find(node => node.task.kind === 'goal') : eligible[0];
+  if (worker.role === 'engineer') return (researchers ? eligible.find(node => node.task.kind === 'goal') : undefined) ?? eligible[0];
   return undefined;
 }
 

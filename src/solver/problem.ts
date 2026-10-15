@@ -8,7 +8,8 @@ import { resolveLeanEvalSubmissionName } from '../math/leanEvalSubmission';
 import { canonicalMathJson, mathDigest, readMathJson } from '../math/mathRuntimeIo';
 import { assertMathCanonicalPath, isMathPathWithin } from '../math/paths';
 import { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions, inspectLeanDeclarations } from '../math/leanSource';
-import { mathConstructionImports } from '../math/mathConstructionSources';
+import { mathConstructionImports, mathLocalModuleBuildOrder } from '../math/mathConstructionSources';
+import { isAllowedMathProofSource } from '../math/mathProofSourcePolicy';
 import type { MathProblemContract } from '../math/contracts';
 import { readLocalExampleReceipt } from '../math/localExample';
 
@@ -19,14 +20,16 @@ export function committedSource(worktree: string, commit: string, file: string):
 
 export type ProofTarget = Readonly<{ proofPath: string; theoremName: string; declarationHash: string }>;
 export class SolverSourceError extends Error {
-  constructor(readonly proofPath: string, reason: 'math_original_declaration_changed' | 'math_original_context_changed',
+  constructor(readonly proofPath: string, reason: 'math_original_declaration_changed' | 'math_original_context_changed' | 'math_local_module_import_cycle',
     readonly declarationName?: string) {
     super(reason);
   }
   get recovery(): string {
+    if (this.message === 'math_local_module_import_cycle')
+      return 'Remove the added local import that creates a cycle. Shared helpers may import frozen dependencies, but cannot import a module that imports them. Preserve the saved proof work.';
     return this.message === 'math_original_context_changed'
       ? 'Restore the original imports, namespace/section placement, variables, opens, scopes and options from the seed commit. ' +
-        'Keep new helpers; move helper-specific scopes and instances inside their proofs. Only explicit Mathlib.* imports may be added.'
+        'Keep new helpers; move helper-specific scopes and instances inside their proofs. Added imports may use explicit Mathlib.* modules or frozen local modules already imported by the original owned sources; avoid import cycles.'
       : `Restore the original name, parameters, type and any frozen definition body${this.declarationName ? ` of ${this.declarationName}` : ''} from the seed commit. Preserve new proof work.`;
   }
 }
@@ -67,6 +70,16 @@ export function solverMathlibImports(source: string): string[] {
   return mathConstructionImports(source).filter(module => /^Mathlib(?:\.[A-Za-z_][A-Za-z0-9_']*)+$/u.test(module));
 }
 
+/** Reuse public frozen modules already exposed to the original solver sources. */
+export function solverProofImports(problem: SolverSourceConstraints, source: string): string[] {
+  const local = new Set(Object.values(problem.sourceImports ?? {}).flat().filter(module => {
+    const file = module.replaceAll('.', '/') + '.lean';
+    return isAllowedMathProofSource(file) && Object.hasOwn(problem.trustedFiles, file);
+  }));
+  return mathConstructionImports(source).filter(module => local.has(module) ||
+    /^Mathlib(?:\.[A-Za-z_][A-Za-z0-9_']*)+$/u.test(module));
+}
+
 /** Read-only instance queries allow simple names or balanced parenthesized types. */
 function isInstanceQuery(line: string): boolean {
   const query = /^#synth[ \t]+[\p{L}_][\p{L}\p{M}\p{N}_'.]*(.*)$/u.exec(line);
@@ -86,9 +99,9 @@ function isInstanceQuery(line: string): boolean {
   return depth === 0 && validBare();
 }
 
-function sourceStructure(source: string, originalNames: ReadonlySet<string>, originalImports?: readonly string[]): string {
+function sourceStructure(source: string, originalNames: ReadonlySet<string>, originalImports?: readonly string[], allowedImports = solverMathlibImports(source)): string {
   const addedImports = new Set(originalImports === undefined ? [] :
-    solverMathlibImports(source).filter(module => !originalImports.includes(module)));
+    allowedImports.filter(module => !originalImports.includes(module)));
   const regions = inspectLeanDeclarationRegions(source);
   let frozen = '';
   let cursor = 0;
@@ -162,6 +175,7 @@ export function readSolverProblem(workspacePath: string, receiptFile: string): S
 
 /** Shared source preflight; diagnostic copies remain advisory, host checks use the frozen state. */
 export function assertSolverProjectSources(problem: SolverSourceConstraints, project: string): void {
+  let addedLocalImportFile: string | undefined;
   for (const [relative, digest] of Object.entries(problem.trustedFiles)) {
     const target = path.join(project, relative);
     assertMathCanonicalPath(target);
@@ -179,8 +193,19 @@ export function assertSolverProjectSources(problem: SolverSourceConstraints, pro
           (original.body && mathDigest(source.slice(current.bodyOffset, current.endOffset).trim()) !== original.body))
         throw new SolverSourceError(relative, 'math_original_declaration_changed', original.name);
     }
-    if (sourceStructure(source, new Set(originals.map(item => item.name)), problem.sourceImports?.[relative]) !== problem.sourceStructure[relative])
+    const allowedImports = solverProofImports(problem, source);
+    if (allowedImports.some(module => !module.startsWith('Mathlib.') && !problem.sourceImports?.[relative]?.includes(module)))
+      addedLocalImportFile = relative;
+    if (sourceStructure(source, new Set(originals.map(item => item.name)), problem.sourceImports?.[relative], allowedImports) !== problem.sourceStructure[relative])
       throw new SolverSourceError(relative, 'math_original_context_changed');
+  }
+  if (addedLocalImportFile) {
+    try { mathLocalModuleBuildOrder(project, Object.keys(problem.declarations)); }
+    catch (error) {
+      if (error instanceof Error && error.message === 'math_local_module_import_cycle')
+        throw new SolverSourceError(addedLocalImportFile, 'math_local_module_import_cycle');
+      throw error;
+    }
   }
 }
 

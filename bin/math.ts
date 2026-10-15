@@ -15,6 +15,7 @@ const commands: Readonly<Record<string, string>> = {
   batch: 'scripts/mathematics/runMathBatch.ts',
   'bootstrap-imo': 'scripts/mathematics/bootstrapImo2026.ts',
   'bootstrap-lean-eval': 'scripts/mathematics/bootstrapLeanEvalHeldOut.ts',
+  'list-lean-eval': 'scripts/mathematics/listLeanEval.ts',
   'freeze-retrieval': 'scripts/mathematics/freezeMathRetrievalCorpus.ts',
   'search-lean': fs.existsSync(path.join(root, 'out/main/search-lean.js')) ? 'out/main/search-lean.js' : 'scripts/mathematics/searchLean.ts',
   'check-lean': 'scripts/mathematics/checkLean.ts',
@@ -35,6 +36,7 @@ if (!command || ['help', '--help', '-h'].includes(command)) {
   batch                Run prepared problems concurrently in separate processes
   bootstrap-imo        Prepare an IMO2026 proof workspace
   bootstrap-lean-eval   Prepare a public Lean-Eval workspace
+  list-lean-eval        List V1 obligations and public formalization gap warnings
   freeze-retrieval     Freeze allowed local Lean declaration sources
   search-lean          Find declarations in verified local Lean packages
   check-lean           Check changed Lean files with bounded diagnostics

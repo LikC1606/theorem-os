@@ -11,7 +11,7 @@ import { mathDigest as sha256, readMathText } from './mathRuntimeIo';
 import { assertMathCanonicalPath, isMathPathWithin } from './paths';
 import { parse as parseToml } from 'smol-toml';
 
-export const LEAN_EVAL_BENCHMARK_COMMIT = '96a09300f9debeef864d8037635d6e0248c43960' as const;
+export const LEAN_EVAL_BENCHMARK_COMMIT = '38361be884302c7edce1908c4aef8296eb2cb27e' as const;
 export const LEAN_EVAL_REPOSITORY_URL = 'https://github.com/leanprover/lean-eval' as const;
 export const LEAN_EVAL_LEADERBOARD_URL =
   'https://leanprover.github.io/lean-eval-leaderboard/site-data/v2/groups/formalization-evaluation.json' as const;
@@ -55,6 +55,11 @@ export type LeanEvalCatalogProblem = Readonly<{
   zeroCredit: boolean;
   eligible: boolean;
   eligibilityReasons: readonly string[];
+  selectionEvidence?: Readonly<{
+    libraryReview: 'unreviewed';
+    publicGapNotes: readonly Readonly<{ file: string; line: number; text: string }>[];
+    publicSourceDigest: string;
+  }>;
   catalogEvidence: Readonly<{
     benchmarkCommit: string;
     sourceFiles: readonly string[];
@@ -340,7 +345,26 @@ const canonicalProblem = (problem: LeanEvalCatalogProblem): string =>
     activeV1: problem.activeV1,
     acceptedCreditCount: problem.acceptedCreditCount,
     acceptedModelIds: problem.acceptedModelIds,
+    selectionEvidence: problem.selectionEvidence,
   });
+
+/** Public authors' warnings are evidence to review, not a measured difficulty score. */
+function selectionEvidence(root: string, generatedPath: string, notes?: string): NonNullable<LeanEvalCatalogProblem['selectionEvidence']> {
+  const file = `${generatedPath}/ChallengeDeps.lean`;
+  const source = fs.existsSync(path.join(root, file)) ? readFile(root, file) : '';
+  const publicGapNotes: { file: string; line: number; text: string }[] = [];
+  for (const [location, contents] of [[file, source], ['manifest.notes', notes ?? '']] as const) {
+    const lines = contents.split('\n');
+    for (let index = 0; index < lines.length; index++) {
+      const plain = lines.slice(Math.max(0, index - 1), index + 3).join(' ').replaceAll('*', '');
+      if (!/(?:open formalization target|not (?:yet )?(?:been )?formalized|(?:not|missing|lacks?).{0,50}(?:mathlib|formaliz)|mathlib.{0,80}(?:does not|not available|missing|lacks?))/iu.test(plain)) continue;
+      if (publicGapNotes.some(note => note.file === location && index + 1 - note.line < 4)) continue;
+      publicGapNotes.push({ file: location, line: index + 1, text: plain.trim().slice(0, 1500) });
+    }
+  }
+  return Object.freeze({ libraryReview: 'unreviewed', publicGapNotes: Object.freeze(publicGapNotes),
+    publicSourceDigest: sha256(JSON.stringify({ source, notes: notes ?? '' })) });
+}
 
 /** Read the official catalog without inspecting protected Solution.lean files. */
 export function readLeanEvalCatalog(options: LeanEvalCatalogReadOptions): LeanEvalCatalog {
@@ -433,6 +457,7 @@ export function readLeanEvalCatalog(options: LeanEvalCatalogReadOptions): LeanEv
         zeroCredit: problemCredits.length === 0,
         eligible: eligibilityReasons.length === 0,
         eligibilityReasons: Object.freeze(eligibilityReasons),
+        selectionEvidence: selectionEvidence(root, generatedPath, text(manifest.notes)),
         catalogEvidence: Object.freeze({ benchmarkCommit, sourceFiles, generatedAt }),
       })
     );

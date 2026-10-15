@@ -8,6 +8,15 @@ const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
 
 describe('resolved mathematics environment', () => {
+  it('finds pinned tool bin directories and Linux administration tools while retaining explicit PATH priority', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'math-env-')); roots.push(root);
+    const env = resolveMathematicsRuntimeEnvironment({ PATH: '/custom/bin:/usr/bin',
+      DEEPSCIENTIST_LEAN_EVAL_TOOLS_ROOT: '/pinned/tools', ELAN_HOME: '/pinned/elan' }, path.join(root, 'absent.env'));
+    expect(env.PATH?.split(path.delimiter).slice(0, 3)).toEqual(['/pinned/tools/bin', '/pinned/tools', '/pinned/elan/bin']);
+    expect(env.PATH?.split(path.delimiter).indexOf('/custom/bin')).toBeLessThan(env.PATH!.split(path.delimiter).indexOf('/usr/bin'));
+    if (process.platform === 'linux') expect(env.PATH?.split(path.delimiter)).toContain('/usr/sbin');
+  });
+
   it('freezes the runner proxy route for subprocesses and resume', () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'math-env-')); roots.push(root);
     const file = path.join(root, 'math.json');

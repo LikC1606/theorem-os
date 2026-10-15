@@ -76,6 +76,7 @@ function packageInput(root: string, relative: string, parent?: ResolvedPackageIn
       continue;
     }
     if (segment === '.git') throw new Error('Lean probe package link targets excluded Git metadata.');
+    if (/^Solution(?:\.|$)/u.test(segment)) throw new Error('Lean probe package link targets an excluded reference module.');
     cursor = path.join(cursor, segment);
     const stat = fs.lstatSync(cursor, { bigint: true });
     if (!stat.isSymbolicLink()) continue;
@@ -118,7 +119,8 @@ export function listLeanProbePackageInputs(root: string, checkpoint: () => void)
       if (ancestors.has(input.source)) throw new Error('Lean probe package directory link cycle.');
       ancestors.add(input.source);
       for (const name of fs.readdirSync(input.source).toSorted()) {
-        if (name !== '.git') visit(path.join(relative, name), resolved);
+        // Reference sources and all their compiled artifacts stay outside the model view.
+        if (name !== '.git' && !/^Solution(?:\.|$)/u.test(name)) visit(path.join(relative, name), resolved);
       }
       ancestors.delete(input.source);
     } else if (stat.isFile()) files.push(input);

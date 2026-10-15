@@ -10,7 +10,7 @@ import type { MathAgentActivity } from '../runtime/codexSession';
 import { z } from 'zod';
 
 export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | 'previousThreadIds' |
-  'lastInputTokens' | 'lastActivity' | 'phase' | 'turns' | 'dispatchCounts' | 'usage' | 'usageBeforeThread' | 'check' | 'candidate' | 'lemmaResearch' | 'failures' | 'error'> & {
+  'lastInputTokens' | 'lastActivity' | 'lastFailure' | 'phase' | 'turns' | 'dispatchCounts' | 'usage' | 'usageBeforeThread' | 'check' | 'candidate' | 'lemmaResearch' | 'failures' | 'error'> & {
   id: string;
   role: ResearchRole;
   sessionRole?: ResearchRole;
@@ -40,6 +40,7 @@ export type SolverRunState = {
   previousThreadIds?: string[];
   lastInputTokens?: number;
   lastActivity?: MathAgentActivity & { at: number };
+  lastFailure?: { at: number; reason: string; taskId?: string };
   phase: 'prepared' | 'running' | 'checking' | 'evaluating' | 'finished';
   turns: number;
   /** Dispatches are scheduling events, not equal units of computation. */
@@ -70,6 +71,7 @@ const research = z.object({ worktree: z.string().min(1), phase, turns: count, th
   solveStartedAt: count.optional(), solveFinishedAt: count.optional(),
   previousThreadIds: z.array(z.string()).optional(), lastInputTokens: count.optional(), check: check.optional(),
   lastActivity: z.object({ at: count, event: z.string().min(1).max(64), itemType: z.string().max(64).optional() }).optional(),
+  lastFailure: z.object({ at: count, reason: z.string(), taskId: z.string().optional() }).optional(),
   usage: record.optional(), usageBeforeThread: record.optional(), candidate: record.optional(),
   lemmaResearch: record.optional(), failures: z.array(record).optional(), error: z.string().optional() }).passthrough();
 const role = z.enum(['lead', 'researcher', 'engineer', 'reviewer']);

@@ -3,7 +3,7 @@ import path from 'node:path';
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import { maskLeanComments, maskLeanCommentsAndStrings } from '../math/leanSyntax';
 import { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions, leanDeclarationContextCommands } from '../math/leanSource';
-import { assertSolverSources, committedSource, commitSolverProjection, solverMathlibImports, withSolverWorktree, type SolverProblem } from './problem';
+import { assertSolverSources, committedSource, commitSolverProjection, solverProofImports, withSolverWorktree, type SolverProblem } from './problem';
 import { checkProjectedDeclarations, type ProofCheck } from './modules/evidence';
 import { taskVersion, type CooperativeTask, type TaskAssignment } from './tasks';
 import { captureProofReferences, type ProofReferences } from './proofReferences';
@@ -170,8 +170,8 @@ export async function checkTaskProofs(problem: SolverProblem, worktree: string, 
         throw new Error('math_task_condition_version_invalid');
       const binders = conditions.map(dependency => `(${local(dependency.theoremName!)} : ${dependency.type})`).join(' ');
       const imports = problem.ownedFiles.filter(file => file.endsWith('.lean')).flatMap(file => {
-        const before = solverMathlibImports(committedSource(worktree, assignment.seedCommit, `${problem.projectRelative}/${file}`));
-        return solverMathlibImports(committedSource(worktree, sourceCommit, `${problem.projectRelative}/${file}`))
+        const before = solverProofImports(problem, committedSource(worktree, assignment.seedCommit, `${problem.projectRelative}/${file}`));
+        return solverProofImports(problem, committedSource(worktree, sourceCommit, `${problem.projectRelative}/${file}`))
           .filter(module => !before.includes(module)).map(module => ({ file, module }));
       });
       return { task, assignment, conditions, imports, changes: taskChanges(problem, checkout, sourceCommit, task, assignment),
@@ -242,10 +242,10 @@ export function applyTaskChanges(problem: SolverProblem, worktree: string, chang
     files.set(change.file, source);
   }
   for (const { file, module } of imports) {
-    if (!problem.ownedFiles.includes(file) || !/^Mathlib(?:\.[A-Za-z_][A-Za-z0-9_']*)+$/u.test(module))
+    if (!problem.ownedFiles.includes(file) || !solverProofImports(problem, `import ${module}\n`).includes(module))
       throw new Error('math_task_source_outside_scope');
     const source = files.get(file) ?? fs.readFileSync(path.join(worktree, problem.projectRelative, file), 'utf8');
-    if (!solverMathlibImports(source).includes(module)) files.set(file, `import ${module}\n` + source);
+    if (!solverProofImports(problem, source).includes(module)) files.set(file, `import ${module}\n` + source);
   }
   for (const [file, source] of files) fs.writeFileSync(path.join(worktree, problem.projectRelative, file), source);
   assertSolverSources(problem, worktree);
