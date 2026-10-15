@@ -111,7 +111,7 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
     'repetitions', 'model', 'effort', 'method', 'scheduler', 'workers', 'max-turns', 'max-run-seconds', 'max-turn-seconds',
     'proof-environment-cache-dir']);
   if (flags.has('help')) {
-    console.log('Usage: deepscientist-math compare --phase prepare|run|report --directory DIR\n'
+    console.log('Usage: theorem-os compare --phase prepare|run|report --directory DIR\n'
       + 'prepare also requires --repo PINNED_IMO_REPO --problem ID --task-file FILE --build-manifest FILE\n'
       + 'Optional: --repetitions 1 --workers 4 --model gpt-6.1-sol --effort xhigh --method direct --scheduler plan|goals-first|critical-path|primary-led\n'
       + '          --max-turns 200 --max-run-seconds 1800 --max-turn-seconds 180\n'

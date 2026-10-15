@@ -1,4 +1,4 @@
-# DeepScientist Math
+# TheoremOS
 
 **可替换研究组件的数学 Agent 运行时，用 Lean 验证研究结果。**
 
@@ -6,7 +6,7 @@
 [![Bun](https://img.shields.io/badge/Bun-%E2%89%A5%201.2-black?logo=bun)](https://bun.sh/)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2022-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 
-DeepScientist Math 将数学研究方法拆成五个带版本的组件：证明构造、检查反馈、搜索决策、上下文选择、协作复用。开发者可以替换其中一个组件，或组合出新的研究方法，在同一题目、环境和最终验收条件下验证它。
+TheoremOS 将数学研究方法拆成五个带版本的组件：证明构造、检查反馈、搜索决策、上下文选择、协作复用。开发者可以替换其中一个组件，或组合出新的研究方法，在同一题目、环境和最终验收条件下验证它。
 
 组件决定研究方法，Agent 执行任务。单智能体、独立并行和协作求解共用这套运行时；候选证明、失败反馈与检查回执保存为可恢复的研究档案，最终结果由独立的 Lean 检查和评测确认。
 
@@ -54,8 +54,8 @@ DeepScientist Math 将数学研究方法拆成五个带版本的组件：证明�
 | 验证环境 | Bubblewrap（`bwrap`）；只读依赖环境还需要 `squashfuse` 或 `snapfuse`、`fusermount3` 或 `fusermount`、`mksquashfs`，以及可用的 FUSE 挂载权限 |
 
 ```bash
-git clone https://github.com/LikC1606/deepscientist-math.git
-cd deepscientist-math
+git clone https://github.com/LikC1606/theorem-os.git
+cd theorem-os
 bun install --frozen-lockfile
 bun run build
 ```
@@ -64,12 +64,14 @@ bun run build
 
 CLI 默认使用 `~/.config/deepscientist/math-sol-codex` 中的 Codex profile。请先为该 profile 配置认证，或通过 `CODEX_HOME` 指向你已有的 profile。
 
+项目原名 DeepScientist Math。CLI 入口为 `theorem-os`，同时保留 `deepscientist-math` 别名与 `bun run math`；已有环境变量、默认配置路径和运行档案格式继续兼容。
+
 ### 2. 准备一道公开题目
 
 以下示例使用 IMO2026 Q3，将题目仓库、求解工作区和结果放在项目目录之外：
 
 ```bash
-export MATH_RUN_ROOT="$PWD/../deepscientist-math-runs/imo-q3"
+export MATH_RUN_ROOT="$PWD/../theorem-os-runs/imo-q3"
 mkdir -p "$MATH_RUN_ROOT"
 
 git clone https://github.com/humanfia/imo2026.git "$MATH_RUN_ROOT/benchmark"
@@ -162,7 +164,7 @@ bun run math edit --run "$MATH_RUN_ROOT/result.json" \
 
 ```json
 {
-  "args": ["bun", "/absolute/path/to/deepscientist-math/out/main/math-solver.js", "--workspace", "/runs/q1/workspace", "--task-file", "/runs/q1/task.md", "--output", "/runs/q1/result.json", "--build-manifest", "/absolute/path/to/manifest.json", "--workers", "4"]
+  "args": ["bun", "/absolute/path/to/theorem-os/out/main/math-solver.js", "--workspace", "/runs/q1/workspace", "--task-file", "/runs/q1/task.md", "--output", "/runs/q1/result.json", "--build-manifest", "/absolute/path/to/manifest.json", "--workers", "4"]
 }
 ```
 

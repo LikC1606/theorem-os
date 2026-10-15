@@ -22,7 +22,7 @@ const commands: Readonly<Record<string, string>> = {
 };
 const [command, ...args] = process.argv.slice(2);
 if (!command || ['help', '--help', '-h'].includes(command)) {
-  console.log(`deepscientist-math <command> [arguments]
+  console.log(`theorem-os <command> [arguments]
 
   build                Freeze mathematical sources and build the solver
   run                  Run or resume an isolated mathematics proof
@@ -37,7 +37,7 @@ if (!command || ['help', '--help', '-h'].includes(command)) {
   compare              Prepare, run or report three fixed-budget public baselines
   summarize           Summarize saved proof-run receipts
 
-Use deepscientist-math <command> --help for command arguments.`);
+Use theorem-os <command> --help for command arguments.`);
 } else if (!Object.hasOwn(commands, command)) {
   console.error(`Unknown command: ${command}`);
   process.exitCode = 1;

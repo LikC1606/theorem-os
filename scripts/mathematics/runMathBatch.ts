@@ -30,7 +30,7 @@ export async function runMathBatch(argv: string[]): Promise<number> {
     help: { type: 'boolean' },
   } });
   if (values.help) {
-    console.log('Usage: deepscientist-math batch --launch FILE [--launch FILE ...] --output FILE [--concurrency 2]\n'
+    console.log('Usage: theorem-os batch --launch FILE [--launch FILE ...] --output FILE [--concurrency 2]\n'
       + 'Launch JSON: {"args":["bun","/path/to/math-solver.js","--workspace","...","--output","...",...],"cwd":"...","envFile":"..."}\n'
       + 'cwd defaults to the launch file directory; envFile is optional. Workspaces must already be prepared.');
     return 0;

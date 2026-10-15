@@ -13,7 +13,7 @@ async function main() {
     workspace: { type: 'string' }, file: { type: 'string', multiple: true },
     'timeout-seconds': { type: 'string', default: '0' }, help: { type: 'boolean' },
   } });
-  if (values.help) console.log('Usage: deepscientist-math check-lean --workspace DIR --file FILE [--file FILE --timeout-seconds N]\nChecks the saved files against pinned packages. Timeout 0 waits until completion. Diagnostics are advisory, not proof acceptance.');
+  if (values.help) console.log('Usage: theorem-os check-lean --workspace DIR --file FILE [--file FILE --timeout-seconds N]\nChecks the saved files against pinned packages. Timeout 0 waits until completion. Diagnostics are advisory, not proof acceptance.');
   else {
     const timeout = Number(values['timeout-seconds']);
     if (!values.workspace || !values.file?.length || !Number.isSafeInteger(timeout) || timeout < 0)

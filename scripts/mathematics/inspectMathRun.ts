@@ -7,7 +7,7 @@ import { buildRunInspection, exportRunPlan, readRunInspection, renderRunInspecti
 try {
   const flags = parseFlags(process.argv.slice(2), ['run', 'format', 'output']);
   if (flags.has('help')) {
-    console.log('Usage: deepscientist-math inspect --run RESULT_OR_STATE [--format markdown|json|plan] [--output NEW_FILE]\nReads stored evidence without starting a model or rerunning Lean. Plan exports include the required base version.');
+    console.log('Usage: theorem-os inspect --run RESULT_OR_STATE [--format markdown|json|plan] [--output NEW_FILE]\nReads stored evidence without starting a model or rerunning Lean. Plan exports include the required base version.');
   } else {
     const format = flags.get('format') ?? 'markdown';
     if (!['markdown', 'json', 'plan'].includes(format)) throw new Error('invalid --format');

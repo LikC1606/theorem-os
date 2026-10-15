@@ -15,7 +15,7 @@ try {
     sha256: { type: 'string' }, limit: { type: 'string', default: '15' }, goal: { type: 'string' }, help: { type: 'boolean' },
   } });
   if (values.help) {
-    console.log('Usage: deepscientist-math search-lean --workspace DIR --corpus FILE --query TEXT [--query TEXT ...] [--goal TEXT --limit 1..64 --sha256 HASH]\nReturns source names, line numbers, headers and source variable/open context from verified installed packages. Use short library keywords in --query; optional --goal supplies the Lean goal/context (up to 16000 bytes) to rank candidates. Ranking does not establish applicability; use #check and test the application in Lean. Up to 8 queries share one library scan. Corpus and hash default to the pinned mathematics environment.');
+    console.log('Usage: theorem-os search-lean --workspace DIR --corpus FILE --query TEXT [--query TEXT ...] [--goal TEXT --limit 1..64 --sha256 HASH]\nReturns source names, line numbers, headers and source variable/open context from verified installed packages. Use short library keywords in --query; optional --goal supplies the Lean goal/context (up to 16000 bytes) to rank candidates. Ranking does not establish applicability; use #check and test the application in Lean. Up to 8 queries share one library scan. Corpus and hash default to the pinned mathematics environment.');
   } else {
     const env = resolveMathematicsRuntimeEnvironment();
     const corpus = values.corpus || env.DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS;

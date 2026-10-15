@@ -1,6 +1,6 @@
 # 替换一个研究组件
 
-DeepScientist Math 的扩展单位是带版本的 `SolverModules` 组件。
+TheoremOS 的扩展单位是带版本的 `SolverModules` 组件。
 Agent 数量和角色由运行时组织；替换研究策略无需新增 Agent。
 目前通过 TypeScript 源码组合组件，尚未提供动态插件加载或稳定 SDK。
 
