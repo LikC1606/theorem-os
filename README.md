@@ -1,81 +1,93 @@
 # TheoremOS
 
+可替换研究策略的数学 Agent 运行时，使用 Lean 独立验收证明。
+
+[![Research Preview](https://img.shields.io/badge/status-research%20preview-7c3aed.svg)](docs/releases/v0.1.0.md)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Bun](https://img.shields.io/badge/Bun-%E2%89%A5%201.2-black?logo=bun)](https://bun.sh/)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2022-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 
-TheoremOS 是一个用于探索数学 Agent 研究方法的开源项目。它把证明构造、检查反馈、搜索决策、上下文选择和协作分工拆成五个可替换的组件，让你可以单独改进其中一部分，再用 Lean 检查生成的证明。
+TheoremOS 是一个用于研究数学 Agent 的开源运行时。它让 Agent 尝试构造 Lean 证明，记录每次搜索和失败反馈，再由独立的 Lean 验收流程检查完整题目。
 
-例如，你想试试“先证明原题中已经能处理的目标，再研究辅助引理”是否更有效，就可以换掉任务排序组件，沿用其余部分。在相同的题目、环境和预算下比较结果，才能看清这个改动有没有帮助。
+你可以只替换一个研究决策，例如任务排序或上下文选择，再固定题目、环境和预算比较结果。每次尝试的证明、失败反馈和累计用量都有记录，方便复查实验。
 
-项目使用 TypeScript 和 Bun，通过 Codex 执行 Agent 会话，目前支持 [Humanfia IMO2026](https://github.com/humanfia/imo2026) 和 [Lean-Eval](https://github.com/leanprover/lean-eval) 题目。
+项目面向研究数学 Agent 策略的研究者和 Lean 开发者，使用 TypeScript / Bun，通过 Codex 执行 Agent 会话。目前支持 [Humanfia IMO2026](https://github.com/humanfia/imo2026) 和 [Lean-Eval](https://github.com/leanprover/lean-eval) 题目。
 
-[快速开始](#快速开始) · [替换一个组件](examples/components/README.md) · [运行指南](docs/usage.md) · [发布说明](docs/releases/v0.1.0.md)
+[快速体验](#快速体验) · [它解决什么问题](#它解决什么问题) · [替换组件](examples/components/README.md) · [运行指南](docs/usage.md) · [发布说明](docs/releases/v0.1.0.md)
 
-## 组件模型
+```mermaid
+flowchart LR
+    A["Agent 构造候选"] --> B["Lean 检查"]
+    B -->|失败诊断| A
+    B -->|完整候选| C["集成与独立验收"]
+    C --> D["结果与运行档案"]
+```
 
-一次求解会反复经历：选择任务、整理上下文、尝试证明、检查结果，再决定下一步。TheoremOS 把这些决定分开，方便尝试不同的方法。
+<a id="快速开始"></a>
 
-| 组件 | 做什么 | 可以尝试的改动 |
-| --- | --- | --- |
-| M1 证明构造 | 调用模型，生成候选证明 | 换一种证明生成方式 |
-| M2 检查与反馈 | 检查候选，把错误和未完成的部分反馈给 Agent | 提供更有用的诊断信息 |
-| M3 搜索决策 | 选择下一步任务，决定重试或停止 | 优先处理更有希望的目标 |
-| M4 上下文选择 | 整理本次尝试需要的题目、成果和失败记录 | 减少无关信息，保留关键线索 |
-| M5 协作与复用 | 分配任务、安排审阅、复用已有成果 | 改变多个 Agent 的分工方式 |
+## 快速体验
 
-这些组件与 Agent 数量无关：单个 Agent 也会用到多个组件，多个 Agent 也可以共用一套组件。你可以运行单 Agent、独立并行尝试，或让多个 Agent 协作。
+先回放一道自然数加法小题，查看失败诊断和修复后的验收结果。候选证明是预设的，Lean 检查在本机真实执行，全程不调用模型。
 
-想动手改一个组件，可以用 `bun run math component init --name my-search` 生成模板，修改任务排序函数后运行本地检查。完整步骤见 [M3 搜索组件示例](examples/components/README.md)。
-
-目前组件通过 TypeScript 源码接口替换，接口仍可能调整。运行时会保存组件版本，恢复运行时检查版本是否一致。当前版本尚未提供稳定 SDK 或动态插件加载。
-
-## 快速开始
-
-建议先跑一个小题回放：证明“自然数加零不变”。它只依赖 Lean 标准库，方便先了解完整流程。
-
-### 1. 安装
-
-目前支持 Linux，需要以下工具：
-
-- Git、Bun 1.2+、Node.js 22+、`/usr/bin/python3` 和 util-linux。
-- Lean / Elan，以及允许创建用户命名空间的 Bubblewrap（`bwrap`）。
+需要 Linux、Git、Bun 1.2+、Node.js 22+、`/usr/bin/python3`、util-linux、Elan/Lean，以及允许创建用户命名空间的 Bubblewrap（`bwrap`）。这个回放不需要 Mathlib、FUSE 或模型认证。
 
 ```bash
 git clone https://github.com/LikC1606/theorem-os.git
 cd theorem-os
 bun install --frozen-lockfile
-```
 
-准备示例使用的 Lean 版本，再检查本地工具和沙箱权限：
-
-```bash
+# 只需准备一次 Lean
 elan toolchain install leanprover/lean4:v4.33.0
 bun run math doctor --lean-only
-```
 
-`doctor` 会列出发现的问题和修复建议。诊断指定题目可加 `--project DIR`，自动化读取可加 `--json`。这个小例子不需要 Mathlib、FUSE 或模型认证。
-
-### 2. 跑一次回放
-
-选择一个仓库外的新目录，保存本次实验：
-
-```bash
 export THEOREMOS_CASE="$PWD/../theorem-os-runs/first-replay"
 bun run math example replay --dir "$THEOREMOS_CASE"
-```
-
-程序会先提交一个错误候选，收到 Lean 的诊断后提交修复，再独立检查完整证明。候选是预设的，Lean 检查会在当前主机上真实执行，全程不调用模型。
-
-### 3. 查看结果，再开始自己的实验
-
-```bash
 bun run math inspect --run "$THEOREMOS_CASE/result.json"
 ```
 
-结果写入 `result.json`，其中 `example.source` 会注明这是预设回放。只有 `evaluated_passed` 表示最终检查通过。
+`result.json` 中的 `example.source` 会注明这是预设回放。只有 `status: evaluated_passed` 表示完整题目通过；这个回放用于了解检查流程，不代表模型解题能力。
 
-接下来可以按[小题示例](examples/getting-started/README.md)配置 Codex，让 Agent 从未完成的证明开始求解；也可以先[生成一个组件](examples/components/README.md#生成自己的组件)，修改研究策略。真实公开题目的准备与运行见 [IMO2026 示例](examples/imo2026/README.md)，它需要额外的 Mathlib 和 FUSE 环境。
+要让 Agent 自己证明这道小题，先按[小题示例](examples/getting-started/README.md)配置 Codex profile 和认证，再使用另一个新目录。`resume` 会调用模型并产生相应费用：
+
+```bash
+bun run math doctor
+bun run math example prepare --dir "$PWD/../theorem-os-runs/model-run"
+bun run math example check --dir "$PWD/../theorem-os-runs/model-run"
+bun run math example resume --dir "$PWD/../theorem-os-runs/model-run"
+```
+
+模型小题默认使用单 Agent，最多 5 次调度和 5 分钟解题时间。真实公开题目还需要对应的 Mathlib 与 FUSE 环境，可继续看 [IMO2026 示例](examples/imo2026/README.md)；完整依赖与故障诊断见[运行指南](docs/usage.md)。
+
+## 它解决什么问题
+
+比较数学 Agent 的研究方法，需要控制模型、搜索策略和环境等变量。TheoremOS 提供组件接口和运行档案，便于设计对照实验：
+
+| 你想回答的问题 | 如何开展实验或检查结果 |
+| --- | --- |
+| 这个搜索策略真的更好吗？ | 只替换一个组件，在固定题目、环境、模型和预算下进行对照实验 |
+| 证明是否真的成立？ | 对完整原题执行独立 Lean 验收，模型完成消息不能跳过检查 |
+| 实验能否复盘或恢复？ | 保存候选、诊断、会话、版本和累计用量，支持断点恢复 |
+| 多个 Agent 如何协作？ | 任务依赖、角色分工、隔离工作区和审阅记录都写入运行档案 |
+
+<a id="组件模型"></a>
+
+## 五个可替换组件
+
+一次求解会反复经历“选任务、整理上下文、尝试证明、检查结果、决定下一步”。TheoremOS 将这五类研究决策拆开，方便单独实验：
+
+| 组件 | 负责什么 | 可以研究什么 |
+| --- | --- | --- |
+| M1 证明构造 | 调用模型并生成候选证明 | 证明生成方式、提示和修复策略 |
+| M2 检查与反馈 | 检查候选并整理 Lean 诊断 | 错误反馈、局部验证和引理连接 |
+| M3 搜索决策 | 选择下一步任务、重试或停止 | 任务排序、路线和预算分配 |
+| M4 上下文选择 | 整理题目、成果和失败记录 | 上下文压缩、证据选择和检索 |
+| M5 协作与复用 | 分配任务、审阅和复用成果 | Agent 角色、并行方式和交接协议 |
+
+你可以运行单 Agent、独立并行尝试，或让多个 Agent 协作。组件与 Agent 数量无关：单个 Agent 也会用到多个组件，多个 Agent 可以共用一套组件。
+
+用 `bun run math component init --name my-search` 生成 M3 模板后，即可修改任务排序函数，再运行 `bun run math component check --name my-search` 检查基本约定。完整接入步骤见[组件示例](examples/components/README.md)。
+
+目前通过 TypeScript 源码接口替换组件，尚未提供稳定 SDK 或动态插件加载。运行时会保存组件版本，恢复运行时检查版本是否一致。
 
 ## 验证与结果
 

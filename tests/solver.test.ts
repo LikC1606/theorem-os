@@ -6,6 +6,7 @@ import { canonicalMathProblemStatementPayloads, type MathProblemContract } from 
 import { LEAN_EVAL_BENCHMARK_COMMIT } from '../src/math/leanEvalCatalogAdapter';
 import { mathDigest } from '../src/math/mathRuntimeIo';
 import { hashMathFormalSourceDeclaration, type MathematicsVerifierBatchRequest, type MathematicsVerifierBatchResult } from '../src/math/verifier';
+import * as verifier from '../src/math/verifier';
 import { readSolverProblem, assertSolverSources, assertSolverProjectSources, commitSolverSources, git, withSolverWorktree, SolverSourceError, type SolverProblem } from '../src/solver/problem';
 import { checkSolverProof } from '../src/solver/modules/evidence';
 import { directSolverModules, lemmaSolverModules } from '../src/solver/modules';
@@ -120,7 +121,7 @@ describe('isolated solver and host acceptance', () => {
         return 'completed';
       }, close: vi.fn(), interrupt: vi.fn() }));
   });
-  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); fs.rmSync(directory, { recursive: true, force: true }); });
+  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllEnvs(); fs.rmSync(directory, { recursive: true, force: true }); });
 
   it('runs a custom M1 without the Codex route while retaining proof checks and independent acceptance', async () => {
     host.connectivity.mockResolvedValue({ status: 'unavailable' });
@@ -3983,6 +3984,86 @@ describe('isolated solver and host acceptance', () => {
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'limit_reached', reason: 'math_run_stopped' });
     expect(JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8')).phase).toBe('finished');
     expect(host.officialGate).not.toHaveBeenCalled();
+  });
+
+  it('gives final acceptance its own budget after solving finishes near the deadline', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    host.verify.mockImplementation(async request => {
+      if (request.projectRoot !== project) await vi.advanceTimersByTimeAsync(900);
+      return verified(request);
+    });
+    host.officialGate.mockImplementation(async ({ signal }) => {
+      await vi.advanceTimersByTimeAsync(1500);
+      signal.throwIfAborted();
+      return { comparison: { status: 'official_verified' } };
+    });
+    expect(await runSolver([...args, '--max-run-seconds', '1', '--evaluator-timeout-seconds', '10'], directory)).toBe(0);
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'evaluated_passed', solveWallMs: 900 });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it.each([1, 300, 3_000_000])('applies a finite %s-second evaluator budget to the integrated Lean recheck', async seconds => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    host.officialGate.mockImplementation(async ({ signal }) => {
+      await vi.advanceTimersByTimeAsync(10);
+      signal.throwIfAborted();
+      return { comparison: { status: 'official_verified' } };
+    });
+    expect(await runSolver([...args, '--evaluator-timeout-seconds', String(seconds)], directory)).toBe(0);
+    const recheck = host.verify.mock.calls.find(([request]) => request.projectRoot === project);
+    expect(recheck?.[0].timeoutMs).toBe(seconds * 1000);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it.each(['recheck', 'official'])('enforces the total evaluator budget when time runs out during %s', async phase => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    host.verify.mockImplementation(async request => {
+      if (request.projectRoot === project) await vi.advanceTimersByTimeAsync(phase === 'recheck' ? 1001 : 600);
+      return verified(request);
+    });
+    host.officialGate.mockImplementation(async ({ signal }) => {
+      expect(signal.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(401);
+      expect(signal.aborted).toBe(true);
+      return { comparison: { status: 'official_verified' } };
+    });
+    expect(await runSolver([...args, '--evaluator-timeout-seconds', '1'], directory)).toBe(1);
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'runtime_error',
+      completion_signal_valid: false, evaluator: { status: 'error', reason: 'math_evaluation_timeout', timedOut: true } });
+    expect(host.officialGate).toHaveBeenCalledTimes(phase === 'recheck' ? 0 : 1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it.each([false, true])('shares the evaluator budget with an external command (timeout: %s)', async timeout => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    host.verify.mockImplementation(async request => {
+      if (request.projectRoot === project) await vi.advanceTimersByTimeAsync(600);
+      return verified(request);
+    });
+    const command = vi.spyOn(verifier, 'runMathematicsSandboxedCommand').mockImplementation(async input => {
+      expect(input.timeoutMs).toBe(1000);
+      expect(input.signal?.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(timeout ? 401 : 300);
+      expect(input.signal?.aborted).toBe(timeout);
+      return { started: true, exitCode: 0, signal: null, stdout: '', stderr: '', timedOut: false, aborted: false, durationMs: 300 };
+    });
+    expect(await runSolver([...args, '--evaluator-command', 'fixture-evaluator', '--evaluator-timeout-seconds', '1'], directory)).toBe(timeout ? 1 : 0);
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject(timeout
+      ? { status: 'runtime_error', evaluator: { status: 'error', reason: 'math_evaluation_timeout', timedOut: true } }
+      : { status: 'evaluated_passed', evaluator: { status: 'passed', method: 'external-command', official: false } });
+    expect(command).toHaveBeenCalledOnce();
+    expect(host.officialGate).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it.each(['SIGINT', 'SIGTERM'] as const)('still cancels unlimited final acceptance on %s', async interrupt => {
+    host.officialGate.mockImplementation(async ({ signal }) => {
+      process.emit(interrupt);
+      signal.throwIfAborted();
+    });
+    expect(await runSolver([...args, '--evaluator-timeout-seconds', '0'], directory)).toBe(4);
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'limit_reached', reason: 'math_run_stopped' });
+    expect(host.officialGate).toHaveBeenCalledOnce();
   });
 
   it('rejects a changed component version on resume before invoking a model', async () => {

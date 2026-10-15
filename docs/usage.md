@@ -230,7 +230,7 @@ Lead 计入 `--workers` 的总人数。默认配置中，Engineer 持续负责�
 | `--max-run-seconds` | `1800` | 准备完成后的共享解题时间预算 |
 | `--max-turns` | `200` | 所有 Agent 合计模型调度次数 |
 | `--max-turn-seconds` | `180` | 单轮时间限制；停止写入后检查已保存源码 |
-| `--evaluator-timeout-seconds` | `1800` | 最终评测超时 |
+| `--evaluator-timeout-seconds` | `1800` | 集成后 Lean 复核与最终评测共享的独立时间预算 |
 
 `--max-run-seconds`、`--max-turns`、`--max-turn-seconds` 与 `--evaluator-timeout-seconds` 可设为 `0` 关闭对应限制。关闭总解题时间限制时，证明检查的期限也会关闭。
 

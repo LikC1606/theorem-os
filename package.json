@@ -2,7 +2,7 @@
   "name": "theorem-os",
   "version": "0.1.0",
   "private": true,
-  "description": "Composable mathematical research agents with replaceable components and Lean verification.",
+  "description": "Composable mathematical research agents with Lean-verified proof acceptance and replaceable research components.",
   "license": "AGPL-3.0-only",
   "engines": {
     "node": ">=22",

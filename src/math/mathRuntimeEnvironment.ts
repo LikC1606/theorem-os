@@ -116,7 +116,9 @@ export function resolveMathematicsRuntimeEnvironment(
   // The symbol survives host-side spreads but never enters subprocess env strings.
   if ((source as NodeJS.ProcessEnv & { [RESOLVED_ENVIRONMENT]?: string })[RESOLVED_ENVIRONMENT] === envFile)
     return Object.freeze({ ...withoutSecrets(source), [RESOLVED_ENVIRONMENT]: envFile });
-  const values = readEnvFile(envFile, source);
+  // Apply system defaults before a local file expands an unset PATH.
+  const defaultPath = process.platform === 'linux' ? '/usr/bin:/bin' : '';
+  const values = readEnvFile(envFile, { ...source, PATH: source.PATH ?? defaultPath });
   // The checked-in/local env file supplies defaults. Explicit values passed by
   // a runner or test remain authoritative, while the file's PATH still
   // contributes its pinned tool directories (it was expanded against source).
@@ -134,7 +136,9 @@ export function resolveMathematicsRuntimeEnvironment(
     merged.ELAN_HOME && path.join(merged.ELAN_HOME, 'bin'),
   ].filter((entry): entry is string => Boolean(entry));
   if (pathEntries.length || process.platform === 'linux') {
-    merged.PATH = [...pathEntries, ...(merged.PATH || '').split(path.delimiter), ...(process.platform === 'linux' ? ['/usr/sbin'] : [])]
+    // Missing PATH keeps the system search defaults; an explicit empty PATH stays restricted.
+    const basePath = merged.PATH ?? defaultPath;
+    merged.PATH = [...pathEntries, ...basePath.split(path.delimiter), ...(process.platform === 'linux' ? ['/usr/sbin'] : [])]
       .filter(Boolean)
       .filter((entry, index, entries) => entries.indexOf(entry) === index)
       .join(path.delimiter);

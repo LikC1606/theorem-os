@@ -309,6 +309,8 @@ export async function runSolver(args: string[], root: string, customModules?: So
         executable: values.codex || process.env.DEEPSCIENTIST_MATH_CODEX_EXECUTABLE || 'codex',
         profile: process.env.CODEX_HOME || path.join(os.homedir(), '.config/deepscientist/math-sol-codex'),
         signal, deadline, maxTurns, maxTurnMs, proofTimeoutMs: maxRunMs === Infinity ? Infinity : undefined, save, emit });
+      clearTimeout(timer);
+      timer = undefined;
       state.solveFinishedAt = Date.now();
       let evaluation: Record<string, unknown> = { status: 'skipped', reason: 'proof_incomplete' };
       if (winner?.check.passed) {
