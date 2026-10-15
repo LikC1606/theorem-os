@@ -107,6 +107,8 @@ bun run build
 
 ## 许可证与致谢
 
+Copyright 2026 TheoremOS contributors。
+
 本项目从 DeepScientist 的数学证明运行时抽取，使用 [AGPL-3.0-only](LICENSE)；来源与第三方声明见 [NOTICE](NOTICE)。保留独立许可证声明的文件遵循其各自条款。
 
 项目原名 DeepScientist Math，目前仍保留 `deepscientist-math` CLI 别名、`bun run math` 以及已有环境变量和配置路径，方便继续使用已有实验。

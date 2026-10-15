@@ -1,3 +1,16 @@
+TheoremOS
+
+Copyright 2026 TheoremOS contributors.
+
+This repository is the TheoremOS mathematical research runtime. The
+TheoremOS-specific packaging and changes are distributed under the
+GNU Affero General Public License, version 3 only, except where a file
+or third-party component carries its own license notice.
+
+Historical project attribution follows below. It is kept so that the
+lineage and copyright notices for extracted and adapted material remain
+clear.
+
 DeepScientist
 
 This distribution is a modified work based on AionUi.
