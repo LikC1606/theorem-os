@@ -122,6 +122,17 @@ describe('isolated solver and host acceptance', () => {
   });
   afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); fs.rmSync(directory, { recursive: true, force: true }); });
 
+  it('runs a custom M1 without the Codex route while retaining proof checks and independent acceptance', async () => {
+    host.connectivity.mockResolvedValue({ status: 'unavailable' });
+    const modules = { ...directSolverModules, id: 'custom-execution', M1: { ...directSolverModules.M1,
+      version: 'custom-execution-v1', open: (options: MathAgentOptions) => host.createSession(options) } };
+    expect(await runSolver(args, directory, modules)).toBe(0);
+    expect(host.connectivity).not.toHaveBeenCalled();
+    expect(host.verify.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(host.officialGate).toHaveBeenCalledOnce();
+    expect(JSON.parse(fs.readFileSync(output, 'utf8')).status).toBe('evaluated_passed');
+  });
+
   it('runs independent peers without planning or sharing and accounts for both sessions', async () => {
     let started = 0;
     let release!: () => void;

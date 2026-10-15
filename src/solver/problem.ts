@@ -10,6 +10,7 @@ import { assertMathCanonicalPath, isMathPathWithin } from '../math/paths';
 import { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions, inspectLeanDeclarations } from '../math/leanSource';
 import { mathConstructionImports } from '../math/mathConstructionSources';
 import type { MathProblemContract } from '../math/contracts';
+import { readLocalExampleReceipt } from '../math/localExample';
 
 export function committedSource(worktree: string, commit: string, file: string): string {
   return mathGitBytes(worktree, ['show', `${commit}:${file}`],
@@ -30,7 +31,7 @@ export class SolverSourceError extends Error {
   }
 }
 export type SolverProblem = Readonly<{
-  kind: 'imo2026' | 'lean-eval';
+  kind: 'imo2026' | 'lean-eval' | 'example';
   workspace: string;
   projectRelative: string;
   baseCommit: string;
@@ -109,7 +110,9 @@ export function readSolverProblem(workspacePath: string, receiptFile: string): S
   assertMathCanonicalPath(workspace);
   const raw = readMathJson(receiptFile) as { schema?: string; receipt?: unknown };
   const value = raw.schema === 'deepscientist.mathematics.lean-eval-held-out-bootstrap.v1' ? raw.receipt : raw;
-  const receipt = (value as { schema?: string }).schema === 'deepscientist.mathematics.imo2026-bootstrap-receipt.v1'
+  const receipt = (value as { schema?: string }).schema === 'theorem-os.local-example.v1'
+    ? readLocalExampleReceipt(receiptFile)
+    : (value as { schema?: string }).schema === 'deepscientist.mathematics.imo2026-bootstrap-receipt.v1'
     ? readImo2026BootstrapReceipt(receiptFile)
     : readLeanEvalBootstrapReceipt((value as { activeProblemPath: string }).activeProblemPath);
   if (receipt.schema === 'deepscientist.mathematics.imo2026-bootstrap-receipt.v1') verifyImo2026BootstrapReceipt(receipt);
@@ -134,7 +137,7 @@ export function readSolverProblem(workspacePath: string, receiptFile: string): S
     const files = receipt.solverOwnedFiles.filter(relative => relative.endsWith('.lean') &&
       hashMathFormalSourceDeclaration(fs.readFileSync(path.join(receipt.projectRoot, relative), 'utf8'), theoremName) === declarationHash);
     if (files.length !== 1) throw new Error('math_problem_target_file_ambiguous');
-    const candidateName = publicObligations ? resolveLeanEvalSubmissionName(theoremName,
+    const candidateName = publicObligations && receipt.schema !== 'theorem-os.local-example.v1' ? resolveLeanEvalSubmissionName(theoremName,
       fs.readFileSync(path.join(receipt.projectRoot, files[0]!), 'utf8')) : theoremName;
     return { theoremName: candidateName, declarationHash, proofPath: files[0]! };
   });
@@ -150,7 +153,7 @@ export function readSolverProblem(workspacePath: string, receiptFile: string): S
     [file, sourceStructure(fs.readFileSync(path.join(receipt.projectRoot, file), 'utf8'), new Set(originals.map(item => item.name)))]));
   const sourceImports = Object.fromEntries(Object.keys(declarations).map(file =>
     [file, mathConstructionImports(fs.readFileSync(path.join(receipt.projectRoot, file), 'utf8'))]));
-  return { kind: receipt.schema.includes('imo2026') ? 'imo2026' : 'lean-eval', workspace, projectRelative,
+  return { kind: receipt.schema === 'theorem-os.local-example.v1' ? 'example' : receipt.schema.includes('imo2026') ? 'imo2026' : 'lean-eval', workspace, projectRelative,
     baseCommit: git(workspace, ['rev-parse', 'HEAD']), receiptDigest: mathDigest(canonicalMathJson(receipt)),
     contract: receipt.contract, targets, trustedFiles, ownedFiles: receipt.solverOwnedFiles,
     declarations, sourceStructure: structures, sourceImports, activeProblemPath: receipt.activeProblemPath,

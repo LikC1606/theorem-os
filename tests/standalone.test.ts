@@ -109,12 +109,18 @@ describe('standalone CLI', () => {
     const result = spawnSync('bun', ['scripts/mathematics/searchLean.ts', 'search-lean', '--help'],
       { encoding: 'utf8', timeout: 10_000, maxBuffer: 16384 });
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain('Usage: deepscientist-math search-lean');
+    expect(result.stdout).toContain('Usage: theorem-os search-lean');
   });
   it('lists the mathematical commands and rejects the removed runtime command', () => {
     const help = spawnSync('bun', [cli, '--help'], { encoding: 'utf8', timeout: 10_000, maxBuffer: 16_384 });
     expect(help.status).toBe(0);
     expect(help.stdout).toContain('bootstrap-imo');
+    for (const command of ['doctor', 'example', 'component']) {
+      expect(help.stdout).toContain(command);
+      const commandHelp = spawnSync('bun', [cli, command, '--help'], { encoding: 'utf8', timeout: 10_000, maxBuffer: 16_384 });
+      expect(commandHelp.status, commandHelp.stderr).toBe(0);
+      expect(commandHelp.stdout).toContain(`theorem-os ${command}`);
+    }
     const runtime = spawnSync('bun', [cli, 'runtime'], { encoding: 'utf8', timeout: 10_000, maxBuffer: 16_384 });
     expect(runtime.status).toBe(1);
     expect(runtime.stderr).toContain('Unknown command: runtime');

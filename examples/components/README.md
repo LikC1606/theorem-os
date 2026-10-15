@@ -4,6 +4,40 @@ TheoremOS 的扩展单位是带版本的 `SolverModules` 组件。
 Agent 数量和角色由运行时组织；替换研究策略无需新增 Agent。
 目前通过 TypeScript 源码组合组件，尚未提供动态插件加载或稳定 SDK。
 
+## 生成自己的组件
+
+从仓库根目录执行：
+
+```bash
+bun run math component init --name my-search
+bun run math component check --name my-search
+```
+
+第一条命令生成 `src/components/my-search.ts` 和 `scripts/components/my-search.ts`。
+在第一个文件中修改 `ready` 函数，就能改变就绪任务的顺序；其余四个组件继续使用默认实现。
+已有同名文件会被保留，命令会提示换一个名字。
+
+`check` 不调用模型或 Lean，用几个本地任务检查排序是否保留了依赖、暂停、路线和预算约束。
+它只检查这个排序模板的基本约定，策略是否有效仍需要实验。
+改变策略后，更新 `id` 和 M3 的 `version`，再运行检查。
+
+可以把组件接到[小题示例](../getting-started/README.md)中。先配置好 Codex 和 Lean 环境，再使用一个仓库外的新目录：
+
+```bash
+export THEOREMOS_COMPONENT_CASE="$PWD/../theorem-os-runs/my-search"
+bun run math example prepare --dir "$THEOREMOS_COMPONENT_CASE" \
+  --component my-search --workers 3
+bun run math example check --dir "$THEOREMOS_COMPONENT_CASE"
+bun run math example resume --dir "$THEOREMOS_COMPONENT_CASE"
+```
+
+`prepare` 会构建并固定组件源码和配置，`check` 只做启动预检，`resume` 才会调用模型。
+M3 的 `ready` 排序用于至少三名 Agent 的协作任务；单 Agent 和预设回放不展示分工排序效果。
+小题预算只有 5 次调度，适合检查接入流程，不能据此判断策略优劣。
+
+修改源码后使用新案例；恢复原实验时保留它原来的源码、构建、环境和配置。
+下面保留手动组合组件和运行任意已准备题目的方式。
+
 ## 组件合同
 
 | 组件 | 主要输入 | 主要输出 |

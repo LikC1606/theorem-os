@@ -2,7 +2,23 @@
 
 [返回 README](../README.md) · [组件替换示例](../examples/components/README.md)
 
-这里保留手动准备题目、配置运行环境、恢复实验和调整协作计划的完整说明。第一次使用可以先跑 [IMO2026 Q1 示例](../examples/imo2026/README.md)。
+这里保留手动准备题目、配置运行环境、恢复实验和调整协作计划的完整说明。第一次使用可以先跑[小题示例](../examples/getting-started/README.md)，再尝试 [IMO2026 Q1](../examples/imo2026/README.md)。
+
+## 环境诊断与小题示例
+
+第一次使用可以先运行只依赖 Lean 标准库的[小题示例](../examples/getting-started/README.md)，
+再准备 Mathlib 和公开题目。诊断命令会检查本地工具、Codex 登录、Bubblewrap 权限，以及指定项目的编译器和依赖：
+
+```bash
+bun run math doctor
+bun run math doctor --project /absolute/path/to/lean-project
+bun run math doctor --lean-only --json
+```
+
+`--lean-only` 跳过 Codex 检查，适合预设回放。`--network` 可额外检查 provider 的 HTTP 连通性，
+不携带认证信息，也不发起推理。默认诊断不会连接模型服务；登录状态和网络可达都不能保证模型访问权限。
+必需项失败时退出码为 1；警告仍需按具体题目的要求处理。FUSE 工具只在使用外部依赖时需要，
+能打开设备也不等于实际挂载一定成功，完整运行条件继续由启动预检确认。
 
 ## 手动准备与运行
 
@@ -245,6 +261,9 @@ bun run math bootstrap-lean-eval --help
 | 命令 | 用途 |
 | --- | --- |
 | `build` | 构建求解器与检查 / 检索工具，生成构建清单 |
+| `doctor` | 检查工具、登录、沙箱和指定项目环境，支持 JSON 报告 |
+| `example` | 准备、回放或求解不依赖 Mathlib 的小型 Lean 题目 |
+| `component` | 生成 M3 排序组件模板，检查基本任务约束 |
 | `bootstrap-imo` | 从固定公开提交准备 IMO2026 题目 |
 | `bootstrap-lean-eval` | 准备 Lean-Eval 题目与评测绑定 |
 | `run` | 启动、预检或恢复运行 |

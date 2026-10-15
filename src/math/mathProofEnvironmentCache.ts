@@ -5,6 +5,8 @@ import { z } from 'zod';
 import { canonicalMathJson, mathFileIdentity, readMathFile } from "./mathRuntimeIo";
 import { assertMathCanonicalPath } from "./paths";
 
+export const DEFAULT_MATH_PROOF_ENVIRONMENT_CACHE_ROOT = `/var/tmp/theoremos-proof-environments-${process.getuid?.() ?? process.pid}`;
+
 const digest = z.string().regex(/^[a-f0-9]{64}$/u);
 const entrySchema = z.object({
   schema: z.literal('deepscientist.math.proof-environment-cache.v1'),

@@ -8,6 +8,9 @@ import os from 'node:os';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const commands: Readonly<Record<string, string>> = {
   build: 'scripts/build.ts',
+  doctor: 'scripts/mathematics/doctor.ts',
+  example: 'scripts/mathematics/runExample.ts',
+  component: 'scripts/mathematics/component.ts',
   run: 'out/main/math-solver.js',
   batch: 'scripts/mathematics/runMathBatch.ts',
   'bootstrap-imo': 'scripts/mathematics/bootstrapImo2026.ts',
@@ -25,6 +28,9 @@ if (!command || ['help', '--help', '-h'].includes(command)) {
   console.log(`theorem-os <command> [arguments]
 
   build                Freeze mathematical sources and build the solver
+  doctor               Check local tools, login and sandbox permissions
+  example              Replay or solve a small Lean tutorial without Mathlib
+  component            Create and check a replaceable search component
   run                  Run or resume an isolated mathematics proof
   batch                Run prepared problems concurrently in separate processes
   bootstrap-imo        Prepare an IMO2026 proof workspace

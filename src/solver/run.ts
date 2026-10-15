@@ -186,10 +186,12 @@ export async function runSolver(args: string[], root: string, customModules?: So
       const project = prepareProject(state.worktree);
       if (!values.resume) sourceFeedback = solverSourceFeedback(state.problem, state.worktree);
       if (sourceFeedback) { state.check = undefined; save(); }
-      const connectivity = await checkCodexProviderConnectivity({ env, signal,
-        profile: process.env.CODEX_HOME || path.join(os.homedir(), '.config/deepscientist/math-sol-codex') });
+      const connectivity = modules.M1.open === directSolverModules.M1.open
+        ? await checkCodexProviderConnectivity({ env, signal,
+          profile: process.env.CODEX_HOME || path.join(os.homedir(), '.config/deepscientist/math-sol-codex') })
+        : { status: 'not-required', diagnostics: 'The custom execution component does not use the built-in Codex provider.' };
       writeMathJsonDurable(path.join(directory, 'provider-connectivity.json'), connectivity);
-      if (connectivity.status !== 'reachable') {
+      if (connectivity.status !== 'reachable' && connectivity.status !== 'not-required') {
         emit('preparation_failed', { workerId: 'solver', diagnostics: connectivity.diagnostics });
         throw new Error('math_codex_provider_unreachable');
       }
