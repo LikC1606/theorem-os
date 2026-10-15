@@ -22,7 +22,7 @@ import { organizeResearch } from '../src/solver/modules/organization';
 import { assertStatementSnapshot, captureStatementContexts, isStatementAction, readBacktranslation, statementSnapshot, writeStatementSnapshot } from '../src/solver/statementReview';
 import { parseLeanStatementContexts } from '../src/math/leanStatementContext';
 import { captureProofReferences, proofReferencesUnchanged } from '../src/solver/proofReferences';
-import { applyTaskChanges, checkTaskProof, projectTaskSources, taskChanges } from '../src/solver/cooperativeProof';
+import { applyTaskChanges, checkTaskProof, checkTaskProofs, projectTaskSources, taskChanges } from '../src/solver/cooperativeProof';
 import { inspectScopedLeanDeclarations, leanDeclarationContextCommands } from '../src/math/leanSource';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn(), officialGate: vi.fn(), build: vi.fn(), delay: vi.fn(),
@@ -728,7 +728,8 @@ describe('isolated solver and host acceptance', () => {
     const threadCalls = new Map<string, number>();
     host.verify.mockImplementation(async (request, options) => {
       const source = fs.readFileSync(path.join(request.projectRoot, 'Submission.lean'), 'utf8');
-      const wrongType = options.expectedDeclarationType && request.items.some(item =>
+      const wrongType = request.items.some(item =>
+        (options.expectedDeclarationType || options.expectedDeclarationTypes?.[item.theoremName]) &&
         source.includes(`${item.theoremName.split('.').at(-1)} : False`));
       const checked = verified(request);
       return !source.includes('sorry') && !wrongType ? checked : { ...checked, status: 'failed',
@@ -866,6 +867,150 @@ describe('isolated solver and host acceptance', () => {
       fs.writeFileSync(file, source.replace('first : True := by sorry', 'first : True := by exact And.left (And.intro a b)'));
     } else fs.writeFileSync(file, source.replace('second : True := by sorry', 'second : True := by exact first'));
   }
+
+  it('primary-led starts the whole proof immediately and independently reviews it without planning', async () => {
+    const actions: { kind: string; workspace: string }[] = [];
+    configureCooperation(async (action, options, message) => {
+      actions.push({ kind: action.kind, workspace: options.workspace });
+      if (action.kind === 'solve') {
+        expect(message).toContain('Your role: primary solver');
+        expect(options.instructions).toContain('Start proving the entire original problem immediately');
+        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+      } else finishAssignment(action, options);
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--scheduler', 'primary-led', '--max-turns', '2'], directory)).toBe(0);
+    expect(actions.map(action => action.kind)).toEqual(['solve', 'review']);
+    expect(actions[0].workspace).not.toBe(actions[1].workspace);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state.dispatchCounts).toEqual({ proof: 1, review: 1 });
+    expect(state.cooperation.review).toMatchObject({ status: 'accepted', commit: state.check.commit, sourceDigest: state.check.sourceDigest });
+    expect(state.cooperation.tasks).toEqual([]);
+    expect(host.officialGate).toHaveBeenCalledOnce();
+  });
+
+  it('primary-led receives a checked helper during its own active turn without replacing its proofs', async () => {
+    const helper = planTasks()[0];
+    let helped = false;
+    configureCooperation(async (action, options) => {
+      if (action.kind === 'solve') {
+        const file = path.join(options.workspace, 'generated/p/Submission.lean');
+        const partial = original.replace('first : True := by sorry', 'first : True := by trivial');
+        fs.writeFileSync(file, partial);
+        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({ requests: [helper] }));
+        await expect.poll(() => cooperationState().tasks.find((node: any) => node.task.id === 'a')?.status, { timeout: 5000 }).toBe('integrated');
+        expect(fs.readFileSync(file, 'utf8')).toBe(partial);
+        const node = cooperationState().tasks.find((item: any) => item.task.id === 'a');
+        const peer = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8')).workers.find((worker: any) => worker.id === node.assignment.workerId);
+        expect(fs.readFileSync(path.join(peer.worktree, 'generated/p/Submission.lean'), 'utf8')).toContain('lemma a : True := by trivial');
+        fs.writeFileSync(file, partial.replace('theorem first', 'lemma a : True := by trivial\ntheorem first')
+          .replace('second : True := by sorry', 'second : True := by exact a'));
+        helped = true;
+      } else finishAssignment(action, options);
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--scheduler', 'primary-led', '--max-turns', '3'], directory)).toBe(0);
+    expect(helped).toBe(true);
+    expect(cooperationState().tasks.filter((node: any) => node.task.kind === 'goal').every((node: any) => node.task.status === 'paused')).toBe(true);
+    expect(cooperationState().tasks.find((node: any) => node.task.id === 'a')).toMatchObject({ status: 'integrated', attempts: 1 });
+    expect(host.officialGate).toHaveBeenCalledOnce();
+  });
+
+  it('primary-led continues after an advisory helper violates its source scope', async () => {
+    configureCooperation(async (action, options) => {
+      const file = path.join(options.workspace, 'generated/p/Submission.lean');
+      if (action.kind === 'solve') {
+        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({ requests: [{ id: 'probe', kind: 'research', objective: 'Find a useful library fact.' }] }));
+        await expect.poll(() => cooperationState().tasks.find((node: any) => node.task.id === 'probe')?.status, { timeout: 5000 }).toBe('blocked');
+        fs.writeFileSync(file, original.replaceAll('by sorry', 'by trivial'));
+      } else if (action.kind === 'task') fs.writeFileSync(file, original.replace('first : True := by sorry', 'first : True := by trivial'));
+      else finishAssignment(action, options);
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--scheduler', 'primary-led', '--max-turns', '3'], directory)).toBe(0);
+    expect(cooperationState().tasks.find((node: any) => node.task.id === 'probe')).toMatchObject({ status: 'blocked', attempts: 1, feedback: 'math_task_source_outside_scope' });
+    expect(host.officialGate).toHaveBeenCalledOnce();
+  });
+
+  it('primary-led refuses to delegate original goals while allowing the primary proof to finish', async () => {
+    configureCooperation(async (action, options) => {
+      if (action.kind === 'solve') {
+        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({ requests: [planTasks()[2]] }));
+        await expect.poll(() => cooperationState().error, { timeout: 5000 }).toBe('math_help_invalid_requests');
+        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+      } else finishAssignment(action, options);
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--scheduler', 'primary-led', '--max-turns', '2'], directory)).toBe(0);
+    expect(cooperationState().tasks).toEqual([]);
+    expect(host.officialGate).toHaveBeenCalledOnce();
+  });
+
+  it('primary-led stops unfinished assistance before reviewing the complete primary proof', async () => {
+    const helperStarted = deferred(), interrupted = deferred();
+    configureCooperation(async (action, options) => {
+      if (action.kind === 'solve') {
+        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({ requests: [planTasks()[0]] }));
+        await helperStarted.promise;
+        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+      } else if (action.kind === 'task') {
+        helperStarted.resolve(); await interrupted.promise;
+        finishAssignment(action, options);
+      } else finishAssignment(action, options);
+      return 'completed';
+    });
+    const open = host.createSession.getMockImplementation()!;
+    host.createSession.mockImplementation(async options => {
+      const session = await open(options);
+      session.interrupt.mockImplementation(async () => { interrupted.resolve(); });
+      return session;
+    });
+    expect(await runSolver([...args, '--workers', '4', '--scheduler', 'primary-led', '--max-turns', '3'], directory)).toBe(0);
+    expect(cooperationState().tasks.find((node: any) => node.task.id === 'a')?.status).not.toBe('integrated');
+    expect(cooperationState().review.status).toBe('accepted');
+    expect(host.officialGate).toHaveBeenCalledOnce();
+  });
+
+  it('primary-led resumes the same proof context without restoring an older helper snapshot over it', async () => {
+    let calls = 0;
+    configureCooperation(async (action, options) => {
+      if (action.kind === 'solve') {
+        calls++;
+        const file = path.join(options.workspace, 'generated/p/Submission.lean');
+        if (calls === 1) fs.writeFileSync(file, original.replace('first : True := by sorry', 'first : True := by trivial'));
+        else {
+          expect(fs.readFileSync(file, 'utf8')).toContain('first : True := by trivial');
+          expect(options.threadId).toBe('thread-solver');
+          fs.writeFileSync(file, original.replaceAll('by sorry', 'by trivial'));
+        }
+      } else finishAssignment(action, options);
+      return 'completed';
+    });
+    const primaryArgs = [...args, '--workers', '4', '--scheduler', 'primary-led'];
+    await runSolver([...primaryArgs, '--max-turns', '1'], directory);
+    expect(JSON.parse(fs.readFileSync(output, 'utf8')).status).toBe('incomplete');
+    expect(await runSolver([...primaryArgs, '--resume', '--max-turns', '3'], directory)).toBe(0);
+    expect(calls).toBe(2);
+    expect(host.officialGate).toHaveBeenCalledOnce();
+  });
+
+  it('primary-led saves an unaffordable final review and resumes it without another proof turn', async () => {
+    const actions: string[] = [];
+    configureCooperation(async (action, options) => {
+      actions.push(action.kind);
+      if (action.kind === 'solve') fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+      else finishAssignment(action, options);
+      return 'completed';
+    });
+    const primaryArgs = [...args, '--workers', '4', '--scheduler', 'primary-led'];
+    expect(await runSolver([...primaryArgs, '--max-turns', '1'], directory)).toBe(4);
+    expect(cooperationState().review.status).toBe('pending');
+    expect(host.officialGate).not.toHaveBeenCalled();
+    expect(await runSolver([...primaryArgs, '--resume', '--max-turns', '2'], directory)).toBe(0);
+    expect(actions).toEqual(['solve', 'review']);
+    expect(cooperationState().review.status).toBe('accepted');
+    expect(host.officialGate).toHaveBeenCalledOnce();
+  });
 
   it('provides an unambiguous Lead plan example when multiple Lean files are owned', async () => {
     const helper = 'Submission/Helpers.lean';
@@ -1771,9 +1916,57 @@ describe('isolated solver and host acceptance', () => {
     const checks = host.verify.mock.calls.length;
     const sessions = host.createSession.mock.calls.length;
     expect(await runSolver([...parallelArgs, '--resume', '--max-turns', '6'], directory)).toBe(0);
-    expect(host.verify.mock.calls.slice(checks, checks + 2).map(([request]) => request.items[0].theoremName)).toEqual(['Submission.a', 'Submission.b']);
+    expect(host.verify.mock.calls[checks][0].items.map(item => item.theoremName)).toEqual(['Submission.a', 'Submission.b']);
+    expect(host.verify.mock.calls[checks][1].expectedDeclarationTypes).toEqual({ 'Submission.a': 'True', 'Submission.b': 'True' });
     for (const [options] of host.createSession.mock.calls.slice(sessions)) expect(options.threadId).toBe(
       options.environment.DEEPSCIENTIST_MATH_WORKER_ID === 'solver' ? 'thread-solver' : undefined);
+    expect(host.officialGate).toHaveBeenCalledOnce();
+  });
+
+  it('keeps per-target receipts and closed types when batching identical proof projections', async () => {
+    fs.writeFileSync(path.join(project, 'Submission.lean'), original.replace('theorem first',
+      'lemma a : True := by trivial\nlemma b : True → True := by intro h; exact h\ntheorem first'));
+    const commit = commitSolverSources(problem, workspace);
+    const tasks = planTasks().slice(0, 2).map(task => task.id === 'b' ? { ...task, type: 'True → True' } : task);
+    const proofs = await checkTaskProofs(problem, workspace, commit, tasks.map(task => ({ task, retainedGoals: [],
+      assignment: { taskId: task.id, taskDigest: taskVersion(task), workerId: 'solver', seedCommit: commit } })),
+      {}, new AbortController().signal);
+    expect(host.verify).toHaveBeenCalledOnce();
+    expect(host.verify.mock.calls[0][1].expectedDeclarationTypes).toEqual({ 'Submission.a': 'True', 'Submission.b': 'True → True' });
+    expect(proofs.map(proof => ({ passed: proof.passed, taskDigest: proof.taskDigest,
+      targets: proof.verification.results.map(result => result.theoremName) }))).toEqual(tasks.map(task => ({
+        passed: true, taskDigest: taskVersion(task), targets: [task.theoremName] })));
+  });
+
+  it('rejects batching different source projections before invoking Lean', async () => {
+    fs.writeFileSync(path.join(project, 'Submission.lean'), original.replaceAll('by sorry', 'by trivial')
+      .replace('theorem first', 'lemma a : True := by trivial\ntheorem first'));
+    const commit = commitSolverSources(problem, workspace);
+    const tasks = [planTasks()[0], planTasks()[2]];
+    await expect(checkTaskProofs(problem, workspace, commit, tasks.map(task => ({ task, retainedGoals: [],
+      assignment: { taskId: task.id, taskDigest: taskVersion(task), workerId: 'solver', seedCommit: commit } })),
+      {}, new AbortController().signal)).rejects.toThrow('math_task_batch_projection_mismatch');
+    expect(host.verify).not.toHaveBeenCalled();
+  });
+
+  it('falls back once to individual checks after a failed restoration batch and saves progress', async () => {
+    configureCooperation();
+    const parallelArgs = [...args, '--workers', '4', '--max-turns', '3'];
+    expect(await runSolver(parallelArgs, directory)).toBe(4);
+    const verify = host.verify.getMockImplementation()!;
+    const progress: number[] = [];
+    host.verify.mockImplementation(async (request, options) => {
+      const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+      progress.push(state.cooperation.recheck?.completed ?? -1);
+      const result = await verify(request, options);
+      return request.items.length > 1 && request.items[0].theoremName === 'Submission.a'
+        ? { ...result, status: 'failed', results: result.results.map(item => ({ ...item, status: 'failed' })) } : result;
+    });
+    const before = host.verify.mock.calls.length;
+    expect(await runSolver([...parallelArgs, '--resume', '--max-turns', '6'], directory)).toBe(0);
+    expect(host.verify.mock.calls.slice(before, before + 3).map(([request]) => request.items.map(item => item.theoremName)))
+      .toEqual([['Submission.a', 'Submission.b'], ['Submission.a'], ['Submission.b']]);
+    expect(progress.slice(0, 3)).toEqual([0, 0, 1]);
     expect(host.officialGate).toHaveBeenCalledOnce();
   });
 
@@ -2835,7 +3028,8 @@ describe('isolated solver and host acceptance', () => {
     expect(cooperationState().tasks[0].integratedCheck.references).toBeDefined();
     host.verify.mockClear();
     expect(await runSolver([...parallelArgs, '--max-turns', '6', '--resume'], directory)).toBe(0);
-    for (const id of ['a', 'b']) expect(host.verify.mock.calls.some(([request]) => request.items.length === 1 && request.items[0].theoremName === `Submission.${id}`)).toBe(true);
+    for (const id of ['a', 'b']) expect(host.verify.mock.calls.some(([request]) =>
+      request.items.some(item => item.theoremName === `Submission.${id}`))).toBe(true);
   });
 
   it('preserves a reviewed statement after unrelated definitions change once Lean has identified its actual statement references', async () => {

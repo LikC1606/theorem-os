@@ -17,7 +17,7 @@ import type { WorkerAccess } from './research';
 import type { SolverModules } from './modules';
 import { researchCanAdvance, routeAllowsTask, taskCanStart, taskDependenciesReady } from './modules/search';
 import { deliveryDetails, reviewVerdict, readDeliveryLines, readMathResponse as block, type DeliveryRecord } from './deliveries';
-import { applyTaskChanges, checkTaskProof, omitTaskHelpers, ownedSourceDigest, projectTaskSources, taskChanges, type TaskProof } from './cooperativeProof';
+import { applyTaskChanges, checkTaskProof, checkTaskProofs, omitTaskHelpers, ownedSourceDigest, projectTaskSources, taskChanges, type TaskProof } from './cooperativeProof';
 import { assertStatementSnapshot, captureStatementContexts, isStatementAction, readBacktranslation, resetStatementReview, statementReviewSummary, statementSnapshot, writeStatementSnapshot,
   type StatementAction, type StatementReview } from './statementReview';
 import { captureProofReferences, proofReferencesUnchanged, type ProofReferences } from './proofReferences';
@@ -39,6 +39,8 @@ export type CooperationState = { tasks: TaskRecord[]; groups?: RouteRecord[]; ca
   history?: { task: CooperativeTask; producer?: string; proof?: TaskProof; integratedCheck?: ProofCheck; finding?: string }[];
   deliveries?: DeliveryRecord[]; cursors?: Record<string, number>; edits?: HumanEditRecord[];
   planVersion?: string; planEdited?: boolean; statementReviews?: StatementReview[];
+  helpRequestDigest?: string;
+  recheck?: { canonicalCommit: string; total: number; completed: number; taskId?: string };
   initialPlanFallback?: { at: number; reason: string } };
 type TaskVersions = ReadonlyMap<string, { task: CooperativeTask; version: string }>;
 
@@ -80,6 +82,7 @@ export class CooperativeResearch {
     this.needsLead = !this.archive.tasks.length || Boolean(this.archive.error) || this.archive.tasks.some(node => node.status === 'blocked');
   }
   private get livePeers() { return this.input.workers.filter(worker => worker.id !== this.lead.id && this.liveWorkers.has(worker.id)); }
+  private get primaryLed() { return this.input.modules.M5.primaryLed === true; }
   private syncEditChecks(nodes: ReadonlyMap<string, TaskRecord>, versions: TaskVersions) {
     for (const edit of this.archive.edits ?? []) {
       if (edit.status !== 'applied' || !edit.recheck) continue;
@@ -246,7 +249,7 @@ export class CooperativeResearch {
     if (failed?.status === 'rejected' && !this.input.signal.aborted) throw failed.reason;
     await Promise.allSettled([...this.notifications]);
     this.syncPlanNotes();
-    if (!this.input.signal.aborted) this.archive.canonicalCommit = this.seed(this.lead, this.archive.canonicalCommit!);
+    if (!this.input.signal.aborted && !this.primaryLed) this.archive.canonicalCommit = this.seed(this.lead, this.archive.canonicalCommit!);
     this.input.save();
   }
   async pulse(workerId?: string): Promise<void> {
@@ -261,6 +264,7 @@ export class CooperativeResearch {
   }
   /** Serialize input edits while allowing independent proof checks to continue. */
   private async readInputs(): Promise<ReadonlyMap<string, Promise<void>>> {
+    if (this.primaryLed) await this.input.exclusiveCheck(() => this.readHelpRequest());
     const cursors = this.archive.cursors ??= {};
     const file = path.join(path.dirname(this.lead.worktree), 'edits.jsonl');
     const edits = readDeliveryLines(file, cursors.edits ?? 0);
@@ -313,6 +317,32 @@ export class CooperativeResearch {
     }
     if (edits.lines.length) this.input.save();
     return new Map(this.deliveryChecks);
+  }
+  private async readHelpRequest() {
+    if (this.archive.review && this.archive.review.status !== 'changes_requested') return;
+    const notes = path.join(this.lead.worktree, 'RESEARCH.md');
+    if (!fs.existsSync(notes)) return;
+    const fingerprint = mathDigest(readMathText(notes, 64_000));
+    if (fingerprint === this.archive.helpRequestDigest) return;
+    this.archive.helpRequestDigest = fingerprint;
+    try {
+      const { requests } = block(this.lead.worktree, 'math-help');
+      if (requests === undefined) return;
+      if (!Array.isArray(requests) || requests.length > this.input.workers.length - 1 ||
+          requests.some(task => !task || !['lemma', 'research', 'sketch'].includes(task.kind) ||
+            task.ownerId === this.lead.id || task.statementReview)) throw new Error('math_help_invalid_requests');
+      const goals = this.input.state.problem.targets.map((target, index) => ({
+        id: `original_goal_${index + 1}`, kind: 'goal', objective: `Primary solver owns ${target.theoremName}.`,
+        theoremName: target.theoremName, proofPath: target.proofPath, status: 'paused',
+      }));
+      await this.acceptPlan(parseCooperationPlan(this.input.state.problem, { tasks: [...goals, ...requests] }));
+      this.input.emit('help_requested', { taskIds: requests.map(task => task.id) });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'math_help_invalid_requests';
+      if (reason.endsWith('_requires_one_block')) return;
+      this.archive.error = reason;
+      this.input.emit('help_request_rejected', { reason }); this.changed();
+    }
   }
   private async readWorkerDeliveries(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>, cursors: Record<string, number>) {
     let consumed = false;
@@ -379,12 +409,12 @@ export class CooperativeResearch {
     return [...found].map(id => nodes.get(id)!);
   }
   private async check(task: CooperativeTask, assignment: TaskAssignment, worktree: string, commit: string,
-    conditions?: readonly CooperativeTask[]) {
+    conditions?: readonly CooperativeTask[], checked?: TaskProof) {
     const tasks = this.archive.tasks.map(node => ({ ...node }));
     const dependencies = this.dependencies(task), taskDigest = digest(task);
     conditions ??= task.conditional ? dependencies.filter(node => node.task.kind === 'lemma' && node.status !== 'integrated').map(node => node.task) : [];
     const retainedGoals = dependencies.filter(node => node.task.kind === 'goal' && node.status === 'integrated').map(node => node.task.theoremName!);
-    const proof = await (this.input.modules.M2.checkTask ?? checkTaskProof)(this.input.state.problem, worktree, commit, task, assignment, retainedGoals,
+    const proof = checked ?? await (this.input.modules.M2.checkTask ?? checkTaskProof)(this.input.state.problem, worktree, commit, task, assignment, retainedGoals,
       this.input.access.get(this.lead.id)!.environment, this.input.signal, this.input.timeoutMs, conditions, this.input.state.environmentDigest);
     const declarationHash = proof.passed && proof.verification.targetCommit && hashMathFormalSourceDeclaration(
       committedSource(worktree, proof.verification.targetCommit, `${this.input.state.problem.projectRelative}/${task.proofPath}`), task.theoremName!);
@@ -481,18 +511,55 @@ export class CooperativeResearch {
     // Persisted receipts and receipts for different sources cannot authorize dependent dispatch.
     const pending = this.archive.tasks.filter(node => node.status === 'integrated');
     const checked = new Set<string>();
+    const batched = new Map<TaskRecord, TaskProof>();
+    const batchAttempted = new Set<TaskRecord>();
+    const request = (node: TaskRecord) => ({ task: node.task,
+      assignment: { taskId: node.task.id, taskDigest: digest(node.task), workerId: this.lead.id, seedCommit: canonical },
+      retainedGoals: this.dependencies(node.task).filter(item => item.task.kind === 'goal' && item.status === 'integrated')
+        .map(item => item.task.theoremName!) });
+    const projection = (node: TaskRecord) => canonicalMathJson([...projectTaskSources(this.input.state.problem,
+      this.lead.worktree, canonical, node.task, request(node).retainedGoals)]);
+    const progress = this.archive.recheck = { canonicalCommit: canonical, total: pending.length, completed: 0, taskId: undefined as string | undefined };
+    const finish = (node: TaskRecord) => {
+      checked.add(node.task.id); progress.completed++; progress.taskId = undefined;
+      this.input.emit('task_recheck_finished', { ...progress, taskId: node.task.id, passed: node.status === 'integrated' });
+      this.input.save();
+    };
     while (pending.length) {
       const index = pending.findIndex(node => node.task.dependsOn.every(id => this.node(id).status !== 'integrated' || checked.has(id)));
       if (index < 0) throw new Error('math_plan_dependency_cycle');
       const [node] = pending.splice(index, 1);
+      progress.taskId = node.task.id;
+      this.input.emit('task_recheck_started', { ...progress }); this.input.save();
       if (changedOnly && taskReferenceDependencies(node) && taskDependenciesReady(node.task, this.archive.tasks) && node.integratedCheck?.references &&
           proofReferencesUnchanged(this.input.state.problem, this.lead.worktree, canonical, node.integratedCheck.references, this.input.state.environmentDigest)) {
         this.input.emit('task_check_reused', { taskId: node.task.id, commit: node.integratedCheck.commit, canonicalCommit: canonical });
-        checked.add(node.task.id); continue;
+        finish(node); continue;
       }
       const assignment = { taskId: node.task.id, taskDigest: digest(node.task), workerId: this.lead.id, seedCommit: canonical };
       try {
-        const receipt = await this.check(node.task, assignment, this.lead.worktree, canonical, []);
+        if (!changedOnly && !batchAttempted.has(node) && (this.input.modules.M2.checkTask ?? checkTaskProof) === checkTaskProof) {
+          const source = projection(node);
+          const group = [node, ...pending.filter(item => {
+            if (batchAttempted.has(item)) return false;
+            try { return projection(item) === source; } catch { return false; }
+          })].slice(0, 32);
+          if (group.length > 1) {
+            group.forEach(item => batchAttempted.add(item));
+            this.input.emit('task_recheck_batch_started', { taskIds: group.map(item => item.task.id) });
+            try {
+              const proofs = await checkTaskProofs(this.input.state.problem, this.lead.worktree, canonical, group.map(request),
+                this.input.access.get(this.lead.id)!.environment, this.input.signal, this.input.timeoutMs, this.input.state.environmentDigest);
+              if (proofs.every(proof => proof.passed)) group.forEach((item, index) => batched.set(item, proofs[index]!));
+              else this.input.emit('task_recheck_batch_fallback', { taskIds: group.map(item => item.task.id) });
+            } catch (error) {
+              this.input.signal.throwIfAborted();
+              this.input.emit('task_recheck_batch_fallback', { taskIds: group.map(item => item.task.id),
+                reason: bounded(error instanceof Error ? error.message : String(error), 1000) });
+            }
+          }
+        }
+        const receipt = await this.check(node.task, assignment, this.lead.worktree, canonical, [], batched.get(node));
         if (['unavailable', 'blocked'].includes(receipt.verification.status)) throw new Error('math_verifier_unavailable');
         node.integratedCheck = receipt;
         if (!receipt.passed) { node.status = 'blocked'; node.feedback = solverProofFeedback(receipt); this.needsLead = true; }
@@ -503,7 +570,7 @@ export class CooperativeResearch {
         if (error instanceof Error && error.message === 'math_verifier_unavailable') throw error;
         node.status = 'blocked'; node.feedback = error instanceof Error ? error.message : 'math_task_recheck_failed'; this.needsLead = true;
       }
-      checked.add(node.task.id);
+      finish(node);
     }
   }
   private supersedeStatementReview(review: StatementReview) {
@@ -593,15 +660,15 @@ export class CooperativeResearch {
     }
     // A resumed review must inspect the fixed version again.
     if (this.archive.review) this.archive.review.status = 'pending';
-    if (this.archive.tasks.length && fs.existsSync(path.join(this.lead.worktree, 'RESEARCH.md'))) {
+    if (!this.primaryLed && this.archive.tasks.length && fs.existsSync(path.join(this.lead.worktree, 'RESEARCH.md'))) {
       try { await this.acceptPlan(); } catch (error) { this.archive.error = error instanceof Error ? error.message : 'math_plan_invalid'; this.needsLead = true; }
     }
     if (!solverSourceFeedback(this.input.state.problem, this.lead.worktree)) {
-      if (this.archive.canonicalCommit !== git(this.lead.worktree, ['rev-parse', 'HEAD']) &&
+      if (!this.primaryLed && this.archive.canonicalCommit !== git(this.lead.worktree, ['rev-parse', 'HEAD']) &&
           !git(this.lead.worktree, ['diff', 'HEAD', '--name-only', '--', ...this.input.state.problem.ownedFiles.map(file => path.join(this.input.state.problem.projectRelative, file))])) {
         this.seed(this.lead, this.archive.canonicalCommit!);
       }
-      this.archive.canonicalCommit = commitSolverSources(this.input.state.problem, this.lead.worktree);
+      if (!this.primaryLed) this.archive.canonicalCommit = commitSolverSources(this.input.state.problem, this.lead.worktree);
       await this.input.exclusiveCheck(() => this.recheckIntegrated(this.archive.canonicalCommit!));
     } else {
       for (const node of this.archive.tasks.filter(node => node.status === 'integrated')) {
@@ -618,6 +685,8 @@ export class CooperativeResearch {
   }
   private async acceptPlan(plan = readCooperationPlan(this.input.state.problem, this.lead.worktree), edit?: HumanEditRecord) {
     const { tasks, groups } = plan;
+    if (this.primaryLed && tasks.some(task => task.kind === 'goal' && task.status !== 'paused'))
+      throw new Error('math_help_original_goals_owned_by_primary');
     for (const task of tasks) if (task.ownerId) {
       const owner = this.input.workers.find(worker => worker.id === task.ownerId);
       if (!owner || (task.kind === 'goal' ? !['engineer', 'researcher'].includes(owner.role) : owner.role !== 'researcher'))
@@ -768,6 +837,20 @@ export class CooperativeResearch {
       // Publish complete fixed snapshots before assigning work against a newly changed plan.
       if (this.preparingStatements) { await this.preparingStatements.catch(() => {}); continue; }
       if (worker.id === this.lead.id) {
+        if (this.primaryLed) {
+          const review = this.archive.review;
+          if (review && ['pending', 'running'].includes(review.status)) {
+            if (!this.livePeers.length || (review.status === 'pending' &&
+                ((this.input.state.turns >= budget.maxTurns && !this.reservedTurns.size) || budget.remainingMs <= 0))) return;
+            await this.wait(); continue;
+          }
+          if (this.reviewed() && this.lastAssembly !== review!.commit) {
+            this.lastAssembly = review!.commit;
+            return { kind: 'assemble', seedCommit: review!.commit };
+          }
+          if (this.input.state.turns >= budget.maxTurns || budget.remainingMs <= 0) return;
+          return { kind: 'solve', seedCommit: git(worker.worktree, ['rev-parse', 'HEAD']) };
+        }
         const head = this.archive.canonicalCommit!;
         const goals = this.archive.tasks.filter(node => node.task.kind === 'goal');
         if (((goals.length && goals.every(node => node.status === 'integrated')) || this.reviewed()) && this.lastAssembly !== head) {
@@ -883,12 +966,24 @@ export class CooperativeResearch {
     }
     return commitSolverSources(this.input.state.problem, worker.worktree);
   }
-  reviewed() {
+  reviewed(check?: ProofCheck) {
     return this.archive.review?.status === 'accepted' && this.archive.review.commit === this.archive.canonicalCommit &&
+      (!check || (check.commit === this.archive.review.commit && check.sourceDigest === this.archive.review.sourceDigest)) &&
       this.archive.tasks.filter(node => node.task.statementReview).every(node => this.archive.statementReviews?.some(review =>
         review.taskId === node.task.id && review.taskDigest === digest(node.task) && review.status === 'accepted'));
   }
   requireReview(check: ProofCheck) {
+    if (this.primaryLed) {
+      this.archive.canonicalCommit = check.commit;
+      for (const node of this.archive.tasks) {
+        node.task = { ...node.task, status: 'paused' };
+        if (node.status === 'running') node.status = 'pending';
+      }
+      this.archive.planVersion = this.planVersion();
+      for (const active of this.active.values()) if (active.action.kind === 'task' && !active.cancelled) {
+        active.cancelled = true; void active.interrupt().catch(() => {});
+      }
+    }
     if (this.archive.review?.commit !== check.commit) {
       this.archive.review = { commit: check.commit, sourceDigest: check.sourceDigest, status: 'pending' };
       this.input.emit('review_requested', { commit: check.commit });
@@ -960,6 +1055,7 @@ export class CooperativeResearch {
   }
   async deliver(worker: ResearchWorker, action: CooperativeAction, commit: string, recovering = false): Promise<{ check?: ProofCheck; checkWhole: boolean }> {
     if (isStatementAction(action)) return this.deliverStatement(worker, action);
+    if (action.kind === 'solve') return { checkWhole: true };
     if (action.kind === 'review') {
       const review = this.archive.review;
       if (!review || review.commit !== action.seedCommit || review.workerId !== worker.id || review.status !== 'running') {

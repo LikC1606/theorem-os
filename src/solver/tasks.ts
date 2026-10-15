@@ -16,7 +16,7 @@ export type TaskAssignment = { taskId: string; taskDigest: string; workerId: str
   dependencies?: DeliveryRecord['dependencies'] };
 export type TaskRecord = { task: CooperativeTask; status: 'pending' | 'running' | 'blocked' | 'conditional' | 'delivered' | 'integrated' | 'completed';
   attempts: number; assignment?: TaskAssignment; proof?: TaskProof; integratedCheck?: TaskProof; feedback?: string; finding?: string };
-export type CooperativeAction = { kind: 'lead' | 'assemble'; seedCommit: string; planVersion?: string } |
+export type CooperativeAction = { kind: 'lead' | 'assemble' | 'solve'; seedCommit: string; planVersion?: string } |
   { kind: 'review'; seedCommit: string; sourceDigest: string } | { kind: 'task'; assignment: TaskAssignment; task: CooperativeTask } | StatementAction;
 
 export const taskVersion = (task: CooperativeTask) => {

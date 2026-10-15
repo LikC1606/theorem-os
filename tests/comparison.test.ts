@@ -96,6 +96,15 @@ describe('configured research comparisons', () => {
     expect(solverMethodDigest(configuredSolverModules('direct', 'goals-first'), 'cooperative')).not.toBe(previous);
   });
 
+  it('binds primary-led assistance to distinct context and assignment versions', () => {
+    const modules = configuredSolverModules('direct', 'primary-led');
+    expect(modules.M5.primaryLed).toBe(true);
+    for (const module of ['M1', 'M2', 'M3']) expect(modules[module]).toBe(directSolverModules[module]);
+    expect(modules.M4.version).not.toBe(directSolverModules.M4.version);
+    expect(modules.M5.version).not.toBe(directSolverModules.M5.version);
+    expect(solverMethodDigest(modules, 'cooperative')).not.toBe(solverMethodDigest(directSolverModules, 'cooperative'));
+  });
+
   it('rotates arm order and includes missing runs in the planned denominator', () => {
     expect(comparisonOrder(3).map(row => row.arm)).toEqual([
       'single', 'independent', 'cooperative', 'independent', 'cooperative', 'single', 'cooperative', 'single', 'independent']);

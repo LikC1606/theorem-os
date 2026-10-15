@@ -101,6 +101,7 @@ export const runMathProcess = (
     env?: NodeJS.ProcessEnv;
     stdin?: string;
     outputCapture?: 'head' | 'tail';
+    outputLimit?: number;
     stopGraceMs?: number;
     onDuplexSpawn?: (child: ChildProcess) => void;
     inheritedFds?: readonly number[];
@@ -114,14 +115,15 @@ export const runMathProcess = (
     let stdout: Buffer = Buffer.alloc(0), stderr: Buffer = Buffer.alloc(0);
     const capture = (current: Buffer, chunk: Buffer | string): Buffer => {
       const bytes = typeof chunk === 'string' ? Buffer.from(chunk) : chunk;
-      if (options.outputCapture === 'head') return current.length >= MATH_PROCESS_OUTPUT_LIMIT ? current :
-        Buffer.concat([current, bytes.subarray(0, MATH_PROCESS_OUTPUT_LIMIT - current.length)]);
-      return Buffer.from(Buffer.concat([current, bytes]).subarray(-MATH_PROCESS_OUTPUT_LIMIT));
+      const limit = options.outputLimit ?? MATH_PROCESS_OUTPUT_LIMIT;
+      if (options.outputCapture === 'head') return current.length >= limit ? current :
+        Buffer.concat([current, bytes.subarray(0, limit - current.length)]);
+      return Buffer.from(Buffer.concat([current, bytes]).subarray(-limit));
     };
     const decode = (bytes: Buffer): string => {
       let start = 0;
       if (options.outputCapture !== 'head') while (start < bytes.length && (bytes[start] & 0xc0) === 0x80) start++;
-      return limitMathOutput(new StringDecoder('utf8').write(bytes.subarray(start)), MATH_PROCESS_OUTPUT_LIMIT, options.outputCapture);
+      return limitMathOutput(new StringDecoder('utf8').write(bytes.subarray(start)), options.outputLimit ?? MATH_PROCESS_OUTPUT_LIMIT, options.outputCapture);
     };
     const stdoutHash = crypto.createHash('sha256');
     const stderrHash = crypto.createHash('sha256');

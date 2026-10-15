@@ -41,15 +41,23 @@ export async function checkProofEvidence(request: MathematicsVerifierBatchReques
 export function checkProjectedDeclaration(problem: SolverProblem, checkout: string, sourceWorktree: string, commit: string,
   target: { proofPath: string; theoremName: string; digest: string; missingError: string },
   options: MathematicsVerifierExecutionOptions & { timeoutMs: number }) {
+  return checkProjectedDeclarations(problem, checkout, sourceWorktree, commit, [target], options);
+}
+
+export function checkProjectedDeclarations(problem: SolverProblem, checkout: string, sourceWorktree: string, commit: string,
+  targets: readonly { proofPath: string; theoremName: string; digest: string; missingError: string }[],
+  options: MathematicsVerifierExecutionOptions & { timeoutMs: number }) {
   const projectRoot = path.join(checkout, problem.projectRelative);
-  const declarationHash = hashMathFormalSourceDeclaration(fs.readFileSync(path.join(projectRoot, target.proofPath), 'utf8'), target.theoremName);
-  if (!declarationHash) throw new Error(target.missingError);
+  const items = targets.map(target => {
+    const declarationHash = hashMathFormalSourceDeclaration(fs.readFileSync(path.join(projectRoot, target.proofPath), 'utf8'), target.theoremName);
+    if (!declarationHash) throw new Error(target.missingError);
+    return { proofPath: target.proofPath, theoremName: target.theoremName, expectedSourceDeclarationHash: declarationHash,
+      statementHash: target.digest, leanStatementHash: target.digest, claim: 'statement' as const };
+  });
   const packages = path.join(sourceWorktree, problem.projectRelative, '.lake', 'packages');
   if (fs.existsSync(packages)) bindLeanPackages(projectRoot, packages);
   const { timeoutMs, ...execution } = options;
-  return checkProofEvidence({ projectRoot, targetCommit: commit, timeoutMs,
-    items: [{ proofPath: target.proofPath, theoremName: target.theoremName, expectedSourceDeclarationHash: declarationHash,
-      statementHash: target.digest, leanStatementHash: target.digest, claim: 'statement' }] }, execution);
+  return checkProofEvidence({ projectRoot, targetCommit: commit, timeoutMs, items }, execution);
 }
 
 /** M2: exact-source Lean evidence. Reused rejections must come from this process and pinned environment. */

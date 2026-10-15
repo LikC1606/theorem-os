@@ -25,7 +25,7 @@ export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M3' | 'M5'>
   M3: typeof directSolverModules.M3 & {
     estimate?: (state: Readonly<SolverRunState>, options: readonly ResearchOperation[]) => readonly ValueEstimate[];
   };
-  M5: typeof directSolverModules.M5 & { organize?: typeof organizeResearch };
+  M5: typeof directSolverModules.M5 & { organize?: typeof organizeResearch; primaryLed?: boolean };
 };
 
 export const lemmaSolverModules: SolverModules = {
@@ -37,8 +37,11 @@ export const lemmaSolverModules: SolverModules = {
 /** Named CLI policies bind search and assignment versions without changing host acceptance. */
 export function configuredSolverModules(method: string, scheduler: string): SolverModules {
   if (!['direct', 'lemma'].includes(method)) throw new Error('invalid --method');
-  if (!['plan', 'goals-first', 'critical-path'].includes(scheduler)) throw new Error('invalid --scheduler');
+  if (!['plan', 'goals-first', 'critical-path', 'primary-led'].includes(scheduler)) throw new Error('invalid --scheduler');
   const base = method === 'lemma' ? lemmaSolverModules : directSolverModules;
+  if (scheduler === 'primary-led') return { ...base,
+    M4: { ...base.M4, version: `${base.M4.version}/primary-led-v1` },
+    M5: { ...base.M5, version: `${base.M5.version}/primary-led-v1`, primaryLed: true, assign: assignSharedResearchTask } };
   if (scheduler === 'critical-path') return { ...base,
     M3: { ...base.M3, version: `${base.M3.version}/critical-path-v1`, ready: criticalPathResearchTasks },
     M5: { ...base.M5, version: `${base.M5.version}/shared-work-v1`, assign: assignSharedResearchTask } };

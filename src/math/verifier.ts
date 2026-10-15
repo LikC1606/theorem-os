@@ -69,6 +69,7 @@ export type MathematicsVerifierExecutionOptions = {
   constructionSourcesOnly?: boolean;
   /** Exact closed type checked outside the source section, inline or after a module import. */
   expectedDeclarationType?: string;
+  expectedDeclarationTypes?: Readonly<Record<string, string>>;
   forbiddenImportModules?: readonly string[];
   /** Report which selected declarations occur in the compiled proof dependency closure. */
   dependencyCandidates?: readonly string[];
@@ -1417,6 +1418,7 @@ const runLeanSandboxed = async (input: {
   /** Sandbox path of a linked .lake/packages target; supported only by bwrap. */
   lakePackagesMountPath?: string;
   outputCapture?: 'head' | 'tail';
+  outputLimit?: number;
   onDuplexSpawn?: (child: ChildProcess) => void;
   sandboxCapability?: ReturnType<typeof inspectMathematicsSandboxBackends>;
 }): Promise<ProcessResult> => {
@@ -1671,7 +1673,7 @@ exec /runtime/pinned-lean/bin/lean "$@" -j1
         return runLeanProcess(backend.executable, args, {
           cwd: path.join(input.checkoutRoot, input.projectRelative), timeoutMs: input.timeoutMs,
           signal: input.signal, env: { ...sandboxEnv, DEEPSCIENTIST_MATH_LEAN_LOCK: input.env?.DEEPSCIENTIST_MATH_LEAN_LOCK }, stdin: input.stdin,
-          outputCapture: input.outputCapture, onDuplexSpawn: input.onDuplexSpawn,
+          outputCapture: input.outputCapture, outputLimit: input.outputLimit, onDuplexSpawn: input.onDuplexSpawn,
           ...(backend.kind === 'bwrap' && sealedRootFd !== undefined ? { inheritedFds: [sealedRootFd] } : {}),
         });
       };
@@ -2055,6 +2057,7 @@ const prepareLeanDeclarationQuery = async (
   options?: Readonly<{
     moduleName?: string;
     expectedDeclarationType?: string;
+    expectedDeclarationTypes?: Readonly<Record<string, string>>;
     forbiddenImportModules?: readonly string[];
     dependencyCandidates?: readonly string[];
     referenceModules?: readonly { module: string; file: string }[];
@@ -2089,6 +2092,10 @@ const prepareLeanDeclarationQuery = async (
     )
     .join('\n');
   const expectedType = options?.expectedDeclarationType;
+  const expectedTypes = theoremNames.flatMap(name => {
+    const type = options?.expectedDeclarationTypes?.[name] ?? expectedType;
+    return type === undefined ? [] : [{ name, type, context: leanDeclarationContextCommands(file.source, name) }];
+  });
   const dependencyCandidates = options?.dependencyCandidates;
   if (
     dependencyCandidates &&
@@ -2101,9 +2108,8 @@ const prepareLeanDeclarationQuery = async (
     theoremNames.map((name) => [name, `DS_PROOF_DEPENDENCIES_${crypto.randomBytes(16).toString('hex')}:`])
   );
   const referenceMarkers = new Map(theoremNames.map(name => [name, `DS_DECL_REFERENCES_${crypto.randomBytes(16).toString('hex')}:`]));
-  if (expectedType && (expectedType.length > 12_000 || theoremNames.length !== 1))
+  if ((expectedType && theoremNames.length !== 1) || expectedTypes.some(item => !item.type || item.type.length > 12_000))
     throw new Error('Helper expected type requires one bounded declaration.');
-  const typeContext = expectedType ? leanDeclarationContextCommands(file.source, theoremNames[0]) : undefined;
   const externalChecks = options
     ? [
         'import Lean.Elab.BuiltinCommand\nimport Lean.Elab.SyntheticMVars',
@@ -2116,23 +2122,21 @@ const prepareLeanDeclarationQuery = async (
               '    if forbidden.contains moduleName.toString then throwError "Forbidden helper dependency: {moduleName}"',
             ]
           : []),
-        ...(expectedType
-          ? [
-              ...typeContext!.before,
+        ...expectedTypes.flatMap(({ name, type, context }) => [
+              ...context.before,
               'run_cmd Lean.Elab.Command.liftTermElabM do',
-              `  let parsedType <- match Lean.Parser.runParserCategory (<- Lean.getEnv) (Lean.Name.mkSimple "term") ${JSON.stringify(expectedType)} with`,
+              `  let parsedType <- match Lean.Parser.runParserCategory (<- Lean.getEnv) (Lean.Name.mkSimple "term") ${JSON.stringify(type)} with`,
               '    | .ok stx => pure stx',
               '    | .error message => throwError "{message}"',
               '  let expected <- Lean.Elab.Term.elabType parsedType',
               '  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing',
               '  let expected <- Lean.instantiateMVars expected',
               '  if expected.hasMVar || expected.hasFVar then throwError "Helper expected type must be closed without metavariables"',
-              `  let declaration <- Lean.Meta.mkConstWithFreshMVarLevels (${JSON.stringify(theoremNames[0])}.toName)`,
+              `  let declaration <- Lean.Meta.mkConstWithFreshMVarLevels (${JSON.stringify(name)}.toName)`,
               '  let actual <- Lean.Meta.inferType declaration',
               '  unless (<- Lean.Meta.isDefEq actual expected) do throwError "Helper declaration has a different type or additional assumptions"',
-              ...typeContext!.after,
-            ]
-          : []),
+              ...context.after,
+            ]),
         ...(dependencyCandidates
           ? theoremNames.flatMap((theoremName) => [
               'run_cmd do',
@@ -2417,7 +2421,7 @@ async function verifyFormalFile(file: PreparedFile, context: FormalFileVerificat
   const localModules = (options.prepareLocalDependencies || options.collectDeclarationReferences) && lakeFile
     ? mathLocalModuleBuildOrder(verificationProjectRoot, file.relativeProofPath) : undefined;
   const helperModule =
-    localModules && (options.expectedDeclarationType || options.forbiddenImportModules || options.dependencyCandidates || options.collectDeclarationReferences)
+    localModules && (options.expectedDeclarationType || options.expectedDeclarationTypes || options.forbiddenImportModules || options.dependencyCandidates || options.collectDeclarationReferences)
       ? localModules!.at(-1)!.module
       : undefined;
   if (helperModule && !/^[A-Za-z_][A-Za-z0-9_']*(?:\.[A-Za-z_][A-Za-z0-9_']*)*$/u.test(helperModule))
@@ -2428,10 +2432,11 @@ async function verifyFormalFile(file: PreparedFile, context: FormalFileVerificat
     verificationProjectRoot,
     file,
     verifiableItems,
-    helperModule || options.expectedDeclarationType || options.collectDeclarationReferences
+    helperModule || options.expectedDeclarationType || options.expectedDeclarationTypes || options.collectDeclarationReferences
       ? {
           moduleName: helperModule,
           expectedDeclarationType: options.expectedDeclarationType,
+          expectedDeclarationTypes: options.expectedDeclarationTypes,
           forbiddenImportModules: options.forbiddenImportModules,
           dependencyCandidates: options.dependencyCandidates,
           referenceModules: options.collectDeclarationReferences
@@ -2467,6 +2472,7 @@ async function verifyFormalFile(file: PreparedFile, context: FormalFileVerificat
         sandboxCapability: context.sandboxCapability,
         signal: options.signal,
         timeoutMs: Math.min(requestedTimeoutMs, availableMs),
+        outputLimit: MATH_PROCESS_OUTPUT_LIMIT * Math.min(64, verifiableItems.length),
         lakePackagesPath,
       });
     }, options.signal);
@@ -3246,6 +3252,7 @@ async function buildFormalVerificationCacheKey(
         verifierCommandPath: options.verifierCommandPath || null,
         prepareLocalDependencies: options.prepareLocalDependencies ?? false,
         expectedDeclarationType: options.expectedDeclarationType ?? null,
+        expectedDeclarationTypes: options.expectedDeclarationTypes ?? null,
         forbiddenImportModules: options.forbiddenImportModules ?? [],
         dependencyCandidates: options.dependencyCandidates ?? null,
         collectDeclarationReferences: options.collectDeclarationReferences ?? false,

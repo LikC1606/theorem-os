@@ -190,7 +190,7 @@ export async function runResearchWorkers(input: {
           reused: research.check === lastCheck, durationMs: Date.now() - checkStarted });
         lastCheck = research.check; save();
         if (research.check.passed) {
-          if (cooperation && !cooperation.reviewed()) { cooperation.requireReview(research.check); return; }
+          if (cooperation && !cooperation.reviewed(research.check)) { cooperation.requireReview(research.check); return; }
           state.check = research.check; state.candidate = candidate;
           if (parallel) state.winningWorker = worker.id;
           winner = { worktree: worker.worktree, check: research.check };

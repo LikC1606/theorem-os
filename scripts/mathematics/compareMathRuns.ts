@@ -113,7 +113,7 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
   if (flags.has('help')) {
     console.log('Usage: deepscientist-math compare --phase prepare|run|report --directory DIR\n'
       + 'prepare also requires --repo PINNED_IMO_REPO --problem ID --task-file FILE --build-manifest FILE\n'
-      + 'Optional: --repetitions 1 --workers 4 --model gpt-6.1-sol --effort xhigh --method direct --scheduler plan|goals-first|critical-path\n'
+      + 'Optional: --repetitions 1 --workers 4 --model gpt-6.1-sol --effort xhigh --method direct --scheduler plan|goals-first|critical-path|primary-led\n'
       + '          --max-turns 200 --max-run-seconds 1800 --max-turn-seconds 180\n'
       + '          --proof-environment-cache-dir HOST_PRIVATE_DIR\n'
       + 'prepare never invokes a model. run executes all three arms sequentially. Each arm uses a wall-time limit;\n'
@@ -133,7 +133,7 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
     const repetitions = number('repetitions', 1), workers = number('workers', 4);
     if (workers < 2 || workers > 4) throw new Error('--workers must be 2, 3 or 4');
     const method = flags.get('method') ?? 'direct', scheduler = flags.get('scheduler') ?? 'plan';
-    if (!['direct', 'lemma'].includes(method) || !['plan', 'goals-first', 'critical-path'].includes(scheduler)) throw new Error('invalid method or scheduler');
+    if (!['direct', 'lemma'].includes(method) || !['plan', 'goals-first', 'critical-path', 'primary-led'].includes(scheduler)) throw new Error('invalid method or scheduler');
     const configuration = { model: flags.get('model') ?? 'gpt-6.1-sol', effort: flags.get('effort') ?? 'xhigh', method, scheduler,
       workers, maxTurns: number('max-turns', 200), maxRunSeconds: number('max-run-seconds', 1800), maxTurnSeconds: number('max-turn-seconds', 180) };
     const repositoryRoot = fs.realpathSync(required(flags, 'repo'));

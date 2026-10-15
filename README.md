@@ -1,24 +1,44 @@
 # DeepScientist Math
 
-**让多个数学研究 Agent 协作，构造可由 Lean 内核验证的证明。**
+**可替换研究组件的数学 Agent 运行时，用 Lean 验证研究结果。**
 
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Bun](https://img.shields.io/badge/Bun-%E2%89%A5%201.2-black?logo=bun)](https://bun.sh/)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2022-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 
-DeepScientist Math 是面向数学研究与形式化证明实验的独立 CLI。Lead 拆解问题，Researcher 探索引理与路线，Lean Engineer 编写和修复证明；宿主检查固定版本的成果，逐项集成，最终独立验收原题。
+DeepScientist Math 将数学研究方法拆成五个带版本的组件：证明构造、检查反馈、搜索决策、上下文选择、协作复用。开发者可以替换其中一个组件，或组合出新的研究方法，在同一题目、环境和最终验收条件下验证它。
+
+组件决定研究方法，Agent 执行任务。单智能体、独立并行和协作求解共用这套运行时；候选证明、失败反馈与检查回执保存为可恢复的研究档案，最终结果由独立的 Lean 检查和评测确认。
 
 项目使用 TypeScript 与 Bun，通过 Codex 的 stdio 接口执行 Agent 会话。默认模型为 `gpt-6.1-sol`，推理强度为 `xhigh`，可通过参数调整。当前运行环境为 Linux，题目适配器支持 [Humanfia IMO2026](https://github.com/humanfia/imo2026) 与 [Lean-Eval](https://github.com/leanprover/lean-eval)。
 
-[快速开始](#快速开始) · [协作方式](#协作方式) · [验证与结果](#验证与结果) · [配置与命令](#配置与命令) · [架构与开发](#架构与开发)
+[组件模型](#组件模型) · [替换一个组件](examples/components/README.md) · [快速开始](#快速开始) · [验证与结果](#验证与结果) · [架构与开发](#架构与开发)
 
 ## 核心能力
 
+- **组件组合**：通过 TypeScript 接口替换 M1–M5，保存组件版本，并在固定题目与验收合同下比较研究方法。
 - **协作求解**：按任务依赖分配工作，各 Agent 使用独立会话和 Git worktree；成果随完成随检查、集成和通知。
 - **Lean 反馈驱动修复**：支持直接证明与辅助引理方法，保留局部检查、失败原因和待证义务。
 - **固定版本验收**：证明证据绑定题目、声明、源码提交和环境；集成后重新检查全部原题目标。
 - **持续研究**：保存任务图、证明版本、会话和累计用量，支持断点恢复、路线调整与共享预算。
-- **方法实验**：M1–M5 模块可替换，研究策略与最终评测分离，便于比较不同构造、搜索和协作方法。
+
+## 组件模型
+
+组件是可组合的研究接口，Lead、Researcher、Engineer 和 Reviewer 是执行这些方法时的职责。一个组件可以服务多个 Agent，同一个 Agent 也会使用多个组件。
+
+| 组件 | 负责的问题 | 替换入口 |
+| --- | --- | --- |
+| M1 证明构造 | 如何执行模型会话并产生候选？ | `open`、`execute` |
+| M2 检查与反馈 | 如何检查候选和辅助义务，返回什么证据？ | `check`、`checkTask`、可选 `checkLemma` |
+| M3 搜索决策 | 下一步做什么、先处理哪个任务、何时重试或停止？ | `select`、`ready`、`retry` |
+| M4 上下文选择 | 当前任务应该看到哪些题目、成果和失败反馈？ | `build`、`statement` |
+| M5 协作与复用 | 谁执行任务、谁审阅、如何分配隔离工作区？ | `workers`、`assign`、`reviewer` |
+
+[SolverModules](src/solver/modules/index.ts) 定义组件合同与默认组合。S1 保存任务与成果档案；S3 固定题目、环境和最终验收。替换研究组件后，宿主仍独立检查源码边界、总预算和完整证明。S2 跨任务学习尚未实现。
+
+**从一次组件替换开始：**[M3 搜索组件示例](examples/components/README.md) 展示如何保留 M1、M2、M4、M5，只替换就绪任务排序，给出完整可运行入口与恢复要求。内置的 `--scheduler goals-first` 是同一策略的命令行入口；组件接口也允许实现自己的策略。
+
+当前版本面向研究原型与源码级扩展，接口仍可能调整。多智能体协作是其中一种组件组合；本项目不承诺相对单智能体的速度或正确率提升。
 
 ## 快速开始
 
@@ -97,7 +117,7 @@ bun run math run \
   --output "$MATH_RUN_ROOT/result.json"
 ```
 
-默认启用四个 Agent，解题预算为 30 分钟、合计 20 轮。运行向标准输出发送 JSON 进度事件，并将结果写入 `result.json`。
+默认启用四个 Agent，解题预算为 30 分钟、合计 200 次模型调度。运行向标准输出发送 JSON 进度事件，并将结果写入 `result.json`。
 
 首次配置环境时，可在上述命令末尾加 `--startup-only`，只检查准备条件，不调用模型。预检会创建运行状态；之后使用相同参数加 `--resume` 开始求解。
 
@@ -225,10 +245,10 @@ Lead 计入 `--workers` 的总人数。默认配置中，Engineer 持续负责�
 | `--workers` | `4` | Agent 总数，支持 1–4 |
 | `--method` | `direct` | `direct` 或 `lemma` |
 | `--coordination` | `cooperative` | 协作，或 `independent` 独立并行尝试 |
-| `--scheduler` | `plan` | 按计划顺序调度；`goals-first` 优先已就绪原题目标；`critical-path` 按未完成目标的依赖链排序并共享证明任务 |
+| `--scheduler` | `plan` | 按计划顺序调度；`goals-first` 优先已就绪原题目标；`critical-path` 按依赖链排序并共享任务；`primary-led` 由主智能体直接解题、按需请求协助 |
 | `--prepare-timeout-seconds` | `1800` | 环境准备与依赖预编译预算 |
 | `--max-run-seconds` | `1800` | 准备完成后的共享解题时间预算 |
-| `--max-turns` | `20` | 所有 Agent 合计轮次 |
+| `--max-turns` | `200` | 所有 Agent 合计模型调度次数 |
 | `--max-turn-seconds` | `180` | 单轮时间限制；停止写入后检查已保存源码 |
 | `--evaluator-timeout-seconds` | `1800` | 最终评测超时 |
 
@@ -285,7 +305,7 @@ bun run math check-lean \
 
 ## 架构与开发
 
-研究逻辑由 M1–M5 模块组成；S1 保存档案，S3 固定环境与最终评测。入口在 [run.ts](src/solver/run.ts)，Agent 执行循环在 [research.ts](src/solver/research.ts)，异步协作与集成在 [cooperation.ts](src/solver/cooperation.ts)。
+研究组件的职责见[组件模型](#组件模型)，扩展示例见[替换一个组件](examples/components/README.md)。入口在 [run.ts](src/solver/run.ts)，Agent 执行循环在 [research.ts](src/solver/research.ts)，异步协作与集成在 [cooperation.ts](src/solver/cooperation.ts)。
 
 | 模块 | 职责 | 实现 |
 | --- | --- | --- |
@@ -300,6 +320,8 @@ bun run math check-lean \
 [index.ts](src/solver/modules/index.ts) 绑定默认模块与版本；`runSolver(args, root, modules)` 支持替换模块，模块版本参与恢复身份。宿主固定执行源码边界检查、总预算限制和最终验收。当前 M3 采用规则与依赖调度，S2 跨任务学习尚未实现。
 
 命令行可用 `--scheduler goals-first` 单独替换 M3 的就绪任务排序；`--scheduler critical-path` 同时替换 M3 排序和 M5 分配，按通往未完成原题目标的最长依赖链排序，同长度时优先覆盖更多目标的任务，由 Researcher 和 Engineer 共同领取。显式负责人、路线限制和恢复归属仍然生效；链长只作启发式排序，不预测证明耗时。模块版本写入状态，恢复时校验。这些策略尚无性能提升结论。[三组对照实验](examples/imo2026/COMPARISON.md) 提供固定题目、模型和总预算的准备、运行与汇总步骤，保留失败、缺失记录和用量缺口。
+
+`--scheduler primary-led --coordination cooperative` 让主智能体从第一轮直接证明整题，其他智能体等待具体协助请求。主智能体可在 `RESEARCH.md` 的 JSON `requests` 数组中请求独立引理或只读研究；辅助成果在隔离工作区验收，主智能体选择采用并保留自己的证明进展。无需预先拆分所有原题目标，完整证明仍须通过宿主 Lean 检查和固定版本独立终审。单智能体或 `independent` 模式继续直接解题。该策略尚无真实模型性能结论。
 
 辅助引理方法在 [lemma.ts](src/solver/lemma.ts)；Codex stdio 协议适配在 [codexSession.ts](src/runtime/codexSession.ts)。
 
@@ -350,6 +372,8 @@ agent 的常用协议只有两步：读取任务，写出成果。需要结构�
 ### 参与开发
 
 欢迎提交问题复现、Lean 适配器改进、搜索与协作策略，以及检查与恢复边界的测试。报告问题时，请附上命令、依赖版本、结果状态和相关诊断，并移除认证信息。
+
+首个预览版的范围与限制见 [v0.1.0 发布说明](docs/releases/v0.1.0.md)。
 
 ```bash
 bun run test

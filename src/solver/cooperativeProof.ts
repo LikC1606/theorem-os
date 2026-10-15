@@ -4,7 +4,7 @@ import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import { maskLeanComments, maskLeanCommentsAndStrings } from '../math/leanSyntax';
 import { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions, leanDeclarationContextCommands } from '../math/leanSource';
 import { assertSolverSources, committedSource, commitSolverProjection, solverMathlibImports, withSolverWorktree, type SolverProblem } from './problem';
-import { checkProjectedDeclaration, type ProofCheck } from './modules/evidence';
+import { checkProjectedDeclarations, type ProofCheck } from './modules/evidence';
 import { taskVersion, type CooperativeTask, type TaskAssignment } from './tasks';
 import { captureProofReferences, type ProofReferences } from './proofReferences';
 
@@ -12,6 +12,8 @@ export type DeclarationChange = { file: string; name: string; before?: string; a
 export type TaskProof = ProofCheck & { taskDigest: string; seedCommit: string; changes: DeclarationChange[];
   imports?: { file: string; module: string }[];
   conditions?: NonNullable<TaskAssignment['dependencies']>; references?: ProofReferences };
+export type TaskProofRequest = { task: CooperativeTask; assignment: TaskAssignment; retainedGoals: readonly string[];
+  conditions?: readonly CooperativeTask[] };
 const local = (name: string) => name.split('.').at(-1)!;
 
 export { committedSource } from './problem';
@@ -150,35 +152,56 @@ export async function checkTaskProof(problem: SolverProblem, worktree: string, s
   task: CooperativeTask, assignment: TaskAssignment, retainedGoals: readonly string[], env: NodeJS.ProcessEnv,
   signal: AbortSignal, timeoutMs = 180_000, conditions: readonly CooperativeTask[] = [],
   environmentDigest = mathDigest(canonicalMathJson(env))): Promise<TaskProof> {
+  return (await checkTaskProofs(problem, worktree, sourceCommit, [{ task, assignment, retainedGoals, conditions }],
+    env, signal, timeoutMs, environmentDigest))[0]!;
+}
+
+/** Identical source projections share a kernel run, with a separate receipt for every target. */
+export async function checkTaskProofs(problem: SolverProblem, worktree: string, sourceCommit: string,
+  requests: readonly TaskProofRequest[], env: NodeJS.ProcessEnv, signal: AbortSignal, timeoutMs = 180_000,
+  environmentDigest = mathDigest(canonicalMathJson(env))): Promise<TaskProof[]> {
   signal.throwIfAborted();
-  if (conditions.some(dependency => !task.conditional || dependency.kind !== 'lemma' || !dependency.type ||
-      !assignment.dependencies?.some(version => version.taskId === dependency.id && version.taskDigest === taskVersion(dependency))))
-    throw new Error('math_task_condition_version_invalid');
-  const binders = conditions.map(dependency => `(${local(dependency.theoremName!)} : ${dependency.type})`).join(' ');
+  if (!requests.length) return [];
   return withSolverWorktree(worktree, sourceCommit, async checkout => {
     assertSolverSources(problem, checkout);
-    const changes = taskChanges(problem, checkout, sourceCommit, task, assignment);
-    const imports = problem.ownedFiles.filter(file => file.endsWith('.lean')).flatMap(file => {
-      const before = solverMathlibImports(committedSource(worktree, assignment.seedCommit, `${problem.projectRelative}/${file}`));
-      return solverMathlibImports(committedSource(worktree, sourceCommit, `${problem.projectRelative}/${file}`))
-        .filter(module => !before.includes(module)).map(module => ({ file, module }));
+    const prepared = requests.map(({ task, assignment, retainedGoals, conditions = [] }) => {
+      if (conditions.some(dependency => !task.conditional || dependency.kind !== 'lemma' || !dependency.type ||
+          !assignment.dependencies?.some(version => version.taskId === dependency.id && version.taskDigest === taskVersion(dependency))))
+        throw new Error('math_task_condition_version_invalid');
+      const binders = conditions.map(dependency => `(${local(dependency.theoremName!)} : ${dependency.type})`).join(' ');
+      const imports = problem.ownedFiles.filter(file => file.endsWith('.lean')).flatMap(file => {
+        const before = solverMathlibImports(committedSource(worktree, assignment.seedCommit, `${problem.projectRelative}/${file}`));
+        return solverMathlibImports(committedSource(worktree, sourceCommit, `${problem.projectRelative}/${file}`))
+          .filter(module => !before.includes(module)).map(module => ({ file, module }));
+      });
+      return { task, assignment, conditions, imports, changes: taskChanges(problem, checkout, sourceCommit, task, assignment),
+        taskDigest: taskVersion(task), sources: projectTaskSources(problem, checkout, sourceCommit, task, retainedGoals, conditions),
+        expectedType: task.kind === 'lemma' ? conditions.length ? `∀ ${binders}, ${task.type}` : task.type : undefined };
     });
+    const sources = prepared[0]!.sources;
+    if (prepared.some(item => canonicalMathJson([...item.sources]) !== canonicalMathJson([...sources])))
+      throw new Error('math_task_batch_projection_mismatch');
     const project = path.join(checkout, problem.projectRelative);
-    for (const [file, source] of projectTaskSources(problem, checkout, sourceCommit, task, retainedGoals, conditions))
-      fs.writeFileSync(path.join(project, file), source);
-    const commit = commitSolverProjection(problem, checkout, `Check cooperative task ${task.id}`);
-    const taskDigest = taskVersion(task);
-    const { passed, verification } = await checkProjectedDeclaration(problem, checkout, worktree, commit,
-      { proofPath: task.proofPath!, theoremName: task.theoremName!, digest: taskDigest, missingError: 'math_task_missing_declaration' },
+    for (const [file, source] of sources) fs.writeFileSync(path.join(project, file), source);
+    const commit = commitSolverProjection(problem, checkout, `Check cooperative tasks ${requests.map(item => item.task.id).join(', ')}`);
+    const { passed, verification } = await checkProjectedDeclarations(problem, checkout, worktree, commit,
+      prepared.map(({ task, taskDigest }) => ({ proofPath: task.proofPath!, theoremName: task.theoremName!, digest: taskDigest,
+        missingError: 'math_task_missing_declaration' })),
     { env, signal, timeoutMs, prepareLocalDependencies: problem.kind === 'lean-eval', collectDeclarationReferences: true,
-      ...(task.kind === 'lemma' ? { expectedDeclarationType: conditions.length ? `∀ ${binders}, ${task.type}` : task.type } : {}) });
-    const result = verification.results[0];
-    const references = passed && !conditions.length && result.declarationReferences ? captureProofReferences(problem, checkout, sourceCommit,
-      { name: task.theoremName!, file: task.proofPath! }, result.declarationReferences, environmentDigest) : undefined;
-    return { commit: sourceCommit, sourceDigest: ownedSourceDigest(problem, checkout, sourceCommit), passed, verification,
-      taskDigest, seedCommit: assignment.seedCommit, changes, ...(imports.length ? { imports } : {}),
-      ...(references ? { references } : {}),
-      ...(conditions.length ? { conditions: conditions.map(dependency => ({ taskId: dependency.id, taskDigest: taskVersion(dependency) })) } : {}) };
+      ...(prepared.length === 1 ? { expectedDeclarationType: prepared[0]!.expectedType } : {
+        expectedDeclarationTypes: Object.fromEntries(prepared.filter(item => item.expectedType !== undefined)
+          .map(item => [item.task.theoremName!, item.expectedType!])) }) });
+    const sourceDigest = ownedSourceDigest(problem, checkout, sourceCommit);
+    return prepared.map(({ task, assignment, taskDigest, changes, imports, conditions }, index) => {
+      const result = verification.results[index];
+      const references = passed && !conditions.length && result?.declarationReferences ? captureProofReferences(problem, checkout, sourceCommit,
+        { name: task.theoremName!, file: task.proofPath! }, result.declarationReferences, environmentDigest) : undefined;
+      return { commit: sourceCommit, sourceDigest, passed,
+        verification: { ...verification, results: result ? [result] : [] },
+        taskDigest, seedCommit: assignment.seedCommit, changes, ...(imports.length ? { imports } : {}),
+        ...(references ? { references } : {}),
+        ...(conditions.length ? { conditions: conditions.map(dependency => ({ taskId: dependency.id, taskDigest: taskVersion(dependency) })) } : {}) };
+    });
   });
 }
 

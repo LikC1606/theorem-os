@@ -78,6 +78,16 @@ describe('process lifecycle and bounded output', () => {
     expect(result.stdout).toBe(prefix);
   });
 
+  it.each(['head', 'tail'] as const)('retains bounded %s reports larger than the default limit for batched checks', async outputCapture => {
+    const outputLimit = MATH_PROCESS_OUTPUT_LIMIT * 2;
+    const output = 'start' + 'x'.repeat(outputLimit) + 'end';
+    const result = await runMathProcess(process.execPath, ['-e', `process.stdout.write(${JSON.stringify(output)})`],
+      { cwd: os.tmpdir(), timeoutMs: 5000, outputCapture, outputLimit });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe(outputCapture === 'head' ? output.slice(0, outputLimit) : output.slice(-outputLimit));
+    expect(result.stdoutSha256).toBe(crypto.createHash('sha256').update(output).digest('hex'));
+  });
+
   it.skipIf(process.platform === 'win32')('kills descendants after their wrapper has already exited', async () => {
     const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'math-process-'))); roots.push(root);
     const marker = path.join(root, 'child.pid');
