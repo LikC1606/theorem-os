@@ -115,6 +115,9 @@ export function assertStatementSnapshot(review: StatementReview): void {
   const visit = (directory: string) => {
     for (const entry of fs.readdirSync(path.join(review.workspace, directory), { withFileTypes: true })) {
       const relative = directory ? `${directory}/${entry.name}` : entry.name;
+      // Session sandboxes can materialize empty metadata mount points beside the fixed inputs.
+      if (!directory && entry.isDirectory() && ['.git', '.codex', '.agents', '.aws'].includes(entry.name) &&
+          fs.readdirSync(path.join(review.workspace, relative)).length === 0) continue;
       if (entry.isDirectory() && [...allowed].some(file => file.startsWith(relative + '/'))) visit(relative);
       else if (!entry.isFile() || !allowed.has(relative)) throw new Error('math_statement_snapshot_changed');
     }

@@ -5,16 +5,25 @@ export type ResearchRole = 'lead' | 'researcher' | 'engineer' | 'reviewer';
 export type ResearchWorker = Readonly<{ id: string; role: ResearchRole; worktree: string; ownedFiles: readonly string[] }>;
 export type TeamPlan = Readonly<{ workers: readonly ResearchWorker[] }>;
 
-/** Assign selected work by responsibility and preserve resumed ownership. */
-export function assignResearchTask(ready: readonly TaskRecord[], worker: ResearchWorker, live: readonly ResearchWorker[], groups?: readonly RouteRecord[]): TaskRecord | undefined {
-  const researchers = live.some(item => item.role === 'researcher');
-  const eligible = ready.filter(node =>
+function eligibleResearchTasks(ready: readonly TaskRecord[], worker: ResearchWorker, groups?: readonly RouteRecord[]): TaskRecord[] {
+  return ready.filter(node =>
     (node.task.kind !== 'goal' || !groups?.find(route => route.group.id === taskGroup(node.task))?.group.engineerId ||
       groups.find(route => route.group.id === taskGroup(node.task))!.group.engineerId === worker.id) &&
     (!node.task.ownerId || node.task.ownerId === worker.id) && (!node.assignment || node.assignment.workerId === worker.id));
+}
+
+/** Assign selected work by responsibility and preserve resumed ownership. */
+export function assignResearchTask(ready: readonly TaskRecord[], worker: ResearchWorker, live: readonly ResearchWorker[], groups?: readonly RouteRecord[]): TaskRecord | undefined {
+  const researchers = live.some(item => item.role === 'researcher');
+  const eligible = eligibleResearchTasks(ready, worker, groups);
   if (worker.role === 'researcher') return eligible.find(node => node.task.kind !== 'goal') ?? eligible.find(node => node.task.kind === 'goal');
   if (worker.role === 'engineer') return researchers ? eligible.find(node => node.task.kind === 'goal') : eligible[0];
   return undefined;
+}
+
+/** Proof workers share ranked work; explicit pins and resumed assignments still bind. */
+export function assignSharedResearchTask(ready: readonly TaskRecord[], worker: ResearchWorker, _live: readonly ResearchWorker[], groups?: readonly RouteRecord[]): TaskRecord | undefined {
+  return ['researcher', 'engineer'].includes(worker.role) ? eligibleResearchTasks(ready, worker, groups)[0] : undefined;
 }
 
 export function researchWorkers(worktree: string, ownedFiles: readonly string[], count: number): ResearchWorker[] {

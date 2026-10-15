@@ -695,6 +695,16 @@ describe('isolated solver and host acceptance', () => {
   const writePlan = (worktree: string, tasks: readonly CooperativeTask[], groups?: readonly RouteGroup[]) =>
     fs.writeFileSync(path.join(worktree, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify({ tasks, groups }) + '\n```\n');
 
+  it('rejects forward original-goal dependencies and accepts a shared helper before both goals', () => {
+    const tasks = planTasks();
+    tasks[2] = { ...tasks[2], dependsOn: ['second'] };
+    tasks[3] = { ...tasks[3], dependsOn: [] };
+    expect(() => parseCooperationPlan(problem, { tasks })).toThrow('math_plan_forward_goal_dependency: first precedes second');
+    tasks[2] = { ...tasks[2], dependsOn: ['a'] };
+    tasks[3] = { ...tasks[3], dependsOn: ['a'] };
+    expect(() => parseCooperationPlan(problem, { tasks })).not.toThrow();
+  });
+
   it.each(['lemma', 'research', 'sketch'])('rejects a copied prompt placeholder before assigning %s proof work', kind => {
     const tasks = planTasks();
     expect(() => parseCooperationPlan(problem, { tasks: [
@@ -1982,6 +1992,36 @@ describe('isolated solver and host acceptance', () => {
     expect(started).toBe(3);
   });
 
+  it('shares blocking helpers concurrently across all three proof workers with critical-path scheduling', async () => {
+    const tasks = planTasks();
+    tasks.splice(2, 0, { ...tasks[0], id: 'c', theoremName: 'Submission.c' });
+    tasks[3] = { ...tasks[3], dependsOn: ['a', 'b', 'c'] };
+    const assignments: { taskId: string; workerId: string; worktree: string }[] = [];
+    let release!: () => void;
+    const threeStarted = new Promise<void>(resolve => { release = resolve; });
+    configureCooperation(async (action, options, message) => {
+      if (action.kind === 'lead') writePlan(options.workspace, tasks);
+      else {
+        if (action.kind === 'task' && action.task.kind === 'lemma') {
+          expect(message).toContain('Your role: researcher');
+          assignments.push({ taskId: action.task.id, workerId: action.assignment.workerId, worktree: options.workspace });
+          if (assignments.length === 3) release();
+          await threeStarted;
+        }
+        finishAssignment(action, options);
+      }
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--scheduler', 'critical-path', '--max-turns', '7'], directory)).toBe(0);
+    expect(assignments).toHaveLength(3);
+    expect(new Set(assignments.map(item => item.taskId)).size).toBe(3);
+    expect(new Set(assignments.map(item => item.workerId)).size).toBe(3);
+    expect(new Set(assignments.map(item => item.worktree)).size).toBe(3);
+    expect(assignments.some(item => item.workerId === 'engineer')).toBe(true);
+    expect(cooperationState().tasks.every((record: any) => record.status === 'integrated')).toBe(true);
+    expect(host.officialGate).toHaveBeenCalledOnce();
+  });
+
   it('applies a local task revision on resume, invalidates consumers and keeps unrelated checked work', async () => {
     configureCooperation();
     const parallelArgs = [...args, '--workers', '4', '--max-turns', '3'];
@@ -2218,6 +2258,66 @@ describe('isolated solver and host acceptance', () => {
     tasks[0] = { ...tasks[0], statementReview: true, informalStatement: 'INTENT_SECRET: the proposition True holds.' };
     return tasks;
   };
+
+  it('accepts empty sandbox metadata directories throughout independent statement review', async () => {
+    configureCooperation(async (action, options) => {
+      if (action.kind === 'lead') writePlan(options.workspace, statementTasks());
+      else {
+        if (isStatementAction(action)) for (const name of ['.git', '.codex', '.agents', '.aws'])
+          fs.mkdirSync(path.join(options.workspace, name), { recursive: true });
+        finishAssignment(action, options);
+      }
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '2', '--max-turns', '8'], directory)).toBe(0);
+    expect(cooperationState().statementReviews[0].status).toBe('accepted');
+    expect(host.officialGate).toHaveBeenCalledOnce();
+  });
+
+  it.each(['disable', 'intent'])('updates review configuration without restarting checked proofs or active consumers (%s)', async change => {
+    const tasks = statementTasks(); let translations = 0, edited = false;
+    configureCooperation(async (action, options) => {
+      if (action.kind === 'lead') { writePlan(options.workspace, tasks); return 'completed'; }
+      if (action.kind === 'backtranslate') translations++;
+      if (action.kind === 'task' && action.task.id === 'first' && !edited) {
+        edited = true;
+        await expect.poll(() => cooperationState().statementReviews[0].status).toBe('accepted');
+        const before = cooperationState(), checked = before.tasks.find((node: any) => node.task.id === 'a').integratedCheck.commit;
+        tasks[0] = { ...tasks[0], ...(change === 'disable'
+          ? { statementReview: false, informalStatement: undefined }
+          : { informalStatement: 'A revised interpretation of True.' }) };
+        fs.appendFileSync(`${output}.runtime/edits.jsonl`, JSON.stringify({ id: 'review-policy', baseVersion: before.planVersion, tasks }) + '\n');
+        await expect.poll(() => cooperationState().edits?.[0]?.status).toBe('applied');
+        const after = cooperationState();
+        expect(after.planVersion).not.toBe(before.planVersion);
+        expect(after.edits[0].affectedTasks).toEqual([]);
+        expect(after.tasks.find((node: any) => node.task.id === 'a')).toMatchObject({ status: 'integrated', integratedCheck: { commit: checked } });
+        expect(after.tasks.find((node: any) => node.task.id === 'first')).toMatchObject({ status: 'running', assignment: action.assignment });
+      }
+      finishAssignment(action, options); return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '10'], directory)).toBe(0);
+    const state = cooperationState();
+    expect(edited).toBe(true);
+    expect(state.tasks.map((node: any) => node.attempts)).toEqual([1, 1, 1, 1]);
+    expect(state.deliveries.filter((record: any) => record.kind === 'proof' && record.status === 'superseded')).toEqual([]);
+    expect(translations).toBe(change === 'disable' ? 1 : 2);
+    expect(state.statementReviews.map((review: any) => review.status)).toEqual(change === 'disable' ? ['superseded'] : ['superseded', 'accepted']);
+    expect(host.officialGate).toHaveBeenCalledOnce();
+  });
+
+  it.each(['nonempty-metadata', 'linked-metadata', 'unexpected-directory'])('rejects unsafe or unexpected statement snapshot entries (%s)', entry => {
+    const task = statementTasks()[0], reviewWorkspace = path.join(directory, 'blind');
+    const snapshot = statementSnapshot(problem, task, workspace, problem.baseCommit, 'fixed-env', []);
+    const review = { workspace: reviewWorkspace, files: writeStatementSnapshot(reviewWorkspace, snapshot) } as any;
+    if (entry === 'linked-metadata') fs.symlinkSync(path.join(reviewWorkspace, 'definitions'), path.join(reviewWorkspace, '.codex'));
+    else {
+      const extra = path.join(reviewWorkspace, entry === 'nonempty-metadata' ? '.codex' : 'extra');
+      fs.mkdirSync(extra);
+      if (entry === 'nonempty-metadata') fs.writeFileSync(path.join(extra, 'unexpected.txt'), 'Unexpected content');
+    }
+    expect(() => assertStatementSnapshot(review)).toThrow('math_statement_snapshot_changed');
+  });
 
   it('reviews a fixed statement before its proof finishes, using blind fresh sessions and the shared budget', async () => {
     const tasks = statementTasks(), proofStarted = deferred(), comparisonDone = deferred();
@@ -3772,6 +3872,36 @@ describe('isolated solver and host acceptance', () => {
     expect(host.verify).toHaveBeenCalledTimes(3);
     expect(host.officialGate).toHaveBeenCalledTimes(1);
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'evaluated_passed', turns: 2 });
+  });
+
+  it('starts a fresh thread after repeated request failures while retaining proof and feedback', async () => {
+    const diagnostic = 'Submission.lean:4:1: error: unsolved goals\n⊢ True';
+    const partial = original.replace('theorem first : True := by sorry', 'theorem first : True := by trivial');
+    let turns = 0;
+    host.verify.mockImplementation(async request => turns < 3 ? ({ ...verified(request), status: 'failed',
+      results: verified(request).results.map(item => ({ ...item, status: 'failed', stdoutPreview: diagnostic })) }) : verified(request));
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({
+      threadId: options.threadId || (turns ? 'fresh-thread' : 'fixture-thread'),
+      lastError: 'stream disconnected before completion: error sending request',
+      run: async (message: string) => {
+        turns++;
+        options.onUsage({ totalTokens: turns === 3 ? 5 : turns * 10 });
+        if (turns === 1) fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), partial);
+        if (turns < 3) return 'failed';
+        expect(options.threadId).toBeUndefined();
+        expect(fs.readFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), 'utf8')).toBe(partial);
+        expect(message).toContain(diagnostic);
+        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+        return 'completed';
+      }, close: vi.fn(), interrupt: vi.fn(),
+    }));
+    expect(await runSolver([...args, '--max-turns', '4'], directory)).toBe(0);
+    expect(host.createSession.mock.calls.map(call => call[0].threadId)).toEqual([undefined, 'fixture-thread', undefined]);
+    expect(host.delay.mock.calls.map(call => call[0])).toEqual([10_000, 20_000]);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state).toMatchObject({ turns: 3, threadId: 'fresh-thread', previousThreadIds: ['fixture-thread'],
+      usage: { totalTokens: 25 }, usageBeforeThread: { totalTokens: 20 } });
+    expect(host.officialGate).toHaveBeenCalledOnce();
   });
 
   it('reopens a disconnected startup without spending another turn or discarding saved proof', async () => {

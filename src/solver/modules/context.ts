@@ -132,6 +132,7 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
     ? `To share before returning, append a JSON line to ${assignmentDeliveryFile(action.assignment)}: {"summary":"progress or gap"}. For a ready proof, save the allowed sources and notes, then return. Git metadata is managed by the host; do not run git add or git commit. The host freezes the saved sources and independently checks and integrates them after your turn ends. Do not truncate the delivery log. Progress reports remain advisory.\n`
       : '';
   return { ...context, assignment: action, instructions: context.instructions + '\n' + rules +
+    'Original declarations retain the frozen source order shown below. A goal cannot depend on a later original goal in the same file. Extract their shared argument into a newly named lemma before both goals; preserve every other original proof and declaration placement.\n' +
     'COOPERATION.json contains live peer work, gaps and checked results; never edit it. Structured responses use one JSON object, plain or in a math/json fence, replacing old responses. The host manages versions, receipts and budgets, and independently checks all original targets. Unproved dependencies and reviews remain advisory.\n',
     message: context.message + '\n\nCooperative assignment:\n' + JSON.stringify(action) +
       '\n\nLead task graph and host feedback:\n' + bounded(JSON.stringify(summary), 14000) +
@@ -139,6 +140,8 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
       `\nPlan error: ${cooperation.error ?? 'none'}\nReview: ${JSON.stringify(cooperation.review ?? null)}` +
       '\nStatement reviews: ' + bounded(JSON.stringify(cooperation.statementReviews?.filter(review => review.status !== 'superseded')
         .map(statementReviewSummary) ?? []), 16000) +
+      '\nFrozen declaration order by file: ' + bounded(JSON.stringify(Object.fromEntries(Object.entries(problem.declarations)
+        .map(([file, declarations]) => [file, declarations.map(declaration => declaration.name)]))), 4000) +
       `\nOriginal targets: ${JSON.stringify(problem.targets)}\nYour role: ${action.kind === 'review' ? 'reviewer' : action.kind === 'task' ? action.task.kind === 'goal' ? 'engineer' : 'researcher' : 'lead'}` + '\n' + sharing +
       (operation === 'direct' ? '' : `Research operation: ${operation}.\n`) };
 }

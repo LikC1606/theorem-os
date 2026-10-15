@@ -20,7 +20,7 @@ export type CooperativeAction = { kind: 'lead' | 'assemble'; seedCommit: string;
   { kind: 'review'; seedCommit: string; sourceDigest: string } | { kind: 'task'; assignment: TaskAssignment; task: CooperativeTask } | StatementAction;
 
 export const taskVersion = (task: CooperativeTask) => {
-  const { status: _status, ownerId: _owner, ...mathematics } = task;
+  const { status: _status, ownerId: _owner, statementReview: _review, informalStatement: _intent, ...mathematics } = task;
   return mathDigest(canonicalMathJson(mathematics));
 };
 // Object identity is process-local: archived references never authorize narrower dependency checks.
@@ -136,6 +136,13 @@ export function parseCooperationPlan(problem: SolverProblem, value: any): { task
   for (const task of tasks) for (const id of task.dependsOn) {
     const dependency = byId.get(id)!;
     if (taskGroup(task) !== taskGroup(dependency) && dependency.sharing === 'group') throw new Error('math_plan_dependency_not_shared');
+    if (task.kind === 'goal' && dependency.kind === 'goal' && task.proofPath === dependency.proofPath) {
+      const declarations = problem.declarations[task.proofPath!]!;
+      const position = (name: string) => declarations.findIndex(item => item.name.split('.').at(-1) === name.split('.').at(-1));
+      if (position(dependency.theoremName!) > position(task.theoremName!))
+        throw new Error(`math_plan_forward_goal_dependency: ${task.id} precedes ${dependency.id} in ${task.proofPath}. ` +
+          'Extract the shared argument into a named lemma before both original goals; preserve original declaration order and other goal proofs.');
+    }
   }
   return { tasks, groups };
 }

@@ -6,6 +6,20 @@ const node = (id: string, dependsOn: string[] = []): TaskRecord => ({ task: { id
   theoremName: id, type: 'True', proofPath: 'Submission.lean', dependsOn, revision: 0 }, status: 'integrated', attempts: 0 });
 
 describe('dependency readiness', () => {
+  it('keeps checked proofs and consumers valid across review configuration changes', () => {
+    const previous = [node('a'), node('b', ['a']), node('c', ['b'])];
+    previous[0].task = { ...previous[0].task, statementReview: true, informalStatement: 'The proposition holds.' };
+    const tasks = previous.map(record => ({ ...record.task }));
+    tasks[0] = { ...tasks[0], statementReview: false, informalStatement: undefined };
+    expect(taskVersion(tasks[0])).toBe(taskVersion(previous[0].task));
+    expect([...invalidatedTaskIds(previous, tasks, new Set(), new Map())]).toEqual([]);
+    tasks[0] = { ...tasks[0], statementReview: true, informalStatement: 'A revised interpretation.' };
+    expect([...invalidatedTaskIds(previous, tasks, new Set(), new Map())]).toEqual([]);
+    tasks[0] = { ...tasks[0], type: 'False' };
+    expect([...invalidatedTaskIds(previous, tasks, new Set(), new Map())]).toEqual(['a', 'b', 'c']);
+    expect(taskVersion({ ...previous[0].task, premises: ['A new assumption'] })).not.toBe(taskVersion(previous[0].task));
+  });
+
   it('propagates revisions through effective references while preserving unrelated tasks', () => {
     const previous = [node('a'), node('b', ['a']), node('c', ['b']), node('unused', ['a']), node('unrelated')];
     const tasks = previous.map(record => record.task.id === 'a' ? { ...record.task, revision: 1 } : record.task);

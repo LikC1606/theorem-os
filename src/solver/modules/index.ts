@@ -4,8 +4,8 @@ import { executeResearch } from './execution';
 import { buildResearchContext, buildStatementReviewContext } from './context';
 import type { ResearchOperation, ValueEstimate } from './value';
 import type { SolverRunState } from '../archive';
-import { selectResearchAction, selectLemmaAction, planResearchRetry, readyResearchTasks, goalsFirstResearchTasks } from './search';
-import { assignResearchTask, researchWorkers, assignResearchReviewer, type organizeResearch } from './organization';
+import { selectResearchAction, selectLemmaAction, planResearchRetry, readyResearchTasks, goalsFirstResearchTasks, criticalPathResearchTasks } from './search';
+import { assignResearchTask, assignSharedResearchTask, researchWorkers, assignResearchReviewer, type organizeResearch } from './organization';
 import { checkLemmaResearch } from '../lemma';
 import { checkTaskProof } from '../cooperativeProof';
 import { canonicalMathJson, mathDigest } from '../../math/mathRuntimeIo';
@@ -16,8 +16,8 @@ export const directSolverModules = {
   M1: { version: 'bounded-codex-turn-v8', open: createCodexMathSession, execute: executeResearch },
   M2: { version: 'lean-kernel-v7', check: checkSolverProof, checkTask: checkTaskProof },
   M3: { version: 'route-budget-v5', select: selectResearchAction, retry: planResearchRetry, ready: readyResearchTasks },
-  M4: { version: 'checkpoint-context-v10', build: buildResearchContext, statement: buildStatementReviewContext },
-  M5: { version: 'route-cooperation-v10', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignResearchTask },
+  M4: { version: 'checkpoint-context-v11', build: buildResearchContext, statement: buildStatementReviewContext },
+  M5: { version: 'route-cooperation-v11', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignResearchTask },
 };
 
 export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M3' | 'M5'> & {
@@ -34,11 +34,14 @@ export const lemmaSolverModules: SolverModules = {
   M3: { ...directSolverModules.M3, version: 'lemma-route-search-v6', select: selectLemmaAction },
 };
 
-/** Named CLI policies replace M3 alone; host verification and ownership stay fixed. */
+/** Named CLI policies bind search and assignment versions without changing host acceptance. */
 export function configuredSolverModules(method: string, scheduler: string): SolverModules {
   if (!['direct', 'lemma'].includes(method)) throw new Error('invalid --method');
-  if (!['plan', 'goals-first'].includes(scheduler)) throw new Error('invalid --scheduler');
+  if (!['plan', 'goals-first', 'critical-path'].includes(scheduler)) throw new Error('invalid --scheduler');
   const base = method === 'lemma' ? lemmaSolverModules : directSolverModules;
+  if (scheduler === 'critical-path') return { ...base,
+    M3: { ...base.M3, version: `${base.M3.version}/critical-path-v1`, ready: criticalPathResearchTasks },
+    M5: { ...base.M5, version: `${base.M5.version}/shared-work-v1`, assign: assignSharedResearchTask } };
   return scheduler === 'plan' ? base : { ...base,
     M3: { ...base.M3, version: `${base.M3.version}/goals-first-v1`, ready: goalsFirstResearchTasks } };
 }

@@ -164,11 +164,14 @@ export async function runResearchWorkers(input: {
         const retry = modules.M3.retry(error, retries, { ...view(), turns: state.turns - Number(reservedTurn) }, budget());
         if (!retry) throw new Error(researchFailureReason(error));
         retries = retry.attempt;
+        if (retries === 2 && research.threadId &&
+            ['math_model_request_failed', 'math_model_request_timeout', 'math_codex_transport_closed'].includes(retry.reason))
+          await rotateSession('request');
         emit('turn_retry', { reason: retry.reason, attempt: retries, delayMs: retry.delayMs,
           ...(error?.startsWith('math_codex_transport_closed:') ? { detail: error } : {}) });
         await delay(retry.delayMs, undefined, { signal });
       };
-      const rotateSession = async (reason: 'context' | 'responsibility' | 'route') => {
+      const rotateSession = async (reason: 'context' | 'responsibility' | 'route' | 'request') => {
         const previous = research.threadId;
         await close();
         if (previous) research.previousThreadIds = [...(research.previousThreadIds ?? []), previous];

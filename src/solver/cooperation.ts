@@ -551,6 +551,8 @@ export class CooperativeResearch {
         }
       }
       if ((!reuse && (invalidated.has(review.taskId) || !node || digest(node.task) !== review.taskDigest)) || !snapshot ||
+          review.intendedStatement !== node?.task.informalStatement ||
+          canonicalMathJson(review.premises) !== canonicalMathJson(node?.task.premises ?? this.input.state.problem.contract.assumptions) ||
           (snapshot.snapshotDigest !== review.snapshotDigest && (!review.references || !this.checkedStatementReferences.has(review.references) ||
             !proofReferencesUnchanged(this.input.state.problem, this.lead.worktree, this.archive.canonicalCommit!, review.references, this.input.state.environmentDigest)))) {
         this.supersedeStatementReview(review);

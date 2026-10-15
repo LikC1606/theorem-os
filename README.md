@@ -225,7 +225,7 @@ Lead 计入 `--workers` 的总人数。默认配置中，Engineer 持续负责�
 | `--workers` | `4` | Agent 总数，支持 1–4 |
 | `--method` | `direct` | `direct` 或 `lemma` |
 | `--coordination` | `cooperative` | 协作，或 `independent` 独立并行尝试 |
-| `--scheduler` | `plan` | M3 按计划顺序调度；`goals-first` 优先处理已就绪的原题目标 |
+| `--scheduler` | `plan` | 按计划顺序调度；`goals-first` 优先已就绪原题目标；`critical-path` 按未完成目标的依赖链排序并共享证明任务 |
 | `--prepare-timeout-seconds` | `1800` | 环境准备与依赖预编译预算 |
 | `--max-run-seconds` | `1800` | 准备完成后的共享解题时间预算 |
 | `--max-turns` | `20` | 所有 Agent 合计轮次 |
@@ -299,7 +299,7 @@ bun run math check-lean \
 
 [index.ts](src/solver/modules/index.ts) 绑定默认模块与版本；`runSolver(args, root, modules)` 支持替换模块，模块版本参与恢复身份。宿主固定执行源码边界检查、总预算限制和最终验收。当前 M3 采用规则与依赖调度，S2 跨任务学习尚未实现。
 
-命令行可用 `--scheduler goals-first` 单独替换 M3 的就绪任务排序；模块版本写入状态，恢复时校验。它是待测的消融变体，尚无性能提升结论。[三组对照实验](examples/imo2026/COMPARISON.md) 提供固定题目、模型和总预算的准备、运行与汇总步骤，保留失败、缺失记录和用量缺口。
+命令行可用 `--scheduler goals-first` 单独替换 M3 的就绪任务排序；`--scheduler critical-path` 同时替换 M3 排序和 M5 分配，按通往未完成原题目标的最长依赖链排序，同长度时优先覆盖更多目标的任务，由 Researcher 和 Engineer 共同领取。显式负责人、路线限制和恢复归属仍然生效；链长只作启发式排序，不预测证明耗时。模块版本写入状态，恢复时校验。这些策略尚无性能提升结论。[三组对照实验](examples/imo2026/COMPARISON.md) 提供固定题目、模型和总预算的准备、运行与汇总步骤，保留失败、缺失记录和用量缺口。
 
 辅助引理方法在 [lemma.ts](src/solver/lemma.ts)；Codex stdio 协议适配在 [codexSession.ts](src/runtime/codexSession.ts)。
 

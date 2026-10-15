@@ -75,6 +75,41 @@ export function goalsFirstResearchTasks(tasks: readonly TaskRecord[], groups?: r
     Number(b.task.kind === 'goal') - Number(a.task.kind === 'goal'));
 }
 
+/** Unit-cost dependency depth is a scheduling heuristic, not a proof-time estimate. */
+export function criticalPathResearchTasks(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): TaskRecord[] {
+  const unfinished = new Map(tasks.filter(node => {
+    if (['integrated', 'completed'].includes(node.status) || (node.task.status ?? 'active') !== 'active') return false;
+    const route = groups?.find(record => record.group.id === taskGroup(node.task));
+    return !groups || Boolean(route && route.group.status === 'active' && route.turns < (route.group.maxTurns ?? Infinity));
+  }).map(node => [node.task.id, node]));
+  const consumers = new Map<string, string[]>();
+  for (const node of unfinished.values()) for (const id of node.task.dependsOn) {
+    const list = consumers.get(id) ?? []; list.push(node.task.id); consumers.set(id, list);
+  }
+  type Priority = { depth: number; goals: Set<string> };
+  const priorities = new Map<string, Priority>();
+  const priority = (id: string): Priority => {
+    const cached = priorities.get(id);
+    if (cached) return cached;
+    const node = unfinished.get(id);
+    const result: Priority = { depth: node?.task.kind === 'goal' ? 1 : 0,
+      goals: new Set(node?.task.kind === 'goal' ? [id] : []) };
+    priorities.set(id, result);
+    if (node) for (const consumer of consumers.get(id) ?? []) {
+      const next = priority(consumer);
+      if (next.depth) result.depth = Math.max(result.depth, next.depth + 1);
+      for (const goal of next.goals) result.goals.add(goal);
+    }
+    return result;
+  };
+  const ready = readyResearchTasks(tasks, groups);
+  for (const node of ready) priority(node.task.id);
+  return ready.toSorted((a, b) => {
+    const left = priority(a.task.id), right = priority(b.task.id);
+    return right.depth - left.depth || right.goals.size - left.goals.size;
+  });
+}
+
 /** Future progress differs from immediate readiness: typed pending premises can still be proved. */
 export function researchCanAdvance(tasks: readonly TaskRecord[], groups: readonly RouteRecord[] | undefined,
   liveWorkers: ReadonlySet<string>): boolean {

@@ -5,16 +5,18 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { comparisonOrder, comparisonReport, comparisonTotals } from '../scripts/mathematics/compareMathRuns';
 import { configuredSolverModules, directSolverModules, solverMethodDigest } from '../src/solver/modules';
 import { readyResearchTasks } from '../src/solver/modules/search';
+import { researchWorkers } from '../src/solver/modules/organization';
 import { canonicalMathJson, mathDigest } from '../src/math/mathRuntimeIo';
-import type { TaskRecord } from '../src/solver/tasks';
+import type { RouteRecord, TaskRecord } from '../src/solver/tasks';
 
 const directories: string[] = [];
 afterEach(() => { for (const directory of directories.splice(0)) fs.rmSync(directory, { recursive: true, force: true }); });
 
 describe('configured research comparisons', () => {
+  const node = (id: string, kind: 'lemma' | 'goal', dependsOn: string[] = [], status?: 'paused'): TaskRecord => ({
+    task: { id, kind, objective: id, dependsOn, revision: 0, status }, status: 'pending', attempts: 0 });
+
   it('replaces only M3 ordering while retaining dependency and pause gates', () => {
-    const node = (id: string, kind: 'lemma' | 'goal', dependsOn: string[] = [], status?: 'paused'): TaskRecord => ({
-      task: { id, kind, objective: id, dependsOn, revision: 0, status }, status: 'pending', attempts: 0 });
     const tasks = [node('helper', 'lemma'), node('blocked-goal', 'goal', ['helper']), node('ready-goal', 'goal'), node('paused', 'goal', [], 'paused')];
     const modules = configuredSolverModules('direct', 'goals-first');
     expect(readyResearchTasks(tasks).map(node => node.task.id)).toEqual(['helper', 'ready-goal']);
@@ -22,6 +24,68 @@ describe('configured research comparisons', () => {
     for (const module of ['M1', 'M2', 'M4', 'M5']) expect(modules[module]).toBe(directSolverModules[module]);
     expect(configuredSolverModules('direct', 'plan')).toBe(directSolverModules);
     expect(() => configuredSolverModules('direct', 'typo')).toThrow('invalid --scheduler');
+  });
+
+  it('prioritizes unfinished goal dependency depth, then distinct goal coverage, with stable ties', () => {
+    const tasks = [node('unneeded', 'lemma'), node('ready-goal', 'goal'), node('short', 'lemma'),
+      node('shared', 'lemma'), node('deep', 'lemma'), node('tie', 'lemma'),
+      node('short-goal', 'goal', ['short', 'tie']), node('shared-goal-1', 'goal', ['shared']),
+      node('shared-goal-2', 'goal', ['shared']), node('middle', 'lemma', ['deep']), node('long-goal', 'goal', ['middle'])];
+    const modules = configuredSolverModules('direct', 'critical-path');
+    expect(modules.M3.ready(tasks).map(record => record.task.id)).toEqual([
+      'deep', 'shared', 'short', 'tie', 'ready-goal', 'unneeded',
+    ]);
+    tasks.find(record => record.task.id === 'long-goal')!.status = 'integrated';
+    const paused = tasks.find(record => record.task.id === 'shared-goal-2')!;
+    paused.task = { ...paused.task, status: 'paused' };
+    expect(modules.M3.ready(tasks).map(record => record.task.id)).toEqual([
+      'short', 'shared', 'tie', 'ready-goal', 'unneeded', 'deep',
+    ]);
+  });
+
+  it('retains route readiness gates and does not prioritize paths through inactive work', () => {
+    const tasks = [node('unneeded', 'lemma'), node('stopped-path', 'lemma'), node('active', 'lemma'),
+      node('paused-middle', 'lemma', ['stopped-path'], 'paused'), node('paused-goal', 'goal', ['paused-middle']),
+      node('active-goal', 'goal', ['active']), node('full-route', 'goal'), node('spent-route', 'goal')];
+    tasks[6].task = { ...tasks[6].task, groupId: 'full' }; tasks[7].task = { ...tasks[7].task, groupId: 'spent' };
+    const groups: RouteRecord[] = [
+      { group: { id: 'main', objective: 'main', status: 'active', revision: 0 }, turns: 0 },
+      { group: { id: 'full', objective: 'full', status: 'active', revision: 0, maxConcurrent: 1 }, turns: 0, busy: 1 },
+      { group: { id: 'spent', objective: 'spent', status: 'active', revision: 0, maxTurns: 1 }, turns: 1 },
+    ];
+    expect(configuredSolverModules('direct', 'critical-path').M3.ready(tasks, groups).map(record => record.task.id))
+      .toEqual(['active', 'unneeded', 'stopped-path']);
+  });
+
+  it('shares ranked work across proof roles while preserving explicit and resumed ownership', () => {
+    const modules = configuredSolverModules('direct', 'critical-path');
+    const workers = researchWorkers('/worktree', [], 4), engineer = workers.at(-1)!, researcher = workers[1];
+    const helper = node('helper', 'lemma'), goal = node('goal', 'goal');
+    expect(modules.M5.assign([helper, goal], engineer, workers)).toBe(helper);
+    expect(modules.M5.assign([goal, helper], researcher, workers)).toBe(goal);
+    expect(modules.M5.assign([helper], workers[0], workers)).toBeUndefined();
+    expect(modules.M5.assign([helper], { ...researcher, role: 'reviewer' }, workers)).toBeUndefined();
+    helper.task = { ...helper.task, ownerId: researcher.id };
+    expect(modules.M5.assign([helper], engineer, workers)).toBeUndefined();
+    helper.task = { ...helper.task, ownerId: undefined };
+    helper.assignment = { taskId: 'helper', taskDigest: 'digest', workerId: researcher.id, seedCommit: 'seed' };
+    expect(modules.M5.assign([helper], engineer, workers)).toBeUndefined();
+    expect(modules.M5.assign([helper], researcher, workers)).toBe(helper);
+    const groups: RouteRecord[] = [{ group: { id: 'main', objective: 'main', status: 'active', revision: 0,
+      engineerId: engineer.id }, turns: 0 }];
+    expect(modules.M5.assign([goal], researcher, workers, groups)).toBeUndefined();
+    expect(modules.M5.assign([goal], engineer, workers, groups)).toBe(goal);
+  });
+
+  it.each(['direct', 'lemma'])('binds critical-path search and assignment versions for %s', method => {
+    const base = configuredSolverModules(method, 'plan'), modules = configuredSolverModules(method, 'critical-path');
+    for (const module of ['M1', 'M2', 'M4']) expect(modules[module]).toBe(base[module]);
+    expect(modules.M3.select).toBe(base.M3.select);
+    expect(modules.M5.workers).toBe(base.M5.workers);
+    expect(modules.M5.reviewer).toBe(base.M5.reviewer);
+    const digests = ['plan', 'goals-first', 'critical-path'].map(scheduler =>
+      solverMethodDigest(configuredSolverModules(method, scheduler), 'cooperative'));
+    expect(new Set(digests).size).toBe(3);
   });
 
   it('preserves historical default module hashes and distinguishes the new configurations', () => {
