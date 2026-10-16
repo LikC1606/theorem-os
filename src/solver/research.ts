@@ -351,7 +351,7 @@ export async function runResearchWorkers(input: {
           let savedTaskProof = false;
           if (cooperation && assignment) {
             const commit = commitSolverSources(state.problem, worker.worktree);
-            const deliver = () => cooperation.deliver(worker, assignment, commit, turn === 'failed');
+            const deliver = () => cooperation.deliver(worker, assignment, commit, turn !== 'completed');
             const delivery = assignment.kind === 'task' ? await deliver() : await exclusiveCheck(deliver);
             if (assignment.kind === 'lead' && turn === 'checkpoint') await cooperation.startInitialTasks();
             research.check = delivery.check;

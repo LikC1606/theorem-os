@@ -1059,6 +1059,7 @@ export class CooperativeResearch {
     if (isStatementAction(action)) return this.deliverStatement(worker, action);
     if (action.kind === 'solve') return { checkWhole: true };
     if (action.kind === 'review') {
+      if (recovering) { this.interrupted(worker, action); return { checkWhole: false }; }
       const review = this.archive.review;
       if (!review || review.commit !== action.seedCommit || review.workerId !== worker.id || review.status !== 'running') {
         this.record(worker, undefined, 'review', 'superseded', 'The reviewed version is no longer current.', { commit: action.seedCommit });
@@ -1122,10 +1123,14 @@ export class CooperativeResearch {
     if (['conditional', 'integrated'].includes(node.status)) return { checkWhole: false };
     try {
       if (advisory(node.task)) {
+        if (recovering) { this.interrupted(worker, action); return { checkWhole: false }; }
         taskChanges(this.input.state.problem, worker.worktree, commit, node.task, action.assignment);
+        const notesBlob = (version: string) => git(worker.worktree, ['ls-tree', '--format=%(objectname)', version, '--', 'RESEARCH.md']);
+        if (notesBlob(action.assignment.seedCommit) === notesBlob(commit))
+          throw new Error('math_research_delivery_unchanged: Replace inherited RESEARCH.md with findings for the current task.');
         const finding = block(worker.worktree, 'math-result', { taskId: node.task.id, conclusion: 'inconclusive' }, 'summary');
         const details = deliveryDetails(finding);
-        if (finding?.taskId !== node.task.id || !['supporting', 'refuted', 'inconclusive'].includes(finding.conclusion))
+        if (finding?.taskId !== node.task.id || !details.summary.trim() || !['supporting', 'refuted', 'inconclusive'].includes(finding.conclusion))
           throw new Error('math_research_delivery_invalid');
         node.finding = bounded(JSON.stringify(finding), 5000); node.status = 'completed';
         if (finding.needsDecision === true || finding.conclusion === 'refuted') this.needsLead = true;
@@ -1143,7 +1148,7 @@ export class CooperativeResearch {
       if (!this.current(action)) return { checkWhole: false };
       const feedback = error instanceof Error ? error.message : 'math_task_delivery_failed';
       if (feedback === 'math_verifier_unavailable') { this.rejected(action, feedback, commit); throw error; }
-      if (recovering) { node.feedback = feedback; this.interrupted(worker, action); }
+      if (recovering || feedback.startsWith('math_research_delivery_unchanged:')) { node.feedback = feedback; this.interrupted(worker, action); }
       else this.rejected(action, feedback, commit);
     }
     return { checkWhole: false };

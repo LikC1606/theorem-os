@@ -875,6 +875,119 @@ describe('isolated solver and host acceptance', () => {
     expect(cooperationState().tasks.map((node: any) => node.task.id)).toEqual(planTasks().map(task => task.id));
   });
 
+  it.each([
+    { status: 'checkpoint', savedFinding: false },
+    { status: 'interrupted', savedFinding: false },
+    { status: 'checkpoint', savedFinding: true },
+  ])('resumes an advisory $status without unlocking consumers (saved finding: $savedFinding)', async ({ status, savedFinding }) => {
+    const tasks: CooperativeTask[] = [
+      { id: 'question', kind: 'research', objective: 'Find a proof route', dependsOn: [], revision: 0 },
+      ...planTasks().slice(2).map(task => ({ ...task, dependsOn: task.id === 'first' ? ['question'] : ['first'] })),
+    ];
+    let attempts = 0, seed = '', researchWorkspace = '';
+    configureCooperation(async (action, options) => {
+      if (action.kind === 'lead') {
+        writePlan(options.workspace, tasks);
+        for (const worker of JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8')).workers.slice(1)) {
+          writePlan(worker.worktree, tasks);
+          commitSolverSources(problem, worker.worktree);
+        }
+      } else if (action.kind === 'task' && action.task.id === 'question') {
+        if (++attempts === 1) {
+          seed = action.assignment.seedCommit; researchWorkspace = options.workspace;
+          if (savedFinding) fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), 'The current route uses True.intro; both targets remain to be proved.');
+          return status;
+        }
+        expect(action.assignment.seedCommit).toBe(seed);
+        expect(options.workspace).toBe(researchWorkspace);
+        expect(cooperationState().deliveries ?? []).toEqual([]);
+        expect(cooperationState().tasks.slice(1).every((node: any) => node.attempts === 0)).toBe(true);
+        if (savedFinding) expect(fs.readFileSync(path.join(options.workspace, 'RESEARCH.md'), 'utf8')).toContain('The current route');
+        else fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), 'The current route uses True.intro; both targets remain to be proved.');
+      } else if (action.kind === 'task') {
+        const file = path.join(options.workspace, 'generated/p/Submission.lean');
+        fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(`${action.task.id} : True := by sorry`, `${action.task.id} : True := by trivial`));
+      } else finishAssignment(action, options);
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '2', '--max-turns', '6'], directory)).toBe(0);
+    expect(attempts).toBe(2);
+    expect(cooperationState().deliveries.filter((record: any) => record.kind === 'research'))
+      .toMatchObject([{ taskId: 'question', summary: 'The current route uses True.intro; both targets remain to be proved.' }]);
+    expect(cooperationState().tasks[0]).toMatchObject({ status: 'completed', attempts: 2 });
+  });
+
+  it.each([false, true])('checks saved cooperative proof checkpoints without publishing unfinished work as failure (complete: %s)', async complete => {
+    let attempts = 0, seed = '';
+    configureCooperation(async (action, options, message) => {
+      if (action.kind === 'task' && action.task.id === 'a') {
+        const file = path.join(options.workspace, 'generated/p/Submission.lean');
+        if (++attempts === 1) {
+          seed = action.assignment.seedCommit;
+          fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('theorem first', 'lemma partial : True := by trivial\ntheorem first'));
+          if (complete) finishAssignment(action, options);
+          return 'checkpoint';
+        }
+        expect(action.assignment.seedCommit).toBe(seed);
+        expect(fs.readFileSync(file, 'utf8')).toContain('lemma partial : True := by trivial');
+        expect(message).toContain('math_task_missing_declaration');
+        expect(cooperationState().deliveries?.some((record: any) => record.taskId === 'a' && record.kind === 'failure')).toBeFalsy();
+      }
+      finishAssignment(action, options); return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '2', '--max-turns', '8'], directory)).toBe(0);
+    expect(attempts).toBe(complete ? 1 : 2);
+    expect(cooperationState().tasks[0].status).toBe('integrated');
+  });
+
+  it.each(['markdown', 'json'])('keeps inherited %s notes pending after an unchanged completed research turn', async format => {
+    const tasks: CooperativeTask[] = [
+      { id: 'question', kind: 'research', objective: 'Find a current proof route', dependsOn: [], revision: 0 },
+      ...planTasks().slice(2).map(task => ({ ...task, dependsOn: task.id === 'first' ? ['question'] : ['first'] })),
+    ];
+    let attempts = 0;
+    configureCooperation(async (action, options, message) => {
+      if (action.kind === 'lead') {
+        writePlan(options.workspace, tasks);
+        for (const worker of JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8')).workers.slice(1)) {
+          fs.writeFileSync(path.join(worker.worktree, 'RESEARCH.md'), format === 'markdown' ? 'An old route that has not been checked.' :
+            JSON.stringify({ summary: 'An old route that has not been checked.' }));
+          commitSolverSources(problem, worker.worktree);
+        }
+      } else {
+        expect(action.kind === 'task' && action.task.id).toBe('question');
+        if (++attempts > 1) expect(message).toContain('math_research_delivery_unchanged');
+        // Changing only the mode must not make the inherited finding fresh.
+        fs.chmodSync(path.join(options.workspace, 'RESEARCH.md'), 0o755);
+      }
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '2', '--max-turns', '3'], directory)).toBe(4);
+    expect(attempts).toBe(2);
+    expect(cooperationState().tasks[0]).toMatchObject({ status: 'pending', attempts: 2, feedback: expect.stringContaining('math_research_delivery_unchanged') });
+    expect(cooperationState().tasks.slice(1).every((node: any) => node.attempts === 0)).toBe(true);
+    expect(cooperationState().deliveries ?? []).toEqual([]);
+    expect(host.verify).not.toHaveBeenCalled();
+  });
+
+  it('resumes a proof review checkpoint without accepting its saved verdict prematurely', async () => {
+    let reviews = 0;
+    configureCooperation(async (action, options) => {
+      if (action.kind === 'review' && ++reviews === 1) {
+        finishAssignment(action, options); return 'checkpoint';
+      }
+      if (action.kind === 'review') {
+        expect(cooperationState().review.status).toBe('running');
+        expect(cooperationState().deliveries.some((record: any) => record.kind === 'review')).toBe(false);
+        expect(host.officialGate).not.toHaveBeenCalled();
+      }
+      finishAssignment(action, options); return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '2', '--max-turns', '7'], directory)).toBe(0);
+    expect(reviews).toBe(2);
+    expect(cooperationState().deliveries.filter((record: any) => record.kind === 'review')).toMatchObject([{ status: 'accepted' }]);
+  });
+
   function finishAssignment(action: CooperativeAction, options: MathAgentOptions) {
     if (action.kind === 'lead') { writePlan(options.workspace, planTasks()); return; }
     if (isStatementAction(action)) {
@@ -1573,6 +1686,13 @@ describe('isolated solver and host acceptance', () => {
     expect(() => readMathResponse(workspace, 'math-result', {}, 'summary')).toThrow('requires_one_block');
     fs.writeFileSync(file, '```math\n{"commit":"wrong-version","summary":"first"}\n```');
     expect(readMathResponse(workspace, 'math-review', { commit: 'assigned-version' }).commit).toBe('wrong-version');
+  });
+
+  it('does not parse an inherited plan fence as Markdown research findings', () => {
+    writePlan(workspace, planTasks());
+    expect(() => readMathResponse(workspace, 'math-result', {}, 'summary')).toThrow('requires_one_block');
+    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), '# Findings\nUse True.intro.\n\n```lean\nexact True.intro\n```');
+    expect(readMathResponse(workspace, 'math-result', {}, 'summary').summary).toContain('Use True.intro.');
   });
 
   it('bounds a 3007-character advisory summary without discarding its verdict, evidence or raw response', () => {

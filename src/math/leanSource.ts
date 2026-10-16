@@ -259,7 +259,9 @@ function* leanSourceDeclarations(source: string): Generator<LeanSourceDeclaratio
       continue;
     }
     const nameStart = skipTrivia(index + keyword.length);
-    const name = /^[\p{L}\p{M}\p{N}_'.]+/u.exec(source.slice(nameStart))?.[0] ?? '';
+    // A dot qualifies another name component; the dot in `name.{u, v}`
+    // introduces universe parameters and is not part of the declaration name.
+    const name = /^[\p{L}\p{M}\p{N}_']+(?:\.[\p{L}\p{M}\p{N}_']+)*/u.exec(source.slice(nameStart))?.[0] ?? '';
     const nameEnd = nameStart + name.length;
     if (!name) {
       index += keyword.length;

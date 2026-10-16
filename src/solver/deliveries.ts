@@ -15,6 +15,8 @@ export function readMathResponse(worktree: string, legacyFence: string, bindings
   const blocks = [...text.matchAll(new RegExp('```(?:math|json|' + legacyFence + ')\\s*\\n([\\s\\S]*?)\\n```', 'gu'))]
     .filter(block => !textField || block[1].trimStart().startsWith('{'));
   if (blocks.length > 1) throw new Error(`${errorPrefix}_requires_one_block`);
+  // A different control response is not an ordinary Markdown finding.
+  if (textField && !blocks.length && /```math-[a-z-]+\s*\n/u.test(text)) throw new Error(`${errorPrefix}_requires_one_block`);
   const value = text.startsWith('{') ? JSON.parse(text) : blocks.length === 1 ? JSON.parse(blocks[0][1]) :
     textField && text ? { [textField]: text } : undefined;
   if (value === undefined) throw new Error(`${errorPrefix}_requires_one_block`);
