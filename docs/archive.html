@@ -32,7 +32,7 @@
     <aside class="sidebar" aria-label="工作区导航">
       <div class="sidebar-section">工作区</div>
       <nav class="workspace-nav" aria-label="视图">
-        <a href="#view=archive" data-view-link="archive" class="nav-item is-active" aria-current="page"><i data-lucide="files"></i><span>证明档案</span><span id="nav-count" class="nav-count">6</span></a>
+        <a href="#view=archive" data-view-link="archive" class="nav-item is-active" aria-current="page"><i data-lucide="files"></i><span>证明档案</span><span id="nav-count" class="nav-count">7</span></a>
         <a href="#view=quickstart" data-view-link="quickstart" class="nav-item"><i data-lucide="terminal"></i><span>本地回放</span><i data-lucide="chevron-right" class="nav-end"></i></a>
       </nav>
       <div class="sidebar-section resources-title">项目资源</div>
@@ -60,8 +60,8 @@
         </div>
 
         <div class="metrics" aria-label="档案统计">
-          <div class="metric"><div class="metric-label"><i data-lucide="badge-check"></i>官方验收</div><div class="metric-value"><strong id="accepted-count">3</strong><span>Lean-Eval accepted</span></div></div>
-          <div class="metric"><div class="metric-label"><i data-lucide="flask-conical"></i>研究快照</div><div class="metric-value"><strong id="progress-count">3</strong><span>尚未官方验收</span></div></div>
+          <div class="metric"><div class="metric-label"><i data-lucide="badge-check"></i>官方验收</div><div class="metric-value"><strong id="accepted-count">6</strong><span>Lean-Eval accepted</span></div></div>
+          <div class="metric"><div class="metric-label"><i data-lucide="flask-conical"></i>研究快照</div><div class="metric-value"><strong id="progress-count">1</strong><span>尚未官方验收</span></div></div>
           <div class="metric"><div class="metric-label"><i data-lucide="file-code-2"></i>归档源码</div><div class="metric-value"><strong id="line-count">&middot;&middot;&middot;</strong><span>行 Lean</span></div></div>
           <div class="metric metric-snapshot"><div class="metric-label"><i data-lucide="calendar-days"></i>快照时间</div><div class="snapshot-value" id="snapshot-date">2026-10-15</div><span class="muted small">UTC · 静态档案</span></div>
         </div>
@@ -69,9 +69,9 @@
         <div class="archive-toolbar">
           <fieldset class="status-filter" aria-label="按验收状态筛选">
             <legend class="sr-only">验收状态</legend>
-            <label><input type="radio" name="status" value="all" checked><span>全部 <b id="all-filter-count">6</b></span></label>
-            <label><input type="radio" name="status" value="accepted"><span>已验收 <b id="accepted-filter-count">3</b></span></label>
-            <label><input type="radio" name="status" value="progress"><span>研究中 <b id="progress-filter-count">3</b></span></label>
+            <label><input type="radio" name="status" value="all" checked><span>全部 <b id="all-filter-count">7</b></span></label>
+            <label><input type="radio" name="status" value="accepted"><span>已验收 <b id="accepted-filter-count">6</b></span></label>
+            <label><input type="radio" name="status" value="progress"><span>研究中 <b id="progress-filter-count">1</b></span></label>
           </fieldset>
           <div class="search-sort">
             <label class="search-field"><i data-lucide="search"></i><input id="search" type="search" autocomplete="off" aria-label="搜索题目或数学领域" placeholder="搜索题目、数学领域…"></label>
@@ -84,7 +84,7 @@
             <div class="catalog-heading"><span>题目 / 来源</span><span>状态 / 更新</span></div>
             <ul id="proof-list" class="proof-list" aria-label="证明列表"><li class="initial-loading" role="status">正在加载证明档案…</li></ul>
             <div id="empty-state" class="empty-state" hidden><i data-lucide="search-x"></i><h2>没有匹配的题目</h2><button class="button" data-action="reset">清除筛选</button></div>
-            <div class="catalog-footer"><span id="result-count" aria-live="polite">6 条记录</span><a href="data/catalog.json" download="theoremos-archive.json" title="下载完整档案 JSON"><i data-lucide="download"></i>档案 JSON</a></div>
+            <div class="catalog-footer"><span id="result-count" aria-live="polite">7 条记录</span><a href="data/catalog.json" download="theoremos-archive.json" title="下载完整档案 JSON"><i data-lucide="download"></i>档案 JSON</a></div>
           </section>
           <aside class="inspector" id="inspector" aria-label="题目详情"></aside>
         </div>

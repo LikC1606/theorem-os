@@ -10,6 +10,7 @@ try {
   await page.goto(pathToFileURL(path.join(root, 'out/site/archive.html')).href);
   await page.locator('.proof-row').first().waitFor();
   await page.evaluate(() => document.fonts.ready);
+  await page.locator('[data-proof-id="annals_equiangular_lines_fixed_angle"]').click();
   assert.equal(await page.locator('#inspector .detail-title').innerText(), 'Equiangular lines');
   await page.screenshot({ path: path.join(root, 'docs/assets/archive-preview.png') });
   await page.setViewportSize({ width: 390, height: 844 });

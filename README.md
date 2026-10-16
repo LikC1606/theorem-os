@@ -43,18 +43,23 @@
 
 ## 已验收证明
 
-仓库收录了 **3 个具有 Lean-Eval 官方通过记录的证明包**。题目链接指向归档源码，结果链接指向官方回复。
+仓库收录了 **6 个具有 Lean-Eval 官方通过记录的证明包**。题目链接指向归档源码，结果链接指向官方回复。
 
 | 题目 | 数学领域 | 官方结果 |
 | --- | --- | --- |
 | [Unit conjecture · 群环中的非平凡单位](accepted/annals_unit_conjecture/) | 代数 · 群环 | [#1246 · pass](https://github.com/leanprover/lean-eval-submissions/issues/1246#issuecomment-5380977645) |
 | [Rademacher type and Enflo type coincide](accepted/annals_rademacher_enflo_type/) | 泛函分析 · 概率 | [#2115 · pass](https://github.com/leanprover/lean-eval-submissions/issues/2115#issuecomment-6161355838) |
 | [Equiangular lines with a fixed angle](accepted/annals_equiangular_lines_fixed_angle/) | 组合数学 · 线性代数 | [#2135 · pass](https://github.com/leanprover/lean-eval-submissions/issues/2135#issuecomment-6186332699) |
+| [Fractional expectation thresholds · 分数期望阈值](accepted/annals_fractional_expectation_thresholds/) | 概率组合 | [#2141 · pass](https://github.com/leanprover/lean-eval-submissions/issues/2141#issuecomment-6197783762) |
+| [Dimitrov · 代数整数的 house 下界](accepted/dimitrov/) | 代数数论 | [#2143 · pass](https://github.com/leanprover/lean-eval-submissions/issues/2143#issuecomment-6215093969) |
+| [Hopf–Rinow · 测地完备与度量完备](accepted/hopf_rinow/) | 微分几何 | [#2143 · pass](https://github.com/leanprover/lean-eval-submissions/issues/2143#issuecomment-6215093969) |
 
 这些成果来自前身 DeepScientist / DeepScientist Math 及后续工作，包含复用早期证明的继续运行和环境迁移，不构成当前版本从零求解的成功率评测。[成果档案](accepted/README.md)保留模型归因、题目版本、提交来源和 SHA-256 校验值。
 
+另有 [4 道本地官方比较器通过、等待官方复验的证明](submitted/README.md)：Sunflower、Lorentzian polynomials、Möbius 和 Algebraic integers，均已提交 [#2144](https://github.com/leanprover/lean-eval-submissions/issues/2144)，不计入上述官方通过数量。
+
 <details>
-<summary>预览证明档案与研究中快照</summary>
+<summary>预览证明档案与历史研究快照</summary>
 
 <a href="https://likc1606.github.io/theorem-os/archive.html">
   <picture>
@@ -65,7 +70,7 @@
 
 [在线档案](https://likc1606.github.io/theorem-os/archive.html)可搜索、筛选题目，查看 Lean 源码和验收证据，并下载公开记录。
 
-另有 [Dimitrov、Hopf–Rinow 与 Szemerédi 三个研究中快照](in-progress/README.md)，保留 Agent 工作区、研究记录与历史。它们尚未获官方验收，可能包含 `sorry` 和未完成路线，不计入通过数量。
+[历史研究快照](in-progress/README.md)保留 Dimitrov、Hopf–Rinow 与 Szemerédi 的 Agent 工作区、研究记录与历史。其中前两题已有上述最终验收包，Szemerédi 尚未获官方验收；历史草稿可能包含 `sorry` 和未完成路线。
 
 </details>
 

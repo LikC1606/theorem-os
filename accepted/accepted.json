@@ -57,5 +57,68 @@
       "lean-toolchain": "bc84812c94489d1e3e191baa1dc10d5eb684382d7fe9d2a5ab085e72c1c67e47",
       "verification.json": "b2c9c38d29712f16603aea5a2bee87be26fae1b6124fe5abf6ce98c138b0b04a"
     }
+  },
+  {
+    "problem_id": "annals_fractional_expectation_thresholds",
+    "statement_revision": 1,
+    "directory": "annals_fractional_expectation_thresholds",
+    "model": "DeepScientist Math + GPT-6.1 (gpt-6.1-sol)",
+    "status": "official_accepted",
+    "submission_url": "https://github.com/leanprover/lean-eval-submissions/issues/2141",
+    "result_url": "https://github.com/leanprover/lean-eval-submissions/issues/2141#issuecomment-6197783762",
+    "result_reported_at": "2026-10-15T17:07:13Z",
+    "result_body": "## Submission result\n\n✅ Newly-solved problems: annals_fractional_expectation_thresholds\n\nAttempted 1 / 1; succeeded on 1.\n\n### Per-problem\n- `annals_fractional_expectation_thresholds`: pass",
+    "original_source_url": "https://github.com/LikC1606/deepscientist-math-proofs/tree/003d58b9a333858bf878e5984348ee21bb0aed72",
+    "original_source_commit": "003d58b9a333858bf878e5984348ee21bb0aed72",
+    "source_sha256": {
+      "README.md": "48b033edf91816eea3ae2f1c09d23e300393113c7390971a3879d4a8b1835d39",
+      "Submission.lean": "028ce084c75d9015852e6912d05ebf50f40d05522b47267e52c3365c7f19d56e",
+      "Submission/Helpers.lean": "e0ea3f43432ed60c497193a8bb900ca71bdbb4a16e0c256a6d1bac0b4f273fad",
+      "lakefile.toml": "0331a667b991e555c474fbd05905e89f1402f826b70d851319e6ab60edea3c4a",
+      "lean-toolchain": "bc84812c94489d1e3e191baa1dc10d5eb684382d7fe9d2a5ab085e72c1c67e47",
+      "verification.json": "e313a7e004a8b48c41397c209e061481fa1d6468ef2da47532ec7787b66d2c90"
+    }
+  },
+  {
+    "problem_id": "dimitrov",
+    "statement_revision": 1,
+    "directory": "dimitrov",
+    "model": "DeepScientist Math + GPT-6.1 (gpt-6.1-sol)",
+    "status": "official_accepted",
+    "submission_url": "https://github.com/leanprover/lean-eval-submissions/issues/2143",
+    "result_url": "https://github.com/leanprover/lean-eval-submissions/issues/2143#issuecomment-6215093969",
+    "result_reported_at": "2026-10-16T12:04:03Z",
+    "result_body": "## Submission result\n\n✅ Newly-solved problems: dimitrov, hopf_rinow\n\nAttempted 2 / 2; succeeded on 2.\n\n### Per-problem\n- `dimitrov`: pass\n- `hopf_rinow`: pass",
+    "original_source_url": "https://github.com/LikC1606/deepscientist-math-proofs/tree/b6909c3211863eac52c040c8812da3df4ce3af4d",
+    "original_source_commit": "b6909c3211863eac52c040c8812da3df4ce3af4d",
+    "source_sha256": {
+      "Submission.lean": "f00a658ba195e41c8b9f340cb6c21cbbfeb9e4cb68c0c0e85c1d8b3bdb25fe5d",
+      "Submission/Helpers.lean": "4958987925b01fbfba67842ea4aa79e1452f1614e1c4ed82cba7bbc933affefd",
+      "lake-manifest.json": "9aecfc7243ab33486842d04b39d0233997e62a1600dc049fde1552427dd605d1",
+      "lakefile.toml": "46811a9ccc8462fd95c6182cd1480dc22d7b3375d0b23745bb631ede855a0492",
+      "lean-toolchain": "bc84812c94489d1e3e191baa1dc10d5eb684382d7fe9d2a5ab085e72c1c67e47",
+      "verification.json": "a1474a7a082fb842d9651358ca49c68ff26e2e31f361d688ff7a6ec611e303a5"
+    }
+  },
+  {
+    "problem_id": "hopf_rinow",
+    "statement_revision": 1,
+    "directory": "hopf_rinow",
+    "model": "DeepScientist Math + GPT-6.1 (gpt-6.1-sol)",
+    "status": "official_accepted",
+    "submission_url": "https://github.com/leanprover/lean-eval-submissions/issues/2143",
+    "result_url": "https://github.com/leanprover/lean-eval-submissions/issues/2143#issuecomment-6215093969",
+    "result_reported_at": "2026-10-16T12:04:03Z",
+    "result_body": "## Submission result\n\n✅ Newly-solved problems: dimitrov, hopf_rinow\n\nAttempted 2 / 2; succeeded on 2.\n\n### Per-problem\n- `dimitrov`: pass\n- `hopf_rinow`: pass",
+    "original_source_url": "https://github.com/LikC1606/deepscientist-math-proofs/tree/b6909c3211863eac52c040c8812da3df4ce3af4d",
+    "original_source_commit": "b6909c3211863eac52c040c8812da3df4ce3af4d",
+    "source_sha256": {
+      "Submission.lean": "168812f88c0fa82777a53cb700e391f6deab564ad2b210900c7573e72d0c365a",
+      "Submission/Helpers.lean": "f62e16b14fff319f20788b03d94cf9de1262dcfa0cc6462b539faa5435573c40",
+      "lake-manifest.json": "c2ffad9c26904466069938f1f6c908f6a3202256c234a0328436724b4666f262",
+      "lakefile.toml": "f8d06e68d8482247f0d18cad71c175fdcb03ca1a68a30a055bca2bde8485bdb2",
+      "lean-toolchain": "bc84812c94489d1e3e191baa1dc10d5eb684382d7fe9d2a5ab085e72c1c67e47",
+      "verification.json": "643a4d170f18ff873081d03b9547471f33961e7caaa6423b614d30babea14649"
+    }
   }
 ]

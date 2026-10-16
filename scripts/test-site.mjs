@@ -24,7 +24,7 @@ try {
   await page.waitForSelector('.proof-row');
   assert.equal(await page.locator('.proof-row').count(), catalog.records.length);
   assert.equal(await page.locator('.proof-row.is-selected').count(), 1);
-  assert.equal(await page.locator('#inspector .detail-title').textContent(), 'Equiangular lines');
+  assert.equal(await page.locator('#inspector .detail-title').textContent(), official[0].title);
   await page.screenshot({ path: path.join(output, 'desktop.png'), fullPage: true });
 
   await page.getByRole('radio', { name: /已验收/ }).check();

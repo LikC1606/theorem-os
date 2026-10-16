@@ -1,0 +1,146 @@
+[
+  {
+    "problem_id": "annals_improved_bounds_sunflower_lemma",
+    "statement_revision": 1,
+    "directory": "annals_improved_bounds_sunflower_lemma",
+    "model": "DeepScientist Math + GPT-6.1 (gpt-6.1-sol)",
+    "status": "local_verified_pending_official",
+    "submission_url": "https://github.com/leanprover/lean-eval-submissions/issues/2144",
+    "workflow_url": "https://github.com/leanprover/lean-eval-submissions/actions/runs/38944065438",
+    "original_source_url": "https://github.com/LikC1606/deepscientist-math-proofs/tree/43cffcc2851efebefd9609abee0c537c64bd9dbf/annals_improved_bounds_sunflower_lemma",
+    "original_source_commit": "43cffcc2851efebefd9609abee0c537c64bd9dbf",
+    "source_sha256": {
+      "lake-manifest.json": "513c4898907308fd863f9dc04df3c389f1bca00ad68387d9ea62b521e1b20122",
+      "lakefile.toml": "1fee9d4b6d9bd19ad63f7bc2f3fd2ccbeef4decde6fa7248e1263be82716282c",
+      "lean-toolchain": "bc84812c94489d1e3e191baa1dc10d5eb684382d7fe9d2a5ab085e72c1c67e47",
+      "Submission/Helpers.lean": "9059e07d4ef5973c4a44e2eb54a47baf9355d93c2004bce141516e655e805b42",
+      "Submission.lean": "5452139451a7e52fdc601cc3908dad70bc30ee7980fc686c1adc44cb39679a87",
+      "verification.json": "3df01e2637480eca4befab5a16c125cb721abaa03aa9f174ec92d07921ba6dd4"
+    },
+    "local_verification": {
+      "evidence_file": "verification.json",
+      "scope": "local_official_comparator",
+      "command": "lake test",
+      "exit_code": 0,
+      "receipt_id": "official-5d529fee4ce52fcbdd7b9f5e",
+      "checked_at": "2026-10-16T17:15:19.387Z",
+      "solver_commit": "89d3b2ae1046b769c61bec916b7b2e514bb3b51f",
+      "official_projection_commit": "119c1f08760133b8b354354de04d59b5079a80f0",
+      "official_baseline_commit": "38361be884302c7edce1908c4aef8296eb2cb27e",
+      "evidence_validation": {
+        "signatureValid": true,
+        "solverStateUnchanged": true,
+        "solverAndOfficialProjectionBytesIdentical": true,
+        "frozenDependencyFilesIdentical": true
+      }
+    }
+  },
+  {
+    "problem_id": "annals_lorentzian_polynomials",
+    "statement_revision": 1,
+    "directory": "annals_lorentzian_polynomials",
+    "model": "DeepScientist Math + GPT-6.1 (gpt-6.1-sol)",
+    "status": "local_verified_pending_official",
+    "submission_url": "https://github.com/leanprover/lean-eval-submissions/issues/2144",
+    "workflow_url": "https://github.com/leanprover/lean-eval-submissions/actions/runs/38944065438",
+    "original_source_url": "https://github.com/LikC1606/deepscientist-math-proofs/tree/43cffcc2851efebefd9609abee0c537c64bd9dbf/annals_lorentzian_polynomials",
+    "original_source_commit": "43cffcc2851efebefd9609abee0c537c64bd9dbf",
+    "source_sha256": {
+      "lake-manifest.json": "137781601d4246b23b38ef4e77de1ff93f678bd4d3b4eef54fee002e269fabee",
+      "lakefile.toml": "f2cdafc232195ab0b9a32b62a7dbc5b04075051915f97268e266f5816a640a53",
+      "lean-toolchain": "bc84812c94489d1e3e191baa1dc10d5eb684382d7fe9d2a5ab085e72c1c67e47",
+      "Submission/Helpers.lean": "7c9eb18fb990b2a6c20fb05a040fe1a9ddf53426b534e881308110b79647210e",
+      "Submission.lean": "cf17603393c2c1ae5e480f51a81204a90e5f8d0d0ee56b6638684b8a844042c4",
+      "verification.json": "0650fe36365e48d9e7ad1d38edd261c05262c782f44b354b14ee9812e37678f6"
+    },
+    "local_verification": {
+      "evidence_file": "verification.json",
+      "scope": "local_official_comparator",
+      "command": "lake test",
+      "exit_code": 0,
+      "receipt_id": "official-77ec6166e2084c56f0db5506",
+      "checked_at": "2026-10-16T17:18:55.195Z",
+      "solver_commit": "dc082e99532a292b8d7cfd800f9830db8651e696",
+      "official_projection_commit": "914723bf876270767777aa9ab87941af6869f523",
+      "official_baseline_commit": "38361be884302c7edce1908c4aef8296eb2cb27e",
+      "evidence_validation": {
+        "signatureValid": true,
+        "solverStateUnchanged": true,
+        "solverAndOfficialProjectionBytesIdentical": true,
+        "frozenDependencyFilesIdentical": true
+      }
+    }
+  },
+  {
+    "problem_id": "annals_optimal_moebius",
+    "statement_revision": 1,
+    "directory": "annals_optimal_moebius",
+    "model": "DeepScientist Math + GPT-6.1 (gpt-6.1-sol)",
+    "status": "local_verified_pending_official",
+    "submission_url": "https://github.com/leanprover/lean-eval-submissions/issues/2144",
+    "workflow_url": "https://github.com/leanprover/lean-eval-submissions/actions/runs/38944065438",
+    "original_source_url": "https://github.com/LikC1606/deepscientist-math-proofs/tree/43cffcc2851efebefd9609abee0c537c64bd9dbf/annals_optimal_moebius",
+    "original_source_commit": "43cffcc2851efebefd9609abee0c537c64bd9dbf",
+    "source_sha256": {
+      "lake-manifest.json": "f971d97fc46d3b4433c44addab2bee03abe8b5c40a809b9d1a799d2543deca3f",
+      "lakefile.toml": "77e265cac894be153ed904484a81e6ed120caeb1babcde8f8d73d4275f0fe5db",
+      "lean-toolchain": "bc84812c94489d1e3e191baa1dc10d5eb684382d7fe9d2a5ab085e72c1c67e47",
+      "Submission/Helpers.lean": "f8098c97268ab82c80c703882c3a20304eb1345f67f34a394ed6646b4f1c7d4b",
+      "Submission.lean": "30d6bf220146a5372fa539059d7539460a7e10a601d84f7e9c9bc4f61518ee08",
+      "verification.json": "6a6bf71b63a618508b4a1f1e34a309477cdc5ebb3a4fe9c384b6680bc54828bf"
+    },
+    "local_verification": {
+      "evidence_file": "verification.json",
+      "scope": "local_official_comparator",
+      "command": "lake test",
+      "exit_code": 0,
+      "receipt_id": "official-56aa819a8ed10d397631a424",
+      "checked_at": "2026-10-16T15:17:20.432Z",
+      "solver_commit": "b48eebc842a49f114c97ac439f3aa3991858284b",
+      "official_projection_commit": "5bc9fa372c974cc78a83abede3914757cb9e690b",
+      "official_baseline_commit": "38361be884302c7edce1908c4aef8296eb2cb27e",
+      "evidence_validation": {
+        "signatureValid": true,
+        "solverStateUnchanged": true,
+        "solverAndOfficialProjectionBytesIdentical": true,
+        "frozenDependencyFilesIdentical": true
+      }
+    }
+  },
+  {
+    "problem_id": "annals_algebraic_integers",
+    "statement_revision": 1,
+    "directory": "annals_algebraic_integers",
+    "model": "DeepScientist Math + GPT-6.1 (gpt-6.1-sol)",
+    "status": "local_verified_pending_official",
+    "submission_url": "https://github.com/leanprover/lean-eval-submissions/issues/2144",
+    "workflow_url": "https://github.com/leanprover/lean-eval-submissions/actions/runs/38944065438",
+    "original_source_url": "https://github.com/LikC1606/deepscientist-math-proofs/tree/43cffcc2851efebefd9609abee0c537c64bd9dbf/annals_algebraic_integers",
+    "original_source_commit": "43cffcc2851efebefd9609abee0c537c64bd9dbf",
+    "source_sha256": {
+      "lake-manifest.json": "bd437daa81debd08a537910b20cfd393a309529dd7e5a3d9f4bf28fcad0d6697",
+      "lakefile.toml": "fc118359bdb58b65c54e5d64d997bb11b06148359d22868a415510c87bfcd786",
+      "lean-toolchain": "bc84812c94489d1e3e191baa1dc10d5eb684382d7fe9d2a5ab085e72c1c67e47",
+      "Submission/Helpers.lean": "ce61d989c70a72ddf22b65b8c795f21b65b65a939b883a6b11acb8d48404e5a7",
+      "Submission.lean": "252c353bed16717cf3f61686a79d116af5453b050a6a43126cefc73d24644127",
+      "verification.json": "d06ec9549b182198bf3d9a0e2c6de6c90a54775fac6d582abd70afb2217e388d"
+    },
+    "local_verification": {
+      "evidence_file": "verification.json",
+      "scope": "local_official_comparator",
+      "command": "lake test",
+      "exit_code": 0,
+      "receipt_id": "official-3958121e2cdc96e06fd66bf1",
+      "checked_at": "2026-10-16T17:52:45.934Z",
+      "solver_commit": "431e8fb70db64d14b8d510a4f1e759ff5be3dada",
+      "official_projection_commit": "a93a90c134a6c348db4d019cfd71ea58315e4a71",
+      "official_baseline_commit": "38361be884302c7edce1908c4aef8296eb2cb27e",
+      "evidence_validation": {
+        "signatureValid": true,
+        "solverStateUnchanged": true,
+        "solverAndOfficialProjectionBytesIdentical": true,
+        "frozenDependencyFilesIdentical": true
+      }
+    }
+  }
+]

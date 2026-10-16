@@ -88,6 +88,58 @@ describe('GitHub Pages archive catalog', () => {
     expect(record.sources[0].sha256).toBe(accepted[0].source_sha256['Submission.lean']);
   });
 
+  it.each(['published_evidence', 'submission_provenance'])('reads %s without changing its proof binding', format => {
+    const { root, write, accepted } = fixture();
+    const files = { 'Submission.lean': { sha256: accepted[0].source_sha256['Submission.lean'], bytes: 35 } };
+    const receipt = {
+      problemId: 'example', proofHash: files['Submission.lean'].sha256, receiptId: 'official-example',
+      status: 'official_verified', verifier: 'official-comparator', exitCode: 0, timedOut: false,
+    };
+    const evidence = format === 'published_evidence' ? {
+      schema: 'theorem-os.leaneval.submission-evidence.v1', problem_id: 'example',
+      candidate_commit: 'c'.repeat(40), files, kernel_acceptance: ['nanoda', 'Lean default kernel'],
+      local_official_comparator: receipt,
+    } : {
+      schema: 'theoremos.lean-eval-submission-provenance.v1',
+      problem: { problemId: 'example', solverCommit: 'c'.repeat(40), files, localOfficialReceipt: receipt },
+    };
+    const save = () => {
+      const json = JSON.stringify(evidence);
+      write('accepted/example/verification.json', json);
+      write('accepted/accepted.json', [{ ...accepted[0], source_sha256: {
+        ...accepted[0].source_sha256, 'verification.json': sha256(json),
+      } }]);
+    };
+    save();
+    const local = () => buildSiteCatalog(root, revision).records.find(item => item.id === 'example')!.local;
+    expect(local()).toMatchObject({
+      status: 'official_verified', kernelVerified: true, comparator: 'official_verified',
+      sourceProofCommit: 'c'.repeat(40), sourceBinding: 'matches',
+    });
+    expect(fs.readFileSync(path.join(root, 'accepted/example/verification.json'), 'utf8')).toBe(JSON.stringify(evidence));
+    receipt.exitCode = 1;
+    save();
+    expect(local()?.kernelVerified).toBe(false);
+    if (format === 'submission_provenance') {
+      receipt.proofHash = 'd'.repeat(64);
+      save();
+      expect(() => local()).toThrow('Local receipt does not match the published problem and proof');
+    }
+  });
+
+  it('shows the accepted proof while retaining its earlier research snapshot', () => {
+    const { root, write, accepted } = fixture();
+    const proof = 'theorem research : True := by trivial\n';
+    write('accepted/research/Submission.lean', proof);
+    write('accepted/accepted.json', [...accepted, {
+      ...accepted[0], problem_id: 'research', directory: 'research', source_sha256: { 'Submission.lean': sha256(proof) },
+    }]);
+    const records = buildSiteCatalog(root, revision).records;
+    expect(records.filter(record => record.id === 'research')).toHaveLength(1);
+    expect(records.find(record => record.id === 'research')).toMatchObject({ status: 'official_accepted' });
+    expect(JSON.parse(fs.readFileSync(path.join(root, 'in-progress/snapshot.json'), 'utf8')).problems).toHaveLength(1);
+  });
+
   it('rejects a changed research source against its snapshot manifest', () => {
     const { root, write } = fixture();
     write('in-progress/research/workers/solver/generated/research/Challenge.lean', 'changed');

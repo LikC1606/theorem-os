@@ -46,7 +46,7 @@ const manifestSchema = z.object({
   taskStatuses: z.record(z.number().int().nonnegative()),
   files: z.array(z.object({ file: z.string(), sha256: digest })),
 });
-const localSchema = z.object({
+const legacyLocalSchema = z.object({
   problem_id: identifier,
   source_proof_commit: commit.optional(),
   source_sha256: z.record(digest).default({}),
@@ -63,6 +63,57 @@ const localSchema = z.object({
     fresh_from_zero: z.boolean().optional(),
   }).optional(),
 });
+const publishedFilesSchema = z.record(z.object({ sha256: digest, bytes: z.number().int().nonnegative() }));
+const publishedEvidenceSchema = z.object({
+  schema: z.literal('theorem-os.leaneval.submission-evidence.v1'),
+  problem_id: identifier,
+  candidate_commit: commit,
+  files: publishedFilesSchema,
+  kernel_acceptance: z.array(z.string()),
+  local_official_comparator: z.object({ status: z.string(), exitCode: z.number().int() }),
+}).transform(evidence => ({
+  problem_id: evidence.problem_id,
+  source_proof_commit: evidence.candidate_commit,
+  source_sha256: Object.fromEntries(Object.entries(evidence.files).map(([file, value]) => [file, value.sha256])),
+  local_evaluation: {
+    status: evidence.local_official_comparator.status,
+    kernel_verified: evidence.local_official_comparator.status === 'official_verified' &&
+      evidence.local_official_comparator.exitCode === 0 && evidence.kernel_acceptance.includes('nanoda') &&
+      evidence.kernel_acceptance.includes('Lean default kernel'),
+    official_comparator: evidence.local_official_comparator.status,
+    axioms: [],
+  },
+}));
+const submissionProvenanceSchema = z.object({
+  schema: z.literal('theoremos.lean-eval-submission-provenance.v1'),
+  problem: z.object({
+    problemId: identifier,
+    solverCommit: commit,
+    files: publishedFilesSchema,
+    localOfficialReceipt: z.object({
+      problemId: identifier, proofHash: digest, receiptId: z.string().min(1),
+      status: z.string(), verifier: z.string(), exitCode: z.number().int(), timedOut: z.boolean(),
+    }),
+  }).refine(problem => problem.localOfficialReceipt.problemId === problem.problemId &&
+    problem.localOfficialReceipt.proofHash === problem.files['Submission.lean']?.sha256,
+  'Local receipt does not match the published problem and proof'),
+}).transform(({ problem }) => ({
+  problem_id: problem.problemId,
+  source_proof_commit: problem.solverCommit,
+  source_sha256: Object.fromEntries(Object.entries(problem.files).map(([file, value]) => [file, value.sha256])),
+  local_evaluation: {
+    status: problem.localOfficialReceipt.status,
+    kernel_verified: problem.localOfficialReceipt.status === 'official_verified' &&
+      problem.localOfficialReceipt.verifier === 'official-comparator' &&
+      problem.localOfficialReceipt.exitCode === 0 && !problem.localOfficialReceipt.timedOut,
+    official_comparator: problem.localOfficialReceipt.status,
+    kernel_receipt: problem.localOfficialReceipt.receiptId,
+    axioms: [],
+  },
+}));
+// Normalize published evidence for display; retain every original evidence file unchanged.
+const localSchema = z.union([legacyLocalSchema, publishedEvidenceSchema, submissionProvenanceSchema])
+  .pipe(legacyLocalSchema);
 
 const descriptions: Record<string, Pick<ArchiveRecord, 'title' | 'subtitle' | 'area' | 'summary' | 'declaration'>> = {
   annals_equiangular_lines_fixed_angle: {
@@ -80,14 +131,19 @@ const descriptions: Record<string, Pick<ArchiveRecord, 'title' | 'subtitle' | 'a
     summary: '构造无挠群中的群环非平凡单位，对应原题 theorem_A。原始结果归属于 DeepScientist + GPT-5.6。',
     declaration: 'theorem theorem_A',
   },
+  annals_fractional_expectation_thresholds: {
+    title: 'Fractional expectation thresholds', subtitle: '分数期望阈值', area: '概率组合',
+    summary: '证明上闭集合族的分数期望阈值界，包括通用常数 K 和原题 theorem_1_1。档案保留完整提交包及官方验收记录。',
+    declaration: 'theorem theorem_1_1',
+  },
   dimitrov: {
     title: 'Dimitrov', subtitle: '代数整数的 house 下界', area: '数论',
-    summary: '关于非零且非单位根代数整数的 house 下界。当前为研究快照，尚无官方验收通过记录。',
+    summary: '证明非零且非单位根代数整数的 house 下界。档案保留最终提交包及官方验收记录。',
     declaration: 'theorem dimitrov',
   },
   hopf_rinow: {
     title: 'Hopf–Rinow', subtitle: '测地完备与度量完备', area: '微分几何',
-    summary: '在原题的黎曼流形条件下，研究测地完备与度量完备的等价性。当前为尚未官方验收的研究快照。',
+    summary: '在原题的黎曼流形条件下，证明测地完备与度量完备的等价性。档案保留最终提交包及官方验收记录。',
     declaration: 'theorem hopf_rinow',
   },
   szemeredi: {
@@ -164,7 +220,10 @@ export function buildSiteCatalog(root: string, archiveRevision: string): Archive
     }
     return record;
   });
+  const acceptedIds = new Set(accepted.map(entry => entry.problem_id));
   for (const entry of snapshot.problems) {
+    // Historical snapshots remain intact after their final proofs receive acceptance.
+    if (acceptedIds.has(entry.problemId)) continue;
     const base = `in-progress/${entry.directory}`;
     const manifest = manifestSchema.parse(readJson(root, `${base}/manifest.json`));
     if (entry.problemId !== entry.directory || manifest.problemId !== entry.problemId || manifest.runId !== entry.runId) {
