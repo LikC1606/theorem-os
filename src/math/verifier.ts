@@ -151,6 +151,9 @@ export type MathematicsOfficialComparatorResult = {
   stdoutPreview?: string;
   stderrPreview?: string;
   durationMs: number;
+  lockAcquired?: boolean;
+  lockWaitMs?: number;
+  executionMs?: number;
   checkedAt: number;
   officialManifestId?: string;
   officialManifestHash?: string;
@@ -177,6 +180,9 @@ export type MathematicsSandboxCommandResult = Readonly<{
   timedOut: boolean;
   aborted: boolean;
   durationMs: number;
+  lockAcquired?: boolean;
+  lockWaitMs?: number;
+  executionMs?: number;
   errorCode?: string;
   errorMessage?: string;
   sandboxBackend?: 'unshare' | 'bwrap' | 'docker' | 'podman';
@@ -2566,6 +2572,9 @@ async function verifyFormalFile(file: PreparedFile, context: FormalFileVerificat
     timedOut: processResult.timedOut,
     aborted: processResult.aborted,
     durationMs: processResult.durationMs,
+    ...(processResult.lockAcquired !== undefined ? { lockAcquired: processResult.lockAcquired } : {}),
+    ...(processResult.lockWaitMs !== undefined ? { lockWaitMs: processResult.lockWaitMs } : {}),
+    ...(processResult.executionMs !== undefined ? { executionMs: processResult.executionMs } : {}),
   });
   if (error) {
     emit('diagnostic.emitted', {
@@ -3802,6 +3811,9 @@ async function runOfficialComparatorUnbounded(
     ...(stdoutPreview ? { stdoutPreview } : {}),
     ...(stderrPreview ? { stderrPreview } : {}),
     durationMs: processResult.durationMs,
+    ...(processResult.lockAcquired !== undefined ? { lockAcquired: processResult.lockAcquired } : {}),
+    ...(processResult.lockWaitMs !== undefined ? { lockWaitMs: processResult.lockWaitMs } : {}),
+    ...(processResult.executionMs !== undefined ? { executionMs: processResult.executionMs } : {}),
     checkedAt: Date.now(),
     ...(validatedManifest
       ? {

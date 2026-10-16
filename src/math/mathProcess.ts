@@ -17,6 +17,12 @@ export type MathProcessResult = {
   timedOut: boolean;
   aborted: boolean;
   durationMs: number;
+  /** Present only when a shared Lean lock is configured; started refers to its wrapper. */
+  lockAcquired?: boolean;
+  /** Time until acquisition was observed, or wrapper completion if it never was. */
+  lockWaitMs?: number;
+  /** Time from observed acquisition through wrapper completion, including shutdown. */
+  executionMs?: number;
   errorCode?: string;
   errorMessage?: string;
 };
@@ -26,17 +32,31 @@ const PROCESS_STOP_GRACE_MS = 1_000;
 /** Share a compile slot across solver processes; waiting uses the normal cancellation and deadline. */
 export function runLeanProcess(command: string, args: string[], options: Parameters<typeof runMathProcess>[2] & {
   onLockProgress?: (event: 'lean_lock_waiting' | 'lean_lock_acquired') => void;
-}) {
+}): Promise<MathProcessResult> {
   const lock = (options.env ?? process.env).DEEPSCIENTIST_MATH_LEAN_LOCK;
   if (!lock) return runMathProcess(command, args, options);
   if (process.platform !== 'linux' || !path.isAbsolute(lock)) throw new Error('math_lean_lock_requires_absolute_linux_path');
   const progress = options.onLockProgress ?? (event => console.error(JSON.stringify({ event, at: Date.now() })));
   if (!options.signal?.aborted) progress('lean_lock_waiting');
+  const startedAt = performance.now();
+  let acquiredAt: number | undefined;
   // A separate pipe reports acquisition without changing Lean output or inherited input descriptors.
   const descriptor = 3 + (options.inheritedFds?.length ?? 0);
   return runMathProcess('/usr/bin/flock', ['--exclusive', lock, '/bin/sh', '-c',
     `printf 1 >&${descriptor}; exec "$@"`, 'math-lean-lock', command, ...args], {
-    ...options, onExtraPipe: stream => stream.once('data', () => progress('lean_lock_acquired')),
+    ...options, onExtraPipe: stream => stream.once('data', () => {
+      acquiredAt = performance.now();
+      progress('lean_lock_acquired');
+    }),
+  }).then(result => {
+    const lockWaitMs = acquiredAt === undefined ? result.durationMs :
+      Math.min(result.durationMs, Math.max(0, Math.round(acquiredAt - startedAt)));
+    return {
+      ...result,
+      lockAcquired: acquiredAt !== undefined,
+      lockWaitMs,
+      ...(acquiredAt !== undefined ? { executionMs: Math.max(0, result.durationMs - lockWaitMs) } : {}),
+    };
   });
 }
 

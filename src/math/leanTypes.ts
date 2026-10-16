@@ -80,6 +80,9 @@ export type MathematicsVerificationEventPayloadMap = {
     timedOut: boolean;
     aborted: boolean;
     durationMs: number;
+    lockAcquired?: boolean;
+    lockWaitMs?: number;
+    executionMs?: number;
   };
   'receipt.published': {
     receiptId: string;

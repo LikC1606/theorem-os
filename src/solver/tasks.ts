@@ -3,11 +3,15 @@ import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import type { DeliveryRecord } from './deliveries';
 import type { TaskProof } from './cooperativeProof';
 import type { StatementAction } from './statementReview';
+import type { TaskDiagnostic } from './taskDiagnostics';
+import { parseTaskObligationMetadata, validateTaskObligations,
+  type TaskApplicationContract, type TaskPremiseObligation } from './taskObligations';
 
 export type CooperativeTask = Readonly<{ id: string; kind: 'research' | 'sketch' | 'lemma' | 'goal'; objective: string;
   dependsOn: readonly string[]; revision: number; proofPath?: string; theoremName?: string; type?: string;
   groupId?: string; sharing?: 'group' | 'problem'; status?: 'active' | 'paused' | 'stopped'; ownerId?: string; premises?: readonly string[];
-  conditional?: boolean; statementReview?: boolean; informalStatement?: string }>;
+  conditional?: boolean; statementReview?: boolean; informalStatement?: string;
+  applications?: readonly TaskApplicationContract[]; obligations?: readonly TaskPremiseObligation[] }>;
 export type RouteGroup = Readonly<{ id: string; objective: string; status: 'active' | 'paused' | 'stopped'; revision: number;
   engineerId?: string; maxTurns?: number; maxConcurrent?: number }>;
 export type RouteRecord = { group: RouteGroup; turns: number; busy?: number };
@@ -15,12 +19,15 @@ export const taskGroup = (task: CooperativeTask): string => task.groupId ?? 'mai
 export type TaskAssignment = { taskId: string; taskDigest: string; workerId: string; seedCommit: string; groupId?: string; canonicalCommit?: string;
   dependencies?: DeliveryRecord['dependencies'] };
 export type TaskRecord = { task: CooperativeTask; status: 'pending' | 'running' | 'blocked' | 'conditional' | 'delivered' | 'integrated' | 'completed';
-  attempts: number; assignment?: TaskAssignment; proof?: TaskProof; integratedCheck?: TaskProof; feedback?: string; finding?: string };
+  attempts: number; assignment?: TaskAssignment; proof?: TaskProof; integratedCheck?: TaskProof; feedback?: string; finding?: string;
+  diagnostic?: TaskDiagnostic; diagnosticHistory?: TaskDiagnostic[] };
 export type CooperativeAction = { kind: 'lead' | 'assemble' | 'solve'; seedCommit: string; planVersion?: string } |
   { kind: 'review'; seedCommit: string; sourceDigest: string } | { kind: 'task'; assignment: TaskAssignment; task: CooperativeTask } | StatementAction;
 
 export const taskVersion = (task: CooperativeTask) => {
-  const { status: _status, ownerId: _owner, statementReview: _review, informalStatement: _intent, ...mathematics } = task;
+  // Applications and premise provenance are advisory; mathematical types and dependencies still bind receipts.
+  const { status: _status, ownerId: _owner, statementReview: _review, informalStatement: _intent,
+    applications: _applications, obligations: _obligations, ...mathematics } = task;
   return mathDigest(canonicalMathJson(mathematics));
 };
 // Object identity is process-local: archived references never authorize narrower dependency checks.
@@ -115,6 +122,7 @@ export function parseCooperationPlan(problem: SolverProblem, value: any): { task
     return { id: task.id, kind: task.kind, objective: task.objective, dependsOn: [...new Set<string>(task.dependsOn)],
       revision: task.revision ?? 0, ...(isAdvisoryTask(task) ? {} : { proofPath: task.proofPath, theoremName: task.theoremName }),
       ...(task.kind === 'lemma' ? { type: task.type } : {}),
+      ...parseTaskObligationMetadata(task),
       ...optionalFields(task, ['conditional', 'statementReview', 'informalStatement', 'status', 'ownerId', 'premises', 'groupId']),
       ...(task.sharing === undefined ? groups.length > 1 ? { sharing: 'group' } : {} : { sharing: task.sharing }) };
   });
@@ -144,5 +152,6 @@ export function parseCooperationPlan(problem: SolverProblem, value: any): { task
           'Extract the shared argument into a named lemma before both original goals; preserve original declaration order and other goal proofs.');
     }
   }
+  validateTaskObligations(problem, tasks);
   return { tasks, groups };
 }

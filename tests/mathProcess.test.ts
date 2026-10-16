@@ -24,10 +24,114 @@ describe('process lifecycle and bounded output', () => {
       onLockProgress: event => lockEvents.push(event) });
     controller.abort();
     const second = runLeanProcess(process.execPath, ['-e', script], { cwd: root, env, timeoutMs: 5000 });
-    expect(await cancelled).toMatchObject({ aborted: true });
+    const cancelledResult = await cancelled;
+    expect(cancelledResult).toMatchObject({ aborted: true, lockAcquired: false });
+    expect(cancelledResult.lockWaitMs).toBe(cancelledResult.durationMs);
+    expect(cancelledResult.executionMs).toBeUndefined();
     expect(lockEvents).toEqual(['lean_lock_waiting']);
-    for (const result of await Promise.all([first, second])) expect(result).toMatchObject({ exitCode: 0, timedOut: false });
+    for (const result of await Promise.all([first, second])) {
+      expect(result).toMatchObject({ exitCode: 0, timedOut: false, lockAcquired: true });
+      expect(result.lockWaitMs).toBeGreaterThanOrEqual(0);
+      expect(result.executionMs).toBeGreaterThan(0);
+      expect(result.lockWaitMs! + result.executionMs!).toBe(result.durationMs);
+    }
     expect(fs.readFileSync(marker, 'utf8')).toBe('start\nend\nstart\nend\n');
+  });
+
+  it.skipIf(process.platform !== 'linux')('reports a timeout waiting for a Lean lock without claiming execution', async () => {
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'math-lean-lock-timeout-'))); roots.push(root);
+    const holderMarker = path.join(root, 'holder');
+    const waiterMarker = path.join(root, 'waiter');
+    const env = { ...process.env, DEEPSCIENTIST_MATH_LEAN_LOCK: path.join(root, 'compile.lock') };
+    const controller = new AbortController();
+    const holder = runLeanProcess(process.execPath, ['-e', `require('node:fs').writeFileSync(${JSON.stringify(holderMarker)}, 'held'); setInterval(() => {}, 1000)`],
+      { cwd: root, env, timeoutMs: Infinity, signal: controller.signal });
+    const lockEvents: string[] = [];
+    try {
+      await expect.poll(() => fs.existsSync(holderMarker)).toBe(true);
+      const result = await runLeanProcess(process.execPath, ['-e', `require('node:fs').writeFileSync(${JSON.stringify(waiterMarker)}, 'ran')`],
+        { cwd: root, env, timeoutMs: 60, stopGraceMs: 0, onLockProgress: event => lockEvents.push(event) });
+      expect(result).toMatchObject({ started: true, timedOut: true, aborted: false, lockAcquired: false });
+      expect(result.lockWaitMs).toBe(result.durationMs);
+      expect(result.lockWaitMs).toBeGreaterThan(0);
+      expect(result.executionMs).toBeUndefined();
+      expect(lockEvents).toEqual(['lean_lock_waiting']);
+      expect(fs.existsSync(waiterMarker)).toBe(false);
+    } finally {
+      controller.abort();
+      await holder;
+    }
+  });
+
+  it.skipIf(process.platform !== 'linux')('separates a contended Lean lock wait from execution with no deadline', async () => {
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'math-lean-lock-wait-'))); roots.push(root);
+    const holderMarker = path.join(root, 'holder');
+    const releaseMarker = path.join(root, 'release');
+    const env = { ...process.env, DEEPSCIENTIST_MATH_LEAN_LOCK: path.join(root, 'compile.lock') };
+    const holderController = new AbortController();
+    const waiterController = new AbortController();
+    const holder = runLeanProcess(process.execPath, ['-e', `const fs = require('node:fs'); fs.writeFileSync(${JSON.stringify(holderMarker)}, 'held');
+      const timer = setInterval(() => { if (fs.existsSync(${JSON.stringify(releaseMarker)})) clearInterval(timer); }, 10)`],
+      { cwd: root, env, timeoutMs: Infinity, signal: holderController.signal });
+    let waiter: ReturnType<typeof runLeanProcess> | undefined;
+    const lockEvents: string[] = [];
+    try {
+      await expect.poll(() => fs.existsSync(holderMarker)).toBe(true);
+      waiter = runLeanProcess(process.execPath, ['-e', "setTimeout(() => process.stdout.write('checked'), 40)"],
+        { cwd: root, env, timeoutMs: Infinity, signal: waiterController.signal, onLockProgress: event => lockEvents.push(event) });
+      await new Promise(resolve => setTimeout(resolve, 40));
+      expect(lockEvents).toEqual(['lean_lock_waiting']);
+      fs.writeFileSync(releaseMarker, 'release');
+      const result = await waiter;
+      expect(result).toMatchObject({ exitCode: 0, timedOut: false, aborted: false, lockAcquired: true, stdout: 'checked' });
+      expect(result.lockWaitMs).toBeGreaterThanOrEqual(40);
+      expect(result.executionMs).toBeGreaterThan(0);
+      expect(result.lockWaitMs! + result.executionMs!).toBe(result.durationMs);
+      expect(lockEvents).toEqual(['lean_lock_waiting', 'lean_lock_acquired']);
+      expect(await holder).toMatchObject({ exitCode: 0 });
+    } finally {
+      holderController.abort(); waiterController.abort();
+      await Promise.all([holder, waiter]);
+    }
+  });
+
+  it.skipIf(process.platform !== 'linux')('records execution when a running locked check is cancelled', async () => {
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'math-lean-lock-abort-'))); roots.push(root);
+    const marker = path.join(root, 'running');
+    const controller = new AbortController();
+    const pending = runLeanProcess(process.execPath, ['-e', `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'running'); setInterval(() => {}, 1000)`],
+      { cwd: root, timeoutMs: Infinity, signal: controller.signal,
+        env: { ...process.env, DEEPSCIENTIST_MATH_LEAN_LOCK: path.join(root, 'compile.lock') } });
+    try {
+      await expect.poll(() => fs.existsSync(marker)).toBe(true);
+      controller.abort();
+      const result = await pending;
+      expect(result).toMatchObject({ aborted: true, timedOut: false, lockAcquired: true });
+      expect(result.executionMs).toBeGreaterThan(0);
+      expect(result.lockWaitMs! + result.executionMs!).toBe(result.durationMs);
+    } finally { controller.abort(); await pending; }
+  });
+
+  it.skipIf(process.platform !== 'linux')('does not claim execution when the Lean lock cannot be opened', async () => {
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'math-lean-lock-error-'))); roots.push(root);
+    const result = await runLeanProcess(process.execPath, ['-e', "process.stdout.write('unexpected')"], {
+      cwd: root, timeoutMs: 5000,
+      env: { ...process.env, DEEPSCIENTIST_MATH_LEAN_LOCK: path.join(root, 'missing/compile.lock') },
+    });
+    expect(result).toMatchObject({ lockAcquired: false, stdout: '' });
+    expect(result.exitCode).not.toBe(0);
+    expect(result.lockWaitMs).toBe(result.durationMs);
+    expect(result.executionMs).toBeUndefined();
+  });
+
+  it('keeps unlocked process results compatible without lock timings', async () => {
+    const result = await runLeanProcess(process.execPath, ['-e', "process.stdout.write('checked')"], {
+      cwd: os.tmpdir(), timeoutMs: 5000, env: { ...process.env, DEEPSCIENTIST_MATH_LEAN_LOCK: '' },
+    });
+    expect(result).toMatchObject({ started: true, exitCode: 0, stdout: 'checked' });
+    expect(result).not.toHaveProperty('lockAcquired');
+    expect(result).not.toHaveProperty('lockWaitMs');
+    expect(result).not.toHaveProperty('executionMs');
   });
 
   it.skipIf(process.platform !== 'linux')('preserves inherited descriptors through the Lean lock wrapper', async () => {

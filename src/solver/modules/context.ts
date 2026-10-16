@@ -11,6 +11,10 @@ import { solverProofFeedback, type SolverFailure } from '../feedback';
 import type { ResearchOperation } from './value';
 import { taskGroup, assignmentDeliveryFile, type CooperativeAction } from '../tasks';
 import type { CooperationState } from '../cooperation';
+import { currentTaskFeedback } from '../taskDiagnostics';
+import { buildTaskObligationSummary } from '../taskObligations';
+import { taskVersion } from '../tasks';
+import { researchLemmaProposalSummary } from '../taskProposals';
 import { statementReviewSummary, type StatementAction, type StatementReview } from '../statementReview';
 
 export type ContextAccess = Readonly<{
@@ -102,7 +106,8 @@ ${access.corpusFile ? `For library lookup, run ${command} search-lean --workspac
   const bundle: ContextBundle = { instructions,
     message, scope: 'original-problem-and-allowed-library',
     sources: { problemReceiptDigest: task.receiptDigest } };
-  return access.assignment && cooperation ? buildCooperativeContext(task, cooperation, bundle, access.assignment, access.operation ?? 'direct') : bundle;
+  return access.assignment && cooperation ? buildCooperativeContext(task, cooperation, bundle, access.assignment,
+    access.operation ?? 'direct', state.environmentDigest) : bundle;
 }
 
 function shellArgument(value: string): string {
@@ -123,19 +128,24 @@ function selectedDeliveries(cooperation: CooperationState, dependencies: readonl
 }
 
 function buildCooperativeContext(problem: SolverProblem, cooperation: CooperationState, context: ContextBundle,
-  action: CooperativeAction, operation: ResearchOperation): ContextBundle {
+  action: CooperativeAction, operation: ResearchOperation, environmentDigest: string): ContextBundle {
   const deliveredFindings = new Set(selectedDeliveries(cooperation, action.kind === 'task' ? action.task.dependsOn : [])
     .filter(record => record.kind === 'research').map(record => record.taskId));
-  const summary = cooperation.tasks.map(node => ({
+  const summary = cooperation.tasks.map(node => {
+    const { applications: _applications, obligations: _obligations, ...task } = node.task;
+    const feedback = currentTaskFeedback(node, environmentDigest);
+    return ({
     ...(action.kind === 'task' && node.task.id === action.task.id ? { id: node.task.id } :
-      { ...node.task, objective: bounded(node.task.objective, 600),
+      { ...task, objective: bounded(node.task.objective, 600),
         informalStatement: node.task.informalStatement && bounded(node.task.informalStatement, 600) }),
-    status: node.status, attempts: node.attempts,
+    taskDigest: taskVersion(node.task), status: node.status, attempts: node.attempts,
     groupId: taskGroup(node.task), producer: node.assignment?.workerId, sharing: node.task.sharing ?? 'problem',
-    feedback: node.feedback && bounded(node.feedback, 1500),
+    feedback: feedback && bounded(feedback, 1500),
     finding: !deliveredFindings.has(node.task.id) && node.finding ? bounded(node.finding, 1500) : undefined,
     integratedCommit: node.integratedCheck?.commit, checkedSourceDigest: node.integratedCheck?.sourceDigest,
-    actualReferences: (node.integratedCheck ?? node.proof)?.references }));
+    actualReferences: (node.integratedCheck ?? node.proof)?.references });
+  });
+  const contracts = buildTaskObligationSummary(cooperation.tasks, { environmentDigest });
   const rules = action.kind === 'review'
     ? 'You are the Independent Reviewer. Leave Lean sources unchanged. Check this fixed proof against the original question, assumptions and Lean evidence. Write one JSON object in RESEARCH.md: {"verdict":"accepted|changes_requested"}. Optional summary and evidenceRefs explain the decision.\n'
     : action.kind === 'solve'
@@ -143,17 +153,23 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
     : action.kind !== 'task'
     ? `You are the Lead. Choose routes and delegate independent work to researchers and the engineer. Save the initial task graph and return before running Lean diagnostics or investigating proofs; delegate uncertain connections and consistency checks to researchers; leave Lean sources unchanged during planning. Write one JSON object in RESEARCH.md: {"tasks":[{"id":"helper","kind":"lemma","objective":"...","proofPath":${JSON.stringify(problem.ownedFiles.find(file => file.endsWith('.lean')))},"theoremName":"Namespace.helper","type":"∀ (P : Prop), P → P"},{"id":"goal","kind":"goal","objective":"...","theoremName":"Original.target","dependsOn":["helper"]}]}. Include every original target once. This example shows the schema only: replace its names, objectives and sample type with actual tasks and full closed Lean types, including all parameters and hypotheses. Never copy placeholder types. If no exact helper proposition is known, use an untyped research/sketch task. Choose proofPath from ${JSON.stringify(problem.ownedFiles.filter(file => file.endsWith('.lean')))}; goals infer it from theoremName, and lemmas may omit it only when one Lean file is owned. Use lemma tasks whenever workers should save proofs; research/sketch tasks without an exact typed target only return advisory findings and restore temporary probes. Typed research tasks are normalized to lemma tasks. dependsOn defaults to []; revision to 0. Keep accepted task definitions stable; record progress in notes rather than rewriting objectives, which invalidates their checked deliveries. Change objectives, dependencies or revision to retry a route. conditional:true allows fixed typed lemma premises. statementReview:true with informalStatement requests meaning review. Optional groups set ownership, sharing and budgets.\n`
     : ['research', 'sketch'].includes(action.task.kind)
-    ? 'You are a Mathematical Researcher. Explore the assigned question, report evidence and unresolved gaps, and leave Lean sources unchanged. Replace inherited RESEARCH.md with findings for this assignment before returning; ordinary Markdown is supported. Timed checkpoints preserve progress and resume the same assignment without completing it. Optionally use JSON {"summary":"findings and evidence","needsDecision":true} to request a route change. Optional conclusion is supporting, refuted or inconclusive; findings remain advisory.\n'
+    ? 'You are a Mathematical Researcher. Explore the assigned question, report evidence and unresolved gaps, and leave Lean sources unchanged. Replace inherited RESEARCH.md with findings for this assignment before returning; ordinary Markdown is supported. Timed checkpoints preserve progress and resume the same assignment without completing it. Optionally use JSON {"summary":"findings and evidence","needsDecision":true} to request a route change. Optional conclusion is supporting, refuted or inconclusive; findings remain advisory. To turn a useful bridge into proof work, add lemmaRequests:[{id,kind:"lemma",objective,theoremName,type,proofPath,dependsOn:[]}]. Supply new ids and full closed Lean types in your own route group. The host validates these proposals and presents them to Lead; adoption creates a separate typed assignment whose proof requires independent checking. A proposal does not authorize edits to Lean sources.\n'
     : 'Prove the assigned Lean declaration with its exact requested type. Add newly named supporting helpers in owned Lean files as needed. You may repair proof bodies of solver-created lemmas while preserving their names, parameters, types and placement. Preserve original declarations, other original goals and definition bodies. Conditional tasks may reference fixed dependency lemmas; do not add stubs or extra assumptions. Check the complete saved target file and its local imports before delivery; a Helpers-only check does not check Submission. Save concise notes in RESEARCH.md and return for host checking and integration.\n';
   const sharing = action.kind === 'task'
     ? `To share before returning, append a JSON line to ${assignmentDeliveryFile(action.assignment)}: {"summary":"progress or gap"}. For a ready proof, save the allowed sources and notes, then return. Git metadata is managed by the host; do not run git add or git commit. The host freezes the saved sources and independently checks and integrates them after your turn ends. Do not truncate the delivery log. Progress reports remain advisory.\n`
       : '';
   return { ...context, assignment: action, instructions: context.instructions + '\n' + rules +
     'Original declarations retain the frozen source order shown below. A goal cannot depend on a later original goal in the same file. Extract their shared argument into a newly named lemma before both goals; preserve every other original proof and declaration placement.\n' +
+    'Track each helper\'s intended use and extra premises. Optional task metadata: applications:[{id,consumer:{taskId,taskDigest},type:"FULL_CLOSED_APPLICATION_TYPE",proofTask:{taskId,taskDigest}}] and obligations:[{id,type:"FULL_CLOSED_PREMISE_TYPE",source:{kind:"task",taskId,taskDigest}}]. Replace type placeholders with actual closed Lean types. A local proof task uses kind:"local". An original assumption may instead name source:{kind:"original-context",file,declaration}; missing proof work uses source:{kind:"unassigned"}. Use current taskDigest values from the graph; omit proofTask until an exact typed application lemma exists. Metadata is advisory and never closes a dependency or changes proof acceptance. Add dependsOn for required scheduling edges. Verify instantiation, domains, parameters and every hypothesis in a typed application lemma or the actual consumer proof. Keep original assumptions distinct from new hypotheses that still need proof.\n' +
+    (action.kind === 'lead' ? 'For a replanning request, inspect the concrete remaining obligations and available peers. Preserve useful running assignments and checked task definitions. Delegate an independent missing premise or exact application bridge when possible; avoid repeating unchanged research. Review validated lemma proposals and adopt useful new tasks through the normal task graph. Return after saving the graph.\n' : '') +
     'COOPERATION.json contains full live peer work, findings, gaps and checked results; never edit it. Prompt summaries omit repeated progress and shorten advisory prose; consult the file for details. Structured responses use one JSON object, plain or in a math/json fence, replacing old responses. The host manages versions, receipts and budgets, and independently checks all original targets. Unproved dependencies and reviews remain advisory.\n',
     message: context.message + '\n\nCooperative assignment:\n' + JSON.stringify(action) +
       '\n\nLead task graph and host feedback:\n' + JSON.stringify(summary) +
       '\n\nRoute groups and budgets:\n' + bounded(JSON.stringify(cooperation.groups ?? []), 6000) +
+      (contracts.tasks.length ? '\n\nApplication and premise contracts (advisory):\n' + JSON.stringify(contracts) : '') +
+      (cooperation.replanning?.lastRequest ? '\nReplanning request: ' + JSON.stringify(cooperation.replanning.lastRequest) : '') +
+      (cooperation.lemmaProposals?.length ? '\nValidated lemma proposals (advisory): ' +
+        JSON.stringify(researchLemmaProposalSummary(cooperation.lemmaProposals, cooperation.tasks).filter(item => item.status === 'proposed')) : '') +
       `\nPlan error: ${cooperation.error ?? 'none'}\nReview: ${JSON.stringify(cooperation.review ?? null)}` +
       '\nStatement reviews: ' + bounded(JSON.stringify(cooperation.statementReviews?.filter(review => review.status !== 'superseded')
         .map(statementReviewSummary) ?? []), 16000) +

@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { checkManyFormalVerifications } from '../src/math/verifier';
 import { mathDigest } from '../src/math/mathRuntimeIo';
+import * as mathProcess from '../src/math/mathProcess';
 
 const roots: string[] = [];
 const git = (root: string, args: string[]) => {
@@ -23,6 +24,33 @@ const fixture = () => {
 afterEach(() => { vi.restoreAllMocks(); for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
 
 describe('formal batch source binding without model or compiler calls', () => {
+  it.runIf(process.platform === 'linux').each([false, true])('preserves Lean lock timing in blocked verification events (acquired=%s)', async lockAcquired => {
+    const { root, commit, items } = fixture();
+    const tools = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'math-batch-tools-'))); roots.push(tools);
+    const toolchain = path.join(tools, 'toolchain');
+    fs.mkdirSync(path.join(toolchain, 'bin'), { recursive: true });
+    fs.mkdirSync(path.join(toolchain, 'lib/lean'), { recursive: true });
+    for (const name of ['lean', 'lake']) fs.writeFileSync(path.join(toolchain, 'bin', name), '#!/bin/sh\nexit 0\n', { mode: 0o700 });
+    fs.writeFileSync(path.join(tools, 'bwrap'), '#!/bin/sh\nexit 0\n', { mode: 0o700 });
+    const lockTiming = { lockAcquired, lockWaitMs: lockAcquired ? 20 : 37, ...(lockAcquired ? { executionMs: 17 } : {}) };
+    const run = vi.spyOn(mathProcess, 'runLeanProcess').mockResolvedValue({
+      started: true, exitCode: null, signal: 'SIGTERM', stdout: '', stderr: '',
+      stdoutSha256: mathDigest(''), stderrSha256: mathDigest(''),
+      timedOut: true, aborted: false, durationMs: 37, ...lockTiming,
+    });
+    const result = await checkManyFormalVerifications({ projectRoot: root, targetCommit: commit, items: items.slice(0, 1),
+      timeoutMs: Infinity, batchTimeoutMs: Infinity }, { env: {
+      PATH: `${tools}:${toolchain}/bin:/usr/bin:/bin`, ELAN_HOME: toolchain,
+      DEEPSCIENTIST_MATH_ENV_FILE: path.join(tools, 'absent.env'),
+      DEEPSCIENTIST_MATH_SANDBOX_BACKEND: 'bwrap', DEEPSCIENTIST_MATH_LEAN_LOCK: path.join(tools, 'compile.lock'),
+    } });
+    expect(run).toHaveBeenCalledOnce();
+    expect(result.status).toBe('blocked');
+    const event = result.events.find(event => event.kind === 'check.kernel_checked');
+    expect(event?.payload).toMatchObject({ status: 'blocked', timedOut: true, durationMs: 37, ...lockTiming });
+    if (!lockAcquired) expect(event?.payload).not.toHaveProperty('executionMs');
+  });
+
   it('rejects mismatched declaration headers independently and removes its verifier checkout', async () => {
     const { root, commit, items } = fixture();
     const before = git(root, ['worktree', 'list', '--porcelain']);

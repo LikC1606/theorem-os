@@ -15,6 +15,7 @@ import type { ResearchWorker } from './modules/organization';
 import type { ResearchOperation } from './modules/value';
 import { runResearchTurn } from './modules/execution';
 import { researchFailureReason } from './modules/search';
+import { createSolverVerificationQueue } from './verificationQueue';
 
 export type WorkerAccess = { environment: NodeJS.ProcessEnv; corpusFile?: string; retrievalRoot: string };
 
@@ -47,14 +48,7 @@ export async function runResearchWorkers(input: {
   if (input.signal.aborted) abort();
   const budget = () => ({ maxTurns: input.maxTurns, remainingMs: Math.max(0, input.deadline - Date.now()), aborted: signal.aborted });
   let winner: { worktree: string; check: ProofCheck } | undefined;
-  let verificationQueue = Promise.resolve();
-  const exclusiveCheck = async <T>(check: () => Promise<T>): Promise<T> => {
-    const previous = verificationQueue;
-    let release!: () => void;
-    verificationQueue = new Promise<void>(resolve => { release = resolve; });
-    await previous;
-    try { signal.throwIfAborted(); return await check(); } finally { release(); }
-  };
+  const exclusiveCheck = createSolverVerificationQueue({ signal, emit: input.emit, context: { operation: 'cooperation' } });
   const cooperation = parallel && state.coordination !== 'independent'
     ? new CooperativeResearch({ ...input, signal, exclusiveCheck, timeoutMs: input.proofTimeoutMs }) : undefined;
   const updateUsage = () => {
@@ -222,7 +216,7 @@ export async function runResearchWorkers(input: {
           if (assignment?.kind === 'assemble') {
             state.phase = research.phase = 'checking'; save();
             emit('assembly_started', { commit: assignment.seedCommit });
-            await exclusiveCheck(async () => { await checkWhole(); });
+            await exclusiveCheck(async () => { await checkWhole(); }, { workerId: worker.id, operation: 'assembly', commit: assignment.seedCommit });
             if (!winner && !research.check!.passed) cooperation!.assemblyFailed(research.check!);
             continue;
           }
@@ -284,7 +278,8 @@ export async function runResearchWorkers(input: {
               if (!cooperation!.current(assignment) || status === 'completed') {
                 retries = 0;
                 await close();
-                await exclusiveCheck(() => cooperation!.deliverStatement(worker, assignment));
+                await exclusiveCheck(() => cooperation!.deliverStatement(worker, assignment),
+                  { workerId: worker.id, operation: 'statement-delivery', taskId: assignment.taskId });
               } else if (['interrupted', 'checkpoint'].includes(status)) {
                 retries = 0;
                 cooperation!.interrupted(worker, assignment); emit('turn_checkpoint', { turn: research.turns });
@@ -314,7 +309,9 @@ export async function runResearchWorkers(input: {
           } finally { cooperation?.deactivate(worker); }
           if (assignment && cooperation && !cooperation.current(assignment)) {
             const commit = solverSourceFeedback(state.problem, worker.worktree) ? git(worker.worktree, ['rev-parse', 'HEAD']) : commitSolverSources(state.problem, worker.worktree);
-            await exclusiveCheck(() => cooperation.deliver(worker, assignment, commit));
+            const deliver = () => cooperation.deliver(worker, assignment, commit);
+            if (assignment.kind === 'task') await deliver();
+            else await exclusiveCheck(deliver, { workerId: worker.id, operation: 'superseded-delivery', commit });
             emit('assignment_superseded', { commit });
             await rotateSession('context');
             continue;
@@ -352,14 +349,16 @@ export async function runResearchWorkers(input: {
           if (cooperation && assignment) {
             const commit = commitSolverSources(state.problem, worker.worktree);
             const deliver = () => cooperation.deliver(worker, assignment, commit, turn !== 'completed');
-            const delivery = assignment.kind === 'task' ? await deliver() : await exclusiveCheck(deliver);
+            const delivery = assignment.kind === 'task' ? await deliver() : await exclusiveCheck(deliver,
+              { workerId: worker.id, operation: 'delivery', assignmentKind: assignment.kind, commit });
             if (assignment.kind === 'lead' && turn === 'checkpoint') await cooperation.startInitialTasks();
             research.check = delivery.check;
             savedTaskProof = delivery.check?.passed === true;
             checkWholeRequired = delivery.checkWhole;
             if (!checkWholeRequired) save();
           }
-          if (checkWholeRequired) await exclusiveCheck(() => checkWhole(candidate, operation));
+          if (checkWholeRequired) await exclusiveCheck(() => checkWhole(candidate, operation),
+            { workerId: worker.id, operation: 'whole-proof', ...(assignment?.kind === 'task' ? { taskId: assignment.task.id } : {}) });
           feedbackCheck = previousCheck; feedbackFailures = previousFailures;
           if (!winner && turn === 'failed' && !savedTaskProof) await retryFailedTurn(turnError);
         }

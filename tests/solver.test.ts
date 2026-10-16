@@ -2624,6 +2624,72 @@ describe('isolated solver and host acceptance', () => {
     expect(host.verify.mock.calls.some(([request]) => request.items.some(item => item.theoremName === 'route'))).toBe(false);
   });
 
+  it('replans once for a new uncovered progress gap while preserving running proof assignments', async () => {
+    const tasks = planTasks(), releasePeers = deferred(), gapSent = deferred();
+    let leadTurns = 0;
+    configureCooperation(async (action, options, message) => {
+      if (action.kind === 'lead') {
+        leadTurns++;
+        if (leadTurns === 2) {
+          expect(message).toContain('uncovered-progress-obligations');
+          expect(message).toContain('missing_application');
+          expect(cooperationState().tasks.slice(0, 2).every((node: any) => node.status === 'running')).toBe(true);
+          releasePeers.resolve();
+        }
+        writePlan(options.workspace, tasks);
+      } else if (action.kind === 'task' && action.task.id === 'a') {
+        await expect.poll(() => cooperationState().tasks[1].status).toBe('running');
+        for (const id of ['gap-first', 'gap-repeat']) appendDelivery(options, action, { id, kind: 'progress',
+          summary: 'An application step is missing', remainingObligations: ['missing_application'] });
+        gapSent.resolve(); await releasePeers.promise;
+        finishAssignment(action, options);
+      } else {
+        if (action.kind === 'task' && action.task.id === 'b') { await gapSent.promise; await releasePeers.promise; }
+        finishAssignment(action, options);
+      }
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '7'], directory)).toBe(0);
+    expect(leadTurns).toBe(2);
+    expect(cooperationState().replanning.fingerprints).toHaveLength(1);
+    expect(cooperationState().tasks.every((node: any) => node.status === 'integrated')).toBe(true);
+  }, 20_000);
+
+  it.each([true, false])('keeps a research finding and routes only a valid typed proposal to Lead (valid: %s)', async valid => {
+    const tasks: CooperativeTask[] = [{ id: 'route', kind: 'research', objective: 'Discover an exact bridge', dependsOn: [], revision: 0 },
+      ...planTasks().slice(2).map(task => ({ ...task, dependsOn: ['route'], status: valid ? 'paused' as const : 'active' as const }))];
+    const proposed: CooperativeTask = { id: 'discovered_bridge', kind: 'lemma', objective: 'Prove the discovered bridge',
+      proofPath: 'Submission.lean', theoremName: 'Submission.discovered_bridge', type: 'True', dependsOn: [], revision: 0 };
+    let leadTurns = 0;
+    configureCooperation(async (action, options, message) => {
+      if (action.kind === 'lead') {
+        if (++leadTurns === 2) {
+          expect(message).toContain('Validated lemma proposals');
+          expect(message).toContain('discovered_bridge');
+          for (let i = 1; i < tasks.length; i++) tasks[i] = { ...tasks[i], status: 'active', dependsOn: ['route', proposed.id] };
+          tasks.push(proposed);
+        }
+        writePlan(options.workspace, tasks);
+      } else if (action.kind === 'task' && action.task.id === 'route') {
+        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({ taskId: 'route', conclusion: 'supporting',
+          summary: 'Useful bridge with an exact contract', lemmaRequests: [{ ...proposed, ...(valid ? {} : { id: 'route' }) }] }));
+      } else if (action.kind === 'task' && action.task.id === 'discovered_bridge') {
+        const file = path.join(options.workspace, 'generated/p/Submission.lean');
+        fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('theorem first', 'lemma discovered_bridge : True := by trivial\ntheorem first'));
+      } else if (action.kind === 'task') {
+        const file = path.join(options.workspace, 'generated/p/Submission.lean');
+        fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(`${action.task.id} : True := by sorry`, `${action.task.id} : True := by trivial`));
+      } else finishAssignment(action, options);
+      return 'completed';
+    });
+    const result = await runSolver([...args, '--workers', '4', '--max-turns', valid ? '7' : '5'], directory);
+    expect(result, JSON.stringify({ leadTurns, cooperation: cooperationState() })).toBe(0);
+    expect(leadTurns).toBe(valid ? 2 : 1);
+    expect(cooperationState().tasks.find((node: any) => node.task.id === 'route').status).toBe('completed');
+    expect(cooperationState().lemmaProposals?.length ?? 0).toBe(valid ? 1 : 0);
+    if (valid) expect(cooperationState().tasks.find((node: any) => node.task.id === proposed.id).status).toBe('integrated');
+  }, 20_000);
+
   it('cancels active task sessions, preserves drafts and resumes the same assignments', async () => {
     let started = 0;
     const stop = new Map<string, () => void>();
