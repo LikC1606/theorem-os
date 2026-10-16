@@ -1,0 +1,32 @@
+name: theorem-os
+
+services:
+  web:
+    image: theorem-os-web:local
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+      target: web
+    ports:
+      - "127.0.0.1:8787:8787"
+    environment:
+      THEOREMOS_WEB_PUBLIC_URL: ${THEOREMOS_WEB_PUBLIC_URL:-http://127.0.0.1:8787}
+      THEOREMOS_WEB_WORKER_IMAGE: theorem-os-worker:local
+      THEOREMOS_WEB_CONCURRENCY: ${THEOREMOS_WEB_CONCURRENCY:-1}
+      THEOREMOS_WEB_PROVIDERS: ${THEOREMOS_WEB_PROVIDERS:-[{"id":"openai","name":"OpenAI","baseUrl":"https://api.openai.com/v1"}]}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8787/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  worker:
+    image: theorem-os-worker:local
+    profiles: ["build-worker"]
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+      target: worker

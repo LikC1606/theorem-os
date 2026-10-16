@@ -12,6 +12,7 @@ import { mathConstructionImports, mathLocalModuleBuildOrder } from '../math/math
 import { isAllowedMathProofSource } from '../math/mathProofSourcePolicy';
 import type { MathProblemContract } from '../math/contracts';
 import { readLocalExampleReceipt } from '../math/localExample';
+import { readLeanTaskReceipt } from '../math/leanTask';
 
 export function committedSource(worktree: string, commit: string, file: string): string {
   return mathGitBytes(worktree, ['show', `${commit}:${file}`],
@@ -34,7 +35,7 @@ export class SolverSourceError extends Error {
   }
 }
 export type SolverProblem = Readonly<{
-  kind: 'imo2026' | 'lean-eval' | 'example';
+  kind: 'imo2026' | 'lean-eval' | 'example' | 'lean-task';
   workspace: string;
   projectRelative: string;
   baseCommit: string;
@@ -125,6 +126,8 @@ export function readSolverProblem(workspacePath: string, receiptFile: string): S
   const value = raw.schema === 'deepscientist.mathematics.lean-eval-held-out-bootstrap.v1' ? raw.receipt : raw;
   const receipt = (value as { schema?: string }).schema === 'theorem-os.local-example.v1'
     ? readLocalExampleReceipt(receiptFile)
+    : (value as { schema?: string }).schema === 'theorem-os.lean-task.v1'
+    ? readLeanTaskReceipt(receiptFile)
     : (value as { schema?: string }).schema === 'deepscientist.mathematics.imo2026-bootstrap-receipt.v1'
     ? readImo2026BootstrapReceipt(receiptFile)
     : readLeanEvalBootstrapReceipt((value as { activeProblemPath: string }).activeProblemPath);
@@ -150,27 +153,34 @@ export function readSolverProblem(workspacePath: string, receiptFile: string): S
     const files = receipt.solverOwnedFiles.filter(relative => relative.endsWith('.lean') &&
       hashMathFormalSourceDeclaration(fs.readFileSync(path.join(receipt.projectRoot, relative), 'utf8'), theoremName) === declarationHash);
     if (files.length !== 1) throw new Error('math_problem_target_file_ambiguous');
-    const candidateName = publicObligations && receipt.schema !== 'theorem-os.local-example.v1' ? resolveLeanEvalSubmissionName(theoremName,
+    const candidateName = publicObligations && receipt.schema !== 'theorem-os.local-example.v1' && receipt.schema !== 'theorem-os.lean-task.v1' ? resolveLeanEvalSubmissionName(theoremName,
       fs.readFileSync(path.join(receipt.projectRoot, files[0]!), 'utf8')) : theoremName;
     return { theoremName: candidateName, declarationHash, proofPath: files[0]! };
   });
   const targetNames = new Set(targets.map(target => target.theoremName.split('.').at(-1)));
+  const originalSource = (file: string) => receipt.schema === 'theorem-os.lean-task.v1'
+    ? committedSource(workspace, receipt.baseCommit, path.join(projectRelative, file))
+    : fs.readFileSync(path.join(receipt.projectRoot, file), 'utf8');
   const declarations = Object.fromEntries(receipt.solverOwnedFiles.filter(file => file.endsWith('.lean')).map(file => {
-    const source = fs.readFileSync(path.join(receipt.projectRoot, file), 'utf8');
+    const source = originalSource(file);
     const kinds = new Map(inspectLeanDeclarations(source).map(item => [item.name, item.kind]));
     return [file, inspectLeanDeclarationRegions(source).map(item => ({ name: item.name, header: item.declarationType,
       ...(kinds.get(item.name) !== 'theorem' && !targetNames.has(item.name.split('.').at(-1))
         ? { body: mathDigest(source.slice(item.bodyOffset, item.endOffset).trim()) } : {}) }))];
   }));
   const structures = Object.fromEntries(Object.entries(declarations).map(([file, originals]) =>
-    [file, sourceStructure(fs.readFileSync(path.join(receipt.projectRoot, file), 'utf8'), new Set(originals.map(item => item.name)))]));
+    [file, sourceStructure(originalSource(file), new Set(originals.map(item => item.name)))]));
   const sourceImports = Object.fromEntries(Object.keys(declarations).map(file =>
-    [file, mathConstructionImports(fs.readFileSync(path.join(receipt.projectRoot, file), 'utf8'))]));
-  return { kind: receipt.schema === 'theorem-os.local-example.v1' ? 'example' : receipt.schema.includes('imo2026') ? 'imo2026' : 'lean-eval', workspace, projectRelative,
-    baseCommit: git(workspace, ['rev-parse', 'HEAD']), receiptDigest: mathDigest(canonicalMathJson(receipt)),
+    [file, mathConstructionImports(originalSource(file))]));
+  const problem: SolverProblem = { kind: receipt.schema === 'theorem-os.local-example.v1' ? 'example' : receipt.schema === 'theorem-os.lean-task.v1'
+    ? 'lean-task' : receipt.schema.includes('imo2026') ? 'imo2026' : 'lean-eval', workspace, projectRelative,
+    baseCommit: receipt.schema === 'theorem-os.lean-task.v1' ? receipt.baseCommit : git(workspace, ['rev-parse', 'HEAD']),
+    receiptDigest: mathDigest(canonicalMathJson(receipt)),
     contract: receipt.contract, targets, trustedFiles, ownedFiles: receipt.solverOwnedFiles,
     declarations, sourceStructure: structures, sourceImports, activeProblemPath: receipt.activeProblemPath,
     ...('sourceProjectRoot' in receipt ? { sourceRepository: receipt.sourceProjectRoot } : {}) };
+  if (receipt.schema === 'theorem-os.lean-task.v1') assertSolverProjectSources(problem, receipt.projectRoot);
+  return problem;
 }
 
 /** Shared source preflight; diagnostic copies remain advisory, host checks use the frozen state. */

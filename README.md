@@ -11,7 +11,7 @@
 
 面向数学 Agent 研究者和 Lean 开发者。替换任务排序、上下文选择或协作策略中的一个组件，固定题目、环境、模型与预算开展对照实验，再从运行档案检查证明、失败原因和累计用量。
 
-[产品官网](https://likc1606.github.io/theorem-os/) · [在线证明档案](https://likc1606.github.io/theorem-os/archive.html) · [快速体验](#快速体验) · [替换研究组件](examples/components/README.md) · [运行指南](docs/usage.md)
+[产品官网](https://likc1606.github.io/theorem-os/) · [在线证明档案](https://likc1606.github.io/theorem-os/archive.html) · [快速体验](#快速体验) · [网页工作台部署](docs/web-workbench.md) · [替换研究组件](examples/components/README.md) · [运行指南](docs/usage.md)
 
 | 研究策略 | 证明验收 | 运行档案 |
 | --- | --- | --- |
@@ -73,6 +73,21 @@ bun run math example resume --dir "$PWD/../theorem-os-runs/model-run"
 ```
 
 模型小题默认使用单 Agent，最多 5 次调度和 5 分钟解题时间。真实公开题目还需要对应的 Mathlib 与 FUSE 环境，可继续看 [IMO2026 示例](examples/imo2026/README.md)；完整依赖与故障诊断见[运行指南](docs/usage.md)。
+
+## 网页工作台
+
+在浏览器中输入自己的 API Key、选择模型和证明环境、提交 Lean 原题，查看研究进度并下载证明和验收报告。支持 OpenAI 及兼容 Responses API 的服务。新建研究默认选择 Mathlib，也可切换为 Lean 标准库；页面会显示各自固定的 Lean 工具链和 Mathlib 版本，模板随环境切换。
+
+在支持用户命名空间的 Linux / Docker 环境中启动；Mathlib 还需 `/dev/fuse`，每个运行内存上限 8 GiB，建议每个并发运行预留 30 GiB 可用磁盘。首次构建需下载大型 Mathlib 依赖和预编译缓存，可能较慢：
+
+```bash
+docker compose -f apps/web/compose.yml build worker web
+docker compose -f apps/web/compose.yml up -d web
+```
+
+打开 <http://127.0.0.1:8787>。Mathlib 模板包含可用 `ring` 证明的多项式恒等式，Lean 标准库模板包含自然数加法和命题逻辑。Mathlib 冷准备最长 600 秒，另计于解题预算；其临时磁盘卷随运行容器清理。只有完整原题通过独立 Lean 验收才显示通过，运行记录和详情保留所选环境。
+
+已通过真实 Mathlib/Lean 的容器和浏览器验收，测试使用模拟模型，不产生 API 费用。工作台需要后端，GitHub Pages 继续托管产品官网。环境范围、服务商配置、7 项无模型费用的容器验证及线上部署说明见[部署指南](docs/web-workbench.md)。
 
 ## 它解决什么问题
 

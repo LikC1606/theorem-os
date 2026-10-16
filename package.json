@@ -18,6 +18,14 @@
     "build:site": "bun scripts/build-site.ts",
     "test:site": "node scripts/test-landing.mjs && node scripts/test-site.mjs",
     "typecheck:site": "tsc --noEmit --project docs/web/tsconfig.json",
+    "build:web": "bun scripts/build-web.ts",
+    "web": "bun apps/web/server.ts",
+    "typecheck:web": "tsc --project apps/web/tsconfig.json && tsc --project apps/web/client/tsconfig.json",
+    "test:web-ui": "bun scripts/test-web-ui.ts",
+    "test:web-recovery": "bun scripts/test-web-recovery.ts",
+    "test:web-results": "bun scripts/test-web-results.ts",
+    "test:web-drafts": "bun scripts/test-web-drafts.ts",
+    "test:web-source-diff": "bun scripts/test-web-source-diff.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -27,6 +35,7 @@
   },
   "devDependencies": {
     "@types/node": "24.12.0",
+    "diff": "9.0.0",
     "esbuild": "0.25.12",
     "lucide": "1.57.0",
     "playwright": "1.64.1",

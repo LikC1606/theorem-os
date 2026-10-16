@@ -10,6 +10,7 @@
       },
       "devDependencies": {
         "@types/node": "24.12.0",
+        "diff": "9.0.0",
         "esbuild": "0.25.12",
         "lucide": "1.57.0",
         "playwright": "1.64.1",
@@ -152,6 +153,8 @@
     "chai": ["chai@6.2.2", "https://registry.npmmirror.com/chai/-/chai-6.2.2.tgz", {}, "sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg=="],
 
     "convert-source-map": ["convert-source-map@2.0.0", "https://registry.npmmirror.com/convert-source-map/-/convert-source-map-2.0.0.tgz", {}, "sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg=="],
+
+    "diff": ["diff@9.0.0", "https://registry.npmmirror.com/diff/-/diff-9.0.0.tgz", {}, "sha512-svtcdpS8CgJyqAjEQIXdb3OjhFVVYjzGAPO8WGCmRbrml64SPw/jJD4GoE98aR7r25A0XcgrK3F02yw9R/vhQw=="],
 
     "es-module-lexer": ["es-module-lexer@2.0.0", "https://registry.npmmirror.com/es-module-lexer/-/es-module-lexer-2.0.0.tgz", {}, "sha512-5POEcUuZybH7IdmGsD8wlf0AI55wMecM9rVBTI/qEAy2c1kTOm3DjFYjrBdI2K3BaJjJYfYFeRtM0t9ssnRuxw=="],
 
