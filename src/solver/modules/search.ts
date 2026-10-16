@@ -110,6 +110,43 @@ export function criticalPathResearchTasks(tasks: readonly TaskRecord[], groups?:
   });
 }
 
+/** Reconnect checked helpers to unfinished original goals; ranks are facts, not success estimates. */
+export function continuationResearchTasks(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): TaskRecord[] {
+  const nodes = new Map(tasks.map(node => [node.task.id, node]));
+  const active = (node: TaskRecord) => {
+    if ((node.task.status ?? 'active') !== 'active') return false;
+    const route = groups?.find(record => record.group.id === taskGroup(node.task));
+    return !groups || Boolean(route && route.group.status === 'active' && route.turns < (route.group.maxTurns ?? Infinity));
+  };
+  const mainPath = new Set<string>();
+  const visit = (id: string) => {
+    if (mainPath.has(id)) return;
+    const node = nodes.get(id);
+    if (!node || !active(node)) return;
+    mainPath.add(id);
+    for (const dependency of node.task.dependsOn) visit(dependency);
+  };
+  for (const node of tasks) if (node.task.kind === 'goal' && !['integrated', 'completed'].includes(node.status)) visit(node.task.id);
+  const checked = (node: TaskRecord | undefined) => Boolean(node?.status === 'integrated' && node.integratedCheck?.passed &&
+    node.integratedCheck.taskDigest === taskVersion(node.task) && !node.integratedCheck.conditions?.length);
+  const ready = criticalPathResearchTasks(tasks, groups), readiness = taskReadiness(tasks);
+  const continuing = new Set(ready.filter(node => mainPath.has(node.task.id) && ['goal', 'lemma'].includes(node.task.kind) &&
+    readiness.dependenciesReady(node.task) && node.task.dependsOn.some(id => checked(nodes.get(id)))).map(node => node.task.id));
+  const ranked = ready.toSorted((a, b) =>
+    Number(continuing.has(b.task.id)) - Number(continuing.has(a.task.id)) ||
+    Number(mainPath.has(b.task.id)) - Number(mainPath.has(a.task.id)) ||
+    Number(b.task.kind === 'goal') - Number(a.task.kind === 'goal'));
+  // With three proof slots, keep two on the main path and offer the third to another route.
+  // Running assignments are reserved synchronously, so repeated selections observe this slot.
+  const running = tasks.filter(node => node.status === 'running');
+  if (running.filter(node => mainPath.has(node.task.id)).length >= 2 &&
+      !running.some(node => !mainPath.has(node.task.id))) {
+    const exploration = ranked.filter(node => !mainPath.has(node.task.id)).toSorted((a, b) => a.attempts - b.attempts)[0];
+    if (exploration) return [exploration, ...ranked.filter(node => node !== exploration)];
+  }
+  return ranked;
+}
+
 /** Future progress differs from immediate readiness: typed pending premises can still be proved. */
 export function researchCanAdvance(tasks: readonly TaskRecord[], groups: readonly RouteRecord[] | undefined,
   liveWorkers: ReadonlySet<string>): boolean {

@@ -15,6 +15,7 @@ import type { ResearchWorker } from './modules/organization';
 import type { ResearchOperation } from './modules/value';
 import { runResearchTurn } from './modules/execution';
 import { researchFailureReason } from './modules/search';
+import { aggregateUsage, buildTokenBudget, initializeUsageAccounting, modelDispatchAllowed, recordThreadUsage } from './usageBudget';
 
 export type WorkerAccess = { environment: NodeJS.ProcessEnv; corpusFile?: string; retrievalRoot: string };
 
@@ -22,13 +23,16 @@ export type WorkerAccess = { environment: NodeJS.ProcessEnv; corpusFile?: string
 export async function runResearchWorkers(input: {
   state: SolverRunState; workers: readonly ResearchWorker[]; access: ReadonlyMap<string, WorkerAccess>;
   modules: SolverModules; root: string; buildFile: string; taskText: string; executable: string; profile: string;
-  signal: AbortSignal; deadline: number; maxTurns: number; maxTurnMs: number; proofTimeoutMs?: number;
+  signal: AbortSignal; deadline: number; maxTurns: number; maxTurnMs: number; maxTotalTokens: number; proofTimeoutMs?: number;
   save: () => void; emit: (event: string, details?: Record<string, unknown>) => void;
 }): Promise<{ worktree: string; check: ProofCheck } | undefined> {
   const { state, modules, save } = input;
   const parallel = Boolean(state.workers);
   const records = input.workers.map(worker => ({ worker,
     research: parallel ? state.workers!.find(item => item.id === worker.id)! : state }));
+  for (const { research } of records) initializeUsageAccounting(research);
+  state.tokenBudget = buildTokenBudget(input.maxTotalTokens, records.map(record => record.research));
+  const dispatchAllowed = () => modelDispatchAllowed(state.tokenBudget!);
   const accepted = records.find(({ worker }) => worker.id === (state.winningWorker ?? 'solver'));
   if (accepted && state.check?.passed && ['checking', 'evaluating', 'finished'].includes(state.phase) &&
       !solverSourceFeedback(state.problem, accepted.worker.worktree) &&
@@ -56,14 +60,14 @@ export async function runResearchWorkers(input: {
     try { signal.throwIfAborted(); return await check(); } finally { release(); }
   };
   const cooperation = parallel && state.coordination !== 'independent'
-    ? new CooperativeResearch({ ...input, signal, exclusiveCheck, timeoutMs: input.proofTimeoutMs }) : undefined;
+    ? new CooperativeResearch({ ...input, signal, exclusiveCheck, timeoutMs: input.proofTimeoutMs,
+      modelDispatchAllowed: dispatchAllowed }) : undefined;
   const updateUsage = () => {
-    if (!parallel) return;
-    const usage: Record<string, unknown> = {};
-    for (const record of state.workers!) for (const [key, value] of Object.entries(record.usage ?? {})) {
-      if (typeof value === 'number') usage[key] = Number(usage[key] ?? 0) + value;
-    }
-    state.usage = usage;
+    if (parallel) state.usage = aggregateUsage(state.workers!);
+    const previous = state.tokenBudget!.status;
+    state.tokenBudget = buildTokenBudget(input.maxTotalTokens, records.map(record => record.research));
+    if (state.tokenBudget.status !== previous && !dispatchAllowed()) input.emit('model_budget_stopped', { ...state.tokenBudget });
+    cooperation?.modelBudgetChanged();
   };
   const errors: unknown[] = [];
   const cleanupErrors: unknown[] = [];
@@ -92,9 +96,47 @@ export async function runResearchWorkers(input: {
       let unstarted: CooperativeAction | undefined;
       let reservedTurn = false;
       let pendingTurn: Promise<void> | undefined;
+      let usageTurnActive = false;
+      let usageTurnReported = false;
+      const modelTurn = async <T>(run: () => Promise<T>, assignment?: CooperativeAction): Promise<T | undefined> => {
+        // No await separates this final admission check from invoking the model request.
+        if (!dispatchAllowed() || budget().remainingMs <= 0 || signal.aborted ||
+            (assignment && !cooperation!.started(worker, assignment))) return undefined;
+        const kind = assignment?.kind === 'lead' ? 'planning' : assignment && (assignment.kind === 'review' || isStatementAction(assignment))
+          ? 'review' : assignment?.kind === 'task' && ['research', 'sketch'].includes(assignment.task.kind) ? 'research' : 'proof';
+        for (const record of parallel ? [state, research] : [state]) {
+          record.dispatchCounts ??= {};
+          record.dispatchCounts[kind] = (record.dispatchCounts[kind] ?? 0) + 1;
+        }
+        reservedTurn = false; unstarted = undefined;
+        cooperation?.settleTurn(worker);
+        if (assignment) cooperation!.activate(worker, assignment,
+          async () => { await session?.interrupt(); },
+          async message => { if (!isStatementAction(assignment)) await session?.notify?.(message); });
+        const accounting = research.usageAccounting!;
+        accounting.startedTurns++;
+        accounting.pending = true;
+        usageTurnActive = true; usageTurnReported = false;
+        updateUsage(); save();
+        let completed = false;
+        try {
+          const result = await run();
+          completed = typeof result === 'string' ? result === 'completed' :
+            Boolean(result && typeof result === 'object' && 'status' in result && result.status === 'completed');
+          return result;
+        }
+        finally {
+          accounting.pending = false;
+          // A notification during a failed or interrupted request may be only partial consumption.
+          if (usageTurnReported && completed) accounting.reportedTurns++;
+          else accounting.incomplete = true;
+          usageTurnActive = false;
+          updateUsage(); save();
+        }
+      };
       const waitForTurn = () => budget().remainingMs > 0 ? cooperation?.waitForTurn(input.maxTurns) : undefined;
       const reserveTurn = () => {
-        if (state.turns >= input.maxTurns || budget().remainingMs <= 0 || signal.aborted) return false;
+        if (!dispatchAllowed() || state.turns >= input.maxTurns || budget().remainingMs <= 0 || signal.aborted) return false;
         // Reserve synchronously before opening a session so peers cannot overspend the shared budget.
         reservedTurn = true;
         state.turns++;
@@ -130,40 +172,28 @@ export async function runResearchWorkers(input: {
               emit('worker_activity', { activity: activity.event, itemType: activity.itemType }); save();
             }, onUsage: usage => {
               research.lastInputTokens = session?.lastInputTokens ?? research.lastInputTokens;
-              research.usage = { ...research.usageBeforeThread, ...usage };
-              for (const [key, value] of Object.entries(usage)) {
-                const previous = research.usageBeforeThread?.[key];
-                if (typeof value === 'number' && typeof previous === 'number') research.usage[key] = previous + value;
-              }
+              const reported = recordThreadUsage(research, usage);
+              if (usageTurnActive && reported) usageTurnReported = true;
               updateUsage(); save();
             } });
           } catch (error) {
             signal.throwIfAborted();
             if (!(error instanceof Error) || !/^math_codex_(?:transport_closed(?::|$)|rpc_timeout:)/u.test(error.message)) throw error;
             await retryFailedTurn(error.message);
+            if (!dispatchAllowed()) return false;
           }
           if (signal.aborted) { await close(); signal.throwIfAborted(); }
           sessionInstructions = currentContext.instructions;
           research.threadId = session.threadId; save();
         }
-        if (assignment && !cooperation!.started(worker, assignment)) return false;
-        const kind = assignment?.kind === 'lead' ? 'planning' : assignment && (assignment.kind === 'review' || isStatementAction(assignment))
-          ? 'review' : assignment?.kind === 'task' && ['research', 'sketch'].includes(assignment.task.kind) ? 'research' : 'proof';
-        for (const record of parallel ? [state, research] : [state]) {
-          record.dispatchCounts ??= {};
-          record.dispatchCounts[kind] = (record.dispatchCounts[kind] ?? 0) + 1;
-        }
-        reservedTurn = false; unstarted = undefined;
-        cooperation?.settleTurn(worker);
-        if (assignment) cooperation!.activate(worker, assignment,
-          async () => { await session?.interrupt(); },
-          async message => { if (!isStatementAction(assignment)) await session?.notify?.(message); });
-        return true;
+        // Opening a session can await while another worker exhausts the shared allowance.
+        return dispatchAllowed();
       };
       const retryFailedTurn = async (error?: string): Promise<void> => {
         research.lastFailure = { at: Date.now(), reason: researchFailureReason(error),
           taskId: parallel ? (research as SolverWorkerState).sessionTaskId : undefined };
         save();
+        if (!dispatchAllowed()) return;
         const retry = modules.M3.retry(error, retries, { ...view(), turns: state.turns - Number(reservedTurn) }, budget());
         if (!retry) throw new Error(researchFailureReason(error));
         retries = retry.attempt;
@@ -227,7 +257,7 @@ export async function runResearchWorkers(input: {
             continue;
           }
           while ((pendingTurn = waitForTurn())) await pendingTurn;
-          if (state.turns >= input.maxTurns || budget().remainingMs <= 0) break;
+          if (!dispatchAllowed() || state.turns >= input.maxTurns || budget().remainingMs <= 0) break;
           if (assignment) {
             const record = research as SolverWorkerState;
             const role = assignment.kind === 'review' || isStatementAction(assignment) ? 'reviewer' :
@@ -279,7 +309,8 @@ export async function runResearchWorkers(input: {
             const currentContext = cooperation!.statementContext(assignment);
             try {
               if (!await beginTurn(currentContext, assignment)) break;
-              const status = await runResearchTurn(session!, currentContext.message, assignment.workspace, signal, onStarted);
+              const status = await modelTurn(() => runResearchTurn(session!, currentContext.message, assignment.workspace, signal, onStarted), assignment);
+              if (status === undefined) break;
               await cooperation!.pulse(worker.id);
               if (!cooperation!.current(assignment) || status === 'completed') {
                 retries = 0;
@@ -309,7 +340,8 @@ export async function runResearchWorkers(input: {
           if (!await beginTurn(currentContext, assignment)) break;
           let candidate;
           try {
-            candidate = await modules.M1.execute(state.problem, currentContext, action.operation, worker, session!, signal, onStarted);
+            candidate = await modelTurn(() => modules.M1.execute(state.problem, currentContext, operation, worker, session!, signal, onStarted), assignment);
+            if (!candidate) break;
             await cooperation?.pulse(worker.id);
           } finally { cooperation?.deactivate(worker); }
           if (assignment && cooperation && !cooperation.current(assignment)) {

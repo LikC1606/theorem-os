@@ -4,6 +4,8 @@ import { readSolverRunState, type SolverRunState } from './archive';
 import { readMathJson } from '../math/mathRuntimeIo';
 import { taskGroup, taskVersion, type TaskRecord } from './tasks';
 import { researchFailureCategory } from './modules/search';
+import { buildProofContinuation, recordedTaskProofStatus } from './progress';
+import { buildTokenBudget } from './usageBudget';
 
 /** Reading a checkpoint does not revalidate its stored Lean evidence. */
 export function readRunInspection(run: string) {
@@ -20,13 +22,8 @@ export function readRunInspection(run: string) {
 function proofRecord(node: TaskRecord, state: SolverRunState) {
   const proof = node.integratedCheck ?? node.proof;
   if (!proof) return { status: 'none' as const };
-  const stale = proof.taskDigest !== taskVersion(node.task) ||
-    Boolean(proof.references && proof.references.environmentDigest !== state.environmentDigest);
-  const hasReceipts = proof.verification.status === 'kernel_verified' && Boolean(proof.verification.targetCommit) &&
-    proof.verification.results.length > 0 && proof.verification.results.every(result =>
-      result.status === 'kernel_verified' && result.targetCommit === proof.verification.targetCommit && result.receiptId);
   return {
-    status: stale ? 'stale' : !proof.passed ? 'failed' : !hasReceipts ? 'unverified' : proof.conditions?.length ? 'conditional' : 'checked',
+    status: recordedTaskProofStatus(node, state.environmentDigest),
     failureCategory: proof.passed ? undefined : ['blocked', 'unavailable'].includes(proof.verification.status) ? 'environment' : 'proof',
     commit: proof.commit, sourceDigest: proof.sourceDigest,
     conditions: proof.conditions ?? [],
@@ -56,6 +53,8 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
       coordination: state.coordination ?? 'cooperative', modules: state.moduleConfiguration,
       buildDigest: state.buildDigest, environmentDigest: state.environmentDigest, methodDigest: state.methodDigest },
     turns: state.turns, usage: state.usage, planVersion: cooperative?.planVersion,
+    tokenBudget: buildTokenBudget(state.tokenBudget?.maxTotalTokens ?? 0, state.workers ?? [state]),
+    continuation: buildProofContinuation(tasks, { groups: cooperative?.groups, environmentDigest: state.environmentDigest }),
     progress: { checkedProofTasks: checked.length,
       conditionalProofTasks: tasks.filter(node => proofRecord(node, state).status === 'conditional').length,
       completedResearchTasks: tasks.filter(node => ['research', 'sketch'].includes(node.task.kind) && node.status === 'completed').length,
@@ -72,6 +71,7 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
     })),
     workers: (state.workers ?? [{ id: 'solver', role: 'lead', ...state }]).map(worker => ({
       id: worker.id, role: worker.role, phase: worker.phase, turns: worker.turns,
+      usage: worker.usage,
       lastActivity: worker.lastActivity,
       lastFailure: worker.lastFailure && { ...worker.lastFailure, category: researchFailureCategory(worker.lastFailure.reason) },
       task: 'sessionTaskId' in worker ? worker.sessionTaskId : undefined,
@@ -105,8 +105,25 @@ export function renderRunInspection(report: Inspection): string {
   text += section('Run', table(['Problem', 'Phase', 'Recorded outcome', 'Model', 'Agents', 'Turns'], [[
     report.problem.id, report.phase, report.recordedOutcome, report.configuration.model, report.configuration.workers, report.turns]]));
   text += `\n${report.problem.statement}\n\nRun: ${report.runId}\n\nPlan version: ${report.planVersion ?? 'not yet planned'}\n`;
+  text += section('Model usage', table(['Shared token allowance', 'Reported tokens', 'Complete usage', 'Observed overrun', 'Dispatch status'], [[
+    report.tokenBudget.maxTotalTokens || 'unlimited', report.tokenBudget.reportedTotalTokens,
+    report.tokenBudget.usageComplete, report.tokenBudget.overrunTokens, report.tokenBudget.status]]));
+  text += '\nThe allowance stops new model turns using provider reports. In-flight turns may exceed it; missing reports leave consumption incomplete. No monetary cost is inferred.\n';
   text += section('Original targets', table(['Declaration', 'File'], report.problem.targets.map(target => [target.theoremName, target.proofPath])));
   text += section('Recorded progress', `${report.progress.checkedProofTasks} checked proof tasks; ${report.progress.conditionalProofTasks} conditional; ${report.progress.completedResearchTasks} completed research tasks.\n\nOpen proof tasks: ${report.progress.openProofTasks.join(', ') || 'none'}. Dispatch counts include retries and do not measure mathematical progress.`);
+  text += section('Proof continuation', table(['Original goal', 'Recorded proof', 'Open dependency frontier', 'Missing tasks'],
+    report.continuation.goals.map(goal => [goal.taskId, goal.recordedProof, goal.frontier.join(', ') || 'none', goal.missingDependencies.join(', ') || 'none'])));
+  text += '\nConsumers with checked inputs and completed planned dependencies: ' +
+    (report.continuation.continuationCandidates.join(', ') || 'none') + '.\n';
+  text += section('Recorded lemma reuse', report.continuation.reuse.length ?
+    table(['Lemma', 'Planned consumers', 'Verified proof consumers', 'Statement references', 'Conditional consumers'],
+      report.continuation.reuse.map(item => [item.taskId, item.plannedConsumers.join(', ') || 'none',
+        item.proofConsumers.join(', ') || 'none recorded', item.statementConsumers.join(', ') || 'none recorded',
+        item.conditionalConsumers.join(', ') || 'none recorded'])) : 'No integrated lemmas with current recorded receipts.');
+  text += '\nTasks without a planned path to an active original goal: ' +
+    (report.continuation.unconnectedTasks.join(', ') || 'none') + '. This does not establish that a result is mathematically unhelpful.\n';
+  if (report.continuation.referenceCoverageMissing.length) text += '\nActual-reference evidence unavailable for: ' +
+    report.continuation.referenceCoverageMissing.join(', ') + '.\n';
   text += section('Workers', table(['Worker', 'Phase', 'Task', 'Last activity', 'At'], report.workers.map(worker => [
     worker.id, worker.phase, worker.task, worker.lastActivity?.event,
     worker.lastActivity ? new Date(worker.lastActivity.at).toISOString() : undefined])));

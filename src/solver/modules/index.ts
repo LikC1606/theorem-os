@@ -4,7 +4,7 @@ import { executeResearch } from './execution';
 import { buildResearchContext, buildStatementReviewContext } from './context';
 import type { ResearchOperation, ValueEstimate } from './value';
 import type { SolverRunState } from '../archive';
-import { selectResearchAction, selectLemmaAction, planResearchRetry, readyResearchTasks, goalsFirstResearchTasks, criticalPathResearchTasks } from './search';
+import { selectResearchAction, selectLemmaAction, planResearchRetry, readyResearchTasks, goalsFirstResearchTasks, criticalPathResearchTasks, continuationResearchTasks } from './search';
 import { assignResearchTask, assignSharedResearchTask, researchWorkers, assignResearchReviewer, type organizeResearch } from './organization';
 import { checkLemmaResearch } from '../lemma';
 import { checkTaskProof } from '../cooperativeProof';
@@ -16,8 +16,8 @@ export const directSolverModules = {
   M1: { version: 'bounded-codex-turn-v8', open: createCodexMathSession, execute: executeResearch },
   M2: { version: 'lean-kernel-v8', check: checkSolverProof, checkTask: checkTaskProof },
   M3: { version: 'route-budget-v6', select: selectResearchAction, retry: planResearchRetry, ready: readyResearchTasks },
-  M4: { version: 'checkpoint-context-v13', build: buildResearchContext, statement: buildStatementReviewContext },
-  M5: { version: 'route-cooperation-v13', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignResearchTask },
+  M4: { version: 'checkpoint-context-v14', build: buildResearchContext, statement: buildStatementReviewContext },
+  M5: { version: 'route-cooperation-v14', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignResearchTask },
 };
 
 export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M3' | 'M5'> & {
@@ -37,13 +37,16 @@ export const lemmaSolverModules: SolverModules = {
 /** Named CLI policies bind search and assignment versions without changing host acceptance. */
 export function configuredSolverModules(method: string, scheduler: string): SolverModules {
   if (!['direct', 'lemma'].includes(method)) throw new Error('invalid --method');
-  if (!['plan', 'goals-first', 'critical-path', 'primary-led'].includes(scheduler)) throw new Error('invalid --scheduler');
+  if (!['plan', 'goals-first', 'critical-path', 'continuation', 'primary-led'].includes(scheduler)) throw new Error('invalid --scheduler');
   const base = method === 'lemma' ? lemmaSolverModules : directSolverModules;
   if (scheduler === 'primary-led') return { ...base,
     M4: { ...base.M4, version: `${base.M4.version}/primary-led-v1` },
     M5: { ...base.M5, version: `${base.M5.version}/primary-led-v1`, primaryLed: true, assign: assignSharedResearchTask } };
   if (scheduler === 'critical-path') return { ...base,
     M3: { ...base.M3, version: `${base.M3.version}/critical-path-v1`, ready: criticalPathResearchTasks },
+    M5: { ...base.M5, version: `${base.M5.version}/shared-work-v1`, assign: assignSharedResearchTask } };
+  if (scheduler === 'continuation') return { ...base,
+    M3: { ...base.M3, version: `${base.M3.version}/continuation-v1`, ready: continuationResearchTasks },
     M5: { ...base.M5, version: `${base.M5.version}/shared-work-v1`, assign: assignSharedResearchTask } };
   return scheduler === 'plan' ? base : { ...base,
     M3: { ...base.M3, version: `${base.M3.version}/goals-first-v1`, ready: goalsFirstResearchTasks } };

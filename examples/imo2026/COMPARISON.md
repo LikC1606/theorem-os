@@ -14,6 +14,14 @@ Planning, reviews, restarts and retries use that total; independent workers
 share it too. These are limits on turns and time, not equal token expenditure.
 The single arm uses the same strong model, retrieval tools and Lean feedback.
 
+For a provider-observed token allowance, pass the same `--max-total-tokens N`
+through preparation. To isolate this allowance from time and dispatch limits,
+also pass `--max-run-seconds 0 --max-turn-seconds 0 --max-turns 0`. The allowance
+includes all roles and stops new requests after reported consumption reaches N.
+Already running requests may exceed it. Reports retain that overrun and missing
+usage; this is not an exact token-matched or billed-cost comparison. The default
+is `--max-total-tokens 0`, with no token limit.
+
 Complete the [example setup](README.md) first. Configure a compatible trusted
 `.lake/packages` cache in your math environment: the comparison bootstraps fresh
 workspaces without downloading dependencies again. From the project root:
@@ -72,12 +80,18 @@ Missing counters or timings are not zero-cost attempts. Monetary costs are not
 estimated.
 
 For a component replacement experiment, prepare another comparison with
-`--scheduler goals-first`. Default `plan` preserves plan order; `goals-first`
+`--scheduler goals-first` or `--scheduler continuation`. Default `plan` preserves plan order; `goals-first`
 changes only M3's ordering of ready tasks to prefer original goals. Dependency,
 route and ownership checks still apply. Module versions are saved, and resume
 rejects a changed policy. This is an ablation to measure, with no claimed
 improvement. Use multiple problems and repetitions under the same configuration
 before drawing conclusions.
+
+`continuation` prioritizes consumers of checked lemmas on unfinished original-goal
+paths and preserves an exploration opportunity alongside two active main-path
+tasks. The inspection report separates planned use from recorded Lean proof use.
+The comparison harness currently supports the pinned IMO problem set; it does
+not launch these arms for arbitrary LeanEval campaigns.
 
 Next, identify recurrent failures in the reports and logs, then change one M3
 search rule or M4 context policy at a time, holding tasks, budget and evaluator

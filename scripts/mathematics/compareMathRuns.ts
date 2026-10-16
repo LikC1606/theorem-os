@@ -13,6 +13,7 @@ import { runMathBatch } from './runMathBatch';
 import { configuredSolverModules, solverMethodDigest } from '../../src/solver/modules';
 import { proofReceiptsMatch, type ProofCheck } from '../../src/solver/modules/evidence';
 import type { SolverRunState } from '../../src/solver/archive';
+import { buildTokenBudget, reportedTotalTokens } from '../../src/solver/usageBudget';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const arms = ['single', 'independent', 'cooperative'] as const;
@@ -22,7 +23,7 @@ type Plan = {
   schema: 'deepscientist.math.comparison.v1'; problem: string; sourceCommit: string;
   taskDigest: string; buildDigest: string; environmentDigest: string;
   configuration: { model: string; effort: string; method: string; scheduler: string; workers: number;
-    maxTurns: number; maxRunSeconds: number; maxTurnSeconds: number };
+    maxTurns: number; maxRunSeconds: number; maxTurnSeconds: number; maxTotalTokens?: number };
   jobs: Job[];
 };
 const json = (file: string) => JSON.parse(readMathText(file));
@@ -57,9 +58,10 @@ export function comparisonReport(directory: string, plan: Plan) {
     let error: string | undefined;
     let workerErrors: { id: string; error: string }[] = [];
     let missingUsageWorkers: string[] = [];
+    let tokenBudget: SolverRunState['tokenBudget'] | null = null;
+    let usageComplete = false;
     const numeric = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
-    const tokens = (usage?: Record<string, unknown>) => numeric(usage?.totalTokens) ? usage.totalTokens :
-      numeric(usage?.inputTokens) && numeric(usage?.outputTokens) ? usage.inputTokens + usage.outputTokens : null;
+    const tokens = reportedTotalTokens;
     try {
       const { state, result } = readRunInspection(job.output);
       const expectedWorkers = job.arm === 'single' ? 1 : plan.configuration.workers;
@@ -70,12 +72,20 @@ export function comparisonReport(directory: string, plan: Plan) {
           (state.workerCount ?? 1) !== expectedWorkers ||
           (state.coordination ?? 'cooperative') !== (job.arm === 'cooperative' ? 'cooperative' : 'independent'))
         throw new Error('comparison_run_identity_mismatch');
+      const maxTotalTokens = plan.configuration.maxTotalTokens ?? 0;
+      if ((state.tokenBudget?.maxTotalTokens ?? 0) !== maxTotalTokens)
+        throw new Error('comparison_token_budget_mismatch');
       turns = state.turns; usage = state.usage;
       dispatchCounts = state.dispatchCounts;
       if (numeric(state.solveStartedAt) && numeric(state.solveFinishedAt) && state.solveFinishedAt >= state.solveStartedAt)
         solveWallMs = state.solveFinishedAt - state.solveStartedAt;
-      missingUsageWorkers = (state.workers ?? [{ id: 'solver', ...state }]).filter(worker =>
+      const workers = state.workers ?? [{ id: 'solver', ...state }];
+      missingUsageWorkers = workers.filter(worker =>
         (worker.turns > 0 || ('error' in worker && worker.error)) && tokens(worker.usage) === null).map(worker => worker.id);
+      // Legacy plans have no budget/accounting record; retain their all-role counter checks.
+      tokenBudget = state.tokenBudget ? buildTokenBudget(maxTotalTokens, workers) : null;
+      usageComplete = workers.length === expectedWorkers && missingUsageWorkers.length === 0 &&
+        (tokenBudget ? tokenBudget.usageComplete : tokens(usage) !== null);
       workerErrors = (state.workers ?? []).flatMap(worker => worker.error ? [{ id: worker.id, error: worker.error }] : []);
       status = state.phase !== 'finished' ? 'unfinished' : String(result?.status ?? 'missing');
       const evaluator = result?.evaluator as { status?: string; method?: string; official?: boolean; verification?: ProofCheck } | undefined;
@@ -92,32 +102,40 @@ export function comparisonReport(directory: string, plan: Plan) {
       if (status === 'evaluated_passed' && !accepted) error = 'comparison_acceptance_evidence_incomplete';
     } catch (cause) {
       status = fs.existsSync(`${job.output}.runtime/state.json`) || fs.existsSync(job.output) ? 'invalid' : 'missing';
+      usageComplete = false;
       error = cause instanceof Error ? cause.message : String(cause);
     }
-    const totalTokens = missingUsageWorkers.length ? null : tokens(usage);
+    const totalTokens = usageComplete ? tokenBudget ? tokenBudget.reportedTotalTokens : tokens(usage) : null;
+    const overrunTokens = tokenBudget?.overrunTokens ?? (totalTokens === null ? null :
+      plan.configuration.maxTotalTokens ? Math.max(0, totalTokens - plan.configuration.maxTotalTokens) : 0);
     const elapsed = execution?.startedAt && execution?.finishedAt
       ? Date.parse(execution.finishedAt) - Date.parse(execution.startedAt) : NaN;
     return { arm: job.arm, repetition: job.repetition, status, accepted, turns, dispatches: turns, dispatchCounts, solveWallMs,
-      totalTokens, missingUsageWorkers, usage, workerErrors, error, wallMs: Number.isFinite(elapsed) && elapsed >= 0 ? elapsed : null,
+      totalTokens, usageComplete, overrunTokens, tokenBudget, missingUsageWorkers, usage, workerErrors, error,
+      wallMs: Number.isFinite(elapsed) && elapsed >= 0 ? elapsed : null,
       exitCode: execution?.exitCode ?? null, result: job.output, log: execution?.log };
   });
   return { schema: 'deepscientist.math.comparison-report.v1', evidence: 'recorded-not-replayed',
     problem: plan.problem, configuration: plan.configuration, official: false,
+    tokenAccounting: 'provider-reported-all-roles',
+    tokenBudgetEnforcement: 'provider-observed-dispatch-limit',
+    budgetNote: 'A shared token allowance limits new dispatches after reported consumption. In-flight work may exceed it; missing usage prevents complete token or cost comparisons.',
     totals: comparisonTotals(rows), runs: rows };
 }
 
 export async function compareMathRuns(argv: string[]): Promise<number> {
   const flags = parseFlags(argv, ['phase', 'directory', 'repo', 'problem', 'task-file', 'build-manifest',
     'repetitions', 'model', 'effort', 'method', 'scheduler', 'workers', 'max-turns', 'max-run-seconds', 'max-turn-seconds',
-    'proof-environment-cache-dir']);
+    'max-total-tokens', 'proof-environment-cache-dir']);
   if (flags.has('help')) {
     console.log('Usage: theorem-os compare --phase prepare|run|report --directory DIR\n'
       + 'prepare also requires --repo PINNED_IMO_REPO --problem ID --task-file FILE --build-manifest FILE\n'
-      + 'Optional: --repetitions 1 --workers 4 --model gpt-6.1-sol --effort xhigh --method direct --scheduler plan|goals-first|critical-path|primary-led\n'
-      + '          --max-turns 200 --max-run-seconds 1800 --max-turn-seconds 180\n'
+      + 'Optional: --repetitions 1 --workers 4 --model gpt-6.1-sol --effort xhigh --method direct --scheduler plan|goals-first|critical-path|continuation|primary-led\n'
+      + '          --max-turns 200 --max-run-seconds 1800 --max-turn-seconds 180 --max-total-tokens 0\n'
       + '          --proof-environment-cache-dir HOST_PRIVATE_DIR\n'
-      + 'prepare never invokes a model. run executes all three arms sequentially. Each arm uses a wall-time limit;\n'
-      + '--max-turns is a shared dispatch safety cap, not equal compute. Token usage includes all roles.');
+      + 'prepare never invokes a model. run executes all three arms sequentially. Every arm receives the same token allowance.\n'
+      + 'Use 0 to disable a limit; at least max-turns, max-run-seconds or max-total-tokens must be positive.\n'
+      + '--max-turns caps dispatches. Token caps use provider reports, allow in-flight overrun, and do not guarantee equal cost.');
     return 0;
   }
   const phase = required(flags, 'phase');
@@ -125,17 +143,20 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
   const directory = path.resolve(required(flags, 'directory'));
   const planFile = path.join(directory, 'comparison.json');
   if (phase === 'prepare') {
-    const number = (key: string, fallback: number) => {
+    const number = (key: string, fallback: number, allowZero = false) => {
       const value = Number(flags.get(key) ?? fallback);
-      if (!Number.isSafeInteger(value) || value < 1) throw new Error(`invalid --${key}: a fixed positive budget is required`);
+      if (!Number.isSafeInteger(value) || value < (allowZero ? 0 : 1)) throw new Error(`invalid --${key}`);
       return value;
     };
     const repetitions = number('repetitions', 1), workers = number('workers', 4);
     if (workers < 2 || workers > 4) throw new Error('--workers must be 2, 3 or 4');
     const method = flags.get('method') ?? 'direct', scheduler = flags.get('scheduler') ?? 'plan';
-    if (!['direct', 'lemma'].includes(method) || !['plan', 'goals-first', 'critical-path', 'primary-led'].includes(scheduler)) throw new Error('invalid method or scheduler');
+    if (!['direct', 'lemma'].includes(method) || !['plan', 'goals-first', 'critical-path', 'continuation', 'primary-led'].includes(scheduler)) throw new Error('invalid method or scheduler');
     const configuration = { model: flags.get('model') ?? 'gpt-6.1-sol', effort: flags.get('effort') ?? 'xhigh', method, scheduler,
-      workers, maxTurns: number('max-turns', 200), maxRunSeconds: number('max-run-seconds', 1800), maxTurnSeconds: number('max-turn-seconds', 180) };
+      workers, maxTurns: number('max-turns', 200, true), maxRunSeconds: number('max-run-seconds', 1800, true),
+      maxTurnSeconds: number('max-turn-seconds', 180, true), maxTotalTokens: number('max-total-tokens', 0, true) };
+    if (!configuration.maxTurns && !configuration.maxRunSeconds && !configuration.maxTotalTokens)
+      throw new Error('comparison requires a positive --max-turns, --max-run-seconds or --max-total-tokens');
     const repositoryRoot = fs.realpathSync(required(flags, 'repo'));
     const problem = required(flags, 'problem');
     if (!IMO2026_SUPPORTED_PROBLEMS.includes(problem as typeof IMO2026_SUPPORTED_PROBLEMS[number])) throw new Error('unsupported IMO problem');
@@ -166,7 +187,7 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
           '--method', method, '--scheduler', scheduler, '--workers', String(item.arm === 'single' ? 1 : workers),
           '--coordination', item.arm === 'cooperative' ? 'cooperative' : 'independent',
           '--max-turns', String(configuration.maxTurns), '--max-run-seconds', String(configuration.maxRunSeconds),
-          '--max-turn-seconds', String(configuration.maxTurnSeconds),
+          '--max-turn-seconds', String(configuration.maxTurnSeconds), '--max-total-tokens', String(configuration.maxTotalTokens),
           ...(proofCache ? ['--proof-environment-cache-dir', proofCache] : [])] });
       plan.jobs.push({ ...item, launch, launchDigest: mathDigest(fs.readFileSync(launch)), output, receiptDigest: receipt.receiptDigest,
         methodDigest: solverMethodDigest(configuredSolverModules(method, scheduler), item.arm === 'cooperative' ? 'cooperative' : 'independent') });

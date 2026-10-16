@@ -12,6 +12,7 @@ import type { ResearchOperation } from './value';
 import { taskGroup, assignmentDeliveryFile, type CooperativeAction } from '../tasks';
 import type { CooperationState } from '../cooperation';
 import { statementReviewSummary, type StatementAction, type StatementReview } from '../statementReview';
+import { buildProofContinuation } from '../progress';
 
 export type ContextAccess = Readonly<{
   root: string;
@@ -102,7 +103,7 @@ ${access.corpusFile ? `For library lookup, run ${command} search-lean --workspac
   const bundle: ContextBundle = { instructions,
     message, scope: 'original-problem-and-allowed-library',
     sources: { problemReceiptDigest: task.receiptDigest } };
-  return access.assignment && cooperation ? buildCooperativeContext(task, cooperation, bundle, access.assignment, access.operation ?? 'direct') : bundle;
+  return access.assignment && cooperation ? buildCooperativeContext(task, cooperation, bundle, access.assignment, access.operation ?? 'direct', state.environmentDigest) : bundle;
 }
 
 function shellArgument(value: string): string {
@@ -123,7 +124,7 @@ function selectedDeliveries(cooperation: CooperationState, dependencies: readonl
 }
 
 function buildCooperativeContext(problem: SolverProblem, cooperation: CooperationState, context: ContextBundle,
-  action: CooperativeAction, operation: ResearchOperation): ContextBundle {
+  action: CooperativeAction, operation: ResearchOperation, environmentDigest?: string): ContextBundle {
   const deliveredFindings = new Set(selectedDeliveries(cooperation, action.kind === 'task' ? action.task.dependsOn : [])
     .filter(record => record.kind === 'research').map(record => record.taskId));
   const summary = cooperation.tasks.map(node => ({
@@ -148,13 +149,17 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
   const sharing = action.kind === 'task'
     ? `To share before returning, append a JSON line to ${assignmentDeliveryFile(action.assignment)}: {"summary":"progress or gap"}. For a ready proof, save the allowed sources and notes, then return. Git metadata is managed by the host; do not run git add or git commit. The host freezes the saved sources and independently checks and integrates them after your turn ends. Do not truncate the delivery log. Progress reports remain advisory.\n`
       : '';
+  const continuation = buildProofContinuation(cooperation.tasks, { groups: cooperation.groups, environmentDigest });
   return { ...context, assignment: action, instructions: context.instructions + '\n' + rules +
+    (action.kind === 'lead' ? 'Use the proof-continuation snapshot to identify the original goal\'s current mathematical frontier. Prefer consuming relevant checked lemmas before creating more auxiliary work; give each new helper an intended consumer and explicitly assign every substantive missing premise. Keep useful alternative routes visible. A lemma without a recorded consumer may still be useful; investigate its connection rather than deleting it. Planned dependencies, actual Lean proof references and conditional references are reported separately. Do not count auxiliary lemma totals as completion of the original problem. The host obtains fixed-candidate review after the complete proof is checked; do not spend an advisory task reviewing an unfinished final candidate. Advisory research may start before its planned dependencies are proved; use typed proof tasks when a consumer must wait for checked premises.\n' :
+      action.kind === 'task' && ['lemma', 'goal'].includes(action.task.kind) ? 'Inspect relevant checked inputs and their exact declarations before reconstructing an argument. Save the concrete consumer application and discharge every premise; report the remaining original-goal obstacle in RESEARCH.md.\n' : '') +
     'Original declarations retain the frozen source order shown below. A goal cannot depend on a later original goal in the same file. Extract their shared argument into a newly named lemma before both goals; preserve every other original proof and declaration placement.\n' +
     'COOPERATION.json contains full live peer work, findings, gaps and checked results; never edit it. Prompt summaries omit repeated progress and shorten advisory prose; consult the file for details. Structured responses use one JSON object, plain or in a math/json fence, replacing old responses. The host manages versions, receipts and budgets, and independently checks all original targets. Unproved dependencies and reviews remain advisory.\n',
     message: context.message + '\n\nCooperative assignment:\n' + JSON.stringify(action) +
       '\n\nLead task graph and host feedback:\n' + JSON.stringify(summary) +
       '\n\nRoute groups and budgets:\n' + bounded(JSON.stringify(cooperation.groups ?? []), 6000) +
       `\nPlan error: ${cooperation.error ?? 'none'}\nReview: ${JSON.stringify(cooperation.review ?? null)}` +
+      '\n\nProof continuation (stored evidence, not replayed; planned use and actual proof use are separate):\n' + JSON.stringify(continuation) +
       '\nStatement reviews: ' + bounded(JSON.stringify(cooperation.statementReviews?.filter(review => review.status !== 'superseded')
         .map(statementReviewSummary) ?? []), 16000) +
       '\nFrozen declaration order by file: ' + bounded(JSON.stringify(Object.fromEntries(Object.entries(problem.declarations)

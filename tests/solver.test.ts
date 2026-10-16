@@ -204,6 +204,170 @@ describe('isolated solver and host acceptance', () => {
     expect(host.officialGate).not.toHaveBeenCalled();
   });
 
+  it('stops new model turns at the reported token allowance without cancelling final proof verification', async () => {
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'token-proof',
+      run: async () => {
+        options.onUsage({ totalTokens: 120, inputTokens: 100, outputTokens: 20 });
+        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+        return 'completed';
+      }, close: vi.fn(), interrupt: vi.fn() }));
+    expect(await runSolver([...args, '--max-total-tokens', '100', '--max-turns', '0', '--max-run-seconds', '0',
+      '--max-turn-seconds', '0'], directory)).toBe(0);
+    const result = JSON.parse(fs.readFileSync(output, 'utf8'));
+    expect(result).toMatchObject({ status: 'evaluated_passed', turns: 1,
+      tokenBudget: { status: 'exhausted', reportedTotalTokens: 120, overrunTokens: 20, usageComplete: true } });
+    expect(result.reason).toBeUndefined();
+    expect(host.officialGate).toHaveBeenCalledOnce();
+    expect(host.createSession.mock.results.length).toBe(1);
+    expect((await host.createSession.mock.results[0].value).interrupt).not.toHaveBeenCalled();
+  });
+
+  it('uses one reported allowance across independent workers and records in-flight overrun', async () => {
+    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
+      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) }));
+    let started = 0;
+    let release!: () => void;
+    const running = new Promise<void>(resolve => { release = resolve; });
+    const runs = vi.fn();
+    const interrupts = vi.fn();
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.workspace,
+      run: async () => {
+        runs(); if (++started === 4) release(); await running;
+        options.onUsage({ totalTokens: 40 });
+        return 'completed';
+      }, close: vi.fn(), interrupt: interrupts }));
+    expect(await runSolver([...args, '--workers', '4', '--coordination', 'independent', '--max-turns', '20',
+      '--max-total-tokens', '100'], directory)).toBe(4);
+    const result = JSON.parse(fs.readFileSync(output, 'utf8'));
+    expect(result).toMatchObject({ status: 'limit_reached', reason: 'math_total_token_limit', turns: 4,
+      usage: { totalTokens: 160 }, tokenBudget: { maxTotalTokens: 100, status: 'exhausted',
+        reportedTotalTokens: 160, overrunTokens: 60, usageComplete: true } });
+    expect(runs).toHaveBeenCalledTimes(4);
+    expect(interrupts).not.toHaveBeenCalled();
+    expect(host.officialGate).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])('fails closed on unavailable completed usage with a finite allowance (partial: %s)', async partial => {
+    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
+      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) }));
+    const runs = vi.fn();
+    let started = 0;
+    let release!: () => void;
+    const running = new Promise<void>(resolve => { release = resolve; });
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.workspace,
+      run: async () => {
+        runs(); if (++started === (partial ? 2 : 1)) release(); await running;
+        if (partial && options.environment?.DEEPSCIENTIST_MATH_WORKER_ID === 'solver') options.onUsage({ totalTokens: 40 });
+        return 'completed';
+      }, close: vi.fn(), interrupt: vi.fn() }));
+    expect(await runSolver([...args, '--workers', partial ? '2' : '1', '--coordination', 'independent',
+      '--max-turns', '20', '--max-total-tokens', '100'], directory)).toBe(4);
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'limit_reached', reason: 'math_model_usage_unavailable',
+      tokenBudget: { status: 'usage-unavailable', usageComplete: false, reportedTotalTokens: partial ? 40 : null } });
+    expect(runs).toHaveBeenCalledTimes(partial ? 2 : 1);
+    expect(host.officialGate).not.toHaveBeenCalled();
+  });
+
+  it.each(['transport', 'exception', 'failed', 'checkpoint', 'interrupted'] as const)
+  ('keeps intermediate usage incomplete after a %s model turn with a finite allowance', async failure => {
+    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
+      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) }));
+    const runs = vi.fn();
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'partial-token-usage',
+      lastError: 'math_codex_transport_closed:fixture', run: async () => {
+        runs(); options.onUsage({ totalTokens: 40 });
+        if (failure === 'transport') throw new Error('math_codex_transport_closed:fixture');
+        if (failure === 'exception') throw new Error('fixture_request_exception');
+        return failure;
+      }, close: vi.fn(), interrupt: vi.fn() }));
+    expect(await runSolver([...args, '--max-turns', '20', '--max-total-tokens', '100'], directory)).toBe(failure === 'exception' ? 1 : 4);
+    expect(runs).toHaveBeenCalledOnce();
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({
+      status: failure === 'exception' ? 'runtime_error' : 'limit_reached',
+      usage: { totalTokens: 40 }, tokenBudget: { status: 'usage-unavailable', reportedTotalTokens: 40, usageComplete: false } });
+    expect(host.officialGate).not.toHaveBeenCalled();
+  });
+
+  it('keeps partial usage visible while preserving unlimited retries after a transport failure', async () => {
+    let turns = 0;
+    host.verify.mockImplementation(async request => turns < 2 ? { ...verified(request), status: 'failed',
+      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) } : verified(request));
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: `partial-token-${host.createSession.mock.calls.length}`,
+      lastError: 'math_codex_transport_closed:fixture', run: async () => {
+        options.onUsage({ totalTokens: 40 });
+        if (++turns === 1) throw new Error('math_codex_transport_closed:fixture');
+        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+        return 'completed';
+      }, close: vi.fn(), interrupt: vi.fn() }));
+    expect(await runSolver([...args, '--max-turns', '2', '--max-total-tokens', '0'], directory)).toBe(0);
+    expect(turns).toBe(2);
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'evaluated_passed', usage: { totalTokens: 80 },
+      tokenBudget: { status: 'unlimited', reportedTotalTokens: 80, usageComplete: false } });
+  });
+
+  it('rechecks the shared allowance after opening a session while another worker consumes it', async () => {
+    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
+      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) }));
+    let opened!: () => void, consumed!: () => void;
+    const peerOpening = new Promise<void>(resolve => { opened = resolve; });
+    const allowanceConsumed = new Promise<void>(resolve => { consumed = resolve; });
+    const runs = vi.fn();
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => {
+      const lead = options.environment?.DEEPSCIENTIST_MATH_WORKER_ID === 'solver';
+      if (!lead) { opened(); await allowanceConsumed; }
+      return { threadId: options.workspace, run: async () => {
+        runs(); await peerOpening;
+        options.onUsage({ totalTokens: 100 }); consumed(); return 'completed';
+      }, close: vi.fn(), interrupt: vi.fn() };
+    });
+    expect(await runSolver([...args, '--workers', '2', '--coordination', 'independent', '--max-turns', '20',
+      '--max-total-tokens', '100'], directory)).toBe(4);
+    expect(host.createSession).toHaveBeenCalledTimes(2);
+    expect(runs).toHaveBeenCalledOnce();
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'limit_reached', turns: 1,
+      tokenBudget: { status: 'exhausted', reportedTotalTokens: 100, usageComplete: true } });
+  });
+
+  it('admits the actual model request atomically after asynchronous turn preparation', async () => {
+    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
+      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) }));
+    const runs = vi.fn();
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.workspace,
+      run: async () => { runs(); options.onUsage({ totalTokens: 100 }); return 'completed'; },
+      close: vi.fn(), interrupt: vi.fn() }));
+    expect(await runSolver([...args, '--workers', '2', '--coordination', 'independent', '--max-turns', '20',
+      '--max-total-tokens', '100'], directory)).toBe(4);
+    expect(runs).toHaveBeenCalledOnce();
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ turns: 1, dispatchCounts: { proof: 1 },
+      tokenBudget: { status: 'exhausted', reportedTotalTokens: 100, usageComplete: true } });
+  });
+
+  it.each([80, 0])('retains the cumulative token allowance on resume and allows explicitly changing it to %s', async allowance => {
+    let turns = 0;
+    host.verify.mockImplementation(async request => turns < 2 ? { ...verified(request), status: 'failed',
+      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) } : verified(request));
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'token-resume',
+      run: async () => {
+        options.onUsage({ totalTokens: ++turns * 30 });
+        if (turns === 2) fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'),
+          original.replaceAll('by sorry', 'by trivial'));
+        return 'completed';
+      }, close: vi.fn(), interrupt: vi.fn() }));
+    expect(await runSolver([...args, '--max-turns', '20', '--max-total-tokens', '30'], directory)).toBe(4);
+    expect(turns).toBe(1);
+    // Omitting the option must not silently turn a saved finite allowance into unlimited work.
+    expect(await runSolver([...args, '--resume', '--max-turns', '20'], directory)).toBe(4);
+    expect(turns).toBe(1);
+    expect(await runSolver([...args, '--resume', '--max-turns', '20', '--max-total-tokens', '25'], directory)).toBe(4);
+    expect(JSON.parse(fs.readFileSync(output, 'utf8')).tokenBudget).toMatchObject({ reportedTotalTokens: 30, overrunTokens: 5 });
+    expect(turns).toBe(1);
+    expect(await runSolver([...args, '--resume', '--max-turns', '20', '--max-total-tokens', String(allowance)], directory)).toBe(0);
+    expect(turns).toBe(2);
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'evaluated_passed', usage: { totalTokens: 60 },
+      tokenBudget: { maxTotalTokens: allowance, reportedTotalTokens: 60, usageComplete: true } });
+    expect(host.createSession).toHaveBeenCalledTimes(2);
+  });
+
   it.each(['coordination', 'scheduler'])('freezes the CLI %s policy across resume', async policy => {
     expect(await runSolver([...args, '--startup-only'], directory)).toBe(0);
     const prepared = fs.readFileSync(output, 'utf8');
@@ -788,6 +952,35 @@ describe('isolated solver and host acceptance', () => {
       };
     });
   }
+
+  it('counts cooperative planning toward the token allowance and leaves unstarted proof work resumable', async () => {
+    configureCooperation();
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '0', '--max-total-tokens', '1200'], directory)).toBe(4);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state).toMatchObject({ turns: 1, dispatchCounts: { planning: 1 },
+      tokenBudget: { status: 'exhausted', reportedTotalTokens: 1200, usageComplete: true } });
+    expect(state.cooperation.tasks.map((node: any) => node.status)).toEqual(['pending', 'pending', 'pending', 'pending']);
+    expect(host.officialGate).not.toHaveBeenCalled();
+  });
+
+  it('keeps cooperative in-flight helper checks after reaching the shared token allowance', async () => {
+    let started = 0;
+    let release!: () => void;
+    const bothStarted = new Promise<void>(resolve => { release = resolve; });
+    configureCooperation(async (action, options) => {
+      if (action.kind === 'task' && action.task.kind === 'lemma') {
+        if (++started === 2) release(); await bothStarted;
+      }
+      finishAssignment(action, options); return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '0', '--max-total-tokens', '3600'], directory)).toBe(4);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state).toMatchObject({ turns: 3, dispatchCounts: { planning: 1, proof: 2 },
+      tokenBudget: { status: 'exhausted', reportedTotalTokens: 3600, usageComplete: true } });
+    expect(state.cooperation.tasks.map((node: any) => node.status)).toEqual(['integrated', 'integrated', 'pending', 'pending']);
+    expect(host.officialGate).not.toHaveBeenCalled();
+  });
+
   it('commits saved cooperative proofs on the host and persists worker activity', async () => {
     configureCooperation(async (action, options, message) => {
       if (action.kind === 'task') {
@@ -940,7 +1133,7 @@ describe('isolated solver and host acceptance', () => {
     expect(cooperationState().tasks[0].status).toBe('integrated');
   });
 
-  it.each(['markdown', 'json'])('keeps inherited %s notes pending after an unchanged completed research turn', async format => {
+  it.each(['markdown', 'json'])('requests a Lead decision after two unchanged completed %s research deliveries', async format => {
     const tasks: CooperativeTask[] = [
       { id: 'question', kind: 'research', objective: 'Find a current proof route', dependsOn: [], revision: 0 },
       ...planTasks().slice(2).map(task => ({ ...task, dependsOn: task.id === 'first' ? ['question'] : ['first'] })),
@@ -964,9 +1157,9 @@ describe('isolated solver and host acceptance', () => {
     });
     expect(await runSolver([...args, '--workers', '2', '--max-turns', '3'], directory)).toBe(4);
     expect(attempts).toBe(2);
-    expect(cooperationState().tasks[0]).toMatchObject({ status: 'pending', attempts: 2, feedback: expect.stringContaining('math_research_delivery_unchanged') });
+    expect(cooperationState().tasks[0]).toMatchObject({ status: 'blocked', attempts: 2, feedback: expect.stringContaining('math_research_delivery_unchanged') });
     expect(cooperationState().tasks.slice(1).every((node: any) => node.attempts === 0)).toBe(true);
-    expect(cooperationState().deliveries ?? []).toEqual([]);
+    expect(cooperationState().deliveries).toEqual([expect.objectContaining({ taskId: 'question', kind: 'failure', status: 'failed' })]);
     expect(host.verify).not.toHaveBeenCalled();
   });
 
@@ -1423,7 +1616,7 @@ describe('isolated solver and host acceptance', () => {
 
 
   it('filters private statement reviews from both route prompts and cooperation journals', () => {
-    const secret = { ...planTasks()[0], groupId: 'private', sharing: 'group' as const };
+    const secret = { ...planTasks()[0], objective: 'PRIVATE_TASK_OBJECTIVE', groupId: 'private', sharing: 'group' as const };
     const publicTask = { ...planTasks()[1], groupId: 'public' };
     const shared = { ...planTasks()[2], groupId: 'private', sharing: 'problem' as const };
     const pending = { id: 'public-pending', kind: 'research' as const, objective: 'Explore a public route',
@@ -1460,8 +1653,13 @@ describe('isolated solver and host acceptance', () => {
     expect(bundle.message).not.toContain('PRIVATE_PROGRESS'); expect(bundle.message).not.toContain('STALE_PROGRESS');
     expect(bundle.message).not.toContain('SUPERSEDED_PROGRESS'); expect(bundle.message).not.toContain('STALE_DEPENDENCY');
     cooperative.activate(peer, action, async () => {}, async () => {});
-    expect(JSON.parse(fs.readFileSync(path.join(peerRoot, 'COOPERATION.json'), 'utf8')).statements.map((review: any) => review.taskId))
+    const journal = JSON.parse(fs.readFileSync(path.join(peerRoot, 'COOPERATION.json'), 'utf8'));
+    expect(journal.statements.map((review: any) => review.taskId))
       .toEqual([publicTask.id, shared.id]);
+    expect(journal.continuation.evidence).toBe('recorded-not-replayed');
+    expect(journal.continuation.goals.map((goal: any) => goal.taskId)).toEqual([shared.id]);
+    expect(JSON.stringify(journal.continuation)).not.toContain('PRIVATE_TASK_OBJECTIVE');
+    expect(JSON.stringify(journal.continuation)).not.toContain('PRIVATE_ROUTE_MARKER');
     cooperative.deactivate(peer);
     expect(fs.readFileSync(path.join(peerRoot, 'COOPERATION.json'), 'utf8')).not.toContain('PRIVATE_ROUTE_MARKER');
     expect(cooperative.contextState(undefined, peer).statementReviews?.map(review => review.taskId)).toEqual([publicTask.id, shared.id]);
