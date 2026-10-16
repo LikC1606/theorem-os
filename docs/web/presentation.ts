@@ -4,26 +4,6 @@ const escape = (value: string) => value.replace(/[&<>"']/g, character => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 }[character]!));
 
-/** A static mathematical surface; this is a brand illustration, not run data. */
-export function researchManifold() {
-  const project = (u: number, v: number) => {
-    const z = .7 * Math.sin(u * 1.5) * Math.cos(v * .9) + .15 * (u * u - v * v);
-    return [320 + u * 75 + v * 49, 275 + v * 35 - u * 13 - z * 70];
-  };
-  const lines: string[] = [];
-  for (let axis = 0; axis < 2; axis++) for (let row = 0; row < 37; row++) {
-    const fixed = -2.6 + row / 36 * 5.2;
-    const points = Array.from({ length: 65 }, (_, step) => {
-      const moving = -2.6 + step / 64 * 5.2;
-      const [x, y] = axis ? project(fixed, moving) : project(moving, fixed);
-      return (step ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1);
-    }).join('');
-    lines.push('<path d="' + points + '" opacity="' + (.25 + .55 * Math.sin(row / 36 * Math.PI)).toFixed(2) + '"/>');
-  }
-  const orbit = 'M28 300Q230 80 605 280';
-  return '<g class="manifold-wire">' + lines.join('') + '</g><path class="manifold-route" d="' + orbit + '"/><path class="manifold-pulse" d="' + orbit + '"/>';
-}
-
 const artworks: Record<string, string> = {
   annals_equiangular_lines_fixed_angle: `<svg viewBox="0 0 300 145" aria-hidden="true"><g class="proof-lines"><path d="M34 109 263 34M58 26 243 118M150 8 150 137M30 73 274 73M71 127 227 15M58 17 246 131"/><circle cx="150" cy="73" r="45"/><circle cx="150" cy="73" r="65" stroke-dasharray="2 6"/></g><path d="M191 58A44 44 0 0 1 194 73" class="proof-accent"/><circle cx="150" cy="73" r="4" class="proof-dot"/><text x="207" y="65">α</text></svg>`,
   annals_rademacher_enflo_type: `<div class="type-formula" role="img" aria-label="T R 小于等于 T E 小于等于 pi 除以根号 2 乘 T R"><span>T<sub>R</sub></span><b>≤</b><span>T<sub>E</sub></span><b>≤</b><span class="formula-fraction"><span>π</span><span>√2</span></span><span>T<sub>R</sub></span></div><span class="formula-domain">1 ≤ p ≤ 2 · Banach space X</span>`,
@@ -77,6 +57,6 @@ export function researchReplay(failedSource: string, proofSource: string, eviden
     <div class="replay-tabs" role="tablist" aria-label="预设回放的四个步骤">${stages.map((stage, index) => `<button type="button" role="tab" id="demo-${stage.id}" aria-controls="stage-${stage.id}" aria-selected="${stage.id === 'verified'}" tabindex="${stage.id === 'verified' ? '0' : '-1'}" data-replay-stage="${stage.id}"><span class="mono">0${index + 1}</span><span>${stage.label}</span><i data-lucide="${stage.id === 'verified' ? 'shield-check' : 'arrow-right'}"></i></button>`).join('')}</div>
     <div class="replay-layout"><div class="replay-editor">${stages.map(stage => `<div class="replay-panel" id="stage-${stage.id}" role="tabpanel" aria-labelledby="demo-${stage.id}" tabindex="0"${stage.id === 'verified' ? '' : ' hidden'}><div class="editor-heading"><span><i data-lucide="file-code-2"></i>${stage.file}</span><span>${stage.note}</span></div>${stage.code ? `<pre class="demo-code"><code>${leanCode(stage.code)}</code></pre>` : feedback}</div>`).join('')}</div>
     <aside class="replay-receipt" aria-label="已归档回放的最终验收"><div class="receipt-title"><i data-lucide="shield-check"></i><span>已归档的最终验收</span><span class="receipt-local">LOCAL</span></div><div class="receipt-status"><span class="receipt-check"><i data-lucide="check"></i></span><div><strong>完整原题，通过。</strong><code>${escape(evidence.status)}</code></div></div><div class="receipt-targets">${evidence.targets.map(target => `<div><i data-lucide="check"></i><span><strong>${escape(target.theorem)}</strong><code>${escape(target.declaration.replace(target.theorem + ' ', ''))}</code></span></div>`).join('')}</div><dl class="receipt-facts"><div><dt>验收方式</dt><dd>独立 Lean 内核检查</dd></div><div><dt>sorryCount</dt><dd>${evidence.targets.reduce((sum, target) => sum + target.sorryCount, 0)}</dd></div><div><dt>检查日期</dt><dd>${escape(evidence.checkedAt.slice(0, 10))} UTC</dd></div></dl><a href="archive.html#view=quickstart" class="receipt-link">查看完整回放记录<i data-lucide="arrow-up-right"></i></a></aside></div>
-    <div class="replay-caption"><span>步骤依据仓库预设示例 · 最终状态来自归档回放 · 非实时运行</span><button id="motion-toggle" class="motion-toggle" type="button" aria-label="暂停动效" aria-pressed="false"><i data-lucide="pause"></i><span>暂停动效</span></button></div>
+    <div class="replay-caption"><span>预设示例 · 已归档的最终回执 · 非实时运行</span><a href="https://github.com/LikC1606/theorem-os/blob/main/src/math/localExample.ts" target="_blank" rel="noreferrer">预设源码<i data-lucide="arrow-up-right"></i></a></div>
   </div>`;
 }

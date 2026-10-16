@@ -1,11 +1,11 @@
 import {
   createIcons, ArrowDown, ArrowDownRight, ArrowRight, ArrowUpRight, Blocks, Check, Code2,
-  Copy, FileCode2, Fingerprint, GitBranch, GitFork, History, Info,
-  Menu, Pause, Play, Plus, ScanLine, ShieldCheck, Terminal, X,
+  Copy, FileCode2, Fingerprint, GitBranch, GitFork, Globe, History, Info,
+  Menu, Plus, ScanLine, ShieldCheck, Terminal, X,
 } from 'lucide';
 
 const iconSet = { ArrowDown, ArrowDownRight, ArrowRight, ArrowUpRight, Blocks, Check, Code2, Copy,
-  FileCode2, Fingerprint, GitBranch, GitFork, History, Info, Menu, Pause, Play, Plus,
+  FileCode2, Fingerprint, GitBranch, GitFork, Globe, History, Info, Menu, Plus,
   ScanLine, ShieldCheck, Terminal, X };
 const icons = () => createIcons({ icons: iconSet, attrs: { 'aria-hidden': 'true' } });
 const element = <T extends HTMLElement = HTMLElement>(selector: string): T => {
@@ -87,8 +87,12 @@ orientComponents();
 narrow.addEventListener('change', orientComponents);
 
 const commandTabs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-command]'));
-let command: 'install' | 'replay' = 'install';
-function selectCommand(id: 'install' | 'replay', focus = false) {
+type Command = 'workbench' | 'install' | 'replay';
+const commandLabels: Record<Command, string> = {
+  workbench: '复制部署工作台命令', install: '复制获取项目命令', replay: '复制本地回放命令',
+};
+let command: Command = 'workbench';
+function selectCommand(id: Command, focus = false) {
   command = id;
   for (const tab of commandTabs) {
     const selected = tab.dataset.command === id;
@@ -97,7 +101,7 @@ function selectCommand(id: 'install' | 'replay', focus = false) {
     if (selected && focus) tab.focus();
     element(`#${tab.dataset.command}-panel`).hidden = !selected;
   }
-  element('.copy-command').setAttribute('aria-label', id === 'install' ? '复制获取项目命令' : '复制本地回放命令');
+  element('.copy-command').setAttribute('aria-label', commandLabels[id]);
 }
 commandTabs.forEach(tab => tab.addEventListener('click', () => selectCommand(tab.dataset.command as typeof command)));
 element('.command-tabs').addEventListener('keydown', event => handleTabKeys(event, commandTabs, tab => selectCommand(tab.dataset.command as typeof command, true)));
@@ -146,17 +150,3 @@ document.addEventListener('keydown', event => { if (event.key === 'Escape' && !m
 document.addEventListener('click', event => { if (!(event.target as HTMLElement).closest('.site-header') && !mobileNav.hidden) setMenu(false); });
 const desktop = matchMedia('(min-width: 851px)');
 desktop.addEventListener('change', () => { if (desktop.matches) setMenu(false); });
-
-const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
-let paused = reduceMotion.matches;
-function updateMotion() {
-  document.documentElement.dataset.motion = paused ? 'paused' : 'running';
-  const button = element('#motion-toggle');
-  button.setAttribute('aria-pressed', String(paused));
-  button.setAttribute('aria-label', paused ? '播放动效' : '暂停动效');
-  button.innerHTML = `<i data-lucide="${paused ? 'play' : 'pause'}"></i><span>${paused ? '播放动效' : '暂停动效'}</span>`;
-  icons();
-}
-updateMotion();
-element('#motion-toggle').addEventListener('click', () => { paused = !paused; updateMotion(); });
-reduceMotion.addEventListener('change', () => { paused = reduceMotion.matches; updateMotion(); });

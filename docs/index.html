@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="TheoremOS：面向数学 Agent 的开源研究运行时。组合研究策略，保留每次尝试，由独立 Lean 流程验收完整原题。">
-  <meta name="theme-color" content="#09090c">
+  <meta name="description" content="TheoremOS：数学 Agent 的开源研究运行时。在本地工作台连接你的模型，构造 Lean 与 Mathlib 证明，由独立 Lean 流程验收完整原题。">
+  <meta name="theme-color" content="#ffffff">
   <meta property="og:title" content="TheoremOS | 数学 Agent 的研究运行时">
   <meta property="og:description" content="可组合的数学 Agent 研究运行时。研究策略可替换，证明结果可核查，每次尝试有据可循。">
   <meta property="og:type" content="website">
@@ -20,39 +20,47 @@
   <header class="site-header">
     <div class="header-inner wrap">
       <a class="brand" href="index.html" aria-label="TheoremOS 首页"><img src="assets/mark.svg" alt="" width="31" height="31"><span>Theorem<span class="brand-os">OS</span></span></a>
-      <nav class="desktop-nav" aria-label="主导航"><a href="#demo">产品演示</a><a href="#proofs">证明成果</a><a href="#components">研究组件</a><a href="archive.html">证明档案<i data-lucide="arrow-up-right"></i></a></nav>
-      <div class="header-actions"><a class="github-link" href="https://github.com/LikC1606/theorem-os" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 TheoremOS"><i data-lucide="git-fork"></i><span>GitHub</span></a><a class="nav-start" href="#start">开始使用<i data-lucide="arrow-up-right"></i></a><button class="menu-toggle" type="button" aria-label="打开导航" aria-expanded="false" aria-controls="mobile-nav"><i data-lucide="menu"></i><i data-lucide="x"></i></button></div>
+      <nav class="desktop-nav" aria-label="主导航"><a href="#workbench-preview">工作台</a><a href="#proofs">证明成果</a><a href="#components">研究组件</a><a href="archive.html">证明档案<i data-lucide="arrow-up-right"></i></a></nav>
+      <div class="header-actions"><a class="github-link" href="https://github.com/LikC1606/theorem-os" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 TheoremOS"><i data-lucide="git-fork"></i><span>GitHub</span></a><a class="nav-start" href="#start">本地部署<i data-lucide="arrow-up-right"></i></a><button class="menu-toggle" type="button" aria-label="打开导航" aria-expanded="false" aria-controls="mobile-nav"><i data-lucide="menu"></i><i data-lucide="x"></i></button></div>
     </div>
-    <nav class="mobile-nav wrap" id="mobile-nav" aria-label="手机导航" hidden><a href="#demo">产品演示<i data-lucide="arrow-down-right"></i></a><a href="#proofs">证明成果<i data-lucide="arrow-down-right"></i></a><a href="#components">研究组件<i data-lucide="arrow-down-right"></i></a><a href="archive.html">证明档案<i data-lucide="arrow-up-right"></i></a><a href="https://github.com/LikC1606/theorem-os" target="_blank" rel="noreferrer">GitHub<i data-lucide="arrow-up-right"></i></a></nav>
+    <nav class="mobile-nav wrap" id="mobile-nav" aria-label="手机导航" hidden><a href="#workbench-preview">研究工作台<i data-lucide="arrow-down-right"></i></a><a href="#demo">验收回放<i data-lucide="arrow-down-right"></i></a><a href="#proofs">证明成果<i data-lucide="arrow-down-right"></i></a><a href="#components">研究组件<i data-lucide="arrow-down-right"></i></a><a href="archive.html">证明档案<i data-lucide="arrow-up-right"></i></a><a href="https://github.com/LikC1606/theorem-os" target="_blank" rel="noreferrer">GitHub<i data-lucide="arrow-up-right"></i></a></nav>
   </header>
 
   <main id="main">
     <div class="hero-shell">
-      <div class="hero-art" aria-hidden="true"><svg class="manifold" viewBox="0 0 640 550"><!-- research-manifold --></svg></div>
       <section class="hero wrap" aria-labelledby="hero-title">
         <div class="hero-copy">
           <a class="release-pill" href="https://github.com/LikC1606/theorem-os/releases/tag/v0.1.0" target="_blank" rel="noreferrer"><span class="status-dot"></span>v0.1.0<span class="pill-divider"></span>Research Preview<i data-lucide="arrow-up-right"></i></a>
-          <p class="eyebrow hero-eyebrow">THE OPEN RUNTIME FOR MATHEMATICAL AGENTS</p>
-          <h1 id="hero-title">TheoremOS<span class="hero-category">数学 Agent 的研究运行时。</span></h1>
-          <p class="hero-description">组合研究策略，保存每次尝试。<br>最终结果，由独立 Lean 流程验收完整原题。</p>
-          <div class="hero-actions"><a class="button button-dark" href="#start">运行本地回放<i data-lucide="arrow-right"></i></a><a class="button button-outline" href="archive.html">查看证明档案<i data-lucide="arrow-up-right"></i></a></div>
-          <p class="hero-footnote"><span>Linux 本地运行</span><span>回放无需模型认证</span><span>AGPL-3.0 开源</span></p>
+          <h1 id="hero-title">Theorem<span class="hero-os">OS</span></h1>
+          <p class="hero-category">数学 Agent 的开源研究运行时。</p>
+          <p class="hero-description">连接你的模型，独立验证 Lean 证明。</p>
+          <div class="hero-actions"><a class="button button-dark" href="#start">部署本地工作台<i data-lucide="arrow-right"></i></a><a class="button button-outline" href="archive.html">查看证明档案<i data-lucide="arrow-up-right"></i></a></div>
         </div>
       </section>
-      <div class="product-demo wrap" id="demo" aria-label="TheoremOS 本地预设回放展示"><!-- research-replay --></div>
+      <figure class="workbench-preview wrap" id="workbench-preview">
+        <picture class="workbench-picture"><source media="(max-width: 600px)" srcset="assets/workbench-mobile.png" width="390" height="440"><img src="assets/workbench-desktop.png" alt="TheoremOS 本地研究工作台：Mathlib 实数多项式原题、模型与预算配置，草稿状态为未提交。" width="1440" height="500" fetchpriority="high"></picture>
+        <figcaption><span><span class="status-dot"></span>本地工作台截图<span class="preview-divider">/</span>Mathlib 草稿 · 未提交</span><a href="#start">使用自己的 API Key<i data-lucide="arrow-down-right"></i></a></figcaption>
+      </figure>
     </div>
     <div class="ecosystem wrap"><p>基于开放的数学与工程工具</p><div class="ecosystem-tools"><a href="https://lean-lang.org/" target="_blank" rel="noreferrer"><span class="lean-symbol">∀</span>Lean 4</a><a href="https://github.com/leanprover-community/mathlib4" target="_blank" rel="noreferrer"><span class="mathlib-symbol">∑</span>mathlib</a><a href="https://github.com/leanprover/lean-eval" target="_blank" rel="noreferrer"><i data-lucide="scan-line"></i>Lean-Eval</a><span><i data-lucide="terminal"></i>Bun / TypeScript</span></div></div>
 
+    <section class="replay-section" id="demo" aria-labelledby="demo-title">
+      <div class="wrap">
+        <div class="section-heading"><div><p class="eyebrow"><span class="section-index">01</span> FROM CANDIDATE TO VERIFIED</p><h2 id="demo-title">从候选源码，<br><em>到独立验收。</em></h2></div><div class="replay-introduction"><p>一份预设证明的四步回放。<br>源码、检查与修复，连同最终回执一起留存。</p><a class="text-link" href="archive.html#view=quickstart">查看完整回放记录<i data-lucide="arrow-up-right"></i></a></div></div>
+        <div class="product-demo" aria-label="TheoremOS 本地预设回放展示"><!-- research-replay --></div>
+      </div>
+    </section>
+
     <section class="proofs-section" id="proofs" aria-labelledby="proofs-title">
       <div class="wrap">
-        <div class="section-heading proof-heading"><div><p class="eyebrow"><span class="section-index">01</span> THE PROOF, ON RECORD</p><h2 id="proofs-title">从研究成果，<br><em>到可核查的源码。</em></h2></div><div class="proof-heading-note"><span class="proof-count mono"><!-- accepted-count --></span><p>个具备 Lean-Eval<br>官方通过记录的证明包</p><a href="archive.html" class="text-link">浏览完整档案<i data-lucide="arrow-up-right"></i></a></div></div>
+        <div class="section-heading proof-heading"><div><p class="eyebrow"><span class="section-index">02</span> THE PROOF, ON RECORD</p><h2 id="proofs-title">研究成果，<br><em>有据可查。</em></h2></div><div class="proof-heading-note"><span class="proof-count mono"><!-- accepted-count --></span><p>个具备 Lean-Eval<br>官方通过记录的证明包</p><a href="archive.html" class="text-link">浏览完整档案<i data-lucide="arrow-up-right"></i></a></div></div>
         <div class="proof-grid"><!-- accepted-proofs --></div>
         <p class="proof-provenance"><i data-lucide="info"></i><span>成果来自前身 DeepScientist / DeepScientist Math 及后续工作，包含继续运行与环境迁移。原始归属、官方结果与源码见各题档案。</span></p>
       </div>
     </section>
 
     <div class="components-shell"><section class="components-section wrap" id="components" aria-labelledby="components-title">
-      <div class="section-heading"><div><p class="eyebrow"><span class="section-index">02</span> COMPOSE YOUR RESEARCH</p><h2 id="components-title">一个运行时。<br><em>五种研究决策。</em></h2></div><p class="heading-description">固定题目、环境、模型与预算，<br>替换一类研究决策，开展你的对照实验。<br>五个组件，支持单 Agent 与多 Agent 研究。</p></div>
+      <div class="section-heading"><div><p class="eyebrow"><span class="section-index">03</span> COMPOSE YOUR RESEARCH</p><h2 id="components-title">一个运行时。<br><em>五种研究决策。</em></h2></div><p class="heading-description">固定题目、环境、模型与预算，<br>替换一类研究决策，开展你的对照实验。<br>五个组件，支持单 Agent 与多 Agent 研究。</p></div>
       <div class="component-explorer">
         <div class="component-tabs" role="tablist" aria-label="五个研究组件" aria-orientation="vertical">
           <button class="component-tab" type="button" id="tab-m1" role="tab" aria-selected="false" aria-controls="component-panel" tabindex="-1" data-component="m1"><span class="component-number mono">M1</span><span><strong>证明构造</strong><small>生成候选，推进证明</small></span><i data-lucide="arrow-up-right"></i></button>
@@ -88,24 +96,57 @@
     </div>
     <section class="records-section" aria-labelledby="records-title">
       <div class="records-layout wrap">
-        <div class="section-heading"><div><p class="eyebrow"><span class="section-index">03</span> CONTEXT THAT STAYS WITH YOU</p><h2 id="records-title">每次尝试，<br><em>都能接着走。</em></h2></div><p class="heading-description">保存候选、诊断与用量，保留完整研究轨迹。<br>在原运行身份下恢复，让下一次尝试有据可循。</p></div>
+        <div class="section-heading"><div><p class="eyebrow"><span class="section-index">04</span> CONTEXT THAT STAYS WITH YOU</p><h2 id="records-title">让证据，<br><em>跟上每次探索。</em></h2></div><p class="heading-description">CLI 保存候选、诊断与用量，支持恢复原运行。<br>网页工作台可下载源码与报告，保留研究证据。</p></div>
         <div class="records-grid">
-          <article class="trace-card"><div class="trace-heading"><span class="feature-label"><i data-lucide="git-branch"></i>研究档案</span><span class="mono">结构示意</span></div><div class="identity-row"><span>原题</span><span>环境</span><span>组件版本</span></div><div class="identity-connector" aria-hidden="true"></div><div class="identity-node"><i data-lucide="fingerprint"></i><div><strong>同一个运行身份</strong><span>固定实验条件，保留每次尝试</span></div><i data-lucide="check"></i></div><div class="trace-evidence"><span><i data-lucide="file-code-2"></i>候选证明</span><span><i data-lucide="scan-line"></i>Lean 诊断</span><span><i data-lucide="history"></i>累计用量</span></div><div class="trace-bottom"><p>恢复原运行时，继续使用原构建与组件版本。</p><a class="text-link" href="https://github.com/LikC1606/theorem-os/blob/main/docs/usage.md#4-恢复运行" target="_blank" rel="noreferrer">了解运行与恢复<i data-lucide="arrow-up-right"></i></a></div></article>
-          <div class="archive-showcase"><div class="showcase-label"><span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="mono">proof archive</span><a href="archive.html" aria-label="打开证明档案"><i data-lucide="arrow-up-right"></i></a></div><a class="archive-image-link" href="archive.html" aria-label="打开可检索的证明档案"><img src="assets/archive-preview.png" alt="TheoremOS 证明档案真实界面，可筛选题目、查看 Lean 源码与验收证据。" width="1440" height="900" loading="lazy"></a><div class="archive-showcase-copy"><h3>让证明和证据，一起留下。</h3><p>搜索数学题目，查看源码、原始归属与验收记录。</p><a class="text-link" href="archive.html">打开证明档案<i data-lucide="arrow-up-right"></i></a></div><div class="showcase-footer"><span class="status-dot"></span>静态证明档案预览 · 运行记录保存在本机</div></div>
+          <article class="trace-card"><div class="trace-heading"><span class="feature-label"><i data-lucide="git-branch"></i>CLI 研究档案</span><span class="mono">结构示意</span></div><div class="identity-row"><span>原题</span><span>环境</span><span>组件版本</span></div><div class="identity-connector" aria-hidden="true"></div><div class="identity-node"><i data-lucide="fingerprint"></i><div><strong>同一个运行身份</strong><span>固定实验条件，保留每次尝试</span></div><i data-lucide="check"></i></div><div class="trace-evidence"><span><i data-lucide="file-code-2"></i>候选证明</span><span><i data-lucide="scan-line"></i>Lean 诊断</span><span><i data-lucide="history"></i>累计用量</span></div><div class="trace-bottom"><p>CLI 恢复运行，继续使用原构建与组件版本。</p><a class="text-link" href="https://github.com/LikC1606/theorem-os/blob/main/docs/usage.md#4-恢复运行" target="_blank" rel="noreferrer">了解运行与恢复<i data-lucide="arrow-up-right"></i></a></div></article>
+          <div class="archive-showcase"><div class="showcase-label"><span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="mono">proof archive</span><a href="archive.html" aria-label="打开证明档案"><i data-lucide="arrow-up-right"></i></a></div><a class="archive-image-link" href="archive.html" aria-label="打开可检索的证明档案"><img src="assets/archive-preview.png" alt="TheoremOS 证明档案真实界面，可筛选题目、查看 Lean 源码与验收证据。" width="1440" height="900" loading="lazy"></a><div class="archive-showcase-copy"><h3>让证明和证据，一起留下。</h3><p>搜索数学题目，查看源码、原始归属与验收记录。</p><a class="text-link" href="archive.html">打开证明档案<i data-lucide="arrow-up-right"></i></a></div><div class="showcase-footer"><span class="status-dot"></span>静态证明档案预览 · 查看源码与验收证据</div></div>
         </div>
       </div>
     </section>
 
-    <section class="start-section" id="start" aria-labelledby="start-title"><div class="start-layout wrap"><div class="start-copy"><p class="eyebrow"><span class="section-index">04</span> YOUR NEXT EXPLORATION</p><h2 id="start-title">把下一次探索，<br><em>留给你的想法。</em></h2><p>先在本机回放一道自然数加法小题，<br>亲自走过候选、检查与验收。</p><span class="replay-label"><i data-lucide="terminal"></i>预设证明 · 全程不调用模型</span><div class="start-links"><a class="button button-lime" href="https://github.com/LikC1606/theorem-os" target="_blank" rel="noreferrer">在 GitHub 获取<i data-lucide="arrow-up-right"></i></a><a class="text-link" href="https://github.com/LikC1606/theorem-os/blob/main/docs/usage.md" target="_blank" rel="noreferrer">阅读文档<i data-lucide="arrow-up-right"></i></a></div></div><div class="start-terminal"><div class="terminal-heading"><span class="terminal-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="mono">theoremos / quickstart</span><i data-lucide="terminal"></i></div><div class="command-tabs" role="tablist" aria-label="快速体验步骤"><button id="command-install" type="button" role="tab" aria-controls="install-panel" aria-selected="true" tabindex="0" data-command="install"><span class="mono">01</span>获取项目</button><button id="command-replay" type="button" role="tab" aria-controls="replay-panel" aria-selected="false" tabindex="-1" data-command="replay"><span class="mono">02</span>本地回放</button><button class="copy-command" type="button" aria-label="复制获取项目命令"><i data-lucide="copy"></i><span>复制</span></button></div><div id="install-panel" class="command-panel" role="tabpanel" aria-labelledby="command-install" tabindex="0"><p class="terminal-comment"># 获取开源运行时</p><pre><code>git clone https://github.com/LikC1606/theorem-os.git
+    <section class="start-section" id="start" aria-labelledby="start-title">
+      <div class="start-layout wrap">
+        <div class="start-copy">
+          <p class="eyebrow"><span class="section-index">05</span> YOUR NEXT EXPLORATION</p>
+          <h2 id="start-title">在你自己的环境，<br><em>开始下一次研究。</em></h2>
+          <p>部署网页工作台，输入原题与自己的 API Key。<br>也可以先体验一次不调用模型的 Lean 回放。</p>
+          <span class="replay-label"><i data-lucide="terminal"></i>Linux 本地运行 · Docker 部署</span>
+          <div class="start-links"><a class="button button-lime" href="https://github.com/LikC1606/theorem-os" target="_blank" rel="noreferrer">在 GitHub 获取<i data-lucide="arrow-up-right"></i></a><a class="text-link" href="https://github.com/LikC1606/theorem-os/blob/main/docs/web-workbench.md" target="_blank" rel="noreferrer">部署指南<i data-lucide="arrow-up-right"></i></a></div>
+        </div>
+        <div class="start-terminal">
+          <div class="terminal-heading"><span class="terminal-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="mono">theoremos / quickstart</span><i data-lucide="terminal"></i></div>
+          <div class="command-tabs" role="tablist" aria-label="开始使用方式"><button id="command-workbench" type="button" role="tab" aria-controls="workbench-panel" aria-selected="true" tabindex="0" data-command="workbench">网页工作台</button><button id="command-install" type="button" role="tab" aria-controls="install-panel" aria-selected="false" tabindex="-1" data-command="install">CLI 安装</button><button id="command-replay" type="button" role="tab" aria-controls="replay-panel" aria-selected="false" tabindex="-1" data-command="replay">预设回放</button><button class="copy-command" type="button" aria-label="复制部署工作台命令" title="复制命令"><i data-lucide="copy"></i></button></div>
+          <div id="workbench-panel" class="command-panel" role="tabpanel" aria-labelledby="command-workbench" tabindex="0">
+            <p class="terminal-comment"># 需要 Linux 与 Docker Engine / Compose</p><pre><code>git clone https://github.com/LikC1606/theorem-os.git
 cd theorem-os
-bun install --frozen-lockfile</code></pre><div class="terminal-next"><span>安装完成后，体验一次真实的 Lean 检查。</span><button type="button" data-next-command>下一步<i data-lucide="arrow-right"></i></button></div></div><div id="replay-panel" class="command-panel" role="tabpanel" aria-labelledby="command-replay" tabindex="0" hidden><p class="terminal-comment"># 准备 Lean，回放预设证明</p><pre><code>elan toolchain install leanprover/lean4:v4.33.0
+docker compose -f apps/web/compose.yml build worker web
+docker compose -f apps/web/compose.yml up -d web
+docker compose -f apps/web/compose.yml ps</code></pre>
+            <p class="terminal-address"><i data-lucide="globe"></i>启动后打开 <code>http://127.0.0.1:8787</code></p>
+            <p class="terminal-prerequisites">Mathlib 运行需 /dev/fuse 与用户命名空间；建议为每个并发任务预留 30 GiB 磁盘、8 GiB 内存。首次构建需下载依赖。</p>
+          </div>
+          <div id="install-panel" class="command-panel" role="tabpanel" aria-labelledby="command-install" tabindex="0" hidden>
+            <p class="terminal-comment"># 获取开源运行时</p><pre><code>git clone https://github.com/LikC1606/theorem-os.git
+cd theorem-os
+bun install --frozen-lockfile</code></pre>
+            <div class="terminal-next"><span>安装完成后，体验一次真实的 Lean 检查。</span><button type="button" data-next-command>下一步<i data-lucide="arrow-right"></i></button></div>
+          </div>
+          <div id="replay-panel" class="command-panel" role="tabpanel" aria-labelledby="command-replay" tabindex="0" hidden>
+            <p class="terminal-comment"># CLI 安装后，准备 Lean 并回放预设证明</p><pre><code>elan toolchain install leanprover/lean4:v4.33.0
 bun run math doctor --lean-only
 
 export THEOREMOS_CASE="$PWD/../theorem-os-runs/first-replay"
 bun run math example replay --dir "$THEOREMOS_CASE"
-bun run math inspect --run "$THEOREMOS_CASE/result.json"</code></pre><a class="terminal-evidence" href="archive.html#view=quickstart">查看本机真实回放记录<i data-lucide="arrow-up-right"></i></a></div><div class="terminal-bottom"><i data-lucide="check"></i><span>最终状态 <code>evaluated_passed</code> 表示<span class="nowrap">完整原题通过</span></span></div></div><div class="requirements"><span class="mono">LOCAL FIRST</span><span>Linux</span><span>Bun ≥ 1.2</span><span>Node.js ≥ 22</span><span>Elan / Lean</span><span class="extra-requirements">另需 Git、Python 3、util-linux、Bubblewrap 与用户命名空间</span></div></div></section>
+bun run math inspect --run "$THEOREMOS_CASE/result.json"</code></pre>
+            <a class="terminal-evidence" href="archive.html#view=quickstart">查看本机真实回放记录<i data-lucide="arrow-up-right"></i></a>
+          </div>
+          <div class="terminal-bottom"><i data-lucide="shield-check"></i><span>以完整原题的 <code>evaluated_passed</code> 为验收结论</span></div>
+        </div>
+        <div class="requirements"><span class="mono">OPEN BY DESIGN</span><span>Lean 4 + mathlib</span><span>自备 API Key</span><span>独立 Lean 验收</span><span class="extra-requirements">GitHub Pages 为静态官网，工作台需在 Linux 本地或服务器部署。</span></div>
+      </div>
+    </section>
 
-    <section class="faq-section wrap" aria-labelledby="faq-title"><div><p class="eyebrow">A FEW THINGS TO KNOW</p><h2 id="faq-title">开始之前。</h2><span class="faq-version mono">v0.1.0 / RESEARCH PREVIEW</span></div><div class="faq-list"><details><summary>适合用来做什么？<i data-lucide="plus"></i></summary><p>面向数学 Agent 研究者和 Lean 开发者，用于构造证明、比较搜索与协作方法，以及复盘研究实验。当前为研究预览版本，支持通过 TypeScript 源码扩展组件。</p></details><details><summary>可以直接在网页运行证明吗？<i data-lucide="plus"></i></summary><p>这个网站提供项目介绍和可检索的静态证明档案。研究运行与 Lean 检查在你自己的 Linux 环境中执行；先按上面的命令回放，再参考文档配置真实 Agent 研究。</p></details><details><summary>体验时需要配置模型吗？<i data-lucide="plus"></i></summary><p>本地预设回放不调用模型，不需要模型认证。让 Agent 生成新证明时，需要按文档配置模型会话与认证，并会产生相应的模型用量。</p></details></div></section>
+    <section class="faq-section wrap" aria-labelledby="faq-title"><div><p class="eyebrow">A FEW THINGS TO KNOW</p><h2 id="faq-title">开始之前。</h2><span class="faq-version mono">v0.1.0 / RESEARCH PREVIEW</span></div><div class="faq-list"><details><summary>适合用来做什么？<i data-lucide="plus"></i></summary><p>面向数学 Agent 研究者和 Lean 开发者，用于构造证明、比较搜索与协作方法，以及复盘研究实验。当前为研究预览版本，支持通过 TypeScript 源码扩展组件。</p></details><details><summary>可以直接在网页运行证明吗？<i data-lucide="plus"></i></summary><p>可以在部署后的网页工作台中提交 Lean 与 Mathlib 原题、输入自己的 API Key 并查看验收结果。当前 GitHub Pages 站点是静态官网，包含界面截图、预设回放和证明档案；运行工作台需要你自己的 Linux 本地环境或服务器，部署命令见上方。</p></details><details><summary>支持哪类 API Key？<i data-lucide="plus"></i></summary><p>网页工作台支持 OpenAI 及兼容 Responses API 的服务，服务地址由部署者配置。模型研究会产生服务商对应的用量；本地预设回放不调用模型，也不需要 API Key。</p></details><details><summary>网页工作台会保存研究记录吗？<i data-lucide="plus"></i></summary><p>运行记录临时保存在服务内存，可下载源码与报告；服务重启或会话到期后记录清空。网页草稿在当前标签页保存，API Key 不写入浏览器存储。CLI 支持独立的持久运行与恢复流程。</p></details></div></section>
   </main>
 
   <div class="footer-shell"><footer class="site-footer wrap"><div class="footer-top"><a class="brand" href="index.html"><img src="assets/mark.svg" alt="" width="31" height="31"><span>Theorem<span class="brand-os">OS</span></span></a><p>让数学探索，有据可循。</p><nav aria-label="页脚链接"><a href="archive.html">证明档案</a><a href="https://github.com/LikC1606/theorem-os/blob/main/docs/usage.md" target="_blank" rel="noreferrer">文档</a><a href="https://github.com/LikC1606/theorem-os" target="_blank" rel="noreferrer">GitHub<i data-lucide="arrow-up-right"></i></a></nav></div><div class="footer-wordmark" aria-hidden="true">Theorem<span>OS</span><span class="wordmark-symbol">⊢</span></div><div class="footer-bottom"><span>© 2026 TheoremOS contributors</span><span class="mono">BUILT FOR OPEN MATHEMATICAL RESEARCH</span><a href="LICENSE.txt">AGPL-3.0-only<i data-lucide="arrow-up-right"></i></a></div></footer></div>

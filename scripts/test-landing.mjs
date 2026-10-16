@@ -24,6 +24,43 @@ const trackErrors = page => {
 const checkWidth = async (page, label) => assert.ok(
   await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Horizontal overflow: ${label}`,
 );
+const checkWorkbench = async (page, label) => {
+  const figure = page.locator('#workbench-preview');
+  assert.equal(await figure.evaluate(node => node.tagName), 'FIGURE');
+  assert.equal(await figure.locator('picture.workbench-picture').count(), 1);
+  const caption = await figure.locator('figcaption').innerText();
+  for (const wording of [/本地/, /工作台/, /截图/]) assert.match(caption, wording);
+  assert.match(caption, /未提交/);
+  assert.equal(await figure.locator('source[srcset*="assets/workbench-mobile.png"]').count(), 1);
+  const screenshot = figure.locator('.workbench-picture img');
+  assert.equal(await screenshot.getAttribute('src'), 'assets/workbench-desktop.png');
+  assert.ok(await screenshot.getAttribute('alt'), 'The workbench screenshot must have descriptive alternative text');
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const image = await screenshot.evaluate(async image => {
+    await image.decode();
+    const bounds = image.getBoundingClientRect();
+    return { complete: image.complete, width: image.naturalWidth, height: image.naturalHeight,
+      src: image.currentSrc, viewport: innerWidth,
+      visibleWidth: Math.max(0, Math.min(bounds.right, innerWidth) - Math.max(0, bounds.left)),
+      visibleHeight: Math.max(0, Math.min(bounds.bottom, innerHeight) - Math.max(0, bounds.top)) };
+  });
+  assert.ok(image.complete && image.width > 0 && image.height > 0, `The screenshot must load: ${label}`);
+  const asset = path.basename(new URL(image.src).pathname);
+  assert.ok(['workbench-desktop.png', 'workbench-mobile.png'].includes(asset), `Unexpected screenshot: ${image.src}`);
+  if (image.viewport <= 390) assert.equal(asset, 'workbench-mobile.png', `Mobile srcset must load at ${label}`);
+  if (image.viewport >= 1024) assert.equal(asset, 'workbench-desktop.png', `Desktop screenshot must load at ${label}`);
+  const png = fs.readFileSync(path.join(site, 'assets', asset));
+  assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+  assert.deepEqual({ width: image.width, height: image.height },
+    { width: png.readUInt32BE(16), height: png.readUInt32BE(20) }, `Screenshot natural dimensions: ${label}`);
+  assert.ok(image.visibleWidth >= 200 && image.visibleHeight >= 100, `The actual workbench must be visible in the first viewport: ${label}`);
+};
+const checkCommand = async (page, id) => {
+  assert.equal(await page.locator(`#command-${id}`).getAttribute('aria-selected'), 'true');
+  assert.equal(await page.locator(`#${id}-panel`).isVisible(), true);
+  assert.equal(await page.locator(`#${id}-panel`).getAttribute('aria-labelledby'), `command-${id}`);
+  assert.equal(await page.locator('.command-panel:visible').count(), 1);
+};
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   trackErrors(page);
@@ -38,6 +75,18 @@ try {
   assert.ok(await page.evaluate(() => [...document.fonts].some(font => font.family === 'Inter' && font.status === 'loaded')), 'The local preview must load the bundled font');
   assert.match(await page.title(), /TheoremOS/);
   assert.equal(await page.locator('h1').count(), 1);
+  await checkWorkbench(page, '1440px local preview');
+  assert.equal(await page.locator('#motion-toggle, .manifold').count(), 0);
+  assert.equal(await page.locator('#demo').evaluate(demo => demo.closest('.hero-shell') === null), true,
+    'The archived replay must be a separate section from the workbench hero');
+  const hostingFaq = page.locator('.faq-list details').filter({ hasText: 'GitHub Pages' });
+  assert.equal(await hostingFaq.count(), 1);
+  await hostingFaq.locator('summary').click();
+  const boundary = await hostingFaq.innerText();
+  assert.match(boundary, /GitHub Pages/);
+  assert.match(boundary, /静态/);
+  assert.match(boundary, /Linux|本地/);
+  await hostingFaq.locator('summary').click();
   assert.equal(await page.locator('.proof-card').count(), accepted.length);
   assert.equal(await page.locator('.proof-count').innerText(), String(accepted.length).padStart(2, '0'));
   for (const record of accepted) {
@@ -90,6 +139,26 @@ try {
   assert.equal(await page.locator('#tab-m1').getAttribute('aria-selected'), 'true');
   await page.locator('#tab-m3').click();
 
+  assert.deepEqual(await page.locator('[data-command]').evaluateAll(tabs => tabs.map(tab => ({
+    id: tab.dataset.command, label: tab.textContent.trim(),
+  }))), [
+    { id: 'workbench', label: '网页工作台' },
+    { id: 'install', label: 'CLI 安装' },
+    { id: 'replay', label: '预设回放' },
+  ]);
+  await checkCommand(page, 'workbench');
+  await page.getByRole('button', { name: '复制部署工作台命令' }).click();
+  const workbenchCommand = await page.evaluate(() => window.testClipboard);
+  assert.deepEqual(workbenchCommand.split(/\r?\n/).map(line => line.trim()).filter(Boolean), [
+    'git clone https://github.com/LikC1606/theorem-os.git',
+    'cd theorem-os',
+    'docker compose -f apps/web/compose.yml build worker web',
+    'docker compose -f apps/web/compose.yml up -d web',
+    'docker compose -f apps/web/compose.yml ps',
+  ]);
+  assert.equal(workbenchCommand, await page.locator('#workbench-panel pre code').textContent());
+  await page.locator('#command-install').click();
+  await checkCommand(page, 'install');
   await page.getByRole('button', { name: '复制获取项目命令' }).click();
   assert.match(await page.evaluate(() => window.testClipboard), /^git clone https:\/\/github.com\/LikC1606\/theorem-os.git\ncd theorem-os\nbun install --frozen-lockfile$/);
   await page.getByRole('button', { name: '下一步', exact: true }).click();
@@ -103,8 +172,15 @@ try {
   await page.waitForFunction(() => document.querySelector('#toast').textContent.startsWith('未能复制'));
   await page.evaluate(() => { window.testClipboardFailure = false; });
   await page.locator('#command-replay').focus();
-  await page.keyboard.press('ArrowLeft');
-  assert.equal(await page.locator('#install-panel').isVisible(), true);
+  await page.keyboard.press('ArrowRight');
+  await checkCommand(page, 'workbench');
+  await page.keyboard.press('ArrowRight');
+  await checkCommand(page, 'install');
+  await page.keyboard.press('End');
+  await checkCommand(page, 'replay');
+  assert.equal(await page.locator('#command-replay').evaluate(tab => tab === document.activeElement), true);
+  await page.keyboard.press('Home');
+  await checkCommand(page, 'workbench');
 
   const summary = page.locator('.faq-list summary').first();
   await summary.click();
@@ -120,22 +196,44 @@ try {
     await page.setViewportSize(viewport);
     await page.goto(url);
     await page.waitForSelector('.release-pill svg.lucide');
+    await page.evaluate(() => document.fonts.ready);
+    await checkWorkbench(page, `${viewport.width}px homepage`);
+    await checkCommand(page, 'workbench');
     await checkWidth(page, `${viewport.width}px homepage`);
+    for (const artwork of await page.locator('.proof-art > svg, .proof-art > .type-formula, .proof-art > .unit-formula').all()) {
+      const fits = await artwork.evaluate(node => {
+        const bounds = node.getBoundingClientRect(), parent = node.parentElement.getBoundingClientRect();
+        return bounds.left >= parent.left - 1 && bounds.right <= parent.right + 1;
+      });
+      assert.ok(fits, `Proof artwork must remain complete at ${viewport.width}px`);
+    }
     for (const id of ['feedback', 'repair', 'verified']) {
       await page.locator(`#demo-${id}`).click();
       await checkWidth(page, `${viewport.width}px replay ${id}`);
+    }
+    if (viewport.width <= 390) {
+      const receipt = await page.locator('.replay-receipt').boundingBox();
+      const editor = await page.locator('.replay-editor').boundingBox();
+      assert.ok(receipt && editor && receipt.y + receipt.height <= editor.y + 1,
+        `The archived receipt must precede the editor at ${viewport.width}px`);
     }
     assert.ok(await page.locator('.brand img').first().evaluate(image => image.complete && image.naturalWidth > 0));
     await page.locator('#tab-m2').click();
     await checkWidth(page, `${viewport.width}px M2`);
     await page.locator('#command-replay').click();
     await checkWidth(page, `${viewport.width}px commands`);
+    await page.locator('#command-workbench').click();
+    await checkCommand(page, 'workbench');
+    await checkWidth(page, `${viewport.width}px workbench deployment commands`);
     await page.locator('#command-install').click();
+    await checkWidth(page, `${viewport.width}px CLI installation commands`);
+    await page.locator('#command-workbench').click();
     await page.locator('#tab-m3').click();
     await page.locator('.archive-image-link').scrollIntoViewIfNeeded();
     await page.waitForFunction(() => document.querySelector('.archive-image-link img').complete);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: path.join(output, `landing-${viewport.width}.png`), fullPage: true });
+    await page.screenshot({ path: path.join(output, `landing-${viewport.width}-hero.png`) });
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(url);
@@ -161,19 +259,12 @@ try {
   await page.getByRole('link', { name: 'TheoremOS 首页' }).click();
   assert.equal(new URL(page.url()).pathname, new URL(url).pathname);
 
-  const motion = await browser.newPage({ reducedMotion: 'no-preference' });
-  trackErrors(motion);
-  await motion.goto(url);
-  await motion.getByRole('button', { name: '暂停动效' }).click();
-  assert.equal(await motion.locator('.manifold-pulse').evaluate(node => getComputedStyle(node).animationPlayState), 'paused');
-  await motion.getByRole('button', { name: '播放动效' }).click();
-  assert.equal(await motion.locator('.manifold-pulse').evaluate(node => getComputedStyle(node).animationPlayState), 'running');
-  await motion.close();
-  const noJS = await browser.newPage({ javaScriptEnabled: false });
+  const noJS = await browser.newPage({ javaScriptEnabled: false, viewport: { width: 1440, height: 1000 } });
   trackErrors(noJS);
   await noJS.goto(url);
   assert.equal(await noJS.locator('.proof-card').count(), accepted.length);
-  assert.ok(await noJS.locator('.manifold-wire path').count() > 20);
+  await checkWorkbench(noJS, 'JavaScript-disabled homepage');
+  await checkCommand(noJS, 'workbench');
   assert.equal(await noJS.locator('.proof-card h3 a').first().isVisible(), true);
   await noJS.close();
 
@@ -192,13 +283,14 @@ try {
   await page.goto(hosted);
   await page.evaluate(() => document.fonts.ready);
   assert.ok(await page.evaluate(() => [...document.fonts].some(font => font.family === 'Inter' && font.status === 'loaded')), 'The Pages subpath must load the bundled font');
+  await checkWorkbench(page, 'GitHub Pages repository subpath');
   await page.locator('#tab-m4').click();
   assert.match(await page.locator('#module-kicker').innerText(), /CONTEXT/);
   await page.locator('.hero-actions a[href="archive.html"]').click();
   await page.waitForSelector('.proof-row');
   assert.equal(await page.locator('.proof-row').count(), catalog.records.length);
   assert.deepEqual(errors, []);
-  console.log('Landing checks passed: verified proof links and attribution, component tabs and keyboard controls, command copying and failure feedback, mobile navigation, motion preferences, static content, file preview, Pages subpath, and 5 viewport sizes.');
+  console.log('Landing checks passed: real workbench screenshots and responsive sources in the first viewport, archived replay and mobile receipt order, verified proof links and attribution, component and command tabs with keyboard controls, deployment command copying and failure feedback, mobile navigation, static hosting boundaries, JavaScript-disabled content, file preview, Pages subpath, and 5 viewport sizes.');
 } finally {
   if (server) await new Promise(resolve => server.close(resolve));
   await browser.close();
