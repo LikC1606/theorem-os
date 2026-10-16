@@ -38,8 +38,8 @@
         </div>
       </section>
       <figure class="workbench-preview wrap" id="workbench-preview">
-        <picture class="workbench-picture"><source media="(max-width: 600px)" srcset="assets/workbench-mobile.png" width="390" height="440"><img src="assets/workbench-desktop.png" alt="TheoremOS 本地研究工作台：Mathlib 实数多项式原题、模型与预算配置，草稿状态为未提交。" width="1440" height="500" fetchpriority="high"></picture>
-        <figcaption><span><span class="status-dot"></span>本地工作台截图<span class="preview-divider">/</span>Mathlib 草稿 · 未提交</span><a href="#start">使用自己的 API Key<i data-lucide="arrow-down-right"></i></a></figcaption>
+        <a class="workbench-image-link" href="assets/workbench-full-desktop.png" aria-label="放大查看本地工作台截图" title="放大查看截图"><picture class="workbench-picture"><source media="(max-width: 600px)" srcset="assets/workbench-mobile.png" width="390" height="440"><img src="assets/workbench-desktop.png" alt="TheoremOS 本地研究工作台：Mathlib 实数多项式原题、模型与预算配置，草稿状态为未提交。" width="1440" height="500" fetchpriority="high"></picture><span class="preview-expand"><i data-lucide="maximize-2"></i></span></a>
+        <figcaption id="workbench-caption"><span><span class="status-dot"></span>本地工作台截图<span class="preview-divider">/</span>Mathlib 草稿 · 未提交</span><a href="#start">使用自己的 API Key<i data-lucide="arrow-down-right"></i></a></figcaption>
       </figure>
     </div>
     <div class="ecosystem wrap"><p>基于开放的数学与工程工具</p><div class="ecosystem-tools"><a href="https://lean-lang.org/" target="_blank" rel="noreferrer"><span class="lean-symbol">∀</span>Lean 4</a><a href="https://github.com/leanprover-community/mathlib4" target="_blank" rel="noreferrer"><span class="mathlib-symbol">∑</span>mathlib</a><a href="https://github.com/leanprover/lean-eval" target="_blank" rel="noreferrer"><i data-lucide="scan-line"></i>Lean-Eval</a><span><i data-lucide="terminal"></i>Bun / TypeScript</span></div></div>
@@ -78,8 +78,9 @@
       </div>
       <div class="component-bottom"><p>通过带版本的 TypeScript 源码接口组合研究策略。</p><a class="text-link" href="https://github.com/LikC1606/theorem-os/blob/main/examples/components/README.md" target="_blank" rel="noreferrer">动手替换一个组件<i data-lucide="arrow-up-right"></i></a></div>
 
-      <div class="extension-example">
-        <div class="extension-copy"><span class="feature-label"><i data-lucide="code-2"></i>BUILT TO BE REPLACED</span><h3>从一处策略开始。</h3><p>只替换 M3 的任务排序，保留其余默认组件。<br>通过带版本的 TypeScript 源码接口，接入你的研究方法。</p><a class="text-link" href="https://github.com/LikC1606/theorem-os/blob/main/scripts/mathematics/runGoalsFirst.ts" target="_blank" rel="noreferrer">查看完整源码示例<i data-lucide="arrow-up-right"></i></a></div>
+      <details class="extension-example">
+        <summary><span class="extension-summary-icon"><i data-lucide="code-2"></i></span><span class="extension-summary-title"><strong>替换一处任务排序策略</strong><span class="mono">runGoalsFirst.ts · TypeScript</span></span><i data-lucide="plus"></i></summary>
+        <div class="extension-content"><div class="extension-copy"><span class="feature-label">M3 / SOURCE EXAMPLE</span><h3>接入你的研究方法。</h3><p>只替换 M3 的任务排序，保留其余默认组件。通过带版本的 TypeScript 源码接口，对照不同策略的研究结果。</p><a class="text-link" href="https://github.com/LikC1606/theorem-os/blob/main/scripts/mathematics/runGoalsFirst.ts" target="_blank" rel="noreferrer">查看完整源码示例<i data-lucide="arrow-up-right"></i></a></div>
         <div class="extension-code"><div class="code-heading"><span class="mono">runGoalsFirst.ts</span><span>TypeScript</span></div><pre><code><span class="syntax-keyword">const</span> modules: <span class="syntax-type">SolverModules</span> = {
   ...directSolverModules,
   id: <span class="syntax-string">'goals-first-example-v1'</span>,
@@ -88,18 +89,19 @@
     version: <span class="syntax-string">`${directSolverModules.M3.version}/example-goals-first-v1`</span>,
     <span class="syntax-property">ready</span>: goalsFirstResearchTasks,
   },
-};</code></pre></div>
-      </div>
+};</code></pre></div></div>
+      </details>
       <noscript><p class="no-script-note">启用 JavaScript 可切换组件的输入输出说明。<a href="https://github.com/LikC1606/theorem-os/blob/main/examples/components/README.md">查看五个组件的完整说明</a>。</p></noscript>
     </section>
 
     </div>
     <section class="records-section" aria-labelledby="records-title">
       <div class="records-layout wrap">
-        <div class="section-heading"><div><p class="eyebrow"><span class="section-index">04</span> CONTEXT THAT STAYS WITH YOU</p><h2 id="records-title">让证据，<br><em>跟上每次探索。</em></h2></div><p class="heading-description">CLI 保存候选、诊断与用量，支持恢复原运行。<br>网页工作台可下载源码与报告，保留研究证据。</p></div>
-        <div class="records-grid">
-          <article class="trace-card"><div class="trace-heading"><span class="feature-label"><i data-lucide="git-branch"></i>CLI 研究档案</span><span class="mono">结构示意</span></div><div class="identity-row"><span>原题</span><span>环境</span><span>组件版本</span></div><div class="identity-connector" aria-hidden="true"></div><div class="identity-node"><i data-lucide="fingerprint"></i><div><strong>同一个运行身份</strong><span>固定实验条件，保留每次尝试</span></div><i data-lucide="check"></i></div><div class="trace-evidence"><span><i data-lucide="file-code-2"></i>候选证明</span><span><i data-lucide="scan-line"></i>Lean 诊断</span><span><i data-lucide="history"></i>累计用量</span></div><div class="trace-bottom"><p>CLI 恢复运行，继续使用原构建与组件版本。</p><a class="text-link" href="https://github.com/LikC1606/theorem-os/blob/main/docs/usage.md#4-恢复运行" target="_blank" rel="noreferrer">了解运行与恢复<i data-lucide="arrow-up-right"></i></a></div></article>
-          <div class="archive-showcase"><div class="showcase-label"><span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="mono">proof archive</span><a href="archive.html" aria-label="打开证明档案"><i data-lucide="arrow-up-right"></i></a></div><a class="archive-image-link" href="archive.html" aria-label="打开可检索的证明档案"><img src="assets/archive-preview.png" alt="TheoremOS 证明档案真实界面，可筛选题目、查看 Lean 源码与验收证据。" width="1440" height="900" loading="lazy"></a><div class="archive-showcase-copy"><h3>让证明和证据，一起留下。</h3><p>搜索数学题目，查看源码、原始归属与验收记录。</p><a class="text-link" href="archive.html">打开证明档案<i data-lucide="arrow-up-right"></i></a></div><div class="showcase-footer"><span class="status-dot"></span>静态证明档案预览 · 查看源码与验收证据</div></div>
+        <div class="section-heading"><div><p class="eyebrow"><span class="section-index">04</span> THE COMPLETE RECORD</p><h2 id="records-title">源码、来源与验收，<br><em>放在同一份档案。</em></h2></div><div class="records-introduction"><p>查看官方记录与原始归属，<br>按题目检索，直接检查 Lean 源码。</p><a class="text-link" href="archive.html">打开证明档案<i data-lucide="arrow-up-right"></i></a></div></div>
+        <figure class="archive-showcase"><a class="archive-image-link" href="archive.html" aria-label="打开可检索的证明档案"><picture><source media="(max-width: 600px)" srcset="assets/archive-preview-mobile.png" width="356" height="797"><img src="assets/archive-preview.png" alt="TheoremOS 证明档案真实界面，保留题目、原始归属、Lean 源码和验收证据。" width="1440" height="900" loading="lazy"></picture></a><figcaption><span><i data-lucide="files"></i>真实证明档案 · 原始项目与模型归属见记录</span><a href="archive.html">查看档案<i data-lucide="arrow-up-right"></i></a></figcaption></figure>
+        <div class="record-notes">
+          <div><i data-lucide="download"></i><div><h3>网页工作台</h3><p>下载 Lean 源码与验收报告。运行历史为临时记录。</p><a class="text-link" href="https://github.com/LikC1606/theorem-os/blob/main/docs/web-workbench.md" target="_blank" rel="noreferrer">工作台部署指南<i data-lucide="arrow-up-right"></i></a></div></div>
+          <div><i data-lucide="history"></i><div><h3>CLI 研究记录</h3><p>保存候选、诊断与累计用量，按原构建和组件版本恢复运行。</p><a class="text-link" href="https://github.com/LikC1606/theorem-os/blob/main/docs/usage.md#4-恢复运行" target="_blank" rel="noreferrer">运行与恢复文档<i data-lucide="arrow-up-right"></i></a></div></div>
         </div>
       </div>
     </section>
@@ -150,6 +152,10 @@ bun run math inspect --run "$THEOREMOS_CASE/result.json"</code></pre>
   </main>
 
   <div class="footer-shell"><footer class="site-footer wrap"><div class="footer-top"><a class="brand" href="index.html"><img src="assets/mark.svg" alt="" width="31" height="31"><span>Theorem<span class="brand-os">OS</span></span></a><p>让数学探索，有据可循。</p><nav aria-label="页脚链接"><a href="archive.html">证明档案</a><a href="https://github.com/LikC1606/theorem-os/blob/main/docs/usage.md" target="_blank" rel="noreferrer">文档</a><a href="https://github.com/LikC1606/theorem-os" target="_blank" rel="noreferrer">GitHub<i data-lucide="arrow-up-right"></i></a></nav></div><div class="footer-wordmark" aria-hidden="true">Theorem<span>OS</span><span class="wordmark-symbol">⊢</span></div><div class="footer-bottom"><span>© 2026 TheoremOS contributors</span><span class="mono">BUILT FOR OPEN MATHEMATICAL RESEARCH</span><a href="LICENSE.txt">AGPL-3.0-only<i data-lucide="arrow-up-right"></i></a></div></footer></div>
+  <dialog class="preview-dialog" id="workbench-dialog" aria-labelledby="preview-title" aria-describedby="preview-description">
+    <div class="preview-dialog-header"><div><strong id="preview-title">TheoremOS <span>研究工作台</span></strong><p id="preview-description">本地截图 · Mathlib 草稿 · 未提交</p></div><div class="preview-dialog-actions"><button type="button" class="preview-zoom" aria-label="放大截图" aria-pressed="false" title="放大截图"><i data-lucide="zoom-in"></i><i data-lucide="zoom-out"></i></button><a class="preview-original" href="assets/workbench-full-desktop.png" target="_blank" rel="noreferrer" aria-label="打开原始截图" title="打开原始截图"><i data-lucide="external-link"></i></a><button type="button" class="preview-close" aria-label="关闭截图预览" title="关闭" autofocus><i data-lucide="x"></i></button></div></div>
+    <div class="preview-dialog-media" role="region" aria-label="研究工作台截图" tabindex="0"><picture><source media="(max-width: 600px)" srcset="assets/workbench-full-mobile.png" width="390" height="844"><img src="assets/workbench-full-desktop.png" alt="本地工作台完整界面，展示尚未提交的 Mathlib 原题、模型连接配置与草稿预览。" width="1440" height="900" loading="lazy"></picture></div>
+  </dialog>
   <div class="toast" id="toast" role="status" hidden></div>
   <script src="landing.js" defer></script>
 </body>

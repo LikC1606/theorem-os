@@ -4,7 +4,7 @@
 
 静态网站包含两个入口：
 
-- `index.html`：中文产品宣传首页，包括真实工作台截图、四步预设回放、官方证明成果、M1–M5 组件介绍与源码示例、Docker 部署和 CLI 体验命令。
+- `index.html`：中文产品宣传首页，包括可缩放的真实工作台截图、四步预设回放、官方证明成果、M1–M5 组件介绍与可展开的源码示例、Docker 部署和 CLI 体验命令。
 - `archive.html`：证明档案，支持搜索、筛选、源码查看、验收证据、JSON 下载和本地回放记录。
 
 网站独立于 CLI，不启动 Agent 或 Lean，不需要服务端或模型认证。
@@ -40,11 +40,11 @@ bun run build:site
 - `docs/archive.html`、`docs/site.css`、`docs/web/app.ts`：证明档案界面。
 - `scripts/build-site.ts`：构建两个页面、浏览器脚本和公开数据，并复制素材与许可证。
 
-首页以浅色工作台首屏、深色回放区和蓝绿状态色组织内容。首屏使用本地工作台真实的 Mathlib 草稿截图，明确标为未提交；手机端通过 `picture` 加载独立截图，保持文本可读。开始区默认展示完整 Docker 部署命令，也可切换 CLI 安装和免模型回放。GitHub Pages 仅提供静态展示；用户需在 Linux 本地或服务器部署工作台，再输入自己的 API Key。
+首页以浅色工作台首屏、深色回放区和浅色组件区组织内容。首屏使用本地工作台真实的 Mathlib 草稿截图，明确标为未提交；手机端通过 `picture` 加载独立截图，保持文本可读。截图可打开完整界面预览，支持缩放、鼠标拖动和触屏滚动，关闭后恢复焦点；无 JavaScript 时仍可打开原图。开始区默认展示完整 Docker 部署命令，也可切换 CLI 安装和免模型回放。GitHub Pages 仅提供静态展示；用户需在 Linux 本地或服务器部署工作台，再输入自己的 API Key。
 
 四步回放的候选源码读取自 `src/math/localExample.ts`，回执读取自 `docs/assets/replay.json`；切换演示不会启动模型或 Lean。反馈步骤是对预设示例的检查说明，并非原始诊断日志。手机端先展示已归档的最终回执，再展示选中步骤的源码。源码与回放记录改动后需要重新构建。
 
-组件图与 CLI 运行身份图为结构示意，完整原题验收独立于五类研究决策。网页工作台的历史临时保存在服务内存，与 CLI 的持久运行和恢复分开说明。页面支持键盘操作，并尊重系统的减少动态效果设置。参考官网与应用取舍记录在 [design-references.md](design-references.md)。
+组件图为结构示意，完整原题验收独立于五类研究决策。手机端组件标签横向滚动，键盘切换会把当前项带入视口。源码示例默认收起，可在没有 JavaScript 的情况下展开。档案区展示完整的真实界面，手机端使用单独的题目详情截图，避免放大裁切桌面图。网页工作台的临时历史与 CLI 的持久运行和恢复分开说明。页面支持键盘操作，并尊重系统的减少动态效果设置。参考官网与应用取舍记录在 [design-references.md](design-references.md)。
 
 ## 验证
 
@@ -56,7 +56,7 @@ bunx playwright install chromium --only-shell
 bun run test:site
 ```
 
-浏览器检查覆盖工作台截图的首屏可见、实际尺寸与响应式资源、三种开始方式与部署命令复制、预设回放与记录的一致性、四步演示和组件的切换与键盘控制、移动端回执顺序、首页成果的真实归属、复制失败反馈、手机导航、静态站点边界、本地文件预览、无 JavaScript 内容与 GitHub Pages 子路径，以及证明档案的搜索、筛选、源码、来源、下载和链接恢复。检查 320、390、768、1440、1920 像素宽度，截图输出到 `out/site-checks/`。这些检查不调用模型。
+浏览器检查覆盖响应式截图、首屏可见、原图预览的缩放与拖动、弹窗关闭和焦点恢复、档案图片无裁切、源码示例展开、手机组件标签的键盘可见性、三种开始方式与部署命令复制、预设回放与记录的一致性、移动端回执顺序、首页成果的真实归属、复制失败反馈、手机导航、本地文件预览、无 JavaScript 内容与 GitHub Pages 子路径，以及证明档案的搜索、筛选、源码、来源、下载和链接恢复。检查 320、390、768、1440、1920 像素宽度，截图输出到 `out/site-checks/`。这些检查不调用模型。
 
 ## GitHub Pages 部署
 
@@ -68,7 +68,7 @@ bun run test:site
 
 `docs/assets/mark.svg` 是首页与档案共用的蓝色项目标记，`mark.png` 保留为位图版本。首页使用本地 Inter 可变字体，中文使用系统无衬线字体；字体及 SIL Open Font License 保存在 `docs/assets/fonts/`。构建时将字体嵌入样式，确保直接打开本地文件时也能加载，页面不依赖外部字体服务。
 
-`workbench-desktop.png` 和 `workbench-mobile.png` 来自真实本地工作台的新会话，分别是 1440×500 的桌面视口和 390×440 的手机视口。手机截图滚动到原题编辑区，确保完整 Lean 原题可见；图注均标明草稿未提交，不伪装成模型求解结果。工作台服务启动后可重新截图；脚本阻止创建任务，不需要模型或 Key：
+`workbench-desktop.png` 和 `workbench-mobile.png` 来自真实本地工作台的新会话，分别是 1440×500 的桌面视口和 390×440 的手机视口。`workbench-full-desktop.png` 与 `workbench-full-mobile.png` 为弹窗使用的完整截图，视口分别是 1440×900 和 390×844，以 2 倍像素密度生成。手机截图滚动到原题编辑区，确保完整 Lean 原题可见；图注均标明草稿未提交，不伪装成模型求解结果。工作台服务启动后可重新截图；脚本阻止创建任务，不需要模型或 Key：
 
 ```bash
 node scripts/capture-workbench.mjs http://127.0.0.1:8787
@@ -82,7 +82,13 @@ node scripts/capture-promo.mjs
 bun run build:site
 ```
 
-`replay.png` 来自一次真实的预设回放，其公开记录字段保存在 `replay.json`，明确注明没有调用模型、不是官方评测。`archive-preview.png` 是证明档案的界面截图。
+`replay.png` 来自一次真实的预设回放，其公开记录字段保存在 `replay.json`，明确注明没有调用模型、不是官方评测。`archive-preview.png` 是完整桌面档案界面，`archive-preview-mobile.png` 是手机端题目详情，两者都使用 2 倍像素密度。只更新档案截图时运行：
+
+```bash
+bun run build:site
+node scripts/capture-archive.mjs
+bun run build:site
+```
 
 重新生成回放素材时，先完成一次预设回放，再运行：
 

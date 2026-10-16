@@ -1,12 +1,12 @@
 import {
   createIcons, ArrowDown, ArrowDownRight, ArrowRight, ArrowUpRight, Blocks, Check, Code2,
-  Copy, FileCode2, Fingerprint, GitBranch, GitFork, Globe, History, Info,
-  Menu, Plus, ScanLine, ShieldCheck, Terminal, X,
+  Copy, Download, ExternalLink, FileCode2, Files, GitFork, Globe, History, Info,
+  Maximize2, Menu, Plus, ScanLine, ShieldCheck, Terminal, X, ZoomIn, ZoomOut,
 } from 'lucide';
 
 const iconSet = { ArrowDown, ArrowDownRight, ArrowRight, ArrowUpRight, Blocks, Check, Code2, Copy,
-  FileCode2, Fingerprint, GitBranch, GitFork, Globe, History, Info, Menu, Plus,
-  ScanLine, ShieldCheck, Terminal, X };
+  Download, ExternalLink, FileCode2, Files, GitFork, Globe, History, Info, Maximize2, Menu, Plus,
+  ScanLine, ShieldCheck, Terminal, X, ZoomIn, ZoomOut };
 const icons = () => createIcons({ icons: iconSet, attrs: { 'aria-hidden': 'true' } });
 const element = <T extends HTMLElement = HTMLElement>(selector: string): T => {
   const result = document.querySelector<T>(selector);
@@ -34,7 +34,13 @@ const components = {
     input: '就绪任务 · Worker · 路线约束', output: '工作区配置 · 任务与审阅分配', path: 'M452 194 290 118' },
 };
 type Component = keyof typeof components;
+const narrow = matchMedia('(max-width: 600px)');
 const componentTabs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-component]'));
+function revealComponent(tab: HTMLButtonElement) {
+  if (!narrow.matches) return;
+  const list = element('.component-tabs');
+  list.scrollLeft = tab.offsetLeft - (list.clientWidth - tab.offsetWidth) / 2;
+}
 function selectComponent(id: Component, focus = false) {
   const content = components[id];
   if (!content) return;
@@ -42,6 +48,7 @@ function selectComponent(id: Component, focus = false) {
     const selected = tab.dataset.component === id;
     tab.setAttribute('aria-selected', String(selected));
     tab.tabIndex = selected ? 0 : -1;
+    if (selected) revealComponent(tab);
     if (selected && focus) tab.focus();
   }
   element('#component-panel').setAttribute('aria-labelledby', `tab-${id}`);
@@ -81,10 +88,71 @@ replayTabs.forEach(tab => tab.addEventListener('click', () => selectReplayStage(
 element('.replay-tabs').addEventListener('keydown', event => handleTabKeys(event, replayTabs, tab => selectReplayStage(tab, true)));
 
 element('.component-tabs').addEventListener('keydown', event => handleTabKeys(event, componentTabs, tab => selectComponent(tab.dataset.component as Component, true)));
-const narrow = matchMedia('(max-width: 600px)');
-const orientComponents = () => element('.component-tabs').setAttribute('aria-orientation', narrow.matches ? 'horizontal' : 'vertical');
+const orientComponents = () => {
+  element('.component-tabs').setAttribute('aria-orientation', narrow.matches ? 'horizontal' : 'vertical');
+  const selected = componentTabs.find(tab => tab.getAttribute('aria-selected') === 'true');
+  if (selected) revealComponent(selected);
+};
 orientComponents();
 narrow.addEventListener('change', orientComponents);
+
+const previewLink = element<HTMLAnchorElement>('.workbench-image-link');
+const previewDialog = element<HTMLDialogElement>('#workbench-dialog');
+const previewMedia = element('.preview-dialog-media');
+const previewZoom = element<HTMLButtonElement>('.preview-zoom');
+const updatePreviewSource = () => {
+  const source = `assets/workbench-full-${narrow.matches ? 'mobile' : 'desktop'}.png`;
+  previewLink.href = source;
+  element<HTMLAnchorElement>('.preview-original').href = source;
+};
+updatePreviewSource();
+narrow.addEventListener('change', updatePreviewSource);
+function zoomPreview(zoomed: boolean) {
+  const factor = zoomed ? 2 : .5;
+  const left = (previewMedia.scrollLeft + previewMedia.clientWidth / 2) * factor - previewMedia.clientWidth / 2;
+  const top = (previewMedia.scrollTop + previewMedia.clientHeight / 2) * factor - previewMedia.clientHeight / 2;
+  previewMedia.classList.toggle('is-zoomed', zoomed);
+  previewZoom.setAttribute('aria-pressed', String(zoomed));
+  previewZoom.setAttribute('aria-label', zoomed ? '适应窗口' : '放大截图');
+  previewZoom.title = zoomed ? '适应窗口' : '放大截图';
+  previewMedia.scrollTo({ left: zoomed ? left : 0, top: zoomed ? top : 0 });
+}
+previewLink.addEventListener('click', event => {
+  if (!previewDialog.showModal || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  event.preventDefault();
+  zoomPreview(false);
+  previewDialog.showModal();
+  previewMedia.scrollTo({ left: 0, top: 0 });
+  document.documentElement.classList.add('preview-open');
+});
+previewZoom.addEventListener('click', () => zoomPreview(previewZoom.getAttribute('aria-pressed') !== 'true'));
+element('.preview-close').addEventListener('click', () => previewDialog.close());
+previewDialog.addEventListener('close', () => document.documentElement.classList.remove('preview-open'));
+previewDialog.addEventListener('click', event => {
+  if (event.target !== previewDialog) return;
+  const bounds = previewDialog.getBoundingClientRect();
+  if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) previewDialog.close();
+});
+let pan: { pointer: number; x: number; y: number; left: number; top: number } | undefined;
+previewMedia.addEventListener('pointerdown', event => {
+  if (event.pointerType !== 'mouse' || event.button !== 0 || !previewMedia.classList.contains('is-zoomed')) return;
+  event.preventDefault();
+  pan = { pointer: event.pointerId, x: event.clientX, y: event.clientY, left: previewMedia.scrollLeft, top: previewMedia.scrollTop };
+  previewMedia.setPointerCapture(event.pointerId);
+  previewMedia.classList.add('is-panning');
+});
+previewMedia.addEventListener('pointermove', event => {
+  if (!pan || pan.pointer !== event.pointerId) return;
+  previewMedia.scrollLeft = pan.left + pan.x - event.clientX;
+  previewMedia.scrollTop = pan.top + pan.y - event.clientY;
+});
+previewMedia.addEventListener('pointerup', event => {
+  if (previewMedia.hasPointerCapture(event.pointerId)) previewMedia.releasePointerCapture(event.pointerId);
+});
+previewMedia.addEventListener('lostpointercapture', () => {
+  pan = undefined;
+  previewMedia.classList.remove('is-panning');
+});
 
 const commandTabs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-command]'));
 type Command = 'workbench' | 'install' | 'replay';

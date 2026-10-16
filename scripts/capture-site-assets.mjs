@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -64,11 +64,8 @@ try {
   }, evidence);
   await page.screenshot({ path: path.join(assets, 'replay.png') });
   execFileSync('bun', ['run', 'build:site'], { cwd: root, stdio: 'inherit' });
-  await page.setViewportSize({ width: 1440, height: 960 });
-  await page.goto(pathToFileURL(path.join(root, 'out/site/archive.html')).href);
-  await page.waitForSelector('.proof-row');
-  await page.screenshot({ path: path.join(assets, 'archive-preview.png'), clip: { x: 0, y: 0, width: 1440, height: 900 } });
-  console.log('Generated mark.png, replay.png, archive-preview.png, and replay.json from recorded local evidence.');
+  execFileSync('node', [path.join(root, 'scripts/capture-archive.mjs')], { cwd: root, stdio: 'inherit' });
+  console.log('Generated mark.png, replay.png, responsive archive previews, and replay.json from recorded local evidence.');
 } finally {
   await browser.close();
 }

@@ -61,6 +61,68 @@ const checkCommand = async (page, id) => {
   assert.equal(await page.locator(`#${id}-panel`).getAttribute('aria-labelledby'), `command-${id}`);
   assert.equal(await page.locator('.command-panel:visible').count(), 1);
 };
+const checkScreenshotPreview = async (page, width) => {
+  const link = page.locator('.workbench-image-link');
+  const dialog = page.locator('#workbench-dialog');
+  const originalUrl = page.url();
+  await link.click();
+  assert.equal(page.url(), originalUrl, 'Opening the preview must keep the visitor on the homepage');
+  assert.equal(await dialog.isVisible(), true);
+  const preview = await dialog.locator('img').evaluate(async image => {
+    await image.decode();
+    return { source: image.currentSrc, width: image.naturalWidth };
+  });
+  assert.match(preview.source, width <= 600 ? /workbench-full-mobile\.png/ : /workbench-full-desktop\.png/);
+  assert.equal(await dialog.locator('.preview-original').getAttribute('href'), new URL(preview.source).pathname.split('/').slice(-2).join('/'));
+  assert.match(await dialog.locator('#preview-description').innerText(), /草稿 · 未提交/);
+  assert.equal(await page.evaluate(() => document.documentElement.classList.contains('preview-open')), true);
+  const media = dialog.locator('.preview-dialog-media');
+  await dialog.getByRole('button', { name: '放大截图' }).click();
+  assert.equal(await dialog.getByRole('button', { name: '适应窗口' }).getAttribute('aria-pressed'), 'true');
+  assert.ok(await media.evaluate(node => node.scrollWidth >= node.clientWidth * 1.9), 'Zoom must expose a larger, scrollable image');
+  await checkWidth(page, `${width}px screenshot preview`);
+  const close = dialog.locator('.preview-close');
+  const closeBounds = await close.boundingBox();
+  assert.ok(closeBounds && closeBounds.x >= 0 && closeBounds.x + closeBounds.width <= width && closeBounds.y >= 0);
+  if (width === 1440) {
+    const bounds = await media.boundingBox();
+    const before = await media.evaluate(node => node.scrollLeft);
+    await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + 100);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x + bounds.width / 2 - 100, bounds.y + 80, { steps: 5 });
+    await page.mouse.up();
+    assert.ok(await media.evaluate(node => node.scrollLeft) > before + 70, 'A zoomed image must support mouse panning');
+  }
+  await close.focus();
+  await page.keyboard.press('Tab');
+  assert.equal(await dialog.evaluate(node => node.contains(document.activeElement)), true, 'The modal must contain keyboard focus');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.documentElement.classList.contains('preview-open'));
+  assert.equal(await dialog.isVisible(), false);
+  assert.equal(await link.evaluate(node => node === document.activeElement), true, 'Closing must return focus to the screenshot');
+  await link.click();
+  assert.equal(await dialog.getByRole('button', { name: '放大截图' }).getAttribute('aria-pressed'), 'false');
+  assert.deepEqual(await media.evaluate(node => ({ left: node.scrollLeft, top: node.scrollTop })), { left: 0, top: 0 }, `The ${width}px preview must reopen at its origin`);
+  await dialog.locator('.preview-close').click();
+  await page.waitForFunction(() => !document.documentElement.classList.contains('preview-open'));
+  if (width === 1440) {
+    await link.click();
+    await page.mouse.click(2, 2);
+    await page.waitForFunction(() => !document.querySelector('#workbench-dialog').open);
+  }
+};
+const checkArchivePreview = async (page, width) => {
+  const image = page.locator('.archive-image-link img');
+  await image.scrollIntoViewIfNeeded();
+  const result = await image.evaluate(async node => {
+    await node.decode();
+    const bounds = node.getBoundingClientRect(), parent = node.closest('a').getBoundingClientRect();
+    return { source: node.currentSrc, ratio: node.naturalWidth / node.naturalHeight,
+      renderedRatio: bounds.width / bounds.height, fits: bounds.width <= parent.width + 1 };
+  });
+  assert.match(result.source, width <= 600 ? /archive-preview-mobile\.png/ : /archive-preview\.png/);
+  assert.ok(result.fits && Math.abs(result.ratio - result.renderedRatio) < .01, 'The archive screenshot must remain complete without cropping');
+};
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   trackErrors(page);
@@ -76,6 +138,8 @@ try {
   assert.match(await page.title(), /TheoremOS/);
   assert.equal(await page.locator('h1').count(), 1);
   await checkWorkbench(page, '1440px local preview');
+  await checkScreenshotPreview(page, 1440);
+  await checkArchivePreview(page, 1440);
   assert.equal(await page.locator('#motion-toggle, .manifold').count(), 0);
   assert.equal(await page.locator('#demo').evaluate(demo => demo.closest('.hero-shell') === null), true,
     'The archived replay must be a separate section from the workbench hero');
@@ -198,6 +262,8 @@ try {
     await page.waitForSelector('.release-pill svg.lucide');
     await page.evaluate(() => document.fonts.ready);
     await checkWorkbench(page, `${viewport.width}px homepage`);
+    await checkScreenshotPreview(page, viewport.width);
+    await checkArchivePreview(page, viewport.width);
     await checkCommand(page, 'workbench');
     await checkWidth(page, `${viewport.width}px homepage`);
     for (const artwork of await page.locator('.proof-art > svg, .proof-art > .type-formula, .proof-art > .unit-formula').all()) {
@@ -220,6 +286,22 @@ try {
     assert.ok(await page.locator('.brand img').first().evaluate(image => image.complete && image.naturalWidth > 0));
     await page.locator('#tab-m2').click();
     await checkWidth(page, `${viewport.width}px M2`);
+    if (viewport.width <= 390) {
+      await page.locator('#tab-m2').focus();
+      await page.keyboard.press('End');
+      const selected = await page.locator('#tab-m5').evaluate(node => {
+        const bounds = node.getBoundingClientRect(), parent = node.parentElement.getBoundingClientRect();
+        return { active: node.getAttribute('aria-selected'), visible: bounds.left >= parent.left - 1 && bounds.right <= parent.right + 1 };
+      });
+      assert.equal(selected.active, 'true');
+      assert.ok(selected.visible, 'Keyboard selection must reveal the active mobile component tab');
+    }
+    assert.equal(await page.locator('.extension-example').getAttribute('open'), null);
+    await page.locator('.extension-example > summary').click();
+    assert.equal(await page.locator('.extension-code').isVisible(), true);
+    assert.match(await page.locator('.extension-code').innerText(), /ready: goalsFirstResearchTasks/);
+    await checkWidth(page, `${viewport.width}px expanded source example`);
+    await page.locator('.extension-example > summary').click();
     await page.locator('#command-replay').click();
     await checkWidth(page, `${viewport.width}px commands`);
     await page.locator('#command-workbench').click();
@@ -264,6 +346,10 @@ try {
   await noJS.goto(url);
   assert.equal(await noJS.locator('.proof-card').count(), accepted.length);
   await checkWorkbench(noJS, 'JavaScript-disabled homepage');
+  assert.equal(await noJS.locator('.workbench-image-link').getAttribute('href'), 'assets/workbench-full-desktop.png');
+  assert.ok(fs.existsSync(path.join(site, 'assets/workbench-full-desktop.png')));
+  await noJS.locator('.extension-example > summary').click();
+  assert.equal(await noJS.locator('.extension-code').isVisible(), true);
   await checkCommand(noJS, 'workbench');
   assert.equal(await noJS.locator('.proof-card h3 a').first().isVisible(), true);
   await noJS.close();
@@ -284,13 +370,14 @@ try {
   await page.evaluate(() => document.fonts.ready);
   assert.ok(await page.evaluate(() => [...document.fonts].some(font => font.family === 'Inter' && font.status === 'loaded')), 'The Pages subpath must load the bundled font');
   await checkWorkbench(page, 'GitHub Pages repository subpath');
+  await checkScreenshotPreview(page, 1440);
   await page.locator('#tab-m4').click();
   assert.match(await page.locator('#module-kicker').innerText(), /CONTEXT/);
   await page.locator('.hero-actions a[href="archive.html"]').click();
   await page.waitForSelector('.proof-row');
   assert.equal(await page.locator('.proof-row').count(), catalog.records.length);
   assert.deepEqual(errors, []);
-  console.log('Landing checks passed: real workbench screenshots and responsive sources in the first viewport, archived replay and mobile receipt order, verified proof links and attribution, component and command tabs with keyboard controls, deployment command copying and failure feedback, mobile navigation, static hosting boundaries, JavaScript-disabled content, file preview, Pages subpath, and 5 viewport sizes.');
+  console.log('Landing checks passed: responsive workbench and uncropped archive screenshots, modal zoom, panning, focus restoration and closing, archived replay and mobile receipt order, verified proof links and attribution, scrollable component tabs, expandable source example, command copying and failure feedback, mobile navigation, JavaScript-disabled content, file preview, Pages subpath, and 5 viewport sizes.');
 } finally {
   if (server) await new Promise(resolve => server.close(resolve));
   await browser.close();
