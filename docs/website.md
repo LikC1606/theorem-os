@@ -1,5 +1,7 @@
 # 产品宣传网站与证明档案
 
+线上地址：<https://likc1606.github.io/theorem-os/>。网站由本仓库的 GitHub Actions 构建并发布到 GitHub Pages。
+
 静态网站包含两个入口：
 
 - `index.html`：中文产品宣传首页，包括数学结构动效、官方证明成果、M1–M5 组件介绍、本地体验命令和常见问题。

@@ -11,7 +11,7 @@
 
 面向数学 Agent 研究者和 Lean 开发者。替换任务排序、上下文选择或协作策略中的一个组件，固定题目、环境、模型与预算开展对照实验，再从运行档案检查证明、失败原因和累计用量。
 
-[查看已验收证明](#已验收证明) · [快速体验](#快速体验) · [替换研究组件](examples/components/README.md) · [运行指南](docs/usage.md)
+[产品官网](https://likc1606.github.io/theorem-os/) · [在线证明档案](https://likc1606.github.io/theorem-os/archive.html) · [快速体验](#快速体验) · [替换研究组件](examples/components/README.md) · [运行指南](docs/usage.md)
 
 | 研究策略 | 证明验收 | 运行档案 |
 | --- | --- | --- |
