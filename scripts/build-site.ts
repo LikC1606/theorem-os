@@ -5,7 +5,8 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { buildSiteCatalog } from '../docs/web/catalog';
-import { acceptedProofCards, researchManifold } from '../docs/web/presentation';
+import { acceptedProofCards, researchManifold, researchReplay } from '../docs/web/presentation';
+import { LOCAL_EXAMPLE_FAILED_PROOF, LOCAL_EXAMPLE_PROOF } from '../src/math/localExample';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const revision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
@@ -28,6 +29,8 @@ await build({
 });
 const homepage = fs.readFileSync(path.join(root, 'docs/index.html'), 'utf8')
   .replace('<!-- research-manifold -->', researchManifold())
+  .replace('<!-- research-replay -->', researchReplay(LOCAL_EXAMPLE_FAILED_PROOF, LOCAL_EXAMPLE_PROOF,
+    JSON.parse(fs.readFileSync(path.join(root, 'docs/assets/replay.json'), 'utf8'))))
   .replace('<!-- accepted-count -->', String(catalog.records.filter(record => record.status === 'official_accepted').length).padStart(2, '0'))
   .replace('<!-- accepted-proofs -->', acceptedProofCards(catalog));
 fs.writeFileSync(path.join(output, 'index.html'), homepage);

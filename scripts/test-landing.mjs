@@ -12,6 +12,7 @@ const output = path.join(root, 'out/site-checks');
 fs.mkdirSync(output, { recursive: true });
 const catalog = JSON.parse(fs.readFileSync(path.join(site, 'data/catalog.json'), 'utf8'));
 const accepted = catalog.records.filter(record => record.status === 'official_accepted');
+const replayEvidence = JSON.parse(fs.readFileSync(path.join(site, 'assets/replay.json'), 'utf8'));
 const errors = [];
 const browser = await chromium.launch();
 let server;
@@ -46,6 +47,23 @@ try {
     assert.equal(await card.locator('.proof-card-footer a').first().getAttribute('href'), `archive.html#proof=${record.id}&tab=source`);
   }
   assert.match(await page.locator('.proof-provenance').innerText(), /前身 DeepScientist/);
+  assert.match(await page.locator('.receipt-status').innerText(), new RegExp(replayEvidence.status));
+  for (const target of replayEvidence.targets) assert.ok((await page.locator('.receipt-targets').innerText()).includes(target.theorem));
+  assert.match(await page.locator('.replay-badge').innerText(), /预设回放 · 不调用模型/);
+  for (const id of ['candidate', 'feedback', 'repair', 'verified']) {
+    await page.locator(`#demo-${id}`).click();
+    assert.equal(await page.locator(`#demo-${id}`).getAttribute('aria-selected'), 'true');
+    assert.equal(await page.locator(`#stage-${id}`).isVisible(), true);
+    assert.equal(await page.locator('.replay-panel:visible').count(), 1);
+    assert.match(await page.locator('.receipt-status').innerText(), /evaluated_passed/);
+  }
+  assert.match(await page.locator('#stage-candidate').textContent(), /0 \+ n = n := by rfl/);
+  assert.match(await page.locator('#stage-repair').textContent(), /by exact Nat.zero_add n/);
+  await page.locator('#demo-verified').focus();
+  await page.keyboard.press('ArrowRight');
+  assert.equal(await page.locator('#demo-candidate').getAttribute('aria-selected'), 'true');
+  await page.keyboard.press('End');
+  assert.equal(await page.locator('#demo-verified').getAttribute('aria-selected'), 'true');
   // Verify local navigation and packaged resources, including file:// previews.
   const localPaths = await page.locator('a[href], img[src], script[src], link[href]').evaluateAll(nodes => nodes.map(node => node.getAttribute('href') ?? node.getAttribute('src')).filter(Boolean));
   for (const relative of localPaths) {
@@ -103,6 +121,10 @@ try {
     await page.goto(url);
     await page.waitForSelector('.release-pill svg.lucide');
     await checkWidth(page, `${viewport.width}px homepage`);
+    for (const id of ['feedback', 'repair', 'verified']) {
+      await page.locator(`#demo-${id}`).click();
+      await checkWidth(page, `${viewport.width}px replay ${id}`);
+    }
     assert.ok(await page.locator('.brand img').first().evaluate(image => image.complete && image.naturalWidth > 0));
     await page.locator('#tab-m2').click();
     await checkWidth(page, `${viewport.width}px M2`);

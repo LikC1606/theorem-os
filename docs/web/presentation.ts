@@ -4,50 +4,24 @@ const escape = (value: string) => value.replace(/[&<>"']/g, character => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 }[character]!));
 
-/** A mathematical illustration, separate from the archived proof and its evidence. */
+/** A static mathematical surface; this is a brand illustration, not run data. */
 export function researchManifold() {
-  type Vector = [number, number, number];
-  const normalize = (v: Vector): Vector => {
-    const length = Math.hypot(...v);
-    return v.map(value => value / length) as Vector;
+  const project = (u: number, v: number) => {
+    const z = .7 * Math.sin(u * 1.5) * Math.cos(v * .9) + .15 * (u * u - v * v);
+    return [320 + u * 75 + v * 49, 275 + v * 35 - u * 13 - z * 70];
   };
-  const cross = (a: Vector, b: Vector): Vector => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-  const rotate = ([x, y, z]: Vector): Vector => {
-    const a = -.42, b = .64, c = -.22;
-    const yy = y * Math.cos(a) - z * Math.sin(a), zz = y * Math.sin(a) + z * Math.cos(a);
-    const xx = x * Math.cos(b) + zz * Math.sin(b), zzz = -x * Math.sin(b) + zz * Math.cos(b);
-    return [xx * Math.cos(c) - yy * Math.sin(c), xx * Math.sin(c) + yy * Math.cos(c), zzz];
-  };
-  const vertex = (u: number, v: number) => {
-    const center: Vector = [54 * (Math.sin(u) + 2 * Math.sin(2 * u)), 54 * (Math.cos(u) - 2 * Math.cos(2 * u)), -57 * Math.sin(3 * u)];
-    const tangent = normalize([Math.cos(u) + 4 * Math.cos(2 * u), -Math.sin(u) + 4 * Math.sin(2 * u), -3 * Math.cos(3 * u)]);
-    const normal = normalize(cross(tangent, Math.abs(tangent[2]) > .92 ? [0, 1, 0] : [0, 0, 1]));
-    const binormal = cross(tangent, normal);
-    const outward = normal.map((value, i) => value * Math.cos(v) + binormal[i] * Math.sin(v)) as Vector;
-    return { point: rotate(center.map((value, i) => value + 27 * outward[i]) as Vector), normal: rotate(outward) };
-  };
-  const project = ([x, y, z]: Vector) => {
-    const perspective = 850 / (850 - z) * 1.22;
-    return `${(320 + x * perspective).toFixed(1)},${(265 + y * perspective).toFixed(1)}`;
-  };
-  const faces: { depth: number; markup: string }[] = [];
-  const steps = 180, sides = 28;
-  const light = normalize([-.4, -.65, .9]);
-  for (let i = 0; i < steps; i++) for (let j = 0; j < sides; j++) {
-    const u = i / steps * Math.PI * 2, v = j / sides * Math.PI * 2;
-    const du = Math.PI * 2 / steps, dv = Math.PI * 2 / sides;
-    const corners = [vertex(u, v), vertex(u + du, v), vertex(u + du, v + dv), vertex(u, v + dv)];
-    const { normal } = vertex(u + du / 2, v + dv / 2);
-    const diffuse = Math.max(0, normal.reduce((sum, value, axis) => sum + value * light[axis], 0));
-    const rim = Math.pow(1 - Math.abs(normal[2]), 3);
-    const specular = Math.pow(diffuse, 12);
-    const channel = (base: number, spread: number) => Math.min(255, Math.round(base + spread * diffuse + rim * 24 + specular * 50));
-    const color = `rgb(${channel(22, 70)},${channel(53, 115)},${channel(136, 105)})`;
-    faces.push({ depth: corners.reduce((sum, corner) => sum + corner.point[2], 0) / 4,
-      markup: `<path d="M${corners.map(corner => project(corner.point)).join('L')}Z" fill="${color}" stroke="${color}" stroke-width=".7"/>` });
+  const lines: string[] = [];
+  for (let axis = 0; axis < 2; axis++) for (let row = 0; row < 37; row++) {
+    const fixed = -2.6 + row / 36 * 5.2;
+    const points = Array.from({ length: 65 }, (_, step) => {
+      const moving = -2.6 + step / 64 * 5.2;
+      const [x, y] = axis ? project(fixed, moving) : project(moving, fixed);
+      return (step ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1);
+    }).join('');
+    lines.push('<path d="' + points + '" opacity="' + (.25 + .55 * Math.sin(row / 36 * Math.PI)).toFixed(2) + '"/>');
   }
-  const orbit = 'M65,292a255,145 0 1,0 510,0a255,145 0 1,0-510,0';
-  return `<g class="manifold-wire">${faces.sort((a, b) => a.depth - b.depth).map(face => face.markup).join('')}</g><path class="manifold-route" d="${orbit}"/><path class="manifold-pulse" d="${orbit}"/>`;
+  const orbit = 'M28 300Q230 80 605 280';
+  return '<g class="manifold-wire">' + lines.join('') + '</g><path class="manifold-route" d="' + orbit + '"/><path class="manifold-pulse" d="' + orbit + '"/>';
 }
 
 const artworks: Record<string, string> = {
@@ -64,4 +38,45 @@ export function acceptedProofCards(catalog: ArchiveCatalog) {
       <div class="proof-card-body"><p class="proof-subtitle">${escape(record.subtitle)}</p><h3><a href="archive.html#proof=${record.id}">${escape(record.title)}</a></h3><p class="proof-credit">${escape(record.model)}</p></div>
       <div class="proof-card-footer"><a href="archive.html#proof=${record.id}&tab=source">查看证明<i data-lucide="arrow-right"></i></a><a class="official-link" href="${escape(record.official!.resultUrl)}" target="_blank" rel="noreferrer" aria-label="${escape(record.title)} 官方验收记录">官方验收<i data-lucide="arrow-up-right"></i></a></div>
     </article>`).join('');
+}
+
+type ReplayEvidence = {
+  schema: string; status: string; source: string; modelInvoked: boolean; official: boolean; checkedAt: string;
+  targets: { theorem: string; declaration: string; status: string; sorryCount: number }[];
+};
+
+function leanCode(source: string) {
+  return source.trimEnd().split('\n').map((line, index) => {
+    let cursor = 0;
+    let markup = '';
+    for (const match of line.matchAll(/\b(namespace|theorem|by|end|exact|rfl|Nat)\b/g)) {
+      markup += escape(line.slice(cursor, match.index)) + `<span class="syntax-${match[0] === 'Nat' ? 'type' : 'keyword'}">${match[0]}</span>`;
+      cursor = match.index! + match[0].length;
+    }
+    markup += escape(line.slice(cursor));
+    return `<span class="code-line${line.includes('exact Nat.zero_add') ? ' is-change' : ''}" data-line="${index + 1}">${markup || '&#8203;'}</span>`;
+  }).join('');
+}
+
+/** Sources come from the bundled tutorial; the final receipt comes from the recorded local replay. */
+export function researchReplay(failedSource: string, proofSource: string, evidence: ReplayEvidence) {
+  if (evidence.schema !== 'theoremos.site-replay-evidence.v1' || evidence.source !== 'preset-replay' ||
+      evidence.modelInvoked !== false || evidence.official !== false || evidence.status !== 'evaluated_passed' ||
+      evidence.targets.length !== 2 || !evidence.targets.every(target => target.status === 'kernel_verified' && target.sorryCount === 0)) {
+    throw new Error('The website replay needs a recorded, model-free local verification.');
+  }
+  const stages = [
+    { id: 'candidate', label: '候选证明', file: 'Submission.lean', note: '预设候选 01', code: failedSource },
+    { id: 'feedback', label: 'Lean 反馈', file: 'Lean feedback', note: '检查过程讲解', code: '' },
+    { id: 'repair', label: '修复候选', file: 'Submission.lean', note: '预设候选 02', code: proofSource },
+    { id: 'verified', label: '完整原题验收', file: 'Submission.lean', note: '验收源码', code: proofSource },
+  ];
+  const feedback = `<div class="demo-diagnostic"><span class="diagnostic-label"><i data-lucide="info"></i>对预设候选的检查说明</span><h3>一处通过，<br>一处还需继续。</h3><p><code>add_zero</code> 可由 <code>rfl</code> 完成；<br><code>zero_add</code> 需要已有引理。</p><pre><code>n : Nat\n⊢ 0 + n = n</code></pre><p class="diagnostic-hint">下一份候选使用 <code>Nat.zero_add n</code>。</p></div>`;
+  return `<div class="replay-window">
+    <div class="replay-chrome"><span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="mono">theoremos / local-replay</span><span class="replay-badge"><span class="status-dot"></span>预设回放 · 不调用模型</span></div>
+    <div class="replay-tabs" role="tablist" aria-label="预设回放的四个步骤">${stages.map((stage, index) => `<button type="button" role="tab" id="demo-${stage.id}" aria-controls="stage-${stage.id}" aria-selected="${stage.id === 'verified'}" tabindex="${stage.id === 'verified' ? '0' : '-1'}" data-replay-stage="${stage.id}"><span class="mono">0${index + 1}</span><span>${stage.label}</span><i data-lucide="${stage.id === 'verified' ? 'shield-check' : 'arrow-right'}"></i></button>`).join('')}</div>
+    <div class="replay-layout"><div class="replay-editor">${stages.map(stage => `<div class="replay-panel" id="stage-${stage.id}" role="tabpanel" aria-labelledby="demo-${stage.id}" tabindex="0"${stage.id === 'verified' ? '' : ' hidden'}><div class="editor-heading"><span><i data-lucide="file-code-2"></i>${stage.file}</span><span>${stage.note}</span></div>${stage.code ? `<pre class="demo-code"><code>${leanCode(stage.code)}</code></pre>` : feedback}</div>`).join('')}</div>
+    <aside class="replay-receipt" aria-label="已归档回放的最终验收"><div class="receipt-title"><i data-lucide="shield-check"></i><span>已归档的最终验收</span><span class="receipt-local">LOCAL</span></div><div class="receipt-status"><span class="receipt-check"><i data-lucide="check"></i></span><div><strong>完整原题，通过。</strong><code>${escape(evidence.status)}</code></div></div><div class="receipt-targets">${evidence.targets.map(target => `<div><i data-lucide="check"></i><span><strong>${escape(target.theorem)}</strong><code>${escape(target.declaration.replace(target.theorem + ' ', ''))}</code></span></div>`).join('')}</div><dl class="receipt-facts"><div><dt>验收方式</dt><dd>独立 Lean 内核检查</dd></div><div><dt>sorryCount</dt><dd>${evidence.targets.reduce((sum, target) => sum + target.sorryCount, 0)}</dd></div><div><dt>检查日期</dt><dd>${escape(evidence.checkedAt.slice(0, 10))} UTC</dd></div></dl><a href="archive.html#view=quickstart" class="receipt-link">查看完整回放记录<i data-lucide="arrow-up-right"></i></a></aside></div>
+    <div class="replay-caption"><span>步骤依据仓库预设示例 · 最终状态来自归档回放 · 非实时运行</span><button id="motion-toggle" class="motion-toggle" type="button" aria-label="暂停动效" aria-pressed="false"><i data-lucide="pause"></i><span>暂停动效</span></button></div>
+  </div>`;
 }

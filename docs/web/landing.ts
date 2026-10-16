@@ -66,6 +66,20 @@ function handleTabKeys(event: KeyboardEvent, tabs: HTMLButtonElement[], select: 
   event.preventDefault();
   select(tabs[next]);
 }
+
+const replayTabs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-replay-stage]'));
+function selectReplayStage(tab: HTMLButtonElement, focus = false) {
+  for (const stage of replayTabs) {
+    const selected = stage === tab;
+    stage.setAttribute('aria-selected', String(selected));
+    stage.tabIndex = selected ? 0 : -1;
+    element(`#stage-${stage.dataset.replayStage}`).hidden = !selected;
+  }
+  if (focus) tab.focus();
+}
+replayTabs.forEach(tab => tab.addEventListener('click', () => selectReplayStage(tab)));
+element('.replay-tabs').addEventListener('keydown', event => handleTabKeys(event, replayTabs, tab => selectReplayStage(tab, true)));
+
 element('.component-tabs').addEventListener('keydown', event => handleTabKeys(event, componentTabs, tab => selectComponent(tab.dataset.component as Component, true)));
 const narrow = matchMedia('(max-width: 600px)');
 const orientComponents = () => element('.component-tabs').setAttribute('aria-orientation', narrow.matches ? 'horizontal' : 'vertical');

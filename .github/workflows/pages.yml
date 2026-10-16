@@ -12,6 +12,7 @@ on:
       - 'docs/web/**'
       - 'docs/assets/**'
       - 'scripts/build-site.ts'
+      - 'src/math/localExample.ts'
       - 'scripts/test-site.mjs'
       - 'scripts/test-landing.mjs'
       - 'tests/siteCatalog.test.ts'
