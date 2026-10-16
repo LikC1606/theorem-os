@@ -33,18 +33,9 @@ fs.writeFileSync(path.join(assets, 'replay.json'), JSON.stringify(evidence, null
 const browser = await chromium.launch();
 try {
   const page = await browser.newPage({ viewport: { width: 1100, height: 640 }, deviceScaleFactor: 1, reducedMotion: 'reduce' });
-  await page.setContent('<canvas width="128" height="128"></canvas>');
-  await page.locator('canvas').evaluate(canvas => {
-    const drawing = canvas.getContext('2d');
-    drawing.fillStyle = '#16755a';
-    drawing.fillRect(0, 0, 128, 128);
-    drawing.fillStyle = '#ffffff';
-    drawing.fillRect(37, 32, 9, 64);
-    drawing.fillRect(37, 59, 57, 9);
-    drawing.fillStyle = '#ebc17d';
-    drawing.fillRect(87, 32, 9, 9);
-  });
-  await page.locator('canvas').screenshot({ path: path.join(assets, 'mark.png') });
+  const mark = fs.readFileSync(path.join(assets, 'mark.svg')).toString('base64');
+  await page.setContent(`<img src="data:image/svg+xml;base64,${mark}" width="128" height="128" alt="">`);
+  await page.locator('img').screenshot({ path: path.join(assets, 'mark.png'), omitBackground: true });
   await page.setContent(`<!doctype html><html><head><meta charset="utf-8"><style>
     *{box-sizing:border-box;margin:0;letter-spacing:0}body{background:#202b26;color:#dae6de;font-family:Consolas,"Liberation Mono",monospace}
     .receipt{width:1100px;height:640px;padding:58px 64px}header{display:flex;align-items:center;justify-content:space-between;color:#849e8e;font-size:17px;border-bottom:1px solid #3c5143;padding-bottom:23px}

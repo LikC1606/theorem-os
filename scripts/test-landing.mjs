@@ -33,6 +33,8 @@ try {
   });
   await page.goto(url);
   await page.waitForSelector('.release-pill svg.lucide');
+  await page.evaluate(() => document.fonts.ready);
+  assert.ok(await page.evaluate(() => [...document.fonts].some(font => font.family === 'Inter' && font.status === 'loaded')), 'The local preview must load the bundled font');
   assert.match(await page.title(), /TheoremOS/);
   assert.equal(await page.locator('h1').count(), 1);
   assert.equal(await page.locator('.proof-card').count(), accepted.length);
@@ -159,13 +161,15 @@ try {
     if (!pathname.startsWith('/theorem-os/')) { response.writeHead(404).end(); return; }
     const file = path.resolve(site, pathname.slice('/theorem-os/'.length) || 'index.html');
     if (!file.startsWith(site + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) { response.writeHead(404).end(); return; }
-    const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.txt': 'text/plain' };
+    const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.txt': 'text/plain' };
     response.writeHead(200, { 'Content-Type': mime[path.extname(file)] ?? 'application/octet-stream' });
     fs.createReadStream(file).pipe(response);
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const hosted = `http://127.0.0.1:${server.address().port}/theorem-os/`;
   await page.goto(hosted);
+  await page.evaluate(() => document.fonts.ready);
+  assert.ok(await page.evaluate(() => [...document.fonts].some(font => font.family === 'Inter' && font.status === 'loaded')), 'The Pages subpath must load the bundled font');
   await page.locator('#tab-m4').click();
   assert.match(await page.locator('#module-kicker').innerText(), /CONTEXT/);
   await page.locator('.hero-actions a[href="archive.html"]').click();

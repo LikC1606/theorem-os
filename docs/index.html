@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="TheoremOS：面向数学 Agent 的开源研究运行时。组合研究策略，保留每次尝试，由独立 Lean 流程验收完整原题。">
-  <meta name="theme-color" content="#f6f5f0">
+  <meta name="theme-color" content="#0a1122">
   <meta property="og:title" content="TheoremOS — 从自由探索，到严谨证明。">
   <meta property="og:description" content="可组合的数学 Agent 研究运行时。研究策略可替换，证明结果可核查，每次尝试有据可循。">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="zh_CN">
   <meta property="og:image" content="https://likc1606.github.io/theorem-os/assets/social-preview.png">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/mark.png">
+  <link rel="icon" type="image/svg+xml" href="assets/mark.svg">
   <link rel="stylesheet" href="landing.css">
   <title>TheoremOS — 从自由探索，到严谨证明。</title>
 </head>
@@ -19,7 +19,7 @@
   <a class="skip-link" href="#main">跳到内容</a>
   <header class="site-header">
     <div class="header-inner wrap">
-      <a class="brand" href="index.html" aria-label="TheoremOS 首页"><img src="assets/mark.png" alt="" width="31" height="31"><span>Theorem<span class="brand-os">OS</span></span></a>
+      <a class="brand" href="index.html" aria-label="TheoremOS 首页"><img src="assets/mark.svg" alt="" width="31" height="31"><span>Theorem<span class="brand-os">OS</span></span></a>
       <nav class="desktop-nav" aria-label="主导航"><a href="#proofs">证明成果</a><a href="#components">研究组件</a><a href="archive.html">证明档案<i data-lucide="arrow-up-right"></i></a></nav>
       <div class="header-actions"><a class="github-link" href="https://github.com/LikC1606/theorem-os" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 TheoremOS"><i data-lucide="git-fork"></i><span>GitHub</span></a><a class="nav-start" href="#start">开始使用<i data-lucide="arrow-up-right"></i></a><button class="menu-toggle" type="button" aria-label="打开导航" aria-expanded="false" aria-controls="mobile-nav"><i data-lucide="menu"></i><i data-lucide="x"></i></button></div>
     </div>
@@ -27,28 +27,31 @@
   </header>
 
   <main id="main">
+    <div class="hero-shell">
     <section class="hero wrap" aria-labelledby="hero-title">
       <div class="hero-copy">
         <a class="release-pill" href="https://github.com/LikC1606/theorem-os/releases/tag/v0.1.0" target="_blank" rel="noreferrer"><span class="status-dot"></span>v0.1.0<span class="pill-divider"></span>Research Preview<i data-lucide="arrow-up-right"></i></a>
         <p class="eyebrow hero-eyebrow">A RUNTIME FOR MATHEMATICAL AGENTS</p>
         <h1 id="hero-title">从自由探索，<br><em>到严谨证明。</em></h1>
-        <p class="hero-description">面向数学 Agent 的开源研究运行时。<br>组合你的研究策略，记录每次尝试，<br class="desktop-break">让完整原题接受独立的 Lean 验收。</p>
+        <p class="hero-description">为数学 Agent 打造的开源研究运行时。<br>自由组合研究策略，让每次探索有迹可循，<br class="desktop-break">让每份证明经得起 Lean 的独立检查。</p>
         <div class="hero-actions"><a class="button button-dark" href="#start">开启一次探索<i data-lucide="arrow-up-right"></i></a><a class="text-link" href="archive.html">查看证明档案<i data-lucide="arrow-right"></i></a></div>
-        <p class="hero-footnote"><span class="small-cross">+</span> 开源 · 可组合 · 可复现</p>
+        <p class="hero-footnote"><i data-lucide="code-2"></i><span>开源 · 可组合 · 可复现</span><span class="hero-license">AGPL-3.0</span></p>
       </div>
       <div class="hero-visual">
-        <div class="visual-label"><span class="mono">FIG. 01 / THE RESEARCH SPACE</span><span class="visual-coordinate">x, y, z</span></div>
+        <div class="visual-label"><span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span><span>theoremos <span class="visual-path">/ research space</span></span><span class="visual-model">概念视图</span></div>
         <div class="manifold-stage">
-          <svg class="manifold" viewBox="0 0 640 550" role="img" aria-labelledby="manifold-title"><title id="manifold-title">以环面与探索路径表现可组合的数学研究空间，属于概念示意。</title><defs><radialGradient id="surface-glow"><stop offset="0" stop-color="#dbe7be" stop-opacity=".55"/><stop offset="1" stop-color="#f6f5f0" stop-opacity="0"/></radialGradient></defs><ellipse cx="320" cy="285" rx="280" ry="210" fill="url(#surface-glow)"/><g class="art-guides"><path d="M40 282H600M320 38V520"/><circle cx="320" cy="282" r="235"/><path d="M45 47v14m-7-7h14M590 489v14m-7-7h14M60 480v14m-7-7h14M580 60v14m-7-7h14"/></g><!-- research-manifold --><text x="313" y="290" class="manifold-turnstile">⊢</text><g class="art-axis"><text x="540" y="295">x</text><text x="329" y="51">z</text><text x="98" y="407">y</text></g></svg>
-          <span class="art-annotation annotation-one"><span class="annotation-dot"></span>探索路径<span class="mono">RESEARCH</span></span>
-          <span class="art-annotation annotation-two"><span class="annotation-dot"></span>候选证明<span class="mono">CANDIDATE</span></span>
-          <div class="verification-stamp"><span class="stamp-icon"><i data-lucide="scan-line"></i></span><span><strong>独立 Lean 验收</strong><span>EXPLORATION → VERIFICATION</span></span><i data-lucide="arrow-down-right"></i></div>
+          <svg class="manifold" viewBox="0 0 640 550" role="img" aria-labelledby="manifold-title"><title id="manifold-title">以三维结形结构表现相互连接的数学研究路径，属于概念示意。</title><defs><radialGradient id="surface-glow"><stop offset="0" stop-color="#255bd6" stop-opacity=".35"/><stop offset="1" stop-color="#0d1831" stop-opacity="0"/></radialGradient><radialGradient id="ground-glow"><stop offset="0" stop-color="#377fff" stop-opacity=".4"/><stop offset="1" stop-color="#377fff" stop-opacity="0"/></radialGradient></defs><ellipse cx="320" cy="270" rx="280" ry="230" fill="url(#surface-glow)"/><ellipse cx="320" cy="467" rx="190" ry="23" fill="url(#ground-glow)"/><g class="art-guides"><ellipse cx="320" cy="280" rx="274" ry="177"/><path d="M320 40V505M35 280H605"/></g><!-- research-manifold --></svg>
+          <span class="art-annotation annotation-one"><span class="annotation-icon"><i data-lucide="blocks"></i></span><span><strong>M1–M5</strong><small>可组合的研究策略</small></span></span>
+          <span class="art-annotation annotation-two"><span class="annotation-dot"></span>探索 · 检查 · 反馈</span>
+          <div class="verification-stamp"><span class="stamp-icon"><i data-lucide="shield-check"></i></span><span><strong>独立 Lean 验收</strong><span>完整原题，交给内核检查。</span></span><span class="stamp-check"><i data-lucide="check"></i></span></div>
         </div>
-        <div class="visual-footer"><span>研究结构示意 <span class="mono">/ CONCEPTUAL MODEL</span></span><button id="motion-toggle" class="motion-toggle" type="button" aria-label="暂停动效" aria-pressed="false"><i data-lucide="pause"></i><span>暂停动效</span></button></div>
+        <div class="visual-footer"><span><span class="status-dot"></span>研究结构示意 <span class="mono">/ CONCEPTUAL MODEL</span></span><button id="motion-toggle" class="motion-toggle" type="button" aria-label="暂停动效" aria-pressed="false"><i data-lucide="pause"></i><span>暂停动效</span></button></div>
       </div>
     </section>
 
     <div class="principles wrap" aria-label="核心能力"><div><span class="mono principle-index">01 / COMPOSABLE</span><p><span>5</span> 类可替换研究组件</p></div><div><span class="mono principle-index">02 / VERIFIABLE</span><p>完整原题，独立验收</p></div><div><span class="mono principle-index">03 / REPRODUCIBLE</span><p>每次尝试，有据可循</p></div><a href="#proofs" class="explore-link" aria-label="向下查看证明成果"><i data-lucide="arrow-down"></i></a></div>
+    </div>
+    <div class="ecosystem wrap"><p>基于开放的数学与工程工具</p><div class="ecosystem-tools"><a href="https://lean-lang.org/" target="_blank" rel="noreferrer"><span class="lean-symbol">∀</span>Lean 4</a><a href="https://github.com/leanprover-community/mathlib4" target="_blank" rel="noreferrer"><span class="mathlib-symbol">∑</span>mathlib</a><a href="https://github.com/leanprover/lean-eval" target="_blank" rel="noreferrer"><i data-lucide="scan-line"></i>Lean-Eval</a><span><i data-lucide="terminal"></i>Bun / TypeScript</span></div></div>
 
     <section class="proofs-section" id="proofs" aria-labelledby="proofs-title">
       <div class="wrap">
@@ -58,7 +61,7 @@
       </div>
     </section>
 
-    <section class="components-section wrap" id="components" aria-labelledby="components-title">
+    <div class="components-shell"><section class="components-section wrap" id="components" aria-labelledby="components-title">
       <div class="section-heading"><div><p class="eyebrow"><span class="section-index">02</span> COMPOSE YOUR RESEARCH</p><h2 id="components-title">研究方法，<br><em>按你的方式组合。</em></h2></div><p class="heading-description">固定题目、环境、模型与预算，<br>替换一类研究决策，开展你的对照实验。<br>五个组件，支持单 Agent 与多 Agent 研究。</p></div>
       <div class="component-explorer">
         <div class="component-tabs" role="tablist" aria-label="五个研究组件" aria-orientation="vertical">
@@ -79,7 +82,8 @@
       <noscript><p class="no-script-note">启用 JavaScript 可切换组件的输入输出说明。<a href="https://github.com/LikC1606/theorem-os/blob/main/examples/components/README.md">查看五个组件的完整说明</a>。</p></noscript>
     </section>
 
-    <section class="records-section" aria-labelledby="records-title"><div class="records-layout wrap"><div class="records-copy"><p class="eyebrow"><span class="section-index">03</span> EVERY ATTEMPT MATTERS</p><h2 id="records-title">留下研究过程，<br><em>继续未竟的探索。</em></h2><p class="records-description">一次失败，也可以成为下一次尝试的起点。<br>把候选、诊断与用量写入运行档案，<br>让研究可以复盘，也可以恢复。</p><div class="record-features"><div><i data-lucide="fingerprint"></i><span><strong>固定实验条件</strong><small>绑定原题、环境与组件版本</small></span></div><div><i data-lucide="git-branch"></i><span><strong>保留研究轨迹</strong><small>追踪尝试、检查与累计用量</small></span></div><div><i data-lucide="history"></i><span><strong>从断点继续</strong><small>在原运行身份下恢复研究</small></span></div></div><a class="text-link" href="https://github.com/LikC1606/theorem-os/blob/main/docs/usage.md#4-恢复运行" target="_blank" rel="noreferrer">了解运行与恢复<i data-lucide="arrow-up-right"></i></a></div><div class="archive-showcase"><div class="showcase-label"><span class="mono">THEOREMOS / PROOF ARCHIVE</span><a href="archive.html" aria-label="打开证明档案"><i data-lucide="arrow-up-right"></i></a></div><a class="archive-image-link" href="archive.html" aria-label="打开可检索的证明档案"><img src="assets/archive-preview.png" alt="TheoremOS 证明档案真实界面，支持按验收状态筛选、搜索数学题目、查看 Lean 源码与验证证据。" width="1440" height="900" loading="lazy"></a><div class="showcase-footer"><span class="status-dot"></span>静态证明档案预览 · 运行记录保存在本机<span class="mono">PROOF ARCHIVE</span></div></div></div></section>
+    </div>
+    <section class="records-section" aria-labelledby="records-title"><div class="records-layout wrap"><div class="records-copy"><p class="eyebrow"><span class="section-index">03</span> EVERY ATTEMPT MATTERS</p><h2 id="records-title">每一次探索，<br><em>都有迹可循。</em></h2><p class="records-description">一次失败，也可以成为下一次尝试的起点。<br>把候选、诊断与用量写入运行档案，<br>让研究可以复盘，也可以恢复。</p><div class="record-features"><div><i data-lucide="fingerprint"></i><span><strong>固定实验条件</strong><small>绑定原题、环境与组件版本</small></span></div><div><i data-lucide="git-branch"></i><span><strong>保留研究轨迹</strong><small>追踪尝试、检查与累计用量</small></span></div><div><i data-lucide="history"></i><span><strong>从断点继续</strong><small>在原运行身份下恢复研究</small></span></div></div><a class="text-link" href="https://github.com/LikC1606/theorem-os/blob/main/docs/usage.md#4-恢复运行" target="_blank" rel="noreferrer">了解运行与恢复<i data-lucide="arrow-up-right"></i></a></div><div class="archive-showcase"><div class="showcase-label"><span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="mono">theoremos / proof archive</span><a href="archive.html" aria-label="打开证明档案"><i data-lucide="arrow-up-right"></i></a></div><a class="archive-image-link" href="archive.html" aria-label="打开可检索的证明档案"><img src="assets/archive-preview.png" alt="TheoremOS 证明档案真实界面，支持按验收状态筛选、搜索数学题目、查看 Lean 源码与验证证据。" width="1440" height="900" loading="lazy"></a><div class="showcase-footer"><span class="status-dot"></span>静态证明档案预览 · 运行记录保存在本机<span class="mono">PROOF ARCHIVE</span></div></div></div></section>
 
     <section class="start-section" id="start" aria-labelledby="start-title"><div class="start-layout wrap"><div class="start-copy"><p class="eyebrow"><span class="section-index">04</span> YOUR NEXT EXPLORATION</p><h2 id="start-title">下一次探索，<br><em>从这里开始。</em></h2><p>先在本机回放一道自然数加法小题，<br>亲自走过候选、检查与验收。</p><span class="replay-label"><i data-lucide="terminal"></i>预设证明 · 全程不调用模型</span><div class="start-links"><a class="button button-lime" href="https://github.com/LikC1606/theorem-os" target="_blank" rel="noreferrer">在 GitHub 获取<i data-lucide="arrow-up-right"></i></a><a class="text-link" href="https://github.com/LikC1606/theorem-os/blob/main/docs/usage.md" target="_blank" rel="noreferrer">阅读文档<i data-lucide="arrow-up-right"></i></a></div></div><div class="start-terminal"><div class="terminal-heading"><span class="terminal-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="mono">theoremos / quickstart</span><i data-lucide="terminal"></i></div><div class="command-tabs" role="tablist" aria-label="快速体验步骤"><button id="command-install" type="button" role="tab" aria-controls="install-panel" aria-selected="true" tabindex="0" data-command="install"><span class="mono">01</span>获取项目</button><button id="command-replay" type="button" role="tab" aria-controls="replay-panel" aria-selected="false" tabindex="-1" data-command="replay"><span class="mono">02</span>本地回放</button><button class="copy-command" type="button" aria-label="复制获取项目命令"><i data-lucide="copy"></i><span>复制</span></button></div><div id="install-panel" class="command-panel" role="tabpanel" aria-labelledby="command-install" tabindex="0"><p class="terminal-comment"># 获取开源运行时</p><pre><code>git clone https://github.com/LikC1606/theorem-os.git
 cd theorem-os
@@ -93,7 +97,7 @@ bun run math inspect --run "$THEOREMOS_CASE/result.json"</code></pre><a class="t
     <section class="faq-section wrap" aria-labelledby="faq-title"><div><p class="eyebrow">A FEW THINGS TO KNOW</p><h2 id="faq-title">开始之前。</h2><span class="faq-version mono">v0.1.0 / RESEARCH PREVIEW</span></div><div class="faq-list"><details><summary>适合用来做什么？<i data-lucide="plus"></i></summary><p>面向数学 Agent 研究者和 Lean 开发者，用于构造证明、比较搜索与协作方法，以及复盘研究实验。当前为研究预览版本，支持通过 TypeScript 源码扩展组件。</p></details><details><summary>可以直接在网页运行证明吗？<i data-lucide="plus"></i></summary><p>这个网站提供项目介绍和可检索的静态证明档案。研究运行与 Lean 检查在你自己的 Linux 环境中执行；先按上面的命令回放，再参考文档配置真实 Agent 研究。</p></details><details><summary>体验时需要配置模型吗？<i data-lucide="plus"></i></summary><p>本地预设回放不调用模型，不需要模型认证。让 Agent 生成新证明时，需要按文档配置模型会话与认证，并会产生相应的模型用量。</p></details></div></section>
   </main>
 
-  <footer class="site-footer wrap"><div class="footer-top"><a class="brand" href="index.html"><img src="assets/mark.png" alt="" width="31" height="31"><span>Theorem<span class="brand-os">OS</span></span></a><p>让数学探索，有据可循。</p><nav aria-label="页脚链接"><a href="archive.html">证明档案</a><a href="https://github.com/LikC1606/theorem-os/blob/main/docs/usage.md" target="_blank" rel="noreferrer">文档</a><a href="https://github.com/LikC1606/theorem-os" target="_blank" rel="noreferrer">GitHub<i data-lucide="arrow-up-right"></i></a></nav></div><div class="footer-wordmark" aria-hidden="true">Theorem<span>OS</span><span class="wordmark-symbol">⊢</span></div><div class="footer-bottom"><span>© 2026 TheoremOS contributors</span><span class="mono">BUILT FOR OPEN MATHEMATICAL RESEARCH</span><a href="LICENSE.txt">AGPL-3.0-only<i data-lucide="arrow-up-right"></i></a></div></footer>
+  <div class="footer-shell"><footer class="site-footer wrap"><div class="footer-top"><a class="brand" href="index.html"><img src="assets/mark.svg" alt="" width="31" height="31"><span>Theorem<span class="brand-os">OS</span></span></a><p>让数学探索，有据可循。</p><nav aria-label="页脚链接"><a href="archive.html">证明档案</a><a href="https://github.com/LikC1606/theorem-os/blob/main/docs/usage.md" target="_blank" rel="noreferrer">文档</a><a href="https://github.com/LikC1606/theorem-os" target="_blank" rel="noreferrer">GitHub<i data-lucide="arrow-up-right"></i></a></nav></div><div class="footer-wordmark" aria-hidden="true">Theorem<span>OS</span><span class="wordmark-symbol">⊢</span></div><div class="footer-bottom"><span>© 2026 TheoremOS contributors</span><span class="mono">BUILT FOR OPEN MATHEMATICAL RESEARCH</span><a href="LICENSE.txt">AGPL-3.0-only<i data-lucide="arrow-up-right"></i></a></div></footer></div>
   <div class="toast" id="toast" role="status" hidden></div>
   <script src="landing.js" defer></script>
 </body>

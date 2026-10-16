@@ -41,7 +41,7 @@ h3 { font-size: 13px; font-weight: 650; }
 .skip-link:focus { top: 10px; }
 .topbar { height: 66px; display: flex; align-items: center; justify-content: space-between; padding: 0 28px; border-bottom: 1px solid var(--line); background: #fcfdfc; gap: 16px; }
 .brand { display: inline-flex; align-items: center; gap: 11px; font-size: 21px; font-weight: 720; white-space: nowrap; }
-.brand-os { color: var(--green); }
+.brand-os { color: #326cf5; }
 .brand-mark { width: 32px; height: 32px; border-radius: 6px; }
 .preview-tag { margin-left: 12px; font-size: 11px; font-weight: 500; color: #69726e; border-left: 1px solid #d8dfdb; padding-left: 20px; }
 .header-links { display: flex; align-items: center; gap: 26px; color: #58615d; font-size: 13px; }

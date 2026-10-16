@@ -6,26 +6,48 @@ const escape = (value: string) => value.replace(/[&<>"']/g, character => ({
 
 /** A mathematical illustration, separate from the archived proof and its evidence. */
 export function researchManifold() {
-  const project = (u: number, v: number) => {
-    const radius = 146 + 67 * Math.cos(v);
-    const x = radius * Math.cos(u), y = radius * Math.sin(u), z = 67 * Math.sin(v);
-    const tilt = 1.04;
-    const yy = y * Math.cos(tilt) - z * Math.sin(tilt);
-    const angle = -0.38;
-    return [320 + x * Math.cos(angle) - yy * Math.sin(angle), 282 + x * Math.sin(angle) + yy * Math.cos(angle)];
+  type Vector = [number, number, number];
+  const normalize = (v: Vector): Vector => {
+    const length = Math.hypot(...v);
+    return v.map(value => value / length) as Vector;
   };
-  const path = (sample: (t: number) => number[], count: number) => Array.from({ length: count + 1 }, (_, i) => {
-    const [x, y] = sample(i / count * Math.PI * 2);
-    return `${i ? 'L' : 'M'}${x.toFixed(2)},${y.toFixed(2)}`;
-  }).join(' ');
-  const rings = Array.from({ length: 32 }, (_, i) => `<path d="${path(t => project(i / 32 * Math.PI * 2, t), 70)}"/>`);
-  const parallels = Array.from({ length: 20 }, (_, i) => `<path d="${path(t => project(t, i / 20 * Math.PI * 2), 130)}"/>`);
-  const trace = path(t => project(t * 2, t * 3), 320);
-  const nodes = Array.from({ length: 5 }, (_, i) => {
-    const [x, y] = project(i / 5 * Math.PI * 2 + 0.3, i / 5 * Math.PI * 6 + 0.4);
-    return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="4" class="manifold-node"/>`;
-  });
-  return `<g class="manifold-wire">${rings.join('')}${parallels.join('')}</g><path class="manifold-route" d="${trace}"/><path class="manifold-pulse" d="${trace}"/>${nodes.join('')}`;
+  const cross = (a: Vector, b: Vector): Vector => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const rotate = ([x, y, z]: Vector): Vector => {
+    const a = -.42, b = .64, c = -.22;
+    const yy = y * Math.cos(a) - z * Math.sin(a), zz = y * Math.sin(a) + z * Math.cos(a);
+    const xx = x * Math.cos(b) + zz * Math.sin(b), zzz = -x * Math.sin(b) + zz * Math.cos(b);
+    return [xx * Math.cos(c) - yy * Math.sin(c), xx * Math.sin(c) + yy * Math.cos(c), zzz];
+  };
+  const vertex = (u: number, v: number) => {
+    const center: Vector = [54 * (Math.sin(u) + 2 * Math.sin(2 * u)), 54 * (Math.cos(u) - 2 * Math.cos(2 * u)), -57 * Math.sin(3 * u)];
+    const tangent = normalize([Math.cos(u) + 4 * Math.cos(2 * u), -Math.sin(u) + 4 * Math.sin(2 * u), -3 * Math.cos(3 * u)]);
+    const normal = normalize(cross(tangent, Math.abs(tangent[2]) > .92 ? [0, 1, 0] : [0, 0, 1]));
+    const binormal = cross(tangent, normal);
+    const outward = normal.map((value, i) => value * Math.cos(v) + binormal[i] * Math.sin(v)) as Vector;
+    return { point: rotate(center.map((value, i) => value + 27 * outward[i]) as Vector), normal: rotate(outward) };
+  };
+  const project = ([x, y, z]: Vector) => {
+    const perspective = 850 / (850 - z) * 1.22;
+    return `${(320 + x * perspective).toFixed(1)},${(265 + y * perspective).toFixed(1)}`;
+  };
+  const faces: { depth: number; markup: string }[] = [];
+  const steps = 180, sides = 28;
+  const light = normalize([-.4, -.65, .9]);
+  for (let i = 0; i < steps; i++) for (let j = 0; j < sides; j++) {
+    const u = i / steps * Math.PI * 2, v = j / sides * Math.PI * 2;
+    const du = Math.PI * 2 / steps, dv = Math.PI * 2 / sides;
+    const corners = [vertex(u, v), vertex(u + du, v), vertex(u + du, v + dv), vertex(u, v + dv)];
+    const { normal } = vertex(u + du / 2, v + dv / 2);
+    const diffuse = Math.max(0, normal.reduce((sum, value, axis) => sum + value * light[axis], 0));
+    const rim = Math.pow(1 - Math.abs(normal[2]), 3);
+    const specular = Math.pow(diffuse, 12);
+    const channel = (base: number, spread: number) => Math.min(255, Math.round(base + spread * diffuse + rim * 24 + specular * 50));
+    const color = `rgb(${channel(22, 70)},${channel(53, 115)},${channel(136, 105)})`;
+    faces.push({ depth: corners.reduce((sum, corner) => sum + corner.point[2], 0) / 4,
+      markup: `<path d="M${corners.map(corner => project(corner.point)).join('L')}Z" fill="${color}" stroke="${color}" stroke-width=".7"/>` });
+  }
+  const orbit = 'M65,292a255,145 0 1,0 510,0a255,145 0 1,0-510,0';
+  return `<g class="manifold-wire">${faces.sort((a, b) => a.depth - b.depth).map(face => face.markup).join('')}</g><path class="manifold-route" d="${orbit}"/><path class="manifold-pulse" d="${orbit}"/>`;
 }
 
 const artworks: Record<string, string> = {

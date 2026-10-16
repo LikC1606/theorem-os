@@ -1,10 +1,10 @@
 import {
-  createIcons, ArrowDown, ArrowDownRight, ArrowRight, ArrowUpRight, Check,
+  createIcons, ArrowDown, ArrowDownRight, ArrowRight, ArrowUpRight, Blocks, Check, Code2,
   Copy, FileCode2, Fingerprint, GitBranch, GitFork, History, Info,
   Menu, Pause, Play, Plus, ScanLine, ShieldCheck, Terminal, X,
 } from 'lucide';
 
-const iconSet = { ArrowDown, ArrowDownRight, ArrowRight, ArrowUpRight, Check, Copy,
+const iconSet = { ArrowDown, ArrowDownRight, ArrowRight, ArrowUpRight, Blocks, Check, Code2, Copy,
   FileCode2, Fingerprint, GitBranch, GitFork, History, Info, Menu, Pause, Play, Plus,
   ScanLine, ShieldCheck, Terminal, X };
 const icons = () => createIcons({ icons: iconSet, attrs: { 'aria-hidden': 'true' } });

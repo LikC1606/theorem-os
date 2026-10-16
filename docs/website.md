@@ -40,7 +40,7 @@ bun run build:site
 - `docs/archive.html`、`docs/site.css`、`docs/web/app.ts`：证明档案界面。
 - `scripts/build-site.ts`：构建两个页面、浏览器脚本和公开数据，并复制素材与许可证。
 
-首页图形是研究空间的概念示意；组件图中的五个节点表示五类研究决策。最终完整原题验收单独展示。页面支持键盘操作，并尊重系统的减少动态效果设置。
+首页采用深蓝首屏、亮蓝研究图形和浅色内容区，桌面与手机分别布局。三维结形 SVG 是研究空间的概念示意，曲面在构建时生成；浏览器只对轨道上的单条线条应用动效。组件图中的五个节点表示五类研究决策，最终完整原题验收单独展示。页面支持键盘操作，并尊重系统的减少动态效果设置。
 
 ## 验证
 
@@ -62,7 +62,9 @@ bun run test:site
 
 ## 视觉素材
 
-`docs/assets/mark.png` 是项目标记。`social-preview.png` 是分享卡片，由首页数学图形和排版生成。修改设计后运行：
+`docs/assets/mark.svg` 是首页与档案共用的蓝色项目标记，`mark.png` 保留为位图版本。首页使用本地 Inter 可变字体，中文使用系统无衬线字体；字体及 SIL Open Font License 保存在 `docs/assets/fonts/`。构建时将字体嵌入样式，确保直接打开本地文件时也能加载，页面不依赖外部字体服务。
+
+`social-preview.png` 是分享卡片，由首页数学图形和排版生成。修改设计后运行：
 
 ```bash
 bun run build:site
