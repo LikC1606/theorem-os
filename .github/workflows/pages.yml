@@ -50,6 +50,7 @@ jobs:
           path: out/site
   deploy:
     needs: build
+    if: vars.PAGES_ENABLED == 'true'
     permissions:
       pages: write
       id-token: write

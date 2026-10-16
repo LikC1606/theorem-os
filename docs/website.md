@@ -54,7 +54,7 @@ bun run test:site
 
 ## GitHub Pages 部署
 
-工作流位于 `.github/workflows/pages.yml`。在 GitHub 仓库的 **Settings → Pages → Build and deployment** 中选择 **GitHub Actions**。配置好 Pages 后，推送页面或档案变化到 `main` 会运行检查并部署 `out/site`；也可以手动触发。
+工作流位于 `.github/workflows/pages.yml`。在 GitHub 仓库的 **Settings → Pages → Build and deployment** 中选择 **GitHub Actions**，再在 **Settings → Secrets and variables → Actions → Variables** 中添加仓库变量 `PAGES_ENABLED`，值为 `true`。配置好 Pages 后，推送页面或档案变化到 `main` 会运行检查并部署 `out/site`；也可以手动触发。未开启该变量时仍会执行构建与浏览器检查，并跳过发布，适用于尚未配置 Pages 或当前套餐不支持私有仓库 Pages 的情况。
 
 预期地址为 `https://likc1606.github.io/theorem-os/`。私有源仓库需要账号支持该仓库的 Pages 功能；源仓库是否私有与站点是否公开是两个设置。工作流不改变仓库可见性，也不自动创建 Pages 配置。
 
