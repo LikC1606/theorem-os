@@ -22,6 +22,7 @@ import { runResearchWorkers, type WorkerAccess } from './research';
 import { evaluateSolverProof } from './evaluation';
 import { solverProofIsCurrent } from './modules/evidence';
 import { checkCodexProviderConnectivity } from '../runtime/codexConnectivity';
+import { buildTokenBudget } from './usageBudget';
 
 export async function runSolver(args: string[], root: string, customModules?: SolverModules): Promise<number> {
   const { values } = parseArgs({ args, options: {
@@ -29,6 +30,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
     output: { type: 'string' }, 'build-manifest': { type: 'string' }, model: { type: 'string', default: 'gpt-6.1-sol' },
     effort: { type: 'string', default: 'xhigh' }, codex: { type: 'string' }, resume: { type: 'boolean' },
     'max-run-seconds': { type: 'string', default: '1800' }, 'max-turns': { type: 'string', default: '200' },
+    'max-total-tokens': { type: 'string', default: '0' },
     'prepare-timeout-seconds': { type: 'string', default: '1800' }, 'max-turn-seconds': { type: 'string', default: '180' },
     'evaluator-command': { type: 'string' }, 'evaluator-timeout-seconds': { type: 'string', default: '1800' },
     'proof-environment-cache-dir': { type: 'string' }, 'startup-only': { type: 'boolean' }, help: { type: 'boolean' },
@@ -36,7 +38,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
     scheduler: { type: 'string', default: 'plan' }, coordination: { type: 'string', default: 'cooperative' },
   } });
   if (values.help) {
-    console.log('Usage: theorem-os run --workspace DIR --task-file FILE --output FILE --build-manifest FILE [--receipt-file FILE] [--resume] [--method direct|lemma] [--scheduler plan|goals-first|critical-path|primary-led] [--coordination cooperative|independent] [--workers 1|2|3|4] [--model MODEL --effort LEVEL] [--max-run-seconds N --max-turns N --max-turn-seconds N] [--prepare-timeout-seconds N] [--evaluator-command CMD --evaluator-timeout-seconds N] [--proof-environment-cache-dir DIR] [--startup-only]\nUse 0 for --max-run-seconds, --max-turns, --max-turn-seconds or --evaluator-timeout-seconds to disable that limit. Unlimited total solving time also disables proof verification deadlines.');
+    console.log('Usage: theorem-os run --workspace DIR --task-file FILE --output FILE --build-manifest FILE [--receipt-file FILE] [--resume] [--method direct|lemma] [--scheduler plan|goals-first|critical-path|continuation|primary-led] [--coordination cooperative|independent] [--workers 1|2|3|4] [--model MODEL --effort LEVEL] [--max-run-seconds N --max-turns N --max-turn-seconds N] [--max-total-tokens N] [--prepare-timeout-seconds N] [--evaluator-command CMD --evaluator-timeout-seconds N] [--proof-environment-cache-dir DIR] [--startup-only]\nUse 0 for --max-run-seconds, --max-turns, --max-turn-seconds or --evaluator-timeout-seconds to disable that limit. Unlimited total solving time also disables proof verification deadlines.\n--max-total-tokens defaults to 0 (unlimited). A finite value stops new model turns after provider-reported consumption reaches it; in-flight turns finish and may exceed it. Resume retains cumulative usage and the saved allowance unless explicitly changed.');
     return 0;
   }
   const configured = configuredSolverModules(values.method!, values.scheduler!);
@@ -58,6 +60,9 @@ export async function runSolver(args: string[], root: string, customModules?: So
   const preparationMs = limit('prepare-timeout-seconds') * 1000;
   const maxTurnMs = limit('max-turn-seconds', true) * 1000;
   const maxTurns = limit('max-turns', true);
+  let maxTotalTokens = Number(values['max-total-tokens']);
+  if (!Number.isSafeInteger(maxTotalTokens) || maxTotalTokens < 0) throw new Error('invalid --max-total-tokens');
+  const tokenLimitSpecified = args.some(arg => arg === '--max-total-tokens' || arg.startsWith('--max-total-tokens='));
   const evaluatorMs = limit('evaluator-timeout-seconds', true) * 1000;
   const workerCount = limit('workers');
   if (workerCount > 4) throw new Error('invalid --workers');
@@ -118,6 +123,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
       let sourceFeedback: string | undefined;
       if (values.resume) {
         state = readSolverRunState(stateFile);
+        if (!tokenLimitSpecified) maxTotalTokens = state.tokenBudget?.maxTotalTokens ?? 0;
         if (!state.methodDigest && modules === directSolverModules && coordination === 'cooperative') state.methodDigest = identity.methodDigest;
         if ((state.coordination ?? 'cooperative') !== coordination) throw new Error('math_resume_coordination_changed');
         if ((state.workerCount ?? 1) !== workerCount) throw new Error('math_resume_worker_count_changed');
@@ -150,7 +156,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
         ownsRun = true;
         state = { schema: 'deepscientist.math.solver.v1', runId: crypto.randomUUID(), problem, ...identity,
           worktree: path.join(directory, 'worktree'), phase: 'prepared', turns: 0, dispatchCounts: {}, workerCount,
-          coordination, moduleConfiguration };
+          coordination, moduleConfiguration, tokenBudget: buildTokenBudget(maxTotalTokens, []) };
         if (workerCount > 1) state.workers = workers
           .map(worker => ({ id: worker.id, role: worker.role, worktree: worker.worktree, phase: 'prepared', turns: 0, dispatchCounts: {} }));
         git(workspace, ['worktree', 'add', '--detach', state.worktree, problem.baseCommit]);
@@ -158,6 +164,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
       }
       ownsRun = true;
       ownedState = state;
+      state.tokenBudget = buildTokenBudget(maxTotalTokens, state.workers ?? [state]);
       const save = () => writeSolverRunState(stateFile, state);
       for (const worker of workers.slice(1)) {
         signal.throwIfAborted();
@@ -308,7 +315,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
       const winner = await runResearchWorkers({ state, workers, access: workerAccess, modules, root, buildFile, taskText: task,
         executable: values.codex || process.env.DEEPSCIENTIST_MATH_CODEX_EXECUTABLE || 'codex',
         profile: process.env.CODEX_HOME || path.join(os.homedir(), '.config/deepscientist/math-sol-codex'),
-        signal, deadline, maxTurns, maxTurnMs, proofTimeoutMs: maxRunMs === Infinity ? Infinity : undefined, save, emit });
+        signal, deadline, maxTurns, maxTurnMs, maxTotalTokens, proofTimeoutMs: maxRunMs === Infinity ? Infinity : undefined, save, emit });
       clearTimeout(timer);
       timer = undefined;
       state.solveFinishedAt = Date.now();
@@ -323,11 +330,12 @@ export async function runSolver(args: string[], root: string, customModules?: So
         emit('evaluation_finished', { status: evaluation.status, durationMs: Date.now() - evaluationStarted });
       }
       state.phase = 'finished'; save();
-      const status = signal.aborted ? 'limit_reached' : evaluation.status === 'passed' ? 'evaluated_passed' : evaluation.status === 'failed' ? 'evaluated_failed' : evaluation.status === 'error' ? 'runtime_error' : 'incomplete';
+      const status = signal.aborted ? 'limit_reached' : evaluation.status === 'passed' ? 'evaluated_passed' : evaluation.status === 'failed' ? 'evaluated_failed' : evaluation.status === 'error' ? 'runtime_error' : state.tokenBudget?.reason ? 'limit_reached' : 'incomplete';
       const result = { schema: 'deepscientist.math.run.v2', runId: state.runId, problemId: state.problem.contract.problemId,
         status, run_outcome: status, solution_commit: state.check?.passed ? state.check.commit : null,
         solver_ready_receipt_valid: state.check?.passed === true, completion_signal_valid: evaluation.status === 'passed',
-        evaluator: evaluation, turns: state.turns, dispatchCounts: state.dispatchCounts,
+        evaluator: evaluation, turns: state.turns, dispatchCounts: state.dispatchCounts, tokenBudget: state.tokenBudget,
+        ...(status === 'limit_reached' && state.tokenBudget?.reason ? { reason: state.tokenBudget.reason } : {}),
         solveWallMs: state.solveFinishedAt - state.solveStartedAt, usage: state.usage, stateFile, winningWorker: state.winningWorker,
         workers: state.workers?.map(worker => ({ id: worker.id, role: worker.role, turns: worker.turns,
           dispatchCounts: worker.dispatchCounts, usage: worker.usage, error: worker.error })) };
@@ -347,9 +355,9 @@ export async function runSolver(args: string[], root: string, customModules?: So
     writeMathJsonDurable(output, { schema: 'deepscientist.math.run.v2', status, run_outcome: status,
       reason: controller.signal.aborted ? preparing ? 'math_preparation_stopped' : 'math_run_stopped' : error instanceof Error ? error.message : 'math_runtime_error',
       runId: ownedState?.runId, problemId: ownedState?.problem.contract.problemId, turns: ownedState?.turns,
-      dispatchCounts: ownedState?.dispatchCounts, usage: ownedState?.usage,
+      dispatchCounts: ownedState?.dispatchCounts, usage: ownedState?.usage, tokenBudget: ownedState?.tokenBudget,
       workers: ownedState?.workers?.map(worker => ({ id: worker.id, role: worker.role, turns: worker.turns,
-        dispatchCounts: worker.dispatchCounts, error: worker.error })),
+        dispatchCounts: worker.dispatchCounts, usage: worker.usage, error: worker.error })),
       evaluator: { status: 'skipped' }, stateFile });
     emit('finished', { status, output });
     return controller.signal.aborted ? 4 : 1;

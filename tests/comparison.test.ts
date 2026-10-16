@@ -1,8 +1,11 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { comparisonOrder, comparisonReport, comparisonTotals } from '../scripts/mathematics/compareMathRuns';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { compareMathRuns, comparisonOrder, comparisonReport, comparisonTotals } from '../scripts/mathematics/compareMathRuns';
+import * as imoAdapter from '../src/math/imo2026Adapter';
+import * as buildManifest from '../src/math/mathBuildManifest';
+import * as solverProblem from '../src/solver/problem';
 import { configuredSolverModules, directSolverModules, solverMethodDigest } from '../src/solver/modules';
 import { readyResearchTasks } from '../src/solver/modules/search';
 import { researchWorkers } from '../src/solver/modules/organization';
@@ -10,7 +13,10 @@ import { canonicalMathJson, mathDigest } from '../src/math/mathRuntimeIo';
 import type { RouteRecord, TaskRecord } from '../src/solver/tasks';
 
 const directories: string[] = [];
-afterEach(() => { for (const directory of directories.splice(0)) fs.rmSync(directory, { recursive: true, force: true }); });
+afterEach(() => {
+  vi.restoreAllMocks();
+  for (const directory of directories.splice(0)) fs.rmSync(directory, { recursive: true, force: true });
+});
 
 describe('configured research comparisons', () => {
   const node = (id: string, kind: 'lemma' | 'goal', dependsOn: string[] = [], status?: 'paused'): TaskRecord => ({
@@ -114,6 +120,105 @@ describe('configured research comparisons', () => {
     expect(totals[2]).toMatchObject({ planned: 0, acceptanceRate: null });
   });
 
+  it.each([undefined, '1000'])('prepares all three arms with the shared token allowance %s without running a model', async allowance => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'math-comparison-prepare-')); directories.push(directory);
+    const repository = path.join(directory, 'repo'); fs.mkdirSync(repository);
+    const task = path.join(directory, 'task.md'); fs.writeFileSync(task, 'Prove the frozen public target.');
+    const manifest = path.join(directory, 'build.json'); fs.writeFileSync(manifest, '{}');
+    vi.spyOn(buildManifest, 'readMathBuildManifest').mockReturnValue({} as never);
+    const bootstrap = vi.spyOn(imoAdapter, 'bootstrapImo2026Problem').mockResolvedValue({} as never);
+    vi.spyOn(solverProblem, 'readSolverProblem').mockReturnValue({ receiptDigest: 'receipt' } as never);
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const output = path.join(directory, 'comparison');
+    expect(await compareMathRuns(['--phase', 'prepare', '--directory', output, '--repo', repository,
+      '--problem', imoAdapter.IMO2026_SUPPORTED_PROBLEMS[0], '--task-file', task, '--build-manifest', manifest,
+      '--scheduler', 'continuation', ...(allowance ? ['--max-total-tokens', allowance,
+        '--max-turns', '0', '--max-run-seconds', '0', '--max-turn-seconds', '0'] : [])])).toBe(0);
+    const plan = JSON.parse(fs.readFileSync(path.join(output, 'comparison.json'), 'utf8'));
+    expect(plan.configuration).toMatchObject({ scheduler: 'continuation', maxTotalTokens: Number(allowance ?? 0),
+      maxTurns: allowance ? 0 : 200, maxRunSeconds: allowance ? 0 : 1800, maxTurnSeconds: allowance ? 0 : 180 });
+    expect(bootstrap).toHaveBeenCalledTimes(3);
+    for (const job of plan.jobs) {
+      const launch = JSON.parse(fs.readFileSync(job.launch, 'utf8'));
+      expect(launch.args[launch.args.indexOf('--max-total-tokens') + 1]).toBe(allowance ?? '0');
+      expect(launch.args[launch.args.indexOf('--scheduler') + 1]).toBe('continuation');
+      expect(job.methodDigest).toBe(solverMethodDigest(configuredSolverModules('direct', 'continuation'),
+        job.arm === 'cooperative' ? 'cooperative' : 'independent'));
+    }
+  });
+
+  it('requires a comparison-wide limit even when individual turns have a timeout', async () => {
+    await expect(compareMathRuns(['--phase', 'prepare', '--directory', '/unused-comparison',
+      '--max-turns', '0', '--max-run-seconds', '0', '--max-turn-seconds', '180', '--max-total-tokens', '0']))
+      .rejects.toThrow('comparison requires a positive --max-turns, --max-run-seconds or --max-total-tokens');
+  });
+
+  it.each(['-1', '1.5', 'NaN', '9007199254740992'])('rejects invalid token allowance %s before preparing sources', async allowance => {
+    await expect(compareMathRuns(['--phase', 'prepare', '--directory', '/unused-comparison', `--max-total-tokens=${allowance}`]))
+      .rejects.toThrow('invalid --max-total-tokens');
+  });
+
+  it('reports dispatch-limit overrun and rejects a changed or absent finite allowance', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'math-comparison-budget-')); directories.push(directory);
+    const output = path.join(directory, 'result.json');
+    const plan = { schema: 'deepscientist.math.comparison.v1' as const, problem: 'p', sourceCommit: 'source',
+      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment',
+      configuration: { model: 'fixture', effort: 'xhigh', method: 'direct', scheduler: 'continuation', workers: 2,
+        maxTurns: 0, maxRunSeconds: 0, maxTurnSeconds: 0, maxTotalTokens: 100 },
+      jobs: [{ arm: 'single' as const, repetition: 1, launch: '', launchDigest: '', output,
+        receiptDigest: 'receipt', methodDigest: 'method' }] };
+    fs.mkdirSync(output + '.runtime');
+    const stateFile = output + '.runtime/state.json';
+    const tokenBudget = { maxTotalTokens: 100, enforcement: 'provider-observed-dispatch-limit', status: 'exhausted',
+      reportedTotalTokens: 120, usageComplete: true, overrunTokens: 20, reason: 'math_total_token_limit' };
+    const state = { schema: 'deepscientist.math.solver.v1', runId: 'run',
+      problem: { workspace: directory, receiptDigest: 'receipt' }, taskDigest: 'task', buildDigest: 'build',
+      environmentDigest: 'environment', evaluatorDigest: mathDigest('host-default'), methodDigest: 'method', model: 'fixture', effort: 'xhigh',
+      worktree: directory, phase: 'finished', turns: 1, coordination: 'independent', workerCount: 1,
+      usage: { totalTokens: 120 }, usageAccounting: { startedTurns: 1, reportedTurns: 1, pending: false, incomplete: false }, tokenBudget };
+    fs.writeFileSync(stateFile, JSON.stringify(state));
+    fs.writeFileSync(output, JSON.stringify({ schema: 'deepscientist.math.run.v2', runId: 'run', stateFile,
+      status: 'limit_reached', reason: 'math_total_token_limit' }));
+    expect(comparisonReport(directory, plan).runs[0]).toMatchObject({ status: 'limit_reached', accepted: false,
+      totalTokens: 120, usageComplete: true, overrunTokens: 20, tokenBudget });
+    fs.writeFileSync(stateFile, JSON.stringify({ ...state, tokenBudget: { ...tokenBudget, maxTotalTokens: 200 } }));
+    expect(comparisonReport(directory, plan).runs[0]).toMatchObject({ status: 'invalid', accepted: false,
+      totalTokens: null, usageComplete: false, error: 'comparison_token_budget_mismatch' });
+    fs.writeFileSync(stateFile, JSON.stringify({ ...state, tokenBudget: undefined }));
+    expect(comparisonReport(directory, plan).runs[0]).toMatchObject({ status: 'invalid', accepted: false,
+      error: 'comparison_token_budget_mismatch' });
+  });
+
+  it('keeps partial provider consumption visible without treating missing role usage as complete', () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'math-comparison-partial-budget-')); directories.push(directory);
+    const output = path.join(directory, 'result.json');
+    const plan = { schema: 'deepscientist.math.comparison.v1' as const, problem: 'p', sourceCommit: 'source',
+      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment',
+      configuration: { model: 'fixture', effort: 'xhigh', method: 'direct', scheduler: 'continuation', workers: 2,
+        maxTurns: 0, maxRunSeconds: 0, maxTurnSeconds: 0, maxTotalTokens: 100 },
+      jobs: [{ arm: 'independent' as const, repetition: 1, launch: '', launchDigest: '', output,
+        receiptDigest: 'receipt', methodDigest: 'method' }] };
+    fs.mkdirSync(output + '.runtime');
+    const stateFile = output + '.runtime/state.json';
+    fs.writeFileSync(stateFile, JSON.stringify({ schema: 'deepscientist.math.solver.v1', runId: 'run',
+      problem: { workspace: directory, receiptDigest: 'receipt' }, taskDigest: 'task', buildDigest: 'build',
+      environmentDigest: 'environment', evaluatorDigest: mathDigest('host-default'), methodDigest: 'method', model: 'fixture', effort: 'xhigh',
+      worktree: directory, phase: 'finished', turns: 2, coordination: 'independent', workerCount: 2,
+      usage: { totalTokens: 50 }, workers: [
+        { id: 'solver', role: 'lead', worktree: directory, phase: 'finished', turns: 1, usage: { totalTokens: 50 },
+          usageAccounting: { startedTurns: 1, reportedTurns: 1, pending: false, incomplete: false } },
+        { id: 'researcher-1', role: 'researcher', worktree: directory, phase: 'finished', turns: 1, error: 'provider failed',
+          usageAccounting: { startedTurns: 1, reportedTurns: 0, pending: false, incomplete: true } }],
+      tokenBudget: { maxTotalTokens: 100, enforcement: 'provider-observed-dispatch-limit', status: 'usage-unavailable',
+        reportedTotalTokens: 50, usageComplete: false, overrunTokens: 0, reason: 'math_model_usage_unavailable' } }));
+    fs.writeFileSync(output, JSON.stringify({ schema: 'deepscientist.math.run.v2', runId: 'run', stateFile,
+      status: 'limit_reached', reason: 'math_model_usage_unavailable' }));
+    const report = comparisonReport(directory, plan);
+    expect(report.runs[0]).toMatchObject({ status: 'limit_reached', accepted: false, totalTokens: null, usageComplete: false,
+      missingUsageWorkers: ['researcher-1'], tokenBudget: { reportedTotalTokens: 50, usageComplete: false }, overrunTokens: 0 });
+    expect(report.totals[1]).toMatchObject({ planned: 1, accepted: 0, missingTokenRuns: 1, reportedTokens: 0 });
+  });
+
   it('reports failed usage, partial usage and missing results without manufacturing acceptance', () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'math-comparison-')); directories.push(directory);
     const plan = { schema: 'deepscientist.math.comparison.v1' as const, problem: 'p', sourceCommit: 'source',
@@ -139,6 +244,8 @@ describe('configured research comparisons', () => {
     const report = comparisonReport(directory, plan);
     expect(report.runs.map(row => row.status)).toEqual(['runtime_error', 'runtime_error', 'missing']);
     expect(report.runs.map(row => row.totalTokens)).toEqual([100, null, null]);
+    expect(report.runs.map(row => row.usageComplete)).toEqual([true, false, false]);
+    expect(report.runs.every(row => row.tokenBudget === null)).toBe(true);
     expect(report.runs[0]).toMatchObject({ dispatches: 2, dispatchCounts: { proof: 2 }, solveWallMs: 4500 });
     expect(report.runs[1].missingUsageWorkers).toEqual(['engineer']);
     expect(report.runs.every(row => !row.accepted)).toBe(true);

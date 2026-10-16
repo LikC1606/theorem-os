@@ -225,14 +225,17 @@ Lead 计入 `--workers` 的总人数。默认配置中，Engineer 持续负责�
 | `--workers` | `4` | Agent 总数，支持 1–4 |
 | `--method` | `direct` | `direct` 或 `lemma` |
 | `--coordination` | `cooperative` | 协作，或 `independent` 独立并行尝试 |
-| `--scheduler` | `plan` | 按计划顺序调度；`goals-first` 优先已就绪原题目标；`critical-path` 按依赖链排序并共享任务；`primary-led` 由主智能体直接解题、按需请求协助 |
+| `--scheduler` | `plan` | 按计划顺序调度；`goals-first` 优先已就绪原题目标；`critical-path` 按依赖链排序；`continuation` 优先承接已证成果的主路径任务；`primary-led` 直接解题、按需请求协助 |
 | `--prepare-timeout-seconds` | `1800` | 环境准备与依赖预编译预算 |
 | `--max-run-seconds` | `1800` | 准备完成后的共享解题时间预算 |
 | `--max-turns` | `200` | 所有 Agent 合计模型调度次数 |
+| `--max-total-tokens` | `0` | 全部角色累计的 provider 报告 token 阈值；`0` 不限。达到后停止新模型请求，在途请求仍可完成并产生超额 |
 | `--max-turn-seconds` | `180` | 单轮时间限制；停止写入后检查已保存源码 |
 | `--evaluator-timeout-seconds` | `1800` | 集成后 Lean 复核与最终评测共享的独立时间预算 |
 
 `--max-run-seconds`、`--max-turns`、`--max-turn-seconds` 与 `--evaluator-timeout-seconds` 可设为 `0` 关闭对应限制。关闭总解题时间限制时，证明检查的期限也会关闭。
+
+`--max-total-tokens` 包含规划、研究、证明和审阅角色，按跨线程累计消费计算；恢复时继续使用历史用量，省略参数时保留已存额度。它依据 provider 的事后通知阻止新请求，不能保证并发在途消费不超过阈值。报告保留超额与用量完整性；有限额度下缺失已执行请求的用量会停止继续派发。旧运行未记录逐轮用量完整性，不能直接当作严格 token 对照。默认不限 token，不为已有长跑增加停止条件。
 
 ### 环境配置
 
@@ -303,6 +306,8 @@ bun run math check-lean \
 [index.ts](../src/solver/modules/index.ts) 绑定默认模块与版本；`runSolver(args, root, modules)` 支持替换模块，模块版本参与恢复身份。宿主固定执行源码边界检查、总预算限制和最终验收。当前 M3 采用规则与依赖调度，S2 跨任务学习尚未实现。
 
 命令行可用 `--scheduler goals-first` 单独替换 M3 的就绪任务排序；`--scheduler critical-path` 同时替换 M3 排序和 M5 分配，按通往未完成原题目标的最长依赖链排序，同长度时优先覆盖更多目标的任务，由 Researcher 和 Engineer 共同领取。显式负责人、路线限制和恢复归属仍然生效；链长只作启发式排序，不预测证明耗时。模块版本写入状态，恢复时校验。这些策略尚无性能提升结论。[三组对照实验](../examples/imo2026/COMPARISON.md) 提供固定题目、模型和总预算的准备、运行与汇总步骤，保留失败、缺失记录和用量缺口。
+
+`--scheduler continuation` 优先推进通往未完成原题、能够使用当前已证引理的就绪任务，再推进主路径的核心缺口；两项主路径工作并行时，为其他就绪路线保留一个探索机会。负责人、依赖、路线和固定版本检查继续生效。Lead、证明角色与 `inspect` 报告会看到原题的未闭合依赖前沿，并分别列出计划消费者、Lean 回执中的证明引用、声明引用和条件性引用。未记录消费者不代表引理无用；这些摘要不提供完成百分比或新的证明验收。重复两次交付未更新的继承研究笔记会交给 Lead 决策，正常长研究与 checkpoint 不按此计数。
 
 `--scheduler primary-led --coordination cooperative` 让主智能体从第一轮直接证明整题，其他智能体等待具体协助请求。主智能体可在 `RESEARCH.md` 的 JSON `requests` 数组中请求独立引理或只读研究；辅助成果在隔离工作区验收，主智能体选择采用并保留自己的证明进展。无需预先拆分所有原题目标，完整证明仍须通过宿主 Lean 检查和固定版本独立终审。单智能体或 `independent` 模式继续直接解题。该策略尚无真实模型性能结论。
 

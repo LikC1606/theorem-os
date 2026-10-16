@@ -21,6 +21,7 @@ import { applyTaskChanges, checkTaskProof, checkTaskProofs, omitTaskHelpers, own
 import { assertStatementSnapshot, captureStatementContexts, isStatementAction, readBacktranslation, resetStatementReview, statementReviewSummary, statementSnapshot, writeStatementSnapshot,
   type StatementAction, type StatementReview } from './statementReview';
 import { captureProofReferences, proofReferencesUnchanged, type ProofReferences } from './proofReferences';
+import { buildProofContinuation } from './progress';
 
 import { taskGroup, taskVersion, taskReferenceDependencies, assignmentDeliveryFile, markTaskReferences, hasTaskReferences, invalidatedTaskIds,
   type CooperativeTask, type RouteGroup, type RouteRecord, type TaskAssignment, type TaskRecord, type CooperativeAction } from './tasks';
@@ -40,6 +41,7 @@ export type CooperationState = { tasks: TaskRecord[]; groups?: RouteRecord[]; ca
   deliveries?: DeliveryRecord[]; cursors?: Record<string, number>; edits?: HumanEditRecord[];
   planVersion?: string; planEdited?: boolean; statementReviews?: StatementReview[];
   helpRequestDigest?: string;
+  unchangedResearch?: Record<string, { taskDigest: string; notesBlob: string; count: number }>;
   recheck?: { canonicalCommit: string; total: number; completed: number; taskId?: string };
   initialPlanFallback?: { at: number; reason: string } };
 type TaskVersions = ReadonlyMap<string, { task: CooperativeTask; version: string }>;
@@ -73,6 +75,7 @@ export class CooperativeResearch {
   private pinned = new Set<string>();
   constructor(private readonly input: { state: SolverRunState; workers: readonly ResearchWorker[];
     access: ReadonlyMap<string, WorkerAccess>; signal: AbortSignal; timeoutMs?: number;
+    modelDispatchAllowed?: () => boolean;
     save: () => void; emit: (event: string, details?: Record<string, unknown>) => void;
     modules: SolverModules; exclusiveCheck: <T>(check: () => Promise<T>) => Promise<T> }) {
     this.lead = input.workers[0];
@@ -149,12 +152,14 @@ export class CooperativeResearch {
           ...(visible.has(node) ? { objective: node.task.objective, feedback: node.feedback,
             actualReferences: (node.integratedCheck ?? node.proof)?.references } : {}) })),
         deliveries: deliveries.map(({ evidence: _evidence, ...record }) => record),
+        continuation: buildProofContinuation(scoped.tasks, { groups: scoped.groups, environmentDigest: this.input.state.environmentDigest }),
         statements: (scoped.statementReviews ?? []).map(statementReviewSummary),
       });
     }
     this.wake();
   }
   private wake() { for (const wake of this.waiters) wake(); this.waiters.clear(); }
+  modelBudgetChanged() { this.wake(); }
   activate(worker: ResearchWorker, action: CooperativeAction, interrupt: () => Promise<void>, notify: (message: string) => Promise<void>) {
     this.active.set(worker.id, { action, interrupt, notify }); this.changed();
   }
@@ -718,6 +723,7 @@ export class CooperativeResearch {
         : [...node.task.dependsOn, ...(node.assignment?.dependencies?.map(dependency => dependency.taskId) ?? [])]];
     }));
     const invalidated = invalidatedTaskIds(this.archive.tasks, tasks, changedGroups, dependencies);
+    for (const id of invalidated) if (this.archive.unchangedResearch) delete this.archive.unchangedResearch[id];
     for (const previousEdit of this.archive.edits ?? []) for (const result of previousEdit.recheck?.tasks ?? [])
       if (invalidated.has(result.taskId) && result.status !== 'removed') result.status = 'superseded';
     for (const record of this.archive.deliveries ?? []) if (record.taskId && invalidated.has(record.taskId)) record.status = 'superseded';
@@ -841,19 +847,29 @@ export class CooperativeResearch {
       if (!this.liveWorkers.has(this.lead.id)) return;
       // Publish complete fixed snapshots before assigning work against a newly changed plan.
       if (this.preparingStatements) { await this.preparingStatements.catch(() => {}); continue; }
+      const modelAllowed = this.input.modelDispatchAllowed?.() !== false;
       if (worker.id === this.lead.id) {
         if (this.primaryLed) {
           const review = this.archive.review;
           if (review && ['pending', 'running'].includes(review.status)) {
-            if (!this.livePeers.length || (review.status === 'pending' &&
-                ((this.input.state.turns >= budget.maxTurns && !this.reservedTurns.size) || budget.remainingMs <= 0))) return;
+            if (!this.livePeers.length) return;
+            if (review.status === 'pending' &&
+                ((this.input.state.turns >= budget.maxTurns && !this.reservedTurns.size) || budget.remainingMs <= 0 || !modelAllowed)) {
+              if (!modelAllowed && this.active.size) { await this.wait(); continue; }
+              return;
+            }
             await this.wait(); continue;
           }
           if (this.reviewed() && this.lastAssembly !== review!.commit) {
             this.lastAssembly = review!.commit;
             return { kind: 'assemble', seedCommit: review!.commit };
           }
-          if (this.input.state.turns >= budget.maxTurns || budget.remainingMs <= 0) return;
+          if (this.input.state.turns >= budget.maxTurns || budget.remainingMs <= 0 || !modelAllowed) {
+            if (!modelAllowed && (this.active.size || this.archive.tasks.some(node => ['running', 'delivered'].includes(node.status)))) {
+              await this.wait(); continue;
+            }
+            return;
+          }
           return { kind: 'solve', seedCommit: git(worker.worktree, ['rev-parse', 'HEAD']) };
         }
         const head = this.archive.canonicalCommit!;
@@ -866,9 +882,10 @@ export class CooperativeResearch {
         const running = this.active.size > 0 || this.archive.tasks.some(node => ['running', 'delivered'].includes(node.status) ||
           (node.status === 'conditional' && taskDependenciesReady(node.task, this.archive.tasks))) || this.archive.review?.status === 'running' ||
           this.archive.statementReviews?.some(review => ['translating', 'reviewing'].includes(review.status) ||
-            (['pending', 'translated'].includes(review.status) && this.livePeers.length > 0 &&
+            (modelAllowed && this.input.state.turns < budget.maxTurns && budget.remainingMs > 0 &&
+              ['pending', 'translated'].includes(review.status) && this.livePeers.length > 0 &&
               routeAllowsTask(this.node(review.taskId).task, this.archive.tasks, this.archive.groups)));
-        if (this.input.state.turns >= budget.maxTurns || budget.remainingMs <= 0) {
+        if (this.input.state.turns >= budget.maxTurns || budget.remainingMs <= 0 || !modelAllowed) {
           if (running) { await this.wait(); continue; }
           return;
         }
@@ -893,7 +910,7 @@ export class CooperativeResearch {
           return { kind: 'lead', seedCommit: this.seed(worker, head), planVersion: this.archive.planVersion };
         }
       } else {
-        if (budget.remainingMs <= 0) return;
+        if (budget.remainingMs <= 0 || !modelAllowed) return;
         if (this.input.state.turns >= budget.maxTurns) {
           const pending = this.waitForTurn(budget.maxTurns);
           if (pending) { await pending; continue; }
@@ -1006,6 +1023,8 @@ export class CooperativeResearch {
     const visibleIds = new Set(tasks.map(node => node.task.id));
     const visible = (id: string, version: string) => visibleIds.has(id) && versions.get(id)?.version === version;
     return { ...this.archive, tasks,
+      unchangedResearch: this.archive.unchangedResearch && Object.fromEntries(Object.entries(this.archive.unchangedResearch)
+        .filter(([id, record]) => visible(id, record.taskDigest))),
       // Public progress can steer another route before its proof is complete; it remains advisory.
       deliveries: this.archive.deliveries?.filter(item => this.deliveryVisible(item, task, versions) &&
         (task || tasks === this.archive.tasks || !item.taskId || versions.get(item.taskId)?.task.sharing !== 'group')) ?? [],
@@ -1124,18 +1143,23 @@ export class CooperativeResearch {
       return { checkWhole: false };
     }
     if (['conditional', 'integrated'].includes(node.status)) return { checkWhole: false };
+    let unchangedNotesBlob: string | undefined;
     try {
       if (advisory(node.task)) {
         if (recovering) { this.interrupted(worker, action); return { checkWhole: false }; }
         taskChanges(this.input.state.problem, worker.worktree, commit, node.task, action.assignment);
         const notesBlob = (version: string) => git(worker.worktree, ['ls-tree', '--format=%(objectname)', version, '--', 'RESEARCH.md']);
-        if (notesBlob(action.assignment.seedCommit) === notesBlob(commit))
+        const inherited = notesBlob(action.assignment.seedCommit);
+        if (inherited === notesBlob(commit)) {
+          unchangedNotesBlob = inherited;
           throw new Error('math_research_delivery_unchanged: Replace inherited RESEARCH.md with findings for the current task.');
+        }
         const finding = block(worker.worktree, 'math-result', { taskId: node.task.id, conclusion: 'inconclusive' }, 'summary');
         const details = deliveryDetails(finding);
         if (finding?.taskId !== node.task.id || !details.summary.trim() || !['supporting', 'refuted', 'inconclusive'].includes(finding.conclusion))
           throw new Error('math_research_delivery_invalid');
-        node.finding = bounded(JSON.stringify(finding), 5000); node.status = 'completed';
+        node.finding = bounded(JSON.stringify(finding), 5000); node.status = 'completed'; node.feedback = undefined;
+        if (this.archive.unchangedResearch) delete this.archive.unchangedResearch[node.task.id];
         if (finding.needsDecision === true || finding.conclusion === 'refuted') this.needsLead = true;
         const remaining = [...new Set([...(details.remainingObligations ?? []),
           ...this.dependencies(node.task).filter(dependency => !['integrated', 'completed'].includes(dependency.status)).map(dependency => dependency.task.id)])];
@@ -1151,8 +1175,15 @@ export class CooperativeResearch {
       if (!this.current(action)) return { checkWhole: false };
       const feedback = error instanceof Error ? error.message : 'math_task_delivery_failed';
       if (feedback === 'math_verifier_unavailable') { this.rejected(action, feedback, commit); throw error; }
-      if (recovering || feedback.startsWith('math_research_delivery_unchanged:')) { node.feedback = feedback; this.interrupted(worker, action); }
-      else this.rejected(action, feedback, commit);
+      if (recovering) { node.feedback = feedback; this.interrupted(worker, action); }
+      else if (unchangedNotesBlob !== undefined) {
+        const previous = this.archive.unchangedResearch?.[node.task.id];
+        const count = previous?.taskDigest === action.assignment.taskDigest && previous.notesBlob === unchangedNotesBlob ? previous.count + 1 : 1;
+        (this.archive.unchangedResearch ??= {})[node.task.id] = { taskDigest: action.assignment.taskDigest, notesBlob: unchangedNotesBlob, count };
+        this.input.emit('research_delivery_unchanged', { taskId: node.task.id, taskDigest: action.assignment.taskDigest, count, needsDecision: count >= 2 });
+        if (count >= 2) this.rejected(action, feedback, commit);
+        else { node.feedback = feedback; this.interrupted(worker, action); }
+      } else this.rejected(action, feedback, commit);
     }
     return { checkWhole: false };
   }
