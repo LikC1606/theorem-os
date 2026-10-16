@@ -440,6 +440,7 @@ export class CooperativeResearch {
         .map(node => ({ taskId: node.task.id, taskDigest: digest(node.task) }));
       markTaskReferences(proof);
     }
+    this.pin(proof.commit); this.pin(proof.verification.targetCommit);
     this.checkedDeliveries.add(proof);
     return proof;
   }
@@ -560,6 +561,7 @@ export class CooperativeResearch {
           }
         }
         const receipt = await this.check(node.task, assignment, this.lead.worktree, canonical, [], batched.get(node));
+        this.input.signal.throwIfAborted();
         if (['unavailable', 'blocked'].includes(receipt.verification.status)) throw new Error('math_verifier_unavailable');
         node.integratedCheck = receipt;
         if (!receipt.passed) { node.status = 'blocked'; node.feedback = solverProofFeedback(receipt); this.needsLead = true; }
@@ -567,6 +569,7 @@ export class CooperativeResearch {
           node.status = 'blocked'; node.feedback = 'math_task_dependency_invalidated'; this.needsLead = true;
         }
       } catch (error) {
+        this.input.signal.throwIfAborted();
         if (error instanceof Error && error.message === 'math_verifier_unavailable') throw error;
         node.status = 'blocked'; node.feedback = error instanceof Error ? error.message : 'math_task_recheck_failed'; this.needsLead = true;
       }
@@ -818,7 +821,6 @@ export class CooperativeResearch {
         if (!receipt.passed) { node.feedback = solverProofFeedback(receipt); throw new Error('math_task_merged_proof_failed'); }
         this.archive.canonicalCommit = merged;
         node.status = 'integrated';
-        this.pin(receipt.commit); this.pin(receipt.verification.targetCommit);
         const statements = this.prepareStatementContexts(); if (statements) await statements;
         this.syncStatementReviews();
         this.input.emit('task_integrated', { taskId: node.task.id, groupId: taskGroup(node.task), sharing: node.task.sharing ?? 'problem', commit: merged });

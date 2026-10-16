@@ -22,9 +22,9 @@ function proofRecord(node: TaskRecord, state: SolverRunState) {
   if (!proof) return { status: 'none' as const };
   const stale = proof.taskDigest !== taskVersion(node.task) ||
     Boolean(proof.references && proof.references.environmentDigest !== state.environmentDigest);
-  const hasReceipts = proof.verification.status === 'kernel_verified' && proof.verification.targetCommit === proof.commit &&
+  const hasReceipts = proof.verification.status === 'kernel_verified' && Boolean(proof.verification.targetCommit) &&
     proof.verification.results.length > 0 && proof.verification.results.every(result =>
-      result.status === 'kernel_verified' && result.targetCommit === proof.commit && result.receiptId);
+      result.status === 'kernel_verified' && result.targetCommit === proof.verification.targetCommit && result.receiptId);
   return {
     status: stale ? 'stale' : !proof.passed ? 'failed' : !hasReceipts ? 'unverified' : proof.conditions?.length ? 'conditional' : 'checked',
     failureCategory: proof.passed ? undefined : ['blocked', 'unavailable'].includes(proof.verification.status) ? 'environment' : 'proof',

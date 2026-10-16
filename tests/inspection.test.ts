@@ -89,6 +89,26 @@ describe('run inspection', () => {
     expect(buildRunInspection(state).tasks[0].proof.status).toBe('stale');
   });
 
+  it.each(['proof', 'integratedCheck'] as const)('recognizes %s receipts bound to a verification projection', field => {
+    const { state } = fixture(), node = state.cooperation!.tasks[0];
+    const targetCommit = 'c'.repeat(40);
+    const proof = { taskDigest: taskVersion(node.task), passed: true, commit: 'b'.repeat(40), sourceDigest: 'source',
+      verification: { status: 'kernel_verified', targetCommit, results: [
+        { status: 'kernel_verified', targetCommit, receiptId: 'projection-receipt' },
+      ] }, changes: [], seedCommit: 'a'.repeat(40) } as TaskProof;
+    node[field] = proof;
+    const report = buildRunInspection(state);
+    expect(report.tasks[0].proof).toMatchObject({ status: 'checked', commit: proof.commit, receiptIds: ['projection-receipt'] });
+    expect(report.progress).toMatchObject({ checkedProofTasks: 1, openProofTasks: [] });
+    proof.conditions = [{ taskId: 'helper', taskDigest: 'helper-v1' }];
+    expect(buildRunInspection(state).progress.conditionalProofTasks).toBe(1);
+    proof.verification.results[0].targetCommit = proof.commit;
+    expect(buildRunInspection(state).tasks[0].proof.status).toBe('unverified');
+    proof.verification.targetCommit = '';
+    proof.verification.results[0].targetCommit = '';
+    expect(buildRunInspection(state).tasks[0].proof.status).toBe('unverified');
+  });
+
   it('keeps edit application separate from proof rechecks and renders escaped tables', () => {
     const { state } = fixture();
     state.problem.contract = { ...state.problem.contract, problemId: 'example|table' };

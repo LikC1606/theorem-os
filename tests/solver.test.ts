@@ -1395,10 +1395,13 @@ describe('isolated solver and host acceptance', () => {
     expect(await runSolver([...args, '--workers', '2', '--max-turns', '2'], directory,
       { ...directSolverModules, M2: { ...directSolverModules.M2, checkTask } })).toBe(1);
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'runtime_error', reason: 'math_verifier_unavailable' });
-    const archived = cooperationState();
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    const archived = state.cooperation;
     const rejected = archived.tasks.find((node: any) => node.status === 'blocked' &&
       node.feedback === 'math_verifier_unavailable' && node.proof.verification.status === 'unavailable');
     expect(rejected).toBeDefined();
+    for (const commit of [rejected.proof.commit, rejected.proof.verification.targetCommit])
+      expect(git(state.worktree, ['rev-parse', `refs/math/${state.runId}/evidence/${commit}`])).toBe(commit);
     expect(archived.deliveries).toContainEqual(expect.objectContaining({ kind: 'failure', status: 'failed',
       producer: rejected.assignment.workerId, taskId: rejected.task.id, taskDigest: rejected.assignment.taskDigest,
       summary: 'math_verifier_unavailable', commit: rejected.proof.commit }));
@@ -2003,6 +2006,68 @@ describe('isolated solver and host acceptance', () => {
     expect(host.verify.mock.calls.slice(before, before + 3).map(([request]) => request.items.map(item => item.theoremName)))
       .toEqual([['Submission.a', 'Submission.b'], ['Submission.a'], ['Submission.b']]);
     expect(progress.slice(0, 3)).toEqual([0, 0, 1]);
+    expect(host.officialGate).toHaveBeenCalledOnce();
+  });
+
+  it('keeps restored proof receipts reachable through evidence refs', async () => {
+    configureCooperation();
+    const parallelArgs = [...args, '--workers', '4', '--max-turns', '3'];
+    expect(await runSolver(parallelArgs, directory)).toBe(4);
+    const before = cooperationState().tasks[0].integratedCheck.verification.targetCommit;
+    const sessions = host.createSession.mock.calls.length;
+    expect(await runSolver([...parallelArgs, '--resume'], directory)).toBe(4);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    const proofs = state.cooperation.tasks.slice(0, 2).map((node: any) => node.integratedCheck);
+    expect(proofs[0].verification.targetCommit).not.toBe(before);
+    for (const proof of proofs) for (const commit of [proof.commit, proof.verification.targetCommit])
+      expect(git(state.worktree, ['rev-parse', `refs/math/${state.runId}/evidence/${commit}`])).toBe(commit);
+    expect(state.cooperation.recheck).toMatchObject({ total: 2, completed: 2 });
+    expect(host.createSession).toHaveBeenCalledTimes(sessions);
+    expect(host.officialGate).not.toHaveBeenCalled();
+  });
+
+  it.each(['batch', 'individual'].flatMap(phase => ['reject', 'return'].map(settlement => ({ phase, settlement }))))
+  ('preserves integrated proofs and unfinished progress when cancelling a restored $phase check ($settlement)', async ({ phase, settlement }) => {
+    configureCooperation();
+    const parallelArgs = [...args, '--workers', '4', '--max-turns', '3'];
+    expect(await runSolver(parallelArgs, directory)).toBe(4);
+    const before = cooperationState(), sessions = host.createSession.mock.calls.length;
+    const verify = host.verify.getMockImplementation()!;
+    host.verify.mockImplementation(async (request, options) => {
+      if (request.items.length > 1 && request.items[0].theoremName === 'Submission.a') {
+        if (phase === 'batch') {
+          process.emit('SIGTERM');
+          if (settlement === 'reject') options.signal.throwIfAborted();
+        }
+        const result = await verify(request, options);
+        return { ...result, status: 'failed', results: result.results.map(item => ({ ...item, status: 'failed' })) };
+      }
+      if (phase === 'individual' && request.items[0].theoremName === 'Submission.b') {
+        process.emit('SIGTERM');
+        if (settlement === 'reject') options.signal.throwIfAborted();
+        const result = await verify(request, options);
+        return { ...result, status: 'failed', results: result.results.map(item => ({ ...item, status: 'failed' })) };
+      }
+      return verify(request, options);
+    });
+    expect(await runSolver([...parallelArgs, '--resume', '--max-turns', '6'], directory)).toBe(4);
+    const interrupted = cooperationState(), taskId = phase === 'batch' ? 'a' : 'b';
+    expect(interrupted.tasks.slice(0, 2).map((node: any) => node.status)).toEqual(['integrated', 'integrated']);
+    for (const node of interrupted.tasks.slice(0, 2)) {
+      const previous = before.tasks.find((item: any) => item.task.id === node.task.id);
+      expect(node.proof).toEqual(previous.proof);
+      expect(node.feedback).toBe(previous.feedback);
+      if (phase === 'batch' || node.task.id === 'b') expect(node.integratedCheck).toEqual(previous.integratedCheck);
+    }
+    expect(interrupted.recheck).toMatchObject({ total: 2, completed: phase === 'batch' ? 0 : 1, taskId });
+    expect(host.createSession).toHaveBeenCalledTimes(sessions);
+    expect(host.officialGate).not.toHaveBeenCalled();
+
+    host.verify.mockImplementation(verify);
+    const checks = host.verify.mock.calls.length;
+    expect(await runSolver([...parallelArgs, '--resume', '--max-turns', '6'], directory)).toBe(0);
+    expect(host.verify.mock.calls[checks][0].items.map(item => item.theoremName)).toEqual(['Submission.a', 'Submission.b']);
+    expect(cooperationState().tasks.map((node: any) => node.attempts)).toEqual([1, 1, 1, 1]);
     expect(host.officialGate).toHaveBeenCalledOnce();
   });
 

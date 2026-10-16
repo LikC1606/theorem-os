@@ -42,7 +42,7 @@ export type MathAgentSession = {
 class CodexRpc {
   private child: ChildProcessWithoutNullStreams;
   private nextId = 0;
-  private pending = new Map<number, { resolve: (result: Json) => void; reject: (error: Error) => void; timer: NodeJS.Timeout }>();
+  private pending = new Map<number, { method: string; resolve: (result: Json) => void; reject: (error: Error) => void; timer: NodeJS.Timeout }>();
   private failure?: Error;
   private closing?: Promise<void>;
   onNotification: (method: string, params: Json) => void = () => {};
@@ -82,7 +82,8 @@ class CodexRpc {
           const result = error ? undefined : object(message.result ?? {});
           this.pending.delete(message.id);
           clearTimeout(call.timer);
-          if (error) call.reject(new Error(`math_codex_rpc_failed:${error.code}`));
+          const code = typeof error?.code === 'number' && Number.isSafeInteger(error.code) ? error.code : 'invalid_code';
+          if (error) call.reject(new Error(`math_codex_rpc_failed:${code}:${call.method}`));
           else call.resolve(result!);
         }
       } catch { fail('invalid_frame'); void this.close(); }
@@ -118,7 +119,7 @@ class CodexRpc {
         this.pending.delete(id);
         reject(new Error(`math_codex_rpc_timeout:${method}`));
       }, 120_000);
-      this.pending.set(id, { resolve, reject, timer });
+      this.pending.set(id, { method, resolve, reject, timer });
       try { this.write({ id, method, params }); }
       catch (error) { clearTimeout(timer); this.pending.delete(id); reject(error); }
     });

@@ -21,6 +21,10 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   const call = JSON.parse(line);
   fs.appendFileSync(process.env.CODEX_HOME + '/calls.jsonl', JSON.stringify(call) + '\\n');
   const result = value => send({ id: call.id, result: value });
+  if (call.method === process.env.THEOREM_OS_FIXTURE_RPC_FAILURE) return send({ id: call.id, error: {
+    code: process.env.THEOREM_OS_FIXTURE_RPC_CODE || -32600,
+    message: 'private provider diagnostic', data: { detail: 'private proof text' },
+  } });
   if (call.method === 'initialize') result({});
   if (call.method === 'thread/start' || call.method === 'thread/resume') {
     settings = call.params;
@@ -186,5 +190,23 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   it('reports a process exit while restoring a saved thread', async () => {
     await expect(createCodexMathSession({ ...options, threadId: 'retained-thread', instructions: 'startup-crash' }))
       .rejects.toThrow('math_codex_transport_closed:process_exit:code=27:signal=none');
+  });
+
+  it.each(['thread/resume', 'turn/start'])('identifies the failed %s RPC without exposing provider diagnostics', async method => {
+    const settings = { ...options, threadId: 'retained-thread',
+      environment: { ...process.env, THEOREM_OS_FIXTURE_RPC_FAILURE: method } };
+    const expected = `math_codex_rpc_failed:-32600:${method}`;
+    if (method === 'thread/resume') await expect(createCodexMathSession(settings)).rejects.toMatchObject({ message: expected });
+    else {
+      session = await createCodexMathSession(settings);
+      await expect(session.run('proof', 'failed-turn', root, () => {})).rejects.toMatchObject({ message: expected });
+      expect(session.lastError).toBe(expected);
+    }
+  });
+
+  it('keeps an invalid RPC error code out of the public failure', async () => {
+    await expect(createCodexMathSession({ ...options, threadId: 'retained-thread', environment: {
+      ...process.env, THEOREM_OS_FIXTURE_RPC_FAILURE: 'thread/resume', THEOREM_OS_FIXTURE_RPC_CODE: 'private provider credential',
+    } })).rejects.toMatchObject({ message: 'math_codex_rpc_failed:invalid_code:thread/resume' });
   });
 });
