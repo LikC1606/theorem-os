@@ -1,12 +1,12 @@
 # In-Progress LeanEval Proofs
 
-Snapshots of all three active problems, including all four agent worktrees per problem:
+**Research snapshots, not accepted proofs.** These three problems were still in progress at capture on 2026-10-15 (UTC). Each snapshot includes four agent worktrees.
 
-| Problem | Snapshot |
-| --- | --- |
-| Dimitrov | [dimitrov](dimitrov/) |
-| Hopf-Rinow | [hopf_rinow](hopf_rinow/) |
-| Szemeredi | [szemeredi](szemeredi/) |
+| Problem | Area | Snapshot status | Sources and research |
+| --- | --- | --- | --- |
+| Dimitrov lower bound for the house of an algebraic number | Algebraic number theory | In progress; not officially accepted | [dimitrov](dimitrov/) |
+| Hopf–Rinow theorem | Riemannian geometry | In progress; not officially accepted | [hopf_rinow](hopf_rinow/) |
+| Szemerédi's theorem | Additive combinatorics | In progress; not officially accepted | [szemeredi](szemeredi/) |
 
 [snapshot.json](snapshot.json) records capture times and progress. Each problem contains:
 

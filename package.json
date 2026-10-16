@@ -15,6 +15,9 @@
   "scripts": {
     "math": "bun bin/math.ts",
     "build": "bun scripts/build.ts",
+    "build:site": "bun scripts/build-site.ts",
+    "test:site": "node scripts/test-landing.mjs && node scripts/test-site.mjs",
+    "typecheck:site": "tsc --noEmit --project docs/web/tsconfig.json",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -25,6 +28,8 @@
   "devDependencies": {
     "@types/node": "24.12.0",
     "esbuild": "0.25.12",
+    "lucide": "1.57.0",
+    "playwright": "1.64.1",
     "typescript": "5.9.3",
     "vitest": "4.1.0"
   }

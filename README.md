@@ -1,19 +1,21 @@
 # TheoremOS
 
-可替换研究策略的数学 Agent 运行时，使用 Lean 独立验收证明。
+**可替换研究策略的数学 Agent 运行时。**
 
-[![Research Preview](https://img.shields.io/badge/status-research%20preview-7c3aed.svg)](docs/releases/v0.1.0.md)
+构造 Lean 证明、比较研究方法、复盘每一次尝试，由独立流程验收完整原题。
+
+[![Research Preview](https://img.shields.io/badge/status-research%20preview-0f766e.svg)](docs/releases/v0.1.0.md)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Bun](https://img.shields.io/badge/Bun-%E2%89%A5%201.2-black?logo=bun)](https://bun.sh/)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A5%2022-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 
-TheoremOS 是一个用于研究数学 Agent 的开源运行时。它让 Agent 尝试构造 Lean 证明，记录每次搜索和失败反馈，再由独立的 Lean 验收流程检查完整题目。
+面向数学 Agent 研究者和 Lean 开发者。替换任务排序、上下文选择或协作策略中的一个组件，固定题目、环境、模型与预算开展对照实验，再从运行档案检查证明、失败原因和累计用量。
 
-你可以只替换一个研究决策，例如任务排序或上下文选择，再固定题目、环境和预算比较结果。每次尝试的证明、失败反馈和累计用量都有记录，方便复查实验。
+[查看已验收证明](#已验收证明) · [快速体验](#快速体验) · [替换研究组件](examples/components/README.md) · [运行指南](docs/usage.md)
 
-项目面向研究数学 Agent 策略的研究者和 Lean 开发者，使用 TypeScript / Bun，通过 Codex 执行 Agent 会话。目前支持 [Humanfia IMO2026](https://github.com/humanfia/imo2026) 和 [Lean-Eval](https://github.com/leanprover/lean-eval) 题目。
-
-[快速体验](#快速体验) · [它解决什么问题](#它解决什么问题) · [替换组件](examples/components/README.md) · [运行指南](docs/usage.md) · [发布说明](docs/releases/v0.1.0.md)
+| 研究策略 | 证明验收 | 运行档案 |
+| --- | --- | --- |
+| 5 个可替换组件；单 Agent、独立并行与任务协作 | 固定原题与环境；集成后重新执行 Lean 检查 | 候选、诊断、会话、版本与用量；支持断点恢复 |
 
 ```mermaid
 flowchart LR
@@ -22,6 +24,20 @@ flowchart LR
     B -->|完整候选| C["集成与独立验收"]
     C --> D["结果与运行档案"]
 ```
+
+## 已验收证明
+
+**3 个证明包有 Lean-Eval 官方通过记录。** 点击题目查看源码，点击结果核对官方回复。
+
+| 题目 | 数学领域 | 官方结果 |
+| --- | --- | --- |
+| [Unit conjecture · 群环中的非平凡单位](accepted/annals_unit_conjecture/) | 代数 · 群环 | [#1246 · pass](https://github.com/leanprover/lean-eval-submissions/issues/1246#issuecomment-5380977645) |
+| [Rademacher type and Enflo type coincide](accepted/annals_rademacher_enflo_type/) | 泛函分析 · 概率 | [#2115 · pass](https://github.com/leanprover/lean-eval-submissions/issues/2115#issuecomment-6161355838) |
+| [Equiangular lines with a fixed angle](accepted/annals_equiangular_lines_fixed_angle/) | 组合数学 · 线性代数 | [#2135 · pass](https://github.com/leanprover/lean-eval-submissions/issues/2135#issuecomment-6186332699) |
+
+成果来自前身 DeepScientist / DeepScientist Math 及其后续工作，包含复用早期证明的继续运行和环境迁移。它们是已归档的成功案例，不是当前版本从零求解的成功率评测。[成果档案](accepted/README.md)保留模型归因、题目版本、提交来源和 SHA-256 校验值。
+
+另有 [Dimitrov、Hopf–Rinow 与 Szemerédi 三个研究中快照](in-progress/README.md)，可查看 Agent 工作区、研究记录与历史。它们尚未获官方验收，可能包含 `sorry` 和未完成路线，不计入上述通过数量。
 
 <a id="快速开始"></a>
 

@@ -1,0 +1,26 @@
+{
+  "schema": "theoremos.site-replay-evidence.v1",
+  "runId": "99657f0b-1be9-47b2-b6e2-9e7fcaeb3b2e",
+  "status": "evaluated_passed",
+  "source": "preset-replay",
+  "modelInvoked": false,
+  "method": "host-lean-kernel-all-targets",
+  "official": false,
+  "checkedAt": "2026-10-15T20:07:24.675Z",
+  "targets": [
+    {
+      "theorem": "Tutorial.add_zero",
+      "declaration": "Tutorial.add_zero (n : Nat) : n + 0 = n",
+      "status": "kernel_verified",
+      "receiptId": "lean-f3735c5f9d166db3e264f6ef",
+      "sorryCount": 0
+    },
+    {
+      "theorem": "Tutorial.zero_add",
+      "declaration": "Tutorial.zero_add (n : Nat) : 0 + n = n",
+      "status": "kernel_verified",
+      "receiptId": "lean-503e5f5851fd50e86569555f",
+      "sorryCount": 0
+    }
+  ]
+}

@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="TheoremOS 数学 Agent 研究运行时。查看 Lean-Eval 官方验收证明、Lean 源码、验证证据与研究快照。">
+  <meta name="theme-color" content="#fafbfc">
+  <meta property="og:title" content="TheoremOS | Lean 证明档案">
+  <meta property="og:description" content="从原始证明到官方验收，查看完整的来源与证据。">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://likc1606.github.io/theorem-os/assets/archive-preview.png">
+  <link rel="icon" type="image/png" href="assets/mark.png">
+  <link rel="stylesheet" href="site.css">
+  <title>TheoremOS | Lean 证明档案</title>
+</head>
+<body>
+  <a href="#main" class="skip-link">跳到内容</a>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="TheoremOS 首页">
+      <img class="brand-mark" src="assets/mark.png" alt="" width="32" height="32">
+      <span>Theorem<span class="brand-os">OS</span></span>
+      <span class="preview-tag">Research Preview</span>
+    </a>
+    <nav class="header-links" aria-label="项目链接">
+      <a href="index.html"><span>产品首页</span></a>
+      <a href="https://github.com/LikC1606/theorem-os/blob/main/docs/usage.md" target="_blank" rel="noreferrer"><i data-lucide="book-open"></i><span>文档</span></a>
+      <a href="https://github.com/LikC1606/theorem-os" target="_blank" rel="noreferrer"><i data-lucide="git-fork"></i><span>GitHub</span><i class="external-arrow" data-lucide="arrow-up-right"></i></a>
+    </nav>
+  </header>
+
+  <div class="workspace">
+    <aside class="sidebar" aria-label="工作区导航">
+      <div class="sidebar-section">工作区</div>
+      <nav class="workspace-nav" aria-label="视图">
+        <a href="#view=archive" data-view-link="archive" class="nav-item is-active" aria-current="page"><i data-lucide="files"></i><span>证明档案</span><span id="nav-count" class="nav-count">6</span></a>
+        <a href="#view=quickstart" data-view-link="quickstart" class="nav-item"><i data-lucide="terminal"></i><span>本地回放</span><i data-lucide="chevron-right" class="nav-end"></i></a>
+      </nav>
+      <div class="sidebar-section resources-title">项目资源</div>
+      <nav class="resource-nav" aria-label="项目资源">
+        <a href="https://github.com/LikC1606/theorem-os/blob/main/examples/components/README.md" target="_blank" rel="noreferrer"><i data-lucide="blocks"></i>可替换组件<i data-lucide="arrow-up-right" class="nav-end"></i></a>
+        <a href="https://github.com/LikC1606/theorem-os/releases/tag/v0.1.0" target="_blank" rel="noreferrer"><i data-lucide="tag"></i>发布记录<i data-lucide="arrow-up-right" class="nav-end"></i></a>
+      </nav>
+      <div class="sidebar-bottom">
+        <span class="archive-label"><i data-lucide="git-branch"></i>Proof archive</span>
+        <a href="https://github.com/LikC1606/theorem-os/blob/main/LICENSE" target="_blank" rel="noreferrer">v0.1.0 · AGPL-3.0</a>
+      </div>
+    </aside>
+
+    <main id="main" tabindex="-1">
+      <section id="archive-view" aria-labelledby="page-title">
+        <div class="page-heading">
+          <div>
+            <p class="breadcrumb">工作区 <i data-lucide="chevron-right"></i> 证明档案</p>
+            <h1 id="page-title">TheoremOS <span>证明档案</span></h1>
+            <p class="page-description">数学 Agent 研究运行时 <span>·</span> Lean 证明、验证记录与研究快照</p>
+          </div>
+          <div class="heading-actions">
+            <button class="button button-primary" data-action="quickstart"><i data-lucide="terminal"></i>本地回放</button>
+          </div>
+        </div>
+
+        <div class="metrics" aria-label="档案统计">
+          <div class="metric"><div class="metric-label"><i data-lucide="badge-check"></i>官方验收</div><div class="metric-value"><strong id="accepted-count">3</strong><span>Lean-Eval accepted</span></div></div>
+          <div class="metric"><div class="metric-label"><i data-lucide="flask-conical"></i>研究快照</div><div class="metric-value"><strong id="progress-count">3</strong><span>尚未官方验收</span></div></div>
+          <div class="metric"><div class="metric-label"><i data-lucide="file-code-2"></i>归档源码</div><div class="metric-value"><strong id="line-count">&middot;&middot;&middot;</strong><span>行 Lean</span></div></div>
+          <div class="metric metric-snapshot"><div class="metric-label"><i data-lucide="calendar-days"></i>快照时间</div><div class="snapshot-value" id="snapshot-date">2026-10-15</div><span class="muted small">UTC · 静态档案</span></div>
+        </div>
+
+        <div class="archive-toolbar">
+          <fieldset class="status-filter" aria-label="按验收状态筛选">
+            <legend class="sr-only">验收状态</legend>
+            <label><input type="radio" name="status" value="all" checked><span>全部 <b id="all-filter-count">6</b></span></label>
+            <label><input type="radio" name="status" value="accepted"><span>已验收 <b id="accepted-filter-count">3</b></span></label>
+            <label><input type="radio" name="status" value="progress"><span>研究中 <b id="progress-filter-count">3</b></span></label>
+          </fieldset>
+          <div class="search-sort">
+            <label class="search-field"><i data-lucide="search"></i><input id="search" type="search" autocomplete="off" aria-label="搜索题目或数学领域" placeholder="搜索题目、数学领域…"></label>
+            <label class="sort-field"><span class="sr-only">排序</span><i data-lucide="arrow-down-wide-narrow"></i><select id="sort" aria-label="排序"><option value="verified">验收优先</option><option value="recent">最近更新</option><option value="title">题目名称</option></select></label>
+          </div>
+        </div>
+
+        <div class="archive-workbench">
+          <section class="catalog" aria-label="证明记录">
+            <div class="catalog-heading"><span>题目 / 来源</span><span>状态 / 更新</span></div>
+            <ul id="proof-list" class="proof-list" aria-label="证明列表"><li class="initial-loading" role="status">正在加载证明档案…</li></ul>
+            <div id="empty-state" class="empty-state" hidden><i data-lucide="search-x"></i><h2>没有匹配的题目</h2><button class="button" data-action="reset">清除筛选</button></div>
+            <div class="catalog-footer"><span id="result-count" aria-live="polite">6 条记录</span><a href="data/catalog.json" download="theoremos-archive.json" title="下载完整档案 JSON"><i data-lucide="download"></i>档案 JSON</a></div>
+          </section>
+          <aside class="inspector" id="inspector" aria-label="题目详情"></aside>
+        </div>
+        <footer class="archive-footer"><span><i data-lucide="git-commit-horizontal"></i>档案版本 <a id="archive-revision" href="https://github.com/LikC1606/theorem-os">main</a></span><span>原始项目与模型归属见各题记录</span></footer>
+      </section>
+
+      <section id="quickstart-view" aria-labelledby="quickstart-title" hidden>
+        <div class="page-heading">
+          <div><p class="breadcrumb">工作区 <i data-lucide="chevron-right"></i> 本地回放</p><h1 id="quickstart-title">本地回放</h1><p class="page-description">自然数加法小题 <span>·</span> 预设候选 <span>·</span> 不调用模型</p></div>
+          <a class="button" href="https://github.com/LikC1606/theorem-os/blob/main/examples/getting-started/README.md" target="_blank" rel="noreferrer">完整示例<i data-lucide="arrow-up-right"></i></a>
+        </div>
+        <div class="quickstart-layout">
+          <div class="quickstart-commands">
+            <div class="section-title"><h2>准备环境</h2><span class="small muted">Linux</span></div>
+            <dl class="requirements"><div><dt>运行环境</dt><dd>Git · Bun ≥ 1.2 · Node.js ≥ 22</dd></div><div><dt>检查工具</dt><dd>Python 3 · util-linux · Elan / Lean</dd></div><div><dt>隔离</dt><dd>Bubblewrap · 用户命名空间</dd></div></dl>
+            <div class="section-title command-title"><h2>获取项目</h2><button class="icon-button" data-action="copy-install" aria-label="复制安装命令" title="复制安装命令"><i data-lucide="copy"></i></button></div>
+            <pre class="terminal-block" id="install-command"></pre>
+            <div class="section-title command-title"><h2>运行回放</h2><button class="icon-button" data-action="copy-replay" aria-label="复制回放命令" title="复制回放命令"><i data-lucide="copy"></i></button></div>
+            <pre class="terminal-block" id="replay-command"></pre>
+            <a class="inline-link" href="https://github.com/LikC1606/theorem-os/blob/main/docs/usage.md" target="_blank" rel="noreferrer">依赖安装与环境诊断<i data-lucide="arrow-up-right"></i></a>
+          </div>
+          <div class="replay-evidence">
+            <div class="section-title"><h2>回放验收记录</h2><span class="status-badge accepted"><i data-lucide="circle-check"></i>本地 Lean 检查</span></div>
+            <figure><img src="assets/replay.png" alt="TheoremOS 本地预设回放的结构化结果：最终状态 evaluated_passed，两个原题目标均为 kernel_verified，official 为 false。" width="1100" height="640" loading="lazy"><figcaption>本机真实回放 · 预设证明 · 不代表模型解题能力 <a href="assets/replay.json" target="_blank">原始记录字段</a></figcaption></figure>
+            <div class="verification-rule"><i data-lucide="shield-check"></i><div><strong>evaluated_passed</strong><p>完整题目通过本地独立验收。官方 Lean-Eval 验收记录另见证明档案。</p></div></div>
+          </div>
+        </div>
+      </section>
+
+      <noscript><p>JavaScript 未启用。<a href="https://github.com/LikC1606/theorem-os/tree/main/accepted">查看原始证明档案</a> · <a href="https://github.com/LikC1606/theorem-os/blob/main/docs/usage.md">运行指南</a></p></noscript>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script src="site.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/pages.yml'
+      - 'docs/index.html'
+      - 'docs/archive.html'
+      - 'docs/landing.css'
+      - 'docs/site.css'
+      - 'docs/web/**'
+      - 'docs/assets/**'
+      - 'scripts/build-site.ts'
+      - 'scripts/test-site.mjs'
+      - 'scripts/test-landing.mjs'
+      - 'tests/siteCatalog.test.ts'
+      - 'accepted/**'
+      - 'in-progress/**'
+      - 'package.json'
+      - 'bun.lock'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.0'
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck:site
+      - run: bun run test -- tests/siteCatalog.test.ts
+      - run: bun run build:site
+      - run: bunx playwright install --with-deps chromium --only-shell
+      - run: bun run test:site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out/site
+  deploy:
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Deploy to Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
