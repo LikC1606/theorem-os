@@ -92,8 +92,12 @@ export async function captureStatementContexts(problem: SolverProblem, tasks: re
     prepareLeanDiagnosticOverrides(project);
     const result = await runLeanDiagnostics({ projectRoot: project, files: [query], env, signal, timeoutMs });
     const report = path.join(project, output);
-    if (result.exitCode !== 0 || result.timedOut || !fs.existsSync(report))
-      throw new Error('math_statement_elaboration_failed\n' + (result.stderr || result.stdout || 'Lean did not export statement context.').slice(0, 2000));
+    if (result.exitCode !== 0 || result.timedOut || !fs.existsSync(report)) {
+      const diagnostics = [result.stdout, result.stderr].filter(Boolean).join('\n');
+      const firstError = /^.*\berror:/mu.exec(diagnostics)?.index;
+      const detail = firstError === undefined ? diagnostics : diagnostics.slice(firstError);
+      throw new Error('math_statement_elaboration_failed\n' + (detail || 'Lean did not export statement context.').slice(0, 2000));
+    }
     const stat = fs.lstatSync(report);
     if (!stat.isFile() || stat.nlink !== 1 || stat.size > 4_000_000) throw new Error('math_statement_elaboration_invalid');
     return parseLeanStatementContexts(fs.readFileSync(report, 'utf8'), tasks.map(task => task.id));

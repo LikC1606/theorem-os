@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import { maskLeanComments, maskLeanCommentsAndStrings } from '../math/leanSyntax';
-import { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions, leanDeclarationContextCommands } from '../math/leanSource';
+import { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions, inspectScopedLeanDeclarations,
+  leanDeclarationContextCommands } from '../math/leanSource';
 import { assertSolverSources, committedSource, commitSolverProjection, solverProofImports, withSolverWorktree, type SolverProblem } from './problem';
 import { checkProjectedDeclarations, type ProofCheck } from './modules/evidence';
 import { taskVersion, type CooperativeTask, type TaskAssignment } from './tasks';
@@ -97,8 +98,21 @@ export function projectTaskSources(problem: SolverProblem, worktree: string, sou
     'The assigned theorem is absent. Save it with the requested name and type, or report supporting results and the remaining gap as progress. No Lean proof check has started.');
   if (matches.length > 1) throw new Error('math_task_ambiguous_declaration' + location +
     'Multiple declarations share this target name. Give supporting helpers distinct names and preserve one exact assigned theorem.');
-  if (!/^(?:theorem|lemma)\s/u.test(declaration.slice(matches[0].startOffset, matches[0].bodyOffset)))
-    throw new Error('math_task_requires_theorem' + location + 'The target must be a theorem or lemma, not a definition or another declaration kind.');
+  const originalTarget = task.kind === 'goal' ? problem.targets.find(target =>
+    target.proofPath === task.proofPath && target.theoremName === task.theoremName) : undefined;
+  const originalSource = originalTarget ? committedSource(worktree, problem.baseCommit, `${problem.projectRelative}/${task.proofPath}`) : undefined;
+  const originalDeclaration = originalSource ? inspectScopedLeanDeclarations(originalSource)
+    .find(item => item.qualifiedName === task.theoremName) : undefined;
+  const originalDefinition = Boolean(originalSource && originalDeclaration && /^def\s/u.test(originalSource.slice(originalDeclaration.startOffset)));
+  const header = declaration.slice(matches[0].startOffset, matches[0].bodyOffset);
+  // Only an exact frozen original goal may deliver a definition body; helper targets remain propositions.
+  const definitionMatches = originalTarget && originalDeclaration && originalDefinition && /^def\s/u.test(header) &&
+    inspectScopedLeanDeclarations(declaration).some(item => item.startOffset === matches[0].startOffset &&
+      item.qualifiedName === task.theoremName && item.declarationType === originalDeclaration.declarationType) &&
+    hashMathFormalSourceDeclaration(declaration, task.theoremName!) === originalTarget.declarationHash;
+  if (originalDefinition ? !definitionMatches : !/^(?:theorem|lemma)\s/u.test(header))
+    throw new Error('math_task_requires_theorem' + location +
+      'Helper targets must be theorems or lemmas. A goal may fill its exact frozen original def, preserving its declaration kind, name, parameters and type.');
   if (task.kind === 'lemma' && Object.values(problem.declarations).some(items => items.some(item => local(item.name) === local(task.theoremName!))))
     throw new Error('math_task_helper_is_original_declaration');
   const keep = new Set([task.theoremName!, ...retainedGoals].map(local));

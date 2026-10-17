@@ -469,8 +469,11 @@ export class CooperativeResearch {
   }
   private referencesTask(references: ProofReferences, node: TaskRecord) {
     const declarations = [{ file: node.task.proofPath, name: node.task.theoremName }, ...(node.proof?.changes ?? [])];
-    return references.inputs.some(input => input.name && declarations.some(declaration => declaration.file === input.file &&
-      declaration.name?.split('.').at(-1) === input.name!.split('.').at(-1)));
+    // Fingerprint inputs include the root; only Lean-reported uses establish outward dependencies.
+    return [...references.statement, ...references.proof].some(reference =>
+      (reference.file !== references.root.file || reference.name !== references.root.name) &&
+      declarations.some(declaration => declaration.file === reference.file &&
+        declaration.name?.split('.').at(-1) === reference.name.split('.').at(-1)));
   }
   private retryTaskLocally(node: TaskRecord): boolean {
     if (node.attempts !== 1 || !node.assignment || !this.liveWorkers.has(node.assignment.workerId)) return false;

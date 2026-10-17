@@ -123,6 +123,23 @@ describe('isolated solver and host acceptance', () => {
   });
   afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllEnvs(); fs.rmSync(directory, { recursive: true, force: true }); });
 
+  function configureDefinitionGoal() {
+    const source = original.replace('theorem first', 'noncomputable def C : Nat := by sorry\ntheorem first');
+    const receipt = JSON.parse(fs.readFileSync(problem.activeProblemPath, 'utf8'));
+    const payload = canonicalMathProblemStatementPayloads({ ...receipt.contract, formalStatement: source });
+    receipt.contract = { ...receipt.contract, formalStatement: source,
+      statementHash: mathDigest(payload.informal), leanStatementHash: mathDigest(payload.lean) };
+    receipt.publicObligations.unshift({ name: 'Submission.C', declarationHash: hashMathFormalSourceDeclaration(source, 'Submission.C') });
+    fs.writeFileSync(problem.activeProblemPath, JSON.stringify(receipt));
+    for (const file of ['Submission.lean', 'Challenge.lean']) fs.writeFileSync(path.join(project, file), source);
+    git(workspace, ['add', '--', 'generated']);
+    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Original definition goal']);
+    problem = readSolverProblem(workspace, problem.activeProblemPath);
+    const task: CooperativeTask = { id: 'constant', kind: 'goal', objective: 'Fill the original definition', dependsOn: [], revision: 0,
+      proofPath: 'Submission.lean', theoremName: 'Submission.C' };
+    return { source, task };
+  }
+
   it('runs a custom M1 without the Codex route while retaining proof checks and independent acceptance', async () => {
     host.connectivity.mockResolvedValue({ status: 'unavailable' });
     const modules = { ...directSolverModules, id: 'custom-execution', M1: { ...directSolverModules.M1,
@@ -305,6 +322,74 @@ describe('isolated solver and host acceptance', () => {
       proofPath: 'Submission.lean', theoremName: 'Submission.helper', type: 'True' };
     expect(() => projectTaskSources(problem, workspace, commit, task, [])).toThrow(code);
     expect(() => projectTaskSources(problem, workspace, commit, task, [])).toThrow('Target: Submission.helper');
+    expect(host.verify).not.toHaveBeenCalled();
+  });
+
+  it('checks and merges only the body of a configured original definition goal', async () => {
+    const { source, task } = configureDefinitionGoal();
+    const candidate = source.replace('C : Nat := by sorry', 'C : Nat := 7');
+    fs.writeFileSync(path.join(project, 'Submission.lean'), candidate);
+    const commit = commitSolverSources(problem, workspace);
+    host.verify.mockImplementation(async request => {
+      const projected = fs.readFileSync(path.join(request.projectRoot, 'Submission.lean'), 'utf8');
+      expect(projected).toContain('noncomputable def C : Nat := 7');
+      expect(projected).toContain('def fixed : Nat := 2');
+      expect(projected).not.toContain('theorem first');
+      expect(projected).not.toContain('theorem second');
+      expect(projected).not.toContain('sorry');
+      expect(request.items.map(item => item.theoremName)).toEqual(['Submission.C']);
+      return verified(request);
+    });
+    const proof = await checkTaskProof(problem, workspace, commit, task,
+      { taskId: task.id, taskDigest: taskVersion(task), workerId: 'engineer', seedCommit: problem.baseCommit },
+      [], {}, new AbortController().signal);
+    expect(proof.passed).toBe(true);
+    expect(host.verify).toHaveBeenCalledOnce();
+    expect(proof.changes).toEqual([{ file: 'Submission.lean', name: 'C',
+      before: 'noncomputable def C : Nat := by sorry\n', after: 'noncomputable def C : Nat := 7\n' }]);
+    await withSolverWorktree(workspace, problem.baseCommit, async checkout => {
+      const file = path.join(checkout, problem.projectRelative, 'Submission.lean');
+      const peer = 'lemma peer : True := by trivial\n';
+      fs.writeFileSync(file, source.replace('theorem first', peer + 'theorem first'));
+      applyTaskChanges(problem, checkout, proof.changes);
+      expect(fs.readFileSync(file, 'utf8')).toBe(candidate.replace('theorem first', peer + 'theorem first'));
+      expect(() => assertSolverSources(problem, checkout)).not.toThrow();
+    });
+  });
+
+  it.each([
+    { name: 'a changed type', edit: (source: string) => source.replace('C : Nat', 'C : Int'), error: 'math_original_declaration_changed' },
+    { name: 'an added parameter', edit: (source: string) => source.replace('C : Nat', 'C (n : Nat) : Nat'), error: 'math_original_declaration_changed' },
+    { name: 'a renamed target', edit: (source: string) => source.replace('def C : Nat', 'def otherC : Nat'), error: 'math_original_declaration_changed' },
+    { name: 'a different namespace', edit: (source: string) => source.replace('def C : Nat', 'def Other.C : Nat'), error: 'math_original_declaration_changed' },
+    { name: 'a changed frozen context', edit: (source: string) => source.replace('noncomputable def C', 'variable (extra : False)\nnoncomputable def C'), error: 'math_original_context_changed' },
+    { name: 'a changed non-target definition', edit: (source: string) => source.replace('fixed : Nat := 2', 'fixed : Nat := 3'), error: 'math_original_declaration_changed' },
+    { name: 'another original goal proof', edit: (source: string) => source.replace('first : True := by sorry', 'first : True := by trivial'), error: 'math_task_existing_declaration_changed' },
+    { name: 'an abbrev in place of the original def', edit: (source: string) => source.replace('def C : Nat', 'abbrev C : Nat'), error: 'math_task_requires_theorem' },
+    { name: 'a theorem in place of the original def', edit: (source: string) => source.replace('def C : Nat', 'theorem C : Nat'), error: 'math_task_requires_theorem' },
+  ])('rejects $name before checking an original definition goal', async ({ edit, error }) => {
+    const { source, task } = configureDefinitionGoal();
+    fs.writeFileSync(path.join(project, 'Submission.lean'), edit(source.replace('C : Nat := by sorry', 'C : Nat := 7')));
+    git(workspace, ['add', '--', 'generated/p/Submission.lean']);
+    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Invalid definition candidate']);
+    const commit = git(workspace, ['rev-parse', 'HEAD']);
+    await expect(checkTaskProof(problem, workspace, commit, task,
+      { taskId: task.id, taskDigest: taskVersion(task), workerId: 'engineer', seedCommit: problem.baseCommit },
+      [], {}, new AbortController().signal)).rejects.toThrow(error);
+    expect(host.verify).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { kind: 'lemma' as const, theoremName: 'Submission.helper', type: 'Nat' },
+    { kind: 'lemma' as const, theoremName: 'Submission.C', type: 'Nat' },
+    { kind: 'goal' as const, theoremName: 'Submission.helper' },
+    { kind: 'goal' as const, theoremName: 'Other.C' },
+  ])('rejects definition impersonation through $kind target $theoremName', impostor => {
+    const { source, task } = configureDefinitionGoal();
+    fs.writeFileSync(path.join(project, 'Submission.lean'), source.replace('theorem first', 'def helper : Nat := 7\ntheorem first'));
+    const commit = commitSolverSources(problem, workspace);
+    expect(() => projectTaskSources(problem, workspace, commit, { ...task, ...impostor }, []))
+      .toThrow('math_task_requires_theorem');
     expect(host.verify).not.toHaveBeenCalled();
   });
 
@@ -788,6 +873,48 @@ describe('isolated solver and host acceptance', () => {
       };
     });
   }
+
+  it.each(['official_verified', 'failed'])('retains independent acceptance after integrating an original definition goal (%s)', async officialStatus => {
+    const { task } = configureDefinitionGoal();
+    const tasks: CooperativeTask[] = [task, ...['first', 'second'].map(name => ({ id: name, kind: 'goal' as const,
+      objective: `Prove ${name} after filling the constant`, theoremName: `Submission.${name}`, proofPath: 'Submission.lean',
+      dependsOn: ['constant'], revision: 0 }))];
+    host.officialGate.mockResolvedValue({ comparison: { status: officialStatus } });
+    let reviews = 0;
+    configureCooperation(async (action, options) => {
+      const file = path.join(options.workspace, 'generated/p/Submission.lean');
+      if (action.kind === 'lead') writePlan(options.workspace, tasks);
+      else if (action.kind === 'review') {
+        reviews++;
+        expect(fs.readFileSync(file, 'utf8')).not.toContain('sorry');
+        expect(fs.readFileSync(file, 'utf8')).toContain('noncomputable def C : Nat := 7');
+        expect(host.officialGate).not.toHaveBeenCalled();
+        finishAssignment(action, options);
+      } else if (action.kind === 'task') {
+        expect(host.officialGate).not.toHaveBeenCalled();
+        const source = fs.readFileSync(file, 'utf8');
+        if (action.task.id === 'constant') {
+          expect(options.instructions).toContain('An original goal may be a def');
+          expect(source).toContain('theorem first : True := by sorry');
+          expect(source).toContain('theorem second : True := by sorry');
+          fs.writeFileSync(file, source.replace('C : Nat := by sorry', 'C : Nat := 7'));
+        } else {
+          expect(source).toContain('noncomputable def C : Nat := 7');
+          fs.writeFileSync(file, source.replace(`${action.task.id} : True := by sorry`, `${action.task.id} : True := by trivial`));
+        }
+      } else throw new Error('unexpected_definition_goal_action');
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '3', '--max-turns', '7'], directory)).toBe(officialStatus === 'official_verified' ? 0 : 2);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state.cooperation.tasks.every((node: any) => node.status === 'integrated')).toBe(true);
+    expect(state.cooperation.review.status).toBe('accepted');
+    expect(reviews).toBe(1);
+    expect(host.officialGate).toHaveBeenCalledOnce();
+    expect(host.verify.mock.calls.filter(([request]) => request.items.length === problem.targets.length).length).toBeGreaterThanOrEqual(2);
+    expect(JSON.parse(fs.readFileSync(output, 'utf8')).status).toBe(officialStatus === 'official_verified' ? 'evaluated_passed' : 'evaluated_failed');
+  });
+
   it('commits saved cooperative proofs on the host and persists worker activity', async () => {
     configureCooperation(async (action, options, message) => {
       if (action.kind === 'task') {
@@ -3046,6 +3173,16 @@ describe('isolated solver and host acceptance', () => {
     host.prepare.mockImplementationOnce(async input => { projection = input.projectRoot; return { exitCode: 1, stderr: 'type mismatch' }; });
     await expect(captureStatementContexts(problem, tasks, workspace, commit, {}, undefined, 1000)).rejects.toThrow('math_statement_elaboration_failed');
     expect(fs.existsSync(projection)).toBe(false); expect(host.verify).not.toHaveBeenCalled();
+  });
+
+  it('reports the first elaboration error after projection warnings even when stderr is nonempty', async () => {
+    const warnings = 'Submission.lean:1:1: warning: declaration uses `sorry`\n'.repeat(60);
+    host.prepare.mockImplementationOnce(async () => ({ exitCode: 1, stdout: warnings +
+      'Submission.lean:80:4: error: unexpected token\nexpected a term\n', stderr: 'additional diagnostics' }));
+    await expect(captureStatementContexts(problem, statementTasks().filter(task => task.statementReview),
+      workspace, problem.baseCommit, {}, undefined, 1000)).rejects.toThrow(
+      'math_statement_elaboration_failed\nSubmission.lean:80:4: error: unexpected token\nexpected a term');
+    expect(host.verify).not.toHaveBeenCalled();
   });
 
   const configureReferenceReports = (extra: Record<string, string[]> = {}) => {

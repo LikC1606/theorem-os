@@ -138,6 +138,41 @@ function* leanSourceDeclarations(source: string): Generator<LeanSourceDeclaratio
     return cursor;
   };
 
+  const hasEquationArrow = (start: number): boolean => {
+    let cursor = start + 1;
+    const delimiters: string[] = [];
+    while (cursor < source.length) {
+      cursor = skipTrivia(cursor);
+      const value = source[cursor];
+      if (value === undefined) break;
+      if (value === '"') {
+        cursor++;
+        while (cursor < source.length) {
+          if (source[cursor] === '\\') cursor += 2;
+          else if (source[cursor++] === '"') break;
+        }
+        continue;
+      }
+      if (value === "'" && !isLeanNameCharacter(codePointBefore(cursor))) {
+        const character = /^'(?:\\(?:u\{[\da-fA-F]+\}|u[\da-fA-F]{4}|x[\da-fA-F]{2}|[^\r\n])|[^'\\\r\n])'/u.exec(source.slice(cursor));
+        if (character) { cursor += character[0].length; continue; }
+      }
+      if (delimiters.length === 0) {
+        if (source.startsWith('=>', cursor)) return true;
+        if (source.startsWith(':=', cursor)) return false;
+        // Type relations and lambdas cannot be top-level equation patterns.
+        if (/[=→≤≥≠∧∨↔∈∉]/u.test(value) || source.startsWith('->', cursor)) return false;
+        if (!isLeanNameCharacter(codePointBefore(cursor)) &&
+            /^(?:fun|λ|match)(?![\p{L}\p{M}\p{N}_'.])/u.test(source.slice(cursor))) return false;
+      }
+      const opening = '([{'.indexOf(value);
+      if (opening >= 0) delimiters.push(')]}'[opening]);
+      else if (')]}'.includes(value) && delimiters.pop() !== value) return false;
+      cursor++;
+    }
+    return false;
+  };
+
   // Keep the canonicalizer beside the lexer state it serves; this parser is
   // intentionally self-contained so declaration-header behavior stays local.
   // eslint-disable-next-line unicorn/consistent-function-scoping
@@ -356,7 +391,8 @@ function* leanSourceDeclarations(source: string): Generator<LeanSourceDeclaratio
         parenDepth === 0 &&
         bracketDepth === 0 &&
         braceDepth === 0 &&
-        /^\s*$/u.test(source.slice(source.lastIndexOf('\n', cursor - 1) + 1, cursor))
+        /^\s*$/u.test(source.slice(source.lastIndexOf('\n', cursor - 1) + 1, cursor)) &&
+        hasEquationArrow(cursor)
       ) {
         // Equation clauses are the body itself, unlike the := separator.
         // Include the first pipe in the protected body; defaults, strings and
