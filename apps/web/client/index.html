@@ -28,12 +28,18 @@
           <div id="conversation" class="chat-thread"><div class="chat-welcome"><img src="assets/mark.svg" alt="" width="40" height="40"><h2>从一道定理开始</h2></div></div>
         </div>
         <p id="conversation-announcement" class="sr-only" role="status" aria-atomic="true"></p>
-        <button type="button" id="latest-message" class="icon-button jump-to-latest" title="最新进展" aria-label="跳到最新进展" hidden><i data-lucide="arrow-down"></i></button>
         <form id="run-form" novalidate>
+          <button type="button" id="latest-message" class="icon-button jump-to-latest" title="最新进展" aria-label="跳到最新进展" hidden><i data-lucide="arrow-down"></i></button>
           <fieldset id="form-fields" disabled>
+            <aside id="submission-readiness" class="submission-readiness" data-state="pending" aria-label="提交准备">
+              <span id="readiness-icon" class="readiness-icon" aria-hidden="true"><i data-lucide="circle-alert"></i></span>
+              <div class="readiness-copy"><p id="readiness-title" role="status" aria-atomic="true">正在读取提交配置</p><p id="readiness-detail">连接后可编辑研究任务。</p></div>
+              <button type="button" id="prepare-run" class="readiness-action" disabled><span id="readiness-action">查看配置</span><i data-lucide="arrow-right"></i></button>
+            </aside>
             <div class="chat-input-shell">
               <div class="composer-source-row"><button type="button" id="edit-draft-source" class="source-attachment" title="编辑原始 Lean 题目"><i data-lucide="file-code-2"></i><span>Submission.lean</span><span id="attached-lines" class="mono"></span></button><span id="draft-status" class="draft-status" role="status">未保存草稿</span></div>
-              <label for="task" class="sr-only">研究任务</label><textarea id="task" name="task" class="chat-input" rows="3" required spellcheck="false" aria-label="研究任务" placeholder="输入研究任务…"></textarea>
+              <label for="task" class="sr-only">研究任务</label><textarea id="task" name="task" class="chat-input" rows="3" required spellcheck="false" aria-label="研究任务" aria-describedby="task-count task-validation" placeholder="输入研究任务…"></textarea>
+              <p id="task-validation" class="field-validation task-validation" role="alert" hidden></p>
               <div class="composer-tools"><button type="button" id="attach-source" class="icon-button" aria-label="附加 Lean 文件" title="附加 Lean 文件"><i data-lucide="paperclip"></i></button><button type="button" id="composer-settings" class="icon-button" aria-label="研究配置" title="研究配置"><i data-lucide="sliders-horizontal"></i></button><span id="composer-environment" class="composer-environment"></span><span id="task-count" class="field-count mono"></span><div class="composer-send"><button type="button" id="stop-research" class="icon-button stop-button" title="取消运行" aria-label="取消运行" hidden><i data-lucide="square"></i></button><button type="submit" id="submit-run" class="icon-button send-button" title="发送研究任务" aria-label="发送研究任务" disabled><i data-lucide="arrow-up"></i></button></div></div>
             </div>
             <dialog id="run-settings" class="settings-dialog" aria-labelledby="settings-heading">
@@ -41,24 +47,28 @@
               <div class="settings-content">
                 <div class="form-section research-section">
                   <div class="section-heading"><i data-lucide="file-code-2"></i><h2>原始题目</h2><span class="scope-note" id="lean-scope"></span></div>
-                  <label for="environment">证明环境</label><select id="environment" name="environment" required aria-describedby="environment-details"><option value="">正在加载…</option></select>
+                  <label for="environment">证明环境</label><select id="environment" name="environment" required aria-describedby="environment-details environment-validation"><option value="">正在加载…</option></select>
+                  <p id="environment-validation" class="field-validation" role="alert" hidden></p>
                   <p class="field-note environment-details" id="environment-details">正在读取环境版本</p>
                   <label for="template">模板</label><select id="template" name="template"><option value="">自定义 Lean</option></select>
                   <div class="label-line source-label"><label for="source">Lean 源码</label><div class="editor-actions"><button type="button" id="import-source" class="icon-button" aria-label="导入 Lean 文件" title="导入 Lean 文件"><i data-lucide="upload"></i></button><button type="button" id="expand-source" class="icon-button" aria-label="展开源码编辑器" title="展开源码编辑器"><i data-lucide="maximize-2"></i></button></div></div>
-                  <input type="file" id="source-file" accept=".lean" hidden aria-label="选择 Lean 文件"><textarea id="source" name="source" class="source-input mono" rows="11" required spellcheck="false" autocapitalize="off" aria-label="Lean 源码" aria-describedby="environment-details source-count source-lines source-error"></textarea>
+                  <input type="file" id="source-file" accept=".lean" hidden aria-label="选择 Lean 文件"><textarea id="source" name="source" class="source-input mono" rows="11" required spellcheck="false" autocapitalize="off" aria-label="Lean 源码" aria-describedby="environment-details source-count source-lines source-error source-validation"></textarea>
+                  <p id="source-validation" class="field-validation" role="alert" hidden></p>
                   <div class="source-meta"><span id="source-count" class="field-count mono"></span><span id="source-lines" class="field-count"></span></div><div id="source-error" class="inline-error" role="alert" hidden></div>
                 </div>
                 <div class="form-section connection-section">
                   <div class="section-heading"><i data-lucide="cpu"></i><h2>模型连接</h2></div>
-                  <label for="provider">服务商</label><select id="provider" name="providerId" required><option value="">正在加载…</option></select>
+                  <label for="provider">服务商</label><select id="provider" name="providerId" required aria-describedby="provider-address provider-validation"><option value="">正在加载…</option></select>
+                  <p id="provider-validation" class="field-validation" role="alert" hidden></p>
                   <div class="provider-address mono" id="provider-address">&nbsp;</div>
-                  <div class="field-grid model-grid"><div><label for="model">模型</label><input id="model" name="model" type="text" required autocomplete="off" spellcheck="false"></div><div><label for="effort">推理强度</label><select id="effort" name="effort"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="xhigh">Xhigh</option></select></div></div>
-                  <label for="api-key" class="credential-label">API Key</label><div class="password-field"><input id="api-key" name="apiKey" type="password" required autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="API Key" aria-describedby="credential-note"><button type="button" id="toggle-key" class="icon-button" title="显示 API Key" aria-label="显示 API Key" aria-pressed="false"><i data-lucide="eye"></i></button></div>
+                  <div class="field-grid model-grid"><div><label for="model">模型</label><input id="model" name="model" type="text" required autocomplete="off" spellcheck="false" aria-describedby="model-validation"><p id="model-validation" class="field-validation" role="alert" hidden></p></div><div><label for="effort">推理强度</label><select id="effort" name="effort"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="xhigh">Xhigh</option></select></div></div>
+                  <label for="api-key" class="credential-label">API Key</label><div class="password-field"><input id="api-key" name="apiKey" type="password" required autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="API Key" aria-describedby="credential-note api-key-validation"><button type="button" id="toggle-key" class="icon-button" title="显示 API Key" aria-label="显示 API Key" aria-pressed="false"><i data-lucide="eye"></i></button></div>
+                  <p id="api-key-validation" class="field-validation" role="alert" hidden></p>
                   <p class="field-note" id="credential-note">密钥经服务器调用所选服务商，费用计入对应 API 账户。</p>
                 </div>
                 <div class="form-section execution-section">
                   <div class="section-heading"><i data-lucide="sliders-horizontal"></i><h2>执行配置</h2></div>
-                  <div class="field-grid limits-grid"><div><label for="max-turns">轮次上限</label><input id="max-turns" name="maxTurns" type="number" required min="1" step="1" inputmode="numeric"></div><div><label for="max-seconds">解题预算 / 秒</label><input id="max-seconds" name="maxRunSeconds" type="number" required min="30" step="1" inputmode="numeric"></div><div><label for="workers">Agent 数量</label><input id="workers" name="workers" type="number" required min="1" step="1" inputmode="numeric"></div></div>
+                  <div class="field-grid limits-grid"><div><label for="max-turns">轮次上限</label><input id="max-turns" name="maxTurns" type="number" required min="1" step="1" inputmode="numeric" aria-describedby="max-turns-validation"><p id="max-turns-validation" class="field-validation" role="alert" hidden></p></div><div><label for="max-seconds">解题预算 / 秒</label><input id="max-seconds" name="maxRunSeconds" type="number" required min="30" step="1" inputmode="numeric" aria-describedby="max-seconds-validation"><p id="max-seconds-validation" class="field-validation" role="alert" hidden></p></div><div><label for="workers">Agent 数量</label><input id="workers" name="workers" type="number" required min="1" step="1" inputmode="numeric" aria-describedby="workers-validation"><p id="workers-validation" class="field-validation" role="alert" hidden></p></div></div>
                   <fieldset class="coordination"><legend>协作模式</legend><div class="segmented"><label><input type="radio" name="coordination" value="cooperative" checked><span><i data-lucide="network"></i>任务协作</span></label><label><input type="radio" name="coordination" value="independent"><span><i data-lucide="git-branch"></i>独立并行</span></label></div></fieldset>
                 </div>
               </div>

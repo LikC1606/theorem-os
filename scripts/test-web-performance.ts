@@ -259,6 +259,14 @@ try {
     assert.equal(sample.selection.after, sample.selection.before, 'an event append must preserve selected text');
   }
   mark('Event appends retain old messages, timeline rows, source text, focused attachment, selection and reading position');
+  const latestPosition = await page.locator('#latest-message').evaluate(button => {
+    const latest = button.getBoundingClientRect();
+    const input = document.querySelector('#run-form')!.getBoundingClientRect();
+    const conversation = document.querySelector('#conversation-scroll')!.getBoundingClientRect();
+    return { top: latest.top, bottom: latest.bottom, formTop: input.top, conversationTop: conversation.top };
+  });
+  assert.ok(latestPosition.top >= latestPosition.conversationTop && latestPosition.bottom < latestPosition.formTop,
+    'the latest-message control must sit above preparation hints and the composer');
   await screenshot(page, 'events.png');
 
   await page.setViewportSize({ width: 375, height: 812 });

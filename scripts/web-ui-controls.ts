@@ -1,16 +1,29 @@
 import type { Page } from 'playwright';
 
+export async function closeDialog(page: Page, selector: string, action: () => Promise<unknown>) {
+  await page.locator(`${selector}[open]`).waitFor();
+  await page.evaluate(selector => {
+    const dialog = document.querySelector<HTMLDialogElement>(selector)!;
+    dialog.dataset.controlCloseCompleted = 'false';
+    dialog.addEventListener('close', () => { dialog.dataset.controlCloseCompleted = 'true'; }, { once: true });
+  }, selector);
+  await action();
+  await page.waitForFunction(selector => {
+    const dialog = document.querySelector<HTMLDialogElement>(selector)!;
+    return !dialog.open && dialog.dataset.controlCloseCompleted === 'true';
+  }, selector);
+  await page.locator(selector).evaluate(dialog => { delete (dialog as HTMLElement).dataset.controlCloseCompleted; });
+}
+
 export async function closeSettings(page: Page) {
   if (await page.locator('#run-settings[open]').count()) {
-    await page.locator('#close-settings').click();
-    await page.locator('#run-settings[open]').waitFor({ state: 'hidden' });
+    await closeDialog(page, '#run-settings', () => page.locator('#close-settings').click());
   }
 }
 
 export async function closeHistory(page: Page) {
   if (await page.locator('#history-dialog[open]').count()) {
-    await page.locator('#close-history').click();
-    await page.locator('#history-dialog[open]').waitFor({ state: 'hidden' });
+    await closeDialog(page, '#history-dialog', () => page.locator('#close-history').click());
   }
 }
 
@@ -63,7 +76,6 @@ export async function refreshHistory(page: Page) {
 
 export async function selectHistoryRun(page: Page, id: string) {
   await openHistory(page);
-  await page.locator(`[data-run-id="${id}"]`).click();
-  await page.locator('#history-dialog[open]').waitFor({ state: 'hidden' });
+  await closeDialog(page, '#history-dialog', () => page.locator(`[data-run-id="${id}"]`).click());
   await showArtifacts(page);
 }

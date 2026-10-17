@@ -10,6 +10,9 @@ import { filterRuns, type RunFilter } from './history';
 import { readLeanFile } from './sourceFile';
 import { decodeTaskDraft, encodeTaskDraft, readTaskDraftFile, taskDraftStorageKey, type TaskDraft } from './draft';
 import { compareSources, type SourceComparison, type SourceDiffRow } from './sourceDiff';
+import { submissionFields, submissionIssues, type SubmissionField, type SubmissionIssue } from './submission';
+import { SourceReader } from './sourceReader';
+import { ActivityReader } from './activityReader';
 import { animateEntrance, finishHiddenMotion, finishMotion } from './motion';
 
 const iconSet = { ArrowDown, ArrowRight, ArrowUp, ArrowUpRight, Check, CheckCheck, ChevronDown, ChevronUp, CircleAlert, CircleCheck, Clock3, Copy, CopyPlus, Cpu,
@@ -80,8 +83,13 @@ let taskImportSequence = 0;
 let pendingImport: { draft: TaskDraft; revision: number } | undefined;
 let sourceComparison: { runId: string; before: string; after: string; folded: boolean; result: SourceComparison } | undefined;
 let draftPreviewSignature = '';
-let editorReturn: HTMLElement | undefined;
-let editorFromSettings = false;
+let draftSourceExpanded = false;
+const sourceReader = new SourceReader(icons, () => {
+  if (!currentRun() && !draftSourceExpanded) { draftSourceExpanded = true; renderDraftPreview(); }
+});
+const activityReader = new ActivityReader(icons, at => timestamp(at, true),
+  (filename, text) => download(filename, text, 'application/json'));
+const validationShown = new Set<SubmissionField>();
 let chatWidth = 40;
 const conversationScroll = { top: 0, following: true };
 
@@ -131,6 +139,7 @@ function setGlobalNotice(text: string) {
 function setMobileView(view: 'compose' | 'runs', focus = false) {
   rememberConversationScroll();
   const changed = document.body.dataset.mobileView !== view;
+  if (changed) activityReader.remember();
   document.body.dataset.mobileView = view;
   finishHiddenMotion();
   document.querySelectorAll<HTMLButtonElement>('button[data-mobile-view]').forEach(button => {
@@ -140,6 +149,7 @@ function setMobileView(view: 'compose' | 'runs', focus = false) {
   });
   if (view === 'runs') {
     renderDraftPreview();
+    if (state.tab === 'events') renderPanel(true);
     const list = element('#run-list');
     const selected = list.querySelector<HTMLElement>('.run-row.selected');
     if (selected && list.scrollWidth > list.clientWidth) {
@@ -167,6 +177,68 @@ function openSettings(focusId?: string) {
 function closeSettings() {
   element<HTMLDialogElement>('#run-settings').close();
 }
+function clearValidation() {
+  validationShown.clear();
+  for (const id of submissionFields) {
+    field(id).setCustomValidity('');
+    field(id).removeAttribute('aria-invalid');
+    element(`#${id}-validation`).hidden = true;
+  }
+}
+function currentSubmissionIssues() {
+  return state.session ? submissionIssues(captureDraft(), field('api-key').value, state.session) : [];
+}
+function renderPreparation(issues = currentSubmissionIssues()) {
+  for (const id of submissionFields) {
+    const issue = issues.find(issue => issue.field === id);
+    const visible = Boolean(issue && validationShown.has(id));
+    const control = field(id), error = element(`#${id}-validation`);
+    control.setCustomValidity(issue?.message ?? '');
+    if (visible && control.getAttribute('aria-invalid') !== 'true') control.setAttribute('aria-invalid', 'true');
+    else if (!visible && control.hasAttribute('aria-invalid')) control.removeAttribute('aria-invalid');
+    patchText(error, visible ? issue!.message : '');
+    if (error.hidden === visible) error.hidden = !visible;
+  }
+  const issue = issues[0];
+  const labels: Record<SubmissionField, string> = {
+    provider: '选择服务商', environment: '选择环境', source: '编辑源码', task: '填写任务', model: '填写模型',
+    'api-key': '填写 API Key', 'max-turns': '调整轮次', 'max-seconds': '调整预算', workers: '调整 Agent',
+  };
+  const pending = !state.session;
+  const offline = !pending && !state.connected;
+  const environmentReady = Boolean(state.session?.runtime.ready && state.session.providers.length);
+  const phase = state.submitting ? 'submitting' : pending ? 'pending' : offline || !environmentReady ? 'offline' : issue ? 'missing' : 'ready';
+  const target = element('#submission-readiness');
+  if (target.dataset.state !== phase) target.dataset.state = phase;
+  patchText(element('#readiness-title'), state.submitting ? '正在提交研究' : pending ? '正在读取提交配置'
+    : offline ? '连接中断，草稿可继续编辑' : !environmentReady ? '运行环境未就绪'
+      : issue?.message ?? '提交配置已填写');
+  patchText(element('#readiness-detail'), state.submitting ? '请稍候，提交结果将在对话中显示。' : pending ? '连接后可编辑研究任务。'
+    : offline || !environmentReady ? '环境恢复后可提交，当前草稿会保留。'
+      : issue?.field === 'api-key' ? '每次提交后清空，不随草稿保存。'
+        : issue?.field === 'task' ? '说明要证明的目标与约束。'
+          : issue?.field === 'source' ? '添加原始 Lean 题目，右侧可预览。'
+            : issue ? '补全配置后即可提交当前题目。' : 'Key 与模型可用性将在提交时确认。');
+  patchText(element('#readiness-action'), issue ? labels[issue.field] : '查看配置');
+  patchMarkup(element('#readiness-icon'), state.submitting ? '<span class="spinner"></span>' : icon(phase === 'ready' ? 'circle-check' : 'circle-alert'));
+  const action = element<HTMLButtonElement>('#prepare-run');
+  if (action.disabled !== (pending || state.submitting)) action.disabled = pending || state.submitting;
+}
+function focusSubmissionIssue(issue: SubmissionIssue) {
+  validationShown.add(issue.field);
+  renderPreparation();
+  if (issue.field === 'task') { closeSettings(); setMobileView('compose'); }
+  else openSettings(issue.field);
+  field(issue.field).focus();
+  // Focus alone can leave the explanation underneath the fixed settings footer.
+  if (issue.field !== 'task') element(`#${issue.field}-validation`).scrollIntoView({ block: 'nearest', behavior: 'instant' });
+}
+function renderTemplateSelection() {
+  document.querySelectorAll<HTMLButtonElement>('[data-chat-template]').forEach(button => {
+    const selected = String(button.dataset.chatTemplate === field('template').value);
+    if (button.getAttribute('aria-pressed') !== selected) button.setAttribute('aria-pressed', selected);
+  });
+}
 function renderComposerSummary() {
   patchText(element('#current-model'), field('model').value || '模型配置');
   patchText(element('#composer-environment'), environmentName(field('environment').value));
@@ -176,6 +248,8 @@ function renderComposerSummary() {
   const run = currentRun();
   stop.hidden = !run || !activeRun(run);
   stop.disabled = !state.connected || Boolean(run && state.cancelling.has(run.id));
+  renderPreparation();
+  renderTemplateSelection();
 }
 function rememberConversationScroll() {
   const scroll = element('#conversation-scroll');
@@ -208,7 +282,7 @@ function renderConversation() {
   const entrances: Array<{ target: HTMLElement; kind: 'message' | 'event' }> = [];
   if (!run) {
     finishMotion(thread);
-    thread.innerHTML = `<div class="chat-welcome"><img src="assets/mark.svg" alt="" width="40" height="40"><h2>从一道定理开始</h2><div class="chat-suggestions">${(state.session?.templates ?? []).map(template => `<button type="button" class="template-suggestion" data-chat-template="${html(template.id)}">${icon('file-code-2')}<span>${html(template.name)}</span><span class="suggestion-environment">${html(environmentName(template.environment))}</span>${icon('arrow-up-right')}</button>`).join('')}</div></div>`;
+    thread.innerHTML = `<div class="chat-welcome"><img src="assets/mark.svg" alt="" width="40" height="40"><h2>从一道定理开始</h2><p>选择一道示例，或附加自己的 Lean 题目。<br>发送任务后，在右侧查看证明与检查进展。</p><div class="chat-suggestions" aria-label="示例题目">${(state.session?.templates ?? []).map(template => `<button type="button" class="template-suggestion" data-chat-template="${html(template.id)}">${icon('file-code-2')}<span>${html(template.name)}</span><span class="suggestion-environment">${html(environmentName(template.environment))}</span>${icon('arrow-up-right')}</button>`).join('')}</div></div>`;
   } else {
     const events = run.events.filter((event, index, all) => index === 0 || event.message !== all[index - 1].message || event.type !== all[index - 1].type);
     const value = status(run);
@@ -251,6 +325,7 @@ function renderConversation() {
   const live = element('#conversation-announcement');
   if (live.textContent !== announcement) live.textContent = announcement;
   icons(thread);
+  renderTemplateSelection();
   restoreConversationScroll();
   for (const { target, kind } of entrances) animateEntrance(target, kind);
 }
@@ -329,6 +404,8 @@ function saveDraft() {
   }
 }
 function applyTaskDraft(draft: TaskDraft) {
+  clearValidation();
+  draftSourceExpanded = false;
   field('provider').value = state.session?.providers.some(provider => provider.id === draft.providerId) ? draft.providerId : '';
   field('environment').value = draft.environment;
   renderTemplates();
@@ -401,6 +478,8 @@ function applyTemplate(id: string) {
 function resetForm() {
   const session = state.session;
   if (!session || state.submitting) return;
+  clearValidation();
+  draftSourceExpanded = false;
   const wasReady = draftReady;
   draftReady = false;
   clearTimeout(draftTimer); draftDirty = false;
@@ -439,9 +518,7 @@ function updateEditorCount() {
 }
 function openEditor() {
   if (!state.session || state.submitting) return;
-  editorReturn = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
-  editorFromSettings = element<HTMLDialogElement>('#run-settings').open;
-  if (editorFromSettings) closeSettings();
+  // Keep the settings dialog underneath so native modal focus returns to its caller.
   editorRevision = sourceRevision;
   field('expanded-source').value = field('source').value;
   const environment = environmentInfo(field('environment').value);
@@ -597,7 +674,16 @@ function sourceContent(run: WebRun) {
 }
 function sourceView(run: WebRun, content: ReturnType<typeof sourceContent>) {
   return `<div class="panel-topline source-topline"></div><div class="source-status"></div>
-    ${content.hasProof && state.sourceView === 'diff' ? sourceDiffView(run, content.proofLabel) : '<div class="code-scroll source-code-grid" tabindex="0" aria-label="Lean 源码"><pre class="source-line-numbers" aria-hidden="true"></pre><pre class="source-code"><code></code></pre></div>'}`;
+    ${content.hasProof && state.sourceView === 'diff' ? sourceDiffView(run, content.proofLabel) : '<div class="source-reader"></div><div class="code-scroll source-code-grid" tabindex="0" aria-label="Lean 源码"><pre class="source-line-numbers" aria-hidden="true"></pre><pre class="source-code"><code></code></pre></div>'}`;
+}
+function updateSourceReader() {
+  const run = currentRun();
+  const code = document.querySelector<HTMLElement>(run ? '#detail-panel .source-code code' : '#draft-preview-code code');
+  const scroll = document.querySelector<HTMLElement>(run ? '#detail-panel .source-code-grid' : '.draft-source-scroll');
+  const toolbar = document.querySelector<HTMLElement>('#run-detail .source-reader');
+  sourceReader.update(code && scroll && toolbar ? { id: run?.id ?? 'draft', code, scroll, toolbar,
+    ...(!run && document.querySelector('.preview-source-heading>span')?.textContent?.startsWith('前 ')
+      ? { scope: '仅查找当前预览的前 160 行；缩小源码至允许大小后可查找完整文件。' } : {}) } : undefined);
 }
 function sourceDiffView(run: WebRun, proofLabel: string) {
   const before = run.source, after = candidateSource(run);
@@ -662,10 +748,6 @@ function reportTarget(target: ReportTarget) {
     ${counts ? `<p class="target-counts mono">${html(counts)}</p>` : ''}
     ${target.diagnostics.length ? `<details class="target-diagnostics" ${target.tone === 'failed' ? 'open' : ''}><summary>诊断记录 <span class="field-count">${target.diagnostics.length}</span></summary>${target.diagnostics.map(diagnostic => `<div class="diagnostic-entry"><h4>${html(diagnostic.label)}</h4><pre class="diagnostic-output" tabindex="0">${html(diagnostic.text)}</pre></div>`).join('')}</details>` : ''}</li>`;
 }
-function eventsView(run: WebRun) {
-  if (!run.events.length) return `<div class="empty-state">${icon('clock-3')}<p>暂无活动记录</p></div>`;
-  return `<div class="panel-topline"><h3>活动记录</h3><span class="field-count">${run.events.length} 条</span></div><div class="activity-scroll" tabindex="0" aria-label="活动记录表"><table class="activity-table"><thead><tr><th scope="col">时间</th><th scope="col">事件</th><th scope="col">记录</th></tr></thead><tbody>${[...run.events].reverse().map(event => `<tr><td title="${html(event.at)}">${html(timestamp(event.at, true))}</td><td class="mono">${html(event.type)}</td><td>${html(event.message)}</td></tr>`).join('')}</tbody></table></div>`;
-}
 function renderPanel(force = false) {
   const run = currentRun();
   if (!run || !document.querySelector('#detail-panel')) return;
@@ -691,7 +773,9 @@ function renderPanel(force = false) {
   const reportMode = focused?.dataset.reportView;
   const focusId = focused?.id;
   const reuseSource = content && samePanel && !(content.hasProof && state.sourceView === 'diff') && panel.querySelector('.source-code-grid');
-  if (!reuseSource) panel.innerHTML = content ? sourceView(run, content) : state.tab === 'report' ? reportView(run) : state.tab === 'events' ? eventsView(run) : overview(run);
+  const reuseEvents = state.tab === 'events' && samePanel && panel.querySelector('.activity-workspace');
+  if (!reuseEvents) activityReader.update(undefined, run);
+  if (!reuseSource && !reuseEvents) panel.innerHTML = content ? sourceView(run, content) : state.tab === 'report' ? reportView(run) : state.tab === 'events' ? '<div class="activity-workspace"></div>' : overview(run);
   if (content) {
     patchMarkup(panel.querySelector<HTMLElement>('.source-topline')!, content.controls);
     const sourceStatus = panel.querySelector<HTMLElement>('.source-status')!;
@@ -706,15 +790,17 @@ function renderPanel(force = false) {
   panel.dataset.renderSourceView = state.sourceView;
   panel.dataset.renderReportMode = state.reportMode;
   const scroll = panel.querySelector<HTMLElement>('.code-scroll,.activity-scroll,.diff-scroll');
-  if (scroll) { scroll.scrollTop = scrollTop; scroll.scrollLeft = scrollLeft; }
+  if (scroll && state.tab !== 'events') { scroll.scrollTop = scrollTop; scroll.scrollLeft = scrollLeft; }
   if (samePanel && action) panel.querySelector<HTMLElement>(`[data-action="${action}"]`)?.focus({ preventScroll: true });
   else if (samePanel && sourceMode) panel.querySelector<HTMLElement>(`[data-source-view="${sourceMode}"]`)?.focus({ preventScroll: true });
   else if (sameView && reportMode) panel.querySelector<HTMLElement>(`[data-report-view="${reportMode}"]`)?.focus({ preventScroll: true });
   else if (sameView && focused === previousScroll) scroll?.focus({ preventScroll: true });
   else if (samePanel && focusId) document.getElementById(focusId)?.focus({ preventScroll: true });
   icons(panel);
+  if (state.tab === 'events') activityReader.update(panel.querySelector<HTMLElement>('.activity-workspace')!, run);
   updateDiffNavigation(0, !sameView);
   if (navigating) animateEntrance(panel, 'panel');
+  updateSourceReader();
 }
 function renderDraftPreview() {
   if (currentRun() || !state.session) return;
@@ -735,16 +821,18 @@ function renderDraftPreview() {
     ['workers', 'Agent 数量', numericLabel('workers', '个'), true],
   ] as const;
   const title = template?.name ?? '自定义研究';
-  const signature = JSON.stringify([title, source, task, facts]);
+  const signature = JSON.stringify([title, source, task, facts, draftSourceExpanded]);
   if (signature === draftPreviewSignature && document.querySelector('#draft-preview')) return;
   draftPreviewSignature = signature;
-  const lines = source.replace(/\r\n?/g, '\n').split('\n'), shown = lines.slice(0, 160);
+  const lines = source.replace(/\r\n?/g, '\n').split('\n');
+  const shown = draftSourceExpanded && byteSize(source) <= state.session.limits.maxSourceBytes ? lines : lines.slice(0, 160);
   if (!detail.querySelector('#draft-preview')) {
     finishMotion(detail);
     detail.innerHTML = `<div class="detail-empty draft-preview" id="draft-preview">
       <header class="preview-heading"><div><span class="preview-eyebrow">Lean 工作区</span><h2></h2></div><div class="detail-actions"><span class="badge preview-status">${icon('file-code-2')}未提交</span><button type="button" class="icon-button" data-draft-action="edit" aria-label="编辑原始题目" title="编辑原始题目">${icon('square-pen')}</button><button type="button" class="icon-button" data-draft-action="settings" aria-label="配置证明环境" title="配置证明环境">${icon('sliders-horizontal')}</button></div></header>
       <dl class="preview-facts">${facts.map(([id, label, , mono]) => `<div><dt>${label}</dt><dd data-preview-value="${id}"${mono ? ' class="mono"' : ''}></dd></div>`).join('')}</dl>
       <section class="preview-source" aria-labelledby="preview-source-heading"><div class="preview-source-heading"><h3 id="preview-source-heading">${icon('file-code-2')}原始题目</h3><span></span></div>
+        <div class="source-reader"></div>
         <div class="draft-source-scroll" tabindex="0" aria-label="原始题目草稿"><pre class="preview-line-numbers" aria-hidden="true"></pre><pre id="draft-preview-code"><code></code></pre></div>
       </section><details class="preview-task"><summary>研究任务</summary><p class="task-content" id="draft-preview-task"></p></details></div>`;
     icons(detail);
@@ -755,15 +843,17 @@ function renderDraftPreview() {
   patchText(detail.querySelector('.preview-line-numbers')!, shown.map((_, index) => index + 1).join('\n'));
   patchText(detail.querySelector('#draft-preview-code code')!, shown.join('\n'));
   patchText(detail.querySelector('#draft-preview-task')!, task || '未填写');
+  updateSourceReader();
 }
 function renderDetail(force = false) {
   renderConversation();
   const run = currentRun();
   if (sourceComparison && sourceComparison.runId !== run?.id) sourceComparison = undefined;
   if (!run) {
+    activityReader.update();
     state.detailSignature = ''; state.panelSignature = '';
     if (state.session) renderDraftPreview();
-    else element('#run-detail').innerHTML = `<div class="empty-state detail-empty"><span class="spinner"></span><h2>正在连接工作台</h2></div>`;
+    else { element('#run-detail').innerHTML = `<div class="empty-state detail-empty"><span class="spinner"></span><h2>正在连接工作台</h2></div>`; sourceReader.update(); }
     return;
   }
   const signature = JSON.stringify([run.id, run.title, run.status, run.phase, run.environment, run.updatedAt, run.result?.status, state.cancelling.has(run.id), state.deleting.has(run.id), state.detailError, state.connected]);
@@ -943,11 +1033,6 @@ function initialize(): Promise<void> {
   renderRuntime(); renderDetail();
   return connectionRequest;
 }
-function numberInput(id: string, max: number, min = 1) {
-  const value = Number(field(id).value);
-  if (!Number.isSafeInteger(value) || value < min || value > max) throw new Error(`执行配置超出允许范围：${min}–${max}`);
-  return value;
-}
 element<HTMLFormElement>('#run-form').addEventListener('submit', async event => {
   event.preventDefault();
   const session = state.session;
@@ -955,25 +1040,19 @@ element<HTMLFormElement>('#run-form').addEventListener('submit', async event => 
   const errorBox = element('#form-error'); errorBox.hidden = true;
   const epoch = state.connectionEpoch;
   let sent = false;
-  const form = element<HTMLFormElement>('#run-form');
-  if (!form.checkValidity()) {
-    const invalid = form.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input:invalid,select:invalid,textarea:invalid');
-    if (invalid?.closest('#run-settings')) openSettings(invalid.id);
-    invalid?.reportValidity();
+  const issues = currentSubmissionIssues();
+  if (issues.length) {
+    for (const issue of issues) validationShown.add(issue.field);
+    focusSubmissionIssue(issues[0]);
     return;
   }
   try {
-    if (!session.providers.some(provider => provider.id === field('provider').value)) throw new Error('请选择可用的服务商');
-    if (!session.environments.some(environment => environment.id === field('environment').value)) throw new Error('请选择可用的证明环境');
-    if (!field('source').value.trim() || !field('task').value.trim() || !field('model').value.trim() || !field('api-key').value.trim()) throw new Error('请填写完整的模型连接与研究任务');
-    if (byteSize(field('source').value) > session.limits.maxSourceBytes) throw new Error('Lean 源码超出允许大小');
-    if (byteSize(field('task').value) > session.limits.maxTaskBytes) throw new Error('研究任务超出允许大小');
     const input: WebRunInput = {
       providerId: field('provider').value, apiKey: field('api-key').value.trim(), model: field('model').value.trim(),
       effort: field('effort').value as WebEffort, environment: field('environment').value as WebEnvironment,
       source: field('source').value, task: field('task').value,
-      maxTurns: numberInput('max-turns', session.limits.maxTurns), maxRunSeconds: numberInput('max-seconds', session.limits.maxRunSeconds, 30),
-      workers: numberInput('workers', session.limits.maxWorkers),
+      maxTurns: Number(field('max-turns').value), maxRunSeconds: Number(field('max-seconds').value),
+      workers: Number(field('workers').value),
       coordination: element<HTMLInputElement>('input[name="coordination"]:checked').value as WebCoordination,
     };
     closeSettings();
@@ -981,6 +1060,7 @@ element<HTMLFormElement>('#run-form').addEventListener('submit', async event => 
     sent = true;
     const { run } = await api<{ run: WebRun }>('/api/runs', { method: 'POST', body: JSON.stringify(input) });
     field('api-key').value = '';
+    clearValidation();
     element<HTMLInputElement>('#api-key').type = 'password'; updateKeyToggle();
     if (!currentConnection(epoch)) {
       toast('研究已提交，连接已变化，请核对运行记录');
@@ -1120,6 +1200,7 @@ async function copyText(text: string, success: string) {
 function reuseRun(run: WebRun) {
   const session = state.session;
   if (!session || state.submitting) return;
+  clearValidation();
   field('provider').value = session.providers.some(provider => provider.id === run.providerId) ? run.providerId : '';
   field('environment').value = run.environment;
   renderTemplates();
@@ -1178,6 +1259,7 @@ element('#run-list').addEventListener('click', event => {
 });
 document.querySelectorAll<HTMLButtonElement>('button[data-mobile-view]').forEach(button => button.addEventListener('click', () => setMobileView(button.dataset.mobileView as 'compose' | 'runs')));
 document.addEventListener('keydown', event => {
+  if (sourceReader.handleKeydown(event)) return;
   const target = event.target as HTMLElement;
   if (target.matches('[data-detail-tab]') && ['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) {
     event.preventDefault();
@@ -1248,8 +1330,8 @@ element('#export-draft').addEventListener('click', () => {
 });
 for (const id of ['cancel-import', 'close-import']) element(`#${id}`).addEventListener('click', () => element<HTMLDialogElement>('#import-task-dialog').close());
 element('#import-task-dialog').addEventListener('close', () => {
+  if (element<HTMLDialogElement>('#import-task-dialog').open) return;
   pendingImport = undefined;
-  element('#import-task').focus({ preventScroll: true });
 });
 element('#confirm-import').addEventListener('click', () => {
   const target = pendingImport;
@@ -1260,11 +1342,6 @@ element('#confirm-import').addEventListener('click', () => {
   toast('研究任务已载入');
 });
 for (const id of ['close-editor', 'cancel-editor']) element(`#${id}`).addEventListener('click', () => element<HTMLDialogElement>('#source-editor').close());
-element('#source-editor').addEventListener('close', () => {
-  if (editorFromSettings) openSettings();
-  if (editorReturn?.isConnected) editorReturn.focus({ preventScroll: true });
-  editorReturn = undefined; editorFromSettings = false;
-});
 element('#apply-editor').addEventListener('click', applyEditor);
 element('#confirm-delete').addEventListener('click', () => void deleteRun());
 for (const id of ['cancel-delete', 'close-delete']) element(`#${id}`).addEventListener('click', () => {
@@ -1274,10 +1351,14 @@ element('#delete-run-dialog').addEventListener('cancel', event => {
   if (deletionTarget && state.deleting.has(deletionTarget.id)) event.preventDefault();
 });
 element('#delete-run-dialog').addEventListener('close', () => {
+  const dialog = element<HTMLDialogElement>('#delete-run-dialog');
+  if (dialog.open) return;
   deletionTarget = undefined;
-  const focus = document.querySelector<HTMLElement>('[data-action="delete-run"]')
-    ?? document.querySelector<HTMLElement>('.run-row.selected') ?? element('#refresh-runs');
-  focus.focus({ preventScroll: true });
+  const active = document.activeElement;
+  if (document.querySelector('dialog[open]') || (active && active !== document.body && !dialog.contains(active))) return;
+  const focus = Array.from(document.querySelectorAll<HTMLElement>('[data-action="delete-run"],#new-research,#open-history'))
+    .find(control => control.getClientRects().length && !control.matches(':disabled'));
+  focus?.focus({ preventScroll: true });
 });
 field('expanded-source').addEventListener('input', () => { element('#editor-error').hidden = true; updateEditorCount(); });
 field('run-search').addEventListener('input', () => { state.query = field('run-search').value; renderRunList(); });
@@ -1290,10 +1371,14 @@ element('#reset-form').addEventListener('click', resetForm);
 element('#retry-connection').addEventListener('click', () => void initialize());
 element('#refresh-runs').addEventListener('click', () => void poll());
 for (const id of ['open-settings', 'composer-settings']) element(`#${id}`).addEventListener('click', () => openSettings());
+element('#prepare-run').addEventListener('click', () => {
+  if (!state.session || state.submitting) return;
+  const issue = currentSubmissionIssues()[0];
+  if (issue) focusSubmissionIssue(issue); else openSettings();
+});
 for (const id of ['close-settings', 'apply-settings']) element(`#${id}`).addEventListener('click', closeSettings);
 element('#run-settings').addEventListener('close', () => {
   renderComposerSummary();
-  element('#open-settings').focus({ preventScroll: true });
 });
 element('#run-settings').addEventListener('keydown', event => {
   if (event.key === 'Enter' && event.target instanceof HTMLInputElement) event.preventDefault();
@@ -1303,7 +1388,6 @@ element('#open-history').addEventListener('click', () => {
   field('run-search').focus();
 });
 element('#close-history').addEventListener('click', () => element<HTMLDialogElement>('#history-dialog').close());
-element('#history-dialog').addEventListener('close', () => element('#open-history').focus({ preventScroll: true }));
 for (const id of ['run-settings', 'history-dialog']) element(`#${id}`).addEventListener('click', event => {
   const dialog = event.currentTarget as HTMLDialogElement;
   if (event.target !== dialog) return;
@@ -1404,7 +1488,10 @@ try {
   if (Number.isFinite(storedWidth) && storedWidth >= 28 && storedWidth <= 60) chatWidth = storedWidth;
 } catch { /* Layout preferences are optional. */ }
 resizePane(chatWidth);
-window.matchMedia('(max-width:850px)').addEventListener('change', () => renderDraftPreview());
+window.matchMedia('(max-width:850px)').addEventListener('change', () => {
+  renderDraftPreview();
+  if (state.tab === 'events') renderPanel(true);
+});
 document.addEventListener('visibilitychange', () => { if (!document.hidden) void poll(); else saveDraft(); });
 window.addEventListener('offline', () => {
   invalidateReads(); disconnected('网络已断开，未提交内容已保留。'); schedulePoll();
@@ -1427,5 +1514,5 @@ window.addEventListener('pageshow', event => {
   }
 });
 icons();
-document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => finishMotion(dialog)));
+document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => { if (!dialog.open) finishMotion(dialog); }));
 void initialize();
