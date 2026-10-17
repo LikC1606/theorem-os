@@ -160,6 +160,19 @@ setInterval(() => {}, 1000);\n`);
       expect(run).toHaveBeenCalledTimes(1);
     });
 
+  it('retains late projection errors with an explicit larger window without changing ordinary prompt bounds', async () => {
+    const diagnostics = 'warning: declaration uses sorry\n'.repeat(400) + 'Submission.lean:500:1: error: unexpected theorem';
+    run.mockResolvedValue({ started: true, exitCode: 1, aborted: false, timedOut: false,
+      durationMs: 1, stdout: diagnostics, stderr: '' });
+    const input = { projectRoot: root, files: ['Submission.lean'], timeoutMs: 1000 };
+    const ordinary = await runLeanDiagnostics(input);
+    expect(Buffer.byteLength(ordinary.stdout)).toBeLessThanOrEqual(8000);
+    const projection = await runLeanDiagnostics({ ...input, outputLimit: 1_000_000 });
+    expect(projection.stdout).toBe(diagnostics);
+    expect(run.mock.calls[1][0].outputLimit).toBe(1_000_000);
+    expect(projection.phases).toHaveLength(1);
+  });
+
   it('rejects protected imports before invoking Lean', async () => {
     fs.writeFileSync(path.join(root, 'Submission.lean'), 'import Solution\n');
     await expect(runLeanDiagnostics({ projectRoot: root, files: ['Submission.lean'], timeoutMs: 1000 }))

@@ -13,8 +13,8 @@ import { solverProofIsCurrent, type ProofCheck } from './modules/evidence';
 import type { ContextBundle } from './modules/context';
 import type { ResearchWorker } from './modules/organization';
 import type { ResearchOperation } from './modules/value';
-import { runResearchTurn } from './modules/execution';
-import { researchFailureReason } from './modules/search';
+import { runResearchTurn, type ResearchCandidate } from './modules/execution';
+import { recoverableResearchFailure, researchFailureDetail, researchFailureReason } from './modules/search';
 import { aggregateUsage, buildTokenBudget, initializeUsageAccounting, modelDispatchAllowed, recordThreadUsage } from './usageBudget';
 
 export type WorkerAccess = { environment: NodeJS.ProcessEnv; corpusFile?: string; retrievalRoot: string };
@@ -178,8 +178,9 @@ export async function runResearchWorkers(input: {
             } });
           } catch (error) {
             signal.throwIfAborted();
-            if (!(error instanceof Error) || !/^math_codex_(?:transport_closed(?::|$)|rpc_timeout:)/u.test(error.message)) throw error;
-            await retryFailedTurn(error.message);
+            const detail = researchFailureDetail(error);
+            if (!recoverableResearchFailure(detail)) throw error;
+            await retryFailedTurn(detail);
             if (!dispatchAllowed()) return false;
           }
           if (signal.aborted) { await close(); signal.throwIfAborted(); }
@@ -197,9 +198,10 @@ export async function runResearchWorkers(input: {
         const retry = modules.M3.retry(error, retries, { ...view(), turns: state.turns - Number(reservedTurn) }, budget());
         if (!retry) throw new Error(researchFailureReason(error));
         retries = retry.attempt;
-        if (retries === 1 && research.threadId &&
-            ['math_model_request_failed', 'math_model_request_timeout', 'math_codex_transport_closed'].includes(retry.reason))
+        if (research.threadId && (retry.reason === 'math_model_tool_failed' || retries === 1 &&
+            ['math_model_request_failed', 'math_model_request_timeout', 'math_codex_transport_closed'].includes(retry.reason)))
           await rotateSession('request');
+        emit('worker_recovering', { reason: retry.reason, attempt: retries, delayMs: retry.delayMs });
         emit('turn_retry', { reason: retry.reason, attempt: retries, delayMs: retry.delayMs,
           ...(error?.startsWith('math_codex_transport_closed:') ? { detail: error } : {}) });
         await delay(retry.delayMs, undefined, { signal });
@@ -309,7 +311,16 @@ export async function runResearchWorkers(input: {
             const currentContext = cooperation!.statementContext(assignment);
             try {
               if (!await beginTurn(currentContext, assignment)) break;
-              const status = await modelTurn(() => runResearchTurn(session!, currentContext.message, assignment.workspace, signal, onStarted), assignment);
+              let status: string | undefined;
+              let executionError: string | undefined;
+              try {
+                status = await modelTurn(() => runResearchTurn(session!, currentContext.message, assignment.workspace, signal, onStarted), assignment);
+              } catch (error) {
+                signal.throwIfAborted();
+                executionError = researchFailureDetail(error, session?.lastError);
+                if (!recoverableResearchFailure(executionError)) throw error;
+                status = 'failed';
+              }
               if (status === undefined) break;
               await cooperation!.pulse(worker.id);
               if (!cooperation!.current(assignment) || status === 'completed') {
@@ -320,7 +331,7 @@ export async function runResearchWorkers(input: {
                 retries = 0;
                 cooperation!.interrupted(worker, assignment); emit('turn_checkpoint', { turn: research.turns });
               } else {
-                const turnError = session?.lastError;
+                const turnError = executionError ?? researchFailureDetail(session?.lastError);
                 await close(); emit('turn_failed', { reason: researchFailureReason(turnError) });
                 cooperation!.interrupted(worker, assignment);
                 await retryFailedTurn(turnError);
@@ -338,13 +349,24 @@ export async function runResearchWorkers(input: {
           // Resume the same thread with new instructions, preserving its history and cumulative usage.
           if (session && sessionInstructions !== currentContext.instructions) await close();
           if (!await beginTurn(currentContext, assignment)) break;
-          let candidate;
+          let candidate: ResearchCandidate | undefined;
+          let executionError: string | undefined;
           try {
-            candidate = await modelTurn(() => modules.M1.execute(state.problem, currentContext, operation, worker, session!, signal, onStarted), assignment);
+            try {
+              candidate = await modelTurn(() => modules.M1.execute(state.problem, currentContext, operation, worker, session!, signal, onStarted), assignment);
+            } catch (error) {
+              signal.throwIfAborted();
+              executionError = researchFailureDetail(error, session?.lastError);
+              if (!recoverableResearchFailure(executionError)) throw error;
+              // The writer must stop before the ordinary saved-source checks and delivery run.
+              candidate = { status: 'failed', worktree: worker.worktree, problemReceiptDigest: state.problem.receiptDigest,
+                operation, provenance: { workerId: worker.id, threadId: session!.threadId } };
+            }
             if (!candidate) break;
             await cooperation?.pulse(worker.id);
           } finally { cooperation?.deactivate(worker); }
           if (assignment && cooperation && !cooperation.current(assignment)) {
+            if (candidate.status === 'failed') await close();
             const commit = solverSourceFeedback(state.problem, worker.worktree) ? git(worker.worktree, ['rev-parse', 'HEAD']) : commitSolverSources(state.problem, worker.worktree);
             await exclusiveCheck(() => cooperation.deliver(worker, assignment, commit));
             emit('assignment_superseded', { commit });
@@ -360,20 +382,20 @@ export async function runResearchWorkers(input: {
           if (!['completed', 'failed', 'checkpoint'].includes(turn)) break;
           if (turn !== 'failed') retries = 0;
           if (turn === 'checkpoint') emit('turn_checkpoint', { turn: research.turns });
-          const turnError = session?.lastError;
+          const turnError = executionError ?? researchFailureDetail(session?.lastError);
           if (turn === 'failed') { await close(); emit('turn_failed', { reason: researchFailureReason(turnError) }); }
-          if (cooperation && assignment && turn === 'failed' &&
-              (assignment.kind !== 'task' || ['research', 'sketch'].includes(assignment.task.kind))) {
-            cooperation.interrupted(worker, assignment);
-            await retryFailedTurn(turnError);
-            continue;
-          }
           const sourceError = solverSourceFeedback(state.problem, worker.worktree);
           if (sourceError) {
             research.check = undefined; research.lemmaResearch = undefined;
             if (assignment) cooperation!.rejected(assignment, sourceError);
             save(); emit('source_rejected');
-            if (turn === 'failed') await retryFailedTurn(turnError);
+            if (turn === 'failed') throw new Error(sourceError);
+            continue;
+          }
+          if (cooperation && assignment && turn === 'failed' &&
+              (assignment.kind !== 'task' || ['research', 'sketch'].includes(assignment.task.kind))) {
+            cooperation.interrupted(worker, assignment);
+            await retryFailedTurn(turnError);
             continue;
           }
           state.phase = research.phase = 'checking'; save();
@@ -393,7 +415,15 @@ export async function runResearchWorkers(input: {
           }
           if (checkWholeRequired) await exclusiveCheck(() => checkWhole(candidate, operation));
           feedbackCheck = previousCheck; feedbackFailures = previousFailures;
-          if (!winner && turn === 'failed' && !savedTaskProof) await retryFailedTurn(turnError);
+          if (!winner && turn === 'failed') {
+            if (!savedTaskProof) await retryFailedTurn(turnError);
+            else if (recoverableResearchFailure(turnError)) {
+              // A checked delivery is progress, not work to replay after repairing the session.
+              retries = 0;
+              await rotateSession('request');
+              emit('worker_recovered', { reason: researchFailureReason(turnError), savedTaskProof: true });
+            } else throw new Error(researchFailureReason(turnError));
+          }
         }
       } catch (error) {
         if (!signal.aborted) {

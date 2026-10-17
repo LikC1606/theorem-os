@@ -6,9 +6,10 @@ import { bindLeanPackages, prepareLeanDiagnosticOverrides, runLeanDiagnostics } 
 import { leanStatementContextCommands, parseLeanStatementContexts, type LeanStatementContext } from '../math/leanStatementContext';
 import { maskLeanComments } from '../math/leanSyntax';
 import { inspectLeanDeclarationRegions } from '../math/leanSource';
+import { assertMathCanonicalPath } from '../math/paths';
 import { committedSource, withSolverWorktree } from './problem';
 import { advisoryEvidenceRefs } from './deliveries';
-import type { CooperativeTask } from './tasks';
+import { taskVersion, type CooperativeTask } from './tasks';
 import type { SolverProblem } from './problem';
 import type { ProofReferences } from './proofReferences';
 
@@ -90,17 +91,45 @@ export async function captureStatementContexts(problem: SolverProblem, tasks: re
     const packages = path.join(worktree, problem.projectRelative, '.lake', 'packages');
     if (fs.existsSync(packages)) bindLeanPackages(project, packages);
     prepareLeanDiagnosticOverrides(project);
-    const result = await runLeanDiagnostics({ projectRoot: project, files: [query], env, signal, timeoutMs });
-    const report = path.join(project, output);
-    if (result.exitCode !== 0 || result.timedOut || !fs.existsSync(report)) {
-      const diagnostics = [result.stdout, result.stderr].filter(Boolean).join('\n');
-      const firstError = /^.*\berror:/mu.exec(diagnostics)?.index;
-      const detail = firstError === undefined ? diagnostics : diagnostics.slice(firstError);
-      throw new Error('math_statement_elaboration_failed\n' + (detail || 'Lean did not export statement context.').slice(0, 2000));
+    let result: Awaited<ReturnType<typeof runLeanDiagnostics>> | undefined;
+    try {
+      result = await runLeanDiagnostics({ projectRoot: project, files: [query], env, signal, timeoutMs, outputLimit: 1_000_000 });
+      const report = path.join(project, output);
+      if (result.exitCode !== 0 || result.timedOut || !fs.existsSync(report)) {
+        const diagnostics = [result.stdout, result.stderr].filter(Boolean).join('\n');
+        const firstError = /^.*\berror:/mu.exec(diagnostics)?.index;
+        const detail = firstError === undefined ? diagnostics : diagnostics.slice(firstError);
+        throw new Error('math_statement_elaboration_failed\n' + (detail || 'Lean did not export statement context.').slice(0, 2000));
+      }
+      const stat = fs.lstatSync(report);
+      if (!stat.isFile() || stat.nlink !== 1 || stat.size > 4_000_000) throw new Error('math_statement_elaboration_invalid');
+      return parseLeanStatementContexts(fs.readFileSync(report, 'utf8'), tasks.map(task => task.id));
+    } catch (error) {
+      // Keep the actual proof-erased inputs and full diagnostics before the disposable
+      // checkout is released. A projection containing sorry is never proof evidence.
+      const directory = path.join(path.dirname(worktree), 'statement-diagnostics', id);
+      assertMathCanonicalPath(directory);
+      fs.mkdirSync(path.join(directory, 'project'), { recursive: true, mode: 0o700 });
+      const files = [...new Set([...sources, ...Object.keys(problem.trustedFiles), ...problem.ownedFiles, query])].map(file => {
+        const source = fs.readFileSync(path.join(project, file));
+        const target = path.join(directory, 'project', file);
+        assertMathCanonicalPath(target);
+        fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
+        fs.writeFileSync(target, source, { mode: 0o600 });
+        return { path: `project/${file}`, digest: mathDigest(source) };
+      });
+      const reason = error instanceof Error ? error.message : 'math_statement_elaboration_failed';
+      fs.writeFileSync(path.join(directory, 'stdout.log'), result?.stdout ?? '', { mode: 0o600 });
+      fs.writeFileSync(path.join(directory, 'stderr.log'), result?.stderr ?? reason, { mode: 0o600 });
+      writeMathJsonDurable(path.join(directory, 'manifest.json'), {
+        schema: 'theorem-os.statement-projection-diagnostic.v1', status: 'advisory-unverified',
+        problemReceiptDigest: problem.receiptDigest, commit, query, files,
+        tasks: tasks.map(task => ({ id: task.id, taskDigest: taskVersion(task) })),
+        exitCode: result?.exitCode ?? null, timedOut: result?.timedOut ?? false, aborted: signal?.aborted ?? false,
+        outputCaptureLimitBytes: 1_000_000, reason,
+      });
+      throw new Error(`${reason}\nProjection diagnostics: ${directory}`, { cause: error });
     }
-    const stat = fs.lstatSync(report);
-    if (!stat.isFile() || stat.nlink !== 1 || stat.size > 4_000_000) throw new Error('math_statement_elaboration_invalid');
-    return parseLeanStatementContexts(fs.readFileSync(report, 'utf8'), tasks.map(task => task.id));
   });
 }
 

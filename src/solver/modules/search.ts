@@ -1,6 +1,7 @@
 import type { SolverRunState } from '../archive';
 import type { ResearchOperation, ValueEstimate } from './value';
-import { taskGroup, taskReferenceDependencies, taskVersion, type TaskRecord, type RouteRecord, type CooperativeAction } from '../tasks';
+import { hasTaskAcceptance, isFinalCandidateReview, taskGroup, taskReferenceDependencies, taskVersion,
+  type TaskRecord, type RouteRecord, type CooperativeAction } from '../tasks';
 
 export type ResearchBudget = Readonly<{ maxTurns: number; remainingMs: number; aborted: boolean }>;
 export type ActionPlan = Readonly<{
@@ -15,6 +16,16 @@ export function routeAllowsTask(task: TaskRecord['task'], tasks: readonly TaskRe
   const route = groups.find(record => record.group.id === taskGroup(task));
   return Boolean(route && route.group.status === 'active' && route.turns < (route.group.maxTurns ?? Infinity) &&
     (route.busy ?? tasks.filter(node => node.status === 'running' && taskGroup(node.task) === route.group.id).length) < (route.group.maxConcurrent ?? 3));
+}
+
+/** Advisory final review still needs a complete, freshly accepted original candidate. */
+export function finalCandidateReviewReady(tasks: readonly TaskRecord[]): boolean {
+  const goals = tasks.filter(node => node.task.kind === 'goal');
+  return goals.length > 0 && goals.every(node => {
+    const proof = node.integratedCheck;
+    return node.status === 'integrated' && proof?.passed && hasTaskAcceptance(proof) &&
+      proof.taskDigest === taskVersion(node.task) && !proof.conditions?.length;
+  });
 }
 
 /** Memoization lasts only for this selection; mutable task state never enters a global cache. */
@@ -49,8 +60,10 @@ function taskReadiness(tasks: readonly TaskRecord[]) {
     available.set(id, ready);
     return ready;
   };
-  const canStart = (task: TaskRecord['task']): boolean => ['research', 'sketch'].includes(task.kind) || dependenciesReady(task) ||
-    Boolean(task.conditional && task.dependsOn.every(dependencyAvailable));
+  const canStart = (task: TaskRecord['task']): boolean => isFinalCandidateReview(task)
+    ? finalCandidateReviewReady(tasks) && dependenciesReady(task)
+    : ['research', 'sketch'].includes(task.kind) || dependenciesReady(task) ||
+      Boolean(task.conditional && task.dependsOn.every(dependencyAvailable));
   return { dependenciesReady, canStart };
 }
 
@@ -157,6 +170,7 @@ export function researchCanAdvance(tasks: readonly TaskRecord[], groups: readonl
     memo.set(id, false);
     const node = nodes.get(id);
     if (!node || node.status === 'blocked') return false;
+    if (isFinalCandidateReview(node.task) && !finalCandidateReviewReady(tasks)) return false;
     if (['integrated', 'completed', 'delivered', 'running'].includes(node.status)) {
       memo.set(id, true); return true;
     }
@@ -205,15 +219,40 @@ export function selectLemmaAction(state: Readonly<SolverRunState>, options: read
 }
 
 export function researchFailureReason(error?: string): string {
-  if (/^math_(?:model_(?:authentication_failed|concurrency_limit|request_failed|request_timeout|turn_failed)|codex_transport_closed)$/u.test(error ?? '')) return error!;
+  if (/^math_(?:model_(?:authentication_failed|concurrency_limit|request_failed|request_timeout|tool_failed|turn_failed)|codex_transport_closed)$/u.test(error ?? '')) return error!;
+  // Host source, receipt and sandbox guards are never transient model failures.
+  if (/^math_(?!(?:model_|codex_))/u.test(error ?? '')) return error!;
   if (/authentication|unauthorized|forbidden|invalid.*api.?key|\b(?:401|403)\b/iu.test(error ?? '')) return 'math_model_authentication_failed';
   if (/Concurrency limit exceeded|rate.?limit|\b429\b/iu.test(error ?? '')) return 'math_model_concurrency_limit';
   if (/^math_codex_transport_closed(?::|$)/u.test(error ?? '')) return 'math_codex_transport_closed';
   if (/math_codex_rpc_timeout|timed?\s*out|timeout/iu.test(error ?? '')) return 'math_model_request_timeout';
   if (/stream disconnected|error sending request|connection (?:reset|closed)|ECONNRESET|ECONNREFUSED|EAI_AGAIN|fetch failed|service unavailable|temporarily unavailable|\b(?:500|502|503|504)\b/iu.test(error ?? ''))
     return 'math_model_request_failed';
+  if (/(?:error parsing|failed to (?:parse|deserialize)) (?:function|tool) (?:call|arguments)|(?:function|tool) (?:call|execution|response)\b[^\n]{0,120}\b(?:interrupted|cancelled|canceled|invalid JSON)\b/iu.test(error ?? ''))
+    return 'math_model_tool_failed';
   return 'math_model_turn_failed';
 }
+
+/** Unwrap a turn wrapper without letting a transport cause override a host integrity error. */
+export function researchFailureDetail(error: unknown, sessionError?: string): string | undefined {
+  const messages: string[] = [];
+  const seen = new Set<unknown>();
+  for (let current = error; current !== undefined && !seen.has(current) && seen.size < 4;) {
+    seen.add(current);
+    if (typeof current === 'string') { messages.push(current); break; }
+    if (!(current instanceof Error)) break;
+    messages.push(current.message);
+    current = current.cause;
+  }
+  if (sessionError) messages.push(sessionError);
+  const first = messages[0];
+  if (first && /^math_(?!(?:model_|codex_))/u.test(first)) return first;
+  return messages.find(message => researchFailureReason(message) !== 'math_model_turn_failed') ?? first;
+}
+
+export const recoverableResearchFailure = (error?: string): boolean =>
+  ['math_model_concurrency_limit', 'math_model_request_failed', 'math_model_request_timeout',
+    'math_model_tool_failed', 'math_codex_transport_closed'].includes(researchFailureReason(error));
 
 /** Advisory reporting only; categories never change Lean acceptance. */
 export function researchFailureCategory(error?: string): 'network' | 'environment' | 'source' | 'proof' | 'authentication' | 'rate_limit' | 'unknown' | undefined {
@@ -224,6 +263,7 @@ export function researchFailureCategory(error?: string): 'network' | 'environmen
   const reason = researchFailureReason(error);
   if (reason === 'math_model_authentication_failed') return 'authentication';
   if (reason === 'math_model_concurrency_limit') return 'rate_limit';
+  if (reason === 'math_model_tool_failed') return 'environment';
   if (['math_model_request_failed', 'math_model_request_timeout', 'math_codex_transport_closed'].includes(reason)) return 'network';
   if (/unsolved goals|type mismatch|tactic.*failed|math_(?:proof_|task_proof_|lemma_)/iu.test(error)) return 'proof';
   return 'unknown';
@@ -232,7 +272,7 @@ export function researchFailureCategory(error?: string): 'network' | 'environmen
 export function planResearchRetry(error: string | undefined, attempts: number, state: Readonly<SolverRunState>,
   budget: ResearchBudget): Readonly<{ attempt: number; delayMs: number; reason: string }> | undefined {
   const reason = researchFailureReason(error);
-  if (['math_model_authentication_failed', 'math_model_turn_failed'].includes(reason) || attempts >= 3 ||
+  if (!recoverableResearchFailure(error) || attempts >= 3 ||
     state.turns >= budget.maxTurns || budget.aborted || budget.remainingMs <= 0) return undefined;
   return { attempt: attempts + 1, delayMs: 10_000 * 2 ** attempts, reason };
 }

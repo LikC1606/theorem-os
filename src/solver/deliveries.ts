@@ -4,13 +4,19 @@ import { assertMathCanonicalPath } from '../math/paths';
 import { readMathText } from '../math/mathRuntimeIo';
 import type { ProofCheck } from './modules/evidence';
 import type { ProofReferences } from './proofReferences';
+import type { DeliveryArtifactManifest } from './deliveryArtifacts';
+import type { CooperativeTask } from './tasks';
+
+// Long-lived task graphs can exceed a short prompt's display allowance. Keep the
+// complete host response bounded by the committed-source reader's byte allowance.
+export const MAX_RESEARCH_NOTES_BYTES = 1_000_000;
 
 /** JSON for host decisions, optional Markdown for explanations; legacy fences remain readable. */
 export function readMathResponse(worktree: string, legacyFence: string, bindings: Record<string, unknown> = {}, textField?: string): any {
   const file = path.join(worktree, 'RESEARCH.md');
   const errorPrefix = legacyFence === 'math-lemma' ? 'math_lemma_plan' : `math_${legacyFence}`;
   let text: string;
-  try { assertMathCanonicalPath(file); text = readMathText(file).trim(); }
+  try { assertMathCanonicalPath(file); text = readMathText(file, MAX_RESEARCH_NOTES_BYTES).trim(); }
   catch { throw new Error(`${errorPrefix}_missing_or_too_large`); }
   const blocks = [...text.matchAll(new RegExp('```(?:math|json|' + legacyFence + ')\\s*\\n([\\s\\S]*?)\\n```', 'gu'))]
     .filter(block => !textField || block[1].trimStart().startsWith('{'));
@@ -43,6 +49,9 @@ export type DeliveryRecord = {
   summary: string; evidenceRefs: readonly string[]; createdAt: number; commit?: string; sourceDigest?: string;
   evidence?: { passed: boolean; verification: Pick<ProofCheck['verification'], 'status' | 'targetCommit'> & { results: { receiptId: string }[] } };
   actualReferences?: ProofReferences;
+  artifacts?: DeliveryArtifactManifest;
+  artifactWarning?: string;
+  lemmaRequests?: readonly CooperativeTask[];
 };
 
 export function deliveryDetails(value: any): Pick<DeliveryRecord, 'summary' | 'evidenceRefs'> &

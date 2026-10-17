@@ -297,11 +297,14 @@ describe('isolated solver and host acceptance', () => {
         if (failure === 'exception') throw new Error('fixture_request_exception');
         return failure;
       }, close: vi.fn(), interrupt: vi.fn() }));
-    expect(await runSolver([...args, '--max-turns', '20', '--max-total-tokens', '100'], directory)).toBe(failure === 'exception' ? 1 : 4);
+    expect(await runSolver([...args, '--max-turns', '20', '--max-total-tokens', '100'], directory)).toBe(4);
     expect(runs).toHaveBeenCalledOnce();
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({
-      status: failure === 'exception' ? 'runtime_error' : 'limit_reached',
+      status: 'limit_reached', reason: 'math_model_usage_unavailable',
       usage: { totalTokens: 40 }, tokenBudget: { status: 'usage-unavailable', reportedTotalTokens: 40, usageComplete: false } });
+    expect(JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8')).usageAccounting).toMatchObject({
+      startedTurns: 1, reportedTurns: 0, incomplete: true, pending: false });
+    expect(host.delay).not.toHaveBeenCalled();
     expect(host.officialGate).not.toHaveBeenCalled();
   });
 
@@ -3372,13 +3375,24 @@ describe('isolated solver and host acceptance', () => {
     expect(fs.existsSync(projection)).toBe(false); expect(host.verify).not.toHaveBeenCalled();
   });
 
-  it('reports the first elaboration error after projection warnings even when stderr is nonempty', async () => {
+  it('preserves failed projection inputs and full diagnostics while showing the first error', async () => {
     const warnings = 'Submission.lean:1:1: warning: declaration uses `sorry`\n'.repeat(60);
     host.prepare.mockImplementationOnce(async () => ({ exitCode: 1, stdout: warnings +
       'Submission.lean:80:4: error: unexpected token\nexpected a term\n', stderr: 'additional diagnostics' }));
     await expect(captureStatementContexts(problem, statementTasks().filter(task => task.statementReview),
       workspace, problem.baseCommit, {}, undefined, 1000)).rejects.toThrow(
       'math_statement_elaboration_failed\nSubmission.lean:80:4: error: unexpected token\nexpected a term');
+    const diagnosticsRoot = path.join(path.dirname(workspace), 'statement-diagnostics');
+    const reportDirectory = path.join(diagnosticsRoot, fs.readdirSync(diagnosticsRoot)[0]);
+    const manifest = JSON.parse(fs.readFileSync(path.join(reportDirectory, 'manifest.json'), 'utf8'));
+    expect(manifest).toMatchObject({ status: 'advisory-unverified', problemReceiptDigest: problem.receiptDigest,
+      commit: problem.baseCommit, exitCode: 1 });
+    expect(fs.readFileSync(path.join(reportDirectory, 'stdout.log'), 'utf8')).toContain(warnings);
+    expect(fs.readFileSync(path.join(reportDirectory, 'stderr.log'), 'utf8')).toBe('additional diagnostics');
+    expect(fs.readFileSync(path.join(reportDirectory, 'project/Submission.lean'), 'utf8')).toContain('by sorry');
+    expect(manifest.files.some((file: any) => file.path.endsWith(manifest.query))).toBe(true);
+    for (const file of manifest.files)
+      expect(mathDigest(fs.readFileSync(path.join(reportDirectory, file.path)))).toBe(file.digest);
     expect(host.verify).not.toHaveBeenCalled();
   });
 
@@ -4670,7 +4684,8 @@ describe('isolated solver and host acceptance', () => {
     expect(run).toHaveBeenCalledTimes(1);
     expect(host.verify).not.toHaveBeenCalled();
     expect(host.officialGate).not.toHaveBeenCalled();
-    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'runtime_error', turns: 1, reason: 'math_model_turn_failed' });
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'runtime_error', turns: 1,
+      reason: expect.stringContaining('math_original_declaration_changed') });
   });
 
   it.each(['stream disconnected before completion: Concurrency limit exceeded for account, please retry later',

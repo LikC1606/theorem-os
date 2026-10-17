@@ -16,14 +16,16 @@ import { proofReceiptsMatch, type ProofCheck } from './modules/evidence';
 import type { WorkerAccess } from './research';
 import type { SolverModules } from './modules';
 import { researchCanAdvance, routeAllowsTask, taskCanStart, taskDependenciesReady } from './modules/search';
-import { deliveryDetails, reviewVerdict, readDeliveryLines, readMathResponse as block, type DeliveryRecord } from './deliveries';
+import { deliveryDetails, reviewVerdict, readDeliveryLines, readMathResponse as block, MAX_RESEARCH_NOTES_BYTES, type DeliveryRecord } from './deliveries';
 import { applyTaskChanges, checkTaskProof, checkTaskProofs, omitTaskHelpers, ownedSourceDigest, projectTaskSources, taskChanges, type TaskProof } from './cooperativeProof';
 import { assertStatementSnapshot, captureStatementContexts, isStatementAction, readBacktranslation, resetStatementReview, statementReviewSummary, statementSnapshot, writeStatementSnapshot,
   type StatementAction, type StatementReview } from './statementReview';
 import { captureProofReferences, proofReferencesUnchanged, type ProofReferences } from './proofReferences';
 import { buildProofContinuation } from './progress';
+import { captureDeliveryArtifacts, diagnoseUnbackedLeanClaims, validateDeliveryArtifactClaims, type DeliveryArtifactManifest } from './deliveryArtifacts';
+import { validateLemmaRequests } from './taskProposals';
 
-import { taskGroup, taskVersion, taskReferenceDependencies, assignmentDeliveryFile, markTaskReferences, hasTaskReferences, invalidatedTaskIds,
+import { taskGroup, taskVersion, taskReferenceDependencies, assignmentDeliveryFile, markTaskReferences, hasTaskReferences, markTaskAcceptance, invalidatedTaskIds,
   type CooperativeTask, type RouteGroup, type RouteRecord, type TaskAssignment, type TaskRecord, type CooperativeAction } from './tasks';
 export { taskGroup, taskVersion, taskReferenceDependencies, assignmentDeliveryFile } from './tasks';
 export type { CooperativeTask, RouteGroup, RouteRecord, TaskAssignment, TaskRecord, CooperativeAction } from './tasks';
@@ -239,7 +241,7 @@ export class CooperativeResearch {
   private syncPlanNotes() {
     if (!this.archive.planEdited) return;
     const file = path.join(this.lead.worktree, 'RESEARCH.md');
-    const source = fs.existsSync(file) ? readMathText(file, 64_000) : '';
+    const source = fs.existsSync(file) ? readMathText(file, MAX_RESEARCH_NOTES_BYTES) : '';
     const plan = '```math\n' + JSON.stringify({ tasks: this.archive.tasks.map(node => node.task), groups: this.archive.groups?.map(route => route.group) }) + '\n```';
     fs.writeFileSync(file, /```(?:math|math-plan)\s*\n[\s\S]*?\n```/u.test(source)
       ? source.replace(/```(?:math|math-plan)\s*\n[\s\S]*?\n```/u, plan) : plan + '\n' + bounded(source, 8000));
@@ -327,7 +329,7 @@ export class CooperativeResearch {
     if (this.archive.review && this.archive.review.status !== 'changes_requested') return;
     const notes = path.join(this.lead.worktree, 'RESEARCH.md');
     if (!fs.existsSync(notes)) return;
-    const fingerprint = mathDigest(readMathText(notes, 64_000));
+    const fingerprint = mathDigest(readMathText(notes, MAX_RESEARCH_NOTES_BYTES));
     if (fingerprint === this.archive.helpRequestDigest) return;
     this.archive.helpRequestDigest = fingerprint;
     try {
@@ -446,7 +448,7 @@ export class CooperativeResearch {
       markTaskReferences(proof);
     }
     this.pin(proof.commit); this.pin(proof.verification.targetCommit);
-    this.checkedDeliveries.add(proof);
+    this.checkedDeliveries.add(proof); markTaskAcceptance(proof);
     return proof;
   }
   /** Check isolated sources concurrently; only publishing and canonical integration are serialized. */
@@ -1144,7 +1146,9 @@ export class CooperativeResearch {
     }
     if (['conditional', 'integrated'].includes(node.status)) return { checkWhole: false };
     let unchangedNotesBlob: string | undefined;
+    let artifacts: DeliveryArtifactManifest | undefined;
     try {
+      artifacts = captureDeliveryArtifacts({ problem: this.input.state.problem, worktree: worker.worktree, commit, assignment: action.assignment });
       if (advisory(node.task)) {
         if (recovering) { this.interrupted(worker, action); return { checkWhole: false }; }
         taskChanges(this.input.state.problem, worker.worktree, commit, node.task, action.assignment);
@@ -1158,22 +1162,30 @@ export class CooperativeResearch {
         const details = deliveryDetails(finding);
         if (finding?.taskId !== node.task.id || !details.summary.trim() || !['supporting', 'refuted', 'inconclusive'].includes(finding.conclusion))
           throw new Error('math_research_delivery_invalid');
+        artifacts = { ...artifacts, reportedChecks: validateDeliveryArtifactClaims(finding, artifacts) };
+        const artifactWarning = diagnoseUnbackedLeanClaims(finding, artifacts);
+        const lemmaRequests = validateLemmaRequests(this.input.state.problem, this.archive.tasks.map(node => node.task),
+          this.archive.groups?.map(route => route.group) ?? [], node.task, finding.lemmaRequests);
         node.finding = bounded(JSON.stringify(finding), 5000); node.status = 'completed'; node.feedback = undefined;
         if (this.archive.unchangedResearch) delete this.archive.unchangedResearch[node.task.id];
-        if (finding.needsDecision === true || finding.conclusion === 'refuted') this.needsLead = true;
+        if (finding.needsDecision === true || finding.conclusion === 'refuted' || lemmaRequests.length || artifactWarning) this.needsLead = true;
         const remaining = [...new Set([...(details.remainingObligations ?? []),
           ...this.dependencies(node.task).filter(dependency => !['integrated', 'completed'].includes(dependency.status)).map(dependency => dependency.task.id)])];
         this.record(worker, node.task, 'research', !remaining.length && node.task.kind !== 'sketch' ? 'advisory' : 'conditional', details.summary,
-          { ...details, remainingObligations: remaining, commit });
+          { ...details, remainingObligations: remaining, commit, artifacts, lemmaRequests,
+            ...(artifactWarning ? { artifactWarning } : {}) });
         this.input.emit('research_delivered', { taskId: node.task.id, conclusion: finding.conclusion });
       } else {
         const proof = await this.publishTaskProof(worker, action, commit,
-          'Fixed declaration checked; unresolved lemma assumptions remain obligations.', {}, recovering);
+          'Fixed declaration checked; unresolved lemma assumptions remain obligations.', { artifacts }, recovering);
         return { check: proof, checkWhole: false };
       }
     } catch (error) {
       if (!this.current(action)) return { checkWhole: false };
       const feedback = error instanceof Error ? error.message : 'math_task_delivery_failed';
+      if (artifacts?.artifacts.length) this.record(worker, node.task, 'progress', 'advisory',
+        'Recoverable supporting code retained after an incomplete or rejected delivery; it still requires typed host checking.',
+        { commit, artifacts, remainingObligations: [node.task.id] });
       if (feedback === 'math_verifier_unavailable') { this.rejected(action, feedback, commit); throw error; }
       if (recovering) { node.feedback = feedback; this.interrupted(worker, action); }
       else if (unchangedNotesBlob !== undefined) {

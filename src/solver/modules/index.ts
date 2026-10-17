@@ -13,11 +13,11 @@ import { canonicalMathJson, mathDigest } from '../../math/mathRuntimeIo';
 /** Frozen component versions compose one ordinary direct-proof program. */
 export const directSolverModules = {
   id: 'direct-v1',
-  M1: { version: 'bounded-codex-turn-v8', open: createCodexMathSession, execute: executeResearch },
-  M2: { version: 'lean-kernel-v8', check: checkSolverProof, checkTask: checkTaskProof },
-  M3: { version: 'route-budget-v6', select: selectResearchAction, retry: planResearchRetry, ready: readyResearchTasks },
-  M4: { version: 'checkpoint-context-v14', build: buildResearchContext, statement: buildStatementReviewContext },
-  M5: { version: 'route-cooperation-v14', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignResearchTask },
+  M1: { version: 'bounded-codex-turn-v9', open: createCodexMathSession, execute: executeResearch },
+  M2: { version: 'lean-kernel-v9', check: checkSolverProof, checkTask: checkTaskProof },
+  M3: { version: 'route-budget-v7', select: selectResearchAction, retry: planResearchRetry, ready: readyResearchTasks },
+  M4: { version: 'checkpoint-context-v15', build: buildResearchContext, statement: buildStatementReviewContext },
+  M5: { version: 'route-cooperation-v15', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignResearchTask },
 };
 
 export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M3' | 'M5'> & {
@@ -30,8 +30,8 @@ export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M3' | 'M5'>
 
 export const lemmaSolverModules: SolverModules = {
   ...directSolverModules, id: 'lemma-v1',
-  M2: { ...directSolverModules.M2, version: 'lean-obligations-v8', checkLemma: checkLemmaResearch },
-  M3: { ...directSolverModules.M3, version: 'lemma-route-search-v7', select: selectLemmaAction },
+  M2: { ...directSolverModules.M2, version: 'lean-obligations-v9', checkLemma: checkLemmaResearch },
+  M3: { ...directSolverModules.M3, version: 'lemma-route-search-v8', select: selectLemmaAction },
 };
 
 /** Named CLI policies bind search and assignment versions without changing host acceptance. */

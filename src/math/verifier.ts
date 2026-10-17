@@ -1753,6 +1753,8 @@ export async function runMathematicsSandboxedCommand(input: {
   /** Opaque host-owned transport for immutable construction-time packages. */
   /** Preserve the first bounded output segment for JSON-lines diagnostic consumers. */
   outputCapture?: 'head' | 'tail';
+  /** Host diagnostic capture; does not change execution or acceptance limits. */
+  outputLimit?: number;
   /** Use package copies already inside a disposable checkout without attaching shared caches. */
   useWorkspacePackagesOnly?: boolean;
   /** Internal transport hook; process lifetime is owned by the caller's abort signal. */
@@ -1845,6 +1847,7 @@ export async function runMathematicsSandboxedCommand(input: {
     env: runtimeEnv,
     lakePackagesPath,
     outputCapture: input.outputCapture,
+    outputLimit: input.outputLimit,
     onDuplexSpawn: input.onDuplexSpawn,
   });
 }

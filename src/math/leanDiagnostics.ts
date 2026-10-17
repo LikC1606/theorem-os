@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { runLeanProcess } from './mathProcess';
+import { limitMathOutput, runLeanProcess } from './mathProcess';
 import { assertMathConstructionSources, mathLocalModuleBuildOrder } from './mathConstructionSources';
 import { assertMathCanonicalPath } from './paths';
 import { mathDigest } from './mathRuntimeIo';
@@ -11,7 +11,7 @@ import { checkResolvedLeanToolchainReadiness } from './leanToolchainReadiness';
 
 /** Advisory checks already inside the host's isolated worker must not nest a namespace sandbox. */
 async function runWorkerLean(project: string, module: { file: string; sourceRoot: string }, output: string,
-  env: NodeJS.ProcessEnv, timeoutMs: number, signal?: AbortSignal) {
+  env: NodeJS.ProcessEnv, timeoutMs: number, signal: AbortSignal | undefined, outputLimit: number) {
   const startedAt = Date.now(), deadlineAt = startedAt + timeoutMs;
   const stopped = () => ({ started: false, exitCode: null, timedOut: !signal?.aborted, aborted: Boolean(signal?.aborted),
     durationMs: Date.now() - startedAt, stdout: '', stderr: '' });
@@ -34,9 +34,9 @@ async function runWorkerLean(project: string, module: { file: string; sourceRoot
     signal?.throwIfAborted();
     const result = await runLeanProcess(readiness.leanPath!, ['-j1', '-R', module.sourceRoot, '-o', output, module.file], {
       cwd: project, env: { ...env, LEAN_PATH: libraries.join(path.delimiter), LEAN_NUM_THREADS: '1' },
-      timeoutMs: Math.max(0, deadlineAt - Date.now()), signal, outputCapture: 'head', stopGraceMs: 0,
+      timeoutMs: Math.max(0, deadlineAt - Date.now()), signal, outputCapture: 'head', outputLimit, stopGraceMs: 0,
     });
-    const cap = (text: string) => Buffer.from(text).subarray(0, 8000).toString('utf8');
+    const cap = (text: string) => limitMathOutput(text, outputLimit, 'head');
     return { ...result, started: result.started && !result.errorCode, durationMs: Date.now() - startedAt,
       stdout: cap(result.stdout), stderr: cap(result.stderr + (result.errorMessage ?? '')) };
   } finally { await lease.release(); }
@@ -47,7 +47,12 @@ export async function runLeanDiagnostics(input: {
   projectRoot: string; files: readonly string[]; env?: NodeJS.ProcessEnv; signal?: AbortSignal;
   timeoutMs: number; dependenciesOnly?: boolean; excludedFiles?: readonly string[];
   onProgress?: (file: string) => void;
+  /** Host projections retain a larger diagnostic window than ordinary model prompts. */
+  outputLimit?: number;
 }) {
+  const outputLimit = input.outputLimit ?? 8000;
+  if (!Number.isSafeInteger(outputLimit) || outputLimit < 1 || outputLimit > 4_000_000)
+    throw new Error('math_diagnostics_output_limit_invalid');
   const project = fs.realpathSync(input.projectRoot);
   const env = resolveMathematicsRuntimeEnvironment(input.env || process.env);
   assertMathConstructionSources(project, input.files);
@@ -66,7 +71,7 @@ export async function runLeanDiagnostics(input: {
   });
   const config = configuration();
   const environmentIdentity = mathDigest(JSON.stringify([
-    resolveMathProofEnvironment(project, env)?.identity, env.PATH, env.ELAN_HOME, env.LEAN_PATH, env.LEAN_SYSROOT,
+    resolveMathProofEnvironment(project, env)?.identity, env.PATH, env.ELAN_HOME, env.LEAN_PATH, env.LEAN_SYSROOT, outputLimit,
   ]));
   const sourceIdentity = () => mathDigest(JSON.stringify([configuration(), modules.map(module =>
     [module.file, mathDigest(fs.readFileSync(path.join(project, module.file)))])]));
@@ -74,7 +79,7 @@ export async function runLeanDiagnostics(input: {
   const sources: string[] = [];
   const deadline = Date.now() + input.timeoutMs;
   const phases: { file: string; cached: boolean; durationMs: number; exitCode: number | null }[] = [];
-  const cap = (text: string) => Buffer.from(text).subarray(0, 8000).toString('utf8');
+  const cap = (text: string) => limitMathOutput(text, outputLimit, 'head');
   const artifactDigest = (output: string) => mathDigest(JSON.stringify([
     output, output + '.private', output + '.server', output.replace(/\.olean$/u, '.ir'), output.replace(/\.olean$/u, '.ir.sig'),
   ].map(file => {
@@ -103,10 +108,10 @@ export async function runLeanDiagnostics(input: {
     const remainingMs = deadline - Date.now();
     if (remainingMs <= 0) return { exitCode: null, timedOut: true, stdout, stderr, phases };
     const result = env[MATH_PROOF_ENVIRONMENT_SANDBOX_ENV]
-      ? await runWorkerLean(project, module, output, env, remainingMs, input.signal)
+      ? await runWorkerLean(project, module, output, env, remainingMs, input.signal, outputLimit)
       : await runMathematicsSandboxedCommand({ checkoutRoot: project, command: 'lake',
       args: ['env', '/bin/sh', '-ceu', `mkdir -p ${quote(path.posix.dirname(output))}\nexec lean -j1 -R ${quote(module.sourceRoot)} -o ${quote(output)} ${quote(module.file)}`],
-      env, signal: input.signal, timeoutMs: remainingMs, outputCapture: 'head' });
+      env, signal: input.signal, timeoutMs: remainingMs, outputCapture: 'head', outputLimit });
     phases.push({ file: module.file, cached: false, durationMs: result.durationMs, exitCode: result.exitCode });
     if (sourceIdentity() !== sourceDigest) return { exitCode: 1, timedOut: false,
       stdout: cap(result.stdout), stderr: 'math_diagnostics_source_changed: saved sources changed during compilation',

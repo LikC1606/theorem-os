@@ -9,6 +9,7 @@ import { CooperativeResearch, type CooperationState } from '../src/solver/cooper
 import { directSolverModules } from '../src/solver/modules';
 import { git, type SolverProblem } from '../src/solver/problem';
 import type { SolverRunState } from '../src/solver/archive';
+import { readMathResponse } from '../src/solver/deliveries';
 
 const node = (id: string, kind: TaskRecord['task']['kind'] = 'lemma', dependsOn: string[] = []): TaskRecord => ({
   task: { id, kind, objective: id, dependsOn, revision: 0,
@@ -120,6 +121,35 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
     expect(state.cooperation!.deliveries).toEqual([expect.objectContaining({ kind: 'failure', status: 'failed', taskId: 'question' })]);
     vi.spyOn(cooperative as any, 'seed').mockReturnValue(seed);
     await expect(cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity })).resolves.toMatchObject({ kind: 'lead' });
+  });
+
+  it('retains complete long-running plans when both inherited notes and task graphs exceed 64KB', () => {
+    const objective = 'Preserve this exact mathematical obligation. '.repeat(2000);
+    record.task = { ...record.task, objective };
+    fs.writeFileSync(path.join(directory, 'RESEARCH.md'), 'Earlier advisory checkpoint. '.repeat(4000));
+    for (let round = 0; round < 2; round++) {
+      state.cooperation!.planEdited = true;
+      (cooperative as any).syncPlanNotes();
+      const response = readMathResponse(directory, 'math-plan');
+      expect(response.tasks.find((task: any) => task.id === record.task.id).objective).toBe(objective);
+      expect(Buffer.byteLength(fs.readFileSync(path.join(directory, 'RESEARCH.md')))).toBeGreaterThan(64_000);
+    }
+  });
+
+  it('retains reproducible Lean probe artifacts with an advisory finding and never grants proof acceptance', async () => {
+    const next = checkpoint('```math-result\n' + JSON.stringify({ summary: 'A reusable supporting declaration.',
+      leanChecks: [{ status: 'passed', path: 'RESEARCH.md', declarations: ['probe'] }] }) +
+      '\n```\n\n```lean\ntheorem probe : True := by trivial\n```\n');
+    await cooperative.deliver(researcher, action, next);
+    expect(record.status).toBe('completed');
+    const delivery = state.cooperation!.deliveries!.find(item => item.kind === 'research')!;
+    expect(delivery.status).toBe('advisory');
+    expect(delivery.artifacts).toMatchObject({ scope: 'advisory-unverified', commit: next,
+      taskId: record.task.id, taskDigest: action.assignment.taskDigest });
+    expect(delivery.artifacts!.artifacts[0].declarations[0].name).toBe('probe');
+    expect(delivery.artifacts!.reportedChecks![0].artifactIds).toHaveLength(1);
+    expect(delivery.evidence).toBeUndefined();
+    expect(record.integratedCheck).toBeUndefined();
   });
 
   it('does not count recovered checkpoints as unchanged completed findings and resets after new findings', async () => {

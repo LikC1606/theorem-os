@@ -7,7 +7,8 @@ import type { StatementAction } from './statementReview';
 export type CooperativeTask = Readonly<{ id: string; kind: 'research' | 'sketch' | 'lemma' | 'goal'; objective: string;
   dependsOn: readonly string[]; revision: number; proofPath?: string; theoremName?: string; type?: string;
   groupId?: string; sharing?: 'group' | 'problem'; status?: 'active' | 'paused' | 'stopped'; ownerId?: string; premises?: readonly string[];
-  conditional?: boolean; statementReview?: boolean; informalStatement?: string }>;
+  conditional?: boolean; statementReview?: boolean; informalStatement?: string;
+  reviewScope?: 'final-candidate' | 'feasibility' }>;
 export type RouteGroup = Readonly<{ id: string; objective: string; status: 'active' | 'paused' | 'stopped'; revision: number;
   engineerId?: string; maxTurns?: number; maxConcurrent?: number }>;
 export type RouteRecord = { group: RouteGroup; turns: number; busy?: number };
@@ -33,6 +34,16 @@ export function taskReferenceDependencies(node: TaskRecord): DeliveryRecord['dep
 }
 export const markTaskReferences = (proof: TaskProof) => checkedReferences.add(proof);
 export const hasTaskReferences = (proof: TaskProof) => checkedReferences.has(proof);
+// Restored JSON cannot authorize final-candidate dispatch before the host rechecks it.
+const freshTaskAcceptances = new WeakMap<TaskProof, string>();
+const acceptanceIdentity = (proof: TaskProof) => canonicalMathJson({ commit: proof.commit, sourceDigest: proof.sourceDigest,
+  taskDigest: proof.taskDigest, conditions: proof.conditions, verification: proof.verification && {
+    status: proof.verification.status, targetCommit: proof.verification.targetCommit,
+    receipts: proof.verification.results.map(result => [result.receiptId, result.status, result.targetCommit]) } });
+export const markTaskAcceptance = (proof: TaskProof) => {
+  if (proof.passed && proof.verification?.status === 'kernel_verified') freshTaskAcceptances.set(proof, acceptanceIdentity(proof));
+};
+export const hasTaskAcceptance = (proof: TaskProof) => freshTaskAcceptances.get(proof) === acceptanceIdentity(proof);
 
 /** Compute invalidation before changing assignments or emitting any notifications. */
 export function invalidatedTaskIds(previous: readonly TaskRecord[], tasks: readonly CooperativeTask[],
@@ -55,6 +66,8 @@ export const assignmentDeliveryFile = (assignment: TaskAssignment) => `DELIVERIE
   taskId: assignment.taskId, taskDigest: assignment.taskDigest, seedCommit: assignment.seedCommit }))}.jsonl`;
 
 export const isAdvisoryTask = (task: CooperativeTask) => task.kind === 'research' || task.kind === 'sketch';
+export const isFinalCandidateReview = (task: CooperativeTask) => isAdvisoryTask(task) &&
+  (task.reviewScope === 'final-candidate' || task.id === 'independent_candidate_review');
 
 const validId = (value: unknown) => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,64}$/u.test(value);
 const optionalFields = (value: any, keys: readonly string[]) =>
@@ -95,6 +108,8 @@ export function parseCooperationPlan(problem: SolverProblem, value: any): { task
     if ((task.status !== undefined && !['active', 'paused', 'stopped'].includes(task.status)) ||
         (task.conditional !== undefined && (typeof task.conditional !== 'boolean' || isAdvisoryTask(task))) ||
         (task.statementReview !== undefined && (typeof task.statementReview !== 'boolean' || isAdvisoryTask(task))) ||
+        (task.reviewScope !== undefined && (!isAdvisoryTask(task) ||
+          !['final-candidate', 'feasibility'].includes(task.reviewScope))) ||
         (task.informalStatement !== undefined && (typeof task.informalStatement !== 'string' || !task.informalStatement.trim())) ||
         (task.statementReview === true && !task.informalStatement) ||
         (task.ownerId !== undefined && (!validId(task.ownerId))) ||
@@ -115,7 +130,7 @@ export function parseCooperationPlan(problem: SolverProblem, value: any): { task
     return { id: task.id, kind: task.kind, objective: task.objective, dependsOn: [...new Set<string>(task.dependsOn)],
       revision: task.revision ?? 0, ...(isAdvisoryTask(task) ? {} : { proofPath: task.proofPath, theoremName: task.theoremName }),
       ...(task.kind === 'lemma' ? { type: task.type } : {}),
-      ...optionalFields(task, ['conditional', 'statementReview', 'informalStatement', 'status', 'ownerId', 'premises', 'groupId']),
+      ...optionalFields(task, ['conditional', 'statementReview', 'informalStatement', 'reviewScope', 'status', 'ownerId', 'premises', 'groupId']),
       ...(task.sharing === undefined ? groups.length > 1 ? { sharing: 'group' } : {} : { sharing: task.sharing }) };
   });
   if (new Set(tasks.map(task => task.id)).size !== tasks.length ||
