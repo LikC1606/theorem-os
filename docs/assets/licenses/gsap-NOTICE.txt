@@ -1,0 +1,12 @@
+GSAP 3.15.0
+https://gsap.com
+
+Copyright 2008-2026, GreenSock. All rights reserved.
+Subject to the terms at https://gsap.com/standard-license
+Author: Jack Doyle, jack@greensock.com
+
+Package license: Standard 'no charge' license: https://gsap.com/standard-license.
+Source: https://github.com/greensock/GSAP
+
+GSAP is a third-party dependency and is governed by its own license.
+This notice preserves the attribution and license reference in the GSAP source.

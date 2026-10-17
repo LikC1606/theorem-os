@@ -4,7 +4,7 @@
 
 静态网站包含两个入口：
 
-- `index.html`：中文产品宣传首页，包括可缩放的真实工作台截图、四步预设回放、官方证明成果、M1–M5 组件介绍与可展开的源码示例、Docker 部署和 CLI 体验命令。
+- `index.html`：中文产品宣传首页，包括可缩放的真实工作台截图、可播放和暂停的四步预设回放、官方证明成果、M1–M5 组件介绍与可展开的源码示例、Docker 部署和 CLI 体验命令。
 - `archive.html`：证明档案，支持搜索、筛选、源码查看、验收证据、JSON 下载和本地回放记录。
 
 网站独立于 CLI，不启动 Agent 或 Lean，不需要服务端或模型认证。
@@ -42,7 +42,9 @@ bun run build:site
 
 首页以浅色工作台首屏、深色回放区和浅色组件区组织内容。首屏使用本地工作台真实的 Mathlib 草稿截图，明确标为未提交；手机端通过 `picture` 加载独立截图，保持文本可读。截图可打开完整界面预览，支持缩放、鼠标拖动和触屏滚动，关闭后恢复焦点；无 JavaScript 时仍可打开原图。开始区默认展示完整 Docker 部署命令，也可切换 CLI 安装和免模型回放。GitHub Pages 仅提供静态展示；用户需在 Linux 本地或服务器部署工作台，再输入自己的 API Key。
 
-四步回放的候选源码读取自 `src/math/localExample.ts`，回执读取自 `docs/assets/replay.json`；切换演示不会启动模型或 Lean。反馈步骤是对预设示例的检查说明，并非原始诊断日志。手机端先展示已归档的最终回执，再展示选中步骤的源码。源码与回放记录改动后需要重新构建。
+四步回放的候选源码读取自 `src/math/localExample.ts`，回执读取自 `docs/assets/replay.json`；切换演示不会启动模型或 Lean。默认停在最终验收，点击播放后从候选开始，可暂停续播、手动选步和重新播放；离屏或页面隐藏会暂停，返回后由用户继续播放。反馈步骤是对预设示例的检查说明，并非原始诊断日志。手机端先展示已归档的最终回执，再展示选中步骤的源码。源码与回放记录改动后需要重新构建。
+
+首屏与章节使用 GSAP 入场，组件和命令切换采用短过渡。系统启用减少动态效果时，内容即时切换，回放仍可按步骤阅读。GSAP 固定版本与锁文件一起管理，版权和许可链接随静态产物保留在 `assets/licenses/gsap-NOTICE.txt`。
 
 组件图为结构示意，完整原题验收独立于五类研究决策。手机端组件标签横向滚动，键盘切换会把当前项带入视口。源码示例默认收起，可在没有 JavaScript 的情况下展开。档案区展示完整的真实界面，手机端使用单独的题目详情截图，避免放大裁切桌面图。网页工作台的临时历史与 CLI 的持久运行和恢复分开说明。页面支持键盘操作，并尊重系统的减少动态效果设置。参考官网与应用取舍记录在 [design-references.md](design-references.md)。
 
@@ -58,6 +60,8 @@ bun run test:site
 
 浏览器检查覆盖响应式截图、首屏可见、原图预览的缩放与拖动、弹窗关闭和焦点恢复、档案图片无裁切、源码示例展开、手机组件标签的键盘可见性、三种开始方式与部署命令复制、预设回放与记录的一致性、移动端回执顺序、首页成果的真实归属、复制失败反馈、手机导航、本地文件预览、无 JavaScript 内容与 GitHub Pages 子路径，以及证明档案的搜索、筛选、源码、来源、下载和链接恢复。检查 320、390、768、1440、1920 像素宽度，截图输出到 `out/site-checks/`。这些检查不调用模型。
 
+`test:site` 还运行 `test-landing-motion.mjs`，检查首屏入场、回放的暂停续播与结束、手动选步、键盘焦点，以及离屏、页面隐藏和减少动态效果设置；报告与截图输出到 `out/site-motion-checks/`。
+
 ## GitHub Pages 部署
 
 工作流位于 `.github/workflows/pages.yml`。在 GitHub 仓库的 **Settings → Pages → Build and deployment** 中选择 **GitHub Actions**，再在 **Settings → Secrets and variables → Actions → Variables** 中添加仓库变量 `PAGES_ENABLED`，值为 `true`。配置好 Pages 后，推送页面或档案变化到 `main` 会运行检查并部署 `out/site`；也可以手动触发。未开启该变量时仍会执行构建与浏览器检查，并跳过发布，适用于尚未配置 Pages 或当前套餐不支持私有仓库 Pages 的情况。
@@ -68,7 +72,7 @@ bun run test:site
 
 `docs/assets/mark.svg` 是首页与档案共用的蓝色项目标记，`mark.png` 保留为位图版本。首页使用本地 Inter 可变字体，中文使用系统无衬线字体；字体及 SIL Open Font License 保存在 `docs/assets/fonts/`。构建时将字体嵌入样式，确保直接打开本地文件时也能加载，页面不依赖外部字体服务。
 
-`workbench-desktop.png` 和 `workbench-mobile.png` 来自真实本地工作台的新会话，分别是 1440×500 的桌面视口和 390×440 的手机视口。`workbench-full-desktop.png` 与 `workbench-full-mobile.png` 为弹窗使用的完整截图，视口分别是 1440×900 和 390×844，以 2 倍像素密度生成。手机截图滚动到原题编辑区，确保完整 Lean 原题可见；图注均标明草稿未提交，不伪装成模型求解结果。工作台服务启动后可重新截图；脚本阻止创建任务，不需要模型或 Key：
+`workbench-desktop.png` 和 `workbench-mobile.png` 来自真实本地工作台的新会话，分别是 1440×500 的桌面视口和 390×440 的手机视口。`workbench-full-desktop.png` 与 `workbench-full-mobile.png` 为弹窗使用的完整截图，视口分别是 1440×900 和 390×844，以 2 倍像素密度生成。桌面展示左侧对话与右侧源码，手机切到工作区，展示经过正常编辑器载入的紧凑 Mathlib 草稿；图注均标明未提交。截图脚本核对源码在手机上完整可见并阻止创建任务，不需要模型或 Key：
 
 ```bash
 node scripts/capture-workbench.mjs http://127.0.0.1:8787

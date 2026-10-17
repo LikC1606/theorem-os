@@ -1,12 +1,13 @@
 import {
-  createIcons, ArrowDown, ArrowDownRight, ArrowRight, ArrowUpRight, Blocks, Check, Code2,
-  Copy, Download, ExternalLink, FileCode2, Files, GitFork, Globe, History, Info,
-  Maximize2, Menu, Plus, ScanLine, ShieldCheck, Terminal, X, ZoomIn, ZoomOut,
+  createIcons, ArrowDown, ArrowDownRight, ArrowRight, ArrowUpRight, Blocks, Check, ChevronLeft, ChevronRight, Code2,
+  Copy, Download, ExternalLink, FileCode2, FileJson2, Files, GitFork, Globe, History, Info,
+  Maximize2, Menu, Pause, Play, Plus, RotateCcw, ScanLine, ShieldCheck, Terminal, X, ZoomIn, ZoomOut,
 } from 'lucide';
+import { gsap } from 'gsap';
 
-const iconSet = { ArrowDown, ArrowDownRight, ArrowRight, ArrowUpRight, Blocks, Check, Code2, Copy,
-  Download, ExternalLink, FileCode2, Files, GitFork, Globe, History, Info, Maximize2, Menu, Plus,
-  ScanLine, ShieldCheck, Terminal, X, ZoomIn, ZoomOut };
+const iconSet = { ArrowDown, ArrowDownRight, ArrowRight, ArrowUpRight, Blocks, Check, ChevronLeft, ChevronRight, Code2, Copy,
+  Download, ExternalLink, FileCode2, FileJson2, Files, GitFork, Globe, History, Info, Maximize2, Menu, Pause, Play, Plus,
+  RotateCcw, ScanLine, ShieldCheck, Terminal, X, ZoomIn, ZoomOut };
 const icons = () => createIcons({ icons: iconSet, attrs: { 'aria-hidden': 'true' } });
 const element = <T extends HTMLElement = HTMLElement>(selector: string): T => {
   const result = document.querySelector<T>(selector);
@@ -15,6 +16,54 @@ const element = <T extends HTMLElement = HTMLElement>(selector: string): T => {
 };
 icons();
 document.documentElement.classList.add('js');
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const selectionTargets = new Set<Element>();
+function animateSelection(targets: Element[], distance = 7) {
+  for (const target of targets) selectionTargets.add(target);
+  gsap.killTweensOf(targets);
+  if (reducedMotion.matches) {
+    gsap.set(targets, { clearProps: 'opacity,transform' });
+    return;
+  }
+  gsap.set(targets, { opacity: .45, y: distance });
+  gsap.to(targets, {
+    opacity: 1, y: 0, duration: .28, stagger: .035, ease: 'power2.out', clearProps: 'opacity,transform',
+  });
+}
+
+let introPlayed = false;
+const revealed = new WeakSet<Element>();
+const entranceMotion = gsap.matchMedia();
+entranceMotion.add('(prefers-reduced-motion: no-preference)', context => {
+  if (!introPlayed) {
+    introPlayed = true;
+    gsap.set('.release-pill', { opacity: 0, y: 10 });
+    gsap.set('#hero-title', { opacity: 0, y: 18 });
+    gsap.set('.hero-category, .hero-description', { opacity: 0, y: 12 });
+    gsap.set('.hero-actions', { opacity: 0, y: 10 });
+    gsap.set('.workbench-preview', { opacity: 0, y: 20 });
+    gsap.timeline({ defaults: { duration: .65, ease: 'power3.out', clearProps: 'opacity,transform' } })
+      .to('.release-pill', { opacity: 1, y: 0 })
+      .to('#hero-title', { opacity: 1, y: 0 }, .08)
+      .to('.hero-category, .hero-description', { opacity: 1, y: 0, stagger: .06 }, .16)
+      .to('.hero-actions', { opacity: 1, y: 0 }, .28)
+      .to('.workbench-preview', { opacity: 1, y: 0, duration: .8 }, .32);
+  }
+  const observer = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting || revealed.has(entry.target)) continue;
+      revealed.add(entry.target);
+      observer.unobserve(entry.target);
+      context.add(() => {
+        gsap.set(entry.target, { opacity: .25, y: 16 });
+        gsap.to(entry.target, { opacity: 1, y: 0, duration: .6, ease: 'power2.out', clearProps: 'opacity,transform' });
+      });
+    }
+  }, { rootMargin: '0px 0px -35px 0px', threshold: .08 });
+  document.querySelectorAll('.section-heading, .replay-window, .proof-card, .component-explorer, .archive-preview, .record-notes, .start-copy, .start-terminal, .faq-section > div')
+    .forEach(target => observer.observe(target));
+  return () => observer.disconnect();
+});
 
 const components = {
   m1: { kicker: 'M1 / PROOF CONSTRUCTION', title: '把想法，写成候选证明。',
@@ -44,6 +93,7 @@ function revealComponent(tab: HTMLButtonElement) {
 function selectComponent(id: Component, focus = false) {
   const content = components[id];
   if (!content) return;
+  const changed = element('#component-panel').getAttribute('aria-labelledby') !== `tab-${id}`;
   for (const tab of componentTabs) {
     const selected = tab.dataset.component === id;
     tab.setAttribute('aria-selected', String(selected));
@@ -58,6 +108,7 @@ function selectComponent(id: Component, focus = false) {
   }
   document.querySelectorAll<HTMLElement>('[data-diagram]').forEach(node => node.classList.toggle('is-active', node.dataset.diagram === id));
   document.querySelector('.module-active-path')!.setAttribute('d', content.path);
+  if (changed) animateSelection([element('.module-details')]);
 }
 componentTabs.forEach(tab => tab.addEventListener('click', () => selectComponent(tab.dataset.component as Component)));
 
@@ -75,17 +126,124 @@ function handleTabKeys(event: KeyboardEvent, tabs: HTMLButtonElement[], select: 
 }
 
 const replayTabs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-replay-stage]'));
-function selectReplayStage(tab: HTMLButtonElement, focus = false) {
-  for (const stage of replayTabs) {
-    const selected = stage === tab;
+const replayWindow = element('.replay-window');
+const replayPanels = replayTabs.map(tab => element(`#stage-${tab.dataset.replayStage}`));
+const replayPlay = element<HTMLButtonElement>('#replay-play');
+const replayProgress = element('#replay-progress');
+const replayFill = element('.replay-progress-fill');
+const replayLabels = ['候选证明', 'Lean 反馈', '修复候选', '完整原题验收'];
+const replayDurations = [3.2, 4.4, 3.6, 4];
+let replayIndex = replayTabs.length - 1;
+let replayPlaying = false;
+let replayStarted = false;
+let replayComplete = false;
+let replayInView = false;
+let replayClock: gsap.core.Timeline | undefined;
+element('.replay-playback').hidden = false;
+
+function updateReplayControls() {
+  replayWindow.dataset.replayPlaying = String(replayPlaying);
+  replayWindow.dataset.replayCurrent = replayTabs[replayIndex].dataset.replayStage;
+  replayWindow.dataset.replayState = replayPlaying ? 'playing' : replayComplete ? 'complete' : 'paused';
+  const label = replayPlaying ? '暂停回放' : replayStarted ? '继续播放' : '播放预设回放';
+  replayPlay.setAttribute('aria-label', label);
+  replayPlay.title = label;
+  replayPlay.setAttribute('aria-pressed', String(replayPlaying));
+  element<HTMLButtonElement>('#replay-prev').disabled = replayIndex === 0;
+  element<HTMLButtonElement>('#replay-next').disabled = replayIndex === replayTabs.length - 1;
+  element('#replay-step-number').textContent = `0${replayIndex + 1} / 04`;
+  element('#replay-step-label').textContent = replayLabels[replayIndex];
+  const status = replayPlaying ? '播放中' : replayComplete ? '回放结束' : '已暂停';
+  if (element('#replay-status').textContent !== status) element('#replay-status').textContent = status;
+  replayProgress.setAttribute('aria-valuenow', String(replayIndex + 1));
+  replayProgress.setAttribute('aria-valuetext', `第 ${replayIndex + 1} 步，共 4 步：${replayLabels[replayIndex]}`);
+}
+function renderReplayStage(index: number, focus = false) {
+  const changed = replayIndex !== index;
+  replayIndex = index;
+  for (const [position, stage] of replayTabs.entries()) {
+    const selected = position === index;
     stage.setAttribute('aria-selected', String(selected));
     stage.tabIndex = selected ? 0 : -1;
-    element(`#stage-${stage.dataset.replayStage}`).hidden = !selected;
+    stage.dataset.stepState = position < index ? 'complete' : selected ? 'current' : 'upcoming';
+    replayPanels[position].hidden = !selected;
   }
-  if (focus) tab.focus();
+  gsap.set(replayFill, { scaleX: (index + 1) / replayTabs.length });
+  updateReplayControls();
+  if (changed) animateSelection([replayPanels[index]], 6);
+  if (focus) replayTabs[index].focus({ preventScroll: true });
+}
+function pauseReplay() {
+  replayClock?.pause();
+  replayPlaying = false;
+  updateReplayControls();
+}
+function selectReplayStage(tab: HTMLButtonElement, focus = false) {
+  pauseReplay();
+  replayClock?.kill();
+  replayClock = undefined;
+  replayStarted = false;
+  replayComplete = false;
+  renderReplayStage(replayTabs.indexOf(tab), focus);
+}
+function scheduleReplayStage() {
+  replayClock?.kill();
+  replayClock = gsap.timeline({ onComplete: () => {
+    replayClock = undefined;
+    if (!replayPlaying) return;
+    if (replayIndex === replayTabs.length - 1) {
+      replayPlaying = false;
+      replayStarted = false;
+      replayComplete = true;
+      updateReplayControls();
+      return;
+    }
+    renderReplayStage(replayIndex + 1);
+    scheduleReplayStage();
+  } });
+  if (reducedMotion.matches) replayClock.to({}, { duration: replayDurations[replayIndex] });
+  else replayClock.fromTo(replayFill, { scaleX: replayIndex / replayTabs.length }, {
+    scaleX: (replayIndex + 1) / replayTabs.length, duration: replayDurations[replayIndex], ease: 'none',
+  });
+}
+function playReplay(restart = false) {
+  if (document.hidden || !replayInView) return;
+  if (restart || !replayStarted) {
+    replayClock?.kill();
+    replayClock = undefined;
+    replayComplete = false;
+    renderReplayStage(0);
+  }
+  replayStarted = true;
+  replayPlaying = true;
+  updateReplayControls();
+  if (replayClock) replayClock.resume();
+  else scheduleReplayStage();
 }
 replayTabs.forEach(tab => tab.addEventListener('click', () => selectReplayStage(tab)));
 element('.replay-tabs').addEventListener('keydown', event => handleTabKeys(event, replayTabs, tab => selectReplayStage(tab, true)));
+replayPlay.addEventListener('click', () => { if (replayPlaying) pauseReplay(); else playReplay(); });
+element('#replay-prev').addEventListener('click', () => selectReplayStage(replayTabs[Math.max(0, replayIndex - 1)]));
+element('#replay-next').addEventListener('click', () => selectReplayStage(replayTabs[Math.min(replayTabs.length - 1, replayIndex + 1)]));
+element('#replay-restart').addEventListener('click', () => playReplay(true));
+const replayVisibility = new IntersectionObserver(entries => {
+  replayInView = entries[0].isIntersecting && entries[0].intersectionRect.height > 0;
+  if (!replayInView && replayPlaying) pauseReplay();
+}, { rootMargin: '-70px 0px 0px 0px' });
+replayVisibility.observe(replayWindow);
+document.addEventListener('visibilitychange', () => { if (document.hidden && replayPlaying) pauseReplay(); });
+window.addEventListener('pagehide', pauseReplay);
+reducedMotion.addEventListener('change', () => {
+  pauseReplay();
+  replayClock?.kill();
+  replayClock = undefined;
+  if (selectionTargets.size) {
+    gsap.killTweensOf([...selectionTargets]);
+    gsap.set([...selectionTargets], { clearProps: 'opacity,transform' });
+  }
+  gsap.set(replayFill, { scaleX: (replayIndex + 1) / replayTabs.length });
+});
+updateReplayControls();
 
 element('.component-tabs').addEventListener('keydown', event => handleTabKeys(event, componentTabs, tab => selectComponent(tab.dataset.component as Component, true)));
 const orientComponents = () => {
@@ -161,6 +319,7 @@ const commandLabels: Record<Command, string> = {
 };
 let command: Command = 'workbench';
 function selectCommand(id: Command, focus = false) {
+  const changed = command !== id;
   command = id;
   for (const tab of commandTabs) {
     const selected = tab.dataset.command === id;
@@ -170,6 +329,7 @@ function selectCommand(id: Command, focus = false) {
     element(`#${tab.dataset.command}-panel`).hidden = !selected;
   }
   element('.copy-command').setAttribute('aria-label', commandLabels[id]);
+  if (changed) animateSelection([element(`#${id}-panel`)], 5);
 }
 commandTabs.forEach(tab => tab.addEventListener('click', () => selectCommand(tab.dataset.command as typeof command)));
 element('.command-tabs').addEventListener('keydown', event => handleTabKeys(event, commandTabs, tab => selectCommand(tab.dataset.command as typeof command, true)));

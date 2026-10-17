@@ -10,6 +10,7 @@ import { filterRuns, type RunFilter } from './history';
 import { readLeanFile } from './sourceFile';
 import { decodeTaskDraft, encodeTaskDraft, readTaskDraftFile, taskDraftStorageKey, type TaskDraft } from './draft';
 import { compareSources, type SourceComparison, type SourceDiffRow } from './sourceDiff';
+import { animateEntrance, finishHiddenMotion, finishMotion } from './motion';
 
 const iconSet = { ArrowDown, ArrowRight, ArrowUp, ArrowUpRight, Check, CheckCheck, ChevronDown, ChevronUp, CircleAlert, CircleCheck, Clock3, Copy, CopyPlus, Cpu,
   Download, Eye, EyeOff, FileCode2, FileJson2, FlaskConical, GitBranch, List, Maximize2, MessageSquare, Network, PanelLeft, PanelRight, Paperclip,
@@ -129,7 +130,9 @@ function setGlobalNotice(text: string) {
 }
 function setMobileView(view: 'compose' | 'runs', focus = false) {
   rememberConversationScroll();
+  const changed = document.body.dataset.mobileView !== view;
   document.body.dataset.mobileView = view;
+  finishHiddenMotion();
   document.querySelectorAll<HTMLButtonElement>('button[data-mobile-view]').forEach(button => {
     const selected = button.dataset.mobileView === view;
     button.setAttribute('aria-selected', String(selected)); button.tabIndex = selected ? 0 : -1;
@@ -146,11 +149,19 @@ function setMobileView(view: 'compose' | 'runs', focus = false) {
     }
   }
   restoreConversationScroll();
+  if (changed && window.matchMedia('(max-width:850px)').matches) {
+    animateEntrance(element(view === 'compose' ? '.composer' : '#runs-panel'), 'workspace');
+  }
+}
+function showDialog(dialog: HTMLDialogElement) {
+  if (dialog.open) return;
+  dialog.showModal();
+  animateEntrance(dialog, 'dialog');
 }
 function openSettings(focusId?: string) {
   if (!state.session || state.submitting) return;
   const dialog = element<HTMLDialogElement>('#run-settings');
-  if (!dialog.open) dialog.showModal();
+  showDialog(dialog);
   if (focusId) field(focusId).focus();
 }
 function closeSettings() {
@@ -194,20 +205,24 @@ function renderConversation() {
   state.conversationRunId = run?.id ?? '';
   if (newConversation) { conversationScroll.top = 0; conversationScroll.following = true; }
   const thread = element('#conversation');
+  const entrances: Array<{ target: HTMLElement; kind: 'message' | 'event' }> = [];
   if (!run) {
+    finishMotion(thread);
     thread.innerHTML = `<div class="chat-welcome"><img src="assets/mark.svg" alt="" width="40" height="40"><h2>从一道定理开始</h2><div class="chat-suggestions">${(state.session?.templates ?? []).map(template => `<button type="button" class="template-suggestion" data-chat-template="${html(template.id)}">${icon('file-code-2')}<span>${html(template.name)}</span><span class="suggestion-environment">${html(environmentName(template.environment))}</span>${icon('arrow-up-right')}</button>`).join('')}</div></div>`;
   } else {
     const events = run.events.filter((event, index, all) => index === 0 || event.message !== all[index - 1].message || event.type !== all[index - 1].type);
     const value = status(run);
     const working = activeRun(run);
     if (newConversation || !thread.querySelector('.chat-message.user')) {
+      finishMotion(thread);
       thread.innerHTML = `<article class="chat-message user" aria-label="用户研究任务"><div class="message-body">${html(run.task)}</div><button type="button" class="message-attachment" data-chat-action="source">${icon('file-code-2')}<span>Submission.lean</span><span>${html(environmentName(run.environment))}</span></button></article>
         <article class="chat-message assistant" aria-label="TheoremOS 研究反馈"><div class="assistant-identity"><img src="assets/mark.svg" alt="" width="24" height="24"><span>TheoremOS</span><span class="assistant-model mono">${html(run.model)}</span></div><div class="message-body"><ol class="research-timeline"></ol><div class="chat-result"></div><div class="chat-result-actions"></div></div></article>`;
+      thread.querySelectorAll<HTMLElement>('.chat-message').forEach(target => entrances.push({ target, kind: 'message' }));
     }
     const timeline = thread.querySelector<HTMLOListElement>('.research-timeline')!;
     const rows = new Map(Array.from(timeline.children, row => [(row as HTMLElement).dataset.sequence, row as HTMLElement]));
     const sequences = new Set(events.map(event => String(event.sequence)));
-    for (const [sequence, row] of rows) if (!sequences.has(sequence!)) row.remove();
+    for (const [sequence, row] of rows) if (!sequences.has(sequence!)) { finishMotion(row); row.remove(); }
     let cursor = timeline.firstElementChild;
     for (const [index, event] of events.entries()) {
       const sequence = String(event.sequence);
@@ -216,6 +231,7 @@ function renderConversation() {
         row = document.createElement('li');
         row.className = 'timeline-event'; row.dataset.sequence = sequence;
         row.innerHTML = '<span class="timeline-marker" aria-hidden="true"></span><div class="timeline-text"><span></span><time></time></div>';
+        if (!newConversation && conversationScroll.following && index >= events.length - 3) entrances.push({ target: row, kind: 'event' });
       }
       const active = index === events.length - 1 && working;
       row.dataset.tone = active ? 'active' : 'done';
@@ -236,6 +252,7 @@ function renderConversation() {
   if (live.textContent !== announcement) live.textContent = announcement;
   icons(thread);
   restoreConversationScroll();
+  for (const { target, kind } of entrances) animateEntrance(target, kind);
 }
 function providerAddress() {
   element('#provider-address').textContent = state.session?.providers.find(provider => provider.id === field('provider').value)?.baseUrl ?? '';
@@ -368,7 +385,7 @@ async function importTaskFile(file: File) {
     element('#import-source-preview').textContent = draft.source || '未填写';
     renderImportState();
     const dialog = element<HTMLDialogElement>('#import-task-dialog');
-    if (!dialog.open) dialog.showModal();
+    showDialog(dialog);
     element('#cancel-import').focus();
   } catch (error) {
     if (sequence !== taskImportSequence || revision !== draftRevision) return;
@@ -431,7 +448,7 @@ function openEditor() {
   element('#editor-environment').textContent = environment ? `${environment.name} · ${leanVersion(environment.toolchain)}` : '';
   element('#editor-error').hidden = true;
   updateEditorCount();
-  element<HTMLDialogElement>('#source-editor').showModal();
+  showDialog(element<HTMLDialogElement>('#source-editor'));
   field('expanded-source').focus();
 }
 function applyEditor() {
@@ -658,6 +675,10 @@ function renderPanel(force = false) {
   if (!force && signature === state.panelSignature) return;
   state.panelSignature = signature;
   const panel = element('#detail-panel');
+  const navigating = panel.dataset.renderRunId === run.id && (panel.dataset.tab !== state.tab
+    || state.tab === 'source' && panel.dataset.renderSourceView !== state.sourceView
+    || state.tab === 'report' && panel.dataset.renderReportMode !== state.reportMode);
+  if (navigating) finishMotion(panel);
   const samePanel = panel.dataset.renderRunId === run.id && panel.dataset.tab === state.tab;
   const sameView = samePanel && (state.tab !== 'source' || panel.dataset.renderSourceView === state.sourceView);
   const previousScroll = panel.querySelector('.code-scroll,.activity-scroll,.diff-scroll');
@@ -683,6 +704,7 @@ function renderPanel(force = false) {
   }
   panel.dataset.renderRunId = run.id; panel.dataset.tab = state.tab;
   panel.dataset.renderSourceView = state.sourceView;
+  panel.dataset.renderReportMode = state.reportMode;
   const scroll = panel.querySelector<HTMLElement>('.code-scroll,.activity-scroll,.diff-scroll');
   if (scroll) { scroll.scrollTop = scrollTop; scroll.scrollLeft = scrollLeft; }
   if (samePanel && action) panel.querySelector<HTMLElement>(`[data-action="${action}"]`)?.focus({ preventScroll: true });
@@ -692,6 +714,7 @@ function renderPanel(force = false) {
   else if (samePanel && focusId) document.getElementById(focusId)?.focus({ preventScroll: true });
   icons(panel);
   updateDiffNavigation(0, !sameView);
+  if (navigating) animateEntrance(panel, 'panel');
 }
 function renderDraftPreview() {
   if (currentRun() || !state.session) return;
@@ -717,6 +740,7 @@ function renderDraftPreview() {
   draftPreviewSignature = signature;
   const lines = source.replace(/\r\n?/g, '\n').split('\n'), shown = lines.slice(0, 160);
   if (!detail.querySelector('#draft-preview')) {
+    finishMotion(detail);
     detail.innerHTML = `<div class="detail-empty draft-preview" id="draft-preview">
       <header class="preview-heading"><div><span class="preview-eyebrow">Lean 工作区</span><h2></h2></div><div class="detail-actions"><span class="badge preview-status">${icon('file-code-2')}未提交</span><button type="button" class="icon-button" data-draft-action="edit" aria-label="编辑原始题目" title="编辑原始题目">${icon('square-pen')}</button><button type="button" class="icon-button" data-draft-action="settings" aria-label="配置证明环境" title="配置证明环境">${icon('sliders-horizontal')}</button></div></header>
       <dl class="preview-facts">${facts.map(([id, label, , mono]) => `<div><dt>${label}</dt><dd data-preview-value="${id}"${mono ? ' class="mono"' : ''}></dd></div>`).join('')}</dl>
@@ -750,6 +774,7 @@ function renderDetail(force = false) {
   const focusAction = focused?.dataset.action;
   const newDetail = detail.dataset.renderRunId !== run.id || !detail.querySelector('#detail-panel');
   if (newDetail) {
+    finishMotion(detail);
     detail.innerHTML = `<header class="detail-heading"><div class="detail-heading-text"><h2></h2><div class="detail-identifier"><code></code><button type="button" class="icon-button" data-action="copy-id" aria-label="复制运行 ID" title="复制运行 ID">${icon('copy')}</button></div></div><div class="detail-actions"></div></header>
       <div class="detail-statusline"><span class="badge"></span><span class="run-environment"></span><span class="updated-at"></span></div>
       <div class="inline-error" data-detail-error role="alert" hidden></div>
@@ -767,8 +792,11 @@ function renderDetail(force = false) {
     patchMarkup(detail.querySelector<HTMLElement>('.detail-actions')!, `<button type="button" class="icon-button" data-action="reuse-run" aria-label="复用任务配置" title="复用任务配置">${icon('copy-plus')}</button>${activeRun(run) ? `<button type="button" class="button button-danger" data-action="cancel" ${state.cancelling.has(run.id) || !state.connected ? 'disabled' : ''}>${icon('square')}${state.cancelling.has(run.id) ? '正在取消' : '取消运行'}</button>` : `<button type="button" class="icon-button danger" data-action="delete-run" aria-label="删除运行记录" title="删除运行记录" ${!state.connected || state.deleting.has(run.id) ? 'disabled' : ''}>${icon('trash-2')}</button>`}${run.result || !activeRun(run) ? `<a class="icon-button" href="${downloadUrl(run.id)}" download title="下载运行档案 JSON" aria-label="下载运行档案 JSON">${icon('download')}</a>` : ''}`);
     const value = status(run), progress = runProgress(run);
     const statusBadge = detail.querySelector<HTMLElement>('.detail-statusline .badge')!;
+    const statusChanged = !newDetail && statusBadge.dataset.status !== `${run.status}:${run.phase}:${value.label}`;
     statusBadge.className = `badge ${value.tone}`;
     patchMarkup(statusBadge, `${icon(value.symbol)}${html(value.label)}`);
+    statusBadge.dataset.status = `${run.status}:${run.phase}:${value.label}`;
+    if (statusChanged) animateEntrance(statusBadge, 'status');
     patchText(detail.querySelector('.run-environment')!, environmentName(run.environment));
     patchText(detail.querySelector('.updated-at')!, `更新 ${timestamp(run.updatedAt)}`);
     const error = detail.querySelector<HTMLElement>('[data-detail-error]')!;
@@ -1027,7 +1055,7 @@ function openDeletion(run: WebRun) {
   const archive = element<HTMLAnchorElement>('#delete-download');
   archive.hidden = false; archive.href = downloadUrl(run.id);
   renderDeleteState();
-  element<HTMLDialogElement>('#delete-run-dialog').showModal();
+  showDialog(element<HTMLDialogElement>('#delete-run-dialog'));
   element('#cancel-delete').focus();
 }
 function removeLocalRun(id: string) {
@@ -1271,7 +1299,7 @@ element('#run-settings').addEventListener('keydown', event => {
   if (event.key === 'Enter' && event.target instanceof HTMLInputElement) event.preventDefault();
 });
 element('#open-history').addEventListener('click', () => {
-  element<HTMLDialogElement>('#history-dialog').showModal();
+  showDialog(element<HTMLDialogElement>('#history-dialog'));
   field('run-search').focus();
 });
 element('#close-history').addEventListener('click', () => element<HTMLDialogElement>('#history-dialog').close());
@@ -1368,6 +1396,7 @@ window.addEventListener('resize', () => {
     const bounds = element('.workspace').getBoundingClientRect();
     if (resizing) resizeBounds = bounds;
     resizePane(chatWidth, false, bounds.width); renderDraftPreview(); restoreConversationScroll();
+    finishHiddenMotion();
   });
 });
 try {
@@ -1398,4 +1427,5 @@ window.addEventListener('pageshow', event => {
   }
 });
 icons();
+document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => finishMotion(dialog)));
 void initialize();
