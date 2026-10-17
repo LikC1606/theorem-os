@@ -1,0 +1,145 @@
+import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
+import { hasTaskAcceptance, taskGroup, taskVersion, type CooperativeTask, type TaskRecord } from './tasks';
+
+export type ReopenCondition = { kind: 'contract-changed' } | { kind: 'environment-changed' } |
+  { kind: 'dependency-checked'; taskId: string };
+export type BlockerProposal = { mechanism: string; scope: string; evidenceRefs?: readonly string[];
+  reopenOn?: readonly ReopenCondition[] };
+export type BlockerBasis = { contractDigest: string; environmentDigest: string;
+  dependencies: Record<string, { contractDigest: string; evidenceDigest?: string }> };
+export type RouteBlocker = { id: string; taskId: string; groupId: string; taskDigest: string; routeId?: string;
+  mechanism: string; scope: string; evidenceStatus: 'advisory'; evidenceRefs: readonly string[];
+  reopenOn: readonly ReopenCondition[]; basis: BlockerBasis; fingerprint: string; count: number;
+  status: 'open' | 'parked' | 'reopened' | 'superseded'; createdAt: number; updatedAt: number; reopenedReason?: string };
+
+const hash = (value: unknown) => mathDigest(canonicalMathJson(value));
+// Operational revision numbers and prose changes are not new mathematical inputs.
+const contract = (task: CooperativeTask) => hash({ kind: task.kind, proofPath: task.proofPath,
+  theoremName: task.theoremName, type: task.type, premises: task.premises ?? [] });
+const normalize = (value: string) => value.trim().replace(/\s+/gu, ' ');
+
+/** Only evidence local to the declared dependency cone can reopen this inference. */
+export function routeBlockerBasis(task: CooperativeTask, tasks: readonly TaskRecord[], environmentDigest: string,
+  problemReceiptDigest: string, routeId = tasks.find(node => node.task.id === task.id)?.assignment?.routeId): BlockerBasis {
+  const nodes = new Map(tasks.map(node => [node.task.id, node])), seen = new Set<string>();
+  const dependencies: BlockerBasis['dependencies'] = Object.create(null);
+  const visit = (id: string) => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    const node = nodes.get(id);
+    if (!node) { dependencies[id] = { contractDigest: 'missing' }; return; }
+    const proof = node.integratedCheck;
+    const checked = node.status === 'integrated' && proof?.passed && !proof.conditions?.length &&
+      proof.taskDigest === taskVersion(node.task) && proof.verification.status === 'kernel_verified' &&
+      (!proof.references || proof.references.environmentDigest === environmentDigest);
+    // Exclude run commits, receipt IDs and whole-file hashes: an unrelated helper or
+    // a replay of the same proof must not reset the recurrence count.
+    const evidence = checked ? { contract: contract(node.task),
+      declarations: proof.changes?.filter(change => change.file === node.task.proofPath &&
+        change.name.split('.').at(-1) === node.task.theoremName?.split('.').at(-1)).map(change => change.after),
+      inputs: proof.references?.inputs.filter(input => input.name), imports: proof.imports } : undefined;
+    dependencies[id] = { contractDigest: contract(node.task), ...(evidence ? { evidenceDigest: hash(evidence) } : {}) };
+    node.task.dependsOn.forEach(visit);
+  };
+  const route = nodes.get(task.id)?.alternativeRoutes?.find(route => route.id === routeId);
+  [...task.dependsOn, ...(route ? [...route.prerequisiteTaskIds, route.closingTaskId] : [])].forEach(visit);
+  return { contractDigest: hash({ problemReceiptDigest, contract: contract(task),
+    dependencies: Object.entries(dependencies).map(([id, entry]) => [id, entry.contractDigest]).sort() }),
+    environmentDigest, dependencies };
+}
+
+export function validateBlockerProposals(value: unknown, task: CooperativeTask, tasks: readonly TaskRecord[]): BlockerProposal[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > 16) throw new Error('math_route_blocker_invalid');
+  const local = routeBlockerBasis(task, tasks, '', '').dependencies;
+  return value.map(item => {
+    if (!item || typeof item.mechanism !== 'string' || !item.mechanism.trim() || item.mechanism.length > 500 ||
+        typeof item.scope !== 'string' || !item.scope.trim() || item.scope.length > 2000 ||
+        (item.evidenceRefs !== undefined && (!Array.isArray(item.evidenceRefs) || item.evidenceRefs.length > 32 ||
+          item.evidenceRefs.some((ref: unknown) => typeof ref !== 'string' || ref.length > 2000))) ||
+        (item.reopenOn !== undefined && (!Array.isArray(item.reopenOn) || !item.reopenOn.length || item.reopenOn.length > 64 ||
+          item.reopenOn.some((condition: any) => !condition || !['contract-changed', 'environment-changed', 'dependency-checked'].includes(condition.kind) ||
+            (condition.kind === 'dependency-checked' && (typeof condition.taskId !== 'string' || !Object.hasOwn(local, condition.taskId)))))))
+      throw new Error('math_route_blocker_invalid');
+    return { mechanism: normalize(item.mechanism), scope: normalize(item.scope), evidenceRefs: item.evidenceRefs ?? [],
+      reopenOn: item.reopenOn ?? [{ kind: 'contract-changed' }, { kind: 'environment-changed' },
+        ...Object.keys(local).map(taskId => ({ kind: 'dependency-checked' as const, taskId }))] };
+  });
+}
+
+/** A report can park a local inference, but can never refute or accept the original theorem. */
+export function recordRouteBlockers(records: RouteBlocker[], proposals: readonly BlockerProposal[], task: CooperativeTask,
+  tasks: readonly TaskRecord[], environmentDigest: string, problemReceiptDigest: string, at = Date.now()): RouteBlocker[] {
+  const currentBasis = routeBlockerBasis(task, tasks, environmentDigest, problemReceiptDigest), changed: RouteBlocker[] = [];
+  const nodes = new Map(tasks.map(node => [node.task.id, node]));
+  const routeId = nodes.get(task.id)?.assignment?.routeId;
+  const reported = new Set<string>();
+  for (const proposal of proposals) {
+    const previous = [...records].reverse().find(record => record.taskId === task.id && record.groupId === taskGroup(task) && record.routeId === routeId &&
+      record.mechanism === normalize(proposal.mechanism) && record.scope === normalize(proposal.scope) &&
+      record.basis.contractDigest === currentBasis.contractDigest && record.basis.environmentDigest === currentBasis.environmentDigest);
+    const basis: BlockerBasis = { ...currentBasis, dependencies: Object.fromEntries(Object.entries(currentBasis.dependencies).map(([id, entry]) => {
+      const dependency = nodes.get(id), proof = dependency?.integratedCheck;
+      // Losing or replaying an old receipt supplies no new mathematical evidence.
+      const fresh = proof && hasTaskAcceptance(proof) && proof.taskDigest === taskVersion(dependency.task);
+      return [id, { ...entry, evidenceDigest: fresh ? entry.evidenceDigest : previous?.basis.dependencies[id]?.evidenceDigest }];
+    })) };
+    const fingerprint = hash({ taskId: task.id, groupId: taskGroup(task), routeId, mechanism: normalize(proposal.mechanism), scope: normalize(proposal.scope), basis });
+    if (reported.has(fingerprint)) continue; // Duplicate entries in one response are one attempt.
+    reported.add(fingerprint);
+    let record = records.find(record => record.fingerprint === fingerprint);
+    if (record) {
+      record.count++; record.taskId = task.id; record.taskDigest = taskVersion(task); record.updatedAt = at;
+      record.status = record.count >= 2 ? 'parked' : 'open'; record.reopenedReason = undefined;
+      record.evidenceRefs = [...new Set([...record.evidenceRefs, ...(proposal.evidenceRefs ?? [])])];
+      // Changing a reported reopen policy does not erase a previous obstruction.
+    } else {
+      record = { id: 'blocker_' + fingerprint.slice(0, 24), taskId: task.id, groupId: taskGroup(task), taskDigest: taskVersion(task),
+        ...(routeId ? { routeId } : {}),
+        mechanism: normalize(proposal.mechanism), scope: normalize(proposal.scope), evidenceStatus: 'advisory',
+        evidenceRefs: proposal.evidenceRefs ?? [], reopenOn: proposal.reopenOn ?? [], basis, fingerprint, count: 1,
+        status: 'open', createdAt: at, updatedAt: at };
+      records.push(record);
+    }
+    changed.push(record);
+  }
+  return changed;
+}
+
+/** Recompute parking after plan edits, integration and restore; advisory text is never a reopen receipt. */
+export function refreshRouteBlockers(records: RouteBlocker[], tasks: readonly TaskRecord[], environmentDigest: string,
+  problemReceiptDigest: string, at = Date.now()): RouteBlocker[] {
+  const nodes = new Map(tasks.map(node => [node.task.id, node])), reopened: RouteBlocker[] = [];
+  for (const node of tasks) { node.routeParking = []; node.parkedRoutes = Object.create(null); }
+  for (const record of records) {
+    if (['reopened', 'superseded'].includes(record.status)) continue;
+    const node = nodes.get(record.taskId);
+    if (!node || taskGroup(node.task) !== record.groupId) { record.status = 'superseded'; record.updatedAt = at; continue; }
+    if (record.routeId && !node.alternativeRoutes?.some(route => route.id === record.routeId)) {
+      record.status = 'superseded'; record.updatedAt = at; continue;
+    }
+    const basis = routeBlockerBasis(node.task, tasks, environmentDigest, problemReceiptDigest, record.routeId);
+    if (basis.contractDigest === record.basis.contractDigest) record.taskDigest = taskVersion(node.task);
+    const proof = node.integratedCheck;
+    const discharged = node.status === 'integrated' && proof?.passed && hasTaskAcceptance(proof) &&
+      proof.taskDigest === taskVersion(node.task) && !proof.conditions?.length;
+    const reason = discharged ? 'assigned-obligation-checked' : record.reopenOn.find(condition => {
+      if (condition.kind === 'contract-changed') return basis.contractDigest !== record.basis.contractDigest;
+      if (condition.kind === 'environment-changed') return basis.environmentDigest !== record.basis.environmentDigest;
+      const dependency = nodes.get(condition.taskId), receipt = dependency?.integratedCheck;
+      return Boolean(receipt && dependency?.status === 'integrated' && hasTaskAcceptance(receipt) &&
+        receipt.taskDigest === taskVersion(dependency.task) && !receipt.conditions?.length &&
+        basis.dependencies[condition.taskId]?.evidenceDigest &&
+        basis.dependencies[condition.taskId].evidenceDigest !== record.basis.dependencies[condition.taskId]?.evidenceDigest);
+    })?.kind;
+    if (reason) {
+      record.status = 'reopened'; record.reopenedReason = reason; record.updatedAt = at; reopened.push(record);
+    } else if (record.status === 'parked') {
+      if (record.routeId) (node.parkedRoutes[record.routeId] ??= []).push(record.id);
+      else node.routeParking.push(record.id);
+    }
+  }
+  for (const node of tasks) if (node.status === 'pending' && node.assignment?.routeId && node.parkedRoutes[node.assignment.routeId]?.length)
+    node.assignment = undefined;
+  return reopened;
+}

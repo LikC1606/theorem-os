@@ -15,7 +15,7 @@ import type { ContextBundle } from './modules/context';
 import { proofReceiptsMatch, type ProofCheck } from './modules/evidence';
 import type { WorkerAccess } from './research';
 import type { SolverModules } from './modules';
-import { researchCanAdvance, routeAllowsTask, taskCanStart, taskDependenciesReady } from './modules/search';
+import { researchCanAdvance, routeAllowsTask, taskCanStart, taskDependenciesReady, plannedTaskDependencyIds, selectedTaskRoute } from './modules/search';
 import { deliveryDetails, reviewVerdict, readDeliveryLines, readMathResponse as block, MAX_RESEARCH_NOTES_BYTES, type DeliveryRecord } from './deliveries';
 import { applyTaskChanges, checkTaskProof, checkTaskProofs, omitTaskHelpers, ownedSourceDigest, projectTaskSources, taskChanges, type TaskProof } from './cooperativeProof';
 import { assertStatementSnapshot, captureStatementContexts, isStatementAction, readBacktranslation, resetStatementReview, statementReviewSummary, statementSnapshot, writeStatementSnapshot,
@@ -24,6 +24,9 @@ import { captureProofReferences, proofReferencesUnchanged, type ProofReferences 
 import { buildProofContinuation } from './progress';
 import { captureDeliveryArtifacts, diagnoseUnbackedLeanClaims, validateDeliveryArtifactClaims, type DeliveryArtifactManifest } from './deliveryArtifacts';
 import { validateLemmaRequests } from './taskProposals';
+import { recordRouteBlockers, refreshRouteBlockers, validateBlockerProposals, type RouteBlocker } from './routeControl';
+import { parseProofRoutes, type ProofRoute } from './proofRoutes';
+import { captureObligationSnapshot, diffObligationProgress, type ObligationSnapshot, type ObligationProgressReceipt } from './obligationProgress';
 
 import { taskGroup, taskVersion, taskReferenceDependencies, assignmentDeliveryFile, markTaskReferences, hasTaskReferences, markTaskAcceptance, invalidatedTaskIds,
   type CooperativeTask, type RouteGroup, type RouteRecord, type TaskAssignment, type TaskRecord, type CooperativeAction } from './tasks';
@@ -43,6 +46,10 @@ export type CooperationState = { tasks: TaskRecord[]; groups?: RouteRecord[]; ca
   deliveries?: DeliveryRecord[]; cursors?: Record<string, number>; edits?: HumanEditRecord[];
   planVersion?: string; planEdited?: boolean; statementReviews?: StatementReview[];
   helpRequestDigest?: string;
+  blockers?: RouteBlocker[];
+  proofRoutes?: ProofRoute[];
+  progressSnapshot?: ObligationSnapshot;
+  progressReceipts?: ObligationProgressReceipt[];
   unchangedResearch?: Record<string, { taskDigest: string; notesBlob: string; count: number }>;
   recheck?: { canonicalCommit: string; total: number; completed: number; taskId?: string };
   initialPlanFallback?: { at: number; reason: string } };
@@ -50,7 +57,7 @@ type TaskVersions = ReadonlyMap<string, { task: CooperativeTask; version: string
 
 const bounded = (text: string, bytes: number) => limitMathOutput(text, bytes, 'head');
 /** Model proposes tasks; the host validates coverage, exact targets and an acyclic dependency graph. */
-export function readCooperationPlan(problem: SolverProblem, worktree: string): { tasks: CooperativeTask[]; groups: RouteGroup[] } {
+export function readCooperationPlan(problem: SolverProblem, worktree: string): ReturnType<typeof parseCooperationPlan> {
   return parseCooperationPlan(problem, block(worktree, 'math-plan'));
 }
 
@@ -82,12 +89,17 @@ export class CooperativeResearch {
     modules: SolverModules; exclusiveCheck: <T>(check: () => Promise<T>) => Promise<T> }) {
     this.lead = input.workers[0];
     this.archive = input.state.cooperation ??= { tasks: [] };
+    this.archive.proofRoutes = parseProofRoutes(this.archive.proofRoutes, this.archive.tasks.map(node => node.task));
+    this.syncProofRoutes();
     this.archive.canonicalCommit ??= git(this.lead.worktree, ['rev-parse', 'HEAD']);
     this.liveWorkers = new Set(input.workers.map(worker => worker.id));
     this.needsLead = !this.archive.tasks.length || Boolean(this.archive.error) || this.archive.tasks.some(node => node.status === 'blocked');
   }
   private get livePeers() { return this.input.workers.filter(worker => worker.id !== this.lead.id && this.liveWorkers.has(worker.id)); }
   private get primaryLed() { return this.input.modules.M5.primaryLed === true; }
+  private syncProofRoutes() {
+    for (const node of this.archive.tasks) node.alternativeRoutes = this.archive.proofRoutes?.filter(route => route.targetTaskId === node.task.id);
+  }
   private syncEditChecks(nodes: ReadonlyMap<string, TaskRecord>, versions: TaskVersions) {
     for (const edit of this.archive.edits ?? []) {
       if (edit.status !== 'applied' || !edit.recheck) continue;
@@ -116,6 +128,19 @@ export class CooperativeResearch {
     }
   }
   private changed(edit?: HumanEditRecord) {
+    for (const blocker of refreshRouteBlockers(this.archive.blockers ?? [], this.archive.tasks,
+      this.input.state.environmentDigest, this.input.state.problem.receiptDigest)) {
+      this.needsLead = true;
+      this.input.emit('route_reopened', { blockerId: blocker.id, taskId: blocker.taskId, reason: blocker.reopenedReason });
+    }
+    const snapshot = captureObligationSnapshot(this.archive.tasks, { groups: this.archive.groups,
+      environmentDigest: this.input.state.environmentDigest, proofRoutes: this.archive.proofRoutes, blockers: this.archive.blockers });
+    const progress = diffObligationProgress(this.archive.progressSnapshot, snapshot);
+    this.archive.progressSnapshot = snapshot;
+    if (progress) {
+      this.archive.progressReceipts = [...(this.archive.progressReceipts ?? []), progress].slice(-64);
+      this.input.emit('obligation_progress', { receipt: progress });
+    }
     const nodes = new Map(this.archive.tasks.map(node => [node.task.id, node]));
     const versions = this.taskVersions();
     const busy = new Map<string, Set<string | undefined>>();
@@ -154,7 +179,11 @@ export class CooperativeResearch {
           ...(visible.has(node) ? { objective: node.task.objective, feedback: node.feedback,
             actualReferences: (node.integratedCheck ?? node.proof)?.references } : {}) })),
         deliveries: deliveries.map(({ evidence: _evidence, ...record }) => record),
-        continuation: buildProofContinuation(scoped.tasks, { groups: scoped.groups, environmentDigest: this.input.state.environmentDigest }),
+        blockers: scoped.blockers ?? [],
+        proofRoutes: scoped.proofRoutes ?? [],
+        mathematicalChanges: scoped.progressReceipts?.slice(-16) ?? [],
+        continuation: buildProofContinuation(scoped.tasks, { groups: scoped.groups, environmentDigest: this.input.state.environmentDigest,
+          proofRoutes: scoped.proofRoutes }),
         statements: (scoped.statementReviews ?? []).map(statementReviewSummary),
       });
     }
@@ -231,6 +260,16 @@ export class CooperativeResearch {
     if (status !== 'superseded') this.inform(record);
     return record;
   }
+  private reportBlockers(task: CooperativeTask, value: unknown) {
+    const proposals = validateBlockerProposals(value, task, this.archive.tasks);
+    for (const blocker of recordRouteBlockers(this.archive.blockers ??= [], proposals, task, this.archive.tasks,
+      this.input.state.environmentDigest, this.input.state.problem.receiptDigest)) {
+      this.needsLead = true;
+      this.input.emit(blocker.status === 'parked' ? 'route_parked' : 'route_blocker_recorded', {
+        blockerId: blocker.id, taskId: blocker.taskId, groupId: blocker.groupId, count: blocker.count,
+        scope: blocker.scope, evidenceStatus: blocker.evidenceStatus, reopenOn: blocker.reopenOn });
+    }
+  }
   start() {
     this.timer = setInterval(() => { void this.inputs().catch(error => {
       this.input.emit('cooperation_poll_failed', { reason: error instanceof Error ? error.message : 'unknown' });
@@ -242,7 +281,8 @@ export class CooperativeResearch {
     if (!this.archive.planEdited) return;
     const file = path.join(this.lead.worktree, 'RESEARCH.md');
     const source = fs.existsSync(file) ? readMathText(file, MAX_RESEARCH_NOTES_BYTES) : '';
-    const plan = '```math\n' + JSON.stringify({ tasks: this.archive.tasks.map(node => node.task), groups: this.archive.groups?.map(route => route.group) }) + '\n```';
+    const plan = '```math\n' + JSON.stringify({ tasks: this.archive.tasks.map(node => node.task), groups: this.archive.groups?.map(route => route.group),
+      ...(this.archive.proofRoutes?.length ? { proofRoutes: this.archive.proofRoutes } : {}) }) + '\n```';
     fs.writeFileSync(file, /```(?:math|math-plan)\s*\n[\s\S]*?\n```/u.test(source)
       ? source.replace(/```(?:math|math-plan)\s*\n[\s\S]*?\n```/u, plan) : plan + '\n' + bounded(source, 8000));
     this.archive.planEdited = false;
@@ -384,6 +424,7 @@ export class CooperativeResearch {
     }
     const node = this.node(action.task.id);
     if (value.kind === 'progress') {
+      this.reportBlockers(node.task, value.blockers);
       const remaining = [...new Set([...(value.remainingObligations ?? []),
         ...this.dependencies(node.task).filter(dependency => !['integrated', 'completed'].includes(dependency.status)).map(dependency => dependency.task.id)])] as string[];
       if (value.needsDecision === true) this.needsLead = true;
@@ -409,7 +450,7 @@ export class CooperativeResearch {
   private dependencies(task: CooperativeTask): TaskRecord[] {
     const nodes = new Map(this.archive.tasks.map(node => [node.task.id, node]));
     const found = new Set<string>();
-    const ids = (node: TaskRecord) => taskReferenceDependencies(node)?.map(reference => reference.taskId) ?? node.task.dependsOn;
+    const ids = (node: TaskRecord) => taskReferenceDependencies(node)?.map(reference => reference.taskId) ?? plannedTaskDependencyIds(node, this.archive.tasks);
     const visit = (id: string) => { if (found.has(id)) return; found.add(id); ids(nodes.get(id)!).forEach(visit); };
     const node = nodes.get(task.id);
     (node?.task === task ? ids(node) : task.dependsOn).forEach(visit);
@@ -697,7 +738,7 @@ export class CooperativeResearch {
     this.changed();
   }
   private async acceptPlan(plan = readCooperationPlan(this.input.state.problem, this.lead.worktree), edit?: HumanEditRecord) {
-    const { tasks, groups } = plan;
+    const { tasks, groups, proofRoutes } = plan;
     if (this.primaryLed && tasks.some(task => task.kind === 'goal' && task.status !== 'paused'))
       throw new Error('math_help_original_goals_owned_by_primary');
     for (const task of tasks) if (task.ownerId) {
@@ -722,9 +763,13 @@ export class CooperativeResearch {
       return [node.task.id, references && proofReferencesUnchanged(this.input.state.problem, this.lead.worktree,
         this.archive.canonicalCommit!, node.integratedCheck!.references!, this.input.state.environmentDigest)
         ? references.map(reference => reference.taskId)
-        : [...node.task.dependsOn, ...(node.assignment?.dependencies?.map(dependency => dependency.taskId) ?? [])]];
+        : [...node.task.dependsOn, ...(node.alternativeRoutes?.flatMap(route => [...route.prerequisiteTaskIds, route.closingTaskId]) ?? []),
+          ...(node.assignment?.dependencies?.map(dependency => dependency.taskId) ?? [])]];
     }));
-    const invalidated = invalidatedTaskIds(this.archive.tasks, tasks, changedGroups, dependencies);
+    const routeChanges = new Set(this.archive.tasks.filter(node => node.status !== 'integrated' &&
+      canonicalMathJson(node.alternativeRoutes ?? []) !== canonicalMathJson(proofRoutes?.filter(route => route.targetTaskId === node.task.id) ?? []))
+      .map(node => node.task.id));
+    const invalidated = invalidatedTaskIds(this.archive.tasks, tasks, changedGroups, dependencies, routeChanges);
     for (const id of invalidated) if (this.archive.unchangedResearch) delete this.archive.unchangedResearch[id];
     for (const previousEdit of this.archive.edits ?? []) for (const result of previousEdit.recheck?.tasks ?? [])
       if (invalidated.has(result.taskId) && result.status !== 'removed') result.status = 'superseded';
@@ -747,6 +792,8 @@ export class CooperativeResearch {
       return { task, status: 'pending', attempts: previous?.attempts ?? 0 };
     });
     this.archive.groups = configuredGroups.map(group => ({ group, turns: previousGroups.get(group.id)?.turns ?? 0 }));
+    this.archive.proofRoutes = proofRoutes;
+    this.syncProofRoutes();
     if (invalidated.size) { this.archive.review = undefined; this.lastAssembly = undefined; }
     for (const [id, active] of this.active) {
       if (active.action.kind === 'review' && !this.archive.review && !active.cancelled) { active.cancelled = true; void active.interrupt().catch(() => {}); }
@@ -805,7 +852,8 @@ export class CooperativeResearch {
   }
   private planVersion() {
     return mathDigest(canonicalMathJson({ tasks: this.archive.tasks.map(node => node.task),
-      groups: this.archive.groups?.map(route => route.group) }));
+      groups: this.archive.groups?.map(route => route.group),
+      ...(this.archive.proofRoutes?.length ? { proofRoutes: this.archive.proofRoutes } : {}) }));
   }
   private async integrate(node: TaskRecord) {
     const problem = this.input.state.problem;
@@ -949,6 +997,9 @@ export class CooperativeResearch {
               !routeAllowsTask(node.task, this.archive.tasks, this.archive.groups) ||
               (node.task.ownerId && node.task.ownerId !== worker.id) || (engineerId && engineerId !== worker.id) ||
               (node.assignment && node.assignment.workerId !== worker.id)) throw new Error('math_task_assignment_invalid');
+          const selectedRoute = selectedTaskRoute(node, this.archive.tasks);
+          if (node.assignment && node.alternativeRoutes?.length && node.assignment.routeId !== selectedRoute?.id)
+            node.assignment = undefined;
           const seed = this.archive.canonicalCommit!;
           const resuming = node.assignment?.workerId === worker.id;
           let scopedSeed = seed;
@@ -957,6 +1008,7 @@ export class CooperativeResearch {
           }
           node.assignment ??= { taskId: node.task.id, taskDigest: digest(node.task), workerId: worker.id,
             seedCommit: scopedSeed, canonicalCommit: seed, groupId: taskGroup(node.task),
+            routeId: selectedRoute?.id,
             dependencies: this.dependencies(node.task).map(item => ({ taskId: item.task.id, taskDigest: digest(item.task) })) };
           node.status = 'running';
           const route = this.archive.groups?.find(record => record.group.id === taskGroup(node.task));
@@ -970,8 +1022,20 @@ export class CooperativeResearch {
     }
   }
   private visible(task: CooperativeTask): TaskRecord[] {
-    return this.archive.tasks.filter(node => taskGroup(node.task) === taskGroup(task) ||
-      (node.task.sharing !== 'group' && ['integrated', 'completed'].includes(node.status)));
+    const nodes = new Map(this.archive.tasks.map(node => [node.task.id, node]));
+    const visible = new Set(this.archive.tasks.filter(node => taskGroup(node.task) === taskGroup(task) ||
+      (node.task.sharing !== 'group' && ['integrated', 'completed'].includes(node.status))));
+    const seen = new Set<string>();
+    const visit = (node: TaskRecord) => {
+      if (seen.has(node.task.id)) return; seen.add(node.task.id);
+      for (const id of plannedTaskDependencyIds(node, this.archive.tasks)) {
+        const input = nodes.get(id);
+        if (!input || (taskGroup(input.task) !== taskGroup(task) && input.task.sharing === 'group')) continue;
+        visible.add(input); visit(input);
+      }
+    };
+    const current = nodes.get(task.id); if (current) visit(current);
+    return this.archive.tasks.filter(node => visible.has(node));
   }
   private seed(worker: ResearchWorker, commit: string, task?: CooperativeTask): string {
     const previousGroup = this.input.state.workers?.find(record => record.id === worker.id)?.sessionGroupId;
@@ -1025,6 +1089,12 @@ export class CooperativeResearch {
     const visibleIds = new Set(tasks.map(node => node.task.id));
     const visible = (id: string, version: string) => visibleIds.has(id) && versions.get(id)?.version === version;
     return { ...this.archive, tasks,
+      progressSnapshot: tasks === this.archive.tasks ? this.archive.progressSnapshot : undefined,
+      progressReceipts: tasks === this.archive.tasks ? this.archive.progressReceipts : undefined,
+      blockers: this.archive.blockers?.filter(blocker => tasks === this.archive.tasks ||
+        (visibleIds.has(blocker.taskId) && task && blocker.groupId === taskGroup(task))),
+      proofRoutes: this.archive.proofRoutes?.filter(route => visibleIds.has(route.targetTaskId) &&
+        [route.closingTaskId, ...route.prerequisiteTaskIds].every(id => visibleIds.has(id))),
       unchangedResearch: this.archive.unchangedResearch && Object.fromEntries(Object.entries(this.archive.unchangedResearch)
         .filter(([id, record]) => visible(id, record.taskDigest))),
       // Public progress can steer another route before its proof is complete; it remains advisory.
@@ -1166,6 +1236,9 @@ export class CooperativeResearch {
         const artifactWarning = diagnoseUnbackedLeanClaims(finding, artifacts);
         const lemmaRequests = validateLemmaRequests(this.input.state.problem, this.archive.tasks.map(node => node.task),
           this.archive.groups?.map(route => route.group) ?? [], node.task, finding.lemmaRequests);
+        this.reportBlockers(node.task, finding.blockers ?? (finding.conclusion === 'refuted' ? [{
+          mechanism: 'reported-local-refutation', scope: 'assigned-local-inference', evidenceRefs: details.evidenceRefs,
+        }] : undefined));
         node.finding = bounded(JSON.stringify(finding), 5000); node.status = 'completed'; node.feedback = undefined;
         if (this.archive.unchangedResearch) delete this.archive.unchangedResearch[node.task.id];
         if (finding.needsDecision === true || finding.conclusion === 'refuted' || lemmaRequests.length || artifactWarning) this.needsLead = true;
@@ -1189,6 +1262,7 @@ export class CooperativeResearch {
       if (feedback === 'math_verifier_unavailable') { this.rejected(action, feedback, commit); throw error; }
       if (recovering) { node.feedback = feedback; this.interrupted(worker, action); }
       else if (unchangedNotesBlob !== undefined) {
+        this.reportBlockers(node.task, [{ mechanism: 'unchanged-research-delivery', scope: 'assigned-local-inference' }]);
         const previous = this.archive.unchangedResearch?.[node.task.id];
         const count = previous?.taskDigest === action.assignment.taskDigest && previous.notesBlob === unchangedNotesBlob ? previous.count + 1 : 1;
         (this.archive.unchangedResearch ??= {})[node.task.id] = { taskDigest: action.assignment.taskDigest, notesBlob: unchangedNotesBlob, count };

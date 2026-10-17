@@ -2,6 +2,7 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { MathAgentSession } from '../runtime/codexSession';
 import { readMathBuildManifest } from '../math/mathBuildManifest';
+import { writeMathJsonDurable } from '../math/mathRuntimeIo';
 import type { SolverRunState, SolverWorkerState } from './archive';
 import { commitSolverSources, git } from './problem';
 import { CooperativeResearch } from './cooperation';
@@ -154,6 +155,14 @@ export async function runResearchWorkers(input: {
       signal.addEventListener('abort', cancel, { once: true });
       const beginTurn = async (currentContext: ContextBundle, assignment?: CooperativeAction) => {
         while ((pendingTurn = waitForTurn())) await pendingTurn;
+        if (currentContext.manifest) {
+          research.lastContextManifest = currentContext.manifest;
+          writeMathJsonDurable(path.join(worker.worktree, 'CONTEXT-MANIFEST.json'), currentContext.manifest);
+          emit('context_compiled', { taskId: assignment?.kind === 'task' ? assignment.task.id : undefined,
+            contentDigest: currentContext.manifest.contentDigest, requiredTaskIds: currentContext.manifest.requiredTaskIds,
+            included: currentContext.manifest.included.length, omitted: currentContext.manifest.omitted.length,
+            usedBytes: currentContext.manifest.usedBytes, maxBytes: currentContext.manifest.maxBytes });
+        }
         if (!reserveTurn()) return false;
         if (!session) {
           const statement = assignment && isStatementAction(assignment) ? assignment : undefined;

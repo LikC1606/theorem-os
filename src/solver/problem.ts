@@ -225,7 +225,8 @@ export function assertSolverSources(problem: SolverProblem, worktree: string): v
   git(worktree, ['merge-base', '--is-ancestor', problem.baseCommit, 'HEAD']);
   const changed = [...git(worktree, ['diff', '--name-only', problem.baseCommit]).split('\n'),
     ...git(worktree, ['ls-files', '--others', '--exclude-standard']).split('\n')].filter(Boolean);
-  const allowed = new Set([...problem.ownedFiles.map(relative => path.join(problem.projectRelative, relative)), 'RESEARCH.md', 'DELIVERIES.jsonl', 'COOPERATION.json']);
+  const allowed = new Set([...problem.ownedFiles.map(relative => path.join(problem.projectRelative, relative)),
+    'RESEARCH.md', 'DELIVERIES.jsonl', 'COOPERATION.json', 'CONTEXT-MANIFEST.json']);
   for (const relative of changed) if (!allowed.has(relative) && !/^DELIVERIES-[a-f0-9]{64}\.jsonl$/u.test(relative)) throw new Error('math_source_outside_ownership');
   for (const target of problem.targets) {
     const file = path.join(project, target.proofPath);
@@ -239,7 +240,7 @@ export function commitSolverSources(problem: SolverProblem, worktree: string): s
   // Host journals change independently of frozen proof commits. Ignore only their allowed root paths.
   const exclude = path.resolve(worktree, git(worktree, ['rev-parse', '--git-path', 'info/exclude']));
   const existing = fs.existsSync(exclude) ? fs.readFileSync(exclude, 'utf8').split('\n') : [];
-  const missing = ['/COOPERATION.json', '/DELIVERIES.jsonl', `/DELIVERIES-${'[a-f0-9]'.repeat(64)}.jsonl`]
+  const missing = ['/COOPERATION.json', '/CONTEXT-MANIFEST.json', '/DELIVERIES.jsonl', `/DELIVERIES-${'[a-f0-9]'.repeat(64)}.jsonl`]
     .filter(rule => !existing.includes(rule));
   if (missing.length) {
     fs.mkdirSync(path.dirname(exclude), { recursive: true });

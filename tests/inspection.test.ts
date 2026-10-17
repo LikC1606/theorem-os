@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { writeSolverRunState, type SolverRunState } from '../src/solver/archive';
 import { buildRunInspection, exportRunPlan, readRunInspection, renderRunInspection } from '../src/solver/inspection';
 import { queueRunEdit } from '../src/solver/humanEdit';
-import { taskVersion } from '../src/solver/tasks';
+import { taskVersion, type TaskRecord } from '../src/solver/tasks';
 import type { TaskProof } from '../src/solver/cooperativeProof';
 import { researchFailureCategory } from '../src/solver/modules/search';
 
@@ -118,6 +118,30 @@ describe('run inspection', () => {
     expect(report).toContain('| human-1 | applied | pending |');
     expect(report).toContain('does not rerun Lean');
     expect(report).not.toContain('evaluated_passed');
+  });
+
+  it('shows each alternative branch parking without parking the entire original goal or hiding its frontier', () => {
+    const { state } = fixture(), goal = state.cooperation!.tasks[0]; goal.status = 'pending';
+    const input: TaskRecord = { task: { id: 'input', kind: 'lemma', objective: 'Needed lemma', dependsOn: [], revision: 0,
+      theoremName: 'Original.input', proofPath: 'Submission.lean', type: 'True' }, status: 'pending', attempts: 0 };
+    const closing: TaskRecord = { task: { ...input.task, id: 'closing', theoremName: 'Original.closing', dependsOn: ['input'] },
+      status: 'pending', attempts: 0 };
+    goal.alternativeRoutes = [{ id: 'branch', targetTaskId: 'goal', prerequisiteTaskIds: ['input'], closingTaskId: 'closing' }];
+    goal.parkedRoutes = { branch: ['branch-blocker'] }; goal.routeParking = [];
+    state.cooperation!.tasks.push(input, closing); state.cooperation!.proofRoutes = [...goal.alternativeRoutes];
+    state.cooperation!.blockers = [{ id: 'branch-blocker', taskId: 'goal', taskDigest: taskVersion(goal.task), groupId: 'main',
+      routeId: 'branch', mechanism: 'missing estimate', scope: 'this closing implication', evidenceStatus: 'advisory',
+      evidenceRefs: [], reopenOn: [{ kind: 'contract-changed' }], basis: { contractDigest: 'contract',
+        environmentDigest: state.environmentDigest, dependencies: {} }, fingerprint: 'fingerprint', count: 2,
+      status: 'parked', createdAt: 1, updatedAt: 2 }];
+    const report = buildRunInspection(state), markdown = renderRunInspection(report);
+    expect(report.tasks.find(task => task.id === 'goal')).toMatchObject({ parkedBy: [], parkedRoutes: { branch: ['branch-blocker'] } });
+    expect(report.continuation.goals[0].alternatives![0]).toMatchObject({ frontier: ['input'], parkedBy: ['branch-blocker'] });
+    expect(report.mathematics.snapshot.routes[0]).toMatchObject({ routeId: 'branch', ready: false, parkedBy: ['branch-blocker'] });
+    expect(markdown).toContain('| branch | goal | input | input | closing | none | false | parked | branch-blocker | awaiting-original-check |');
+    expect(markdown).toContain('| branch-blocker | goal | branch | missing estimate |');
+    expect(markdown).toContain('Alternative branch branch parked by local blockers: branch-blocker');
+    expect(markdown).toContain('Other branches can continue.');
   });
 
   it('rejects unrelated results and hides results from an earlier phase or source version', () => {

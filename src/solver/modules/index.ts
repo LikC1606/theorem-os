@@ -15,9 +15,9 @@ export const directSolverModules = {
   id: 'direct-v1',
   M1: { version: 'bounded-codex-turn-v9', open: createCodexMathSession, execute: executeResearch },
   M2: { version: 'lean-kernel-v9', check: checkSolverProof, checkTask: checkTaskProof },
-  M3: { version: 'route-budget-v7', select: selectResearchAction, retry: planResearchRetry, ready: readyResearchTasks },
-  M4: { version: 'checkpoint-context-v15', build: buildResearchContext, statement: buildStatementReviewContext },
-  M5: { version: 'route-cooperation-v15', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignResearchTask },
+  M3: { version: 'route-budget-v8/blocker-or-routes-v1', select: selectResearchAction, retry: planResearchRetry, ready: readyResearchTasks },
+  M4: { version: 'task-interface-context-v16', build: buildResearchContext, statement: buildStatementReviewContext },
+  M5: { version: 'route-cooperation-v16', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignResearchTask },
 };
 
 export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M3' | 'M5'> & {
@@ -31,7 +31,7 @@ export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M3' | 'M5'>
 export const lemmaSolverModules: SolverModules = {
   ...directSolverModules, id: 'lemma-v1',
   M2: { ...directSolverModules.M2, version: 'lean-obligations-v9', checkLemma: checkLemmaResearch },
-  M3: { ...directSolverModules.M3, version: 'lemma-route-search-v8', select: selectLemmaAction },
+  M3: { ...directSolverModules.M3, version: 'lemma-route-search-v9/blocker-or-routes-v1', select: selectLemmaAction },
 };
 
 /** Named CLI policies bind search and assignment versions without changing host acceptance. */

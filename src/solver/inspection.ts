@@ -6,6 +6,7 @@ import { taskGroup, taskVersion, type TaskRecord } from './tasks';
 import { researchFailureCategory } from './modules/search';
 import { buildProofContinuation, recordedTaskProofStatus } from './progress';
 import { buildTokenBudget } from './usageBudget';
+import { captureObligationSnapshot } from './obligationProgress';
 
 /** Reading a checkpoint does not revalidate its stored Lean evidence. */
 export function readRunInspection(run: string) {
@@ -54,7 +55,10 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
       buildDigest: state.buildDigest, environmentDigest: state.environmentDigest, methodDigest: state.methodDigest },
     turns: state.turns, usage: state.usage, planVersion: cooperative?.planVersion,
     tokenBudget: buildTokenBudget(state.tokenBudget?.maxTotalTokens ?? 0, state.workers ?? [state]),
-    continuation: buildProofContinuation(tasks, { groups: cooperative?.groups, environmentDigest: state.environmentDigest }),
+    continuation: buildProofContinuation(tasks, { groups: cooperative?.groups, environmentDigest: state.environmentDigest, proofRoutes: cooperative?.proofRoutes }),
+    mathematics: { snapshot: captureObligationSnapshot(tasks, { groups: cooperative?.groups, environmentDigest: state.environmentDigest,
+      blockers: cooperative?.blockers, proofRoutes: cooperative?.proofRoutes }),
+      recentChanges: cooperative?.progressReceipts ?? [], retainedChangeLimit: 64 },
     progress: { checkedProofTasks: checked.length,
       conditionalProofTasks: tasks.filter(node => proofRecord(node, state).status === 'conditional').length,
       completedResearchTasks: tasks.filter(node => ['research', 'sketch'].includes(node.task.kind) && node.status === 'completed').length,
@@ -68,6 +72,8 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
       informalStatement: node.task.informalStatement, premises: node.task.premises ?? [],
       plannedDependencies: node.task.dependsOn, attempts: node.attempts,
       proof: proofRecord(node, state), feedback: node.feedback, finding: node.finding,
+      parkedBy: node.routeParking ?? [],
+      parkedRoutes: node.parkedRoutes ?? {},
     })),
     workers: (state.workers ?? [{ id: 'solver', role: 'lead', ...state }]).map(worker => ({
       id: worker.id, role: worker.role, phase: worker.phase, turns: worker.turns,
@@ -75,6 +81,7 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
       lastActivity: worker.lastActivity,
       lastFailure: worker.lastFailure && { ...worker.lastFailure, category: researchFailureCategory(worker.lastFailure.reason) },
       task: 'sessionTaskId' in worker ? worker.sessionTaskId : undefined,
+      context: worker.lastContextManifest,
       failures: worker.failures, error: 'error' in worker ? worker.error : undefined,
       failureCategory: researchFailureCategory(worker.error),
     })),
@@ -91,7 +98,8 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
 export function exportRunPlan(state: SolverRunState) {
   if (!state.cooperation?.planVersion || !state.cooperation.tasks.length) throw new Error('math_edit_plan_unavailable');
   return { schema: 'deepscientist.math.plan-edit.v1', baseVersion: state.cooperation.planVersion,
-    tasks: state.cooperation.tasks.map(node => node.task), groups: state.cooperation.groups?.map(record => record.group) };
+    tasks: state.cooperation.tasks.map(node => node.task), groups: state.cooperation.groups?.map(record => record.group),
+    ...(state.cooperation.proofRoutes?.length ? { proofRoutes: state.cooperation.proofRoutes } : {}) };
 }
 
 type Inspection = ReturnType<typeof buildRunInspection>;
@@ -113,6 +121,27 @@ export function renderRunInspection(report: Inspection): string {
   text += section('Recorded progress', `${report.progress.checkedProofTasks} checked proof tasks; ${report.progress.conditionalProofTasks} conditional; ${report.progress.completedResearchTasks} completed research tasks.\n\nOpen proof tasks: ${report.progress.openProofTasks.join(', ') || 'none'}. Dispatch counts include retries and do not measure mathematical progress.`);
   text += section('Proof continuation', table(['Original goal', 'Recorded proof', 'Open dependency frontier', 'Missing tasks'],
     report.continuation.goals.map(goal => [goal.taskId, goal.recordedProof, goal.frontier.join(', ') || 'none', goal.missingDependencies.join(', ') || 'none'])));
+  const transitions = report.mathematics.recentChanges.filter(receipt => receipt.kind === 'transition').slice(-12);
+  text += section('Mathematical changes', transitions.length ? table([
+    'At', 'Locally checked obligations', 'Reopened obligations', 'Goal frontiers changed', 'Blockers parked / reopened', 'Advisory completed',
+  ], transitions.map(receipt => [new Date(receipt.at).toISOString(), receipt.obligations.closed.map(change => change.after.taskId).join(', ') || 'none',
+    receipt.obligations.reopened.map(change => change.after.taskId).join(', ') || 'none',
+    receipt.goalFrontiers.map(change => `${change.goalId}: ${change.before?.frontier.map(item => item.taskId).join(', ') || 'none'} → ${change.after?.frontier.map(item => item.taskId).join(', ') || 'none'}`).join('; ') || 'none',
+    `${receipt.blockers.parked.map(change => change.after.id).join(', ') || 'none'} / ${receipt.blockers.reopened.map(change => change.after.id).join(', ') || 'none'}`,
+    receipt.advisory.completed.map(change => change.after.taskId).join(', ') || 'none',
+  ])) : 'No mathematical transitions recorded in this checkpoint.');
+  text += '\nLocal obligation checks, advisory findings and original-goal frontiers are separate. The retained window contains at most 64 changes; the event journal retains emitted transitions. Official acceptance is shown only under Evaluation.\n';
+  if (report.mathematics.snapshot.routes.length) text += section('Alternative proof routes', table([
+    'Route', 'Original goal', 'All prerequisites', 'Still open', 'Closing declaration', 'Closing evidence', 'Evidence ready', 'Branch control', 'Parked by', 'Original connection',
+  ], report.mathematics.snapshot.routes.map(route => [route.routeId, route.targetTaskId, route.prerequisiteTaskIds.join(', ') || 'none',
+    route.remainingPrerequisiteTaskIds.join(', ') || 'none', route.closingTaskId, route.closingStatus, route.ready,
+    route.parkedBy.length ? 'parked' : 'active', route.parkedBy.join(', ') || 'none', route.connection]))) +
+    '\nRoutes are alternatives (OR); prerequisites within each route are required together (AND). Checked helpers enable an original-goal attempt; the goal still needs its own check.\n';
+  if (report.mathematics.snapshot.blockers.length) text += section('Local route blockers', table([
+    'Blocker', 'Task', 'Alternative branch', 'Mechanism', 'Affected inference', 'Scheduling state', 'Evidence', 'Reopen conditions',
+  ], report.mathematics.snapshot.blockers.map(blocker => [blocker.id, blocker.taskId, blocker.routeId ?? 'whole task', blocker.mechanism, blocker.scope,
+    blocker.status, blocker.evidenceStatus, JSON.stringify(blocker.reopenOn)]))) +
+    '\nParking applies to the recorded alternative branch or whole task shown above. Other branches can continue. An advisory obstruction does not refute the original theorem.\n';
   text += '\nConsumers with checked inputs and completed planned dependencies: ' +
     (report.continuation.continuationCandidates.join(', ') || 'none') + '.\n';
   text += section('Recorded lemma reuse', report.continuation.reuse.length ?
@@ -145,6 +174,9 @@ export function renderRunInspection(report: Inspection): string {
     if (task.informalStatement) text += `\nMathematical intent: ${task.informalStatement}\n`;
     if (task.premises.length) text += `\nPremises: ${task.premises.join('; ')}\n`;
     if (task.feedback) text += `\nCurrent feedback: ${task.feedback}\n`;
+    if (task.parkedBy.length) text += `\nParked by local blockers: ${task.parkedBy.join(', ')}\n`;
+    for (const [routeId, blockers] of Object.entries(task.parkedRoutes)) if (blockers.length)
+      text += `\nAlternative branch ${cell(routeId)} parked by local blockers: ${blockers.map(cell).join(', ')}\n`;
     if (task.finding) text += `\nResearch finding: ${task.finding}\n`;
     if ('commit' in task.proof) {
       text += `\nRecorded commit: ${task.proof.commit}\n\nReceipt IDs: ${task.proof.receiptIds.join(', ') || 'none'}\n`;

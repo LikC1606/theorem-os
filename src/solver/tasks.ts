@@ -3,6 +3,7 @@ import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import type { DeliveryRecord } from './deliveries';
 import type { TaskProof } from './cooperativeProof';
 import type { StatementAction } from './statementReview';
+import { parseProofRoutes, type ProofRoute } from './proofRoutes';
 
 export type CooperativeTask = Readonly<{ id: string; kind: 'research' | 'sketch' | 'lemma' | 'goal'; objective: string;
   dependsOn: readonly string[]; revision: number; proofPath?: string; theoremName?: string; type?: string;
@@ -14,9 +15,10 @@ export type RouteGroup = Readonly<{ id: string; objective: string; status: 'acti
 export type RouteRecord = { group: RouteGroup; turns: number; busy?: number };
 export const taskGroup = (task: CooperativeTask): string => task.groupId ?? 'main';
 export type TaskAssignment = { taskId: string; taskDigest: string; workerId: string; seedCommit: string; groupId?: string; canonicalCommit?: string;
-  dependencies?: DeliveryRecord['dependencies'] };
+  dependencies?: DeliveryRecord['dependencies']; routeId?: string };
 export type TaskRecord = { task: CooperativeTask; status: 'pending' | 'running' | 'blocked' | 'conditional' | 'delivered' | 'integrated' | 'completed';
-  attempts: number; assignment?: TaskAssignment; proof?: TaskProof; integratedCheck?: TaskProof; feedback?: string; finding?: string };
+  attempts: number; assignment?: TaskAssignment; proof?: TaskProof; integratedCheck?: TaskProof; feedback?: string; finding?: string;
+  routeParking?: string[]; parkedRoutes?: Record<string, string[]>; alternativeRoutes?: readonly ProofRoute[] };
 export type CooperativeAction = { kind: 'lead' | 'assemble' | 'solve'; seedCommit: string; planVersion?: string } |
   { kind: 'review'; seedCommit: string; sourceDigest: string } | { kind: 'task'; assignment: TaskAssignment; task: CooperativeTask } | StatementAction;
 
@@ -47,9 +49,9 @@ export const hasTaskAcceptance = (proof: TaskProof) => freshTaskAcceptances.get(
 
 /** Compute invalidation before changing assignments or emitting any notifications. */
 export function invalidatedTaskIds(previous: readonly TaskRecord[], tasks: readonly CooperativeTask[],
-  changedGroups: ReadonlySet<string>, dependencies: ReadonlyMap<string, readonly string[]>): Set<string> {
+  changedGroups: ReadonlySet<string>, dependencies: ReadonlyMap<string, readonly string[]>, changedTasks: ReadonlySet<string> = new Set()): Set<string> {
   const proposed = new Map(tasks.map(task => [task.id, taskVersion(task)]));
-  const invalidated = new Set(previous.filter(node => changedGroups.has(taskGroup(node.task)) ||
+  const invalidated = new Set(previous.filter(node => changedTasks.has(node.task.id) || changedGroups.has(taskGroup(node.task)) ||
     proposed.get(node.task.id) !== taskVersion(node.task)).map(node => node.task.id));
   const consumers = new Map<string, string[]>();
   for (const task of tasks) for (const id of dependencies.get(task.id) ?? task.dependsOn) {
@@ -73,7 +75,7 @@ const validId = (value: unknown) => typeof value === 'string' && /^[a-zA-Z0-9_-]
 const optionalFields = (value: any, keys: readonly string[]) =>
   Object.fromEntries(keys.filter(key => value[key] !== undefined).map(key => [key, value[key]]));
 
-export function parseCooperationPlan(problem: SolverProblem, value: any): { tasks: CooperativeTask[]; groups: RouteGroup[] } {
+export function parseCooperationPlan(problem: SolverProblem, value: any): { tasks: CooperativeTask[]; groups: RouteGroup[]; proofRoutes?: ProofRoute[] } {
   if (!value || !Array.isArray(value.tasks) || value.tasks.length < 1)
     throw new Error('math_plan_invalid');
   const rawGroups = value.groups ?? [{ id: 'main', objective: 'Prove the original problem' }];
@@ -159,5 +161,6 @@ export function parseCooperationPlan(problem: SolverProblem, value: any): { task
           'Extract the shared argument into a named lemma before both original goals; preserve original declaration order and other goal proofs.');
     }
   }
-  return { tasks, groups };
+  const proofRoutes = parseProofRoutes(value.proofRoutes, tasks);
+  return { tasks, groups, ...(proofRoutes.length ? { proofRoutes } : {}) };
 }

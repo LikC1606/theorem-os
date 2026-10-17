@@ -1,0 +1,348 @@
+import path from 'node:path';
+import { mathDigest } from '../math/mathRuntimeIo';
+import { inspectLeanDeclarations, inspectLeanDeclarationRegions } from '../math/leanSource';
+import type { CooperationState } from './cooperation';
+import type { DeliveryRecord } from './deliveries';
+import type { SolverProblem } from './problem';
+import { taskGroup, taskVersion, type CooperativeAction, type TaskRecord } from './tasks';
+import type { RouteBlocker } from './routeControl';
+
+export const DEFAULT_TASK_CONTEXT_BYTES = 512 * 1024;
+export type ContextItemKind = 'problem' | 'assignment' | 'interfaces' | 'sources' | 'feedback' | 'delivery' |
+  'finding' | 'history' | 'blocker' | 'routes' | 'continuation' | 'statement-review' | 'checkpoint' | 'groups';
+export type ContextOmissionReason = 'budget' | 'superseded' | 'stale-version' | 'duplicate' | 'selection-limit' |
+  'advisory-summary-limit' | 'encapsulated-private-dependency' | 'outside-task-scope';
+export type ContextManifest = Readonly<{
+  schema: 'theorem-os.task-context.v1';
+  evidence: 'recorded-not-replayed';
+  maxBytes: number; usedBytes: number; mandatoryBytes: number; contentDigest: string;
+  requiredTaskIds: readonly string[];
+  included: readonly { id: string; kind: ContextItemKind; required: boolean; bytes: number }[];
+  omitted: readonly { id: string; kind: ContextItemKind; reason: ContextOmissionReason }[];
+}>;
+export type ContextSection = Readonly<{ id: string; kind: ContextItemKind; text: string; priority?: number }>;
+type Extras = { blockers?: readonly RouteBlocker[]; proofRoutes?: readonly {
+  id: string; targetTaskId: string; prerequisiteTaskIds: readonly string[]; closingTaskId: string;
+}[] };
+export type TaskContextInput = Readonly<{
+  problem: SolverProblem; cooperation?: CooperationState; action?: CooperativeAction;
+  instructions: string; taskText: string; feedback?: string; checkpoint?: string;
+  /** Frozen source projection containing complete context and fixed definitions, with proof bodies omitted. */
+  frozenContexts?: Readonly<Record<string, string>>;
+  maxContextBytes?: number; environmentDigest?: string;
+  mandatory?: readonly ContextSection[];
+  optional?: readonly ContextSection[];
+}>;
+export class TaskContextError extends Error {
+  constructor(readonly code: 'math_context_missing_required' | 'math_context_stale_required' |
+    'math_context_mandatory_overflow' | 'math_context_invalid_budget', readonly itemId: string) {
+    super(`${code}:${itemId}`);
+  }
+}
+
+const json = (value: unknown) => JSON.stringify(value);
+const section = (id: string, kind: ContextItemKind, title: string, value: unknown): ContextSection =>
+  ({ id, kind, text: `${title}\n${typeof value === 'string' ? value : json(value)}` });
+const missing = (id: string): never => { throw new TaskContextError('math_context_missing_required', id); };
+const stale = (id: string): never => { throw new TaskContextError('math_context_stale_required', id); };
+const present = (value: unknown): value is string => typeof value === 'string' && !!value.trim();
+const localName = (name: string) => name.split('.').at(-1);
+const sourcePath = (problem: SolverProblem, file: string) => path.posix.join(problem.projectRelative.replaceAll('\\', '/'), file);
+
+/** Preserve source-level variables, scopes, instances and fixed definitions; never copy an existing proof body. */
+export function frozenSourceContext(problem: SolverProblem, file: string, source: string): string {
+  const regions = inspectLeanDeclarationRegions(source), originals = problem.declarations[file] ?? [];
+  if (originals.some(original => {
+    const found = regions.filter(region => region.name === original.name);
+    return found.length !== 1 || found[0].declarationType !== original.header || (original.body &&
+      mathDigest(source.slice(found[0].bodyOffset, found[0].endOffset).trim()) !== original.body);
+  })) return stale(`frozen-source:${file}`);
+  const kinds = new Map(inspectLeanDeclarations(source).map(item => [item.startOffset, item.kind]));
+  for (const region of [...regions].reverse()) {
+    const isTarget = problem.targets.some(target => target.proofPath === file &&
+      localName(target.theoremName) === localName(region.name));
+    if (kinds.get(region.startOffset) === 'theorem' || isTarget)
+      source = source.slice(0, region.bodyOffset) + '\n/- Proof body omitted by the host context compiler. -/\n' + source.slice(region.endOffset);
+  }
+  return source;
+}
+
+function frozenHeader(problem: SolverProblem, node: TaskRecord): string | undefined {
+  if (node.task.kind !== 'goal') return node.task.type;
+  const exact = problem.declarations[node.task.proofPath!]?.filter(item =>
+    item.name === node.task.theoremName || localName(item.name) === localName(node.task.theoremName!)) ?? [];
+  if (exact.length !== 1) return missing(`interface:${node.task.id}`);
+  return exact[0].header;
+}
+
+function evidence(node: TaskRecord, environmentDigest?: string) {
+  const proof = node.integratedCheck ?? node.proof;
+  if (!proof) return undefined;
+  if (proof.taskDigest !== taskVersion(node.task) || (environmentDigest && proof.references &&
+      proof.references.environmentDigest !== environmentDigest) ||
+      (proof.passed && (proof.verification.status !== 'kernel_verified' || !present(proof.verification.targetCommit) ||
+        !proof.verification.results.length ||
+        proof.verification.results.some(result => result.targetCommit !== proof.verification.targetCommit ||
+          result.status !== 'kernel_verified' || !present(result.receiptId)))))
+    return stale(`evidence:${node.task.id}`);
+  return { evidence: 'recorded-not-replayed', passed: proof.passed, commit: proof.commit,
+    sourceDigest: proof.sourceDigest, taskDigest: proof.taskDigest, conditions: proof.conditions ?? [],
+    verification: { status: proof.verification.status, targetCommit: proof.verification.targetCommit,
+      receipts: proof.verification.results.map(result => ({ receiptId: result.receiptId, status: result.status,
+        targetCommit: result.targetCommit })) },
+    references: proof.references && { sourceCommit: proof.references.sourceCommit,
+      environmentDigest: proof.references.environmentDigest, contextDigest: proof.references.contextDigest,
+      root: proof.references.root, inputs: proof.references.inputs, tasks: proof.references.tasks,
+      statement: proof.references.statement, proof: proof.references.proof }, imports: proof.imports };
+}
+
+/** Closed shared interfaces encapsulate private implementation prerequisites, never unresolved assumptions. */
+function requiredTasks(input: TaskContextInput, omitted: ContextManifest['omitted'][number][]) {
+  const tasks = input.cooperation?.tasks ?? [], byId = new Map(tasks.map(node => [node.task.id, node]));
+  if (byId.size !== tasks.length) return missing('duplicate-task-id');
+  const required = new Set<string>(), visiting = new Set<string>();
+  const action = input.action;
+  if (action?.kind === 'task') {
+    if (action.assignment.taskId !== action.task.id || action.assignment.taskDigest !== taskVersion(action.task))
+      return stale(`assignment:${action.task.id}`);
+    const current = byId.get(action.task.id);
+    if (!current) return missing(`task:${action.task.id}`);
+    if (taskVersion(current.task) !== action.assignment.taskDigest) return stale(`task:${action.task.id}`);
+  }
+  const visit = (id: string, consumer?: TaskRecord) => {
+    const node = byId.get(id);
+    if (!node) {
+      const proof = consumer?.integratedCheck;
+      if (consumer?.status === 'integrated' && proof?.passed && !proof.conditions?.length &&
+          proof.taskDigest === taskVersion(consumer.task) && proof.verification.status === 'kernel_verified' &&
+          present(proof.verification.targetCommit) && !!proof.verification.results.length && proof.verification.results.every(result =>
+            result.status === 'kernel_verified' && result.targetCommit === proof.verification.targetCommit && present(result.receiptId))) {
+        omitted.push({ id: `interface:${id}`, kind: 'interfaces', reason: 'encapsulated-private-dependency' });
+        return;
+      }
+      return missing(`dependency:${id}`);
+    }
+    if (visiting.has(id)) return missing(`dependency-cycle:${id}`);
+    if (required.has(id)) return;
+    visiting.add(id);
+    // A typed interface must be supplied exactly; advisory tasks have no admitted proposition.
+    if (['lemma', 'goal'].includes(node.task.kind) && !present(frozenHeader(input.problem, node)))
+      return missing(`interface:${id}`);
+    evidence(node, input.environmentDigest);
+    required.add(id);
+    const proof = node.integratedCheck ?? node.proof;
+    for (const condition of proof?.conditions ?? []) {
+      const dependency = byId.get(condition.taskId);
+      if (!dependency) return missing(`condition:${condition.taskId}`);
+      if (taskVersion(dependency.task) !== condition.taskDigest) return stale(`condition:${condition.taskId}`);
+      visit(condition.taskId);
+    }
+    for (const dependency of node.task.dependsOn) visit(dependency, node);
+    visiting.delete(id);
+  };
+  if (action?.kind === 'task') visit(action.task.id);
+  else tasks.forEach(node => visit(node.task.id));
+  const route = action?.kind === 'task' && action.assignment.routeId ?
+    (input.cooperation as CooperationState & Extras)?.proofRoutes?.find(route => route.id === action.assignment.routeId) ??
+      byId.get(action.task.id)?.alternativeRoutes?.find(route => route.id === action.assignment.routeId) : undefined;
+  if (action?.kind === 'task' && action.assignment.routeId) {
+    if (!route || route.targetTaskId !== action.task.id) return missing(`route:${action.assignment.routeId}`);
+    [...route.prerequisiteTaskIds, route.closingTaskId].forEach(id => visit(id));
+  }
+  if (action?.kind === 'task') for (const dependency of action.assignment.dependencies ?? []) {
+    const current = byId.get(dependency.taskId);
+    if (!current) {
+      if (!omitted.some(item => item.id === `interface:${dependency.taskId}` && item.reason === 'encapsulated-private-dependency'))
+        return missing(`dependency:${dependency.taskId}`);
+    } else {
+      if (taskVersion(current.task) !== dependency.taskDigest) return stale(`dependency:${dependency.taskId}`);
+      visit(dependency.taskId);
+    }
+  }
+  return { tasks: tasks.filter(node => required.has(node.task.id)), byId, required, route };
+}
+
+function sourceReferences(input: TaskContextInput) {
+  const problem = input.problem;
+  if (!present(problem.baseCommit)) return missing('frozen-source-commit');
+  if (!problem.declarations || !Array.isArray(problem.ownedFiles)) return missing('frozen-declarations');
+  for (const file of problem.ownedFiles.filter(file => file.endsWith('.lean')))
+    if (typeof input.frozenContexts?.[file] !== 'string') return missing(`frozen-context:${file}`);
+  return { baseCommit: problem.baseCommit,
+    retrieval: 'Read full proofs and namespace/section/instance context with git show COMMIT:PATH in this isolated worktree. Source references identify immutable content; they grant no proof acceptance.',
+    files: problem.ownedFiles.filter(file => file.endsWith('.lean')).map(file => ({
+      commit: problem.baseCommit, path: sourcePath(problem, file),
+      contextDigest: problem.sourceStructure?.[file], imports: problem.sourceImports?.[file],
+      declarations: problem.declarations[file] ?? [], context: input.frozenContexts![file] })),
+    trustedFiles: Object.entries(problem.trustedFiles ?? {}).map(([file, digest]) =>
+      ({ commit: problem.baseCommit, path: sourcePath(problem, file), digest })) };
+}
+
+function proofSources(problem: SolverProblem, node: TaskRecord) {
+  const proof = node.integratedCheck ?? node.proof;
+  return proof && { commit: proof.commit, path: node.task.proofPath && sourcePath(problem, node.task.proofPath),
+    sourceDigest: proof.sourceDigest, inputs: proof.references?.inputs.map(input =>
+      ({ ...input, commit: proof.references!.sourceCommit, path: sourcePath(problem, input.file) })) };
+}
+
+function optionalDeliveries(input: TaskContextInput, required: ReadonlySet<string>,
+  byId: ReadonlyMap<string, TaskRecord>, omitted: ContextManifest['omitted'][number][]): ContextSection[] {
+  const action = input.action, active = action?.kind === 'task' ? action.task : undefined;
+  const priority = (record: DeliveryRecord) => active && record.taskId === active.id ? 0 : required.has(record.taskId ?? '') ? 1 :
+    active && record.groupId === taskGroup(active) ? 2 : 3;
+  const seen = new Set<string>(), selected: DeliveryRecord[] = [];
+  for (const record of [...(input.cooperation?.deliveries ?? [])].reverse().sort((a, b) => priority(a) - priority(b))) {
+    const id = `delivery:${record.id}`, current = record.taskId && byId.get(record.taskId);
+    let reason: ContextOmissionReason | undefined;
+    if (record.status === 'superseded') reason = 'superseded';
+    else if ((current && record.taskDigest !== taskVersion(current.task)) || record.dependencies?.some(dependency =>
+      byId.has(dependency.taskId) && taskVersion(byId.get(dependency.taskId)!.task) !== dependency.taskDigest)) reason = 'stale-version';
+    const key = json([record.taskId ?? record.id, record.taskDigest, record.kind, record.producer]);
+    if (!reason && seen.has(key)) reason = 'duplicate';
+    if (!reason && selected.length >= 8) reason = 'selection-limit';
+    if (reason) { omitted.push({ id, kind: 'delivery', reason }); continue; }
+    seen.add(key); selected.push(record);
+  }
+  return selected.map(record => {
+    // Interfaces and receipts live in mandatory sections. A delivery summary is advisory prose.
+    const bytes = Buffer.from(record.summary), summary = bytes.length > 1000 ? bytes.subarray(0, 1000).toString('utf8').replace(/\uFFFD$/u, '') + '…' : record.summary;
+    if (bytes.length > 1000) omitted.push({ id: `delivery:${record.id}:summary-tail`, kind: 'delivery', reason: 'advisory-summary-limit' });
+    const { evidence: _evidence, ...visible } = record;
+    return { ...section(`delivery:${record.id}`, 'delivery', 'Current-version delivery selected for this task (advisory; retain unproved obligations):',
+      { ...visible, summary }), priority: priority(record) * 10 + 2 };
+  });
+}
+
+/** Compile a task's mathematical interface before dispatch. A budget can omit hints, never hypotheses. */
+export function compileTaskContext(input: TaskContextInput): { message: string; manifest: ContextManifest } {
+  const { problem, action } = input;
+  const maxBytes = input.maxContextBytes ?? DEFAULT_TASK_CONTEXT_BYTES;
+  if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0) throw new TaskContextError('math_context_invalid_budget', 'maxContextBytes');
+  if (!present(problem.receiptDigest) || !present(problem.contract?.formalStatement) || !Array.isArray(problem.contract?.assumptions))
+    return missing('frozen-problem');
+  const omitted: ContextManifest['omitted'][number][] = [];
+  const { tasks, byId, required, route: selectedRoute } = requiredTasks(input, omitted);
+  const graph = tasks.map(node => ({ ...(action?.kind === 'task' && node.task.id === action.task.id
+    ? { id: node.task.id } : node.task), taskDigest: taskVersion(node.task),
+    status: node.status, attempts: node.attempts, groupId: taskGroup(node.task), producer: node.assignment?.workerId,
+    sharing: node.task.sharing ?? 'problem',
+    integratedCommit: node.integratedCheck?.commit, checkedSourceDigest: node.integratedCheck?.sourceDigest,
+    ...(node.task.kind === 'goal' ? { exactFrozenHeader: frozenHeader(problem, node) } : {}),
+    evidence: evidence(node, input.environmentDigest), source: proofSources(problem, node) }));
+  const mandatory: ContextSection[] = [
+    section('original-problem', 'problem', `${input.taskText}\n\nOriginal problem:`, problem.contract.formalStatement),
+    section('original-assumptions', 'problem', 'Frozen assumptions and problem identity:', { problemReceiptDigest: problem.receiptDigest,
+      statementHash: problem.contract.statementHash, leanStatementHash: problem.contract.leanStatementHash,
+      informalStatement: problem.contract.informalStatement, assumptions: problem.contract.assumptions }),
+    section('frozen-sources', 'sources', 'Frozen source context and immutable retrieval references:', sourceReferences(input)),
+  ];
+  if (action) mandatory.push(section('assignment', 'assignment', 'Cooperative assignment:', action));
+  if (selectedRoute) mandatory.push(section(`route:${selectedRoute.id}`, 'routes', 'Selected alternative route and exact closing obligation (planned, not accepted):', selectedRoute));
+  if (input.cooperation) {
+    mandatory.push(section('task-interfaces', 'interfaces', 'Lead task graph and host feedback:', graph));
+    const visibleGroups = new Set(tasks.map(node => taskGroup(node.task)));
+    mandatory.push(section('groups', 'groups', 'Route groups and budgets:',
+      input.cooperation.groups?.filter(route => action?.kind !== 'task' || visibleGroups.has(route.group.id)) ?? []));
+  }
+  mandatory.push(section('declaration-order', 'sources', 'Frozen declaration order by file:', Object.fromEntries(
+    Object.entries(problem.declarations).map(([file, declarations]) => [file, declarations.map(declaration => declaration.name)]))),
+  section('original-targets', 'problem', 'Original targets:', problem.targets));
+  mandatory.push(...(input.mandatory ?? []));
+  const deliveries = optionalDeliveries(input, required, byId, omitted);
+  const deliveredFindings = new Set(deliveries.map(item => item.id.slice('delivery:'.length)));
+  const findingTaskIds = new Set((input.cooperation?.deliveries ?? []).filter(record => record.kind === 'research' &&
+    deliveredFindings.has(record.id)).map(record => record.taskId));
+  const active = action?.kind === 'task' ? action.task : undefined;
+  const rank = (taskId?: string, groupId?: string) => taskId === active?.id && active ? 0 : required.has(taskId ?? '') ? 1 :
+    active && groupId === taskGroup(active) ? 2 : 3;
+  const optional: ContextSection[] = [];
+  if (input.feedback) optional.push({ ...section('current-feedback', 'feedback', 'Current host feedback (preserve the frozen original problem):', input.feedback), priority: 0 });
+  const extras = input.cooperation as (CooperationState & Extras) | undefined;
+  for (const blocker of [...(extras?.blockers ?? [])].sort((a, b) => rank(a.taskId, a.groupId) - rank(b.taskId, b.groupId))) {
+    const id = `blocker:${blocker.id}`;
+    if (!byId.has(blocker.taskId) || (active && blocker.groupId !== taskGroup(active) && !required.has(blocker.taskId))) {
+      omitted.push({ id, kind: 'blocker', reason: 'outside-task-scope' }); continue;
+    }
+    if (blocker.status === 'superseded' || blocker.taskDigest !== taskVersion(byId.get(blocker.taskId)!.task)) {
+      omitted.push({ id, kind: 'blocker', reason: blocker.status === 'superseded' ? 'superseded' : 'stale-version' }); continue;
+    }
+    // The complete recurrence basis can contain private prerequisite identities; the public interface does not need it.
+    const { basis: _basis, ...publicBlocker } = blocker;
+    optional.push({ ...section(id, 'blocker', 'Local route blocker and reopening conditions (advisory):', publicBlocker), priority: rank(blocker.taskId, blocker.groupId) * 10 + 1 });
+  }
+  optional.push(...deliveries);
+  for (const node of [...(input.cooperation?.tasks ?? [])].sort((a, b) =>
+    rank(a.task.id, taskGroup(a.task)) - rank(b.task.id, taskGroup(b.task)))) {
+    const priority = rank(node.task.id, taskGroup(node.task)) * 10;
+    if (node.feedback) optional.push({ ...section(`feedback:${node.task.id}`, 'feedback', `Host feedback for ${node.task.id}:`, node.feedback), priority: priority + 3 });
+    if (node.finding && !findingTaskIds.has(node.task.id))
+      optional.push({ ...section(`finding:${node.task.id}`, 'finding', `Advisory finding for ${node.task.id}:`, node.finding), priority: priority + 4 });
+    if (!required.has(node.task.id)) optional.push({ ...section(`interface:${node.task.id}`, 'interfaces', 'Other visible task (advisory planning context):',
+      { ...node.task, taskDigest: taskVersion(node.task), status: node.status }), priority: priority + 8 });
+  }
+  for (const route of extras?.proofRoutes ?? []) {
+    if (route.id === selectedRoute?.id) continue;
+    if ([route.targetTaskId, route.closingTaskId, ...route.prerequisiteTaskIds].every(id => byId.has(id)))
+      optional.push(section(`route:${route.id}`, 'routes', 'Alternative route and closing obligation (planned, not accepted):', route));
+    else omitted.push({ id: `route:${route.id}`, kind: 'routes', reason: 'outside-task-scope' });
+  }
+  for (const [index, entry] of [...(input.cooperation?.history ?? [])].reverse().entries()) {
+    const id = `history:${entry.task.id}:${taskVersion(entry.task)}:${index}`;
+    if (active && !required.has(entry.task.id) && taskGroup(entry.task) !== taskGroup(active)) {
+      omitted.push({ id, kind: 'history', reason: 'outside-task-scope' }); continue;
+    }
+    const proof = entry.integratedCheck ?? entry.proof;
+    optional.push(section(id, 'history', 'Earlier route finding (historical and advisory; not a current premise):', {
+      taskId: entry.task.id, taskDigest: taskVersion(entry.task), objective: entry.task.objective,
+      producer: entry.producer, finding: entry.finding, commit: proof?.commit, sourceDigest: proof?.sourceDigest,
+      evidenceRefs: proof?.verification.results.map(result => result.receiptId),
+      source: proof && entry.task.proofPath ? { commit: proof.commit, path: sourcePath(problem, entry.task.proofPath) } : undefined,
+      evidence: 'historical-not-current' }));
+    optional[optional.length - 1] = { ...optional.at(-1)!, priority: rank(entry.task.id, taskGroup(entry.task)) * 10 + 5 };
+  }
+  if (input.checkpoint) {
+    const checkpointBytes = Buffer.from(input.checkpoint), shortened = checkpointBytes.length > 5000;
+    if (shortened) omitted.push({ id: 'checkpoint:tail', kind: 'checkpoint', reason: 'advisory-summary-limit' });
+    const text = shortened ? checkpointBytes.subarray(0, 5000).toString('utf8').replace(/\uFFFD$/u, '') +
+      '\n[Advisory excerpt; read worktree-root RESEARCH.md for the complete checkpoint.]' : input.checkpoint;
+    optional.push({ ...section('checkpoint', 'checkpoint', 'Current research checkpoint (advisory; recheck claims in Lean):', text), priority: 5 });
+  }
+  optional.push(...(input.optional ?? []));
+  return compileSections(input.instructions, mandatory, optional.sort((a, b) => (a.priority ?? 20) - (b.priority ?? 20)), omitted, [...required], maxBytes);
+}
+
+function compileSections(instructions: string, mandatory: readonly ContextSection[], optional: readonly ContextSection[],
+  initialOmissions: ContextManifest['omitted'][number][], requiredTaskIds: readonly string[], maxBytes: number) {
+  const selected: ContextSection[] = [];
+  const render = (selected: readonly ContextSection[], mandatoryBytes: number) => {
+    const included = [...mandatory.map(item => ({ ...item, required: true })), ...selected.map(item => ({ ...item, required: false }))];
+    const content = included.map(item => item.text).join('\n\n');
+    const includedIds = new Set(selected.map(item => item.id));
+    const manifest: { -readonly [K in keyof ContextManifest]: ContextManifest[K] } = {
+      schema: 'theorem-os.task-context.v1', evidence: 'recorded-not-replayed', maxBytes, usedBytes: 0, mandatoryBytes,
+      contentDigest: mathDigest(json({ instructions, message: content })), requiredTaskIds,
+      included: included.map(item => ({ id: item.id, kind: item.kind, required: item.required, bytes: Buffer.byteLength(item.text) })),
+      omitted: [...initialOmissions, ...optional.filter(item => !includedIds.has(item.id))
+        .map(item => ({ id: item.id, kind: item.kind, reason: 'budget' as const }))],
+    };
+    let message: string;
+    do {
+      message = content + '\n\nContext compilation manifest:\n' + json(manifest);
+      const usedBytes = Buffer.byteLength(instructions) + Buffer.byteLength(message);
+      if (usedBytes === manifest.usedBytes) break;
+      manifest.usedBytes = usedBytes;
+    } while (true);
+    return { message, manifest };
+  };
+  let mandatoryResult = render([], 0);
+  while (mandatoryResult.manifest.mandatoryBytes !== mandatoryResult.manifest.usedBytes)
+    mandatoryResult = render([], mandatoryResult.manifest.usedBytes);
+  const mandatoryBytes = mandatoryResult.manifest.usedBytes;
+  if (mandatoryBytes > maxBytes) throw new TaskContextError('math_context_mandatory_overflow', `${mandatoryBytes}>${maxBytes}`);
+  let result = mandatoryResult;
+  for (const item of optional) {
+    const candidate = render([...selected, item], mandatoryBytes);
+    if (candidate.manifest.usedBytes <= maxBytes) { selected.push(item); result = candidate; }
+  }
+  return result;
+}

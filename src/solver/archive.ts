@@ -8,10 +8,11 @@ import type { ResearchRole } from './modules/organization';
 import type { CooperationState } from './cooperation';
 import type { MathAgentActivity } from '../runtime/codexSession';
 import type { TokenBudget, UsageAccounting } from './usageBudget';
+import type { ContextManifest } from './contextCompiler';
 import { z } from 'zod';
 
 export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | 'previousThreadIds' |
-  'lastInputTokens' | 'lastActivity' | 'lastFailure' | 'phase' | 'turns' | 'dispatchCounts' | 'usage' | 'usageBeforeThread' | 'usageAccounting' | 'check' | 'candidate' | 'lemmaResearch' | 'failures' | 'error'> & {
+  'lastInputTokens' | 'lastActivity' | 'lastFailure' | 'lastContextManifest' | 'phase' | 'turns' | 'dispatchCounts' | 'usage' | 'usageBeforeThread' | 'usageAccounting' | 'check' | 'candidate' | 'lemmaResearch' | 'failures' | 'error'> & {
   id: string;
   role: ResearchRole;
   sessionRole?: ResearchRole;
@@ -42,6 +43,7 @@ export type SolverRunState = {
   lastInputTokens?: number;
   lastActivity?: MathAgentActivity & { at: number };
   lastFailure?: { at: number; reason: string; taskId?: string };
+  lastContextManifest?: ContextManifest;
   phase: 'prepared' | 'running' | 'checking' | 'evaluating' | 'finished';
   turns: number;
   /** Dispatches are scheduling events, not equal units of computation. */
@@ -73,7 +75,15 @@ const tokenBudget = z.object({ maxTotalTokens: safeCount, enforcement: z.literal
   status: z.enum(['unlimited', 'available', 'exhausted', 'usage-unavailable']), reportedTotalTokens: safeCount.nullable(),
   usageComplete: z.boolean(), overrunTokens: safeCount.nullable(),
   reason: z.enum(['math_total_token_limit', 'math_model_usage_unavailable']).optional() });
+const taskReference = z.object({ taskId: z.string(), taskDigest: z.string() });
+const declarationReference = z.object({ name: z.string(), file: z.string() });
+const proofReferences = z.object({ sourceCommit: z.string(), environmentDigest: z.string(), contextDigest: z.string(),
+  scope: z.literal('statement').optional(), root: declarationReference,
+  inputs: z.array(z.object({ file: z.string(), name: z.string().optional(), digest: z.string() })),
+  tasks: z.array(taskReference).optional(), statement: z.array(declarationReference), proof: z.array(declarationReference) });
 const check = z.object({ commit: z.string().min(1), sourceDigest: z.string().min(1), passed: z.boolean(),
+  taskDigest: z.string().optional(), conditions: z.array(taskReference).optional(), references: proofReferences.optional(),
+  changes: z.array(z.object({ file: z.string(), name: z.string(), after: z.string() }).passthrough()).optional(),
   verification: z.object({ status: z.enum(['kernel_verified', 'failed', 'blocked', 'unavailable']),
     targetCommit: z.string().optional(), results: z.array(record) }).passthrough() }).passthrough();
 const research = z.object({ worktree: z.string().min(1), phase, turns: count, threadId: z.string().optional(),
@@ -91,6 +101,50 @@ const task = z.object({ id: z.string().min(1), kind: z.enum(['research', 'sketch
 const taskRecord = z.object({ task, status: z.enum(['pending', 'running', 'blocked', 'conditional', 'delivered', 'integrated', 'completed']),
   attempts: count, proof: check.optional(), integratedCheck: check.optional(), assignment: z.object({ taskId: z.string(),
     taskDigest: z.string(), workerId: z.string(), seedCommit: z.string() }).passthrough().optional() }).passthrough();
+const routeBlocker = z.object({ id: z.string(), taskId: z.string(), groupId: z.string(), taskDigest: z.string(),
+  routeId: z.string().optional(),
+  mechanism: z.string(), scope: z.string(), evidenceStatus: z.literal('advisory'), evidenceRefs: z.array(z.string()),
+  reopenOn: z.array(z.discriminatedUnion('kind', [z.object({ kind: z.literal('contract-changed') }),
+    z.object({ kind: z.literal('environment-changed') }), z.object({ kind: z.literal('dependency-checked'), taskId: z.string() })])),
+  basis: z.object({ contractDigest: z.string(), environmentDigest: z.string(), dependencies: z.record(z.object({
+    contractDigest: z.string(), evidenceDigest: z.string().optional() })) }), fingerprint: z.string(), count: safeCount.min(1),
+  status: z.enum(['open', 'parked', 'reopened', 'superseded']), createdAt: count, updatedAt: count,
+  reopenedReason: z.string().optional() });
+const recordedObligation = z.object({ taskId: z.string(), taskDigest: z.string(), kind: z.enum(['lemma', 'goal']),
+  groupId: z.string(), recordedProof: z.enum(['none', 'stale', 'failed', 'unverified', 'conditional', 'checked']),
+  closed: z.boolean(), conditions: z.array(taskReference), referenceCoverage: z.enum(['available', 'missing']),
+  evidenceDigest: z.string().optional() });
+const frontierItem = z.object({ taskId: z.string(), taskDigest: z.string().nullable() });
+const goalFrontier = z.object({ taskId: z.string(), taskDigest: z.string(), closed: z.boolean(),
+  frontier: z.array(frontierItem), missingDependencies: z.array(z.string()), routeCombination: z.literal('any').optional(),
+  alternatives: z.array(z.object({ routeId: z.string(), frontier: z.array(frontierItem),
+    missingDependencies: z.array(z.string()), parkedBy: z.array(z.string()).optional() })).optional() });
+const recordedBlocker = routeBlocker.omit({ fingerprint: true, count: true, createdAt: true, updatedAt: true });
+const routeStatus = z.enum(['none', 'conditional', 'checked', 'stale', 'unverified']);
+const recordedRoute = z.object({ evidence: z.literal('recorded-not-replayed'), routeId: z.string(), targetTaskId: z.string(),
+  prerequisiteTaskIds: z.array(z.string()), closingTaskId: z.string(), closingType: z.string().nullable(),
+  prerequisiteStatuses: z.array(z.object({ taskId: z.string(), status: routeStatus })),
+  remainingPrerequisiteTaskIds: z.array(z.string()), closingStatus: routeStatus, ready: z.boolean(), targetStatus: routeStatus,
+  connection: z.enum(['closed-by-original-check', 'awaiting-original-check']), referenceCoverageMissing: z.array(z.string()),
+  parkedBy: z.array(z.string()).optional() });
+const recordedAdvisory = z.object({ taskId: z.string(), taskDigest: z.string(), kind: z.enum(['research', 'sketch']),
+  completed: z.boolean(), findingDigest: z.string().optional() });
+const change = <T extends z.ZodTypeAny>(item: T) => z.object({ before: item, after: item });
+const progressSnapshot = z.object({ schema: z.literal('theoremos.obligation-snapshot.v1'),
+  evidence: z.literal('recorded-not-replayed'), acceptance: z.literal('not-assessed'), digest: z.string(),
+  environmentDigest: z.string().optional(), obligations: z.array(recordedObligation), goals: z.array(goalFrontier),
+  blockers: z.array(recordedBlocker), routes: z.array(recordedRoute), advisory: z.array(recordedAdvisory) });
+const progressReceipt = z.object({ schema: z.literal('theoremos.obligation-progress.v1'),
+  evidence: z.literal('recorded-not-replayed'), acceptance: z.literal('not-assessed'),
+  kind: z.enum(['baseline', 'transition']), at: count, beforeDigest: z.string().optional(), afterDigest: z.string(), environmentChanged: z.boolean(),
+  obligations: z.object({ new: z.array(recordedObligation), closed: z.array(change(recordedObligation)),
+    reopened: z.array(change(recordedObligation)), removed: z.array(recordedObligation), changed: z.array(change(recordedObligation)) }),
+  goalFrontiers: z.array(z.object({ goalId: z.string(), before: goalFrontier.optional(), after: goalFrontier.optional() })),
+  blockers: z.object({ new: z.array(recordedBlocker), parked: z.array(change(recordedBlocker)), reopened: z.array(change(recordedBlocker)),
+    superseded: z.array(change(recordedBlocker)), removed: z.array(recordedBlocker), changed: z.array(change(recordedBlocker)) }),
+  routes: z.array(z.object({ routeId: z.string(), before: recordedRoute.optional(), after: recordedRoute.optional() })),
+  advisory: z.object({ proposed: z.array(recordedAdvisory), completed: z.array(change(recordedAdvisory)),
+    reopened: z.array(change(recordedAdvisory)), removed: z.array(recordedAdvisory), changed: z.array(change(recordedAdvisory)) }) });
 const runState = research.extend({ schema: z.literal('deepscientist.math.solver.v1'), runId: z.string().min(1),
   problem: z.object({ workspace: z.string(), receiptDigest: z.string() }).passthrough(),
   taskDigest: z.string(), buildDigest: z.string(), environmentDigest: z.string(), evaluatorDigest: z.string(),
@@ -100,7 +154,10 @@ const runState = research.extend({ schema: z.literal('deepscientist.math.solver.
   cooperation: z.object({ tasks: z.array(taskRecord), groups: z.array(z.object({ group: z.object({ id: z.string(),
     status: z.enum(['active', 'paused', 'stopped']), revision: count }).passthrough(), turns: count }).passthrough()).optional(),
     history: z.array(z.object({ task, proof: check.optional(), integratedCheck: check.optional() }).passthrough()).optional(),
-    deliveries: z.array(record).optional() }).passthrough().optional(),
+    deliveries: z.array(record).optional(), blockers: z.array(routeBlocker).optional(),
+    proofRoutes: z.array(z.object({ id: z.string(), targetTaskId: z.string(), prerequisiteTaskIds: z.array(z.string()),
+      closingTaskId: z.string() })).optional(), progressSnapshot: progressSnapshot.optional(),
+    progressReceipts: z.array(progressReceipt).max(64).optional() }).passthrough().optional(),
 });
 
 /** Parse persisted control state once; optional advisory fields and older extra fields remain readable. */
