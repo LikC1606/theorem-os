@@ -1041,6 +1041,86 @@ describe('isolated solver and host acceptance', () => {
     });
   }
 
+  it('starts peer work after a completed invalid initial plan without consuming an unlimited planning loop', async () => {
+    let leadTurns = 0;
+    const peers = new Set<string>();
+    configureCooperation(async (action, options) => {
+      if (action.kind === 'lead') {
+        leadTurns++;
+        writePlan(options.workspace, planTasks().map(task => task.id === 'a' ? { ...task, theoremName: 'Submission.bad;name' } : task));
+      } else if (action.kind === 'task') {
+        peers.add(action.assignment.workerId);
+        if (action.task.kind === 'goal') {
+          const file = path.join(options.workspace, 'generated/p/Submission.lean');
+          const name = action.task.theoremName!.split('.').at(-1);
+          fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(`${name} : True := by sorry`, `${name} : True := by trivial`));
+        } else fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), 'Independent route findings retained.');
+      } else finishAssignment(action, options);
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '0'], directory)).toBe(0);
+    const state = cooperationState();
+    expect(leadTurns).toBe(1);
+    expect(peers).toEqual(new Set(['researcher-1', 'researcher-2', 'engineer']));
+    expect(state.initialPlanFallback.reason).toContain('math_plan_invalid_proof_target');
+    expect(state.tasks.filter((node: any) => node.task.kind === 'goal').every((node: any) => node.status === 'integrated')).toBe(true);
+    expect(readCooperationPlan(problem, `${output}.runtime/worktree`).tasks).toEqual(state.tasks.map((node: any) => node.task));
+    expect(host.officialGate).toHaveBeenCalledOnce();
+  });
+
+  it.each(['environment', 'peer-evidence'])('parks identical rejected plans across notes commits and resume, and retries after new %s', async input => {
+    const plan = parseCooperationPlan(problem, { tasks: planTasks().map(task => ({ ...task, status: 'paused' })) });
+    const lead = { id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles } as const;
+    const peer = { ...lead, id: 'researcher-1', role: 'researcher' } as const;
+    const state: any = { problem, runId: 'rejected-plan', turns: 0, phase: 'running', environmentDigest: 'fixture',
+      cooperation: { error: 'repair_requested', canonicalCommit: problem.baseCommit,
+        planVersion: mathDigest(canonicalMathJson(plan)), tasks: plan.tasks.map(task => ({ task, status: 'pending', attempts: 0 })),
+        groups: plan.groups.map(group => ({ group, turns: 0 })) } };
+    const progress = { id: 'known-progress', taskId: plan.tasks[0].id, taskDigest: taskVersion(plan.tasks[0]),
+      kind: 'progress', status: 'advisory', summary: 'Known obstacle.', evidenceRefs: [], dependencies: [], remainingObligations: [] };
+    state.cooperation.deliveries = [progress];
+    const events: string[] = [];
+    const create = () => new CooperativeResearch({ state, workers: [lead, peer], access: new Map(),
+      signal: new AbortController().signal, save: () => {}, emit: event => events.push(event), modules: directSolverModules,
+      exclusiveCheck: async check => check() });
+    const cooperative = create(), budget = { maxTurns: Infinity, remainingMs: Infinity };
+    const invalid = plan.tasks.map(task => task.id === 'first' ? { ...task, theoremName: 'Submission.changed' } : task);
+    const commits: string[] = [];
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const action = await cooperative.next(lead, budget);
+      expect(action?.kind).toBe('lead');
+      if (action?.kind !== 'lead') throw new Error('missing_repair_assignment');
+      writePlan(workspace, invalid);
+      fs.appendFileSync(path.join(workspace, 'RESEARCH.md'), `\nRepeated blocker explanation ${attempt}.\n`);
+      const commit = commitSolverSources(problem, workspace); commits.push(commit);
+      await cooperative.deliver(lead, action, commit);
+    }
+    expect(commits[0]).not.toBe(commits[1]);
+    expect(state.cooperation.planRejection).toMatchObject({ stalled: true, error: 'math_plan_changed_original_target' });
+    expect(await cooperative.next(lead, budget)).toBeUndefined();
+    expect(events).toContain('plan_stalled');
+    await cooperative.stop();
+    const resumed = create();
+    await resumed.restore();
+    expect(await resumed.next(lead, budget)).toBeUndefined();
+    state.cooperation.deliveries.push({ ...progress, id: 'heartbeat-new-id', createdAt: 42 });
+    expect(await resumed.next(lead, budget)).toBeUndefined();
+    if (input === 'environment') state.environmentDigest = 'repaired-environment';
+    else state.cooperation.deliveries = [{ id: 'new-progress', taskId: plan.tasks[0].id,
+      taskDigest: taskVersion(plan.tasks[0]), kind: 'progress', status: 'advisory', summary: 'New concrete library evidence.',
+      evidenceRefs: ['Library.connection'], dependencies: [], remainingObligations: [] }];
+    const reopened = await resumed.next(lead, budget);
+    expect(reopened?.kind).toBe('lead');
+    if (reopened?.kind !== 'lead') throw new Error('missing_reopened_assignment');
+    writePlan(workspace, plan.tasks);
+    await resumed.deliver(lead, reopened, commitSolverSources(problem, workspace));
+    expect(state.cooperation.planRejection).toBeUndefined();
+    expect(state.cooperation.error).toBeUndefined();
+    expect(host.createSession).not.toHaveBeenCalled();
+    expect(host.officialGate).not.toHaveBeenCalled();
+    await resumed.stop();
+  });
+
   it.each(['official_verified', 'failed'])('retains independent acceptance after integrating an original definition goal (%s)', async officialStatus => {
     const { task } = configureDefinitionGoal();
     const tasks: CooperativeTask[] = [task, ...['first', 'second'].map(name => ({ id: name, kind: 'goal' as const,
@@ -2168,21 +2248,22 @@ describe('isolated solver and host acceptance', () => {
   it('removes orphan wrapper chains when a conditional task abstracts a saved dependency', () => {
     const file = path.join(project, 'Submission.lean');
     const source = original.replace('theorem first',
-      'lemma dependency : True := by trivial\nlemma dependency_wrapper : True := dependency\n' +
-      'lemma wrapper_chain : True := dependency_wrapper\nlemma parent : True := dependency\n' +
+      'lemma dependency₂ : True := by trivial\nlemma dependency_wrapper : True := dependency₂\n' +
+      'lemma wrapper_chain : True := dependency_wrapper\nlemma parent : True := Submission.dependency₂\n' +
       'lemma parent_wrapper : True := parent\ntheorem first');
     fs.writeFileSync(file, source);
     const commit = commitSolverSources(problem, workspace);
     const dependency: CooperativeTask = { id: 'dependency', kind: 'lemma', objective: 'Prove the premise', dependsOn: [],
-      revision: 0, proofPath: 'Submission.lean', theoremName: 'Submission.dependency', type: 'True' };
+      revision: 0, proofPath: 'Submission.lean', theoremName: 'Submission.dependency₂', type: 'True' };
     const task: CooperativeTask = { id: 'parent', kind: 'lemma', objective: 'Prove the connection', dependsOn: ['dependency'],
       revision: 0, proofPath: 'Submission.lean', theoremName: 'Submission.parent', type: 'True', conditional: true };
     const unconditional = projectTaskSources(problem, workspace, commit, task, []).get('Submission.lean')!;
-    expect(unconditional).toContain('lemma dependency : True');
+    expect(unconditional).toContain('lemma dependency₂ : True');
     expect(unconditional).toContain('lemma dependency_wrapper : True');
     const projected = projectTaskSources(problem, workspace, commit, task, [], [dependency]).get('Submission.lean')!;
-    expect(projected).toContain('lemma parent (dependency : True) : True := dependency');
-    for (const name of ['dependency', 'dependency_wrapper', 'wrapper_chain', 'parent_wrapper'])
+    expect(projected).toContain('lemma parent (dependency₂ : True) : True := dependency₂');
+    expect(projected).not.toContain('Submission.dependency₂');
+    for (const name of ['dependency₂', 'dependency_wrapper', 'wrapper_chain', 'parent_wrapper'])
       expect(projected).not.toMatch(new RegExp(`lemma ${name} :`));
     expect(fs.readFileSync(file, 'utf8')).toBe(source);
   });

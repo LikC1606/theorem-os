@@ -46,6 +46,7 @@ export type CooperationState = { tasks: TaskRecord[]; groups?: RouteRecord[]; ca
   deliveries?: DeliveryRecord[]; cursors?: Record<string, number>; edits?: HumanEditRecord[];
   planVersion?: string; planEdited?: boolean; statementReviews?: StatementReview[];
   helpRequestDigest?: string;
+  planRejection?: { proposalDigest: string; inputDigest: string; error: string; stalled: boolean };
   blockers?: RouteBlocker[];
   proofRoutes?: ProofRoute[];
   progressSnapshot?: ObligationSnapshot;
@@ -286,6 +287,41 @@ export class CooperativeResearch {
     fs.writeFileSync(file, /```(?:math|math-plan)\s*\n[\s\S]*?\n```/u.test(source)
       ? source.replace(/```(?:math|math-plan)\s*\n[\s\S]*?\n```/u, plan) : plan + '\n' + bounded(source, 8000));
     this.archive.planEdited = false;
+  }
+  private planningInputDigest() {
+    const versions = new Map(this.archive.tasks.map(node => [node.task.id, digest(node.task)]));
+    const deliveries = [...new Set((this.archive.deliveries ?? []).filter(record => record.status !== 'superseded' &&
+      (!record.taskId || versions.get(record.taskId) === record.taskDigest)).map(record => canonicalMathJson({
+        taskId: record.taskId, taskDigest: record.taskDigest, kind: record.kind, status: record.status,
+        summary: record.summary, evidenceRefs: record.evidenceRefs, dependencies: record.dependencies,
+        remainingObligations: record.remainingObligations, lemmaRequests: record.lemmaRequests,
+      })))].sort();
+    return mathDigest(canonicalMathJson({ problemReceiptDigest: this.input.state.problem.receiptDigest,
+      environmentDigest: this.input.state.environmentDigest, planVersion: this.archive.planVersion,
+      sourceDigest: ownedSourceDigest(this.input.state.problem, this.lead.worktree, this.archive.canonicalCommit!),
+      progress: captureObligationSnapshot(this.archive.tasks, { groups: this.archive.groups,
+        environmentDigest: this.input.state.environmentDigest, proofRoutes: this.archive.proofRoutes, blockers: this.archive.blockers }).digest,
+      tasks: this.archive.tasks.map(node => ({ id: node.task.id, status: node.status, feedback: node.feedback })), deliveries }));
+  }
+  private proposedPlanDigest() {
+    try {
+      const { tasks, groups, proofRoutes } = block(this.lead.worktree, 'math-plan');
+      return mathDigest(canonicalMathJson({ tasks, groups, proofRoutes }));
+    } catch {
+      // A notes-only commit must not make an identical malformed response new input.
+      const file = path.join(this.lead.worktree, 'RESEARCH.md');
+      return fs.existsSync(file) ? git(this.lead.worktree, ['hash-object', '--', file]) : 'missing';
+    }
+  }
+  private rejectPlan(error: unknown) {
+    const reason = error instanceof Error ? error.message : 'math_plan_invalid';
+    const proposalDigest = this.proposedPlanDigest(), inputDigest = this.planningInputDigest();
+    const previous = this.archive.planRejection;
+    const stalled = previous?.proposalDigest === proposalDigest && previous.inputDigest === inputDigest && previous.error === reason;
+    this.archive.error = reason;
+    this.archive.planRejection = { proposalDigest, inputDigest, error: reason, stalled };
+    this.needsLead = !stalled;
+    this.input.emit('plan_rejected', { ...this.archive.planRejection });
   }
   async stop() {
     clearInterval(this.timer);
@@ -715,7 +751,7 @@ export class CooperativeResearch {
     // A resumed review must inspect the fixed version again.
     if (this.archive.review) this.archive.review.status = 'pending';
     if (!this.primaryLed && this.archive.tasks.length && fs.existsSync(path.join(this.lead.worktree, 'RESEARCH.md'))) {
-      try { await this.acceptPlan(); } catch (error) { this.archive.error = error instanceof Error ? error.message : 'math_plan_invalid'; this.needsLead = true; }
+      try { await this.acceptPlan(); } catch (error) { this.rejectPlan(error); }
     }
     if (!solverSourceFeedback(this.input.state.problem, this.lead.worktree)) {
       if (!this.primaryLed && this.archive.canonicalCommit !== git(this.lead.worktree, ['rev-parse', 'HEAD']) &&
@@ -812,6 +848,7 @@ export class CooperativeResearch {
       }
     }
     this.archive.error = undefined;
+    this.archive.planRejection = undefined;
     const statements = this.prepareStatementContexts(); if (statements) await statements;
     this.syncStatementReviews(invalidated);
     if (edit) {
@@ -846,6 +883,7 @@ export class CooperativeResearch {
     await this.acceptPlan(parseCooperationPlan(this.input.state.problem, { tasks }));
     this.needsLead = false;
     this.archive.initialPlanFallback = { at: Date.now(), reason };
+    this.archive.planEdited = true;
     this.syncPlanNotes();
     this.input.emit('initial_plan_fallback', { reason, planVersion: this.archive.planVersion });
     this.changed();
@@ -941,6 +979,17 @@ export class CooperativeResearch {
         }
         if (!running && !this.livePeers.length) return;
         if (this.archive.review && ['pending', 'running'].includes(this.archive.review.status)) { await this.wait(); continue; }
+        const rejection = this.archive.planRejection;
+        if (rejection?.stalled) {
+          if (rejection.inputDigest === this.planningInputDigest() && rejection.proposalDigest === this.proposedPlanDigest()) {
+            this.needsLead = false;
+            if (!running && !researchCanAdvance(this.archive.tasks, this.archive.groups, this.liveWorkers)) {
+              this.input.emit('plan_stalled', { ...rejection }); return;
+            }
+            await this.wait(); continue;
+          }
+          this.needsLead = true;
+        }
         if (!running && !this.needsLead && this.archive.tasks.length && (!this.archive.review || this.archive.review.status === 'changes_requested') &&
             !researchCanAdvance(this.archive.tasks, this.archive.groups, this.liveWorkers)) {
           const blocked = this.archive.tasks.filter(node => node.status === 'blocked' &&
@@ -1189,7 +1238,14 @@ export class CooperativeResearch {
       }
       const sourceChanged = ownedSourceDigest(this.input.state.problem, worker.worktree, action.seedCommit) !==
         ownedSourceDigest(this.input.state.problem, worker.worktree, commit);
-      try { await this.acceptPlan(); } catch (error) { this.archive.error = error instanceof Error ? error.message : 'math_plan_invalid'; this.needsLead = true; }
+      try { await this.acceptPlan(); } catch (error) {
+        this.rejectPlan(error);
+        if (!this.archive.tasks.length) {
+          try { await this.startInitialTasks(); }
+          catch (fallbackError) { this.input.emit('initial_plan_fallback_failed', {
+            reason: fallbackError instanceof Error ? fallbackError.message : 'math_initial_plan_failed' }); }
+        }
+      }
       if (sourceChanged) {
         try {
           await withSolverWorktree(worker.worktree, this.archive.canonicalCommit!, async checkout => {

@@ -1,3 +1,7 @@
+/** Ordinary unquoted declaration names, consistent with the source inspector. */
+export const isSimpleLeanName = (value: unknown): value is string => typeof value === 'string' &&
+  /^[\p{L}_][\p{L}\p{M}\p{N}_']*(?:\.[\p{L}_][\p{L}\p{M}\p{N}_']*)*$/u.test(value);
+
 /** Mask comments and string literals while preserving line boundaries and source offsets. */
 export function maskLeanCommentsAndStrings(source: string): string {
   return maskLeanText(source, true);

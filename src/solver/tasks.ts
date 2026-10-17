@@ -1,5 +1,6 @@
 import type { SolverProblem } from './problem';
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
+import { isSimpleLeanName } from '../math/leanSyntax';
 import type { DeliveryRecord } from './deliveries';
 import type { TaskProof } from './cooperativeProof';
 import type { StatementAction } from './statementReview';
@@ -120,8 +121,9 @@ export function parseCooperationPlan(problem: SolverProblem, value: any): { task
     if (!groups.some(group => group.id === (task.groupId ?? 'main')) ||
         (task.sharing !== undefined && !['group', 'problem'].includes(task.sharing))) throw new Error('math_plan_invalid_task_group');
     if (!isAdvisoryTask(task) && (!problem.ownedFiles.includes(task.proofPath) ||
-        typeof task.theoremName !== 'string' || !/^[A-Za-z_][A-Za-z0-9_']*(?:\.[A-Za-z_][A-Za-z0-9_']*)*$/u.test(task.theoremName)))
-      throw new Error('math_plan_invalid_proof_target');
+        !isSimpleLeanName(task.theoremName)))
+      throw new Error('math_plan_invalid_proof_target: ' + JSON.stringify({ taskId: task.id,
+        proofPath: task.proofPath, theoremName: task.theoremName }) + '. Use an owned proofPath and an ordinary qualified Lean name.');
     if (task.kind === 'goal' && !problem.targets.some(target => target.proofPath === task.proofPath && target.theoremName === task.theoremName))
       throw new Error('math_plan_changed_original_target');
     if (task.kind === 'lemma' && typeof task.type === 'string' && task.type.trim() === 'FULL_CLOSED_LEAN_TYPE')
