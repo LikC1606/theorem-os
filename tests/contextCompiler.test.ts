@@ -3,12 +3,13 @@ import path from 'node:path';
 import { compileTaskContext, DEFAULT_OPTIONAL_TASK_CONTEXT_BYTES, DEFAULT_TASK_CONTEXT_BYTES,
   frozenSourceContext, type TaskContextInput } from '../src/solver/contextCompiler';
 import { buildResearchContext } from '../src/solver/modules/context';
-import { taskVersion, type CooperativeAction, type CooperativeTask, type TaskRecord } from '../src/solver/tasks';
+import { hasTaskAcceptance, markTaskAcceptance, taskVersion, type CooperativeAction, type CooperativeTask, type TaskRecord } from '../src/solver/tasks';
 import type { SolverProblem } from '../src/solver/problem';
 import type { SolverRunState } from '../src/solver/archive';
 import type { TaskProof } from '../src/solver/cooperativeProof';
 import type { DeliveryRecord } from '../src/solver/deliveries';
-import { canonicalMathJson } from '../src/math/mathRuntimeIo';
+import { canonicalMathJson, mathDigest } from '../src/math/mathRuntimeIo';
+import { buildProofContinuation } from '../src/solver/progress';
 
 const baseCommit = 'a'.repeat(40), proofCommit = 'b'.repeat(40);
 const formal = 'namespace Original\nvariable (n : Nat)\ntheorem target (h : n > 0) : n > 0 := by sorry\nend Original';
@@ -356,7 +357,21 @@ it('fails closed for unavailable frozen context instead of substituting a contex
 });
 
 const contextLine = (message: string, label: string) => JSON.parse(message.split(`${label}\n`)[1].split('\n')[0]);
-const compiledGraph = (message: string): any[] => contextLine(message, 'Lead task graph and host feedback:');
+const encodedGraph = (message: string): any[] => contextLine(message, 'Lead task graph and host feedback:');
+const compiledGraph = (message: string): any[] => {
+  const dictionary = message.includes('Complete evidence reference dictionary (mandatory, recorded-not-replayed):')
+    ? compiledDictionary(message) : undefined;
+  return encodedGraph(message).map(row => {
+    if (!row.evidence) return row;
+    if (row.evidence.taskDigest === null) row.evidence.taskDigest = row.taskDigest;
+    if (row.integratedCommit === null) row.integratedCommit = row.evidence.commit;
+    if (row.checkedSourceDigest === null) row.checkedSourceDigest = row.evidence.sourceDigest;
+    for (const receipt of row.evidence.verification.receipts)
+      if (receipt.targetCommit === null) receipt.targetCommit = row.evidence.verification.targetCommit;
+    if (row.evidence.references?.tasks) row.evidence.references.tasks = row.evidence.references.tasks.map((entry: number) => dictionary!.entries[entry]);
+    return row;
+  });
+};
 const compiledDictionary = (message: string): { entries: any[]; digests: string[]; projectRelative: string;
   encoding: string; digestExpansion: string } =>
   contextLine(message, 'Complete evidence reference dictionary (mandatory, recorded-not-replayed):');
@@ -414,7 +429,7 @@ it('renders a mandatory digest dictionary when all declaration reference arrays 
   const original = structuredClone(proof), context = compileTaskContext(input([
     { ...node(task), status: 'integrated', integratedCheck: proof },
   ])), dictionary = compiledDictionary(context.message), references = compiledGraph(context.message)[0].evidence.references;
-  expect(dictionary.encoding).toBe('evidence-reference-indices-v2');
+  expect(dictionary.encoding).toBe('evidence-reference-indices-v3');
   expect(dictionary.entries).toEqual([]);
   expect(dictionary.digests).toEqual([proof.references.environmentDigest, proof.references.contextDigest]);
   expect(dictionary.digestExpansion).toContain('environmentDigest or contextDigest');
@@ -459,7 +474,7 @@ it('expands shared source metadata for conditional and unconditional proofs with
     { ...node(conditional), status: 'conditional', proof: withoutReferences }, node(dependency)]));
   const encoding = contextLine(context.message, 'Complete proof source reference encoding (mandatory, recorded-not-replayed):'),
     graph = compiledGraph(context.message);
-  expect(encoding.encoding).toBe('proof-source-evidence-v1');
+  expect(encoding.encoding).toBe('proof-source-evidence-v2');
   expect(encoding.expansion).toContain('row.evidence.commit');
   expect(encoding.expansion).toContain('otherwise omit inputsFrom');
   expect(expandedProofSource(graph[0])).toEqual({ commit: withReferences.commit, sourceDigest: withReferences.sourceDigest,
@@ -529,4 +544,148 @@ it('fits a large repeated-reference graph in the unchanged byte budget while pre
   });
   expect(Buffer.byteLength(canonicalMathJson(expanded))).toBeGreaterThan(DEFAULT_TASK_CONTEXT_BYTES);
   expect(dictionary.entries).toHaveLength(inputs.length + declarationRefs.length);
+});
+
+it('shares exact task reference metadata and proof fields without losing receipt targets or array order', () => {
+  const tasks = [lemma('first'), lemma('second')], proofs = tasks.map(task => referenceProof(task));
+  const references = [{ taskId: tasks[0].id, taskDigest: taskVersion(tasks[0]) },
+    { taskId: tasks[1].id, taskDigest: taskVersion(tasks[1]) }];
+  for (const proof of proofs) proof.references!.tasks = [references[1], references[0], references[1]];
+  const context = compileTaskContext(input(tasks.map((task, index) => ({ ...node(task), status: 'integrated', integratedCheck: proofs[index] })))),
+    raw = encodedGraph(context.message), dictionary = compiledDictionary(context.message), graph = compiledGraph(context.message);
+  expect(dictionary.entries.filter(entry => 'taskId' in entry)).toEqual([references[1], references[0]]);
+  for (const [index, row] of raw.entries()) {
+    expect(row.evidence.references.tasks).toEqual(raw[0].evidence.references.tasks);
+    expect(row.evidence.references.tasks[0]).toBe(row.evidence.references.tasks[2]);
+    expect(row.evidence.taskDigest).toBeNull();
+    expect(row.integratedCommit).toBeNull();
+    expect(row.checkedSourceDigest).toBeNull();
+    expect(row.evidence.verification.receipts[0].targetCommit).toBeNull();
+    expect(graph[index].evidence.references.tasks).toEqual(proofs[index].references!.tasks);
+    expect(graph[index].evidence.taskDigest).toBe(proofs[index].taskDigest);
+    expect(graph[index].integratedCommit).toBe(proofs[index].commit);
+    expect(graph[index].checkedSourceDigest).toBe(proofs[index].sourceDigest);
+    expect(graph[index].evidence.verification.receipts).toEqual(proofs[index].verification.results);
+  }
+});
+
+it('does not replace distinct or absent failed receipt targets with an enclosing verifier commit', () => {
+  const task = lemma('failed'), proof = checked(task);
+  proof.passed = false;
+  proof.verification.results = [{ receiptId: 'distinct', status: 'kernel_rejected', targetCommit: 'e'.repeat(40) },
+    { receiptId: 'absent', status: 'kernel_rejected' }] as TaskProof['verification']['results'];
+  const context = compileTaskContext(input([{ ...node(task), proof }])), row = encodedGraph(context.message)[0];
+  expect(row.evidence.verification.receipts).toEqual(proof.verification.results);
+  expect(compiledGraph(context.message)[0].evidence.verification.receipts).toEqual(proof.verification.results);
+  expect(row.integratedCommit).toBeUndefined();
+  expect(row.checkedSourceDigest).toBeUndefined();
+});
+
+const lead = { kind: 'lead' as const, seedCommit: baseCommit };
+const originalGoal = (dependencies: readonly string[] = []) => node({ ...lemma('original_goal', dependencies),
+  kind: 'goal', theoremName: 'Original.target' });
+function freshlyChecked(task: CooperativeTask, conditions: TaskProof['conditions'] = []): TaskRecord {
+  const proof = referenceProof(task);
+  proof.conditions = conditions;
+  markTaskAcceptance(proof);
+  return { ...node(task), status: 'integrated', integratedCheck: proof };
+}
+const helperCatalog = (message: string): any[] => contextLine(message,
+  'Checked helpers outside the current open-task closure (retrieve before using; recorded, not replayed):').helpers;
+
+it('keeps the open Lead frontier complete while encapsulating freshly checked unconditional implementation helpers', () => {
+  const implementation = freshlyChecked(lemma('implementation', [], '∀ n : Nat, n + 0 = n')),
+    wrapper = freshlyChecked(lemma('wrapper', ['implementation'])), goal = originalGoal(['wrapper']);
+  const research = node({ ...lemma('open_research'), kind: 'research' as const,
+    objective: 'FULL_UNFINISHED_RESEARCH_DESCRIPTION', type: undefined });
+  const current = node({ ...lemma('open_proof'), objective: 'FULL_UNFINISHED_PROOF_DESCRIPTION',
+    premises: ['FULL_UNFINISHED_MATHEMATICAL_PREMISE'] });
+  const context = compileTaskContext({ ...input([implementation, wrapper, goal, research, current], lead), maxOptionalContextBytes: 0 }),
+    catalog = helperCatalog(context.message), graph = compiledGraph(context.message);
+  expect(new Set(context.manifest.requiredTaskIds)).toEqual(new Set(['wrapper', 'original_goal', 'open_research', 'open_proof']));
+  expect(graph.map(row => row.id)).toEqual(['wrapper', 'original_goal', 'open_research', 'open_proof']);
+  expect(graph.find(row => row.id === wrapper.task.id).type).toBe(wrapper.task.type);
+  expect(context.message).toContain('FULL_UNFINISHED_RESEARCH_DESCRIPTION');
+  expect(context.message).toContain('FULL_UNFINISHED_PROOF_DESCRIPTION');
+  expect(context.message).toContain('FULL_UNFINISHED_MATHEMATICAL_PREMISE');
+  expect(catalog).toHaveLength(1);
+  expect(catalog[0]).toMatchObject({ id: implementation.task.id, taskDigest: taskVersion(implementation.task),
+    theoremName: implementation.task.theoremName, proofPath: implementation.task.proofPath,
+    objectiveDigest: mathDigest(implementation.task.objective), source: { commit: implementation.integratedCheck!.commit,
+      path: `${problem.projectRelative}/${implementation.task.proofPath}`, sourceDigest: implementation.integratedCheck!.sourceDigest },
+    verification: { status: implementation.integratedCheck!.verification.status,
+      targetCommit: implementation.integratedCheck!.verification.targetCommit,
+      receipts: implementation.integratedCheck!.verification.results } });
+  expect(context.message).toContain('taskDigest matches this row');
+  expect(context.message).toContain('not an immutable proof source');
+  expect(context.manifest.included).toContainEqual(expect.objectContaining({ id: 'checked-helper-catalog', required: true }));
+  expect(context.manifest.omitted).toContainEqual({ id: `interface:${implementation.task.id}`, kind: 'interfaces', reason: 'optional-budget' });
+});
+
+it('preserves an integrated helper interface when it is a direct input of any unfinished task', () => {
+  const first = freshlyChecked(lemma('first')), second = freshlyChecked(lemma('second', ['first'])),
+    current = node({ ...lemma('current', ['first']), objective: 'This unfinished task still needs first.' });
+  const context = compileTaskContext({ ...input([first, second, originalGoal(['second']), current], lead), maxOptionalContextBytes: 0 });
+  expect(context.manifest.requiredTaskIds).toContain('first');
+  expect(compiledGraph(context.message).find(row => row.id === first.task.id).type).toBe(first.task.type);
+  expect(context.manifest.included.some(section => section.id === 'checked-helper-catalog')).toBe(false);
+});
+
+it('preserves the original-goal frontier without reporting encapsulated helper internals as missing', () => {
+  const implementation = freshlyChecked(lemma('implementation')), wrapper = freshlyChecked(lemma('wrapper', ['implementation'])),
+    consumer = node(lemma('consumer', ['wrapper'])), goal = originalGoal(['consumer']), records = [implementation, wrapper, consumer, goal];
+  const baseline = buildProofContinuation(records), context = compileTaskContext({ ...input(records, lead), maxOptionalContextBytes: 0 }),
+    continuation = contextLine(context.message, 'Unfinished original goals and their current frontier (recorded, not proof acceptance):');
+  expect(continuation.goals).toEqual(baseline.goals.map(({ taskId, frontier, missingDependencies }) => ({ taskId, frontier, missingDependencies })));
+  expect(continuation.goals[0].missingDependencies).toEqual([]);
+  expect(continuation.frontier).toEqual(baseline.frontier);
+  expect(helperCatalog(context.message).map(row => row.id)).toEqual(['implementation']);
+});
+
+it('does not add a Lead helper catalog to an ordinary worker task context', () => {
+  const unrelated = freshlyChecked(lemma('unrelated')), task = lemma('current');
+  const context = compileTaskContext({ ...input([unrelated, node(task)], assign(task)), maxOptionalContextBytes: 0 });
+  expect(context.manifest.requiredTaskIds).toEqual(['current']);
+  expect(context.manifest.included.some(section => section.id === 'checked-helper-catalog')).toBe(false);
+  expect(compiledGraph(context.message).map(row => row.id)).toEqual(['current']);
+});
+
+it.each(['restored', 'conditional', 'failed'] as const)('keeps %s helper contracts and all unresolved conditions mandatory', kind => {
+  const implementation = freshlyChecked(lemma('implementation')), wrapper = freshlyChecked(lemma('wrapper', ['implementation']),
+    kind === 'conditional' ? [{ taskId: implementation.task.id, taskDigest: taskVersion(implementation.task) }] : []);
+  if (kind === 'restored') {
+    wrapper.integratedCheck = structuredClone(wrapper.integratedCheck!);
+    expect(hasTaskAcceptance(wrapper.integratedCheck)).toBe(false);
+  }
+  if (kind === 'failed') { wrapper.integratedCheck!.passed = false; markTaskAcceptance(wrapper.integratedCheck!); }
+  const context = compileTaskContext({ ...input([implementation, wrapper, originalGoal(['wrapper'])], lead), maxOptionalContextBytes: 0 });
+  expect(context.manifest.requiredTaskIds).toContain('implementation');
+  expect(context.manifest.requiredTaskIds).toContain('wrapper');
+  expect(context.manifest.included.some(section => section.id === 'checked-helper-catalog')).toBe(false);
+});
+
+it('retains every original-goal alternative route input even when all route helpers are already checked', () => {
+  const prerequisite = freshlyChecked(lemma('prerequisite')), closing = freshlyChecked(lemma('closing', ['prerequisite'])), goal = originalGoal();
+  const route = { id: 'route', targetTaskId: goal.task.id, prerequisiteTaskIds: ['prerequisite'], closingTaskId: 'closing' };
+  goal.alternativeRoutes = [route];
+  const context = compileTaskContext({ ...input([prerequisite, closing, goal], lead), maxOptionalContextBytes: 0 });
+  expect(context.manifest.requiredTaskIds).toEqual(['original_goal', 'prerequisite', 'closing']);
+  expect(compiledGraph(context.message).map(row => row.type).filter(Boolean)).toEqual([prerequisite.task.type, closing.task.type, goal.task.type]);
+});
+
+it('keeps a growing historical helper graph below the unchanged budget without truncating the open contracts', () => {
+  const tasks = Array.from({ length: 200 }, (_, index) => ({ ...lemma(`history${index}`, index ? [`history${index - 1}`] : [],
+    `∀ n : Nat, ${'n = n ∧ '.repeat(200)}True`), objective: `Earlier helper ${index}. ${'Saved planning context. '.repeat(50)}` })),
+    records = tasks.map(task => freshlyChecked(task)), current = node({ ...lemma('frontier', ['history199']),
+      objective: 'COMPLETE_CURRENT_FRONTIER_DESCRIPTION', premises: ['COMPLETE_CURRENT_PREMISE'] }), goal = originalGoal(['frontier']);
+  const context = compileTaskContext({ ...input([...records, current, goal], lead), maxOptionalContextBytes: 0 });
+  expect(context.manifest.maxBytes).toBe(DEFAULT_TASK_CONTEXT_BYTES);
+  expect(context.manifest.mandatoryBytes).toBeLessThan(DEFAULT_TASK_CONTEXT_BYTES * 0.7);
+  expect(helperCatalog(context.message)).toHaveLength(199);
+  expect(new Set(context.manifest.requiredTaskIds)).toEqual(new Set(['original_goal', 'frontier', 'history199']));
+  expect(compiledGraph(context.message).find(row => row.id === 'history199').type).toBe(tasks.at(-1)!.type);
+  expect(context.message).toContain('COMPLETE_CURRENT_FRONTIER_DESCRIPTION');
+  expect(context.message).toContain('COMPLETE_CURRENT_PREMISE');
+  expect(() => compileTaskContext({ ...input([...records, current, goal]), maxOptionalContextBytes: 0 }))
+    .toThrow('math_context_mandatory_overflow');
 });

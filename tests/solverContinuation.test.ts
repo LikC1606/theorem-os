@@ -4,7 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { continuationResearchTasks, readyResearchTasks, researchCanAdvance } from '../src/solver/modules/search';
 import { assignSharedResearchTask, type ResearchWorker } from '../src/solver/modules/organization';
-import { taskVersion, type CooperativeAction, type TaskRecord, type RouteRecord } from '../src/solver/tasks';
+import { taskVersion, parseCooperationPlan, markTaskAcceptance, type CooperativeAction, type TaskRecord, type RouteRecord } from '../src/solver/tasks';
 import { CooperativeResearch, type CooperationState } from '../src/solver/cooperation';
 import { directSolverModules } from '../src/solver/modules';
 import { git, type SolverProblem } from '../src/solver/problem';
@@ -20,7 +20,10 @@ const node = (id: string, kind: TaskRecord['task']['kind'] = 'lemma', dependsOn:
 });
 const integrated = (record: TaskRecord): TaskRecord => {
   record.status = 'integrated';
-  record.integratedCheck = { passed: true, taskDigest: taskVersion(record.task), conditions: [] } as TaskRecord['integratedCheck'];
+  record.integratedCheck = { passed: true, taskDigest: taskVersion(record.task), conditions: [],
+    verification: { status: 'kernel_verified', targetCommit: 'checked-source', results: [
+      { status: 'kernel_verified', targetCommit: 'checked-source', receiptId: 'fixture-receipt' },
+    ] } } as TaskRecord['integratedCheck'];
   return record;
 };
 const main: RouteRecord = { group: { id: 'main', objective: 'Original problem', status: 'active', revision: 0 }, turns: 0 };
@@ -41,7 +44,7 @@ describe('proof continuation scheduling', () => {
     const conditional = node('conditional-goal', 'goal', ['open']); conditional.task = { ...conditional.task, conditional: true };
     const tasks = [open, checked, consumer, node('later-goal', 'goal', ['consumer']), conditional, goal];
     expect(continuationResearchTasks(tasks).map(record => record.task.id)).toEqual([
-      'ready-goal', 'consumer', 'conditional-goal', 'open',
+      'ready-goal', 'consumer', 'open', 'conditional-goal',
     ]);
     expect(open.status).toBe('pending');
     expect(conditional.integratedCheck).toBeUndefined();
@@ -148,6 +151,303 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
     expect(emit).toHaveBeenCalledWith('routes_idle', expect.objectContaining({ reason: 'unchanged-mathematical-input',
       frontier: [expect.objectContaining({ taskId: 'core', parkedBy: core.routeParking })] }));
     expect(core.status).toBe('blocked'); expect(core.routeParking).toHaveLength(1);
+  });
+
+  it('dispatches an imported unresolved frontier after one Lead assessment, then preserves a real failed attempt across restore', async () => {
+    const core = parkCore(), budget = { maxTurns: Infinity, remainingMs: Infinity };
+    state.cooperation!.blockers = []; core.routeParking = [];
+    core.feedback = 'Historical unresolved checkpoint; needs current evidence.';
+    const emit = vi.fn(); (cooperative as any).input.emit = emit;
+    await assessFrontier();
+    const waitingLead = cooperative.next(lead, budget);
+    expect(core.status).toBe('pending');
+    expect(core.feedback).toContain('Historical unresolved checkpoint');
+    expect(emit).toHaveBeenCalledWith('unattempted_frontier_resumed', { taskIds: ['core'], goalIds: ['goal'] });
+    const work = await cooperative.next(researcher, budget);
+    expect(work).toMatchObject({ kind: 'task', task: { id: 'core' } });
+    if (work?.kind !== 'task') throw new Error('expected_imported_frontier_work');
+    expect(cooperative.started(researcher, work)).toBe(true);
+    expect(core.attempts).toBe(1);
+    cooperative.rejected(work, 'The current candidate still lacks the needed estimate.', seed);
+    const reassessment = await waitingLead;
+    expect(reassessment).toMatchObject({ kind: 'lead' });
+    if (reassessment?.kind !== 'lead') throw new Error('expected_failed_frontier_assessment');
+    await cooperative.deliver(lead, reassessment, seed);
+    const recovery = await cooperative.next(lead, budget);
+    expect(recovery).toMatchObject({ kind: 'lead', recovery: { taskIds: ['core'] } });
+    if (recovery?.kind !== 'lead') throw new Error('expected_targeted_recovery');
+    state.problem.targets = [{ proofPath: 'Submission.lean', theoremName: 'goal' }];
+    const waiting = checkpoint('```math-plan\n' + JSON.stringify({
+      tasks: state.cooperation!.tasks.map(node => node.task), groups: state.cooperation!.groups!.map(route => route.group),
+      recovery: { status: 'awaiting-input', reason: 'A new cancellation estimate is required.' },
+    }) + '\n```');
+    await cooperative.deliver(lead, recovery, waiting);
+    expect(await cooperative.next(lead, budget)).toBeUndefined();
+    expect(core.status).toBe('blocked'); expect(core.integratedCheck).toBeUndefined();
+    const resumed = new CooperativeResearch({ state: JSON.parse(JSON.stringify(state)), workers: [lead, researcher],
+      access: new Map(), signal: signal(), save: () => {}, emit: () => {}, modules: directSolverModules,
+      exclusiveCheck: async check => check() });
+    vi.spyOn(resumed as any, 'seed').mockReturnValue(seed);
+    try { expect(await resumed.next(lead, budget)).toBeUndefined(); }
+    finally { await resumed.stop(); }
+  });
+
+  it.each(['assigned', 'proof-retained', 'archived-parking', 'owner-unavailable', 'M5-declines'])(
+    'keeps an unchanged unresolved frontier idle when %s', async control => {
+      const core = parkCore(), budget = { maxTurns: Infinity, remainingMs: Infinity };
+      state.cooperation!.blockers = []; core.routeParking = [];
+      if (control === 'assigned') core.assignment = { ...action.assignment, taskId: 'core', taskDigest: taskVersion(core.task) };
+      else if (control === 'proof-retained') core.proof = { passed: false, taskDigest: taskVersion(core.task),
+        verification: { status: 'failed', results: [] } } as unknown as TaskProof;
+      else if (control === 'archived-parking') {
+        const blockers = state.cooperation!.blockers;
+        const proposal = { mechanism: 'recurring gap', scope: 'core inference' };
+        recordRouteBlockers(blockers, [proposal], core.task, state.cooperation!.tasks, 'fixture', 'problem');
+        recordRouteBlockers(blockers, [proposal], core.task, state.cooperation!.tasks, 'fixture', 'problem');
+        expect(blockers[0].status).toBe('parked'); expect(core.routeParking).toEqual([]);
+      } else if (control === 'owner-unavailable') core.task = { ...core.task, ownerId: 'stopped-researcher' };
+      else (cooperative as any).input.modules = { ...directSolverModules,
+        M5: { ...directSolverModules.M5, assign: () => undefined } };
+      state.cooperation!.lastLeadInputDigest = (cooperative as any).planningInputDigest();
+      expect(await cooperative.next(lead, budget)).toBeUndefined();
+      expect(core.status).toBe('blocked'); expect(core.attempts).toBe(0);
+    });
+
+  const prepareRecovery = () => {
+    const core = parkCore();
+    vi.mocked((cooperative as any).acceptPlan).mockRestore();
+    state.cooperation!.blockers = []; core.routeParking = []; core.attempts = 2;
+    core.feedback = 'math_task_missing_declaration\nThe required compact seed declaration was absent twice.';
+    state.problem.targets = [{ proofPath: 'Submission.lean', theoremName: 'goal' }];
+    const plan = parseCooperationPlan(state.problem, { tasks: state.cooperation!.tasks.map(node => node.task),
+      groups: state.cooperation!.groups!.map(route => route.group) });
+    for (const node of state.cooperation!.tasks) node.task = plan.tasks.find(task => task.id === node.task.id)!;
+    state.cooperation!.planVersion = (cooperative as any).planVersion();
+    state.cooperation!.lastLeadInputDigest = (cooperative as any).planningInputDigest();
+    return core;
+  };
+  const recoveryPlan = (recovery: unknown, tasks = state.cooperation!.tasks.map(node => node.task), extra = {}) => checkpoint(
+    '```math-plan\n' + JSON.stringify({ tasks, groups: state.cooperation!.groups!.map(route => route.group), recovery, ...extra }) + '\n```');
+  const getRecovery = async () => {
+    const next = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
+    expect(next).toMatchObject({ kind: 'lead', recovery: { taskIds: ['core'] } });
+    if (next?.kind !== 'lead' || !next.recovery) throw new Error('expected_targeted_recovery');
+    return next;
+  };
+
+  it('wakes a blocked unattempted prerequisite of explicitly pending supporting work outside the goal cone', async () => {
+    parkCore();
+    const prerequisite = node('supporting_compactness'); prerequisite.status = 'blocked';
+    state.cooperation!.tasks.push(prerequisite, node('ambient_extension', 'lemma', ['supporting_compactness']));
+    state.cooperation!.planVersion = (cooperative as any).planVersion();
+    state.cooperation!.lastLeadInputDigest = (cooperative as any).planningInputDigest();
+    const leadNext = cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
+    await vi.waitFor(() => expect(prerequisite.status).toBe('pending'));
+    const work = await cooperative.next(researcher, { maxTurns: Infinity, remainingMs: Infinity });
+    expect(work).toMatchObject({ kind: 'task', task: { id: 'supporting_compactness' } });
+    if (work?.kind !== 'task') throw new Error('expected_supporting_prerequisite');
+    expect(cooperative.started(researcher, work)).toBe(true);
+    allowed = false;
+    cooperative.rejected(work, 'A concrete unresolved supporting premise remains.', seed);
+    expect(await leadNext).toBeUndefined();
+  });
+
+  it('accepts a typed decomposition and dispatches its fresh premise before retrying the failed core', async () => {
+    prepareRecovery();
+    const next = await getRecovery();
+    const premise = node('compactness_premise'); premise.task = { ...premise.task, type: 'Nat.succ 0 = 1' };
+    const tasks = state.cooperation!.tasks.map(node => node.task.id === 'core' ?
+      { ...node.task, dependsOn: ['compactness_premise'] } : node.task);
+    tasks.push(premise.task);
+    await cooperative.deliver(lead, next, recoveryPlan({ status: 'planned', taskIds: ['compactness_premise'] }, tasks));
+    expect(state.cooperation!.frontierRecoveries).toEqual([expect.objectContaining({ status: 'planned', readyTaskIds: ['compactness_premise'] })]);
+    const work = await cooperative.next(researcher, { maxTurns: Infinity, remainingMs: Infinity });
+    expect(work).toMatchObject({ kind: 'task', task: { id: 'compactness_premise' } });
+    expect(readyResearchTasks(state.cooperation!.tasks).some(node => node.task.id === 'core')).toBe(false);
+    expect(state.cooperation!.tasks.find(node => node.task.id === 'goal')!.integratedCheck).toBeUndefined();
+  });
+
+  it('dispatches an independent advisory investigation of the failed core without accepting or retrying that proof', async () => {
+    const core = prepareRecovery(), next = await getRecovery();
+    const probe = node('investigate_missing_construction', 'research', ['core']);
+    const tasks = [...state.cooperation!.tasks.map(node => node.task), probe.task];
+    await cooperative.deliver(lead, next, recoveryPlan({ status: 'planned', taskIds: [probe.task.id] }, tasks));
+    expect(core.status).toBe('blocked'); expect(core.attempts).toBe(2);
+    expect(await cooperative.next(researcher, { maxTurns: Infinity, remainingMs: Infinity })).toMatchObject({
+      kind: 'task', task: { id: probe.task.id, kind: 'research' },
+    });
+    expect(core.integratedCheck).toBeUndefined();
+  });
+
+  it.each(['unchanged', 'revision-prose', 'renamed-helper'])(
+    'rejects a %s recovery as new work and preserves the decision across restore', async change => {
+      prepareRecovery();
+      const next = await getRecovery();
+      const tasks = state.cooperation!.tasks.map(node => node.task);
+      let requested = 'core';
+      if (change === 'revision-prose') tasks[0] = { ...tasks[0], revision: 1, objective: 'Reword the same construction.' };
+      if (change === 'renamed-helper') {
+        requested = 'same_type_new_name';
+        tasks.push({ ...tasks[0], id: requested, theoremName: requested });
+        const index = tasks.findIndex(task => task.id === 'goal');
+        tasks[index] = { ...tasks[index], dependsOn: [requested] };
+      }
+      const before = JSON.stringify(state.cooperation!.tasks);
+      await cooperative.deliver(lead, next, recoveryPlan({ status: 'planned', taskIds: [requested] }, tasks));
+      expect(JSON.stringify(state.cooperation!.tasks)).toBe(before);
+      expect(state.cooperation!.frontierRecoveries![0]).toMatchObject({ status: 'awaiting-input', reason: 'math_frontier_recovery_no_executable_step' });
+      expect(await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity })).toBeUndefined();
+      const restoredState = JSON.parse(JSON.stringify(state));
+      const resumed = new CooperativeResearch({ state: restoredState, workers: [lead, researcher], access: new Map(),
+        signal: signal(), save: () => {}, emit: () => {}, modules: directSolverModules, exclusiveCheck: async check => check() });
+      vi.spyOn(resumed as any, 'seed').mockReturnValue(seed);
+      try {
+        await resumed.restore();
+        expect(restoredState.cooperation.tasks.map((node: TaskRecord) => node.task)).toEqual(state.cooperation!.tasks.map(node => node.task));
+        expect(await resumed.next(lead, { maxTurns: Infinity, remainingMs: Infinity })).toBeUndefined();
+      } finally { await resumed.stop(); }
+    });
+
+  it.each(['dependency-contract', 'group-revision'])(
+    'does not treat a consumer of transitively invalidated evidence as ready after %s changes', async change => {
+      prepareRecovery();
+      const base = integrated(node('base')), bridge = integrated(node('bridge', 'lemma', ['base']));
+      state.cooperation!.tasks.push(base, bridge);
+      state.cooperation!.planVersion = (cooperative as any).planVersion();
+      state.cooperation!.lastLeadInputDigest = (cooperative as any).planningInputDigest();
+      const next = await getRecovery();
+      const fresh = node('consume_bridge', 'lemma', ['bridge']); fresh.task = { ...fresh.task, type: '1 + 1 = (2 : Nat)' };
+      const tasks = state.cooperation!.tasks.map(node => node.task.id === 'core' ? { ...node.task, dependsOn: [fresh.task.id] } :
+        change === 'dependency-contract' && node.task.id === 'base' ? { ...node.task, type: 'And True True' } : node.task);
+      tasks.push(fresh.task);
+      const extra = change === 'group-revision' ? { groups: [{ ...main.group, revision: 1 }] } : {};
+      await cooperative.deliver(lead, next, recoveryPlan({ status: 'planned', taskIds: [fresh.task.id] }, tasks, extra));
+      expect(state.cooperation!.frontierRecoveries![0].status).toBe('awaiting-input');
+      expect(state.cooperation!.tasks.find(node => node.task.id === fresh.task.id)).toBeUndefined();
+      expect(bridge.status).toBe('integrated');
+    });
+
+  it('keeps a checkpointed recovery requested and validates it again after process restoration', async () => {
+    prepareRecovery();
+    const next = await getRecovery();
+    const tasks = state.cooperation!.tasks.map(node => node.task.id === 'core' ? { ...node.task, revision: 1 } : node.task);
+    const saved = recoveryPlan({ status: 'planned', taskIds: ['core'] }, tasks);
+    await cooperative.deliver(lead, next, saved, true);
+    expect(state.cooperation!.tasks[0].task.revision).toBe(0);
+    expect(state.cooperation!.frontierRecoveries![0].status).toBe('requested');
+    const restoredState = JSON.parse(JSON.stringify(state));
+    const resumed = new CooperativeResearch({ state: restoredState, workers: [lead, researcher], access: new Map(),
+      signal: signal(), save: () => {}, emit: () => {}, modules: directSolverModules, exclusiveCheck: async check => check() });
+    vi.spyOn(resumed as any, 'seed').mockReturnValue(seed);
+    try {
+      await resumed.restore();
+      expect(restoredState.cooperation.tasks[0].task.revision).toBe(0);
+      expect(await resumed.next(lead, { maxTurns: Infinity, remainingMs: Infinity })).toMatchObject({ kind: 'lead', recovery: next.recovery });
+    } finally { await resumed.stop(); }
+  });
+
+  it('allows one correction of malformed recovery JSON and then parks the unchanged malformed response', async () => {
+    prepareRecovery();
+    const next = await getRecovery();
+    const malformed = checkpoint('```math-plan\n{ invalid JSON }\n```');
+    await cooperative.deliver(lead, next, malformed);
+    expect(state.cooperation!.frontierRecoveries![0].status).toBe('requested');
+    await cooperative.deliver(lead, await getRecovery(), malformed);
+    expect(state.cooperation!.frontierRecoveries![0].status).toBe('awaiting-input');
+    expect(await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity })).toBeUndefined();
+  });
+
+  it('preserves peer evidence that arrives during a recovery which requests missing input', async () => {
+    prepareRecovery();
+    const next = await getRecovery();
+    (cooperative as any).record(researcher, record.task, 'research', 'advisory', 'A new concrete compactness reduction from a peer.');
+    await cooperative.deliver(lead, next, recoveryPlan({ status: 'awaiting-input', reason: 'A compactness construction is still required.' }));
+    expect(state.cooperation!.lastLeadInputDigest).toBe(next.planningInputDigest);
+    const assessment = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
+    expect(assessment).toMatchObject({ kind: 'lead' });
+    if (assessment?.kind !== 'lead') throw new Error('expected_peer_evidence_assessment');
+    await cooperative.deliver(lead, assessment, recoveryPlan(undefined));
+    expect(await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity })).toBeUndefined();
+  });
+
+  it.each(['receipt-replay', 'unrelated-helper', 'relevant-proof', 'environment'])(
+    'deduplicates recovery by mathematical inputs after %s', async change => {
+      const core = prepareRecovery(), input = integrated(node('checked_input'));
+      core.task = { ...core.task, dependsOn: [input.task.id] };
+      state.cooperation!.tasks.push(input);
+      state.cooperation!.planVersion = (cooperative as any).planVersion();
+      state.cooperation!.lastLeadInputDigest = (cooperative as any).planningInputDigest();
+      const next = await getRecovery();
+      await cooperative.deliver(lead, next, recoveryPlan({ status: 'awaiting-input', reason: 'Need a stronger checked input.' }));
+      if (change === 'receipt-replay') {
+        input.integratedCheck!.verification.targetCommit = 'new-projection';
+        input.integratedCheck!.verification.results[0] = { ...input.integratedCheck!.verification.results[0],
+          targetCommit: 'new-projection', receiptId: 'new-receipt' };
+      } else if (change === 'unrelated-helper') state.cooperation!.tasks.push(integrated(node('unrelated_helper')));
+      else if (change === 'environment') state.environmentDigest = 'updated-environment';
+      else input.integratedCheck!.changes = [{ file: 'Submission.lean', name: input.task.theoremName!,
+        after: 'a distinct proof term for the required input' }] as TaskProof['changes'];
+      state.cooperation!.lastLeadInputDigest = (cooperative as any).planningInputDigest();
+      const fresh = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
+      if (['relevant-proof', 'environment'].includes(change)) {
+        expect(fresh).toMatchObject({ kind: 'lead', recovery: { taskIds: ['core'] } });
+        expect(state.cooperation!.frontierRecoveries).toHaveLength(2);
+      } else {
+        expect(fresh).toBeUndefined();
+        expect(state.cooperation!.frontierRecoveries).toHaveLength(1);
+      }
+    });
+
+  it('rebinds an unattempted recovery premise to a live owner before checking dispatchability', async () => {
+    prepareRecovery();
+    const premise = node('rebound_premise'); premise.task = { ...premise.task, type: 'Nat.succ 0 = 1', ownerId: 'offline' };
+    premise.assignment = { ...action.assignment, workerId: 'offline', taskId: premise.task.id, taskDigest: taskVersion(premise.task) };
+    state.cooperation!.tasks.push(premise);
+    state.cooperation!.planVersion = (cooperative as any).planVersion();
+    state.cooperation!.lastLeadInputDigest = (cooperative as any).planningInputDigest();
+    const next = await getRecovery();
+    const tasks = state.cooperation!.tasks.map(node => node.task.id === 'core' ? { ...node.task, dependsOn: [premise.task.id] } :
+      node.task.id === premise.task.id ? { ...node.task, ownerId: researcher.id } : node.task);
+    await cooperative.deliver(lead, next, recoveryPlan({ status: 'planned', taskIds: [premise.task.id] }, tasks));
+    expect(state.cooperation!.frontierRecoveries![0].status).toBe('planned');
+    expect(await cooperative.next(researcher, { maxTurns: Infinity, remainingMs: Infinity })).toMatchObject({
+      kind: 'task', task: { id: premise.task.id }, assignment: { workerId: researcher.id },
+    });
+  });
+
+  it('records an accepted decomposition even if subsequent source integration fails', async () => {
+    prepareRecovery();
+    const saved: { status?: string; error?: string }[] = [];
+    (cooperative as any).input.save = () => saved.push({ status: state.cooperation!.frontierRecoveries?.[0]?.status,
+      error: state.cooperation!.error });
+    const next = await getRecovery(), premise = node('fresh_premise');
+    premise.task = { ...premise.task, type: 'Nat.succ 0 = 1' };
+    const tasks = state.cooperation!.tasks.map(node => node.task.id === 'core' ? { ...node.task, dependsOn: [premise.task.id] } : node.task);
+    tasks.push(premise.task);
+    fs.appendFileSync(path.join(directory, 'generated/p/Submission.lean'), '\nlemma fresh_premise : Nat.succ 0 = 1 := by rfl\n');
+    git(directory, ['add', '--', 'generated']);
+    await cooperative.deliver(lead, next, recoveryPlan({ status: 'planned', taskIds: [premise.task.id] }, tasks));
+    expect(state.cooperation!.error).toBeTruthy();
+    expect(saved).toContainEqual({ status: 'planned', error: undefined });
+    expect(state.cooperation!.frontierRecoveries![0].status).toBe('planned');
+    expect(state.cooperation!.tasks.find(node => node.task.id === premise.task.id)).toBeDefined();
+    const repair = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
+    expect(repair).toMatchObject({ kind: 'lead' });
+    expect(repair && 'recovery' in repair ? repair.recovery : undefined).toBeUndefined();
+  });
+
+  it('keeps a resumed frontier behind the existing M3 readiness gate', async () => {
+    const core = parkCore(), budget = { maxTurns: Infinity, remainingMs: Infinity };
+    state.cooperation!.blockers = []; core.routeParking = [];
+    (cooperative as any).input.modules = { ...directSolverModules, M3: { ...directSolverModules.M3, ready: () => [] } };
+    state.cooperation!.lastLeadInputDigest = (cooperative as any).planningInputDigest();
+    const reassessment = await cooperative.next(lead, budget);
+    expect(reassessment).toMatchObject({ kind: 'lead' });
+    expect(core.status).toBe('pending'); expect(core.assignment).toBeUndefined(); expect(core.attempts).toBe(0);
+    if (reassessment?.kind !== 'lead') throw new Error('expected_gated_frontier_assessment');
+    await cooperative.deliver(lead, reassessment, seed);
+    expect(await cooperative.next(lead, budget)).toBeUndefined();
+    expect(core.status).toBe('pending'); expect(core.assignment).toBeUndefined();
   });
 
   it('does not repeat a frontier decision for notes-only commits, duplicate delivery ids or restored state', async () => {
@@ -449,25 +749,23 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
     const submission = { id: 'failure_one', kind: 'proof', taskId: record.task.id, taskDigest: action.assignment.taskDigest,
       commit: seed, summary: 'The same saved candidate.' };
     await (cooperative as any).receive(researcher, action, submission);
-    record.attempts = 2;
+    const repair = await cooperative.next(researcher, { maxTurns: Infinity, remainingMs: Infinity });
+    if (repair?.kind !== 'task') throw new Error('expected_local_repair');
+    expect(cooperative.started(researcher, repair)).toBe(true);
     await (cooperative as any).receive(researcher, action, { ...submission, id: 'failure_two' });
     await cooperative.deliver(researcher, action, seed);
     expect(checkTask).toHaveBeenCalledTimes(1);
     expect(record.status).toBe('blocked');
   });
 
-  it.each(['source', 'task', 'environment', 'environment-variable', 'conditions', 'timeout'] as const)(
+  it.each(['source', 'environment', 'environment-variable', 'conditions'] as const)(
     'rechecks a failed helper after changed %s', async change => {
       const checkTask = failureChecker();
       const check = (commit = seed, conditions: TaskRecord['task'][] = []) =>
         (cooperative as any).check(record.task, record.assignment, directory, commit, conditions, undefined, true);
       await check();
-      if (change === 'task') {
-        record.task = { ...record.task, revision: 1 };
-        record.assignment!.taskDigest = taskVersion(record.task);
-      } else if (change === 'environment') state.environmentDigest = 'new-environment';
-      else if (change === 'environment-variable') (cooperative as any).input.access.get(lead.id).environment.TEST_VERSION = '2';
-      else if (change === 'timeout') (cooperative as any).input.timeoutMs = 999;
+      if (change === 'environment') state.environmentDigest = 'new-environment';
+      else if (change === 'environment-variable') (cooperative as any).input.access.get(lead.id).environment.LEAN_PATH = '/updated/lean';
       else if (change === 'source') {
         fs.appendFileSync(path.join(directory, 'generated/p/Submission.lean'), '\nlemma candidate : True := by trivial\n');
         git(directory, ['add', '--', 'generated']);
@@ -477,32 +775,34 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
       expect(checkTask).toHaveBeenCalledTimes(2);
     });
 
-  it('preserves unlimited checker timeouts and separates their failure cache from default and finite timeouts', async () => {
+  it('preserves unlimited checker timeouts without treating timeout changes as new mathematics', async () => {
     const checkTask = failureChecker();
     const check = () => (cooperative as any).check(record.task, record.assignment, directory, seed, [], undefined, true);
-    const timeouts = [undefined, Infinity, 999];
-    for (const [index, timeout] of timeouts.entries()) {
+    (cooperative as any).input.timeoutMs = Infinity;
+    await check();
+    expect(checkTask.mock.calls[0][8]).toBe(Infinity);
+    for (const timeout of [Infinity, undefined, 999]) {
       (cooperative as any).input.timeoutMs = timeout;
-      await check(); await check();
-      expect(checkTask).toHaveBeenCalledTimes(index + 1);
-      expect(checkTask.mock.calls[index][8]).toBe(timeout);
+      await expect(check()).rejects.toThrow('math_task_repeated_failed_input');
     }
-    for (const timeout of timeouts) {
-      (cooperative as any).input.timeoutMs = timeout;
-      await check();
-    }
-    expect(checkTask).toHaveBeenCalledTimes(3);
+    record.task = { ...record.task, revision: 1 };
+    record.assignment!.taskDigest = taskVersion(record.task);
+    await expect(check()).rejects.toThrow('math_task_repeated_failed_input');
+    expect(checkTask).toHaveBeenCalledTimes(1);
   });
 
   it('rechecks a failed helper after its dependency proof changes', async () => {
     const checkTask = failureChecker();
     const helper = integrated(node('dependency'));
-    helper.integratedCheck!.sourceDigest = 'first-checked-input';
+    helper.integratedCheck!.changes = [{ file: 'Submission.lean', name: helper.task.theoremName!,
+      after: 'lemma dependency : True := by trivial\n' }];
+    markTaskAcceptance(helper.integratedCheck!);
     state.cooperation!.tasks.push(helper);
     record.task = { ...record.task, dependsOn: [helper.task.id] };
     record.assignment!.taskDigest = taskVersion(record.task);
     await (cooperative as any).check(record.task, record.assignment, directory, seed, [], undefined, true);
-    helper.integratedCheck!.sourceDigest = 'changed-checked-input';
+    helper.integratedCheck!.changes[0].after = 'lemma dependency : True := by exact True.intro\n';
+    markTaskAcceptance(helper.integratedCheck!);
     await (cooperative as any).check(record.task, record.assignment, directory, seed, [], undefined, true);
     expect(checkTask).toHaveBeenCalledTimes(2);
   });
@@ -529,7 +829,7 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
     expect(checkTask).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps failure reuse local to delivery checks and the current runtime instance', async () => {
+  it('keeps failure suppression local to delivery checks and persistent across runtime restart', async () => {
     const checkTask = failureChecker();
     await (cooperative as any).check(record.task, record.assignment, directory, seed, [], undefined, true);
     await (cooperative as any).check(record.task, record.assignment, directory, seed, []);
@@ -537,9 +837,10 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
     const resumed = new CooperativeResearch({ state: JSON.parse(JSON.stringify(state)), workers: [lead, researcher],
       access: (cooperative as any).input.access, signal: signal(), save: () => {}, emit: () => {},
       modules: (cooperative as any).input.modules, exclusiveCheck: async check => check() });
-    try { await (resumed as any).check(record.task, record.assignment, directory, seed, [], undefined, true); }
+    try { await expect((resumed as any).check(record.task, record.assignment, directory, seed, [], undefined, true))
+      .rejects.toThrow('math_task_repeated_failed_input'); }
     finally { await resumed.stop(); }
-    expect(checkTask).toHaveBeenCalledTimes(3);
+    expect(checkTask).toHaveBeenCalledTimes(2);
   });
 
   it('binds unchanged repetitions to the task version and inherited notes content', async () => {

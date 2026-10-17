@@ -4,8 +4,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { canonicalMathJson, mathDigest, readMathText, writeMathJsonDurable } from '../math/mathRuntimeIo';
+import { projectMathematicsRuntimeEnvironment } from '../math/mathRuntimeEnvironment';
 import { limitMathOutput } from '../math/mathProcess';
-import { hashMathFormalSourceDeclaration } from '../math/leanSource';
+import { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions } from '../math/leanSource';
 import type { LeanStatementContext } from '../math/leanStatementContext';
 import { commitSolverSources, committedSource, git, withSolverWorktree, type SolverProblem } from './problem';
 import { solverProofFeedback, solverSourceFeedback } from './feedback';
@@ -24,11 +25,11 @@ import { captureProofReferences, proofReferencesUnchanged, type ProofReferences 
 import { buildProofContinuation } from './progress';
 import { captureDeliveryArtifacts, diagnoseUnbackedLeanClaims, validateDeliveryArtifactClaims, type DeliveryArtifactManifest } from './deliveryArtifacts';
 import { validateLemmaRequests } from './taskProposals';
-import { recordRouteBlockers, refreshRouteBlockers, validateBlockerProposals, type RouteBlocker } from './routeControl';
+import { recordRouteBlockers, refreshRouteBlockers, routeBlockerBasis, validateBlockerProposals, type BlockerBasis, type RouteBlocker } from './routeControl';
 import { parseProofRoutes, type ProofRoute } from './proofRoutes';
 import { captureObligationSnapshot, diffObligationProgress, type ObligationSnapshot, type ObligationProgressReceipt } from './obligationProgress';
 
-import { taskGroup, taskVersion, taskReferenceDependencies, assignmentDeliveryFile, markTaskReferences, hasTaskReferences, markTaskAcceptance, invalidatedTaskIds,
+import { taskGroup, taskVersion, taskReferenceDependencies, assignmentDeliveryFile, markTaskReferences, hasTaskReferences, markTaskAcceptance, hasTaskAcceptance, invalidatedTaskIds,
   type CooperativeTask, type RouteGroup, type RouteRecord, type TaskAssignment, type TaskRecord, type CooperativeAction } from './tasks';
 export { taskGroup, taskVersion, taskReferenceDependencies, assignmentDeliveryFile } from './tasks';
 export type { CooperativeTask, RouteGroup, RouteRecord, TaskAssignment, TaskRecord, CooperativeAction } from './tasks';
@@ -41,6 +42,10 @@ export type HumanEditRecord = { id: string; status: 'received' | 'applied' | 're
   recheck?: { status: 'pending' | 'passed' | 'failed' | 'not-required' | 'superseded';
     tasks: { taskId: string; taskDigest: string; status: 'pending' | 'conditional' | 'passed' | 'failed' | 'removed' | 'superseded'; reason?: string;
       lastCheck?: { commit: string; sourceDigest: string; environmentDigest: string; passed: boolean; conditional: boolean; receiptIds: string[] } }[] } };
+type FailedTaskInput = { id: string; taskId: string; taskDigest: string; inputDigest: string; basis: BlockerBasis;
+  sourceDigest: string; targetDigest: string; seedSourceDigest: string; seedTargetDigest: string;
+  canonicalSourceDigest: string; canonicalTargetDigest: string; feedback: string;
+  repair?: { taskId: string; taskDigest: string; workerId: string; pending: boolean; startedAttempt?: number } };
 export type CooperationState = { tasks: TaskRecord[]; groups?: RouteRecord[]; canonicalCommit?: string; review?: ReviewRecord; error?: string;
   history?: { task: CooperativeTask; producer?: string; proof?: TaskProof; integratedCheck?: ProofCheck; finding?: string }[];
   deliveries?: DeliveryRecord[]; cursors?: Record<string, number>; edits?: HumanEditRecord[];
@@ -48,6 +53,9 @@ export type CooperationState = { tasks: TaskRecord[]; groups?: RouteRecord[]; ca
   helpRequestDigest?: string;
   planRejection?: { proposalDigest: string; inputDigest: string; error: string; stalled: boolean };
   lastLeadInputDigest?: string;
+  frontierRecoveries?: { id: string; taskIds: string[]; goalIds: string[];
+    status: 'requested' | 'planned' | 'awaiting-input'; taskInputDigests: string[]; readyTaskIds?: string[]; reason?: string }[];
+  failedTaskInputs?: FailedTaskInput[];
   blockers?: RouteBlocker[];
   proofRoutes?: ProofRoute[];
   progressSnapshot?: ObligationSnapshot;
@@ -83,7 +91,8 @@ export class CooperativeResearch {
   private pendingPulse?: Promise<ReadonlyMap<string, Promise<void>>>;
   private deliveryChecks = new Map<string, Promise<void>>();
   private leadEvidence = new WeakMap<CooperativeAction, string>();
-  private failedDeliveryChecks = new Map<string, { checker: typeof checkTaskProof; proof: TaskProof }>();
+  private checkingTaskInputs = new Map<string, Promise<void>>();
+  private leanSourceDigests = new Map<string, string>();
   private timer?: NodeJS.Timeout;
   private failure?: Error;
   private pinned = new Set<string>();
@@ -140,6 +149,7 @@ export class CooperativeResearch {
       this.needsLead = true;
       this.input.emit('route_reopened', { blockerId: blocker.id, taskId: blocker.taskId, reason: blocker.reopenedReason });
     }
+    this.refreshFailedTaskInputs();
     const snapshot = captureObligationSnapshot(this.archive.tasks, { groups: this.archive.groups,
       environmentDigest: this.input.state.environmentDigest, proofRoutes: this.archive.proofRoutes, blockers: this.archive.blockers });
     const progress = diffObligationProgress(this.archive.progressSnapshot, snapshot);
@@ -181,13 +191,15 @@ export class CooperativeResearch {
         planVersion: this.archive.planVersion,
         edits: (this.archive.edits ?? []).slice(-16),
         agents,
-        peers: this.archive.tasks.map(node => ({ id: node.task.id, groupId: taskGroup(node.task), kind: node.task.kind,
+        peers: this.archive.tasks.map(node => ({ id: node.task.id, taskDigest: digest(node.task),
+          objectiveDigest: mathDigest(node.task.objective), groupId: taskGroup(node.task), kind: node.task.kind,
           status: node.status, owner: node.assignment?.workerId ?? node.task.ownerId, dependsOn: node.task.dependsOn,
           ...(visible.has(node) ? { objective: node.task.objective, feedback: node.feedback,
             actualReferences: (node.integratedCheck ?? node.proof)?.references } : {}) })),
         deliveries: deliveries.map(({ evidence: _evidence, ...record }) => record),
         blockers: scoped.blockers ?? [],
         proofRoutes: scoped.proofRoutes ?? [],
+        frontierRecoveries: scoped.frontierRecoveries ?? [],
         mathematicalChanges: scoped.progressReceipts?.slice(-16) ?? [],
         continuation: buildProofContinuation(scoped.tasks, { groups: scoped.groups, environmentDigest: this.input.state.environmentDigest,
           proofRoutes: scoped.proofRoutes }),
@@ -335,6 +347,130 @@ export class CooperativeResearch {
     return mathDigest(canonicalMathJson({ sourceDigest: ownedSourceDigest(this.input.state.problem, worktree, commit),
       notesBlob: git(worktree, ['ls-tree', '--format=%(objectname)', commit, '--', 'RESEARCH.md']) }));
   }
+  private leanSourceDigest(worktree: string, commit: string) {
+    const key = `${worktree}\0${commit}`, cached = this.leanSourceDigests.get(key);
+    if (cached) return cached;
+    const problem = this.input.state.problem;
+    const value = mathDigest(canonicalMathJson(problem.ownedFiles.filter(file => file.endsWith('.lean')).sort().map(file =>
+      [file, mathDigest(committedSource(worktree, commit, `${problem.projectRelative}/${file}`))])));
+    this.leanSourceDigests.set(key, value);
+    if (this.leanSourceDigests.size > 256) this.leanSourceDigests.delete(this.leanSourceDigests.keys().next().value!);
+    return value;
+  }
+  private taskSourceDigest(task: CooperativeTask, worktree: string, commit: string) {
+    const source = committedSource(worktree, commit, `${this.input.state.problem.projectRelative}/${task.proofPath}`);
+    const targets = inspectLeanDeclarationRegions(source).filter(region =>
+      region.name.split('.').at(-1) === task.theoremName?.split('.').at(-1));
+    if (targets.length !== 1) return `declaration-count:${targets.length}`;
+    // Selecting a different saved proof is new input; renaming the same declaration is not.
+    const target = source.slice(targets[0].startOffset, targets[0].endOffset)
+      .replace(/^(theorem|lemma)(\s+)[^\s([{:\n]+/u, '$1$2__task_target');
+    return mathDigest(canonicalMathJson({ file: task.proofPath, offset: targets[0].startOffset, source: target }));
+  }
+  private failedTaskBasis(task: CooperativeTask, conditions?: readonly CooperativeTask[]): { basis: BlockerBasis; inputDigest: string } {
+    const normalized = task.kind === 'lemma' ? { ...task, theoremName: undefined, proofPath: undefined } : task;
+    conditions ??= task.conditional ? this.dependencies(task).filter(node => node.task.kind === 'lemma' && node.status !== 'integrated')
+      .map(node => node.task) : [];
+    const node = this.node(task.id), routeId = node && selectedTaskRoute(node, this.archive.tasks)?.id;
+    const raw = routeBlockerBasis(normalized, this.archive.tasks, this.input.state.environmentDigest,
+      this.input.state.problem.receiptDigest, routeId);
+    const contractDigest = mathDigest(canonicalMathJson({ problemReceiptDigest: this.input.state.problem.receiptDigest,
+      kind: normalized.kind, proofPath: normalized.proofPath, theoremName: normalized.theoremName,
+      type: normalized.type, premises: normalized.premises ?? [], conditional: Boolean(normalized.conditional),
+      conditions: conditions.map(task => ({ kind: task.kind, type: task.type, premises: task.premises ?? [] })) }));
+    const environmentDigest = mathDigest(canonicalMathJson({ environmentDigest: this.input.state.environmentDigest,
+      buildDigest: this.input.state.buildDigest, evaluatorDigest: this.input.state.evaluatorDigest,
+      environment: projectMathematicsRuntimeEnvironment(this.input.access.get(this.lead.id)?.environment ?? {}) }));
+    const previous = this.archive.failedTaskInputs?.findLast(record => record.basis.contractDigest === contractDigest &&
+      record.basis.environmentDigest === environmentDigest);
+    const basis: BlockerBasis = { contractDigest, environmentDigest,
+      dependencies: Object.fromEntries(Object.entries(raw.dependencies).map(([id, entry]) => {
+        const dependency = this.node(id), proof = dependency?.integratedCheck;
+        const fresh = dependency?.status === 'integrated' && proof && hasTaskAcceptance(proof) &&
+          proof.taskDigest === digest(dependency.task) && !proof.conditions?.length;
+        const prior = previous?.basis.dependencies[id] ?? Object.values(previous?.basis.dependencies ?? {})
+          .find(candidate => candidate.contractDigest === entry.contractDigest);
+        return [id, { ...entry, evidenceDigest: fresh ? entry.evidenceDigest :
+          prior?.contractDigest === entry.contractDigest ? prior.evidenceDigest : undefined }];
+      })) };
+    // Dependency task IDs, revision counters and replayed receipts do not change the mathematics.
+    const inputDigest = mathDigest(canonicalMathJson({ contractDigest, environmentDigest,
+      dependencies: Object.values(basis.dependencies).map(entry => canonicalMathJson(entry)).sort() }));
+    return { basis, inputDigest };
+  }
+  private failedTaskInput(task: CooperativeTask, assignment: TaskAssignment, worktree: string, commit: string, conditions?: readonly CooperativeTask[]) {
+    const { basis, inputDigest } = this.failedTaskBasis(task, conditions), sourceDigest = this.leanSourceDigest(worktree, commit);
+    const targetDigest = this.taskSourceDigest(task, worktree, commit);
+    return { id: mathDigest(canonicalMathJson({ inputDigest, sourceDigest, targetDigest })), taskId: task.id, taskDigest: digest(task),
+      inputDigest, basis, sourceDigest, targetDigest, seedSourceDigest: this.leanSourceDigest(worktree, assignment.seedCommit),
+      seedTargetDigest: this.taskSourceDigest(task, worktree, assignment.seedCommit),
+      canonicalSourceDigest: this.leanSourceDigest(this.lead.worktree, this.archive.canonicalCommit!),
+      canonicalTargetDigest: this.taskSourceDigest(task, this.lead.worktree, this.archive.canonicalCommit!) };
+  }
+  private rememberTaskFailure(candidate: Omit<FailedTaskInput, 'feedback' | 'repair'>, feedback: string, repair?: FailedTaskInput['repair']) {
+    const records = this.archive.failedTaskInputs ??= [];
+    const previous = records.find(record => record.id === candidate.id);
+    if (previous) return previous;
+    const record: FailedTaskInput = { ...candidate, feedback: bounded(feedback, 8000), ...(repair ? { repair } : {}) };
+    records.push(record);
+    this.input.emit('task_failed_input_recorded', { taskId: record.taskId, taskDigest: record.taskDigest,
+      failureId: record.id, inputDigest: record.inputDigest, sourceDigest: record.sourceDigest });
+    this.input.save();
+    return record;
+  }
+  private deterministicTaskFailure(proof: TaskProof) {
+    return !proof.passed && proof.verification.status === 'failed' && Boolean(proof.verification.targetCommit) &&
+      proof.verification.results.length > 0 && proof.verification.results.every(result => !result.cleanupError &&
+        ['failed', 'kernel_verified'].includes(result.status) &&
+        !/(?:timed?\s*out|timeout|rate[- ]limit|unauthenticated|unauthorized|authentication|request (?:failed|error)|stream disconnected)/iu.test(result.error ?? '')) &&
+      proof.verification.results.some(result => result.status === 'failed' &&
+        ((result.sorryCount ?? 0) > 0 || (result.admitCount ?? 0) > 0 ||
+          /^.+\.lean:\d+:\d+:\s*error:/mu.test(`${result.stdoutPreview || ''}\n${result.stderrPreview || ''}`)));
+  }
+  private pendingTaskRepair(node: TaskRecord, record: FailedTaskInput) {
+    const repair = record.repair;
+    return Boolean(repair?.pending && repair.taskId === node.task.id && repair.taskDigest === digest(node.task) &&
+      node.assignment?.workerId === repair.workerId && node.assignment.taskDigest === repair.taskDigest);
+  }
+  private repeatedTaskFeedback(record: FailedTaskInput) {
+    return 'math_task_repeated_failed_input\nThe same Lean source and mathematical inputs already failed. ' +
+      'Save a changed proof or supply new premises, checked dependency evidence, or verifier inputs before retrying.\n' + record.feedback;
+  }
+  private refreshFailedTaskInputs() {
+    if (!this.archive.failedTaskInputs?.length) return false;
+    let changed = false;
+    const canonicalSourceDigest = this.leanSourceDigest(this.lead.worktree, this.archive.canonicalCommit!);
+    for (const node of this.archive.tasks) {
+      if (advisory(node.task) || !['pending', 'blocked'].includes(node.status) ||
+          [node.proof, node.integratedCheck].some(proof => proof?.passed && proof.taskDigest === digest(node.task))) continue;
+      const { inputDigest } = this.failedTaskBasis(node.task);
+      const worker = this.input.workers.find(worker => worker.id === node.assignment?.workerId);
+      const session = worker && this.input.state.workers?.find(record => record.id === worker.id);
+      const active = worker && this.active.get(worker.id)?.action;
+      const ownsOutput = worker && node.assignment?.taskDigest === digest(node.task) &&
+        (!session || session.sessionTaskId === node.task.id && (!session.sessionTaskVersion || session.sessionTaskVersion === digest(node.task))) &&
+        (!active || active.kind === 'task' && active.task.id === node.task.id && active.assignment === node.assignment) &&
+        !this.archive.tasks.some(other => other !== node && other.status === 'running' && other.assignment?.workerId === worker.id);
+      const sourceDigest = ownsOutput ? this.leanSourceDigest(worker.worktree, git(worker.worktree, ['rev-parse', 'HEAD'])) : canonicalSourceDigest;
+      const targetDigest = ownsOutput ? this.taskSourceDigest(node.task, worker.worktree, git(worker.worktree, ['rev-parse', 'HEAD'])) :
+        this.taskSourceDigest(node.task, this.lead.worktree, this.archive.canonicalCommit!);
+      const record = this.archive.failedTaskInputs.findLast(record => record.inputDigest === inputDigest &&
+        (record.sourceDigest === sourceDigest && record.targetDigest === targetDigest || !ownsOutput &&
+          (record.seedSourceDigest === sourceDigest && record.seedTargetDigest === targetDigest ||
+            record.canonicalSourceDigest === sourceDigest && record.canonicalTargetDigest === targetDigest)));
+      if (record && !this.pendingTaskRepair(node, record)) {
+        const feedback = this.repeatedTaskFeedback(record);
+        if (node.status === 'blocked' && node.feedback === feedback) continue;
+        node.status = 'blocked'; node.feedback = feedback; this.needsLead = true; changed = true;
+        this.input.emit('task_repeated_input_blocked', { taskId: node.task.id, taskDigest: digest(node.task),
+          failureId: record.id, inputDigest, sourceDigest });
+      } else if (!record && node.status === 'blocked' && node.feedback?.startsWith('math_task_repeated_failed_input\n')) {
+        node.status = 'pending'; node.feedback = undefined; changed = true;
+        this.input.emit('task_failed_input_reopened', { taskId: node.task.id, inputDigest, sourceDigest });
+      }
+    }
+    return changed;
+  }
   private refreshResearchCheckpoints() {
     for (const [taskId, checkpoint] of Object.entries(this.archive.researchCheckpoints ?? {})) {
       if (!checkpoint.paused) continue;
@@ -380,10 +516,106 @@ export class CooperativeResearch {
       (!this.archive.groups || this.archive.groups.some(route => route.group.id === taskGroup(this.node(item.taskId).task) &&
         route.group.status === 'active' && route.turns < (route.group.maxTurns ?? Infinity))));
   }
+  private resumeUnattemptedFrontier(frontier: ReturnType<CooperativeResearch['activeGoalFrontier']>) {
+    const candidates = new Set(frontier.map(item => this.node(item.taskId)));
+    const seen = new Set<string>();
+    const visit = (node: TaskRecord) => {
+      if (seen.has(node.task.id) || !routeAllowsTask(node.task, this.archive.tasks, this.archive.groups) ||
+          ['integrated', 'completed'].includes(node.status)) return;
+      seen.add(node.task.id);
+      if (node.status === 'blocked') candidates.add(node);
+      for (const id of plannedTaskDependencyIds(node, this.archive.tasks)) {
+        const dependency = this.archive.tasks.find(item => item.task.id === id);
+        if (dependency) visit(dependency);
+      }
+    };
+    // An explicitly pending supporting task can have unfinished prerequisites outside the original-goal cone.
+    for (const node of this.archive.tasks) if (node.status === 'pending') visit(node);
+    const resumed = [...candidates].filter(node => node.status === 'blocked' && node.attempts === 0 &&
+      !node.assignment && !node.proof && !node.integratedCheck &&
+      !node.feedback?.startsWith('math_task_repeated_failed_input\n') &&
+      !this.archive.blockers?.some(blocker => blocker.taskId === node.task.id && blocker.status === 'parked') &&
+      routeAllowsTask(node.task, this.archive.tasks, this.archive.groups) && taskCanStart(node.task, this.archive.tasks) &&
+      this.livePeers.some(worker => this.input.modules.M5.assign([node], worker, this.livePeers, this.archive.groups) === node));
+    if (!resumed.length) return false;
+    // A planning assessment is not an execution attempt at an imported unresolved obligation.
+    for (const node of resumed) node.status = 'pending';
+    this.input.emit('unattempted_frontier_resumed', { taskIds: resumed.map(node => node.task.id),
+      goalIds: [...new Set(frontier.flatMap(item => item.goalIds))] });
+    this.changed();
+    return true;
+  }
+  private recoveryTaskInput(node: TaskRecord, tasks = this.archive.tasks) {
+    // Moving or renaming the same helper does not supply a new mathematical inference.
+    const task = node.task.kind === 'lemma' ? { ...node.task, theoremName: undefined, proofPath: undefined } : node.task;
+    return mathDigest(canonicalMathJson({ basis: routeBlockerBasis(task, tasks, this.input.state.environmentDigest,
+      this.input.state.problem.receiptDigest), ...(advisory(node.task) ? { objective: node.task.objective.trim() } : {}) }));
+  }
+  private requestFrontierRecovery(frontier: ReturnType<CooperativeResearch['activeGoalFrontier']>): CooperativeAction | undefined {
+    const failed = frontier.map(item => this.node(item.taskId)).filter(node => node.status === 'blocked' && node.attempts > 0 &&
+      !node.routeParking?.length && routeAllowsTask(node.task, this.archive.tasks, this.archive.groups));
+    if (!failed.length) return;
+    const taskInputDigests = failed.map(node => this.recoveryTaskInput(node)).sort();
+    const id = mathDigest(canonicalMathJson(taskInputDigests));
+    let recovery = this.archive.frontierRecoveries?.find(item => item.id === id);
+    if (recovery && recovery.status !== 'requested') return;
+    if (!recovery) {
+      recovery = { id, taskIds: failed.map(node => node.task.id), goalIds: [...new Set(frontier.flatMap(item => item.goalIds))],
+        taskInputDigests, status: 'requested' };
+      (this.archive.frontierRecoveries ??= []).push(recovery);
+      this.input.emit('frontier_recovery_requested', { recoveryId: id, taskIds: recovery.taskIds, goalIds: recovery.goalIds });
+    }
+    const action: CooperativeAction = { kind: 'lead', seedCommit: this.seed(this.lead, this.archive.canonicalCommit!),
+      planVersion: this.archive.planVersion, planningInputDigest: this.planningInputDigest(),
+      recovery: { id, taskIds: recovery.taskIds, goalIds: recovery.goalIds } };
+    this.leadEvidence.set(action, this.planningEvidenceDigest());
+    this.changed();
+    return action;
+  }
+  private validateRecoveryPlan(action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' | 'solve' }>,
+    plan: ReturnType<typeof parseCooperationPlan>, response: any) {
+    const recovery = this.archive.frontierRecoveries?.find(item => item.id === action.recovery?.id);
+    if (!recovery || recovery.status !== 'requested') throw new Error('math_frontier_recovery_superseded');
+    if (response?.status === 'awaiting-input' && typeof response.reason === 'string' && response.reason.trim())
+      return { recovery, taskIds: [] as string[], reason: bounded(response.reason.trim(), 4000) };
+    const previous = new Map(this.archive.tasks.map(node => [node.task.id, node]));
+    const invalidated = this.planInvalidation(plan);
+    const projected: TaskRecord[] = plan.tasks.map(task => {
+      const old = previous.get(task.id);
+      const node: TaskRecord = { ...(old && !invalidated.has(task.id) ? old : { status: 'pending' as const, attempts: old?.attempts ?? 0 }),
+        task, alternativeRoutes: plan.proofRoutes?.filter(route => route.targetTaskId === task.id) };
+      const owner = task.ownerId ?? (task.kind === 'goal' ? plan.groups.find(group => group.id === taskGroup(task))?.engineerId : undefined);
+      if (owner && node.assignment && node.assignment.workerId !== owner && ['pending', 'running'].includes(node.status)) {
+        node.status = 'pending'; node.assignment = undefined;
+      }
+      return node;
+    });
+    const groups = plan.groups.map(group => ({ group, turns: this.archive.groups?.find(item => item.group.id === group.id)?.turns ?? 0 }));
+    refreshRouteBlockers(structuredClone(this.archive.blockers ?? []), projected,
+      this.input.state.environmentDigest, this.input.state.problem.receiptDigest);
+    const connected = new Set<string>();
+    const visit = (id: string) => {
+      if (connected.has(id)) return;
+      connected.add(id);
+      const node = projected.find(item => item.task.id === id);
+      if (node) for (const dependency of plannedTaskDependencyIds(node, projected)) visit(dependency);
+    };
+    for (const id of recovery.goalIds) visit(id);
+    const oldInputs = new Set(this.archive.tasks.filter(node => node.attempts > 0 || ['integrated', 'completed'].includes(node.status))
+      .map(node => this.recoveryTaskInput(node)));
+    const requested: unknown = response?.taskIds;
+    const ready = this.input.modules.M3.ready(projected, groups).filter(node =>
+      (connected.has(node.task.id) || advisory(node.task) && recovery.taskIds.some(id => node.task.dependsOn.includes(id))) &&
+      !oldInputs.has(this.recoveryTaskInput(node, projected)) &&
+      this.livePeers.some(worker => this.input.modules.M5.assign([node], worker, this.livePeers, groups) === node));
+    const taskIds = ready.filter(node => Array.isArray(requested) && requested.includes(node.task.id)).map(node => node.task.id);
+    if (response?.status !== 'planned' || !taskIds.length) throw new Error('math_frontier_recovery_no_executable_step');
+    return { recovery, taskIds, reason: undefined };
+  }
   private proposedPlanDigest() {
     try {
-      const { tasks, groups, proofRoutes } = block(this.lead.worktree, 'math-plan');
-      return mathDigest(canonicalMathJson({ tasks, groups, proofRoutes }));
+      const { tasks, groups, proofRoutes, recovery } = block(this.lead.worktree, 'math-plan');
+      return mathDigest(canonicalMathJson({ tasks, groups, proofRoutes, recovery }));
     } catch {
       // A notes-only commit must not make an identical malformed response new input.
       const file = path.join(this.lead.worktree, 'RESEARCH.md');
@@ -548,8 +780,15 @@ export class CooperativeResearch {
     if (advisory(node.task) || typeof value.commit !== 'string' || !/^[a-f0-9]{40,64}$/u.test(value.commit)) throw new Error('math_delivery_requires_fixed_proof');
     if (!taskCanStart(node.task, this.archive.tasks)) throw new Error('math_delivery_unfinished_dependencies');
     if (['conditional', 'integrated'].includes(node.status)) return;
-    await this.publishTaskProof(worker, action, value.commit, value.summary,
-      { submissionId: value.id, evidenceRefs: value.evidenceRefs });
+    try {
+      await this.publishTaskProof(worker, action, value.commit, value.summary,
+        { submissionId: value.id, evidenceRefs: value.evidenceRefs });
+    } catch (error) {
+      if (error instanceof Error && /^math_task_(?:missing_declaration|repeated_failed_input)\n/u.test(error.message) && this.current(action)) {
+        this.rejected(action, error.message, value.commit); return;
+      }
+      throw error;
+    }
   }
   private async wait() {
     const signal = this.input.signal; signal.throwIfAborted();
@@ -570,23 +809,47 @@ export class CooperativeResearch {
     return [...found].map(id => nodes.get(id)!);
   }
   private async check(task: CooperativeTask, assignment: TaskAssignment, worktree: string, commit: string,
-    conditions?: readonly CooperativeTask[], checked?: TaskProof, reuseDeliveryFailure = false) {
+    conditions?: readonly CooperativeTask[], checked?: TaskProof, reuseDeliveryFailure = false, incompleteDelivery = false): Promise<TaskProof> {
     this.input.signal.throwIfAborted();
+    if (reuseDeliveryFailure && !checked) {
+      const candidate = this.failedTaskInput(task, assignment, worktree, commit, conditions);
+      const previous = this.archive.failedTaskInputs?.find(record => record.id === candidate.id);
+      if (previous) {
+        this.input.emit('task_failure_check_reused', { taskId: task.id, taskDigest: digest(task), commit, failureId: previous.id });
+        throw new Error(this.repeatedTaskFeedback(previous));
+      }
+      const pending = this.checkingTaskInputs.get(candidate.id);
+      if (pending) {
+        await pending;
+        return this.check(task, assignment, worktree, commit, conditions, checked, true, incompleteDelivery);
+      }
+      let finish!: () => void;
+      const checking = new Promise<void>(resolve => { finish = resolve; });
+      this.checkingTaskInputs.set(candidate.id, checking);
+      const reserveRepair = () => {
+        const node = this.node(task.id);
+        return node?.assignment === assignment && digest(node.task) === candidate.taskDigest && (incompleteDelivery || node.attempts === 1)
+          ? { taskId: task.id, taskDigest: candidate.taskDigest, workerId: assignment.workerId, pending: true } : undefined;
+      };
+      try {
+        const proof = await this.check(task, assignment, worktree, commit, conditions, checked);
+        if (this.deterministicTaskFailure(proof)) this.rememberTaskFailure(candidate, solverProofFeedback(proof), reserveRepair());
+        return proof;
+      } catch (error) {
+        if (error instanceof Error && error.message.startsWith('math_task_missing_declaration\n'))
+          this.rememberTaskFailure(candidate, error.message, reserveRepair());
+        throw error;
+      } finally {
+        this.checkingTaskInputs.delete(candidate.id); finish();
+      }
+    }
     const tasks = this.archive.tasks.map(node => ({ ...node }));
     const dependencies = this.dependencies(task), taskDigest = digest(task);
     conditions ??= task.conditional ? dependencies.filter(node => node.task.kind === 'lemma' && node.status !== 'integrated').map(node => node.task) : [];
     const retainedGoals = dependencies.filter(node => node.task.kind === 'goal' && node.status === 'integrated').map(node => node.task.theoremName!);
     const checker = this.input.modules.M2.checkTask ?? checkTaskProof;
     const environment = this.input.access.get(this.lead.id)!.environment;
-    const cacheKey = reuseDeliveryFailure ? mathDigest(canonicalMathJson({ worktree, commit, assignment, taskDigest,
-      sourceDigest: ownedSourceDigest(this.input.state.problem, worktree, commit), environment,
-      timeoutMs: this.input.timeoutMs === Infinity ? 'unlimited' : this.input.timeoutMs,
-      environmentDigest: this.input.state.environmentDigest, problemReceiptDigest: this.input.state.problem.receiptDigest,
-      conditions: conditions.map(task => ({ taskId: task.id, taskDigest: digest(task) })), retainedGoals,
-      dependencies: dependencies.map(node => ({ taskDigest: digest(node.task), status: node.status, proof: node.integratedCheck ?? node.proof })) })) : undefined;
-    const cached = cacheKey && this.failedDeliveryChecks.get(cacheKey);
-    const reused = cached && cached.checker === checker ? cached.proof : undefined;
-    const proof = checked ?? reused ?? await checker(this.input.state.problem, worktree, commit, task, assignment, retainedGoals,
+    const proof = checked ?? await checker(this.input.state.problem, worktree, commit, task, assignment, retainedGoals,
       environment, this.input.signal, this.input.timeoutMs, conditions, this.input.state.environmentDigest);
     const declarationHash = proof.passed && proof.verification.targetCommit && hashMathFormalSourceDeclaration(
       committedSource(worktree, proof.verification.targetCommit, `${this.input.state.problem.projectRelative}/${task.proofPath}`), task.theoremName!);
@@ -614,20 +877,12 @@ export class CooperativeResearch {
     }
     this.pin(proof.commit); this.pin(proof.verification.targetCommit);
     this.checkedDeliveries.add(proof); markTaskAcceptance(proof);
-    if (reused) this.input.emit('task_failure_check_reused', { taskId: task.id, taskDigest, commit });
-    else if (cacheKey && !proof.passed && proof.verification.status === 'failed' && proof.verification.targetCommit &&
-        proof.verification.results.length && proof.verification.results.every(result => !result.cleanupError &&
-          ['failed', 'kernel_verified'].includes(result.status)) && proof.verification.results.some(result => result.status === 'failed' &&
-          /^.+\.lean:\d+:\d+:\s*error:/mu.test(`${result.stdoutPreview || ''}\n${result.stderrPreview || ''}`))) {
-      this.failedDeliveryChecks.set(cacheKey, { checker, proof });
-      if (this.failedDeliveryChecks.size > 64) this.failedDeliveryChecks.delete(this.failedDeliveryChecks.keys().next().value!);
-    }
     return proof;
   }
   /** Check isolated sources concurrently; only publishing and canonical integration are serialized. */
   private async publishTaskProof(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>,
     commit: string, summary: string, options: Partial<DeliveryRecord> = {}, recovering = false) {
-    const proof = await this.check(action.task, action.assignment, worker.worktree, commit, undefined, undefined, true);
+    const proof = await this.check(action.task, action.assignment, worker.worktree, commit, undefined, undefined, true, recovering);
     return this.input.exclusiveCheck(async () => {
       if (!this.current(action) || !(proof.references?.tasks ?? []).every(reference =>
           this.archive.tasks.some(node => node.task.id === reference.taskId && digest(node.task) === reference.taskDigest))) {
@@ -640,6 +895,7 @@ export class CooperativeResearch {
       if (['conditional', 'integrated'].includes(node.status)) return;
       if (recovering && !proof.passed && proof.verification.status === 'failed') {
         node.feedback = solverProofFeedback(proof);
+        if (this.deterministicTaskFailure(proof)) this.continueTaskCheckpoint(worker, node, commit);
         this.interrupted(worker, action);
         return proof;
       }
@@ -655,22 +911,53 @@ export class CooperativeResearch {
       declarations.some(declaration => declaration.file === reference.file &&
         declaration.name?.split('.').at(-1) === reference.name.split('.').at(-1)));
   }
-  private retryTaskLocally(node: TaskRecord): boolean {
-    if (node.attempts !== 1 || !node.assignment || !this.liveWorkers.has(node.assignment.workerId)) return false;
+  private retryTaskLocally(node: TaskRecord, commit?: string): boolean {
+    if (!node.assignment || !this.liveWorkers.has(node.assignment.workerId)) return false;
+    const worker = this.input.workers.find(worker => worker.id === node.assignment!.workerId);
+    const candidate = worker && this.failedTaskInput(node.task, node.assignment, worker.worktree,
+      commit ?? node.proof?.commit ?? git(worker.worktree, ['rev-parse', 'HEAD']));
+    const failed = candidate && this.archive.failedTaskInputs?.find(record => record.id === candidate.id);
+    if (failed?.repair ? !this.pendingTaskRepair(node, failed) : node.attempts !== 1) return false;
+    if (failed && !failed.repair) failed.repair = { taskId: node.task.id, taskDigest: digest(node.task),
+      workerId: node.assignment.workerId, pending: true };
     node.status = 'pending';
     this.input.emit('task_repair_requested', { taskId: node.task.id, workerId: node.assignment.workerId,
       taskDigest: node.assignment.taskDigest });
     return true;
   }
+  private restoreInterruptedRepair(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>, commit: string) {
+    const node = this.node(action.task.id), candidate = this.failedTaskInput(action.task, action.assignment, worker.worktree, commit);
+    const failed = this.archive.failedTaskInputs?.find(record => record.id === candidate.id), repair = failed?.repair;
+    if (!repair || repair.pending || repair.taskId !== node.task.id || repair.taskDigest !== digest(node.task) ||
+        repair.workerId !== worker.id || repair.startedAttempt !== node.attempts) return false;
+    repair.pending = true; delete repair.startedAttempt;
+    node.feedback = failed!.feedback; node.status = 'pending';
+    this.input.emit('task_repair_interrupted', { taskId: node.task.id, workerId: worker.id, failureId: failed!.id });
+    this.changed(); return true;
+  }
+  private continueTaskCheckpoint(worker: ResearchWorker, node: TaskRecord, commit: string) {
+    const candidate = this.failedTaskInput(node.task, node.assignment!, worker.worktree, commit);
+    const failed = this.archive.failedTaskInputs?.find(record => record.id === candidate.id);
+    if (!failed) return;
+    this.settleTaskRepair(node);
+    failed.repair ??= { taskId: node.task.id, taskDigest: digest(node.task), workerId: worker.id, pending: true };
+    this.input.emit('task_checkpoint_continuation_requested', { taskId: node.task.id, workerId: worker.id, failureId: failed.id });
+  }
+  private settleTaskRepair(node: TaskRecord) {
+    for (const { repair } of this.archive.failedTaskInputs ?? []) if (repair && !repair.pending &&
+        repair.taskId === node.task.id && repair.taskDigest === digest(node.task) &&
+        repair.workerId === node.assignment?.workerId && repair.startedAttempt === node.attempts) delete repair.startedAttempt;
+  }
   private async deliverProof(worker: ResearchWorker, node: TaskRecord, proof: TaskProof, summary: string, options: Partial<DeliveryRecord> = {}) {
     node.proof = proof;
     if (['unavailable', 'blocked'].includes(proof.verification.status)) throw new Error('math_verifier_unavailable');
+    if (proof.passed || this.deterministicTaskFailure(proof)) this.settleTaskRepair(node);
     node.status = proof.passed ? proof.conditions?.length ? 'conditional' : 'delivered' : 'blocked';
     if (!proof.passed) {
       node.feedback = solverProofFeedback(proof);
-      const repairable = proof.verification.status === 'failed' && proof.verification.results.some(result =>
+      const repairable = this.deterministicTaskFailure(proof) || proof.verification.status === 'failed' && proof.verification.results.some(result =>
         result.status === 'failed' && ((result.sorryCount ?? 0) > 0 || result.error === 'Lean exited with status 1.'));
-      if (!repairable || !this.retryTaskLocally(node)) this.needsLead = true;
+      if (!repairable || !this.retryTaskLocally(node, proof.commit)) this.needsLead = true;
     }
     this.input.emit('task_checked', { taskId: node.task.id, passed: proof.passed, conditional: Boolean(proof.conditions?.length), commit: proof.commit });
     if (node.status === 'delivered') await this.integrate(node);
@@ -840,6 +1127,21 @@ export class CooperativeResearch {
     }
   }
   async restore() {
+    for (const failed of this.archive.failedTaskInputs ?? []) {
+      let repair = failed.repair;
+      const node = this.node(repair?.taskId ?? failed.taskId);
+      if (!repair && node && node.attempts === 1 && ['pending', 'running'].includes(node.status) &&
+          failed.taskDigest === digest(node.task) && node.assignment?.taskDigest === failed.taskDigest) {
+        repair = failed.repair = { taskId: node.task.id, taskDigest: failed.taskDigest,
+          workerId: node.assignment.workerId, pending: true };
+        this.input.emit('task_repair_requested', { taskId: node.task.id, workerId: repair.workerId,
+          taskDigest: repair.taskDigest, reason: 'failed-check-restored' });
+      }
+      if (!repair || repair.pending || !node || !['pending', 'running'].includes(node.status) ||
+          repair.taskDigest !== digest(node.task) || repair.workerId !== node.assignment?.workerId || repair.startedAttempt !== node.attempts) continue;
+      repair.pending = true; delete repair.startedAttempt;
+      this.input.emit('task_repair_interrupted', { taskId: node.task.id, workerId: repair.workerId, failureId: failed.id, reason: 'process-restored' });
+    }
     this.syncPlanNotes();
     for (const review of this.archive.statementReviews ?? []) if (review.status !== 'superseded') {
       try { assertStatementSnapshot(review); }
@@ -848,7 +1150,9 @@ export class CooperativeResearch {
     }
     // A resumed review must inspect the fixed version again.
     if (this.archive.review) this.archive.review.status = 'pending';
-    if (!this.primaryLed && this.archive.tasks.length && fs.existsSync(path.join(this.lead.worktree, 'RESEARCH.md'))) {
+    if (!this.primaryLed && this.archive.tasks.length &&
+        !this.archive.frontierRecoveries?.some(record => record.status !== 'planned') &&
+        fs.existsSync(path.join(this.lead.worktree, 'RESEARCH.md'))) {
       try { await this.acceptPlan(); } catch (error) { this.rejectPlan(error); }
     }
     if (!solverSourceFeedback(this.input.state.problem, this.lead.worktree)) {
@@ -871,27 +1175,12 @@ export class CooperativeResearch {
     this.syncStatementReviews();
     this.changed();
   }
-  private async acceptPlan(plan = readCooperationPlan(this.input.state.problem, this.lead.worktree), edit?: HumanEditRecord) {
-    const { tasks, groups, proofRoutes } = plan;
-    if (this.primaryLed && tasks.some(task => task.kind === 'goal' && task.status !== 'paused'))
-      throw new Error('math_help_original_goals_owned_by_primary');
-    for (const task of tasks) if (task.ownerId) {
-      const owner = this.input.workers.find(worker => worker.id === task.ownerId);
-      if (!owner || (task.kind === 'goal' ? !['engineer', 'researcher'].includes(owner.role) : owner.role !== 'researcher'))
-        throw new Error('math_plan_task_owner_unavailable');
-    }
+  private planInvalidation({ tasks, groups, proofRoutes }: ReturnType<typeof parseCooperationPlan>) {
     const previousGroups = new Map(this.archive.groups?.map(record => [record.group.id, record]));
-    const configuredGroups = groups.map(group => {
-      const engineerId = group.engineerId;
-      if (engineerId && !this.input.workers.some(worker => worker.id === engineerId && worker.role === 'engineer'))
-        throw new Error('math_plan_group_engineer_unavailable');
-      return { ...group };
-    });
-    const changedGroups = new Set(configuredGroups.filter(group => {
+    const changedGroups = new Set(groups.filter(group => {
       const previous = previousGroups.get(group.id)?.group;
       return previous && (previous.objective !== group.objective || previous.revision !== group.revision);
     }).map(group => group.id));
-    const current = new Map(this.archive.tasks.map(node => [node.task.id, node]));
     const dependencies = new Map(this.archive.tasks.map(node => {
       const references = taskReferenceDependencies(node);
       return [node.task.id, references && proofReferencesUnchanged(this.input.state.problem, this.lead.worktree,
@@ -903,7 +1192,25 @@ export class CooperativeResearch {
     const routeChanges = new Set(this.archive.tasks.filter(node => node.status !== 'integrated' &&
       canonicalMathJson(node.alternativeRoutes ?? []) !== canonicalMathJson(proofRoutes?.filter(route => route.targetTaskId === node.task.id) ?? []))
       .map(node => node.task.id));
-    const invalidated = invalidatedTaskIds(this.archive.tasks, tasks, changedGroups, dependencies, routeChanges);
+    return invalidatedTaskIds(this.archive.tasks, tasks, changedGroups, dependencies, routeChanges);
+  }
+  private async acceptPlan(plan = readCooperationPlan(this.input.state.problem, this.lead.worktree), edit?: HumanEditRecord) {
+    const { tasks, groups, proofRoutes } = plan;
+    if (this.primaryLed && tasks.some(task => task.kind === 'goal' && task.status !== 'paused'))
+      throw new Error('math_help_original_goals_owned_by_primary');
+    for (const task of tasks) if (task.ownerId) {
+      const owner = this.input.workers.find(worker => worker.id === task.ownerId);
+      if (!owner || (task.kind === 'goal' ? !['engineer', 'researcher'].includes(owner.role) : owner.role !== 'researcher'))
+        throw new Error('math_plan_task_owner_unavailable');
+    }
+    const previousGroups = new Map(this.archive.groups?.map(record => [record.group.id, record]));
+    const configuredGroups = groups.map(group => {
+      if (group.engineerId && !this.input.workers.some(worker => worker.id === group.engineerId && worker.role === 'engineer'))
+        throw new Error('math_plan_group_engineer_unavailable');
+      return { ...group };
+    });
+    const current = new Map(this.archive.tasks.map(node => [node.task.id, node]));
+    const invalidated = this.planInvalidation(plan);
     for (const id of invalidated) if (this.archive.unchangedResearch) delete this.archive.unchangedResearch[id];
     for (const id of invalidated) if (this.archive.researchCheckpoints) delete this.archive.researchCheckpoints[id];
     for (const previousEdit of this.archive.edits ?? []) for (const result of previousEdit.recheck?.tasks ?? [])
@@ -1032,6 +1339,7 @@ export class CooperativeResearch {
       this.input.signal.throwIfAborted();
       if (this.failure) throw this.failure;
       this.refreshResearchCheckpoints();
+      if (this.refreshFailedTaskInputs()) this.changed();
       if (!this.liveWorkers.has(this.lead.id)) return;
       // Publish complete fixed snapshots before assigning work against a newly changed plan.
       if (this.preparingStatements) { await this.preparingStatements.catch(() => {}); continue; }
@@ -1097,6 +1405,9 @@ export class CooperativeResearch {
           const inputDigest = this.planningInputDigest();
           const goalIds = [...new Set(frontier.flatMap(item => item.goalIds))];
           if (!frontier.length || inputDigest === this.archive.lastLeadInputDigest) {
+            if (this.resumeUnattemptedFrontier(frontier)) continue;
+            const recovery = this.requestFrontierRecovery(frontier);
+            if (recovery) return recovery;
             this.input.emit('routes_idle', { groups: this.archive.groups, goalIds, frontier,
               reason: frontier.length ? 'unchanged-mathematical-input' : 'no-active-goal-frontier', inputDigest }); return;
           }
@@ -1111,10 +1422,17 @@ export class CooperativeResearch {
             if (!running && !this.input.modules.M3.ready(this.archive.tasks, this.archive.groups)
               .some(node => this.archive.tasks.includes(node))) {
               const frontier = this.activeGoalFrontier(), goalIds = [...new Set(frontier.flatMap(item => item.goalIds))];
+              if (this.resumeUnattemptedFrontier(frontier)) continue;
+              const recovery = this.requestFrontierRecovery(frontier);
+              if (recovery) return recovery;
               this.input.emit('routes_idle', { groups: this.archive.groups, goalIds, frontier,
                 reason: frontier.length ? 'unchanged-mathematical-input' : 'no-active-goal-frontier', inputDigest }); return;
             }
             continue;
+          }
+          if (this.archive.frontierRecoveries?.some(record => record.status === 'requested')) {
+            const recovery = this.requestFrontierRecovery(this.activeGoalFrontier());
+            if (recovery) return recovery;
           }
           this.syncPlanNotes();
           const action: CooperativeAction = { kind: 'lead', seedCommit: this.seed(worker, head), planVersion: this.archive.planVersion, planningInputDigest: inputDigest };
@@ -1251,6 +1569,8 @@ export class CooperativeResearch {
     const visibleIds = new Set(tasks.map(node => node.task.id));
     const visible = (id: string, version: string) => visibleIds.has(id) && versions.get(id)?.version === version;
     return { ...this.archive, tasks,
+      frontierRecoveries: tasks === this.archive.tasks ? this.archive.frontierRecoveries : undefined,
+      failedTaskInputs: this.archive.failedTaskInputs?.filter(record => tasks === this.archive.tasks || visible(record.taskId, record.taskDigest)),
       progressSnapshot: tasks === this.archive.tasks ? this.archive.progressSnapshot : undefined,
       progressReceipts: tasks === this.archive.tasks ? this.archive.progressReceipts : undefined,
       blockers: this.archive.blockers?.filter(blocker => tasks === this.archive.tasks ||
@@ -1313,7 +1633,8 @@ export class CooperativeResearch {
     this.input.emit('statement_review_completed', { workerId: worker.id, taskId: review.taskId, reviewId: review.id, kind, status: review.status });
     return { checkWhole: false };
   }
-  async deliver(worker: ResearchWorker, action: CooperativeAction, commit: string, recovering = false): Promise<{ check?: ProofCheck; checkWhole: boolean }> {
+  async deliver(worker: ResearchWorker, action: CooperativeAction, commit: string, recovering = false,
+    recoveryKind: 'checkpoint' | 'request-failure' = 'checkpoint'): Promise<{ check?: ProofCheck; checkWhole: boolean }> {
     if (isStatementAction(action)) return this.deliverStatement(worker, action);
     if (action.kind === 'solve') return { checkWhole: true };
     if (action.kind === 'review') {
@@ -1351,16 +1672,57 @@ export class CooperativeResearch {
         this.input.emit('lead_decision_superseded', { commit }); this.syncPlanNotes(); this.needsLead = true; this.changed();
         return { checkWhole: false };
       }
+      if (action.recovery && recovering) {
+        this.interrupted(worker, action);
+        return { checkWhole: false };
+      }
       const sourceChanged = ownedSourceDigest(this.input.state.problem, worker.worktree, action.seedCommit) !==
         ownedSourceDigest(this.input.state.problem, worker.worktree, commit);
+      let recoveryPlan: ReturnType<typeof parseCooperationPlan> | undefined;
+      let resolution: ReturnType<CooperativeResearch['validateRecoveryPlan']> | undefined;
+      if (action.recovery) {
+        const recovery = this.archive.frontierRecoveries?.find(item => item.id === action.recovery!.id);
+        try {
+          const response = block(worker.worktree, 'math-plan');
+          recoveryPlan = parseCooperationPlan(this.input.state.problem, response);
+          resolution = this.validateRecoveryPlan(action, recoveryPlan, response.recovery);
+        } catch (error) {
+          if (!recovery || recovery.status !== 'requested') {
+            this.input.emit('lead_decision_superseded', { commit }); this.needsLead = true; this.changed();
+            return { checkWhole: false };
+          }
+          if (!(error instanceof Error && error.message === 'math_frontier_recovery_no_executable_step')) {
+            this.rejectPlan(error);
+            if (!this.archive.planRejection?.stalled) { this.changed(); return { checkWhole: false }; }
+          }
+          resolution = { recovery, taskIds: [], reason: error instanceof Error ? error.message : 'math_frontier_recovery_invalid' };
+        }
+        if (!resolution.taskIds.length) {
+          resolution.recovery.status = 'awaiting-input'; resolution.recovery.reason = resolution.reason;
+          this.archive.planRejection = undefined; this.archive.error = undefined;
+          this.archive.lastLeadInputDigest = this.leadEvidence.get(action) === this.planningEvidenceDigest()
+            ? this.planningInputDigest() : action.planningInputDigest;
+          this.needsLead = false;
+          this.archive.planEdited = true; this.syncPlanNotes();
+          this.input.emit('frontier_recovery_waiting', { recoveryId: resolution.recovery.id,
+            taskIds: resolution.recovery.taskIds, reason: resolution.reason });
+          this.changed(); return { checkWhole: false };
+        }
+      }
       let accepted = false;
-      try { await this.acceptPlan(); accepted = true; } catch (error) {
+      try { await this.acceptPlan(recoveryPlan); accepted = true; } catch (error) {
         this.rejectPlan(error);
         if (!this.archive.tasks.length) {
           try { await this.startInitialTasks(); }
           catch (fallbackError) { this.input.emit('initial_plan_fallback_failed', {
             reason: fallbackError instanceof Error ? fallbackError.message : 'math_initial_plan_failed' }); }
         }
+      }
+      if (accepted && resolution) {
+        resolution.recovery.status = 'planned'; resolution.recovery.readyTaskIds = resolution.taskIds;
+        this.input.emit('frontier_recovery_planned', { recoveryId: resolution.recovery.id,
+          taskIds: resolution.recovery.taskIds, readyTaskIds: resolution.taskIds });
+        this.changed();
       }
       if (sourceChanged) {
         try {
@@ -1435,7 +1797,16 @@ export class CooperativeResearch {
         'Recoverable supporting code retained after an incomplete or rejected delivery; it still requires typed host checking.',
         { commit, artifacts, remainingObligations: [node.task.id] });
       if (feedback === 'math_verifier_unavailable') { this.rejected(action, feedback, commit); throw error; }
-      if (recovering) { node.feedback = feedback; this.interrupted(worker, action); }
+      if (recovering && recoveryKind === 'request-failure' && feedback.startsWith('math_task_repeated_failed_input\n') &&
+          this.restoreInterruptedRepair(worker, action, commit)) {
+        return { checkWhole: false };
+      }
+      if (recovering && feedback.startsWith('math_task_missing_declaration\n')) {
+        this.continueTaskCheckpoint(worker, node, commit);
+        node.feedback = feedback; this.interrupted(worker, action); return { checkWhole: false };
+      }
+      if (/^math_task_(?:missing_declaration|repeated_failed_input)\n/u.test(feedback)) this.rejected(action, feedback, commit);
+      else if (recovering) { node.feedback = feedback; this.interrupted(worker, action); }
       else if (unchangedNotesBlob !== undefined) {
         this.reportBlockers(node.task, [{ mechanism: 'unchanged-research-delivery', scope: 'assigned-local-inference' }]);
         const previous = this.archive.unchangedResearch?.[node.task.id];
@@ -1478,7 +1849,13 @@ export class CooperativeResearch {
       return;
     } else if (action.kind === 'task') {
       const node = this.node(action.task.id); node.status = 'blocked'; node.feedback = feedback;
-      if (feedback.startsWith('math_task_missing_declaration\n')) localRepair = this.retryTaskLocally(node);
+      if (/^math_task_(?:missing_declaration|repeated_failed_input)\n/u.test(feedback)) {
+        const worker = this.input.workers.find(worker => worker.id === action.assignment.workerId);
+        if (worker && commit && feedback.startsWith('math_task_missing_declaration\n'))
+          this.rememberTaskFailure(this.failedTaskInput(action.task, action.assignment, worker.worktree, commit), feedback);
+        localRepair = this.retryTaskLocally(node, commit);
+        if (!localRepair) this.settleTaskRepair(node);
+      }
     } else if (action.kind === 'review') {
       this.archive.review!.status = 'changes_requested'; this.archive.review!.summary = feedback;
     } else this.archive.error = feedback;
@@ -1519,7 +1896,13 @@ export class CooperativeResearch {
     const route = task && this.archive.groups?.find(record => record.group.id === taskGroup(task));
     if (route && (route.group.status !== 'active' || route.turns >= (route.group.maxTurns ?? Infinity))) return false;
     if (route) route.turns++;
-    if (action.kind === 'task') this.node(action.task.id).attempts++;
+    if (action.kind === 'task') {
+      const node = this.node(action.task.id);
+      for (const record of this.archive.failedTaskInputs ?? []) if (this.pendingTaskRepair(node, record)) {
+        record.repair!.pending = false; record.repair!.startedAttempt = node.attempts + 1;
+      }
+      node.attempts++;
+    }
     this.changed(); return true;
   }
   stopped(worker: ResearchWorker, error?: string) {

@@ -1,7 +1,8 @@
 import type { SolverRunState } from '../archive';
 import type { ResearchOperation, ValueEstimate } from './value';
 import { proofRouteReady, type ProofRoute } from '../proofRoutes';
-import { hasTaskAcceptance, isFinalCandidateReview, taskGroup, taskReferenceDependencies, taskVersion,
+import { recordedTaskProofStatus } from '../progress';
+import { hasTaskAcceptance, isAdvisoryTask, isFinalCandidateReview, taskGroup, taskReferenceDependencies, taskVersion,
   type TaskRecord, type RouteRecord, type CooperativeAction } from '../tasks';
 
 export type ResearchBudget = Readonly<{ maxTurns: number; remainingMs: number; aborted: boolean }>;
@@ -146,39 +147,110 @@ export function criticalPathResearchTasks(tasks: readonly TaskRecord[], groups?:
   });
 }
 
-/** Reconnect checked helpers to unfinished original goals; ranks are facts, not success estimates. */
-export function continuationResearchTasks(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): TaskRecord[] {
+export type OriginalGoalTaskFocus = Readonly<{
+  proofPath: ReadonlySet<string>; frontier: ReadonlySet<string>;
+  targetedResearch: ReadonlySet<string>; support: ReadonlySet<string>;
+}>;
+
+/** Advisory investigations point towards a gap; they are not proof-consumer edges. */
+export function originalGoalTaskFocus(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): OriginalGoalTaskFocus {
   const nodes = new Map(tasks.map(node => [node.task.id, node]));
   const active = (node: TaskRecord) => {
     if ((node.task.status ?? 'active') !== 'active') return false;
     const route = groups?.find(record => record.group.id === taskGroup(node.task));
     return !groups || Boolean(route && route.group.status === 'active' && route.turns < (route.group.maxTurns ?? Infinity));
   };
-  const mainPath = new Set<string>();
-  const visit = (id: string) => {
-    if (mainPath.has(id)) return;
+  const checked = (node: TaskRecord) => node.status === 'integrated' && recordedTaskProofStatus(node) === 'checked' &&
+    (node.integratedCheck ?? node.proof)?.references?.tasks?.every(reference =>
+      !nodes.has(reference.taskId) || taskVersion(nodes.get(reference.taskId)!.task) === reference.taskDigest) !== false;
+  const routes = (node: TaskRecord) => node.alternativeRoutes?.filter(route => !node.parkedRoutes?.[route.id]?.length) ?? [];
+  const inputs = (node: TaskRecord) => [...new Set([...node.task.dependsOn,
+    ...routes(node).flatMap(route => [...route.prerequisiteTaskIds, route.closingTaskId])])];
+  const completedAdvisory = new Map<string, boolean>();
+  const settled = (node: TaskRecord | undefined): boolean => {
+    if (!node) return false;
+    if (!isAdvisoryTask(node.task)) return checked(node);
+    if (completedAdvisory.has(node.task.id)) return completedAdvisory.get(node.task.id)!;
+    completedAdvisory.set(node.task.id, false);
+    // Findings finish an investigation, not the mathematical inputs still needed by its consumer.
+    const ready = node.status === 'completed' && node.task.dependsOn.every(id => settled(nodes.get(id))) &&
+      (!node.alternativeRoutes?.length || routes(node).some(route =>
+        [...route.prerequisiteTaskIds, route.closingTaskId].every(id => settled(nodes.get(id)))));
+    completedAdvisory.set(node.task.id, ready);
+    return ready;
+  };
+  const proofPath = new Set<string>(), frontier = new Set<string>();
+  const visitPath = (id: string) => {
+    if (proofPath.has(id)) return;
     const node = nodes.get(id);
     if (!node || !active(node)) return;
-    mainPath.add(id);
-    for (const dependency of [...node.task.dependsOn,
-      ...(node.alternativeRoutes?.flatMap(route => [...route.prerequisiteTaskIds, route.closingTaskId]) ?? [])]) visit(dependency);
+    proofPath.add(id);
+    if (isAdvisoryTask(node.task) || !settled(node)) inputs(node).forEach(visitPath);
   };
-  for (const node of tasks) if (node.task.kind === 'goal' && !['integrated', 'completed'].includes(node.status)) visit(node.task.id);
+  const visited = new Set<string>();
+  const visitFrontier = (id: string) => {
+    if (visited.has(id)) return;
+    visited.add(id);
+    const node = nodes.get(id);
+    if (!node || !active(node) || settled(node)) return;
+    const open = node.task.dependsOn.filter(dependency => !settled(nodes.get(dependency)));
+    const alternatives = routes(node);
+    if (alternatives.length && !alternatives.some(route =>
+      [...route.prerequisiteTaskIds, route.closingTaskId].every(dependency => settled(nodes.get(dependency)))))
+      open.push(...alternatives.flatMap(route => [...route.prerequisiteTaskIds, route.closingTaskId])
+        .filter(dependency => !settled(nodes.get(dependency))));
+    if (open.length) open.forEach(visitFrontier);
+    else frontier.add(id);
+  };
+  for (const node of tasks) if (node.task.kind === 'goal' && active(node) && !settled(node)) {
+    visitPath(node.task.id); visitFrontier(node.task.id);
+  }
+  const reachesFrontier = (id: string, visited = new Set<string>()): boolean => {
+    if (frontier.has(id)) return true;
+    if (visited.has(id)) return false;
+    visited.add(id);
+    const node = nodes.get(id);
+    // A shared checked helper does not connect every later investigation to its old planned inputs.
+    return Boolean(node && active(node) && !(!isAdvisoryTask(node.task) && settled(node)) &&
+      inputs(node).some(dependency => reachesFrontier(dependency, visited)));
+  };
+  const targetedResearch = new Set(tasks.filter(node => isAdvisoryTask(node.task) && active(node) &&
+    inputs(node).some(id => reachesFrontier(id))).map(node => node.task.id));
+  const support = new Set(proofPath);
+  const visitSupport = (id: string) => {
+    if (support.has(id)) return;
+    const node = nodes.get(id);
+    if (!node || !active(node)) return;
+    support.add(id);
+    if (isAdvisoryTask(node.task) || !settled(node)) inputs(node).forEach(visitSupport);
+  };
+  targetedResearch.forEach(visitSupport);
+  return { proofPath, frontier, targetedResearch, support };
+}
+
+/** Reconnect checked helpers to unfinished original goals; ranks are facts, not success estimates. */
+export function continuationResearchTasks(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): TaskRecord[] {
+  const nodes = new Map(tasks.map(node => [node.task.id, node]));
+  const focus = originalGoalTaskFocus(tasks, groups);
   const checked = (node: TaskRecord | undefined) => Boolean(node?.status === 'integrated' && node.integratedCheck?.passed &&
     node.integratedCheck.taskDigest === taskVersion(node.task) && !node.integratedCheck.conditions?.length);
   const ready = criticalPathResearchTasks(tasks, groups), readiness = taskReadiness(tasks);
-  const continuing = new Set(ready.filter(node => mainPath.has(node.task.id) && ['goal', 'lemma'].includes(node.task.kind) &&
-    readiness.dependenciesReady(node.task) && plannedTaskDependencyIds(node, tasks).some(id => checked(nodes.get(id)))).map(node => node.task.id));
+  const unconditional = (node: TaskRecord) => ['goal', 'lemma'].includes(node.task.kind) && readiness.dependenciesReady(node.task);
+  const continuing = new Set(ready.filter(node => focus.proofPath.has(node.task.id) && unconditional(node) &&
+    plannedTaskDependencyIds(node, tasks).some(id => checked(nodes.get(id)))).map(node => node.task.id));
+  const rank = (node: TaskRecord) => focus.proofPath.has(node.task.id) && unconditional(node) ? 4 :
+    focus.support.has(node.task.id) && unconditional(node) ? 3 : focus.targetedResearch.has(node.task.id) ? 2 :
+      focus.proofPath.has(node.task.id) ? 1 : 0;
   const ranked = ready.toSorted((a, b) =>
+    rank(b) - rank(a) ||
     Number(continuing.has(b.task.id)) - Number(continuing.has(a.task.id)) ||
-    Number(mainPath.has(b.task.id)) - Number(mainPath.has(a.task.id)) ||
     Number(b.task.kind === 'goal') - Number(a.task.kind === 'goal'));
   // With three proof slots, keep two on the main path and offer the third to another route.
   // Running assignments are reserved synchronously, so repeated selections observe this slot.
   const running = tasks.filter(node => node.status === 'running');
-  if (running.filter(node => mainPath.has(node.task.id)).length >= 2 &&
-      !running.some(node => !mainPath.has(node.task.id))) {
-    const exploration = ranked.filter(node => !mainPath.has(node.task.id)).toSorted((a, b) => a.attempts - b.attempts)[0];
+  if (running.filter(node => focus.support.has(node.task.id)).length >= 2 &&
+      !running.some(node => !focus.support.has(node.task.id))) {
+    const exploration = ranked.filter(node => !focus.support.has(node.task.id)).toSorted((a, b) => a.attempts - b.attempts)[0];
     if (exploration) return [exploration, ...ranked.filter(node => node !== exploration)];
   }
   return ranked;
@@ -200,7 +272,7 @@ export function researchCanAdvance(tasks: readonly TaskRecord[], groups: readonl
     }
     if (node.status !== 'conditional' && ((node.task.ownerId && !liveWorkers.has(node.task.ownerId)) ||
         (node.assignment && !liveWorkers.has(node.assignment.workerId)) || !routeAllowsTask(node.task, tasks, groups))) return false;
-    const ready = node.task.dependsOn.every(visit) && (!node.alternativeRoutes?.length ||
+    const ready = (isAdvisoryTask(node.task) || node.task.dependsOn.every(visit)) && (!node.alternativeRoutes?.length ||
       node.alternativeRoutes.some(route => !node.parkedRoutes?.[route.id]?.length && [...route.prerequisiteTaskIds, route.closingTaskId].every(visit)));
     memo.set(id, ready);
     return ready;

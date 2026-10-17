@@ -12,6 +12,7 @@ import { assignmentDeliveryFile, type CooperativeAction } from '../tasks';
 import type { CooperationState } from '../cooperation';
 import { statementReviewSummary, type StatementAction, type StatementReview } from '../statementReview';
 import { buildProofContinuation } from '../progress';
+import { originalGoalTaskFocus } from './search';
 import { compileTaskContext, frozenSourceContext, TaskContextError,
   type ContextManifest, type ContextSection, type TaskContextInput } from '../contextCompiler';
 
@@ -153,6 +154,19 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
     ? `To share before returning, append a JSON line to ${assignmentDeliveryFile(action.assignment)}: {"summary":"progress or gap"}. For a ready proof, save the allowed sources and notes, then return. Git metadata is managed by the host; do not run git add or git commit. The host freezes the saved sources and independently checks and integrates them after your turn ends. Do not truncate the delivery log. Progress reports remain advisory.\n`
       : '';
   const continuation = buildProofContinuation(cooperation.tasks, { groups: cooperation.groups, environmentDigest: compilation.environmentDigest });
+  const focus = originalGoalTaskFocus(cooperation.tasks, cooperation.groups);
+  const focusRules = action.kind === 'lead' || action.kind === 'task' ?
+    'Prioritize a ready typed step proving a substantive missing construction or quantitative estimate on the original-goal frontier. Record the actual consumer with explicit dependsOn or proofRoutes and show the concrete application. For advisory research, dependsOn may identify the unresolved frontier being investigated; it does not prove that premise. State which missing argument was discharged and which premises remain. A conditional wrapper, an assumed original estimate or more auxiliary lemmas does not close the original goal. Preserve useful checked contracts and independent investigations.\n' : '';
+  const focusPacket = {
+    goalTaskIds: continuation.goals.filter(goal => goal.status !== 'integrated' || goal.recordedProof !== 'checked').map(goal => goal.taskId),
+    frontierTaskIds: [...focus.frontier],
+    ...(action.kind === 'task' ? { assignedTaskId: action.task.id,
+      relationship: focus.proofPath.has(action.task.id) ? 'proof-path' : focus.targetedResearch.has(action.task.id) ?
+        'targeted-investigation' : focus.support.has(action.task.id) ? 'frontier-support' : 'independent-exploration',
+      plannedConsumers: cooperation.tasks.filter(node => node.task.dependsOn.includes(action.task.id) ||
+        node.alternativeRoutes?.some(route => route.prerequisiteTaskIds.includes(action.task.id) || route.closingTaskId === action.task.id))
+        .map(node => node.task.id) } : {}),
+  };
   const roleText = `Your role: ${action.kind === 'review' ? 'reviewer' : action.kind === 'solve' ? 'primary solver' : action.kind === 'task' ? action.task.kind === 'goal' ? 'engineer' : 'researcher' : 'lead'}` + '\n' + sharing +
     (operation === 'direct' ? '' : `Research operation: ${operation}.\n`);
   const routeRules = 'Report a stable local obstruction in a research/sketch response or progress delivery with blockers:[{mechanism:"stable local mechanism",scope:"exact affected inference",evidenceRefs:[],reopenOn:[{kind:"contract-changed"},{kind:"environment-changed"},{kind:"dependency-checked",taskId:"ACTUAL_DECLARED_DEPENDENCY_ID"}]}]. Use actual declared dependency ids; reopenOn may be omitted for the host default. A blocker is advisory and applies only to its stated inference. Repeating the same local premises, evidence and environment twice parks the affected task; it does not establish that the original theorem is false or impose a solving deadline. Preserve useful proofs and state an explicit reopening condition.\n';
@@ -161,7 +175,9 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
     'For a parked task, assign a targeted feasibility check or a discriminating experiment, or change a relevant mathematical input. A revision number, reworded objective or unrelated helper does not resolve the recorded obstruction. You may declare alternative proofRoutes:[{id:"route_id",targetTaskId:"original_goal_task_id",prerequisiteTaskIds:["typed_lemma_task_id"],closingTaskId:"typed_closing_lemma_task_id"}]. Replace schema ids with actual task ids. Every route input must be a typed lemma with its full exact closed type; the closing lemma dependsOn must cover all route prerequisites. All prerequisites within one route are required together; routes for one target are alternatives. The target\'s ordinary dependsOn remain additional requirements. A checked closing lemma enables an original-goal attempt. A route is closed only after the original goal passes its strict host check and its Lean proof actually references that closing lemma; advisory findings and a conditional bridge never supply formal acceptance.\n' : '';
   const attemptRules = action.kind === 'task' ?
     'Before continuing, read the current task feedback and relevant saved results. Identify the unresolved inference, its intended consumer, and the cheapest check that can distinguish your next hypothesis from an already failed approach. Reuse checked declarations and exact library signatures. Save the new evidence, failed approach or reusable draft in a concise checkpoint. If nothing relevant changed and no new discriminating check is available, report the specific missing input instead of repeating searches, submitting identical files or creating a renamed equivalent task. New research evidence can be useful before any theorem is proved.\n' : '';
-  const instructions = context.instructions + '\n' + rules + attemptRules +
+  const recoveryRules = action.kind === 'lead' && action.recovery ?
+    'This is a targeted recovery decision after actual failed work, not another ordinary plan recap. Inspect the failed frontier, its feedback and saved deliveries, and the declared pending tasks whose upstream helpers remain blocked. Adopt retained code through separately typed, host-checked tasks. Connect useful supporting tasks explicitly to the missing argument; an objective mentioning a consumer is not a dependency edge. Preserve checked contracts and scoped blockers. Return the complete math-plan JSON with recovery:{status:"planned",taskIds:["ACTUAL_READY_TASK_ID"]}. The named tasks must be executable now and either connect to an unfinished original goal or be an independent research/sketch investigation depending on the failed frontier. Split a missing construction, repair an unattempted prerequisite, or choose a different concrete inference; merely retrying the same failed target or changing its revision, name or prose is insufficient. Advisory research may investigate blocked inputs but grants no proof acceptance. If there is no concrete discriminating step, use recovery:{status:"awaiting-input",reason:"the specific mathematical input still needed"}. An unchanged recovery decision is durable and will not be repeated just because the process restarts.\n' : '';
+  const instructions = context.instructions + '\n' + rules + attemptRules + recoveryRules + focusRules +
     (action.kind === 'lead' ? 'Use the proof-continuation snapshot to identify the original goal\'s current mathematical frontier. Prefer consuming relevant checked lemmas before creating more auxiliary work; give each new helper an intended consumer and explicitly assign every substantive missing premise. Keep useful alternative routes visible. A lemma without a recorded consumer may still be useful; investigate its connection rather than deleting it. Planned dependencies, actual Lean proof references and conditional references are reported separately. Do not count auxiliary lemma totals as completion of the original problem. The host obtains fixed-candidate review after the complete proof is checked; mark any advisory final-candidate task with reviewScope:"final-candidate" so it waits for freshly checked original goals. Use a distinct task with reviewScope:"feasibility" for independent mathematical route checks before a complete candidate exists. Inspect validated lemmaRequests in deliveries and adopt useful exact proposals as separate lemma tasks; proposals and their local checks are advisory. Advisory research may start before its planned dependencies are proved; use typed proof tasks when a consumer must wait for checked premises.\n' :
       action.kind === 'task' && ['lemma', 'goal'].includes(action.task.kind) ? 'Inspect relevant checked inputs and their exact declarations before reconstructing an argument. Save the concrete consumer application and discharge every premise; report the remaining original-goal obstacle in RESEARCH.md.\n' : '') +
     (action.kind === 'task' && ['research', 'sketch'].includes(action.task.kind)
@@ -178,5 +194,16 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
   ];
   return { ...context, assignment: action, instructions,
     ...compileTaskContext({ ...compilation, instructions, optional,
-      mandatory: [{ id: 'assignment-policy', kind: 'assignment', text: roleText }] }) };
+      mandatory: [{ id: 'assignment-policy', kind: 'assignment', text: roleText },
+        ...(focusRules ? [{ id: 'frontier-focus', kind: 'continuation' as const,
+          text: focusRules + 'Original-goal focus (advisory, not proof acceptance):\n' + JSON.stringify(focusPacket) }] : []),
+        ...(action.kind === 'lead' && action.recovery ? [{ id: 'frontier-recovery', kind: 'assignment' as const,
+          text: 'Targeted recovery request (advisory; no proof acceptance):\n' + JSON.stringify({ ...action.recovery,
+            failures: cooperation.tasks.filter(node => action.recovery!.taskIds.includes(node.task.id)).map(node => ({
+              taskId: node.task.id, status: node.status, attempts: node.attempts, feedback: node.feedback,
+              dependsOn: node.task.dependsOn, assignment: node.assignment && { workerId: node.assignment.workerId,
+                seedCommit: node.assignment.seedCommit } })),
+            unattemptedSupportingTasks: cooperation.tasks.filter(node => ['blocked', 'pending'].includes(node.status) && !node.attempts &&
+              (node.task.status ?? 'active') === 'active').map(node => ({ taskId: node.task.id, status: node.status, dependsOn: node.task.dependsOn })),
+          }) }] : [])] }) };
 }

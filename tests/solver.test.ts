@@ -26,6 +26,7 @@ import { captureProofReferences, proofReferencesUnchanged } from '../src/solver/
 import { applyTaskChanges, checkTaskProof, checkTaskProofs, projectTaskSources, taskChanges } from '../src/solver/cooperativeProof';
 import { inspectScopedLeanDeclarations, leanDeclarationContextCommands } from '../src/math/leanSource';
 import { recordRouteBlockers, refreshRouteBlockers } from '../src/solver/routeControl';
+import type { TaskRecord, RouteRecord } from '../src/solver/tasks';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn(), officialGate: vi.fn(), build: vi.fn(), delay: vi.fn(),
   prepare: vi.fn(), freeze: vi.fn(), readiness: vi.fn(), connectivity: vi.fn(), packages: undefined as string | undefined }));
@@ -1127,7 +1128,7 @@ describe('isolated solver and host acceptance', () => {
     writePlan(workspace, plan.tasks);
     const canonicalCommit = commitSolverSources(problem, workspace);
     let state: any = { problem, runId: 'frontier-restore', turns: 0, phase: 'running', environmentDigest: 'fixture',
-      cooperation: { canonicalCommit, tasks: plan.tasks.map(task => ({ task, attempts: 0,
+      cooperation: { canonicalCommit, tasks: plan.tasks.map(task => ({ task, attempts: task.kind === 'lemma' ? 1 : 0,
         status: task.kind === 'lemma' ? 'blocked' : 'pending' })), groups: plan.groups.map(group => ({ group, turns: 0 })), blockers: [] } };
     const core = state.cooperation.tasks[0], blockers = state.cooperation.blockers;
     const proposal = { mechanism: 'A checked analytic input is missing.', scope: 'The core inference.',
@@ -1155,8 +1156,22 @@ describe('isolated solver and host acceptance', () => {
     expect(state.cooperation.tasks[0].routeParking).toHaveLength(1);
     await resumed.stop(); state = JSON.parse(JSON.stringify(state));
     const completed = create(); await completed.restore();
+    const recovery = await completed.next(lead, budget);
+    expect(recovery).toMatchObject({ kind: 'lead', recovery: { taskIds: ['b'] } });
+    if (recovery?.kind !== 'lead') throw new Error('missing_unparked_frontier_recovery');
+    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify({
+      tasks: plan.tasks, groups: plan.groups,
+      recovery: { status: 'awaiting-input', reason: 'The unparked second construction needs a new mathematical premise.' },
+    }) + '\n```');
+    await completed.deliver(lead, recovery, commitSolverSources(problem, workspace));
     expect(await completed.next(lead, budget)).toBeUndefined();
+    expect(state.cooperation.tasks[0].routeParking).toHaveLength(1);
     await completed.stop();
+    state = JSON.parse(JSON.stringify(state));
+    const settled = create(); await settled.restore();
+    expect(await settled.next(lead, budget)).toBeUndefined();
+    expect(state.cooperation.frontierRecoveries).toEqual([expect.objectContaining({ status: 'awaiting-input' })]);
+    await settled.stop();
     expect(host.createSession).not.toHaveBeenCalled();
     expect(host.officialGate).not.toHaveBeenCalled();
   });
@@ -2336,6 +2351,29 @@ describe('isolated solver and host acceptance', () => {
     expect(fs.readFileSync(file, 'utf8')).toBe(source);
   });
 
+  it('removes the complete noncomputable declaration prefix from an invalidated peer wrapper', () => {
+      const file = path.join(project, 'Submission.lean');
+      const source = original.replace('theorem first',
+        'lemma premise : True := by trivial\n' +
+        'noncomputable def wrapper : True := premise\n' +
+        'theorem helper : True := by trivial\n' +
+        'theorem consumer : True := helper\ntheorem first');
+      fs.writeFileSync(file, source);
+      const commit = commitSolverSources(problem, workspace);
+      const dependency: CooperativeTask = { id: 'premise', kind: 'lemma', objective: 'Prove the premise', dependsOn: [],
+        revision: 0, proofPath: 'Submission.lean', theoremName: 'Submission.premise', type: 'True' };
+      const task: CooperativeTask = { id: 'consumer', kind: 'lemma', objective: 'Check the conditional consumer',
+        dependsOn: ['premise'], revision: 0, proofPath: 'Submission.lean', theoremName: 'Submission.consumer',
+        type: 'True', conditional: true };
+      const projected = projectTaskSources(problem, workspace, commit, task, [], [dependency]).get('Submission.lean')!;
+      expect(projected).not.toContain('def wrapper');
+      expect(projected).not.toContain('noncomputable');
+      expect(projected).toContain('\ntheorem helper : True := by trivial\n');
+      expect(projected).toContain('theorem consumer (premise : True) : True := helper');
+      expect(projected).not.toContain('lemma premise');
+      expect(fs.readFileSync(file, 'utf8')).toBe(source);
+    });
+
   it('retains added Mathlib imports when checking and merging a helper proof', async () => {
     configureCooperation();
     const task = planTasks()[0], module = 'Mathlib.Analysis.SpecialFunctions.Trigonometric.InverseDeriv';
@@ -2951,6 +2989,11 @@ describe('isolated solver and host acceptance', () => {
       if (action.kind === 'lead') {
         leadTurns++;
         finishAssignment(action, options);
+        if (action.recovery) fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify({
+          tasks: cooperationState().tasks.map((node: TaskRecord) => node.task),
+          groups: cooperationState().groups.map((route: RouteRecord) => route.group),
+          recovery: { status: 'awaiting-input', reason: 'The repeated failed helper needs a distinct construction.' },
+        }) + '\n```');
       } else if (action.kind === 'task' && action.task.id === 'a') {
         helperTurns++;
         if (firstAssignment) {
@@ -2989,64 +3032,84 @@ describe('isolated solver and host acceptance', () => {
     expect(await runSolver([...args, '--workers', '4', '--max-turns', '8'], directory)).toBe(repaired ? 0 : 4);
     const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
     expect(helperTurns).toBe(2);
-    expect(leadTurns).toBe(repaired ? 1 : 2);
+    expect(leadTurns).toBe(repaired ? 1 : 3);
     expect(state.turns).toBeLessThanOrEqual(8);
     expect(state.cooperation.tasks[0]).toMatchObject({ attempts: 2, status: repaired ? 'integrated' : 'blocked' });
-    if (!repaired) expect(host.officialGate).not.toHaveBeenCalled();
+    if (!repaired) {
+      expect(host.officialGate).not.toHaveBeenCalled();
+      expect(state.cooperation.frontierRecoveries).toEqual([expect.objectContaining({
+        taskIds: ['a'], status: 'awaiting-input', reason: 'The repeated failed helper needs a distinct construction.',
+      })]);
+    }
   });
 
-  it.each([false, true])('reconsiders blocked work once after new checked peer progress (revise: %s)', async revise => {
+  it.each([false, true])('keeps an unchanged rejected helper blocked after a Lead decision (revision: %s)', async revise => {
     let leadTurns = 0, helperTurns = 0;
-    let releasePeer!: () => void;
-    const leadResponded = new Promise<void>(resolve => { releasePeer = resolve; });
     configureCooperation(async (action, options) => {
       if (action.kind === 'lead') {
-        const tasks = planTasks();
-        if (++leadTurns > 2) {
-          expect(cooperationState().tasks[0].status).toBe('blocked');
-          expect(cooperationState().tasks[1].status).toBe('integrated');
-          if (revise) tasks[0] = { ...tasks[0], revision: 1 };
-        }
-        writePlan(options.workspace, tasks);
-        if (leadTurns === 2) releasePeer();
-      } else if (action.kind === 'task' && action.task.id === 'a' && ++helperTurns === 1) {
-        const file = path.join(options.workspace, 'generated/p/Submission.lean');
-        fs.writeFileSync(file, original.replace('theorem first', 'lemma a : False := by trivial\ntheorem first'));
-      } else {
-        if (action.kind === 'task' && action.task.id === 'b') await leadResponded;
-        finishAssignment(action, options);
-      }
-      return 'completed';
-    });
-    expect(await runSolver([...args, '--workers', '4', '--max-turns', '12'], directory)).toBe(revise ? 0 : 4);
-    expect(leadTurns).toBe(3);
-    expect(helperTurns).toBe(revise ? 2 : 1);
-    expect(cooperationState().tasks[0].status).toBe(revise ? 'integrated' : 'blocked');
-    expect(cooperationState().tasks[1].attempts).toBe(1);
-    expect(host.officialGate).toHaveBeenCalledTimes(revise ? 1 : 0);
-  });
-
-  it.each([false, true])('blocks the wrong helper type and retries only after a Lead revision (revise: %s)', async revise => {
-    let leadTurns = 0, helperTurns = 0;
-    configureCooperation(async (action, options, message) => {
-      if (action.kind === 'lead') {
-        const tasks = planTasks();
+        const tasks = planTasks().filter(task => task.id !== 'b')
+          .map(task => task.id === 'first' ? { ...task, dependsOn: ['a'] } : task);
         if (++leadTurns > 1) {
-          expect(message).toContain('task type mismatch');
+          expect(cooperationState().tasks[0].status).toBe('blocked');
           if (revise) tasks[0] = { ...tasks[0], revision: 1 };
         }
         writePlan(options.workspace, tasks);
-      } else if (action.kind === 'task' && action.task.id === 'a' && ++helperTurns === 1) {
-        const file = path.join(options.workspace, 'generated/p/Submission.lean');
-        fs.writeFileSync(file, original.replace('theorem first', 'lemma a : False := by trivial\ntheorem first'));
+        if (action.recovery) fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify({
+          tasks, recovery: { status: 'awaiting-input', reason: 'The same failed declaration needs a new proof, not another revision.' },
+        }) + '\n```');
+      } else if (action.kind === 'task' && action.task.id === 'a') {
+        if (++helperTurns === 1) fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'),
+          original.replace('theorem first', 'lemma a : False := by trivial\ntheorem first'));
       } else finishAssignment(action, options);
       return 'completed';
     });
-    expect(await runSolver([...args, '--workers', '4', '--max-turns', '8'], directory)).toBe(revise ? 0 : 4);
-    expect(helperTurns).toBe(revise ? 2 : 1);
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '8'], directory)).toBe(4);
+    expect(leadTurns).toBeGreaterThanOrEqual(2);
+    expect(helperTurns).toBe(2);
+    expect(cooperationState().tasks[0]).toMatchObject({ status: 'blocked', task: { revision: revise ? 1 : 0, type: 'True' } });
+    expect(cooperationState().failedTaskInputs).toHaveLength(1);
+    expect(cooperationState().frontierRecoveries).toEqual([expect.objectContaining({ status: 'awaiting-input' })]);
+    expect(host.officialGate).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])('reopens a rejected helper only after its saved proof changes (changed: %s)', async changed => {
+    let leadTurns = 0, helperTurns = 0;
+    let draftWorktree: string | undefined, savedProofChanged = false;
+    configureCooperation(async (action, options, message) => {
+      if (action.kind === 'lead') {
+        const tasks = planTasks().filter(task => task.id !== 'b')
+          .map(task => task.id === 'first' ? { ...task, dependsOn: ['a'] } : task);
+        if (++leadTurns > 1) {
+          expect(message).toContain('task type mismatch');
+          if (changed && !savedProofChanged) {
+            if (!draftWorktree) throw new Error('missing_saved_helper_draft');
+            const file = path.join(draftWorktree, 'generated/p/Submission.lean');
+            fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('lemma a : False := by trivial', 'lemma a : True := by trivial'));
+            commitSolverSources(problem, draftWorktree); savedProofChanged = true;
+          }
+        }
+        writePlan(options.workspace, tasks);
+        if (action.recovery) fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify({
+          tasks, recovery: { status: 'awaiting-input', reason: 'The unchanged rejected helper still needs a new saved proof.' },
+        }) + '\n```');
+      } else if (action.kind === 'task' && action.task.id === 'a') {
+        draftWorktree = options.workspace;
+        if (++helperTurns === 1) fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'),
+          original.replace('theorem first', 'lemma a : False := by trivial\ntheorem first'));
+      } else if (action.kind === 'task' && action.task.id === 'first') {
+        const file = path.join(options.workspace, 'generated/p/Submission.lean');
+        fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('first : True := by sorry', 'first : True := by exact a'));
+      } else finishAssignment(action, options);
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '12'], directory)).toBe(changed ? 0 : 4);
+    expect(helperTurns).toBe(changed ? 3 : 2);
     const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
-    expect(state.cooperation.tasks[0].status).toBe(revise ? 'integrated' : 'blocked');
-    expect(host.verify.mock.calls.filter(([, options]) => options.expectedDeclarationType).every(([, options]) => options.expectedDeclarationType === 'True')).toBe(true);
+    expect(state.cooperation.tasks[0]).toMatchObject({ status: changed ? 'integrated' : 'blocked', task: { revision: 0, type: 'True' } });
+    expect(host.verify.mock.calls.filter(([, options]) => options.expectedDeclarationType).length).toBeGreaterThan(0);
+    expect(host.verify.mock.calls.filter(([, options]) => options.expectedDeclarationType)
+      .every(([, options]) => options.expectedDeclarationType === 'True')).toBe(true);
+    expect(host.officialGate).toHaveBeenCalledTimes(changed ? 1 : 0);
   });
 
   it.each(['cycle', 'missing', 'duplicate', 'coverage', 'target'])('rejects a %s plan before dispatch', flaw => {
@@ -3790,6 +3853,10 @@ describe('isolated solver and host acceptance', () => {
     expect(first.integratedCheck.references.inputs.map((input: any) => input.name)).toEqual(['b', 'first']);
     const live = JSON.parse(fs.readFileSync(path.join(state.worktree, 'COOPERATION.json'), 'utf8'));
     expect(live.peers[2].actualReferences.tasks).toEqual(first.integratedCheck.references.tasks);
+    for (const [index, peer] of live.peers.entries()) {
+      expect(peer.taskDigest).toBe(taskVersion(state.cooperation.tasks[index].task));
+      expect(peer.objectiveDigest).toBe(mathDigest(state.cooperation.tasks[index].task.objective));
+    }
   });
 
   it('records the producer task when its supporting helper is in another owned file', async () => {

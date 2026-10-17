@@ -212,6 +212,40 @@ describe('bounded role session recovery', () => {
     expect(host.delay).not.toHaveBeenCalled(); expect(host.official).not.toHaveBeenCalled();
   });
 
+  it('continues distinct typed proof checkpoints beyond the first repair without a solving limit', async () => {
+    const assignments = new Map<string, CooperativeAction>();
+    let proofTurns = 0;
+    host.open.mockImplementation(async (options: MathAgentOptions) => session(options, async () => {
+      const action = assignments.get(options.workspace)!;
+      if (action.kind === 'lead') fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({
+        tasks: [{ id: 'claim', kind: 'goal', objective: 'Prove the original claim', theoremName: 'Submission.claim' }],
+      }));
+      else if (action.kind === 'task') {
+        proofTurns++;
+        const helpers = Array.from({ length: Math.min(proofTurns, 3) }, (_, index) =>
+          `lemma checkpoint_${index + 1} : True := by trivial\n`).join('');
+        const draft = original.replace('theorem claim', helpers + 'theorem claim');
+        fs.writeFileSync(proof(options), proofTurns <= 3 ? draft : draft.replace('by sorry', 'by exact checkpoint_3'));
+        options.onUsage({ totalTokens: 11 });
+        return proofTurns <= 3 ? 'checkpoint' : 'completed';
+      } else if (action.kind === 'review') fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'),
+        JSON.stringify({ commit: action.seedCommit, verdict: 'accepted' }));
+      else throw new Error(`unexpected checkpoint action: ${action.kind}`);
+      options.onUsage({ totalTokens: 8 }); return 'completed';
+    }));
+    const execute: typeof directSolverModules.M1.execute = async (...input) => {
+      assignments.set(input[3].worktree, input[1].assignment!);
+      return directSolverModules.M1.execute(...input);
+    };
+    expect(await runSolver([...args, '--workers', '2'], directory,
+      { ...directSolverModules, M1: { ...directSolverModules.M1, execute } })).toBe(0);
+    expect(proofTurns).toBe(4);
+    expect(events().filter(event => event.event === 'turn_checkpoint')).toHaveLength(3);
+    expect(state().cooperation.tasks[0].status).toBe('integrated');
+    expect(state().cooperation.review.status).toBe('accepted');
+    expect(host.delay).not.toHaveBeenCalled(); expect(host.official).toHaveBeenCalledOnce();
+  });
+
   it('checks and integrates a saved proof once after a tool failure, then keeps the peer available for independent review', async () => {
     const assignments = new Map<string, CooperativeAction>();
     let proofTurns = 0;

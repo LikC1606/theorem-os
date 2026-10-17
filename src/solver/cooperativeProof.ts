@@ -153,8 +153,10 @@ export function projectTaskSources(problem: SolverProblem, worktree: string, sou
           if (dependency) body = body.slice(0, reference.index) + local(dependency.theoremName!) + body.slice(reference.index + reference[0].length);
         }
         source = source.slice(0, region.startOffset) + name[0] + ' ' + binders + header.slice(name[0].length) + ':=' + body + source.slice(region.endOffset);
-      } else if (removed.has(local(region.name)))
-        source = source.slice(0, region.startOffset) + source.slice(region.endOffset);
+      } else if (removed.has(local(region.name))) {
+        const start = source.lastIndexOf('\n', region.startOffset - 1) + 1;
+        source = source.slice(0, start) + source.slice(region.endOffset);
+      }
     }
     sources.set(file, source);
   }
