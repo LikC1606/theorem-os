@@ -16,8 +16,8 @@ export const directSolverModules = {
   M1: { version: 'bounded-codex-turn-v9', open: createCodexMathSession, execute: executeResearch },
   M2: { version: 'lean-kernel-v10/unicode-names-v1', check: checkSolverProof, checkTask: checkTaskProof },
   M3: { version: 'route-budget-v8/blocker-or-routes-v1', select: selectResearchAction, retry: planResearchRetry, ready: readyResearchTasks },
-  M4: { version: 'task-interface-context-v18/mandatory-plan-rejection-v1', build: buildResearchContext, statement: buildStatementReviewContext },
-  M5: { version: 'route-cooperation-v17/plan-rejection-v1', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignResearchTask },
+  M4: { version: 'task-interface-context-v20/optional-evidence-budget-v1', build: buildResearchContext, statement: buildStatementReviewContext },
+  M5: { version: 'route-cooperation-v19/evidence-triggered-continuation-v1', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignResearchTask },
 };
 
 export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M3' | 'M5'> & {
