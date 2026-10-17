@@ -36,17 +36,17 @@ bun run build:site
 
 - `docs/index.html`、`docs/landing.css`：宣传首页内容和响应式样式。
 - `docs/web/landing.ts`：回放步骤与组件切换、三种开始方式、命令复制和手机导航。
-- `docs/web/presentation.ts`：预设回放展示和从真实档案生成的成果卡片。
+- `docs/web/presentation.ts`：预设回放展示和从真实档案生成的成果表格。
 - `docs/archive.html`、`docs/site.css`、`docs/web/app.ts`：证明档案界面。
 - `scripts/build-site.ts`：构建两个页面、浏览器脚本和公开数据，并复制素材与许可证。
 
-首页以浅色工作台首屏、深色回放区和浅色组件区组织内容。首屏使用本地工作台真实的 Mathlib 草稿截图，明确标为未提交；手机端通过 `picture` 加载独立截图，保持文本可读。截图可打开完整界面预览，支持缩放、鼠标拖动和触屏滚动，关闭后恢复焦点；无 JavaScript 时仍可打开原图。开始区默认展示完整 Docker 部署命令，也可切换 CLI 安装和免模型回放。GitHub Pages 仅提供静态展示；用户需在 Linux 本地或服务器部署工作台，再输入自己的 API Key。
+首页按 taste-skill 的大字排版方向组织内容，以白色品牌声明、浅青色回放与薄荷色组件区形成章节变化。首屏使用本地工作台真实的 Mathlib 草稿截图，明确标为未提交；手机和平板通过 `picture` 加载独立视口，平板采用画面与说明并排的构图。截图可打开完整界面预览，支持缩放、鼠标拖动和触屏滚动，关闭后恢复焦点；无 JavaScript 时仍可打开原图。开始区默认展示完整 Docker 部署命令，也可切换 CLI 安装和免模型回放。GitHub Pages 仅提供静态展示；用户需在 Linux 本地或服务器部署工作台，再输入自己的 API Key。
 
 四步回放的候选源码读取自 `src/math/localExample.ts`，回执读取自 `docs/assets/replay.json`；切换演示不会启动模型或 Lean。默认停在最终验收，点击播放后从候选开始，可暂停续播、手动选步和重新播放；离屏或页面隐藏会暂停，返回后由用户继续播放。反馈步骤是对预设示例的检查说明，并非原始诊断日志。手机端先展示已归档的最终回执，再展示选中步骤的源码。源码与回放记录改动后需要重新构建。
 
-首屏与章节使用 GSAP 入场，组件和命令切换采用短过渡。系统启用减少动态效果时，内容即时切换，回放仍可按步骤阅读。GSAP 固定版本与锁文件一起管理，版权和许可链接随静态产物保留在 `assets/licenses/gsap-NOTICE.txt`。
+首屏名称使用 GSAP 遮罩入场，成果按行出现，组件选项依次进入，产品图轻微缩放落定；组件和命令切换采用短过渡。系统启用减少动态效果时，内容即时切换，回放仍可按步骤阅读。GSAP 固定版本与锁文件一起管理，版权和许可链接随静态产物保留在 `assets/licenses/gsap-NOTICE.txt`。
 
-组件图为结构示意，完整原题验收独立于五类研究决策。手机端组件标签横向滚动，键盘切换会把当前项带入视口。源码示例默认收起，可在没有 JavaScript 的情况下展开。档案区展示完整的真实界面，手机端使用单独的题目详情截图，避免放大裁切桌面图。网页工作台的临时历史与 CLI 的持久运行和恢复分开说明。页面支持键盘操作，并尊重系统的减少动态效果设置。参考官网与应用取舍记录在 [design-references.md](design-references.md)。
+完整原题验收独立于五类研究决策。组件用大字号索引展示，手机端五个标签完整排列为网格，支持键盘选择；源码示例默认收起，可在没有 JavaScript 的情况下展开。产品区补充实际 Lean 源码与模型配置截图，API Key 保持为空。档案区展示完整的真实界面，手机端使用单独的题目详情截图，避免放大裁切桌面图。网页工作台的临时历史与 CLI 的持久运行和恢复分开说明。参考官网与应用取舍记录在 [design-references.md](design-references.md)，本轮方向、素材来源与审查记录见 [design-taste.md](design-taste.md)。
 
 ## 验证
 
@@ -70,13 +70,15 @@ bun run test:site
 
 ## 视觉素材
 
-`docs/assets/mark.svg` 是首页与档案共用的蓝色项目标记，`mark.png` 保留为位图版本。首页使用本地 Inter 可变字体，中文使用系统无衬线字体；字体及 SIL Open Font License 保存在 `docs/assets/fonts/`。构建时将字体嵌入样式，确保直接打开本地文件时也能加载，页面不依赖外部字体服务。
+`docs/assets/mark.svg` 是首页与档案共用的蓝色项目标记，`mark.png` 保留为位图版本。首页使用本地 Hanken Grotesk 字体，字面代码使用 Fira Code，中文使用系统无衬线字体。字体及各自的 SIL Open Font License 保存在 `docs/assets/fonts/`。构建时将字体嵌入样式，确保直接打开本地文件时也能加载，页面不依赖外部字体服务。
 
 `workbench-desktop.png` 和 `workbench-mobile.png` 来自真实本地工作台的新会话，分别是 1440×500 的桌面视口和 390×440 的手机视口。`workbench-full-desktop.png` 与 `workbench-full-mobile.png` 为弹窗使用的完整截图，视口分别是 1440×900 和 390×844，以 2 倍像素密度生成。桌面展示左侧对话与右侧源码，手机切到工作区，展示经过正常编辑器载入的紧凑 Mathlib 草稿；图注均标明未提交。截图脚本核对源码在手机上完整可见并阻止创建任务，不需要模型或 Key：
 
 ```bash
 node scripts/capture-workbench.mjs http://127.0.0.1:8787
 ```
+
+`workbench-source-detail.png` 是右侧 Lean 工作区的完整片段，保留未提交状态与 `sorry`；`workbench-settings-detail.png` 是原生研究配置弹窗正常滚动后的可见区域，展示服务商、模型、空 Key 与预算。二者均以 2 倍像素密度导出，同一截图脚本生成并验证零 API POST。
 
 `social-preview.png` 是分享卡片，由上述工作台截图和首页排版生成。修改设计后运行：
 

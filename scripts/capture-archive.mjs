@@ -1,15 +1,21 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { chromium } from 'playwright';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const catalog = JSON.parse(await fs.readFile(path.join(root, 'out/site/data/catalog.json'), 'utf8'));
+const acceptedCount = catalog.records.filter(record => record.status === 'official_accepted').length;
 const browser = await chromium.launch();
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2, reducedMotion: 'reduce' });
   await page.goto(pathToFileURL(path.join(root, 'out/site/archive.html')).href);
   await page.locator('.proof-row').first().waitFor();
   await page.evaluate(() => document.fonts.ready);
+  assert.equal(await page.locator('#accepted-count').innerText(), String(acceptedCount));
+  assert.equal(await page.locator('#accepted-filter-count').innerText(), String(acceptedCount));
+  assert.equal(await page.locator('.proof-row').count(), catalog.records.length);
   await page.locator('[data-proof-id="annals_equiangular_lines_fixed_angle"]').click();
   assert.equal(await page.locator('#inspector .detail-title').innerText(), 'Equiangular lines');
   await page.screenshot({ path: path.join(root, 'docs/assets/archive-preview.png') });
@@ -20,7 +26,8 @@ try {
   const bounds = await inspector.boundingBox();
   assert.ok(bounds && bounds.width > 300 && bounds.height > 500);
   await inspector.screenshot({ path: path.join(root, 'docs/assets/archive-preview-mobile.png') });
-  console.log(JSON.stringify({ source: 'local proof archive', desktop: { width: 1440, height: 900 },
+  console.log(JSON.stringify({ source: 'local proof archive', acceptedCount, recordCount: catalog.records.length,
+    desktop: { width: 1440, height: 900 },
     mobile: { width: bounds.width, height: bounds.height }, deviceScaleFactor: 2, modelInvoked: false }));
 } finally {
   await browser.close();

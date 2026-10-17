@@ -123,6 +123,55 @@ const checkArchivePreview = async (page, width) => {
   assert.match(result.source, width <= 600 ? /archive-preview-mobile\.png/ : /archive-preview\.png/);
   assert.ok(result.fits && Math.abs(result.ratio - result.renderedRatio) < .01, 'The archive screenshot must remain complete without cropping');
 };
+const checkProductImages = async (page, label) => {
+  const images = page.locator('.workbench-picture img, .product-fragment img, .archive-image-link img');
+  assert.ok(await images.count() >= 4, `At least four real product pictures must be present: ${label}`);
+  const sources = new Set();
+  for (const image of await images.all()) {
+    // Bring lazy-loaded fragments into view before waiting for their pixels.
+    await image.scrollIntoViewIfNeeded();
+    const picture = await image.evaluate(async node => {
+      await node.decode();
+      const bounds = node.getBoundingClientRect(), container = node.closest('a').getBoundingClientRect();
+      return {
+        source: node.currentSrc, alt: node.alt, complete: node.complete,
+        width: node.naturalWidth, height: node.naturalHeight,
+        ratio: node.naturalWidth / node.naturalHeight, renderedRatio: bounds.width / bounds.height,
+        fits: bounds.left >= container.left - 1 && bounds.right <= container.right + 1 &&
+          bounds.top >= container.top - 1 && bounds.bottom <= container.bottom + 1,
+      };
+    });
+    sources.add(picture.source);
+    assert.ok(picture.complete && picture.width > 0 && picture.height > 0, `Product picture must load: ${picture.source}, ${label}`);
+    assert.ok(picture.alt.trim(), `Product picture must have descriptive alternative text: ${picture.source}`);
+    assert.ok(picture.fits && Math.abs(picture.ratio - picture.renderedRatio) < .01,
+      `Product picture must fit its container without stretching or cropping: ${picture.source}, ${label}`);
+  }
+  assert.ok(sources.size >= 4, `Product pictures must show distinct real views: ${label}`);
+};
+const componentContent = {
+  m1: { title: /候选证明/, description: /隔离工作区.*构造和修复 Lean 候选/, input: /题目.*模型会话/, output: /候选记录.*证明/ },
+  m2: { title: /诊断/, description: /Lean 诊断.*独立验收/, input: /候选源码.*检查环境/, output: /源码摘要.*检查与诊断/ },
+  m3: { title: /下一步/, description: /就绪任务.*预算约束/, input: /研究状态.*共享预算/, output: /下一步操作.*有序就绪任务/ },
+  m4: { title: /证据/, description: /失败记录.*检索策略/, input: /题目.*可见证据/, output: /来源身份.*上下文包/ },
+  m5: { title: /分工与交接/, description: /任务分配.*独立审阅/, input: /就绪任务.*路线约束/, output: /工作区配置.*审阅分配/ },
+};
+const checkMobileComponentGrid = async (page, label) => {
+  const result = await page.locator('.component-tabs').evaluate(list => {
+    const bounds = list.getBoundingClientRect();
+    const tabs = [...list.querySelectorAll('[data-component]')];
+    return { display: getComputedStyle(list).display, count: tabs.length,
+      fits: list.scrollWidth <= list.clientWidth + 1 && tabs.every(tab => {
+        const box = tab.getBoundingClientRect(), title = tab.querySelector('strong').getBoundingClientRect();
+        return box.width > 0 && box.height > 0 && box.left >= bounds.left - 1 && box.right <= bounds.right + 1 &&
+          box.top >= bounds.top - 1 && box.bottom <= bounds.bottom + 1 &&
+          title.left >= box.left - 1 && title.right <= box.right + 1;
+      }) };
+  });
+  assert.equal(result.display, 'grid', `Mobile components must use a complete grid: ${label}`);
+  assert.equal(result.count, 5);
+  assert.ok(result.fits, `All five mobile component tabs and labels must fit without sideways scrolling: ${label}`);
+};
 try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
   trackErrors(page);
@@ -132,14 +181,15 @@ try {
     } });
   });
   await page.goto(url);
-  await page.waitForSelector('.release-pill svg.lucide');
+  await page.waitForFunction(() => document.documentElement.dataset.landingReady === 'true');
   await page.evaluate(() => document.fonts.ready);
-  assert.ok(await page.evaluate(() => [...document.fonts].some(font => font.family === 'Inter' && font.status === 'loaded')), 'The local preview must load the bundled font');
+  assert.ok(await page.evaluate(() => [...document.fonts].some(font => font.family.replace(/["']/g, '') === 'Hanken Grotesk' && font.status === 'loaded')), 'The local preview must load the bundled Hanken Grotesk font');
   assert.match(await page.title(), /TheoremOS/);
   assert.equal(await page.locator('h1').count(), 1);
   await checkWorkbench(page, '1440px local preview');
   await checkScreenshotPreview(page, 1440);
   await checkArchivePreview(page, 1440);
+  await checkProductImages(page, '1440px local preview');
   assert.equal(await page.locator('#motion-toggle, .manifold').count(), 0);
   assert.equal(await page.locator('#demo').evaluate(demo => demo.closest('.hero-shell') === null), true,
     'The archived replay must be a separate section from the workbench hero');
@@ -151,13 +201,13 @@ try {
   assert.match(boundary, /静态/);
   assert.match(boundary, /Linux|本地/);
   await hostingFaq.locator('summary').click();
-  assert.equal(await page.locator('.proof-card').count(), accepted.length);
-  assert.equal(await page.locator('.proof-count').innerText(), String(accepted.length).padStart(2, '0'));
+  assert.equal(await page.locator('.proof-table tbody .proof-row[data-accepted-proof]').count(), accepted.length);
+  assert.equal(await page.locator('.proof-count').innerText(), String(accepted.length));
   for (const record of accepted) {
     const card = page.locator(`[data-accepted-proof="${record.id}"]`);
     assert.equal(await card.locator('.proof-credit').innerText(), record.model);
     assert.equal(await card.locator('.official-link').getAttribute('href'), record.official.resultUrl);
-    assert.equal(await card.locator('.proof-card-footer a').first().getAttribute('href'), `archive.html#proof=${record.id}&tab=source`);
+    assert.equal(await card.locator('a[data-proof-source]').getAttribute('href'), `archive.html#proof=${record.id}&tab=source`);
   }
   assert.match(await page.locator('.proof-provenance').innerText(), /前身 DeepScientist/);
   assert.match(await page.locator('.receipt-status').innerText(), new RegExp(replayEvidence.status));
@@ -189,9 +239,11 @@ try {
     await page.locator(`#tab-${id}`).click();
     assert.equal(await page.locator(`#tab-${id}`).getAttribute('aria-selected'), 'true');
     assert.equal(await page.locator('#component-panel').getAttribute('aria-labelledby'), `tab-${id}`);
-    assert.equal(await page.locator('.diagram-node.is-active').getAttribute('data-diagram'), id);
     assert.match(await page.locator('#module-kicker').innerText(), new RegExp(id.toUpperCase()));
-    assert.match(await page.locator('.independent-check').innerText(), /完整原题 · 独立 Lean 验收/);
+    for (const [field, wording] of Object.entries(componentContent[id])) {
+      assert.match(await page.locator(`#module-${field}`).innerText(), wording, `Component ${id} must show its own ${field}`);
+    }
+    assert.match(await page.locator('.independent-check').innerText(), /完整原题.*独立 Lean.*验收/);
     await checkWidth(page, `component ${id}`);
   }
   await page.locator('#tab-m5').focus();
@@ -259,20 +311,14 @@ try {
   for (const viewport of [{ width: 1920, height: 1080 }, { width: 768, height: 1024 }, { width: 390, height: 844 }, { width: 320, height: 740 }]) {
     await page.setViewportSize(viewport);
     await page.goto(url);
-    await page.waitForSelector('.release-pill svg.lucide');
+    await page.waitForFunction(() => document.documentElement.dataset.landingReady === 'true');
     await page.evaluate(() => document.fonts.ready);
     await checkWorkbench(page, `${viewport.width}px homepage`);
     await checkScreenshotPreview(page, viewport.width);
     await checkArchivePreview(page, viewport.width);
+    await checkProductImages(page, `${viewport.width}px homepage`);
     await checkCommand(page, 'workbench');
     await checkWidth(page, `${viewport.width}px homepage`);
-    for (const artwork of await page.locator('.proof-art > svg, .proof-art > .type-formula, .proof-art > .unit-formula').all()) {
-      const fits = await artwork.evaluate(node => {
-        const bounds = node.getBoundingClientRect(), parent = node.parentElement.getBoundingClientRect();
-        return bounds.left >= parent.left - 1 && bounds.right <= parent.right + 1;
-      });
-      assert.ok(fits, `Proof artwork must remain complete at ${viewport.width}px`);
-    }
     for (const id of ['feedback', 'repair', 'verified']) {
       await page.locator(`#demo-${id}`).click();
       await checkWidth(page, `${viewport.width}px replay ${id}`);
@@ -295,6 +341,7 @@ try {
       });
       assert.equal(selected.active, 'true');
       assert.ok(selected.visible, 'Keyboard selection must reveal the active mobile component tab');
+      await checkMobileComponentGrid(page, `${viewport.width}px homepage`);
     }
     assert.equal(await page.locator('.extension-example').getAttribute('open'), null);
     await page.locator('.extension-example > summary').click();
@@ -334,8 +381,8 @@ try {
   await page.waitForFunction(() => document.querySelector('#mobile-nav').hidden);
   assert.equal(await page.locator('#mobile-nav').isVisible(), false);
 
-  // The promotional card opens the exact archived source, and the archive returns home.
-  await page.locator('[data-accepted-proof="annals_rademacher_enflo_type"] .proof-card-footer a').first().click();
+  // The proof row opens the exact archived source, and the archive returns home.
+  await page.locator('[data-accepted-proof="annals_rademacher_enflo_type"] a[data-proof-source]').click();
   await page.waitForSelector('.source-code');
   assert.match(await page.locator('.is-declaration').innerText(), /theorem theorem_1_1/);
   await page.getByRole('link', { name: 'TheoremOS 首页' }).click();
@@ -344,14 +391,15 @@ try {
   const noJS = await browser.newPage({ javaScriptEnabled: false, viewport: { width: 1440, height: 1000 } });
   trackErrors(noJS);
   await noJS.goto(url);
-  assert.equal(await noJS.locator('.proof-card').count(), accepted.length);
+  assert.equal(await noJS.locator('.proof-table tbody .proof-row[data-accepted-proof]').count(), accepted.length);
   await checkWorkbench(noJS, 'JavaScript-disabled homepage');
+  await checkProductImages(noJS, 'JavaScript-disabled homepage');
   assert.equal(await noJS.locator('.workbench-image-link').getAttribute('href'), 'assets/workbench-full-desktop.png');
   assert.ok(fs.existsSync(path.join(site, 'assets/workbench-full-desktop.png')));
   await noJS.locator('.extension-example > summary').click();
   assert.equal(await noJS.locator('.extension-code').isVisible(), true);
   await checkCommand(noJS, 'workbench');
-  assert.equal(await noJS.locator('.proof-card h3 a').first().isVisible(), true);
+  assert.equal(await noJS.locator('[data-accepted-proof] h3 a').first().isVisible(), true);
   await noJS.close();
 
   // Test the repository subpath used by GitHub Pages, with real HTTP resource loading.
@@ -367,17 +415,20 @@ try {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const hosted = `http://127.0.0.1:${server.address().port}/theorem-os/`;
   await page.goto(hosted);
+  await page.waitForFunction(() => document.documentElement.dataset.landingReady === 'true');
   await page.evaluate(() => document.fonts.ready);
-  assert.ok(await page.evaluate(() => [...document.fonts].some(font => font.family === 'Inter' && font.status === 'loaded')), 'The Pages subpath must load the bundled font');
+  assert.ok(await page.evaluate(() => [...document.fonts].some(font => font.family.replace(/["']/g, '') === 'Hanken Grotesk' && font.status === 'loaded')), 'The Pages subpath must load the bundled Hanken Grotesk font');
   await checkWorkbench(page, 'GitHub Pages repository subpath');
+  await checkProductImages(page, 'GitHub Pages repository subpath');
   await checkScreenshotPreview(page, 1440);
   await page.locator('#tab-m4').click();
-  assert.match(await page.locator('#module-kicker').innerText(), /CONTEXT/);
+  assert.match(await page.locator('#module-kicker').innerText(), /M4/);
+  assert.match(await page.locator('#module-description').innerText(), componentContent.m4.description);
   await page.locator('.hero-actions a[href="archive.html"]').click();
   await page.waitForSelector('.proof-row');
   assert.equal(await page.locator('.proof-row').count(), catalog.records.length);
   assert.deepEqual(errors, []);
-  console.log('Landing checks passed: responsive workbench and uncropped archive screenshots, modal zoom, panning, focus restoration and closing, archived replay and mobile receipt order, verified proof links and attribution, scrollable component tabs, expandable source example, command copying and failure feedback, mobile navigation, JavaScript-disabled content, file preview, Pages subpath, and 5 viewport sizes.');
+  console.log('Landing checks passed: four real product pictures, responsive workbench and uncropped archive screenshots, modal zoom, panning, focus restoration and closing, archived replay and mobile receipt order, verified proof-table links and attribution, complete mobile component grid and changing interface content, expandable source example, command copying and failure feedback, mobile navigation, JavaScript-disabled content, file preview, bundled Hanken Grotesk, Pages subpath, and 5 viewport sizes.');
 } finally {
   if (server) await new Promise(resolve => server.close(resolve));
   await browser.close();

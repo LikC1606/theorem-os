@@ -4,6 +4,7 @@ import {
   Maximize2, Menu, Pause, Play, Plus, RotateCcw, ScanLine, ShieldCheck, Terminal, X, ZoomIn, ZoomOut,
 } from 'lucide';
 import { gsap } from 'gsap';
+import { createSelectionIndicator } from './selectionIndicator';
 
 const iconSet = { ArrowDown, ArrowDownRight, ArrowRight, ArrowUpRight, Blocks, Check, ChevronLeft, ChevronRight, Code2, Copy,
   Download, ExternalLink, FileCode2, FileJson2, Files, GitFork, Globe, History, Info, Maximize2, Menu, Pause, Play, Plus,
@@ -37,14 +38,12 @@ const entranceMotion = gsap.matchMedia();
 entranceMotion.add('(prefers-reduced-motion: no-preference)', context => {
   if (!introPlayed) {
     introPlayed = true;
-    gsap.set('.release-pill', { opacity: 0, y: 10 });
-    gsap.set('#hero-title', { opacity: 0, y: 18 });
+    gsap.set('.hero-name', { yPercent: 110 });
     gsap.set('.hero-category, .hero-description', { opacity: 0, y: 12 });
     gsap.set('.hero-actions', { opacity: 0, y: 10 });
     gsap.set('.workbench-preview', { opacity: 0, y: 20 });
     gsap.timeline({ defaults: { duration: .65, ease: 'power3.out', clearProps: 'opacity,transform' } })
-      .to('.release-pill', { opacity: 1, y: 0 })
-      .to('#hero-title', { opacity: 1, y: 0 }, .08)
+      .to('.hero-name', { yPercent: 0, duration: .85 }, 0)
       .to('.hero-category, .hero-description', { opacity: 1, y: 0, stagger: .06 }, .16)
       .to('.hero-actions', { opacity: 1, y: 0 }, .28)
       .to('.workbench-preview', { opacity: 1, y: 0, duration: .8 }, .32);
@@ -55,41 +54,58 @@ entranceMotion.add('(prefers-reduced-motion: no-preference)', context => {
       revealed.add(entry.target);
       observer.unobserve(entry.target);
       context.add(() => {
-        gsap.set(entry.target, { opacity: .25, y: 16 });
-        gsap.to(entry.target, { opacity: 1, y: 0, duration: .6, ease: 'power2.out', clearProps: 'opacity,transform' });
+        const target = entry.target;
+        const settle = { duration: .6, ease: 'power2.out', clearProps: 'opacity,transform' };
+        if (target.matches('.proof-row')) {
+          gsap.fromTo(target.children, { opacity: .4, x: 16 }, { ...settle, opacity: 1, x: 0, stagger: .06 });
+        } else if (target.matches('.component-explorer')) {
+          gsap.fromTo(target.querySelectorAll('.component-tab'), { opacity: .35, x: -20 },
+            { ...settle, opacity: 1, x: 0, stagger: .07 });
+          gsap.fromTo(target.querySelector('.component-panel'), { opacity: .4, y: 16 },
+            { ...settle, opacity: 1, y: 0, delay: .2 });
+        } else if (target.matches('.product-fragment, .archive-showcase')) {
+          gsap.fromTo(target.querySelector('img'), { opacity: .5, scale: .98 },
+            { ...settle, opacity: 1, scale: 1, duration: .8 });
+          gsap.fromTo(target.querySelector('figcaption'), { opacity: .4, y: 12 },
+            { ...settle, opacity: 1, y: 0, delay: .15 });
+        } else if (target.matches('.faq-list')) {
+          gsap.fromTo(target.children, { opacity: .4, x: 20 },
+            { ...settle, opacity: 1, x: 0, stagger: .08 });
+        } else if (target.matches('.section-heading, .record-notes, .start-copy')) {
+          gsap.fromTo(target.children, { opacity: .4, y: 18 },
+            { ...settle, opacity: 1, y: 0, stagger: .08 });
+        } else {
+          gsap.fromTo(target, { opacity: .4, y: 20 }, { ...settle, opacity: 1, y: 0 });
+        }
       });
     }
   }, { rootMargin: '0px 0px -35px 0px', threshold: .08 });
-  document.querySelectorAll('.section-heading, .replay-window, .proof-card, .component-explorer, .archive-preview, .record-notes, .start-copy, .start-terminal, .faq-section > div')
+  document.querySelectorAll('.section-heading, .replay-window, .proof-row, .component-explorer, .product-fragment, .archive-showcase, .record-notes, .start-copy, .start-terminal, .faq-list')
     .forEach(target => observer.observe(target));
   return () => observer.disconnect();
 });
 
 const components = {
-  m1: { kicker: 'M1 / PROOF CONSTRUCTION', title: '把想法，写成候选证明。',
+  m1: { contract: 'M1 · 证明构造接口', title: '把想法，写成候选证明。',
     description: '调用模型会话，在隔离工作区中构造和修复 Lean 候选。研究你的生成方式、提示和修复策略。',
-    input: '题目 · 上下文 · 操作 · 模型会话', output: '候选记录 · 工作区中的证明', path: 'M104 70 290 118' },
-  m2: { kicker: 'M2 / CHECKS & FEEDBACK', title: '让诊断，成为研究线索。',
+    input: '题目 · 上下文 · 操作 · 模型会话', output: '候选记录 · 工作区中的证明' },
+  m2: { contract: 'M2 · 检查反馈接口', title: '让诊断，成为研究线索。',
     description: '检查候选与辅助证明，把 Lean 诊断交还研究过程。局部检查之后，集成结果仍需接受完整原题的独立验收。',
-    input: '固定题目 · 候选源码 · 检查环境', output: '绑定源码摘要的检查与诊断', path: 'M476 70 290 118' },
-  m3: { kicker: 'M3 / SEARCH POLICY', title: '让下一步，有章可循。',
+    input: '固定题目 · 候选源码 · 检查环境', output: '绑定源码摘要的检查与诊断' },
+  m3: { contract: 'M3 · 搜索接口', title: '让下一步，有章可循。',
     description: '选择就绪任务，决定继续、重试或停止。把任务排序与路线、预算约束放在一起研究。',
-    input: '研究状态 · 候选操作 · 共享预算', output: '下一步操作 · 有序就绪任务', path: 'M290 34V118' },
-  m4: { kicker: 'M4 / CONTEXT SELECTION', title: '把相关证据，带入思考。',
+    input: '研究状态 · 候选操作 · 共享预算', output: '下一步操作 · 有序就绪任务' },
+  m4: { contract: 'M4 · 上下文接口', title: '把相关证据，带入思考。',
     description: '从题目、已有成果与失败记录中整理上下文。比较信息选择、上下文压缩和检索策略。',
-    input: '题目 · 当前任务 · 可见证据', output: '带来源身份的上下文包', path: 'M128 194 290 118' },
-  m5: { kicker: 'M5 / COOPERATION & REUSE', title: '让分工与交接，可以研究。',
+    input: '题目 · 当前任务 · 可见证据', output: '带来源身份的上下文包' },
+  m5: { contract: 'M5 · 协作复用接口', title: '让分工与交接，可以研究。',
     description: '组织隔离工作区、任务分配与独立审阅。比较单 Agent、独立并行与任务协作的研究方法。',
-    input: '就绪任务 · Worker · 路线约束', output: '工作区配置 · 任务与审阅分配', path: 'M452 194 290 118' },
+    input: '就绪任务 · Worker · 路线约束', output: '工作区配置 · 任务与审阅分配' },
 };
 type Component = keyof typeof components;
 const narrow = matchMedia('(max-width: 600px)');
 const componentTabs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-component]'));
-function revealComponent(tab: HTMLButtonElement) {
-  if (!narrow.matches) return;
-  const list = element('.component-tabs');
-  list.scrollLeft = tab.offsetLeft - (list.clientWidth - tab.offsetWidth) / 2;
-}
+const componentIndicator = createSelectionIndicator(element('.component-tabs'), reducedMotion);
 function selectComponent(id: Component, focus = false) {
   const content = components[id];
   if (!content) return;
@@ -98,16 +114,14 @@ function selectComponent(id: Component, focus = false) {
     const selected = tab.dataset.component === id;
     tab.setAttribute('aria-selected', String(selected));
     tab.tabIndex = selected ? 0 : -1;
-    if (selected) revealComponent(tab);
     if (selected && focus) tab.focus();
   }
   element('#component-panel').setAttribute('aria-labelledby', `tab-${id}`);
-  for (const [key, value] of Object.entries({ kicker: content.kicker, title: content.title,
+  for (const [key, value] of Object.entries({ kicker: content.contract, title: content.title,
     description: content.description, input: content.input, output: content.output })) {
     element(`#module-${key}`).textContent = value;
   }
-  document.querySelectorAll<HTMLElement>('[data-diagram]').forEach(node => node.classList.toggle('is-active', node.dataset.diagram === id));
-  document.querySelector('.module-active-path')!.setAttribute('d', content.path);
+  componentIndicator.update();
   if (changed) animateSelection([element('.module-details')]);
 }
 componentTabs.forEach(tab => tab.addEventListener('click', () => selectComponent(tab.dataset.component as Component)));
@@ -126,6 +140,7 @@ function handleTabKeys(event: KeyboardEvent, tabs: HTMLButtonElement[], select: 
 }
 
 const replayTabs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-replay-stage]'));
+const replayIndicator = createSelectionIndicator(element('.replay-tabs'), reducedMotion);
 const replayWindow = element('.replay-window');
 const replayPanels = replayTabs.map(tab => element(`#stage-${tab.dataset.replayStage}`));
 const replayPlay = element<HTMLButtonElement>('#replay-play');
@@ -169,6 +184,7 @@ function renderReplayStage(index: number, focus = false) {
     replayPanels[position].hidden = !selected;
   }
   gsap.set(replayFill, { scaleX: (index + 1) / replayTabs.length });
+  replayIndicator.update();
   updateReplayControls();
   if (changed) animateSelection([replayPanels[index]], 6);
   if (focus) replayTabs[index].focus({ preventScroll: true });
@@ -246,13 +262,12 @@ reducedMotion.addEventListener('change', () => {
 updateReplayControls();
 
 element('.component-tabs').addEventListener('keydown', event => handleTabKeys(event, componentTabs, tab => selectComponent(tab.dataset.component as Component, true)));
+const componentGrid = matchMedia('(max-width: 900px)');
 const orientComponents = () => {
-  element('.component-tabs').setAttribute('aria-orientation', narrow.matches ? 'horizontal' : 'vertical');
-  const selected = componentTabs.find(tab => tab.getAttribute('aria-selected') === 'true');
-  if (selected) revealComponent(selected);
+  element('.component-tabs').setAttribute('aria-orientation', componentGrid.matches ? 'horizontal' : 'vertical');
 };
 orientComponents();
-narrow.addEventListener('change', orientComponents);
+componentGrid.addEventListener('change', orientComponents);
 
 const previewLink = element<HTMLAnchorElement>('.workbench-image-link');
 const previewDialog = element<HTMLDialogElement>('#workbench-dialog');
@@ -313,6 +328,7 @@ previewMedia.addEventListener('lostpointercapture', () => {
 });
 
 const commandTabs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-command]'));
+const commandIndicator = createSelectionIndicator(element('.command-tabs'), reducedMotion);
 type Command = 'workbench' | 'install' | 'replay';
 const commandLabels: Record<Command, string> = {
   workbench: '复制部署工作台命令', install: '复制获取项目命令', replay: '复制本地回放命令',
@@ -329,6 +345,7 @@ function selectCommand(id: Command, focus = false) {
     element(`#${tab.dataset.command}-panel`).hidden = !selected;
   }
   element('.copy-command').setAttribute('aria-label', commandLabels[id]);
+  commandIndicator.update();
   if (changed) animateSelection([element(`#${id}-panel`)], 5);
 }
 commandTabs.forEach(tab => tab.addEventListener('click', () => selectCommand(tab.dataset.command as typeof command)));
@@ -376,5 +393,15 @@ menuButton.addEventListener('click', () => setMenu(menuButton.getAttribute('aria
 mobileNav.addEventListener('click', event => { if ((event.target as HTMLElement).closest('a')) setMenu(false); });
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && !mobileNav.hidden) setMenu(false, true); });
 document.addEventListener('click', event => { if (!(event.target as HTMLElement).closest('.site-header') && !mobileNav.hidden) setMenu(false); });
-const desktop = matchMedia('(min-width: 851px)');
+const desktop = matchMedia('(min-width: 901px)');
 desktop.addEventListener('change', () => { if (desktop.matches) setMenu(false); });
+const indicators = [componentIndicator, replayIndicator, commandIndicator];
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) indicators.forEach(indicator => indicator.update(false));
+});
+window.addEventListener('pagehide', event => indicators.forEach(indicator => {
+  if (event.persisted) indicator.update(false);
+  else indicator.destroy();
+}));
+window.addEventListener('pageshow', () => indicators.forEach(indicator => indicator.update(false)));
+document.documentElement.dataset.landingReady = 'true';

@@ -1,5 +1,9 @@
 # 首页设计参考
 
+2026-10-17 补充：现已安装并执行 taste-skill，官网按同一随机 seed 重做排版、成果表格与手机组件网格。完整方向、适配理由、真实素材和截图审查见 [design-taste.md](design-taste.md)。下方保留前一轮调研记录，其中旧组件图与横向标签已由本轮方案替换。
+
+同日继续使用 GSAP 官方技能与 React Bits 社区技能，从 React Bits 官方 registry 获取 GooeyNav 源码，参考其目标测量与重排校准，在原生 TypeScript 官网加入 GSAP 滑动选中背景。应用位置为研究组件、证明回放和部署命令；没有将官网改为 React。实现与验证见 [design-taste.md](design-taste.md#gsap-与-react-bits-实际应用)。
+
 2026-10-16 实际浏览了以下四个公开官网的首屏与后续内容。参考的是信息结构和排版方法，页面使用 TheoremOS 自己的源码、记录和图像。
 
 | 官网 | 观察 | 在 TheoremOS 中的应用 |

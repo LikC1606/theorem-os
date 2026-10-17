@@ -30,58 +30,51 @@
     <div class="hero-shell">
       <section class="hero wrap" aria-labelledby="hero-title">
         <div class="hero-copy">
-          <a class="release-pill" href="https://github.com/LikC1606/theorem-os/releases/tag/v0.1.0" target="_blank" rel="noreferrer"><span class="status-dot"></span>v0.1.0<span class="pill-divider"></span>Research Preview<i data-lucide="arrow-up-right"></i></a>
-          <h1 id="hero-title">Theorem<span class="hero-os">OS</span></h1>
-          <p class="hero-category">数学 Agent 的开源研究运行时。</p>
-          <p class="hero-description">连接你的模型，独立验证 Lean 证明。</p>
-          <div class="hero-actions"><a class="button button-dark" href="#start">部署本地工作台<i data-lucide="arrow-right"></i></a><a class="button button-outline" href="archive.html">查看证明档案<i data-lucide="arrow-up-right"></i></a></div>
+          <h1 id="hero-title"><span class="hero-name">TheoremOS</span></h1>
+          <div class="hero-baseline"><div><p class="hero-category">数学 Agent 的开源研究运行时。</p><p class="hero-description">连接你的模型，独立验证 Lean 证明。</p></div><div class="hero-actions"><a class="button button-dark" href="#start">部署本地工作台<i data-lucide="arrow-right"></i></a><a class="text-link" href="archive.html">查看证明档案<i data-lucide="arrow-up-right"></i></a></div></div>
         </div>
       </section>
       <figure class="workbench-preview wrap" id="workbench-preview">
-        <a class="workbench-image-link" href="assets/workbench-full-desktop.png" aria-label="放大查看本地工作台截图" title="放大查看截图"><picture class="workbench-picture"><source media="(max-width: 600px)" srcset="assets/workbench-mobile.png" width="390" height="440"><img src="assets/workbench-desktop.png" alt="TheoremOS 本地工作台：左侧研究对话与任务输入，右侧实时 Lean 工作区；当前为未提交的 Mathlib 草稿。" width="1440" height="500" fetchpriority="high"></picture><span class="preview-expand"><i data-lucide="maximize-2"></i></span></a>
-        <figcaption id="workbench-caption"><span><span class="status-dot"></span>本地工作台截图<span class="preview-divider">/</span>Mathlib 草稿 · 未提交</span><a href="#start">使用自己的 API Key<i data-lucide="arrow-down-right"></i></a></figcaption>
+        <a class="workbench-image-link" href="assets/workbench-full-desktop.png" aria-label="放大查看本地工作台截图" title="放大查看截图"><picture class="workbench-picture"><source media="(max-width: 900px)" srcset="assets/workbench-mobile.png" width="390" height="440"><img src="assets/workbench-desktop.png" alt="TheoremOS 本地工作台：左侧研究对话与任务输入，右侧实时 Lean 工作区；当前为未提交的 Mathlib 草稿。" width="1440" height="500" fetchpriority="high"></picture><span class="preview-expand"><i data-lucide="maximize-2"></i></span></a>
+        <figcaption id="workbench-caption"><div class="tablet-workbench-copy"><h3>在对话中探索，<br>在工作区验证。</h3><p>研究对话与 Lean 工作区同步展开。手机和平板可切换视图，查看原题、源码与检查状态。</p></div><span><span class="status-dot"></span>本地工作台截图<span class="preview-divider">/</span>Mathlib 草稿 · 未提交</span><a href="#start">使用自己的 API Key<i data-lucide="arrow-down-right"></i></a></figcaption>
       </figure>
     </div>
-    <div class="ecosystem wrap"><p>基于开放的数学与工程工具</p><div class="ecosystem-tools"><a href="https://lean-lang.org/" target="_blank" rel="noreferrer"><span class="lean-symbol">∀</span>Lean 4</a><a href="https://github.com/leanprover-community/mathlib4" target="_blank" rel="noreferrer"><span class="mathlib-symbol">∑</span>mathlib</a><a href="https://github.com/leanprover/lean-eval" target="_blank" rel="noreferrer"><i data-lucide="scan-line"></i>Lean-Eval</a><span><i data-lucide="terminal"></i>Bun / TypeScript</span></div></div>
-
     <section class="replay-section" id="demo" aria-labelledby="demo-title">
       <div class="wrap">
-        <div class="section-heading"><div><p class="eyebrow"><span class="section-index">01</span> FROM CANDIDATE TO VERIFIED</p><h2 id="demo-title">从候选源码，<br><em>到独立验收。</em></h2></div><div class="replay-introduction"><p>一份预设证明的四步回放。<br>源码、检查与修复，连同最终回执一起留存。</p><a class="text-link" href="archive.html#view=quickstart">查看完整回放记录<i data-lucide="arrow-up-right"></i></a></div></div>
+        <div class="section-heading"><h2 id="demo-title">从候选，<br>到独立验收。</h2><div class="replay-introduction"><p>一份预设证明的四步回放。源码、检查与修复，连同最终回执一起留存。</p><a class="text-link" href="archive.html#view=quickstart">查看完整回放记录<i data-lucide="arrow-up-right"></i></a></div></div>
         <div class="product-demo" aria-label="TheoremOS 本地预设回放展示"><!-- research-replay --></div>
       </div>
     </section>
 
     <section class="proofs-section" id="proofs" aria-labelledby="proofs-title">
       <div class="wrap">
-        <div class="section-heading proof-heading"><div><p class="eyebrow"><span class="section-index">02</span> THE PROOF, ON RECORD</p><h2 id="proofs-title">研究成果，<br><em>有据可查。</em></h2></div><div class="proof-heading-note"><span class="proof-count mono"><!-- accepted-count --></span><p>个具备 Lean-Eval<br>官方通过记录的证明包</p><a href="archive.html" class="text-link">浏览完整档案<i data-lucide="arrow-up-right"></i></a></div></div>
-        <div class="proof-grid"><!-- accepted-proofs --></div>
+        <div class="section-heading proof-heading"><h2 id="proofs-title">研究成果，<br>有据可查。</h2><div class="proof-heading-note"><span class="proof-count"><!-- accepted-count --></span><p>个具备 Lean-Eval<br>官方通过记录的证明包</p><a href="archive.html" class="text-link">浏览完整档案<i data-lucide="arrow-up-right"></i></a></div></div>
+        <table class="proof-table"><caption class="sr-only">具备官方通过记录的证明包，附原始研究归属与验收链接</caption><thead><tr><th scope="col">题目与原始研究记录</th><th scope="col">研究领域</th><th scope="col">验收与证据</th></tr></thead><tbody><!-- accepted-proofs --></tbody></table>
         <p class="proof-provenance"><i data-lucide="info"></i><span>成果来自前身 DeepScientist / DeepScientist Math 及后续工作，包含继续运行与环境迁移。原始归属、官方结果与源码见各题档案。</span></p>
       </div>
     </section>
 
     <div class="components-shell"><section class="components-section wrap" id="components" aria-labelledby="components-title">
-      <div class="section-heading"><div><p class="eyebrow"><span class="section-index">03</span> COMPOSE YOUR RESEARCH</p><h2 id="components-title">一个运行时。<br><em>五种研究决策。</em></h2></div><p class="heading-description">固定题目、环境、模型与预算，<br>替换一类研究决策，开展你的对照实验。<br>五个组件，支持单 Agent 与多 Agent 研究。</p></div>
+      <div class="section-heading"><h2 id="components-title">五种决策，<br>组合研究。</h2><p class="heading-description">固定题目、环境、模型与预算，替换一类研究决策。五个源码组件，支持单 Agent 与多 Agent 对照研究。</p></div>
       <div class="component-explorer">
         <div class="component-tabs" role="tablist" aria-label="五个研究组件" aria-orientation="vertical">
-          <button class="component-tab" type="button" id="tab-m1" role="tab" aria-selected="false" aria-controls="component-panel" tabindex="-1" data-component="m1"><span class="component-number mono">M1</span><span><strong>证明构造</strong><small>生成候选，推进证明</small></span><i data-lucide="arrow-up-right"></i></button>
-          <button class="component-tab" type="button" id="tab-m2" role="tab" aria-selected="false" aria-controls="component-panel" tabindex="-1" data-component="m2"><span class="component-number mono">M2</span><span><strong>检查与反馈</strong><small>用 Lean 诊断指导下一次尝试</small></span><i data-lucide="arrow-up-right"></i></button>
-          <button class="component-tab" type="button" id="tab-m3" role="tab" aria-selected="true" aria-controls="component-panel" tabindex="0" data-component="m3"><span class="component-number mono">M3</span><span><strong>搜索决策</strong><small>选择任务、路线与预算</small></span><i data-lucide="arrow-up-right"></i></button>
-          <button class="component-tab" type="button" id="tab-m4" role="tab" aria-selected="false" aria-controls="component-panel" tabindex="-1" data-component="m4"><span class="component-number mono">M4</span><span><strong>上下文选择</strong><small>把相关证据带入研究</small></span><i data-lucide="arrow-up-right"></i></button>
-          <button class="component-tab" type="button" id="tab-m5" role="tab" aria-selected="false" aria-controls="component-panel" tabindex="-1" data-component="m5"><span class="component-number mono">M5</span><span><strong>协作与复用</strong><small>组织分工、交接与审阅</small></span><i data-lucide="arrow-up-right"></i></button>
+          <button class="component-tab" type="button" id="tab-m1" role="tab" aria-selected="false" aria-controls="component-panel" tabindex="-1" data-component="m1"><span class="component-number">M1</span><strong>证明构造</strong><i data-lucide="arrow-up-right"></i></button>
+          <button class="component-tab" type="button" id="tab-m2" role="tab" aria-selected="false" aria-controls="component-panel" tabindex="-1" data-component="m2"><span class="component-number">M2</span><strong>检查反馈</strong><i data-lucide="arrow-up-right"></i></button>
+          <button class="component-tab" type="button" id="tab-m3" role="tab" aria-selected="true" aria-controls="component-panel" tabindex="0" data-component="m3"><span class="component-number">M3</span><strong>搜索决策</strong><i data-lucide="arrow-up-right"></i></button>
+          <button class="component-tab" type="button" id="tab-m4" role="tab" aria-selected="false" aria-controls="component-panel" tabindex="-1" data-component="m4"><span class="component-number">M4</span><strong>上下文选择</strong><i data-lucide="arrow-up-right"></i></button>
+          <button class="component-tab" type="button" id="tab-m5" role="tab" aria-selected="false" aria-controls="component-panel" tabindex="-1" data-component="m5"><span class="component-number">M5</span><strong>协作复用</strong><i data-lucide="arrow-up-right"></i></button>
         </div>
         <div class="component-panel" id="component-panel" role="tabpanel" tabindex="0" aria-labelledby="tab-m3">
-          <div class="panel-topline"><span class="mono">SOLVER MODULES</span><span><span class="status-dot"></span>组合结构示意</span></div>
-          <div class="module-diagram" aria-hidden="true"><svg viewBox="0 0 580 255"><g class="module-connections"><path d="M104 70 290 118 476 70M128 194 290 118 452 194M290 34V118"/><path class="module-loop" d="M104 70Q290-18 476 70Q543 156 452 194Q290 272 128 194Q44 146 104 70Z"/></g><path class="module-active-path" d="M290 34V118"/></svg><span class="diagram-node diagram-m1" data-diagram="m1"><b>M1</b>构造</span><span class="diagram-node diagram-m2" data-diagram="m2"><b>M2</b>检查</span><span class="diagram-node diagram-m3 is-active" data-diagram="m3"><b>M3</b>搜索</span><span class="diagram-node diagram-m4" data-diagram="m4"><b>M4</b>上下文</span><span class="diagram-node diagram-m5" data-diagram="m5"><b>M5</b>协作</span><span class="diagram-center"><i data-lucide="file-code-2"></i><span>候选证明<small class="mono">Lean source</small></span></span></div>
-          <div class="module-details"><div><span class="mono module-detail-label" id="module-kicker">M3 / SEARCH POLICY</span><h3 id="module-title">让下一步，有章可循。</h3><p id="module-description">选择就绪任务，决定继续、重试或停止。把任务排序与路线、预算约束放在一起研究。</p></div><dl><div><dt>输入</dt><dd id="module-input">研究状态 · 候选操作 · 共享预算</dd></div><div><dt>输出</dt><dd id="module-output">下一步操作 · 有序就绪任务</dd></div></dl></div>
-          <div class="independent-check"><i data-lucide="shield-check"></i><span>完整原题 · 独立 Lean 验收</span><span class="mono">FINAL CHECK</span></div>
+          <div class="module-details"><div><h3 id="module-title">让下一步，有章可循。</h3><p id="module-description">选择就绪任务，决定继续、重试或停止。把任务排序与路线、预算约束放在一起研究。</p></div><dl><div><dt>输入</dt><dd id="module-input">研究状态 · 候选操作 · 共享预算</dd></div><div><dt>输出</dt><dd id="module-output">下一步操作 · 有序就绪任务</dd></div></dl><p class="module-contract" id="module-kicker">M3 · 搜索接口</p></div>
+          <div class="independent-check"><i data-lucide="shield-check"></i><span>完整原题始终由独立 Lean 流程验收。</span></div>
         </div>
       </div>
       <div class="component-bottom"><p>通过带版本的 TypeScript 源码接口组合研究策略。</p><a class="text-link" href="https://github.com/LikC1606/theorem-os/blob/main/examples/components/README.md" target="_blank" rel="noreferrer">动手替换一个组件<i data-lucide="arrow-up-right"></i></a></div>
 
       <details class="extension-example">
-        <summary><span class="extension-summary-icon"><i data-lucide="code-2"></i></span><span class="extension-summary-title"><strong>替换一处任务排序策略</strong><span class="mono">runGoalsFirst.ts · TypeScript</span></span><i data-lucide="plus"></i></summary>
-        <div class="extension-content"><div class="extension-copy"><span class="feature-label">M3 / SOURCE EXAMPLE</span><h3>接入你的研究方法。</h3><p>只替换 M3 的任务排序，保留其余默认组件。通过带版本的 TypeScript 源码接口，对照不同策略的研究结果。</p><a class="text-link" href="https://github.com/LikC1606/theorem-os/blob/main/scripts/mathematics/runGoalsFirst.ts" target="_blank" rel="noreferrer">查看完整源码示例<i data-lucide="arrow-up-right"></i></a></div>
-        <div class="extension-code"><div class="code-heading"><span class="mono">runGoalsFirst.ts</span><span>TypeScript</span></div><pre><code><span class="syntax-keyword">const</span> modules: <span class="syntax-type">SolverModules</span> = {
+        <summary><span class="extension-summary-title"><strong>查看 M3 任务排序的源码示例</strong><span>runGoalsFirst.ts · TypeScript</span></span><i data-lucide="plus"></i></summary>
+        <div class="extension-content"><div class="extension-copy"><h3>接入你的研究方法。</h3><p>只替换 M3 的任务排序，保留其余默认组件。通过带版本的 TypeScript 源码接口，对照不同策略的研究结果。</p><a class="text-link" href="https://github.com/LikC1606/theorem-os/blob/main/scripts/mathematics/runGoalsFirst.ts" target="_blank" rel="noreferrer">查看完整源码示例<i data-lucide="arrow-up-right"></i></a></div>
+        <div class="extension-code" data-ui><div class="code-heading"><span>runGoalsFirst.ts</span><span>TypeScript</span></div><pre><code><span class="syntax-keyword">const</span> modules: <span class="syntax-type">SolverModules</span> = {
   ...directSolverModules,
   id: <span class="syntax-string">'goals-first-example-v1'</span>,
   <span class="syntax-property">M3</span>: {
@@ -97,26 +90,25 @@
     </div>
     <section class="records-section" aria-labelledby="records-title">
       <div class="records-layout wrap">
-        <div class="section-heading"><div><p class="eyebrow"><span class="section-index">04</span> THE COMPLETE RECORD</p><h2 id="records-title">源码、来源与验收，<br><em>放在同一份档案。</em></h2></div><div class="records-introduction"><p>查看官方记录与原始归属，<br>按题目检索，直接检查 Lean 源码。</p><a class="text-link" href="archive.html">打开证明档案<i data-lucide="arrow-up-right"></i></a></div></div>
-        <figure class="archive-showcase"><a class="archive-image-link" href="archive.html" aria-label="打开可检索的证明档案"><picture><source media="(max-width: 600px)" srcset="assets/archive-preview-mobile.png" width="356" height="797"><img src="assets/archive-preview.png" alt="TheoremOS 证明档案真实界面，保留题目、原始归属、Lean 源码和验收证据。" width="1440" height="900" loading="lazy"></picture></a><figcaption><span><i data-lucide="files"></i>真实证明档案 · 原始项目与模型归属见记录</span><a href="archive.html">查看档案<i data-lucide="arrow-up-right"></i></a></figcaption></figure>
-        <div class="record-notes">
-          <div><i data-lucide="download"></i><div><h3>网页工作台</h3><p>下载 Lean 源码与验收报告。运行历史为临时记录。</p><a class="text-link" href="https://github.com/LikC1606/theorem-os/blob/main/docs/web-workbench.md" target="_blank" rel="noreferrer">工作台部署指南<i data-lucide="arrow-up-right"></i></a></div></div>
-          <div><i data-lucide="history"></i><div><h3>CLI 研究记录</h3><p>保存候选、诊断与累计用量，按原构建和组件版本恢复运行。</p><a class="text-link" href="https://github.com/LikC1606/theorem-os/blob/main/docs/usage.md#4-恢复运行" target="_blank" rel="noreferrer">运行与恢复文档<i data-lucide="arrow-up-right"></i></a></div></div>
+        <div class="section-heading"><h2 id="records-title">让研究过程，<br>看得见。</h2><div class="records-introduction"><p>从原题、模型配置到最终档案，每一处画面都来自实际运行的产品。</p><a class="text-link" href="archive.html">打开证明档案<i data-lucide="arrow-up-right"></i></a></div></div>
+        <div class="product-gallery">
+          <div class="source-column"><figure class="product-fragment"><a href="assets/workbench-source-detail.png" target="_blank" rel="noreferrer" aria-label="查看完整的 Mathlib 源码截图"><img src="assets/workbench-source-detail.png" alt="真实 Lean 工作区：固定 Mathlib 环境下尚未提交的原题与候选源码，保留 sorry。" width="953" height="444" loading="lazy"></a><figcaption><h3>原题与源码，同步查看。</h3><p>选择 Lean 标准库或固定 Mathlib 环境，在右侧工作区检查候选与诊断。这张截图为未提交草稿。</p></figcaption></figure><div class="record-notes"><div><h3>网页工作台</h3><p>下载 Lean 源码与验收报告。运行历史为临时记录。</p><a class="text-link" href="https://github.com/LikC1606/theorem-os/blob/main/docs/web-workbench.md" target="_blank" rel="noreferrer">工作台部署指南<i data-lucide="arrow-up-right"></i></a></div><div><h3>CLI 研究记录</h3><p>保存候选、诊断与累计用量，按原构建和组件版本恢复运行。</p><a class="text-link" href="https://github.com/LikC1606/theorem-os/blob/main/docs/usage.md#4-恢复运行" target="_blank" rel="noreferrer">运行与恢复文档<i data-lucide="arrow-up-right"></i></a></div></div></div>
+          <figure class="product-fragment settings-fragment"><a href="assets/workbench-settings-detail.png" target="_blank" rel="noreferrer" aria-label="查看完整的模型配置截图"><img src="assets/workbench-settings-detail.png" alt="真实研究配置：OpenAI 服务地址、模型、空 API Key，以及轮次、时间与 Agent 预算。" width="600" height="800" loading="lazy"></a><figcaption><h3>你的模型，你的预算。</h3><p>支持 OpenAI 及兼容 Responses API 的服务。API Key 不写入浏览器存储。</p></figcaption></figure>
         </div>
+        <figure class="archive-showcase"><a class="archive-image-link" href="archive.html" aria-label="打开可检索的证明档案"><picture><source media="(max-width: 600px)" srcset="assets/archive-preview-mobile.png" width="356" height="797"><img src="assets/archive-preview.png" alt="TheoremOS 证明档案真实界面，保留题目、原始归属、Lean 源码和验收证据。" width="1440" height="900" loading="lazy"></picture></a><figcaption><span>源码、来源与验收，放在同一份档案。</span><a href="archive.html">检索证明档案<i data-lucide="arrow-up-right"></i></a></figcaption></figure>
       </div>
     </section>
 
     <section class="start-section" id="start" aria-labelledby="start-title">
       <div class="start-layout wrap">
         <div class="start-copy">
-          <p class="eyebrow"><span class="section-index">05</span> YOUR NEXT EXPLORATION</p>
-          <h2 id="start-title">在你自己的环境，<br><em>开始下一次研究。</em></h2>
+          <h2 id="start-title">开始你的<br>下一次研究。</h2>
           <p>部署网页工作台，输入原题与自己的 API Key。<br>也可以先体验一次不调用模型的 Lean 回放。</p>
           <span class="replay-label"><i data-lucide="terminal"></i>Linux 本地运行 · Docker 部署</span>
           <div class="start-links"><a class="button button-lime" href="https://github.com/LikC1606/theorem-os" target="_blank" rel="noreferrer">在 GitHub 获取<i data-lucide="arrow-up-right"></i></a><a class="text-link" href="https://github.com/LikC1606/theorem-os/blob/main/docs/web-workbench.md" target="_blank" rel="noreferrer">部署指南<i data-lucide="arrow-up-right"></i></a></div>
         </div>
-        <div class="start-terminal">
-          <div class="terminal-heading"><span class="terminal-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="mono">theoremos / quickstart</span><i data-lucide="terminal"></i></div>
+        <div class="start-terminal" data-ui>
+          <div class="terminal-heading"><span>本地部署命令</span><i data-lucide="terminal"></i></div>
           <div class="command-tabs" role="tablist" aria-label="开始使用方式"><button id="command-workbench" type="button" role="tab" aria-controls="workbench-panel" aria-selected="true" tabindex="0" data-command="workbench">网页工作台</button><button id="command-install" type="button" role="tab" aria-controls="install-panel" aria-selected="false" tabindex="-1" data-command="install">CLI 安装</button><button id="command-replay" type="button" role="tab" aria-controls="replay-panel" aria-selected="false" tabindex="-1" data-command="replay">预设回放</button><button class="copy-command" type="button" aria-label="复制部署工作台命令" title="复制命令"><i data-lucide="copy"></i></button></div>
           <div id="workbench-panel" class="command-panel" role="tabpanel" aria-labelledby="command-workbench" tabindex="0">
             <p class="terminal-comment"># 需要 Linux 与 Docker Engine / Compose</p><pre><code>git clone https://github.com/LikC1606/theorem-os.git
@@ -144,14 +136,14 @@ bun run math inspect --run "$THEOREMOS_CASE/result.json"</code></pre>
           </div>
           <div class="terminal-bottom"><i data-lucide="shield-check"></i><span>以完整原题的 <code>evaluated_passed</code> 为验收结论</span></div>
         </div>
-        <div class="requirements"><span class="mono">OPEN BY DESIGN</span><span>Lean 4 + mathlib</span><span>自备 API Key</span><span>独立 Lean 验收</span><span class="extra-requirements">GitHub Pages 为静态官网，工作台需在 Linux 本地或服务器部署。</span></div>
+        <div class="requirements"><span><a href="https://lean-lang.org/" target="_blank" rel="noreferrer">Lean 4</a> + <a href="https://github.com/leanprover-community/mathlib4" target="_blank" rel="noreferrer">mathlib</a></span><span>自备 API Key</span><span>独立 Lean 验收</span><p class="extra-requirements">GitHub Pages 为静态官网，工作台需在 Linux 本地或服务器部署。</p></div>
       </div>
     </section>
 
-    <section class="faq-section wrap" aria-labelledby="faq-title"><div><p class="eyebrow">A FEW THINGS TO KNOW</p><h2 id="faq-title">开始之前。</h2><span class="faq-version mono">v0.1.0 / RESEARCH PREVIEW</span></div><div class="faq-list"><details><summary>适合用来做什么？<i data-lucide="plus"></i></summary><p>面向数学 Agent 研究者和 Lean 开发者，用于构造证明、比较搜索与协作方法，以及复盘研究实验。当前为研究预览版本，支持通过 TypeScript 源码扩展组件。</p></details><details><summary>可以直接在网页运行证明吗？<i data-lucide="plus"></i></summary><p>可以在部署后的网页工作台中提交 Lean 与 Mathlib 原题、输入自己的 API Key 并查看验收结果。当前 GitHub Pages 站点是静态官网，包含界面截图、预设回放和证明档案；运行工作台需要你自己的 Linux 本地环境或服务器，部署命令见上方。</p></details><details><summary>支持哪类 API Key？<i data-lucide="plus"></i></summary><p>网页工作台支持 OpenAI 及兼容 Responses API 的服务，服务地址由部署者配置。模型研究会产生服务商对应的用量；本地预设回放不调用模型，也不需要 API Key。</p></details><details><summary>网页工作台会保存研究记录吗？<i data-lucide="plus"></i></summary><p>运行记录临时保存在服务内存，可下载源码与报告；服务重启或会话到期后记录清空。网页草稿在当前标签页保存，API Key 不写入浏览器存储。CLI 支持独立的持久运行与恢复流程。</p></details></div></section>
+    <section class="faq-section wrap" aria-labelledby="faq-title"><h2 id="faq-title">开始之前。</h2><div class="faq-list"><details><summary>适合用来做什么？<i data-lucide="plus"></i></summary><p>面向数学 Agent 研究者和 Lean 开发者，用于构造证明、比较搜索与协作方法，以及复盘研究实验。当前为研究预览版本，支持通过 TypeScript 源码扩展组件。</p></details><details><summary>可以直接在网页运行证明吗？<i data-lucide="plus"></i></summary><p>可以在部署后的网页工作台中提交 Lean 与 Mathlib 原题、输入自己的 API Key 并查看验收结果。当前 GitHub Pages 站点是静态官网，包含界面截图、预设回放和证明档案；运行工作台需要你自己的 Linux 本地环境或服务器，部署命令见上方。</p></details><details><summary>支持哪类 API Key？<i data-lucide="plus"></i></summary><p>网页工作台支持 OpenAI 及兼容 Responses API 的服务，服务地址由部署者配置。模型研究会产生服务商对应的用量；本地预设回放不调用模型，也不需要 API Key。</p></details><details><summary>网页工作台会保存研究记录吗？<i data-lucide="plus"></i></summary><p>运行记录临时保存在服务内存，可下载源码与报告；服务重启或会话到期后记录清空。网页草稿在当前标签页保存，API Key 不写入浏览器存储。CLI 支持独立的持久运行与恢复流程。</p></details></div></section>
   </main>
 
-  <div class="footer-shell"><footer class="site-footer wrap"><div class="footer-top"><a class="brand" href="index.html"><img src="assets/mark.svg" alt="" width="31" height="31"><span>Theorem<span class="brand-os">OS</span></span></a><p>让数学探索，有据可循。</p><nav aria-label="页脚链接"><a href="archive.html">证明档案</a><a href="https://github.com/LikC1606/theorem-os/blob/main/docs/usage.md" target="_blank" rel="noreferrer">文档</a><a href="https://github.com/LikC1606/theorem-os" target="_blank" rel="noreferrer">GitHub<i data-lucide="arrow-up-right"></i></a></nav></div><div class="footer-wordmark" aria-hidden="true">Theorem<span>OS</span><span class="wordmark-symbol">⊢</span></div><div class="footer-bottom"><span>© 2026 TheoremOS contributors</span><span class="mono">BUILT FOR OPEN MATHEMATICAL RESEARCH</span><a href="LICENSE.txt">AGPL-3.0-only<i data-lucide="arrow-up-right"></i></a></div></footer></div>
+  <div class="footer-shell"><footer class="site-footer wrap"><div class="footer-top"><p>让数学探索，有据可循。</p><nav aria-label="页脚链接"><a href="archive.html">证明档案</a><a href="https://github.com/LikC1606/theorem-os/blob/main/docs/usage.md" target="_blank" rel="noreferrer">文档</a><a href="https://github.com/LikC1606/theorem-os" target="_blank" rel="noreferrer">GitHub<i data-lucide="arrow-up-right"></i></a></nav></div><div class="footer-wordmark" aria-hidden="true">TheoremOS</div><div class="footer-bottom"><span>© 2026 TheoremOS contributors</span><a href="https://github.com/LikC1606/theorem-os/releases/tag/v0.1.0" target="_blank" rel="noreferrer">v0.1.0 · Research Preview</a><a href="LICENSE.txt">AGPL-3.0-only<i data-lucide="arrow-up-right"></i></a></div></footer></div>
   <dialog class="preview-dialog" id="workbench-dialog" aria-labelledby="preview-title" aria-describedby="preview-description">
     <div class="preview-dialog-header"><div><strong id="preview-title">TheoremOS <span>研究工作台</span></strong><p id="preview-description">本地截图 · Mathlib 草稿 · 未提交</p></div><div class="preview-dialog-actions"><button type="button" class="preview-zoom" aria-label="放大截图" aria-pressed="false" title="放大截图"><i data-lucide="zoom-in"></i><i data-lucide="zoom-out"></i></button><a class="preview-original" href="assets/workbench-full-desktop.png" target="_blank" rel="noreferrer" aria-label="打开原始截图" title="打开原始截图"><i data-lucide="external-link"></i></a><button type="button" class="preview-close" aria-label="关闭截图预览" title="关闭" autofocus><i data-lucide="x"></i></button></div></div>
     <div class="preview-dialog-media" role="region" aria-label="研究工作台截图" tabindex="0"><picture><source media="(max-width: 600px)" srcset="assets/workbench-full-mobile.png" width="390" height="844"><img src="assets/workbench-full-desktop.png" alt="本地工作台完整双栏界面：左侧研究对话与任务输入，右侧尚未提交的 Mathlib 原题和 Lean 草稿预览。" width="1440" height="900" loading="lazy"></picture></div>

@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { buildSiteCatalog } from '../docs/web/catalog';
-import { acceptedProofCards, researchReplay } from '../docs/web/presentation';
+import { acceptedProofRows, researchReplay } from '../docs/web/presentation';
 import { LOCAL_EXAMPLE_FAILED_PROOF, LOCAL_EXAMPLE_PROOF } from '../src/math/localExample';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -30,13 +30,14 @@ await build({
 const homepage = fs.readFileSync(path.join(root, 'docs/index.html'), 'utf8')
   .replace('<!-- research-replay -->', researchReplay(LOCAL_EXAMPLE_FAILED_PROOF, LOCAL_EXAMPLE_PROOF,
     JSON.parse(fs.readFileSync(path.join(root, 'docs/assets/replay.json'), 'utf8'))))
-  .replace('<!-- accepted-count -->', String(catalog.records.filter(record => record.status === 'official_accepted').length).padStart(2, '0'))
-  .replace('<!-- accepted-proofs -->', acceptedProofCards(catalog));
+  .replace('<!-- accepted-count -->', String(catalog.records.filter(record => record.status === 'official_accepted').length))
+  .replace('<!-- accepted-proofs -->', acceptedProofRows(catalog));
 fs.writeFileSync(path.join(output, 'index.html'), homepage);
 for (const file of ['archive.html', 'site.css']) fs.copyFileSync(path.join(root, 'docs', file), path.join(output, file));
 // Embed the local font so the same typography works for file:// previews without font CORS errors.
 const landingCss = fs.readFileSync(path.join(root, 'docs/landing.css'), 'utf8')
-  .replace('url("assets/fonts/InterVariable.woff2")', `url("data:font/woff2;base64,${fs.readFileSync(path.join(root, 'docs/assets/fonts/InterVariable.woff2')).toString('base64')}")`);
+  .replace(/url\("assets\/fonts\/([^"/]+\.woff2)"\)/g, (_url, file: string) =>
+    `url("data:font/woff2;base64,${fs.readFileSync(path.join(root, 'docs/assets/fonts', file)).toString('base64')}")`);
 fs.writeFileSync(path.join(output, 'landing.css'), landingCss);
 fs.copyFileSync(path.join(root, 'node_modules/lucide/LICENSE'), path.join(output, 'lucide-LICENSE.txt'));
 fs.copyFileSync(path.join(root, 'LICENSE'), path.join(output, 'LICENSE.txt'));

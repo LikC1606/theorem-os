@@ -15,18 +15,18 @@ try {
   const mark = fs.readFileSync(path.join(root, 'docs/assets/mark.svg')).toString('base64');
   const workbench = fs.readFileSync(path.join(root, 'docs/assets/workbench-desktop.png')).toString('base64');
   await page.setContent(`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><style>${css}
-    body{width:1200px;height:630px;overflow:hidden;background:#f7f9fc;color:#20232a}
+    body{width:1200px;height:630px;overflow:hidden;background:var(--bg);color:var(--ink)}
     .social{position:relative;height:630px;padding:28px 70px}
     .social-top{display:flex;align-items:center;justify-content:space-between}
-    .social .brand{font-size:11px;gap:12px;color:#68778f}.social .brand img{width:28px;height:28px}
-    .preview{font:10px var(--mono);color:#59657c;border:1px solid #d8e0ed;border-radius:4px;padding:7px 10px;background:#fff}
-    .social h1{font-size:60px;line-height:1.1;margin:18px 0 7px}
-    .social-category{font-size:22px;line-height:1.5;color:#303a4b}
-    .social-description{font-size:13px;color:#6c7585;margin-top:5px}
-    .social-product{position:absolute;left:70px;right:70px;top:226px;border-block:1px solid #dce2eb}
+    .social .brand{font-size:16px;gap:12px}.social .brand img{width:28px;height:28px}
+    .preview{font-size:14px;color:var(--muted)}
+    .social h1{font-size:72px;line-height:1.1;margin:12px 0 7px}
+    .social-category{font-size:22px;line-height:1.5}
+    .social-description{font-size:16px;margin-top:3px}
+    .social-product{position:absolute;left:70px;right:70px;top:225px}
     .social-product img{width:100%;height:auto}
-    .social-bottom{position:absolute;left:70px;right:70px;bottom:13px;display:flex;justify-content:space-between;font:9px var(--mono);color:#68778f}
-  </style><body><div class="social"><div class="social-top"><div class="brand"><img src="data:image/svg+xml;base64,${mark}" alt=""><span>OPEN MATHEMATICAL RESEARCH</span></div><span class="preview">v0.1.0 / RESEARCH PREVIEW</span></div><h1>${title}</h1><p class="social-category">${category}</p><p class="social-description">${description}</p><div class="social-product"><img src="data:image/png;base64,${workbench}" alt="本地工作台草稿预览"></div><div class="social-bottom"><span>LOCAL WORKBENCH · LEAN 4 + MATHLIB · BRING YOUR OWN KEY</span><span>likc1606.github.io/theorem-os</span></div></div></body></html>`);
+    .social-bottom{position:absolute;left:70px;right:70px;bottom:10px;display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
+  </style><body><div class="social"><div class="social-top"><div class="brand"><img src="data:image/svg+xml;base64,${mark}" alt=""><span>开源数学研究</span></div><span class="preview">v0.1.0 · Research Preview</span></div><h1>${title}</h1><p class="social-category">${category}</p><p class="social-description">${description}</p><div class="social-product"><img src="data:image/png;base64,${workbench}" alt="本地工作台草稿预览"></div><div class="social-bottom"><span>本地工作台 · Lean 4 + Mathlib · 自备模型 Key</span><span>likc1606.github.io/theorem-os</span></div></div></body></html>`);
   await page.evaluate(() => document.fonts.ready);
   await page.locator('.social-product img').evaluate(image => image.decode());
   await page.screenshot({ path: path.join(root, 'docs/assets/social-preview.png') });

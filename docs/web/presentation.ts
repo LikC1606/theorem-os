@@ -4,20 +4,13 @@ const escape = (value: string) => value.replace(/[&<>"']/g, character => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 }[character]!));
 
-const artworks: Record<string, string> = {
-  annals_equiangular_lines_fixed_angle: `<svg viewBox="0 0 300 145" aria-hidden="true"><g class="proof-lines"><path d="M34 109 263 34M58 26 243 118M150 8 150 137M30 73 274 73M71 127 227 15M58 17 246 131"/><circle cx="150" cy="73" r="45"/><circle cx="150" cy="73" r="65" stroke-dasharray="2 6"/></g><path d="M191 58A44 44 0 0 1 194 73" class="proof-accent"/><circle cx="150" cy="73" r="4" class="proof-dot"/><text x="207" y="65">α</text></svg>`,
-  annals_rademacher_enflo_type: `<div class="type-formula" role="img" aria-label="T R 小于等于 T E 小于等于 pi 除以根号 2 乘 T R"><span>T<sub>R</sub></span><b>≤</b><span>T<sub>E</sub></span><b>≤</b><span class="formula-fraction"><span>π</span><span>√2</span></span><span>T<sub>R</sub></span></div><span class="formula-domain">1 ≤ p ≤ 2 · Banach space X</span>`,
-  annals_unit_conjecture: `<div class="unit-formula"><span>u</span><span class="formula-times">·</span><span>u<sup>−1</sup></span><span class="formula-equals">=</span><span>1</span></div><span class="formula-domain">Non-trivial units · Group rings</span>`,
-};
-
-export function acceptedProofCards(catalog: ArchiveCatalog) {
-  return catalog.records.filter(record => record.status === 'official_accepted').map((record, index) => `
-    <article class="proof-card" data-accepted-proof="${record.id}">
-      <div class="proof-card-top"><span class="mono">0${index + 1} / ${escape(record.area)}</span><span class="proof-pass"><i data-lucide="check"></i>Official pass</span></div>
-      <div class="proof-art">${artworks[record.id] ?? '<span class="unit-formula">⊢</span>'}</div>
-      <div class="proof-card-body"><p class="proof-subtitle">${escape(record.subtitle)}</p><h3><a href="archive.html#proof=${record.id}">${escape(record.title)}</a></h3><p class="proof-credit">${escape(record.model)}</p></div>
-      <div class="proof-card-footer"><a href="archive.html#proof=${record.id}&tab=source">查看证明<i data-lucide="arrow-right"></i></a><a class="official-link" href="${escape(record.official!.resultUrl)}" target="_blank" rel="noreferrer" aria-label="${escape(record.title)} 官方验收记录">官方验收<i data-lucide="arrow-up-right"></i></a></div>
-    </article>`).join('');
+export function acceptedProofRows(catalog: ArchiveCatalog) {
+  return catalog.records.filter(record => record.status === 'official_accepted').map(record => `
+    <tr class="proof-row" data-accepted-proof="${record.id}">
+      <th scope="row"><h3><a href="archive.html#proof=${record.id}">${escape(record.title)}</a></h3><p class="proof-subtitle">${escape(record.subtitle)}</p><p class="proof-credit">${escape(record.model)}</p></th>
+      <td class="proof-area">${escape(record.area)}</td>
+      <td><span class="proof-pass"><i data-lucide="check"></i>官方通过</span><div class="proof-links"><a data-proof-source href="archive.html#proof=${record.id}&tab=source">Lean 源码<i data-lucide="arrow-right"></i></a><a class="official-link" href="${escape(record.official!.resultUrl)}" target="_blank" rel="noreferrer" aria-label="${escape(record.title)} 官方验收记录">官方结果<i data-lucide="arrow-up-right"></i></a></div></td>
+    </tr>`).join('');
 }
 
 type ReplayEvidence = {
@@ -52,7 +45,7 @@ export function researchReplay(failedSource: string, proofSource: string, eviden
     { id: 'verified', label: '完整原题验收', file: 'Submission.lean', note: '验收源码', code: proofSource },
   ];
   const feedback = `<div class="demo-diagnostic"><span class="diagnostic-label"><i data-lucide="info"></i>对预设候选的检查说明</span><h3>一处通过，<br>一处还需继续。</h3><p><code>add_zero</code> 可由 <code>rfl</code> 完成；<br><code>zero_add</code> 需要已有引理。</p><pre><code>n : Nat\n⊢ 0 + n = n</code></pre><p class="diagnostic-hint">下一份候选使用 <code>Nat.zero_add n</code>。</p></div>`;
-  return `<div class="replay-window" data-replay-playing="false" data-replay-current="verified" data-replay-state="paused">
+  return `<div class="replay-window" data-ui data-replay-playing="false" data-replay-current="verified" data-replay-state="paused">
     <div class="replay-chrome"><span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="mono">theoremos / local-replay</span><span class="replay-badge"><span class="status-dot"></span>预设回放 · 不调用模型</span></div>
     <div class="replay-tabs" role="tablist" aria-label="预设回放的四个步骤">${stages.map((stage, index) => `<button type="button" role="tab" id="demo-${stage.id}" aria-controls="stage-${stage.id}" aria-selected="${stage.id === 'verified'}" tabindex="${stage.id === 'verified' ? '0' : '-1'}" data-replay-stage="${stage.id}" data-step-state="${stage.id === 'verified' ? 'current' : 'complete'}"><span class="replay-step-number mono">0${index + 1}</span><span>${stage.label}</span><i data-lucide="${stage.id === 'verified' ? 'shield-check' : 'arrow-right'}"></i></button>`).join('')}</div>
     <div class="replay-toolbar"><div class="replay-playback" hidden><button type="button" id="replay-play" aria-label="播放预设回放" title="播放预设回放" aria-pressed="false"><i data-lucide="play"></i><i data-lucide="pause"></i></button><button type="button" id="replay-prev" aria-label="回放上一步" title="回放上一步"><i data-lucide="chevron-left"></i></button><button type="button" id="replay-next" aria-label="回放下一步" title="回放下一步" disabled><i data-lucide="chevron-right"></i></button><button type="button" id="replay-restart" aria-label="重新播放" title="重新播放"><i data-lucide="rotate-ccw"></i></button></div><span class="replay-position"><span class="mono" id="replay-step-number">04 / 04</span><span id="replay-step-label">完整原题验收</span></span><span class="replay-state" id="replay-status" role="status" aria-live="polite" aria-atomic="true">已归档</span></div>

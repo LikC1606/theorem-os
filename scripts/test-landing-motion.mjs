@@ -57,8 +57,34 @@ async function progress(page) {
     new DOMMatrixReadOnly(getComputedStyle(node).transform).a);
 }
 
+async function assertSelectionIndicator(page, selector) {
+  const bounds = await page.locator(selector).evaluate(list => {
+    const active = list.querySelector('[role="tab"][aria-selected="true"]');
+    const indicator = list.querySelector('.selection-indicator');
+    if (!active || !indicator) return null;
+    const target = active.getBoundingClientRect(), surface = indicator.getBoundingClientRect();
+    return { hidden: indicator.getAttribute('aria-hidden'), interactive: getComputedStyle(indicator).pointerEvents,
+      offsets: ['left', 'top', 'width', 'height'].map(key => Math.abs(target[key] - surface[key])) };
+  });
+  assert.ok(bounds, `${currentCheck}: ${selector} must have an active surface`);
+  assert.equal(bounds.hidden, 'true');
+  assert.equal(bounds.interactive, 'none', 'The active surface must not intercept controls');
+  assert.ok(bounds.offsets.every(offset => offset < 1), `${currentCheck}: ${selector} surface must align with the selected tab: ${bounds.offsets}`);
+}
+
 async function tick(page, milliseconds = 800) {
   await page.clock.runFor(milliseconds);
+}
+
+async function emulateMotion(page, preference) {
+  // Media-query change events use the browser's rendering loop, outside the mocked clock.
+  await page.evaluate(preference => {
+    const media = matchMedia('(prefers-reduced-motion: reduce)');
+    window.testMotionPreference = media.matches === (preference === 'reduce') ? Promise.resolve() :
+      new Promise(resolve => media.addEventListener('change', resolve, { once: true }));
+  }, preference);
+  await page.emulateMedia({ reducedMotion: preference });
+  await page.evaluate(() => window.testMotionPreference.then(() => { delete window.testMotionPreference; }));
 }
 
 async function showReplay(page) {
@@ -94,7 +120,7 @@ try {
     await page.clock.install({ time: start });
     await page.clock.pauseAt(start);
     await page.goto(url);
-    await page.waitForSelector('.release-pill svg.lucide');
+    await page.waitForFunction(() => document.documentElement.dataset.landingReady === 'true');
     const initialHero = await visualState(page, '.workbench-preview');
     if (reducedMotion === 'reduce') assert.deepEqual(initialHero, { opacity: 1, transform: 'none' });
     else assert.ok(initialHero.opacity < 1 || initialHero.transform !== 'none', 'Normal motion must have a product entrance');
@@ -142,6 +168,7 @@ try {
     else assert.ok(switching.opacity < 1 || switching.transform !== 'none', 'Normal step changes must animate');
     await tick(page, 500);
     await assertStage(page, 'candidate');
+    await assertSelectionIndicator(page, '.replay-tabs');
     assert.deepEqual(await visualState(page, '#stage-candidate'), { opacity: 1, transform: 'none' });
     assert.equal(await page.locator('#replay-prev').isDisabled(), true);
     await page.locator('#replay-next').click();
@@ -205,10 +232,25 @@ try {
     assert.equal(await page.locator('#component-panel').getAttribute('aria-labelledby'), 'tab-m5');
     assert.equal(await page.locator('#tab-m5').evaluate(node => node === document.activeElement), true);
     if (reducedMotion === 'reduce') assert.deepEqual(await visualState(page, '.module-details'), { opacity: 1, transform: 'none' });
+    if (reducedMotion === 'reduce') await assertSelectionIndicator(page, '.component-tabs');
     await page.keyboard.press('Home');
     assert.equal(await page.locator('#component-panel').getAttribute('aria-labelledby'), 'tab-m1');
     await tick(page, 500);
     assert.deepEqual(await visualState(page, '.module-details'), { opacity: 1, transform: 'none' });
+    await assertSelectionIndicator(page, '.component-tabs');
+    // Interrupt an in-flight selection and finish on the full-width mobile grid cell.
+    await page.evaluate(() => {
+      for (const id of ['m2', 'm4', 'm1', 'm5']) document.querySelector(`#tab-${id}`).click();
+    });
+    await tick(page, 500);
+    await assertSelectionIndicator(page, '.component-tabs');
+    await page.locator('#command-workbench').evaluate(node => node.scrollIntoView({ behavior: 'instant', block: 'center' }));
+    await tick(page);
+    await page.locator('#command-workbench').focus();
+    await page.keyboard.press('End');
+    await tick(page, 500);
+    await assertSelectionIndicator(page, '.command-tabs');
+    assert.equal(await page.locator('#replay-panel').isVisible(), true);
     await assertWidth(page);
 
     if (viewport.width === 1440 && reducedMotion === 'no-preference') {
@@ -225,12 +267,31 @@ try {
       assert.equal(await progress(page), 1);
       await page.locator('#replay-restart').click();
       await tick(page, 400);
-      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await emulateMotion(page, 'reduce');
       await tick(page, 100);
       await assertStage(page, 'candidate');
       await tick(page, 10000);
       await assertStage(page, 'candidate');
       assert.deepEqual(await visualState(page, '#stage-candidate'), { opacity: 1, transform: 'none' });
+      // Preference changes must finish the active selection, including mid-flight motion.
+      await emulateMotion(page, 'no-preference');
+      await tick(page, 100);
+      await page.locator('#tab-m5').evaluate(node => node.scrollIntoView({ behavior: 'instant', block: 'center' }));
+      await tick(page);
+      await page.locator('#tab-m2').click();
+      await tick(page, 80);
+      await emulateMotion(page, 'reduce');
+      await tick(page, 100);
+      await assertSelectionIndicator(page, '.component-tabs');
+      // Resize one live document through both responsive grid breakpoints.
+      for (const width of [768, 390, 1440]) {
+        await page.setViewportSize({ width, height: 900 });
+        await tick(page, 500);
+        for (const selector of ['.component-tabs', '.replay-tabs', '.command-tabs']) {
+          await assertSelectionIndicator(page, selector);
+        }
+        await assertWidth(page);
+      }
     }
     checks.push(currentCheck);
     console.log(`Passed ${currentCheck}: paused default, playback controls, manual/keyboard interruption, viewport and document lifecycle, responsive layout.`);
@@ -246,6 +307,8 @@ try {
     track(page);
     await page.goto(url);
     assert.equal(await page.locator('.replay-playback').isVisible(), false);
+    assert.notEqual(await page.locator('#tab-m3').evaluate(node => getComputedStyle(node).backgroundColor),
+      'rgba(0, 0, 0, 0)', 'No-script tabs must retain a visible selected background');
     assert.equal(await page.locator('#stage-verified').isVisible(), true);
     assert.match(await page.locator('.receipt-status').innerText(), /evaluated_passed/);
     assert.equal(await page.locator('.receipt-evidence').getAttribute('href'), 'assets/replay.json');
