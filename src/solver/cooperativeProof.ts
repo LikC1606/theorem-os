@@ -147,7 +147,7 @@ export function projectTaskSources(problem: SolverProblem, worktree: string, sou
         if (!name || source.slice(region.bodyOffset - 2, region.bodyOffset) !== ':=') throw new Error('math_task_conditional_header_unsupported');
         let body = source.slice(region.bodyOffset, region.endOffset);
         // Qualified references must also refer to the explicit assumptions in this projection.
-        const references = [...maskLeanCommentsAndStrings(body).matchAll(/[A-Za-z_][A-Za-z0-9_']*(?:\.[A-Za-z_][A-Za-z0-9_']*)*/gu)];
+        const references = [...maskLeanCommentsAndStrings(body).matchAll(/[\p{L}_][\p{L}\p{M}\p{N}_']*(?:\.[\p{L}_][\p{L}\p{M}\p{N}_']*)*/gu)];
         for (const reference of references.reverse()) {
           const dependency = conditions.find(item => item.theoremName === reference[0]);
           if (dependency) body = body.slice(0, reference.index) + local(dependency.theoremName!) + body.slice(reference.index + reference[0].length);

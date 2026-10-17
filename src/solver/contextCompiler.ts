@@ -260,6 +260,11 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
   if (selectedRoute) mandatory.push(section(`route:${selectedRoute.id}`, 'routes', 'Selected alternative route and exact closing obligation (planned, not accepted):', selectedRoute));
   if (input.cooperation) {
     mandatory.push(section('task-interfaces', 'interfaces', 'Lead task graph and host feedback:', graph));
+    if (action?.kind === 'lead' && input.cooperation.error) mandatory.push(section('plan-rejection', 'feedback',
+      'Host rejected the proposed plan. Repair this error while preserving every exact original target:', {
+        error: input.cooperation.error, rejection: input.cooperation.planRejection,
+        originalTargets: problem.targets.map(({ proofPath, theoremName }) => ({ proofPath, theoremName })),
+      }));
     const visibleGroups = new Set(tasks.map(node => taskGroup(node.task)));
     mandatory.push(section('groups', 'groups', 'Route groups and budgets:',
       input.cooperation.groups?.filter(route => action?.kind !== 'task' || visibleGroups.has(route.group.id)) ?? []));

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { maskLeanCommentsAndStrings, maskLeanComments } from '../src/math/leanSyntax';
+import { isSimpleLeanName, maskLeanCommentsAndStrings, maskLeanComments } from '../src/math/leanSyntax';
 import {
   assertLeanEvalHoleCompleteness,
   assertLeanEvalSubmissionComplete,
@@ -9,6 +9,23 @@ import {
 } from '../src/math/leanEvalSubmission';
 import { inspectLeanSource } from '../src/math/verifier';
 import { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions, leanDeclarationContextCommands } from '../src/math/leanSource';
+
+describe('ordinary Lean declaration names', () => {
+  it.each(['goal', '_helper', "Submission.helper'", 'Submission.ErdosSupersingularPrimes.k₀',
+    'Submission.桥梁₂', "Submission.α'", 'Submission.e\u0301', 'Submission.𝒜₁'])(
+    'accepts ASCII and Unicode name components without changing their spelling: %s', name => {
+      expect(isSimpleLeanName(name)).toBe(true);
+    }
+  );
+
+  it.each([undefined, null, 12, {}, '', ' goal', 'goal ', '.goal', 'Submission.', 'Submission..goal',
+    '1goal', 'Submission.1goal', 'Submission.goal; theorem injected', 'Submission.goal\n#eval 0',
+    'Submission.goal/name', 'Submission.\u0301goal', 'Submission.\u200bgoal'])(
+    'rejects malformed or non-name input: %j', name => {
+      expect(isSimpleLeanName(name)).toBe(false);
+    }
+  );
+});
 
 describe('declaration type bindings', () => {
   it('keeps nested let and letI assignments inside the full protected return type', () => {

@@ -63,6 +63,18 @@ it('rejects a missing direct prerequisite and a changed assignment before model 
   expect(() => compileTaskContext(input([node(task)], action))).toThrow('math_context_stale_required:assignment:consumer');
 });
 
+it('keeps a rejected planning decision mandatory when optional context does not fit', () => {
+  const action = { kind: 'lead' as const, seedCommit: baseCommit };
+  const cooperation = { tasks: [], error: 'math_plan_invalid_proof_target: task k0, field theoremName',
+    planRejection: { proposalDigest: 'proposal', inputDigest: 'inputs', error: 'invalid', stalled: false } };
+  const context = compileTaskContext({ ...input([], action), cooperation, maxContextBytes: 6000,
+    optional: [{ id: 'oversized-hint', kind: 'feedback', text: 'OPTIONAL_HINT '.repeat(10000) }] });
+  expect(context.message).toContain(cooperation.error);
+  expect(context.message).toContain('Original.target');
+  expect(context.manifest.included.find(item => item.id === 'plan-rejection')?.required).toBe(true);
+  expect(context.manifest.omitted).toContainEqual({ id: 'oversized-hint', kind: 'feedback', reason: 'budget' });
+});
+
 it('rejects mismatched mandatory dependency and proof evidence versions', () => {
   const prerequisite = lemma('prerequisite'), consumer = lemma('consumer', [prerequisite.id]), action = assign(consumer);
   action.assignment.dependencies = [{ taskId: prerequisite.id, taskDigest: 'old-version' }];

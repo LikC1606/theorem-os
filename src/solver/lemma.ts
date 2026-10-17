@@ -3,6 +3,7 @@ import path from 'node:path';
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import { resolveMathProofEnvironment } from '../math/mathProofEnvironment';
 import { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions } from '../math/leanSource';
+import { isSimpleLeanName } from '../math/leanSyntax';
 import { commitSolverProjection, git, withSolverWorktree, type SolverProblem } from './problem';
 import { checkProjectedDeclaration, type ProofCheck } from './modules/evidence';
 import { readMathResponse } from './deliveries';
@@ -25,7 +26,7 @@ const checkedProjections = new WeakMap<LemmaEvidence, { environmentDigest: strin
 export function readLemmaPlan(task: SolverProblem, worktree: string): LemmaPlan {
   const plan = readMathResponse(worktree, 'math-lemma') as LemmaPlan;
   if (!plan || typeof plan.type !== 'string' || !plan.type.trim() ||
-      typeof plan.lemma !== 'string' || !/^[A-Za-z_][A-Za-z0-9_']*(?:\.[A-Za-z_][A-Za-z0-9_']*)*$/u.test(plan.lemma) ||
+      !isSimpleLeanName(plan.lemma) ||
       !task.targets.some(target => target.proofPath === plan.proofPath && target.theoremName === plan.target))
     throw new Error('math_lemma_plan_invalid');
   return { proofPath: plan.proofPath, target: plan.target, lemma: plan.lemma, type: plan.type };

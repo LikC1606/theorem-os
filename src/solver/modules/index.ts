@@ -14,10 +14,10 @@ import { canonicalMathJson, mathDigest } from '../../math/mathRuntimeIo';
 export const directSolverModules = {
   id: 'direct-v1',
   M1: { version: 'bounded-codex-turn-v9', open: createCodexMathSession, execute: executeResearch },
-  M2: { version: 'lean-kernel-v9', check: checkSolverProof, checkTask: checkTaskProof },
+  M2: { version: 'lean-kernel-v10/unicode-names-v1', check: checkSolverProof, checkTask: checkTaskProof },
   M3: { version: 'route-budget-v8/blocker-or-routes-v1', select: selectResearchAction, retry: planResearchRetry, ready: readyResearchTasks },
-  M4: { version: 'task-interface-context-v17/reference-dictionary-v1', build: buildResearchContext, statement: buildStatementReviewContext },
-  M5: { version: 'route-cooperation-v16', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignResearchTask },
+  M4: { version: 'task-interface-context-v18/mandatory-plan-rejection-v1', build: buildResearchContext, statement: buildStatementReviewContext },
+  M5: { version: 'route-cooperation-v17/plan-rejection-v1', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignResearchTask },
 };
 
 export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M3' | 'M5'> & {
@@ -30,7 +30,7 @@ export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M3' | 'M5'>
 
 export const lemmaSolverModules: SolverModules = {
   ...directSolverModules, id: 'lemma-v1',
-  M2: { ...directSolverModules.M2, version: 'lean-obligations-v9', checkLemma: checkLemmaResearch },
+  M2: { ...directSolverModules.M2, version: 'lean-obligations-v10/unicode-names-v1', checkLemma: checkLemmaResearch },
   M3: { ...directSolverModules.M3, version: 'lemma-route-search-v9/blocker-or-routes-v1', select: selectLemmaAction },
 };
 

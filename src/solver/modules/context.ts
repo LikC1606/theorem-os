@@ -168,7 +168,7 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
     'COOPERATION.json contains scoped live peer work, findings, gaps and checked results; leave it and CONTEXT-MANIFEST.json unchanged. The context compilation manifest identifies included and omitted material and why it was omitted. Exact mathematical interfaces and original assumptions are mandatory; retrieve full proof sources and context using their immutable commit/path references. Structured responses use one JSON object, plain or in a math/json fence, replacing old responses. The host manages versions, receipts and budgets, and independently checks all original targets. Unproved dependencies and reviews remain advisory.\n' +
     roleText;
   const optional: ContextSection[] = [
-    { id: 'plan-feedback', kind: 'feedback', text: `Plan error: ${cooperation.error ?? 'none'}\nReview: ${JSON.stringify(cooperation.review ?? null)}` },
+    { id: 'plan-feedback', kind: 'feedback', text: `Review: ${JSON.stringify(cooperation.review ?? null)}` },
     { id: 'proof-continuation', kind: 'continuation', text: '\nProof continuation (stored evidence, not replayed; planned use and actual proof use are separate):\n' + JSON.stringify(continuation) },
     { id: 'statement-reviews', kind: 'statement-review', text: 'Statement reviews: ' + JSON.stringify(cooperation.statementReviews?.filter(review => review.status !== 'superseded')
       .map(statementReviewSummary) ?? []) },
