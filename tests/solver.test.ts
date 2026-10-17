@@ -807,7 +807,7 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it('keeps changing host journals outside the strict clean-checkout boundary', async () => {
-    const journals = ['COOPERATION.json', 'DELIVERIES.jsonl', `DELIVERIES-${'a'.repeat(64)}.jsonl`];
+    const journals = ['COOPERATION.json', 'CONTEXT-MANIFEST.json', 'DELIVERIES.jsonl', `DELIVERIES-${'a'.repeat(64)}.jsonl`];
     for (const file of journals) fs.writeFileSync(path.join(workspace, file), '{}\n');
     fs.writeFileSync(path.join(project, 'Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
     fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), 'Checked both original targets.');
@@ -5256,4 +5256,236 @@ describe('isolated solver and host acceptance', () => {
     expect(await runSolver([...changed, '--resume'], directory)).toBe(1);
     expect(fs.readFileSync(output, 'utf8')).toBe(receipt);
   });
+
+  it('roundtrips alternative proof routes through human export, queued edit, resume and canonical checks', async () => {
+    const bridge: CooperativeTask = { id: 'bridge', kind: 'lemma', objective: 'Close the B route', dependsOn: ['b'],
+      proofPath: 'Submission.lean', theoremName: 'Submission.bridge', type: 'True → True', revision: 0 };
+    const tasks = [
+      { ...planTasks()[0], status: 'paused' as const }, planTasks()[1], bridge,
+      { ...planTasks()[2], dependsOn: [] }, planTasks()[3],
+    ];
+    const proofRoutes = [
+      { id: 'route_a', targetTaskId: 'first', prerequisiteTaskIds: [], closingTaskId: 'a' },
+      { id: 'route_b', targetTaskId: 'first', prerequisiteTaskIds: ['b'], closingTaskId: 'bridge' },
+    ];
+    let currentProofRoutes = proofRoutes;
+    const goalAssignments: Extract<CooperativeAction, { kind: 'task' }>[] = [];
+    configureCooperation(async (action, options, message) => {
+      const file = path.join(options.workspace, 'generated/p/Submission.lean');
+      if (action.kind === 'lead') fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'),
+        '```math-plan\n' + JSON.stringify({ tasks, proofRoutes: currentProofRoutes }) + '\n```\n');
+      else if (action.kind === 'task' && action.task.id === 'bridge') {
+        expect(action.assignment.dependencies).toEqual([{ taskId: 'b', taskDigest: taskVersion(tasks[1]) }]);
+        fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('theorem first',
+          'lemma bridge : True → True := by intro _; exact b\ntheorem first'));
+      } else if (action.kind === 'task' && action.task.id === 'first') {
+        // A queued edit may arrive after a resumed worker has reserved its old
+        // assignment. Let the host cancel that version before exercising B again.
+        if (action.assignment.routeId === 'route_b') {
+          await expect.poll(() => cooperationState().edits?.some((edit: any) => edit.id === 'route_roundtrip' && edit.status === 'applied')).toBe(true);
+          return 'interrupted';
+        }
+        goalAssignments.push(action);
+        expect(action.task.dependsOn).toEqual([]);
+        expect(action.assignment.routeId).toBe('preferred_b');
+        expect(action.assignment.dependencies).toEqual([
+          { taskId: 'b', taskDigest: taskVersion(tasks[1]) }, { taskId: 'bridge', taskDigest: taskVersion(bridge) },
+        ]);
+        expect(message).toContain('Submission.bridge');
+        expect(message).toContain('True → True');
+        expect(fs.readFileSync(file, 'utf8')).toContain('lemma bridge : True → True');
+        expect(host.officialGate).not.toHaveBeenCalled();
+        fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('first : True := by sorry', 'first : True := by exact bridge b'));
+      } else finishAssignment(action, options);
+      return 'completed';
+    });
+    configureReferenceReports({ bridge: ['b'], first: ['bridge', 'b'], second: ['first', 'bridge', 'b'] });
+    const parallelArgs = [...args, '--workers', '4', '--max-turns', '3'];
+    const initialExit = await runSolver(parallelArgs, directory);
+    expect(initialExit, fs.readFileSync(output, 'utf8')).toBe(4);
+    const before = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(before.cooperation.tasks.filter((item: any) => item.task.kind === 'goal').map((item: any) => item.status))
+      .toEqual(['pending', 'pending']);
+    expect(before.cooperation.tasks.filter((item: any) => ['b', 'bridge'].includes(item.task.id)).map((item: any) => item.status))
+      .toEqual(['integrated', 'integrated']);
+    expect(before.cooperation.error).toBeUndefined();
+    expect(before.check).toBeUndefined(); expect(goalAssignments).toHaveLength(0);
+    expect(host.officialGate).not.toHaveBeenCalled();
+    const { exportRunPlan } = await import('../src/solver/inspection');
+    const { queueRunEdit } = await import('../src/solver/humanEdit');
+    const exported = exportRunPlan(before);
+    expect(exported.proofRoutes).toEqual(proofRoutes);
+    const revisedRoutes = proofRoutes.map(route => route.id === 'route_b' ? { ...route, id: 'preferred_b' } : route);
+    expect(await queueRunEdit(output, { ...exported, id: 'route_roundtrip', proofRoutes: revisedRoutes })).toMatchObject({ status: 'queued' });
+    currentProofRoutes = revisedRoutes;
+    const checksBeforeResume = host.verify.mock.calls.length;
+    const resumedExit = await runSolver([...parallelArgs, '--resume', '--max-turns', '8'], directory);
+    expect(resumedExit, fs.readFileSync(output, 'utf8')).toBe(0);
+    const after = cooperationState();
+    expect(after.proofRoutes).toEqual(revisedRoutes);
+    expect(after.edits.find((edit: any) => edit.id === 'route_roundtrip')).toMatchObject({ status: 'applied' });
+    expect(goalAssignments).toHaveLength(1);
+    const original = after.tasks.find((item: any) => item.task.id === 'first');
+    expect(original.alternativeRoutes).toEqual(revisedRoutes);
+    expect(original.integratedCheck.references.tasks).toEqual(expect.arrayContaining([
+      { taskId: 'bridge', taskDigest: taskVersion(bridge) }, { taskId: 'b', taskDigest: taskVersion(tasks[1]) },
+    ]));
+    expect(original.integratedCheck.references.proof).toContainEqual({ name: 'Submission.bridge', file: 'Submission.lean' });
+    const delivery = after.deliveries.find((item: any) => item.taskId === 'first' && item.status === 'verified');
+    expect(delivery.dependencies).toEqual(goalAssignments[0].assignment.dependencies);
+    for (const receipt of original.integratedCheck.verification.results)
+      expect(receipt.targetCommit).toBe(original.integratedCheck.verification.targetCommit);
+    expect(host.verify.mock.calls[checksBeforeResume][0].items.map((item: any) => item.theoremName)).toContain('Submission.b');
+    expect(host.officialGate).toHaveBeenCalledOnce();
+  }, 20_000);
+
+  it('reassigns a pending A draft to fresh B inputs while preserving the committed draft and notes', async () => {
+    configureCooperation(); configureReferenceReports({ closing_b: ['b'] });
+    const { markTaskAcceptance } = await import('../src/solver/tasks');
+    const source = original.replace('theorem first', 'lemma a : True := by sorry\nlemma b : True := by trivial\n' +
+      'lemma closing_a : True → True := by intro _; exact a\n' +
+      'lemma closing_b : True → True := by intro _; exact b\ntheorem first');
+    fs.writeFileSync(path.join(project, 'Submission.lean'), source);
+    const canonical = commitSolverSources(problem, workspace);
+    const tasks: CooperativeTask[] = [planTasks()[0], planTasks()[1], ...['a', 'b'].map(id => ({
+      id: `closing_${id}`, kind: 'lemma' as const, objective: `Close route ${id}`, dependsOn: [id], revision: 0,
+      proofPath: 'Submission.lean', theoremName: `Submission.closing_${id}`, type: 'True → True',
+    })), { ...planTasks()[2], dependsOn: [] }, { ...planTasks()[3], status: 'paused' }];
+    const proofRoutes = ['a', 'b'].map(id => ({ id: `route_${id}`, targetTaskId: 'first', prerequisiteTaskIds: [id], closingTaskId: `closing_${id}` }));
+    const plan = parseCooperationPlan(problem, { tasks, proofRoutes });
+    const records: any[] = plan.tasks.map(task => ({ task, status: ['a', 'closing_a'].includes(task.id) ? 'blocked' : 'pending', attempts: 1 }));
+    for (const id of ['b', 'closing_b']) {
+      const node = records.find(item => item.task.id === id);
+      const assignment = { taskId: id, taskDigest: taskVersion(node.task), workerId: 'researcher-1', seedCommit: canonical };
+      const proof = await checkTaskProof(problem, workspace, canonical, node.task, assignment, [], {}, new AbortController().signal, Infinity, [], 'fixture');
+      expect(proof.passed).toBe(true);
+      proof.references!.tasks = id === 'b' ? [] : [{ taskId: 'b', taskDigest: taskVersion(records[1].task) }];
+      markTaskAcceptance(proof); node.status = 'integrated'; node.integratedCheck = proof;
+    }
+    await withSolverWorktree(workspace, canonical, async peerRoot => {
+      const lead = { id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles } as const;
+      const peer = { id: 'researcher-1', role: 'researcher', worktree: peerRoot, ownedFiles: problem.ownedFiles } as const;
+      const file = path.join(peerRoot, 'generated/p/Submission.lean');
+      fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('theorem first', 'lemma saved_a_support : True := by trivial\ntheorem first'));
+      fs.writeFileSync(path.join(peerRoot, 'RESEARCH.md'), 'Saved A draft: the missing inference remains open.');
+      const draftCommit = commitSolverSources(problem, peerRoot);
+      const root = records.find(item => item.task.id === 'first');
+      const previousAssignment = root.assignment = { taskId: 'first', taskDigest: taskVersion(root.task), workerId: peer.id,
+        seedCommit: canonical, canonicalCommit: canonical, routeId: 'route_a', dependencies: ['a', 'closing_a'].map(id => ({
+          taskId: id, taskDigest: taskVersion(records.find(item => item.task.id === id).task),
+        })) };
+      const state: any = { problem, runId: 'resumed-route-choice', turns: 0, phase: 'running', environmentDigest: 'fixture',
+        workers: [lead, peer].map(worker => ({ ...worker, turns: 0, failures: [] })), cooperation: {
+          tasks: records, groups: plan.groups.map(group => ({ group, turns: 0 })), proofRoutes, canonicalCommit: canonical,
+        } };
+      const cooperative = new CooperativeResearch({ state, workers: [lead, peer], access: new Map(), signal: new AbortController().signal,
+        save: () => {}, emit: () => {}, modules: directSolverModules, exclusiveCheck: async check => check() });
+      const action = await cooperative.next(peer, { maxTurns: Infinity, remainingMs: Infinity });
+      expect(action?.kind).toBe('task');
+      if (action?.kind !== 'task') throw new Error('missing_replacement_assignment');
+      expect(action.assignment).not.toBe(previousAssignment);
+      expect(action.assignment.routeId).toBe('route_b');
+      expect(action.assignment.canonicalCommit).toBe(canonical);
+      expect(action.assignment.dependencies).toEqual(['b', 'closing_b'].map(id => ({
+        taskId: id, taskDigest: taskVersion(records.find(item => item.task.id === id).task),
+      })));
+      expect(fs.readFileSync(file, 'utf8')).toContain('lemma closing_b : True → True');
+      expect(fs.readFileSync(path.join(peerRoot, 'RESEARCH.md'), 'utf8')).toContain('Saved A draft');
+      expect(git(peerRoot, ['show', `${draftCommit}:generated/p/Submission.lean`])).toContain('lemma saved_a_support : True');
+      expect(git(peerRoot, ['merge-base', '--is-ancestor', draftCommit, 'HEAD'])).toBe('');
+      expect(cooperative.current(action)).toBe(true);
+      expect(host.createSession).not.toHaveBeenCalled(); expect(host.officialGate).not.toHaveBeenCalled();
+      cooperative.interrupted(peer, action); await cooperative.stop();
+    });
+  }, 20_000);
+
+  it('parks repeated local blockers across a revision, isolates groups and reopens after a fresh dependency check', async () => {
+    configureCooperation();
+    const { routeAllowsTask } = await import('../src/solver/modules/search');
+    const groups = [{ id: 'main', objective: 'Main route' }, { id: 'private', objective: 'Independent route' }];
+    const tasks: CooperativeTask[] = [
+      { id: 'root_research', kind: 'research', objective: 'Find the missing inference', dependsOn: ['b'], revision: 0, ownerId: 'researcher-1' },
+      { ...planTasks()[1], status: 'paused' },
+      ...planTasks().slice(2).map(task => ({ ...task, dependsOn: [], status: 'paused' as const })),
+      { id: 'private_research', kind: 'research', objective: 'PRIVATE_INFERENCE', dependsOn: [], revision: 0,
+        groupId: 'private', sharing: 'group', ownerId: 'researcher-2' },
+    ];
+    const plan = parseCooperationPlan(problem, { tasks, groups });
+    await withSolverWorktree(workspace, problem.baseCommit, async peerRoot => {
+      await withSolverWorktree(workspace, problem.baseCommit, async privateRoot => {
+        const lead = { id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles } as const;
+        const peer = { id: 'researcher-1', role: 'researcher', worktree: peerRoot, ownedFiles: problem.ownedFiles } as const;
+        const other = { id: 'researcher-2', role: 'researcher', worktree: privateRoot, ownedFiles: problem.ownedFiles } as const;
+        const state: any = { problem, runId: 'blocker-lifecycle', turns: 0, phase: 'running', environmentDigest: 'fixture',
+          workers: [lead, peer, other].map(worker => ({ ...worker, turns: 0, failures: [] })),
+          cooperation: { tasks: plan.tasks.map(task => ({ task, status: 'pending', attempts: 0 })),
+            groups: plan.groups.map(group => ({ group, turns: 0 })) } };
+        const events: { event: string; [key: string]: unknown }[] = [];
+        const cooperative = new CooperativeResearch({ state, workers: [lead, peer, other],
+          access: new Map([[lead.id, { environment: {}, retrievalRoot: workspace }]]), signal: new AbortController().signal,
+          save: () => {}, emit: (event, details) => events.push({ event, ...details }), modules: directSolverModules,
+          exclusiveCheck: async check => check() });
+        const budget = { maxTurns: Infinity, remainingMs: Infinity };
+        const first = await cooperative.next(peer, budget);
+        expect(first?.kind).toBe('task');
+        if (first?.kind !== 'task') throw new Error('missing_root_assignment');
+        cooperative.activate(peer, first, async () => {}, async () => {});
+        const report = (action: Extract<CooperativeAction, { kind: 'task' }>, worktree: string, id: string, mechanism: string) =>
+          fs.appendFileSync(path.join(worktree, assignmentDeliveryFile(action.assignment)), JSON.stringify({ id, kind: 'progress',
+            summary: 'The local inference still needs its declared mathematical input.', blockers: [{ mechanism,
+              scope: 'local-inference', reopenOn: [{ kind: 'dependency-checked', taskId: 'b' }] }] }) + '\n');
+        report(first, peerRoot, 'first_report', 'same-missing-bridge');
+        await cooperative.pulse(peer.id);
+        expect(state.cooperation.blockers[0]).toMatchObject({ count: 1, status: 'open', evidenceStatus: 'advisory' });
+        const blockerId = state.cooperation.blockers[0].id;
+        const privateAction = await cooperative.next(other, budget);
+        expect(privateAction?.kind).toBe('task');
+        if (privateAction?.kind !== 'task') throw new Error('missing_private_assignment');
+        cooperative.activate(other, privateAction, async () => {}, async () => {});
+        fs.appendFileSync(path.join(privateRoot, assignmentDeliveryFile(privateAction.assignment)), JSON.stringify({ id: 'private_report',
+          summary: 'PRIVATE_EVIDENCE', blockers: [{ mechanism: 'PRIVATE_BLOCKER', scope: 'private-inference' }] }) + '\n');
+        await cooperative.pulse(other.id);
+        expect(state.cooperation.blockers.find((blocker: any) => blocker.id === blockerId).count).toBe(1);
+        const revisedTasks = plan.tasks.map(task => task.id === first.task.id ? { ...task, revision: 1 } : task);
+        fs.appendFileSync(path.join(path.dirname(workspace), 'edits.jsonl'), JSON.stringify({ id: 'same_math_revision',
+          baseVersion: state.cooperation.planVersion, tasks: revisedTasks, groups: plan.groups }) + '\n');
+        await cooperative.pulse(); cooperative.deactivate(peer);
+        const second = await cooperative.next(peer, budget);
+        expect(second?.kind).toBe('task');
+        if (second?.kind !== 'task') throw new Error('missing_revised_assignment');
+        expect(second.task.revision).toBe(1);
+        cooperative.activate(peer, second, async () => {}, async () => {});
+        report(second, peerRoot, 'second_report', 'same-missing-bridge');
+        await cooperative.pulse(peer.id);
+        const obstruction = state.cooperation.blockers.find((blocker: any) => blocker.id === blockerId);
+        expect(obstruction).toMatchObject({ count: 2, status: 'parked', taskDigest: taskVersion(second.task) });
+        const root = state.cooperation.tasks.find((item: any) => item.task.id === second.task.id);
+        expect(routeAllowsTask(root.task, state.cooperation.tasks, state.cooperation.groups)).toBe(false);
+        expect(cooperative.contextState(privateAction).blockers?.map(blocker => blocker.mechanism)).toEqual(['PRIVATE_BLOCKER']);
+        expect(cooperative.contextState(second).blockers?.map(blocker => blocker.mechanism)).toEqual(['same-missing-bridge']);
+        expect(fs.readFileSync(path.join(peerRoot, 'COOPERATION.json'), 'utf8')).not.toContain('PRIVATE_BLOCKER');
+        cooperative.interrupted(peer, second); cooperative.deactivate(peer);
+        const activeTasks = revisedTasks.map(task => task.id === 'b' ? { ...task, status: 'active' as const } : task);
+        fs.appendFileSync(path.join(path.dirname(workspace), 'edits.jsonl'), JSON.stringify({ id: 'prove_local_input',
+          baseVersion: state.cooperation.planVersion, tasks: activeTasks, groups: plan.groups }) + '\n');
+        await cooperative.pulse();
+        expect(obstruction.status).toBe('parked');
+        const dependency = await cooperative.next(peer, budget);
+        expect(dependency?.kind === 'task' && dependency.task.id).toBe('b');
+        if (dependency?.kind !== 'task') throw new Error('missing_dependency_assignment');
+        cooperative.activate(peer, dependency, async () => {}, async () => {});
+        finishAssignment(dependency, { workspace: peerRoot } as MathAgentOptions);
+        await cooperative.deliver(peer, dependency, commitSolverSources(problem, peerRoot));
+        cooperative.deactivate(peer);
+        expect(obstruction).toMatchObject({ status: 'reopened', reopenedReason: 'dependency-checked', count: 2 });
+        expect(root.routeParking).toEqual([]);
+        expect(routeAllowsTask(root.task, state.cooperation.tasks, state.cooperation.groups)).toBe(true);
+        expect(events).toContainEqual(expect.objectContaining({ event: 'route_parked', blockerId }));
+        expect(events).toContainEqual(expect.objectContaining({ event: 'route_reopened', blockerId }));
+        expect(state.cooperation.tasks.filter((item: any) => item.task.kind === 'goal').every((item: any) => item.status === 'pending')).toBe(true);
+        expect(host.officialGate).not.toHaveBeenCalled();
+        cooperative.interrupted(other, privateAction); cooperative.deactivate(other); await cooperative.stop();
+      });
+    });
+  }, 20_000);
 });

@@ -1,4 +1,5 @@
 import { taskGroup, taskVersion, type RouteRecord, type TaskRecord } from './tasks';
+import { describeProofRoutes, type ProofRoute } from './proofRoutes';
 
 /** Stored receipts describe a checkpoint; this function never replays or authorizes a proof. */
 export function recordedTaskProofStatus(node: TaskRecord, environmentDigest?: string) {
@@ -15,7 +16,7 @@ export function recordedTaskProofStatus(node: TaskRecord, environmentDigest?: st
 
 /** Planned use and recorded Lean use are separate facts, never a proof-completion percentage. */
 export function buildProofContinuation(tasks: readonly TaskRecord[], options: {
-  groups?: readonly RouteRecord[]; environmentDigest?: string;
+  groups?: readonly RouteRecord[]; environmentDigest?: string; proofRoutes?: readonly ProofRoute[];
 } = {}) {
   const nodes = new Map(tasks.map(node => [node.task.id, node]));
   const versions = new Map(tasks.map(node => [node.task.id, taskVersion(node.task)]));
@@ -31,7 +32,11 @@ export function buildProofContinuation(tasks: readonly TaskRecord[], options: {
   const settled = (node: TaskRecord | undefined) => Boolean(node && (['research', 'sketch'].includes(node.task.kind)
     ? node.status === 'completed' : node.status === 'integrated' && status.get(node.task.id) === 'checked' && currentReferences(node)));
   const consumers = new Map<string, string[]>();
-  for (const node of tasks) for (const id of node.task.dependsOn) {
+  const routes = options.proofRoutes ?? tasks.flatMap(node => node.alternativeRoutes ?? []);
+  const alternatives = (id: string) => routes.filter(route => route.targetTaskId === id);
+  const plannedInputs = (node: TaskRecord) => [...new Set([...node.task.dependsOn,
+    ...alternatives(node.task.id).flatMap(route => [...route.prerequisiteTaskIds, route.closingTaskId])])];
+  for (const node of tasks) for (const id of plannedInputs(node)) {
     const list = consumers.get(id) ?? []; list.push(node.task.id); consumers.set(id, list);
   }
   const goalPaths = new Map<string, Set<string>>();
@@ -42,21 +47,33 @@ export function buildProofContinuation(tasks: readonly TaskRecord[], options: {
       if (seen.has(id)) return;
       seen.add(id);
       const paths = goalPaths.get(id) ?? new Set<string>(); paths.add(goal.task.id); goalPaths.set(id, paths);
-      nodes.get(id)?.task.dependsOn.forEach(visitPath);
+      const node = nodes.get(id); if (node) plannedInputs(node).forEach(visitPath);
     };
     visitPath(goal.task.id);
     const visited = new Set<string>();
-    const visitOpen = (id: string) => {
-      if (visited.has(id)) return;
-      visited.add(id);
+    const visitOpen = (id: string, result = frontier, absent = missing, walked = visited) => {
+      if (walked.has(id)) return;
+      walked.add(id);
       const node = nodes.get(id);
-      if (!node) { missing.add(id); return; }
+      if (!node) { absent.add(id); return; }
       if (settled(node)) return;
       const open = node.task.dependsOn.filter(dependency => !settled(nodes.get(dependency)));
-      if (!open.length) frontier.add(id);
-      else open.forEach(visitOpen);
+      if (!open.length) result.add(id);
+      else open.forEach(input => visitOpen(input, result, absent, walked));
     };
     visitOpen(goal.task.id);
+    const routeFrontiers = alternatives(goal.task.id).map(route => {
+      const open = new Set<string>(), absent = new Set<string>(), walked = new Set<string>();
+      if (!settled(goal)) for (const id of [...route.prerequisiteTaskIds, route.closingTaskId]) visitOpen(id, open, absent, walked);
+      return { routeId: route.id, frontier: [...open], missingDependencies: [...absent],
+        parkedBy: [...(goal.parkedRoutes?.[route.id] ?? [])] };
+    });
+    if (!settled(goal) && routeFrontiers.length && !routeFrontiers.some(route => !route.frontier.length && !route.missingDependencies.length)) {
+      frontier.delete(goal.task.id);
+      for (const route of routeFrontiers) {
+        route.frontier.forEach(id => frontier.add(id)); route.missingDependencies.forEach(id => missing.add(id));
+      }
+    }
     for (const id of frontier) {
       const list = frontierGoals.get(id) ?? []; list.push(goal.task.id); frontierGoals.set(id, list);
     }
@@ -64,14 +81,16 @@ export function buildProofContinuation(tasks: readonly TaskRecord[], options: {
       frontier: [...frontier], missingDependencies: [...missing],
       checkedDependencies: [...seen].filter(id => id !== goal.task.id && nodes.get(id)?.task.kind === 'lemma' && settled(nodes.get(id))),
       advisoryDependencies: [...seen].filter(id => nodes.get(id)?.status === 'completed' &&
-        ['research', 'sketch'].includes(nodes.get(id)!.task.kind)) };
+        ['research', 'sketch'].includes(nodes.get(id)!.task.kind)),
+      ...(routeFrontiers.length ? { routeCombination: 'any' as const, alternatives: routeFrontiers } : {}) };
   });
-  const checkedInputs = (node: TaskRecord) => node.task.dependsOn.filter(id =>
+  const checkedInputs = (node: TaskRecord) => plannedInputs(node).filter(id =>
     nodes.get(id)?.task.kind === 'lemma' && settled(nodes.get(id)));
   const frontier = [...frontierGoals].map(([id, goalIds]) => {
     const node = nodes.get(id)!;
     return { taskId: id, kind: node.task.kind, status: node.status, control: node.task.status ?? 'active',
-      goalIds, attempts: node.attempts, checkedInputs: checkedInputs(node) };
+      goalIds, attempts: node.attempts, checkedInputs: checkedInputs(node),
+      ...(node.routeParking?.length ? { parkedBy: [...node.routeParking] } : {}) };
   });
   const reuse = tasks.filter(node => node.task.kind === 'lemma' && settled(node)).map(producer => {
     const proofConsumers: string[] = [], statementConsumers: string[] = [], conditionalConsumers: string[] = [];
@@ -100,8 +119,12 @@ export function buildProofContinuation(tasks: readonly TaskRecord[], options: {
   return { evidence: 'recorded-not-replayed' as const, goals, frontier, reuse,
     continuationCandidates: tasks.filter(node => active(node) && node.status === 'pending' &&
       ['lemma', 'goal'].includes(node.task.kind) && goalPaths.has(node.task.id) && checkedInputs(node).length > 0 &&
-      node.task.dependsOn.every(id => settled(nodes.get(id)))).map(node => node.task.id),
+      node.task.dependsOn.every(id => settled(nodes.get(id))) && !node.routeParking?.length &&
+      (!alternatives(node.task.id).length || alternatives(node.task.id).some(route =>
+        !node.parkedRoutes?.[route.id]?.length &&
+        [...route.prerequisiteTaskIds, route.closingTaskId].every(id => settled(nodes.get(id)))))).map(node => node.task.id),
     unconnectedTasks: tasks.filter(node => active(node) && node.task.kind !== 'goal' && !goalPaths.has(node.task.id)).map(node => node.task.id),
     referenceCoverageMissing: tasks.filter(node => settled(node) && ['lemma', 'goal'].includes(node.task.kind) &&
-      !(node.integratedCheck ?? node.proof)?.references?.tasks).map(node => node.task.id) };
+      !(node.integratedCheck ?? node.proof)?.references?.tasks).map(node => node.task.id),
+    ...(routes.length ? { proofRoutes: describeProofRoutes(routes, tasks, options.environmentDigest) } : {}) };
 }

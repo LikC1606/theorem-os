@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { buildProofContinuation, recordedTaskProofStatus } from '../src/solver/progress';
-import { taskVersion, type TaskRecord } from '../src/solver/tasks';
+import { markTaskAcceptance, taskVersion, type TaskRecord } from '../src/solver/tasks';
 import type { TaskProof } from '../src/solver/cooperativeProof';
+import type { ProofRoute } from '../src/solver/proofRoutes';
+import { readyResearchTasks } from '../src/solver/modules/search';
+import { captureObligationSnapshot, diffObligationProgress } from '../src/solver/obligationProgress';
 
 function node(id: string, kind: TaskRecord['task']['kind'] = 'lemma', dependsOn: string[] = []): TaskRecord {
   return { task: { id, kind, objective: id, dependsOn, revision: 0,
@@ -103,5 +106,46 @@ describe('recorded proof continuation', () => {
     expect(report.continuationCandidates).toEqual(['goal']);
     expect(report.reuse[0].taskId).toBe('shared');
     expect(JSON.stringify(report)).not.toContain('private_implementation');
+  });
+
+  it('excludes a parked ready branch from continuation candidates while preserving mathematical alternatives', () => {
+    const input = node('input'), closing = node('closing', 'lemma', ['input']);
+    const otherInput = node('other_input'), otherClosing = node('other_closing', 'lemma', ['other_input']);
+    const goal = node('goal', 'goal'), tasks = [input, closing, otherInput, otherClosing, goal];
+    const route: ProofRoute = { id: 'first', targetTaskId: goal.task.id, prerequisiteTaskIds: [input.task.id], closingTaskId: closing.task.id };
+    const other: ProofRoute = { id: 'other', targetTaskId: goal.task.id, prerequisiteTaskIds: [otherInput.task.id], closingTaskId: otherClosing.task.id };
+    goal.alternativeRoutes = [route, other];
+    markTaskAcceptance(checked(input)); markTaskAcceptance(checked(closing, [input]));
+    goal.parkedRoutes = { first: ['local-blocker'] };
+    const report = buildProofContinuation(tasks, { environmentDigest: 'environment' });
+    expect(report.goals[0].alternatives).toEqual([
+      { routeId: 'first', frontier: [], missingDependencies: [], parkedBy: ['local-blocker'] },
+      { routeId: 'other', frontier: ['other_input'], missingDependencies: [], parkedBy: [] },
+    ]);
+    expect(report.continuationCandidates).not.toContain('goal');
+    expect(readyResearchTasks(tasks)).not.toContain(goal);
+    markTaskAcceptance(checked(otherInput)); markTaskAcceptance(checked(otherClosing, [otherInput]));
+    const unblockedAlternative = buildProofContinuation(tasks, { environmentDigest: 'environment' });
+    expect(unblockedAlternative.continuationCandidates).toContain('goal');
+    expect(readyResearchTasks(tasks)).toContain(goal);
+    goal.parkedRoutes.other = ['other-blocker'];
+    expect(buildProofContinuation(tasks).continuationCandidates).not.toContain('goal');
+    expect(readyResearchTasks(tasks)).not.toContain(goal);
+  });
+
+  it('keeps a parked branch unmet frontier visible and reports its parking separately from mathematical movement', () => {
+    const input = node('input'), closing = node('closing', 'lemma', ['input']), goal = node('goal', 'goal');
+    const route: ProofRoute = { id: 'route', targetTaskId: 'goal', prerequisiteTaskIds: ['input'], closingTaskId: 'closing' };
+    goal.alternativeRoutes = [route]; const tasks = [input, closing, goal];
+    const before = captureObligationSnapshot(tasks, { environmentDigest: 'environment' });
+    goal.parkedRoutes = { route: ['blocker'] };
+    const report = buildProofContinuation(tasks), after = captureObligationSnapshot(tasks, { environmentDigest: 'environment' });
+    expect(report.goals[0].frontier).toEqual(['input']);
+    expect(report.goals[0].alternatives![0]).toMatchObject({ frontier: ['input'], parkedBy: ['blocker'] });
+    expect(after.goals[0].alternatives![0].parkedBy).toEqual(['blocker']);
+    expect(after.routes[0].parkedBy).toEqual(['blocker']);
+    const change = diffObligationProgress(before, after)!;
+    expect(change.goalFrontiers).toEqual([]); expect(change.obligations.closed).toEqual([]);
+    expect(change.routes[0].after!.parkedBy).toEqual(['blocker']);
   });
 });

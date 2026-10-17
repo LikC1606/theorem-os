@@ -125,6 +125,8 @@ bun run math inspect --run "$MATH_RUN_ROOT/result.json" \
 
 报告按路线和任务展示目标、负责人、已存档的证明检查、条件性依赖、声明回译、审阅与卡点。`inspect` 不调用模型或重跑 Lean；JSON 格式可用 `--format json` 导出。运行中尚未生成结果文件时，也可读取同一路径对应的 checkpoint。
 
+报告还会分别记录数学义务闭合、原题前沿变化、替代路线与局部障碍重开。局部阻塞、必需上下文与省略清单、`proofRoutes` 的 AND／OR 规则见[协作路线、上下文与数学进展](cooperative-proof-routes.md)。
+
 Lead 创建计划后，可以导出并修改引理类型、任务依赖、路线或暂停状态，然后提交修改：
 
 ```bash
@@ -298,7 +300,7 @@ bun run math check-lean \
 | M1 证明构造 | 执行模型轮次，记录候选与来源 | [execution.ts](../src/solver/modules/execution.ts) |
 | M2 检查与反馈 | 固定版本的 Lean 证据与局部义务检查 | [evidence.ts](../src/solver/modules/evidence.ts)、[cooperativeProof.ts](../src/solver/cooperativeProof.ts) |
 | M3 搜索决策 | 依赖就绪、路线预算、继续 / 停止及重试 | [search.ts](../src/solver/modules/search.ts)、[value.ts](../src/solver/modules/value.ts) |
-| M4 上下文选择 | 当前任务、可见成果、反馈与来源标识 | [context.ts](../src/solver/modules/context.ts) |
+| M4 上下文选择 | 完整必需接口、可见成果、反馈与省略清单 | [context.ts](../src/solver/modules/context.ts)、[contextCompiler.ts](../src/solver/contextCompiler.ts) |
 | M5 协作与复用 | 职责匹配、写入负责人及隔离 worktree | [organization.ts](../src/solver/modules/organization.ts) |
 | S1 任务与成果档案 | 保存与恢复候选、回执、失败和运行状态 | [archive.ts](../src/solver/archive.ts) |
 | S3 环境与评测合同 | 冻结题目，集成后重检并独立评测 | [problem.ts](../src/solver/problem.ts)、[evaluation.ts](../src/solver/evaluation.ts)、[src/math/](../src/math/) |
