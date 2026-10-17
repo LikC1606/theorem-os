@@ -9,6 +9,7 @@ import { readWebConfig } from '../apps/web/config';
 import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
 import type { WebResult, WebRun, WebRunInput } from '../apps/web/shared';
+import { closeHistory, fillConfig, openHistory, selectHistoryRun } from './web-ui-controls';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-ui-smoke');
@@ -75,9 +76,9 @@ async function scenario(name: string, run: (h: Harness) => Promise<void>) {
   let deadline: ReturnType<typeof setTimeout> | undefined;
   try {
     await page.goto(origin); await ready(page);
-    await page.locator('#source').fill('theorem unrelated_composer : True := by sorry');
+    await fillConfig(page, 'source', 'theorem unrelated_composer : True := by sorry');
     await page.locator('#task').fill('Preserve this separate composer draft');
-    await page.locator('#api-key').fill(credential);
+    await fillConfig(page, 'api-key', credential);
     await page.waitForFunction(key => JSON.parse(sessionStorage.getItem(key) || 'null')?.draft?.task === 'Preserve this separate composer draft', storageKey);
     h.savedDraft = await page.evaluate(key => sessionStorage.getItem(key), storageKey);
     await Promise.race([run(h), new Promise<never>((_, reject) => {
@@ -121,15 +122,17 @@ async function createRun(h: Harness, title: string, source: string, completed: W
   return h.page.evaluate(async id => (await (await fetch(`/api/runs/${id}`)).json()).run as WebRun, run.id);
 }
 async function refresh(h: Harness) {
+  await openHistory(h.page);
   await h.page.locator('#refresh-runs:enabled').waitFor();
   const response = h.page.waitForResponse(response => new URL(response.url()).pathname === '/api/runs' && response.request().method() === 'GET');
   await h.page.locator('#refresh-runs').click();
   assert.equal((await response).status(), 200);
   await h.page.locator('#refresh-runs:enabled').waitFor();
+  await closeHistory(h.page);
 }
 async function selectSource(h: Harness, id: string, diff = true) {
   await refresh(h);
-  await h.page.locator(`[data-run-id="${id}"]`).click();
+  await selectHistoryRun(h.page, id);
   await h.page.locator('#detail-tab-source').click();
   if (diff) {
     await h.page.locator('button[data-source-view="diff"]').click();

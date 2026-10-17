@@ -16,7 +16,7 @@ docker compose -f apps/web/compose.yml up -d web
 docker compose -f apps/web/compose.yml ps
 ```
 
-浏览器打开 <http://127.0.0.1:8787>，先选择证明环境，再选择模板或粘贴 Lean 源码，输入模型名称及自己的 API Key，开始研究。新建研究默认使用 Mathlib；可切换到 Lean 标准库。页面显示当前环境的固定 Lean 工具链和 Mathlib revision，模板列表只包含所选环境的示例。切换环境时，已选择的模板会更换为对应示例；自定义源码与任务保留，请自行确认其 import 和 tactic 属于所选环境。
+浏览器打开 <http://127.0.0.1:8787>，左侧输入研究任务，右侧预览 Lean 原题。点击研究配置选择证明环境、模型并输入自己的 API Key，发送任务开始研究。新建研究默认使用 Mathlib；可切换到 Lean 标准库。配置中显示当前环境的固定 Lean 工具链和 Mathlib revision，模板列表只包含所选环境的示例。切换环境时，已选择的模板会更换为对应示例；自定义源码与任务保留，请自行确认其 import 和 tactic 属于所选环境。
 
 默认模型沿用运行时的 `gpt-6.1-sol`，请使用所选服务商实际提供的模型。默认推理强度为 `xhigh`，服务商及模型也需支持对应参数。
 
@@ -65,8 +65,11 @@ bun run web
 - 提供 Mathlib 和 Lean 标准库两种固定环境。新网页任务默认 Mathlib，可使用 `import Mathlib` 和对应版本提供的 tactic；标准库环境不提供 Mathlib。单份源码最多 32 KiB，至少包含一个命名 theorem / lemma；保留原题声明，模型修改证明。暂不支持上传仓库或自定义 Lake 依赖。
 - 环境选择随任务保存，运行列表和详情显示实际提交环境；详情显示对应工具链和 Mathlib revision。CLI 的既有行为不受网页默认值影响。
 - 概览分别显示排队、环境准备、证明研究、独立验收四个阶段及用时。总用时包含等待与准备，研究用时从真正开始研究时计算，进入独立验收后停止。阶段开始时间独立保存在后端，不受最近 200 条活动日志上限影响；刷新页面后可继续查看。取消或提前结束的任务会标明尚未执行的阶段。
-- 新建研究优先展示原题和源码，模型连接与执行配置随后排列。尚无运行时，详情区同步展示当前草稿的环境、模型、预算、Agent 数量与前 160 行源码，明确标记未提交；预览不包含 API Key，也不会创建任务。环境摘要显示短 revision，悬停可查看完整版本。
-- 详情右上角可复用任务配置，重新载入该次任务固定的原始源码、研究任务、证明环境、模型和执行预算，API Key 需重新输入。Lean 源码视图可切换原始题目与候选 / 已验收证明，支持复制和下载。桌面端表单、历史与详情独立滚动，提交区保持可见。
+- 桌面使用左右双栏：左侧对话显示已提交任务、真实阶段事件和研究结果，底部保留输入框；右侧默认展示 Lean 源码，并提供概览、报告和活动视图。栏宽可拖动或用分隔条的方向键调整；手机通过“对话 / 工作区”切换。模型连接与执行预算集中在研究配置弹窗，历史记录通过左上角抽屉查看。
+- 尚无运行时，右侧同步展示当前草稿的环境、模型、预算、Agent 数量与前 160 行源码，明确标记未提交；预览不包含 API Key，也不会创建任务。输入框支持附加 Lean 文件和展开源码编辑器。Enter 提交，Shift+Enter 换行，输入法组合期间不提交。
+- 运行中每 1.5 秒采样隔离求解目录中的 `Submission.lean`，变更后通过现有轮询刷新右侧候选源码，保留滚动位置。快照最多 128 KiB，显示采样时间和 Agent，始终标记尚未验收；最终结果中的证明优先于运行快照。源码支持行号、原题切换、差异对比、复制与下载；只有完整原题通过独立验收才显示“验收证明”。
+- 草稿编辑、候选源码刷新和对话追加采用局部更新，保留未变化的节点、焦点与选区；分栏拖动按动画帧合并更新。新进展在对话底部自动跟随，阅读历史时保留位置；手机切换视图期间也保留跟随状态，主动跳到最新进展时遵循减少动态效果设置。
+- 详情右上角或研究反馈下方可基于此题新建研究，重新载入该次任务固定的原始源码、研究任务、证明环境、模型和执行预算，API Key 需重新输入。每次发送创建独立任务，目前不提供同一运行内的多轮追问或修改指令。
 - 有候选源码的运行支持逐行差异对比，展示原题 / 候选行号与新增、删除统计，默认折叠未改动内容并保留三行上下文，可展开和跳转更改位置。换行格式、末尾缺失换行分别标明；复制与下载仍保留完整候选原文。对比不改变验收结论。浏览器内使用 `diff` 库，在 80 ms / 2,000 编辑步骤预算内生成对比，最多展示 2,000 行；超限会提示，完整源码仍可查看和下载。
 - 可从本机导入 UTF-8 `.lean` 文件，导入时只在浏览器读取，点击提交后才发送源码；错误文件和迟到的文件读取不会覆盖新草稿。支持展开源码编辑器、行数与字节计数，应用修改前检查大小和空白输入；取消或 Esc 保留原表单。
 - 源码、研究任务和模型 / 执行配置自动保存在当前标签页的 `sessionStorage`，刷新后恢复，API Key 不写入草稿。重置配置会清除已保存的草稿；不支持存储或内容超限时显示未保存状态，不影响编辑和提交。可导出任务草稿 JSON，也可导入草稿或已下载的运行档案，文件上限 16 MiB；先预览，确认后载入原始题目并清空 API Key，不创建任务或恢复旧验收结论。源码和研究任务仍受各自大小限制。文件读取期间的新编辑不会被迟到内容覆盖。
@@ -104,7 +107,7 @@ Lean 标准库模板保留自然数加法和命题逻辑示例。网页默认 Ma
 
 ```bash
 bun install --frozen-lockfile
-bun run test -- tests/webServer.test.ts tests/webJobs.test.ts tests/webPresentation.test.ts tests/webReport.test.ts tests/webClient.test.ts tests/webDraft.test.ts tests/webSourceDiff.test.ts tests/webProviderFixture.test.ts tests/webProviderContainer.test.ts tests/webRunner.test.ts tests/leanTask.test.ts
+bun run test -- tests/webServer.test.ts tests/webJobs.test.ts tests/webArtifact.test.ts tests/webPresentation.test.ts tests/webReport.test.ts tests/webClient.test.ts tests/webDraft.test.ts tests/webSourceDiff.test.ts tests/webProviderFixture.test.ts tests/webProviderContainer.test.ts tests/webRunner.test.ts tests/leanTask.test.ts
 bun run typecheck
 bun run typecheck:web
 bun run build:web
@@ -113,10 +116,13 @@ bun run test:web-recovery
 bun run test:web-results
 bun run test:web-drafts
 bun run test:web-source-diff
+bun run test:web-performance
 bun scripts/test-web-runtime.ts
 ```
 
 `test:web-ui` 使用 Playwright Chromium 与真实本地 HTTP 服务，通过可控 worker fixture 检查进度计时、日志轮转、刷新、取消、配置复用、源码切换、复制下载、本地文件导入、展开编辑、历史筛选，以及 320–1440 像素布局。`test:web-recovery` 检查离线、401 / CSRF 403、请求超时、POST 响应丢失、过时响应和页面恢复。`test:web-results` 检查可读报告、候选与最终验收的区别、诊断转义、JSON 导出，以及删除确认、失败和响应丢失。`test:web-drafts` 检查刷新恢复、草稿与档案导入导出、密钥排除、存储异常和导入预览布局。`test:web-source-diff` 检查逐行差异、上下文与更改导航、换行、原文复制下载和大输入边界。这些浏览器验证均不调用 Docker、Lean 或模型，报告和截图写入 `out/web-ui-smoke/`。首次使用需安装 Playwright Chromium：`bunx playwright install chromium`。
+
+`test:web-performance` 检查草稿输入、候选源码更新和事件追加时的节点复用、焦点、选区及双向滚动，并验证连续拖动事件按帧合并和手机隐藏对话期间的滚动状态。报告与截图写入 `out/web-performance/`；DOM 变更计数用于比较更新范围，含轮询等待的耗时不代表渲染帧率。
 
 最后一项派生带明确 fixture 标记的测试镜像，用模拟 Codex app-server 生成候选，执行真实 Lean 检查。共 7 个场景：标准库正确 / 错误候选、运行中取消、创建时取消，以及 Mathlib 正确 / 错误候选和运行中取消；Mathlib 取消场景还核对设备权限、匿名卷和删除结果。不会调用模型或使用真实 Key。可用 `--case mathlib-valid` 单独排查；Mathlib 冷准备可能持续数分钟。报告写入 `out/web-runtime-smoke/report.json`，测试镜像默认自动删除。
 

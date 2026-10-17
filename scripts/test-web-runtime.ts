@@ -9,7 +9,7 @@ import { WebJobs } from '../apps/web/jobs';
 import { DockerWebRunner } from '../apps/web/runner';
 import { webTemplates } from '../apps/web/config';
 import { getLeanTaskEnvironment } from '../src/math/leanTaskEnvironment';
-import type { WebEnvironment, WebRun, WebRunInput } from '../apps/web/shared';
+import type { WebEnvironment, WebRun, WebRunInput, WorkerMessage } from '../apps/web/shared';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -95,8 +95,18 @@ export async function runWebRuntimeSmoke(argv = process.argv.slice(2)) {
   const image = values.image!;
   assert.notEqual(image, values['base-image'], 'Use a distinct fixture image tag; the real worker image must remain intact.');
   const runner = new DockerWebRunner({ workerImage: image });
-  const jobs = new WebJobs(runner, { concurrency: 1, queueLimit: 3 });
   const owner = `web-runtime-smoke-${crypto.randomUUID()}`;
+  const messages = new Map<string, { type: WorkerMessage['type']; observedAt: string;
+    runStatus?: WebRun['status']; resultAlreadyPresent: boolean }[]>();
+  const jobs = new WebJobs({ readiness: () => runner.readiness(), run: (input, onMessage, signal) =>
+    runner.run(input, message => {
+      onMessage(message);
+      const run = jobs.get(owner, input.id);
+      const observed = messages.get(input.id) ?? [];
+      observed.push({ type: message.type, observedAt: new Date().toISOString(),
+        runStatus: run?.status, resultAlreadyPresent: Boolean(run?.result) });
+      messages.set(input.id, observed);
+    }, signal) }, { concurrency: 1, queueLimit: 3 });
   const provider = { id: 'offline-fixture', name: 'Offline fixture', baseUrl: 'https://no-provider.invalid/v1' };
   const apiKey = `sk-theoremos-smoke-${crypto.randomBytes(24).toString('hex')}`;
   const containerIds = new Set<string>();
@@ -211,6 +221,22 @@ export async function runWebRuntimeSmoke(argv = process.argv.slice(2)) {
           assert.ok(run.result, `Worker produced no result: ${run.error || run.status}`);
           assert.equal(run.status, 'completed', `Runtime failed before Lean verification: ${JSON.stringify(run.result)}`);
           assertWebEnvironmentReport(run.result.report, input.environment!);
+          const expectedCandidate = input.environment === 'mathlib'
+            ? input.source.replaceAll('by sorry', name === 'mathlib-valid' ? 'by ring' : 'by exact True.intro')
+            : name === 'valid' ? input.source.replace('by sorry', 'by rfl').replace('by sorry', 'by exact Nat.zero_add n')
+              : input.source.replaceAll('by sorry', 'by exact True.intro');
+          assert.notEqual(expectedCandidate, input.source, 'The offline fixture must change the original Lean source.');
+          assert.ok(run.artifact, 'A real worker must publish live source through Docker and jobs.');
+          assert.equal(run.artifact.status, 'candidate', 'Live source must remain an unaccepted candidate.');
+          assert.equal(run.artifact.workerId, 'solver', 'The one-worker fixture must identify its actual proof worker.');
+          assert.equal(run.artifact.source, expectedCandidate, 'Live source must contain the actual changed fixture candidate.');
+          assert.equal(run.result.proof, expectedCandidate, 'The final proof must retain the candidate that was displayed live.');
+          const trace = messages.get(run.id) ?? [];
+          const artifactIndex = trace.findIndex(message => message.type === 'artifact');
+          const resultIndex = trace.findIndex(message => message.type === 'result');
+          assert.ok(artifactIndex >= 0 && resultIndex > artifactIndex, 'Docker must deliver the artifact before the final result.');
+          assert.equal(trace[artifactIndex].runStatus, 'running', 'Jobs must expose the candidate while research is still running.');
+          assert.equal(trace[artifactIndex].resultAlreadyPresent, false, 'A live candidate must exist before a final result is stored.');
           if (name === 'valid' || name === 'mathlib-valid') {
             assert.equal(run.result.status, 'evaluated_passed', `Valid proof was not accepted: ${JSON.stringify(run.result.report)}`);
             assert.match(run.result.proof, name === 'mathlib-valid' ? /by ring/ : /exact Nat\.zero_add n/);
@@ -226,21 +252,27 @@ export async function runWebRuntimeSmoke(argv = process.argv.slice(2)) {
           }
         } catch (error) {
           console.error('Smoke assertion diagnostics: ' + JSON.stringify({ case: name, status: run.status,
-            phase: run.phase, error: run.error, events: run.events, result: run.result }).replaceAll(apiKey, '[REDACTED]'));
+            phase: run.phase, error: run.error, events: run.events, artifact: run.artifact,
+            result: run.result, messages: messages.get(run.id) }).replaceAll(apiKey, '[REDACTED]'));
           throw error;
         }
         assert.ok(!JSON.stringify(run).includes(apiKey), 'A public run must not contain its API key.');
         await noContainer(run);
         outcomes.push({ case: name, status: run.status, acceptance: run.result.status, environment: run.result.report.environment,
-          containerRemoved: true });
+          candidate: { status: run.artifact!.status, workerId: run.artifact!.workerId, capturedAt: run.artifact!.capturedAt,
+            sourceMatchesExpected: true, publishedBeforeResult: true, observedWhileRunning: true },
+          messages: messages.get(run.id), containerRemoved: true });
       }
       console.log(`Smoke ${name}: passed`);
     }
     const outputRoot = path.join(root, 'out/web-runtime-smoke');
     fs.mkdirSync(outputRoot, { recursive: true });
     const report = { schema: 'theorem-os.web-runtime-smoke.v1', checkedAt: new Date().toISOString(),
-      image, modelInvoked: false, realLeanChecks: outcomes.some(outcome => typeof outcome.acceptance === 'string'), cases: outcomes };
-    fs.writeFileSync(path.join(outputRoot, 'report.json'), JSON.stringify(report, null, 2) + '\n');
+      image, baseImage: values['base-image'], modelInvoked: false,
+      realLeanChecks: outcomes.some(outcome => typeof outcome.acceptance === 'string'), cases: outcomes };
+    const serialized = JSON.stringify(report, null, 2) + '\n';
+    fs.writeFileSync(path.join(outputRoot, 'report.json'), serialized);
+    fs.writeFileSync(path.join(outputRoot, `report.${values.case}.json`), serialized);
     console.log('Offline Docker / BYOK / real Lean smoke checks passed. Report: out/web-runtime-smoke/report.json');
   } finally {
     await jobs.close();

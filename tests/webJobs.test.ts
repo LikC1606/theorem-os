@@ -227,15 +227,46 @@ describe('web job ownership, scheduling and secret lifetime without provider cal
     runner.calls[0].send({ type: 'result', result: result() });
     runner.calls[0].send({ type: 'progress', event: 'late', message: 'Late worker output' });
     runner.calls[0].send({ type: 'progress', event: 'evaluation_started', message: 'Late evaluation' });
+    runner.calls[0].send({ type: 'artifact', artifact: { source: 'by trivial', workerId: 'solver',
+      capturedAt: '2026-10-17T00:00:00.000Z', status: 'candidate' } });
     await tick();
     expect(cancelled.status).toBe('cancelled');
     expect(cancelled.result).toBeUndefined();
+    expect(cancelled.artifact).toBeUndefined();
     expect(cancelled.events).toHaveLength(eventCount);
     expect(cancelled.timings?.evaluating).toBeUndefined();
     expect(runner.calls[1].input.id).toBe(next.id);
     runner.calls[1].finish();
     await tick();
     expect(next.status).toBe('completed');
+  });
+
+  it('keeps only the latest redacted candidate without changing phase or proof acceptance', async () => {
+    const { jobs, runner } = setup();
+    const key = 'sk-live-source-secret';
+    const run = jobs.create('owner', input(key), provider);
+    await tick();
+    runner.calls[0].send({ type: 'progress', event: 'proof_check_started', message: 'Checking candidate' });
+    const count = run.events.length;
+    const first = { source: `-- ${key}\nby sorry`, workerId: 'solver',
+      capturedAt: '2026-10-17T00:00:00.000Z', status: 'candidate' as const };
+    runner.calls[0].send({ type: 'artifact', artifact: first });
+    expect(run.artifact).toEqual({ ...first, source: '-- [REDACTED]\nby sorry' });
+    expect(run.status).toBe('running');
+    expect(run.phase).toBe('proof_check_started');
+    expect(run.result).toBeUndefined();
+    expect(run.events).toHaveLength(count);
+    const second = { ...first, source: 'by trivial', workerId: 'engineer', capturedAt: '2026-10-17T00:00:01.000Z' };
+    runner.calls[0].send({ type: 'artifact', artifact: second });
+    expect(jobs.get('owner', run.id)?.artifact).toEqual(second);
+    expect(jobs.get('other-owner', run.id)).toBeUndefined();
+    runner.calls[0].finish({ status: 'evaluated_rejected', proof: 'by trivial', report: { accepted: false } });
+    await tick();
+    runner.calls[0].send({ type: 'artifact', artifact: first });
+    expect(run.artifact).toEqual(second);
+    expect(run.status).toBe('completed');
+    expect(run.result?.status).toBe('evaluated_rejected');
+    expect(JSON.stringify(run)).not.toContain(key);
   });
 
   it('retains first phase boundaries after activity-log rotation and repeated progress events', async () => {

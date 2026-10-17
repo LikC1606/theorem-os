@@ -9,6 +9,7 @@ import { readWebConfig, webTemplates } from '../apps/web/config';
 import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
 import type { WebRun } from '../apps/web/shared';
+import { fillConfig, refreshHistory, selectConfig, showChat, withSettings } from './web-ui-controls';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-ui-smoke');
@@ -101,13 +102,16 @@ async function snapshot(page: Page): Promise<Draft> {
     coordination: (document.querySelector('input[name="coordination"]:checked') as HTMLInputElement).value }) as Draft, ids);
 }
 async function fill(page: Page, value: Draft) {
-  await page.locator('#provider').selectOption(value.providerId);
-  await page.locator('#environment').selectOption(value.environment);
-  await page.locator('#template').selectOption('');
-  await page.locator('#effort').selectOption(value.effort);
-  for (const key of ['model', 'source', 'task', 'maxTurns', 'maxRunSeconds', 'workers'] as const) await page.locator(`#${ids[key]}`).fill(value[key]);
-  await page.locator(`input[name="coordination"][value="${value.coordination}"]`).check();
-  if (value.templateId) await page.locator('#template').selectOption(value.templateId);
+  await withSettings(page, async () => {
+    await page.locator('#provider').selectOption(value.providerId);
+    await page.locator('#environment').selectOption(value.environment);
+    await page.locator('#template').selectOption('');
+    await page.locator('#effort').selectOption(value.effort);
+    for (const key of ['model', 'source', 'maxTurns', 'maxRunSeconds', 'workers'] as const) await page.locator(`#${ids[key]}`).fill(value[key]);
+    await page.locator(`input[name="coordination"][value="${value.coordination}"]`).check();
+  });
+  await page.locator('#task').fill(value.task);
+  if (value.templateId) await selectConfig(page, 'template', value.templateId);
 }
 async function assertDraft(page: Page, expected: Draft) { assert.deepEqual(await snapshot(page), expected); }
 async function saved(page: Page, expected: Draft) {
@@ -129,6 +133,7 @@ async function assertKeyNotStored(page: Page) {
   }
 }
 async function importFile(page: Page, buffer: Buffer, name = 'draft.json') {
+  await showChat(page);
   const choosing = page.waitForEvent('filechooser');
   await page.locator('#import-task').click();
   await (await choosing).setFiles({ name, mimeType: 'application/json', buffer });
@@ -181,7 +186,7 @@ try {
   await scenario('Autosave restores every draft field on refresh without storing the API key or sharing drafts with another tab', async h => {
     await open(h);
     await fill(h.page, imported);
-    await h.page.locator('#api-key').fill(credential);
+    await fillConfig(h.page, 'api-key', credential);
     await saved(h.page, imported);
     await assertKeyNotStored(h.page);
     await h.page.reload(); await ready(h.page);
@@ -232,20 +237,20 @@ try {
     assert.equal(defaults.source, initial.source);
     assert.equal(defaults.task, initial.task);
     const addition = webTemplates.find(template => template.id === 'addition')!;
-    await h.page.locator('#environment').selectOption('standard');
-    await h.page.locator('#template').selectOption('addition');
+    await selectConfig(h.page, 'environment', 'standard');
+    await selectConfig(h.page, 'template', 'addition');
     const selected = await snapshot(h.page);
     assert.equal(selected.source, addition.source);
     await saved(h.page, selected);
     await h.page.reload(); await ready(h.page);
     await assertDraft(h.page, selected);
-    await h.page.locator('#source').fill(imported.source);
+    await fillConfig(h.page, 'source', imported.source);
     const custom = await snapshot(h.page);
     assert.equal(custom.templateId, '');
     await saved(h.page, custom);
     await h.page.reload(); await ready(h.page);
     await assertDraft(h.page, custom);
-    await h.page.locator('#reset-form').click();
+    await withSettings(h.page, () => h.page.locator('#reset-form').click());
     assert.equal(await h.page.evaluate(key => sessionStorage.getItem(key), storageKey), null);
     await h.page.reload(); await ready(h.page);
     await assertDraft(h.page, defaults);
@@ -267,7 +272,7 @@ try {
       if (pathname === '/api/session') { seen.resolve(); await gate.promise; }
       return false;
     };
-    await h.page.locator('#refresh-runs').click(); await seen.promise;
+    await refreshHistory(h.page); await seen.promise;
     expected.task += '\nEdited while reconnecting.';
     await h.page.locator('#task').fill(expected.task);
     gate.resolve(); await ready(h.page);
@@ -277,7 +282,7 @@ try {
   await scenario('Draft export preserves all fields and excludes the key; cancel, close and Escape preserve the current draft', async h => {
     await open(h);
     await fill(h.page, imported);
-    await h.page.locator('#api-key').fill(credential);
+    await fillConfig(h.page, 'api-key', credential);
     const downloading = h.page.waitForEvent('download');
     await h.page.locator('#export-draft').click();
     const file = await downloading;
@@ -300,7 +305,7 @@ try {
 
   await scenario('Confirmed draft and archive imports restore original fields, clear the key and never create history', async h => {
     await open(h);
-    await h.page.locator('#api-key').fill(credential);
+    await fillConfig(h.page, 'api-key', credential);
     await importFile(h.page, Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), draftBytes(imported)]), 'bom-draft.json');
     await dialog(h.page).waitFor();
     assert.equal(await h.page.locator('#import-task-preview').textContent(), imported.task);
@@ -320,7 +325,7 @@ try {
         report: { ignored: true, retainedOnlyInArchive: 'report payload '.repeat(12_000) } } };
     const archiveBytes = Buffer.from(JSON.stringify({ schema: 'theorem-os.web-export.v1', run: archivedRun }));
     assert.ok(archiveBytes.length > 256 * 1024 && archiveBytes.length <= 16 * 1024 * 1024);
-    await h.page.locator('#api-key').fill(credential);
+    await fillConfig(h.page, 'api-key', credential);
     await importFile(h.page, archiveBytes, 'archive.json');
     await dialog(h.page).waitFor();
     assert.equal(await h.page.locator('#import-source-preview').textContent(), archiveDraft.source);
@@ -332,7 +337,7 @@ try {
   });
 
   await scenario('Invalid, oversized and malformed UTF-8 files preserve the active draft and key', async h => {
-    await open(h); await fill(h.page, imported); await h.page.locator('#api-key').fill(credential);
+    await open(h); await fill(h.page, imported); await fillConfig(h.page, 'api-key', credential);
     const invalid = [
       { name: 'oversized.json', buffer: Buffer.alloc(16 * 1024 * 1024 + 1, 32) },
       { name: 'invalid-utf8.json', buffer: Buffer.from([0x7b, 0x22, 0xc3, 0x28, 0x22, 0x7d]) },
@@ -351,11 +356,11 @@ try {
   });
 
   await scenario('Late reads cannot overwrite key edits, a newer file preview or edits made after preview', async h => {
-    await open(h); await fill(h.page, imported); await h.page.locator('#api-key').fill(credential);
+    await open(h); await fill(h.page, imported); await fillConfig(h.page, 'api-key', credential);
     await gateFile(h.page, 'slow.json');
     const incoming = { ...imported, task: 'Delayed first file' };
     await importFile(h.page, draftBytes(incoming), 'slow.json'); await fileReadStarted(h.page);
-    await h.page.locator('#api-key').fill(`${credential}-edited`);
+    await fillConfig(h.page, 'api-key', `${credential}-edited`);
     await releaseFile(h.page);
     assert.equal(await dialog(h.page).count(), 0);
     await assertDraft(h.page, imported);
@@ -419,7 +424,7 @@ try {
     for (const width of widths) {
       const height = width > 850 ? 900 : 812;
       await h.page.setViewportSize({ width, height });
-      if (width <= 850) await h.page.locator('#mobile-compose').click();
+      await showChat(h.page);
       assert.equal(await h.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `compose overflow at ${width}`);
       await screenshot(h.page, `drafts-${width}-composer.png`);
       await importFile(h.page, draftBytes(long), filename); await dialog(h.page).waitFor();

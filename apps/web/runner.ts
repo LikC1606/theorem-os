@@ -4,6 +4,7 @@ import { promisify } from 'node:util';
 import { z } from 'zod';
 import type { WebConfig } from './config';
 import type { WorkerInput, WorkerMessage } from './shared';
+import { webArtifactMaxBytes } from './shared';
 
 export type WebRunner = {
   readiness(): Promise<{ ready: boolean; message: string }>;
@@ -13,6 +14,11 @@ const execute = promisify(execFile);
 const workerMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('progress'), event: z.string().min(1).max(100), message: z.string().max(2_000) }).strict(),
   z.object({ type: z.literal('error'), message: z.string().min(1).max(2_000) }).strict(),
+  z.object({ type: z.literal('artifact'), artifact: z.object({
+    source: z.string().min(1).max(webArtifactMaxBytes).refine(value => Buffer.byteLength(value) <= webArtifactMaxBytes),
+    workerId: z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/),
+    capturedAt: z.string().datetime(), status: z.literal('candidate'),
+  }).strict() }).strict(),
   z.object({ type: z.literal('result'), result: z.object({ status: z.string().min(1).max(100),
     proof: z.string().max(128 * 1024), report: z.record(z.unknown()) }).strict() }).strict(),
 ]);

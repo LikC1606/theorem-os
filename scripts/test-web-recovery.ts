@@ -9,6 +9,7 @@ import { readWebConfig } from '../apps/web/config';
 import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
 import type { WebResult, WebRun } from '../apps/web/shared';
+import { fillConfig, refreshHistory, withSettings } from './web-ui-controls';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-ui-smoke');
@@ -108,20 +109,24 @@ async function scenario(name: string, run: (h: Harness) => Promise<void>) {
 }
 async function draft(page: Page) {
   const values = { source: 'theorem recovery_draft : True := by\n  trivial\n', task: 'Recovery draft\nKeep this exact task.', model: 'fixture-recovery-model', 'max-turns': '3', 'max-seconds': '90', workers: '2' };
-  for (const [id, value] of Object.entries(values)) await page.locator(`#${id}`).fill(value);
+  await withSettings(page, async () => {
+    for (const [id, value] of Object.entries(values)) if (id !== 'task') await page.locator(`#${id}`).fill(value);
+  });
+  await page.locator('#task').fill(values.task);
   return values;
 }
 async function assertDraft(page: Page, values: Record<string, string>) {
   for (const [id, value] of Object.entries(values)) assert.equal(await page.locator(`#${id}`).inputValue(), value, `draft field ${id} changed`);
 }
 async function post(page: Page): Promise<WebRun> {
-  await page.locator('#api-key').fill(credential);
+  await fillConfig(page, 'api-key', credential);
   const response = page.waitForResponse(response => new URL(response.url()).pathname === '/api/runs' && response.request().method() === 'POST');
   await page.locator('#submit-run').click();
   const result = await response;
   assert.equal(result.status(), 201);
   const { run } = await result.json() as { run: WebRun };
-  await page.locator(`[data-run-id="${run.id}"]`).waitFor();
+  await page.locator(`[data-run-id="${run.id}"]`).waitFor({ state: 'attached' });
+  await page.locator('#detail-tab-overview').click();
   return run;
 }
 async function transition(page: Page, type: 'pagehide' | 'pageshow') {
@@ -141,7 +146,7 @@ try {
     await open(h);
     const values = await draft(h.page);
     await h.context.setOffline(true);
-    await h.page.locator('#refresh-runs').click();
+    await refreshHistory(h.page);
     await disconnected(h.page);
     await assertDraft(h.page, values);
     values.task += '\nEdited while offline.';
@@ -169,7 +174,7 @@ try {
       if (isSession(route)) { sessionSeen.resolve(); await sessionGate.promise; }
       return false;
     };
-    await h.page.locator('#refresh-runs').click();
+    await refreshHistory(h.page);
     await sessionSeen.promise;
     await disconnected(h.page);
     sessionGate.resolve();
@@ -227,7 +232,7 @@ try {
       }
       return false;
     };
-    await h.page.locator('#api-key').fill(credential);
+    await fillConfig(h.page, 'api-key', credential);
     await h.page.locator('#submit-run').click();
     await h.page.waitForFunction(() => !(document.querySelector('#form-error') as HTMLElement).hidden);
     await h.page.waitForFunction(() => !(document.querySelector('#submit-run') as HTMLButtonElement).disabled);
@@ -257,11 +262,11 @@ try {
       }
       return true;
     };
-    await h.page.locator('#api-key').fill(credential);
+    await fillConfig(h.page, 'api-key', credential);
     await h.page.locator('#submit-run').click();
     await accepted.promise;
     await h.page.locator('#form-error').waitFor({ state: 'visible' });
-    await h.page.locator(`[data-run-id="${acceptedRun!.id}"]`).waitFor();
+    await h.page.locator(`[data-run-id="${acceptedRun!.id}"]`).waitFor({ state: 'attached' });
     await ready(h.page);
     await h.page.waitForTimeout(5600);
     assert.equal(count(h, 'POST', '/api/runs'), 1);
@@ -284,7 +289,7 @@ try {
     const run = await post(h.page);
     const before = detailRequests;
     controls.get(run.id)!({ status: 'evaluated_passed', proof: run.source.replace('by sorry', 'by ring'), report: { fixture: true } });
-    await h.page.locator('#refresh-runs').click();
+    await refreshHistory(h.page);
     await h.page.locator('.result-banner.passed').waitFor();
     assert.equal(detailRequests, before, 'polling must not depend on an additional detail GET');
     assert.equal(await h.page.locator('.run-row.selected .badge.passed').count(), 1);
@@ -330,7 +335,7 @@ try {
       settled.resolve();
       return true;
     };
-    await h.page.locator('#refresh-runs').click();
+    await refreshHistory(h.page);
     await held.promise;
     await transition(h.page, 'pagehide');
     const restoredList = h.page.waitForResponse(response => new URL(response.url()).pathname === '/api/runs' && response.status() === 200);
@@ -357,7 +362,7 @@ try {
       await route.fulfill({ status: 200, json: { runs: [] } }).catch(() => {});
       return true;
     };
-    await h.page.locator('#refresh-runs').click();
+    await refreshHistory(h.page);
     await held.promise;
     const started = performance.now();
     await h.page.locator('#global-notice').waitFor({ state: 'visible', timeout: 19_000 });

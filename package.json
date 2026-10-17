@@ -26,6 +26,7 @@
     "test:web-results": "bun scripts/test-web-results.ts",
     "test:web-drafts": "bun scripts/test-web-drafts.ts",
     "test:web-source-diff": "bun scripts/test-web-source-diff.ts",
+    "test:web-performance": "bun scripts/test-web-performance.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

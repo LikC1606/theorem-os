@@ -9,6 +9,23 @@ describe('web worker protocol boundary', () => {
     expect(parseWorkerMessage(JSON.stringify(result))).toEqual(result);
   });
 
+  it('accepts a bounded Lean candidate without granting acceptance', () => {
+    const artifact = { type: 'artifact', artifact: { source: 'theorem example : True := by trivial',
+      workerId: 'engineer', capturedAt: '2026-10-17T00:00:00.000Z', status: 'candidate' } };
+    expect(parseWorkerMessage(JSON.stringify(artifact))).toEqual(artifact);
+  });
+
+  it.each([
+    { source: '', workerId: 'solver', capturedAt: '2026-10-17T00:00:00.000Z', status: 'candidate' },
+    { source: 'by trivial', workerId: '../secret', capturedAt: '2026-10-17T00:00:00.000Z', status: 'candidate' },
+    { source: 'by trivial', workerId: 'solver', capturedAt: 'yesterday', status: 'candidate' },
+    { source: 'by trivial', workerId: 'solver', capturedAt: '2026-10-17T00:00:00.000Z', status: 'evaluated_passed' },
+    { source: 'by trivial', workerId: 'solver', capturedAt: '2026-10-17T00:00:00.000Z', status: 'candidate', path: '/etc/passwd' },
+    { source: '\u8bc1'.repeat(50_000), workerId: 'solver', capturedAt: '2026-10-17T00:00:00.000Z', status: 'candidate' },
+  ])('rejects invalid candidate metadata or oversized UTF-8 (%#)', artifact => {
+    expect(parseWorkerMessage(JSON.stringify({ type: 'artifact', artifact }))).toBeUndefined();
+  });
+
   it.each([
     'runtime console output', 'null', '[]', '{}', '{"type":"result"}',
     '{"type":"result","result":{"status":"evaluated_passed","proof":"","report":[]}}',

@@ -95,6 +95,10 @@ export class WebJobs {
       if (message.type === 'progress') {
         job.run.phase = message.event;
         this.event(job.run, message.event, message.message);
+      } else if (message.type === 'artifact') {
+        if (job.run.result) return;
+        job.run.artifact = message.artifact;
+        job.run.updatedAt = new Date().toISOString();
       } else if (message.type === 'result') {
         job.run.result = message.result;
         job.run.phase = message.result.status;

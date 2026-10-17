@@ -9,6 +9,7 @@ import { readWebConfig } from '../apps/web/config';
 import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
 import type { WebResult, WebRun, WebRunInput } from '../apps/web/shared';
+import { closeHistory, openHistory, refreshHistory, selectHistoryRun } from './web-ui-controls';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-ui-smoke');
@@ -135,15 +136,17 @@ async function createRun(h: Harness, title: string, completed: WebResult | null 
   return h.page.evaluate(async id => (await (await fetch(`/api/runs/${id}`)).json()).run as WebRun, run.id);
 }
 async function refresh(h: Harness) {
+  await openHistory(h.page);
   await h.page.locator('#refresh-runs:enabled').waitFor();
   const response = h.page.waitForResponse(response => new URL(response.url()).pathname === '/api/runs' && response.request().method() === 'GET');
   await h.page.locator('#refresh-runs').click();
   assert.equal((await response).status(), 200);
   await h.page.locator('#refresh-runs:enabled').waitFor();
+  await closeHistory(h.page);
 }
 async function select(h: Harness, id: string, report = false) {
-  await h.page.locator(`[data-run-id="${id}"]`).click();
-  if (report) await h.page.locator('#detail-tab-report').click();
+  await selectHistoryRun(h.page, id);
+  await h.page.locator(report ? '#detail-tab-report' : '#detail-tab-overview').click();
 }
 async function showDelete(h: Harness, id: string) {
   await select(h, id);
@@ -153,7 +156,7 @@ async function showDelete(h: Harness, id: string) {
 async function deleteSelected(h: Harness, id: string) {
   await showDelete(h, id);
   await h.page.locator('#confirm-delete').click();
-  await h.page.locator(`[data-run-id="${id}"]`).waitFor({ state: 'hidden' });
+  await h.page.locator(`[data-run-id="${id}"]`).waitFor({ state: 'detached' });
   await h.page.locator('#delete-run-dialog[open]').waitFor({ state: 'hidden' });
 }
 async function screenshot(page: Page, name: string) {
@@ -276,7 +279,7 @@ try {
     assert.equal(await h.page.locator('[data-source-view="proof"]').innerText(), '候选源码');
     controls.get(run.id)!.finish();
     await refresh(h);
-    await h.page.locator('.run-row.selected .badge.passed').waitFor();
+    await h.page.locator('.run-row.selected .badge.passed').waitFor({ state: 'attached' });
     await h.page.locator('[data-action="delete-run"]').waitFor();
   });
 
@@ -310,7 +313,7 @@ try {
     assert.equal(await h.page.locator(`[data-run-id="${middle.id}"]`).count(), 0);
     await deleteSelected(h, selected!);
     const finalId = selected === first.id ? last.id : first.id;
-    await h.page.locator(`[data-run-id="${finalId}"].selected`).waitFor();
+    await h.page.locator(`[data-run-id="${finalId}"].selected`).waitFor({ state: 'attached' });
     await deleteSelected(h, finalId);
     assert.equal(await h.page.locator('[data-run-id]').count(), 0);
     assert.equal(await h.page.locator('#run-count').innerText(), '0');
@@ -359,7 +362,7 @@ try {
     const beforeGet = h.requests.filter(request => request.method === 'GET' && request.pathname === '/api/runs').length;
     await h.page.locator('#confirm-delete').click();
     await committed.promise;
-    await h.page.locator(`[data-run-id="${run.id}"]`).waitFor({ state: 'hidden' });
+    await h.page.locator(`[data-run-id="${run.id}"]`).waitFor({ state: 'detached' });
     await h.page.locator('#delete-error').waitFor({ state: 'visible' });
     await h.page.locator('#confirm-delete:disabled').waitFor();
     assert.equal(await h.page.locator('#delete-run-dialog[open]').count(), 1);
@@ -392,7 +395,7 @@ try {
       settled.resolve();
       return true;
     };
-    await h.page.locator('#refresh-runs').click();
+    await refreshHistory(h.page);
     await held.promise;
     await deleteSelected(h, removed.id);
     release.resolve(); await settled.promise;

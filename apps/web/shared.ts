@@ -21,6 +21,13 @@ export type WebRunInput = {
   coordination: WebCoordination;
 };
 export type WebEvent = { sequence: number; at: string; type: string; message: string };
+export const webArtifactMaxBytes = 128 * 1024;
+export type WebArtifact = {
+  source: string;
+  workerId: string;
+  capturedAt: string;
+  status: 'candidate';
+};
 export type WebResult = {
   status: string;
   proof: string;
@@ -46,6 +53,7 @@ export type WebRun = {
   workers: number;
   coordination: WebCoordination;
   events: WebEvent[];
+  artifact?: WebArtifact;
   result?: WebResult;
   error?: string;
 };
@@ -61,5 +69,6 @@ export type WebSession = {
 export type WorkerInput = { id: string; input: WebRunInput; provider: WebProvider };
 export type WorkerMessage =
   | { type: 'progress'; event: string; message: string }
+  | { type: 'artifact'; artifact: WebArtifact }
   | { type: 'result'; result: WebResult }
   | { type: 'error'; message: string };
