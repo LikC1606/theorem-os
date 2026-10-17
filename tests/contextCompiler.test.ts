@@ -1,11 +1,13 @@
 import { expect, it } from 'vitest';
-import { compileTaskContext, frozenSourceContext, type TaskContextInput } from '../src/solver/contextCompiler';
+import path from 'node:path';
+import { compileTaskContext, DEFAULT_TASK_CONTEXT_BYTES, frozenSourceContext, type TaskContextInput } from '../src/solver/contextCompiler';
 import { buildResearchContext } from '../src/solver/modules/context';
 import { taskVersion, type CooperativeAction, type CooperativeTask, type TaskRecord } from '../src/solver/tasks';
 import type { SolverProblem } from '../src/solver/problem';
 import type { SolverRunState } from '../src/solver/archive';
 import type { TaskProof } from '../src/solver/cooperativeProof';
 import type { DeliveryRecord } from '../src/solver/deliveries';
+import { canonicalMathJson } from '../src/math/mathRuntimeIo';
 
 const baseCommit = 'a'.repeat(40), proofCommit = 'b'.repeat(40);
 const formal = 'namespace Original\nvariable (n : Nat)\ntheorem target (h : n > 0) : n > 0 := by sorry\nend Original';
@@ -224,4 +226,106 @@ it('fails closed for unavailable frozen context instead of substituting a contex
   expect(() => buildResearchContext({ ...problem, workspace: '/unavailable-frozen-repository' }, {} as SolverRunState,
     { root: '/runtime', worktree: '/unavailable-frozen-worktree', environment: {}, taskText: 'Prove', retrievalRoot: '/library' }))
     .toThrow('math_context_missing_required:frozen-source:Submission.lean');
+});
+
+const contextLine = (message: string, label: string) => JSON.parse(message.split(`${label}\n`)[1].split('\n')[0]);
+const compiledGraph = (message: string): any[] => contextLine(message, 'Lead task graph and host feedback:');
+const compiledDictionary = (message: string): { entries: any[]; projectRelative: string } =>
+  contextLine(message, 'Complete evidence reference dictionary (mandatory, recorded-not-replayed):');
+
+function referenceProof(task: CooperativeTask, sourceCommit = proofCommit): TaskProof {
+  const input = { file: 'Submission.lean', name: 'shared_support', digest: 'same-interface-digest' },
+    declaration = { file: input.file, name: input.name }, references = { sourceCommit,
+      environmentDigest: 'fixed-environment', contextDigest: 'fixed-context',
+      root: { file: 'Submission.lean', name: task.theoremName! },
+      inputs: [input, input], proof: [declaration, declaration], statement: [declaration], tasks: [] };
+  return { ...checked(task), references, conditions: [], verification: { ...checked(task).verification,
+    targetCommit: 'd'.repeat(40), results: checked(task).verification.results.map(result =>
+      ({ ...result, receiptId: `receipt-${task.id}`, targetCommit: 'd'.repeat(40) })) } };
+}
+
+it('losslessly expands deduplicated references, their order, proof source paths and all mandatory evidence identities', () => {
+  const tasks = [lemma('first'), lemma('second')], proofs = tasks.map(task => referenceProof(task));
+  // Equal objects with different property insertion order still share one dictionary entry.
+  proofs[1].references!.inputs[0] = { digest: 'same-interface-digest', name: 'shared_support', file: 'Submission.lean' };
+  const context = compileTaskContext(input(tasks.map((task, index) => ({ ...node(task), status: 'integrated', integratedCheck: proofs[index] }))));
+  const graph = compiledGraph(context.message), dictionary = compiledDictionary(context.message);
+  expect(dictionary.entries).toHaveLength(2);
+  expect(context.manifest.included).toContainEqual(expect.objectContaining({ id: 'evidence-reference-dictionary', required: true }));
+  for (const [index, row] of graph.entries()) {
+    const references = row.evidence.references, original = proofs[index].references!;
+    for (const key of ['inputs', 'proof', 'statement'] as const)
+      expect(references[key].map((id: number) => dictionary.entries[id])).toEqual(original[key]);
+    expect(references.inputs[0]).toBe(references.inputs[1]);
+    expect(references.sourceCommit).toBe(original.sourceCommit);
+    expect(references.contextDigest).toBe(original.contextDigest);
+    expect(references.environmentDigest).toBe(original.environmentDigest);
+    expect(references.root).toEqual(original.root);
+    expect(references.tasks).toEqual(original.tasks);
+    expect(row.type).toBe(tasks[index].type);
+    expect(row.evidence.conditions).toEqual(proofs[index].conditions);
+    expect(row.evidence.verification.receipts).toEqual(proofs[index].verification.results);
+    expect(row.source.inputs).toBeUndefined();
+    expect(row.source.inputsFrom).toBe('evidence.references.inputs');
+    const expandedSources = references.inputs.map((id: number) => ({ ...dictionary.entries[id],
+      commit: references.sourceCommit, path: `${dictionary.projectRelative}/${dictionary.entries[id].file}` }));
+    expect(expandedSources).toEqual(original.inputs.map(item => ({ ...item, commit: original.sourceCommit,
+      path: `${problem.projectRelative}/${item.file}` })));
+  }
+});
+
+it('shares identical reference metadata without conflating distinct source commits or changed input digests', () => {
+  const tasks = [lemma('one'), lemma('two'), lemma('three')], commits = ['1'.repeat(40), '2'.repeat(40), '3'.repeat(40)],
+    proofs = tasks.map((task, index) => referenceProof(task, commits[index]));
+  proofs[2].references!.inputs = proofs[2].references!.inputs.map(item => ({ ...item, digest: 'changed-interface-digest' }));
+  const context = compileTaskContext(input(tasks.map((task, index) => ({ ...node(task), status: 'integrated', integratedCheck: proofs[index] }))));
+  const graph = compiledGraph(context.message), dictionary = compiledDictionary(context.message);
+  expect(graph[0].evidence.references.inputs).toEqual(graph[1].evidence.references.inputs);
+  expect(graph[0].evidence.references.sourceCommit).not.toBe(graph[1].evidence.references.sourceCommit);
+  expect(graph.map(row => row.evidence.references.sourceCommit)).toEqual(commits);
+  expect(graph[0].evidence.references.inputs).not.toEqual(graph[2].evidence.references.inputs);
+  expect(dictionary.entries[graph[2].evidence.references.inputs[0]].digest).toBe('changed-interface-digest');
+  expect(graph[0].evidence.commit).toBe(proofCommit);
+  expect(graph[0].evidence.verification.targetCommit).toBe('d'.repeat(40));
+});
+
+it.each(['.', 'generated\\p\\'])('reconstructs source paths with the original POSIX join rule for project %s', projectRelative => {
+  const task = lemma('source_path'), proof = referenceProof(task);
+  const context = compileTaskContext({ ...input([{ ...node(task), status: 'integrated', integratedCheck: proof }]),
+    problem: { ...problem, projectRelative } });
+  const row = compiledGraph(context.message)[0], dictionary = compiledDictionary(context.message);
+  expect(dictionary.projectRelative).toBe(projectRelative.replaceAll('\\', '/'));
+  expect(row.source.path).toBe(path.posix.join(dictionary.projectRelative, task.proofPath!));
+  for (const id of row.evidence.references.inputs) {
+    const restoredPath = path.posix.join(dictionary.projectRelative, dictionary.entries[id].file);
+    expect(restoredPath).toBe(path.posix.join(projectRelative.replaceAll('\\', '/'), proof.references!.inputs[0].file));
+  }
+});
+
+it('fits a large repeated-reference graph in the unchanged byte budget while preserving every exact task interface', () => {
+  const tasks = Array.from({ length: 60 }, (_, index) => lemma(`checkpoint${index}`, [],
+    `∀ n : Nat, ${'n = n ∧ '.repeat(80)}True`));
+  const inputs = Array.from({ length: 60 }, (_, index) => ({ file: 'Submission.lean',
+    name: `shared_long_declaration_name_${index}`, digest: String(index).padStart(64, '0') })),
+    declarationRefs = inputs.map(({ file, name }) => ({ file, name }));
+  const records = tasks.map(task => ({ ...node(task), status: 'integrated' as const, integratedCheck: {
+    ...referenceProof(task), references: { ...referenceProof(task).references!, inputs, proof: declarationRefs, statement: declarationRefs },
+  } }));
+  const context = compileTaskContext(input(records)), graph = compiledGraph(context.message),
+    dictionary = compiledDictionary(context.message);
+  expect(context.manifest.usedBytes).toBeLessThanOrEqual(DEFAULT_TASK_CONTEXT_BYTES);
+  expect(context.manifest.requiredTaskIds).toHaveLength(tasks.length);
+  expect(graph.map(row => row.type)).toEqual(tasks.map(task => task.type));
+  const expanded = graph.map(row => {
+    const references = row.evidence.references;
+    const arrays = Object.fromEntries(['inputs', 'proof', 'statement'].map(key =>
+      [key, references[key].map((id: number) => dictionary.entries[id])]));
+    return { ...row, evidence: { ...row.evidence, references: { ...references, ...arrays } }, source: {
+      commit: row.source.commit, path: row.source.path, sourceDigest: row.source.sourceDigest,
+      inputs: arrays.inputs.map((item: any) => ({ ...item, commit: references.sourceCommit,
+        path: `${dictionary.projectRelative}/${item.file}` })),
+    } };
+  });
+  expect(Buffer.byteLength(canonicalMathJson(expanded))).toBeGreaterThan(DEFAULT_TASK_CONTEXT_BYTES);
+  expect(dictionary.entries).toHaveLength(inputs.length + declarationRefs.length);
 });

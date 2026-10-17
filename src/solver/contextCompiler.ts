@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { mathDigest } from '../math/mathRuntimeIo';
+import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import { inspectLeanDeclarations, inspectLeanDeclarationRegions } from '../math/leanSource';
 import type { CooperationState } from './cooperation';
 import type { DeliveryRecord } from './deliveries';
@@ -96,6 +96,25 @@ function evidence(node: TaskRecord, environmentDigest?: string) {
       statement: proof.references.statement, proof: proof.references.proof }, imports: proof.imports };
 }
 
+type EvidenceReferenceEntry = NonNullable<ReturnType<typeof evidence>>['references']['inputs'][number] |
+  NonNullable<ReturnType<typeof evidence>>['references']['proof'][number];
+
+/** Intern exact metadata only; each proof retains its own source and verifier identities. */
+function evidenceReferenceDictionary() {
+  const entries: EvidenceReferenceEntry[] = [], indices = new Map<string, number>();
+  const index = (entry: EvidenceReferenceEntry) => {
+    const key = canonicalMathJson(entry), previous = indices.get(key);
+    if (previous !== undefined) return previous;
+    const next = entries.length;
+    indices.set(key, next); entries.push(entry); return next;
+  };
+  return { entries, encode: (record: ReturnType<typeof evidence>) => record?.references ? {
+    ...record, references: { ...record.references,
+      inputs: record.references.inputs.map(index), proof: record.references.proof.map(index),
+      statement: record.references.statement.map(index) },
+  } : record };
+}
+
 /** Closed shared interfaces encapsulate private implementation prerequisites, never unresolved assumptions. */
 function requiredTasks(input: TaskContextInput, omitted: ContextManifest['omitted'][number][]) {
   const tasks = input.cooperation?.tasks ?? [], byId = new Map(tasks.map(node => [node.task.id, node]));
@@ -181,8 +200,8 @@ function sourceReferences(input: TaskContextInput) {
 function proofSources(problem: SolverProblem, node: TaskRecord) {
   const proof = node.integratedCheck ?? node.proof;
   return proof && { commit: proof.commit, path: node.task.proofPath && sourcePath(problem, node.task.proofPath),
-    sourceDigest: proof.sourceDigest, inputs: proof.references?.inputs.map(input =>
-      ({ ...input, commit: proof.references!.sourceCommit, path: sourcePath(problem, input.file) })) };
+    sourceDigest: proof.sourceDigest,
+    ...(proof.references ? { inputsFrom: 'evidence.references.inputs' } : {}) };
 }
 
 function optionalDeliveries(input: TaskContextInput, required: ReadonlySet<string>,
@@ -222,13 +241,14 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
     return missing('frozen-problem');
   const omitted: ContextManifest['omitted'][number][] = [];
   const { tasks, byId, required, route: selectedRoute } = requiredTasks(input, omitted);
+  const references = evidenceReferenceDictionary();
   const graph = tasks.map(node => ({ ...(action?.kind === 'task' && node.task.id === action.task.id
     ? { id: node.task.id } : node.task), taskDigest: taskVersion(node.task),
     status: node.status, attempts: node.attempts, groupId: taskGroup(node.task), producer: node.assignment?.workerId,
     sharing: node.task.sharing ?? 'problem',
     integratedCommit: node.integratedCheck?.commit, checkedSourceDigest: node.integratedCheck?.sourceDigest,
     ...(node.task.kind === 'goal' ? { exactFrozenHeader: frozenHeader(problem, node) } : {}),
-    evidence: evidence(node, input.environmentDigest), source: proofSources(problem, node) }));
+    evidence: references.encode(evidence(node, input.environmentDigest)), source: proofSources(problem, node) }));
   const mandatory: ContextSection[] = [
     section('original-problem', 'problem', `${input.taskText}\n\nOriginal problem:`, problem.contract.formalStatement),
     section('original-assumptions', 'problem', 'Frozen assumptions and problem identity:', { problemReceiptDigest: problem.receiptDigest,
@@ -243,6 +263,15 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
     const visibleGroups = new Set(tasks.map(node => taskGroup(node.task)));
     mandatory.push(section('groups', 'groups', 'Route groups and budgets:',
       input.cooperation.groups?.filter(route => action?.kind !== 'task' || visibleGroups.has(route.group.id)) ?? []));
+    if (references.entries.length) mandatory.push(section('evidence-reference-dictionary', 'sources',
+      'Complete evidence reference dictionary (mandatory, recorded-not-replayed):', {
+        encoding: 'evidence-reference-indices-v1', projectRelative: problem.projectRelative.replaceAll('\\', '/'),
+        expansion: 'Each numeric element in a task evidence.references.inputs, proof or statement array indexes entries below. ' +
+          'Expand every index in its original array order. A task source.inputsFrom names its evidence.references.inputs; ' +
+          'each expanded input retains all fields and uses that task evidence.references.sourceCommit as commit and path.posix.join(projectRelative, input.file) as path. ' +
+          'Source commits, verifier target commits and evidence remain distinct. Indexing grants no proof acceptance.',
+        entries: references.entries,
+      }));
   }
   mandatory.push(section('declaration-order', 'sources', 'Frozen declaration order by file:', Object.fromEntries(
     Object.entries(problem.declarations).map(([file, declarations]) => [file, declarations.map(declaration => declaration.name)]))),

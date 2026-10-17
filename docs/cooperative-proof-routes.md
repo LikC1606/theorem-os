@@ -41,6 +41,8 @@ M4 在派发前编译上下文，必需部分包含：
 
 默认提示词字节上限为 512 KiB，通过 M4 的 `ContextAccess.maxContextBytes` 可调整；这不是求解时限。必需项缺失、过期或超出预算时，在模型派发前明确返回 `math_context_missing_required`、`math_context_stale_required` 或 `math_context_mandatory_overflow`，不会静默裁掉假设。无效预算返回 `math_context_invalid_budget`。
 
+多个任务重复引用同一声明时，必需的证据元数据通过完整引用字典去重。任务中的 `evidence.references.inputs`、`proof`、`statement` 数组按原顺序保存字典索引，字典保留每个对象的全部字段。`source.inputsFrom` 指向同任务的 inputs；输入提交取该任务的 `evidence.references.sourceCommit`，路径按 `path.posix.join(projectRelative, input.file)` 展开，字典中的项目路径已把反斜杠规范为 `/`。每项任务的类型、条件、回执 ID、来源提交和校验投影提交完整保留，来源提交不同的对象仍按各任务的来源解释。字典是必需上下文，不是省略记录，也不赋予历史回执新的验收权限。
+
 研究发现、历史交付和 checkpoint 摘要按相关性选取。`CONTEXT-MANIFEST.json` 与 `state.json` 中各 worker 的 `lastContextManifest` 记录字节数、内容摘要、必需任务、已包含项和每个省略原因；每次编译还发送 `context_compiled` 事件。长 checkpoint 的摘要省略显式标注，完整笔记及历史提交仍可检索。该清单是宿主只读日志，不属于证明源码。
 
 ## 3. 替代证明路线

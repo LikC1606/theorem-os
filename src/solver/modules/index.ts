@@ -16,7 +16,7 @@ export const directSolverModules = {
   M1: { version: 'bounded-codex-turn-v9', open: createCodexMathSession, execute: executeResearch },
   M2: { version: 'lean-kernel-v9', check: checkSolverProof, checkTask: checkTaskProof },
   M3: { version: 'route-budget-v8/blocker-or-routes-v1', select: selectResearchAction, retry: planResearchRetry, ready: readyResearchTasks },
-  M4: { version: 'task-interface-context-v16', build: buildResearchContext, statement: buildStatementReviewContext },
+  M4: { version: 'task-interface-context-v17/reference-dictionary-v1', build: buildResearchContext, statement: buildStatementReviewContext },
   M5: { version: 'route-cooperation-v16', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignResearchTask },
 };
 
