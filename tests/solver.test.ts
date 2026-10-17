@@ -25,6 +25,7 @@ import { parseLeanStatementContexts } from '../src/math/leanStatementContext';
 import { captureProofReferences, proofReferencesUnchanged } from '../src/solver/proofReferences';
 import { applyTaskChanges, checkTaskProof, checkTaskProofs, projectTaskSources, taskChanges } from '../src/solver/cooperativeProof';
 import { inspectScopedLeanDeclarations, leanDeclarationContextCommands } from '../src/math/leanSource';
+import { recordRouteBlockers, refreshRouteBlockers } from '../src/solver/routeControl';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn(), officialGate: vi.fn(), build: vi.fn(), delay: vi.fn(),
   prepare: vi.fn(), freeze: vi.fn(), readiness: vi.fn(), connectivity: vi.fn(), packages: undefined as string | undefined }));
@@ -1121,6 +1122,45 @@ describe('isolated solver and host acceptance', () => {
     await resumed.stop();
   });
 
+  it('retries an unfinished parked-frontier assessment after restore and remembers a completed assessment', async () => {
+    const plan = parseCooperationPlan(problem, { tasks: planTasks() });
+    writePlan(workspace, plan.tasks);
+    const canonicalCommit = commitSolverSources(problem, workspace);
+    let state: any = { problem, runId: 'frontier-restore', turns: 0, phase: 'running', environmentDigest: 'fixture',
+      cooperation: { canonicalCommit, tasks: plan.tasks.map(task => ({ task, attempts: 0,
+        status: task.kind === 'lemma' ? 'blocked' : 'pending' })), groups: plan.groups.map(group => ({ group, turns: 0 })), blockers: [] } };
+    const core = state.cooperation.tasks[0], blockers = state.cooperation.blockers;
+    const proposal = { mechanism: 'A checked analytic input is missing.', scope: 'The core inference.',
+      reopenOn: [{ kind: 'contract-changed' as const }] };
+    for (let i = 0; i < 2; i++) recordRouteBlockers(blockers, [proposal], core.task, state.cooperation.tasks,
+      state.environmentDigest, problem.receiptDigest);
+    refreshRouteBlockers(blockers, state.cooperation.tasks, state.environmentDigest, problem.receiptDigest);
+    const lead = { id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles } as const;
+    const peer = { ...lead, id: 'researcher-1', role: 'researcher' } as const;
+    const create = () => new CooperativeResearch({ state, workers: [lead, peer], access: new Map(),
+      signal: new AbortController().signal, save: () => {}, emit: () => {}, modules: directSolverModules,
+      exclusiveCheck: async check => check() });
+    const budget = { maxTurns: Infinity, remainingMs: Infinity };
+    const initial = create(); await initial.restore();
+    expect(await initial.next(lead, budget)).toMatchObject({ kind: 'lead' });
+    expect(state.cooperation.lastLeadInputDigest).toBeUndefined();
+    await initial.stop(); state = JSON.parse(JSON.stringify(state));
+    const resumed = create(); await resumed.restore();
+    const action = await resumed.next(lead, budget);
+    expect(action).toMatchObject({ kind: 'lead' });
+    if (action?.kind !== 'lead') throw new Error('missing_resumed_frontier_assessment');
+    writePlan(workspace, plan.tasks);
+    await resumed.deliver(lead, action, commitSolverSources(problem, workspace));
+    expect(state.cooperation.lastLeadInputDigest).toBe(action.planningInputDigest);
+    expect(state.cooperation.tasks[0].routeParking).toHaveLength(1);
+    await resumed.stop(); state = JSON.parse(JSON.stringify(state));
+    const completed = create(); await completed.restore();
+    expect(await completed.next(lead, budget)).toBeUndefined();
+    await completed.stop();
+    expect(host.createSession).not.toHaveBeenCalled();
+    expect(host.officialGate).not.toHaveBeenCalled();
+  });
+
   it.each(['official_verified', 'failed'])('retains independent acceptance after integrating an original definition goal (%s)', async officialStatus => {
     const { task } = configureDefinitionGoal();
     const tasks: CooperativeTask[] = [task, ...['first', 'second'].map(name => ({ id: name, kind: 'goal' as const,
@@ -1842,7 +1882,12 @@ describe('isolated solver and host acceptance', () => {
       premises: [], dependencies: [], workspace: directory, files: [], commit: problem.baseCommit, snapshotDigest: 'fixture', environmentDigest: 'fixture' }));
     const archive: any = { tasks: [{ task: secret, status: 'integrated', attempts: 1 },
       { task: publicTask, status: 'running', attempts: 0, assignment }, { task: shared, status: 'integrated', attempts: 1 },
-      { task: pending, status: 'running', attempts: 1 }], statementReviews: reviews, deliveries: [progress,
+      { task: pending, status: 'running', attempts: 1 }], statementReviews: reviews,
+      researchCheckpoints: {
+        [secret.id]: { taskDigest: taskVersion(secret), inputDigest: 'PRIVATE_CHECKPOINT', outputDigest: 'private', count: 2, paused: true },
+        [publicTask.id]: { taskDigest: taskVersion(publicTask), inputDigest: 'VISIBLE_CHECKPOINT', outputDigest: 'visible', count: 1, paused: false },
+        [shared.id]: { taskDigest: 'stale', inputDigest: 'STALE_CHECKPOINT', outputDigest: 'stale', count: 1, paused: false },
+      }, deliveries: [progress,
         { ...progress, id: 'private-progress', taskId: secret.id, taskDigest: taskVersion(secret), summary: 'PRIVATE_PROGRESS' },
         { ...progress, id: 'stale-progress', taskDigest: 'stale', summary: 'STALE_PROGRESS' },
         { ...progress, id: 'superseded-progress', status: 'superseded', summary: 'SUPERSEDED_PROGRESS' },
@@ -1858,6 +1903,8 @@ describe('isolated solver and host acceptance', () => {
     expect(bundle.message).not.toContain('PRIVATE_ROUTE_MARKER');
     expect(bundle.message).toContain('VISIBLE_' + publicTask.id); expect(bundle.message).toContain('VISIBLE_' + shared.id);
     expect(scoped.deliveries).toEqual([progress]);
+    expect(Object.keys(scoped.researchCheckpoints ?? {})).toEqual([publicTask.id]);
+    expect(JSON.stringify(scoped)).not.toContain('PRIVATE_CHECKPOINT'); expect(JSON.stringify(scoped)).not.toContain('STALE_CHECKPOINT');
     expect(bundle.message).toContain('PUBLIC_PENDING_PROGRESS');
     expect(bundle.message).not.toContain('PRIVATE_PROGRESS'); expect(bundle.message).not.toContain('STALE_PROGRESS');
     expect(bundle.message).not.toContain('SUPERSEDED_PROGRESS'); expect(bundle.message).not.toContain('STALE_DEPENDENCY');
@@ -1873,6 +1920,7 @@ describe('isolated solver and host acceptance', () => {
     expect(fs.readFileSync(path.join(peerRoot, 'COOPERATION.json'), 'utf8')).not.toContain('PRIVATE_ROUTE_MARKER');
     expect(cooperative.contextState(undefined, peer).statementReviews?.map(review => review.taskId)).toEqual([publicTask.id, shared.id]);
     expect(cooperative.contextState({ ...action, task: secret }).statementReviews?.map(review => review.taskId)).toContain(secret.id);
+    expect(cooperative.contextState({ ...action, task: secret }).researchCheckpoints?.[secret.id]?.inputDigest).toBe('PRIVATE_CHECKPOINT');
     expect(cooperative.contextState(undefined, lead).statementReviews).toHaveLength(3);
   });
 
@@ -2601,7 +2649,13 @@ describe('isolated solver and host acceptance', () => {
 
   it('keeps cooperative partial checks unlimited when the total solving limit is disabled', async () => {
     configureCooperation();
-    expect(await runSolver([...args, '--workers', '4', '--max-turns', '0', '--max-run-seconds', '0'], directory)).toBe(0);
+    const exitCode = await runSolver([...args, '--workers', '4', '--max-turns', '0', '--max-run-seconds', '0'], directory);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(exitCode, JSON.stringify({ result: JSON.parse(fs.readFileSync(output, 'utf8')),
+      tasks: state.cooperation.tasks.map((node: any) => ({ id: node.task.id, status: node.status, feedback: node.feedback })),
+      workers: state.workers.map((worker: any) => ({ id: worker.id, error: worker.error })),
+      events: vi.mocked(console.log).mock.calls.map(([event]) => JSON.parse(event))
+        .filter(event => /error|failed|blocked|idle/u.test(event.event)) }, null, 2)).toBe(0);
     const partialChecks = host.verify.mock.calls.filter(([request]) => request.items.length === 1);
     expect(partialChecks).toHaveLength(8);
     for (const [request] of partialChecks) expect(request).toMatchObject({ timeoutMs: Infinity, batchTimeoutMs: Infinity });
@@ -3081,6 +3135,20 @@ describe('isolated solver and host acceptance', () => {
     return tasks;
   };
 
+  const configureStatementReferenceReports = () => {
+    const prepare = host.prepare.getMockImplementation()!;
+    host.prepare.mockImplementation(async input => {
+      const result = await prepare(input);
+      for (const file of input.files) if (/^StatementContext[0-9a-f]+\.lean$/u.test(file)) {
+        const report = path.join(input.projectRoot, '.lake', file.replace('StatementContext', 'statement-context-').replace('.lean', '.json'));
+        const contexts = JSON.parse(fs.readFileSync(report, 'utf8'));
+        for (const context of contexts) Object.assign(context.context, { references: { statement: [], proof: [] } });
+        fs.writeFileSync(report, JSON.stringify(contexts));
+      }
+      return result;
+    });
+  };
+
   it('accepts empty sandbox metadata directories throughout independent statement review', async () => {
     configureCooperation(async (action, options) => {
       if (action.kind === 'lead') writePlan(options.workspace, statementTasks());
@@ -3354,6 +3422,63 @@ describe('isolated solver and host acceptance', () => {
       .every((record: any) => record.status === 'superseded')).toBe(true);
   });
 
+  it('uses fresh pending-type references to preserve review across an unrelated definition integration before proof evidence exists', async () => {
+    const tasks = statementTasks(); let translations = 0;
+    configureCooperation(async (action, options) => {
+      const file = path.join(options.workspace, 'generated/p/Submission.lean');
+      if (action.kind === 'lead') writePlan(options.workspace, tasks);
+      else if (action.kind === 'task' && action.task.id === 'a') {
+        const state = cooperationState();
+        expect(state.statementReviews.find((review: any) => review.status === 'accepted')?.references)
+          .toMatchObject({ scope: 'statement', statementType: 'True', statement: [] });
+        expect(state.tasks.find((node: any) => node.task.id === 'a').integratedCheck).toBeUndefined();
+        finishAssignment(action, options);
+        fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('theorem first', 'def unrelated : Nat := 10\ntheorem first'));
+      } else {
+        if (action.kind === 'backtranslate') translations++;
+        finishAssignment(action, options);
+      }
+      return 'completed';
+    });
+    configureStatementReferenceReports();
+    const exit = await runSolver([...args, '--workers', '2', '--max-turns', '12'], directory);
+    const details = JSON.stringify({ reviews: cooperationState().statementReviews.map((review: any) => ({ status: review.status,
+      translated: !!review.translation, references: review.references, snapshotDigest: review.snapshotDigest })),
+      tasks: cooperationState().tasks.map((node: any) => ({ id: node.task.id, status: node.status, feedback: node.feedback })) });
+    expect(exit, details).toBe(0);
+    expect(translations, details).toBe(1);
+    expect(cooperationState().statementReviews.filter((review: any) => review.translation).map((review: any) => review.status))
+      .toEqual(['accepted']);
+  });
+
+  it('revalidates serialized pending-type references instead of trusting a forged empty closure after resume', async () => {
+    const tasks = statementTasks();
+    let translations = 0;
+    configureCooperation(async (action, options) => {
+      if (action.kind === 'lead') writePlan(options.workspace, tasks);
+      else {
+        if (action.kind === 'backtranslate') translations++;
+        finishAssignment(action, options);
+      }
+      return 'completed';
+    });
+    configureStatementReferenceReports();
+    expect(await runSolver([...args, '--workers', '2', '--max-turns', '3'], directory)).toBe(4);
+    const stateFile = `${output}.runtime/state.json`, state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+    const worktree = state.workers[0].worktree, file = path.join(worktree, 'generated/p/Submission.lean');
+    const review = state.cooperation.statementReviews.find((review: any) => review.status === 'accepted');
+    expect(review, JSON.stringify(state.cooperation.statementReviews.map((item: any) => ({ status: item.status, references: item.references })))).toBeDefined();
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('theorem first', 'def unrelated : Nat := 10\ntheorem first'));
+    const commit = commitSolverSources(problem, worktree);
+    state.cooperation.canonicalCommit = commit;
+    review.references = captureProofReferences(problem, worktree, commit,
+      { name: tasks[0].theoremName!, file: tasks[0].proofPath! }, { statement: [], proof: [] }, state.environmentDigest, 'statement', tasks[0].type);
+    fs.writeFileSync(stateFile, JSON.stringify(state));
+    expect(await runSolver([...args, '--workers', '2', '--max-turns', '12', '--resume'], directory)).toBe(0);
+    expect(translations).toBe(2);
+    expect(cooperationState().statementReviews.filter((review: any) => review.translation).map((review: any) => review.status)).toEqual(['superseded', 'accepted']);
+  });
+
   it.each(['schedule', 'dependency', 'intent', 'premises', 'imports'])('reuses the original statement review only when mathematics is unchanged (%s)', async change => {
     const tasks = planTasks();
     tasks[2] = { ...tasks[2], statementReview: true, informalStatement: 'The first target is True.' };
@@ -3423,6 +3548,66 @@ describe('isolated solver and host acceptance', () => {
     fs.appendFileSync(path.join(reviewWorkspace, 'STATEMENT.json'), ' ');
     expect(() => assertStatementSnapshot(review)).toThrow('math_statement_snapshot_changed');
     expect(() => parseLeanStatementContexts(JSON.stringify([{ id: task.id, context }]), ['different-task'])).toThrow('math_statement_elaboration_invalid');
+  });
+
+  it('captures pending statement references before a helper declaration or proof exists', () => {
+    const task = statementTasks()[0], context = { type: 'True', constants: [], omitted: [], references: { statement: [], proof: [] } };
+    const snapshot = statementSnapshot(problem, task, workspace, problem.baseCommit, 'fixed-env', [], context);
+    expect(snapshot.references).toMatchObject({ scope: 'statement', statementType: 'True', inputs: [] });
+    expect(snapshot.definitions.find(definition => definition.file === task.proofPath)!.source).not.toContain('lemma a');
+    fs.writeFileSync(path.join(project, 'Submission.lean'), original.replace('theorem first', 'def unrelated : Nat := 3\ntheorem first'));
+    const commit = commitSolverSources(problem, workspace);
+    expect(proofReferencesUnchanged(problem, workspace, commit, snapshot.references!, 'fixed-env')).toBe(true);
+    expect(statementSnapshot(problem, task, workspace, commit, 'fixed-env', [], context).snapshotDigest).not.toBe(snapshot.snapshotDigest);
+    expect(statementSnapshot(problem, { ...task, type: 'False' }, workspace, commit, 'fixed-env', [], { ...context, type: 'False' }).references?.statementType).toBe('False');
+    expect(proofReferencesUnchanged(problem, workspace, commit, snapshot.references!, 'changed-env')).toBe(false);
+  });
+
+  it('binds the fresh local definition closure of a pending type and falls back for unknown declarations', () => {
+    const file = path.join(project, 'Submission.lean');
+    const source = original.replace('theorem first', 'def inner : Nat := 2\ndef selected : Nat := inner\ndef unrelated : Nat := 0\ntheorem first');
+    fs.writeFileSync(file, source);
+    const commit = commitSolverSources(problem, workspace), task = { ...statementTasks()[0], type: 'Submission.selected = 2' };
+    const context = { type: 'Eq Nat Submission.selected 2', constants: [], omitted: ['imported definition traversal bound reached'],
+      references: { statement: [{ name: 'Submission.selected', file: 'Submission.lean' }, { name: 'Submission.inner', file: 'Submission.lean' }], proof: [] } };
+    const snapshot = statementSnapshot(problem, task, workspace, commit, 'fixed-env', [], context);
+    expect(snapshot.references?.inputs.map(input => input.name)).toEqual(['inner', 'selected']);
+    fs.writeFileSync(file, source.replace('unrelated : Nat := 0', 'unrelated : Nat := 1'));
+    expect(proofReferencesUnchanged(problem, workspace, commitSolverSources(problem, workspace), snapshot.references!, 'fixed-env')).toBe(true);
+    fs.writeFileSync(file, source.replace('inner : Nat := 2', 'inner : Nat := 3'));
+    expect(proofReferencesUnchanged(problem, workspace, commitSolverSources(problem, workspace), snapshot.references!, 'fixed-env')).toBe(false);
+    fs.writeFileSync(file, source);
+    const unknown = statementSnapshot(problem, task, workspace, commit, 'fixed-env', [], { ...context,
+      references: { statement: [{ name: '_private.Submission.0.generated', file: 'Submission.lean' }], proof: [] } }).references!;
+    expect(unknown.inputs.some(input => input.file === 'Submission.lean' && !input.name)).toBe(true);
+    fs.writeFileSync(file, source.replace('unrelated : Nat := 0', 'unrelated : Nat := 2'));
+    expect(proofReferencesUnchanged(problem, workspace, commitSolverSources(problem, workspace), unknown, 'fixed-env')).toBe(false);
+  });
+
+  it.each(['import', 'notation', 'instance', 'structure'])('preserves pending statement context invalidation for %s changes', change => {
+    const task = statementTasks()[0], context = { type: 'True', constants: [], omitted: [], references: { statement: [], proof: [] } };
+    const references = statementSnapshot(problem, task, workspace, problem.baseCommit, 'fixed-env', [], context).references!;
+    const additions: Record<string, string> = { import: 'import Mathlib.Data.Nat.Basic\n', notation: 'notation "truth" => True\n',
+      instance: 'instance custom : Inhabited Nat := ⟨3⟩\n', structure: 'structure Extra where\n  value : Nat\n' };
+    fs.writeFileSync(path.join(project, 'Submission.lean'), additions[change] + original);
+    git(workspace, ['add', 'generated/p/Submission.lean']);
+    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Fingerprint context changes']);
+    expect(proofReferencesUnchanged(problem, workspace, git(workspace, ['rev-parse', 'HEAD']), references, 'fixed-env')).toBe(false);
+  });
+
+  it('does not infer an empty local closure from legacy or invalid statement exports', () => {
+    const task = statementTasks()[0], context = { type: 'True', constants: [], omitted: [] };
+    expect(statementSnapshot(problem, task, workspace, problem.baseCommit, 'fixed-env', [], context).references).toBeUndefined();
+    const parse = (references: unknown) => parseLeanStatementContexts(JSON.stringify([{ id: task.id, context: { ...context, references } }]), [task.id]);
+    expect(parse({ statement: [], proof: [] }).get(task.id)?.references).toEqual({ statement: [], proof: [] });
+    expect(() => parse({ statement: [], proof: [{ name: 'proof', file: 'Submission.lean' }] })).toThrow('math_statement_elaboration_invalid');
+    expect(() => parse({ statement: [{ name: '', file: 'Submission.lean' }], proof: [] })).toThrow('math_statement_elaboration_invalid');
+    expect(() => parse({ statement: Array.from({ length: 257 }, () => ({ name: 'a', file: 'Submission.lean' })), proof: [] }))
+      .toThrow('math_statement_elaboration_invalid');
+    expect(statementSnapshot(problem, task, workspace, problem.baseCommit, 'fixed-env', [], { ...context,
+      references: { statement: [{ name: 'outside', file: '../outside.lean' }], proof: [] } }).references).toBeUndefined();
+    expect(captureProofReferences(problem, workspace, problem.baseCommit, { name: task.theoremName!, file: task.proofPath! },
+      { statement: [], proof: [] }, 'fixed-env', undefined, 'True')).toBeUndefined();
   });
 
   it('elaborates pending types together without theorem proof bodies and releases the projection on failure', async () => {

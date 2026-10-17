@@ -1,20 +1,53 @@
+import type { LeanDeclarationReferences } from './leanReferences';
+
 /** Formal meaning exported from Lean's elaborated type, never from a theorem's proof. */
 export type LeanStatementContext = {
   type: string;
   constants: { name: string; module: string; type: string; definition?: string }[];
   omitted: string[];
+  /** Independent complete local closure; absent for legacy, unsupported or bounded exports. */
+  references?: LeanDeclarationReferences;
 };
 
 /** Follow local definitions and two levels of imported definitions; expose all bounds explicitly. */
 export function leanStatementContextCommands(roots: readonly { id: string; name: string }[],
-  projectModules: readonly string[], outputFile: string): string {
+  projectModules: readonly { module: string; file: string }[], outputFile: string): string {
   return [
     'set_option pp.fullNames true',
     'set_option pp.notation false',
     'set_option pp.proofs false',
     'run_cmd Lean.Elab.Command.liftTermElabM do',
     '  let env <- Lean.getEnv',
-    `  let localModules : List String := ${JSON.stringify(projectModules)}`,
+    `  let localModules : List String := ${JSON.stringify(projectModules.map(item => item.module))}`,
+    `  let projectModules : List (String × String) := [${projectModules.map(item => `(${JSON.stringify(item.module)}, ${JSON.stringify(item.file)})`).join(', ')}]`,
+    '  let collectReferences (expression : Lean.Expr) : Lean.Elab.Term.TermElabM (Option (Array (String × String))) := do',
+    '    let mut todo := (Lean.Expr.getUsedConstants expression).toList',
+    '    let mut visited : Lean.NameSet := {}',
+    '    let mut references : Array (String × String) := #[]',
+    '    let mut fuel := 200000',
+    '    while !todo.isEmpty do',
+    '      if fuel == 0 then return none',
+    '      fuel := fuel - 1',
+    '      let name := todo.head!',
+    '      todo := todo.tail!',
+    '      if !visited.contains name then',
+    '        visited := visited.insert name',
+    '        let moduleName := match env.getModuleIdxFor? name with',
+    '          | some index => env.header.moduleNames[index.toNat]!.toString',
+    '          | none => ""',
+    '        if moduleName.isEmpty then return none',
+    '        if let some entry := projectModules.find? (fun entry => entry.1 == moduleName) then',
+    '          if references.size >= 256 then return none',
+    '          references := references.push (name.toString, entry.2)',
+    '          let info <- Lean.getConstInfo name',
+    '          match info with',
+    '          | .inductInfo _ | .ctorInfo _ | .recInfo _ | .quotInfo _ => return none',
+    '          | _ => pure ()',
+    '          todo := (Lean.Expr.getUsedConstants info.type).toList ++ todo',
+    '          if !(<- Lean.Meta.isProp info.type) then',
+    '            if let some value := info.value? (allowOpaque := true) then',
+    '              todo := (Lean.Expr.getUsedConstants value).toList ++ todo',
+    '    return some references',
     '  let collect (rootName : Lean.Name) : Lean.Elab.Term.TermElabM Lean.Json := do',
       '    let root <- Lean.getConstInfo rootName',
       '    let statement := (<- Lean.Meta.ppExpr root.type).pretty',
@@ -61,7 +94,11 @@ export function leanStatementContextCommands(roots: readonly { id: string; name:
       '          if isLocal || depth < 2 then',
       '            todo := todo ++ (Lean.Expr.getUsedConstants expression).toList.map (fun name => (name, if isLocal then 0 else depth + 1))',
       '    if !todo.isEmpty then omitted := omitted.push "dependency traversal bound reached"',
-    '    return Lean.Json.mkObj [("type", Lean.toJson statement), ("constants", Lean.toJson constants), ("omitted", Lean.toJson omitted)]',
+    '    let mut fields := [("type", Lean.toJson statement), ("constants", Lean.toJson constants), ("omitted", Lean.toJson omitted)]',
+    '    if let some references <- collectReferences root.type then',
+    '      let report := Lean.Json.mkObj [("statement", Lean.toJson (references.map (fun (name, file) => Lean.Json.mkObj [("name", Lean.toJson name), ("file", Lean.toJson file)]))), ("proof", Lean.toJson (#[] : Array Lean.Json))]',
+    '      if report.compress.utf8ByteSize <= 8000 then fields := fields ++ [("references", report)]',
+    '    return Lean.Json.mkObj fields',
     '  let mut reports : Array Lean.Json := #[]',
     ...roots.flatMap(root => [
       `  let context <- collect (${JSON.stringify(root.name)}.toName)`,
@@ -88,7 +125,13 @@ export function parseLeanStatementContexts(text: string, ids: readonly string[])
           (item.definition === undefined || (typeof item.definition === 'string' && Buffer.byteLength(item.definition) <= 12000))) ||
         !Array.isArray(context.omitted) || context.omitted.length > 257 || !context.omitted.every((item: unknown) => typeof item === 'string' && item.length <= 1000) ||
         Buffer.byteLength(JSON.stringify(context)) > 256000) return invalid();
-    contexts.set(report.id, { type: context.type, constants: context.constants, omitted: context.omitted });
+    const references = context.references;
+    if (references !== undefined && (!references || !Array.isArray(references.statement) || references.statement.length > 256 ||
+        !Array.isArray(references.proof) || references.proof.length !== 0 || Buffer.byteLength(JSON.stringify(references)) > 8000 || !references.statement.every((item: any) => item &&
+          typeof item.name === 'string' && item.name.length > 0 && item.name.length <= 1000 &&
+          typeof item.file === 'string' && item.file.length > 0 && item.file.length <= 1000))) return invalid();
+    contexts.set(report.id, { type: context.type, constants: context.constants, omitted: context.omitted,
+      ...(references === undefined ? {} : { references }) });
   }
   return contexts;
 }

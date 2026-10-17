@@ -8,6 +8,7 @@ import type { SolverProblem } from './problem';
 export type ProofReferences = LeanDeclarationReferences & {
   sourceCommit: string; environmentDigest: string; contextDigest: string;
   scope?: 'statement';
+  statementType?: string;
   root: { name: string; file: string };
   inputs: { file: string; name?: string; digest: string }[];
   tasks?: { taskId: string; taskDigest: string }[];
@@ -49,12 +50,15 @@ function sourceSnapshot(problem: SolverProblem, worktree: string, sourceCommit: 
 /** Source is used to fingerprint Lean-selected declarations, never to infer their references. */
 export function captureProofReferences(problem: SolverProblem, worktree: string, sourceCommit: string,
   root: ProofReferences['root'], references: LeanDeclarationReferences, environmentDigest: string,
-  scope?: 'statement'): ProofReferences | undefined {
+  scope?: 'statement', statementType?: string): ProofReferences | undefined {
+  if (statementType !== undefined && (scope !== 'statement' || !statementType.trim())) return;
   const files = [...new Set([...Object.keys(problem.trustedFiles), ...problem.ownedFiles])].filter(file => file.endsWith('.lean'));
   if ([root, ...references.statement, ...references.proof].some(item => !files.includes(item.file))) return;
   const { sources, regions, contextDigest } = sourceSnapshot(problem, worktree, sourceCommit, files);
   const inputs = new Map<string, ProofReferences['inputs'][number]>();
-  for (const item of [root, ...references.statement, ...references.proof]) {
+  // Pending helper types need not have a saved declaration. Their exact task type
+  // binds the root; Lean-selected local definitions still bind the source inputs.
+  for (const item of [...(statementType === undefined ? [root] : []), ...references.statement, ...references.proof]) {
     const source = sources.get(item.file)!;
     const matches = regions.get(item.file)!.filter(region => item.name === region.name || item.name.endsWith('.' + region.name));
     // Generated declarations or ambiguous source names require the entire module to stay fixed.
@@ -67,13 +71,14 @@ export function captureProofReferences(problem: SolverProblem, worktree: string,
   }
   return { ...references, root, sourceCommit, environmentDigest, contextDigest,
     ...(scope ? { scope } : {}),
+    ...(statementType === undefined ? {} : { statementType: maskLeanComments(statementType) }),
     inputs: [...inputs.values()].sort((a, b) => a.file.localeCompare(b.file) || (a.name ?? '').localeCompare(b.name ?? '')) };
 }
 
 export function proofReferencesUnchanged(problem: SolverProblem, worktree: string, commit: string,
   references: ProofReferences, environmentDigest: string): boolean {
   if (references.environmentDigest !== environmentDigest) return false;
-  const current = captureProofReferences(problem, worktree, commit, references.root, references, environmentDigest, references.scope);
+  const current = captureProofReferences(problem, worktree, commit, references.root, references, environmentDigest, references.scope, references.statementType);
   return Boolean(current && current.contextDigest === references.contextDigest &&
     canonicalMathJson(current.inputs) === canonicalMathJson(references.inputs));
 }

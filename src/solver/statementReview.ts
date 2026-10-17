@@ -11,7 +11,7 @@ import { committedSource, withSolverWorktree } from './problem';
 import { advisoryEvidenceRefs } from './deliveries';
 import { taskVersion, type CooperativeTask } from './tasks';
 import type { SolverProblem } from './problem';
-import type { ProofReferences } from './proofReferences';
+import { captureProofReferences, type ProofReferences } from './proofReferences';
 
 export type Backtranslation = { mathematics: string; assumptions: string[]; definitions: string[]; evidenceRefs: string[] };
 export type StatementReview = {
@@ -63,7 +63,10 @@ export function statementSnapshot(problem: SolverProblem, task: CooperativeTask,
       theoremName: dependency.theoremName, leanType: dependency.type && maskLeanComments(dependency.type) })),
     definitions: definitions.map((definition, index) => ({ originalFile: definition.file, path: `definitions/${index}.lean` })) };
   const snapshotDigest = mathDigest(canonicalMathJson({ input, definitions }));
-  return { input, definitions, snapshotDigest };
+  const references = elaboration?.references && captureProofReferences(problem, worktree, commit,
+    { name: task.theoremName!, file: task.proofPath! }, elaboration.references, environmentDigest, 'statement',
+    task.kind === 'lemma' ? task.type : undefined);
+  return { input, definitions, snapshotDigest, ...(references ? { references } : {}) };
 }
 
 /** Elaborate all requested types together in a disposable, proof-erased projection. This is not proof evidence. */
@@ -86,7 +89,7 @@ export async function captureStatementContexts(problem: SolverProblem, tasks: re
     const commands = ['import Lean', ...[...new Set(tasks.map(task => moduleName(task.proofPath!)))].map(module => `import ${module}`),
       'set_option autoImplicit false',
       ...tasks.flatMap((task, index) => task.kind === 'lemma' ? [`axiom ${roots[index].name} : ${task.type}`] : []),
-      leanStatementContextCommands(roots, sources.map(moduleName), output)].join('\n');
+      leanStatementContextCommands(roots, sources.map(file => ({ module: moduleName(file), file })), output)].join('\n');
     fs.writeFileSync(path.join(project, query), commands + '\n');
     const packages = path.join(worktree, problem.projectRelative, '.lake', 'packages');
     if (fs.existsSync(packages)) bindLeanPackages(project, packages);

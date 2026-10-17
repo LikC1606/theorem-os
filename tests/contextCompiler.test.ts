@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import path from 'node:path';
-import { compileTaskContext, DEFAULT_TASK_CONTEXT_BYTES, frozenSourceContext, type TaskContextInput } from '../src/solver/contextCompiler';
+import { compileTaskContext, DEFAULT_OPTIONAL_TASK_CONTEXT_BYTES, DEFAULT_TASK_CONTEXT_BYTES,
+  frozenSourceContext, type TaskContextInput } from '../src/solver/contextCompiler';
 import { buildResearchContext } from '../src/solver/modules/context';
 import { taskVersion, type CooperativeAction, type CooperativeTask, type TaskRecord } from '../src/solver/tasks';
 import type { SolverProblem } from '../src/solver/problem';
@@ -85,6 +86,58 @@ it('rejects mismatched mandatory dependency and proof evidence versions', () => 
     .toThrow('math_context_stale_required:evidence:prerequisite');
 });
 
+it('retains the parked original-goal frontier and its reopening conditions when advisory notes do not fit', () => {
+  const core = node(lemma('core'));
+  core.status = 'blocked'; core.routeParking = ['core-blocker']; core.feedback = 'The assigned analytic declaration is missing.';
+  const goal = node({ ...lemma('goal', ['core']), kind: 'goal', theoremName: 'Original.target' });
+  const blocker = { id: 'core-blocker', taskId: 'core', groupId: 'main', taskDigest: taskVersion(core.task),
+    mechanism: 'No uniform critical-line cancellation estimate.', scope: 'The combined-conductor inference.',
+    status: 'parked', evidenceStatus: 'advisory', reopenOn: [{ kind: 'contract-changed' }],
+    basis: { secret: 'PRIVATE_RECURRENCE_BASIS' } };
+  const context = compileTaskContext({ ...input([core, goal], { kind: 'lead', seedCommit: baseCommit }),
+    cooperation: { tasks: [core, goal], blockers: [blocker] } as TaskContextInput['cooperation'], maxContextBytes: 8000,
+    optional: [{ id: 'long-research-note', kind: 'finding', text: 'OPTIONAL_NOTE '.repeat(2000) }] });
+  expect(context.manifest.included).toContainEqual(expect.objectContaining({ id: 'original-goal-frontier', required: true }));
+  expect(context.message).toContain(blocker.mechanism);
+  expect(context.message).toContain('contract-changed');
+  expect(context.message).toContain(core.feedback);
+  expect(context.message).not.toContain('PRIVATE_RECURRENCE_BASIS');
+  expect(context.manifest.omitted).toContainEqual({ id: 'long-research-note', kind: 'finding', reason: 'budget' });
+});
+
+it('omits stale and unrelated blockers from the mandatory original-goal frontier', () => {
+  const core = node(lemma('core')); core.status = 'blocked';
+  const goal = node({ ...lemma('goal', ['core']), kind: 'goal', theoremName: 'Original.target' });
+  const blocker = { id: 'old', taskId: core.task.id, groupId: 'main', taskDigest: 'old-version',
+    mechanism: 'STALE_BLOCKER', scope: 'stale inference', status: 'parked' };
+  const hidden = { ...blocker, id: 'unrelated', taskId: 'absent', mechanism: 'UNRELATED_PRIVATE_BLOCKER' };
+  const context = compileTaskContext({ ...input([core, goal], { kind: 'lead', seedCommit: baseCommit }),
+    cooperation: { tasks: [core, goal], blockers: [blocker, hidden] } as TaskContextInput['cooperation'] });
+  expect(context.message).not.toContain('STALE_BLOCKER');
+  expect(context.message).not.toContain('UNRELATED_PRIVATE_BLOCKER');
+});
+
+it('keeps goal-owned OR-route blockers mandatory when the frontier consists of route prerequisites', () => {
+  const a = node(lemma('a')), b = node(lemma('b'));
+  const closeA = node(lemma('close_a', ['a'])), closeB = node(lemma('close_b', ['b']));
+  const goal = node({ ...lemma('goal'), kind: 'goal', theoremName: 'Original.target' });
+  const routes = [{ id: 'route_a', targetTaskId: 'goal', prerequisiteTaskIds: ['a'], closingTaskId: 'close_a' },
+    { id: 'route_b', targetTaskId: 'goal', prerequisiteTaskIds: ['b'], closingTaskId: 'close_b' }];
+  goal.alternativeRoutes = routes; goal.parkedRoutes = { route_a: ['route-a-blocker'], route_b: ['route-b-blocker'] };
+  const blockers = routes.map(route => ({ id: `${route.id}-blocker`, taskId: 'goal', groupId: 'main', routeId: route.id,
+    taskDigest: taskVersion(goal.task), mechanism: `Missing local input for ${route.id}.`, scope: 'Route closing inference.',
+    status: 'parked', evidenceStatus: 'advisory', reopenOn: [{ kind: 'contract-changed' }] }));
+  const tasks = [goal, a, b, closeA, closeB];
+  const context = compileTaskContext({ ...input(tasks, { kind: 'lead', seedCommit: baseCommit }),
+    cooperation: { tasks, proofRoutes: routes, blockers } as TaskContextInput['cooperation'], maxContextBytes: 11000,
+    optional: [{ id: 'long-note', kind: 'finding', text: 'OPTIONAL_OR_ROUTE_NOTE '.repeat(2000) }] });
+  const mandatory = context.message.split('Unfinished original goals and their current frontier')[1].split('\n\n')[0];
+  for (const blocker of blockers) expect(mandatory).toContain(blocker.mechanism);
+  expect(mandatory).toContain('contract-changed');
+  expect(context.manifest.included).toContainEqual(expect.objectContaining({ id: 'original-goal-frontier', required: true }));
+  expect(context.manifest.omitted).toContainEqual({ id: 'long-note', kind: 'finding', reason: 'budget' });
+});
+
 it('fails explicitly when mandatory Unicode mathematics exceeds the byte allowance', () => {
   const task = lemma('large', [], '∀ n : ℕ, ' + 'n ∈ ℕ ∧ '.repeat(3000) + 'True');
   expect(() => compileTaskContext({ ...input([node(task)], assign(task)), maxContextBytes: 5000 }))
@@ -126,6 +179,68 @@ it('accounts for stale, superseded and repeated optional deliveries explicitly',
     { id: 'delivery:superseded', kind: 'delivery', reason: 'superseded' },
   ]));
   expect(context.manifest.included.some(item => item.id === 'delivery:new')).toBe(true);
+});
+
+it('keeps exact mathematical contracts larger than the separate optional allowance', () => {
+  const task = lemma('large_contract', [], '∀ n : Nat, ' + 'n = n ∧ '.repeat(10000) + 'True');
+  const context = compileTaskContext({ ...input([node(task)], assign(task)), maxOptionalContextBytes: 0,
+    optional: [{ id: 'unneeded-hint', kind: 'finding', text: 'OPTIONAL_UNNEEDED_HINT' }] });
+  expect(context.message).toContain(JSON.stringify(task.type));
+  expect(context.manifest.mandatoryBytes).toBeGreaterThan(DEFAULT_OPTIONAL_TASK_CONTEXT_BYTES);
+  expect(context.manifest.maxBytes).toBe(DEFAULT_TASK_CONTEXT_BYTES);
+  expect(context.manifest.optionalBytes).toBe(0);
+  expect(context.manifest.omitted).toContainEqual({ id: 'unneeded-hint', kind: 'finding', reason: 'optional-budget' });
+});
+
+it('does not fill the hard context budget with optional history and records why each hint was skipped', () => {
+  const task = lemma('consumer'), context = compileTaskContext({ ...input([node(task)], assign(task)),
+    optional: Array.from({ length: 10 }, (_, i) => ({ id: `hint-${i}`, kind: 'history' as const,
+      text: `HINT_${i}\n` + 'advisory detail '.repeat(1000) })) });
+  expect(context.manifest.maxOptionalBytes).toBe(DEFAULT_OPTIONAL_TASK_CONTEXT_BYTES);
+  expect(context.manifest.optionalBytes).toBeGreaterThan(0);
+  expect(context.manifest.optionalBytes).toBeLessThanOrEqual(DEFAULT_OPTIONAL_TASK_CONTEXT_BYTES);
+  expect(context.manifest.usedBytes).toBeLessThan(DEFAULT_TASK_CONTEXT_BYTES / 2);
+  const included = new Set(context.manifest.included.map(item => item.id));
+  for (let i = 0; i < 10; i++) if (!included.has(`hint-${i}`))
+    expect(context.manifest.omitted).toContainEqual({ id: `hint-${i}`, kind: 'history', reason: 'optional-budget' });
+  expect(context.manifest.usedBytes).toBe(Buffer.byteLength(context.message) + Buffer.byteLength(input([]).instructions));
+});
+
+it.each([-1, NaN, Infinity, 1.5])('rejects invalid optional byte allowance %s', maxOptionalContextBytes => {
+  expect(() => compileTaskContext({ ...input([]), maxOptionalContextBytes }))
+    .toThrow('math_context_invalid_budget:maxOptionalContextBytes');
+});
+
+it('projects advisory deliveries into recoverable references without duplicating proof inventories or artifact headers', () => {
+  const task = lemma('consumer'), proof = referenceProof(task), proposed = lemma('proposed_helper', [], '∀ n : Nat, n + 0 = n');
+  const record: DeliveryRecord = { ...delivery(task, 'recoverable'), kind: 'proof', status: 'verified',
+    commit: proofCommit, sourceDigest: proof.sourceDigest, actualReferences: proof.references,
+    evidence: { passed: true, verification: { status: 'kernel_verified', targetCommit: proofCommit,
+      results: [{ receiptId: 'DUPLICATE_DELIVERY_RECEIPT' }] } },
+    summary: 'The helper is available for the consumer.', remainingObligations: ['The original target remains open.'],
+    lemmaRequests: [proposed], artifacts: { schema: 'theorem-os.delivery-artifacts.v1', scope: 'advisory-unverified',
+      problemReceiptDigest: problem.receiptDigest, taskId: task.id, taskDigest: taskVersion(task), seedCommit: baseCommit,
+      commit: proofCommit, artifacts: [{ id: 'artifact-id', kind: 'owned-source', file: 'generated/p/Submission.lean',
+        proofPath: 'Submission.lean', fileSha256: 'file-hash', sha256: 'code-hash', bytes: 120000,
+        declarations: [{ name: 'Original.consumer', header: 'LOCAL_ONLY_ARTIFACT_HEADER '.repeat(5000), sha256: 'declaration-hash', draft: false }] }] } };
+  Object.assign(record, { diagnostics: { stdoutPreview: 'LOCAL_ONLY_DIAGNOSTICS' } });
+  const original = structuredClone(record), context = compileTaskContext({ ...input([], assign(task)),
+    cooperation: { tasks: [{ ...node(task), status: 'integrated', integratedCheck: proof }], deliveries: [record] } });
+  const visible = contextLine(context.message, 'Current-version delivery selected for this task (advisory; retain unproved obligations):');
+  expect(visible.savedSource).toEqual({ commit: proofCommit, notesPath: 'RESEARCH.md', proofPath: 'generated/p/Submission.lean' });
+  expect(visible.artifacts.artifacts[0]).toMatchObject({ file: 'generated/p/Submission.lean', fileSha256: 'file-hash', sha256: 'code-hash',
+    declarations: [{ name: 'Original.consumer', sha256: 'declaration-hash', draft: false }] });
+  expect(visible.summary).toBe(record.summary);
+  expect(visible.remainingObligations).toEqual(record.remainingObligations);
+  expect(visible.lemmaRequests).toEqual([proposed]);
+  expect(visible.actualReferences).toBeUndefined();
+  expect(visible.actualReferenceSource.sourceCommit).toBe(proof.references!.sourceCommit);
+  expect(context.message).not.toMatch(/LOCAL_ONLY_ARTIFACT_HEADER|LOCAL_ONLY_DIAGNOSTICS|DUPLICATE_DELIVERY_RECEIPT/u);
+  expect(compiledGraph(context.message)[0].evidence.references.inputs).toHaveLength(proof.references!.inputs.length);
+  expect(compiledDictionary(context.message).entries).toHaveLength(2);
+  expect(context.manifest.omitted).toContainEqual({ id: 'delivery:recoverable:details', kind: 'delivery', reason: 'advisory-details-by-reference' });
+  expect(context.manifest.usedBytes).toBeLessThan(16000);
+  expect(record).toEqual(original);
 });
 
 it('uses an unconditional shared wrapper as the boundary for hidden implementation prerequisites', () => {
@@ -242,8 +357,11 @@ it('fails closed for unavailable frozen context instead of substituting a contex
 
 const contextLine = (message: string, label: string) => JSON.parse(message.split(`${label}\n`)[1].split('\n')[0]);
 const compiledGraph = (message: string): any[] => contextLine(message, 'Lead task graph and host feedback:');
-const compiledDictionary = (message: string): { entries: any[]; projectRelative: string } =>
+const compiledDictionary = (message: string): { entries: any[]; digests: string[]; projectRelative: string;
+  encoding: string; digestExpansion: string } =>
   contextLine(message, 'Complete evidence reference dictionary (mandatory, recorded-not-replayed):');
+const expandedProofSource = (row: any) => row.source && { commit: row.evidence.commit, path: row.source.path,
+  sourceDigest: row.evidence.sourceDigest, ...(row.evidence.references ? { inputsFrom: 'evidence.references.inputs' } : {}) };
 
 function referenceProof(task: CooperativeTask, sourceCommit = proofCommit): TaskProof {
   const input = { file: 'Submission.lean', name: 'shared_support', digest: 'same-interface-digest' },
@@ -264,26 +382,95 @@ it('losslessly expands deduplicated references, their order, proof source paths 
   const graph = compiledGraph(context.message), dictionary = compiledDictionary(context.message);
   expect(dictionary.entries).toHaveLength(2);
   expect(context.manifest.included).toContainEqual(expect.objectContaining({ id: 'evidence-reference-dictionary', required: true }));
+  expect(context.manifest.included).toContainEqual(expect.objectContaining({ id: 'proof-source-reference-encoding', required: true }));
   for (const [index, row] of graph.entries()) {
     const references = row.evidence.references, original = proofs[index].references!;
     for (const key of ['inputs', 'proof', 'statement'] as const)
       expect(references[key].map((id: number) => dictionary.entries[id])).toEqual(original[key]);
     expect(references.inputs[0]).toBe(references.inputs[1]);
     expect(references.sourceCommit).toBe(original.sourceCommit);
-    expect(references.contextDigest).toBe(original.contextDigest);
-    expect(references.environmentDigest).toBe(original.environmentDigest);
+    expect(dictionary.digests[references.contextDigest]).toBe(original.contextDigest);
+    expect(dictionary.digests[references.environmentDigest]).toBe(original.environmentDigest);
     expect(references.root).toEqual(original.root);
     expect(references.tasks).toEqual(original.tasks);
     expect(row.type).toBe(tasks[index].type);
     expect(row.evidence.conditions).toEqual(proofs[index].conditions);
     expect(row.evidence.verification.receipts).toEqual(proofs[index].verification.results);
     expect(row.source.inputs).toBeUndefined();
-    expect(row.source.inputsFrom).toBe('evidence.references.inputs');
+    expect(row.source.evidenceFrom).toBe('evidence');
+    expect(expandedProofSource(row)).toEqual({ commit: proofs[index].commit,
+      path: `${problem.projectRelative}/${tasks[index].proofPath}`, sourceDigest: proofs[index].sourceDigest,
+      inputsFrom: 'evidence.references.inputs' });
     const expandedSources = references.inputs.map((id: number) => ({ ...dictionary.entries[id],
       commit: references.sourceCommit, path: `${dictionary.projectRelative}/${dictionary.entries[id].file}` }));
     expect(expandedSources).toEqual(original.inputs.map(item => ({ ...item, commit: original.sourceCommit,
       path: `${problem.projectRelative}/${item.file}` })));
   }
+});
+
+it('renders a mandatory digest dictionary when all declaration reference arrays are empty', () => {
+  const task = lemma('empty_references'), proof = referenceProof(task);
+  proof.references = { ...proof.references!, inputs: [], statement: [], proof: [] };
+  const original = structuredClone(proof), context = compileTaskContext(input([
+    { ...node(task), status: 'integrated', integratedCheck: proof },
+  ])), dictionary = compiledDictionary(context.message), references = compiledGraph(context.message)[0].evidence.references;
+  expect(dictionary.encoding).toBe('evidence-reference-indices-v2');
+  expect(dictionary.entries).toEqual([]);
+  expect(dictionary.digests).toEqual([proof.references.environmentDigest, proof.references.contextDigest]);
+  expect(dictionary.digestExpansion).toContain('environmentDigest or contextDigest');
+  expect(dictionary.digestExpansion).toContain('exact original digest string');
+  expect(context.manifest.included).toContainEqual(expect.objectContaining({ id: 'evidence-reference-dictionary', required: true }));
+  expect({ ...references, environmentDigest: dictionary.digests[references.environmentDigest],
+    contextDigest: dictionary.digests[references.contextDigest] }).toEqual(proof.references);
+  expect(proof).toEqual(original);
+});
+
+it('restores identical and distinct environment and context digests without changing any evidence identity', () => {
+  const tasks = [lemma('shared'), lemma('distinct_context'), lemma('distinct_environment')],
+    proofs = tasks.map((task, index) => referenceProof(task, String(index + 1).repeat(40)));
+  proofs[0].references = { ...proofs[0].references!, environmentDigest: 'a'.repeat(64), contextDigest: 'a'.repeat(64) };
+  proofs[1].references = { ...proofs[1].references!, environmentDigest: 'a'.repeat(64), contextDigest: 'b'.repeat(64) };
+  proofs[2].references = { ...proofs[2].references!, environmentDigest: 'c'.repeat(64), contextDigest: 'b'.repeat(64) };
+  const original = structuredClone(proofs), context = compileTaskContext(input(tasks.map((task, index) =>
+    ({ ...node(task), status: 'integrated', integratedCheck: proofs[index] })))),
+    graph = compiledGraph(context.message), dictionary = compiledDictionary(context.message);
+  expect(dictionary.digests).toEqual(['a'.repeat(64), 'b'.repeat(64), 'c'.repeat(64)]);
+  expect(graph[0].evidence.references.environmentDigest).toBe(graph[0].evidence.references.contextDigest);
+  for (const [index, row] of graph.entries()) {
+    const references = row.evidence.references;
+    expect({ ...references, environmentDigest: dictionary.digests[references.environmentDigest],
+      contextDigest: dictionary.digests[references.contextDigest],
+      ...Object.fromEntries(['inputs', 'statement', 'proof'].map(key =>
+        [key, references[key].map((id: number) => dictionary.entries[id])])),
+    }).toEqual(proofs[index].references);
+    expect(row.evidence.commit).toBe(proofs[index].commit);
+    expect(row.evidence.verification.targetCommit).toBe(proofs[index].verification.targetCommit);
+    expect(row.evidence.verification.receipts).toEqual(proofs[index].verification.results);
+    expect(row.evidence.conditions).toEqual(proofs[index].conditions);
+  }
+  expect(proofs).toEqual(original);
+});
+
+it('expands shared source metadata for conditional and unconditional proofs without conflating the source or verifier commits', () => {
+  const dependency = lemma('condition'), conditional = { ...lemma('conditional', [dependency.id]), conditional: true },
+    unconditional = lemma('unconditional'), withReferences = referenceProof(unconditional, '1'.repeat(40)),
+    withoutReferences = checked(conditional, [{ taskId: dependency.id, taskDigest: taskVersion(dependency) }]);
+  const context = compileTaskContext(input([{ ...node(unconditional), status: 'integrated', integratedCheck: withReferences },
+    { ...node(conditional), status: 'conditional', proof: withoutReferences }, node(dependency)]));
+  const encoding = contextLine(context.message, 'Complete proof source reference encoding (mandatory, recorded-not-replayed):'),
+    graph = compiledGraph(context.message);
+  expect(encoding.encoding).toBe('proof-source-evidence-v1');
+  expect(encoding.expansion).toContain('row.evidence.commit');
+  expect(encoding.expansion).toContain('otherwise omit inputsFrom');
+  expect(expandedProofSource(graph[0])).toEqual({ commit: withReferences.commit, sourceDigest: withReferences.sourceDigest,
+    path: `${problem.projectRelative}/${unconditional.proofPath}`, inputsFrom: 'evidence.references.inputs' });
+  expect(expandedProofSource(graph[1])).toEqual({ commit: withoutReferences.commit, sourceDigest: withoutReferences.sourceDigest,
+    path: `${problem.projectRelative}/${conditional.proofPath}` });
+  expect(graph[0].evidence.references.sourceCommit).toBe('1'.repeat(40));
+  expect(graph[0].evidence.verification.targetCommit).toBe('d'.repeat(40));
+  expect(expandedProofSource(graph[0]).commit).toBe(proofCommit);
+  expect(graph[1].evidence.conditions).toEqual(withoutReferences.conditions);
+  expect(graph[1].status).toBe('conditional');
 });
 
 it('shares identical reference metadata without conflating distinct source commits or changed input digests', () => {
@@ -332,8 +519,10 @@ it('fits a large repeated-reference graph in the unchanged byte budget while pre
     const references = row.evidence.references;
     const arrays = Object.fromEntries(['inputs', 'proof', 'statement'].map(key =>
       [key, references[key].map((id: number) => dictionary.entries[id])]));
-    return { ...row, evidence: { ...row.evidence, references: { ...references, ...arrays } }, source: {
-      commit: row.source.commit, path: row.source.path, sourceDigest: row.source.sourceDigest,
+    return { ...row, evidence: { ...row.evidence, references: { ...references, ...arrays,
+      environmentDigest: dictionary.digests[references.environmentDigest],
+      contextDigest: dictionary.digests[references.contextDigest] } }, source: {
+      ...expandedProofSource(row),
       inputs: arrays.inputs.map((item: any) => ({ ...item, commit: references.sourceCommit,
         path: `${dictionary.projectRelative}/${item.file}` })),
     } };

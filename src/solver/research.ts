@@ -161,7 +161,9 @@ export async function runResearchWorkers(input: {
           emit('context_compiled', { taskId: assignment?.kind === 'task' ? assignment.task.id : undefined,
             contentDigest: currentContext.manifest.contentDigest, requiredTaskIds: currentContext.manifest.requiredTaskIds,
             included: currentContext.manifest.included.length, omitted: currentContext.manifest.omitted.length,
-            usedBytes: currentContext.manifest.usedBytes, maxBytes: currentContext.manifest.maxBytes });
+            usedBytes: currentContext.manifest.usedBytes, mandatoryBytes: currentContext.manifest.mandatoryBytes,
+            optionalBytes: currentContext.manifest.optionalBytes, maxOptionalBytes: currentContext.manifest.maxOptionalBytes,
+            maxBytes: currentContext.manifest.maxBytes });
         }
         if (!reserveTurn()) return false;
         if (!session) {
