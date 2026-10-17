@@ -67,9 +67,15 @@ const submit = async page => {
   })), { start: 0, end: 0, top: 0, left: 0 }, 'Each review must open at the beginning of the complete feedback');
 };
 const closeReview = async (page, escape = false) => {
+  await page.evaluate(() => {
+    window.feedbackCloseCompleted = false;
+    document.querySelector('#feedback-review').addEventListener('close', () => {
+      window.feedbackCloseCompleted = true;
+    }, { once: true });
+  });
   if (escape) await page.keyboard.press('Escape');
   else await page.locator('#feedback-review-close').click();
-  await page.waitForFunction(() => !document.querySelector('#feedback-review').open);
+  await page.waitForFunction(() => window.feedbackCloseCompleted && !document.querySelector('#feedback-review').open);
   assert.equal(await page.locator('#feedback-preview').evaluate(button => button === document.activeElement), true,
     'Closing the review must return keyboard focus to the preview button');
 };
@@ -150,6 +156,18 @@ try {
   assert.equal(await page.locator('#feedback-review').evaluate(dialog => dialog.contains(document.activeElement)), true,
     'The native modal must contain keyboard focus');
   await closeReview(page, true);
+
+  // The queued close event must not override a visitor's next focus choice.
+  await submit(page);
+  assert.equal(await page.evaluate(async () => {
+    const dialog = document.querySelector('#feedback-review');
+    const bug = document.querySelector('input[name="feedback-kind"][value="bug"]');
+    const closed = new Promise(resolve => dialog.addEventListener('close', resolve, { once: true }));
+    dialog.close();
+    bug.focus();
+    await closed;
+    return document.activeElement === bug;
+  }), true, 'A delayed dialog close event must not steal newly moved keyboard focus');
 
   // Radio arrow keys must update both the displayed guidance and generated Issue type.
   await page.locator('input[name="feedback-kind"][value="bug"]').focus();

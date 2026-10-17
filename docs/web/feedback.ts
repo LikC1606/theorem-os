@@ -73,7 +73,6 @@ form.addEventListener('submit', event => {
 });
 
 element('feedback-review-close').addEventListener('click', () => review.close());
-review.addEventListener('close', () => element('feedback-preview').focus({ preventScroll: true }));
 
 element('feedback-copy').addEventListener('click', async () => {
   try {
