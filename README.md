@@ -13,7 +13,8 @@
   <a href="https://likc1606.github.io/theorem-os/"><strong>产品官网</strong></a> ·
   <a href="https://likc1606.github.io/theorem-os/archive.html">证明档案</a> ·
   <a href="#快速开始">快速开始</a> ·
-  <a href="docs/usage.md">使用文档</a>
+  <a href="docs/usage.md">使用文档</a> ·
+  <a href="https://likc1606.github.io/theorem-os/feedback.html">反馈与建议</a>
 </p>
 
 </div>

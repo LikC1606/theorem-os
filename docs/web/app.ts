@@ -2,7 +2,7 @@ import {
   createIcons, ArrowDownWideNarrow, ArrowUpRight, BadgeCheck, Blocks, BookOpen,
   CalendarDays, Check, ChevronRight, CircleCheck, Code, Copy, Download, FileCheck2, FileClock, FileCode2,
   Files, FlaskConical, GitBranch, GitCommitHorizontal, GitFork, Hash, Info, Link2,
-  ListStart, Search, SearchX, ShieldCheck, Tag, Terminal,
+  ListStart, MessageCircle, Search, SearchX, ShieldCheck, Tag, Terminal,
 } from 'lucide';
 import catalog from 'virtual:archive';
 import type { ArchiveRecord, ArchiveSource } from './types';
@@ -10,7 +10,7 @@ import type { ArchiveRecord, ArchiveSource } from './types';
 const iconSet = {
   ArrowDownWideNarrow, ArrowUpRight, BadgeCheck, Blocks, BookOpen, CalendarDays, Check,
   ChevronRight, CircleCheck, Code, Copy, Download, FileCheck2, FileClock, FileCode2, Files, FlaskConical,
-  GitBranch, GitCommitHorizontal, GitFork, Hash, Info, Link2, ListStart, Search,
+  GitBranch, GitCommitHorizontal, GitFork, Hash, Info, Link2, ListStart, MessageCircle, Search,
   SearchX, ShieldCheck, Tag, Terminal,
 };
 const icons = () => createIcons({ icons: iconSet, attrs: { 'aria-hidden': 'true' } });

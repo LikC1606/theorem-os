@@ -27,13 +27,18 @@ await build({
   bundle: true, platform: 'browser', format: 'iife', target: ['es2022'], minify: true,
   legalComments: 'eof',
 });
+await build({
+  entryPoints: [path.join(root, 'docs/web/feedback.ts')], outfile: path.join(output, 'feedback.js'),
+  bundle: true, platform: 'browser', format: 'iife', target: ['es2022'], minify: true,
+  legalComments: 'eof',
+});
 const homepage = fs.readFileSync(path.join(root, 'docs/index.html'), 'utf8')
   .replace('<!-- research-replay -->', researchReplay(LOCAL_EXAMPLE_FAILED_PROOF, LOCAL_EXAMPLE_PROOF,
     JSON.parse(fs.readFileSync(path.join(root, 'docs/assets/replay.json'), 'utf8'))))
   .replace('<!-- accepted-count -->', String(catalog.records.filter(record => record.status === 'official_accepted').length))
   .replace('<!-- accepted-proofs -->', acceptedProofRows(catalog));
 fs.writeFileSync(path.join(output, 'index.html'), homepage);
-for (const file of ['archive.html', 'site.css']) fs.copyFileSync(path.join(root, 'docs', file), path.join(output, file));
+for (const file of ['archive.html', 'site.css', 'feedback.html', 'feedback.css']) fs.copyFileSync(path.join(root, 'docs', file), path.join(output, file));
 // Embed the local font so the same typography works for file:// previews without font CORS errors.
 const landingCss = fs.readFileSync(path.join(root, 'docs/landing.css'), 'utf8')
   .replace(/url\("assets\/fonts\/([^"/]+\.woff2)"\)/g, (_url, file: string) =>

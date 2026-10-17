@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="向 TheoremOS 提交问题反馈、功能建议或使用咨询，在 GitHub Issues 中跟进处理。">
+  <meta name="theme-color" content="#ffffff">
+  <meta property="og:title" content="TheoremOS | 反馈与建议">
+  <meta property="og:description" content="告诉我们遇到的问题，或你希望 TheoremOS 做得更好的地方。">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://likc1606.github.io/theorem-os/assets/social-preview.png">
+  <link rel="icon" type="image/svg+xml" href="assets/mark.svg">
+  <link rel="stylesheet" href="landing.css">
+  <link rel="stylesheet" href="feedback.css">
+  <title>TheoremOS | 反馈与建议</title>
+</head>
+<body class="feedback-page">
+  <a class="skip-link" href="#main">跳到内容</a>
+  <header class="site-header">
+    <div class="header-inner wrap">
+      <a class="brand" href="index.html" aria-label="TheoremOS 首页"><img src="assets/mark.svg" alt="" width="31" height="31"><span>Theorem<span class="brand-os">OS</span></span></a>
+      <nav class="feedback-nav" aria-label="主导航"><a href="index.html">产品首页</a><a href="archive.html">证明档案</a><a href="feedback.html" aria-current="page">反馈</a></nav>
+    </div>
+  </header>
+
+  <main class="feedback-layout wrap" id="main">
+    <section class="feedback-intro" aria-labelledby="feedback-title">
+      <h1 id="feedback-title">反馈与建议</h1>
+      <p class="feedback-lead">告诉我们遇到的问题，<br>或你希望改进的地方。</p>
+      <div class="feedback-destination"><i data-lucide="git-fork"></i><p>反馈提交到公开的 <span>GitHub Issues</span>，需要登录 GitHub 账号。</p></div>
+      <p class="feedback-privacy">请勿包含 API Key、访问令牌或个人敏感信息。</p>
+      <div class="feedback-resources"><a class="text-link" href="https://github.com/LikC1606/theorem-os/issues" target="_blank" rel="noreferrer">查看已有反馈<i data-lucide="arrow-up-right"></i></a><a class="text-link" href="https://github.com/LikC1606/theorem-os/issues/new" target="_blank" rel="noreferrer">直接在 GitHub 提交<i data-lucide="arrow-up-right"></i></a></div>
+      <figure class="feedback-product"><a href="assets/workbench-source-detail.png" target="_blank" rel="noreferrer" aria-label="查看完整 Lean 工作区截图"><img src="assets/workbench-source-detail.png" alt="TheoremOS 的 Lean 工作区，显示尚未提交的 Mathlib 草稿。" width="953" height="444"></a><figcaption>TheoremOS · Lean 工作区</figcaption></figure>
+    </section>
+
+    <section class="feedback-editor" aria-label="填写反馈">
+      <div id="feedback-fallback"><p>你可以在 GitHub 提交反馈，并在同一条 Issue 中跟进回复。</p><a class="button button-dark" href="https://github.com/LikC1606/theorem-os/issues/new" target="_blank" rel="noreferrer">前往 GitHub 提交<i data-lucide="arrow-up-right"></i></a></div>
+      <form id="feedback-form" hidden>
+        <fieldset class="feedback-kind"><legend>反馈类型</legend><div class="feedback-kind-options">
+          <label><input type="radio" name="feedback-kind" value="bug" checked><span><i data-lucide="bug"></i>问题反馈</span></label>
+          <label><input type="radio" name="feedback-kind" value="feature"><span><i data-lucide="lightbulb"></i>功能建议</span></label>
+          <label><input type="radio" name="feedback-kind" value="question"><span><i data-lucide="message-circle"></i>使用咨询</span></label>
+        </div></fieldset>
+
+        <div class="feedback-field"><label for="feedback-area">相关位置</label><select id="feedback-area" required><option value="" disabled selected>请选择</option><option value="workbench">网页工作台</option><option value="website">官网与证明档案</option><option value="cli">CLI 运行时</option><option value="lean">Lean / Mathlib</option><option value="deployment">文档与部署</option><option value="other">其他</option></select></div>
+        <div class="feedback-field"><label for="feedback-subject">反馈标题</label><input id="feedback-subject" type="text" maxlength="100" required placeholder="用一句话概括" autocomplete="off"></div>
+        <div class="feedback-field"><label for="feedback-description">详细描述</label><textarea id="feedback-description" rows="7" maxlength="10000" required aria-describedby="feedback-description-hint feedback-count" placeholder="发生了什么？如何复现？你期望的结果是什么？"></textarea><div class="feedback-field-meta"><p id="feedback-description-hint">可附上复现步骤、错误信息与预期结果。</p><span id="feedback-count">0 / 10000</span></div></div>
+        <div class="feedback-field"><label for="feedback-environment">环境与版本 <span>选填</span></label><input id="feedback-environment" type="text" maxlength="240" placeholder="如：Ubuntu · Chrome · Docker" autocomplete="off"></div>
+        <div class="feedback-submit-row"><p>先确认内容，再到 GitHub 发布。<br>截图与附件可在 GitHub 补充。</p><button class="button button-dark" id="feedback-preview" type="submit">预览反馈<i data-lucide="arrow-right"></i></button></div>
+      </form>
+    </section>
+  </main>
+
+  <footer class="feedback-footer"><div class="wrap"><span>© 2026 TheoremOS contributors</span><a href="index.html#start">本地部署<i data-lucide="arrow-up-right"></i></a><a href="https://github.com/LikC1606/theorem-os" target="_blank" rel="noreferrer">GitHub<i data-lucide="arrow-up-right"></i></a></div></footer>
+
+  <dialog class="feedback-review" id="feedback-review" aria-labelledby="feedback-review-title" aria-describedby="feedback-review-note">
+    <div class="feedback-review-heading"><h2 id="feedback-review-title">确认反馈</h2><button class="feedback-icon-button" id="feedback-review-close" type="button" title="返回修改" aria-label="返回修改"><i data-lucide="x"></i></button></div>
+    <p id="feedback-review-summary"></p>
+    <p id="feedback-review-note"></p>
+    <label class="sr-only" for="feedback-markdown">反馈 Markdown 全文</label><textarea id="feedback-markdown" rows="10" readonly spellcheck="false"></textarea>
+    <div class="feedback-review-actions"><div class="feedback-export"><button class="feedback-icon-button" id="feedback-copy" type="button" title="复制反馈全文" aria-label="复制反馈全文"><i data-lucide="copy"></i></button><button class="feedback-icon-button" id="feedback-download" type="button" title="下载 Markdown" aria-label="下载反馈 Markdown"><i data-lucide="download"></i></button></div><a class="button button-dark" id="feedback-github" href="https://github.com/LikC1606/theorem-os/issues/new" target="_blank" rel="noreferrer">前往 GitHub 发布<i data-lucide="arrow-up-right"></i></a></div>
+    <p class="feedback-export-status" id="feedback-export-status" role="status"></p>
+  </dialog>
+  <script defer src="feedback.js"></script>
+</body>
+</html>

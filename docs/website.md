@@ -2,10 +2,11 @@
 
 线上地址：<https://likc1606.github.io/theorem-os/>。网站由本仓库的 GitHub Actions 构建并发布到 GitHub Pages。
 
-静态网站包含两个入口：
+静态网站包含三个入口：
 
 - `index.html`：中文产品宣传首页，包括可缩放的真实工作台截图、可播放和暂停的四步预设回放、官方证明成果、M1–M5 组件介绍与可展开的源码示例、Docker 部署和 CLI 体验命令。
 - `archive.html`：证明档案，支持搜索、筛选、源码查看、验收证据、JSON 下载和本地回放记录。
+- `feedback.html`：问题反馈、功能建议和使用咨询，预览后前往 GitHub Issues 确认发布。
 
 网站独立于 CLI，不启动 Agent 或 Lean，不需要服务端或模型认证。
 
@@ -38,7 +39,8 @@ bun run build:site
 - `docs/web/landing.ts`：回放步骤与组件切换、三种开始方式、命令复制和手机导航。
 - `docs/web/presentation.ts`：预设回放展示和从真实档案生成的成果表格。
 - `docs/archive.html`、`docs/site.css`、`docs/web/app.ts`：证明档案界面。
-- `scripts/build-site.ts`：构建两个页面、浏览器脚本和公开数据，并复制素材与许可证。
+- `docs/feedback.html`、`docs/feedback.css`、`docs/web/feedback.ts`：反馈表单、全文预览和 GitHub Issues 跳转。
+- `scripts/build-site.ts`：构建三个页面、浏览器脚本和公开数据，并复制素材与许可证。
 
 首页按 taste-skill 的大字排版方向组织内容，以白色品牌声明、浅青色回放与薄荷色组件区形成章节变化。首屏使用本地工作台真实的 Mathlib 草稿截图，明确标为未提交；手机和平板通过 `picture` 加载独立视口，平板采用画面与说明并排的构图。截图可打开完整界面预览，支持缩放、鼠标拖动和触屏滚动，关闭后恢复焦点；无 JavaScript 时仍可打开原图。开始区默认展示完整 Docker 部署命令，也可切换 CLI 安装和免模型回放。GitHub Pages 仅提供静态展示；用户需在 Linux 本地或服务器部署工作台，再输入自己的 API Key。
 
@@ -47,6 +49,12 @@ bun run build:site
 首屏名称使用 GSAP 遮罩入场，成果按行出现，组件选项依次进入，产品图轻微缩放落定；组件和命令切换采用短过渡。系统启用减少动态效果时，内容即时切换，回放仍可按步骤阅读。GSAP 固定版本与锁文件一起管理，版权和许可链接随静态产物保留在 `assets/licenses/gsap-NOTICE.txt`。
 
 完整原题验收独立于五类研究决策。组件用大字号索引展示，手机端五个标签完整排列为网格，支持键盘选择；源码示例默认收起，可在没有 JavaScript 的情况下展开。产品区补充实际 Lean 源码与模型配置截图，API Key 保持为空。档案区展示完整的真实界面，手机端使用单独的题目详情截图，避免放大裁切桌面图。网页工作台的临时历史与 CLI 的持久运行和恢复分开说明。参考官网与应用取舍记录在 [design-references.md](design-references.md)，本轮方向、素材来源与审查记录见 [design-taste.md](design-taste.md)。
+
+## 用户反馈
+
+首页桌面导航、手机导航、页脚以及证明档案都链接到 `feedback.html`。反馈分为问题反馈、功能建议、使用咨询，可填写相关位置、标题、描述及可选环境。表单在本地整理 Markdown，预览确认后由用户进入固定仓库的 GitHub Issue 编辑页；最终发布需要用户登录 GitHub 并确认，静态网站不持有 GitHub Token，也不显示虚假的提交成功状态。
+
+反馈将公开，页面提示不要填写 API Key 或个人敏感信息。不会自动读取工作台、浏览器查询参数、源码或认证信息，也不把表单写入浏览器存储。完整编码 URL 超过 7500 字符时不附带正文，页面明确提示先复制或下载全文，再到 GitHub 粘贴；全文始终保留在预览里，复制失败时会选中正文供手动复制。无 JavaScript 或脚本不可用时保留直接提交到 GitHub 的入口。此方案可直接部署到 GitHub Pages，不需要额外服务器；若后续需要匿名或私密反馈，应另接支持这些能力的接收服务。
 
 ## 验证
 
@@ -61,6 +69,8 @@ bun run test:site
 浏览器检查覆盖响应式截图、首屏可见、原图预览的缩放与拖动、弹窗关闭和焦点恢复、档案图片无裁切、源码示例展开、手机组件标签的键盘可见性、三种开始方式与部署命令复制、预设回放与记录的一致性、移动端回执顺序、首页成果的真实归属、复制失败反馈、手机导航、本地文件预览、无 JavaScript 内容与 GitHub Pages 子路径，以及证明档案的搜索、筛选、源码、来源、下载和链接恢复。检查 320、390、768、1440、1920 像素宽度，截图输出到 `out/site-checks/`。这些检查不调用模型。
 
 `test:site` 还运行 `test-landing-motion.mjs`，检查首屏入场、回放的暂停续播与结束、手动选步、键盘焦点，以及离屏、页面隐藏和减少动态效果设置；报告与截图输出到 `out/site-motion-checks/`。
+
+`test-feedback.mjs` 检查表单校验、分类切换、Markdown 编码、超长内容的复制与下载、弹窗焦点、桌面与手机排版、本地文件、Pages 子路径和无 JavaScript 入口。测试不会创建真实 Issue。
 
 ## GitHub Pages 部署
 

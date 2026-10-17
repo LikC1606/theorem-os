@@ -16,7 +16,7 @@
     "math": "bun bin/math.ts",
     "build": "bun scripts/build.ts",
     "build:site": "bun scripts/build-site.ts",
-    "test:site": "node scripts/test-landing.mjs && node scripts/test-site.mjs && node scripts/test-landing-motion.mjs",
+    "test:site": "node scripts/test-landing.mjs && node scripts/test-site.mjs && node scripts/test-landing-motion.mjs && node scripts/test-feedback.mjs",
     "typecheck:site": "tsc --noEmit --project docs/web/tsconfig.json",
     "build:web": "bun scripts/build-web.ts",
     "web": "bun apps/web/server.ts",
