@@ -8,6 +8,7 @@ import { getWebEnvironments, readWebConfig, webDefaults, webLimits, webTemplates
 import { DockerWebRunner, type WebRunner } from './runner';
 import { WebJobs } from './jobs';
 import type { WebRunInput, WebSession } from './shared';
+import { researchModulePlanSchema } from '../../src/solver/modules/policy';
 
 const inputSchema = z.object({
   providerId: z.string().min(1).max(40), apiKey: z.string().min(8).max(4096).regex(/^[\x21-\x7e]+$/),
@@ -20,6 +21,7 @@ const inputSchema = z.object({
   maxRunSeconds: z.number().int().min(30).max(webLimits.maxRunSeconds),
   workers: z.number().int().min(1).max(webLimits.maxWorkers),
   coordination: z.enum(['cooperative', 'independent']),
+  modulePlan: researchModulePlanSchema.optional(),
 }).strict();
 
 class HttpError extends Error {
@@ -114,7 +116,7 @@ export function createWebService(config: WebConfig, runner: WebRunner = new Dock
         if (url.pathname === '/api/runs' && request.method === 'GET') { json(response, 200, { runs: jobs.list(session.id) }); return; }
         if (url.pathname === '/api/runs' && request.method === 'POST') {
           const parsed = inputSchema.safeParse(await readJson(request));
-          if (!parsed.success) throw new HttpError(400, '请检查题目、API Key、模型及运行预算。');
+          if (!parsed.success) throw new HttpError(400, '请检查题目、API Key、模型、模块方案及运行预算。');
           const provider = config.providers.find(item => item.id === parsed.data.providerId);
           if (!provider) throw new HttpError(400, '该模型服务尚未配置。');
           if (!(await runner.readiness()).ready) throw new HttpError(503, '运行环境尚未就绪，请先构建 worker 镜像。');

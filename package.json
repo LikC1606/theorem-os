@@ -36,6 +36,8 @@
     "test:web-editor-review": "bun scripts/test-web-editor-review.ts",
     "test:web-source-handoff": "bun scripts/test-web-source-handoff.ts",
     "test:web-activity": "bun scripts/test-web-activity.ts",
+    "test:web-modules": "bun scripts/test-web-modules.ts",
+    "test:web-module-plan": "bun scripts/test-web-module-plan.ts",
     "test:web-performance": "bun scripts/test-web-performance.ts",
     "test:web-motion": "bun scripts/test-web-motion.ts",
     "test": "vitest run",

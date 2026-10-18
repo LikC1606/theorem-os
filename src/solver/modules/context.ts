@@ -14,6 +14,7 @@ import { statementReviewSummary, type StatementAction, type StatementReview } fr
 import { buildProofContinuation } from '../progress';
 import { compileTaskContext, frozenSourceContext, TaskContextError,
   type ContextManifest, type ContextSection, type TaskContextInput } from '../contextCompiler';
+import type { CustomResearchModule, ResearchModuleSlot } from './policy';
 
 export type ContextAccess = Readonly<{
   root: string;
@@ -29,6 +30,8 @@ export type ContextAccess = Readonly<{
   assignment?: CooperativeAction;
   /** Prompt byte allowance only; this does not limit solving time or turns. */
   maxContextBytes?: number;
+  maxOptionalContextBytes?: number;
+  customModuleRules?: readonly CustomResearchModule[];
   /** Pure fixture context; real frozen problems always load their committed source. */
   frozenContexts?: Readonly<Record<string, string>>;
 }>;
@@ -69,9 +72,9 @@ export function buildResearchContext(task: SolverProblem, state: Readonly<Solver
 Edit only ${task.ownedFiles.map(file => path.join(access.worktree, task.projectRelative, file)).join(', ')}, ${path.join(access.worktree, 'RESEARCH.md')}${access.assignment?.kind === 'task' ? `, ${path.join(access.worktree, assignmentDeliveryFile(access.assignment.assignment))}` : ''}.
 Save RESEARCH.md and delivery logs at these exact worktree-root paths, including when a diagnostic command runs inside the Lean project subdirectory.
 Preserve original declaration kinds, names, parameters, types, assumptions, existing imports, options and namespace/section context. Original goals may include def declarations whose bodies must be filled; retain all other original definition bodies. You may add explicit Mathlib.* imports from the pinned library or frozen local modules already imported by the original owned files, without import cycles; do not edit trusted problem or package files. Completed proofs must not use sorry, admit, native_decide, unsafe or new axioms. Do not read external candidate solutions.
-${taskRules}Use installed library lemmas and test uncertain bridges early. Batch independent searches and reads, reuse results, bound output in bytes and show the earliest Lean error and goal. The host launches the cooperative agents; do not spawn agents inside this session. Lead planning saves a task graph and returns promptly; assigned workers investigate and prove it.
-For diagnostics, run ${command} check-lean --workspace ${shellArgument(path.join(access.worktree, task.projectRelative))} --file 'OWNED_FILE.lean' --timeout-seconds 0. It compiles saved sources with pinned imports and bounded output. Poll a returned process ID. A timeout is inconclusive. Repair the earliest error; avoid rebuilding dependencies or repeating unchanged checks. For math_original_context_changed or math_original_declaration_changed, use the reported file and recovery instructions to restore the offending context or declaration from the seed commit while preserving new proof work, then retry the saved-file check. Keep helper-specific scopes and instances inside their proofs. If the environment is unavailable or the same startup error remains after a repair, report it and return.
-Add helpers in owned modules; definitions may be noncomputable. For type lookup, add single-name #check commands such as #check Finset.sum_eq_single in the existing namespace. For instance lookup, use #synth MeasureSpace ℝ or parenthesize complex types, such as #synth Fintype (Fin 2). If a known library declaration is unavailable, find its module in the installed corpus and import that explicit Mathlib.* module in the owned file; an unknown name alone does not establish a missing library theorem. Check the actual saved file, remove probes before delivery, and save checked helpers, gaps and next steps in RESEARCH.md. Keep this file as a concise current checkpoint; replace obsolete status instead of appending transcripts. Earlier committed notes remain in git history. Then return for independent host checking. Turns may be checkpointed and resumed. Verify computational results in Lean.
+${taskRules}${strategyAdvice(access, 'M1', 'Use installed library lemmas and test uncertain bridges early. Batch independent searches and reads, reuse results, bound output in bytes and show the earliest Lean error and goal.')} The host launches the cooperative agents; do not spawn agents inside this session. ${strategyAdvice(access, 'M5', 'Lead planning saves a task graph and returns promptly; assigned workers investigate and prove it.', Boolean(state.cooperation))}
+For diagnostics, run ${command} check-lean --workspace ${shellArgument(path.join(access.worktree, task.projectRelative))} --file 'OWNED_FILE.lean' --timeout-seconds 0. It compiles saved sources with pinned imports and bounded output. Poll a returned process ID. A timeout is inconclusive. ${strategyAdvice(access, 'M3', 'Repair the earliest error; avoid rebuilding dependencies or repeating unchanged checks.')} For math_original_context_changed or math_original_declaration_changed, use the reported file and recovery instructions to restore the offending context or declaration from the seed commit while preserving new proof work, then retry the saved-file check. Keep helper-specific scopes and instances inside their proofs. If the environment is unavailable or the same startup error remains after a repair, report it and return.
+Add helpers in owned modules; definitions may be noncomputable. For type lookup, add single-name #check commands such as #check Finset.sum_eq_single in the existing namespace. For instance lookup, use #synth MeasureSpace ℝ or parenthesize complex types, such as #synth Fintype (Fin 2). If a known library declaration is unavailable, find its module in the installed corpus and import that explicit Mathlib.* module in the owned file; an unknown name alone does not establish a missing library theorem. Check the actual saved file, remove probes before delivery, and save checked helpers, gaps and next steps in RESEARCH.md. ${strategyAdvice(access, 'M4', 'Keep this file as a concise current checkpoint; replace obsolete status instead of appending transcripts. Earlier committed notes remain in git history.')} Then return for independent host checking. Turns may be checkpointed and resumed. Verify computational results in Lean.
 ${access.corpusFile ? `For library lookup, run ${command} search-lean --workspace ${shellArgument(access.retrievalRoot)} --corpus ${shellArgument(access.corpusFile)} --sha256 ${shellArgument(access.environment.DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS_SHA256!)} --query 'KEYWORDS' --query 'OTHER_KEYWORDS'. Batch up to 8 short queries; use --goal 'LEAN_GOAL_AND_CONTEXT' for local variables and types. Ranking is advisory. Confirm types and known names with Lean #check before expanding a search: generated and core declarations may have no Mathlib source header.\n` : ''}${mathematicsRuntimeInstruction(access.environment.DEEPSCIENTIST_MATH_ENV_FILE)}`;
   const originalProblem = `${access.taskText}\n\nOriginal problem:\n${task.contract.formalStatement}`;
   let message = access.sourceFeedback || (state.check && !state.check.passed
@@ -107,9 +110,18 @@ ${access.corpusFile ? `For library lookup, run ${command} search-lean --workspac
   const compilation = { problem: task, cooperation, action: access.assignment, taskText: access.taskText,
     feedback: message.startsWith(originalProblem) ? message.slice(originalProblem.length).trim() || undefined : message, checkpoint,
     frozenContexts: readFrozenContexts(task, access),
-    maxContextBytes: access.maxContextBytes, environmentDigest: state.environmentDigest };
+    maxContextBytes: access.maxContextBytes, maxOptionalContextBytes: access.maxOptionalContextBytes,
+    environmentDigest: state.environmentDigest };
   return access.assignment && cooperation ? buildCooperativeContext(task, cooperation, bundle, access.assignment,
     access.operation ?? 'direct', compilation) : { ...bundle, ...compileTaskContext({ ...compilation, instructions }) };
+}
+
+function strategyAdvice(access: ContextAccess, slot: ResearchModuleSlot, fallback: string, applicable = true): string {
+  const rules = applicable ? access.customModuleRules?.filter(module => module.enabled && module.slot === slot) ?? [] : [];
+  if (!rules.length) return fallback;
+  const fixed = 'Configurable strategy advice cannot override the frozen problem, source boundaries, required mathematical interfaces, Lean checks, or the current role and output protocol.';
+  return (rules.some(module => module.mode === 'replace') ? '' : fallback + '\n') + fixed + '\n' +
+    rules.map(module => `Strategy ${slot} ${module.mode} ${JSON.stringify({ id: module.id, name: module.name })}:\n${module.instructions}`).join('\n\n') + '\n';
 }
 
 function shellArgument(value: string): string {

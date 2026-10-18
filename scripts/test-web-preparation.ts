@@ -9,7 +9,7 @@ import { readWebConfig, webLimits, webTemplates } from '../apps/web/config';
 import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
 import { draftRecoveryStorageKey } from '../apps/web/client/draftRecovery';
-import { closeDialog, closeHistory, closeSettings, discardSourceEditor, openHistory, openSettings, withSettings } from './web-ui-controls';
+import { closeDialog, closeHistory, closeSettings, discardSourceEditor, openHistory, openSettings, showArtifacts, withSettings } from './web-ui-controls';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-ui-smoke');
@@ -264,19 +264,22 @@ try {
     await readiness(page, 'ready');
   });
 
-  await scenario('Invalid tasks leave settings, focus the composer and recover without a request', async h => {
+  for (const width of widths) await scenario(`Invalid tasks leave workspace settings and focus the composer at ${width}px`, async h => {
     const { page } = h;
     await open(h);
     await withSettings(page, () => page.locator('#api-key').fill(credential));
     for (const value of [' \n\t ', '中'.repeat(Math.floor(webLimits.maxTaskBytes / 3) + 1)]) {
       await page.locator('#task').fill(value);
-      await openSettings(page);
+      await showArtifacts(page);
+      await page.locator('#open-settings').click();
       await closeDialog(page, '#run-settings', () => page.locator('#settings-submit').click());
+      assert.equal(await page.locator('body').getAttribute('data-mobile-view'), 'compose',
+        'task validation must keep the composer visible after the close event');
       await invalid(page, 'task');
       await corrected(page, 'task', '保留原题，构造并验证证明。');
     }
     await readiness(page, 'ready');
-  });
+  }, width);
 
   await scenario('Nested source editing keeps settings open and restores its source trigger', async h => {
     const { page } = h;

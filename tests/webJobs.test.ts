@@ -294,6 +294,66 @@ describe('web job ownership, scheduling and secret lifetime without provider cal
     } finally { vi.useRealTimers(); }
   });
 
+  it('retains structured module evidence through log rotation and cleans concurrent intervals on cancellation', async () => {
+    const { jobs, runner } = setup();
+    const run = jobs.create('owner', { ...input(), workers: 2 }, provider);
+    await tick();
+    const send = (event: string, details?: Extract<WorkerMessage, { type: 'progress' }>['details']) =>
+      runner.calls[0].send({ type: 'progress', event, message: event, ...(details ? { details } : {}) });
+    send('turn_started', { workerId: 'solver', turn: 1 });
+    send('turn_started', { workerId: 'engineer', turn: 1 });
+    send('proof_check_started', { workerId: 'solver', turn: 1 });
+    expect(run.modules?.M1?.activeWorkers).toEqual(['engineer']);
+    expect(run.modules?.M2?.activeWorkers).toEqual(['solver']);
+    const firstAt = run.modules?.M1?.firstAt;
+    for (let index = 0; index < 205; index++) send('worker_activity', { workerId: 'engineer' });
+    expect(run.events).toHaveLength(200);
+    expect(run.events.some(event => event.type === 'turn_started')).toBe(false);
+    expect(run.modules?.M1?.eventCount).toBe(207);
+    expect(run.modules?.M1?.firstAt).toBe(firstAt);
+    expect(run.modules?.M2?.lastEvent.details).toEqual({ workerId: 'solver', turn: 1 });
+    jobs.cancel('owner', run.id);
+    expect(run.modules?.M1?.activeWorkers).toEqual([]);
+    expect(run.modules?.M2?.activeWorkers).toEqual([]);
+    send('turn_started', { workerId: 'solver', turn: 2 });
+    expect(run.modules?.M1?.eventCount).toBe(207);
+    await tick();
+  });
+
+  it('keeps candidate observations separate from acceptance and clears activity on evaluation and completion', async () => {
+    const { jobs, runner } = setup();
+    const run = jobs.create('owner', { ...input(), workers: 2 }, provider);
+    await tick();
+    runner.calls[0].send({ type: 'progress', event: 'turn_started', message: 'Constructing', details: { workerId: 'engineer' } });
+    runner.calls[0].send({ type: 'progress', event: 'proof_checked', message: 'Checked', details: { workerId: 'solver', passed: true } });
+    expect(run.status).toBe('running');
+    expect(run.result).toBeUndefined();
+    runner.calls[0].send({ type: 'progress', event: 'evaluation_started', message: 'Evaluating', details: { workerId: 'solver' } });
+    expect(run.modules?.M1?.activeWorkers).toEqual([]);
+    expect(run.modules?.S3?.activeWorkers).toEqual(['solver']);
+    runner.calls[0].finish({ status: 'evaluated_failed', proof: 'by trivial', report: { evaluator: { status: 'failed' } } });
+    await tick();
+    expect(run.status).toBe('completed');
+    expect(run.result?.status).toBe('evaluated_failed');
+    expect(run.modules?.S3?.activeWorkers).toEqual([]);
+    expect(run.events.at(-1)?.message).not.toContain('通过独立 Lean 验收');
+  });
+
+  it('sanitizes custom-runner metadata after credential redaction and before copying it to module snapshots', async () => {
+    const { jobs, runner } = setup();
+    const key = 'sk-private-worker';
+    const run = jobs.create('owner', input(key), provider);
+    await tick();
+    runner.calls[0].send({ type: 'progress', event: 'context_compiled', message: `Context ${key}`,
+      details: { workerId: key, usedBytes: 0, maxBytes: 1_024, instructions: key, threadId: 'private-thread' } as never });
+    expect(run.events.at(-1)?.details).toEqual({ usedBytes: 0, maxBytes: 1_024 });
+    expect(run.modules?.M4?.lastEvent.details).toEqual({ usedBytes: 0, maxBytes: 1_024 });
+    expect(run.modules?.M4?.lastEvent.message).toBe('Context [REDACTED]');
+    expect(JSON.stringify(run)).not.toMatch(/sk-private-worker|private-thread|instructions|threadId/);
+    runner.calls[0].finish();
+    await tick();
+  });
+
   it('redacts credentials from submitted text, worker events, nested reports and proof output', async () => {
     const { jobs, runner } = setup();
     const key = 'sk-quote-"-slash-\\-test';

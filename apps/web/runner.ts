@@ -5,6 +5,8 @@ import { z } from 'zod';
 import type { WebConfig } from './config';
 import type { WorkerInput, WorkerMessage } from './shared';
 import { webArtifactMaxBytes } from './shared';
+import { isWebEventDetails } from './moduleTelemetry';
+import type { WebEventDetails } from './shared';
 
 export type WebRunner = {
   readiness(): Promise<{ ready: boolean; message: string }>;
@@ -12,7 +14,8 @@ export type WebRunner = {
 };
 const execute = promisify(execFile);
 const workerMessageSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('progress'), event: z.string().min(1).max(100), message: z.string().max(2_000) }).strict(),
+  z.object({ type: z.literal('progress'), event: z.string().min(1).max(100), message: z.string().max(2_000),
+    details: z.custom<WebEventDetails>(isWebEventDetails).optional() }).strict(),
   z.object({ type: z.literal('error'), message: z.string().min(1).max(2_000) }).strict(),
   z.object({ type: z.literal('artifact'), artifact: z.object({
     source: z.string().min(1).max(webArtifactMaxBytes).refine(value => Buffer.byteLength(value) <= webArtifactMaxBytes),

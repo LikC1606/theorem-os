@@ -1,4 +1,5 @@
 import type { WebCoordination, WebEffort, WebEnvironment } from '../shared';
+import { researchModulePlanDraftSchema, type ResearchModulePlan } from '../../../src/solver/modules/policy';
 
 export const taskDraftSchema = 'theorem-os.web-draft.v1';
 export const taskDraftStorageKey = 'theorem-os.web-draft.v1';
@@ -15,6 +16,7 @@ export type TaskDraft = {
   environment: WebEnvironment;
   coordination: WebCoordination;
   templateId: string;
+  modulePlan?: ResearchModulePlan;
 };
 
 const archiveSchema = 'theorem-os.web-export.v1';
@@ -68,6 +70,7 @@ function validatedDraft(value: unknown): TaskDraft {
     environment: enumeration(draft, 'environment', ['standard', 'mathlib']),
     coordination: enumeration(draft, 'coordination', ['cooperative', 'independent']),
     templateId: text(draft, 'templateId', 64),
+    ...(Object.hasOwn(draft, 'modulePlan') ? { modulePlan: researchModulePlanDraftSchema.parse(draft.modulePlan) as ResearchModulePlan } : {}),
   };
 }
 
@@ -92,6 +95,7 @@ export function decodeTaskDraft(value: unknown): TaskDraft {
       providerId: own(run, 'providerId'), model: own(run, 'model'), source: own(run, 'source'), task: own(run, 'task'),
       maxTurns: archiveBudget(run, 'maxTurns'), maxRunSeconds: archiveBudget(run, 'maxRunSeconds'), workers: archiveBudget(run, 'workers'),
       effort: own(run, 'effort'), environment: own(run, 'environment'), coordination: own(run, 'coordination'), templateId: '',
+      ...(Object.hasOwn(run, 'modulePlan') ? { modulePlan: run.modulePlan } : {}),
     });
   } catch { return invalid(); }
 }

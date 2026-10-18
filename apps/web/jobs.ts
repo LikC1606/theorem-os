@@ -1,7 +1,8 @@
 import crypto from 'node:crypto';
 import type { WebConfig } from './config';
 import type { WebRunner } from './runner';
-import type { WebProvider, WebRun, WebRunInput, WorkerMessage } from './shared';
+import type { WebEvent, WebEventDetails, WebProvider, WebRun, WebRunInput, WorkerMessage } from './shared';
+import { recordWebModuleEvent, sanitizeWebEventDetails } from './moduleTelemetry';
 
 type Job = { owner: string; run: WebRun; input: WebRunInput; provider: WebProvider; controller: AbortController };
 const terminal = (run: WebRun) => ['completed', 'cancelled', 'error'].includes(run.status);
@@ -31,7 +32,7 @@ export class WebJobs {
     const environment = input.environment ?? 'standard';
     const run: WebRun = { ...clean(visible, apiKey), environment, id: crypto.randomUUID(),
       title: '', status: 'queued',
-      phase: 'queued', createdAt: now, updatedAt: now, timings: {}, events: [] };
+      phase: 'queued', createdAt: now, updatedAt: now, timings: {}, events: [], modules: {} };
     run.title = run.task.split('\n')[0].slice(0, 60) || 'Lean 研究';
     this.jobs.set(run.id, { owner, input: { ...input, environment }, provider, run, controller: new AbortController() });
     this.event(run, 'queued', '任务已进入队列');
@@ -68,14 +69,17 @@ export class WebJobs {
     while (this.running) await new Promise(resolve => setTimeout(resolve, 25));
     this.jobs.clear();
   }
-  private event(run: WebRun, type: string, message: string) {
+  private event(run: WebRun, type: string, message: string, rawDetails?: WebEventDetails) {
     const sequence = (run.events.at(-1)?.sequence ?? 0) + 1;
     run.updatedAt = new Date().toISOString();
     const timing = type === 'preparing' ? 'preparing' : type === 'solve_started' ? 'solving'
       : type === 'evaluation_started' ? 'evaluating' : undefined;
     // Keep phase boundaries even after the bounded activity log has rotated.
     if (timing) (run.timings ??= {})[timing] ??= run.updatedAt;
-    run.events.push({ sequence, at: run.updatedAt, type, message: message.slice(0, 2_000) });
+    const details = sanitizeWebEventDetails(rawDetails);
+    const event: WebEvent = { sequence, at: run.updatedAt, type, message: message.slice(0, 2_000), ...(details ? { details } : {}) };
+    recordWebModuleEvent(run, event);
+    run.events.push(event);
     if (run.events.length > 200) run.events.shift();
   }
   private pump() {
@@ -94,7 +98,7 @@ export class WebJobs {
       const message = clean(raw, key);
       if (message.type === 'progress') {
         job.run.phase = message.event;
-        this.event(job.run, message.event, message.message);
+        this.event(job.run, message.event, message.message, message.details);
       } else if (message.type === 'artifact') {
         if (job.run.result) return;
         job.run.artifact = message.artifact;

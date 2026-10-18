@@ -100,6 +100,34 @@ describe('web HTTP boundary with disposable local servers and no model calls', (
     });
   }
 
+  it('validates custom module plans and keeps the selected configuration in the run and download', async () => {
+    const alice = await session();
+    const custom = { id: 'library-strategy', name: 'Library strategy', slot: 'M1', mode: 'replace',
+      enabled: true, instructions: 'Search installed lemmas before constructing a longer proof.' };
+    const modulePlan = { scheduler: 'critical-path', context: 'essential', custom: [custom,
+      { ...custom, id: 'optional-module', enabled: false, mode: 'append', instructions: '' }] };
+    for (const invalid of [
+      { ...modulePlan, custom: [custom, { ...custom, id: 'conflicting-module' }] },
+      { ...modulePlan, custom: [{ ...custom, slot: 'M2' }] },
+      { ...modulePlan, custom: [{ ...custom, instructions: '' }] },
+      { ...modulePlan, custom: [{ ...custom, instructions: '证'.repeat(1_334) }] },
+      { ...modulePlan, custom: [{ ...custom, script: '/untrusted/plugin.ts' }] },
+    ]) expect((await request('/api/runs', alice, { body: { ...input(), modulePlan: invalid } })).status).toBe(400);
+    expect(runner.calls).toHaveLength(0);
+    const created = await request('/api/runs', alice, { body: { ...input(), modulePlan } });
+    expect(created.status).toBe(201);
+    const run = (await created.json()).run;
+    expect(run.modulePlan).toEqual(modulePlan);
+    await tick();
+    expect(runner.calls[0].value.input.modulePlan).toEqual(modulePlan);
+    modulePlan.custom[0].instructions = 'A later client-side edit';
+    const current = await request(`/api/runs/${run.id}`, alice);
+    expect((await current.json()).run.modulePlan).toEqual(run.modulePlan);
+    runner.calls[0].finish(); await tick();
+    const downloaded = await request(`/api/runs/${run.id}/download`, alice);
+    expect((await downloaded.json()).run.modulePlan).toEqual(run.modulePlan);
+  });
+
   it('requires a session and a matching CSRF token before accepting a run', async () => {
     expect((await request('/api/runs')).status).toBe(401);
     expect((await request('/api/runs', undefined, { body: input() })).status).toBe(401);

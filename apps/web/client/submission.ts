@@ -1,8 +1,9 @@
 import type { WebSession } from '../shared';
 import type { TaskDraft } from './draft';
+import { researchModulePlanSchema } from '../../../src/solver/modules/policy';
 
 export const submissionFields = ['provider', 'environment', 'source', 'task', 'model', 'api-key', 'max-turns', 'max-seconds', 'workers'] as const;
-export type SubmissionField = typeof submissionFields[number];
+export type SubmissionField = typeof submissionFields[number] | 'module-plan';
 export type SubmissionIssue = { field: SubmissionField; message: string };
 
 // This checks input only. Provider authentication happens when a run is submitted.
@@ -34,6 +35,10 @@ export function submissionIssues(draft: TaskDraft, apiKey: string, session: WebS
   ] as const) {
     const value = Number(raw);
     if (!raw.trim() || !Number.isSafeInteger(value) || value < min || value > max) add(field, `${label}须为 ${min}–${max} 的整数`);
+  }
+  if (draft.modulePlan) {
+    const plan = researchModulePlanSchema.safeParse(draft.modulePlan);
+    if (!plan.success) add('module-plan', '请检查自定义模块的名称、规则及替换冲突');
   }
   return issues;
 }

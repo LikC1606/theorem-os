@@ -7,31 +7,14 @@ import { getLeanTaskEnvironment } from '../../src/math/leanTaskEnvironment';
 import { readMathJson, readMathText } from '../../src/math/mathRuntimeIo';
 import { readMathBuildManifest } from '../../src/math/mathBuildManifest';
 import { createCodexMathSession } from '../../src/runtime/codexSession';
-import { directSolverModules, type SolverModules } from '../../src/solver/modules';
+import type { SolverModules } from '../../src/solver/modules';
+import { configurableSolverModules } from '../../src/solver/modules/custom';
 import { researchWorkers } from '../../src/solver/modules/organization';
 import { runSolver } from '../../src/solver/run';
+import { translateWebProgress } from './progress';
 import { webArtifactMaxBytes, type WebArtifact, type WorkerInput, type WorkerMessage } from './shared';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const descriptions: Record<string, string> = {
-  ready: '原题与运行环境已固定', dependency_check: '正在检查 Lean 依赖',
-  proof_environment: '正在准备只读数学依赖', library_index: '正在准备数学库检索',
-  preparation_finished: '题目准备完成', solve_started: '开始研究', turn_started: 'Agent 正在构造候选',
-  worker_activity: 'Agent 正在运行', turn_checkpoint: '当前尝试已保存', turn_failed: '当前尝试未完成',
-  turn_retry: '准备继续尝试', proof_check_started: '正在检查候选证明',
-  proof_checked: '候选检查完成', candidate_selected: '已选出候选，准备最终验收',
-  evaluation_started: '正在独立验收完整原题', evaluation_finished: '完整原题验收结束',
-  lemma_checked: '辅助引理检查完成', assembly_started: '正在集成候选证明',
-  source_rejected: '候选更改了原题约束，已拒绝', preparation_failed: '运行环境预检未通过',
-  worker_failed: 'Agent 会话已停止', finished: '求解流程结束',
-};
-const failureDescriptions: Record<string, string> = {
-  math_model_authentication_failed: 'API Key 认证失败，请检查密钥和服务商',
-  math_model_concurrency_limit: '服务商限制了当前请求，请检查配额或并发',
-  math_model_request_failed: '模型服务连接失败',
-  math_model_request_timeout: '模型服务请求超时',
-  math_codex_transport_closed: '模型会话连接已中断',
-};
 type WebWorkerState = {
   worktree: string;
   workers?: { id: string; worktree: string }[];
@@ -127,6 +110,14 @@ export function webProviderConfig(input: WorkerInput): string {
   });
 }
 
+export function webSolverModules(request: WorkerInput): SolverModules {
+  const base = configurableSolverModules(request.input.modulePlan, request.input.coordination, request.input.workers);
+  return { ...base, id: `${base.id}/web-byok-v1`,
+    M1: { ...base.M1, version: `${base.M1.version}/web-byok-v1`,
+      open: options => createCodexMathSession({ ...options,
+        environment: { ...options.environment, THEOREMOS_PROVIDER_API_KEY: request.input.apiKey } }) } };
+}
+
 async function main() {
   let bytes = 0;
   const chunks: Buffer[] = [];
@@ -157,9 +148,8 @@ async function main() {
     for (const value of args) if (typeof value === 'string') {
       try {
         const event = JSON.parse(value);
-        if (typeof event.event === 'string' && descriptions[event.event]) send({ type: 'progress', event: event.event,
-          message: (failureDescriptions[event.reason] || descriptions[event.event]) +
-            (typeof event.workerId === 'string' ? ` · ${event.workerId.slice(0, 30)}` : '') });
+        const progress = translateWebProgress(event);
+        if (progress) send(progress);
         if (['turn_checkpoint', 'proof_check_started', 'candidate_selected', 'evaluation_started'].includes(event.event)) sampleArtifact?.();
       } catch { /* Unstructured runtime output stays private to this disposable container. */ }
     }
@@ -180,10 +170,7 @@ async function main() {
         send({ type: 'artifact', artifact });
       } });
     artifactTimer = setInterval(sampleArtifact, 1_500);
-    const modules: SolverModules = { ...directSolverModules, id: `${directSolverModules.id}/web-byok-v1`,
-      M1: { ...directSolverModules.M1, version: `${directSolverModules.M1.version}/web-byok-v1`,
-        open: options => createCodexMathSession({ ...options,
-          environment: { ...options.environment, THEOREMOS_PROVIDER_API_KEY: key } }) } };
+    const modules = webSolverModules(request);
     await runSolver(['--workspace', receipt.workspaceRoot, '--task-file', taskFile, '--output', output,
       '--receipt-file', receipt.activeProblemPath, '--build-manifest', buildIndex.buildManifestRef,
       '--model', request.input.model, '--effort', request.input.effort, '--workers', String(request.input.workers),

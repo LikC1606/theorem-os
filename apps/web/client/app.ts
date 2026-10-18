@@ -1,7 +1,7 @@
 import {
   createIcons, ArrowDown, ArrowLeft, ArrowLeftRight, ArrowRight, ArrowUp, ArrowUpRight, Check, CheckCheck, ChevronDown, ChevronUp, CircleAlert, CircleCheck, Clock3, Copy, CopyPlus, CornerDownLeft, Cpu,
-  Download, Eye, EyeOff, FileCode2, FileJson2, FlaskConical, GitBranch, IndentDecrease, IndentIncrease, List, ListOrdered, Maximize2, MessageSquare, Network, PanelLeft, PanelRight, Paperclip,
-  Play, Plus, RefreshCw, RotateCcw, Search, SlidersHorizontal, Square, SquarePen, Trash2, TriangleAlert, Undo2, Upload, X,
+  Download, Eye, EyeOff, FileCode2, FileJson2, FlaskConical, GitBranch, IndentDecrease, IndentIncrease, List, ListOrdered, LocateFixed, Maximize2, MessageSquare, Network, PanelLeft, PanelRight, Paperclip,
+  Play, Plus, RefreshCw, RotateCcw, Search, ShieldCheck, SlidersHorizontal, Square, SquarePen, Trash2, TriangleAlert, Undo2, Upload, X,
 } from 'lucide';
 import type { WebCoordination, WebEffort, WebEnvironment, WebRun, WebRunInput, WebSession } from '../shared';
 import { formatDuration, isAcceptedRun, resultDescription, runProgress } from '../presentation';
@@ -18,12 +18,15 @@ import { sourceDiffRows } from './sourceDiffMarkup';
 import { submissionFields, submissionIssues, type SubmissionField, type SubmissionIssue } from './submission';
 import { SourceReader } from './sourceReader';
 import { ActivityReader } from './activityReader';
+import { ModuleView, type ModuleViewInput } from './moduleView';
+import { ModulePlanEditor } from './modulePlanEditor';
+import type { ResearchModuleSlot } from '../../../src/solver/modules/policy';
 import { DraftRecovery, type ReplacementReason } from './draftRecovery';
 import { animateEntrance, finishHiddenMotion, finishMotion } from './motion';
 
 const iconSet = { ArrowDown, ArrowLeft, ArrowLeftRight, ArrowRight, ArrowUp, ArrowUpRight, Check, CheckCheck, ChevronDown, ChevronUp, CircleAlert, CircleCheck, Clock3, Copy, CopyPlus, CornerDownLeft, Cpu,
-  Download, Eye, EyeOff, FileCode2, FileJson2, FlaskConical, GitBranch, IndentDecrease, IndentIncrease, List, ListOrdered, Maximize2, MessageSquare, Network, PanelLeft, PanelRight, Paperclip,
-  Play, Plus, RefreshCw, RotateCcw, Search, SlidersHorizontal, Square, SquarePen, Trash2, TriangleAlert, Undo2, Upload, X };
+  Download, Eye, EyeOff, FileCode2, FileJson2, FlaskConical, GitBranch, IndentDecrease, IndentIncrease, List, ListOrdered, LocateFixed, Maximize2, MessageSquare, Network, PanelLeft, PanelRight, Paperclip,
+  Play, Plus, RefreshCw, RotateCcw, Search, ShieldCheck, SlidersHorizontal, Square, SquarePen, Trash2, TriangleAlert, Undo2, Upload, X };
 function icons(root: Element | Document | DocumentFragment = document) {
   createIcons({ icons: iconSet, root, attrs: { 'aria-hidden': 'true' } });
   root.querySelectorAll('svg[data-lucide]').forEach(svg => svg.removeAttribute('data-lucide'));
@@ -59,12 +62,14 @@ const timestamp = (value: string, timeOnly = false) => {
 };
 const byteSize = (text: string) => new TextEncoder().encode(text).length;
 const byteLabel = (bytes: number) => bytes >= 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${bytes} B`;
-type DetailTab = 'overview' | 'source' | 'report' | 'events';
+type DetailTab = 'overview' | 'source' | 'modules' | 'report' | 'events';
+const detailTabs = [['source', 'Lean 源码'], ['modules', '模块'], ['overview', '概览'], ['report', '报告'], ['events', '活动']] as const;
 const state = {
   session: undefined as WebSession | undefined,
   runs: [] as WebRun[], selectedId: '', selectedRun: undefined as WebRun | undefined,
   query: '', filter: 'all' as RunFilter,
   tab: 'source' as DetailTab, sourceView: 'proof' as 'proof' | 'input' | 'diff', submitting: false, cancelling: new Set<string>(),
+  draftView: 'source' as 'source' | 'modules',
   foldUnchanged: true, diffChange: 0,
   reportMode: 'summary' as 'summary' | 'json', deleting: new Set<string>(),
   detailError: '', listGeneration: 0,
@@ -97,11 +102,15 @@ let pendingImport: { draft: TaskDraft; revision: number } | undefined;
 let sourceComparison: { runId: string; before: string; after: string; folded: boolean; result: SourceComparison } | undefined;
 let draftPreviewSignature = '';
 let draftSourceExpanded = false;
+let moduleSettingsPolicy: string | undefined;
+let settingsWorkspaceReturn: { focus?: HTMLElement } | undefined;
 const sourceReader = new SourceReader(icons, () => {
   if (!currentRun() && !draftSourceExpanded) { draftSourceExpanded = true; renderDraftPreview(); }
 });
 const activityReader = new ActivityReader(icons, at => timestamp(at, true),
   (filename, text) => download(filename, text, 'application/json'));
+const moduleView = new ModuleView(icons);
+const modulePlanEditor = new ModulePlanEditor(element('#module-plan'), icons, () => draftChanged());
 const editorNavigation = new EditorNavigation(element<HTMLDialogElement>('#source-editor'), updateEditorPosition,
   updateEditorCount, () => state.session?.limits.maxSourceBytes ?? 0);
 const editorReview = new EditorReview(element<HTMLDialogElement>('#source-editor'), () => editorNavigation.close(),
@@ -158,7 +167,7 @@ function setGlobalNotice(text: string) {
 function setMobileView(view: 'compose' | 'runs', focus = false) {
   rememberConversationScroll();
   const changed = document.body.dataset.mobileView !== view;
-  if (changed) activityReader.remember();
+  if (changed) { activityReader.remember(); moduleView.update(); }
   document.body.dataset.mobileView = view;
   finishHiddenMotion();
   document.querySelectorAll<HTMLButtonElement>('button[data-mobile-view]').forEach(button => {
@@ -167,8 +176,8 @@ function setMobileView(view: 'compose' | 'runs', focus = false) {
     if (selected && focus) button.focus();
   });
   if (view === 'runs') {
-    renderDraftPreview();
-    if (state.tab === 'events') renderPanel(true);
+    renderDraftPreview(true);
+    if (state.tab === 'events' || state.tab === 'modules') renderPanel(true);
     const list = element('#run-list');
     const selected = list.querySelector<HTMLElement>('.run-row.selected');
     if (selected && list.scrollWidth > list.clientWidth) {
@@ -190,14 +199,20 @@ function showDialog(dialog: HTMLDialogElement) {
 function openSettings(focusId?: string) {
   if (!state.session || state.submitting) return;
   const dialog = element<HTMLDialogElement>('#run-settings');
+  if (!dialog.open && document.body.dataset.mobileView === 'runs') {
+    settingsWorkspaceReturn = { focus: document.activeElement instanceof HTMLElement ? document.activeElement : undefined };
+    setMobileView('compose');
+  }
   showDialog(dialog);
-  if (focusId) field(focusId).focus();
+  if (focusId) element(`#${focusId}`).focus();
 }
-function closeSettings() {
+function closeSettings(restoreWorkspace = true) {
+  if (!restoreWorkspace) { moduleSettingsPolicy = undefined; settingsWorkspaceReturn = undefined; }
   element<HTMLDialogElement>('#run-settings').close();
 }
 function clearValidation() {
   validationShown.clear();
+  modulePlanEditor.showError();
   for (const id of submissionFields) {
     field(id).setCustomValidity('');
     field(id).removeAttribute('aria-invalid');
@@ -218,10 +233,12 @@ function renderPreparation(issues = currentSubmissionIssues()) {
     patchText(error, visible ? issue!.message : '');
     if (error.hidden === visible) error.hidden = !visible;
   }
+  const moduleIssue = issues.find(issue => issue.field === 'module-plan');
+  modulePlanEditor.showError(validationShown.has('module-plan') ? moduleIssue?.message : undefined);
   const issue = issues[0];
   const labels: Record<SubmissionField, string> = {
     provider: '选择服务商', environment: '选择环境', source: '编辑源码', task: '填写任务', model: '填写模型',
-    'api-key': '填写 API Key', 'max-turns': '调整轮次', 'max-seconds': '调整预算', workers: '调整 Agent',
+    'api-key': '填写 API Key', 'max-turns': '调整轮次', 'max-seconds': '调整预算', workers: '调整 Agent', 'module-plan': '检查模块方案',
   };
   const pending = !state.session;
   const offline = !pending && !state.connected;
@@ -246,7 +263,12 @@ function renderPreparation(issues = currentSubmissionIssues()) {
 function focusSubmissionIssue(issue: SubmissionIssue) {
   validationShown.add(issue.field);
   renderPreparation();
-  if (issue.field === 'task') { closeSettings(); setMobileView('compose'); }
+  if (issue.field === 'module-plan') {
+    openSettings('module-plan'); modulePlanEditor.validate();
+    element('#module-plan-error').scrollIntoView({ block: 'nearest', behavior: 'instant' });
+    return;
+  }
+  if (issue.field === 'task') { closeSettings(false); setMobileView('compose'); }
   else openSettings(issue.field);
   field(issue.field).focus();
   // Focus alone can leave the explanation underneath the fixed settings footer.
@@ -396,11 +418,13 @@ function sourceChanged() {
   draftChanged();
 }
 function captureDraft(): TaskDraft {
+  const modulePlan = modulePlanEditor.value();
   return { providerId: field('provider').value, model: field('model').value,
     effort: field('effort').value as WebEffort, environment: field('environment').value as WebEnvironment,
     source: field('source').value, task: field('task').value, templateId: field('template').value,
     maxTurns: field('max-turns').value, maxRunSeconds: field('max-seconds').value, workers: field('workers').value,
-    coordination: element<HTMLInputElement>('input[name="coordination"]:checked').value as WebCoordination };
+    coordination: element<HTMLInputElement>('input[name="coordination"]:checked').value as WebCoordination,
+    ...(modulePlan.custom.length || modulePlan.scheduler !== 'plan' || modulePlan.context !== 'full' ? { modulePlan } : {}) };
 }
 function setDraftStatus(text: string, warning = false) {
   element('#draft-status').textContent = text;
@@ -482,6 +506,7 @@ function applyTaskDraft(draft: TaskDraft) {
     && template.environment === draft.environment && template.source === field('source').value && template.task === field('task').value);
   field('template').value = template?.id ?? '';
   element<HTMLInputElement>(`input[name="coordination"][value="${draft.coordination}"]`).checked = true;
+  modulePlanEditor.setValue(draft.modulePlan);
   field('api-key').value = '';
   element<HTMLInputElement>('#api-key').type = 'password';
   updateKeyToggle(); providerAddress(); updateEnvironment(); sourceChanged();
@@ -554,6 +579,7 @@ function resetForm() {
     draftReady = false;
     clearTimeout(draftTimer); draftDirty = false;
     element<HTMLFormElement>('#run-form').reset();
+    modulePlanEditor.setValue();
     field('api-key').value = '';
     element<HTMLInputElement>('#api-key').type = 'password';
     updateKeyToggle();
@@ -730,6 +756,7 @@ function renderRuntime() {
   renderImportState();
   renderDeleteState();
   renderConversation();
+  if (state.draftView === 'modules') renderDraftPreview();
   icons();
 }
 function status(run: WebRun) {
@@ -958,6 +985,7 @@ function sourceView(run: WebRun, content: ReturnType<typeof sourceContent>) {
 }
 function updateSourceReader() {
   const run = currentRun();
+  if (!run && state.draftView === 'modules') { sourceReader.update(); return; }
   const editableSource = !run ? field('source').value : undefined;
   const code = document.querySelector<HTMLElement>(run ? '#detail-panel .source-code code' : '#draft-preview-code code');
   const scroll = document.querySelector<HTMLElement>(run ? '#detail-panel .source-code-grid' : '.draft-source-scroll');
@@ -1032,7 +1060,8 @@ function renderPanel(force = false) {
   if (!run || !document.querySelector('#detail-panel')) return;
   const content = state.tab === 'source' ? sourceContent(run) : undefined;
   const signature = JSON.stringify([run.id, state.tab, content ? [state.sourceView, state.foldUnchanged, content.source, content.controls, content.status, content.tone]
-    : state.tab === 'report' ? [state.reportMode, run.status, run.error, run.result] : state.tab === 'events' ? run.events : run]);
+    : state.tab === 'report' ? [state.reportMode, run.status, run.error, run.result] : state.tab === 'events' ? run.events
+      : state.tab === 'modules' ? [run, state.connected] : run]);
   if (!force && signature === state.panelSignature) return;
   state.panelSignature = signature;
   const panel = element('#detail-panel');
@@ -1054,8 +1083,10 @@ function renderPanel(force = false) {
   const focusId = focused?.id;
   const reuseSource = content && samePanel && !(content.hasProof && state.sourceView === 'diff') && panel.querySelector('.source-code-grid');
   const reuseEvents = state.tab === 'events' && samePanel && panel.querySelector('.activity-workspace');
+  const reuseModules = state.tab === 'modules' && samePanel && panel.querySelector('.module-workspace');
   if (!reuseEvents) activityReader.update(undefined, run);
-  if (!reuseSource && !reuseEvents) panel.innerHTML = content ? sourceView(run, content) : state.tab === 'report' ? reportView(run) : state.tab === 'events' ? '<div class="activity-workspace"></div>' : overview(run);
+  if (!reuseModules) moduleView.update(undefined, moduleInput(run));
+  if (!reuseSource && !reuseEvents && !reuseModules) panel.innerHTML = content ? sourceView(run, content) : state.tab === 'report' ? reportView(run) : state.tab === 'events' ? '<div class="activity-workspace"></div>' : state.tab === 'modules' ? '<div class="module-workspace"></div>' : overview(run);
   if (content) {
     patchMarkup(panel.querySelector<HTMLElement>('.source-topline')!, content.controls);
     const sourceStatus = panel.querySelector<HTMLElement>('.source-status')!;
@@ -1079,11 +1110,20 @@ function renderPanel(force = false) {
   else if (samePanel && focusId) document.getElementById(focusId)?.focus({ preventScroll: true });
   icons(panel);
   if (state.tab === 'events') activityReader.update(panel.querySelector<HTMLElement>('.activity-workspace')!, run);
+  if (state.tab === 'modules') moduleView.update(panel.querySelector<HTMLElement>('.module-workspace')!, moduleInput(run));
   updateDiffNavigation(0, !sameView);
   if (navigating) animateEntrance(panel, 'panel');
   updateSourceReader();
 }
-function renderDraftPreview() {
+function moduleInput(run?: WebRun): ModuleViewInput {
+  return { id: run?.id ?? 'draft', run, model: run?.model ?? field('model').value,
+    workers: run?.workers ?? Number(field('workers').value),
+    coordination: run?.coordination ?? element<HTMLInputElement>('input[name="coordination"]:checked').value as WebCoordination,
+    environment: environmentName(run?.environment ?? field('environment').value), connected: state.connected,
+    editable: !run && Boolean(state.session) && !state.submitting,
+    modulePlan: run ? run.modulePlan : captureDraft().modulePlan };
+}
+function renderDraftPreview(force = false) {
   if (currentRun() || !state.session) return;
   const detail = element('#run-detail');
   // Hidden panes cannot restore scroll offsets; refresh them when they become visible.
@@ -1102,20 +1142,23 @@ function renderDraftPreview() {
     ['workers', 'Agent 数量', numericLabel('workers', '个'), true],
   ] as const;
   const title = template?.name ?? '自定义研究';
-  const signature = JSON.stringify([title, source, task, facts, draftSourceExpanded]);
-  if (signature === draftPreviewSignature && document.querySelector('#draft-preview')) return;
+  const signature = JSON.stringify([title, source, task, facts, draftSourceExpanded, state.draftView, state.connected,
+    element<HTMLInputElement>('input[name="coordination"]:checked').value, captureDraft().modulePlan, state.submitting]);
+  if (!force && signature === draftPreviewSignature && document.querySelector('#draft-preview')) return;
   draftPreviewSignature = signature;
   const lines = source.replace(/\r\n?/g, '\n').split('\n');
   const shown = draftSourceExpanded && byteSize(source) <= state.session.limits.maxSourceBytes ? lines : lines.slice(0, 160);
   if (!detail.querySelector('#draft-preview')) {
+    moduleView.update();
     finishMotion(detail);
     detail.innerHTML = `<div class="detail-empty draft-preview" id="draft-preview">
       <header class="preview-heading"><div><span class="preview-eyebrow">Lean 工作区</span><h2></h2></div><div class="detail-actions"><span class="badge preview-status">${icon('file-code-2')}未提交</span><button type="button" class="icon-button" data-draft-action="edit" aria-label="编辑原始题目" title="编辑原始题目">${icon('square-pen')}</button><button type="button" class="icon-button" data-draft-action="settings" aria-label="配置证明环境" title="配置证明环境">${icon('sliders-horizontal')}</button></div></header>
       <dl class="preview-facts">${facts.map(([id, label, , mono]) => `<div><dt>${label}</dt><dd data-preview-value="${id}"${mono ? ' class="mono"' : ''}></dd></div>`).join('')}</dl>
-      <section class="preview-source" aria-labelledby="preview-source-heading"><div class="preview-source-heading"><h3 id="preview-source-heading">${icon('file-code-2')}原始题目</h3><span></span></div>
+      <div class="preview-view-tabs" role="tablist" aria-label="草稿工作区视图"><button type="button" role="tab" id="draft-tab-source" data-draft-view="source" aria-selected="true" aria-controls="draft-source-panel">${icon('file-code-2')}Lean 源码</button><button type="button" role="tab" id="draft-tab-modules" data-draft-view="modules" aria-selected="false" aria-controls="draft-module-panel" tabindex="-1">${icon('network')}模块</button></div>
+      <section class="preview-source" id="draft-source-panel" role="tabpanel" aria-labelledby="draft-tab-source"><div class="preview-source-heading"><h3 id="preview-source-heading">${icon('file-code-2')}原始题目</h3><span></span></div>
         <div class="source-reader"></div>
         <div class="draft-source-scroll" tabindex="0" aria-label="原始题目草稿"><pre class="preview-line-numbers" aria-hidden="true"></pre><pre id="draft-preview-code"><code></code></pre></div>
-      </section><details class="preview-task"><summary>研究任务</summary><p class="task-content" id="draft-preview-task"></p></details></div>`;
+      </section><div class="draft-module-panel" id="draft-module-panel" role="tabpanel" aria-labelledby="draft-tab-modules" hidden><div class="module-workspace"></div></div><details class="preview-task"><summary>研究任务</summary><p class="task-content" id="draft-preview-task"></p></details></div>`;
     icons(detail);
   }
   patchText(detail.querySelector('.preview-heading h2')!, title);
@@ -1124,6 +1167,16 @@ function renderDraftPreview() {
   patchText(detail.querySelector('.preview-line-numbers')!, shown.map((_, index) => index + 1).join('\n'));
   patchText(detail.querySelector('#draft-preview-code code')!, shown.join('\n'));
   patchText(detail.querySelector('#draft-preview-task')!, task || '未填写');
+  const showingModules = state.draftView === 'modules';
+  if (!showingModules) moduleView.update(undefined, moduleInput());
+  detail.querySelector<HTMLElement>('#draft-source-panel')!.hidden = showingModules;
+  detail.querySelector<HTMLElement>('.preview-task')!.hidden = showingModules;
+  detail.querySelector<HTMLElement>('#draft-module-panel')!.hidden = !showingModules;
+  detail.querySelectorAll<HTMLButtonElement>('[data-draft-view]').forEach(button => {
+    const selected = button.dataset.draftView === state.draftView;
+    button.setAttribute('aria-selected', String(selected)); button.tabIndex = selected ? 0 : -1;
+  });
+  if (showingModules) moduleView.update(detail.querySelector<HTMLElement>('.module-workspace')!, moduleInput());
   updateSourceReader();
 }
 function renderDetail(force = false) {
@@ -1145,11 +1198,12 @@ function renderDetail(force = false) {
   const focusAction = focused?.dataset.action;
   const newDetail = detail.dataset.renderRunId !== run.id || !detail.querySelector('#detail-panel');
   if (newDetail) {
+    moduleView.update();
     finishMotion(detail);
     detail.innerHTML = `<header class="detail-heading"><div class="detail-heading-text"><h2></h2><div class="detail-identifier"><code></code><button type="button" class="icon-button" data-action="copy-id" aria-label="复制运行 ID" title="复制运行 ID">${icon('copy')}</button></div></div><div class="detail-actions"></div></header>
       <div class="detail-statusline"><span class="badge"></span><span class="run-environment"></span><span class="updated-at"></span></div>
       <div class="inline-error" data-detail-error role="alert" hidden></div>
-      <div class="detail-tabs" role="tablist" aria-label="运行详情视图">${([['source', 'Lean 源码'], ['overview', '概览'], ['report', '报告'], ['events', '活动']] as const).map(([tab, label]) => `<button type="button" role="tab" id="detail-tab-${tab}" data-detail-tab="${tab}" aria-controls="detail-panel">${label}</button>`).join('')}</div>
+      <div class="detail-tabs" role="tablist" aria-label="运行详情视图">${detailTabs.map(([tab, label]) => `<button type="button" role="tab" id="detail-tab-${tab}" data-detail-tab="${tab}" aria-controls="detail-panel">${label}</button>`).join('')}</div>
       <section class="artifact-progress" aria-label="实时运行进度"><div class="artifact-progress-heading"><span data-phase-label></span><span class="mono" data-total-clock></span></div><ol class="artifact-stages"></ol></section>
       <div class="detail-panel" id="detail-panel" role="tabpanel" tabindex="0"></div>`;
     detail.dataset.renderRunId = run.id;
@@ -1199,6 +1253,8 @@ function startDraft(reset = false) {
   state.composing = true;
   state.selectedId = ''; state.selectedRun = undefined;
   state.tab = 'source'; state.sourceView = 'proof'; state.detailError = '';
+  state.draftView = 'source';
+  moduleView.update(undefined, moduleInput());
   state.detailSignature = ''; state.panelSignature = ''; draftPreviewSignature = '';
   if (reset) resetForm();
   renderRunList(); renderDetail(true); setMobileView('compose');
@@ -1338,10 +1394,12 @@ element<HTMLFormElement>('#run-form').addEventListener('submit', async event => 
       maxTurns: Number(field('max-turns').value), maxRunSeconds: Number(field('max-seconds').value),
       workers: Number(field('workers').value),
       coordination: element<HTMLInputElement>('input[name="coordination"]:checked').value as WebCoordination,
+      ...(captureDraft().modulePlan ? { modulePlan: captureDraft().modulePlan } : {}),
     };
-    closeSettings();
+    closeSettings(false);
     state.submitting = true; renderRuntime();
     sent = true;
+    modulePlanEditor.clearDeleted();
     draftRecovery.clear(); renderDraftRecovery();
     const { run } = await api<{ run: WebRun }>('/api/runs', { method: 'POST', body: JSON.stringify(input) });
     field('api-key').value = '';
@@ -1505,6 +1563,7 @@ function reuseRun(run: WebRun) {
     for (const [id, value] of Object.entries({ model: run.model, effort: run.effort, source: run.source, task: run.task,
       'max-turns': run.maxTurns, 'max-seconds': run.maxRunSeconds, workers: run.workers })) field(id).value = String(value);
     element<HTMLInputElement>(`input[name="coordination"][value="${run.coordination}"]`).checked = true;
+    modulePlanEditor.setValue(run.modulePlan);
     field('api-key').value = '';
     element<HTMLInputElement>('#api-key').type = 'password';
     updateKeyToggle(); providerAddress(); updateEnvironment(); sourceChanged();
@@ -1514,8 +1573,47 @@ function reuseRun(run: WebRun) {
     toast('已载入原始题目与执行配置');
   });
 }
+element('#run-detail').addEventListener('change', event => {
+  const toggle = (event.target as Element).closest<HTMLInputElement>('[data-module-custom-enabled]');
+  const id = toggle?.dataset.moduleCustomEnabled;
+  if (!toggle || !id) return;
+  const run = currentRun();
+  if (run || !state.session || state.submitting) {
+    toggle.checked = (run ? run.modulePlan : modulePlanEditor.value())?.custom.find(rule => rule.id === id)?.enabled ?? false;
+    return;
+  }
+  if (!modulePlanEditor.setRuleEnabled(id, toggle.checked) || !toggle.checked) return;
+  const issue = currentSubmissionIssues().find(issue => issue.field === 'module-plan');
+  if (issue) { moduleSettingsPolicy = id; focusSubmissionIssue(issue); }
+});
 element('#run-detail').addEventListener('click', event => {
+  const draftView = (event.target as Element).closest<HTMLElement>('[data-draft-view]')?.dataset.draftView;
+  if (!currentRun() && (draftView === 'source' || draftView === 'modules')) {
+    state.draftView = draftView; renderDraftPreview(); return;
+  }
+  const policyEdit = (event.target as Element).closest<HTMLElement>('[data-module-policy-edit]')?.dataset.modulePolicyEdit;
+  if (policyEdit) {
+    if (!currentRun() && state.session && !state.submitting && modulePlanEditor.value().custom.some(rule => rule.id === policyEdit)) {
+      openSettings(); moduleSettingsPolicy = policyEdit; modulePlanEditor.focusRule(policyEdit);
+    }
+    return;
+  }
+  const policyAdd = (event.target as Element).closest<HTMLButtonElement>('[data-module-policy-add]');
+  if (policyAdd) {
+    const slot = policyAdd.dataset.modulePolicyAdd;
+    if (!currentRun() && state.session && !state.submitting && !policyAdd.disabled && slot && ['M1', 'M3', 'M4', 'M5'].includes(slot)) {
+      openSettings(); moduleSettingsPolicy = modulePlanEditor.addRule(slot as ResearchModuleSlot);
+    }
+    return;
+  }
+  const moduleDestination = (event.target as Element).closest<HTMLElement>('[data-module-destination]')?.dataset.moduleDestination;
+  if (moduleDestination === 'source' || moduleDestination === 'report' || moduleDestination === 'events') {
+    if (currentRun()) { state.tab = moduleDestination; renderDetail(true); element(`#detail-tab-${state.tab}`).focus({ preventScroll: true }); }
+    else { state.draftView = 'source'; renderDraftPreview(); element('#draft-tab-source').focus({ preventScroll: true }); }
+    return;
+  }
   const draftAction = (event.target as Element).closest<HTMLElement>('[data-draft-action]');
+  if ((event.target as Element).closest('[data-module-configure]') && !currentRun()) { openSettings('module-plan'); return; }
   if (draftAction?.dataset.draftAction === 'edit') {
     if (currentRun()) return;
     const source = field('source').value, position = sourceReader.editingPosition('draft', source);
@@ -1577,10 +1675,15 @@ document.addEventListener('keydown', event => {
   const target = event.target as HTMLElement;
   if (target.matches('[data-detail-tab]') && ['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) {
     event.preventDefault();
-    const tabs: DetailTab[] = ['source', 'overview', 'report', 'events'];
+    const tabs: DetailTab[] = detailTabs.map(([tab]) => tab);
     const index = tabs.indexOf(state.tab);
     state.tab = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs.at(-1)! : tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
     renderDetail(true); element(`#detail-tab-${state.tab}`).focus({ preventScroll: true });
+  }
+  if (target.matches('[data-draft-view]') && ['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) {
+    event.preventDefault();
+    state.draftView = event.key === 'Home' ? 'source' : event.key === 'End' ? 'modules' : state.draftView === 'source' ? 'modules' : 'source';
+    renderDraftPreview(); element(`#draft-tab-${state.draftView}`).focus({ preventScroll: true });
   }
   if (target.matches('button[data-mobile-view]') && ['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) {
     event.preventDefault(); setMobileView(event.key === 'Home' ? 'compose' : event.key === 'End' ? 'runs' : target.dataset.mobileView === 'compose' ? 'runs' : 'compose', true);
@@ -1730,9 +1833,16 @@ element('#prepare-run').addEventListener('click', () => {
   const issue = currentSubmissionIssues()[0];
   if (issue) focusSubmissionIssue(issue); else openSettings();
 });
-for (const id of ['close-settings', 'apply-settings']) element(`#${id}`).addEventListener('click', closeSettings);
+for (const id of ['close-settings', 'apply-settings']) element(`#${id}`).addEventListener('click', () => closeSettings());
 element('#run-settings').addEventListener('close', () => {
   renderComposerSummary();
+  const policy = moduleSettingsPolicy; moduleSettingsPolicy = undefined;
+  const workspace = settingsWorkspaceReturn; settingsWorkspaceReturn = undefined;
+  if (!state.submitting && (workspace || policy && !currentRun() && state.draftView === 'modules')) {
+    setMobileView('runs');
+    if (workspace?.focus?.getClientRects().length) workspace.focus.focus({ preventScroll: true });
+  }
+  if (policy && !currentRun() && !state.submitting && state.draftView === 'modules') moduleView.focusPolicy(policy);
 });
 element('#run-settings').addEventListener('keydown', event => {
   if (event.key === 'Enter' && event.target instanceof HTMLInputElement) event.preventDefault();
