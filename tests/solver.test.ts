@@ -3697,6 +3697,97 @@ describe('isolated solver and host acceptance', () => {
     expect(host.verify.mock.calls.some(([request]) => request.items.some(item => item.theoremName === 'route'))).toBe(false);
   });
 
+  it('uses fresh reviewer sessions for early checks of different inputs after ordinary research', async () => {
+    const warmup: CooperativeTask = { id: 'warmup', kind: 'research', ownerId: 'researcher-1',
+      objective: 'Locate the doubtful core estimates.', dependsOn: [], revision: 0 };
+    const checks: CooperativeTask[] = ['a', 'b'].map(id => ({ id: `check_${id}`, kind: 'research',
+      objective: `Independently test the proposed input ${id}.`, dependsOn: [id], revision: 0,
+      reviewScope: 'feasibility', ownerId: 'researcher-1', status: 'paused' }));
+    const proofs = planTasks().map(task => ({ ...task, status: 'paused' as const,
+      ...(task.kind === 'lemma' ? { ownerId: 'researcher-2' } : {}) }));
+    let plans = 0;
+    const reviewed: string[] = [];
+    configureCooperation(async (action, options, message) => {
+      if (action.kind === 'lead') {
+        plans++;
+        writePlan(options.workspace, [warmup, ...proofs, ...checks.map(task => ({ ...task,
+          status: plans > 1 ? 'active' as const : 'paused' as const }))]);
+      } else if (action.kind === 'task' && action.task.id === warmup.id) {
+        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({
+          summary: 'The inputs a and b need distinct feasibility checks.', conclusion: 'inconclusive', needsDecision: true }));
+      } else if (action.kind === 'task' && action.task.reviewScope === 'feasibility') {
+        reviewed.push(action.task.id);
+        expect(action.assignment.workerId).toBe('researcher-1');
+        expect(message).toContain('Your role: reviewer');
+        expect(message).toContain('"stage":"feasibility-review"');
+        expect(message).toContain('"acceptance":"advisory-only"');
+        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({
+          summary: `The input ${action.task.dependsOn[0]} still requires a substantive proof.`, conclusion: 'inconclusive' }));
+      } else throw new Error('unexpected_early_review_fixture_assignment');
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '5'], directory)).toBe(4);
+    expect(plans).toBe(2);
+    expect(reviewed).toEqual(['check_a', 'check_b']);
+    const openings = host.createSession.mock.calls.map(([options]) => options as MathAgentOptions)
+      .filter(options => options.environment?.DEEPSCIENTIST_MATH_WORKER_ID === 'researcher-1');
+    expect(openings).toHaveLength(3);
+    expect(openings.map(options => options.threadId)).toEqual([undefined, undefined, undefined]);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state.workers.find((worker: any) => worker.id === 'researcher-1'))
+      .toMatchObject({ sessionRole: 'reviewer', sessionTaskId: 'check_b', previousThreadIds: [expect.any(String), expect.any(String)] });
+    expect(state.cooperation.tasks.filter((node: TaskRecord) => node.task.reviewScope === 'feasibility')
+      .every((node: TaskRecord) => node.status === 'completed' && !node.integratedCheck)).toBe(true);
+    expect(fs.readFileSync(path.join(state.worktree, 'generated/p/Submission.lean'), 'utf8')).toBe(original);
+    expect(host.officialGate).not.toHaveBeenCalled();
+  });
+
+  it.each(['checkpoint', 'replacement', 'legacy'] as const)
+  ('restores early review sessions by assignment identity (%s)', async mode => {
+    const task: CooperativeTask = { id: 'route_check', kind: 'research', reviewScope: 'feasibility',
+      objective: 'Independently test the doubtful core input.', dependsOn: ['a'], revision: 0, ownerId: 'researcher-1' };
+    const tasks = [...planTasks().map(task => ({ ...task, status: 'paused' as const,
+      ...(task.kind === 'lemma' ? { ownerId: 'researcher-2' } : {}) })), task];
+    const assignments: string[] = [];
+    configureCooperation(async (action, options) => {
+      if (action.kind === 'lead') writePlan(options.workspace, tasks);
+      else if (action.kind === 'task' && action.task.id === task.id) {
+        assignments.push(action.assignment.assignmentId ?? 'legacy');
+        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({
+          summary: `Discriminating evidence checkpoint ${assignments.length}.`, conclusion: 'inconclusive' }));
+        return assignments.length < 3 ? 'checkpoint' : 'completed';
+      } else throw new Error('unexpected_review_identity_fixture_assignment');
+      return 'completed';
+    });
+    const parallelArgs = [...args, '--workers', '4'];
+    expect(await runSolver([...parallelArgs, '--max-turns', '2'], directory)).toBe(4);
+    const stateFile = `${output}.runtime/state.json`;
+    const before = readSolverRunState(stateFile);
+    const reviewer = before.workers!.find(worker => worker.id === 'researcher-1')!;
+    const node = before.cooperation!.tasks.find(node => node.task.id === task.id)!;
+    expect(reviewer.sessionAssignmentId).toBe(node.assignment!.assignmentId);
+    if (mode === 'replacement') node.assignment!.assignmentId = 'replacement-review-assignment';
+    if (mode === 'legacy') {
+      delete node.assignment!.assignmentId;
+      delete reviewer.sessionAssignmentId;
+    }
+    fs.writeFileSync(stateFile, JSON.stringify(before));
+    expect(await runSolver([...parallelArgs, '--resume', '--max-turns', '3'], directory)).toBe(4);
+    const resumed = readSolverRunState(stateFile);
+    expect(resumed.workers!.find(worker => worker.id === reviewer.id)!.sessionAssignmentId)
+      .toBe(node.assignment!.assignmentId ?? `legacy-task:${node.assignment!.seedCommit}`);
+    expect(await runSolver([...parallelArgs, '--resume', '--max-turns', '4'], directory)).toBe(4);
+    const openings = host.createSession.mock.calls.map(([options]) => options as MathAgentOptions)
+      .filter(options => options.environment?.DEEPSCIENTIST_MATH_WORKER_ID === reviewer.id);
+    expect(openings.map(options => options.threadId))
+      .toEqual([undefined, mode === 'checkpoint' ? reviewer.threadId : undefined, reviewer.threadId]);
+    expect(assignments).toEqual([assignments[0], mode === 'checkpoint' ? assignments[0] :
+      mode === 'legacy' ? 'legacy' : 'replacement-review-assignment', assignments[1]]);
+    expect(cooperationState().tasks.find((node: TaskRecord) => node.task.id === task.id))
+      .toMatchObject({ status: 'completed', attempts: 3 });
+    expect(host.officialGate).not.toHaveBeenCalled();
+  });
+
   it.each(['markdown', 'json'] as const)('passes a complete %s research argument to its proof consumers', async format => {
     const tasks: CooperativeTask[] = [{ id: 'route', kind: 'research', objective: 'Find the closing inference', dependsOn: [], revision: 0 },
       ...planTasks().slice(2).map(task => ({ ...task, dependsOn: ['route'] }))];

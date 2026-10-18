@@ -44,7 +44,7 @@ describe('proof continuation scheduling', () => {
     const conditional = node('conditional-goal', 'goal', ['open']); conditional.task = { ...conditional.task, conditional: true };
     const tasks = [open, checked, consumer, node('later-goal', 'goal', ['consumer']), conditional, goal];
     expect(continuationResearchTasks(tasks).map(record => record.task.id)).toEqual([
-      'ready-goal', 'consumer', 'open', 'conditional-goal',
+      'ready-goal', 'consumer', 'conditional-goal', 'open',
     ]);
     expect(open.status).toBe('pending');
     expect(conditional.integratedCheck).toBeUndefined();

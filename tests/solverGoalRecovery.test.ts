@@ -71,6 +71,34 @@ describe('original-goal recovery alongside independent proof work', () => {
     cooperative.activate(researcher, action, async () => {}, async () => {});
     return action;
   };
+  const feasibilityPeers = (role: ResearchWorker['role'] = 'researcher', pinned = false) => {
+    const peer = (id: string, peerRole: ResearchWorker['role'] = 'researcher'): ResearchWorker => {
+      const worktree = path.join(directory, id);
+      git(workspace, ['worktree', 'add', '--quiet', '--detach', worktree, seed]);
+      return { ...researcher, id, role: peerRole, worktree };
+    };
+    const checker = peer('early-checker', role), replacement = peer('replacement-checker');
+    const core = record('missing_argument');
+    core.assignment = { taskId: core.task.id, taskDigest: taskVersion(core.task), workerId: researcher.id, seedCommit: seed };
+    record('more_auxiliary').task = { ...record('more_auxiliary').task, status: 'paused' };
+    const task: CooperativeTask = { id: 'dynamic_route_check', kind: 'research', reviewScope: 'feasibility',
+      objective: 'Independently test the core estimate and its original-goal application.',
+      dependsOn: ['original_goal', core.task.id], revision: 0, ...(pinned ? { ownerId: checker.id } : {}) };
+    state.cooperation!.tasks.push({ task, status: 'pending', attempts: 0 });
+    const workers = [lead, researcher, checker, replacement], modules = configuredSolverModules('direct', 'continuation');
+    const create = () => new CooperativeResearch({ state, workers,
+      access: new Map(workers.map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
+      signal: controller.signal, save: () => {}, emit: (event, details) => events.push({ event, details }),
+      modules: { ...modules, M2: { ...modules.M2, checkTask: host.checkTask } }, exclusiveCheck: async check => check() });
+    cooperative = create(); priorAssessment();
+    const claim = async (worker = checker): Promise<TaskAction> => {
+      const action = await cooperative.next(worker, budget);
+      expect(action).toMatchObject({ kind: 'task', task: { id: task.id }, assignment: { workerId: worker.id } });
+      if (action?.kind !== 'task') throw new Error('expected_dynamic_feasibility_review');
+      return action;
+    };
+    return { checker, replacement, task, create, claim };
+  };
 
   beforeEach(() => {
     host.capture.mockReset().mockImplementation(async (_problem: unknown, tasks: readonly CooperativeTask[]) =>
@@ -204,6 +232,142 @@ describe('original-goal recovery alongside independent proof work', () => {
     expect(work.task.conditional).toBe(true);
     expect(record('missing_argument').status).toBe('blocked');
     expect(goal.integratedCheck).toBeUndefined();
+  });
+
+  it.each(['supporting', 'refuted', 'inconclusive'] as const)
+  ('dispatches an independent early review of blocked inputs and retains a %s result as advisory', async conclusion => {
+    const reviewRoot = path.join(directory, 'independent-reviewer');
+    git(workspace, ['worktree', 'add', '--quiet', '--detach', reviewRoot, seed]);
+    const checker: ResearchWorker = { ...researcher, id: 'independent-checker', worktree: reviewRoot };
+    const core = record('missing_argument');
+    core.assignment = { taskId: core.task.id, taskDigest: taskVersion(core.task),
+      workerId: researcher.id, seedCommit: seed };
+    const task: CooperativeTask = { id: 'early_route_check', kind: 'research', reviewScope: 'feasibility',
+      objective: 'Test whether the proposed core input is sufficient and mathematically feasible.',
+      dependsOn: ['original_goal', core.task.id], revision: 0 };
+    state.cooperation!.tasks.push({ task, status: 'pending', attempts: 0 });
+    const modules = configuredSolverModules('direct', 'continuation');
+    cooperative = new CooperativeResearch({ state, workers: [lead, researcher, checker],
+      access: new Map([lead, researcher, checker].map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
+      signal: controller.signal, save: () => {}, emit: (event, details) => events.push({ event, details }),
+      modules: { ...modules, M2: { ...modules.M2, checkTask: host.checkTask } }, exclusiveCheck: async check => check() });
+    priorAssessment();
+
+    const ordinary = await cooperative.next(researcher, budget);
+    expect(ordinary).toMatchObject({ kind: 'task', task: { id: 'more_auxiliary' } });
+    const action = await cooperative.next(checker, budget);
+    expect(action).toMatchObject({ kind: 'task', task: { id: task.id }, assignment: { workerId: checker.id } });
+    if (action?.kind !== 'task') throw new Error('expected_independent_feasibility_review');
+    expect(cooperative.started(checker, action)).toBe(true);
+    const canonical = state.cooperation!.canonicalCommit;
+    const commit = checkpoint({ summary: 'The core input needs a sharper uniform estimate.', conclusion,
+      evidenceRefs: ['Exact core contract and original consumer'] }, checker);
+    await cooperative.deliver(checker, action, commit);
+
+    expect(record(task.id)).toMatchObject({ status: 'completed', attempts: 1 });
+    expect(record(task.id).finding).toContain(conclusion);
+    expect(record(task.id).proof).toBeUndefined();
+    expect(record(task.id).integratedCheck).toBeUndefined();
+    expect(core.status).toBe('blocked');
+    expect(record('original_goal').status).toBe('pending');
+    expect(record('original_goal').integratedCheck).toBeUndefined();
+    expect(state.cooperation!.canonicalCommit).toBe(canonical);
+    expect(host.checkTask).not.toHaveBeenCalled();
+  });
+
+  it.each(['owner', 'engineer'] as const)('refunds an unstarted review when a directly inspected %s becomes its reviewer', async origin => {
+    const { checker, task, claim } = feasibilityPeers(origin === 'engineer' ? 'engineer' : 'researcher');
+    const action = await claim(), route = state.cooperation!.groups![0];
+    const attempts = record(task.id).attempts, turns = route.turns;
+    if (origin === 'owner') record('missing_argument').task = { ...record('missing_argument').task, ownerId: checker.id };
+    else route.group = { ...route.group, engineerId: checker.id };
+
+    expect(cooperative.current(action)).toBe(false);
+    expect(cooperative.started(checker, action)).toBe(false);
+    expect(record(task.id)).toMatchObject({ status: 'pending', attempts });
+    expect(record(task.id).assignment).toBeUndefined();
+    expect(route.turns).toBe(turns);
+    expect(events).toContainEqual({ event: 'feasibility_review_reassigned', details: expect.objectContaining({
+      taskId: task.id, workerId: checker.id, reason: 'reviewer-no-longer-independent',
+    }) });
+  });
+
+  it('interrupts an active review after an owner edit while preserving its explicit review owner and unsaved notes', async () => {
+    const { checker, task, claim } = feasibilityPeers('researcher', true), action = await claim();
+    expect(cooperative.started(checker, action)).toBe(true);
+    const interrupt = vi.fn(async () => {});
+    cooperative.activate(checker, action, interrupt, async () => {});
+    const notes = 'An unfinished independent mathematical argument.\n';
+    fs.writeFileSync(path.join(checker.worktree, 'RESEARCH.md'), notes);
+    const head = git(checker.worktree, ['rev-parse', 'HEAD']);
+    const plan = parseCooperationPlan(problem, { tasks: state.cooperation!.tasks.map(node =>
+      node.task.id === 'missing_argument' ? { ...node.task, ownerId: checker.id } : node.task),
+    groups: state.cooperation!.groups!.map(route => route.group) });
+    await (cooperative as any).acceptPlan(plan);
+
+    expect(interrupt).toHaveBeenCalledTimes(1);
+    expect(cooperative.current(action)).toBe(false);
+    expect(record(task.id)).toMatchObject({ status: 'pending', attempts: 1, task: { ownerId: checker.id } });
+    expect(record(task.id).assignment).toBeUndefined();
+    expect(fs.readFileSync(path.join(checker.worktree, 'RESEARCH.md'), 'utf8')).toBe(notes);
+    expect(git(checker.worktree, ['rev-parse', 'HEAD'])).toBe(head);
+    expect((cooperative as any).hasAssignableTask(new Set([task.id]))).toBe(false);
+  });
+
+  it('recovers an invalid restored reviewer pin and ignores its late delivery after a new independent assignment', async () => {
+    const { checker, replacement, task, create, claim } = feasibilityPeers(), old = await claim();
+    expect(cooperative.started(checker, old)).toBe(true);
+    record('missing_argument').task = { ...record('missing_argument').task, ownerId: checker.id };
+    const saved = record('saved_auxiliary'); saved.status = 'pending'; saved.task = { ...saved.task, status: 'paused' };
+    state = JSON.parse(JSON.stringify(state));
+    cooperative = create();
+    await cooperative.restore();
+
+    expect(record(task.id)).toMatchObject({ status: 'pending', attempts: 1 });
+    expect(record(task.id).assignment).toBeUndefined();
+    const fresh = await claim(replacement);
+    expect(fresh.assignment.assignmentId).not.toBe(old.assignment.assignmentId);
+    expect(cooperative.started(replacement, fresh)).toBe(true);
+    const late = checkpoint({ summary: 'Late work from the now disqualified reviewer.', conclusion: 'supporting' }, checker);
+    await cooperative.deliver(checker, old, late);
+
+    expect(record(task.id)).toMatchObject({ status: 'running', attempts: 2, assignment: fresh.assignment });
+    expect(record(task.id).finding).toBeUndefined();
+    expect(cooperative.current(fresh)).toBe(true);
+    expect(state.cooperation!.deliveries).toContainEqual(expect.objectContaining({ taskId: task.id,
+      producer: checker.id, status: 'superseded', commit: late }));
+    const current = checkpoint({ summary: 'A new independent check identifies the exact remaining estimate.', conclusion: 'inconclusive' }, replacement);
+    await cooperative.deliver(replacement, fresh, current);
+    expect(record(task.id).status).toBe('completed');
+    expect(record(task.id).finding).toContain('A new independent check');
+    expect(record(task.id).proof).toBeUndefined();
+    expect(record(task.id).integratedCheck).toBeUndefined();
+    expect(host.checkTask).not.toHaveBeenCalled();
+  });
+
+  it('rechecks reviewer independence after an asynchronous draft restore before returning the assignment', async () => {
+    const { checker, replacement, task, claim } = feasibilityPeers(), old = await claim();
+    cooperative.interrupted(checker, old);
+    vi.spyOn(cooperative as any, 'researchWorkspaceChanged').mockReturnValue(true);
+    const restore = vi.spyOn(cooperative as any, 'restoreResearchDraft').mockImplementation(async () => {
+      record('missing_argument').task = { ...record('missing_argument').task, ownerId: checker.id };
+      await Promise.resolve();
+      return true;
+    });
+    let returned = false;
+    const waiting = cooperative.next(checker, budget).then(action => { returned = true; return action; });
+    pending.push(waiting);
+    await vi.waitFor(() => {
+      expect(restore).toHaveBeenCalled();
+      expect(record(task.id).status).toBe('pending');
+      expect(record(task.id).assignment).toBeUndefined();
+      expect((cooperative as any).waiters.size).toBeGreaterThan(0);
+    });
+    expect(returned).toBe(false);
+    expect(cooperative.current(old)).toBe(false);
+    const fresh = await claim(replacement);
+    expect(fresh.assignment.assignmentId).not.toBe(old.assignment.assignmentId);
+    expect(record(task.id).attempts).toBe(0);
   });
 
   it('does not request the same mathematical recovery again after unrelated new findings', async () => {

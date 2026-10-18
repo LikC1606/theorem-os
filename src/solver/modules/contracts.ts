@@ -1,9 +1,10 @@
-import { isAdvisoryTask, taskVersion, type CooperativeAction, type TaskRecord } from '../tasks';
+import { isAdvisoryTask, isFeasibilityReview, taskVersion, type CooperativeAction, type TaskRecord } from '../tasks';
 import { contextTaskConsumers, type TaskConsumerContext } from '../taskConsumers';
 
 /** One work product per dispatch; worker slots and mathematical responsibilities are separate. */
 export function cooperativeWorkContract(action: CooperativeAction, tasks: readonly TaskRecord[], context: TaskConsumerContext = {}) {
-  const stage = action.kind === 'task' ? isAdvisoryTask(action.task) ? 'investigation' : 'formal-proof' :
+  const stage = action.kind === 'task' ? isFeasibilityReview(action.task) ? 'feasibility-review' :
+    isAdvisoryTask(action.task) ? 'investigation' : 'formal-proof' :
     action.kind === 'lead' ? 'route-planning' : action.kind === 'review' ? 'candidate-review' :
       action.kind === 'solve' ? 'primary-proof' : action.kind === 'assemble' ? 'integration' : action.kind;
   const products = {
@@ -11,6 +12,8 @@ export function cooperativeWorkContract(action: CooperativeAction, tasks: readon
       consumer: 'M3-ready-selection-and-M5-assignment', acceptance: 'host-plan-validation', sourcePolicy: 'host-checks-any-source-repair' },
     investigation: { owner: 'researcher', output: 'advisory-finding-retained-code-and-exact-lemma-proposals',
       consumer: 'lead-handoff-decision', acceptance: 'advisory-only', sourcePolicy: 'read-only' },
+    'feasibility-review': { owner: 'independent-researcher', output: 'core-inference-risk-and-discriminating-evidence',
+      consumer: 'lead-route-decision', acceptance: 'advisory-only', sourcePolicy: 'read-only' },
     'formal-proof': { owner: 'proof-worker', output: 'saved-exact-typed-declaration',
       consumer: 'M2-then-canonical-integration', acceptance: 'independent-exact-source-check', sourcePolicy: 'owned-proof-sources' },
     'primary-proof': { owner: 'primary-solver', output: 'saved-original-targets',

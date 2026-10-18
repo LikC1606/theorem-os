@@ -6,7 +6,7 @@ import { writeMathJsonDurable } from '../math/mathRuntimeIo';
 import type { SolverRunState, SolverWorkerState } from './archive';
 import { commitSolverSources, git } from './problem';
 import { CooperativeResearch } from './cooperation';
-import { taskGroup, type CooperativeAction } from './tasks';
+import { isFeasibilityReview, taskGroup, type CooperativeAction } from './tasks';
 import { isStatementAction } from './statementReview';
 import { rememberSolverFailure, solverSourceFeedback } from './feedback';
 import type { SolverModules } from './modules';
@@ -296,14 +296,21 @@ export async function runResearchWorkers(input: {
           if (!dispatchAllowed() || state.turns >= input.maxTurns || budget().remainingMs <= 0) break;
           if (assignment) {
             const record = research as SolverWorkerState;
-            const role = assignment.kind === 'review' || isStatementAction(assignment) ? 'reviewer' :
+            const feasibility = assignment.kind === 'task' && isFeasibilityReview(assignment.task);
+            const role = assignment.kind === 'review' || isStatementAction(assignment) || feasibility ? 'reviewer' :
               assignment.kind === 'task' ? assignment.task.kind === 'goal' ? 'engineer' : 'researcher' : worker.role;
             const groupId = assignment.kind === 'task' ? taskGroup(assignment.task) : undefined;
             const roleChanged = record.sessionRole && record.sessionRole !== role;
             const groupChanged = record.sessionGroupId && record.sessionGroupId !== groupId;
             const versionChanged = assignment.kind === 'task' && record.sessionTaskId === assignment.task.id &&
               record.sessionTaskVersion && record.sessionTaskVersion !== assignment.assignment.taskDigest;
-            if (isStatementAction(assignment) || record.sessionStatementReview || roleChanged) await rotateSession('responsibility');
+            const sessionAssignmentId = assignment.kind === 'task'
+              ? assignment.assignment.assignmentId ?? `legacy-task:${assignment.assignment.seedCommit}` : undefined;
+            const reviewAssignmentChanged = feasibility && record.sessionAssignmentId !== sessionAssignmentId;
+            const reviewTargetChanged = (feasibility || record.sessionRole === 'reviewer') &&
+              (record.sessionTaskId !== (assignment.kind === 'task' ? assignment.task.id : undefined) || versionChanged);
+            if (isStatementAction(assignment) || record.sessionStatementReview || roleChanged || reviewTargetChanged || reviewAssignmentChanged)
+              await rotateSession('responsibility');
             else if (groupChanged) await rotateSession('route');
             else if (versionChanged) await rotateSession('context');
             if (groupChanged) {
@@ -313,6 +320,7 @@ export async function runResearchWorkers(input: {
             record.sessionGroupId = groupId;
             record.sessionTaskId = assignment.kind === 'task' ? assignment.task.id : undefined;
             record.sessionTaskVersion = assignment.kind === 'task' ? assignment.assignment.taskDigest : undefined;
+            record.sessionAssignmentId = sessionAssignmentId;
             record.sessionStatementReview = isStatementAction(assignment);
           }
           if (research.threadId && Math.max(session?.lastInputTokens ?? 0, research.lastInputTokens ?? 0) >= 96_000) {

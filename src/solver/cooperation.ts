@@ -12,7 +12,7 @@ import type { LeanStatementContext } from '../math/leanStatementContext';
 import { commitSolverSources, committedSource, git, solverProofImports, withSolverWorktree, type SolverProblem } from './problem';
 import { solverProofFeedback, solverSourceFeedback } from './feedback';
 import type { SolverRunState } from './archive';
-import type { ResearchWorker } from './modules/organization';
+import { independentFeasibilityWorker, type ResearchWorker } from './modules/organization';
 import type { ContextBundle } from './modules/context';
 import { proofReceiptsMatch, type ProofCheck } from './modules/evidence';
 import type { WorkerAccess } from './research';
@@ -33,7 +33,7 @@ import { pendingResearchHandoffs, retainedResearchHandoffs, researchHandoffs, re
 import { captureObligationSnapshot, diffObligationProgress, type ObligationSnapshot, type ObligationProgressReceipt } from './obligationProgress';
 import { taskConsumerProjection, type TaskConsumerProjection } from './taskConsumers';
 
-import { taskGroup, taskVersion, taskReferenceDependencies, assignmentDeliveryFile, markTaskReferences, hasTaskReferences, markTaskAcceptance, hasTaskAcceptance, invalidatedTaskIds,
+import { isFeasibilityReview, taskGroup, taskVersion, taskReferenceDependencies, assignmentDeliveryFile, markTaskReferences, hasTaskReferences, markTaskAcceptance, hasTaskAcceptance, invalidatedTaskIds,
   type CooperativeTask, type RouteGroup, type RouteRecord, type TaskAssignment, type TaskRecord, type CooperativeAction } from './tasks';
 export { taskGroup, taskVersion, taskReferenceDependencies, assignmentDeliveryFile } from './tasks';
 export type { CooperativeTask, RouteGroup, RouteRecord, TaskAssignment, TaskRecord, CooperativeAction } from './tasks';
@@ -175,7 +175,30 @@ export class CooperativeResearch {
       if (before !== canonicalMathJson(edit.recheck)) this.input.emit('edit_recheck_updated', { id: edit.id, recheck: edit.recheck });
     }
   }
+  private refreshFeasibilityAssignments() {
+    let changed = false;
+    for (const node of this.archive.tasks) {
+      const assignment = node.assignment;
+      if (!assignment || !isFeasibilityReview(node.task) || !['pending', 'running'].includes(node.status)) continue;
+      const worker = this.input.workers.find(worker => worker.id === assignment.workerId);
+      if (worker && independentFeasibilityWorker(node, worker, this.archive.tasks, this.archive.groups)) continue;
+      node.status = 'pending'; node.assignment = undefined;
+      node.feedback = 'math_feasibility_review_independence_lost: Reassign this advisory review to a peer who does not own or produce the inspected inputs.';
+      const draft = this.archive.researchDrafts?.[node.task.id];
+      if (draft?.assignmentId === assignment.assignmentId && draft.workerId === assignment.workerId) draft.suspended = true;
+      const active = this.active.get(assignment.workerId);
+      if (active?.action.kind === 'task' && active.action.assignment === assignment && !active.cancelled) {
+        active.cancelled = true; void active.interrupt().catch(() => {});
+      }
+      if (node.task.ownerId) this.needsLead = true;
+      this.input.emit('feasibility_review_reassigned', { taskId: node.task.id, workerId: assignment.workerId,
+        assignmentId: assignment.assignmentId, reason: 'reviewer-no-longer-independent', draftCommit: draft?.commit });
+      changed = true;
+    }
+    return changed;
+  }
   private changed(edit?: HumanEditRecord) {
+    this.refreshFeasibilityAssignments();
     this.refreshResearchCheckpoints();
     for (const blocker of refreshRouteBlockers(this.archive.blockers ?? [], this.archive.tasks,
       this.input.state.environmentDigest, this.input.state.problem.receiptDigest)) {
@@ -210,7 +233,8 @@ export class CooperativeResearch {
     this.input.save();
     const agents = this.input.workers.map(peer => {
       const work = this.active.get(peer.id)?.action;
-      return { id: peer.id, role: work && (work.kind === 'review' || isStatementAction(work)) ? 'reviewer' : peer.role,
+      return { id: peer.id, role: work && (work.kind === 'review' || isStatementAction(work) ||
+        work.kind === 'task' && isFeasibilityReview(work.task)) ? 'reviewer' : peer.role,
         status: work ? 'working' : this.liveWorkers.has(peer.id) ? 'idle' : 'stopped',
         work: work && { kind: work.kind, taskId: work.kind === 'task' ? work.task.id : undefined,
           version: work.kind === 'task' ? work.assignment.taskDigest : work.seedCommit } };
@@ -270,6 +294,8 @@ export class CooperativeResearch {
         review.sourceDigest === action.sourceDigest && review.assignmentId === action.assignmentId);
     }
     return action.kind !== 'task' || this.archive.tasks.some(node => node.assignment === action.assignment && digest(node.task) === action.assignment.taskDigest &&
+      (!isFeasibilityReview(node.task) || this.input.workers.some(worker => worker.id === action.assignment.workerId &&
+        independentFeasibilityWorker(node, worker, this.archive.tasks, this.archive.groups))) &&
       (taskReferenceDependencies(node) ?? action.assignment.dependencies ?? []).every(dependency => this.archive.tasks.some(item => item.task.id === dependency.taskId && digest(item.task) === dependency.taskDigest)) &&
       (node.task.status ?? 'active') === 'active' && this.archive.groups?.find(route => route.group.id === taskGroup(node.task))?.group.status === 'active');
   }
@@ -590,6 +616,7 @@ export class CooperativeResearch {
       });
       if (!this.archive.tasks.includes(node) || node.assignment !== assignment || digest(node.task) !== draft.taskDigest ||
           node.status !== 'pending' || assignment.workerId !== worker.id || node.task.ownerId && node.task.ownerId !== worker.id ||
+          !independentFeasibilityWorker(node, worker, this.archive.tasks, this.archive.groups) ||
           !taskCanStart(node.task, this.archive.tasks) || !routeAllowsTask(node.task, this.archive.tasks, this.archive.groups)) return false;
       const canonicalChanged = ownedSourceDigest(problem, this.lead.worktree, this.archive.canonicalCommit!) !== saved.canonicalSourceDigest;
       this.suspendResearchDrafts(worker, node.task.id);
@@ -659,7 +686,7 @@ export class CooperativeResearch {
       !node.feedback?.startsWith('math_task_repeated_failed_input\n') &&
       !this.archive.blockers?.some(blocker => blocker.taskId === node.task.id && blocker.status === 'parked') &&
       routeAllowsTask(node.task, this.archive.tasks, this.archive.groups) && taskCanStart(node.task, this.archive.tasks) &&
-      this.livePeers.some(worker => this.input.modules.M5.assign([node], worker, this.livePeers, this.archive.groups) === node));
+      this.livePeers.some(worker => this.input.modules.M5.assign([node], worker, this.livePeers, this.archive.groups, this.archive.tasks) === node));
     if (!resumed.length) return false;
     // A planning assessment is not an execution attempt at an imported unresolved obligation.
     for (const node of resumed) node.status = 'pending';
@@ -714,7 +741,7 @@ export class CooperativeResearch {
         'Do not resubmit the unchanged failed proof, rename the same obligation, or claim that a proposed input has been proved.' };
     const node: TaskRecord = { task, status: 'pending', attempts: 0 };
     if (!routeAllowsTask(task, [...this.archive.tasks, node], this.archive.groups) ||
-        !this.livePeers.some(worker => this.input.modules.M5.assign([node], worker, this.livePeers, this.archive.groups) === node)) return false;
+        !this.livePeers.some(worker => this.input.modules.M5.assign([node], worker, this.livePeers, this.archive.groups, this.archive.tasks) === node)) return false;
     // The marker shares the accepted-plan checkpoint so restarting cannot create another investigation of this input.
     recovery.investigationTaskId = task.id;
     if (!this.archive.tasks.some(node => node.task.id === task.id)) {
@@ -782,7 +809,7 @@ export class CooperativeResearch {
     const ready = this.input.modules.M3.ready(projected, groups).filter(node =>
       (connected.has(node.task.id) || advisory(node.task) && recovery.taskIds.some(id => node.task.dependsOn.includes(id))) &&
       !oldInputs.has(this.recoveryTaskInput(node, projected)) &&
-      this.livePeers.some(worker => this.input.modules.M5.assign([node], worker, this.livePeers, groups) === node));
+      this.livePeers.some(worker => this.input.modules.M5.assign([node], worker, this.livePeers, groups, projected) === node));
     const taskIds = ready.filter(node => Array.isArray(requested) && requested.includes(node.task.id)).map(node => node.task.id);
     if (response?.status !== 'planned' || !taskIds.length) throw new Error('math_frontier_recovery_no_executable_step');
     return { recovery, taskIds, reason: undefined };
@@ -1507,6 +1534,7 @@ export class CooperativeResearch {
     this.archive.canonicalCommit = this.seed(this.lead, this.archive.canonicalCommit!);
   }
   async restore() {
+    if (this.refreshFeasibilityAssignments()) this.changed();
     for (const failed of this.archive.failedTaskInputs ?? []) {
       let repair = failed.repair;
       const node = this.node(repair?.taskId ?? failed.taskId);
@@ -1745,6 +1773,7 @@ export class CooperativeResearch {
       if (this.stopping) return;
       this.input.signal.throwIfAborted();
       if (this.failure) throw this.failure;
+      if (this.refreshFeasibilityAssignments()) this.changed();
       this.refreshResearchCheckpoints();
       if (this.refreshFailedTaskInputs()) this.changed();
       if (this.archive.frontierWaiting && this.archive.frontierWaiting.inputDigest !== this.planningInputDigest()) {
@@ -1909,12 +1938,13 @@ export class CooperativeResearch {
         }
         const ready = this.input.modules.M3.ready(this.archive.tasks, this.archive.groups);
         const node = this.input.modules.M5.assign(ready, worker,
-          this.livePeers, this.archive.groups);
+          this.livePeers, this.archive.groups, this.archive.tasks);
         if (node) {
           const engineerId = node.task.kind === 'goal' && this.archive.groups?.find(route => route.group.id === taskGroup(node.task))?.group.engineerId;
           if (!ready.includes(node) || !this.archive.tasks.includes(node) || node.status !== 'pending' ||
               !taskCanStart(node.task, this.archive.tasks) ||
               !routeAllowsTask(node.task, this.archive.tasks, this.archive.groups) ||
+              !independentFeasibilityWorker(node, worker, this.archive.tasks, this.archive.groups) ||
               (node.task.ownerId && node.task.ownerId !== worker.id) || (engineerId && engineerId !== worker.id) ||
               (node.assignment && node.assignment.workerId !== worker.id)) throw new Error('math_task_assignment_invalid');
           const selectedRoute = selectedTaskRoute(node, this.archive.tasks);
@@ -1928,6 +1958,7 @@ export class CooperativeResearch {
             if (!this.archive.tasks.includes(node) || node.status !== 'pending' ||
                 !restored && node.assignment !== previousAssignment ||
                 node.task.ownerId && node.task.ownerId !== worker.id ||
+                !independentFeasibilityWorker(node, worker, this.archive.tasks, this.archive.groups) ||
                 !taskCanStart(node.task, this.archive.tasks) || !routeAllowsTask(node.task, this.archive.tasks, this.archive.groups)) continue;
             if (!restored) {
               fs.writeFileSync(path.join(worker.worktree, 'RESEARCH.md'), '');
@@ -1960,11 +1991,11 @@ export class CooperativeResearch {
   }
   private canAdvance(taskIds?: ReadonlySet<string>) {
     return researchCanAdvance(this.archive.tasks, this.archive.groups, this.liveWorkers, node =>
-      this.livePeers.some(worker => this.input.modules.M5.assign([node], worker, this.livePeers, this.archive.groups) === node), taskIds);
+      this.livePeers.some(worker => this.input.modules.M5.assign([node], worker, this.livePeers, this.archive.groups, this.archive.tasks) === node), taskIds);
   }
   private hasAssignableTask(taskIds?: ReadonlySet<string>) {
     return this.input.modules.M3.ready(this.archive.tasks, this.archive.groups).some(node => (!taskIds || taskIds.has(node.task.id)) && this.archive.tasks.includes(node) &&
-      this.livePeers.some(worker => this.input.modules.M5.assign([node], worker, this.livePeers, this.archive.groups) === node));
+      this.livePeers.some(worker => this.input.modules.M5.assign([node], worker, this.livePeers, this.archive.groups, this.archive.tasks) === node));
   }
   private handoffDispatch(batch = selectResearchHandoffBatch(this.archive)) {
     return { handoffIds: batch.map(item => item.id),
@@ -2438,6 +2469,7 @@ export class CooperativeResearch {
   }
   /** Assignments reserve concurrency immediately; charge only when a model turn actually starts. */
   started(worker: ResearchWorker, action: CooperativeAction): boolean {
+    if (this.refreshFeasibilityAssignments()) this.changed();
     if (!this.current(action)) return false;
     if (action.kind === 'task' && action.assignment.workerId !== worker.id) throw new Error('math_task_assignment_invalid');
     if (action.kind === 'review' && this.archive.review?.workerId !== worker.id) throw new Error('math_review_assignment_invalid');

@@ -3,7 +3,7 @@ import type { MathAgentFailureDiagnostic } from '../../runtime/codexSession';
 import type { ResearchOperation, ValueEstimate } from './value';
 import { proofRouteReady, type ProofRoute } from '../proofRoutes';
 import { createRecordedTaskSettlement } from '../progress';
-import { hasTaskAcceptance, isAdvisoryTask, isFinalCandidateReview, taskGroup, taskReferenceDependencies, taskVersion,
+import { hasTaskAcceptance, isAdvisoryTask, isFeasibilityReview, isFinalCandidateReview, taskGroup, taskReferenceDependencies, taskVersion,
   type TaskRecord, type RouteRecord, type CooperativeAction } from '../tasks';
 
 export type ResearchBudget = Readonly<{ maxTurns: number; remainingMs: number; aborted: boolean }>;
@@ -102,14 +102,36 @@ export function taskCanStart(task: TaskRecord['task'], tasks: readonly TaskRecor
 
 export function readyResearchTasks(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): TaskRecord[] {
   const readiness = taskReadiness(tasks);
-  return tasks.filter(node => node.status === 'pending' && routeAllowsTask(node.task, tasks, groups) &&
-    readiness.canStart(node.task));
+  return prioritizeEarlyRouteChecks(tasks.filter(node => node.status === 'pending' && routeAllowsTask(node.task, tasks, groups) &&
+    readiness.canStart(node.task)), tasks);
+}
+
+/** Offer one fresh route check before investing in its still-unproved inputs. */
+function prioritizeEarlyRouteChecks(ready: TaskRecord[], tasks: readonly TaskRecord[]): TaskRecord[] {
+  if (tasks.some(node => node.status === 'running' && (isFeasibilityReview(node.task) ||
+      node.task.conditional && !node.proof))) return ready;
+  const review = ready.find(node => !node.attempts && isFeasibilityReview(node.task));
+  const bridge = ready.find(node => !node.attempts && node.task.conditional && !isAdvisoryTask(node.task) &&
+    node.task.dependsOn.some(id => tasks.some(input => input.task.id === id &&
+      input.task.kind === 'lemma' && input.status !== 'integrated')) &&
+    (node.task.kind === 'goal' || tasks.some(consumer => consumer.task.dependsOn.includes(node.task.id) ||
+      consumer.alternativeRoutes?.some(route => route.closingTaskId === node.task.id))));
+  const check = review ?? bridge;
+  if (!check) return ready;
+  const readiness = taskReadiness(tasks);
+  const consuming = ready.slice(0, ready.indexOf(check)).filter(node => !isAdvisoryTask(node.task) &&
+    readiness.dependenciesReady(node.task) && (node.task.kind === 'goal' || node.task.dependsOn.some(id => {
+      const input = tasks.find(candidate => candidate.task.id === id);
+      return input?.status === 'integrated' && input.integratedCheck?.passed &&
+        input.integratedCheck.taskDigest === taskVersion(input.task) && !input.integratedCheck.conditions?.length;
+    })));
+  return [...consuming, check, ...ready.filter(node => node !== check && !consuming.includes(node))];
 }
 
 /** A simple M3 ablation: prefer ready original goals, preserving all readiness gates. */
 export function goalsFirstResearchTasks(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): TaskRecord[] {
-  return readyResearchTasks(tasks, groups).toSorted((a, b) =>
-    Number(b.task.kind === 'goal') - Number(a.task.kind === 'goal'));
+  return prioritizeEarlyRouteChecks(readyResearchTasks(tasks, groups).toSorted((a, b) =>
+    Number(b.task.kind === 'goal') - Number(a.task.kind === 'goal')), tasks);
 }
 
 /** Unit-cost dependency depth is a scheduling heuristic, not a proof-time estimate. */
@@ -142,10 +164,10 @@ export function criticalPathResearchTasks(tasks: readonly TaskRecord[], groups?:
   };
   const ready = readyResearchTasks(tasks, groups);
   for (const node of ready) priority(node.task.id);
-  return ready.toSorted((a, b) => {
+  return prioritizeEarlyRouteChecks(ready.toSorted((a, b) => {
     const left = priority(a.task.id), right = priority(b.task.id);
     return right.depth - left.depth || right.goals.size - left.goals.size;
-  });
+  }), tasks);
 }
 
 export type OriginalGoalTaskFocus = Readonly<{
@@ -237,9 +259,9 @@ export function continuationResearchTasks(tasks: readonly TaskRecord[], groups?:
   if (running.filter(node => focus.support.has(node.task.id)).length >= 2 &&
       !running.some(node => !focus.support.has(node.task.id))) {
     const exploration = ranked.filter(node => !focus.support.has(node.task.id)).toSorted((a, b) => a.attempts - b.attempts)[0];
-    if (exploration) return [exploration, ...ranked.filter(node => node !== exploration)];
+    if (exploration) return prioritizeEarlyRouteChecks([exploration, ...ranked.filter(node => node !== exploration)], tasks);
   }
-  return ranked;
+  return prioritizeEarlyRouteChecks(ranked, tasks);
 }
 
 /** Candidate roots may be scoped; their prerequisites still use the complete task graph. */

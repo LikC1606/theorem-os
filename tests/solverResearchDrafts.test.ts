@@ -229,6 +229,44 @@ describe('isolated advisory research drafts', () => {
     expect(pendingResearchHandoffs(state.cooperation!)).toEqual([]);
   });
 
+  it('rejects a feasibility draft when its reviewer becomes an input owner during the snapshot read', async () => {
+    node('first_route').task = { ...node('first_route').task, reviewScope: 'feasibility', dependsOn: ['goal_1'] };
+    node('goal_1').task = { ...node('goal_1').task, sharing: 'problem', dependsOn: [] };
+    const action = await task();
+    expect(action.task.id).toBe('first_route');
+    saveFinding();
+    fs.writeFileSync(source(), fs.readFileSync(source(), 'utf8').replace('by sorry', 'by exact first_route_source_draft'));
+    const commit = commitSolverSources(problem, peer.worktree);
+    await cooperative.deliver(peer, action, commit, true);
+    await switchTask();
+    fs.writeFileSync(notes(), 'CURRENT_UNCOMMITTED_NOTES');
+    fs.writeFileSync(source(), fs.readFileSync(source(), 'utf8').replace('by sorry', 'by exact current_uncommitted_source'));
+    const currentSource = fs.readFileSync(source(), 'utf8'), head = git(peer.worktree, ['rev-parse', 'HEAD']);
+    const canonical = state.cooperation!.canonicalCommit;
+    const restore = vi.spyOn(cooperative as any, 'restoreResearchDraft');
+    duringRestore(commit, async () => {
+      node('goal_1').task = { ...node('goal_1').task, ownerId: peer.id };
+      state.turns = 1;
+    });
+
+    await expect(cooperative.next(peer, { maxTurns: 1, remainingMs: Infinity })).resolves.toBeUndefined();
+
+    expect(restore).toHaveBeenCalledTimes(1);
+    await expect(restore.mock.results[0].value).resolves.toBe(false);
+    expect(fs.readFileSync(notes(), 'utf8')).toBe('CURRENT_UNCOMMITTED_NOTES');
+    expect(fs.readFileSync(source(), 'utf8')).toBe(currentSource);
+    expect(git(peer.worktree, ['rev-parse', 'HEAD'])).toBe(head);
+    expect(node('first_route').status).toBe('pending');
+    expect(node('first_route').assignment).toBeUndefined();
+    expect(cooperative.current(action)).toBe(false);
+    expect(state.cooperation!.researchDrafts!.first_route).toMatchObject({ commit, suspended: true });
+    expect(state.cooperation!.canonicalCommit).toBe(canonical);
+    expect(node('goal_1').status).toBe('pending');
+    expect(node('goal_1').proof).toBeUndefined();
+    expect(node('goal_1').integratedCheck).toBeUndefined();
+    expect(pendingResearchHandoffs(state.cooperation!)).toEqual([]);
+  });
+
   it('uses canonical source changes that arrive while a snapshot is being read', async () => {
     const action = await task(); saveFinding();
     const commit = commitSolverSources(problem, peer.worktree);

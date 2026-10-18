@@ -87,3 +87,25 @@ it('builds mandatory Lead focus and task focus only from the supplied scoped gra
   expect(context.message).not.toContain('private_original_goal');
   expect(context.message).not.toContain('Original.core');
 });
+
+it('gives an early feasibility reviewer complete unproved interfaces even with no optional context budget', () => {
+  const compile = contextCompiler.compileTaskContext;
+  vi.spyOn(contextCompiler, 'compileTaskContext').mockImplementation(input => compile({ ...input, maxOptionalContextBytes: 0 }));
+  const { core, probe, goal, cooperation } = fixture();
+  const exactType = '∀ (n : Nat), n > 0 → ∃ N : Nat, ∀ m ≥ N, m + n > m';
+  core.task = { ...core.task, type: exactType };
+  probe.task = { ...probe.task, reviewScope: 'feasibility', dependsOn: [goal.task.id, core.task.id] };
+  const context = contextFor(cooperation, actionFor(probe));
+
+  expect(context.workContract).toMatchObject({ stage: 'feasibility-review', owner: 'independent-researcher',
+    consumer: 'lead-route-decision', acceptance: 'advisory-only', sourcePolicy: 'read-only' });
+  expect(context.manifest).toMatchObject({ maxOptionalBytes: 0, optionalBytes: 0 });
+  expect(context.manifest!.requiredTaskIds).toEqual(expect.arrayContaining([probe.task.id, goal.task.id, core.task.id]));
+  expect(context.message).toContain(JSON.stringify(exactType));
+  expect(context.message).toContain('theorem target : True');
+  expect(context.message).toContain('Your role: reviewer');
+  expect(context.instructions).toContain('quantifier order, uniform constants, quantitative strength, boundary cases');
+  expect(context.instructions).toContain('First test whether the proposed inputs would actually suffice for the consumer');
+  expect(core.status).toBe('blocked');
+  expect(goal.integratedCheck).toBeUndefined();
+});

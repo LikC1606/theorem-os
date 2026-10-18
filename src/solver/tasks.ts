@@ -75,6 +75,8 @@ export const assignmentDeliveryFile = (assignment: TaskAssignment) => `DELIVERIE
 export const isAdvisoryTask = (task: CooperativeTask) => task.kind === 'research' || task.kind === 'sketch';
 export const isFinalCandidateReview = (task: CooperativeTask) => isAdvisoryTask(task) &&
   (task.reviewScope === 'final-candidate' || task.id === 'independent_candidate_review');
+export const isFeasibilityReview = (task: CooperativeTask) => isAdvisoryTask(task) &&
+  task.reviewScope === 'feasibility' && !isFinalCandidateReview(task);
 
 const validId = (value: unknown) => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,64}$/u.test(value);
 const optionalFields = (value: any, keys: readonly string[]) =>

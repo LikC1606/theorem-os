@@ -22,12 +22,15 @@ const ids = (tasks: readonly TaskRecord[]) => tasks.map(record => record.task.id
 const main: RouteRecord = { group: { id: 'main', objective: 'Original proof', status: 'active', revision: 0 }, turns: 0 };
 
 describe('original-goal frontier priority', () => {
-  it('proves an open premise before its conditional goal wrapper, without rejecting either task', () => {
+  it('checks a conditional connection once before returning priority to its open premise', () => {
     const unrelated = node('peripheral'); unrelated.task = { ...unrelated.task, objective: 'Useful for goal and core' };
     const core = node('core'), conditional = node('wrapper', 'goal', ['core']);
     conditional.task = { ...conditional.task, conditional: true };
     const tasks = [unrelated, conditional, core];
 
+    expect(ids(readyResearchTasks(tasks))).toEqual(['wrapper', 'peripheral', 'core']);
+    expect(ids(continuationResearchTasks(tasks))).toEqual(['wrapper', 'core', 'peripheral']);
+    conditional.attempts = 1;
     expect(ids(readyResearchTasks(tasks))).toEqual(['peripheral', 'wrapper', 'core']);
     expect(ids(continuationResearchTasks(tasks))).toEqual(['core', 'wrapper', 'peripheral']);
     expect(originalGoalTaskFocus(tasks).support.has('peripheral')).toBe(false);

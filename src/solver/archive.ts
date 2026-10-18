@@ -19,6 +19,7 @@ export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | '
   sessionGroupId?: string;
   sessionTaskId?: string;
   sessionTaskVersion?: string;
+  sessionAssignmentId?: string;
   sessionStatementReview?: boolean;
 };
 
@@ -158,7 +159,8 @@ const runState = research.extend({ schema: z.literal('deepscientist.math.solver.
   model: z.string(), effort: z.string(), workerCount: z.number().int().positive().optional(),
   knowledgeDigest: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
   coordination: z.enum(['cooperative', 'independent']).optional(),
-  workers: z.array(research.extend({ id: z.string(), role, sessionRole: role.optional() })).optional(),
+  workers: z.array(research.extend({ id: z.string(), role, sessionRole: role.optional(),
+    sessionAssignmentId: z.string().optional() })).optional(),
   cooperation: z.object({ tasks: z.array(taskRecord), groups: z.array(z.object({ group: z.object({ id: z.string(),
     status: z.enum(['active', 'paused', 'stopped']), revision: count }).passthrough(), turns: count }).passthrough()).optional(),
     history: z.array(z.object({ task, proof: check.optional(), integratedCheck: check.optional() }).passthrough()).optional(),
