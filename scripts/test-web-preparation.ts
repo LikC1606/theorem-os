@@ -8,7 +8,8 @@ import { chromium, type BrowserContext, type Page, type Route } from 'playwright
 import { readWebConfig, webLimits, webTemplates } from '../apps/web/config';
 import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
-import { closeDialog, closeHistory, closeSettings, openHistory, openSettings, withSettings } from './web-ui-controls';
+import { draftRecoveryStorageKey } from '../apps/web/client/draftRecovery';
+import { closeDialog, closeHistory, closeSettings, discardSourceEditor, openHistory, openSettings, withSettings } from './web-ui-controls';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-ui-smoke');
@@ -117,6 +118,25 @@ async function bounds(page: Page, selector: string) {
   assert.ok(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= viewport.width + 1 &&
     box.y + box.height <= viewport.height + 1, `${selector} must fit ${viewport.width}px viewport`);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true);
+}
+async function editSource(h: Harness, source: string) {
+  await open(h); await openSettings(h.page);
+  await h.page.locator('#template').selectOption('');
+  await h.page.locator('#source').fill(source);
+  await h.page.locator('#expand-source').click();
+  await h.page.locator('#source-editor[open]').waitFor();
+}
+async function selectSourceText(page: Page, start: number, end = start, direction: 'forward' | 'backward' | 'none' = 'none') {
+  await page.locator('#expanded-source').evaluate((node, selection) => {
+    const editor = node as HTMLTextAreaElement;
+    editor.focus(); editor.setSelectionRange(selection.start, selection.end, selection.direction);
+  }, { start, end, direction });
+}
+async function editorValue(page: Page, expected: string) {
+  await page.waitForFunction(expected => (document.querySelector('#expanded-source') as HTMLTextAreaElement).value === expected, expected);
+}
+async function editorPosition(page: Page, expected: string) {
+  await page.waitForFunction(expected => document.querySelector('#editor-position')?.textContent === expected, expected);
 }
 async function visibleSettingsError(page: Page, id: string) {
   const geometry = await page.evaluate(id => {
@@ -268,7 +288,7 @@ try {
     assert.equal(await page.locator('#run-settings').evaluate(dialog => (dialog as HTMLDialogElement).open), true);
     assert.equal(await page.locator('#expanded-source').evaluate(field => field === document.activeElement), true);
     await page.locator('#expanded-source').fill(`${original}\n-- discarded preparation fixture`);
-    await closeDialog(page, '#source-editor', () => page.keyboard.press('Escape'));
+    await discardSourceEditor(page, () => page.keyboard.press('Escape'));
     assert.equal(await page.locator('#expand-source').evaluate(button => button === document.activeElement), true);
     assert.equal(await page.locator('#source').inputValue(), original);
     await page.locator('#expand-source').click();
@@ -276,7 +296,339 @@ try {
     await page.locator('#expanded-source').fill(edited);
     await closeDialog(page, '#source-editor', () => page.locator('#apply-editor').click());
     assert.equal(await page.locator('#source').inputValue(), edited);
+    assert.equal(await page.locator('#editor-discard-dialog').isVisible(), false, 'successful Apply must close directly');
     assert.equal(await page.locator('#expand-source').evaluate(button => button === document.activeElement), true);
+    await closeSettings(page);
+  });
+
+  for (const width of widths) await scenario(`Dirty close requests retain scratch edits, focus and native undo at ${width}px`, async h => {
+    const { page } = h;
+    const source = `theorem retained_editor_fixture : True := by\n  trivial\n${Array.from({ length: 210 }, (_, index) => `-- editor context ${index + 1}`).join('\n')}`;
+    const edited = `${source} -- retained native edit`;
+    await editSource(h, source);
+    const recoveryBefore = await page.evaluate(key => sessionStorage.getItem(key), draftRecoveryStorageKey);
+    await selectSourceText(page, source.length);
+    await page.keyboard.insertText(' -- retained native edit');
+    await editorValue(page, edited);
+    assert.equal(await page.locator('#editor-change-status').innerText(), '修改尚未应用');
+    const editor = await page.locator('#expanded-source').elementHandle();
+    const methods = [
+      { close: () => page.locator('#close-editor').click(), resume: () => page.locator('#keep-editing').click() },
+      { close: () => page.locator('#cancel-editor').click(), resume: () => page.locator('#close-editor-discard').click() },
+      { close: () => page.keyboard.press('Escape'), resume: () => page.keyboard.press('Escape') },
+    ];
+    for (const [index, method] of methods.entries()) {
+      await selectSourceText(page, source.indexOf('-- editor context 145'), source.indexOf('-- editor context 147'), 'backward');
+      const before = await page.locator('#expanded-source').evaluate(node => {
+        const editor = node as HTMLTextAreaElement;
+        editor.scrollTop = 190;
+        return { start: editor.selectionStart, end: editor.selectionEnd, direction: editor.selectionDirection,
+          top: editor.scrollTop, left: editor.scrollLeft };
+      });
+      assert.ok(before.top > 0);
+      await method.close();
+      await page.locator('#editor-discard-dialog[open]').waitFor();
+      assert.equal(await page.locator('#source-editor').evaluate(dialog => (dialog as HTMLDialogElement).open), true);
+      assert.equal(await page.locator('#keep-editing').evaluate(button => button === document.activeElement), true,
+        'the safe continuation must receive initial focus');
+      assert.equal(await page.locator('#source').inputValue(), source);
+      assert.equal(await page.evaluate(key => sessionStorage.getItem(key), draftRecoveryStorageKey), recoveryBefore);
+      for (const selector of ['#editor-discard-dialog', '#keep-editing', '#discard-editor-changes']) await bounds(page, selector);
+      if (index === 0) await snapshot(page, `source-editor-${width}-discard-confirmation.png`);
+      await closeDialog(page, '#editor-discard-dialog', method.resume);
+      assert.equal(await editor!.evaluate(node => node === document.querySelector('#expanded-source')), true);
+      assert.deepEqual(await page.locator('#expanded-source').evaluate(async node => {
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        const editor = node as HTMLTextAreaElement;
+        return { start: editor.selectionStart, end: editor.selectionEnd, direction: editor.selectionDirection,
+          top: editor.scrollTop, left: editor.scrollLeft };
+      }), before, 'continuing must preserve the active reading position and backward selection');
+      assert.equal(await page.locator('#expanded-source').evaluate(node => node === document.activeElement), true);
+      await editorValue(page, edited);
+    }
+    await page.keyboard.press('Control+z'); await editorValue(page, source);
+    assert.equal(await page.locator('#editor-change-status').innerText(), '未修改');
+    await page.keyboard.press('Control+Shift+z'); await editorValue(page, edited);
+    await discardSourceEditor(page);
+    assert.equal(await page.locator('#source').inputValue(), source);
+    assert.equal(await page.evaluate(key => sessionStorage.getItem(key), draftRecoveryStorageKey), recoveryBefore);
+    assert.equal(await page.locator('#expand-source').evaluate(button => button === document.activeElement), true);
+    await page.locator('#expand-source').click();
+    await editorValue(page, source);
+    await closeDialog(page, '#source-editor', () => page.keyboard.press('Escape'));
+    await closeSettings(page);
+  }, width);
+
+  await scenario('Unchanged, reverted and no-op edits close directly while keyboard confirmation defaults to continuing', async h => {
+    const { page } = h;
+    const source = 'theorem clean_editor_fixture : True := by\n  trivial';
+    await editSource(h, source);
+    for (const action of ['#close-editor', '#cancel-editor', 'Escape']) {
+      assert.equal(await page.locator('#editor-change-status').innerText(), '未修改');
+      await closeDialog(page, '#source-editor', () => action === 'Escape' ? page.keyboard.press('Escape') : page.locator(action).click());
+      assert.equal(await page.locator('#editor-discard-dialog').isVisible(), false);
+      await page.locator('#expand-source').click();
+    }
+    await selectSourceText(page, 0);
+    await page.locator('#editor-outdent').click();
+    assert.equal(await page.locator('#editor-change-status').innerText(), '未修改');
+    await selectSourceText(page, source.length);
+    await page.keyboard.insertText(' -- keyboard fixture');
+    await page.keyboard.press('Escape');
+    await page.locator('#editor-discard-dialog[open]').waitFor();
+    await closeDialog(page, '#editor-discard-dialog', () => page.keyboard.press('Enter'));
+    assert.equal(await page.locator('#expanded-source').evaluate(node => node === document.activeElement), true);
+    await editorValue(page, `${source} -- keyboard fixture`);
+    await page.keyboard.press('Control+z'); await editorValue(page, source);
+    assert.equal(await page.locator('#editor-change-status').innerText(), '未修改');
+    await closeDialog(page, '#source-editor', () => page.keyboard.press('Escape'));
+    assert.equal(await page.locator('#editor-discard-dialog').isVisible(), false);
+    await closeSettings(page);
+  });
+
+  await scenario('Invalid scratch buffers stay protected and application still creates exactly one recovery backup', async h => {
+    const { page } = h;
+    const source = 'theorem invalid_editor_fixture : True := by\n  trivial';
+    await editSource(h, source);
+    const recoveryBefore = await page.evaluate(key => sessionStorage.getItem(key), draftRecoveryStorageKey);
+    for (const invalid of [' \n\t ', 'x'.repeat(webLimits.maxSourceBytes + 1)]) {
+      await page.locator('#expanded-source').fill(invalid);
+      await page.locator('#apply-editor').click();
+      assert.equal(await page.locator('#editor-error').isVisible(), true);
+      await page.locator('#close-editor').click();
+      await page.locator('#editor-discard-dialog[open]').waitFor();
+      await closeDialog(page, '#editor-discard-dialog', () => page.locator('#keep-editing').click());
+      await editorValue(page, invalid);
+      assert.equal(await page.locator('#editor-error').isVisible(), true, 'continuing must not hide an unresolved validation error');
+      assert.equal(await page.locator('#source').inputValue(), source);
+      assert.equal(await page.evaluate(key => sessionStorage.getItem(key), draftRecoveryStorageKey), recoveryBefore);
+    }
+    const applied = `${source}\n-- valid applied edit`;
+    await page.locator('#expanded-source').fill(applied);
+    await closeDialog(page, '#source-editor', () => page.locator('#apply-editor').click());
+    assert.equal(await page.locator('#editor-discard-dialog').isVisible(), false);
+    assert.equal(await page.locator('#source').inputValue(), applied);
+    const recovery = await page.evaluate(key => JSON.parse(sessionStorage.getItem(key)!), draftRecoveryStorageKey);
+    assert.equal(recovery.reason, 'edit'); assert.equal(recovery.task.draft.source, source);
+    await closeSettings(page);
+  });
+
+  await scenario('Delayed Lean imports leave the original editor baseline and stale-revision check intact', async h => {
+    const { page } = h;
+    const source = 'theorem delayed_editor_fixture : True := by\n  trivial';
+    const incoming = `${source}\n-- delayed file replacement`;
+    await open(h); await openSettings(page);
+    await page.locator('#template').selectOption(''); await page.locator('#source').fill(source);
+    await page.evaluate(() => {
+      const original = File.prototype.arrayBuffer;
+      File.prototype.arrayBuffer = async function () {
+        File.prototype.arrayBuffer = original;
+        const data = await original.call(this);
+        await new Promise<void>(resolve => { (window as unknown as { releaseEditorImport: () => void }).releaseEditorImport = resolve; });
+        return data;
+      };
+    });
+    await page.locator('#source-file').setInputFiles({ name: 'editor-delayed.lean', mimeType: 'text/plain', buffer: Buffer.from(incoming) });
+    await page.waitForFunction(() => typeof (window as unknown as { releaseEditorImport?: () => void }).releaseEditorImport === 'function');
+    await page.locator('#expand-source').click();
+    await page.locator('#expanded-source').fill(incoming);
+    await page.keyboard.press('Escape'); await page.locator('#editor-discard-dialog[open]').waitFor();
+    await page.evaluate(() => (window as unknown as { releaseEditorImport: () => void }).releaseEditorImport());
+    await page.waitForFunction(incoming => (document.querySelector('#source') as HTMLTextAreaElement).value === incoming, incoming);
+    const recoveryAfterImport = await page.evaluate(key => sessionStorage.getItem(key), draftRecoveryStorageKey);
+    await closeDialog(page, '#editor-discard-dialog', () => page.locator('#keep-editing').click());
+    await editorValue(page, incoming);
+    assert.equal(await page.locator('#editor-change-status').innerText(), '修改尚未应用', 'dirty state compares the opening baseline, even when a new draft has the same text');
+    await page.locator('#apply-editor').click();
+    assert.match(await page.locator('#editor-error').innerText(), /原始草稿已变化/);
+    await discardSourceEditor(page);
+    assert.equal(await page.locator('#source').inputValue(), incoming);
+    assert.equal(await page.evaluate(key => sessionStorage.getItem(key), draftRecoveryStorageKey), recoveryAfterImport);
+    await closeSettings(page);
+  });
+
+  await scenario('Direct editor entry restores its trigger and old close events cannot clear a reopened confirmation', async h => {
+    const { page } = h;
+    await open(h);
+    const source = await page.locator('#source').inputValue();
+    await page.locator('#edit-draft-source').click();
+    await page.locator('#expanded-source').fill(`${source}\n-- direct discarded edit`);
+    await discardSourceEditor(page);
+    assert.equal(await page.locator('#edit-draft-source').evaluate(button => button === document.activeElement), true);
+    assert.equal(await page.locator('#run-settings').isVisible(), false);
+    await page.locator('#edit-draft-source').click();
+    await page.locator('#expanded-source').fill(`${source}\n-- first session`);
+    await page.locator('#close-editor').click(); await page.locator('#editor-discard-dialog[open]').waitFor();
+    const reopened = `${source}\n-- reopened session`;
+    await page.locator('#discard-editor-changes').evaluate((button, reopened) => {
+      (button as HTMLButtonElement).click();
+      (document.querySelector('#edit-draft-source') as HTMLButtonElement).click();
+      const editor = document.querySelector('#expanded-source') as HTMLTextAreaElement;
+      editor.value = reopened; editor.dispatchEvent(new Event('input', { bubbles: true }));
+      editor.setSelectionRange(2, 7, 'backward');
+      (document.querySelector('#close-editor') as HTMLButtonElement).click();
+    }, reopened);
+    await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => resolve())));
+    await page.locator('#editor-discard-dialog[open]').waitFor();
+    await closeDialog(page, '#editor-discard-dialog', () => page.locator('#keep-editing').click());
+    await editorValue(page, reopened);
+    assert.deepEqual(await page.locator('#expanded-source').evaluate(node => {
+      const editor = node as HTMLTextAreaElement;
+      return [editor.selectionStart, editor.selectionEnd, editor.selectionDirection];
+    }), [2, 7, 'backward']);
+    await discardSourceEditor(page);
+    assert.equal(await page.locator('#source').inputValue(), source);
+    assert.equal(await page.locator('#edit-draft-source').evaluate(button => button === document.activeElement), true);
+  });
+
+  for (const width of widths) await scenario(`Source indentation keeps native undo, selected-line boundaries and local drafts at ${width}px`, async h => {
+    const { page } = h;
+    const source = 'theorem indentation_fixture : True := by\n  have h : True := by\n    trivial\n  exact h\n-- untouched next line\n';
+    const first = source.indexOf('  have'), end = source.indexOf('-- untouched');
+    const indented = source.split('\n').map((line, index) => index >= 1 && index <= 3 ? `  ${line}` : line).join('\n');
+    await editSource(h, source);
+    const recoveryBefore = await page.evaluate(key => sessionStorage.getItem(key), draftRecoveryStorageKey);
+    await editorPosition(page, '第 1 行 · 第 1 列');
+    await selectSourceText(page, first + 2, end, 'backward');
+    await editorPosition(page, '第 2 行 · 第 3 列');
+    await page.locator('#editor-indent').click();
+    await editorValue(page, indented);
+    assert.deepEqual(await page.locator('#expanded-source').evaluate(node => {
+      const editor = node as HTMLTextAreaElement;
+      return { start: editor.selectionStart, end: editor.selectionEnd, direction: editor.selectionDirection, focused: editor === document.activeElement };
+    }), { start: first + 4, end: end + 6, direction: 'backward', focused: true });
+    await editorPosition(page, '第 2 行 · 第 5 列');
+    assert.equal(await page.locator('#source').inputValue(), source, 'indentation stays in the modal buffer');
+    assert.equal(await page.evaluate(key => sessionStorage.getItem(key), draftRecoveryStorageKey), recoveryBefore,
+      'scratch edits do not replace the existing recovery backup');
+    await page.keyboard.press('Control+z'); await editorValue(page, source);
+    await page.keyboard.press('Control+Shift+z'); await editorValue(page, indented);
+    await selectSourceText(page, first + 4, end + 6, 'backward');
+    await page.locator('#editor-outdent').click(); await editorValue(page, source);
+    await page.keyboard.press('Control+z'); await editorValue(page, indented);
+    await page.keyboard.press('Control+Shift+z'); await editorValue(page, source);
+    for (const selector of ['#source-editor', '.editor-toolbar', '#editor-indent', '#editor-outdent', '#editor-position', '#apply-editor', '#cancel-editor']) await bounds(page, selector);
+    const placement = await page.evaluate(() => {
+      const buttons = document.querySelector('.editor-indent-tools')!.getBoundingClientRect();
+      const position = document.querySelector('#editor-position')!.getBoundingClientRect();
+      return { buttonsRight: buttons.right, positionLeft: position.left };
+    });
+    assert.ok(placement.buttonsRight <= placement.positionLeft, 'cursor status must not overlap tools');
+    await snapshot(page, `source-editor-${width}-indentation.png`);
+    await closeDialog(page, '#source-editor', () => page.locator('#cancel-editor').click());
+    assert.equal(await page.locator('#source').inputValue(), source);
+    assert.equal(await page.evaluate(key => sessionStorage.getItem(key), draftRecoveryStorageKey), recoveryBefore);
+    await page.locator('#expand-source').click();
+    await selectSourceText(page, first + 2, end, 'backward');
+    await page.locator('#editor-indent').click();
+    await closeDialog(page, '#source-editor', () => page.locator('#apply-editor').click());
+    assert.equal(await page.locator('#source').inputValue(), indented);
+    assert.equal(await page.locator('#restore-draft-settings').isVisible(), true, 'applying remains one recoverable draft replacement');
+    const recovery = await page.evaluate(key => JSON.parse(sessionStorage.getItem(key)!), draftRecoveryStorageKey);
+    assert.equal(recovery.reason, 'edit'); assert.equal(recovery.task.draft.source, source);
+    await page.locator('#expand-source').click();
+    await page.keyboard.press('Control+z'); await editorValue(page, indented);
+    assert.equal(await page.locator('#source').inputValue(), indented, 'reopening must not expose an old editing transaction');
+    await closeDialog(page, '#source-editor', () => page.keyboard.press('Escape'));
+    await closeSettings(page);
+  }, width);
+
+  await scenario('Editor shortcuts preserve ordinary input, IME and Tab focus navigation', async h => {
+    const { page } = h;
+    const source = 'theorem keyboard_indent_fixture : True := by\n  trivial';
+    const start = source.indexOf('  trivial');
+    await editSource(h, source);
+    await selectSourceText(page, start + 2);
+    await page.keyboard.press('Control+]');
+    await editorValue(page, source.slice(0, start) + '  ' + source.slice(start));
+    await page.keyboard.press('Control+['); await editorValue(page, source);
+    await page.keyboard.press('Meta+]');
+    await editorValue(page, source.slice(0, start) + '  ' + source.slice(start));
+    await page.keyboard.press('Meta+['); await editorValue(page, source);
+    await selectSourceText(page, 0);
+    await page.keyboard.press('Control+['); await editorValue(page, source);
+    for (const modifiers of [
+      { ctrlKey: true, metaKey: false, altKey: false, shiftKey: false, isComposing: true },
+      { ctrlKey: true, metaKey: false, altKey: true, shiftKey: false, isComposing: false },
+      { ctrlKey: false, metaKey: true, altKey: false, shiftKey: true, isComposing: false },
+    ]) {
+      assert.equal(await page.locator('#expanded-source').evaluate((node, modifiers) => node.dispatchEvent(new KeyboardEvent('keydown', {
+        key: ']', bubbles: true, cancelable: true, ...modifiers,
+      })), modifiers), true, 'indentation must not consume IME or unrelated modifier combinations');
+      await editorValue(page, source);
+    }
+    await page.keyboard.press('Tab');
+    assert.equal(await page.locator('#cancel-editor').evaluate(button => button === document.activeElement), true, 'Tab leaves the textarea');
+    await page.keyboard.press('Shift+Tab');
+    assert.equal(await page.locator('#expanded-source').evaluate(editor => editor === document.activeElement), true);
+    await page.keyboard.press('Shift+Tab');
+    assert.equal(await page.locator('#editor-line-toggle').evaluate(button => button === document.activeElement), true);
+    await selectSourceText(page, source.length);
+    await page.keyboard.type(' -- typed');
+    const typed = `${source} -- typed`;
+    await editorValue(page, typed);
+    await page.keyboard.press('Control+]');
+    await editorValue(page, typed.slice(0, start) + '  ' + typed.slice(start));
+    await page.keyboard.press('Control+z'); await editorValue(page, typed);
+    await page.keyboard.press('Control+Shift+z');
+    await editorValue(page, typed.slice(0, start) + '  ' + typed.slice(start));
+    await discardSourceEditor(page, () => page.keyboard.press('Escape'));
+    assert.equal(await page.locator('#source').inputValue(), source);
+    assert.equal(await page.locator('#source').evaluate(node => node.dispatchEvent(new KeyboardEvent('keydown', {
+      key: ']', ctrlKey: true, bubbles: true, cancelable: true,
+    }))), true, 'editor shortcuts are scoped to the expanded editor');
+    await closeSettings(page);
+  });
+
+  await scenario('Cursor positions count Unicode characters and indentation preserves a scrolled reading position', async h => {
+    const { page } = h;
+    const source = `-- 🙂x\ntheorem editor_position_fixture : True := by\n  trivial\n${Array.from({ length: 220 }, (_, index) => `-- context row ${index + 1}`).join('\n')}`;
+    await editSource(h, source);
+    await selectSourceText(page, '-- 🙂'.length);
+    await editorPosition(page, '第 1 行 · 第 5 列');
+    await selectSourceText(page, 0, '-- 🙂'.length, 'backward');
+    await editorPosition(page, '第 1 行 · 第 1 列');
+    await selectSourceText(page, source.indexOf('-- context row 175'));
+    const before = await page.locator('#expanded-source').evaluate(node => {
+      const editor = node as HTMLTextAreaElement;
+      editor.scrollTop = 120;
+      return { top: editor.scrollTop, left: editor.scrollLeft, lines: editor.value.split('\n').length };
+    });
+    await page.locator('#editor-indent').click();
+    assert.deepEqual(await page.locator('#expanded-source').evaluate(node => {
+      const editor = node as HTMLTextAreaElement;
+      return { top: editor.scrollTop, left: editor.scrollLeft, lines: editor.value.split('\n').length };
+    }), before);
+    await editorPosition(page, '第 178 行 · 第 3 列');
+    assert.equal(await page.locator('#source').inputValue(), source);
+    assert.match(await page.locator('#editor-count').innerText(), /^223 行/);
+    await discardSourceEditor(page, () => page.keyboard.press('Escape'));
+    await closeSettings(page);
+  });
+
+  await scenario('An unavailable native edit keeps source and selection intact and permits manual editing', async h => {
+    const { page } = h;
+    const source = 'theorem unavailable_indent_fixture : True := by\n  trivial';
+    await editSource(h, source);
+    const start = source.indexOf('  trivial') + 2;
+    for (const mode of ['false', 'throw']) {
+      await selectSourceText(page, start, source.length, 'backward');
+      await page.evaluate(mode => { document.execCommand = () => { if (mode === 'throw') throw new Error('Fixture unavailable edit'); return false; }; }, mode);
+      await page.locator('#editor-indent').click();
+      await editorValue(page, source);
+      assert.equal(await page.locator('#editor-error').isVisible(), true);
+      assert.match(await page.locator('#editor-error').innerText(), /未能调整缩进/);
+      assert.deepEqual(await page.locator('#expanded-source').evaluate(node => {
+        const editor = node as HTMLTextAreaElement;
+        return [editor.selectionStart, editor.selectionEnd, editor.selectionDirection];
+      }), [start, source.length, 'backward']);
+    }
+    await selectSourceText(page, source.length);
+    await page.keyboard.type(' ');
+    await editorValue(page, `${source} `);
+    assert.equal(await page.locator('#editor-error').isVisible(), false);
+    assert.equal(await page.locator('#source').inputValue(), source);
+    await discardSourceEditor(page);
     await closeSettings(page);
   });
 

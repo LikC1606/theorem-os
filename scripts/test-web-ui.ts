@@ -9,7 +9,7 @@ import { readWebConfig, webTemplates } from '../apps/web/config';
 import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
 import type { WebResult, WebRun, WorkerInput } from '../apps/web/shared';
-import { closeHistory, closeSettings, fillConfig, openHistory, openSettings, selectConfig, selectHistoryRun,
+import { closeHistory, closeSettings, discardSourceEditor, fillConfig, openHistory, openSettings, selectConfig, selectHistoryRun,
   showArtifacts, showChat, withSettings } from './web-ui-controls';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -480,14 +480,13 @@ try {
   await page.locator('#source-editor[open]').waitFor();
   assert.equal(await page.locator('#expanded-source').evaluate(node => node === document.activeElement), true);
   await page.locator('#expanded-source').fill('discarded');
-  await page.locator('#cancel-editor').click();
+  await discardSourceEditor(page);
   await page.locator('#run-settings[open]').waitFor();
   assert.equal(await page.locator('#source').inputValue(), newerDraft);
   await openSettings(page);
   await page.locator('#expand-source').click();
   await page.locator('#expanded-source').fill('discarded by Escape');
-  await page.keyboard.press('Escape');
-  await page.locator('#source-editor[open]').waitFor({ state: 'hidden' });
+  await discardSourceEditor(page, () => page.keyboard.press('Escape'));
   await page.locator('#run-settings[open]').waitFor();
   assert.equal(await page.locator('#source').inputValue(), newerDraft);
   assert.equal(await page.locator('#expand-source').evaluate(node => node === document.activeElement), true);

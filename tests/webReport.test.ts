@@ -178,17 +178,68 @@ describe('web report summaries from structured worker fields', () => {
       { theoremName: 'Malformed diagnostics', error: {}, stdoutPreview: ['not text'], stderrPreview: false },
     ] } }));
     expect(summary.checks[0].targets[0]).toMatchObject({ name: '<script>Target</script>', tone: 'failed', sorryCount: 1, admitCount: 0,
-      diagnostics: [{ label: '错误', text: 'error: unsolved goals' }, { label: '标准错误', text: '<img src=x onerror=alert(1)>' }] });
+      diagnostics: [{ label: '错误', text: 'error: unsolved goals', truncated: false },
+        { label: '标准错误', text: '<img src=x onerror=alert(1)>', truncated: false }] });
     expect(summary.checks[0].targets[1].diagnostics).toEqual([]);
   });
 
-  it('limits each text field to 4000 characters and deduplicates after truncation', () => {
+  it.each([['error', '错误'], ['stdoutPreview', '标准输出'], ['stderrPreview', '标准错误']])(
+    'marks %s as truncated only when its trimmed report text exceeds 4000 characters', (key, label) => {
+      for (const length of [4_000, 4_001]) {
+        const summary = summarizeReport(run({ candidateCheck: { results: [
+          { theoremName: 'Target', [key]: 'a'.repeat(length) },
+        ] } }));
+        expect(summary.checks[0].targets[0].diagnostics).toEqual([
+          { label, text: 'a'.repeat(4_000), truncated: length > 4_000 },
+        ]);
+      }
+    },
+  );
+
+  it('retains different full diagnostics that share the first 4000 characters', () => {
     const prefix = 'a'.repeat(4_000);
     const summary = summarizeReport(run({ candidateCheck: { results: [
       { theoremName: 'Target', error: prefix + 'one', stdoutPreview: prefix + 'two', stderrPreview: 'b'.repeat(8_000) },
     ] } }));
     const diagnostics = summary.checks[0].targets[0].diagnostics;
-    expect(diagnostics).toEqual([{ label: '错误', text: prefix }, { label: '标准错误', text: 'b'.repeat(4_000) }]);
+    expect(diagnostics).toEqual([
+      { label: '错误', text: prefix, truncated: true },
+      { label: '标准输出', text: prefix, truncated: true },
+      { label: '标准错误', text: 'b'.repeat(4_000), truncated: true },
+    ]);
+  });
+
+  it.each([4_000, 4_001])('deduplicates identical full trimmed diagnostics of length %s', length => {
+    const value = 'a'.repeat(length);
+    const summary = summarizeReport(run({ candidateCheck: { results: [
+      { theoremName: 'Target', error: `\n ${value} \t`, stdoutPreview: value, stderrPreview: `\r\n${value}\n` },
+    ] } }));
+    expect(summary.checks[0].targets[0].diagnostics).toEqual([
+      { label: '错误', text: value.slice(0, 4_000), truncated: length > 4_000 },
+    ]);
+  });
+
+  it('ignores whitespace-only diagnostics and trims before applying the display limit', () => {
+    const summary = summarizeReport(run({ candidateCheck: { results: [
+      { theoremName: 'Blank', error: ' '.repeat(4_001), stdoutPreview: '\n\t\r ', stderrPreview: '' },
+      { theoremName: 'Padded', error: ' '.repeat(4_000) + 'a'.repeat(4_000) + '\n\t ',
+        stdoutPreview: '\n\t ' + 'b'.repeat(4_001) + ' \r\n' },
+    ] } }));
+    expect(summary.checks[0].targets[0].diagnostics).toEqual([]);
+    expect(summary.checks[0].targets[1].diagnostics).toEqual([
+      { label: '错误', text: 'a'.repeat(4_000), truncated: false },
+      { label: '标准输出', text: 'b'.repeat(4_000), truncated: true },
+    ]);
+  });
+
+  it('preserves whitespace within the trimmed diagnostic at the display boundary', () => {
+    const prefix = 'a'.repeat(3_999) + ' ';
+    const summary = summarizeReport(run({ candidateCheck: { results: [
+      { theoremName: 'Target', error: ` \n${prefix}z\t ` },
+    ] } }));
+    expect(summary.checks[0].targets[0].diagnostics).toEqual([
+      { label: '错误', text: prefix, truncated: true },
+    ]);
   });
 
   it('limits each stage to 64 valid targets and counts only omitted valid targets', () => {

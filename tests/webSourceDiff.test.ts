@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as diff from 'diff';
-import { compareSources, type SourceComparison, type SourceDiffRow } from '../apps/web/client/sourceDiff';
+import { compareSources, sourceChangeLocations, type SourceComparison, type SourceDiffRow } from '../apps/web/client/sourceDiff';
 
 vi.mock('diff', async importOriginal => {
   const original = await importOriginal<typeof import('diff')>();
@@ -16,6 +16,71 @@ const reconstruct = (comparison: SourceComparison, side: 'old' | 'new') => lineR
 const numberedSource = (count: number) => Array.from({ length: count }, (_, index) => `line ${index + 1}\n`).join('');
 
 afterEach(() => vi.resetAllMocks());
+
+describe('editing a displayed source change', () => {
+  it('targets the first added line using current offsets after earlier insertions and removals', () => {
+    const before = 'α 🙂\nold one\nold two\nkeep\nold tail\n';
+    const after = 'α 🙂\nnew one\nnew two\nnew three\nkeep\nnew tail\n';
+    const locations = sourceChangeLocations(after, compareSources(before, after).rows);
+    expect(Array.from(locations)).toEqual([
+      [0, { line: 2, offset: after.indexOf('new one') }],
+      [1, { line: 6, offset: after.indexOf('new tail') }],
+    ]);
+  });
+
+  it.each([
+    ['remove\nkeep\n', 'keep\n', 1, 0],
+    ['keep\nremove\nlast\n', 'keep\nlast\n', 2, 5],
+    ['keep\nremove', 'keep\n', 2, 5],
+    ['remove\n', '', 1, 0],
+    ['one\n\ntwo\n', 'one\ntwo\n', 2, 4],
+    ['one\n', 'one', 1, 0],
+    ['one', 'one\n', 1, 0],
+    ['', '\n\n', 1, 0],
+    ['one\n\n', 'one\n', 2, 4],
+  ])('keeps deletion, blank-line and EOF targets inside the current buffer: %j → %j', (before, after, line, offset) => {
+    expect(Array.from(sourceChangeLocations(after, compareSources(before, after).rows)))
+      .toEqual([[0, { line, offset }]]);
+  });
+
+  it('keeps raw CRLF and CR offsets without counting Unicode code points as UTF-16 offsets', () => {
+    const before = 'α 🙂\r\nold\rkeep\r\nremove\r\nend';
+    const after = 'α 🙂\r\nnew\rkeep\r\nend';
+    expect(Array.from(sourceChangeLocations(after, compareSources(before, after).rows))).toEqual([
+      [0, { line: 2, offset: after.indexOf('new') }],
+      [1, { line: 4, offset: after.indexOf('end') }],
+    ]);
+  });
+
+  it('uses folded gaps and full rows to reach the same deep deletion boundary', () => {
+    const before = numberedSource(260), after = before.replace('line 220\n', '');
+    for (const folded of [false, true]) {
+      expect(Array.from(sourceChangeLocations(after, compareSources(before, after, folded).rows)))
+        .toEqual([[0, { line: 220, offset: after.indexOf('line 221\n') }]]);
+    }
+  });
+
+  it('maps only displayed changes while still locating a replacement whose added rows were truncated', () => {
+    const before = numberedSource(2500), after = before.replace('line 1\n', 'first\n').replace('line 2490\n', 'last\n');
+    const full = compareSources(before, after, false);
+    expect(full.omittedLines).toBeGreaterThan(0);
+    expect(Array.from(sourceChangeLocations(after, full.rows))).toEqual([[0, { line: 1, offset: 0 }]]);
+    expect(sourceChangeLocations(after, compareSources(before, after).rows).get(1))
+      .toEqual({ line: 2490, offset: after.indexOf('last\n') });
+
+    const replacements = compareSources('keep\n' + numberedSource(1999), 'keep\nnew line\n', false);
+    expect(replacements.omittedLines).toBe(1);
+    expect(replacements.rows.some(row => row.kind === 'added')).toBe(false);
+    expect(Array.from(sourceChangeLocations('keep\nnew line\n', replacements.rows)))
+      .toEqual([[0, { line: 2, offset: 5 }]]);
+  });
+
+  it('provides no editing targets for an unavailable or identical comparison', () => {
+    expect(sourceChangeLocations('same', compareSources('same', 'same').rows).size).toBe(0);
+    const source = 'x'.repeat(256 * 1024);
+    expect(sourceChangeLocations(source, compareSources('', source + 'x').rows).size).toBe(0);
+  });
+});
 
 describe('line-based source comparison', () => {
   it('keeps accurate line numbers and groups adjacent removals and additions into one change', () => {

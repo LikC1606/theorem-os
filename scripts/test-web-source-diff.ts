@@ -58,7 +58,7 @@ let failedScenario = '';
 let failureScreenshot: string | undefined;
 const ready = (page: Page) => page.locator('#submit-run:enabled').waitFor();
 const result = (proof: string, status = 'incomplete'): WebResult => ({ status, proof, report: { fixture: 'source-diff' } });
-const sourceRows = (page: Page) => page.locator('.diff-scroll tr.diff-added, .diff-scroll tr.diff-removed, .diff-scroll tr.diff-context');
+const sourceRows = (page: Page) => page.locator('#detail-panel').locator('.diff-scroll tr.diff-added, .diff-scroll tr.diff-removed, .diff-scroll tr.diff-context');
 
 async function scenario(name: string, run: (h: Harness) => Promise<void>) {
   failedScenario = name;
@@ -148,13 +148,13 @@ async function rows(page: Page): Promise<DiffRow[]> {
   })));
 }
 async function count(page: Page, selector: string, expected: number) {
-  assert.equal(Number((await page.locator(selector).innerText()).replace(/[^0-9]/g, '')), expected, selector);
+  assert.equal(Number((await page.locator('#detail-panel').locator(selector).innerText()).replace(/[^0-9]/g, '')), expected, selector);
 }
 async function position(page: Page, expected: string) {
   assert.equal((await page.locator('#diff-position').innerText()).replace(/\s/g, ''), expected);
 }
 async function changeVisible(page: Page, index: number) {
-  const inView = await page.locator('.diff-scroll').evaluate((scroll, index) => {
+  const inView = await page.locator('#detail-panel .diff-scroll').evaluate((scroll, index) => {
     const row = scroll.querySelector(`[data-change-start="${index}"]`)!.getBoundingClientRect();
     const frame = scroll.getBoundingClientRect();
     const heading = scroll.querySelector('thead')!.getBoundingClientRect();
@@ -218,8 +218,8 @@ try {
     ];
     assert.deepEqual(await rows(h.page), expected);
     await count(h.page, '.diff-count-added', 5); await count(h.page, '.diff-count-removed', 4);
-    assert.equal(await h.page.locator('[data-change-start]').count(), 3);
-    assert.ok(await h.page.locator('.diff-no-newline[data-eof-side="both"]').count() > 0);
+    assert.equal(await h.page.locator('#detail-panel [data-change-start]').count(), 3);
+    assert.ok(await h.page.locator('#detail-panel .diff-no-newline[data-eof-side="both"]').count() > 0);
     await noInjection(h.page);
     await screenshot(h.page, 'source-diff-desktop-exact.png');
   });
@@ -231,17 +231,17 @@ try {
     const run = await createRun(h, 'Three distant changes', before.join('\n'), result(after.join('\n')));
     await selectSource(h, run.id);
     if (!(await h.page.locator('#diff-changes-only').isChecked())) await h.page.locator('#diff-changes-only').check();
-    assert.equal(await h.page.locator('.diff-gap').count(), 4);
-    assert.equal(await h.page.locator('.diff-context').count(), 18);
-    assert.equal(await h.page.locator('[data-change-start]').count(), 3);
+    assert.equal(await h.page.locator('#detail-panel .diff-gap').count(), 4);
+    assert.equal(await h.page.locator('#detail-panel .diff-context').count(), 18);
+    assert.equal(await h.page.locator('#detail-panel [data-change-start]').count(), 3);
     await position(h.page, '1/3');
     await h.page.locator('[data-action="diff-next"]').click(); await position(h.page, '2/3');
     await h.page.locator('[data-action="diff-next"]').click(); await position(h.page, '3/3');
     await h.page.locator('[data-action="diff-prev"]').click(); await position(h.page, '2/3');
     await h.page.locator('#diff-changes-only').uncheck();
-    assert.equal(await h.page.locator('.diff-gap').count(), 0);
+    assert.equal(await h.page.locator('#detail-panel .diff-gap').count(), 0);
     assert.equal((await rows(h.page)).length, 51);
-    assert.equal(await h.page.locator('.diff-context').count(), 45);
+    assert.equal(await h.page.locator('#detail-panel .diff-context').count(), 45);
     await h.page.locator('[data-action="diff-next"]').click();
     await position(h.page, '3/3'); await changeVisible(h.page, 2);
     await h.page.locator('button[data-source-view="input"]').click();
@@ -281,8 +281,8 @@ try {
     ] as const) {
       const run = await createRun(h, title, before, result(proof));
       await selectSource(h, run.id);
-      await h.page.locator('.diff-identical').waitFor();
-      if (formatOnly) assert.match(await h.page.locator('.diff-identical').innerText(), /\u4ec5\u6362\u884c\u683c\u5f0f\u4e0d\u540c/);
+      await h.page.locator('#detail-panel .diff-identical').waitFor();
+      if (formatOnly) assert.match(await h.page.locator('#detail-panel .diff-identical').innerText(), /\u4ec5\u6362\u884c\u683c\u5f0f\u4e0d\u540c/);
       assert.equal(await sourceRows(h.page).count(), 0);
       assert.equal(await h.page.locator('[data-action="diff-next"]').count(), 0);
       await copyProof(h.page, proof);
@@ -290,9 +290,9 @@ try {
     const run = await createRun(h, 'Final newline is a real change', 'theorem final_newline : True := by trivial', result('theorem final_newline : True := by trivial\n'));
     await selectSource(h, run.id);
     await count(h.page, '.diff-count-added', 1); await count(h.page, '.diff-count-removed', 1);
-    assert.equal(await h.page.locator('.diff-identical').count(), 0);
-    assert.equal(await h.page.locator('.diff-removed .diff-no-newline[data-eof-side="old"]').count(), 1);
-    assert.equal(await h.page.locator('.diff-added .diff-no-newline').count(), 0);
+    assert.equal(await h.page.locator('#detail-panel .diff-identical').count(), 0);
+    assert.equal(await h.page.locator('#detail-panel .diff-removed .diff-no-newline[data-eof-side="old"]').count(), 1);
+    assert.equal(await h.page.locator('#detail-panel .diff-added .diff-no-newline').count(), 0);
   });
 
   await scenario('Pending results and empty proof strings have no diff control and retain original input', async h => {
@@ -300,7 +300,7 @@ try {
       const run = await createRun(h, completed ? 'Empty proof result' : 'Result not ready', 'theorem original_only : True := by sorry', completed);
       await selectSource(h, run.id, false);
       assert.equal(await h.page.locator('button[data-source-view="diff"]').count(), 0);
-      assert.equal(await h.page.locator('.diff-scroll').count(), 0);
+      assert.equal(await h.page.locator('#detail-panel .diff-scroll').count(), 0);
       assert.equal(await h.page.locator('#detail-panel .code-scroll code').textContent(), run.source);
       await h.page.locator('[data-action="copy-source"]').click();
       assert.equal(await h.page.evaluate(() => navigator.clipboard.readText()), run.source);
@@ -333,12 +333,12 @@ try {
     await count(h.page, '.diff-count-added', 1); await count(h.page, '.diff-count-removed', 1);
     await h.page.locator('#diff-changes-only').uncheck();
     assert.equal(await sourceRows(h.page).count(), 2000);
-    await h.page.locator('.diff-truncated').waitFor();
-    assert.match(await h.page.locator('.diff-truncated').innerText(), /501/);
+    await h.page.locator('#detail-panel .diff-truncated').waitFor();
+    assert.match(await h.page.locator('#detail-panel .diff-truncated').innerText(), /501/);
     await copyProof(h.page, proof); await downloadProof(h.page, run, proof);
     await h.page.locator('#diff-changes-only').check();
     assert.ok((await rows(h.page)).some(row => row.type === 'added' && row.text === '-- changed last line'));
-    assert.equal(await h.page.locator('.diff-truncated').count(), 0);
+    assert.equal(await h.page.locator('#detail-panel .diff-truncated').count(), 0);
     await screenshot(h.page, 'source-diff-desktop-bounded.png');
   });
 
@@ -348,7 +348,7 @@ try {
     const run = await createRun(h, 'Bounded diff algorithm', before, result(proof));
     const started = performance.now();
     await selectSource(h, run.id);
-    await h.page.locator('.diff-unavailable').waitFor();
+    await h.page.locator('#detail-panel .diff-unavailable').waitFor();
     assert.ok(performance.now() - started < 5000, 'bounded algorithm must leave the page responsive');
     assert.equal(await sourceRows(h.page).count(), 0);
     assert.equal(await h.page.locator('[data-action="diff-next"]').count(), 0);
@@ -358,7 +358,7 @@ try {
     await h.page.locator('button[data-source-view="proof"]').click();
     assert.equal(await h.page.locator('#detail-panel .code-scroll code').textContent(), proof);
     await h.page.locator('button[data-source-view="diff"]').click();
-    await h.page.locator('.diff-unavailable').waitFor();
+    await h.page.locator('#detail-panel .diff-unavailable').waitFor();
     await screenshot(h.page, 'source-diff-desktop-unavailable.png');
   });
 
@@ -373,9 +373,11 @@ try {
       await h.page.setViewportSize({ width, height: width > 850 ? 900 : 812 });
       if (width <= 850) await h.page.locator('#mobile-runs').click();
       await horizontalFit(h.page, '.source-topline', width);
-      await horizontalFit(h.page, '.diff-scroll', width);
+      await horizontalFit(h.page, '#detail-panel .diff-scroll', width);
       for (const selector of ['button[data-source-view="diff"]', '[data-action="copy-source"]', '[data-action="download-proof"]',
         '[data-action="diff-prev"]', '[data-action="diff-next"]', '#diff-changes-only']) await horizontalFit(h.page, selector, width);
+      assert.equal(await h.page.locator('.diff-scroll-hint').isVisible(), width <= 560,
+        `mobile diff scrolling hint visibility at ${width}px`);
       const overlap = await h.page.locator('.source-topline button').evaluateAll(buttons => buttons.some((left, index) => {
         const a = left.getBoundingClientRect();
         return buttons.slice(index + 1).some(right => {
@@ -384,7 +386,7 @@ try {
         });
       }));
       assert.equal(overlap, false, `source buttons overlap at ${width}px`);
-      assert.equal(await h.page.locator('.diff-scroll').evaluate(scroll => scroll.scrollWidth > scroll.clientWidth), true, 'long code must scroll inside diff');
+      assert.equal(await h.page.locator('#detail-panel .diff-scroll').evaluate(scroll => scroll.scrollWidth > scroll.clientWidth), true, 'long code must scroll inside diff');
       await noInjection(h.page);
       await screenshot(h.page, `source-diff-${width}-changes.png`);
     }

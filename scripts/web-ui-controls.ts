@@ -15,6 +15,14 @@ export async function closeDialog(page: Page, selector: string, action: () => Pr
   await page.locator(selector).evaluate(dialog => { delete (dialog as HTMLElement).dataset.controlCloseCompleted; });
 }
 
+export async function discardSourceEditor(page: Page, action: () => Promise<unknown> = () => page.locator('#cancel-editor').click()) {
+  await closeDialog(page, '#source-editor', async () => {
+    await action();
+    await page.locator('#editor-discard-dialog[open]').waitFor();
+    await closeDialog(page, '#editor-discard-dialog', () => page.locator('#discard-editor-changes').click());
+  });
+}
+
 export async function closeSettings(page: Page) {
   if (await page.locator('#run-settings[open]').count()) {
     await closeDialog(page, '#run-settings', () => page.locator('#close-settings').click());

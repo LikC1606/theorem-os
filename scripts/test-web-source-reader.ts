@@ -112,7 +112,7 @@ async function showSource(page: Page) {
 }
 async function openFind(page: Page) {
   await page.locator('#open-source-find').click();
-  await page.locator('.source-find:not([hidden])').waitFor();
+  await page.locator('#source-find-controls:not([hidden])').waitFor();
   assert.equal(await page.locator('#open-source-find').getAttribute('aria-expanded'), 'true');
   assert.equal(await page.locator('#source-find-input').evaluate(input => input === document.activeElement), true);
   assert.equal(await page.locator('#source-find-input').getAttribute('maxlength'), '256');
@@ -121,6 +121,47 @@ async function openFind(page: Page) {
 async function search(page: Page, query: string, expected: string) {
   await page.locator('#source-find-input').fill(query);
   await position(page, expected);
+}
+async function openLine(page: Page) {
+  await page.locator('#open-source-line').click();
+  await page.locator('#source-line-controls:not([hidden])').waitFor();
+  assert.equal(await page.locator('#open-source-line').getAttribute('aria-expanded'), 'true');
+  assert.equal(await page.locator('#source-line-input').evaluate(input => input === document.activeElement), true);
+  assert.equal(await page.locator('#source-find-controls').isVisible(), false);
+}
+async function jumpLine(page: Page, line: number) {
+  await openLine(page);
+  await page.locator('#source-line-input').fill(String(line));
+  await page.keyboard.press('Enter');
+  assert.equal(await page.locator('#source-line-controls').isVisible(), false);
+  assert.match(await page.locator('#source-find-location').innerText(), new RegExp(`^第 ${line} 行`));
+}
+async function lineVisible(page: Page, line: number, scrollSelector: string, expected: string, fallback = false) {
+  const geometry = await page.locator(scrollSelector).evaluate((scroll, { line, fallback }) => {
+    const numbers = scroll.querySelector('.source-line-numbers,.preview-line-numbers')!;
+    const lines = numbers.textContent!.split('\n');
+    const start = lines.slice(0, line - 1).join('\n').length + (line > 1 ? 1 : 0);
+    const range = document.createRange();
+    range.setStart(numbers.firstChild!, start); range.setEnd(numbers.firstChild!, start + String(line).length);
+    const row = range.getBoundingClientRect(), frame = scroll.getBoundingClientRect();
+    const highlights = fallback ? [] : Array.from((CSS as unknown as { highlights: HighlightRegistry }).highlights.get('source-line') ?? []);
+    return { number: range.toString(), text: highlights.map(item => item.toString()),
+      top: row.top, bottom: row.bottom, left: row.left, right: row.right,
+      visibleTop: Math.max(frame.top + scroll.clientTop, 0),
+      visibleBottom: Math.min(frame.top + scroll.clientTop + scroll.clientHeight, innerHeight),
+      leftScroll: scroll.scrollLeft, pageWidth: innerWidth, background: fallback ? ''
+        : getComputedStyle(scroll.querySelector('code')!, '::highlight(source-line)').backgroundColor };
+  }, { line, fallback });
+  visibility.push({ label: `line ${line}`, width: page.viewportSize()!.width, geometry });
+  assert.equal(geometry.number, String(line));
+  assert.ok(geometry.top >= geometry.visibleTop - 1 && geometry.bottom <= geometry.visibleBottom + 1,
+    `target line must be visible: ${JSON.stringify(geometry)}`);
+  assert.ok(geometry.left >= 0 && geometry.right <= geometry.pageWidth);
+  assert.equal(geometry.leftScroll, 0, 'line navigation returns to the start of a long line');
+  if (!fallback) {
+    assert.deepEqual(geometry.text, [expected]);
+    assert.ok(geometry.background && !['transparent', 'rgba(0, 0, 0, 0)'].includes(geometry.background));
+  }
 }
 async function screenshot(page: Page, name: string) {
   await page.screenshot({ path: path.join(output, name) }); screenshots.push(name);
@@ -244,7 +285,7 @@ try {
     await screenshot(page, `source-reader-${width}.png`);
     for (const selector of ['.source-reader', '#source-find-input', '#source-find-prev', '#source-find-next', '#source-find-case', '#close-source-find']) await fit(page, selector);
     await page.locator('#source-find-input').focus(); await page.keyboard.press('Escape');
-    assert.equal(await page.locator('.source-find').isVisible(), false);
+    assert.equal(await page.locator('#source-find-controls').isVisible(), false);
     assert.equal(await page.locator(draftScroll).evaluate(scroll => scroll === document.activeElement), true);
     await page.keyboard.press('Control+f');
     assert.equal(await page.locator('#source-find-input').evaluate(input => input === document.activeElement), true);
@@ -254,6 +295,68 @@ try {
     assert.equal(await page.locator('#source-find-input').evaluate(input => input === document.activeElement), true);
     await page.locator('#close-source-find').click();
     assert.equal(await page.locator('#source').inputValue(), longSource, 'finding must not modify the submitted source');
+  }, width);
+
+  for (const width of widths) await scenario(`Line navigation validates input and reaches first, last and blank draft lines at ${width}px`, async h => {
+    const { page } = h;
+    const source = `${longSource}\n\n`;
+    await fillConfig(page, 'source', source); await showSource(page);
+    await openLine(page);
+    await plainTextNode(page, draftCode, source);
+    assert.equal(await page.locator('#source-line-input').getAttribute('max'), '222');
+    await screenshot(page, `source-line-${width}-controls.png`);
+    for (const selector of ['.source-reader', '#source-line-controls', '#source-line-input', '#source-line-go', '#close-source-line']) await fit(page, selector);
+    await page.locator('#source-line-input').fill('175');
+    await page.locator('#source-line-go').click();
+    await lineVisible(page, 175, draftScroll, longLines[174]!);
+    assert.equal(await page.locator(draftScroll).evaluate(scroll => scroll === document.activeElement), true);
+    await page.evaluate(({ code, scroll }) => {
+      const source = document.querySelector(code)!;
+      (window as unknown as { __lineProbe: unknown }).__lineProbe = { source, node: source.firstChild, scroll: document.querySelector(scroll) };
+    }, { code: draftCode, scroll: draftScroll });
+    await openLine(page);
+    const top = await page.locator(draftScroll).evaluate(scroll => scroll.scrollTop);
+    for (const invalid of ['', '0', '-1', '223', '1.5', '1e2']) {
+      await page.locator('#source-line-input').fill(invalid);
+      await page.keyboard.press('Enter');
+      assert.equal(await page.locator('#source-line-input').getAttribute('aria-invalid'), 'true');
+      assert.equal(await page.locator('#source-line-error').isVisible(), true);
+      assert.match(await page.locator('#source-line-error').innerText(), /1 至 222/);
+      assert.equal(await page.locator(draftScroll).evaluate(scroll => scroll.scrollTop), top, 'invalid line input must not change reading position');
+    }
+    await screenshot(page, `source-line-${width}-validation.png`);
+    await fit(page, '#source-line-error');
+    await page.locator('#source-line-input').fill('15');
+    assert.equal(await page.locator('#source-line-input').getAttribute('aria-invalid'), 'false');
+    const composing = await page.locator('#source-line-input').evaluate(input => input.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Enter', isComposing: true, bubbles: true, cancelable: true,
+    })));
+    assert.equal(composing, true, 'line navigation must not consume IME confirmation');
+    assert.equal(await page.locator('#source-line-controls').isVisible(), true);
+    await page.keyboard.press('Escape');
+    for (const line of [1, 15, 205, 220, 221, 222]) {
+      await jumpLine(page, line);
+      await lineVisible(page, line, draftScroll, source.split('\n')[line - 1]!);
+    }
+    const stable = await page.evaluate(({ code, scroll }) => {
+      const before = (window as unknown as { __lineProbe: { source: Element; node: Node; scroll: Element } }).__lineProbe;
+      return { source: before.source === document.querySelector(code), node: before.node === document.querySelector(code)!.firstChild,
+        scroll: before.scroll === document.querySelector(scroll) };
+    }, { code: draftCode, scroll: draftScroll });
+    assert.deepEqual(stable, { source: true, node: true, scroll: true });
+    await openFind(page); await search(page, 'needle', '1/3');
+    await jumpLine(page, 175); await lineVisible(page, 175, draftScroll, longLines[174]!);
+    await screenshot(page, `source-line-${width}-target.png`);
+    await openFind(page); await position(page, '1/3');
+    assert.equal(await page.locator('#source-find-input').inputValue(), 'needle', 'switching tools preserves the text query');
+    await page.locator('#close-source-find').click();
+    for (const modifier of ['Control', 'Meta']) {
+      await page.keyboard.press(`${modifier}+g`);
+      assert.equal(await page.locator('#source-line-input').evaluate(input => input === document.activeElement), true);
+      await page.keyboard.press('Escape');
+      assert.equal(await page.locator(draftScroll).evaluate(scroll => scroll === document.activeElement), true);
+    }
+    assert.equal(await page.locator('#source').inputValue(), source);
   }, width);
 
   await scenario('Syntax and literal search keep text nodes, selections and malicious code inert', async h => {
@@ -296,10 +399,14 @@ try {
     await page.locator('#task').focus();
     assert.equal(await page.locator('#task').evaluate(task => !task.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, bubbles: true, cancelable: true }))), false,
       'browser find must remain available outside the source reader');
-    assert.equal(await page.locator('.source-find').isVisible(), false);
+    assert.equal(await page.locator('#source-find-controls').isVisible(), false);
+    assert.equal(await page.locator('#task').evaluate(task => task.dispatchEvent(new KeyboardEvent('keydown', { key: 'g', ctrlKey: true, bubbles: true, cancelable: true }))), true,
+      'line navigation must not intercept shortcuts outside the source reader');
     await openSettings(page);
     assert.equal(await page.locator('#model').evaluate(model => !model.dispatchEvent(new KeyboardEvent('keydown', { key: 'f', metaKey: true, bubbles: true, cancelable: true }))), false,
       'source find must not intercept shortcuts in a settings dialog');
+    assert.equal(await page.locator('#model').evaluate(model => model.dispatchEvent(new KeyboardEvent('keydown', { key: 'g', metaKey: true, bubbles: true, cancelable: true }))), true,
+      'line navigation must not intercept shortcuts in a settings dialog');
     await closeSettings(page);
   });
 
@@ -321,6 +428,8 @@ try {
     await page.locator('[data-source-view="input"]').click();
     await plainTextNode(page, runCode, normalize(run.source));
     assert.equal(await page.locator('#source-find-input').inputValue(), 'needle'); await position(page, '1/2');
+    await jumpLine(page, 2); await lineVisible(page, 2, runScroll, '  sorry');
+    await openFind(page); await position(page, '1/2');
     await page.locator('[data-action="copy-source"]').click();
     assert.ok(run.source.includes('\r\n'), 'the accepted original fixture must retain internal CRLF');
     assert.equal(await page.evaluate(() => navigator.clipboard.readText()), run.source);
@@ -331,6 +440,9 @@ try {
     const other = await createRun(h, 'theorem second : True := by sorry', 'theorem second : True := by trivial');
     await selectSource(h, other.id);
     assert.equal(await page.locator('#source-find-input').inputValue(), '', 'a different run must start with a fresh source search');
+    assert.equal(await page.locator('#source-line-input').inputValue(), '1', 'a different run must start with a fresh line input');
+    assert.equal(await page.locator('#source-line-controls').isVisible(), false);
+    assert.equal(await page.locator('#source-find-location').innerText(), '');
     await openFind(page); await search(page, 'second', '1/1');
     assert.equal(await page.locator('#source').inputValue(), draft, 'source inspection must preserve the separate composer source');
     assert.equal(await page.locator('#task').inputValue(), task, 'source inspection must preserve the separate composer task');
@@ -376,6 +488,21 @@ try {
     assert.equal(await page.locator('#source-find-input').evaluate(input => input === document.activeElement), true);
     await position(page, '2/4');
     await screenshot(page, 'source-reader-live.png');
+    await jumpLine(page, 175); await lineVisible(page, 175, runScroll, longLines[174]!);
+    await openLine(page); await page.locator('#source-line-input').fill('21');
+    const beforeLineUpdate = await page.locator(runScroll).evaluate(scroll => {
+      (window as unknown as { __lineInput: Element | null }).__lineInput = document.querySelector('#source-line-input');
+      return { top: scroll.scrollTop, left: scroll.scrollLeft };
+    });
+    control.artifact(`${updated}\n-- needle another live append`);
+    await plainTextNode(page, runCode, `${updated}\n-- needle another live append`);
+    assert.equal(await page.locator('#source-line-input').inputValue(), '21');
+    assert.equal(await page.locator('#source-line-input').getAttribute('max'), '222');
+    assert.equal(await page.locator('#source-line-input').evaluate(input => input === document.activeElement
+      && input === (window as unknown as { __lineInput: Element }).__lineInput), true);
+    assert.deepEqual(await page.locator(runScroll).evaluate(scroll => ({ top: scroll.scrollTop, left: scroll.scrollLeft })), beforeLineUpdate,
+      'a live candidate update must not move the line reader');
+    await page.keyboard.press('Escape');
   });
 
   await scenario('Match caps are explicit and navigation wraps within bounded results', async h => {
@@ -404,6 +531,11 @@ try {
     assert.match(await page.locator('#source-find-scope').innerText(), /前 160 行/);
     assert.match(await page.locator('.preview-source-heading>span').innerText(), /前 160 \/ 250 行/);
     await search(page, 'outsidePreviewNeedle', '0/0');
+    await openLine(page);
+    assert.equal(await page.locator('#source-line-input').getAttribute('max'), '160');
+    await page.locator('#source-line-input').fill('200'); await page.keyboard.press('Enter');
+    assert.match(await page.locator('#source-line-error').innerText(), /1 至 160/);
+    assert.equal(await page.locator('#source-find-scope').isVisible(), true);
     assert.equal(await page.locator('#source').inputValue(), source, 'bounded inspection must retain the complete oversized draft');
     await screenshot(page, 'source-reader-preview-scope.png');
   });
@@ -420,10 +552,12 @@ try {
     await screenshot(page, 'source-reader-fallback.png');
     await page.locator('#close-source-find').click();
     assert.equal(await page.locator(draftScroll).evaluate(scroll => scroll === document.activeElement), true);
+    await jumpLine(page, 205); await lineVisible(page, 205, draftScroll, longLines[204]!, true);
+    assert.equal(await page.locator('#source').inputValue(), longSource);
   }, 375, true);
 
   await writeReport('passed');
-  console.log(`Source reader checks passed: ${checks.length} scenarios; syntax, literal find, bounded navigation, stable text and live updates, original-byte exports, mobile layouts and plain-text fallback.`);
+  console.log(`Source reader checks passed: ${checks.length} scenarios; syntax, literal find, line navigation, stable text and live updates, original-byte exports, mobile layouts and plain-text fallback.`);
   console.log(`Report: ${path.relative(root, reportFile)}`);
 } catch (error) {
   await writeReport('failed', error); throw error;

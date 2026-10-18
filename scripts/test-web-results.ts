@@ -160,6 +160,7 @@ async function deleteSelected(h: Harness, id: string) {
   await h.page.locator('#delete-run-dialog[open]').waitFor({ state: 'hidden' });
 }
 async function screenshot(page: Page, name: string) {
+  await page.waitForFunction(() => !document.querySelector('[data-motion]'));
   await page.screenshot({ path: path.join(output, name), fullPage: true });
   screenshots.push(name);
 }
@@ -236,6 +237,52 @@ try {
     await h.page.locator('[data-report-view="summary"]').click();
     await h.page.locator('.report-summary').waitFor();
     await assertNoInjection(h.page);
+  });
+
+  await scenario('Long diagnostics disclose clipping and open the intact original report at desktop and mobile widths', async h => {
+    const prefix = `${diagnostic}\n${'Lean diagnostic context '.repeat(200)}`.slice(0, 4000);
+    assert.equal(prefix.length, 4000);
+    const report = { candidateCheck: { passed: false, results: [
+      { theoremName: 'Fixture.long_diagnostic', status: 'failed', error: `${prefix}first-tail`,
+        stdoutPreview: `${prefix}different-tail`, stderrPreview: 'Short stderr remains visible' },
+    ] } };
+    const run = await createRun(h, 'Clipped report fixture', result(report, 'evaluated_failed'));
+    await refresh(h); await select(h, run.id, true);
+    for (const width of widths) {
+      await h.page.setViewportSize({ width, height: width > 850 ? 900 : 812 });
+      if (width <= 850) await h.page.locator('#mobile-runs').click();
+      await h.page.locator('[data-report-view="summary"]').click();
+      assert.equal(await h.page.locator('.diagnostic-entry').count(), 3, 'diagnostics with different tails must remain separate');
+      assert.equal(await h.page.locator('.diagnostic-limit').count(), 2, 'only clipped diagnostics show the notice');
+      assert.deepEqual(await h.page.locator('.diagnostic-output').allTextContents(), [prefix, prefix, 'Short stderr remains visible']);
+      await assertHorizontalFit(h.page, '.diagnostic-entry:first-of-type .diagnostic-limit', width);
+      await assertNoInjection(h.page);
+      const link = h.page.locator('.report-detail-link').last();
+      await link.scrollIntoViewIfNeeded();
+      assert.ok(await h.page.locator('#detail-panel').evaluate(panel => panel.scrollTop) > 0,
+        'the original-report entry must be tested from a scrolled diagnostic');
+      await screenshot(h.page, `results-${width}-clipped-diagnostic.png`);
+      await assertHorizontalFit(h.page, '.diagnostic-entry:first-of-type .report-detail-link', width);
+      const before = h.requests.filter(request => request.method !== 'GET').length;
+      await link.click();
+      assert.equal(await h.page.locator('[data-report-view="json"]').getAttribute('aria-pressed'), 'true');
+      assert.deepEqual(JSON.parse((await h.page.locator('.code-scroll.report code').textContent())!), report);
+      assert.equal(await h.page.locator('[data-report-view="json"]').evaluate(button => button === document.activeElement), true,
+        'opening the original report must leave focus on the JSON view control');
+      assert.equal(await h.page.locator('#detail-panel').evaluate(panel => panel.scrollTop), 0,
+        'switching reports must return the outer panel to the beginning');
+      assert.equal(await h.page.locator('.code-scroll.report').evaluate(report => report.scrollTop), 0);
+      const jsonButton = await h.page.locator('[data-report-view="json"]').boundingBox();
+      assert.ok(jsonButton && jsonButton.y >= 0 && jsonButton.y + jsonButton.height <= h.page.viewportSize()!.height,
+        'the focused JSON view control must be visible');
+      await screenshot(h.page, `results-${width}-original-report.png`);
+      assert.equal(h.requests.filter(request => request.method !== 'GET').length, before, 'opening the report must not write to the API');
+      await h.page.locator('[data-action="copy-report"]').click();
+      assert.deepEqual(JSON.parse(await h.page.evaluate(() => navigator.clipboard.readText())), report);
+    }
+    const download = h.page.waitForEvent('download');
+    await h.page.locator('[data-action="download-report"]').click();
+    assert.deepEqual(JSON.parse(await fs.readFile((await (await download).path())!, 'utf8')), report);
   });
 
   await scenario('Missing and malformed reports remain readable; canceled and error records without results retain downloadable archives', async h => {

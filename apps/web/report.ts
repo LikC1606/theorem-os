@@ -1,7 +1,7 @@
 import type { WebRun } from './shared';
 
 export type ReportTone = 'passed' | 'failed' | 'warning' | 'muted';
-export type ReportDiagnostic = { label: string; text: string };
+export type ReportDiagnostic = { label: string; text: string; truncated: boolean };
 export type ReportTarget = {
   name: string;
   status: string;
@@ -74,10 +74,11 @@ function diagnostics(row: Record<string, unknown>): ReportDiagnostic[] {
   const result: ReportDiagnostic[] = [];
   const seen = new Set<string>();
   for (const [key, label] of [['error', '错误'], ['stdoutPreview', '标准输出'], ['stderrPreview', '标准错误']]) {
-    const value = text(row[key])?.trim();
+    const raw = row[key];
+    const value = typeof raw === 'string' ? raw.trim() : '';
     if (!value || seen.has(value)) continue;
     seen.add(value);
-    result.push({ label, text: value });
+    result.push({ label, text: value.slice(0, maximumText), truncated: value.length > maximumText });
   }
   return result;
 }

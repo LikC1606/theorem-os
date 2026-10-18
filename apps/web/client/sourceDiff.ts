@@ -21,6 +21,8 @@ export type SourceComparison = {
   lineEndingsChanged: boolean;
 };
 
+export type SourceChangeLocation = { line: number; offset: number };
+
 const maximumInputBytes = 256 * 1024;
 const maximumRows = 2_000;
 const contextLines = 3;
@@ -92,4 +94,28 @@ export function compareSources(before: string, after: string, changesOnly = true
     previousChanged = changed;
   }
   return comparison;
+}
+
+// Map displayed changes to the current buffer, including deletion-only boundaries.
+// A folded gap still advances the new-side line number; truncated rows add no targets.
+export function sourceChangeLocations(source: string, rows: readonly SourceDiffRow[]): Map<number, SourceChangeLocation> {
+  if (!rows.length) return new Map();
+  const lineStarts = [0];
+  for (const match of source.matchAll(/\r\n|\r|\n/g)) lineStarts.push(match.index + match[0].length);
+  const candidates = new Map<number, { line: number; added: boolean }>();
+  let nextLine = 1;
+  for (const row of rows) {
+    if (row.kind === 'gap') { nextLine += row.count; continue; }
+    if (row.changeId !== undefined) {
+      const previous = candidates.get(row.changeId);
+      if (!previous || row.kind === 'added' && !previous.added) {
+        candidates.set(row.changeId, { line: row.newLine ?? nextLine, added: row.kind === 'added' });
+      }
+    }
+    if (row.newLine !== undefined) nextLine = row.newLine + 1;
+  }
+  return new Map(Array.from(candidates, ([id, candidate]) => {
+    const line = Math.max(1, Math.min(candidate.line, lineStarts.length));
+    return [id, { line, offset: lineStarts[line - 1] }];
+  }));
 }

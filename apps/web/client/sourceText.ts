@@ -1,10 +1,16 @@
 export type SourceMatch = { start: number; end: number; line: number; column: number };
+export type SourceSelection = Pick<SourceMatch, 'start' | 'end'>;
 export type LeanToken = { start: number; end: number; kind: 'comment' | 'keyword' | 'tactic' | 'placeholder' | 'string' | 'number' };
+
+export function sourceSearchPattern(query: string, caseSensitive = false): RegExp | undefined {
+  if (!query || query.length > 256) return undefined;
+  return new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), caseSensitive ? 'gu' : 'giu');
+}
 
 export function findSourceMatches(source: string, query: string, caseSensitive = false, maxMatches = 1000): { matches: SourceMatch[]; truncated: boolean } {
   const matches: SourceMatch[] = [];
-  if (!query || query.length > 256) return { matches, truncated: false };
-  const pattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), caseSensitive ? 'gu' : 'giu');
+  const pattern = sourceSearchPattern(query, caseSensitive);
+  if (!pattern) return { matches, truncated: false };
   const limit = Math.max(1, Math.min(1000, Number.isFinite(maxMatches) ? Math.floor(maxMatches) : 1000));
   let line = 1, column = 1, scanned = 0;
   for (const found of source.matchAll(pattern)) {

@@ -1,23 +1,29 @@
 import {
-  createIcons, ArrowDown, ArrowRight, ArrowUp, ArrowUpRight, Check, CheckCheck, ChevronDown, ChevronUp, CircleAlert, CircleCheck, Clock3, Copy, CopyPlus, Cpu,
-  Download, Eye, EyeOff, FileCode2, FileJson2, FlaskConical, GitBranch, List, Maximize2, MessageSquare, Network, PanelLeft, PanelRight, Paperclip,
-  Play, Plus, RefreshCw, RotateCcw, Search, SlidersHorizontal, Square, SquarePen, Trash2, TriangleAlert, Upload, X,
+  createIcons, ArrowDown, ArrowLeft, ArrowLeftRight, ArrowRight, ArrowUp, ArrowUpRight, Check, CheckCheck, ChevronDown, ChevronUp, CircleAlert, CircleCheck, Clock3, Copy, CopyPlus, CornerDownLeft, Cpu,
+  Download, Eye, EyeOff, FileCode2, FileJson2, FlaskConical, GitBranch, IndentDecrease, IndentIncrease, List, ListOrdered, Maximize2, MessageSquare, Network, PanelLeft, PanelRight, Paperclip,
+  Play, Plus, RefreshCw, RotateCcw, Search, SlidersHorizontal, Square, SquarePen, Trash2, TriangleAlert, Undo2, Upload, X,
 } from 'lucide';
 import type { WebCoordination, WebEffort, WebEnvironment, WebRun, WebRunInput, WebSession } from '../shared';
 import { formatDuration, isAcceptedRun, resultDescription, runProgress } from '../presentation';
-import { summarizeReport, type ReportCheck, type ReportTarget } from '../report';
+import { summarizeReport, type ReportCheck, type ReportDiagnostic, type ReportTarget } from '../report';
 import { filterRuns, type RunFilter } from './history';
 import { readLeanFile } from './sourceFile';
+import { sourceIndentEdit, type IndentDirection } from './sourceIndent';
+import type { SourceSelection } from './sourceText';
+import { EditorNavigation } from './editorNavigation';
+import { EditorReview } from './editorReview';
 import { decodeTaskDraft, encodeTaskDraft, readTaskDraftFile, taskDraftStorageKey, type TaskDraft } from './draft';
-import { compareSources, type SourceComparison, type SourceDiffRow } from './sourceDiff';
+import { compareSources, type SourceComparison } from './sourceDiff';
+import { sourceDiffRows } from './sourceDiffMarkup';
 import { submissionFields, submissionIssues, type SubmissionField, type SubmissionIssue } from './submission';
 import { SourceReader } from './sourceReader';
 import { ActivityReader } from './activityReader';
+import { DraftRecovery, type ReplacementReason } from './draftRecovery';
 import { animateEntrance, finishHiddenMotion, finishMotion } from './motion';
 
-const iconSet = { ArrowDown, ArrowRight, ArrowUp, ArrowUpRight, Check, CheckCheck, ChevronDown, ChevronUp, CircleAlert, CircleCheck, Clock3, Copy, CopyPlus, Cpu,
-  Download, Eye, EyeOff, FileCode2, FileJson2, FlaskConical, GitBranch, List, Maximize2, MessageSquare, Network, PanelLeft, PanelRight, Paperclip,
-  Play, Plus, RefreshCw, RotateCcw, Search, SlidersHorizontal, Square, SquarePen, Trash2, TriangleAlert, Upload, X };
+const iconSet = { ArrowDown, ArrowLeft, ArrowLeftRight, ArrowRight, ArrowUp, ArrowUpRight, Check, CheckCheck, ChevronDown, ChevronUp, CircleAlert, CircleCheck, Clock3, Copy, CopyPlus, CornerDownLeft, Cpu,
+  Download, Eye, EyeOff, FileCode2, FileJson2, FlaskConical, GitBranch, IndentDecrease, IndentIncrease, List, ListOrdered, Maximize2, MessageSquare, Network, PanelLeft, PanelRight, Paperclip,
+  Play, Plus, RefreshCw, RotateCcw, Search, SlidersHorizontal, Square, SquarePen, Trash2, TriangleAlert, Undo2, Upload, X };
 function icons(root: Element | Document | DocumentFragment = document) {
   createIcons({ icons: iconSet, root, attrs: { 'aria-hidden': 'true' } });
   root.querySelectorAll('svg[data-lucide]').forEach(svg => svg.removeAttribute('data-lucide'));
@@ -65,6 +71,7 @@ const state = {
   listSignature: '', detailSignature: '', panelSignature: '',
   connected: false, refreshing: false, connectionEpoch: 0,
   composing: false, conversationSignature: '', conversationRunId: '',
+  finishedRuns: new Set<string>(),
 };
 let pollTimer: ReturnType<typeof setTimeout> | undefined;
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -74,11 +81,17 @@ let readController = new AbortController();
 let pageActive = true;
 let sourceRevision = 0;
 let editorRevision = 0;
+let editorInitialSource = '';
+let editorOpenedFromPreview = false;
+let editorClosePosition: { start: number; end: number; direction: 'forward' | 'backward' | 'none'; top: number; left: number } | undefined;
 let deletionTarget: { id: string; title: string; csrfToken: string } | undefined;
 let draftReady = false;
 let draftDirty = false;
 let draftRevision = 0;
 let draftTimer: ReturnType<typeof setTimeout> | undefined;
+let latestDraft: TaskDraft | undefined;
+let replacingDraft = false;
+const draftRecovery = new DraftRecovery(() => sessionStorage);
 let taskImportSequence = 0;
 let pendingImport: { draft: TaskDraft; revision: number } | undefined;
 let sourceComparison: { runId: string; before: string; after: string; folded: boolean; result: SourceComparison } | undefined;
@@ -89,9 +102,15 @@ const sourceReader = new SourceReader(icons, () => {
 });
 const activityReader = new ActivityReader(icons, at => timestamp(at, true),
   (filename, text) => download(filename, text, 'application/json'));
+const editorNavigation = new EditorNavigation(element<HTMLDialogElement>('#source-editor'), updateEditorPosition,
+  updateEditorCount, () => state.session?.limits.maxSourceBytes ?? 0);
+const editorReview = new EditorReview(element<HTMLDialogElement>('#source-editor'), () => editorNavigation.close(),
+  updateEditorPosition, position => editorNavigation.locate(position));
 const validationShown = new Set<SubmissionField>();
 let chatWidth = 40;
 const conversationScroll = { top: 0, following: true };
+let historyCriteria = '';
+let historyReading: { top: number; anchors: Array<{ id: string; offset: number }> } = { top: 0, anchors: [] };
 
 class ApiError extends Error {
   constructor(message: string, readonly status: number) { super(message); }
@@ -246,8 +265,16 @@ function renderComposerSummary() {
   patchText(element('#workspace-title'), currentRun()?.title ?? '新研究');
   const stop = element<HTMLButtonElement>('#stop-research');
   const run = currentRun();
+  const cancelling = Boolean(run && state.cancelling.has(run.id));
   stop.hidden = !run || !activeRun(run);
-  stop.disabled = !state.connected || Boolean(run && state.cancelling.has(run.id));
+  stop.disabled = !state.connected || cancelling;
+  stop.title = cancelling ? '正在取消' : '取消运行';
+  stop.setAttribute('aria-label', stop.title);
+  stop.setAttribute('aria-busy', String(cancelling));
+  patchMarkup(stop, cancelling ? '<span class="spinner"></span>' : icon('square'));
+  const back = element<HTMLButtonElement>('#return-to-draft');
+  back.hidden = !run;
+  back.disabled = state.submitting;
   renderPreparation();
   renderTemplateSelection();
 }
@@ -379,7 +406,47 @@ function setDraftStatus(text: string, warning = false) {
   element('#draft-status').textContent = text;
   element('#draft-status').classList.toggle('warning', warning);
 }
+function renderDraftRecovery() {
+  const recovery = draftRecovery.current;
+  element('#draft-recovery').hidden = !recovery;
+  const button = element<HTMLButtonElement>('#restore-draft-settings');
+  button.hidden = !recovery;
+  button.disabled = state.submitting;
+  if (!recovery) return;
+  const labels: Record<ReplacementReason, string> = {
+    template: '已切换示例', reset: '已重置草稿', reuse: '已复用任务', import: '已载入任务文件',
+    source: '已导入 Lean 文件', edit: '已应用源码编辑',
+  };
+  patchText(element('#draft-recovery-text'), labels[recovery.reason]);
+  element('#draft-recovery-local').hidden = recovery.persisted;
+}
+function replaceDraft(reason: ReplacementReason, change: () => void) {
+  const before = latestDraft ?? captureDraft();
+  const track = draftReady && !replacingDraft;
+  const nested = replacingDraft;
+  replacingDraft = true;
+  try { change(); } finally { replacingDraft = nested; }
+  if (track) {
+    draftRecovery.remember(before, captureDraft(), reason);
+    renderDraftRecovery();
+  }
+}
+function recoverDraft() {
+  const recovery = draftRecovery.current;
+  if (!recovery || !state.session || state.submitting) return;
+  const fromSettings = element<HTMLDialogElement>('#run-settings').open;
+  draftRecovery.clear();
+  applyTaskDraft(recovery.draft);
+  startDraft(); saveDraft(); renderDraftRecovery();
+  if (fromSettings) {
+    field('source').focus();
+    field('source').scrollIntoView({ block: 'nearest', behavior: 'instant' });
+  }
+  else field('task').focus({ preventScroll: true });
+  toast('已恢复替换前的草稿，请重新填写 API Key');
+}
 function draftChanged(persist = true) {
+  latestDraft = captureDraft();
   draftRevision++;
   renderImportState();
   renderComposerSummary();
@@ -472,36 +539,40 @@ async function importTaskFile(file: File) {
 }
 function applyTemplate(id: string) {
   const template = state.session?.templates.find(item => item.id === id && item.environment === field('environment').value);
-  if (template) { field('source').value = template.source; field('task').value = template.task; }
-  sourceChanged();
+  replaceDraft('template', () => {
+    if (template) { field('source').value = template.source; field('task').value = template.task; }
+    sourceChanged();
+  });
 }
 function resetForm() {
   const session = state.session;
   if (!session || state.submitting) return;
-  clearValidation();
-  draftSourceExpanded = false;
-  const wasReady = draftReady;
-  draftReady = false;
-  clearTimeout(draftTimer); draftDirty = false;
-  element<HTMLFormElement>('#run-form').reset();
-  field('api-key').value = '';
-  element<HTMLInputElement>('#api-key').type = 'password';
-  updateKeyToggle();
-  for (const [id, value] of Object.entries({ model: session.defaults.model, effort: session.defaults.effort,
-    'max-turns': session.defaults.maxTurns, 'max-seconds': session.defaults.maxRunSeconds, workers: session.defaults.workers })) field(id).value = String(value);
-  element<HTMLInputElement>(`input[name="coordination"][value="${session.defaults.coordination}"]`).checked = true;
-  field('provider').value = session.providers[0]?.id ?? '';
-  field('environment').value = session.defaults.environment;
-  renderTemplates('', true);
-  field('source').value = ''; field('task').value = '';
-  applyTemplate(field('template').value); providerAddress(); updateEnvironment();
-  element('#form-error').hidden = true;
-  element('#draft-error').hidden = true;
-  draftReady = wasReady;
-  if (wasReady) {
-    try { sessionStorage.removeItem(taskDraftStorageKey); setDraftStatus('草稿已重置'); }
-    catch { setDraftStatus('草稿保存不可用', true); }
-  }
+  replaceDraft('reset', () => {
+    clearValidation();
+    draftSourceExpanded = false;
+    const wasReady = draftReady;
+    draftReady = false;
+    clearTimeout(draftTimer); draftDirty = false;
+    element<HTMLFormElement>('#run-form').reset();
+    field('api-key').value = '';
+    element<HTMLInputElement>('#api-key').type = 'password';
+    updateKeyToggle();
+    for (const [id, value] of Object.entries({ model: session.defaults.model, effort: session.defaults.effort,
+      'max-turns': session.defaults.maxTurns, 'max-seconds': session.defaults.maxRunSeconds, workers: session.defaults.workers })) field(id).value = String(value);
+    element<HTMLInputElement>(`input[name="coordination"][value="${session.defaults.coordination}"]`).checked = true;
+    field('provider').value = session.providers[0]?.id ?? '';
+    field('environment').value = session.defaults.environment;
+    renderTemplates('', true);
+    field('source').value = ''; field('task').value = '';
+    applyTemplate(field('template').value); providerAddress(); updateEnvironment();
+    element('#form-error').hidden = true;
+    element('#draft-error').hidden = true;
+    draftReady = wasReady;
+    if (wasReady) {
+      try { sessionStorage.removeItem(taskDraftStorageKey); setDraftStatus('草稿已重置'); }
+      catch { setDraftStatus('草稿保存不可用', true); }
+    }
+  });
 }
 function setCustomSource(source: string) {
   if (field('template').value) field('task').value = '保留原题声明，补全 Lean 证明并通过独立验收。';
@@ -515,18 +586,103 @@ function updateEditorCount() {
   const target = element('#editor-count');
   target.textContent = `${source.split(/\r\n|\r|\n/).length} 行 · ${byteLabel(size)}${limit ? ` / ${byteLabel(limit)}` : ''}`;
   target.classList.toggle('over-limit', Boolean(limit && size > limit));
+  const modified = source !== editorInitialSource;
+  const changeStatus = element('#editor-change-status');
+  patchText(changeStatus, modified ? '修改尚未应用' : '未修改');
+  changeStatus.classList.toggle('modified', modified);
+  editorNavigation.updateSource();
+  editorReview.updateSource();
+  updateEditorPosition();
 }
-function openEditor() {
-  if (!state.session || state.submitting) return;
+function updateEditorPosition() {
+  const editor = element<HTMLTextAreaElement>('#expanded-source');
+  const caret = editor.selectionDirection === 'backward' ? editor.selectionStart : editor.selectionEnd;
+  const prefix = editor.value.slice(0, caret);
+  const line = prefix.split('\n').length;
+  const column = Array.from(prefix.slice(prefix.lastIndexOf('\n') + 1)).length + 1;
+  const position = `第 ${line} 行 · 第 ${column} 列`, target = element('#editor-position');
+  patchText(target, position);
+  if (target.title !== position) target.title = position;
+  editorNavigation.updateSelection();
+}
+function indentEditor(direction: IndentDirection) {
+  if (!element<HTMLDialogElement>('#source-editor').open) return;
+  const editor = element<HTMLTextAreaElement>('#expanded-source');
+  const { value, selectionStart, selectionEnd, selectionDirection, scrollTop, scrollLeft } = editor;
+  const edit = sourceIndentEdit(value, selectionStart, selectionEnd, direction);
+  editor.focus({ preventScroll: true });
+  if (edit) {
+    editor.setSelectionRange(edit.from, edit.to);
+    // Use the browser's edit transaction to retain native undo and redo.
+    try { document.execCommand('insertText', false, edit.text); } catch {}
+    const applied = editor.value === value.slice(0, edit.from) + edit.text + value.slice(edit.to);
+    editor.setSelectionRange(applied ? edit.selectionStart : selectionStart, applied ? edit.selectionEnd : selectionEnd, selectionDirection);
+    const error = element('#editor-error');
+    error.hidden = applied;
+    if (!applied) error.textContent = '未能调整缩进，请直接编辑源码';
+    updateEditorCount();
+  }
+  editor.scrollTop = scrollTop; editor.scrollLeft = scrollLeft;
+  updateEditorPosition();
+}
+function openEditor(location?: { source: string; position: SourceSelection }) {
+  const dialog = element<HTMLDialogElement>('#source-editor');
+  if (!state.session || state.submitting || dialog.open) return;
+  editorOpenedFromPreview = Boolean(location || document.activeElement?.closest('#draft-preview'));
   // Keep the settings dialog underneath so native modal focus returns to its caller.
   editorRevision = sourceRevision;
-  field('expanded-source').value = field('source').value;
+  const source = field('source').value;
+  // A new native buffer keeps multiline undo transactions from an earlier opening out of this editor.
+  const previous = element<HTMLTextAreaElement>('#expanded-source');
+  const editor = previous.cloneNode(false) as HTMLTextAreaElement;
+  editor.value = source;
+  previous.replaceWith(editor);
+  editorInitialSource = editor.value;
+  editorClosePosition = undefined;
+  editorNavigation.reset(editor);
+  editorReview.reset(editor, editorInitialSource);
+  editor.setSelectionRange(0, 0);
   const environment = environmentInfo(field('environment').value);
   element('#editor-environment').textContent = environment ? `${environment.name} · ${leanVersion(environment.toolchain)}` : '';
   element('#editor-error').hidden = true;
   updateEditorCount();
-  showDialog(element<HTMLDialogElement>('#source-editor'));
-  field('expanded-source').focus();
+  showDialog(dialog);
+  editor.focus();
+  editor.scrollTop = 0; editor.scrollLeft = 0;
+  if (location?.source === source) editorNavigation.locate(location.position);
+}
+function requestEditorClose() {
+  const dialog = element<HTMLDialogElement>('#source-editor');
+  const confirmation = element<HTMLDialogElement>('#editor-discard-dialog');
+  if (!dialog.open || confirmation.open) return;
+  editorReview.close();
+  const editor = element<HTMLTextAreaElement>('#expanded-source');
+  if (editor.value === editorInitialSource) { dialog.close(); return; }
+  editorClosePosition = { start: editor.selectionStart, end: editor.selectionEnd, direction: editor.selectionDirection,
+    top: editor.scrollTop, left: editor.scrollLeft };
+  showDialog(confirmation);
+  element('#keep-editing').focus();
+}
+function keepEditing() {
+  const confirmation = element<HTMLDialogElement>('#editor-discard-dialog');
+  if (!confirmation.open) return;
+  confirmation.close();
+  const position = editorClosePosition;
+  editorClosePosition = undefined;
+  if (!element<HTMLDialogElement>('#source-editor').open) return;
+  editorReview.close();
+  const editor = element<HTMLTextAreaElement>('#expanded-source');
+  editor.focus({ preventScroll: true });
+  if (position) {
+    editor.setSelectionRange(position.start, position.end, position.direction);
+    editor.scrollTop = position.top; editor.scrollLeft = position.left;
+  }
+  updateEditorPosition();
+}
+function discardEditorChanges() {
+  element<HTMLDialogElement>('#editor-discard-dialog').close();
+  editorClosePosition = undefined;
+  element<HTMLDialogElement>('#source-editor').close();
 }
 function applyEditor() {
   const source = field('expanded-source').value;
@@ -536,8 +692,9 @@ function applyEditor() {
         : editorRevision !== sourceRevision ? '原始草稿已变化，请重新打开编辑器后修改' : '';
   element('#editor-error').textContent = error;
   element('#editor-error').hidden = !error;
-  if (error) return;
-  if (source !== field('source').value) setCustomSource(source);
+  if (error) { editorReview.close(); return; }
+  editorReview.close();
+  if (source !== field('source').value) replaceDraft('edit', () => setCustomSource(source));
   element<HTMLDialogElement>('#source-editor').close();
 }
 function updateKeyToggle() {
@@ -568,6 +725,8 @@ function renderRuntime() {
   element<HTMLButtonElement>('#export-draft').disabled = !session || state.submitting;
   element<HTMLButtonElement>('#new-research').disabled = !session || state.submitting;
   element<HTMLButtonElement>('#open-settings').disabled = !session || state.submitting;
+  renderDraftRecovery();
+  renderRunMonitor();
   renderImportState();
   renderDeleteState();
   renderConversation();
@@ -582,24 +741,145 @@ function status(run: WebRun) {
   if (['evaluated_failed', 'evaluated_rejected'].includes(run.result?.status ?? '')) return { label: '验收未通过', tone: 'failed', symbol: 'circle-alert' };
   return { label: '运行结束', tone: 'warning', symbol: 'clock-3' };
 }
-const badge = (run: WebRun) => { const value = status(run); return `<span class="badge ${value.tone}">${icon(value.symbol)}${value.label}</span>`; };
+function rememberFinishedRuns(previous: readonly WebRun[]) {
+  const active = new Set(previous.filter(activeRun).map(run => run.id));
+  for (const run of state.runs) {
+    if (active.has(run.id) && !activeRun(run) && run.id !== state.selectedId) state.finishedRuns.add(run.id);
+  }
+}
+function renderRunMonitor() {
+  const root = element('#run-monitor'), list = element('#run-monitor-list');
+  const available = new Set(state.runs.map(run => run.id));
+  for (const id of state.finishedRuns) if (!available.has(id) || id === state.selectedId) state.finishedRuns.delete(id);
+  const runs = state.runs.filter(run => activeRun(run) || state.finishedRuns.has(run.id)).toReversed();
+  const active = runs.filter(activeRun).length, finished = runs.length - active;
+  root.hidden = !runs.length;
+  root.dataset.stale = String(!state.connected);
+  patchText(element('#run-monitor-summary'), [active ? `${active} 项进行中` : '', finished ? `${finished} 项已结束` : ''].filter(Boolean).join('\n'));
+  const rows = new Map(Array.from(list.children, row => [(row as HTMLElement).dataset.monitorId, row as HTMLElement]));
+  const focused = document.activeElement instanceof HTMLElement && list.contains(document.activeElement) ? document.activeElement : undefined;
+  const left = list.scrollLeft, ids = new Set(runs.map(run => run.id));
+  for (const [id, row] of rows) if (!ids.has(id!)) row.remove();
+  let cursor = list.firstElementChild;
+  for (const run of runs) {
+    let row = rows.get(run.id);
+    if (!row) {
+      row = document.createElement('div'); row.className = 'run-monitor-entry'; row.dataset.monitorId = run.id;
+      row.innerHTML = `<button type="button" class="run-monitor-open" data-monitor-run-id="${html(run.id)}"><span class="run-monitor-icon" aria-hidden="true"></span><span class="run-monitor-copy"><span class="run-monitor-title"></span><span class="run-monitor-state"></span></span>${icon('arrow-up-right')}</button><button type="button" class="icon-button run-monitor-dismiss" data-dismiss-run-notice="${html(run.id)}" hidden>${icon('x')}</button>`;
+      icons(row);
+    }
+    const value = status(run), cancelling = activeRun(run) && state.cancelling.has(run.id);
+    const label = cancelling ? '正在取消' : value.label;
+    const description = state.connected ? label : `待同步 · ${label}`;
+    row.dataset.tone = value.tone;
+    const button = row.querySelector<HTMLButtonElement>('.run-monitor-open')!;
+    const current = String(run.id === state.selectedId), title = `${run.title} · ${description}`;
+    if (button.getAttribute('aria-current') !== current) button.setAttribute('aria-current', current);
+    if (button.title !== title) button.title = title;
+    patchText(row.querySelector('.run-monitor-title')!, run.title);
+    patchText(row.querySelector('.run-monitor-state')!, description);
+    patchMarkup(row.querySelector<HTMLElement>('.run-monitor-icon')!, cancelling ? '<span class="spinner"></span>' : icon(value.symbol));
+    const dismiss = row.querySelector<HTMLButtonElement>('.run-monitor-dismiss')!;
+    dismiss.hidden = activeRun(run);
+    dismiss.title = `忽略结束提醒：${run.title}`;
+    dismiss.setAttribute('aria-label', dismiss.title);
+    if (row !== cursor) list.insertBefore(row, cursor);
+    cursor = row.nextElementSibling;
+  }
+  list.scrollLeft = left;
+  if (focused && !focused.isConnected && !document.querySelector('dialog[open]')) element('#open-history').focus({ preventScroll: true });
+}
+function rememberHistoryScroll() {
+  const list = element('#run-list');
+  if (!list.getClientRects().length) return;
+  const top = list.getBoundingClientRect().top + list.clientTop;
+  const rows = Array.from(list.querySelectorAll<HTMLElement>(':scope > [data-history-id]'), row => {
+    const bounds = row.getBoundingClientRect();
+    return { id: row.dataset.historyId!, offset: bounds.top - top, bottom: bounds.bottom - top };
+  });
+  const firstVisible = rows.findIndex(row => row.bottom > 0);
+  // Keep a surviving row at its previous offset when entries above it change.
+  const ordered = firstVisible < 0 ? rows.toReversed() : [...rows.slice(firstVisible), ...rows.slice(0, firstVisible).reverse()];
+  historyReading = { top: list.scrollTop, anchors: ordered.map(({ id, offset }) => ({ id, offset })) };
+}
+function restoreHistoryScroll() {
+  const list = element('#run-list');
+  if (!list.getClientRects().length) return;
+  const rows = new Map(Array.from(list.querySelectorAll<HTMLElement>(':scope > [data-history-id]'), row => [row.dataset.historyId, row]));
+  const anchor = historyReading.anchors.find(anchor => rows.has(anchor.id));
+  if (historyReading.top && anchor) {
+    const top = list.getBoundingClientRect().top + list.clientTop;
+    list.scrollTop += rows.get(anchor.id)!.getBoundingClientRect().top - top - anchor.offset;
+  } else list.scrollTop = historyReading.top;
+  rememberHistoryScroll();
+}
+function closeHistoryDialog() {
+  rememberHistoryScroll();
+  element<HTMLDialogElement>('#history-dialog').close();
+}
 function renderRunList(force = false) {
+  renderRunMonitor();
   const runs = visibleRuns();
   const filtered = Boolean(state.query.trim() || state.filter !== 'all');
-  const signature = JSON.stringify([state.selectedId, state.query, state.filter, runs.map(run => [run.id, run.title, run.status, run.phase, run.model, run.environment, run.result?.status])]);
-  element('#run-count').textContent = filtered ? `${runs.length}/${state.runs.length}` : String(state.runs.length);
-  element('#mobile-run-count').textContent = String(state.runs.length);
+  const criteria = JSON.stringify([state.query, state.filter]);
+  const signature = JSON.stringify([state.selectedId, criteria, runs.map(run => [run.id, run.title, run.model, run.createdAt, environmentName(run.environment), status(run)])]);
+  patchText(element('#run-count'), filtered ? `${runs.length}/${state.runs.length}` : String(state.runs.length));
+  patchText(element('#mobile-run-count'), String(state.runs.length));
   element('#clear-run-search').hidden = !state.query;
   if (!force && signature === state.listSignature) return;
   state.listSignature = signature;
-  const focused = document.activeElement instanceof HTMLElement ? document.activeElement.dataset.runId : undefined;
-  element('#run-list').innerHTML = runs.length ? runs.map(run => `
-    <div role="listitem"><button type="button" class="run-row ${run.id === state.selectedId ? 'selected' : ''}" data-run-id="${html(run.id)}" aria-pressed="${run.id === state.selectedId}" title="${html(run.title)}">
-      <span class="run-row-title">${html(run.title)}</span><span class="run-row-meta"><span class="run-row-model">${html(run.model)}</span><span class="run-environment">${html(environmentName(run.environment))}</span></span>
-      <span class="run-row-bottom">${badge(run)}<time datetime="${html(run.createdAt)}">${html(timestamp(run.createdAt))}</time></span>
-    </button></div>`).join('') : `<div class="empty-state compact" role="status">${icon(filtered ? 'search' : 'clock-3')}<p>${filtered ? '没有匹配的运行' : '暂无运行记录'}</p>${filtered ? '<button type="button" class="text-button" data-clear-filters>清除筛选</button>' : ''}</div>`;
-  if (focused) Array.from(document.querySelectorAll<HTMLButtonElement>('[data-run-id]')).find(button => button.dataset.runId === focused)?.focus({ preventScroll: true });
-  icons();
+  if (criteria === historyCriteria) rememberHistoryScroll();
+  else historyReading = { top: 0, anchors: [] };
+  historyCriteria = criteria;
+  const list = element('#run-list');
+  const focused = document.activeElement instanceof HTMLElement && list.contains(document.activeElement) ? document.activeElement : undefined;
+  const rows = new Map(Array.from(list.querySelectorAll<HTMLElement>(':scope > [data-history-id]'), row => [row.dataset.historyId!, row]));
+  const focusedIndex = Array.from(rows.keys()).indexOf(focused?.dataset.runId ?? '');
+  const ids = new Set(runs.map(run => run.id));
+  for (const child of Array.from(list.children)) {
+    const row = child as HTMLElement;
+    if (!ids.has(row.dataset.historyId ?? '') && (runs.length || !row.hasAttribute('data-history-empty'))) row.remove();
+  }
+  let cursor = list.firstElementChild;
+  for (const run of runs) {
+    let row = rows.get(run.id);
+    if (!row) {
+      row = document.createElement('div'); row.setAttribute('role', 'listitem'); row.dataset.historyId = run.id;
+      row.innerHTML = '<button type="button" class="run-row"><span class="run-row-title"></span><span class="run-row-meta"><span class="run-row-model"></span><span class="run-environment"></span></span><span class="run-row-bottom"><span class="badge"></span><time></time></span></button>';
+      row.querySelector<HTMLButtonElement>('button')!.dataset.runId = run.id;
+      rows.set(run.id, row);
+    }
+    const button = row.querySelector<HTMLButtonElement>('button')!;
+    const selected = run.id === state.selectedId, value = status(run);
+    button.classList.toggle('selected', selected);
+    if (button.getAttribute('aria-pressed') !== String(selected)) button.setAttribute('aria-pressed', String(selected));
+    if (button.title !== run.title) button.title = run.title;
+    patchText(row.querySelector('.run-row-title')!, run.title);
+    patchText(row.querySelector('.run-row-model')!, run.model);
+    patchText(row.querySelector('.run-environment')!, environmentName(run.environment));
+    const badge = row.querySelector<HTMLElement>('.badge')!;
+    const className = `badge ${value.tone}`;
+    if (badge.className !== className) badge.className = className;
+    patchMarkup(badge, `${icon(value.symbol)}${html(value.label)}`);
+    const time = row.querySelector('time')!;
+    if (time.dateTime !== run.createdAt) time.dateTime = run.createdAt;
+    patchText(time, timestamp(run.createdAt));
+    if (row !== cursor) list.insertBefore(row, cursor);
+    cursor = row.nextElementSibling;
+  }
+  if (!runs.length) {
+    let empty = list.querySelector<HTMLElement>('[data-history-empty]');
+    if (!empty) {
+      empty = document.createElement('div'); empty.className = 'empty-state compact';
+      empty.dataset.historyEmpty = ''; empty.setAttribute('role', 'status'); list.append(empty);
+    }
+    patchMarkup(empty, `${icon(filtered ? 'search' : 'clock-3')}<p>${filtered ? '没有匹配的运行' : '暂无运行记录'}</p>${filtered ? '<button type="button" class="text-button" data-clear-filters>清除筛选</button>' : ''}`);
+  }
+  restoreHistoryScroll();
+  if (focused && document.activeElement !== focused && list.getClientRects().length) {
+    const fallback = rows.get(runs[Math.min(Math.max(focusedIndex, 0), runs.length - 1)]?.id ?? '')?.querySelector<HTMLButtonElement>('button');
+    (focused.isConnected ? focused : fallback ?? field('run-search')).focus({ preventScroll: true });
+  }
 }
 const visibleRuns = () => filterRuns(state.runs, state.query, state.filter);
 function clearFilters() {
@@ -678,12 +958,15 @@ function sourceView(run: WebRun, content: ReturnType<typeof sourceContent>) {
 }
 function updateSourceReader() {
   const run = currentRun();
+  const editableSource = !run ? field('source').value : undefined;
   const code = document.querySelector<HTMLElement>(run ? '#detail-panel .source-code code' : '#draft-preview-code code');
   const scroll = document.querySelector<HTMLElement>(run ? '#detail-panel .source-code-grid' : '.draft-source-scroll');
   const toolbar = document.querySelector<HTMLElement>('#run-detail .source-reader');
   sourceReader.update(code && scroll && toolbar ? { id: run?.id ?? 'draft', code, scroll, toolbar,
+    ...(editableSource === undefined ? {} : { edit: { source: editableSource,
+      open: (position: SourceSelection) => openEditor({ source: editableSource, position }) } }),
     ...(!run && document.querySelector('.preview-source-heading>span')?.textContent?.startsWith('前 ')
-      ? { scope: '仅查找当前预览的前 160 行；缩小源码至允许大小后可查找完整文件。' } : {}) } : undefined);
+      ? { scope: '仅查看当前预览的前 160 行；缩小源码至允许大小后可查看完整文件。' } : {}) } : undefined);
 }
 function sourceDiffView(run: WebRun, proofLabel: string) {
   const before = run.source, after = candidateSource(run);
@@ -696,18 +979,10 @@ function sourceDiffView(run: WebRun, proofLabel: string) {
   const heading = `<div class="diff-heading"><span>原始题目</span>${icon('arrow-right')}<span>${proofLabel}</span></div>`;
   if (comparison.status === 'identical') return `${heading}<div class="empty-state diff-identical" role="status">${icon('check-check')}<p>${comparison.lineEndingsChanged ? '仅换行格式不同' : '源码内容相同'}</p></div>`;
   if (comparison.status === 'unavailable') return `${heading}<div class="empty-state diff-unavailable" role="status">${icon('file-code-2')}<p>差异过多，无法生成对比</p></div>`;
-  const seen = new Set<number>();
-  const rows = comparison.rows.map(row => sourceDiffRow(row, seen)).join('');
-  state.diffChange = Math.max(0, Math.min(state.diffChange, seen.size - 1));
-  return `${heading}<div class="diff-toolbar"><div class="diff-counts"><span class="diff-count-added" aria-label="新增 ${comparison.added} 行">+${comparison.added}</span><span class="diff-count-removed" aria-label="删除 ${comparison.removed} 行">-${comparison.removed}</span></div><label class="diff-toggle"><input type="checkbox" id="diff-changes-only" ${state.foldUnchanged ? 'checked' : ''}><span>折叠未改动</span></label><div class="diff-navigation"><button type="button" class="icon-button" data-action="diff-prev" title="上一处更改" aria-label="上一处更改" ${state.diffChange === 0 || !seen.size ? 'disabled' : ''}>${icon('chevron-up')}</button><span id="diff-position" class="mono" aria-live="polite">${seen.size ? state.diffChange + 1 : 0}/${seen.size}</span><button type="button" class="icon-button" data-action="diff-next" title="下一处更改" aria-label="下一处更改" ${state.diffChange >= seen.size - 1 ? 'disabled' : ''}>${icon('chevron-down')}</button></div></div>
+  const { markup: rows, changeCount } = sourceDiffRows(comparison.rows);
+  state.diffChange = Math.max(0, Math.min(state.diffChange, changeCount - 1));
+  return `${heading}<div class="diff-toolbar"><div class="diff-counts"><span class="diff-count-added" aria-label="新增 ${comparison.added} 行">+${comparison.added}</span><span class="diff-count-removed" aria-label="删除 ${comparison.removed} 行">-${comparison.removed}</span></div><label class="diff-toggle"><input type="checkbox" id="diff-changes-only" ${state.foldUnchanged ? 'checked' : ''}><span>折叠未改动</span></label><div class="diff-navigation"><button type="button" class="icon-button" data-action="diff-prev" title="上一处更改" aria-label="上一处更改" ${state.diffChange === 0 || !changeCount ? 'disabled' : ''}>${icon('chevron-up')}</button><span id="diff-position" class="mono" aria-live="polite">${changeCount ? state.diffChange + 1 : 0}/${changeCount}</span><button type="button" class="icon-button" data-action="diff-next" title="下一处更改" aria-label="下一处更改" ${state.diffChange >= changeCount - 1 ? 'disabled' : ''}>${icon('chevron-down')}</button></div><span class="diff-scroll-hint" role="note">${icon('arrow-left-right')}<span>长行可左右滑动查看</span></span></div>
     <div class="diff-scroll" tabindex="0" aria-label="源码差异对比"><table class="diff-table"><caption class="sr-only">原始题目与${proofLabel}的逐行差异</caption><thead><tr><th scope="col">原始</th><th scope="col">${passed(run) ? '验收' : '候选'}</th><th scope="col">源码</th></tr></thead><tbody>${rows}</tbody></table></div>${comparison.omittedLines ? `<p class="diff-truncated" role="status">另有 ${comparison.omittedLines} 行未展示</p>` : ''}`;
-}
-function sourceDiffRow(row: SourceDiffRow, seen: Set<number>) {
-  if (row.kind === 'gap') return `<tr class="diff-gap"><td colspan="3">${row.count} 行未改动</td></tr>`;
-  const firstChange = row.changeId !== undefined && !seen.has(row.changeId);
-  if (row.changeId !== undefined) seen.add(row.changeId);
-  return `<tr class="diff-${row.kind}"${row.oldLine === undefined ? '' : ` data-old-line="${row.oldLine}"`}${row.newLine === undefined ? '' : ` data-new-line="${row.newLine}"`}${firstChange ? ` data-change-start="${row.changeId}"` : ''}>
-    <td class="diff-line-no">${row.oldLine ?? ''}</td><td class="diff-line-no">${row.newLine ?? ''}</td><td class="diff-code"><span class="diff-marker" aria-hidden="true">${row.kind === 'added' ? '+' : row.kind === 'removed' ? '-' : ' '}</span><code data-diff-text>${html(row.text)}</code>${row.noNewline ? `<span class="diff-no-newline" data-eof-side="${row.kind === 'removed' ? 'old' : row.kind === 'added' ? 'new' : 'both'}">文件末尾无换行</span>` : ''}</td></tr>`;
 }
 function updateDiffNavigation(move = 0, align = false) {
   const scroll = document.querySelector<HTMLElement>('#detail-panel .diff-scroll');
@@ -746,7 +1021,11 @@ function reportTarget(target: ReportTarget) {
   const counts = [target.sorryCount === undefined ? '' : `sorry ${target.sorryCount}`, target.admitCount === undefined ? '' : `admit ${target.admitCount}`].filter(Boolean).join(' · ');
   return `<li class="verification-target"><div class="target-heading"><code>${html(target.name)}</code><span class="badge ${target.tone}">${html(target.status)}</span></div>
     ${counts ? `<p class="target-counts mono">${html(counts)}</p>` : ''}
-    ${target.diagnostics.length ? `<details class="target-diagnostics" ${target.tone === 'failed' ? 'open' : ''}><summary>诊断记录 <span class="field-count">${target.diagnostics.length}</span></summary>${target.diagnostics.map(diagnostic => `<div class="diagnostic-entry"><h4>${html(diagnostic.label)}</h4><pre class="diagnostic-output" tabindex="0">${html(diagnostic.text)}</pre></div>`).join('')}</details>` : ''}</li>`;
+    ${target.diagnostics.length ? `<details class="target-diagnostics" ${target.tone === 'failed' ? 'open' : ''}><summary>诊断记录 <span class="field-count">${target.diagnostics.length}</span></summary>${target.diagnostics.map(reportDiagnostic).join('')}</details>` : ''}</li>`;
+}
+function reportDiagnostic(diagnostic: ReportDiagnostic) {
+  return `<div class="diagnostic-entry"><h4>${html(diagnostic.label)}</h4><pre class="diagnostic-output" tabindex="0">${html(diagnostic.text)}</pre>
+    ${diagnostic.truncated ? `<p class="diagnostic-limit"><span>仅显示前 4000 字符</span><button type="button" class="report-detail-link" data-report-view="json">${icon('file-json-2')}查看原始报告</button></p>` : ''}</div>`;
 }
 function renderPanel(force = false) {
   const run = currentRun();
@@ -762,6 +1041,7 @@ function renderPanel(force = false) {
     || state.tab === 'report' && panel.dataset.renderReportMode !== state.reportMode);
   if (navigating) finishMotion(panel);
   const samePanel = panel.dataset.renderRunId === run.id && panel.dataset.tab === state.tab;
+  const switchingReport = samePanel && state.tab === 'report' && panel.dataset.renderReportMode !== state.reportMode;
   const sameView = samePanel && (state.tab !== 'source' || panel.dataset.renderSourceView === state.sourceView);
   const previousScroll = panel.querySelector('.code-scroll,.activity-scroll,.diff-scroll');
   const scrollTop = sameView ? previousScroll?.scrollTop ?? 0 : 0;
@@ -789,6 +1069,7 @@ function renderPanel(force = false) {
   panel.dataset.renderRunId = run.id; panel.dataset.tab = state.tab;
   panel.dataset.renderSourceView = state.sourceView;
   panel.dataset.renderReportMode = state.reportMode;
+  if (switchingReport) { panel.scrollTop = 0; panel.scrollLeft = 0; }
   const scroll = panel.querySelector<HTMLElement>('.code-scroll,.activity-scroll,.diff-scroll');
   if (scroll && state.tab !== 'events') { scroll.scrollTop = scrollTop; scroll.scrollLeft = scrollLeft; }
   if (samePanel && action) panel.querySelector<HTMLElement>(`[data-action="${action}"]`)?.focus({ preventScroll: true });
@@ -912,7 +1193,7 @@ function selectRun(id: string, closeHistory = true) {
   state.tab = 'source'; state.sourceView = 'proof'; state.reportMode = 'summary'; state.detailError = ''; state.panelSignature = '';
   state.diffChange = 0;
   renderRunList(); renderDetail(true);
-  if (closeHistory) element<HTMLDialogElement>('#history-dialog').close();
+  if (closeHistory) closeHistoryDialog();
 }
 function startDraft(reset = false) {
   state.composing = true;
@@ -943,12 +1224,14 @@ async function refreshRuns(epoch: number) {
   const generation = ++state.listGeneration;
   const { runs } = await api<{ runs: WebRun[] }>('/api/runs');
   if (generation !== state.listGeneration || !currentConnection(epoch)) return;
+  const previous = state.runs;
   state.runs = runs.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   if (!state.composing && (!state.selectedId || !state.runs.some(run => run.id === state.selectedId))) {
     state.selectedId = state.runs[0]?.id ?? '';
     state.tab = 'source'; state.sourceView = 'proof'; state.reportMode = 'summary'; state.panelSignature = '';
   }
   state.selectedRun = state.runs.find(run => run.id === state.selectedId);
+  rememberFinishedRuns(previous);
   state.detailError = '';
   element('#runs-error').hidden = true;
   renderRunList(); renderDetail(); renderDeleteState();
@@ -995,6 +1278,7 @@ function initialize(): Promise<void> {
       const firstLoad = !state.session;
       if (state.session && state.session.csrfToken !== session.csrfToken) {
         state.runs = []; state.selectedId = ''; state.selectedRun = undefined;
+        state.finishedRuns.clear(); state.cancelling.clear();
         state.detailError = ''; state.panelSignature = '';
         renderRunList(); renderDetail();
         toast('会话已更新，未提交内容已保留');
@@ -1010,7 +1294,7 @@ function initialize(): Promise<void> {
       element<HTMLInputElement>('#max-turns').max = String(session.limits.maxTurns);
       element<HTMLInputElement>('#max-seconds').max = String(session.limits.maxRunSeconds);
       element<HTMLInputElement>('#workers').max = String(session.limits.maxWorkers);
-      if (firstLoad) { resetForm(); restoreDraft(); draftReady = true; }
+      if (firstLoad) { resetForm(); restoreDraft(); draftReady = true; draftRecovery.load(); renderDraftRecovery(); }
       providerAddress(); updateEnvironment(); updateCounts(); renderRuntime();
       await refreshRuns(epoch);
       if (!currentConnection(epoch)) return;
@@ -1058,6 +1342,7 @@ element<HTMLFormElement>('#run-form').addEventListener('submit', async event => 
     closeSettings();
     state.submitting = true; renderRuntime();
     sent = true;
+    draftRecovery.clear(); renderDraftRecovery();
     const { run } = await api<{ run: WebRun }>('/api/runs', { method: 'POST', body: JSON.stringify(input) });
     field('api-key').value = '';
     clearValidation();
@@ -1091,16 +1376,28 @@ async function cancelRun() {
   const run = currentRun();
   if (!state.connected || !run || !activeRun(run) || state.cancelling.has(run.id)) return;
   const epoch = state.connectionEpoch;
-  state.cancelling.add(run.id); renderDetail();
+  const sessionToken = state.session?.csrfToken;
+  const confirmed = () => state.session?.csrfToken === sessionToken
+    ? state.runs.find(item => item.id === run.id && !activeRun(item)) : undefined;
+  const showConfirmed = (latest: WebRun) => toast(latest.status === 'cancelled' ? '运行已取消' : '研究已结束');
+  state.cancelling.add(run.id); renderRunMonitor(); renderDetail();
   try {
     const result = await api<{ run: WebRun }>(`/api/runs/${encodeURIComponent(run.id)}/cancel`, { method: 'POST' });
+    const latest = confirmed();
+    if (latest) { showConfirmed(latest); return; }
     if (!currentConnection(epoch)) { toast('取消请求已送达，请核对运行记录'); void poll(); return; }
     state.listGeneration++;
+    const previous = state.runs.slice();
     const index = state.runs.findIndex(item => item.id === run.id);
     if (index >= 0) state.runs[index] = result.run;
     if (state.selectedId === run.id) state.selectedRun = result.run;
+    rememberFinishedRuns(previous);
     toast('已请求取消运行');
   } catch (error) {
+    if (state.session?.csrfToken !== sessionToken) return;
+    // A newer GET may already have confirmed the terminal state while the POST response was delayed.
+    const latest = confirmed();
+    if (latest) { showConfirmed(latest); return; }
     const uncertain = !(error instanceof ApiError) || error.status >= 500;
     if (currentConnection(epoch)) {
       if (state.selectedId === run.id) state.detailError = uncertain ? '取消结果尚未确认，请核对最新运行状态。' : message(error);
@@ -1200,24 +1497,30 @@ async function copyText(text: string, success: string) {
 function reuseRun(run: WebRun) {
   const session = state.session;
   if (!session || state.submitting) return;
-  clearValidation();
-  field('provider').value = session.providers.some(provider => provider.id === run.providerId) ? run.providerId : '';
-  field('environment').value = run.environment;
-  renderTemplates();
-  for (const [id, value] of Object.entries({ model: run.model, effort: run.effort, source: run.source, task: run.task,
-    'max-turns': run.maxTurns, 'max-seconds': run.maxRunSeconds, workers: run.workers })) field(id).value = String(value);
-  element<HTMLInputElement>(`input[name="coordination"][value="${run.coordination}"]`).checked = true;
-  field('api-key').value = '';
-  element<HTMLInputElement>('#api-key').type = 'password';
-  updateKeyToggle(); providerAddress(); updateEnvironment(); sourceChanged();
-  element('#form-error').hidden = true;
-  startDraft();
-  openSettings('api-key');
-  toast('已载入原始题目与执行配置');
+  replaceDraft('reuse', () => {
+    clearValidation();
+    field('provider').value = session.providers.some(provider => provider.id === run.providerId) ? run.providerId : '';
+    field('environment').value = run.environment;
+    renderTemplates();
+    for (const [id, value] of Object.entries({ model: run.model, effort: run.effort, source: run.source, task: run.task,
+      'max-turns': run.maxTurns, 'max-seconds': run.maxRunSeconds, workers: run.workers })) field(id).value = String(value);
+    element<HTMLInputElement>(`input[name="coordination"][value="${run.coordination}"]`).checked = true;
+    field('api-key').value = '';
+    element<HTMLInputElement>('#api-key').type = 'password';
+    updateKeyToggle(); providerAddress(); updateEnvironment(); sourceChanged();
+    element('#form-error').hidden = true;
+    startDraft();
+    openSettings('api-key');
+    toast('已载入原始题目与执行配置');
+  });
 }
 element('#run-detail').addEventListener('click', event => {
   const draftAction = (event.target as Element).closest<HTMLElement>('[data-draft-action]');
-  if (draftAction?.dataset.draftAction === 'edit') { openEditor(); return; }
+  if (draftAction?.dataset.draftAction === 'edit') {
+    if (currentRun()) return;
+    const source = field('source').value, position = sourceReader.editingPosition('draft', source);
+    openEditor(position ? { source, position } : undefined); return;
+  }
   if (draftAction?.dataset.draftAction === 'settings') { openSettings('environment'); return; }
   const target = (event.target as Element).closest<HTMLElement>('[data-action],button[data-detail-tab],button[data-source-view],button[data-report-view]');
   if (!target) return;
@@ -1257,6 +1560,17 @@ element('#run-list').addEventListener('click', event => {
   const button = (event.target as Element).closest<HTMLElement>('[data-run-id]');
   if (button?.dataset.runId) selectRun(button.dataset.runId);
 });
+element('#run-monitor-list').addEventListener('click', event => {
+  const target = (event.target as Element).closest<HTMLElement>('[data-monitor-run-id],[data-dismiss-run-notice]');
+  const dismissed = target?.dataset.dismissRunNotice;
+  if (dismissed) { state.finishedRuns.delete(dismissed); renderRunMonitor(); return; }
+  const run = state.runs.find(run => run.id === target?.dataset.monitorRunId);
+  if (!run) return;
+  selectRun(run.id);
+  if (!activeRun(run)) { state.tab = 'report'; renderDetail(true); }
+  setMobileView('runs');
+  element(`#detail-tab-${state.tab}`).focus({ preventScroll: true });
+});
 document.querySelectorAll<HTMLButtonElement>('button[data-mobile-view]').forEach(button => button.addEventListener('click', () => setMobileView(button.dataset.mobileView as 'compose' | 'runs')));
 document.addEventListener('keydown', event => {
   if (sourceReader.handleKeydown(event)) return;
@@ -1291,6 +1605,8 @@ field('environment').addEventListener('change', () => {
 field('template').addEventListener('change', () => applyTemplate(field('template').value));
 for (const type of ['input', 'change']) element('#run-form').addEventListener(type, event => {
   const target = event.target as HTMLElement;
+  // Selects emit input before change; preserve the previous environment and template until replacement finishes.
+  if (type === 'input' && ['environment', 'template'].includes(target.id)) return;
   if (target.id !== 'source') draftChanged(target.id !== 'api-key');
 });
 for (const id of ['source', 'task']) field(id).addEventListener('input', () => {
@@ -1307,7 +1623,7 @@ element<HTMLInputElement>('#source-file').addEventListener('change', async event
   try {
     const source = await readLeanFile(file, state.session.limits.maxSourceBytes);
     if (revision !== sourceRevision || state.submitting) { toast('草稿已变化，未导入文件'); return; }
-    setCustomSource(source);
+    replaceDraft('source', () => setCustomSource(source));
     toast('Lean 文件已载入');
   } catch (error) {
     if (revision !== sourceRevision) return;
@@ -1315,7 +1631,7 @@ element<HTMLInputElement>('#source-file').addEventListener('change', async event
     openSettings('source');
   }
 });
-element('#expand-source').addEventListener('click', openEditor);
+element('#expand-source').addEventListener('click', () => openEditor());
 element('#import-task').addEventListener('click', () => element<HTMLInputElement>('#task-file').click());
 element<HTMLInputElement>('#task-file').addEventListener('change', event => {
   const input = event.target as HTMLInputElement, file = input.files?.[0];
@@ -1336,13 +1652,44 @@ element('#import-task-dialog').addEventListener('close', () => {
 element('#confirm-import').addEventListener('click', () => {
   const target = pendingImport;
   if (!target || !state.session || state.submitting || target.revision !== draftRevision) { renderImportState(); return; }
-  applyTaskDraft(target.draft); saveDraft();
+  replaceDraft('import', () => { applyTaskDraft(target.draft); saveDraft(); });
   element<HTMLDialogElement>('#import-task-dialog').close();
   startDraft(); openSettings('api-key');
   toast('研究任务已载入');
 });
-for (const id of ['close-editor', 'cancel-editor']) element(`#${id}`).addEventListener('click', () => element<HTMLDialogElement>('#source-editor').close());
+for (const id of ['close-editor', 'cancel-editor']) element(`#${id}`).addEventListener('click', requestEditorClose);
+element('#source-editor').addEventListener('cancel', event => {
+  event.preventDefault();
+  if (!editorReview.close() && !editorNavigation.close()) requestEditorClose();
+});
+element('#source-editor').addEventListener('close', () => {
+  const dialog = element<HTMLDialogElement>('#source-editor');
+  if (dialog.open) return;
+  const fromPreview = editorOpenedFromPreview;
+  editorOpenedFromPreview = false;
+  editorClosePosition = undefined;
+  element<HTMLDialogElement>('#editor-discard-dialog').close();
+  const active = document.activeElement;
+  if (!fromPreview || document.querySelector('dialog[open]')
+    || (active && active !== document.body && !dialog.contains(active))) return;
+  // Applying a source change hides the location entry that opened this dialog.
+  const fallback = document.querySelector<HTMLElement>('#draft-preview [data-draft-action="edit"]');
+  if (fallback?.getClientRects().length) fallback.focus({ preventScroll: true });
+});
+for (const id of ['close-editor-discard', 'keep-editing']) element(`#${id}`).addEventListener('click', keepEditing);
+element('#editor-discard-dialog').addEventListener('cancel', event => { event.preventDefault(); keepEditing(); });
+element('#discard-editor-changes').addEventListener('click', discardEditorChanges);
 element('#apply-editor').addEventListener('click', applyEditor);
+element('#editor-indent').addEventListener('click', () => indentEditor('indent'));
+element('#editor-outdent').addEventListener('click', () => indentEditor('outdent'));
+element('#source-editor').addEventListener('keydown', event => {
+  if (event.target !== field('expanded-source') || event.isComposing || !(event.ctrlKey || event.metaKey)
+    || event.altKey || event.shiftKey || !['[', ']'].includes(event.key)) return;
+  event.preventDefault(); indentEditor(event.key === ']' ? 'indent' : 'outdent');
+});
+document.addEventListener('selectionchange', () => {
+  if (element<HTMLDialogElement>('#source-editor').open && document.activeElement === field('expanded-source')) updateEditorPosition();
+});
 element('#confirm-delete').addEventListener('click', () => void deleteRun());
 for (const id of ['cancel-delete', 'close-delete']) element(`#${id}`).addEventListener('click', () => {
   if (!deletionTarget || !state.deleting.has(deletionTarget.id)) element<HTMLDialogElement>('#delete-run-dialog').close();
@@ -1360,7 +1707,10 @@ element('#delete-run-dialog').addEventListener('close', () => {
     .find(control => control.getClientRects().length && !control.matches(':disabled'));
   focus?.focus({ preventScroll: true });
 });
-field('expanded-source').addEventListener('input', () => { element('#editor-error').hidden = true; updateEditorCount(); });
+element('#source-editor').addEventListener('input', event => {
+  if (event.target !== field('expanded-source')) return;
+  element('#editor-error').hidden = true; updateEditorCount();
+});
 field('run-search').addEventListener('input', () => { state.query = field('run-search').value; renderRunList(); });
 field('run-filter').addEventListener('change', () => { state.filter = field('run-filter').value as RunFilter; renderRunList(); });
 element('#clear-run-search').addEventListener('click', () => { state.query = ''; field('run-search').value = ''; renderRunList(); field('run-search').focus(); });
@@ -1368,6 +1718,10 @@ element('#toggle-key').addEventListener('click', () => {
   const key = element<HTMLInputElement>('#api-key'); key.type = key.type === 'password' ? 'text' : 'password'; updateKeyToggle();
 });
 element('#reset-form').addEventListener('click', resetForm);
+for (const id of ['restore-draft', 'restore-draft-settings']) element(`#${id}`).addEventListener('click', recoverDraft);
+element('#dismiss-draft-recovery').addEventListener('click', () => {
+  draftRecovery.clear(); renderDraftRecovery(); field('task').focus({ preventScroll: true });
+});
 element('#retry-connection').addEventListener('click', () => void initialize());
 element('#refresh-runs').addEventListener('click', () => void poll());
 for (const id of ['open-settings', 'composer-settings']) element(`#${id}`).addEventListener('click', () => openSettings());
@@ -1385,17 +1739,26 @@ element('#run-settings').addEventListener('keydown', event => {
 });
 element('#open-history').addEventListener('click', () => {
   showDialog(element<HTMLDialogElement>('#history-dialog'));
+  restoreHistoryScroll();
   field('run-search').focus();
 });
-element('#close-history').addEventListener('click', () => element<HTMLDialogElement>('#history-dialog').close());
+element('#close-history').addEventListener('click', closeHistoryDialog);
+element('#history-dialog').addEventListener('cancel', rememberHistoryScroll);
+element('#run-list').addEventListener('scroll', rememberHistoryScroll, { passive: true });
 for (const id of ['run-settings', 'history-dialog']) element(`#${id}`).addEventListener('click', event => {
   const dialog = event.currentTarget as HTMLDialogElement;
   if (event.target !== dialog) return;
   const bounds = dialog.getBoundingClientRect();
-  if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) dialog.close();
+  if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) {
+    if (dialog.id === 'history-dialog') closeHistoryDialog(); else dialog.close();
+  }
 });
 element('#new-research').addEventListener('click', () => { startDraft(true); field('task').focus(); });
-element('#edit-draft-source').addEventListener('click', openEditor);
+element('#return-to-draft').addEventListener('click', () => {
+  if (state.submitting) return;
+  startDraft(); field('task').focus({ preventScroll: true });
+});
+element('#edit-draft-source').addEventListener('click', () => openEditor());
 element('#attach-source').addEventListener('click', () => element<HTMLInputElement>('#source-file').click());
 element('#stop-research').addEventListener('click', () => void cancelRun());
 element('#conversation-scroll').addEventListener('scroll', updateLatestMessage, { passive: true });
