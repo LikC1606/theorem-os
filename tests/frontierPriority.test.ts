@@ -122,10 +122,13 @@ describe('original-goal frontier priority', () => {
     const focus = originalGoalTaskFocus(tasks);
 
     expect([...focus.frontier].sort()).toEqual(['core_a', 'core_b']);
+    expect([...focus.preferred.frontier]).toEqual(['core_a']);
+    expect(focus.preferred.support.has('core_b')).toBe(false);
+    expect(focus.support.has('core_b')).toBe(true);
     expect([...focus.targetedResearch].sort()).toEqual(['probe_core_a', 'probe_core_b']);
     expect(focus.support.has('core_c')).toBe(false);
     expect(focus.support.has('close_core_c')).toBe(false);
-    expect(ids(continuationResearchTasks(tasks))).toEqual(['probe_core_b', 'probe_core_a', 'probe_core_c']);
+    expect(ids(continuationResearchTasks(tasks))).toEqual(['probe_core_a', 'probe_core_b', 'probe_core_c']);
   });
 
   it('does not spread relevance through a checked shared helper or its other consumers', () => {

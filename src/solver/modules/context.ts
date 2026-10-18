@@ -8,11 +8,12 @@ import { committedSource, type SolverProblem } from '../problem';
 import type { ProofCheck } from './evidence';
 import { solverProofFeedback, type SolverFailure } from '../feedback';
 import type { ResearchOperation } from './value';
-import { assignmentDeliveryFile, isFeasibilityReview, type CooperativeAction } from '../tasks';
+import { assignmentDeliveryFile, isFeasibilityReview, taskGroup, taskVersion, type CooperativeAction } from '../tasks';
 import type { CooperationState } from '../cooperation';
 import { statementReviewSummary, type StatementAction, type StatementReview } from '../statementReview';
 import { buildProofContinuation } from '../progress';
 import { originalGoalTaskFocus } from './search';
+import { createProofRoutePriority } from '../routePriority';
 import { cooperativeWorkContract } from './contracts';
 import { knowledgeContextSections, type KnowledgeContextSnapshot } from '../knowledgeContext';
 import { compileTaskContext, frozenSourceContext, TaskContextError,
@@ -186,14 +187,25 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
   const focusPacket = {
     goalTaskIds: continuation.goals.filter(goal => goal.status !== 'integrated' || goal.recordedProof !== 'checked').map(goal => goal.taskId),
     frontierTaskIds: [...focus.frontier],
+    ...(cooperation.tasks.some(node => node.alternativeRoutes?.length) ? {
+      preferredFrontierTaskIds: [...focus.preferred.frontier],
+      routePriority: createProofRoutePriority(cooperation.tasks, {
+        groups: cooperation.groups, environmentDigest: compilation.environmentDigest,
+      }).routes,
+    } : {}),
     ...(action.kind === 'task' ? { assignedTaskId: action.task.id,
       relationship: focus.proofPath.has(action.task.id) ? 'proof-path' : focus.targetedResearch.has(action.task.id) ?
         'targeted-investigation' : focus.support.has(action.task.id) ? 'frontier-support' : 'independent-exploration',
       plannedConsumers: workContract.plannedConsumers } : {}),
   };
+  const parallelQuestions = cooperation.tasks.filter(node => node.status === 'running' &&
+    node.task.id !== (action.kind === 'task' ? action.task.id : undefined) &&
+    (action.kind !== 'task' || taskGroup(node.task) === taskGroup(action.task) || node.task.sharing !== 'group'))
+    .map(node => ({ taskId: node.task.id, taskDigest: taskVersion(node.task), kind: node.task.kind, objective: node.task.objective,
+      theoremName: node.task.theoremName, workerId: node.assignment?.workerId, routeId: node.assignment?.routeId }));
   const roleText = `Your role: ${action.kind === 'review' || action.kind === 'task' && isFeasibilityReview(action.task) ? 'reviewer' : action.kind === 'solve' ? 'primary solver' : action.kind === 'task' ? action.task.kind === 'goal' ? 'engineer' : 'researcher' : 'lead'}` + '\n' + sharing +
     (operation === 'direct' ? '' : `Research operation: ${operation}.\n`);
-  const routeRules = 'Report a stable local obstruction in a research/sketch response or progress delivery with blockers:[{mechanism:"stable local mechanism",scope:"exact affected inference",evidenceRefs:[],reopenOn:[{kind:"contract-changed"},{kind:"environment-changed"},{kind:"dependency-checked",taskId:"ACTUAL_DECLARED_DEPENDENCY_ID"}]}]. Use actual declared dependency ids; reopenOn may be omitted for the host default. A blocker is advisory and applies only to its stated inference. Repeating the same local premises, evidence and environment twice parks the affected task; it does not establish that the original theorem is false or impose a solving deadline. Preserve useful proofs and state an explicit reopening condition.\n';
+  const routeRules = 'Report a stable local obstruction in a research/sketch response or progress delivery with blockers:[{mechanism:"stable local mechanism",scope:"exact affected inference",evidenceRefs:[],reopenOn:[{kind:"contract-changed"},{kind:"environment-changed"},{kind:"dependency-checked",taskId:"ACTUAL_DECLARED_DEPENDENCY_ID"}]}]. When reporting an existing obstruction in different words, optionally include blockerId:"EXISTING_BLOCKER_ID" from this task and route to keep its history; use a new entry for a distinct obstruction. Use actual declared dependency ids; reopenOn may be omitted for the host default. A blocker is advisory and applies only to its stated inference. Repeating the same local premises, evidence and environment twice parks the affected task; it does not establish that the original theorem is false or impose a solving deadline. Preserve useful proofs and state an explicit reopening condition.\n';
   const handoffRules = action.kind === 'lead' || action.kind === 'solve' ?
     'Pending research-handoffs are required inputs, independent of the optional delivery excerpts. For each shown id, adopt its exact typed target in ' +
     (action.kind === 'solve' ? 'your requests array in the math-help response' : 'the complete task graph') +
@@ -211,6 +223,8 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
   const recoveryRules = action.kind === 'lead' && action.recovery ?
     'This is a targeted recovery decision after actual failed work, not another ordinary plan recap. Inspect the failed frontier, its feedback and saved deliveries, and the declared pending tasks whose upstream helpers remain blocked. Adopt retained code through separately typed, host-checked tasks. Connect useful supporting tasks explicitly to the missing argument; an objective mentioning a consumer is not a dependency edge. Preserve checked contracts and scoped blockers. Return the complete math-plan JSON with recovery:{status:"planned",taskIds:["ACTUAL_READY_TASK_ID"]}. The named tasks must be executable now and either connect to an unfinished original goal or be an independent research/sketch investigation depending on the failed frontier. Split a missing construction, repair an unattempted prerequisite, or choose a different concrete inference; merely retrying the same failed target or changing its revision, name or prose is insufficient. Advisory research may investigate blocked inputs but grants no proof acceptance. If there is no concrete discriminating step, use recovery:{status:"awaiting-input",reason:"the specific mathematical input still needed"}. An unchanged recovery decision is durable and will not be repeated just because the process restarts.\n' : '';
   const instructions = context.instructions + '\n' + rules + feasibilityRules + earlyRouteRules + attemptRules + recoveryRules + focusRules +
+    (action.kind === 'lead' || action.kind === 'solve' || action.kind === 'task' && !isFeasibilityReview(action.task)
+      ? 'For parallel work, give each assignment a distinct mathematical question or concrete product: the main missing proof, a specified counterexample or feasibility test, an exact library connection, or a consumer application. Inspect the current in-flight questions before requesting related work. Reuse their retained results and avoid assigning the same unchanged question to another worker. Keep a useful backup route when it tests a different inference. Leave a slot waiting for input when no independent actionable question is available; do not manufacture helpers to fill it. Route priority reflects recorded inputs and obstructions, not a prediction that a route is easy.\n' : '') +
     (action.kind === 'lead' ? 'Use the proof-continuation snapshot to identify the original goal\'s current mathematical frontier. Prefer consuming relevant checked lemmas before creating more auxiliary work; give each new helper an intended consumer and explicitly assign every substantive missing premise. Keep useful alternative routes visible. A lemma without a recorded consumer may still be useful; investigate its connection rather than deleting it. Planned dependencies, actual Lean proof references and conditional references are reported separately. Do not count auxiliary lemma totals as completion of the original problem. The host obtains fixed-candidate review after the complete proof is checked; mark any advisory final-candidate task with reviewScope:"final-candidate" so it waits for freshly checked original goals. Use a distinct task with reviewScope:"feasibility" for independent mathematical route checks before a complete candidate exists. Inspect validated lemmaRequests in deliveries and adopt useful exact proposals as separate lemma tasks; proposals and their local checks are advisory. Advisory research may start before its planned dependencies are proved; use typed proof tasks when a consumer must wait for checked premises.\n' :
       action.kind === 'task' && ['lemma', 'goal'].includes(action.task.kind) ? 'Inspect relevant checked inputs and their exact declarations before reconstructing an argument. Save the concrete consumer application and discharge every premise; report the remaining original-goal obstacle in RESEARCH.md.\n' : '') +
     (action.kind === 'task' && ['research', 'sketch'].includes(action.task.kind)
@@ -231,6 +245,12 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
     ...compileTaskContext({ ...compilation, instructions, optional,
       mandatory: [{ id: 'work-contract', kind: 'assignment', text: 'Host work contract (one product; completion is not proof acceptance):\n' + JSON.stringify(workContract) },
         { id: 'assignment-policy', kind: 'assignment', text: roleText },
+        ...((action.kind === 'lead' || action.kind === 'solve' || action.kind === 'task' && !isFeasibilityReview(action.task)) &&
+          parallelQuestions.length ? [{
+            id: 'parallel-questions', kind: 'assignment' as const,
+            text: 'Current in-flight questions (scope-visible assignments; advisory, retrieve exact interfaces from COOPERATION.json):\n' +
+              JSON.stringify(parallelQuestions),
+          }] : []),
         ...(focusRules ? [{ id: 'frontier-focus', kind: 'continuation' as const,
           text: focusRules + 'Original-goal focus (advisory, not proof acceptance):\n' + JSON.stringify(focusPacket) }] : []),
         ...(action.kind === 'lead' && action.recovery ? [{ id: 'frontier-recovery', kind: 'assignment' as const,

@@ -231,7 +231,7 @@ describe('isolated advisory research drafts', () => {
 
   it('rejects a feasibility draft when its reviewer becomes an input owner during the snapshot read', async () => {
     node('first_route').task = { ...node('first_route').task, reviewScope: 'feasibility', dependsOn: ['goal_1'] };
-    node('goal_1').task = { ...node('goal_1').task, sharing: 'problem', dependsOn: [] };
+    node('goal_1').task = { ...node('goal_1').task, sharing: 'problem', status: 'paused', dependsOn: [] };
     const action = await task();
     expect(action.task.id).toBe('first_route');
     saveFinding();

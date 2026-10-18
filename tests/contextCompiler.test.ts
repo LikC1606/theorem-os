@@ -91,6 +91,25 @@ it('retains current original-problem feedback without a cooperative assignment',
   expect(context.manifest.included).toContainEqual(expect.objectContaining({ id: 'current-feedback', required: true }));
 });
 
+it.each([1, 1000])('shows a bounded search hint for %i repeated local failures without authorizing cached verification', count => {
+  const task = lemma('current'), source = input([node(task)], assign(task));
+  const failure = { id: 'new-failure', taskId: task.id, taskDigest: taskVersion(task),
+    inputDigest: 'mathematical-inputs', basis: { contractDigest: 'contract', environmentDigest: 'environment', dependencies: {} },
+    attemptFingerprint: 'same-local-attempt', relatedFailureIds: ['old-failure'], sourceDigest: 'changed-full-source',
+    targetDigest: 'moved-target', seedSourceDigest: 'seed', seedTargetDigest: 'seed-target', canonicalSourceDigest: 'canonical',
+    canonicalTargetDigest: 'canonical-target', feedback: 'Existing diagnostic.' };
+  source.cooperation!.failedTaskInputs = Array.from({ length: count }, (_, index) => ({ ...failure,
+    id: `failure-${index}`, attemptFingerprint: `same-local-attempt-${index}` }));
+  const context = compileTaskContext({ ...source, maxContextBytes: 16 * 1024, maxOptionalContextBytes: 0 });
+  expect(context.manifest.included).toContainEqual(expect.objectContaining({ id: 'repeated-attempts', required: true }));
+  expect(context.message).toContain('same-local-attempt');
+  expect(context.message).toContain('not mathematical equivalence or permission to reuse a verification result');
+  expect(context.message).toContain(`"relatedAttemptFingerprints":${count}`);
+  expect(context.manifest.omitted.filter(item => item.id === 'repeated-attempt-history')).toHaveLength(count > 1 ? 1 : 0);
+  expect(source.cooperation!.failedTaskInputs).toHaveLength(count);
+  expect(source.cooperation!.tasks[0].status).toBe('pending');
+});
+
 it('reports mandatory overflow instead of silently discarding the current failed goal', () => {
   const task = lemma('current');
   expect(() => compileTaskContext({ ...input([{ ...node(task), feedback: 'EXACT_FAILURE'.repeat(10000) }], assign(task)),
@@ -136,6 +155,25 @@ it('does not require proposals that arrived after the Lead dispatch', () => {
     maxOptionalContextBytes: 0 });
   expect(context.manifest.included.some(item => item.id === 'research-handoffs')).toBe(false);
   expect(context.message).not.toContain(proposal.theoremName);
+});
+
+it.each(['lead', 'solve'] as const)('compacts repeated provenance and resolves a legacy %s handoff alias', kind => {
+  const research: CooperativeTask = { id: 'investigate', kind: 'research', objective: 'Find a bridge', dependsOn: [], revision: 0 };
+  const tasks = [{ ...node(research), status: 'completed' as const }], proposal = lemma('unique_bridge');
+  const deliveries = Array.from({ length: 1000 }, (_, index) => ({ ...delivery(research, `source-${index}`),
+    kind: 'research' as const, status: 'advisory' as const, lemmaRequests: [proposal], commit: proofCommit }));
+  const cooperation = { tasks, deliveries }, handoff = pendingResearchHandoffs(cooperation)[0];
+  const context = compileTaskContext({ ...input(tasks, { kind, seedCommit: baseCommit,
+    handoffIds: [handoff.sources.at(-1)!.handoffId] }), cooperation, maxOptionalContextBytes: 0 });
+  const shown = JSON.parse(context.message.match(/Pending research proposals requiring a Lead decision[^\n]*\n([^\n]+)/u)![1]);
+  expect(shown).toHaveLength(1);
+  expect(shown[0]).toMatchObject({ id: handoff.id, proposal, sourceSet: { count: 1000,
+    digest: mathDigest(canonicalMathJson(handoff.sources)), reference: { path: 'COOPERATION.json',
+      handoffId: handoff.id, contextDigest: handoff.contextDigest } } });
+  expect(shown[0]).not.toHaveProperty('sources');
+  expect(Buffer.byteLength(JSON.stringify(shown))).toBeLessThan(2048);
+  expect(context.manifest.included.some(item => item.id === 'research-handoff-backlog')).toBe(false);
+  expect(handoff.sources).toHaveLength(1000);
 });
 
 it.each(['lead', 'solve'] as const)('keeps a thousand proposals in bounded %s batches with zero optional allowance', kind => {

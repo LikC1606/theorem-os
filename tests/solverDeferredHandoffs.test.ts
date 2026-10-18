@@ -148,6 +148,71 @@ describe('deferred research proposal activation', () => {
     expect(events.filter(item => item.event === 'research_handoff_decided')).toHaveLength(2);
   });
 
+  it('defers and reactivates repeated deliveries once while retaining a durable decision for every source', async () => {
+    const original = state.cooperation!.deliveries![0];
+    state.cooperation!.deliveries!.push({ ...structuredClone(original), id: 'repeated-proposal-delivery', createdAt: 2 });
+    expect(pendingResearchHandoffs(state.cooperation!)).toHaveLength(1);
+    expect(handoff().sources).toHaveLength(2);
+    await defer();
+    expect(state.cooperation!.researchDecisions).toHaveLength(2);
+    await proveNext();
+    expect(pendingResearchHandoffs(state.cooperation!)).toHaveLength(1);
+    const action = await dispatch(), checks = host.verify.mock.calls.length;
+    planResponse([], [...tasks(), proposal]);
+    await cooperative.deliver(lead, action, commitSolverSources(problem, lead.worktree));
+    expect(state.cooperation!.error).toBeUndefined();
+    expect(state.cooperation!.researchDecisions).toMatchObject([
+      { deliveryId: original.id, status: 'adopted', taskId: proposal.id },
+      { deliveryId: 'repeated-proposal-delivery', status: 'adopted', taskId: proposal.id },
+    ]);
+    expect(pendingResearchHandoffs(state.cooperation!)).toEqual([]);
+    expect(node(proposal.id)).toMatchObject({ status: 'pending', attempts: 0 });
+    expect(host.verify).toHaveBeenCalledTimes(checks);
+  });
+
+  it('resolves a Primary solve response under its original alias after a duplicate becomes the primary handoff', async () => {
+    primaryLed = true; cooperative = create();
+    const action = await dispatch(), originalId = action.handoffIds![0], original = state.cooperation!.deliveries![0];
+    state.cooperation!.deliveries!.unshift({ ...structuredClone(original), id: 'earlier-proposal-delivery', createdAt: 0 });
+    expect(handoff().id).not.toBe(originalId);
+    expect(cooperative.current(action)).toBe(true);
+    notes({ handoffDecisions: [{ id: originalId, status: 'rejected', reason: 'The exact interface does not close the gap.' }] });
+    const before = structuredClone(tasks());
+    await cooperative.deliver(lead, action, commitSolverSources(problem, lead.worktree));
+    expect(state.cooperation!.error).toBeUndefined();
+    expect(state.cooperation!.researchDecisions).toMatchObject([
+      { deliveryId: 'earlier-proposal-delivery', status: 'rejected' }, { deliveryId: original.id, status: 'rejected' },
+    ]);
+    expect(handoff().status).toBe('rejected');
+    expect(pendingResearchHandoffs(state.cooperation!)).toEqual([]);
+    expect(tasks()).toEqual(before);
+    expect(host.verify).not.toHaveBeenCalled();
+  });
+
+  it('retains Primary waits expressed through an old alias and rejects that dispatch after the prerequisites reactivate it', async () => {
+    primaryLed = true; cooperative = create();
+    const original = await dispatch(), originalId = original.handoffIds![0], delivery = state.cooperation!.deliveries![0];
+    state.cooperation!.deliveries!.unshift({ ...structuredClone(delivery), id: 'earlier-proposal-delivery', createdAt: 0 });
+    planResponse([{ id: originalId, status: 'deferred', reason: 'Wait for the checked premise.', waitsOn: ['premise'] }]);
+    await cooperative.deliver(lead, original, commitSolverSources(problem, lead.worktree));
+    expect(state.cooperation!.error).toBeUndefined();
+    expect(handoff().status).toBe('deferred');
+    expect(node('question').status).toBe('completed');
+    await proveNext();
+    const previous = structuredClone(state.cooperation!.researchDecisions), checks = host.verify.mock.calls.length;
+    expect(cooperative.current(original)).toBe(false);
+    planResponse([{ id: originalId, status: 'rejected', reason: 'An outdated response.' }]);
+    await cooperative.deliver(lead, original, commitSolverSources(problem, lead.worktree));
+    expect(state.cooperation!.researchDecisions).toEqual(previous);
+    expect(handoff()).toMatchObject({ status: 'pending', reopened: 'checked-prerequisites' });
+    expect(events.some(item => item.event === 'research_handoff_superseded')).toBe(true);
+    expect(host.verify).toHaveBeenCalledTimes(checks);
+    await reject(await dispatch());
+    expect(state.cooperation!.error).toBeUndefined();
+    expect(state.cooperation!.researchDecisions).toMatchObject([{ status: 'rejected' }, { status: 'rejected' }]);
+    expect(pendingResearchHandoffs(state.cooperation!)).toEqual([]);
+  });
+
   it('ignores unrelated checked progress and rejects a stale dispatch after the awaited proof passes', async () => {
     const unrelated = { ...node('premise').task, id: 'unrelated', theoremName: 'Tutorial.unrelated',
       objective: 'Check a separate fact.' };

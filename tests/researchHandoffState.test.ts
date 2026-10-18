@@ -26,6 +26,11 @@ it('preserves exact waiting contracts through the actual durable state reader an
   expect(restored.cooperation!.tasks).toEqual([]);
 });
 
+it('retains host input bindings without adding a required field to historical decisions', () => {
+  const decision = { ...deferred, contextDigest: 'b'.repeat(64) };
+  expect(readSolverRunState(stateFile(decision)).cooperation!.researchDecisions).toEqual([decision]);
+});
+
 it('keeps historical deferred decisions without a waiting condition readable', () => {
   const { waitsOn: _waits, ...legacy } = deferred;
   expect(readSolverRunState(stateFile(legacy)).cooperation!.researchDecisions).toEqual([legacy]);

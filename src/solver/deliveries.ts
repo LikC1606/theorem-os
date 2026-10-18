@@ -18,6 +18,13 @@ export function readMathResponse(worktree: string, legacyFence: string, bindings
   let text: string;
   try { assertMathCanonicalPath(file); text = readMathText(file, MAX_RESEARCH_NOTES_BYTES).trim(); }
   catch { throw new Error(`${errorPrefix}_missing_or_too_large`); }
+  return parseMathResponse(text, legacyFence, bindings, textField);
+}
+
+/** The same parser also reads immutable checkpoint text without consulting a live workspace. */
+export function parseMathResponse(text: string, legacyFence: string, bindings: Record<string, unknown> = {}, textField?: string): any {
+  const errorPrefix = legacyFence === 'math-lemma' ? 'math_lemma_plan' : `math_${legacyFence}`;
+  text = text.trim();
   const blocks = [...text.matchAll(new RegExp('```(?:math|json|' + legacyFence + ')\\s*\\n([\\s\\S]*?)\\n```', 'gu'))]
     .filter(block => !textField || block[1].trimStart().startsWith('{'));
   if (blocks.length > 1) throw new Error(`${errorPrefix}_requires_one_block`);

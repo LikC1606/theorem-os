@@ -7,7 +7,7 @@ import type { SolverProblem } from './problem';
 import { hasTaskAcceptance, taskGroup, taskVersion, type CooperativeAction, type TaskRecord } from './tasks';
 import type { RouteBlocker } from './routeControl';
 import { buildProofContinuation } from './progress';
-import { pendingResearchHandoffs, selectResearchHandoffBatch } from './researchHandoffs';
+import { pendingResearchHandoffs, researchHandoffContext, selectResearchHandoffBatch } from './researchHandoffs';
 import { contextTaskConsumers } from './taskConsumers';
 
 export const DEFAULT_TASK_CONTEXT_BYTES = 512 * 1024;
@@ -376,10 +376,15 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
   if (input.cooperation) {
     if (action?.kind === 'lead' || action?.kind === 'solve') {
       const pending = pendingResearchHandoffs(input.cooperation);
-      const shown = new Set(action.handoffIds ?? selectResearchHandoffBatch(input.cooperation).map(item => item.id));
+      const aliases = new Map(pending.flatMap(item => item.sources.map(source => [source.handoffId, item.id] as const)));
+      const shown = new Set((action.handoffIds ?? selectResearchHandoffBatch(input.cooperation).map(item => item.id))
+        .map(id => aliases.get(id) ?? id));
       const handoffs = pending.filter(item => shown.has(item.id));
       if (handoffs.length) mandatory.push(section('research-handoffs', 'assignment',
-        'Pending research proposals requiring a Lead decision (advisory; not checked lemmas):', handoffs));
+        'Pending research proposals requiring a Lead decision (advisory; not checked lemmas). Duplicate provenance is in ' +
+        'COOPERATION.json researchHandoffs: match sourceSet.reference.handoffId and contextDigest, then verify ' +
+        'sourceSet.digest against SHA-256 of canonical JSON of sources before using the full source list. ' +
+        'A missing or mismatched source list is unavailable and grants no proof acceptance:', handoffs.map(researchHandoffContext)));
       if (pending.length > handoffs.length) {
         const sources = new Map<string, { taskId: string; taskDigest: string; remaining: number }>();
         for (const item of pending) if (!shown.has(item.id)) {
@@ -477,9 +482,35 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
   mandatory.push(...(input.mandatory ?? []));
   const { sections: deliveries, findingSources } = optionalDeliveries(input, required, byId, omitted);
   const active = action?.kind === 'task' ? action.task : undefined;
+  const checkpoint = active && input.cooperation?.researchCheckpoints?.[active.id];
+  if (active && checkpoint?.taskDigest === taskVersion(active) && checkpoint.unchangedEvidenceCount !== undefined)
+    mandatory.push(section('checkpoint-evidence', 'checkpoint', 'Host checkpoint observations (advisory, no solving deadline):', {
+      taskId: active.id, savedCheckpointCountWithoutCandidateChange: checkpoint.unchangedEvidenceCount,
+      candidateStatus: checkpoint.candidateStatus,
+      interpretation: 'Notes and drafts remain saved. Candidate identity covers retained code and structured references or proposals; ' +
+        'unclassified prose can contain useful mathematics and has not been assessed. A changed file is not proof progress. ' +
+        'Use the saved argument and identify a concrete new check, missing input or consumer application before repeating an attempt. ' +
+        'This observation neither accepts a theorem nor stops continued reasoning.',
+    }));
+  const seenAttempts = new Set<string>();
+  const repeatedAttempts = active ? (input.cooperation?.failedTaskInputs ?? []).toReversed().filter(record => {
+    if (record.taskId !== active.id || record.taskDigest !== taskVersion(active) || !record.relatedFailureIds?.length ||
+        !record.attemptFingerprint || seenAttempts.has(record.attemptFingerprint)) return false;
+    seenAttempts.add(record.attemptFingerprint); return true;
+  }) : [];
+  const attemptHint = (record: typeof repeatedAttempts[number]) => ({ failureId: record.id,
+      attemptFingerprint: record.attemptFingerprint, relatedFailureIds: record.relatedFailureIds,
+      interpretation: 'The saved target text and local mathematical inputs match an earlier failure. Full source or declaration placement changed, ' +
+        'so this is a search hint, not mathematical equivalence or permission to reuse a verification result.' });
+  if (repeatedAttempts.length) mandatory.push(section('repeated-attempts', 'feedback',
+    'Latest related failed attempt (advisory; full-source checks remain independent). Older search hints use the optional budget:',
+    { relatedAttemptFingerprints: repeatedAttempts.length, latest: attemptHint(repeatedAttempts[0]) }));
   const rank = (taskId?: string, groupId?: string) => taskId === active?.id && active ? 0 : required.has(taskId ?? '') ? 1 :
     active && groupId === taskGroup(active) ? 2 : 3;
   const optional: ContextSection[] = [];
+  if (repeatedAttempts.length > 1) optional.push({ ...section('repeated-attempt-history', 'feedback',
+    'Earlier related failed attempts (advisory; not permission to reuse verification):',
+    repeatedAttempts.slice(1).map(attemptHint)), priority: 0 });
   const extras = input.cooperation as (CooperationState & Extras) | undefined;
   for (const blocker of [...(extras?.blockers ?? [])].sort((a, b) => rank(a.taskId, a.groupId) - rank(b.taskId, b.groupId))) {
     const id = `blocker:${blocker.id}`;

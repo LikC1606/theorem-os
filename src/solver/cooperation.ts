@@ -32,6 +32,7 @@ import { attributeTaskReferences } from './taskReferenceAttribution';
 import { pendingResearchHandoffs, retainedResearchHandoffs, researchHandoffs, resolveResearchHandoffs, selectResearchHandoffBatch, type ResearchHandoffDecision } from './researchHandoffs';
 import { captureObligationSnapshot, diffObligationProgress, type ObligationSnapshot, type ObligationProgressReceipt } from './obligationProgress';
 import { taskConsumerProjection, type TaskConsumerProjection } from './taskConsumers';
+import { checkpointCandidate, type CheckpointCandidate } from './researchEvidence';
 
 import { isFeasibilityReview, taskGroup, taskVersion, taskReferenceDependencies, assignmentDeliveryFile, markTaskReferences, hasTaskReferences, markTaskAcceptance, hasTaskAcceptance, invalidatedTaskIds,
   type CooperativeTask, type RouteGroup, type RouteRecord, type TaskAssignment, type TaskRecord, type CooperativeAction } from './tasks';
@@ -63,6 +64,7 @@ export type HumanEditRecord = { id: string; status: 'received' | 'applied' | 're
     tasks: { taskId: string; taskDigest: string; status: 'pending' | 'conditional' | 'passed' | 'failed' | 'removed' | 'superseded'; reason?: string;
       lastCheck?: { commit: string; sourceDigest: string; environmentDigest: string; passed: boolean; conditional: boolean; receiptIds: string[] } }[] } };
 type FailedTaskInput = { id: string; taskId: string; taskDigest: string; inputDigest: string; basis: BlockerBasis;
+  attemptFingerprint?: string; relatedFailureIds?: string[];
   sourceDigest: string; targetDigest: string; seedSourceDigest: string; seedTargetDigest: string;
   canonicalSourceDigest: string; canonicalTargetDigest: string; feedback: string;
   repair?: { taskId: string; taskDigest: string; workerId: string; pending: boolean; startedAttempt?: number } };
@@ -87,6 +89,7 @@ export type CooperationState = { tasks: TaskRecord[]; groups?: RouteRecord[]; ca
   progressReceipts?: ObligationProgressReceipt[];
   unchangedResearch?: Record<string, { taskDigest: string; notesBlob: string; count: number }>;
   researchCheckpoints?: Record<string, { taskDigest: string; inputDigest: string; outputDigest: string; count: number;
+    localInputDigest?: string; candidateOutputDigest?: string; unchangedEvidenceCount?: number; candidateStatus?: CheckpointCandidate['status'];
     paused?: boolean; blockerId?: string }>;
   researchDrafts?: Record<string, { taskDigest: string; workerId: string; assignmentId?: string; seedCommit: string; canonicalCommit?: string;
     commit: string; outputDigest: string; artifacts: DeliveryArtifactManifest; suspended?: boolean }>;
@@ -274,7 +277,8 @@ export class CooperativeResearch {
   deactivate(worker: ResearchWorker) { this.active.delete(worker.id); this.changed(); }
   current(action: CooperativeAction) {
     if ((action.kind === 'lead' || action.kind === 'solve') && action.handoffActivations) {
-      const pending = new Map(pendingResearchHandoffs(this.archive).map(item => [item.id, item.activationDigest]));
+      const pending = new Map(pendingResearchHandoffs(this.archive).flatMap(item =>
+        item.sources.map(source => [source.handoffId, item.activationDigest] as const)));
       if (action.handoffIds?.some(id => pending.has(id) && pending.get(id) !== action.handoffActivations![id])) return false;
     }
     if (isStatementAction(action)) {
@@ -418,6 +422,21 @@ export class CooperativeResearch {
       dependencies: captureObligationSnapshot(this.dependencies(task), { environmentDigest: this.input.state.environmentDigest }).digest,
       deliveries }));
   }
+  private checkpointLocalInputDigest(task: CooperativeTask, workerId: string) {
+    const dependencies = this.dependencies(task), relevant = new Set([task.id, ...dependencies.map(node => node.task.id)]);
+    const versions = this.taskVersions();
+    const deliveries = [...new Set((this.archive.deliveries ?? []).filter(record => record.producer !== workerId &&
+      this.deliveryVisible(record, task, versions) && (relevant.has(record.taskId ?? '') ||
+        record.dependencies.some(reference => reference.taskId === task.id))).map(record => canonicalMathJson({
+      taskId: record.taskId, taskDigest: record.taskDigest, kind: record.kind, status: record.status,
+      findingDigest: record.findingDigest, summary: record.summary, evidenceRefs: record.evidenceRefs,
+      dependencies: record.dependencies, remainingObligations: record.remainingObligations, lemmaRequests: record.lemmaRequests,
+    })))].sort();
+    return mathDigest(canonicalMathJson({ taskDigest: digest(task),
+      basis: routeBlockerBasis(task, this.archive.tasks, this.input.state.environmentDigest, this.input.state.problem.receiptDigest),
+      dependencies: captureObligationSnapshot(dependencies, { environmentDigest: this.input.state.environmentDigest }).digest,
+      deliveries }));
+  }
   private checkpointOutputDigest(worktree: string, commit: string) {
     return mathDigest(canonicalMathJson({ sourceDigest: ownedSourceDigest(this.input.state.problem, worktree, commit),
       notesBlob: git(worktree, ['ls-tree', '--format=%(objectname)', commit, '--', 'RESEARCH.md']) }));
@@ -432,7 +451,7 @@ export class CooperativeResearch {
     if (this.leanSourceDigests.size > 256) this.leanSourceDigests.delete(this.leanSourceDigests.keys().next().value!);
     return value;
   }
-  private taskSourceDigest(task: CooperativeTask, worktree: string, commit: string) {
+  private taskSourceDigest(task: CooperativeTask, worktree: string, commit: string, local = false) {
     const source = committedSource(worktree, commit, `${this.input.state.problem.projectRelative}/${task.proofPath}`);
     const targets = inspectLeanDeclarationRegions(source).filter(region =>
       region.name.split('.').at(-1) === task.theoremName?.split('.').at(-1));
@@ -440,7 +459,7 @@ export class CooperativeResearch {
     // Selecting a different saved proof is new input; renaming the same declaration is not.
     const target = source.slice(targets[0].startOffset, targets[0].endOffset)
       .replace(/^(theorem|lemma)(\s+)[^\s([{:\n]+/u, '$1$2__task_target');
-    return mathDigest(canonicalMathJson({ file: task.proofPath, offset: targets[0].startOffset, source: target }));
+    return mathDigest(canonicalMathJson({ ...(local ? {} : { file: task.proofPath, offset: targets[0].startOffset }), source: target }));
   }
   private failedTaskBasis(task: CooperativeTask, conditions?: readonly CooperativeTask[]): { basis: BlockerBasis; inputDigest: string } {
     const normalized = task.kind === 'lemma' ? { ...task, theoremName: undefined, proofPath: undefined } : task;
@@ -476,7 +495,11 @@ export class CooperativeResearch {
   private failedTaskInput(task: CooperativeTask, assignment: TaskAssignment, worktree: string, commit: string, conditions?: readonly CooperativeTask[]) {
     const { basis, inputDigest } = this.failedTaskBasis(task, conditions), sourceDigest = this.leanSourceDigest(worktree, commit);
     const targetDigest = this.taskSourceDigest(task, worktree, commit);
+    const localTargetDigest = this.taskSourceDigest(task, worktree, commit, true);
     return { id: mathDigest(canonicalMathJson({ inputDigest, sourceDigest, targetDigest })), taskId: task.id, taskDigest: digest(task),
+      ...(!localTargetDigest.startsWith('declaration-count:') ? {
+        attemptFingerprint: mathDigest(canonicalMathJson({ inputDigest, target: localTargetDigest })),
+      } : {}),
       inputDigest, basis, sourceDigest, targetDigest, seedSourceDigest: this.leanSourceDigest(worktree, assignment.seedCommit),
       seedTargetDigest: this.taskSourceDigest(task, worktree, assignment.seedCommit),
       canonicalSourceDigest: this.leanSourceDigest(this.lead.worktree, this.archive.canonicalCommit!),
@@ -486,8 +509,16 @@ export class CooperativeResearch {
     const records = this.archive.failedTaskInputs ??= [];
     const previous = records.find(record => record.id === candidate.id);
     if (previous) return previous;
-    const record: FailedTaskInput = { ...candidate, feedback: bounded(feedback, 8000), ...(repair ? { repair } : {}) };
+    const related = candidate.attemptFingerprint && records.findLast(record => record.attemptFingerprint === candidate.attemptFingerprint);
+    const relatedFailureIds = related ? [related.id] : [];
+    const record: FailedTaskInput = { ...candidate, feedback: bounded(feedback, 8000),
+      ...(relatedFailureIds.length ? { relatedFailureIds } : {}), ...(repair ? { repair } : {}) };
     records.push(record);
+    if (relatedFailureIds.length) {
+      this.needsLead = true;
+      this.input.emit('task_attempt_repeated_advisory', { taskId: record.taskId, failureId: record.id,
+        attemptFingerprint: record.attemptFingerprint, relatedFailureIds, evidence: 'same-target-and-local-inputs-not-equivalence' });
+    }
     this.input.emit('task_failed_input_recorded', { taskId: record.taskId, taskDigest: record.taskDigest,
       failureId: record.id, inputDigest: record.inputDigest, sourceDigest: record.sourceDigest });
     this.input.save();
@@ -552,7 +583,9 @@ export class CooperativeResearch {
       const node = this.node(taskId), worker = this.input.workers.find(worker => worker.id === node?.assignment?.workerId);
       if (!node || digest(node.task) !== checkpoint.taskDigest) { delete this.archive.researchCheckpoints![taskId]; continue; }
       if (!worker || node.status !== 'blocked' || !node.feedback?.startsWith('math_research_checkpoint_unchanged')) continue;
-      const inputChanged = this.checkpointInputDigest(node.task, worker.id) !== checkpoint.inputDigest;
+      const inputChanged = checkpoint.localInputDigest
+        ? this.checkpointLocalInputDigest(node.task, worker.id) !== checkpoint.localInputDigest
+        : this.checkpointInputDigest(node.task, worker.id) !== checkpoint.inputDigest;
       // Another responsibility can reuse this worktree without advancing the paused task.
       const session = this.input.state.workers?.find(record => record.id === worker.id), active = this.active.get(worker.id)?.action;
       const ownsOutput = (!session || session.sessionTaskId === taskId &&
@@ -647,11 +680,20 @@ export class CooperativeResearch {
   private researchCheckpoint(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>, commit: string) {
     const node = this.node(action.task.id), taskDigest = digest(node.task);
     const inputDigest = this.checkpointInputDigest(node.task, worker.id), outputDigest = this.checkpointOutputDigest(worker.worktree, commit);
+    const localInputDigest = this.checkpointLocalInputDigest(node.task, worker.id);
+    const notesBlob = git(worker.worktree, ['ls-tree', '--format=%(objectname)', commit, '--', 'RESEARCH.md']);
+    const candidate = checkpointCandidate(notesBlob ? committedSource(worker.worktree, commit, 'RESEARCH.md') : '',
+      this.archive.researchDrafts?.[node.task.id]?.artifacts);
     const previous = this.archive.researchCheckpoints?.[node.task.id];
-    const count = previous?.taskDigest === taskDigest && previous.inputDigest === inputDigest && previous.outputDigest === outputDigest
+    const sameInput = previous?.taskDigest === taskDigest && (previous.localInputDigest
+      ? previous.localInputDigest === localInputDigest : previous.inputDigest === inputDigest);
+    const count = sameInput && previous.outputDigest === outputDigest
       ? previous.count + 1 : 1;
-    const checkpoint = (this.archive.researchCheckpoints ??= {})[node.task.id] = { taskDigest, inputDigest, outputDigest, count, paused: count >= 2 };
-    this.input.emit('research_checkpoint_recorded', { taskId: node.task.id, taskDigest, inputDigest, outputDigest, count, paused: checkpoint.paused });
+    const unchangedEvidenceCount = sameInput && previous.candidateOutputDigest === candidate.digest
+      ? (previous.unchangedEvidenceCount ?? 1) + 1 : 1;
+    const checkpoint = (this.archive.researchCheckpoints ??= {})[node.task.id] = { taskDigest, inputDigest, outputDigest,
+      localInputDigest, candidateOutputDigest: candidate.digest, candidateStatus: candidate.status, unchangedEvidenceCount, count, paused: count >= 2 };
+    this.input.emit('research_checkpoint_recorded', { taskId: node.task.id, ...checkpoint });
     if (checkpoint.paused) {
       const scope = `assigned-local-inference/checkpoint:${mathDigest(canonicalMathJson({ inputDigest, outputDigest }))}`;
       this.reportBlockers(node.task, [{ mechanism: 'unchanged-research-checkpoint', scope }]);
@@ -989,13 +1031,16 @@ export class CooperativeResearch {
     };
     // Current requests own their contracts; retained prerequisites keep their original execution controls.
     for (const task of tasks) retain(task.id);
-    const shown = new Set(shownIds);
+    const aliases = new Map(researchHandoffs(this.archive).flatMap(item =>
+      item.sources.map(source => [source.handoffId, item.id] as const)));
+    const canonical = (id: string) => aliases.get(id) ?? id;
+    const shown = new Set(shownIds.map(canonical));
     const deferring = new Map<string, string[]>((Array.isArray(decisions) ? decisions : []).filter(decision =>
       decision?.status === 'deferred' && typeof decision.id === 'string' && Array.isArray(decision.waitsOn) && decision.waitsOn.length)
-      .map(decision => [decision.id, decision.waitsOn.filter((id: unknown) => typeof id === 'string')]));
+      .map(decision => [canonical(decision.id), decision.waitsOn.filter((id: unknown) => typeof id === 'string')]));
     const dismissing = new Set<string>((Array.isArray(decisions) ? decisions : []).filter(decision =>
       decision && typeof decision.id === 'string' && (decision.status === 'rejected' ||
-        decision.status === 'deferred' && decision.waitsOn === undefined)).map(decision => decision.id));
+        decision.status === 'deferred' && decision.waitsOn === undefined)).map(decision => canonical(decision.id)));
     // Completed sources remain completed without pausing unfinished inputs needed by a later batch.
     for (const handoff of retainedResearchHandoffs(this.archive)) if (!dismissing.has(handoff.id) &&
         (!shown.has(handoff.id) || deferring.has(handoff.id))) {
@@ -2163,9 +2208,12 @@ export class CooperativeResearch {
       if (!this.current(action)) {
         this.input.emit('research_handoff_superseded', { workerId: worker.id }); return { checkWhole: false };
       }
-      if (!recovering && pendingResearchHandoffs(this.archive).some(item => action.handoffIds?.includes(item.id))) {
+      const shownHandoffs = new Set(action.handoffIds ?? []);
+      const hasPendingShownHandoff = () => pendingResearchHandoffs(this.archive).some(item =>
+        item.sources.some(source => shownHandoffs.has(source.handoffId)));
+      if (!recovering && hasPendingShownHandoff()) {
         await this.readHelpRequest(action);
-        if (pendingResearchHandoffs(this.archive).some(item => action.handoffIds?.includes(item.id))) {
+        if (hasPendingShownHandoff()) {
           try {
             const response = block(worker.worktree, 'math-help');
             this.recordHandoffDecisions(resolveResearchHandoffs(this.archive, action.handoffIds ?? [],

@@ -90,3 +90,17 @@ it('retains the mandatory checkpoint source and all typed inputs when the total 
   expectCheckpointSource(context);
   expectInterfacesAndBytes(context, source);
 });
+
+it('shows stable checkpoint observations without classifying prose as wasted work or imposing a cutoff', () => {
+  const source = input();
+  source.cooperation!.researchCheckpoints = { [consumer.id]: { taskDigest: taskVersion(consumer),
+    inputDigest: 'input', outputDigest: 'output', count: 1, unchangedEvidenceCount: 12,
+    candidateStatus: 'unclassified-draft' } };
+  const context = compileTaskContext({ ...source, maxOptionalContextBytes: 0 });
+  expect(context.manifest.included).toContainEqual(expect.objectContaining({ id: 'checkpoint-evidence', required: true }));
+  expect(context.message).toContain('"savedCheckpointCountWithoutCandidateChange":12');
+  expect(context.message).toContain('unclassified prose can contain useful mathematics');
+  expect(context.message).toContain('neither accepts a theorem nor stops continued reasoning');
+  source.cooperation!.researchCheckpoints[consumer.id].taskDigest = 'superseded';
+  expect(compileTaskContext(source).manifest.included.some(section => section.id === 'checkpoint-evidence')).toBe(false);
+});

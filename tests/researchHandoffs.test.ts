@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
-import { pendingResearchHandoffs, retainedResearchHandoffs, researchHandoffs, resolveResearchHandoffs, selectResearchHandoffBatch,
+import { canonicalMathJson, mathDigest } from '../src/math/mathRuntimeIo';
+import { pendingResearchHandoffs, retainedResearchHandoffs, researchHandoffs, researchHandoffContext, resolveResearchHandoffs, selectResearchHandoffBatch,
   type ResearchHandoffDecision } from '../src/solver/researchHandoffs';
 import type { TaskProof } from '../src/solver/cooperativeProof';
 import type { DeliveryRecord } from '../src/solver/deliveries';
@@ -12,7 +13,8 @@ const node = (task: CooperativeTask): TaskRecord => ({ task, status: 'pending', 
 const delivery: DeliveryRecord = { id: 'delivery', producer: 'researcher', taskId: research.id, taskDigest: taskVersion(research),
   kind: 'research', status: 'advisory', summary: 'A bridge is worth proving.', statement: '', premises: [],
   dependencies: [], remainingObligations: [], evidenceRefs: [], createdAt: 1, commit: 'a'.repeat(40), lemmaRequests: [proposal] };
-const fixture = () => ({ tasks: [{ ...node(research), status: 'completed' as const }], deliveries: [structuredClone(delivery)] });
+type TestState = { tasks: TaskRecord[]; deliveries: DeliveryRecord[]; researchDecisions?: ResearchHandoffDecision[] };
+const fixture = (): TestState => ({ tasks: [{ ...node(research), status: 'completed' }], deliveries: [structuredClone(delivery)] });
 
 it('reconstructs an unresolved exact proposal from its immutable delivery across restarts', () => {
   const state = fixture(), before = structuredClone(state);
@@ -123,6 +125,213 @@ it('excludes superseded, changed and missing-source proposals instead of revivin
   expect(pendingResearchHandoffs({ ...state, deliveries: [{ ...delivery, dependencies: [{ taskId: 'gone', taskDigest: 'unknown' }] }] })).toEqual([]);
 });
 
+it('coalesces exact repeated proposals without changing the original id or activation and retains immutable sources', () => {
+  const state = fixture(), first = pendingResearchHandoffs(state)[0];
+  state.deliveries.push({ ...structuredClone(delivery), id: 'repeated', producer: 'other-researcher', commit: 'b'.repeat(40), createdAt: 2 });
+  const before = structuredClone(state), handoffs = pendingResearchHandoffs(state);
+  expect(handoffs).toHaveLength(1);
+  expect(handoffs[0]).toMatchObject({ id: first.id, activationDigest: first.activationDigest, proposal,
+    sources: [{ handoffId: first.id, deliveryId: delivery.id, producer: delivery.producer, source: first.source },
+      { deliveryId: 'repeated', producer: 'other-researcher', source: { commit: 'b'.repeat(40), notesPath: 'RESEARCH.md' } }] });
+  expect(first.id).toBe(mathDigest(canonicalMathJson({ deliveryId: delivery.id, proposalDigest: taskVersion(proposal) })));
+  expect(pendingResearchHandoffs(JSON.parse(JSON.stringify(state)))).toEqual(handoffs);
+  expect(state).toEqual(before);
+});
+
+it('decides a late duplicate once and keeps every old delivery key durable if the first delivery is superseded', () => {
+  const state = fixture(), dispatched = pendingResearchHandoffs(state)[0];
+  state.deliveries.push({ ...structuredClone(delivery), id: 'repeated', createdAt: 2 });
+  const responses = [{ id: dispatched.id, status: 'rejected', reason: 'This exact interface misses the required bound.' }];
+  const decisions = resolveResearchHandoffs(state, [dispatched.id], [research], responses,
+    { [dispatched.id]: dispatched.activationDigest });
+  expect(decisions).toHaveLength(2);
+  expect(decisions.map(item => item.deliveryId)).toEqual([delivery.id, 'repeated']);
+  expect(new Set(decisions.map(item => item.contextDigest)).size).toBe(1);
+  state.researchDecisions = decisions;
+  expect(pendingResearchHandoffs(state)).toEqual([]);
+  const sources = researchHandoffs(state)[0].sources;
+  expect(resolveResearchHandoffs(state, [], [research], [{ ...responses[0], id: sources[1].handoffId }])).toEqual([]);
+  state.deliveries[0].status = 'superseded';
+  expect(researchHandoffs(state)).toMatchObject([{ deliveryId: 'repeated', status: 'rejected' }]);
+  expect(pendingResearchHandoffs(JSON.parse(JSON.stringify(state)))).toEqual([]);
+});
+
+it.each(['adopted', 'rejected', 'deferred'] as const)('reads a legacy %s decision recorded under a non-primary delivery id', status => {
+  const state = fixture(), repeated = { ...structuredClone(delivery), id: 'repeated', createdAt: 2 };
+  const alias = pendingResearchHandoffs({ ...state, deliveries: [repeated] })[0].id;
+  state.deliveries.push(repeated);
+  if (status === 'adopted') state.tasks.push(node(proposal));
+  state.researchDecisions = [{ id: alias, deliveryId: repeated.id, status,
+    ...(status === 'adopted' ? { taskId: proposal.id, taskDigest: taskVersion(proposal) } : { reason: 'The current bound is unavailable.' }) }];
+  const handoffs = researchHandoffs(state);
+  expect(handoffs).toHaveLength(1);
+  expect(handoffs[0]).toMatchObject({ deliveryId: delivery.id, status, decision: { id: handoffs[0].id, status } });
+  expect(pendingResearchHandoffs(JSON.parse(JSON.stringify(state)))).toEqual([]);
+});
+
+it('resolves an in-flight legacy alias after another duplicate becomes its primary source', () => {
+  const state = fixture(), original = pendingResearchHandoffs(state)[0];
+  state.deliveries.unshift({ ...structuredClone(delivery), id: 'earlier', createdAt: 0 });
+  const current = pendingResearchHandoffs(state)[0];
+  expect(current.id).not.toBe(original.id);
+  expect(current.activationDigest).toBe(original.activationDigest);
+  const decisions = resolveResearchHandoffs(state, [original.id], [research], [
+    { id: original.id, status: 'deferred', reason: 'Need a separate estimate.' },
+  ], { [original.id]: original.activationDigest });
+  expect(decisions.map(item => item.deliveryId)).toEqual(['earlier', delivery.id]);
+  expect(pendingResearchHandoffs({ ...state, researchDecisions: decisions })).toEqual([]);
+});
+
+it('accepts consistent decisions for old duplicate ids and rejects conflicting duplicate decisions atomically', () => {
+  const state = fixture(); state.deliveries.push({ ...structuredClone(delivery), id: 'repeated', createdAt: 2 });
+  const sources = pendingResearchHandoffs(state)[0].sources, ids = sources.map(source => source.handoffId);
+  const responses = ids.map(id => ({ id, status: 'rejected', reason: 'The typed target has insufficient hypotheses.' }));
+  expect(resolveResearchHandoffs(state, ids, [research], responses)).toHaveLength(2);
+  const before = structuredClone(state);
+  expect(() => resolveResearchHandoffs(state, ids, [research], [responses[0], { ...responses[1], status: 'deferred' }]))
+    .toThrow('math_handoff_decision_conflict:');
+  expect(state).toEqual(before);
+});
+
+it('reopens conflicting historical dispositions rather than silently choosing one duplicate decision', () => {
+  const state = fixture(); state.deliveries.push({ ...structuredClone(delivery), id: 'repeated', createdAt: 2 });
+  const handoff = pendingResearchHandoffs(state)[0];
+  state.researchDecisions = handoff.sources.map((source, index) => ({ id: source.handoffId, deliveryId: source.deliveryId,
+    status: index ? 'deferred' : 'rejected', reason: 'Different historical dispositions.' }));
+  expect(pendingResearchHandoffs(state)).toHaveLength(1);
+  const current = pendingResearchHandoffs(state)[0];
+  const decisions = resolveResearchHandoffs(state, [current.id], [research], [
+    { id: current.id, status: 'rejected', reason: 'Reconciled against the exact current target.' },
+  ], { [current.id]: current.activationDigest });
+  expect(pendingResearchHandoffs({ ...state, researchDecisions: decisions })).toEqual([]);
+});
+
+it.each([{ type: 'True' }, { theoremName: 'Original.other' }, { premises: ['an extra premise'] },
+  { objective: 'A distinct exact request' }, { revision: 1 }, { dependsOn: ['different-input'] }])
+('keeps distinct exact proposal contracts separate: %j', change => {
+  const state = fixture();
+  state.deliveries.push({ ...structuredClone(delivery), id: 'different', lemmaRequests: [{ ...proposal, ...change }] });
+  expect(pendingResearchHandoffs(state)).toHaveLength(2);
+});
+
+it('keeps source tasks and versioned delivery inputs separate while normalizing input order and duplicates', () => {
+  const state = fixture(), left = { ...proposal, id: 'left' }, right = { ...proposal, id: 'right' };
+  state.tasks.push(node(left), node(right));
+  const inputs = [left, right].map(task => ({ taskId: task.id, taskDigest: taskVersion(task) }));
+  state.deliveries[0].dependencies = inputs;
+  state.deliveries.push({ ...structuredClone(delivery), id: 'same-inputs', dependencies: [inputs[1], inputs[0], inputs[1]] });
+  expect(pendingResearchHandoffs(state)).toHaveLength(1);
+  state.deliveries.push({ ...structuredClone(delivery), id: 'other-inputs', dependencies: [inputs[0]] });
+  expect(pendingResearchHandoffs(state)).toHaveLength(2);
+  const otherSource = { ...research, id: 'other-source' };
+  state.tasks.push(node(otherSource));
+  state.deliveries.push({ ...structuredClone(delivery), id: 'other-source', taskId: otherSource.id,
+    taskDigest: taskVersion(otherSource), dependencies: inputs });
+  expect(pendingResearchHandoffs(state)).toHaveLength(3);
+});
+
+it('does not reuse a decision when a new delivery refers to a different source task version', () => {
+  const state = fixture(), original = pendingResearchHandoffs(state)[0];
+  state.researchDecisions = resolveResearchHandoffs(state, [original.id], [research], [
+    { id: original.id, status: 'rejected', reason: 'The original research contract does not close the gap.' },
+  ]);
+  state.tasks[0].task = { ...research, revision: 1 };
+  state.deliveries.push({ ...structuredClone(delivery), id: 'new-source-version', taskDigest: taskVersion(state.tasks[0].task) });
+  expect(pendingResearchHandoffs(state)).toMatchObject([{ deliveryId: 'new-source-version', status: 'pending' }]);
+  expect(pendingResearchHandoffs(state)[0].contextDigest).not.toBe(original.contextDigest);
+});
+
+it.each(['source', 'delivery-input'] as const)('does not replay a bound decision if restored %s contracts changed under an old delivery id', change => {
+  const state = fixture(), input = node({ ...proposal, id: 'input', theoremName: 'Original.input' });
+  state.tasks.push(input);
+  state.deliveries[0].dependencies = [{ taskId: input.task.id, taskDigest: taskVersion(input.task) }];
+  const original = pendingResearchHandoffs(state)[0];
+  state.researchDecisions = resolveResearchHandoffs(state, [original.id], state.tasks.map(node => node.task), [
+    { id: original.id, status: 'rejected', reason: 'Only valid for the pinned input contracts.' },
+  ]);
+  expect(state.researchDecisions[0].contextDigest).toBe(original.contextDigest);
+  if (change === 'source') {
+    state.tasks[0].task = { ...research, revision: 1 };
+    state.deliveries[0].taskDigest = taskVersion(state.tasks[0].task);
+  } else {
+    input.task = { ...input.task, type: 'True', revision: 1 };
+    state.deliveries[0].dependencies = [{ taskId: input.task.id, taskDigest: taskVersion(input.task) }];
+  }
+  expect(pendingResearchHandoffs(state)).toHaveLength(1);
+  expect(pendingResearchHandoffs(state)[0].contextDigest).not.toBe(original.contextDigest);
+});
+
+it.each(['adopted', 'rejected', 'deferred'] as const)('does not carry a %s decision to a new version of an unpinned proposal input', status => {
+  const state = fixture(), input = node({ ...proposal, id: 'input', theoremName: 'Original.input' });
+  state.tasks.push(input);
+  const requested = { ...proposal, dependsOn: [input.task.id] };
+  state.deliveries[0].lemmaRequests = [requested];
+  const original = pendingResearchHandoffs(state)[0], planned = state.tasks.map(node => node.task);
+  if (status === 'adopted') planned.push(requested);
+  state.researchDecisions = resolveResearchHandoffs(state, [original.id], planned, status === 'adopted' ? undefined : [
+    { id: original.id, status, reason: 'Decided for the exact current premise.' },
+  ]);
+  if (status === 'adopted') state.tasks.push(node(requested));
+  expect(pendingResearchHandoffs(state)).toEqual([]);
+  input.task = { ...input.task, type: 'False', revision: 1 };
+  const reopened = pendingResearchHandoffs(state)[0];
+  expect(reopened.id).toBe(original.id);
+  expect(reopened.contextDigest).not.toBe(original.contextDigest);
+  expect(reopened.activationDigest).not.toBe(original.activationDigest);
+  expect(() => resolveResearchHandoffs(state, [original.id], state.tasks.map(node => node.task), [],
+    { [original.id]: original.activationDigest })).toThrow('math_handoff_dispatch_superseded:');
+});
+
+it('does not merge a consumer whose sibling input has a different exact contract', () => {
+  const state = fixture(), input = { ...proposal, id: 'input', theoremName: 'Original.input' };
+  const consumer = { ...proposal, dependsOn: [input.id] };
+  state.deliveries[0].lemmaRequests = [consumer, input];
+  state.deliveries.push({ ...structuredClone(delivery), id: 'changed-sibling', lemmaRequests: [consumer, { ...input, type: 'True' }] });
+  expect(pendingResearchHandoffs(state).filter(item => item.proposal.id === consumer.id)).toHaveLength(2);
+});
+
+it('binds adopted decisions to the resulting plan when it edits a proposed prerequisite in the same response', () => {
+  const state = fixture(), input = { ...proposal, id: 'input', theoremName: 'Original.input' };
+  const consumer = { ...proposal, dependsOn: [input.id] };
+  state.deliveries[0].lemmaRequests = [consumer, input];
+  const batch = selectResearchHandoffBatch(state), planned = [research, { ...input, objective: 'The chosen premise', revision: 1 }, consumer];
+  state.researchDecisions = resolveResearchHandoffs(state, batch.map(item => item.id), planned, undefined);
+  state.tasks = planned.map(node);
+  expect(researchHandoffs(state).map(item => item.status)).toEqual(['adopted', 'adopted']);
+  expect(pendingResearchHandoffs(state)).toEqual([]);
+});
+
+it('keeps merged prerequisite order and its original task id while a consumer in any source delivery remains undecided', () => {
+  const state = fixture(), consumer = { ...proposal, id: 'consumer', theoremName: 'Original.consumer', dependsOn: [proposal.id] };
+  state.deliveries.push({ ...structuredClone(delivery), id: 'consumer-delivery', lemmaRequests: [consumer, proposal] });
+  const batch = selectResearchHandoffBatch(state);
+  expect(batch.map(item => item.proposal.id)).toEqual([proposal.id, consumer.id]);
+  expect(batch[0].sources).toHaveLength(2);
+  expect(() => resolveResearchHandoffs(state, [batch[0].id], [{ ...proposal, id: 'renamed' }], undefined))
+    .toThrow('math_handoff_dependency_id_required:' + proposal.id);
+});
+
+it('keeps a thousand duplicate provenance records out of the prompt and batch allowance without truncating the typed proposal', () => {
+  const state = fixture(), later = { ...proposal, id: 'later', theoremName: 'Original.later' };
+  state.deliveries[0].lemmaRequests = [proposal, later];
+  const single = researchHandoffContext(pendingResearchHandoffs(state)[0]);
+  state.deliveries.push(...Array.from({ length: 999 }, (_, index) => ({ ...structuredClone(delivery), id: `repeat-${index}`, createdAt: index + 2 })));
+  const before = structuredClone(state), pending = pendingResearchHandoffs(state), projected = researchHandoffContext(pending[0]);
+  expect(pending).toHaveLength(2);
+  expect(pending[0].sources).toHaveLength(1000);
+  expect(projected).not.toHaveProperty('sources');
+  expect(projected.proposal).toEqual(proposal);
+  expect(projected.source).toEqual(single.source);
+  expect(projected.sourceSet).toEqual({ count: 1000, digest: mathDigest(canonicalMathJson(pending[0].sources)),
+    reference: { path: 'COOPERATION.json', handoffId: pending[0].id, contextDigest: pending[0].contextDigest } });
+  expect(Buffer.byteLength(JSON.stringify(projected))).toBeLessThan(Buffer.byteLength(JSON.stringify(single)) + 16);
+  const selected = selectResearchHandoffBatch(state, { maxBytes: 4096 });
+  expect(selected.map(item => item.proposal.id)).toEqual([proposal.id, later.id]);
+  expect(Buffer.byteLength(JSON.stringify(selected))).toBeGreaterThan(32 * 1024);
+  expect(Buffer.byteLength(JSON.stringify(selected.map(researchHandoffContext)))).toBeLessThanOrEqual(4096);
+  expect(state).toEqual(before);
+});
+
 const proposals = (count: number): CooperativeTask[] => Array.from({ length: count }, (_, index) =>
   ({ ...proposal, id: `bridge_${index}`, theoremName: `Original.bridge_${index}` }));
 
@@ -130,7 +339,7 @@ it('bounds a thousand pending proposals while retaining undispatched work for su
   const state = fixture(); state.deliveries[0].lemmaRequests = proposals(1000);
   const before = structuredClone(state), batch = selectResearchHandoffBatch(state);
   expect(batch).toHaveLength(8);
-  expect(Buffer.byteLength(JSON.stringify(batch))).toBeLessThanOrEqual(32 * 1024);
+  expect(Buffer.byteLength(JSON.stringify(batch.map(researchHandoffContext)))).toBeLessThanOrEqual(32 * 1024);
   expect(batch.map(item => item.proposal.id)).toEqual(proposals(8).map(task => task.id));
   expect(state).toEqual(before);
   const decisions = resolveResearchHandoffs(state, batch.map(item => item.id), [],
@@ -176,7 +385,7 @@ it('does not add a late delivery to an already selected batch', () => {
 it('measures the complete JSON array in UTF-8 bytes, including commas and brackets', () => {
   const state = fixture();
   state.deliveries[0].lemmaRequests = proposals(3).map(task => ({ ...task, objective: '研究一致估计'.repeat(20) }));
-  const pending = pendingResearchHandoffs(state), two = JSON.stringify(pending.slice(0, 2));
+  const pending = pendingResearchHandoffs(state), two = JSON.stringify(pending.slice(0, 2).map(researchHandoffContext));
   const bytes = Buffer.byteLength(two);
   expect(bytes).toBeGreaterThan(two.length);
   expect(selectResearchHandoffBatch(state, { maxBytes: bytes })).toEqual(pending.slice(0, 2));
@@ -237,6 +446,33 @@ it('pins normalized wait contracts and reopens only when every exact input recei
   expect(reopened.activationDigest).not.toBe(handoff.activationDigest);
   expect(selectResearchHandoffBatch(state)).toEqual([reopened]);
   expect(state.tasks.some(node => node.task.id === proposal.id)).toBe(false);
+});
+
+it('preserves a legacy deferred decision only while its explicit wait versions also bind the proposal inputs', () => {
+  const { state, needed } = waitingFixture();
+  state.deliveries[0].lemmaRequests = [{ ...proposal, dependsOn: [needed.task.id] }];
+  const original = pendingResearchHandoffs(state)[0];
+  state.researchDecisions = [{ id: original.id, deliveryId: original.deliveryId, status: 'deferred', reason: 'Await the pinned premise.',
+    waitsOn: [{ taskId: needed.task.id, taskDigest: taskVersion(needed.task) }] }];
+  expect(researchHandoffs(state)[0].status).toBe('deferred');
+  const previousTask = needed.task;
+  needed.task = { ...needed.task, type: 'True', revision: 1 };
+  expect(pendingResearchHandoffs(state)).toHaveLength(1);
+  needed.task = previousTask; accept(needed);
+  expect(pendingResearchHandoffs(state)[0].reopened).toBe('checked-prerequisites');
+});
+
+it('requires revalidation of legacy decisions over proposal inputs whose historical versions were never pinned', () => {
+  const { state, needed } = waitingFixture();
+  state.deliveries[0].lemmaRequests = [{ ...proposal, dependsOn: [needed.task.id] }];
+  const original = pendingResearchHandoffs(state)[0];
+  state.researchDecisions = [{ id: original.id, deliveryId: original.deliveryId, status: 'rejected', reason: 'An old unbound decision.' }];
+  expect(pendingResearchHandoffs(state)).toHaveLength(1);
+  const decisions = resolveResearchHandoffs(state, [original.id], state.tasks.map(node => node.task), [
+    { id: original.id, status: 'rejected', reason: 'Rechecked for the current exact input.' },
+  ]);
+  expect(decisions[0].contextDigest).toBe(original.contextDigest);
+  expect(pendingResearchHandoffs({ ...state, researchDecisions: decisions })).toEqual([]);
 });
 
 it('ignores unrelated checked lemmas and stale wait contracts or modified receipts', () => {

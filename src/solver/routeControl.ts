@@ -3,7 +3,7 @@ import { hasTaskAcceptance, taskGroup, taskVersion, type CooperativeTask, type T
 
 export type ReopenCondition = { kind: 'contract-changed' } | { kind: 'environment-changed' } |
   { kind: 'dependency-checked'; taskId: string };
-export type BlockerProposal = { mechanism: string; scope: string; evidenceRefs?: readonly string[];
+export type BlockerProposal = { mechanism: string; scope: string; blockerId?: string; evidenceRefs?: readonly string[];
   reopenOn?: readonly ReopenCondition[] };
 export type BlockerBasis = { contractDigest: string; environmentDigest: string;
   dependencies: Record<string, { contractDigest: string; evidenceDigest?: string }> };
@@ -55,13 +55,15 @@ export function validateBlockerProposals(value: unknown, task: CooperativeTask, 
   return value.map(item => {
     if (!item || typeof item.mechanism !== 'string' || !item.mechanism.trim() || item.mechanism.length > 500 ||
         typeof item.scope !== 'string' || !item.scope.trim() || item.scope.length > 2000 ||
+        (item.blockerId !== undefined && (typeof item.blockerId !== 'string' || !/^blocker_[a-f0-9]{24}$/u.test(item.blockerId))) ||
         (item.evidenceRefs !== undefined && (!Array.isArray(item.evidenceRefs) || item.evidenceRefs.length > 32 ||
           item.evidenceRefs.some((ref: unknown) => typeof ref !== 'string' || ref.length > 2000))) ||
         (item.reopenOn !== undefined && (!Array.isArray(item.reopenOn) || !item.reopenOn.length || item.reopenOn.length > 64 ||
           item.reopenOn.some((condition: any) => !condition || !['contract-changed', 'environment-changed', 'dependency-checked'].includes(condition.kind) ||
             (condition.kind === 'dependency-checked' && (typeof condition.taskId !== 'string' || !Object.hasOwn(local, condition.taskId)))))))
       throw new Error('math_route_blocker_invalid');
-    return { mechanism: normalize(item.mechanism), scope: normalize(item.scope), evidenceRefs: item.evidenceRefs ?? [],
+    return { mechanism: normalize(item.mechanism), scope: normalize(item.scope),
+      ...(item.blockerId ? { blockerId: item.blockerId } : {}), evidenceRefs: item.evidenceRefs ?? [],
       reopenOn: item.reopenOn ?? [{ kind: 'contract-changed' }, { kind: 'environment-changed' },
         ...Object.keys(local).map(taskId => ({ kind: 'dependency-checked' as const, taskId }))] };
   });
@@ -73,18 +75,32 @@ export function recordRouteBlockers(records: RouteBlocker[], proposals: readonly
   const currentBasis = routeBlockerBasis(task, tasks, environmentDigest, problemReceiptDigest), changed: RouteBlocker[] = [];
   const nodes = new Map(tasks.map(node => [node.task.id, node]));
   const routeId = nodes.get(task.id)?.assignment?.routeId;
+  // Resolve every explicit reference before updating counts, so malformed batches are atomic.
+  const linked = new Map(proposals.filter(proposal => proposal.blockerId).map(proposal => {
+    const record = records.find(record => record.id === proposal.blockerId);
+    if (!record || record.taskId !== task.id || record.groupId !== taskGroup(task) || record.routeId !== routeId)
+      throw new Error('math_route_blocker_invalid: blockerId must name an existing obstruction of this task and route.');
+    return [proposal, record] as const;
+  }));
   const reported = new Set<string>();
   for (const proposal of proposals) {
-    const previous = [...records].reverse().find(record => record.taskId === task.id && record.groupId === taskGroup(task) && record.routeId === routeId &&
-      record.mechanism === normalize(proposal.mechanism) && record.scope === normalize(proposal.scope) &&
-      record.basis.contractDigest === currentBasis.contractDigest && record.basis.environmentDigest === currentBasis.environmentDigest);
+    const mechanism = linked.get(proposal)?.mechanism ?? normalize(proposal.mechanism);
+    const scope = linked.get(proposal)?.scope ?? normalize(proposal.scope);
+    // An ID identifies the obstruction, not the historical inputs of that report.
+    let previous: RouteBlocker | undefined;
+    for (const record of records) if (record.taskId === task.id && record.groupId === taskGroup(task) && record.routeId === routeId &&
+      record.mechanism === mechanism && record.scope === scope && record.basis.contractDigest === currentBasis.contractDigest &&
+      record.basis.environmentDigest === currentBasis.environmentDigest && (!previous || record.updatedAt >= previous.updatedAt))
+      previous = record;
     const basis: BlockerBasis = { ...currentBasis, dependencies: Object.fromEntries(Object.entries(currentBasis.dependencies).map(([id, entry]) => {
       const dependency = nodes.get(id), proof = dependency?.integratedCheck;
       // Losing or replaying an old receipt supplies no new mathematical evidence.
       const fresh = proof && hasTaskAcceptance(proof) && proof.taskDigest === taskVersion(dependency.task);
-      return [id, { ...entry, evidenceDigest: fresh ? entry.evidenceDigest : previous?.basis.dependencies[id]?.evidenceDigest }];
+      const prior = previous?.basis.environmentDigest === currentBasis.environmentDigest ? previous.basis.dependencies[id] : undefined;
+      return [id, { ...entry, evidenceDigest: fresh ? entry.evidenceDigest :
+        prior?.contractDigest === entry.contractDigest ? prior.evidenceDigest : undefined }];
     })) };
-    const fingerprint = hash({ taskId: task.id, groupId: taskGroup(task), routeId, mechanism: normalize(proposal.mechanism), scope: normalize(proposal.scope), basis });
+    const fingerprint = hash({ taskId: task.id, groupId: taskGroup(task), routeId, mechanism, scope, basis });
     if (reported.has(fingerprint)) continue; // Duplicate entries in one response are one attempt.
     reported.add(fingerprint);
     let record = records.find(record => record.fingerprint === fingerprint);
@@ -96,7 +112,7 @@ export function recordRouteBlockers(records: RouteBlocker[], proposals: readonly
     } else {
       record = { id: 'blocker_' + fingerprint.slice(0, 24), taskId: task.id, groupId: taskGroup(task), taskDigest: taskVersion(task),
         ...(routeId ? { routeId } : {}),
-        mechanism: normalize(proposal.mechanism), scope: normalize(proposal.scope), evidenceStatus: 'advisory',
+        mechanism, scope, evidenceStatus: 'advisory',
         evidenceRefs: proposal.evidenceRefs ?? [], reopenOn: proposal.reopenOn ?? [], basis, fingerprint, count: 1,
         status: 'open', createdAt: at, updatedAt: at };
       records.push(record);

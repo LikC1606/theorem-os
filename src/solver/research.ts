@@ -1,4 +1,5 @@
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { MathAgentSession } from '../runtime/codexSession';
 import { readMathBuildManifest } from '../math/mathBuildManifest';
@@ -17,7 +18,8 @@ import type { ResearchWorker } from './modules/organization';
 import type { ResearchOperation } from './modules/value';
 import { runResearchTurn, type ResearchCandidate } from './modules/execution';
 import { recoverableResearchFailure, researchFailureDetail, researchFailureReason } from './modules/search';
-import { aggregateUsage, buildTokenBudget, initializeUsageAccounting, modelDispatchAllowed, recordThreadUsage } from './usageBudget';
+import { aggregateUsage, buildTokenBudget, initializeUsageAccounting, modelDispatchAllowed, recordThreadUsage, reportedTotalTokens } from './usageBudget';
+import { recoverModelTurnLedger, WorkerTurnLedger, type ModelTurnReceipt } from './turnLedger';
 
 export type WorkerAccess = { environment: NodeJS.ProcessEnv; corpusFile?: string; retrievalRoot: string;
   knowledgeFile?: string; knowledgeDigest?: string; knowledgeSnapshot?: KnowledgeContextSnapshot };
@@ -34,6 +36,7 @@ export async function runResearchWorkers(input: {
   const records = input.workers.map(worker => ({ worker,
     research: parallel ? state.workers!.find(item => item.id === worker.id)! : state }));
   for (const { research } of records) initializeUsageAccounting(research);
+  recoverModelTurnLedger(state, input.emit);
   state.tokenBudget = buildTokenBudget(input.maxTotalTokens, records.map(record => record.research));
   const dispatchAllowed = () => modelDispatchAllowed(state.tokenBudget!);
   const accepted = records.find(({ worker }) => worker.id === (state.winningWorker ?? 'solver'));
@@ -102,7 +105,10 @@ export async function runResearchWorkers(input: {
       let pendingTurn: Promise<void> | undefined;
       let usageTurnActive = false;
       let usageTurnReported = false;
-      const modelTurn = async <T>(run: () => Promise<T>, assignment?: CooperativeAction): Promise<T | undefined> => {
+      let ledgerSessionId: string | undefined;
+      const turnLedger = new WorkerTurnLedger(state, worker.id, research, emit);
+      const modelTurn = async <T>(run: () => Promise<T>, assignment?: CooperativeAction,
+        operation: ResearchOperation = 'direct'): Promise<T | undefined> => {
         // No await separates this final admission check from invoking the model request.
         if (!dispatchAllowed() || budget().remainingMs <= 0 || signal.aborted ||
             (assignment && !cooperation!.started(worker, assignment))) return undefined;
@@ -118,15 +124,19 @@ export async function runResearchWorkers(input: {
           async () => { await session?.interrupt(); },
           async message => { if (!isStatementAction(assignment)) await session?.notify?.(message); });
         const accounting = research.usageAccounting!;
+        turnLedger.begin(ledgerSessionId, session?.threadId, operation, assignment);
         accounting.startedTurns++;
         accounting.pending = true;
         usageTurnActive = true; usageTurnReported = false;
         updateUsage(); save();
         let completed = false;
+        let status: ModelTurnReceipt['execution'] = 'failed';
         try {
           const result = await run();
           completed = typeof result === 'string' ? result === 'completed' :
             Boolean(result && typeof result === 'object' && 'status' in result && result.status === 'completed');
+          const resultStatus = typeof result === 'string' ? result : result && typeof result === 'object' && 'status' in result ? result.status : undefined;
+          status = completed ? 'completed' : ['checkpoint', 'interrupted'].includes(String(resultStatus)) ? 'interrupted' : 'failed';
           return result;
         }
         finally {
@@ -135,6 +145,7 @@ export async function runResearchWorkers(input: {
           if (usageTurnReported && completed) accounting.reportedTurns++;
           else accounting.incomplete = true;
           usageTurnActive = false;
+          turnLedger.finish(status);
           updateUsage(); save();
         }
       };
@@ -164,8 +175,9 @@ export async function runResearchWorkers(input: {
       };
       const close = async () => {
         if (!session) { await closing; return; }
-        const current = session; session = undefined;
+        const current = session, closingSessionId = ledgerSessionId; session = undefined;
         try { closing = current.close(); await closing; } catch (error) { cleanupErrors.push(error); throw error; }
+        finally { if (ledgerSessionId === closingSessionId) ledgerSessionId = undefined; }
       };
       const cancel = () => { void close().catch(() => {}); };
       signal.addEventListener('abort', cancel, { once: true });
@@ -193,6 +205,8 @@ export async function runResearchWorkers(input: {
             if (!dispatchAllowed() || budget().remainingMs <= 0 ||
                 (assignment && !cooperation!.current(assignment))) return false;
             try {
+              const sessionId = crypto.randomUUID();
+              ledgerSessionId = sessionId;
               session = await modules.M1.open({ executable: input.executable, profile: input.profile,
                 ...(!statement ? { proofProjectRoot: path.join(worker.worktree, state.problem.projectRelative) } : {}),
                 workspace, environment: { ...environment,
@@ -203,8 +217,16 @@ export async function runResearchWorkers(input: {
                   research.lastActivity = { ...activity, at: Date.now() };
                   emit('worker_activity', { activity: activity.event, itemType: activity.itemType }); save();
                 }, onUsage: usage => {
+                  if (ledgerSessionId !== sessionId) {
+                    // A closed session's cumulative total has no safe baseline in the current thread.
+                    research.usageAccounting!.incomplete = true;
+                    turnLedger.usage(sessionId, false);
+                    emit('worker_usage_unscoped', { sessionId, reportedTotalTokens: reportedTotalTokens(usage) });
+                    updateUsage(); save(); return;
+                  }
                   research.lastInputTokens = session?.lastInputTokens ?? research.lastInputTokens;
                   const reported = recordThreadUsage(research, usage);
+                  turnLedger.usage(sessionId, reported);
                   if (usageTurnActive && reported) usageTurnReported = true;
                   updateUsage(); save();
                 } });
@@ -282,6 +304,7 @@ export async function runResearchWorkers(input: {
       };
       try {
         while (!signal.aborted) {
+          if (turnLedger.settle()) save();
           const assignment = await cooperation?.next(worker, budget());
           unstarted = assignment?.kind === 'assemble' ? undefined : assignment;
           if (cooperation && !assignment) break;
@@ -346,6 +369,7 @@ export async function runResearchWorkers(input: {
           }
           readMathBuildManifest(input.buildFile, input.root, path.join(input.root, 'out', 'main'));
           const onStarted = (turnId: string) => {
+            turnLedger.started(turnId);
             emit('turn_started', { turnId, turn: research.turns, totalTurns: state.turns });
             if (assignment && cooperation && !cooperation.current(assignment)) void session?.interrupt().catch(() => {});
           };
@@ -359,7 +383,7 @@ export async function runResearchWorkers(input: {
               let status: string | undefined;
               let executionError: string | undefined;
               try {
-                status = await modelTurn(() => runResearchTurn(session!, currentContext.message, assignment.workspace, signal, onStarted), assignment);
+                status = await modelTurn(() => runResearchTurn(session!, currentContext.message, assignment.workspace, signal, onStarted), assignment, operation);
               } catch (error) {
                 signal.throwIfAborted();
                 executionError = researchFailureDetail(error, session?.lastError, session?.lastFailureDiagnostic);
@@ -415,7 +439,7 @@ export async function runResearchWorkers(input: {
           let executionError: string | undefined;
           try {
             try {
-              candidate = await modelTurn(() => modules.M1.execute(state.problem, currentContext, operation, worker, session!, signal, onStarted), assignment);
+              candidate = await modelTurn(() => modules.M1.execute(state.problem, currentContext, operation, worker, session!, signal, onStarted), assignment, operation);
             } catch (error) {
               signal.throwIfAborted();
               executionError = researchFailureDetail(error, session?.lastError, session?.lastFailureDiagnostic);
@@ -514,6 +538,7 @@ export async function runResearchWorkers(input: {
       } finally {
         signal.removeEventListener('abort', cancel);
         try { await close(); } catch { /* close records each failure once, including cancellation. */ }
+        turnLedger.settle();
         if (reservedTurn) { state.turns--; if (parallel) research.turns--; }
         if (unstarted) cooperation?.release(worker, unstarted);
         cooperation?.stopped(worker, (research as SolverWorkerState).error);

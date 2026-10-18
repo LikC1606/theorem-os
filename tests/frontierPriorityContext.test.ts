@@ -57,6 +57,24 @@ it('retains the assigned support task, its actual consumer and open frontier wit
   expect(context.manifest!.requiredTaskIds).toContain('seed');
 });
 
+it('keeps concrete concurrent questions mandatory while preserving private route scope and independent review', () => {
+  const compile = contextCompiler.compileTaskContext;
+  vi.spyOn(contextCompiler, 'compileTaskContext').mockImplementation(input => compile({ ...input, maxOptionalContextBytes: 0 }));
+  const { seed, core, probe, cooperation } = fixture();
+  core.status = 'running'; probe.status = 'running';
+  const hidden = node('private_question', 'research'); hidden.status = 'running';
+  hidden.task = { ...hidden.task, groupId: 'private-route', sharing: 'group', objective: 'PRIVATE_CONCURRENT_QUESTION' };
+  cooperation.tasks.push(hidden);
+  const context = contextFor(cooperation, actionFor(seed));
+  expect(context.manifest!.included).toContainEqual(expect.objectContaining({ id: 'parallel-questions', required: true }));
+  const questions = JSON.parse(context.message.split('Current in-flight questions (scope-visible assignments; advisory, retrieve exact interfaces from COOPERATION.json):\n')[1]
+    .split('\n\n')[0]);
+  expect(questions.map((question: { taskId: string }) => question.taskId)).toEqual(['core', 'probe']);
+  expect(context.instructions).toContain('Leave a slot waiting for input');
+  probe.task = { ...probe.task, reviewScope: 'feasibility' };
+  expect(contextFor(cooperation, actionFor(probe)).manifest!.included.some(section => section.id === 'parallel-questions')).toBe(false);
+});
+
 it('updates the advisory research focus when its original gap becomes checked', () => {
   const { core, probe, cooperation } = fixture();
   expect(packet(contextFor(cooperation, actionFor(probe)).message)).toMatchObject({

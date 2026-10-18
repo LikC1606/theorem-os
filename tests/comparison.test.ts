@@ -25,7 +25,7 @@ describe('configured research comparisons', () => {
   it('replaces only M3 ordering while retaining dependency and pause gates', () => {
     const tasks = [node('helper', 'lemma'), node('blocked-goal', 'goal', ['helper']), node('ready-goal', 'goal'), node('paused', 'goal', [], 'paused')];
     const modules = configuredSolverModules('direct', 'goals-first');
-    expect(readyResearchTasks(tasks).map(node => node.task.id)).toEqual(['helper', 'ready-goal']);
+    expect(readyResearchTasks(tasks).map(node => node.task.id)).toEqual(['ready-goal', 'helper']);
     expect(modules.M3.ready(tasks).map(node => node.task.id)).toEqual(['ready-goal', 'helper']);
     for (const module of ['M1', 'M2', 'M4', 'M5']) expect(modules[module]).toBe(directSolverModules[module]);
     expect(configuredSolverModules('direct', 'plan')).toBe(directSolverModules);

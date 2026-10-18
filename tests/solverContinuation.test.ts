@@ -33,7 +33,7 @@ describe('proof continuation scheduling', () => {
     const tasks = [node('explore', 'research'), node('core'), integrated(node('checked')),
       node('bridge', 'lemma', ['checked']), node('middle', 'lemma', ['core']), node('goal', 'goal', ['bridge', 'middle'])];
     expect(continuationResearchTasks(tasks).map(record => record.task.id)).toEqual(['bridge', 'core', 'explore']);
-    expect(readyResearchTasks(tasks).map(record => record.task.id)).toEqual(['explore', 'core', 'bridge']);
+    expect(readyResearchTasks(tasks).map(record => record.task.id)).toEqual(['bridge', 'explore', 'core']);
     tasks.find(record => record.task.id === 'checked')!.integratedCheck!.taskDigest = 'obsolete';
     expect(continuationResearchTasks(tasks).map(record => record.task.id)).toEqual(['core', 'bridge', 'explore']);
   });
@@ -68,6 +68,18 @@ describe('proof continuation scheduling', () => {
     core.task = { ...core.task, ownerId: 'researcher' };
     core.assignment = { taskId: 'core', taskDigest: taskVersion(core.task), workerId: 'researcher', seedCommit: 'seed' };
     expect(assignSharedResearchTask(continuationResearchTasks(tasks), engineer, [engineer, researcher], [main])).toBe(tried);
+  });
+
+  it.each(['original', 'consumer'] as const)('keeps a ready %s ahead of spare-slot exploration', kind => {
+    const running = [node('working-a'), node('working-b')];
+    running.forEach(record => record.status = 'running');
+    const checked = integrated(node('checked'));
+    const consumer = node('ready', kind === 'original' ? 'goal' : 'lemma', ['checked']);
+    const tasks = [node('explore', 'research'), ...running, checked, consumer,
+      node('unfinished-original', 'goal', [...running.map(record => record.task.id), 'ready'])];
+    const before = structuredClone(tasks);
+    expect(continuationResearchTasks(tasks).map(record => record.task.id)).toEqual(['ready', 'explore']);
+    expect(tasks).toEqual(before);
   });
 
   it('preserves dependency, pause, spent route and concurrency gates', () => {
@@ -731,7 +743,8 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
       const commit = checkpoint(`Investigation checkpoint ${attempt}: a distinct saved intermediate calculation.`);
       await cooperative.deliver(researcher, action, commit, true);
       expect(record.status).toBe('pending');
-      expect(state.cooperation!.researchCheckpoints!.question).toMatchObject({ count: 1, paused: false });
+      expect(state.cooperation!.researchCheckpoints!.question).toMatchObject({ count: 1, paused: false,
+        unchangedEvidenceCount: attempt + 1, candidateStatus: 'unclassified-draft' });
     }
   });
 
@@ -778,6 +791,28 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
       expect(restoredState.cooperation.tasks[0].status).toBe('blocked');
       expect(restoredState.cooperation.researchCheckpoints.question).toMatchObject({ count: 2, paused: true });
     } finally { await resumed.stop(); }
+  });
+
+  it('does not reopen a paused checkpoint for unrelated peer work or canonical helper changes', async () => {
+    const proofWorkspace = path.join(directory, 'isolated-researcher');
+    fs.appendFileSync(path.join(directory, '.git/info/exclude'), '\nisolated-researcher/\n');
+    git(directory, ['worktree', 'add', '--detach', '--quiet', proofWorkspace, seed]);
+    (researcher as { worktree: string }).worktree = proofWorkspace;
+    await cooperative.deliver(researcher, action, seed, true);
+    record.status = 'running';
+    await cooperative.deliver(researcher, action, seed, true);
+    const paused = structuredClone(state.cooperation!.researchCheckpoints!.question);
+    const unrelated = node('unrelated', 'research');
+    state.cooperation!.tasks.push(unrelated);
+    (cooperative as any).record(lead, unrelated.task, 'progress', 'advisory', 'A distinct result on another question.');
+    fs.appendFileSync(path.join(directory, 'generated/p/Submission.lean'), '\nlemma unrelated_helper : True := by trivial\n');
+    git(directory, ['add', '--', 'generated']);
+    state.cooperation!.canonicalCommit = checkpoint('Inherited research notes.');
+    (cooperative as any).changed();
+    expect(record.status).toBe('blocked');
+    expect(state.cooperation!.researchCheckpoints!.question).toEqual(paused);
+    expect((cooperative as any).checkpointInputDigest(record.task, researcher.id)).not.toBe(paused.inputDigest);
+    expect((cooperative as any).checkpointLocalInputDigest(record.task, researcher.id)).toBe(paused.localInputDigest);
   });
 
   it.each(['running-assignment', 'different-session', 'new-task-version', 'reviewer'] as const)(
@@ -841,6 +876,26 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
     expect(record.status).toBe('blocked');
   });
 
+  it.each(['missing', 'ambiguous'] as const)('retains exact failures without linking a %s target as the same attempt', async invalid => {
+    const checkTask = failureChecker();
+    if (invalid === 'ambiguous') fs.appendFileSync(path.join(directory, 'generated/p/Submission.lean'),
+      '\nnamespace A\nlemma question : True := by trivial\nend A\n' +
+      'namespace B\nlemma question : True := by trivial\nend B\n');
+    git(directory, ['add', '--', 'generated']);
+    const first = checkpoint('The required target has no unique declaration.');
+    const check = (commit: string) => (cooperative as any).check(record.task, record.assignment, directory, commit, [], undefined, true);
+    await check(first);
+    fs.appendFileSync(path.join(directory, 'generated/p/Submission.lean'), '\nlemma unrelated : True := by trivial\n');
+    git(directory, ['add', '--', 'generated']);
+    await check(checkpoint('The target still has no unique declaration.'));
+    expect(checkTask).toHaveBeenCalledTimes(2);
+    expect(state.cooperation!.failedTaskInputs).toHaveLength(2);
+    for (const failure of state.cooperation!.failedTaskInputs!) {
+      expect(failure.attemptFingerprint).toBeUndefined();
+      expect(failure.relatedFailureIds).toBeUndefined();
+    }
+  });
+
   it.each(['source', 'environment', 'environment-variable', 'conditions'] as const)(
     'rechecks a failed helper after changed %s', async change => {
       const checkTask = failureChecker();
@@ -872,6 +927,26 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
     record.assignment!.taskDigest = taskVersion(record.task);
     await expect(check()).rejects.toThrow('math_task_repeated_failed_input');
     expect(checkTask).toHaveBeenCalledTimes(1);
+  });
+
+  it('links a moved failed target as a repeated attempt while still checking its changed full source', async () => {
+    const checkTask = failureChecker();
+    fs.appendFileSync(path.join(directory, 'generated/p/Submission.lean'), '\nlemma question : True := by sorry\n');
+    git(directory, ['add', '--', 'generated']);
+    const first = checkpoint('Saved failed target.');
+    await (cooperative as any).check(record.task, record.assignment, directory, first, [], undefined, true);
+    fs.writeFileSync(path.join(directory, 'generated/p/Submission.lean'),
+      'theorem goal : True := by sorry\n\nlemma unrelated_helper : True := by trivial\n\nlemma question : True := by sorry\n');
+    git(directory, ['add', '--', 'generated']);
+    const second = checkpoint('The same target after an unrelated insertion.');
+    await (cooperative as any).check(record.task, record.assignment, directory, second, [], undefined, true);
+    expect(checkTask).toHaveBeenCalledTimes(2);
+    const failures = state.cooperation!.failedTaskInputs!;
+    expect(failures).toHaveLength(2);
+    expect(failures[0].sourceDigest).not.toBe(failures[1].sourceDigest);
+    expect(failures[0].targetDigest).not.toBe(failures[1].targetDigest);
+    expect(failures[0].attemptFingerprint).toBe(failures[1].attemptFingerprint);
+    expect(failures[1].relatedFailureIds).toEqual([failures[0].id]);
   });
 
   it('rechecks a failed helper after its dependency proof changes', async () => {

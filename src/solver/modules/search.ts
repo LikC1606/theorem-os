@@ -3,6 +3,7 @@ import type { MathAgentFailureDiagnostic } from '../../runtime/codexSession';
 import type { ResearchOperation, ValueEstimate } from './value';
 import { proofRouteReady, type ProofRoute } from '../proofRoutes';
 import { createRecordedTaskSettlement } from '../progress';
+import { createProofRoutePriority } from '../routePriority';
 import { hasTaskAcceptance, isAdvisoryTask, isFeasibilityReview, isFinalCandidateReview, taskGroup, taskReferenceDependencies, taskVersion,
   type TaskRecord, type RouteRecord, type CooperativeAction } from '../tasks';
 
@@ -35,15 +36,19 @@ export function finalCandidateReviewReady(tasks: readonly TaskRecord[]): boolean
 }
 
 /** Select one OR branch; ordinary dependsOn remains an AND requirement. */
-export function selectedTaskRoute(node: TaskRecord, tasks: readonly TaskRecord[]): ProofRoute | undefined {
+export function selectedTaskRoute(node: TaskRecord, tasks: readonly TaskRecord[],
+  priority?: ReturnType<typeof createProofRoutePriority>): ProofRoute | undefined {
+  if (!node.alternativeRoutes?.length) return;
   const assigned = node.alternativeRoutes?.find(route => route.id === node.assignment?.routeId);
   // An active proof or delivery keeps its mathematical inputs. A pending draft
   // may resume on another freshly checked branch when its old inputs fail.
   if (assigned && node.status !== 'pending') return assigned;
   const routes = node.alternativeRoutes?.filter(route => !node.parkedRoutes?.[route.id]?.length);
   const ready = routes?.filter(route => proofRouteReady(route, tasks));
-  return ready?.find(route => route.id === node.assignment?.routeId) ?? ready?.[0] ??
-    routes?.find(route => route.id === node.assignment?.routeId) ?? routes?.[0];
+  const compare = (priority ?? createProofRoutePriority(tasks)).compareRoutes;
+  const ranked = routes?.toSorted((a, b) => compare(a, b) ||
+    Number(b.id === node.assignment?.routeId) - Number(a.id === node.assignment?.routeId));
+  return ready?.find(route => route.id === node.assignment?.routeId) ?? ready?.[0] ?? ranked?.[0];
 }
 export function plannedTaskDependencyIds(node: TaskRecord, tasks: readonly TaskRecord[]): readonly string[] {
   const route = selectedTaskRoute(node, tasks);
@@ -102,8 +107,22 @@ export function taskCanStart(task: TaskRecord['task'], tasks: readonly TaskRecor
 
 export function readyResearchTasks(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): TaskRecord[] {
   const readiness = taskReadiness(tasks);
-  return prioritizeEarlyRouteChecks(tasks.filter(node => node.status === 'pending' && routeAllowsTask(node.task, tasks, groups) &&
-    readiness.canStart(node.task)), tasks);
+  const priority = createProofRoutePriority(tasks, { groups });
+  const checked = new Set(tasks.filter(node => node.status === 'integrated' && node.integratedCheck?.passed &&
+    node.integratedCheck.taskDigest === taskVersion(node.task) && !node.integratedCheck.conditions?.length).map(node => node.task.id));
+  const groupRecords = groups && new Map(groups.map(record => [record.group.id, record]));
+  const consumed = new Set(tasks.filter(node => {
+    if (isAdvisoryTask(node.task) || node.status === 'integrated' || (node.task.status ?? 'active') !== 'active' ||
+      node.routeParking?.length || node.alternativeRoutes?.length &&
+      node.alternativeRoutes.every(route => node.parkedRoutes?.[route.id]?.length)) return false;
+    const group = groupRecords?.get(taskGroup(node.task));
+    return !groupRecords || Boolean(group && group.group.status === 'active' && group.turns < (group.group.maxTurns ?? Infinity));
+  }).flatMap(node => [...node.task.dependsOn, ...(node.alternativeRoutes?.filter(route =>
+    !node.parkedRoutes?.[route.id]?.length).flatMap(route => [...route.prerequisiteTaskIds, route.closingTaskId]) ?? [])]));
+  const rank = (node: TaskRecord) => isAdvisoryTask(node.task) || !readiness.dependenciesReady(node.task) ? 0 :
+    node.task.kind === 'goal' ? 2 : consumed.has(node.task.id) && node.task.dependsOn.some(id => checked.has(id)) ? 1 : 0;
+  const ready = tasks.filter(node => node.status === 'pending' && routeAllowsTask(node.task, tasks, groups) && readiness.canStart(node.task));
+  return prioritizeEarlyRouteChecks(ready.toSorted((a, b) => rank(b) - rank(a) || priority.compareTasks(a, b)), tasks);
 }
 
 /** Offer one fresh route check before investing in its still-unproved inputs. */
@@ -170,13 +189,14 @@ export function criticalPathResearchTasks(tasks: readonly TaskRecord[], groups?:
   }), tasks);
 }
 
-export type OriginalGoalTaskFocus = Readonly<{
+type GoalTaskFocus = Readonly<{
   proofPath: ReadonlySet<string>; frontier: ReadonlySet<string>;
   targetedResearch: ReadonlySet<string>; support: ReadonlySet<string>;
 }>;
+export type OriginalGoalTaskFocus = GoalTaskFocus & Readonly<{ preferred: GoalTaskFocus }>;
 
-/** Advisory investigations point towards a gap; they are not proof-consumer edges. */
-export function originalGoalTaskFocus(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): OriginalGoalTaskFocus {
+function collectOriginalGoalTaskFocus(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[],
+  priority?: ReturnType<typeof createProofRoutePriority>): GoalTaskFocus {
   const nodes = new Map(tasks.map(node => [node.task.id, node]));
   const active = (node: TaskRecord) => {
     if ((node.task.status ?? 'active') !== 'active') return false;
@@ -184,7 +204,12 @@ export function originalGoalTaskFocus(tasks: readonly TaskRecord[], groups?: rea
     return !groups || Boolean(route && route.group.status === 'active' && route.turns < (route.group.maxTurns ?? Infinity));
   };
   const { settled } = createRecordedTaskSettlement(tasks, { includeParkedRoutes: false });
-  const routes = (node: TaskRecord) => node.alternativeRoutes?.filter(route => !node.parkedRoutes?.[route.id]?.length) ?? [];
+  const routes = (node: TaskRecord) => {
+    const open = node.alternativeRoutes?.filter(route => !node.parkedRoutes?.[route.id]?.length) ?? [];
+    if (!priority) return open;
+    const selected = selectedTaskRoute(node, tasks, priority);
+    return selected && open.some(route => route.id === selected.id) ? [selected] : [];
+  };
   const inputs = (node: TaskRecord) => [...new Set([...node.task.dependsOn,
     ...routes(node).flatMap(route => [...route.prerequisiteTaskIds, route.closingTaskId])])];
   const proofPath = new Set<string>(), frontier = new Set<string>();
@@ -236,30 +261,46 @@ export function originalGoalTaskFocus(tasks: readonly TaskRecord[], groups?: rea
   return { proofPath, frontier, targetedResearch, support };
 }
 
+/** Preserve every mathematical frontier, with a separate evidence-ranked focus for allocation. */
+export function originalGoalTaskFocus(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): OriginalGoalTaskFocus {
+  const full = collectOriginalGoalTaskFocus(tasks, groups);
+  return { ...full, preferred: tasks.some(node => node.alternativeRoutes?.length)
+    ? collectOriginalGoalTaskFocus(tasks, groups, createProofRoutePriority(tasks, { groups })) : full };
+}
+
 /** Reconnect checked helpers to unfinished original goals; ranks are facts, not success estimates. */
 export function continuationResearchTasks(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): TaskRecord[] {
   const nodes = new Map(tasks.map(node => [node.task.id, node]));
   const focus = originalGoalTaskFocus(tasks, groups);
+  const preferred = focus.preferred, priority = createProofRoutePriority(tasks, { groups });
   const checked = (node: TaskRecord | undefined) => Boolean(node?.status === 'integrated' && node.integratedCheck?.passed &&
     node.integratedCheck.taskDigest === taskVersion(node.task) && !node.integratedCheck.conditions?.length);
   const ready = criticalPathResearchTasks(tasks, groups), readiness = taskReadiness(tasks);
   const unconditional = (node: TaskRecord) => ['goal', 'lemma'].includes(node.task.kind) && readiness.dependenciesReady(node.task);
   const continuing = new Set(ready.filter(node => focus.proofPath.has(node.task.id) && unconditional(node) &&
     plannedTaskDependencyIds(node, tasks).some(id => checked(nodes.get(id)))).map(node => node.task.id));
-  const rank = (node: TaskRecord) => focus.proofPath.has(node.task.id) && unconditional(node) ? 4 :
-    focus.support.has(node.task.id) && unconditional(node) ? 3 : focus.targetedResearch.has(node.task.id) ? 2 :
-      focus.proofPath.has(node.task.id) ? 1 : 0;
+  const rank = (node: TaskRecord) => node.task.kind === 'goal' && unconditional(node) ? 6 : continuing.has(node.task.id) ? 5 :
+    preferred.proofPath.has(node.task.id) && unconditional(node) ? 4 :
+    preferred.support.has(node.task.id) && unconditional(node) ? 3 : preferred.targetedResearch.has(node.task.id) ? 2 :
+      focus.proofPath.has(node.task.id) || focus.targetedResearch.has(node.task.id) ? 1 : 0;
   const ranked = ready.toSorted((a, b) =>
     rank(b) - rank(a) ||
     Number(continuing.has(b.task.id)) - Number(continuing.has(a.task.id)) ||
-    Number(b.task.kind === 'goal') - Number(a.task.kind === 'goal'));
-  // With three proof slots, keep two on the main path and offer the third to another route.
+    Number(b.task.kind === 'goal') - Number(a.task.kind === 'goal') || priority.compareTasks(a, b));
+  // Explore with a spare slot after ready original goals and checked-input consumers.
   // Running assignments are reserved synchronously, so repeated selections observe this slot.
   const running = tasks.filter(node => node.status === 'running');
-  if (running.filter(node => focus.support.has(node.task.id)).length >= 2 &&
-      !running.some(node => !focus.support.has(node.task.id))) {
-    const exploration = ranked.filter(node => !focus.support.has(node.task.id)).toSorted((a, b) => a.attempts - b.attempts)[0];
-    if (exploration) return prioritizeEarlyRouteChecks([exploration, ...ranked.filter(node => node !== exploration)], tasks);
+  if (running.filter(node => preferred.support.has(node.task.id)).length >= 2 &&
+      !running.some(node => !preferred.support.has(node.task.id))) {
+    const exploration = ranked.filter(node => !preferred.support.has(node.task.id))
+      .toSorted((a, b) => Number(focus.support.has(b.task.id)) - Number(focus.support.has(a.task.id)) ||
+        priority.compareTasks(a, b) || a.attempts - b.attempts)[0];
+    if (exploration) {
+      const consuming = ranked.filter(node => unconditional(node) &&
+        (node.task.kind === 'goal' || continuing.has(node.task.id)));
+      return prioritizeEarlyRouteChecks([...consuming, exploration,
+        ...ranked.filter(node => node !== exploration && !consuming.includes(node))], tasks);
+    }
   }
   return prioritizeEarlyRouteChecks(ranked, tasks);
 }
