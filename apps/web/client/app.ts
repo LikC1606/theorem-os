@@ -1,7 +1,7 @@
 import {
-  createIcons, ArrowDown, ArrowLeft, ArrowLeftRight, ArrowRight, ArrowUp, ArrowUpRight, Check, CheckCheck, ChevronDown, ChevronUp, CircleAlert, CircleCheck, Clock3, Copy, CopyPlus, CornerDownLeft, Cpu,
-  Download, Eye, EyeOff, FileCode2, FileJson2, FlaskConical, GitBranch, IndentDecrease, IndentIncrease, List, ListOrdered, LocateFixed, Maximize2, MessageSquare, Network, PanelLeft, PanelRight, Paperclip,
-  Play, Plus, RefreshCw, RotateCcw, Search, ShieldCheck, SlidersHorizontal, Square, SquarePen, Trash2, TriangleAlert, Undo2, Upload, X,
+  createIcons, ArrowDown, ArrowDownToLine, ArrowLeft, ArrowLeftRight, ArrowRight, ArrowUp, ArrowUpRight, Check, CheckCheck, ChevronDown, ChevronUp, CircleAlert, CircleCheck, Clock3, Copy, CopyPlus, CornerDownLeft, Cpu,
+  Download, Eye, EyeOff, FileCode2, FileJson2, FlaskConical, FolderOpen, GitBranch, IndentDecrease, IndentIncrease, List, ListOrdered, LocateFixed, Maximize2, MessageSquare, Network, PanelLeft, PanelRight, Paperclip,
+  Play, Plus, RefreshCw, RotateCcw, Save, Search, ShieldCheck, SlidersHorizontal, Square, SquarePen, Trash2, TriangleAlert, Undo2, Upload, X,
 } from 'lucide';
 import type { WebCoordination, WebEffort, WebEnvironment, WebRun, WebRunInput, WebSession } from '../shared';
 import { formatDuration, isAcceptedRun, resultDescription, runProgress } from '../presentation';
@@ -20,13 +20,15 @@ import { SourceReader } from './sourceReader';
 import { ActivityReader } from './activityReader';
 import { ModuleView, type ModuleViewInput } from './moduleView';
 import { ModulePlanEditor } from './modulePlanEditor';
+import { ModulePlanLibrary, modulePlanLibraryStorageKey } from './modulePlanLibrary';
+import { ModulePlanLibraryView } from './modulePlanLibraryView';
 import type { ResearchModuleSlot } from '../../../src/solver/modules/policy';
 import { DraftRecovery, type ReplacementReason } from './draftRecovery';
 import { animateEntrance, finishHiddenMotion, finishMotion } from './motion';
 
-const iconSet = { ArrowDown, ArrowLeft, ArrowLeftRight, ArrowRight, ArrowUp, ArrowUpRight, Check, CheckCheck, ChevronDown, ChevronUp, CircleAlert, CircleCheck, Clock3, Copy, CopyPlus, CornerDownLeft, Cpu,
-  Download, Eye, EyeOff, FileCode2, FileJson2, FlaskConical, GitBranch, IndentDecrease, IndentIncrease, List, ListOrdered, LocateFixed, Maximize2, MessageSquare, Network, PanelLeft, PanelRight, Paperclip,
-  Play, Plus, RefreshCw, RotateCcw, Search, ShieldCheck, SlidersHorizontal, Square, SquarePen, Trash2, TriangleAlert, Undo2, Upload, X };
+const iconSet = { ArrowDown, ArrowDownToLine, ArrowLeft, ArrowLeftRight, ArrowRight, ArrowUp, ArrowUpRight, Check, CheckCheck, ChevronDown, ChevronUp, CircleAlert, CircleCheck, Clock3, Copy, CopyPlus, CornerDownLeft, Cpu,
+  Download, Eye, EyeOff, FileCode2, FileJson2, FlaskConical, FolderOpen, GitBranch, IndentDecrease, IndentIncrease, List, ListOrdered, LocateFixed, Maximize2, MessageSquare, Network, PanelLeft, PanelRight, Paperclip,
+  Play, Plus, RefreshCw, RotateCcw, Save, Search, ShieldCheck, SlidersHorizontal, Square, SquarePen, Trash2, TriangleAlert, Undo2, Upload, X };
 function icons(root: Element | Document | DocumentFragment = document) {
   createIcons({ icons: iconSet, root, attrs: { 'aria-hidden': 'true' } });
   root.querySelectorAll('svg[data-lucide]').forEach(svg => svg.removeAttribute('data-lucide'));
@@ -111,6 +113,8 @@ const activityReader = new ActivityReader(icons, at => timestamp(at, true),
   (filename, text) => download(filename, text, 'application/json'));
 const moduleView = new ModuleView(icons);
 const modulePlanEditor = new ModulePlanEditor(element('#module-plan'), icons, () => draftChanged());
+const modulePlanLibrary = new ModulePlanLibraryView(element('#module-plan-library'), new ModulePlanLibrary(() => localStorage),
+  () => modulePlanEditor.value(), plan => { modulePlanEditor.setValue(plan); draftChanged(); });
 const editorNavigation = new EditorNavigation(element<HTMLDialogElement>('#source-editor'), updateEditorPosition,
   updateEditorCount, () => state.session?.limits.maxSourceBytes ?? 0);
 const editorReview = new EditorReview(element<HTMLDialogElement>('#source-editor'), () => editorNavigation.close(),
@@ -196,8 +200,23 @@ function showDialog(dialog: HTMLDialogElement) {
   dialog.showModal();
   animateEntrance(dialog, 'dialog');
 }
+function syncSettingsNavigation() {
+  const content = element('.settings-content');
+  const top = content.getBoundingClientRect().top;
+  const buttons = [...document.querySelectorAll<HTMLButtonElement>('[data-settings-section]')];
+  let current = buttons[0];
+  for (const button of buttons) {
+    if (element(`#${button.dataset.settingsSection}`).getBoundingClientRect().top <= top + 48) current = button;
+  }
+  if (content.scrollTop > 0 && content.scrollHeight - content.clientHeight - content.scrollTop < 8) current = buttons.at(-1)!;
+  for (const button of buttons) {
+    if (button === current) button.setAttribute('aria-current', 'location');
+    else button.removeAttribute('aria-current');
+  }
+}
 function openSettings(focusId?: string) {
   if (!state.session || state.submitting) return;
+  modulePlanLibrary.refresh();
   const dialog = element<HTMLDialogElement>('#run-settings');
   if (!dialog.open && document.body.dataset.mobileView === 'runs') {
     settingsWorkspaceReturn = { focus: document.activeElement instanceof HTMLElement ? document.activeElement : undefined };
@@ -205,6 +224,7 @@ function openSettings(focusId?: string) {
   }
   showDialog(dialog);
   if (focusId) element(`#${focusId}`).focus();
+  syncSettingsNavigation();
 }
 function closeSettings(restoreWorkspace = true) {
   if (!restoreWorkspace) { moduleSettingsPolicy = undefined; settingsWorkspaceReturn = undefined; }
@@ -331,7 +351,7 @@ function renderConversation() {
   const entrances: Array<{ target: HTMLElement; kind: 'message' | 'event' }> = [];
   if (!run) {
     finishMotion(thread);
-    thread.innerHTML = `<div class="chat-welcome"><img src="assets/mark.svg" alt="" width="40" height="40"><h2>从一道定理开始</h2><p>选择一道示例，或附加自己的 Lean 题目。<br>发送任务后，在右侧查看证明与检查进展。</p><div class="chat-suggestions" aria-label="示例题目">${(state.session?.templates ?? []).map(template => `<button type="button" class="template-suggestion" data-chat-template="${html(template.id)}">${icon('file-code-2')}<span>${html(template.name)}</span><span class="suggestion-environment">${html(environmentName(template.environment))}</span>${icon('arrow-up-right')}</button>`).join('')}</div></div>`;
+    thread.innerHTML = `<div class="chat-welcome"><img src="assets/mark.svg" alt="" width="40" height="40"><h2>从一道定理开始</h2><div class="chat-suggestions" aria-label="示例题目"><span class="suggestions-label">示例题目</span>${(state.session?.templates ?? []).map(template => `<button type="button" class="template-suggestion" data-chat-template="${html(template.id)}">${icon('file-code-2')}<span>${html(template.name)}</span><span class="suggestion-environment">${html(environmentName(template.environment))}</span>${icon('arrow-up-right')}</button>`).join('')}</div></div>`;
   } else {
     const events = run.events.filter((event, index, all) => index === 0 || event.message !== all[index - 1].message || event.type !== all[index - 1].type);
     const value = status(run);
@@ -471,6 +491,7 @@ function recoverDraft() {
 }
 function draftChanged(persist = true) {
   latestDraft = captureDraft();
+  modulePlanLibrary.sync();
   draftRevision++;
   renderImportState();
   renderComposerSummary();
@@ -495,6 +516,7 @@ function saveDraft() {
   }
 }
 function applyTaskDraft(draft: TaskDraft) {
+  modulePlanLibrary.resetSelection();
   clearValidation();
   draftSourceExpanded = false;
   field('provider').value = state.session?.providers.some(provider => provider.id === draft.providerId) ? draft.providerId : '';
@@ -579,7 +601,7 @@ function resetForm() {
     draftReady = false;
     clearTimeout(draftTimer); draftDirty = false;
     element<HTMLFormElement>('#run-form').reset();
-    modulePlanEditor.setValue();
+    modulePlanLibrary.resetSelection(); modulePlanEditor.setValue();
     field('api-key').value = '';
     element<HTMLInputElement>('#api-key').type = 'password';
     updateKeyToggle();
@@ -1155,7 +1177,7 @@ function renderDraftPreview(force = false) {
       <header class="preview-heading"><div><span class="preview-eyebrow">Lean 工作区</span><h2></h2></div><div class="detail-actions"><span class="badge preview-status">${icon('file-code-2')}未提交</span><button type="button" class="icon-button" data-draft-action="edit" aria-label="编辑原始题目" title="编辑原始题目">${icon('square-pen')}</button><button type="button" class="icon-button" data-draft-action="settings" aria-label="配置证明环境" title="配置证明环境">${icon('sliders-horizontal')}</button></div></header>
       <dl class="preview-facts">${facts.map(([id, label, , mono]) => `<div><dt>${label}</dt><dd data-preview-value="${id}"${mono ? ' class="mono"' : ''}></dd></div>`).join('')}</dl>
       <div class="preview-view-tabs" role="tablist" aria-label="草稿工作区视图"><button type="button" role="tab" id="draft-tab-source" data-draft-view="source" aria-selected="true" aria-controls="draft-source-panel">${icon('file-code-2')}Lean 源码</button><button type="button" role="tab" id="draft-tab-modules" data-draft-view="modules" aria-selected="false" aria-controls="draft-module-panel" tabindex="-1">${icon('network')}模块</button></div>
-      <section class="preview-source" id="draft-source-panel" role="tabpanel" aria-labelledby="draft-tab-source"><div class="preview-source-heading"><h3 id="preview-source-heading">${icon('file-code-2')}原始题目</h3><span></span></div>
+      <section class="preview-source" id="draft-source-panel" role="tabpanel" aria-labelledby="draft-tab-source"><div class="preview-source-heading"><h3 id="preview-source-heading">${icon('file-code-2')}Submission.lean</h3><span></span></div>
         <div class="source-reader"></div>
         <div class="draft-source-scroll" tabindex="0" aria-label="原始题目草稿"><pre class="preview-line-numbers" aria-hidden="true"></pre><pre id="draft-preview-code"><code></code></pre></div>
       </section><div class="draft-module-panel" id="draft-module-panel" role="tabpanel" aria-labelledby="draft-tab-modules" hidden><div class="module-workspace"></div></div><details class="preview-task"><summary>研究任务</summary><p class="task-content" id="draft-preview-task"></p></details></div>`;
@@ -1400,6 +1422,7 @@ element<HTMLFormElement>('#run-form').addEventListener('submit', async event => 
     state.submitting = true; renderRuntime();
     sent = true;
     modulePlanEditor.clearDeleted();
+    modulePlanLibrary.clearUndo();
     draftRecovery.clear(); renderDraftRecovery();
     const { run } = await api<{ run: WebRun }>('/api/runs', { method: 'POST', body: JSON.stringify(input) });
     field('api-key').value = '';
@@ -1563,7 +1586,7 @@ function reuseRun(run: WebRun) {
     for (const [id, value] of Object.entries({ model: run.model, effort: run.effort, source: run.source, task: run.task,
       'max-turns': run.maxTurns, 'max-seconds': run.maxRunSeconds, workers: run.workers })) field(id).value = String(value);
     element<HTMLInputElement>(`input[name="coordination"][value="${run.coordination}"]`).checked = true;
-    modulePlanEditor.setValue(run.modulePlan);
+    modulePlanLibrary.resetSelection(); modulePlanEditor.setValue(run.modulePlan);
     field('api-key').value = '';
     element<HTMLInputElement>('#api-key').type = 'password';
     updateKeyToggle(); providerAddress(); updateEnvironment(); sourceChanged();
@@ -1708,9 +1731,13 @@ field('environment').addEventListener('change', () => {
 field('template').addEventListener('change', () => applyTemplate(field('template').value));
 for (const type of ['input', 'change']) element('#run-form').addEventListener(type, event => {
   const target = event.target as HTMLElement;
+  if (target.closest('#module-plan-library')) return;
   // Selects emit input before change; preserve the previous environment and template until replacement finishes.
   if (type === 'input' && ['environment', 'template'].includes(target.id)) return;
   if (target.id !== 'source') draftChanged(target.id !== 'api-key');
+});
+window.addEventListener('storage', event => {
+  if (event.key === modulePlanLibraryStorageKey || event.key === null) modulePlanLibrary.refresh();
 });
 for (const id of ['source', 'task']) field(id).addEventListener('input', () => {
   field('template').value = '';
@@ -1828,6 +1855,19 @@ element('#dismiss-draft-recovery').addEventListener('click', () => {
 element('#retry-connection').addEventListener('click', () => void initialize());
 element('#refresh-runs').addEventListener('click', () => void poll());
 for (const id of ['open-settings', 'composer-settings']) element(`#${id}`).addEventListener('click', () => openSettings());
+for (const button of document.querySelectorAll<HTMLButtonElement>('[data-settings-section]')) {
+  button.addEventListener('click', () => {
+    const section = element(`#${button.dataset.settingsSection}`);
+    section.focus({ preventScroll: true });
+    section.scrollIntoView({ block: 'start', behavior: 'instant' });
+    syncSettingsNavigation();
+  });
+}
+let settingsScrollFrame = 0;
+element('.settings-content').addEventListener('scroll', () => {
+  if (settingsScrollFrame) return;
+  settingsScrollFrame = requestAnimationFrame(() => { settingsScrollFrame = 0; syncSettingsNavigation(); });
+}, { passive: true });
 element('#prepare-run').addEventListener('click', () => {
   if (!state.session || state.submitting) return;
   const issue = currentSubmissionIssues()[0];

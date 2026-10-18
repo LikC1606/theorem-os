@@ -10,6 +10,7 @@ import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
 import type { WebEventDetails, WebRun, WebRunInput } from '../apps/web/shared';
 import type { CustomResearchModule, ResearchModulePlan } from '../src/solver/modules/policy';
+import { modulePlanLibraryStorageKey, type SavedModulePlan } from '../apps/web/client/modulePlanLibrary';
 import { closeDialog, closeHistory, closeSettings, openHistory, openSettings, selectHistoryRun, showArtifacts, showChat } from './web-ui-controls';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -152,6 +153,24 @@ async function saved(page: Page, plan: ResearchModulePlan) {
     catch { return false; }
   }, { key: storageKey, plan });
 }
+async function openLibrary(page: Page) {
+  await openSettings(page);
+  if (await page.locator('#module-plan-library').getAttribute('open') === null)
+    await page.locator('#module-plan-library>summary').click();
+}
+async function libraryPlans(page: Page): Promise<SavedModulePlan[]> {
+  return page.evaluate(key => JSON.parse(localStorage.getItem(key) || '{"plans":[]}').plans, modulePlanLibraryStorageKey);
+}
+async function libraryAction(page: Page, action: 'save' | 'copy' | 'load' | 'delete' | 'undo') {
+  await page.locator(`[data-module-library-${action}]`).click();
+  await page.locator('#module-plan-library:not([aria-busy="true"])').waitFor();
+}
+async function saveLibraryPlan(page: Page, name: string) {
+  await openLibrary(page); await page.locator('#module-library-name').fill(name);
+  await libraryAction(page, 'save');
+  assert.match(await page.locator('[data-module-library-notice]').innerText(), /已保存/);
+  return (await libraryPlans(page))[0]!;
+}
 async function exportDraft(page: Page): Promise<DraftEnvelope> {
   await showChat(page);
   const downloading = page.waitForEvent('download'); await page.locator('#export-draft').click();
@@ -266,6 +285,193 @@ const disabledRule: Omit<CustomResearchModule, 'id'> = { name: 'Context strategy
 try {
   await new Promise<void>((resolve, reject) => { service.server.once('error', reject); service.server.listen(port, '127.0.0.1', resolve); });
   browser = await chromium.launch({ headless: true });
+
+  await scenario('Named module plans load and undo independently of the task, credentials and execution settings', async h => {
+    const { page } = h;
+    const original = await configure(page, [enabledRule, disabledRule]);
+    await page.locator('#api-key').fill(credential);
+    await page.locator('#max-turns').fill('7'); await page.locator('#max-seconds').fill('90'); await page.locator('#workers').fill('3');
+    const savedPlan = await saveLibraryPlan(page, 'My research workflow');
+    assert.deepEqual(savedPlan.plan, original);
+    await page.locator('#module-plan-scheduler').selectOption('goals-first');
+    await rule(page, original.custom[0]!.id).locator('[data-module-plan-field="instructions"]').fill('A task-specific strategy');
+    const before = await editorPlan(page);
+    const otherFields = async () => page.evaluate(() => Object.fromEntries(['source', 'task', 'api-key', 'max-turns', 'max-seconds', 'workers', 'model', 'environment', 'provider']
+      .map(id => [id, (document.getElementById(id) as HTMLInputElement).value])));
+    const preserved = await otherFields();
+    await libraryAction(page, 'load');
+    assert.deepEqual(await editorPlan(page), original); assert.deepEqual(await otherFields(), preserved);
+    await saved(page, original);
+    await closeSettings(page); await showArtifacts(page); await page.locator('#draft-tab-modules').click();
+    assert.ok((await page.locator(`[data-module-custom-id="${original.custom[0]!.id}"]`).innerText()).includes(enabledRule.name));
+    await showChat(page); await page.locator('#task').fill('An updated task after loading the module plan');
+    h.expectedTask = await page.locator('#task').inputValue();
+    await openLibrary(page); assert.equal(await page.locator('[data-module-library-undo]').isVisible(), true);
+    await libraryAction(page, 'undo');
+    assert.deepEqual(await editorPlan(page), before);
+    assert.equal(await page.locator('#task').inputValue(), h.expectedTask);
+    assert.equal(await page.locator('#api-key').inputValue(), credential);
+    await libraryAction(page, 'load');
+    await rule(page, original.custom[0]!.id).locator('[data-module-plan-field="enabled"]').uncheck();
+    assert.equal(await page.locator('[data-module-library-undo]').isVisible(), false, 'further module edits must invalidate the load undo');
+    assert.deepEqual((await libraryPlans(page))[0]!.plan, original, 'ordinary module edits must not mutate the saved snapshot');
+    const stored = await page.evaluate(key => localStorage.getItem(key)!, modulePlanLibraryStorageKey);
+    assert.equal(stored.includes(preserved.source!), false); assert.equal(stored.includes(credential), false);
+  });
+
+  await scenario('Saved unfinished plans remain editable and real submission still rejects invalid enabled rules', async h => {
+    const { page } = h;
+    const unfinished = await configure(page, [{ ...enabledRule, name: '', instructions: '' }]);
+    const savedPlan = await saveLibraryPlan(page, 'Unfinished experiment');
+    assert.deepEqual(savedPlan.plan, unfinished);
+    await rule(page, unfinished.custom[0]!.id).locator('[data-module-plan-field="name"]').fill('Now completed');
+    await rule(page, unfinished.custom[0]!.id).locator('[data-module-plan-field="instructions"]').fill('Use the installed library.');
+    await libraryAction(page, 'load');
+    await page.locator('#api-key').fill(credential);
+    await page.locator('#settings-submit').click();
+    await page.locator('#module-plan-error').waitFor();
+    assert.match(await page.locator('#module-plan-error').innerText(), /名称/);
+    assert.equal(h.runIds.length, 0); assert.deepEqual(await editorPlan(page), unfinished);
+  });
+
+  await scenario('Library updates, renames, copies and reversible deletion never change the current module plan', async h => {
+    const { page } = h;
+    const configured = await configure(page, [enabledRule]);
+    const first = await saveLibraryPlan(page, markup.slice(0, 40));
+    await rule(page, configured.custom[0]!.id).locator('[data-module-plan-field="instructions"]').fill('An updated saved strategy.');
+    const updatedPlan = await editorPlan(page), updated = await saveLibraryPlan(page, 'Renamed workflow');
+    assert.equal(updated.id, first.id); assert.deepEqual(updated.plan, updatedPlan);
+    await libraryAction(page, 'copy');
+    let entries = await libraryPlans(page);
+    assert.equal(entries.length, 2); assert.notEqual(entries[0]!.id, first.id);
+    assert.equal(entries[0]!.name, 'Renamed workflow 副本');
+    await page.locator('#module-library-name').fill('Renamed workflow'); await libraryAction(page, 'save');
+    assert.match(await page.locator('[data-module-library-notice]').innerText(), /同名/);
+    assert.deepEqual(await libraryPlans(page), entries, 'a rejected rename must preserve both snapshots');
+    await libraryAction(page, 'delete');
+    assert.equal((await libraryPlans(page)).length, 1); assert.deepEqual(await editorPlan(page), updatedPlan);
+    await libraryAction(page, 'undo');
+    assert.deepEqual(await libraryPlans(page), entries); assert.deepEqual(await editorPlan(page), updatedPlan);
+    await saved(page, updatedPlan); await page.reload(); await page.locator('#submit-run:enabled').waitFor();
+    await openLibrary(page);
+    assert.equal(await page.locator('#module-library-select option').count(), 3);
+    assert.deepEqual(await editorPlan(page), updatedPlan);
+    assert.deepEqual(await libraryPlans(page), entries);
+  });
+
+  await scenario('Reset and new research clear the selected library binding while retaining all saved plans', async h => {
+    const { page } = h;
+    await configure(page, [enabledRule]);
+    const first = await saveLibraryPlan(page, 'Original workflow');
+    await page.locator('#reset-form').click();
+    assert.equal(await page.locator('#module-library-select').inputValue(), '');
+    assert.equal(await page.locator('#module-library-name').inputValue(), '');
+    const second = await saveLibraryPlan(page, 'New default workflow');
+    assert.notEqual(second.id, first.id); assert.equal((await libraryPlans(page)).length, 2);
+    assert.deepEqual((await libraryPlans(page)).find(entry => entry.id === first.id), first);
+    await closeSettings(page); await page.locator('#new-research').click();
+    await openLibrary(page);
+    assert.equal(await page.locator('#module-library-select').inputValue(), '');
+    const third = await saveLibraryPlan(page, 'Another research workflow');
+    assert.equal((await libraryPlans(page)).length, 3); assert.notEqual(third.id, second.id);
+  });
+
+  await scenario('Other tabs retain sibling plans and stale selections cannot overwrite concurrent edits', async h => {
+    const { page, context } = h;
+    await configure(page, [enabledRule]);
+    const first = await saveLibraryPlan(page, 'Shared workflow');
+    const other = await context.newPage(); await other.goto(origin); await other.locator('#submit-run:enabled').waitFor();
+    await openLibrary(other); await other.locator('#module-library-select').selectOption(first.id);
+    const second = await saveLibraryPlan(page, 'Updated in first tab');
+    await other.locator('#module-library-name').fill('A stale update');
+    await libraryAction(other, 'save');
+    assert.match(await other.locator('[data-module-library-notice]').innerText(), /其他页面/);
+    assert.deepEqual(await libraryPlans(other), [second]);
+    await other.locator('#module-library-select').selectOption('');
+    await saveLibraryPlan(other, 'Independent workflow');
+    await page.locator('#module-library-select option').filter({ hasText: 'Independent workflow' }).waitFor({ state: 'attached' });
+    await libraryAction(page, 'delete');
+    assert.deepEqual((await libraryPlans(page)).map(entry => entry.name), ['Independent workflow']);
+    await other.locator('#module-library-select').selectOption(''); await saveLibraryPlan(other, 'Another independent workflow');
+    await libraryAction(page, 'undo');
+    assert.equal((await libraryPlans(page)).length, 3);
+    assert.deepEqual((await libraryPlans(page)).find(entry => entry.id === second.id), second);
+    await other.close();
+  });
+
+  await scenario('Storage failures do not report success or erase snapshots, and corrupt libraries remain untouched', async h => {
+    const { page } = h;
+    await configure(page, [enabledRule]);
+    const first = await saveLibraryPlan(page, 'Persistent workflow');
+    await page.evaluate(key => {
+      const get = Storage.prototype.getItem;
+      (window as unknown as { blockLibraryRead: boolean }).blockLibraryRead = true;
+      Storage.prototype.getItem = function (name) {
+        if (name === key && (window as unknown as { blockLibraryRead: boolean }).blockLibraryRead) throw new DOMException('Denied', 'SecurityError');
+        return get.call(this, name);
+      };
+    }, modulePlanLibraryStorageKey);
+    await page.locator('#module-library-select').selectOption('');
+    assert.match(await page.locator('[data-module-library-notice]').innerText(), /无法读取/);
+    assert.equal(await page.locator('#module-library-select').inputValue(), first.id, 'a failed selection must retain the visible binding');
+    assert.equal(await page.locator('#module-library-name').inputValue(), first.name);
+    await page.evaluate(() => { (window as unknown as { blockLibraryRead: boolean }).blockLibraryRead = false; });
+    await page.evaluate(key => {
+      const set = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (name, value) { if (name === key) throw new DOMException('Quota', 'QuotaExceededError'); return set.call(this, name, value); };
+    }, modulePlanLibraryStorageKey);
+    await page.locator('#module-library-name').fill('Not written'); await libraryAction(page, 'save');
+    assert.match(await page.locator('[data-module-library-notice]').innerText(), /写入失败/);
+    assert.deepEqual(await libraryPlans(page), [first]);
+    await libraryAction(page, 'delete');
+    assert.match(await page.locator('[data-module-library-notice]').innerText(), /写入失败/);
+    assert.equal(await page.locator('#module-library-select').inputValue(), first.id);
+    await page.reload(); await page.locator('#submit-run:enabled').waitFor();
+    await page.evaluate(key => localStorage.setItem(key, 'corrupt-library-fixture'), modulePlanLibraryStorageKey);
+    await openLibrary(page);
+    assert.match(await page.locator('[data-module-library-notice]').innerText(), /格式无效/);
+    await page.locator('#module-library-name').fill('Do not overwrite'); await libraryAction(page, 'save');
+    assert.match(await page.locator('[data-module-library-notice]').innerText(), /格式无效/);
+    assert.equal(await page.evaluate(key => localStorage.getItem(key), modulePlanLibraryStorageKey), 'corrupt-library-fixture');
+  });
+
+  await scenario('Simultaneous tab saves hold an origin lock and pending work cannot rebind a reset research draft', async h => {
+    const { page, context } = h;
+    const plan = await configure(page, [enabledRule]); await openLibrary(page);
+    const other = await context.newPage(); await other.goto(origin); await other.locator('#submit-run:enabled').waitFor();
+    await openLibrary(other);
+    await Promise.all([page.locator('#module-library-name').fill('First simultaneous save'), other.locator('#module-library-name').fill('Second simultaneous save')]);
+    await Promise.all([libraryAction(page, 'save'), libraryAction(other, 'save')]);
+    assert.equal((await libraryPlans(page)).length, 2);
+    await page.locator('#module-library-select').selectOption('');
+    await page.locator('#module-library-name').fill('Save queued before reset');
+    await other.evaluate(async key => {
+      await new Promise<void>(acquired => {
+        void navigator.locks.request(key, async () => {
+          acquired(); await new Promise<void>(resolve => { (window as unknown as { releaseLibraryLock: () => void }).releaseLibraryLock = resolve; });
+        });
+      });
+    }, modulePlanLibraryStorageKey);
+    await page.locator('[data-module-library-save]').click();
+    await page.locator('#module-plan-library[aria-busy="true"]').waitFor();
+    await page.locator('#reset-form').click();
+    await other.evaluate(() => (window as unknown as { releaseLibraryLock: () => void }).releaseLibraryLock());
+    await page.locator('#module-plan-library[aria-busy="false"]').waitFor();
+    assert.equal(await page.locator('#module-library-select').inputValue(), '');
+    assert.equal(await page.locator('#module-library-name').inputValue(), '');
+    assert.equal((await libraryPlans(page)).length, 3);
+    assert.deepEqual((await libraryPlans(page)).find(entry => entry.name === 'Save queued before reset')!.plan, plan);
+    await other.close();
+  });
+
+  await scenario('Missing browser locking support reports the prerequisite without writing an uncoordinated library', async h => {
+    const { page } = h;
+    await openLibrary(page);
+    await page.evaluate(() => Object.defineProperty(navigator, 'locks', { configurable: true, value: undefined }));
+    await page.locator('#module-library-name').fill('Unsupported write'); await libraryAction(page, 'save');
+    assert.match(await page.locator('[data-module-library-notice]').innerText(), /HTTPS.*localhost/);
+    assert.equal(await page.evaluate(key => localStorage.getItem(key), modulePlanLibraryStorageKey), null);
+  });
 
   await scenario('Editing and conflicting replacement policies stay local and block invalid submission', async h => {
     const { page } = h;
@@ -842,6 +1048,16 @@ try {
     await screenshot(page, `module-plan-${width}-settings.png`);
     await page.locator('#module-plan').evaluate(section => section.scrollIntoView({ block: 'start', behavior: 'instant' }));
     await settled(page); await screenshot(page, `module-plan-${width}-settings-top.png`);
+    await saveLibraryPlan(page, '研究方案'.repeat(10));
+    for (const selector of ['#module-plan-library', '#module-plan-library>summary', '.module-library-selection', '#module-library-select', '#module-library-name', '.module-library-actions', '.module-library-notice'])
+      await horizontalFit(page, selector);
+    assert.equal(await page.locator('.module-library-selection,.module-library-actions').evaluateAll(groups => groups.every(group => {
+      const boxes = Array.from(group.children, child => child.getBoundingClientRect()).filter(box => box.width > 0);
+      return boxes.every((box, index) => boxes.slice(0, index).every(previous => box.left >= previous.right - 1 || box.right <= previous.left + 1));
+    })), true, 'library controls must not overlap');
+    await page.locator('#module-plan').evaluate(section => section.scrollIntoView({ block: 'start', behavior: 'instant' }));
+    await screenshot(page, `module-library-${width}.png`);
+    await page.locator('#module-plan-library>summary').click();
     await page.locator('[data-module-plan-collapse-all]').click();
     assert.equal(await page.locator(`${rows}[data-expanded="false"]`).count(), 3);
     for (const selector of ['.module-plan-disclosure', '.module-plan-summary-name', '.module-plan-summary-meta', '.module-plan-row-actions']) await horizontalFit(page, selector);

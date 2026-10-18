@@ -18,7 +18,7 @@
     <div class="topbar-actions"><button type="button" id="open-settings" class="model-menu" title="研究配置" aria-haspopup="dialog"><i data-lucide="sliders-horizontal"></i><span id="current-model">模型配置</span><i data-lucide="chevron-down"></i></button><span id="connection-status" class="connection-status" role="status"><span class="status-dot"></span>连接中</span></div>
   </header>
   <main id="main" tabindex="-1">
-    <div id="global-notice" class="global-notice" role="alert" hidden><i data-lucide="triangle-alert"></i><span id="global-notice-text"></span><button type="button" id="retry-connection" class="text-button"><i data-lucide="refresh-cw"></i>重新连接</button></div>
+    <div id="global-notice" class="global-notice" role="alert" hidden><i data-lucide="triangle-alert"></i><span id="global-notice-text"></span><button type="button" id="retry-connection" class="text-button" title="重新连接" aria-label="重新连接"><i data-lucide="refresh-cw"></i><span>重新连接</span></button></div>
     <nav class="mobile-switch" role="tablist" aria-label="工作区视图"><button type="button" id="mobile-compose" role="tab" aria-selected="true" aria-controls="compose-panel" data-mobile-view="compose"><i data-lucide="message-square"></i>对话</button><button type="button" id="mobile-runs" role="tab" aria-selected="false" aria-controls="runs-panel" tabindex="-1" data-mobile-view="runs"><i data-lucide="panel-right"></i>工作区<span id="mobile-run-count" class="count">0</span></button></nav>
     <nav id="run-monitor" class="run-monitor" aria-label="当前会话运行任务" hidden><p id="run-monitor-summary" class="run-monitor-summary" role="status" aria-atomic="true"></p><div id="run-monitor-list" class="run-monitor-list"></div></nav>
     <div class="workspace">
@@ -49,8 +49,15 @@
             </div>
             <dialog id="run-settings" class="settings-dialog" aria-labelledby="settings-heading">
               <header class="settings-heading"><h2 id="settings-heading">研究配置</h2><button type="button" id="close-settings" class="icon-button" aria-label="关闭研究配置" title="关闭研究配置"><i data-lucide="x"></i></button></header>
+              <div class="settings-body">
+                <nav class="settings-nav" aria-label="研究配置分区">
+                  <button type="button" data-settings-section="settings-research" aria-controls="settings-research" aria-current="location"><i data-lucide="file-code-2"></i><span>原始题目</span></button>
+                  <button type="button" data-settings-section="settings-connection" aria-controls="settings-connection"><i data-lucide="cpu"></i><span>模型连接</span></button>
+                  <button type="button" data-settings-section="settings-execution" aria-controls="settings-execution"><i data-lucide="sliders-horizontal"></i><span>执行配置</span></button>
+                  <button type="button" data-settings-section="module-plan" aria-controls="module-plan"><i data-lucide="network"></i><span>模块方案</span></button>
+                </nav>
               <div class="settings-content">
-                <div class="form-section research-section">
+                <div class="form-section research-section" id="settings-research" tabindex="-1">
                   <div class="section-heading"><i data-lucide="file-code-2"></i><h2>原始题目</h2><span class="scope-note" id="lean-scope"></span></div>
                   <label for="environment">证明环境</label><select id="environment" name="environment" required aria-describedby="environment-details environment-validation"><option value="">正在加载…</option></select>
                   <p id="environment-validation" class="field-validation" role="alert" hidden></p>
@@ -61,7 +68,7 @@
                   <p id="source-validation" class="field-validation" role="alert" hidden></p>
                   <div class="source-meta"><span id="source-count" class="field-count mono"></span><span id="source-lines" class="field-count"></span></div><div id="source-error" class="inline-error" role="alert" hidden></div>
                 </div>
-                <div class="form-section connection-section">
+                <div class="form-section connection-section" id="settings-connection" tabindex="-1">
                   <div class="section-heading"><i data-lucide="cpu"></i><h2>模型连接</h2></div>
                   <label for="provider">服务商</label><select id="provider" name="providerId" required aria-describedby="provider-address provider-validation"><option value="">正在加载…</option></select>
                   <p id="provider-validation" class="field-validation" role="alert" hidden></p>
@@ -71,13 +78,24 @@
                   <p id="api-key-validation" class="field-validation" role="alert" hidden></p>
                   <p class="field-note" id="credential-note">密钥经服务器调用所选服务商，费用计入对应 API 账户。</p>
                 </div>
-                <div class="form-section execution-section">
+                <div class="form-section execution-section" id="settings-execution" tabindex="-1">
                   <div class="section-heading"><i data-lucide="sliders-horizontal"></i><h2>执行配置</h2></div>
                   <div class="field-grid limits-grid"><div><label for="max-turns">轮次上限</label><input id="max-turns" name="maxTurns" type="number" required min="1" step="1" inputmode="numeric" aria-describedby="max-turns-validation"><p id="max-turns-validation" class="field-validation" role="alert" hidden></p></div><div><label for="max-seconds">解题预算 / 秒</label><input id="max-seconds" name="maxRunSeconds" type="number" required min="30" step="1" inputmode="numeric" aria-describedby="max-seconds-validation"><p id="max-seconds-validation" class="field-validation" role="alert" hidden></p></div><div><label for="workers">Agent 数量</label><input id="workers" name="workers" type="number" required min="1" step="1" inputmode="numeric" aria-describedby="workers-validation"><p id="workers-validation" class="field-validation" role="alert" hidden></p></div></div>
                   <fieldset class="coordination"><legend>协作模式</legend><div class="segmented"><label><input type="radio" name="coordination" value="cooperative" checked><span><i data-lucide="network"></i>任务协作</span></label><label><input type="radio" name="coordination" value="independent"><span><i data-lucide="git-branch"></i>独立并行</span></label></div></fieldset>
                 </div>
                 <section class="form-section module-plan-section" id="module-plan" aria-labelledby="module-plan-heading" tabindex="-1">
                   <div class="section-heading module-plan-heading"><i data-lucide="network"></i><h2 id="module-plan-heading">模块方案</h2><span class="module-plan-count mono" data-module-plan-count>0 / 8</span><div class="module-plan-view-actions"><button type="button" class="icon-button" data-module-plan-expand-all title="展开全部策略" aria-label="展开全部策略" aria-controls="module-plan-list" disabled><i data-lucide="chevron-down"></i></button><button type="button" class="icon-button" data-module-plan-collapse-all title="收起全部策略" aria-label="收起全部策略" aria-controls="module-plan-list" disabled><i data-lucide="chevron-up"></i></button></div></div>
+                  <details class="module-library" id="module-plan-library">
+                    <summary><i data-lucide="folder-open"></i><span>方案库</span><span class="module-library-local">此浏览器</span><span class="mono" data-module-library-count>0 / 12</span><i data-lucide="chevron-down"></i></summary>
+                    <div class="module-library-content">
+                      <label for="module-library-select">已保存方案</label>
+                      <div class="module-library-selection"><select id="module-library-select" aria-describedby="module-library-summary"><option value="">新建方案</option></select><button type="button" class="icon-button" data-module-library-load title="载入到当前模块配置" aria-label="载入到当前模块配置" disabled><i data-lucide="arrow-down-to-line"></i></button><button type="button" class="icon-button" data-module-library-delete title="删除已保存方案" aria-label="删除已保存方案" disabled><i data-lucide="trash-2"></i></button></div>
+                      <p class="module-library-summary" id="module-library-summary" data-module-library-summary hidden></p>
+                      <label for="module-library-name">方案名称</label><input id="module-library-name" type="text" maxlength="40" autocomplete="off" spellcheck="false" placeholder="为当前模块组合命名" aria-describedby="module-library-notice">
+                      <div class="module-library-actions"><button type="button" class="button" data-module-library-save disabled><i data-lucide="save"></i><span data-module-library-save-label>保存新方案</span></button><button type="button" class="icon-button" data-module-library-copy title="另存为新方案" aria-label="另存为新方案" disabled><i data-lucide="copy-plus"></i></button><button type="button" class="icon-button module-library-undo" data-module-library-undo title="撤销载入方案" aria-label="撤销载入方案" hidden><i data-lucide="undo-2"></i></button></div>
+                      <p class="module-library-notice" id="module-library-notice" data-module-library-notice role="status" aria-atomic="true" hidden></p>
+                    </div>
+                  </details>
                   <div class="module-plan-builtins">
                     <div><label for="module-plan-scheduler">M3 搜索策略</label><select id="module-plan-scheduler" aria-describedby="module-plan-error"><option value="plan">按研究计划</option><option value="goals-first">优先原题目标</option><option value="critical-path">优先关键路径</option><option value="continuation">延续证明前沿</option><option value="primary-led">主 Agent 统筹</option></select></div>
                     <div><label for="module-plan-context">M4 上下文策略</label><select id="module-plan-context" aria-describedby="module-plan-error"><option value="full">完整研究上下文</option><option value="essential">精简研究上下文</option></select></div>
@@ -88,6 +106,7 @@
                   <p id="module-plan-error" class="module-plan-error" role="alert" hidden></p>
                   <div class="module-plan-deletion" data-module-plan-deletion hidden><p id="module-plan-deleted-name" data-module-plan-deleted-name role="status" aria-atomic="true"></p><button type="button" class="icon-button" data-module-plan-undo title="撤销删除策略" aria-label="撤销删除策略" aria-describedby="module-plan-deleted-name" disabled><i data-lucide="undo-2"></i></button></div>
                 </section>
+              </div>
               </div>
               <footer class="settings-footer"><button type="button" id="reset-form" class="text-button" disabled><i data-lucide="rotate-ccw"></i>重置配置</button><div><button type="button" id="restore-draft-settings" class="icon-button" aria-label="恢复替换前的草稿" title="恢复替换前的草稿" hidden><i data-lucide="undo-2"></i></button><button type="button" id="apply-settings" class="button">完成</button><button type="submit" id="settings-submit" class="button button-primary"><i data-lucide="arrow-up"></i>开始研究</button></div></footer>
             </dialog>

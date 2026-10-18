@@ -228,6 +228,36 @@ try {
     await doesNotStealFocus(page, '#history-dialog');
   }, width);
 
+  for (const width of widths) await scenario(`Settings navigation keeps sections reachable and preserves the draft at ${width}px`, async h => {
+    const { page } = h;
+    await open(h); await openSettings(page);
+    await page.locator('#api-key').fill(credential);
+    const values = () => page.locator('#task, #source, #model, #environment, #max-turns, #max-seconds, #workers, #api-key')
+      .evaluateAll(fields => fields.map(field => (field as HTMLInputElement).value));
+    const before = await values();
+    for (const id of ['module-plan', 'settings-execution', 'settings-connection', 'settings-research']) {
+      await page.locator(`[data-settings-section="${id}"]`).click();
+      await page.waitForFunction(id => document.querySelector(`[data-settings-section="${id}"]`)?.getAttribute('aria-current') === 'location', id);
+      const section = await page.locator(`#${id}`).evaluate(section => {
+        const top = section.getBoundingClientRect().top;
+        const scroller = section.closest('.settings-content')!.getBoundingClientRect();
+        return { focused: document.activeElement === section, top, viewportTop: scroller.top };
+      });
+      assert.equal(section.focused, true, 'navigation must place keyboard focus in the selected section');
+      assert.ok(Math.abs(section.top - section.viewportTop) <= 1, `${id} must reach the top of its own scroller`);
+      await bounds(page, '.settings-nav');
+      await bounds(page, '.settings-footer');
+    }
+    assert.deepEqual(await values(), before, 'navigation must preserve source, credentials and execution settings');
+    await page.locator('[data-settings-section="module-plan"]').click();
+    await page.locator('#module-plan-library summary').click();
+    await snapshot(page, `settings-navigation-${width}.png`);
+    await page.locator('.settings-content').evaluate(content => { content.scrollTop = 0; });
+    await page.waitForFunction(() => document.querySelector('[data-settings-section="settings-research"]')?.getAttribute('aria-current') === 'location');
+    await closeDialog(page, '#run-settings', () => page.keyboard.press('Escape'));
+    assert.equal(await page.locator('#open-settings').evaluate(button => button === document.activeElement), true);
+  }, width);
+
   await scenario('Invalid settings identify the exact field, clear on correction and never POST', async h => {
     const { page } = h;
     await open(h);
