@@ -124,7 +124,7 @@ const checkArchivePreview = async (page, width) => {
   assert.ok(result.fits && Math.abs(result.ratio - result.renderedRatio) < .01, 'The archive screenshot must remain complete without cropping');
 };
 const checkProductImages = async (page, label) => {
-  const images = page.locator('.workbench-picture img, .product-fragment img, .archive-image-link img');
+  const images = page.locator('.workbench-picture img, .module-preview-link img, .product-fragment img, .archive-image-link img');
   assert.ok(await images.count() >= 4, `At least four real product pictures must be present: ${label}`);
   const sources = new Set();
   for (const image of await images.all()) {
@@ -148,6 +148,38 @@ const checkProductImages = async (page, label) => {
       `Product picture must fit its container without stretching or cropping: ${picture.source}, ${label}`);
   }
   assert.ok(sources.size >= 4, `Product pictures must show distinct real views: ${label}`);
+};
+const checkModuleShowcase = async (page, width) => {
+  const panel = page.locator('#module-preview-panel');
+  let panelHeight;
+  for (const id of ['modules', 'library']) {
+    const tab = page.locator(`#module-preview-tab-${id}`);
+    await tab.click();
+    assert.equal(await tab.getAttribute('aria-selected'), 'true');
+    assert.equal(await tab.getAttribute('tabindex'), '0');
+    assert.equal(await panel.getAttribute('aria-labelledby'), `module-preview-tab-${id}`);
+    assert.equal(await page.locator('[data-module-preview][aria-selected="true"]').count(), 1);
+    assert.equal(await page.locator('.module-preview-link').getAttribute('href'), `assets/workbench-${id}-${width <= 600 ? 'mobile' : 'desktop'}.png`);
+    const image = await panel.locator('img').evaluate(async image => {
+      await image.decode();
+      const bounds = image.getBoundingClientRect();
+      return { src: image.currentSrc, ratio: image.naturalWidth / image.naturalHeight,
+        renderedRatio: bounds.width / bounds.height, height: bounds.height, alt: image.alt };
+    });
+    assert.match(image.src, new RegExp(`workbench-${id}-${width <= 600 ? 'mobile' : 'desktop'}\\.png$`));
+    assert.match(image.alt, /尚未提交/);
+    assert.ok(Math.abs(image.ratio - image.renderedRatio) < .01, 'Module pictures must remain complete without stretching');
+    if (panelHeight !== undefined) assert.ok(Math.abs(image.height - panelHeight) < 1, 'Switching module views must preserve the panel size');
+    panelHeight = image.height;
+    await checkWidth(page, `${width}px module showcase ${id}`);
+  }
+  await page.locator('#module-preview-tab-library').focus();
+  for (const [key, id] of [['ArrowRight', 'modules'], ['End', 'library'], ['Home', 'modules']]) {
+    await page.keyboard.press(key);
+    const tab = page.locator(`#module-preview-tab-${id}`);
+    assert.equal(await tab.getAttribute('aria-selected'), 'true');
+    assert.equal(await tab.evaluate(node => node === document.activeElement), true);
+  }
 };
 const componentContent = {
   m1: { title: /候选证明/, description: /隔离工作区.*构造和修复 Lean 候选/, input: /题目.*模型会话/, output: /候选记录.*证明/ },
@@ -190,6 +222,7 @@ try {
   await checkScreenshotPreview(page, 1440);
   await checkArchivePreview(page, 1440);
   await checkProductImages(page, '1440px local preview');
+  await checkModuleShowcase(page, 1440);
   assert.equal(await page.locator('#motion-toggle, .manifold').count(), 0);
   assert.equal(await page.locator('#demo').evaluate(demo => demo.closest('.hero-shell') === null), true,
     'The archived replay must be a separate section from the workbench hero');
@@ -317,6 +350,7 @@ try {
     await checkScreenshotPreview(page, viewport.width);
     await checkArchivePreview(page, viewport.width);
     await checkProductImages(page, `${viewport.width}px homepage`);
+    await checkModuleShowcase(page, viewport.width);
     await checkCommand(page, 'workbench');
     await checkWidth(page, `${viewport.width}px homepage`);
     for (const id of ['feedback', 'repair', 'verified']) {
@@ -394,6 +428,7 @@ try {
   assert.equal(await noJS.locator('.proof-table tbody .proof-row[data-accepted-proof]').count(), accepted.length);
   await checkWorkbench(noJS, 'JavaScript-disabled homepage');
   await checkProductImages(noJS, 'JavaScript-disabled homepage');
+  assert.equal(await noJS.locator('.module-preview-tabs').isVisible(), false);
   assert.equal(await noJS.locator('.workbench-image-link').getAttribute('href'), 'assets/workbench-full-desktop.png');
   assert.ok(fs.existsSync(path.join(site, 'assets/workbench-full-desktop.png')));
   await noJS.locator('.extension-example > summary').click();
@@ -420,6 +455,7 @@ try {
   assert.ok(await page.evaluate(() => [...document.fonts].some(font => font.family.replace(/["']/g, '') === 'Hanken Grotesk' && font.status === 'loaded')), 'The Pages subpath must load the bundled Hanken Grotesk font');
   await checkWorkbench(page, 'GitHub Pages repository subpath');
   await checkProductImages(page, 'GitHub Pages repository subpath');
+  await checkModuleShowcase(page, 1440);
   await checkScreenshotPreview(page, 1440);
   await page.locator('#tab-m4').click();
   assert.match(await page.locator('#module-kicker').innerText(), /M4/);

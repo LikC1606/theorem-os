@@ -239,6 +239,17 @@ tr.proof-row { border-top: 1px solid var(--surface); }
 .independent-check svg { margin-top: 3px; }
 .component-bottom { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding-top: 36px; }
 .component-bottom p { font-size: 16px; }
+.module-showcase { margin-top: 48px; }
+.module-preview-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
+.module-preview-toolbar h3 { font-size: var(--step-body); }
+.module-preview-tabs { display: flex; gap: 4px; background: #dae5c7; padding: 4px; }
+.module-preview-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 18px; font-size: var(--step-small); }
+.module-preview-tabs button:hover { background: var(--field-mint); }
+.module-preview-tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); }
+.module-preview-tabs svg { width: 17px; height: 17px; }
+.module-preview-link { position: relative; display: block; }
+.module-preview-link img { width: 100%; aspect-ratio: 1440 / 900; background: var(--bg); }
+.module-showcase figcaption { display: flex; justify-content: space-between; gap: 8px 24px; padding-top: 16px; font-size: var(--step-small); }
 .extension-example { margin-top: 28px; }
 .extension-example:not([open]) .extension-content { display: none; }
 .extension-example > summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 88px; padding: 20px 24px; background: var(--bg); cursor: pointer; list-style: none; }
@@ -506,6 +517,12 @@ tr.proof-row { border-top: 1px solid var(--surface); }
   .independent-check { margin-top: 24px; }
   .component-bottom { display: block; padding-top: 28px; }
   .component-bottom .text-link { margin-top: 12px; }
+  .module-showcase { margin-top: 32px; }
+  .module-preview-toolbar { align-items: flex-start; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+  .module-preview-tabs { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  .module-preview-tabs button { padding-inline: 10px; }
+  .module-preview-link img { aspect-ratio: 390 / 844; }
+  .module-showcase figcaption { flex-direction: column; font-size: 13px; }
   .extension-example > summary { padding: 18px; }
   .extension-summary-title strong { font-size: 16px; }
   .extension-summary-title > span { font-size: 13px; }

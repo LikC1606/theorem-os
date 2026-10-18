@@ -1,13 +1,13 @@
 import {
   createIcons, ArrowDown, ArrowDownRight, ArrowRight, ArrowUpRight, Blocks, Check, ChevronLeft, ChevronRight, Code2,
-  Copy, Download, ExternalLink, FileCode2, FileJson2, Files, GitFork, Globe, History, Info,
-  Maximize2, Menu, Pause, Play, Plus, RotateCcw, ScanLine, ShieldCheck, Terminal, X, ZoomIn, ZoomOut,
+  Copy, Download, ExternalLink, FileCode2, FileJson2, Files, FolderOpen, GitFork, Globe, History, Info,
+  Maximize2, Menu, Network, Pause, Play, Plus, RotateCcw, ScanLine, ShieldCheck, Terminal, X, ZoomIn, ZoomOut,
 } from 'lucide';
 import { gsap } from 'gsap';
 import { createSelectionIndicator } from './selectionIndicator';
 
 const iconSet = { ArrowDown, ArrowDownRight, ArrowRight, ArrowUpRight, Blocks, Check, ChevronLeft, ChevronRight, Code2, Copy,
-  Download, ExternalLink, FileCode2, FileJson2, Files, GitFork, Globe, History, Info, Maximize2, Menu, Pause, Play, Plus,
+  Download, ExternalLink, FileCode2, FileJson2, Files, FolderOpen, GitFork, Globe, History, Info, Maximize2, Menu, Network, Pause, Play, Plus,
   RotateCcw, ScanLine, ShieldCheck, Terminal, X, ZoomIn, ZoomOut };
 const icons = () => createIcons({ icons: iconSet, attrs: { 'aria-hidden': 'true' } });
 const element = <T extends HTMLElement = HTMLElement>(selector: string): T => {
@@ -138,6 +138,48 @@ function handleTabKeys(event: KeyboardEvent, tabs: HTMLButtonElement[], select: 
   event.preventDefault();
   select(tabs[next]);
 }
+
+const modulePreviews = {
+  modules: {
+    label: '模块图谱', caption: '研究模块与独立验收',
+    alt: '新版工作台的真实模块图谱：M1–M5 研究决策连接到固定的 S3 独立验收，当前配置尚未提交运行。',
+  },
+  library: {
+    label: '方案库', caption: 'Mathlib 代数研究 · 2 项自定义策略',
+    alt: '新版工作台的真实模块方案库：已保存 Mathlib 代数研究方案，启用两项自定义策略，配置尚未提交运行。',
+  },
+};
+type ModulePreview = keyof typeof modulePreviews;
+const modulePreviewTabs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-module-preview]'));
+const modulePreviewPanel = element('#module-preview-panel');
+const modulePreviewLink = element<HTMLAnchorElement>('.module-preview-link');
+let modulePreview: ModulePreview = 'modules';
+function selectModulePreview(id: ModulePreview, focus = false) {
+  const content = modulePreviews[id];
+  const changed = modulePreview !== id;
+  modulePreview = id;
+  for (const tab of modulePreviewTabs) {
+    const selected = tab.dataset.modulePreview === id;
+    tab.setAttribute('aria-selected', String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+    if (selected && focus) tab.focus({ preventScroll: true });
+  }
+  modulePreviewPanel.setAttribute('aria-labelledby', `module-preview-tab-${id}`);
+  const image = modulePreviewLink.querySelector('img')!;
+  image.src = `assets/workbench-${id}-desktop.png`;
+  image.alt = content.alt;
+  modulePreviewLink.querySelector('source')!.srcset = `assets/workbench-${id}-mobile.png`;
+  modulePreviewLink.href = `assets/workbench-${id}-${narrow.matches ? 'mobile' : 'desktop'}.png`;
+  modulePreviewLink.setAttribute('aria-label', `查看${content.label}原始截图`);
+  element('#module-preview-caption').textContent = content.caption;
+  if (changed) animateSelection([image, element('#module-preview-caption')], 6);
+}
+element('.module-preview-tabs').hidden = false;
+modulePreviewTabs.forEach(tab => tab.addEventListener('click', () => selectModulePreview(tab.dataset.modulePreview as ModulePreview)));
+element('.module-preview-tabs').addEventListener('keydown', event => handleTabKeys(event, modulePreviewTabs,
+  tab => selectModulePreview(tab.dataset.modulePreview as ModulePreview, true)));
+narrow.addEventListener('change', () => selectModulePreview(modulePreview));
+selectModulePreview(modulePreview);
 
 const replayTabs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-replay-stage]'));
 const replayIndicator = createSelectionIndicator(element('.replay-tabs'), reducedMotion);
