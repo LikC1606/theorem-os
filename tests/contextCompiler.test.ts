@@ -3,6 +3,7 @@ import path from 'node:path';
 import { compileTaskContext, DEFAULT_OPTIONAL_TASK_CONTEXT_BYTES, DEFAULT_TASK_CONTEXT_BYTES,
   frozenSourceContext, type TaskContextInput } from '../src/solver/contextCompiler';
 import { buildResearchContext } from '../src/solver/modules/context';
+import { cooperativeWorkContract } from '../src/solver/modules/contracts';
 import { hasTaskAcceptance, markTaskAcceptance, taskVersion, type CooperativeAction, type CooperativeTask, type TaskRecord } from '../src/solver/tasks';
 import type { SolverProblem } from '../src/solver/problem';
 import type { SolverRunState } from '../src/solver/archive';
@@ -107,6 +108,23 @@ it('does not require proposals that arrived after the Lead dispatch', () => {
   expect(context.message).not.toContain(proposal.theoremName);
 });
 
+it.each(['lead', 'solve'] as const)('keeps a thousand proposals in bounded %s batches with zero optional allowance', kind => {
+  const research: CooperativeTask = { id: 'investigate', kind: 'research', objective: 'Find exact bridges', dependsOn: [], revision: 0 };
+  const tasks = [{ ...node(research), status: 'completed' as const }];
+  const proposals = Array.from({ length: 1000 }, (_, index) => lemma(`proposal_${index}`, [], 'True'));
+  const cooperation = { tasks, deliveries: [{ ...delivery(research, 'many-proposals'), kind: 'research' as const,
+    status: 'advisory' as const, lemmaRequests: proposals, commit: proofCommit }] };
+  const before = structuredClone(cooperation);
+  const context = compileTaskContext({ ...input(tasks, { kind, seedCommit: baseCommit }), cooperation, maxOptionalContextBytes: 0 });
+  const shown = JSON.parse(context.message.match(/Pending research proposals requiring a Lead decision[^\n]*\n([^\n]+)/u)![1]);
+  expect(shown).toHaveLength(8);
+  expect(shown.map((item: any) => item.proposal)).toEqual(proposals.slice(0, 8));
+  expect(context.manifest.mandatoryBytes).toBeLessThan(32 * 1024);
+  expect(context.message).toContain('"pending":1000,"shown":8,"remaining":992');
+  expect(context.message).not.toContain(proposals[999].theoremName);
+  expect(cooperation).toEqual(before);
+});
+
 it('keeps the primary solver research inbox and decision feedback mandatory', () => {
   const research: CooperativeTask = { id: 'investigate', kind: 'research', objective: 'Find a bridge', dependsOn: [], revision: 0 };
   const tasks = [node(research)], proposal = lemma('primary_proposal');
@@ -129,6 +147,9 @@ it('dispatches one explicit work contract while retaining exact proof inputs and
     consumer: 'M2-then-canonical-integration', acceptance: 'independent-exact-source-check', input: { taskId: task.id, taskDigest: taskVersion(task) } });
   expect(context.manifest?.included).toContainEqual(expect.objectContaining({ id: 'work-contract', required: true }));
   expect(context.message).toContain(JSON.stringify(task.type));
+  expect(cooperativeWorkContract({ kind: 'assemble', seedCommit: proofCommit }, [node(task)]))
+    .toMatchObject({ stage: 'integration', owner: 'host', output: 'fixed-original-proof-check', sourcePolicy: 'read-only',
+      acceptance: 'independent-exact-source-check', input: { seedCommit: proofCommit } });
 });
 
 it('rejects mismatched mandatory dependency and proof evidence versions', () => {

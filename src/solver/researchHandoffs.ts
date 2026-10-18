@@ -54,6 +54,50 @@ export function researchHandoffs(state: HandoffState): ResearchHandoff[] {
 
 export const pendingResearchHandoffs = (state: HandoffState) => researchHandoffs(state).filter(item => item.status === 'pending');
 
+/** Bound dispatch without truncating a proposal or requiring an entire dependency chain in one turn. */
+export function selectResearchHandoffBatch(state: HandoffState,
+  options: { maxItems?: number; maxBytes?: number } = {}): ResearchHandoff[] {
+  const maxItems = options.maxItems ?? 8, maxBytes = options.maxBytes ?? 32 * 1024;
+  for (const [name, value] of [['maxItems', maxItems], ['maxBytes', maxBytes]] as const)
+    if (!Number.isSafeInteger(value) || value <= 0) throw new Error('math_handoff_invalid_batch_limit:' + name);
+  const deliveries = new Map<string, ResearchHandoff[]>();
+  for (const handoff of pendingResearchHandoffs(state)) {
+    const items = deliveries.get(handoff.deliveryId) ?? [];
+    items.push(handoff); deliveries.set(handoff.deliveryId, items);
+  }
+  const ordered: ResearchHandoff[] = [];
+  for (const items of deliveries.values()) {
+    const byTask = new Map(items.map(item => [item.proposal.id, item]));
+    const visited = new Set<string>(), visiting = new Set<string>();
+    for (const item of items) {
+      if (visited.has(item.id)) continue;
+      const stack = [{ item, next: 0 }];
+      visiting.add(item.id);
+      while (stack.length) {
+        const frame = stack.at(-1)!;
+        if (frame.next < frame.item.proposal.dependsOn.length) {
+          const dependency = byTask.get(frame.item.proposal.dependsOn[frame.next++]);
+          if (!dependency || visited.has(dependency.id)) continue;
+          if (visiting.has(dependency.id)) throw new Error('math_handoff_dependency_cycle:' + dependency.id);
+          visiting.add(dependency.id); stack.push({ item: dependency, next: 0 });
+        } else {
+          stack.pop(); visiting.delete(frame.item.id); visited.add(frame.item.id); ordered.push(frame.item);
+        }
+      }
+    }
+  }
+  const selected: ResearchHandoff[] = [];
+  let bytes = 2;
+  for (const handoff of ordered) {
+    const nextBytes = bytes + Buffer.byteLength(JSON.stringify(handoff)) + (selected.length ? 1 : 0);
+    if (selected.length && (selected.length >= maxItems || nextBytes > maxBytes)) break;
+    selected.push(handoff); bytes = nextBytes;
+    // An oversized first interface must reach the hard context check, rather than starve the inbox.
+    if (bytes > maxBytes) break;
+  }
+  return selected;
+}
+
 /** Validate all decisions before mutating the graph. Only proposals shown at dispatch require a decision. */
 export function resolveResearchHandoffs(state: HandoffState, dispatchedIds: readonly string[],
   tasks: readonly CooperativeTask[], value: unknown): ResearchHandoffDecision[] {
@@ -76,12 +120,16 @@ export function resolveResearchHandoffs(state: HandoffState, dispatchedIds: read
   for (const id of shown) {
     const handoff = pending.get(id);
     if (!handoff) continue; // A concurrent plan edit may have superseded its source.
-    const adopted = tasks.find(task => sameProofTarget(handoff.proposal, task));
+    const adopted = tasks.find(task => task.id === handoff.proposal.id && sameProofTarget(handoff.proposal, task)) ??
+      tasks.find(task => sameProofTarget(handoff.proposal, task));
     const response = responses.get(id);
     if (adopted && response) throw new Error('math_handoff_decision_conflict:' + id);
-    if (adopted) resolved.push({ id, deliveryId: handoff.deliveryId, status: 'adopted',
-      taskId: adopted.id, taskDigest: taskVersion(adopted) });
-    else if (response) resolved.push({ id, deliveryId: handoff.deliveryId, ...response });
+    if (adopted) {
+      if (adopted.id !== handoff.proposal.id && [...pending.values()].some(item => item.id !== id &&
+          item.deliveryId === handoff.deliveryId && item.proposal.dependsOn.includes(handoff.proposal.id)))
+        throw new Error('math_handoff_dependency_id_required:' + handoff.proposal.id);
+      resolved.push({ id, deliveryId: handoff.deliveryId, status: 'adopted', taskId: adopted.id, taskDigest: taskVersion(adopted) });
+    } else if (response) resolved.push({ id, deliveryId: handoff.deliveryId, ...response });
     else throw new Error('math_handoff_unresolved:' + id + ': adopt its exact typed target or record a rejected/deferred decision with a reason.');
   }
   return resolved;

@@ -1,4 +1,4 @@
-import { taskGroup, taskVersion, type RouteRecord, type TaskRecord } from './tasks';
+import { isAdvisoryTask, taskGroup, taskVersion, type RouteRecord, type TaskRecord } from './tasks';
 import { describeProofRoutes, type ProofRoute } from './proofRoutes';
 
 /** Stored receipts describe a checkpoint; this function never replays or authorizes a proof. */
@@ -14,6 +14,38 @@ export function recordedTaskProofStatus(node: TaskRecord, environmentDigest?: st
     proof.conditions?.length ? 'conditional' as const : 'checked' as const;
 }
 
+/** Completed investigations cannot encapsulate open premises; checked formal interfaces can. */
+export function createRecordedTaskSettlement(tasks: readonly TaskRecord[], options: {
+  environmentDigest?: string; proofRoutes?: readonly ProofRoute[]; includeParkedRoutes?: boolean;
+} = {}) {
+  const nodes = new Map(tasks.map(node => [node.task.id, node]));
+  const versions = new Map(tasks.map(node => [node.task.id, taskVersion(node.task)]));
+  const status = new Map(tasks.map(node => [node.task.id, recordedTaskProofStatus(node, options.environmentDigest)]));
+  const currentReferences = (node: TaskRecord) => {
+    const references = (node.integratedCheck ?? node.proof)?.references;
+    // A scoped worker view may omit a private implementation prerequisite of a shared lemma.
+    return references?.tasks?.every(reference => !versions.has(reference.taskId) ||
+      versions.get(reference.taskId) === reference.taskDigest) ?? true;
+  };
+  const completed = new Map<string, boolean>();
+  const settled = (node: TaskRecord | undefined): boolean => {
+    if (!node) return false;
+    if (!isAdvisoryTask(node.task)) return node.status === 'integrated' &&
+      status.get(node.task.id) === 'checked' && currentReferences(node);
+    if (completed.has(node.task.id)) return completed.get(node.task.id)!;
+    completed.set(node.task.id, false);
+    const alternatives = options.proofRoutes?.filter(route => route.targetTaskId === node.task.id) ?? node.alternativeRoutes ?? [];
+    const eligible = options.includeParkedRoutes === false
+      ? alternatives.filter(route => !node.parkedRoutes?.[route.id]?.length) : alternatives;
+    const ready = node.status === 'completed' && node.task.dependsOn.every(id => settled(nodes.get(id))) &&
+      (!alternatives.length || eligible.some(route =>
+        [...route.prerequisiteTaskIds, route.closingTaskId].every(id => settled(nodes.get(id)))));
+    completed.set(node.task.id, ready);
+    return ready;
+  };
+  return { settled, currentReferences, status };
+}
+
 /** Planned use and recorded Lean use are separate facts, never a proof-completion percentage. */
 export function buildProofContinuation(tasks: readonly TaskRecord[], options: {
   groups?: readonly RouteRecord[]; environmentDigest?: string; proofRoutes?: readonly ProofRoute[];
@@ -22,15 +54,7 @@ export function buildProofContinuation(tasks: readonly TaskRecord[], options: {
   const versions = new Map(tasks.map(node => [node.task.id, taskVersion(node.task)]));
   const active = (node: TaskRecord) => (node.task.status ?? 'active') === 'active' && (!options.groups ||
     options.groups.some(route => route.group.id === taskGroup(node.task) && route.group.status === 'active'));
-  const status = new Map(tasks.map(node => [node.task.id, recordedTaskProofStatus(node, options.environmentDigest)]));
-  const currentReferences = (node: TaskRecord) => {
-    const references = (node.integratedCheck ?? node.proof)?.references;
-    // A scoped worker view may omit a private implementation prerequisite of a shared lemma.
-    return references?.tasks?.every(reference => !versions.has(reference.taskId) ||
-      versions.get(reference.taskId) === reference.taskDigest) ?? true;
-  };
-  const settled = (node: TaskRecord | undefined) => Boolean(node && (['research', 'sketch'].includes(node.task.kind)
-    ? node.status === 'completed' : node.status === 'integrated' && status.get(node.task.id) === 'checked' && currentReferences(node)));
+  const { settled, currentReferences, status } = createRecordedTaskSettlement(tasks, options);
   const consumers = new Map<string, string[]>();
   const routes = options.proofRoutes ?? tasks.flatMap(node => node.alternativeRoutes ?? []);
   const alternatives = (id: string) => routes.filter(route => route.targetTaskId === id);

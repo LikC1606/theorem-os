@@ -2,7 +2,7 @@ import type { SolverRunState } from '../archive';
 import type { MathAgentFailureDiagnostic } from '../../runtime/codexSession';
 import type { ResearchOperation, ValueEstimate } from './value';
 import { proofRouteReady, type ProofRoute } from '../proofRoutes';
-import { recordedTaskProofStatus } from '../progress';
+import { createRecordedTaskSettlement } from '../progress';
 import { hasTaskAcceptance, isAdvisoryTask, isFinalCandidateReview, taskGroup, taskReferenceDependencies, taskVersion,
   type TaskRecord, type RouteRecord, type CooperativeAction } from '../tasks';
 
@@ -161,25 +161,10 @@ export function originalGoalTaskFocus(tasks: readonly TaskRecord[], groups?: rea
     const route = groups?.find(record => record.group.id === taskGroup(node.task));
     return !groups || Boolean(route && route.group.status === 'active' && route.turns < (route.group.maxTurns ?? Infinity));
   };
-  const checked = (node: TaskRecord) => node.status === 'integrated' && recordedTaskProofStatus(node) === 'checked' &&
-    (node.integratedCheck ?? node.proof)?.references?.tasks?.every(reference =>
-      !nodes.has(reference.taskId) || taskVersion(nodes.get(reference.taskId)!.task) === reference.taskDigest) !== false;
+  const { settled } = createRecordedTaskSettlement(tasks, { includeParkedRoutes: false });
   const routes = (node: TaskRecord) => node.alternativeRoutes?.filter(route => !node.parkedRoutes?.[route.id]?.length) ?? [];
   const inputs = (node: TaskRecord) => [...new Set([...node.task.dependsOn,
     ...routes(node).flatMap(route => [...route.prerequisiteTaskIds, route.closingTaskId])])];
-  const completedAdvisory = new Map<string, boolean>();
-  const settled = (node: TaskRecord | undefined): boolean => {
-    if (!node) return false;
-    if (!isAdvisoryTask(node.task)) return checked(node);
-    if (completedAdvisory.has(node.task.id)) return completedAdvisory.get(node.task.id)!;
-    completedAdvisory.set(node.task.id, false);
-    // Findings finish an investigation, not the mathematical inputs still needed by its consumer.
-    const ready = node.status === 'completed' && node.task.dependsOn.every(id => settled(nodes.get(id))) &&
-      (!node.alternativeRoutes?.length || routes(node).some(route =>
-        [...route.prerequisiteTaskIds, route.closingTaskId].every(id => settled(nodes.get(id)))));
-    completedAdvisory.set(node.task.id, ready);
-    return ready;
-  };
   const proofPath = new Set<string>(), frontier = new Set<string>();
   const visitPath = (id: string) => {
     if (proofPath.has(id)) return;

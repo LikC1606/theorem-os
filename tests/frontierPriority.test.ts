@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { assignSharedResearchTask, type ResearchWorker } from '../src/solver/modules/organization';
 import { continuationResearchTasks, originalGoalTaskFocus, readyResearchTasks } from '../src/solver/modules/search';
 import { markTaskAcceptance, taskVersion, type RouteRecord, type TaskRecord } from '../src/solver/tasks';
+import { buildProofContinuation } from '../src/solver/progress';
 
 const node = (id: string, kind: TaskRecord['task']['kind'] = 'lemma', dependsOn: string[] = []): TaskRecord => ({
   task: { id, kind, objective: `Prove ${id}`, dependsOn, revision: 0,
@@ -68,6 +69,7 @@ describe('original-goal frontier priority', () => {
 
     expect(readyResearchTasks(tasks)).not.toContain(goal);
     expect([...focus.frontier]).toEqual(['core']);
+    expect(buildProofContinuation(tasks).goals[0].frontier).toEqual(['core']);
     expect(focus.proofPath.has('core')).toBe(true);
     expect(focus.support.has('core')).toBe(true);
     expect(focus.targetedResearch.has('core_probe')).toBe(true);
@@ -78,8 +80,28 @@ describe('original-goal frontier priority', () => {
     integrate(core);
     expect(readyResearchTasks(tasks)).toContain(goal);
     expect([...originalGoalTaskFocus(tasks).frontier]).toEqual(['goal']);
+    expect(buildProofContinuation(tasks).goals[0].frontier).toEqual(['goal']);
     expect(originalGoalTaskFocus(tasks).targetedResearch.has('core_probe')).toBe(false);
     expect(continuationResearchTasks(tasks)[0]).toBe(goal);
+    expect(goal.integratedCheck).toBeUndefined();
+  });
+
+  it('keeps a checked shared interface encapsulated when completed findings consume it', () => {
+    const hidden = integrate(node('private_input'));
+    const shared = integrate(node('shared', 'lemma', ['private_input']));
+    shared.integratedCheck!.references = { root: { file: 'Submission.lean', name: 'shared' },
+      sourceCommit: 'checked-source', environmentDigest: 'environment', contextDigest: 'context', inputs: [],
+      statement: [], proof: [{ file: 'Submission.lean', name: 'private_input' }],
+      tasks: [{ taskId: hidden.task.id, taskDigest: taskVersion(hidden.task) }] };
+    const finding = node('finding', 'research', ['shared']); finding.status = 'completed';
+    const review = node('review', 'sketch', ['finding']); review.status = 'completed';
+    const goal = node('goal', 'goal', ['review']), tasks = [shared, finding, review, goal];
+    const focus = originalGoalTaskFocus(tasks);
+
+    expect([...focus.frontier]).toEqual(['goal']);
+    expect(focus.proofPath.has('private_input')).toBe(false);
+    expect(buildProofContinuation(tasks).goals[0].frontier).toEqual(['goal']);
+    expect(buildProofContinuation(tasks).goals[0].missingDependencies).toEqual([]);
     expect(goal.integratedCheck).toBeUndefined();
   });
 

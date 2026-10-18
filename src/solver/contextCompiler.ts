@@ -7,7 +7,7 @@ import type { SolverProblem } from './problem';
 import { hasTaskAcceptance, taskGroup, taskVersion, type CooperativeAction, type TaskRecord } from './tasks';
 import type { RouteBlocker } from './routeControl';
 import { buildProofContinuation } from './progress';
-import { pendingResearchHandoffs } from './researchHandoffs';
+import { pendingResearchHandoffs, selectResearchHandoffBatch } from './researchHandoffs';
 
 export const DEFAULT_TASK_CONTEXT_BYTES = 512 * 1024;
 export const DEFAULT_OPTIONAL_TASK_CONTEXT_BYTES = 64 * 1024;
@@ -343,10 +343,22 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
   if (selectedRoute) mandatory.push(section(`route:${selectedRoute.id}`, 'routes', 'Selected alternative route and exact closing obligation (planned, not accepted):', selectedRoute));
   if (input.cooperation) {
     if (action?.kind === 'lead' || action?.kind === 'solve') {
-      const shown = action.handoffIds && new Set(action.handoffIds);
-      const handoffs = pendingResearchHandoffs(input.cooperation).filter(item => !shown || shown.has(item.id));
+      const pending = pendingResearchHandoffs(input.cooperation);
+      const shown = new Set(action.handoffIds ?? selectResearchHandoffBatch(input.cooperation).map(item => item.id));
+      const handoffs = pending.filter(item => shown.has(item.id));
       if (handoffs.length) mandatory.push(section('research-handoffs', 'assignment',
         'Pending research proposals requiring a Lead decision (advisory; not checked lemmas):', handoffs));
+      if (pending.length > handoffs.length) {
+        const sources = new Map<string, { taskId: string; taskDigest: string; remaining: number }>();
+        for (const item of pending) if (!shown.has(item.id)) {
+          const source = sources.get(item.sourceTaskId) ?? { taskId: item.sourceTaskId, taskDigest: item.sourceTaskDigest, remaining: 0 };
+          source.remaining++; sources.set(item.sourceTaskId, source);
+        }
+        mandatory.push(section('research-handoff-backlog', 'assignment',
+          'Queued research proposals (not required in this response; preserve their sources and prerequisites for subsequent batches):', {
+            pending: pending.length, shown: handoffs.length, remaining: pending.length - handoffs.length, sources: [...sources.values()],
+          }));
+      }
       if (action.kind === 'solve' && input.cooperation.error?.startsWith('math_handoff_'))
         mandatory.push(section('handoff-feedback', 'feedback', 'Repair the research handoff decision:', input.cooperation.error));
     }

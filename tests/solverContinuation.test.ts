@@ -653,7 +653,8 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
     const inputDigest = state.cooperation!.lastLeadInputDigest;
     expect(await cooperative.next(lead, budget)).toBeUndefined();
     expect(emit).toHaveBeenCalledWith('routes_idle', expect.objectContaining({ goalIds: [goal.task.id],
-      frontier: [expect.objectContaining({ taskId: goal.task.id })], inputDigest, reason: 'unchanged-mathematical-input' }));
+      frontier: [expect.objectContaining({ taskId: core.task.id, status: 'blocked', attempts: core.attempts,
+        parkedBy: core.routeParking })], inputDigest, reason: 'unchanged-mathematical-input' }));
     expect(core.status).toBe('blocked'); expect(core.routeParking).toHaveLength(1);
   });
 

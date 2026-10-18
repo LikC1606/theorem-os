@@ -28,7 +28,7 @@ import { validateLemmaRequests } from './taskProposals';
 import { recordRouteBlockers, refreshRouteBlockers, routeBlockerBasis, validateBlockerProposals, type BlockerBasis, type RouteBlocker } from './routeControl';
 import { parseProofRoutes, type ProofRoute } from './proofRoutes';
 import { attributeTaskReferences } from './taskReferenceAttribution';
-import { pendingResearchHandoffs, researchHandoffs, resolveResearchHandoffs, type ResearchHandoffDecision } from './researchHandoffs';
+import { pendingResearchHandoffs, researchHandoffs, resolveResearchHandoffs, selectResearchHandoffBatch, type ResearchHandoffDecision } from './researchHandoffs';
 import { captureObligationSnapshot, diffObligationProgress, type ObligationSnapshot, type ObligationProgressReceipt } from './obligationProgress';
 
 import { taskGroup, taskVersion, taskReferenceDependencies, assignmentDeliveryFile, markTaskReferences, hasTaskReferences, markTaskAcceptance, hasTaskAcceptance, invalidatedTaskIds,
@@ -579,7 +579,7 @@ export class CooperativeResearch {
     }
     const action: CooperativeAction = { kind: 'lead', seedCommit: this.seed(this.lead, this.archive.canonicalCommit!),
       planVersion: this.archive.planVersion, planningInputDigest: this.planningInputDigest(),
-      handoffIds: pendingResearchHandoffs(this.archive).map(item => item.id),
+      handoffIds: selectResearchHandoffBatch(this.archive).map(item => item.id),
       recovery: { id, taskIds: recovery.taskIds, goalIds: recovery.goalIds } };
     this.leadEvidence.set(action, this.planningEvidenceDigest());
     this.changed();
@@ -773,8 +773,10 @@ export class CooperativeResearch {
     if (edits.lines.length) this.input.save();
     return new Map(this.deliveryChecks);
   }
-  private async readHelpRequest() {
+  private async readHelpRequest(dispatch?: CooperativeAction) {
     if (this.archive.review && this.archive.review.status !== 'changes_requested') return;
+    const action = dispatch ?? this.active.get(this.lead.id)?.action;
+    if (!action && pendingResearchHandoffs(this.archive).length) return;
     const notes = path.join(this.lead.worktree, 'RESEARCH.md');
     if (!fs.existsSync(notes)) return;
     const fingerprint = mathDigest(readMathText(notes, MAX_RESEARCH_NOTES_BYTES));
@@ -790,10 +792,11 @@ export class CooperativeResearch {
         id: `original_goal_${index + 1}`, kind: 'goal', objective: `Primary solver owns ${target.theoremName}.`,
         theoremName: target.theoremName, proofPath: target.proofPath, status: 'paused',
       }));
-      const plan = parseCooperationPlan(this.input.state.problem, { tasks: [...goals, ...requests] });
-      const action = this.active.get(this.lead.id)?.action;
-      const decisions = resolveResearchHandoffs(this.archive, action?.kind === 'solve' ? action.handoffIds ?? [] : [],
+      const shown = action?.kind === 'solve' ? action.handoffIds ?? [] : [];
+      const plan = this.helpPlan([...goals, ...requests], shown);
+      const decisions = resolveResearchHandoffs(this.archive, shown,
         plan.tasks, handoffDecisions);
+      this.preserveHandoffBacklog(plan, decisions);
       await this.acceptPlan(plan);
       this.recordHandoffDecisions(decisions);
       this.input.emit('help_requested', { taskIds: requests.map(task => task.id) });
@@ -803,6 +806,43 @@ export class CooperativeResearch {
       this.archive.error = reason;
       this.input.emit('help_request_rejected', { reason }); this.changed();
     }
+  }
+  private helpPlan(tasks: readonly CooperativeTask[], shownIds: readonly string[]) {
+    const proposed = new Set(tasks.map(task => task.id));
+    const retained: CooperativeTask[] = [];
+    const current = new Map(this.archive.tasks.map(node => [node.task.id, node]));
+    const visited = new Set<string>();
+    const retain = (id: string, preserveControl = false) => {
+      if (visited.has(id)) return;
+      visited.add(id);
+      const node = current.get(id);
+      if (!node) return;
+      if (!proposed.has(id)) { proposed.add(id); retained.push(preserveControl ? node.task : { ...node.task, status: 'paused' }); }
+      for (const dependency of node.task.dependsOn) retain(dependency, preserveControl);
+      for (const dependency of node.assignment?.dependencies ?? []) retain(dependency.taskId, preserveControl);
+    };
+    // Explicit consumers keep their existing prerequisites executable, honoring prior pause/stop controls.
+    for (const task of tasks) for (const dependency of task.dependsOn ?? []) retain(dependency, true);
+    const shown = new Set(shownIds);
+    // Provenance-only records do not create additional peer work.
+    for (const handoff of pendingResearchHandoffs(this.archive)) if (!shown.has(handoff.id)) {
+      retain(handoff.sourceTaskId);
+      for (const dependency of this.archive.deliveries?.find(item => item.id === handoff.deliveryId)?.dependencies ?? []) retain(dependency.taskId);
+      for (const dependency of handoff.proposal.dependsOn) retain(dependency);
+    }
+    const groups = this.archive.groups?.map(record => record.group);
+    return parseCooperationPlan(this.input.state.problem, { tasks: [...tasks, ...retained],
+      ...(groups?.length ? { groups: groups.some(group => group.id === 'main') ? groups :
+        [...groups, { id: 'main', objective: 'Prove the original problem' }] } : {}) });
+  }
+  private preserveHandoffBacklog(plan: ReturnType<typeof parseCooperationPlan>, decisions: readonly ResearchHandoffDecision[]) {
+    const decided = new Set(decisions.map(decision => decision.id));
+    const remaining = pendingResearchHandoffs(this.archive).filter(item => !decided.has(item.id));
+    if (!remaining.length) return;
+    const invalidated = this.planInvalidation(plan);
+    const affected = remaining.find(item => invalidated.has(item.sourceTaskId) || item.proposal.dependsOn.some(id => invalidated.has(id)));
+    if (affected) throw new Error('math_handoff_backlog_source_required:' + affected.sourceTaskId +
+      ': retain its mathematical contract, prerequisites and group until the queued proposals are decided.');
   }
   private async readWorkerDeliveries(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>, cursors: Record<string, number>) {
     let consumed = false;
@@ -1212,7 +1252,15 @@ export class CooperativeResearch {
     if (!this.primaryLed && this.archive.tasks.length &&
         !this.archive.frontierRecoveries?.some(record => record.status !== 'planned') &&
         fs.existsSync(path.join(this.lead.worktree, 'RESEARCH.md'))) {
-      try { await this.acceptPlan(); } catch (error) { this.rejectPlan(error); }
+      try {
+        const rejection = this.archive.planRejection;
+        if (!rejection?.stalled || rejection.proposalDigest !== this.proposedPlanDigest() ||
+            rejection.inputDigest !== this.planningInputDigest()) {
+          const plan = readCooperationPlan(this.input.state.problem, this.lead.worktree);
+          this.preserveHandoffBacklog(plan, []);
+          await this.acceptPlan(plan);
+        }
+      } catch (error) { this.rejectPlan(error); }
     }
     if (!solverSourceFeedback(this.input.state.problem, this.lead.worktree)) {
       if (!this.primaryLed && this.archive.canonicalCommit !== git(this.lead.worktree, ['rev-parse', 'HEAD']) &&
@@ -1430,7 +1478,7 @@ export class CooperativeResearch {
             return;
           }
           return { kind: 'solve', seedCommit: git(worker.worktree, ['rev-parse', 'HEAD']),
-            handoffIds: pendingResearchHandoffs(this.archive).map(item => item.id) };
+            handoffIds: selectResearchHandoffBatch(this.archive).map(item => item.id) };
         }
         const head = this.archive.canonicalCommit!;
         const goals = this.archive.tasks.filter(node => node.task.kind === 'goal');
@@ -1462,6 +1510,8 @@ export class CooperativeResearch {
           }
           this.needsLead = true;
         }
+        const pendingHandoffs = selectResearchHandoffBatch(this.archive);
+        if (pendingHandoffs.length) this.needsLead = true;
         if (!running && !this.needsLead && this.archive.tasks.length && (!this.archive.review || this.archive.review.status === 'changes_requested') &&
             !this.canAdvance()) {
           // Parking prevents repeating an inference, not reconsidering its unfinished original goal.
@@ -1484,7 +1534,7 @@ export class CooperativeResearch {
             !this.hasAssignableTask()))) {
           this.needsLead = false;
           const inputDigest = this.planningInputDigest();
-          if (inputDigest === this.archive.lastLeadInputDigest && !this.archive.error) {
+          if (inputDigest === this.archive.lastLeadInputDigest && !this.archive.error && !pendingHandoffs.length) {
             if (!running && !this.hasAssignableTask()) {
               const frontier = this.activeGoalFrontier(), goalIds = [...new Set(frontier.flatMap(item => item.goalIds))];
               if (this.resumeUnattemptedFrontier(frontier)) continue;
@@ -1503,7 +1553,7 @@ export class CooperativeResearch {
           }
           this.syncPlanNotes();
           const action: CooperativeAction = { kind: 'lead', seedCommit: this.seed(worker, head), planVersion: this.archive.planVersion,
-            planningInputDigest: inputDigest, handoffIds: pendingResearchHandoffs(this.archive).map(item => item.id) };
+            planningInputDigest: inputDigest, handoffIds: pendingHandoffs.map(item => item.id) };
           this.leadEvidence.set(action, this.planningEvidenceDigest());
           return action;
         }
@@ -1727,7 +1777,7 @@ export class CooperativeResearch {
     if (isStatementAction(action)) return this.deliverStatement(worker, action);
     if (action.kind === 'solve') {
       if (!recovering && pendingResearchHandoffs(this.archive).some(item => action.handoffIds?.includes(item.id))) {
-        await this.readHelpRequest();
+        await this.readHelpRequest(action);
         if (pendingResearchHandoffs(this.archive).some(item => action.handoffIds?.includes(item.id))) {
           try {
             const response = block(worker.worktree, 'math-help');
@@ -1827,10 +1877,11 @@ export class CooperativeResearch {
       }
       let accepted = false;
       try {
-        if (action.handoffIds?.length) {
+        if (action.handoffIds?.length || pendingResearchHandoffs(this.archive).length) {
           const response = block(worker.worktree, 'math-plan');
           const plan = recoveryPlan ?? parseCooperationPlan(this.input.state.problem, response);
-          const decisions = resolveResearchHandoffs(this.archive, action.handoffIds, plan.tasks, response.handoffDecisions);
+          const decisions = resolveResearchHandoffs(this.archive, action.handoffIds ?? [], plan.tasks, response.handoffDecisions);
+          this.preserveHandoffBacklog(plan, decisions);
           await this.acceptPlan(plan);
           this.recordHandoffDecisions(decisions);
         } else await this.acceptPlan(recoveryPlan);

@@ -15,9 +15,9 @@ export const directSolverModules = {
   id: 'direct-v1',
   M1: { version: 'bounded-codex-turn-v10/distinct-recovery-delivery-v1/provider-diagnostics-v1', open: createCodexMathSession, execute: executeResearch },
   M2: { version: 'lean-kernel-v11/declaration-prefix-projection-v1/task-root-references-v1', check: checkSolverProof, checkTask: checkTaskProof },
-  M3: { version: 'route-budget-v8/blocker-or-routes-v1/structured-provider-failure-v1/assignable-work-v1', select: selectResearchAction, retry: planResearchRetry, ready: readyResearchTasks },
-  M4: { version: 'task-interface-context-v22/original-goal-frontier-v1/finished-objective-refs-v1/work-contract-v1/research-handoffs-v1', build: buildResearchContext, statement: buildStatementReviewContext },
-  M5: { version: 'route-cooperation-v21/persistent-failed-input-v1/continuous-frontier-input-v1/research-handoffs-v1/assignable-work-v1', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignResearchTask },
+  M3: { version: 'route-budget-v9/blocker-or-routes-v1/structured-provider-failure-v1/assignable-work-v1/advisory-settlement-v2', select: selectResearchAction, retry: planResearchRetry, ready: readyResearchTasks },
+  M4: { version: 'task-interface-context-v23/original-goal-frontier-v2/finished-objective-refs-v1/work-contract-v2/research-handoff-batches-v2', build: buildResearchContext, statement: buildStatementReviewContext },
+  M5: { version: 'route-cooperation-v22/persistent-failed-input-v1/continuous-frontier-input-v1/research-handoff-batches-v2/assignable-work-v1', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignResearchTask },
 };
 
 export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M3' | 'M5'> & {
@@ -31,7 +31,7 @@ export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M3' | 'M5'>
 export const lemmaSolverModules: SolverModules = {
   ...directSolverModules, id: 'lemma-v1',
   M2: { ...directSolverModules.M2, version: 'lean-obligations-v11/declaration-prefix-projection-v1/task-root-references-v1', checkLemma: checkLemmaResearch },
-  M3: { ...directSolverModules.M3, version: 'lemma-route-search-v9/blocker-or-routes-v1/structured-provider-failure-v1/assignable-work-v1', select: selectLemmaAction },
+  M3: { ...directSolverModules.M3, version: 'lemma-route-search-v10/blocker-or-routes-v1/structured-provider-failure-v1/assignable-work-v1/advisory-settlement-v2', select: selectLemmaAction },
 };
 
 /** Named CLI policies bind search and assignment versions without changing host acceptance. */
@@ -46,7 +46,7 @@ export function configuredSolverModules(method: string, scheduler: string): Solv
     M3: { ...base.M3, version: `${base.M3.version}/critical-path-v1`, ready: criticalPathResearchTasks },
     M5: { ...base.M5, version: `${base.M5.version}/shared-work-v1`, assign: assignSharedResearchTask } };
   if (scheduler === 'continuation') return { ...base,
-    M3: { ...base.M3, version: `${base.M3.version}/continuation-v2/original-goal-frontier-v1`, ready: continuationResearchTasks },
+    M3: { ...base.M3, version: `${base.M3.version}/continuation-v3/original-goal-frontier-v2`, ready: continuationResearchTasks },
     M5: { ...base.M5, version: `${base.M5.version}/shared-work-v1`, assign: assignSharedResearchTask } };
   return scheduler === 'plan' ? base : { ...base,
     M3: { ...base.M3, version: `${base.M3.version}/goals-first-v1`, ready: goalsFirstResearchTasks } };

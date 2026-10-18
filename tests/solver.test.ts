@@ -1186,6 +1186,144 @@ describe('isolated solver and host acceptance', () => {
     expect(host.createSession).not.toHaveBeenCalled();
   });
 
+  function handoffQueue(primaryLed = false, count = 18) {
+    const question: CooperativeTask = { id: 'question', kind: 'research', objective: 'Investigate exact bridges', dependsOn: [], revision: 0 };
+    const proposals = Array.from({ length: count }, (_, index) => ({ ...planTasks()[0],
+      id: `bridge_${index}`, theoremName: `Submission.bridge_${index}` }));
+    const tasks = [...planTasks().slice(2).map(task => ({ ...task, dependsOn: [], status: 'paused' as const })), question];
+    const plan = parseCooperationPlan(problem, { tasks });
+    const lead = { id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles } as const;
+    const peer = { ...lead, id: 'researcher-1', role: 'researcher' } as const;
+    const state = { problem, environmentDigest: 'environment', turns: 0,
+      cooperation: { planVersion: mathDigest(canonicalMathJson({ tasks: plan.tasks, groups: plan.groups })),
+        tasks: plan.tasks.map(task => ({ task, status: task.id === question.id ? 'completed' : 'pending', attempts: 0 })),
+        groups: plan.groups.map(group => ({ group, turns: 0 })), deliveries: [{
+          id: 'proposals', producer: peer.id, taskId: question.id, taskDigest: taskVersion(question), kind: 'research', status: 'advisory',
+          summary: 'Exact bridge proposals.', statement: '', premises: [], dependencies: [], remainingObligations: [],
+          evidenceRefs: [], createdAt: 1, lemmaRequests: proposals }] } } as any;
+    const emit = vi.fn();
+    const create = (restored = state) => new CooperativeResearch({ state: restored, workers: [lead, peer], access: new Map(),
+      signal: new AbortController().signal, modules: primaryLed ? { ...directSolverModules,
+        M5: { ...directSolverModules.M5, primaryLed: true } } : directSolverModules,
+      save: vi.fn(), emit, exclusiveCheck: check => check() });
+    return { state, question, proposals, lead, peer, emit, create, cooperative: create() };
+  }
+
+  it('drains every queued handoff across batches and JSON restore despite an unchanged planning digest', async () => {
+    const fixture = handoffQueue();
+    let state = fixture.state, cooperative = fixture.cooperative;
+    const batches: number[] = [], seen = new Set<string>();
+    while (pendingResearchHandoffs(state.cooperation).length) {
+      const action = await cooperative.next(fixture.lead, { maxTurns: Infinity, remainingMs: Infinity });
+      if (action?.kind !== 'lead') throw new Error('missing_next_handoff_batch');
+      batches.push(action.handoffIds!.length);
+      expect(action.handoffIds!.every(id => !seen.has(id))).toBe(true);
+      action.handoffIds!.forEach(id => seen.add(id));
+      fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify({ tasks: state.cooperation.tasks.map((item: any) => item.task),
+        handoffDecisions: action.handoffIds!.map(id => ({ id, status: 'deferred', reason: 'Need a quantified bridge estimate.' })) }));
+      await cooperative.deliver(fixture.lead, action, commitSolverSources(problem, workspace));
+      expect(state.cooperation.error).toBeUndefined();
+      if (batches.length === 1) { state = JSON.parse(JSON.stringify(state)); cooperative = fixture.create(state); }
+    }
+    expect(batches).toEqual([8, 8, 2]);
+    expect(state.cooperation.researchDecisions).toHaveLength(18);
+    expect(host.createSession).not.toHaveBeenCalled();
+    expect(host.verify).not.toHaveBeenCalled();
+  });
+
+  it('does not let an unresolved backlog bypass the repeated invalid-plan guard', async () => {
+    const { state, lead, emit, create, cooperative } = handoffQueue();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const action = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
+      if (action?.kind !== 'lead') throw new Error('missing_handoff_retry');
+      writePlan(workspace, state.cooperation.tasks.map((item: any) => item.task));
+      await cooperative.deliver(lead, action, commitSolverSources(problem, workspace));
+    }
+    expect(state.cooperation.planRejection.stalled).toBe(true);
+    expect(await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity })).toBeUndefined();
+    expect(emit).toHaveBeenCalledWith('plan_stalled', expect.anything());
+    expect(pendingResearchHandoffs(state.cooperation)).toHaveLength(18);
+    const restored = JSON.parse(JSON.stringify(state)), resumed = create(restored);
+    await resumed.restore();
+    expect(await resumed.next(lead, { maxTurns: Infinity, remainingMs: Infinity })).toBeUndefined();
+    expect(restored.cooperation.planRejection.stalled).toBe(true);
+    expect(pendingResearchHandoffs(restored.cooperation)).toHaveLength(18);
+  });
+
+  it.each(['removed', 'revised', 'group-revised', 'prerequisite-revised', 'late-arrival'] as const)(
+    'rejects a model plan before mutation when it would lose a queued proposal source: %s', async change => {
+      const { state, lead, question, create, cooperative } = handoffQueue(false, change === 'late-arrival' ? 8 : 9);
+      if (change === 'prerequisite-revised') {
+        const prerequisite = planTasks()[0];
+        state.cooperation.tasks.push({ task: prerequisite, status: 'pending', attempts: 0 });
+        const source = state.cooperation.tasks.find((item: any) => item.task.id === question.id);
+        source.task = { ...source.task, dependsOn: [prerequisite.id] };
+        state.cooperation.deliveries[0].taskDigest = taskVersion(source.task);
+        state.cooperation.deliveries[0].dependencies = [{ taskId: prerequisite.id, taskDigest: taskVersion(prerequisite) }];
+      }
+      const action = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
+      if (action?.kind !== 'lead') throw new Error('missing_handoff_batch');
+      if (change === 'late-arrival') state.cooperation.deliveries.push({ ...state.cooperation.deliveries[0], id: 'late',
+        lemmaRequests: [{ ...planTasks()[0], id: 'late_bridge', theoremName: 'Submission.late_bridge' }] });
+      const before = structuredClone(state.cooperation.tasks);
+      const tasks = before.map((item: any) => item.task).filter((task: CooperativeTask) =>
+        !['removed', 'late-arrival'].includes(change) || task.id !== question.id).map((task: CooperativeTask) =>
+        change === 'revised' && task.id === question.id || change === 'prerequisite-revised' && task.id === 'a'
+          ? { ...task, revision: 1 } : task);
+      fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify({ tasks,
+        ...(change === 'group-revised' ? { groups: [{ ...state.cooperation.groups[0].group, revision: 1 }] } : {}),
+        handoffDecisions: action.handoffIds!.map(id => ({ id, status: 'deferred', reason: 'Need new evidence.' })) }));
+      await cooperative.deliver(lead, action, commitSolverSources(problem, workspace));
+      expect(state.cooperation.error).toContain('math_handoff_backlog_source_required:question');
+      expect(state.cooperation.tasks.map(({ task, status, attempts }: TaskRecord) => ({ task, status, attempts })))
+        .toEqual(before.map(({ task, status, attempts }: TaskRecord) => ({ task, status, attempts })));
+      expect(state.cooperation.researchDecisions).toBeUndefined();
+      expect(state.cooperation.deliveries.every((item: any) => item.status === 'advisory')).toBe(true);
+      if (change === 'removed') {
+        const restored = JSON.parse(JSON.stringify(state));
+        await create(restored).restore();
+        expect(restored.cooperation.tasks.map((item: TaskRecord) => item.task)).toEqual(before.map((item: TaskRecord) => item.task));
+        expect(pendingResearchHandoffs(restored.cooperation)).toHaveLength(9);
+      }
+    });
+
+  it.each(['active', 'paused', 'stopped'] as const)('retains primary-led provenance and the existing %s prerequisite control across batches', async control => {
+    const { state, question, proposals, lead, peer, cooperative } = handoffQueue(true, 9);
+    state.cooperation.groups[0].group = { ...state.cooperation.groups[0].group, objective: 'Preserve this mathematical route', revision: 7 };
+    proposals[0].status = control;
+    proposals[8].dependsOn = [proposals[0].id];
+    const action = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
+    if (action?.kind !== 'solve') throw new Error('missing_primary_batch');
+    cooperative.activate(lead, action, async () => {}, async () => {});
+    const baseId = pendingResearchHandoffs(state.cooperation).find(item => item.proposal.id === proposals[0].id)!.id;
+    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify({ requests: [proposals[0]],
+      handoffDecisions: action.handoffIds!.filter(id => id !== baseId).map(id => ({ id, status: 'deferred', reason: 'Await the base bridge.' })) }));
+    cooperative.deactivate(lead); await cooperative.pulse(lead.id);
+    expect(pendingResearchHandoffs(state.cooperation)).toHaveLength(9);
+    await cooperative.deliver(lead, action, commitSolverSources(problem, workspace));
+    expect(state.cooperation.error).toBeUndefined();
+    expect(state.cooperation.tasks.find((item: any) => item.task.id === question.id)).toMatchObject({
+      status: 'completed', task: { status: 'paused' } });
+    expect(state.cooperation.groups[0].group).toMatchObject({ objective: 'Preserve this mathematical route', revision: 7 });
+    expect(pendingResearchHandoffs(state.cooperation).map(item => item.proposal.id)).toEqual([proposals[8].id]);
+    const next = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
+    if (next?.kind !== 'solve') throw new Error('missing_primary_consumer_batch');
+    cooperative.activate(lead, next, async () => {}, async () => {});
+    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify({ requests: [proposals[8]] }));
+    await cooperative.pulse(lead.id); cooperative.deactivate(lead);
+    await cooperative.deliver(lead, next, commitSolverSources(problem, workspace));
+    expect(state.cooperation.error).toBeUndefined();
+    expect(state.cooperation.tasks.find((item: any) => item.task.id === proposals[0].id)).toMatchObject({
+      status: 'pending', task: { status: control } });
+    expect(state.cooperation.tasks.find((item: any) => item.task.id === proposals[8].id).task.dependsOn).toEqual([proposals[0].id]);
+    expect(pendingResearchHandoffs(state.cooperation)).toEqual([]);
+    if (control === 'active') expect(await cooperative.next(peer, { maxTurns: Infinity, remainingMs: Infinity }))
+      .toMatchObject({ kind: 'task', task: { id: proposals[0].id } });
+    else expect(directSolverModules.M3.ready(state.cooperation.tasks, state.cooperation.groups)).toEqual([]);
+    expect(host.createSession).not.toHaveBeenCalled();
+    expect(host.verify).not.toHaveBeenCalled();
+  });
+
   it('replans a ready original goal after its pinned engineer exits instead of waiting for an impossible assignment', async () => {
     const tasks = planTasks().slice(2).map(task => ({ ...task, dependsOn: task.id === 'first' ? [] : ['first'] }));
     const plan = parseCooperationPlan(problem, { tasks, groups: [{ id: 'main', objective: 'Original goals', engineerId: 'engineer' }] });
@@ -1227,6 +1365,7 @@ describe('isolated solver and host acceptance', () => {
     cooperative.activate(lead, action, async () => {}, async () => {});
     fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify(status === 'adopted' ? { requests: [proposal] } :
       { handoffDecisions: [{ id, status, reason: 'Need a stronger quantitative premise.' }] }));
+    cooperative.deactivate(lead);
     expect(await cooperative.deliver(lead, action, commitSolverSources(problem, workspace))).toEqual({ checkWhole: true });
     expect(state.cooperation.researchDecisions[0]).toMatchObject({ id, status });
     if (status === 'adopted') expect(state.cooperation.tasks.find((item: any) => item.task.id === proposal.id).status).toBe('pending');
