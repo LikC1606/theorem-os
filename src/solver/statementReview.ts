@@ -19,11 +19,11 @@ export type StatementReview = {
   leanStatement: string; intendedStatement: string; premises: readonly string[]; dependencies: { taskId: string; taskDigest: string }[];
   workspace: string; files: { path: string; digest: string }[];
   status: 'pending' | 'translating' | 'translated' | 'reviewing' | 'accepted' | 'changes_requested' | 'superseded';
-  workerId?: string; translation?: Backtranslation; summary?: string;
+  workerId?: string; assignmentId?: string; translation?: Backtranslation; summary?: string;
   references?: ProofReferences;
 };
 export type StatementAction = { kind: 'backtranslate' | 'statement-review'; reviewId: string; taskId: string; taskDigest: string;
-  snapshotDigest: string; seedCommit: string; workspace: string };
+  snapshotDigest: string; seedCommit: string; workspace: string; assignmentId?: string };
 export const isStatementAction = (action: { kind: string }): action is StatementAction =>
   action.kind === 'backtranslate' || action.kind === 'statement-review';
 

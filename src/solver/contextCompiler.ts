@@ -8,6 +8,7 @@ import { hasTaskAcceptance, taskGroup, taskVersion, type CooperativeAction, type
 import type { RouteBlocker } from './routeControl';
 import { buildProofContinuation } from './progress';
 import { pendingResearchHandoffs, selectResearchHandoffBatch } from './researchHandoffs';
+import { contextTaskConsumers } from './taskConsumers';
 
 export const DEFAULT_TASK_CONTEXT_BYTES = 512 * 1024;
 export const DEFAULT_OPTIONAL_TASK_CONTEXT_BYTES = 64 * 1024;
@@ -73,7 +74,7 @@ export function frozenSourceContext(problem: SolverProblem, file: string, source
   return source;
 }
 
-function frozenHeader(problem: SolverProblem, node: TaskRecord): string | undefined {
+function frozenHeader(problem: SolverProblem, node: Pick<TaskRecord, 'task'>): string | undefined {
   if (node.task.kind !== 'goal') return node.task.type;
   const exact = problem.declarations[node.task.proofPath!]?.filter(item =>
     item.name === node.task.theoremName || localName(item.name) === localName(node.task.theoremName!)) ?? [];
@@ -267,35 +268,45 @@ function proofSources(problem: SolverProblem, node: TaskRecord) {
   return proof && { path: node.task.proofPath && sourcePath(problem, node.task.proofPath), evidenceFrom: 'evidence' };
 }
 
+function deliveryMatchesFinding(record: DeliveryRecord, node?: TaskRecord): boolean {
+  if (record.kind !== 'research' || !node || !present(node.finding)) return false;
+  return record.findingDigest === undefined ? record.summary === node.finding : record.findingDigest === mathDigest(node.finding);
+}
+
 function optionalDeliveries(input: TaskContextInput, required: ReadonlySet<string>,
-  byId: ReadonlyMap<string, TaskRecord>, omitted: ContextManifest['omitted'][number][]): ContextSection[] {
+  byId: ReadonlyMap<string, TaskRecord>, omitted: ContextManifest['omitted'][number][]) {
   const action = input.action, active = action?.kind === 'task' ? action.task : undefined;
   const priority = (record: DeliveryRecord) => active && record.taskId === active.id ? 0 : required.has(record.taskId ?? '') ? 1 :
     active && record.groupId === taskGroup(active) ? 2 : 3;
   const seen = new Set<string>(), selected: DeliveryRecord[] = [];
+  const findingSources = new Map<string, { deliveryId: string; commit: string; notesPath: 'RESEARCH.md'; sourceDigest?: string }>();
   for (const record of [...(input.cooperation?.deliveries ?? [])].reverse().sort((a, b) => priority(a) - priority(b))) {
-    const id = `delivery:${record.id}`, current = record.taskId && byId.get(record.taskId);
+    const id = `delivery:${record.id}`, current = record.taskId ? byId.get(record.taskId) : undefined;
     let reason: ContextOmissionReason | undefined;
     if (record.status === 'superseded') reason = 'superseded';
     else if ((current && record.taskDigest !== taskVersion(current.task)) || record.dependencies?.some(dependency =>
       byId.has(dependency.taskId) && taskVersion(byId.get(dependency.taskId)!.task) !== dependency.taskDigest)) reason = 'stale-version';
+    if (!reason && current && deliveryMatchesFinding(record, current) && record.commit &&
+        !findingSources.has(current.task.id)) findingSources.set(current.task.id, {
+      deliveryId: record.id, commit: record.commit, notesPath: 'RESEARCH.md', sourceDigest: record.sourceDigest,
+    });
     const key = json([record.taskId ?? record.id, record.taskDigest, record.kind, record.producer]);
     if (!reason && seen.has(key)) reason = 'duplicate';
     if (!reason && selected.length >= 8) reason = 'selection-limit';
     if (reason) { omitted.push({ id, kind: 'delivery', reason }); continue; }
     seen.add(key); selected.push(record);
   }
-  return selected.map(record => {
+  const sections = selected.map(record => {
     // Interfaces and receipts live in mandatory sections. A delivery summary is advisory prose.
-    const bytes = Buffer.from(record.summary), summary = bytes.length > 1000 ? bytes.subarray(0, 1000).toString('utf8').replace(/\uFFFD$/u, '') + '…' : record.summary;
-    if (bytes.length > 1000) omitted.push({ id: `delivery:${record.id}:summary-tail`, kind: 'delivery', reason: 'advisory-summary-limit' });
-    const current = record.taskId && byId.get(record.taskId);
+    const current = record.taskId ? byId.get(record.taskId) : undefined;
+    // Keep a shared mathematical finding independently selectable from its delivery metadata.
+    const sharedFinding = deliveryMatchesFinding(record, current);
     if (record.actualReferences || record.artifacts?.artifacts.some(artifact => artifact.declarations.length))
       omitted.push({ id: `delivery:${record.id}:details`, kind: 'delivery', reason: 'advisory-details-by-reference' });
     const visible = {
       id: record.id, submissionId: record.submissionId, statementReviewId: record.statementReviewId,
       producer: record.producer, taskId: record.taskId, taskDigest: record.taskDigest, groupId: record.groupId,
-      kind: record.kind, status: record.status, statement: record.statement, premises: record.premises,
+      kind: record.kind, status: record.status, statement: record.statement, premises: record.premises, findingDigest: record.findingDigest,
       dependencies: record.dependencies, remainingObligations: record.remainingObligations,
       evidenceRefs: record.evidenceRefs, createdAt: record.createdAt, commit: record.commit, sourceDigest: record.sourceDigest,
       savedSource: record.commit && { commit: record.commit, notesPath: 'RESEARCH.md',
@@ -309,8 +320,10 @@ function optionalDeliveries(input: TaskContextInput, required: ReadonlySet<strin
       artifactWarning: record.artifactWarning, lemmaRequests: record.lemmaRequests,
     };
     return { ...section(`delivery:${record.id}`, 'delivery', 'Current-version delivery selected for this task (advisory; retain unproved obligations):',
-      { ...visible, summary }), priority: priority(record) * 10 + 2 };
+      { ...visible, ...(sharedFinding ? { summarySource: `finding:${record.taskId}` } : { summary: record.summary }) }),
+      priority: priority(record) * 10 + 2 };
   });
+  return { sections, findingSources };
 }
 
 /** Compile a task's mathematical interface before dispatch. A budget can omit hints, never hypotheses. */
@@ -325,6 +338,16 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
     return missing('frozen-problem');
   const omitted: ContextManifest['omitted'][number][] = [];
   const { tasks, deferred, byId, required, route: selectedRoute } = requiredTasks(input, omitted);
+  const consumers = action?.kind === 'task' ? contextTaskConsumers(action.task, input.cooperation?.tasks ?? [], input.cooperation) : [];
+  const consumerIds = new Set(consumers.map(consumer => consumer.task.id));
+  if (consumerIds.size !== consumers.length) return missing('duplicate-consumer-id');
+  for (const consumer of consumers) {
+    const current = byId.get(consumer.task.id);
+    if (consumer.taskDigest !== taskVersion(consumer.task) || (current && taskVersion(current.task) !== consumer.taskDigest))
+      return stale(`consumer:${consumer.task.id}`);
+    if (['lemma', 'goal'].includes(consumer.task.kind) && !present(frozenHeader(problem, consumer)))
+      return missing(`interface:${consumer.task.id}`);
+  }
   const references = evidenceReferenceDictionary();
   const graph = tasks.map(node => ({ ...leadTaskInterface(node, action, omitted), taskDigest: taskVersion(node.task),
     status: node.status, attempts: node.attempts, groupId: taskGroup(node.task), producer: node.assignment?.workerId,
@@ -340,6 +363,15 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
     section('frozen-sources', 'sources', 'Frozen source context and immutable retrieval references:', sourceReferences(input)),
   ];
   if (action) mandatory.push(section('assignment', 'assignment', 'Cooperative assignment:', action));
+  if (consumers.length) mandatory.push(section('consumer-interfaces', 'interfaces',
+    'Planned consumer interfaces (read-only mathematical purpose; not premises, proof evidence or permission to edit consumers):',
+    consumers.map(consumer => ({ ...consumer.task, taskDigest: consumer.taskDigest, status: consumer.status, uses: consumer.uses,
+      ...(consumer.task.kind === 'goal' ? { exactFrozenHeader: frozenHeader(problem, consumer) } : {}) }))));
+  if (input.feedback) mandatory.push(section('current-feedback', 'feedback',
+    'Current host feedback (preserve the frozen original problem):', input.feedback));
+  const assigned = action?.kind === 'task' ? byId.get(action.task.id) : undefined;
+  if (assigned?.feedback) mandatory.push(section(`feedback:${assigned.task.id}`, 'feedback',
+    `Host feedback for ${assigned.task.id}:`, assigned.feedback));
   if (selectedRoute) mandatory.push(section(`route:${selectedRoute.id}`, 'routes', 'Selected alternative route and exact closing obligation (planned, not accepted):', selectedRoute));
   if (input.cooperation) {
     if (action?.kind === 'lead' || action?.kind === 'solve') {
@@ -443,15 +475,11 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
     Object.entries(problem.declarations).map(([file, declarations]) => [file, declarations.map(declaration => declaration.name)]))),
   section('original-targets', 'problem', 'Original targets:', problem.targets));
   mandatory.push(...(input.mandatory ?? []));
-  const deliveries = optionalDeliveries(input, required, byId, omitted);
-  const deliveredFindings = new Set(deliveries.map(item => item.id.slice('delivery:'.length)));
-  const findingTaskIds = new Set((input.cooperation?.deliveries ?? []).filter(record => record.kind === 'research' &&
-    deliveredFindings.has(record.id)).map(record => record.taskId));
+  const { sections: deliveries, findingSources } = optionalDeliveries(input, required, byId, omitted);
   const active = action?.kind === 'task' ? action.task : undefined;
   const rank = (taskId?: string, groupId?: string) => taskId === active?.id && active ? 0 : required.has(taskId ?? '') ? 1 :
     active && groupId === taskGroup(active) ? 2 : 3;
   const optional: ContextSection[] = [];
-  if (input.feedback) optional.push({ ...section('current-feedback', 'feedback', 'Current host feedback (preserve the frozen original problem):', input.feedback), priority: 0 });
   const extras = input.cooperation as (CooperationState & Extras) | undefined;
   for (const blocker of [...(extras?.blockers ?? [])].sort((a, b) => rank(a.taskId, a.groupId) - rank(b.taskId, b.groupId))) {
     const id = `blocker:${blocker.id}`;
@@ -469,10 +497,12 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
   for (const node of [...(input.cooperation?.tasks ?? [])].sort((a, b) =>
     rank(a.task.id, taskGroup(a.task)) - rank(b.task.id, taskGroup(b.task)))) {
     const priority = rank(node.task.id, taskGroup(node.task)) * 10;
-    if (node.feedback) optional.push({ ...section(`feedback:${node.task.id}`, 'feedback', `Host feedback for ${node.task.id}:`, node.feedback), priority: priority + 3 });
-    if (node.finding && !findingTaskIds.has(node.task.id))
-      optional.push({ ...section(`finding:${node.task.id}`, 'finding', `Advisory finding for ${node.task.id}:`, node.finding), priority: priority + 4 });
-    if (!required.has(node.task.id)) optional.push({ ...section(`interface:${node.task.id}`, 'interfaces', 'Other visible task (advisory planning context):',
+    if (node.feedback && node.task.id !== active?.id) optional.push({ ...section(`feedback:${node.task.id}`, 'feedback', `Host feedback for ${node.task.id}:`, node.feedback), priority: priority + 3 });
+    if (present(node.finding)) optional.push({ ...section(`finding:${node.task.id}`, 'finding', `Advisory finding for ${node.task.id}:`, {
+      taskId: node.task.id, taskDigest: taskVersion(node.task), finding: node.finding,
+      savedSource: findingSources.get(node.task.id),
+    }), priority: priority + 1 });
+    if (!required.has(node.task.id) && !consumerIds.has(node.task.id)) optional.push({ ...section(`interface:${node.task.id}`, 'interfaces', 'Other visible task (advisory planning context):',
       { ...node.task, taskDigest: taskVersion(node.task), status: node.status }), priority: priority + 8 });
   }
   for (const route of extras?.proofRoutes ?? []) {
@@ -496,11 +526,12 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
     optional[optional.length - 1] = { ...optional.at(-1)!, priority: rank(entry.task.id, taskGroup(entry.task)) * 10 + 5 };
   }
   if (input.checkpoint) {
-    const checkpointBytes = Buffer.from(input.checkpoint), shortened = checkpointBytes.length > 5000;
-    if (shortened) omitted.push({ id: 'checkpoint:tail', kind: 'checkpoint', reason: 'advisory-summary-limit' });
-    const text = shortened ? checkpointBytes.subarray(0, 5000).toString('utf8').replace(/\uFFFD$/u, '') +
-      '\n[Advisory excerpt; read worktree-root RESEARCH.md for the complete checkpoint.]' : input.checkpoint;
-    optional.push({ ...section('checkpoint', 'checkpoint', 'Current research checkpoint (advisory; recheck claims in Lean):', text), priority: 5 });
+    mandatory.push(section('checkpoint-source', 'sources', 'Complete current research checkpoint source (advisory, not proof acceptance):', {
+      path: 'RESEARCH.md', bytes: Buffer.byteLength(input.checkpoint), digest: mathDigest(input.checkpoint),
+      retrieval: 'If the checkpoint section is omitted for budget, read worktree-root RESEARCH.md before continuing the argument. ' +
+        'Require the recorded byte length and UTF-8 SHA-256 to match; otherwise report that the saved checkpoint is unavailable. Recheck claims in Lean.',
+    }));
+    optional.push({ ...section('checkpoint', 'checkpoint', 'Current research checkpoint (advisory; recheck claims in Lean):', input.checkpoint), priority: 5 });
   }
   optional.push(...(input.optional ?? []));
   return compileSections(input.instructions, mandatory, optional.sort((a, b) => (a.priority ?? 20) - (b.priority ?? 20)),

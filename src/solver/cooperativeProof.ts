@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import { maskLeanComments, maskLeanCommentsAndStrings } from '../math/leanSyntax';
+import { mathConstructionImports } from '../math/mathConstructionSources';
 import { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions, inspectScopedLeanDeclarations,
   leanDeclarationContextCommands } from '../math/leanSource';
 import { assertSolverSources, committedSource, commitSolverProjection, solverProofImports, withSolverWorktree, type SolverProblem } from './problem';
@@ -115,25 +116,66 @@ export function projectTaskSources(problem: SolverProblem, worktree: string, sou
       'Helper targets must be theorems or lemmas. A goal may fill its exact frozen original def, preserving its declaration kind, name, parameters and type.');
   if (task.kind === 'lemma' && Object.values(problem.declarations).some(items => items.some(item => local(item.name) === local(task.theoremName!))))
     throw new Error('math_task_helper_is_original_declaration');
-  const keep = new Set([task.theoremName!, ...retainedGoals].map(local));
   const sources = new Map(problem.ownedFiles.map(file => [file,
     committedSource(worktree, sourceCommit, `${problem.projectRelative}/${file}`)]));
-  const removed = new Set([...problem.targets.map(target => target.theoremName),
-    ...conditions.map(dependency => dependency.theoremName!)].map(local).filter(name => !keep.has(name)));
-  const declarations = [...sources].filter(([file]) => file.endsWith('.lean')).flatMap(([, source]) =>
-    inspectLeanDeclarationRegions(source).map(region => ({ name: local(region.name),
-      theorem: /^(?:theorem|lemma)\s/u.test(source.slice(region.startOffset, region.bodyOffset)), references:
-      [...maskLeanCommentsAndStrings(source.slice(region.startOffset, region.endOffset))
-        .matchAll(/[\p{L}_][\p{L}\p{M}\p{N}_']*(?:\.[\p{L}_][\p{L}\p{M}\p{N}_']*)*/gu)].map(match => local(match[0])) })));
-  for (const item of declarations) if (item.theorem && !keep.has(item.name) &&
-      item.references.some(name => name === 'sorry' || name === 'admit')) removed.add(item.name);
+  const key = (file: string, name: string) => `${file}\0${name}`;
+  const identifiers = (source: string) => [...maskLeanCommentsAndStrings(source)
+    .matchAll(/[\p{L}_][\p{L}\p{M}\p{N}_']*(?:\.[\p{L}_][\p{L}\p{M}\p{N}_']*)*/gu)].map(match => match[0]);
+  const declarations = [...sources].filter(([file]) => file.endsWith('.lean')).flatMap(([file, source]) => {
+    const scoped = inspectScopedLeanDeclarations(source);
+    return inspectLeanDeclarationRegions(source).map(region => {
+      const declaration = scoped.find(item => item.startOffset === region.startOffset)!;
+      const header = source.slice(region.startOffset, region.bodyOffset);
+      return { ...declaration, file, id: key(file, declaration.qualifiedName),
+        theorem: /^(?:theorem|lemma)\s/u.test(header), header: identifiers(header),
+        opened: leanDeclarationContextCommands(source, declaration.qualifiedName).before.some(command => /^open\b/u.test(command)),
+        references: identifiers(source.slice(region.startOffset, region.endOffset)) };
+    });
+  });
+  const targetKey = (file: string, name: string) => key(file, declarations.find(item => item.file === file &&
+    (item.qualifiedName === name || !name.includes('.') && item.name === name))?.qualifiedName ?? name);
+  const target = targetKey(task.proofPath!, task.theoremName!);
+  const keep = new Set([target, ...problem.targets
+    .filter(target => retainedGoals.includes(target.theoremName)).map(target => targetKey(target.proofPath, target.theoremName))]);
+  const assumptions = new Map(conditions.map(dependency => [targetKey(dependency.proofPath!, dependency.theoremName!), dependency]));
+  const removed = new Set([...problem.targets.map(target => targetKey(target.proofPath, target.theoremName)),
+    ...assumptions.keys()].filter(id => !keep.has(id)));
+  const visible = new Map([...sources.keys()].map(file => {
+    const files = new Set([file]);
+    for (const current of files) for (const module of mathConstructionImports(sources.get(current)!)) {
+      const imported = module.replaceAll('.', '/') + '.lean';
+      if (sources.has(imported)) files.add(imported);
+    }
+    return [file, files] as const;
+  }));
+  const bindings = new Map<string, { file: string; id: string }[]>();
+  for (const binding of [...declarations.map(item => ({ file: item.file, name: item.qualifiedName, id: item.id })),
+    ...[...assumptions].map(([id, dependency]) => ({ id, file: dependency.proofPath!, name: id.slice(id.indexOf('\0') + 1) }))]) {
+    bindings.set(binding.name, [...(bindings.get(binding.name) ?? []), binding]);
+  }
+  // Only unambiguous source names guide projection cleanup; Lean owns actual dependency evidence.
+  const referenceKey = (declaration: typeof declarations[number], name: string) => {
+    if (!name.includes('.') && (declaration.header.includes(name) || declaration.opened)) return;
+    if (declaration.opened && !name.startsWith('_root_.') && !bindings.has(name)) return;
+    const namespace = declaration.namespace.split('.').filter(Boolean);
+    const names = name.startsWith('_root_.') ? [name.slice(7)] :
+      Array.from({ length: namespace.length + 1 }, (_, index) => [...namespace.slice(0, namespace.length - index), name].join('.'));
+    for (const qualified of names) {
+      const candidates = (bindings.get(qualified) ?? []).filter(item => visible.get(declaration.file)!.has(item.file));
+      const own = candidates.filter(item => item.file === declaration.file);
+      const ids = new Set((own.length ? own : candidates).map(item => item.id));
+      if (ids.size) return ids.size === 1 ? [...ids][0] : undefined;
+    }
+  };
+  for (const item of declarations) if (item.theorem && !keep.has(item.id) &&
+      item.references.some(name => name === 'sorry' || name === 'admit')) removed.add(item.id);
   // Removing or parameterizing a theorem also invalidates unrelated saved wrappers that call it.
-  const changed = new Set([...removed, ...(conditions.length ? [local(task.theoremName!)] : [])]);
+  const changed = new Set([...removed, ...(conditions.length ? [target] : [])]);
   for (;;) {
-    const affected = declarations.filter(item => !keep.has(item.name) && !removed.has(item.name) &&
-      item.references.some(name => changed.has(name)));
+    const affected = declarations.filter(item => !keep.has(item.id) && !removed.has(item.id) &&
+      item.references.some(name => { const reference = referenceKey(item, name); return reference !== undefined && changed.has(reference); }));
     if (!affected.length) break;
-    for (const item of affected) { removed.add(item.name); changed.add(item.name); }
+    for (const item of affected) { removed.add(item.id); changed.add(item.id); }
   }
   for (const file of problem.ownedFiles) {
     let source = sources.get(file)!;
@@ -141,7 +183,8 @@ export function projectTaskSources(problem: SolverProblem, worktree: string, sou
     // Doc comments require a following declaration, which this projection may remove.
     source = maskLeanComments(source);
     for (const region of inspectLeanDeclarationRegions(source).reverse()) {
-      if (conditions.length && file === task.proofPath && local(region.name) === local(task.theoremName!)) {
+      const declaration = declarations.find(item => item.file === file && item.startOffset === region.startOffset)!;
+      if (conditions.length && declaration.id === target) {
         const header = source.slice(region.startOffset, region.bodyOffset - 2);
         const name = /^(?:theorem|lemma)\s+[^\s(\[{:]+/u.exec(header);
         if (!name || source.slice(region.bodyOffset - 2, region.bodyOffset) !== ':=') throw new Error('math_task_conditional_header_unsupported');
@@ -149,11 +192,12 @@ export function projectTaskSources(problem: SolverProblem, worktree: string, sou
         // Qualified references must also refer to the explicit assumptions in this projection.
         const references = [...maskLeanCommentsAndStrings(body).matchAll(/[\p{L}_][\p{L}\p{M}\p{N}_']*(?:\.[\p{L}_][\p{L}\p{M}\p{N}_']*)*/gu)];
         for (const reference of references.reverse()) {
-          const dependency = conditions.find(item => item.theoremName === reference[0]);
+          const dependency = conditions.find(item => item.theoremName === reference[0]) ??
+            assumptions.get(referenceKey(declaration, reference[0]) ?? '');
           if (dependency) body = body.slice(0, reference.index) + local(dependency.theoremName!) + body.slice(reference.index + reference[0].length);
         }
         source = source.slice(0, region.startOffset) + name[0] + ' ' + binders + header.slice(name[0].length) + ':=' + body + source.slice(region.endOffset);
-      } else if (removed.has(local(region.name))) {
+      } else if (removed.has(declaration.id)) {
         const start = source.lastIndexOf('\n', region.startOffset - 1) + 1;
         source = source.slice(0, start) + source.slice(region.endOffset);
       }
@@ -190,7 +234,14 @@ export async function checkTaskProofs(problem: SolverProblem, worktree: string, 
         return solverProofImports(problem, committedSource(worktree, sourceCommit, `${problem.projectRelative}/${file}`))
           .filter(module => !before.includes(module)).map(module => ({ file, module }));
       });
-      return { task, assignment, conditions, imports, changes: taskChanges(problem, checkout, sourceCommit, task, assignment),
+      const changes = taskChanges(problem, checkout, sourceCommit, task, assignment);
+      // Assumed children are supplied by their own checked deliveries, never by this parent's draft.
+      const assumed = new Set(conditions.flatMap(dependency => inspectScopedLeanDeclarations(
+        committedSource(worktree, sourceCommit, `${problem.projectRelative}/${dependency.proofPath}`))
+        .filter(declaration => declaration.qualifiedName === dependency.theoremName ||
+          !dependency.theoremName!.includes('.') && declaration.name === dependency.theoremName)
+        .map(declaration => `${dependency.proofPath}\0${declaration.name}`)));
+      return { task, assignment, conditions, imports, changes: changes.filter(change => !assumed.has(`${change.file}\0${change.name}`)),
         taskDigest: taskVersion(task), sources: projectTaskSources(problem, checkout, sourceCommit, task, retainedGoals, conditions),
         expectedType: task.kind === 'lemma' ? conditions.length ? `∀ ${binders}, ${task.type}` : task.type : undefined };
     });

@@ -13,11 +13,11 @@ import { canonicalMathJson, mathDigest } from '../../math/mathRuntimeIo';
 /** Frozen component versions compose one ordinary direct-proof program. */
 export const directSolverModules = {
   id: 'direct-v1',
-  M1: { version: 'bounded-codex-turn-v10/distinct-recovery-delivery-v1/provider-diagnostics-v1', open: createCodexMathSession, execute: executeResearch },
-  M2: { version: 'lean-kernel-v11/declaration-prefix-projection-v1/task-root-references-v1', check: checkSolverProof, checkTask: checkTaskProof },
-  M3: { version: 'route-budget-v9/blocker-or-routes-v1/structured-provider-failure-v1/assignable-work-v1/advisory-settlement-v2', select: selectResearchAction, retry: planResearchRetry, ready: readyResearchTasks },
-  M4: { version: 'task-interface-context-v23/original-goal-frontier-v2/finished-objective-refs-v1/work-contract-v2/research-handoff-batches-v2', build: buildResearchContext, statement: buildStatementReviewContext },
-  M5: { version: 'route-cooperation-v22/persistent-failed-input-v1/continuous-frontier-input-v1/research-handoff-batches-v2/assignable-work-v1', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignResearchTask },
+  M1: { version: 'bounded-codex-turn-v13/distinct-recovery-delivery-v1/provider-diagnostics-v1/saved-plan-recovery-v1/closed-writer-ownership-v1/advisory-draft-recovery-v1/session-admission-v1/closed-statement-ownership-v1', open: createCodexMathSession, execute: executeResearch },
+  M2: { version: 'lean-kernel-v12/declaration-prefix-projection-v1/task-root-references-v1/conditional-child-changes-v1/scoped-conditional-projection-v1', check: checkSolverProof, checkTask: checkTaskProof },
+  M3: { version: 'route-budget-v10/blocker-or-routes-v1/structured-provider-failure-v1/assignable-work-v1/advisory-settlement-v3/goal-scoped-advancement-v1', select: selectResearchAction, retry: planResearchRetry, ready: readyResearchTasks },
+  M4: { version: 'task-interface-context-v28/original-goal-frontier-v2/finished-objective-refs-v1/work-contract-v2/research-handoff-batches-v3/resume-drafts-v1/assignment-knowledge-hints-v1/deferred-handoff-inputs-v1/mathematical-route-planning-v1/complete-research-findings-v1/consumer-interfaces-v1/current-feedback-v1/complete-checkpoints-v1', build: buildResearchContext, statement: buildStatementReviewContext },
+  M5: { version: 'route-cooperation-v30/persistent-failed-input-v1/continuous-frontier-input-v1/research-handoff-batches-v3/assignable-work-v1/resumable-lead-drafts-v1/assignment-deliveries-v1/scoped-research-drafts-v1/review-dispatches-v1/recoverable-delivery-cursors-v1/recoverable-human-edits-v1/recoverable-proof-integration-v1/deferred-handoff-reactivation-v1/concurrent-frontier-recovery-v1/complete-research-findings-v1/consumer-interface-projection-v1', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignResearchTask },
 };
 
 export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M3' | 'M5'> & {
@@ -30,8 +30,8 @@ export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M3' | 'M5'>
 
 export const lemmaSolverModules: SolverModules = {
   ...directSolverModules, id: 'lemma-v1',
-  M2: { ...directSolverModules.M2, version: 'lean-obligations-v11/declaration-prefix-projection-v1/task-root-references-v1', checkLemma: checkLemmaResearch },
-  M3: { ...directSolverModules.M3, version: 'lemma-route-search-v10/blocker-or-routes-v1/structured-provider-failure-v1/assignable-work-v1/advisory-settlement-v2', select: selectLemmaAction },
+  M2: { ...directSolverModules.M2, version: 'lean-obligations-v12/declaration-prefix-projection-v1/task-root-references-v1/conditional-child-changes-v1/scoped-conditional-projection-v1', checkLemma: checkLemmaResearch },
+  M3: { ...directSolverModules.M3, version: 'lemma-route-search-v11/blocker-or-routes-v1/structured-provider-failure-v1/assignable-work-v1/advisory-settlement-v3/goal-scoped-advancement-v1', select: selectLemmaAction },
 };
 
 /** Named CLI policies bind search and assignment versions without changing host acceptance. */

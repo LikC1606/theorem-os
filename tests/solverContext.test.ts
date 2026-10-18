@@ -28,7 +28,8 @@ it('deduplicates repeated findings and progress while preserving exact Lean type
   expect(context.message).toContain('latest-progress');
   expect(context.message).not.toContain('obsolete-progress');
   expect(context.message.match(/library-finding:/gu)).toHaveLength(1);
-  expect(Buffer.byteLength(context.message)).toBeLessThan(Buffer.byteLength(exactType) + 7000);
+  expect(context.message).toContain(finding);
+  expect(context.manifest!.usedBytes).toBeLessThanOrEqual(context.manifest!.maxBytes);
   const graph = context.message.split('Lead task graph and host feedback:\n')[1].split('\n\nRoute groups')[0];
   expect(JSON.parse(graph)[0].type).toBe(exactType);
 });

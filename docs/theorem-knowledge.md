@@ -202,3 +202,30 @@ Neither lookup nor import marks a task accepted, installs old receipts, or close
 an original goal. The existing independent Lean checks and official evaluator
 remain responsible for acceptance. Building or searching a catalog never starts
 or resumes a solving task.
+
+## Candidates for the Current Assignment
+
+When a run attaches a catalog, M4 also searches its already validated metadata
+before dispatching proof work. A lemma assignment uses its complete closed Lean
+type. An original goal uses its frozen source header, including declared binders,
+instead of a type supplied by the planner. Research assignments search their
+objective. Lead planning first searches unresolved original-goal frontier tasks;
+the primary solver and initial planning use the frozen original targets.
+
+The host considers at most three targets and three candidates per target. Each
+target's hint section is at most 4 KiB; excess candidates are removed whole and
+counted. An oversized query is explicitly reported as not searched, rather than
+truncating its mathematical input. These are retrieval and context limits, not
+solving deadlines. The normal context manifest records sections omitted for prompt
+budget, while exact current interfaces and assumptions remain mandatory.
+
+Hints bind the catalog digest, current consumer and search-input digest. They show
+bounded type previews, dependency coverage and recorded environment compatibility.
+Retrieve the full type, all premises and archived context using the pinned
+`knowledge get`, `source` and `dependencies` commands before adapting a candidate.
+The host reuses catalog metadata already loaded for the run; constructing hints
+does not read archived source objects or include historical proof bodies or receipts.
+
+Fixed-candidate review, blind translation and statement comparison receive no such
+candidate hints. All matches remain advisory and require fresh checking in the
+current problem. A search miss is not evidence that no useful theorem exists.

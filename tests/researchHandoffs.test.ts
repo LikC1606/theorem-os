@@ -1,7 +1,9 @@
 import { expect, it } from 'vitest';
-import { pendingResearchHandoffs, researchHandoffs, resolveResearchHandoffs, selectResearchHandoffBatch } from '../src/solver/researchHandoffs';
+import { pendingResearchHandoffs, retainedResearchHandoffs, researchHandoffs, resolveResearchHandoffs, selectResearchHandoffBatch,
+  type ResearchHandoffDecision } from '../src/solver/researchHandoffs';
+import type { TaskProof } from '../src/solver/cooperativeProof';
 import type { DeliveryRecord } from '../src/solver/deliveries';
-import { taskVersion, type CooperativeTask, type TaskRecord } from '../src/solver/tasks';
+import { markTaskAcceptance, taskVersion, type CooperativeTask, type TaskRecord } from '../src/solver/tasks';
 
 const research: CooperativeTask = { id: 'investigate', kind: 'research', objective: 'Find the missing bridge', dependsOn: [], revision: 0 };
 const proposal: CooperativeTask = { id: 'bridge', kind: 'lemma', objective: 'Prove the bridge', theoremName: 'Original.bridge',
@@ -197,3 +199,109 @@ it.each([{ maxItems: 0 }, { maxItems: 1.5 }, { maxBytes: -1 }, { maxBytes: Infin
   ('rejects invalid batch limits: %j', options => {
     expect(() => selectResearchHandoffBatch(fixture(), options)).toThrow('math_handoff_invalid_batch_limit:');
   });
+
+function waitingFixture() {
+  const needed = node({ ...proposal, id: 'needed', theoremName: 'Original.needed' });
+  const other = node({ ...proposal, id: 'other', theoremName: 'Original.other' });
+  const state: { tasks: TaskRecord[]; deliveries: DeliveryRecord[]; researchDecisions?: ResearchHandoffDecision[] } = fixture();
+  state.tasks.push(needed, other);
+  const handoff = pendingResearchHandoffs(state)[0];
+  const defer = (waitsOn = ['needed']) => {
+    state.researchDecisions = resolveResearchHandoffs(state, [handoff.id], state.tasks.map(node => node.task),
+      [{ id: handoff.id, status: 'deferred', reason: 'Need independently checked inputs.', waitsOn }]);
+  };
+  return { state, needed, other, handoff, defer };
+}
+function accept(node: TaskRecord, conditions: TaskProof['conditions'] = []) {
+  const commit = 'b'.repeat(40);
+  node.status = 'integrated';
+  node.integratedCheck = { commit, sourceDigest: 'source', seedCommit: 'a'.repeat(40), passed: true,
+    taskDigest: taskVersion(node.task), conditions, changes: [], verification: { status: 'kernel_verified', targetCommit: commit,
+      results: [{ receiptId: 'checked-' + node.task.id, status: 'kernel_verified', targetCommit: commit }] } as TaskProof['verification'] };
+  markTaskAcceptance(node.integratedCheck);
+}
+
+it('pins normalized wait contracts and reopens only when every exact input receives fresh unconditional acceptance', () => {
+  const { state, needed, other, handoff, defer } = waitingFixture();
+  defer(['other', 'needed']);
+  expect(state.researchDecisions![0].waitsOn).toEqual([needed, other].map(node => ({ taskId: node.task.id, taskDigest: taskVersion(node.task) })));
+  expect(pendingResearchHandoffs(state)).toEqual([]);
+  expect(retainedResearchHandoffs(state)).toHaveLength(1);
+  accept(needed);
+  expect(pendingResearchHandoffs(state)).toEqual([]);
+  accept(other, [{ taskId: 'unproved', taskDigest: 'unknown' }]);
+  expect(pendingResearchHandoffs(state)).toEqual([]);
+  accept(other);
+  const reopened = pendingResearchHandoffs(state)[0];
+  expect(reopened).toMatchObject({ id: handoff.id, status: 'pending', reopened: 'checked-prerequisites', decision: { status: 'deferred' } });
+  expect(reopened.activationDigest).not.toBe(handoff.activationDigest);
+  expect(selectResearchHandoffBatch(state)).toEqual([reopened]);
+  expect(state.tasks.some(node => node.task.id === proposal.id)).toBe(false);
+});
+
+it('ignores unrelated checked lemmas and stale wait contracts or modified receipts', () => {
+  const { state, needed, other, defer } = waitingFixture(); defer();
+  accept(other);
+  expect(pendingResearchHandoffs(state)).toEqual([]);
+  const originalTask = needed.task;
+  needed.task = { ...needed.task, type: 'True' };
+  accept(needed);
+  expect(pendingResearchHandoffs(state)).toEqual([]);
+  needed.task = originalTask; accept(needed);
+  needed.integratedCheck!.commit = 'c'.repeat(40);
+  expect(pendingResearchHandoffs(state)).toEqual([]);
+});
+
+it('does not use JSON receipts to reactivate waiting research before host rechecking', () => {
+  const { state, needed, defer } = waitingFixture(); defer(); accept(needed);
+  const restored = JSON.parse(JSON.stringify(state)) as typeof state;
+  expect(pendingResearchHandoffs(restored)).toEqual([]);
+  accept(restored.tasks.find(node => node.task.id === needed.task.id)!);
+  expect(pendingResearchHandoffs(restored)[0].reopened).toBe('checked-prerequisites');
+  expect(pendingResearchHandoffs(restored)).toEqual(pendingResearchHandoffs(state));
+});
+
+it('binds a reopened proposal to its current activation and prevents deferring again on already checked inputs', () => {
+  const { state, needed, handoff, defer } = waitingFixture(); defer(); accept(needed);
+  const current = pendingResearchHandoffs(state)[0];
+  const response = [{ id: handoff.id, status: 'deferred', reason: 'Need independently checked inputs.', waitsOn: ['needed'] }];
+  expect(() => resolveResearchHandoffs(state, [handoff.id], [...state.tasks.map(node => node.task), proposal], undefined))
+    .toThrow('math_handoff_dispatch_superseded:');
+  expect(() => resolveResearchHandoffs(state, [handoff.id], [...state.tasks.map(node => node.task), proposal], undefined,
+    { [handoff.id]: handoff.activationDigest })).toThrow('math_handoff_dispatch_superseded:');
+  expect(() => resolveResearchHandoffs(state, [handoff.id], state.tasks.map(node => node.task), response,
+    { [handoff.id]: current.activationDigest })).toThrow('math_handoff_waits_on_satisfied:');
+  expect(resolveResearchHandoffs(state, [handoff.id], [...state.tasks.map(node => node.task), proposal], undefined,
+    { [handoff.id]: current.activationDigest })[0]).toMatchObject({ status: 'adopted', taskId: proposal.id });
+});
+
+it('allows an explicit waiting-condition update or cancellation without redispatching unchanged proposals', () => {
+  const { state, handoff, other, defer } = waitingFixture(); defer();
+  const tasks = state.tasks.map(node => node.task);
+  const repeated = [{ id: handoff.id, status: 'deferred', reason: 'Need independently checked inputs.', waitsOn: ['needed'] }];
+  expect(resolveResearchHandoffs(state, [], tasks, repeated)).toEqual([]);
+  const updated = resolveResearchHandoffs(state, [], tasks,
+    [{ id: handoff.id, status: 'deferred', reason: 'Use a different proved estimate.', waitsOn: ['other'] }]);
+  expect(updated[0].waitsOn).toEqual([{ taskId: other.task.id, taskDigest: taskVersion(other.task) }]);
+  state.researchDecisions = updated;
+  state.researchDecisions = resolveResearchHandoffs(state, [], tasks,
+    [{ id: handoff.id, status: 'rejected', reason: 'This route is no longer useful.' }]);
+  accept(other);
+  expect(pendingResearchHandoffs(state)).toEqual([]);
+  expect(retainedResearchHandoffs(state)).toEqual([]);
+});
+
+it.each([[], ['missing'], ['investigate'], ['needed', 'needed'], [1], null])
+  ('rejects invalid wait inputs before changing state: %j', waitsOn => {
+    const { state, handoff } = waitingFixture(), before = structuredClone(state);
+    expect(() => resolveResearchHandoffs(state, [handoff.id], state.tasks.map(node => node.task),
+      [{ id: handoff.id, status: 'deferred', reason: 'Need a checked premise.', waitsOn }])).toThrow('math_handoff_waits_on_invalid');
+    expect(state).toEqual(before);
+  });
+
+it('does not revive a waiting proposal whose source or delivery has been superseded', () => {
+  const { state, needed, defer } = waitingFixture(); defer(); accept(needed);
+  expect(pendingResearchHandoffs({ ...state, deliveries: [{ ...state.deliveries[0], status: 'superseded' }] })).toEqual([]);
+  state.tasks[0].task = { ...state.tasks[0].task, revision: 1 };
+  expect(pendingResearchHandoffs(state)).toEqual([]);
+});

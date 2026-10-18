@@ -51,7 +51,7 @@ function textTerms(text: string, binders: boolean): string[] {
   return [...result];
 }
 
-function typeExpression(item: TheoremKnowledgeEntry): string {
+export function knowledgeTypeExpression(item: Pick<TheoremKnowledgeEntry, 'type' | 'typeKind'>): string {
   if (item.typeKind !== 'source-header') return item.type;
   const header = item.type.replace(/^(?:(?:theorem|lemma|def|abbrev|opaque)\s+)?[\p{L}_][\p{L}\p{M}\p{N}_'.]*\s*/u, '');
   let depth = 0;
@@ -127,7 +127,7 @@ function prepareSearch(base: KnowledgeSearchBase, options: KnowledgeSearchOption
   };
   const documents = base.entries.filter(item => !options.problemId || item.provenance.some(origin => origin.problemId === options.problemId))
     .map(item => {
-      const type = typeExpression(item);
+      const type = knowledgeTypeExpression(item);
       return { item, group: knowledgeSearchGroup(item), fields: [field(item.name), field(type, true),
         field([...item.dependencies.statement, ...item.dependencies.proof].map(reference => reference.name).join(' ')),
         field(item.description), field(item.provenance.map(origin => origin.problemId).join(' '))],

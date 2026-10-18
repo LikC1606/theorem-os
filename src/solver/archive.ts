@@ -77,6 +77,12 @@ const tokenBudget = z.object({ maxTotalTokens: safeCount, enforcement: z.literal
   usageComplete: z.boolean(), overrunTokens: safeCount.nullable(),
   reason: z.enum(['math_total_token_limit', 'math_model_usage_unavailable']).optional() });
 const taskReference = z.object({ taskId: z.string(), taskDigest: z.string() });
+const handoffDecision = z.object({ id: z.string(), deliveryId: z.string(), status: z.enum(['adopted', 'rejected', 'deferred']),
+  taskId: z.string().optional(), taskDigest: z.string().optional(), reason: z.string().optional(),
+  waitsOn: z.array(z.object({ taskId: z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/u),
+    taskDigest: z.string().regex(/^[a-f0-9]{64}$/u) }).strict()).nonempty()
+    .refine(values => new Set(values.map(value => value.taskId)).size === values.length).optional(),
+}).passthrough().refine(value => value.waitsOn === undefined || value.status === 'deferred');
 const declarationReference = z.object({ name: z.string(), file: z.string() });
 const proofReferences = z.object({ sourceCommit: z.string(), environmentDigest: z.string(), contextDigest: z.string(),
   scope: z.literal('statement').optional(), root: declarationReference,
@@ -101,7 +107,7 @@ const task = z.object({ id: z.string().min(1), kind: z.enum(['research', 'sketch
   objective: z.string(), dependsOn: z.array(z.string()), revision: count }).passthrough();
 const taskRecord = z.object({ task, status: z.enum(['pending', 'running', 'blocked', 'conditional', 'delivered', 'integrated', 'completed']),
   attempts: count, proof: check.optional(), integratedCheck: check.optional(), assignment: z.object({ taskId: z.string(),
-    taskDigest: z.string(), workerId: z.string(), seedCommit: z.string() }).passthrough().optional() }).passthrough();
+    taskDigest: z.string(), workerId: z.string(), seedCommit: z.string(), assignmentId: z.string().optional() }).passthrough().optional() }).passthrough();
 const routeBlocker = z.object({ id: z.string(), taskId: z.string(), groupId: z.string(), taskDigest: z.string(),
   routeId: z.string().optional(),
   mechanism: z.string(), scope: z.string(), evidenceStatus: z.literal('advisory'), evidenceRefs: z.array(z.string()),
@@ -157,6 +163,12 @@ const runState = research.extend({ schema: z.literal('deepscientist.math.solver.
     status: z.enum(['active', 'paused', 'stopped']), revision: count }).passthrough(), turns: count }).passthrough()).optional(),
     history: z.array(z.object({ task, proof: check.optional(), integratedCheck: check.optional() }).passthrough()).optional(),
     deliveries: z.array(record).optional(), blockers: z.array(routeBlocker).optional(),
+    researchDecisions: z.array(handoffDecision).optional(),
+    leadSeedCommit: z.string().regex(/^[a-f0-9]{40,64}$/u).optional(),
+    researchDrafts: z.record(z.object({ taskDigest: z.string(), workerId: z.string(), assignmentId: z.string().optional(),
+      seedCommit: z.string().regex(/^[a-f0-9]{40,64}$/u), canonicalCommit: z.string().regex(/^[a-f0-9]{40,64}$/u).optional(),
+      commit: z.string().regex(/^[a-f0-9]{40,64}$/u), outputDigest: z.string(), artifacts: record,
+      suspended: z.boolean().optional() }).passthrough()).optional(),
     proofRoutes: z.array(z.object({ id: z.string(), targetTaskId: z.string(), prerequisiteTaskIds: z.array(z.string()),
       closingTaskId: z.string() })).optional(), progressSnapshot: progressSnapshot.optional(),
     progressReceipts: z.array(progressReceipt).max(64).optional() }).passthrough().optional(),

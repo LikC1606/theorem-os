@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readyResearchTasks, researchCanAdvance } from '../src/solver/modules/search';
+import { originalGoalTaskFocus, readyResearchTasks, researchCanAdvance } from '../src/solver/modules/search';
 import { assignSharedResearchTask, type ResearchWorker } from '../src/solver/modules/organization';
 import { type RouteRecord, type TaskRecord } from '../src/solver/tasks';
 
@@ -12,6 +12,61 @@ const node = (id: string, kind: TaskRecord['task']['kind'], dependsOn: string[] 
 const group = (): RouteRecord => ({ group: { id: 'main', objective: 'Prove the original goal', status: 'active', revision: 0 }, turns: 0 });
 
 describe('future research advancement', () => {
+  it('distinguishes independent auxiliary work from advancement of an unfinished original argument', () => {
+    const core = node('core', 'lemma', [], 'blocked');
+    const auxiliary = node('auxiliary', 'lemma');
+    const tasks = [core, auxiliary, node('goal', 'goal', ['core'])];
+    const support = originalGoalTaskFocus(tasks).support;
+    expect(researchCanAdvance(tasks, undefined, new Set())).toBe(true);
+    expect(researchCanAdvance(tasks, undefined, new Set(), undefined, support)).toBe(false);
+    expect(researchCanAdvance(tasks, undefined, new Set(), undefined, new Set())).toBe(false);
+    expect(auxiliary.status).toBe('pending');
+  });
+
+  it('scopes root candidates without dropping dependencies outside that set', () => {
+    const premise = node('premise', 'lemma', [], 'blocked');
+    const goal = node('goal', 'goal', ['premise']);
+    const tasks = [premise, goal, node('auxiliary', 'lemma')], candidates = new Set(['goal']);
+    expect(researchCanAdvance(tasks, undefined, new Set(), undefined, candidates)).toBe(false);
+    premise.status = 'pending';
+    expect(researchCanAdvance(tasks, undefined, new Set(), undefined, candidates)).toBe(true);
+    premise.task = { ...premise.task, ownerId: 'offline' };
+    expect(researchCanAdvance(tasks, undefined, new Set(), undefined, candidates)).toBe(false);
+  });
+
+  it.each(['research', 'sketch'] as const)('counts targeted %s and its proof inputs as original-goal support', kind => {
+    const core = node('core', 'lemma', [], 'blocked');
+    const investigation = node('investigation', kind, ['core']);
+    const tasks = [core, investigation, node('goal', 'goal', ['core'])];
+    const support = originalGoalTaskFocus(tasks).support;
+    expect(support.has(investigation.task.id)).toBe(true);
+    expect(researchCanAdvance(tasks, undefined, new Set(), undefined, support)).toBe(true);
+    investigation.task = { ...investigation.task, ownerId: 'offline' };
+    expect(researchCanAdvance(tasks, undefined, new Set(), undefined, support)).toBe(false);
+  });
+
+  it.each(['research', 'sketch'] as const)('looks through completed %s records before claiming original-goal advancement', kind => {
+    const core = node('core', 'lemma', [], 'blocked');
+    const finding = node('finding', kind, ['core'], 'completed');
+    const outer = node('outer', 'research', ['finding'], 'completed');
+    const tasks = [core, finding, outer, node('goal', 'goal', ['outer']), node('auxiliary', 'lemma')];
+    const support = originalGoalTaskFocus(tasks).support;
+    expect(researchCanAdvance(tasks, undefined, new Set())).toBe(true);
+    expect(researchCanAdvance(tasks, undefined, new Set(), undefined, support)).toBe(false);
+    core.status = 'pending';
+    expect(researchCanAdvance(tasks, undefined, new Set(), undefined, support)).toBe(true);
+    core.task = { ...core.task, ownerId: 'offline' };
+    expect(researchCanAdvance(tasks, undefined, new Set(), undefined, support)).toBe(false);
+  });
+
+  it('fails closed on missing or cyclic inputs of completed advisory records', () => {
+    const finding = node('finding', 'research', ['absent'], 'completed');
+    const goal = node('goal', 'goal', ['finding']);
+    expect(researchCanAdvance([finding, goal], undefined, new Set())).toBe(false);
+    finding.task = { ...finding.task, dependsOn: ['goal'] };
+    expect(researchCanAdvance([finding, goal], undefined, new Set())).toBe(false);
+  });
+
   it.each(['research', 'sketch'] as const)('can investigate a blocked typed premise with a pending %s task', kind => {
     const premise = node('premise', 'lemma', [], 'blocked');
     const investigation = node('investigation', kind, ['premise']);

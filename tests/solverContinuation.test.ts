@@ -646,7 +646,7 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
     const goal = state.cooperation!.tasks.find(item => item.task.kind === 'goal')!;
     goal.task = { ...goal.task, dependsOn: [record.task.id] };
     state.cooperation!.planVersion = (cooperative as any).planVersion();
-    expect(researchCanAdvance(state.cooperation!.tasks, state.cooperation!.groups, new Set([lead.id, researcher.id]))).toBe(true);
+    expect(researchCanAdvance(state.cooperation!.tasks, state.cooperation!.groups, new Set([lead.id, researcher.id]))).toBe(false);
     expect(readyResearchTasks(state.cooperation!.tasks, state.cooperation!.groups)).toEqual([]);
     const emit = vi.fn(); (cooperative as any).input.emit = emit;
     await assessFrontier();

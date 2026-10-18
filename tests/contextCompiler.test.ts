@@ -67,6 +67,36 @@ it('rejects a missing direct prerequisite and a changed assignment before model 
   expect(() => compileTaskContext(input([node(task)], action))).toThrow('math_context_stale_required:assignment:consumer');
 });
 
+it('retains complete current host and assigned-task failures with no optional allowance', () => {
+  const task = lemma('current'), peer = lemma('peer');
+  const feedback = 'Repair the failed source check.\n' + 'Lean diagnostic context.\n'.repeat(700) + 'EXACT_FINAL_GOAL';
+  const context = compileTaskContext({ ...input([{ ...node(task), feedback },
+    { ...node(peer), feedback: 'UNRELATED_PEER_FAILURE' }], assign(task)),
+    feedback: 'CURRENT_HOST_FAILURE', maxOptionalContextBytes: 0 });
+  expect(context.message).toContain(feedback);
+  expect(context.message).toContain('CURRENT_HOST_FAILURE');
+  expect(context.message).not.toContain('UNRELATED_PEER_FAILURE');
+  expect(context.manifest.included).toEqual(expect.arrayContaining([
+    expect.objectContaining({ id: 'feedback:current', kind: 'feedback', required: true }),
+    expect.objectContaining({ id: 'current-feedback', kind: 'feedback', required: true }),
+  ]));
+  expect(context.manifest.included.filter(item => item.id === 'feedback:current')).toHaveLength(1);
+  expect(context.manifest.omitted).toContainEqual({ id: 'feedback:peer', kind: 'feedback', reason: 'optional-budget' });
+  expect(context.manifest.optionalBytes).toBe(0);
+});
+
+it('retains current original-problem feedback without a cooperative assignment', () => {
+  const context = compileTaskContext({ ...input([]), feedback: 'S3_CURRENT_FAILURE', maxOptionalContextBytes: 0 });
+  expect(context.message).toContain('S3_CURRENT_FAILURE');
+  expect(context.manifest.included).toContainEqual(expect.objectContaining({ id: 'current-feedback', required: true }));
+});
+
+it('reports mandatory overflow instead of silently discarding the current failed goal', () => {
+  const task = lemma('current');
+  expect(() => compileTaskContext({ ...input([{ ...node(task), feedback: 'EXACT_FAILURE'.repeat(10000) }], assign(task)),
+    maxContextBytes: 12000, maxOptionalContextBytes: 0 })).toThrow('math_context_mandatory_overflow:');
+});
+
 it('keeps a rejected planning decision mandatory when optional context does not fit', () => {
   const action = { kind: 'lead' as const, seedCommit: baseCommit };
   const cooperation = { tasks: [], error: 'math_plan_invalid_proof_target: task k0, field theoremName',
@@ -319,6 +349,120 @@ it('projects advisory deliveries into recoverable references without duplicating
   expect(record).toEqual(original);
 });
 
+it('preserves a complete shared research finding once, with its immutable notes source', () => {
+  const task: CooperativeTask = { id: 'research', kind: 'research', objective: 'Find the missing inference', dependsOn: [], revision: 0 };
+  const finding = 'Intermediate estimate. '.repeat(200) + 'TAIL_MATHEMATICAL_ARGUMENT';
+  const record: DeliveryRecord = { ...delivery(task, 'research-finding', finding), kind: 'research', status: 'advisory',
+    commit: proofCommit, sourceDigest: 'finding-source' };
+  const context = compileTaskContext({ ...input([], assign(task)),
+    cooperation: { tasks: [{ ...node(task), finding }], deliveries: [record] } });
+  const visible = contextLine(context.message, 'Advisory finding for research:');
+  expect(visible).toEqual({ taskId: task.id, taskDigest: taskVersion(task), finding,
+    savedSource: { deliveryId: record.id, commit: proofCommit, notesPath: 'RESEARCH.md', sourceDigest: 'finding-source' } });
+  expect(context.message.match(/TAIL_MATHEMATICAL_ARGUMENT/gu)).toHaveLength(1);
+  const delivered = contextLine(context.message, 'Current-version delivery selected for this task (advisory; retain unproved obligations):');
+  expect(delivered.summary).toBeUndefined();
+  expect(delivered.summarySource).toBe('finding:research');
+  expect(context.manifest.omitted.some(item => item.id.endsWith(':summary-tail'))).toBe(false);
+});
+
+it('binds a complete JSON research finding to its short delivery summary using the host digest', () => {
+  const task: CooperativeTask = { id: 'research', kind: 'research', objective: 'Find the missing inference', dependsOn: [], revision: 0 };
+  const summary = 'A new exact bridge is available.';
+  const finding = JSON.stringify({ taskId: task.id, summary, argument: 'A full mathematical step. '.repeat(400),
+    remainingObligations: ['TAIL_REQUIRED_ANALYTIC_PREMISE'] });
+  const record: DeliveryRecord = { ...delivery(task, 'host-bound-finding', summary), kind: 'research', status: 'advisory',
+    commit: proofCommit, findingDigest: mathDigest(finding) };
+  const context = compileTaskContext({ ...input([], assign(task)),
+    cooperation: { tasks: [{ ...node(task), finding }], deliveries: [record] } });
+  expect(contextLine(context.message, 'Advisory finding for research:')).toEqual({ taskId: task.id, taskDigest: taskVersion(task), finding,
+    savedSource: { deliveryId: record.id, commit: proofCommit, notesPath: 'RESEARCH.md' } });
+  expect(context.message.match(/TAIL_REQUIRED_ANALYTIC_PREMISE/gu)).toHaveLength(1);
+  expect(contextLine(context.message, 'Current-version delivery selected for this task (advisory; retain unproved obligations):'))
+    .toMatchObject({ findingDigest: record.findingDigest, summarySource: 'finding:research' });
+});
+
+it('does not fall back to equal summary text when a supplied finding digest mismatches', () => {
+  const task = lemma('consumer'), finding = 'A current mathematical observation.';
+  const record: DeliveryRecord = { ...delivery(task, 'mismatched-finding', finding), kind: 'research', status: 'advisory',
+    commit: proofCommit, findingDigest: mathDigest('an earlier finding') };
+  const context = compileTaskContext({ ...input([], assign(task)),
+    cooperation: { tasks: [{ ...node(task), finding }], deliveries: [record] } });
+  expect(contextLine(context.message, 'Advisory finding for consumer:')).toEqual({ taskId: task.id, taskDigest: taskVersion(task), finding });
+  const visible = contextLine(context.message, 'Current-version delivery selected for this task (advisory; retain unproved obligations):');
+  expect(visible.summarySource).toBeUndefined();
+  expect(visible.summary).toBe(finding);
+});
+
+it.each(['', '   ', undefined])('does not refer to a nonexistent finding section for an empty finding %s', finding => {
+  const task = lemma('consumer'), record: DeliveryRecord = { ...delivery(task, 'empty-finding', finding ?? ''), kind: 'research',
+    status: 'advisory', commit: proofCommit, findingDigest: mathDigest(finding ?? '') };
+  const context = compileTaskContext({ ...input([], assign(task)),
+    cooperation: { tasks: [{ ...node(task), finding }], deliveries: [record] } });
+  const visible = contextLine(context.message, 'Current-version delivery selected for this task (advisory; retain unproved obligations):');
+  expect(visible.summarySource).toBeUndefined();
+  expect(visible.summary).toBe(finding ?? '');
+  expect(context.manifest.included.some(item => item.id === 'finding:consumer')).toBe(false);
+  expect(context.message).not.toContain('Advisory finding for consumer:');
+});
+
+it('preserves a nonduplicate delivery summary in full instead of clipping its mathematical tail', () => {
+  const task = lemma('consumer'), summary = 'A substantive argument. '.repeat(150) + 'EXACT_CLOSING_INFERENCE';
+  const record: DeliveryRecord = { ...delivery(task, 'complete-summary', summary), kind: 'research', status: 'advisory' };
+  const context = compileTaskContext({ ...input([], assign(task)),
+    cooperation: { tasks: [{ ...node(task), finding: 'A distinct observation.' }], deliveries: [record] } });
+  expect(contextLine(context.message, 'Current-version delivery selected for this task (advisory; retain unproved obligations):').summary).toBe(summary);
+  expect(context.message).toContain('A distinct observation.');
+  expect(context.manifest.omitted.some(item => item.id.endsWith(':summary-tail'))).toBe(false);
+});
+
+it('retains the full finding when its delivery metadata exceeds the optional allowance', () => {
+  const task = lemma('consumer'), finding = 'The key inference is now explicit.';
+  const record: DeliveryRecord = { ...delivery(task, 'large-metadata', finding), kind: 'research', status: 'advisory',
+    statement: 'LARGE_OPTIONAL_METADATA '.repeat(4000), commit: proofCommit };
+  const context = compileTaskContext({ ...input([], assign(task)),
+    cooperation: { tasks: [{ ...node(task), finding }], deliveries: [record] } });
+  expect(contextLine(context.message, 'Advisory finding for consumer:')).toMatchObject({ finding,
+    savedSource: { deliveryId: record.id, commit: proofCommit, notesPath: 'RESEARCH.md' } });
+  expect(context.manifest.omitted).toContainEqual({ id: 'delivery:large-metadata', kind: 'delivery', reason: 'optional-budget' });
+  expect(context.manifest.optionalBytes).toBeLessThanOrEqual(DEFAULT_OPTIONAL_TASK_CONTEXT_BYTES);
+});
+
+it('prioritizes mathematical findings ahead of duplicate delivery metadata', () => {
+  const task = lemma('consumer'), finding = 'SUBSTANTIVE_PROOF_STEP '.repeat(40);
+  const record: DeliveryRecord = { ...delivery(task, 'competing-metadata', finding), kind: 'research', status: 'advisory',
+    statement: 'OPTIONAL_METADATA '.repeat(100), commit: proofCommit };
+  const context = compileTaskContext({ ...input([], assign(task)), maxOptionalContextBytes: 3000,
+    cooperation: { tasks: [{ ...node(task), finding }], deliveries: [record] } });
+  expect(contextLine(context.message, 'Advisory finding for consumer:').finding).toBe(finding);
+  expect(context.manifest.omitted).toContainEqual({ id: 'delivery:competing-metadata', kind: 'delivery', reason: 'optional-budget' });
+  expect(context.manifest.optionalBytes).toBeLessThanOrEqual(3000);
+});
+
+it('omits an oversized finding as a whole and records its source and omitted manifest id', () => {
+  const task = lemma('consumer'), finding = 'DO_NOT_SHOW_A_PARTIAL_ARGUMENT '.repeat(1000);
+  const record: DeliveryRecord = { ...delivery(task, 'oversized-finding', finding), kind: 'research', status: 'advisory', commit: proofCommit };
+  const context = compileTaskContext({ ...input([], assign(task)), maxOptionalContextBytes: 2000,
+    cooperation: { tasks: [{ ...node(task), finding }], deliveries: [record] } });
+  expect(context.message).not.toContain('DO_NOT_SHOW_A_PARTIAL_ARGUMENT');
+  expect(context.manifest.omitted).toContainEqual({ id: 'finding:consumer', kind: 'finding', reason: 'optional-budget' });
+  expect(contextLine(context.message, 'Current-version delivery selected for this task (advisory; retain unproved obligations):'))
+    .toMatchObject({ summarySource: 'finding:consumer', savedSource: { commit: proofCommit, notesPath: 'RESEARCH.md' } });
+});
+
+it.each(['superseded', 'stale-task', 'stale-dependency'] as const)('does not attribute a current finding to a %s research source', variant => {
+  const dependency = lemma('dependency'), task = lemma('consumer', [dependency.id]), finding = JSON.stringify({ summary: 'Current mathematical observation.' });
+  const record: DeliveryRecord = { ...delivery(task, 'invalid-source', 'Current mathematical observation.'), kind: 'research', status: 'advisory',
+    commit: proofCommit, findingDigest: mathDigest(finding),
+    ...(variant === 'superseded' ? { status: 'superseded' } : variant === 'stale-task' ? { taskDigest: 'old-task-version' } :
+      { dependencies: [{ taskId: dependency.id, taskDigest: 'old-dependency-version' }] }) };
+  const context = compileTaskContext({ ...input([], assign(task)),
+    cooperation: { tasks: [{ ...node(task), finding }, node(dependency)], deliveries: [record] } });
+  expect(contextLine(context.message, 'Advisory finding for consumer:')).toEqual({ taskId: task.id, taskDigest: taskVersion(task), finding });
+  expect(context.manifest.omitted).toContainEqual({ id: 'delivery:invalid-source', kind: 'delivery',
+    reason: variant === 'superseded' ? 'superseded' : 'stale-version' });
+});
+
 it('uses an unconditional shared wrapper as the boundary for hidden implementation prerequisites', () => {
   const wrapper = { ...lemma('wrapper', ['private_implementation']), sharing: 'problem' as const },
     consumer = lemma('consumer', [wrapper.id]), action = assign(consumer);
@@ -352,13 +496,14 @@ it('does not let one closed wrapper hide an unrelated missing assignment input',
     .toThrow('math_context_missing_required:dependency:unrelated_missing_input');
 });
 
-it('records a shortened advisory checkpoint without shortening its required mathematical interfaces', () => {
+it('retains an entire fitting checkpoint and its required mathematical interfaces', () => {
   const task = lemma('current', [], '∀ n : Nat, ' + 'n = n ∧ '.repeat(1000) + 'True');
-  const context = compileTaskContext({ ...input([node(task)], assign(task)), checkpoint: 'Current proof checkpoint.\n' + 'details '.repeat(3000) });
+  const checkpoint = 'Current proof checkpoint.\n' + 'details '.repeat(3000) + 'NEXT_MATHEMATICAL_STEP';
+  const context = compileTaskContext({ ...input([node(task)], assign(task)), checkpoint });
   expect(context.message).toContain(JSON.stringify(task.type));
-  expect(context.message).toContain('Current proof checkpoint.');
-  expect(context.message).toContain('read worktree-root RESEARCH.md for the complete checkpoint');
-  expect(context.manifest.omitted).toContainEqual({ id: 'checkpoint:tail', kind: 'checkpoint', reason: 'advisory-summary-limit' });
+  expect(context.message).toContain(checkpoint);
+  expect(context.manifest.included).toContainEqual(expect.objectContaining({ id: 'checkpoint-source', required: true }));
+  expect(context.manifest.omitted.some(item => item.id.startsWith('checkpoint'))).toBe(false);
 });
 
 it('refuses to hide an unresolved condition behind a shared wrapper', () => {

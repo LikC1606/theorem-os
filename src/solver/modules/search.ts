@@ -242,9 +242,9 @@ export function continuationResearchTasks(tasks: readonly TaskRecord[], groups?:
   return ranked;
 }
 
-/** Future progress differs from immediate readiness: typed pending premises can still be proved. */
+/** Candidate roots may be scoped; their prerequisites still use the complete task graph. */
 export function researchCanAdvance(tasks: readonly TaskRecord[], groups: readonly RouteRecord[] | undefined,
-  liveWorkers: ReadonlySet<string>, canAssign?: (node: TaskRecord) => boolean): boolean {
+  liveWorkers: ReadonlySet<string>, canAssign?: (node: TaskRecord) => boolean, candidateIds?: ReadonlySet<string>): boolean {
   const nodes = new Map(tasks.map(node => [node.task.id, node]));
   const memo = new Map<string, boolean>();
   const visit = (id: string): boolean => {
@@ -253,6 +253,10 @@ export function researchCanAdvance(tasks: readonly TaskRecord[], groups: readonl
     const node = nodes.get(id);
     if (!node || node.status === 'blocked') return false;
     if (isFinalCandidateReview(node.task) && !finalCandidateReviewReady(tasks)) return false;
+    if (node.status === 'completed' && isAdvisoryTask(node.task)) {
+      const ready = node.task.dependsOn.every(visit);
+      memo.set(id, ready); return ready;
+    }
     if (['integrated', 'completed', 'delivered', 'running'].includes(node.status)) {
       memo.set(id, true); return true;
     }
@@ -268,7 +272,8 @@ export function researchCanAdvance(tasks: readonly TaskRecord[], groups: readonl
     memo.set(id, ready);
     return ready;
   };
-  return tasks.some(node => ['pending', 'blocked'].includes(node.status) && visit(node.task.id));
+  return tasks.some(node => (!candidateIds || candidateIds.has(node.task.id)) &&
+    ['pending', 'blocked'].includes(node.status) && visit(node.task.id));
 }
 
 /** M3 chooses actions; estimates never change mathematical acceptance. */

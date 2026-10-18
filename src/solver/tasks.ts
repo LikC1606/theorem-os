@@ -15,15 +15,16 @@ export type RouteGroup = Readonly<{ id: string; objective: string; status: 'acti
   engineerId?: string; maxTurns?: number; maxConcurrent?: number }>;
 export type RouteRecord = { group: RouteGroup; turns: number; busy?: number };
 export const taskGroup = (task: CooperativeTask): string => task.groupId ?? 'main';
-export type TaskAssignment = { taskId: string; taskDigest: string; workerId: string; seedCommit: string; groupId?: string; canonicalCommit?: string;
+export type TaskAssignment = { taskId: string; taskDigest: string; workerId: string; seedCommit: string; assignmentId?: string; groupId?: string; canonicalCommit?: string;
   dependencies?: DeliveryRecord['dependencies']; routeId?: string };
 export type TaskRecord = { task: CooperativeTask; status: 'pending' | 'running' | 'blocked' | 'conditional' | 'delivered' | 'integrated' | 'completed';
   attempts: number; assignment?: TaskAssignment; proof?: TaskProof; integratedCheck?: TaskProof; feedback?: string; finding?: string;
   routeParking?: string[]; parkedRoutes?: Record<string, string[]>; alternativeRoutes?: readonly ProofRoute[] };
 export type CooperativeAction = { kind: 'lead' | 'assemble' | 'solve'; seedCommit: string; planVersion?: string; planningInputDigest?: string;
   handoffIds?: readonly string[];
+  handoffActivations?: Readonly<Record<string, string>>;
   recovery?: { id: string; taskIds: string[]; goalIds: string[] } } |
-  { kind: 'review'; seedCommit: string; sourceDigest: string } | { kind: 'task'; assignment: TaskAssignment; task: CooperativeTask } | StatementAction;
+  { kind: 'review'; seedCommit: string; sourceDigest: string; assignmentId?: string } | { kind: 'task'; assignment: TaskAssignment; task: CooperativeTask } | StatementAction;
 
 export const taskVersion = (task: CooperativeTask) => {
   const { status: _status, ownerId: _owner, statementReview: _review, informalStatement: _intent, ...mathematics } = task;
@@ -68,7 +69,8 @@ export function invalidatedTaskIds(previous: readonly TaskRecord[], tasks: reado
 }
 
 export const assignmentDeliveryFile = (assignment: TaskAssignment) => `DELIVERIES-${mathDigest(canonicalMathJson({
-  taskId: assignment.taskId, taskDigest: assignment.taskDigest, seedCommit: assignment.seedCommit }))}.jsonl`;
+  taskId: assignment.taskId, taskDigest: assignment.taskDigest, seedCommit: assignment.seedCommit,
+  ...(assignment.assignmentId === undefined ? {} : { assignmentId: assignment.assignmentId }) }))}.jsonl`;
 
 export const isAdvisoryTask = (task: CooperativeTask) => task.kind === 'research' || task.kind === 'sketch';
 export const isFinalCandidateReview = (task: CooperativeTask) => isAdvisoryTask(task) &&

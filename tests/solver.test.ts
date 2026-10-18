@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { canonicalMathProblemStatementPayloads, type MathProblemContract } from '../src/math/contracts';
 import { LEAN_EVAL_BENCHMARK_COMMIT } from '../src/math/leanEvalCatalogAdapter';
 import { mathDigest } from '../src/math/mathRuntimeIo';
+import { readSolverRunState } from '../src/solver/archive';
 import { hashMathFormalSourceDeclaration, type MathematicsVerifierBatchRequest, type MathematicsVerifierBatchResult } from '../src/math/verifier';
 import * as verifier from '../src/math/verifier';
 import { readSolverProblem, assertSolverSources, assertSolverProjectSources, commitSolverSources, git, withSolverWorktree, SolverSourceError, type SolverProblem } from '../src/solver/problem';
@@ -187,6 +188,13 @@ describe('isolated solver and host acceptance', () => {
 
   it('offers pinned knowledge commands to the solver while retaining independent proof acceptance', async () => {
     const catalog = knowledgeFixture();
+    const messages: string[] = [];
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'knowledge-fixture',
+      run: async (message: string) => {
+        messages.push(message);
+        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+        return 'completed';
+      }, close: vi.fn(), interrupt: vi.fn() }));
     expect(await runSolver([...args, '--knowledge-base', catalog.file], directory)).toBe(0);
     const options = host.createSession.mock.calls[0]![0] as MathAgentOptions;
     expect(options.instructions).toContain('knowledge search --catalog');
@@ -197,6 +205,13 @@ describe('isolated solver and host acceptance', () => {
     expect(options.instructions).toContain('--offset NEXT_OFFSET');
     expect(options.instructions).toContain('--environment');
     expect(options.instructions).toContain('--problem-receipt');
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toContain('theorem-os.knowledge-context.v1');
+    expect(messages[0]).toContain('Saved.helper');
+    expect(messages[0]).toContain('Submission.first');
+    expect(messages[0]).toContain('Submission.second');
+    expect(messages[0]).not.toContain('by trivial');
+    expect(JSON.parse(fs.readFileSync(output, 'utf8')).status).toBe('evaluated_passed');
     expect(host.verify.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(host.officialGate).toHaveBeenCalledOnce();
   });
@@ -745,6 +760,7 @@ describe('isolated solver and host acceptance', () => {
     let turn = 0;
     const messages: string[] = [];
     const closes = [vi.fn(), vi.fn()];
+    const checkpoint = 'Checked helper: keep this proof.\n' + 'x'.repeat(20000) + '\nNext step: apply the retained helper to the final goal.';
     host.verify.mockImplementation(async request => turn === 1 ? { ...verified(request), status: 'failed',
       results: verified(request).results.map(item => ({ ...item, status: 'failed',
         stdoutPreview: 'Submission.lean:4:1: error: unsolved goals\n⊢ True' })) } : verified(request));
@@ -754,14 +770,16 @@ describe('isolated solver and host acceptance', () => {
         close: first ? closes[0] : closes[1], interrupt: vi.fn(), run: async (message: string) => {
           messages.push(message); turn++;
           if (first) {
-            fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), 'Checked helper: keep this proof.\n' + 'x'.repeat(20000));
+            fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), checkpoint);
             fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replace('by sorry', 'by trivial'));
           } else {
             expect(options.threadId).toBeUndefined();
-            expect(message).toContain('Checked helper: keep this proof.');
+            expect(message).toContain(checkpoint);
             expect(message).toContain('Original problem:');
             expect(message).toContain('unsolved goals');
-            expect(Buffer.byteLength(message)).toBeLessThan(10000);
+            const manifest = JSON.parse(message.split('Context compilation manifest:\n')[1]);
+            expect(manifest.usedBytes).toBeLessThanOrEqual(manifest.maxBytes);
+            expect(manifest.included).toContainEqual(expect.objectContaining({ id: 'checkpoint', required: false }));
             expect(fs.readFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), 'utf8')).toContain('first : True := by trivial');
             fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
           }
@@ -1209,6 +1227,40 @@ describe('isolated solver and host acceptance', () => {
     return { state, question, proposals, lead, peer, emit, create, cooperative: create() };
   }
 
+  it('recovers a failed Lead request when an existing handoff decision adopts the current task revision', async () => {
+    const { state, proposals, lead, cooperative } = handoffQueue(false, 1);
+    const plan = parseCooperationPlan(problem, { tasks: [
+      ...state.cooperation.tasks.map((node: TaskRecord) => node.task), { ...proposals[0], revision: 1 },
+    ] });
+    state.cooperation.tasks = plan.tasks.map(task => ({ task,
+      status: task.id === 'question' ? 'completed' : 'pending', attempts: 0 }));
+    state.cooperation.groups = plan.groups.map(group => ({ group, turns: 0 }));
+    const planVersion = state.cooperation.planVersion = mathDigest(canonicalMathJson({ tasks: plan.tasks, groups: plan.groups }));
+    const [handoff] = pendingResearchHandoffs(state.cooperation);
+    const bridge = plan.tasks.find(task => task.id === proposals[0].id)!;
+    const previous = { id: handoff.id, deliveryId: handoff.deliveryId, status: 'adopted',
+      taskId: bridge.id, taskDigest: taskVersion({ ...bridge, revision: 0 }) };
+    state.cooperation.researchDecisions = [previous];
+    expect(pendingResearchHandoffs(state.cooperation)).toHaveLength(1);
+    const action = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
+    if (action?.kind !== 'lead') throw new Error('missing_revised_handoff_decision');
+    expect(action.handoffIds).toEqual([handoff.id]);
+    writePlan(workspace, plan.tasks, plan.groups);
+
+    const saved = await cooperative.deliver(lead, action, commitSolverSources(problem, workspace), true, 'request-failure');
+
+    expect(saved).toEqual({ checkWhole: false, savedPlan: true });
+    expect(state.cooperation.planVersion).toBe(planVersion);
+    expect(state.cooperation.researchDecisions).toEqual([{ ...previous, taskDigest: taskVersion(bridge) }]);
+    expect(pendingResearchHandoffs(state.cooperation)).toEqual([]);
+    const unchanged = await cooperative.deliver(lead, { ...action, handoffIds: [] },
+      commitSolverSources(problem, workspace), true, 'request-failure');
+    expect(unchanged).toEqual({ checkWhole: false });
+    expect(state.cooperation.researchDecisions).toHaveLength(1);
+    expect(host.createSession).not.toHaveBeenCalled();
+    expect(host.verify).not.toHaveBeenCalled();
+  });
+
   it('drains every queued handoff across batches and JSON restore despite an unchanged planning digest', async () => {
     const fixture = handoffQueue();
     let state = fixture.state, cooperative = fixture.cooperative;
@@ -1302,8 +1354,8 @@ describe('isolated solver and host acceptance', () => {
     expect(pendingResearchHandoffs(state.cooperation)).toHaveLength(9);
     await cooperative.deliver(lead, action, commitSolverSources(problem, workspace));
     expect(state.cooperation.error).toBeUndefined();
-    expect(state.cooperation.tasks.find((item: any) => item.task.id === question.id)).toMatchObject({
-      status: 'completed', task: { status: 'paused' } });
+    const source = state.cooperation.tasks.find((item: any) => item.task.id === question.id);
+    expect(source.status).toBe('completed'); expect(source.task).toEqual(question);
     expect(state.cooperation.groups[0].group).toMatchObject({ objective: 'Preserve this mathematical route', revision: 7 });
     expect(pendingResearchHandoffs(state.cooperation).map(item => item.proposal.id)).toEqual([proposals[8].id]);
     const next = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
@@ -1322,6 +1374,167 @@ describe('isolated solver and host acceptance', () => {
     else expect(directSolverModules.M3.ready(state.cooperation.tasks, state.cooperation.groups)).toEqual([]);
     expect(host.createSession).not.toHaveBeenCalled();
     expect(host.verify).not.toHaveBeenCalled();
+  });
+
+  it.each(['active', 'paused', 'stopped'] as const)(
+    'preserves a provenance-only %s prerequisite until a later help batch consumes it across JSON restore', async control => {
+      const { state, question, proposals, lead, peer, create, cooperative } = handoffQueue(true, 9);
+      const base = { ...planTasks()[0], id: 'prior_base', theoremName: 'Submission.prior_base', status: control };
+      state.cooperation.tasks.push({ task: base, status: 'pending', attempts: 0 });
+      proposals[8].dependsOn = [base.id];
+      const action = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
+      if (action?.kind !== 'solve') throw new Error('missing_primary_provenance_batch');
+      cooperative.activate(lead, action, async () => {}, async () => {});
+      fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify({ requests: [],
+        handoffDecisions: action.handoffIds!.map(id => ({ id, status: 'deferred', reason: 'Await the existing base estimate.' })) }));
+      cooperative.deactivate(lead);
+      await cooperative.deliver(lead, action, commitSolverSources(problem, workspace));
+      expect(state.cooperation.error).toBeUndefined();
+      expect(state.cooperation.tasks.find((item: any) => item.task.id === base.id).task).toEqual(base);
+      expect(state.cooperation.tasks.find((item: any) => item.task.id === question.id).status).toBe('completed');
+      expect(pendingResearchHandoffs(state.cooperation).map(item => item.proposal.id)).toEqual([proposals[8].id]);
+      const restored = JSON.parse(JSON.stringify(state)), resumed = create(restored);
+      await resumed.restore();
+      const next = await resumed.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
+      if (next?.kind !== 'solve') throw new Error('missing_restored_primary_consumer_batch');
+      resumed.activate(lead, next, async () => {}, async () => {});
+      fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify({ requests: [proposals[8]] }));
+      await resumed.pulse(lead.id); resumed.deactivate(lead);
+      await resumed.deliver(lead, next, commitSolverSources(problem, workspace));
+      expect(restored.cooperation.error).toBeUndefined();
+      expect(restored.cooperation.tasks.find((item: any) => item.task.id === base.id))
+        .toMatchObject({ status: 'pending', task: { status: control } });
+      expect(pendingResearchHandoffs(restored.cooperation)).toEqual([]);
+      if (control === 'active') expect(await resumed.next(peer, { maxTurns: Infinity, remainingMs: Infinity }))
+        .toMatchObject({ kind: 'task', task: { id: base.id } });
+      else expect(directSolverModules.M3.ready(restored.cooperation.tasks, restored.cooperation.groups)).toEqual([]);
+      expect(host.createSession).not.toHaveBeenCalled();
+      expect(host.verify).not.toHaveBeenCalled();
+    });
+
+  it.each(['contract', 'assignment'] as const)('does not dispatch obsolete %s prerequisites after revising an explicit help request', async dependencySource => {
+    const { state, lead, peer } = handoffQueue(true, 0);
+    const obsolete = { ...planTasks()[0], id: 'obsolete', theoremName: 'Submission.obsolete' };
+    const base = { ...planTasks()[0], id: 'base', theoremName: 'Submission.base',
+      dependsOn: dependencySource === 'contract' ? [obsolete.id] : [] };
+    state.cooperation.tasks.push({ task: base, status: 'pending', attempts: 0,
+      ...(dependencySource === 'assignment' ? { assignment: { taskId: base.id, taskDigest: taskVersion(base), workerId: peer.id,
+        seedCommit: state.cooperation.canonicalCommit, dependencies: [{ taskId: obsolete.id, taskDigest: taskVersion(obsolete) }] } } : {}) },
+    { task: obsolete, status: 'pending', attempts: 0 });
+    const revised = { ...base, revision: 1, dependsOn: [] };
+    const consumer = { ...planTasks()[1], id: 'consumer', theoremName: 'Submission.consumer', dependsOn: [base.id] };
+    const engineer = { ...peer, id: 'engineer', role: 'engineer' as const };
+    const cooperative = new CooperativeResearch({ state, workers: [lead, peer, engineer], access: new Map(),
+      signal: new AbortController().signal, modules: { ...directSolverModules, M5: { ...directSolverModules.M5, primaryLed: true } },
+      save: vi.fn(), emit: vi.fn(), exclusiveCheck: check => check() });
+    const action = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
+    if (action?.kind !== 'solve') throw new Error('missing_primary_revision');
+    cooperative.activate(lead, action, async () => {}, async () => {});
+    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify({ requests: [revised, consumer] }));
+    await cooperative.pulse(lead.id); cooperative.deactivate(lead);
+    await cooperative.deliver(lead, action, commitSolverSources(problem, workspace));
+    expect(state.cooperation.error).toBeUndefined();
+    expect(state.cooperation.tasks.some((item: TaskRecord) => item.task.id === obsolete.id)).toBe(false);
+    expect(state.cooperation.tasks.find((item: TaskRecord) => item.task.id === base.id).task).toEqual(revised);
+    expect(directSolverModules.M3.ready(state.cooperation.tasks, state.cooperation.groups).map(item => item.task.id)).toEqual([base.id]);
+    expect(await cooperative.next(peer, { maxTurns: Infinity, remainingMs: Infinity }))
+      .toMatchObject({ kind: 'task', task: { id: base.id, revision: 1 } });
+    expect(host.createSession).not.toHaveBeenCalled();
+    expect(host.verify).not.toHaveBeenCalled();
+  });
+
+  it.each(['current', 'stale'] as const)(
+    'retains only %s assignment inputs for an unchanged help request without cancelling live work', async version => {
+    const { state, question, lead, peer, cooperative } = handoffQueue(true, 0);
+    const base = planTasks()[0];
+    const assignment = { taskId: base.id, taskDigest: taskVersion(version === 'current' ? base : { ...base, revision: 1 }),
+      workerId: peer.id, seedCommit: state.cooperation.canonicalCommit,
+      dependencies: [{ taskId: question.id, taskDigest: taskVersion(question) }] };
+    state.cooperation.tasks.push({ task: base, status: 'pending', attempts: 0, assignment });
+    const interrupt = vi.fn(async () => {});
+    let running: Extract<CooperativeAction, { kind: 'task' }> | undefined;
+    if (version === 'current') {
+      const next = await cooperative.next(peer, { maxTurns: Infinity, remainingMs: Infinity });
+      if (next?.kind !== 'task') throw new Error('missing_current_assignment');
+      running = next;
+      expect(cooperative.started(peer, running)).toBe(true);
+      cooperative.activate(peer, running, interrupt, async () => {});
+    }
+    const action = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
+    if (action?.kind !== 'solve') throw new Error('missing_assignment_help');
+    cooperative.activate(lead, action, async () => {}, async () => {});
+    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify({ requests: [base] }));
+
+    await cooperative.pulse(lead.id); cooperative.deactivate(lead);
+    await cooperative.deliver(lead, action, commitSolverSources(problem, workspace));
+
+    expect(state.cooperation.error).toBeUndefined();
+    const current = state.cooperation.tasks.find((node: TaskRecord) => node.task.id === base.id);
+    if (running) {
+      expect(cooperative.current(running)).toBe(true);
+      expect(current).toMatchObject({ status: 'running', attempts: 1 });
+      expect(current.assignment).toBe(assignment);
+      expect(state.cooperation.tasks.find((node: TaskRecord) => node.task.id === question.id).status).toBe('completed');
+      cooperative.deactivate(peer);
+    } else {
+      expect(state.cooperation.tasks.some((node: TaskRecord) => node.task.id === question.id)).toBe(false);
+      expect(current.assignment).toBeUndefined();
+    }
+    expect(interrupt).not.toHaveBeenCalled();
+    expect(host.verify).not.toHaveBeenCalled();
+    expect(host.createSession).not.toHaveBeenCalled();
+  });
+
+  it.each(['full', 'defaulted'] as const)(
+    'preserves a checked proof and its actual prerequisite when an unchanged %s help request omits that prerequisite', async requestKind => {
+    const { state, question, lead, peer } = handoffQueue(true, 0);
+    const [prerequisite, consumer] = planTasks();
+    host.verify.mockImplementation(async request => {
+      const result = verified(request);
+      result.results = result.results.map(item => ({ ...item, declarationReferences: { statement: [],
+        proof: item.theoremName === consumer.theoremName ? [{ name: prerequisite.theoremName!, file: prerequisite.proofPath! }] : [] } }));
+      return result;
+    });
+    state.cooperation.tasks.push(...[prerequisite, consumer].map(task => ({ task, status: 'pending', attempts: 0 })));
+    const cooperative = new CooperativeResearch({ state, workers: [lead, peer],
+      access: new Map([lead, peer].map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
+      signal: new AbortController().signal, modules: { ...directSolverModules, M5: { ...directSolverModules.M5, primaryLed: true } },
+      save: vi.fn(), emit: vi.fn(), exclusiveCheck: check => check() });
+    for (const task of [prerequisite, consumer]) {
+      const assignment = await cooperative.next(peer, { maxTurns: Infinity, remainingMs: Infinity });
+      if (assignment?.kind !== 'task') throw new Error('missing_unchanged_proof_assignment');
+      expect(assignment.task.id).toBe(task.id);
+      expect(cooperative.started(peer, assignment)).toBe(true);
+      const file = path.join(workspace, problem.projectRelative, 'Submission.lean');
+      fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('end Submission',
+        `lemma ${task.id} : True := by ${task.id === prerequisite.id ? 'trivial' : `exact ${prerequisite.id}`}\nend Submission`));
+      await cooperative.deliver(peer, assignment, commitSolverSources(problem, workspace));
+      expect(state.cooperation.tasks.find((node: TaskRecord) => node.task.id === task.id).status).toBe('integrated');
+    }
+    const checked = state.cooperation.tasks.find((node: TaskRecord) => node.task.id === consumer.id);
+    expect(checked.task.dependsOn).toEqual([]);
+    expect(checked.assignment.dependencies).toEqual([]);
+    expect(checked.integratedCheck.references.tasks).toEqual([{ taskId: prerequisite.id, taskDigest: taskVersion(prerequisite) }]);
+    checked.assignment.dependencies = [{ taskId: question.id, taskDigest: taskVersion(question) }];
+    const proof = checked.integratedCheck;
+    const checks = host.verify.mock.calls.length;
+    const action = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
+    if (action?.kind !== 'solve') throw new Error('missing_unchanged_proof_help');
+    cooperative.activate(lead, action, async () => {}, async () => {});
+    const { proofPath: _path, revision: _revision, ...defaulted } = consumer;
+    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify({ requests: [requestKind === 'full' ? consumer : defaulted] }));
+
+    await cooperative.pulse(lead.id); cooperative.deactivate(lead);
+    await cooperative.deliver(lead, action, commitSolverSources(problem, workspace));
+
+    expect(state.cooperation.error).toBeUndefined();
+    expect(state.cooperation.tasks.find((node: TaskRecord) => node.task.id === prerequisite.id).status).toBe('integrated');
+    expect(state.cooperation.tasks.find((node: TaskRecord) => node.task.id === consumer.id)).toBe(checked);
+    expect(checked.integratedCheck).toBe(proof);
+    expect(checked.status).toBe('integrated');
+    expect(state.cooperation.tasks.some((node: TaskRecord) => node.task.id === question.id)).toBe(false);
+    expect(host.verify).toHaveBeenCalledTimes(checks);
+    expect(host.createSession).not.toHaveBeenCalled();
   });
 
   it('replans a ready original goal after its pinned engineer exits instead of waiting for an impossible assignment', async () => {
@@ -1966,7 +2179,7 @@ describe('isolated solver and host acceptance', () => {
       assignment: { kind: 'lead', seedCommit: problem.baseCommit } });
     expect(context.instructions).toContain(JSON.stringify(problem.ownedFiles));
     expect(context.instructions).toContain('leave Lean sources unchanged during planning');
-    expect(context.instructions).toContain('return before running Lean diagnostics');
+    expect(context.instructions).toContain('Return the plan without running Lean diagnostics');
     expect(context.instructions).not.toContain('FULL_CLOSED_LEAN_TYPE');
     const example = JSON.parse(context.instructions.match(/Write one JSON object in RESEARCH\.md: (\{.*?\})\. Include/u)![1]);
     example.tasks[0].theoremName = 'Submission.helper';
@@ -1976,6 +2189,10 @@ describe('isolated solver and host acceptance', () => {
     expect(parseCooperationPlan(problem, example).tasks[0].proofPath).toBe('Submission.lean');
     example.tasks[0].proofPath = helper;
     expect(parseCooperationPlan(problem, example).tasks[0].proofPath).toBe(helper);
+    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'),
+      'Mathematical route: prove the shared helper, then apply it to each original target.\n\n```math-plan\n' +
+      JSON.stringify(example) + '\n```\n');
+    expect(readCooperationPlan(problem, workspace).tasks[0].proofPath).toBe(helper);
     delete example.tasks[0].proofPath;
     expect(() => parseCooperationPlan(problem, example)).toThrow('math_plan_invalid_proof_target');
     expect(host.createSession).not.toHaveBeenCalled();
@@ -2034,7 +2251,7 @@ describe('isolated solver and host acceptance', () => {
     configureCooperation(async (action, options, message) => {
       expect(message).not.toContain('Propose one new ordinary theorem');
       expect(message).not.toContain('"target":"Original.qualifiedTarget"');
-      if (method === 'lemma' && action.kind === 'lead') expect(options.instructions).toContain('delegate uncertain connections and consistency checks to researchers');
+      if (method === 'lemma' && action.kind === 'lead') expect(options.instructions).toContain('Delegate a specific uncertain inference as research');
       finishAssignment(action, options); return 'completed';
     });
     const base = method === 'lemma' ? lemmaSolverModules : directSolverModules;
@@ -2300,7 +2517,7 @@ describe('isolated solver and host acceptance', () => {
     await expect(notify.mock.results[0].value).resolves.toBeUndefined();
   });
 
-  it('persists a task verifier failure before ending the cooperative run', async () => {
+  it('preserves an unavailable task check for recovery without recording a mathematical failure', async () => {
     configureCooperation();
     const checkTask = async (...inputs: Parameters<typeof directSolverModules.M2.checkTask>) => {
       const proof = await directSolverModules.M2.checkTask(...inputs);
@@ -2311,14 +2528,14 @@ describe('isolated solver and host acceptance', () => {
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'runtime_error', reason: 'math_verifier_unavailable' });
     const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
     const archived = state.cooperation;
-    const rejected = archived.tasks.find((node: any) => node.status === 'blocked' &&
+    const pending = archived.tasks.find((node: any) => node.status === 'pending' &&
       node.feedback === 'math_verifier_unavailable' && node.proof.verification.status === 'unavailable');
-    expect(rejected).toBeDefined();
-    for (const commit of [rejected.proof.commit, rejected.proof.verification.targetCommit])
+    expect(pending).toBeDefined();
+    for (const commit of [pending.proof.commit, pending.proof.verification.targetCommit])
       expect(git(state.worktree, ['rev-parse', `refs/math/${state.runId}/evidence/${commit}`])).toBe(commit);
-    expect(archived.deliveries).toContainEqual(expect.objectContaining({ kind: 'failure', status: 'failed',
-      producer: rejected.assignment.workerId, taskId: rejected.task.id, taskDigest: rejected.assignment.taskDigest,
-      summary: 'math_verifier_unavailable', commit: rejected.proof.commit }));
+    expect((archived.deliveries ?? []).filter((record: any) => record.taskId === pending.task.id &&
+      (record.kind === 'failure' || record.status === 'failed'))).toEqual([]);
+    expect(archived.failedTaskInputs ?? []).toEqual([]);
     expect(host.officialGate).not.toHaveBeenCalled();
   });
 
@@ -3477,6 +3694,52 @@ describe('isolated solver and host acceptance', () => {
     expect(leadTurns).toBe(1);
     const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
     expect(state.dispatchCounts).toEqual({ planning: 1, research: 1, proof: 2, review: 1 });
+    expect(host.verify.mock.calls.some(([request]) => request.items.some(item => item.theoremName === 'route'))).toBe(false);
+  });
+
+  it.each(['markdown', 'json'] as const)('passes a complete %s research argument to its proof consumers', async format => {
+    const tasks: CooperativeTask[] = [{ id: 'route', kind: 'research', objective: 'Find the closing inference', dependsOn: [], revision: 0 },
+      ...planTasks().slice(2).map(task => ({ ...task, dependsOn: ['route'] }))];
+    const argument = 'A reusable mathematical argument. '.repeat(300) + 'EXACT_CLOSING_INFERENCE: use True.intro.';
+    let consumers = 0;
+    configureCooperation(async (action, options, message) => {
+      if (action.kind === 'lead') writePlan(options.workspace, tasks);
+      else if (action.kind === 'task' && action.task.kind === 'research') {
+        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), format === 'markdown' ? argument :
+          '```math-result\n' + JSON.stringify({ summary: 'A complete route is available.', argument, conclusion: 'supporting' }) + '\n```');
+      } else if (action.kind === 'review') finishAssignment(action, options);
+      else if (action.kind === 'task') {
+        consumers++;
+        expect(message).toContain('EXACT_CLOSING_INFERENCE');
+        expect(message).toContain('"summarySource":"finding:route"');
+        const finding = JSON.parse(message.split('Advisory finding for route:\n')[1].split('\n\n')[0]);
+        const research = cooperationState().deliveries.find((item: any) => item.taskId === 'route' && item.kind === 'research');
+        expect(finding.savedSource).toMatchObject({ deliveryId: research.id, commit: research.commit, notesPath: 'RESEARCH.md' });
+        expect(research.findingDigest).toBe(mathDigest(finding.finding));
+        expect(JSON.parse(finding.finding)[format === 'markdown' ? 'summary' : 'argument']).toBe(argument);
+        const file = path.join(options.workspace, 'generated/p/Submission.lean');
+        fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(`${action.task.id} : True := by sorry`,
+          `${action.task.id} : True := by trivial`));
+      }
+      return 'completed';
+    });
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '6'], directory)).toBe(0);
+    expect(consumers).toBe(2);
+    const state = cooperationState(), finding = state.tasks.find((item: TaskRecord) => item.task.id === 'route');
+    expect(finding.status).toBe('completed');
+    expect(finding.integratedCheck).toBeUndefined();
+    expect(finding.finding).toContain('EXACT_CLOSING_INFERENCE');
+    const restored = readSolverRunState(`${output}.runtime/state.json`);
+    expect(restored.dispatchCounts).toEqual({ planning: 1, research: 1, proof: 2, review: 1 });
+    expect(restored.cooperation!.tasks.find(item => item.task.id === 'route')!.finding).toBe(finding.finding);
+    const restoredDelivery = restored.cooperation!.deliveries!.find(item => item.taskId === 'route' && item.kind === 'research')!;
+    expect(restoredDelivery.findingDigest).toBe(mathDigest(finding.finding));
+    const restoredContext = directSolverModules.M4.build(problem, restored, { root: directory, worktree: restored.worktree,
+      environment: {}, taskText: 'Prove both targets', retrievalRoot: project,
+      assignment: { kind: 'lead', seedCommit: restored.cooperation!.canonicalCommit! } });
+    expect(restoredContext.message).toContain('EXACT_CLOSING_INFERENCE');
+    const restoredSource = JSON.parse(restoredContext.message.split('Advisory finding for route:\n')[1].split('\n\n')[0]).savedSource;
+    expect(restoredSource).toMatchObject({ deliveryId: restoredDelivery.id, commit: restoredDelivery.commit, notesPath: 'RESEARCH.md' });
     expect(host.verify.mock.calls.some(([request]) => request.items.some(item => item.theoremName === 'route'))).toBe(false);
   });
 
