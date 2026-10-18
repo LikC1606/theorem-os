@@ -13,11 +13,11 @@ import { canonicalMathJson, mathDigest } from '../../math/mathRuntimeIo';
 /** Frozen component versions compose one ordinary direct-proof program. */
 export const directSolverModules = {
   id: 'direct-v1',
-  M1: { version: 'bounded-codex-turn-v10/distinct-recovery-delivery-v1', open: createCodexMathSession, execute: executeResearch },
-  M2: { version: 'lean-kernel-v11/declaration-prefix-projection-v1', check: checkSolverProof, checkTask: checkTaskProof },
-  M3: { version: 'route-budget-v8/blocker-or-routes-v1', select: selectResearchAction, retry: planResearchRetry, ready: readyResearchTasks },
-  M4: { version: 'task-interface-context-v22/original-goal-frontier-v1', build: buildResearchContext, statement: buildStatementReviewContext },
-  M5: { version: 'route-cooperation-v21/persistent-failed-input-v1', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignResearchTask },
+  M1: { version: 'bounded-codex-turn-v10/distinct-recovery-delivery-v1/provider-diagnostics-v1', open: createCodexMathSession, execute: executeResearch },
+  M2: { version: 'lean-kernel-v11/declaration-prefix-projection-v1/task-root-references-v1', check: checkSolverProof, checkTask: checkTaskProof },
+  M3: { version: 'route-budget-v8/blocker-or-routes-v1/structured-provider-failure-v1/assignable-work-v1', select: selectResearchAction, retry: planResearchRetry, ready: readyResearchTasks },
+  M4: { version: 'task-interface-context-v22/original-goal-frontier-v1/finished-objective-refs-v1/work-contract-v1/research-handoffs-v1', build: buildResearchContext, statement: buildStatementReviewContext },
+  M5: { version: 'route-cooperation-v21/persistent-failed-input-v1/continuous-frontier-input-v1/research-handoffs-v1/assignable-work-v1', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignResearchTask },
 };
 
 export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M3' | 'M5'> & {
@@ -30,8 +30,8 @@ export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M3' | 'M5'>
 
 export const lemmaSolverModules: SolverModules = {
   ...directSolverModules, id: 'lemma-v1',
-  M2: { ...directSolverModules.M2, version: 'lean-obligations-v11/declaration-prefix-projection-v1', checkLemma: checkLemmaResearch },
-  M3: { ...directSolverModules.M3, version: 'lemma-route-search-v9/blocker-or-routes-v1', select: selectLemmaAction },
+  M2: { ...directSolverModules.M2, version: 'lean-obligations-v11/declaration-prefix-projection-v1/task-root-references-v1', checkLemma: checkLemmaResearch },
+  M3: { ...directSolverModules.M3, version: 'lemma-route-search-v9/blocker-or-routes-v1/structured-provider-failure-v1/assignable-work-v1', select: selectLemmaAction },
 };
 
 /** Named CLI policies bind search and assignment versions without changing host acceptance. */

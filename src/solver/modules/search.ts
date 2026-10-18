@@ -1,4 +1,5 @@
 import type { SolverRunState } from '../archive';
+import type { MathAgentFailureDiagnostic } from '../../runtime/codexSession';
 import type { ResearchOperation, ValueEstimate } from './value';
 import { proofRouteReady, type ProofRoute } from '../proofRoutes';
 import { recordedTaskProofStatus } from '../progress';
@@ -258,7 +259,7 @@ export function continuationResearchTasks(tasks: readonly TaskRecord[], groups?:
 
 /** Future progress differs from immediate readiness: typed pending premises can still be proved. */
 export function researchCanAdvance(tasks: readonly TaskRecord[], groups: readonly RouteRecord[] | undefined,
-  liveWorkers: ReadonlySet<string>): boolean {
+  liveWorkers: ReadonlySet<string>, canAssign?: (node: TaskRecord) => boolean): boolean {
   const nodes = new Map(tasks.map(node => [node.task.id, node]));
   const memo = new Map<string, boolean>();
   const visit = (id: string): boolean => {
@@ -270,8 +271,13 @@ export function researchCanAdvance(tasks: readonly TaskRecord[], groups: readonl
     if (['integrated', 'completed', 'delivered', 'running'].includes(node.status)) {
       memo.set(id, true); return true;
     }
-    if (node.status !== 'conditional' && ((node.task.ownerId && !liveWorkers.has(node.task.ownerId)) ||
-        (node.assignment && !liveWorkers.has(node.assignment.workerId)) || !routeAllowsTask(node.task, tasks, groups))) return false;
+    if (node.status !== 'conditional') {
+      const engineerId = node.task.kind === 'goal'
+        ? groups?.find(route => route.group.id === taskGroup(node.task))?.group.engineerId : undefined;
+      const owners = [node.task.ownerId, node.assignment?.workerId, engineerId].filter((id): id is string => Boolean(id));
+      if (owners.some(id => !liveWorkers.has(id) || id !== owners[0]) || !routeAllowsTask(node.task, tasks, groups) ||
+          (canAssign && !canAssign(node))) return false;
+    }
     const ready = (isAdvisoryTask(node.task) || node.task.dependsOn.every(visit)) && (!node.alternativeRoutes?.length ||
       node.alternativeRoutes.some(route => !node.parkedRoutes?.[route.id]?.length && [...route.prerequisiteTaskIds, route.closingTaskId].every(visit)));
     memo.set(id, ready);
@@ -315,11 +321,26 @@ export function selectLemmaAction(state: Readonly<SolverRunState>, options: read
   return { operation, reason };
 }
 
-export function researchFailureReason(error?: string): string {
-  if (/^math_(?:model_(?:authentication_failed|concurrency_limit|request_failed|request_timeout|tool_failed|turn_failed)|codex_transport_closed)$/u.test(error ?? '')) return error!;
-  // Host source, receipt and sandbox guards are never transient model failures.
+function structuredResearchFailure(diagnostic?: MathAgentFailureDiagnostic): string | undefined {
+  if (!diagnostic) return undefined;
+  const status = diagnostic.httpStatusCode;
+  if (diagnostic.code === 'unauthorized' || status === 401 || status === 403) return 'math_model_authentication_failed';
+  if (['usageLimitExceeded', 'rateLimitExceeded'].includes(diagnostic.code) || status === 429) return 'math_model_concurrency_limit';
+  if (status === 408) return 'math_model_request_timeout';
+  if (status !== undefined && status >= 400 && status < 500) return 'math_model_turn_failed';
+  if (['httpConnectionFailed', 'responseStreamConnectionFailed', 'responseStreamDisconnected',
+    'responseTooManyFailedAttempts', 'flexUnavailable', 'serverOverloaded', 'internalServerError'].includes(diagnostic.code))
+    return 'math_model_request_failed';
+  return diagnostic.code === 'other' ? undefined : 'math_model_turn_failed';
+}
+
+export function researchFailureReason(error?: string, diagnostic?: MathAgentFailureDiagnostic): string {
+  // Host integrity failures retain priority over provider classifications.
   if (/^math_(?!(?:model_|codex_))/u.test(error ?? '')) return error!;
-  if (/authentication|unauthorized|forbidden|invalid.*api.?key|\b(?:401|403)\b/iu.test(error ?? '')) return 'math_model_authentication_failed';
+  const structured = structuredResearchFailure(diagnostic);
+  if (structured) return structured;
+  if (/^math_(?:model_(?:authentication_failed|concurrency_limit|request_failed|request_timeout|tool_failed|turn_failed)|codex_transport_closed)$/u.test(error ?? '')) return error!;
+  if (/\b(?:invalid|failed|missing|expired)\s+authentication\b|\bauthentication\s+(?:failed|failure|error|required)\b|\bunauthenticated\b|\bunauthorized\b|\b(?:invalid|incorrect|missing|expired|revoked)\s+(?:api[ _-]?key|access[ _-]?token|refresh[ _-]?token)\b|\bHTTP(?:\s+status)?\s*[:=]?\s*(?:401|403)\b|\bstatus(?:\s+code)?\s*[:=]?\s*(?:401|403)\b|\b(?:401\s+unauthorized|403\s+forbidden)\b/iu.test(error ?? '')) return 'math_model_authentication_failed';
   if (/Concurrency limit exceeded|rate.?limit|\b429\b/iu.test(error ?? '')) return 'math_model_concurrency_limit';
   if (/^math_codex_transport_closed(?::|$)/u.test(error ?? '')) return 'math_codex_transport_closed';
   if (/math_codex_rpc_timeout|timed?\s*out|timeout/iu.test(error ?? '')) return 'math_model_request_timeout';
@@ -331,7 +352,8 @@ export function researchFailureReason(error?: string): string {
 }
 
 /** Unwrap a turn wrapper without letting a transport cause override a host integrity error. */
-export function researchFailureDetail(error: unknown, sessionError?: string): string | undefined {
+export function researchFailureDetail(error: unknown, sessionError?: string,
+  diagnostic?: MathAgentFailureDiagnostic): string | undefined {
   const messages: string[] = [];
   const seen = new Set<unknown>();
   for (let current = error; current !== undefined && !seen.has(current) && seen.size < 4;) {
@@ -343,7 +365,10 @@ export function researchFailureDetail(error: unknown, sessionError?: string): st
   }
   if (sessionError) messages.push(sessionError);
   const first = messages[0];
-  if (first && /^math_(?!(?:model_|codex_))/u.test(first)) return first;
+  const hostError = messages.find(message => /^math_(?!(?:model_|codex_))/u.test(message));
+  if (hostError) return hostError;
+  const structured = structuredResearchFailure(diagnostic);
+  if (structured) return structured;
   return messages.find(message => researchFailureReason(message) !== 'math_model_turn_failed') ?? first;
 }
 

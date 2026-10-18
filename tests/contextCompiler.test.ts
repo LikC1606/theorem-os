@@ -10,6 +10,7 @@ import type { TaskProof } from '../src/solver/cooperativeProof';
 import type { DeliveryRecord } from '../src/solver/deliveries';
 import { canonicalMathJson, mathDigest } from '../src/math/mathRuntimeIo';
 import { buildProofContinuation } from '../src/solver/progress';
+import { pendingResearchHandoffs } from '../src/solver/researchHandoffs';
 
 const baseCommit = 'a'.repeat(40), proofCommit = 'b'.repeat(40);
 const formal = 'namespace Original\nvariable (n : Nat)\ntheorem target (h : n > 0) : n > 0 := by sorry\nend Original';
@@ -75,6 +76,59 @@ it('keeps a rejected planning decision mandatory when optional context does not 
   expect(context.message).toContain('Original.target');
   expect(context.manifest.included.find(item => item.id === 'plan-rejection')?.required).toBe(true);
   expect(context.manifest.omitted).toContainEqual({ id: 'oversized-hint', kind: 'feedback', reason: 'budget' });
+});
+
+it('keeps exact unresolved research proposals mandatory after optional delivery selection and budget limits', () => {
+  const research: CooperativeTask = { id: 'investigate', kind: 'research', objective: 'Find a bridge', dependsOn: [], revision: 0 };
+  const tasks = [{ ...node(research), status: 'completed' as const }];
+  const proposal = lemma('proposed_bridge', [], '∀ n : Nat, n + 0 = n');
+  const proposalDelivery: DeliveryRecord = { ...delivery(research, 'proposal'), kind: 'research', status: 'advisory',
+    lemmaRequests: [proposal], commit: proofCommit };
+  const cooperation = { tasks, deliveries: [proposalDelivery, ...Array.from({ length: 9 }, (_, index) =>
+    ({ ...delivery(research, `later-${index}`), producer: `other-${index}` }))] };
+  const handoff = pendingResearchHandoffs(cooperation)[0];
+  const context = compileTaskContext({ ...input(tasks, { kind: 'lead', seedCommit: baseCommit, handoffIds: [handoff.id] }),
+    cooperation, maxOptionalContextBytes: 0 });
+  expect(context.manifest.included).toContainEqual(expect.objectContaining({ id: 'research-handoffs', required: true }));
+  expect(context.manifest.omitted).toContainEqual({ id: 'delivery:proposal', kind: 'delivery', reason: 'selection-limit' });
+  expect(context.message).toContain(JSON.stringify(proposal.type));
+  expect(context.message).toContain(handoff.id);
+  expect(context.message).toContain(proofCommit);
+  expect(context.message).toContain('advisory; not checked lemmas');
+});
+
+it('does not require proposals that arrived after the Lead dispatch', () => {
+  const research: CooperativeTask = { id: 'investigate', kind: 'research', objective: 'Find a bridge', dependsOn: [], revision: 0 };
+  const tasks = [node(research)], proposal = lemma('late_proposal');
+  const context = compileTaskContext({ ...input(tasks, { kind: 'lead', seedCommit: baseCommit, handoffIds: [] }),
+    cooperation: { tasks, deliveries: [{ ...delivery(research, 'late'), kind: 'research', status: 'advisory', lemmaRequests: [proposal] }] },
+    maxOptionalContextBytes: 0 });
+  expect(context.manifest.included.some(item => item.id === 'research-handoffs')).toBe(false);
+  expect(context.message).not.toContain(proposal.theoremName);
+});
+
+it('keeps the primary solver research inbox and decision feedback mandatory', () => {
+  const research: CooperativeTask = { id: 'investigate', kind: 'research', objective: 'Find a bridge', dependsOn: [], revision: 0 };
+  const tasks = [node(research)], proposal = lemma('primary_proposal');
+  const cooperation = { tasks, deliveries: [{ ...delivery(research, 'primary'), kind: 'research' as const,
+    status: 'advisory' as const, lemmaRequests: [proposal] }], error: 'math_handoff_unresolved: repair the decision' };
+  const handoff = pendingResearchHandoffs(cooperation)[0];
+  const context = compileTaskContext({ ...input(tasks, { kind: 'solve', seedCommit: baseCommit, handoffIds: [handoff.id] }),
+    cooperation, maxOptionalContextBytes: 0 });
+  expect(context.message).toContain(proposal.theoremName);
+  expect(context.message).toContain(cooperation.error);
+  expect(context.manifest.included).toContainEqual(expect.objectContaining({ id: 'research-handoffs', required: true }));
+  expect(context.manifest.included).toContainEqual(expect.objectContaining({ id: 'handoff-feedback', required: true }));
+});
+
+it('dispatches one explicit work contract while retaining exact proof inputs and host acceptance', () => {
+  const task = lemma('typed_bridge'), state = { environmentDigest: 'environment', cooperation: { tasks: [node(task)] } } as SolverRunState;
+  const context = buildResearchContext(problem, state, { root: '/runtime', worktree: '/proof', environment: {},
+    taskText: 'Prove the original target', retrievalRoot: '/library', assignment: assign(task), frozenContexts: input([]).frozenContexts });
+  expect(context.workContract).toMatchObject({ stage: 'formal-proof', owner: 'proof-worker', output: 'saved-exact-typed-declaration',
+    consumer: 'M2-then-canonical-integration', acceptance: 'independent-exact-source-check', input: { taskId: task.id, taskDigest: taskVersion(task) } });
+  expect(context.manifest?.included).toContainEqual(expect.objectContaining({ id: 'work-contract', required: true }));
+  expect(context.message).toContain(JSON.stringify(task.type));
 });
 
 it('rejects mismatched mandatory dependency and proof evidence versions', () => {
@@ -688,4 +742,89 @@ it('keeps a growing historical helper graph below the unchanged budget without t
   expect(context.message).toContain('COMPLETE_CURRENT_PREMISE');
   expect(() => compileTaskContext({ ...input([...records, current, goal]), maxOptionalContextBytes: 0 }))
     .toThrow('math_context_mandatory_overflow');
+});
+
+it('keeps exact checked helper contracts and evidence inline while making long finished objectives retrievable by digest', () => {
+  const helper = freshlyChecked({ ...lemma('shared_input'), objective: 'FINISHED_HELPER_PLAN '.repeat(150),
+    premises: ['EXACT_HELPER_PREMISE'] }), goal = originalGoal(['shared_input']), records = [helper, goal],
+    original = structuredClone(records);
+  const context = compileTaskContext({ ...input(records, lead), maxOptionalContextBytes: 0 }),
+    graph = compiledGraph(context.message), row = graph.find(item => item.id === helper.task.id),
+    encoding = contextLine(context.message,
+      'Finished task objective references (advisory prose by reference; exact interfaces remain mandatory):');
+  expect(context.manifest.requiredTaskIds).toContain(helper.task.id);
+  expect(row).toMatchObject({ id: helper.task.id, type: helper.task.type, premises: helper.task.premises,
+    dependsOn: helper.task.dependsOn, taskDigest: taskVersion(helper.task),
+    objectiveDigest: mathDigest(helper.task.objective), evidence: { taskDigest: helper.integratedCheck!.taskDigest,
+      commit: helper.integratedCheck!.commit, sourceDigest: helper.integratedCheck!.sourceDigest,
+      verification: { receipts: helper.integratedCheck!.verification.results } } });
+  expect(row.objective).toBeUndefined();
+  expect(context.message).not.toContain('FINISHED_HELPER_PLAN');
+  expect(context.message).toContain(goal.task.objective);
+  expect(encoding.retrieval).toContain('COOPERATION.json peers by id');
+  expect(encoding.retrieval).toContain('UTF-8 SHA-256');
+  expect(encoding.retrieval).toContain('not an immutable proof source');
+  expect(context.manifest.omitted).toContainEqual({ id: `objective:${helper.task.id}`, kind: 'interfaces',
+    reason: 'advisory-details-by-reference' });
+  expect(records).toEqual(original);
+});
+
+it.each(['restored', 'conditional', 'failed'] as const)('never replaces a %s proof task objective with a finished-task reference', kind => {
+  const helper = freshlyChecked({ ...lemma('required_input'), objective: 'UNRESOLVED_PROOF_PLAN '.repeat(150) });
+  if (kind === 'restored') helper.integratedCheck = structuredClone(helper.integratedCheck!);
+  if (kind === 'conditional') helper.integratedCheck!.conditions = [{ taskId: 'condition', taskDigest: taskVersion(lemma('condition')) }];
+  if (kind === 'failed') helper.integratedCheck!.passed = false;
+  const context = compileTaskContext({ ...input([helper, node(lemma('condition')), originalGoal(['required_input'])], lead),
+    maxOptionalContextBytes: 0 }), row = compiledGraph(context.message).find(item => item.id === helper.task.id);
+  expect(row.objective).toBe(helper.task.objective);
+  expect(row.objectiveDigest).toBeUndefined();
+  expect(context.message).toContain('UNRESOLVED_PROOF_PLAN');
+});
+
+it('retains unfinished advisory objectives and leaves worker dependency descriptions complete', () => {
+  const completed = node({ ...lemma('completed_research'), kind: 'research' as const, type: undefined,
+    objective: 'COMPLETED_RESEARCH_OBJECTIVE '.repeat(100) });
+  completed.status = 'completed';
+  const blocked = node({ ...lemma('blocked_research'), kind: 'research' as const, type: undefined,
+    objective: 'OPEN_RESEARCH_OBJECTIVE '.repeat(100) });
+  blocked.status = 'blocked';
+  const helper = freshlyChecked({ ...lemma('worker_input'), objective: 'WORKER_DEPENDENCY_OBJECTIVE '.repeat(100) }),
+    current = node(lemma('current', ['worker_input'])), records = [completed, blocked, helper, current, originalGoal(['current'])];
+  const leadContext = compileTaskContext({ ...input(records, lead), maxOptionalContextBytes: 0 }),
+    graph = compiledGraph(leadContext.message);
+  expect(graph.find(row => row.id === completed.task.id)).toMatchObject({ status: 'completed',
+    objectiveDigest: mathDigest(completed.task.objective) });
+  expect(leadContext.message).not.toContain('COMPLETED_RESEARCH_OBJECTIVE');
+  expect(graph.find(row => row.id === blocked.task.id).objective).toBe(blocked.task.objective);
+  const workerContext = compileTaskContext({ ...input(records, assign(current.task)), maxOptionalContextBytes: 0 });
+  expect(compiledGraph(workerContext.message).find(row => row.id === helper.task.id).objective).toBe(helper.task.objective);
+  expect(workerContext.manifest.included.some(item => item.id === 'task-objective-reference-encoding')).toBe(false);
+});
+
+it('fits a mature Lead graph with many direct checked inputs without raising the fixed context allowance', () => {
+  const helpers = Array.from({ length: 60 }, (_, index) => freshlyChecked({
+    ...lemma(`direct_input_${index}`, [], `∀ n : Nat, ${'n = n ∧ '.repeat(80)}True`),
+    objective: `Finished supporting argument ${index}. ${'Advisory implementation narrative. '.repeat(220)}`,
+  }));
+  const research = Array.from({ length: 31 }, (_, index) => ({
+    ...node({ ...lemma(`finished_research_${index}`), kind: 'research' as const, type: undefined,
+      objective: `Historical investigation ${index}. ${'Saved advisory research context. '.repeat(120)}` }), status: 'completed' as const,
+  }));
+  const current = node({ ...lemma('current_frontier', helpers.map(node => node.task.id)),
+    objective: 'COMPLETE_OPEN_TASK_DESCRIPTION', premises: ['COMPLETE_OPEN_TASK_PREMISE'] }),
+    records = [...helpers, ...research, current, originalGoal(['current_frontier'])];
+  expect(Buffer.byteLength(canonicalMathJson(records.map(node => node.task)))).toBeGreaterThan(DEFAULT_TASK_CONTEXT_BYTES);
+  const context = compileTaskContext({ ...input(records, lead), maxOptionalContextBytes: 0 }), graph = compiledGraph(context.message);
+  expect(context.manifest.maxBytes).toBe(DEFAULT_TASK_CONTEXT_BYTES);
+  expect(context.manifest.usedBytes).toBeLessThan(DEFAULT_TASK_CONTEXT_BYTES * 0.65);
+  expect(new Set(context.manifest.requiredTaskIds)).toEqual(new Set(records.map(node => node.task.id)));
+  expect(graph.filter(row => row.kind === 'lemma').map(row => row.type)).toEqual([...helpers.map(node => node.task.type), current.task.type]);
+  for (const helper of helpers) {
+    const row = graph.find(row => row.id === helper.task.id);
+    expect(row.evidence.verification.receipts).toEqual(helper.integratedCheck!.verification.results);
+    expect(expandedProofSource(row)).toMatchObject({ commit: helper.integratedCheck!.commit,
+      sourceDigest: helper.integratedCheck!.sourceDigest });
+  }
+  expect(context.message).toContain('COMPLETE_OPEN_TASK_DESCRIPTION');
+  expect(context.message).toContain('COMPLETE_OPEN_TASK_PREMISE');
 });

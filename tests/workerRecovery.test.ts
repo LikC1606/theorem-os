@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { MathAgentOptions, MathAgentSession } from '../src/runtime/codexSession';
+import type { MathAgentFailureDiagnostic, MathAgentOptions, MathAgentSession } from '../src/runtime/codexSession';
 import { canonicalMathProblemStatementPayloads } from '../src/math/contracts';
 import { LEAN_EVAL_BENCHMARK_COMMIT } from '../src/math/leanEvalCatalogAdapter';
 import { mathDigest } from '../src/math/mathRuntimeIo';
@@ -96,6 +96,41 @@ describe('bounded role session recovery', () => {
       '--workers', '1', '--max-turns', '0', '--max-run-seconds', '0', '--max-turn-seconds', '0', '--evaluator-timeout-seconds', '0'];
   });
   afterEach(() => { vi.restoreAllMocks(); fs.rmSync(directory, { recursive: true, force: true }); });
+
+  it('logs only structured authentication metadata and stops without retrying the provider', async () => {
+    host.open.mockImplementationOnce(async (options: MathAgentOptions) => ({
+      ...session(options, async () => 'failed', 'private provider response'),
+      lastFailureDiagnostic: { code: 'unauthorized' },
+    }));
+    expect(await runSolver(args, directory)).toBe(1);
+    expect(host.open).toHaveBeenCalledOnce();
+    expect(host.delay).not.toHaveBeenCalled();
+    expect(events().filter(event => event.event === 'turn_failed')).toEqual([
+      expect.objectContaining({ reason: 'math_model_authentication_failed', diagnostic: { code: 'unauthorized' } }),
+    ]);
+    expect(JSON.stringify(events())).not.toContain('private provider response');
+    expect(result().reason).toBe('math_model_authentication_failed');
+  });
+
+  it('recovers a structured network failure even when the provider message mentions authentication', async () => {
+    host.open.mockImplementationOnce(async (options: MathAgentOptions) => ({
+      ...session(options, async () => 'failed', 'Invalid authentication; private provider response'),
+      lastFailureDiagnostic: { code: 'responseStreamDisconnected', httpStatusCode: 503 },
+    }));
+    host.open.mockImplementationOnce(async (options: MathAgentOptions) => session(options, async () => {
+      fs.writeFileSync(proof(options), completed);
+      return 'completed';
+    }));
+    expect(await runSolver(args, directory)).toBe(0);
+    expect(host.open).toHaveBeenCalledTimes(2);
+    expect(host.delay).toHaveBeenCalledOnce();
+    expect(events().filter(event => event.event === 'turn_failed')).toEqual([
+      expect.objectContaining({ reason: 'math_model_request_failed',
+        diagnostic: { code: 'responseStreamDisconnected', httpStatusCode: 503 } }),
+    ]);
+    expect(JSON.stringify(events())).not.toContain('private provider response');
+    expect(host.official).toHaveBeenCalledOnce();
+  });
 
   it.each(['tool', 'network'] as const)('recovers a thrown %s failure in the same role with saved notes, proof and exact usage', async kind => {
     const detail = kind === 'tool' ? 'Error parsing function call: invalid JSON arguments' : 'stream disconnected before completion: error sending request';
@@ -282,6 +317,37 @@ describe('bounded role session recovery', () => {
 });
 
 describe('recoverable failure classification', () => {
+  it.each(['Request failed after 401 retries', 'Request failed after 403 retries', 'Forbidden tool call',
+    'Authentication notes were included in the prompt'])('does not infer an authentication failure from unrelated text: %s', message => {
+    expect(researchFailureReason(message)).toBe('math_model_turn_failed');
+  });
+
+  it.each(['Invalid authentication', 'Authentication failed', 'Authentication required', 'Unauthenticated',
+    'Unauthorized', 'Invalid API key', 'Expired access token', 'HTTP 401', 'HTTP status: 403',
+    'unexpected status 401', 'status code: 403', '401 Unauthorized', '403 Forbidden'])('retains explicit authentication failures: %s', message => {
+    expect(researchFailureReason(message)).toBe('math_model_authentication_failed');
+    expect(recoverableResearchFailure(message)).toBe(false);
+  });
+
+  it.each([
+    [{ code: 'unauthorized' }, 'math_model_authentication_failed'],
+    [{ code: 'httpConnectionFailed', httpStatusCode: 401 }, 'math_model_authentication_failed'],
+    [{ code: 'httpConnectionFailed', httpStatusCode: 403 }, 'math_model_authentication_failed'],
+    [{ code: 'httpConnectionFailed', httpStatusCode: 429 }, 'math_model_concurrency_limit'],
+    [{ code: 'rateLimitExceeded' }, 'math_model_concurrency_limit'],
+    [{ code: 'usageLimitExceeded' }, 'math_model_concurrency_limit'],
+    [{ code: 'responseTooManyFailedAttempts', httpStatusCode: 408 }, 'math_model_request_timeout'],
+    [{ code: 'responseStreamDisconnected', httpStatusCode: 503 }, 'math_model_request_failed'],
+    [{ code: 'serverOverloaded' }, 'math_model_request_failed'],
+    [{ code: 'httpConnectionFailed', httpStatusCode: 400 }, 'math_model_turn_failed'],
+    [{ code: 'contextWindowExceeded' }, 'math_model_turn_failed'],
+    [{ code: 'sandboxError' }, 'math_model_turn_failed'],
+  ] as const)('uses structured provider metadata before arbitrary message text: %j', (diagnostic, expected) => {
+    const error = 'Invalid authentication; stream disconnected; rate limit';
+    expect(researchFailureReason(error, diagnostic as MathAgentFailureDiagnostic)).toBe(expected);
+    expect(researchFailureDetail(new Error('math_model_turn_failed'), error, diagnostic as MathAgentFailureDiagnostic)).toBe(expected);
+  });
+
   it('uses a concrete cause or same-turn session error without guessing from a generic failure', () => {
     const tool = 'Error parsing function call: invalid JSON arguments';
     expect(researchFailureDetail(new Error('math_model_turn_failed', { cause: new Error(tool) }))).toBe(tool);
@@ -292,6 +358,12 @@ describe('recoverable failure classification', () => {
     expect(recoverableResearchFailure('Cannot find trusted tool for COMPARATOR_BIN')).toBe(false);
     expect(researchFailureDetail(new Error('math_source_outside_ownership', { cause: new Error('stream disconnected') })))
       .toBe('math_source_outside_ownership');
+    expect(researchFailureReason('math_source_outside_ownership', { code: 'unauthorized' })).toBe('math_source_outside_ownership');
+    expect(researchFailureDetail(new Error('math_source_outside_ownership'), 'Invalid authentication',
+      { code: 'responseStreamDisconnected' })).toBe('math_source_outside_ownership');
+    expect(researchFailureDetail(new Error('math_model_turn_failed', { cause: new Error('math_source_outside_ownership') }),
+      'Invalid authentication', { code: 'unauthorized' })).toBe('math_source_outside_ownership');
+    expect(researchFailureReason('Invalid authentication', { code: 'other' })).toBe('math_model_authentication_failed');
   });
 
   it('enforces the recovery count and existing budgets while permitting unlimited total solving time', () => {

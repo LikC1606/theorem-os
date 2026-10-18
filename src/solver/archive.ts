@@ -35,6 +35,7 @@ export type SolverRunState = {
   coordination?: 'cooperative' | 'independent';
   moduleConfiguration?: { id: string; versions: Record<string, string> };
   retrievalDigest?: string;
+  knowledgeDigest?: string;
   model: string;
   effort: string;
   worktree: string;
@@ -149,6 +150,7 @@ const runState = research.extend({ schema: z.literal('deepscientist.math.solver.
   problem: z.object({ workspace: z.string(), receiptDigest: z.string() }).passthrough(),
   taskDigest: z.string(), buildDigest: z.string(), environmentDigest: z.string(), evaluatorDigest: z.string(),
   model: z.string(), effort: z.string(), workerCount: z.number().int().positive().optional(),
+  knowledgeDigest: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
   coordination: z.enum(['cooperative', 'independent']).optional(),
   workers: z.array(research.extend({ id: z.string(), role, sessionRole: role.optional() })).optional(),
   cooperation: z.object({ tasks: z.array(taskRecord), groups: z.array(z.object({ group: z.object({ id: z.string(),

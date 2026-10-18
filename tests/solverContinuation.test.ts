@@ -279,6 +279,88 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
     expect(core.integratedCheck).toBeUndefined();
   });
 
+  const waitForRecoveryInput = async () => {
+    const core = prepareRecovery(), next = await getRecovery();
+    await cooperative.deliver(lead, next, recoveryPlan({ status: 'awaiting-input', reason: 'A new cancellation estimate is required.' }));
+    (cooperative as any).input.continuousResearch = true;
+    return core;
+  };
+  const waitingBudget = { maxTurns: Infinity, remainingMs: Infinity };
+
+  it('runs one advisory investigation in continuous mode, then waits without retrying the failed proof', async () => {
+    const core = await waitForRecoveryInput(), emit = vi.fn(); (cooperative as any).input.emit = emit;
+    const pendingLead = cooperative.next(lead, waitingBudget);
+    await vi.waitFor(() => expect(state.cooperation!.frontierRecoveries![0].investigationTaskId).toBeTruthy());
+    const taskId = state.cooperation!.frontierRecoveries![0].investigationTaskId!;
+    const work = await cooperative.next(researcher, waitingBudget);
+    expect(work).toMatchObject({ kind: 'task', task: { id: taskId, kind: 'research', dependsOn: ['core'] } });
+    if (work?.kind !== 'task') throw new Error('expected_frontier_investigation');
+    expect(cooperative.started(researcher, work)).toBe(true);
+    await cooperative.deliver(researcher, work, checkpoint('```math-result\n' + JSON.stringify({
+      taskId, conclusion: 'inconclusive', summary: 'The inspected local inference still lacks a cancellation estimate.',
+    }) + '\n```'));
+    const assessment = await pendingLead;
+    expect(assessment).toMatchObject({ kind: 'lead' });
+    if (assessment?.kind !== 'lead') throw new Error('expected_investigation_assessment');
+    await cooperative.deliver(lead, assessment, recoveryPlan(undefined));
+    let finished = false;
+    const waiting = cooperative.next(lead, waitingBudget).then(result => { finished = true; return result; });
+    await vi.waitFor(() => expect(state.cooperation!.frontierWaiting).toMatchObject({
+      taskIds: ['core'], goalIds: ['goal'], reason: 'awaiting-new-mathematical-input',
+    }));
+    for (let wake = 0; wake < 3; wake++) { cooperative.modelBudgetChanged(); await Promise.resolve(); }
+    expect(finished).toBe(false);
+    expect(state.cooperation!.tasks.filter(node => node.task.id === taskId)).toHaveLength(1);
+    expect(core.status).toBe('blocked'); expect(core.attempts).toBe(2); expect(core.integratedCheck).toBeUndefined();
+    expect(emit.mock.calls.filter(([event]) => event === 'frontier_investigation_requested')).toHaveLength(1);
+    expect(emit.mock.calls.filter(([event, details]) => event === 'frontier_recovery_waiting' &&
+      details.reason === 'awaiting-new-mathematical-input')).toHaveLength(1);
+    await cooperative.stop();
+    expect(await waiting).toBeUndefined();
+  });
+
+  it('restores the durable investigation marker and waits instead of regenerating completed research', async () => {
+    await waitForRecoveryInput();
+    const initial = cooperative.next(lead, waitingBudget);
+    await vi.waitFor(() => expect(state.cooperation!.frontierRecoveries![0].investigationTaskId).toBeTruthy());
+    const taskId = state.cooperation!.frontierRecoveries![0].investigationTaskId!;
+    const investigation = state.cooperation!.tasks.find(node => node.task.id === taskId)!;
+    investigation.status = 'completed'; investigation.attempts = 1;
+    state.cooperation!.lastLeadInputDigest = (cooperative as any).planningInputDigest();
+    await cooperative.stop(); expect(await initial).toBeUndefined();
+    const restored = JSON.parse(JSON.stringify(state)) as SolverRunState;
+    const resumed = new CooperativeResearch({ state: restored, workers: [lead, researcher], access: new Map(), signal: signal(),
+      continuousResearch: true, save: () => {}, emit: () => {}, modules: directSolverModules, exclusiveCheck: async check => check() });
+    vi.spyOn(resumed as any, 'seed').mockReturnValue(seed);
+    try {
+      await resumed.restore();
+      const waiting = resumed.next(lead, waitingBudget);
+      await vi.waitFor(() => expect(restored.cooperation!.frontierWaiting?.reason).toBe('awaiting-new-mathematical-input'));
+      expect(restored.cooperation!.tasks.filter(node => node.task.id === taskId)).toHaveLength(1);
+      expect(restored.cooperation!.tasks.find(node => node.task.id === taskId)!.status).toBe('completed');
+      await resumed.stop(); expect(await waiting).toBeUndefined();
+    } finally { await resumed.stop(); }
+  });
+
+  it.each(['abort', 'new-input'])('wakes continuous frontier waiting after %s', async change => {
+    await waitForRecoveryInput();
+    state.cooperation!.frontierRecoveries![0].investigationTaskId = 'already_investigated';
+    const controller = new AbortController(); (cooperative as any).input.signal = controller.signal;
+    const waiting = cooperative.next(lead, waitingBudget);
+    const settled = waiting.then(value => ({ value }), error => ({ error }));
+    await vi.waitFor(() => expect(state.cooperation!.frontierWaiting?.reason).toBe('awaiting-new-mathematical-input'));
+    if (change === 'abort') {
+      controller.abort();
+      expect(await settled).toMatchObject({ error: { name: 'AbortError' } });
+    } else {
+      state.environmentDigest = 'new-pinned-environment';
+      cooperative.modelBudgetChanged();
+      expect(await settled).toMatchObject({ value: { kind: 'lead' } });
+      expect(state.cooperation!.frontierWaiting).toBeUndefined();
+      expect(state.cooperation!.tasks.find(node => node.task.id === 'core')!.status).toBe('blocked');
+    }
+  });
+
   it.each(['unchanged', 'revision-prose', 'renamed-helper'])(
     'rejects a %s recovery as new work and preserves the decision across restore', async change => {
       prepareRecovery();

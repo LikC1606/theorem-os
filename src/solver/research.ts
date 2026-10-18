@@ -18,7 +18,8 @@ import { runResearchTurn, type ResearchCandidate } from './modules/execution';
 import { recoverableResearchFailure, researchFailureDetail, researchFailureReason } from './modules/search';
 import { aggregateUsage, buildTokenBudget, initializeUsageAccounting, modelDispatchAllowed, recordThreadUsage } from './usageBudget';
 
-export type WorkerAccess = { environment: NodeJS.ProcessEnv; corpusFile?: string; retrievalRoot: string };
+export type WorkerAccess = { environment: NodeJS.ProcessEnv; corpusFile?: string; retrievalRoot: string;
+  knowledgeFile?: string; knowledgeDigest?: string };
 
 /** Lead and isolated task workers share one budget; only a full canonical check grants acceptance. */
 export async function runResearchWorkers(input: {
@@ -62,6 +63,7 @@ export async function runResearchWorkers(input: {
   };
   const cooperation = parallel && state.coordination !== 'independent'
     ? new CooperativeResearch({ ...input, signal, exclusiveCheck, timeoutMs: input.proofTimeoutMs,
+      continuousResearch: input.maxTurns === Infinity && input.deadline === Infinity,
       modelDispatchAllowed: dispatchAllowed }) : undefined;
   const updateUsage = () => {
     if (parallel) state.usage = aggregateUsage(state.workers!);
@@ -328,7 +330,7 @@ export async function runResearchWorkers(input: {
                 status = await modelTurn(() => runResearchTurn(session!, currentContext.message, assignment.workspace, signal, onStarted), assignment);
               } catch (error) {
                 signal.throwIfAborted();
-                executionError = researchFailureDetail(error, session?.lastError);
+                executionError = researchFailureDetail(error, session?.lastError, session?.lastFailureDiagnostic);
                 if (!recoverableResearchFailure(executionError)) throw error;
                 status = 'failed';
               }
@@ -342,8 +344,9 @@ export async function runResearchWorkers(input: {
                 retries = 0;
                 cooperation!.interrupted(worker, assignment); emit('turn_checkpoint', { turn: research.turns });
               } else {
-                const turnError = executionError ?? researchFailureDetail(session?.lastError);
-                await close(); emit('turn_failed', { reason: researchFailureReason(turnError) });
+                const diagnostic = session?.lastFailureDiagnostic;
+                const turnError = executionError ?? researchFailureDetail(session?.lastError, undefined, diagnostic);
+                await close(); emit('turn_failed', { reason: researchFailureReason(turnError), ...(diagnostic ? { diagnostic } : {}) });
                 cooperation!.interrupted(worker, assignment);
                 await retryFailedTurn(turnError);
               }
@@ -367,7 +370,7 @@ export async function runResearchWorkers(input: {
               candidate = await modelTurn(() => modules.M1.execute(state.problem, currentContext, operation, worker, session!, signal, onStarted), assignment);
             } catch (error) {
               signal.throwIfAborted();
-              executionError = researchFailureDetail(error, session?.lastError);
+              executionError = researchFailureDetail(error, session?.lastError, session?.lastFailureDiagnostic);
               if (!recoverableResearchFailure(executionError)) throw error;
               // The writer must stop before the ordinary saved-source checks and delivery run.
               candidate = { status: 'failed', worktree: worker.worktree, problemReceiptDigest: state.problem.receiptDigest,
@@ -393,8 +396,9 @@ export async function runResearchWorkers(input: {
           if (!['completed', 'failed', 'checkpoint'].includes(turn)) break;
           if (turn !== 'failed') retries = 0;
           if (turn === 'checkpoint') emit('turn_checkpoint', { turn: research.turns });
-          const turnError = executionError ?? researchFailureDetail(session?.lastError);
-          if (turn === 'failed') { await close(); emit('turn_failed', { reason: researchFailureReason(turnError) }); }
+          const diagnostic = session?.lastFailureDiagnostic;
+          const turnError = executionError ?? researchFailureDetail(session?.lastError, undefined, diagnostic);
+          if (turn === 'failed') { await close(); emit('turn_failed', { reason: researchFailureReason(turnError), ...(diagnostic ? { diagnostic } : {}) }); }
           const sourceError = solverSourceFeedback(state.problem, worker.worktree);
           if (sourceError) {
             research.check = undefined; research.lemmaResearch = undefined;

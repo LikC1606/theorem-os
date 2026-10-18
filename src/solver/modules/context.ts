@@ -13,6 +13,7 @@ import type { CooperationState } from '../cooperation';
 import { statementReviewSummary, type StatementAction, type StatementReview } from '../statementReview';
 import { buildProofContinuation } from '../progress';
 import { originalGoalTaskFocus } from './search';
+import { cooperativeWorkContract } from './contracts';
 import { compileTaskContext, frozenSourceContext, TaskContextError,
   type ContextManifest, type ContextSection, type TaskContextInput } from '../contextCompiler';
 
@@ -22,6 +23,8 @@ export type ContextAccess = Readonly<{
   environment: NodeJS.ProcessEnv;
   taskText: string;
   corpusFile?: string;
+  knowledgeFile?: string;
+  knowledgeDigest?: string;
   retrievalRoot: string;
   sourceFeedback?: string;
   previousCheck?: ProofCheck;
@@ -35,6 +38,7 @@ export type ContextAccess = Readonly<{
 }>;
 export type ContextBundle = Readonly<{
   assignment?: CooperativeAction;
+  workContract?: ReturnType<typeof cooperativeWorkContract>;
   instructions: string;
   message: string;
   scope: 'original-problem-and-allowed-library' | 'fixed-statement';
@@ -63,6 +67,13 @@ export function buildStatementReviewContext(review: StatementReview, action: Sta
 /** M4 builds prompts from the host's scoped cooperation view; hints remain advisory. */
 export function buildResearchContext(task: SolverProblem, state: Readonly<SolverRunState>, access: ContextAccess): ContextBundle {
   const command = `bun ${shellArgument(path.join(access.root, 'bin/math.ts'))}`;
+  if (Boolean(access.knowledgeFile) !== Boolean(access.knowledgeDigest)) throw new Error('math_knowledge_identity_missing');
+  const knowledgeRules = access.knowledgeFile ?
+    `Before developing a new proof or repeating a search, consult the saved theorem knowledge base: ${command} knowledge search --catalog ${shellArgument(access.knowledgeFile)} --sha256 ${shellArgument(access.knowledgeDigest!)} --environment ${shellArgument(state.environmentDigest)} --problem-receipt ${shellArgument(state.problem.receiptDigest)} --query 'MATHEMATICAL_KEYWORDS' --goal 'EXACT_LEAN_GOAL_AND_CONTEXT'. Batch up to eight --query arguments to share one search index. You may omit --query to search only the exact goal; goal shape and version compatibility labels are advisory. ` +
+    `Retrieve a hit with ${command} knowledge get --catalog ${shellArgument(access.knowledgeFile)} --sha256 ${shellArgument(access.knowledgeDigest!)} --id 'THEOREM_ID'; add --source 'FILE_FROM_THE_RESULT' for the complete archived namespace, variables, imports, definitions and proof context. ` +
+    `Inspect recorded dependencies with ${command} knowledge dependencies --catalog ${shellArgument(access.knowledgeFile)} --sha256 ${shellArgument(access.knowledgeDigest!)} --id 'THEOREM_ID' --depth 2. Missing coverage is unknown. ` +
+    `Read a dependency or definition in bounded excerpts with ${command} knowledge source --catalog ${shellArgument(access.knowledgeFile)} --sha256 ${shellArgument(access.knowledgeDigest!)} --id 'THEOREM_ID' --file 'ARCHIVED_FILE' --name 'QUALIFIED_DECLARATION' --max-bytes 16000; use --start-line 1 to inspect file context, or --offset NEXT_OFFSET to continue a truncated excerpt without repeating text. Excerpts do not establish complete context. ` +
+    'Inspect the complete type, all premises and statement/proof dependencies before reuse. source-header types require the archived context and are not closed types. Search is lexical and a missing hit does not establish a missing theorem. These are historical checked sources, not declarations installed in this problem. Adapt only needed declarations into owned files, respect the frozen problem and allowed imports, then check their actual application with Lean and return for independent host acceptance. Never copy an entire archived Submission over current goals or inherit historical receipts. Record the knowledge theorem id and the consumer in RESEARCH.md.\n' : '';
   const taskRules = access.assignment?.kind === 'task' && access.assignment.task.kind === 'lemma'
     ? `This is a lemma task for ${access.assignment.task.theoremName}. You may repair solver-created lemma proofs and add newly named helpers in owned Lean files. Preserve existing helper statements, definition bodies and original goal proofs.\n`
     : '';
@@ -70,7 +81,7 @@ export function buildResearchContext(task: SolverProblem, state: Readonly<Solver
 Edit only ${task.ownedFiles.map(file => path.join(access.worktree, task.projectRelative, file)).join(', ')}, ${path.join(access.worktree, 'RESEARCH.md')}${access.assignment?.kind === 'task' ? `, ${path.join(access.worktree, assignmentDeliveryFile(access.assignment.assignment))}` : ''}.
 Save RESEARCH.md and delivery logs at these exact worktree-root paths, including when a diagnostic command runs inside the Lean project subdirectory.
 Preserve original declaration kinds, names, parameters, types, assumptions, existing imports, options and namespace/section context. Original goals may include def declarations whose bodies must be filled; retain all other original definition bodies. You may add explicit Mathlib.* imports from the pinned library or frozen local modules already imported by the original owned files, without import cycles; do not edit trusted problem or package files. Completed proofs must not use sorry, admit, native_decide, unsafe or new axioms. Do not read external candidate solutions.
-${taskRules}Use installed library lemmas and test uncertain bridges early. Batch independent searches and reads, reuse results, bound output in bytes and show the earliest Lean error and goal. The host launches the cooperative agents; do not spawn agents inside this session. Lead planning saves a task graph and returns promptly; assigned workers investigate and prove it.
+${taskRules}${knowledgeRules}Use installed library lemmas and test uncertain bridges early. Batch independent searches and reads, reuse results, bound output in bytes and show the earliest Lean error and goal. The host launches the cooperative agents; do not spawn agents inside this session. Lead planning saves a task graph and returns promptly; assigned workers investigate and prove it.
 For diagnostics, run ${command} check-lean --workspace ${shellArgument(path.join(access.worktree, task.projectRelative))} --file 'OWNED_FILE.lean' --timeout-seconds 0. It compiles saved sources with pinned imports and bounded output. Poll a returned process ID. A timeout is inconclusive. Repair the earliest error; avoid rebuilding dependencies or repeating unchanged checks. For math_original_context_changed or math_original_declaration_changed, use the reported file and recovery instructions to restore the offending context or declaration from the seed commit while preserving new proof work, then retry the saved-file check. Keep helper-specific scopes and instances inside their proofs. If the environment is unavailable or the same startup error remains after a repair, report it and return.
 Add helpers in owned modules; definitions may be noncomputable. For type lookup, add single-name #check commands such as #check Finset.sum_eq_single in the existing namespace. For instance lookup, use #synth MeasureSpace ℝ or parenthesize complex types, such as #synth Fintype (Fin 2). If a known library declaration is unavailable, find its module in the installed corpus and import that explicit Mathlib.* module in the owned file; an unknown name alone does not establish a missing library theorem. Check the actual saved file, remove probes before delivery, and save checked helpers, gaps and next steps in RESEARCH.md. Keep this file as a concise current checkpoint; replace obsolete status instead of appending transcripts. Earlier committed notes remain in git history. Then return for independent host checking. Turns may be checkpointed and resumed. Verify computational results in Lean.
 ${access.corpusFile ? `For library lookup, run ${command} search-lean --workspace ${shellArgument(access.retrievalRoot)} --corpus ${shellArgument(access.corpusFile)} --sha256 ${shellArgument(access.environment.DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS_SHA256!)} --query 'KEYWORDS' --query 'OTHER_KEYWORDS'. Batch up to 8 short queries; use --goal 'LEAN_GOAL_AND_CONTEXT' for local variables and types. Ranking is advisory. Confirm types and known names with Lean #check before expanding a search: generated and core declarations may have no Mathlib source header.\n` : ''}${mathematicsRuntimeInstruction(access.environment.DEEPSCIENTIST_MATH_ENV_FILE)}`;
@@ -141,6 +152,7 @@ function readFrozenContexts(problem: SolverProblem, access: ContextAccess): Read
 /** Add role rules; the compiler selects a scoped, versioned mathematical context for dispatch. */
 function buildCooperativeContext(problem: SolverProblem, cooperation: CooperationState, context: ContextBundle,
   action: CooperativeAction, operation: ResearchOperation, compilation: Omit<TaskContextInput, 'instructions'>): ContextBundle {
+  const workContract = cooperativeWorkContract(action, cooperation.tasks);
   const rules = action.kind === 'review'
     ? 'You are the Independent Reviewer. Leave Lean sources unchanged. Check this fixed proof against the original question, assumptions and Lean evidence. Write one JSON object in RESEARCH.md: {"verdict":"accepted|changes_requested"}. Optional summary and evidenceRefs explain the decision.\n'
     : action.kind === 'solve'
@@ -170,6 +182,10 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
   const roleText = `Your role: ${action.kind === 'review' ? 'reviewer' : action.kind === 'solve' ? 'primary solver' : action.kind === 'task' ? action.task.kind === 'goal' ? 'engineer' : 'researcher' : 'lead'}` + '\n' + sharing +
     (operation === 'direct' ? '' : `Research operation: ${operation}.\n`);
   const routeRules = 'Report a stable local obstruction in a research/sketch response or progress delivery with blockers:[{mechanism:"stable local mechanism",scope:"exact affected inference",evidenceRefs:[],reopenOn:[{kind:"contract-changed"},{kind:"environment-changed"},{kind:"dependency-checked",taskId:"ACTUAL_DECLARED_DEPENDENCY_ID"}]}]. Use actual declared dependency ids; reopenOn may be omitted for the host default. A blocker is advisory and applies only to its stated inference. Repeating the same local premises, evidence and environment twice parks the affected task; it does not establish that the original theorem is false or impose a solving deadline. Preserve useful proofs and state an explicit reopening condition.\n';
+  const handoffRules = action.kind === 'lead' || action.kind === 'solve' ?
+    'Pending research-handoffs are required inputs, independent of the optional delivery excerpts. For each shown id, adopt its exact typed target in ' +
+    (action.kind === 'solve' ? 'your requests array in the math-help response' : 'the complete task graph') +
+    ', or include handoffDecisions:[{id:"SHOWN_HANDOFF_ID",status:"rejected|deferred",reason:"specific mathematical reason or missing input"}]. Adoption only schedules a new proof obligation. Do not mark an unproved proposal as checked. New proposals arriving after this dispatch are handled by the next decision.\n' : '';
   const leadRouteRules = action.kind === 'lead' ?
     'When the original-goal frontier is stalled, use new findings to split the substantive missing argument into independently provable exact lemma tasks and a closing consumer. Changing notation or assuming the original bound in a wrapper does not reduce that gap. A paper theorem is a route reference; assign every unproved analytic premise explicitly. Preserve existing checked task contracts. If the available inputs give no further concrete step, retain the blockers and explain the specific new input needed to resume. The host will reconsider unchanged mathematical input only once, including across restarts.\n' +
     'For a parked task, assign a targeted feasibility check or a discriminating experiment, or change a relevant mathematical input. A revision number, reworded objective or unrelated helper does not resolve the recorded obstruction. You may declare alternative proofRoutes:[{id:"route_id",targetTaskId:"original_goal_task_id",prerequisiteTaskIds:["typed_lemma_task_id"],closingTaskId:"typed_closing_lemma_task_id"}]. Replace schema ids with actual task ids. Every route input must be a typed lemma with its full exact closed type; the closing lemma dependsOn must cover all route prerequisites. All prerequisites within one route are required together; routes for one target are alternatives. The target\'s ordinary dependsOn remain additional requirements. A checked closing lemma enables an original-goal attempt. A route is closed only after the original goal passes its strict host check and its Lean proof actually references that closing lemma; advisory findings and a conditional bridge never supply formal acceptance.\n' : '';
@@ -182,7 +198,7 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
       action.kind === 'task' && ['lemma', 'goal'].includes(action.task.kind) ? 'Inspect relevant checked inputs and their exact declarations before reconstructing an argument. Save the concrete consumer application and discharge every premise; report the remaining original-goal obstacle in RESEARCH.md.\n' : '') +
     (action.kind === 'task' && ['research', 'sketch'].includes(action.task.kind)
       ? 'Before restoring a temporary Lean probe, retain its complete reusable code, namespace/context, exact declaration names and proposed consumer in a lean fence in worktree-root RESEARCH.md. A prose claim that Lean passed is not a recoverable proof. To report a successful local check explicitly, use leanChecks:[{status:"passed",path:"RESEARCH.md",declarations:["Qualified.name"]}] in the single JSON response and keep the complete code outside that JSON in a lean fence. The host binds retained artifacts to this problem, assignment and commit; every local check remains advisory until a separate typed host check passes.\n' : '') +
-    routeRules + leadRouteRules +
+    routeRules + handoffRules + leadRouteRules +
     'Original declarations retain the frozen source order shown below. A goal cannot depend on a later original goal in the same file. Extract their shared argument into a newly named lemma before both goals; preserve every other original proof and declaration placement.\n' +
     'COOPERATION.json contains scoped live peer work, findings, gaps and checked results; leave it and CONTEXT-MANIFEST.json unchanged. The context compilation manifest identifies included and omitted material and why it was omitted. Exact mathematical interfaces and original assumptions are mandatory; retrieve full proof sources and context using their immutable commit/path references. Structured responses use one JSON object, plain or in a math/json fence, replacing old responses. The host manages versions, receipts and budgets, and independently checks all original targets. Unproved dependencies and reviews remain advisory.\n' +
     roleText;
@@ -192,9 +208,10 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
     { id: 'statement-reviews', kind: 'statement-review', text: 'Statement reviews: ' + JSON.stringify(cooperation.statementReviews?.filter(review => review.status !== 'superseded')
       .map(statementReviewSummary) ?? []) },
   ];
-  return { ...context, assignment: action, instructions,
+  return { ...context, assignment: action, workContract, instructions,
     ...compileTaskContext({ ...compilation, instructions, optional,
-      mandatory: [{ id: 'assignment-policy', kind: 'assignment', text: roleText },
+      mandatory: [{ id: 'work-contract', kind: 'assignment', text: 'Host work contract (one product; completion is not proof acceptance):\n' + JSON.stringify(workContract) },
+        { id: 'assignment-policy', kind: 'assignment', text: roleText },
         ...(focusRules ? [{ id: 'frontier-focus', kind: 'continuation' as const,
           text: focusRules + 'Original-goal focus (advisory, not proof acceptance):\n' + JSON.stringify(focusPacket) }] : []),
         ...(action.kind === 'lead' && action.recovery ? [{ id: 'frontier-recovery', kind: 'assignment' as const,

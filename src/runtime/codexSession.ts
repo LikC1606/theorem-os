@@ -10,6 +10,32 @@ const object = (value: unknown): Json => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('math_codex_invalid_message');
   return value as Json;
 };
+const CODEX_FAILURE_CODES = [
+  'contextWindowExceeded', 'sessionBudgetExceeded', 'usageLimitExceeded', 'rateLimitExceeded', 'flexUnavailable',
+  'serverOverloaded', 'cyberPolicy', 'misalignmentPolicyViolation', 'tooManyDenials', 'httpConnectionFailed',
+  'responseStreamConnectionFailed', 'internalServerError', 'unauthorized', 'badRequest', 'threadRollbackFailed',
+  'sandboxError', 'responseStreamDisconnected', 'responseTooManyFailedAttempts', 'activeTurnNotSteerable', 'other',
+] as const;
+export type MathAgentFailureDiagnostic = Readonly<{
+  code: typeof CODEX_FAILURE_CODES[number];
+  httpStatusCode?: number;
+}>;
+const HTTP_FAILURE_CODES = new Set(['httpConnectionFailed', 'responseStreamConnectionFailed',
+  'responseStreamDisconnected', 'responseTooManyFailedAttempts']);
+const failureDiagnostic = (error: Json): MathAgentFailureDiagnostic | undefined => {
+  const info = error.codexErrorInfo;
+  const structured = info && typeof info === 'object' && !Array.isArray(info) ? info as Json : undefined;
+  const keys = structured ? Object.keys(structured) : [];
+  const candidate = typeof info === 'string' ? info : keys.length === 1 ? keys[0] : undefined;
+  const code = CODEX_FAILURE_CODES.find(value => value === candidate);
+  if (!code) return undefined;
+  const payload = structured?.[code];
+  const status = payload && typeof payload === 'object' && !Array.isArray(payload)
+    ? (payload as Json).httpStatusCode : undefined;
+  return { code,
+    ...(HTTP_FAILURE_CODES.has(code) && typeof status === 'number' && Number.isInteger(status) && status >= 100 && status <= 599
+      ? { httpStatusCode: status } : {}) };
+};
 export type MathAgentActivity = {
   event: 'item_started' | 'item_completed' | 'reasoning' | 'message' | 'command_output' | 'lean_lock_waiting' | 'lean_lock_acquired';
   itemType?: string;
@@ -31,6 +57,7 @@ export type MathAgentOptions = {
 export type MathAgentSession = {
   threadId: string;
   readonly lastError?: string;
+  readonly lastFailureDiagnostic?: MathAgentFailureDiagnostic;
   readonly lastInputTokens?: number;
   run: (message: string, messageId: string, workspace: string, onStarted: (turnId: string) => void) => Promise<string>;
   notify?: (message: string) => Promise<void>;
@@ -142,6 +169,7 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
   let completion: { resolve: (turn: Json) => void; reject: (error: Error) => void } | undefined;
   const earlyCompletions = new Map<string, Json>();
   let lastError: string | undefined;
+  let lastFailureDiagnostic: MathAgentFailureDiagnostic | undefined;
   let lastInputTokens = 0;
   let transportFailure: Error | undefined;
   let threadId = options.threadId;
@@ -154,7 +182,9 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
     lastStreamActivityAt = now;
     options.onActivity({ event, ...(itemType && /^[A-Za-z][A-Za-z0-9]{0,63}$/u.test(itemType) ? { itemType } : {}) });
   };
-  rpc.onFailure = error => { transportFailure = error; lastError = error.message; completion?.reject(error); };
+  rpc.onFailure = error => {
+    transportFailure = error; lastError = error.message; lastFailureDiagnostic = undefined; completion?.reject(error);
+  };
   rpc.onNotification = (method, params) => {
     if (threadId !== undefined && params.threadId !== undefined && params.threadId !== threadId) return;
     if (method === 'item/started' || method === 'item/completed') {
@@ -224,11 +254,13 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
     return {
       threadId,
       get lastError() { return lastError; },
+      get lastFailureDiagnostic() { return lastFailureDiagnostic; },
       get lastInputTokens() { return lastInputTokens; },
       run: async (message, messageId, workspace, onStarted) => {
         if (transportFailure) throw transportFailure;
         if (completion) throw new Error('math_codex_turn_already_running');
         lastError = undefined;
+        lastFailureDiagnostic = undefined;
         let resolve!: (turn: Json) => void;
         let reject!: (error: Error) => void;
         const done = new Promise<Json>((yes, no) => { resolve = yes; reject = no; });
@@ -263,6 +295,7 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
           if (typeof finished.status !== 'string') throw new Error('math_codex_turn_status_missing');
           if (finished.status === 'failed' && finished.error) {
             const error = object(finished.error);
+            lastFailureDiagnostic = failureDiagnostic(error);
             if (typeof error.message === 'string') lastError = error.message;
           }
           return checkpoint && finished.status === 'interrupted' ? 'checkpoint' : finished.status;

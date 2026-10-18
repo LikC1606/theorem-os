@@ -27,6 +27,8 @@ import { captureDeliveryArtifacts, diagnoseUnbackedLeanClaims, validateDeliveryA
 import { validateLemmaRequests } from './taskProposals';
 import { recordRouteBlockers, refreshRouteBlockers, routeBlockerBasis, validateBlockerProposals, type BlockerBasis, type RouteBlocker } from './routeControl';
 import { parseProofRoutes, type ProofRoute } from './proofRoutes';
+import { attributeTaskReferences } from './taskReferenceAttribution';
+import { pendingResearchHandoffs, researchHandoffs, resolveResearchHandoffs, type ResearchHandoffDecision } from './researchHandoffs';
 import { captureObligationSnapshot, diffObligationProgress, type ObligationSnapshot, type ObligationProgressReceipt } from './obligationProgress';
 
 import { taskGroup, taskVersion, taskReferenceDependencies, assignmentDeliveryFile, markTaskReferences, hasTaskReferences, markTaskAcceptance, hasTaskAcceptance, invalidatedTaskIds,
@@ -49,12 +51,15 @@ type FailedTaskInput = { id: string; taskId: string; taskDigest: string; inputDi
 export type CooperationState = { tasks: TaskRecord[]; groups?: RouteRecord[]; canonicalCommit?: string; review?: ReviewRecord; error?: string;
   history?: { task: CooperativeTask; producer?: string; proof?: TaskProof; integratedCheck?: ProofCheck; finding?: string }[];
   deliveries?: DeliveryRecord[]; cursors?: Record<string, number>; edits?: HumanEditRecord[];
+  researchDecisions?: ResearchHandoffDecision[];
   planVersion?: string; planEdited?: boolean; statementReviews?: StatementReview[];
   helpRequestDigest?: string;
   planRejection?: { proposalDigest: string; inputDigest: string; error: string; stalled: boolean };
   lastLeadInputDigest?: string;
   frontierRecoveries?: { id: string; taskIds: string[]; goalIds: string[];
-    status: 'requested' | 'planned' | 'awaiting-input'; taskInputDigests: string[]; readyTaskIds?: string[]; reason?: string }[];
+    status: 'requested' | 'planned' | 'awaiting-input'; taskInputDigests: string[]; readyTaskIds?: string[]; reason?: string;
+    investigationTaskId?: string }[];
+  frontierWaiting?: { inputDigest: string; taskIds: string[]; goalIds: string[]; reason: 'awaiting-new-mathematical-input' };
   failedTaskInputs?: FailedTaskInput[];
   blockers?: RouteBlocker[];
   proofRoutes?: ProofRoute[];
@@ -94,10 +99,12 @@ export class CooperativeResearch {
   private checkingTaskInputs = new Map<string, Promise<void>>();
   private leanSourceDigests = new Map<string, string>();
   private timer?: NodeJS.Timeout;
+  private stopping = false;
   private failure?: Error;
   private pinned = new Set<string>();
   constructor(private readonly input: { state: SolverRunState; workers: readonly ResearchWorker[];
     access: ReadonlyMap<string, WorkerAccess>; signal: AbortSignal; timeoutMs?: number;
+    continuousResearch?: boolean;
     modelDispatchAllowed?: () => boolean;
     save: () => void; emit: (event: string, details?: Record<string, unknown>) => void;
     modules: SolverModules; exclusiveCheck: <T>(check: () => Promise<T>) => Promise<T> }) {
@@ -108,6 +115,7 @@ export class CooperativeResearch {
     this.archive.canonicalCommit ??= git(this.lead.worktree, ['rev-parse', 'HEAD']);
     this.liveWorkers = new Set(input.workers.map(worker => worker.id));
     this.needsLead = !this.archive.tasks.length || Boolean(this.archive.error) ||
+      pendingResearchHandoffs(this.archive).length > 0 ||
       (this.archive.tasks.some(node => node.status === 'blocked') && this.archive.lastLeadInputDigest !== this.planningInputDigest());
   }
   private get livePeers() { return this.input.workers.filter(worker => worker.id !== this.lead.id && this.liveWorkers.has(worker.id)); }
@@ -197,6 +205,7 @@ export class CooperativeResearch {
           ...(visible.has(node) ? { objective: node.task.objective, feedback: node.feedback,
             actualReferences: (node.integratedCheck ?? node.proof)?.references } : {}) })),
         deliveries: deliveries.map(({ evidence: _evidence, ...record }) => record),
+        researchHandoffs: researchHandoffs(scoped),
         blockers: scoped.blockers ?? [],
         proofRoutes: scoped.proofRoutes ?? [],
         frontierRecoveries: scoped.frontierRecoveries ?? [],
@@ -317,14 +326,17 @@ export class CooperativeResearch {
     return mathDigest(canonicalMathJson({ problemReceiptDigest: this.input.state.problem.receiptDigest,
       environmentDigest: this.input.state.environmentDigest, planVersion: this.archive.planVersion,
       sourceDigest: ownedSourceDigest(this.input.state.problem, this.lead.worktree, this.archive.canonicalCommit!),
+      liveWorkers: this.input.workers.filter(worker => this.liveWorkers.has(worker.id)).map(({ id, role }) => ({ id, role })),
       progress: captureObligationSnapshot(this.archive.tasks, { groups: this.archive.groups,
         environmentDigest: this.input.state.environmentDigest, proofRoutes: this.archive.proofRoutes, blockers: this.archive.blockers }).digest,
-      tasks: this.archive.tasks.map(node => ({ id: node.task.id, status: node.status, feedback: node.feedback })), deliveries }));
+      tasks: this.archive.tasks.map(node => ({ id: node.task.id, status: node.status, feedback: node.feedback })),
+      researchDecisions: this.archive.researchDecisions, deliveries }));
   }
   private planningEvidenceDigest() {
     // Plan invalidation can supersede old deliveries, so compare their immutable content.
     return mathDigest(canonicalMathJson({ problemReceiptDigest: this.input.state.problem.receiptDigest,
       environmentDigest: this.input.state.environmentDigest,
+      liveWorkers: this.input.workers.filter(worker => this.liveWorkers.has(worker.id)).map(({ id, role }) => ({ id, role })),
       sourceDigest: ownedSourceDigest(this.input.state.problem, this.lead.worktree, this.archive.canonicalCommit!),
       deliveries: (this.archive.deliveries ?? []).filter(record => record.producer !== this.lead.id)
         .map(({ status: _status, evidence: _evidence, ...record }) => record) }));
@@ -567,10 +579,60 @@ export class CooperativeResearch {
     }
     const action: CooperativeAction = { kind: 'lead', seedCommit: this.seed(this.lead, this.archive.canonicalCommit!),
       planVersion: this.archive.planVersion, planningInputDigest: this.planningInputDigest(),
+      handoffIds: pendingResearchHandoffs(this.archive).map(item => item.id),
       recovery: { id, taskIds: recovery.taskIds, goalIds: recovery.goalIds } };
     this.leadEvidence.set(action, this.planningEvidenceDigest());
     this.changed();
     return action;
+  }
+  private async investigateFrontierRecovery(frontier: ReturnType<CooperativeResearch['activeGoalFrontier']>) {
+    if (!this.input.continuousResearch) return false;
+    const inputs = new Set(frontier.map(item => this.recoveryTaskInput(this.node(item.taskId))));
+    const recovery = this.archive.frontierRecoveries?.find(item => item.status === 'awaiting-input' &&
+      !item.investigationTaskId && item.taskInputDigests.every(input => inputs.has(input)));
+    if (!recovery) return false;
+    const tasks = recovery.taskIds.map(id => this.node(id)).filter(node => node && node.status === 'blocked');
+    if (!tasks.length) return false;
+    const task: CooperativeTask = { id: `frontier_input_${recovery.id.slice(0, 40)}`, kind: 'research', revision: 0,
+      groupId: taskGroup(tasks[0].task), dependsOn: tasks.map(node => node.task.id),
+      objective: `Independently investigate new mathematical inputs for the unresolved original-goal frontier ${tasks.map(node => node.task.id).join(', ')}. ` +
+        `The previous recovery could not supply an executable step: ${recovery.reason ?? 'The original inference remains unresolved.'} ` +
+        'Inspect relevant mathematical references, available library results, and distinct constructions. Report concrete evidence, exact hypotheses, and unresolved gaps; findings remain advisory. ' +
+        'Do not resubmit the unchanged failed proof, rename the same obligation, or claim that a proposed input has been proved.' };
+    const node: TaskRecord = { task, status: 'pending', attempts: 0 };
+    if (!routeAllowsTask(task, [...this.archive.tasks, node], this.archive.groups) ||
+        !this.livePeers.some(worker => this.input.modules.M5.assign([node], worker, this.livePeers, this.archive.groups) === node)) return false;
+    // The marker shares the accepted-plan checkpoint so restarting cannot create another investigation of this input.
+    recovery.investigationTaskId = task.id;
+    if (!this.archive.tasks.some(node => node.task.id === task.id)) {
+      const evidence = this.planningEvidenceDigest();
+      try {
+        await this.acceptPlan(parseCooperationPlan(this.input.state.problem, {
+          tasks: [...this.archive.tasks.map(node => node.task), task], groups: this.archive.groups?.map(route => route.group),
+          ...(this.archive.proofRoutes?.length ? { proofRoutes: this.archive.proofRoutes } : {}),
+        }));
+      } catch (error) { delete recovery.investigationTaskId; throw error; }
+      this.archive.lastLeadInputDigest = evidence === this.planningEvidenceDigest()
+        ? this.planningInputDigest() : this.archive.lastLeadInputDigest;
+      this.archive.planEdited = true; this.syncPlanNotes();
+    }
+    this.archive.frontierWaiting = undefined;
+    this.input.emit('frontier_investigation_requested', { recoveryId: recovery.id, taskId: task.id, taskIds: recovery.taskIds,
+      goalIds: recovery.goalIds, evidenceStatus: 'advisory' });
+    this.changed();
+    return true;
+  }
+  private async waitForFrontierInput(frontier: ReturnType<CooperativeResearch['activeGoalFrontier']>, inputDigest: string) {
+    if (!this.input.continuousResearch || !frontier.length) return false;
+    if (this.stopping || this.input.modelDispatchAllowed?.() === false || inputDigest !== this.planningInputDigest()) return true;
+    if (this.archive.frontierWaiting?.inputDigest !== inputDigest) {
+      this.archive.frontierWaiting = { inputDigest, taskIds: frontier.map(item => item.taskId),
+        goalIds: [...new Set(frontier.flatMap(item => item.goalIds))], reason: 'awaiting-new-mathematical-input' };
+      this.input.emit('frontier_recovery_waiting', { ...this.archive.frontierWaiting });
+      this.changed();
+    }
+    await this.wait();
+    return true;
   }
   private validateRecoveryPlan(action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' | 'solve' }>,
     plan: ReturnType<typeof parseCooperationPlan>, response: any) {
@@ -614,8 +676,8 @@ export class CooperativeResearch {
   }
   private proposedPlanDigest() {
     try {
-      const { tasks, groups, proofRoutes, recovery } = block(this.lead.worktree, 'math-plan');
-      return mathDigest(canonicalMathJson({ tasks, groups, proofRoutes, recovery }));
+      const { tasks, groups, proofRoutes, recovery, handoffDecisions } = block(this.lead.worktree, 'math-plan');
+      return mathDigest(canonicalMathJson({ tasks, groups, proofRoutes, recovery, handoffDecisions }));
     } catch {
       // A notes-only commit must not make an identical malformed response new input.
       const file = path.join(this.lead.worktree, 'RESEARCH.md');
@@ -633,6 +695,7 @@ export class CooperativeResearch {
     this.input.emit('plan_rejected', { ...this.archive.planRejection });
   }
   async stop() {
+    this.stopping = true; this.wake();
     clearInterval(this.timer);
     let pending: ReadonlyMap<string, Promise<void>> | undefined;
     try { pending = await this.pendingPulse; } catch (error) { if (!this.input.signal.aborted) throw error; }
@@ -718,7 +781,7 @@ export class CooperativeResearch {
     if (fingerprint === this.archive.helpRequestDigest) return;
     this.archive.helpRequestDigest = fingerprint;
     try {
-      const { requests } = block(this.lead.worktree, 'math-help');
+      const { requests, handoffDecisions } = block(this.lead.worktree, 'math-help');
       if (requests === undefined) return;
       if (!Array.isArray(requests) || requests.length > this.input.workers.length - 1 ||
           requests.some(task => !task || !['lemma', 'research', 'sketch'].includes(task.kind) ||
@@ -727,7 +790,12 @@ export class CooperativeResearch {
         id: `original_goal_${index + 1}`, kind: 'goal', objective: `Primary solver owns ${target.theoremName}.`,
         theoremName: target.theoremName, proofPath: target.proofPath, status: 'paused',
       }));
-      await this.acceptPlan(parseCooperationPlan(this.input.state.problem, { tasks: [...goals, ...requests] }));
+      const plan = parseCooperationPlan(this.input.state.problem, { tasks: [...goals, ...requests] });
+      const action = this.active.get(this.lead.id)?.action;
+      const decisions = resolveResearchHandoffs(this.archive, action?.kind === 'solve' ? action.handoffIds ?? [] : [],
+        plan.tasks, handoffDecisions);
+      await this.acceptPlan(plan);
+      this.recordHandoffDecisions(decisions);
       this.input.emit('help_requested', { taskIds: requests.map(task => task.id) });
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'math_help_invalid_requests';
@@ -871,8 +939,7 @@ export class CooperativeResearch {
       throw new Error('math_task_check_identity_changed');
     if (proof.references) {
       const references = proof.references;
-      references.tasks = tasks.filter(node => node.task.id !== task.id && this.referencesTask(references, node))
-        .map(node => ({ taskId: node.task.id, taskDigest: digest(node.task) }));
+      references.tasks = attributeTaskReferences(references, tasks);
       markTaskReferences(proof);
     }
     this.pin(proof.commit); this.pin(proof.verification.targetCommit);
@@ -902,14 +969,6 @@ export class CooperativeResearch {
       await this.deliverProof(worker, node, proof, summary, options);
       return proof;
     });
-  }
-  private referencesTask(references: ProofReferences, node: TaskRecord) {
-    const declarations = [{ file: node.task.proofPath, name: node.task.theoremName }, ...(node.proof?.changes ?? [])];
-    // Fingerprint inputs include the root; only Lean-reported uses establish outward dependencies.
-    return [...references.statement, ...references.proof].some(reference =>
-      (reference.file !== references.root.file || reference.name !== references.root.name) &&
-      declarations.some(declaration => declaration.file === reference.file &&
-        declaration.name?.split('.').at(-1) === reference.name.split('.').at(-1)));
   }
   private retryTaskLocally(node: TaskRecord, commit?: string): boolean {
     if (!node.assignment || !this.liveWorkers.has(node.assignment.workerId)) return false;
@@ -1336,10 +1395,14 @@ export class CooperativeResearch {
   }
   async next(worker: ResearchWorker, budget: { maxTurns: number; remainingMs: number }): Promise<CooperativeAction | undefined> {
     for (;;) {
+      if (this.stopping) return;
       this.input.signal.throwIfAborted();
       if (this.failure) throw this.failure;
       this.refreshResearchCheckpoints();
       if (this.refreshFailedTaskInputs()) this.changed();
+      if (this.archive.frontierWaiting && this.archive.frontierWaiting.inputDigest !== this.planningInputDigest()) {
+        this.archive.frontierWaiting = undefined; this.changed();
+      }
       if (!this.liveWorkers.has(this.lead.id)) return;
       // Publish complete fixed snapshots before assigning work against a newly changed plan.
       if (this.preparingStatements) { await this.preparingStatements.catch(() => {}); continue; }
@@ -1366,7 +1429,8 @@ export class CooperativeResearch {
             }
             return;
           }
-          return { kind: 'solve', seedCommit: git(worker.worktree, ['rev-parse', 'HEAD']) };
+          return { kind: 'solve', seedCommit: git(worker.worktree, ['rev-parse', 'HEAD']),
+            handoffIds: pendingResearchHandoffs(this.archive).map(item => item.id) };
         }
         const head = this.archive.canonicalCommit!;
         const goals = this.archive.tasks.filter(node => node.task.kind === 'goal');
@@ -1391,7 +1455,7 @@ export class CooperativeResearch {
         if (rejection?.stalled) {
           if (rejection.inputDigest === this.planningInputDigest() && rejection.proposalDigest === this.proposedPlanDigest()) {
             this.needsLead = false;
-            if (!running && !researchCanAdvance(this.archive.tasks, this.archive.groups, this.liveWorkers)) {
+            if (!running && !this.canAdvance()) {
               this.input.emit('plan_stalled', { ...rejection }); return;
             }
             await this.wait(); continue;
@@ -1399,7 +1463,7 @@ export class CooperativeResearch {
           this.needsLead = true;
         }
         if (!running && !this.needsLead && this.archive.tasks.length && (!this.archive.review || this.archive.review.status === 'changes_requested') &&
-            !researchCanAdvance(this.archive.tasks, this.archive.groups, this.liveWorkers)) {
+            !this.canAdvance()) {
           // Parking prevents repeating an inference, not reconsidering its unfinished original goal.
           const frontier = this.activeGoalFrontier();
           const inputDigest = this.planningInputDigest();
@@ -1408,6 +1472,8 @@ export class CooperativeResearch {
             if (this.resumeUnattemptedFrontier(frontier)) continue;
             const recovery = this.requestFrontierRecovery(frontier);
             if (recovery) return recovery;
+            if (await this.investigateFrontierRecovery(frontier)) continue;
+            if (await this.waitForFrontierInput(frontier, inputDigest)) continue;
             this.input.emit('routes_idle', { groups: this.archive.groups, goalIds, frontier,
               reason: frontier.length ? 'unchanged-mathematical-input' : 'no-active-goal-frontier', inputDigest }); return;
           }
@@ -1415,16 +1481,17 @@ export class CooperativeResearch {
           this.input.emit('blocked_tasks_reconsidered', { taskIds: frontier.map(item => item.taskId), goalIds, inputDigest });
         }
         if (this.needsLead || (!running && (!this.livePeers.length ||
-            !this.input.modules.M3.ready(this.archive.tasks, this.archive.groups).some(node => this.archive.tasks.includes(node))))) {
+            !this.hasAssignableTask()))) {
           this.needsLead = false;
           const inputDigest = this.planningInputDigest();
           if (inputDigest === this.archive.lastLeadInputDigest && !this.archive.error) {
-            if (!running && !this.input.modules.M3.ready(this.archive.tasks, this.archive.groups)
-              .some(node => this.archive.tasks.includes(node))) {
+            if (!running && !this.hasAssignableTask()) {
               const frontier = this.activeGoalFrontier(), goalIds = [...new Set(frontier.flatMap(item => item.goalIds))];
               if (this.resumeUnattemptedFrontier(frontier)) continue;
               const recovery = this.requestFrontierRecovery(frontier);
               if (recovery) return recovery;
+              if (await this.investigateFrontierRecovery(frontier)) continue;
+              if (await this.waitForFrontierInput(frontier, inputDigest)) continue;
               this.input.emit('routes_idle', { groups: this.archive.groups, goalIds, frontier,
                 reason: frontier.length ? 'unchanged-mathematical-input' : 'no-active-goal-frontier', inputDigest }); return;
             }
@@ -1435,7 +1502,8 @@ export class CooperativeResearch {
             if (recovery) return recovery;
           }
           this.syncPlanNotes();
-          const action: CooperativeAction = { kind: 'lead', seedCommit: this.seed(worker, head), planVersion: this.archive.planVersion, planningInputDigest: inputDigest };
+          const action: CooperativeAction = { kind: 'lead', seedCommit: this.seed(worker, head), planVersion: this.archive.planVersion,
+            planningInputDigest: inputDigest, handoffIds: pendingResearchHandoffs(this.archive).map(item => item.id) };
           this.leadEvidence.set(action, this.planningEvidenceDigest());
           return action;
         }
@@ -1500,6 +1568,24 @@ export class CooperativeResearch {
       }
       await this.wait();
     }
+  }
+  private canAdvance() {
+    return researchCanAdvance(this.archive.tasks, this.archive.groups, this.liveWorkers, node =>
+      this.livePeers.some(worker => this.input.modules.M5.assign([node], worker, this.livePeers, this.archive.groups) === node));
+  }
+  private hasAssignableTask() {
+    return this.input.modules.M3.ready(this.archive.tasks, this.archive.groups).some(node => this.archive.tasks.includes(node) &&
+      this.livePeers.some(worker => this.input.modules.M5.assign([node], worker, this.livePeers, this.archive.groups) === node));
+  }
+  private recordHandoffDecisions(decisions: readonly ResearchHandoffDecision[]) {
+    if (!decisions.length) return;
+    const records = new Map(this.archive.researchDecisions?.map(item => [item.id, item]));
+    for (const decision of decisions) {
+      records.set(decision.id, decision);
+      this.input.emit('research_handoff_decided', { ...decision });
+    }
+    this.archive.researchDecisions = [...records.values()];
+    this.changed();
   }
   private visible(task: CooperativeTask): TaskRecord[] {
     const nodes = new Map(this.archive.tasks.map(node => [node.task.id, node]));
@@ -1568,7 +1654,11 @@ export class CooperativeResearch {
       this.archive.tasks.filter(node => node.task.sharing !== 'group' && ['integrated', 'completed'].includes(node.status)) : this.archive.tasks;
     const visibleIds = new Set(tasks.map(node => node.task.id));
     const visible = (id: string, version: string) => visibleIds.has(id) && versions.get(id)?.version === version;
+    const deliveries = this.archive.deliveries?.filter(item => this.deliveryVisible(item, task, versions) &&
+      (task || tasks === this.archive.tasks || !item.taskId || versions.get(item.taskId)?.task.sharing !== 'group')) ?? [];
+    const deliveryIds = new Set(deliveries.map(item => item.id));
     return { ...this.archive, tasks,
+      researchDecisions: this.archive.researchDecisions?.filter(item => deliveryIds.has(item.deliveryId)),
       frontierRecoveries: tasks === this.archive.tasks ? this.archive.frontierRecoveries : undefined,
       failedTaskInputs: this.archive.failedTaskInputs?.filter(record => tasks === this.archive.tasks || visible(record.taskId, record.taskDigest)),
       progressSnapshot: tasks === this.archive.tasks ? this.archive.progressSnapshot : undefined,
@@ -1582,8 +1672,7 @@ export class CooperativeResearch {
       researchCheckpoints: this.archive.researchCheckpoints && Object.fromEntries(Object.entries(this.archive.researchCheckpoints)
         .filter(([id, record]) => visible(id, record.taskDigest))),
       // Public progress can steer another route before its proof is complete; it remains advisory.
-      deliveries: this.archive.deliveries?.filter(item => this.deliveryVisible(item, task, versions) &&
-        (task || tasks === this.archive.tasks || !item.taskId || versions.get(item.taskId)?.task.sharing !== 'group')) ?? [],
+      deliveries,
       history: tasks === this.archive.tasks ? this.archive.history : this.archive.history?.filter(item => visible(item.task.id, digest(item.task))),
       statementReviews: this.archive.statementReviews?.filter(item => item.status !== 'superseded' && visible(item.taskId, item.taskDigest)) };
   }
@@ -1636,7 +1725,25 @@ export class CooperativeResearch {
   async deliver(worker: ResearchWorker, action: CooperativeAction, commit: string, recovering = false,
     recoveryKind: 'checkpoint' | 'request-failure' = 'checkpoint'): Promise<{ check?: ProofCheck; checkWhole: boolean }> {
     if (isStatementAction(action)) return this.deliverStatement(worker, action);
-    if (action.kind === 'solve') return { checkWhole: true };
+    if (action.kind === 'solve') {
+      if (!recovering && pendingResearchHandoffs(this.archive).some(item => action.handoffIds?.includes(item.id))) {
+        await this.readHelpRequest();
+        if (pendingResearchHandoffs(this.archive).some(item => action.handoffIds?.includes(item.id))) {
+          try {
+            const response = block(worker.worktree, 'math-help');
+            this.recordHandoffDecisions(resolveResearchHandoffs(this.archive, action.handoffIds ?? [],
+              this.archive.tasks.map(node => node.task), response.handoffDecisions));
+            this.archive.error = undefined; this.changed();
+          } catch (error) {
+            const reason = error instanceof Error ? error.message : 'invalid response';
+            this.archive.error = reason.startsWith('math_handoff_') ? reason : 'math_handoff_decision_invalid: ' + reason;
+            this.input.emit('research_handoff_rejected', { reason: this.archive.error }); this.changed();
+            return { checkWhole: false };
+          }
+        }
+      }
+      return { checkWhole: true };
+    }
     if (action.kind === 'review') {
       if (recovering) { this.interrupted(worker, action); return { checkWhole: false }; }
       const review = this.archive.review;
@@ -1698,6 +1805,15 @@ export class CooperativeResearch {
           resolution = { recovery, taskIds: [], reason: error instanceof Error ? error.message : 'math_frontier_recovery_invalid' };
         }
         if (!resolution.taskIds.length) {
+          if (action.handoffIds?.length) {
+            try {
+              const response = block(worker.worktree, 'math-plan');
+              this.recordHandoffDecisions(resolveResearchHandoffs(this.archive, action.handoffIds,
+                this.archive.tasks.map(node => node.task), response.handoffDecisions));
+            } catch (error) {
+              this.rejectPlan(error); this.changed(); return { checkWhole: false };
+            }
+          }
           resolution.recovery.status = 'awaiting-input'; resolution.recovery.reason = resolution.reason;
           this.archive.planRejection = undefined; this.archive.error = undefined;
           this.archive.lastLeadInputDigest = this.leadEvidence.get(action) === this.planningEvidenceDigest()
@@ -1710,7 +1826,16 @@ export class CooperativeResearch {
         }
       }
       let accepted = false;
-      try { await this.acceptPlan(recoveryPlan); accepted = true; } catch (error) {
+      try {
+        if (action.handoffIds?.length) {
+          const response = block(worker.worktree, 'math-plan');
+          const plan = recoveryPlan ?? parseCooperationPlan(this.input.state.problem, response);
+          const decisions = resolveResearchHandoffs(this.archive, action.handoffIds, plan.tasks, response.handoffDecisions);
+          await this.acceptPlan(plan);
+          this.recordHandoffDecisions(decisions);
+        } else await this.acceptPlan(recoveryPlan);
+        accepted = true;
+      } catch (error) {
         this.rejectPlan(error);
         if (!this.archive.tasks.length) {
           try { await this.startInitialTasks(); }

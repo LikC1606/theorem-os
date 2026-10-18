@@ -7,6 +7,7 @@ import type { SolverProblem } from './problem';
 import { hasTaskAcceptance, taskGroup, taskVersion, type CooperativeAction, type TaskRecord } from './tasks';
 import type { RouteBlocker } from './routeControl';
 import { buildProofContinuation } from './progress';
+import { pendingResearchHandoffs } from './researchHandoffs';
 
 export const DEFAULT_TASK_CONTEXT_BYTES = 512 * 1024;
 export const DEFAULT_OPTIONAL_TASK_CONTEXT_BYTES = 64 * 1024;
@@ -144,6 +145,18 @@ function closedLeadHelper(node: TaskRecord): boolean {
   return node.task.kind === 'lemma' && node.status === 'integrated' && !!proof?.passed &&
     !proof.conditions?.length && hasTaskAcceptance(proof) && present(proof.commit) &&
     present(proof.sourceDigest) && present(node.task.proofPath) && present(node.task.theoremName);
+}
+
+function leadTaskInterface(node: TaskRecord, action: CooperativeAction | undefined,
+  omitted: ContextManifest['omitted'][number][]) {
+  if (action?.kind === 'task' && node.task.id === action.task.id) return { id: node.task.id };
+  const finishedAdvisory = node.status === 'completed' && ['research', 'sketch'].includes(node.task.kind);
+  if (action?.kind !== 'lead' || !(closedLeadHelper(node) || finishedAdvisory) ||
+      Buffer.byteLength(node.task.objective) <= 1024) return node.task;
+  // The full typed interface remains inline; only settled planning prose moves to the live peer index.
+  const { objective, ...task } = node.task;
+  omitted.push({ id: `objective:${task.id}`, kind: 'interfaces', reason: 'advisory-details-by-reference' });
+  return { ...task, objectiveDigest: mathDigest(objective) };
 }
 
 /** Closed shared interfaces encapsulate private implementation prerequisites, never unresolved assumptions. */
@@ -313,8 +326,7 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
   const omitted: ContextManifest['omitted'][number][] = [];
   const { tasks, deferred, byId, required, route: selectedRoute } = requiredTasks(input, omitted);
   const references = evidenceReferenceDictionary();
-  const graph = tasks.map(node => ({ ...(action?.kind === 'task' && node.task.id === action.task.id
-    ? { id: node.task.id } : node.task), taskDigest: taskVersion(node.task),
+  const graph = tasks.map(node => ({ ...leadTaskInterface(node, action, omitted), taskDigest: taskVersion(node.task),
     status: node.status, attempts: node.attempts, groupId: taskGroup(node.task), producer: node.assignment?.workerId,
     sharing: node.task.sharing ?? 'problem',
     integratedCommit: node.integratedCheck ? null : undefined, checkedSourceDigest: node.integratedCheck ? null : undefined,
@@ -330,7 +342,23 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
   if (action) mandatory.push(section('assignment', 'assignment', 'Cooperative assignment:', action));
   if (selectedRoute) mandatory.push(section(`route:${selectedRoute.id}`, 'routes', 'Selected alternative route and exact closing obligation (planned, not accepted):', selectedRoute));
   if (input.cooperation) {
+    if (action?.kind === 'lead' || action?.kind === 'solve') {
+      const shown = action.handoffIds && new Set(action.handoffIds);
+      const handoffs = pendingResearchHandoffs(input.cooperation).filter(item => !shown || shown.has(item.id));
+      if (handoffs.length) mandatory.push(section('research-handoffs', 'assignment',
+        'Pending research proposals requiring a Lead decision (advisory; not checked lemmas):', handoffs));
+      if (action.kind === 'solve' && input.cooperation.error?.startsWith('math_handoff_'))
+        mandatory.push(section('handoff-feedback', 'feedback', 'Repair the research handoff decision:', input.cooperation.error));
+    }
     mandatory.push(section('task-interfaces', 'interfaces', 'Lead task graph and host feedback:', graph));
+    if (graph.some(node => 'objectiveDigest' in node)) mandatory.push(section('task-objective-reference-encoding', 'sources',
+      'Finished task objective references (advisory prose by reference; exact interfaces remain mandatory):', {
+        encoding: 'finished-task-objectives-v1',
+        retrieval: 'Retrieve omitted finished objectives from worktree-root COOPERATION.json peers by id. Require peer.taskDigest = row.taskDigest ' +
+          'and UTF-8 SHA-256(peer.objective) = row.objectiveDigest. Missing or mismatched descriptions are unavailable. ' +
+          'This live file is not an immutable proof source and grants no proof acceptance. Exact Lean types, premises, dependencies, ' +
+          'unresolved conditions and evidence stay inline; completed research/sketch tasks remain advisory.',
+      }));
     if (deferred.length) mandatory.push(section('checked-helper-catalog', 'sources',
       'Checked helpers outside the current open-task closure (retrieve before using; recorded, not replayed):', {
         retrieval: 'Each source commit/path identifies the complete immutable Lean declaration and proof. Read it with git show COMMIT:PATH. ' +

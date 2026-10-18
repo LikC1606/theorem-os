@@ -21,6 +21,7 @@ export type TaskRecord = { task: CooperativeTask; status: 'pending' | 'running' 
   attempts: number; assignment?: TaskAssignment; proof?: TaskProof; integratedCheck?: TaskProof; feedback?: string; finding?: string;
   routeParking?: string[]; parkedRoutes?: Record<string, string[]>; alternativeRoutes?: readonly ProofRoute[] };
 export type CooperativeAction = { kind: 'lead' | 'assemble' | 'solve'; seedCommit: string; planVersion?: string; planningInputDigest?: string;
+  handoffIds?: readonly string[];
   recovery?: { id: string; taskIds: string[]; goalIds: string[] } } |
   { kind: 'review'; seedCommit: string; sourceDigest: string } | { kind: 'task'; assignment: TaskAssignment; task: CooperativeTask } | StatementAction;
 

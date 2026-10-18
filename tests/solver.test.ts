@@ -27,6 +27,9 @@ import { applyTaskChanges, checkTaskProof, checkTaskProofs, projectTaskSources, 
 import { inspectScopedLeanDeclarations, leanDeclarationContextCommands } from '../src/math/leanSource';
 import { recordRouteBlockers, refreshRouteBlockers } from '../src/solver/routeControl';
 import type { TaskRecord, RouteRecord } from '../src/solver/tasks';
+import { buildTheoremKnowledge, writeTheoremKnowledge } from '../src/solver/theoremKnowledge';
+import { readKnowledgeCatalog, writePackedKnowledge } from '../src/solver/theoremKnowledgeStore';
+import { pendingResearchHandoffs } from '../src/solver/researchHandoffs';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn(), officialGate: vi.fn(), build: vi.fn(), delay: vi.fn(),
   prepare: vi.fn(), freeze: vi.fn(), readiness: vi.fn(), connectivity: vi.fn(), packages: undefined as string | undefined }));
@@ -151,6 +154,73 @@ describe('isolated solver and host acceptance', () => {
     expect(host.verify.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(host.officialGate).toHaveBeenCalledOnce();
     expect(JSON.parse(fs.readFileSync(output, 'utf8')).status).toBe('evaluated_passed');
+  });
+
+  function knowledgeFixture(filename = 'knowledge.json', type = 'True', format: 'v1' | 'v2' = 'v1') {
+    const write = format === 'v1' ? writeTheoremKnowledge : writePackedKnowledge;
+    return write(path.join(directory, filename), buildTheoremKnowledge([{
+      name: 'Saved.helper', file: 'Submission.lean', type, typeKind: 'closed-task-type', kind: 'lemma',
+      description: 'Historical helper', premises: [],
+      dependencies: { statement: [], proof: [], tasks: [], coverage: 'unavailable' },
+      files: { 'Submission.lean': `namespace Saved\nlemma helper : ${type} := by trivial\nend Saved\n` },
+      provenance: { kind: 'solver-check', problemId: 'previous-problem', source: '/archive/state.json',
+        sourceDigest: 'a'.repeat(64), receiptIds: ['historical-receipt'] },
+    }]));
+  }
+
+  it.each(['v1', 'v2'] as const)('prepares identical read-only %s knowledge snapshots for all four workers without opening a model', async format => {
+    const catalog = knowledgeFixture('knowledge.json', 'True', format);
+    expect(await runSolver([...args, '--workers', '4', '--startup-only', '--knowledge-base', catalog.file], directory)).toBe(0);
+    expect(host.createSession).not.toHaveBeenCalled();
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state.knowledgeDigest).toBe(catalog.sha256);
+    for (const worker of state.workers) {
+      const snapshot = path.join(worker.worktree, 'generated/p/.lake/theorem-knowledge.json');
+      expect(mathDigest(fs.readFileSync(snapshot))).toBe(catalog.sha256);
+      expect(fs.statSync(snapshot).mode & 0o222).toBe(0);
+      const saved = readKnowledgeCatalog(snapshot, catalog.sha256);
+      expect(saved.format).toBe(format);
+      expect(Object.values(saved.base.sources)).toEqual(Object.values(readKnowledgeCatalog(catalog.file).base.sources));
+    }
+    expect(await runSolver([...args, '--workers', '4', '--startup-only', '--resume', '--knowledge-base', catalog.file], directory)).toBe(0);
+  });
+
+  it('offers pinned knowledge commands to the solver while retaining independent proof acceptance', async () => {
+    const catalog = knowledgeFixture();
+    expect(await runSolver([...args, '--knowledge-base', catalog.file], directory)).toBe(0);
+    const options = host.createSession.mock.calls[0]![0] as MathAgentOptions;
+    expect(options.instructions).toContain('knowledge search --catalog');
+    expect(options.instructions).toContain(catalog.sha256);
+    expect(options.instructions).toContain('historical receipts');
+    expect(options.instructions).toContain('knowledge dependencies --catalog');
+    expect(options.instructions).toContain('knowledge source --catalog');
+    expect(options.instructions).toContain('--offset NEXT_OFFSET');
+    expect(options.instructions).toContain('--environment');
+    expect(options.instructions).toContain('--problem-receipt');
+    expect(host.verify.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(host.officialGate).toHaveBeenCalledOnce();
+  });
+
+  it('rejects damaged packed worker source objects on resume before model dispatch', async () => {
+    const catalog = knowledgeFixture('knowledge.json', 'True', 'v2');
+    expect(await runSolver([...args, '--startup-only', '--knowledge-base', catalog.file], directory)).toBe(0);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    const snapshot = path.join(state.worktree, 'generated/p/.lake/theorem-knowledge.json');
+    const manifest = JSON.parse(fs.readFileSync(snapshot, 'utf8'));
+    const blob = path.join(path.dirname(snapshot), manifest.objectsDirectory, Object.keys(manifest.sources)[0]!);
+    fs.chmodSync(blob, 0o600);
+    fs.writeFileSync(blob, fs.readFileSync(blob, 'utf8').replace('True', 'Fals'));
+    fs.chmodSync(blob, 0o400);
+    expect(await runSolver([...args, '--startup-only', '--resume', '--knowledge-base', catalog.file], directory)).toBe(1);
+    expect(host.createSession).not.toHaveBeenCalled();
+  });
+
+  it.each(['omitted', 'replaced'])('rejects a %s knowledge snapshot on resume before model dispatch', async change => {
+    const first = knowledgeFixture(), replacement = knowledgeFixture('replacement.json', 'True /\\ True');
+    expect(await runSolver([...args, '--startup-only', '--knowledge-base', first.file], directory)).toBe(0);
+    expect(await runSolver([...args, '--startup-only', '--resume',
+      ...(change === 'replaced' ? ['--knowledge-base', replacement.file] : [])], directory)).toBe(1);
+    expect(host.createSession).not.toHaveBeenCalled();
   });
 
   it('runs independent peers without planning or sharing and accounts for both sessions', async () => {
@@ -1042,6 +1112,128 @@ describe('isolated solver and host acceptance', () => {
       };
     });
   }
+
+  it.each(['adopted', 'rejected', 'deferred'] as const)('consumes a research handoff through a durable %s Lead decision', async status => {
+    const question: CooperativeTask = { id: 'question', kind: 'research', objective: 'Find a concrete bridge', dependsOn: [], revision: 0 };
+    const proposal: CooperativeTask = { ...planTasks()[0], id: 'bridge', theoremName: 'Submission.bridge', objective: 'Bridge for the first original goal' };
+    const initial = [question, ...planTasks().slice(2).map(task => ({ ...task, status: 'paused' as const,
+      dependsOn: task.id === 'first' ? ['question'] : task.dependsOn }))];
+    let plans = 0;
+    configureCooperation(async (action, options, message) => {
+      if (action.kind === 'lead') {
+        if (++plans === 1) { writePlan(options.workspace, initial); return 'completed'; }
+        const handoff = pendingResearchHandoffs(cooperationState())[0];
+        expect(action.handoffIds).toEqual([handoff.id]);
+        expect(message).toContain('Pending research proposals requiring a Lead decision');
+        expect(message).toContain(handoff.id);
+        expect(cooperationState().tasks.find((item: any) => item.task.id === 'first').attempts).toBe(0);
+        expect(host.officialGate).not.toHaveBeenCalled();
+        const tasks = [question, ...(status === 'adopted' ? [proposal] : []), ...initial.slice(1).map(task => ({ ...task,
+          status: 'active', dependsOn: task.id === 'first' && status === 'adopted' ? ['bridge'] : task.dependsOn }))];
+        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({ tasks,
+          ...(status === 'adopted' ? {} : { handoffDecisions: [{ id: handoff.id, status,
+            reason: 'The proposed bridge does not discharge the missing quantitative estimate.' }] }) }));
+      } else if (action.kind === 'task' && action.task.id === question.id) {
+        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({
+          summary: 'This exact bridge has a concrete original-goal consumer.', conclusion: 'supporting', lemmaRequests: [proposal] }));
+      } else if (action.kind === 'task' && action.task.kind === 'goal') {
+        const file = path.join(options.workspace, 'generated/p/Submission.lean'), name = action.task.theoremName!.split('.').at(-1);
+        const proof = name === 'first' ? status === 'adopted' ? 'by exact bridge' : 'by trivial' : 'by exact first';
+        fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(`${name} : True := by sorry`, `${name} : True := ${proof}`));
+      } else finishAssignment(action, options);
+      return 'completed';
+    });
+    const code = await runSolver([...args, '--workers', '2', '--max-turns', '9'], directory);
+    expect(code, JSON.parse(fs.readFileSync(output, 'utf8')).reason).toBe(0);
+    const state = cooperationState();
+    expect(state.researchDecisions).toHaveLength(1);
+    expect(state.researchDecisions[0].status).toBe(status);
+    expect(state.tasks.find((item: any) => item.task.id === 'bridge')?.status).toBe(status === 'adopted' ? 'integrated' : undefined);
+    expect(pendingResearchHandoffs(state)).toEqual([]);
+    expect(host.officialGate).toHaveBeenCalledOnce();
+  });
+
+  it('rejects an ignored research handoff before changing the graph, then accepts its corrected decision', async () => {
+    const tasks = planTasks().map(task => ({ ...task, status: 'paused' as const }));
+    const question: CooperativeTask = { id: 'question', kind: 'research', objective: 'Explore the missing bridge', dependsOn: [], revision: 0 };
+    const proposal: CooperativeTask = { ...tasks[0], id: 'bridge', theoremName: 'Submission.bridge', status: 'active' };
+    const lead = { id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles } as const;
+    const peer = { ...lead, id: 'researcher-1', role: 'researcher' } as const;
+    const state = { problem, environmentDigest: 'environment', turns: 0,
+      cooperation: { tasks: [...tasks.map(task => ({ task, status: 'pending', attempts: 0 })),
+        { task: question, status: 'completed', attempts: 1 }], deliveries: [{
+        id: 'proposal', producer: peer.id, taskId: question.id, taskDigest: taskVersion(question), kind: 'research', status: 'advisory',
+        summary: 'Exact bridge proposal.', statement: '', premises: [], dependencies: [], remainingObligations: [],
+        evidenceRefs: [], createdAt: 1, lemmaRequests: [proposal] }] } } as any;
+    const cooperative = new CooperativeResearch({ state, workers: [lead, peer], access: new Map(), signal: new AbortController().signal,
+      modules: directSolverModules, save: vi.fn(), emit: vi.fn(), exclusiveCheck: check => check() });
+    const action = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
+    if (action?.kind !== 'lead') throw new Error('missing_handoff_decision');
+    writePlan(workspace, [...tasks, question]);
+    const before = state.cooperation.tasks.map((item: any) => item.task);
+    await cooperative.deliver(lead, action, commitSolverSources(problem, workspace));
+    expect(state.cooperation.error).toContain('math_handoff_unresolved:');
+    expect(state.cooperation.tasks.map((item: any) => item.task)).toEqual(before);
+    expect(state.cooperation.researchDecisions).toBeUndefined();
+    const corrected = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
+    if (corrected?.kind !== 'lead') throw new Error('missing_corrected_handoff_decision');
+    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify({ tasks: [...tasks, question],
+      handoffDecisions: [{ id: corrected.handoffIds![0], status: 'deferred', reason: 'A new analytic input is required.' }] }));
+    await cooperative.deliver(lead, corrected, commitSolverSources(problem, workspace));
+    expect(state.cooperation.error).toBeUndefined();
+    expect(state.cooperation.researchDecisions[0].status).toBe('deferred');
+    expect(host.verify).not.toHaveBeenCalled();
+    expect(host.createSession).not.toHaveBeenCalled();
+  });
+
+  it('replans a ready original goal after its pinned engineer exits instead of waiting for an impossible assignment', async () => {
+    const tasks = planTasks().slice(2).map(task => ({ ...task, dependsOn: task.id === 'first' ? [] : ['first'] }));
+    const plan = parseCooperationPlan(problem, { tasks, groups: [{ id: 'main', objective: 'Original goals', engineerId: 'engineer' }] });
+    const lead = { id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles } as const;
+    const peer = { ...lead, id: 'researcher-1', role: 'researcher' } as const;
+    const engineer = { ...lead, id: 'engineer', role: 'engineer' } as const;
+    const state = { problem, environmentDigest: 'environment', turns: 0,
+      cooperation: { tasks: plan.tasks.map(task => ({ task, status: 'pending', attempts: 0 })),
+        groups: plan.groups.map(group => ({ group, turns: 0 })) } } as any;
+    const cooperative = new CooperativeResearch({ state, workers: [lead, peer, engineer], access: new Map(), signal: new AbortController().signal,
+      modules: directSolverModules, save: vi.fn(), emit: vi.fn(), exclusiveCheck: check => check() });
+    cooperative.stopped(engineer, 'math_model_request_failed');
+    const action = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
+    expect(action?.kind).toBe('lead');
+    if (action?.kind !== 'lead') throw new Error('missing_owner_replan');
+    writePlan(workspace, tasks);
+    await cooperative.deliver(lead, action, commitSolverSources(problem, workspace));
+    expect(await cooperative.next(peer, { maxTurns: Infinity, remainingMs: Infinity })).toMatchObject({ kind: 'task', task: { id: 'first' } });
+    expect(host.createSession).not.toHaveBeenCalled();
+  });
+
+  it.each(['adopted', 'rejected', 'deferred'] as const)('consumes a primary-led research handoff through its help protocol: %s', async status => {
+    const question: CooperativeTask = { id: 'question', kind: 'research', objective: 'Investigate a bridge', dependsOn: [], revision: 0 };
+    const proposal = planTasks()[0];
+    const lead = { id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles } as const;
+    const peer = { ...lead, id: 'researcher-1', role: 'researcher' } as const;
+    const state = { problem, environmentDigest: 'environment', turns: 0,
+      cooperation: { tasks: [{ task: question, status: 'completed', attempts: 1 }], deliveries: [{
+        id: 'proposal', producer: peer.id, taskId: question.id, taskDigest: taskVersion(question), kind: 'research', status: 'advisory',
+        summary: 'An exact helper could close the first goal.', statement: '', premises: [], dependencies: [], remainingObligations: [],
+        evidenceRefs: [], createdAt: 1, lemmaRequests: [proposal] }] } } as any;
+    const modules = { ...directSolverModules, M5: { ...directSolverModules.M5, primaryLed: true } };
+    const cooperative = new CooperativeResearch({ state, workers: [lead, peer], access: new Map(), signal: new AbortController().signal,
+      modules, save: vi.fn(), emit: vi.fn(), exclusiveCheck: check => check() });
+    const action = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
+    if (action?.kind !== 'solve') throw new Error('missing_primary_assignment');
+    const id = pendingResearchHandoffs(state.cooperation)[0].id;
+    expect(action.handoffIds).toEqual([id]);
+    cooperative.activate(lead, action, async () => {}, async () => {});
+    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify(status === 'adopted' ? { requests: [proposal] } :
+      { handoffDecisions: [{ id, status, reason: 'Need a stronger quantitative premise.' }] }));
+    expect(await cooperative.deliver(lead, action, commitSolverSources(problem, workspace))).toEqual({ checkWhole: true });
+    expect(state.cooperation.researchDecisions[0]).toMatchObject({ id, status });
+    if (status === 'adopted') expect(state.cooperation.tasks.find((item: any) => item.task.id === proposal.id).status).toBe('pending');
+    expect(pendingResearchHandoffs(state.cooperation)).toEqual([]);
+    expect(host.verify).not.toHaveBeenCalled();
+    expect(host.createSession).not.toHaveBeenCalled();
+  });
 
   it('starts peer work after a completed invalid initial plan without consuming an unlimited planning loop', async () => {
     let leadTurns = 0;
@@ -3859,7 +4051,7 @@ describe('isolated solver and host acceptance', () => {
     }
   });
 
-  it('records the producer task when its supporting helper is in another owned file', async () => {
+  it('retains a supporting declaration fingerprint without inventing a whole producer-task dependency', async () => {
     const helper = 'Submission/Helpers.lean';
     fs.mkdirSync(path.join(project, 'Submission'));
     fs.writeFileSync(path.join(project, helper), 'namespace Submission.Helpers\nend Submission.Helpers\n');
@@ -3886,7 +4078,7 @@ describe('isolated solver and host acceptance', () => {
     });
     expect(await runSolver([...args, '--workers', '2', '--max-turns', '6'], directory)).toBe(0);
     const first = cooperationState().tasks.find((node: any) => node.task.id === 'first');
-    expect(first.integratedCheck.references.tasks).toEqual([{ taskId: 'a', taskDigest: taskVersion(planTasks()[0]) }]);
+    expect(first.integratedCheck.references.tasks).toEqual([]);
     expect(first.integratedCheck.references.inputs).toContainEqual(expect.objectContaining({ file: helper, name: 'support' }));
   });
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readyResearchTasks, researchCanAdvance } from '../src/solver/modules/search';
+import { assignSharedResearchTask, type ResearchWorker } from '../src/solver/modules/organization';
 import { type RouteRecord, type TaskRecord } from '../src/solver/tasks';
 
 const node = (id: string, kind: TaskRecord['task']['kind'], dependsOn: string[] = [],
@@ -53,6 +54,53 @@ describe('future research advancement', () => {
     const tasks = [premise, investigation];
     expect(researchCanAdvance(tasks, undefined, new Set())).toBe(false);
     expect(researchCanAdvance(tasks, undefined, new Set(['researcher']))).toBe(true);
+  });
+
+  it('does not promise progress on a goal whose pinned engineer has stopped', () => {
+    const goal = node('goal', 'goal'), route = group();
+    route.group = { ...route.group, engineerId: 'engineer' };
+    const researcher: ResearchWorker = { id: 'researcher', role: 'researcher', worktree: '/unused', ownedFiles: [] };
+    const ready = readyResearchTasks([goal], [route]);
+    expect(ready).toEqual([goal]);
+    expect(assignSharedResearchTask(ready, researcher, [researcher], [route])).toBeUndefined();
+    expect(researchCanAdvance([goal], [route], new Set([researcher.id]))).toBe(false);
+    expect(researchCanAdvance([goal], [route], new Set([researcher.id, 'engineer']))).toBe(true);
+    expect(goal.task.ownerId).toBeUndefined();
+    expect(route.group.engineerId).toBe('engineer');
+  });
+
+  it.each(['owner', 'assignment'] as const)('rejects conflicting live %s and engineer pins', ownership => {
+    const goal = node('goal', 'goal'), route = group();
+    route.group = { ...route.group, engineerId: 'engineer' };
+    if (ownership === 'owner') goal.task = { ...goal.task, ownerId: 'researcher' };
+    else goal.assignment = { taskId: goal.task.id, taskDigest: 'task', workerId: 'researcher', seedCommit: 'seed' };
+    expect(researchCanAdvance([goal], [route], new Set(['researcher', 'engineer']))).toBe(false);
+  });
+
+  it('does not apply an original-goal engineer pin to independent investigations', () => {
+    const route = group(), investigation = node('investigation', 'research');
+    route.group = { ...route.group, engineerId: 'offline' };
+    expect(researchCanAdvance([investigation], [route], new Set(['researcher']))).toBe(true);
+  });
+
+  it('uses the assignment policy to distinguish live role slots from proof workers', () => {
+    const goal = node('goal', 'goal');
+    const lead: ResearchWorker = { id: 'lead', role: 'lead', worktree: '/unused', ownedFiles: [] };
+    const researcher: ResearchWorker = { ...lead, id: 'researcher', role: 'researcher' };
+    const canAdvance = (workers: readonly ResearchWorker[]) => researchCanAdvance([goal], undefined,
+      new Set(workers.map(worker => worker.id)), candidate => workers.some(worker =>
+        assignSharedResearchTask([candidate], worker, workers) === candidate));
+    expect(canAdvance([lead])).toBe(false);
+    expect(canAdvance([lead, researcher])).toBe(true);
+  });
+
+  it('can consume a saved conditional proof without assigning its former producer again', () => {
+    const premise = node('premise', 'lemma', [], 'integrated');
+    const bridge = node('bridge', 'lemma', ['premise'], 'conditional');
+    bridge.task = { ...bridge.task, conditional: true, ownerId: 'offline' };
+    const consumer = node('consumer', 'goal', ['bridge']);
+    expect(researchCanAdvance([premise, bridge, consumer], undefined, new Set(['researcher']), candidate =>
+      candidate === consumer)).toBe(true);
   });
 
   it.each(['lemma', 'goal'] as const)('does not start a typed %s past an unproved blocked premise', kind => {
