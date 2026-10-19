@@ -21,6 +21,7 @@ describe('saved Lead plans after request failure', () => {
   let execute: (action: CooperativeAction, options: MathAgentOptions) => Promise<string>;
   let actions: CooperativeAction[];
   let sessionError: string;
+  let requestAccounting: boolean;
 
   const plan = () => ({ tasks: problem.targets.map((target, index) => ({
     id: `goal_${index + 1}`, kind: 'goal', objective: `Prove ${target.theoremName}`,
@@ -33,11 +34,11 @@ describe('saved Lead plans after request failure', () => {
     state.cooperation = { tasks: parsed.tasks.map(task => ({ task, status: 'pending', attempts: 0 })),
       groups: parsed.groups.map(group => ({ group, turns: 0 })), error: 'A Lead decision is requested.' };
   };
-  const run = () => runResearchWorkers({ state, workers, modules,
+  const run = (maxTotalTokens = 0) => runResearchWorkers({ state, workers, modules,
     access: new Map(workers.map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
     root: directory, buildFile: path.join(directory, 'build.json'), taskText: 'Prove the original targets.',
     executable: 'fixture-no-model', profile: 'fixture', signal: new AbortController().signal,
-    deadline: Infinity, maxTurns: 3, maxTurnMs: Infinity, maxTotalTokens: 0,
+    deadline: Infinity, maxTurns: 3, maxTurnMs: Infinity, maxTotalTokens,
     save: () => {}, emit: (event, details) => events.push({ event, details }) });
 
   beforeEach(() => {
@@ -53,12 +54,13 @@ describe('saved Lead plans after request failure', () => {
       taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluation',
       model: 'fixture', effort: 'fixture', worktree: workspace, phase: 'prepared', turns: 0,
       workers: workers.map(worker => ({ ...worker, phase: 'prepared', turns: 0 })) };
-    events = []; actions = []; sessionError = 'fetch failed';
+    events = []; actions = []; sessionError = 'fetch failed'; requestAccounting = false;
     retry = vi.fn().mockReturnValue(undefined);
     close = vi.fn(async () => {});
     execute = async (_action, options) => { writePlan(options); return 'failed'; };
     modules = { ...directSolverModules,
       M1: { ...directSolverModules.M1, open: async options => ({ threadId: 'failed-plan-thread',
+        ...(requestAccounting ? { usageSource: 'upstream-requests' as const } : {}),
         get lastError() { return sessionError; }, close, interrupt: vi.fn(async () => {}),
         run: async message => {
           const action = JSON.parse(message) as CooperativeAction;
@@ -128,6 +130,152 @@ describe('saved Lead plans after request failure', () => {
     expect(retry).toHaveBeenCalledOnce();
     expect(state.cooperation!.tasks.map(node => node.task.id)).toEqual(['goal_1', 'goal_2']);
     expect(state.cooperation!.initialPlanFallback).toBeUndefined();
+  });
+
+  it.each(['tokens', 'requests', 'resume', 'saved-plan'] as const)
+    ('hands off initial planning after its %s limit without losing complete usage', async mode => {
+      requestAccounting = true; sessionError = 'HTTP 403 Forbidden';
+      if (mode === 'resume') {
+        const lead = state.workers![0];
+        lead.turns = state.turns = 1;
+        lead.usage = { inputTokens: 250, outputTokens: 50, totalTokens: 300 };
+        lead.usageAccounting = { startedTurns: 1, reportedTurns: 1, pending: false, incomplete: false };
+        lead.requestUsageAccounting = { startedRequests: 1, reportedRequests: 1, pendingRequests: 0, incomplete: false };
+        state = JSON.parse(JSON.stringify(state));
+      }
+      let requests = 0;
+      execute = async (_action, options) => {
+        for (const totalTokens of mode === 'resume' ? [] : mode === 'requests' ? [20, 10] : [300]) {
+          const admission = options.requestGate!();
+          expect(admission.allowed).toBe(true);
+          if (admission.allowed) {
+            requests++;
+            admission.settle({ usage: { totalTokens, inputTokens: totalTokens - 5, outputTokens: 5 }, complete: true });
+          }
+        }
+        if (mode === 'saved-plan') writePlan(options);
+        for (let retry = 0; retry < 2; retry++) expect(options.requestGate!()).toEqual({
+          allowed: false, reason: 'math_initial_planning_limit' });
+        return 'failed';
+      };
+      await expect(run(1000)).resolves.toBeUndefined();
+      expect(actions.map(action => action.kind)).toEqual(['lead']);
+      expect(requests).toBe(mode === 'resume' ? 0 : mode === 'requests' ? 2 : 1);
+      expect(state.tokenBudget).toMatchObject({ status: 'available', usageComplete: true,
+        reportedTotalTokens: mode === 'requests' ? 30 : 300 });
+      const lead = state.workers![0];
+      expect(lead.requestUsageAccounting).toEqual({ startedRequests: mode === 'requests' ? 2 : 1,
+        reportedRequests: mode === 'requests' ? 2 : 1, pendingRequests: 0, incomplete: false });
+      expect(lead.lastFailure).toBeUndefined(); expect(lead.error).toBeUndefined();
+      expect(state.turnLedger!.turns.at(-1)).toMatchObject({ execution: 'interrupted', outcomeStatus: 'recorded' });
+      expect(state.cooperation!.tasks.map(node => node.task.id)).toEqual(mode === 'saved-plan'
+        ? ['goal_1', 'goal_2'] : ['initial_goal_1', 'initial_goal_2']);
+      expect(state.cooperation!.tasks.every(node => node.status === 'pending' && !node.proof)).toBe(true);
+      expect(Boolean(state.cooperation!.initialPlanFallback)).toBe(mode !== 'saved-plan');
+      expect(events.filter(item => item.event === 'planning_budget_stopped')).toHaveLength(1);
+      expect(events.some(item => item.event === 'task_assigned')).toBe(true);
+      expect(events.some(item => ['worker_failed', 'turn_failed'].includes(item.event))).toBe(false);
+      expect(close).toHaveBeenCalled(); expect(retry).not.toHaveBeenCalled();
+    });
+
+  it.each(['exhausted', 'missing'] as const)('prioritizes global %s usage over a planning handoff', async mode => {
+    requestAccounting = true; sessionError = 'HTTP 403 Forbidden';
+    const reason = mode === 'exhausted' ? 'math_total_token_limit' : 'math_model_usage_unavailable';
+    execute = async (_action, options) => {
+      const admission = options.requestGate!();
+      expect(admission.allowed).toBe(true);
+      if (admission.allowed) admission.settle(mode === 'exhausted'
+        ? { usage: { totalTokens: 1000, inputTokens: 990, outputTokens: 10 }, complete: true } : { complete: false });
+      expect(options.requestGate!()).toEqual({ allowed: false, reason });
+      return 'failed';
+    };
+    await expect(run(1000)).resolves.toBeUndefined();
+    expect(state.cooperation!.tasks).toEqual([]);
+    expect(state.cooperation!.initialPlanFallback).toBeUndefined();
+    expect(state.workers![0].lastFailure?.reason).toBe(reason);
+    expect(events.some(item => item.event === 'planning_budget_stopped')).toBe(false);
+    expect(retry).not.toHaveBeenCalled();
+  });
+
+  it('does not create a planning checkpoint while request receipts are pending', async () => {
+    requestAccounting = true; sessionError = 'HTTP 403 Forbidden';
+    execute = async (_action, options) => {
+      const pending = [options.requestGate!(), options.requestGate!()];
+      expect(pending.every(admission => admission.allowed)).toBe(true);
+      expect(options.requestGate!()).toEqual({ allowed: false, reason: 'math_model_request_stopped' });
+      for (const admission of pending) if (admission.allowed)
+        admission.settle({ usage: { totalTokens: 20, inputTokens: 15, outputTokens: 5 }, complete: true });
+      return 'failed';
+    };
+    await expect(run(1000)).rejects.toThrow('math_model_request_stopped');
+    expect(state.cooperation!.tasks).toEqual([]);
+    expect(state.cooperation!.initialPlanFallback).toBeUndefined();
+    expect(state.turnLedger!.turns.at(-1)?.execution).toBe('failed');
+    expect(events.some(item => item.event === 'planning_budget_stopped')).toBe(false);
+    expect(state.tokenBudget).toMatchObject({ status: 'available', usageComplete: true, reportedTotalTokens: 40 });
+  });
+
+  it('waits for the planning writer to close before publishing its saved plan', async () => {
+    requestAccounting = true; sessionError = 'HTTP 403 Forbidden';
+    let releaseClose!: () => void;
+    const closing = new Promise<void>(resolve => { releaseClose = resolve; });
+    let closeStarted!: () => void;
+    const startedClosing = new Promise<void>(resolve => { closeStarted = resolve; });
+    close.mockImplementation(async () => { closeStarted(); await closing; });
+    execute = async (_action, options) => {
+      const admission = options.requestGate!(); expect(admission.allowed).toBe(true);
+      if (admission.allowed) admission.settle({ usage: { totalTokens: 300, inputTokens: 250, outputTokens: 50 }, complete: true });
+      writePlan(options);
+      expect(options.requestGate!()).toEqual({ allowed: false, reason: 'math_initial_planning_limit' });
+      return 'failed';
+    };
+    const running = run(1000);
+    try {
+      await startedClosing;
+      expect(events.some(item => ['plan_updated', 'task_assigned'].includes(item.event))).toBe(false);
+      expect(state.cooperation!.tasks).toEqual([]);
+    } finally { releaseClose(); }
+    await expect(running).resolves.toBeUndefined();
+    expect(state.cooperation!.tasks.map(node => node.task.id)).toEqual(['goal_1', 'goal_2']);
+    expect(events.some(item => item.event === 'task_assigned')).toBe(true);
+  });
+
+  it('does not apply the initial planning limit to unlimited runs or later Lead decisions', async () => {
+    requestAccounting = true;
+    execute = async (_action, options) => {
+      for (let request = 0; request < 3; request++) {
+        const admission = options.requestGate!(); expect(admission.allowed).toBe(true);
+        if (admission.allowed) admission.settle({ usage: { totalTokens: 10, inputTokens: 5, outputTokens: 5 }, complete: true });
+      }
+      writePlan(options); return 'completed';
+    };
+    await expect(run()).resolves.toBeUndefined();
+    expect(state.workers![0].requestUsageAccounting?.startedRequests).toBe(3);
+    existingPlan();
+    await expect(run(1000)).resolves.toBeUndefined();
+    expect(state.workers![0].requestUsageAccounting?.startedRequests).toBe(6);
+    expect(events.some(item => item.event === 'planning_budget_stopped')).toBe(false);
+  });
+
+  it.each(['returned', 'thrown', 'changed-source'] as const)('keeps %s host integrity errors above planning checkpoints', async mode => {
+    requestAccounting = true;
+    execute = async (_action, options) => {
+      const admission = options.requestGate!(); expect(admission.allowed).toBe(true);
+      if (admission.allowed) admission.settle({ usage: { totalTokens: 300, inputTokens: 250, outputTokens: 50 }, complete: true });
+      expect(options.requestGate!()).toEqual({ allowed: false, reason: 'math_initial_planning_limit' });
+      if (mode === 'returned') sessionError = 'math_source_outside_ownership';
+      else if (mode === 'thrown') throw new Error('math_candidate_identity_changed');
+      else {
+        const trusted = Object.keys(problem.trustedFiles)[0];
+        fs.appendFileSync(path.join(options.workspace, problem.projectRelative, trusted), '\nchanged frozen input\n');
+      }
+      return 'failed';
+    };
+    await expect(run(1000)).rejects.toThrow(mode === 'changed-source' ? 'math_trusted_source_changed'
+      : mode === 'returned' ? 'math_source_outside_ownership' : 'math_candidate_identity_changed');
+    expect(state.cooperation!.initialPlanFallback).toBeUndefined();
+    expect(state.cooperation!.tasks).toEqual([]);
+    if (mode !== 'changed-source') expect(state.turnLedger!.turns.at(-1)?.execution).toBe('failed');
   });
 
   it.each(['research', 'sketch'])('keeps failed %s work on the ordinary retry path', async kind => {

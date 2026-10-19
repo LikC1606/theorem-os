@@ -17,6 +17,14 @@ function profile() {
 }
 
 describe('Westlake frozen profile', () => {
+  it.each([
+    ['low', 'ad48c74eae8911859d313935bf20993ff3a502dc5e0548964331b160dc6e1f8c'],
+    ['high', '94a6f1c0993a0c9afb76aaf3533b9e58e7ac9591d56adb65185520a84cf49a95'],
+    ['max', '1ca27a557b8d367356bbd41531a24fb3e8f1f03c3a53166293f16623c1bece4c'],
+  ])('preserves frozen profile bytes for %s effort', (effort, digest) => {
+    expect(expectedWestlakeProfileDigest('/fixture/codex', 'deepseek-flash', effort)).toBe(digest);
+  });
+
   it('prepares a credential-free gateway identity and text-only client catalog', () => {
     vi.stubEnv('WESTLAKEHPC_API_KEY', 'private-westlake-profile-fixture');
     const directory = profile();

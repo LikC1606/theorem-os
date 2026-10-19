@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assignResearchTask, assignSharedResearchTask, independentFeasibilityWorker,
+import { assignSharedResearchTask, independentFeasibilityWorker,
   type ResearchWorker } from '../src/solver/modules/organization';
 import { continuationResearchTasks, criticalPathResearchTasks, goalsFirstResearchTasks,
   readyResearchTasks, taskCanStart } from '../src/solver/modules/search';
@@ -34,8 +34,6 @@ const schedulers = [
   ['plan', readyResearchTasks], ['goals-first', goalsFirstResearchTasks],
   ['critical-path', criticalPathResearchTasks], ['continuation', continuationResearchTasks],
 ] as const;
-const assignments = [['role-based', assignResearchTask], ['shared', assignSharedResearchTask]] as const;
-
 it('recognizes only advisory feasibility tasks and preserves the reserved final-candidate review identity', () => {
   for (const kind of ['research', 'sketch'] as const) {
     const review = node('route_check', kind);
@@ -183,7 +181,7 @@ describe.each(schedulers)('%s early route selection', (_name, schedule) => {
   });
 });
 
-describe.each(assignments)('%s independent feasibility assignment', (_name, assign) => {
+describe('shared independent feasibility assignment', () => {
   it.each(['assignment', 'owner', 'engineer'] as const)('excludes an author recorded through %s even outside the ready list', origin => {
     const author = worker('author'), checker = worker('checker', 'engineer'), lead = worker('lead', 'lead');
     const source = node('source', origin === 'engineer' ? 'goal' : 'lemma'); source.status = 'running';
@@ -195,9 +193,9 @@ describe.each(assignments)('%s independent feasibility assignment', (_name, assi
     expect(independentFeasibilityWorker(review, author, tasks, [main])).toBe(false);
     expect(independentFeasibilityWorker(review, checker, tasks, [main])).toBe(true);
     expect(independentFeasibilityWorker(review, lead, tasks, [main])).toBe(false);
-    expect(assign([review], author, [lead, author, checker], [main], tasks)).toBeUndefined();
-    expect(assign([review], checker, [lead, author, checker], [main], tasks)).toBe(review);
-    expect(assign([review], lead, [lead, author, checker], [main], tasks)).toBeUndefined();
+    expect(assignSharedResearchTask([review], author, [lead, author, checker], [main], tasks)).toBeUndefined();
+    expect(assignSharedResearchTask([review], checker, [lead, author, checker], [main], tasks)).toBe(review);
+    expect(assignSharedResearchTask([review], lead, [lead, author, checker], [main], tasks)).toBeUndefined();
   });
 
   it('excludes authors of every directly reviewed input without banning unrelated proof authors', () => {
@@ -207,9 +205,9 @@ describe.each(assignments)('%s independent feasibility assignment', (_name, assi
     assignTo(unrelated, checker.id);
     const review = feasibility('route_check', ['first', 'second']), tasks = [first, second, unrelated, review];
     const live = [firstAuthor, secondAuthor, checker];
-    expect(assign([review], firstAuthor, live, undefined, tasks)).toBeUndefined();
-    expect(assign([review], secondAuthor, live, undefined, tasks)).toBeUndefined();
-    expect(assign([review], checker, live, undefined, tasks)).toBe(review);
+    expect(assignSharedResearchTask([review], firstAuthor, live, undefined, tasks)).toBeUndefined();
+    expect(assignSharedResearchTask([review], secondAuthor, live, undefined, tasks)).toBeUndefined();
+    expect(assignSharedResearchTask([review], checker, live, undefined, tasks)).toBe(review);
   });
 
   it.each(['owner', 'assignment'] as const)('preserves the feasibility task\'s own %s pin while enforcing independence', pin => {
@@ -219,13 +217,13 @@ describe.each(assignments)('%s independent feasibility assignment', (_name, assi
     if (pin === 'owner') review.task = { ...review.task, ownerId: checker.id };
     else assignTo(review, checker.id);
     const tasks = [source, review], live = [author, checker, other];
-    expect(assign([review], author, live, undefined, tasks)).toBeUndefined();
-    expect(assign([review], other, live, undefined, tasks)).toBeUndefined();
-    expect(assign([review], checker, live, undefined, tasks)).toBe(review);
+    expect(assignSharedResearchTask([review], author, live, undefined, tasks)).toBeUndefined();
+    expect(assignSharedResearchTask([review], other, live, undefined, tasks)).toBeUndefined();
+    expect(assignSharedResearchTask([review], checker, live, undefined, tasks)).toBe(review);
     if (pin === 'owner') review.task = { ...review.task, ownerId: author.id };
     else assignTo(review, author.id);
-    expect(assign([review], author, live, undefined, tasks)).toBeUndefined();
-    expect(assign([review], checker, live, undefined, tasks)).toBeUndefined();
+    expect(assignSharedResearchTask([review], author, live, undefined, tasks)).toBeUndefined();
+    expect(assignSharedResearchTask([review], checker, live, undefined, tasks)).toBeUndefined();
   });
 
   it('leaves an unassignable review pending while its only author continues ordinary proof work', () => {
@@ -233,15 +231,15 @@ describe.each(assignments)('%s independent feasibility assignment', (_name, assi
     assignTo(source, author.id);
     const review = feasibility('route_check', ['source']), proof = node('ordinary_proof');
     const tasks = [source, review, proof], live = [lead, author];
-    expect(assign([review], author, live, undefined, tasks)).toBeUndefined();
-    expect(assign([review], lead, live, undefined, tasks)).toBeUndefined();
-    expect(assign([review, proof], author, live, undefined, tasks)).toBe(proof);
+    expect(assignSharedResearchTask([review], author, live, undefined, tasks)).toBeUndefined();
+    expect(assignSharedResearchTask([review], lead, live, undefined, tasks)).toBeUndefined();
+    expect(assignSharedResearchTask([review, proof], author, live, undefined, tasks)).toBe(proof);
     expect(review.status).toBe('pending');
     expect(review.assignment).toBeUndefined();
   });
 
   it('keeps the optional full-graph argument backward compatible for ordinary task assignment', () => {
     const researcher = worker('researcher'), proof = node('proof');
-    expect(assign([proof], researcher, [researcher])).toBe(proof);
+    expect(assignSharedResearchTask([proof], researcher, [researcher])).toBe(proof);
   });
 });

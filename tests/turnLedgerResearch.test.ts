@@ -149,6 +149,73 @@ describe('turn ledger at the real research worker boundary', () => {
     expect(emit).toHaveBeenCalledWith('worker_usage_unscoped', expect.objectContaining({ reportedTotalTokens: 1000 }));
   });
 
+  it('rejects a closed request gate without stopping its replacement or counting duplicate receipts', async () => {
+    const { state, run, modules } = fixture();
+    const callbacks: MathAgentOptions[] = [];
+    const open = vi.fn(async (options: MathAgentOptions): Promise<MathAgentSession> => {
+      const serial = callbacks.push(options);
+      return { threadId: 'thread-' + serial, usageSource: 'upstream-requests',
+        run: async (_message, _messageId, workspace, onStarted) => {
+          onStarted('turn-' + serial); fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), 'Trial ' + serial);
+          if (serial === 2) {
+            expect(callbacks[0].requestGate!()).toEqual({ allowed: false, reason: 'math_model_request_stopped' });
+            callbacks[0].onUsage({ totalTokens: 1000 });
+          }
+          const admission = options.requestGate!();
+          expect(admission.allowed).toBe(true);
+          if (admission.allowed) {
+            const receipt = { complete: true, usage: { totalTokens: serial === 1 ? 10 : 3, inputTokens: serial === 1 ? 8 : 1, outputTokens: 2 } };
+            admission.settle(receipt); admission.settle(receipt);
+          }
+          return serial === 1 ? 'failed' : 'completed';
+        }, interrupt: async () => {}, close: async () => {} };
+    });
+    await expect(run(modules(open), 2)).resolves.toBeUndefined();
+    expect(open).toHaveBeenCalledTimes(2);
+    expect(state.usage!.totalTokens).toBe(13);
+    expect(state.requestUsageAccounting).toEqual({ startedRequests: 2, reportedRequests: 2, pendingRequests: 0, incomplete: false });
+    expect(state.usageAccounting).toEqual({ startedTurns: 2, reportedTurns: 2, pending: false, incomplete: false });
+    expect(state.turnLedger!.turns.map(turn => turn.execution)).toEqual(['failed', 'completed']);
+    expect(state.error).toBeUndefined();
+  });
+
+  it.each([{ timing: 'closing', complete: true }, { timing: 'replacement', complete: true },
+    { timing: 'replacement', complete: false }])
+  ('retains late request consumption during $timing (complete: $complete) without restoring missing coverage', async ({ timing, complete }) => {
+    const { state, run, modules } = fixture(); let sessions = 0;
+    let lateRequest = () => {};
+    const open = vi.fn(async (options: MathAgentOptions): Promise<MathAgentSession> => {
+      const serial = ++sessions;
+      return { threadId: 'thread-' + serial, usageSource: 'upstream-requests',
+        run: async (_message, _messageId, workspace, onStarted) => {
+          onStarted('turn-' + serial); fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), 'Trial ' + serial);
+          const admission = options.requestGate!();
+          expect(admission.allowed).toBe(true);
+          if (admission.allowed) {
+            const settle = () => admission.settle({ complete: serial === 1 ? complete : true,
+              usage: { totalTokens: serial === 1 ? 10 : 3, inputTokens: serial === 1 ? 8 : 1, outputTokens: 2 } });
+            if (serial === 1) lateRequest = settle;
+            else {
+              if (timing === 'replacement') { lateRequest(); lateRequest(); }
+              settle();
+            }
+          }
+          return serial === 1 ? 'failed' : 'completed';
+        }, interrupt: async () => {}, close: async () => {
+          if (serial === 1 && timing === 'closing') { lateRequest(); lateRequest(); }
+        } };
+    });
+    await expect(run(modules(open), 2)).resolves.toBeUndefined();
+    expect(open).toHaveBeenCalledTimes(2);
+    expect(state.usage!.totalTokens).toBe(13);
+    expect(state.requestUsageAccounting).toEqual({ startedRequests: 2, reportedRequests: complete ? 2 : 1, pendingRequests: 0, incomplete: true });
+    expect(state.usageAccounting).toEqual({ startedTurns: 2, reportedTurns: complete ? 1 : 0, pending: false, incomplete: true });
+    expect(state.tokenBudget).toMatchObject({ status: 'unlimited', reportedTotalTokens: 13, usageComplete: false });
+    expect(state.turnLedger!.turns[0].usage.uncertainReasons).toContain('late-or-unscoped-usage-report');
+    expect(state.turnLedger!.turns[1].usage.reportedUpdates).toBe(1);
+    if (timing === 'replacement') expect(state.turnLedger!.turns[1].usage.uncertainReasons).toContain('cross-session-usage-report');
+  });
+
   it('settles an interrupted cooperative assignment only after the host has saved its advisory draft', async () => {
     const { state, run, modules, check } = fixture(true);
     const open = vi.fn(async (options: MathAgentOptions): Promise<MathAgentSession> => ({ threadId: 'advisory-thread',

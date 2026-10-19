@@ -42,7 +42,7 @@ const moduleEvents: Record<WebModuleId, readonly string[]> = {
     'worker_recovering', 'worker_recovered', 'assignment_superseded'],
   M2: ['proof_check_started', 'proof_checked', 'candidate_selected', 'lemma_checked', 'source_rejected',
     'task_checked', 'task_check_reused', 'task_failure_check_reused', 'task_recheck_started', 'task_recheck_finished'],
-  M3: ['research_action', 'turn_retry', 'model_budget_stopped', 'route_parked', 'route_reopened', 'routes_idle', 'plan_stalled'],
+  M3: ['research_action', 'turn_retry', 'model_budget_stopped', 'planning_budget_stopped', 'route_parked', 'route_reopened', 'routes_idle', 'plan_stalled'],
   M4: ['context_compiled', 'context_restarted'],
   M5: ['task_assigned', 'plan_updated', 'plan_rejected', 'initial_plan_fallback', 'assembly_started',
     'review_requested', 'review_assigned', 'review_completed', 'statement_review_requested',

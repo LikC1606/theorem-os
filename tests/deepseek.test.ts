@@ -16,6 +16,17 @@ afterEach(() => {
 });
 
 describe('offline DeepSeek profile preparation', () => {
+  it.each([
+    ['deepseek-v4-pro', 'low', '82e05a1768ca024280774aab11882db96eb279ff37ab4f33e7fe9c7c00712dcd'],
+    ['deepseek-v4-pro', 'high', 'dea8b95d0a1dba4d60242cf536be78ac97e80a3760bc9fa7457e94d4cc3cb579'],
+    ['deepseek-v4-pro', 'max', 'ae5f1c1c55cf582a0a2bdc3c49d08ebb6be6de6cf1f719c1518a2a53a5c37813'],
+    ['deepseek-flash', 'low', '733d46ee147c6fdb3cfba5ef428631ae27c90efd3062bfb725e9e2a232ec98a5'],
+    ['deepseek-flash', 'high', 'b31e6bd342f91988a710f9531c651961963b9824a4157bdba4d191252a55e9b1'],
+    ['deepseek-flash', 'max', '9763ed9dd73371241657f6c315942fb22b8632d7a1b1816f294303070ae5c5e5'],
+  ])('preserves frozen profile bytes for %s/%s', (model, effort, digest) => {
+    expect(expectedDeepSeekProfileDigest('/fixture/codex', model, effort)).toBe(digest);
+  });
+
   it('uses the official Responses endpoint and a credential-free isolated catalog', () => {
     vi.stubEnv('DEEPSEEK_API_KEY', 'sk-private-fixture-credential');
     const directory = profile();

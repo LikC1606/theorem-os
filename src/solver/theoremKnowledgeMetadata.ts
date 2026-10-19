@@ -26,19 +26,15 @@ export function getKnowledgeMetadata(base: TheoremKnowledgeBase, id: string, opt
       (selected === undefined && startOffset !== undefined) || !validInteger(maxBytes, 1024, 65536)) invalidOptions();
 
   const { entry, files } = readKnowledgeSource(base, id);
-  const values: Record<KnowledgeMetadataField, () => unknown> = {
-    name: () => entry.name, file: () => entry.file, type: () => entry.type, premises: () => entry.premises,
-    environmentDigest: () => entry.environmentDigest ?? null, description: () => entry.description,
-    dependencies: () => entry.dependencies, provenance: () => entry.provenance,
-    relatedVersions: () => {
-      const group = knowledgeSearchGroup(entry);
-      return base.entries.filter(other => knowledgeSearchGroup(other) === group)
-        .map(other => knowledgeVersionSummary(other)).sort((left, right) => left.id.localeCompare(right.id));
-    },
-    files: () => Object.keys(files).sort().map(file => ({ file, sha256: files[file]! })),
-  };
   const prepare = (name: KnowledgeMetadataField) => {
-    const value = values[name](), format = typeof value === 'string' ? 'text' as const : 'json' as const;
+    let value: unknown;
+    if (name === 'relatedVersions') {
+      const group = knowledgeSearchGroup(entry);
+      value = base.entries.filter(other => knowledgeSearchGroup(other) === group)
+        .map(other => knowledgeVersionSummary(other)).sort((left, right) => left.id.localeCompare(right.id));
+    } else if (name === 'files') value = Object.keys(files).sort().map(file => ({ file, sha256: files[file]! }));
+    else value = name === 'environmentDigest' ? entry.environmentDigest ?? null : entry[name];
+    const format = typeof value === 'string' ? 'text' as const : 'json' as const;
     const text = format === 'text' ? value as string : canonicalMathJson(value);
     return { value, format, text, sha256: mathDigest(text), bytes: Buffer.byteLength(text),
       ...(Array.isArray(value) ? { count: value.length } : {}) };
@@ -75,18 +71,17 @@ export function getKnowledgeMetadata(base: TheoremKnowledgeBase, id: string, opt
     return packet(best);
   }
 
-  const prepared = new Map(fieldNames.map(name => [name, prepare(name)]));
-  const fields = Object.fromEntries(fieldNames.map(name => {
-    const { format, sha256, bytes, count } = prepared.get(name)!;
+  const prepared = fieldNames.map(name => ({ name, ...prepare(name) }));
+  const fields = Object.fromEntries(prepared.map(({ name, format, sha256, bytes, count }) => {
     return [name, { format, sha256, bytes, ...(count === undefined ? {} : { count }), complete: false,
       read: { field: name, startOffset: 0 } } satisfies FieldDescriptor];
   })) as Record<KnowledgeMetadataField, FieldDescriptor>;
   const packet = { ...identity, mode: 'summary' as const, allFieldsComplete: false, fields,
     proofSource: { readWith: 'knowledge source', fileField: 'file', nameField: 'name' } };
   if (!fits(packet)) throw new Error('math_knowledge_metadata_budget_too_small');
-  for (const name of fieldNames) {
+  for (const { name, value } of prepared) {
     const deferred = fields[name], { read: _read, ...details } = deferred;
-    fields[name] = { ...details, complete: true, value: prepared.get(name)!.value };
+    fields[name] = { ...details, complete: true, value };
     if (!fits(packet)) fields[name] = deferred;
   }
   packet.allFieldsComplete = fieldNames.every(name => fields[name].complete);

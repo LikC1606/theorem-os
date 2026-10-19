@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MathAgentFailureDiagnostic, MathAgentOptions, MathAgentSession } from '../src/runtime/codexSession';
+import type { ModelRequestStopReason } from '../src/runtime/modelRequest';
 import { canonicalMathProblemStatementPayloads } from '../src/math/contracts';
 import { LEAN_EVAL_BENCHMARK_COMMIT } from '../src/math/leanEvalCatalogAdapter';
 import { mathDigest } from '../src/math/mathRuntimeIo';
@@ -565,6 +566,40 @@ describe('bounded role session recovery', () => {
 });
 
 describe('recoverable failure classification', () => {
+  const localStops = ['math_total_token_limit', 'math_model_usage_unavailable', 'math_model_request_stopped',
+    'math_initial_planning_limit'] as const satisfies readonly ModelRequestStopReason[];
+
+  it.each(localStops)('keeps trusted local %s stops ahead of misleading authentication diagnostics', reason => {
+    const diagnostics: MathAgentFailureDiagnostic[] = [{ code: 'unauthorized' },
+      { code: 'httpConnectionFailed', httpStatusCode: 401 }, { code: 'httpConnectionFailed', httpStatusCode: 403 }];
+    for (const diagnostic of diagnostics) {
+      expect(researchFailureDetail(new Error('HTTP 403 Forbidden'), 'Unauthorized', diagnostic, reason)).toBe(reason);
+      expect(researchFailureDetail(new Error('HTTP 403 Forbidden'), 'Unauthorized', diagnostic))
+        .toBe('math_model_authentication_failed');
+    }
+    expect(researchFailureReason(reason)).toBe(reason);
+    expect(recoverableResearchFailure(reason)).toBe(false);
+    const budget = { maxTurns: Infinity, remainingMs: Infinity, aborted: false };
+    expect(planResearchRetry(reason, 0, { turns: 1 } as Parameters<typeof planResearchRetry>[2], budget)).toBeUndefined();
+    expect(planResearchCooldown(reason, 0, budget)).toBeUndefined();
+  });
+
+  it.each(localStops)('preserves host integrity failures over trusted local %s stops', reason => {
+    expect(researchFailureDetail(new Error('math_source_outside_ownership'), 'HTTP 403 Forbidden',
+      { code: 'unauthorized' }, reason)).toBe('math_source_outside_ownership');
+    expect(researchFailureDetail(new Error('math_model_turn_failed', { cause: new Error('math_candidate_identity_changed') }),
+      'HTTP 401 Unauthorized', { code: 'httpConnectionFailed', httpStatusCode: 401 }, reason))
+      .toBe('math_candidate_identity_changed');
+  });
+
+  it.each(localStops)('does not infer a local stop from %s embedded in provider text', reason => {
+    const message = `HTTP 403 Forbidden; provider response mentions ${reason}`;
+    expect(researchFailureReason(message)).toBe('math_model_authentication_failed');
+    expect(researchFailureDetail(new Error(message), undefined, { code: 'unauthorized' }))
+      .toBe('math_model_authentication_failed');
+    expect(researchFailureReason(`Provider response mentions ${reason}`)).toBe('math_model_turn_failed');
+  });
+
   it.each(['Request failed after 401 retries', 'Request failed after 403 retries', 'Forbidden tool call',
     'Authentication notes were included in the prompt'])('does not infer an authentication failure from unrelated text: %s', message => {
     expect(researchFailureReason(message)).toBe('math_model_turn_failed');

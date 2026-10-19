@@ -38,7 +38,7 @@ import { checkpointCandidate, type CheckpointCandidate } from './researchEvidenc
 import { hasRunningDuplicateQuestion, parallelQuestions, type ParallelQuestion } from './taskQuestions';
 
 import { isFeasibilityReview, taskGroup, taskVersion, taskProofContractVersion, taskReferenceDependencies, assignmentDeliveryFile, markTaskReferences, hasTaskReferences, markTaskAcceptance, hasTaskAcceptance, invalidatedTaskIds,
-  type CooperativeTask, type RouteGroup, type RouteRecord, type TaskAssignment, type TaskRecord, type CooperativeAction } from './tasks';
+  type CooperativeTask, type RouteRecord, type TaskAssignment, type TaskRecord, type CooperativeAction } from './tasks';
 export { taskGroup, taskVersion, taskReferenceDependencies, assignmentDeliveryFile } from './tasks';
 export type { CooperativeTask, RouteGroup, RouteRecord, TaskAssignment, TaskRecord, CooperativeAction } from './tasks';
 const digest = taskVersion;
@@ -101,8 +101,16 @@ export type CooperationState = { tasks: TaskRecord[]; groups?: RouteRecord[]; ca
   recheck?: { canonicalCommit: string; total: number; completed: number; taskId?: string };
   initialPlanFallback?: { at: number; reason: string } };
 type TaskVersions = ReadonlyMap<string, { task: CooperativeTask; version: string }>;
+type DispatchBudget = { maxTurns: number; remainingMs: number };
+const RETRY_DISPATCH = Symbol('retry-dispatch');
+type DispatchResult = CooperativeAction | typeof RETRY_DISPATCH | undefined;
 
 const bounded = (text: string, bytes: number) => limitMathOutput(text, bytes, 'head');
+const deliveryInputFields = (record: DeliveryRecord) => ({
+  taskId: record.taskId, taskDigest: record.taskDigest, kind: record.kind, status: record.status,
+  summary: record.summary, evidenceRefs: record.evidenceRefs, dependencies: record.dependencies,
+  remainingObligations: record.remainingObligations, lemmaRequests: record.lemmaRequests,
+});
 /** Model proposes tasks; the host validates coverage, exact targets and an acyclic dependency graph. */
 export function readCooperationPlan(problem: SolverProblem, worktree: string): ReturnType<typeof parseCooperationPlan> {
   return parseCooperationPlan(problem, block(worktree, 'math-plan'));
@@ -293,6 +301,7 @@ export class CooperativeResearch {
       const scoped = this.contextState(action, worker, versions);
       const visible = new Set(scoped.tasks.map(node => node.task.id));
       const deliveries = (scoped.deliveries ?? []).slice(-16);
+      const handoffs = researchHandoffs(scoped);
       writeMathJsonDurable(path.join(worker.worktree, 'COOPERATION.json'), {
         planVersion: this.archive.planVersion,
         edits: (this.archive.edits ?? []).slice(-16),
@@ -304,7 +313,7 @@ export class CooperativeResearch {
           ...(visible.has(node.task.id) ? { objective: node.task.objective, feedback: node.feedback,
             actualReferences: (node.integratedCheck ?? node.proof)?.references } : {}) })),
         deliveries: deliveries.map(({ evidence: _evidence, ...record }) => record),
-        researchHandoffs: researchHandoffs(scoped),
+        researchHandoffs: handoffs,
         blockers: scoped.blockers ?? [],
         proofRoutes: scoped.proofRoutes ?? [],
         routePriority: createProofRoutePriorityIndex(scoped.tasks, { groups: scoped.groups,
@@ -313,7 +322,7 @@ export class CooperativeResearch {
         frontierRecoveries: scoped.frontierRecoveries ?? [],
         mathematicalChanges: scoped.progressReceipts?.slice(-16) ?? [],
         continuation: buildProofContinuation(scoped.tasks, { groups: scoped.groups, environmentDigest: this.input.state.environmentDigest,
-          proofRoutes: scoped.proofRoutes, researchHandoffs: researchHandoffs(scoped) }),
+          proofRoutes: scoped.proofRoutes, researchHandoffs: handoffs }),
         statements: (scoped.statementReviews ?? []).map(statementReviewSummary),
       });
     }
@@ -326,6 +335,7 @@ export class CooperativeResearch {
   }
   deactivate(worker: ResearchWorker) { this.active.delete(worker.id); this.changed(); }
   current(action: CooperativeAction) {
+    if (action.kind === 'assemble') return !this.failure && !this.stopping && this.liveWorkers.has(this.lead.id) && this.canAssemble(action.seedCommit);
     if ((action.kind === 'lead' || action.kind === 'solve') && action.handoffActivations) {
       const pending = new Map(pendingResearchHandoffs(this.archive).flatMap(item =>
         item.sources.map(source => [source.handoffId, item.activationDigest] as const)));
@@ -433,11 +443,8 @@ export class CooperativeResearch {
   private planningInputDigest() {
     const versions = new Map(this.archive.tasks.map(node => [node.task.id, digest(node.task)]));
     const deliveries = [...new Set((this.archive.deliveries ?? []).filter(record => record.status !== 'superseded' &&
-      (!record.taskId || versions.get(record.taskId) === record.taskDigest)).map(record => canonicalMathJson({
-        taskId: record.taskId, taskDigest: record.taskDigest, kind: record.kind, status: record.status,
-        summary: record.summary, evidenceRefs: record.evidenceRefs, dependencies: record.dependencies,
-        remainingObligations: record.remainingObligations, lemmaRequests: record.lemmaRequests,
-      })))].sort();
+      (!record.taskId || versions.get(record.taskId) === record.taskDigest))
+      .map(record => canonicalMathJson(deliveryInputFields(record))))].sort();
     return mathDigest(canonicalMathJson({ problemReceiptDigest: this.input.state.problem.receiptDigest,
       environmentDigest: this.input.state.environmentDigest, planVersion: this.archive.planVersion,
       sourceDigest: ownedSourceDigest(this.input.state.problem, this.lead.worktree, this.archive.canonicalCommit!),
@@ -460,11 +467,7 @@ export class CooperativeResearch {
   private checkpointInputDigest(task: CooperativeTask, workerId: string) {
     const versions = this.taskVersions();
     const deliveries = [...new Set((this.archive.deliveries ?? []).filter(record => record.producer !== workerId &&
-      this.deliveryVisible(record, task, versions)).map(record => canonicalMathJson({
-        taskId: record.taskId, taskDigest: record.taskDigest, kind: record.kind, status: record.status,
-        summary: record.summary, evidenceRefs: record.evidenceRefs, dependencies: record.dependencies,
-        remainingObligations: record.remainingObligations, lemmaRequests: record.lemmaRequests,
-      })))].sort();
+      this.deliveryVisible(record, task, versions)).map(record => canonicalMathJson(deliveryInputFields(record))))].sort();
     return mathDigest(canonicalMathJson({ taskDigest: digest(task), environmentDigest: this.input.state.environmentDigest,
       problemReceiptDigest: this.input.state.problem.receiptDigest,
       sourceDigest: ownedSourceDigest(this.input.state.problem, this.lead.worktree, this.archive.canonicalCommit!),
@@ -477,9 +480,7 @@ export class CooperativeResearch {
     const deliveries = [...new Set((this.archive.deliveries ?? []).filter(record => record.producer !== workerId &&
       this.deliveryVisible(record, task, versions) && (relevant.has(record.taskId ?? '') ||
         record.dependencies.some(reference => reference.taskId === task.id))).map(record => canonicalMathJson({
-      taskId: record.taskId, taskDigest: record.taskDigest, kind: record.kind, status: record.status,
-      findingDigest: record.findingDigest, summary: record.summary, evidenceRefs: record.evidenceRefs,
-      dependencies: record.dependencies, remainingObligations: record.remainingObligations, lemmaRequests: record.lemmaRequests,
+      ...deliveryInputFields(record), findingDigest: record.findingDigest,
     })))].sort();
     return mathDigest(canonicalMathJson({ taskDigest: digest(task),
       basis: routeBlockerBasis(task, this.archive.tasks, this.input.state.environmentDigest, this.input.state.problem.receiptDigest),
@@ -2209,7 +2210,34 @@ export class CooperativeResearch {
       return;
     }
   }
-  async next(worker: ResearchWorker, budget: { maxTurns: number; remainingMs: number }): Promise<CooperativeAction | undefined> {
+  private async waitForDispatch(): Promise<typeof RETRY_DISPATCH> {
+    await this.wait();
+    return RETRY_DISPATCH;
+  }
+  private dispatchBudgetExhausted(budget: DispatchBudget, modelAllowed: boolean) {
+    return this.input.state.turns >= budget.maxTurns || budget.remainingMs <= 0 || !modelAllowed;
+  }
+  private async exhaustedDispatch(budget: DispatchBudget, modelAllowed: boolean, running = false): Promise<DispatchResult> {
+    const refund = modelAllowed && budget.remainingMs > 0 && this.waitForTurn(budget.maxTurns);
+    if (refund) { await refund; return RETRY_DISPATCH; }
+    if (running) return this.waitForDispatch();
+  }
+  private async idleFrontier(frontier: ReturnType<CooperativeResearch['activeGoalFrontier']>, inputDigest: string): Promise<DispatchResult> {
+    if (this.resumeUnattemptedFrontier(frontier)) return RETRY_DISPATCH;
+    const recovery = this.requestFrontierRecovery(frontier);
+    if (recovery) return recovery;
+    if (await this.investigateFrontierRecovery(frontier)) return RETRY_DISPATCH;
+    if (await this.waitForFrontierInput(frontier, inputDigest)) return RETRY_DISPATCH;
+    this.input.emit('routes_idle', { groups: this.archive.groups,
+      goalIds: [...new Set(frontier.flatMap(item => item.goalIds))], frontier,
+      reason: frontier.length ? 'unchanged-mathematical-input' : 'no-active-goal-frontier', inputDigest });
+  }
+  private canAssemble(commit: string) {
+    if (commit !== this.archive.canonicalCommit || this.candidateSynchronizationBlocked()) return false;
+    const goals = this.archive.tasks.filter(node => node.task.kind === 'goal');
+    return this.reviewed() || !this.primaryLed && goals.length > 0 && goals.every(node => node.status === 'integrated');
+  }
+  async next(worker: ResearchWorker, budget: DispatchBudget): Promise<CooperativeAction | undefined> {
     for (;;) {
       if (this.stopping) return;
       this.input.signal.throwIfAborted();
@@ -2222,219 +2250,183 @@ export class CooperativeResearch {
       }
       if (!this.liveWorkers.has(this.lead.id)) return;
       const modelAllowed = this.input.modelDispatchAllowed?.() !== false;
-      if (worker.id === this.lead.id) {
-        if (this.synchronizationPending()) { await this.wait(); continue; }
-        if (this.pendingFixedStatementReviews()) {
-          if (!this.livePeers.length || budget.remainingMs <= 0 ||
-              this.input.state.turns >= budget.maxTurns && !this.reservedTurns.size || !modelAllowed && !this.active.size) return;
-          await this.wait(); continue;
-        }
-        if (this.primaryLed) {
-          const review = this.archive.review;
-          if (review && ['pending', 'running'].includes(review.status)) {
-            if (!this.livePeers.length) return;
-            if (review.status === 'pending' &&
-                ((this.input.state.turns >= budget.maxTurns && !this.reservedTurns.size) || budget.remainingMs <= 0 || !modelAllowed)) {
-              if (!modelAllowed && this.active.size) { await this.wait(); continue; }
-              return;
-            }
-            await this.wait(); continue;
-          }
-          if (this.reviewed() && this.lastAssembly !== review!.commit) {
-            this.lastAssembly = review!.commit;
-            return { kind: 'assemble', seedCommit: review!.commit };
-          }
-          if (this.input.state.turns >= budget.maxTurns || budget.remainingMs <= 0 || !modelAllowed) {
-            const pending = modelAllowed && budget.remainingMs > 0 && this.waitForTurn(budget.maxTurns);
-            if (pending) { await pending; continue; }
-            if (!modelAllowed && (this.active.size || this.archive.tasks.some(node => ['running', 'delivered'].includes(node.status)))) {
-              await this.wait(); continue;
-            }
-            return;
-          }
-          return { kind: 'solve', seedCommit: git(worker.worktree, ['rev-parse', 'HEAD']), ...this.handoffDispatch() };
-        }
-        const head = this.archive.canonicalCommit!;
-        const goals = this.archive.tasks.filter(node => node.task.kind === 'goal');
-        if (!this.candidateSynchronizationBlocked() && ((goals.length && goals.every(node => node.status === 'integrated')) || this.reviewed()) && this.lastAssembly !== head) {
-          this.syncPlanNotes();
-          const seed = this.seed(worker, head); this.archive.canonicalCommit = seed;
-          this.lastAssembly = seed; return { kind: 'assemble', seedCommit: seed };
-        }
-        const running = this.active.size > 0 || this.archive.tasks.some(node => ['running', 'delivered'].includes(node.status) ||
-          (node.status === 'conditional' && taskDependenciesReady(node.task, this.archive.tasks))) || this.archive.review?.status === 'running' ||
-          this.archive.statementReviews?.some(review => ['translating', 'reviewing'].includes(review.status) ||
-            (modelAllowed && this.input.state.turns < budget.maxTurns && budget.remainingMs > 0 &&
-              ['pending', 'translated'].includes(review.status) && this.livePeers.length > 0 &&
-              this.statementReviewAllowed(this.node(review.taskId).task, true)));
-        if (this.input.state.turns >= budget.maxTurns || budget.remainingMs <= 0 || !modelAllowed) {
-          const pending = modelAllowed && budget.remainingMs > 0 && this.waitForTurn(budget.maxTurns);
-          if (pending) { await pending; continue; }
-          if (running) { await this.wait(); continue; }
-          return;
-        }
-        if (!running && !this.livePeers.length) return;
-        if (this.archive.review && ['pending', 'running'].includes(this.archive.review.status)) { await this.wait(); continue; }
-        const rejection = this.archive.planRejection;
-        if (rejection?.stalled) {
-          if (rejection.inputDigest === this.planningInputDigest() && rejection.proposalDigest === this.proposedPlanDigest()) {
-            this.needsLead = false;
-            if (!running && !this.canAdvance()) {
-              this.input.emit('plan_stalled', { ...rejection }); return;
-            }
-            await this.wait(); continue;
-          }
-          this.needsLead = true;
-        }
-        const pendingHandoffs = selectResearchHandoffBatch(this.archive);
-        if (pendingHandoffs.length) this.needsLead = true;
-        if (!this.needsLead && this.archive.tasks.length) {
-          const support = originalGoalTaskFocus(this.archive.tasks, this.archive.groups).support;
-          const supportingWork = this.archive.tasks.some(node => support.has(node.task.id) &&
-            (['running', 'delivered'].includes(node.status) ||
-              node.status === 'conditional' && taskDependenciesReady(node.task, this.archive.tasks))) ||
-            this.archive.statementReviews?.some(review => support.has(review.taskId) &&
-              ['pending', 'translating', 'translated', 'reviewing'].includes(review.status));
-          // Independent work must not defer reconsidering a stalled original argument.
-          if (!supportingWork && !this.hasAssignableTask(support) && !this.canAdvance(support)) {
-            const frontier = this.activeGoalFrontier();
-            if (frontier.some(item => item.status === 'blocked' && item.attempts > 0)) {
-              const recovery = this.requestFrontierRecovery(frontier);
-              if (recovery) return recovery;
-              if (await this.investigateFrontierRecovery(frontier)) continue;
-            }
-          }
-        }
-        if (!running && !this.needsLead && this.archive.tasks.length && (!this.archive.review || this.archive.review.status === 'changes_requested') &&
-            !this.canAdvance()) {
-          // Parking prevents repeating an inference, not reconsidering its unfinished original goal.
-          const frontier = this.activeGoalFrontier();
-          const inputDigest = this.planningInputDigest();
-          const goalIds = [...new Set(frontier.flatMap(item => item.goalIds))];
-          if (!frontier.length || inputDigest === this.archive.lastLeadInputDigest) {
-            if (this.resumeUnattemptedFrontier(frontier)) continue;
-            const recovery = this.requestFrontierRecovery(frontier);
-            if (recovery) return recovery;
-            if (await this.investigateFrontierRecovery(frontier)) continue;
-            if (await this.waitForFrontierInput(frontier, inputDigest)) continue;
-            this.input.emit('routes_idle', { groups: this.archive.groups, goalIds, frontier,
-              reason: frontier.length ? 'unchanged-mathematical-input' : 'no-active-goal-frontier', inputDigest }); return;
-          }
-          this.needsLead = true;
-          this.input.emit('blocked_tasks_reconsidered', { taskIds: frontier.map(item => item.taskId), goalIds, inputDigest });
-        }
-        if (this.needsLead || (!running && (!this.livePeers.length ||
-            !this.hasAssignableTask()))) {
-          this.needsLead = false;
-          const inputDigest = this.planningInputDigest();
-          if (inputDigest === this.archive.lastLeadInputDigest && !this.archive.error && !pendingHandoffs.length) {
-            if (!running && !this.hasAssignableTask()) {
-              const frontier = this.activeGoalFrontier(), goalIds = [...new Set(frontier.flatMap(item => item.goalIds))];
-              if (this.resumeUnattemptedFrontier(frontier)) continue;
-              const recovery = this.requestFrontierRecovery(frontier);
-              if (recovery) return recovery;
-              if (await this.investigateFrontierRecovery(frontier)) continue;
-              if (await this.waitForFrontierInput(frontier, inputDigest)) continue;
-              this.input.emit('routes_idle', { groups: this.archive.groups, goalIds, frontier,
-                reason: frontier.length ? 'unchanged-mathematical-input' : 'no-active-goal-frontier', inputDigest }); return;
-            }
-            continue;
-          }
-          if (this.archive.frontierRecoveries?.some(record => record.status === 'requested')) {
-            const recovery = this.requestFrontierRecovery(this.activeGoalFrontier());
-            if (recovery) return recovery;
-          }
-          this.syncPlanNotes();
-          const action: CooperativeAction = { kind: 'lead', seedCommit: this.seed(worker, head), planVersion: this.archive.planVersion,
-            planningInputDigest: inputDigest, ...this.handoffDispatch(pendingHandoffs) };
-          this.leadEvidence.set(action, this.planningEvidenceDigest());
-          return action;
-        }
-      } else {
-        if (budget.remainingMs <= 0 || !modelAllowed) return;
-        if (this.input.state.turns >= budget.maxTurns) {
-          const pending = this.waitForTurn(budget.maxTurns);
-          if (pending) { await pending; continue; }
-          return;
-        }
-        const review = this.archive.review;
-        const reviewer = this.reviewer();
-        const statement = reviewer?.id === worker.id && this.archive.statementReviews?.find(item =>
-          ['pending', 'translated'].includes(item.status) && this.statementReviewAllowed(this.node(item.taskId).task, true) &&
-          ![...this.active.values()].some(active => isStatementAction(active.action) && active.action.reviewId === item.id));
-        if (statement) {
-          const kind = statement.status === 'pending' ? 'backtranslate' : 'statement-review';
-          fs.rmSync(path.join(statement.workspace, 'RESEARCH.md'), { force: true });
-          statement.status = kind === 'backtranslate' ? 'translating' : 'reviewing'; statement.workerId = worker.id;
-          statement.assignmentId = crypto.randomUUID();
-          this.input.emit('statement_review_assigned', { workerId: worker.id, taskId: statement.taskId, reviewId: statement.id, kind, role: 'reviewer' });
-          this.changed(); return { kind, reviewId: statement.id, taskId: statement.taskId, taskDigest: statement.taskDigest,
-            snapshotDigest: statement.snapshotDigest, seedCommit: statement.commit, workspace: statement.workspace,
-            assignmentId: statement.assignmentId };
-        }
-        if (review?.status === 'pending' && reviewer?.id === worker.id && !this.candidateSynchronizationBlocked()) {
-          this.seed(worker, review.commit);
-          const notes = path.join(worker.worktree, 'RESEARCH.md');
-          if (fs.existsSync(notes)) fs.writeFileSync(notes, fs.readFileSync(notes, 'utf8').replace(/```(?:math|math-review)\s*\n[\s\S]*?\n```/gu, ''));
-          review.workerId = worker.id; review.status = 'running'; review.assignmentId = crypto.randomUUID();
-          this.input.emit('review_assigned', { workerId: worker.id, commit: review.commit, role: 'reviewer' });
-          this.changed(); return { kind: 'review', seedCommit: review.commit, sourceDigest: review.sourceDigest,
-            assignmentId: review.assignmentId };
-        }
-        const ready = this.input.modules.M3.ready(this.archive.tasks, this.archive.groups).filter(node => !this.synchronizationBlocked(node.task));
-        const node = this.input.modules.M5.assign(ready, worker,
-          this.allocationPeers, this.archive.groups, this.archive.tasks);
-        if (node) {
-          const engineerId = node.task.kind === 'goal' && this.archive.groups?.find(route => route.group.id === taskGroup(node.task))?.group.engineerId;
-          if (!ready.includes(node) || !this.archive.tasks.includes(node) || node.status !== 'pending' ||
-              !taskCanStart(node.task, this.archive.tasks) ||
-              !routeAllowsTask(node.task, this.archive.tasks, this.archive.groups) ||
-              !independentFeasibilityWorker(node, worker, this.archive.tasks, this.archive.groups) ||
-              hasRunningDuplicateQuestion(node, this.archive.tasks) ||
-              (node.task.ownerId && node.task.ownerId !== worker.id) || (engineerId && engineerId !== worker.id) ||
-              (node.assignment && node.assignment.workerId !== worker.id)) throw new Error('math_task_assignment_invalid');
-          const selectedRoute = selectedTaskRoute(node, this.archive.tasks);
-          if (node.assignment && node.alternativeRoutes?.length && node.assignment.routeId !== selectedRoute?.id)
-            node.assignment = undefined;
-          let resuming = node.assignment?.workerId === worker.id;
-          if (resuming && advisory(node.task) &&
-              (this.archive.researchDrafts?.[node.task.id]?.suspended || this.researchWorkspaceChanged(worker, node))) {
-            const previousAssignment = node.assignment;
-            const restored = await this.restoreResearchDraft(worker, node);
-            if (this.synchronizationBlocked(node.task) || !this.archive.tasks.includes(node) || node.status !== 'pending' ||
-                !restored && node.assignment !== previousAssignment ||
-                node.task.ownerId && node.task.ownerId !== worker.id ||
-                !independentFeasibilityWorker(node, worker, this.archive.tasks, this.archive.groups) ||
-                hasRunningDuplicateQuestion(node, this.archive.tasks) ||
-                !taskCanStart(node.task, this.archive.tasks) || !routeAllowsTask(node.task, this.archive.tasks, this.archive.groups)) continue;
-            if (!restored) {
-              fs.writeFileSync(path.join(worker.worktree, 'RESEARCH.md'), '');
-              node.assignment = undefined; resuming = false;
-              if (this.archive.researchCheckpoints) delete this.archive.researchCheckpoints[node.task.id];
-              node.feedback = 'math_research_draft_unavailable: No matching saved draft is available; continue from the current canonical sources and save findings for this assignment.';
-              this.input.emit('research_draft_unavailable', { taskId: node.task.id, workerId: worker.id });
-            }
-          }
-          this.suspendResearchDrafts(worker, node.task.id);
-          const seed = this.archive.canonicalCommit!;
-          let scopedSeed = seed;
-          if (!resuming) {
-            scopedSeed = this.seed(worker, seed, node.task);
-          }
-          node.assignment ??= { taskId: node.task.id, taskDigest: digest(node.task), workerId: worker.id,
-            seedCommit: scopedSeed, assignmentId: crypto.randomUUID(), canonicalCommit: seed, groupId: taskGroup(node.task),
-            routeId: selectedRoute?.id,
-            dependencies: this.dependencies(node.task).map(item => ({ taskId: item.task.id, taskDigest: digest(item.task) })) };
-          node.status = 'running';
-          const route = this.archive.groups?.find(record => record.group.id === taskGroup(node.task));
-          this.input.emit('task_assigned', { taskId: node.task.id, workerId: worker.id, kind: node.task.kind,
-            groupId: taskGroup(node.task), groupTurns: route?.turns, seedCommit: node.assignment.seedCommit });
-          this.changed(); return { kind: 'task', assignment: node.assignment, task: node.task };
-        }
-        if (!this.liveWorkers.has(worker.id)) return;
-      }
-      await this.wait();
+      const result = await (worker.id === this.lead.id
+        ? this.nextLead(worker, budget, modelAllowed) : this.nextPeer(worker, budget, modelAllowed));
+      if (result !== RETRY_DISPATCH) return result;
     }
+  }
+  private async nextLead(worker: ResearchWorker, budget: DispatchBudget, modelAllowed: boolean): Promise<DispatchResult> {
+    if (this.synchronizationPending()) return this.waitForDispatch();
+    if (this.pendingFixedStatementReviews()) {
+      if (!this.livePeers.length || budget.remainingMs <= 0 ||
+          this.input.state.turns >= budget.maxTurns && !this.reservedTurns.size || !modelAllowed && !this.active.size) return;
+      return this.waitForDispatch();
+    }
+    if (this.primaryLed) return this.nextPrimaryLead(worker, budget, modelAllowed);
+    const head = this.archive.canonicalCommit!;
+    if (this.canAssemble(head) && this.lastAssembly !== head) {
+      this.syncPlanNotes();
+      const seed = this.seed(worker, head); this.archive.canonicalCommit = seed;
+      this.lastAssembly = seed; return { kind: 'assemble', seedCommit: seed };
+    }
+    const running = this.active.size > 0 || this.archive.tasks.some(node => ['running', 'delivered'].includes(node.status) ||
+      (node.status === 'conditional' && taskDependenciesReady(node.task, this.archive.tasks))) || this.archive.review?.status === 'running' ||
+      this.archive.statementReviews?.some(review => ['translating', 'reviewing'].includes(review.status) ||
+        (modelAllowed && this.input.state.turns < budget.maxTurns && budget.remainingMs > 0 &&
+          ['pending', 'translated'].includes(review.status) && this.livePeers.length > 0 &&
+          this.statementReviewAllowed(this.node(review.taskId).task, true)));
+    if (this.dispatchBudgetExhausted(budget, modelAllowed)) return this.exhaustedDispatch(budget, modelAllowed, running);
+    if (!running && !this.livePeers.length) return;
+    if (this.archive.review && ['pending', 'running'].includes(this.archive.review.status)) return this.waitForDispatch();
+    const rejection = this.archive.planRejection;
+    if (rejection?.stalled) {
+      if (rejection.inputDigest === this.planningInputDigest() && rejection.proposalDigest === this.proposedPlanDigest()) {
+        this.needsLead = false;
+        if (!running && !this.canAdvance()) {
+          this.input.emit('plan_stalled', { ...rejection }); return;
+        }
+        return this.waitForDispatch();
+      }
+      this.needsLead = true;
+    }
+    const pendingHandoffs = selectResearchHandoffBatch(this.archive);
+    if (pendingHandoffs.length) this.needsLead = true;
+    if (!this.needsLead && this.archive.tasks.length) {
+      const support = originalGoalTaskFocus(this.archive.tasks, this.archive.groups).support;
+      const supportingWork = this.archive.tasks.some(node => support.has(node.task.id) &&
+        (['running', 'delivered'].includes(node.status) ||
+          node.status === 'conditional' && taskDependenciesReady(node.task, this.archive.tasks))) ||
+        this.archive.statementReviews?.some(review => support.has(review.taskId) &&
+          ['pending', 'translating', 'translated', 'reviewing'].includes(review.status));
+      // Independent work must not defer reconsidering a stalled original argument.
+      if (!supportingWork && !this.hasAssignableTask(support) && !this.canAdvance(support)) {
+        const frontier = this.activeGoalFrontier();
+        if (frontier.some(item => item.status === 'blocked' && item.attempts > 0)) {
+          const recovery = this.requestFrontierRecovery(frontier);
+          if (recovery) return recovery;
+          if (await this.investigateFrontierRecovery(frontier)) return RETRY_DISPATCH;
+        }
+      }
+    }
+    if (!running && !this.needsLead && this.archive.tasks.length && (!this.archive.review || this.archive.review.status === 'changes_requested') &&
+        !this.canAdvance()) {
+      // Parking prevents repeating an inference, not reconsidering its unfinished original goal.
+      const frontier = this.activeGoalFrontier();
+      const inputDigest = this.planningInputDigest();
+      if (!frontier.length || inputDigest === this.archive.lastLeadInputDigest) return this.idleFrontier(frontier, inputDigest);
+      this.needsLead = true;
+      this.input.emit('blocked_tasks_reconsidered', { taskIds: frontier.map(item => item.taskId),
+        goalIds: [...new Set(frontier.flatMap(item => item.goalIds))], inputDigest });
+    }
+    if (this.needsLead || (!running && (!this.livePeers.length || !this.hasAssignableTask()))) {
+      this.needsLead = false;
+      const inputDigest = this.planningInputDigest();
+      if (inputDigest === this.archive.lastLeadInputDigest && !this.archive.error && !pendingHandoffs.length) {
+        return !running && !this.hasAssignableTask() ? this.idleFrontier(this.activeGoalFrontier(), inputDigest) : RETRY_DISPATCH;
+      }
+      if (this.archive.frontierRecoveries?.some(record => record.status === 'requested')) {
+        const recovery = this.requestFrontierRecovery(this.activeGoalFrontier());
+        if (recovery) return recovery;
+      }
+      this.syncPlanNotes();
+      const action: CooperativeAction = { kind: 'lead', seedCommit: this.seed(worker, head), planVersion: this.archive.planVersion,
+        planningInputDigest: inputDigest, ...this.handoffDispatch(pendingHandoffs) };
+      this.leadEvidence.set(action, this.planningEvidenceDigest());
+      return action;
+    }
+    return this.waitForDispatch();
+  }
+  private async nextPrimaryLead(worker: ResearchWorker, budget: DispatchBudget, modelAllowed: boolean): Promise<DispatchResult> {
+    const review = this.archive.review;
+    if (review && ['pending', 'running'].includes(review.status)) {
+      if (!this.livePeers.length) return;
+      if (review.status === 'pending' &&
+          ((this.input.state.turns >= budget.maxTurns && !this.reservedTurns.size) || budget.remainingMs <= 0 || !modelAllowed)) {
+        return !modelAllowed && this.active.size ? this.waitForDispatch() : undefined;
+      }
+      return this.waitForDispatch();
+    }
+    if (review && this.canAssemble(review.commit) && this.lastAssembly !== review.commit) {
+      this.lastAssembly = review.commit;
+      return { kind: 'assemble', seedCommit: review.commit };
+    }
+    if (this.dispatchBudgetExhausted(budget, modelAllowed)) return this.exhaustedDispatch(budget, modelAllowed,
+      !modelAllowed && (this.active.size > 0 || this.archive.tasks.some(node => ['running', 'delivered'].includes(node.status))));
+    return { kind: 'solve', seedCommit: git(worker.worktree, ['rev-parse', 'HEAD']), ...this.handoffDispatch() };
+  }
+  private async nextPeer(worker: ResearchWorker, budget: DispatchBudget, modelAllowed: boolean): Promise<DispatchResult> {
+    if (budget.remainingMs <= 0 || !modelAllowed) return;
+    if (this.input.state.turns >= budget.maxTurns) return this.exhaustedDispatch(budget, modelAllowed);
+    const review = this.archive.review;
+    const reviewer = this.reviewer();
+    const statement = reviewer?.id === worker.id && this.archive.statementReviews?.find(item =>
+      ['pending', 'translated'].includes(item.status) && this.statementReviewAllowed(this.node(item.taskId).task, true) &&
+      ![...this.active.values()].some(active => isStatementAction(active.action) && active.action.reviewId === item.id));
+    if (statement) {
+      const kind = statement.status === 'pending' ? 'backtranslate' : 'statement-review';
+      fs.rmSync(path.join(statement.workspace, 'RESEARCH.md'), { force: true });
+      statement.status = kind === 'backtranslate' ? 'translating' : 'reviewing'; statement.workerId = worker.id;
+      statement.assignmentId = crypto.randomUUID();
+      this.input.emit('statement_review_assigned', { workerId: worker.id, taskId: statement.taskId, reviewId: statement.id, kind, role: 'reviewer' });
+      this.changed(); return { kind, reviewId: statement.id, taskId: statement.taskId, taskDigest: statement.taskDigest,
+        snapshotDigest: statement.snapshotDigest, seedCommit: statement.commit, workspace: statement.workspace,
+        assignmentId: statement.assignmentId };
+    }
+    if (review?.status === 'pending' && reviewer?.id === worker.id && !this.candidateSynchronizationBlocked()) {
+      this.seed(worker, review.commit);
+      const notes = path.join(worker.worktree, 'RESEARCH.md');
+      if (fs.existsSync(notes)) fs.writeFileSync(notes, fs.readFileSync(notes, 'utf8').replace(/```(?:math|math-review)\s*\n[\s\S]*?\n```/gu, ''));
+      review.workerId = worker.id; review.status = 'running'; review.assignmentId = crypto.randomUUID();
+      this.input.emit('review_assigned', { workerId: worker.id, commit: review.commit, role: 'reviewer' });
+      this.changed(); return { kind: 'review', seedCommit: review.commit, sourceDigest: review.sourceDigest,
+        assignmentId: review.assignmentId };
+    }
+    const ready = this.input.modules.M3.ready(this.archive.tasks, this.archive.groups).filter(node => !this.synchronizationBlocked(node.task));
+    const node = this.input.modules.M5.assign(ready, worker,
+      this.allocationPeers, this.archive.groups, this.archive.tasks);
+    if (!node) return this.liveWorkers.has(worker.id) ? this.waitForDispatch() : undefined;
+    const engineerId = node.task.kind === 'goal' && this.archive.groups?.find(route => route.group.id === taskGroup(node.task))?.group.engineerId;
+    if (!ready.includes(node) || !this.archive.tasks.includes(node) || node.status !== 'pending' ||
+        !taskCanStart(node.task, this.archive.tasks) ||
+        !routeAllowsTask(node.task, this.archive.tasks, this.archive.groups) ||
+        !independentFeasibilityWorker(node, worker, this.archive.tasks, this.archive.groups) ||
+        hasRunningDuplicateQuestion(node, this.archive.tasks) ||
+        (node.task.ownerId && node.task.ownerId !== worker.id) || (engineerId && engineerId !== worker.id) ||
+        (node.assignment && node.assignment.workerId !== worker.id)) throw new Error('math_task_assignment_invalid');
+    const selectedRoute = selectedTaskRoute(node, this.archive.tasks);
+    if (node.assignment && node.alternativeRoutes?.length && node.assignment.routeId !== selectedRoute?.id)
+      node.assignment = undefined;
+    let resuming = node.assignment?.workerId === worker.id;
+    if (resuming && advisory(node.task) &&
+        (this.archive.researchDrafts?.[node.task.id]?.suspended || this.researchWorkspaceChanged(worker, node))) {
+      const previousAssignment = node.assignment;
+      const restored = await this.restoreResearchDraft(worker, node);
+      if (this.synchronizationBlocked(node.task) || !this.archive.tasks.includes(node) || node.status !== 'pending' ||
+          !restored && node.assignment !== previousAssignment ||
+          node.task.ownerId && node.task.ownerId !== worker.id ||
+          !independentFeasibilityWorker(node, worker, this.archive.tasks, this.archive.groups) ||
+          hasRunningDuplicateQuestion(node, this.archive.tasks) ||
+          !taskCanStart(node.task, this.archive.tasks) || !routeAllowsTask(node.task, this.archive.tasks, this.archive.groups)) return RETRY_DISPATCH;
+      if (!restored) {
+        fs.writeFileSync(path.join(worker.worktree, 'RESEARCH.md'), '');
+        node.assignment = undefined; resuming = false;
+        if (this.archive.researchCheckpoints) delete this.archive.researchCheckpoints[node.task.id];
+        node.feedback = 'math_research_draft_unavailable: No matching saved draft is available; continue from the current canonical sources and save findings for this assignment.';
+        this.input.emit('research_draft_unavailable', { taskId: node.task.id, workerId: worker.id });
+      }
+    }
+    this.suspendResearchDrafts(worker, node.task.id);
+    const seed = this.archive.canonicalCommit!;
+    const scopedSeed = resuming ? seed : this.seed(worker, seed, node.task);
+    node.assignment ??= { taskId: node.task.id, taskDigest: digest(node.task), workerId: worker.id,
+      seedCommit: scopedSeed, assignmentId: crypto.randomUUID(), canonicalCommit: seed, groupId: taskGroup(node.task),
+      routeId: selectedRoute?.id,
+      dependencies: this.dependencies(node.task).map(item => ({ taskId: item.task.id, taskDigest: digest(item.task) })) };
+    node.status = 'running';
+    const route = this.archive.groups?.find(record => record.group.id === taskGroup(node.task));
+    this.input.emit('task_assigned', { taskId: node.task.id, workerId: worker.id, kind: node.task.kind,
+      groupId: taskGroup(node.task), groupTurns: route?.turns, seedCommit: node.assignment.seedCommit });
+    this.changed(); return { kind: 'task', assignment: node.assignment, task: node.task };
   }
   private canAdvance(taskIds?: ReadonlySet<string>) {
     return researchCanAdvance(this.archive.tasks, this.archive.groups, this.liveWorkers, node =>
@@ -3000,7 +2992,7 @@ export class CooperativeResearch {
   }
   /** Assignments reserve concurrency immediately; charge only when a model turn actually starts. */
   started(worker: ResearchWorker, action: CooperativeAction): boolean {
-    if (this.failure) return false;
+    if (this.failure || this.stopping || !this.liveWorkers.has(worker.id) || !this.liveWorkers.has(this.lead.id)) return false;
     if (this.refreshFeasibilityAssignments()) this.changed();
     if (!this.current(action)) return false;
     if (action.kind === 'task' && action.assignment.workerId !== worker.id) throw new Error('math_task_assignment_invalid');

@@ -14,7 +14,19 @@ M1–M5 表示运行时的决策边界，不是五个依次执行的解题步骤
 
 实现入口在 `src/solver/modules/`：`execution.ts`、`evidence.ts`、`search.ts`、`context.ts`、`organization.ts`。`index.ts` 绑定模块版本；行为变化需要同步运行身份，不能让旧任务静默换用新语义。
 
-`src/solver/research.ts` 执行会话并管理共享预算与恢复；`src/solver/cooperation.ts` 保存任务状态、交付、合并与通知。两者承接模块结果，不应以模型自述替代严格证据。S1 归档由 `archive.ts` 管理，S3 最终验收由 `evaluation.ts` 管理；S2 学习仍是未来扩展。
+运行控制与证据服务的实现边界如下；这些文件承接模块结果，不以模型自述替代严格证据。
+
+| 实现入口 | 职责 |
+| --- | --- |
+| `src/solver/research.ts` | 编排会话启动、执行、恢复和交付；串行化整题检查入口 |
+| `src/solver/researchUsage.ts` | 管理当前模型轮次和会话的用量事件、请求准入与收据结算 |
+| `src/solver/usageBudget.ts` | 计算累计用量与共享预算状态，不执行模型或证明检查 |
+| `src/solver/turnLedger.ts` | 记录调用窗口与同期产物观测，不决定调度或验收 |
+| `src/solver/cooperation.ts` | 管理任务、交付、集成与通知；分别处理 Lead、Primary Solver、peer 派发，共用等待和前沿恢复逻辑 |
+| `src/math/verifier.ts` | 核对固定源码与目标身份，执行 Lean 检查和官方验收，生成回执 |
+| `src/math/verifierCheckout.ts` | 负责验证工作树的创建与回收；失败、异常和取消均进入同一清理路径 |
+
+S1 归档由 `archive.ts` 管理，S3 最终验收由 `evaluation.ts` 管理；S2 学习仍是未来扩展。
 
 ## 数学工作阶段
 

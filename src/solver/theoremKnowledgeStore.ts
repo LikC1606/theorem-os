@@ -3,7 +3,7 @@ import path from 'node:path';
 import { z } from 'zod';
 import { canonicalMathJson, mathDigest, readMathFile, readMathText, syncMathDirectory } from '../math/mathRuntimeIo';
 import { assertMathCanonicalPath } from '../math/paths';
-import { readTheoremKnowledge, theoremKnowledgeEntrySchema, theoremKnowledgeStats, validateKnowledgeMetadata, validateTheoremKnowledge,
+import { theoremKnowledgeEntrySchema, theoremKnowledgeStats, validateKnowledgeMetadata, validateTheoremKnowledge,
   type TheoremKnowledgeBase } from './theoremKnowledge';
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/u);
@@ -164,18 +164,14 @@ export function readKnowledgeCatalog(file: string, expectedDigest?: string) {
   const version = (value as { schema?: unknown } | null)?.schema;
   if (version === 'theorem-os.theorem-knowledge.v2') return packedView(resolved, text, digest, validateManifest(value));
   if (version !== 'theorem-os.theorem-knowledge.v1') throw new Error('math_knowledge_schema_invalid');
-  return { ...readTheoremKnowledge(resolved, digest), format: 'v1' as const };
+  return { base: validateTheoremKnowledge(value), digest, text, format: 'v1' as const };
 }
 
 export function copyKnowledgeSnapshot(knowledge: { text: string; digest: string; format: 'v1' | 'v2' },
   fromFile: string, toFile: string) {
   if (!hash.safeParse(knowledge.digest).success || mathDigest(knowledge.text) !== knowledge.digest)
     throw new Error('math_knowledge_identity_changed');
-  if (knowledge.format === 'v2') {
-    const copied = copyPackedKnowledge(knowledge.text, fromFile, toFile);
-    if (copied.sha256 !== knowledge.digest) throw new Error('math_knowledge_identity_changed');
-    return copied;
-  }
+  if (knowledge.format === 'v2') return copyPackedKnowledge(knowledge.text, fromFile, toFile);
   const resolved = path.resolve(toFile);
   assertMathCanonicalPath(resolved);
   const existing = fs.lstatSync(resolved, { throwIfNoEntry: false });

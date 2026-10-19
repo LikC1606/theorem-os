@@ -28,16 +28,6 @@ function eligibleResearchTasks(ready: readonly TaskRecord[], worker: ResearchWor
     independentFeasibilityWorker(node, worker, tasks, groups) && !hasRunningDuplicateQuestion(node, tasks));
 }
 
-/** Assign selected work by responsibility and preserve resumed ownership. */
-export function assignResearchTask(ready: readonly TaskRecord[], worker: ResearchWorker, live: readonly ResearchWorker[], groups?: readonly RouteRecord[],
-  tasks: readonly TaskRecord[] = ready): TaskRecord | undefined {
-  const researchers = live.some(item => item.role === 'researcher');
-  const eligible = eligibleResearchTasks(ready, worker, groups, tasks);
-  if (worker.role === 'researcher') return eligible.find(node => node.task.kind !== 'goal') ?? eligible.find(node => node.task.kind === 'goal');
-  if (worker.role === 'engineer') return (researchers ? eligible.find(node => node.task.kind === 'goal') : undefined) ?? eligible[0];
-  return undefined;
-}
-
 /** Share ranked work, reserving a final available slot for independent work when the main frontier is occupied. */
 export function assignSharedResearchTask(ready: readonly TaskRecord[], worker: ResearchWorker, live: readonly ResearchWorker[], groups?: readonly RouteRecord[],
   tasks: readonly TaskRecord[] = ready): TaskRecord | undefined {

@@ -233,6 +233,29 @@ describe('theorem knowledge retrieval', () => {
     expect(result.hits[0]!.versions.map(version => version.id)).toEqual([current.id, currentVersion.id]);
   });
 
+  it.each([undefined, 'exact-interface'] as const)('preserves ranked group scores when a lower-scoring version is preferred (%s)', displayGrouping => {
+    const environmentDigest = mathDigest('current environment');
+    const old = entry('Saved.bound', 'Bound', { id: '1'.repeat(64), description: 'sharp' });
+    const current = { ...old, id: '2'.repeat(64), contextDigest: mathDigest('current context'), environmentDigest, description: '' };
+    const variant = entry('Saved.bound', 'Bound', { id: '3'.repeat(64), description: 'sharp transport',
+      declaration: 'theorem bound : Bound := by exact other_proof\n' });
+    const catalog = base(entry('Saved.transport', 'Transport'), current, variant, old);
+    const query = 'bound sharp transport', options = { displayGrouping };
+    const original = searchTheoremKnowledge(catalog, query, options);
+    const preferred = searchTheoremKnowledge(catalog, query, { ...options, environmentDigest });
+    expect(preferred.hits.map(hit => [hit.name, hit.score])).toEqual(original.hits.map(hit => [hit.name, hit.score]));
+    const selected = preferred.hits.find(hit => hit.versions.some(version => version.id === current.id))!;
+    expect(selected).toMatchObject({ id: current.id, versionCount: 2 });
+    expect(selected.versions.map(version => version.id)).toEqual([current.id, old.id]);
+    expect(preferred).toMatchObject({ total: 3, totalVersions: 4 });
+    if (displayGrouping) {
+      expect(preferred.totalInterfaces).toBe(2);
+      expect(selected.declarationVariantCount).toBe(2);
+    }
+    expect(searchTheoremKnowledge(base(...catalog.entries.toReversed()), query, { ...options, environmentDigest }))
+      .toEqual(preferred);
+  });
+
   it('uses full exact names, types and type kinds for display diversity', () => {
     const prefix = normType + ' '.repeat(900);
     const original = entry(name, `${prefix} -> True`), changedType = entry(name, `${prefix} -> False`),

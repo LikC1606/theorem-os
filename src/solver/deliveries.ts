@@ -94,43 +94,29 @@ export function readDeliveryLines(file: string, offset: number,
     if (!stat.isFile() || stat.nlink !== 1 || stat.size < offset) throw new Error('math_delivery_log_invalid');
     const buffer = Buffer.alloc(Math.min(stat.size - offset, 64_000));
     const size = fs.readSync(fd, buffer, 0, buffer.length, offset);
-    if (recovery) {
-      const entries: DeliveryLogEntry[] = [];
-      let start = 0, discarding = recovery.discardingOversized;
-      // A rejected long line may span several polls; never parse its trailing fragment.
-      if (discarding) {
-        const newline = buffer.subarray(0, size).indexOf(10);
-        if (newline < 0) return { lines: [], offset: offset + size, entries, discardingOversized: true };
-        start = newline + 1; discarding = false;
-      }
-      while (start < size) {
-        const newline = buffer.subarray(0, size).indexOf(10, start);
-        if (newline < 0) {
-          if (start === 0 && size === 64_000) {
-            start = size; discarding = true;
-            entries.push({ error: 'math_delivery_line_too_large', offset: offset + start, discardingOversized: true });
-          }
-          break;
-        }
-        const line = buffer.subarray(start, newline).toString('utf8');
-        start = newline + 1;
-        entries.push({ line, offset: offset + start, discardingOversized: false });
-      }
-      return { lines: entries.flatMap(entry => entry.line?.trim() ? [entry.line] : []), offset: offset + start,
-        entries, discardingOversized: discarding };
-    }
-    const end = buffer.subarray(0, size).lastIndexOf(10);
-    if (end < 0) {
-      if (size === 64_000) throw new Error('math_delivery_line_too_large');
-      return { lines: [], offset, entries: [] };
-    }
     const entries: DeliveryLogEntry[] = [];
-    let start = 0;
-    while (start <= end) {
-      const newline = buffer.indexOf(10, start);
-      entries.push({ line: buffer.subarray(start, newline).toString('utf8'), offset: offset + newline + 1, discardingOversized: false });
-      start = newline + 1;
+    let start = 0, discarding = recovery?.discardingOversized ?? false;
+    // A rejected long line may span several polls; never parse its trailing fragment.
+    if (discarding) {
+      const newline = buffer.subarray(0, size).indexOf(10);
+      if (newline < 0) return { lines: [], offset: offset + size, entries, discardingOversized: true };
+      start = newline + 1; discarding = false;
     }
-    return { lines: entries.flatMap(entry => entry.line?.trim() ? [entry.line] : []), offset: offset + end + 1, entries };
+    while (start < size) {
+      const newline = buffer.subarray(0, size).indexOf(10, start);
+      if (newline < 0) {
+        if (start === 0 && size === 64_000) {
+          if (!recovery) throw new Error('math_delivery_line_too_large');
+          start = size; discarding = true;
+          entries.push({ error: 'math_delivery_line_too_large', offset: offset + start, discardingOversized: true });
+        }
+        break;
+      }
+      const line = buffer.subarray(start, newline).toString('utf8');
+      start = newline + 1;
+      entries.push({ line, offset: offset + start, discardingOversized: false });
+    }
+    return { lines: entries.flatMap(entry => entry.line?.trim() ? [entry.line] : []), offset: offset + start,
+      entries, ...(recovery ? { discardingOversized: discarding } : {}) };
   } finally { fs.closeSync(fd); }
 }

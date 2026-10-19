@@ -44,7 +44,6 @@ const focusChecks: Array<{ label: string; target: string; visible: boolean }> = 
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
 let activeHarness: Harness | undefined;
 let failedScenario = '', failureScreenshot = '';
-const normalize = (source: string) => source.replace(/\r\n?/g, '\n');
 const lineOffset = (source: string, line: number) => source.split('\n').slice(0, line - 1).reduce((offset, value) => offset + value.length + 1, 0);
 const previewEdit = '[data-draft-action="edit"]';
 

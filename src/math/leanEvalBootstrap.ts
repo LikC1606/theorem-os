@@ -1052,11 +1052,7 @@ export async function runLeanEvalOfficialGate(
     ?? bootstrapped.binding.publicObligations.at(-1);
   const hasAllKernelReceipts =
     decisive !== undefined && hasCompleteLeanEvalLocalGateResults(localItems, localGate, submission.targetCommit);
-  if (
-    localGate.status !== 'kernel_verified' ||
-    localGate.results.some((result) => result.status !== 'kernel_verified') ||
-    !hasAllKernelReceipts
-  ) {
+  if (!hasAllKernelReceipts) {
     return Object.freeze({
       submission,
       localGate,

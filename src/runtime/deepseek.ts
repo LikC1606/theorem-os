@@ -1,7 +1,4 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
-import { canonicalMathJson, mathDigest, readMathText } from '../math/mathRuntimeIo';
+import { createProviderProfile } from './providerProfile';
 
 export const DEEPSEEK_PROVIDER = {
   id: 'deepseek', baseUrl: 'https://api.deepseek.com', wireApi: 'responses',
@@ -39,44 +36,7 @@ export function deepSeekModelCatalog() {
   })) };
 }
 
-function profileFiles(directory: string, model: string, effort: string) {
-  validateDeepSeekModel(model, effort);
-  return {
-    'config.toml': stringifyToml({
-      model, model_provider: DEEPSEEK_PROVIDER.id, model_reasoning_effort: effort,
-      model_catalog_json: path.join(directory, 'models.json'), web_search: 'disabled',
-      approval_policy: 'never', sandbox_mode: 'workspace-write',
-      model_providers: { deepseek: { name: 'DeepSeek', base_url: DEEPSEEK_PROVIDER.baseUrl,
-        wire_api: DEEPSEEK_PROVIDER.wireApi, env_key: DEEPSEEK_PROVIDER.apiKeyEnvironment,
-        requires_openai_auth: false, request_max_retries: 0, stream_max_retries: 0,
-        stream_idle_timeout_ms: 60_000 } },
-      shell_environment_policy: { inherit: 'all', exclude: [DEEPSEEK_PROVIDER.apiKeyEnvironment] },
-      history: { persistence: 'none' }, analytics: { enabled: false },
-    }),
-    'models.json': JSON.stringify(deepSeekModelCatalog(), null, 2) + '\n',
-  };
-}
-
-export function expectedDeepSeekProfileDigest(directory: string, model: string, effort: string): string {
-  return mathDigest(canonicalMathJson(profileFiles(directory, model, effort)));
-}
-
-export function deepSeekProfileDigest(directory: string): string {
-  return mathDigest(canonicalMathJson(Object.fromEntries(['config.toml', 'models.json'].map(name =>
-    [name, readMathText(path.join(directory, name))]))));
-}
-
-export function selectedDeepSeekProfile(directory: string): { profile: string; digest: string } | undefined {
-  const configFile = path.join(directory, 'config.toml');
-  if (!fs.existsSync(configFile) || parseToml(readMathText(configFile)).model_provider !== DEEPSEEK_PROVIDER.id) return;
-  return { profile: fs.realpathSync(directory), digest: deepSeekProfileDigest(directory) };
-}
-
-/** Prepare an exclusive profile without reading credentials or starting Codex. */
-export function prepareDeepSeekProfile(directory: string, model: string, effort: string): string {
-  const files = profileFiles(directory, model, effort);
-  fs.mkdirSync(directory, { mode: 0o700 });
-  for (const [name, content] of Object.entries(files))
-    fs.writeFileSync(path.join(directory, name), content, { mode: 0o400, flag: 'wx' });
-  return expectedDeepSeekProfileDigest(directory, model, effort);
-}
+export const { expectedDigest: expectedDeepSeekProfileDigest, digest: deepSeekProfileDigest,
+  selected: selectedDeepSeekProfile, prepare: prepareDeepSeekProfile,
+} = createProviderProfile({ ...DEEPSEEK_PROVIDER, name: 'DeepSeek',
+  validate: validateDeepSeekModel, catalog: deepSeekModelCatalog });

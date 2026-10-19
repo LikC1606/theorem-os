@@ -5,7 +5,6 @@ import type { CooperationState } from './cooperation';
 import type { DeliveryRecord } from './deliveries';
 import type { SolverProblem } from './problem';
 import { hasTaskAcceptance, taskGroup, taskVersion, type CooperativeAction, type TaskRecord } from './tasks';
-import type { RouteBlocker } from './routeControl';
 import { buildProofContinuation } from './progress';
 import { pendingResearchHandoffs, researchHandoffContext, selectResearchHandoffBatch } from './researchHandoffs';
 import { contextTaskConsumers } from './taskConsumers';
@@ -26,9 +25,6 @@ export type ContextManifest = Readonly<{
   omitted: readonly { id: string; kind: ContextItemKind; reason: ContextOmissionReason }[];
 }>;
 export type ContextSection = Readonly<{ id: string; kind: ContextItemKind; text: string; priority?: number }>;
-type Extras = { blockers?: readonly RouteBlocker[]; proofRoutes?: readonly {
-  id: string; targetTaskId: string; prerequisiteTaskIds: readonly string[]; closingTaskId: string;
-}[] };
 export type TaskContextInput = Readonly<{
   problem: SolverProblem; cooperation?: CooperationState; action?: CooperativeAction;
   instructions: string; taskText: string; feedback?: string; checkpoint?: string;
@@ -216,7 +212,7 @@ function requiredTasks(input: TaskContextInput, omitted: ContextManifest['omitte
   }
   else tasks.forEach(node => visit(node.task.id));
   const route = action?.kind === 'task' && action.assignment.routeId ?
-    (input.cooperation as CooperationState & Extras)?.proofRoutes?.find(route => route.id === action.assignment.routeId) ??
+    input.cooperation?.proofRoutes?.find(route => route.id === action.assignment.routeId) ??
       byId.get(action.task.id)?.alternativeRoutes?.find(route => route.id === action.assignment.routeId) : undefined;
   if (action?.kind === 'task' && action.assignment.routeId) {
     if (!route || route.targetTaskId !== action.task.id) return missing(`route:${action.assignment.routeId}`);
@@ -511,8 +507,7 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
   if (repeatedAttempts.length > 1) optional.push({ ...section('repeated-attempt-history', 'feedback',
     'Earlier related failed attempts (advisory; not permission to reuse verification):',
     repeatedAttempts.slice(1).map(attemptHint)), priority: 0 });
-  const extras = input.cooperation as (CooperationState & Extras) | undefined;
-  for (const blocker of [...(extras?.blockers ?? [])].sort((a, b) => rank(a.taskId, a.groupId) - rank(b.taskId, b.groupId))) {
+  for (const blocker of [...(input.cooperation?.blockers ?? [])].sort((a, b) => rank(a.taskId, a.groupId) - rank(b.taskId, b.groupId))) {
     const id = `blocker:${blocker.id}`;
     if (!byId.has(blocker.taskId) || (active && blocker.groupId !== taskGroup(active) && !required.has(blocker.taskId))) {
       omitted.push({ id, kind: 'blocker', reason: 'outside-task-scope' }); continue;
@@ -536,7 +531,7 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
     if (!required.has(node.task.id) && !consumerIds.has(node.task.id)) optional.push({ ...section(`interface:${node.task.id}`, 'interfaces', 'Other visible task (advisory planning context):',
       { ...node.task, taskDigest: taskVersion(node.task), status: node.status }), priority: priority + 8 });
   }
-  for (const route of extras?.proofRoutes ?? []) {
+  for (const route of input.cooperation?.proofRoutes ?? []) {
     if (route.id === selectedRoute?.id) continue;
     if ([route.targetTaskId, route.closingTaskId, ...route.prerequisiteTaskIds].every(id => byId.has(id)))
       optional.push(section(`route:${route.id}`, 'routes', 'Alternative route and closing obligation (planned, not accepted):', route));
@@ -574,37 +569,38 @@ function compileSections(instructions: string, mandatory: readonly ContextSectio
   const selected: ContextSection[] = [];
   const omissionReasons = new Map<string, ContextOmissionReason>();
   const optionalBytes = (items: readonly ContextSection[]) => items.reduce((total, item) => total + Buffer.byteLength(item.text) + 2, 0);
-  const render = (selected: readonly ContextSection[], mandatoryBytes: number) => {
+  const render = (selected: readonly ContextSection[], mandatoryBytes?: number) => {
     const included = [...mandatory.map(item => ({ ...item, required: true })), ...selected.map(item => ({ ...item, required: false }))];
     const content = included.map(item => item.text).join('\n\n');
     const includedIds = new Set(selected.map(item => item.id));
     const manifest: { -readonly [K in keyof ContextManifest]: ContextManifest[K] } = {
-      schema: 'theorem-os.task-context.v1', evidence: 'recorded-not-replayed', maxBytes, usedBytes: 0, mandatoryBytes,
+      schema: 'theorem-os.task-context.v1', evidence: 'recorded-not-replayed', maxBytes, usedBytes: 0, mandatoryBytes: mandatoryBytes ?? 0,
       maxOptionalBytes, optionalBytes: optionalBytes(selected),
       contentDigest: mathDigest(json({ instructions, message: content })), requiredTaskIds,
       included: included.map(item => ({ id: item.id, kind: item.kind, required: item.required, bytes: Buffer.byteLength(item.text) })),
       omitted: [...initialOmissions, ...optional.filter(item => !includedIds.has(item.id))
         .map(item => ({ id: item.id, kind: item.kind, reason: omissionReasons.get(item.id) ?? 'budget' as const }))],
     };
+    const omissionPreview = manifest.omitted.length <= 32 ? undefined : {
+      omitted: manifest.omitted.slice(0, 16),
+      omissionSet: { selection: 'bounded-preview', count: manifest.omitted.length,
+        digest: mathDigest(canonicalMathJson(manifest.omitted)),
+        reference: { path: 'CONTEXT-MANIFEST.json', field: 'omitted' },
+        retrieval: 'Read the complete omitted array from this manifest file; require its length and canonical JSON SHA-256 to match. ' +
+          'The inline entries are only a preview, not the complete omission inventory.' } };
     let message: string;
     do {
-      const inlineManifest = manifest.omitted.length <= 32 ? manifest : { ...manifest,
-        omitted: manifest.omitted.slice(0, 16),
-        omissionSet: { selection: 'bounded-preview', count: manifest.omitted.length,
-          digest: mathDigest(canonicalMathJson(manifest.omitted)),
-          reference: { path: 'CONTEXT-MANIFEST.json', field: 'omitted' },
-          retrieval: 'Read the complete omitted array from this manifest file; require its length and canonical JSON SHA-256 to match. ' +
-            'The inline entries are only a preview, not the complete omission inventory.' } };
+      const inlineManifest = omissionPreview ? { ...manifest, ...omissionPreview } : manifest;
       message = content + '\n\nContext compilation manifest:\n' + json(inlineManifest);
       const usedBytes = Buffer.byteLength(instructions) + Buffer.byteLength(message);
       if (usedBytes === manifest.usedBytes) break;
       manifest.usedBytes = usedBytes;
+      if (mandatoryBytes === undefined) manifest.mandatoryBytes = usedBytes;
     } while (true);
     return { message, manifest };
   };
   const mandatoryResult = () => {
-    let result = render([], 0);
-    while (result.manifest.mandatoryBytes !== result.manifest.usedBytes) result = render([], result.manifest.usedBytes);
+    const result = render([]);
     if (result.manifest.usedBytes > maxBytes)
       throw new TaskContextError('math_context_mandatory_overflow', `${result.manifest.usedBytes}>${maxBytes}`);
     return result;

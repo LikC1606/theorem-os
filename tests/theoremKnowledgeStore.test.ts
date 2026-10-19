@@ -54,6 +54,30 @@ describe('packed theorem knowledge with lazy verified sources', () => {
     expect(opened.mock.calls.map(call => String(call[0]))).toEqual([f.file]);
   });
 
+  it('validates and returns one consistent v1 snapshot from a single read', () => {
+    const base = buildTheoremKnowledge([candidate()]), file = path.join(root, 'legacy.json');
+    const written = writeTheoremKnowledge(file, base), text = fs.readFileSync(file, 'utf8');
+    const opened = vi.spyOn(fs, 'openSync'), loaded = readKnowledgeCatalog(file, written.sha256);
+    expect(loaded).toEqual({ base, text, digest: written.sha256, format: 'v1' });
+    expect(loaded.digest).toBe(mathDigest(loaded.text));
+    expect(opened.mock.calls.map(call => String(call[0]))).toEqual([file]);
+  });
+
+  it('retains v1 parsing, schema, content and pinned identity checks', () => {
+    const base = buildTheoremKnowledge([candidate()]), file = path.join(root, 'legacy.json');
+    const written = writeTheoremKnowledge(file, base);
+    expect(() => readKnowledgeCatalog(file, '0'.repeat(64))).toThrow('math_knowledge_identity_changed');
+    replace(file, '{');
+    expect(() => readKnowledgeCatalog(file)).toThrow('math_knowledge_schema_invalid');
+    replace(file, JSON.stringify({ ...base, entries: null }));
+    expect(() => readKnowledgeCatalog(file)).toThrow('math_knowledge_schema_invalid');
+    base.sources[Object.keys(base.sources)[0]!] += 'changed';
+    const changed = JSON.stringify(base);
+    replace(file, changed);
+    expect(() => readKnowledgeCatalog(file, mathDigest(changed))).toThrow('math_knowledge_source_changed');
+    expect(() => readKnowledgeCatalog(file, written.sha256)).toThrow('math_knowledge_identity_changed');
+  });
+
   it('verifies source bytes and hashes whenever a requested source is read', () => {
     const f = fixture(), loaded = readPackedKnowledge(f.file), entry = loaded.base.entries[0]!;
     const digest = loaded.base.contexts[entry.contextDigest]![entry.file]!;

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
-import { canonicalMathJson, mathDigest, readMathText } from '../math/mathRuntimeIo';
+import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import { assertMathCanonicalPath } from '../math/paths';
 import { inspectLeanDeclarationRegions, inspectScopedLeanDeclarations } from '../math/leanSource';
 import { knowledgeSearchGroup, knowledgeVersionSummary } from './theoremKnowledgeSearch';
@@ -171,14 +171,6 @@ export function validateKnowledgeMetadata(base: TheoremKnowledgeBase, sourceIden
       throw new Error('math_knowledge_forbidden_or_missing_source');
   }
   sourceIdentitiesByBase.set(base, sourceIdentities);
-}
-
-export function readTheoremKnowledge(file: string, expectedDigest?: string) {
-  const resolved = path.resolve(file); assertMathCanonicalPath(resolved);
-  const text = readMathText(resolved, 256 * 1024 * 1024), digest = mathDigest(text);
-  if (expectedDigest && (!/^[a-f0-9]{64}$/u.test(expectedDigest) || expectedDigest !== digest))
-    throw new Error('math_knowledge_identity_changed');
-  return { base: validateTheoremKnowledge(JSON.parse(text)), digest, text };
 }
 
 /** A new snapshot is immutable; refreshes use a new filename and an explicit merge. */

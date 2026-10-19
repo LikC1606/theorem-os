@@ -23,9 +23,9 @@ import { readMathematicsReceiptSecret } from "./receiptAttestation";
 import { resolveMathematicsRuntimeEnvironment } from "./mathRuntimeEnvironment";
 import { createMathOperationLimiter } from "./concurrency";
 import { mathFileIdentity, readMathText } from './mathRuntimeIo';
-import { maskLeanCommentsAndStrings } from "./leanSyntax";
 import { leanReferenceCommands, parseLeanReferences, type LeanDeclarationReferences } from './leanReferences';
 import { leanDeclarationContextCommands } from './leanSource';
+import { withVerifierCheckout, type VerifierCheckoutCleanupFailure } from './verifierCheckout';
 
 export type MathematicsVerifierBatchItem = {
   id?: string;
@@ -191,7 +191,6 @@ type PreparedItem = MathematicsVerifierBatchItem & {
 type PreparedProofPath = Pick<PreparedItem, 'absoluteProofPath' | 'relativeProofPath'>;
 
 type PreparedFile = {
-  absoluteProofPath: string;
   relativeProofPath: string;
   source: string;
   declarationHashes: Map<string, string>;
@@ -742,36 +741,6 @@ const runGit = (
     signal: options.signal,
     env: options.env,
   });
-
-const cleanupVerifierWorktree = async (
-  repoRoot: string,
-  worktreeRoot: string,
-  options: MathematicsVerifierExecutionOptions,
-  removeWorktree: boolean
-): Promise<string[]> => {
-  const failures: string[] = [];
-  if (removeWorktree) {
-    try {
-      const removed = await runGit(repoRoot, ['worktree', 'remove', '--force', worktreeRoot], options);
-      if (removed.exitCode !== 0 && fs.existsSync(worktreeRoot)) {
-        failures.push(
-          `git worktree remove failed: ${preview(removed.stderr) || `exit ${removed.exitCode ?? 'unknown'}`}`
-        );
-      }
-    } catch (error) {
-      failures.push(`git worktree remove failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-  try {
-    const pruned = await runGit(repoRoot, ['worktree', 'prune'], options);
-    if (pruned.exitCode !== 0) {
-      failures.push(`git worktree prune failed: ${preview(pruned.stderr) || `exit ${pruned.exitCode ?? 'unknown'}`}`);
-    }
-  } catch (error) {
-    failures.push(`git worktree prune failed: ${error instanceof Error ? error.message : String(error)}`);
-  }
-  return failures;
-};
 
 const clampOfficialTimeout = (timeoutMs: number | undefined): number =>
   clampTimeout(timeoutMs, DEFAULT_OFFICIAL_TIMEOUT_MS, MAX_OFFICIAL_TIMEOUT_MS, 'Official comparator timeoutMs');
@@ -1992,7 +1961,6 @@ const normalizeItems = (
 };
 
 const prepareFiles = async (
-  projectRoot: string,
   items: readonly PreparedItem[],
   cachePreparation?: Pick<FormalVerificationCachePreparation, 'proofSources'>
 ): Promise<PreparedFile[]> => {
@@ -2024,7 +1992,6 @@ const prepareFiles = async (
       }
       const sourceDeclarationHashes = declarationHashes(source);
       return {
-        absoluteProofPath: first.absoluteProofPath,
         relativeProofPath: first.relativeProofPath,
         source,
         declarationHashes: sourceDeclarationHashes,
@@ -2655,7 +2622,7 @@ async function checkManyFormalVerificationsUnbounded(
       request.items.map((item) => item.proofPath)
     );
   const preparedItems = cachePreparation?.preparedItems ?? normalizeItems(projectRoot, request.items);
-  const preparedFiles = await prepareFiles(projectRoot, preparedItems, cachePreparation);
+  const preparedFiles = await prepareFiles(preparedItems, cachePreparation);
   emit('session.opened', {
     projectRoot,
     itemCount: preparedItems.length,
@@ -2773,139 +2740,107 @@ async function checkManyFormalVerificationsUnbounded(
     preparedFiles.forEach((file) => publishResults(file, status, verifier, error));
   };
 
-  if (options.signal?.aborted) {
-    publishAll('blocked', 'lean-kernel', 'Formal verification was aborted.', 'process');
-  } else if (!currentHead) {
-    publishAll('blocked', 'lean-kernel', 'Formal verification requires a Git repository with a committed HEAD.', 'git');
-  } else if (requestedCommit && !resolvedRequestedCommit) {
-    publishAll(
-      'blocked',
-      'lean-kernel',
-      `The requested target commit could not be resolved: ${requestedCommit}`,
-      'git'
-    );
-  } else if (resolvedRequestedCommit && resolvedRequestedCommit !== currentHead) {
-    publishAll(
-      'blocked',
-      'lean-kernel',
-      `The verifier reads the current checkout, but targetCommit ${resolvedRequestedCommit} does not match HEAD ${currentHead}.`,
-      'git'
-    );
-  } else {
+  const verifyCommittedBatch = async (): Promise<void> => {
+    if (options.signal?.aborted) {
+      publishAll('blocked', 'lean-kernel', 'Formal verification was aborted.', 'process');
+      return;
+    }
+    if (!currentHead) {
+      publishAll('blocked', 'lean-kernel', 'Formal verification requires a Git repository with a committed HEAD.', 'git');
+      return;
+    }
+    if (requestedCommit && !resolvedRequestedCommit) {
+      publishAll('blocked', 'lean-kernel', `The requested target commit could not be resolved: ${requestedCommit}`, 'git');
+      return;
+    }
+    if (resolvedRequestedCommit && resolvedRequestedCommit !== currentHead) {
+      publishAll('blocked', 'lean-kernel',
+        `The verifier reads the current checkout, but targetCommit ${resolvedRequestedCommit} does not match HEAD ${currentHead}.`, 'git');
+      return;
+    }
     const gitStatus = await readGitStatus(projectRoot, options);
     if (options.signal?.aborted) {
       publishAll('blocked', 'lean-kernel', 'Formal verification was aborted.', 'process');
-    } else if (!gitStatus.ok) {
+      return;
+    }
+    if (!gitStatus.ok) {
       publishAll('blocked', 'lean-kernel', 'The project Git status could not be inspected.', 'git');
-    } else if (gitStatus.output) {
-      publishAll(
-        'blocked',
-        'lean-kernel',
-        `Formal verification requires a clean committed checkout. Dirty entries: ${gitStatus.output}`,
-        'git'
-      );
-    } else {
-      const repoRootResult = await runGit(projectRoot, ['rev-parse', '--show-toplevel'], options);
-      const repoRoot = repoRootResult.exitCode === 0 ? repoRootResult.stdout.trim() : '';
-      const relativeProjectRoot = repoRoot ? path.relative(path.resolve(repoRoot), projectRoot) : '..';
-      const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'deepscientist-lean-'));
-      const checkoutRoot = path.join(temporaryRoot, 'checkout');
-      const added =
-        repoRoot && !relativeProjectRoot.startsWith('..') && !path.isAbsolute(relativeProjectRoot)
-          ? await runGit(repoRoot, ['worktree', 'add', '--detach', checkoutRoot, targetCommit], options)
-          : undefined;
-      if (!added || added.exitCode !== 0) {
-        publishAll(
-          'blocked',
-          'lean-kernel',
-          'Formal verification could not create an immutable checkout at targetCommit.',
-          'git'
-        );
-      } else {
-        const cleanupOptions: MathematicsVerifierExecutionOptions = { ...options, signal: undefined };
-        try {
-          const verificationProjectRoot = path.join(checkoutRoot, relativeProjectRoot);
-          if (options.prepareLocalDependencies) {
-            const buildPath = path.join(verificationProjectRoot, '.lake', 'build');
-            const lakePath = path.dirname(buildPath);
-            if (fs.existsSync(lakePath)) assertNoSymlinkTraversal(checkoutRoot, lakePath, 'Helper Lake directory');
-            if (fs.existsSync(buildPath)) {
-              assertNoSymlinkTraversal(checkoutRoot, buildPath, 'Helper build output');
-              fs.rmSync(buildPath, { recursive: true, force: true });
-            }
-          }
-          const lakePackagesPath = seedDetachedLakeCache(projectRoot, verificationProjectRoot, runtimeEnvironment,
-            options.prepareLocalDependencies);
-          if (options.constructionSourcesOnly) pruneMathConstructionCheckout(checkoutRoot, verificationProjectRoot);
-          if (options.constructionSourcesOnly)
-            assertMathConstructionSources(
-              verificationProjectRoot,
-              preparedFiles.map((file) => file.relativeProofPath)
-            );
-          const blobIdsByPath = await readGitBlobIds(
-            projectRoot,
-            currentHead,
-            preparedFiles.map((file) => file.relativeProofPath),
-            options
-          );
-          let requiresPackages = false;
-          if (lakeFile && !lakePackagesPath) {
-            try {
-              const manifest = JSON.parse(fs.readFileSync(path.join(verificationProjectRoot, 'lake-manifest.json'), 'utf8'));
-              requiresPackages = Array.isArray(manifest.packages) && manifest.packages.length > 0;
-            } catch { /* Lake reports malformed configuration; do not infer a proof failure from startup errors. */ }
-          }
-          const context: FormalFileVerificationContext = { request, options, command, verifierCommand, lakeFile,
-            requiresPackages, toolUnavailable: false, batchDeadlineAt, verificationProjectRoot, relativeProjectRoot,
-            checkoutRoot, runtimeEnvironment, lakePackagesPath, blobIdsByPath, emit, publishResults,
-            sandboxCapability: inspectMathematicsSandboxBackends(runtimeEnvironment) };
-          // The outer semaphore limits concurrent batches.  Within one batch,
-          // use the configured host capacity for independent proof files so
-          // parallel FORMALIZE nodes do not become a serial queue.
-          const workerCount = Math.min(configuredVerificationConcurrency(), preparedFiles.length);
-          let nextFileIndex = 0;
-          const runWorker = async (): Promise<void> => {
-            for (;;) {
-              const index = nextFileIndex++;
-              if (index >= preparedFiles.length) return;
-              // eslint-disable-next-line no-await-in-loop
-              await verifyFormalFile(preparedFiles[index], context);
-            }
-          };
-          await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
-        } finally {
-          const cleanupFailures = await cleanupVerifierWorktree(repoRoot, checkoutRoot, cleanupOptions, true);
-          if (cleanupFailures.length > 0) {
-            const message = `Formal verification cleanup incomplete: ${cleanupFailures.join('; ')}`;
-            emit('diagnostic.emitted', { source: 'git', severity: 'error', message });
-            console.warn(`[MathematicsVerifier] ${message}`);
-            for (const result of results) {
-              if (result.status !== 'kernel_verified') continue;
-              result.status = 'blocked';
-              result.cleanupError = message;
-              result.error = message;
-            }
-          }
-          try {
-            fs.rmSync(temporaryRoot, { recursive: true, force: true });
-          } catch (error) {
-            const message = `Formal verification temporary directory cleanup failed: ${error instanceof Error ? error.message : String(error)}`;
-            emit('diagnostic.emitted', { source: 'process', severity: 'error', message });
-            console.warn(`[MathematicsVerifier] ${message}`);
-            for (const result of results) {
-              if (result.status !== 'kernel_verified') continue;
-              result.status = 'blocked';
-              result.cleanupError = message;
-              result.error = message;
-            }
-          }
+      return;
+    }
+    if (gitStatus.output) {
+      publishAll('blocked', 'lean-kernel',
+        `Formal verification requires a clean committed checkout. Dirty entries: ${gitStatus.output}`, 'git');
+      return;
+    }
+    const repoRootResult = await runGit(projectRoot, ['rev-parse', '--show-toplevel'], options);
+    const repoRoot = repoRootResult.exitCode === 0 ? repoRootResult.stdout.trim() : '';
+    const relativeProjectRoot = repoRoot ? path.relative(path.resolve(repoRoot), projectRoot) : '..';
+    const creationError = 'Formal verification could not create an immutable checkout at targetCommit.';
+    if (!repoRoot || relativeProjectRoot.startsWith('..') || path.isAbsolute(relativeProjectRoot)) {
+      publishAll('blocked', 'lean-kernel', creationError, 'git');
+      return;
+    }
+    const onCleanupFailure = (failure: VerifierCheckoutCleanupFailure): void => {
+      const message = failure.stage === 'worktree'
+        ? `Formal verification cleanup incomplete: ${failure.message}`
+        : `Formal verification temporary directory cleanup failed: ${failure.message}`;
+      emit('diagnostic.emitted', { source: failure.stage === 'worktree' ? 'git' : 'process', severity: 'error', message });
+      console.warn(`[MathematicsVerifier] ${message}`);
+      for (const result of results) {
+        if (result.status !== 'kernel_verified') continue;
+        result.status = 'blocked';
+        result.cleanupError = message;
+        result.error = message;
+      }
+    };
+    const checkout = await withVerifierCheckout({ repositoryRoot: repoRoot, targetCommit,
+      temporaryPrefix: 'deepscientist-lean-', env: options.env, signal: options.signal, onCleanupFailure },
+    async ({ checkoutRoot }) => {
+      const verificationProjectRoot = path.join(checkoutRoot, relativeProjectRoot);
+      if (options.prepareLocalDependencies) {
+        const buildPath = path.join(verificationProjectRoot, '.lake', 'build');
+        const lakePath = path.dirname(buildPath);
+        if (fs.existsSync(lakePath)) assertNoSymlinkTraversal(checkoutRoot, lakePath, 'Helper Lake directory');
+        if (fs.existsSync(buildPath)) {
+          assertNoSymlinkTraversal(checkoutRoot, buildPath, 'Helper build output');
+          fs.rmSync(buildPath, { recursive: true, force: true });
         }
       }
-      if (!added || added.exitCode !== 0) {
-        fs.rmSync(temporaryRoot, { recursive: true, force: true });
+      const lakePackagesPath = seedDetachedLakeCache(projectRoot, verificationProjectRoot, runtimeEnvironment,
+        options.prepareLocalDependencies);
+      if (options.constructionSourcesOnly) {
+        pruneMathConstructionCheckout(checkoutRoot, verificationProjectRoot);
+        assertMathConstructionSources(verificationProjectRoot, preparedFiles.map((file) => file.relativeProofPath));
       }
-    }
-  }
+      const blobIdsByPath = await readGitBlobIds(
+        projectRoot, currentHead, preparedFiles.map((file) => file.relativeProofPath), options);
+      let requiresPackages = false;
+      if (lakeFile && !lakePackagesPath) {
+        try {
+          const manifest = JSON.parse(fs.readFileSync(path.join(verificationProjectRoot, 'lake-manifest.json'), 'utf8'));
+          requiresPackages = Array.isArray(manifest.packages) && manifest.packages.length > 0;
+        } catch { /* Lake reports malformed configuration; do not infer a proof failure from startup errors. */ }
+      }
+      const context: FormalFileVerificationContext = { request, options, command, verifierCommand, lakeFile,
+        requiresPackages, toolUnavailable: false, batchDeadlineAt, verificationProjectRoot, relativeProjectRoot,
+        checkoutRoot, runtimeEnvironment, lakePackagesPath, blobIdsByPath, emit, publishResults,
+        sandboxCapability: inspectMathematicsSandboxBackends(runtimeEnvironment) };
+      // The outer semaphore limits batches; independent files share the host's compiler capacity.
+      const workerCount = Math.min(configuredVerificationConcurrency(), preparedFiles.length);
+      let nextFileIndex = 0;
+      const runWorker = async (): Promise<void> => {
+        for (;;) {
+          const index = nextFileIndex++;
+          if (index >= preparedFiles.length) return;
+          // eslint-disable-next-line no-await-in-loop
+          await verifyFormalFile(preparedFiles[index], context);
+        }
+      };
+      await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
+    });
+    if (!checkout.ok) publishAll('blocked', 'lean-kernel', creationError, 'git');
+  };
+  await verifyCommittedBatch();
 
   // Parallel file completion must not change the public result order.  Keep
   // event timing as observed, but return receipts in caller-supplied order.
@@ -3557,13 +3492,64 @@ const validateOfficialManifestSource = async (
   await Promise.all(Array.from({ length: workerCount }, () => trackedFileWorker()));
 };
 
-const readAndValidateOfficialManifest = (
-  manifestPath: string,
-  expected: Pick<
-    MathematicsOfficialComparatorRequest,
-    'targetCommit' | 'command' | 'problemId' | 'statementHash' | 'expectedContract'
-  >
+type OfficialManifestExpectation = Pick<MathematicsOfficialComparatorRequest,
+  'targetCommit' | 'command' | 'problemId' | 'statementHash' | 'expectedContract'>;
+
+const validateOfficialManifest = (
+  input: MathOfficialProblemManifest,
+  expected: OfficialManifestExpectation,
+  source: 'committed' | 'supplied'
 ): MathOfficialProblemManifest => {
+  const manifest = normalizeMathOfficialProblemManifest(input);
+  const expectedHash = crypto
+    .createHash('sha256')
+    .update(canonicalMathOfficialManifestPayload(manifest), 'utf8')
+    .digest('hex');
+  if (manifest.manifestHash.toLowerCase() !== expectedHash) {
+    throw new Error('Official problem manifest hash does not match its canonical contents.');
+  }
+  const assertCommand = (): void => {
+    if (manifest.officialVerificationCommand.trim() !== expected.command.trim()) {
+      throw new Error(source === 'committed'
+        ? 'Official comparator command does not match the command frozen in the official problem manifest.'
+        : 'Official comparator command does not match the supplied official problem manifest.');
+    }
+  };
+  // Preserve the diagnostic precedence of the two public input paths.
+  if (source === 'supplied') assertCommand();
+  if (manifest.targetCommit && manifest.targetCommit.toLowerCase() !== expected.targetCommit.toLowerCase()) {
+    throw new Error('Official problem manifest targetCommit does not match the comparator target commit.');
+  }
+  if (source === 'committed') assertCommand();
+  if (expected.problemId && manifest.problemId !== expected.problemId.trim()) {
+    throw new Error('Official problem manifest problemId does not match the requested problem.');
+  }
+  if (expected.statementHash && manifest.statementHash !== expected.statementHash.trim()) {
+    throw new Error('Official problem manifest statementHash does not match the stored Lean receipt.');
+  }
+  if (expected.expectedContract) {
+    assertMathProblemContractMatchesOfficialManifest(expected.expectedContract, manifest);
+  }
+  return manifest;
+};
+
+const resolveOfficialManifest = (
+  request: MathematicsOfficialComparatorRequest,
+  worktreeRoot: string,
+  expected: OfficialManifestExpectation
+): MathOfficialProblemManifest => {
+  if (!request.officialManifestPath) {
+    if (!request.officialManifest) {
+      throw new Error('Official comparator requires a committed externally bound problem manifest.');
+    }
+    return validateOfficialManifest(request.officialManifest, expected, 'supplied');
+  }
+  // Manifest paths are repository-relative; the command may run in a project subdirectory.
+  const manifestPath = assertNoSymlinkTraversal(
+    worktreeRoot,
+    path.join(worktreeRoot, relativeOfficialManifestPath(request.officialManifestPath)),
+    'official manifest path'
+  );
   let parsed: unknown;
   try {
     const stat = fs.statSync(manifestPath);
@@ -3577,28 +3563,15 @@ const readAndValidateOfficialManifest = (
       { cause: error }
     );
   }
-  const manifest = normalizeMathOfficialProblemManifest(parsed as MathOfficialProblemManifest);
-  const expectedHash = crypto
-    .createHash('sha256')
-    .update(canonicalMathOfficialManifestPayload(manifest), 'utf8')
-    .digest('hex');
-  if (manifest.manifestHash.toLowerCase() !== expectedHash) {
-    throw new Error('Official problem manifest hash does not match its canonical contents.');
-  }
-  if (manifest.targetCommit && manifest.targetCommit.toLowerCase() !== expected.targetCommit.toLowerCase()) {
-    throw new Error('Official problem manifest targetCommit does not match the comparator target commit.');
-  }
-  if (manifest.officialVerificationCommand.trim() !== expected.command.trim()) {
-    throw new Error('Official comparator command does not match the command frozen in the official problem manifest.');
-  }
-  if (expected.problemId && manifest.problemId !== expected.problemId.trim()) {
-    throw new Error('Official problem manifest problemId does not match the requested problem.');
-  }
-  if (expected.statementHash && manifest.statementHash !== expected.statementHash.trim()) {
-    throw new Error('Official problem manifest statementHash does not match the stored Lean receipt.');
-  }
-  if (expected.expectedContract) {
-    assertMathProblemContractMatchesOfficialManifest(expected.expectedContract, manifest);
+  const manifest = validateOfficialManifest(parsed as MathOfficialProblemManifest, expected, 'committed');
+  if (request.officialManifest) {
+    const suppliedManifest = normalizeMathOfficialProblemManifest(request.officialManifest);
+    if (
+      suppliedManifest.manifestHash !== manifest.manifestHash ||
+      canonicalMathOfficialManifestPayload(suppliedManifest) !== canonicalMathOfficialManifestPayload(manifest)
+    ) {
+      throw new Error('Caller-supplied official problem manifest differs from the committed manifest.');
+    }
   }
   return manifest;
 };
@@ -3631,79 +3604,20 @@ async function runOfficialComparatorUnbounded(
   if (relativeProjectRoot.startsWith('..') || path.isAbsolute(relativeProjectRoot)) {
     throw new Error('Official comparator projectRoot must remain inside its Git repository.');
   }
-  const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'deepscientist-official-'));
-  const worktreeRoot = path.join(temporaryRoot, 'checkout');
-  const executionRoot = path.join(temporaryRoot, 'execution');
-  const cleanupOptions: MathematicsVerifierExecutionOptions = { ...options, signal: undefined };
-  let processResult: ProcessResult | undefined;
-  let validatedManifest: MathOfficialProblemManifest | undefined;
-  let cleanupFailures: string[] = [];
-  let worktreeCreated = false;
-  try {
-    const added = await runGit(repoRoot, ['worktree', 'add', '--detach', worktreeRoot, requestedCommit], options);
-    if (added.exitCode !== 0) {
-      throw new Error(
-        `Official comparator could not create its detached worktree: ${preview(added.stderr) || 'git failed'}`
-      );
-    }
-    worktreeCreated = true;
-    if (request.officialManifestPath) {
-      // Manifest paths are repository-relative, while the comparator command
-      // itself runs from the requested project subdirectory.
-      const manifestPath = assertNoSymlinkTraversal(
-        worktreeRoot,
-        path.join(worktreeRoot, relativeOfficialManifestPath(request.officialManifestPath)),
-        'official manifest path'
-      );
-      const manifest = readAndValidateOfficialManifest(manifestPath, {
-        targetCommit: requestedCommit,
-        command,
-        problemId: request.problemId,
-        statementHash: request.statementHash,
-        expectedContract: request.expectedContract,
-      });
-      validatedManifest = manifest;
-      if (request.officialManifest) {
-        const suppliedManifest = normalizeMathOfficialProblemManifest(request.officialManifest);
-        if (
-          suppliedManifest.manifestHash !== manifest.manifestHash ||
-          canonicalMathOfficialManifestPayload(suppliedManifest) !== canonicalMathOfficialManifestPayload(manifest)
-        ) {
-          throw new Error('Caller-supplied official problem manifest differs from the committed manifest.');
-        }
+  const cleanupFailures: string[] = [];
+  const checkout = await withVerifierCheckout({ repositoryRoot: repoRoot, targetCommit: requestedCommit,
+    temporaryPrefix: 'deepscientist-official-', env: options.env, signal: options.signal,
+    onCleanupFailure: failure => {
+      cleanupFailures.push(failure.stage === 'worktree'
+        ? failure.message : `temporary directory cleanup failed: ${failure.message}`);
+      if (failure.stage === 'worktree') {
+        console.warn(`[MathematicsVerifier] Official comparator cleanup incomplete: ${cleanupFailures.join('; ')}`);
       }
-    } else if (request.officialManifest) {
-      // Direct callers may provide an already-loaded manifest, but still get
-      // canonical hash and command/identity checks.  The MCP boundary always
-      // supplies officialManifestPath so the bytes come from targetCommit.
-      const manifest = normalizeMathOfficialProblemManifest(request.officialManifest);
-      validatedManifest = manifest;
-      const expectedHash = crypto
-        .createHash('sha256')
-        .update(canonicalMathOfficialManifestPayload(manifest), 'utf8')
-        .digest('hex');
-      if (manifest.manifestHash.toLowerCase() !== expectedHash) {
-        throw new Error('Official problem manifest hash does not match its canonical contents.');
-      }
-      if (manifest.officialVerificationCommand.trim() !== command) {
-        throw new Error('Official comparator command does not match the supplied official problem manifest.');
-      }
-      if (manifest.targetCommit && manifest.targetCommit.toLowerCase() !== requestedCommit) {
-        throw new Error('Official problem manifest targetCommit does not match the comparator target commit.');
-      }
-      if (request.problemId && manifest.problemId !== request.problemId.trim()) {
-        throw new Error('Official problem manifest problemId does not match the requested problem.');
-      }
-      if (request.statementHash && manifest.statementHash !== request.statementHash.trim()) {
-        throw new Error('Official problem manifest statementHash does not match the stored Lean receipt.');
-      }
-      if (request.expectedContract) {
-        assertMathProblemContractMatchesOfficialManifest(request.expectedContract, manifest);
-      }
-    }
-    if (!validatedManifest) {
-      throw new Error('Official comparator requires a committed externally bound problem manifest.');
-    }
+    },
+  }, async ({ checkoutRoot: worktreeRoot, temporaryRoot }) => {
+    const executionRoot = path.join(temporaryRoot, 'execution');
+    const validatedManifest = resolveOfficialManifest(request, worktreeRoot,
+      { ...request, targetCommit: requestedCommit, command });
     await validateOfficialManifestSource(
       repoRoot,
       worktreeRoot,
@@ -3735,7 +3649,7 @@ async function runOfficialComparatorUnbounded(
     }
     const lakePackagesPath = seedDetachedLakeCache(projectRoot, executionCommandRoot, runtimeEnvironment,
       options.prepareLocalDependencies);
-    processResult = await runLeanSandboxed({
+    const processResult = await runLeanSandboxed({
       checkoutRoot: executionRoot,
       projectRelative: relativeProjectRoot.replaceAll(path.sep, '/'),
       command: parsedCommand.executable,
@@ -3745,23 +3659,14 @@ async function runOfficialComparatorUnbounded(
       env: runtimeEnvironment,
       ...(lakePackagesPath ? { lakePackagesPath } : {}),
     });
-  } finally {
-    cleanupFailures = [
-      ...cleanupFailures,
-      ...(await cleanupVerifierWorktree(repoRoot, worktreeRoot, cleanupOptions, worktreeCreated)),
-    ];
-    if (cleanupFailures.length > 0) {
-      console.warn(`[MathematicsVerifier] Official comparator cleanup incomplete: ${cleanupFailures.join('; ')}`);
-    }
-    try {
-      fs.rmSync(temporaryRoot, { recursive: true, force: true });
-    } catch (error) {
-      cleanupFailures.push(
-        `temporary directory cleanup failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
+    return { processResult, validatedManifest };
+  });
+  if (checkout.ok === false) {
+    throw new Error(
+      `Official comparator could not create its detached worktree: ${preview(checkout.result.stderr) || 'git failed'}`
+    );
   }
-  if (!processResult) throw new Error('Official comparator completed without an execution result.');
+  const { processResult, validatedManifest } = checkout.value;
 
   const unavailable = isUnavailableProcess(processResult);
   const status =
@@ -3805,21 +3710,16 @@ async function runOfficialComparatorUnbounded(
     ...(stderrPreview ? { stderrPreview } : {}),
     durationMs: processResult.durationMs,
     checkedAt: Date.now(),
-    ...(validatedManifest
-      ? {
-          officialManifestId: validatedManifest.manifestId,
-          officialManifestHash: validatedManifest.manifestHash,
-          officialManifestProblemId: validatedManifest.problemId,
-          officialManifestLeanStatementHash: validatedManifest.leanStatementHash,
-          ...(validatedManifest.leanNegationHash
-            ? { officialManifestLeanNegationHash: validatedManifest.leanNegationHash }
-            : {}),
-          officialRepositoryUrl: validatedManifest.repositoryUrl,
-          officialBaselineCommit: validatedManifest.baselineCommit,
-          benchmarkAdapterId: validatedManifest.benchmarkAdapterId,
-          benchmarkAdapterVersion: validatedManifest.benchmarkAdapterVersion,
-        }
-      : {}),
+    officialManifestId: validatedManifest.manifestId,
+    officialManifestHash: validatedManifest.manifestHash,
+    officialManifestProblemId: validatedManifest.problemId,
+    officialManifestLeanStatementHash: validatedManifest.leanStatementHash,
+    ...(validatedManifest.leanNegationHash
+      ? { officialManifestLeanNegationHash: validatedManifest.leanNegationHash } : {}),
+    officialRepositoryUrl: validatedManifest.repositoryUrl,
+    officialBaselineCommit: validatedManifest.baselineCommit,
+    benchmarkAdapterId: validatedManifest.benchmarkAdapterId,
+    benchmarkAdapterVersion: validatedManifest.benchmarkAdapterVersion,
     ...(cleanupError ? { cleanupError } : {}),
     ...(error ? { error } : {}),
   });

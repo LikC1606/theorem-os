@@ -10,6 +10,8 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "types": ["node"]
   },
   "include": ["bin/**/*.ts", "scripts/**/*.ts", "src/**/*.ts", "apps/**/*.ts"]

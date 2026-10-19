@@ -68,6 +68,10 @@ bun run math sample-putnam --phase report \
 完整上报 38,104 token，超过门槛 8,104，第三次请求被本地拒绝；冻结配置没有漂移。
 这验证了实际请求门槛，但 Lead 规划仍耗尽预算，尚未进入证明验收。
 旧计划与结果保留原限制标签。依赖准备和最终验收另计时间。
+当前实现加入[初始规划交接](../components/WESTLAKE.md#初始规划交接)：有限预算下，
+Lead 在累计使用总门槛的四分之一或两次上游请求后交接任务，并修复本地预算拒绝
+被误记为认证失败的问题。这两项变更目前仅完成离线验证，下一次真实校准须使用新构建
+和新计划；不能据此声称已进入真实证明阶段或提高解题率。
 `--repetitions`、`--workers`、`--max-turns`、`--max-run-seconds`、`--max-turn-seconds`、
 `--max-total-tokens` 和 `--module-experiment` 可在准备时显式固定。
 

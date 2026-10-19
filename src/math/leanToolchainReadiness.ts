@@ -65,7 +65,7 @@ function executableInPath(name: string, env: NodeJS.ProcessEnv): string | undefi
   return undefined;
 }
 
-function readToolchain(projectRoot: string): string | undefined {
+function readToolchain(projectRoot: string): string {
   const file = path.join(projectRoot, 'lean-toolchain');
   const stat = fs.lstatSync(file);
   if (stat.isSymbolicLink() || !stat.isFile()) {
@@ -85,13 +85,6 @@ function readToolchain(projectRoot: string): string | undefined {
 /** Probe exactly the caller's resolved snapshot without reopening a mutable env file. */
 export function checkResolvedLeanToolchainReadiness(
   request: LeanToolchainReadinessRequest & Readonly<{ env: NodeJS.ProcessEnv }>
-): LeanToolchainReadiness {
-  return probeLeanToolchainReadiness(request, () => request.env);
-}
-
-function probeLeanToolchainReadiness(
-  request: LeanToolchainReadinessRequest,
-  resolveEnv: () => NodeJS.ProcessEnv
 ): LeanToolchainReadiness {
   const requestedRoot = typeof request.projectRoot === 'string' ? request.projectRoot.trim() : '';
   const projectRoot = requestedRoot ? path.resolve(requestedRoot) : '';
@@ -113,8 +106,8 @@ function probeLeanToolchainReadiness(
     return result({ ...base, status: 'invalid', diagnostics: 'Lean project root must be a regular directory' });
   }
 
-  const env = resolveEnv();
-  let toolchain: string | undefined;
+  const env = request.env;
+  let toolchain: string;
   try {
     toolchain = readToolchain(projectRoot);
   } catch (error) {
@@ -124,10 +117,6 @@ function probeLeanToolchainReadiness(
       diagnostics: bounded(error instanceof Error ? error.message : String(error)),
     });
   }
-  if (!toolchain) {
-    return result({ ...base, status: 'invalid', diagnostics: 'lean-toolchain is empty' });
-  }
-
   const lakePath = executableInPath('lake', env);
   const leanPath = executableInPath('lean', env);
   if (!lakePath || !leanPath) {

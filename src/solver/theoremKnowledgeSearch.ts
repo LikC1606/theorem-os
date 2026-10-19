@@ -217,31 +217,25 @@ function searchPrepared(prepared: ReturnType<typeof prepareSearch>, evidence: Kn
     return score > 0 ? { ...document, score, tier, matched } : undefined;
   }).filter((value): value is NonNullable<typeof value> => value !== undefined)
     .sort((left, right) => right.tier - left.tier || right.score - left.score || left.item.id.localeCompare(right.item.id));
-  const groups = new Map<string, typeof scored>();
-  for (const hit of scored) { const versions = groups.get(hit.group) ?? []; versions.push(hit); groups.set(hit.group, versions); }
+  const groups = new Map<string, { groupScore: number; declarations: Map<string, typeof scored> }>();
+  let declarationCount = 0;
+  for (const hit of scored) {
+    let group = groups.get(hit.corpusGroup);
+    if (!group) { group = { groupScore: hit.score, declarations: new Map() }; groups.set(hit.corpusGroup, group); }
+    const versions = group.declarations.get(hit.group);
+    if (versions) versions.push(hit);
+    else { group.declarations.set(hit.group, [hit]); declarationCount++; }
+  }
   const compareVersions = (left: typeof scored[number], right: typeof scored[number]) => {
     const a = versionPreference(left.item, options), b = versionPreference(right.item, options);
     for (let index = 0; index < a.length; index++) if (a[index] !== b[index]) return b[index]! - a[index]!;
     return right.tier - left.tier || right.score - left.score || left.item.id.localeCompare(right.item.id);
   };
-  let displayed = [...groups.values()].map(versions => {
-    return { groupScore: versions[0]!.score, declarations: [versions] };
-  });
-  if (options.displayGrouping === 'exact-interface') {
-    const interfaces = new Map<string, typeof displayed[number]>();
-    for (const declaration of displayed) {
-      const { item } = declaration.declarations[0]![0]!;
-      const key = knowledgeInterfaceGroup(item);
-      const existing = interfaces.get(key);
-      if (existing) existing.declarations.push(...declaration.declarations);
-      else interfaces.set(key, declaration);
-    }
-    displayed = [...interfaces.values()];
-  }
   return { schema: 'theorem-os.theorem-knowledge-search.v1', evidence, requiresFreshCheck: true,
-    preferenceEvidence: 'recorded-metadata-not-applicability', total: groups.size, totalVersions: scored.length,
-    ...(options.displayGrouping ? { displayGrouping: options.displayGrouping, totalInterfaces: displayed.length } : {}),
-    hits: displayed.slice(0, limit).map(({ groupScore, declarations }) => {
+    preferenceEvidence: 'recorded-metadata-not-applicability', total: declarationCount, totalVersions: scored.length,
+    ...(options.displayGrouping ? { displayGrouping: options.displayGrouping, totalInterfaces: groups.size } : {}),
+    hits: [...groups.values()].slice(0, limit).map(({ groupScore, declarations: byDeclaration }) => {
+      const declarations = [...byDeclaration.values()];
       for (const versions of declarations) versions.sort(compareVersions);
       declarations.sort((left, right) => compareVersions(left[0]!, right[0]!));
       const versions = declarations[0]!;

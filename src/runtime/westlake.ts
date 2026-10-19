@@ -1,8 +1,5 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
-import { canonicalMathJson, mathDigest, readMathText } from '../math/mathRuntimeIo';
 import { deepSeekModelCatalog } from './deepseek';
+import { createProviderProfile } from './providerProfile';
 
 export const WESTLAKE_PROVIDER = {
   id: 'westlake', baseUrl: 'https://hpc-api.westlake.edu.cn/v1', wireApi: 'chat-completions',
@@ -25,45 +22,8 @@ export function westlakeModelCatalog() {
   })) };
 }
 
-function profileFiles(directory: string, model: string, effort: string) {
-  validateWestlakeModel(model, effort);
-  return {
-    'config.toml': stringifyToml({
-      model, model_provider: WESTLAKE_PROVIDER.id, model_reasoning_effort: effort,
-      model_catalog_json: path.join(directory, 'models.json'), web_search: 'disabled',
-      approval_policy: 'never', sandbox_mode: 'workspace-write',
-      model_providers: { westlake: { name: 'Westlake DeepSeek', base_url: WESTLAKE_PROVIDER.baseUrl,
-        wire_api: 'responses', env_key: WESTLAKE_PROVIDER.apiKeyEnvironment,
-        requires_openai_auth: false, request_max_retries: 0, stream_max_retries: 0,
-        stream_idle_timeout_ms: 60_000 } },
-      shell_environment_policy: { inherit: 'all', exclude: ['WESTLAKEHPC_API_KEY*'] },
-      history: { persistence: 'none' }, analytics: { enabled: false },
-      features: { multi_agent: false, multi_agent_v2: false, goals: false, view_image: false },
-    }),
-    'models.json': JSON.stringify(westlakeModelCatalog(), null, 2) + '\n',
-  };
-}
-
-export function expectedWestlakeProfileDigest(directory: string, model: string, effort: string): string {
-  return mathDigest(canonicalMathJson(profileFiles(directory, model, effort)));
-}
-
-export function westlakeProfileDigest(directory: string): string {
-  return mathDigest(canonicalMathJson(Object.fromEntries(['config.toml', 'models.json'].map(name =>
-    [name, readMathText(path.join(directory, name))]))));
-}
-
-export function selectedWestlakeProfile(directory: string): { profile: string; digest: string } | undefined {
-  const configFile = path.join(directory, 'config.toml');
-  if (!fs.existsSync(configFile) || parseToml(readMathText(configFile)).model_provider !== WESTLAKE_PROVIDER.id) return;
-  return { profile: fs.realpathSync(directory), digest: westlakeProfileDigest(directory) };
-}
-
-/** Prepare a host-owned profile. The runtime binds its upstream to a temporary local bridge. */
-export function prepareWestlakeProfile(directory: string, model: string, effort: string): string {
-  const files = profileFiles(directory, model, effort);
-  fs.mkdirSync(directory, { mode: 0o700 });
-  for (const [name, content] of Object.entries(files))
-    fs.writeFileSync(path.join(directory, name), content, { mode: 0o400, flag: 'wx' });
-  return expectedWestlakeProfileDigest(directory, model, effort);
-}
+export const { expectedDigest: expectedWestlakeProfileDigest, digest: westlakeProfileDigest,
+  selected: selectedWestlakeProfile, prepare: prepareWestlakeProfile,
+} = createProviderProfile({ ...WESTLAKE_PROVIDER, name: 'Westlake DeepSeek',
+  validate: validateWestlakeModel, catalog: westlakeModelCatalog, exclude: ['WESTLAKEHPC_API_KEY*'],
+  features: { multi_agent: false, multi_agent_v2: false, goals: false, view_image: false } });

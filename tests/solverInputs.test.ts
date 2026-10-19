@@ -29,19 +29,38 @@ describe('solver input boundaries', () => {
     expect(() => readMathText(file, 64)).toThrow();
   });
 
-  it('tracks strict log entries by byte offset across blank lines, CRLF and partial writes', () => {
+  it.each([false, true])('tracks log byte offsets across blank lines, CRLF and partial writes (recovery=%s)', recovery => {
     const file = path.join(temp(), 'edits.jsonl');
+    const read = (offset: number) => readDeliveryLines(file, offset, recovery ? { discardingOversized: false } : undefined);
     const prefix = '\n' + JSON.stringify({ summary: '\u6570\u5b66' }) + '\r\n';
     fs.writeFileSync(file, prefix + '{"partial":');
-    const batch = readDeliveryLines(file, 0);
+    const batch = read(0);
     expect(batch.lines).toEqual([JSON.stringify({ summary: '\u6570\u5b66' }) + '\r']);
     expect(batch.entries?.map(entry => entry.offset)).toEqual([1, Buffer.byteLength(prefix)]);
     expect(batch.offset).toBe(Buffer.byteLength(prefix));
+    expect(Object.hasOwn(batch, 'discardingOversized')).toBe(recovery);
     fs.appendFileSync(file, 'true}\n');
-    const resumed = readDeliveryLines(file, batch.offset);
+    const resumed = read(batch.offset);
     expect(resumed.lines).toEqual(['{"partial":true}']);
     expect(resumed.entries?.[0].offset).toBe(fs.statSync(file).size);
-    expect(() => readDeliveryLines(file, 0, { discardingOversized: false })).not.toThrow();
+  });
+
+  it.each([false, true])('rereads an incomplete UTF-8 line crossing the chunk boundary (recovery=%s)', recovery => {
+    const file = path.join(temp(), 'edits.jsonl'), prefix = 'x'.repeat(63_997) + '\n', tail = '\u6570\u5b66\n';
+    const read = (offset: number) => readDeliveryLines(file, offset, recovery ? { discardingOversized: false } : undefined);
+    fs.writeFileSync(file, prefix + tail);
+    const batch = read(0);
+    expect(batch.lines).toEqual([prefix.slice(0, -1)]);
+    expect(batch.offset).toBe(Buffer.byteLength(prefix));
+    expect(read(batch.offset)).toMatchObject({ lines: [tail.slice(0, -1)], offset: fs.statSync(file).size });
+  });
+
+  it.each([false, true])('accepts a complete line filling the read chunk (recovery=%s)', recovery => {
+    const file = path.join(temp(), 'edits.jsonl'), line = 'x'.repeat(63_999);
+    fs.writeFileSync(file, line + '\n');
+    expect(readDeliveryLines(file, 0, recovery ? { discardingOversized: false } : undefined))
+      .toMatchObject({ lines: [line], offset: 64_000,
+        entries: [{ line, offset: 64_000, discardingOversized: false }] });
   });
 
   it.skipIf(process.platform === 'win32')('rejects FIFOs without waiting for a writer', () => {

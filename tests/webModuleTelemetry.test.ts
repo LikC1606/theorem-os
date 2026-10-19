@@ -196,6 +196,16 @@ describe('allowlisted web progress translation', () => {
     expect(translateWebProgress({ event: 'context_compiled', usedBytes: Infinity, maxBytes: 0 })?.details).toEqual({ maxBytes: 0 });
   });
 
+  it.each([
+    ['turn_failed', 'math_total_token_limit', '已达到模型用量门槛，后续调用已停止'],
+    ['turn_failed', 'math_model_usage_unavailable', '模型用量回执不完整，后续调用已停止'],
+    ['planning_budget_stopped', 'math_initial_planning_limit', '初始规划已达到限额，正在交接研究任务'],
+  ])('distinguishes budget stops from authentication failures (%s, %s)', (event, reason, message) => {
+    const translated = translateWebProgress({ event, reason, workerId: 'solver', error: 'private diagnostics' });
+    expect(translated).toEqual({ type: 'progress', event, message: message + ' · solver', details: { workerId: 'solver' } });
+    expect(parseWorkerMessage(JSON.stringify(translated))).toEqual(translated);
+  });
+
   it.each([null, [], 'private log', {}, { event: 'unknown' }, { event: 'constructor' }, { event: 'toString' }])
     ('ignores unrecognized or unstructured runtime output (%#)', value => {
       expect(translateWebProgress(value)).toBeUndefined();

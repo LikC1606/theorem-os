@@ -1,5 +1,6 @@
 import type { SolverRunState } from '../archive';
 import type { MathAgentFailureDiagnostic } from '../../runtime/codexSession';
+import type { ModelRequestStopReason } from '../../runtime/modelRequest';
 import { canonicalMathJson, mathDigest } from '../../math/mathRuntimeIo';
 import type { ResearchOperation, ValueEstimate } from './value';
 import { proofRouteReady, type ProofRoute } from '../proofRoutes';
@@ -409,7 +410,7 @@ export function researchFailureReason(error?: string, diagnostic?: MathAgentFail
   if (/^math_(?!(?:model_|codex_))/u.test(error ?? '')) return error!;
   const structured = structuredResearchFailure(diagnostic);
   if (structured) return structured;
-  if (/^math_(?:model_(?:authentication_failed|concurrency_limit|request_failed|request_timeout|tool_failed|turn_failed|context_window_exceeded|context_capacity_blocked)|codex_transport_closed)$/u.test(error ?? '')) return error!;
+  if (/^math_(?:model_(?:authentication_failed|concurrency_limit|request_failed|request_timeout|request_stopped|usage_unavailable|tool_failed|turn_failed|context_window_exceeded|context_capacity_blocked)|codex_transport_closed)$/u.test(error ?? '')) return error!;
   if (/^math_model_api_key_(?:missing|environment_invalid)(?::|$)/u.test(error ?? '')) return 'math_model_authentication_failed';
   if (/\b(?:invalid|failed|missing|expired)\s+authentication\b|\bauthentication\s+(?:failed|failure|error|required)\b|\bunauthenticated\b|\bunauthorized\b|\b(?:invalid|incorrect|missing|expired|revoked)\s+(?:api[ _-]?key|access[ _-]?token|refresh[ _-]?token)\b|\bHTTP(?:\s+status)?\s*[:=]?\s*(?:401|403)\b|\bstatus(?:\s+code)?\s*[:=]?\s*(?:401|403)\b|\b(?:401\s+unauthorized|403\s+forbidden)\b/iu.test(error ?? '')) return 'math_model_authentication_failed';
   if (/Concurrency limit exceeded|rate.?limit|\b429\b/iu.test(error ?? '')) return 'math_model_concurrency_limit';
@@ -424,9 +425,9 @@ export function researchFailureReason(error?: string, diagnostic?: MathAgentFail
   return 'math_model_turn_failed';
 }
 
-/** Unwrap a turn wrapper without letting a transport cause override a host integrity error. */
+/** Host integrity errors precede trusted local stops, which precede provider classifications. */
 export function researchFailureDetail(error: unknown, sessionError?: string,
-  diagnostic?: MathAgentFailureDiagnostic): string | undefined {
+  diagnostic?: MathAgentFailureDiagnostic, localStop?: ModelRequestStopReason): string | undefined {
   const messages: string[] = [];
   const seen = new Set<unknown>();
   for (let current = error; current !== undefined && !seen.has(current) && seen.size < 4;) {
@@ -440,6 +441,7 @@ export function researchFailureDetail(error: unknown, sessionError?: string,
   const first = messages[0];
   const hostError = messages.find(message => /^math_(?!(?:model_|codex_))/u.test(message));
   if (hostError) return hostError;
+  if (localStop) return localStop;
   const structured = structuredResearchFailure(diagnostic);
   if (structured) return structured;
   const authentication = messages.find(message => researchFailureReason(message) === 'math_model_authentication_failed');
@@ -452,12 +454,13 @@ export const recoverableResearchFailure = (error?: string): boolean =>
     'math_model_tool_failed', 'math_codex_transport_closed', 'math_model_context_window_exceeded'].includes(researchFailureReason(error));
 
 /** Advisory reporting only; categories never change Lean acceptance. */
-export function researchFailureCategory(error?: string): 'network' | 'environment' | 'source' | 'proof' | 'authentication' | 'rate_limit' | 'unknown' | undefined {
+export function researchFailureCategory(error?: string): 'network' | 'environment' | 'source' | 'proof' | 'authentication' | 'rate_limit' | 'budget' | 'unknown' | undefined {
   if (!error) return undefined;
   if (/math_(?:lean_toolchain|lake_packages|verifier_unavailable|runtime_|path_|trusted_source)|proof environment|dependency cache|sandbox|FUSE|mksquashfs|squashfuse/iu.test(error)) return 'environment';
   if (error === 'math_codex_provider_unreachable') return 'network';
   if (/math_(?:original_|task_source|construction_|local_module_)/u.test(error)) return 'source';
   const reason = researchFailureReason(error);
+  if (['math_total_token_limit', 'math_model_usage_unavailable', 'math_initial_planning_limit'].includes(reason)) return 'budget';
   if (reason === 'math_model_authentication_failed') return 'authentication';
   if (reason === 'math_model_concurrency_limit') return 'rate_limit';
   if (reason === 'math_model_tool_failed') return 'environment';

@@ -409,7 +409,8 @@ describe('isolated solver and host acceptance', () => {
       results: verified(request).results.map(result => ({ ...result, status: 'failed' })) });
     const requests = vi.fn();
     host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'request-budget',
-      usageSource: 'upstream-requests', lastError: '403 math_total_token_limit', run: async () => {
+      usageSource: 'upstream-requests', lastError: 'HTTP 403 Forbidden',
+      lastFailureDiagnostic: { code: 'unauthorized' as const }, run: async () => {
         for (const totalTokens of [60, 50]) {
           const admission = options.requestGate!();
           expect(admission.allowed).toBe(true);
@@ -432,6 +433,7 @@ describe('isolated solver and host acceptance', () => {
         enforcement: 'provider-observed-upstream-request-limit', status: 'exhausted', reportedTotalTokens: 110, usageComplete: true } });
     const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
     expect(state.requestUsageAccounting).toEqual({ startedRequests: 2, reportedRequests: 2, pendingRequests: 0, incomplete: false });
+    expect(state.lastFailure?.reason).toBe(solved ? undefined : 'math_total_token_limit');
     expect(state.usageAccounting).toMatchObject({ startedTurns: 1, reportedTurns: 1, pending: false, incomplete: false });
     expect(state.turnLedger.turns).toHaveLength(1);
     expect(state.turnLedger.turns[0]).toMatchObject({ execution: 'failed', outcomeStatus: 'recorded',
@@ -2082,6 +2084,46 @@ describe('isolated solver and host acceptance', () => {
       tokenBudget: { status: 'exhausted', reportedTotalTokens: 1200, usageComplete: true } });
     expect(state.cooperation.tasks.map((node: any) => node.status)).toEqual(['pending', 'pending', 'pending', 'pending']);
     expect(host.officialGate).not.toHaveBeenCalled();
+  });
+
+  it('continues through proof checks and independent acceptance after a bounded initial planning checkpoint', async () => {
+    configureCooperation();
+    let leadTurns = 0, proofTurns = 0;
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({
+      threadId: options.threadId ?? `bounded-${options.environment!.DEEPSCIENTIST_MATH_WORKER_ID}`,
+      usageSource: 'upstream-requests' as const, lastError: 'HTTP 403 Forbidden',
+      lastFailureDiagnostic: { code: 'unauthorized' as const }, close: vi.fn(), interrupt: vi.fn(),
+      run: async (message: string) => {
+        const action = assignmentFrom(message);
+        const admission = options.requestGate!(); expect(admission.allowed).toBe(true);
+        const totalTokens = action.kind === 'lead' ? 300 : 20;
+        if (admission.allowed) admission.settle({ usage: { totalTokens, inputTokens: totalTokens - 5, outputTokens: 5 }, complete: true });
+        if (action.kind === 'lead') {
+          leadTurns++;
+          expect(options.requestGate!()).toEqual({ allowed: false, reason: 'math_initial_planning_limit' });
+          return 'failed';
+        }
+        if (action.kind === 'task' && action.task.kind === 'goal') {
+          proofTurns++;
+          expect(host.officialGate).not.toHaveBeenCalled();
+          const file = path.join(options.workspace, problem.projectRelative, action.task.proofPath!);
+          const name = action.task.theoremName!.split('.').at(-1);
+          fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(`${name} : True := by sorry`, `${name} : True := by trivial`));
+        } else finishAssignment(action, options);
+        return 'completed';
+      },
+    }));
+    expect(await runSolver([...args, '--workers', '2', '--max-turns', '8', '--max-total-tokens', '1000'], directory)).toBe(0);
+    const state = readSolverRunState(`${output}.runtime/state.json`);
+    expect(leadTurns).toBe(1); expect(proofTurns).toBe(2);
+    expect(state.cooperation!.initialPlanFallback).toBeDefined();
+    expect(state.turnLedger!.turns[0].execution).toBe('interrupted');
+    expect(state.tokenBudget).toMatchObject({ status: 'available', usageComplete: true });
+    expect(state.workers!.every(worker => !worker.lastFailure && !worker.error)).toBe(true);
+    expect(state.cooperation!.tasks.every(node => node.status === 'integrated')).toBe(true);
+    expect(state.check?.passed).toBe(true);
+    expect(JSON.parse(fs.readFileSync(output, 'utf8')).status).toBe('evaluated_passed');
+    expect(host.officialGate).toHaveBeenCalledOnce();
   });
 
   it('keeps cooperative in-flight helper checks after reaching the shared token allowance', async () => {

@@ -58,6 +58,19 @@ describe('run inspection', () => {
     expect(researchFailureCategory('math_codex_provider_unreachable')).toBe('network');
   });
 
+  it.each(['math_total_token_limit', 'math_model_usage_unavailable', 'math_initial_planning_limit'])
+  ('reports %s as budget stopping without changing proof progress', reason => {
+    const { state } = fixture();
+    state.workers![0].error = reason;
+    state.workers![0].lastFailure = { at: 1234, reason };
+    const report = buildRunInspection(state);
+    expect(report.workers[0]).toMatchObject({ failureCategory: 'budget', lastFailure: { reason, category: 'budget' } });
+    expect(report.progress).toMatchObject({ checkedProofTasks: 0, completedResearchTasks: 0, openProofTasks: ['goal'] });
+    expect(renderRunInspection(report)).toContain(`| solver | budget | ${reason} |`);
+    expect(researchFailureCategory('math_model_request_stopped')).toBe('unknown');
+    expect(researchFailureCategory(`HTTP 403 Forbidden; ${reason}`)).toBe('authentication');
+  });
+
   it('reads a running checkpoint without a final receipt and exports a versioned plan', () => {
     const f = fixture(), before = fs.readFileSync(f.stateFile);
     const { state, result } = readRunInspection(f.run);

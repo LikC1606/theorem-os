@@ -2,9 +2,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildTheoremKnowledge, getKnowledgeTheorem, readTheoremKnowledge, searchTheoremKnowledge,
+import { buildTheoremKnowledge, getKnowledgeTheorem, searchTheoremKnowledge,
   knowledgeDeclaration, locateKnowledgeDeclaration, validateTheoremKnowledge, writeTheoremKnowledge,
   type KnowledgeCandidate } from '../src/solver/theoremKnowledge';
+import { readKnowledgeCatalog } from '../src/solver/theoremKnowledgeStore';
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
@@ -115,8 +116,8 @@ describe('callable theorem knowledge', () => {
       expect(() => validateTheoremKnowledge(changed)).toThrow();
     }
     const file = path.join(directory(), 'knowledge.json'), written = writeTheoremKnowledge(file, base);
-    expect(readTheoremKnowledge(file, written.sha256).base).toEqual(base);
-    expect(() => readTheoremKnowledge(file, '0'.repeat(64))).toThrow('identity_changed');
+    expect(readKnowledgeCatalog(file, written.sha256).base).toEqual(base);
+    expect(() => readKnowledgeCatalog(file, '0'.repeat(64))).toThrow('identity_changed');
     expect(() => writeTheoremKnowledge(file, base)).toThrow();
     expect(fs.statSync(file).mode & 0o222).toBe(0);
   });
@@ -132,7 +133,7 @@ describe('callable theorem knowledge', () => {
     const base = buildTheoremKnowledge([candidate()]), root = directory(), file = path.join(root, 'knowledge.json');
     writeTheoremKnowledge(file, base);
     const link = path.join(root, 'linked.json'); fs.symlinkSync(file, link);
-    expect(() => readTheoremKnowledge(link)).toThrow('math_path_invalid');
+    expect(() => readKnowledgeCatalog(link)).toThrow('math_path_invalid');
     expect(() => getKnowledgeTheorem(base, 'missing')).toThrow('theorem_not_found');
     expect(() => getKnowledgeTheorem(base, base.entries[0]!.id, '../Submission.lean')).toThrow('source_not_found');
   });

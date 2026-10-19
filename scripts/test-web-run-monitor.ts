@@ -10,7 +10,7 @@ import type { TaskDraft } from '../apps/web/client/draft';
 import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
 import type { WebRun, WebRunInput } from '../apps/web/shared';
-import { closeHistory, closeSettings, openHistory, withSettings } from './web-ui-controls';
+import { closeHistory, openHistory, withSettings } from './web-ui-controls';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-run-monitor'), reportFile = path.join(output, 'report.json');

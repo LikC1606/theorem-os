@@ -267,13 +267,6 @@ function verifyMathRetrievalCorpusWithVisitor(
   return corpus;
 }
 
-/** Read and hash every selected source before exposing any declaration. No partial fallback. */
-export function verifyMathRetrievalCorpus(root: string, value: unknown) {
-  const sources: VerifiedMathRetrievalSource[] = [];
-  const corpus = verifyMathRetrievalCorpusWithVisitor(root, value, source => sources.push(source));
-  return { corpus, sources };
-}
-
 export function assertMathRetrievalCorpus(root: string, value: unknown): void {
   verifyMathRetrievalCorpusWithVisitor(root, value);
 }

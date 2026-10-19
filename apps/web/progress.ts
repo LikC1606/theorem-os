@@ -15,6 +15,7 @@ const descriptions: Record<string, string> = {
   worker_recovering: 'Agent 正在恢复会话', worker_recovered: 'Agent 已恢复，保留已检查成果',
   assignment_superseded: '当前分配已被更新', research_action: '已选择下一步研究操作',
   model_budget_stopped: '模型预算已停止后续调用', context_compiled: '本轮上下文已整理',
+  planning_budget_stopped: '初始规划已达到限额，正在交接研究任务',
   context_restarted: '研究上下文已重新建立', task_assigned: '研究任务已分配',
   task_checked: '局部任务检查完成', task_check_reused: '已复用当前任务检查',
   task_failure_check_reused: '已复用当前任务的失败检查', task_recheck_started: '正在重新检查任务',
@@ -29,6 +30,9 @@ const descriptions: Record<string, string> = {
   custom_module_applied: '已将自定义策略加入本轮上下文',
 };
 const failureDescriptions: Record<string, string> = {
+  math_total_token_limit: '已达到模型用量门槛，后续调用已停止',
+  math_model_usage_unavailable: '模型用量回执不完整，后续调用已停止',
+  math_initial_planning_limit: '初始规划已达到限额，正在交接研究任务',
   math_model_authentication_failed: 'API Key 认证失败，请检查密钥和服务商',
   math_model_concurrency_limit: '服务商限制了当前请求，请检查配额或并发',
   math_model_request_failed: '模型服务连接失败',

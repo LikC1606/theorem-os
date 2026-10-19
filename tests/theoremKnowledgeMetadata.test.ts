@@ -219,6 +219,9 @@ describe('bounded theorem knowledge metadata', () => {
     Object.defineProperty(entry, 'provenance', { get: () => { throw new Error('unrelated-metadata-read'); } });
     expect(readField(base, entry.id, 'type').text).toBe(input.type);
     expect(roots).toBe(2);
+    expect(JSON.parse(readField(base, entry.id, 'files').text))
+      .toEqual(Object.keys(context).sort().map(file => ({ file, sha256: context[file] })));
+    expect(roots).toBe(3);
   });
 
   it('hashes exact structured metadata rather than an abbreviated preview', () => {
