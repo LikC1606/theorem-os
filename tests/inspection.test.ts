@@ -11,6 +11,7 @@ import type { TaskProof } from '../src/solver/cooperativeProof';
 import { researchFailureCategory } from '../src/solver/modules/search';
 import type { RequestUsageAccounting } from '../src/solver/usageBudget';
 import { researchHandoffs, resolveResearchHandoffs } from '../src/solver/researchHandoffs';
+import { WorkerTurnLedger } from '../src/solver/turnLedger';
 
 const roots: string[] = [];
 function fixture() {
@@ -41,6 +42,49 @@ function fixture() {
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
 
 describe('run inspection', () => {
+  it('shows pinned knowledge activation and observations after restore without claiming current proof acceptance', () => {
+    const { state, stateFile } = fixture(), consumer = state.cooperation!.tasks[0]!.task;
+    expect(buildRunInspection(state).knowledge).toMatchObject({ status: 'disabled', retrievalCoverage: 'unknown' });
+    state.knowledgeDigest = 'c'.repeat(64);
+    state.knowledgeRetrievals = { dropped: 2, observations: [{ sectionId: 'knowledge:query', catalogDigest: state.knowledgeDigest,
+      searchInputDigest: 'query', consumer: { taskId: consumer.id, taskDigest: taskVersion(consumer) },
+      candidateIds: ['saved-theorem'], routeFindingIds: [], included: true, workerId: 'engineer', workerTurn: 1,
+      runTurn: 1, contextDigest: 'context', at: 1234 }] };
+    state.knowledgeUses = [{ id: 'saved-theorem', catalogDigest: state.knowledgeDigest,
+      consumer: { taskId: consumer.id, taskDigest: taskVersion(consumer) }, declaration: { name: 'Original.bridge', file: 'Submission.lean' },
+      status: 'checked-reference', attribution: 'model-reported-origin', checkedCommit: 'fixed-commit', checkedSourceDigest: 'fixed-source',
+      workerId: 'engineer', commit: 'fixed-commit' }];
+    writeSolverRunState(stateFile, state);
+    const restored = readSolverRunState(stateFile), report = buildRunInspection(restored), markdown = renderRunInspection(report);
+    expect(restored.knowledgeUses).toEqual(state.knowledgeUses);
+    expect(report.knowledge).toMatchObject({ status: 'enabled', retrievalCoverage: 'recorded', droppedRetrievals: 2,
+      originalUses: [{ status: 'checked-reference', attribution: 'model-reported-origin' }] });
+    expect(markdown).toContain('Knowledge observations');
+    expect(markdown).toContain('| enabled | recorded | 1 | 0 | 0 | 1 |');
+    expect(markdown).toContain('not historical authorship or current acceptance');
+    expect(report.progress.checkedProofTasks).toBe(0);
+  });
+
+  it('keeps protocol failures separate from mathematical proof failures and consumes retained turn observations', () => {
+    const { state } = fixture();
+    state.cooperation!.tasks[0].attempts = 48;
+    state.cooperation!.tasks[0].feedback = 'math_codex_rpc_failed:-32600:turn/start';
+    const ledger = new WorkerTurnLedger(state, 'solver', state.workers![0], () => {});
+    ledger.begin('session', 'thread', 'direct'); ledger.finish('failed'); ledger.settle();
+    const report = buildRunInspection(state), markdown = renderRunInspection(report);
+    expect(report.tasks[0]).toMatchObject({ attempts: 48, feedbackCategory: 'protocol', proof: { status: 'none' } });
+    expect(report.modelTurns).toMatchObject({ available: true, retained: 1, attribution: 'observed-not-causal',
+      turns: [{ execution: 'failed', usage: { coverage: 'unknown', observedDeltaTokens: null },
+        observedProgress: { obligations: { closed: [] } } }] });
+    expect(markdown).toContain('Retained model turns');
+    expect(markdown).toContain('Missing changes do not establish wasted work');
+    expect(report.snapshot.stateDigest).toMatch(/^[a-f0-9]{64}$/u);
+    expect(researchFailureCategory('math_delivery_invalid_json')).toBe('protocol');
+    expect(researchFailureCategory('math_research_delivery_invalid')).toBe('protocol');
+    expect(researchFailureCategory('math_review_delivery_invalid')).toBe('protocol');
+    expect(researchFailureCategory('unsolved goals')).toBe('proof');
+  });
+
   it('reports infrastructure failures and dispatches without counting them as mathematical progress', () => {
     const { state } = fixture();
     state.cooperation!.tasks[0].attempts = 12;

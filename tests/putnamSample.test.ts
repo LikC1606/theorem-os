@@ -12,7 +12,7 @@ import * as solverProblem from '../src/solver/problem';
 import * as inspection from '../src/solver/inspection';
 import { bootstrapLeanTask } from '../src/math/leanTask';
 import { getLeanTaskEnvironment } from '../src/math/leanTaskEnvironment';
-import { mathDigest } from '../src/math/mathRuntimeIo';
+import { canonicalMathJson, mathDigest } from '../src/math/mathRuntimeIo';
 import { buildTokenBudget } from '../src/solver/usageBudget';
 
 type Plan = Parameters<typeof comparisonReport>[1];
@@ -116,6 +116,29 @@ function recordedRun(plan: Plan, job: Plan['jobs'][number], source: string, tota
 }
 
 describe('offline PutnamBench module samples', () => {
+  it('checks saved child report freshness offline without replacing reports or creating history', async () => {
+    const context = await prepare();
+    await samplePutnamRuns(['--phase', 'report', '--directory', context.output]);
+    const files = [path.join(context.output, 'report.json'), ...context.sample.problems.map(problem => path.join(problem.comparisonDirectory, 'report.json'))];
+    const before = files.map(file => fs.readFileSync(file));
+    await samplePutnamRuns(['--phase', 'check-report', '--directory', context.output]);
+    const checked = JSON.parse(String(context.log.mock.calls.at(-1)![0]));
+    expect(checked).toMatchObject({ schema: 'theoremos.putnambench-report-freshness.v1', freshness: 'current', invokesModel: false });
+    expect(checked.problems).toHaveLength(3);
+    expect(checked.problems.every(problem => problem.report.freshness === 'current')).toBe(true);
+    expect(files.map(file => fs.readFileSync(file))).toEqual(before);
+    expect(files.some(file => fs.existsSync(`${file}.history`))).toBe(false);
+    expect(context.runBatch).not.toHaveBeenCalled();
+    expect(context.fetch).not.toHaveBeenCalled();
+    const childFile = files[1], { reportHash: _hash, ...child } = read(childFile);
+    child.generatedAt++;
+    fs.writeFileSync(childFile, JSON.stringify({ ...child, reportHash: mathDigest(canonicalMathJson(child)) }));
+    await samplePutnamRuns(['--phase', 'check-report', '--directory', context.output]);
+    const changed = JSON.parse(String(context.log.mock.calls.at(-1)![0]));
+    expect(changed.freshness).toBe('stale');
+    expect(changed.problems.every(problem => problem.report.freshness === 'current')).toBe(true);
+  });
+
   it('prepares three proof identities and twelve isolated Westlake attempts without a model or network', async () => {
     const context = await prepare({ realReceipts: true });
     const { sample, plans, bootstrap, readProblem, output } = context;

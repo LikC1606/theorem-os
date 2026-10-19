@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { bindLeanPackages, prepareLeanDiagnosticOverrides, runLeanDiagnostics } from '../src/math/leanDiagnostics';
+import { mathDigest } from '../src/math/mathRuntimeIo';
 
 const { run, lease, readiness, environment } = vi.hoisted(() => ({ run: vi.fn(), lease: vi.fn(), readiness: vi.fn(), environment: vi.fn() }));
 vi.mock('../src/math/verifier', () => ({ runMathematicsSandboxedCommand: run }));
@@ -169,8 +170,60 @@ setInterval(() => {}, 1000);\n`);
     expect(Buffer.byteLength(ordinary.stdout)).toBeLessThanOrEqual(8000);
     const projection = await runLeanDiagnostics({ ...input, outputLimit: 1_000_000 });
     expect(projection.stdout).toBe(diagnostics);
-    expect(run.mock.calls[1][0].outputLimit).toBe(1_000_000);
+    expect(run.mock.calls[1][0].outputLimit).toBe(4_000_000);
     expect(projection.phases).toHaveLength(1);
+  });
+
+  it('retains structured Lean messages and complete source-bound diagnostics beyond the prompt preview', async () => {
+    const warning = JSON.stringify({ severity: 'warning', data: 'long warning '.repeat(1000), fileName: 'ChallengeDeps.lean', pos: { line: 2, column: 0 } });
+    const error = JSON.stringify({ severity: 'error', data: 'unsolved goals\nn : Nat\nh : n > 0\n\u22a2 n > 1',
+      fileName: 'ChallengeDeps.lean', pos: { line: 40, column: 3 }, endPos: { line: 41, column: 4 }, kind: 'Tactic.unsolvedGoals' });
+    const stdout = `${warning}\n${error}\n`;
+    run.mockResolvedValueOnce({ started: true, exitCode: 1, aborted: false, timedOut: false, durationMs: 1,
+      stdout, stderr: '', stdoutSha256: mathDigest(stdout), stderrSha256: mathDigest('') });
+    const result = await runLeanDiagnostics({ projectRoot: root, files: ['Submission.lean'], timeoutMs: 1000 });
+    expect(result.firstBlocking).toMatchObject({ format: 'lean-json', file: 'ChallengeDeps.lean', line: 40, column: 3,
+      code: 'Tactic.unsolvedGoals', goalText: 'n : Nat\nh : n > 0\n\u22a2 n > 1' });
+    expect(result.previewTruncated).toBe(true);
+    expect(result.stdout).toContain('[truncated;');
+    const reference = result.diagnosticArtifacts[0], artifact = fs.readFileSync(path.join(root, reference.path), 'utf8');
+    expect(reference).toMatchObject({ sourceDigest: result.sourceDigest, environmentDigest: result.environmentDigest, captureComplete: true });
+    expect(mathDigest(artifact)).toBe(reference.digest);
+    expect(JSON.parse(artifact)).toMatchObject({ stdout, captureComplete: true, sourceCurrent: true,
+      messages: [{ severity: 'warning' }, { severity: 'error', line: 40 }] });
+    expect(run.mock.calls[0][0].args.at(-1)).toContain('lean --json');
+  });
+
+  it('marks incomplete captured JSON explicitly and preserves malformed output as raw fallback', async () => {
+    const stdout = '{"severity":"error","data":"incomplete';
+    run.mockResolvedValueOnce({ started: true, exitCode: 1, aborted: false, timedOut: false, durationMs: 1,
+      stdout, stderr: '', stdoutSha256: mathDigest(stdout + ' missing"}'), stderrSha256: mathDigest('') });
+    const result = await runLeanDiagnostics({ projectRoot: root, files: ['Submission.lean'], timeoutMs: 1000 });
+    expect(result.diagnosticArtifacts[0].captureComplete).toBe(false);
+    expect(result.stdout).toBe(stdout);
+    expect(result.firstBlocking).toBeUndefined();
+  });
+
+  it('rebuilds cached diagnostics when their bound artifact changes or disappears', async () => {
+    const input = { projectRoot: root, files: ['Submission.lean'], timeoutMs: 1000 };
+    const result = await runLeanDiagnostics(input);
+    expect(run).toHaveBeenCalledTimes(2);
+    fs.writeFileSync(path.join(root, result.diagnosticArtifacts[0].path), '{}');
+    const repaired = await runLeanDiagnostics(input);
+    expect(repaired.phases.map(phase => phase.cached)).toEqual([false, true]);
+    expect(run).toHaveBeenCalledTimes(3);
+  });
+
+  it('reuses full cached output when the requested preview bound increases', async () => {
+    const original = run.getMockImplementation()!;
+    run.mockImplementation(async input => ({ ...await original(input), stdout: 'warning text\n'.repeat(1000) }));
+    const input = { projectRoot: root, files: ['Submission.lean'], timeoutMs: 1000 };
+    const ordinary = await runLeanDiagnostics(input);
+    expect(ordinary.stdout).toContain('[truncated;');
+    const larger = await runLeanDiagnostics({ ...input, outputLimit: 100_000 });
+    expect(larger.phases.every(phase => phase.cached)).toBe(true);
+    expect(larger.stdout).not.toContain('[truncated;');
+    expect(run).toHaveBeenCalledTimes(2);
   });
 
   it('rejects protected imports before invoking Lean', async () => {

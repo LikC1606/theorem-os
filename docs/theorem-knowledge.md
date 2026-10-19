@@ -71,6 +71,38 @@ bun bin/math.ts knowledge pack \
 Packing fully verifies the old catalog before writing. `build --format v1` is
 available for consumers that need the original single-file format.
 
+## Advisory Route Memory
+
+Import recorded research separately from checked theorems with an explicit option:
+
+```bash
+bun bin/math.ts knowledge build \
+  --include-findings --state /PATH/old-run/result.json.runtime/state.json \
+  --output /PATH/knowledge/catalog-with-findings.json
+
+bun bin/math.ts knowledge search \
+  --catalog /PATH/knowledge/catalog-with-findings.json --sha256 CATALOG_SHA256 \
+  --include-findings --query 'density counterexample' --goal 'EXACT_LEAN_TYPE'
+
+bun bin/math.ts knowledge finding \
+  --catalog /PATH/knowledge/catalog-with-findings.json --sha256 CATALOG_SHA256 \
+  --id FINDING_ID --max-bytes 16000
+```
+
+The importer verifies task and dependency versions, the finding digest and the
+complete journal at its fixed delivery commit. Private sources and dependencies
+are excluded by default. Records preserve exact contracts, assumptions, blockers,
+remaining inputs, evidence and reconsideration conditions. Task names do not enter
+the mathematical scope digest. Lexical recall never establishes equal hypotheses;
+even a recorded claim of a Lean counterexample remains advisory until rechecked.
+
+Finding reads return exact JSON text pages. Continue with `--offset nextOffset`,
+join the text and verify its digest before parsing the full record. V1 and V2
+catalogs preserve these records without adding them to checked theorem entries or
+installing their historical sources. A finding cannot grant acceptance or park a
+current task. Attached catalogs may contribute at most two finding hints per
+target, sharing the existing 4 KiB context allowance.
+
 ## Search and Read
 
 ```bash
@@ -220,6 +252,25 @@ bun bin/math.ts inspect \
 calling the model or starting proof search. Inspection exposes the pinned catalog
 SHA as `configuration.knowledgeDigest`. Starting proof search is a separate step
 using the same arguments with `--resume` and without `--startup-only`.
+
+Inspection also exposes `knowledge.status`, retrieval coverage and the exact
+candidate / finding IDs selected for each consumer, including sections omitted
+by the context budget. The checkpoint retains 128 retrieval observations and a
+dropped count; full observations are emitted as events. Old checkpoints without
+these observations have unknown coverage, rather than zero inferred lookups.
+
+A worker may report a saved theorem it tried in its normal RESEARCH.md JSON:
+
+```json
+{"knowledgeUses":[{"id":"THEOREM_ID","catalogDigest":"PINNED_SHA256","declaration":{"name":"Current.adaptedHelper","file":"Submission.lean"}}]}
+```
+
+Valid claims are `reported-attempt`. A successful fixed check upgrades a claim to
+`checked-reference` only when that consumer's proof actually references the exact
+current declaration and file. The origin remains `model-reported-origin`; this
+does not prove historical authorship or current proof acceptance. Invalid claims
+are rejected telemetry and cannot reject an otherwise valid proof. Original-goal
+observations retain at most 256 records; task deliveries keep their own observations.
 
 Knowledge remains `recorded-not-replayed` with `requiresFreshCheck: true`.
 Neither lookup nor import marks a task accepted, installs old receipts, or closes

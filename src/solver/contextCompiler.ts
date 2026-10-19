@@ -7,6 +7,7 @@ import type { SolverProblem } from './problem';
 import { hasTaskAcceptance, taskGroup, taskVersion, type CooperativeAction, type TaskRecord } from './tasks';
 import { buildProofContinuation } from './progress';
 import { pendingResearchHandoffs, researchHandoffContext, selectResearchHandoffBatch } from './researchHandoffs';
+import { pendingResearchChallenges, selectResearchChallengeBatch } from './researchChallenges';
 import { contextTaskConsumers } from './taskConsumers';
 
 export const DEFAULT_TASK_CONTEXT_BYTES = 512 * 1024;
@@ -371,6 +372,23 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
   if (selectedRoute) mandatory.push(section(`route:${selectedRoute.id}`, 'routes', 'Selected alternative route and exact closing obligation (planned, not accepted):', selectedRoute));
   if (input.cooperation) {
     if (action?.kind === 'lead' || action?.kind === 'solve') {
+      const challenges = pendingResearchChallenges(input.cooperation);
+      const challengeIds = new Set(action.challengeIds ?? selectResearchChallengeBatch(input.cooperation).map(item => item.id));
+      const shownChallenges = challenges.filter(item => challengeIds.has(item.id));
+      if (shownChallenges.length) mandatory.push(section('research-challenges', 'assignment',
+        'Research challenges requiring a route decision (advisory, not proof acceptance):', shownChallenges));
+      if (challenges.length > shownChallenges.length) {
+        const sources = new Map<string, { taskId: string; taskDigest: string; remaining: number }>();
+        for (const item of challenges) if (!challengeIds.has(item.id)) {
+          const source = sources.get(item.sourceTaskId) ?? { taskId: item.sourceTaskId, taskDigest: item.sourceTaskDigest, remaining: 0 };
+          source.remaining++; sources.set(item.sourceTaskId, source);
+        }
+        mandatory.push(section('research-challenge-backlog', 'assignment',
+          'Queued challenges for later dispatches; preserve their source tasks and inputs. Full records are in COOPERATION.json researchChallenges:', {
+            pending: challenges.length, shown: shownChallenges.length, remaining: challenges.length - shownChallenges.length,
+            sources: [...sources.values()],
+          }));
+      }
       const pending = pendingResearchHandoffs(input.cooperation);
       const aliases = new Map(pending.flatMap(item => item.sources.map(source => [source.handoffId, item.id] as const)));
       const shown = new Set((action.handoffIds ?? selectResearchHandoffBatch(input.cooperation).map(item => item.id))
@@ -392,7 +410,7 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
             pending: pending.length, shown: handoffs.length, remaining: pending.length - handoffs.length, sources: [...sources.values()],
           }));
       }
-      if (action.kind === 'solve' && input.cooperation.error?.startsWith('math_handoff_'))
+      if (action.kind === 'solve' && (input.cooperation.error?.startsWith('math_handoff_') || input.cooperation.error?.startsWith('math_challenge_')))
         mandatory.push(section('handoff-feedback', 'feedback', 'Repair the research handoff decision:', input.cooperation.error));
     }
     mandatory.push(section('task-interfaces', 'interfaces', 'Lead task graph and host feedback:', graph));

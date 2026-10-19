@@ -31,7 +31,8 @@ export function cooperativeWorkContract(action: CooperativeAction, tasks: readon
     input: action.kind === 'task' ? { taskId: action.task.id, taskDigest: taskVersion(action.task),
       seedCommit: action.assignment.seedCommit, dependencies: action.assignment.dependencies ?? [] } : { seedCommit: action.seedCommit },
     ...(action.kind === 'lead' || action.kind === 'solve' ? { handoffIds: action.handoffIds ?? [],
-      handoffActivations: action.handoffActivations ?? {} } : {}),
+      handoffActivations: action.handoffActivations ?? {}, challengeIds: action.challengeIds ?? [],
+      challengeActivations: action.challengeActivations ?? {} } : {}),
     ...(action.kind === 'task' ? { plannedConsumers: contextTaskConsumers(action.task, tasks, context)
       .map(consumer => consumer.task.id) } : {}),
   };

@@ -5,6 +5,7 @@ import { canonicalMathJson, mathDigest, readMathFile, readMathText, syncMathDire
 import { assertMathCanonicalPath } from '../math/paths';
 import { theoremKnowledgeEntrySchema, theoremKnowledgeStats, validateKnowledgeMetadata, validateTheoremKnowledge,
   type TheoremKnowledgeBase } from './theoremKnowledge';
+import { knowledgeRouteFindingSchema } from './theoremKnowledgeFindings';
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/u);
 const maxBytes = 256 * 1024 * 1024;
@@ -14,6 +15,7 @@ const directoryName = z.string().min(1).max(255).refine(value => !value.startsWi
 const packedSchema = z.object({
   schema: z.literal('theorem-os.theorem-knowledge.v2'), evidence: z.literal('recorded-not-replayed'),
   requiresFreshCheck: z.literal(true), entries: z.array(theoremKnowledgeEntrySchema),
+  routeFindings: z.array(knowledgeRouteFindingSchema).optional(),
   contexts: z.record(hash, z.record(z.string(), hash)), sources: z.record(hash, sourceIdentity),
   objectsDirectory: directoryName, originSha256: hash.optional(),
 }).strict();
@@ -69,7 +71,8 @@ function packedView(resolved: string, text: string, digest: string, manifest: Pa
     } });
   const base: TheoremKnowledgeBase = { schema: 'theorem-os.theorem-knowledge.v1',
     evidence: manifest.evidence, requiresFreshCheck: manifest.requiresFreshCheck,
-    entries: manifest.entries, contexts: manifest.contexts, sources };
+    entries: manifest.entries, contexts: manifest.contexts, sources,
+    ...(manifest.routeFindings ? { routeFindings: manifest.routeFindings } : {}) };
   validateKnowledgeMetadata(base, manifest.sources);
   objectsRoot(resolved, manifest);
   for (const [sourceDigest, identity] of Object.entries(manifest.sources)) inspectSource(root, sourceDigest, identity.bytes);
@@ -106,6 +109,7 @@ export function writePackedKnowledge(file: string, base: TheoremKnowledgeBase, o
   const checked = validateTheoremKnowledge(base);
   const manifest: PackedManifest = { schema: 'theorem-os.theorem-knowledge.v2', evidence: checked.evidence,
     requiresFreshCheck: checked.requiresFreshCheck, entries: checked.entries, contexts: checked.contexts,
+    ...(checked.routeFindings ? { routeFindings: checked.routeFindings } : {}),
     sources: Object.fromEntries(Object.entries(checked.sources).map(([digest, text]) => [digest, { bytes: Buffer.byteLength(text) }])),
     objectsDirectory, ...(originSha256 === undefined ? {} : { originSha256 }) };
   const text = canonicalMathJson(manifest) + '\n';

@@ -9,6 +9,7 @@ import type { SolverProblem } from '../src/solver/problem';
 import type { StatementAction, StatementReview } from '../src/solver/statementReview';
 import { taskVersion, type CooperativeAction, type CooperativeTask, type TaskRecord } from '../src/solver/tasks';
 import type { TheoremKnowledgeEntry } from '../src/solver/theoremKnowledge';
+import { buildKnowledgeRouteFindings } from '../src/solver/theoremKnowledgeFindings';
 
 const seedCommit = 'a'.repeat(40), environmentDigest = mathDigest('current-environment');
 const exactType = 'forall (q : Nat) (character : DirichletCharacter Complex q), character.IsPrimitive -> character.rootNumber = 1';
@@ -235,6 +236,42 @@ describe('automatic knowledge context', () => {
 });
 
 describe('knowledge context dispatch integration', () => {
+  it('retrieves scoped route findings into the actual context and records budget omissions without importing their notes', () => {
+    const knowledge = snapshot(saved), finding = JSON.stringify({ conclusion: 'refuted', summary: 'A character boundary counterexample.' });
+    const notes = 'Full historical counterexample and assumptions remain behind the explicit finding reader.';
+    knowledge.base.routeFindings = buildKnowledgeRouteFindings([{
+      evidence: 'recorded-advisory-not-replayed', acceptance: 'not-assessed', conclusion: 'refuted',
+      summary: 'The character bridge needs an additional boundary hypothesis.', finding, notes,
+      scope: { problemId: 'previous-problem', problemReceiptDigest: problem.receiptDigest, environmentDigest,
+        source: { kind: 'research', statement: 'Challenge the character bridge.', statementKind: 'research-objective', premises: [] },
+        dependencies: [{ kind: 'lemma', statement: exactType, statementKind: 'closed-task-type', premises: [] }] },
+      evidenceRefs: ['RESEARCH.md: boundary case'], obstructions: [], remainingObligations: ['Check the missing hypothesis.'],
+      reconsiderWhen: ['The boundary assumption changes.'], provenance: { source: '/archive/state.json',
+        sourceDigest: mathDigest('archived-state'), runId: 'old-run', taskId: 'old-question', taskDigest: mathDigest('old-task'),
+        groupId: 'main', deliveryId: 'old-delivery', sourceCommit: seedCommit, findingDigest: mathDigest(finding), notesDigest: mathDigest(notes) },
+    }]);
+    const id = knowledge.base.routeFindings[0]!.id, record = node('renamed_consumer');
+    const included = build(record, { knowledge });
+    expect(packets(included.message)[0].routeFindings).toEqual([expect.objectContaining({ id,
+      statementMatch: 'exact-recorded-text', requiresScopeReview: true, acceptance: 'not-assessed' })]);
+    expect(included.knowledgeRetrievals).toEqual([expect.objectContaining({ included: true, routeFindingIds: [id] })]);
+    expect(included.message).not.toContain(notes);
+    const omitted = build(record, { knowledge, access: { maxOptionalContextBytes: 0 } });
+    expect(packets(omitted.message)).toEqual([]);
+    expect(omitted.knowledgeRetrievals).toEqual([expect.objectContaining({ included: false,
+      omissionReason: 'optional-budget', routeFindingIds: [id] })]);
+    expect(record.status).toBe('pending');
+    expect(record.integratedCheck).toBeUndefined();
+  });
+
+  it('records exact candidates and whether they actually survived the optional context budget', () => {
+    const included = build(node('core'));
+    expect(included.knowledgeRetrievals).toEqual([expect.objectContaining({ included: true,
+      catalogDigest: snapshot(saved).digest, candidateIds: [saved.id], routeFindingIds: [], consumer: { taskId: 'core',
+        taskDigest: taskVersion(node('core').task), theoremName: 'Original.core', proofPath: 'Submission.lean' } })]);
+    const omitted = build(node('core'), { access: { maxOptionalContextBytes: 0 } });
+    expect(omitted.knowledgeRetrievals).toEqual([expect.objectContaining({ included: false, omissionReason: 'optional-budget', candidateIds: [saved.id] })]);
+  });
   it('includes automatically found candidates in the actual worker prompt with its exact contract', () => {
     const record = node('core'), result = build(record);
     expect(packets(result.message)).toHaveLength(1);

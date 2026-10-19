@@ -6,6 +6,7 @@ import type { ProofCheck } from './modules/evidence';
 import type { ProofReferences } from './proofReferences';
 import type { DeliveryArtifactManifest } from './deliveryArtifacts';
 import type { CooperativeTask } from './tasks';
+import type { KnowledgeUse } from './knowledgeUsage';
 
 // Long-lived task graphs can exceed a short prompt's display allowance. Keep the
 // complete host response bounded by the committed-source reader's byte allowance.
@@ -56,6 +57,7 @@ export type DeliveryRecord = {
   summary: string; evidenceRefs: readonly string[]; createdAt: number; commit?: string; sourceDigest?: string;
   /** Host identity for the complete advisory finding, separate from the short delivery summary. */
   findingDigest?: string;
+  knowledgeUses?: readonly KnowledgeUse[];
   evidence?: { passed: boolean; verification: Pick<ProofCheck['verification'], 'status' | 'targetCommit'> & { results: { receiptId: string }[] } };
   actualReferences?: ProofReferences;
   artifacts?: DeliveryArtifactManifest;

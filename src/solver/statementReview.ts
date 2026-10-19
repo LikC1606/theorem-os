@@ -1,8 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { canonicalMathJson, mathDigest, writeMathJsonDurable } from '../math/mathRuntimeIo';
+import { canonicalMathJson, mathDigest, readMathFile, writeMathJsonDurable } from '../math/mathRuntimeIo';
 import { bindLeanPackages, prepareLeanDiagnosticOverrides, runLeanDiagnostics } from '../math/leanDiagnostics';
+import { renderLeanDiagnosticMessage } from '../math/leanDiagnosticMessages';
+import type { LeanDiagnosticArtifactReference } from '../math/leanTypes';
 import { leanStatementContextCommands, parseLeanStatementContexts, type LeanStatementContext } from '../math/leanStatementContext';
 import { maskLeanComments } from '../math/leanSyntax';
 import { inspectLeanDeclarationRegions } from '../math/leanSource';
@@ -104,7 +106,8 @@ export async function captureStatementContexts(problem: SolverProblem, tasks: re
       if (result.exitCode !== 0 || result.timedOut || !fs.existsSync(report)) {
         const diagnostics = [result.stdout, result.stderr].filter(Boolean).join('\n');
         const firstError = /^.*\berror:/mu.exec(diagnostics)?.index;
-        const detail = firstError === undefined ? diagnostics : diagnostics.slice(firstError);
+        const detail = result.firstBlocking ? renderLeanDiagnosticMessage(result.firstBlocking) :
+          firstError === undefined ? diagnostics : diagnostics.slice(firstError);
         throw new Error('math_statement_elaboration_failed\n' + (detail || 'Lean did not export statement context.').slice(0, 2000));
       }
       const stat = fs.lstatSync(report);
@@ -125,6 +128,26 @@ export async function captureStatementContexts(problem: SolverProblem, tasks: re
         return { path: `project/${file}`, digest: mathDigest(source) };
       });
       const reason = error instanceof Error ? error.message : 'math_statement_elaboration_failed';
+      const diagnosticArtifacts: LeanDiagnosticArtifactReference[] = [], diagnosticArtifactErrors: string[] = [];
+      for (const reference of result?.diagnosticArtifacts ?? []) {
+        try {
+          if (!/^[a-f0-9]{64}$/u.test(reference.digest) || reference.path !== `.lake/diagnostic-artifacts/${reference.digest}.json`)
+            throw new Error('math_statement_diagnostic_artifact_path_invalid');
+          const sourceFile = path.join(project, reference.path); assertMathCanonicalPath(sourceFile);
+          const bytes = readMathFile(sourceFile, 32_000_000).bytes;
+          if (mathDigest(bytes) !== reference.digest) throw new Error('math_statement_diagnostic_artifact_changed');
+          const artifact = JSON.parse(bytes.toString('utf8'));
+          if (artifact.schema !== 'theoremos.lean-diagnostics.v1' || artifact.sourceDigest !== reference.sourceDigest ||
+              artifact.environmentDigest !== reference.environmentDigest)
+            throw new Error('math_statement_diagnostic_artifact_identity_mismatch');
+          const relative = `diagnostic-artifacts/${reference.digest}.json`, target = path.join(directory, relative);
+          assertMathCanonicalPath(target); fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
+          fs.writeFileSync(target, bytes, { mode: 0o600 });
+          diagnosticArtifacts.push({ ...reference, path: relative });
+        } catch (cause) {
+          diagnosticArtifactErrors.push(cause instanceof Error ? cause.message : 'math_statement_diagnostic_artifact_unavailable');
+        }
+      }
       fs.writeFileSync(path.join(directory, 'stdout.log'), result?.stdout ?? '', { mode: 0o600 });
       fs.writeFileSync(path.join(directory, 'stderr.log'), result?.stderr ?? reason, { mode: 0o600 });
       writeMathJsonDurable(path.join(directory, 'manifest.json'), {
@@ -132,7 +155,9 @@ export async function captureStatementContexts(problem: SolverProblem, tasks: re
         problemReceiptDigest: problem.receiptDigest, commit, query, files,
         tasks: tasks.map(task => ({ id: task.id, taskDigest: taskVersion(task) })),
         exitCode: result?.exitCode ?? null, timedOut: result?.timedOut ?? false, aborted: signal?.aborted ?? false,
-        outputCaptureLimitBytes: 1_000_000, reason,
+        outputPreviewLimitBytes: 1_000_000, reason,
+        sourceDigest: result?.sourceDigest, environmentDigest: result?.environmentDigest,
+        firstBlocking: result?.firstBlocking, diagnosticArtifacts, diagnosticArtifactErrors,
       });
       throw new Error(`${reason}\nProjection diagnostics: ${directory}`, { cause: error });
     }

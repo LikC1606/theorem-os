@@ -10,6 +10,20 @@ function failed(sourceDigest: string, line = 10, goal = '⊢ x > 0'): ProofCheck
 }
 
 describe('proof progress feedback', () => {
+  it('reads Lean JSON messages, retains goal text and stable failure identity as locations move', () => {
+    const previous = failed('old-source'), current = failed('new-source');
+    for (const [check, line] of [[previous, 10], [current, 30]] as const) {
+      check.verification.results.forEach(result => { result.stdoutPreview = JSON.stringify({ severity: 'error',
+        data: 'unsolved goals\nx : Nat\nh : x > 0\n\u22a2 x > 1', fileName: 'Submission.lean', pos: { line, column: 3 }, kind: 'Tactic.unsolvedGoals' }); });
+    }
+    const feedback = solverProofFeedback(current, previous);
+    expect(feedback).toContain('First blocking Lean message:');
+    expect(feedback).toContain('Submission.lean:30:4: error(Tactic.unsolvedGoals)');
+    expect(feedback).toContain('x : Nat\nh : x > 0\n\u22a2 x > 1');
+    expect(feedback.split('unsolved goals\nx : Nat\nh : x > 0\n\u22a2 x > 1')).toHaveLength(2);
+    expect(feedback).toContain('same Lean errors and goal contexts');
+  });
+
   it('preserves coded Lean errors before their dependent unsolved goals', () => {
     const previous = failed('old-source');
     previous.verification.results.forEach(result => {

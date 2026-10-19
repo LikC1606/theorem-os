@@ -292,6 +292,21 @@ bun run math check-lean \
 
 `check-lean` 默认超时为 `0`（等待完成），保留失败退出码和最早错误；其诊断仅用于局部修复。
 
+返回的 `firstBlocking` 与 `messages` 来自 Lean JSON 消息，并保留文本兼容路径。摘要不完整时按 `diagnosticArtifacts` 回读绑定源码和环境的捕获材料；`captureComplete: false` 表示超过每流 4 MiB 窗口，`null` 表示完整性未知。
+
+新增闭合类型预检，可在不修改活动源码的固定副本中核对任务接口：
+
+```bash
+bun run math check-lean \
+  --workspace "$MATH_RUN_ROOT/workspace/generated/imo2026_q3" \
+  --file Submission.lean --context Submission.original \
+  --type 'forall (n : Nat), n = n'
+```
+
+`--context` 指定文件中已有声明，恢复其命名空间和 open 作用域；类型模式要求恰好一个文件。`elaborated` 仅表示闭合类型可展开，不代表有证明、等于原题或已获验收，尚不存在的 helper 也不会自动注入。材料保存在项目 `.lake/type-diagnostics/`，默认不限时。
+
+对照报告可用 `compare --phase check-report --directory DIR` 只读核对快照；续跑后旧报告标为过期，重新生成会保留 `report.json.history/`。预算等身份改变的续跑即使通过，也不会计入原固定预算对照。
+
 ## 架构与开发
 
 研究组件的职责见[组件模型](../README.md#组件模型)，输入、产物及验收边界见[解题模块与交接协议](solver-modules.md)，扩展示例见[替换一个组件](../examples/components/README.md)。入口在 [run.ts](../src/solver/run.ts)，Agent 执行循环在 [research.ts](../src/solver/research.ts)，异步协作与集成在 [cooperation.ts](../src/solver/cooperation.ts)。
@@ -338,6 +353,8 @@ agent 的常用协议只有两步：读取任务，写出成果。需要结构�
 声明投影失败会在 `<output>.runtime/statement-diagnostics/` 保存实际投影源码、各最多 1MB 的标准输出和错误输出及题目/提交绑定的清单，异常摘要优先显示首条 Lean 错误。这些含证明擦除占位符的投影仅用于诊断。
 
 需要提前共享时，向提示词指定的分工日志追加一行 `{"summary":"进展或卡点"}`；提前交付证明则先提交源码，再追加 `{"kind":"proof","commit":"完整 Git 提交","summary":"成果"}`。宿主自动补充消息编号、任务和版本，去重并随完成随检查、接入和通知；无须等待 Lead 或整批任务结束。`COOPERATION.json` 提供只读同伴状态。旧的 `math-plan`、`math-result`、`math-review` 等代码块及带版本字段的 `DELIVERIES.jsonl` 仍可读取，以便已有运行继续恢复。
+
+任务图为空的初始 Lead 还可向提示词指定的独立日志追加一行 `{"kind":"plan","baseVersion":"当前基版本","summary":"路线说明","tasks":[...]}`，提前发布一次完整有效计划并继续研究。其他角色从 canonical 源码开始；普通笔记草稿不会自动发布。必需上下文中的研究反驳须用 `challengeDecisions` 明确修订、附证据反对或说明等待输入，不能由省略字段静默忽略。
 
 单 Agent 的辅助引理提案使用 `RESEARCH.md` 中的 `math-lemma` JSON 代码块，包含 `proofPath`、原题完整名称 `target`、引理完整名称 `lemma` 和闭合 Lean 类型 `type`。引理置于目标之前，使用普通 `:=` 证明；目标通过引理的局部名称引用它。连接与引理分别在临时投影中检查。
 

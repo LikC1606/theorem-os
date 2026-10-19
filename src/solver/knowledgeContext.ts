@@ -6,11 +6,16 @@ import type { SolverProblem } from './problem';
 import { isAdvisoryTask, isFinalCandidateReview, taskVersion, type CooperativeAction, type CooperativeTask } from './tasks';
 import type { TheoremKnowledgeBase } from './theoremKnowledge';
 import { knowledgeTypeExpression, searchTheoremKnowledge } from './theoremKnowledgeSearch';
+import { searchKnowledgeRouteFindings } from './theoremKnowledgeFindings';
 
 /** Validated once when the run pins its catalog; no archived proof sources enter task hints. */
 export type KnowledgeContextSnapshot = Readonly<{
   digest: string;
-  base: Pick<TheoremKnowledgeBase, 'entries' | 'evidence'>;
+  base: Pick<TheoremKnowledgeBase, 'entries' | 'evidence' | 'routeFindings'>;
+}>;
+export type KnowledgeRetrieval = Readonly<{
+  sectionId: string; catalogDigest: string; searchInputDigest: string; consumer: SearchTarget['consumer'];
+  candidateIds: readonly string[]; routeFindingIds: readonly string[];
 }>;
 
 type SearchTarget = {
@@ -63,7 +68,7 @@ function searchTargets(problem: SolverProblem, cooperation?: CooperationState, a
 export function knowledgeContextSections(input: {
   problem: SolverProblem; cooperation?: CooperationState; action?: CooperativeAction;
   knowledge: KnowledgeContextSnapshot; environmentDigest?: string;
-}): ContextSection[] {
+}): (ContextSection & { knowledge: KnowledgeRetrieval })[] {
   const { problem, knowledge } = input;
   return searchTargets(problem, input.cooperation, input.action).flatMap(target => {
     const inputDigest = mathDigest(canonicalMathJson(target));
@@ -77,6 +82,9 @@ export function knowledgeContextSections(input: {
       dependencyCoverage: hit.dependencyCoverage, environmentMatch: hit.environmentMatch,
       problemReceiptMatch: hit.problemReceiptMatch, versionCount: hit.versionCount,
       declarationVariantCount: hit.declarationVariantCount })) ?? [];
+    const routeFindings = bounded && (target.query.trim() || target.goal?.trim()) ? searchKnowledgeRouteFindings(knowledge.base, target.query, {
+      goal: target.goal, environmentDigest: input.environmentDigest, problemReceiptDigest: problem.receiptDigest,
+      limit: 2 }).hits : [];
     const packet = { schema: 'theorem-os.knowledge-context.v1', catalogDigest: knowledge.digest,
       evidence: 'recorded-not-replayed', requiresFreshCheck: true,
       preferenceEvidence: 'recorded-metadata-not-applicability', consumer: target.consumer,
@@ -85,13 +93,20 @@ export function knowledgeContextSections(input: {
       ...(!search ? { reason: bounded ? 'empty-input' : 'input-too-large' } : {}),
       candidateGrouping: 'exact-name-type-typeKind-display-only',
       variantCountEvidence: 'distinct-recorded-declarations-not-interchangeable',
-      totalMatches: search?.total, totalInterfaces: search?.totalInterfaces, candidateLimit, omittedForBytes: 0, candidates };
+      totalMatches: search?.total, totalInterfaces: search?.totalInterfaces, candidateLimit, omittedForBytes: 0, candidates,
+      routeFindings };
     let text = title + JSON.stringify(packet);
     while (Buffer.byteLength(text) > maxSectionBytes && candidates.length) {
       candidates.pop(); packet.omittedForBytes++;
       text = title + JSON.stringify(packet);
     }
+    while (Buffer.byteLength(text) > maxSectionBytes && routeFindings.length) {
+      routeFindings.pop(); text = title + JSON.stringify(packet);
+    }
+    const sectionId = `knowledge:${inputDigest}`;
     return Buffer.byteLength(text) <= maxSectionBytes
-      ? [{ id: `knowledge:${inputDigest}`, kind: 'sources' as const, text, priority: 7 }] : [];
+      ? [{ id: sectionId, kind: 'sources' as const, text, priority: 7, knowledge: { sectionId,
+        catalogDigest: knowledge.digest, searchInputDigest: inputDigest, consumer: target.consumer,
+        candidateIds: candidates.map(item => item.id), routeFindingIds: routeFindings.map(item => item.id) } }] : [];
   });
 }

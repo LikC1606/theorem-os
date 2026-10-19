@@ -10,6 +10,7 @@ import type { MathAgentActivity } from '../runtime/codexSession';
 import type { TokenBudget, UsageAccounting, RequestUsageAccounting } from './usageBudget';
 import type { ContextManifest } from './contextCompiler';
 import type { ModelTurnLedger } from './turnLedger';
+import type { KnowledgeRetrievalObservation, KnowledgeUse } from './knowledgeUsage';
 import { z } from 'zod';
 
 export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | 'previousThreadIds' |
@@ -45,6 +46,8 @@ export type SolverRunState = {
   moduleConfiguration?: { id: string; versions: Record<string, string> };
   retrievalDigest?: string;
   knowledgeDigest?: string;
+  knowledgeRetrievals?: { dropped: number; observations: KnowledgeRetrievalObservation[] };
+  knowledgeUses?: (KnowledgeUse & { workerId: string; commit: string })[];
   model: string;
   effort: string;
   worktree: string;
@@ -132,6 +135,16 @@ const handoffDecision = z.object({ id: z.string(), deliveryId: z.string(), statu
     .refine(values => new Set(values.map(value => value.taskId)).size === values.length).optional(),
 }).passthrough().refine(value => value.waitsOn === undefined || value.status === 'deferred');
 const declarationReference = z.object({ name: z.string(), file: z.string() });
+const knowledgeUse = z.object({ id: z.string(), catalogDigest: z.string(), consumer: taskReference,
+  declaration: declarationReference, status: z.enum(['reported-attempt', 'checked-reference']),
+  attribution: z.literal('model-reported-origin'), checkedCommit: z.string().optional(), checkedSourceDigest: z.string().optional() });
+const challengeDecision = z.object({ id: z.string(), deliveryId: z.string(), contextDigest: z.string(),
+  status: z.enum(['revised', 'disputed', 'deferred']), reason: z.string().trim().min(1),
+  evidenceRefs: z.array(z.string().trim().min(1)).optional(), reopenOn: z.string().trim().min(1).optional(),
+  waitsOn: z.array(taskReference).nonempty().refine(items => new Set(items.map(item => item.taskId)).size === items.length).optional(),
+}).refine(value => value.status !== 'disputed' || Boolean(value.evidenceRefs?.length))
+  .refine(value => value.status !== 'deferred' || Boolean(value.reopenOn || value.waitsOn?.length))
+  .refine(value => !value.waitsOn || value.status === 'deferred');
 const proofReferences = z.object({ sourceCommit: z.string(), environmentDigest: z.string(), contextDigest: z.string(),
   scope: z.literal('statement').optional(), root: declarationReference,
   inputs: z.array(z.object({ file: z.string(), name: z.string().optional(), digest: z.string() })),
@@ -216,6 +229,14 @@ const runState = research.extend({ schema: z.literal('deepscientist.math.solver.
   providerProfile: z.string().optional(), providerProfileDigest: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
   model: z.string(), effort: z.string(), workerCount: z.number().int().positive().optional(),
   knowledgeDigest: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
+  knowledgeRetrievals: z.object({ dropped: safeCount, observations: z.array(z.object({
+    sectionId: z.string(), catalogDigest: z.string(), searchInputDigest: z.string(),
+    consumer: z.object({ taskId: z.string().optional(), taskDigest: z.string().optional(),
+      theoremName: z.string().optional(), proofPath: z.string().optional() }),
+    candidateIds: z.array(z.string()), routeFindingIds: z.array(z.string()), included: z.boolean(), omissionReason: z.string().optional(),
+    workerId: z.string(), workerTurn: safeCount, runTurn: safeCount, contextDigest: z.string(), at: safeCount,
+  })) }).optional(),
+  knowledgeUses: z.array(knowledgeUse.extend({ workerId: z.string(), commit: z.string() })).optional(),
   coordination: z.enum(['cooperative', 'independent']).optional(),
   turnLedger: z.object({ retainedLimit: safeCount.min(1), dropped: safeCount, unscopedReports: safeCount,
     turns: z.array(modelTurnReceipt) }).optional(),
@@ -226,6 +247,10 @@ const runState = research.extend({ schema: z.literal('deepscientist.math.solver.
     history: z.array(z.object({ task, proof: check.optional(), integratedCheck: check.optional() }).passthrough()).optional(),
     deliveries: z.array(record).optional(), blockers: z.array(routeBlocker).optional(),
     researchDecisions: z.array(handoffDecision).optional(),
+    challengeDecisions: z.array(challengeDecision).optional(),
+    initialPlanPublication: z.object({ nonce: z.string().min(1), file: z.string().regex(/^DELIVERIES-[a-f0-9]{64}\.jsonl$/u),
+      offset: safeCount, eventDigest: z.string().regex(/^[a-f0-9]{64}$/u), baseVersion: z.string(), planVersion: z.string(),
+      acceptedAt: safeCount, finalized: z.boolean().optional() }).optional(),
     leadSeedCommit: z.string().regex(/^[a-f0-9]{40,64}$/u).optional(),
     researchDrafts: z.record(z.object({ taskDigest: z.string(), workerId: z.string(), assignmentId: z.string().optional(),
       seedCommit: z.string().regex(/^[a-f0-9]{40,64}$/u), canonicalCommit: z.string().regex(/^[a-f0-9]{40,64}$/u).optional(),

@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { parseFlags, required } from './arguments';
-import { compareMathRuns, comparisonReport, comparisonTotals } from './compareMathRuns';
+import { compareMathRuns, comparisonReport, comparisonReportFreshness, comparisonTotals, writeComparisonReport } from './compareMathRuns';
 import { DEFAULT_PUTNAM_SAMPLE_SEED, PUTNAM_BENCH_REPOSITORY_URL, PUTNAM_BENCH_SOURCE_COMMIT,
   readPutnamBenchCatalog, samplePutnamBench } from '../../src/math/putnamBench';
 import { canonicalMathJson, mathDigest, readMathJson, readMathText, writeMathJsonDurable } from '../../src/math/mathRuntimeIo';
@@ -34,15 +34,15 @@ type ComparisonPlan = Parameters<typeof comparisonReport>[1];
 export async function samplePutnamRuns(argv: string[]): Promise<number> {
   const flags = parseFlags(argv, ['phase', 'directory', ...prepareOptions]);
   if (flags.has('help')) {
-    console.log('Usage: theorem-os sample-putnam --phase prepare|report --directory DIR\n'
+    console.log('Usage: theorem-os sample-putnam --phase prepare|report|check-report --directory DIR\n'
       + 'prepare requires --repo PUTNAM_REPO --build-manifest FILE; defaults to 3 proof-only problems, a fixed sampling seed, '
       + 'Westlake deepseek-flash/high and the four module plans.\n'
       + '--count 1..20 --seed TEXT customize the reproducible sample. Budgets apply per problem and variant.\n'
-      + 'Both phases are offline and never call a model. Individual comparison.json files retain the explicit run entry.');
+      + 'All phases are offline and never call a model. check-report reads report freshness without writing files. Individual comparison.json files retain the explicit run entry.');
     return 0;
   }
   const phase = required(flags, 'phase');
-  if (!['prepare', 'report'].includes(phase)) throw new Error('sample-putnam supports only --phase prepare or report');
+  if (!['prepare', 'report', 'check-report'].includes(phase)) throw new Error('sample-putnam supports only --phase prepare, report or check-report');
   const directory = path.resolve(required(flags, 'directory'));
   assertMathCanonicalPath(directory);
   if (isMathPathWithin(root, directory)) throw new Error('Keep PutnamBench experiments outside the source checkout.');
@@ -102,7 +102,7 @@ export async function samplePutnamRuns(argv: string[]): Promise<number> {
   if (sample.selection.count !== sample.problems.length || sample.selection.eligibleCount < sample.selection.count ||
       new Set(sample.problems.map(problem => problem.id)).size !== sample.problems.length)
     throw new Error('putnam_sample_identity_mismatch');
-  const reports = sample.problems.map(problem => {
+  const observations = sample.problems.map(problem => {
     const comparisonDirectory = path.join(directory, problem.id);
     if (problem.comparisonDirectory !== comparisonDirectory || problem.sourceRelativePath !== `lean4/src/${problem.id}.lean` ||
         problem.theoremNames[0] !== problem.id)
@@ -121,20 +121,43 @@ export async function samplePutnamRuns(argv: string[]): Promise<number> {
         plan.buildDigest !== sample.buildDigest || plan.environmentDigest !== sample.runtimeEnvironmentDigest ||
         mathDigest(canonicalMathJson(plan.moduleExperiment)) !== sample.moduleExperimentDigest)
       throw new Error('putnam_sample_identity_mismatch');
-    const report = comparisonReport(comparisonDirectory, plan);
     const reportFile = path.join(comparisonDirectory, 'report.json');
-    writeMathJsonDurable(reportFile, report);
-    return { problem: problem.id, reportFile, report };
+    return { problem: problem.id, reportFile, comparisonDirectory, plan };
+  });
+  if (phase === 'check-report') {
+    const saved = readMathJson(path.join(directory, 'report.json')) as Record<string, unknown>;
+    const { reportHash, ...body } = saved;
+    const problems = observations.map(item => ({ problem: item.problem, reportFile: item.reportFile,
+      report: comparisonReportFreshness(item.comparisonDirectory, item.plan, readMathJson(item.reportFile) as Record<string, unknown>) }));
+    const savedProblems = Array.isArray(saved.problems) ? saved.problems as { problem: string; report?: { reportHash?: string } }[] : [];
+    const childChanged = observations.some(item => {
+      const child = readMathJson(item.reportFile) as Record<string, unknown>;
+      return savedProblems.find(previous => previous.problem === item.problem)?.report?.reportHash !== child.reportHash;
+    });
+    const freshness = saved.schema !== 'theorem-os.putnambench-sample-report.v1' ||
+      typeof reportHash === 'string' && reportHash !== mathDigest(canonicalMathJson(body)) ? 'invalid' :
+      typeof reportHash !== 'string' ? 'unknown' :
+      childChanged || savedProblems.length !== observations.length || problems.some(item => item.report.freshness !== 'current') ? 'stale' : 'current';
+    console.log(JSON.stringify({ schema: 'theoremos.putnambench-report-freshness.v1',
+      evidence: 'recorded-not-replayed', freshness, problems, invokesModel: false }));
+    return 0;
+  }
+  const reports = observations.map(item => {
+    const report = comparisonReport(item.comparisonDirectory, item.plan);
+    writeComparisonReport(item.reportFile, report);
+    return { problem: item.problem, reportFile: item.reportFile, report };
   });
   // Pair strategies only inside a problem; repetitions from different problems are not interchangeable.
   const runs = reports.flatMap(({ problem, report }) => report.runs.map(run => ({ problem, ...run })));
   const names = reports[0].report.totals.map(total => total.arm);
   const reportFile = path.join(directory, 'report.json');
-  writeMathJsonDurable(reportFile, { schema: 'theorem-os.putnambench-sample-report.v1',
+  const report = { schema: 'theorem-os.putnambench-sample-report.v1',
+    generatedAt: Date.now(),
     official: false, evidence: 'recorded-not-replayed', selection: sample.selection,
     repositoryUrl: sample.repositoryUrl, sourceCommit: sample.sourceCommit,
     environment: sample.environment, configuration: sample.configuration,
-    totals: comparisonTotals(runs, names), problems: reports, runs });
+    totals: comparisonTotals(runs, names), problems: reports, runs };
+  writeComparisonReport(reportFile, { ...report, reportHash: mathDigest(canonicalMathJson(report)) });
   console.log(JSON.stringify({ reportFile, problems: reports.length, plannedRuns: runs.length,
     missingResults: runs.filter(run => run.status === 'missing').length, invokesModel: false }));
   return 0;

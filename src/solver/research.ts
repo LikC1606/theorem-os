@@ -22,6 +22,9 @@ import { planResearchCooldown, recoverableResearchFailure, researchFailureDetail
 import { aggregateUsage, buildTokenBudget, initializeUsageAccounting, modelDispatchAllowed } from './usageBudget';
 import { recoverModelTurnLedger, WorkerTurnLedger, type ModelTurnReceipt } from './turnLedger';
 import { ResearchUsage } from './researchUsage';
+import { inspectKnowledgeUses } from './knowledgeUsage';
+import { parseMathResponse } from './deliveries';
+import { committedSource } from './problem';
 
 export type WorkerAccess = { environment: NodeJS.ProcessEnv; corpusFile?: string; retrievalRoot: string;
   knowledgeFile?: string; knowledgeDigest?: string; knowledgeSnapshot?: KnowledgeContextSnapshot };
@@ -240,6 +243,18 @@ export async function runResearchWorkers(input: {
             maxBytes: currentContext.manifest.maxBytes });
         }
         if (!reserveTurn()) return false;
+        if (currentContext.knowledgeRetrievals?.length && currentContext.manifest) {
+          const ledger = state.knowledgeRetrievals ??= { dropped: 0, observations: [] };
+          for (const retrieval of currentContext.knowledgeRetrievals) {
+            const observation = { ...retrieval, workerId: worker.id, workerTurn: research.turns, runTurn: state.turns,
+              contextDigest: currentContext.manifest.contentDigest, at: Date.now() };
+            ledger.observations.push(observation);
+            emit('knowledge_retrieval_observed', { ...observation });
+          }
+          const excess = Math.max(0, ledger.observations.length - 128);
+          ledger.observations.splice(0, excess); ledger.dropped += excess;
+          save();
+        }
         if (!session) {
           const statement = assignment && isStatementAction(assignment) ? assignment : undefined;
           const workspace = statement?.workspace ?? worker.worktree;
@@ -346,6 +361,29 @@ export async function runResearchWorkers(input: {
         emit('proof_checked', { passed: research.check.passed, commit: research.check.commit,
           reused: research.check === lastCheck || research.check.verification === lastCheck?.verification,
           durationMs: Date.now() - checkStarted });
+        if (access.knowledgeSnapshot) {
+          let claims: unknown;
+          try { claims = parseMathResponse(committedSource(worker.worktree, research.check.commit, 'RESEARCH.md'),
+            'math-result', {}, 'summary').knowledgeUses; } catch { /* Ordinary notes need no usage response. */ }
+          if (claims !== undefined) {
+            const records = state.knowledgeUses ??= [];
+            state.problem.targets.forEach((target, index) => {
+              const task = state.cooperation?.tasks.find(node => node.task.kind === 'goal' && node.task.theoremName === target.theoremName &&
+                node.task.proofPath === target.proofPath)?.task ?? { id: `original_goal_${index + 1}`, kind: 'goal' as const,
+                objective: `Prove ${target.theoremName}`, revision: 0, dependsOn: [], ...target };
+              const observed = inspectKnowledgeUses(claims, access.knowledgeSnapshot, task, research.check);
+              for (const use of observed.uses) {
+                const record = { ...use, workerId: worker.id, commit: research.check!.commit };
+                const key = canonicalMathJson(record);
+                if (!records.some(previous => canonicalMathJson(previous) === key)) {
+                  records.push(record); emit('knowledge_use_observed', { ...record });
+                }
+              }
+              if (observed.rejected) emit('knowledge_use_rejected', { commit: research.check!.commit, rejected: observed.rejected });
+            });
+            if (records.length > 256) records.splice(0, records.length - 256);
+          }
+        }
         lastCheck = research.check; save();
         if (research.check.passed) {
           if (cooperation && !cooperation.reviewed(research.check)) { cooperation.requireReview(research.check); return; }

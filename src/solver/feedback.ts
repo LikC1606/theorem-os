@@ -1,6 +1,7 @@
 import type { ProofCheck } from './modules/evidence';
 import { assertSolverSources, SolverSourceError, type SolverProblem } from './problem';
 import { mathDigest } from '../math/mathRuntimeIo';
+import { parseLeanDiagnosticOutput, renderLeanDiagnosticMessage } from '../math/leanDiagnosticMessages';
 
 const MAX_FEEDBACK_BYTES = 16_000;
 
@@ -11,8 +12,7 @@ function bounded(text: string, bytes: number): string {
 }
 
 function leanErrorBlocks(output = ''): string[] {
-  return output.split(/(?=^.+:\d+:\d+:\s*(?:error|warning|info)(?:\([^\n)]*\))?:)/mu)
-    .filter(block => /^.+:\d+:\d+:\s*error(?:\([^\n)]*\))?:/mu.test(block)).map(block => block.trim());
+  return parseLeanDiagnosticOutput(output).messages.filter(message => message.severity === 'error').map(renderLeanDiagnosticMessage);
 }
 
 /** Compare errors and goals, ignoring locations that move when a proof is edited. */
@@ -78,6 +78,11 @@ export function solverProofFeedback(check: ProofCheck, previous?: ProofCheck, hi
     'Continue the original proof. The frozen commit failed host acceptance.',
     'Repair the earliest blocking error and check the relevant lemma in Lean before expanding the proof. Preserve already checked lemmas and all original statements.',
   ];
+  const firstBlocking = check.verification.results.flatMap(result => [result.stdoutPreview, result.stderrPreview]
+    .flatMap(output => parseLeanDiagnosticOutput(output ?? '').messages)).find(message => message.severity === 'error');
+  if (firstBlocking) sections.push('First blocking Lean message:\n' +
+    bounded(renderLeanDiagnosticMessage({ ...firstBlocking, message: '' }).trimEnd(), 3000) +
+    '\nRead its goal and hypotheses in the file diagnostics below.');
   const signature = failureSignature(check);
   if (previous && !previous.passed && previous.sourceDigest === check.sourceDigest) {
     sections.push('The proof source is unchanged since the previous failed check. Re-examine the blocking mathematical step or choose another route before submitting again.');

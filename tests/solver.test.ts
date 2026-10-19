@@ -238,11 +238,26 @@ describe('isolated solver and host acceptance', () => {
 
   it('offers pinned knowledge commands to the solver while retaining independent proof acceptance', async () => {
     const catalog = knowledgeFixture();
+    const entry = readKnowledgeCatalog(catalog.file).base.entries[0]!;
+    const declaration = { name: 'Submission.saved_bridge', file: 'Submission.lean' };
+    const claim = { id: entry.id, catalogDigest: catalog.sha256, declaration };
     const messages: string[] = [];
+    host.verify.mockImplementation(async (request: MathematicsVerifierBatchRequest) => {
+      const result = verified(request);
+      return { ...result, results: result.results.map(item => ({ ...item, declarationReferences: { statement: [],
+        proof: item.theoremName === 'Submission.first' ? [declaration] : [] } })) };
+    });
     host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'knowledge-fixture',
       run: async (message: string) => {
         messages.push(message);
-        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original
+          .replace('theorem first', 'lemma saved_bridge : True := by trivial\ntheorem first')
+          .replace('first : True := by sorry', 'first : True := by exact saved_bridge')
+          .replace('second : True := by sorry', 'second : True := by trivial'));
+        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({
+          summary: 'Adapt the saved bridge for the first original target; prove the second directly.',
+          knowledgeUses: [claim, { ...claim, catalogDigest: mathDigest('forged-catalog') }],
+        }));
         return 'completed';
       }, close: vi.fn(), interrupt: vi.fn() }));
     expect(await runSolver([...args, '--knowledge-base', catalog.file], directory)).toBe(0);
@@ -262,6 +277,22 @@ describe('isolated solver and host acceptance', () => {
     expect(messages[0]).toContain('Submission.second');
     expect(messages[0]).not.toContain('by trivial');
     expect(JSON.parse(fs.readFileSync(output, 'utf8')).status).toBe('evaluated_passed');
+    const recorded = readSolverRunState(`${output}.runtime/state.json`);
+    expect(recorded.knowledgeRetrievals?.observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ catalogDigest: catalog.sha256, included: true, candidateIds: expect.any(Array),
+        contextDigest: expect.any(String) }),
+    ]));
+    expect(recorded.knowledgeUses).toEqual([
+      { ...claim, consumer: { taskId: 'original_goal_1', taskDigest: expect.any(String) },
+        status: 'checked-reference', attribution: 'model-reported-origin', workerId: 'solver',
+        commit: recorded.check!.commit, checkedCommit: recorded.check!.commit, checkedSourceDigest: recorded.check!.sourceDigest },
+      { ...claim, consumer: { taskId: 'original_goal_2', taskDigest: expect.any(String) },
+        status: 'reported-attempt', attribution: 'model-reported-origin', workerId: 'solver', commit: recorded.check!.commit },
+    ]);
+    expect(vi.mocked(console.log).mock.calls.map(([line]) => JSON.parse(line)).filter(item => item.event === 'knowledge_use_rejected'))
+      .toEqual([expect.objectContaining({ commit: recorded.check!.commit, rejected: 1 }),
+        expect.objectContaining({ commit: recorded.check!.commit, rejected: 1 })]);
+    expect(buildRunInspection(recorded).knowledge).toMatchObject({ status: 'enabled', retrievalCoverage: 'recorded' });
     expect(host.verify.mock.calls.length).toBeGreaterThanOrEqual(2);
     expect(host.officialGate).toHaveBeenCalledOnce();
   });
@@ -4151,8 +4182,12 @@ describe('isolated solver and host acceptance', () => {
     configureCooperation(async (action, options, message) => {
       if (action.kind === 'lead') {
         plans++;
-        writePlan(options.workspace, [warmup, ...proofs, ...checks.map(task => ({ ...task,
-          status: plans > 1 ? 'active' as const : 'paused' as const }))]);
+        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify({
+          tasks: [warmup, ...proofs, ...checks.map(task => ({ ...task,
+            status: plans > 1 ? 'active' as const : 'paused' as const }))],
+          challengeDecisions: action.challengeIds?.map(id => ({ id, status: 'revised',
+            reason: 'Activate check_a and check_b as distinct independent feasibility reviews of the two requested inputs.' })),
+        }) + '\n```');
       } else if (action.kind === 'task' && action.task.id === warmup.id) {
         fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({
           summary: 'The inputs a and b need distinct feasibility checks.', conclusion: 'inconclusive', needsDecision: true }));
@@ -5108,7 +5143,10 @@ describe('isolated solver and host acceptance', () => {
     tasks.splice(2, 0, update); let leads = 0;
     configureCooperation(async (action, options) => {
       if (action.kind === 'lead') {
-        writePlan(options.workspace, tasks);
+        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify({ tasks,
+          challengeDecisions: action.challengeIds?.map(id => ({ id, status: 'revised',
+            reason: 'Revise selected from 2 to 3 and recheck its actual consumers; keep unrelated checked declarations.' })),
+        }) + '\n```');
         if (++leads === 2) {
           const file = path.join(options.workspace, 'generated/p/Submission.lean');
           fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('def selected : Nat := 2', 'def selected : Nat := 3'));
@@ -5420,7 +5458,11 @@ describe('isolated solver and host acceptance', () => {
     configureCooperation(async (action, options) => {
       if (action.kind === 'lead') {
         if (++leadTurns === 2) { leadBusy.resolve(); await consumerStarted.promise; }
-        writePlan(options.workspace, tasks);
+        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify({ tasks,
+          challengeDecisions: action.challengeIds?.map(id => ({ id, status: 'deferred',
+            reason: 'Continue the current a/b to first to second construction while its consumers are being checked.',
+            reopenOn: 'A checked consumer failure showing that a and b cannot establish first, or first cannot establish second.' })),
+        }) + '\n```');
       } else if (action.kind === 'task' && action.task.id === 'question') {
         fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), '```math-result\n' + JSON.stringify({
           taskId: 'question', summary: 'Please choose a route', conclusion: 'inconclusive', evidenceRefs: [], needsDecision: true }) + '\n```');

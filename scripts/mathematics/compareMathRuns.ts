@@ -11,12 +11,13 @@ import { readMathBuildManifest } from '../../src/math/mathBuildManifest';
 import { mathDigest, canonicalMathJson, readMathText, writeMathJsonDurable } from '../../src/math/mathRuntimeIo';
 import { projectMathematicsRuntimeEnvironment, resolveMathematicsRuntimeEnvironment } from '../../src/math/mathRuntimeEnvironment';
 import { readSolverProblem } from '../../src/solver/problem';
-import { readRunInspection } from '../../src/solver/inspection';
+import { readRunInspection, runInspectionSnapshot } from '../../src/solver/inspection';
 import { runMathBatch } from './runMathBatch';
 import { configuredSolverModules, solverMethodDigest } from '../../src/solver/modules';
 import { moduleExperimentSchema, describeModuleExperiment, moduleExperimentPairs, type ModuleExperiment } from './moduleExperiment';
 import { proofReceiptsMatch, type ProofCheck } from '../../src/solver/modules/evidence';
 import type { SolverRunState } from '../../src/solver/archive';
+import { researchFailureCategory } from '../../src/solver/modules/search';
 import { buildTokenBudget, reportedTotalTokens } from '../../src/solver/usageBudget';
 import { DEEPSEEK_PROVIDER, deepSeekProfileDigest, expectedDeepSeekProfileDigest, prepareDeepSeekProfile,
   validateDeepSeekModel } from '../../src/runtime/deepseek';
@@ -119,6 +120,19 @@ function assertDataset(plan: Plan): void {
     throw new Error('comparison_putnam_source_identity_mismatch');
 }
 
+function recordedLocalAcceptance(state: SolverRunState, result?: Record<string, unknown>) {
+  const evaluator = result?.evaluator as { status?: string; method?: string; official?: boolean; verification?: ProofCheck } | undefined;
+  return state.phase === 'finished' && result?.status === 'evaluated_passed' && result.completion_signal_valid === true &&
+    result.solver_ready_receipt_valid === true && state.check?.passed === true &&
+    result.solution_commit === state.check.commit && evaluator?.status === 'passed' &&
+    evaluator.method === 'host-lean-kernel-all-targets' && evaluator.official === false &&
+    evaluator.verification?.passed === true && evaluator.verification.commit === state.check.commit &&
+    evaluator.verification.sourceDigest === state.check.sourceDigest && state.problem.targets.length > 0 &&
+    proofReceiptsMatch(evaluator.verification.verification, state.check.commit, state.problem.targets.map(target => ({
+      proofPath: target.proofPath, theoremName: target.theoremName, expectedSourceDeclarationHash: target.declarationHash,
+      statementHash: state.problem.contract.statementHash, leanStatementHash: state.problem.contract.leanStatementHash, claim: 'statement' })));
+}
+
 export function comparisonReport(directory: string, plan: Plan) {
   assertDataset(plan);
   const { experiment, variants } = experimentDefinitions(plan) ?? {};
@@ -131,16 +145,27 @@ export function comparisonReport(directory: string, plan: Plan) {
     let dispatchCounts: SolverRunState['dispatchCounts'];
     let solveWallMs: number | null = null;
     let error: string | undefined;
-    let workerErrors: { id: string; error: string }[] = [];
+    let workerErrors: { id: string; error: string; category?: ReturnType<typeof researchFailureCategory> }[] = [];
     let missingUsageWorkers: string[] = [];
     let tokenBudget: SolverRunState['tokenBudget'] | null = null;
+    let sourceSnapshot: ReturnType<typeof runInspectionSnapshot> | null = null;
+    let comparisonIdentityMatches: boolean | null = null;
+    let currentObservation: { runId: string; phase: SolverRunState['phase']; status: string; turns: number;
+      localAcceptanceEvidenceMatches: boolean; model: string; effort: string; maxTotalTokens: number;
+      solutionCommit: unknown } | null = null;
     let usageComplete = false;
     const numeric = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
     const tokens = reportedTotalTokens;
     try {
+      const { state, result } = readRunInspection(job.output);
+      sourceSnapshot = runInspectionSnapshot(state, result);
+      currentObservation = { runId: state.runId, phase: state.phase,
+        status: state.phase !== 'finished' ? 'unfinished' : String(result?.status ?? 'missing'), turns: state.turns,
+        localAcceptanceEvidenceMatches: recordedLocalAcceptance(state, result), model: state.model, effort: state.effort,
+        maxTotalTokens: state.tokenBudget?.maxTotalTokens ?? 0, solutionCommit: result?.solution_commit ?? null };
+      comparisonIdentityMatches = false;
       if (plan.configuration.provider && providerProfiles[plan.configuration.provider].digest(job.codexProfile!) !== job.codexProfileDigest)
         throw new Error('comparison_provider_profile_changed');
-      const { state, result } = readRunInspection(job.output);
       if (plan.dataset === 'putnambench' && (state.problem.kind !== 'lean-task' ||
           mathDigest(state.problem.contract.formalStatement) !== plan.sourceProblem!.sourceSha256))
         throw new Error('comparison_putnam_source_identity_mismatch');
@@ -158,6 +183,7 @@ export function comparisonReport(directory: string, plan: Plan) {
       const maxTotalTokens = plan.configuration.maxTotalTokens ?? 0;
       if ((state.tokenBudget?.maxTotalTokens ?? 0) !== maxTotalTokens)
         throw new Error('comparison_token_budget_mismatch');
+      comparisonIdentityMatches = true;
       turns = state.turns; usage = state.usage;
       dispatchCounts = state.dispatchCounts;
       if (numeric(state.solveStartedAt) && numeric(state.solveFinishedAt) && state.solveFinishedAt >= state.solveStartedAt)
@@ -173,18 +199,10 @@ export function comparisonReport(directory: string, plan: Plan) {
       tokenBudget = state.tokenBudget ? buildTokenBudget(maxTotalTokens, workers, state.tokenBudget.enforcement) : null;
       usageComplete = workers.length === expectedWorkers && missingUsageWorkers.length === 0 &&
         (tokenBudget ? tokenBudget.usageComplete : tokens(usage) !== null);
-      workerErrors = (state.workers ?? []).flatMap(worker => worker.error ? [{ id: worker.id, error: worker.error }] : []);
+      workerErrors = (state.workers ?? []).flatMap(worker => worker.error ? [{ id: worker.id, error: worker.error,
+        category: researchFailureCategory(worker.error) }] : []);
       status = state.phase !== 'finished' ? 'unfinished' : String(result?.status ?? 'missing');
-      const evaluator = result?.evaluator as { status?: string; method?: string; official?: boolean; verification?: ProofCheck } | undefined;
-      accepted = status === 'evaluated_passed' && result?.completion_signal_valid === true &&
-        result?.solver_ready_receipt_valid === true && state.check?.passed === true &&
-        result?.solution_commit === state.check.commit && evaluator?.status === 'passed' &&
-        evaluator.method === 'host-lean-kernel-all-targets' && evaluator.official === false &&
-        evaluator.verification?.passed === true && evaluator.verification.commit === state.check.commit &&
-        evaluator.verification.sourceDigest === state.check.sourceDigest && state.problem.targets.length > 0 &&
-        proofReceiptsMatch(evaluator.verification.verification, state.check.commit, state.problem.targets.map(target => ({
-          proofPath: target.proofPath, theoremName: target.theoremName, expectedSourceDeclarationHash: target.declarationHash,
-          statementHash: state.problem.contract.statementHash, leanStatementHash: state.problem.contract.leanStatementHash, claim: 'statement' })));
+      accepted = currentObservation.localAcceptanceEvidenceMatches;
       error = typeof result?.reason === 'string' ? result.reason : undefined;
       if (status === 'evaluated_passed' && !accepted) error = 'comparison_acceptance_evidence_incomplete';
     } catch (cause) {
@@ -198,13 +216,17 @@ export function comparisonReport(directory: string, plan: Plan) {
     const elapsed = execution?.startedAt && execution?.finishedAt
       ? Date.parse(execution.finishedAt) - Date.parse(execution.startedAt) : NaN;
     return { arm: job.arm, repetition: job.repetition, status, accepted, turns, dispatches: turns, dispatchCounts, solveWallMs,
+      sourceSnapshot, comparisonIdentityMatches, currentObservation,
       totalTokens, usageComplete, overrunTokens, tokenBudget, missingUsageWorkers, usage, workerErrors, error,
+      failureCategory: researchFailureCategory(error),
       wallMs: Number.isFinite(elapsed) && elapsed >= 0 ? elapsed : null,
       batchStatus: execution?.status ?? null, signal: execution?.signal ?? null, batchError: execution?.error ?? null,
       exitCode: execution?.exitCode ?? null, result: job.output, log: execution?.log };
   });
   const enforcements = new Set(rows.map(row => row.tokenBudget?.enforcement ?? 'unknown'));
-  return { schema: 'deepscientist.math.comparison-report.v1', evidence: 'recorded-not-replayed',
+  const report = { schema: 'deepscientist.math.comparison-report.v1', evidence: 'recorded-not-replayed',
+    generatedAt: Date.now(), sourcePlanDigest: mathDigest(canonicalMathJson(plan)),
+    sourceBatchDigest: mathDigest(canonicalMathJson(batch ?? null)),
     problem: plan.problem, configuration: plan.configuration, official: false,
     ...(plan.dataset ? { dataset: plan.dataset, sourceProblem: plan.sourceProblem } : {}),
     comparisonKind: experiment ? 'module-plan' : 'coordination',
@@ -216,6 +238,58 @@ export function comparisonReport(directory: string, plan: Plan) {
     tokenBudgetEnforcement: enforcements.size === 1 ? [...enforcements][0] : 'mixed',
     budgetNote: 'Each run records whether the shared allowance gates dispatches or upstream requests. In-flight work may exceed it; missing usage prevents complete token or cost comparisons.',
     totals: comparisonTotals(rows, variants?.map(variant => variant.id)), runs: rows };
+  return { ...report, reportHash: mathDigest(canonicalMathJson(report)) };
+}
+
+/** Compare a saved report with current stored observations without rewriting either. */
+export function comparisonReportFreshness(directory: string, plan: Plan, saved: Record<string, unknown>) {
+  const current = comparisonReport(directory, plan);
+  const rawRows = Array.isArray(saved.runs) ? saved.runs : [];
+  const savedRows = rawRows.filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object' && !Array.isArray(row));
+  const { reportHash, ...body } = saved;
+  const invalid = saved.schema !== current.schema || savedRows.length !== rawRows.length ||
+    typeof reportHash === 'string' && reportHash !== mathDigest(canonicalMathJson(body));
+  const bound = typeof reportHash === 'string' && typeof saved.sourcePlanDigest === 'string' && typeof saved.sourceBatchDigest === 'string' &&
+    savedRows.every(row => Object.hasOwn(row, 'sourceSnapshot'));
+  const rows = current.runs.map(row => {
+    const previous = savedRows.find(item => item.arm === row.arm && item.repetition === row.repetition && item.result === row.result);
+    const changed = previous && (canonicalMathJson(previous.sourceSnapshot) !== canonicalMathJson(row.sourceSnapshot) ||
+      previous.status !== row.status || previous.error !== row.error || previous.accepted !== row.accepted);
+    const freshness = invalid ? 'invalid' : !bound || !previous ? 'unknown' : changed ? 'stale' :
+      row.sourceSnapshot === null && row.status === 'invalid' ? 'unknown' : 'current';
+    return { arm: row.arm, repetition: row.repetition, result: row.result, freshness,
+      previous: previous ? { status: previous.status, accepted: previous.accepted, sourceSnapshot: previous.sourceSnapshot } : null,
+      current: { status: row.status, accepted: row.accepted, error: row.error,
+        comparisonIdentityMatches: row.comparisonIdentityMatches, observation: row.currentObservation, sourceSnapshot: row.sourceSnapshot } };
+  });
+  const freshness = invalid ? 'invalid' : !bound ? 'unknown' :
+    saved.sourcePlanDigest !== current.sourcePlanDigest || saved.sourceBatchDigest !== current.sourceBatchDigest ||
+    savedRows.length !== rows.length || rows.some(row => row.freshness === 'stale') ? 'stale' :
+    rows.some(row => row.freshness === 'unknown') ? 'unknown' : 'current';
+  return { schema: 'theoremos.comparison-report-freshness.v1', evidence: 'recorded-not-replayed',
+    checkedAt: Date.now(), freshness, savedGeneratedAt: saved.generatedAt ?? null,
+    note: 'A continuation may change the stored observation or budget. It is not counted as a solve under different frozen comparison inputs.', runs: rows };
+}
+
+/** Retain the previous evidence before replacing the latest report after a continuation. */
+export function writeComparisonReport(file: string, report: unknown) {
+  if (fs.existsSync(file)) {
+    const previousText = readMathText(file), previous = JSON.parse(previousText) as Record<string, unknown>;
+    const evidence = (value: unknown) => {
+      const { generatedAt: _at, reportHash: _hash, ...body } = value as Record<string, unknown>;
+      return canonicalMathJson(body);
+    };
+    if (evidence(previous) !== evidence(report)) {
+      const history = `${file}.history`;
+      fs.mkdirSync(history, { recursive: true, mode: 0o700 });
+      const snapshot = path.join(history, `${mathDigest(previousText)}.json`);
+      try { fs.writeFileSync(snapshot, previousText, { flag: 'wx', mode: 0o400 }); }
+      catch (cause) {
+        if ((cause as NodeJS.ErrnoException).code !== 'EEXIST' || readMathText(snapshot) !== previousText) throw cause;
+      }
+    }
+  }
+  writeMathJsonDurable(file, report);
 }
 
 export async function compareMathRuns(argv: string[]): Promise<number> {
@@ -223,7 +297,7 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
     'repetitions', 'model', 'effort', 'method', 'scheduler', 'workers', 'max-turns', 'max-run-seconds', 'max-turn-seconds',
     'max-total-tokens', 'proof-environment-cache-dir', 'module-experiment', 'provider', 'dataset']);
   if (flags.has('help')) {
-    console.log('Usage: theorem-os compare --phase prepare|run|report --directory DIR\n'
+    console.log('Usage: theorem-os compare --phase prepare|run|report|check-report --directory DIR\n'
       + 'prepare also requires --repo PINNED_REPO --problem ID --task-file FILE --build-manifest FILE\n'
       + '--dataset imo2026|putnambench selects the pinned public source (default: imo2026).\n'
       + 'Optional: --repetitions 1 --workers 4 --model gpt-6.1-sol --effort xhigh --method direct --scheduler plan|goals-first|critical-path|continuation|primary-led\n'
@@ -232,12 +306,13 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
       + '          --module-experiment FILE (compare module plans with 3 or 4 cooperative workers instead of coordination arms)\n'
       + '          --provider profile|deepseek|westlake (private per-attempt profiles; deepseek-v4-pro/high or Westlake deepseek-flash/high)\n'
       + 'prepare never invokes a model. run executes every planned attempt sequentially. Every arm receives the same token allowance.\n'
+      + 'check-report reads a saved report and its current observations without rewriting files; older unbound reports have unknown freshness.\n'
       + 'Use 0 to disable a limit; at least max-turns, max-run-seconds or max-total-tokens must be positive.\n'
       + '--max-turns caps dispatches. Token caps use provider reports, allow in-flight overrun, and do not guarantee equal cost.');
     return 0;
   }
   const phase = required(flags, 'phase');
-  if (!['prepare', 'run', 'report'].includes(phase)) throw new Error('invalid --phase');
+  if (!['prepare', 'run', 'report', 'check-report'].includes(phase)) throw new Error('invalid --phase');
   const directory = path.resolve(required(flags, 'directory'));
   const planFile = path.join(directory, 'comparison.json');
   if (phase !== 'prepare' && flags.has('module-experiment'))
@@ -339,6 +414,11 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
     throw new Error('invalid comparison plan');
   assertDataset(plan);
   experimentDefinitions(plan);
+  if (phase === 'check-report') {
+    const reportFile = path.join(directory, 'report.json');
+    console.log(JSON.stringify({ reportFile, ...comparisonReportFreshness(directory, plan, json(reportFile)) }));
+    return 0;
+  }
   let code = 0;
   if (phase === 'run') {
     assertProviderProfiles(plan, true);
@@ -360,7 +440,7 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
   }
   const reportFile = path.join(directory, 'report.json');
   const report = comparisonReport(directory, plan);
-  writeMathJsonDurable(reportFile, report);
+  writeComparisonReport(reportFile, report);
   console.log(JSON.stringify({ reportFile, totals: report.totals }));
   return code;
 }

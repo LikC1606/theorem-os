@@ -111,7 +111,7 @@ export class ResearchUsage {
     if (this.sessionId !== sessionId || !this.active || signal.aborted || remainingMs() <= 0)
       return this.rejectRequest(sessionId, 'math_model_request_stopped');
     const requests = research.requestUsageAccounting;
-    if (this.active.initialPlanning && requests && (requests.startedRequests >= 2 ||
+    if (this.active.initialPlanning && state.cooperation?.tasks.length === 0 && requests && (requests.startedRequests >= 2 ||
         (reportedTotalTokens(research.usage) ?? 0) >= Math.max(1, Math.floor(maxTotalTokens / 4))))
       // Only settled requests can yield a checkpoint with complete accounting.
       return this.rejectRequest(sessionId, requests.pendingRequests ? 'math_model_request_stopped' : 'math_initial_planning_limit');

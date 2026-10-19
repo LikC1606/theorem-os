@@ -10,6 +10,10 @@ import { directSolverModules } from '../src/solver/modules';
 import type { ResearchWorker } from '../src/solver/modules/organization';
 import { commitSolverSources, git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
 import { pendingResearchHandoffs, researchHandoffs } from '../src/solver/researchHandoffs';
+import { pendingResearchChallenges, researchChallenges } from '../src/solver/researchChallenges';
+import { mathDigest } from '../src/math/mathRuntimeIo';
+import type { KnowledgeContextSnapshot } from '../src/solver/knowledgeContext';
+import { buildTheoremKnowledge } from '../src/solver/theoremKnowledge';
 import { taskVersion, type CooperativeAction, type CooperativeTask } from '../src/solver/tasks';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn() }));
@@ -35,6 +39,7 @@ describe('deferred research proposal activation', () => {
   let directory: string, problem: SolverProblem, state: SolverRunState;
   let lead: ResearchWorker, peer: ResearchWorker, cooperative: CooperativeResearch, primaryLed: boolean;
   let proposal: CooperativeTask;
+  let knowledgeSnapshot: KnowledgeContextSnapshot | undefined;
   let events: { event: string; details?: Record<string, unknown> }[];
   const instances: CooperativeResearch[] = [];
   const node = (id: string) => state.cooperation!.tasks.find(item => item.task.id === id)!;
@@ -43,7 +48,8 @@ describe('deferred research proposal activation', () => {
   const notes = (value: unknown) => fs.writeFileSync(path.join(lead.worktree, 'RESEARCH.md'), JSON.stringify(value));
   const create = () => {
     const instance = new CooperativeResearch({ state, workers: [lead, peer],
-      access: new Map([lead, peer].map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
+      access: new Map([lead, peer].map(worker => [worker.id, { environment: {}, retrievalRoot: directory,
+        ...(worker.id === peer.id && knowledgeSnapshot ? { knowledgeSnapshot } : {}) }])),
       modules: primaryLed ? { ...directSolverModules, M5: { ...directSolverModules.M5, primaryLed: true } } : directSolverModules,
       signal: new AbortController().signal, save: () => {}, emit: (event, details) => events.push({ event, details }),
       exclusiveCheck: async check => check() });
@@ -120,12 +126,98 @@ describe('deferred research proposal activation', () => {
         deliveries: [{ id: 'proposal-delivery', producer: peer.id, taskId: question.id, taskDigest: taskVersion(question),
           kind: 'research', status: 'advisory', summary: 'An exact bridge waits on the estimate.', statement: '', premises: [],
           dependencies: [], remainingObligations: [], evidenceRefs: [], createdAt: 1, lemmaRequests: [proposal] }] } };
-    primaryLed = false; events = []; cooperative = create();
+    primaryLed = false; knowledgeSnapshot = undefined; events = []; cooperative = create();
   });
   afterEach(async () => {
     for (const instance of instances.splice(0)) await instance.stop();
     expect(host.createSession).not.toHaveBeenCalled();
     vi.restoreAllMocks(); fs.rmSync(directory, { recursive: true, force: true });
+  });
+
+  it.each(['proof', 'statement-only', 'wrong-file', 'wrong-catalog', 'unknown-entry'] as const)
+  ('records only checked proof references from pinned knowledge during actual helper delivery (%s)', async mode => {
+    const base = buildTheoremKnowledge([{ name: 'Saved.bridge', file: 'Submission.lean', type: 'True',
+      typeKind: 'closed-task-type', kind: 'lemma', description: 'A previously checked bridge.', premises: [],
+      dependencies: { statement: [], proof: [], tasks: [], coverage: 'unavailable' },
+      files: { 'Submission.lean': 'namespace Saved\nlemma bridge : True := by trivial\nend Saved\n' },
+      provenance: { kind: 'solver-check', problemId: 'saved-problem', source: '/archive/state.json',
+        sourceDigest: mathDigest('saved-proof-source'), receiptIds: ['saved-proof-receipt'] } }]);
+    knowledgeSnapshot = { digest: mathDigest('fixed-knowledge-catalog'), base };
+    cooperative = create();
+    const action = await cooperative.next(peer, budget);
+    if (action?.kind !== 'task' || action.task.id !== 'premise') throw new Error('fixture_expected_premise');
+    expect(cooperative.started(peer, action)).toBe(true);
+    const declaration = { name: 'Tutorial.saved_bridge', file: 'Submission.lean' };
+    const claim = { id: mode === 'unknown-entry' ? 'f'.repeat(64) : base.entries[0]!.id,
+      catalogDigest: mode === 'wrong-catalog' ? mathDigest('other-catalog') : knowledgeSnapshot.digest,
+      declaration: { ...declaration, file: mode === 'wrong-file' ? 'Other.lean' : declaration.file } };
+    const file = path.join(peer.worktree, problem.projectRelative, 'Submission.lean');
+    const target = mode === 'statement-only'
+      ? 'lemma premise : (fun (_ : True) => True) saved_bridge := by trivial'
+      : 'lemma premise : True := by exact saved_bridge';
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('theorem add_zero',
+      `lemma saved_bridge : True := by trivial\n${target}\ntheorem add_zero`));
+    fs.writeFileSync(path.join(peer.worktree, 'RESEARCH.md'), JSON.stringify({ summary: 'Adapt the saved bridge as saved_bridge.',
+      knowledgeUses: [claim] }));
+    host.verify.mockImplementation(async (request: MathematicsVerifierBatchRequest) => {
+      const result = verified(request);
+      return { ...result, results: result.results.map(item => ({ ...item, declarationReferences: {
+        statement: item.theoremName === 'Tutorial.premise' && mode === 'statement-only' ? [declaration] : [],
+        proof: item.theoremName === 'Tutorial.premise' && mode !== 'statement-only' ? [declaration] : [],
+      } })) };
+    });
+    const commit = commitSolverSources(problem, peer.worktree);
+    const delivered = await cooperative.deliver(peer, action, commit);
+    expect(delivered.check?.passed).toBe(true);
+    expect(node('premise')).toMatchObject({ status: 'integrated', integratedCheck: { passed: true } });
+    const proof = node('premise').proof!;
+    expect(proof.commit).toBe(commit);
+    expect(proof.verification.status).toBe('kernel_verified');
+    expect(proof.verification.results.every(item => item.targetCommit === proof.verification.targetCommit)).toBe(true);
+    expect(host.verify.mock.calls.some(([request]) => request.targetCommit === proof.verification.targetCommit)).toBe(true);
+    expect(host.verify.mock.calls.length).toBeGreaterThanOrEqual(2);
+    const record = state.cooperation!.deliveries!.find(item => item.taskId === 'premise' && item.kind === 'proof' && item.status === 'verified')!;
+    expect(record.commit).toBe(commit);
+    expect(record.evidence?.verification.results.every(item => item.receiptId)).toBe(true);
+    if (mode === 'wrong-catalog' || mode === 'unknown-entry') {
+      expect(record.knowledgeUses).toEqual([]);
+      expect(events).toContainEqual({ event: 'knowledge_use_rejected', details: { taskId: 'premise', commit, rejected: 1 } });
+    } else {
+      const checked = mode === 'proof';
+      expect(record.knowledgeUses).toEqual([{ ...claim, consumer: { taskId: 'premise', taskDigest: taskVersion(action.task) },
+        status: checked ? 'checked-reference' : 'reported-attempt', attribution: 'model-reported-origin',
+        ...(checked ? { checkedCommit: commit, checkedSourceDigest: node('premise').proof!.sourceDigest } : {}) }]);
+      expect(events).toContainEqual({ event: 'knowledge_use_observed', details: {
+        ...record.knowledgeUses![0], taskId: 'premise', commit } });
+    }
+    const restored = saveAndRead().cooperation!.deliveries!.find(item => item.id === record.id)!;
+    expect(restored.knowledgeUses).toEqual(record.knowledgeUses);
+    expect(state.cooperation!.error).toBeUndefined();
+  });
+
+  it.each([false, true])('requires and persists challenge decisions in a primary-led=%s dispatch', async primary => {
+    const question = node('question');
+    question.finding = JSON.stringify({ conclusion: 'refuted', needsDecision: true, summary: 'A fixed counterexample.' });
+    state.cooperation!.deliveries = [{ ...state.cooperation!.deliveries![0], lemmaRequests: undefined,
+      findingDigest: mathDigest(question.finding), summary: 'A fixed counterexample.', evidenceRefs: ['fixed-source'] }];
+    primaryLed = primary; cooperative = create();
+    const action = await cooperative.next(lead, budget);
+    if (!action || action.kind !== (primary ? 'solve' : 'lead')) throw new Error('fixture_challenge_dispatch_required');
+    const challenge = pendingResearchChallenges(state.cooperation!)[0];
+    expect(action.challengeIds).toEqual([challenge.id]);
+    expect(action.challengeActivations).toEqual({ [challenge.id]: challenge.activationDigest });
+    notes(primary ? { requests: [] } : { tasks: tasks() });
+    await cooperative.deliver(lead, action, commitSolverSources(problem, lead.worktree));
+    expect(state.cooperation!.error).toContain('math_challenge_unresolved');
+    expect(pendingResearchChallenges(state.cooperation!)).toHaveLength(1);
+    const challengeDecisions = [{ id: challenge.id, status: 'disputed', reason: 'Its input violates the positivity premise.',
+      evidenceRefs: ['counterargument-commit:RESEARCH.md'] }];
+    notes(primary ? { requests: [], challengeDecisions } : { tasks: tasks(), challengeDecisions });
+    await cooperative.deliver(lead, action, commitSolverSources(problem, lead.worktree));
+    expect(state.cooperation!.error).toBeUndefined();
+    expect(researchChallenges(state.cooperation!)[0]).toMatchObject({ status: 'disputed' });
+    expect(saveAndRead().cooperation!.challengeDecisions).toEqual(state.cooperation!.challengeDecisions);
+    expect(host.verify).not.toHaveBeenCalled();
   });
 
   it('reactivates the exact deferred bridge after an independent proof and adopts an unchecked obligation', async () => {

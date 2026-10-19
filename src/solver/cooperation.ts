@@ -18,7 +18,7 @@ import { hasFreshSolverCheck, proofReceiptsMatch, type ProofCheck } from './modu
 import type { WorkerAccess } from './research';
 import type { SolverModules } from './modules';
 import { originalGoalTaskFocus, originalGoalFrontierSnapshot, researchCanAdvance, routeAllowsTask, taskCanStart, taskDependenciesReady, plannedTaskDependencyIds, selectedTaskRoute } from './modules/search';
-import { deliveryDetails, reviewVerdict, readDeliveryLines, readMathResponse as block, MAX_RESEARCH_NOTES_BYTES, type DeliveryRecord } from './deliveries';
+import { deliveryDetails, reviewVerdict, readDeliveryLines, parseMathResponse, readMathResponse as block, MAX_RESEARCH_NOTES_BYTES, type DeliveryRecord } from './deliveries';
 import { applyTaskChanges, checkTaskProof, checkTaskProofs, createTaskSourceProjector, isAttributedTaskProof, omitTaskHelpers,
   ownedSourceDigest, TaskProofCache, taskChanges, type TaskProof } from './cooperativeProof';
 import { assertStatementSnapshot, captureStatementContexts, isStatementAction, readBacktranslation, resetStatementReview, statementReviewSummary, statementSnapshot, writeStatementSnapshot,
@@ -32,12 +32,15 @@ import { parseProofRoutes, type ProofRoute } from './proofRoutes';
 import { createProofRoutePriorityIndex } from './routePriority';
 import { attributeTaskReferences } from './taskReferenceAttribution';
 import { pendingResearchHandoffs, retainedResearchHandoffs, researchHandoffs, resolveResearchHandoffs, selectResearchHandoffBatch, type ResearchHandoffDecision } from './researchHandoffs';
+import { pendingResearchChallenges, preserveResearchChallengeBacklog, researchChallenges, retainedResearchChallenges, resolveResearchChallenges, selectResearchChallengeBatch,
+  type ResearchChallengeDecision } from './researchChallenges';
 import { captureObligationSnapshot, diffObligationProgress, type ObligationSnapshot, type ObligationProgressReceipt } from './obligationProgress';
 import { taskConsumerProjection, type TaskConsumerProjection } from './taskConsumers';
 import { checkpointCandidate, type CheckpointCandidate } from './researchEvidence';
 import { hasRunningDuplicateQuestion, parallelQuestions, type ParallelQuestion } from './taskQuestions';
+import { inspectKnowledgeUses } from './knowledgeUsage';
 
-import { isFeasibilityReview, taskGroup, taskVersion, taskProofContractVersion, taskReferenceDependencies, assignmentDeliveryFile, markTaskReferences, hasTaskReferences, markTaskAcceptance, hasTaskAcceptance, invalidatedTaskIds,
+import { isFeasibilityReview, taskGroup, taskVersion, taskProofContractVersion, taskReferenceDependencies, assignmentDeliveryFile, initialPlanDeliveryFile, markTaskReferences, hasTaskReferences, markTaskAcceptance, hasTaskAcceptance, invalidatedTaskIds,
   type CooperativeTask, type RouteRecord, type TaskAssignment, type TaskRecord, type CooperativeAction } from './tasks';
 export { taskGroup, taskVersion, taskReferenceDependencies, assignmentDeliveryFile } from './tasks';
 export type { CooperativeTask, RouteGroup, RouteRecord, TaskAssignment, TaskRecord, CooperativeAction } from './tasks';
@@ -66,6 +69,8 @@ export type HumanEditRecord = { id: string; status: 'received' | 'applied' | 're
   recheck?: { status: 'pending' | 'passed' | 'failed' | 'not-required' | 'superseded';
     tasks: { taskId: string; taskDigest: string; status: 'pending' | 'conditional' | 'passed' | 'failed' | 'removed' | 'superseded'; reason?: string;
       lastCheck?: { commit: string; sourceDigest: string; environmentDigest: string; passed: boolean; conditional: boolean; receiptIds: string[] } }[] } };
+export type InitialPlanPublication = { nonce: string; file: string; offset: number; eventDigest: string;
+  baseVersion: string; planVersion: string; acceptedAt: number; finalized?: boolean };
 type FailedTaskInput = { id: string; taskId: string; taskDigest: string; inputDigest: string; basis: BlockerBasis;
   attemptFingerprint?: string; relatedFailureIds?: string[];
   sourceDigest: string; targetDigest: string; seedSourceDigest: string; seedTargetDigest: string;
@@ -79,7 +84,9 @@ export type CooperationState = { tasks: TaskRecord[]; groups?: RouteRecord[]; ca
   history?: { task: CooperativeTask; producer?: string; proof?: TaskProof; integratedCheck?: ProofCheck; finding?: string }[];
   deliveries?: DeliveryRecord[]; cursors?: Record<string, number>; edits?: HumanEditRecord[];
   researchDecisions?: ResearchHandoffDecision[];
+  challengeDecisions?: ResearchChallengeDecision[];
   planVersion?: string; planEdited?: boolean; statementReviews?: StatementReview[];
+  initialPlanPublication?: InitialPlanPublication;
   helpRequestDigest?: string;
   planRejection?: { proposalDigest: string; inputDigest: string; error: string; stalled: boolean };
   lastLeadInputDigest?: string;
@@ -144,6 +151,7 @@ export class CooperativeResearch {
   private proofPublications = new Map<string, Promise<TaskProof | undefined>>();
   private integrationQueue = Promise.resolve();
   private leadEvidence = new WeakMap<CooperativeAction, string>();
+  private initialPlans = new WeakMap<CooperativeAction, { plan: ReturnType<typeof parseCooperationPlan>; version: string }>();
   private checkingTaskInputs = new Map<string, Promise<void>>();
   private leanSourceDigests = new Map<string, string>();
   private timer?: NodeJS.Timeout;
@@ -166,7 +174,7 @@ export class CooperativeResearch {
     }
     this.liveWorkers = new Set(input.workers.map(worker => worker.id));
     this.needsLead = !this.archive.tasks.length || Boolean(this.archive.error) ||
-      pendingResearchHandoffs(this.archive).length > 0 ||
+      pendingResearchHandoffs(this.archive).length > 0 || pendingResearchChallenges(this.archive).length > 0 ||
       (this.archive.tasks.some(node => node.status === 'blocked') && this.archive.lastLeadInputDigest !== this.planningInputDigest());
   }
   private get livePeers() { return this.input.workers.filter(worker => worker.id !== this.lead.id && this.liveWorkers.has(worker.id)); }
@@ -314,6 +322,7 @@ export class CooperativeResearch {
             actualReferences: (node.integratedCheck ?? node.proof)?.references } : {}) })),
         deliveries: deliveries.map(({ evidence: _evidence, ...record }) => record),
         researchHandoffs: handoffs,
+        researchChallenges: researchChallenges(scoped),
         blockers: scoped.blockers ?? [],
         proofRoutes: scoped.proofRoutes ?? [],
         routePriority: createProofRoutePriorityIndex(scoped.tasks, { groups: scoped.groups,
@@ -341,6 +350,10 @@ export class CooperativeResearch {
         item.sources.map(source => [source.handoffId, item.activationDigest] as const)));
       if (action.handoffIds?.some(id => pending.has(id) && pending.get(id) !== action.handoffActivations![id])) return false;
     }
+    if ((action.kind === 'lead' || action.kind === 'solve') && action.challengeActivations) {
+      const pending = new Map(pendingResearchChallenges(this.archive).map(item => [item.id, item.activationDigest]));
+      if (action.challengeIds?.some(id => pending.has(id) && pending.get(id) !== action.challengeActivations![id])) return false;
+    }
     if (isStatementAction(action)) {
       const review = this.archive.statementReviews?.find(item => item.id === action.reviewId);
       const node = this.node(action.taskId);
@@ -350,7 +363,10 @@ export class CooperativeResearch {
         review.snapshotDigest === action.snapshotDigest && review.workspace === action.workspace && node &&
         digest(node.task) === action.taskDigest && this.statementReviewAllowed(node.task));
     }
-    if (action.kind === 'lead') return action.planVersion === undefined || action.planVersion === this.archive.planVersion;
+    if (action.kind === 'lead') {
+      const version = this.initialPlans.get(action)?.version ?? action.planVersion;
+      return version === undefined || version === this.archive.planVersion;
+    }
     if (action.kind === 'review') {
       const review = this.archive.review;
       return Boolean(review && review.status === 'running' && review.commit === action.seedCommit &&
@@ -361,6 +377,10 @@ export class CooperativeResearch {
         independentFeasibilityWorker(node, worker, this.archive.tasks, this.archive.groups))) &&
       (taskReferenceDependencies(node) ?? action.assignment.dependencies ?? []).every(dependency => this.archive.tasks.some(item => item.task.id === dependency.taskId && digest(item.task) === dependency.taskDigest)) &&
       (node.task.status ?? 'active') === 'active' && this.archive.groups?.find(route => route.group.id === taskGroup(node.task))?.group.status === 'active');
+  }
+  /** A live publication never authorizes a superseded dispatch or changed decisions. */
+  initialPlanSnapshot(action: CooperativeAction) {
+    return this.current(action) ? this.initialPlans.get(action)?.plan : undefined;
   }
   private taskVersions() {
     return new Map(this.archive.tasks.map(({ task }) => [task.id, { task, version: digest(task) }]));
@@ -453,6 +473,8 @@ export class CooperativeResearch {
         environmentDigest: this.input.state.environmentDigest, proofRoutes: this.archive.proofRoutes, blockers: this.archive.blockers }).digest,
       tasks: this.archive.tasks.map(node => ({ id: node.task.id, status: node.status, feedback: node.feedback })),
       researchDecisions: this.archive.researchDecisions,
+      challengeDecisions: this.archive.challengeDecisions,
+      pendingChallengeActivations: pendingResearchChallenges(this.archive).map(item => [item.id, item.activationDigest]),
       pendingHandoffActivations: pendingResearchHandoffs(this.archive).map(item => [item.id, item.activationDigest]), deliveries }));
   }
   private planningEvidenceDigest() {
@@ -908,8 +930,8 @@ export class CooperativeResearch {
   }
   private proposedPlanDigest() {
     try {
-      const { tasks, groups, proofRoutes, recovery, handoffDecisions } = block(this.lead.worktree, 'math-plan');
-      return mathDigest(canonicalMathJson({ tasks, groups, proofRoutes, recovery, handoffDecisions }));
+      const { tasks, groups, proofRoutes, recovery, handoffDecisions, challengeDecisions } = block(this.lead.worktree, 'math-plan');
+      return mathDigest(canonicalMathJson({ tasks, groups, proofRoutes, recovery, handoffDecisions, challengeDecisions }));
     } catch {
       // A notes-only commit must not make an identical malformed response new input.
       const file = path.join(this.lead.worktree, 'RESEARCH.md');
@@ -1020,6 +1042,7 @@ export class CooperativeResearch {
       }
       advance(entry.offset);
     }
+    await this.readInitialPlanDelivery(cursors);
     for (const worker of this.input.workers) {
       if (this.deliveryChecks.has(worker.id)) continue;
       const active = this.active.get(worker.id);
@@ -1035,18 +1058,73 @@ export class CooperativeResearch {
     }
     return new Map(this.deliveryChecks);
   }
+  private async readInitialPlanDelivery(cursors: Record<string, number>) {
+    const action = this.active.get(this.lead.id)?.action;
+    if (!action || action.kind !== 'lead' || this.primaryLed) return;
+    const file = initialPlanDeliveryFile(action);
+    if (!file) return;
+    const key = `${this.lead.id}/${file}`, discardKey = `${key}/discardingOversized`;
+    const batch = readDeliveryLines(path.join(this.lead.worktree, file), cursors[key] ?? 0,
+      { discardingOversized: cursors[discardKey] === 1 });
+    let advanced = false;
+    const reject = (reason: string) => this.input.emit('initial_plan_rejected', { workerId: this.lead.id, file, reason });
+    try {
+      for (const entry of batch.entries!) {
+        this.input.signal.throwIfAborted();
+        if (entry.error) reject(entry.error);
+        else if (entry.line?.trim()) {
+          // Only a complete explicit event is parsed; RESEARCH.md remains an unpublished draft.
+          const eventDigest = mathDigest(entry.line);
+          let response: any;
+          try { response = JSON.parse(entry.line); }
+          catch { reject('math_initial_plan_invalid_json'); }
+          if (response !== undefined) {
+            try {
+              if (!response || typeof response !== 'object' || Array.isArray(response) || response.kind !== 'plan' ||
+                  typeof response.baseVersion !== 'string') throw new Error('math_initial_plan_invalid');
+              const details = deliveryDetails(response);
+              const plan = parseCooperationPlan(this.input.state.problem, response);
+              await this.input.exclusiveCheck(async () => {
+                const publication = this.archive.initialPlanPublication;
+                if (publication?.nonce === action.initialPlanNonce && publication.eventDigest === eventDigest) return;
+                if (publication || this.archive.tasks.length || action.recovery ||
+                    this.active.get(this.lead.id)?.action !== action || !this.current(action))
+                  throw new Error('math_initial_plan_superseded');
+                if (!action.planVersion || response.baseVersion !== action.planVersion ||
+                    response.baseVersion !== this.archive.planVersion) throw new Error('math_initial_plan_version_conflict');
+                this.preserveHandoffBacklog(plan, []);
+                preserveResearchChallengeBacklog(this.archive, plan.tasks, plan.proofRoutes, []);
+                await this.acceptPlan(plan, undefined, { action, receipt: { nonce: action.initialPlanNonce!, file,
+                  offset: entry.offset, eventDigest, baseVersion: response.baseVersion, acceptedAt: Date.now() } });
+                this.input.emit('initial_plan_published', { ...this.archive.initialPlanPublication,
+                  workerId: this.lead.id, summary: details.summary, taskIds: plan.tasks.map(task => task.id) });
+              });
+            } catch (error) {
+              this.input.signal.throwIfAborted();
+              if (!(error instanceof Error) || !/^math_(?:initial_plan_|plan_|handoff_|challenge_|delivery_invalid)/u.test(error.message)) throw error;
+              reject(error.message);
+            }
+          }
+        }
+        cursors[key] = entry.offset; cursors[discardKey] = entry.discardingOversized ? 1 : 0; advanced = true;
+      }
+      if (cursors[key] !== batch.offset || (cursors[discardKey] === 1) !== batch.discardingOversized) advanced = true;
+      cursors[key] = batch.offset; cursors[discardKey] = batch.discardingOversized ? 1 : 0;
+    } finally { if (advanced) this.input.save(); }
+  }
   private async readHelpRequest(dispatch?: CooperativeAction) {
     if (this.archive.review && this.archive.review.status !== 'changes_requested') return;
     const action = dispatch ?? this.active.get(this.lead.id)?.action;
-    if (!action && pendingResearchHandoffs(this.archive).length) return;
+    if (!action && (pendingResearchHandoffs(this.archive).length || pendingResearchChallenges(this.archive).length)) return;
     const notes = path.join(this.lead.worktree, 'RESEARCH.md');
     if (!fs.existsSync(notes)) return;
     const fingerprint = mathDigest(canonicalMathJson({ notes: readMathText(notes, MAX_RESEARCH_NOTES_BYTES),
-      handoffActivations: action?.kind === 'solve' ? action.handoffActivations : undefined }));
+      handoffActivations: action?.kind === 'solve' ? action.handoffActivations : undefined,
+      challengeActivations: action?.kind === 'solve' ? action.challengeActivations : undefined }));
     if (fingerprint === this.archive.helpRequestDigest) return;
     this.archive.helpRequestDigest = fingerprint;
     try {
-      const { requests, handoffDecisions } = block(this.lead.worktree, 'math-help');
+      const { requests, handoffDecisions, challengeDecisions } = block(this.lead.worktree, 'math-help');
       if (requests === undefined) return;
       if (!Array.isArray(requests) || requests.length > this.input.workers.length - 1 ||
           requests.some(task => !task || !['lemma', 'research', 'sketch'].includes(task.kind) ||
@@ -1059,9 +1137,13 @@ export class CooperativeResearch {
       const plan = this.helpPlan([...goals, ...requests], shown, handoffDecisions);
       const decisions = resolveResearchHandoffs(this.archive, shown,
         plan.tasks, handoffDecisions, action?.kind === 'solve' ? action.handoffActivations : undefined);
+      const challenges = action?.kind === 'solve' ? resolveResearchChallenges(this.archive, action.challengeIds ?? [],
+        action.challengeActivations ?? {}, plan.tasks, challengeDecisions) : [];
       this.preserveHandoffBacklog(plan, decisions);
+      preserveResearchChallengeBacklog(this.archive, plan.tasks, plan.proofRoutes, challenges);
       await this.acceptPlan(plan);
       this.recordHandoffDecisions(decisions);
+      this.recordChallengeDecisions(challenges);
       this.input.emit('help_requested', { taskIds: requests.map(task => task.id) });
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'math_help_invalid_requests';
@@ -1094,6 +1176,11 @@ export class CooperativeResearch {
     };
     // Current requests own their contracts; retained prerequisites keep their original execution controls.
     for (const task of tasks) retain(task.id);
+    for (const challenge of retainedResearchChallenges(this.archive)) {
+      retain(challenge.sourceTaskId);
+      for (const input of this.archive.deliveries?.find(item => item.id === challenge.deliveryId)?.dependencies ?? []) retain(input.taskId);
+      for (const input of challenge.decision?.waitsOn ?? []) retain(input.taskId);
+    }
     const aliases = new Map(researchHandoffs(this.archive).flatMap(item =>
       item.sources.map(source => [source.handoffId, item.id] as const)));
     const canonical = (id: string) => aliases.get(id) ?? id;
@@ -1454,7 +1541,17 @@ export class CooperativeResearch {
         record.taskId === node.task.id && record.taskDigest === digest(node.task) && record.assignmentKey === assignmentKey &&
         (record.commit === proof.commit || verdict === 'verified' && record.commit === node.integratedCheck?.commit)))
       this.record(worker, node.task, 'proof', verdict, node.feedback ?? summary,
-        { ...options, assignmentKey, commit: proof.commit, sourceDigest: proof.sourceDigest, evidence: proof, actualReferences: proof.references });
+        { ...options, assignmentKey, commit: proof.commit, sourceDigest: proof.sourceDigest, evidence: proof, actualReferences: proof.references,
+          knowledgeUses: this.knowledgeUses(worker, node.task, proof.commit, proof) });
+  }
+  private knowledgeUses(worker: ResearchWorker, task: CooperativeTask, commit: string, proof?: ProofCheck & { references?: ProofReferences }) {
+    let value: unknown;
+    try { value = parseMathResponse(committedSource(worker.worktree, commit, 'RESEARCH.md'), 'math-result', {}, 'summary').knowledgeUses; }
+    catch { return []; }
+    const { uses, rejected } = inspectKnowledgeUses(value, this.input.access.get(worker.id)?.knowledgeSnapshot, task, proof);
+    if (rejected) this.input.emit('knowledge_use_rejected', { taskId: task.id, commit, rejected });
+    for (const use of uses) this.input.emit('knowledge_use_observed', { ...use, taskId: task.id, commit });
+    return uses;
   }
   private queueIntegration<T>(operation: () => Promise<T>): Promise<T> {
     const queuedAt = Date.now();
@@ -1920,7 +2017,7 @@ export class CooperativeResearch {
     }
     // A resumed review must inspect the fixed version again.
     if (this.archive.review) { this.archive.review.status = 'pending'; this.archive.review.workerId = undefined; }
-    if (!this.primaryLed &&
+    if (!this.primaryLed && !(this.archive.initialPlanPublication && !this.archive.initialPlanPublication.finalized) &&
         !this.archive.frontierRecoveries?.some(record => record.status !== 'planned') &&
         fs.existsSync(path.join(this.lead.worktree, 'RESEARCH.md'))) {
       try {
@@ -1929,6 +2026,7 @@ export class CooperativeResearch {
             rejection.inputDigest !== this.planningInputDigest()) {
           const plan = readCooperationPlan(this.input.state.problem, this.lead.worktree);
           this.preserveHandoffBacklog(plan, []);
+          preserveResearchChallengeBacklog(this.archive, plan.tasks, plan.proofRoutes, []);
           const initial = !this.archive.tasks.length;
           await this.acceptPlan(plan);
           if (initial) this.needsLead = false;
@@ -1974,7 +2072,8 @@ export class CooperativeResearch {
     return invalidatedTaskIds(this.archive.tasks, tasks, changedGroups, dependencies, routeChanges,
       proofContracts ? taskProofContractVersion : taskVersion);
   }
-  private async acceptPlan(plan = readCooperationPlan(this.input.state.problem, this.lead.worktree), edit?: HumanEditRecord) {
+  private async acceptPlan(plan = readCooperationPlan(this.input.state.problem, this.lead.worktree), edit?: HumanEditRecord,
+    publication?: { action: CooperativeAction; receipt: Omit<InitialPlanPublication, 'planVersion'> }) {
     const { tasks, groups, proofRoutes } = plan;
     if (this.primaryLed && tasks.some(task => task.kind === 'goal' && task.status !== 'paused'))
       throw new Error('math_help_original_goals_owned_by_primary');
@@ -2049,6 +2148,11 @@ export class CooperativeResearch {
       this.archive.planEdited = true;
     }
     this.archive.planVersion = this.planVersion();
+    if (publication) {
+      // Publish the graph, receipt and dispatch continuation together before waking any peer.
+      this.archive.initialPlanPublication = { ...publication.receipt, planVersion: this.archive.planVersion };
+      this.initialPlans.set(publication.action, { plan, version: this.archive.planVersion });
+    }
     // Restored reviews include elaboration; compare them only after rebuilding that context.
     const missingStatementContext = (node: TaskRecord) => !this.statementContexts.has(statementSnapshot(
       this.input.state.problem, node.task, this.lead.worktree, this.archive.canonicalCommit!, this.input.state.environmentDigest,
@@ -2290,7 +2394,7 @@ export class CooperativeResearch {
       this.needsLead = true;
     }
     const pendingHandoffs = selectResearchHandoffBatch(this.archive);
-    if (pendingHandoffs.length) this.needsLead = true;
+    if (pendingHandoffs.length || pendingResearchChallenges(this.archive).length) this.needsLead = true;
     if (!this.needsLead && this.archive.tasks.length) {
       const support = originalGoalTaskFocus(this.archive.tasks, this.archive.groups).support;
       const supportingWork = this.archive.tasks.some(node => support.has(node.task.id) &&
@@ -2321,7 +2425,8 @@ export class CooperativeResearch {
     if (this.needsLead || (!running && (!this.livePeers.length || !this.hasAssignableTask()))) {
       this.needsLead = false;
       const inputDigest = this.planningInputDigest();
-      if (inputDigest === this.archive.lastLeadInputDigest && !this.archive.error && !pendingHandoffs.length) {
+      if (inputDigest === this.archive.lastLeadInputDigest && !this.archive.error && !pendingHandoffs.length &&
+          !pendingResearchChallenges(this.archive).length) {
         return !running && !this.hasAssignableTask() ? this.idleFrontier(this.activeGoalFrontier(), inputDigest) : RETRY_DISPATCH;
       }
       if (this.archive.frontierRecoveries?.some(record => record.status === 'requested')) {
@@ -2329,8 +2434,10 @@ export class CooperativeResearch {
         if (recovery) return recovery;
       }
       this.syncPlanNotes();
-      const action: CooperativeAction = { kind: 'lead', seedCommit: this.seed(worker, head), planVersion: this.archive.planVersion,
-        planningInputDigest: inputDigest, ...this.handoffDispatch(pendingHandoffs) };
+      const planVersion = this.archive.planVersion ??= this.planVersion();
+      const action: CooperativeAction = { kind: 'lead', seedCommit: this.seed(worker, head), planVersion,
+        planningInputDigest: inputDigest, ...this.handoffDispatch(pendingHandoffs),
+        ...(!this.archive.tasks.length && !this.archive.initialPlanPublication ? { initialPlanNonce: crypto.randomUUID() } : {}) };
       this.leadEvidence.set(action, this.planningEvidenceDigest());
       return action;
     }
@@ -2439,8 +2546,21 @@ export class CooperativeResearch {
       this.livePeers.some(worker => this.input.modules.M5.assign([node], worker, this.livePeers, this.archive.groups, this.archive.tasks) === node));
   }
   private handoffDispatch(batch = selectResearchHandoffBatch(this.archive)) {
+    const challenges = selectResearchChallengeBatch(this.archive);
     return { handoffIds: batch.map(item => item.id),
-      handoffActivations: Object.fromEntries(batch.map(item => [item.id, item.activationDigest])) };
+      handoffActivations: Object.fromEntries(batch.map(item => [item.id, item.activationDigest])),
+      challengeIds: challenges.map(item => item.id),
+      challengeActivations: Object.fromEntries(challenges.map(item => [item.id, item.activationDigest])) };
+  }
+  private recordChallengeDecisions(decisions: readonly ResearchChallengeDecision[]) {
+    if (!decisions.length) return;
+    const records = new Map(this.archive.challengeDecisions?.map(item => [item.id, item]));
+    for (const decision of decisions) {
+      records.set(decision.id, decision);
+      this.input.emit('research_challenge_decided', { ...decision });
+    }
+    this.archive.challengeDecisions = [...records.values()];
+    this.changed();
   }
   private recordHandoffDecisions(decisions: readonly ResearchHandoffDecision[]) {
     if (!decisions.length) return;
@@ -2567,6 +2687,7 @@ export class CooperativeResearch {
         versions.get(question.taskId)?.task.sharing !== 'group'),
       consumerInterfaces: task ? taskConsumerProjection(task, this.archive.tasks, this.archive.proofRoutes) : undefined,
       researchDecisions: this.archive.researchDecisions?.filter(item => deliveryIds.has(item.deliveryId)),
+      challengeDecisions: this.archive.challengeDecisions?.filter(item => deliveryIds.has(item.deliveryId)),
       frontierRecoveries: tasks === this.archive.tasks ? this.archive.frontierRecoveries : undefined,
       failedTaskInputs: this.archive.failedTaskInputs?.filter(record => tasks === this.archive.tasks || visible(record.taskId, record.taskDigest)),
       progressSnapshot: tasks === this.archive.tasks ? this.archive.progressSnapshot : undefined,
@@ -2664,11 +2785,14 @@ export class CooperativeResearch {
           resolution = { recovery, taskIds: [], reason: error instanceof Error ? error.message : 'math_frontier_recovery_invalid' };
         }
         if (!resolution.taskIds.length) {
-          if (action.handoffIds?.length) {
+          if (action.handoffIds?.length || action.challengeIds?.length) {
             try {
               const response = block(worker.worktree, 'math-plan');
-              this.recordHandoffDecisions(resolveResearchHandoffs(this.archive, action.handoffIds,
-                this.archive.tasks.map(node => node.task), response.handoffDecisions, action.handoffActivations));
+              const decisions = resolveResearchHandoffs(this.archive, action.handoffIds ?? [],
+                this.archive.tasks.map(node => node.task), response.handoffDecisions, action.handoffActivations);
+              const challenges = resolveResearchChallenges(this.archive, action.challengeIds ?? [], action.challengeActivations ?? {},
+                this.archive.tasks.map(node => node.task), response.challengeDecisions);
+              this.recordHandoffDecisions(decisions); this.recordChallengeDecisions(challenges);
             } catch (error) {
               this.rejectPlan(error); this.changed(); return { finished: true as const, checkWhole: false };
             }
@@ -2685,16 +2809,28 @@ export class CooperativeResearch {
         }
       }
       let accepted = false;
+      const publishedPlan = this.initialPlanSnapshot(action);
       const previousPlanVersion = this.planVersion();
-      const previousDecisions = canonicalMathJson(this.archive.researchDecisions ?? []);
+      const previousDecisions = canonicalMathJson([this.archive.researchDecisions ?? [], this.archive.challengeDecisions ?? []]);
       try {
-        if (action.handoffIds?.length || retainedResearchHandoffs(this.archive).length) {
+        const notesFile = path.join(worker.worktree, 'RESEARCH.md');
+        const notes = publishedPlan && fs.existsSync(notesFile) ? readMathText(notesFile, MAX_RESEARCH_NOTES_BYTES).trimStart() : '';
+        const hasFinalPlan = notes.startsWith('{') || /```(?:math|json|math-plan)\s*\n/u.test(notes);
+        if (publishedPlan && !hasFinalPlan) {
+          // A published immutable event remains useful when the continued writer only saves notes.
+          accepted = true;
+        } else if (action.handoffIds?.length || retainedResearchHandoffs(this.archive).length ||
+            action.challengeIds?.length || retainedResearchChallenges(this.archive).length) {
           const response = block(worker.worktree, 'math-plan');
           const plan = recoveryPlan ?? parseCooperationPlan(this.input.state.problem, response);
           const decisions = resolveResearchHandoffs(this.archive, action.handoffIds ?? [], plan.tasks, response.handoffDecisions, action.handoffActivations);
+          const challenges = resolveResearchChallenges(this.archive, action.challengeIds ?? [], action.challengeActivations ?? {},
+            plan.tasks, response.challengeDecisions);
           this.preserveHandoffBacklog(plan, decisions);
+          preserveResearchChallengeBacklog(this.archive, plan.tasks, plan.proofRoutes, challenges);
           await this.acceptPlan(plan);
           this.recordHandoffDecisions(decisions);
+          this.recordChallengeDecisions(challenges);
         } else await this.acceptPlan(recoveryPlan);
         accepted = true;
       } catch (error) {
@@ -2705,8 +2841,11 @@ export class CooperativeResearch {
             reason: fallbackError instanceof Error ? fallbackError.message : 'math_initial_plan_failed' }); }
         }
       }
-      const savedPlan = recovering && recoveryKind === 'request-failure' && accepted && (previousPlanVersion !== this.planVersion() ||
-        previousDecisions !== canonicalMathJson(this.archive.researchDecisions ?? []));
+      const savedPlan = recovering && recoveryKind === 'request-failure' && (Boolean(publishedPlan) || accepted &&
+        (previousPlanVersion !== this.planVersion() ||
+          previousDecisions !== canonicalMathJson([this.archive.researchDecisions ?? [], this.archive.challengeDecisions ?? []])));
+      if (accepted && !recovering && action.kind === 'lead' && this.archive.initialPlanPublication)
+        this.archive.initialPlanPublication.finalized = true;
       if (accepted && resolution) {
         resolution.recovery.status = 'planned'; resolution.recovery.readyTaskIds = resolution.taskIds;
         this.input.emit('frontier_recovery_planned', { recoveryId: resolution.recovery.id,
@@ -2778,18 +2917,22 @@ export class CooperativeResearch {
       }
       const shownHandoffs = new Set(action.handoffIds ?? []);
       const hasPendingShownHandoff = () => pendingResearchHandoffs(this.archive).some(item =>
-        item.sources.some(source => shownHandoffs.has(source.handoffId)));
+        item.sources.some(source => shownHandoffs.has(source.handoffId))) || pendingResearchChallenges(this.archive).some(item =>
+          action.challengeIds?.includes(item.id));
       if (!recovering && hasPendingShownHandoff()) {
         await this.readHelpRequest(action);
         if (hasPendingShownHandoff()) {
           try {
             const response = block(worker.worktree, 'math-help');
-            this.recordHandoffDecisions(resolveResearchHandoffs(this.archive, action.handoffIds ?? [],
-              this.archive.tasks.map(node => node.task), response.handoffDecisions, action.handoffActivations));
+            const decisions = resolveResearchHandoffs(this.archive, action.handoffIds ?? [],
+              this.archive.tasks.map(node => node.task), response.handoffDecisions, action.handoffActivations);
+            const challenges = resolveResearchChallenges(this.archive, action.challengeIds ?? [], action.challengeActivations ?? {},
+              this.archive.tasks.map(node => node.task), response.challengeDecisions);
+            this.recordHandoffDecisions(decisions); this.recordChallengeDecisions(challenges);
             this.archive.error = undefined; this.changed();
           } catch (error) {
             const reason = error instanceof Error ? error.message : 'invalid response';
-            this.archive.error = reason.startsWith('math_handoff_') ? reason : 'math_handoff_decision_invalid: ' + reason;
+            this.archive.error = /^(math_handoff_|math_challenge_)/u.test(reason) ? reason : 'math_handoff_decision_invalid: ' + reason;
             this.input.emit('research_handoff_rejected', { reason: this.archive.error }); this.changed();
             return { checkWhole: false };
           }
@@ -2877,6 +3020,7 @@ export class CooperativeResearch {
           ...this.dependencies(node.task).filter(dependency => !['integrated', 'completed'].includes(dependency.status)).map(dependency => dependency.task.id)])];
         this.record(worker, node.task, 'research', !remaining.length && node.task.kind !== 'sketch' ? 'advisory' : 'conditional', details.summary,
           { ...details, remainingObligations: remaining, commit, artifacts, lemmaRequests, findingDigest: mathDigest(node.finding),
+            knowledgeUses: this.knowledgeUses(worker, node.task, commit),
             ...(artifactWarning ? { artifactWarning } : {}) });
         this.input.emit('research_delivered', { taskId: node.task.id, conclusion: finding.conclusion });
       } else {

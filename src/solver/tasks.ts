@@ -22,8 +22,11 @@ export type TaskRecord = { task: CooperativeTask; status: 'pending' | 'running' 
   pendingValidation?: { id: string; taskDigest: string; canonicalCommit: string; environmentDigest: string; problemReceiptDigest: string; proof?: boolean };
   routeParking?: string[]; parkedRoutes?: Record<string, string[]>; alternativeRoutes?: readonly ProofRoute[] };
 export type CooperativeAction = { kind: 'lead' | 'assemble' | 'solve'; seedCommit: string; planVersion?: string; planningInputDigest?: string;
+  initialPlanNonce?: string;
   handoffIds?: readonly string[];
   handoffActivations?: Readonly<Record<string, string>>;
+  challengeIds?: readonly string[];
+  challengeActivations?: Readonly<Record<string, string>>;
   recovery?: { id: string; taskIds: string[]; goalIds: string[] } } |
   { kind: 'review'; seedCommit: string; sourceDigest: string; assignmentId?: string } | { kind: 'task'; assignment: TaskAssignment; task: CooperativeTask } | StatementAction;
 
@@ -79,6 +82,12 @@ export function invalidatedTaskIds(previous: readonly TaskRecord[], tasks: reado
 export const assignmentDeliveryFile = (assignment: TaskAssignment) => `DELIVERIES-${mathDigest(canonicalMathJson({
   taskId: assignment.taskId, taskDigest: assignment.taskDigest, seedCommit: assignment.seedCommit,
   ...(assignment.assignmentId === undefined ? {} : { assignmentId: assignment.assignmentId }) }))}.jsonl`;
+
+/** An explicit initial-plan event is scoped to one host-created Lead dispatch. */
+export const initialPlanDeliveryFile = (action: CooperativeAction) => action.kind === 'lead' && action.initialPlanNonce
+  ? `DELIVERIES-${mathDigest(canonicalMathJson({ kind: 'initial-plan', nonce: action.initialPlanNonce,
+    seedCommit: action.seedCommit, planVersion: action.planVersion, planningInputDigest: action.planningInputDigest }))}.jsonl`
+  : undefined;
 
 export const isAdvisoryTask = (task: CooperativeTask) => task.kind === 'research' || task.kind === 'sketch';
 export const isFinalCandidateReview = (task: CooperativeTask) => isAdvisoryTask(task) &&

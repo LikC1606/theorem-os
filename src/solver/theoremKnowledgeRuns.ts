@@ -4,8 +4,10 @@ import { canonicalMathJson, mathDigest, readMathText } from '../math/mathRuntime
 import { assertMathCanonicalPath } from '../math/paths';
 import { readSolverRunState, type SolverRunState } from './archive';
 import { recordedTaskProofStatus } from './progress';
-import { taskVersion, type TaskRecord } from './tasks';
+import { isAdvisoryTask, taskGroup, taskVersion, type CooperativeTask, type TaskRecord } from './tasks';
 import { allowedKnowledgeFile, locateKnowledgeDeclaration, type KnowledgeCandidate, type KnowledgeImportResult } from './theoremKnowledge';
+import { parseMathResponse, type DeliveryRecord } from './deliveries';
+import { buildKnowledgeRouteFindings, type KnowledgeRouteContract, type KnowledgeRouteFindingCandidate } from './theoremKnowledgeFindings';
 
 const oid = /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/u;
 const digest = /^[a-f0-9]{64}$/u;
@@ -15,7 +17,7 @@ const relativeDirectory = (value: string) => typeof value === 'string' && value 
 type Snapshot = { files: Record<string, string>; ownedDigest: string };
 
 function committedFiles(roots: readonly string[], commit: string, project: string, names: readonly string[]): Record<string, string> {
-  const paths = names.map(file => `${project}/${file}`);
+  const paths = names.map(file => project ? `${project}/${file}` : file);
   for (const root of roots) {
     try {
       assertMathCanonicalPath(root);
@@ -98,9 +100,80 @@ function runCandidate(state: SolverRunState, node: TaskRecord, stateFile: string
   };
 }
 
+function publicResearchTask(task: CooperativeTask, state: SolverRunState): boolean {
+  return task.sharing === 'problem' || task.sharing === undefined && (state.cooperation?.groups?.length ?? 1) <= 1;
+}
+
+function routeContract(task: CooperativeTask, state: SolverRunState): KnowledgeRouteContract {
+  if (isAdvisoryTask(task)) return { kind: task.kind, statementKind: 'research-objective',
+    statement: task.objective, premises: [...(task.premises ?? [])] };
+  if (task.kind === 'lemma' && task.type?.trim()) return { kind: task.kind, statementKind: 'closed-task-type',
+    statement: task.type, premises: [...(task.premises ?? [])] };
+  if (task.kind === 'goal') {
+    const headers = state.problem.declarations[task.proofPath!] ?? [];
+    const exact = headers.filter(item => item.name === task.theoremName);
+    const found = exact.length ? exact : headers.filter(item => item.name.split('.').at(-1) === task.theoremName?.split('.').at(-1));
+    if (found.length === 1) return { kind: task.kind, statementKind: 'source-header',
+      statement: found[0]!.header, premises: [...(task.premises ?? [])] };
+  }
+  return error('finding_contract_missing');
+}
+
+function runFinding(state: SolverRunState, node: TaskRecord, delivery: DeliveryRecord,
+  stateFile: string, stateDigest: string): KnowledgeRouteFindingCandidate {
+  const task = node.task;
+  if (!publicResearchTask(task, state)) return error('finding_private');
+  if (!isAdvisoryTask(task) || typeof node.finding !== 'string' || node.status !== 'completed' ||
+      delivery.kind !== 'research' || !['advisory', 'conditional'].includes(delivery.status) ||
+      delivery.taskId !== task.id || delivery.taskDigest !== taskVersion(task) || !delivery.commit || !oid.test(delivery.commit) ||
+      delivery.findingDigest !== mathDigest(node.finding)) return error('finding_delivery_mismatch');
+  const finding = JSON.parse(node.finding);
+  if (!finding || finding.taskId !== task.id || !['supporting', 'refuted', 'inconclusive'].includes(finding.conclusion) ||
+      typeof finding.summary !== 'string' || !finding.summary.trim()) return error('finding_invalid');
+  const records = [...(state.cooperation?.tasks ?? []), ...(state.cooperation?.history ?? [])];
+  const dependencies = (delivery.dependencies ?? []).map(input => {
+    const found = records.find(record => record.task.id === input.taskId && taskVersion(record.task) === input.taskDigest);
+    if (!found) return error('finding_dependency_missing');
+    if (!publicResearchTask(found.task, state)) return error('finding_private');
+    return found.task;
+  });
+  // Do not use the live journal or trust an independently edited checkpoint finding.
+  const roots = [...new Set([state.problem.workspace, state.worktree, ...(state.workers ?? []).map(worker => worker.worktree)]
+    .filter((root): root is string => typeof root === 'string' && path.isAbsolute(root)))];
+  const notes = committedFiles(roots, delivery.commit, '', ['RESEARCH.md'])['RESEARCH.md']!;
+  const recorded = JSON.stringify(parseMathResponse(notes, 'math-result', { taskId: task.id, conclusion: 'inconclusive' }, 'summary'));
+  if (recorded !== node.finding) return error('finding_source_mismatch');
+  const blockers = (state.cooperation?.blockers ?? []).filter(blocker => blocker.taskId === task.id &&
+    blocker.taskDigest === delivery.taskDigest);
+  const reconsiderWhen = [...new Set(blockers.flatMap(blocker => blocker.reopenOn.map(condition => {
+    if (condition.kind === 'contract-changed') return 'The challenged mathematical contract changes.';
+    if (condition.kind === 'environment-changed') return 'The pinned Lean environment changes.';
+    const dependency = dependencies.find(task => task.id === condition.taskId);
+    return dependency ? `Fresh evidence for the dependency: ${routeContract(dependency, state).statement}` :
+      'New checked evidence for a recorded dependency is available.';
+  })))];
+  const candidate: KnowledgeRouteFindingCandidate = {
+    evidence: 'recorded-advisory-not-replayed', acceptance: 'not-assessed',
+    conclusion: finding.conclusion, summary: finding.summary, finding: node.finding, notes,
+    scope: { problemId: state.problem.contract.problemId, problemReceiptDigest: state.problem.receiptDigest,
+      environmentDigest: state.environmentDigest, source: routeContract(task, state),
+      dependencies: dependencies.map(task => routeContract(task, state)).sort((a, b) => canonicalMathJson(a).localeCompare(canonicalMathJson(b))) },
+    evidenceRefs: [...delivery.evidenceRefs],
+    obstructions: blockers.map(blocker => ({ mechanism: blocker.mechanism, scope: blocker.scope, evidenceRefs: [...blocker.evidenceRefs] })),
+    remainingObligations: [...delivery.remainingObligations], reconsiderWhen,
+    provenance: { source: stateFile, sourceDigest: stateDigest, runId: state.runId, taskId: task.id,
+      taskDigest: taskVersion(task), groupId: taskGroup(task), deliveryId: delivery.id,
+      sourceCommit: delivery.commit, findingDigest: delivery.findingDigest, notesDigest: mathDigest(notes) },
+  };
+  // Apply the same bounds and identities used by persisted catalogs before reporting a successful import.
+  buildKnowledgeRouteFindings([candidate]);
+  return candidate;
+}
+
 /** Explicit checkpoints only. Historical receipts retain provenance but never grant fresh acceptance. */
-export function importKnowledgeRuns(stateFiles: readonly string[]): KnowledgeImportResult {
-  const result: KnowledgeImportResult = { candidates: [], skipped: [] }, cache = new Map<string, Snapshot>();
+export function importKnowledgeRuns(stateFiles: readonly string[], options: { includeFindings?: boolean } = {}): KnowledgeImportResult {
+  const result: KnowledgeImportResult = { candidates: [], skipped: [], ...(options.includeFindings ? { findings: [] } : {}) },
+    cache = new Map<string, Snapshot>();
   for (const supplied of [...new Set(stateFiles)]) {
     const source = path.resolve(supplied);
     let state: SolverRunState, stateDigest: string;
@@ -122,6 +195,19 @@ export function importKnowledgeRuns(stateFiles: readonly string[]): KnowledgeImp
       } catch (failure) {
         result.skipped.push({ source, name: record.task.theoremName,
           reason: failure instanceof Error && /^math_knowledge_/u.test(failure.message) ? failure.message : 'math_knowledge_run_record_invalid' });
+      }
+    }
+    if (options.includeFindings) for (const record of [...(state.cooperation?.tasks ?? []), ...(state.cooperation?.history ?? [])]) {
+      if (!isAdvisoryTask(record.task) || !record.finding) continue;
+      const node = { status: 'completed', attempts: 0, ...record } as TaskRecord;
+      const delivery = [...(state.cooperation?.deliveries ?? [])].reverse().find(item => item.kind === 'research' &&
+        item.taskId === record.task.id && item.taskDigest === taskVersion(record.task) && item.findingDigest === mathDigest(record.finding!));
+      try {
+        if (!delivery) error('finding_delivery_missing');
+        result.findings!.push(runFinding(state, node, delivery, source, stateDigest));
+      } catch (failure) {
+        result.skipped.push({ source, name: record.task.id,
+          reason: failure instanceof Error && /^math_knowledge_/u.test(failure.message) ? failure.message : 'math_knowledge_run_finding_invalid' });
       }
     }
   }

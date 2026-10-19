@@ -454,11 +454,12 @@ export const recoverableResearchFailure = (error?: string): boolean =>
     'math_model_tool_failed', 'math_codex_transport_closed', 'math_model_context_window_exceeded'].includes(researchFailureReason(error));
 
 /** Advisory reporting only; categories never change Lean acceptance. */
-export function researchFailureCategory(error?: string): 'network' | 'environment' | 'source' | 'proof' | 'authentication' | 'rate_limit' | 'budget' | 'unknown' | undefined {
+export function researchFailureCategory(error?: string): 'network' | 'environment' | 'source' | 'proof' | 'protocol' | 'authentication' | 'rate_limit' | 'budget' | 'unknown' | undefined {
   if (!error) return undefined;
   if (/math_(?:lean_toolchain|lake_packages|verifier_unavailable|runtime_|path_|trusted_source)|proof environment|dependency cache|sandbox|FUSE|mksquashfs|squashfuse/iu.test(error)) return 'environment';
   if (error === 'math_codex_provider_unreachable') return 'network';
   if (/math_(?:original_|task_source|construction_|local_module_)/u.test(error)) return 'source';
+  if (/^math_codex_rpc_failed(?::|$)|^math_(?:(?:research_|review_)?delivery_invalid(?:_json)?|response_invalid|math-result_missing_or_too_large|math-result_requires_one_block)$/u.test(error)) return 'protocol';
   const reason = researchFailureReason(error);
   if (['math_total_token_limit', 'math_model_usage_unavailable', 'math_initial_planning_limit'].includes(reason)) return 'budget';
   if (reason === 'math_model_authentication_failed') return 'authentication';

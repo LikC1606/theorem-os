@@ -12,6 +12,7 @@ import type { DeliveryRecord } from '../src/solver/deliveries';
 import { canonicalMathJson, mathDigest } from '../src/math/mathRuntimeIo';
 import { buildProofContinuation } from '../src/solver/progress';
 import { pendingResearchHandoffs } from '../src/solver/researchHandoffs';
+import { pendingResearchChallenges } from '../src/solver/researchChallenges';
 
 const baseCommit = 'a'.repeat(40), proofCommit = 'b'.repeat(40);
 const formal = 'namespace Original\nvariable (n : Nat)\ntheorem target (h : n > 0) : n > 0 := by sorry\nend Original';
@@ -40,6 +41,47 @@ const checked = (task: CooperativeTask, conditions: TaskProof['conditions'] = []
 const delivery = (task: CooperativeTask, id: string, summary = id): DeliveryRecord => ({
   id, taskId: task.id, taskDigest: taskVersion(task), kind: 'failure', status: 'failed', groupId: task.groupId,
   producer: 'peer', statement: '', premises: [], dependencies: [], remainingObligations: [], summary, evidenceRefs: [], createdAt: 1 });
+
+it.each(['lead', 'solve'] as const)('keeps reverse feasibility refutations mandatory for %s with no optional context', kind => {
+  const core = lemma('core'), goal: CooperativeTask = { id: 'goal', kind: 'goal', objective: 'Original target', revision: 0,
+    dependsOn: ['core'], proofPath: 'Submission.lean', theoremName: 'Original.target' };
+  const review: CooperativeTask = { id: 'feasibility', kind: 'research', objective: 'Challenge the core', revision: 0,
+    dependsOn: ['goal', 'core'], reviewScope: 'feasibility' };
+  const finding = JSON.stringify({ taskId: review.id, conclusion: 'refuted', needsDecision: true,
+    summary: 'COUNTEREXAMPLE_SENTINEL', evidenceRefs: ['FIXED_COUNTEREXAMPLE_REF'] });
+  const tasks = [node(core), node(goal), { ...node(review), status: 'completed' as const, finding }];
+  const cooperation = { tasks, deliveries: [{ ...delivery(review, 'refutation', 'COUNTEREXAMPLE_SENTINEL'),
+    kind: 'research' as const, status: 'advisory' as const, findingDigest: mathDigest(finding), commit: proofCommit,
+    evidenceRefs: ['FIXED_COUNTEREXAMPLE_REF'], dependencies: [goal, core].map(task => ({ taskId: task.id, taskDigest: taskVersion(task) })) }] };
+  const challenge = pendingResearchChallenges(cooperation)[0];
+  const context = compileTaskContext({ ...input(tasks, { kind, seedCommit: baseCommit, challengeIds: [challenge.id],
+    challengeActivations: { [challenge.id]: challenge.activationDigest } }), cooperation, maxOptionalContextBytes: 0 });
+  expect(context.manifest.included).toContainEqual(expect.objectContaining({ id: 'research-challenges', required: true }));
+  expect(context.message).toContain('COUNTEREXAMPLE_SENTINEL');
+  expect(context.message).toContain('FIXED_COUNTEREXAMPLE_REF');
+  const late = compileTaskContext({ ...input(tasks, { kind, seedCommit: baseCommit, challengeIds: [] }),
+    cooperation, maxOptionalContextBytes: 0 });
+  expect(late.manifest.included.some(item => item.id === 'research-challenges')).toBe(false);
+});
+
+it('bounds challenge dispatches without expanding repeated-source backlog into the mandatory prompt', () => {
+  const review: CooperativeTask = { id: 'feasibility', kind: 'research', objective: 'Challenge the core', revision: 0, dependsOn: [] };
+  const finding = JSON.stringify({ conclusion: 'refuted', summary: 'A boundary witness.' });
+  const tasks = [{ ...node(review), status: 'completed' as const, finding }];
+  const cooperation = { tasks, deliveries: Array.from({ length: 1000 }, (_, index) => ({
+    ...delivery(review, `challenge_${index}`), kind: 'research' as const, status: 'advisory' as const,
+    findingDigest: mathDigest(finding), commit: proofCommit,
+  })) };
+  const before = structuredClone(cooperation);
+  const context = compileTaskContext({ ...input(tasks, { kind: 'lead', seedCommit: baseCommit }), cooperation,
+    maxOptionalContextBytes: 0, maxContextBytes: 32 * 1024 });
+  const shown = JSON.parse(context.message.match(/Research challenges requiring a route decision[^\n]*\n([^\n]+)/u)![1]);
+  expect(shown).toHaveLength(8);
+  expect(context.message).toContain('"pending":1000,"shown":8,"remaining":992');
+  expect(context.message).toContain('"remaining":992}');
+  expect(context.manifest.mandatoryBytes).toBeLessThan(32 * 1024);
+  expect(cooperation).toEqual(before);
+});
 
 it('dispatches the full frozen problem and exact dependency interfaces even when resuming from feedback', () => {
   const exactType = '∀ (n : Nat), ' + 'n = n ∧ '.repeat(3000) + 'True';

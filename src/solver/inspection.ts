@@ -1,13 +1,20 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { readSolverRunState, type SolverRunState } from './archive';
-import { readMathJson } from '../math/mathRuntimeIo';
+import { canonicalMathJson, mathDigest, readMathJson } from '../math/mathRuntimeIo';
 import { taskGroup, taskVersion, type TaskRecord } from './tasks';
 import { researchFailureCategory } from './modules/search';
 import { buildProofContinuation, recordedTaskProofStatus } from './progress';
 import { researchHandoffs } from './researchHandoffs';
 import { buildTokenBudget } from './usageBudget';
 import { captureObligationSnapshot } from './obligationProgress';
+
+/** Binds a report to the stored observation; this does not replay or accept its proof evidence. */
+export function runInspectionSnapshot(state: SolverRunState, result?: Record<string, unknown>) {
+  return { schema: 'theoremos.run-observation.v1' as const, runId: state.runId,
+    stateDigest: mathDigest(canonicalMathJson(state)),
+    resultDigest: result ? mathDigest(canonicalMathJson(result)) : null };
+}
 
 /** Reading a checkpoint does not revalidate its stored Lean evidence. */
 export function readRunInspection(run: string) {
@@ -18,7 +25,19 @@ export function readRunInspection(run: string) {
   const result = resultFile && fs.existsSync(resultFile) ? readMathJson(resultFile) as Record<string, unknown> : undefined;
   if (result && (result.schema !== 'deepscientist.math.run.v2' || result.runId !== state.runId ||
       path.resolve(String(result.stateFile)) !== stateFile)) throw new Error('math_inspect_result_identity_mismatch');
-  return { stateFile, state, result };
+  return { stateFile, state, result, snapshot: runInspectionSnapshot(state, result) };
+}
+
+function turnObservations(state: SolverRunState) {
+  const ledger = state.turnLedger;
+  return { available: Boolean(ledger), retained: ledger?.turns.length ?? 0, dropped: ledger?.dropped ?? 0,
+    unscopedReports: ledger?.unscopedReports ?? 0, retainedLimit: ledger?.retainedLimit ?? null,
+    evidence: 'recorded-not-replayed' as const, attribution: 'observed-not-causal' as const,
+    turns: (ledger?.turns ?? []).map(receipt => ({ id: receipt.id, workerId: receipt.workerId,
+      runTurn: receipt.runTurn, scope: receipt.scope, execution: receipt.execution,
+      usage: receipt.usage, outcomeStatus: receipt.outcomeStatus,
+      observedProgress: receipt.outcome?.observedProgress,
+      retainedWork: receipt.outcome?.retainedWork })) };
 }
 
 function proofRecord(node: TaskRecord, state: SolverRunState) {
@@ -45,6 +64,7 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
   const checked = tasks.filter(node => proofRecord(node, state).status === 'checked');
   return {
     schema: 'deepscientist.math.inspection.v1', runId: state.runId,
+    snapshot: runInspectionSnapshot(state, result),
     evidence: 'recorded-not-replayed', phase: state.phase,
     recordedOutcome: resultMatches ? result?.status : undefined,
     evaluator: evaluator ? { status: evaluator.status, method: evaluator.method, official: evaluator.official } : undefined,
@@ -56,6 +76,15 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
       buildDigest: state.buildDigest, environmentDigest: state.environmentDigest, methodDigest: state.methodDigest,
       knowledgeDigest: state.knowledgeDigest },
     turns: state.turns, usage: state.usage, planVersion: cooperative?.planVersion,
+    modelTurns: turnObservations(state),
+    knowledge: { status: state.knowledgeDigest ? 'enabled' : 'disabled', catalogDigest: state.knowledgeDigest,
+      evidence: 'recorded-not-replayed', attribution: 'model-reported-origin',
+      retrievalCoverage: state.knowledgeRetrievals ? 'recorded' : 'unknown',
+      droppedRetrievals: state.knowledgeRetrievals?.dropped ?? 0, retrievals: state.knowledgeRetrievals?.observations ?? [],
+      originalUses: state.knowledgeUses ?? [],
+      uses: (cooperative?.deliveries ?? []).filter(delivery => delivery.status !== 'superseded').flatMap(delivery =>
+        (delivery.knowledgeUses ?? []).map(use => ({ ...use, deliveryId: delivery.id, commit: delivery.commit,
+          currentTaskVersion: tasks.some(node => node.task.id === use.consumer.taskId && taskVersion(node.task) === use.consumer.taskDigest) }))) },
     tokenBudget: buildTokenBudget(state.tokenBudget?.maxTotalTokens ?? 0, state.workers ?? [state], state.tokenBudget?.enforcement),
     continuation: buildProofContinuation(tasks, { groups: cooperative?.groups, environmentDigest: state.environmentDigest,
       proofRoutes: cooperative?.proofRoutes, researchHandoffs: cooperative ? researchHandoffs(cooperative) : [] }),
@@ -74,7 +103,7 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
       version: taskVersion(node.task), theorem: node.task.theoremName, type: node.task.type,
       informalStatement: node.task.informalStatement, premises: node.task.premises ?? [],
       plannedDependencies: node.task.dependsOn, attempts: node.attempts,
-      proof: proofRecord(node, state), feedback: node.feedback, finding: node.finding,
+      proof: proofRecord(node, state), feedback: node.feedback, feedbackCategory: researchFailureCategory(node.feedback), finding: node.finding,
       parkedBy: node.routeParking ?? [],
       parkedRoutes: node.parkedRoutes ?? {},
     })),
@@ -116,11 +145,31 @@ export function renderRunInspection(report: Inspection): string {
   let text = '# Mathematics research run\n\nStored evidence only; this report does not rerun Lean or grant proof acceptance.\n';
   text += section('Run', table(['Problem', 'Phase', 'Recorded outcome', 'Model', 'Agents', 'Turns'], [[
     report.problem.id, report.phase, report.recordedOutcome, report.configuration.model, report.configuration.workers, report.turns]]));
+  text += `\nObservation: ${report.snapshot.stateDigest}; result: ${report.snapshot.resultDigest ?? 'absent'}.\n`;
   text += `\n${report.problem.statement}\n\nRun: ${report.runId}\n\nPlan version: ${report.planVersion ?? 'not yet planned'}\n`;
   text += section('Model usage', table(['Shared token allowance', 'Reported tokens', 'Complete usage', 'Observed overrun', 'Dispatch status'], [[
     report.tokenBudget.maxTotalTokens || 'unlimited', report.tokenBudget.reportedTotalTokens,
     report.tokenBudget.usageComplete, report.tokenBudget.overrunTokens, report.tokenBudget.status]]));
   text += '\nThe allowance stops new model turns using provider reports. In-flight turns may exceed it; missing reports leave consumption incomplete. No monetary cost is inferred.\n';
+  const knowledgeUses = [...report.knowledge.originalUses, ...report.knowledge.uses];
+  text += section('Knowledge observations', table(['Catalog', 'Retrieval coverage', 'Included sections', 'Omitted sections', 'Reported attempts', 'Checked references'], [[
+    report.knowledge.status, report.knowledge.retrievalCoverage,
+    report.knowledge.retrievals.filter(item => item.included).length,
+    report.knowledge.retrievals.filter(item => !item.included).length,
+    knowledgeUses.filter(item => item.status === 'reported-attempt').length,
+    knowledgeUses.filter(item => item.status === 'checked-reference').length]]));
+  if (report.knowledge.catalogDigest) text += `\nPinned catalog: ${report.knowledge.catalogDigest}. ` +
+    `Dropped retrieval observations: ${report.knowledge.droppedRetrievals}. ` +
+    'Usage origins are model-reported; checked references confirm a declaration in a recorded proof, not historical authorship or current acceptance.\n';
+  if (report.modelTurns.available) {
+    text += section('Retained model turns', table(['Turn', 'Worker', 'Responsibility', 'Task', 'Execution', 'Usage coverage', 'Closed obligations', 'Changed original frontiers'],
+      report.modelTurns.turns.slice(-12).map(receipt => [receipt.runTurn, receipt.workerId, receipt.scope.actionKind,
+        receipt.scope.taskId, receipt.execution, receipt.usage.coverage,
+        receipt.observedProgress?.obligations.closed.join(', ') || 'none recorded',
+        receipt.observedProgress?.frontierChangedGoalIds.join(', ') || 'none recorded'])));
+    text += `\nRetained ${report.modelTurns.retained} turns; dropped ${report.modelTurns.dropped}; unscoped usage reports ${report.modelTurns.unscopedReports}. ` +
+      'Usage windows have unverified turn attribution. Missing changes do not establish wasted work or mathematical failure.\n';
+  }
   text += section('Original targets', table(['Declaration', 'File'], report.problem.targets.map(target => [target.theoremName, target.proofPath])));
   text += section('Recorded progress', `${report.progress.checkedProofTasks} checked proof tasks; ${report.progress.conditionalProofTasks} conditional; ${report.progress.completedResearchTasks} completed research tasks.\n\nOpen proof tasks: ${report.progress.openProofTasks.join(', ') || 'none'}. Dispatch counts include retries and do not measure mathematical progress.`);
   text += section('Proof continuation', table(['Original goal', 'Recorded proof', 'Open dependency frontier', 'Missing tasks'],
@@ -192,7 +241,7 @@ export function renderRunInspection(report: Inspection): string {
     if (task.type) text += `\nLean type: ${task.type}\n`;
     if (task.informalStatement) text += `\nMathematical intent: ${task.informalStatement}\n`;
     if (task.premises.length) text += `\nPremises: ${task.premises.join('; ')}\n`;
-    if (task.feedback) text += `\nCurrent feedback: ${task.feedback}\n`;
+    if (task.feedback) text += `\nCurrent feedback (${task.feedbackCategory}): ${task.feedback}\n`;
     if (task.parkedBy.length) text += `\nParked by local blockers: ${task.parkedBy.join(', ')}\n`;
     for (const [routeId, blockers] of Object.entries(task.parkedRoutes)) if (blockers.length)
       text += `\nAlternative branch ${cell(routeId)} parked by local blockers: ${blockers.map(cell).join(', ')}\n`;

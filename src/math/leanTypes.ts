@@ -6,6 +6,17 @@
 export const MATHEMATICS_VERIFICATION_EVENT_SCHEMA = 'deepscientist.mathematics.verification_event.v1' as const;
 export type MathematicsVerificationStatus = 'pending' | 'kernel_verified' | 'failed' | 'blocked' | 'unavailable';
 
+/** Messages observed from Lean; goals are text in a message, never inferred execution traces. */
+export type LeanDiagnosticMessage = {
+  format: 'lean-json' | 'raw'; severity: 'error' | 'warning' | 'info'; message: string;
+  file?: string; line?: number; column?: number; endLine?: number; endColumn?: number; code?: string;
+  goalText?: string;
+};
+export type LeanDiagnosticArtifactReference = {
+  path: string; digest: string; sourceDigest: string; environmentDigest: string;
+  captureComplete: boolean | null;
+};
+
 export type MathematicsGoalState = {
   stateId: string;
   target: string;

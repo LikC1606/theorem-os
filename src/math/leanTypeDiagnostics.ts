@@ -1,0 +1,90 @@
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { assertMathConstructionSources, mathLocalModuleBuildOrder } from './mathConstructionSources';
+import { inspectLeanDeclarationRegions, leanDeclarationContextCommands } from './leanSource';
+import { bindLeanPackages, runLeanDiagnostics } from './leanDiagnostics';
+import { canonicalMathJson, mathDigest, readMathFile, readMathJson, writeMathJsonDurable } from './mathRuntimeIo';
+import { assertMathCanonicalPath } from './paths';
+
+/** Parse and elaborate a closed type as data; never splice a requested type into executable Lean commands. */
+export function leanTypeDiagnosticCommands(type: string, output: string) {
+  return ['set_option autoImplicit false', 'set_option pp.fullNames true',
+    'run_cmd Lean.Elab.Command.liftTermElabM do',
+    `  let parsed <- match Lean.Parser.runParserCategory (<- Lean.getEnv) (Lean.Name.mkSimple "term") ${JSON.stringify(type)} with`,
+    '    | .ok stx => pure stx', '    | .error message => throwError "{message}"',
+    '  let expression <- Lean.Elab.Term.elabType parsed',
+    '  Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing',
+    '  let expression <- Lean.instantiateMVars expression',
+    '  if expression.hasMVar || expression.hasFVar || expression.hasLooseBVars then',
+    '    throwError "Requested type must be closed without free variables or metavariables"',
+    '  let rendered := (<- Lean.Meta.ppExpr expression).pretty',
+    '  if rendered.utf8ByteSize > 24000 then throwError "Elaborated type exceeds its export bound"',
+    '  let report := Lean.Json.mkObj [("type", Lean.toJson rendered)]',
+    `  Lean.Core.liftIOCore <| IO.FS.writeFile ${JSON.stringify(output)} report.compress`].join('\n');
+}
+
+/** Explicit advisory preflight in a fixed, proof-erased local snapshot. It cannot grant proof acceptance. */
+export async function checkLeanType(input: { projectRoot: string; file: string; context: string; type: string;
+  env?: NodeJS.ProcessEnv; signal?: AbortSignal; timeoutMs: number; onProgress?: (file: string) => void }) {
+  if (!input.type.trim() || Buffer.byteLength(input.type) > 12000 || !input.context.trim() || input.context.length > 1000)
+    throw new Error('math_type_diagnostics_input_invalid');
+  const project = fs.realpathSync(input.projectRoot);
+  assertMathConstructionSources(project, [input.file]);
+  const modules = mathLocalModuleBuildOrder(project, input.file);
+  const configs = ['lean-toolchain', 'lakefile.toml', 'lakefile.lean', 'lake-manifest.json', '.lake/package-overrides.json'];
+  const files = [...modules.map(module => module.file), ...configs.filter(file => fs.existsSync(path.join(project, file)))];
+  const snapshot = files.map(file => {
+    const source = path.join(project, file); assertMathCanonicalPath(source);
+    const read = readMathFile(source, 4_000_000);
+    return { file, source: read.bytes.toString('utf8'), digest: mathDigest(read.bytes), identity: read.identity };
+  });
+  const sourceDigest = mathDigest(canonicalMathJson(snapshot.map(({ file, digest }) => ({ file, digest }))));
+  const context = leanDeclarationContextCommands(snapshot.find(file => file.file === input.file)!.source, input.context);
+  const module = modules.find(module => module.file === input.file)!.module;
+  if (!/^[A-Za-z_][A-Za-z0-9_']*(?:\.[A-Za-z_][A-Za-z0-9_']*)*$/u.test(module))
+    throw new Error('math_type_diagnostics_module_invalid');
+  const directory = path.join(project, '.lake', 'type-diagnostics', crypto.randomUUID()), clone = path.join(directory, 'project');
+  assertMathCanonicalPath(clone); fs.mkdirSync(clone, { recursive: true, mode: 0o700 });
+  for (const file of snapshot) {
+    let source = file.source;
+    if (file.file.endsWith('.lean') && file.file !== 'lakefile.lean') {
+      for (const region of inspectLeanDeclarationRegions(source).reverse())
+        if (/^(?:theorem|lemma)\s/u.test(source.slice(region.startOffset, region.bodyOffset)))
+          source = source.slice(0, region.bodyOffset) + ' by sorry\n' + source.slice(region.endOffset);
+    }
+    const target = path.join(clone, file.file); assertMathCanonicalPath(target);
+    fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 }); fs.writeFileSync(target, source, { mode: 0o600 });
+  }
+  // Recheck the entire original input window after copying; the clone remains fixed during Lean execution.
+  for (const file of snapshot) {
+    const current = readMathFile(path.join(project, file.file), 4_000_000);
+    if (current.identity !== file.identity || mathDigest(current.bytes) !== file.digest) throw new Error('math_type_diagnostics_source_changed');
+  }
+  const packages = path.join(project, '.lake', 'packages');
+  if (fs.existsSync(packages)) bindLeanPackages(clone, packages);
+  const query = 'TypeDiagnostic.lean', output = '.lake/type-diagnostic.json';
+  const commands = ['import Lean', `import ${module}`, ...context.before,
+    leanTypeDiagnosticCommands(input.type, output), ...context.after].join('\n') + '\n';
+  fs.writeFileSync(path.join(clone, query), commands, { mode: 0o600 });
+  const diagnostics = await runLeanDiagnostics({ projectRoot: clone, files: [query], env: input.env,
+    signal: input.signal, timeoutMs: input.timeoutMs, onProgress: input.onProgress });
+  let elaboratedType: string | undefined;
+  if (diagnostics.exitCode === 0 && !diagnostics.timedOut) {
+    const value = readMathJson(path.join(clone, output)) as Record<string, unknown>;
+    if (typeof value.type !== 'string' || !value.type.trim() || Buffer.byteLength(value.type) > 24000)
+      throw new Error('math_type_diagnostics_export_invalid');
+    elaboratedType = value.type;
+  }
+  const manifest = { schema: 'theoremos.lean-type-diagnostics.v1', authority: 'advisory-type-elaboration',
+    proofAcceptance: 'not-assessed', sourceDigest, queryDigest: mathDigest(commands),
+    files: snapshot.map(({ file, digest }) => ({ file, digest })), context: input.context, requestedType: input.type,
+    elaboratedType, diagnostics };
+  const artifactFile = path.join(directory, 'manifest.json'); writeMathJsonDurable(artifactFile, manifest);
+  return { ...diagnostics, status: elaboratedType ? 'elaborated' as const : 'failed' as const,
+    type: elaboratedType, sourceSnapshotDigest: sourceDigest, context: input.context,
+    artifact: { path: path.relative(project, artifactFile).replaceAll(path.sep, '/'), digest: mathDigest(canonicalMathJson(manifest)) },
+    diagnosticArtifacts: diagnostics.diagnosticArtifacts.map(reference => ({ ...reference,
+      path: path.relative(project, path.join(clone, reference.path)).replaceAll(path.sep, '/') })),
+    evidence: 'advisory-type-elaboration', proofAcceptance: 'not-assessed' };
+}

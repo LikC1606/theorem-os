@@ -5,9 +5,14 @@ import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import { assertMathCanonicalPath } from '../math/paths';
 import { inspectLeanDeclarationRegions, inspectScopedLeanDeclarations } from '../math/leanSource';
 import { knowledgeSearchGroup, knowledgeVersionSummary } from './theoremKnowledgeSearch';
+import { buildKnowledgeRouteFindings, knowledgeRouteFindingSchema, validateKnowledgeRouteFindings,
+  type KnowledgeRouteFindingCandidate } from './theoremKnowledgeFindings';
 
 export { searchTheoremKnowledge, searchTheoremKnowledgeBatch } from './theoremKnowledgeSearch';
 export type { KnowledgeSearchOptions } from './theoremKnowledgeSearch';
+export { searchKnowledgeRouteFindings, getKnowledgeRouteFinding, getKnowledgeRouteFindingPage } from './theoremKnowledgeFindings';
+export type { KnowledgeRouteFinding, KnowledgeRouteFindingCandidate, KnowledgeRouteContract,
+  KnowledgeRouteFindingSearchOptions } from './theoremKnowledgeFindings';
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/u);
 const reference = z.object({ file: z.string(), name: z.string() }).strict();
@@ -34,12 +39,14 @@ const schema = z.object({
   schema: z.literal('theorem-os.theorem-knowledge.v1'),
   evidence: z.literal('recorded-not-replayed'), requiresFreshCheck: z.literal(true),
   entries: z.array(theoremKnowledgeEntrySchema), contexts: z.record(hash, z.record(z.string(), hash)), sources: z.record(hash, z.string()),
+  routeFindings: z.array(knowledgeRouteFindingSchema).optional(),
 }).strict();
 
 export type KnowledgeProvenance = z.infer<typeof provenance>;
 export type KnowledgeTheorem = z.infer<typeof theorem>;
 export type KnowledgeCandidate = KnowledgeTheorem & { files: Record<string, string>; provenance: KnowledgeProvenance };
-export type KnowledgeImportResult = { candidates: KnowledgeCandidate[]; skipped: { source: string; name?: string; reason: string }[] };
+export type KnowledgeImportResult = { candidates: KnowledgeCandidate[]; findings?: KnowledgeRouteFindingCandidate[];
+  skipped: { source: string; name?: string; reason: string }[] };
 export type TheoremKnowledgeBase = z.infer<typeof schema>;
 export type TheoremKnowledgeEntry = z.infer<typeof theoremKnowledgeEntrySchema>;
 
@@ -99,7 +106,8 @@ export function knowledgeDeclaration(source: string, name: string): string {
 const entryIdentity = (item: Omit<TheoremKnowledgeEntry, 'id' | 'provenance'>) => mathDigest(canonicalMathJson(item));
 
 /** Deduplicate bytes and exact contextual versions; names alone never identify a theorem. */
-export function buildTheoremKnowledge(candidates: readonly KnowledgeCandidate[], previous?: TheoremKnowledgeBase): TheoremKnowledgeBase {
+export function buildTheoremKnowledge(candidates: readonly KnowledgeCandidate[], previous?: TheoremKnowledgeBase,
+  findings: readonly KnowledgeRouteFindingCandidate[] = []): TheoremKnowledgeBase {
   const result: TheoremKnowledgeBase = previous ? structuredClone(validateTheoremKnowledge(previous)) : {
     schema: 'theorem-os.theorem-knowledge.v1', evidence: 'recorded-not-replayed', requiresFreshCheck: true,
     entries: [], contexts: {}, sources: {},
@@ -129,6 +137,7 @@ export function buildTheoremKnowledge(candidates: readonly KnowledgeCandidate[],
   for (const item of result.entries) item.provenance.sort((a, b) => canonicalMathJson(a).localeCompare(canonicalMathJson(b)));
   result.contexts = Object.fromEntries(Object.entries(result.contexts).sort(([a], [b]) => a.localeCompare(b)));
   result.sources = Object.fromEntries(Object.entries(result.sources).sort(([a], [b]) => a.localeCompare(b)));
+  if (findings.length || result.routeFindings) result.routeFindings = buildKnowledgeRouteFindings(findings, result.routeFindings);
   return result;
 }
 
@@ -171,6 +180,7 @@ export function validateKnowledgeMetadata(base: TheoremKnowledgeBase, sourceIden
       throw new Error('math_knowledge_forbidden_or_missing_source');
   }
   sourceIdentitiesByBase.set(base, sourceIdentities);
+  validateKnowledgeRouteFindings(base.routeFindings ?? []);
 }
 
 /** A new snapshot is immutable; refreshes use a new filename and an explicit merge. */
@@ -185,12 +195,14 @@ export function writeTheoremKnowledge(file: string, base: TheoremKnowledgeBase) 
 }
 
 export function theoremKnowledgeStats(base: TheoremKnowledgeBase) {
-  const problems = [...new Set(base.entries.flatMap(item => item.provenance.map(origin => origin.problemId)))].sort();
+  const problems = [...new Set([...base.entries.flatMap(item => item.provenance.map(origin => origin.problemId)),
+    ...(base.routeFindings ?? []).map(item => item.scope.problemId)])].sort();
   return { entries: base.entries.length, problems, contexts: Object.keys(base.contexts).length,
     sourceBlobs: Object.keys(base.sources).length,
     solverCheckedEntries: base.entries.filter(item => item.provenance.some(origin => origin.kind === 'solver-check')).length,
     acceptedArchiveEntries: base.entries.filter(item => item.provenance.some(origin => origin.kind === 'accepted-archive')).length,
     localVerifiedArchiveEntries: base.entries.filter(item => item.provenance.some(origin => origin.kind === 'local-verified-archive')).length,
+    routeFindings: base.routeFindings?.length ?? 0,
     evidence: base.evidence, requiresFreshCheck: base.requiresFreshCheck };
 }
 

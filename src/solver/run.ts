@@ -294,7 +294,8 @@ export async function runSolver(args: string[], root: string, customModules?: So
         workerAccess.set(workerId, { environment: resolveMathematicsRuntimeEnvironment(environment), corpusFile: workerCorpus,
           retrievalRoot: corpus?.projectSubdirectory ? workerRoot : workerProject,
           ...(knowledge ? { knowledgeFile, knowledgeDigest: knowledge.digest,
-            knowledgeSnapshot: { digest: knowledge.digest, base: { entries: knowledge.base.entries, evidence: knowledge.base.evidence } } } : {}) });
+            knowledgeSnapshot: { digest: knowledge.digest, base: { entries: knowledge.base.entries, evidence: knowledge.base.evidence,
+              routeFindings: knowledge.base.routeFindings } } } : {}) });
       };
       prepareAccess('solver', state.worktree, project, corpusFile);
       const peerPreparation = await Promise.allSettled(workers.slice(1).map(async worker => {
