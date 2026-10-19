@@ -113,6 +113,40 @@ describe('obligation snapshots and observed progress', () => {
     expect(receipt.advisory.completed).toHaveLength(1);
   });
 
+  it('does not report frontier progress when completed research and sketch notes still depend on an open theorem', () => {
+    const core = node('core'), finding = node('finding', 'research', ['core']), review = node('review', 'sketch', ['finding']);
+    const goal = node('goal', 'goal', ['review']), tasks = [core, finding, review, goal];
+    const before = snapshot(tasks);
+    finding.status = 'completed'; review.status = 'completed';
+    finding.finding = 'The open theorem is still required.'; review.finding = 'The route has the same unproved premise.';
+    const after = snapshot(tasks), receipt = diffObligationProgress(before, after)!;
+
+    expect(before.goals[0].frontier.map(item => item.taskId)).toEqual(['core']);
+    expect(after.goals[0].frontier.map(item => item.taskId)).toEqual(['core']);
+    expect(receipt.goalFrontiers).toEqual([]);
+    expect(receipt.obligations.closed).toEqual([]);
+    expect(receipt.advisory.completed.map(change => change.after.taskId)).toEqual(['finding', 'review']);
+    expect(after.goals[0].closed).toBe(false);
+    expect(snapshot(JSON.parse(JSON.stringify(tasks))).digest).toBe(after.digest);
+
+    checked(core);
+    const proved = snapshot(tasks), mathematical = diffObligationProgress(after, proved)!;
+    expect(mathematical.obligations.closed.map(change => change.after.taskId)).toEqual(['core']);
+    expect(mathematical.goalFrontiers[0].after!.frontier.map(item => item.taskId)).toEqual(['goal']);
+    expect(proved.goals[0].closed).toBe(false);
+  });
+
+  it('keeps a missing input visible beneath completed advisory work after restore', () => {
+    const finding = node('finding', 'research', ['absent']), review = node('review', 'sketch', ['finding']);
+    finding.status = 'completed'; review.status = 'completed';
+    const goal = node('goal', 'goal', ['review']);
+    const restored: TaskRecord[] = JSON.parse(JSON.stringify([finding, review, goal]));
+    const state = snapshot(restored);
+
+    expect(state.goals[0]).toMatchObject({ closed: false, missingDependencies: ['absent'] });
+    expect(state.obligations.find(item => item.taskId === 'goal')).toMatchObject({ recordedProof: 'none', closed: false });
+  });
+
   it('binds exact versions and reopens consumers of an invalidated recorded dependency', () => {
     const input = node('input'), goal = node('goal', 'goal', ['input']); checked(input); checked(goal, [input]);
     const tasks = [input, goal], before = snapshot(tasks);

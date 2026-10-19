@@ -57,6 +57,8 @@
 
 这些成果来自前身 DeepScientist / DeepScientist Math 及后续工作，包含复用早期证明的继续运行和环境迁移，不构成当前版本从零求解的成功率评测。[成果档案](accepted/README.md)保留模型归因、题目版本、提交来源和 SHA-256 校验值。
 
+[定理知识库](docs/theorem-knowledge.md)可将这些证明包及运行中已检查的辅助定理导入统一索引，供 Agent 按需搜索完整类型、前提、依赖和源码；跨题复用仍需重新通过 Lean 检查。
+
 另有 [4 道本地官方比较器通过、等待官方复验的证明](submitted/README.md)：Sunflower、Lorentzian polynomials、Möbius 和 Algebraic integers，均已提交 [#2144](https://github.com/leanprover/lean-eval-submissions/issues/2144)，不计入上述官方通过数量。
 
 <details>
@@ -185,11 +187,13 @@ CLI 档案保存候选、失败反馈、任务计划、会话、版本和累计�
 
 | 组件 | 负责什么 | 可研究的方向 |
 | --- | --- | --- |
-| M1 证明构造 | 调用模型并生成候选证明 | 生成方式、提示与修复策略 |
-| M2 检查与反馈 | 检查候选并整理 Lean 诊断 | 错误反馈、局部验证与引理连接 |
-| M3 搜索决策 | 选择下一步任务、重试或停止 | 任务排序、路线与预算分配 |
-| M4 上下文选择 | 整理题目、成果和失败记录 | 上下文压缩、证据选择与检索 |
-| M5 协作与复用 | 分配任务、审阅和复用成果 | 角色、并行方式与交接协议 |
+| M1 执行 | 在隔离工作区执行一次模型工作 | 生成方式、提示与修复策略 |
+| M2 证据 | 检查固定版本和精确声明，返回 Lean 回执 | 错误反馈、局部验证与引理连接 |
+| M3 搜索调度 | 选择可推进且能分配的任务、重试或停止 | 任务排序、路线与预算分配 |
+| M4 上下文 | 组装版本一致的题目、接口、成果和反馈 | 上下文压缩、证据选择与检索 |
+| M5 职责分配 | 将任务和审阅交给符合约束的工作槽 | 角色、并行方式与交接协议 |
+
+[解题模块与交接协议](docs/solver-modules.md)说明各模块的输入、产物、消费者和验收边界，以及研究提案如何转为引理任务、再供原题使用。合作求解的计划、研究和证明派发携带对应的工作契约；研究完成、引理通过和原题验收分别记录。
 
 例如，用 `bun run math component init --name my-search` 生成 M3 模板，修改任务排序函数，再用 `bun run math component check --name my-search` 检查基本约定。完整接入步骤见[组件示例](examples/components/README.md)，接口定义见 [SolverModules](src/solver/modules/index.ts)。
 

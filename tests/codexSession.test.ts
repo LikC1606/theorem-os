@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCodexMathSession, type MathAgentOptions, type MathAgentSession } from '../src/runtime/codexSession';
-import { prepareDeepSeekProfile } from '../src/runtime/deepseek';
+import { deepSeekProfileDigest, prepareDeepSeekProfile } from '../src/runtime/deepseek';
 import { prepareWestlakeProfile, westlakeProfileDigest } from '../src/runtime/westlake';
 
 describe('Codex app-server adapter without provider calls', () => {
@@ -73,9 +73,19 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     }
     if (message !== 'wait') {
       send({ method: 'thread/tokenUsage/updated', params: { threadId: settings.threadId || 'thread-fixture', tokenUsage: { total: { totalTokens: 21 }, last: { inputTokens: 12345 } } } });
-      const failed = ['rate-limit', 'late-rate-limit', 'stream-disconnected'].includes(message);
+      const structured = {
+        'structured-unauthorized': { message: 'private provider diagnostic', codexErrorInfo: 'unauthorized', additionalDetails: 'private response' },
+        'structured-rate-limit': { message: 'private provider diagnostic', codexErrorInfo: { httpConnectionFailed: { httpStatusCode: 429, body: 'private response' } } },
+        'structured-disconnected': { message: 'private provider diagnostic', codexErrorInfo: { responseStreamDisconnected: { httpStatusCode: 503 } } },
+        'structured-invalid-status': { message: 'private provider diagnostic', codexErrorInfo: { httpConnectionFailed: { httpStatusCode: 401.5 } } },
+        'structured-string-status': { message: 'private provider diagnostic', codexErrorInfo: { httpConnectionFailed: { httpStatusCode: 'private response' } } },
+        'structured-unrelated-status': { message: 'private provider diagnostic', codexErrorInfo: { badRequest: { httpStatusCode: 401 } } },
+        'structured-unknown': { message: 'private provider diagnostic', codexErrorInfo: 'private future error code' },
+        'structured-multiple': { message: 'private provider diagnostic', codexErrorInfo: { unauthorized: {}, private: {} } },
+      }[message];
+      const failed = Boolean(structured) || ['rate-limit', 'late-rate-limit', 'stream-disconnected'].includes(message);
       const complete = () => send({ method: 'turn/completed', params: { threadId: settings.threadId || 'thread-fixture', turn: { ...turn,
-        status: failed ? 'failed' : 'completed', ...(failed ? { error: { message: message === 'stream-disconnected'
+        status: failed ? 'failed' : 'completed', ...(failed ? { error: structured || { message: message === 'stream-disconnected'
           ? 'stream disconnected before completion: error sending request' : 'Concurrency limit exceeded for account' } } : {}) } } });
       if (message === 'late-rate-limit') setImmediate(complete);
       else complete();
@@ -98,16 +108,17 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
 
   it('passes only the selected provider credential after environment projection and excludes it from tools', async () => {
     const profile = path.join(root, 'deepseek');
+    const nativeProfile = path.join(profile, 'runtime');
     prepareDeepSeekProfile(profile, 'deepseek-v4-pro', 'high');
     vi.stubEnv('DEEPSEEK_API_KEY', 'sk-deepseek-fixture-secret');
     vi.stubEnv('UNRELATED_FIXTURE_SECRET', 'private-unrelated-fixture');
     session = await createCodexMathSession({ ...options, profile, model: 'deepseek-v4-pro', effort: 'high',
       environment: { PATH: process.env.PATH } });
     expect(await session.run('proof', 'deepseek-turn', root, () => {})).toBe('completed');
-    expect(JSON.parse(fs.readFileSync(path.join(profile, 'provider-environment.json'), 'utf8'))).toEqual({
+    expect(JSON.parse(fs.readFileSync(path.join(nativeProfile, 'provider-environment.json'), 'utf8'))).toEqual({
       deepseekKeyPresent: true, unrelatedSecretPresent: false,
     });
-    const traffic = fs.readFileSync(path.join(profile, 'calls.jsonl'), 'utf8');
+    const traffic = fs.readFileSync(path.join(nativeProfile, 'calls.jsonl'), 'utf8');
     expect(traffic).not.toContain('sk-deepseek-fixture-secret');
     const settings = traffic.trim().split('\n').map(line => JSON.parse(line)).find(call => call.method === 'thread/start').params;
     expect(settings).toMatchObject({ model: 'deepseek-v4-pro', config: {
@@ -122,7 +133,7 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     await expect(createCodexMathSession({ ...options, profile, instructions: 'wrong-provider',
       environment: { PATH: process.env.PATH, DEEPSEEK_API_KEY: 'fixture-key' } }))
       .rejects.toThrow('math_codex_session_binding_mismatch');
-    expect(fs.readFileSync(path.join(profile, 'calls.jsonl'), 'utf8')).not.toContain('turn/start');
+    expect(fs.readFileSync(path.join(profile, 'runtime', 'calls.jsonl'), 'utf8')).not.toContain('turn/start');
   });
 
   it('binds Westlake to a disposable bridge, strips upstream credentials and closes its listener', async () => {
@@ -148,18 +159,25 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     await expect(fetch(base + '/models')).rejects.toThrow();
   });
 
-  it('isolates native trust writes, refreshes frozen settings and preserves state for resume without copying auth', async () => {
-    const profile = path.join(root, 'westlake'), nativeProfile = path.join(profile, 'runtime');
-    const digest = prepareWestlakeProfile(profile, 'deepseek-flash', 'high');
+  it.each([
+    { provider: 'deepseek', model: 'deepseek-v4-pro', apiKeyEnvironment: 'DEEPSEEK_API_KEY',
+      prepare: prepareDeepSeekProfile, profileDigest: deepSeekProfileDigest },
+    { provider: 'westlake', model: 'deepseek-flash', apiKeyEnvironment: 'WESTLAKEHPC_API_KEY',
+      prepare: prepareWestlakeProfile, profileDigest: westlakeProfileDigest },
+  ])('isolates $provider trust writes, refreshes frozen settings and preserves state for resume without copying auth', async ({
+    provider, model, apiKeyEnvironment, prepare, profileDigest,
+  }) => {
+    const profile = path.join(root, provider), nativeProfile = path.join(profile, 'runtime');
+    const digest = prepare(profile, model, 'high');
     fs.writeFileSync(path.join(profile, 'auth.json'), 'fixture-auth-must-not-be-copied');
     const config = fs.readFileSync(path.join(profile, 'config.toml'), 'utf8');
-    const selected = { ...options, profile, model: 'deepseek-flash', effort: 'high',
-      environment: { PATH: process.env.PATH, WESTLAKEHPC_API_KEY: 'fixture-only' } };
+    const selected = { ...options, profile, model, effort: 'high',
+      environment: { PATH: process.env.PATH, [apiKeyEnvironment]: 'fixture-only' } };
     session = await createCodexMathSession({ ...selected, instructions: 'mutate-profile' });
     expect(await session.run('proof', 'first-turn', root, () => {})).toBe('completed');
     const threadId = session.threadId;
     await session.close();
-    expect(westlakeProfileDigest(profile)).toBe(digest);
+    expect(profileDigest(profile)).toBe(digest);
     expect(fs.statSync(path.join(profile, 'config.toml')).mode & 0o777).toBe(0o400);
     expect(fs.readFileSync(path.join(nativeProfile, 'config.toml'), 'utf8')).toContain('[projects.fixture]');
     expect(fs.existsSync(path.join(nativeProfile, 'auth.json'))).toBe(false);
@@ -174,7 +192,7 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     expect(fs.readFileSync(path.join(nativeProfile, 'state-marker'), 'utf8')).toBe('retained');
     expect(fs.readFileSync(path.join(nativeProfile, 'calls.jsonl'), 'utf8')).toContain('thread/resume');
     expect(await session.run('proof', 'resumed-turn', root, () => {})).toBe('completed');
-    expect(westlakeProfileDigest(profile)).toBe(digest);
+    expect(profileDigest(profile)).toBe(digest);
   });
 
   it('closes the Westlake bridge when app-server startup fails', async () => {
@@ -301,6 +319,24 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
       ? 'stream disconnected before completion: error sending request' : 'Concurrency limit exceeded for account');
     expect(await session.run('proof', 'next-turn', root, () => {})).toBe('completed');
     expect(session.lastError).toBeUndefined();
+  });
+
+  it.each([
+    ['structured-unauthorized', { code: 'unauthorized' }],
+    ['structured-rate-limit', { code: 'httpConnectionFailed', httpStatusCode: 429 }],
+    ['structured-disconnected', { code: 'responseStreamDisconnected', httpStatusCode: 503 }],
+    ['structured-invalid-status', { code: 'httpConnectionFailed' }],
+    ['structured-string-status', { code: 'httpConnectionFailed' }],
+    ['structured-unrelated-status', { code: 'badRequest' }],
+    ['structured-unknown', undefined],
+    ['structured-multiple', undefined],
+  ] as const)('retains only allowlisted failure metadata and clears it after %s', async (message, expected) => {
+    session = await createCodexMathSession(options);
+    expect(await session.run(message, 'failed-turn', root, () => {})).toBe('failed');
+    expect(session.lastFailureDiagnostic).toEqual(expected);
+    expect(JSON.stringify(session.lastFailureDiagnostic) ?? '').not.toMatch(/private|body|message|additionalDetails/);
+    expect(await session.run('proof', 'next-turn', root, () => {})).toBe('completed');
+    expect(session.lastFailureDiagnostic).toBeUndefined();
   });
 
   it('interrupts a long turn for a checkpoint and keeps the session usable', async () => {

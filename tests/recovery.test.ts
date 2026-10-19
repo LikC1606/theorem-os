@@ -30,10 +30,18 @@ function verified(request: MathematicsVerifierBatchRequest): MathematicsVerifier
   return {
     schema: 'deepscientist.mathematics.verification-batch/v1', status: 'kernel_verified',
     targetCommit: request.targetCommit!, sessionId: 'fresh-recovery-check', events: [], startedAt: 1, checkedAt: 2, durationMs: 1,
-    results: request.items.map(item => ({ ...item, status: 'kernel_verified', claim: 'statement',
+    results: request.items.map((item, index) => ({ ...item, status: 'kernel_verified', claim: 'statement',
       sourceDeclarationHash: item.expectedSourceDeclarationHash, targetCommit: request.targetCommit,
+      sessionId: 'fresh-recovery-check', checkId: item.id?.trim() || `check-${index + 1}`, checkedAt: 2,
       receiptId: `fresh-${request.targetCommit}-${item.theoremName}` })) as MathematicsVerifierBatchResult['results'],
   };
+}
+
+function rejected(request: MathematicsVerifierBatchRequest, names = request.items.map(item => item.theoremName)): MathematicsVerifierBatchResult {
+  const result = verified(request);
+  return { ...result, status: 'failed', results: result.results.map(item => names.includes(item.theoremName)
+    ? { ...item, status: 'failed', error: 'Lean exited with status 1.',
+      stdoutPreview: 'Submission.lean:3:1: error: unsolved goals' } : item) };
 }
 
 function fixture(options: { separateProjections?: boolean } = {}) {
@@ -235,18 +243,21 @@ describe('snapshot recovery', () => {
     expect(checked.state.cooperation!.tasks[2].status).toBe('pending');
   });
 
-  it.each(['first', 'second'])('preserves the other helper when %s fails a shared verification batch', async failed => {
+  it.each(['first', 'second'])('rechecks only %s when its batch failure cannot be attributed', async failed => {
     const f = fixture(); f.recover();
+    let shared!: MathematicsVerifierBatchResult;
     host.verify.mockImplementation(async request => {
       const result = verified(request), failedTheorem = `Submission.${failed}_helper`;
-      return request.items.some(item => item.theoremName === failedTheorem) ? {
+      const checked: MathematicsVerifierBatchResult = request.items.some(item => item.theoremName === failedTheorem) ? {
         ...result, status: 'failed', results: result.results.map(item => item.theoremName === failedTheorem
           ? { ...item, status: 'failed', error: 'Expected helper type does not match.' } : item),
       } : result;
+      if (request.items.length > 1) shared = checked;
+      return checked;
     });
     const { state, report } = await recheckMathSnapshot(f.output, { env: {}, signal: new AbortController().signal });
     expect(host.verify.mock.calls.map(([request]) => request.items.map(item => item.theoremName))).toEqual([
-      ['Submission.first_helper', 'Submission.second_helper'], ['Submission.first_helper'], ['Submission.second_helper'],
+      ['Submission.first_helper', 'Submission.second_helper'], [`Submission.${failed}_helper`],
     ]);
     const failedNode = state.cooperation!.tasks.find(node => node.task.id === failed)!;
     const passingNode = state.cooperation!.tasks.find(node => node.task.id === (failed === 'first' ? 'second' : 'first'))!;
@@ -254,8 +265,108 @@ describe('snapshot recovery', () => {
       integratedCheck: { passed: false } });
     expect(passingNode).toMatchObject({ status: 'integrated', integratedCheck: { passed: true } });
     expect(passingNode.integratedCheck!.verification.results[0].theoremName).toBe(passingNode.task.theoremName);
+    expect(passingNode.integratedCheck!.verification.results[0]).toBe(shared.results.find(result => result.theoremName === passingNode.task.theoremName));
     expect(state.cooperation!.recheck).toMatchObject({ total: 2, completed: 2 });
     expect(report.verification).toBe('finished');
+  });
+
+  it.each(['first', 'second'])('retains the passing helper and deterministic %s failure from one invocation', async failed => {
+    const f = fixture(), recovered = f.recover();
+    let shared!: MathematicsVerifierBatchResult;
+    host.verify.mockImplementation(async request => shared = rejected(request, [`Submission.${failed}_helper`]));
+    const { state, report } = await recheckMathSnapshot(f.output, { env: {}, signal: new AbortController().signal });
+    expect(host.verify).toHaveBeenCalledOnce();
+    expect(report).toMatchObject({ verification: 'finished', evidence: 'fresh-helper-receipts' });
+    expect(state.cooperation!.recheck).toMatchObject({ total: 2, completed: 2 });
+    for (const node of state.cooperation!.tasks.slice(0, 2)) {
+      const receipt = node.integratedCheck!.verification.results[0];
+      expect(receipt).toBe(shared.results.find(result => result.theoremName === node.task.theoremName));
+      expect(node.status).toBe(node.task.id === failed ? 'blocked' : 'integrated');
+      expect(node.integratedCheck!.passed).toBe(node.task.id !== failed);
+      expect(node.integratedCheck!.verification.status).toBe(node.task.id === failed ? 'failed' : 'kernel_verified');
+      for (const commit of [node.integratedCheck!.commit, node.integratedCheck!.verification.targetCommit])
+        expect(git(recovered.workspace, ['rev-parse', `refs/math/${recovered.runId}/evidence/${commit}`])).toBe(commit);
+    }
+    expect(shared.status).toBe('failed');
+    expect(shared.results.find(result => result.theoremName === `Submission.${failed}_helper`)!.error).toBe('Lean exited with status 1.');
+  });
+
+  it('retains all shared-source compile failures without individual recompilation', async () => {
+    const f = fixture(); f.recover();
+    host.verify.mockImplementation(async request => rejected(request));
+    const { state, report } = await recheckMathSnapshot(f.output, { env: {}, signal: new AbortController().signal });
+    expect(host.verify).toHaveBeenCalledOnce();
+    expect(state.cooperation!.tasks.slice(0, 2).map(node => ({ status: node.status, passed: node.integratedCheck!.passed })))
+      .toEqual([{ status: 'blocked', passed: false }, { status: 'blocked', passed: false }]);
+    expect(report).toMatchObject({ verification: 'finished', evidence: 'recovered-sources-require-recheck' });
+    expect(state.cooperation!.recheck).toMatchObject({ total: 2, completed: 2 });
+  });
+
+  it('falls back individually for both generic failures and accepts only the fresh results', async () => {
+    const f = fixture(); f.recover();
+    host.verify.mockImplementation(async request => {
+      const result = verified(request);
+      return request.items.length > 1 ? { ...result, status: 'failed',
+        results: result.results.map(item => ({ ...item, status: 'failed', error: 'Undiagnosed batch failure.' })) } : result;
+    });
+    const { state } = await recheckMathSnapshot(f.output, { env: {}, signal: new AbortController().signal });
+    expect(host.verify.mock.calls.map(([request]) => request.items.map(item => item.theoremName))).toEqual([
+      ['Submission.first_helper', 'Submission.second_helper'], ['Submission.first_helper'], ['Submission.second_helper'],
+    ]);
+    expect(state.cooperation!.tasks.slice(0, 2).map(node => node.status)).toEqual(['integrated', 'integrated']);
+  });
+
+  it.each(['commit', 'source header', 'order', 'missing', 'duplicate'] as const)
+  ('falls back without accepting receipts from a batch with invalid %s identity', async invalid => {
+    const f = fixture(); f.recover();
+    let shared!: MathematicsVerifierBatchResult;
+    host.verify.mockImplementation(async request => {
+      const result = verified(request);
+      if (request.items.length > 1) {
+        if (invalid === 'commit') result.targetCommit = missingTarget;
+        else if (invalid === 'source header') result.results[0]!.sourceDeclarationHash = 'wrong-header';
+        else if (invalid === 'order') result.results.reverse();
+        else if (invalid === 'missing') result.results.pop();
+        else result.results[1] = result.results[0]!;
+        shared = result;
+      }
+      return result;
+    });
+    const { state, report } = await recheckMathSnapshot(f.output, { env: {}, signal: new AbortController().signal });
+    expect(host.verify.mock.calls.map(([request]) => request.items.map(item => item.theoremName))).toEqual([
+      ['Submission.first_helper', 'Submission.second_helper'], ['Submission.first_helper'], ['Submission.second_helper'],
+    ]);
+    expect(report.verification).toBe('finished');
+    for (const node of state.cooperation!.tasks.slice(0, 2)) {
+      expect(node).toMatchObject({ status: 'integrated', integratedCheck: { passed: true } });
+      expect(shared.results).not.toContain(node.integratedCheck!.verification.results[0]);
+    }
+  });
+
+  it.each(['blocked', 'unavailable', 'cleanup', 'failed-and-blocked', 'failed-and-unavailable'] as const)
+  ('retains %s as infrastructure evidence without upgrading its sibling or rechecking', async failure => {
+    const f = fixture(); f.recover();
+    let shared!: MathematicsVerifierBatchResult, before: string;
+    const status = failure.endsWith('unavailable') ? 'unavailable' : 'blocked';
+    host.verify.mockImplementation(async request => {
+      const result = failure.startsWith('failed-and-') ? rejected(request, ['Submission.first_helper']) : verified(request);
+      if (failure === 'cleanup') result.results[1]!.cleanupError = 'Checkout cleanup failed.';
+      else {
+        result.results[1]!.status = status;
+        result.results[1]!.error = 'Fixture verifier could not complete its check.';
+        if (!failure.startsWith('failed-and-')) result.status = status;
+      }
+      shared = result; before = JSON.stringify(result);
+      return result;
+    });
+    const { state, report } = await recheckMathSnapshot(f.output, { env: {}, signal: new AbortController().signal });
+    expect(host.verify).toHaveBeenCalledOnce();
+    expect(state.cooperation!.tasks.slice(0, 2).map(node => ({ status: node.status, passed: node.integratedCheck!.passed,
+      verdict: node.integratedCheck!.verification.status }))).toEqual([0, 1].map(() => ({ status: 'blocked', passed: false, verdict: status })));
+    expect(report).toMatchObject({ verification: 'finished', evidence: 'recovered-sources-require-recheck' });
+    expect(JSON.stringify(shared)).toBe(before!);
+    for (const [index, node] of state.cooperation!.tasks.slice(0, 2).entries())
+      expect(node.integratedCheck!.verification.results[0]).toBe(shared.results[index]);
   });
 
   it('keeps evidence unverified when every helper check is blocked by its environment', async () => {
@@ -266,6 +377,7 @@ describe('snapshot recovery', () => {
         status: 'blocked', error: 'math_lean_toolchain_unavailable' })) };
     });
     const { state, report } = await recheckMathSnapshot(f.output, { env: {}, signal: new AbortController().signal });
+    expect(host.verify).toHaveBeenCalledOnce();
     expect(report).toMatchObject({ verification: 'finished', evidence: 'recovered-sources-require-recheck', resumable: false });
     expect(state.cooperation!.tasks.slice(0, 2).map(node => node.status)).toEqual(['blocked', 'blocked']);
     expect(state.cooperation!.tasks.slice(0, 2).every(node => node.integratedCheck?.verification.status === 'blocked')).toBe(true);
@@ -335,6 +447,30 @@ describe('snapshot recovery', () => {
     expect(interrupted.cooperation!.tasks[1].integratedCheck).toBeUndefined();
     expect(interrupted.cooperation!.tasks[1].feedback).toBeUndefined();
     expect(fs.readFileSync(path.join(f.snapshot, 'state.json'))).toEqual(originalState);
+  });
+
+  it('saves an attributed success before cancelling a generic sibling fallback', async () => {
+    const f = fixture(), report = f.recover(), controller = new AbortController();
+    host.verify.mockImplementation(async request => {
+      const result = verified(request);
+      if (request.items.length > 1) return { ...result, status: 'failed', results: result.results.map(item =>
+        item.theoremName === 'Submission.second_helper' ? { ...item, status: 'failed', error: 'Undiagnosed batch failure.' } : item) };
+      controller.abort(); return result;
+    });
+    await expect(recheckMathSnapshot(f.output, { env: {}, signal: controller.signal })).rejects.toThrow();
+    const interrupted = readSolverRunState(report.stateFile);
+    expect(host.verify.mock.calls.map(([request]) => request.items.map(item => item.theoremName))).toEqual([
+      ['Submission.first_helper', 'Submission.second_helper'], ['Submission.second_helper'],
+    ]);
+    expect(interrupted.cooperation!.recheck).toMatchObject({ total: 2, completed: 1, taskId: 'second' });
+    expect(interrupted.cooperation!.tasks[0]).toMatchObject({ status: 'integrated', integratedCheck: { passed: true } });
+    expect(interrupted.cooperation!.tasks[1]).toMatchObject({ status: 'pending' });
+    expect(interrupted.cooperation!.tasks[1].integratedCheck).toBeUndefined();
+    expect(interrupted.cooperation!.tasks[1].feedback).toBeUndefined();
+    expect(JSON.parse(fs.readFileSync(path.join(f.output, 'recovery.json'), 'utf8')))
+      .toMatchObject({ verification: 'interrupted', evidence: 'fresh-helper-receipts' });
+    const commit = interrupted.cooperation!.tasks[0].integratedCheck!.verification.targetCommit;
+    expect(git(report.workspace, ['rev-parse', `refs/math/${report.runId}/evidence/${commit}`])).toBe(commit);
   });
 
   it('clears a previous fresh-evidence claim when a new recheck is cancelled before its first result', async () => {

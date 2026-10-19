@@ -1,13 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { CooperativeResearch } from '../src/solver/cooperation';
 import type { TaskProof } from '../src/solver/cooperativeProof';
 import { taskDependenciesReady } from '../src/solver/modules/search';
 import type { ProofReferences } from '../src/solver/proofReferences';
+import { attributeTaskReferences } from '../src/solver/taskReferenceAttribution';
 import { markTaskReferences, taskReferenceDependencies, taskVersion, type TaskRecord } from '../src/solver/tasks';
 
-const referencesTask = (CooperativeResearch.prototype as unknown as {
-  referencesTask: (references: ProofReferences, node: TaskRecord) => boolean;
-}).referencesTask;
 const helper = 'Submission/Helpers.lean';
 const node = (id: string, name = id, dependsOn: string[] = []): TaskRecord => ({
   task: { id, kind: 'lemma', objective: id, theoremName: `Submission.Helpers.${name}`,
@@ -28,8 +25,7 @@ const proof = (record: TaskRecord, actualReferences: ProofReferences, changes: T
     sessionId: 'test', events: [], startedAt: 1, checkedAt: 2, durationMs: 1, results: [] },
 });
 function attach(record: TaskRecord, tasks: TaskRecord[], actualReferences: ProofReferences) {
-  actualReferences.tasks = tasks.filter(other => other !== record && referencesTask(actualReferences, other))
-    .map(other => ({ taskId: other.task.id, taskDigest: taskVersion(other.task) }));
+  actualReferences.tasks = attributeTaskReferences(actualReferences, tasks);
   record.integratedCheck = proof(record, actualReferences);
   markTaskReferences(record.integratedCheck);
 }
@@ -59,13 +55,14 @@ describe('proof reference task ownership', () => {
     producer.proof = proof(producer, references(producer), [{ file: helper, name: 'support', after: 'lemma support : True := by trivial' }]);
     const actualReferences = references(consumer);
     actualReferences.inputs.push({ file: helper, name: 'support', digest: 'fingerprint-only' });
-    expect(referencesTask(actualReferences, producer)).toBe(false);
+    expect(attributeTaskReferences(actualReferences, [producer, consumer])).toEqual([]);
   });
 
   it('does not attribute an actual self reference to another task that copied the root', () => {
     const consumer = node('consumer'), copier = node('copier');
     copier.proof = proof(copier, references(copier), [{ file: helper, name: 'consumer', after: 'def consumer := consumer' }]);
-    expect(referencesTask(references(consumer, { proof: [{ file: helper, name: consumer.task.theoremName! }] }), copier)).toBe(false);
+    expect(attributeTaskReferences(references(consumer, { proof: [{ file: helper, name: consumer.task.theoremName! }] }),
+      [consumer, copier])).toEqual([]);
   });
 
   it.each(['statement', 'proof'] as const)('retains real %s dependencies and rejects a changed dependency version', scope => {
@@ -78,12 +75,16 @@ describe('proof reference task ownership', () => {
     expect(taskDependenciesReady(consumer.task, [producer, consumer])).toBe(false);
   });
 
-  it('retains the producer of an actually used supporting helper in another owned file', () => {
+  it('preserves supporting helper source inputs without attributing ownership to an unrelated task root', () => {
     const producer = node('producer'), consumer = node('consumer');
     producer.task = { ...producer.task, proofPath: 'Submission.lean', theoremName: 'Submission.producer' };
     producer.proof = proof(producer, references(producer), [{ file: helper, name: 'support', after: 'lemma support : True := by trivial' }]);
-    attach(consumer, [producer, consumer], references(consumer, { proof: [{ file: helper, name: 'Submission.Helpers.support' }] }));
-    expect(consumer.integratedCheck!.references!.tasks).toEqual([{ taskId: 'producer', taskDigest: taskVersion(producer.task) }]);
+    const actualReferences = references(consumer, { proof: [{ file: helper, name: 'Submission.Helpers.support' }] });
+    const fingerprints = structuredClone(actualReferences.inputs);
+    attach(consumer, [producer, consumer], actualReferences);
+    expect(actualReferences.tasks).toEqual([]);
+    expect(actualReferences.inputs).toEqual(fingerprints);
+    expect(actualReferences.inputs).toContainEqual({ file: helper, name: 'support', digest: 'dependency' });
   });
 
   it('continues to reject cycles formed by actual references', () => {

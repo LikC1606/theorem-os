@@ -86,8 +86,8 @@ describe('module experiment definitions', () => {
       const modules = configuredSolverModules('direct', scheduler);
       return modules.M5.assign(modules.M3.ready(tasks), workers[1], workers)?.task.id;
     };
-    expect(assigned('plan')).toBe('unneeded');
-    expect(assigned('goals-first')).toBe('unneeded');
+    expect(assigned('plan')).toBe('ready-goal');
+    expect(assigned('goals-first')).toBe('ready-goal');
     expect(assigned('critical-path')).toBe('bridge');
   });
 });

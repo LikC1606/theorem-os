@@ -59,6 +59,7 @@ describe('route blocker proposals', () => {
     [{ ...proposal, evidenceRefs: [42] }], [{ ...proposal, reopenOn: [] }],
     [{ ...proposal, reopenOn: [{ kind: 'model-says-resolved' }] }],
     [{ ...proposal, reopenOn: [{ kind: 'dependency-checked' }] }],
+    [{ ...proposal, blockerId: 42 }], [{ ...proposal, blockerId: 'invented-id' }],
   ])('rejects malformed local scopes and reopening policies (%#)', value => {
     const target = node('target');
     expect(() => validateBlockerProposals(value, target.task, [target])).toThrow('math_route_blocker_invalid');
@@ -80,6 +81,108 @@ describe('route blocker proposals', () => {
 });
 
 describe('local recurrence and parking', () => {
+  it('preserves explicitly linked obstruction history across reworded reports and serialization', () => {
+    const target = node('target'), tasks = [target], records: RouteBlocker[] = [];
+    report(records, target, tasks);
+    const restored: RouteBlocker[] = JSON.parse(JSON.stringify(records));
+    report(restored, target, tasks, [{ ...proposal, blockerId: records[0].id,
+      mechanism: 'The same missing estimate, explained differently', scope: 'The same local inference' }]);
+    expect(restored).toHaveLength(1);
+    expect(restored[0]).toMatchObject({ id: records[0].id, count: 2, status: 'parked' });
+    const distinct: RouteBlocker[] = JSON.parse(JSON.stringify(records));
+    report(distinct, target, tasks, [{ ...proposal, mechanism: 'A different possible obstruction' }]);
+    expect(distinct).toHaveLength(2);
+    expect(distinct.every(record => record.count === 1)).toBe(true);
+  });
+
+  it('validates linked obstruction ownership before mutating a report batch', () => {
+    const target = node('target'), other = node('other'), tasks = [target, other], records: RouteBlocker[] = [];
+    report(records, other, tasks);
+    const before = structuredClone(records);
+    expect(() => report(records, target, tasks, [proposal, { ...proposal, blockerId: records[0].id }]))
+      .toThrow('math_route_blocker_invalid');
+    expect(records).toEqual(before);
+    expect(() => report(records, target, tasks, [{ ...proposal, blockerId: 'blocker_' + 'a'.repeat(24) }]))
+      .toThrow('math_route_blocker_invalid');
+  });
+
+  it('starts a new input record when a linked obstruction has changed contracts or environment', () => {
+    const input = node('input'), target = node('target', ['input']), tasks = [input, target], records: RouteBlocker[] = [];
+    report(records, target, tasks);
+    const blockerId = records[0].id;
+    input.task = { ...input.task, type: 'False', revision: 1 };
+    report(records, target, tasks, [{ ...proposal, blockerId }]);
+    expect(records).toHaveLength(2);
+    expect(records[1]).toMatchObject({ count: 1, status: 'open' });
+    recordRouteBlockers(records, validateBlockerProposals([{ ...proposal, blockerId }], target.task, tasks),
+      target.task, tasks, 'new-environment', problem);
+    expect(records).toHaveLength(3);
+    expect(records[2]).toMatchObject({ count: 1, status: 'open' });
+  });
+
+  it.each(['restored', 'missing', 'invalidated'] as const)(
+    'keeps the latest observed basis when an old obstruction ID is reused with a %s receipt', receipt => {
+      const input = node('input'), target = node('target', ['input']), tasks = [input, target];
+      checked(input);
+      const records = parked(target, tasks), originalId = records[0].id;
+      checked(input, { proofText: 'by exact True.intro' });
+      refreshRouteBlockers(records, tasks, environment, problem, 4);
+      report(records, target, tasks, [{ ...proposal, blockerId: originalId }], 5);
+      const latest = records[1], basis = structuredClone(latest.basis);
+      if (receipt === 'restored') input.integratedCheck = JSON.parse(JSON.stringify(input.integratedCheck));
+      if (receipt === 'missing') { delete input.integratedCheck; input.status = 'pending'; }
+      if (receipt === 'invalidated') input.task = { ...input.task, objective: 'Explain the same exact lemma', revision: 1 };
+      report(records, target, tasks, [{ ...proposal, blockerId: originalId }], 6);
+      refreshRouteBlockers(records, tasks, environment, problem, 7);
+      expect(records).toHaveLength(2);
+      expect(records[0]).toMatchObject({ count: 2, status: 'reopened' });
+      expect(latest).toMatchObject({ count: 2, status: 'parked', basis });
+      expect(target.routeParking).toEqual([latest.id]);
+    });
+
+  it.each(['input-contract', 'target-contract', 'environment'] as const)(
+    'extends the latest compatible record across a prior %s change without restoring old evidence', change => {
+      const input = node('input'), target = node('target', ['input']), tasks = [input, target];
+      checked(input);
+      const records = parked(target, tasks), originalId = records[0].id;
+      if (change === 'input-contract') input.task = { ...input.task, type: 'True ∧ True', revision: 1 };
+      if (change === 'target-contract') target.task = { ...target.task, premises: ['a new exact premise'], revision: 1 };
+      const currentEnvironment = change === 'environment' ? 'new-environment' : environment;
+      checked(input, { proofText: 'a new checked input proof', environment: currentEnvironment });
+      refreshRouteBlockers(records, tasks, currentEnvironment, problem, 4);
+      const currentReport = (at: number) => recordRouteBlockers(records,
+        validateBlockerProposals([{ ...proposal, blockerId: originalId }], target.task, tasks),
+        target.task, tasks, currentEnvironment, problem, at);
+      currentReport(5);
+      const latest = records[1], basis = structuredClone(latest.basis);
+      expect(latest).toMatchObject({ count: 1, status: 'open' });
+      input.integratedCheck = JSON.parse(JSON.stringify(input.integratedCheck));
+      currentReport(6);
+      refreshRouteBlockers(records, tasks, currentEnvironment, problem, 7);
+      expect(records).toHaveLength(2);
+      expect(records[0]).toMatchObject({ count: 2, status: 'reopened' });
+      expect(latest).toMatchObject({ count: 2, status: 'parked', basis });
+      expect(target.routeParking).toEqual([latest.id]);
+    });
+
+  it('uses observation recency when a previously seen input basis becomes current again', () => {
+    const input = node('input'), target = node('target', ['input']), tasks = [input, target];
+    checked(input);
+    const records = parked(target, tasks), originalId = records[0].id;
+    checked(input, { proofText: 'by exact True.intro' });
+    refreshRouteBlockers(records, tasks, environment, problem, 4);
+    report(records, target, tasks, [{ ...proposal, blockerId: originalId }], 5);
+    const laterId = records[1].id;
+    checked(input);
+    refreshRouteBlockers(records, tasks, environment, problem, 6);
+    report(records, target, tasks, [{ ...proposal, blockerId: originalId }], 7);
+    input.integratedCheck = JSON.parse(JSON.stringify(input.integratedCheck));
+    report(records, target, tasks, [{ ...proposal, blockerId: laterId }], 8);
+    expect(records).toHaveLength(2);
+    expect(records[0]).toMatchObject({ count: 4, status: 'parked', updatedAt: 8 });
+    expect(records[1]).toMatchObject({ count: 1, status: 'reopened' });
+  });
+
   it('counts duplicate proposals in one response once and parks after a second distinct report', () => {
     const target = node('target'), tasks = [target], records: RouteBlocker[] = [];
     report(records, target, tasks, [proposal, { ...proposal, evidenceRefs: ['second-reference'] }]);
@@ -172,7 +275,7 @@ describe('local recurrence and parking', () => {
     expect(routeAllowsTask(shortcut.task, tasks, groups)).toBe(false);
     expect(routeAllowsTask(sibling.task, tasks, groups)).toBe(true);
     expect(routeAllowsTask(alternative.task, tasks, groups)).toBe(true);
-    expect(readyResearchTasks(tasks, groups).map(item => item.task.id)).toEqual(['sibling', 'alternative', 'original']);
+    expect(readyResearchTasks(tasks, groups).map(item => item.task.id)).toEqual(['original', 'sibling', 'alternative']);
     expect(researchCanAdvance([shortcut], groups, new Set(['researcher']))).toBe(false);
     expect(researchCanAdvance(tasks, groups, new Set(['researcher']))).toBe(true);
   });

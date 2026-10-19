@@ -18,6 +18,7 @@ const commands: Readonly<Record<string, string>> = {
   'list-lean-eval': 'scripts/mathematics/listLeanEval.ts',
   'freeze-retrieval': 'scripts/mathematics/freezeMathRetrievalCorpus.ts',
   'search-lean': fs.existsSync(path.join(root, 'out/main/search-lean.js')) ? 'out/main/search-lean.js' : 'scripts/mathematics/searchLean.ts',
+  knowledge: 'scripts/mathematics/theoremKnowledge.ts',
   'check-lean': 'scripts/mathematics/checkLean.ts',
   inspect: 'scripts/mathematics/inspectMathRun.ts',
   recover: 'scripts/mathematics/recoverMathSnapshot.ts',
@@ -41,6 +42,7 @@ if (!command || ['help', '--help', '-h'].includes(command)) {
   list-lean-eval        List V1 obligations and public formalization gap warnings
   freeze-retrieval     Freeze allowed local Lean declaration sources
   search-lean          Find declarations in verified local Lean packages
+  knowledge            Build and query previously checked theorem sources
   check-lean           Check changed Lean files with bounded diagnostics
   inspect              Read a research report or export a versioned task plan
   recover              Restore a research snapshot and recheck saved helpers

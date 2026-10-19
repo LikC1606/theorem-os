@@ -5,6 +5,7 @@ import { readMathJson } from '../math/mathRuntimeIo';
 import { taskGroup, taskVersion, type TaskRecord } from './tasks';
 import { researchFailureCategory } from './modules/search';
 import { buildProofContinuation, recordedTaskProofStatus } from './progress';
+import { researchHandoffs } from './researchHandoffs';
 import { buildTokenBudget } from './usageBudget';
 import { captureObligationSnapshot } from './obligationProgress';
 
@@ -52,10 +53,12 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
       targets: state.problem.targets },
     configuration: { model: state.model, effort: state.effort, workers: state.workerCount ?? 1,
       coordination: state.coordination ?? 'cooperative', modules: state.moduleConfiguration,
-      buildDigest: state.buildDigest, environmentDigest: state.environmentDigest, methodDigest: state.methodDigest },
+      buildDigest: state.buildDigest, environmentDigest: state.environmentDigest, methodDigest: state.methodDigest,
+      knowledgeDigest: state.knowledgeDigest },
     turns: state.turns, usage: state.usage, planVersion: cooperative?.planVersion,
     tokenBudget: buildTokenBudget(state.tokenBudget?.maxTotalTokens ?? 0, state.workers ?? [state], state.tokenBudget?.enforcement),
-    continuation: buildProofContinuation(tasks, { groups: cooperative?.groups, environmentDigest: state.environmentDigest, proofRoutes: cooperative?.proofRoutes }),
+    continuation: buildProofContinuation(tasks, { groups: cooperative?.groups, environmentDigest: state.environmentDigest,
+      proofRoutes: cooperative?.proofRoutes, researchHandoffs: cooperative ? researchHandoffs(cooperative) : [] }),
     mathematics: { snapshot: captureObligationSnapshot(tasks, { groups: cooperative?.groups, environmentDigest: state.environmentDigest,
       blockers: cooperative?.blockers, proofRoutes: cooperative?.proofRoutes }),
       recentChanges: cooperative?.progressReceipts ?? [], retainedChangeLimit: 64 },
@@ -80,6 +83,7 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
       usage: worker.usage,
       lastActivity: worker.lastActivity,
       lastFailure: worker.lastFailure && { ...worker.lastFailure, category: researchFailureCategory(worker.lastFailure.reason) },
+      recovery: worker.recovery && { ...worker.recovery, category: researchFailureCategory(worker.recovery.reason) },
       task: 'sessionTaskId' in worker ? worker.sessionTaskId : undefined,
       context: worker.lastContextManifest,
       failures: worker.failures, error: 'error' in worker ? worker.error : undefined,
@@ -149,6 +153,12 @@ export function renderRunInspection(report: Inspection): string {
       report.continuation.reuse.map(item => [item.taskId, item.plannedConsumers.join(', ') || 'none',
         item.proofConsumers.join(', ') || 'none recorded', item.statementConsumers.join(', ') || 'none recorded',
         item.conditionalConsumers.join(', ') || 'none recorded'])) : 'No integrated lemmas with current recorded receipts.');
+  if (report.continuation.adoptedResearch.length) text += section('Adopted research', table([
+    'Source task', 'Adopted lemma', 'Recorded proof', 'Planned original goals', 'Proof consumers', 'Statement references', 'Conditional consumers', 'Reference coverage',
+  ], report.continuation.adoptedResearch.map(item => [item.sourceTaskId, item.taskId, item.recordedProof,
+    item.plannedGoalIds.join(', ') || 'none', item.proofConsumers.join(', ') || 'none recorded',
+    item.statementConsumers.join(', ') || 'none recorded', item.conditionalConsumers.join(', ') || 'none recorded',
+    item.referenceCoverage]))) + '\nAdoption schedules a proof obligation. Missing reference coverage leaves actual use unknown.\n';
   text += '\nTasks without a planned path to an active original goal: ' +
     (report.continuation.unconnectedTasks.join(', ') || 'none') + '. This does not establish that a result is mathematically unhelpful.\n';
   if (report.continuation.referenceCoverageMissing.length) text += '\nActual-reference evidence unavailable for: ' +
@@ -156,6 +166,15 @@ export function renderRunInspection(report: Inspection): string {
   text += section('Workers', table(['Worker', 'Phase', 'Task', 'Last activity', 'At'], report.workers.map(worker => [
     worker.id, worker.phase, worker.task, worker.lastActivity?.event,
     worker.lastActivity ? new Date(worker.lastActivity.at).toISOString() : undefined])));
+  const recoveries = report.workers.filter(worker => worker.recovery);
+  if (recoveries.length) text += section('Session recovery', table([
+    'Worker', 'Recovery', 'Category', 'Reason', 'Cycles', 'Next retry', 'Waited ms',
+  ], recoveries.map(worker => {
+    const recovery = worker.recovery!;
+    return [worker.id, recovery.phase === 'recovered' ? 'recovered (history)' : recovery.phase,
+      recovery.category, recovery.reason, recovery.cycles,
+      recovery.phase === 'cooling-down' ? new Date(recovery.nextRetryAt).toISOString() : undefined, recovery.waitedMs];
+  })));
   const failures = report.workers.filter(worker => worker.lastFailure || worker.error);
   if (failures.length) text += section('Execution failures', table(['Worker', 'Category', 'Last failure', 'At'], failures.map(worker => [
     worker.id, worker.failureCategory ?? worker.lastFailure?.category, worker.error ?? worker.lastFailure?.reason,
