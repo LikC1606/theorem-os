@@ -2,7 +2,8 @@
 
 模块实验可使用现有 `WESTLAKEHPC_API_KEY`，模型为 `deepseek-flash`，推理强度默认 `high`。
 `prepare` 和离线协议检查不调用模型；实际运行需要启动进程已有该环境变量。
-单题真实网关校准记录见 [2026-10-19 实测](../putnambench/CALIBRATION-20261019.md)。
+单题真实网关校准记录见[请求级预算实测](../putnambench/CALIBRATION-REQUEST-BUDGET-20261019.md)，
+此前的协议修复和调度级记录见[历史校准](../putnambench/CALIBRATION-20261019.md)。
 
 ## 准备实验
 
@@ -82,5 +83,10 @@ bun scripts/mathematics/checkWestlakeProtocol.ts
 以及关闭后可以恢复同一线程而不触发额外推理。
 离线兼容性通过不能替代真实网关的推理、限流、计费和工具行为验证。
 这仍是基于回执的请求门槛，不是硬计费上限：单次请求及已经并发发出的请求仍可能超额，
-发送前没有准确的输入成本。此前调度级限制下的单题校准已出现明显超额；请求级修复
-目前只通过离线验证，尚未重跑真实校准。中断请求缺失用量时，完整总量与成本比较保持不可用。
+发送前没有准确的输入成本。新的真实单题校准在两次请求后完整上报 38,104 token，
+超过 30,000 门槛 8,104，后续请求被本地拒绝；请求计数为 2 次开始、2 次完整上报、
+0 次待定，没有把本地拒绝记为缺失用量。冻结 profile 未漂移，比较报告保留有效的
+`limit_reached` 记录；其余三组未运行，证明验收因 `proof_incomplete` 跳过。
+原生 Codex 将本地 HTTP 403 显示为认证类错误，角色的 `lastFailure` 因而仍可能是
+`math_model_authentication_failed`；宿主结果及预算停止事件正确记录 `math_total_token_limit`。
+该现象不表示真实 API Key 失效。中断请求缺失用量时，完整总量与成本比较仍保持不可用。
