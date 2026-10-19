@@ -25,7 +25,7 @@ function fixture(root: string, id: string, exitCode = 0) {
     console.log('stdout:' + ${JSON.stringify(id)}); console.error('stderr:' + ${JSON.stringify(id)});
     process.on('SIGTERM', () => { fs.writeFileSync('checkpoint', 'saved'); process.exit(0); });
     const timer = setInterval(() => { if (fs.existsSync('release')) {
-      fs.writeFileSync('result.json', JSON.stringify({ fixture: true, envFile }));
+      fs.writeFileSync('result.json', JSON.stringify({ fixture: true, envFile, codexHome: process.env.CODEX_HOME || '' }));
       clearInterval(timer); process.exit(${exitCode});
     } }, 10);`);
   const launch = path.join(directory, 'launch.json');
@@ -78,6 +78,31 @@ describe('independent problem batches', () => {
     const { jobs } = JSON.parse(fs.readFileSync(output, 'utf8'));
     expect(jobs[0]).toMatchObject({ status: 'failed', error: expect.stringContaining('ENOENT') });
     expect(jobs[1]).toMatchObject({ status: 'completed', exitCode: 0 });
+  });
+
+  it('binds each launch to its prepared Codex profile instead of the caller profile', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const root = temp(), a = fixture(root, 'a'), b = fixture(root, 'b');
+    for (const job of [a, b]) {
+      fs.mkdirSync(path.join(job.directory, 'codex'), { mode: 0o700 });
+      fs.writeFileSync(job.launch, JSON.stringify({ ...job.config, codexHome: 'codex' }));
+      fs.writeFileSync(path.join(job.directory, 'release'), '');
+    }
+    const output = path.join(root, 'batch.json');
+    expect(await runMathBatch(['--launch', a.launch, '--launch', b.launch, '--output', output])).toBe(0);
+    const { jobs } = JSON.parse(fs.readFileSync(output, 'utf8'));
+    for (const [index, job] of [a, b].entries()) {
+      const expected = path.join(job.directory, 'codex');
+      expect(JSON.parse(fs.readFileSync(path.join(job.directory, 'result.json'), 'utf8')).codexHome).toBe(expected);
+      expect(jobs[index].codexHome).toBe(expected);
+    }
+  });
+
+  it('rejects an invalid selected profile before starting any problem', async () => {
+    const root = temp(), job = fixture(root, 'a');
+    fs.writeFileSync(job.launch, JSON.stringify({ ...job.config, codexHome: job.launch }));
+    await expect(runMathBatch(['--launch', job.launch, '--output', path.join(root, 'batch.json')])).rejects.toThrow('Invalid codexHome');
+    expect(fs.existsSync(path.join(job.directory, 'started'))).toBe(false);
   });
 
   it('rejects shared workspaces and output paths before starting any problem', async () => {

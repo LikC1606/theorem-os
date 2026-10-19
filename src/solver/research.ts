@@ -16,7 +16,8 @@ import type { ResearchWorker } from './modules/organization';
 import type { ResearchOperation } from './modules/value';
 import { runResearchTurn, type ResearchCandidate } from './modules/execution';
 import { recoverableResearchFailure, researchFailureDetail, researchFailureReason } from './modules/search';
-import { aggregateUsage, buildTokenBudget, initializeUsageAccounting, modelDispatchAllowed, recordThreadUsage } from './usageBudget';
+import { aggregateUsage, beginRequestUsage, buildTokenBudget, initializeRequestUsageAccounting, initializeUsageAccounting,
+  modelDispatchAllowed, recordThreadUsage } from './usageBudget';
 
 export type WorkerAccess = { environment: NodeJS.ProcessEnv; corpusFile?: string; retrievalRoot: string };
 
@@ -32,7 +33,8 @@ export async function runResearchWorkers(input: {
   const records = input.workers.map(worker => ({ worker,
     research: parallel ? state.workers!.find(item => item.id === worker.id)! : state }));
   for (const { research } of records) initializeUsageAccounting(research);
-  state.tokenBudget = buildTokenBudget(input.maxTotalTokens, records.map(record => record.research));
+  const enforcement = state.tokenBudget?.enforcement;
+  state.tokenBudget = buildTokenBudget(input.maxTotalTokens, records.map(record => record.research), enforcement);
   const dispatchAllowed = () => modelDispatchAllowed(state.tokenBudget!);
   const accepted = records.find(({ worker }) => worker.id === (state.winningWorker ?? 'solver'));
   if (accepted && state.check?.passed && ['checking', 'evaluating', 'finished'].includes(state.phase) &&
@@ -66,7 +68,7 @@ export async function runResearchWorkers(input: {
   const updateUsage = () => {
     if (parallel) state.usage = aggregateUsage(state.workers!);
     const previous = state.tokenBudget!.status;
-    state.tokenBudget = buildTokenBudget(input.maxTotalTokens, records.map(record => record.research));
+    state.tokenBudget = buildTokenBudget(input.maxTotalTokens, records.map(record => record.research), enforcement);
     if (state.tokenBudget.status !== previous && !dispatchAllowed()) input.emit('model_budget_stopped', { ...state.tokenBudget });
     cooperation?.modelBudgetChanged();
   };
@@ -99,6 +101,7 @@ export async function runResearchWorkers(input: {
       let pendingTurn: Promise<void> | undefined;
       let usageTurnActive = false;
       let usageTurnReported = false;
+      let usageTurnIncomplete = false;
       const modelTurn = async <T>(run: () => Promise<T>, assignment?: CooperativeAction): Promise<T | undefined> => {
         // No await separates this final admission check from invoking the model request.
         if (!dispatchAllowed() || budget().remainingMs <= 0 || signal.aborted ||
@@ -117,7 +120,7 @@ export async function runResearchWorkers(input: {
         const accounting = research.usageAccounting!;
         accounting.startedTurns++;
         accounting.pending = true;
-        usageTurnActive = true; usageTurnReported = false;
+        usageTurnActive = true; usageTurnReported = false; usageTurnIncomplete = false;
         updateUsage(); save();
         let completed = false;
         try {
@@ -128,9 +131,13 @@ export async function runResearchWorkers(input: {
         }
         finally {
           accounting.pending = false;
-          // A notification during a failed or interrupted request may be only partial consumption.
-          if (usageTurnReported && completed) accounting.reportedTurns++;
+          // Bridge receipts account for requests even when a later local rejection fails the turn.
+          // Native thread notifications need a completed turn to rule out unreported consumption.
+          if (research.requestUsageAccounting
+            ? research.requestUsageAccounting.pendingRequests === 0 && !usageTurnIncomplete
+            : usageTurnReported && completed && !usageTurnIncomplete) accounting.reportedTurns++;
           else accounting.incomplete = true;
+          if (research.requestUsageAccounting?.pendingRequests) research.requestUsageAccounting.incomplete = true;
           usageTurnActive = false;
           updateUsage(); save();
         }
@@ -183,10 +190,32 @@ export async function runResearchWorkers(input: {
               emit('worker_activity', { activity: activity.event, itemType: activity.itemType }); save();
             }, onUsage: usage => {
               research.lastInputTokens = session?.lastInputTokens ?? research.lastInputTokens;
+              if (research.requestUsageAccounting) return;
               const reported = recordThreadUsage(research, usage);
               if (usageTurnActive && reported) usageTurnReported = true;
               updateUsage(); save();
+            }, onUsageIncomplete: () => {
+              // A tool roundtrip can contain several provider requests with only partial usage receipts.
+              research.usageAccounting!.incomplete = true;
+              if (research.requestUsageAccounting) research.requestUsageAccounting.incomplete = true;
+              if (usageTurnActive) usageTurnIncomplete = true;
+              updateUsage(); save();
+            }, requestGate: () => {
+              if (!dispatchAllowed()) return { allowed: false, reason: state.tokenBudget!.reason! };
+              if (!usageTurnActive || signal.aborted || budget().remainingMs <= 0)
+                return { allowed: false, reason: 'math_model_request_stopped' };
+              const settle = beginRequestUsage(research);
+              updateUsage(); save();
+              return { allowed: true, settle: receipt => {
+                settle(receipt);
+                if (usageTurnActive && !receipt.complete) usageTurnIncomplete = true;
+                updateUsage(); save();
+              } };
             } });
+            if (session.usageSource === 'upstream-requests') {
+              initializeRequestUsageAccounting(research);
+              updateUsage(); save();
+            }
           } catch (error) {
             signal.throwIfAborted();
             const detail = researchFailureDetail(error);

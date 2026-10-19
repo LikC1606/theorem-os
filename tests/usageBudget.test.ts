@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { aggregateUsage, buildTokenBudget, initializeUsageAccounting, modelDispatchAllowed,
-  recordThreadUsage, reportedTotalTokens, type UsageAccounting } from '../src/solver/usageBudget';
+import { aggregateUsage, beginRequestUsage, buildTokenBudget, initializeRequestUsageAccounting, initializeUsageAccounting,
+  modelDispatchAllowed, recordThreadUsage, reportedTotalTokens, type RequestUsageAccounting, type UsageAccounting } from '../src/solver/usageBudget';
 
 const accounting = (overrides: Partial<UsageAccounting> = {}): UsageAccounting =>
   ({ startedTurns: 1, reportedTurns: 1, pending: false, incomplete: false, ...overrides });
@@ -101,5 +101,80 @@ describe('provider observed token dispatch budget', () => {
     const record = { turns: 2, usage: { totalTokens: Number.MAX_SAFE_INTEGER }, usageBeforeThread: { totalTokens: Number.MAX_SAFE_INTEGER } };
     expect(recordThreadUsage(record, { totalTokens: 1 })).toBe(false);
     expect(record.usage.totalTokens).toBe(Number.MAX_SAFE_INTEGER);
+  });
+});
+
+describe('direct upstream request accounting', () => {
+  function record() {
+    const value = { turns: 0, usage: undefined as Record<string, unknown> | undefined,
+      usageAccounting: accounting({ startedTurns: 0, reportedTurns: 0 }),
+      requestUsageAccounting: undefined as RequestUsageAccounting | undefined };
+    initializeRequestUsageAccounting(value);
+    return value;
+  }
+  const receipt = (totalTokens: number, complete = true) => ({
+    usage: { totalTokens, inputTokens: totalTokens - 5, outputTokens: 5, cachedInputTokens: 2, reasoningOutputTokens: 1 }, complete,
+  });
+
+  it('counts each request once across tool roundtrips and session rotations, without adding token subsets', () => {
+    const value = record();
+    const first = beginRequestUsage(value);
+    expect(buildTokenBudget(100, [value])).toMatchObject({ reportedTotalTokens: null, usageComplete: false });
+    first(receipt(40)); first(receipt(40));
+    initializeRequestUsageAccounting(value);
+    beginRequestUsage(value)(receipt(60));
+    expect(value.usage).toEqual({ totalTokens: 100, inputTokens: 90, outputTokens: 10, cachedInputTokens: 4, reasoningOutputTokens: 2 });
+    expect(value.requestUsageAccounting).toEqual({ startedRequests: 2, reportedRequests: 2, pendingRequests: 0, incomplete: false });
+    expect(buildTokenBudget(100, [value], 'provider-observed-upstream-request-limit')).toMatchObject({
+      status: 'exhausted', reportedTotalTokens: 100, usageComplete: true, enforcement: 'provider-observed-upstream-request-limit',
+    });
+  });
+
+  it('preserves known receipts when another request fails, even if later requests complete', () => {
+    const value = record();
+    beginRequestUsage(value)(receipt(40));
+    beginRequestUsage(value)({ complete: false });
+    beginRequestUsage(value)(receipt(25));
+    expect(buildTokenBudget(100, [value])).toMatchObject({ status: 'usage-unavailable', reportedTotalTokens: 65, usageComplete: false });
+    expect(value.requestUsageAccounting).toEqual({ startedRequests: 3, reportedRequests: 2, pendingRequests: 0, incomplete: true });
+  });
+
+  it('retains a validated receipt from an interrupted response as known partial consumption', () => {
+    const value = record();
+    beginRequestUsage(value)(receipt(40, false));
+    expect(buildTokenBudget(100, [value])).toMatchObject({ status: 'usage-unavailable', reportedTotalTokens: 40, usageComplete: false });
+  });
+
+  it('uses request receipts for failed local turns and preserves pending request uncertainty on resume', () => {
+    const value = record();
+    value.turns = 1;
+    value.usageAccounting = accounting({ reportedTurns: 0, pending: true });
+    beginRequestUsage(value)(receipt(40));
+    initializeUsageAccounting(value);
+    expect(buildTokenBudget(100, [value])).toMatchObject({ status: 'available', reportedTotalTokens: 40, usageComplete: true });
+    beginRequestUsage(value);
+    initializeUsageAccounting(value);
+    expect(value.requestUsageAccounting).toMatchObject({ pendingRequests: 0, incomplete: true });
+    expect(buildTokenBudget(100, [value])).toMatchObject({ status: 'usage-unavailable', reportedTotalTokens: 40, usageComplete: false });
+  });
+
+  it('keeps zero attempted requests distinct from missing usage and inherits legacy uncertainty', () => {
+    const value = record();
+    value.turns = 1;
+    value.usageAccounting = accounting({ reportedTurns: 0, incomplete: true });
+    expect(buildTokenBudget(100, [value])).toMatchObject({ reportedTotalTokens: 0, usageComplete: true });
+    const legacy = { turns: 1, usage: { totalTokens: 30 }, usageAccounting: accounting({ reportedTurns: 0, incomplete: true }),
+      requestUsageAccounting: undefined as RequestUsageAccounting | undefined };
+    initializeRequestUsageAccounting(legacy);
+    beginRequestUsage(legacy)(receipt(20));
+    expect(buildTokenBudget(100, [legacy])).toMatchObject({ status: 'usage-unavailable', reportedTotalTokens: 50, usageComplete: false });
+  });
+
+  it('does not wrap an overflowing sum into an available budget', () => {
+    const value = record();
+    beginRequestUsage(value)(receipt(Number.MAX_SAFE_INTEGER));
+    beginRequestUsage(value)(receipt(10));
+    expect(buildTokenBudget(100, [value])).toMatchObject({ status: 'usage-unavailable',
+      reportedTotalTokens: Number.MAX_SAFE_INTEGER, usageComplete: false });
   });
 });

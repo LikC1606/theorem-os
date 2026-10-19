@@ -7,12 +7,12 @@ import type { LemmaResearch } from './lemma';
 import type { ResearchRole } from './modules/organization';
 import type { CooperationState } from './cooperation';
 import type { MathAgentActivity } from '../runtime/codexSession';
-import type { TokenBudget, UsageAccounting } from './usageBudget';
+import type { TokenBudget, UsageAccounting, RequestUsageAccounting } from './usageBudget';
 import type { ContextManifest } from './contextCompiler';
 import { z } from 'zod';
 
 export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | 'previousThreadIds' |
-  'lastInputTokens' | 'lastActivity' | 'lastFailure' | 'lastContextManifest' | 'phase' | 'turns' | 'dispatchCounts' | 'usage' | 'usageBeforeThread' | 'usageAccounting' | 'check' | 'candidate' | 'lemmaResearch' | 'failures' | 'error'> & {
+  'lastInputTokens' | 'lastActivity' | 'lastFailure' | 'lastContextManifest' | 'phase' | 'turns' | 'dispatchCounts' | 'usage' | 'usageBeforeThread' | 'usageAccounting' | 'requestUsageAccounting' | 'check' | 'candidate' | 'lemmaResearch' | 'failures' | 'error'> & {
   id: string;
   role: ResearchRole;
   sessionRole?: ResearchRole;
@@ -31,6 +31,8 @@ export type SolverRunState = {
   buildDigest: string;
   environmentDigest: string;
   evaluatorDigest: string;
+  providerProfile?: string;
+  providerProfileDigest?: string;
   methodDigest?: string;
   coordination?: 'cooperative' | 'independent';
   moduleConfiguration?: { id: string; versions: Record<string, string> };
@@ -53,6 +55,7 @@ export type SolverRunState = {
   usage?: Record<string, unknown>;
   usageBeforeThread?: Record<string, unknown>;
   usageAccounting?: UsageAccounting;
+  requestUsageAccounting?: RequestUsageAccounting;
   tokenBudget?: TokenBudget;
   check?: ProofCheck;
   candidate?: ResearchCandidate;
@@ -71,7 +74,11 @@ const record = z.record(z.unknown());
 const safeCount = count.max(Number.MAX_SAFE_INTEGER);
 const usageAccounting = z.object({ startedTurns: safeCount, reportedTurns: safeCount,
   pending: z.boolean(), incomplete: z.boolean() }).refine(value => value.reportedTurns <= value.startedTurns);
-const tokenBudget = z.object({ maxTotalTokens: safeCount, enforcement: z.literal('provider-observed-dispatch-limit'),
+const requestUsageAccounting = z.object({ startedRequests: safeCount, reportedRequests: safeCount,
+  pendingRequests: safeCount, incomplete: z.boolean() }).refine(value =>
+    value.reportedRequests <= value.startedRequests && value.pendingRequests <= value.startedRequests - value.reportedRequests);
+const tokenBudget = z.object({ maxTotalTokens: safeCount,
+  enforcement: z.enum(['provider-observed-dispatch-limit', 'provider-observed-upstream-request-limit']),
   status: z.enum(['unlimited', 'available', 'exhausted', 'usage-unavailable']), reportedTotalTokens: safeCount.nullable(),
   usageComplete: z.boolean(), overrunTokens: safeCount.nullable(),
   reason: z.enum(['math_total_token_limit', 'math_model_usage_unavailable']).optional() });
@@ -93,6 +100,7 @@ const research = z.object({ worktree: z.string().min(1), phase, turns: count, th
   lastActivity: z.object({ at: count, event: z.string().min(1).max(64), itemType: z.string().max(64).optional() }).optional(),
   lastFailure: z.object({ at: count, reason: z.string(), taskId: z.string().optional() }).optional(),
   usage: record.optional(), usageBeforeThread: record.optional(), usageAccounting: usageAccounting.optional(),
+  requestUsageAccounting: requestUsageAccounting.optional(),
   tokenBudget: tokenBudget.optional(), candidate: record.optional(),
   lemmaResearch: record.optional(), failures: z.array(record).optional(), error: z.string().optional() }).passthrough();
 const role = z.enum(['lead', 'researcher', 'engineer', 'reviewer']);
@@ -148,6 +156,7 @@ const progressReceipt = z.object({ schema: z.literal('theoremos.obligation-progr
 const runState = research.extend({ schema: z.literal('deepscientist.math.solver.v1'), runId: z.string().min(1),
   problem: z.object({ workspace: z.string(), receiptDigest: z.string() }).passthrough(),
   taskDigest: z.string(), buildDigest: z.string(), environmentDigest: z.string(), evaluatorDigest: z.string(),
+  providerProfile: z.string().optional(), providerProfileDigest: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
   model: z.string(), effort: z.string(), workerCount: z.number().int().positive().optional(),
   coordination: z.enum(['cooperative', 'independent']).optional(),
   workers: z.array(research.extend({ id: z.string(), role, sessionRole: role.optional() })).optional(),

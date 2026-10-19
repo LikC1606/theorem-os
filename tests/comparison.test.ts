@@ -11,6 +11,7 @@ import { readyResearchTasks } from '../src/solver/modules/search';
 import { researchWorkers } from '../src/solver/modules/organization';
 import { canonicalMathJson, mathDigest } from '../src/math/mathRuntimeIo';
 import type { RouteRecord, TaskRecord } from '../src/solver/tasks';
+import { readSolverRunState } from '../src/solver/archive';
 
 const directories: string[] = [];
 afterEach(() => {
@@ -158,7 +159,8 @@ describe('configured research comparisons', () => {
       .rejects.toThrow('invalid --max-total-tokens');
   });
 
-  it('reports dispatch-limit overrun and rejects a changed or absent finite allowance', () => {
+  it.each(['provider-observed-dispatch-limit', 'provider-observed-upstream-request-limit'] as const)
+  ('preserves %s overrun and rejects a changed or absent finite allowance', enforcement => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'math-comparison-budget-')); directories.push(directory);
     const output = path.join(directory, 'result.json');
     const plan = { schema: 'deepscientist.math.comparison.v1' as const, problem: 'p', sourceCommit: 'source',
@@ -169,24 +171,110 @@ describe('configured research comparisons', () => {
         receiptDigest: 'receipt', methodDigest: 'method' }] };
     fs.mkdirSync(output + '.runtime');
     const stateFile = output + '.runtime/state.json';
-    const tokenBudget = { maxTotalTokens: 100, enforcement: 'provider-observed-dispatch-limit', status: 'exhausted',
+    const tokenBudget = { maxTotalTokens: 100, enforcement, status: 'exhausted',
       reportedTotalTokens: 120, usageComplete: true, overrunTokens: 20, reason: 'math_total_token_limit' };
+    const requestUsageAccounting = enforcement === 'provider-observed-upstream-request-limit'
+      ? { startedRequests: 3, reportedRequests: 3, pendingRequests: 0, incomplete: false } : undefined;
     const state = { schema: 'deepscientist.math.solver.v1', runId: 'run',
       problem: { workspace: directory, receiptDigest: 'receipt' }, taskDigest: 'task', buildDigest: 'build',
       environmentDigest: 'environment', evaluatorDigest: mathDigest('host-default'), methodDigest: 'method', model: 'fixture', effort: 'xhigh',
       worktree: directory, phase: 'finished', turns: 1, coordination: 'independent', workerCount: 1,
-      usage: { totalTokens: 120 }, usageAccounting: { startedTurns: 1, reportedTurns: 1, pending: false, incomplete: false }, tokenBudget };
+      usage: { totalTokens: 120 }, usageAccounting: { startedTurns: 1, reportedTurns: requestUsageAccounting ? 0 : 1,
+        pending: false, incomplete: Boolean(requestUsageAccounting) }, requestUsageAccounting, tokenBudget };
     fs.writeFileSync(stateFile, JSON.stringify(state));
     fs.writeFileSync(output, JSON.stringify({ schema: 'deepscientist.math.run.v2', runId: 'run', stateFile,
       status: 'limit_reached', reason: 'math_total_token_limit' }));
-    expect(comparisonReport(directory, plan).runs[0]).toMatchObject({ status: 'limit_reached', accepted: false,
+    const before = fs.readFileSync(stateFile), report = comparisonReport(directory, plan);
+    expect(readSolverRunState(stateFile).requestUsageAccounting).toEqual(requestUsageAccounting);
+    expect(report.tokenBudgetEnforcement).toBe(enforcement);
+    expect(report.runs[0]).toMatchObject({ status: 'limit_reached', accepted: false,
       totalTokens: 120, usageComplete: true, overrunTokens: 20, tokenBudget });
+    expect(fs.readFileSync(stateFile)).toEqual(before);
     fs.writeFileSync(stateFile, JSON.stringify({ ...state, tokenBudget: { ...tokenBudget, maxTotalTokens: 200 } }));
     expect(comparisonReport(directory, plan).runs[0]).toMatchObject({ status: 'invalid', accepted: false,
       totalTokens: null, usageComplete: false, error: 'comparison_token_budget_mismatch' });
     fs.writeFileSync(stateFile, JSON.stringify({ ...state, tokenBudget: undefined }));
     expect(comparisonReport(directory, plan).runs[0]).toMatchObject({ status: 'invalid', accepted: false,
       error: 'comparison_token_budget_mismatch' });
+  });
+
+  it.each([
+    { name: 'dispatch and upstream-request records', enforcements: [
+      'provider-observed-dispatch-limit', 'provider-observed-upstream-request-limit'], expected: 'mixed' },
+    { name: 'upstream-request and untracked legacy records', enforcements: [
+      'provider-observed-upstream-request-limit', undefined], expected: 'mixed' },
+    { name: 'untracked legacy records', enforcements: [undefined, undefined], expected: 'unknown' },
+  ])('reports $name without overstating enforcement', ({ enforcements, expected }) => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'math-comparison-enforcement-')); directories.push(directory);
+    const plan = { schema: 'deepscientist.math.comparison.v1' as const, problem: 'p', sourceCommit: 'source',
+      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment',
+      configuration: { model: 'fixture', effort: 'xhigh', method: 'direct', scheduler: 'plan', workers: 2,
+        maxTurns: 20, maxRunSeconds: 1800, maxTurnSeconds: 180, maxTotalTokens: 0 },
+      jobs: enforcements.map((enforcement, index) => {
+        const output = path.join(directory, `result-${index}.json`), stateFile = `${output}.runtime/state.json`;
+        fs.mkdirSync(path.dirname(stateFile));
+        fs.writeFileSync(stateFile, JSON.stringify({ schema: 'deepscientist.math.solver.v1', runId: `run-${index}`,
+          problem: { workspace: directory, receiptDigest: 'receipt' }, taskDigest: 'task', buildDigest: 'build',
+          environmentDigest: 'environment', evaluatorDigest: mathDigest('host-default'), methodDigest: 'method',
+          model: 'fixture', effort: 'xhigh', worktree: directory, phase: 'finished', turns: 1,
+          coordination: 'independent', workerCount: 1, usage: { totalTokens: 40 },
+          usageAccounting: { startedTurns: 1, reportedTurns: 1, pending: false, incomplete: false },
+          tokenBudget: enforcement ? { maxTotalTokens: 0, enforcement, status: 'unlimited',
+            reportedTotalTokens: 40, usageComplete: true, overrunTokens: 0 } : undefined }));
+        fs.writeFileSync(output, JSON.stringify({ schema: 'deepscientist.math.run.v2', runId: `run-${index}`,
+          stateFile, status: 'incomplete' }));
+        return { arm: 'single', repetition: index + 1, launch: '', launchDigest: '', output,
+          receiptDigest: 'receipt', methodDigest: 'method' };
+      }) };
+    const report = comparisonReport(directory, plan);
+    expect(report.tokenBudgetEnforcement).toBe(expected);
+    expect(report.runs.map(row => row.tokenBudget?.enforcement)).toEqual(enforcements);
+    expect(report.runs.map(row => row.status)).toEqual(['incomplete', 'incomplete']);
+    expect(report.runs.every(row => row.usageComplete && row.totalTokens === 40 && !row.accepted)).toBe(true);
+  });
+
+  it.each([
+    { name: 'a peer blocked before its first upstream request', consumed: 100, peerAttempted: false,
+      inheritedIncomplete: false, totalTokens: 100, budgetStatus: 'exhausted' },
+    { name: 'all roles blocked before any upstream request', consumed: 0, peerAttempted: false,
+      inheritedIncomplete: false, totalTokens: 0, budgetStatus: 'available' },
+    { name: 'a peer with inherited incomplete usage', consumed: 40, peerAttempted: false,
+      inheritedIncomplete: true, totalTokens: null, budgetStatus: 'usage-unavailable' },
+    { name: 'a peer with an attempted request missing its receipt', consumed: 40, peerAttempted: true,
+      inheritedIncomplete: false, totalTokens: null, budgetStatus: 'usage-unavailable' },
+  ])('accounts for $name using actual upstream attempts', ({ consumed, peerAttempted, inheritedIncomplete, totalTokens, budgetStatus }) => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'math-comparison-zero-requests-')); directories.push(directory);
+    const output = path.join(directory, 'result.json'), stateFile = `${output}.runtime/state.json`;
+    const plan = { schema: 'deepscientist.math.comparison.v1' as const, problem: 'p', sourceCommit: 'source',
+      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment',
+      configuration: { model: 'fixture', effort: 'high', method: 'direct', scheduler: 'plan', workers: 2,
+        maxTurns: 20, maxRunSeconds: 600, maxTurnSeconds: 180, maxTotalTokens: 100 },
+      jobs: [{ arm: 'independent', repetition: 1, launch: '', launchDigest: '', output,
+        receiptDigest: 'receipt', methodDigest: 'method' }] };
+    const turns = { startedTurns: 1, reportedTurns: 0, pending: false, incomplete: true };
+    fs.mkdirSync(path.dirname(stateFile));
+    fs.writeFileSync(stateFile, JSON.stringify({ schema: 'deepscientist.math.solver.v1', runId: 'run',
+      problem: { workspace: directory, receiptDigest: 'receipt' }, taskDigest: 'task', buildDigest: 'build',
+      environmentDigest: 'environment', evaluatorDigest: mathDigest('host-default'), methodDigest: 'method',
+      model: 'fixture', effort: 'high', worktree: directory, phase: 'finished', turns: 2,
+      coordination: 'independent', workerCount: 2, usage: consumed ? { totalTokens: consumed } : undefined,
+      workers: [
+        { id: 'solver', role: 'lead', worktree: directory, phase: 'finished', turns: 1, usageAccounting: turns,
+          usage: consumed ? { totalTokens: consumed } : undefined, requestUsageAccounting: {
+            startedRequests: consumed ? 1 : 0, reportedRequests: consumed ? 1 : 0, pendingRequests: 0, incomplete: false } },
+        { id: 'researcher-1', role: 'researcher', worktree: directory, phase: 'finished', turns: 1,
+          error: 'math_total_token_limit', usageAccounting: turns, requestUsageAccounting: {
+            startedRequests: Number(peerAttempted), reportedRequests: 0, pendingRequests: 0, incomplete: inheritedIncomplete } },
+      ], tokenBudget: { maxTotalTokens: 100, enforcement: 'provider-observed-upstream-request-limit', status: 'available',
+        reportedTotalTokens: consumed, usageComplete: true, overrunTokens: 0 } }));
+    fs.writeFileSync(output, JSON.stringify({ schema: 'deepscientist.math.run.v2', runId: 'run', stateFile, status: 'incomplete' }));
+    const report = comparisonReport(directory, plan);
+    expect(report.runs[0]).toMatchObject({ status: 'incomplete', accepted: false, totalTokens,
+      usageComplete: totalTokens !== null, missingUsageWorkers: totalTokens === null ? ['researcher-1'] : [],
+      tokenBudget: { enforcement: 'provider-observed-upstream-request-limit', status: budgetStatus,
+        reportedTotalTokens: consumed, usageComplete: totalTokens !== null } });
+    expect(report.totals[1]).toMatchObject({ planned: 1, reportedTokens: totalTokens ?? 0,
+      missingTokenRuns: totalTokens === null ? 1 : 0 });
   });
 
   it('keeps partial provider consumption visible without treating missing role usage as complete', () => {

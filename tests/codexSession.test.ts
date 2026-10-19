@@ -3,6 +3,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCodexMathSession, type MathAgentOptions, type MathAgentSession } from '../src/runtime/codexSession';
+import { prepareDeepSeekProfile } from '../src/runtime/deepseek';
+import { prepareWestlakeProfile, westlakeProfileDigest } from '../src/runtime/westlake';
 
 describe('Codex app-server adapter without provider calls', () => {
   let root: string;
@@ -15,6 +17,13 @@ describe('Codex app-server adapter without provider calls', () => {
     fs.writeFileSync(executable, `#!${process.execPath}
 const fs = require('node:fs');
 const readline = require('node:readline');
+fs.writeFileSync(process.env.CODEX_HOME + '/provider-environment.json', JSON.stringify({
+  deepseekKeyPresent: Boolean(process.env.DEEPSEEK_API_KEY), unrelatedSecretPresent: Boolean(process.env.UNRELATED_FIXTURE_SECRET),
+}));
+if (process.env.WESTLAKEHPC_API_KEY) fs.writeFileSync(process.env.CODEX_HOME + '/westlake-environment.json', JSON.stringify({
+  receivedLocalCredential: process.env.WESTLAKEHPC_API_KEY !== 'upstream-westlake-fixture-secret',
+  receivedSecondaryCredential: Boolean(process.env.WESTLAKEHPC_API_KEY_2),
+}));
 let settings, turn, catalogs = 0;
 const send = value => process.stdout.write(JSON.stringify(value) + '\\n');
 readline.createInterface({ input: process.stdin }).on('line', line => {
@@ -29,8 +38,14 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   if (call.method === 'thread/start' || call.method === 'thread/resume') {
     settings = call.params;
     if (settings.developerInstructions === 'startup-crash') return process.exit(27);
+    if (settings.developerInstructions === 'mutate-profile') {
+      const config = process.env.CODEX_HOME + '/config.toml';
+      fs.writeFileSync(config + '.updated', fs.readFileSync(config, 'utf8') + '\\n[projects.fixture]\\ntrust_level = "trusted"\\n');
+      fs.renameSync(config + '.updated', config);
+    }
     result({ thread: { id: settings.developerInstructions === 'wrong-thread' ? 'wrong-thread' : settings.threadId || 'thread-fixture' },
       model: settings.developerInstructions === 'mismatch' ? 'wrong-model' : settings.model,
+      modelProvider: settings.developerInstructions === 'wrong-provider' ? 'wrong-provider' : settings.config.model_provider,
       approvalPolicy: settings.approvalPolicy, reasoningEffort: settings.config.model_reasoning_effort });
   }
   if (call.method === 'mcpServerStatus/list') result({ data: Object.keys(settings.config.mcp_servers)
@@ -79,7 +94,126 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
       instructions: 'Prove the mathematical target', onUsage: vi.fn() };
     session = undefined;
   });
-  afterEach(async () => { await session?.close(); fs.rmSync(root, { recursive: true, force: true }); });
+  afterEach(async () => { await session?.close(); vi.unstubAllEnvs(); fs.rmSync(root, { recursive: true, force: true }); });
+
+  it('passes only the selected provider credential after environment projection and excludes it from tools', async () => {
+    const profile = path.join(root, 'deepseek');
+    prepareDeepSeekProfile(profile, 'deepseek-v4-pro', 'high');
+    vi.stubEnv('DEEPSEEK_API_KEY', 'sk-deepseek-fixture-secret');
+    vi.stubEnv('UNRELATED_FIXTURE_SECRET', 'private-unrelated-fixture');
+    session = await createCodexMathSession({ ...options, profile, model: 'deepseek-v4-pro', effort: 'high',
+      environment: { PATH: process.env.PATH } });
+    expect(await session.run('proof', 'deepseek-turn', root, () => {})).toBe('completed');
+    expect(JSON.parse(fs.readFileSync(path.join(profile, 'provider-environment.json'), 'utf8'))).toEqual({
+      deepseekKeyPresent: true, unrelatedSecretPresent: false,
+    });
+    const traffic = fs.readFileSync(path.join(profile, 'calls.jsonl'), 'utf8');
+    expect(traffic).not.toContain('sk-deepseek-fixture-secret');
+    const settings = traffic.trim().split('\n').map(line => JSON.parse(line)).find(call => call.method === 'thread/start').params;
+    expect(settings).toMatchObject({ model: 'deepseek-v4-pro', config: {
+      model_reasoning_effort: 'high', 'shell_environment_policy.exclude': ['DEEPSEEK_API_KEY'],
+      model_provider: 'deepseek', 'model_providers.deepseek.base_url': 'https://api.deepseek.com',
+    } });
+  });
+
+  it('rejects an app-server bound to another provider before any model turn', async () => {
+    const profile = path.join(root, 'deepseek');
+    prepareDeepSeekProfile(profile, 'deepseek-v4-pro', 'high');
+    await expect(createCodexMathSession({ ...options, profile, instructions: 'wrong-provider',
+      environment: { PATH: process.env.PATH, DEEPSEEK_API_KEY: 'fixture-key' } }))
+      .rejects.toThrow('math_codex_session_binding_mismatch');
+    expect(fs.readFileSync(path.join(profile, 'calls.jsonl'), 'utf8')).not.toContain('turn/start');
+  });
+
+  it('binds Westlake to a disposable bridge, strips upstream credentials and closes its listener', async () => {
+    const profile = path.join(root, 'westlake');
+    const nativeProfile = path.join(profile, 'runtime');
+    prepareWestlakeProfile(profile, 'deepseek-flash', 'high');
+    session = await createCodexMathSession({ ...options, profile, model: 'deepseek-flash', effort: 'high',
+      environment: { PATH: process.env.PATH, WESTLAKEHPC_API_KEY: 'upstream-westlake-fixture-secret',
+        WESTLAKEHPC_API_KEY_2: 'secondary-westlake-fixture-secret' } });
+    expect(JSON.parse(fs.readFileSync(path.join(nativeProfile, 'westlake-environment.json'), 'utf8'))).toEqual({
+      receivedLocalCredential: true, receivedSecondaryCredential: false,
+    });
+    const traffic = fs.readFileSync(path.join(nativeProfile, 'calls.jsonl'), 'utf8');
+    expect(traffic).not.toContain('upstream-westlake-fixture-secret');
+    expect(traffic).not.toContain('secondary-westlake-fixture-secret');
+    const config = traffic.trim().split('\n').map(line => JSON.parse(line)).find(call => call.method === 'thread/start').params.config;
+    const base = config['model_providers.westlake.base_url'];
+    expect(base).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/v1$/u);
+    expect(config['features.multi_agent']).toBe(false);
+    expect(config['shell_environment_policy.exclude']).toContain('WESTLAKEHPC_API_KEY*');
+    expect((await fetch(base + '/models')).status).toBe(401);
+    await session.close();
+    await expect(fetch(base + '/models')).rejects.toThrow();
+  });
+
+  it('isolates native trust writes, refreshes frozen settings and preserves state for resume without copying auth', async () => {
+    const profile = path.join(root, 'westlake'), nativeProfile = path.join(profile, 'runtime');
+    const digest = prepareWestlakeProfile(profile, 'deepseek-flash', 'high');
+    fs.writeFileSync(path.join(profile, 'auth.json'), 'fixture-auth-must-not-be-copied');
+    const config = fs.readFileSync(path.join(profile, 'config.toml'), 'utf8');
+    const selected = { ...options, profile, model: 'deepseek-flash', effort: 'high',
+      environment: { PATH: process.env.PATH, WESTLAKEHPC_API_KEY: 'fixture-only' } };
+    session = await createCodexMathSession({ ...selected, instructions: 'mutate-profile' });
+    expect(await session.run('proof', 'first-turn', root, () => {})).toBe('completed');
+    const threadId = session.threadId;
+    await session.close();
+    expect(westlakeProfileDigest(profile)).toBe(digest);
+    expect(fs.statSync(path.join(profile, 'config.toml')).mode & 0o777).toBe(0o400);
+    expect(fs.readFileSync(path.join(nativeProfile, 'config.toml'), 'utf8')).toContain('[projects.fixture]');
+    expect(fs.existsSync(path.join(nativeProfile, 'auth.json'))).toBe(false);
+    fs.writeFileSync(path.join(nativeProfile, 'state-marker'), 'retained');
+    const runtimeConfig = path.join(nativeProfile, 'config.toml');
+    fs.writeFileSync(runtimeConfig, fs.readFileSync(runtimeConfig, 'utf8')
+      .replace('model_reasoning_effort = "high"', 'model_reasoning_effort = "low"'));
+    expect(fs.readFileSync(runtimeConfig, 'utf8')).toContain('model_reasoning_effort = "low"');
+    session = await createCodexMathSession({ ...selected, threadId });
+    expect(session.threadId).toBe(threadId);
+    expect(fs.readFileSync(path.join(nativeProfile, 'config.toml'), 'utf8')).toBe(config);
+    expect(fs.readFileSync(path.join(nativeProfile, 'state-marker'), 'utf8')).toBe('retained');
+    expect(fs.readFileSync(path.join(nativeProfile, 'calls.jsonl'), 'utf8')).toContain('thread/resume');
+    expect(await session.run('proof', 'resumed-turn', root, () => {})).toBe('completed');
+    expect(westlakeProfileDigest(profile)).toBe(digest);
+  });
+
+  it('closes the Westlake bridge when app-server startup fails', async () => {
+    const profile = path.join(root, 'westlake');
+    prepareWestlakeProfile(profile, 'deepseek-flash', 'high');
+    await expect(createCodexMathSession({ ...options, profile, model: 'deepseek-flash', effort: 'high',
+      instructions: 'wrong-provider', environment: { PATH: process.env.PATH, WESTLAKEHPC_API_KEY: 'fixture-only' } }))
+      .rejects.toThrow('math_codex_session_binding_mismatch');
+    const traffic = fs.readFileSync(path.join(profile, 'runtime', 'calls.jsonl'), 'utf8');
+    const config = traffic.trim().split('\n').map(line => JSON.parse(line)).find(call => call.method === 'thread/start').params.config;
+    await expect(fetch(config['model_providers.westlake.base_url'] + '/models')).rejects.toThrow();
+  });
+
+  it('reports a missing Westlake credential before starting a bridge or Codex', async () => {
+    const profile = path.join(root, 'westlake');
+    prepareWestlakeProfile(profile, 'deepseek-flash', 'high');
+    vi.stubEnv('WESTLAKEHPC_API_KEY', '');
+    await expect(createCodexMathSession({ ...options, profile, environment: { PATH: process.env.PATH } }))
+      .rejects.toThrow('math_model_api_key_missing:WESTLAKEHPC_API_KEY');
+    expect(fs.readdirSync(profile).sort()).toEqual(['config.toml', 'models.json']);
+  });
+
+  it('rejects a missing DeepSeek key before starting any app-server process', async () => {
+    const profile = path.join(root, 'deepseek');
+    prepareDeepSeekProfile(profile, 'deepseek-v4-pro', 'high');
+    vi.stubEnv('DEEPSEEK_API_KEY', '');
+    await expect(createCodexMathSession({ ...options, profile, environment: { PATH: process.env.PATH } }))
+      .rejects.toThrow('math_model_api_key_missing:DEEPSEEK_API_KEY');
+    expect(fs.readdirSync(profile).sort()).toEqual(['config.toml', 'models.json']);
+  });
+
+  it('keeps canonical shell filters when excluding a custom provider credential', async () => {
+    fs.writeFileSync(path.join(root, 'config.toml'), 'model_provider = "custom"\n[model_providers.custom]\nenv_key = "FIXTURE_API_KEY"\n[shell_environment_policy.filters]\nPATH = "include"\n');
+    session = await createCodexMathSession({ ...options, environment: { PATH: process.env.PATH, FIXTURE_API_KEY: 'fixture-key' } });
+    const calls = fs.readFileSync(path.join(root, 'calls.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
+    const config = calls.find(call => call.method === 'thread/start').params.config;
+    expect(config['shell_environment_policy.filters']).toEqual({ PATH: 'include', FIXTURE_API_KEY: 'exclude' });
+    expect(config).not.toHaveProperty('shell_environment_policy.exclude');
+  });
 
   it('disables inherited MCP tools and handles completion before the start response', async () => {
     session = await createCodexMathSession(options);

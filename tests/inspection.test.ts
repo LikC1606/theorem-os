@@ -9,6 +9,7 @@ import { queueRunEdit } from '../src/solver/humanEdit';
 import { taskVersion, type TaskRecord } from '../src/solver/tasks';
 import type { TaskProof } from '../src/solver/cooperativeProof';
 import { researchFailureCategory } from '../src/solver/modules/search';
+import type { RequestUsageAccounting } from '../src/solver/usageBudget';
 
 const roots: string[] = [];
 function fixture() {
@@ -64,6 +65,65 @@ describe('run inspection', () => {
     expect(exportRunPlan(state)).toMatchObject({ baseVersion: 'version-1', tasks: [{ id: 'goal' }] });
     expect(readRunInspection(f.stateFile).state.runId).toBe(state.runId);
     expect(fs.readFileSync(f.stateFile)).toEqual(before);
+  });
+
+  it.each(['provider-observed-dispatch-limit', 'provider-observed-upstream-request-limit'] as const)
+  ('preserves archived %s enforcement when inspecting reported usage', enforcement => {
+    const f = fixture();
+    for (const [index, worker] of f.state.workers!.entries()) {
+      worker.usage = { totalTokens: (index + 1) * 20 };
+      worker.usageAccounting = { startedTurns: worker.turns, reportedTurns: worker.turns, pending: false, incomplete: false };
+    }
+    f.state.usage = { totalTokens: 60 };
+    f.state.tokenBudget = { maxTotalTokens: 100, enforcement, status: 'available', reportedTotalTokens: 60,
+      usageComplete: true, overrunTokens: 0 };
+    writeSolverRunState(f.stateFile, f.state);
+    const before = fs.readFileSync(f.stateFile), { state } = readRunInspection(f.run);
+    expect(state.tokenBudget).toEqual(f.state.tokenBudget);
+    expect(buildRunInspection(state).tokenBudget).toEqual(f.state.tokenBudget);
+    expect(fs.readFileSync(f.stateFile)).toEqual(before);
+  });
+
+  it.each<{
+    scope: 'single' | 'workers'; accounting: RequestUsageAccounting;
+    status: 'available' | 'usage-unavailable'; complete: boolean;
+  }>([
+    { scope: 'single', accounting: { startedRequests: 3, reportedRequests: 3, pendingRequests: 0, incomplete: false },
+      status: 'available', complete: true },
+    { scope: 'workers', accounting: { startedRequests: 3, reportedRequests: 2, pendingRequests: 1, incomplete: false },
+      status: 'available', complete: false },
+    { scope: 'single', accounting: { startedRequests: 3, reportedRequests: 2, pendingRequests: 0, incomplete: true },
+      status: 'usage-unavailable', complete: false },
+    { scope: 'workers', accounting: { startedRequests: 3, reportedRequests: 2, pendingRequests: 0, incomplete: false },
+      status: 'usage-unavailable', complete: false },
+  ])('retains $scope request receipts across checkpoint reads (status: $status, complete: $complete)', ({ scope, accounting, status, complete }) => {
+    const f = fixture();
+    if (scope === 'single') { f.state.workers = undefined; f.state.workerCount = 1; }
+    else f.state.workers![1].turns = 0;
+    const record = scope === 'single' ? f.state : f.state.workers![0];
+    record.turns = 1;
+    record.usage = { totalTokens: 40 };
+    record.usageAccounting = { startedTurns: 1, reportedTurns: 0, pending: false, incomplete: true };
+    record.requestUsageAccounting = accounting;
+    f.state.tokenBudget = { maxTotalTokens: 100, enforcement: 'provider-observed-upstream-request-limit',
+      status: 'available', reportedTotalTokens: 40, usageComplete: true, overrunTokens: 0 };
+    writeSolverRunState(f.stateFile, f.state);
+    const { state } = readRunInspection(f.run), restored = scope === 'single' ? state : state.workers![0];
+    expect(restored.requestUsageAccounting).toEqual(accounting);
+    expect(buildRunInspection(state).tokenBudget).toMatchObject({
+      enforcement: 'provider-observed-upstream-request-limit', reportedTotalTokens: 40, status, usageComplete: complete,
+      ...(status === 'usage-unavailable' ? { reason: 'math_model_usage_unavailable' } : {}),
+    });
+  });
+
+  it.each([
+    { startedRequests: 1, reportedRequests: 2, pendingRequests: 0, incomplete: false },
+    { startedRequests: 2, reportedRequests: 1, pendingRequests: 2, incomplete: false },
+  ])('rejects impossible persisted request counts %j', accounting => {
+    const f = fixture();
+    f.state.workers![0].requestUsageAccounting = accounting;
+    writeSolverRunState(f.stateFile, f.state);
+    expect(() => readRunInspection(f.run)).toThrow('math_resume_state_invalid:workers.0.requestUsageAccounting');
   });
 
   it('preserves activity timestamps in checkpoints and exposes the current wait reason', () => {

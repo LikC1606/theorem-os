@@ -94,7 +94,7 @@ describe('web BYOK provider configuration and offline app-server fixture', () =>
 
   it('refuses to start without an injected BYOK credential', async () => {
     await expect(createCodexMathSession({ ...options(), environment: { ...process.env,
-      THEOREMOS_PROVIDER_API_KEY: '' } })).rejects.toThrow('math_codex_rpc_failed:-32000:thread/start');
+      THEOREMOS_PROVIDER_API_KEY: '' } })).rejects.toThrow('math_model_api_key_missing:THEOREMOS_PROVIDER_API_KEY');
     expect(fs.existsSync(path.join(root, 'profile/web-fixture-checks.json'))).toBe(false);
   });
 

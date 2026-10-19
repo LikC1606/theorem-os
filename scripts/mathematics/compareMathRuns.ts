@@ -4,6 +4,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseFlags, required } from './arguments';
 import { bootstrapImo2026Problem, IMO2026_SUPPORTED_PROBLEMS, IMO2026_SOURCE_COMMIT } from '../../src/math/imo2026Adapter';
+import { bootstrapPutnamBenchProblem, readPutnamBenchProblem, PUTNAM_BENCH_SOURCE_COMMIT,
+  PUTNAM_BENCH_REPOSITORY_URL } from '../../src/math/putnamBench';
+import { getLeanTaskEnvironment } from '../../src/math/leanTaskEnvironment';
 import { readMathBuildManifest } from '../../src/math/mathBuildManifest';
 import { mathDigest, canonicalMathJson, readMathText, writeMathJsonDurable } from '../../src/math/mathRuntimeIo';
 import { projectMathematicsRuntimeEnvironment, resolveMathematicsRuntimeEnvironment } from '../../src/math/mathRuntimeEnvironment';
@@ -11,19 +14,37 @@ import { readSolverProblem } from '../../src/solver/problem';
 import { readRunInspection } from '../../src/solver/inspection';
 import { runMathBatch } from './runMathBatch';
 import { configuredSolverModules, solverMethodDigest } from '../../src/solver/modules';
+import { moduleExperimentSchema, describeModuleExperiment, moduleExperimentPairs, type ModuleExperiment } from './moduleExperiment';
 import { proofReceiptsMatch, type ProofCheck } from '../../src/solver/modules/evidence';
 import type { SolverRunState } from '../../src/solver/archive';
 import { buildTokenBudget, reportedTotalTokens } from '../../src/solver/usageBudget';
+import { DEEPSEEK_PROVIDER, deepSeekProfileDigest, expectedDeepSeekProfileDigest, prepareDeepSeekProfile,
+  validateDeepSeekModel } from '../../src/runtime/deepseek';
+import { WESTLAKE_PROVIDER, westlakeProfileDigest, expectedWestlakeProfileDigest, prepareWestlakeProfile,
+  validateWestlakeModel } from '../../src/runtime/westlake';
+
+const providerProfiles = {
+  deepseek: { metadata: DEEPSEEK_PROVIDER, validate: validateDeepSeekModel, prepare: prepareDeepSeekProfile,
+    digest: deepSeekProfileDigest, expectedDigest: expectedDeepSeekProfileDigest },
+  westlake: { metadata: WESTLAKE_PROVIDER, validate: validateWestlakeModel, prepare: prepareWestlakeProfile,
+    digest: westlakeProfileDigest, expectedDigest: expectedWestlakeProfileDigest },
+};
+type PreparedProvider = keyof typeof providerProfiles;
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const arms = ['single', 'independent', 'cooperative'] as const;
-type Arm = typeof arms[number];
-type Job = { arm: Arm; repetition: number; launch: string; launchDigest: string; output: string; receiptDigest: string; methodDigest: string };
+type Job = { arm: string; repetition: number; launch: string; launchDigest: string; output: string;
+  receiptDigest: string; methodDigest: string; modulePlan?: string; modulePlanDigest?: string;
+  codexProfile?: string; codexProfileDigest?: string };
 type Plan = {
   schema: 'deepscientist.math.comparison.v1'; problem: string; sourceCommit: string;
+  dataset?: 'imo2026' | 'putnambench';
+  sourceProblem?: { repositoryUrl: string; sourceRelativePath: string; sourceSha256: string;
+    toolchain: string; mathlibRevision: string; environmentDigest: string };
   taskDigest: string; buildDigest: string; environmentDigest: string;
-  configuration: { model: string; effort: string; method: string; scheduler: string; workers: number;
-    maxTurns: number; maxRunSeconds: number; maxTurnSeconds: number; maxTotalTokens?: number };
+  configuration: { model: string; effort: string; method: string; scheduler: string; workers: number; repetitions?: number;
+    maxTurns: number; maxRunSeconds: number; maxTurnSeconds: number; maxTotalTokens?: number; provider?: PreparedProvider };
+  moduleExperiment?: ModuleExperiment;
   jobs: Job[];
 };
 const json = (file: string) => JSON.parse(readMathText(file));
@@ -31,14 +52,14 @@ const writeNew = (file: string, value: unknown) => fs.writeFileSync(file, JSON.s
 const environmentDigest = () => mathDigest(canonicalMathJson(projectMathematicsRuntimeEnvironment(resolveMathematicsRuntimeEnvironment())));
 
 /** Rotate arm order between repetitions; repetition labels are not provider sampling seeds. */
-export function comparisonOrder(repetitions: number): { arm: Arm; repetition: number }[] {
-  return Array.from({ length: repetitions }, (_, index) => arms.map((_, offset) => ({
-    arm: arms[(index + offset) % arms.length], repetition: index + 1 }))).flat();
+export function comparisonOrder(repetitions: number, names: readonly string[] = arms): { arm: string; repetition: number }[] {
+  return Array.from({ length: repetitions }, (_, index) => names.map((_, offset) => ({
+    arm: names[(index + offset) % names.length], repetition: index + 1 }))).flat();
 }
 
 /** Preserve every planned attempt, including missing results and unavailable token counters. */
-export function comparisonTotals(rows: { arm: Arm; accepted: boolean; totalTokens: number | null }[]) {
-  return arms.map(arm => {
+export function comparisonTotals(rows: { arm: string; accepted: boolean; totalTokens: number | null }[], names: readonly string[] = arms) {
+  return names.map(arm => {
     const runs = rows.filter(row => row.arm === arm);
     return { arm, planned: runs.length, accepted: runs.filter(row => row.accepted).length,
       acceptanceRate: runs.length ? runs.filter(row => row.accepted).length / runs.length : null,
@@ -47,7 +68,61 @@ export function comparisonTotals(rows: { arm: Arm; accepted: boolean; totalToken
   });
 }
 
+function experimentDefinitions(plan: Plan) {
+  if (!plan.moduleExperiment) return;
+  const experiment = moduleExperimentSchema.parse(plan.moduleExperiment);
+  if (plan.configuration.method !== 'direct' || plan.configuration.scheduler !== 'plan' ||
+      ![3, 4].includes(plan.configuration.workers)) throw new Error('comparison_module_configuration_mismatch');
+  const variants = describeModuleExperiment(experiment, plan.configuration.workers);
+  const repetitions = plan.configuration.repetitions;
+  if (!Number.isSafeInteger(repetitions) || repetitions < 1) throw new Error('comparison_module_repetitions_missing');
+  const expected = comparisonOrder(repetitions, variants.map(variant => variant.id));
+  if (plan.jobs.length !== expected.length || plan.jobs.some((job, index) =>
+    job.arm !== expected[index].arm || job.repetition !== expected[index].repetition ||
+    job.methodDigest !== variants.find(variant => variant.id === job.arm)?.methodDigest || !job.modulePlan || !job.modulePlanDigest))
+    throw new Error('comparison_module_plan_identity_mismatch');
+  return { experiment, variants };
+}
+
+function assertProviderProfiles(plan: Plan, checkFiles: boolean): void {
+  if (!plan.configuration.provider) return;
+  const provider = Object.hasOwn(providerProfiles, plan.configuration.provider) ? providerProfiles[plan.configuration.provider] : undefined;
+  if (!provider) throw new Error('comparison_provider_invalid');
+  for (const job of plan.jobs) {
+    if (!job.codexProfile || !job.codexProfileDigest || job.codexProfile !== path.join(path.dirname(job.launch), 'codex') ||
+        job.codexProfileDigest !== provider.expectedDigest(job.codexProfile, plan.configuration.model, plan.configuration.effort))
+      throw new Error('comparison_provider_profile_identity_mismatch');
+    if (checkFiles && provider.digest(job.codexProfile) !== job.codexProfileDigest)
+      throw new Error('comparison_provider_profile_changed');
+  }
+}
+
+function assertDataset(plan: Plan): void {
+  if (plan.dataset === undefined) {
+    if (plan.sourceProblem || plan.sourceCommit === PUTNAM_BENCH_SOURCE_COMMIT || /^putnam_/u.test(plan.problem))
+      throw new Error('comparison_dataset_invalid');
+    return;
+  }
+  if (plan.dataset === 'imo2026') {
+    if (!IMO2026_SUPPORTED_PROBLEMS.includes(plan.problem as typeof IMO2026_SUPPORTED_PROBLEMS[number]) ||
+        plan.sourceCommit !== IMO2026_SOURCE_COMMIT || plan.sourceProblem !== undefined)
+      throw new Error('comparison_imo_source_identity_mismatch');
+    return;
+  }
+  if (plan.dataset !== 'putnambench') throw new Error('comparison_dataset_invalid');
+  const source = plan.sourceProblem, environment = getLeanTaskEnvironment('mathlib');
+  if (!/^putnam_[0-9]{4}_[ab][1-6]$/u.test(plan.problem) || plan.sourceCommit !== PUTNAM_BENCH_SOURCE_COMMIT ||
+      source?.repositoryUrl !== PUTNAM_BENCH_REPOSITORY_URL ||
+      source.sourceRelativePath !== `lean4/src/${plan.problem}.lean` || !/^[a-f0-9]{64}$/u.test(source.sourceSha256) ||
+      source.toolchain !== environment.toolchain || source.mathlibRevision !== environment.mathlibRevision ||
+      source.environmentDigest !== environment.dependencyDigest)
+    throw new Error('comparison_putnam_source_identity_mismatch');
+}
+
 export function comparisonReport(directory: string, plan: Plan) {
+  assertDataset(plan);
+  const { experiment, variants } = experimentDefinitions(plan) ?? {};
+  assertProviderProfiles(plan, false);
   const batchFile = path.join(directory, 'batch.json');
   const batch = fs.existsSync(batchFile) ? json(batchFile) : undefined;
   const rows = plan.jobs.map(job => {
@@ -63,14 +138,22 @@ export function comparisonReport(directory: string, plan: Plan) {
     const numeric = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
     const tokens = reportedTotalTokens;
     try {
+      if (plan.configuration.provider && providerProfiles[plan.configuration.provider].digest(job.codexProfile!) !== job.codexProfileDigest)
+        throw new Error('comparison_provider_profile_changed');
       const { state, result } = readRunInspection(job.output);
-      const expectedWorkers = job.arm === 'single' ? 1 : plan.configuration.workers;
+      if (plan.dataset === 'putnambench' && (state.problem.kind !== 'lean-task' ||
+          mathDigest(state.problem.contract.formalStatement) !== plan.sourceProblem!.sourceSha256))
+        throw new Error('comparison_putnam_source_identity_mismatch');
+      if (plan.configuration.provider && (state.providerProfile !== fs.realpathSync(job.codexProfile!) ||
+          state.providerProfileDigest !== job.codexProfileDigest)) throw new Error('comparison_provider_identity_mismatch');
+      const expectedWorkers = !experiment && job.arm === 'single' ? 1 : plan.configuration.workers;
+      const coordination = experiment || job.arm === 'cooperative' ? 'cooperative' : 'independent';
       if (state.problem.receiptDigest !== job.receiptDigest || state.taskDigest !== plan.taskDigest ||
           state.buildDigest !== plan.buildDigest || state.environmentDigest !== plan.environmentDigest || state.methodDigest !== job.methodDigest ||
           state.evaluatorDigest !== mathDigest('host-default') ||
           state.model !== plan.configuration.model || state.effort !== plan.configuration.effort ||
           (state.workerCount ?? 1) !== expectedWorkers ||
-          (state.coordination ?? 'cooperative') !== (job.arm === 'cooperative' ? 'cooperative' : 'independent'))
+          (state.coordination ?? 'cooperative') !== coordination)
         throw new Error('comparison_run_identity_mismatch');
       const maxTotalTokens = plan.configuration.maxTotalTokens ?? 0;
       if ((state.tokenBudget?.maxTotalTokens ?? 0) !== maxTotalTokens)
@@ -80,10 +163,14 @@ export function comparisonReport(directory: string, plan: Plan) {
       if (numeric(state.solveStartedAt) && numeric(state.solveFinishedAt) && state.solveFinishedAt >= state.solveStartedAt)
         solveWallMs = state.solveFinishedAt - state.solveStartedAt;
       const workers = state.workers ?? [{ id: 'solver', ...state }];
-      missingUsageWorkers = workers.filter(worker =>
-        (worker.turns > 0 || ('error' in worker && worker.error)) && tokens(worker.usage) === null).map(worker => worker.id);
+      missingUsageWorkers = workers.filter(worker => {
+        const requests = worker.requestUsageAccounting;
+        const attempted = requests ? requests.startedRequests > 0 || requests.incomplete
+          : worker.turns > 0 || Boolean(worker.error);
+        return attempted && tokens(worker.usage) === null;
+      }).map(worker => worker.id);
       // Legacy plans have no budget/accounting record; retain their all-role counter checks.
-      tokenBudget = state.tokenBudget ? buildTokenBudget(maxTotalTokens, workers) : null;
+      tokenBudget = state.tokenBudget ? buildTokenBudget(maxTotalTokens, workers, state.tokenBudget.enforcement) : null;
       usageComplete = workers.length === expectedWorkers && missingUsageWorkers.length === 0 &&
         (tokenBudget ? tokenBudget.usageComplete : tokens(usage) !== null);
       workerErrors = (state.workers ?? []).flatMap(worker => worker.error ? [{ id: worker.id, error: worker.error }] : []);
@@ -113,27 +200,38 @@ export function comparisonReport(directory: string, plan: Plan) {
     return { arm: job.arm, repetition: job.repetition, status, accepted, turns, dispatches: turns, dispatchCounts, solveWallMs,
       totalTokens, usageComplete, overrunTokens, tokenBudget, missingUsageWorkers, usage, workerErrors, error,
       wallMs: Number.isFinite(elapsed) && elapsed >= 0 ? elapsed : null,
+      batchStatus: execution?.status ?? null, signal: execution?.signal ?? null, batchError: execution?.error ?? null,
       exitCode: execution?.exitCode ?? null, result: job.output, log: execution?.log };
   });
+  const enforcements = new Set(rows.map(row => row.tokenBudget?.enforcement ?? 'unknown'));
   return { schema: 'deepscientist.math.comparison-report.v1', evidence: 'recorded-not-replayed',
     problem: plan.problem, configuration: plan.configuration, official: false,
+    ...(plan.dataset ? { dataset: plan.dataset, sourceProblem: plan.sourceProblem } : {}),
+    comparisonKind: experiment ? 'module-plan' : 'coordination',
+    ...(plan.configuration.provider ? { provider: providerProfiles[plan.configuration.provider].metadata } : {}),
+    sourceCommit: plan.sourceCommit, taskDigest: plan.taskDigest, buildDigest: plan.buildDigest, environmentDigest: plan.environmentDigest,
+    ...(experiment ? { moduleExperiment: { baseline: experiment.baseline, variants },
+      pairedComparisons: moduleExperimentPairs(experiment, rows) } : {}),
     tokenAccounting: 'provider-reported-all-roles',
-    tokenBudgetEnforcement: 'provider-observed-dispatch-limit',
-    budgetNote: 'A shared token allowance limits new dispatches after reported consumption. In-flight work may exceed it; missing usage prevents complete token or cost comparisons.',
-    totals: comparisonTotals(rows), runs: rows };
+    tokenBudgetEnforcement: enforcements.size === 1 ? [...enforcements][0] : 'mixed',
+    budgetNote: 'Each run records whether the shared allowance gates dispatches or upstream requests. In-flight work may exceed it; missing usage prevents complete token or cost comparisons.',
+    totals: comparisonTotals(rows, variants?.map(variant => variant.id)), runs: rows };
 }
 
 export async function compareMathRuns(argv: string[]): Promise<number> {
   const flags = parseFlags(argv, ['phase', 'directory', 'repo', 'problem', 'task-file', 'build-manifest',
     'repetitions', 'model', 'effort', 'method', 'scheduler', 'workers', 'max-turns', 'max-run-seconds', 'max-turn-seconds',
-    'max-total-tokens', 'proof-environment-cache-dir']);
+    'max-total-tokens', 'proof-environment-cache-dir', 'module-experiment', 'provider', 'dataset']);
   if (flags.has('help')) {
     console.log('Usage: theorem-os compare --phase prepare|run|report --directory DIR\n'
-      + 'prepare also requires --repo PINNED_IMO_REPO --problem ID --task-file FILE --build-manifest FILE\n'
+      + 'prepare also requires --repo PINNED_REPO --problem ID --task-file FILE --build-manifest FILE\n'
+      + '--dataset imo2026|putnambench selects the pinned public source (default: imo2026).\n'
       + 'Optional: --repetitions 1 --workers 4 --model gpt-6.1-sol --effort xhigh --method direct --scheduler plan|goals-first|critical-path|continuation|primary-led\n'
       + '          --max-turns 200 --max-run-seconds 1800 --max-turn-seconds 180 --max-total-tokens 0\n'
       + '          --proof-environment-cache-dir HOST_PRIVATE_DIR\n'
-      + 'prepare never invokes a model. run executes all three arms sequentially. Every arm receives the same token allowance.\n'
+      + '          --module-experiment FILE (compare module plans with 3 or 4 cooperative workers instead of coordination arms)\n'
+      + '          --provider profile|deepseek|westlake (private per-attempt profiles; deepseek-v4-pro/high or Westlake deepseek-flash/high)\n'
+      + 'prepare never invokes a model. run executes every planned attempt sequentially. Every arm receives the same token allowance.\n'
       + 'Use 0 to disable a limit; at least max-turns, max-run-seconds or max-total-tokens must be positive.\n'
       + '--max-turns caps dispatches. Token caps use provider reports, allow in-flight overrun, and do not guarantee equal cost.');
     return 0;
@@ -142,6 +240,12 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
   if (!['prepare', 'run', 'report'].includes(phase)) throw new Error('invalid --phase');
   const directory = path.resolve(required(flags, 'directory'));
   const planFile = path.join(directory, 'comparison.json');
+  if (phase !== 'prepare' && flags.has('module-experiment'))
+    throw new Error('--module-experiment is frozen during prepare; run and report use comparison.json');
+  if (phase !== 'prepare' && flags.has('provider'))
+    throw new Error('--provider is frozen during prepare; run and report use comparison.json');
+  if (phase !== 'prepare' && flags.has('dataset'))
+    throw new Error('--dataset is frozen during prepare; run and report use comparison.json');
   if (phase === 'prepare') {
     const number = (key: string, fallback: number, allowZero = false) => {
       const value = Number(flags.get(key) ?? fallback);
@@ -152,14 +256,32 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
     if (workers < 2 || workers > 4) throw new Error('--workers must be 2, 3 or 4');
     const method = flags.get('method') ?? 'direct', scheduler = flags.get('scheduler') ?? 'plan';
     if (!['direct', 'lemma'].includes(method) || !['plan', 'goals-first', 'critical-path', 'continuation', 'primary-led'].includes(scheduler)) throw new Error('invalid method or scheduler');
-    const configuration = { model: flags.get('model') ?? 'gpt-6.1-sol', effort: flags.get('effort') ?? 'xhigh', method, scheduler,
-      workers, maxTurns: number('max-turns', 200, true), maxRunSeconds: number('max-run-seconds', 1800, true),
+    const experiment = flags.has('module-experiment')
+      ? moduleExperimentSchema.parse(json(required(flags, 'module-experiment'))) : undefined;
+    if (experiment && (method !== 'direct' || scheduler !== 'plan' || workers < 3))
+      throw new Error('module experiments require --method direct, --scheduler plan and 3 or 4 cooperative workers');
+    const variants = experiment ? describeModuleExperiment(experiment, workers) : undefined;
+    const provider = flags.get('provider') ?? 'profile';
+    if (provider !== 'profile' && !Object.hasOwn(providerProfiles, provider)) throw new Error('invalid --provider');
+    const preparedProvider = provider === 'profile' ? undefined : provider as PreparedProvider;
+    const profileApi = preparedProvider ? providerProfiles[preparedProvider] : undefined;
+    const model = flags.get('model') ?? profileApi?.metadata.defaultModel ?? 'gpt-6.1-sol';
+    const effort = flags.get('effort') ?? profileApi?.metadata.defaultEffort ?? 'xhigh';
+    profileApi?.validate(model, effort);
+    const configuration: Plan['configuration'] = { model, effort, method, scheduler,
+      ...(preparedProvider ? { provider: preparedProvider } : {}),
+      workers, repetitions, maxTurns: number('max-turns', 200, true), maxRunSeconds: number('max-run-seconds', 1800, true),
       maxTurnSeconds: number('max-turn-seconds', 180, true), maxTotalTokens: number('max-total-tokens', 0, true) };
     if (!configuration.maxTurns && !configuration.maxRunSeconds && !configuration.maxTotalTokens)
       throw new Error('comparison requires a positive --max-turns, --max-run-seconds or --max-total-tokens');
     const repositoryRoot = fs.realpathSync(required(flags, 'repo'));
     const problem = required(flags, 'problem');
-    if (!IMO2026_SUPPORTED_PROBLEMS.includes(problem as typeof IMO2026_SUPPORTED_PROBLEMS[number])) throw new Error('unsupported IMO problem');
+    const dataset = flags.get('dataset') ?? 'imo2026';
+    if (dataset !== 'imo2026' && dataset !== 'putnambench') throw new Error('invalid --dataset');
+    const putnam = dataset === 'putnambench' ? readPutnamBenchProblem(repositoryRoot, problem) : undefined;
+    if (!putnam && !IMO2026_SUPPORTED_PROBLEMS.includes(problem as typeof IMO2026_SUPPORTED_PROBLEMS[number]))
+      throw new Error('unsupported IMO problem');
+    const putnamEnvironment = putnam ? getLeanTaskEnvironment('mathlib') : undefined;
     const build = fs.realpathSync(required(flags, 'build-manifest'));
     const proofCache = flags.has('proof-environment-cache-dir') ? path.resolve(required(flags, 'proof-environment-cache-dir')) : undefined;
     readMathBuildManifest(build, root, path.join(root, 'out/main'));
@@ -172,25 +294,41 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
     fs.mkdirSync(directory, { mode: 0o700 });
     const taskFile = path.join(directory, 'task.md');
     fs.writeFileSync(taskFile, task, { flag: 'wx', mode: 0o400 });
-    const plan: Plan = { schema: 'deepscientist.math.comparison.v1', problem, sourceCommit: IMO2026_SOURCE_COMMIT,
-      taskDigest: mathDigest(task), buildDigest: mathDigest(fs.readFileSync(build)), environmentDigest: environmentDigest(), configuration, jobs: [] };
-    for (const item of comparisonOrder(repetitions)) {
+    const plan: Plan = { schema: 'deepscientist.math.comparison.v1', problem, dataset,
+      sourceCommit: putnam ? PUTNAM_BENCH_SOURCE_COMMIT : IMO2026_SOURCE_COMMIT,
+      ...(putnam ? { sourceProblem: { repositoryUrl: PUTNAM_BENCH_REPOSITORY_URL,
+        sourceRelativePath: putnam.sourceRelativePath, sourceSha256: putnam.sourceSha256,
+        toolchain: putnamEnvironment!.toolchain, mathlibRevision: putnamEnvironment!.mathlibRevision!,
+        environmentDigest: putnamEnvironment!.dependencyDigest } } : {}),
+      taskDigest: mathDigest(task), buildDigest: mathDigest(fs.readFileSync(build)), environmentDigest: environmentDigest(), configuration,
+      ...(experiment ? { moduleExperiment: experiment } : {}), jobs: [] };
+    for (const item of comparisonOrder(repetitions, variants?.map(variant => variant.id))) {
       const jobRoot = path.join(directory, `${item.repetition}-${item.arm}`);
       fs.mkdirSync(jobRoot, { mode: 0o700 });
       const workspace = path.join(jobRoot, 'workspace'), output = path.join(jobRoot, 'result.json');
-      await bootstrapImo2026Problem({ repositoryRoot, problemId: problem as typeof IMO2026_SUPPORTED_PROBLEMS[number], workspaceRoot: workspace });
+      if (putnam) bootstrapPutnamBenchProblem({ repositoryRoot, problemId: problem, workspaceRoot: workspace });
+      else await bootstrapImo2026Problem({ repositoryRoot, problemId: problem as typeof IMO2026_SUPPORTED_PROBLEMS[number], workspaceRoot: workspace });
       const receipt = readSolverProblem(workspace, path.join(workspace, 'active-problem.json'));
+      const variant = variants?.find(variant => variant.id === item.arm);
+      const modulePlan = variant ? path.join(jobRoot, 'module-plan.json') : undefined;
+      if (modulePlan) { writeNew(modulePlan, variant!.plan); fs.chmodSync(modulePlan, 0o400); }
+      const codexProfile = profileApi ? path.join(jobRoot, 'codex') : undefined;
+      const codexProfileDigest = codexProfile ? profileApi!.prepare(codexProfile, model, effort) : undefined;
+      const coordination = experiment || item.arm === 'cooperative' ? 'cooperative' : 'independent';
       const launch = path.join(jobRoot, 'launch.json');
-      writeNew(launch, { cwd: root, ...(process.env.DEEPSCIENTIST_MATH_ENV_FILE ? { envFile: path.resolve(process.env.DEEPSCIENTIST_MATH_ENV_FILE) } : {}),
+      writeNew(launch, { cwd: root, ...(codexProfile ? { codexHome: codexProfile } : {}),
+        ...(process.env.DEEPSCIENTIST_MATH_ENV_FILE ? { envFile: path.resolve(process.env.DEEPSCIENTIST_MATH_ENV_FILE) } : {}),
         args: [process.execPath, path.join(root, 'bin/math.ts'), 'run', '--workspace', workspace, '--task-file', taskFile,
           '--output', output, '--build-manifest', build, '--model', configuration.model, '--effort', configuration.effort,
-          '--method', method, '--scheduler', scheduler, '--workers', String(item.arm === 'single' ? 1 : workers),
-          '--coordination', item.arm === 'cooperative' ? 'cooperative' : 'independent',
+          '--method', method, '--scheduler', scheduler, '--workers', String(!experiment && item.arm === 'single' ? 1 : workers),
+          '--coordination', coordination, ...(modulePlan ? ['--module-plan', modulePlan] : []),
           '--max-turns', String(configuration.maxTurns), '--max-run-seconds', String(configuration.maxRunSeconds),
           '--max-turn-seconds', String(configuration.maxTurnSeconds), '--max-total-tokens', String(configuration.maxTotalTokens),
           ...(proofCache ? ['--proof-environment-cache-dir', proofCache] : [])] });
       plan.jobs.push({ ...item, launch, launchDigest: mathDigest(fs.readFileSync(launch)), output, receiptDigest: receipt.receiptDigest,
-        methodDigest: solverMethodDigest(configuredSolverModules(method, scheduler), item.arm === 'cooperative' ? 'cooperative' : 'independent') });
+        methodDigest: variant?.methodDigest ?? solverMethodDigest(configuredSolverModules(method, scheduler), coordination),
+        ...(modulePlan ? { modulePlan, modulePlanDigest: mathDigest(fs.readFileSync(modulePlan)) } : {}),
+        ...(codexProfile ? { codexProfile, codexProfileDigest } : {}) });
     }
     writeNew(planFile, plan);
     console.log(JSON.stringify({ planFile, jobs: plan.jobs.length, status: 'prepared', invokesModel: false }));
@@ -199,11 +337,25 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
   const plan = json(planFile) as Plan;
   if (plan.schema !== 'deepscientist.math.comparison.v1' || !Array.isArray(plan.jobs) || !plan.jobs.length)
     throw new Error('invalid comparison plan');
+  assertDataset(plan);
+  experimentDefinitions(plan);
   let code = 0;
   if (phase === 'run') {
+    assertProviderProfiles(plan, true);
     if (environmentDigest() !== plan.environmentDigest) throw new Error('comparison_environment_changed');
     if (mathDigest(readMathText(path.join(directory, 'task.md'))) !== plan.taskDigest) throw new Error('comparison_task_changed');
-    for (const job of plan.jobs) if (mathDigest(fs.readFileSync(job.launch)) !== job.launchDigest) throw new Error('comparison_launch_changed');
+    for (const job of plan.jobs) {
+      if (mathDigest(fs.readFileSync(job.launch)) !== job.launchDigest) throw new Error('comparison_launch_changed');
+      if (job.modulePlan && mathDigest(fs.readFileSync(job.modulePlan)) !== job.modulePlanDigest)
+        throw new Error('comparison_module_plan_changed');
+      if (plan.dataset === 'putnambench') {
+        const workspace = path.join(path.dirname(job.launch), 'workspace');
+        const receipt = readSolverProblem(workspace, path.join(workspace, 'active-problem.json'));
+        if (receipt.receiptDigest !== job.receiptDigest || receipt.kind !== 'lean-task' ||
+            mathDigest(receipt.contract.formalStatement) !== plan.sourceProblem!.sourceSha256)
+          throw new Error('comparison_putnam_source_identity_mismatch');
+      }
+    }
     code = await runMathBatch([...plan.jobs.flatMap(job => ['--launch', job.launch]), '--concurrency', '1', '--output', path.join(directory, 'batch.json')]);
   }
   const reportFile = path.join(directory, 'report.json');

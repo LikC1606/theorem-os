@@ -17,12 +17,16 @@ import { solverSourceFeedback } from './feedback';
 import { assertMathRetrievalCorpus, createMathRetrievalCorpus, type MathRetrievalCorpus } from '../math/mathRetrievalCorpus';
 import { readSolverRunState, writeSolverRunState, type SolverRunState } from './archive';
 import { directSolverModules, configuredSolverModules, solverModuleConfiguration, solverMethodDigest, type SolverModules } from './modules';
+import { configurableSolverModules } from './modules/custom';
+import { researchModulePlanSchema, type ResearchModulePlan } from './modules/policy';
 import { researchWorkers } from './modules/organization';
 import { runResearchWorkers, type WorkerAccess } from './research';
 import { evaluateSolverProof } from './evaluation';
 import { solverProofIsCurrent } from './modules/evidence';
 import { checkCodexProviderConnectivity } from '../runtime/codexConnectivity';
 import { buildTokenBudget } from './usageBudget';
+import { selectedDeepSeekProfile } from '../runtime/deepseek';
+import { selectedWestlakeProfile } from '../runtime/westlake';
 
 export async function runSolver(args: string[], root: string, customModules?: SolverModules): Promise<number> {
   const { values } = parseArgs({ args, options: {
@@ -35,17 +39,22 @@ export async function runSolver(args: string[], root: string, customModules?: So
     'evaluator-command': { type: 'string' }, 'evaluator-timeout-seconds': { type: 'string', default: '1800' },
     'proof-environment-cache-dir': { type: 'string' }, 'startup-only': { type: 'boolean' }, help: { type: 'boolean' },
     method: { type: 'string', default: 'direct' }, workers: { type: 'string', default: '4' },
+    'module-plan': { type: 'string' },
     scheduler: { type: 'string', default: 'plan' }, coordination: { type: 'string', default: 'cooperative' },
   } });
   if (values.help) {
-    console.log('Usage: theorem-os run --workspace DIR --task-file FILE --output FILE --build-manifest FILE [--receipt-file FILE] [--resume] [--method direct|lemma] [--scheduler plan|goals-first|critical-path|continuation|primary-led] [--coordination cooperative|independent] [--workers 1|2|3|4] [--model MODEL --effort LEVEL] [--max-run-seconds N --max-turns N --max-turn-seconds N] [--max-total-tokens N] [--prepare-timeout-seconds N] [--evaluator-command CMD --evaluator-timeout-seconds N] [--proof-environment-cache-dir DIR] [--startup-only]\nUse 0 for --max-run-seconds, --max-turns, --max-turn-seconds or --evaluator-timeout-seconds to disable that limit. Unlimited total solving time also disables proof verification deadlines.\n--max-total-tokens defaults to 0 (unlimited). A finite value stops new model turns after provider-reported consumption reaches it; in-flight turns finish and may exceed it. Resume retains cumulative usage and the saved allowance unless explicitly changed.');
+    console.log('Usage: theorem-os run --workspace DIR --task-file FILE --output FILE --build-manifest FILE [--receipt-file FILE] [--resume] [--method direct|lemma] [--scheduler plan|goals-first|critical-path|continuation|primary-led] [--module-plan FILE] [--coordination cooperative|independent] [--workers 1|2|3|4] [--model MODEL --effort LEVEL] [--max-run-seconds N --max-turns N --max-turn-seconds N] [--max-total-tokens N] [--prepare-timeout-seconds N] [--evaluator-command CMD --evaluator-timeout-seconds N] [--proof-environment-cache-dir DIR] [--startup-only]\n--module-plan loads the shared research-module plan JSON; use --method direct and --scheduler plan.\nUse 0 for --max-run-seconds, --max-turns, --max-turn-seconds or --evaluator-timeout-seconds to disable that limit. Unlimited total solving time also disables proof verification deadlines.\n--max-total-tokens defaults to 0 (unlimited). A finite value stops new model turns after provider-reported consumption reaches it; in-flight turns finish and may exceed it. Resume retains cumulative usage and the saved allowance unless explicitly changed.');
     return 0;
   }
   const configured = configuredSolverModules(values.method!, values.scheduler!);
   if (customModules && values.scheduler !== 'plan') throw new Error('custom modules cannot combine with --scheduler');
-  const modules = customModules ?? configured;
   if (!['cooperative', 'independent'].includes(values.coordination!)) throw new Error('invalid --coordination');
   const coordination = values.coordination as 'cooperative' | 'independent';
+  if (values['module-plan'] && (customModules || values.method !== 'direct' || values.scheduler !== 'plan'))
+    throw new Error('--module-plan requires --method direct, --scheduler plan and no injected modules');
+  const modules = values['module-plan']
+    ? configurableSolverModules(researchModulePlanSchema.parse(readMathJson(values['module-plan'])) as ResearchModulePlan, coordination, Number(values.workers))
+    : customModules ?? configured;
   const required = (key: string): string => {
     const value = values[key];
     if (typeof value !== 'string' || !value.trim()) throw new Error(`--${key} is required`);
@@ -114,7 +123,12 @@ export async function runSolver(args: string[], root: string, customModules?: So
           throw new Error('math_corpus_identity_changed');
         env = { ...env, DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS_SHA256: digest };
       }
+      const profile = process.env.CODEX_HOME || path.join(os.homedir(), '.config/deepscientist/math-sol-codex');
+      const westlakeProfile = modules.M1.open === directSolverModules.M1.open ? selectedWestlakeProfile(profile) : undefined;
+      const providerProfile = modules.M1.open === directSolverModules.M1.open
+        ? selectedDeepSeekProfile(profile) ?? westlakeProfile : undefined;
       const identity = { taskDigest: mathDigest(task), buildDigest: mathDigest(fs.readFileSync(buildFile)),
+        providerProfile: providerProfile?.profile, providerProfileDigest: providerProfile?.digest,
         environmentDigest: mathDigest(canonicalMathJson(projectMathematicsRuntimeEnvironment(env))),
         evaluatorDigest: mathDigest(values['evaluator-command'] || 'host-default'), model: values.model!, effort: values.effort!,
         methodDigest: solverMethodDigest(modules, coordination) };
@@ -156,7 +170,8 @@ export async function runSolver(args: string[], root: string, customModules?: So
         ownsRun = true;
         state = { schema: 'deepscientist.math.solver.v1', runId: crypto.randomUUID(), problem, ...identity,
           worktree: path.join(directory, 'worktree'), phase: 'prepared', turns: 0, dispatchCounts: {}, workerCount,
-          coordination, moduleConfiguration, tokenBudget: buildTokenBudget(maxTotalTokens, []) };
+          coordination, moduleConfiguration, tokenBudget: buildTokenBudget(maxTotalTokens, [],
+            westlakeProfile ? 'provider-observed-upstream-request-limit' : undefined) };
         if (workerCount > 1) state.workers = workers
           .map(worker => ({ id: worker.id, role: worker.role, worktree: worker.worktree, phase: 'prepared', turns: 0, dispatchCounts: {} }));
         git(workspace, ['worktree', 'add', '--detach', state.worktree, problem.baseCommit]);
@@ -164,7 +179,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
       }
       ownsRun = true;
       ownedState = state;
-      state.tokenBudget = buildTokenBudget(maxTotalTokens, state.workers ?? [state]);
+      state.tokenBudget = buildTokenBudget(maxTotalTokens, state.workers ?? [state], state.tokenBudget?.enforcement);
       const save = () => writeSolverRunState(stateFile, state);
       for (const worker of workers.slice(1)) {
         signal.throwIfAborted();
@@ -195,8 +210,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
       if (!values.resume) sourceFeedback = solverSourceFeedback(state.problem, state.worktree);
       if (sourceFeedback) { state.check = undefined; save(); }
       const connectivity = modules.M1.open === directSolverModules.M1.open
-        ? await checkCodexProviderConnectivity({ env, signal,
-          profile: process.env.CODEX_HOME || path.join(os.homedir(), '.config/deepscientist/math-sol-codex') })
+        ? await checkCodexProviderConnectivity({ env, signal, profile })
         : { status: 'not-required', diagnostics: 'The custom execution component does not use the built-in Codex provider.' };
       writeMathJsonDurable(path.join(directory, 'provider-connectivity.json'), connectivity);
       if (connectivity.status !== 'reachable' && connectivity.status !== 'not-required') {
@@ -314,7 +328,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
       }
       const winner = await runResearchWorkers({ state, workers, access: workerAccess, modules, root, buildFile, taskText: task,
         executable: values.codex || process.env.DEEPSCIENTIST_MATH_CODEX_EXECUTABLE || 'codex',
-        profile: process.env.CODEX_HOME || path.join(os.homedir(), '.config/deepscientist/math-sol-codex'),
+        profile,
         signal, deadline, maxTurns, maxTurnMs, maxTotalTokens, proofTimeoutMs: maxRunMs === Infinity ? Infinity : undefined, save, emit });
       clearTimeout(timer);
       timer = undefined;

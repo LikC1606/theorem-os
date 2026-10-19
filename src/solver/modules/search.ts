@@ -247,7 +247,7 @@ export function researchFailureReason(error?: string): string {
   if (/^math_(?:model_(?:authentication_failed|concurrency_limit|request_failed|request_timeout|tool_failed|turn_failed)|codex_transport_closed)$/u.test(error ?? '')) return error!;
   // Host source, receipt and sandbox guards are never transient model failures.
   if (/^math_(?!(?:model_|codex_))/u.test(error ?? '')) return error!;
-  if (/authentication|unauthorized|forbidden|invalid.*api.?key|\b(?:401|403)\b/iu.test(error ?? '')) return 'math_model_authentication_failed';
+  if (/authentication|unauthorized|forbidden|invalid.*api.?key|math_model_api_key_(?:missing|environment_invalid)|\b(?:401|403)\b/iu.test(error ?? '')) return 'math_model_authentication_failed';
   if (/Concurrency limit exceeded|rate.?limit|\b429\b/iu.test(error ?? '')) return 'math_model_concurrency_limit';
   if (/^math_codex_transport_closed(?::|$)/u.test(error ?? '')) return 'math_codex_transport_closed';
   if (/math_codex_rpc_timeout|timed?\s*out|timeout/iu.test(error ?? '')) return 'math_model_request_timeout';

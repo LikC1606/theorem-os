@@ -10,11 +10,14 @@ import * as verifier from '../src/math/verifier';
 import { readSolverProblem, assertSolverSources, assertSolverProjectSources, commitSolverSources, git, withSolverWorktree, SolverSourceError, type SolverProblem } from '../src/solver/problem';
 import { checkSolverProof } from '../src/solver/modules/evidence';
 import { directSolverModules, lemmaSolverModules } from '../src/solver/modules';
+import { configurableSolverModules } from '../src/solver/modules/custom';
 import { runSolver } from '../src/solver/run';
 import { rememberSolverFailure, solverProofFeedback } from '../src/solver/feedback';
 import { createMathRetrievalCorpus } from '../src/math/mathRetrievalCorpus';
 import * as retrievalCorpus from '../src/math/mathRetrievalCorpus';
 import type { MathAgentOptions } from '../src/runtime/codexSession';
+import { prepareDeepSeekProfile } from '../src/runtime/deepseek';
+import { prepareWestlakeProfile } from '../src/runtime/westlake';
 import { checkLemmaResearch, readLemmaPlan } from '../src/solver/lemma';
 import { CooperativeResearch, readCooperationPlan, parseCooperationPlan, taskVersion, assignmentDeliveryFile, type CooperativeAction, type CooperativeTask, type RouteGroup } from '../src/solver/cooperation';
 import { canonicalMathJson } from '../src/math/mathRuntimeIo';
@@ -152,6 +155,51 @@ describe('isolated solver and host acceptance', () => {
     expect(JSON.parse(fs.readFileSync(output, 'utf8')).status).toBe('evaluated_passed');
   });
 
+  it('loads a CLI module plan, retains independent acceptance and rejects changed policies on resume', async () => {
+    const plan = { scheduler: 'plan' as const, context: 'essential' as const, custom: [] };
+    const file = path.join(directory, 'module-plan.json'); fs.writeFileSync(file, JSON.stringify(plan));
+    expect(await runSolver([...args, '--module-plan', file], directory)).toBe(0);
+    const state = JSON.parse(fs.readFileSync(output + '.runtime/state.json', 'utf8'));
+    const modules = configurableSolverModules(plan, 'cooperative', 1);
+    expect(state.moduleConfiguration.versions.M4).toBe(modules.M4.version);
+    expect(state.moduleConfiguration.versions.M2).toBe(directSolverModules.M2.version);
+    expect(host.verify.mock.calls.length).toBeGreaterThanOrEqual(2);
+    const completed = fs.readFileSync(output, 'utf8');
+    fs.writeFileSync(file, JSON.stringify({ ...plan, context: 'full' }));
+    expect(await runSolver([...args, '--module-plan', file, '--resume'], directory)).toBe(1);
+    expect(fs.readFileSync(output, 'utf8')).toBe(completed);
+  });
+
+  it.each([
+    ['DeepSeek', prepareDeepSeekProfile, 'deepseek-v4-pro', 'https://api.deepseek.com'],
+    ['Westlake', prepareWestlakeProfile, 'deepseek-flash', 'https://hpc-api.westlake.edu.cn/v1'],
+  ] as const)('binds %s provider configuration to saved runs and rejects profile changes on resume', async (name, prepare, model, endpoint) => {
+    const profile = path.join(directory, name.toLowerCase());
+    const digest = prepare(profile, model, 'high');
+    vi.stubEnv('CODEX_HOME', profile);
+    const providerArgs = [...args, '--model', model, '--effort', 'high'];
+    expect(await runSolver(providerArgs, directory)).toBe(0);
+    const state = JSON.parse(fs.readFileSync(output + '.runtime/state.json', 'utf8'));
+    expect(state).toMatchObject({ providerProfile: profile, providerProfileDigest: digest });
+    expect(host.createSession.mock.calls[0][0]).toMatchObject({ profile, model, effort: 'high' });
+    expect(await runSolver([...providerArgs, '--resume'], directory)).toBe(0);
+    const completed = fs.readFileSync(output, 'utf8');
+    const calls = host.createSession.mock.calls.length;
+    const replacement = path.join(directory, 'other-profile');
+    prepare(replacement, model, 'high');
+    vi.stubEnv('CODEX_HOME', replacement);
+    expect(await runSolver([...providerArgs, '--resume'], directory)).toBe(1);
+    expect(fs.readFileSync(output, 'utf8')).toBe(completed);
+    expect(host.createSession).toHaveBeenCalledTimes(calls);
+    vi.stubEnv('CODEX_HOME', profile);
+    const config = path.join(profile, 'config.toml');
+    fs.chmodSync(config, 0o600);
+    fs.writeFileSync(config, fs.readFileSync(config, 'utf8').replace(endpoint, 'https://changed-provider.invalid'));
+    expect(await runSolver([...providerArgs, '--resume'], directory)).toBe(1);
+    expect(fs.readFileSync(output, 'utf8')).toBe(completed);
+    expect(host.createSession).toHaveBeenCalledTimes(calls);
+  });
+
   it('runs independent peers without planning or sharing and accounts for both sessions', async () => {
     let started = 0;
     let release!: () => void;
@@ -265,6 +313,176 @@ describe('isolated solver and host acceptance', () => {
     expect(host.officialGate).not.toHaveBeenCalled();
   });
 
+  it.each([false, true])('gates internal requests without losing complete usage or final proof checks (solved: %s)', async solved => {
+    const profile = path.join(directory, 'westlake-request-budget');
+    prepareWestlakeProfile(profile, 'deepseek-flash', 'high');
+    vi.stubEnv('CODEX_HOME', profile);
+    host.verify.mockImplementation(async request => solved ? verified(request) : { ...verified(request), status: 'failed',
+      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) });
+    const requests = vi.fn();
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'request-budget',
+      usageSource: 'upstream-requests', lastError: '403 math_total_token_limit', run: async () => {
+        for (const totalTokens of [60, 50]) {
+          const admission = options.requestGate!();
+          expect(admission.allowed).toBe(true);
+          if (admission.allowed) {
+            requests();
+            admission.settle({ usage: { inputTokens: totalTokens - 10, outputTokens: 10, totalTokens }, complete: true });
+          }
+        }
+        // A native cumulative notification may be delayed, duplicated, or include historical thread state.
+        options.onUsage({ totalTokens: 10_000 });
+        for (let retry = 0; retry < 3; retry++) expect(options.requestGate!()).toEqual({ allowed: false, reason: 'math_total_token_limit' });
+        if (solved) fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+        return 'failed';
+      }, close: vi.fn(), interrupt: vi.fn() }));
+    expect(await runSolver([...args, '--max-turns', '20', '--max-total-tokens', '100', '--model', 'deepseek-flash', '--effort', 'high'], directory)).toBe(solved ? 0 : 4);
+    const result = JSON.parse(fs.readFileSync(output, 'utf8'));
+    expect(result).toMatchObject({ status: solved ? 'evaluated_passed' : 'limit_reached', turns: 1,
+      usage: { totalTokens: 110, inputTokens: 90, outputTokens: 20 }, tokenBudget: {
+        enforcement: 'provider-observed-upstream-request-limit', status: 'exhausted', reportedTotalTokens: 110, usageComplete: true } });
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state.requestUsageAccounting).toEqual({ startedRequests: 2, reportedRequests: 2, pendingRequests: 0, incomplete: false });
+    expect(state.usageAccounting).toMatchObject({ startedTurns: 1, reportedTurns: 1, pending: false, incomplete: false });
+    expect(requests).toHaveBeenCalledTimes(2); expect(host.delay).not.toHaveBeenCalled();
+    expect(host.officialGate).toHaveBeenCalledTimes(Number(solved));
+  });
+
+  it('uses complete receipts from concurrent peers before allowing their next internal request', async () => {
+    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
+      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) }));
+    let started = 0, settled = 0;
+    let release!: () => void, finished!: () => void;
+    const running = new Promise<void>(resolve => { release = resolve; });
+    const consumed = new Promise<void>(resolve => { finished = resolve; });
+    const requests = vi.fn();
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.workspace,
+      usageSource: 'upstream-requests', run: async () => {
+        const admission = options.requestGate!(); expect(admission.allowed).toBe(true);
+        if (admission.allowed) {
+          requests(); if (++started === 2) release(); await running;
+          admission.settle({ usage: { totalTokens: 60, inputTokens: 50, outputTokens: 10 }, complete: true });
+          if (++settled === 2) finished(); await consumed;
+        }
+        expect(options.requestGate!()).toEqual({ allowed: false, reason: 'math_total_token_limit' });
+        return 'failed';
+      }, close: vi.fn(), interrupt: vi.fn() }));
+    expect(await runSolver([...args, '--workers', '2', '--coordination', 'independent', '--max-turns', '20', '--max-total-tokens', '100'], directory)).toBe(4);
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'limit_reached', reason: 'math_total_token_limit',
+      usage: { totalTokens: 120 }, tokenBudget: { status: 'exhausted', usageComplete: true, overrunTokens: 20 } });
+    expect(requests).toHaveBeenCalledTimes(2);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state.workers.every((worker: any) => worker.requestUsageAccounting.startedRequests === 1 && !worker.requestUsageAccounting.incomplete)).toBe(true);
+  });
+
+  it('blocks internal requests immediately after a missing receipt and retains known earlier usage', async () => {
+    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
+      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) }));
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'request-missing-usage',
+      usageSource: 'upstream-requests', run: async () => {
+        const first = options.requestGate!();
+        if (first.allowed) first.settle({ usage: { totalTokens: 40, inputTokens: 30, outputTokens: 10 }, complete: true });
+        const second = options.requestGate!();
+        if (second.allowed) second.settle({ complete: false });
+        expect(options.requestGate!()).toEqual({ allowed: false, reason: 'math_model_usage_unavailable' });
+        options.onUsage({ totalTokens: 40 });
+        return 'failed';
+      }, close: vi.fn(), interrupt: vi.fn() }));
+    expect(await runSolver([...args, '--max-turns', '20', '--max-total-tokens', '100'], directory)).toBe(4);
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'limit_reached', reason: 'math_model_usage_unavailable',
+      usage: { totalTokens: 40 }, tokenBudget: { status: 'usage-unavailable', reportedTotalTokens: 40, usageComplete: false } });
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state.requestUsageAccounting).toEqual({ startedRequests: 2, reportedRequests: 1, pendingRequests: 0, incomplete: true });
+    expect(host.delay).not.toHaveBeenCalled();
+  });
+
+  it('keeps a peer rejected before its first upstream request at known zero consumption', async () => {
+    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
+      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) }));
+    let entered = 0, bothEntered!: () => void, consumed!: () => void;
+    const running = new Promise<void>(resolve => { bothEntered = resolve; });
+    const exhausted = new Promise<void>(resolve => { consumed = resolve; });
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.workspace,
+      usageSource: 'upstream-requests', run: async () => {
+        if (++entered === 2) bothEntered(); await running;
+        if (options.environment?.DEEPSCIENTIST_MATH_WORKER_ID === 'solver') {
+          const admission = options.requestGate!();
+          expect(admission.allowed).toBe(true);
+          if (admission.allowed) admission.settle({ usage: { totalTokens: 120, inputTokens: 100, outputTokens: 20 }, complete: true });
+          consumed(); return 'completed';
+        }
+        await exhausted;
+        expect(options.requestGate!()).toEqual({ allowed: false, reason: 'math_total_token_limit' });
+        return 'failed';
+      }, close: vi.fn(), interrupt: vi.fn() }));
+    expect(await runSolver([...args, '--workers', '2', '--coordination', 'independent', '--max-turns', '20', '--max-total-tokens', '100'], directory)).toBe(4);
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'limit_reached', reason: 'math_total_token_limit',
+      usage: { totalTokens: 120 }, tokenBudget: { reportedTotalTokens: 120, usageComplete: true } });
+    const peer = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8')).workers[1];
+    expect(peer.turns).toBe(1); expect(peer.usage).toBeUndefined();
+    expect(peer.requestUsageAccounting).toEqual({ startedRequests: 0, reportedRequests: 0, pendingRequests: 0, incomplete: false });
+  });
+
+  it.each([false, true])('adds receipts after resuming a thread and preserves its historical label (legacy: %s)', async legacy => {
+    const profile = path.join(directory, 'request-resume-profile');
+    prepareWestlakeProfile(profile, 'deepseek-flash', 'high');
+    vi.stubEnv('CODEX_HOME', profile);
+    const requestArgs = [...args, '--model', 'deepseek-flash', '--effort', 'high'];
+    let turns = 0;
+    host.verify.mockImplementation(async request => turns < 2 ? { ...verified(request), status: 'failed',
+      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) } : verified(request));
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.threadId ?? 'request-resume',
+      usageSource: 'upstream-requests', run: async () => {
+        const admission = options.requestGate!();
+        expect(admission.allowed).toBe(true);
+        if (admission.allowed) admission.settle({ usage: { totalTokens: 40, inputTokens: 30, outputTokens: 10 }, complete: true });
+        options.onUsage({ totalTokens: 40 });
+        if (++turns === 2) fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+        return 'completed';
+      }, close: vi.fn(), interrupt: vi.fn() }));
+    expect(await runSolver([...requestArgs, '--max-total-tokens', '100'], directory)).toBe(4);
+    expect(JSON.parse(fs.readFileSync(output, 'utf8')).usage.totalTokens).toBe(40);
+    if (legacy) {
+      const stateFile = `${output}.runtime/state.json`, state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+      delete state.requestUsageAccounting;
+      state.tokenBudget.enforcement = 'provider-observed-dispatch-limit';
+      fs.writeFileSync(stateFile, JSON.stringify(state));
+    }
+    expect(await runSolver([...requestArgs, '--resume', '--max-turns', '2'], directory)).toBe(0);
+    expect(host.createSession.mock.calls[1][0].threadId).toBe('request-resume');
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ usage: { totalTokens: 80 },
+      tokenBudget: { maxTotalTokens: 100, usageComplete: true, reportedTotalTokens: 80,
+        enforcement: legacy ? 'provider-observed-dispatch-limit' : 'provider-observed-upstream-request-limit' } });
+    expect(JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8')).requestUsageAccounting)
+      .toEqual({ startedRequests: legacy ? 1 : 2, reportedRequests: legacy ? 1 : 2, pendingRequests: 0, incomplete: false });
+  });
+
+  it('keeps request consumption additive when context rotation creates a new thread', async () => {
+    let turns = 0;
+    host.verify.mockImplementation(async request => turns < 2 ? { ...verified(request), status: 'failed',
+      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) } : verified(request));
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => {
+      const first = host.createSession.mock.calls.length === 1;
+      if (!first) expect(options.threadId).toBeUndefined();
+      return { threadId: first ? 'request-large-context' : 'request-new-context',
+        usageSource: 'upstream-requests', lastInputTokens: first ? 100_000 : 1000, run: async () => {
+          const admission = options.requestGate!(); expect(admission.allowed).toBe(true);
+          if (admission.allowed) admission.settle({ usage: { totalTokens: 40, inputTokens: 30, outputTokens: 10 }, complete: true });
+          options.onUsage({ totalTokens: first ? 110_000 : 2000 });
+          if (++turns === 2) fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+          return 'completed';
+        }, close: vi.fn(), interrupt: vi.fn() };
+    });
+    expect(await runSolver([...args, '--max-turns', '2', '--max-total-tokens', '100'], directory)).toBe(0);
+    expect(host.createSession).toHaveBeenCalledTimes(2);
+    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
+    expect(state.previousThreadIds).toEqual(['request-large-context']);
+    expect(state.usage.totalTokens).toBe(80);
+    expect(state.usageBeforeThread.totalTokens).toBe(40);
+    expect(state.requestUsageAccounting).toEqual({ startedRequests: 2, reportedRequests: 2, pendingRequests: 0, incomplete: false });
+    expect(state.tokenBudget).toMatchObject({ reportedTotalTokens: 80, usageComplete: true, status: 'available' });
+  });
+
   it.each([false, true])('fails closed on unavailable completed usage with a finite allowance (partial: %s)', async partial => {
     host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
       results: verified(request).results.map(result => ({ ...result, status: 'failed' })) }));
@@ -307,6 +525,50 @@ describe('isolated solver and host acceptance', () => {
       startedTurns: 1, reportedTurns: 0, incomplete: true, pending: false });
     expect(host.delay).not.toHaveBeenCalled();
     expect(host.officialGate).not.toHaveBeenCalled();
+  });
+
+  it.each(['reported-first', 'missing-first'] as const)
+  ('preserves missing request usage inside a completed tool roundtrip (%s)', async order => {
+    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
+      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) }));
+    const runs = vi.fn();
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'mixed-request-usage',
+      run: async () => {
+        runs();
+        expect(options.onUsageIncomplete).toBeTypeOf('function');
+        if (order === 'missing-first') options.onUsageIncomplete!();
+        options.onUsage({ totalTokens: 40 });
+        if (order === 'reported-first') options.onUsageIncomplete!();
+        return 'completed';
+      }, close: vi.fn(), interrupt: vi.fn() }));
+    expect(await runSolver([...args, '--max-turns', '20', '--max-total-tokens', '100'], directory)).toBe(4);
+    expect(runs).toHaveBeenCalledOnce();
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({
+      status: 'limit_reached', reason: 'math_model_usage_unavailable', usage: { totalTokens: 40 },
+      tokenBudget: { status: 'usage-unavailable', usageComplete: false, reportedTotalTokens: 40 } });
+    expect(JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8')).usageAccounting).toMatchObject({
+      startedTurns: 1, reportedTurns: 0, incomplete: true, pending: false });
+    expect(host.officialGate).not.toHaveBeenCalled();
+  });
+
+  it('retains partial request usage across later completed turns with an unlimited allowance', async () => {
+    let turns = 0;
+    host.verify.mockImplementation(async request => turns < 2 ? { ...verified(request), status: 'failed',
+      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) } : verified(request));
+    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'mixed-request-unlimited',
+      run: async () => {
+        options.onUsage({ totalTokens: ++turns * 40 });
+        if (turns === 1) options.onUsageIncomplete!();
+        else fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'),
+          original.replaceAll('by sorry', 'by trivial'));
+        return 'completed';
+      }, close: vi.fn(), interrupt: vi.fn() }));
+    expect(await runSolver([...args, '--max-turns', '2', '--max-total-tokens', '0'], directory)).toBe(0);
+    expect(turns).toBe(2);
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'evaluated_passed', usage: { totalTokens: 80 },
+      tokenBudget: { status: 'unlimited', reportedTotalTokens: 80, usageComplete: false } });
+    expect(JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8')).usageAccounting).toMatchObject({
+      startedTurns: 2, reportedTurns: 1, incomplete: true, pending: false });
   });
 
   it('keeps partial usage visible while preserving unlimited retries after a transport failure', async () => {
@@ -5110,6 +5372,15 @@ describe('isolated solver and host acceptance', () => {
     expect(host.createSession).toHaveBeenCalledTimes(1);
     expect(host.delay).not.toHaveBeenCalled();
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'runtime_error', reason: 'math_model_authentication_failed' });
+  });
+
+  it('reports a missing provider key before model work and does not retry', async () => {
+    host.createSession.mockRejectedValueOnce(new Error('math_model_api_key_missing:DEEPSEEK_API_KEY'));
+    expect(await runSolver([...args, '--max-turns', '3'], directory)).toBe(1);
+    expect(host.createSession).toHaveBeenCalledOnce();
+    expect(host.delay).not.toHaveBeenCalled();
+    expect(host.verify).not.toHaveBeenCalled();
+    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'runtime_error', reason: 'math_model_api_key_missing:DEEPSEEK_API_KEY' });
   });
 
   it('stops interrupted turns without starting verification', async () => {

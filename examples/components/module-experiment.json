@@ -1,0 +1,39 @@
+{
+  "schema": "theorem-os.module-experiment.v1",
+  "baseline": "default",
+  "variants": [
+    {
+      "id": "default",
+      "label": "Default modules",
+      "plan": { "scheduler": "plan", "context": "full", "custom": [] }
+    },
+    {
+      "id": "essential-context",
+      "label": "M4: remove optional context",
+      "plan": { "scheduler": "plan", "context": "essential", "custom": [] }
+    },
+    {
+      "id": "critical-path",
+      "label": "M3 + M5: critical-path scheduling and shared assignment",
+      "plan": { "scheduler": "critical-path", "context": "full", "custom": [] }
+    },
+    {
+      "id": "construction-rule",
+      "label": "M1 prompt rule, injected through M4",
+      "plan": {
+        "scheduler": "plan",
+        "context": "full",
+        "custom": [
+          {
+            "id": "small-checked-steps",
+            "name": "Small checked steps",
+            "slot": "M1",
+            "mode": "append",
+            "enabled": true,
+            "instructions": "Split the current proof attempt into small Lean-checkable steps. Check uncertain intermediate statements before extending the proof. Reuse checked declarations when they match the frozen target."
+          }
+        ]
+      }
+    }
+  ]
+}

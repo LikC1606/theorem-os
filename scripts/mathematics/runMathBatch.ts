@@ -12,6 +12,7 @@ type BatchJob = {
   workspace: string;
   output: string;
   log: string;
+  codexHome?: string;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'skipped';
   pid?: number;
   startedAt?: string;
@@ -31,8 +32,8 @@ export async function runMathBatch(argv: string[]): Promise<number> {
   } });
   if (values.help) {
     console.log('Usage: theorem-os batch --launch FILE [--launch FILE ...] --output FILE [--concurrency 2]\n'
-      + 'Launch JSON: {"args":["bun","/path/to/math-solver.js","--workspace","...","--output","...",...],"cwd":"...","envFile":"..."}\n'
-      + 'cwd defaults to the launch file directory; envFile is optional. Workspaces must already be prepared.');
+      + 'Launch JSON: {"args":["bun","/path/to/math-solver.js","--workspace","...","--output","...",...],"cwd":"...","envFile":"...","codexHome":"..."}\n'
+      + 'cwd defaults to the launch file directory; envFile and codexHome are optional. Workspaces must already be prepared.');
     return 0;
   }
   for (const name of ['concurrency', 'output']) {
@@ -51,7 +52,7 @@ export async function runMathBatch(argv: string[]): Promise<number> {
     if (!config || !Array.isArray(config.args) || !config.args.length
       || config.args.some((arg: unknown) => typeof arg !== 'string' || arg.includes('\0'))
       || !config.args[0].trim()) throw new Error(`Invalid launch args: ${launch}`);
-    for (const key of ['cwd', 'envFile']) {
+    for (const key of ['cwd', 'envFile', 'codexHome']) {
       if (config[key] !== undefined && (typeof config[key] !== 'string' || !config[key].trim()))
         throw new Error(`Invalid ${key}: ${launch}`);
     }
@@ -71,7 +72,9 @@ export async function runMathBatch(argv: string[]): Promise<number> {
       : path.join(fs.realpathSync(path.dirname(result)), path.basename(result));
     const envFile = config.envFile ? path.resolve(path.dirname(launch), config.envFile) : undefined;
     if (envFile) fs.accessSync(envFile, fs.constants.R_OK);
-    return { launch, args, cwd, workspace, output: canonicalOutput, envFile };
+    const codexHome = config.codexHome ? fs.realpathSync(path.resolve(path.dirname(launch), config.codexHome)) : undefined;
+    if (codexHome && !fs.statSync(codexHome).isDirectory()) throw new Error(`Invalid codexHome: ${launch}`);
+    return { launch, args, cwd, workspace, output: canonicalOutput, envFile, codexHome };
   });
   const within = (parent: string, child: string) => child === parent || child.startsWith(parent + path.sep);
   for (let i = 0; i < launches.length; i++) for (let j = 0; j < i; j++) {
@@ -88,6 +91,7 @@ export async function runMathBatch(argv: string[]): Promise<number> {
   const jobs: BatchJob[] = launches.map((launch, index) => ({
     launch: launch.launch, workspace: launch.workspace, output: launch.output,
     log: path.join(logRoot, `${index + 1}.log`), status: 'pending',
+    ...(launch.codexHome ? { codexHome: launch.codexHome } : {}),
   }));
   const state = { concurrency, startedAt: new Date().toISOString(), finishedAt: undefined as string | undefined,
     interruptedBy: undefined as NodeJS.Signals | undefined, jobs };
@@ -123,7 +127,8 @@ export async function runMathBatch(argv: string[]): Promise<number> {
         descriptor = fs.openSync(job.log, 'wx', 0o600);
         const child = spawn(launch.args[0], launch.args.slice(1), {
           cwd: launch.cwd, detached: process.platform !== 'win32',
-          env: { ...process.env, ...(launch.envFile ? { DEEPSCIENTIST_MATH_ENV_FILE: launch.envFile } : {}) },
+          env: { ...process.env, ...(launch.envFile ? { DEEPSCIENTIST_MATH_ENV_FILE: launch.envFile } : {}),
+            ...(launch.codexHome ? { CODEX_HOME: launch.codexHome } : {}) },
           stdio: ['ignore', descriptor, descriptor],
         });
         active.add(child); job.pid = child.pid;

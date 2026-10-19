@@ -2,8 +2,12 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { closeMathProcess } from '../math/mathProcess';
 import fs from 'node:fs';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { parse as parseToml } from 'smol-toml';
 import { mathProofEnvironmentWorkerEnvironment } from '../math/mathProofEnvironment';
+import { startChatCompletionsBridge } from './chatCompletionsBridge';
+import { WESTLAKE_PROVIDER, validateWestlakeModel } from './westlake';
+import type { ModelRequestGate } from './modelRequest';
 
 type Json = Record<string, unknown>;
 const object = (value: unknown): Json => {
@@ -26,12 +30,16 @@ export type MathAgentOptions = {
   threadId?: string;
   turnTimeoutMs?: number;
   onUsage: (usage: Json) => void;
+  onUsageIncomplete?: () => void;
+  /** Used by host-controlled upstream bridges; native thread usage remains observational. */
+  requestGate?: ModelRequestGate;
   onActivity?: (activity: MathAgentActivity) => void;
 };
 export type MathAgentSession = {
   threadId: string;
   readonly lastError?: string;
   readonly lastInputTokens?: number;
+  readonly usageSource?: 'upstream-requests';
   run: (message: string, messageId: string, workspace: string, onStarted: (turnId: string) => void) => Promise<string>;
   notify?: (message: string) => Promise<void>;
   interrupt: () => Promise<void>;
@@ -134,10 +142,61 @@ class CodexRpc {
 }
 
 export async function createCodexMathSession(options: MathAgentOptions): Promise<MathAgentSession> {
-  const environment = options.proofProjectRoot
+  const configFile = path.join(options.profile, 'config.toml');
+  const profileConfig = fs.existsSync(configFile) ? parseToml(fs.readFileSync(configFile, 'utf8')) : {};
+  const providerId = typeof profileConfig.model_provider === 'string' ? profileConfig.model_provider : undefined;
+  const provider = typeof profileConfig.model_provider === 'string' && profileConfig.model_providers
+    ? profileConfig.model_providers[profileConfig.model_provider] : undefined;
+  const envKey = provider && typeof provider === 'object' && typeof provider.env_key === 'string'
+    ? provider.env_key : undefined;
+  if (envKey && !/^[A-Za-z_][A-Za-z0-9_]{0,127}$/u.test(envKey)) throw new Error('math_model_api_key_environment_invalid');
+  const apiKey = envKey ? options.environment?.[envKey] ?? process.env[envKey] : undefined;
+  if (envKey && !apiKey?.trim()) throw new Error(`math_model_api_key_missing:${envKey}`);
+  const workerEnvironment = options.proofProjectRoot
     ? mathProofEnvironmentWorkerEnvironment(options.proofProjectRoot, options.environment ?? process.env)
     : options.environment;
-  const rpc = new CodexRpc(options.executable, options.profile, environment);
+  const policy = profileConfig.shell_environment_policy ? object(profileConfig.shell_environment_policy) : {};
+  const filters = policy.filters;
+  const exclude = Array.isArray(policy.exclude) ? policy.exclude.filter((value): value is string => typeof value === 'string') : [];
+  const shellCredentialPolicy = !envKey ? {} : filters && typeof filters === 'object'
+    ? { 'shell_environment_policy.filters': { ...filters, [envKey]: 'exclude' } }
+    : { 'shell_environment_policy.exclude': [...new Set([...exclude, envKey])] };
+  // Credentials enter only the provider process, after preparing solver-visible environments.
+  let environment = envKey ? { ...(workerEnvironment ?? process.env), [envKey]: apiKey } : workerEnvironment;
+  let bridge: Awaited<ReturnType<typeof startChatCompletionsBridge>> | undefined;
+  let nativeProfile = options.profile;
+  if (providerId === WESTLAKE_PROVIDER.id) {
+    if (envKey !== WESTLAKE_PROVIDER.apiKeyEnvironment || provider.base_url !== WESTLAKE_PROVIDER.baseUrl)
+      throw new Error('math_westlake_profile_invalid');
+    validateWestlakeModel(options.model, options.effort);
+    // Codex persists project trust in config.toml; keep those writes outside the frozen profile.
+    nativeProfile = path.join(options.profile, 'runtime');
+    fs.mkdirSync(nativeProfile, { recursive: true, mode: 0o700 });
+    const snapshot = path.join(nativeProfile, `.config-${randomUUID()}.toml`);
+    try {
+      fs.writeFileSync(snapshot, fs.readFileSync(configFile), { flag: 'wx', mode: 0o600 });
+      fs.renameSync(snapshot, path.join(nativeProfile, 'config.toml'));
+    } finally { fs.rmSync(snapshot, { force: true }); }
+    bridge = await startChatCompletionsBridge({ baseUrl: WESTLAKE_PROVIDER.baseUrl, apiKey: apiKey!,
+      model: options.model, effort: options.effort, onUsageIncomplete: options.onUsageIncomplete, requestGate: options.requestGate });
+    // Codex receives only a disposable loopback credential, including outside proof projections.
+    environment = Object.fromEntries(Object.entries(environment ?? process.env)
+      .filter(([name]) => !name.startsWith('WESTLAKEHPC_API_KEY')));
+    environment[envKey] = bridge.apiKey;
+  }
+  const providerSettings = providerId ? {
+    model_provider: providerId,
+    ...(provider && typeof provider.base_url === 'string'
+      ? { [`model_providers.${providerId}.base_url`]: bridge?.baseUrl ?? provider.base_url } : {}),
+    ...(typeof profileConfig.model_catalog_json === 'string' ? { model_catalog_json: profileConfig.model_catalog_json } : {}),
+  } : {};
+  let rpc: CodexRpc;
+  try { rpc = new CodexRpc(options.executable, nativeProfile, environment); }
+  catch (error) { await bridge?.close(); throw error; }
+  let closing: Promise<void> | undefined;
+  const closeSession = () => closing ??= (async () => {
+    try { await rpc.close(); } finally { await bridge?.close(); }
+  })();
   let activeTurn: string | undefined;
   let completion: { resolve: (turn: Json) => void; reject: (error: Error) => void } | undefined;
   const earlyCompletions = new Map<string, Json>();
@@ -154,7 +213,10 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
     lastStreamActivityAt = now;
     options.onActivity({ event, ...(itemType && /^[A-Za-z][A-Za-z0-9]{0,63}$/u.test(itemType) ? { itemType } : {}) });
   };
-  rpc.onFailure = error => { transportFailure = error; lastError = error.message; completion?.reject(error); };
+  rpc.onFailure = error => {
+    transportFailure = error; lastError = error.message; completion?.reject(error);
+    void bridge?.close().catch(() => {});
+  };
   rpc.onNotification = (method, params) => {
     if (threadId !== undefined && params.threadId !== undefined && params.threadId !== threadId) return;
     if (method === 'item/started' || method === 'item/completed') {
@@ -197,8 +259,7 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
   };
   try {
     await rpc.initialize();
-    const profileConfig = path.join(options.profile, 'config.toml');
-    const inherited = fs.existsSync(profileConfig) ? parseToml(fs.readFileSync(profileConfig, 'utf8')).mcp_servers : {};
+    const inherited = profileConfig.mcp_servers;
     const disabled = Object.fromEntries(Object.keys(inherited ?? {}).map(name => [name, { enabled: false }]));
     const settings = {
       model: options.model, cwd: options.workspace,
@@ -208,8 +269,12 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
         mcp_servers: disabled,
         'features.apps': false,
         'features.plugins': false,
+        ...(bridge ? { 'features.multi_agent': false, 'features.multi_agent_v2': false,
+          'features.goals': false, 'features.view_image': false } : {}),
         model_reasoning_effort: options.effort,
         'sandbox_workspace_write.network_access': true,
+        ...shellCredentialPolicy,
+        ...providerSettings,
       },
     };
     const result = await rpc.request(options.threadId ? 'thread/resume' : 'thread/start', {
@@ -221,8 +286,10 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
     if (options.threadId && threadId !== options.threadId) throw new Error('math_codex_session_binding_mismatch');
     if (result.model !== options.model || result.reasoningEffort !== options.effort || result.approvalPolicy !== 'never')
       throw new Error('math_codex_session_binding_mismatch');
+    if (providerId && result.modelProvider !== providerId) throw new Error('math_codex_session_binding_mismatch');
     return {
       threadId,
+      ...(bridge && options.requestGate ? { usageSource: 'upstream-requests' as const } : {}),
       get lastError() { return lastError; },
       get lastInputTokens() { return lastInputTokens; },
       run: async (message, messageId, workspace, onStarted) => {
@@ -253,8 +320,8 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
           if (options.turnTimeoutMs) timer = setTimeout(() => {
             checkpoint = true;
             // Only check sources after turn/completed confirms the writer stopped.
-            interruptDeadline = setTimeout(() => { void rpc.close(); }, 10_000);
-            void rpc.request('turn/interrupt', { threadId, turnId: activeTurn }).catch(() => { void rpc.close(); });
+            interruptDeadline = setTimeout(() => { void closeSession(); }, 10_000);
+            void rpc.request('turn/interrupt', { threadId, turnId: activeTurn }).catch(() => { void closeSession(); });
           }, options.turnTimeoutMs);
           const early = earlyCompletions.get(activeTurn);
           earlyCompletions.delete(activeTurn);
@@ -283,7 +350,7 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
         if (activeTurn) await rpc.request('turn/steer', { threadId, expectedTurnId: activeTurn,
           input: [{ type: 'text', text: message, text_elements: [] }] });
       },
-      close: () => rpc.close(),
+      close: closeSession,
     };
-  } catch (error) { await rpc.close(); throw error; }
+  } catch (error) { await closeSession(); throw error; }
 }

@@ -195,6 +195,10 @@ CLI 档案保存候选、失败反馈、任务计划、会话、版本和累计�
 
 支持单 Agent、独立并行尝试与多 Agent 协作，组件与 Agent 数量相互独立。比较策略时固定题目、环境、模型和预算，使用[三组对照实验](examples/imo2026/COMPARISON.md)检查效果；目前尚无证据表明协作一定更快或更容易解出题目。
 
+[模块实验](examples/components/EXPERIMENTS.md)提供默认方案、精简上下文、关键路径组合和自定义规则的固定预算对照入口，支持 [Westlake DeepSeek](examples/components/WESTLAKE.md) 和 [DeepSeek 官方服务](examples/components/DEEPSEEK.md)。Westlake 的 Chat Completions 由会话内临时兼容器接入 Codex。工具与实验配置已具备，真实模块效果实验尚未完成，不能据此声称解题率或效率提升。
+
+[PutnamBench 小样本](examples/putnambench/README.md)可固定种子抽取三道兼容原题，每题准备四组模块方案，共 12 次隔离运行计划，并按题目分别配对汇总。准备和汇总均不调用模型。
+
 当前通过 TypeScript 源码接口替换组件，尚未提供稳定 SDK 或动态插件加载。运行时保存组件版本，恢复时检查版本一致性。跨任务学习仍是后续扩展。
 
 ## 文档与开发
@@ -205,6 +209,7 @@ CLI 档案保存候选、失败反馈、任务计划、会话、版本和累计�
 | [网页工作台](docs/web-workbench.md) | Docker、API 服务商、资源限制与服务器部署 |
 | [小题示例](examples/getting-started/README.md) · [IMO2026](examples/imo2026/README.md) | 从第一次回放到真实题目 |
 | [组件示例](examples/components/README.md) · [对照实验](examples/imo2026/COMPARISON.md) | 接入研究策略与比较实验 |
+| [PutnamBench 小样本](examples/putnambench/README.md) | 固定选题、逐题模块对照与离线汇总 |
 | [成果来源](accepted/README.md) · [发布说明](docs/releases/v0.1.0.md) | 归属与验收记录、当前版本范围与限制 |
 
 <a id="架构与开发"></a>

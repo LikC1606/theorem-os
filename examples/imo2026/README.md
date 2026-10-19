@@ -22,6 +22,10 @@ Preparing the immutable dependency environment also needs `mksquashfs`,
 mount FUSE filesystems. `lake exe cache get` downloads the pinned dependencies
 and requires network access and enough disk space for Mathlib.
 
+The FUSE reader must support zstd-compressed SquashFS images. Some older
+`snapfuse` binaries do not, even when the basic tool check passes. Use a
+zstd-capable `squashfuse`/`snapfuse` and complete the actual startup preflight.
+
 Install dependencies with `bun install --frozen-lockfile` from the project root.
 Authenticate your existing Codex profile separately. The default profile is
 `~/.config/deepscientist/math-sol-codex`; `CODEX_HOME` can select another existing

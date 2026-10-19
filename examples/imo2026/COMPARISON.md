@@ -1,5 +1,8 @@
 # Compare single, independent and cooperative solving
 
+For module-plan comparisons with fixed cooperative workers, including optional
+context and custom-rule treatments, see [module experiments](../components/EXPERIMENTS.md).
+
 Use the same pinned public problem, task, model, effort, method, dependency
 environment and final host evaluator in three arms:
 

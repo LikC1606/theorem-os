@@ -54,7 +54,7 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
       coordination: state.coordination ?? 'cooperative', modules: state.moduleConfiguration,
       buildDigest: state.buildDigest, environmentDigest: state.environmentDigest, methodDigest: state.methodDigest },
     turns: state.turns, usage: state.usage, planVersion: cooperative?.planVersion,
-    tokenBudget: buildTokenBudget(state.tokenBudget?.maxTotalTokens ?? 0, state.workers ?? [state]),
+    tokenBudget: buildTokenBudget(state.tokenBudget?.maxTotalTokens ?? 0, state.workers ?? [state], state.tokenBudget?.enforcement),
     continuation: buildProofContinuation(tasks, { groups: cooperative?.groups, environmentDigest: state.environmentDigest, proofRoutes: cooperative?.proofRoutes }),
     mathematics: { snapshot: captureObligationSnapshot(tasks, { groups: cooperative?.groups, environmentDigest: state.environmentDigest,
       blockers: cooperative?.blockers, proofRoutes: cooperative?.proofRoutes }),
