@@ -39,6 +39,53 @@ function fixture() {
 }
 
 describe('alternative route scheduling', () => {
+  it.each(['paused', 'stopped', 'inactive-group', 'exhausted-group', 'checked-consumer', 'parked-task', 'parked-routes'] as const)(
+    'does not promote a helper solely for a %s consumer', inactive => {
+      const current = node('current'), input = node('checked_input'), helper = node('helper', 'lemma', [input.task.id]);
+      const goal = node('goal', 'goal', [current.task.id]), unused = node('unused_goal', 'goal', [helper.task.id]);
+      checked(input);
+      if (inactive === 'paused' || inactive === 'stopped') unused.task = { ...unused.task, status: inactive };
+      if (inactive === 'inactive-group' || inactive === 'exhausted-group') unused.task = { ...unused.task, groupId: 'old' };
+      if (inactive === 'checked-consumer') checked(unused);
+      if (inactive === 'parked-task') unused.routeParking = ['local-obstruction'];
+      if (inactive === 'parked-routes') {
+        unused.alternativeRoutes = [{ id: 'old-route', targetTaskId: unused.task.id,
+          prerequisiteTaskIds: [], closingTaskId: helper.task.id }];
+        unused.parkedRoutes = { 'old-route': ['local-obstruction'] };
+      }
+      const groups = [
+        { group: { id: 'main', objective: 'Current proof', status: 'active' as const, revision: 0 }, turns: 0 },
+        { group: { id: 'old', objective: 'Earlier proof', status: inactive === 'inactive-group' ? 'stopped' as const : 'active' as const,
+          revision: 0, ...(inactive === 'exhausted-group' ? { maxTurns: 1 } : {}) }, turns: 1 },
+      ];
+      expect(readyResearchTasks([current, input, helper, goal, unused], groups)).toEqual([current, helper]);
+    });
+
+  it('follows checked input evidence on a later branch and recomputes priority after its version changes', () => {
+    const { a, b, c, goal, tasks } = fixture();
+    checked(b);
+    expect(selectedTaskRoute(goal, tasks)?.id).toBe('b_route');
+    expect(readyResearchTasks(tasks)).toEqual([c, a]);
+    expect(continuationResearchTasks(tasks)).toEqual([c, a]);
+    expect(taskCanStart(goal.task, tasks)).toBe(false);
+    b.task = { ...b.task, type: 'False', revision: 1 };
+    expect(selectedTaskRoute(goal, tasks)?.id).toBe('a_route');
+    expect(continuationResearchTasks(tasks)).toEqual([a, c]);
+    expect(goal.status).toBe('pending');
+    expect(goal.integratedCheck).toBeUndefined();
+  });
+
+  it('reorders an unready pending branch by evidence while preserving an active assignment', () => {
+    const { b, goal, tasks } = fixture();
+    goal.assignment = { taskId: goal.task.id, taskDigest: taskVersion(goal.task), workerId: 'engineer',
+      seedCommit: 'saved-draft', routeId: 'a_route' };
+    checked(b);
+    expect(selectedTaskRoute(goal, tasks)?.id).toBe('b_route');
+    goal.status = 'running';
+    expect(selectedTaskRoute(goal, tasks)?.id).toBe('a_route');
+    expect(goal.assignment.routeId).toBe('a_route');
+  });
+
   it('keeps old plans and dependency scheduling exactly compatible without route metadata', () => {
     const input = node('input'), goal = node('goal', 'goal', ['input']);
     const parsed = parseCooperationPlan(problem, { tasks: [input.task, goal.task] });

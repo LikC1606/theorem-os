@@ -18,6 +18,13 @@ export function readMathResponse(worktree: string, legacyFence: string, bindings
   let text: string;
   try { assertMathCanonicalPath(file); text = readMathText(file, MAX_RESEARCH_NOTES_BYTES).trim(); }
   catch { throw new Error(`${errorPrefix}_missing_or_too_large`); }
+  return parseMathResponse(text, legacyFence, bindings, textField);
+}
+
+/** The same parser also reads immutable checkpoint text without consulting a live workspace. */
+export function parseMathResponse(text: string, legacyFence: string, bindings: Record<string, unknown> = {}, textField?: string): any {
+  const errorPrefix = legacyFence === 'math-lemma' ? 'math_lemma_plan' : `math_${legacyFence}`;
+  text = text.trim();
   const blocks = [...text.matchAll(new RegExp('```(?:math|json|' + legacyFence + ')\\s*\\n([\\s\\S]*?)\\n```', 'gu'))]
     .filter(block => !textField || block[1].trimStart().startsWith('{'));
   if (blocks.length > 1) throw new Error(`${errorPrefix}_requires_one_block`);
@@ -41,12 +48,14 @@ export function reviewVerdict(value: unknown, errorCode: string): 'accepted' | '
 
 /** One versioned record for hints, conditional sketches, proofs, reviews and failures. */
 export type DeliveryRecord = {
-  id: string; submissionId?: string; statementReviewId?: string; producer: string; taskId?: string; taskDigest?: string; groupId?: string;
+  id: string; submissionId?: string; assignmentKey?: string; statementReviewId?: string; producer: string; taskId?: string; taskDigest?: string; groupId?: string;
   kind: 'progress' | 'research' | 'proof' | 'review' | 'backtranslation' | 'statement-review' | 'failure';
   status: 'advisory' | 'conditional' | 'verified' | 'failed' | 'superseded' | 'accepted' | 'changes_requested';
   statement: string; premises: readonly string[];
   dependencies: { taskId: string; taskDigest: string }[]; remainingObligations: readonly string[];
   summary: string; evidenceRefs: readonly string[]; createdAt: number; commit?: string; sourceDigest?: string;
+  /** Host identity for the complete advisory finding, separate from the short delivery summary. */
+  findingDigest?: string;
   evidence?: { passed: boolean; verification: Pick<ProofCheck['verification'], 'status' | 'targetCommit'> & { results: { receiptId: string }[] } };
   actualReferences?: ProofReferences;
   artifacts?: DeliveryArtifactManifest;
@@ -69,10 +78,15 @@ export function deliveryDetails(value: any): Pick<DeliveryRecord, 'summary' | 'e
     ...(value.remainingObligations === undefined ? {} : { remainingObligations: value.remainingObligations }) };
 }
 
+type DeliveryLogEntry = { line?: string; error?: 'math_delivery_line_too_large'; offset: number; discardingOversized: boolean };
+type DeliveryLogBatch = { lines: string[]; offset: number; entries?: DeliveryLogEntry[]; discardingOversized?: boolean };
+
 /** Read complete appended lines only. The durable cursor survives restarts and partial writes. */
-export function readDeliveryLines(file: string, offset: number): { lines: string[]; offset: number } {
+export function readDeliveryLines(file: string, offset: number,
+  recovery?: { discardingOversized: boolean }): DeliveryLogBatch {
   if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('math_delivery_log_invalid');
-  if (!fs.existsSync(file)) return { lines: [], offset };
+  if (!fs.existsSync(file)) return { lines: [], offset, entries: [],
+    ...(recovery ? { discardingOversized: recovery.discardingOversized } : {}) };
   assertMathCanonicalPath(file);
   const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
   try {
@@ -80,11 +94,43 @@ export function readDeliveryLines(file: string, offset: number): { lines: string
     if (!stat.isFile() || stat.nlink !== 1 || stat.size < offset) throw new Error('math_delivery_log_invalid');
     const buffer = Buffer.alloc(Math.min(stat.size - offset, 64_000));
     const size = fs.readSync(fd, buffer, 0, buffer.length, offset);
+    if (recovery) {
+      const entries: DeliveryLogEntry[] = [];
+      let start = 0, discarding = recovery.discardingOversized;
+      // A rejected long line may span several polls; never parse its trailing fragment.
+      if (discarding) {
+        const newline = buffer.subarray(0, size).indexOf(10);
+        if (newline < 0) return { lines: [], offset: offset + size, entries, discardingOversized: true };
+        start = newline + 1; discarding = false;
+      }
+      while (start < size) {
+        const newline = buffer.subarray(0, size).indexOf(10, start);
+        if (newline < 0) {
+          if (start === 0 && size === 64_000) {
+            start = size; discarding = true;
+            entries.push({ error: 'math_delivery_line_too_large', offset: offset + start, discardingOversized: true });
+          }
+          break;
+        }
+        const line = buffer.subarray(start, newline).toString('utf8');
+        start = newline + 1;
+        entries.push({ line, offset: offset + start, discardingOversized: false });
+      }
+      return { lines: entries.flatMap(entry => entry.line?.trim() ? [entry.line] : []), offset: offset + start,
+        entries, discardingOversized: discarding };
+    }
     const end = buffer.subarray(0, size).lastIndexOf(10);
     if (end < 0) {
       if (size === 64_000) throw new Error('math_delivery_line_too_large');
-      return { lines: [], offset };
+      return { lines: [], offset, entries: [] };
     }
-    return { lines: buffer.subarray(0, end).toString('utf8').split('\n').filter(line => line.trim()), offset: offset + end + 1 };
+    const entries: DeliveryLogEntry[] = [];
+    let start = 0;
+    while (start <= end) {
+      const newline = buffer.indexOf(10, start);
+      entries.push({ line: buffer.subarray(start, newline).toString('utf8'), offset: offset + newline + 1, discardingOversized: false });
+      start = newline + 1;
+    }
+    return { lines: entries.flatMap(entry => entry.line?.trim() ? [entry.line] : []), offset: offset + end + 1, entries };
   } finally { fs.closeSync(fd); }
 }

@@ -58,9 +58,19 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     }
     if (message !== 'wait') {
       send({ method: 'thread/tokenUsage/updated', params: { threadId: settings.threadId || 'thread-fixture', tokenUsage: { total: { totalTokens: 21 }, last: { inputTokens: 12345 } } } });
-      const failed = ['rate-limit', 'late-rate-limit', 'stream-disconnected'].includes(message);
+      const structured = {
+        'structured-unauthorized': { message: 'private provider diagnostic', codexErrorInfo: 'unauthorized', additionalDetails: 'private response' },
+        'structured-rate-limit': { message: 'private provider diagnostic', codexErrorInfo: { httpConnectionFailed: { httpStatusCode: 429, body: 'private response' } } },
+        'structured-disconnected': { message: 'private provider diagnostic', codexErrorInfo: { responseStreamDisconnected: { httpStatusCode: 503 } } },
+        'structured-invalid-status': { message: 'private provider diagnostic', codexErrorInfo: { httpConnectionFailed: { httpStatusCode: 401.5 } } },
+        'structured-string-status': { message: 'private provider diagnostic', codexErrorInfo: { httpConnectionFailed: { httpStatusCode: 'private response' } } },
+        'structured-unrelated-status': { message: 'private provider diagnostic', codexErrorInfo: { badRequest: { httpStatusCode: 401 } } },
+        'structured-unknown': { message: 'private provider diagnostic', codexErrorInfo: 'private future error code' },
+        'structured-multiple': { message: 'private provider diagnostic', codexErrorInfo: { unauthorized: {}, private: {} } },
+      }[message];
+      const failed = Boolean(structured) || ['rate-limit', 'late-rate-limit', 'stream-disconnected'].includes(message);
       const complete = () => send({ method: 'turn/completed', params: { threadId: settings.threadId || 'thread-fixture', turn: { ...turn,
-        status: failed ? 'failed' : 'completed', ...(failed ? { error: { message: message === 'stream-disconnected'
+        status: failed ? 'failed' : 'completed', ...(failed ? { error: structured || { message: message === 'stream-disconnected'
           ? 'stream disconnected before completion: error sending request' : 'Concurrency limit exceeded for account' } } : {}) } } });
       if (message === 'late-rate-limit') setImmediate(complete);
       else complete();
@@ -167,6 +177,24 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
       ? 'stream disconnected before completion: error sending request' : 'Concurrency limit exceeded for account');
     expect(await session.run('proof', 'next-turn', root, () => {})).toBe('completed');
     expect(session.lastError).toBeUndefined();
+  });
+
+  it.each([
+    ['structured-unauthorized', { code: 'unauthorized' }],
+    ['structured-rate-limit', { code: 'httpConnectionFailed', httpStatusCode: 429 }],
+    ['structured-disconnected', { code: 'responseStreamDisconnected', httpStatusCode: 503 }],
+    ['structured-invalid-status', { code: 'httpConnectionFailed' }],
+    ['structured-string-status', { code: 'httpConnectionFailed' }],
+    ['structured-unrelated-status', { code: 'badRequest' }],
+    ['structured-unknown', undefined],
+    ['structured-multiple', undefined],
+  ] as const)('retains only allowlisted failure metadata and clears it after %s', async (message, expected) => {
+    session = await createCodexMathSession(options);
+    expect(await session.run(message, 'failed-turn', root, () => {})).toBe('failed');
+    expect(session.lastFailureDiagnostic).toEqual(expected);
+    expect(JSON.stringify(session.lastFailureDiagnostic) ?? '').not.toMatch(/private|body|message|additionalDetails/);
+    expect(await session.run('proof', 'next-turn', root, () => {})).toBe('completed');
+    expect(session.lastFailureDiagnostic).toBeUndefined();
   });
 
   it('interrupts a long turn for a checkpoint and keeps the session usable', async () => {

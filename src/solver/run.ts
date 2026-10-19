@@ -23,6 +23,7 @@ import { evaluateSolverProof } from './evaluation';
 import { solverProofIsCurrent } from './modules/evidence';
 import { checkCodexProviderConnectivity } from '../runtime/codexConnectivity';
 import { buildTokenBudget } from './usageBudget';
+import { copyKnowledgeSnapshot, readKnowledgeCatalog } from './theoremKnowledgeStore';
 
 export async function runSolver(args: string[], root: string, customModules?: SolverModules): Promise<number> {
   const { values } = parseArgs({ args, options: {
@@ -34,11 +35,13 @@ export async function runSolver(args: string[], root: string, customModules?: So
     'prepare-timeout-seconds': { type: 'string', default: '1800' }, 'max-turn-seconds': { type: 'string', default: '180' },
     'evaluator-command': { type: 'string' }, 'evaluator-timeout-seconds': { type: 'string', default: '1800' },
     'proof-environment-cache-dir': { type: 'string' }, 'startup-only': { type: 'boolean' }, help: { type: 'boolean' },
+    'knowledge-base': { type: 'string' },
     method: { type: 'string', default: 'direct' }, workers: { type: 'string', default: '4' },
     scheduler: { type: 'string', default: 'plan' }, coordination: { type: 'string', default: 'cooperative' },
   } });
   if (values.help) {
     console.log('Usage: theorem-os run --workspace DIR --task-file FILE --output FILE --build-manifest FILE [--receipt-file FILE] [--resume] [--method direct|lemma] [--scheduler plan|goals-first|critical-path|continuation|primary-led] [--coordination cooperative|independent] [--workers 1|2|3|4] [--model MODEL --effort LEVEL] [--max-run-seconds N --max-turns N --max-turn-seconds N] [--max-total-tokens N] [--prepare-timeout-seconds N] [--evaluator-command CMD --evaluator-timeout-seconds N] [--proof-environment-cache-dir DIR] [--startup-only]\nUse 0 for --max-run-seconds, --max-turns, --max-turn-seconds or --evaluator-timeout-seconds to disable that limit. Unlimited total solving time also disables proof verification deadlines.\n--max-total-tokens defaults to 0 (unlimited). A finite value stops new model turns after provider-reported consumption reaches it; in-flight turns finish and may exceed it. Resume retains cumulative usage and the saved allowance unless explicitly changed.');
+    console.log('--knowledge-base FILE attaches an immutable saved-theorem catalog. Resume requires the same catalog digest. Historical knowledge never grants proof acceptance.');
     return 0;
   }
   const configured = configuredSolverModules(values.method!, values.scheduler!);
@@ -114,10 +117,11 @@ export async function runSolver(args: string[], root: string, customModules?: So
           throw new Error('math_corpus_identity_changed');
         env = { ...env, DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS_SHA256: digest };
       }
+      const knowledge = values['knowledge-base'] ? readKnowledgeCatalog(values['knowledge-base']) : undefined;
       const identity = { taskDigest: mathDigest(task), buildDigest: mathDigest(fs.readFileSync(buildFile)),
         environmentDigest: mathDigest(canonicalMathJson(projectMathematicsRuntimeEnvironment(env))),
         evaluatorDigest: mathDigest(values['evaluator-command'] || 'host-default'), model: values.model!, effort: values.effort!,
-        methodDigest: solverMethodDigest(modules, coordination) };
+        methodDigest: solverMethodDigest(modules, coordination), knowledgeDigest: knowledge?.digest };
       const moduleConfiguration = solverModuleConfiguration(modules);
       let state: SolverRunState;
       let sourceFeedback: string | undefined;
@@ -264,12 +268,19 @@ export async function runSolver(args: string[], root: string, customModules?: So
       }
       const workerAccess = new Map<string, WorkerAccess>();
       const prepareAccess = (workerId: string, workerRoot: string, workerProject: string, workerCorpus?: string) => {
+        let knowledgeFile: string | undefined;
+        if (knowledge) {
+          knowledgeFile = path.join(workerProject, '.lake', 'theorem-knowledge.json');
+          copyKnowledgeSnapshot(knowledge, values['knowledge-base']!, knowledgeFile);
+        }
         const environmentFile = path.join(directory, `environment-${workerId}.json`);
         const environment = { ...env, DEEPSCIENTIST_MATH_ENV_FILE: environmentFile,
           DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS: workerCorpus };
         writeMathJsonDurable(environmentFile, projectMathematicsRuntimeEnvironment(environment), 0o400);
         workerAccess.set(workerId, { environment: resolveMathematicsRuntimeEnvironment(environment), corpusFile: workerCorpus,
-          retrievalRoot: corpus?.projectSubdirectory ? workerRoot : workerProject });
+          retrievalRoot: corpus?.projectSubdirectory ? workerRoot : workerProject,
+          ...(knowledge ? { knowledgeFile, knowledgeDigest: knowledge.digest,
+            knowledgeSnapshot: { digest: knowledge.digest, base: { entries: knowledge.base.entries, evidence: knowledge.base.evidence } } } : {}) });
       };
       prepareAccess('solver', state.worktree, project, corpusFile);
       const peerPreparation = await Promise.allSettled(workers.slice(1).map(async worker => {

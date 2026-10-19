@@ -145,6 +145,39 @@ describe('configured solver strategy rules without inference or Lean calls', () 
     expect(context.instructions).not.toContain('Keep this file as a concise current checkpoint; replace obsolete status');
   });
 
+  it.each(['full', 'essential'] as const)('retains pinned knowledge tools with replaced strategies and %s context', contextMode => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const knowledge = { digest: mathDigest('pinned-catalog'),
+      base: { entries: [], evidence: 'recorded-not-replayed' as const } };
+    const modules = configurableSolverModules(plan([
+      custom('M1', { mode: 'replace' }), custom('M4', { mode: 'replace' }),
+    ], { context: contextMode }));
+    const context = modules.M4.build(problem, state({ problem }), access({ knowledgeFile: '/catalog/pinned.json',
+      knowledgeDigest: knowledge.digest, knowledgeSnapshot: knowledge }));
+    expect(context.instructions).toContain('CUSTOM_M1_INSTRUCTIONS');
+    expect(context.instructions).toContain('CUSTOM_M4_INSTRUCTIONS');
+    expect(context.instructions).not.toContain('Use installed library lemmas and test uncertain bridges early.');
+    expect(context.instructions).toContain('knowledge get');
+    expect(context.instructions).toContain('--metadata --max-bytes 16000');
+    expect(context.instructions).toContain('knowledge dependencies');
+    expect(context.instructions).toContain('knowledge source');
+    expect(context.instructions).toContain('Never copy an entire archived Submission over current goals or inherit historical receipts.');
+    expect(context.message).toContain(formal);
+    expect(context.message).toContain('n is a natural number');
+    if (contextMode === 'full') {
+      expect(context.message).toContain('Saved theorem candidates');
+      expect(context.message).toContain(knowledge.digest);
+      expect(context.manifest?.included).toContainEqual(expect.objectContaining({
+        id: expect.stringMatching(/^knowledge:/u), required: false,
+      }));
+    } else {
+      expect(context.message).not.toContain('Saved theorem candidates');
+      expect(context.manifest?.omitted).toContainEqual({
+        id: expect.stringMatching(/^knowledge:/u), kind: 'sources', reason: 'optional-budget',
+      });
+    }
+  });
+
   it('binds all applied instructions into the actual manifest digest and total byte budget', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
     const modules = configurableSolverModules(plan([custom('M1', { instructions: '使用固定类型，再检查候选。' })]));
@@ -167,7 +200,7 @@ describe('configured solver strategy rules without inference or Lean calls', () 
     const context = configurableSolverModules(plan([custom('M4')], { context: 'essential' })).M4.build(problem,
       state({ cooperation: { tasks: [{ task: consumer, status: 'pending', attempts: 0 },
         { task: prerequisite, status: 'pending', attempts: 0, finding: 'ADVISORY_FINDING' }] } }),
-      access({ sourceFeedback: 'ADVISORY_DIAGNOSTIC', assignment: { kind: 'task', task: consumer,
+      access({ sourceFeedback: 'CURRENT_HOST_DIAGNOSTIC', assignment: { kind: 'task', task: consumer,
         assignment: { taskId: consumer.id, taskDigest: taskVersion(consumer), workerId: 'researcher-1', seedCommit: 'fixed-source-commit' } } }));
     expect(context.manifest?.maxOptionalBytes).toBe(0);
     expect(context.manifest?.optionalBytes).toBe(0);
@@ -178,7 +211,8 @@ describe('configured solver strategy rules without inference or Lean calls', () 
     expect(context.message).toContain('n is a natural number');
     expect(context.message).toContain('generated/p/Submission.lean');
     expect(context.message).not.toContain('ADVISORY_FINDING');
-    expect(context.message).not.toContain('ADVISORY_DIAGNOSTIC');
+    expect(context.message).toContain('CURRENT_HOST_DIAGNOSTIC');
+    expect(context.manifest?.included.find(item => item.id === 'current-feedback')?.required).toBe(true);
     expect(context.instructions).toContain('CUSTOM_M4_INSTRUCTIONS');
     expect(context.manifest?.omitted).toContainEqual({ id: 'finding:base', kind: 'finding', reason: 'optional-budget' });
   });
@@ -200,6 +234,7 @@ describe('configured solver strategy rules without inference or Lean calls', () 
   });
 
   it('binds enabled content, slot, mode, context and scheduler to method identity while ignoring disabled edits', () => {
+    const baseVersion = directSolverModules.M1.version;
     const original = plan([custom()]);
     const digest = (value: ResearchModulePlan) => solverMethodDigest(configurableSolverModules(value), 'cooperative');
     const baseline = digest(original);
@@ -219,7 +254,7 @@ describe('configured solver strategy rules without inference or Lean calls', () 
     const before = digest(disabled);
     disabled.custom[0].name = 'Different disabled name'; disabled.custom[0].instructions = 'Different disabled rule';
     expect(digest(disabled)).toBe(before);
-    expect(directSolverModules.M1.version).toBe('bounded-codex-turn-v9');
+    expect(directSolverModules.M1.version).toBe(baseVersion);
   });
 
   it('orders rules within each module and ignores disabled positions without moving module sections', () => {

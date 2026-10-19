@@ -277,6 +277,7 @@ bun run math bootstrap-lean-eval --help
 | `compare` | 准备、运行并汇总固定预算的单 Agent / 独立并行 / 协作对照 |
 | `check-lean` | 对保存的 Lean 文件获取局部诊断 |
 | `search-lean` | 检索已验证的本地 Lean 包声明 |
+| `knowledge` | [导入、搜索和读取历史已检查定理](theorem-knowledge.md)，以固定版本供后续运行复用 |
 | `freeze-retrieval` | 冻结允许检索的本地源码语料 |
 | `summarize` | 汇总保存的实验记录 |
 
@@ -293,15 +294,15 @@ bun run math check-lean \
 
 ## 架构与开发
 
-研究组件的职责见[组件模型](../README.md#组件模型)，扩展示例见[替换一个组件](../examples/components/README.md)。入口在 [run.ts](../src/solver/run.ts)，Agent 执行循环在 [research.ts](../src/solver/research.ts)，异步协作与集成在 [cooperation.ts](../src/solver/cooperation.ts)。
+研究组件的职责见[组件模型](../README.md#组件模型)，输入、产物及验收边界见[解题模块与交接协议](solver-modules.md)，扩展示例见[替换一个组件](../examples/components/README.md)。入口在 [run.ts](../src/solver/run.ts)，Agent 执行循环在 [research.ts](../src/solver/research.ts)，异步协作与集成在 [cooperation.ts](../src/solver/cooperation.ts)。
 
 | 模块 | 职责 | 实现 |
 | --- | --- | --- |
-| M1 证明构造 | 执行模型轮次，记录候选与来源 | [execution.ts](../src/solver/modules/execution.ts) |
-| M2 检查与反馈 | 固定版本的 Lean 证据与局部义务检查 | [evidence.ts](../src/solver/modules/evidence.ts)、[cooperativeProof.ts](../src/solver/cooperativeProof.ts) |
-| M3 搜索决策 | 依赖就绪、路线预算、继续 / 停止及重试 | [search.ts](../src/solver/modules/search.ts)、[value.ts](../src/solver/modules/value.ts) |
-| M4 上下文选择 | 完整必需接口、可见成果、反馈与省略清单 | [context.ts](../src/solver/modules/context.ts)、[contextCompiler.ts](../src/solver/contextCompiler.ts) |
-| M5 协作与复用 | 职责匹配、写入负责人及隔离 worktree | [organization.ts](../src/solver/modules/organization.ts) |
+| M1 执行 | 在指定隔离工作区执行模型轮次，记录候选与来源 | [execution.ts](../src/solver/modules/execution.ts) |
+| M2 证据 | 固定版本、精确声明的 Lean 证据与局部义务检查 | [evidence.ts](../src/solver/modules/evidence.ts)、[cooperativeProof.ts](../src/solver/cooperativeProof.ts) |
+| M3 搜索调度 | 检查依赖与分配可行性、路线预算、继续 / 停止及重试 | [search.ts](../src/solver/modules/search.ts)、[value.ts](../src/solver/modules/value.ts) |
+| M4 上下文 | 完整必需接口、工作契约、未决提案、反馈与省略清单 | [context.ts](../src/solver/modules/context.ts)、[contextCompiler.ts](../src/solver/contextCompiler.ts) |
+| M5 职责分配 | 在存活工作槽中匹配职责、显式负责人和路线约束 | [organization.ts](../src/solver/modules/organization.ts) |
 | S1 任务与成果档案 | 保存与恢复候选、回执、失败和运行状态 | [archive.ts](../src/solver/archive.ts) |
 | S3 环境与评测合同 | 冻结题目，集成后重检并独立评测 | [problem.ts](../src/solver/problem.ts)、[evaluation.ts](../src/solver/evaluation.ts)、[src/math/](../src/math/) |
 

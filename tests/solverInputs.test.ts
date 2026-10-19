@@ -29,6 +29,21 @@ describe('solver input boundaries', () => {
     expect(() => readMathText(file, 64)).toThrow();
   });
 
+  it('tracks strict log entries by byte offset across blank lines, CRLF and partial writes', () => {
+    const file = path.join(temp(), 'edits.jsonl');
+    const prefix = '\n' + JSON.stringify({ summary: '\u6570\u5b66' }) + '\r\n';
+    fs.writeFileSync(file, prefix + '{"partial":');
+    const batch = readDeliveryLines(file, 0);
+    expect(batch.lines).toEqual([JSON.stringify({ summary: '\u6570\u5b66' }) + '\r']);
+    expect(batch.entries?.map(entry => entry.offset)).toEqual([1, Buffer.byteLength(prefix)]);
+    expect(batch.offset).toBe(Buffer.byteLength(prefix));
+    fs.appendFileSync(file, 'true}\n');
+    const resumed = readDeliveryLines(file, batch.offset);
+    expect(resumed.lines).toEqual(['{"partial":true}']);
+    expect(resumed.entries?.[0].offset).toBe(fs.statSync(file).size);
+    expect(() => readDeliveryLines(file, 0, { discardingOversized: false })).not.toThrow();
+  });
+
   it.skipIf(process.platform === 'win32')('rejects FIFOs without waiting for a writer', () => {
     const root = temp(), file = path.join(root, 'RESEARCH.md');
     expect(spawnSync('mkfifo', [file], { timeout: 1000 }).status).toBe(0);

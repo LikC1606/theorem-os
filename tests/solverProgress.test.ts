@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildProofContinuation, recordedTaskProofStatus } from '../src/solver/progress';
+import { buildProofContinuation, createRecordedTaskSettlement, recordedTaskProofStatus } from '../src/solver/progress';
 import { markTaskAcceptance, taskVersion, type TaskRecord } from '../src/solver/tasks';
 import type { TaskProof } from '../src/solver/cooperativeProof';
 import type { ProofRoute } from '../src/solver/proofRoutes';
-import { readyResearchTasks } from '../src/solver/modules/search';
+import { originalGoalTaskFocus, readyResearchTasks } from '../src/solver/modules/search';
 import { captureObligationSnapshot, diffObligationProgress } from '../src/solver/obligationProgress';
 
 function node(id: string, kind: TaskRecord['task']['kind'] = 'lemma', dependsOn: string[] = []): TaskRecord {
@@ -106,6 +106,105 @@ describe('recorded proof continuation', () => {
     expect(report.continuationCandidates).toEqual(['goal']);
     expect(report.reuse[0].taskId).toBe('shared');
     expect(JSON.stringify(report)).not.toContain('private_implementation');
+  });
+
+  it.each(['research', 'sketch'] as const)('keeps the open core visible through multiple completed %s findings', kind => {
+    const input = node('input'); checked(input);
+    const core = node('core', 'lemma', ['input']);
+    const inner = node('inner', kind, ['core']), outer = node('outer', 'research', ['inner']);
+    const goal = node('goal', 'goal', ['outer']), tasks = [input, core, inner, outer, goal];
+    const before = buildProofContinuation(tasks);
+    inner.status = 'completed'; outer.status = 'completed';
+    inner.finding = 'The substantive core estimate is still missing.'; outer.finding = 'The same estimate remains necessary.';
+    const report = buildProofContinuation(tasks);
+
+    expect(before.goals[0].frontier).toEqual(['core']);
+    expect(report.goals[0].frontier).toEqual(['core']);
+    expect(report.frontier[0]).toMatchObject({ taskId: 'core', checkedInputs: ['input'], goalIds: ['goal'] });
+    expect([...originalGoalTaskFocus(tasks).frontier]).toEqual(['core']);
+    expect(report.continuationCandidates).toEqual(['core']);
+    expect(readyResearchTasks(tasks)).not.toContain(goal);
+
+    checked(core);
+    expect(buildProofContinuation(tasks).goals[0].frontier).toEqual(['goal']);
+    expect([...originalGoalTaskFocus(tasks).frontier]).toEqual(['goal']);
+    expect(readyResearchTasks(tasks)).toContain(goal);
+    expect(goal.integratedCheck).toBeUndefined();
+  });
+
+  it('retains missing inputs beneath a completed investigation instead of making its consumer ready', () => {
+    const input = node('input'); checked(input);
+    const advisory = node('advisory', 'research', ['missing']); advisory.status = 'completed';
+    const goal = node('goal', 'goal', ['input', 'advisory']), tasks = [input, advisory, goal];
+    const report = buildProofContinuation(tasks);
+
+    expect(report.goals[0].missingDependencies).toEqual(['missing']);
+    expect(report.continuationCandidates).not.toContain('goal');
+    expect(createRecordedTaskSettlement(tasks).settled(advisory)).toBe(false);
+    expect(readyResearchTasks(tasks)).not.toContain(goal);
+  });
+
+  it('fails closed on cyclic completed investigations in a malformed restored graph', () => {
+    const input = node('input'); checked(input);
+    const first = node('first', 'research', ['second']), second = node('second', 'sketch', ['first']);
+    first.status = 'completed'; second.status = 'completed';
+    const goal = node('goal', 'goal', ['input', 'first']), tasks = [input, first, second, goal];
+    const restored: TaskRecord[] = JSON.parse(JSON.stringify(tasks));
+    const { settled } = createRecordedTaskSettlement(restored);
+
+    expect(settled(restored[1])).toBe(false);
+    expect(settled(restored[2])).toBe(false);
+    expect(buildProofContinuation(restored).continuationCandidates).not.toContain('goal');
+    expect(readyResearchTasks(restored).map(item => item.task.id)).not.toContain('goal');
+    expect(restored[3].integratedCheck).toBeUndefined();
+  });
+
+  it('encapsulates hidden implementation inputs behind checked interfaces even through an advisory chain', () => {
+    const secret = node('private_implementation'), shared = node('shared', 'lemma', ['private_implementation']);
+    checked(secret); checked(shared, [secret]);
+    const advisory = node('advisory', 'sketch', ['shared']); advisory.status = 'completed';
+    const goal = node('goal', 'goal', ['advisory']), tasks = [shared, advisory, goal];
+    const report = buildProofContinuation(tasks);
+
+    expect(report.goals[0].frontier).toEqual(['goal']);
+    expect(report.goals[0].missingDependencies).toEqual([]);
+    expect(createRecordedTaskSettlement(tasks).settled(advisory)).toBe(true);
+    expect([...originalGoalTaskFocus(tasks).frontier]).toEqual(['goal']);
+    expect(JSON.stringify(report)).not.toContain('private_implementation');
+  });
+
+  it('preserves the actual failed frontier for recovery after completed findings and JSON restoration', () => {
+    const core = node('core'); core.status = 'blocked'; core.attempts = 2;
+    core.feedback = 'The exact construction is still absent after checked attempts.';
+    const finding = node('finding', 'research', ['core']), review = node('review', 'sketch', ['finding']);
+    finding.status = 'completed'; review.status = 'completed';
+    const tasks = [core, finding, review, node('goal', 'goal', ['review'])];
+    const restored: TaskRecord[] = JSON.parse(JSON.stringify(tasks));
+
+    expect(buildProofContinuation(restored).frontier).toEqual([
+      { taskId: 'core', kind: 'lemma', status: 'blocked', control: 'active', attempts: 2,
+        goalIds: ['goal'], checkedInputs: [] },
+    ]);
+    expect(buildProofContinuation(restored).goals[0].frontier).toEqual(['core']);
+    expect([...originalGoalTaskFocus(restored).frontier]).toEqual(['core']);
+    expect(restored[0].feedback).toBe(core.feedback);
+    expect(restored.map(item => item.status)).toEqual(['blocked', 'completed', 'completed', 'pending']);
+  });
+
+  it('shares mathematical settlement while preserving parked branches in reports and excluding them from dispatch focus', () => {
+    const first = node('first'), second = node('second');
+    const closeFirst = node('close_first', 'lemma', ['first']), closeSecond = node('close_second', 'lemma', ['second']);
+    const goal = node('goal', 'goal');
+    goal.alternativeRoutes = [
+      { id: 'parked', targetTaskId: 'goal', prerequisiteTaskIds: ['first'], closingTaskId: 'close_first' },
+      { id: 'active', targetTaskId: 'goal', prerequisiteTaskIds: ['second'], closingTaskId: 'close_second' },
+    ];
+    goal.parkedRoutes = { parked: ['local-obstruction'] };
+    const tasks = [first, second, closeFirst, closeSecond, goal];
+
+    expect(buildProofContinuation(tasks).goals[0].frontier).toEqual(['first', 'second']);
+    expect([...originalGoalTaskFocus(tasks).frontier]).toEqual(['second']);
+    expect(buildProofContinuation(tasks).goals[0].alternatives![0]).toMatchObject({ parkedBy: ['local-obstruction'] });
   });
 
   it('excludes a parked ready branch from continuation candidates while preserving mathematical alternatives', () => {

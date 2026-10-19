@@ -9,17 +9,24 @@ import type { CooperationState } from './cooperation';
 import type { MathAgentActivity } from '../runtime/codexSession';
 import type { TokenBudget, UsageAccounting } from './usageBudget';
 import type { ContextManifest } from './contextCompiler';
+import type { ModelTurnLedger } from './turnLedger';
 import { z } from 'zod';
 
 export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | 'previousThreadIds' |
-  'lastInputTokens' | 'lastActivity' | 'lastFailure' | 'lastContextManifest' | 'phase' | 'turns' | 'dispatchCounts' | 'usage' | 'usageBeforeThread' | 'usageAccounting' | 'check' | 'candidate' | 'lemmaResearch' | 'failures' | 'error'> & {
+  'lastInputTokens' | 'lastActivity' | 'lastFailure' | 'recovery' | 'contextOverflow' | 'lastContextManifest' | 'phase' | 'turns' | 'dispatchCounts' | 'usage' | 'usageBeforeThread' | 'usageAccounting' | 'check' | 'candidate' | 'lemmaResearch' | 'failures' | 'error'> & {
   id: string;
   role: ResearchRole;
   sessionRole?: ResearchRole;
   sessionGroupId?: string;
   sessionTaskId?: string;
   sessionTaskVersion?: string;
+  sessionAssignmentId?: string;
   sessionStatementReview?: boolean;
+};
+
+export type ResearchRecovery = {
+  phase: 'cooling-down' | 'retrying' | 'recovered'; reason: string; cycles: number;
+  startedAt: number; nextRetryAt: number; waitedMs: number; recoveredAt?: number;
 };
 
 /** S1: resumable records; storing a candidate never grants proof acceptance. */
@@ -35,6 +42,7 @@ export type SolverRunState = {
   coordination?: 'cooperative' | 'independent';
   moduleConfiguration?: { id: string; versions: Record<string, string> };
   retrievalDigest?: string;
+  knowledgeDigest?: string;
   model: string;
   effort: string;
   worktree: string;
@@ -43,6 +51,8 @@ export type SolverRunState = {
   lastInputTokens?: number;
   lastActivity?: MathAgentActivity & { at: number };
   lastFailure?: { at: number; reason: string; taskId?: string };
+  recovery?: ResearchRecovery;
+  contextOverflow?: { maxOptionalContextBytes: number; failedFreshContextDigests: string[] };
   lastContextManifest?: ContextManifest;
   phase: 'prepared' | 'running' | 'checking' | 'evaluating' | 'finished';
   turns: number;
@@ -54,6 +64,7 @@ export type SolverRunState = {
   usageBeforeThread?: Record<string, unknown>;
   usageAccounting?: UsageAccounting;
   tokenBudget?: TokenBudget;
+  turnLedger?: ModelTurnLedger;
   check?: ProofCheck;
   candidate?: ResearchCandidate;
   lemmaResearch?: LemmaResearch;
@@ -75,7 +86,44 @@ const tokenBudget = z.object({ maxTotalTokens: safeCount, enforcement: z.literal
   status: z.enum(['unlimited', 'available', 'exhausted', 'usage-unavailable']), reportedTotalTokens: safeCount.nullable(),
   usageComplete: z.boolean(), overrunTokens: safeCount.nullable(),
   reason: z.enum(['math_total_token_limit', 'math_model_usage_unavailable']).optional() });
+const turnOutcome = z.object({ evidence: z.literal('recorded-not-replayed'), acceptance: z.literal('not-assessed'),
+  attribution: z.literal('observed-not-causal'), observedProgress: z.object({ scope: z.enum(['assignment-cone', 'run']),
+    taskVersionMatches: z.boolean(), beforeDigest: z.string(), afterDigest: z.string(),
+    obligations: z.object({ closed: z.array(z.string()), reopened: z.array(z.string()), changed: z.array(z.string()) }),
+    frontierChangedGoalIds: z.array(z.string()), advisoryChangedTaskIds: z.array(z.string()) }),
+  retainedWork: z.object({ value: z.literal('not-assessed'), deliveries: z.array(z.object({ id: z.string(), kind: z.string(), status: z.string(),
+    taskId: z.string().optional(), taskDigest: z.string().optional(), commit: z.string().optional(), findingDigest: z.string().optional(),
+    evidenceRefs: z.array(z.string()), artifacts: z.object({ scope: z.string(), digest: z.string() }).optional() })),
+  drafts: z.array(z.object({ taskId: z.string(), taskDigest: z.string(), assignmentId: z.string().optional(), commit: z.string(),
+    outputDigest: z.string(), artifactDigest: z.string(), evidenceStatus: z.literal('advisory-unverified') })),
+  blockers: z.array(z.object({ id: z.string(), taskId: z.string(), taskDigest: z.string(), status: z.string(), mechanism: z.string(),
+    scope: z.string(), evidenceRefs: z.array(z.string()), count: safeCount, evidenceStatus: z.literal('advisory') })),
+  failedInputs: z.array(z.object({ id: z.string(), taskId: z.string(), taskDigest: z.string(), attemptFingerprint: z.string().optional(),
+    relatedFailureIds: z.array(z.string()).optional(), feedbackDigest: z.string(), evidenceStatus: z.literal('recorded-failure') })),
+  checkpoint: z.object({ taskDigest: z.string(), inputDigest: z.string(), outputDigest: z.string(), count: safeCount, paused: z.boolean(),
+    evidenceStatus: z.literal('candidate-not-scored') }).passthrough().optional(),
+  check: z.object({ commit: z.string(), sourceDigest: z.string(), passed: z.boolean(), status: z.string(), receiptIds: z.array(z.string()) }).optional(),
+}) });
+const modelTurnReceipt = z.object({ schema: z.literal('theoremos.model-turn.v1'), id: z.string(), workerId: z.string(),
+  sessionId: z.string().optional(), threadId: z.string().optional(), turnId: z.string().optional(),
+  workerTurn: safeCount, runTurn: safeCount, startedAt: safeCount,
+  modelFinishedAt: safeCount.optional(), settledAt: safeCount.optional(),
+  scope: z.object({ actionKind: z.string(), operation: z.string(), taskId: z.string().optional(), taskDigest: z.string().optional(),
+    assignmentId: z.string().optional(), groupId: z.string().optional(), routeId: z.string().optional(),
+    seedCommit: z.string().optional(), reviewId: z.string().optional(), planVersion: z.string().optional() }),
+  execution: z.enum(['running', 'completed', 'interrupted', 'failed', 'recovered']),
+  usage: z.object({ basis: z.literal('provider-thread-window'), attribution: z.literal('unverified'),
+    coverage: z.enum(['pending', 'reported', 'partial', 'unknown']), beforeTotalTokens: safeCount.nullable(),
+    afterTotalTokens: safeCount.nullable(), observedDeltaTokens: safeCount.nullable(), reportedUpdates: safeCount,
+    uncertainReasons: z.array(z.string()) }),
+  outcomeStatus: z.enum(['pending', 'recorded', 'unavailable-after-restart']), outcome: turnOutcome.optional() });
 const taskReference = z.object({ taskId: z.string(), taskDigest: z.string() });
+const handoffDecision = z.object({ id: z.string(), deliveryId: z.string(), status: z.enum(['adopted', 'rejected', 'deferred']),
+  taskId: z.string().optional(), taskDigest: z.string().optional(), reason: z.string().optional(),
+  waitsOn: z.array(z.object({ taskId: z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/u),
+    taskDigest: z.string().regex(/^[a-f0-9]{64}$/u) }).strict()).nonempty()
+    .refine(values => new Set(values.map(value => value.taskId)).size === values.length).optional(),
+}).passthrough().refine(value => value.waitsOn === undefined || value.status === 'deferred');
 const declarationReference = z.object({ name: z.string(), file: z.string() });
 const proofReferences = z.object({ sourceCommit: z.string(), environmentDigest: z.string(), contextDigest: z.string(),
   scope: z.literal('statement').optional(), root: declarationReference,
@@ -83,6 +131,8 @@ const proofReferences = z.object({ sourceCommit: z.string(), environmentDigest: 
   tasks: z.array(taskReference).optional(), statement: z.array(declarationReference), proof: z.array(declarationReference) });
 const check = z.object({ commit: z.string().min(1), sourceDigest: z.string().min(1), passed: z.boolean(),
   taskDigest: z.string().optional(), conditions: z.array(taskReference).optional(), references: proofReferences.optional(),
+  projection: z.object({ environmentDigest: z.string().min(1), problemReceiptDigest: z.string().min(1),
+    sourceDigest: z.string().min(1) }).optional(),
   changes: z.array(z.object({ file: z.string(), name: z.string(), after: z.string() }).passthrough()).optional(),
   verification: z.object({ status: z.enum(['kernel_verified', 'failed', 'blocked', 'unavailable']),
     targetCommit: z.string().optional(), results: z.array(record) }).passthrough() }).passthrough();
@@ -92,6 +142,11 @@ const research = z.object({ worktree: z.string().min(1), phase, turns: count, th
   previousThreadIds: z.array(z.string()).optional(), lastInputTokens: count.optional(), check: check.optional(),
   lastActivity: z.object({ at: count, event: z.string().min(1).max(64), itemType: z.string().max(64).optional() }).optional(),
   lastFailure: z.object({ at: count, reason: z.string(), taskId: z.string().optional() }).optional(),
+  recovery: z.object({ phase: z.enum(['cooling-down', 'retrying', 'recovered']), reason: z.string(),
+    cycles: safeCount.min(1), startedAt: safeCount, nextRetryAt: safeCount, waitedMs: safeCount,
+    recoveredAt: safeCount.optional() }).optional(),
+  contextOverflow: z.object({ maxOptionalContextBytes: safeCount,
+    failedFreshContextDigests: z.array(z.string().regex(/^[a-f0-9]{64}$/u)) }).optional(),
   usage: record.optional(), usageBeforeThread: record.optional(), usageAccounting: usageAccounting.optional(),
   tokenBudget: tokenBudget.optional(), candidate: record.optional(),
   lemmaResearch: record.optional(), failures: z.array(record).optional(), error: z.string().optional() }).passthrough();
@@ -99,8 +154,10 @@ const role = z.enum(['lead', 'researcher', 'engineer', 'reviewer']);
 const task = z.object({ id: z.string().min(1), kind: z.enum(['research', 'sketch', 'lemma', 'goal']),
   objective: z.string(), dependsOn: z.array(z.string()), revision: count }).passthrough();
 const taskRecord = z.object({ task, status: z.enum(['pending', 'running', 'blocked', 'conditional', 'delivered', 'integrated', 'completed']),
+  pendingValidation: z.object({ id: z.string().min(1), taskDigest: z.string().min(1), canonicalCommit: z.string().min(1),
+    environmentDigest: z.string().min(1), problemReceiptDigest: z.string().min(1), proof: z.boolean().optional() }).optional(),
   attempts: count, proof: check.optional(), integratedCheck: check.optional(), assignment: z.object({ taskId: z.string(),
-    taskDigest: z.string(), workerId: z.string(), seedCommit: z.string() }).passthrough().optional() }).passthrough();
+    taskDigest: z.string(), workerId: z.string(), seedCommit: z.string(), assignmentId: z.string().optional() }).passthrough().optional() }).passthrough();
 const routeBlocker = z.object({ id: z.string(), taskId: z.string(), groupId: z.string(), taskDigest: z.string(),
   routeId: z.string().optional(),
   mechanism: z.string(), scope: z.string(), evidenceStatus: z.literal('advisory'), evidenceRefs: z.array(z.string()),
@@ -149,12 +206,22 @@ const runState = research.extend({ schema: z.literal('deepscientist.math.solver.
   problem: z.object({ workspace: z.string(), receiptDigest: z.string() }).passthrough(),
   taskDigest: z.string(), buildDigest: z.string(), environmentDigest: z.string(), evaluatorDigest: z.string(),
   model: z.string(), effort: z.string(), workerCount: z.number().int().positive().optional(),
+  knowledgeDigest: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
   coordination: z.enum(['cooperative', 'independent']).optional(),
-  workers: z.array(research.extend({ id: z.string(), role, sessionRole: role.optional() })).optional(),
+  turnLedger: z.object({ retainedLimit: safeCount.min(1), dropped: safeCount, unscopedReports: safeCount,
+    turns: z.array(modelTurnReceipt) }).optional(),
+  workers: z.array(research.extend({ id: z.string(), role, sessionRole: role.optional(),
+    sessionAssignmentId: z.string().optional() })).optional(),
   cooperation: z.object({ tasks: z.array(taskRecord), groups: z.array(z.object({ group: z.object({ id: z.string(),
     status: z.enum(['active', 'paused', 'stopped']), revision: count }).passthrough(), turns: count }).passthrough()).optional(),
     history: z.array(z.object({ task, proof: check.optional(), integratedCheck: check.optional() }).passthrough()).optional(),
     deliveries: z.array(record).optional(), blockers: z.array(routeBlocker).optional(),
+    researchDecisions: z.array(handoffDecision).optional(),
+    leadSeedCommit: z.string().regex(/^[a-f0-9]{40,64}$/u).optional(),
+    researchDrafts: z.record(z.object({ taskDigest: z.string(), workerId: z.string(), assignmentId: z.string().optional(),
+      seedCommit: z.string().regex(/^[a-f0-9]{40,64}$/u), canonicalCommit: z.string().regex(/^[a-f0-9]{40,64}$/u).optional(),
+      commit: z.string().regex(/^[a-f0-9]{40,64}$/u), outputDigest: z.string(), artifacts: record,
+      suspended: z.boolean().optional() }).passthrough()).optional(),
     proofRoutes: z.array(z.object({ id: z.string(), targetTaskId: z.string(), prerequisiteTaskIds: z.array(z.string()),
       closingTaskId: z.string() })).optional(), progressSnapshot: progressSnapshot.optional(),
     progressReceipts: z.array(progressReceipt).max(64).optional() }).passthrough().optional(),
