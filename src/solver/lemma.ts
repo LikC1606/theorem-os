@@ -1,12 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
-import { resolveMathProofEnvironment } from '../math/mathProofEnvironment';
 import { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions } from '../math/leanSource';
 import { isSimpleLeanName } from '../math/leanSyntax';
 import { commitSolverProjection, git, withSolverWorktree, type SolverProblem } from './problem';
 import { checkProjectedDeclaration, type ProofCheck } from './modules/evidence';
 import { readMathResponse } from './deliveries';
+import { hasDeterministicLeanFailure, proofReuseEnvironment } from './proofReuse';
 
 export type LemmaPlan = Readonly<{ proofPath: string; target: string; lemma: string; type: string }>;
 export type LemmaEvidence = ProofCheck & Readonly<{
@@ -20,7 +20,9 @@ export type LemmaEvidence = ProofCheck & Readonly<{
 export type LemmaResearch = { plan?: LemmaPlan; error?: string; bridge?: LemmaEvidence; lemma?: LemmaEvidence };
 
 // Archive records cannot authorize reuse: only receipts checked in this process can.
-const checkedProjections = new WeakMap<LemmaEvidence, { environmentDigest: string; projectionDigest: string; reusable: boolean }>();
+const checkedProjections = new WeakMap<LemmaEvidence, {
+  environmentDigest?: string; projectionDigest: string; reusable: boolean; receiptDigest: string;
+}>();
 
 /** Proposals in RESEARCH.md are instructions, never mathematical evidence. */
 export function readLemmaPlan(task: SolverProblem, worktree: string): LemmaPlan {
@@ -53,10 +55,6 @@ export async function checkLemmaResearch(task: SolverProblem, worktree: string, 
     return { plan, error: 'math_lemma_requires_assignment_proofs' };
   const planDigest = mathDigest(canonicalMathJson({ plan, declarationHash: hashMathFormalSourceDeclaration(sourceFile, plan.lemma),
     targetHash: target.declarationHash, problemReceiptDigest: task.receiptDigest }));
-  const environmentDigest = mathDigest(canonicalMathJson(env));
-  const packages = path.join(worktree, task.projectRelative, '.lake', 'packages');
-  const sealed = resolveMathProofEnvironment(path.join(worktree, task.projectRelative), env);
-  const reusable = (!fs.existsSync(packages) || !!sealed) && !env.LEAN_PATH?.trim();
   const check = async (obligation: 'bridge' | 'lemma'): Promise<LemmaEvidence> => {
     signal.throwIfAborted();
     return withSolverWorktree(worktree, source.commit, async checkout => {
@@ -83,25 +81,33 @@ export async function checkLemmaResearch(task: SolverProblem, worktree: string, 
       }
       const commit = commitSolverProjection(task, checkout, `Check ${obligation} obligation`);
       const projectionDigest = git(checkout, ['rev-parse', 'HEAD^{tree}']);
+      const environment = proofReuseEnvironment(path.join(worktree, task.projectRelative), env);
+      const environmentDigest = environment.digest;
       const prior = previous?.[obligation];
       const provenance = prior && checkedProjections.get(prior);
-      const sameInput = prior?.obligation === obligation && prior.planDigest === planDigest &&
-        provenance?.environmentDigest === environmentDigest && provenance.projectionDigest === projectionDigest;
-      if (sameInput && prior.passed && reusable && provenance.reusable) {
-        const receipt = { ...prior, sourceCommit: source.commit, sourceDigest: source.sourceDigest, reused: true };
-        checkedProjections.set(receipt, { environmentDigest, projectionDigest, reusable });
+      const sameInput = !!provenance && prior?.obligation === obligation && prior.planDigest === planDigest &&
+        provenance?.environmentDigest === environmentDigest && provenance.projectionDigest === projectionDigest &&
+        provenance.receiptDigest === mathDigest(canonicalMathJson(prior));
+      if (sameInput && environment.reusable && provenance.reusable &&
+          (prior.passed || hasDeterministicLeanFailure(prior.verification))) {
+        const receipt = { ...prior, sourceCommit: source.commit, sourceDigest: source.sourceDigest, reused: true,
+          unchangedFailures: prior.passed ? 0 : prior.unchangedFailures + 1 };
+        checkedProjections.set(receipt, { ...provenance, receiptDigest: mathDigest(canonicalMathJson(receipt)) });
         return receipt;
       }
       const name = obligation === 'lemma' ? plan.lemma : plan.target;
       const { passed, verification } = await checkProjectedDeclaration(task, checkout, worktree, commit,
         { proofPath: plan.proofPath, theoremName: name, digest: planDigest, missingError: 'math_lemma_projection_missing_declaration' },
-      { env, signal, timeoutMs: 180_000,
+      { env: environment.env, signal, timeoutMs: 180_000,
         ...(obligation === 'lemma' ? { expectedDeclarationType: plan.type } : {}) });
       const unchangedFailures = !passed && verification.status === 'failed'
         ? sameInput && !prior.passed ? prior.unchangedFailures + 1 : 1 : 0;
       const receipt = { obligation, sourceCommit: source.commit, sourceDigest: source.sourceDigest, planDigest,
         projectionDigest, unchangedFailures, reused: false, commit, passed, verification };
-      checkedProjections.set(receipt, { environmentDigest, projectionDigest, reusable });
+      const reusable = environment.reusable &&
+        proofReuseEnvironment(path.join(worktree, task.projectRelative), environment.env).digest === environmentDigest;
+      checkedProjections.set(receipt, { environmentDigest, projectionDigest, reusable,
+        receiptDigest: mathDigest(canonicalMathJson(receipt)) });
       return receipt;
     });
   };

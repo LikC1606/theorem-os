@@ -147,7 +147,7 @@ describe('original-goal frontier priority', () => {
     expect(originalGoalTaskFocus(tasks).support.has('shared')).toBe(false);
   });
 
-  it('reserves independent exploration after two frontier workers, including targeted research workers', () => {
+  it('preserves M3 mathematical ordering while M5 allocates the last group slot beside targeted research', () => {
     const core = node('core'); core.status = 'running';
     const helper = node('helper');
     const probe = node('probe', 'research', ['core', 'helper']); probe.status = 'running';
@@ -157,10 +157,16 @@ describe('original-goal frontier priority', () => {
     const ready = continuationResearchTasks(tasks, [main]);
     const engineer: ResearchWorker = { id: 'engineer', role: 'engineer', worktree: '/engineer', ownedFiles: [] };
     const researcher: ResearchWorker = { ...engineer, id: 'researcher', role: 'researcher' };
+    const busy = [core, probe].map((record, index) => {
+      const worker = { ...researcher, id: `busy-${index}` };
+      record.assignment = { taskId: record.task.id, taskDigest: taskVersion(record.task), workerId: worker.id, seedCommit: 'fixture' };
+      return worker;
+    });
+    const live = [engineer, researcher, ...busy];
 
-    expect(ids(ready)).toEqual(['fresh_exploration', 'helper', 'old_exploration']);
-    expect(assignSharedResearchTask(ready, engineer, [engineer, researcher], [main])).toBe(helper);
-    expect(assignSharedResearchTask(ready, researcher, [engineer, researcher], [main])).toBe(fresh);
+    expect(ids(ready)).toEqual(['helper', 'old_exploration', 'fresh_exploration']);
+    expect(assignSharedResearchTask(ready, engineer, live, [main], tasks)).toBe(old);
+    expect(assignSharedResearchTask(ready, researcher, live, [main], tasks)).toBe(fresh);
     fresh.status = 'running';
     expect(continuationResearchTasks(tasks, [main])).toEqual([]);
     expect(continuationResearchTasks(tasks)[0]).toBe(helper);

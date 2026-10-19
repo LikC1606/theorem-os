@@ -588,7 +588,14 @@ function compileSections(instructions: string, mandatory: readonly ContextSectio
     };
     let message: string;
     do {
-      message = content + '\n\nContext compilation manifest:\n' + json(manifest);
+      const inlineManifest = manifest.omitted.length <= 32 ? manifest : { ...manifest,
+        omitted: manifest.omitted.slice(0, 16),
+        omissionSet: { selection: 'bounded-preview', count: manifest.omitted.length,
+          digest: mathDigest(canonicalMathJson(manifest.omitted)),
+          reference: { path: 'CONTEXT-MANIFEST.json', field: 'omitted' },
+          retrieval: 'Read the complete omitted array from this manifest file; require its length and canonical JSON SHA-256 to match. ' +
+            'The inline entries are only a preview, not the complete omission inventory.' } };
+      message = content + '\n\nContext compilation manifest:\n' + json(inlineManifest);
       const usedBytes = Buffer.byteLength(instructions) + Buffer.byteLength(message);
       if (usedBytes === manifest.usedBytes) break;
       manifest.usedBytes = usedBytes;

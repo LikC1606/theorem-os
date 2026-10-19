@@ -1,11 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { readyResearchTasks, researchCanAdvance, taskCanStart, taskDependenciesReady } from '../src/solver/modules/search';
-import { invalidatedTaskIds, markTaskReferences, taskVersion, type TaskRecord } from '../src/solver/tasks';
+import { invalidatedTaskIds, markTaskReferences, taskProofContractVersion, taskVersion, type TaskRecord } from '../src/solver/tasks';
 
 const node = (id: string, dependsOn: string[] = []): TaskRecord => ({ task: { id, kind: 'lemma', objective: id,
   theoremName: id, type: 'True', proofPath: 'Submission.lean', dependsOn, revision: 0 }, status: 'integrated', attempts: 0 });
 
 describe('dependency readiness', () => {
+  it('distinguishes descriptive proof revisions from changed mathematical contracts', () => {
+    const original = node('a').task;
+    const revised = { ...original, objective: 'A clearer description of the same theorem', revision: 1 };
+    expect(taskVersion(revised)).not.toBe(taskVersion(original));
+    expect(taskProofContractVersion(revised)).toBe(taskProofContractVersion(original));
+    for (const change of [{ type: 'False' }, { premises: ['An additional assumption'] }, { dependsOn: ['new_input'] }])
+      expect(taskProofContractVersion({ ...revised, ...change })).not.toBe(taskProofContractVersion(original));
+    const research = { ...original, kind: 'research' as const };
+    expect(taskProofContractVersion({ ...research, objective: 'A different question' })).not.toBe(taskProofContractVersion(research));
+  });
   it('keeps checked proofs and consumers valid across review configuration changes', () => {
     const previous = [node('a'), node('b', ['a']), node('c', ['b'])];
     previous[0].task = { ...previous[0].task, statementReview: true, informalStatement: 'The proposition holds.' };

@@ -1,5 +1,6 @@
 import { isAdvisoryTask, taskGroup, taskVersion, type RouteRecord, type TaskRecord } from './tasks';
 import { describeProofRoutes, type ProofRoute } from './proofRoutes';
+import type { ResearchHandoff } from './researchHandoffs';
 
 /** Stored receipts describe a checkpoint; this function never replays or authorizes a proof. */
 export function recordedTaskProofStatus(node: TaskRecord, environmentDigest?: string) {
@@ -49,6 +50,8 @@ export function createRecordedTaskSettlement(tasks: readonly TaskRecord[], optio
 /** Planned use and recorded Lean use are separate facts, never a proof-completion percentage. */
 export function buildProofContinuation(tasks: readonly TaskRecord[], options: {
   groups?: readonly RouteRecord[]; environmentDigest?: string; proofRoutes?: readonly ProofRoute[];
+  /** Callers resolve these against the same scoped state before constructing the report. */
+  researchHandoffs?: readonly ResearchHandoff[];
 } = {}) {
   const nodes = new Map(tasks.map(node => [node.task.id, node]));
   const versions = new Map(tasks.map(node => [node.task.id, taskVersion(node.task)]));
@@ -126,9 +129,10 @@ export function buildProofContinuation(tasks: readonly TaskRecord[], options: {
     for (const consumer of tasks) {
       if (consumer === producer || !currentReferences(consumer)) continue;
       const proof = consumer.integratedCheck ?? consumer.proof, references = proof?.references;
-      if (!references?.tasks?.some(reference => reference.taskId === producer.task.id &&
+      if (!Array.isArray(references?.tasks) || !references.tasks.some(reference => reference.taskId === producer.task.id &&
           reference.taskDigest === versions.get(producer.task.id))) continue;
-      const proofUse = references.proof.some(matches), statementUse = references.statement.some(matches);
+      const proofUse = Array.isArray(references.proof) && references.proof.some(matches);
+      const statementUse = Array.isArray(references.statement) && references.statement.some(matches);
       if (!proofUse && !statementUse) continue;
       if (status.get(consumer.task.id) === 'conditional' && consumer.status === 'conditional') {
         conditionalConsumers.push(consumer.task.id);
@@ -140,7 +144,33 @@ export function buildProofContinuation(tasks: readonly TaskRecord[], options: {
     return { taskId: producer.task.id, plannedConsumers: consumers.get(producer.task.id) ?? [],
       plannedGoalIds: [...(goalPaths.get(producer.task.id) ?? [])], proofConsumers, statementConsumers, conditionalConsumers };
   });
-  return { evidence: 'recorded-not-replayed' as const, goals, frontier, reuse,
+  const reuseById = new Map(reuse.map(item => [item.taskId, item]));
+  const missingReferences = tasks.filter(node => {
+    if (isAdvisoryTask(node.task)) return false;
+    const proof = node.integratedCheck ?? node.proof;
+    if (!proof) return false;
+    const references = proof.references, recorded = status.get(node.task.id);
+    return !['checked', 'conditional'].includes(recorded!) || !currentReferences(node) ||
+      !Array.isArray(references?.tasks) || !Array.isArray(references?.proof) || !Array.isArray(references?.statement);
+  }).map(node => node.task.id);
+  const adoptedResearch = (options.researchHandoffs ?? []).flatMap(handoff => {
+    const decision = handoff.decision, source = nodes.get(handoff.sourceTaskId);
+    const adopted = decision?.taskId ? nodes.get(decision.taskId) : undefined;
+    if (handoff.status !== 'adopted' || decision?.status !== 'adopted' || !source ||
+        versions.get(source.task.id) !== handoff.sourceTaskDigest || !adopted || adopted.task.kind !== 'lemma' ||
+        versions.get(adopted.task.id) !== decision.taskDigest) return [];
+    const use = reuseById.get(adopted.task.id);
+    const missingReferenceTaskIds = [...new Set([...(!use ? [adopted.task.id] : []), ...missingReferences])];
+    return [{ adoption: 'adopted' as const, handoffId: handoff.id, sourceTaskId: source.task.id,
+      taskId: adopted.task.id, taskDigest: versions.get(adopted.task.id)!, recordedProof: status.get(adopted.task.id)!,
+      plannedConsumers: consumers.get(adopted.task.id) ?? [], plannedGoalIds: [...(goalPaths.get(adopted.task.id) ?? [])],
+      proofConsumers: use?.proofConsumers ?? [], statementConsumers: use?.statementConsumers ?? [],
+      conditionalConsumers: use?.conditionalConsumers ?? [],
+      // Empty consumer arrays describe only recorded use; missing coverage never establishes non-use.
+      referenceCoverage: missingReferenceTaskIds.length ? 'unknown' as const : 'recorded' as const,
+      missingReferenceTaskIds }];
+  });
+  return { evidence: 'recorded-not-replayed' as const, goals, frontier, reuse, adoptedResearch,
     continuationCandidates: tasks.filter(node => active(node) && node.status === 'pending' &&
       ['lemma', 'goal'].includes(node.task.kind) && goalPaths.has(node.task.id) && checkedInputs(node).length > 0 &&
       node.task.dependsOn.every(id => settled(nodes.get(id))) && !node.routeParking?.length &&

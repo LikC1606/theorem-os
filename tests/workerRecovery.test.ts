@@ -9,7 +9,8 @@ import { mathDigest } from '../src/math/mathRuntimeIo';
 import { hashMathFormalSourceDeclaration } from '../src/math/leanSource';
 import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } from '../src/math/verifier';
 import { directSolverModules } from '../src/solver/modules';
-import { researchFailureDetail, researchFailureReason, recoverableResearchFailure, planResearchRetry } from '../src/solver/modules/search';
+import { researchFailureDetail, researchFailureReason, recoverableResearchFailure, planResearchRetry,
+  planResearchCooldown } from '../src/solver/modules/search';
 import { git } from '../src/solver/problem';
 import { runSolver } from '../src/solver/run';
 import type { CooperativeAction } from '../src/solver/tasks';
@@ -60,6 +61,12 @@ describe('bounded role session recovery', () => {
     threadId: options.threadId || `thread-${host.open.mock.calls.length}`, lastError,
     run, close: vi.fn().mockResolvedValue(undefined), interrupt: vi.fn().mockResolvedValue(undefined),
   });
+  const recoveryClock = () => {
+    let now = Date.now();
+    vi.spyOn(Date, 'now').mockImplementation(() => now);
+    host.delay.mockImplementation(async (milliseconds: number) => { now += milliseconds; });
+    return { advance: (milliseconds: number) => { now += milliseconds; }, current: () => now };
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -132,6 +139,76 @@ describe('bounded role session recovery', () => {
     expect(host.official).toHaveBeenCalledOnce();
   });
 
+  it('recovers first-turn context overflow below the rotation threshold with saved work and a leaner fresh prompt', async () => {
+    host.open.mockImplementationOnce(async (options: MathAgentOptions) => ({
+      ...session(options, async () => {
+        fs.writeFileSync(proof(options), partial);
+        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), 'The checkpoint is saved; inspect RESEARCH.md.');
+        options.onUsage({ totalTokens: 12 });
+        return 'failed';
+      }), lastInputTokens: 1000, lastFailureDiagnostic: { code: 'contextWindowExceeded' },
+    }));
+    host.open.mockImplementationOnce(async (options: MathAgentOptions) => session(options, async message => {
+      expect(options.threadId).toBeUndefined();
+      expect(fs.readFileSync(proof(options), 'utf8')).toBe(partial);
+      expect(fs.readFileSync(path.join(options.workspace, 'RESEARCH.md'), 'utf8')).toContain('checkpoint');
+      expect(message).toContain('Submission.claim');
+      expect(message).toContain('unsolved goals');
+      fs.writeFileSync(proof(options), completed); return 'completed';
+    }));
+    expect(await runSolver(args, directory)).toBe(0);
+    expect(host.open).toHaveBeenCalledTimes(2);
+    expect(host.delay).not.toHaveBeenCalled();
+    expect(state().contextOverflow).toMatchObject({ maxOptionalContextBytes: 0,
+      failedFreshContextDigests: [expect.stringMatching(/^[a-f0-9]{64}$/u)] });
+    expect(events().filter(event => event.event === 'worker_context_recovering')).toHaveLength(1);
+    expect(host.official).toHaveBeenCalledOnce();
+  });
+
+  it('blocks repeated identical fresh overflow and preserves that guard on resume', async () => {
+    host.open.mockImplementation(async (options: MathAgentOptions) => ({
+      ...session(options, async () => 'failed'), lastFailureDiagnostic: { code: 'contextWindowExceeded' },
+    }));
+    expect(await runSolver(args, directory)).toBe(1);
+    expect(result().reason).toBe('math_model_context_capacity_blocked');
+    const requests = host.open.mock.calls.length;
+    expect(requests).toBeGreaterThan(0); expect(requests).toBeLessThanOrEqual(3);
+    expect(state().contextOverflow.failedFreshContextDigests.length).toBe(requests);
+    expect(await runSolver([...args, '--resume'], directory)).toBe(1);
+    expect(host.open).toHaveBeenCalledTimes(requests);
+    expect(result().reason).toBe('math_model_context_capacity_blocked');
+    expect(host.official).not.toHaveBeenCalled();
+  });
+
+  it('keeps peers running after a Lead context overflow with a saved valid plan', async () => {
+    const assignments = new Map<string, CooperativeAction>();
+    let leadOverflow = false;
+    host.open.mockImplementation(async (options: MathAgentOptions) => session(options, async () => {
+      const action = assignments.get(options.workspace)!;
+      if (action.kind === 'lead') {
+        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({ tasks: [
+          { id: 'claim', kind: 'goal', objective: 'Prove the original claim', theoremName: 'Submission.claim' },
+        ] }));
+        if (!leadOverflow) { leadOverflow = true; throw new Error('contextWindowExceeded'); }
+      } else if (action.kind === 'task') fs.writeFileSync(proof(options), completed);
+      else if (action.kind === 'review') fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'),
+        JSON.stringify({ commit: action.seedCommit, verdict: 'accepted' }));
+      else throw new Error(`unexpected action: ${action.kind}`);
+      return 'completed';
+    }));
+    const execute: typeof directSolverModules.M1.execute = async (...input) => {
+      assignments.set(input[3].worktree, input[1].assignment!);
+      return directSolverModules.M1.execute(...input);
+    };
+    expect(await runSolver([...args, '--workers', '2'], directory,
+      { ...directSolverModules, M1: { ...directSolverModules.M1, execute } })).toBe(0);
+    expect(leadOverflow).toBe(true);
+    expect(events().filter(event => event.event === 'worker_failed')).toHaveLength(0);
+    expect(events().filter(event => event.event === 'worker_context_recovering')).toHaveLength(1);
+    expect(state().cooperation.tasks[0].status).toBe('integrated');
+    expect(host.official).toHaveBeenCalledOnce();
+  });
+
   it.each(['tool', 'network'] as const)('recovers a thrown %s failure in the same role with saved notes, proof and exact usage', async kind => {
     const detail = kind === 'tool' ? 'Error parsing function call: invalid JSON arguments' : 'stream disconnected before completion: error sending request';
     host.open.mockImplementationOnce(async (options: MathAgentOptions) => session(options, async () => {
@@ -172,6 +249,177 @@ describe('bounded role session recovery', () => {
     expect(state()).toMatchObject({ turns: 1, dispatchCounts: { proof: 1 }, usage: { totalTokens: 6 },
       usageAccounting: { startedTurns: 1, reportedTurns: 1, incomplete: false } });
     expect(host.open).toHaveBeenCalledTimes(2); expect(host.official).toHaveBeenCalledOnce();
+  });
+
+  it('keeps reconnecting a sustained startup outage while charging only the request that starts', async () => {
+    const clock = recoveryClock();
+    let openings = 0;
+    host.open.mockImplementation(async (options: MathAgentOptions) => {
+      if (++openings <= 5) {
+        fs.writeFileSync(proof(options), partial);
+        throw new Error('math_codex_transport_closed:process_exit:code=9:signal=none');
+      }
+      return session(options, async () => {
+        expect(fs.readFileSync(proof(options), 'utf8')).toBe(partial);
+        options.onUsage({ totalTokens: 6 }); fs.writeFileSync(proof(options), completed); return 'completed';
+      });
+    });
+    expect(await runSolver(args, directory)).toBe(0);
+    expect(host.open).toHaveBeenCalledTimes(6);
+    expect(host.delay.mock.calls.map(([ms]) => ms)).toEqual([10_000, 20_000, 40_000, 60_000, 10_000]);
+    expect(state()).toMatchObject({ turns: 1, dispatchCounts: { proof: 1 }, usage: { totalTokens: 6 },
+      usageAccounting: { startedTurns: 1, reportedTurns: 1, incomplete: false },
+      recovery: { phase: 'recovered', reason: 'math_codex_transport_closed', cycles: 1,
+        waitedMs: 60_000, recoveredAt: clock.current() } });
+    expect(events().filter(event => event.event === 'worker_cooling_down')).toEqual([
+      expect.objectContaining({ reason: 'math_codex_transport_closed', cycle: 1, delayMs: 60_000,
+        nextRetryAt: state().recovery.nextRetryAt }),
+    ]);
+    expect(events().filter(event => event.event === 'worker_recovered')).toEqual([
+      expect.objectContaining({ reason: 'math_codex_transport_closed', cycles: 1, waitedMs: 60_000 }),
+    ]);
+    expect(events().filter(event => event.event === 'worker_failed')).toHaveLength(0);
+    expect(host.official).toHaveBeenCalledOnce();
+  });
+
+  it('retains the same worker and draft across two cooldown cycles of failed requests', async () => {
+    const clock = recoveryClock();
+    let requests = 0;
+    host.open.mockImplementation(async (options: MathAgentOptions) => session(options, async message => {
+      if (++requests <= 8) {
+        fs.writeFileSync(proof(options), partial);
+        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), 'Preserve the checkpoint lemma across reconnections.');
+        return 'failed';
+      }
+      expect(fs.readFileSync(proof(options), 'utf8')).toBe(partial);
+      expect(fs.readFileSync(path.join(options.workspace, 'RESEARCH.md'), 'utf8')).toContain('checkpoint lemma');
+      expect(message).toContain('unsolved goals');
+      fs.writeFileSync(proof(options), completed); return 'completed';
+    }, 'stream disconnected before completion: error sending request'));
+    expect(await runSolver(args, directory)).toBe(0);
+    expect(requests).toBe(9);
+    expect(new Set(host.open.mock.calls.map(([options]) => options.workspace))).toEqual(new Set([state().worktree]));
+    expect(host.delay.mock.calls.map(([ms]) => ms)).toEqual([
+      10_000, 20_000, 40_000, 60_000, 10_000, 20_000, 40_000, 120_000,
+    ]);
+    expect(state()).toMatchObject({ turns: 9, recovery: { phase: 'recovered', reason: 'math_model_request_failed',
+      cycles: 2, waitedMs: 180_000, recoveredAt: clock.current() } });
+    expect(events().filter(event => event.event === 'worker_cooling_down').map(event => [event.cycle, event.delayMs]))
+      .toEqual([[1, 60_000], [2, 120_000]]);
+    expect(events().filter(event => event.event === 'worker_recovered')).toEqual([
+      expect.objectContaining({ reason: 'math_model_request_failed', cycles: 2, waitedMs: 180_000 }),
+    ]);
+    expect(events().filter(event => event.event === 'worker_failed')).toHaveLength(0);
+    expect(host.official).toHaveBeenCalledOnce();
+  });
+
+  it('persists interrupted cooling and waits its remaining interval before opening a resumed session', async () => {
+    const clock = recoveryClock();
+    host.open.mockImplementation(async (options: MathAgentOptions) => {
+      fs.writeFileSync(proof(options), partial);
+      throw new Error('math_codex_transport_closed');
+    });
+    host.delay.mockImplementation(async (milliseconds: number) => {
+      if (milliseconds === 60_000) {
+        expect(state().recovery.phase).toBe('cooling-down');
+        clock.advance(20_000); process.emit('SIGTERM');
+      } else clock.advance(milliseconds);
+    });
+    expect(await runSolver(args, directory)).toBe(4);
+    expect(host.open).toHaveBeenCalledTimes(4);
+    const interrupted = state().recovery;
+    expect(interrupted).toMatchObject({ phase: 'cooling-down', reason: 'math_codex_transport_closed', cycles: 1, waitedMs: 20_000 });
+    expect(interrupted.recoveredAt).toBeUndefined();
+    expect(state().turns).toBe(0);
+    expect(host.official).not.toHaveBeenCalled();
+    clock.advance(5_000);
+    const delayedBeforeResume = host.delay.mock.calls.length;
+    host.delay.mockImplementation(async (milliseconds: number) => {
+      expect(host.open).toHaveBeenCalledTimes(4);
+      clock.advance(milliseconds);
+    });
+    host.open.mockImplementation(async (options: MathAgentOptions) => {
+      expect(clock.current()).toBe(interrupted.nextRetryAt);
+      expect(host.delay.mock.calls.slice(delayedBeforeResume).map(([ms]) => ms)).toEqual([35_000]);
+      return session(options, async () => {
+        expect(fs.readFileSync(proof(options), 'utf8')).toBe(partial);
+        fs.writeFileSync(proof(options), completed); return 'completed';
+      });
+    });
+    expect(await runSolver([...args, '--resume'], directory)).toBe(0);
+    expect(host.open).toHaveBeenCalledTimes(5);
+    expect(state()).toMatchObject({ turns: 1, recovery: { phase: 'recovered', cycles: 1,
+      startedAt: interrupted.startedAt, nextRetryAt: interrupted.nextRetryAt, waitedMs: 55_000, recoveredAt: interrupted.nextRetryAt } });
+    expect(events().filter(event => event.event === 'worker_recovery_resumed')).toEqual([
+      expect.objectContaining({ reason: 'math_codex_transport_closed', cycle: 1, delayMs: 35_000, nextRetryAt: interrupted.nextRetryAt }),
+    ]);
+    expect(events().filter(event => event.event === 'worker_failed')).toHaveLength(0);
+    expect(host.official).toHaveBeenCalledOnce();
+  });
+
+  it.each(['turns', 'deadline'] as const)('preserves bounded startup retry behavior for a finite %s budget', kind => {
+    host.open.mockRejectedValue(new Error('math_codex_transport_closed'));
+    const finite = kind === 'turns' ? ['--max-turns', '10'] : ['--max-run-seconds', '3600'];
+    return runSolver([...args, ...finite], directory).then(code => {
+      expect(code).toBe(1);
+      expect(host.open).toHaveBeenCalledTimes(4);
+      expect(host.delay.mock.calls.map(([ms]) => ms)).toEqual([10_000, 20_000, 40_000]);
+      expect(state().turns).toBe(0);
+      expect(state().recovery).toBeUndefined();
+      expect(events().filter(event => event.event === 'worker_cooling_down')).toHaveLength(0);
+      expect(host.official).not.toHaveBeenCalled();
+    });
+  });
+
+  it('honors incomplete token accounting before retrying a sustained network failure', async () => {
+    host.open.mockImplementation(async (options: MathAgentOptions) => session(options, async () => {
+      options.onUsage({ totalTokens: 5 }); fs.writeFileSync(proof(options), partial); return 'failed';
+    }, 'stream disconnected before completion: error sending request'));
+    expect(await runSolver([...args, '--max-total-tokens', '100'], directory)).toBe(4);
+    expect(host.open).toHaveBeenCalledOnce();
+    expect(host.delay).not.toHaveBeenCalled();
+    expect(state().recovery).toBeUndefined();
+    expect(state().tokenBudget).toMatchObject({ status: 'usage-unavailable', reportedTotalTokens: 5, usageComplete: false });
+    expect(events().filter(event => event.event === 'worker_cooling_down')).toHaveLength(0);
+    expect(host.official).not.toHaveBeenCalled();
+  });
+
+  it.each(['solver', 'engineer'] as const)('keeps cooperative worker %s available after a sustained startup outage', async workerId => {
+    recoveryClock();
+    const assignments = new Map<string, CooperativeAction>();
+    let failedOpenings = 0;
+    host.open.mockImplementation(async (options: MathAgentOptions) => {
+      if (options.environment.DEEPSCIENTIST_MATH_WORKER_ID === workerId && ++failedOpenings <= 5)
+        throw new Error('math_codex_transport_closed');
+      return session(options, async () => {
+        const action = assignments.get(options.workspace)!;
+        if (action.kind === 'lead') fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({
+          tasks: [{ id: 'claim', kind: 'goal', objective: 'Prove the original claim', theoremName: 'Submission.claim', ownerId: 'engineer' }],
+        }));
+        else if (action.kind === 'task') fs.writeFileSync(proof(options), completed);
+        else if (action.kind === 'review') fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'),
+          JSON.stringify({ commit: action.seedCommit, verdict: 'accepted' }));
+        else throw new Error(`unexpected recovery action: ${action.kind}`);
+        return 'completed';
+      });
+    });
+    const execute: typeof directSolverModules.M1.execute = async (...input) => {
+      assignments.set(input[3].worktree, input[1].assignment!);
+      return directSolverModules.M1.execute(...input);
+    };
+    expect(await runSolver([...args, '--workers', '2'], directory,
+      { ...directSolverModules, M1: { ...directSolverModules.M1, execute } })).toBe(0);
+    expect(state().workers.find((worker: { id: string }) => worker.id === workerId)).toMatchObject({
+      recovery: { phase: 'recovered', reason: 'math_codex_transport_closed', cycles: 1, waitedMs: 60_000 },
+    });
+    expect(state().workers.every((worker: { error?: string }) => !worker.error)).toBe(true);
+    expect(state().cooperation.tasks[0].status).toBe('integrated');
+    expect(state().cooperation.review.status).toBe('accepted');
+    expect(events().filter(event => event.event === 'worker_failed')).toHaveLength(0);
+    expect(events().filter(event => event.event === 'worker_cooling_down')).toEqual([
+      expect.objectContaining({ workerId, cycle: 1, delayMs: 60_000 }),
+    ]);
+    expect(host.official).toHaveBeenCalledOnce();
   });
 
   it('bounds repeated tool schema failures without setting any solving deadline or discarding the draft', async () => {
@@ -340,7 +588,7 @@ describe('recoverable failure classification', () => {
     [{ code: 'responseStreamDisconnected', httpStatusCode: 503 }, 'math_model_request_failed'],
     [{ code: 'serverOverloaded' }, 'math_model_request_failed'],
     [{ code: 'httpConnectionFailed', httpStatusCode: 400 }, 'math_model_turn_failed'],
-    [{ code: 'contextWindowExceeded' }, 'math_model_turn_failed'],
+    [{ code: 'contextWindowExceeded' }, 'math_model_context_window_exceeded'],
     [{ code: 'sandboxError' }, 'math_model_turn_failed'],
   ] as const)('uses structured provider metadata before arbitrary message text: %j', (diagnostic, expected) => {
     const error = 'Invalid authentication; stream disconnected; rate limit';
@@ -364,6 +612,9 @@ describe('recoverable failure classification', () => {
     expect(researchFailureDetail(new Error('math_model_turn_failed', { cause: new Error('math_source_outside_ownership') }),
       'Invalid authentication', { code: 'unauthorized' })).toBe('math_source_outside_ownership');
     expect(researchFailureReason('Invalid authentication', { code: 'other' })).toBe('math_model_authentication_failed');
+    const wrappedAuthentication = researchFailureDetail(new Error('stream disconnected', { cause: new Error('HTTP 401 Unauthorized') }));
+    expect(researchFailureReason(wrappedAuthentication)).toBe('math_model_authentication_failed');
+    expect(recoverableResearchFailure(wrappedAuthentication)).toBe(false);
   });
 
   it('enforces the recovery count and existing budgets while permitting unlimited total solving time', () => {
@@ -374,5 +625,24 @@ describe('recoverable failure classification', () => {
     expect(planResearchRetry('math_model_tool_failed', 0, run, { ...unlimited, maxTurns: 5 })).toBeUndefined();
     expect(planResearchRetry('math_model_tool_failed', 0, run, { ...unlimited, aborted: true })).toBeUndefined();
     expect(planResearchRetry('math_source_outside_ownership', 0, run, unlimited)).toBeUndefined();
+  });
+
+  it.each(['math_model_concurrency_limit', 'math_model_request_failed', 'math_model_request_timeout',
+    'math_codex_transport_closed'])('cools a sustained %s outage with capped exponential intervals', reason => {
+    const unlimited = { maxTurns: Infinity, remainingMs: Infinity, aborted: false };
+    expect([0, 1, 2, 3, 4, 100].map(cycles => planResearchCooldown(reason, cycles, unlimited))).toEqual(
+      [60_000, 120_000, 240_000, 300_000, 300_000, 300_000].map((delayMs, index) => ({
+        cycle: [1, 2, 3, 4, 5, 101][index], delayMs, reason,
+      })));
+  });
+
+  it('keeps finite budgets, cancellation, tool errors and hard failures outside continuous cooling', () => {
+    const unlimited = { maxTurns: Infinity, remainingMs: Infinity, aborted: false };
+    for (const budget of [{ ...unlimited, maxTurns: 10 }, { ...unlimited, remainingMs: 600_000 },
+      { ...unlimited, remainingMs: 0 }, { ...unlimited, aborted: true }])
+      expect(planResearchCooldown('math_codex_transport_closed', 0, budget)).toBeUndefined();
+    for (const reason of ['math_model_tool_failed', 'math_model_authentication_failed', 'math_candidate_identity_changed',
+      'math_source_outside_ownership', 'math_model_turn_failed'])
+      expect(planResearchCooldown(reason, 0, unlimited)).toBeUndefined();
   });
 });

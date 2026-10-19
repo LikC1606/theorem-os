@@ -12,8 +12,9 @@ import { assignmentDeliveryFile, isFeasibilityReview, taskGroup, taskVersion, ty
 import type { CooperationState } from '../cooperation';
 import { statementReviewSummary, type StatementAction, type StatementReview } from '../statementReview';
 import { buildProofContinuation } from '../progress';
-import { originalGoalTaskFocus } from './search';
-import { createProofRoutePriority } from '../routePriority';
+import { researchHandoffs } from '../researchHandoffs';
+import { originalGoalTaskFocus, originalGoalFrontierSnapshot } from './search';
+import { createProofRoutePriorityIndex, selectProofRoutePriorityContext } from '../routePriority';
 import { cooperativeWorkContract } from './contracts';
 import { knowledgeContextSections, type KnowledgeContextSnapshot } from '../knowledgeContext';
 import { compileTaskContext, frozenSourceContext, TaskContextError,
@@ -36,6 +37,7 @@ export type ContextAccess = Readonly<{
   assignment?: CooperativeAction;
   /** Prompt byte allowance only; this does not limit solving time or turns. */
   maxContextBytes?: number;
+  maxOptionalContextBytes?: number;
   /** Pure fixture context; real frozen problems always load their committed source. */
   frozenContexts?: Readonly<Record<string, string>>;
 }>;
@@ -76,7 +78,7 @@ export function buildResearchContext(task: SolverProblem, state: Readonly<Solver
     throw new Error('math_knowledge_identity_changed');
   const knowledgeRules = access.knowledgeFile ?
     `Before developing a new proof or repeating a search, consult the saved theorem knowledge base: ${command} knowledge search --catalog ${shellArgument(access.knowledgeFile)} --sha256 ${shellArgument(access.knowledgeDigest!)} --environment ${shellArgument(state.environmentDigest)} --problem-receipt ${shellArgument(state.problem.receiptDigest)} --query 'MATHEMATICAL_KEYWORDS' --goal 'EXACT_LEAN_GOAL_AND_CONTEXT'. Batch up to eight --query arguments to share one search index. You may omit --query to search only the exact goal; goal shape and version compatibility labels are advisory. ` +
-    `Retrieve a hit with ${command} knowledge get --catalog ${shellArgument(access.knowledgeFile)} --sha256 ${shellArgument(access.knowledgeDigest!)} --id 'THEOREM_ID'; add --source 'FILE_FROM_THE_RESULT' for the complete archived namespace, variables, imports, definitions and proof context. ` +
+    `Inspect a hit with ${command} knowledge get --catalog ${shellArgument(access.knowledgeFile)} --sha256 ${shellArgument(access.knowledgeDigest!)} --id 'THEOREM_ID' --metadata --max-bytes 16000. Deferred fields have complete:false and a read handle; they are not empty or complete interfaces. Rerun the same metadata command with --field 'FIELD_NAME' --offset OFFSET, starting at read.startOffset and then following nextOffset until truncated:false. Concatenate text pages exactly; parse JSON fields only after all pages are joined. Read the complete type and premises before applying a candidate. ` +
     `Inspect recorded dependencies with ${command} knowledge dependencies --catalog ${shellArgument(access.knowledgeFile)} --sha256 ${shellArgument(access.knowledgeDigest!)} --id 'THEOREM_ID' --depth 2. Missing coverage is unknown. ` +
     `Read a dependency or definition in bounded excerpts with ${command} knowledge source --catalog ${shellArgument(access.knowledgeFile)} --sha256 ${shellArgument(access.knowledgeDigest!)} --id 'THEOREM_ID' --file 'ARCHIVED_FILE' --name 'QUALIFIED_DECLARATION' --max-bytes 16000; use --start-line 1 to inspect file context, or --offset NEXT_OFFSET to continue a truncated excerpt without repeating text. Excerpts do not establish complete context. ` +
     'The task context may include bounded saved-theorem candidates already searched by the host for this exact assignment or the original-goal frontier. Inspect these candidates before repeating the same search; the manifest records hints omitted for context budget. An input-not-searched status or zero lexical matches does not establish that no useful theorem exists. ' +
@@ -126,7 +128,8 @@ ${access.corpusFile ? `For library lookup, run ${command} search-lean --workspac
   const compilation = { problem: task, cooperation, action: access.assignment, taskText: access.taskText,
     feedback: message.startsWith(originalProblem) ? message.slice(originalProblem.length).trim() || undefined : message, checkpoint,
     frozenContexts: readFrozenContexts(task, access),
-    maxContextBytes: access.maxContextBytes, environmentDigest: state.environmentDigest,
+    maxContextBytes: access.maxContextBytes, maxOptionalContextBytes: access.maxOptionalContextBytes,
+    environmentDigest: state.environmentDigest,
     optional: access.knowledgeSnapshot ? knowledgeContextSections({ problem: task, cooperation, action: access.assignment,
       knowledge: access.knowledgeSnapshot, environmentDigest: state.environmentDigest }) : [] };
   return access.assignment && cooperation ? buildCooperativeContext(task, cooperation, bundle, access.assignment,
@@ -180,25 +183,43 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
   const sharing = action.kind === 'task'
     ? `To share before returning, append a JSON line to ${assignmentDeliveryFile(action.assignment)}: {"summary":"progress or gap"}. For a ready proof, save the allowed sources and notes, then return. Git metadata is managed by the host; do not run git add or git commit. The host freezes the saved sources and independently checks and integrates them after your turn ends. Do not truncate the delivery log. Progress reports remain advisory.\n`
       : '';
-  const continuation = buildProofContinuation(cooperation.tasks, { groups: cooperation.groups, environmentDigest: compilation.environmentDigest });
-  const focus = originalGoalTaskFocus(cooperation.tasks, cooperation.groups);
+  const visibleIds = new Set(cooperation.tasks.map(node => node.task.id));
+  const proofRoutes = (cooperation.proofRoutes ?? cooperation.tasks.flatMap(node => node.alternativeRoutes ?? []))
+    .filter(route => visibleIds.has(route.targetTaskId) &&
+      [route.closingTaskId, ...route.prerequisiteTaskIds].every(id => visibleIds.has(id)));
+  const routeTasks = cooperation.tasks.map(node => ({ ...node,
+    alternativeRoutes: proofRoutes.filter(route => route.targetTaskId === node.task.id) }));
+  const continuation = buildProofContinuation(routeTasks, { groups: cooperation.groups,
+    environmentDigest: compilation.environmentDigest, proofRoutes, researchHandoffs: researchHandoffs(cooperation) });
+  const focus = originalGoalTaskFocus(routeTasks, cooperation.groups, compilation.environmentDigest);
+  const frontierSnapshot = originalGoalFrontierSnapshot(focus);
+  const routeIndex = createProofRoutePriorityIndex(routeTasks, {
+    groups: cooperation.groups, environmentDigest: compilation.environmentDigest, proofRoutes });
+  const routeContext = selectProofRoutePriorityContext(routeIndex, action.kind === 'task' ? {
+    assignedRouteId: action.assignment.routeId,
+    relatedRouteIds: proofRoutes.filter(route => route.targetTaskId === action.task.id ||
+      route.closingTaskId === action.task.id || route.prerequisiteTaskIds.includes(action.task.id)).map(route => route.id),
+  } : {});
+  const localFrontier = new Set(routeContext.routes.flatMap(route => route.frontierTaskIds).filter(id => focus.frontier.has(id)));
+  if (action.kind === 'task' && focus.frontier.has(action.task.id)) localFrontier.add(action.task.id);
+  const boundedFrontier = action.kind === 'task' && proofRoutes.length > 0;
   const focusRules = action.kind === 'lead' || action.kind === 'task' ?
     'Prioritize a ready typed step proving a substantive missing construction or quantitative estimate on the original-goal frontier. Record the actual consumer with explicit dependsOn or proofRoutes and show the concrete application. For advisory research, dependsOn may identify the unresolved frontier being investigated; it does not prove that premise. State which missing argument was discharged and which premises remain. A conditional wrapper, an assumed original estimate or more auxiliary lemmas does not close the original goal. Preserve useful checked contracts and independent investigations.\n' : '';
   const focusPacket = {
     goalTaskIds: continuation.goals.filter(goal => goal.status !== 'integrated' || goal.recordedProof !== 'checked').map(goal => goal.taskId),
-    frontierTaskIds: [...focus.frontier],
-    ...(cooperation.tasks.some(node => node.alternativeRoutes?.length) ? {
-      preferredFrontierTaskIds: [...focus.preferred.frontier],
-      routePriority: createProofRoutePriority(cooperation.tasks, {
-        groups: cooperation.groups, environmentDigest: compilation.environmentDigest,
-      }).routes,
+    frontierTaskIds: boundedFrontier ? [...localFrontier] : [...focus.frontier],
+    ...(proofRoutes.length ? {
+      preferredFrontierTaskIds: boundedFrontier ? [...localFrontier].filter(id => focus.preferred.frontier.has(id)) : [...focus.preferred.frontier],
+      routePriority: routeContext,
+      ...(boundedFrontier ? { frontierSet: { count: frontierSnapshot.count, digest: frontierSnapshot.digest,
+        reference: { path: 'COOPERATION.json', field: 'frontierFocus.taskIds' } } } : {}),
     } : {}),
     ...(action.kind === 'task' ? { assignedTaskId: action.task.id,
       relationship: focus.proofPath.has(action.task.id) ? 'proof-path' : focus.targetedResearch.has(action.task.id) ?
         'targeted-investigation' : focus.support.has(action.task.id) ? 'frontier-support' : 'independent-exploration',
       plannedConsumers: workContract.plannedConsumers } : {}),
   };
-  const parallelQuestions = cooperation.tasks.filter(node => node.status === 'running' &&
+  const parallelQuestions = cooperation.parallelQuestions ?? cooperation.tasks.filter(node => node.status === 'running' &&
     node.task.id !== (action.kind === 'task' ? action.task.id : undefined) &&
     (action.kind !== 'task' || taskGroup(node.task) === taskGroup(action.task) || node.task.sharing !== 'group'))
     .map(node => ({ taskId: node.task.id, taskDigest: taskVersion(node.task), kind: node.task.kind, objective: node.task.objective,
@@ -213,6 +234,7 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
     'For a deferred proposal waiting on concrete proof tasks, add waitsOn:["ACTUAL_PROOF_TASK_ID"] to its decision. Use nonempty unique ids from the current proposed plan. The host pins their exact contracts and reopens the proposal only after all have fresh unconditional acceptance. Preserve waiting proposals, their sources and required inputs. All already checked inputs cannot justify another wait. You may explicitly replace or reject a still-waiting decision by its id when changing that route. A deferred decision without waitsOn has no automatic wakeup. Reopened proposals carry a previous decision and checked-prerequisites reason; decide their current activation instead of repeating a stale response. ' +
     'The host dispatches bounded dependency-first batches. Preserve a proposal id when other queued proposals depend on it. ' +
     'Queued proposals and late arrivals are handled by subsequent decisions; retain their source tasks, exact prerequisites and group mathematics until then. ' +
+    'Inspect continuation.adoptedResearch in COOPERATION.json for adopted targets, their planned original-goal paths and recorded Lean consumers. Investigate useful adopted results without a connection or recorded use; incomplete reference coverage remains unknown. Adoption does not prove a target or require every exploratory proposal to have a consumer immediately. ' +
     (action.kind === 'solve' ? 'The host retains queued sources and prerequisites outside your peer-request slots with their prior execution controls. Completed investigations remain completed; explicit pause or stop controls remain in force. Revised requests replace their old dependency contracts.\n' : '\n') : '';
   const leadRouteRules = action.kind === 'lead' ?
     'When the original-goal frontier is stalled, use new findings to split the substantive missing argument into independently provable exact lemma tasks and a closing consumer. Changing notation or assuming the original bound in a wrapper does not reduce that gap. A paper theorem is a route reference; assign every unproved analytic premise explicitly. Preserve existing checked task contracts. If the available inputs give no further concrete step, retain the blockers and explain the specific new input needed to resume. The host will reconsider unchanged mathematical input only once, including across restarts.\n' +

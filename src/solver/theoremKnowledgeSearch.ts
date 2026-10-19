@@ -5,6 +5,8 @@ import type { TheoremKnowledgeBase, TheoremKnowledgeEntry } from './theoremKnowl
 
 export type KnowledgeSearchOptions = {
   goal?: string; limit?: number; problemId?: string; environmentDigest?: string; problemReceiptDigest?: string;
+  /** Display diversity only; declaration identities and contextual versions remain separate. */
+  displayGrouping?: 'exact-interface';
 };
 type KnowledgeSearchBase = Pick<TheoremKnowledgeBase, 'entries' | 'evidence'>;
 type PreferenceMatch = 'match' | 'different' | 'unknown' | 'not-requested';
@@ -76,6 +78,9 @@ export function knowledgeSearchGroup(item: TheoremKnowledgeEntry): string {
   return mathDigest(canonicalMathJson({ name: item.name, type: item.type, typeKind: item.typeKind, declaration: item.declaration }));
 }
 
+const knowledgeInterfaceGroup = (item: TheoremKnowledgeEntry): string =>
+  mathDigest(canonicalMathJson({ name: item.name, type: item.type, typeKind: item.typeKind }));
+
 function preference(requested: string | undefined, recorded: readonly (string | undefined)[]): PreferenceMatch {
   if (requested === undefined) return 'not-requested';
   const known = recorded.filter((value): value is string => Boolean(value));
@@ -107,6 +112,7 @@ function validateQuery(query: string, options: KnowledgeSearchOptions): void {
   const limit = options.limit ?? 10, goal = options.goal ?? '';
   if (typeof query !== 'string' || typeof goal !== 'string' || !Number.isInteger(limit) || limit < 1 || limit > 32 ||
       Buffer.byteLength(query) > 4000 || Buffer.byteLength(goal) > 16000 || (!query.trim() && !goal.trim()) ||
+      (options.displayGrouping !== undefined && options.displayGrouping !== 'exact-interface') ||
       [options.environmentDigest, options.problemReceiptDigest].some(value => value !== undefined &&
         (typeof value !== 'string' || !value.trim() || Buffer.byteLength(value) > 256))) throw new Error('math_knowledge_invalid_query');
 }
@@ -127,8 +133,9 @@ function prepareSearch(base: KnowledgeSearchBase, options: KnowledgeSearchOption
   };
   const documents = base.entries.filter(item => !options.problemId || item.provenance.some(origin => origin.problemId === options.problemId))
     .map(item => {
-      const type = knowledgeTypeExpression(item);
-      return { item, group: knowledgeSearchGroup(item), fields: [field(item.name), field(type, true),
+      const type = knowledgeTypeExpression(item), group = knowledgeSearchGroup(item);
+      return { item, group, corpusGroup: options.displayGrouping === 'exact-interface'
+        ? knowledgeInterfaceGroup(item) : group, fields: [field(item.name), field(type, true),
         field([...item.dependencies.statement, ...item.dependencies.proof].map(reference => reference.name).join(' ')),
         field(item.description), field(item.provenance.map(origin => origin.problemId).join(' '))],
         normalizedType: text(type).toLowerCase().replace(/\s+/gu, ''), surfaceShape: goalSurface ? knowledgeGoalSurfaceShape(type) : undefined };
@@ -139,10 +146,10 @@ function prepareSearch(base: KnowledgeSearchBase, options: KnowledgeSearchOption
       if (!relevant.has(token)) continue;
       let groups = groupsByToken.get(token);
       if (!groups) { groups = new Set(); groupsByToken.set(token, groups); }
-      groups.add(document.group);
+      groups.add(document.corpusGroup);
     }
   }
-  return { documents, goalSurface, groupCount: new Set(documents.map(document => document.group)).size,
+  return { documents, goalSurface, groupCount: new Set(documents.map(document => document.corpusGroup)).size,
     frequencies: new Map([...groupsByToken].map(([token, groups]) => [token, groups.size])) };
 }
 
@@ -212,20 +219,38 @@ function searchPrepared(prepared: ReturnType<typeof prepareSearch>, evidence: Kn
     .sort((left, right) => right.tier - left.tier || right.score - left.score || left.item.id.localeCompare(right.item.id));
   const groups = new Map<string, typeof scored>();
   for (const hit of scored) { const versions = groups.get(hit.group) ?? []; versions.push(hit); groups.set(hit.group, versions); }
+  const compareVersions = (left: typeof scored[number], right: typeof scored[number]) => {
+    const a = versionPreference(left.item, options), b = versionPreference(right.item, options);
+    for (let index = 0; index < a.length; index++) if (a[index] !== b[index]) return b[index]! - a[index]!;
+    return right.tier - left.tier || right.score - left.score || left.item.id.localeCompare(right.item.id);
+  };
+  let displayed = [...groups.values()].map(versions => {
+    return { groupScore: versions[0]!.score, declarations: [versions] };
+  });
+  if (options.displayGrouping === 'exact-interface') {
+    const interfaces = new Map<string, typeof displayed[number]>();
+    for (const declaration of displayed) {
+      const { item } = declaration.declarations[0]![0]!;
+      const key = knowledgeInterfaceGroup(item);
+      const existing = interfaces.get(key);
+      if (existing) existing.declarations.push(...declaration.declarations);
+      else interfaces.set(key, declaration);
+    }
+    displayed = [...interfaces.values()];
+  }
   return { schema: 'theorem-os.theorem-knowledge-search.v1', evidence, requiresFreshCheck: true,
     preferenceEvidence: 'recorded-metadata-not-applicability', total: groups.size, totalVersions: scored.length,
-    hits: [...groups.values()].slice(0, limit).map(versions => {
-      const groupScore = versions[0]!.score;
-      versions.sort((left, right) => {
-        const a = versionPreference(left.item, options), b = versionPreference(right.item, options);
-        for (let index = 0; index < a.length; index++) if (a[index] !== b[index]) return b[index]! - a[index]!;
-        return right.tier - left.tier || right.score - left.score || left.item.id.localeCompare(right.item.id);
-      });
+    ...(options.displayGrouping ? { displayGrouping: options.displayGrouping, totalInterfaces: displayed.length } : {}),
+    hits: displayed.slice(0, limit).map(({ groupScore, declarations }) => {
+      for (const versions of declarations) versions.sort(compareVersions);
+      declarations.sort((left, right) => compareVersions(left[0]!, right[0]!));
+      const versions = declarations[0]!;
       const { item, matched } = versions[0]!, selected = knowledgeVersionSummary(item, options);
       return { id: item.id, name: item.name, kind: item.kind, typeKind: item.typeKind,
         typePreview: item.type.slice(0, 800), typeTruncated: item.type.length > 800, description: item.description.slice(0, 500),
         problemIds: selected.problemIds, sourceKinds: selected.sourceKinds, dependencyCoverage: item.dependencies.coverage,
         score: groupScore, matched, environmentMatch: selected.environmentMatch, problemReceiptMatch: selected.problemReceiptMatch,
+        ...(options.displayGrouping ? { declarationVariantCount: declarations.length } : {}),
         versionCount: versions.length, versions: versions.slice(0, 8).map(version => knowledgeVersionSummary(version.item, options)),
         versionsTruncated: versions.length > 8 };
     }) };

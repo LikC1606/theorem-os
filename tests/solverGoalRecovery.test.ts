@@ -8,6 +8,7 @@ import { CooperativeResearch } from '../src/solver/cooperation';
 import type { TaskProof } from '../src/solver/cooperativeProof';
 import { configuredSolverModules } from '../src/solver/modules';
 import type { ResearchWorker } from '../src/solver/modules/organization';
+import { buildProofContinuation } from '../src/solver/progress';
 import { commitSolverSources, git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
 import { markTaskAcceptance, parseCooperationPlan, taskVersion,
   type CooperativeAction, type CooperativeTask, type TaskRecord } from '../src/solver/tasks';
@@ -99,6 +100,34 @@ describe('original-goal recovery alongside independent proof work', () => {
     };
     return { checker, replacement, task, create, claim };
   };
+  const alternativeFrontier = () => {
+    const saved = record('saved_auxiliary'), goal = record('original_goal');
+    goal.task = { ...goal.task, dependsOn: [] };
+    const parked: TaskRecord = { task: helper('parked_closing', [saved.task.id]), status: 'integrated', attempts: 1 };
+    parked.integratedCheck = { ...saved.integratedCheck!, taskDigest: taskVersion(parked.task),
+      references: { ...saved.integratedCheck!.references!,
+        root: { file: 'Submission.lean', name: parked.task.theoremName! },
+        tasks: [{ taskId: saved.task.id, taskDigest: taskVersion(saved.task) }],
+        proof: [{ file: 'Submission.lean', name: saved.task.theoremName! }],
+      } };
+    markTaskAcceptance(parked.integratedCheck);
+    const closing: TaskRecord = { task: helper('active_closing', ['missing_argument']), status: 'pending', attempts: 0 };
+    state.cooperation!.tasks.push(parked, closing);
+    state.cooperation!.proofRoutes = [
+      { id: 'parked_route', targetTaskId: goal.task.id, prerequisiteTaskIds: [saved.task.id], closingTaskId: parked.task.id },
+      { id: 'active_route', targetTaskId: goal.task.id, prerequisiteTaskIds: ['missing_argument'], closingTaskId: closing.task.id },
+    ];
+    (cooperative as any).syncProofRoutes();
+    goal.assignment = { taskId: goal.task.id, taskDigest: taskVersion(goal.task), workerId: researcher.id,
+      seedCommit: seed, routeId: 'parked_route' };
+    const blocker = [{ mechanism: 'checked route does not supply the original inference', scope: 'original-goal application' }];
+    (cooperative as any).reportBlockers(goal.task, blocker);
+    (cooperative as any).reportBlockers(goal.task, blocker);
+    goal.assignment = undefined;
+    (cooperative as any).changed(); priorAssessment();
+    expect(goal.parkedRoutes?.parked_route).toHaveLength(1);
+    return { goal, saved, parked, closing };
+  };
 
   beforeEach(() => {
     host.capture.mockReset().mockImplementation(async (_problem: unknown, tasks: readonly CooperativeTask[]) =>
@@ -186,6 +215,114 @@ describe('original-goal recovery alongside independent proof work', () => {
     expect(record('more_auxiliary')).toMatchObject({ status: 'running', assignment: work.assignment, attempts: 1 });
     expect(cooperative.current(work)).toBe(true);
     expect(record('missing_argument')).toMatchObject({ status: 'blocked', attempts: 2 });
+  });
+
+  it('recovers the failed active OR premise when a parked alternative already has all checked inputs', async () => {
+    const { goal, saved, parked } = alternativeFrontier();
+    const routes = structuredClone(state.cooperation!.proofRoutes), savedProof = saved.integratedCheck, parkedProof = parked.integratedCheck;
+    const report = buildProofContinuation(state.cooperation!.tasks, { proofRoutes: routes });
+    expect(report.goals.find(item => item.taskId === goal.task.id)?.frontier).toEqual([goal.task.id]);
+    expect(report.goals.find(item => item.taskId === goal.task.id)?.alternatives).toEqual([
+      { routeId: 'parked_route', frontier: [], missingDependencies: [], parkedBy: goal.parkedRoutes!.parked_route },
+      { routeId: 'active_route', frontier: ['missing_argument'], missingDependencies: [], parkedBy: [] },
+    ]);
+
+    const action = await recovery();
+
+    expect(action.recovery!.taskIds).toEqual(['missing_argument']);
+    expect(record('missing_argument')).toMatchObject({ status: 'blocked', attempts: 2 });
+    expect(state.cooperation!.proofRoutes).toEqual(routes);
+    expect(goal.alternativeRoutes).toEqual(routes);
+    expect(goal.parkedRoutes!.parked_route).toHaveLength(1);
+    expect(saved.integratedCheck).toBe(savedProof);
+    expect(parked.integratedCheck).toBe(parkedProof);
+    expect(host.checkTask).not.toHaveBeenCalled();
+  });
+
+  it('retains every active OR frontier and all original-goal owners of shared failed premises', async () => {
+    const { goal } = alternativeFrontier();
+    const other = state.cooperation!.tasks.find(node => node.task.kind === 'goal' && node !== goal)!;
+    other.task = { ...other.task, status: 'active', dependsOn: [] };
+    const alternative: TaskRecord = { task: helper('alternative_missing'), status: 'blocked', attempts: 2,
+      feedback: 'A distinct construction is still missing.' };
+    const closing: TaskRecord = { task: helper('alternative_closing', [alternative.task.id]), status: 'pending', attempts: 0 };
+    state.cooperation!.tasks.push(alternative, closing);
+    state.cooperation!.proofRoutes!.push(
+      { id: 'alternative_route', targetTaskId: goal.task.id, prerequisiteTaskIds: [alternative.task.id], closingTaskId: closing.task.id },
+      { id: 'other_active_route', targetTaskId: other.task.id, prerequisiteTaskIds: ['missing_argument'], closingTaskId: 'active_closing' },
+      { id: 'other_alternative_route', targetTaskId: other.task.id, prerequisiteTaskIds: [alternative.task.id], closingTaskId: closing.task.id },
+    );
+    (cooperative as any).syncProofRoutes(); (cooperative as any).changed(); priorAssessment();
+    const routes = structuredClone(state.cooperation!.proofRoutes);
+    const frontier = (cooperative as any).activeGoalFrontier();
+    expect(frontier).toHaveLength(2);
+    for (const taskId of ['missing_argument', alternative.task.id]) {
+      const entry = frontier.find((item: { taskId: string }) => item.taskId === taskId);
+      expect(entry?.goalIds).toEqual(expect.arrayContaining([goal.task.id, other.task.id]));
+      expect(entry?.goalIds).toHaveLength(2);
+    }
+
+    const action = await leadOutcome();
+
+    expect(action).toMatchObject({ kind: 'lead', recovery: {
+      taskIds: expect.arrayContaining(['missing_argument', alternative.task.id]),
+      goalIds: expect.arrayContaining([goal.task.id, other.task.id]),
+    } });
+    if (!action || action === 'waiting' || action.kind !== 'lead' || !action.recovery) throw new Error('expected_shared_goal_recovery');
+    expect(action.recovery.taskIds).toHaveLength(2);
+    expect(action.recovery.goalIds).toHaveLength(2);
+    expect(state.cooperation!.frontierRecoveries).toEqual([expect.objectContaining({
+      taskIds: action.recovery.taskIds, goalIds: action.recovery.goalIds, status: 'requested',
+    })]);
+    expect(state.cooperation!.proofRoutes).toEqual(routes);
+    expect(goal.alternativeRoutes?.map(route => route.id)).toEqual(['parked_route', 'active_route', 'alternative_route']);
+    expect(other.alternativeRoutes?.map(route => route.id)).toEqual(['other_active_route', 'other_alternative_route']);
+    expect(record('missing_argument')).toMatchObject({ status: 'blocked', attempts: 2 });
+    expect(alternative).toMatchObject({ status: 'blocked', attempts: 2 });
+    expect(host.checkTask).not.toHaveBeenCalled();
+  });
+
+  it.each(['paused', 'stopped'] as const)('preserves a %s failed OR premise when selecting recovery', async control => {
+    alternativeFrontier();
+    const core = record('missing_argument'); core.task = { ...core.task, status: control }; priorAssessment();
+
+    await expectWaiting();
+
+    expect(core).toMatchObject({ status: 'blocked', attempts: 2, task: { status: control } });
+    expect(record('original_goal').parkedRoutes!.parked_route).toHaveLength(1);
+  });
+
+  it.each(['paused', 'stopped'] as const)('excludes a %s original goal from OR recovery ownership', async control => {
+    const { goal } = alternativeFrontier();
+    const other = state.cooperation!.tasks.find(node => node.task.kind === 'goal' && node !== goal)!;
+    other.task = { ...other.task, status: 'active', dependsOn: [] };
+    state.cooperation!.proofRoutes!.push({ id: 'other_active_route', targetTaskId: other.task.id,
+      prerequisiteTaskIds: ['missing_argument'], closingTaskId: 'active_closing' });
+    goal.task = { ...goal.task, status: control };
+    (cooperative as any).syncProofRoutes(); (cooperative as any).changed(); priorAssessment();
+
+    expect(await leadOutcome()).toMatchObject({ kind: 'lead', recovery: {
+      taskIds: ['missing_argument'], goalIds: [other.task.id],
+    } });
+
+    expect(record('missing_argument')).toMatchObject({ status: 'blocked', attempts: 2 });
+    expect(goal.task.status).toBe(control);
+  });
+
+  it.each(['paused', 'stopped', 'turns-exhausted'] as const)('preserves a %s prerequisite group in OR recovery', async control => {
+    const { closing } = alternativeFrontier(), core = record('missing_argument');
+    core.task = { ...core.task, groupId: 'active_inputs', sharing: 'problem' };
+    closing.task = { ...closing.task, groupId: 'active_inputs', sharing: 'problem' };
+    state.cooperation!.groups!.push({ group: { id: 'active_inputs', objective: 'Active route input controls', revision: 0,
+      status: control === 'turns-exhausted' ? 'active' : control,
+      ...(control === 'turns-exhausted' ? { maxTurns: 1 } : {}) }, turns: control === 'turns-exhausted' ? 1 : 0 });
+    priorAssessment();
+
+    await expectWaiting();
+
+    expect(core).toMatchObject({ status: 'blocked', attempts: 2 });
+    expect(record('original_goal').parkedRoutes!.parked_route).toHaveLength(1);
+    expect(host.checkTask).not.toHaveBeenCalled();
   });
 
   it.each(['paused', 'turns-exhausted'] as const)('preserves the %s group gate when deciding recovery', async control => {

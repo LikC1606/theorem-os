@@ -17,6 +17,29 @@ const base = (...entries: TheoremKnowledgeEntry[]): Pick<TheoremKnowledgeBase, '
   ({ entries, evidence: 'recorded-not-replayed' });
 
 describe('theorem knowledge retrieval', () => {
+  it('keeps exact-interface scores and order invariant when only proof variants multiply', () => {
+    const estimate = entry('Saved.estimate', 'Estimate');
+    const variants = Array.from({ length: 1000 }, (_, index) => entry('Saved.uniform_bound', 'UniformBound', {
+      id: mathDigest(`proof-${index}`), declaration: `theorem uniform_bound : UniformBound := by exact proof_${index}`,
+    }));
+    const options = { displayGrouping: 'exact-interface' as const };
+    const query = 'uniform bound estimate';
+    const scores = (items: TheoremKnowledgeEntry[]) => searchTheoremKnowledge(base(...items), query, options)
+      .hits.map(hit => ({ name: hit.name, score: hit.score }));
+    const expected = scores([estimate, variants[0]!]);
+    for (const count of [1, 10, 100, 1000]) {
+      const items = [estimate, ...variants.slice(0, count)];
+      expect(scores(items)).toEqual(expected);
+      expect(scores([...items].reverse())).toEqual(expected);
+      const batch = searchTheoremKnowledgeBatch(base(...items), [query, query], options);
+      expect(batch.map(result => result.hits.map(hit => ({ name: hit.name, score: hit.score })))).toEqual([expected, expected]);
+    }
+    for (const distinct of [entry('Other.uniform_bound', 'UniformBound'), entry('Saved.uniform_bound', 'OtherBound'),
+      entry('Saved.uniform_bound', 'UniformBound', { id: mathDigest('source-header'), typeKind: 'source-header' })])
+      expect(searchTheoremKnowledge(base(estimate, variants[0]!, distinct), query, options).hits.find(hit => hit.name === estimate.name)!.score)
+        .not.toBe(expected.find(hit => hit.name === estimate.name)!.score);
+  });
+
   it('finds an exact Lean goal without inventing primary keywords', () => {
     const desired = entry(), unrelated = entry('Submission.Helpers.primitive_parameter', '∀ n : ℕ, n = n');
     const result = searchTheoremKnowledge(base(unrelated, desired), '', { goal: normType });
@@ -168,6 +191,61 @@ describe('theorem knowledge retrieval', () => {
     expect(searchTheoremKnowledge(base(original, changedType, changedProof), name).total).toBe(3);
   });
 
+  it('diversifies display slots before the result limit without merging declaration identities', () => {
+    const variants = Array.from({ length: 40 }, (_, index) => entry(name, normType, {
+      id: index.toString(16).padStart(64, '0'), declaration: `theorem paper_root_number_norm := by exact saved_proof_${index}\n`,
+    }));
+    const alternate = entry('Saved.root_number_norm_alternate'), transport = entry('Saved.root_number_norm_transport');
+    const catalog = base(...variants, alternate, transport), before = structuredClone(catalog);
+    const ordinary = searchTheoremKnowledge(catalog, name, { limit: 3 });
+    expect(ordinary.hits.map(hit => hit.name)).toEqual([name, name, name]);
+    expect(ordinary).not.toHaveProperty('displayGrouping');
+    expect(ordinary.hits[0]).not.toHaveProperty('declarationVariantCount');
+    const options = { limit: 3, displayGrouping: 'exact-interface' as const };
+    const displayed = searchTheoremKnowledge(catalog, name, options);
+    expect(displayed).toMatchObject({ total: 42, totalVersions: 42, totalInterfaces: 3,
+      displayGrouping: 'exact-interface', requiresFreshCheck: true });
+    expect(new Set(displayed.hits.map(hit => hit.name))).toEqual(new Set([name, alternate.name, transport.name]));
+    expect(displayed.hits[0]).toMatchObject({ id: variants[0]!.id, versionCount: 1, declarationVariantCount: 40 });
+    expect(displayed.hits[0]!.versions.map(version => version.id)).toEqual([variants[0]!.id]);
+    expect(searchTheoremKnowledge(base(...catalog.entries.toReversed()), name, options)).toEqual(displayed);
+    expect(catalog).toEqual(before);
+    expect(new Set(catalog.entries.map(knowledgeSearchGroup)).size).toBe(42);
+  });
+
+  it('selects a preferred display representative while retaining only its own contextual versions', () => {
+    const environmentDigest = mathDigest('current environment'), problemReceiptDigest = mathDigest('current problem');
+    const old = entry(name, normType, { id: '1'.repeat(64), environmentDigest: mathDigest('old environment'),
+      declaration: 'theorem paper_root_number_norm := by exact old_proof\n', premises: ['old-local-premise'] });
+    old.provenance = [{ ...old.provenance[0]!, problemReceiptDigest: mathDigest('old problem') }];
+    const current = entry(name, normType, { id: '2'.repeat(64), environmentDigest,
+      declaration: 'theorem paper_root_number_norm := by exact current_proof\n' });
+    current.provenance = [{ ...current.provenance[0]!, problemReceiptDigest }];
+    const currentVersion = { ...current, id: '4'.repeat(64), contextDigest: mathDigest('other current context') };
+    const unknown = entry(name, normType, { id: '3'.repeat(64),
+      declaration: 'theorem paper_root_number_norm := by exact unknown_proof\n' });
+    const result = searchTheoremKnowledge(base(old, unknown, currentVersion, current), name,
+      { displayGrouping: 'exact-interface', environmentDigest, problemReceiptDigest });
+    expect(result).toMatchObject({ total: 3, totalVersions: 4, totalInterfaces: 1 });
+    expect(result.hits).toHaveLength(1);
+    expect(result.hits[0]).toMatchObject({ id: current.id, declarationVariantCount: 3, versionCount: 2,
+      environmentMatch: 'match', problemReceiptMatch: 'match' });
+    expect(result.hits[0]!.versions.map(version => version.id)).toEqual([current.id, currentVersion.id]);
+  });
+
+  it('uses full exact names, types and type kinds for display diversity', () => {
+    const prefix = normType + ' '.repeat(900);
+    const original = entry(name, `${prefix} -> True`), changedType = entry(name, `${prefix} -> False`),
+      changedTypeKind = { ...original, id: mathDigest('source header'), typeKind: 'source-header' as const },
+      changedName = entry('Saved.root_number_norm_alias', original.type);
+    const result = searchTheoremKnowledge(base(original, changedType, changedTypeKind, changedName), 'root number norm',
+      { displayGrouping: 'exact-interface' });
+    expect(result).toMatchObject({ total: 4, totalInterfaces: 4 });
+    expect(result.hits).toHaveLength(4);
+    expect(original.type.slice(0, 800)).toBe(changedType.type.slice(0, 800));
+    expect(result.hits.every(hit => hit.declarationVariantCount === 1)).toBe(true);
+  });
+
   it('exposes different premise and dependency metadata for versions of one declaration', () => {
     const original = entry(), conditional = entry(name, normType, { id: mathDigest('conditional-version'),
       premises: ['local-condition'], dependencies: { statement: [{ file: 'Submission/Helpers.lean', name: 'condition' }],
@@ -264,6 +342,19 @@ describe('batched theorem knowledge retrieval', () => {
       { goal: normType, problemId: 'annals_dirichlet_weyl_bound' });
     expect(result.every(search => search.hits[0]!.id === desired.id)).toBe(true);
     expect(result.every(search => search.totalVersions === 1)).toBe(true);
+  });
+
+  it('preserves display diversity independently for each query with a shared goal', () => {
+    const first = entry(), variant = entry(name, normType, { id: mathDigest('other proof'),
+      declaration: 'theorem paper_root_number_norm := by exact other_proof\n' });
+    const catalog = base(first, variant, entry('Saved.root_number_norm_alias'));
+    const queries = ['root number norm', name, 'root number norm'];
+    const options = { goal: normType, limit: 3, displayGrouping: 'exact-interface' as const };
+    const result = searchTheoremKnowledgeBatch(catalog, queries, options);
+    expect(result).toEqual(queries.map(query => searchTheoremKnowledge(catalog, query, options)));
+    expect(result.every(search => search.total === 3 && search.totalInterfaces === 2)).toBe(true);
+    result[0]!.hits[0]!.versions[0]!.problemIds.push('changed-by-caller');
+    expect(result[2]!.hits[0]!.versions[0]!.problemIds).not.toContain('changed-by-caller');
   });
 
   it.each([{ queries: [] }, { queries: Array(9).fill('root') }, { queries: ['root', ''] },

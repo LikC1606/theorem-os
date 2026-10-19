@@ -3,12 +3,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
-import { writeSolverRunState, type SolverRunState } from '../src/solver/archive';
+import { readSolverRunState, writeSolverRunState, type SolverRunState } from '../src/solver/archive';
 import { buildRunInspection, exportRunPlan, readRunInspection, renderRunInspection } from '../src/solver/inspection';
 import { queueRunEdit } from '../src/solver/humanEdit';
 import { taskVersion, type TaskRecord } from '../src/solver/tasks';
 import type { TaskProof } from '../src/solver/cooperativeProof';
 import { researchFailureCategory } from '../src/solver/modules/search';
+import { researchHandoffs, resolveResearchHandoffs } from '../src/solver/researchHandoffs';
 
 const roots: string[] = [];
 function fixture() {
@@ -75,6 +76,27 @@ describe('run inspection', () => {
     expect(renderRunInspection(buildRunInspection(state))).toContain('lean_lock_waiting');
   });
 
+  it.each(['cooling-down', 'retrying', 'recovered'] as const)('reads and renders persisted %s recovery without treating old retries as pending', phase => {
+    const f = fixture(), nextRetryAt = Date.UTC(2026, 9, 19, 1, 0);
+    f.state.workers![1].recovery = { phase, reason: 'math_model_request_failed', cycles: 2,
+      startedAt: nextRetryAt - 180_000, nextRetryAt, waitedMs: 60_000,
+      ...(phase === 'recovered' ? { recoveredAt: nextRetryAt + 1_000 } : {}) };
+    f.state.workers![1].lastFailure = { at: nextRetryAt - 1_000, reason: 'math_model_request_failed', taskId: 'goal' };
+    writeSolverRunState(f.stateFile, f.state);
+    const restored = readSolverRunState(f.stateFile), report = buildRunInspection(restored);
+    expect(report.evidence).toBe('recorded-not-replayed');
+    expect(report.workers[1].recovery).toEqual({ ...f.state.workers![1].recovery, category: 'network' });
+    expect(report.workers[1].lastFailure?.reason).toBe('math_model_request_failed');
+    expect(report.progress.checkedProofTasks).toBe(0);
+    const markdown = renderRunInspection(report);
+    expect(markdown).toContain('## Session recovery');
+    expect(markdown).toContain(`| engineer | ${phase === 'recovered' ? 'recovered (history)' : phase} | network | math_model_request_failed | 2 |`);
+    expect(markdown).toContain('60000 |');
+    if (phase === 'cooling-down') expect(markdown).toContain(new Date(nextRetryAt).toISOString());
+    else expect(markdown).not.toContain(new Date(nextRetryAt).toISOString());
+    expect(markdown).toContain('does not rerun Lean');
+  });
+
   it('distinguishes stale, conditional and missing proof receipts', () => {
     const { state } = fixture(), node = state.cooperation!.tasks[0];
     const proof = { taskDigest: taskVersion(node.task), passed: true, commit: 'b'.repeat(40), sourceDigest: 'source',
@@ -87,6 +109,32 @@ describe('run inspection', () => {
     expect(buildRunInspection(state).tasks[0].proof.status).toBe('conditional');
     node.task = { ...node.task, revision: 1 };
     expect(buildRunInspection(state).tasks[0].proof.status).toBe('stale');
+  });
+
+  it('reports adoption and planned use independently from proof evidence after JSON restore', () => {
+    const { state, stateFile } = fixture(), cooperative = state.cooperation!;
+    const source: TaskRecord = { task: { id: 'investigation', kind: 'research', objective: 'Find a bridge',
+      dependsOn: [], revision: 0 }, status: 'completed', attempts: 1 };
+    const adopted: TaskRecord = { task: { id: 'bridge', kind: 'lemma', objective: 'Prove the bridge', dependsOn: [],
+      revision: 0, theoremName: 'Original.bridge', proofPath: 'Submission.lean', type: 'True' }, status: 'pending', attempts: 0 };
+    cooperative.tasks.push(source, adopted);
+    cooperative.deliveries = [{ id: 'proposal', producer: 'researcher', taskId: source.task.id,
+      taskDigest: taskVersion(source.task), kind: 'research', status: 'advisory', summary: 'A reusable bridge.',
+      statement: '', premises: [], dependencies: [], remainingObligations: [], evidenceRefs: [], createdAt: 1,
+      lemmaRequests: [adopted.task] }];
+    const handoff = researchHandoffs(cooperative)[0];
+    cooperative.researchDecisions = resolveResearchHandoffs(cooperative, [handoff.id], cooperative.tasks.map(item => item.task), undefined);
+    state.knowledgeDigest = 'c'.repeat(64);
+    writeSolverRunState(stateFile, state);
+    const restored = readSolverRunState(stateFile), before = JSON.stringify(restored), report = buildRunInspection(restored);
+    expect(report.configuration.knowledgeDigest).toBe(state.knowledgeDigest);
+    expect(report.continuation.adoptedResearch).toEqual([expect.objectContaining({ sourceTaskId: source.task.id,
+      taskId: adopted.task.id, recordedProof: 'none', plannedGoalIds: [], referenceCoverage: 'unknown' })]);
+    expect(report.progress.checkedProofTasks).toBe(0);
+    expect(renderRunInspection(report)).toContain('| investigation | bridge | none | none | none recorded | none recorded | none recorded | unknown |');
+    expect(JSON.stringify(restored)).toBe(before);
+    restored.cooperation!.tasks[0].task.dependsOn = [adopted.task.id];
+    expect(buildRunInspection(restored).continuation.adoptedResearch[0].plannedGoalIds).toEqual(['goal']);
   });
 
   it.each(['proof', 'integratedCheck'] as const)('recognizes %s receipts bound to a verification projection', field => {

@@ -9,7 +9,7 @@ import { inspectLeanDeclarationRegions } from '../math/leanSource';
 import { assertMathCanonicalPath } from '../math/paths';
 import { committedSource, withSolverWorktree } from './problem';
 import { advisoryEvidenceRefs } from './deliveries';
-import { taskVersion, type CooperativeTask } from './tasks';
+import { taskProofContractVersion, taskVersion, type CooperativeTask } from './tasks';
 import type { SolverProblem } from './problem';
 import { captureProofReferences, type ProofReferences } from './proofReferences';
 
@@ -62,7 +62,10 @@ export function statementSnapshot(problem: SolverProblem, task: CooperativeTask,
     dependencies: snapshotDependencies.map(({ task: dependency, taskDigest }) => ({ taskId: dependency.id, taskDigest,
       theoremName: dependency.theoremName, leanType: dependency.type && maskLeanComments(dependency.type) })),
     definitions: definitions.map((definition, index) => ({ originalFile: definition.file, path: `definitions/${index}.lean` })) };
-  const snapshotDigest = mathDigest(canonicalMathJson({ input, definitions }));
+  // Keep full task versions in the audit input; only mathematical contracts bind review reuse.
+  const snapshotDigest = mathDigest(canonicalMathJson({ input: { ...input,
+    dependencies: input.dependencies.map((dependency, index) => ({ ...dependency,
+      taskDigest: taskProofContractVersion(snapshotDependencies[index]!.task) })) }, definitions }));
   const references = elaboration?.references && captureProofReferences(problem, worktree, commit,
     { name: task.theoremName!, file: task.proofPath! }, elaboration.references, environmentDigest, 'statement',
     task.kind === 'lemma' ? task.type : undefined);

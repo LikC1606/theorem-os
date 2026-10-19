@@ -120,27 +120,16 @@ describe('human edit recovery', () => {
     expect(events.filter(event => event.event === 'edit_received')).toHaveLength(1);
   });
 
-  it('keeps graph, version and edit status consistent when statement preparation fails', async () => {
-    append('prepare-retry', 1);
-    const error = Object.assign(new Error('Statement context storage EIO'), { code: 'EIO' });
-    prepare.mockRejectedValueOnce(error);
-    await expect(cooperative.pulse()).rejects.toBe(error);
-    expect(record('prepare-retry')?.status).not.toBe('rejected');
-    expect(state.cooperation!.planVersion).toBe((cooperative as any).planVersion());
-    if (state.cooperation!.tasks[0].task.revision === 1) {
-      expect(record('prepare-retry')).toMatchObject({ status: 'applied', planVersion: version(1) });
-    } else {
-      expect(state.cooperation!.tasks[0].task).toEqual(route(0));
-      expect(record('prepare-retry')).toMatchObject({ status: 'received' });
-      expect(state.cooperation!.cursors?.edits ?? 0).toBe(0);
-    }
-    expect(events.some(event => event.event === 'edit_rejected')).toBe(false);
-    resume();
+  it('accepts an unrelated research edit without preparing statement contexts', async () => {
+    append('research-only', 1);
     await cooperative.pulse();
+    expect(prepare).not.toHaveBeenCalled();
+    expect(record('research-only')).toMatchObject({ status: 'applied', planVersion: version(1) });
+    expect(state.cooperation!.planVersion).toBe((cooperative as any).planVersion());
     expect(state.cooperation!.tasks[0].task).toEqual(route(1));
-    expect(record('prepare-retry')).toMatchObject({ status: 'applied', planVersion: version(1) });
     expect(state.cooperation!.history).toHaveLength(1);
     expect(state.cooperation!.cursors?.edits).toBe(fs.statSync(editsFile()).size);
+    expect(events.some(event => event.event === 'edit_rejected')).toBe(false);
   });
 
   it('persists a successful prefix without replaying it when the following edit must retry', async () => {
@@ -235,6 +224,7 @@ describe('human edit recovery', () => {
     });
     fs.appendFileSync(editsFile(), JSON.stringify({ id: 'cache-update', baseVersion: state.cooperation!.planVersion, ...proposed }) + '\n');
     await cooperative.pulse();
+    await (cooperative as any).schedulePlanSynchronization();
     expect(record('cache-update')).toMatchObject({ status: 'applied' });
     expect(host.capture).toHaveBeenCalledOnce();
     const review = state.cooperation!.statementReviews!.find(item => item.taskId === 'h')!;

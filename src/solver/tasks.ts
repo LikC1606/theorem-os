@@ -19,6 +19,7 @@ export type TaskAssignment = { taskId: string; taskDigest: string; workerId: str
   dependencies?: DeliveryRecord['dependencies']; routeId?: string };
 export type TaskRecord = { task: CooperativeTask; status: 'pending' | 'running' | 'blocked' | 'conditional' | 'delivered' | 'integrated' | 'completed';
   attempts: number; assignment?: TaskAssignment; proof?: TaskProof; integratedCheck?: TaskProof; feedback?: string; finding?: string;
+  pendingValidation?: { id: string; taskDigest: string; canonicalCommit: string; environmentDigest: string; problemReceiptDigest: string; proof?: boolean };
   routeParking?: string[]; parkedRoutes?: Record<string, string[]>; alternativeRoutes?: readonly ProofRoute[] };
 export type CooperativeAction = { kind: 'lead' | 'assemble' | 'solve'; seedCommit: string; planVersion?: string; planningInputDigest?: string;
   handoffIds?: readonly string[];
@@ -30,11 +31,17 @@ export const taskVersion = (task: CooperativeTask) => {
   const { status: _status, ownerId: _owner, statementReview: _review, informalStatement: _intent, ...mathematics } = task;
   return mathDigest(canonicalMathJson(mathematics));
 };
+/** Planning revisions still supersede assignments; checked sources can be revalidated separately. */
+export const taskProofContractVersion = (task: CooperativeTask) => {
+  if (isAdvisoryTask(task)) return taskVersion(task);
+  const { objective: _objective, revision: _revision, ...contract } = task;
+  return taskVersion(contract as CooperativeTask);
+};
 // Object identity is process-local: archived references never authorize narrower dependency checks.
 const checkedReferences = new WeakSet<TaskProof>();
 export function taskReferenceDependencies(node: TaskRecord): DeliveryRecord['dependencies'] | undefined {
   const proof = node.integratedCheck, references = proof?.references;
-  return node.status === 'integrated' && proof?.passed && !proof.conditions?.length &&
+  return !node.pendingValidation && node.status === 'integrated' && proof?.passed && !proof.conditions?.length &&
     proof.taskDigest === taskVersion(node.task) && checkedReferences.has(proof) && references?.tasks &&
     references.inputs.every(input => input.name) ? references.tasks : undefined;
 }
@@ -43,7 +50,7 @@ export const hasTaskReferences = (proof: TaskProof) => checkedReferences.has(pro
 // Restored JSON cannot authorize final-candidate dispatch before the host rechecks it.
 const freshTaskAcceptances = new WeakMap<TaskProof, string>();
 const acceptanceIdentity = (proof: TaskProof) => canonicalMathJson({ commit: proof.commit, sourceDigest: proof.sourceDigest,
-  taskDigest: proof.taskDigest, conditions: proof.conditions, verification: proof.verification && {
+  taskDigest: proof.taskDigest, conditions: proof.conditions, projection: proof.projection, verification: proof.verification && {
     status: proof.verification.status, targetCommit: proof.verification.targetCommit,
     receipts: proof.verification.results.map(result => [result.receiptId, result.status, result.targetCommit]) } });
 export const markTaskAcceptance = (proof: TaskProof) => {
@@ -53,10 +60,11 @@ export const hasTaskAcceptance = (proof: TaskProof) => freshTaskAcceptances.get(
 
 /** Compute invalidation before changing assignments or emitting any notifications. */
 export function invalidatedTaskIds(previous: readonly TaskRecord[], tasks: readonly CooperativeTask[],
-  changedGroups: ReadonlySet<string>, dependencies: ReadonlyMap<string, readonly string[]>, changedTasks: ReadonlySet<string> = new Set()): Set<string> {
-  const proposed = new Map(tasks.map(task => [task.id, taskVersion(task)]));
+  changedGroups: ReadonlySet<string>, dependencies: ReadonlyMap<string, readonly string[]>, changedTasks: ReadonlySet<string> = new Set(),
+  version: (task: CooperativeTask) => string = taskVersion): Set<string> {
+  const proposed = new Map(tasks.map(task => [task.id, version(task)]));
   const invalidated = new Set(previous.filter(node => changedTasks.has(node.task.id) || changedGroups.has(taskGroup(node.task)) ||
-    proposed.get(node.task.id) !== taskVersion(node.task)).map(node => node.task.id));
+    proposed.get(node.task.id) !== version(node.task)).map(node => node.task.id));
   const consumers = new Map<string, string[]>();
   for (const task of tasks) for (const id of dependencies.get(task.id) ?? task.dependsOn) {
     const list = consumers.get(id) ?? []; list.push(task.id); consumers.set(id, list);

@@ -5,6 +5,8 @@ import type { SolverRunState } from '../src/solver/archive';
 import type { SolverProblem } from '../src/solver/problem';
 import { buildResearchContext } from '../src/solver/modules/context';
 import { taskVersion, type CooperativeAction, type TaskRecord } from '../src/solver/tasks';
+import { canonicalMathJson, mathDigest } from '../src/math/mathRuntimeIo';
+import { researchHandoffs, resolveResearchHandoffs } from '../src/solver/researchHandoffs';
 
 const seedCommit = 'a'.repeat(40);
 const formal = 'namespace Original\ntheorem target : True := by sorry\nend Original';
@@ -106,6 +108,34 @@ it('builds mandatory Lead focus and task focus only from the supplied scoped gra
   expect(context.message).not.toContain('Original.core');
 });
 
+it('shows adopted research and its missing consumer connection to Lead without requiring an immediate consumer', () => {
+  const source = node('investigation', 'research'), adopted = node('bridge'), goal = node('goal', 'goal');
+  source.status = 'completed';
+  const cooperation: CooperationState = { canonicalCommit: seedCommit, tasks: [source, adopted, goal], deliveries: [{
+    id: 'proposal', producer: 'researcher', taskId: source.task.id, taskDigest: taskVersion(source.task),
+    kind: 'research', status: 'advisory', summary: 'A reusable bridge.', statement: '', premises: [], dependencies: [],
+    remainingObligations: [], evidenceRefs: [], createdAt: 1, lemmaRequests: [adopted.task],
+  }] };
+  const handoff = researchHandoffs(cooperation)[0];
+  cooperation.researchDecisions = resolveResearchHandoffs(cooperation, [handoff.id], cooperation.tasks.map(item => item.task), undefined);
+  const context = contextFor(cooperation, { kind: 'lead', seedCommit });
+  const continuation = JSON.parse(context.message.split(
+    'Proof continuation (stored evidence, not replayed; planned use and actual proof use are separate):\n')[1].split('\n\n')[0]);
+  expect(continuation.adoptedResearch).toEqual([expect.objectContaining({
+    sourceTaskId: source.task.id, taskId: adopted.task.id, recordedProof: 'none', plannedGoalIds: [],
+    proofConsumers: [], referenceCoverage: 'unknown',
+  })]);
+  expect(context.instructions).toContain('continuation.adoptedResearch in COOPERATION.json');
+  expect(context.instructions).toContain('does not prove a target or require every exploratory proposal to have a consumer immediately');
+  expect(adopted.status).toBe('pending');
+
+  const compile = contextCompiler.compileTaskContext;
+  vi.spyOn(contextCompiler, 'compileTaskContext').mockImplementation(input => compile({ ...input, maxOptionalContextBytes: 0 }));
+  const compact = contextFor(cooperation, { kind: 'lead', seedCommit });
+  expect(compact.manifest!.omitted).toContainEqual({ id: 'proof-continuation', kind: 'continuation', reason: 'optional-budget' });
+  expect(compact.instructions).toContain('continuation.adoptedResearch in COOPERATION.json');
+});
+
 it('gives an early feasibility reviewer complete unproved interfaces even with no optional context budget', () => {
   const compile = contextCompiler.compileTaskContext;
   vi.spyOn(contextCompiler, 'compileTaskContext').mockImplementation(input => compile({ ...input, maxOptionalContextBytes: 0 }));
@@ -126,4 +156,37 @@ it('gives an early feasibility reviewer complete unproved interfaces even with n
   expect(context.instructions).toContain('First test whether the proposed inputs would actually suffice for the consumer');
   expect(core.status).toBe('blocked');
   expect(goal.integratedCheck).toBeUndefined();
+});
+
+it.each([10, 100, 500])('keeps local mandatory route focus bounded across %i alternatives', count => {
+  const compile = contextCompiler.compileTaskContext;
+  vi.spyOn(contextCompiler, 'compileTaskContext').mockImplementation(input => compile({ ...input, maxOptionalContextBytes: 0 }));
+  const goal = node('goal', 'goal');
+  const inputs = Array.from({ length: count }, (_, index) => node(`input_${index}`));
+  const closing = inputs.map(input => node(`closing_${input.task.id}`, 'lemma', [input.task.id]));
+  const proofRoutes = inputs.map((input, index) => ({ id: `route_${index}`, targetTaskId: goal.task.id,
+    prerequisiteTaskIds: [input.task.id], closingTaskId: closing[index].task.id }));
+  goal.alternativeRoutes = proofRoutes;
+  const active = inputs.at(-1)!;
+  closing.at(-1)!.task = { ...closing.at(-1)!.task, type: 'And True True' };
+  const cooperation: CooperationState = { canonicalCommit: seedCommit, tasks: [...inputs, ...closing, goal], proofRoutes };
+  const context = contextFor(cooperation, actionFor(active)), focus = packet(context.message);
+  expect(context.manifest!.mandatoryBytes).toBeLessThan(20 * 1024);
+  expect(focus.routePriority).toMatchObject({ selection: 'bounded-preview', totalCount: count, selectedCount: 4,
+    omittedCount: count - 4, index: { path: 'COOPERATION.json', field: 'routePriority.routes', count } });
+  expect(focus.routePriority.routes[0].routeId).toBe(proofRoutes.at(-1)!.id);
+  expect(focus.frontierTaskIds).toContain(active.task.id);
+  expect(focus.frontierTaskIds.length).toBeLessThanOrEqual(4);
+  expect(focus.frontierSet).toEqual({ count, digest: mathDigest(canonicalMathJson(inputs.map(input => input.task.id))),
+    reference: { path: 'COOPERATION.json', field: 'frontierFocus.taskIds' } });
+  expect(context.message).toContain('And True True');
+  expect(focus.plannedConsumers).toEqual(expect.arrayContaining([goal.task.id, closing.at(-1)!.task.id]));
+  expect(context.manifest!.included).toContainEqual(expect.objectContaining({ id: 'consumer-interfaces', required: true }));
+
+  const action = actionFor(goal);
+  if (action.kind !== 'task') throw new Error('fixture_assignment');
+  action.assignment.routeId = proofRoutes.at(-1)!.id;
+  const assigned = packet(contextFor(cooperation, action).message);
+  expect(assigned.routePriority.routes[0].routeId).toBe(action.assignment.routeId);
+  expect(assigned.routePriority.selectedCount).toBe(5);
 });

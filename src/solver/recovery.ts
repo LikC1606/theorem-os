@@ -10,7 +10,7 @@ import { bindLeanPackages } from '../math/leanDiagnostics';
 import { resolveMathematicsLakePackagesCache } from '../math/verifier';
 import { readSolverRunState, writeSolverRunState, type SolverRunState } from './archive';
 import { assertSolverSources, git, type SolverProblem } from './problem';
-import { checkTaskProofs, projectTaskSources, type TaskProof, type TaskProofRequest } from './cooperativeProof';
+import { checkTaskProofs, createTaskSourceProjector, isAttributedTaskProof, type TaskProof, type TaskProofRequest } from './cooperativeProof';
 import { taskVersion, type TaskRecord } from './tasks';
 
 const oid = /^[a-f0-9]{40,64}$/u;
@@ -270,7 +270,8 @@ export async function recheckMathSnapshot(output: string, options: { env: NodeJS
   state.phase = 'checking'; report.verification = 'checking';
   const save = () => {
     report.evidence = state.cooperation!.tasks.some(node => report.candidates.includes(node.task.id) &&
-      node.integratedCheck?.verification.results.some(result => result.status === 'kernel_verified' && result.receiptId))
+      node.integratedCheck?.passed && node.integratedCheck.verification.status === 'kernel_verified' &&
+      node.integratedCheck.verification.results.some(result => result.status === 'kernel_verified' && result.receiptId))
       ? 'fresh-helper-receipts' : 'recovered-sources-require-recheck';
     writeSolverRunState(report.stateFile, state); writeMathJsonDurable(reportFile, report);
   };
@@ -283,6 +284,22 @@ export async function recheckMathSnapshot(output: string, options: { env: NodeJS
   const nodes = state.cooperation!.tasks.filter(node => report.candidates.includes(node.task.id));
   for (const node of nodes) { node.status = 'pending'; node.proof = undefined; node.integratedCheck = undefined; node.feedback = undefined; }
   const pending = [...nodes];
+  let projectSources: ReturnType<typeof createTaskSourceProjector> | undefined;
+  const projections = new Map<TaskRecord, string | Error>();
+  const projectionOf = (node: TaskRecord) => {
+    let value = projections.get(node);
+    if (value === undefined) {
+      try {
+        projectSources ??= createTaskSourceProjector(state.problem, worktree, report.canonicalCommit);
+        value = mathDigest(canonicalMathJson([...projectSources(node.task, [])]));
+      }
+      catch (error) { value = error instanceof Error ? error : new Error(String(error)); }
+      projections.set(node, value);
+    }
+    if (value instanceof Error) throw value;
+    return value;
+  };
+  const attributed = new Map<TaskRecord, TaskProof>();
   state.cooperation!.recheck = { canonicalCommit: report.canonicalCommit, total: nodes.length, completed: 0 };
   save();
   try {
@@ -291,29 +308,41 @@ export async function recheckMathSnapshot(output: string, options: { env: NodeJS
       const node = pending.shift()!, group = [node];
       state.cooperation!.recheck!.taskId = node.task.id; save();
       try {
-        const projection = canonicalMathJson([...projectTaskSources(state.problem, worktree, report.canonicalCommit, node.task, [])]);
-        for (const other of pending) {
-          if (group.length === 32) break;
-          try {
-            if (canonicalMathJson([...projectTaskSources(state.problem, worktree, report.canonicalCommit, other.task, [])]) === projection) group.push(other);
-          } catch { /* The single-task path records its own projection failure. */ }
-        }
-        options.onProgress?.(group.map(item => item.task.id));
-        const check = () => {
-          const requests: TaskProofRequest[] = group.map(item => ({ task: item.task, retainedGoals: [], assignment: {
-            taskId: item.task.id, taskDigest: taskVersion(item.task), workerId: 'recovery', seedCommit: report.canonicalCommit } }));
-          return checkTaskProofs(state.problem, worktree, report.canonicalCommit, requests, options.env,
-            options.signal, options.timeoutMs ?? 180_000, state.environmentDigest);
-        };
         let proofs: TaskProof[];
-        try { proofs = await check(); }
-        catch (error) {
-          options.signal.throwIfAborted();
-          if (group.length === 1) throw error;
-          group.splice(1); proofs = await check();
-        }
-        if (group.length > 1 && proofs.some(proof => !proof.passed)) {
-          options.signal.throwIfAborted(); group.splice(1); proofs = await check();
+        const cached = attributed.get(node);
+        if (cached && isAttributedTaskProof(cached)) proofs = [cached];
+        else {
+          const projection = projectionOf(node);
+          for (const other of pending) {
+            if (group.length === 32) break;
+            if (attributed.has(other)) continue;
+            try {
+              if (projectionOf(other) === projection) group.push(other);
+            } catch { /* The single-task path records its own projection failure. */ }
+          }
+          options.onProgress?.(group.map(item => item.task.id));
+          const check = () => {
+            const requests: TaskProofRequest[] = group.map(item => ({ task: item.task, retainedGoals: [], assignment: {
+              taskId: item.task.id, taskDigest: taskVersion(item.task), workerId: 'recovery', seedCommit: report.canonicalCommit } }));
+            return checkTaskProofs(state.problem, worktree, report.canonicalCommit, requests, options.env,
+              options.signal, options.timeoutMs ?? 180_000, state.environmentDigest);
+          };
+          try { proofs = await check(); }
+          catch (error) {
+            options.signal.throwIfAborted();
+            if (group.length === 1) throw error;
+            group.splice(1); proofs = await check();
+          }
+          if (group.length > 1) {
+            group.forEach((item, index) => {
+              const proof = proofs[index]!;
+              if (proof.passed || isAttributedTaskProof(proof)) attributed.set(item, proof);
+            });
+            if (group.some(item => !attributed.has(item))) {
+              options.signal.throwIfAborted(); group.splice(1);
+              proofs = [attributed.get(node) ?? (await check())[0]!];
+            }
+          }
         }
         options.signal.throwIfAborted();
         for (let index = 0; index < group.length; index++) {

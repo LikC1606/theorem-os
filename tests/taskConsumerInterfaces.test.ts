@@ -218,6 +218,30 @@ it('exposes public pending consumer contracts through a context-only bypass with
   expect(context.manifest.requiredTaskIds).toEqual([active.task.id]);
 });
 
+it('shows public in-flight questions across groups without expanding executable task visibility', () => {
+  const active = node('active', [], { groupId: 'main' });
+  const shared = node('shared', [], { kind: 'research', groupId: 'other', sharing: 'problem', objective: 'PUBLIC_QUESTION' });
+  const secret = node('secret', [], { kind: 'research', groupId: 'other', sharing: 'group', objective: 'PRIVATE_QUESTION' });
+  shared.status = secret.status = 'running';
+  const cooperation: CooperationState = { canonicalCommit: seedCommit, tasks: [active, shared, secret] };
+  const state = { environmentDigest: 'environment', problem, cooperation } as SolverRunState;
+  const lead: ResearchWorker = { id: 'solver', role: 'lead', worktree: '/proof', ownedFiles: ['Submission.lean'] };
+  const peer: ResearchWorker = { ...lead, id: 'researcher', role: 'researcher' };
+  const cooperative = new CooperativeResearch({ state, workers: [lead, peer], access: new Map(),
+    signal: new AbortController().signal, save: () => {}, emit: () => {}, modules: directSolverModules,
+    exclusiveCheck: async check => check() });
+  const action = actionFor(active), scoped = cooperative.contextState(action, peer);
+  expect(scoped.tasks.map(item => item.task.id)).toEqual(['active']);
+  expect(scoped.parallelQuestions?.map(item => item.taskId)).toEqual(['shared']);
+  const context = buildResearchContext(problem, { ...state, cooperation: scoped }, {
+    root: '/runtime', worktree: '/proof', environment: {}, taskText: 'Prove the original target.',
+    retrievalRoot: '/library', assignment: action, frozenContexts: inputFor(active, scoped).frozenContexts,
+  });
+  expect(context.message).toContain('PUBLIC_QUESTION');
+  expect(context.message).not.toContain('PRIVATE_QUESTION');
+  expect(context.manifest?.requiredTaskIds).toEqual(['active']);
+});
+
 it('rejects a valid consumer projection reused for another same-group assignment', () => {
   const earlier = node('earlier_helper'), current = node('current_helper');
   const earlierConsumer = node('earlier_consumer', [earlier.task.id]);

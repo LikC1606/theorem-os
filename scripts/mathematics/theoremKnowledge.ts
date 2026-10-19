@@ -9,6 +9,7 @@ import { buildTheoremKnowledge, getKnowledgeTheorem, searchTheoremKnowledgeBatch
 import { readKnowledgeCatalog, writePackedKnowledge } from '../../src/solver/theoremKnowledgeStore';
 import { getKnowledgeDependencies } from '../../src/solver/theoremKnowledgeDependencies';
 import { getKnowledgeSource } from '../../src/solver/theoremKnowledgeSource';
+import { getKnowledgeMetadata, type KnowledgeMetadataField } from '../../src/solver/theoremKnowledgeMetadata';
 import { assertMathCanonicalPath } from '../../src/math/paths';
 
 const help = `Usage: theorem-os knowledge <build|pack|search|get|source|dependencies|stats> [arguments]
@@ -18,6 +19,7 @@ const help = `Usage: theorem-os knowledge <build|pack|search|get|source|dependen
   search --catalog FILE [--query KEYWORDS ...] [--goal LEAN_CONTEXT]
          [--limit 1..32] [--problem ID] [--environment DIGEST] [--problem-receipt DIGEST] [--sha256 HASH]
   get    --catalog FILE --id THEOREM_ID [--source ARCHIVED_FILE] [--sha256 HASH]
+         [--metadata [--field FIELD --offset N] [--max-bytes 1024..65536]]
   source --catalog FILE --id THEOREM_ID [--file ARCHIVED_FILE]
          [--name QUALIFIED_DECLARATION | --start-line N | --offset N]
          [--lines 1..200] [--max-bytes 1024..65536] [--sha256 HASH]
@@ -27,6 +29,9 @@ const help = `Usage: theorem-os knowledge <build|pack|search|get|source|dependen
 Catalogs contain historical sources and recorded evidence. Reuse requires fresh Lean
 checking in the target problem. Search previews are bounded; get returns exact types
 and declarations. --source returns a complete archived file, including its context.
+Use get --metadata for a bounded JSON packet without proof bodies. Deferred fields
+have read handles; --field and --offset return exact text pages with nextOffset.
+Text fields concatenate directly; concatenate JSON fields before parsing them.
 The source command returns bounded exact excerpts; --offset uses UTF-16 code units
 and resumes at nextOffset. An excerpt does not establish complete Lean context.
 Build reads only explicit sources and never starts a solver or calls a model.
@@ -45,6 +50,7 @@ try {
       goal: { type: 'string' }, limit: { type: 'string', default: '10' }, problem: { type: 'string' },
       environment: { type: 'string' }, 'problem-receipt': { type: 'string' },
       id: { type: 'string' }, source: { type: 'string' }, depth: { type: 'string', default: '2' },
+      metadata: { type: 'boolean' }, field: { type: 'string' },
       file: { type: 'string' }, name: { type: 'string' }, 'start-line': { type: 'string' }, offset: { type: 'string' },
       lines: { type: 'string' }, 'max-bytes': { type: 'string' },
     } });
@@ -86,7 +92,20 @@ try {
       const { base, digest, format } = readKnowledgeCatalog(required('catalog'), values.sha256);
       if (command === 'pack') console.log(JSON.stringify(writePackedKnowledge(required('output'), base, digest)));
       else if (command === 'stats') console.log(JSON.stringify({ sha256: digest, format, ...theoremKnowledgeStats(base) }));
-      else if (command === 'get') console.log(JSON.stringify(getKnowledgeTheorem(base, required('id'), values.source)));
+      else if (command === 'get') {
+        if (values.metadata) {
+          if (values.source !== undefined) throw new Error('--metadata cannot be combined with --source');
+          console.log(JSON.stringify(getKnowledgeMetadata(base, required('id'), {
+            field: values.field as KnowledgeMetadataField | undefined,
+            startOffset: values.offset === undefined ? undefined : Number(values.offset),
+            maxBytes: values['max-bytes'] === undefined ? undefined : Number(values['max-bytes']),
+          })));
+        } else {
+          if (values.field !== undefined || values.offset !== undefined || values['max-bytes'] !== undefined)
+            throw new Error('get --field, --offset and --max-bytes require --metadata');
+          console.log(JSON.stringify(getKnowledgeTheorem(base, required('id'), values.source)));
+        }
+      }
       else if (command === 'source') console.log(JSON.stringify(getKnowledgeSource(base, required('id'), {
         file: values.file, name: values.name,
         startLine: values['start-line'] === undefined ? undefined : Number(values['start-line']),

@@ -1,9 +1,10 @@
 import path from 'node:path';
+import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import type { MathAgentSession } from '../runtime/codexSession';
 import { readMathBuildManifest } from '../math/mathBuildManifest';
-import { writeMathJsonDurable } from '../math/mathRuntimeIo';
+import { canonicalMathJson, mathDigest, writeMathJsonDurable } from '../math/mathRuntimeIo';
 import type { SolverRunState, SolverWorkerState } from './archive';
 import { commitSolverSources, git } from './problem';
 import { CooperativeResearch } from './cooperation';
@@ -17,7 +18,7 @@ import type { KnowledgeContextSnapshot } from './knowledgeContext';
 import type { ResearchWorker } from './modules/organization';
 import type { ResearchOperation } from './modules/value';
 import { runResearchTurn, type ResearchCandidate } from './modules/execution';
-import { recoverableResearchFailure, researchFailureDetail, researchFailureReason } from './modules/search';
+import { planResearchCooldown, recoverableResearchFailure, researchFailureDetail, researchFailureReason } from './modules/search';
 import { aggregateUsage, buildTokenBudget, initializeUsageAccounting, modelDispatchAllowed, recordThreadUsage, reportedTotalTokens } from './usageBudget';
 import { recoverModelTurnLedger, WorkerTurnLedger, type ModelTurnReceipt } from './turnLedger';
 
@@ -92,11 +93,35 @@ export async function runResearchWorkers(input: {
       const access = input.access.get(worker.id)!;
       const view = (): SolverRunState => ({ ...state, ...research, turns: state.turns });
       const emit = (event: string, details = {}) => input.emit(event, { workerId: worker.id, ...details });
+      const recovered = () => {
+        const recovery = research.recovery;
+        if (!recovery || recovery.phase === 'recovered') return;
+        recovery.phase = 'recovered'; recovery.recoveredAt = Date.now();
+        emit('worker_recovered', { reason: recovery.reason, cycles: recovery.cycles, waitedMs: recovery.waitedMs });
+        save();
+      };
+      const waitForRecovery = async (resumed = false) => {
+        const recovery = research.recovery;
+        if (recovery?.phase !== 'cooling-down' || !dispatchAllowed() || budget().remainingMs <= 0 ||
+            state.turns - Number(reservedTurn) >= input.maxTurns) return;
+        signal.throwIfAborted();
+        const started = Date.now(), delayMs = Math.max(0, recovery.nextRetryAt - started);
+        if (resumed) emit('worker_recovery_resumed', { reason: recovery.reason, cycle: recovery.cycles,
+          delayMs, nextRetryAt: recovery.nextRetryAt });
+        try {
+          if (delayMs > 0) await delay(delayMs, undefined, { signal });
+          signal.throwIfAborted();
+          recovery.phase = 'retrying';
+        } finally {
+          recovery.waitedMs += Math.max(0, Date.now() - started); save();
+        }
+      };
       const context = (feedback?: string, previousCheck?: ProofCheck, previousFailures = research.failures,
         operation?: ResearchOperation, assignment?: CooperativeAction) => modules.M4.build(state.problem,
           { ...view(), ...(cooperation ? { cooperation: cooperation.contextState(assignment, worker) } : {}) }, {
           root: input.root, worktree: worker.worktree, taskText: input.taskText, ...access,
           sourceFeedback: feedback, previousCheck, previousFailures, operation, assignment,
+          maxOptionalContextBytes: research.contextOverflow?.maxOptionalContextBytes,
         });
       let feedbackCheck: ProofCheck | undefined;
       let feedbackFailures = research.failures;
@@ -106,6 +131,8 @@ export async function runResearchWorkers(input: {
       let usageTurnActive = false;
       let usageTurnReported = false;
       let ledgerSessionId: string | undefined;
+      let turnContext: { digest: string; fresh: boolean } | undefined;
+      let rebuildContext = false;
       const turnLedger = new WorkerTurnLedger(state, worker.id, research, emit);
       const modelTurn = async <T>(run: () => Promise<T>, assignment?: CooperativeAction,
         operation: ResearchOperation = 'direct'): Promise<T | undefined> => {
@@ -135,6 +162,7 @@ export async function runResearchWorkers(input: {
           const result = await run();
           completed = typeof result === 'string' ? result === 'completed' :
             Boolean(result && typeof result === 'object' && 'status' in result && result.status === 'completed');
+          if (completed) recovered();
           const resultStatus = typeof result === 'string' ? result : result && typeof result === 'object' && 'status' in result ? result.status : undefined;
           status = completed ? 'completed' : ['checkpoint', 'interrupted'].includes(String(resultStatus)) ? 'interrupted' : 'failed';
           return result;
@@ -181,9 +209,23 @@ export async function runResearchWorkers(input: {
       };
       const cancel = () => { void close().catch(() => {}); };
       signal.addEventListener('abort', cancel, { once: true });
-      const beginTurn = async (currentContext: ContextBundle, assignment?: CooperativeAction) => {
+      const beginTurn = async (currentContext: ContextBundle, assignment?: CooperativeAction, operation: ResearchOperation = 'direct') => {
+        rebuildContext = false;
         while ((pendingTurn = waitForTurn())) await pendingTurn;
         if (assignment && !cooperation!.current(assignment)) return false;
+        // Feedback counters and dispatch UUIDs must not defeat the fresh-input capacity guard.
+        const target = assignment?.kind === 'task' ? { kind: assignment.kind, taskDigest: assignment.assignment.taskDigest,
+          dependencies: assignment.assignment.dependencies } : assignment && isStatementAction(assignment)
+          ? { kind: assignment.kind, snapshotDigest: assignment.snapshotDigest } : { kind: assignment?.kind ?? operation };
+        turnContext = { digest: mathDigest(canonicalMathJson({ instructions: currentContext.instructions, target,
+          problem: state.problem.receiptDigest, environment: state.environmentDigest, model: state.model,
+          planVersion: cooperation?.contextState(assignment, worker).planVersion,
+          optionalBytes: research.contextOverflow?.maxOptionalContextBytes ?? currentContext.manifest?.maxOptionalBytes,
+          sources: state.problem.ownedFiles.map(file => [file, mathDigest(fs.readFileSync(path.join(worker.worktree,
+            state.problem.projectRelative, file)))]),
+        })), fresh: !research.threadId };
+        if (turnContext.fresh && research.contextOverflow?.failedFreshContextDigests.includes(turnContext.digest))
+          throw new Error('math_model_context_capacity_blocked');
         if (currentContext.manifest) {
           research.lastContextManifest = currentContext.manifest;
           writeMathJsonDurable(path.join(worker.worktree, 'CONTEXT-MANIFEST.json'), currentContext.manifest);
@@ -236,6 +278,14 @@ export async function runResearchWorkers(input: {
               const detail = researchFailureDetail(error);
               if (!recoverableResearchFailure(detail)) throw error;
               await retryFailedTurn(detail);
+              if (researchFailureReason(detail) === 'math_model_context_window_exceeded') {
+                rebuildContext = true;
+                if (reservedTurn) {
+                  state.turns--; if (parallel) research.turns--;
+                  reservedTurn = false; cooperation?.settleTurn(worker); save();
+                }
+                return false;
+              }
             }
           }
           if (signal.aborted) { await close(); signal.throwIfAborted(); }
@@ -251,8 +301,33 @@ export async function runResearchWorkers(input: {
           taskId: parallel ? (research as SolverWorkerState).sessionTaskId : undefined };
         save();
         if (!dispatchAllowed()) return;
+        if (researchFailureReason(error) === 'math_model_context_window_exceeded') {
+          const overflow = research.contextOverflow ??= { maxOptionalContextBytes: 0, failedFreshContextDigests: [] };
+          overflow.maxOptionalContextBytes = 0;
+          if (turnContext?.fresh && !overflow.failedFreshContextDigests.includes(turnContext.digest))
+            overflow.failedFreshContextDigests.push(turnContext.digest);
+          await rotateSession('context');
+          retries = 0;
+          emit('worker_context_recovering', { reason: research.lastFailure.reason,
+            contextDigest: turnContext?.digest, maxOptionalContextBytes: 0 });
+          save(); return;
+        }
         const retry = modules.M3.retry(error, retries, { ...view(), turns: state.turns - Number(reservedTurn) }, budget());
-        if (!retry) throw new Error(researchFailureReason(error));
+        if (!retry) {
+          const previous = research.recovery?.phase !== 'recovered' ? research.recovery : undefined;
+          const cooldown = retries >= 3 ? planResearchCooldown(error, previous?.cycles ?? 0, budget()) : undefined;
+          if (!cooldown) throw new Error(researchFailureReason(error));
+          await rotateSession('request');
+          const now = Date.now();
+          research.recovery = { phase: 'cooling-down', reason: cooldown.reason, cycles: cooldown.cycle,
+            startedAt: previous?.startedAt ?? now, nextRetryAt: now + cooldown.delayMs, waitedMs: previous?.waitedMs ?? 0 };
+          emit('worker_cooling_down', { reason: cooldown.reason, cycle: cooldown.cycle,
+            delayMs: cooldown.delayMs, nextRetryAt: research.recovery.nextRetryAt });
+          save();
+          await waitForRecovery();
+          retries = 0;
+          return;
+        }
         retries = retry.attempt;
         if (research.threadId && (retry.reason === 'math_model_tool_failed' || retries === 1 &&
             ['math_model_request_failed', 'math_model_request_timeout', 'math_codex_transport_closed'].includes(retry.reason)))
@@ -278,7 +353,8 @@ export async function runResearchWorkers(input: {
           await modules.M2.check(state.problem, worker.worktree, access.environment, signal, lastCheck, input.proofTimeoutMs);
         research.failures = rememberSolverFailure(research.check, previousFailures);
         emit('proof_checked', { passed: research.check.passed, commit: research.check.commit,
-          reused: research.check === lastCheck, durationMs: Date.now() - checkStarted });
+          reused: research.check === lastCheck || research.check.verification === lastCheck?.verification,
+          durationMs: Date.now() - checkStarted });
         lastCheck = research.check; save();
         if (research.check.passed) {
           if (cooperation && !cooperation.reviewed(research.check)) { cooperation.requireReview(research.check); return; }
@@ -303,6 +379,7 @@ export async function runResearchWorkers(input: {
         }
       };
       try {
+        await waitForRecovery(true);
         while (!signal.aborted) {
           if (turnLedger.settle()) save();
           const assignment = await cooperation?.next(worker, budget());
@@ -376,7 +453,8 @@ export async function runResearchWorkers(input: {
           if (assignment && isStatementAction(assignment)) {
             const currentContext = cooperation!.statementContext(assignment);
             try {
-              if (!await beginTurn(currentContext, assignment)) {
+              if (!await beginTurn(currentContext, assignment, operation)) {
+                if (rebuildContext) { releaseUnstartedTurn(assignment); continue; }
                 if (!cooperation!.current(assignment)) { releaseUnstartedTurn(assignment); continue; }
                 break;
               }
@@ -429,7 +507,8 @@ export async function runResearchWorkers(input: {
             ...(assignment ? { assignment } : {}) };
           // Resume the same thread with new instructions, preserving its history and cumulative usage.
           if (session && sessionInstructions !== currentContext.instructions) await close();
-          if (!await beginTurn(currentContext, assignment)) {
+          if (!await beginTurn(currentContext, assignment, operation)) {
+            if (rebuildContext) { if (assignment) releaseUnstartedTurn(assignment); continue; }
             if (assignment && !cooperation!.current(assignment)) {
               releaseUnstartedTurn(assignment); await rotateSession('context'); continue;
             }
@@ -463,7 +542,8 @@ export async function runResearchWorkers(input: {
           if (candidate.status === 'failed') await close();
           if (assignment && cooperation && !cooperation.current(assignment)) {
             const commit = solverSourceFeedback(state.problem, worker.worktree) ? git(worker.worktree, ['rev-parse', 'HEAD']) : commitSolverSources(state.problem, worker.worktree);
-            await exclusiveCheck(() => cooperation.deliver(worker, assignment, commit));
+            if (assignment.kind === 'task' || assignment.kind === 'lead') await cooperation.deliver(worker, assignment, commit);
+            else await exclusiveCheck(() => cooperation.deliver(worker, assignment, commit));
             emit('assignment_superseded', { commit });
             await rotateSession('context');
             continue;
@@ -506,7 +586,7 @@ export async function runResearchWorkers(input: {
             const commit = commitSolverSources(state.problem, worker.worktree);
             const deliver = () => cooperation.deliver(worker, assignment, commit, turn !== 'completed',
               turn === 'failed' ? 'request-failure' : 'checkpoint');
-            const delivery = assignment.kind === 'task' ? await deliver() : await exclusiveCheck(deliver);
+            const delivery = assignment.kind === 'task' || assignment.kind === 'lead' ? await deliver() : await exclusiveCheck(deliver);
             if (assignment.kind === 'lead' && turn === 'checkpoint') await cooperation.startInitialTasks();
             research.check = delivery.check;
             savedTaskProof = delivery.check?.passed === true;
@@ -518,6 +598,7 @@ export async function runResearchWorkers(input: {
           feedbackCheck = previousCheck; feedbackFailures = previousFailures;
           if (!winner && turn === 'failed') {
             if (!savedTaskProof && !savedPlan) await retryFailedTurn(turnError);
+            else if (researchFailureReason(turnError) === 'math_model_context_window_exceeded') await retryFailedTurn(turnError);
             else if (recoverableResearchFailure(turnError)) {
               // Accepted saved work can continue after repairing the session.
               retries = 0;
@@ -532,7 +613,7 @@ export async function runResearchWorkers(input: {
           errors.push(error);
           research.error = error instanceof Error ? error.message : 'math_worker_failed';
           emit('worker_failed', { reason: research.error });
-          if (!parallel || (cooperation && worker.id === input.workers[0].id) ||
+          if (!parallel || (cooperation && worker.id === input.workers[0].id && research.error !== 'math_model_context_capacity_blocked') ||
               (error instanceof Error && error.message === 'math_verifier_unavailable')) abort();
         }
       } finally {

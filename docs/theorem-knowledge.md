@@ -197,6 +197,30 @@ search/get/dependency instructions. V2 snapshots include independent read-only
 copies of all source objects, retaining the exact manifest SHA. The run records its catalog digest; resume requires the
 same digest. A changed catalog belongs to a new run.
 
+Prepare a new run with a new result path instead of changing an existing run's
+checkpoint. Given an already prepared problem workspace and task file:
+
+```bash
+bun bin/math.ts run \
+  --build-manifest /PATH/current-build/manifest.json \
+  --workspace /PATH/problem-workspace \
+  --task-file /PATH/task.md \
+  --knowledge-base /PATH/knowledge/catalog-v2.json \
+  --workers 4 \
+  --max-run-seconds 0 --max-turns 0 --max-turn-seconds 0 \
+  --evaluator-timeout-seconds 0 \
+  --output /PATH/new-run-with-knowledge/result.json \
+  --startup-only
+
+bun bin/math.ts inspect \
+  --run /PATH/new-run-with-knowledge/result.json --format json
+```
+
+`--startup-only` validates preparation and creates pinned worker snapshots without
+calling the model or starting proof search. Inspection exposes the pinned catalog
+SHA as `configuration.knowledgeDigest`. Starting proof search is a separate step
+using the same arguments with `--resume` and without `--startup-only`.
+
 Knowledge remains `recorded-not-replayed` with `requiresFreshCheck: true`.
 Neither lookup nor import marks a task accepted, installs old receipts, or closes
 an original goal. The existing independent Lean checks and official evaluator
@@ -229,3 +253,25 @@ does not read archived source objects or include historical proof bodies or rece
 Fixed-candidate review, blind translation and statement comparison receive no such
 candidate hints. All matches remain advisory and require fresh checking in the
 current problem. A search miss is not evidence that no useful theorem exists.
+
+## Bounded Metadata Reads
+
+Use `knowledge get --metadata --max-bytes 16000` with the same pinned catalog,
+SHA and theorem ID. The response omits the proof body and fits the complete JSON
+and trailing newline within the requested byte allowance. Each metadata field is
+either complete or has an exact continuation handle. The original `get` and
+`get --source` outputs remain available for explicit full reads.
+
+For a deferred field, add `--field type --offset 0` (or the field named in its
+handle), then continue at `nextOffset`. Offsets use UTF-16 code units and never
+split a surrogate pair. Concatenate field pages and check their SHA; JSON fields,
+including premises, dependencies, provenance, related versions and file lists,
+can then be parsed without losing entries. A type preview never replaces its
+complete mathematical interface. Source-header types additionally need their
+archived Lean context; use the existing bounded `knowledge source` excerpts.
+
+Exact-interface search uses the same name, type and type-kind identity for its
+IDF corpus and displayed groups. Adding proof variants of an unchanged interface
+does not increase its document count or dilute other interfaces' keyword scores.
+Declaration, context, version and environment identities remain distinct, and
+all reuse still requires a fresh Lean check.

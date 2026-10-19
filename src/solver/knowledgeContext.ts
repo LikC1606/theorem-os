@@ -70,18 +70,22 @@ export function knowledgeContextSections(input: {
     const bounded = Buffer.byteLength(target.query) <= 4000 && Buffer.byteLength(target.goal ?? '') <= 16000;
     const search = bounded && (target.query.trim() || target.goal?.trim())
       ? searchTheoremKnowledge(knowledge.base, target.query, { goal: target.goal, limit: candidateLimit,
-        environmentDigest: input.environmentDigest, problemReceiptDigest: problem.receiptDigest }) : undefined;
+        displayGrouping: 'exact-interface', environmentDigest: input.environmentDigest,
+        problemReceiptDigest: problem.receiptDigest }) : undefined;
     const candidates = search?.hits.map(hit => ({ id: hit.id, name: hit.name, kind: hit.kind,
       typeKind: hit.typeKind, typePreview: hit.typePreview, typeTruncated: hit.typeTruncated,
       dependencyCoverage: hit.dependencyCoverage, environmentMatch: hit.environmentMatch,
-      problemReceiptMatch: hit.problemReceiptMatch, versionCount: hit.versionCount })) ?? [];
+      problemReceiptMatch: hit.problemReceiptMatch, versionCount: hit.versionCount,
+      declarationVariantCount: hit.declarationVariantCount })) ?? [];
     const packet = { schema: 'theorem-os.knowledge-context.v1', catalogDigest: knowledge.digest,
       evidence: 'recorded-not-replayed', requiresFreshCheck: true,
       preferenceEvidence: 'recorded-metadata-not-applicability', consumer: target.consumer,
       searchInputDigest: inputDigest, searchSource: target.source,
       status: search ? 'searched' : 'input-not-searched',
       ...(!search ? { reason: bounded ? 'empty-input' : 'input-too-large' } : {}),
-      totalMatches: search?.total, candidateLimit, omittedForBytes: 0, candidates };
+      candidateGrouping: 'exact-name-type-typeKind-display-only',
+      variantCountEvidence: 'distinct-recorded-declarations-not-interchangeable',
+      totalMatches: search?.total, totalInterfaces: search?.totalInterfaces, candidateLimit, omittedForBytes: 0, candidates };
     let text = title + JSON.stringify(packet);
     while (Buffer.byteLength(text) > maxSectionBytes && candidates.length) {
       candidates.pop(); packet.omittedForBytes++;

@@ -49,6 +49,19 @@ it('recognizes only advisory feasibility tasks and preserves the reserved final-
 });
 
 describe.each(schedulers)('%s early route selection', (_name, schedule) => {
+  it.each(['feasibility', 'conditional'] as const)('preserves a first %s check when only one proof slot remains', kind => {
+    const busy = worker('busy'), available = worker('available'), running = node('running');
+    running.status = 'running'; assignTo(running, busy.id);
+    const premise = node('premise'), bridge = conditional('bridge', 'lemma', ['premise']);
+    const original = node('original', 'goal', ['running', 'bridge']);
+    const check = kind === 'feasibility' ? feasibility('route_check', ['original']) : bridge;
+    const tasks = [running, premise, bridge, original, ...(check === bridge ? [] : [check]), node('independent', 'research')];
+    const ready = schedule(tasks), before = structuredClone(tasks);
+    expect(ready[0]).toBe(check);
+    expect(assignSharedResearchTask(ready, available, [busy, available], undefined, tasks)).toBe(check);
+    expect(tasks).toEqual(before);
+  });
+
   it.each(['pending', 'blocked'] as const)('investigates a consumer before its %s premise has a proof', status => {
     const premise = node('premise'); premise.status = status;
     const consumer = node('consumer', 'goal', ['premise']);

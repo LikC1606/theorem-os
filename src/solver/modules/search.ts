@@ -1,5 +1,6 @@
 import type { SolverRunState } from '../archive';
 import type { MathAgentFailureDiagnostic } from '../../runtime/codexSession';
+import { canonicalMathJson, mathDigest } from '../../math/mathRuntimeIo';
 import type { ResearchOperation, ValueEstimate } from './value';
 import { proofRouteReady, type ProofRoute } from '../proofRoutes';
 import { createRecordedTaskSettlement } from '../progress';
@@ -16,6 +17,7 @@ export type ActionPlan = Readonly<{
 /** Select dependency-ready work; worker identities belong to M5. */
 export function routeAllowsTask(task: TaskRecord['task'], tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): boolean {
   if ((task.status ?? 'active') !== 'active') return false;
+  if (tasks.find(node => node.task.id === task.id)?.pendingValidation) return false;
   if (tasks.find(node => node.task.id === task.id)?.routeParking?.length) return false;
   const node = tasks.find(node => node.task.id === task.id);
   if (node?.alternativeRoutes?.length && node.alternativeRoutes.every(route => node.parkedRoutes?.[route.id]?.length)) return false;
@@ -30,9 +32,22 @@ export function finalCandidateReviewReady(tasks: readonly TaskRecord[]): boolean
   const goals = tasks.filter(node => node.task.kind === 'goal');
   return goals.length > 0 && goals.every(node => {
     const proof = node.integratedCheck;
-    return node.status === 'integrated' && proof?.passed && hasTaskAcceptance(proof) &&
+    return !node.pendingValidation && node.status === 'integrated' && proof?.passed && hasTaskAcceptance(proof) &&
       proof.taskDigest === taskVersion(node.task) && !proof.conditions?.length;
   });
+}
+
+function dispatchRouteReady(route: ProofRoute, tasks: readonly TaskRecord[]) {
+  if (!proofRouteReady(route, tasks)) return false;
+  const nodes = new Map(tasks.map(node => [node.task.id, node])), visited = new Set<string>();
+  const available = (id: string): boolean => {
+    if (visited.has(id)) return true;
+    visited.add(id);
+    const node = nodes.get(id);
+    return Boolean(node && !node.pendingValidation &&
+      (taskReferenceDependencies(node)?.map(reference => reference.taskId) ?? node.task.dependsOn).every(available));
+  };
+  return [route.closingTaskId, ...route.prerequisiteTaskIds].every(available);
 }
 
 /** Select one OR branch; ordinary dependsOn remains an AND requirement. */
@@ -44,7 +59,7 @@ export function selectedTaskRoute(node: TaskRecord, tasks: readonly TaskRecord[]
   // may resume on another freshly checked branch when its old inputs fail.
   if (assigned && node.status !== 'pending') return assigned;
   const routes = node.alternativeRoutes?.filter(route => !node.parkedRoutes?.[route.id]?.length);
-  const ready = routes?.filter(route => proofRouteReady(route, tasks));
+  const ready = routes?.filter(route => dispatchRouteReady(route, tasks));
   const compare = (priority ?? createProofRoutePriority(tasks)).compareRoutes;
   const ranked = routes?.toSorted((a, b) => compare(a, b) ||
     Number(b.id === node.assignment?.routeId) - Number(a.id === node.assignment?.routeId));
@@ -68,6 +83,7 @@ function taskReadiness(tasks: readonly TaskRecord[]) {
     if (checked.has(task)) return checked.get(task)!;
     checked.set(task, false); // Cyclic or malformed restored plans fail closed.
     const node = nodes.get(task.id);
+    if (node?.pendingValidation) return false;
     const references = node?.task === task ? taskReferenceDependencies(node) : undefined;
     const dependencies = references ?? task.dependsOn.map(taskId => ({ taskId }));
     const ready = dependencies.every(reference => {
@@ -75,7 +91,7 @@ function taskReadiness(tasks: readonly TaskRecord[]) {
       return Boolean(dependency && (!('taskDigest' in reference) || reference.taskDigest === version(dependency.task)) &&
         ['integrated', 'completed'].includes(dependency.status) && dependenciesReady(dependency.task));
     }) && (!node?.alternativeRoutes?.length || Boolean(references) || node.status === 'integrated' ||
-      node.alternativeRoutes.some(route => !node.parkedRoutes?.[route.id]?.length && proofRouteReady(route, tasks)));
+      node.alternativeRoutes.some(route => !node.parkedRoutes?.[route.id]?.length && dispatchRouteReady(route, tasks)));
     checked.set(task, ready);
     return ready;
   };
@@ -83,13 +99,13 @@ function taskReadiness(tasks: readonly TaskRecord[]) {
     if (available.has(id)) return available.get(id)!;
     available.set(id, false);
     const dependency = nodes.get(id);
-    const ready = Boolean(dependency && (['integrated', 'completed'].includes(dependency.status) ||
+    const ready = Boolean(dependency && !dependency.pendingValidation && (['integrated', 'completed'].includes(dependency.status) ||
       (dependency.task.kind === 'lemma' && dependency.task.type)) && dependency.task.dependsOn.every(dependencyAvailable));
     available.set(id, ready);
     return ready;
   };
-  const canStart = (task: TaskRecord['task']): boolean => nodes.get(task.id)?.alternativeRoutes?.length &&
-    !nodes.get(task.id)!.alternativeRoutes!.some(route => !nodes.get(task.id)!.parkedRoutes?.[route.id]?.length && proofRouteReady(route, tasks)) ? false : isFinalCandidateReview(task)
+  const canStart = (task: TaskRecord['task']): boolean => nodes.get(task.id)?.pendingValidation ? false : nodes.get(task.id)?.alternativeRoutes?.length &&
+    !nodes.get(task.id)!.alternativeRoutes!.some(route => !nodes.get(task.id)!.parkedRoutes?.[route.id]?.length && dispatchRouteReady(route, tasks)) ? false : isFinalCandidateReview(task)
     ? finalCandidateReviewReady(tasks) && dependenciesReady(task)
     : ['research', 'sketch'].includes(task.kind) || dependenciesReady(task) ||
       Boolean(task.conditional && task.dependsOn.every(dependencyAvailable));
@@ -191,19 +207,21 @@ export function criticalPathResearchTasks(tasks: readonly TaskRecord[], groups?:
 
 type GoalTaskFocus = Readonly<{
   proofPath: ReadonlySet<string>; frontier: ReadonlySet<string>;
+  frontierGoals: ReadonlyMap<string, ReadonlySet<string>>;
   targetedResearch: ReadonlySet<string>; support: ReadonlySet<string>;
 }>;
 export type OriginalGoalTaskFocus = GoalTaskFocus & Readonly<{ preferred: GoalTaskFocus }>;
 
 function collectOriginalGoalTaskFocus(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[],
-  priority?: ReturnType<typeof createProofRoutePriority>): GoalTaskFocus {
+  priority?: ReturnType<typeof createProofRoutePriority>, environmentDigest?: string, includeParkedTasks = false): GoalTaskFocus {
   const nodes = new Map(tasks.map(node => [node.task.id, node]));
   const active = (node: TaskRecord) => {
-    if ((node.task.status ?? 'active') !== 'active') return false;
+    if ((node.task.status ?? 'active') !== 'active' || !includeParkedTasks && (node.routeParking?.length ||
+        node.alternativeRoutes?.length && node.alternativeRoutes.every(route => node.parkedRoutes?.[route.id]?.length))) return false;
     const route = groups?.find(record => record.group.id === taskGroup(node.task));
     return !groups || Boolean(route && route.group.status === 'active' && route.turns < (route.group.maxTurns ?? Infinity));
   };
-  const { settled } = createRecordedTaskSettlement(tasks, { includeParkedRoutes: false });
+  const { settled } = createRecordedTaskSettlement(tasks, { includeParkedRoutes: false, environmentDigest });
   const routes = (node: TaskRecord) => {
     const open = node.alternativeRoutes?.filter(route => !node.parkedRoutes?.[route.id]?.length) ?? [];
     if (!priority) return open;
@@ -220,8 +238,8 @@ function collectOriginalGoalTaskFocus(tasks: readonly TaskRecord[], groups?: rea
     proofPath.add(id);
     if (isAdvisoryTask(node.task) || !settled(node)) inputs(node).forEach(visitPath);
   };
-  const visited = new Set<string>();
-  const visitFrontier = (id: string) => {
+  const frontierGoals = new Map<string, Set<string>>();
+  const visitFrontier = (id: string, goalId: string, visited: Set<string>) => {
     if (visited.has(id)) return;
     visited.add(id);
     const node = nodes.get(id);
@@ -232,11 +250,15 @@ function collectOriginalGoalTaskFocus(tasks: readonly TaskRecord[], groups?: rea
       [...route.prerequisiteTaskIds, route.closingTaskId].every(dependency => settled(nodes.get(dependency)))))
       open.push(...alternatives.flatMap(route => [...route.prerequisiteTaskIds, route.closingTaskId])
         .filter(dependency => !settled(nodes.get(dependency))));
-    if (open.length) open.forEach(visitFrontier);
-    else frontier.add(id);
+    if (open.length) open.forEach(dependency => visitFrontier(dependency, goalId, visited));
+    else {
+      frontier.add(id);
+      const goals = frontierGoals.get(id) ?? new Set<string>();
+      goals.add(goalId); frontierGoals.set(id, goals);
+    }
   };
   for (const node of tasks) if (node.task.kind === 'goal' && active(node) && !settled(node)) {
-    visitPath(node.task.id); visitFrontier(node.task.id);
+    visitPath(node.task.id); visitFrontier(node.task.id, node.task.id, new Set());
   }
   const reachesFrontier = (id: string, visited = new Set<string>()): boolean => {
     if (frontier.has(id)) return true;
@@ -258,14 +280,23 @@ function collectOriginalGoalTaskFocus(tasks: readonly TaskRecord[], groups?: rea
     if (isAdvisoryTask(node.task) || !settled(node)) inputs(node).forEach(visitSupport);
   };
   targetedResearch.forEach(visitSupport);
-  return { proofPath, frontier, targetedResearch, support };
+  return { proofPath, frontier, frontierGoals, targetedResearch, support };
 }
 
-/** Preserve every mathematical frontier, with a separate evidence-ranked focus for allocation. */
-export function originalGoalTaskFocus(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): OriginalGoalTaskFocus {
-  const full = collectOriginalGoalTaskFocus(tasks, groups);
+/** Preserve every active frontier, with a separate evidence-ranked focus for allocation. */
+export function originalGoalTaskFocus(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[], environmentDigest?: string,
+  options: { /** Diagnose the parked obligation without reopening its proof or traversing parked OR branches. */
+    includeParkedTasks?: boolean } = {}): OriginalGoalTaskFocus {
+  const full = collectOriginalGoalTaskFocus(tasks, groups, undefined, environmentDigest, options.includeParkedTasks);
   return { ...full, preferred: tasks.some(node => node.alternativeRoutes?.length)
-    ? collectOriginalGoalTaskFocus(tasks, groups, createProofRoutePriority(tasks, { groups })) : full };
+    ? collectOriginalGoalTaskFocus(tasks, groups, createProofRoutePriority(tasks, { groups, environmentDigest }),
+      environmentDigest, options.includeParkedTasks) : full };
+}
+
+export function originalGoalFrontierSnapshot(focus: OriginalGoalTaskFocus) {
+  const taskIds = [...focus.frontier], preferredTaskIds = [...focus.preferred.frontier];
+  return { evidence: 'recorded-not-replayed' as const, count: taskIds.length,
+    digest: mathDigest(canonicalMathJson(taskIds)), taskIds, preferredTaskIds };
 }
 
 /** Reconnect checked helpers to unfinished original goals; ranks are facts, not success estimates. */
@@ -287,21 +318,6 @@ export function continuationResearchTasks(tasks: readonly TaskRecord[], groups?:
     rank(b) - rank(a) ||
     Number(continuing.has(b.task.id)) - Number(continuing.has(a.task.id)) ||
     Number(b.task.kind === 'goal') - Number(a.task.kind === 'goal') || priority.compareTasks(a, b));
-  // Explore with a spare slot after ready original goals and checked-input consumers.
-  // Running assignments are reserved synchronously, so repeated selections observe this slot.
-  const running = tasks.filter(node => node.status === 'running');
-  if (running.filter(node => preferred.support.has(node.task.id)).length >= 2 &&
-      !running.some(node => !preferred.support.has(node.task.id))) {
-    const exploration = ranked.filter(node => !preferred.support.has(node.task.id))
-      .toSorted((a, b) => Number(focus.support.has(b.task.id)) - Number(focus.support.has(a.task.id)) ||
-        priority.compareTasks(a, b) || a.attempts - b.attempts)[0];
-    if (exploration) {
-      const consuming = ranked.filter(node => unconditional(node) &&
-        (node.task.kind === 'goal' || continuing.has(node.task.id)));
-      return prioritizeEarlyRouteChecks([...consuming, exploration,
-        ...ranked.filter(node => node !== exploration && !consuming.includes(node))], tasks);
-    }
-  }
   return prioritizeEarlyRouteChecks(ranked, tasks);
 }
 
@@ -378,6 +394,7 @@ function structuredResearchFailure(diagnostic?: MathAgentFailureDiagnostic): str
   if (!diagnostic) return undefined;
   const status = diagnostic.httpStatusCode;
   if (diagnostic.code === 'unauthorized' || status === 401 || status === 403) return 'math_model_authentication_failed';
+  if (diagnostic.code === 'contextWindowExceeded') return 'math_model_context_window_exceeded';
   if (['usageLimitExceeded', 'rateLimitExceeded'].includes(diagnostic.code) || status === 429) return 'math_model_concurrency_limit';
   if (status === 408) return 'math_model_request_timeout';
   if (status !== undefined && status >= 400 && status < 500) return 'math_model_turn_failed';
@@ -392,9 +409,11 @@ export function researchFailureReason(error?: string, diagnostic?: MathAgentFail
   if (/^math_(?!(?:model_|codex_))/u.test(error ?? '')) return error!;
   const structured = structuredResearchFailure(diagnostic);
   if (structured) return structured;
-  if (/^math_(?:model_(?:authentication_failed|concurrency_limit|request_failed|request_timeout|tool_failed|turn_failed)|codex_transport_closed)$/u.test(error ?? '')) return error!;
+  if (/^math_(?:model_(?:authentication_failed|concurrency_limit|request_failed|request_timeout|tool_failed|turn_failed|context_window_exceeded|context_capacity_blocked)|codex_transport_closed)$/u.test(error ?? '')) return error!;
   if (/\b(?:invalid|failed|missing|expired)\s+authentication\b|\bauthentication\s+(?:failed|failure|error|required)\b|\bunauthenticated\b|\bunauthorized\b|\b(?:invalid|incorrect|missing|expired|revoked)\s+(?:api[ _-]?key|access[ _-]?token|refresh[ _-]?token)\b|\bHTTP(?:\s+status)?\s*[:=]?\s*(?:401|403)\b|\bstatus(?:\s+code)?\s*[:=]?\s*(?:401|403)\b|\b(?:401\s+unauthorized|403\s+forbidden)\b/iu.test(error ?? '')) return 'math_model_authentication_failed';
   if (/Concurrency limit exceeded|rate.?limit|\b429\b/iu.test(error ?? '')) return 'math_model_concurrency_limit';
+  if (/contextWindowExceeded|context (?:window|length).{0,40}(?:exceed|limit)|maximum context length/iu.test(error ?? ''))
+    return 'math_model_context_window_exceeded';
   if (/^math_codex_transport_closed(?::|$)/u.test(error ?? '')) return 'math_codex_transport_closed';
   if (/math_codex_rpc_timeout|timed?\s*out|timeout/iu.test(error ?? '')) return 'math_model_request_timeout';
   if (/stream disconnected|error sending request|connection (?:reset|closed)|ECONNRESET|ECONNREFUSED|EAI_AGAIN|fetch failed|service unavailable|temporarily unavailable|\b(?:500|502|503|504)\b/iu.test(error ?? ''))
@@ -422,12 +441,14 @@ export function researchFailureDetail(error: unknown, sessionError?: string,
   if (hostError) return hostError;
   const structured = structuredResearchFailure(diagnostic);
   if (structured) return structured;
+  const authentication = messages.find(message => researchFailureReason(message) === 'math_model_authentication_failed');
+  if (authentication) return authentication;
   return messages.find(message => researchFailureReason(message) !== 'math_model_turn_failed') ?? first;
 }
 
 export const recoverableResearchFailure = (error?: string): boolean =>
   ['math_model_concurrency_limit', 'math_model_request_failed', 'math_model_request_timeout',
-    'math_model_tool_failed', 'math_codex_transport_closed'].includes(researchFailureReason(error));
+    'math_model_tool_failed', 'math_codex_transport_closed', 'math_model_context_window_exceeded'].includes(researchFailureReason(error));
 
 /** Advisory reporting only; categories never change Lean acceptance. */
 export function researchFailureCategory(error?: string): 'network' | 'environment' | 'source' | 'proof' | 'authentication' | 'rate_limit' | 'unknown' | undefined {
@@ -450,4 +471,14 @@ export function planResearchRetry(error: string | undefined, attempts: number, s
   if (!recoverableResearchFailure(error) || attempts >= 3 ||
     state.turns >= budget.maxTurns || budget.aborted || budget.remainingMs <= 0) return undefined;
   return { attempt: attempts + 1, delayMs: 10_000 * 2 ** attempts, reason };
+}
+
+/** Sustained provider outages cool down unlimited runs without retiring their workers. */
+export function planResearchCooldown(error: string | undefined, cycles: number, budget: ResearchBudget):
+  Readonly<{ cycle: number; delayMs: number; reason: string }> | undefined {
+  const reason = researchFailureReason(error);
+  if (budget.maxTurns !== Infinity || budget.remainingMs !== Infinity || budget.aborted ||
+      !['math_model_concurrency_limit', 'math_model_request_failed', 'math_model_request_timeout',
+        'math_codex_transport_closed'].includes(reason)) return undefined;
+  return { cycle: cycles + 1, delayMs: Math.min(300_000, 60_000 * 2 ** Math.min(cycles, 3)), reason };
 }

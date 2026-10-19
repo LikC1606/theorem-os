@@ -13,7 +13,7 @@ import type { ModelTurnLedger } from './turnLedger';
 import { z } from 'zod';
 
 export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | 'previousThreadIds' |
-  'lastInputTokens' | 'lastActivity' | 'lastFailure' | 'lastContextManifest' | 'phase' | 'turns' | 'dispatchCounts' | 'usage' | 'usageBeforeThread' | 'usageAccounting' | 'check' | 'candidate' | 'lemmaResearch' | 'failures' | 'error'> & {
+  'lastInputTokens' | 'lastActivity' | 'lastFailure' | 'recovery' | 'contextOverflow' | 'lastContextManifest' | 'phase' | 'turns' | 'dispatchCounts' | 'usage' | 'usageBeforeThread' | 'usageAccounting' | 'check' | 'candidate' | 'lemmaResearch' | 'failures' | 'error'> & {
   id: string;
   role: ResearchRole;
   sessionRole?: ResearchRole;
@@ -22,6 +22,11 @@ export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | '
   sessionTaskVersion?: string;
   sessionAssignmentId?: string;
   sessionStatementReview?: boolean;
+};
+
+export type ResearchRecovery = {
+  phase: 'cooling-down' | 'retrying' | 'recovered'; reason: string; cycles: number;
+  startedAt: number; nextRetryAt: number; waitedMs: number; recoveredAt?: number;
 };
 
 /** S1: resumable records; storing a candidate never grants proof acceptance. */
@@ -46,6 +51,8 @@ export type SolverRunState = {
   lastInputTokens?: number;
   lastActivity?: MathAgentActivity & { at: number };
   lastFailure?: { at: number; reason: string; taskId?: string };
+  recovery?: ResearchRecovery;
+  contextOverflow?: { maxOptionalContextBytes: number; failedFreshContextDigests: string[] };
   lastContextManifest?: ContextManifest;
   phase: 'prepared' | 'running' | 'checking' | 'evaluating' | 'finished';
   turns: number;
@@ -124,6 +131,8 @@ const proofReferences = z.object({ sourceCommit: z.string(), environmentDigest: 
   tasks: z.array(taskReference).optional(), statement: z.array(declarationReference), proof: z.array(declarationReference) });
 const check = z.object({ commit: z.string().min(1), sourceDigest: z.string().min(1), passed: z.boolean(),
   taskDigest: z.string().optional(), conditions: z.array(taskReference).optional(), references: proofReferences.optional(),
+  projection: z.object({ environmentDigest: z.string().min(1), problemReceiptDigest: z.string().min(1),
+    sourceDigest: z.string().min(1) }).optional(),
   changes: z.array(z.object({ file: z.string(), name: z.string(), after: z.string() }).passthrough()).optional(),
   verification: z.object({ status: z.enum(['kernel_verified', 'failed', 'blocked', 'unavailable']),
     targetCommit: z.string().optional(), results: z.array(record) }).passthrough() }).passthrough();
@@ -133,6 +142,11 @@ const research = z.object({ worktree: z.string().min(1), phase, turns: count, th
   previousThreadIds: z.array(z.string()).optional(), lastInputTokens: count.optional(), check: check.optional(),
   lastActivity: z.object({ at: count, event: z.string().min(1).max(64), itemType: z.string().max(64).optional() }).optional(),
   lastFailure: z.object({ at: count, reason: z.string(), taskId: z.string().optional() }).optional(),
+  recovery: z.object({ phase: z.enum(['cooling-down', 'retrying', 'recovered']), reason: z.string(),
+    cycles: safeCount.min(1), startedAt: safeCount, nextRetryAt: safeCount, waitedMs: safeCount,
+    recoveredAt: safeCount.optional() }).optional(),
+  contextOverflow: z.object({ maxOptionalContextBytes: safeCount,
+    failedFreshContextDigests: z.array(z.string().regex(/^[a-f0-9]{64}$/u)) }).optional(),
   usage: record.optional(), usageBeforeThread: record.optional(), usageAccounting: usageAccounting.optional(),
   tokenBudget: tokenBudget.optional(), candidate: record.optional(),
   lemmaResearch: record.optional(), failures: z.array(record).optional(), error: z.string().optional() }).passthrough();
@@ -140,6 +154,8 @@ const role = z.enum(['lead', 'researcher', 'engineer', 'reviewer']);
 const task = z.object({ id: z.string().min(1), kind: z.enum(['research', 'sketch', 'lemma', 'goal']),
   objective: z.string(), dependsOn: z.array(z.string()), revision: count }).passthrough();
 const taskRecord = z.object({ task, status: z.enum(['pending', 'running', 'blocked', 'conditional', 'delivered', 'integrated', 'completed']),
+  pendingValidation: z.object({ id: z.string().min(1), taskDigest: z.string().min(1), canonicalCommit: z.string().min(1),
+    environmentDigest: z.string().min(1), problemReceiptDigest: z.string().min(1), proof: z.boolean().optional() }).optional(),
   attempts: count, proof: check.optional(), integratedCheck: check.optional(), assignment: z.object({ taskId: z.string(),
     taskDigest: z.string(), workerId: z.string(), seedCommit: z.string(), assignmentId: z.string().optional() }).passthrough().optional() }).passthrough();
 const routeBlocker = z.object({ id: z.string(), taskId: z.string(), groupId: z.string(), taskDigest: z.string(),

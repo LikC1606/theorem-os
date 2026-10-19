@@ -84,12 +84,13 @@ function routeEvidence(tasks: readonly TaskRecord[], environmentDigest?: string)
     // Fail closed on cyclic or malformed restored reference graphs.
     statuses.set(id, 'unverified');
     const node = nodes.get(id), proof = node?.integratedCheck ?? node?.proof;
+    const proofEnvironment = proof?.projection?.environmentDigest ?? proof?.references?.environmentDigest;
     let result: RecordedRouteProofStatus;
     if (!node || !proof) result = 'none';
-    else if (proof.taskDigest !== taskVersion(node.task) || (environmentDigest && proof.references &&
-        proof.references.environmentDigest !== environmentDigest)) result = 'stale';
+    else if (proof.taskDigest !== taskVersion(node.task) || (environmentDigest && proofEnvironment &&
+        proofEnvironment !== environmentDigest)) result = 'stale';
     else {
-      const verification = proof.verification, references = proof.references;
+      const verification = proof.verification, references = proof.references, projection = proof.projection;
       const receiptsMatch = verification?.status === 'kernel_verified' && Boolean(verification.targetCommit) &&
         Array.isArray(verification.results) && verification.results.length > 0 && verification.results.every(receipt =>
           receipt && receipt.status === 'kernel_verified' && receipt.targetCommit === verification.targetCommit &&
@@ -103,12 +104,20 @@ function routeEvidence(tasks: readonly TaskRecord[], environmentDigest?: string)
         (references.root.name === node.task.theoremName || references.root.name.endsWith('.' + node.task.theoremName)) &&
         (references.tasks === undefined || (Array.isArray(references.tasks) && references.tasks.every(input => input &&
           typeof input.taskId === 'string' && typeof input.taskDigest === 'string'))));
-      if (!proof.passed || !receiptsMatch || !referencesMatch) result = 'unverified';
-      else if (proof.conditions?.length) result = 'conditional';
-      else if ((environmentDigest && !references) || (node.task.dependsOn.length && !references?.tasks)) result = 'unverified';
+      const projectionMatches = !projection || ([projection.environmentDigest, projection.problemReceiptDigest, projection.sourceDigest]
+        .every(value => typeof value === 'string' && value.length > 0) &&
+        (!references || references.environmentDigest === projection.environmentDigest));
+      const conditionsMatch = proof.conditions === undefined || (Array.isArray(proof.conditions) && proof.conditions.every(input => input &&
+        typeof input.taskId === 'string' && typeof input.taskDigest === 'string') &&
+        new Set(proof.conditions.map(input => input.taskId)).size === proof.conditions.length);
+      if (!proof.passed || !receiptsMatch || !referencesMatch || !projectionMatches || !conditionsMatch) result = 'unverified';
+      else if (environmentDigest && !proofEnvironment) result = 'unverified';
       else {
         const inputs = references?.tasks ?? [];
-        if (inputs.some(input => !nodes.has(input.taskId) || taskVersion(nodes.get(input.taskId)!.task) !== input.taskDigest)) result = 'stale';
+        const versions = [...(proof.conditions ?? []), ...inputs];
+        if (versions.some(input => !nodes.has(input.taskId) || taskVersion(nodes.get(input.taskId)!.task) !== input.taskDigest)) result = 'stale';
+        else if (proof.conditions?.length) result = 'conditional';
+        else if ((environmentDigest && !references) || (node.task.dependsOn.length && !references?.tasks)) result = 'unverified';
         else {
           const inputStatuses = inputs.map(input => status(input.taskId));
           result = inputStatuses.includes('stale') ? 'stale' : inputStatuses.every(input => input === 'checked') ? 'checked' : 'unverified';

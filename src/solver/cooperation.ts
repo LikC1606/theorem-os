@@ -14,12 +14,13 @@ import { solverProofFeedback, solverSourceFeedback } from './feedback';
 import type { SolverRunState } from './archive';
 import { independentFeasibilityWorker, type ResearchWorker } from './modules/organization';
 import type { ContextBundle } from './modules/context';
-import { proofReceiptsMatch, type ProofCheck } from './modules/evidence';
+import { hasFreshSolverCheck, proofReceiptsMatch, type ProofCheck } from './modules/evidence';
 import type { WorkerAccess } from './research';
 import type { SolverModules } from './modules';
-import { originalGoalTaskFocus, researchCanAdvance, routeAllowsTask, taskCanStart, taskDependenciesReady, plannedTaskDependencyIds, selectedTaskRoute } from './modules/search';
+import { originalGoalTaskFocus, originalGoalFrontierSnapshot, researchCanAdvance, routeAllowsTask, taskCanStart, taskDependenciesReady, plannedTaskDependencyIds, selectedTaskRoute } from './modules/search';
 import { deliveryDetails, reviewVerdict, readDeliveryLines, readMathResponse as block, MAX_RESEARCH_NOTES_BYTES, type DeliveryRecord } from './deliveries';
-import { applyTaskChanges, checkTaskProof, checkTaskProofs, omitTaskHelpers, ownedSourceDigest, projectTaskSources, taskChanges, type TaskProof } from './cooperativeProof';
+import { applyTaskChanges, checkTaskProof, checkTaskProofs, createTaskSourceProjector, isAttributedTaskProof, omitTaskHelpers,
+  ownedSourceDigest, TaskProofCache, taskChanges, type TaskProof } from './cooperativeProof';
 import { assertStatementSnapshot, captureStatementContexts, isStatementAction, readBacktranslation, resetStatementReview, statementReviewSummary, statementSnapshot, writeStatementSnapshot,
   type StatementAction, type StatementReview } from './statementReview';
 import { captureProofReferences, proofReferencesUnchanged, type ProofReferences } from './proofReferences';
@@ -28,13 +29,15 @@ import { captureDeliveryArtifacts, diagnoseUnbackedLeanClaims, validateDeliveryA
 import { validateLemmaRequests } from './taskProposals';
 import { recordRouteBlockers, refreshRouteBlockers, routeBlockerBasis, validateBlockerProposals, type BlockerBasis, type RouteBlocker } from './routeControl';
 import { parseProofRoutes, type ProofRoute } from './proofRoutes';
+import { createProofRoutePriorityIndex } from './routePriority';
 import { attributeTaskReferences } from './taskReferenceAttribution';
 import { pendingResearchHandoffs, retainedResearchHandoffs, researchHandoffs, resolveResearchHandoffs, selectResearchHandoffBatch, type ResearchHandoffDecision } from './researchHandoffs';
 import { captureObligationSnapshot, diffObligationProgress, type ObligationSnapshot, type ObligationProgressReceipt } from './obligationProgress';
 import { taskConsumerProjection, type TaskConsumerProjection } from './taskConsumers';
 import { checkpointCandidate, type CheckpointCandidate } from './researchEvidence';
+import { hasRunningDuplicateQuestion, parallelQuestions, type ParallelQuestion } from './taskQuestions';
 
-import { isFeasibilityReview, taskGroup, taskVersion, taskReferenceDependencies, assignmentDeliveryFile, markTaskReferences, hasTaskReferences, markTaskAcceptance, hasTaskAcceptance, invalidatedTaskIds,
+import { isFeasibilityReview, taskGroup, taskVersion, taskProofContractVersion, taskReferenceDependencies, assignmentDeliveryFile, markTaskReferences, hasTaskReferences, markTaskAcceptance, hasTaskAcceptance, invalidatedTaskIds,
   type CooperativeTask, type RouteGroup, type RouteRecord, type TaskAssignment, type TaskRecord, type CooperativeAction } from './tasks';
 export { taskGroup, taskVersion, taskReferenceDependencies, assignmentDeliveryFile } from './tasks';
 export type { CooperativeTask, RouteGroup, RouteRecord, TaskAssignment, TaskRecord, CooperativeAction } from './tasks';
@@ -71,6 +74,8 @@ type FailedTaskInput = { id: string; taskId: string; taskDigest: string; inputDi
 export type CooperationState = { tasks: TaskRecord[]; groups?: RouteRecord[]; canonicalCommit?: string; leadSeedCommit?: string; review?: ReviewRecord; error?: string;
   /** Context-only reverse uses, projected from the full archive without expanding execution visibility. */
   consumerInterfaces?: TaskConsumerProjection;
+  /** Context-only public in-flight metadata, without expanding task/source visibility. */
+  parallelQuestions?: readonly ParallelQuestion[];
   history?: { task: CooperativeTask; producer?: string; proof?: TaskProof; integratedCheck?: ProofCheck; finding?: string }[];
   deliveries?: DeliveryRecord[]; cursors?: Record<string, number>; edits?: HumanEditRecord[];
   researchDecisions?: ResearchHandoffDecision[];
@@ -113,13 +118,23 @@ export class CooperativeResearch {
   private reservedTurns = new Set<string>();
   private liveWorkers: Set<string>;
   private checkedDeliveries = new WeakSet<TaskProof>();
+  private readonly taskProofCache = new TaskProofCache();
+  private preparedSources?: { identity: string; project: ReturnType<typeof createTaskSourceProjector> };
   private checkedStatementReferences = new WeakSet<ProofReferences>();
+  private fixedReviewScope?: { review: ReviewRecord; commit: string; sourceDigest: string; environmentDigest: string;
+    tasksDigest: string; required: ReadonlyMap<string, string> };
   private statementContexts = new Map<string, LeanStatementContext>();
   private preparingStatements?: Promise<void>;
+  private preparingStatementTasks = new Set<string>();
+  private planSynchronization?: Promise<void>;
+  private planSynchronizations = new Set<Promise<void>>();
+  private leadDeliveries = new Set<Promise<unknown>>();
   private active = new Map<string, { action: CooperativeAction; interrupt: () => Promise<void>; notify: (message: string) => Promise<void>; cancelled?: boolean }>();
   private notifications = new Set<Promise<void>>();
   private pendingPulse?: Promise<ReadonlyMap<string, Promise<void>>>;
   private deliveryChecks = new Map<string, Promise<void>>();
+  private proofPublications = new Map<string, Promise<TaskProof | undefined>>();
+  private integrationQueue = Promise.resolve();
   private leadEvidence = new WeakMap<CooperativeAction, string>();
   private checkingTaskInputs = new Map<string, Promise<void>>();
   private leanSourceDigests = new Map<string, string>();
@@ -147,7 +162,38 @@ export class CooperativeResearch {
       (this.archive.tasks.some(node => node.status === 'blocked') && this.archive.lastLeadInputDigest !== this.planningInputDigest());
   }
   private get livePeers() { return this.input.workers.filter(worker => worker.id !== this.lead.id && this.liveWorkers.has(worker.id)); }
+  private get allocationPeers() {
+    const occupied = new Set([...this.active].filter(([, active]) => active.action.kind !== 'task').map(([id]) => id));
+    if (this.archive.review?.status === 'running' && this.archive.review.workerId) occupied.add(this.archive.review.workerId);
+    for (const review of this.archive.statementReviews ?? []) if (review.workerId && ['translating', 'reviewing'].includes(review.status))
+      occupied.add(review.workerId);
+    for (const worker of this.input.state.workers ?? []) if (worker.recovery?.phase === 'cooling-down') occupied.add(worker.id);
+    return this.livePeers.filter(worker => !occupied.has(worker.id));
+  }
   private get primaryLed() { return this.input.modules.M5.primaryLed === true; }
+  private statementTaskIdentity() {
+    return mathDigest(canonicalMathJson(this.archive.tasks.map(node => ({ taskId: node.task.id,
+      taskDigest: digest(node.task), statementReview: node.task.statementReview === true }))));
+  }
+  private fixedStatementReviewTasks(): ReadonlyMap<string, string> | undefined {
+    const scope = this.fixedReviewScope, review = this.archive.review;
+    return scope && review === scope.review && review.commit === scope.commit && review.sourceDigest === scope.sourceDigest &&
+      this.archive.canonicalCommit === scope.commit && this.input.state.environmentDigest === scope.environmentDigest &&
+      this.statementTaskIdentity() === scope.tasksDigest ? scope.required : undefined;
+  }
+  private statementReviewAllowed(task: CooperativeTask, dispatch = false) {
+    if (this.synchronizationBlocked(task)) return false;
+    const required = this.fixedStatementReviewTasks();
+    if (required) return required.get(task.id) === digest(task);
+    return dispatch ? routeAllowsTask(task, this.archive.tasks, this.archive.groups) :
+      (task.status ?? 'active') === 'active' &&
+      this.archive.groups?.find(route => route.group.id === taskGroup(task))?.group.status === 'active';
+  }
+  private pendingFixedStatementReviews() {
+    const required = this.fixedStatementReviewTasks();
+    return required && this.archive.statementReviews?.some(review => required.get(review.taskId) === review.taskDigest &&
+      ['pending', 'translating', 'translated', 'reviewing'].includes(review.status));
+  }
   private syncProofRoutes() {
     for (const node of this.archive.tasks) node.alternativeRoutes = this.archive.proofRoutes?.filter(route => route.targetTaskId === node.task.id);
   }
@@ -163,7 +209,7 @@ export class CooperativeResearch {
           continue;
         }
         const proof = node.integratedCheck ?? node.proof;
-        const fresh = proof && proof.taskDigest === result.taskDigest && this.checkedDeliveries.has(proof);
+        const fresh = !node.pendingValidation && proof && proof.taskDigest === result.taskDigest && this.checkedDeliveries.has(proof);
         result.status = node.status === 'blocked' ? 'failed' : fresh && node.status === 'integrated' && proof.passed && !proof.conditions?.length ? 'passed' :
           fresh && node.status === 'conditional' ? 'conditional' : 'pending';
         result.reason = node.status === 'blocked' ? node.feedback : undefined;
@@ -245,25 +291,29 @@ export class CooperativeResearch {
     for (const worker of this.input.workers) {
       const action = this.active.get(worker.id)?.action;
       const scoped = this.contextState(action, worker, versions);
-      const visible = new Set(scoped.tasks);
+      const visible = new Set(scoped.tasks.map(node => node.task.id));
       const deliveries = (scoped.deliveries ?? []).slice(-16);
       writeMathJsonDurable(path.join(worker.worktree, 'COOPERATION.json'), {
         planVersion: this.archive.planVersion,
         edits: (this.archive.edits ?? []).slice(-16),
         agents,
+        parallelQuestions: scoped.parallelQuestions ?? [],
         peers: this.archive.tasks.map(node => ({ id: node.task.id, taskDigest: digest(node.task),
           objectiveDigest: mathDigest(node.task.objective), groupId: taskGroup(node.task), kind: node.task.kind,
           status: node.status, owner: node.assignment?.workerId ?? node.task.ownerId, dependsOn: node.task.dependsOn,
-          ...(visible.has(node) ? { objective: node.task.objective, feedback: node.feedback,
+          ...(visible.has(node.task.id) ? { objective: node.task.objective, feedback: node.feedback,
             actualReferences: (node.integratedCheck ?? node.proof)?.references } : {}) })),
         deliveries: deliveries.map(({ evidence: _evidence, ...record }) => record),
         researchHandoffs: researchHandoffs(scoped),
         blockers: scoped.blockers ?? [],
         proofRoutes: scoped.proofRoutes ?? [],
+        routePriority: createProofRoutePriorityIndex(scoped.tasks, { groups: scoped.groups,
+          environmentDigest: this.input.state.environmentDigest, proofRoutes: scoped.proofRoutes }),
+        frontierFocus: originalGoalFrontierSnapshot(originalGoalTaskFocus(scoped.tasks, scoped.groups, this.input.state.environmentDigest)),
         frontierRecoveries: scoped.frontierRecoveries ?? [],
         mathematicalChanges: scoped.progressReceipts?.slice(-16) ?? [],
         continuation: buildProofContinuation(scoped.tasks, { groups: scoped.groups, environmentDigest: this.input.state.environmentDigest,
-          proofRoutes: scoped.proofRoutes }),
+          proofRoutes: scoped.proofRoutes, researchHandoffs: researchHandoffs(scoped) }),
         statements: (scoped.statementReviews ?? []).map(statementReviewSummary),
       });
     }
@@ -288,8 +338,7 @@ export class CooperativeResearch {
         review.assignmentId === action.assignmentId &&
         review.taskDigest === action.taskDigest && review.commit === action.seedCommit &&
         review.snapshotDigest === action.snapshotDigest && review.workspace === action.workspace && node &&
-        digest(node.task) === action.taskDigest && (node.task.status ?? 'active') === 'active' &&
-        this.archive.groups?.find(route => route.group.id === taskGroup(node.task))?.group.status === 'active');
+        digest(node.task) === action.taskDigest && this.statementReviewAllowed(node.task));
     }
     if (action.kind === 'lead') return action.planVersion === undefined || action.planVersion === this.archive.planVersion;
     if (action.kind === 'review') {
@@ -702,11 +751,11 @@ export class CooperativeResearch {
     } else this.interrupted(worker, action);
   }
   private activeGoalFrontier() {
-    const continuation = buildProofContinuation(this.archive.tasks, { groups: this.archive.groups,
-      environmentDigest: this.input.state.environmentDigest, proofRoutes: this.archive.proofRoutes });
-    return continuation.frontier.filter(item => item.control === 'active' &&
-      (!this.archive.groups || this.archive.groups.some(route => route.group.id === taskGroup(this.node(item.taskId).task) &&
-        route.group.status === 'active' && route.turns < (route.group.maxTurns ?? Infinity))));
+    const focus = originalGoalTaskFocus(this.archive.tasks, this.archive.groups, this.input.state.environmentDigest, { includeParkedTasks: true });
+    return [...focus.frontier].map(taskId => {
+      const node = this.node(taskId);
+      return { taskId, status: node.status, attempts: node.attempts, goalIds: [...focus.frontierGoals.get(taskId)!], parkedBy: node.routeParking ?? [] };
+    });
   }
   private resumeUnattemptedFrontier(frontier: ReturnType<CooperativeResearch['activeGoalFrontier']>) {
     const candidates = new Set(frontier.map(item => this.node(item.taskId)));
@@ -881,9 +930,21 @@ export class CooperativeResearch {
     clearInterval(this.timer);
     let pending: ReadonlyMap<string, Promise<void>> | undefined;
     try { pending = await this.pendingPulse; } catch (error) { if (!this.input.signal.aborted) throw error; }
-    const checks = await Promise.allSettled(new Set([...(pending?.values() ?? []), ...this.deliveryChecks.values()]));
-    const failed = checks.find(result => result.status === 'rejected');
-    if (failed?.status === 'rejected' && !this.input.signal.aborted) throw failed.reason;
+    const drained = new Set<Promise<unknown>>();
+    let failure: unknown;
+    for (;;) {
+      const work = [...new Set<Promise<unknown>>([...(pending?.values() ?? []), ...(this.pendingPulse ? [this.pendingPulse] : []),
+        ...this.deliveryChecks.values(), ...this.proofPublications.values(), ...this.planSynchronizations,
+        ...this.leadDeliveries, ...(this.preparingStatements ? [this.preparingStatements] : []), this.integrationQueue])]
+        .filter(item => !drained.has(item));
+      if (!work.length) break;
+      work.forEach(item => drained.add(item));
+      const checks = await Promise.allSettled(work);
+      const failed = checks.find(result => result.status === 'rejected');
+      if (failed?.status === 'rejected') failure ??= failed.reason;
+      await Promise.resolve();
+    }
+    if (failure && !this.input.signal.aborted) throw failure;
     await Promise.allSettled([...this.notifications]);
     this.syncPlanNotes();
     if (!this.input.signal.aborted && !this.primaryLed) this.archive.canonicalCommit = this.seed(this.lead, this.archive.canonicalCommit!);
@@ -902,6 +963,8 @@ export class CooperativeResearch {
   /** Serialize input edits while allowing independent proof checks to continue. */
   private async readInputs(): Promise<ReadonlyMap<string, Promise<void>>> {
     if (this.primaryLed) await this.input.exclusiveCheck(() => this.readHelpRequest());
+    if (this.archive.tasks.some(node => node.pendingValidation) || this.archive.edits?.some(edit => edit.status === 'applied' && edit.pendingSync))
+      this.schedulePlanSynchronization();
     const cursors = this.archive.cursors ??= {};
     const file = path.join(path.dirname(this.lead.worktree), 'edits.jsonl');
     const edits = readDeliveryLines(file, cursors.edits ?? 0);
@@ -920,11 +983,10 @@ export class CooperativeResearch {
         id = edit.id;
         record = this.archive.edits?.find(previous => previous.id === id);
         if (record && record.status !== 'received') {
-          if (record.status === 'applied' && record.pendingSync) await this.input.exclusiveCheck(async () => {
-            const statements = this.prepareStatementContexts(); if (statements) await statements;
-            this.syncStatementReviews(); record!.pendingSync = undefined; this.changed();
+          if (record.status === 'applied' && record.pendingSync) {
+            this.schedulePlanSynchronization();
             this.input.emit('edit_applied', { id, planVersion: record!.planVersion, affectedTasks: record!.affectedTasks, recheck: record!.recheck });
-          });
+          }
           advance(entry.offset); continue;
         }
         if (!record) {
@@ -1129,7 +1191,7 @@ export class CooperativeResearch {
     if (this.archive.deliveries?.some(record => record.producer === worker.id && record.submissionId === value.id &&
       record.taskId === action.task.id && record.taskDigest === action.assignment.taskDigest &&
       (record.assignmentKey === assignmentKey || record.assignmentKey === undefined && scoped && value.id === automaticId))) {
-      if (value.kind === 'proof' && this.current(action)) await this.input.exclusiveCheck(() => this.integrateReady());
+      if (value.kind === 'proof' && this.current(action)) await this.integrateReady();
       return;
     }
     if (!this.current(action)) {
@@ -1188,8 +1250,16 @@ export class CooperativeResearch {
     (node?.task === task ? ids(node) : task.dependsOn).forEach(visit);
     return [...found].map(id => nodes.get(id)!);
   }
+  private sourceProjector(worktree: string, commit: string) {
+    const identity = mathDigest(canonicalMathJson({ problem: this.input.state.problem, worktree, commit }));
+    if (this.preparedSources?.identity !== identity) this.preparedSources = { identity,
+      project: createTaskSourceProjector(this.input.state.problem, worktree, commit) };
+    return this.preparedSources.project;
+  }
   private async check(task: CooperativeTask, assignment: TaskAssignment, worktree: string, commit: string,
-    conditions?: readonly CooperativeTask[], checked?: TaskProof, reuseDeliveryFailure = false, incompleteDelivery = false): Promise<TaskProof> {
+    conditions?: readonly CooperativeTask[], checked?: TaskProof, reuseDeliveryFailure = false, incompleteDelivery = false,
+    taskGraph: readonly TaskRecord[] = this.archive.tasks,
+    checkEnvironment?: { environment: NodeJS.ProcessEnv; digest: string }): Promise<TaskProof> {
     this.input.signal.throwIfAborted();
     if (reuseDeliveryFailure && !checked) {
       const candidate = this.failedTaskInput(task, assignment, worktree, commit, conditions);
@@ -1223,18 +1293,19 @@ export class CooperativeResearch {
         this.checkingTaskInputs.delete(candidate.id); finish();
       }
     }
-    const tasks = this.archive.tasks.map(node => ({ ...node }));
-    const dependencies = this.dependencies(task), taskDigest = digest(task);
+    const tasks = taskGraph.map(node => ({ ...node }));
+    const dependencies = this.dependencies(task, tasks), taskDigest = digest(task);
     conditions ??= task.conditional ? dependencies.filter(node => node.task.kind === 'lemma' && node.status !== 'integrated').map(node => node.task) : [];
     const retainedGoals = dependencies.filter(node => node.task.kind === 'goal' && node.status === 'integrated').map(node => node.task.theoremName!);
     const checker = this.input.modules.M2.checkTask ?? checkTaskProof;
-    const environment = this.input.access.get(this.lead.id)!.environment;
+    const environment = checkEnvironment?.environment ?? this.input.access.get(this.lead.id)!.environment;
+    const environmentDigest = checkEnvironment?.digest ?? this.input.state.environmentDigest;
     const proof = checked ?? await checker(this.input.state.problem, worktree, commit, task, assignment, retainedGoals,
-      environment, this.input.signal, this.input.timeoutMs, conditions, this.input.state.environmentDigest);
+      environment, this.input.signal, this.input.timeoutMs, conditions, environmentDigest,
+      ...(checker === checkTaskProof ? [this.taskProofCache] : []));
     const declarationHash = proof.passed && proof.verification.targetCommit && hashMathFormalSourceDeclaration(
       committedSource(worktree, proof.verification.targetCommit, `${this.input.state.problem.projectRelative}/${task.proofPath}`), task.theoremName!);
-    const projected = proof.passed && projectTaskSources(this.input.state.problem, worktree, commit, task,
-      retainedGoals, conditions);
+    const projected = proof.passed && this.sourceProjector(worktree, commit)(task, retainedGoals, conditions);
     const allowed = new Set(this.input.state.problem.ownedFiles.map(file => `${this.input.state.problem.projectRelative}/${file}`));
     allowed.add('RESEARCH.md');
     const projectionMatches = projected && proof.verification.targetCommit &&
@@ -1249,6 +1320,12 @@ export class CooperativeResearch {
           [{ proofPath: task.proofPath!, theoremName: task.theoremName!, expectedSourceDeclarationHash: declarationHash,
             statementHash: taskDigest, leanStatementHash: taskDigest, claim: 'statement' }]))))
       throw new Error('math_task_check_identity_changed');
+    if (proof.passed && conditions.length && projected) proof.projection = {
+      environmentDigest,
+      problemReceiptDigest: this.input.state.problem.receiptDigest,
+      sourceDigest: mathDigest(canonicalMathJson([...projected])),
+    };
+    else delete proof.projection;
     if (proof.references) {
       const references = proof.references;
       references.tasks = attributeTaskReferences(references, tasks);
@@ -1261,11 +1338,21 @@ export class CooperativeResearch {
   /** Check isolated sources concurrently; only publishing and canonical integration are serialized. */
   private async publishTaskProof(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>,
     commit: string, summary: string, options: Partial<DeliveryRecord> = {}, recovering = false) {
+    const key = canonicalMathJson([worker.id, assignmentDeliveryFile(action.assignment), commit]);
+    const previous = this.proofPublications.get(key);
+    if (previous) return previous;
+    const pending = this.publishCheckedTaskProof(worker, action, commit, summary, options, recovering);
+    this.proofPublications.set(key, pending);
+    try { return await pending; }
+    finally { if (this.proofPublications.get(key) === pending) this.proofPublications.delete(key); }
+  }
+  private async publishCheckedTaskProof(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>,
+    commit: string, summary: string, options: Partial<DeliveryRecord>, recovering: boolean): Promise<TaskProof | undefined> {
     const previous = this.node(action.task.id);
     const proof = previous?.proof?.commit === commit && ['delivered', 'conditional', 'integrated'].includes(previous.status) &&
       this.checkedDeliveries.has(previous.proof) ? previous.proof :
       await this.check(action.task, action.assignment, worker.worktree, commit, undefined, undefined, true, recovering);
-    return this.input.exclusiveCheck(async () => {
+    const staged = await this.input.exclusiveCheck(async () => {
       if (!this.current(action) || !(proof.references?.tasks ?? []).every(reference =>
           this.archive.tasks.some(node => node.task.id === reference.taskId && digest(node.task) === reference.taskDigest))) {
         this.record(worker, action.task, 'proof', 'superseded', 'Assignment changed while its proof was being checked.',
@@ -1275,25 +1362,34 @@ export class CooperativeResearch {
       }
       const node = this.node(action.task.id);
       if (['conditional', 'integrated'].includes(node.status)) {
-        if (node.status === 'integrated') {
-          const statements = this.prepareStatementContexts(); if (statements) await statements;
-          this.syncStatementReviews();
-        }
-        if (node.proof?.commit === commit) {
-          await this.finishProofDelivery(worker, node, node.proof, summary, options);
-          return node.proof;
-        }
-        await this.integrateReady();
-        return;
+        return { node, proof: node.proof?.commit === commit ? node.proof : undefined };
       }
       if (recovering && !proof.passed && proof.verification.status === 'failed') {
         node.feedback = solverProofFeedback(proof);
         if (this.deterministicTaskFailure(proof)) this.continueTaskCheckpoint(worker, node, commit);
         this.interrupted(worker, action);
-        return proof;
+        return { node: undefined, proof };
       }
-      await this.deliverProof(worker, node, proof, summary, options);
-      return proof;
+      this.deliverProof(node, proof);
+      return { node, proof };
+    });
+    if (!staged?.node) return staged?.proof;
+    return this.queueIntegration(async () => {
+      const node = staged.node, submitted = staged.proof;
+      if (submitted && this.current(action) && node.proof === submitted) {
+        if (node.status === 'delivered') await this.integrateNow(node);
+        else if (node.status === 'integrated') await this.syncPreparedStatements();
+        await this.input.exclusiveCheck(async () => {
+          if (this.current(action) && node.proof === submitted)
+            this.finishProofDelivery(worker, node, submitted, summary, options);
+          else {
+            this.record(worker, action.task, 'proof', 'superseded', 'Assignment changed during canonical integration.',
+              { ...options, commit, taskDigest: action.assignment.taskDigest, dependencies: action.assignment.dependencies ?? [] });
+          }
+        });
+      }
+      await this.integrateReadyNow();
+      return submitted;
     });
   }
   private retryTaskLocally(node: TaskRecord, commit?: string): boolean {
@@ -1333,7 +1429,7 @@ export class CooperativeResearch {
         repair.taskId === node.task.id && repair.taskDigest === digest(node.task) &&
         repair.workerId === node.assignment?.workerId && repair.startedAttempt === node.attempts) delete repair.startedAttempt;
   }
-  private async deliverProof(worker: ResearchWorker, node: TaskRecord, proof: TaskProof, summary: string, options: Partial<DeliveryRecord> = {}) {
+  private deliverProof(node: TaskRecord, proof: TaskProof) {
     node.proof = proof;
     if (['unavailable', 'blocked'].includes(proof.verification.status)) throw new Error('math_verifier_unavailable');
     if (proof.passed || this.deterministicTaskFailure(proof)) this.settleTaskRepair(node);
@@ -1345,74 +1441,242 @@ export class CooperativeResearch {
       if (!repairable || !this.retryTaskLocally(node, proof.commit)) this.needsLead = true;
     }
     this.input.emit('task_checked', { taskId: node.task.id, passed: proof.passed, conditional: Boolean(proof.conditions?.length), commit: proof.commit });
-    if (node.status === 'delivered') await this.integrate(node);
-    await this.finishProofDelivery(worker, node, proof, summary, options);
+    this.changed();
   }
-  private async finishProofDelivery(worker: ResearchWorker, node: TaskRecord, proof: TaskProof, summary: string, options: Partial<DeliveryRecord>) {
+  private finishProofDelivery(worker: ResearchWorker, node: TaskRecord, proof: TaskProof, summary: string, options: Partial<DeliveryRecord>) {
     const status = this.node(node.task.id).status;
-    const verdict = status === 'integrated' ? 'verified' : status === 'conditional' ? 'conditional' : 'failed';
+    const verdict = status === 'integrated' ? 'verified' : status === 'conditional' ? 'conditional' :
+      !proof.passed || status === 'blocked' ? 'failed' : undefined;
+    if (!verdict) return;
     const assignmentKey = options.assignmentKey ?? assignmentDeliveryFile(node.assignment!);
     if (!this.archive.deliveries?.some(record => record.producer === worker.id && record.kind === 'proof' && record.status === verdict &&
         record.taskId === node.task.id && record.taskDigest === digest(node.task) && record.assignmentKey === assignmentKey &&
         (record.commit === proof.commit || verdict === 'verified' && record.commit === node.integratedCheck?.commit)))
       this.record(worker, node.task, 'proof', verdict, node.feedback ?? summary,
         { ...options, assignmentKey, commit: proof.commit, sourceDigest: proof.sourceDigest, evidence: proof, actualReferences: proof.references });
-    await this.integrateReady();
   }
-  private async integrateReady() {
+  private queueIntegration<T>(operation: () => Promise<T>): Promise<T> {
+    const queuedAt = Date.now();
+    const pending = this.integrationQueue.then(() => {
+      this.input.signal.throwIfAborted();
+      this.input.emit('integration_queue_started', { waitedMs: Date.now() - queuedAt });
+      return operation();
+    });
+    this.integrationQueue = pending.then(() => {}, () => {});
+    return pending;
+  }
+  private integrateReady() { return this.queueIntegration(() => this.integrateReadyNow()); }
+  private async syncPreparedStatements() {
+    for (;;) {
+      const canonical = this.archive.canonicalCommit, planVersion = this.archive.planVersion;
+      const statements = this.prepareStatementContexts(); if (statements) await statements;
+      const synchronized = await this.input.exclusiveCheck(async () => {
+        if (canonical !== this.archive.canonicalCommit || planVersion !== this.archive.planVersion) return false;
+        this.syncStatementReviews(); this.changed(); return true;
+      });
+      if (synchronized) return;
+    }
+  }
+  private async integrateReadyNow() {
     const publish = (node: TaskRecord) => {
       const producer = this.input.workers.find(worker => worker.id === node.assignment!.workerId) ?? this.lead;
       this.record(producer, node.task, 'proof', node.status === 'integrated' ? 'verified' : 'failed',
-        node.feedback ?? 'Conditional parent rechecked with proved dependencies and integrated.',
+        node.feedback ?? 'Checked proof integrated with freshly validated dependencies.',
         { assignmentKey: assignmentDeliveryFile(node.assignment!),
           commit: node.integratedCheck?.commit ?? node.proof!.commit, sourceDigest: node.integratedCheck?.sourceDigest,
           evidence: node.integratedCheck ?? node.proof, actualReferences: (node.integratedCheck ?? node.proof)?.references });
     };
     for (;;) {
       // A parent can reach canonical acceptance before a later snapshot or publication fails.
-      const unpublished = this.archive.tasks.find(item => item.status === 'integrated' && item.proof && item.assignment &&
+      const unpublished = this.archive.tasks.find(item => !this.synchronizationBlocked(item.task) && item.status === 'integrated' && item.proof && item.assignment &&
         item.integratedCheck?.passed && item.integratedCheck.taskDigest === digest(item.task) && this.checkedDeliveries.has(item.integratedCheck) &&
         !this.archive.deliveries?.some(record => record.taskId === item.task.id && record.taskDigest === digest(item.task) &&
           record.kind === 'proof' && record.status === 'verified' &&
           (record.commit === item.proof!.commit || record.commit === item.integratedCheck!.commit)));
       if (unpublished) {
-        const statements = this.prepareStatementContexts(); if (statements) await statements;
-        this.syncStatementReviews(); publish(unpublished); continue;
+        const receipt = unpublished.integratedCheck, version = digest(unpublished.task);
+        await this.syncPreparedStatements();
+        await this.input.exclusiveCheck(async () => {
+          if (this.archive.tasks.includes(unpublished) && unpublished.status === 'integrated' &&
+              unpublished.integratedCheck === receipt && digest(unpublished.task) === version) publish(unpublished);
+        });
+        continue;
       }
-      const node = this.archive.tasks.find(item => item.status === 'conditional' && taskDependenciesReady(item.task, this.archive.tasks));
+      const node = this.archive.tasks.find(item => ['delivered', 'conditional'].includes(item.status) && this.integrationAllowed(item) &&
+        taskDependenciesReady(item.task, this.archive.tasks));
       if (!node) return;
-      await this.integrate(node);
-      publish(node);
+      const proof = node.proof;
+      await this.integrateNow(node);
+      await this.input.exclusiveCheck(async () => {
+        if (this.archive.tasks.includes(node) && node.proof === proof && ['integrated', 'blocked'].includes(node.status)) publish(node);
+      });
     }
   }
-  private async recheckIntegrated(canonical: string, changedOnly = false) {
+  private synchronizationBlocked(task: CooperativeTask): boolean {
+    return [this.node(task.id), ...this.dependencies(task)].some(node => node &&
+      (node.pendingValidation || this.preparingStatementTasks.has(node.task.id)));
+  }
+  private synchronizationPending() {
+    return Boolean(this.planSynchronization || this.preparingStatements || this.archive.tasks.some(node => node.pendingValidation));
+  }
+  private candidateSynchronizationBlocked() {
+    const required = this.fixedStatementReviewTasks();
+    return this.archive.tasks.some(node => (node.task.kind === 'goal' || required?.has(node.task.id)) &&
+      this.synchronizationBlocked(node.task));
+  }
+  private markPendingValidation(nodes: readonly TaskRecord[], proofs: ReadonlySet<string> = new Set()) {
+    for (const node of nodes) node.pendingValidation = { id: crypto.randomUUID(), taskDigest: digest(node.task),
+      canonicalCommit: this.archive.canonicalCommit!, environmentDigest: this.input.state.environmentDigest,
+      problemReceiptDigest: this.input.state.problem.receiptDigest,
+      ...(proofs.has(node.task.id) || node.pendingValidation?.proof ? { proof: true } : {}) };
+  }
+  private schedulePlanSynchronization(): Promise<void> {
+    if (this.planSynchronization) return this.planSynchronization;
+    const pending = this.synchronizePlan();
+    this.planSynchronization = pending; this.planSynchronizations.add(pending);
+    void pending.catch(error => {
+      if (!this.input.signal.aborted) { this.failure = error instanceof Error ? error : new Error(String(error)); this.changed(); }
+    }).finally(() => {
+      this.planSynchronizations.delete(pending);
+      if (this.planSynchronization === pending && !this.failure) this.planSynchronization = undefined;
+      if (!this.failure && !this.input.signal.aborted && (this.archive.tasks.some(node => node.pendingValidation) ||
+          this.archive.edits?.some(edit => edit.status === 'applied' && edit.pendingSync))) this.schedulePlanSynchronization();
+      this.wake();
+    }).catch(() => {});
+    return pending;
+  }
+  private async synchronizePlan() {
+    for (;;) {
+      const snapshot = await this.input.exclusiveCheck(async () => {
+        const targets = this.archive.tasks.filter(node => node.pendingValidation).map(node => ({ node, validation: node.pendingValidation! }));
+        const edits = (this.archive.edits ?? []).filter(edit => edit.status === 'applied' && edit.pendingSync);
+        if (!targets.length && !edits.length) return;
+        return { canonical: this.archive.canonicalCommit!, environmentDigest: this.input.state.environmentDigest,
+          problemReceiptDigest: this.input.state.problem.receiptDigest,
+          environment: { ...this.input.access.get(this.lead.id)!.environment }, targets, edits,
+          inputs: new Map(this.archive.tasks.map(node => [node.task.id, { node, taskDigest: digest(node.task),
+            status: node.status, proof: node.proof, integratedCheck: node.integratedCheck, pendingValidation: node.pendingValidation }])),
+          tasks: this.archive.tasks.map(node => ({ ...node, pendingValidation: undefined })) };
+      });
+      if (!snapshot) return;
+      const ids = new Set(snapshot.targets.filter(item => item.validation.proof).map(item => item.node.task.id));
+      const fresh = snapshot.targets.some(item => item.validation.proof && item.node.integratedCheck &&
+        !this.checkedDeliveries.has(item.node.integratedCheck));
+      await this.recheckIntegrated(snapshot.canonical, !fresh, { tasks: snapshot.tasks, ids,
+        environment: snapshot.environment, environmentDigest: snapshot.environmentDigest,
+        current: () => this.archive.canonicalCommit === snapshot.canonical &&
+          this.input.state.environmentDigest === snapshot.environmentDigest &&
+          this.input.state.problem.receiptDigest === snapshot.problemReceiptDigest &&
+          snapshot.targets.every(({ node, validation }) => this.archive.tasks.includes(node) &&
+            node.pendingValidation === validation && digest(node.task) === validation.taskDigest) });
+      const statements = this.prepareStatementContexts(snapshot.tasks, snapshot.canonical,
+        { environment: snapshot.environment, digest: snapshot.environmentDigest }); if (statements) await statements;
+      await this.input.exclusiveCheck(async () => {
+        this.input.signal.throwIfAborted();
+        if (this.archive.canonicalCommit !== snapshot.canonical || this.input.state.environmentDigest !== snapshot.environmentDigest ||
+            this.input.state.problem.receiptDigest !== snapshot.problemReceiptDigest) {
+          const current = snapshot.targets.filter(({ node, validation }) => this.archive.tasks.includes(node) && node.pendingValidation === validation);
+          this.markPendingValidation(current.map(item => item.node), ids);
+          this.input.emit('plan_recheck_rebased', { from: snapshot.canonical, to: this.archive.canonicalCommit,
+            taskIds: current.map(item => item.node.task.id) });
+          this.changed(); return;
+        }
+        const inputCurrent = (id: string) => {
+          const baseline = snapshot.inputs.get(id), current = this.node(id);
+          return baseline && current === baseline.node && digest(current.task) === baseline.taskDigest &&
+            current.status === baseline.status && current.proof === baseline.proof && current.integratedCheck === baseline.integratedCheck &&
+            current.pendingValidation === baseline.pendingValidation;
+        };
+        const dependencies = new Map(snapshot.targets.map(({ node }) => {
+          const checked = snapshot.tasks.find(item => item.task.id === node.task.id)!;
+          return [node.task.id, [...new Set([...this.dependencies(checked.task, snapshot.tasks).map(item => item.task.id),
+            ...(checked.integratedCheck?.references?.tasks?.map(reference => reference.taskId) ?? [])])]];
+        }));
+        const publishable = new Set(snapshot.targets.filter(({ node, validation }) => inputCurrent(node.task.id) &&
+          node.pendingValidation === validation && digest(node.task) === validation.taskDigest &&
+          dependencies.get(node.task.id)!.every(inputCurrent)).map(({ node }) => node.task.id));
+        for (;;) {
+          const invalid = [...publishable].filter(id => dependencies.get(id)!.some(dependency =>
+            snapshot.inputs.get(dependency)?.pendingValidation && !publishable.has(dependency)));
+          if (!invalid.length) break;
+          for (const id of invalid) publishable.delete(id);
+        }
+        for (const { node, validation } of snapshot.targets) {
+          if (!this.archive.tasks.includes(node) || node.pendingValidation !== validation) continue;
+          if (!publishable.has(node.task.id)) { this.markPendingValidation([node], ids); continue; }
+          const checked = snapshot.tasks.find(item => item.task.id === node.task.id)!;
+          if (ids.has(node.task.id)) {
+            node.integratedCheck = checked.integratedCheck; node.status = checked.status; node.feedback = checked.feedback;
+            if (node.status === 'blocked') this.needsLead = true;
+          }
+          delete node.pendingValidation;
+        }
+        this.syncStatementReviews();
+        for (const edit of snapshot.edits) if (!edit.recheck?.tasks.some(result => {
+          const current = this.node(result.taskId);
+          return current?.pendingValidation && digest(current.task) === result.taskDigest;
+        })) edit.pendingSync = undefined;
+        this.input.emit('task_contract_sources_revalidated', { taskIds: [...ids].filter(id => !this.node(id)?.pendingValidation) });
+        this.changed();
+      });
+      await this.integrateReady();
+    }
+  }
+  private async recheckIntegrated(canonical: string, changedOnly = false, snapshot?: { tasks: TaskRecord[]; ids: ReadonlySet<string>;
+    environment: NodeJS.ProcessEnv; environmentDigest: string; current: () => boolean }) {
     // Persisted receipts and receipts for different sources cannot authorize dependent dispatch.
-    const pending = this.archive.tasks.filter(node => node.status === 'integrated');
+    const tasks = snapshot?.tasks ?? this.archive.tasks;
+    const pending = tasks.filter(node => node.status === 'integrated' && (!snapshot || snapshot.ids.has(node.task.id)));
+    const selected = new Set(pending.map(node => node.task.id));
     const checked = new Set<string>();
     const batched = new Map<TaskRecord, TaskProof>();
     const batchAttempted = new Set<TaskRecord>();
     const request = (node: TaskRecord) => ({ task: node.task,
       assignment: { taskId: node.task.id, taskDigest: digest(node.task), workerId: this.lead.id, seedCommit: canonical },
-      retainedGoals: this.dependencies(node.task).filter(item => item.task.kind === 'goal' && item.status === 'integrated')
+      retainedGoals: this.dependencies(node.task, tasks).filter(item => item.task.kind === 'goal' && item.status === 'integrated')
         .map(item => item.task.theoremName!) });
-    const projection = (node: TaskRecord) => canonicalMathJson([...projectTaskSources(this.input.state.problem,
-      this.lead.worktree, canonical, node.task, request(node).retainedGoals)]);
-    const progress = this.archive.recheck = { canonicalCommit: canonical, total: pending.length, completed: 0, taskId: undefined as string | undefined };
-    const finish = (node: TaskRecord) => {
+    let projector: ReturnType<typeof createTaskSourceProjector> | undefined;
+    const projections = new Map<string, string | Error>();
+    const projection = (node: TaskRecord) => {
+      const retainedGoals = request(node).retainedGoals;
+      const key = canonicalMathJson({ taskDigest: digest(node.task), retainedGoals });
+      let value = projections.get(key);
+      if (value === undefined) {
+        try {
+          projector ??= createTaskSourceProjector(this.input.state.problem, this.lead.worktree, canonical);
+          value = mathDigest(canonicalMathJson([...projector(node.task, retainedGoals)]));
+        } catch (error) { value = error instanceof Error ? error : new Error(String(error)); }
+        projections.set(key, value);
+      }
+      if (value instanceof Error) throw value;
+      return value;
+    };
+    const progress = { canonicalCommit: canonical, total: pending.length, completed: 0, taskId: undefined as string | undefined };
+    const persistProgress = async () => {
+      const publish = async () => {
+        if (snapshot && !snapshot.current()) return;
+        this.archive.recheck = { ...progress }; this.input.save();
+      };
+      if (snapshot) await this.input.exclusiveCheck(publish);
+      else await publish();
+    };
+    await persistProgress();
+    const finish = async (node: TaskRecord) => {
       checked.add(node.task.id); progress.completed++; progress.taskId = undefined;
-      this.input.emit('task_recheck_finished', { ...progress, taskId: node.task.id, passed: node.status === 'integrated' });
-      this.input.save();
+      this.input.emit('task_recheck_finished', { ...progress, taskId: node.task.id, passed: node.status === 'integrated', ...(snapshot ? { staged: true } : {}) });
+      await persistProgress();
     };
     while (pending.length) {
-      const index = pending.findIndex(node => node.task.dependsOn.every(id => this.node(id).status !== 'integrated' || checked.has(id)));
+      const index = pending.findIndex(node => node.task.dependsOn.every(id => !selected.has(id) || tasks.find(item => item.task.id === id)?.status !== 'integrated' || checked.has(id)));
       if (index < 0) throw new Error('math_plan_dependency_cycle');
       const [node] = pending.splice(index, 1);
       progress.taskId = node.task.id;
-      this.input.emit('task_recheck_started', { ...progress }); this.input.save();
-      if (changedOnly && taskReferenceDependencies(node) && taskDependenciesReady(node.task, this.archive.tasks) && node.integratedCheck?.references &&
-          proofReferencesUnchanged(this.input.state.problem, this.lead.worktree, canonical, node.integratedCheck.references, this.input.state.environmentDigest)) {
+      this.input.emit('task_recheck_started', { ...progress }); await persistProgress();
+      if (changedOnly && taskReferenceDependencies(node) && taskDependenciesReady(node.task, tasks) && node.integratedCheck?.references &&
+          proofReferencesUnchanged(this.input.state.problem, this.lead.worktree, canonical, node.integratedCheck.references,
+            snapshot?.environmentDigest ?? this.input.state.environmentDigest)) {
         this.input.emit('task_check_reused', { taskId: node.task.id, commit: node.integratedCheck.commit, canonicalCommit: canonical });
-        finish(node); continue;
+        await finish(node); continue;
       }
       const assignment = { taskId: node.task.id, taskDigest: digest(node.task), workerId: this.lead.id, seedCommit: canonical };
       try {
@@ -1427,9 +1691,15 @@ export class CooperativeResearch {
             this.input.emit('task_recheck_batch_started', { taskIds: group.map(item => item.task.id) });
             try {
               const proofs = await checkTaskProofs(this.input.state.problem, this.lead.worktree, canonical, group.map(request),
-                this.input.access.get(this.lead.id)!.environment, this.input.signal, this.input.timeoutMs, this.input.state.environmentDigest);
-              if (proofs.every(proof => proof.passed)) group.forEach((item, index) => batched.set(item, proofs[index]!));
-              else this.input.emit('task_recheck_batch_fallback', { taskIds: group.map(item => item.task.id) });
+                snapshot?.environment ?? this.input.access.get(this.lead.id)!.environment, this.input.signal, this.input.timeoutMs,
+                snapshot?.environmentDigest ?? this.input.state.environmentDigest, this.taskProofCache);
+              const fallback: string[] = [];
+              group.forEach((item, index) => {
+                const proof = proofs[index];
+                if (proof && (proof.passed || isAttributedTaskProof(proof))) batched.set(item, proof);
+                else fallback.push(item.task.id);
+              });
+              if (fallback.length) this.input.emit('task_recheck_batch_fallback', { taskIds: fallback });
             } catch (error) {
               this.input.signal.throwIfAborted();
               this.input.emit('task_recheck_batch_fallback', { taskIds: group.map(item => item.task.id),
@@ -1437,38 +1707,78 @@ export class CooperativeResearch {
             }
           }
         }
-        const receipt = await this.check(node.task, assignment, this.lead.worktree, canonical, [], batched.get(node));
+        const receipt = await this.check(node.task, assignment, this.lead.worktree, canonical, [], batched.get(node), false, false, tasks,
+          snapshot && { environment: snapshot.environment, digest: snapshot.environmentDigest });
         this.input.signal.throwIfAborted();
         if (['unavailable', 'blocked'].includes(receipt.verification.status)) throw new Error('math_verifier_unavailable');
         node.integratedCheck = receipt;
-        if (!receipt.passed) { node.status = 'blocked'; node.feedback = solverProofFeedback(receipt); this.needsLead = true; }
-        else if (!taskDependenciesReady(node.task, this.archive.tasks)) {
-          node.status = 'blocked'; node.feedback = 'math_task_dependency_invalidated'; this.needsLead = true;
+        if (!receipt.passed) { node.status = 'blocked'; node.feedback = solverProofFeedback(receipt); if (!snapshot) this.needsLead = true; }
+        else if (!taskDependenciesReady(node.task, tasks)) {
+          node.status = 'blocked'; node.feedback = 'math_task_dependency_invalidated'; if (!snapshot) this.needsLead = true;
         }
       } catch (error) {
         this.input.signal.throwIfAborted();
         if (error instanceof Error && error.message === 'math_verifier_unavailable') throw error;
-        node.status = 'blocked'; node.feedback = error instanceof Error ? error.message : 'math_task_recheck_failed'; this.needsLead = true;
+        node.status = 'blocked'; node.feedback = error instanceof Error ? error.message : 'math_task_recheck_failed'; if (!snapshot) this.needsLead = true;
       }
-      finish(node);
+      await finish(node);
+    }
+  }
+  private async recheckConditional() {
+    for (const node of this.archive.tasks.filter(node => node.status === 'conditional')) {
+      const group = this.archive.groups?.find(record => record.group.id === taskGroup(node.task));
+      if ((node.task.status ?? 'active') !== 'active' || group && group.group.status !== 'active') continue;
+      const saved = node.proof;
+      this.input.emit('task_conditional_recheck_started', { taskId: node.task.id });
+      try {
+        if (!node.task.conditional || !saved?.passed || saved.taskDigest !== digest(node.task) ||
+            !saved.conditions?.length || !node.assignment) throw new Error('math_task_condition_version_invalid');
+        const conditions = saved.conditions.map(condition => {
+          const input = this.node(condition.taskId);
+          if (!input || input.task.kind !== 'lemma' || !input.task.type || digest(input.task) !== condition.taskDigest)
+            throw new Error('math_task_condition_version_invalid');
+          return input.task;
+        });
+        const proof = await withSolverWorktree(this.lead.worktree, saved.commit, checkout =>
+          this.check(node.task, node.assignment!, checkout, saved.commit, conditions));
+        if (['unavailable', 'blocked'].includes(proof.verification.status)) throw new Error('math_verifier_unavailable');
+        node.proof = proof;
+        if (!proof.passed) {
+          node.status = 'blocked'; node.feedback = solverProofFeedback(proof); this.needsLead = true;
+        }
+      } catch (error) {
+        this.input.signal.throwIfAborted();
+        if (error instanceof Error && error.message === 'math_verifier_unavailable') throw error;
+        node.status = 'blocked'; node.feedback = error instanceof Error ? error.message : 'math_task_conditional_recheck_failed';
+        this.needsLead = true;
+      }
+      this.input.emit('task_conditional_recheck_finished', { taskId: node.task.id, passed: node.status === 'conditional' });
+      this.changed();
     }
   }
   private supersedeStatementReview(review: StatementReview) {
     review.status = 'superseded';
     for (const record of this.archive.deliveries ?? []) if (record.statementReviewId === review.id) record.status = 'superseded';
   }
-  private prepareStatementContexts(nodes: readonly TaskRecord[] = this.archive.tasks): Promise<void> | undefined {
-    if (this.preparingStatements) return this.preparingStatements.then(() => this.prepareStatementContexts(nodes));
+  private prepareStatementContexts(nodes: readonly TaskRecord[] = this.archive.tasks,
+    canonical = this.archive.canonicalCommit!, checkEnvironment?: { environment: NodeJS.ProcessEnv; digest: string }): Promise<void> | undefined {
+    if (this.preparingStatements) return this.preparingStatements.then(() => this.prepareStatementContexts(nodes, canonical, checkEnvironment));
+    const environmentDigest = checkEnvironment?.digest ?? this.input.state.environmentDigest;
     const tasks = nodes.filter(node => node.task.statementReview).map(node => node.task);
     const keys = new Map(tasks.map(task => [task.id, statementSnapshot(this.input.state.problem, task, this.lead.worktree,
-      this.archive.canonicalCommit!, this.input.state.environmentDigest, this.dependencies(task, nodes).map(dependency =>
+      canonical, environmentDigest, this.dependencies(task, nodes).map(dependency =>
         ({ task: dependency.task, taskDigest: digest(dependency.task) }))).snapshotDigest]));
     const missing = tasks.filter(task => !this.statementContexts.has(keys.get(task.id)!));
     if (!missing.length) return;
+    for (const task of missing) this.preparingStatementTasks.add(task.id);
     const pending = captureStatementContexts(this.input.state.problem, missing, this.lead.worktree,
-      this.archive.canonicalCommit!, this.input.access.get(this.lead.id)!.environment, this.input.signal, this.input.timeoutMs)
+      canonical, checkEnvironment?.environment ?? this.input.access.get(this.lead.id)!.environment, this.input.signal, this.input.timeoutMs)
       .then(contexts => { for (const task of missing) this.statementContexts.set(keys.get(task.id)!, contexts.get(task.id)!); })
-      .finally(() => { if (this.preparingStatements === pending) this.preparingStatements = undefined; });
+      .finally(() => {
+        for (const task of missing) this.preparingStatementTasks.delete(task.id);
+        if (this.preparingStatements === pending) this.preparingStatements = undefined;
+        this.wake();
+      });
     this.preparingStatements = pending;
     return pending;
   }
@@ -1485,15 +1795,21 @@ export class CooperativeResearch {
         ({ task: dependency.task, taskDigest: digest(dependency.task) })), this.statementContexts.get(snapshots.get(task.id)!.snapshotDigest)));
     for (const review of reviews.filter(item => item.status !== 'superseded')) {
       const node = this.node(review.taskId), snapshot = snapshots.get(review.taskId);
-      const reuse = review.status === 'accepted' && node?.task.kind === 'goal' && snapshot?.snapshotDigest === review.snapshotDigest &&
+      const reuse = review.status === 'accepted' && node && snapshot?.snapshotDigest === review.snapshotDigest &&
+          review.environmentDigest === this.input.state.environmentDigest &&
           review.intendedStatement === node.task.informalStatement &&
           canonicalMathJson(review.premises) === canonicalMathJson(node.task.premises ?? this.input.state.problem.contract.assumptions);
       if (reuse) {
-        if (invalidated.has(review.taskId) || review.taskDigest !== digest(node.task)) {
-          review.taskDigest = digest(node.task); review.dependencies = [];
-          this.record(this.lead, node.task, 'statement-review', 'accepted', review.summary ?? 'Fixed original statement review reused.',
+        if (invalidated.has(review.taskId) || review.taskDigest !== digest(node.task) || !this.archive.deliveries?.some(delivery =>
+            delivery.statementReviewId === review.id && delivery.kind === 'statement-review' && delivery.status === 'accepted' &&
+            delivery.taskDigest === digest(node.task))) {
+          review.taskDigest = digest(node.task);
+          review.dependencies = snapshot.input.dependencies.map(({ taskId, taskDigest }) => ({ taskId, taskDigest }));
+          for (const delivery of this.archive.deliveries ?? []) if (delivery.statementReviewId === review.id &&
+              delivery.taskDigest !== review.taskDigest) delivery.status = 'superseded';
+          this.record(this.lead, node.task, 'statement-review', 'accepted', review.summary ?? 'Unchanged formal statement review reused.',
             { statementReviewId: review.id, taskDigest: review.taskDigest, statement: review.leanStatement,
-              premises: review.premises, dependencies: [], remainingObligations: [], commit: review.commit, sourceDigest: review.snapshotDigest });
+              premises: review.premises, dependencies: review.dependencies, remainingObligations: [], commit: review.commit, sourceDigest: review.snapshotDigest });
           this.input.emit('statement_review_reused', { taskId: review.taskId, reviewId: review.id });
         }
       }
@@ -1533,7 +1849,7 @@ export class CooperativeResearch {
       active.cancelled = true; void active.interrupt().catch(() => {});
     }
   }
-  private async mergeLeadSources(commit: string, seedCommit: string) {
+  private async mergeLeadSources(commit: string, seedCommit: string, canonical = this.archive.canonicalCommit!) {
     const problem = this.input.state.problem;
     git(this.lead.worktree, ['merge-base', '--is-ancestor', seedCommit, commit]);
     const changes = taskChanges(problem, this.lead.worktree, commit, undefined, { seedCommit });
@@ -1542,14 +1858,14 @@ export class CooperativeResearch {
       return solverProofImports(problem, committedSource(this.lead.worktree, commit, `${problem.projectRelative}/${file}`))
         .filter(module => !before.includes(module)).map(module => ({ file, module }));
     });
-    return withSolverWorktree(this.lead.worktree, this.archive.canonicalCommit!, async checkout => {
+    return withSolverWorktree(this.lead.worktree, canonical, async checkout => {
       applyTaskChanges(problem, checkout, changes, imports);
       const merged = commitSolverSources(problem, checkout);
       this.pin(merged);
       return merged;
     });
   }
-  private preserveLeadDraft(commit: string, seedCommit: string | undefined, reason: string) {
+  private preserveLeadDraft(commit: string, seedCommit: string | undefined, reason: string, requestDecision = true) {
     const summary = `Saved Lead draft pending integration: ${reason}. ` +
       `Inspect git show ${commit}:PROJECT_RELATIVE_PATH and reapply the useful declarations against the current canonical sources. ` +
       'This draft has no proof acceptance.';
@@ -1557,7 +1873,7 @@ export class CooperativeResearch {
         record.commit === commit && record.summary.startsWith('Saved Lead draft pending integration:'))) {
       this.record(this.lead, undefined, 'progress', 'advisory', summary, { commit });
     }
-    this.archive.error = reason; this.needsLead = true;
+    if (requestDecision) { this.archive.error = reason; this.needsLead = true; }
     this.input.emit('lead_draft_preserved', { commit, seedCommit, canonicalCommit: this.archive.canonicalCommit, reason });
   }
   private async restoreLeadSources() {
@@ -1620,7 +1936,10 @@ export class CooperativeResearch {
     }
     if (!solverSourceFeedback(this.input.state.problem, this.lead.worktree)) {
       if (!this.primaryLed) await this.restoreLeadSources();
-      await this.input.exclusiveCheck(() => this.recheckIntegrated(this.archive.canonicalCommit!));
+      const integrated = this.archive.tasks.filter(node => node.status === 'integrated');
+      this.markPendingValidation(integrated, new Set(integrated.map(node => node.task.id)));
+      if (integrated.length || this.archive.edits?.some(edit => edit.pendingSync)) await this.schedulePlanSynchronization();
+      await this.input.exclusiveCheck(() => this.recheckConditional());
     } else {
       for (const node of this.archive.tasks.filter(node => node.status === 'integrated')) {
         node.status = 'blocked'; node.feedback = 'math_canonical_source_invalid';
@@ -1628,13 +1947,13 @@ export class CooperativeResearch {
       this.needsLead = true;
     }
     for (const node of this.archive.tasks) if (node.status === 'running') node.status = 'pending';
-    for (const node of this.archive.tasks.filter(node => node.status === 'delivered')) await this.input.exclusiveCheck(() => this.integrate(node));
-    await this.input.exclusiveCheck(() => this.integrateReady());
+    for (const node of this.archive.tasks.filter(node => node.status === 'delivered')) await this.integrate(node);
+    await this.integrateReady();
     const statements = this.prepareStatementContexts(); if (statements) await statements;
     this.syncStatementReviews();
     this.changed();
   }
-  private planInvalidation({ tasks, groups, proofRoutes }: ReturnType<typeof parseCooperationPlan>) {
+  private planInvalidation({ tasks, groups, proofRoutes }: ReturnType<typeof parseCooperationPlan>, proofContracts = false) {
     const previousGroups = new Map(this.archive.groups?.map(record => [record.group.id, record]));
     const changedGroups = new Set(groups.filter(group => {
       const previous = previousGroups.get(group.id)?.group;
@@ -1651,7 +1970,8 @@ export class CooperativeResearch {
     const routeChanges = new Set(this.archive.tasks.filter(node => node.status !== 'integrated' &&
       canonicalMathJson(node.alternativeRoutes ?? []) !== canonicalMathJson(proofRoutes?.filter(route => route.targetTaskId === node.task.id) ?? []))
       .map(node => node.task.id));
-    return invalidatedTaskIds(this.archive.tasks, tasks, changedGroups, dependencies, routeChanges);
+    return invalidatedTaskIds(this.archive.tasks, tasks, changedGroups, dependencies, routeChanges,
+      proofContracts ? taskProofContractVersion : taskVersion);
   }
   private async acceptPlan(plan = readCooperationPlan(this.input.state.problem, this.lead.worktree), edit?: HumanEditRecord) {
     const { tasks, groups, proofRoutes } = plan;
@@ -1670,18 +1990,8 @@ export class CooperativeResearch {
     });
     const current = new Map(this.archive.tasks.map(node => [node.task.id, node]));
     const invalidated = this.planInvalidation(plan);
-    const proposed: TaskRecord[] = tasks.map(task => {
-      const previous = current.get(task.id);
-      const node: TaskRecord = previous && !invalidated.has(task.id) ? { ...previous, task } :
-        { task, status: 'pending', attempts: previous?.attempts ?? 0 };
-      node.alternativeRoutes = proofRoutes?.filter(route => route.targetTaskId === task.id);
-      const owner = task.ownerId ?? (task.kind === 'goal' ? configuredGroups.find(group => group.id === taskGroup(task))?.engineerId : undefined);
-      if (owner && node.assignment && node.assignment.workerId !== owner && ['pending', 'running'].includes(node.status)) {
-        node.status = 'pending'; node.assignment = undefined;
-      }
-      return node;
-    });
-    const statements = this.prepareStatementContexts(proposed); if (statements) await statements;
+    const proofChanges = this.planInvalidation(plan, true);
+    const revalidate = new Set([...invalidated].filter(id => !proofChanges.has(id) && current.get(id)?.status === 'integrated'));
     this.input.signal.throwIfAborted();
     for (const id of invalidated) if (this.archive.unchangedResearch) delete this.archive.unchangedResearch[id];
     for (const id of invalidated) if (this.archive.researchCheckpoints) delete this.archive.researchCheckpoints[id];
@@ -1695,7 +2005,7 @@ export class CooperativeResearch {
     }
     this.archive.tasks = tasks.map(task => {
       const previous = current.get(task.id);
-      if (previous && !invalidated.has(task.id)) {
+      if (previous && (!invalidated.has(task.id) || revalidate.has(task.id))) {
         previous.task = task;
         const owner = task.ownerId ?? (task.kind === 'goal' ? configuredGroups.find(group => group.id === taskGroup(task))?.engineerId : undefined);
         if (owner && previous.assignment && previous.assignment.workerId !== owner && ['pending', 'running'].includes(previous.status)) {
@@ -1738,12 +2048,23 @@ export class CooperativeResearch {
       this.archive.planEdited = true;
     }
     this.archive.planVersion = this.planVersion();
-    // Persist the accepted graph before writing recoverable review snapshots.
+    // Restored reviews include elaboration; compare them only after rebuilding that context.
+    const missingStatementContext = (node: TaskRecord) => !this.statementContexts.has(statementSnapshot(
+      this.input.state.problem, node.task, this.lead.worktree, this.archive.canonicalCommit!, this.input.state.environmentDigest,
+      this.dependencies(node.task).map(dependency => ({ task: dependency.task, taskDigest: digest(dependency.task) }))).snapshotDigest);
+    const synchronize = this.archive.tasks.filter(node => revalidate.has(node.task.id) || node.task.statementReview &&
+      (invalidated.has(node.task.id) || !current.has(node.task.id) || !this.archive.statementReviews?.some(review =>
+        review.taskId === node.task.id && review.taskDigest === digest(node.task) && review.status !== 'superseded') ||
+        missingStatementContext(node)));
+    this.markPendingValidation(synchronize, revalidate);
     this.changed(edit);
     this.input.emit('plan_updated', { groups: this.archive.groups, tasks: tasks.map(task =>
       ({ id: task.id, kind: task.kind, dependsOn: task.dependsOn, groupId: taskGroup(task), sharing: task.sharing ?? 'problem' })), invalidated: [...invalidated] });
-    this.syncStatementReviews(invalidated);
-    if (edit) edit.pendingSync = undefined;
+    if (this.archive.tasks.some(node => node.pendingValidation)) this.schedulePlanSynchronization();
+    else {
+      this.syncStatementReviews(invalidated);
+      if (edit) edit.pendingSync = undefined;
+    }
     this.changed(edit);
   }
   /** A planning checkpoint without a graph must not leave every peer idle. */
@@ -1773,45 +2094,120 @@ export class CooperativeResearch {
       groups: this.archive.groups?.map(route => route.group),
       ...(this.archive.proofRoutes?.length ? { proofRoutes: this.archive.proofRoutes } : {}) }));
   }
-  private async integrate(node: TaskRecord) {
-    const problem = this.input.state.problem;
-    let integrated = false;
-    try {
-      await withSolverWorktree(this.lead.worktree, this.archive.canonicalCommit!, async checkout => {
-        // Only archived deliveries need a second delivery check; merged sources always get their own check.
-        const submitted = this.checkedDeliveries.has(node.proof!) ? node.proof! :
-          await this.check(node.task, node.assignment!, checkout, node.proof!.commit, (node.proof!.conditions ?? []).map(condition => {
-            const dependency = this.node(condition.taskId);
-            if (!dependency || digest(dependency.task) !== condition.taskDigest) throw new Error('math_task_condition_version_invalid');
-            return dependency.task;
-          }));
-        this.input.signal.throwIfAborted();
-        node.proof = submitted;
-        if (['unavailable', 'blocked'].includes(submitted.verification.status)) throw new Error('math_verifier_unavailable');
-        if (!submitted.passed) throw new Error('math_task_delivery_no_longer_checks');
-        if (!taskDependenciesReady(node.task, this.archive.tasks))
-          throw new Error('math_task_dependency_invalidated');
-        applyTaskChanges(problem, checkout, submitted.changes, submitted.imports);
-        const merged = commitSolverSources(problem, checkout);
-        const assignment = { taskId: node.task.id, taskDigest: digest(node.task), workerId: this.lead.id, seedCommit: merged };
-        const receipt = await this.check(node.task, assignment, checkout, merged);
-        this.input.signal.throwIfAborted();
-        if (['unavailable', 'blocked'].includes(receipt.verification.status)) throw new Error('math_verifier_unavailable');
-        node.integratedCheck = receipt;
-        if (!receipt.passed) { node.feedback = solverProofFeedback(receipt); throw new Error('math_task_merged_proof_failed'); }
-        this.archive.canonicalCommit = merged;
-        node.status = 'integrated';
-        integrated = true;
-        this.input.emit('task_integrated', { taskId: node.task.id, groupId: taskGroup(node.task), sharing: node.task.sharing ?? 'problem', commit: merged });
-        const statements = this.prepareStatementContexts(); if (statements) await statements;
-        this.syncStatementReviews();
+  private integrate(node: TaskRecord) { return this.queueIntegration(() => this.integrateNow(node)); }
+  private integrationAllowed(node: TaskRecord) {
+    const group = this.archive.groups?.find(record => record.group.id === taskGroup(node.task));
+    return !this.synchronizationBlocked(node.task) && !(node.proof?.references?.tasks ?? []).some(reference => {
+      const dependency = this.node(reference.taskId);
+      return !dependency || dependency.pendingValidation || this.preparingStatementTasks.has(reference.taskId);
+    }) && (node.task.status ?? 'active') === 'active' && (!this.archive.groups || group?.group.status === 'active');
+  }
+  private integrationSnapshot(node: TaskRecord) {
+    if (!this.archive.tasks.includes(node) || !['delivered', 'conditional'].includes(node.status) ||
+        !node.assignment || !node.proof || !this.integrationAllowed(node)) return;
+    const tasks = this.archive.tasks.map(item => ({ ...item }));
+    const dependencies = this.dependencies(node.task, tasks);
+    const group = this.archive.groups?.find(record => record.group.id === taskGroup(node.task));
+    return { node, task: node.task, taskDigest: digest(node.task), assignment: node.assignment, proof: node.proof, status: node.status,
+      canonical: this.archive.canonicalCommit!, environmentDigest: this.input.state.environmentDigest,
+      problemReceiptDigest: this.input.state.problem.receiptDigest, groupDigest: canonicalMathJson(group?.group ?? null),
+      routesDigest: canonicalMathJson(node.alternativeRoutes ?? []), tasks,
+      dependencies: dependencies.map(item => ({ id: item.task.id, taskDigest: digest(item.task), status: item.status,
+        proof: item.proof, integratedCheck: item.integratedCheck })),
+      retainedGoals: dependencies.filter(item => item.task.kind === 'goal' && item.status === 'integrated').map(item => item.task.theoremName!) };
+  }
+  private integrationTaskCurrent(snapshot: NonNullable<ReturnType<CooperativeResearch['integrationSnapshot']>>) {
+    const { node } = snapshot;
+    return this.archive.tasks.includes(node) && node.status === snapshot.status && node.assignment === snapshot.assignment &&
+      node.proof === snapshot.proof && digest(node.task) === snapshot.taskDigest && this.integrationAllowed(node) &&
+      this.input.state.environmentDigest === snapshot.environmentDigest && this.input.state.problem.receiptDigest === snapshot.problemReceiptDigest &&
+      canonicalMathJson(node.alternativeRoutes ?? []) === snapshot.routesDigest &&
+      snapshot.dependencies.every(dependency => {
+        const current = this.node(dependency.id);
+        return current && digest(current.task) === dependency.taskDigest;
       });
-    } catch (error) {
-      this.input.signal.throwIfAborted();
-      if (integrated || !(error instanceof Error) || error.name === 'AbortError' || !integrationRejections.has(rejectionCode(error))) throw error;
-      node.status = 'blocked'; node.feedback = `${error instanceof Error ? error.message : 'math_task_integration_failed'}\n${node.feedback ?? ''}`;
-      this.needsLead = true;
-    } finally { this.changed(); }
+  }
+  private integrationInputsCurrent(snapshot: NonNullable<ReturnType<CooperativeResearch['integrationSnapshot']>>) {
+    const group = this.archive.groups?.find(record => record.group.id === taskGroup(snapshot.task));
+    return canonicalMathJson(group?.group ?? null) === snapshot.groupDigest && snapshot.dependencies.every(dependency => {
+      const current = this.node(dependency.id);
+      return current?.status === dependency.status && current.proof === dependency.proof && current.integratedCheck === dependency.integratedCheck;
+    });
+  }
+  private async integrateNow(node: TaskRecord) {
+    const problem = this.input.state.problem;
+    for (;;) {
+      const snapshot = await this.input.exclusiveCheck(async () => this.integrationSnapshot(node));
+      if (!snapshot) return;
+      let submitted = snapshot.proof, receipt: TaskProof | undefined, merged: string | undefined, failure: unknown;
+      try {
+        await withSolverWorktree(this.lead.worktree, snapshot.canonical, async checkout => {
+          const checker = this.input.modules.M2.checkTask ?? checkTaskProof;
+          const environment = this.input.access.get(this.lead.id)!.environment;
+          const check = async (commit: string, assignment: TaskAssignment, conditions: readonly CooperativeTask[]) => {
+            const raw = await checker(problem, checkout, commit, snapshot.task, assignment, snapshot.retainedGoals,
+              environment, this.input.signal, this.input.timeoutMs, conditions, snapshot.environmentDigest);
+            return this.check(snapshot.task, assignment, checkout, commit, conditions, raw, false, false, snapshot.tasks);
+          };
+          // Restored JSON needs fresh delivery evidence before its changes can enter a merge.
+          if (!this.checkedDeliveries.has(submitted)) {
+            const conditions = (submitted.conditions ?? []).map(condition => {
+              const dependency = snapshot.tasks.find(item => item.task.id === condition.taskId);
+              if (!dependency || digest(dependency.task) !== condition.taskDigest) throw new Error('math_task_condition_version_invalid');
+              return dependency.task;
+            });
+            submitted = await check(submitted.commit, snapshot.assignment, conditions);
+          }
+          this.input.signal.throwIfAborted();
+          if (['unavailable', 'blocked'].includes(submitted.verification.status)) throw new Error('math_verifier_unavailable');
+          if (!submitted.passed) throw new Error('math_task_delivery_no_longer_checks');
+          if (!taskDependenciesReady(snapshot.task, snapshot.tasks)) throw new Error('math_task_dependency_invalidated');
+          applyTaskChanges(problem, checkout, submitted.changes, submitted.imports);
+          merged = commitSolverSources(problem, checkout);
+          receipt = await check(merged, { taskId: snapshot.task.id, taskDigest: snapshot.taskDigest,
+            workerId: this.lead.id, seedCommit: merged }, []);
+          this.input.signal.throwIfAborted();
+          if (['unavailable', 'blocked'].includes(receipt.verification.status)) throw new Error('math_verifier_unavailable');
+        });
+      } catch (error) { failure = error; }
+      const result = await this.input.exclusiveCheck(async () => {
+        this.input.signal.throwIfAborted();
+        if (!this.integrationTaskCurrent(snapshot)) {
+          this.input.emit('task_integration_superseded', { taskId: snapshot.task.id, commit: snapshot.proof.commit });
+          this.changed(); return 'superseded';
+        }
+        if (this.archive.canonicalCommit !== snapshot.canonical || !this.integrationInputsCurrent(snapshot)) {
+          this.input.emit('task_integration_rebased', { taskId: snapshot.task.id, from: snapshot.canonical,
+            to: this.archive.canonicalCommit });
+          this.changed(); return 'retry';
+        }
+        if (submitted.passed) node.proof = submitted;
+        if (!failure && receipt && !receipt.passed) {
+          node.integratedCheck = receipt; node.feedback = solverProofFeedback(receipt);
+          failure = new Error('math_task_merged_proof_failed');
+        }
+        if (failure) {
+          this.changed();
+          if (!(failure instanceof Error) || failure.name === 'AbortError' || !integrationRejections.has(rejectionCode(failure))) throw failure;
+          node.status = 'blocked'; node.feedback = `${failure.message}\n${node.feedback ?? ''}`;
+          this.needsLead = true; this.changed(); return 'blocked';
+        }
+        if (!receipt || !merged) throw new Error('math_task_integration_missing_receipt');
+        if (receipt.references?.tasks?.some(reference => {
+          const current = this.node(reference.taskId);
+          return !current || digest(current.task) !== reference.taskDigest;
+        })) {
+          this.input.emit('task_integration_superseded', { taskId: snapshot.task.id, reason: 'actual-reference-changed' });
+          this.changed(); return 'superseded';
+        }
+        node.integratedCheck = receipt; this.archive.canonicalCommit = merged; node.status = 'integrated';
+        this.input.emit('task_integrated', { taskId: node.task.id, groupId: taskGroup(node.task), sharing: node.task.sharing ?? 'problem', commit: merged });
+        this.changed(); return 'integrated';
+      });
+      if (result === 'retry') continue;
+      if (result === 'integrated') await this.syncPreparedStatements();
+      return;
+    }
   }
   async next(worker: ResearchWorker, budget: { maxTurns: number; remainingMs: number }): Promise<CooperativeAction | undefined> {
     for (;;) {
@@ -1825,10 +2221,14 @@ export class CooperativeResearch {
         this.archive.frontierWaiting = undefined; this.changed();
       }
       if (!this.liveWorkers.has(this.lead.id)) return;
-      // Publish complete fixed snapshots before assigning work against a newly changed plan.
-      if (this.preparingStatements) { await this.preparingStatements.catch(() => {}); continue; }
       const modelAllowed = this.input.modelDispatchAllowed?.() !== false;
       if (worker.id === this.lead.id) {
+        if (this.synchronizationPending()) { await this.wait(); continue; }
+        if (this.pendingFixedStatementReviews()) {
+          if (!this.livePeers.length || budget.remainingMs <= 0 ||
+              this.input.state.turns >= budget.maxTurns && !this.reservedTurns.size || !modelAllowed && !this.active.size) return;
+          await this.wait(); continue;
+        }
         if (this.primaryLed) {
           const review = this.archive.review;
           if (review && ['pending', 'running'].includes(review.status)) {
@@ -1856,7 +2256,7 @@ export class CooperativeResearch {
         }
         const head = this.archive.canonicalCommit!;
         const goals = this.archive.tasks.filter(node => node.task.kind === 'goal');
-        if (((goals.length && goals.every(node => node.status === 'integrated')) || this.reviewed()) && this.lastAssembly !== head) {
+        if (!this.candidateSynchronizationBlocked() && ((goals.length && goals.every(node => node.status === 'integrated')) || this.reviewed()) && this.lastAssembly !== head) {
           this.syncPlanNotes();
           const seed = this.seed(worker, head); this.archive.canonicalCommit = seed;
           this.lastAssembly = seed; return { kind: 'assemble', seedCommit: seed };
@@ -1866,7 +2266,7 @@ export class CooperativeResearch {
           this.archive.statementReviews?.some(review => ['translating', 'reviewing'].includes(review.status) ||
             (modelAllowed && this.input.state.turns < budget.maxTurns && budget.remainingMs > 0 &&
               ['pending', 'translated'].includes(review.status) && this.livePeers.length > 0 &&
-              routeAllowsTask(this.node(review.taskId).task, this.archive.tasks, this.archive.groups)));
+              this.statementReviewAllowed(this.node(review.taskId).task, true)));
         if (this.input.state.turns >= budget.maxTurns || budget.remainingMs <= 0 || !modelAllowed) {
           const pending = modelAllowed && budget.remainingMs > 0 && this.waitForTurn(budget.maxTurns);
           if (pending) { await pending; continue; }
@@ -1960,7 +2360,7 @@ export class CooperativeResearch {
         const review = this.archive.review;
         const reviewer = this.reviewer();
         const statement = reviewer?.id === worker.id && this.archive.statementReviews?.find(item =>
-          ['pending', 'translated'].includes(item.status) && routeAllowsTask(this.node(item.taskId).task, this.archive.tasks, this.archive.groups) &&
+          ['pending', 'translated'].includes(item.status) && this.statementReviewAllowed(this.node(item.taskId).task, true) &&
           ![...this.active.values()].some(active => isStatementAction(active.action) && active.action.reviewId === item.id));
         if (statement) {
           const kind = statement.status === 'pending' ? 'backtranslate' : 'statement-review';
@@ -1972,7 +2372,7 @@ export class CooperativeResearch {
             snapshotDigest: statement.snapshotDigest, seedCommit: statement.commit, workspace: statement.workspace,
             assignmentId: statement.assignmentId };
         }
-        if (review?.status === 'pending' && reviewer?.id === worker.id) {
+        if (review?.status === 'pending' && reviewer?.id === worker.id && !this.candidateSynchronizationBlocked()) {
           this.seed(worker, review.commit);
           const notes = path.join(worker.worktree, 'RESEARCH.md');
           if (fs.existsSync(notes)) fs.writeFileSync(notes, fs.readFileSync(notes, 'utf8').replace(/```(?:math|math-review)\s*\n[\s\S]*?\n```/gu, ''));
@@ -1981,15 +2381,16 @@ export class CooperativeResearch {
           this.changed(); return { kind: 'review', seedCommit: review.commit, sourceDigest: review.sourceDigest,
             assignmentId: review.assignmentId };
         }
-        const ready = this.input.modules.M3.ready(this.archive.tasks, this.archive.groups);
+        const ready = this.input.modules.M3.ready(this.archive.tasks, this.archive.groups).filter(node => !this.synchronizationBlocked(node.task));
         const node = this.input.modules.M5.assign(ready, worker,
-          this.livePeers, this.archive.groups, this.archive.tasks);
+          this.allocationPeers, this.archive.groups, this.archive.tasks);
         if (node) {
           const engineerId = node.task.kind === 'goal' && this.archive.groups?.find(route => route.group.id === taskGroup(node.task))?.group.engineerId;
           if (!ready.includes(node) || !this.archive.tasks.includes(node) || node.status !== 'pending' ||
               !taskCanStart(node.task, this.archive.tasks) ||
               !routeAllowsTask(node.task, this.archive.tasks, this.archive.groups) ||
               !independentFeasibilityWorker(node, worker, this.archive.tasks, this.archive.groups) ||
+              hasRunningDuplicateQuestion(node, this.archive.tasks) ||
               (node.task.ownerId && node.task.ownerId !== worker.id) || (engineerId && engineerId !== worker.id) ||
               (node.assignment && node.assignment.workerId !== worker.id)) throw new Error('math_task_assignment_invalid');
           const selectedRoute = selectedTaskRoute(node, this.archive.tasks);
@@ -2000,10 +2401,11 @@ export class CooperativeResearch {
               (this.archive.researchDrafts?.[node.task.id]?.suspended || this.researchWorkspaceChanged(worker, node))) {
             const previousAssignment = node.assignment;
             const restored = await this.restoreResearchDraft(worker, node);
-            if (!this.archive.tasks.includes(node) || node.status !== 'pending' ||
+            if (this.synchronizationBlocked(node.task) || !this.archive.tasks.includes(node) || node.status !== 'pending' ||
                 !restored && node.assignment !== previousAssignment ||
                 node.task.ownerId && node.task.ownerId !== worker.id ||
                 !independentFeasibilityWorker(node, worker, this.archive.tasks, this.archive.groups) ||
+                hasRunningDuplicateQuestion(node, this.archive.tasks) ||
                 !taskCanStart(node.task, this.archive.tasks) || !routeAllowsTask(node.task, this.archive.tasks, this.archive.groups)) continue;
             if (!restored) {
               fs.writeFileSync(path.join(worker.worktree, 'RESEARCH.md'), '');
@@ -2036,10 +2438,12 @@ export class CooperativeResearch {
   }
   private canAdvance(taskIds?: ReadonlySet<string>) {
     return researchCanAdvance(this.archive.tasks, this.archive.groups, this.liveWorkers, node =>
+      !this.synchronizationBlocked(node.task) &&
       this.livePeers.some(worker => this.input.modules.M5.assign([node], worker, this.livePeers, this.archive.groups, this.archive.tasks) === node), taskIds);
   }
   private hasAssignableTask(taskIds?: ReadonlySet<string>) {
-    return this.input.modules.M3.ready(this.archive.tasks, this.archive.groups).some(node => (!taskIds || taskIds.has(node.task.id)) && this.archive.tasks.includes(node) &&
+    return this.input.modules.M3.ready(this.archive.tasks, this.archive.groups).some(node => !this.synchronizationBlocked(node.task) &&
+      (!taskIds || taskIds.has(node.task.id)) && this.archive.tasks.includes(node) &&
       this.livePeers.some(worker => this.input.modules.M5.assign([node], worker, this.livePeers, this.archive.groups, this.archive.tasks) === node));
   }
   private handoffDispatch(batch = selectResearchHandoffBatch(this.archive)) {
@@ -2097,9 +2501,11 @@ export class CooperativeResearch {
     return seed;
   }
   reviewed(check?: ProofCheck) {
-    return this.archive.review?.status === 'accepted' && this.archive.review.commit === this.archive.canonicalCommit &&
+    const required = this.fixedStatementReviewTasks();
+    if (this.fixedReviewScope && !required) return false;
+    return !this.candidateSynchronizationBlocked() && this.archive.review?.status === 'accepted' && this.archive.review.commit === this.archive.canonicalCommit &&
       (!check || (check.commit === this.archive.review.commit && check.sourceDigest === this.archive.review.sourceDigest)) &&
-      this.archive.tasks.filter(node => node.task.statementReview).every(node => this.archive.statementReviews?.some(review =>
+      this.archive.tasks.filter(node => node.task.statementReview && (!required || required.has(node.task.id))).every(node => this.archive.statementReviews?.some(review =>
         review.taskId === node.task.id && review.taskDigest === digest(node.task) && review.status === 'accepted'));
   }
   requireReview(check: ProofCheck) {
@@ -2114,10 +2520,36 @@ export class CooperativeResearch {
         active.cancelled = true; void active.interrupt().catch(() => {});
       }
     }
-    if (this.archive.review?.commit !== check.commit) {
+    if (this.archive.review?.commit !== check.commit || this.archive.review.sourceDigest !== check.sourceDigest) {
       this.archive.review = { commit: check.commit, sourceDigest: check.sourceDigest, status: 'pending' };
       this.input.emit('review_requested', { commit: check.commit });
     }
+    const configured = this.archive.tasks.filter(node => node.task.statementReview), used = new Set<string>();
+    const problem = this.input.state.problem;
+    let complete = hasFreshSolverCheck(check) && proofReceiptsMatch(check.verification, check.commit,
+      problem.targets.map(target => ({ proofPath: target.proofPath, theoremName: target.theoremName,
+        expectedSourceDeclarationHash: target.declarationHash, statementHash: problem.contract.statementHash,
+        leanStatementHash: problem.contract.leanStatementHash, claim: 'statement' })));
+    if (complete) for (const target of problem.targets) {
+      const receipt = check.verification.results.find(result => result.proofPath === target.proofPath && result.theoremName === target.theoremName);
+      const references = receipt?.declarationReferences && captureProofReferences(problem, this.lead.worktree, check.commit,
+        { name: target.theoremName, file: target.proofPath }, receipt.declarationReferences, this.input.state.environmentDigest);
+      if (!references) { complete = false; break; }
+      for (const reference of attributeTaskReferences(references, this.archive.tasks)) used.add(reference.taskId);
+    }
+    const required = new Map(configured.filter(node => !complete || node.task.kind === 'goal' || used.has(node.task.id))
+      .map(node => [node.task.id, digest(node.task)]));
+    this.fixedReviewScope = { review: this.archive.review, commit: check.commit, sourceDigest: check.sourceDigest,
+      environmentDigest: this.input.state.environmentDigest, tasksDigest: this.statementTaskIdentity(), required };
+    for (const active of this.active.values()) if (isStatementAction(active.action) && !this.current(active.action) && !active.cancelled) {
+      const reviewId = active.action.reviewId;
+      const statement = this.archive.statementReviews?.find(item => item.id === reviewId);
+      if (statement) resetStatementReview(statement);
+      active.cancelled = true; void active.interrupt().catch(() => {});
+    }
+    this.input.emit('final_statement_review_scope', { commit: check.commit, sourceDigest: check.sourceDigest,
+      referenceCoverage: complete ? 'complete' : 'unknown', requiredTaskIds: [...required.keys()],
+      unusedTaskIds: configured.filter(node => !required.has(node.task.id)).map(node => node.task.id) });
     this.changed();
   }
   contextState(action?: CooperativeAction, worker?: ResearchWorker, versions: TaskVersions = this.taskVersions()): CooperationState {
@@ -2133,7 +2565,14 @@ export class CooperativeResearch {
     const deliveries = this.archive.deliveries?.filter(item => this.deliveryVisible(item, task, versions) &&
       (task || tasks === this.archive.tasks || !item.taskId || versions.get(item.taskId)?.task.sharing !== 'group')) ?? [];
     const deliveryIds = new Set(deliveries.map(item => item.id));
-    return { ...this.archive, tasks,
+    const proofRoutes = (this.archive.proofRoutes ?? this.archive.tasks.flatMap(node => node.alternativeRoutes ?? []))
+      .filter(route => visibleIds.has(route.targetTaskId) &&
+        [route.closingTaskId, ...route.prerequisiteTaskIds].every(id => visibleIds.has(id)));
+    const scopedTasks = tasks.map(node => node.alternativeRoutes?.length ? { ...node,
+      alternativeRoutes: proofRoutes.filter(route => route.targetTaskId === node.task.id) } : node);
+    return { ...this.archive, tasks: scopedTasks,
+      parallelQuestions: parallelQuestions(this.archive.tasks, task).filter(question => !ordinaryWorker || task ||
+        versions.get(question.taskId)?.task.sharing !== 'group'),
       consumerInterfaces: task ? taskConsumerProjection(task, this.archive.tasks, this.archive.proofRoutes) : undefined,
       researchDecisions: this.archive.researchDecisions?.filter(item => deliveryIds.has(item.deliveryId)),
       frontierRecoveries: tasks === this.archive.tasks ? this.archive.frontierRecoveries : undefined,
@@ -2142,8 +2581,7 @@ export class CooperativeResearch {
       progressReceipts: tasks === this.archive.tasks ? this.archive.progressReceipts : undefined,
       blockers: this.archive.blockers?.filter(blocker => tasks === this.archive.tasks ||
         (visibleIds.has(blocker.taskId) && task && blocker.groupId === taskGroup(task))),
-      proofRoutes: this.archive.proofRoutes?.filter(route => visibleIds.has(route.targetTaskId) &&
-        [route.closingTaskId, ...route.prerequisiteTaskIds].every(id => visibleIds.has(id))),
+      proofRoutes,
       unchangedResearch: this.archive.unchangedResearch && Object.fromEntries(Object.entries(this.archive.unchangedResearch)
         .filter(([id, record]) => visible(id, record.taskDigest))),
       researchCheckpoints: this.archive.researchCheckpoints && Object.fromEntries(Object.entries(this.archive.researchCheckpoints)
@@ -2200,6 +2638,144 @@ export class CooperativeResearch {
       review.summary ?? '', { ...options, evidenceRefs });
     this.input.emit('statement_review_completed', { workerId: worker.id, taskId: review.taskId, reviewId: review.id, kind, status: review.status });
     return { checkWhole: false };
+  }
+  private async deliverLead(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' | 'solve' }>, commit: string,
+    recovering: boolean, recoveryKind: 'checkpoint' | 'request-failure'): Promise<{ checkWhole: boolean; savedPlan?: boolean }> {
+    const staged = await this.input.exclusiveCheck(async () => {
+      if (!this.current(action)) {
+        this.input.emit('lead_decision_superseded', { commit }); this.syncPlanNotes(); this.needsLead = true; this.changed();
+        return { finished: true as const, checkWhole: false };
+      }
+      if (action.recovery && recovering) {
+        this.interrupted(worker, action);
+        return { finished: true as const, checkWhole: false };
+      }
+      const sourceChanged = ownedSourceDigest(this.input.state.problem, worker.worktree, action.seedCommit) !==
+        ownedSourceDigest(this.input.state.problem, worker.worktree, commit);
+      let recoveryPlan: ReturnType<typeof parseCooperationPlan> | undefined;
+      let resolution: ReturnType<CooperativeResearch['validateRecoveryPlan']> | undefined;
+      if (action.recovery) {
+        const recovery = this.archive.frontierRecoveries?.find(item => item.id === action.recovery!.id);
+        try {
+          const response = block(worker.worktree, 'math-plan');
+          recoveryPlan = parseCooperationPlan(this.input.state.problem, response);
+          resolution = this.validateRecoveryPlan(action, recoveryPlan, response.recovery);
+        } catch (error) {
+          if (!recovery || recovery.status !== 'requested') {
+            this.input.emit('lead_decision_superseded', { commit }); this.needsLead = true; this.changed();
+            return { finished: true as const, checkWhole: false };
+          }
+          if (!(error instanceof Error && error.message === 'math_frontier_recovery_no_executable_step')) {
+            this.rejectPlan(error);
+            if (!this.archive.planRejection?.stalled) { this.changed(); return { finished: true as const, checkWhole: false }; }
+          }
+          resolution = { recovery, taskIds: [], reason: error instanceof Error ? error.message : 'math_frontier_recovery_invalid' };
+        }
+        if (!resolution.taskIds.length) {
+          if (action.handoffIds?.length) {
+            try {
+              const response = block(worker.worktree, 'math-plan');
+              this.recordHandoffDecisions(resolveResearchHandoffs(this.archive, action.handoffIds,
+                this.archive.tasks.map(node => node.task), response.handoffDecisions, action.handoffActivations));
+            } catch (error) {
+              this.rejectPlan(error); this.changed(); return { finished: true as const, checkWhole: false };
+            }
+          }
+          resolution.recovery.status = 'awaiting-input'; resolution.recovery.reason = resolution.reason;
+          this.archive.planRejection = undefined; this.archive.error = undefined;
+          this.archive.lastLeadInputDigest = this.leadEvidence.get(action) === this.planningEvidenceDigest()
+            ? this.planningInputDigest() : action.planningInputDigest;
+          this.needsLead = false;
+          this.archive.planEdited = true; this.syncPlanNotes();
+          this.input.emit('frontier_recovery_waiting', { recoveryId: resolution.recovery.id,
+            taskIds: resolution.recovery.taskIds, reason: resolution.reason });
+          this.changed(); return { finished: true as const, checkWhole: false };
+        }
+      }
+      let accepted = false;
+      const previousPlanVersion = this.planVersion();
+      const previousDecisions = canonicalMathJson(this.archive.researchDecisions ?? []);
+      try {
+        if (action.handoffIds?.length || retainedResearchHandoffs(this.archive).length) {
+          const response = block(worker.worktree, 'math-plan');
+          const plan = recoveryPlan ?? parseCooperationPlan(this.input.state.problem, response);
+          const decisions = resolveResearchHandoffs(this.archive, action.handoffIds ?? [], plan.tasks, response.handoffDecisions, action.handoffActivations);
+          this.preserveHandoffBacklog(plan, decisions);
+          await this.acceptPlan(plan);
+          this.recordHandoffDecisions(decisions);
+        } else await this.acceptPlan(recoveryPlan);
+        accepted = true;
+      } catch (error) {
+        this.rejectPlan(error);
+        if (!this.archive.tasks.length && !(recovering && recoveryKind === 'request-failure')) {
+          try { await this.startInitialTasks(); }
+          catch (fallbackError) { this.input.emit('initial_plan_fallback_failed', {
+            reason: fallbackError instanceof Error ? fallbackError.message : 'math_initial_plan_failed' }); }
+        }
+      }
+      const savedPlan = recovering && recoveryKind === 'request-failure' && accepted && (previousPlanVersion !== this.planVersion() ||
+        previousDecisions !== canonicalMathJson(this.archive.researchDecisions ?? []));
+      if (accepted && resolution) {
+        resolution.recovery.status = 'planned'; resolution.recovery.readyTaskIds = resolution.taskIds;
+        this.input.emit('frontier_recovery_planned', { recoveryId: resolution.recovery.id,
+          taskIds: resolution.recovery.taskIds, readyTaskIds: resolution.taskIds });
+        this.changed();
+      }
+      if (accepted && !recovering && action.planningInputDigest) this.archive.lastLeadInputDigest =
+        this.leadEvidence.get(action) === this.planningEvidenceDigest() ? this.planningInputDigest() : action.planningInputDigest;
+      this.changed();
+      return { finished: false as const, sourceChanged, savedPlan, planVersion: this.archive.planVersion };
+    });
+    if (staged.finished) return { checkWhole: false };
+    const saved = staged.savedPlan ? { savedPlan: true } : {};
+    if (!staged.sourceChanged) return { checkWhole: false, ...saved };
+    try {
+      for (;;) {
+        const snapshot = await this.input.exclusiveCheck(async () => {
+          if (this.archive.planVersion !== staged.planVersion) {
+            this.preserveLeadDraft(commit, action.seedCommit, 'math_lead_decision_superseded', false); this.changed(); return;
+          }
+          return { canonical: this.archive.canonicalCommit!, environmentDigest: this.input.state.environmentDigest,
+            problemReceiptDigest: this.input.state.problem.receiptDigest };
+        });
+        if (!snapshot) return { checkWhole: false, ...saved };
+        const merged = await this.mergeLeadSources(commit, action.seedCommit, snapshot.canonical);
+        const published = await this.input.exclusiveCheck(async () => {
+          this.input.signal.throwIfAborted();
+          if (this.archive.planVersion !== staged.planVersion) {
+            this.preserveLeadDraft(commit, action.seedCommit, 'math_lead_decision_superseded', false); this.changed(); return 'superseded';
+          }
+          if (this.archive.canonicalCommit !== snapshot.canonical || this.input.state.environmentDigest !== snapshot.environmentDigest ||
+              this.input.state.problem.receiptDigest !== snapshot.problemReceiptDigest) return 'retry';
+          this.archive.canonicalCommit = merged;
+          const integrated = new Set(this.archive.tasks.filter(node => node.status === 'integrated').map(node => node.task.id));
+          this.markPendingValidation(this.archive.tasks.filter(node => integrated.has(node.task.id) || node.task.statementReview), integrated);
+          this.changed(); return 'published';
+        });
+        if (published === 'retry') continue;
+        if (published === 'superseded') return { checkWhole: false, ...saved };
+        await this.schedulePlanSynchronization();
+        return await this.input.exclusiveCheck(async () => {
+          if (this.archive.planVersion !== staged.planVersion || this.candidateSynchronizationBlocked()) return { checkWhole: false, ...saved };
+          const problem = this.input.state.problem;
+          const unchangedDraft = git(worker.worktree, ['rev-parse', 'HEAD']) === commit && problem.ownedFiles.every(file => {
+            const local = path.join(worker.worktree, problem.projectRelative, file);
+            return fs.existsSync(local) && fs.readFileSync(local, 'utf8') === committedSource(worker.worktree, commit, `${problem.projectRelative}/${file}`);
+          });
+          if (unchangedDraft) this.archive.canonicalCommit = this.seed(worker, this.archive.canonicalCommit!);
+          this.changed(); return { checkWhole: unchangedDraft, ...saved };
+        });
+      }
+    } catch (error) {
+      this.input.signal.throwIfAborted();
+      if (error instanceof Error && error.message === 'math_verifier_unavailable') throw error;
+      await this.input.exclusiveCheck(async () => {
+        this.preserveLeadDraft(commit, action.seedCommit, error instanceof Error ? error.message : 'math_lead_integration_failed',
+          this.archive.planVersion === staged.planVersion);
+        this.changed();
+      });
+      return { checkWhole: false, ...saved };
+    }
   }
   async deliver(worker: ResearchWorker, action: CooperativeAction, commit: string, recovering = false,
     recoveryKind: 'checkpoint' | 'request-failure' = 'checkpoint'): Promise<{ check?: ProofCheck; checkWhole: boolean; savedPlan?: boolean }> {
@@ -2261,102 +2837,9 @@ export class CooperativeResearch {
       return { checkWhole: true };
     }
     if (action.kind !== 'task') {
-      if (!this.current(action)) {
-        this.input.emit('lead_decision_superseded', { commit }); this.syncPlanNotes(); this.needsLead = true; this.changed();
-        return { checkWhole: false };
-      }
-      if (action.recovery && recovering) {
-        this.interrupted(worker, action);
-        return { checkWhole: false };
-      }
-      const sourceChanged = ownedSourceDigest(this.input.state.problem, worker.worktree, action.seedCommit) !==
-        ownedSourceDigest(this.input.state.problem, worker.worktree, commit);
-      let recoveryPlan: ReturnType<typeof parseCooperationPlan> | undefined;
-      let resolution: ReturnType<CooperativeResearch['validateRecoveryPlan']> | undefined;
-      if (action.recovery) {
-        const recovery = this.archive.frontierRecoveries?.find(item => item.id === action.recovery!.id);
-        try {
-          const response = block(worker.worktree, 'math-plan');
-          recoveryPlan = parseCooperationPlan(this.input.state.problem, response);
-          resolution = this.validateRecoveryPlan(action, recoveryPlan, response.recovery);
-        } catch (error) {
-          if (!recovery || recovery.status !== 'requested') {
-            this.input.emit('lead_decision_superseded', { commit }); this.needsLead = true; this.changed();
-            return { checkWhole: false };
-          }
-          if (!(error instanceof Error && error.message === 'math_frontier_recovery_no_executable_step')) {
-            this.rejectPlan(error);
-            if (!this.archive.planRejection?.stalled) { this.changed(); return { checkWhole: false }; }
-          }
-          resolution = { recovery, taskIds: [], reason: error instanceof Error ? error.message : 'math_frontier_recovery_invalid' };
-        }
-        if (!resolution.taskIds.length) {
-          if (action.handoffIds?.length) {
-            try {
-              const response = block(worker.worktree, 'math-plan');
-              this.recordHandoffDecisions(resolveResearchHandoffs(this.archive, action.handoffIds,
-                this.archive.tasks.map(node => node.task), response.handoffDecisions, action.handoffActivations));
-            } catch (error) {
-              this.rejectPlan(error); this.changed(); return { checkWhole: false };
-            }
-          }
-          resolution.recovery.status = 'awaiting-input'; resolution.recovery.reason = resolution.reason;
-          this.archive.planRejection = undefined; this.archive.error = undefined;
-          this.archive.lastLeadInputDigest = this.leadEvidence.get(action) === this.planningEvidenceDigest()
-            ? this.planningInputDigest() : action.planningInputDigest;
-          this.needsLead = false;
-          this.archive.planEdited = true; this.syncPlanNotes();
-          this.input.emit('frontier_recovery_waiting', { recoveryId: resolution.recovery.id,
-            taskIds: resolution.recovery.taskIds, reason: resolution.reason });
-          this.changed(); return { checkWhole: false };
-        }
-      }
-      let accepted = false;
-      const previousPlanVersion = this.planVersion();
-      const previousDecisions = canonicalMathJson(this.archive.researchDecisions ?? []);
-      try {
-        if (action.handoffIds?.length || retainedResearchHandoffs(this.archive).length) {
-          const response = block(worker.worktree, 'math-plan');
-          const plan = recoveryPlan ?? parseCooperationPlan(this.input.state.problem, response);
-          const decisions = resolveResearchHandoffs(this.archive, action.handoffIds ?? [], plan.tasks, response.handoffDecisions, action.handoffActivations);
-          this.preserveHandoffBacklog(plan, decisions);
-          await this.acceptPlan(plan);
-          this.recordHandoffDecisions(decisions);
-        } else await this.acceptPlan(recoveryPlan);
-        accepted = true;
-      } catch (error) {
-        this.rejectPlan(error);
-        if (!this.archive.tasks.length && !(recovering && recoveryKind === 'request-failure')) {
-          try { await this.startInitialTasks(); }
-          catch (fallbackError) { this.input.emit('initial_plan_fallback_failed', {
-            reason: fallbackError instanceof Error ? fallbackError.message : 'math_initial_plan_failed' }); }
-        }
-      }
-      const savedPlan = recovering && recoveryKind === 'request-failure' && accepted && (previousPlanVersion !== this.planVersion() ||
-        previousDecisions !== canonicalMathJson(this.archive.researchDecisions ?? []));
-      if (accepted && resolution) {
-        resolution.recovery.status = 'planned'; resolution.recovery.readyTaskIds = resolution.taskIds;
-        this.input.emit('frontier_recovery_planned', { recoveryId: resolution.recovery.id,
-          taskIds: resolution.recovery.taskIds, readyTaskIds: resolution.taskIds });
-        this.changed();
-      }
-      if (sourceChanged) {
-        try {
-          this.archive.canonicalCommit = await this.mergeLeadSources(commit, action.seedCommit);
-          await this.recheckIntegrated(this.archive.canonicalCommit, true);
-          this.archive.canonicalCommit = this.seed(worker, this.archive.canonicalCommit);
-          const statements = this.prepareStatementContexts(); if (statements) await statements;
-          this.syncStatementReviews();
-        } catch (error) {
-          this.input.signal.throwIfAborted();
-          if (error instanceof Error && error.message === 'math_verifier_unavailable') throw error;
-          this.preserveLeadDraft(commit, action.seedCommit, error instanceof Error ? error.message : 'math_lead_integration_failed');
-          this.changed(); return { checkWhole: false, ...(savedPlan ? { savedPlan: true } : {}) };
-        }
-      }
-      if (accepted && !recovering && action.planningInputDigest) this.archive.lastLeadInputDigest =
-        this.leadEvidence.get(action) === this.planningEvidenceDigest() ? this.planningInputDigest() : action.planningInputDigest;
-      this.changed(); return { checkWhole: sourceChanged, ...(savedPlan ? { savedPlan: true } : {}) };
+      const pending = this.deliverLead(worker, action, commit, recovering, recoveryKind);
+      this.leadDeliveries.add(pending);
+      try { return await pending; } finally { this.leadDeliveries.delete(pending); this.wake(); }
     }
     const node = this.node(action.task.id);
     if (!this.current(action)) {
@@ -2517,6 +3000,7 @@ export class CooperativeResearch {
   }
   /** Assignments reserve concurrency immediately; charge only when a model turn actually starts. */
   started(worker: ResearchWorker, action: CooperativeAction): boolean {
+    if (this.failure) return false;
     if (this.refreshFeasibilityAssignments()) this.changed();
     if (!this.current(action)) return false;
     if (action.kind === 'task' && action.assignment.workerId !== worker.id) throw new Error('math_task_assignment_invalid');
@@ -2524,9 +3008,12 @@ export class CooperativeResearch {
     if (isStatementAction(action) && this.archive.statementReviews?.find(item => item.id === action.reviewId)?.workerId !== worker.id)
       throw new Error('math_statement_review_assignment_invalid');
     const task = action.kind === 'task' ? action.task : isStatementAction(action) ? this.node(action.taskId).task : undefined;
+    if (task && this.synchronizationBlocked(task) || (action.kind === 'review' || action.kind === 'assemble') &&
+        this.candidateSynchronizationBlocked()) return false;
     const route = task && this.archive.groups?.find(record => record.group.id === taskGroup(task));
-    if (route && (route.group.status !== 'active' || route.turns >= (route.group.maxTurns ?? Infinity))) return false;
-    if (route) route.turns++;
+    const fixedStatement = isStatementAction(action) && this.fixedStatementReviewTasks()?.get(action.taskId) === action.taskDigest;
+    if (route && !fixedStatement && (route.group.status !== 'active' || route.turns >= (route.group.maxTurns ?? Infinity))) return false;
+    if (route && !fixedStatement) route.turns++;
     if (action.kind === 'task') {
       const node = this.node(action.task.id);
       for (const record of this.archive.failedTaskInputs ?? []) if (this.pendingTaskRepair(node, record)) {

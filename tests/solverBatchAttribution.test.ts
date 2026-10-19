@@ -1,0 +1,225 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { bootstrapLocalExample } from '../src/math/localExample';
+import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } from '../src/math/verifier';
+import { checkTaskProofs, isAttributedTaskProof } from '../src/solver/cooperativeProof';
+import { attributeProofEvidence, proofReceiptsMatch } from '../src/solver/modules/evidence';
+import { commitSolverSources, readSolverProblem, type SolverProblem } from '../src/solver/problem';
+import { hasDeterministicLeanFailure } from '../src/solver/proofReuse';
+import { taskVersion, type CooperativeTask } from '../src/solver/tasks';
+
+const host = vi.hoisted(() => ({ verify: vi.fn() }));
+vi.mock('../src/math/verifier', async importOriginal => ({
+  ...await importOriginal<typeof import('../src/math/verifier')>(), checkManyFormalVerifications: host.verify,
+}));
+
+const request: MathematicsVerifierBatchRequest & { targetCommit: string } = {
+  projectRoot: '/unused', targetCommit: 'fixture-commit',
+  items: ['first', 'second'].map(name => ({ proofPath: 'Submission.lean', theoremName: `Tutorial.${name}`,
+    statementHash: `task-${name}`, leanStatementHash: `task-${name}`, expectedSourceDeclarationHash: `source-${name}`, claim: 'statement' })),
+};
+
+function verified(input: MathematicsVerifierBatchRequest): MathematicsVerifierBatchResult {
+  return { schema: 'deepscientist.mathematics.verification-batch/v1', status: 'kernel_verified',
+    targetCommit: input.targetCommit!, sessionId: 'batch-fixture', events: [], startedAt: 1, checkedAt: 2, durationMs: 1,
+    results: input.items.map((item, index) => ({
+      status: 'kernel_verified', targetCommit: input.targetCommit!, proofPath: item.proofPath, theoremName: item.theoremName,
+      statementHash: item.statementHash, leanStatementHash: item.leanStatementHash, claim: item.claim ?? 'statement',
+      sourceDeclarationHash: item.expectedSourceDeclarationHash, proofHash: 'fixture-proof',
+      statementBinding: 'caller-bound-to-committed-declaration', toolchain: { lean: 'fixture-lean' }, verifier: 'lean-kernel',
+      goalsRemaining: 0, sorryCount: 0, admitCount: 0, axioms: [], checkedAt: 2,
+      checkId: item.id?.trim() || `check-${index + 1}`, receiptId: `receipt-${input.targetCommit}-${index}`, sessionId: 'batch-fixture',
+      declarationReferences: { statement: [], proof: [] },
+    })) };
+}
+
+function rejected(input: MathematicsVerifierBatchRequest, indices = [0, 1]): MathematicsVerifierBatchResult {
+  const batch = verified(input);
+  batch.status = 'failed';
+  for (const index of indices) Object.assign(batch.results[index]!, { status: 'failed', goalsRemaining: 1,
+    error: 'Lean exited with status 1.', stdoutPreview: 'Submission.lean:4:1: error: unsolved goals' });
+  return batch;
+}
+
+const attribute = (batch: MathematicsVerifierBatchResult) => attributeProofEvidence(batch, request.targetCommit, request.items);
+
+describe('per-target batch receipt attribution', () => {
+  it('does not interpret a successfully checked declaration name as an interrupted invocation', () => {
+    const batch = verified(request);
+    batch.results[0]!.stdoutPreview = 'Checked theorem timeout; all goals closed.';
+    expect(attribute(batch).map(check => check.passed)).toEqual([true, true]);
+  });
+
+  it('retains a successful target and a deterministic failure without rewriting their receipts', () => {
+    const batch = rejected(request, [1]), before = JSON.stringify(batch);
+    const checks = attribute(batch);
+    expect(checks.map(check => ({ passed: check.passed, attributable: check.attributable, status: check.verification.status })))
+      .toEqual([{ passed: true, attributable: true, status: 'kernel_verified' }, { passed: false, attributable: true, status: 'failed' }]);
+    expect(proofReceiptsMatch(checks[0]!.verification, request.targetCommit, [request.items[0]!])).toBe(true);
+    expect(hasDeterministicLeanFailure(checks[1]!.verification)).toBe(true);
+    for (const [index, check] of checks.entries()) {
+      expect(check.verification.results).toEqual([batch.results[index]]);
+      expect(check.verification.results[0]).toBe(batch.results[index]);
+      expect(check.verification).toMatchObject({ sessionId: batch.sessionId, startedAt: 1, checkedAt: 2, durationMs: 1 });
+    }
+    expect(JSON.stringify(batch)).toBe(before);
+  });
+
+  it('attributes a shared-source compile failure to both targets', () => {
+    const checks = attribute(rejected(request));
+    expect(checks.map(check => check.attributable)).toEqual([true, true]);
+    expect(checks.map(check => check.passed)).toEqual([false, false]);
+    expect(checks.every(check => hasDeterministicLeanFailure(check.verification))).toBe(true);
+  });
+
+  it('keeps generic failures eligible for an individual fallback', () => {
+    const batch = rejected(request);
+    for (const result of batch.results) { delete result.stdoutPreview; delete result.error; }
+    expect(attribute(batch).map(check => check.attributable)).toEqual([false, false]);
+  });
+
+  it.each([
+    ['missing receipt', (batch: MathematicsVerifierBatchResult) => { batch.results.pop(); }],
+    ['extra receipt', (batch: MathematicsVerifierBatchResult) => { batch.results.push(batch.results[0]!); }],
+    ['reordered receipt', (batch: MathematicsVerifierBatchResult) => { batch.results.reverse(); }],
+    ['duplicate target', (batch: MathematicsVerifierBatchResult) => { batch.results[1] = batch.results[0]!; }],
+    ['duplicate receipt ID', (batch: MathematicsVerifierBatchResult) => { batch.results[1]!.receiptId = batch.results[0]!.receiptId; }],
+    ['duplicate check ID', (batch: MathematicsVerifierBatchResult) => { batch.results[1]!.checkId = batch.results[0]!.checkId; }],
+    ['missing receipt ID', (batch: MathematicsVerifierBatchResult) => { batch.results[0]!.receiptId = ''; }],
+    ['wrong batch commit', (batch: MathematicsVerifierBatchResult) => { batch.targetCommit = 'wrong-commit'; }],
+    ['wrong target commit', (batch: MathematicsVerifierBatchResult) => { batch.results[0]!.targetCommit = 'wrong-commit'; }],
+    ['wrong file', (batch: MathematicsVerifierBatchResult) => { batch.results[0]!.proofPath = 'Other.lean'; }],
+    ['wrong theorem', (batch: MathematicsVerifierBatchResult) => { batch.results[0]!.theoremName = 'Tutorial.other'; }],
+    ['wrong statement', (batch: MathematicsVerifierBatchResult) => { batch.results[0]!.statementHash = 'wrong-statement'; }],
+    ['wrong Lean statement', (batch: MathematicsVerifierBatchResult) => { batch.results[0]!.leanStatementHash = 'wrong-statement'; }],
+    ['wrong source header', (batch: MathematicsVerifierBatchResult) => { batch.results[0]!.sourceDeclarationHash = 'wrong-source'; }],
+    ['wrong claim', (batch: MathematicsVerifierBatchResult) => { batch.results[0]!.claim = 'negation'; }],
+    ['wrong session', (batch: MathematicsVerifierBatchResult) => { batch.results[0]!.sessionId = 'other-session'; }],
+    ['missing session', (batch: MathematicsVerifierBatchResult) => { batch.sessionId = ''; }],
+    ['inconsistent summary', (batch: MathematicsVerifierBatchResult) => { batch.status = 'failed'; }],
+  ] as const)('rejects %s before a slice can authorize acceptance', (_name, corrupt) => {
+    const batch = verified(request);
+    corrupt(batch);
+    expect(() => attribute(batch)).toThrow('math_task_check_identity_changed');
+  });
+
+  it('rejects duplicated requested targets rather than granting two acceptances', () => {
+    expect(() => attributeProofEvidence(verified(request), request.targetCommit, [request.items[0]!, request.items[0]!]))
+      .toThrow('math_task_check_identity_changed');
+  });
+
+  it.each(['blocked', 'unavailable'] as const)('retains %s semantics in a batch also containing a deterministic failure', status => {
+    const batch = rejected(request, [0]);
+    batch.results[1]!.status = status;
+    const before = JSON.stringify(batch), checks = attribute(batch);
+    expect(checks.map(check => ({ passed: check.passed, attributable: check.attributable, status: check.verification.status })))
+      .toEqual([0, 1].map(() => ({ passed: false, attributable: true, status })));
+    expect(checks.some(check => hasDeterministicLeanFailure(check.verification))).toBe(false);
+    expect(JSON.stringify(batch)).toBe(before);
+  });
+
+  it.each(['blocked', 'unavailable', 'cleanup', 'aborted', 'timeout'] as const)
+  ('does not promote a sibling success when the invocation contains %s', failure => {
+    const batch = verified(request), result = batch.results[1]!;
+    if (failure === 'blocked' || failure === 'unavailable') { result.status = failure; batch.status = failure; }
+    else if (failure === 'cleanup') result.cleanupError = 'Checkout cleanup failed.';
+    else {
+      batch.status = result.status = 'failed';
+      result.error = failure === 'aborted' ? 'Formal verification was aborted.' : 'Lean verification timed out.';
+    }
+    const before = JSON.stringify(batch), checks = attribute(batch);
+    expect(checks.map(check => check.passed)).toEqual([false, false]);
+    expect(checks.map(check => check.verification.status)).toEqual([failure === 'unavailable' ? 'unavailable' : 'blocked',
+      failure === 'unavailable' ? 'unavailable' : 'blocked']);
+    expect(checks.map(check => check.attributable)).toEqual([true, true]);
+    expect(checks.some(check => hasDeterministicLeanFailure(check.verification))).toBe(false);
+    expect(JSON.stringify(batch)).toBe(before);
+  });
+
+  it('preserves the existing single-target receipt boundary', () => {
+    const single = { ...request, items: request.items.slice(0, 1) }, batch = verified(single);
+    delete (batch.results[0] as Partial<typeof batch.results[number]>)!.sessionId;
+    delete (batch.results[0] as Partial<typeof batch.results[number]>)!.checkId;
+    expect(attributeProofEvidence(batch, single.targetCommit, single.items)[0]!.passed).toBe(true);
+  });
+});
+
+describe('task proof batch views', () => {
+  let directory: string, workspace: string, problem: SolverProblem, commit: string, tasks: CooperativeTask[];
+  const check = (signal = new AbortController().signal) => checkTaskProofs(problem, workspace, commit,
+    tasks.map(task => ({ task, retainedGoals: [], assignment: { taskId: task.id, taskDigest: taskVersion(task),
+      workerId: 'solver', seedCommit: problem.baseCommit } })), {}, signal);
+
+  beforeEach(() => {
+    host.verify.mockReset().mockImplementation(async input => verified(input));
+    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-batch-attribution-')));
+    workspace = path.join(directory, 'workspace');
+    const receipt = bootstrapLocalExample(workspace);
+    problem = readSolverProblem(workspace, receipt.activeProblemPath);
+    const file = path.join(receipt.projectRoot, 'Submission.lean');
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('theorem add_zero',
+      'lemma first : True := by trivial\nlemma second : True := by trivial\n\ntheorem add_zero'));
+    commit = commitSolverSources(problem, workspace);
+    tasks = ['first', 'second'].map(name => ({ id: name, kind: 'lemma', objective: `Prove ${name}.`,
+      proofPath: 'Submission.lean', theoremName: `Tutorial.${name}`, type: 'True', dependsOn: [], revision: 0 }));
+  });
+  afterEach(() => { vi.restoreAllMocks(); fs.rmSync(directory, { recursive: true, force: true }); });
+
+  it('uses one invocation, captures references only for success, and preserves receipt objects', async () => {
+    let batch!: MathematicsVerifierBatchResult;
+    host.verify.mockImplementation(async input => batch = rejected(input, [1]));
+    const proofs = await check();
+    expect(host.verify).toHaveBeenCalledOnce();
+    expect(proofs.map(proof => proof.passed)).toEqual([true, false]);
+    expect(proofs.map(isAttributedTaskProof)).toEqual([true, true]);
+    expect(proofs[0]!.references).toMatchObject({ root: { name: 'Tutorial.first', file: 'Submission.lean' } });
+    expect(proofs[1]!.references).toBeUndefined();
+    expect(proofs.map(proof => proof.verification.status)).toEqual(['kernel_verified', 'failed']);
+    for (const [index, proof] of proofs.entries()) expect(proof.verification.results[0]).toBe(batch.results[index]);
+    expect(batch.status).toBe('failed');
+  });
+
+  it('keeps deterministic shared-source failures reusable without individual retries', async () => {
+    host.verify.mockImplementation(async input => rejected(input));
+    const proofs = await check();
+    expect(proofs.map(proof => proof.passed)).toEqual([false, false]);
+    expect(proofs.map(isAttributedTaskProof)).toEqual([true, true]);
+    expect(host.verify).toHaveBeenCalledOnce();
+  });
+
+  it('does not mark generic batch failures as attributable for retry suppression', async () => {
+    host.verify.mockImplementation(async input => {
+      const batch = rejected(input);
+      for (const result of batch.results) delete result.stdoutPreview;
+      return batch;
+    });
+    expect((await check()).map(isAttributedTaskProof)).toEqual([false, false]);
+  });
+
+  it('does not trust copied, restored or mutated attribution markers', async () => {
+    const [proof] = await check();
+    expect(isAttributedTaskProof(proof!)).toBe(true);
+    expect(isAttributedTaskProof({ ...proof! })).toBe(false);
+    expect(isAttributedTaskProof(JSON.parse(JSON.stringify(proof)))).toBe(false);
+    proof!.verification.results[0]!.receiptId = 'mutated';
+    expect(isAttributedTaskProof(proof!)).toBe(false);
+  });
+
+  it('does not return acceptance after its signal is aborted during verification', async () => {
+    const controller = new AbortController();
+    host.verify.mockImplementation(async input => { controller.abort(); return verified(input); });
+    await expect(check(controller.signal)).rejects.toMatchObject({ name: 'AbortError' });
+    expect(host.verify).toHaveBeenCalledOnce();
+  });
+
+  it('rejects malformed batch identities before task proof objects are published', async () => {
+    host.verify.mockImplementation(async input => {
+      const batch = verified(input);
+      batch.results[1]!.sourceDeclarationHash = 'wrong-source';
+      return batch;
+    });
+    await expect(check()).rejects.toThrow('math_task_check_identity_changed');
+  });
+});

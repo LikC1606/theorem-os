@@ -333,17 +333,6 @@ const fingerprintMetadataTree = (candidate: string, maxEntries = 50_000): string
   return digest.digest('hex');
 };
 
-type ExecutableFingerprintCacheEntry = Readonly<{
-  metadata: string;
-  fingerprint: string;
-}>;
-
-// Lean/Lake executables can be large. Cache their content fingerprint while
-// retaining inode and ctime in the identity so an atomic replacement (or an
-// in-place write) cannot reuse a stale verification cache key.
-const executableFingerprintCache = new Map<string, ExecutableFingerprintCacheEntry>();
-const EXECUTABLE_FINGERPRINT_CACHE_MAX_ENTRIES = 64;
-
 const readPackageGitIdentity = (packageRoot: string): string | undefined => {
   try {
     let gitDirectory = path.join(packageRoot, '.git');
@@ -367,36 +356,23 @@ const readPackageGitIdentity = (packageRoot: string): string | undefined => {
   }
 };
 
-// Executable fingerprints are reused across retries when the file stat is
-// unchanged. Directory trees are deliberately handled by their own Git-aware
-// fingerprint below; a directory's root mtime is not a complete invalidation
-// signal for nested files.
-const memoizedFingerprintPath = (candidate: string): string => {
+// Executable rewrites can preserve every stat field within a filesystem clock
+// tick. Hash all executable bytes in bounded buffers before reusing receipts.
+const fingerprintVerifierDependency = (candidate: string): string => {
   try {
     const stat = fs.statSync(candidate);
-    // Executables are small and security-sensitive.  Always hash regular
-    // files so a replacement that preserves size/mtime cannot reuse a stale
-    // verifier receipt.  Directory dependencies use their dedicated marker.
-    if (!stat.isDirectory()) {
-      const metadata = [stat.dev, stat.ino, stat.size, stat.mtimeMs, stat.ctimeMs, stat.mode].join(':');
-      const cached = executableFingerprintCache.get(candidate);
-      if (cached?.metadata === metadata) {
-        executableFingerprintCache.delete(candidate);
-        executableFingerprintCache.set(candidate, cached);
-        return cached.fingerprint;
-      }
-      const fingerprint = fingerprintPath(candidate, { files: 4_096, bytes: 64 * 1024 * 1024 });
-      const entry = Object.freeze({ metadata, fingerprint });
-      executableFingerprintCache.delete(candidate);
-      executableFingerprintCache.set(candidate, entry);
-      while (executableFingerprintCache.size > EXECUTABLE_FINGERPRINT_CACHE_MAX_ENTRIES) {
-        const oldest = executableFingerprintCache.keys().next().value;
-        if (oldest === undefined) break;
-        executableFingerprintCache.delete(oldest);
-      }
-      return fingerprint;
+    if (stat.isDirectory()) return fingerprintMetadataTree(candidate, 8_192);
+    if (!stat.isFile()) return fingerprintPath(candidate);
+    const descriptor = fs.openSync(candidate, 'r');
+    try {
+      const digest = crypto.createHash('sha256'), buffer = Buffer.allocUnsafe(1024 * 1024);
+      let bytes: number;
+      while ((bytes = fs.readSync(descriptor, buffer, 0, buffer.length, null)) > 0)
+        digest.update(buffer.subarray(0, bytes));
+      return digest.digest('hex');
+    } finally {
+      fs.closeSync(descriptor);
     }
-    return fingerprintMetadataTree(candidate, 8_192);
   } catch {
     return fingerprintPath(candidate);
   }
@@ -1002,6 +978,29 @@ const resolveTrustedToolchainBin = (
     return '';
   }
 };
+
+/** Higher-level projection reuse must bind the actual tools selected by the sandbox. */
+export function formalVerificationToolIdentity(projectRoot: string, env: NodeJS.ProcessEnv): string | undefined {
+  try {
+    if ((env.PATH ?? process.env.PATH ?? '').split(path.delimiter).some(directory => !path.isAbsolute(directory))) return undefined;
+    const fingerprint = (file: string) => {
+      const canonical = fs.realpathSync(file), stat = fs.statSync(canonical);
+      if (!stat.isFile() || (stat.mode & 0o111) === 0) throw new Error('unavailable-tool');
+      return [canonical, fingerprintVerifierDependency(canonical)];
+    };
+    const commands = ['lean', 'lake'].map(command => {
+      const executable = resolveCommandForFingerprint(command, env);
+      return [command, executable ? fingerprint(executable) : null];
+    });
+    const elanHome = resolveTrustedElanHome(env);
+    const bin = resolveTrustedToolchainBin(projectRoot, '.', env, elanHome);
+    if (elanHome && !bin || !bin && commands.some(([, executable]) => !executable)) return undefined;
+    const selected = bin ? ['lean', 'lake'].map(command => fingerprint(path.join(bin, command))) : [];
+    return crypto.createHash('sha256').update(JSON.stringify({ commands, selected })).digest('hex');
+  } catch {
+    return undefined;
+  }
+}
 
 // Address-space cap (KiB) for namespace sandboxes. `ulimit -v` counts mapped
 // files, and `import Mathlib` maps ~5.1 GiB of .olean/.olean.private data, so
@@ -3220,7 +3219,7 @@ async function buildFormalVerificationCacheKey(
   const verifierExecutable = [
     verifierCommand,
     verifierExecutablePath || null,
-    verifierExecutablePath ? memoizedFingerprintPath(verifierExecutablePath) : null,
+    verifierExecutablePath ? fingerprintVerifierDependency(verifierExecutablePath) : null,
   ];
   // Only values that can change Lean/Lake resolution belong in this identity.
   // Credentials, proxies, temporary directories, and runtime metadata

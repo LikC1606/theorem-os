@@ -7,6 +7,7 @@ import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } 
 import { readSolverRunState, writeSolverRunState, type SolverRunState } from '../src/solver/archive';
 import { CooperativeResearch, parseCooperationPlan } from '../src/solver/cooperation';
 import { directSolverModules } from '../src/solver/modules';
+import { taskDependenciesReady } from '../src/solver/modules/search';
 import type { ResearchWorker } from '../src/solver/modules/organization';
 import { commitSolverSources, git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
 import { assignmentDeliveryFile, type CooperativeAction, type CooperativeTask } from '../src/solver/tasks';
@@ -151,7 +152,7 @@ describe('assignment-bound worker delivery identities', () => {
     const first = await start('a');
     append(first, log, { id: 'ready', kind: 'proof', commit: saveProof(first) });
     await cooperative.pulse(peer.id); cooperative.deactivate(peer);
-    await applyEdit(task => task.id === 'a' ? { ...task, revision: 1 } : task);
+    await applyEdit(task => task.id === 'a' ? { ...task, revision: 1, premises: ['Revised mathematical premise'] } : task);
     const revised = await start('a');
     expect(revised.assignment.taskDigest).not.toBe(first.assignment.taskDigest);
     append(revised, log, { id: 'ready', kind: 'proof', commit: saveProof(revised) });
@@ -160,6 +161,90 @@ describe('assignment-bound worker delivery identities', () => {
     expect(state.cooperation!.deliveries?.filter(record => record.submissionId === 'ready').map(record => record.status))
       .toEqual(['superseded', 'verified']);
     expect(host.verify).toHaveBeenCalledTimes(4);
+  });
+
+  it.each(['passed', 'failed', 'unavailable'] as const)('allows independent work and isolates consumers while descriptive source revalidation is %s', async outcome => {
+    const first = await start('a');
+    append(first, 'scoped', { id: 'ready', kind: 'proof', commit: saveProof(first) });
+    await cooperative.pulse(peer.id); cooperative.deactivate(peer);
+    expect(state.cooperation!.tasks.find(node => node.task.id === 'a')?.status).toBe('integrated');
+    const unrelated = await cooperative.next(peer, budget);
+    if (unrelated?.kind !== 'task') throw new Error('missing_unrelated_assignment');
+    expect(unrelated.task.id).toBe('b');
+    expect(cooperative.current(unrelated)).toBe(true);
+    let entered!: () => void, release!: () => void;
+    const checking = new Promise<void>(resolve => { entered = resolve; });
+    const blocked = new Promise<void>(resolve => { release = resolve; });
+    host.verify.mockImplementationOnce(async request => {
+      expect(request.items.map((item: { theoremName: string }) => item.theoremName)).toEqual(['Tutorial.a']);
+      entered(); await blocked;
+      const result = verified(request);
+      const status = outcome === 'unavailable' ? 'unavailable' : 'failed';
+      return outcome === 'passed' ? result : { ...result, status, results: result.results.map(item => ({
+        ...item, status, stdoutPreview: 'Submission.lean:1:1: error: revalidation rejected the proof',
+      })) };
+    });
+    const consumer: CooperativeTask = { id: 'consumer', kind: 'lemma', objective: 'Use the revalidated helper a.',
+      proofPath: 'Submission.lean', theoremName: 'Tutorial.consumer', type: 'True', dependsOn: ['a'],
+      ownerId: other.id, revision: 0 };
+    fs.appendFileSync(path.join(directory, 'edits.jsonl'), JSON.stringify({ id: 'describe-and-consume',
+      baseVersion: state.cooperation!.planVersion,
+      tasks: [...state.cooperation!.tasks.map(node => node.task.id === 'a'
+        ? { ...node.task, objective: 'Clarify the existing helper a.', revision: 1 } : node.task), consumer],
+    }) + '\n');
+    const pendingEdit = cooperative.pulse(lead.id);
+    const controller = instances.find(instance => instance.cooperative === cooperative)!.controller;
+    let synchronization: Promise<void> | undefined;
+    let pendingAssignment: Promise<CooperativeAction | undefined> | undefined;
+    let assigned = false;
+    try {
+      await checking;
+      await pendingEdit;
+      synchronization = (cooperative as any).schedulePlanSynchronization() as Promise<void>;
+      void synchronization.catch(() => {});
+      expect(state.cooperation!.tasks.find(node => node.task.id === 'a')?.pendingValidation).toBeDefined();
+      expect(taskDependenciesReady(consumer, state.cooperation!.tasks)).toBe(false);
+      expect(cooperative.current(unrelated)).toBe(true);
+      expect(cooperative.started(peer, unrelated)).toBe(true);
+      expect(state.cooperation!.tasks.find(node => node.task.id === 'b')?.attempts).toBe(1);
+      pendingAssignment = cooperative.next(other, budget).then(action => { assigned = true; return action; });
+      void pendingAssignment.catch(() => {});
+      await Promise.resolve(); await Promise.resolve();
+      expect(assigned).toBe(false);
+      expect(events.some(item => item.event === 'task_assigned' && item.details?.taskId === 'consumer')).toBe(false);
+      release();
+      if (outcome === 'unavailable') await expect(synchronization).rejects.toThrow('math_verifier_unavailable');
+      else {
+        await synchronization;
+        expect(state.cooperation!.tasks.find(node => node.task.id === 'a')?.status)
+          .toBe(outcome === 'passed' ? 'integrated' : 'blocked');
+        expect(state.cooperation!.tasks.find(node => node.task.id === 'a')?.pendingValidation).toBeUndefined();
+      }
+      expect(state.cooperation!.tasks.find(node => node.task.id === 'b')).toMatchObject({ status: 'running', attempts: 1 });
+      if (outcome === 'passed') {
+        expect(taskDependenciesReady(consumer, state.cooperation!.tasks)).toBe(true);
+        const action = await pendingAssignment;
+        expect(action?.kind).toBe('task');
+        if (action?.kind !== 'task') throw new Error('missing_revalidated_consumer');
+        expect(action.task.id).toBe('consumer');
+        expect(cooperative.started(other, action)).toBe(true);
+      } else {
+        await Promise.resolve(); await Promise.resolve();
+        expect(taskDependenciesReady(consumer, state.cooperation!.tasks)).toBe(false);
+        expect(assigned).toBe(false);
+        if (outcome === 'unavailable') expect(cooperative.started(peer, unrelated)).toBe(false);
+        expect(events.some(item => item.event === 'task_assigned' && item.details?.taskId === 'consumer')).toBe(false);
+        expect(state.cooperation!.tasks.find(node => node.task.id === 'consumer')).toMatchObject({ status: 'pending', attempts: 0 });
+        if (outcome === 'unavailable') await expect(pendingAssignment).rejects.toThrow('math_verifier_unavailable');
+        else {
+          controller.abort();
+          await expect(pendingAssignment).rejects.toThrow();
+        }
+      }
+    } finally {
+      release(); await pendingEdit.catch(() => {}); await synchronization?.catch(() => {});
+      controller.abort(); await pendingAssignment?.catch(() => {});
+    }
   });
 
   it.each([

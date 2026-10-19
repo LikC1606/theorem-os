@@ -57,11 +57,17 @@ describe('proof continuation scheduling', () => {
     const core = node('core'), goal = node('goal', 'goal', [...running.map(record => record.task.id), 'core']);
     const tasks = [tried, core, ...running, fresh, goal];
     const ready = continuationResearchTasks(tasks, [main]);
-    expect(ready.map(record => record.task.id)).toEqual(['fresh', 'core', 'tried']);
+    expect(ready.map(record => record.task.id)).toEqual(['core', 'tried', 'fresh']);
     const engineer: ResearchWorker = { id: 'engineer', role: 'engineer', worktree: '/engineer', ownedFiles: [] };
     const researcher: ResearchWorker = { ...engineer, id: 'researcher', role: 'researcher' };
-    expect(assignSharedResearchTask(ready, engineer, [engineer, researcher], [main])).toBe(core);
-    expect(assignSharedResearchTask(ready, researcher, [engineer, researcher], [main])).toBe(fresh);
+    const busy = running.map((record, index) => {
+      const worker = { ...researcher, id: `busy-${index}` };
+      record.assignment = { taskId: record.task.id, taskDigest: taskVersion(record.task), workerId: worker.id, seedCommit: 'seed' };
+      return worker;
+    });
+    const live = [engineer, researcher, ...busy];
+    expect(assignSharedResearchTask(ready, engineer, live, [main], tasks)).toBe(tried);
+    expect(assignSharedResearchTask(ready, researcher, live, [main], tasks)).toBe(fresh);
     fresh.status = 'running';
     expect(continuationResearchTasks(tasks, [main])).toEqual([]);
     expect(continuationResearchTasks(tasks).map(record => record.task.id)).toEqual(['core', 'tried']);
@@ -77,8 +83,13 @@ describe('proof continuation scheduling', () => {
     const consumer = node('ready', kind === 'original' ? 'goal' : 'lemma', ['checked']);
     const tasks = [node('explore', 'research'), ...running, checked, consumer,
       node('unfinished-original', 'goal', [...running.map(record => record.task.id), 'ready'])];
+    const workers = Array.from({ length: 3 }, (_, index) => ({ id: `worker-${index}`, role: 'researcher' as const,
+      worktree: `/worker-${index}`, ownedFiles: [] }));
+    running.forEach((record, index) => record.assignment = { taskId: record.task.id, taskDigest: taskVersion(record.task),
+      workerId: workers[index]!.id, seedCommit: 'fixture' });
     const before = structuredClone(tasks);
     expect(continuationResearchTasks(tasks).map(record => record.task.id)).toEqual(['ready', 'explore']);
+    expect(assignSharedResearchTask(continuationResearchTasks(tasks), workers[2]!, workers, undefined, tasks)).toBe(consumer);
     expect(tasks).toEqual(before);
   });
 

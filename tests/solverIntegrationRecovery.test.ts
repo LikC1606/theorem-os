@@ -22,7 +22,8 @@ vi.mock('../src/runtime/codexSession', () => ({ createCodexMathSession: host.cre
 function verified(request: MathematicsVerifierBatchRequest): MathematicsVerifierBatchResult {
   return { schema: 'deepscientist.mathematics.verification-batch/v1', status: 'kernel_verified',
     targetCommit: request.targetCommit!, sessionId: 'integration-recovery-fixture', events: [], startedAt: 1, checkedAt: 2, durationMs: 1,
-    results: request.items.map(item => ({ ...item, sourceDeclarationHash: item.expectedSourceDeclarationHash,
+    results: request.items.map((item, index) => ({ ...item, sourceDeclarationHash: item.expectedSourceDeclarationHash,
+      checkId: item.id?.trim() || `check-${index + 1}`, sessionId: 'integration-recovery-fixture', checkedAt: 2,
       receiptId: `fixture-${request.targetCommit}-${item.theoremName}`, targetCommit: request.targetCommit,
       status: 'kernel_verified', claim: 'statement' })) as MathematicsVerifierBatchResult['results'] };
 }

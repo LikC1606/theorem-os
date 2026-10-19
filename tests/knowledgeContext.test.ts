@@ -142,6 +142,36 @@ describe('automatic knowledge context', () => {
     expect(result.candidates[0]).not.toHaveProperty('declaration');
   });
 
+  it('reserves automatic recommendation slots for distinct exact interfaces rather than proof-body variants', () => {
+    const variants = Array.from({ length: 35 }, (_, index) => entry(saved.name, exactType, {
+      id: index.toString(16).padStart(64, '0'), declaration: `theorem character_root_identity := by exact archivedProofMarker_${index}`,
+    }));
+    const alternate = entry('Archived.character_root_alternate'), transport = entry('Archived.character_root_transport');
+    const knowledge = snapshot(...variants, alternate, transport), before = structuredClone(knowledge);
+    const result = packet(sections(node('core'), knowledge)[0]!.text);
+    expect(result).toMatchObject({ candidateGrouping: 'exact-name-type-typeKind-display-only',
+      variantCountEvidence: 'distinct-recorded-declarations-not-interchangeable', totalMatches: 37, totalInterfaces: 3,
+      evidence: 'recorded-not-replayed', requiresFreshCheck: true, candidateLimit: 3 });
+    expect(new Set(result.candidates.map((candidate: { name: string }) => candidate.name)))
+      .toEqual(new Set([saved.name, alternate.name, transport.name]));
+    expect(result.candidates.find((candidate: { name: string }) => candidate.name === saved.name))
+      .toMatchObject({ declarationVariantCount: 35, versionCount: 1 });
+    expect(result.candidates.every((candidate: { id: string }) => knowledge.base.entries.some(item => item.id === candidate.id))).toBe(true);
+    expect(knowledge).toEqual(before);
+    expect(JSON.stringify(result)).not.toContain('archivedProofMarker');
+  });
+
+  it('chooses the current environment across displayed proof variants without changing their identity', () => {
+    const old = entry(saved.name, exactType, { id: '1'.repeat(64), environmentDigest: mathDigest('old-environment') });
+    const current = entry(saved.name, exactType, { id: '2'.repeat(64), environmentDigest,
+      declaration: 'theorem character_root_identity := by exact currentProofMarker' });
+    current.provenance = [{ ...current.provenance[0]!, environmentDigest, problemReceiptDigest: problem.receiptDigest }];
+    const result = packet(sections(node('core'), snapshot(old, current))[0]!.text);
+    expect(result).toMatchObject({ totalMatches: 2, totalInterfaces: 1, candidates: [{ id: current.id,
+      declarationVariantCount: 2, versionCount: 1, environmentMatch: 'match', problemReceiptMatch: 'match' }] });
+    expect(result.candidates).toHaveLength(1);
+  });
+
   it('does not include archived proof bodies, descriptions, receipts or unbounded dependency data', () => {
     const candidate = entry(saved.name, exactType, { description: 'privateDescriptionMarker', premises: ['privatePremiseMarker'],
       dependencies: { statement: [{ file: 'Archived/Private.lean', name: 'privateDependencyMarker' }],
@@ -268,5 +298,15 @@ describe('knowledge context dispatch integration', () => {
       expect(result.instructions).not.toContain('knowledge search');
       expect(result.scope).toBe('fixed-statement');
     }
+  });
+
+  it('prefers bounded metadata and source continuations while requiring complete types and premises', () => {
+    const result = build(node('core'));
+    expect(result.instructions).toContain("--id 'THEOREM_ID' --metadata --max-bytes 16000");
+    expect(result.instructions).toContain("--field 'FIELD_NAME' --offset OFFSET");
+    expect(result.instructions).toContain('Read the complete type and premises before applying a candidate.');
+    expect(result.instructions).toContain('parse JSON fields only after all pages are joined');
+    expect(result.instructions).toContain("--name 'QUALIFIED_DECLARATION' --max-bytes 16000");
+    expect(result.instructions).not.toContain('add --source');
   });
 });
