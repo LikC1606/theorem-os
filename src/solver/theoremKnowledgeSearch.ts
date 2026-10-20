@@ -170,29 +170,37 @@ export function searchTheoremKnowledgeBatch(base: KnowledgeSearchBase, queries: 
   return searchTheoremKnowledgeRequests(base, queries.map(query => ({ query, goal: options.goal })), options);
 }
 
-/** Share corpus preparation while keeping each consumer's goal and ranking independent. */
-export function searchTheoremKnowledgeRequests(base: KnowledgeSearchBase, requests: readonly KnowledgeSearchRequest[],
-  options: Omit<KnowledgeSearchOptions, 'goal'> = {}) {
+/** Validate 1..8 requests before preparation; repeated requests share one result but receive independent copies. */
+export function knowledgeRequestBatch<T>(requests: readonly { query: string; goal?: string }[], validate: (query: string, goal?: string) => void,
+  prepare: () => (query: string, goal?: string) => T): T[] {
   if (!Array.isArray(requests) || requests.length < 1 || requests.length > 8) throw new Error('math_knowledge_invalid_query');
   for (const request of requests) {
     if (!request || typeof request !== 'object') throw new Error('math_knowledge_invalid_query');
-    validateQuery(request.query, { ...options, goal: request.goal });
+    validate(request.query, request.goal);
   }
-  const relevant = new Set<string>(), goalSurfaces = new Map<string, string | undefined>();
-  for (const request of requests) {
-    const { query } = request, goal = request.goal ?? '';
-    for (const term of terms(goal, true)) relevant.add(term);
-    for (const term of terms(query.trim() ? query : goalTarget(goal), !query.trim())) relevant.add(term);
-    if (!goalSurfaces.has(goal)) goalSurfaces.set(goal, goal ? goalShape(goal) : undefined);
-  }
-  const prepared = prepareSearch(base, options, relevant, [...goalSurfaces.values()].some(Boolean));
-  const results = new Map<string, ReturnType<typeof searchPrepared>>();
+  const search = prepare(), results = new Map<string, T>();
   return requests.map(({ query, goal }) => {
     const key = canonicalMathJson([query, goal ?? '']), cached = results.get(key);
     if (cached) return structuredClone(cached);
-    const result = searchPrepared(prepared, base.evidence, query, { ...options, goal }, goalSurfaces.get(goal ?? ''));
+    const result = search(query, goal);
     results.set(key, result);
     return result;
+  });
+}
+
+/** Share corpus preparation while keeping each consumer's goal and ranking independent. */
+export function searchTheoremKnowledgeRequests(base: KnowledgeSearchBase, requests: readonly KnowledgeSearchRequest[],
+  options: Omit<KnowledgeSearchOptions, 'goal'> = {}) {
+  return knowledgeRequestBatch(requests, (query, goal) => validateQuery(query, { ...options, goal }), () => {
+    const relevant = new Set<string>(), goalSurfaces = new Map<string, string | undefined>();
+    for (const request of requests) {
+      const { query } = request, goal = request.goal ?? '';
+      for (const term of terms(goal, true)) relevant.add(term);
+      for (const term of terms(query.trim() ? query : goalTarget(goal), !query.trim())) relevant.add(term);
+      if (!goalSurfaces.has(goal)) goalSurfaces.set(goal, goal ? goalShape(goal) : undefined);
+    }
+    const prepared = prepareSearch(base, options, relevant, [...goalSurfaces.values()].some(Boolean));
+    return (query, goal) => searchPrepared(prepared, base.evidence, query, { ...options, goal }, goalSurfaces.get(goal ?? ''));
   });
 }
 

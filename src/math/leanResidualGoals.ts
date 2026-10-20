@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
-import { assertMathConstructionSources, mathLocalModuleBuildOrder } from './mathConstructionSources';
+import { assertMathConstructionSources, LAKE_CONFIGURATION_FILES as CONFIGURATION_FILES, mathLocalModuleBuildOrder } from './mathConstructionSources';
 import { parseLeanDiagnosticOutput } from './leanDiagnosticMessages';
 import { inspectLeanDeclarationRegions, inspectScopedLeanDeclarations } from './leanSource';
 import { resolveMathProofEnvironment } from './mathProofEnvironment';
@@ -11,7 +11,6 @@ import { assertMathCanonicalPath } from './paths';
 import { formalVerificationToolIdentity } from './verifier';
 import type { LeanDiagnosticMessage } from './leanTypes';
 
-const CONFIGURATION_FILES = ['lean-toolchain', 'lakefile.toml', 'lakefile.lean', 'lake-manifest.json', '.lake/package-overrides.json'];
 const digest = z.string().regex(/^[a-f0-9]{64}$/u);
 const diagnosticExit = z.union([z.literal(0), z.literal(1)]);
 const sourceFile = z.object({ file: z.string(), digest });

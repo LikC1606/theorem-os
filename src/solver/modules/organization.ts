@@ -1,5 +1,5 @@
 import { originalGoalTaskFocus, plannedTaskDependencyIds, taskDependenciesReady, type ActionPlan, type ResearchBudget } from './search';
-import { isFeasibilityReview, taskGroup, taskVersion, type TaskRecord, type RouteRecord } from '../tasks';
+import { checkedUnconditionally, isFeasibilityReview, taskGroup, taskVersion, type TaskRecord, type RouteRecord } from '../tasks';
 import { hasRunningDuplicateQuestion } from '../taskQuestions';
 import { createProofRoutePriority } from '../routePriority';
 import { freshTaskConnection } from '../taskConnections';
@@ -49,11 +49,7 @@ export function assignSharedResearchTask(ready: readonly TaskRecord[], worker: R
   const lastSlot = proofWorkers.size - occupied.size === 1;
   const lastGroupSlot = group && (group.group.maxConcurrent ?? 3) - groupBusy === 1;
   if (!lastSlot && !lastGroupSlot) return first;
-  const checkedInput = (id: string) => {
-    const input = tasks.find(node => node.task.id === id);
-    return input?.status === 'integrated' && input.integratedCheck?.passed &&
-      input.integratedCheck.taskDigest === taskVersion(input.task) && !input.integratedCheck.conditions?.length;
-  };
+  const checkedInput = (id: string) => checkedUnconditionally(tasks.find(node => node.task.id === id));
   if (first.task.type && taskDependenciesReady(first.task, tasks) &&
       plannedTaskDependencyIds(first, tasks).some(checkedInput)) return first;
   const focus = originalGoalTaskFocus(tasks, groups), preferred = focus.preferred.support;

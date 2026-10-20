@@ -74,6 +74,16 @@ export const hasTaskAcceptance = (proof: TaskProof) => freshTaskAcceptances.get(
 export const freshlyAccepted = (node: TaskRecord | undefined, taskDigest: string): boolean => node?.status === 'integrated' &&
   !!node.integratedCheck?.passed && node.integratedCheck.taskDigest === taskDigest && !node.integratedCheck.conditions?.length &&
   hasTaskAcceptance(node.integratedCheck);
+/** Integrated with a passing, unconditional check of the current task version; no acceptance receipt is required. */
+export const checkedUnconditionally = (node: TaskRecord | undefined): boolean => node?.status === 'integrated' &&
+  !!node.integratedCheck?.passed && node.integratedCheck.taskDigest === taskVersion(node.task) && !node.integratedCheck.conditions?.length;
+export const openRoutes = (node: TaskRecord) => node.alternativeRoutes?.filter(route => !node.parkedRoutes?.[route.id]?.length) ?? [];
+/** Every OR branch is parked; false for a task without branches. */
+export const allRoutesParked = (node: TaskRecord): boolean =>
+  Boolean(node.alternativeRoutes?.length && node.alternativeRoutes.every(route => node.parkedRoutes?.[route.id]?.length));
+/** The route group is active and below its turn cap. */
+export const groupOpen = (record: RouteRecord | undefined): record is RouteRecord =>
+  Boolean(record && record.group.status === 'active' && record.turns < (record.group.maxTurns ?? Infinity));
 
 /** Compute invalidation before changing assignments or emitting any notifications. */
 export function invalidatedTaskIds(previous: readonly TaskRecord[], tasks: readonly CooperativeTask[],

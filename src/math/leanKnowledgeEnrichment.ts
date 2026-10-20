@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { assertMathConstructionSources, mathLocalModuleBuildOrder } from './mathConstructionSources';
+import { assertMathConstructionSources, LAKE_CONFIGURATION_FILES as configurationFiles, mathLocalModuleBuildOrder } from './mathConstructionSources';
 import { bindLeanPackages, prepareLeanDiagnosticOverrides, runLeanDiagnostics } from './leanDiagnostics';
 import { leanDiagnosticEnvironmentIdentity } from './leanResidualGoals';
 import { leanReferenceCommands, parseLeanReferenceReport, parseLeanReferences, type LeanDeclarationReferences } from './leanReferences';
@@ -39,7 +39,6 @@ export type LeanKnowledgeEnrichment = {
   identity: LeanKnowledgeEnrichmentIdentity; roots: LeanKnowledgeRootEnrichment[];
 };
 
-const configurationFiles = ['lean-toolchain', 'lakefile.toml', 'lakefile.lean', 'lake-manifest.json', '.lake/package-overrides.json'];
 const maxFileBytes = 16 * 1024 * 1024, maxTotalBytes = 256 * 1024 * 1024;
 export type LeanKnowledgeCollectorVersion = 'complete-proof-knowledge-collector-v1' | 'complete-proof-knowledge-collector-v2' |
   'complete-proof-knowledge-collector-v3';

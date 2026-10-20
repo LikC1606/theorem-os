@@ -80,15 +80,16 @@ function frozenHeader(problem: SolverProblem, node: Pick<TaskRecord, 'task'>): s
   return exact[0].header;
 }
 
+/** Kernel-verified at one target commit, with at least one receipt and every receipt at that commit. */
+const receiptsComplete = ({ verification }: NonNullable<TaskRecord['proof']>) => verification.status === 'kernel_verified' &&
+  present(verification.targetCommit) && verification.results.length > 0 && verification.results.every(result =>
+    result.status === 'kernel_verified' && result.targetCommit === verification.targetCommit && present(result.receiptId));
+
 function evidence(node: TaskRecord, environmentDigest?: string) {
   const proof = node.integratedCheck ?? node.proof;
   if (!proof) return undefined;
   if (proof.taskDigest !== taskVersion(node.task) || (environmentDigest && proof.references &&
-      proof.references.environmentDigest !== environmentDigest) ||
-      (proof.passed && (proof.verification.status !== 'kernel_verified' || !present(proof.verification.targetCommit) ||
-        !proof.verification.results.length ||
-        proof.verification.results.some(result => result.targetCommit !== proof.verification.targetCommit ||
-          result.status !== 'kernel_verified' || !present(result.receiptId)))))
+      proof.references.environmentDigest !== environmentDigest) || (proof.passed && !receiptsComplete(proof)))
     return stale(`evidence:${node.task.id}`);
   return { evidence: 'recorded-not-replayed', passed: proof.passed, commit: proof.commit,
     sourceDigest: proof.sourceDigest, taskDigest: proof.taskDigest, conditions: proof.conditions ?? [],
@@ -105,22 +106,20 @@ type EvidenceReferenceEntry = NonNullable<ReturnType<typeof evidence>>['referenc
   NonNullable<ReturnType<typeof evidence>>['references']['proof'][number] |
   NonNullable<ReturnType<typeof evidence>>['references']['tasks'][number];
 
+/** First-seen index of each distinct key. */
+function interner<T>(key: (value: T) => string) {
+  const values: T[] = [], indices = new Map<string, number>();
+  return { values, index: (value: T) => {
+    const id = key(value), previous = indices.get(id);
+    if (previous !== undefined) return previous;
+    indices.set(id, values.length); values.push(value); return values.length - 1;
+  } };
+}
+
 /** Intern exact metadata only; each proof retains its own source and verifier identities. */
 function evidenceReferenceDictionary() {
-  const entries: EvidenceReferenceEntry[] = [], indices = new Map<string, number>();
-  const digests: string[] = [], digestIndices = new Map<string, number>();
-  const index = (entry: EvidenceReferenceEntry) => {
-    const key = canonicalMathJson(entry), previous = indices.get(key);
-    if (previous !== undefined) return previous;
-    const next = entries.length;
-    indices.set(key, next); entries.push(entry); return next;
-  };
-  const digestIndex = (digest: string) => {
-    const previous = digestIndices.get(digest);
-    if (previous !== undefined) return previous;
-    const next = digests.length;
-    digestIndices.set(digest, next); digests.push(digest); return next;
-  };
+  const { values: entries, index } = interner<EvidenceReferenceEntry>(canonicalMathJson);
+  const { values: digests, index: digestIndex } = interner<string>(digest => digest);
   return { entries, digests, encode: (record: ReturnType<typeof sharedEvidence>) => record?.references ? {
     ...record, references: { ...record.references,
       environmentDigest: digestIndex(record.references.environmentDigest),
@@ -177,9 +176,7 @@ function requiredTasks(input: TaskContextInput, omitted: ContextManifest['omitte
     if (!node) {
       const proof = consumer?.integratedCheck;
       if (consumer?.status === 'integrated' && proof?.passed && !proof.conditions?.length &&
-          proof.taskDigest === taskVersion(consumer.task) && proof.verification.status === 'kernel_verified' &&
-          present(proof.verification.targetCommit) && !!proof.verification.results.length && proof.verification.results.every(result =>
-            result.status === 'kernel_verified' && result.targetCommit === proof.verification.targetCommit && present(result.receiptId))) {
+          proof.taskDigest === taskVersion(consumer.task) && receiptsComplete(proof)) {
         omitted.push({ id: `interface:${id}`, kind: 'interfaces', reason: 'encapsulated-private-dependency' });
         return;
       }
@@ -271,11 +268,14 @@ function deliveryMatchesFinding(record: DeliveryRecord, node?: TaskRecord): bool
   return record.findingDigest === undefined ? record.summary === node.finding : record.findingDigest === mathDigest(node.finding);
 }
 
+/** 0 for the active task, 1 for its required closure, 2 for its group, 3 otherwise. */
+const scopeRank = (active: TaskRecord['task'] | undefined, required: ReadonlySet<string>) => (taskId?: string, groupId?: string) =>
+  active && taskId === active.id ? 0 : required.has(taskId ?? '') ? 1 : active && groupId === taskGroup(active) ? 2 : 3;
+
 function optionalDeliveries(input: TaskContextInput, required: ReadonlySet<string>,
   byId: ReadonlyMap<string, TaskRecord>, omitted: ContextManifest['omitted'][number][]) {
   const action = input.action, active = action?.kind === 'task' ? action.task : undefined;
-  const priority = (record: DeliveryRecord) => active && record.taskId === active.id ? 0 : required.has(record.taskId ?? '') ? 1 :
-    active && record.groupId === taskGroup(active) ? 2 : 3;
+  const rank = scopeRank(active, required), priority = (record: DeliveryRecord) => rank(record.taskId, record.groupId);
   const seen = new Set<string>(), selected: DeliveryRecord[] = [];
   const findingSources = new Map<string, { deliveryId: string; commit: string; notesPath: 'RESEARCH.md'; sourceDigest?: string }>();
   for (const record of [...(input.cooperation?.deliveries ?? [])].reverse().sort((a, b) => priority(a) - priority(b))) {
@@ -327,6 +327,16 @@ function optionalDeliveries(input: TaskContextInput, required: ReadonlySet<strin
       }), priority: priority(record) * 10 + 1 }] : [])];
   });
   return { sections, findingSources };
+}
+
+/** Unshown queue items counted per source task, in first-seen order. */
+function backlogSources(items: readonly { id: string; sourceTaskId: string; sourceTaskDigest: string }[], shown: ReadonlySet<string>) {
+  const sources = new Map<string, { taskId: string; taskDigest: string; remaining: number }>();
+  for (const item of items) if (!shown.has(item.id)) {
+    const source = sources.get(item.sourceTaskId) ?? { taskId: item.sourceTaskId, taskDigest: item.sourceTaskDigest, remaining: 0 };
+    source.remaining++; sources.set(item.sourceTaskId, source);
+  }
+  return [...sources.values()];
 }
 
 /** Compile a task's mathematical interface before dispatch. A budget can omit hints, never hypotheses. */
@@ -386,18 +396,11 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
       const shownChallenges = challenges.filter(item => challengeIds.has(item.id));
       if (shownChallenges.length) mandatory.push(section('research-challenges', 'assignment',
         'Research challenges requiring a route decision (advisory, not proof acceptance):', shownChallenges.map(researchChallengeContext)));
-      if (challenges.length > shownChallenges.length) {
-        const sources = new Map<string, { taskId: string; taskDigest: string; remaining: number }>();
-        for (const item of challenges) if (!challengeIds.has(item.id)) {
-          const source = sources.get(item.sourceTaskId) ?? { taskId: item.sourceTaskId, taskDigest: item.sourceTaskDigest, remaining: 0 };
-          source.remaining++; sources.set(item.sourceTaskId, source);
-        }
-        mandatory.push(section('research-challenge-backlog', 'assignment',
-          'Queued challenges for later dispatches; preserve their source tasks and inputs. Full records are in COOPERATION.json researchChallenges:', {
-            pending: challenges.length, shown: shownChallenges.length, remaining: challenges.length - shownChallenges.length,
-            sources: [...sources.values()],
-          }));
-      }
+      if (challenges.length > shownChallenges.length) mandatory.push(section('research-challenge-backlog', 'assignment',
+        'Queued challenges for later dispatches; preserve their source tasks and inputs. Full records are in COOPERATION.json researchChallenges:', {
+          pending: challenges.length, shown: shownChallenges.length, remaining: challenges.length - shownChallenges.length,
+          sources: backlogSources(challenges, challengeIds),
+        }));
       const pending = pendingResearchHandoffs(input.cooperation);
       const aliases = new Map(pending.flatMap(item => item.sources.map(source => [source.handoffId, item.id] as const)));
       const shown = new Set((action.handoffIds ?? selectResearchHandoffBatch(input.cooperation).map(item => item.id))
@@ -408,17 +411,10 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
         'COOPERATION.json researchHandoffs: match sourceSet.reference.handoffId and contextDigest, then verify ' +
         'sourceSet.digest against SHA-256 of canonical JSON of sources before using the full source list. ' +
         'A missing or mismatched source list is unavailable and grants no proof acceptance:', handoffs.map(researchHandoffContext)));
-      if (pending.length > handoffs.length) {
-        const sources = new Map<string, { taskId: string; taskDigest: string; remaining: number }>();
-        for (const item of pending) if (!shown.has(item.id)) {
-          const source = sources.get(item.sourceTaskId) ?? { taskId: item.sourceTaskId, taskDigest: item.sourceTaskDigest, remaining: 0 };
-          source.remaining++; sources.set(item.sourceTaskId, source);
-        }
-        mandatory.push(section('research-handoff-backlog', 'assignment',
-          'Queued research proposals (not required in this response; preserve their sources and prerequisites for subsequent batches):', {
-            pending: pending.length, shown: handoffs.length, remaining: pending.length - handoffs.length, sources: [...sources.values()],
-          }));
-      }
+      if (pending.length > handoffs.length) mandatory.push(section('research-handoff-backlog', 'assignment',
+        'Queued research proposals (not required in this response; preserve their sources and prerequisites for subsequent batches):', {
+          pending: pending.length, shown: handoffs.length, remaining: pending.length - handoffs.length, sources: backlogSources(pending, shown),
+        }));
       if (action.kind === 'solve' && (input.cooperation.error?.startsWith('math_handoff_') || input.cooperation.error?.startsWith('math_challenge_')))
         mandatory.push(section('handoff-feedback', 'feedback', 'Repair the research handoff decision:', input.cooperation.error));
     }
@@ -528,8 +524,7 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
   if (repeatedAttempts.length) mandatory.push(section('repeated-attempts', 'feedback',
     'Latest related failed attempt (advisory; full-source checks remain independent). Older search hints use the optional budget:',
     { relatedAttemptFingerprints: repeatedAttempts.length, latest: attemptHint(repeatedAttempts[0]) }));
-  const rank = (taskId?: string, groupId?: string) => taskId === active?.id && active ? 0 : required.has(taskId ?? '') ? 1 :
-    active && groupId === taskGroup(active) ? 2 : 3;
+  const rank = scopeRank(active, required);
   const optional: ContextSection[] = [];
   if (repeatedAttempts.length > 1) optional.push({ ...section('repeated-attempt-history', 'feedback',
     'Earlier related failed attempts (advisory; not permission to reuse verification):',
@@ -570,13 +565,12 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
       omitted.push({ id, kind: 'history', reason: 'outside-task-scope' }); continue;
     }
     const proof = entry.integratedCheck ?? entry.proof;
-    optional.push(section(id, 'history', 'Earlier route finding (historical and advisory; not a current premise):', {
+    optional.push({ ...section(id, 'history', 'Earlier route finding (historical and advisory; not a current premise):', {
       taskId: entry.task.id, taskDigest: taskVersion(entry.task), objective: entry.task.objective,
       producer: entry.producer, finding: entry.finding, commit: proof?.commit, sourceDigest: proof?.sourceDigest,
       evidenceRefs: proof?.verification.results.map(result => result.receiptId),
       source: proof && entry.task.proofPath ? { commit: proof.commit, path: sourcePath(problem, entry.task.proofPath) } : undefined,
-      evidence: 'historical-not-current' }));
-    optional[optional.length - 1] = { ...optional.at(-1)!, priority: rank(entry.task.id, taskGroup(entry.task)) * 10 + 5 };
+      evidence: 'historical-not-current' }), priority: rank(entry.task.id, taskGroup(entry.task)) * 10 + 5 });
   }
   if (input.checkpoint) {
     mandatory.push(section('checkpoint-source', 'sources', 'Complete current research checkpoint source (advisory, not proof acceptance):', {

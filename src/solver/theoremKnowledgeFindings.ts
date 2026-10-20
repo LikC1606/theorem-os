@@ -3,6 +3,7 @@ import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import type { TheoremKnowledgeBase } from './theoremKnowledge';
 import { mathematicalGapSchema } from './mathematicalGaps';
 import { largestFittingPage, splitsSurrogate } from './textPage';
+import { knowledgeRequestBatch } from './theoremKnowledgeSearch';
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/u);
 const text = z.string().min(1).max(1_000_000);
@@ -117,18 +118,9 @@ export function searchKnowledgeRouteFindings(base: SearchBase, query: string,
 /** Share text preparation for this call only; exact goals, ranking and result objects remain separate. */
 export function searchKnowledgeRouteFindingRequests(base: SearchBase, requests: readonly KnowledgeRouteFindingSearchRequest[],
   options: Omit<KnowledgeRouteFindingSearchOptions, 'goal'> = {}) {
-  if (!Array.isArray(requests) || requests.length < 1 || requests.length > 8) throw new Error('math_knowledge_invalid_query');
-  for (const request of requests) {
-    if (!request || typeof request !== 'object') throw new Error('math_knowledge_invalid_query');
-    validateFindingQuery(request.query, { ...options, goal: request.goal });
-  }
-  const prepared = prepareFindingSearch(base, options), results = new Map<string, ReturnType<typeof searchPreparedFindings>>();
-  return requests.map(({ query, goal }) => {
-    const key = canonicalMathJson([query, goal ?? '']), cached = results.get(key);
-    if (cached) return structuredClone(cached);
-    const result = searchPreparedFindings(prepared, query, { ...options, goal });
-    results.set(key, result);
-    return result;
+  return knowledgeRequestBatch(requests, (query, goal) => validateFindingQuery(query, { ...options, goal }), () => {
+    const prepared = prepareFindingSearch(base, options);
+    return (query, goal) => searchPreparedFindings(prepared, query, { ...options, goal });
   });
 }
 

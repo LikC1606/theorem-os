@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { assertMathConstructionSources, mathLocalModuleBuildOrder } from './mathConstructionSources';
+import { assertMathConstructionSources, LAKE_CONFIGURATION_FILES as configs, mathLocalModuleBuildOrder } from './mathConstructionSources';
 import { inspectLeanDeclarationRegions, leanDeclarationContextCommands } from './leanSource';
 import { bindLeanPackages, prepareLeanDiagnosticOverrides, runLeanDiagnostics } from './leanDiagnostics';
 import { resolveMathematicsRuntimeEnvironment } from './mathRuntimeEnvironment';
@@ -78,7 +78,6 @@ export async function checkLeanType(input: { projectRoot: string; file: string; 
   const environment = leanDiagnosticEnvironmentIdentity(project, env);
   assertMathConstructionSources(project, [input.file]);
   const modules = mathLocalModuleBuildOrder(project, input.file);
-  const configs = ['lean-toolchain', 'lakefile.toml', 'lakefile.lean', 'lake-manifest.json', '.lake/package-overrides.json'];
   const files = [...modules.map(module => module.file), ...configs.filter(file => fs.existsSync(path.join(project, file)))];
   const snapshot = files.map(file => {
     const source = path.join(project, file); assertMathCanonicalPath(source);

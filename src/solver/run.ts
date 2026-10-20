@@ -31,6 +31,10 @@ import { copyKnowledgeSnapshot, readKnowledgeCatalog } from './theoremKnowledgeS
 import { copyContinuationSnapshot, freezeContinuationInput, readContinuationInput, readContinuationSnapshot,
   type ContinuationSnapshot } from './continuationInput';
 
+const runSummary = (state: SolverRunState | undefined) => ({ turns: state?.turns, dispatchCounts: state?.dispatchCounts,
+  usage: state?.usage, tokenBudget: state?.tokenBudget, workers: state?.workers?.map(worker => ({ id: worker.id, role: worker.role,
+    turns: worker.turns, dispatchCounts: worker.dispatchCounts, usage: worker.usage, error: worker.error })) });
+
 export async function runSolver(args: string[], root: string, customModules?: SolverModules): Promise<number> {
   const { values } = parseArgs({ args, options: {
     workspace: { type: 'string' }, 'receipt-file': { type: 'string' }, 'task-file': { type: 'string' },
@@ -376,11 +380,9 @@ export async function runSolver(args: string[], root: string, customModules?: So
       const result = { schema: 'deepscientist.math.run.v2', runId: state.runId, problemId: state.problem.contract.problemId,
         status, run_outcome: status, solution_commit: state.check?.passed ? state.check.commit : null,
         solver_ready_receipt_valid: state.check?.passed === true, completion_signal_valid: evaluation.status === 'passed',
-        evaluator: evaluation, turns: state.turns, dispatchCounts: state.dispatchCounts, tokenBudget: state.tokenBudget,
+        evaluator: evaluation, ...runSummary(state),
         ...(status === 'limit_reached' && state.tokenBudget?.reason ? { reason: state.tokenBudget.reason } : {}),
-        solveWallMs: state.solveFinishedAt - state.solveStartedAt, usage: state.usage, stateFile, winningWorker: state.winningWorker,
-        workers: state.workers?.map(worker => ({ id: worker.id, role: worker.role, turns: worker.turns,
-          dispatchCounts: worker.dispatchCounts, usage: worker.usage, error: worker.error })) };
+        solveWallMs: state.solveFinishedAt - state.solveStartedAt, stateFile, winningWorker: state.winningWorker };
       writeMathJsonDurable(output, result);
       emit('finished', { status, output });
       return status === 'evaluated_passed' ? 0 : status === 'evaluated_failed' ? 2 : status === 'runtime_error' ? 1 : 4;
@@ -396,10 +398,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
     }
     writeMathJsonDurable(output, { schema: 'deepscientist.math.run.v2', status, run_outcome: status,
       reason: controller.signal.aborted ? preparing ? 'math_preparation_stopped' : 'math_run_stopped' : error instanceof Error ? error.message : 'math_runtime_error',
-      runId: ownedState?.runId, problemId: ownedState?.problem.contract.problemId, turns: ownedState?.turns,
-      dispatchCounts: ownedState?.dispatchCounts, usage: ownedState?.usage, tokenBudget: ownedState?.tokenBudget,
-      workers: ownedState?.workers?.map(worker => ({ id: worker.id, role: worker.role, turns: worker.turns,
-        dispatchCounts: worker.dispatchCounts, usage: worker.usage, error: worker.error })),
+      runId: ownedState?.runId, problemId: ownedState?.problem.contract.problemId, ...runSummary(ownedState),
       evaluator: { status: 'skipped' }, stateFile });
     emit('finished', { status, output });
     return controller.signal.aborted ? 4 : 1;

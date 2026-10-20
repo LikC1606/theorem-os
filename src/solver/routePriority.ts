@@ -1,6 +1,6 @@
 import { describeProofRoutes, type ProofRoute, type RecordedRouteProofStatus } from './proofRoutes';
 import { createRecordedTaskSettlement } from './progress';
-import { hasTaskAcceptance, taskGroup, type RouteRecord, type TaskRecord } from './tasks';
+import { groupOpen, hasTaskAcceptance, taskGroup, type RouteRecord, type TaskRecord } from './tasks';
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 
 export type ProofRoutePriority = Readonly<{
@@ -73,8 +73,7 @@ export function createProofRoutePriority(tasks: readonly TaskRecord[], options: 
       runningInputIds: [...running], frontierTaskIds: [...frontier] };
     byRoute.set(routeKey(route), priority);
     const active = target && (target.task.status ?? 'active') === 'active' && !settled(target) &&
-      (!options.groups || options.groups.some(record => record.group.id === taskGroup(target.task) &&
-        record.group.status === 'active' && record.turns < (record.group.maxTurns ?? Infinity)));
+      (!options.groups || options.groups.some(record => record.group.id === taskGroup(target.task) && groupOpen(record)));
     if (active) for (const id of [...seen, route.targetTaskId]) {
       const list = byTask.get(id) ?? []; list.push(priority); byTask.set(id, list);
     }

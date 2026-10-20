@@ -8,8 +8,8 @@ import { createRecordedTaskSettlement } from '../progress';
 import { createProofRoutePriority } from '../routePriority';
 import { automaticTaskConnection, freshTaskConnection } from '../taskConnections';
 import { primaryApplicationConsumer, primaryOwnedGoal } from '../taskConsumers';
-import { freshlyAccepted, isAdvisoryTask, isFeasibilityReview, isFinalCandidateReview, taskGroup, taskReferenceDependencies, taskVersion,
-  type TaskRecord, type RouteRecord, type CooperativeAction } from '../tasks';
+import { allRoutesParked, checkedUnconditionally, freshlyAccepted, groupOpen, isAdvisoryTask, isFeasibilityReview, isFinalCandidateReview,
+  openRoutes, taskGroup, taskReferenceDependencies, taskVersion, type TaskRecord, type RouteRecord, type CooperativeAction } from '../tasks';
 
 export type ResearchBudget = Readonly<{ maxTurns: number; remainingMs: number; aborted: boolean }>;
 export type ActionPlan = Readonly<{
@@ -20,14 +20,12 @@ export type ActionPlan = Readonly<{
 /** Select dependency-ready work; worker identities belong to M5. */
 export function routeAllowsTask(task: TaskRecord['task'], tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): boolean {
   if ((task.status ?? 'active') !== 'active') return false;
-  if (tasks.find(node => node.task.id === task.id)?.pendingValidation) return false;
-  if (tasks.find(node => node.task.id === task.id)?.routeParking?.length) return false;
   const node = tasks.find(node => node.task.id === task.id);
-  if (node?.alternativeRoutes?.length && node.alternativeRoutes.every(route => node.parkedRoutes?.[route.id]?.length)) return false;
+  if (node && (node.pendingValidation || node.routeParking?.length || allRoutesParked(node))) return false;
   if (!groups) return true;
   const route = groups.find(record => record.group.id === taskGroup(task));
-  return Boolean(route && route.group.status === 'active' && route.turns < (route.group.maxTurns ?? Infinity) &&
-    (route.busy ?? tasks.filter(node => node.status === 'running' && taskGroup(node.task) === route.group.id).length) < (route.group.maxConcurrent ?? 3));
+  return groupOpen(route) &&
+    (route.busy ?? tasks.filter(node => node.status === 'running' && taskGroup(node.task) === route.group.id).length) < (route.group.maxConcurrent ?? 3);
 }
 
 /** Advisory final review still needs a complete, freshly accepted original candidate. */
@@ -57,12 +55,11 @@ export function selectedTaskRoute(node: TaskRecord, tasks: readonly TaskRecord[]
   // An active proof or delivery keeps its mathematical inputs. A pending draft
   // may resume on another freshly checked branch when its old inputs fail.
   if (assigned && node.status !== 'pending') return assigned;
-  const routes = node.alternativeRoutes?.filter(route => !node.parkedRoutes?.[route.id]?.length);
-  const ready = routes?.filter(route => dispatchRouteReady(route, tasks));
+  const routes = openRoutes(node), ready = routes.filter(route => dispatchRouteReady(route, tasks));
   const compare = (priority ?? createProofRoutePriority(tasks)).compareRoutes;
-  const ranked = routes?.toSorted((a, b) => compare(a, b) ||
+  const ranked = routes.toSorted((a, b) => compare(a, b) ||
     Number(b.id === node.assignment?.routeId) - Number(a.id === node.assignment?.routeId));
-  return ready?.find(route => route.id === node.assignment?.routeId) ?? ready?.[0] ?? ranked?.[0];
+  return ready.find(route => route.id === node.assignment?.routeId) ?? ready[0] ?? ranked[0];
 }
 export function plannedTaskDependencyIds(node: TaskRecord, tasks: readonly TaskRecord[]): readonly string[] {
   const route = selectedTaskRoute(node, tasks);
@@ -90,7 +87,7 @@ function taskReadiness(tasks: readonly TaskRecord[], groups?: readonly RouteReco
       return Boolean(dependency && (!('taskDigest' in reference) || reference.taskDigest === version(dependency.task)) &&
         ['integrated', 'completed'].includes(dependency.status) && dependenciesReady(dependency.task));
     }) && (!node?.alternativeRoutes?.length || Boolean(references) || node.status === 'integrated' ||
-      node.alternativeRoutes.some(route => !node.parkedRoutes?.[route.id]?.length && dispatchRouteReady(route, tasks)));
+      openRoutes(node).some(route => dispatchRouteReady(route, tasks)));
     checked.set(task, ready);
     return ready;
   };
@@ -103,11 +100,13 @@ function taskReadiness(tasks: readonly TaskRecord[], groups?: readonly RouteReco
     available.set(id, ready);
     return ready;
   };
-  const canStart = (task: TaskRecord['task']): boolean => nodes.get(task.id)?.pendingValidation ? false : nodes.get(task.id)?.alternativeRoutes?.length &&
-    !nodes.get(task.id)!.alternativeRoutes!.some(route => !nodes.get(task.id)!.parkedRoutes?.[route.id]?.length && dispatchRouteReady(route, tasks)) ? false : isFinalCandidateReview(task)
-    ? finalCandidateReviewReady(tasks) && dependenciesReady(task)
-    : ['research', 'sketch'].includes(task.kind) || dependenciesReady(task) ||
-      Boolean((task.conditional || automaticTaskConnection(task, tasks, groups)) && task.dependsOn.every(dependencyAvailable));
+  const canStart = (task: TaskRecord['task']): boolean => {
+    const node = nodes.get(task.id);
+    if (node?.pendingValidation || node?.alternativeRoutes?.length && !openRoutes(node).some(route => dispatchRouteReady(route, tasks))) return false;
+    return isFinalCandidateReview(task) ? finalCandidateReviewReady(tasks) && dependenciesReady(task)
+      : ['research', 'sketch'].includes(task.kind) || dependenciesReady(task) ||
+        Boolean((task.conditional || automaticTaskConnection(task, tasks, groups)) && task.dependsOn.every(dependencyAvailable));
+  };
   return { dependenciesReady, canStart };
 }
 
@@ -123,17 +122,13 @@ export function taskCanStart(task: TaskRecord['task'], tasks: readonly TaskRecor
 export function readyResearchTasks(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): TaskRecord[] {
   const readiness = taskReadiness(tasks, groups);
   const priority = createProofRoutePriority(tasks, { groups });
-  const checked = new Set(tasks.filter(node => node.status === 'integrated' && node.integratedCheck?.passed &&
-    node.integratedCheck.taskDigest === taskVersion(node.task) && !node.integratedCheck.conditions?.length).map(node => node.task.id));
+  const checked = new Set(tasks.filter(checkedUnconditionally).map(node => node.task.id));
   const groupRecords = groups && new Map(groups.map(record => [record.group.id, record]));
   const consumed = new Set(tasks.filter(node => {
     if (isAdvisoryTask(node.task) || node.status === 'integrated' || (node.task.status ?? 'active') !== 'active' ||
-      node.routeParking?.length || node.alternativeRoutes?.length &&
-      node.alternativeRoutes.every(route => node.parkedRoutes?.[route.id]?.length)) return false;
-    const group = groupRecords?.get(taskGroup(node.task));
-    return !groupRecords || Boolean(group && group.group.status === 'active' && group.turns < (group.group.maxTurns ?? Infinity));
-  }).flatMap(node => [...node.task.dependsOn, ...(node.alternativeRoutes?.filter(route =>
-    !node.parkedRoutes?.[route.id]?.length).flatMap(route => [...route.prerequisiteTaskIds, route.closingTaskId]) ?? [])]));
+      node.routeParking?.length || allRoutesParked(node)) return false;
+    return !groupRecords || groupOpen(groupRecords.get(taskGroup(node.task)));
+  }).flatMap(node => [...node.task.dependsOn, ...openRoutes(node).flatMap(route => [...route.prerequisiteTaskIds, route.closingTaskId])]));
   const rank = (node: TaskRecord) => isAdvisoryTask(node.task) || !readiness.dependenciesReady(node.task) ? 0 :
     node.task.kind === 'goal' ? 2 : consumed.has(node.task.id) && node.task.dependsOn.some(id => checked.has(id)) ? 1 : 0;
   const ready = tasks.filter(node => node.status === 'pending' && routeAllowsTask(node.task, tasks, groups) && readiness.canStart(node.task));
@@ -154,11 +149,8 @@ function prioritizeEarlyRouteChecks(ready: TaskRecord[], tasks: readonly TaskRec
   if (!check) return ready;
   const readiness = taskReadiness(tasks, groups);
   const consuming = ready.slice(0, ready.indexOf(check)).filter(node => !isAdvisoryTask(node.task) &&
-    readiness.dependenciesReady(node.task) && (node.task.kind === 'goal' || node.task.dependsOn.some(id => {
-      const input = tasks.find(candidate => candidate.task.id === id);
-      return input?.status === 'integrated' && input.integratedCheck?.passed &&
-        input.integratedCheck.taskDigest === taskVersion(input.task) && !input.integratedCheck.conditions?.length;
-    })));
+    readiness.dependenciesReady(node.task) && (node.task.kind === 'goal' ||
+      node.task.dependsOn.some(id => checkedUnconditionally(tasks.find(candidate => candidate.task.id === id)))));
   return [...consuming, check, ...ready.filter(node => node !== check && !consuming.includes(node))];
 }
 
@@ -170,11 +162,9 @@ export function goalsFirstResearchTasks(tasks: readonly TaskRecord[], groups?: r
 
 /** Unit-cost dependency depth is a scheduling heuristic, not a proof-time estimate. */
 export function criticalPathResearchTasks(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): TaskRecord[] {
-  const unfinished = new Map(tasks.filter(node => {
-    if (['integrated', 'completed'].includes(node.status) || (node.task.status ?? 'active') !== 'active') return false;
-    const route = groups?.find(record => record.group.id === taskGroup(node.task));
-    return !groups || Boolean(route && route.group.status === 'active' && route.turns < (route.group.maxTurns ?? Infinity));
-  }).map(node => [node.task.id, node]));
+  const unfinished = new Map(tasks.filter(node => !['integrated', 'completed'].includes(node.status) &&
+    (node.task.status ?? 'active') === 'active' && (!groups || groupOpen(groups.find(record => record.group.id === taskGroup(node.task)))))
+    .map(node => [node.task.id, node]));
   const consumers = new Map<string, string[]>();
   for (const node of unfinished.values()) for (const id of [...node.task.dependsOn,
     ...(node.alternativeRoutes?.flatMap(route => [...route.prerequisiteTaskIds, route.closingTaskId]) ?? [])]) {
@@ -215,14 +205,13 @@ function collectOriginalGoalTaskFocus(tasks: readonly TaskRecord[], groups?: rea
   priority?: ReturnType<typeof createProofRoutePriority>, environmentDigest?: string, includeParkedTasks = false): GoalTaskFocus {
   const nodes = new Map(tasks.map(node => [node.task.id, node]));
   const active = (node: TaskRecord) => {
-    if ((node.task.status ?? 'active') !== 'active' && !primaryOwnedGoal(node) || !includeParkedTasks && (node.routeParking?.length ||
-        node.alternativeRoutes?.length && node.alternativeRoutes.every(route => node.parkedRoutes?.[route.id]?.length))) return false;
-    const route = groups?.find(record => record.group.id === taskGroup(node.task));
-    return !groups || Boolean(route && route.group.status === 'active' && route.turns < (route.group.maxTurns ?? Infinity));
+    if ((node.task.status ?? 'active') !== 'active' && !primaryOwnedGoal(node) ||
+        !includeParkedTasks && (node.routeParking?.length || allRoutesParked(node))) return false;
+    return !groups || groupOpen(groups.find(record => record.group.id === taskGroup(node.task)));
   };
   const { settled } = createRecordedTaskSettlement(tasks, { includeParkedRoutes: false, environmentDigest });
   const routes = (node: TaskRecord) => {
-    const open = node.alternativeRoutes?.filter(route => !node.parkedRoutes?.[route.id]?.length) ?? [];
+    const open = openRoutes(node);
     if (!priority) return open;
     const selected = selectedTaskRoute(node, tasks, priority);
     return selected && open.some(route => route.id === selected.id) ? [selected] : [];
@@ -310,12 +299,10 @@ export function continuationResearchTasks(tasks: readonly TaskRecord[], groups?:
   const nodes = new Map(tasks.map(node => [node.task.id, node]));
   const focus = originalGoalTaskFocus(tasks, groups);
   const preferred = focus.preferred, priority = createProofRoutePriority(tasks, { groups });
-  const checked = (node: TaskRecord | undefined) => Boolean(node?.status === 'integrated' && node.integratedCheck?.passed &&
-    node.integratedCheck.taskDigest === taskVersion(node.task) && !node.integratedCheck.conditions?.length);
   const ready = criticalPathResearchTasks(tasks, groups), readiness = taskReadiness(tasks, groups);
   const unconditional = (node: TaskRecord) => ['goal', 'lemma'].includes(node.task.kind) && readiness.dependenciesReady(node.task);
   const continuing = new Set(ready.filter(node => focus.proofPath.has(node.task.id) && unconditional(node) &&
-    plannedTaskDependencyIds(node, tasks).some(id => checked(nodes.get(id)))).map(node => node.task.id));
+    plannedTaskDependencyIds(node, tasks).some(id => checkedUnconditionally(nodes.get(id)))).map(node => node.task.id));
   const rank = (node: TaskRecord) => node.task.kind === 'goal' && unconditional(node) ? 6 : continuing.has(node.task.id) ? 5 :
     preferred.proofPath.has(node.task.id) && unconditional(node) ? 4 :
     preferred.support.has(node.task.id) && unconditional(node) ? 3 : preferred.targetedResearch.has(node.task.id) ? 2 :
@@ -356,7 +343,7 @@ export function researchCanAdvance(tasks: readonly TaskRecord[], groups: readonl
     // Reuse future-progress traversal before checking whether assumed inputs allow an earlier start.
     const ready = (isAdvisoryTask(node.task) || node.task.dependsOn.every(visit) ||
       node.status !== 'conditional' && readiness.canStart(node.task)) && (!node.alternativeRoutes?.length ||
-      node.alternativeRoutes.some(route => !node.parkedRoutes?.[route.id]?.length && [...route.prerequisiteTaskIds, route.closingTaskId].every(visit)));
+      openRoutes(node).some(route => [...route.prerequisiteTaskIds, route.closingTaskId].every(visit)));
     memo.set(id, ready);
     return ready;
   };

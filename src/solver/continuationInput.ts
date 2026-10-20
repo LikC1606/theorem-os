@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
-import { canonicalMathJson, mathDigest, readMathFile, syncMathDirectory } from '../math/mathRuntimeIo';
+import { canonicalMathJson, mathDigest, parseMathJson, readMathFile, syncMathDirectory } from '../math/mathRuntimeIo';
 import { assertMathCanonicalPath } from '../math/paths';
 import type { ContextSection } from './contextCompiler';
 import { largestFittingPage, splitsSurrogate } from './textPage';
@@ -81,9 +81,7 @@ function validateSnapshot(value: unknown): ContinuationManifest {
 /** Explicit attachments supplement the unchanged task; historical claims never become proof evidence. */
 export function readContinuationInput(file: string, expected: ContinuationIdentity): ContinuationInput {
   const resolved = path.resolve(file), loaded = readText(resolved, maxManifestBytes);
-  let value: unknown;
-  try { value = JSON.parse(loaded.text); } catch { throw new Error('math_continuation_manifest_invalid'); }
-  const parsed = inputSchema.safeParse(value);
+  const parsed = inputSchema.safeParse(parseMathJson(loaded.text, 'math_continuation_manifest_invalid'));
   if (!parsed.success) throw new Error('math_continuation_manifest_invalid');
   const manifest = parsed.data as InputManifest;
   assertIdentity(manifest, expected); validateAttachments(manifest);
@@ -131,9 +129,7 @@ export function readContinuationSnapshot(file: string, expectedDigest: string, e
   if (!digest.safeParse(expectedDigest).success) throw new Error('math_continuation_identity_changed');
   const resolved = path.resolve(file), loaded = readText(resolved, maxManifestBytes, true);
   if (mathDigest(loaded.bytes) !== expectedDigest) throw new Error('math_continuation_identity_changed');
-  let value: unknown;
-  try { value = JSON.parse(loaded.text); } catch { throw new Error('math_continuation_snapshot_invalid'); }
-  const manifest = validateSnapshot(value);
+  const manifest = validateSnapshot(parseMathJson(loaded.text, 'math_continuation_snapshot_invalid'));
   if (canonicalMathJson(manifest) !== loaded.text) throw new Error('math_continuation_snapshot_invalid');
   assertIdentity(manifest, expected);
   const checked = new Set<string>();

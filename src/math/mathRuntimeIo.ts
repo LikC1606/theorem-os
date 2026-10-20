@@ -110,6 +110,16 @@ export function readMathText(file: string, maxBytes = Infinity, options: { headO
 }
 
 export const readMathJson = (file: string): unknown => JSON.parse(readMathText(file));
+/** Strict UTF-8 JSON; any decoding or syntax failure becomes the caller's stable error code. */
+export function parseMathJson(value: string | Uint8Array, code: string): unknown {
+  try { return JSON.parse(typeof value === 'string' ? value : new TextDecoder('utf-8', { fatal: true }).decode(value)); }
+  catch { throw new Error(code); }
+}
+/** Exclusive, read-only, durable creation; an existing path or link is never replaced or followed. */
+export function writeMathFrozen(file: string, contents: string): void {
+  const fd = fs.openSync(file, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o400);
+  try { fs.writeFileSync(fd, contents); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+}
 
 /** Whether a project-relative artifact still has its recorded digest inside `project`; absolute, escaping or unreadable paths are stale. */
 export function mathArtifactCurrent(project: string, artifact: Readonly<{ path?: string; digest?: string }> | undefined): boolean {

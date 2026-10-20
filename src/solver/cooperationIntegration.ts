@@ -12,6 +12,17 @@ import { taskGroup, taskReferenceDependencies, assignmentDeliveryFile, type Coop
 import { digest, taskSourceRejections, integrationRejections, rejectionCode, bounded } from './cooperationShared';
 import { CooperationTaskProofs } from './cooperationTaskProofs';
 
+const recheckBatchFallbacks = new Set([...taskSourceRejections, 'math_task_batch_projection_mismatch', 'math_task_missing_declaration']);
+const integrationBatchFallbacks = new Set([...taskSourceRejections, 'math_task_integration_conflict', 'math_task_integration_missing_context',
+  'math_task_integration_missing_declaration', 'math_task_batch_projection_mismatch']);
+/** A changed check identity leaves no usable verifier result; aborts and unlisted failures propagate. */
+function expectedRejection(error: unknown, expected: ReadonlySet<string>): Error {
+  if (error instanceof Error && rejectionCode(error) === 'math_task_check_identity_changed')
+    throw new Error('math_verifier_unavailable', { cause: error });
+  if (!(error instanceof Error) || error.name === 'AbortError' || !expected.has(rejectionCode(error))) throw error;
+  return error;
+}
+
 /** Integration of checked task proofs into the canonical commit and their rechecks. */
 export abstract class CooperationIntegration extends CooperationTaskProofs {
   protected queueIntegration<T>(operation: () => Promise<T>): Promise<T> {
@@ -256,13 +267,9 @@ export abstract class CooperationIntegration extends CooperationTaskProofs {
               });
             } catch (error) {
               this.input.signal.throwIfAborted();
-              if (error instanceof Error && rejectionCode(error) === 'math_task_check_identity_changed')
-                throw new Error('math_verifier_unavailable', { cause: error });
-              if (!(error instanceof Error) || !taskSourceRejections.has(rejectionCode(error)) &&
-                  !['math_task_batch_projection_mismatch', 'math_task_missing_declaration'].includes(rejectionCode(error))) throw error;
+              const rejected = expectedRejection(error, recheckBatchFallbacks);
               if (snapshot && !snapshot.current()) return false;
-              this.input.emit('task_recheck_batch_fallback', { taskIds: group.map(item => item.task.id),
-                reason: bounded(error instanceof Error ? error.message : String(error), 1000) });
+              this.input.emit('task_recheck_batch_fallback', { taskIds: group.map(item => item.task.id), reason: bounded(rejected.message, 1000) });
             }
           }
         }
@@ -278,10 +285,9 @@ export abstract class CooperationIntegration extends CooperationTaskProofs {
         }
       } catch (error) {
         this.input.signal.throwIfAborted();
-        if (!(error instanceof Error) || error.name === 'AbortError' || !integrationRejections.has(rejectionCode(error))) throw error;
-        if (rejectionCode(error) === 'math_task_check_identity_changed') throw new Error('math_verifier_unavailable', { cause: error });
+        const rejected = expectedRejection(error, integrationRejections);
         if (snapshot && !snapshot.current()) return false;
-        node.status = 'blocked'; node.feedback = error instanceof Error ? error.message : 'math_task_recheck_failed'; if (!snapshot) this.needsLead = true;
+        node.status = 'blocked'; node.feedback = rejected.message; if (!snapshot) this.needsLead = true;
       }
       await finish(node);
     }
@@ -313,10 +319,7 @@ export abstract class CooperationIntegration extends CooperationTaskProofs {
         }
       } catch (error) {
         this.input.signal.throwIfAborted();
-        if (!(error instanceof Error) || error.name === 'AbortError' || !integrationRejections.has(rejectionCode(error))) throw error;
-        if (rejectionCode(error) === 'math_task_check_identity_changed') throw new Error('math_verifier_unavailable', { cause: error });
-        node.status = 'blocked'; node.feedback = error instanceof Error ? error.message : 'math_task_conditional_recheck_failed';
-        this.needsLead = true;
+        node.feedback = expectedRejection(error, integrationRejections).message; node.status = 'blocked'; this.needsLead = true;
       }
       this.input.emit('task_conditional_recheck_finished', { taskId: node.task.id, passed: node.status === 'conditional' });
       this.changed();
@@ -425,12 +428,7 @@ export abstract class CooperationIntegration extends CooperationTaskProofs {
       });
     } catch (error) {
       this.input.signal.throwIfAborted();
-        if (error instanceof Error && rejectionCode(error) === 'math_task_check_identity_changed')
-          throw new Error('math_verifier_unavailable', { cause: error });
-      if (!(error instanceof Error) || !taskSourceRejections.has(rejectionCode(error)) &&
-          !['math_task_integration_conflict', 'math_task_integration_missing_context', 'math_task_integration_missing_declaration',
-            'math_task_batch_projection_mismatch'].includes(rejectionCode(error))) throw error;
-      fallback = rejectionCode(error);
+      fallback = rejectionCode(expectedRejection(error, integrationBatchFallbacks));
     }
     const result = await this.input.exclusiveCheck(async () => {
       this.input.signal.throwIfAborted();
@@ -517,10 +515,7 @@ export abstract class CooperationIntegration extends CooperationTaskProofs {
         }
         if (failure) {
           this.changed();
-          if (failure instanceof Error && rejectionCode(failure) === 'math_task_check_identity_changed')
-            throw new Error('math_verifier_unavailable', { cause: failure });
-          if (!(failure instanceof Error) || failure.name === 'AbortError' || !integrationRejections.has(rejectionCode(failure))) throw failure;
-          node.status = 'blocked'; node.feedback = `${failure.message}\n${node.feedback ?? ''}`;
+          node.feedback = `${expectedRejection(failure, integrationRejections).message}\n${node.feedback ?? ''}`; node.status = 'blocked';
           this.needsLead = true; this.changed(); return 'blocked';
         }
         if (!receipt || !merged) throw new Error('math_task_integration_missing_receipt');

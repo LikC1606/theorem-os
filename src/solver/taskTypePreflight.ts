@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { assertMathConstructionSources, mathLocalModuleBuildOrder } from '../math/mathConstructionSources';
+import { assertMathConstructionSources, LAKE_CONFIGURATION_FILES as configs, mathLocalModuleBuildOrder } from '../math/mathConstructionSources';
 import { canonicalMathJson, mathArtifactCurrent as artifactCurrent, mathDigest, readMathFile } from '../math/mathRuntimeIo';
 import { inspectLeanDeclarationRegions, inspectScopedLeanDeclarations, leanDeclarationContextCommands } from '../math/leanSource';
 import { maskLeanCommentsAndStrings } from '../math/leanSyntax';
@@ -48,7 +48,6 @@ function prepare(input: Input) {
   const tools = formalVerificationToolIdentity(project, environment.env);
   assertMathConstructionSources(project, [input.task.proofPath!]);
   const modules = mathLocalModuleBuildOrder(project, input.task.proofPath!);
-  const configs = ['lean-toolchain', 'lakefile.toml', 'lakefile.lean', 'lake-manifest.json', '.lake/package-overrides.json'];
   const files = [...modules.map(module => module.file), ...configs.filter(file => fs.existsSync(path.join(project, file)))];
   const snapshots = files.map(file => {
     const read = readMathFile(path.join(project, file), 4_000_000);

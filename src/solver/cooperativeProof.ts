@@ -114,13 +114,8 @@ export function taskChanges(problem: SolverProblem, worktree: string, sourceComm
   return changes;
 }
 
-/** Deterministic proof projection shared by the checker and the host receipt boundary. */
-export function projectTaskSources(problem: SolverProblem, worktree: string, sourceCommit: string,
-  task: CooperativeTask, retainedGoals: readonly string[], conditions: readonly CooperativeTask[] = []): Map<string, string> {
-  return createTaskSourceProjector(problem, worktree, sourceCommit)(task, retainedGoals, conditions);
-}
-
-/** One immutable canonical snapshot shares source reads and declaration indexes across its targets. */
+/** Deterministic proof projection shared by the checker and the host receipt boundary. One immutable canonical snapshot
+ * shares source reads and declaration indexes across its targets. */
 export function createTaskSourceProjector(problem: SolverProblem, worktree: string, sourceCommit: string) {
   problem = structuredClone(problem);
   const sourceSnapshot = new Map(problem.ownedFiles.map(file => [file,

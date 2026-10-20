@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
-import { canonicalMathJson, mathDigest, readMathFile } from '../math/mathRuntimeIo';
+import { canonicalMathJson, mathDigest, parseMathJson, readMathFile } from '../math/mathRuntimeIo';
 import { assertMathCanonicalPath } from '../math/paths';
 import { inspectLeanDeclarationRegions, inspectScopedLeanDeclarations } from '../math/leanSource';
 import { allowedKnowledgeFile, knowledgeDeclaration, type KnowledgeCandidate, type KnowledgeImportResult } from './theoremKnowledge';
@@ -52,10 +52,7 @@ export function importAcceptedKnowledge(manifestFile: string, options: { enrichm
   if (!['accepted.json', 'submitted.json'].includes(path.basename(file))) throw new Error('math_knowledge_accepted_manifest_invalid');
   assertMathCanonicalPath(file);
   const manifestBytes = readMathFile(file, 16 * 1024 * 1024).bytes;
-  let value: unknown;
-  try { value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(manifestBytes)); }
-  catch { throw new Error('math_knowledge_accepted_manifest_invalid'); }
-  const parsed = acceptedManifest.safeParse(value);
+  const parsed = acceptedManifest.safeParse(parseMathJson(manifestBytes, 'math_knowledge_accepted_manifest_invalid'));
   if (!parsed.success) throw new Error('math_knowledge_accepted_manifest_invalid');
   const records = parsed.data, root = path.dirname(file), sourceDigest = mathDigest(manifestBytes);
   if (records.some(record => (path.basename(file) === 'accepted.json') !== (record.status === 'official_accepted')))
@@ -103,10 +100,7 @@ export function importAcceptedKnowledge(manifestFile: string, options: { enrichm
 
   for (const { record, files, identities, verificationText } of snapshots) {
     if (record.status !== 'local_verified_pending_official') continue;
-    let value: unknown;
-    try { value = JSON.parse(verificationText!); }
-    catch { throw new Error('math_knowledge_local_verification_invalid'); }
-    const parsed = localEvidence.safeParse(value);
+    const parsed = localEvidence.safeParse(parseMathJson(verificationText!, 'math_knowledge_local_verification_invalid'));
     if (!parsed.success) throw new Error('math_knowledge_local_verification_invalid');
     const local = record.local_verification, problem = parsed.data.problem, receipt = problem.localOfficialReceipt;
     if (problem.problemId !== record.problem_id || problem.solverCommit !== local.solver_commit ||

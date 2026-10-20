@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { canonicalMathJson, mathDigest } from '../src/math/mathRuntimeIo';
 import { buildTheoremKnowledge, getKnowledgeTheorem, searchTheoremKnowledge, theoremKnowledgeStats,
   writeTheoremKnowledge, type KnowledgeCandidate } from '../src/solver/theoremKnowledge';
-import { copyKnowledgeSnapshot, copyPackedKnowledge, readKnowledgeCatalog, readPackedKnowledge, writePackedKnowledge } from '../src/solver/theoremKnowledgeStore';
+import { copyKnowledgeSnapshot, copyPackedKnowledge, readKnowledgeCatalog, writePackedKnowledge } from '../src/solver/theoremKnowledgeStore';
 
 describe('packed theorem knowledge with lazy verified sources', () => {
   let root: string;
@@ -28,7 +28,7 @@ describe('packed theorem knowledge with lazy verified sources', () => {
   afterEach(() => { vi.restoreAllMocks(); fs.rmSync(root, { recursive: true, force: true }); });
 
   it('preserves exact entry IDs, contexts, provenance and full source materialization', () => {
-    const f = fixture(), loaded = readPackedKnowledge(f.file, f.written.sha256);
+    const f = fixture(), loaded = readKnowledgeCatalog(f.file, f.written.sha256);
     expect(loaded.format).toBe('v2');
     expect(loaded.base.entries).toEqual(f.base.entries);
     expect(loaded.base.contexts).toEqual(f.base.contexts);
@@ -42,15 +42,9 @@ describe('packed theorem knowledge with lazy verified sources', () => {
 
   it('reads only the manifest while loading metadata, searching and reporting statistics', () => {
     const f = fixture(), opened = vi.spyOn(fs, 'openSync');
-    const loaded = readPackedKnowledge(f.file, f.written.sha256);
+    const loaded = readKnowledgeCatalog(f.file, f.written.sha256);
     expect(searchTheoremKnowledge(loaded.base, 'identity').hits).toHaveLength(2);
     expect(theoremKnowledgeStats(loaded.base).entries).toBe(2);
-    expect(opened.mock.calls.map(call => String(call[0]))).toEqual([f.file]);
-  });
-
-  it('keeps unified v2 loading on the same metadata-only path', () => {
-    const f = fixture(), opened = vi.spyOn(fs, 'openSync');
-    expect(readKnowledgeCatalog(f.file, f.written.sha256).format).toBe('v2');
     expect(opened.mock.calls.map(call => String(call[0]))).toEqual([f.file]);
   });
 
@@ -79,16 +73,16 @@ describe('packed theorem knowledge with lazy verified sources', () => {
   });
 
   it('verifies source bytes and hashes whenever a requested source is read', () => {
-    const f = fixture(), loaded = readPackedKnowledge(f.file), entry = loaded.base.entries[0]!;
+    const f = fixture(), loaded = readKnowledgeCatalog(f.file), entry = loaded.base.entries[0]!;
     const digest = loaded.base.contexts[entry.contextDigest]![entry.file]!;
     expect(getKnowledgeTheorem(loaded.base, entry.id, entry.file).source?.text).toBe(f.base.sources[digest]);
     replace(path.join(f.objects, digest), f.base.sources[digest]!.replace('rfl', 'foo'));
     expect(() => getKnowledgeTheorem(loaded.base, entry.id, entry.file)).toThrow('math_knowledge_source_changed');
-    expect(() => readPackedKnowledge(f.file).base.sources[digest]).toThrow('math_knowledge_source_changed');
+    expect(() => readKnowledgeCatalog(f.file).base.sources[digest]).toThrow('math_knowledge_source_changed');
   });
 
   it('does not read unrelated proof blobs during a theorem lookup', () => {
-    const f = fixture(), loaded = readPackedKnowledge(f.file), first = loaded.base.entries[0]!, second = loaded.base.entries[1]!;
+    const f = fixture(), loaded = readKnowledgeCatalog(f.file), first = loaded.base.entries[0]!, second = loaded.base.entries[1]!;
     const unrelated = loaded.base.contexts[second.contextDigest]![second.file]!;
     replace(path.join(f.objects, unrelated), f.base.sources[unrelated]!.replace('rfl', 'foo'));
     const opened = vi.spyOn(fs, 'openSync');
@@ -103,8 +97,8 @@ describe('packed theorem knowledge with lazy verified sources', () => {
     else if (field === 'context') manifest.contexts[manifest.entries[0].contextDigest]['Submission.lean'] = '0'.repeat(64);
     else { const key = Object.keys(manifest.sources)[0]!; manifest.sources['0'.repeat(64)] = manifest.sources[key]; delete manifest.sources[key]; }
     replace(f.file, JSON.stringify(manifest));
-    expect(() => readPackedKnowledge(f.file)).toThrow();
-    expect(() => readPackedKnowledge(f.file, f.written.sha256)).toThrow('math_knowledge_identity_changed');
+    expect(() => readKnowledgeCatalog(f.file)).toThrow();
+    expect(() => readKnowledgeCatalog(f.file, f.written.sha256)).toThrow('math_knowledge_identity_changed');
   });
 
   it('binds a self-consistent metadata declaration to the actual source when retrieved', () => {
@@ -113,7 +107,7 @@ describe('packed theorem knowledge with lazy verified sources', () => {
     const { id: _id, provenance: _provenance, ...identity } = entry;
     entry.id = mathDigest(canonicalMathJson(identity));
     replace(f.file, JSON.stringify(manifest));
-    const loaded = readPackedKnowledge(f.file);
+    const loaded = readKnowledgeCatalog(f.file);
     expect(() => getKnowledgeTheorem(loaded.base, entry.id)).toThrow('math_knowledge_declaration_changed');
   });
 
@@ -121,34 +115,34 @@ describe('packed theorem knowledge with lazy verified sources', () => {
   ('rejects objects directory traversal %s', directory => {
     const f = fixture(), manifest = JSON.parse(f.text); manifest.objectsDirectory = directory;
     replace(f.file, JSON.stringify(manifest));
-    expect(() => readPackedKnowledge(f.file)).toThrow('math_knowledge_packed_schema_invalid');
+    expect(() => readKnowledgeCatalog(f.file)).toThrow('math_knowledge_packed_schema_invalid');
   });
 
   it('rejects missing or resized source objects without reading their bytes', () => {
     const f = fixture(), digest = Object.keys(f.base.sources)[0]!, blob = path.join(f.objects, digest);
     fs.unlinkSync(blob);
-    expect(() => readPackedKnowledge(f.file)).toThrow('math_knowledge_packed_source_missing_or_invalid');
+    expect(() => readKnowledgeCatalog(f.file)).toThrow('math_knowledge_packed_source_missing_or_invalid');
     fs.writeFileSync(blob, 'changed', { mode: 0o400 });
-    expect(() => readPackedKnowledge(f.file)).toThrow('math_knowledge_source_changed');
+    expect(() => readKnowledgeCatalog(f.file)).toThrow('math_knowledge_source_changed');
   });
 
   it('rejects linked manifest, object directory and blobs', () => {
     const f = fixture(), link = path.join(root, 'linked.json'); fs.symlinkSync(f.file, link);
-    expect(() => readPackedKnowledge(link)).toThrow('math_path_invalid');
+    expect(() => readKnowledgeCatalog(link)).toThrow('math_path_invalid');
     const saved = f.objects + '-saved'; fs.renameSync(f.objects, saved); fs.symlinkSync(saved, f.objects);
-    expect(() => readPackedKnowledge(f.file)).toThrow('math_path_invalid');
+    expect(() => readKnowledgeCatalog(f.file)).toThrow('math_path_invalid');
     fs.unlinkSync(f.objects); fs.renameSync(saved, f.objects);
     const digest = Object.keys(f.base.sources)[0]!, blob = path.join(f.objects, digest), target = blob + '-saved';
     fs.renameSync(blob, target); fs.symlinkSync(target, blob);
-    expect(() => readPackedKnowledge(f.file)).toThrow('math_path_invalid');
+    expect(() => readKnowledgeCatalog(f.file)).toThrow('math_path_invalid');
   });
 
   it('rejects hard-linked or writable blobs', () => {
     const f = fixture(), digest = Object.keys(f.base.sources)[0]!, blob = path.join(f.objects, digest);
     fs.linkSync(blob, blob + '-link');
-    expect(() => readPackedKnowledge(f.file)).toThrow('math_knowledge_packed_source_missing_or_invalid');
+    expect(() => readKnowledgeCatalog(f.file)).toThrow('math_knowledge_packed_source_missing_or_invalid');
     fs.unlinkSync(blob + '-link'); fs.chmodSync(blob, 0o600);
-    expect(() => readPackedKnowledge(f.file)).toThrow('math_knowledge_packed_source_not_frozen');
+    expect(() => readKnowledgeCatalog(f.file)).toThrow('math_knowledge_packed_source_not_frozen');
   });
 
   it('refuses to overwrite an existing manifest or object directory', () => {
@@ -196,13 +190,13 @@ describe('packed theorem knowledge with lazy verified sources', () => {
     manifest.sources[digest] = { bytes: bytes.length };
     fs.writeFileSync(path.join(f.objects, digest), bytes, { mode: 0o400 });
     replace(f.file, JSON.stringify(manifest));
-    const loaded = readPackedKnowledge(f.file);
+    const loaded = readKnowledgeCatalog(f.file);
     expect(() => loaded.base.sources[digest]).toThrow('math_knowledge_packed_source_invalid_utf8');
   });
 
   it('copies isolated worker objects while retaining exact manifest bytes and digest across retries', () => {
     const f = fixture(), worker = path.join(root, 'worker/theorem-knowledge.json');
-    const copied = copyPackedKnowledge(f.text, f.file, worker), loaded = readPackedKnowledge(worker, f.written.sha256);
+    const copied = copyPackedKnowledge(f.text, f.file, worker), loaded = readKnowledgeCatalog(worker, f.written.sha256);
     expect(copied.sha256).toBe(f.written.sha256);
     expect(loaded.text).toBe(f.text);
     expect(JSON.parse(JSON.stringify(loaded.base))).toEqual(f.base);

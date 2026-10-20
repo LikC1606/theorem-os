@@ -3,6 +3,10 @@ import path from 'node:path';
 import { parse as parseToml } from 'smol-toml';
 import { isAllowedMathProofSource } from "./mathProofSourcePolicy";
 
+/** Lake project configuration, in the order recorded by every environment digest. */
+export const LAKE_CONFIGURATION_FILES: readonly string[] = ['lean-toolchain', 'lakefile.toml', 'lakefile.lean', 'lake-manifest.json',
+  '.lake/package-overrides.json'];
+
 /** Read the Lean header only: comments nest and quoted identifiers are single tokens. */
 export function mathConstructionImports(source: string): string[] {
   let offset = 0;

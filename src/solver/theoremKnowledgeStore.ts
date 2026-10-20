@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
-import { canonicalMathJson, mathDigest, readMathFile, readMathText, syncMathDirectory } from '../math/mathRuntimeIo';
+import { canonicalMathJson, mathDigest, parseMathJson, readMathFile, readMathText, syncMathDirectory, writeMathFrozen } from '../math/mathRuntimeIo';
 import { assertMathCanonicalPath } from '../math/paths';
 import { theoremKnowledgeEntrySchema, theoremKnowledgeStats, validateKnowledgeMetadata, validateTheoremKnowledge,
   type TheoremKnowledgeBase } from './theoremKnowledge';
@@ -30,10 +30,7 @@ function validateManifest(value: unknown): PackedManifest {
 }
 
 function parseManifest(text: string): PackedManifest {
-  let value: unknown;
-  try { value = JSON.parse(text); }
-  catch { throw new Error('math_knowledge_packed_schema_invalid'); }
-  return validateManifest(value);
+  return validateManifest(parseMathJson(text, 'math_knowledge_packed_schema_invalid'));
 }
 
 function objectsRoot(file: string, manifest: PackedManifest) {
@@ -79,22 +76,7 @@ function packedView(resolved: string, text: string, digest: string, manifest: Pa
   return { base, digest, text, format: 'v2' as const };
 }
 
-/** The pinned manifest authenticates metadata and source hashes; proof bytes are checked only when requested. */
-export function readPackedKnowledge(file: string, expectedDigest?: string) {
-  const resolved = path.resolve(file);
-  assertMathCanonicalPath(resolved);
-  const text = readMathText(resolved, maxBytes), digest = mathDigest(text);
-  if (expectedDigest && (!hash.safeParse(expectedDigest).success || expectedDigest !== digest))
-    throw new Error('math_knowledge_identity_changed');
-  return packedView(resolved, text, digest, parseManifest(text));
-}
-
-function writeFrozen(file: string, contents: string) {
-  assertMathCanonicalPath(file);
-  const fd = fs.openSync(file, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o400);
-  try { fs.writeFileSync(fd, contents); fs.fsyncSync(fd); }
-  finally { fs.closeSync(fd); }
-}
+function writeFrozen(file: string, contents: string) { assertMathCanonicalPath(file); writeMathFrozen(file, contents); }
 
 /** Publish blobs before their immutable manifest; an interrupted publication never exposes a complete catalog. */
 export function writePackedKnowledge(file: string, base: TheoremKnowledgeBase, originSha256?: string) {
@@ -127,7 +109,7 @@ export function writePackedKnowledge(file: string, base: TheoremKnowledgeBase, o
 
 /** Worker copies retain the exact manifest bytes, and verify existing objects before an idempotent retry. */
 export function copyPackedKnowledge(manifestText: string, fromCatalogFile: string, toCatalogFile: string) {
-  const digest = mathDigest(manifestText), source = readPackedKnowledge(fromCatalogFile, digest);
+  const digest = mathDigest(manifestText), source = readKnowledgeCatalog(fromCatalogFile, digest);
   const manifest = parseManifest(manifestText), resolved = path.resolve(toCatalogFile);
   assertMathCanonicalPath(resolved);
   const root = path.join(path.dirname(resolved), manifest.objectsDirectory);
@@ -156,16 +138,15 @@ export function copyPackedKnowledge(manifestText: string, fromCatalogFile: strin
   return { file: resolved, sha256: digest, format: 'v2' as const, ...theoremKnowledgeStats(source.base) };
 }
 
-/** Existing monolithic catalogs remain readable while new manifests load only their metadata. */
+/** Existing monolithic catalogs remain readable while new manifests load only their metadata: the pinned v2 manifest
+ * authenticates metadata and source hashes, and proof bytes are checked only when requested. */
 export function readKnowledgeCatalog(file: string, expectedDigest?: string) {
   const resolved = path.resolve(file);
   assertMathCanonicalPath(resolved);
   const text = readMathText(resolved, maxBytes), digest = mathDigest(text);
   if (expectedDigest && (!hash.safeParse(expectedDigest).success || expectedDigest !== digest))
     throw new Error('math_knowledge_identity_changed');
-  let value: unknown;
-  try { value = JSON.parse(text); }
-  catch { throw new Error('math_knowledge_schema_invalid'); }
+  const value = parseMathJson(text, 'math_knowledge_schema_invalid');
   const version = (value as { schema?: unknown } | null)?.schema;
   if (version === 'theorem-os.theorem-knowledge.v2') return packedView(resolved, text, digest, validateManifest(value));
   if (version !== 'theorem-os.theorem-knowledge.v1') throw new Error('math_knowledge_schema_invalid');

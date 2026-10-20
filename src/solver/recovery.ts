@@ -146,12 +146,16 @@ export function recoverMathSnapshot(options: { snapshot: string; output: string;
   }
   // The historical bootstrap can predate the required target stub. The canonical
   // source has the frozen declarations and must still pass all current policies.
-  for (const file of archived.problem.ownedFiles) writeSource(file, gitFile(history, importedCanonical, `${manifest.projectRelative}/${file}`));
-  const canonicalNotes = tryGitFile(history, importedCanonical, 'RESEARCH.md');
-  if (canonicalNotes) fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), canonicalNotes);
+  const writeImportedSources = (imported: string) => {
+    for (const file of archived.problem.ownedFiles) writeSource(file, gitFile(history, imported, `${manifest.projectRelative}/${file}`));
+    const notes = tryGitFile(history, imported, 'RESEARCH.md');
+    if (notes) fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), notes);
+  };
+  const recoveryCommit = (cwd: string, message: string) => git(cwd, ['-c', 'user.name=TheoremOS Recovery',
+    '-c', 'user.email=recovery@localhost', 'commit', '--quiet', '--no-gpg-sign', '-m', message]);
+  writeImportedSources(importedCanonical);
   git(workspace, ['add', '--', '.']);
-  git(workspace, ['-c', 'user.name=TheoremOS Recovery', '-c', 'user.email=recovery@localhost',
-    'commit', '--quiet', '--no-gpg-sign', '-m', 'Recover frozen problem sources']);
+  recoveryCommit(workspace, 'Recover frozen problem sources');
   const baseCommit = git(workspace, ['rev-parse', 'HEAD']);
   const problem: SolverProblem = { ...archived.problem, workspace, baseCommit,
     activeProblemPath: path.join(root, 'state.json'), sourceRepository: options.sourceRepository };
@@ -161,8 +165,7 @@ export function recoverMathSnapshot(options: { snapshot: string; output: string;
     const sources = problem.ownedFiles.map(file => `${problem.projectRelative}/${file}`);
     if (fs.existsSync(path.join(checkout, 'RESEARCH.md'))) sources.push('RESEARCH.md');
     git(checkout, ['add', '--', ...sources]);
-    if (git(checkout, ['diff', '--cached', '--name-only'])) git(checkout, ['-c', 'user.name=TheoremOS Recovery',
-      '-c', 'user.email=recovery@localhost', 'commit', '--quiet', '--no-gpg-sign', '-m', 'Recover worker proof sources']);
+    if (git(checkout, ['diff', '--cached', '--name-only'])) recoveryCommit(checkout, 'Recover worker proof sources');
     return git(checkout, ['rev-parse', 'HEAD']);
   };
   const materialize = (original: string) => {
@@ -170,9 +173,7 @@ export function recoverMathSnapshot(options: { snapshot: string; output: string;
     const imported = originalToImported[original];
     if (!imported) throw new Error(`math_recovery_source_commit_missing:${original}`);
     git(workspace, ['reset', '--quiet', '--hard', baseCommit]);
-    for (const file of problem.ownedFiles) writeSource(file, gitFile(history, imported, `${problem.projectRelative}/${file}`));
-    const notes = tryGitFile(history, imported, 'RESEARCH.md');
-    if (notes) fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), notes);
+    writeImportedSources(imported);
     const commit = checkpoint(workspace);
     git(workspace, ['update-ref', `refs/recovery/original/${original}`, commit]);
     originalToMaterialized[original] = commit;

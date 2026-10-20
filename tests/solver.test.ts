@@ -27,7 +27,7 @@ import { organizeResearch } from '../src/solver/modules/organization';
 import { assertStatementSnapshot, captureStatementContexts, isStatementAction, readBacktranslation, statementSnapshot, writeStatementSnapshot } from '../src/solver/statementReview';
 import { parseLeanStatementContexts } from '../src/math/leanStatementContext';
 import { captureProofReferences, proofReferencesUnchanged } from '../src/solver/proofReferences';
-import { applyTaskChanges, checkTaskProof, checkTaskProofs, projectTaskSources, taskChanges } from '../src/solver/cooperativeProof';
+import { applyTaskChanges, checkTaskProof, checkTaskProofs, createTaskSourceProjector, taskChanges } from '../src/solver/cooperativeProof';
 import { readContinuationPage, readContinuationSnapshot } from '../src/solver/continuationInput';
 import { inspectScopedLeanDeclarations, leanDeclarationContextCommands } from '../src/math/leanSource';
 import { recordRouteBlockers, refreshRouteBlockers } from '../src/solver/routeControl';
@@ -969,7 +969,7 @@ describe('isolated solver and host acceptance', () => {
     const commit = commitSolverSources(problem, workspace);
     const task: CooperativeTask = { id: target, kind: 'goal', objective: 'Prove the target', dependsOn: [], revision: 0,
       proofPath: 'Submission.lean', theoremName: `Submission.${target}` };
-    const projected = projectTaskSources(problem, workspace, commit, task, []).get('Submission.lean')!;
+    const projected = createTaskSourceProjector(problem, workspace, commit)(task, []).get('Submission.lean')!;
     expect(projected).toContain(`theorem ${target} : True := by trivial`);
     expect(projected).not.toContain(`theorem ${target === 'first' ? 'second' : 'first'}`);
     expect(projected).toContain('lemma hidden');
@@ -989,8 +989,8 @@ describe('isolated solver and host acceptance', () => {
     const commit = commitSolverSources(problem, workspace);
     const task: CooperativeTask = { id: 'helper', kind: 'lemma', objective: 'Prove the helper', dependsOn: [], revision: 0,
       proofPath: 'Submission.lean', theoremName: 'Submission.helper', type: 'True' };
-    expect(() => projectTaskSources(problem, workspace, commit, task, [])).toThrow(code);
-    expect(() => projectTaskSources(problem, workspace, commit, task, [])).toThrow('Target: Submission.helper');
+    expect(() => createTaskSourceProjector(problem, workspace, commit)(task, [])).toThrow(code);
+    expect(() => createTaskSourceProjector(problem, workspace, commit)(task, [])).toThrow('Target: Submission.helper');
     expect(host.verify).not.toHaveBeenCalled();
   });
 
@@ -1084,7 +1084,7 @@ describe('isolated solver and host acceptance', () => {
     const { source, task } = configureDefinitionGoal();
     fs.writeFileSync(path.join(project, 'Submission.lean'), source.replace('theorem first', 'def helper : Nat := 7\ntheorem first'));
     const commit = commitSolverSources(problem, workspace);
-    expect(() => projectTaskSources(problem, workspace, commit, { ...task, ...impostor }, []))
+    expect(() => createTaskSourceProjector(problem, workspace, commit)({ ...task, ...impostor }, []))
       .toThrow('math_task_requires_theorem');
     expect(host.verify).not.toHaveBeenCalled();
   });
@@ -3489,10 +3489,10 @@ describe('isolated solver and host acceptance', () => {
       revision: 0, proofPath: 'Submission.lean', theoremName: 'Submission.dependency₂', type: 'True' };
     const task: CooperativeTask = { id: 'parent', kind: 'lemma', objective: 'Prove the connection', dependsOn: ['dependency'],
       revision: 0, proofPath: 'Submission.lean', theoremName: 'Submission.parent', type: 'True', conditional: true };
-    const unconditional = projectTaskSources(problem, workspace, commit, task, []).get('Submission.lean')!;
+    const unconditional = createTaskSourceProjector(problem, workspace, commit)(task, []).get('Submission.lean')!;
     expect(unconditional).toContain('lemma dependency₂ : True');
     expect(unconditional).toContain('lemma dependency_wrapper : True');
-    const projected = projectTaskSources(problem, workspace, commit, task, [], [dependency]).get('Submission.lean')!;
+    const projected = createTaskSourceProjector(problem, workspace, commit)(task, [], [dependency]).get('Submission.lean')!;
     expect(projected).toContain('lemma parent (dependency₂ : True) : True := dependency₂');
     expect(projected).not.toContain('Submission.dependency₂');
     for (const name of ['dependency₂', 'dependency_wrapper', 'wrapper_chain', 'parent_wrapper'])
@@ -3509,12 +3509,12 @@ describe('isolated solver and host acceptance', () => {
     const commit = commitSolverSources(problem, workspace);
     const task: CooperativeTask = { id: 'consumer', kind: 'lemma', objective: 'Check the consumer', dependsOn: [],
       revision: 0, proofPath: 'Submission.lean', theoremName: 'Submission.consumer', type: 'True' };
-    const projected = projectTaskSources(problem, workspace, commit, task, []).get('Submission.lean')!;
+    const projected = createTaskSourceProjector(problem, workspace, commit)(task, []).get('Submission.lean')!;
     expect(projected).not.toContain('lemma unfinished');
     expect(projected).not.toContain('lemma wrapper');
     expect(projected).toContain('lemma valid : True := by trivial');
     expect(projected).toContain('lemma consumer : True := unfinished');
-    const targeted = projectTaskSources(problem, workspace, commit,
+    const targeted = createTaskSourceProjector(problem, workspace, commit)(
       { ...task, theoremName: 'Submission.unfinished' }, []).get('Submission.lean')!;
     expect(targeted).toContain(`lemma unfinished : True := by ${placeholder}`);
     expect(fs.readFileSync(file, 'utf8')).toBe(source);
@@ -3534,7 +3534,7 @@ describe('isolated solver and host acceptance', () => {
       const task: CooperativeTask = { id: 'consumer', kind: 'lemma', objective: 'Check the conditional consumer',
         dependsOn: ['premise'], revision: 0, proofPath: 'Submission.lean', theoremName: 'Submission.consumer',
         type: 'True', conditional: true };
-      const projected = projectTaskSources(problem, workspace, commit, task, [], [dependency]).get('Submission.lean')!;
+      const projected = createTaskSourceProjector(problem, workspace, commit)(task, [], [dependency]).get('Submission.lean')!;
       expect(projected).not.toContain('def wrapper');
       expect(projected).not.toContain('noncomputable');
       expect(projected).toContain('\ntheorem helper : True := by trivial\n');

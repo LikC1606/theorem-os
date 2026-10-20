@@ -196,13 +196,16 @@ export async function runResearchWorkers(input: {
         state.phase = research.phase = 'running'; save();
         return true;
       };
+      /** Return a reserved but unstarted turn to the shared budget; false when none was reserved. */
+      const unreserveTurn = () => {
+        if (!reservedTurn) return false;
+        state.turns--; if (parallel) research.turns--;
+        reservedTurn = false; cooperation?.settleTurn(worker);
+        return true;
+      };
       const releaseUnstartedTurn = (assignment: CooperativeAction) => {
         const superseded = !cooperation!.current(assignment);
-        if (reservedTurn) {
-          state.turns--; if (parallel) research.turns--;
-          reservedTurn = false;
-          cooperation!.settleTurn(worker);
-        }
+        unreserveTurn();
         cooperation!.release(worker, assignment);
         unstarted = undefined; retries = 0;
         if (superseded) emit('assignment_superseded', { beforeStart: true });
@@ -289,10 +292,7 @@ export async function runResearchWorkers(input: {
               await retryFailedTurn(detail);
               if (researchFailureReason(detail) === 'math_model_context_window_exceeded') {
                 rebuildContext = true;
-                if (reservedTurn) {
-                  state.turns--; if (parallel) research.turns--;
-                  reservedTurn = false; cooperation?.settleTurn(worker); save();
-                }
+                if (unreserveTurn()) save();
                 return false;
               }
             }
@@ -638,8 +638,8 @@ export async function runResearchWorkers(input: {
           if (checkWholeRequired) await exclusiveCheck(() => checkWhole(candidate, operation));
           feedbackCheck = previousCheck; feedbackFailures = previousFailures;
           if (!winner && turn === 'failed') {
-            if (!savedTaskProof && !savedPlan) await retryFailedTurn(turnError);
-            else if (researchFailureReason(turnError) === 'math_model_context_window_exceeded') await retryFailedTurn(turnError);
+            if ((!savedTaskProof && !savedPlan) || researchFailureReason(turnError) === 'math_model_context_window_exceeded')
+              await retryFailedTurn(turnError);
             else if (recoverableResearchFailure(turnError)) {
               // Accepted saved work can continue after repairing the session.
               retries = 0;

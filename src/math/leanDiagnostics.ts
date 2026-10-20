@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { limitMathOutput, runLeanProcess } from './mathProcess';
-import { assertMathConstructionSources, mathLocalModuleBuildOrder } from './mathConstructionSources';
+import { assertMathConstructionSources, LAKE_CONFIGURATION_FILES as configurationFiles, mathLocalModuleBuildOrder } from './mathConstructionSources';
 import { assertMathCanonicalPath } from './paths';
 import { canonicalMathJson, mathDigest, writeMathJsonDurable } from './mathRuntimeIo';
 import { runMathematicsSandboxedCommand } from './verifier';
@@ -72,7 +72,6 @@ export async function runLeanDiagnostics(input: {
     const saved = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
     if (saved && typeof saved === 'object' && !Array.isArray(saved)) cache = saved;
   } catch { /* Missing or stale advisory cache. */ }
-  const configurationFiles = ['lean-toolchain', 'lakefile.toml', 'lakefile.lean', 'lake-manifest.json', '.lake/package-overrides.json'];
   const configuration = () => configurationFiles.map(file => {
     const absolute = path.join(project, file);
     return fs.existsSync(absolute) ? mathDigest(fs.readFileSync(absolute)) : '';

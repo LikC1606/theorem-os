@@ -4,6 +4,7 @@ import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import { resolveMathProofEnvironment } from '../math/mathProofEnvironment';
 import { resolveMathematicsRuntimeEnvironment } from '../math/mathRuntimeEnvironment';
 import { isMathFoundationalLeanAxiom } from '../math/contracts';
+import { LAKE_CONFIGURATION_FILES } from '../math/mathConstructionSources';
 import type { MathematicsVerifierBatchResult } from '../math/verifier';
 
 /** Mutable search paths cannot establish that the same Lean input was checked. */
@@ -18,14 +19,13 @@ export function proofReuseEnvironment(projectRoot: string, env: NodeJS.ProcessEn
     if (runtime.LEAN_PATH?.trim() || runtime.LEAN_SYSROOT?.trim() ||
         !sealed && (packages || runtime.DEEPSCIENTIST_MATH_TRUSTED_CACHE_ROOTS?.trim()))
       return { env: runtime, reusable: false };
-    const configuration = ['lean-toolchain', 'lakefile.toml', 'lakefile.lean', 'lake-manifest.json', '.lake/package-overrides.json']
-      .map(file => {
-        try { return [file, mathDigest(fs.readFileSync(path.join(projectRoot, file)))]; }
-        catch (error) {
-          if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [file, null];
-          throw error;
-        }
-      });
+    const configuration = LAKE_CONFIGURATION_FILES.map(file => {
+      try { return [file, mathDigest(fs.readFileSync(path.join(projectRoot, file)))]; }
+      catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [file, null];
+        throw error;
+      }
+    });
     return { env: runtime, reusable: true,
       digest: mathDigest(canonicalMathJson({ environment: runtime, packages: sealed?.identity ?? null, configuration })) };
   } catch {

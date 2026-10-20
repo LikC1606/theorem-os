@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
-import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
+import { canonicalMathJson, mathDigest, writeMathFrozen } from '../math/mathRuntimeIo';
 import { assertMathCanonicalPath } from '../math/paths';
 import { inspectLeanDeclarationRegions, inspectScopedLeanDeclarations } from '../math/leanSource';
 import { knowledgeSearchGroup, knowledgeVersionSummary } from './theoremKnowledgeSearch';
@@ -212,8 +212,7 @@ export function writeTheoremKnowledge(file: string, base: TheoremKnowledgeBase) 
   const text = canonicalMathJson(base) + '\n';
   if (Buffer.byteLength(text) > 256 * 1024 * 1024) throw new Error('math_knowledge_too_large');
   fs.mkdirSync(path.dirname(resolved), { recursive: true, mode: 0o700 });
-  const fd = fs.openSync(resolved, 'wx', 0o400);
-  try { fs.writeFileSync(fd, text); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+  writeMathFrozen(resolved, text);
   return { file: resolved, sha256: mathDigest(text), ...theoremKnowledgeStats(base) };
 }
 

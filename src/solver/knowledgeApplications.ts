@@ -4,7 +4,7 @@ import { canonicalMathJson, mathArtifactCurrent, mathDigest, readMathFile } from
 import { assertMathCanonicalPath, isMathPathWithin } from '../math/paths';
 import { limitMathOutput } from '../math/mathProcess';
 import { leanDiagnosticEnvironmentIdentity } from '../math/leanResidualGoals';
-import { mathLocalModuleBuildOrder } from '../math/mathConstructionSources';
+import { LAKE_CONFIGURATION_FILES as configurationFiles, mathLocalModuleBuildOrder } from '../math/mathConstructionSources';
 import { checkLeanType } from '../math/leanTypeDiagnostics';
 import type { ContextSection } from './contextCompiler';
 import type { KnowledgeApplicationCheck, KnowledgeUse } from './knowledgeUsage';
@@ -17,8 +17,6 @@ type Inputs = {
   sourceAtCommit: (file: string) => string; signal?: AbortSignal; timeoutMs: number;
   previous?: readonly KnowledgeUse[];
 };
-
-const configurationFiles = ['lean-toolchain', 'lakefile.toml', 'lakefile.lean', 'lake-manifest.json', '.lake/package-overrides.json'];
 
 function filesCurrent(projectRoot: string, check: KnowledgeApplicationCheck, contextFile: string): boolean {
   try {

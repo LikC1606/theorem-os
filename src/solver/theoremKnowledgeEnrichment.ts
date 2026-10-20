@@ -1,12 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
-import { canonicalMathJson, mathDigest, readMathFile, syncMathDirectory } from '../math/mathRuntimeIo';
+import { canonicalMathJson, mathDigest, parseMathJson, readMathFile, syncMathDirectory, writeMathFrozen } from '../math/mathRuntimeIo';
 import { assertMathCanonicalPath } from '../math/paths';
 import { collectLeanKnowledgeEnrichment, leanKnowledgeCollectorIdentity, leanKnowledgeSourceDigest,
   leanKnowledgeQuery, parseLeanKnowledgeReferences, leanKnowledgeReferenceOmissions,
   parseLeanKnowledgeContext } from '../math/leanKnowledgeEnrichment';
-import { mathLocalModuleBuildOrder } from '../math/mathConstructionSources';
+import { LAKE_CONFIGURATION_FILES as configurationFiles, mathLocalModuleBuildOrder } from '../math/mathConstructionSources';
 import { allowedKnowledgeFile, knowledgeDeclaration, knowledgeElaborationSchema, type KnowledgeCandidate } from './theoremKnowledge';
 import { importAcceptedKnowledge } from './theoremKnowledgeAccepted';
 
@@ -64,7 +64,6 @@ export type KnowledgeEnrichment = z.infer<typeof schema>;
 type EnrichmentRecord = KnowledgeEnrichment['records'][number];
 type RetainedDiagnostics = { stdout?: string; exitCode?: number; timedOut?: boolean; aborted?: boolean;
   sourceDigest?: string; environmentDigest?: string };
-const configurationFiles = ['lean-toolchain', 'lakefile.toml', 'lakefile.lean', 'lake-manifest.json', '.lake/package-overrides.json'];
 const mismatch = () => new Error('math_knowledge_enrichment_mismatch');
 const equal = (left: unknown, right: unknown) => left === undefined || right === undefined
   ? left === right : canonicalMathJson(left) === canonicalMathJson(right);
@@ -156,10 +155,7 @@ export function validateKnowledgeEnrichment(value: unknown): KnowledgeEnrichment
       if (item.queryDigest !== undefined && !item.artifacts.some(artifact => artifact.kind === 'query' && artifact.digest === item.queryDigest))
         throw mismatch();
       for (const fullType of item.artifacts.filter(artifact => artifact.kind === 'full-type')) {
-        let value: unknown;
-        try { value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(artifactBytes.get(fullType.path)!)); }
-        catch { throw new Error('math_knowledge_enrichment_artifact_changed'); }
-        if (!equal(value, { name: item.name, fullType: item.fullType, universes: item.universes, typeComplete: true }))
+        if (!equal(parseMathJson(artifactBytes.get(fullType.path)!, 'math_knowledge_enrichment_artifact_changed'), { name: item.name, fullType: item.fullType, universes: item.universes, typeComplete: true }))
           throw new Error('math_knowledge_enrichment_artifact_changed');
       }
       let context: typeof item.statementContext, contextOmissions: string[] = [], diagnostics: RetainedDiagnostics | undefined;
@@ -205,10 +201,7 @@ export function readKnowledgeEnrichment(file: string, expectedSha256?: string): 
   const absolute = path.resolve(file); assertMathCanonicalPath(absolute);
   const bytes = readMathFile(absolute, maxBytes).bytes;
   if (expectedSha256 !== undefined && mathDigest(bytes) !== expectedSha256) throw new Error('math_knowledge_enrichment_changed');
-  let value: unknown;
-  try { value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)); }
-  catch { throw new Error('math_knowledge_enrichment_schema_invalid'); }
-  return validateKnowledgeEnrichment(value);
+  return validateKnowledgeEnrichment(parseMathJson(bytes, 'math_knowledge_enrichment_schema_invalid'));
 }
 
 /** Enrichment snapshots are immutable and retain the exact query and diagnostic bytes. */
@@ -217,8 +210,7 @@ export function writeKnowledgeEnrichment(file: string, value: unknown) {
   const text = canonicalMathJson(result) + '\n';
   if (Buffer.byteLength(text) > maxBytes) throw new Error('math_knowledge_enrichment_too_large');
   fs.mkdirSync(path.dirname(absolute), { recursive: true, mode: 0o700 });
-  const descriptor = fs.openSync(absolute, 'wx', 0o400);
-  try { fs.writeFileSync(descriptor, text); fs.fsyncSync(descriptor); } finally { fs.closeSync(descriptor); }
+  writeMathFrozen(absolute, text);
   syncMathDirectory(path.dirname(absolute));
   const roots = result.records.flatMap(record => record.collection.roots);
   const missing = result.records.reduce((total, record) => total + record.roots.length - record.collection.roots.length, 0);
