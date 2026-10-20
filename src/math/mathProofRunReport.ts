@@ -393,5 +393,3 @@ export function summarizeMathProofRunMetrics(
   };
   return Object.freeze({ ...base, reportHash: mathDigest(canonicalMathJson(base)) });
 }
-
-export type MathProofRunReport = ReturnType<typeof summarizeMathProofRunMetrics>;

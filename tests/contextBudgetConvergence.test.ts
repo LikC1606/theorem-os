@@ -27,14 +27,14 @@ it.each([10000, 100000])('converges both byte fields across the %s digit boundar
   expect(results.some(bytes => bytes >= boundary)).toBe(true);
 });
 
-it.each([32, 33, 99])('preserves the full %s-item omission set while sizing its preview', count => {
+it.each([16, 17, 99])('preserves the full %s-item omission set while sizing its preview', count => {
   const request = { ...input('x'.repeat(9000)), optional: Array.from({ length: count }, (_, index) =>
     ({ id: `hint-${index}`, kind: 'finding' as const, text: '\u6570\ud83d\ude42' })) };
   const result = compileTaskContext(request), recorded = inline(result.message);
   expect(result.manifest.omitted).toEqual(request.optional.map(item =>
     ({ id: item.id, kind: item.kind, reason: 'optional-budget' })));
   expect(result.manifest.usedBytes).toBe(Buffer.byteLength(request.instructions) + Buffer.byteLength(result.message));
-  if (count <= 32) expect(recorded).toEqual(result.manifest);
+  if (count <= 16) expect(recorded).toEqual(result.manifest);
   else {
     expect(recorded.omitted).toEqual(result.manifest.omitted.slice(0, 16));
     expect(recorded.omissionSet).toMatchObject({ count, digest: mathDigest(canonicalMathJson(result.manifest.omitted)) });

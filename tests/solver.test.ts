@@ -1361,6 +1361,22 @@ describe('isolated solver and host acceptance', () => {
     }
   });
 
+  it('ignores a worker diagnostic log but not a tracked or nested one', () => {
+    fs.writeFileSync(path.join(workspace, 'check-lean-submission.log'), 'diagnostic output\n');
+    expect(() => assertSolverSources(problem, workspace)).not.toThrow();
+    fs.writeFileSync(path.join(project, 'probe.log'), 'diagnostic output\n');
+    expect(() => assertSolverSources(problem, workspace)).toThrow('math_source_outside_ownership');
+    fs.unlinkSync(path.join(project, 'probe.log'));
+    fs.writeFileSync(path.join(workspace, 'tracked.log'), 'committed on purpose\n');
+    git(workspace, ['add', '--', 'tracked.log']);
+    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet',
+      '-m', 'Track a log']);
+    fs.writeFileSync(path.join(workspace, 'tracked.log'), 'changed after the commit\n');
+    expect(() => assertSolverSources(problem, workspace)).toThrow('math_source_outside_ownership');
+    fs.unlinkSync(path.join(workspace, 'tracked.log'));
+    fs.unlinkSync(path.join(workspace, 'check-lean-submission.log'));
+  });
+
   it('keeps changing host journals outside the strict clean-checkout boundary', async () => {
     const journals = ['COOPERATION.json', 'CONTEXT-MANIFEST.json', 'DELIVERIES.jsonl', `DELIVERIES-${'a'.repeat(64)}.jsonl`];
     for (const file of journals) fs.writeFileSync(path.join(workspace, file), '{}\n');
@@ -2781,6 +2797,14 @@ describe('isolated solver and host acceptance', () => {
       .toThrow('math_plan_dependency_cycle');
     expect(() => parseCooperationPlan(problem, { ...plan, tasks: plan.tasks.map(task => task.id === 'a' ? { ...task, premises: [123] } : task) }))
       .toThrow('math_plan_invalid_task');
+  });
+
+  it('reads an explicitly empty route list as the implicit main route', () => {
+    const tasks = planTasks().map(task => ({ ...task, groupId: undefined }));
+    const planned = parseCooperationPlan(problem, { tasks, groups: [] });
+    expect(planned.groups).toEqual([{ id: 'main', objective: 'Prove the original problem', status: 'active', revision: 0 }]);
+    expect(planned.tasks.every(task => task.groupId === undefined)).toBe(true);
+    expect(parseCooperationPlan(problem, { tasks })).toEqual(planned);
   });
 
   it.each(['lead', 'task', 'backtranslate', 'statement-review', 'review'])('does not charge an unstarted cooperative %s assignment', async stoppedKind => {

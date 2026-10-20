@@ -227,7 +227,10 @@ export function assertSolverSources(problem: SolverProblem, worktree: string): v
     ...git(worktree, ['ls-files', '--others', '--exclude-standard']).split('\n')].filter(Boolean);
   const allowed = new Set([...problem.ownedFiles.map(relative => path.join(problem.projectRelative, relative)),
     'RESEARCH.md', 'DELIVERIES.jsonl', 'COOPERATION.json', 'CONTEXT-MANIFEST.json']);
-  for (const relative of changed) if (!allowed.has(relative) && !/^DELIVERIES-[a-f0-9]{64}\.jsonl$/u.test(relative)) throw new Error('math_source_outside_ownership');
+  // A worker's own redirect of a Lean or script diagnostic is not proof content and is not committed.
+  const diagnosticLog = (relative: string) => !relative.includes('/') && /\.log$/u.test(relative);
+  for (const relative of changed) if (!allowed.has(relative) && !/^DELIVERIES-[a-f0-9]{64}\.jsonl$/u.test(relative) &&
+      !(diagnosticLog(relative) && !git(worktree, ['ls-files', '--', relative]))) throw new Error('math_source_outside_ownership');
   for (const target of problem.targets) {
     const file = path.join(project, target.proofPath);
     if (hashMathFormalSourceDeclaration(fs.readFileSync(file, 'utf8'), target.theoremName) !== target.declarationHash)

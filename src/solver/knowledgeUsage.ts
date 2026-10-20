@@ -17,7 +17,6 @@ export const knowledgeApplicationReportSchema = z.object({
   arguments: z.array(z.object({ parameter: text, value: text }).strict()).max(32).optional(),
   additionalPremises: notes, typeclassIssues: notes, adaptationSteps: notes, remainingGoals: notes, reconsiderWhen: notes,
 }).strict();
-export type KnowledgeApplicationReport = z.infer<typeof knowledgeApplicationReportSchema>;
 export const knowledgeApplicationCheckSchema = z.object({
   status: z.enum(['elaborated', 'failed', 'unavailable']), reason: z.string(),
   authority: z.literal('advisory-application-elaboration'), proofAcceptance: z.literal('not-assessed'),

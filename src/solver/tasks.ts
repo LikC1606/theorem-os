@@ -112,8 +112,9 @@ const optionalFields = (value: any, keys: readonly string[]) =>
 export function parseCooperationPlan(problem: SolverProblem, value: any): { tasks: CooperativeTask[]; groups: RouteGroup[]; proofRoutes?: ProofRoute[] } {
   if (!value || !Array.isArray(value.tasks) || value.tasks.length < 1)
     throw new Error('math_plan_invalid');
-  const rawGroups = value.groups ?? [{ id: 'main', objective: 'Prove the original problem' }];
-  if (!Array.isArray(rawGroups) || !rawGroups.length) throw new Error('math_plan_invalid_groups');
+  // Leads routinely serialize an empty explicit list; it carries the same meaning as omitting it.
+  const rawGroups = !Array.isArray(value.groups) || !value.groups.length
+    ? [{ id: 'main', objective: 'Prove the original problem' }] : value.groups;
   const groups: RouteGroup[] = rawGroups.map((group: any) => {
     if (!group || !validId(group.id) ||
         typeof group.objective !== 'string' || !group.objective.trim() ||
