@@ -2,7 +2,6 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
-import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type Page } from 'playwright';
@@ -11,15 +10,13 @@ import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
 import type { WebResult, WebRun } from '../apps/web/shared';
 import { closeSettings, fillConfig, openSettings, showArtifacts, showChat, withSettings } from './web-ui-controls';
+import { freePort, startBrowser } from './web-scenario';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-performance');
 const bundle = await fs.readFile(path.join(root, 'out/web/app.js')).catch(() => { throw new Error('Run bun run build:web before the performance check.'); });
 await fs.mkdir(output, { recursive: true });
-const probe = net.createServer();
-await new Promise<void>(resolve => probe.listen(0, '127.0.0.1', resolve));
-const port = (probe.address() as net.AddressInfo).port;
-await new Promise<void>((resolve, reject) => probe.close(error => error ? reject(error) : resolve()));
+const port = await freePort();
 const origin = `http://127.0.0.1:${port}`;
 const credential = `sk-theoremos-performance-fixture-${crypto.randomUUID()}`;
 type Control = { progress(message: string): void; artifact(source: string): void; finish(result: WebResult): void };
@@ -164,8 +161,7 @@ async function writeReport(status: 'passed' | 'failed', error?: unknown) {
 }
 
 try {
-  await new Promise<void>((resolve, reject) => { service.server.once('error', reject); service.server.listen(port, '127.0.0.1', resolve); });
-  browser = await chromium.launch({ headless: true });
+  browser = await startBrowser(service.server, port);
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   page = await context.newPage();
   page.setDefaultTimeout(12_000);

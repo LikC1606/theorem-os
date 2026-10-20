@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type BrowserContext, type Page } from 'playwright';
@@ -9,17 +8,15 @@ import { readWebConfig, webLimits } from '../apps/web/config';
 import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
 import { draftRecoveryStorageKey } from '../apps/web/client/draftRecovery';
-import { closeDialog, closeSettings, discardSourceEditor, openSettings } from './web-ui-controls';
+import { closeDialog, closeSettings, discardSourceEditor, fitViewport, focused, openSettings, selectEditorRange, snapshot, text, value } from './web-ui-controls';
+import { freePort, normalize, type RequestRecord, type ScenarioSuite, settled, startBrowser, webScenario, writeScenarioReport } from './web-scenario';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-editor-replace'), reportFile = path.join(output, 'report.json');
 const widths = [1440, 375, 320];
 await fs.access(path.join(root, 'out/web/app.js')).catch(() => { throw new Error('Run bun run build:web before the editor replacement check.'); });
 await fs.mkdir(output, { recursive: true }); await fs.rm(reportFile, { force: true });
-const probe = net.createServer();
-await new Promise<void>(resolve => probe.listen(0, '127.0.0.1', resolve));
-const port = (probe.address() as net.AddressInfo).port;
-await new Promise<void>((resolve, reject) => probe.close(error => error ? reject(error) : resolve()));
+const port = await freePort();
 const origin = `http://127.0.0.1:${port}`;
 let workerStarts = 0, cleanedOwners = 0;
 const runner: WebRunner = {
@@ -28,9 +25,7 @@ const runner: WebRunner = {
 };
 const service = createWebService(readWebConfig({ THEOREMOS_WEB_PORT: String(port), THEOREMOS_WEB_PUBLIC_URL: origin,
   THEOREMOS_WEB_STATIC_ROOT: path.join(root, 'out/web') }), runner);
-type RequestRecord = { method: string; pathname: string };
 type Harness = { page: Page; context: BrowserContext; requests: RequestRecord[] };
-type EditorSnapshot = { value: string; start: number; end: number; direction: string; top: number; left: number };
 type NativeEvent = { inputType: string; length: number; trusted: boolean };
 type NativeCommand = { command: string; length: number };
 const checks: Array<{ name: string; width: number; elapsedMs: number; unexpectedWrites: number; requests: RequestRecord[] }> = [];
@@ -40,87 +35,38 @@ const feedback: Array<{ label: string; text: string }> = [];
 const overlays: Array<{ label: string; width: number; marks: number; visibleMarks: number }> = [];
 const selections: Array<{ label: string; width: number; start: number; end: number; selected: string }> = [];
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
-let activeHarness: Harness | undefined;
-let failedScenario = '', failureScreenshot = '';
-const normalize = (source: string) => source.replace(/\r\n?/g, '\n');
+const suite: ScenarioSuite = { origin, output, checks, failedScenario: '', failureScreenshot: '' };
 
-async function settled(page: Page) {
-  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-}
-async function scenario(name: string, run: (h: Harness) => Promise<void>, width = 1440) {
-  failedScenario = name; const started = performance.now();
-  const context = await browser!.newContext({ viewport: { width, height: width > 850 ? 900 : 812 }, reducedMotion: 'reduce' });
-  const page = await context.newPage(); page.setDefaultTimeout(10_000);
-  const h: Harness = { page, context, requests: [] }; activeHarness = h;
-  const errors: string[] = [], external: string[] = [];
-  page.on('pageerror', error => errors.push(error.message));
-  await context.route(/^https?:\/\//, async route => {
-    const url = new URL(route.request().url());
-    if (url.origin !== origin) { external.push(url.href); await route.abort(); return; }
-    if (url.pathname.startsWith('/api/')) {
-      h.requests.push({ method: route.request().method(), pathname: url.pathname });
-      // No scenario needs a write. Block mistakes before they can reach the local service.
-      if (route.request().method() !== 'GET') { await route.abort(); return; }
-    }
-    await route.continue();
-  });
-  let deadline: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await page.goto(origin); await page.locator('#submit-run:enabled').waitFor();
-    await Promise.race([run(h), new Promise<never>((_, reject) => {
-      deadline = setTimeout(() => reject(new Error(`Editor replacement scenario exceeded 45 seconds: ${name}`)), 45_000);
-    })]);
-    assert.deepEqual(errors, [], 'uncaught browser errors'); assert.deepEqual(external, [], 'replacement must remain local');
+const scenario = (name: string, run: (h: Harness) => Promise<void>, width = 1440) => webScenario<Harness>(browser!, suite, name, run, {
+  context: { viewport: { width, height: width > 850 ? 900 : 812 }, reducedMotion: 'reduce' }, harness: (page, context) => ({ page, context, requests: [] }),
+  // No scenario needs a write. Block mistakes before they can reach the local service.
+  routes: { local: 'replacement must remain local', blockWrites: true }, open: true, timeout: { label: 'Editor replacement', seconds: 45 },
+  verify: (h, elapsedMs) => {
     const writes = h.requests.filter(request => request.method !== 'GET');
     assert.deepEqual(writes, [], 'scratch replacement and applying drafts must not create, change, cancel or delete a run');
     assert.equal(workerStarts, 0, 'replacement checks must not start a solver');
-    checks.push({ name, width, elapsedMs: Math.round(performance.now() - started), unexpectedWrites: writes.length, requests: h.requests });
-    console.log(`PASS ${name}`);
-  } catch (error) {
-    failureScreenshot = `failure-${checks.length + 1}.png`;
-    await page.screenshot({ path: path.join(output, failureScreenshot) }).catch(() => {}); throw error;
-  } finally {
-    clearTimeout(deadline);
-    try {
-      const owner = (await context.cookies(origin)).find(cookie => cookie.name === 'theoremos_session')?.value;
-      if (owner) {
-        const remaining = service.jobs.list(owner).length;
-        service.jobs.forget(owner); cleanedOwners++;
-        assert.equal(remaining, 0, 'replacement must not create hidden fixture jobs');
-      }
-    } finally { await context.close(); }
-  }
-}
+    return { name, width, elapsedMs: elapsedMs(), unexpectedWrites: writes.length, requests: h.requests };
+  },
+  cleanup: async ({ context }) => {
+    const owner = (await context.cookies(origin)).find(cookie => cookie.name === 'theoremos_session')?.value;
+    if (owner) {
+      const remaining = service.jobs.list(owner).length;
+      service.jobs.forget(owner); cleanedOwners++;
+      assert.equal(remaining, 0, 'replacement must not create hidden fixture jobs');
+    }
+  },
+});
 async function editSource(page: Page, source: string) {
   await openSettings(page); await page.locator('#template').selectOption(''); await page.locator('#source').fill(source);
   await page.locator('#expand-source').click(); await page.locator('#source-editor[open]').waitFor();
   await value(page, normalize(source)); await focused(page, '#expanded-source');
 }
-async function value(page: Page, expected: string) {
-  await page.waitForFunction(expected => (document.querySelector('#expanded-source') as HTMLTextAreaElement).value === expected, expected);
-}
-async function text(page: Page, selector: string, expected: string) {
-  await page.waitForFunction(({ selector, expected }) => document.querySelector(selector)?.textContent === expected, { selector, expected });
-}
 async function position(page: Page, expected: string) { await text(page, '#editor-find-position', expected); }
 async function matchCount(page: Page, count: number) {
   await page.waitForFunction(count => new RegExp(`^\\d+/${count}$`).test(document.querySelector('#editor-find-position')?.textContent ?? ''), count);
 }
-async function focused(page: Page, selector: string) {
-  assert.equal(await page.locator(selector).evaluate(node => node === document.activeElement), true, `${selector} must have focus`);
-}
-async function snapshot(page: Page): Promise<EditorSnapshot> {
-  return page.locator('#expanded-source').evaluate(node => {
-    const editor = node as HTMLTextAreaElement;
-    return { value: editor.value, start: editor.selectionStart, end: editor.selectionEnd, direction: editor.selectionDirection,
-      top: editor.scrollTop, left: editor.scrollLeft };
-  });
-}
 async function select(page: Page, start: number, end = start, direction: 'forward' | 'backward' | 'none' = 'none') {
-  await page.locator('#expanded-source').evaluate((node, selection) => {
-    const editor = node as HTMLTextAreaElement; editor.focus({ preventScroll: true });
-    editor.setSelectionRange(selection.start, selection.end, selection.direction);
-  }, { start, end, direction }); await settled(page);
+  await selectEditorRange(page, start, end, direction); await settled(page);
 }
 async function selection(page: Page, start: number, end = start, selected = '', label = 'replacement selection') {
   const actual = await snapshot(page);
@@ -184,13 +130,7 @@ async function events(page: Page) {
 async function commands(page: Page) {
   return page.evaluate(() => (window as unknown as { __replaceNativeCommands: NativeCommand[] }).__replaceNativeCommands);
 }
-async function fit(page: Page, selector: string) {
-  const box = await page.locator(selector).boundingBox(), viewport = page.viewportSize()!;
-  assert.ok(box && box.width > 0 && box.height > 0 && box.x >= -1 && box.y >= -1
-    && box.x + box.width <= viewport.width + 1 && box.y + box.height <= viewport.height + 1,
-    `${selector} must fit ${viewport.width}px: ${JSON.stringify(box)}`);
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true, 'replacement must not widen the page');
-}
+const fit = (page: Page, selector: string) => fitViewport(page, selector, 'replacement must not widen the page', true);
 async function screenshot(page: Page, name: string) {
   await page.screenshot({ path: path.join(output, name) }); screenshots.push(name);
 }
@@ -212,17 +152,13 @@ async function visibleOverlay(page: Page, label: string) {
   assert.ok(evidence.visibleMarks >= 1, `${label}: the next match must be visible while replacement input retains focus`);
   overlays.push({ label, width: page.viewportSize()!.width, marks: evidence.marks, visibleMarks: evidence.visibleMarks });
 }
-async function writeReport(status: 'passed' | 'failed', error?: unknown) {
-  await fs.writeFile(reportFile, JSON.stringify({ status, checkedAt: new Date().toISOString(),
-    mode: 'Real local HTTP service and Chromium. Local scratch replacement, native edit transactions and undo/redo. All API writes are blocked; no models, Docker, Lean or external requests.',
-    paidModelCalls: false, workerStarts, cleanedOwners, widths, checks, nativeEdits, feedback, selections, overlays, screenshots,
-    unexpectedWrites: checks.reduce((sum, check) => sum + check.unexpectedWrites, 0),
-    ...(error ? { failedScenario, error: error instanceof Error ? error.message : String(error), failureScreenshot, failureRequests: activeHarness?.requests } : {}) }, null, 2) + '\n');
-}
+const writeReport = (status: 'passed' | 'failed', error?: unknown) => writeScenarioReport(reportFile, suite, status, error,
+  'Real local HTTP service and Chromium. Local scratch replacement, native edit transactions and undo/redo. All API writes are blocked; no models, Docker, Lean or external requests.',
+  { workerStarts, cleanedOwners, widths, checks, nativeEdits, feedback, selections, overlays, screenshots,
+    unexpectedWrites: checks.reduce((sum, check) => sum + check.unexpectedWrites, 0) }, { failureRequests: true });
 
 try {
-  await new Promise<void>((resolve, reject) => { service.server.once('error', reject); service.server.listen(port, '127.0.0.1', resolve); });
-  browser = await chromium.launch({ headless: true });
+  browser = await startBrowser(service.server, port);
 
   for (const width of widths) await scenario(`A single replacement reveals the next Unicode match and keeps controls usable at ${width}px`, async ({ page }) => {
     const source = '-- needle alpha\n-- 🙂x needle beta\n-- needle gamma'; await editSource(page, source);

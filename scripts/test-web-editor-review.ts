@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type BrowserContext, type Page } from 'playwright';
@@ -9,7 +8,8 @@ import { readWebConfig } from '../apps/web/config';
 import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
 import { draftRecoveryStorageKey } from '../apps/web/client/draftRecovery';
-import { closeDialog, closeSettings, discardSourceEditor, openSettings } from './web-ui-controls';
+import { closeDialog, closeSettings, discardSourceEditor, type EditorSnapshot, fitViewport, focused, openSettings, selectEditorRange as select, snapshot, value } from './web-ui-controls';
+import { freePort, normalize, type RequestRecord, type ScenarioSuite, settled, startBrowser, webScenario, writeScenarioReport } from './web-scenario';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-editor-review'), reportFile = path.join(output, 'report.json');
@@ -17,10 +17,7 @@ const widths = [1440, 375, 320];
 const markup = '<img data-editor-review-injection src=x onerror="window.__reviewInjected=true">';
 await fs.access(path.join(root, 'out/web/app.js')).catch(() => { throw new Error('Run bun run build:web before the editor review check.'); });
 await fs.mkdir(output, { recursive: true }); await fs.rm(reportFile, { force: true });
-const probe = net.createServer();
-await new Promise<void>(resolve => probe.listen(0, '127.0.0.1', resolve));
-const port = (probe.address() as net.AddressInfo).port;
-await new Promise<void>((resolve, reject) => probe.close(error => error ? reject(error) : resolve()));
+const port = await freePort();
 const origin = `http://127.0.0.1:${port}`;
 let workerStarts = 0, cleanedOwners = 0;
 const runner: WebRunner = {
@@ -29,9 +26,7 @@ const runner: WebRunner = {
 };
 const service = createWebService(readWebConfig({ THEOREMOS_WEB_PORT: String(port), THEOREMOS_WEB_PUBLIC_URL: origin,
   THEOREMOS_WEB_STATIC_ROOT: path.join(root, 'out/web') }), runner);
-type RequestRecord = { method: string; pathname: string };
 type Harness = { page: Page; context: BrowserContext; requests: RequestRecord[]; releases: Array<() => Promise<unknown>> };
-type EditorSnapshot = { value: string; start: number; end: number; direction: string; top: number; left: number };
 type DiffRow = { kind: 'added' | 'removed' | 'context'; before: number | null; after: number | null; text: string; noNewline: boolean };
 const checks: Array<{ name: string; width: number; elapsedMs: number; unexpectedWrites: number; requests: RequestRecord[] }> = [];
 const screenshots: string[] = [];
@@ -42,58 +37,29 @@ const navigation: Array<{ label: string; position: string; scrollTop: number }> 
 const editLocations: Array<{ label: string; width: number; offset: number; line: number; via: 'click' | 'Enter' }> = [];
 const targetVisibility: Array<{ label: string; width: number; geometry: unknown }> = [];
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
-let activeHarness: Harness | undefined;
-let failedScenario = '', failureScreenshot = '';
-const normalize = (source: string) => source.replace(/\r\n?/g, '\n');
+const suite: ScenarioSuite = { origin, output, checks, failedScenario: '', failureScreenshot: '' };
 const lineOffset = (source: string, line: number) => source.split('\n').slice(0, line - 1).reduce((offset, text) => offset + text.length + 1, 0);
 const sourceRows = (page: Page) => page.locator('#editor-review-scroll tr.diff-added, #editor-review-scroll tr.diff-removed, #editor-review-scroll tr.diff-context');
 
-async function settled(page: Page) {
-  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-}
-async function scenario(name: string, run: (h: Harness) => Promise<void>, width = 1440) {
-  failedScenario = name; const started = performance.now();
-  const context = await browser!.newContext({ viewport: { width, height: width > 850 ? 900 : 812 }, reducedMotion: 'reduce' });
-  const page = await context.newPage(); page.setDefaultTimeout(10_000);
-  const h: Harness = { page, context, requests: [], releases: [] }; activeHarness = h;
-  const errors: string[] = [], external: string[] = [];
-  page.on('pageerror', error => errors.push(error.message));
-  await context.route(/^https?:\/\//, async route => {
-    const url = new URL(route.request().url());
-    if (url.origin !== origin) { external.push(url.href); await route.abort(); return; }
-    if (url.pathname.startsWith('/api/')) {
-      h.requests.push({ method: route.request().method(), pathname: url.pathname });
-      if (route.request().method() !== 'GET') { await route.abort(); return; }
-    }
-    await route.continue();
-  });
-  let deadline: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await page.goto(origin); await page.locator('#submit-run:enabled').waitFor();
-    await Promise.race([run(h), new Promise<never>((_, reject) => {
-      deadline = setTimeout(() => reject(new Error(`Editor review scenario exceeded 50 seconds: ${name}`)), 50_000);
-    })]);
-    assert.deepEqual(errors, [], 'uncaught browser errors'); assert.deepEqual(external, [], 'review must remain local');
+const scenario = (name: string, run: (h: Harness) => Promise<void>, width = 1440) => webScenario<Harness>(browser!, suite, name, run, {
+  context: { viewport: { width, height: width > 850 ? 900 : 812 }, reducedMotion: 'reduce' },
+  harness: (page, context) => ({ page, context, requests: [], releases: [] }),
+  routes: { local: 'review must remain local', blockWrites: true }, open: true, timeout: { label: 'Editor review', seconds: 50 },
+  verify: (h, elapsedMs) => {
     const writes = h.requests.filter(request => request.method !== 'GET');
     assert.deepEqual(writes, [], 'review and applying a local draft must not create, change, cancel or delete runs');
     assert.equal(workerStarts, 0, 'review checks must not start a solver');
-    checks.push({ name, width, elapsedMs: Math.round(performance.now() - started), unexpectedWrites: writes.length, requests: h.requests });
-    console.log(`PASS ${name}`);
-  } catch (error) {
-    failureScreenshot = `failure-${checks.length + 1}.png`;
-    await page.screenshot({ path: path.join(output, failureScreenshot) }).catch(() => {}); throw error;
-  } finally {
-    clearTimeout(deadline);
-    try {
-      for (const release of h.releases) await release().catch(() => {});
-      const owner = (await context.cookies(origin)).find(cookie => cookie.name === 'theoremos_session')?.value;
-      if (owner) {
-        const remaining = service.jobs.list(owner).length; service.jobs.forget(owner); cleanedOwners++;
-        assert.equal(remaining, 0, 'review must not create hidden fixture jobs');
-      }
-    } finally { await context.close(); }
-  }
-}
+    return { name, width, elapsedMs: elapsedMs(), unexpectedWrites: writes.length, requests: h.requests };
+  },
+  cleanup: async ({ context, releases }) => {
+    for (const release of releases) await release().catch(() => {});
+    const owner = (await context.cookies(origin)).find(cookie => cookie.name === 'theoremos_session')?.value;
+    if (owner) {
+      const remaining = service.jobs.list(owner).length; service.jobs.forget(owner); cleanedOwners++;
+      assert.equal(remaining, 0, 'review must not create hidden fixture jobs');
+    }
+  },
+});
 async function rememberBuffer(page: Page) {
   await page.locator('#expanded-source').evaluate(node => { (window as unknown as { __reviewBuffer: Element }).__reviewBuffer = node; });
 }
@@ -107,32 +73,13 @@ async function editSource(page: Page, source: string) {
   await page.locator('#expand-source').click(); await page.locator('#source-editor[open]').waitFor();
   await value(page, normalize(source)); await focused(page, '#expanded-source'); await rememberBuffer(page);
 }
-async function value(page: Page, expected: string) {
-  await page.waitForFunction(expected => (document.querySelector('#expanded-source') as HTMLTextAreaElement).value === expected, expected);
-}
 async function text(page: Page, selector: string, expected: string) {
   await page.waitForFunction(({ selector, expected }) => document.querySelector(selector)?.textContent?.replace(/\s/g, '') === expected.replace(/\s/g, ''), { selector, expected });
-}
-async function focused(page: Page, selector: string) {
-  assert.equal(await page.locator(selector).evaluate(node => node === document.activeElement), true, `${selector} must have focus`);
-}
-async function select(page: Page, start: number, end = start, direction: 'forward' | 'backward' | 'none' = 'none') {
-  await page.locator('#expanded-source').evaluate((node, selection) => {
-    const editor = node as HTMLTextAreaElement; editor.focus({ preventScroll: true });
-    editor.setSelectionRange(selection.start, selection.end, selection.direction);
-  }, { start, end, direction });
 }
 async function replaceBuffer(page: Page, source: string) {
   await page.locator('#expanded-source').focus(); await page.keyboard.press('Control+a');
   if (source) await page.keyboard.insertText(source); else await page.keyboard.press('Backspace');
   await value(page, source); await settled(page);
-}
-async function snapshot(page: Page): Promise<EditorSnapshot> {
-  return page.locator('#expanded-source').evaluate(node => {
-    const editor = node as HTMLTextAreaElement;
-    return { value: editor.value, start: editor.selectionStart, end: editor.selectionEnd, direction: editor.selectionDirection,
-      top: editor.scrollTop, left: editor.scrollLeft };
-  });
 }
 async function preserved(page: Page, before: EditorSnapshot, label: string) {
   await settled(page); await sameBuffer(page); const actual = await snapshot(page);
@@ -261,13 +208,7 @@ async function pristine(page: Page, source: string, backup: string | null) {
   assert.equal(await page.locator('#source').inputValue(), source, 'review and scratch edits must not apply the draft automatically');
   assert.equal(await recovery(page), backup, 'review must not replace the recovery backup');
 }
-async function fit(page: Page, selector: string) {
-  const box = await page.locator(selector).boundingBox(), viewport = page.viewportSize()!;
-  assert.ok(box && box.width > 0 && box.height > 0 && box.x >= -1 && box.y >= -1
-    && box.x + box.width <= viewport.width + 1 && box.y + box.height <= viewport.height + 1,
-    `${selector} must fit ${viewport.width}px: ${JSON.stringify(box)}`);
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true, 'review must not widen the page');
-}
+const fit = (page: Page, selector: string) => fitViewport(page, selector, 'review must not widen the page', true);
 async function screenshot(page: Page, name: string) {
   await page.screenshot({ path: path.join(output, name) }); screenshots.push(name);
 }
@@ -288,17 +229,13 @@ async function delayedLean(h: Harness, source: string) {
   await h.page.waitForFunction(() => typeof (window as unknown as { __releaseReviewFile?: unknown }).__releaseReviewFile === 'function');
   return release;
 }
-async function writeReport(status: 'passed' | 'failed', error?: unknown) {
-  await fs.writeFile(reportFile, JSON.stringify({ status, checkedAt: new Date().toISOString(),
-    mode: 'Real local HTTP service and Chromium. Read-only scratch review, frozen editor baseline and native textarea history. All API writes are blocked; no models, Docker, Lean or external requests.',
-    paidModelCalls: false, workerStarts, cleanedOwners, widths, checks, summaries, notices, buffers, navigation, editLocations, targetVisibility, screenshots,
-    unexpectedWrites: checks.reduce((sum, check) => sum + check.unexpectedWrites, 0),
-    ...(error ? { failedScenario, error: error instanceof Error ? error.message : String(error), failureScreenshot, failureRequests: activeHarness?.requests } : {}) }, null, 2) + '\n');
-}
+const writeReport = (status: 'passed' | 'failed', error?: unknown) => writeScenarioReport(reportFile, suite, status, error,
+  'Real local HTTP service and Chromium. Read-only scratch review, frozen editor baseline and native textarea history. All API writes are blocked; no models, Docker, Lean or external requests.',
+  { workerStarts, cleanedOwners, widths, checks, summaries, notices, buffers, navigation, editLocations, targetVisibility, screenshots,
+    unexpectedWrites: checks.reduce((sum, check) => sum + check.unexpectedWrites, 0) }, { failureRequests: true });
 
 try {
-  await new Promise<void>((resolve, reject) => { service.server.once('error', reject); service.server.listen(port, '127.0.0.1', resolve); });
-  browser = await chromium.launch({ headless: true });
+  browser = await startBrowser(service.server, port);
 
   for (const width of widths) await scenario(`Review shows real changed rows and local scrolling without applying the draft at ${width}px`, async ({ page }) => {
     const original = Array.from({ length: 32 }, (_, index) => `-- context ${index + 1}`);

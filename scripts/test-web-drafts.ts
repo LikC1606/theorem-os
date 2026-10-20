@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type BrowserContext, type Page, type Route } from 'playwright';
@@ -10,6 +9,7 @@ import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
 import type { WebRun } from '../apps/web/shared';
 import { fillConfig, refreshHistory, selectConfig, showChat, withSettings } from './web-ui-controls';
+import { deferred, freePort, ready, type ScenarioSuite, startBrowser, webScenario, writeScenarioReport } from './web-scenario';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-ui-smoke');
@@ -31,10 +31,7 @@ const draftBytes = (draft: Draft) => Buffer.from(JSON.stringify(draftFile(draft)
 await fs.access(path.join(root, 'out/web/app.js')).catch(() => { throw new Error('Run bun run build:web before the drafts check.'); });
 await fs.mkdir(output, { recursive: true });
 await fs.rm(reportFile, { force: true });
-const probe = net.createServer();
-await new Promise<void>(resolve => probe.listen(0, '127.0.0.1', resolve));
-const port = (probe.address() as net.AddressInfo).port;
-await new Promise<void>((resolve, reject) => probe.close(error => error ? reject(error) : resolve()));
+const port = await freePort();
 const origin = `http://127.0.0.1:${port}`;
 let workerStarts = 0;
 const runner: WebRunner = {
@@ -52,49 +49,18 @@ const checks: Array<{ name: string; elapsedMs: number; requests: Harness['reques
 const screenshots: string[] = [];
 const widths = [1440, 375, 320];
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
-let failedScenario = '';
-let failureScreenshot: string | undefined;
-const ready = (page: Page) => page.locator('#submit-run:enabled').waitFor();
+const suite: ScenarioSuite = { origin, output, checks, failedScenario: '' };
 const dialog = (page: Page) => page.locator('#import-task-dialog[open]');
-function deferred() {
-  let resolve!: () => void;
-  const promise = new Promise<void>(done => { resolve = done; });
-  return { promise, resolve };
-}
-async function scenario(name: string, run: (h: Harness) => Promise<void>) {
-  failedScenario = name;
-  const started = performance.now();
-  const context = await browser!.newContext({ viewport: { width: 1440, height: 900 } });
-  const page = await context.newPage();
-  page.setDefaultTimeout(10_000);
-  const h: Harness = { page, context, requests: [], releases: [] };
-  const errors: string[] = [];
-  page.on('pageerror', error => errors.push(error.message));
-  await page.route('**/api/**', async route => {
-    h.requests.push({ method: route.request().method(), pathname: new URL(route.request().url()).pathname });
-    if (await h.intercept?.(route)) return;
-    await route.continue();
-  });
-  let deadline: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await Promise.race([run(h), new Promise<never>((_, reject) => {
-      deadline = setTimeout(() => reject(new Error(`Draft scenario exceeded 35 seconds: ${name}`)), 35_000);
-    })]);
-    assert.deepEqual(errors, [], 'uncaught browser errors');
-    assert.equal(h.requests.filter(request => request.method !== 'GET').length, 0, 'draft workflow must only read API endpoints');
+const scenario = (name: string, run: (h: Harness) => Promise<void>) => webScenario<Harness>(browser!, suite, name, run, {
+  context: { viewport: { width: 1440, height: 900 } }, harness: (page, context) => ({ page, context, requests: [], releases: [] }),
+  routes: 'api', timeout: { label: 'Draft', seconds: 35 },
+  verify: async ({ page, requests }, elapsedMs) => {
+    assert.equal(requests.filter(request => request.method !== 'GET').length, 0, 'draft workflow must only read API endpoints');
     assert.equal(await page.locator('#run-count').innerText(), '0', 'import must not populate run history');
-    checks.push({ name, elapsedMs: Math.round(performance.now() - started), requests: h.requests });
-    console.log(`PASS ${name}`);
-  } catch (error) {
-    failureScreenshot = `drafts-failure-${checks.length + 1}.png`;
-    await page.screenshot({ path: path.join(output, failureScreenshot), fullPage: true }).catch(() => {});
-    throw error;
-  } finally {
-    clearTimeout(deadline);
-    for (const release of h.releases) release();
-    await context.close();
-  }
-}
+    return { name, elapsedMs: elapsedMs(), requests };
+  },
+  failure: { prefix: 'drafts-', fullPage: true }, cleanup: ({ releases }) => { for (const release of releases) release(); },
+});
 async function open(h: Harness) { await h.page.goto(origin); await ready(h.page); }
 async function snapshot(page: Page): Promise<Draft> {
   return page.evaluate(ids => ({ ...Object.fromEntries(Object.entries(ids).map(([key, id]) =>
@@ -173,15 +139,11 @@ async function releaseFile(page: Page) {
   await page.waitForFunction(() => (window as unknown as { __draftReadGate: { complete: boolean } }).__draftReadGate.complete);
   await page.waitForTimeout(100);
 }
-async function writeReport(status: 'passed' | 'failed', error?: unknown) {
-  await fs.writeFile(reportFile, JSON.stringify({ status, checkedAt: new Date().toISOString(),
-    mode: 'Real HTTP service and Chromium with local task files and controlled storage failures. No Docker, Lean or model provider is called.',
-    paidModelCalls: false, workerStarts, checks, widths, screenshots,
-    ...(error ? { failedScenario, error: error instanceof Error ? error.message : String(error), failureScreenshot } : {}) }, null, 2) + '\n');
-}
+const writeReport = (status: 'passed' | 'failed', error?: unknown) => writeScenarioReport(reportFile, suite, status, error,
+  'Real HTTP service and Chromium with local task files and controlled storage failures. No Docker, Lean or model provider is called.',
+  { workerStarts, checks, widths, screenshots });
 try {
-  await new Promise<void>((resolve, reject) => { service.server.once('error', reject); service.server.listen(port, '127.0.0.1', resolve); });
-  browser = await chromium.launch({ headless: true });
+  browser = await startBrowser(service.server, port);
 
   await scenario('Autosave restores every draft field on refresh without storing the API key or sharing drafts with another tab', async h => {
     await open(h);

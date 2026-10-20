@@ -2,7 +2,6 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
-import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type BrowserContext, type Page } from 'playwright';
@@ -11,15 +10,13 @@ import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
 import type { WebResult, WebRun } from '../apps/web/shared';
 import { closeHistory, closeSettings, openHistory, openSettings, showArtifacts, showChat, withSettings } from './web-ui-controls';
+import { freePort, type RequestRecord, scenarioFailure, type ScenarioSuite, startBrowser, webScenario } from './web-scenario';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-motion');
 const bundle = await fs.readFile(path.join(root, 'out/web/app.js')).catch(() => { throw new Error('Run bun run build:web before the motion check.'); });
 await fs.mkdir(output, { recursive: true });
-const probe = net.createServer();
-await new Promise<void>(resolve => probe.listen(0, '127.0.0.1', resolve));
-const port = (probe.address() as net.AddressInfo).port;
-await new Promise<void>((resolve, reject) => probe.close(error => error ? reject(error) : resolve()));
+const port = await freePort();
 const origin = `http://127.0.0.1:${port}`;
 const credential = `sk-theoremos-motion-fixture-${crypto.randomUUID()}`;
 const source = Array.from({ length: 120 }, (_, index) => `-- line ${index + 1} ${'long_identifier_'.repeat(12)}`).join('\n')
@@ -50,7 +47,6 @@ const service = createWebService(readWebConfig({ THEOREMOS_WEB_PORT: String(port
 type MotionStart = { node: Element; kind: string };
 type MotionProbe = { starts: MotionStart[]; observer: MutationObserver };
 type MotionEntry = { kind: string; target: string; sequence: string | null; message: string | null; panel: boolean; code: boolean; status: boolean; dialog: boolean };
-type RequestRecord = { method: string; pathname: string };
 type Harness = { page: Page; context: BrowserContext; requests: RequestRecord[]; runIds: string[] };
 type ReadingProbe = { nodes: Record<string, Element | null>; text: Node | null; focus: Element | null; selection: string;
   scrolls: Record<string, { node: Element; top: number; left: number }>; sequences: string[] };
@@ -59,8 +55,7 @@ const checks: Check[] = [];
 const samples: Array<{ name: string; entries: MotionEntry[] }> = [];
 const screenshots: string[] = [];
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
-let failedScenario = '';
-let failureScreenshot: string | undefined;
+const suite: ScenarioSuite = { origin, output, checks, failedScenario: '' };
 
 async function nextPaint(page: Page) {
   await page.evaluate(() => new Promise<void>(resolve => {
@@ -203,67 +198,41 @@ async function activity(page: Page, control: Control, message: string) {
   return page.locator('#conversation .timeline-event').filter({ hasText: message });
 }
 
-async function scenario(name: string, run: (h: Harness) => Promise<void>, reducedMotion: 'reduce' | 'no-preference' = 'no-preference') {
-  failedScenario = name;
-  const started = performance.now();
-  const context = await browser!.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion });
-  await context.addInitScript(() => {
-    const starts: MotionStart[] = [];
-    const observer = new MutationObserver(records => {
-      for (const [index, mutation] of records.entries()) {
-        if (mutation.oldValue !== null || !(mutation.target instanceof Element)) continue;
-        // Later oldValue records retain a short-lived marker even if it was removed in the same task.
-        const following = records.slice(index + 1).find(record => record.target === mutation.target);
-        const kind = following ? following.oldValue : mutation.target.getAttribute('data-motion');
-        if (kind) starts.push({ node: mutation.target, kind });
-      }
-    });
-    observer.observe(document, { subtree: true, attributes: true, attributeFilter: ['data-motion'], attributeOldValue: true });
-    (window as unknown as { __motionProbe: MotionProbe }).__motionProbe = { starts, observer };
+const scenario = (name: string, run: (h: Harness) => Promise<void>, reducedMotion: 'reduce' | 'no-preference' = 'no-preference') =>
+  webScenario<Harness>(browser!, suite, name, run, {
+    context: { viewport: { width: 1440, height: 900 }, reducedMotion },
+    init: context => context.addInitScript(() => {
+      const starts: MotionStart[] = [];
+      const observer = new MutationObserver(records => {
+        for (const [index, mutation] of records.entries()) {
+          if (mutation.oldValue !== null || !(mutation.target instanceof Element)) continue;
+          // Later oldValue records retain a short-lived marker even if it was removed in the same task.
+          const following = records.slice(index + 1).find(record => record.target === mutation.target);
+          const kind = following ? following.oldValue : mutation.target.getAttribute('data-motion');
+          if (kind) starts.push({ node: mutation.target, kind });
+        }
+      });
+      observer.observe(document, { subtree: true, attributes: true, attributeFilter: ['data-motion'], attributeOldValue: true });
+      (window as unknown as { __motionProbe: MotionProbe }).__motionProbe = { starts, observer };
+    }),
+    harness: (page, context) => ({ page, context, requests: [], runIds: [] }), routes: 'observe',
+    open: async ({ page }) => { await page.goto(origin); await page.locator('#submit-run:enabled').waitFor(); await settled(page); },
+    timeout: { label: 'Motion', seconds: 40 }, failure: { capture: screenshot },
+    cleanup: ({ runIds }) => { for (const id of runIds) controls.get(id)?.finish({ status: 'incomplete', proof: source, report: { reason: 'Local fixture cleanup' } }); },
   });
-  const page = await context.newPage();
-  page.setDefaultTimeout(10_000);
-  const h: Harness = { page, context, requests: [], runIds: [] };
-  const errors: string[] = [];
-  page.on('pageerror', error => errors.push(error.message));
-  page.on('request', request => {
-    const pathname = new URL(request.url()).pathname;
-    if (pathname.startsWith('/api/')) h.requests.push({ method: request.method(), pathname });
-  });
-  let deadline: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await page.goto(origin); await page.locator('#submit-run:enabled').waitFor();
-    await settled(page);
-    await Promise.race([run(h), new Promise<never>((_, reject) => {
-      deadline = setTimeout(() => reject(new Error(`Motion scenario exceeded 40 seconds: ${name}`)), 40_000);
-    })]);
-    assert.deepEqual(errors, [], 'uncaught browser errors');
-    checks.push({ name, elapsedMs: Math.round(performance.now() - started), requests: h.requests });
-    console.log(`PASS ${name}`);
-  } catch (error) {
-    failureScreenshot = `failure-${checks.length + 1}.png`;
-    await screenshot(page, failureScreenshot).catch(() => {});
-    throw error;
-  } finally {
-    clearTimeout(deadline);
-    for (const id of h.runIds) controls.get(id)?.finish({ status: 'incomplete', proof: source, report: { reason: 'Local fixture cleanup' } });
-    await context.close();
-  }
-}
 
 async function writeReport(status: 'passed' | 'failed', error?: unknown) {
   const report = { status, checkedAt: new Date().toISOString(), bundleSha256: crypto.createHash('sha256').update(bundle).digest('hex'),
     mode: 'Real HTTP service and Chromium with a controlled runner; no Docker, Lean or model provider is called.',
     notes: ['data-motion marks the full lifetime of each application tween.', 'Visibility and page lifecycle checks dispatch controlled browser lifecycle events.',
       'Tests assert motion lifecycle and preserved interaction state, not precise frame timing.'], paidModelCalls: false, checks, samples, screenshots,
-    ...(error ? { failedScenario, error: error instanceof Error ? error.message : String(error), failureScreenshot } : {}) };
+    ...(error ? scenarioFailure(suite, error) : {}) };
   assert.equal(JSON.stringify(report).includes(credential), false);
   await fs.writeFile(path.join(output, 'report.json'), JSON.stringify(report, null, 2) + '\n');
 }
 
 try {
-  await new Promise<void>((resolve, reject) => { service.server.once('error', reject); service.server.listen(port, '127.0.0.1', resolve); });
-  browser = await chromium.launch({ headless: true });
+  browser = await startBrowser(service.server, port);
 
   await scenario('New conversation messages animate once; ordinary list polling never replays their entrance', async h => {
     const since = await offset(h.page);

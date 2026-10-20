@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type BrowserContext, type Page } from 'playwright';
@@ -9,7 +8,8 @@ import { readWebConfig } from '../apps/web/config';
 import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
 import type { WebEventDetails, WebModuleId, WebResult, WebRun, WebRunInput } from '../apps/web/shared';
-import { closeHistory, openHistory, selectHistoryRun, showArtifacts, showChat } from './web-ui-controls';
+import { selectHistoryRun, selectModules, showArtifacts, showChat } from './web-ui-controls';
+import { freePort, postRun, readRun, type RequestRecord, type ScenarioSuite, settled, startBrowser, webScenario, writeScenarioReport } from './web-scenario';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-modules');
@@ -22,10 +22,7 @@ const widths = [1440, 1024, 375, 320];
 await fs.access(path.join(root, 'out/web/app.js')).catch(() => { throw new Error('Run bun run build:web before the module check.'); });
 await fs.mkdir(output, { recursive: true });
 await fs.rm(reportFile, { force: true });
-const probe = net.createServer();
-await new Promise<void>(resolve => probe.listen(0, '127.0.0.1', resolve));
-const port = (probe.address() as net.AddressInfo).port;
-await new Promise<void>((resolve, reject) => probe.close(error => error ? reject(error) : resolve()));
+const port = await freePort();
 const origin = `http://127.0.0.1:${port}`;
 const result = (status = 'incomplete'): WebResult => ({ status, proof: source.replace('sorry', 'trivial'), report: { status, fixture: true } });
 type Control = {
@@ -56,84 +53,42 @@ const runner: WebRunner = {
 };
 const service = createWebService(readWebConfig({ THEOREMOS_WEB_PORT: String(port), THEOREMOS_WEB_PUBLIC_URL: origin,
   THEOREMOS_WEB_STATIC_ROOT: path.join(root, 'out/web'), THEOREMOS_WEB_CONCURRENCY: '8' }), runner);
-type RequestRecord = { method: string; pathname: string };
 type Harness = { page: Page; context: BrowserContext; requests: RequestRecord[]; runIds: string[]; fixtureCancels: number };
 const checks: Array<{ name: string; elapsedMs: number; fixtureCreates: number; fixtureCancels: number;
   featureApiWrites: number; requests: RequestRecord[] }> = [];
 const screenshots: string[] = [];
 const retainedSummaries: Array<{ runId: string; retainedEvents: number; contextEvents: number; constructionEvents: number }> = [];
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
-let failedScenario = '', failureScreenshot = '';
+const suite: ScenarioSuite = { origin, output, checks, failedScenario: '', failureScreenshot: '' };
 
-async function settled(page: Page) {
-  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-}
-async function scenario(name: string, run: (h: Harness) => Promise<void>, width = 1440) {
-  failedScenario = name;
-  const started = performance.now();
-  const context = await browser!.newContext({ viewport: { width, height: width > 850 ? 900 : 812 }, reducedMotion: 'reduce' });
-  const page = await context.newPage();
-  page.setDefaultTimeout(10_000);
-  const h: Harness = { page, context, requests: [], runIds: [], fixtureCancels: 0 };
-  const errors: string[] = [], external: string[] = [];
-  page.on('pageerror', error => errors.push(error.message));
-  await context.route(/^https?:\/\//, async route => {
-    const destination = new URL(route.request().url());
-    if (destination.origin !== origin) { external.push(destination.href); await route.abort(); return; }
-    if (destination.pathname.startsWith('/api/')) h.requests.push({ method: route.request().method(), pathname: destination.pathname });
-    await route.continue();
-  });
-  let deadline: ReturnType<typeof setTimeout> | undefined;
-  try {
+let draft = '', task = '';
+const scenario = (name: string, run: (h: Harness) => Promise<void>, width = 1440) => webScenario<Harness>(browser!, suite, name, run, {
+  context: { viewport: { width, height: width > 850 ? 900 : 812 }, reducedMotion: 'reduce' },
+  harness: (page, context) => ({ page, context, requests: [], runIds: [], fixtureCancels: 0 }),
+  routes: { local: 'module inspection must not contact external sites or model providers' }, timeout: { label: 'Module', seconds: 50 },
+  open: async ({ page }) => {
     await page.goto(origin); await page.locator('#submit-run:enabled').waitFor();
-    const draft = await page.locator('#source').inputValue(), task = await page.locator('#task').inputValue();
-    await Promise.race([run(h), new Promise<never>((_, reject) => {
-      deadline = setTimeout(() => reject(new Error(`Module scenario exceeded 50 seconds: ${name}`)), 50_000);
-    })]);
-    assert.deepEqual(errors, [], 'uncaught browser errors');
-    assert.deepEqual(external, [], 'module inspection must not contact external sites or model providers');
-    assert.equal(await page.locator('#source').inputValue(), draft, 'module inspection must preserve the draft source');
-    assert.equal(await page.locator('#task').inputValue(), task, 'module inspection must preserve the draft task');
-    assert.equal(await page.locator('#api-key').inputValue(), '', 'module inspection must not populate a credential');
+    draft = await page.locator('#source').inputValue(), task = await page.locator('#task').inputValue();
+  },
+  verify: async (h, elapsedMs) => {
+    assert.equal(await h.page.locator('#source').inputValue(), draft, 'module inspection must preserve the draft source');
+    assert.equal(await h.page.locator('#task').inputValue(), task, 'module inspection must preserve the draft task');
+    assert.equal(await h.page.locator('#api-key').inputValue(), '', 'module inspection must not populate a credential');
     const writes = h.requests.filter(request => request.method !== 'GET');
     assert.equal(writes.length, h.runIds.length, 'only explicit fixture creation may write to the API');
     assert.ok(writes.every(request => request.method === 'POST' && request.pathname === '/api/runs'));
-    checks.push({ name, elapsedMs: Math.round(performance.now() - started), fixtureCreates: h.runIds.length,
-      fixtureCancels: h.fixtureCancels, featureApiWrites: writes.length - h.runIds.length, requests: h.requests });
-    console.log(`PASS ${name}`);
-  } catch (error) {
-    failureScreenshot = `failure-${checks.length + 1}.png`;
-    await page.screenshot({ path: path.join(output, failureScreenshot) }).catch(() => {});
-    throw error;
-  } finally {
-    clearTimeout(deadline);
-    for (const id of h.runIds) controls.get(id)?.finish();
-    await context.close();
-  }
-}
+    return { name, elapsedMs: elapsedMs(), fixtureCreates: h.runIds.length, fixtureCancels: h.fixtureCancels,
+      featureApiWrites: writes.length - h.runIds.length, requests: h.requests };
+  },
+  cleanup: ({ runIds }) => { for (const id of runIds) controls.get(id)?.finish(); },
+});
 async function createRun(h: Harness, title = 'Inspect local research modules', workers = 1) {
   const input: WebRunInput = { providerId: 'openai', apiKey: credential, model: 'fixture-module-model', effort: 'low',
     environment: 'standard', source, task: title, maxTurns: 2, maxRunSeconds: 60, workers,
     coordination: workers > 1 ? 'cooperative' : 'independent' };
-  const run = await h.page.evaluate(async input => {
-    const session = await (await fetch('/api/session')).json();
-    const response = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': session.csrfToken }, body: JSON.stringify(input) });
-    if (response.status !== 201) throw new Error(`Fixture creation failed: ${response.status}`);
-    return (await response.json()).run as WebRun;
-  }, input);
+  const run = await postRun(h, input);
   h.runIds.push(run.id); assert.ok(controls.has(run.id), 'the local worker fixture must start');
   return run;
-}
-async function readRun(h: Harness, id: string): Promise<WebRun> {
-  return h.page.evaluate(async id => (await (await fetch(`/api/runs/${id}`)).json()).run as WebRun, id);
-}
-async function selectModules(h: Harness, id: string) {
-  await openHistory(h.page); await h.page.locator('#refresh-runs:enabled').waitFor();
-  const refreshed = h.page.waitForResponse(response => new URL(response.url()).pathname === '/api/runs' && response.request().method() === 'GET');
-  await h.page.locator('#refresh-runs').click(); await refreshed;
-  await h.page.locator('#refresh-runs:enabled').waitFor(); await closeHistory(h.page);
-  await selectHistoryRun(h.page, id); await showArtifacts(h.page);
-  await h.page.locator('#detail-tab-modules').click(); await h.page.locator('.module-workspace').waitFor();
 }
 async function pollSnapshot(page: Page, id: string, expected: { sequence?: number; status?: WebRun['status']; result?: string } = {}) {
   const observed = page.waitForResponse(async response => {
@@ -233,18 +188,12 @@ async function graphReadability(page: Page) {
   }));
   assert.deepEqual(disconnected, [], 'cycle connectors must join the cards at every workspace width');
 }
-async function writeReport(status: 'passed' | 'failed', error?: unknown) {
-  const report = { status, checkedAt: new Date().toISOString(),
-    mode: 'Real local HTTP service and Chromium with a controlled in-process runner. No models, Docker, Lean or external requests.',
-    paidModelCalls: false, workerStarts, widths, checks, retainedSummaries, screenshots,
-    ...(error ? { failedScenario, error: error instanceof Error ? error.message : String(error), failureScreenshot } : {}) };
-  assert.equal(JSON.stringify(report).includes(credential), false);
-  await fs.writeFile(reportFile, JSON.stringify(report, null, 2) + '\n');
-}
+const writeReport = (status: 'passed' | 'failed', error?: unknown) => writeScenarioReport(reportFile, suite, status, error,
+  'Real local HTTP service and Chromium with a controlled in-process runner. No models, Docker, Lean or external requests.',
+  { workerStarts, widths, checks, retainedSummaries, screenshots }, { credential });
 
 try {
-  await new Promise<void>((resolve, reject) => { service.server.once('error', reject); service.server.listen(port, '127.0.0.1', resolve); });
-  browser = await chromium.launch({ headless: true });
+  browser = await startBrowser(service.server, port);
 
   await scenario('Draft modules support selection and keyboard navigation without starting a run', async ({ page }) => {
     await page.locator('#draft-tab-source').focus(); await page.keyboard.press('ArrowRight');

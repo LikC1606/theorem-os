@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type BrowserContext, type Page } from 'playwright';
@@ -9,7 +8,8 @@ import { readWebConfig } from '../apps/web/config';
 import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
 import { draftRecoveryStorageKey } from '../apps/web/client/draftRecovery';
-import { closeDialog, closeSettings, discardSourceEditor, openSettings } from './web-ui-controls';
+import { closeDialog, closeSettings, discardSourceEditor, type EditorSnapshot, fitViewport, openSettings, selectEditorRange as select, snapshot, text, value } from './web-ui-controls';
+import { freePort, normalize, type RequestRecord, scenarioFailure, type ScenarioSuite, settled, startBrowser, webScenario } from './web-scenario';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-editor-navigation'), reportFile = path.join(output, 'report.json');
@@ -17,10 +17,7 @@ const widths = [1440, 375, 320];
 await fs.access(path.join(root, 'out/web/app.js')).catch(() => { throw new Error('Run bun run build:web before the editor navigation check.'); });
 await fs.mkdir(output, { recursive: true });
 await fs.rm(reportFile, { force: true });
-const probe = net.createServer();
-await new Promise<void>(resolve => probe.listen(0, '127.0.0.1', resolve));
-const port = (probe.address() as net.AddressInfo).port;
-await new Promise<void>((resolve, reject) => probe.close(error => error ? reject(error) : resolve()));
+const port = await freePort();
 const origin = `http://127.0.0.1:${port}`;
 let workerStarts = 0, cleanedOwners = 0;
 const runner: WebRunner = {
@@ -29,9 +26,7 @@ const runner: WebRunner = {
 };
 const service = createWebService(readWebConfig({ THEOREMOS_WEB_PORT: String(port), THEOREMOS_WEB_PUBLIC_URL: origin,
   THEOREMOS_WEB_STATIC_ROOT: path.join(root, 'out/web') }), runner);
-type RequestRecord = { method: string; pathname: string };
 type Harness = { page: Page; context: BrowserContext; requests: RequestRecord[] };
-type EditorSnapshot = { value: string; start: number; end: number; direction: string; top: number; left: number };
 type Visibility = { label: string; width: number; geometry: {
   start: number; end: number; selected: string; contentWidth: number; lineHeight: number; scrollTop: number; scrollLeft: number;
   firstRect: { top: number; bottom: number; left: number; right: number }; visibleTop: number; visibleBottom: number;
@@ -42,55 +37,27 @@ const screenshots: string[] = [], visibility: Visibility[] = [];
 const nativeInputChecks: Array<{ operation: string; before: EditorSnapshot; after: EditorSnapshot }> = [];
 const overlayChecks: Array<{ label: string; width: number; marks: number; visibleMarks: number }> = [];
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
-let activeHarness: Harness | undefined;
-let failedScenario = '', failureScreenshot = '';
-const normalize = (source: string) => source.replace(/\r\n?/g, '\n');
+const suite: ScenarioSuite = { origin, output, checks, failedScenario: '', failureScreenshot: '' };
 
-async function settled(page: Page) {
-  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-}
-async function scenario(name: string, run: (h: Harness) => Promise<void>, width = 1440) {
-  failedScenario = name;
-  const started = performance.now();
-  const context = await browser!.newContext({ viewport: { width, height: width > 850 ? 900 : 812 }, reducedMotion: 'reduce' });
-  const page = await context.newPage(); page.setDefaultTimeout(10_000);
-  const h: Harness = { page, context, requests: [] }; activeHarness = h;
-  const errors: string[] = [], external: string[] = [];
-  page.on('pageerror', error => errors.push(error.message));
-  await context.route(/^https?:\/\//, async route => {
-    const url = new URL(route.request().url());
-    if (url.origin !== origin) { external.push(url.href); await route.abort(); return; }
-    if (url.pathname.startsWith('/api/')) h.requests.push({ method: route.request().method(), pathname: url.pathname });
-    await route.continue();
-  });
-  let deadline: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await page.goto(origin); await page.locator('#submit-run:enabled').waitFor();
-    await Promise.race([run(h), new Promise<never>((_, reject) => {
-      deadline = setTimeout(() => reject(new Error(`Editor navigation scenario exceeded 45 seconds: ${name}`)), 45_000);
-    })]);
-    assert.deepEqual(errors, [], 'uncaught browser errors');
-    assert.deepEqual(external, [], 'editor navigation must remain local');
+const scenario = (name: string, run: (h: Harness) => Promise<void>, width = 1440) => webScenario<Harness>(browser!, suite, name, run, {
+  context: { viewport: { width, height: width > 850 ? 900 : 812 }, reducedMotion: 'reduce' },
+  harness: (page, context) => ({ page, context, requests: [] }), routes: { local: 'editor navigation must remain local' }, open: true,
+  timeout: { label: 'Editor navigation', seconds: 45 },
+  verify: (h, elapsedMs) => {
     const writes = h.requests.filter(request => request.method !== 'GET');
     assert.deepEqual(writes, [], 'find, line navigation, typing and applying drafts must not POST, cancel or DELETE a run');
     assert.equal(workerStarts, 0, 'editor checks must not start a solver');
-    checks.push({ name, width, elapsedMs: Math.round(performance.now() - started), unexpectedWrites: writes.length, requests: h.requests });
-    console.log(`PASS ${name}`);
-  } catch (error) {
-    failureScreenshot = `failure-${checks.length + 1}.png`;
-    await page.screenshot({ path: path.join(output, failureScreenshot) }).catch(() => {}); throw error;
-  } finally {
-    clearTimeout(deadline);
-    try {
-      const owner = (await context.cookies(origin)).find(cookie => cookie.name === 'theoremos_session')?.value;
-      if (owner) {
-        const remaining = service.jobs.list(owner).length;
-        service.jobs.forget(owner); cleanedOwners++;
-        assert.equal(remaining, 0, 'navigation must not create hidden fixture jobs');
-      }
-    } finally { await context.close(); }
-  }
-}
+    return { name, width, elapsedMs: elapsedMs(), unexpectedWrites: writes.length, requests: h.requests };
+  },
+  cleanup: async ({ context }) => {
+    const owner = (await context.cookies(origin)).find(cookie => cookie.name === 'theoremos_session')?.value;
+    if (owner) {
+      const remaining = service.jobs.list(owner).length;
+      service.jobs.forget(owner); cleanedOwners++;
+      assert.equal(remaining, 0, 'navigation must not create hidden fixture jobs');
+    }
+  },
+});
 async function editSource(page: Page, source: string) {
   await openSettings(page);
   await page.locator('#template').selectOption('');
@@ -100,28 +67,9 @@ async function editSource(page: Page, source: string) {
   await value(page, normalize(source));
   await focused(page, '#expanded-source');
 }
-async function value(page: Page, expected: string) {
-  await page.waitForFunction(expected => (document.querySelector('#expanded-source') as HTMLTextAreaElement).value === expected, expected);
-}
-async function text(page: Page, selector: string, expected: string) {
-  await page.waitForFunction(({ selector, expected }) => document.querySelector(selector)?.textContent === expected, { selector, expected });
-}
 async function position(page: Page, expected: string) { await text(page, '#editor-find-position', expected); }
 async function focused(page: Page, selector: string) {
   assert.equal(await page.locator(selector).evaluate(node => node === document.activeElement), true, `${selector} must have focus`);
-}
-async function snapshot(page: Page): Promise<EditorSnapshot> {
-  return page.locator('#expanded-source').evaluate(node => {
-    const editor = node as HTMLTextAreaElement;
-    return { value: editor.value, start: editor.selectionStart, end: editor.selectionEnd, direction: editor.selectionDirection,
-      top: editor.scrollTop, left: editor.scrollLeft };
-  });
-}
-async function select(page: Page, start: number, end = start, direction: 'forward' | 'backward' | 'none' = 'none') {
-  await page.locator('#expanded-source').evaluate((node, selection) => {
-    const editor = node as HTMLTextAreaElement; editor.focus({ preventScroll: true });
-    editor.setSelectionRange(selection.start, selection.end, selection.direction);
-  }, { start, end, direction });
 }
 async function selection(page: Page, start: number, end = start, selectedText = '') {
   const actual = await snapshot(page);
@@ -162,12 +110,7 @@ async function pristine(page: Page, source: string, recovery: string | null) {
   assert.equal(await page.evaluate(key => sessionStorage.getItem(key), draftRecoveryStorageKey), recovery,
     'navigation must not replace a recovery backup');
 }
-async function fit(page: Page, selector: string) {
-  const box = await page.locator(selector).boundingBox(), viewport = page.viewportSize()!;
-  assert.ok(box && box.x >= -1 && box.y >= -1 && box.x + box.width <= viewport.width + 1 && box.y + box.height <= viewport.height + 1,
-    `${selector} must fit ${viewport.width}px: ${JSON.stringify(box)}`);
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true, 'editor navigation must not widen the page');
-}
+const fit = (page: Page, selector: string) => fitViewport(page, selector, 'editor navigation must not widen the page');
 async function screenshot(page: Page, name: string) {
   await page.screenshot({ path: path.join(output, name) }); screenshots.push(name);
 }
@@ -268,12 +211,11 @@ async function writeReport(status: 'passed' | 'failed', error?: unknown) {
     nativeUndoScope: 'Chromium shares native undo transactions across text controls. The test undoes the line-number input transaction before checking that the earlier textarea edit remains undoable.',
     paidModelCalls: false, workerStarts, cleanedOwners, widths, checks, screenshots, visibility, overlayChecks, nativeInputChecks,
     unexpectedWrites: checks.reduce((sum, check) => sum + check.unexpectedWrites, 0),
-    ...(error ? { failedScenario, error: error instanceof Error ? error.message : String(error), failureScreenshot, failureRequests: activeHarness?.requests } : {}) }, null, 2) + '\n');
+    ...(error ? { ...scenarioFailure(suite, error), failureRequests: suite.harness?.requests } : {}) }, null, 2) + '\n');
 }
 
 try {
-  await new Promise<void>((resolve, reject) => { service.server.once('error', reject); service.server.listen(port, '127.0.0.1', resolve); });
-  browser = await chromium.launch({ headless: true });
+  browser = await startBrowser(service.server, port);
 
   for (const width of widths) await scenario(`Literal editor find cycles from the caret and handles Unicode and case at ${width}px`, async ({ page }) => {
     const source = '-- Needle alpha\n-- 🙂x needle beta\n-- NEEDLE gamma\n-- literal [a+b]*?; aaab a+b\n';

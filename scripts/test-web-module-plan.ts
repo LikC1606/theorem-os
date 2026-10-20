@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type BrowserContext, type Page, type Route } from 'playwright';
@@ -11,7 +10,8 @@ import type { WebRunner } from '../apps/web/runner';
 import type { WebEventDetails, WebRun, WebRunInput } from '../apps/web/shared';
 import type { CustomResearchModule, ResearchModulePlan } from '../src/solver/modules/policy';
 import { modulePlanLibraryStorageKey, type SavedModulePlan } from '../apps/web/client/modulePlanLibrary';
-import { closeDialog, closeHistory, closeSettings, openHistory, openSettings, selectHistoryRun, showArtifacts, showChat } from './web-ui-controls';
+import { closeDialog, closeSettings, openSettings, selectModules, showArtifacts, showChat } from './web-ui-controls';
+import { freePort, postRun, readRun, type RequestRecord, type ScenarioSuite, settled, startBrowser, webScenario, writeScenarioReport } from './web-scenario';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-module-plan');
@@ -24,10 +24,7 @@ const widths = [1440, 375, 320];
 await fs.access(path.join(root, 'out/web/app.js')).catch(() => { throw new Error('Run bun run build:web before the module plan check.'); });
 await fs.mkdir(output, { recursive: true });
 await fs.rm(reportFile, { force: true });
-const probe = net.createServer();
-await new Promise<void>(resolve => probe.listen(0, '127.0.0.1', resolve));
-const port = (probe.address() as net.AddressInfo).port;
-await new Promise<void>((resolve, reject) => probe.close(error => error ? reject(error) : resolve()));
+const port = await freePort();
 const origin = `http://127.0.0.1:${port}`;
 type Control = { progress(type: string, message: string, details?: WebEventDetails): void; finish(): void };
 const controls = new Map<string, Control>(), received = new Map<string, WebRunInput>();
@@ -50,7 +47,6 @@ const runner: WebRunner = {
 };
 const service = createWebService(readWebConfig({ THEOREMOS_WEB_PORT: String(port), THEOREMOS_WEB_PUBLIC_URL: origin,
   THEOREMOS_WEB_STATIC_ROOT: path.join(root, 'out/web'), THEOREMOS_WEB_CONCURRENCY: '8' }), runner);
-type RequestRecord = { method: string; pathname: string };
 type Harness = { page: Page; context: BrowserContext; requests: RequestRecord[]; runIds: string[]; uiCreates: number;
   expectedSource?: string; expectedTask?: string; intercept?: (route: Route) => Promise<boolean> };
 type DraftEnvelope = { schema: string; draft: Record<string, unknown> & { modulePlan?: ResearchModulePlan } };
@@ -58,11 +54,8 @@ const checks: Array<{ name: string; elapsedMs: number; fixtureCreates: number; u
 const screenshots: string[] = [];
 const applicationChecks: Array<{ runId: string; retainedEvents: number; applications: Record<string, number> }> = [];
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
-let failedScenario = '', failureScreenshot = '';
+const suite: ScenarioSuite = { origin, output, checks, failedScenario: '', failureScreenshot: '' };
 
-async function settled(page: Page) {
-  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-}
 async function noStoredKey(page: Page) {
   const stored = await page.evaluate(() => JSON.stringify({ session: sessionStorage, local: localStorage }));
   assert.equal(stored.includes(credential), false, 'credentials must not be saved with module plans');
@@ -71,52 +64,27 @@ async function noInjection(page: Page) {
   assert.equal(await page.locator('[data-plan-injection]').count(), 0, 'custom names and instructions must remain inert text');
   assert.equal(await page.evaluate(() => (window as unknown as { __planInjected?: boolean }).__planInjected), undefined);
 }
-async function scenario(name: string, run: (h: Harness) => Promise<void>, width = 1440) {
-  failedScenario = name;
-  const started = performance.now();
-  const context = await browser!.newContext({ viewport: { width, height: width > 850 ? 960 : 812 }, reducedMotion: 'reduce' });
-  const page = await context.newPage();
-  page.setDefaultTimeout(10_000);
-  const h: Harness = { page, context, requests: [], runIds: [], uiCreates: 0 };
-  const errors: string[] = [], external: string[] = [];
-  page.on('pageerror', error => errors.push(error.message));
-  await context.route(/^https?:\/\//, async route => {
-    const destination = new URL(route.request().url());
-    if (destination.origin !== origin) { external.push(destination.href); await route.abort(); return; }
-    if (destination.pathname.startsWith('/api/')) {
-      h.requests.push({ method: route.request().method(), pathname: destination.pathname });
-      if (await h.intercept?.(route)) return;
-    }
-    await route.continue();
-  });
-  let deadline: ReturnType<typeof setTimeout> | undefined;
-  try {
+let draft = '', task = '';
+const scenario = (name: string, run: (h: Harness) => Promise<void>, width = 1440) => webScenario<Harness>(browser!, suite, name, run, {
+  context: { viewport: { width, height: width > 850 ? 960 : 812 }, reducedMotion: 'reduce' },
+  harness: (page, context) => ({ page, context, requests: [], runIds: [], uiCreates: 0 }),
+  routes: { local: 'module configuration must not contact external sites or model providers' }, timeout: { label: 'Module plan', seconds: 50 },
+  open: async ({ page }) => {
     await page.goto(origin); await page.locator('#submit-run:enabled').waitFor();
-    const source = await page.locator('#source').inputValue(), task = await page.locator('#task').inputValue();
-    await Promise.race([run(h), new Promise<never>((_, reject) => {
-      deadline = setTimeout(() => reject(new Error(`Module plan scenario exceeded 50 seconds: ${name}`)), 50_000);
-    })]);
-    assert.deepEqual(errors, [], 'uncaught browser errors');
-    assert.deepEqual(external, [], 'module configuration must not contact external sites or model providers');
-    assert.equal(await page.locator('#source').inputValue(), h.expectedSource ?? source, 'module configuration must preserve the Lean source or explicitly restored run source');
-    assert.equal(await page.locator('#task').inputValue(), h.expectedTask ?? task, 'module configuration must preserve the research task or explicitly restored run task');
-    await noStoredKey(page); await noInjection(page);
+    draft = await page.locator('#source').inputValue(), task = await page.locator('#task').inputValue();
+  },
+  verify: async (h, elapsedMs) => {
+    assert.equal(await h.page.locator('#source').inputValue(), h.expectedSource ?? draft, 'module configuration must preserve the Lean source or explicitly restored run source');
+    assert.equal(await h.page.locator('#task').inputValue(), h.expectedTask ?? task, 'module configuration must preserve the research task or explicitly restored run task');
+    await noStoredKey(h.page); await noInjection(h.page);
     const writes = h.requests.filter(request => request.method !== 'GET');
     assert.equal(writes.length, h.runIds.length, 'only explicit fixture and UI run creation may write to the API');
     assert.ok(writes.every(request => request.method === 'POST' && request.pathname === '/api/runs'));
-    checks.push({ name, elapsedMs: Math.round(performance.now() - started), fixtureCreates: h.runIds.length - h.uiCreates,
-      uiCreates: h.uiCreates, unexpectedApiWrites: writes.length - h.runIds.length, requests: h.requests });
-    console.log(`PASS ${name}`);
-  } catch (error) {
-    failureScreenshot = `failure-${checks.length + 1}.png`;
-    await page.screenshot({ path: path.join(output, failureScreenshot) }).catch(() => {});
-    throw error;
-  } finally {
-    clearTimeout(deadline);
-    for (const id of h.runIds) { controls.get(id)?.finish(); received.delete(id); }
-    await context.close();
-  }
-}
+    return { name, elapsedMs: elapsedMs(), fixtureCreates: h.runIds.length - h.uiCreates,
+      uiCreates: h.uiCreates, unexpectedApiWrites: writes.length - h.runIds.length, requests: h.requests };
+  },
+  cleanup: ({ runIds }) => { for (const id of runIds) { controls.get(id)?.finish(); received.delete(id); } },
+});
 function rule(page: Page, id: string) { return page.locator(`${rows}[data-module-plan-id="${id}"]`); }
 function graphToggle(page: Page, id: string) { return page.locator(`[data-module-custom-enabled="${id}"]`); }
 async function addRule(page: Page, value: Omit<CustomResearchModule, 'id'>) {
@@ -199,24 +167,8 @@ async function createRun(h: Harness, plan: ResearchModulePlan, workers = 2) {
   const input: WebRunInput = { providerId: 'openai', apiKey: credential, model: 'fixture-plan-model', effort: 'low', environment: 'standard',
     source: 'theorem plan_fixture : True := by sorry\n', task: 'Inspect configured research modules', maxTurns: 2, maxRunSeconds: 60, workers,
     coordination: workers > 1 ? 'cooperative' : 'independent', modulePlan: plan };
-  const run = await h.page.evaluate(async input => {
-    const session = await (await fetch('/api/session')).json();
-    const response = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': session.csrfToken }, body: JSON.stringify(input) });
-    if (response.status !== 201) throw new Error(`Fixture creation failed: ${response.status}`);
-    return (await response.json()).run as WebRun;
-  }, input);
+  const run = await postRun(h, input);
   h.runIds.push(run.id); assert.ok(controls.has(run.id)); return run;
-}
-async function readRun(h: Harness, id: string): Promise<WebRun> {
-  return h.page.evaluate(async id => (await (await fetch(`/api/runs/${id}`)).json()).run as WebRun, id);
-}
-async function selectModules(h: Harness, id: string) {
-  await openHistory(h.page); await h.page.locator('#refresh-runs:enabled').waitFor();
-  const refreshed = h.page.waitForResponse(response => new URL(response.url()).pathname === '/api/runs' && response.request().method() === 'GET');
-  await h.page.locator('#refresh-runs').click(); await refreshed;
-  await h.page.locator('#refresh-runs:enabled').waitFor(); await closeHistory(h.page);
-  await selectHistoryRun(h.page, id); await showArtifacts(h.page);
-  await h.page.locator('#detail-tab-modules').click(); await h.page.locator('.module-workspace').waitFor();
 }
 async function sync(h: Harness, id: string) {
   const run = await readRun(h, id), sequence = run.events.at(-1)!.sequence;
@@ -270,21 +222,15 @@ async function horizontalFit(page: Page, selector: string) {
 async function screenshot(page: Page, name: string) {
   await page.screenshot({ path: path.join(output, name) }); screenshots.push(name);
 }
-async function writeReport(status: 'passed' | 'failed', error?: unknown) {
-  const report = { status, checkedAt: new Date().toISOString(),
-    mode: 'Real local HTTP service and Chromium with a controlled in-process runner. No models, Docker, Lean or external requests.',
-    paidModelCalls: false, workerStarts, widths, checks, applicationChecks, screenshots,
-    ...(error ? { failedScenario, error: error instanceof Error ? error.message : String(error), failureScreenshot } : {}) };
-  assert.equal(JSON.stringify(report).includes(credential), false);
-  await fs.writeFile(reportFile, JSON.stringify(report, null, 2) + '\n');
-}
+const writeReport = (status: 'passed' | 'failed', error?: unknown) => writeScenarioReport(reportFile, suite, status, error,
+  'Real local HTTP service and Chromium with a controlled in-process runner. No models, Docker, Lean or external requests.',
+  { workerStarts, widths, checks, applicationChecks, screenshots }, { credential });
 const enabledRule: Omit<CustomResearchModule, 'id'> = { name: 'Focused construction', slot: 'M1', mode: 'replace', enabled: true,
   instructions: 'Prefer a short direct proof and preserve every original declaration.' };
 const disabledRule: Omit<CustomResearchModule, 'id'> = { name: 'Context strategy with a long name', slot: 'M4', mode: 'append', enabled: false, instructions: '' };
 
 try {
-  await new Promise<void>((resolve, reject) => { service.server.once('error', reject); service.server.listen(port, '127.0.0.1', resolve); });
-  browser = await chromium.launch({ headless: true });
+  browser = await startBrowser(service.server, port);
 
   await scenario('Named module plans load and undo independently of the task, credentials and execution settings', async h => {
     const { page } = h;

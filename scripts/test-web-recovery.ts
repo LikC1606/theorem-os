@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type BrowserContext, type Page, type Route } from 'playwright';
@@ -10,6 +9,7 @@ import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
 import type { WebResult, WebRun } from '../apps/web/shared';
 import { fillConfig, refreshHistory, withSettings } from './web-ui-controls';
+import { deferred, freePort, ready, type RequestRecord, type ScenarioSuite, startBrowser, webScenario, writeScenarioReport } from './web-scenario';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-ui-smoke');
@@ -17,10 +17,7 @@ const reportFile = path.join(output, 'recovery-report.json');
 await fs.access(path.join(root, 'out/web/app.js')).catch(() => { throw new Error('Run bun run build:web before the recovery check.'); });
 await fs.mkdir(output, { recursive: true });
 await fs.rm(reportFile, { force: true });
-const probe = net.createServer();
-await new Promise<void>(resolve => probe.listen(0, '127.0.0.1', resolve));
-const port = (probe.address() as net.AddressInfo).port;
-await new Promise<void>((resolve, reject) => probe.close(error => error ? reject(error) : resolve()));
+const port = await freePort();
 const origin = `http://127.0.0.1:${port}`;
 const credential = `sk-theoremos-recovery-fixture-${crypto.randomUUID()}`;
 const controls = new Map<string, (result: WebResult) => void>();
@@ -44,7 +41,6 @@ const runner: WebRunner = {
 };
 const service = createWebService(readWebConfig({ THEOREMOS_WEB_PORT: String(port), THEOREMOS_WEB_PUBLIC_URL: origin,
   THEOREMOS_WEB_STATIC_ROOT: path.join(root, 'out/web'), THEOREMOS_WEB_CONCURRENCY: '4' }), runner);
-type RequestRecord = { method: string; pathname: string };
 type Harness = {
   page: Page;
   context: BrowserContext;
@@ -55,19 +51,12 @@ type Harness = {
 type Check = { name: string; elapsedMs: number; requests: RequestRecord[] };
 const checks: Check[] = [];
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
-let failedScenario = '';
-let failureScreenshot: string | undefined;
+const suite: ScenarioSuite = { origin, output, checks, failedScenario: '' };
 let timeoutElapsedMs: number | undefined;
-function deferred() {
-  let resolve!: () => void;
-  const promise = new Promise<void>(done => { resolve = done; });
-  return { promise, resolve };
-}
 const isList = (route: Route) => route.request().method() === 'GET' && new URL(route.request().url()).pathname === '/api/runs';
 const isSession = (route: Route) => new URL(route.request().url()).pathname === '/api/session';
 const isSubmit = (route: Route) => route.request().method() === 'POST' && new URL(route.request().url()).pathname === '/api/runs';
 const count = (h: Harness, method: string, pathname: string) => h.requests.filter(item => item.method === method && item.pathname === pathname).length;
-const ready = (page: Page) => page.locator('#submit-run:enabled').waitFor();
 async function disconnected(page: Page) {
   await page.locator('#submit-run:disabled').waitFor();
   await page.locator('#global-notice').waitFor({ state: 'visible' });
@@ -75,38 +64,11 @@ async function disconnected(page: Page) {
   assert.equal(await page.locator('#task').isEnabled(), true, 'task must remain editable while disconnected');
 }
 async function open(h: Harness) { await h.page.goto(origin); await ready(h.page); }
-async function scenario(name: string, run: (h: Harness) => Promise<void>) {
-  failedScenario = name;
-  const started = performance.now();
-  const context = await browser!.newContext({ viewport: { width: 1440, height: 900 } });
-  const page = await context.newPage();
-  page.setDefaultTimeout(10_000);
-  const h: Harness = { page, context, requests: [], releases: [] };
-  const pageErrors: string[] = [];
-  let deadline: ReturnType<typeof setTimeout> | undefined;
-  page.on('pageerror', error => pageErrors.push(error.message));
-  await page.route('**/api/**', async route => {
-    h.requests.push({ method: route.request().method(), pathname: new URL(route.request().url()).pathname });
-    if (await h.intercept?.(route)) return;
-    await route.continue();
-  });
-  try {
-    await Promise.race([run(h), new Promise<never>((_, reject) => {
-      deadline = setTimeout(() => reject(new Error(`Recovery scenario exceeded 35 seconds: ${name}`)), 35_000);
-    })]);
-    assert.deepEqual(pageErrors, [], 'uncaught browser errors');
-    checks.push({ name, elapsedMs: Math.round(performance.now() - started), requests: h.requests });
-    console.log(`PASS ${name}`);
-  } catch (error) {
-    failureScreenshot = `recovery-failure-${checks.length + 1}.png`;
-    await page.screenshot({ path: path.join(output, failureScreenshot), fullPage: true }).catch(() => {});
-    throw error;
-  } finally {
-    clearTimeout(deadline);
-    for (const release of h.releases) release();
-    await context.close();
-  }
-}
+const scenario = (name: string, run: (h: Harness) => Promise<void>) => webScenario<Harness>(browser!, suite, name, run, {
+  context: { viewport: { width: 1440, height: 900 } }, harness: (page, context) => ({ page, context, requests: [], releases: [] }),
+  routes: 'api', timeout: { label: 'Recovery', seconds: 35 }, failure: { prefix: 'recovery-', fullPage: true },
+  cleanup: ({ releases }) => { for (const release of releases) release(); },
+});
 async function draft(page: Page) {
   const values = { source: 'theorem recovery_draft : True := by\n  trivial\n', task: 'Recovery draft\nKeep this exact task.', model: 'fixture-recovery-model', 'max-turns': '3', 'max-seconds': '90', workers: '2' };
   await withSettings(page, async () => {
@@ -132,15 +94,11 @@ async function post(page: Page): Promise<WebRun> {
 async function transition(page: Page, type: 'pagehide' | 'pageshow') {
   await page.evaluate(type => window.dispatchEvent(new PageTransitionEvent(type, { persisted: true })), type);
 }
-async function writeReport(status: 'passed' | 'failed', error?: unknown) {
-  await fs.writeFile(reportFile, JSON.stringify({ status, checkedAt: new Date().toISOString(),
-    mode: 'Real HTTP service and Chromium with controlled response failures and an in-process worker fixture. No Docker, Lean or model provider is called.',
-    paidModelCalls: false, checks, workerStarts: workerStarts.length, timeoutElapsedMs,
-    ...(error ? { failedScenario, error: error instanceof Error ? error.message : String(error), failureScreenshot } : {}) }, null, 2) + '\n');
-}
+const writeReport = (status: 'passed' | 'failed', error?: unknown) => writeScenarioReport(reportFile, suite, status, error,
+  'Real HTTP service and Chromium with controlled response failures and an in-process worker fixture. No Docker, Lean or model provider is called.',
+  { checks, workerStarts: workerStarts.length, timeoutElapsedMs });
 try {
-  await new Promise<void>((resolve, reject) => { service.server.once('error', reject); service.server.listen(port, '127.0.0.1', resolve); });
-  browser = await chromium.launch({ headless: true });
+  browser = await startBrowser(service.server, port);
 
   await scenario('Offline polling disables submission, keeps drafts editable, and online restores the draft', async h => {
     await open(h);

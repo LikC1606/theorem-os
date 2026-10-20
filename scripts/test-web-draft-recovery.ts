@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type BrowserContext, type Page, type Route } from 'playwright';
@@ -9,8 +8,9 @@ import { readWebConfig, webTemplates } from '../apps/web/config';
 import type { TaskDraft } from '../apps/web/client/draft';
 import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
-import type { WebRun, WebRunInput } from '../apps/web/shared';
-import { closeDialog, closeSettings, discardSourceEditor, fillConfig, openSettings, selectConfig, selectHistoryRun, showChat, withSettings } from './web-ui-controls';
+import type { WebRunInput } from '../apps/web/shared';
+import { closeDialog, closeSettings, discardSourceEditor, fillConfig, fitViewport, openSettings, selectConfig, selectHistoryRun, showChat, withSettings } from './web-ui-controls';
+import { freePort, postRun, type RequestRecord, type ScenarioSuite, startBrowser, webScenario, writeScenarioReport } from './web-scenario';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-draft-recovery');
@@ -28,10 +28,7 @@ const taskFile = (draft: TaskDraft) => Buffer.from(JSON.stringify({ schema: draf
 await fs.access(path.join(root, 'out/web/app.js')).catch(() => { throw new Error('Run bun run build:web before the draft recovery check.'); });
 await fs.mkdir(output, { recursive: true });
 await fs.rm(reportFile, { force: true });
-const probe = net.createServer();
-await new Promise<void>(resolve => probe.listen(0, '127.0.0.1', resolve));
-const port = (probe.address() as net.AddressInfo).port;
-await new Promise<void>((resolve, reject) => probe.close(error => error ? reject(error) : resolve()));
+const port = await freePort();
 const origin = `http://127.0.0.1:${port}`;
 let workerStarts = 0;
 const runner: WebRunner = {
@@ -47,7 +44,6 @@ const service = createWebService(readWebConfig({ THEOREMOS_WEB_PORT: String(port
     { id: 'openai', name: 'OpenAI', baseUrl: 'https://api.openai.com/v1' },
     { id: 'backup', name: 'Fixture backup', baseUrl: 'https://example.invalid/v1' },
   ]) }), runner);
-type RequestRecord = { method: string; pathname: string };
 type Harness = { page: Page; context: BrowserContext; requests: RequestRecord[];
   intercept?: (route: Route) => Promise<boolean>; releases: Array<() => void | Promise<void>> };
 type Recovery = { schema: string; reason: string; task: { schema: string; draft: TaskDraft } };
@@ -55,46 +51,22 @@ const checks: Array<{ name: string; elapsedMs: number; width: number; posts: num
 const screenshots: string[] = [];
 const restored: Array<{ scenario: string; context: string; sourceBytes: number; keyCleared: boolean }> = [];
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
-let failedScenario = '', failureScreenshot = '';
+const suite: ScenarioSuite = { origin, output, checks, failedScenario: '', failureScreenshot: '' };
 
-async function scenario(name: string, run: (h: Harness) => Promise<void>, width = 1440, expectedPosts = 0) {
-  failedScenario = name;
-  const started = performance.now(), context = await browser!.newContext({ viewport: { width, height: width > 850 ? 900 : 812 }, reducedMotion: 'reduce' });
-  const page = await context.newPage(); page.setDefaultTimeout(10_000);
-  const h: Harness = { page, context, requests: [], releases: [] };
-  const errors: string[] = [], external: string[] = [];
-  page.on('pageerror', error => errors.push(error.message));
-  await context.route(/^https?:\/\//, async route => {
-    const destination = new URL(route.request().url());
-    if (destination.origin !== origin) { external.push(destination.href); await route.abort(); return; }
-    if (destination.pathname.startsWith('/api/')) {
-      h.requests.push({ method: route.request().method(), pathname: destination.pathname });
-      if (await h.intercept?.(route)) return;
-    }
-    await route.continue();
+const scenario = (name: string, run: (h: Harness) => Promise<void>, width = 1440, expectedPosts = 0) =>
+  webScenario<Harness>(browser!, suite, name, run, {
+    context: { viewport: { width, height: width > 850 ? 900 : 812 }, reducedMotion: 'reduce' },
+    harness: (page, context) => ({ page, context, requests: [], releases: [] }),
+    routes: { local: 'recovery must remain local' }, timeout: { label: 'Draft recovery', seconds: 50 },
+    verify: async ({ page, requests }, elapsedMs) => {
+      const writes = requests.filter(request => request.method !== 'GET');
+      assert.equal(writes.length, expectedPosts, 'only explicit local fixture creation or valid submission may write to the API');
+      assert.ok(writes.every(request => request.method === 'POST' && request.pathname === '/api/runs'));
+      await privateStorage(page); await noInjection(page);
+      return { name, elapsedMs: elapsedMs(), width, posts: writes.length, requests };
+    },
+    cleanup: async ({ releases }) => { for (const release of releases) await release(); },
   });
-  let deadline: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await Promise.race([run(h), new Promise<never>((_, reject) => {
-      deadline = setTimeout(() => reject(new Error(`Draft recovery scenario exceeded 50 seconds: ${name}`)), 50_000);
-    })]);
-    assert.deepEqual(errors, [], 'uncaught browser errors'); assert.deepEqual(external, [], 'recovery must remain local');
-    const writes = h.requests.filter(request => request.method !== 'GET');
-    assert.equal(writes.length, expectedPosts, 'only explicit local fixture creation or valid submission may write to the API');
-    assert.ok(writes.every(request => request.method === 'POST' && request.pathname === '/api/runs'));
-    await privateStorage(page); await noInjection(page);
-    checks.push({ name, elapsedMs: Math.round(performance.now() - started), width, posts: writes.length, requests: h.requests });
-    console.log(`PASS ${name}`);
-  } catch (error) {
-    failureScreenshot = `failure-${checks.length + 1}.png`;
-    await page.screenshot({ path: path.join(output, failureScreenshot) }).catch(() => {});
-    throw error;
-  } finally {
-    clearTimeout(deadline);
-    for (const release of h.releases) await release();
-    await context.close();
-  }
-}
 async function open(h: Harness) { await h.page.goto(origin); await h.page.locator('#submit-run:enabled').waitFor(); }
 async function snapshot(page: Page): Promise<TaskDraft> {
   return page.evaluate(ids => ({ ...Object.fromEntries(Object.entries(ids).map(([key, id]) =>
@@ -170,16 +142,11 @@ async function restore(page: Page, expected: TaskDraft, fromSettings = false) {
   assert.equal(await page.locator('#draft-recovery').isVisible(), false);
   assert.equal(await page.locator('#restore-draft-settings').isVisible(), false);
   if (page.viewportSize()!.width > 850) assert.equal(await page.locator('#draft-preview').count(), 1, 'restoring must return to the unsent draft');
-  restored.push({ scenario: failedScenario, context: fromSettings ? 'settings' : 'composer',
+  restored.push({ scenario: suite.failedScenario, context: fromSettings ? 'settings' : 'composer',
     sourceBytes: Buffer.byteLength(expected.source), keyCleared: true });
 }
 async function screenshot(page: Page, name: string) { await page.screenshot({ path: path.join(output, name) }); screenshots.push(name); }
-async function fit(page: Page, selector: string) {
-  const box = await page.locator(selector).boundingBox(), viewport = page.viewportSize()!;
-  assert.ok(box && box.x >= -1 && box.y >= -1 && box.x + box.width <= viewport.width + 1 && box.y + box.height <= viewport.height + 1,
-    `${selector} must fit ${viewport.width}px: ${JSON.stringify(box)}`);
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true, 'recovery must not widen the document');
-}
+const fit = (page: Page, selector: string) => fitViewport(page, selector, 'recovery must not widen the document');
 async function importJson(page: Page, draft: TaskDraft, filename = 'recovery.json') {
   await page.locator('#task-file').setInputFiles({ name: filename, mimeType: 'application/json', buffer: taskFile(draft) });
 }
@@ -210,28 +177,17 @@ async function createHistoryFixture(h: Harness) {
   const input: WebRunInput = { providerId: 'openai', apiKey: credential, model: 'fixture-history-model', effort: 'low', environment: 'mathlib',
     source: 'import Mathlib\ntheorem history_original : True := by sorry\n', task: 'Reuse the original history task',
     maxTurns: 2, maxRunSeconds: 60, workers: 1, coordination: 'cooperative' };
-  const run = await h.page.evaluate(async input => {
-    const session = await (await fetch('/api/session')).json();
-    const response = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': session.csrfToken }, body: JSON.stringify(input) });
-    if (response.status !== 201) throw new Error(`History fixture creation failed: ${response.status}`);
-    return (await response.json()).run as WebRun;
-  }, input);
+  const run = await postRun(h, input, 'History fixture');
   return { run, draft: { providerId: run.providerId, model: run.model, effort: run.effort, environment: run.environment,
     source: run.source, task: run.task, maxTurns: String(run.maxTurns), maxRunSeconds: String(run.maxRunSeconds),
     workers: String(run.workers), coordination: run.coordination, templateId: '' } satisfies TaskDraft };
 }
-async function writeReport(status: 'passed' | 'failed', error?: unknown) {
-  const report = { status, checkedAt: new Date().toISOString(),
-    mode: 'Real temporary-port HTTP service and Chromium with local files, controlled storage failures and an in-process fixture runner. No models, Docker, Lean or external requests.',
-    paidModelCalls: false, workerStarts, widths, checks, restored, screenshots,
-    ...(error ? { failedScenario, error: error instanceof Error ? error.message : String(error), failureScreenshot } : {}) };
-  assert.equal(JSON.stringify(report).includes(credential), false);
-  await fs.writeFile(reportFile, JSON.stringify(report, null, 2) + '\n');
-}
+const writeReport = (status: 'passed' | 'failed', error?: unknown) => writeScenarioReport(reportFile, suite, status, error,
+  'Real temporary-port HTTP service and Chromium with local files, controlled storage failures and an in-process fixture runner. No models, Docker, Lean or external requests.',
+  { workerStarts, widths, checks, restored, screenshots }, { credential });
 
 try {
-  await new Promise<void>((resolve, reject) => { service.server.once('error', reject); service.server.listen(port, '127.0.0.1', resolve); });
-  browser = await chromium.launch({ headless: true });
+  browser = await startBrowser(service.server, port);
 
   await scenario('Select changes recover the previous environment and template before input/change handlers update them', async h => {
     const { page } = h; await open(h);

@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
@@ -11,16 +10,14 @@ import type { WebRunner } from '../apps/web/runner';
 import type { WebResult, WebRun, WorkerInput } from '../apps/web/shared';
 import { closeHistory, closeSettings, discardSourceEditor, fillConfig, openHistory, openSettings, selectConfig, selectHistoryRun,
   showArtifacts, showChat, withSettings } from './web-ui-controls';
+import { freePort, startBrowser } from './web-scenario';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-ui-smoke');
 await fs.access(path.join(root, 'out/web/app.js')).catch(() => { throw new Error('Run bun run build:web before the browser check.'); });
 await fs.mkdir(output, { recursive: true });
 await fs.rm(path.join(output, 'report.json'), { force: true });
-const probe = net.createServer();
-await new Promise<void>(resolve => probe.listen(0, '127.0.0.1', resolve));
-const port = (probe.address() as net.AddressInfo).port;
-await new Promise<void>((resolve, reject) => probe.close(error => error ? reject(error) : resolve()));
+const port = await freePort();
 const origin = `http://127.0.0.1:${port}`;
 const credential = `sk-theoremos-ui-fixture-${crypto.randomUUID()}`;
 type Control = { progress(event: string, message?: string): void; artifact(source: string, workerId?: string): void; finish(result: WebResult): void };
@@ -55,8 +52,7 @@ const screenshots: string[] = [];
 const mark = (check: string) => { checks.push(check); console.log(`PASS ${check}`); };
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
 try {
-  await new Promise<void>((resolve, reject) => { service.server.once('error', reject); service.server.listen(port, '127.0.0.1', resolve); });
-  browser = await chromium.launch({ headless: true });
+  browser = await startBrowser(service.server, port);
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['clipboard-read', 'clipboard-write'] });
   const page = await context.newPage();
   const errors: string[] = [];

@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type BrowserContext, type Page } from 'playwright';
@@ -10,7 +9,8 @@ import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
 import type { WebRun, WebRunInput } from '../apps/web/shared';
 import { draftRecoveryStorageKey } from '../apps/web/client/draftRecovery';
-import { closeDialog, closeSettings, openSettings, selectHistoryRun } from './web-ui-controls';
+import { closeDialog, closeSettings, fitViewport, openSettings, selectHistoryRun, text } from './web-ui-controls';
+import { freePort, postRun, type RequestRecord, type ScenarioSuite, settled, startBrowser, webScenario, writeScenarioReport } from './web-scenario';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-source-handoff'), reportFile = path.join(output, 'report.json');
@@ -18,10 +18,7 @@ const widths = [1440, 375, 320];
 const credential = `sk-theoremos-handoff-fixture-${crypto.randomUUID()}`;
 await fs.access(path.join(root, 'out/web/app.js')).catch(() => { throw new Error('Run bun run build:web before the source handoff check.'); });
 await fs.mkdir(output, { recursive: true }); await fs.rm(reportFile, { force: true });
-const probe = net.createServer();
-await new Promise<void>(resolve => probe.listen(0, '127.0.0.1', resolve));
-const port = (probe.address() as net.AddressInfo).port;
-await new Promise<void>((resolve, reject) => probe.close(error => error ? reject(error) : resolve()));
+const port = await freePort();
 const origin = `http://127.0.0.1:${port}`;
 let workerStarts = 0, cleanedOwners = 0;
 const runner: WebRunner = {
@@ -34,7 +31,6 @@ const runner: WebRunner = {
 };
 const service = createWebService(readWebConfig({ THEOREMOS_WEB_PORT: String(port), THEOREMOS_WEB_PUBLIC_URL: origin,
   THEOREMOS_WEB_STATIC_ROOT: path.join(root, 'out/web') }), runner);
-type RequestRecord = { method: string; pathname: string };
 type Harness = { page: Page; context: BrowserContext; requests: RequestRecord[]; creates: number; owner: string; releases: Array<() => Promise<void>> };
 const checks: Array<{ name: string; width: number; elapsedMs: number; fixtureCreates: number; unexpectedWrites: number; requests: RequestRecord[] }> = [];
 const screenshots: string[] = [];
@@ -42,57 +38,33 @@ const visibility: Array<{ label: string; width: number; geometry: unknown }> = [
 const handoffs: Array<{ label: string; width: number; start: number; end: number; sourceBytes: number }> = [];
 const focusChecks: Array<{ label: string; target: string; visible: boolean }> = [];
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
-let activeHarness: Harness | undefined;
-let failedScenario = '', failureScreenshot = '';
+const suite: ScenarioSuite = { origin, output, checks, failedScenario: '', failureScreenshot: '' };
 const lineOffset = (source: string, line: number) => source.split('\n').slice(0, line - 1).reduce((offset, value) => offset + value.length + 1, 0);
 const previewEdit = '[data-draft-action="edit"]';
 
-async function settled(page: Page) {
-  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-}
-async function scenario(name: string, run: (h: Harness) => Promise<void>, width = 1440) {
-  failedScenario = name;
-  const started = performance.now();
-  const context = await browser!.newContext({ viewport: { width, height: width > 850 ? 900 : 812 }, reducedMotion: 'reduce' });
-  const page = await context.newPage(); page.setDefaultTimeout(10_000);
-  const h: Harness = { page, context, requests: [], creates: 0, owner: '', releases: [] }; activeHarness = h;
-  const errors: string[] = [], external: string[] = [];
-  page.on('pageerror', error => errors.push(error.message));
-  await context.route(/^https?:\/\//, async route => {
-    const url = new URL(route.request().url());
-    if (url.origin !== origin) { external.push(url.href); await route.abort(); return; }
-    if (url.pathname.startsWith('/api/')) h.requests.push({ method: route.request().method(), pathname: url.pathname });
-    await route.continue();
-  });
-  let deadline: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await page.goto(origin); await page.locator('#submit-run:enabled').waitFor();
-    h.owner = (await context.cookies(origin)).find(cookie => cookie.name === 'theoremos_session')?.value ?? '';
+const scenario = (name: string, run: (h: Harness) => Promise<void>, width = 1440) => webScenario<Harness>(browser!, suite, name, run, {
+  context: { viewport: { width, height: width > 850 ? 900 : 812 }, reducedMotion: 'reduce' },
+  harness: (page, context) => ({ page, context, requests: [], creates: 0, owner: '', releases: [] }),
+  routes: { local: 'source handoff must remain local' }, timeout: { label: 'Source handoff', seconds: 50 },
+  open: async h => {
+    await h.page.goto(origin); await h.page.locator('#submit-run:enabled').waitFor();
+    h.owner = (await h.context.cookies(origin)).find(cookie => cookie.name === 'theoremos_session')?.value ?? '';
     assert.ok(h.owner, 'a handoff fixture requires a real local session');
-    await Promise.race([run(h), new Promise<never>((_, reject) => {
-      deadline = setTimeout(() => reject(new Error(`Source handoff scenario exceeded 50 seconds: ${name}`)), 50_000);
-    })]);
-    assert.deepEqual(errors, [], 'uncaught browser errors'); assert.deepEqual(external, [], 'source handoff must remain local');
+  },
+  verify: async (h, elapsedMs) => {
     const writes = h.requests.filter(request => request.method !== 'GET');
     assert.equal(writes.length, h.creates, 'handoff must not create, cancel, change or delete a run');
     assert.equal(writes.every(request => request.method === 'POST' && request.pathname === '/api/runs'), true,
       'the only allowed API write is explicit creation of a read-only local run fixture');
-    const stored = await page.evaluate(() => ({ text: document.body.innerText, session: JSON.stringify(sessionStorage), local: JSON.stringify(localStorage) }));
+    const stored = await h.page.evaluate(() => ({ text: document.body.innerText, session: JSON.stringify(sessionStorage), local: JSON.stringify(localStorage) }));
     assert.equal(JSON.stringify(stored).includes(credential), false, 'fixture credentials must not be shown or stored');
-    checks.push({ name, width, elapsedMs: Math.round(performance.now() - started), fixtureCreates: h.creates,
-      unexpectedWrites: writes.length - h.creates, requests: h.requests });
-    console.log(`PASS ${name}`);
-  } catch (error) {
-    failureScreenshot = `failure-${checks.length + 1}.png`;
-    await page.screenshot({ path: path.join(output, failureScreenshot) }).catch(() => {}); throw error;
-  } finally {
-    clearTimeout(deadline);
-    try {
-      for (const release of h.releases) await release().catch(() => {});
-      if (h.owner) { service.jobs.forget(h.owner); assert.equal(service.jobs.list(h.owner).length, 0); cleanedOwners++; }
-    } finally { await context.close(); }
-  }
-}
+    return { name, width, elapsedMs: elapsedMs(), fixtureCreates: h.creates, unexpectedWrites: writes.length - h.creates, requests: h.requests };
+  },
+  cleanup: async h => {
+    for (const release of h.releases) await release().catch(() => {});
+    if (h.owner) { service.jobs.forget(h.owner); assert.equal(service.jobs.list(h.owner).length, 0); cleanedOwners++; }
+  },
+});
 async function showDraft(page: Page) {
   if (page.viewportSize()!.width <= 850) await page.locator('#mobile-runs').click();
   await page.locator('#draft-preview').waitFor(); await settled(page);
@@ -104,9 +76,6 @@ async function prepare(page: Page, source: string) {
 }
 async function setSource(page: Page, source: string) {
   await openSettings(page); await page.locator('#source').fill(source); await closeSettings(page); await showDraft(page);
-}
-async function text(page: Page, selector: string, expected: string) {
-  await page.waitForFunction(({ selector, expected }) => document.querySelector(selector)?.textContent === expected, { selector, expected });
 }
 async function find(page: Page, query: string, count: string) {
   if (!await page.locator('#source-find-controls').isVisible()) await page.locator('#open-source-find').click();
@@ -174,12 +143,7 @@ async function unchangedDraft(page: Page, source: string, backup: string | null)
   assert.equal(await page.locator('#source').inputValue(), source);
   assert.equal(await recovery(page), backup, 'handoff and unapplied edits must not replace the existing recovery backup');
 }
-async function fit(page: Page, selector: string) {
-  const box = await page.locator(selector).boundingBox(), viewport = page.viewportSize()!;
-  assert.ok(box && box.x >= -1 && box.y >= -1 && box.x + box.width <= viewport.width + 1 && box.y + box.height <= viewport.height + 1,
-    `${selector} must fit ${viewport.width}px: ${JSON.stringify(box)}`);
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true, 'source handoff must not widen the page');
-}
+const fit = (page: Page, selector: string) => fitViewport(page, selector, 'source handoff must not widen the page');
 async function screenshot(page: Page, name: string) {
   await page.screenshot({ path: path.join(output, name) }); screenshots.push(name);
 }
@@ -225,13 +189,7 @@ async function createRun(h: Harness, title: string) {
   const input: WebRunInput = { providerId: 'openai', apiKey: credential, model: 'fixture-handoff-model', effort: 'low', environment: 'standard',
     source: `-- runOriginalNeedle ${title}\ntheorem readonly_handoff : True := by sorry`, task: title,
     maxTurns: 2, maxRunSeconds: 60, workers: 1, coordination: 'independent' };
-  const run = await h.page.evaluate(async input => {
-    const session = await (await fetch('/api/session')).json();
-    const response = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': session.csrfToken },
-      body: JSON.stringify(input) });
-    if (response.status !== 201) throw new Error(`Read-only handoff fixture creation failed: ${response.status}`);
-    return (await response.json()).run as WebRun;
-  }, input);
+  const run = await postRun(h, input, 'Read-only handoff fixture');
   h.creates++;
   await h.page.waitForFunction(async id => {
     const run = (await (await fetch(`/api/runs/${id}`)).json()).run as WebRun;
@@ -263,15 +221,10 @@ async function delayedLean(h: Harness, source: string) {
   await h.page.waitForFunction(() => typeof (window as unknown as { __releaseHandoffFile?: unknown }).__releaseHandoffFile === 'function');
   return release;
 }
-async function writeReport(status: 'passed' | 'failed', error?: unknown) {
-  const report = { status, checkedAt: new Date().toISOString(),
-    mode: 'Real local HTTP service and Chromium. Native textarea selection and independent DOM Range mirrors verify preview-to-editor handoff. Only explicit read-only fixture setup may POST; no Docker, Lean, models or external requests.',
-    paidModelCalls: false, workerStarts, cleanedOwners, widths, checks, handoffs, visibility, focusChecks, screenshots,
-    unexpectedWrites: checks.reduce((sum, check) => sum + check.unexpectedWrites, 0),
-    ...(error ? { failedScenario, error: error instanceof Error ? error.message : String(error), failureScreenshot, failureRequests: activeHarness?.requests } : {}) };
-  assert.equal(JSON.stringify(report).includes(credential), false);
-  await fs.writeFile(reportFile, JSON.stringify(report, null, 2) + '\n');
-}
+const writeReport = (status: 'passed' | 'failed', error?: unknown) => writeScenarioReport(reportFile, suite, status, error,
+  'Real local HTTP service and Chromium. Native textarea selection and independent DOM Range mirrors verify preview-to-editor handoff. Only explicit read-only fixture setup may POST; no Docker, Lean, models or external requests.',
+  { workerStarts, cleanedOwners, widths, checks, handoffs, visibility, focusChecks, screenshots,
+    unexpectedWrites: checks.reduce((sum, check) => sum + check.unexpectedWrites, 0) }, { credential, failureRequests: true });
 
 const longLines = Array.from({ length: 222 }, (_, index) => `-- context ${index + 1}`);
 longLines[0] = `-- ${'lead '.repeat(500)}`;
@@ -281,8 +234,7 @@ longLines[221] = '';
 const longSource = longLines.join('\n'), needle = 'needleAfter160';
 
 try {
-  await new Promise<void>((resolve, reject) => { service.server.once('error', reject); service.server.listen(port, '127.0.0.1', resolve); });
-  browser = await chromium.launch({ headless: true });
+  browser = await startBrowser(service.server, port);
 
   for (const width of widths) await scenario(`A Unicode match beyond 160 lines opens at its wrapped editing position at ${width}px`, async ({ page }) => {
     await prepare(page, longSource); await locationAvailable(page, false);

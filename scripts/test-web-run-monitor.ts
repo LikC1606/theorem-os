@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type BrowserContext, type Page, type Route } from 'playwright';
@@ -10,7 +9,8 @@ import type { TaskDraft } from '../apps/web/client/draft';
 import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
 import type { WebRun, WebRunInput } from '../apps/web/shared';
-import { closeHistory, openHistory, withSettings } from './web-ui-controls';
+import { closeHistory, fitViewport, openHistory, withSettings } from './web-ui-controls';
+import { freePort, postRun, readRun, type RequestRecord, type ScenarioSuite, settled, startBrowser, webScenario, writeScenarioReport } from './web-scenario';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-run-monitor'), reportFile = path.join(output, 'report.json');
@@ -20,10 +20,7 @@ const injection = '<img data-monitor-injection src=x onerror="window.__monitorIn
 const widths = [1440, 375, 320];
 await fs.access(path.join(root, 'out/web/app.js')).catch(() => { throw new Error('Run bun run build:web before the run monitor check.'); });
 await fs.mkdir(output, { recursive: true }); await fs.rm(reportFile, { force: true });
-const probe = net.createServer();
-await new Promise<void>(resolve => probe.listen(0, '127.0.0.1', resolve));
-const port = (probe.address() as net.AddressInfo).port;
-await new Promise<void>((resolve, reject) => probe.close(error => error ? reject(error) : resolve()));
+const port = await freePort();
 const origin = `http://127.0.0.1:${port}`;
 type Control = { progress(type: string, message: string): void; finish(): void; fail(): void };
 const controls = new Map<string, Control>();
@@ -46,7 +43,6 @@ const runner: WebRunner = {
 };
 const service = createWebService(readWebConfig({ THEOREMOS_WEB_PORT: String(port), THEOREMOS_WEB_PUBLIC_URL: origin,
   THEOREMOS_WEB_STATIC_ROOT: path.join(root, 'out/web'), THEOREMOS_WEB_CONCURRENCY: '2', THEOREMOS_WEB_QUEUE_LIMIT: '32' }), runner);
-type RequestRecord = { method: string; pathname: string };
 type Harness = { page: Page; context: BrowserContext; requests: RequestRecord[]; creates: number; deletes: number;
   owners: Set<string>; intercept?: (route: Route) => Promise<boolean>; releases: Array<() => void | Promise<void>> };
 type Editable = { draft: TaskDraft; key: string; recovery: string | null; query: string; filter: string };
@@ -56,58 +52,36 @@ const screenshots: string[] = [], restorations: Array<{ width: number; keyPreser
 const readingChecks: Array<{ listScrollable: boolean; beforeListLeft: number; afterListLeft: number; beforeChatTop: number; afterChatTop: number }> = [];
 let raceEvidence: { confirmedByGetBeforeLostResponse: boolean; cancelPosts: number; extraSessionRequests: number; workerAborts: number } | undefined;
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
-let failedScenario = '', failureScreenshot = '';
+const suite: ScenarioSuite = { origin, output, checks, failedScenario: '', failureScreenshot: '' };
 const row = (id: string) => `[data-monitor-id="${id}"]`;
 const opener = (id: string) => `[data-monitor-run-id="${id}"]`;
 const dismiss = (id: string) => `[data-dismiss-run-notice="${id}"]`;
 const isList = (route: Route) => route.request().method() === 'GET' && new URL(route.request().url()).pathname === '/api/runs';
 function deferred() { let resolve!: () => void; const promise = new Promise<void>(done => { resolve = done; }); return { promise, resolve }; }
 const count = (h: Harness, method: string, pathname: string) => h.requests.filter(request => request.method === method && request.pathname === pathname).length;
-async function settled(page: Page) { await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))); }
 
-async function scenario(name: string, run: (h: Harness) => Promise<void>, width = 1440, expectedCancels = 0) {
-  failedScenario = name;
-  const started = performance.now(), context = await browser!.newContext({ viewport: { width, height: width > 850 ? 900 : 812 }, reducedMotion: 'reduce' });
-  const page = await context.newPage(); page.setDefaultTimeout(10_000);
-  const h: Harness = { page, context, requests: [], creates: 0, deletes: 0, owners: new Set(), releases: [] };
-  const errors: string[] = [], external: string[] = [];
-  page.on('pageerror', error => errors.push(error.message));
-  await context.route(/^https?:\/\//, async route => {
-    const url = new URL(route.request().url());
-    if (url.origin !== origin) { external.push(url.href); await route.abort(); return; }
-    if (url.pathname.startsWith('/api/')) {
-      h.requests.push({ method: route.request().method(), pathname: url.pathname });
-      if (await h.intercept?.(route)) return;
-    }
-    await route.continue();
+const scenario = (name: string, run: (h: Harness) => Promise<void>, width = 1440, expectedCancels = 0) =>
+  webScenario<Harness>(browser!, suite, name, run, {
+    context: { viewport: { width, height: width > 850 ? 900 : 812 }, reducedMotion: 'reduce' },
+    harness: (page, context) => ({ page, context, requests: [], creates: 0, deletes: 0, owners: new Set(), releases: [] }),
+    routes: { local: 'monitor operations must remain local' }, timeout: { label: 'Run monitor', seconds: 50 },
+    verify: async (h, elapsedMs) => {
+      const writes = h.requests.filter(request => request.method !== 'GET');
+      const cancels = writes.filter(request => request.method === 'POST' && /^\/api\/runs\/[^/]+\/cancel$/.test(request.pathname)).length;
+      assert.equal(count(h, 'POST', '/api/runs'), h.creates, 'monitor navigation must not submit a research task');
+      assert.equal(writes.filter(request => request.method === 'DELETE').length, h.deletes);
+      assert.equal(cancels, expectedCancels, 'cancel must run only for an explicit fixture or user command');
+      assert.equal(writes.length, h.creates + h.deletes + expectedCancels, 'unexpected API write');
+      await privacy(h.page);
+      return { name, width, elapsedMs: elapsedMs(), fixtureCreates: h.creates,
+        fixtureDeletes: h.deletes, cancelRequests: cancels, unexpectedWrites: writes.length - h.creates - h.deletes - cancels, requests: h.requests };
+    },
+    cleanup: async h => {
+      for (const release of h.releases) await release();
+      await collectOwner(h);
+      for (const owner of h.owners) service.jobs.forget(owner);
+    },
   });
-  let deadline: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await Promise.race([run(h), new Promise<never>((_, reject) => {
-      deadline = setTimeout(() => reject(new Error(`Run monitor scenario exceeded 50 seconds: ${name}`)), 50_000);
-    })]);
-    assert.deepEqual(errors, [], 'uncaught browser errors'); assert.deepEqual(external, [], 'monitor operations must remain local');
-    const writes = h.requests.filter(request => request.method !== 'GET');
-    const cancels = writes.filter(request => request.method === 'POST' && /^\/api\/runs\/[^/]+\/cancel$/.test(request.pathname)).length;
-    assert.equal(count(h, 'POST', '/api/runs'), h.creates, 'monitor navigation must not submit a research task');
-    assert.equal(writes.filter(request => request.method === 'DELETE').length, h.deletes);
-    assert.equal(cancels, expectedCancels, 'cancel must run only for an explicit fixture or user command');
-    assert.equal(writes.length, h.creates + h.deletes + expectedCancels, 'unexpected API write');
-    await privacy(page);
-    checks.push({ name, width, elapsedMs: Math.round(performance.now() - started), fixtureCreates: h.creates,
-      fixtureDeletes: h.deletes, cancelRequests: cancels, unexpectedWrites: writes.length - h.creates - h.deletes - cancels, requests: h.requests });
-    console.log(`PASS ${name}`);
-  } catch (error) {
-    failureScreenshot = `failure-${checks.length + 1}.png`;
-    await page.screenshot({ path: path.join(output, failureScreenshot) }).catch(() => {}); throw error;
-  } finally {
-    clearTimeout(deadline);
-    for (const release of h.releases) await release();
-    await collectOwner(h);
-    for (const owner of h.owners) service.jobs.forget(owner);
-    await context.close();
-  }
-}
 async function collectOwner(h: Harness) {
   const cookie = (await h.context.cookies(origin)).find(cookie => cookie.name === 'theoremos_session');
   if (cookie) h.owners.add(cookie.value);
@@ -122,12 +96,7 @@ async function refresh(h: Harness) {
 async function createRun(h: Harness, title = 'Local monitored task') {
   const input: WebRunInput = { providerId: 'openai', apiKey: credential, model: 'fixture-monitor-model', effort: 'low', environment: 'standard',
     source: 'theorem monitored_fixture : True := by sorry', task: title, maxTurns: 2, maxRunSeconds: 60, workers: 1, coordination: 'independent' };
-  const run = await h.page.evaluate(async input => {
-    const session = await (await fetch('/api/session')).json();
-    const response = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': session.csrfToken }, body: JSON.stringify(input) });
-    if (response.status !== 201) throw new Error(`Monitor fixture creation failed: ${response.status}`);
-    return (await response.json()).run as WebRun;
-  }, input);
+  const run = await postRun(h, input, 'Monitor fixture');
   h.creates++; await collectOwner(h); return run;
 }
 async function mutateFixture(h: Harness, id: string, method: 'DELETE' | 'POST') {
@@ -138,9 +107,6 @@ async function mutateFixture(h: Harness, id: string, method: 'DELETE' | 'POST') 
   }, { pathname, method });
   assert.equal(status, 200);
   if (method === 'DELETE') h.deletes++;
-}
-async function readRun(h: Harness, id: string): Promise<WebRun> {
-  return h.page.evaluate(async id => (await (await fetch(`/api/runs/${id}`)).json()).run as WebRun, id);
 }
 async function waitTerminal(h: Harness, id: string) {
   await h.page.waitForFunction(async id => {
@@ -208,12 +174,7 @@ async function privacy(page: Page) {
   assert.equal(await page.locator('[data-monitor-injection]').count(), 0);
   assert.equal(await page.evaluate(() => (window as unknown as { __monitorInjected?: boolean }).__monitorInjected), undefined);
 }
-async function fit(page: Page, selector: string) {
-  const box = await page.locator(selector).boundingBox(), viewport = page.viewportSize()!;
-  assert.ok(box && box.x >= -1 && box.y >= -1 && box.x + box.width <= viewport.width + 1 && box.y + box.height <= viewport.height + 1,
-    `${selector} must fit ${viewport.width}px: ${JSON.stringify(box)}`);
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true, 'monitor must not widen the page');
-}
+const fit = (page: Page, selector: string) => fitViewport(page, selector, 'monitor must not widen the page');
 async function screenshot(page: Page, name: string) { await page.screenshot({ path: path.join(output, name) }); screenshots.push(name); }
 async function pollWith(page: Page, id: string, predicate: 'cancelled' | 'marker', marker = '') {
   return page.waitForResponse(async response => {
@@ -222,18 +183,12 @@ async function pollWith(page: Page, id: string, predicate: 'cancelled' | 'marker
     return Boolean(run && (predicate === 'cancelled' ? run.status === 'cancelled' : run.events.some(event => event.message === marker)));
   });
 }
-async function writeReport(status: 'passed' | 'failed', error?: unknown) {
-  const report = { status, checkedAt: new Date().toISOString(),
-    mode: 'Real temporary-port HTTP service and Chromium with a controlled in-process runner, queued tasks and response gates. No models, Docker, Lean or external requests.',
-    paidModelCalls: false, workerStarts, workerAborts, widths, checks, restorations, readingChecks, raceEvidence, screenshots,
-    ...(error ? { failedScenario, error: error instanceof Error ? error.message : String(error), failureScreenshot } : {}) };
-  assert.equal(JSON.stringify(report).includes(credential), false);
-  await fs.writeFile(reportFile, JSON.stringify(report, null, 2) + '\n');
-}
+const writeReport = (status: 'passed' | 'failed', error?: unknown) => writeScenarioReport(reportFile, suite, status, error,
+  'Real temporary-port HTTP service and Chromium with a controlled in-process runner, queued tasks and response gates. No models, Docker, Lean or external requests.',
+  { workerStarts, workerAborts, widths, checks, restorations, readingChecks, raceEvidence, screenshots }, { credential });
 
 try {
-  await new Promise<void>((resolve, reject) => { service.server.once('error', reject); service.server.listen(port, '127.0.0.1', resolve); });
-  browser = await chromium.launch({ headless: true });
+  browser = await startBrowser(service.server, port);
 
   await scenario('Initial terminal history stays quiet while every queued and running task is monitored', async h => {
     const firstList = deferred(), release = deferred(); h.releases.push(release.resolve);

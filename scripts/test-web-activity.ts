@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type BrowserContext, type Page } from 'playwright';
@@ -9,7 +8,8 @@ import { readWebConfig } from '../apps/web/config';
 import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
 import type { WebEvent, WebRun, WebRunInput } from '../apps/web/shared';
-import { closeHistory, openHistory, selectHistoryRun } from './web-ui-controls';
+import { closeHistory, fitViewport, openHistory, selectHistoryRun } from './web-ui-controls';
+import { freePort, postRun, readRun, type RequestRecord, type ScenarioSuite, settled, startBrowser, webScenario, writeScenarioReport } from './web-scenario';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-activity');
@@ -21,10 +21,7 @@ const widths = [1440, 375, 320];
 await fs.access(path.join(root, 'out/web/app.js')).catch(() => { throw new Error('Run bun run build:web before the activity check.'); });
 await fs.mkdir(output, { recursive: true });
 await fs.rm(reportFile, { force: true });
-const probe = net.createServer();
-await new Promise<void>(resolve => probe.listen(0, '127.0.0.1', resolve));
-const port = (probe.address() as net.AddressInfo).port;
-await new Promise<void>((resolve, reject) => probe.close(error => error ? reject(error) : resolve()));
+const port = await freePort();
 const origin = `http://127.0.0.1:${port}`;
 type Control = { progress(type: string, message: string): void; finish(): void };
 const controls = new Map<string, Control>();
@@ -44,7 +41,6 @@ const runner: WebRunner = {
 };
 const service = createWebService(readWebConfig({ THEOREMOS_WEB_PORT: String(port), THEOREMOS_WEB_PUBLIC_URL: origin,
   THEOREMOS_WEB_STATIC_ROOT: path.join(root, 'out/web'), THEOREMOS_WEB_CONCURRENCY: '8' }), runner);
-type RequestRecord = { method: string; pathname: string };
 type Harness = { page: Page; context: BrowserContext; requests: RequestRecord[]; runIds: string[] };
 type Anchor = { sequence: number; offset: number; scrollTop: number; scrollLeft: number };
 type ActivityExport = { format: string; version: number; runId: string; exportedAt: string; order: string;
@@ -56,67 +52,36 @@ const screenshots: string[] = [];
 const anchors: Array<{ label: string; width: number; before: Anchor; after: Anchor }> = [];
 const exports: Array<{ runId: string; matchedCount: number; retainedCount: number; earlierEventsOmitted: boolean }> = [];
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
-let failedScenario = '', failureScreenshot = '';
+const suite: ScenarioSuite = { origin, output, checks, failedScenario: '', failureScreenshot: '' };
 
-async function scenario(name: string, run: (h: Harness) => Promise<void>, width = 1440) {
-  failedScenario = name;
-  const started = performance.now();
-  const context = await browser!.newContext({ viewport: { width, height: width > 850 ? 900 : 812 }, reducedMotion: 'reduce' });
-  const page = await context.newPage();
-  page.setDefaultTimeout(10_000);
-  const h: Harness = { page, context, requests: [], runIds: [] };
-  const errors: string[] = [], external: string[] = [];
-  page.on('pageerror', error => errors.push(error.message));
-  await context.route(/^https?:\/\//, async route => {
-    const destination = new URL(route.request().url());
-    if (destination.origin !== origin) { external.push(destination.href); await route.abort(); return; }
-    if (destination.pathname.startsWith('/api/')) h.requests.push({ method: route.request().method(), pathname: destination.pathname });
-    await route.continue();
-  });
-  let deadline: ReturnType<typeof setTimeout> | undefined;
-  try {
+let draft = '', task = '';
+const scenario = (name: string, run: (h: Harness) => Promise<void>, width = 1440) => webScenario<Harness>(browser!, suite, name, run, {
+  context: { viewport: { width, height: width > 850 ? 900 : 812 }, reducedMotion: 'reduce' },
+  harness: (page, context) => ({ page, context, requests: [], runIds: [] }),
+  routes: { local: 'activity inspection must not contact external sites or model providers' }, timeout: { label: 'Activity', seconds: 50 },
+  open: async ({ page }) => {
     await page.goto(origin);
     await page.locator('#submit-run:enabled').waitFor();
-    const draft = await page.locator('#source').inputValue(), task = await page.locator('#task').inputValue();
-    await Promise.race([run(h), new Promise<never>((_, reject) => {
-      deadline = setTimeout(() => reject(new Error(`Activity scenario exceeded 50 seconds: ${name}`)), 50_000);
-    })]);
-    assert.deepEqual(errors, [], 'uncaught browser errors');
-    assert.deepEqual(external, [], 'activity inspection must not contact external sites or model providers');
+    draft = await page.locator('#source').inputValue(), task = await page.locator('#task').inputValue();
+  },
+  verify: async ({ page, requests, runIds }, elapsedMs) => {
     assert.equal(await page.locator('#source').inputValue(), draft, 'activity inspection must preserve the composer source');
     assert.equal(await page.locator('#task').inputValue(), task, 'activity inspection must preserve the composer task');
     assert.equal(await page.locator('#api-key').inputValue(), '', 'activity inspection must not populate a credential');
-    const writes = h.requests.filter(request => request.method !== 'GET');
-    assert.equal(writes.length, h.runIds.length, 'only explicit fixture creation may write to the API');
+    const writes = requests.filter(request => request.method !== 'GET');
+    assert.equal(writes.length, runIds.length, 'only explicit fixture creation may write to the API');
     assert.equal(writes.every(request => request.method === 'POST' && request.pathname === '/api/runs'), true);
-    assert.equal(h.requests.some(request => request.pathname.endsWith('/download')), false, 'activity export must use the local snapshot, including while running');
-    checks.push({ name, elapsedMs: Math.round(performance.now() - started), fixtureCreates: h.runIds.length,
-      featureApiWrites: writes.length - h.runIds.length, requests: h.requests });
-    console.log(`PASS ${name}`);
-  } catch (error) {
-    failureScreenshot = `failure-${checks.length + 1}.png`;
-    await page.screenshot({ path: path.join(output, failureScreenshot) }).catch(() => {});
-    throw error;
-  } finally {
-    clearTimeout(deadline);
-    for (const id of h.runIds) controls.get(id)?.finish();
-    await context.close();
-  }
-}
+    assert.equal(requests.some(request => request.pathname.endsWith('/download')), false, 'activity export must use the local snapshot, including while running');
+    return { name, elapsedMs: elapsedMs(), fixtureCreates: runIds.length, featureApiWrites: writes.length - runIds.length, requests };
+  },
+  cleanup: ({ runIds }) => { for (const id of runIds) controls.get(id)?.finish(); },
+});
 async function createRun(h: Harness, title = 'Inspect local activity fixture') {
   const input: WebRunInput = { providerId: 'openai', apiKey: credential, model: 'fixture-activity-model', effort: 'low', environment: 'standard',
     source: 'theorem activity_fixture : True := by sorry', task: title, maxTurns: 2, maxRunSeconds: 60, workers: 1, coordination: 'independent' };
-  const run = await h.page.evaluate(async input => {
-    const session = await (await fetch('/api/session')).json();
-    const response = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': session.csrfToken }, body: JSON.stringify(input) });
-    if (response.status !== 201) throw new Error(`Fixture creation failed: ${response.status}`);
-    return (await response.json()).run as WebRun;
-  }, input);
+  const run = await postRun(h, input);
   h.runIds.push(run.id); assert.ok(controls.has(run.id), 'the local worker fixture must start');
   return run;
-}
-async function readRun(h: Harness, id: string): Promise<WebRun> {
-  return h.page.evaluate(async id => (await (await fetch(`/api/runs/${id}`)).json()).run as WebRun, id);
 }
 async function showWorkspace(page: Page) {
   if (page.viewportSize()!.width <= 850) await page.locator('#mobile-runs').click();
@@ -141,9 +106,6 @@ async function listed(page: Page, message: string) {
 async function follow(page: Page, value: boolean) {
   await page.locator(`#activity-follow[aria-pressed="${value}"]`).waitFor();
 }
-async function settled(page: Page) {
-  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-}
 async function pauseByScrolling(page: Page, top = 340) {
   await page.locator('.activity-scroll').evaluate((scroll, top) => { scroll.scrollTop = top; }, top);
   await follow(page, false); await settled(page);
@@ -167,12 +129,7 @@ async function preservesAnchor(page: Page, label: string, before: Anchor) {
   assert.ok(Math.abs(after.offset - before.offset) <= 1.5, `${label}: visible row moved: ${JSON.stringify({ before, after })}`);
   assert.equal(after.scrollLeft, before.scrollLeft, `${label}: horizontal reading position moved`);
 }
-async function fit(page: Page, selector: string) {
-  const box = await page.locator(selector).boundingBox(), viewport = page.viewportSize()!;
-  assert.ok(box && box.x >= -1 && box.y >= -1 && box.x + box.width <= viewport.width + 1 && box.y + box.height <= viewport.height + 1,
-    `${selector} must fit ${viewport.width}px: ${JSON.stringify(box)}`);
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), true, 'activity tools must not widen the document');
-}
+const fit = (page: Page, selector: string) => fitViewport(page, selector, 'activity tools must not widen the document');
 async function screenshot(page: Page, name: string) {
   await page.screenshot({ path: path.join(output, name) }); screenshots.push(name);
 }
@@ -207,18 +164,12 @@ async function pollContains(page: Page, id: string, message: string) {
     return payload.runs.some(run => run.id === id && run.events.some(event => event.message === message));
   });
 }
-async function writeReport(status: 'passed' | 'failed', error?: unknown) {
-  const report = { status, checkedAt: new Date().toISOString(),
-    mode: 'Real local HTTP service and Chromium with a controlled in-process runner. No models, Docker, Lean or external requests.',
-    paidModelCalls: false, workerStarts, widths, checks, anchors, exports, screenshots,
-    ...(error ? { failedScenario, error: error instanceof Error ? error.message : String(error), failureScreenshot } : {}) };
-  assert.equal(JSON.stringify(report).includes(credential), false);
-  await fs.writeFile(reportFile, JSON.stringify(report, null, 2) + '\n');
-}
+const writeReport = (status: 'passed' | 'failed', error?: unknown) => writeScenarioReport(reportFile, suite, status, error,
+  'Real local HTTP service and Chromium with a controlled in-process runner. No models, Docker, Lean or external requests.',
+  { workerStarts, widths, checks, anchors, exports, screenshots }, { credential });
 
 try {
-  await new Promise<void>((resolve, reject) => { service.server.once('error', reject); service.server.listen(port, '127.0.0.1', resolve); });
-  browser = await chromium.launch({ headless: true });
+  browser = await startBrowser(service.server, port);
 
   await scenario('Literal keyword and type filters retain duplicate events and export only the active selection', async h => {
     const { page } = h, run = await createRun(h), control = controls.get(run.id)!;

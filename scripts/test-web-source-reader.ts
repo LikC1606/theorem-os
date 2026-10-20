@@ -1,15 +1,15 @@
 #!/usr/bin/env bun
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type BrowserContext, type Page } from 'playwright';
 import { readWebConfig, webLimits } from '../apps/web/config';
 import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
-import type { WebResult, WebRun, WebRunInput } from '../apps/web/shared';
-import { closeHistory, closeSettings, fillConfig, openHistory, openSettings, selectHistoryRun } from './web-ui-controls';
+import type { WebResult, WebRunInput } from '../apps/web/shared';
+import { closeHistory, closeSettings, fillConfig, openHistory, openSettings, selectHistoryRun, text } from './web-ui-controls';
+import { freePort, normalize, postRun, type RequestRecord, type ScenarioSuite, startBrowser, webScenario, writeScenarioReport } from './web-scenario';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-ui-smoke');
@@ -19,14 +19,10 @@ const markup = '<img data-reader-injection src=x onerror="window.__readerInjecte
 const widths = [1440, 375, 320];
 const draftCode = '#draft-preview-code code', draftScroll = '.draft-source-scroll';
 const runCode = '#detail-panel .source-code code', runScroll = '#detail-panel .source-code-grid';
-const normalize = (source: string) => source.replace(/\r\n?/g, '\n');
 await fs.access(path.join(root, 'out/web/app.js')).catch(() => { throw new Error('Run bun run build:web before the source reader check.'); });
 await fs.mkdir(output, { recursive: true });
 await fs.rm(reportFile, { force: true });
-const probe = net.createServer();
-await new Promise<void>(resolve => probe.listen(0, '127.0.0.1', resolve));
-const port = (probe.address() as net.AddressInfo).port;
-await new Promise<void>((resolve, reject) => probe.close(error => error ? reject(error) : resolve()));
+const port = await freePort();
 const origin = `http://127.0.0.1:${port}`;
 type Control = { artifact(source: string): void; progress(message: string): void; finish(result?: WebResult): void };
 const controls = new Map<string, Control>();
@@ -50,62 +46,32 @@ const runner: WebRunner = {
 };
 const service = createWebService(readWebConfig({ THEOREMOS_WEB_PORT: String(port), THEOREMOS_WEB_PUBLIC_URL: origin,
   THEOREMOS_WEB_STATIC_ROOT: path.join(root, 'out/web'), THEOREMOS_WEB_CONCURRENCY: '8' }), runner);
-type RequestRecord = { method: string; pathname: string };
 type Harness = { page: Page; context: BrowserContext; requests: RequestRecord[]; runIds: string[] };
 type HighlightRegistry = { get(name: string): Iterable<Range> | undefined };
 const checks: Array<{ name: string; elapsedMs: number; requests: RequestRecord[]; fixtureCreates: number }> = [];
 const screenshots: string[] = [];
 const visibility: Array<{ label: string; width: number; geometry: unknown }> = [];
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
-let failedScenario = '', failureScreenshot = '';
+const suite: ScenarioSuite = { origin, output, checks, failedScenario: '', failureScreenshot: '' };
 
-async function scenario(name: string, run: (h: Harness) => Promise<void>, width = 1440, withoutHighlights = false) {
-  failedScenario = name;
-  const started = performance.now();
-  const context = await browser!.newContext({ viewport: { width, height: width > 850 ? 900 : 812 },
-    reducedMotion: 'reduce', permissions: ['clipboard-read', 'clipboard-write'] });
-  if (withoutHighlights) await context.addInitScript(() => {
-    Object.defineProperty(CSS, 'highlights', { configurable: true, value: undefined });
-    Object.defineProperty(window, 'Highlight', { configurable: true, value: undefined });
+const scenario = (name: string, run: (h: Harness) => Promise<void>, width = 1440, withoutHighlights = false) =>
+  webScenario<Harness>(browser!, suite, name, run, {
+    context: { viewport: { width, height: width > 850 ? 900 : 812 }, reducedMotion: 'reduce', permissions: ['clipboard-read', 'clipboard-write'] },
+    init: context => withoutHighlights ? context.addInitScript(() => {
+      Object.defineProperty(CSS, 'highlights', { configurable: true, value: undefined });
+      Object.defineProperty(window, 'Highlight', { configurable: true, value: undefined });
+    }) : undefined,
+    harness: (page, context) => ({ page, context, requests: [], runIds: [] }),
+    routes: { local: 'source reading must not contact an external site or provider' }, open: true, timeout: { label: 'Source reader', seconds: 45 },
+    verify: ({ requests, runIds }, elapsedMs) => {
+      const writes = requests.filter(request => request.method !== 'GET');
+      assert.equal(writes.length, runIds.length, 'search must not create, change or delete runs');
+      assert.equal(writes.every(request => request.method === 'POST' && request.pathname === '/api/runs'), true);
+      return { name, elapsedMs: elapsedMs(), requests, fixtureCreates: runIds.length };
+    },
+    failure: { prefix: 'source-reader-' },
+    cleanup: ({ runIds }) => { for (const id of runIds) controls.get(id)?.finish(); },
   });
-  const page = await context.newPage();
-  page.setDefaultTimeout(10_000);
-  const h: Harness = { page, context, requests: [], runIds: [] };
-  const errors: string[] = [], external: string[] = [];
-  page.on('pageerror', error => errors.push(error.message));
-  await context.route(/^https?:\/\//, async route => {
-    const destination = new URL(route.request().url());
-    if (destination.origin !== origin) { external.push(destination.href); await route.abort(); return; }
-    if (destination.pathname.startsWith('/api/')) h.requests.push({ method: route.request().method(), pathname: destination.pathname });
-    await route.continue();
-  });
-  let deadline: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await page.goto(origin);
-    await page.locator('#submit-run:enabled').waitFor();
-    await Promise.race([run(h), new Promise<never>((_, reject) => {
-      deadline = setTimeout(() => reject(new Error(`Source reader scenario exceeded 45 seconds: ${name}`)), 45_000);
-    })]);
-    assert.deepEqual(errors, [], 'uncaught browser errors');
-    assert.deepEqual(external, [], 'source reading must not contact an external site or provider');
-    const writes = h.requests.filter(request => request.method !== 'GET');
-    assert.equal(writes.length, h.runIds.length, 'search must not create, change or delete runs');
-    assert.equal(writes.every(request => request.method === 'POST' && request.pathname === '/api/runs'), true);
-    checks.push({ name, elapsedMs: Math.round(performance.now() - started), requests: h.requests, fixtureCreates: h.runIds.length });
-    console.log(`PASS ${name}`);
-  } catch (error) {
-    failureScreenshot = `source-reader-failure-${checks.length + 1}.png`;
-    await page.screenshot({ path: path.join(output, failureScreenshot) }).catch(() => {});
-    throw error;
-  } finally {
-    clearTimeout(deadline);
-    for (const id of h.runIds) controls.get(id)?.finish();
-    await context.close();
-  }
-}
-async function text(page: Page, selector: string, expected: string) {
-  await page.waitForFunction(({ selector, expected }) => document.querySelector(selector)?.textContent === expected, { selector, expected });
-}
 async function position(page: Page, expected: string) { await text(page, '#source-find-position', expected); }
 async function showSource(page: Page) {
   if (page.viewportSize()!.width <= 850) await page.locator('#mobile-runs').click();
@@ -212,12 +178,7 @@ async function matchVisible(page: Page, label: string, codeSelector: string, scr
 async function createRun(h: Harness, source: string, proof?: string) {
   const input: WebRunInput = { providerId: 'openai', apiKey: credential, model: 'fixture-reader-model', effort: 'low', environment: 'standard',
     source, task: 'Inspect the local source reader fixture', maxTurns: 2, maxRunSeconds: 60, workers: 1, coordination: 'independent' };
-  const run = await h.page.evaluate(async input => {
-    const session = await (await fetch('/api/session')).json();
-    const response = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': session.csrfToken }, body: JSON.stringify(input) });
-    if (response.status !== 201) throw new Error(`Fixture creation failed: ${response.status}`);
-    return (await response.json()).run as WebRun;
-  }, input);
+  const run = await postRun(h, input);
   h.runIds.push(run.id);
   assert.ok(controls.has(run.id));
   if (proof !== undefined) controls.get(run.id)!.finish({ status: 'incomplete', proof, report: { fixture: 'source-reader' } });
@@ -234,14 +195,9 @@ async function selectSource(h: Harness, id: string) {
   await showSource(h.page);
   await h.page.locator('#detail-tab-source').click();
 }
-async function writeReport(status: 'passed' | 'failed', error?: unknown) {
-  const report = { status, checkedAt: new Date().toISOString(),
-    mode: 'Real local HTTP service and Chromium with a controlled fixture runner. No Docker, Lean or model provider is called.',
-    paidModelCalls: false, workerStarts, widths, checks, screenshots, visibility,
-    ...(error ? { failedScenario, error: error instanceof Error ? error.message : String(error), failureScreenshot } : {}) };
-  assert.equal(JSON.stringify(report).includes(credential), false);
-  await fs.writeFile(reportFile, JSON.stringify(report, null, 2) + '\n');
-}
+const writeReport = (status: 'passed' | 'failed', error?: unknown) => writeScenarioReport(reportFile, suite, status, error,
+  'Real local HTTP service and Chromium with a controlled fixture runner. No Docker, Lean or model provider is called.',
+  { workerStarts, widths, checks, screenshots, visibility }, { credential });
 
 const longLines = Array.from({ length: 220 }, (_, index) => `-- context line ${index + 1}`);
 longLines[14] = `-- ${'long_identifier_'.repeat(40)}needleFar`;
@@ -250,8 +206,7 @@ longLines[204] = '-- needleEnd';
 const longSource = longLines.join('\n');
 
 try {
-  await new Promise<void>((resolve, reject) => { service.server.once('error', reject); service.server.listen(port, '127.0.0.1', resolve); });
-  browser = await chromium.launch({ headless: true });
+  browser = await startBrowser(service.server, port);
 
   for (const width of widths) await scenario(`Draft find reaches beyond 160 lines and long horizontal code at ${width}px`, async h => {
     const { page } = h;

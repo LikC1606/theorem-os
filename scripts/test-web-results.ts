@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type BrowserContext, type Page, type Route } from 'playwright';
@@ -9,7 +8,8 @@ import { readWebConfig } from '../apps/web/config';
 import { createWebService } from '../apps/web/server';
 import type { WebRunner } from '../apps/web/runner';
 import type { WebResult, WebRun, WebRunInput } from '../apps/web/shared';
-import { closeHistory, openHistory, refreshHistory, selectHistoryRun } from './web-ui-controls';
+import { refresh, refreshHistory, selectHistoryRun } from './web-ui-controls';
+import { deferred, freePort, postRun, ready, type RequestRecord, type ScenarioSuite, startBrowser, webScenario, writeScenarioReport } from './web-scenario';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'out/web-ui-smoke');
@@ -17,10 +17,7 @@ const reportFile = path.join(output, 'results-report.json');
 await fs.access(path.join(root, 'out/web/app.js')).catch(() => { throw new Error('Run bun run build:web before the results check.'); });
 await fs.mkdir(output, { recursive: true });
 await fs.rm(reportFile, { force: true });
-const probe = net.createServer();
-await new Promise<void>(resolve => probe.listen(0, '127.0.0.1', resolve));
-const port = (probe.address() as net.AddressInfo).port;
-await new Promise<void>((resolve, reject) => probe.close(error => error ? reject(error) : resolve()));
+const port = await freePort();
 const origin = `http://127.0.0.1:${port}`;
 const credential = `sk-theoremos-results-fixture-${crypto.randomUUID()}`;
 const source = 'theorem result_fixture : True := by trivial\n';
@@ -65,7 +62,6 @@ const runner: WebRunner = {
 };
 const service = createWebService(readWebConfig({ THEOREMOS_WEB_PORT: String(port), THEOREMOS_WEB_PUBLIC_URL: origin,
   THEOREMOS_WEB_STATIC_ROOT: path.join(root, 'out/web'), THEOREMOS_WEB_CONCURRENCY: '8', THEOREMOS_WEB_QUEUE_LIMIT: '32' }), runner);
-type RequestRecord = { method: string; pathname: string };
 type Harness = {
   page: Page; context: BrowserContext; requests: RequestRecord[]; runIds: string[]; releases: Array<() => void>;
   intercept?: (route: Route) => Promise<boolean>;
@@ -75,74 +71,29 @@ const screenshots: string[] = [];
 const archiveDownloads: Array<{ status: 'cancelled' | 'error'; from: 'header' | 'confirmation' }> = [];
 const widths = [1440, 375, 320];
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
-let failedScenario = '';
-let failureScreenshot: string | undefined;
-function deferred() {
-  let resolve!: () => void;
-  const promise = new Promise<void>(done => { resolve = done; });
-  return { promise, resolve };
-}
+const suite: ScenarioSuite = { origin, output, checks, failedScenario: '' };
 const pathname = (route: Route) => new URL(route.request().url()).pathname;
 const isList = (route: Route) => route.request().method() === 'GET' && pathname(route) === '/api/runs';
 const isDelete = (route: Route, id?: string) => route.request().method() === 'DELETE' && (!id || pathname(route) === `/api/runs/${id}`);
 const deleteCount = (h: Harness, id?: string) => h.requests.filter(request => request.method === 'DELETE' && (!id || request.pathname === `/api/runs/${id}`)).length;
-const ready = (page: Page) => page.locator('#submit-run:enabled').waitFor();
-async function scenario(name: string, run: (h: Harness) => Promise<void>) {
-  failedScenario = name;
-  const started = performance.now();
-  const context = await browser!.newContext({ viewport: { width: 1440, height: 900 }, permissions: ['clipboard-read', 'clipboard-write'] });
-  const page = await context.newPage();
-  page.setDefaultTimeout(10_000);
-  const h: Harness = { page, context, requests: [], runIds: [], releases: [] };
-  const pageErrors: string[] = [];
-  page.on('pageerror', error => pageErrors.push(error.message));
-  await page.route('**/api/**', async route => {
-    h.requests.push({ method: route.request().method(), pathname: pathname(route) });
-    if (await h.intercept?.(route)) return;
-    await route.continue();
-  });
-  let deadline: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await page.goto(origin); await ready(page);
-    await Promise.race([run(h), new Promise<never>((_, reject) => {
-      deadline = setTimeout(() => reject(new Error(`Results scenario exceeded 35 seconds: ${name}`)), 35_000);
-    })]);
-    assert.deepEqual(pageErrors, [], 'uncaught browser errors');
-    checks.push({ name, elapsedMs: Math.round(performance.now() - started), requests: h.requests });
-    console.log(`PASS ${name}`);
-  } catch (error) {
-    failureScreenshot = `results-failure-${checks.length + 1}.png`;
-    await page.screenshot({ path: path.join(output, failureScreenshot), fullPage: true }).catch(() => {});
-    throw error;
-  } finally {
-    clearTimeout(deadline);
+const scenario = (name: string, run: (h: Harness) => Promise<void>) => webScenario<Harness>(browser!, suite, name, run, {
+  context: { viewport: { width: 1440, height: 900 }, permissions: ['clipboard-read', 'clipboard-write'] },
+  harness: (page, context) => ({ page, context, requests: [], runIds: [], releases: [] }),
+  routes: 'api', open: async ({ page }) => { await page.goto(origin); await ready(page); }, timeout: { label: 'Results', seconds: 35 },
+  failure: { prefix: 'results-', fullPage: true },
+  cleanup: h => {
     for (const release of h.releases) release();
     for (const id of h.runIds) controls.get(id)?.finish(result());
-    await context.close();
-  }
-}
+  },
+});
 async function createRun(h: Harness, title: string, completed: WebResult | null = result()): Promise<WebRun> {
   const input: WebRunInput = { providerId: 'openai', apiKey: credential, model: 'fixture-results-model', effort: 'low',
     environment: 'standard', source, task: title, maxTurns: 2, maxRunSeconds: 60, workers: 1, coordination: 'independent' };
-  const run = await h.page.evaluate(async input => {
-    const session = await (await fetch('/api/session')).json();
-    const response = await fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': session.csrfToken }, body: JSON.stringify(input) });
-    if (response.status !== 201) throw new Error(`Fixture creation failed: ${response.status}`);
-    return (await response.json()).run as WebRun;
-  }, input);
+  const run = await postRun(h, input);
   h.runIds.push(run.id);
   assert.ok(controls.has(run.id), 'fixture worker must have started');
   if (completed) controls.get(run.id)!.finish(completed);
   return h.page.evaluate(async id => (await (await fetch(`/api/runs/${id}`)).json()).run as WebRun, run.id);
-}
-async function refresh(h: Harness) {
-  await openHistory(h.page);
-  await h.page.locator('#refresh-runs:enabled').waitFor();
-  const response = h.page.waitForResponse(response => new URL(response.url()).pathname === '/api/runs' && response.request().method() === 'GET');
-  await h.page.locator('#refresh-runs').click();
-  assert.equal((await response).status(), 200);
-  await h.page.locator('#refresh-runs:enabled').waitFor();
-  await closeHistory(h.page);
 }
 async function select(h: Harness, id: string, report = false) {
   await selectHistoryRun(h.page, id);
@@ -202,15 +153,11 @@ async function assertHorizontalFit(page: Page, selector: string, width: number) 
   const bounds = await page.locator(selector).boundingBox();
   assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= width + 1, `${selector} overflows ${width}px viewport`);
 }
-async function writeReport(status: 'passed' | 'failed', error?: unknown) {
-  await fs.writeFile(reportFile, JSON.stringify({ status, checkedAt: new Date().toISOString(),
-    mode: 'Real HTTP service and Chromium with controlled worker results and response failures. No Docker, Lean or model provider is called.',
-    paidModelCalls: false, workerStarts, checks, widths, screenshots, archiveDownloads,
-    ...(error ? { failedScenario, error: error instanceof Error ? error.message : String(error), failureScreenshot } : {}) }, null, 2) + '\n');
-}
+const writeReport = (status: 'passed' | 'failed', error?: unknown) => writeScenarioReport(reportFile, suite, status, error,
+  'Real HTTP service and Chromium with controlled worker results and response failures. No Docker, Lean or model provider is called.',
+  { workerStarts, checks, widths, screenshots, archiveDownloads });
 try {
-  await new Promise<void>((resolve, reject) => { service.server.once('error', reject); service.server.listen(port, '127.0.0.1', resolve); });
-  browser = await chromium.launch({ headless: true });
+  browser = await startBrowser(service.server, port);
 
   await scenario('Candidate acceptance stays separate from failed independent evaluation; diagnostics and JSON remain intact', async h => {
     const run = await createRun(h, 'Failed independent evaluation', result(failedReport, 'evaluated_failed'));
