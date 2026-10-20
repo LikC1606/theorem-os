@@ -239,6 +239,9 @@ const pairRuns = (
   });
 };
 
+/** Evaluator statuses that decide failure; any other status (`not_configured`, `skipped`, unknown) is unavailable. */
+const EVALUATOR_FAILURE: Readonly<Record<string, boolean>> = { error: true, failed: true, timeout: true, interrupted: true, passed: false };
+
 /**
  * Convert a host runner receipt into a stable row.
  * Missing telemetry remains unavailable; it is never converted to zero.
@@ -265,22 +268,9 @@ export function deriveMathProofRunMetric(
   const evaluator = receiptObject(receipt.evaluator);
   const evaluatorStatus = typeof evaluator?.status === 'string' ? evaluator.status : undefined;
   const receiptStatus = typeof receipt.status === 'string' ? receipt.status : undefined;
-  const verifierFailure =
-    input.verifierStatus === undefined
-      ? null
-      : input.verifierStatus === 'failed'
-        ? true
-        : input.verifierStatus === 'passed'
-          ? false
-          : null;
-  const evaluatorFailure =
-    evaluatorStatus === undefined || ['not_configured', 'skipped'].includes(evaluatorStatus)
-      ? null
-      : ['error', 'failed', 'timeout', 'interrupted'].includes(evaluatorStatus)
-        ? true
-        : evaluatorStatus === 'passed'
-          ? false
-          : null;
+  const verifierFailure = input.verifierStatus === 'failed' ? true : input.verifierStatus === 'passed' ? false : null;
+  const evaluatorFailure = evaluatorStatus !== undefined && Object.hasOwn(EVALUATOR_FAILURE, evaluatorStatus)
+    ? EVALUATOR_FAILURE[evaluatorStatus]! : null;
   // `evaluated_passed` and `evaluated_failed` are terminal results. A plain
   // incomplete or wall-limited run is right-censored because proof search
   // ended before a terminal result, provided no infrastructure failure occurred;

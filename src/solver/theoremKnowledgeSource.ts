@@ -1,4 +1,5 @@
 import { locateKnowledgeDeclaration, readKnowledgeSource, type TheoremKnowledgeBase } from './theoremKnowledge';
+import { largestFittingPage, splitsSurrogate } from './textPage';
 
 export type KnowledgeSourceOptions = {
   file?: string; name?: string; startLine?: number; lines?: number; startOffset?: number; maxBytes?: number;
@@ -7,9 +8,6 @@ export type KnowledgeSourceOptions = {
 const invalidOptions = () => { throw new Error('math_knowledge_source_options_invalid'); };
 const validInteger = (value: unknown, minimum: number, maximum: number) =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= minimum && value <= maximum;
-const splitsSurrogate = (source: string, offset: number) => offset > 0 && offset < source.length &&
-  source.charCodeAt(offset - 1) >= 0xd800 && source.charCodeAt(offset - 1) <= 0xdbff &&
-  source.charCodeAt(offset) >= 0xdc00 && source.charCodeAt(offset) <= 0xdfff;
 
 /** Return exact source bytes as a bounded excerpt, without asserting a complete Lean context. */
 export function getKnowledgeSource(base: TheoremKnowledgeBase, id: string, options: KnowledgeSourceOptions = {}) {
@@ -65,19 +63,5 @@ export function getKnowledgeSource(base: TheoremKnowledgeBase, id: string, optio
     };
   };
   // Include JSON escaping, metadata, and the CLI's trailing newline in the byte budget.
-  const fits = (value: ReturnType<typeof packet>) => Buffer.byteLength(JSON.stringify(value)) + 1 <= maxBytes;
-  if (requestedEnd - begin <= maxBytes) {
-    const whole = packet(requestedEnd);
-    if (fits(whole)) return whole;
-  }
-  if (!fits(packet(begin))) throw new Error('math_knowledge_source_budget_too_small');
-  let lower = begin + 1, upper = Math.min(requestedEnd - 1, begin + maxBytes), best = begin;
-  while (lower <= upper) {
-    const middle = Math.floor((lower + upper) / 2);
-    const end = splitsSurrogate(source, middle) ? middle - 1 : middle;
-    if (fits(packet(end))) { best = end; lower = middle + 1; }
-    else upper = middle - 1;
-  }
-  if (best === begin && requestedEnd > begin) throw new Error('math_knowledge_source_budget_too_small');
-  return packet(best);
+  return largestFittingPage(source, begin, requestedEnd, maxBytes, packet, 'math_knowledge_source_budget_too_small');
 }

@@ -105,6 +105,9 @@ const record = (value: unknown): JsonRecord | undefined =>
   value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as JsonRecord) : undefined;
 const stringList = (value: unknown): readonly string[] =>
   Array.isArray(value) ? Object.freeze(value.flatMap((item) => (text(item) ? [text(item)!] : []))) : Object.freeze([]);
+/** `{ [key]: trimmed text }` when the value is non-blank text, otherwise no field. */
+const optionalText = <Key extends string>(key: Key, value: unknown): { [K in Key]?: string } =>
+  text(value) ? { [key]: text(value)! } as { [K in Key]: string } : {};
 const positiveInt = (value: unknown, fallback = 1): number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : fallback;
 const safeRelativePath = (value: string, field: string): string => {
@@ -183,16 +186,11 @@ const normalizeCredit = (value: unknown): LeanEvalCatalogCredit | undefined => {
   return Object.freeze({
     problemId,
     statementRevision,
-    ...(text(item?.canonical_model_id ?? item?.canonicalModelId)
-      ? { canonicalModelId: text(item?.canonical_model_id ?? item?.canonicalModelId) }
-      : {}),
-    ...(text(item?.submitter) ? { submitter: text(item?.submitter) } : {}),
-    ...(text(item?.accepted_at ?? item?.acceptedAt) ? { acceptedAt: text(item?.accepted_at ?? item?.acceptedAt) } : {}),
-    ...(typeof item?.first_solve === 'boolean'
-      ? { firstSolve: item.first_solve }
-      : typeof item?.firstSolve === 'boolean'
-        ? { firstSolve: item.firstSolve }
-        : {}),
+    ...optionalText('canonicalModelId', item?.canonical_model_id ?? item?.canonicalModelId),
+    ...optionalText('submitter', item?.submitter),
+    ...optionalText('acceptedAt', item?.accepted_at ?? item?.acceptedAt),
+    ...(typeof item?.first_solve === 'boolean' ? { firstSolve: item.first_solve }
+      : typeof item?.firstSolve === 'boolean' ? { firstSolve: item.firstSolve } : {}),
   });
 };
 
@@ -445,12 +443,10 @@ export function readLeanEvalCatalog(options: LeanEvalCatalogReadOptions): LeanEv
         module: text(manifest.module ?? indexEntry?.module) ?? '',
         holes,
         generatedPath,
-        ...(text(manifest.submitter ?? indexEntry?.submitter)
-          ? { submitter: text(manifest.submitter ?? indexEntry?.submitter) }
-          : {}),
-        ...(text(manifest.source) ? { source: text(manifest.source) } : {}),
-        ...(text(manifest.notes) ? { notes: text(manifest.notes) } : {}),
-        ...(text(manifest.informal_solution) ? { informalSolution: text(manifest.informal_solution) } : {}),
+        ...optionalText('submitter', manifest.submitter ?? indexEntry?.submitter),
+        ...optionalText('source', manifest.source),
+        ...optionalText('notes', manifest.notes),
+        ...optionalText('informalSolution', manifest.informal_solution),
         activeV1,
         acceptedCreditCount: problemCredits.length,
         acceptedModelIds: Object.freeze(acceptedModelIds),

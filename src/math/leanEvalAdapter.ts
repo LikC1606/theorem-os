@@ -10,7 +10,7 @@ import { mathGitBytes, mathGitText } from './mathGit';
 import { mathDigest as sha256 } from './mathRuntimeIo';
 import { parse as parseToml } from 'smol-toml';
 import { canonicalMathProblemStatementPayloads, normalizeMathOfficialProblemManifest, normalizeMathProblemContract, type MathOfficialProblemManifest, type MathProblemContract } from "./contracts";
-import { canonicalMathOfficialManifestPayload } from "./verifier";
+import { canonicalMathOfficialManifestPayload, normalizedRepositoryUrl } from "./verifier";
 import { hashMathFormalSourceDeclaration } from "./leanSource";
 import { assertLeanEvalSubmissionComplete } from "./leanEvalSubmission";
 
@@ -101,13 +101,6 @@ const requireBoolean = (value: unknown, field: string): boolean => {
   return value;
 };
 
-const normalizeRepositoryUrl = (value: string): string =>
-  value
-    .trim()
-    .replace(/\/+$/u, '')
-    .replace(/\.git$/u, '')
-    .toLowerCase();
-
 const runGitText = (root: string, args: readonly string[]) => mathGitText(root, args, { maxBuffer: MAX_GIT_OUTPUT_BYTES });
 const runGitBytes = (root: string, args: readonly string[]) => mathGitBytes(root, args, { maxBuffer: MAX_GIT_OUTPUT_BYTES });
 
@@ -186,17 +179,21 @@ const assertCurrentProtectedBlobMatches = (repositoryRoot: string, file: GitTree
   }
 };
 
-const parseLeanEvalConfig = (contents: Buffer): Readonly<{ config: LeanEvalConfig; holeNames: readonly string[] }> => {
+/** Parse one protected metadata file, rejecting malformed or non-object content with that file's own message. */
+const parsedObject = (parse: () => unknown, invalid: string, notObject: string): Record<string, unknown> => {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(contents.toString('utf8'));
+    parsed = parse();
   } catch (error) {
-    throw new Error('LeanEval config.json is not valid JSON.', { cause: error });
+    throw new Error(invalid, { cause: error });
   }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('LeanEval config.json must contain an object.');
-  }
-  const config = parsed as Record<string, unknown>;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error(notObject);
+  return parsed as Record<string, unknown>;
+};
+
+const parseLeanEvalConfig = (contents: Buffer): Readonly<{ config: LeanEvalConfig; holeNames: readonly string[] }> => {
+  const config = parsedObject(() => JSON.parse(contents.toString('utf8')),
+    'LeanEval config.json is not valid JSON.', 'LeanEval config.json must contain an object.');
   const challengeModule = requireText(config.challenge_module, 'config.challenge_module');
   const solutionModule = requireText(config.solution_module, 'config.solution_module');
   if (challengeModule !== 'Challenge' || solutionModule !== 'Solution') {
@@ -230,16 +227,8 @@ const parseLeanEvalConfig = (contents: Buffer): Readonly<{ config: LeanEvalConfi
 };
 
 const parseLeanEvalHoles = (contents: Buffer, problemId: string): readonly LeanEvalHole[] => {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(contents.toString('utf8'));
-  } catch (error) {
-    throw new Error('LeanEval holes.json is not valid JSON.', { cause: error });
-  }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('LeanEval holes.json must contain an object.');
-  }
-  const metadata = parsed as Record<string, unknown>;
+  const metadata = parsedObject(() => JSON.parse(contents.toString('utf8')),
+    'LeanEval holes.json is not valid JSON.', 'LeanEval holes.json must contain an object.');
   if (requireText(metadata.id, 'holes.id') !== problemId) {
     throw new Error('LeanEval holes.json id must match the problem id.');
   }
@@ -305,16 +294,8 @@ const validateLeanEvalHoleDeclarations = (
 };
 
 const validateLakefile = (contents: Buffer, problemId: string): void => {
-  let parsed: unknown;
-  try {
-    parsed = parseToml(contents.toString('utf8'));
-  } catch (error) {
-    throw new Error('LeanEval lakefile.toml is not valid TOML.', { cause: error });
-  }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('LeanEval lakefile.toml must contain a TOML table.');
-  }
-  const lakefile = parsed as Record<string, unknown>;
+  const lakefile = parsedObject(() => parseToml(contents.toString('utf8')),
+    'LeanEval lakefile.toml is not valid TOML.', 'LeanEval lakefile.toml must contain a TOML table.');
   if (requireText(lakefile.name, 'lakefile.name') !== problemId) {
     throw new Error('LeanEval lakefile package name must match the problem id.');
   }
@@ -363,7 +344,7 @@ export const prepareLeanEvalProblemBinding = (request: LeanEvalProblemBindingReq
   if (baselineCommit !== requestedBaseline) throw new Error('baselineCommit did not resolve to the requested commit.');
   const repositoryUrl = requireText(request.repositoryUrl, 'repositoryUrl');
   const origin = runGitText(repositoryRoot, ['config', '--get', 'remote.origin.url']);
-  if (normalizeRepositoryUrl(origin) !== normalizeRepositoryUrl(repositoryUrl)) {
+  if (normalizedRepositoryUrl(origin) !== normalizedRepositoryUrl(repositoryUrl)) {
     throw new Error('LeanEval repositoryUrl does not match remote.origin.url.');
   }
 

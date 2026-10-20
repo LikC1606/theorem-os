@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { parse as parseToml } from 'smol-toml';
-import { leanRepositoryIdentity, readLeanProjectPackageInventory, type LeanProjectPackageDependency } from "./upstreamPackageSearch";
+import { leanRepositoryIdentity, objectValue, readLeanProjectPackageInventory, type LeanProjectPackageDependency } from "./upstreamPackageSearch";
 const MAX_RESULT_LIMIT = 64;
 const MAX_SCOPES = 2;
 export const MAX_INSTALLED_SOURCE_FILE_BYTES = 16 * 1024 * 1024;
@@ -123,7 +123,8 @@ const excludedPath = (relativePath: string): boolean =>
 export const isAllowedInstalledLeanSource = (relativePath: string): boolean =>
   relativePath.endsWith('.lean') && !excludedPath(relativePath);
 
-const compare = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+/** Locale-independent UTF-16 code-unit order, so frozen corpora sort identically on every host. */
+export const compareCodeUnits = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
 const leanSourceFiles = async (packageRoot: string): Promise<readonly string[]> => {
   const queue = [packageRoot];
@@ -138,7 +139,7 @@ const leanSourceFiles = async (packageRoot: string): Promise<readonly string[]> 
       }))
     );
     for (const { directory, entries } of listings) {
-      for (const entry of entries.toSorted((left, right) => compare(left.name, right.name))) {
+      for (const entry of entries.toSorted((left, right) => compareCodeUnits(left.name, right.name))) {
         if (entry.isSymbolicLink()) continue;
         const absolute = path.join(directory, entry.name);
         const relative = path.relative(packageRoot, absolute);
@@ -150,11 +151,8 @@ const leanSourceFiles = async (packageRoot: string): Promise<readonly string[]> 
     await visit();
   };
   await visit();
-  return Object.freeze(files.toSorted(compare));
+  return Object.freeze(files.toSorted(compareCodeUnits));
 };
-
-const objectValue = (value: unknown): Record<string, unknown> | undefined =>
-  value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
 
 const validSourceDirectory = (value: unknown): string | undefined => {
   if (typeof value !== 'string' || !value.trim()) return undefined;

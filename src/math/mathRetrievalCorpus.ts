@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { z } from 'zod';
-import { captureInstalledLeanSources, INSTALLED_CORPUS_POLICY, MAX_INSTALLED_SOURCE_FILE_BYTES, isAllowedInstalledLeanSource } from "./installedPackageSearch";
+import { captureInstalledLeanSources, compareCodeUnits as compare, INSTALLED_CORPUS_POLICY, MAX_INSTALLED_SOURCE_FILE_BYTES, isAllowedInstalledLeanSource } from "./installedPackageSearch";
 import { canonicalMathJson, mathDigest, mathFileIdentity, readMathText } from "./mathRuntimeIo";
 import { assertMathCanonicalPath } from './paths';
 import { inspectLeanDeclarations } from './leanSource';
@@ -125,7 +125,6 @@ const identity = (relative: string, bytes: Buffer, sha256 = mathDigest(bytes)) =
   bytes: bytes.length,
   sha256,
 });
-const compare = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
 function environmentIdentity(root: string, relative: string) {
   try {

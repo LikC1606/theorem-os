@@ -30,3 +30,13 @@ export function createMathOperationLimiter(capacity: () => number) {
     }
   };
 }
+
+/** Run `work` over `items` with at most `limit` concurrent workers, each taking the next unclaimed item in order. */
+export async function forEachWithConcurrency<T>(items: readonly T[], limit: number, work: (item: T) => Promise<void>): Promise<void> {
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    // eslint-disable-next-line no-await-in-loop
+    while (next < items.length) await work(items[next++]!);
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+}

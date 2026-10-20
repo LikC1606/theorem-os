@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { canonicalMathJson, mathDigest, readMathFile, syncMathDirectory } from '../math/mathRuntimeIo';
 import { assertMathCanonicalPath } from '../math/paths';
 import type { ContextSection } from './contextCompiler';
+import { largestFittingPage, splitsSurrogate } from './textPage';
 
 const maxAttachmentBytes = 16_000_000, maxTotalBytes = 64_000_000, maxManifestBytes = 1_000_000;
 const digest = z.string().regex(/^[a-f0-9]{64}$/u);
@@ -162,10 +163,6 @@ export function continuationContextSection(snapshot: ContinuationSnapshot, comma
     text: 'Historical continuation attachments (advisory; recorded checks require fresh verification). Read exact text pages as needed; concatenate them using nextOffset. Old hypotheses and proof drafts do not change the original statement or its assumptions.\n' + JSON.stringify(packet) };
 }
 
-const splitsSurrogate = (text: string, offset: number) => offset > 0 && offset < text.length &&
-  text.charCodeAt(offset - 1) >= 0xd800 && text.charCodeAt(offset - 1) <= 0xdbff &&
-  text.charCodeAt(offset) >= 0xdc00 && text.charCodeAt(offset) <= 0xdfff;
-
 export function readContinuationPage(file: string, expectedDigest: string, id: string,
   options: { offset?: number; maxBytes?: number } = {}) {
   const { offset = 0, maxBytes = 16000 } = options;
@@ -182,14 +179,5 @@ export function readContinuationPage(file: string, expectedDigest: string, id: s
     sha256: item.sha256, bytes: item.bytes, offsetEncoding: 'utf16-code-unit' as const, endOffsetExclusive: true as const,
     startOffset: offset, endOffset: end, text: text.slice(offset, end), truncated: end < text.length,
     ...(end < text.length ? { nextOffset: end } : {}) });
-  const fits = (end: number) => Buffer.byteLength(JSON.stringify(packet(end))) + 1 <= maxBytes;
-  if (text.length - offset <= maxBytes && fits(text.length)) return packet(text.length);
-  if (!fits(offset)) throw new Error('math_continuation_read_budget_too_small');
-  let lower = offset + 1, upper = Math.min(text.length - 1, offset + maxBytes), best = offset;
-  while (lower <= upper) {
-    const middle = Math.floor((lower + upper) / 2), end = splitsSurrogate(text, middle) ? middle - 1 : middle;
-    if (fits(end)) { best = end; lower = middle + 1; } else upper = middle - 1;
-  }
-  if (best === offset && offset < text.length) throw new Error('math_continuation_read_budget_too_small');
-  return packet(best);
+  return largestFittingPage(text, offset, text.length, maxBytes, packet, 'math_continuation_read_budget_too_small');
 }

@@ -61,6 +61,8 @@ export type LeanEvalSubmissionCommit = Readonly<{
   files: readonly string[];
 }>;
 
+type LeanEvalLeaderboardSnapshot =
+  Readonly<{ credits: readonly { problemId: string; statementRevision: number }[]; generatedAt: number }>;
 export type LeanEvalOfficialGateOptions = Readonly<{
   commit?: LeanEvalSubmissionCommit;
   commitMessage?: string;
@@ -68,10 +70,11 @@ export type LeanEvalOfficialGateOptions = Readonly<{
   signal?: AbortSignal;
   env?: NodeJS.ProcessEnv;
   /** Test/runtime override; production always performs a fresh official fetch. */
-  fetchLeaderboard?: () => Promise<
-    Readonly<{ credits: readonly { problemId: string; statementRevision: number }[]; generatedAt: number }>
-  >;
+  fetchLeaderboard?: () => Promise<LeanEvalLeaderboardSnapshot>;
 }>;
+/** An authority decision always bypasses the browsing cache. */
+const freshLeaderboardCredits = (options: Pick<LeanEvalOfficialGateOptions, 'fetchLeaderboard'>) =>
+  options.fetchLeaderboard ? options.fetchLeaderboard() : fetchLeanEvalLeaderboardCredits({ forceRefresh: true });
 
 export type LeanEvalOfficialGateResult = Readonly<{
   submission: LeanEvalSubmissionCommit;
@@ -209,9 +212,7 @@ export async function runPersistedLeanEvalOfficialGate(options: {
     const snapshotFile = leaderboardSnapshotPath(receipt.activeProblemPath);
     const persistedLeaderboard = fs.existsSync(snapshotFile)
       ? parseLeanEvalLeaderboardCredits(readMathJson(snapshotFile))
-      : await (options.fetchLeaderboard
-          ? options.fetchLeaderboard()
-          : fetchLeanEvalLeaderboardCredits({ forceRefresh: true }));
+      : await freshLeaderboardCredits(options);
     if (receipt.leaderboardHash && sha256(JSON.stringify(persistedLeaderboard.credits)) !== receipt.leaderboardHash) {
       throw new Error('Persisted Lean-Eval bootstrap leaderboard provenance no longer matches the receipt');
     }
@@ -277,14 +278,7 @@ export async function runPersistedLeanEvalOfficialGate(options: {
     });
     return await runLeanEvalOfficialGate(bootstrapped, options);
   } finally {
-    if (reloadedSource) {
-      try {
-        git(repositoryRoot, ['worktree', 'remove', '--force', sourceRoot]);
-        git(repositoryRoot, ['worktree', 'prune']);
-      } catch {
-        // Maintenance reaper handles an orphaned reload worktree.
-      }
-    }
+    if (reloadedSource) removeWorktree(repositoryRoot, sourceRoot);
   }
 }
 
@@ -326,6 +320,16 @@ export function assertLeanEvalPublicObligations(
 const leaderboardSnapshotPath = (receiptFile: string): string =>
   path.join(path.dirname(receiptFile), '.deepscientist', 'leaderboard.json');
 const git = (root: string, args: readonly string[]) => mathGitText(root, args, { maxBuffer: 8 * 1024 * 1024 });
+/** Best-effort detached-worktree cleanup. Failures keep the caller's original
+ * error; a later maintenance pass prunes an orphaned worktree safely. */
+const removeWorktree = (repositoryRoot: string, worktreeRoot: string): void => {
+  try {
+    git(repositoryRoot, ['worktree', 'remove', '--force', worktreeRoot]);
+    git(repositoryRoot, ['worktree', 'prune']);
+  } catch {
+    // Ignored by design.
+  }
+};
 
 const assertRegisteredWorktree = (repositoryRoot: string, worktreeRoot: string, label: string): void => {
   const canonical = fs.realpathSync(path.resolve(worktreeRoot));
@@ -532,15 +536,7 @@ export async function bootstrapLeanEvalProblem(options: LeanEvalBootstrapOptions
     // make the pinned source worktree a complete, deterministic checkout.
     git(sourceWorktree, ['sparse-checkout', 'disable']);
   } catch (error) {
-    if (sourceWorktreeCreated) {
-      try {
-        git(repositoryRoot, ['worktree', 'remove', '--force', sourceWorktree]);
-        git(repositoryRoot, ['worktree', 'prune']);
-      } catch {
-        // Preserve the original worktree creation error; maintenance can
-        // prune an orphaned detached worktree later.
-      }
-    }
+    if (sourceWorktreeCreated) removeWorktree(repositoryRoot, sourceWorktree);
     throw new Error(
       `Unable to create pinned LeanEval source worktree: ${error instanceof Error ? error.message : String(error)}`,
       { cause: error }
@@ -561,12 +557,7 @@ export async function bootstrapLeanEvalProblem(options: LeanEvalBootstrapOptions
     if (!problem) throw new Error(`LeanEval problem is not in the pinned catalog: ${options.problemId}`);
     assertLeanEvalBootstrapEligibility(problem, options.evaluationMode);
   } catch (error) {
-    try {
-      git(repositoryRoot, ['worktree', 'remove', '--force', sourceWorktree]);
-      git(repositoryRoot, ['worktree', 'prune']);
-    } catch {
-      // Preserve the catalog error; orphan cleanup is handled by maintenance.
-    }
+    removeWorktree(repositoryRoot, sourceWorktree);
     throw error;
   }
   const selectedProblem = problem;
@@ -657,23 +648,8 @@ export async function bootstrapLeanEvalProblem(options: LeanEvalBootstrapOptions
       '\n/active-problem.json\n/bootstrap-result.json\n/.deepscientist/\n**/.lake/\n');
     return Object.freeze({ catalog, problem: selectedProblem, binding, receipt });
   } catch (error) {
-    if (verifierWorktreeCreated) {
-      try {
-        git(repositoryRoot, ['worktree', 'remove', '--force', verifierProjectRoot]);
-        git(repositoryRoot, ['worktree', 'prune']);
-      } catch {
-        // Preserve the original bootstrap error; a later maintenance pass can
-        // prune an orphaned detached worktree safely.
-      }
-    }
-    if (sourceWorktreeCreated) {
-      try {
-        git(repositoryRoot, ['worktree', 'remove', '--force', sourceWorktree]);
-        git(repositoryRoot, ['worktree', 'prune']);
-      } catch {
-        // Preserve the original bootstrap error; maintenance can prune later.
-      }
-    }
+    if (verifierWorktreeCreated) removeWorktree(repositoryRoot, verifierProjectRoot);
+    if (sourceWorktreeCreated) removeWorktree(repositoryRoot, sourceWorktree);
     if (options.cleanupOnFailure !== false && !options.workspaceRoot)
       fs.rmSync(workspaceRoot, { recursive: true, force: true });
     throw error;
@@ -968,14 +944,9 @@ export async function runLeanEvalOfficialGate(
   // fail closed if the leaderboard cannot be reached.
   if (bootstrapped.receipt.evaluationMode !== 'benchmark' &&
       bootstrapped.receipt.leaderboardSource === LEAN_EVAL_LEADERBOARD_URL) {
-    let freshLeaderboard: Readonly<{
-      credits: readonly { problemId: string; statementRevision: number }[];
-      generatedAt: number;
-    }>;
+    let freshLeaderboard: LeanEvalLeaderboardSnapshot;
     try {
-      freshLeaderboard = await (options.fetchLeaderboard
-        ? options.fetchLeaderboard()
-        : fetchLeanEvalLeaderboardCredits({ forceRefresh: true }));
+      freshLeaderboard = await freshLeaderboardCredits(options);
     } catch (error) {
       throw new Error(
         `Lean-Eval official gate is blocked because leaderboard freshness could not be verified: ${

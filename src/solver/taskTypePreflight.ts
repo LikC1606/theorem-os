@@ -1,11 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { assertMathConstructionSources, mathLocalModuleBuildOrder } from '../math/mathConstructionSources';
-import { canonicalMathJson, mathDigest, readMathFile } from '../math/mathRuntimeIo';
+import { canonicalMathJson, mathArtifactCurrent as artifactCurrent, mathDigest, readMathFile } from '../math/mathRuntimeIo';
 import { inspectLeanDeclarationRegions, inspectScopedLeanDeclarations, leanDeclarationContextCommands } from '../math/leanSource';
 import { maskLeanCommentsAndStrings } from '../math/leanSyntax';
 import { checkLeanType, leanTypeDiagnosticProjection } from '../math/leanTypeDiagnostics';
-import { assertMathCanonicalPath, isMathPathWithin } from '../math/paths';
 import { formalVerificationToolIdentity } from '../math/verifier';
 import { renderLeanDiagnosticMessage } from '../math/leanDiagnosticMessages';
 import { proofReuseEnvironment } from './proofReuse';
@@ -95,16 +94,6 @@ function prepare(input: Input) {
     } catch { return false; }
   };
   return { key, projectionKey, projection, project, taskDigest, sourceDigest, environment, tools, context: anchor?.qualifiedName, reason, current };
-}
-
-function artifactCurrent(project: string, artifact: TaskTypePreflight['artifact']): boolean {
-  if (!artifact || path.isAbsolute(artifact.path)) return false;
-  try {
-    const file = path.resolve(project, artifact.path);
-    if (!isMathPathWithin(project, file)) return false;
-    assertMathCanonicalPath(file);
-    return mathDigest(readMathFile(file, 4_000_000).bytes) === artifact.digest;
-  } catch { return false; }
 }
 
 /** A normal compiler exit also carries resource, internal and IO errors; those do not invalidate a type. */

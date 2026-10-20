@@ -21,8 +21,8 @@ import { MATHEMATICS_VERIFICATION_EVENT_SCHEMA, type MathematicsVerificationEven
 import { assertMathProblemContractMatchesOfficialManifest, isMathFoundationalLeanAxiom, normalizeMathOfficialProblemManifest, type MathOfficialProblemManifest, type MathProblemContract } from "./contracts";
 import { readMathematicsReceiptSecret } from "./receiptAttestation";
 import { resolveMathematicsRuntimeEnvironment } from "./mathRuntimeEnvironment";
-import { createMathOperationLimiter } from "./concurrency";
-import { mathFileIdentity, readMathText } from './mathRuntimeIo';
+import { createMathOperationLimiter, forEachWithConcurrency } from "./concurrency";
+import { mathDigest, mathFileIdentity, readMathText } from './mathRuntimeIo';
 import { leanReferenceCommands, parseLeanReferences, type LeanDeclarationReferences } from './leanReferences';
 import { leanDeclarationContextCommands } from './leanSource';
 import { withVerifierCheckout, type VerifierCheckoutCleanupFailure } from './verifierCheckout';
@@ -204,6 +204,11 @@ type PreparedFile = {
   items: PreparedItem[];
 };
 
+/** Lean exports may key a declaration by its local name instead of its qualified name. */
+const localDeclarationName = (name: string): string => name.split('.').at(-1) || name;
+const declarationNamed = <Value>(declarations: ReadonlyMap<string, Value> | undefined, name: string): Value | undefined =>
+  declarations?.get(name) || declarations?.get(localDeclarationName(name));
+
 type ProofSourceSnapshot = Readonly<{ source: string; hash: string; metadata: string }>;
 
 type FormalVerificationCachePreparation = Readonly<{
@@ -235,6 +240,17 @@ const DEFAULT_OFFICIAL_TIMEOUT_MS = 60 * 60 * 1000;
 const MAX_OFFICIAL_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 const MIN_TIMEOUT_MS = 100;
 const EVENT_SCHEMA = MATHEMATICS_VERIFICATION_EVENT_SCHEMA;
+const sessionEvent = <Kind extends MathematicsVerificationEventKind>(sessionId: string, timestamp: number, kind: Kind,
+  payload: MathematicsVerificationEventPayloadMap[Kind]): MathematicsVerificationEvent =>
+  ({ schema: EVENT_SCHEMA, eventId: crypto.randomUUID(), sessionId, timestamp, kind, payload }) as MathematicsVerificationEvent;
+/** Observers are never authoritative: a throwing callback cannot change a verification result. */
+const observe = (deliver: () => void): void => {
+  try {
+    deliver();
+  } catch {
+    // Ignored by design.
+  }
+};
 
 class FormalVerificationBatchDeadlineError extends Error {
   constructor() {
@@ -248,8 +264,6 @@ const configuredVerificationConcurrency = (): number => {
   if (!Number.isFinite(configured)) return DEFAULT_CONCURRENT_VERIFICATIONS;
   return Math.max(1, Math.min(MAX_CONCURRENT_VERIFICATIONS, configured));
 };
-
-const hashBytes = (value: Uint8Array | string): string => crypto.createHash('sha256').update(value).digest('hex');
 
 /**
  * Cache keys must include the dependency material that Lean actually reads,
@@ -295,7 +309,7 @@ const fingerprintPath = (candidate: string, limits = { files: 200_000, bytes: 2 
       return;
     }
     bytes += stat.size;
-    digest.update(`file\0${relativePath}\0${stat.size}\0${hashBytes(fs.readFileSync(absolutePath))}\0`);
+    digest.update(`file\0${relativePath}\0${stat.size}\0${mathDigest(fs.readFileSync(absolutePath))}\0`);
   };
   visit(candidate, '.');
   return digest.digest('hex');
@@ -408,20 +422,22 @@ const fingerprintLakePackages = (
   return digest.digest('hex');
 };
 
-const resolveCommandForFingerprint = (command: string, env: NodeJS.ProcessEnv | undefined): string | undefined => {
-  const requested = command.trim();
-  if (!requested) return undefined;
-  if (path.isAbsolute(requested)) return requested;
-  const pathValue = env?.PATH || process.env.PATH || '';
-  for (const directory of pathValue.split(path.delimiter).filter(Boolean)) {
-    const candidate = path.join(directory, requested);
+const executableOnPath = (name: string, source = process.env.PATH || ''): string | undefined => {
+  for (const entry of source.split(path.delimiter).filter(Boolean)) {
+    const candidate = path.join(entry, name);
     try {
       if (fs.statSync(candidate).isFile()) return candidate;
     } catch {
-      // Keep searching the PATH.
+      // Continue through the configured PATH entries.
     }
   }
   return undefined;
+};
+
+const resolveCommandForFingerprint = (command: string, env: NodeJS.ProcessEnv | undefined): string | undefined => {
+  const requested = command.trim();
+  if (!requested) return undefined;
+  return path.isAbsolute(requested) ? requested : executableOnPath(requested, env?.PATH || process.env.PATH || '');
 };
 
 const withinProject = (projectRoot: string, candidate: string): boolean => {
@@ -496,7 +512,7 @@ const seedDetachedLakeCache = (
     packageLockMatches =
       fs.existsSync(sourceManifest) &&
       fs.existsSync(targetManifest) &&
-      hashBytes(fs.readFileSync(sourceManifest)) === hashBytes(fs.readFileSync(targetManifest));
+      mathDigest(fs.readFileSync(sourceManifest)) === mathDigest(fs.readFileSync(targetManifest));
   } catch {
     packageLockMatches = false;
   }
@@ -727,9 +743,6 @@ const clampTimeout = (timeoutMs: number | undefined, defaultMs = DEFAULT_TIMEOUT
   return Math.min(Math.floor(timeoutMs), maximumMs);
 };
 
-const clampBatchTimeout = (timeoutMs: number | undefined): number =>
-  clampTimeout(timeoutMs, DEFAULT_BATCH_TIMEOUT_MS, MAX_BATCH_TIMEOUT_MS, 'formal_verifier batchTimeoutMs');
-
 const runGit = (
   projectRoot: string,
   args: string[],
@@ -741,9 +754,6 @@ const runGit = (
     signal: options.signal,
     env: options.env,
   });
-
-const clampOfficialTimeout = (timeoutMs: number | undefined): number =>
-  clampTimeout(timeoutMs, DEFAULT_OFFICIAL_TIMEOUT_MS, MAX_OFFICIAL_TIMEOUT_MS, 'Official comparator timeoutMs');
 
 const OFFICIAL_EXECUTABLE_ALLOWLIST = new Set([
   'lake',
@@ -965,7 +975,7 @@ export function formalVerificationToolIdentity(projectRoot: string, env: NodeJS.
     const bin = resolveTrustedToolchainBin(projectRoot, '.', env, elanHome);
     if (elanHome && !bin || !bin && commands.some(([, executable]) => !executable)) return undefined;
     const selected = bin ? ['lean', 'lake'].map(command => fingerprint(path.join(bin, command))) : [];
-    return crypto.createHash('sha256').update(JSON.stringify({ commands, selected })).digest('hex');
+    return mathDigest(JSON.stringify({ commands, selected }));
   } catch {
     return undefined;
   }
@@ -1049,8 +1059,8 @@ const unavailableProcessResult = (message: string): ProcessResult => ({
   signal: null,
   stdout: '',
   stderr: message,
-  stdoutSha256: crypto.createHash('sha256').update('').digest('hex'),
-  stderrSha256: crypto.createHash('sha256').update(message).digest('hex'),
+  stdoutSha256: mathDigest(''),
+  stderrSha256: mathDigest(message),
   timedOut: false,
   aborted: false,
   errorCode: 'SANDBOX_UNAVAILABLE',
@@ -1060,47 +1070,22 @@ const unavailableProcessResult = (message: string): ProcessResult => ({
 
 type SandboxBackend = 'unshare' | 'bwrap' | 'docker' | 'podman';
 
-const executableOnPath = (name: string, source = process.env.PATH || ''): string | undefined => {
-  for (const entry of source.split(path.delimiter).filter(Boolean)) {
-    const candidate = path.join(entry, name);
-    try {
-      if (fs.statSync(candidate).isFile()) return candidate;
-    } catch {
-      // Continue through the configured PATH entries.
-    }
-  }
-  return undefined;
-};
-
 /** Return only backends that can be invoked without an unsafe host fallback. */
 export function inspectMathematicsSandboxBackends(
   env: NodeJS.ProcessEnv = process.env
 ): Readonly<{ available: readonly SandboxBackend[]; preferred?: SandboxBackend; reason?: string }> {
-  const available: SandboxBackend[] = [];
-  if (process.platform === 'linux' && executableOnPath('unshare', env.PATH)) available.push('unshare');
-  if (process.platform === 'linux' && executableOnPath('bwrap', env.PATH)) available.push('bwrap');
-  const image = env.DEEPSCIENTIST_MATH_SANDBOX_IMAGE || '';
-  if (/@sha256:[0-9a-f]{64}$/iu.test(image)) {
-    if (process.platform === 'linux' && executableOnPath('docker', env.PATH)) available.push('docker');
-    if (process.platform === 'linux' && executableOnPath('podman', env.PATH)) available.push('podman');
-  }
+  const pinnedImage = /@sha256:[0-9a-f]{64}$/iu.test(env.DEEPSCIENTIST_MATH_SANDBOX_IMAGE || '');
+  const candidates: SandboxBackend[] = process.platform !== 'linux' ? []
+    : ['unshare', 'bwrap', ...(pinnedImage ? ['docker', 'podman'] as const : [])];
+  const available = candidates.filter(kind => executableOnPath(kind, env.PATH));
   const configured = env.DEEPSCIENTIST_MATH_SANDBOX_BACKEND as SandboxBackend | undefined;
-  const preferred =
-    configured && available.includes(configured)
-      ? configured
-      : /@sha256:[0-9a-f]{64}$/iu.test(image)
-        ? available.find((backend) => backend === 'docker' || backend === 'podman') || available[0]
-        : available[0];
+  const preferred = configured && available.includes(configured) ? configured
+    : (pinnedImage && available.find((backend) => backend === 'docker' || backend === 'podman')) || available[0];
   return Object.freeze({
     available: Object.freeze(available),
     ...(preferred ? { preferred } : {}),
-    ...(!available.length
-      ? {
-          reason: /@sha256:[0-9a-f]{64}$/iu.test(image)
-            ? 'No supported Linux sandbox backend is installed.'
-            : 'No namespace sandbox is installed; Docker/Podman requires a digest-pinned image.',
-        }
-      : {}),
+    ...(!available.length ? { reason: pinnedImage ? 'No supported Linux sandbox backend is installed.'
+      : 'No namespace sandbox is installed; Docker/Podman requires a digest-pinned image.' } : {}),
   });
 }
 
@@ -1145,38 +1130,31 @@ const resolveSandboxBackends = (env: NodeJS.ProcessEnv | undefined,
     );
 };
 
-const isNamespaceSandboxFailure = (result: ProcessResult): boolean =>
+const isSandboxBackendFailure = (backend: SandboxBackend, result: ProcessResult): boolean =>
   result.errorCode === 'EPERM' ||
   /(?:uid_map|gid_map|unshare:.*(?:operation not permitted|permission denied)|bwrap:.*(?:operation not permitted|permission denied)|(?:namespace|clone|loopback).*(?:operation not permitted|permission denied))/iu.test(
     `${result.stderr}\n${result.stdout}`
-  );
-
-const isContainerSandboxFailure = (backend: SandboxBackend, result: ProcessResult): boolean =>
-  (backend === 'docker' || backend === 'podman') &&
-  (result.exitCode === 125 || result.errorCode === 'EACCES' || result.errorCode === 'ENOENT');
-
-const isSandboxBackendFailure = (backend: SandboxBackend, result: ProcessResult): boolean =>
-  isNamespaceSandboxFailure(result) || isContainerSandboxFailure(backend, result);
+  ) || ((backend === 'docker' || backend === 'podman') &&
+    (result.exitCode === 125 || result.errorCode === 'EACCES' || result.errorCode === 'ENOENT'));
 
 const bwrapProjectPath = (projectRelative: string): string =>
   projectRelative ? `/workspace/${projectRelative}` : '/workspace';
 
+/** Sandbox variables in argument order; the test hooks are kept even when empty unless `omitEmptyTestHooks`. */
+const sandboxVariables = (input: { runtimeRoot: string; toolchainBin: string; testCounter: string; testAxioms: string },
+  omitEmptyTestHooks = false): [string, string][] => [
+  ['PATH', `${input.runtimeRoot ? '/runtime/node/bin:' : ''}${input.toolchainBin ? `${input.toolchainBin}:` : ''}/usr/local/bin:/usr/bin:/bin`],
+  ['HOME', '/tmp'], ['TMPDIR', '/tmp'], ['LANG', 'C.UTF-8'], ['ELAN_HOME', '/toolchains/elan'],
+  ['LEAN_NUM_THREADS', '1'], ['LEAN_STACK_SIZE_KB', '8192'],
+  ...([['DEEPSCIENTIST_TEST_LEAN_COUNTER', input.testCounter], ['DEEPSCIENTIST_TEST_LEAN_AXIOMS', input.testAxioms]] as [string, string][])
+    .filter(([, value]) => value || !omitEmptyTestHooks),
+];
+
 const buildBwrapArguments = (input: {
-  candidateRoot: string;
-  projectRelative: string;
-  toolchainRoot: string;
-  toolchainBin: string;
-  runtimeRoot: string;
-  lakePackagesPath: string;
-  lakePackagesMountPath?: string;
-  writablePackageOverlay?: boolean;
-  lakePackagesFd?: number;
-  leanLauncherPath?: string;
-  lakePackageOverridesPath?: string;
-  command: string;
-  commandArgs: readonly string[];
-  testCounter: string;
-  testAxioms: string;
+  candidateRoot: string; projectRelative: string; toolchainRoot: string; toolchainBin: string; runtimeRoot: string;
+  lakePackagesPath: string; lakePackagesMountPath?: string; writablePackageOverlay?: boolean; lakePackagesFd?: number;
+  leanLauncherPath?: string; lakePackageOverridesPath?: string; command: string; commandArgs: readonly string[];
+  testCounter: string; testAxioms: string;
 }): string[] => {
   const projectPath = bwrapProjectPath(input.projectRelative);
   const packagesPath = input.lakePackagesMountPath ?? `${projectPath}/.lake/packages`;
@@ -1187,44 +1165,10 @@ const buildBwrapArguments = (input: {
     fs.mkdirSync(path.join(input.candidateRoot, input.projectRelative, '.lake', 'packages'), { recursive: true });
   }
   const args = [
-    '--unshare-user',
-    '--uid',
-    '0',
-    '--gid',
-    '0',
-    '--unshare-net',
-    '--unshare-pid',
-    '--die-with-parent',
-    '--new-session',
-    '--clearenv',
-    '--ro-bind',
-    '/usr',
-    '/usr',
-    '--symlink',
-    'usr/bin',
-    '/bin',
-    '--symlink',
-    'usr/sbin',
-    '/sbin',
-    '--symlink',
-    'usr/lib',
-    '/lib',
-    '--symlink',
-    'usr/lib64',
-    '/lib64',
-    '--bind',
-    input.candidateRoot,
-    '/workspace',
-    '--tmpfs',
-    '/tmp',
-    '--proc',
-    '/proc',
-    '--dev',
-    '/dev',
-    '--dir',
-    '/toolchains',
-    '--dir',
-    '/runtime',
+    '--unshare-user', '--uid', '0', '--gid', '0', '--unshare-net', '--unshare-pid', '--die-with-parent', '--new-session',
+    '--clearenv', '--ro-bind', '/usr', '/usr', '--symlink', 'usr/bin', '/bin', '--symlink', 'usr/sbin', '/sbin',
+    '--symlink', 'usr/lib', '/lib', '--symlink', 'usr/lib64', '/lib64', '--bind', input.candidateRoot, '/workspace',
+    '--tmpfs', '/tmp', '--proc', '/proc', '--dev', '/dev', '--dir', '/toolchains', '--dir', '/runtime',
   ];
   if (input.lakePackagesFd !== undefined) args.push('--ro-bind-fd', String(input.lakePackagesFd), packagesPath);
   else if (input.lakePackagesPath)
@@ -1238,123 +1182,34 @@ const buildBwrapArguments = (input: {
     args.push('--ro-bind', input.leanLauncherPath, `${input.toolchainBin}/lean`);
   }
   if (input.runtimeRoot) args.push('--ro-bind', input.runtimeRoot, '/runtime/node');
-  args.push(
-    '--chdir',
-    projectPath,
-    '--setenv',
-    'PATH',
-    `${input.runtimeRoot ? '/runtime/node/bin:' : ''}${input.toolchainBin ? `${input.toolchainBin}:` : ''}/usr/local/bin:/usr/bin:/bin`,
-    '--setenv',
-    'HOME',
-    '/tmp',
-    '--setenv',
-    'TMPDIR',
-    '/tmp',
-    '--setenv',
-    'LANG',
-    'C.UTF-8',
-    '--setenv',
-    'ELAN_HOME',
-    '/toolchains/elan',
-    '--setenv',
-    'LEAN_NUM_THREADS',
-    '1',
-    '--setenv',
-    'LEAN_STACK_SIZE_KB',
-    '8192',
-    '--setenv',
-    'DEEPSCIENTIST_TEST_LEAN_COUNTER',
-    input.testCounter,
-    '--setenv',
-    'DEEPSCIENTIST_TEST_LEAN_AXIOMS',
-    input.testAxioms,
-    '--',
-    '/bin/sh',
-    '-ceu',
+  args.push('--chdir', projectPath, ...sandboxVariables(input).flatMap(([name, value]) => ['--setenv', name, value]),
+    '--', '/bin/sh', '-ceu',
     `ulimit -v ${LEAN_SANDBOX_ADDRESS_SPACE_KB} 2>/dev/null || true; ulimit -u 256 2>/dev/null || true; ulimit -n 4096 2>/dev/null || true; exec "$@"`,
-    '--',
-    input.command,
-    ...input.commandArgs
-  );
+    '--', input.command, ...input.commandArgs);
   return args;
 };
 
 const buildContainerArguments = (input: {
-  checkoutRoot: string;
-  projectRelative: string;
-  toolchainRoot: string;
-  toolchainBin: string;
-  runtimeRoot: string;
-  lakePackagesPath: string;
-  lakePackageOverridesPath?: string;
-  command: string;
-  commandArgs: readonly string[];
-  testCounter: string;
-  testAxioms: string;
-  image: string;
-  interactive?: boolean;
-  cidfile?: string;
+  checkoutRoot: string; projectRelative: string; toolchainRoot: string; toolchainBin: string; runtimeRoot: string;
+  lakePackagesPath: string; lakePackageOverridesPath?: string; command: string; commandArgs: readonly string[];
+  testCounter: string; testAxioms: string; image: string; interactive?: boolean; cidfile?: string;
 }): string[] => {
   const projectPath = bwrapProjectPath(input.projectRelative);
-  const args = [
-    'run',
-    '--rm',
-    ...(input.interactive ? ['--interactive'] : []),
-    ...(input.cidfile ? ['--cidfile', input.cidfile] : []),
-    '--network=none',
-    '--pull=never',
-    '--read-only',
-    '--pids-limit=256',
-    '--memory=8g',
-    '--cpus=4',
-    '--ulimit',
-    'nofile=4096:4096',
-    '--ulimit',
-    'fsize=67108864:67108864',
-    '--cap-drop=ALL',
-    '--security-opt=no-new-privileges',
-    '--user',
-    `${process.getuid?.() ?? 0}:${process.getgid?.() ?? 0}`,
-    '--tmpfs',
-    '/tmp:rw,nosuid,nodev,mode=1777',
-    '--tmpfs',
-    '/etc:ro,nosuid,nodev,noexec,mode=755',
-    '--mount',
-    `type=bind,src=${input.checkoutRoot},dst=/workspace`,
+  return [
+    'run', '--rm', ...(input.interactive ? ['--interactive'] : []), ...(input.cidfile ? ['--cidfile', input.cidfile] : []),
+    '--network=none', '--pull=never', '--read-only', '--pids-limit=256', '--memory=8g', '--cpus=4',
+    '--ulimit', 'nofile=4096:4096', '--ulimit', 'fsize=67108864:67108864', '--cap-drop=ALL', '--security-opt=no-new-privileges',
+    '--user', `${process.getuid?.() ?? 0}:${process.getgid?.() ?? 0}`,
+    '--tmpfs', '/tmp:rw,nosuid,nodev,mode=1777', '--tmpfs', '/etc:ro,nosuid,nodev,noexec,mode=755',
+    '--mount', `type=bind,src=${input.checkoutRoot},dst=/workspace`,
     ...(input.toolchainRoot ? ['--mount', `type=bind,src=${input.toolchainRoot},dst=/toolchains/elan,ro`] : []),
     ...(input.runtimeRoot ? ['--mount', `type=bind,src=${input.runtimeRoot},dst=/runtime/node,ro`] : []),
-    ...(input.lakePackagesPath
-      ? ['--mount', `type=bind,src=${input.lakePackagesPath},dst=${projectPath}/.lake/packages,ro`]
-      : []),
+    ...(input.lakePackagesPath ? ['--mount', `type=bind,src=${input.lakePackagesPath},dst=${projectPath}/.lake/packages,ro`] : []),
     ...(input.lakePackageOverridesPath
-      ? [
-          '--mount',
-          `type=bind,src=${input.lakePackageOverridesPath},dst=${projectPath}/.lake/package-overrides.json,ro`,
-        ]
-      : []),
-    '--workdir',
-    projectPath,
-    '--env',
-    `PATH=${input.runtimeRoot ? '/runtime/node/bin:' : ''}${input.toolchainBin ? `${input.toolchainBin}:` : ''}/usr/local/bin:/usr/bin:/bin`,
-    '--env',
-    'HOME=/tmp',
-    '--env',
-    'TMPDIR=/tmp',
-    '--env',
-    'LANG=C.UTF-8',
-    '--env',
-    'ELAN_HOME=/toolchains/elan',
-    '--env',
-    'LEAN_NUM_THREADS=1',
-    '--env',
-    'LEAN_STACK_SIZE_KB=8192',
-    ...(input.testCounter ? ['--env', `DEEPSCIENTIST_TEST_LEAN_COUNTER=${input.testCounter}`] : []),
-    ...(input.testAxioms ? ['--env', `DEEPSCIENTIST_TEST_LEAN_AXIOMS=${input.testAxioms}`] : []),
-    input.image,
-    input.command,
-    ...input.commandArgs,
+      ? ['--mount', `type=bind,src=${input.lakePackageOverridesPath},dst=${projectPath}/.lake/package-overrides.json,ro`] : []),
+    '--workdir', projectPath, ...sandboxVariables(input, true).flatMap(([name, value]) => ['--env', `${name}=${value}`]),
+    input.image, input.command, ...input.commandArgs,
   ];
-  return args;
 };
 
 const createMathematicsSandboxRoot = (temporaryRoot: string): string => {
@@ -1645,7 +1500,8 @@ exec /runtime/pinned-lean/bin/lean "$@" -j1
           ...(backend.kind === 'bwrap' && sealedRootFd !== undefined ? { inheritedFds: [sealedRootFd] } : {}),
         });
       };
-      let result: ProcessResult | undefined;
+      // `backends` is non-empty here, so the loop always assigns a result.
+      let result!: ProcessResult;
       for (const backend of backends) {
         if (sessionContainerIdFile && (backend.kind === 'docker' || backend.kind === 'podman'))
           sessionContainerExecutable = backend.executable;
@@ -1653,18 +1509,11 @@ exec /runtime/pinned-lean/bin/lean "$@" -j1
         // trying the next one; running both would race two sandboxes.
         // eslint-disable-next-line no-await-in-loop
         result = Object.freeze({ ...(await runBackend(backend)), sandboxBackend: backend.kind });
-        if (!isSandboxBackendFailure(backend.kind, result)) {
-          break;
-        }
+        if (!isSandboxBackendFailure(backend.kind, result)) break;
         sandboxBackendFailures.add(sandboxBackendKey(environmentKey, backend.kind));
         // The caller owns the first stream handle. A silent replacement would
         // leave an unreachable server running; a later call may use a fallback.
         if (input.onDuplexSpawn) break;
-      }
-      if (!result) {
-        const reason =
-          'Lean verification capability unavailable: this host does not permit the required Linux namespace sandbox.';
-        return unavailableProcessResult(reason);
       }
       if (isSandboxBackendFailure(result.sandboxBackend || backends[backends.length - 1].kind, result)) {
         const reason =
@@ -1820,22 +1669,15 @@ export async function runMathematicsSandboxedCommand(input: {
   });
 }
 
-const readGitHead = async (
-  projectRoot: string,
-  options: MathematicsVerifierExecutionOptions
-): Promise<string | undefined> => {
-  const result = await runGit(projectRoot, ['rev-parse', 'HEAD'], options);
+/** The trimmed commit printed by a successful `git rev-parse`, otherwise undefined. */
+const gitRevision = async (projectRoot: string, args: string[], options: MathematicsVerifierExecutionOptions) => {
+  const result = await runGit(projectRoot, ['rev-parse', ...args], options);
   return result.exitCode === 0 ? result.stdout.trim() || undefined : undefined;
 };
-
-const resolveGitCommit = async (
-  projectRoot: string,
-  reference: string,
-  options: MathematicsVerifierExecutionOptions
-): Promise<string | undefined> => {
-  const result = await runGit(projectRoot, ['rev-parse', '--verify', `${reference}^{commit}`], options);
-  return result.exitCode === 0 ? result.stdout.trim() || undefined : undefined;
-};
+const readGitHead = (projectRoot: string, options: MathematicsVerifierExecutionOptions) =>
+  gitRevision(projectRoot, ['HEAD'], options);
+const resolveGitCommit = (projectRoot: string, reference: string, options: MathematicsVerifierExecutionOptions) =>
+  gitRevision(projectRoot, ['--verify', `${reference}^{commit}`], options);
 
 const readGitStatus = async (
   projectRoot: string,
@@ -1998,7 +1840,7 @@ const prepareFiles = async (
         sourceDeclarationHashes,
         axiomDependencies: new Map(),
         proofHash:
-          useCachedSource ? cached.hash : crypto.createHash('sha256').update(source).digest('hex'),
+          useCachedSource ? cached.hash : mathDigest(source),
         inspection: inspectLeanSource(source),
         items: groupItems,
       };
@@ -2044,7 +1886,7 @@ const prepareLeanDeclarationQuery = async (
   );
   const queryAbsolutePath = path.join(verificationProjectRoot, ...queryRelativePath.split('/'));
   const theoremQueries = theoremNames.map((name) => {
-    const markerId = crypto.createHash('sha256').update(name).digest('hex').slice(0, 16);
+    const markerId = mathDigest(name).slice(0, 16);
     return {
       name,
       localName: name.split('.').at(-1),
@@ -2177,7 +2019,7 @@ const prepareLeanDeclarationQuery = async (
           .trim()
           .replace(/\s+/gu, ' ');
         if (!elaboratedType) return { error: `Lean exported an empty theorem declaration: ${query.name}` };
-        const hash = crypto.createHash('sha256').update(elaboratedType).digest('hex');
+        const hash = mathDigest(elaboratedType);
         types.set(query.name, elaboratedType);
         if (query.localName) types.set(query.localName, elaboratedType);
         hashes.set(query.name, hash);
@@ -2212,23 +2054,18 @@ const prepareLeanDeclarationQuery = async (
 };
 
 const receiptIdFor = (base: ResultBase): string =>
-  `lean-${crypto
-    .createHash('sha256')
-    .update(
-      JSON.stringify({
-        checkId: base.checkId,
-        targetCommit: base.targetCommit,
-        statementHash: base.statementHash,
-        leanStatementHash: base.leanStatementHash || null,
-        claim: base.claim,
-        proofHash: base.proofHash,
-        proofPath: base.proofPath,
-        theoremName: base.theoremName || null,
-        theoremDeclarationHash: base.theoremDeclarationHash || null,
-      })
-    )
-    .digest('hex')
-    .slice(0, 24)}`;
+  `lean-${mathDigest(
+    JSON.stringify({
+      checkId: base.checkId,
+      targetCommit: base.targetCommit,
+      statementHash: base.statementHash,
+      leanStatementHash: base.leanStatementHash || null,
+      claim: base.claim,
+      proofHash: base.proofHash,
+      proofPath: base.proofPath,
+      theoremName: base.theoremName || null,
+      theoremDeclarationHash: base.theoremDeclarationHash || null,
+    })).slice(0, 24)}`;
 
 const aggregateStatus = (results: MathematicsVerifierResult[]): MathematicsVerifierStatus => {
   if (results.length > 0 && results.every((result) => result.status === 'kernel_verified')) return 'kernel_verified';
@@ -2284,8 +2121,11 @@ async function verifyFormalFile(file: PreparedFile, context: FormalFileVerificat
   const { request, options, command, verifierCommand, lakeFile, requiresPackages, batchDeadlineAt,
     verificationProjectRoot, relativeProjectRoot, checkoutRoot, runtimeEnvironment, lakePackagesPath, blobIdsByPath,
     emit, publishResults } = context;
+  type Diagnostic = MathematicsVerificationEventPayloadMap['diagnostic.emitted'];
+  const diagnostic = (source: Diagnostic['source'], severity: Diagnostic['severity'], message: string) =>
+    emit('diagnostic.emitted', { source, severity, message, proofPath: file.relativeProofPath });
   const reject = (message: string, items: PreparedItem[]) => {
-    emit('diagnostic.emitted', { source: 'safety', severity: 'error', message, proofPath: file.relativeProofPath });
+    diagnostic('safety', 'error', message);
     publishResults(file, 'failed', 'lean-kernel', message, undefined, items);
   };
   if (options.signal?.aborted) {
@@ -2320,46 +2160,19 @@ async function verifyFormalFile(file: PreparedFile, context: FormalFileVerificat
   const blobIds = blobIdsByPath.get(file.relativeProofPath);
   const committedBlobId = blobIds?.committed;
   const workingBlobId = blobIds?.working;
-  if (options.signal?.aborted) {
-    publishResults(file, 'blocked', 'lean-kernel', 'Formal verification was aborted.');
-    return;
-  }
   if (!committedBlobId || !workingBlobId || committedBlobId !== workingBlobId) {
     const error = 'The proof file must be tracked and byte-identical to the file at targetCommit.';
-    emit('diagnostic.emitted', {
-      source: 'git',
-      severity: 'error',
-      message: error,
-      proofPath: file.relativeProofPath,
-    });
+    diagnostic('git', 'error', error);
     publishResults(file, 'blocked', 'lean-kernel', error);
     return;
   }
 
-  const missingDeclarationItems: PreparedItem[] = [];
-  const declarationMismatchItems: PreparedItem[] = [];
-  const verifiableItems: PreparedItem[] = [];
-  for (const item of file.items) {
-    if (!item.theoremName) {
-      verifiableItems.push(item);
-      continue;
-    }
-    let excluded = false;
-    const localName = item.theoremName.split('.').at(-1) || item.theoremName;
-    if (!file.declarationHashes.has(item.theoremName) && !file.declarationHashes.has(localName)) {
-      missingDeclarationItems.push(item);
-      excluded = true;
-    }
-    if (item.expectedSourceDeclarationHash) {
-      const actual =
-        file.sourceDeclarationHashes.get(item.theoremName) || file.sourceDeclarationHashes.get(localName);
-      if (actual !== item.expectedSourceDeclarationHash) {
-        declarationMismatchItems.push(item);
-        excluded = true;
-      }
-    }
-    if (!excluded) verifiableItems.push(item);
-  }
+  const missingDeclarationItems = file.items.filter(({ theoremName: name }) =>
+    name && !file.declarationHashes.has(name) && !file.declarationHashes.has(localDeclarationName(name)));
+  const declarationMismatchItems = file.items.filter(item => item.theoremName && item.expectedSourceDeclarationHash &&
+    declarationNamed(file.sourceDeclarationHashes, item.theoremName) !== item.expectedSourceDeclarationHash);
+  const verifiableItems = file.items.filter(item =>
+    !missingDeclarationItems.includes(item) && !declarationMismatchItems.includes(item));
   for (const item of missingDeclarationItems)
     reject(`The requested theorem declaration was not found in ${file.relativeProofPath}: ${item.theoremName}`, [item]);
   for (const item of declarationMismatchItems)
@@ -2447,12 +2260,7 @@ async function verifyFormalFile(file: PreparedFile, context: FormalFileVerificat
     }, options.signal);
   } catch (error) {
     if (error instanceof FormalVerificationBatchDeadlineError) {
-      emit('diagnostic.emitted', {
-        source: 'process',
-        severity: 'error',
-        message: error.message,
-        proofPath: file.relativeProofPath,
-      });
+      diagnostic('process', 'error', error.message);
       publishResults(file, 'blocked', 'lean-kernel', error.message);
       return;
     }
@@ -2464,22 +2272,8 @@ async function verifyFormalFile(file: PreparedFile, context: FormalFileVerificat
   }
   const stdoutPreview = preview(processResult.stdout);
   const stderrPreview = preview(processResult.stderr);
-  if (stdoutPreview) {
-    emit('diagnostic.emitted', {
-      source: 'stdout',
-      severity: processResult.exitCode === 0 ? 'info' : 'warning',
-      message: stdoutPreview,
-      proofPath: file.relativeProofPath,
-    });
-  }
-  if (stderrPreview) {
-    emit('diagnostic.emitted', {
-      source: 'stderr',
-      severity: processResult.exitCode === 0 ? 'warning' : 'error',
-      message: stderrPreview,
-      proofPath: file.relativeProofPath,
-    });
-  }
+  if (stdoutPreview) diagnostic('stdout', processResult.exitCode === 0 ? 'info' : 'warning', stdoutPreview);
+  if (stderrPreview) diagnostic('stderr', processResult.exitCode === 0 ? 'warning' : 'error', stderrPreview);
 
   const declarationExport =
     processResult.exitCode === 0 && declarationQuery
@@ -2492,30 +2286,12 @@ async function verifyFormalFile(file: PreparedFile, context: FormalFileVerificat
     file.usedDeclarationDependencies = declarationExport.usedDependencies;
   if (declarationExport?.references) file.declarationReferences = declarationExport.references;
 
-  const axiomDependenciesFor = (item: PreparedItem): string[] => {
-    if (!item.theoremName) return file.inspection.axioms;
-    return (
-      file.axiomDependencies.get(item.theoremName) ||
-      file.axiomDependencies.get(item.theoremName.split('.').at(-1) || item.theoremName) ||
-      file.inspection.axioms
-    );
-  };
-  const unsupportedAxiomItems: PreparedItem[] = [];
-  const axiomSafeItems: PreparedItem[] = [];
-  const unsupportedAxioms = new Set<string>();
-  for (const item of verifiableItems) {
-    let hasUnsupportedAxiom = false;
-    for (const axiom of axiomDependenciesFor(item)) {
-      if (isMathFoundationalLeanAxiom(axiom)) continue;
-      hasUnsupportedAxiom = true;
-      unsupportedAxioms.add(axiom);
-    }
-    if (hasUnsupportedAxiom) {
-      unsupportedAxiomItems.push(item);
-    } else {
-      axiomSafeItems.push(item);
-    }
-  }
+  const axiomDependenciesFor = (item: PreparedItem): string[] =>
+    (item.theoremName && declarationNamed(file.axiomDependencies, item.theoremName)) || file.inspection.axioms;
+  const unsupported = (axiom: string) => !isMathFoundationalLeanAxiom(axiom);
+  const unsupportedAxioms = new Set(verifiableItems.flatMap(axiomDependenciesFor).filter(unsupported));
+  const unsupportedAxiomItems = verifiableItems.filter(item => axiomDependenciesFor(item).some(unsupported));
+  const axiomSafeItems = verifiableItems.filter(item => !unsupportedAxiomItems.includes(item));
   if (unsupportedAxiomItems.length > 0 && !declarationExport?.error) {
     const error = `Theorem depends on non-foundational Lean axioms: ${[...unsupportedAxioms].join(', ')}.`;
     reject(error, unsupportedAxiomItems);
@@ -2536,14 +2312,7 @@ async function verifyFormalFile(file: PreparedFile, context: FormalFileVerificat
     aborted: processResult.aborted,
     durationMs: processResult.durationMs,
   });
-  if (error) {
-    emit('diagnostic.emitted', {
-      source: 'process',
-      severity: 'error',
-      message: error,
-      proofPath: file.relativeProofPath,
-    });
-  }
+  if (error) diagnostic('process', 'error', error);
   publishResults(file, status, verifier, error, { stdoutPreview, stderrPreview }, axiomSafeItems);
 }
 
@@ -2582,27 +2351,17 @@ async function checkManyFormalVerificationsUnbounded(
   if (duplicateIds.length > 0) throw new Error(`Verification item ids must be unique: ${duplicateIds.join(', ')}`);
 
   const startedAt = Date.now();
-  const batchDeadlineAt = startedAt + clampBatchTimeout(request.batchTimeoutMs);
+  const batchDeadlineAt = startedAt +
+    clampTimeout(request.batchTimeoutMs, DEFAULT_BATCH_TIMEOUT_MS, MAX_BATCH_TIMEOUT_MS, 'formal_verifier batchTimeoutMs');
   const sessionId = crypto.randomUUID();
   const events: MathematicsVerificationEvent[] = [];
   const emit = <Kind extends MathematicsVerificationEventKind>(
     kind: Kind,
     payload: MathematicsVerificationEventPayloadMap[Kind]
   ): void => {
-    const event = {
-      schema: EVENT_SCHEMA,
-      eventId: crypto.randomUUID(),
-      sessionId,
-      timestamp: Date.now(),
-      kind,
-      payload,
-    } as MathematicsVerificationEvent;
+    const event = sessionEvent(sessionId, Date.now(), kind, payload);
     events.push(event);
-    try {
-      options.onEvent?.(event);
-    } catch {
-      // An observer must not change the verification result.
-    }
+    observe(() => options.onEvent?.(event));
   };
 
   const lexicalProjectRoot = path.resolve(request.projectRoot);
@@ -2671,7 +2430,6 @@ async function checkManyFormalVerificationsUnbounded(
     const checkedAt = Date.now();
     for (const item of selectedItems) {
       const theoremName = item.theoremName;
-      const localTheoremName = theoremName?.split('.').at(-1) || theoremName;
       const base: ResultBase = {
         targetCommit,
         statementHash: item.statementHash,
@@ -2682,13 +2440,9 @@ async function checkManyFormalVerificationsUnbounded(
         theoremName,
         ...(theoremName
           ? {
-              theoremDeclarationHash:
-                file.declarationHashes.get(theoremName) || file.declarationHashes.get(localTheoremName),
-              elaboratedDeclarationType:
-                file.elaboratedDeclarationTypes?.get(theoremName) ||
-                file.elaboratedDeclarationTypes?.get(localTheoremName),
-              sourceDeclarationHash:
-                file.sourceDeclarationHashes.get(theoremName) || file.sourceDeclarationHashes.get(localTheoremName),
+              theoremDeclarationHash: declarationNamed(file.declarationHashes, theoremName),
+              elaboratedDeclarationType: declarationNamed(file.elaboratedDeclarationTypes, theoremName),
+              sourceDeclarationHash: declarationNamed(file.sourceDeclarationHashes, theoremName),
               ...(file.usedDeclarationDependencies?.has(theoremName)
                 ? { usedDeclarationDependencies: file.usedDeclarationDependencies.get(theoremName) }
                 : {}),
@@ -2701,10 +2455,7 @@ async function checkManyFormalVerificationsUnbounded(
         goalsRemaining: status === 'kernel_verified' ? 0 : 1,
         sorryCount: file.inspection.sorryCount,
         admitCount: file.inspection.admitCount,
-        axioms:
-          (theoremName && file.axiomDependencies.get(theoremName)) ||
-          (theoremName && file.axiomDependencies.get(localTheoremName)) ||
-          file.inspection.axioms,
+        axioms: (theoremName && declarationNamed(file.axiomDependencies, theoremName)) || file.inspection.axioms,
         checkedAt,
         checkId: item.checkId,
         sessionId,
@@ -2826,17 +2577,7 @@ async function checkManyFormalVerificationsUnbounded(
         checkoutRoot, runtimeEnvironment, lakePackagesPath, blobIdsByPath, emit, publishResults,
         sandboxCapability: inspectMathematicsSandboxBackends(runtimeEnvironment) };
       // The outer semaphore limits batches; independent files share the host's compiler capacity.
-      const workerCount = Math.min(configuredVerificationConcurrency(), preparedFiles.length);
-      let nextFileIndex = 0;
-      const runWorker = async (): Promise<void> => {
-        for (;;) {
-          const index = nextFileIndex++;
-          if (index >= preparedFiles.length) return;
-          // eslint-disable-next-line no-await-in-loop
-          await verifyFormalFile(preparedFiles[index], context);
-        }
-      };
-      await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
+      await forEachWithConcurrency(preparedFiles, configuredVerificationConcurrency(), file => verifyFormalFile(file, context));
     });
     if (!checkout.ok) publishAll('blocked', 'lean-kernel', creationError, 'git');
   };
@@ -2901,7 +2642,7 @@ const attestDurableCache = (
   if (!secret) return undefined;
   return {
     algorithm: 'hmac-sha256',
-    keyId: crypto.createHash('sha256').update(secret).digest('hex').slice(0, 16),
+    keyId: mathDigest(secret).slice(0, 16),
     value: crypto.createHmac('sha256', secret).update(durableCachePayload(cached), 'utf8').digest('hex'),
   };
 };
@@ -2974,49 +2715,18 @@ function cloneCachedVerification(
 ): MathematicsVerifierBatchResult {
   const sessionId = crypto.randomUUID();
   const checkedAt = Date.now();
-  const events: MathematicsVerificationEvent[] = [
-    {
-      schema: EVENT_SCHEMA,
-      eventId: crypto.randomUUID(),
-      sessionId,
-      timestamp: checkedAt,
-      kind: 'diagnostic.emitted',
-      payload: { source: 'process', severity: 'info', message: 'Formal verification cache hit.' },
-    },
-  ];
+  const events = [sessionEvent(sessionId, checkedAt, 'diagnostic.emitted',
+    { source: 'process', severity: 'info', message: 'Formal verification cache hit.' })];
   const results: MathematicsVerifierResult[] = [];
   for (const item of cached.results) {
-    events.push({
-      schema: EVENT_SCHEMA,
-      eventId: crypto.randomUUID(),
-      sessionId,
-      timestamp: checkedAt,
-      kind: 'receipt.published',
-      payload: {
-        receiptId: item.receiptId,
-        checkId: item.checkId,
-        proofPath: item.proofPath,
-        ...(item.theoremName ? { theoremName: item.theoremName } : {}),
-        status: item.status,
-      },
-    });
+    events.push(sessionEvent(sessionId, checkedAt, 'receipt.published', { receiptId: item.receiptId, checkId: item.checkId,
+      proofPath: item.proofPath, ...(item.theoremName ? { theoremName: item.theoremName } : {}), status: item.status }));
     results.push({ ...item });
   }
-  events.push({
-    schema: EVENT_SCHEMA,
-    eventId: crypto.randomUUID(),
-    sessionId,
-    timestamp: checkedAt,
-    kind: 'session.closed',
-    payload: { status: cached.status, resultCount: cached.results.length, durationMs: 0 },
-  });
-  for (const event of events) {
-    try {
-      onEvent?.(event);
-    } catch {
-      // Cache observers have the same non-authoritative semantics as live observers.
-    }
-  }
+  events.push(sessionEvent(sessionId, checkedAt, 'session.closed',
+    { status: cached.status, resultCount: cached.results.length, durationMs: 0 }));
+  // Cache observers have the same non-authoritative semantics as live observers.
+  for (const event of events) observe(() => onEvent?.(event));
   return {
     ...cached,
     sessionId,
@@ -3060,13 +2770,7 @@ const subscribeToFormalVerification = (
         finish();
         // Preserve the full live event trace for the first/subsequent
         // subscribers; only the observer callback is caller-local.
-        for (const event of result.events) {
-          try {
-            options.onEvent?.(event);
-          } catch {
-            // An observer must not change verification semantics.
-          }
-        }
+        for (const event of result.events) observe(() => options.onEvent?.(event));
         resolve({ ...result, results: result.results.map((item) => ({ ...item })), events: [...result.events] });
       },
       (error) => {
@@ -3111,7 +2815,7 @@ async function buildFormalVerificationCacheKey(
       // A snapshot can be reused only when its identity belongs to the bytes read.
       if (!metadata || (await proofFileMetadataAsync(absolutePath)) !== metadata)
         throw new Error('formal_verifier_source_changed');
-      return [relativePath, { source, hash: crypto.createHash('sha256').update(source).digest('hex'), metadata }] as const;
+      return [relativePath, { source, hash: mathDigest(source), metadata }] as const;
     })));
   } catch {
     return undefined;
@@ -3129,13 +2833,7 @@ async function buildFormalVerificationCacheKey(
   const toolchainFiles = ['lean-toolchain', 'lakefile.toml', 'lakefile.lean', 'lake-manifest.json']
     .map((name) => {
       try {
-        return [
-          name,
-          crypto
-            .createHash('sha256')
-            .update(fs.readFileSync(path.join(projectRoot, name)))
-            .digest('hex'),
-        ];
+        return [name, mathDigest(fs.readFileSync(path.join(projectRoot, name)))];
       } catch {
         return undefined;
       }
@@ -3179,32 +2877,28 @@ async function buildFormalVerificationCacheKey(
   }
   environmentEntries.sort(([left], [right]) => left.localeCompare(right));
   const environment = Object.fromEntries(environmentEntries);
-  const cacheKey = crypto
-    .createHash('sha256')
-    .update(
-      JSON.stringify({
-        schema: 'deepscientist.formal-verification-cache.v1',
-        projectRootHash: crypto.createHash('sha256').update(projectRoot).digest('hex'),
-        targetCommit: resolvedTarget,
-        verifierCommandPath: options.verifierCommandPath || null,
-        prepareLocalDependencies: options.prepareLocalDependencies ?? false,
-        expectedDeclarationType: options.expectedDeclarationType ?? null,
-        expectedDeclarationTypes: options.expectedDeclarationTypes ?? null,
-        forbiddenImportModules: options.forbiddenImportModules ?? [],
-        dependencyCandidates: options.dependencyCandidates ?? null,
-        collectDeclarationReferences: options.collectDeclarationReferences ?? false,
-        verifierExecutable,
-        environment,
-        toolchainFiles,
-        dependencyPaths,
-        trustedLakePackages: (options.trustedLakePackagesRoots ?? []).map((root) => [
-          root,
-          fingerprintLakePackages(projectRoot, root),
-        ]),
-        items: fileInputs,
-      })
-    )
-    .digest('hex');
+  const cacheKey = mathDigest(
+    JSON.stringify({
+      schema: 'deepscientist.formal-verification-cache.v1',
+      projectRootHash: mathDigest(projectRoot),
+      targetCommit: resolvedTarget,
+      verifierCommandPath: options.verifierCommandPath || null,
+      prepareLocalDependencies: options.prepareLocalDependencies ?? false,
+      expectedDeclarationType: options.expectedDeclarationType ?? null,
+      expectedDeclarationTypes: options.expectedDeclarationTypes ?? null,
+      forbiddenImportModules: options.forbiddenImportModules ?? [],
+      dependencyCandidates: options.dependencyCandidates ?? null,
+      collectDeclarationReferences: options.collectDeclarationReferences ?? false,
+      verifierExecutable,
+      environment,
+      toolchainFiles,
+      dependencyPaths,
+      trustedLakePackages: (options.trustedLakePackagesRoots ?? []).map((root) => [
+        root,
+        fingerprintLakePackages(projectRoot, root),
+      ]),
+      items: fileInputs,
+    }));
   return {
     cacheKey,
     resolvedTargetCommit: resolvedTarget,
@@ -3223,15 +2917,12 @@ export async function checkManyFormalVerifications(
     ...options,
     env: resolveMathematicsRuntimeEnvironment(options.env || process.env),
   };
+  const uncached = () =>
+    withVerificationSlot(() => checkManyFormalVerificationsUnbounded(request, runtimeOptions), runtimeOptions.signal);
   // A successful receipt is immutable for a clean commit, exact proof bytes,
   // theorem declaration, statement hash, and toolchain. Reusing it avoids
   // repeatedly creating worktrees and starting Lean during proof retries.
-  if (runtimeOptions.signal?.aborted) {
-    return withVerificationSlot(
-      () => checkManyFormalVerificationsUnbounded(request, runtimeOptions),
-      runtimeOptions.signal
-    );
-  }
+  if (runtimeOptions.signal?.aborted) return uncached();
   // Keep cache-key preparation behind the same semaphore as Lean work so a
   // burst of Git queries and proof reads cannot starve actual verification.
   const cachePreparation = await withVerificationSlot(
@@ -3269,10 +2960,7 @@ export async function checkManyFormalVerifications(
         if (result.status === 'kernel_verified' && result.results.every((item) => item.status === 'kernel_verified')) {
           const cachedResult = {
             expiresAt: Date.now() + 30 * 60_000,
-            projectRootHash: crypto
-              .createHash('sha256')
-              .update(canonicalProjectRoot(request.projectRoot))
-              .digest('hex'),
+            projectRootHash: mathDigest(canonicalProjectRoot(request.projectRoot)),
             result,
           };
           formalVerificationCache.set(cacheKey, cachedResult);
@@ -3302,10 +2990,7 @@ export async function checkManyFormalVerifications(
     formalVerificationInFlight.set(cacheKey, flight);
     return subscribeToFormalVerification(flight, runtimeOptions);
   }
-  return withVerificationSlot(
-    () => checkManyFormalVerificationsUnbounded(request, runtimeOptions),
-    runtimeOptions.signal
-  );
+  return uncached();
 }
 
 export const canonicalMathOfficialManifestPayload = (
@@ -3339,12 +3024,9 @@ const relativeOfficialManifestPath = (value: string): string => {
   return normalized.replace(/^\.\//u, '');
 };
 
-const normalizedRepositoryUrl = (value: string): string =>
-  value
-    .trim()
-    .replace(/\/+$/u, '')
-    .replace(/\.git$/u, '')
-    .toLowerCase();
+/** Compare repository identities without case, trailing slashes or a `.git` suffix. */
+export const normalizedRepositoryUrl = (value: string): string =>
+  value.trim().replace(/\/+$/u, '').replace(/\.git$/u, '').toLowerCase();
 
 const validateOfficialManifestSource = async (
   repoRoot: string,
@@ -3474,22 +3156,12 @@ const validateOfficialManifestSource = async (
       throw new Error(`Official tracked file is missing, oversized, or not regular: ${file.path}`);
     }
     const contents = await fs.promises.readFile(absolute);
-    const actual = crypto.createHash('sha256').update(contents).digest('hex');
+    const actual = mathDigest(contents);
     if (actual !== file.sha256) {
       throw new Error(`Official tracked file hash does not match the manifest: ${file.path}`);
     }
   };
-  let nextTrackedFile = 0;
-  const trackedFileWorker = async (): Promise<void> => {
-    for (;;) {
-      const index = nextTrackedFile++;
-      if (index >= manifest.trackedFiles.length) return;
-      // eslint-disable-next-line no-await-in-loop
-      await verifyTrackedFile(manifest.trackedFiles[index]);
-    }
-  };
-  const workerCount = Math.min(configuredVerificationConcurrency(), manifest.trackedFiles.length);
-  await Promise.all(Array.from({ length: workerCount }, () => trackedFileWorker()));
+  await forEachWithConcurrency(manifest.trackedFiles, configuredVerificationConcurrency(), verifyTrackedFile);
 };
 
 type OfficialManifestExpectation = Pick<MathematicsOfficialComparatorRequest,
@@ -3501,10 +3173,7 @@ const validateOfficialManifest = (
   source: 'committed' | 'supplied'
 ): MathOfficialProblemManifest => {
   const manifest = normalizeMathOfficialProblemManifest(input);
-  const expectedHash = crypto
-    .createHash('sha256')
-    .update(canonicalMathOfficialManifestPayload(manifest), 'utf8')
-    .digest('hex');
+  const expectedHash = mathDigest(canonicalMathOfficialManifestPayload(manifest));
   if (manifest.manifestHash.toLowerCase() !== expectedHash) {
     throw new Error('Official problem manifest hash does not match its canonical contents.');
   }
@@ -3654,7 +3323,8 @@ async function runOfficialComparatorUnbounded(
       projectRelative: relativeProjectRoot.replaceAll(path.sep, '/'),
       command: parsedCommand.executable,
       args: parsedCommand.argv,
-      timeoutMs: clampOfficialTimeout(request.timeoutMs),
+      timeoutMs: clampTimeout(request.timeoutMs, DEFAULT_OFFICIAL_TIMEOUT_MS, MAX_OFFICIAL_TIMEOUT_MS,
+        'Official comparator timeoutMs'),
       signal: options.signal,
       env: runtimeEnvironment,
       ...(lakePackagesPath ? { lakePackagesPath } : {}),

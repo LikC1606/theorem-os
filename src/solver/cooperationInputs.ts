@@ -22,9 +22,6 @@ import { CooperationPlanning } from './cooperationPlanning';
 
 /** Worker delivery intake and lead help requests. */
 export abstract class CooperationInputs extends CooperationPlanning {
-  // Implemented by later layers; listed here because this layer calls them.
-  protected abstract recordChallengeDecisions(decisions: readonly ResearchChallengeDecision[]): void;
-  protected abstract recordHandoffDecisions(decisions: readonly ResearchHandoffDecision[]): void;
   protected syncEditChecks(nodes: ReadonlyMap<string, TaskRecord>, versions: TaskVersions) {
     for (const edit of this.archive.edits ?? []) {
       if (edit.status !== 'applied' || !edit.recheck) continue;
@@ -164,8 +161,7 @@ export abstract class CooperationInputs extends CooperationPlanning {
                   throw new Error('math_initial_plan_superseded');
                 if (!action.planVersion || response.baseVersion !== action.planVersion ||
                     response.baseVersion !== this.archive.planVersion) throw new Error('math_initial_plan_version_conflict');
-                this.preserveHandoffBacklog(plan, []);
-                preserveResearchChallengeBacklog(this.archive, plan.tasks, plan.proofRoutes, []);
+                this.preserveAdvisoryBacklogs(plan);
                 await this.acceptPlan(plan, undefined, { action, receipt: { nonce: action.initialPlanNonce!, file,
                   offset: entry.offset, eventDigest, baseVersion: response.baseVersion, acceptedAt: Date.now() } });
                 this.input.emit('initial_plan_published', { ...this.archive.initialPlanPublication,
@@ -208,21 +204,15 @@ export abstract class CooperationInputs extends CooperationPlanning {
           objective: `Primary solver owns ${target.theoremName}.`, theoremName: target.theoremName,
           proofPath: target.proofPath, status: 'paused' };
       });
-      const shown = action?.kind === 'solve' ? action.handoffIds ?? [] : [];
-      const plan = this.helpPlan([...goals, ...requests], shown, handoffDecisions);
-      const decisions = resolveResearchHandoffs(this.archive, shown,
-        plan.tasks, handoffDecisions, action?.kind === 'solve' ? action.handoffActivations : undefined);
-      const challenges = action?.kind === 'solve' ? resolveResearchChallenges(this.archive, action.challengeIds ?? [],
-        action.challengeActivations ?? {}, plan.tasks, challengeDecisions) : [];
-      this.preserveHandoffBacklog(plan, decisions);
-      preserveResearchChallengeBacklog(this.archive, plan.tasks, plan.proofRoutes, challenges);
+      const solve = action?.kind === 'solve' ? action : undefined;
+      const plan = this.helpPlan([...goals, ...requests], solve?.handoffIds ?? [], handoffDecisions);
+      const decided = this.resolveAdvisoryDecisions(solve, plan.tasks, { handoffDecisions, challengeDecisions }, plan);
       const applications = primaryHelpApplications(requests, plan.tasks.map(task => ({ task, status: 'pending', attempts: 0 })));
       await this.acceptPlan(plan);
       for (const node of this.archive.tasks) if (node.task.kind === 'goal') node.primaryOwned ??= true;
       for (const request of requests) this.node(request.id)!.application = applications.find(item => item.taskId === request.id)?.application;
       this.changed();
-      this.recordHandoffDecisions(decisions);
-      this.recordChallengeDecisions(challenges);
+      this.recordAdvisoryDecisions(decided);
       this.input.emit('help_requested', { taskIds: requests.map(task => task.id),
         consumerSelectionRequired: requests.filter(request => !applications.some(item => item.taskId === request.id)).map(task => task.id) });
     } catch (error) {
@@ -308,6 +298,38 @@ export abstract class CooperationInputs extends CooperationPlanning {
           plan.tasks.some(task => task.id === updated.taskId && digest(task) === updated.taskDigest)))));
     if (affected) throw new Error('math_handoff_backlog_source_required:' + affected.sourceTaskId +
       ': retain its mathematical contract, prerequisites and group until the queued proposals are decided.');
+  }
+  /** A replacement plan must keep every queued handoff and challenge decidable (handoffs checked first). */
+  protected preserveAdvisoryBacklogs(plan: ReturnType<typeof parseCooperationPlan>, handoffs: readonly ResearchHandoffDecision[] = [],
+    challenges: readonly ResearchChallengeDecision[] = []) {
+    this.preserveHandoffBacklog(plan, handoffs);
+    preserveResearchChallengeBacklog(this.archive, plan.tasks, plan.proofRoutes, challenges);
+  }
+  /** Resolve a lead response's handoff and challenge decisions, checking both backlogs against a replacement plan. */
+  protected resolveAdvisoryDecisions(action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' | 'solve' }> | undefined,
+    tasks: readonly CooperativeTask[], response: { handoffDecisions?: unknown; challengeDecisions?: unknown },
+    plan?: ReturnType<typeof parseCooperationPlan>) {
+    const handoffs = resolveResearchHandoffs(this.archive, action?.handoffIds ?? [], tasks, response.handoffDecisions, action?.handoffActivations);
+    const challenges = action ? resolveResearchChallenges(this.archive, action.challengeIds ?? [], action.challengeActivations ?? {},
+      tasks, response.challengeDecisions) : [];
+    if (plan) this.preserveAdvisoryBacklogs(plan, handoffs, challenges);
+    return { handoffs, challenges };
+  }
+  /** Upsert each kind by id, announcing every decision and persisting once per non-empty kind (handoffs first). */
+  protected recordAdvisoryDecisions({ handoffs, challenges }: { handoffs: readonly ResearchHandoffDecision[];
+    challenges: readonly ResearchChallengeDecision[] }) {
+    const upsert = <Decision extends { id: string }>(previous: readonly Decision[] | undefined, decisions: readonly Decision[],
+      event: string) => {
+      const records = new Map(previous?.map(item => [item.id, item]));
+      for (const decision of decisions) { records.set(decision.id, decision); this.input.emit(event, { ...decision }); }
+      return [...records.values()];
+    };
+    if (handoffs.length) {
+      this.archive.researchDecisions = upsert(this.archive.researchDecisions, handoffs, 'research_handoff_decided'); this.changed();
+    }
+    if (challenges.length) {
+      this.archive.challengeDecisions = upsert(this.archive.challengeDecisions, challenges, 'research_challenge_decided'); this.changed();
+    }
   }
   private async readWorkerDeliveries(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>, cursors: Record<string, number>) {
     const invalidInput = new Set([...directDeliveryRejections, 'math_delivery_invalid_commit',

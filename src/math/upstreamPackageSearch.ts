@@ -16,7 +16,7 @@ export type LeanProjectPackageDependency = Readonly<{
   subdirectory?: string;
 }>;
 
-const objectValue = (value: unknown): Record<string, unknown> | undefined =>
+export const objectValue = (value: unknown): Record<string, unknown> | undefined =>
   value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
 
 const stringValue = (value: unknown): string | undefined =>

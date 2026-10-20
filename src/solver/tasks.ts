@@ -70,6 +70,10 @@ export const markTaskAcceptance = (proof: TaskProof) => {
   if (proof.passed && proof.verification?.status === 'kernel_verified') freshTaskAcceptances.set(proof, acceptanceIdentity(proof));
 };
 export const hasTaskAcceptance = (proof: TaskProof) => freshTaskAcceptances.get(proof) === acceptanceIdentity(proof);
+/** A passed, unconditional integration of exactly `taskDigest` that this host process accepted. */
+export const freshlyAccepted = (node: TaskRecord | undefined, taskDigest: string): boolean => node?.status === 'integrated' &&
+  !!node.integratedCheck?.passed && node.integratedCheck.taskDigest === taskDigest && !node.integratedCheck.conditions?.length &&
+  hasTaskAcceptance(node.integratedCheck);
 
 /** Compute invalidation before changing assignments or emitting any notifications. */
 export function invalidatedTaskIds(previous: readonly TaskRecord[], tasks: readonly CooperativeTask[],
@@ -104,6 +108,20 @@ export const isFinalCandidateReview = (task: CooperativeTask) => isAdvisoryTask(
   (task.reviewScope === 'final-candidate' || task.id === 'independent_candidate_review');
 export const isFeasibilityReview = (task: CooperativeTask) => isAdvisoryTask(task) &&
   task.reviewScope === 'feasibility' && !isFinalCandidateReview(task);
+/** Pin a deferred decision's `waitsOn` ids to their current typed, non-advisory task versions. `invalid` rejects a malformed
+ * list; `invalidTask` prefixes the id that names no such task. */
+export function parseWaitsOn(value: unknown, deferred: boolean, task: (id: string) => CooperativeTask | undefined, invalid: string,
+  invalidTask: string): { taskId: string; taskDigest: string }[] | undefined {
+  if (value === undefined) return undefined;
+  if (!deferred || !Array.isArray(value) || !value.length || new Set(value).size !== value.length ||
+      value.some(id => typeof id !== 'string')) throw new Error(invalid);
+  return value.map((taskId: string) => {
+    const proposed = task(taskId);
+    if (!proposed || isAdvisoryTask(proposed) || proposed.kind === 'lemma' && !proposed.type?.trim())
+      throw new Error(invalidTask + taskId);
+    return { taskId, taskDigest: taskVersion(proposed) };
+  });
+}
 
 const validId = (value: unknown) => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,64}$/u.test(value);
 const optionalFields = (value: any, keys: readonly string[]) =>

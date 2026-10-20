@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { canonicalMathJson, mathDigest, readMathFile } from '../math/mathRuntimeIo';
+import { canonicalMathJson, mathArtifactCurrent, mathDigest, readMathFile } from '../math/mathRuntimeIo';
 import { assertMathCanonicalPath, isMathPathWithin } from '../math/paths';
 import { limitMathOutput } from '../math/mathProcess';
 import { leanDiagnosticEnvironmentIdentity } from '../math/leanResidualGoals';
@@ -50,16 +50,6 @@ function submittedSnapshot(files: KnowledgeApplicationCheck['files'], input: Inp
   } catch { return false; }
 }
 
-function artifactCurrent(projectRoot: string, check: KnowledgeApplicationCheck) {
-  try {
-    if (!check.artifact || path.isAbsolute(check.artifact.path)) return false;
-    const file = path.resolve(projectRoot, check.artifact.path);
-    if (!isMathPathWithin(projectRoot, file)) return false;
-    assertMathCanonicalPath(file);
-    return mathDigest(readMathFile(file, 4_000_000).bytes) === check.artifact.digest;
-  } catch { return false; }
-}
-
 /** Only explicitly selected expressions are examined. Errors in optional experience never reject a proof. */
 export async function checkKnowledgeApplications(uses: readonly KnowledgeUse[], input: Inputs): Promise<KnowledgeUse[]> {
   let checkedCount = 0;
@@ -89,7 +79,7 @@ export async function checkKnowledgeApplications(uses: readonly KnowledgeUse[], 
         ['elaborated', 'failed'].includes(previous.application.check?.status ?? '') &&
         checkCurrent(input.projectRoot, environment.env, input.environmentDigest, previous.application.check!, report.context.file) &&
         submittedSnapshot(previous.application.check!.files, input) &&
-        artifactCurrent(input.projectRoot, previous.application.check!));
+        mathArtifactCurrent(input.projectRoot, previous.application.check!.artifact));
       if (prior?.application?.check) { append({ ...prior.application.check, reused: true }); continue; }
       checkedCount++;
       input.signal?.throwIfAborted();

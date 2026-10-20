@@ -1,7 +1,5 @@
-import crypto from 'node:crypto';
 import { maskLeanCommentsAndStrings, leanScopeCommands, leanScopeNamespace, updateLeanScopes, type LeanScope } from './leanSyntax';
-
-const hashBytes = (value: Uint8Array | string) => crypto.createHash('sha256').update(value).digest('hex');
+import { mathDigest } from './mathRuntimeIo';
 
 export const inspectLeanSource = (
   source: string
@@ -426,7 +424,7 @@ const leanSourceDeclarationCache = new Map<string, readonly LeanSourceDeclaratio
 const LEAN_SOURCE_DECLARATION_CACHE_MAX_ENTRIES = 128;
 
 const cachedLeanSourceDeclarations = (source: string): readonly LeanSourceDeclaration[] => {
-  const key = hashBytes(source);
+  const key = mathDigest(source);
   const cached = leanSourceDeclarationCache.get(key);
   if (cached) {
     leanSourceDeclarationCache.delete(key);
@@ -444,7 +442,7 @@ const cachedLeanSourceDeclarations = (source: string): readonly LeanSourceDeclar
 };
 
 const sourceDeclarationHash = (declaration: LeanSourceDeclaration): string =>
-  hashBytes(declaration.canonicalHeader);
+  mathDigest(declaration.canonicalHeader);
 
 export const declarationHashes = (source: string): Map<string, string> => {
   const hashes = new Map<string, string>();

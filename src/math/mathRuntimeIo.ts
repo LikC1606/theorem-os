@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import { assertMathCanonicalPath, isMathPathWithin } from './paths';
 
 const normalizeJson = (item: unknown, compare: (a: string, b: string) => number): unknown => {
   if (Array.isArray(item)) return item.map(entry => normalizeJson(entry, compare));
@@ -109,6 +110,17 @@ export function readMathText(file: string, maxBytes = Infinity, options: { headO
 }
 
 export const readMathJson = (file: string): unknown => JSON.parse(readMathText(file));
+
+/** Whether a project-relative artifact still has its recorded digest inside `project`; absolute, escaping or unreadable paths are stale. */
+export function mathArtifactCurrent(project: string, artifact: Readonly<{ path?: string; digest?: string }> | undefined): boolean {
+  try {
+    if (!artifact?.path || path.isAbsolute(artifact.path)) return false;
+    const file = path.resolve(project, artifact.path);
+    if (!isMathPathWithin(project, file)) return false;
+    assertMathCanonicalPath(file);
+    return mathDigest(readMathFile(file, 4_000_000).bytes) === artifact.digest;
+  } catch { return false; }
+}
 
 export type MathLease = Readonly<{
   signal: AbortSignal;

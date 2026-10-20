@@ -8,7 +8,7 @@ import { createRecordedTaskSettlement } from '../progress';
 import { createProofRoutePriority } from '../routePriority';
 import { automaticTaskConnection, freshTaskConnection } from '../taskConnections';
 import { primaryApplicationConsumer, primaryOwnedGoal } from '../taskConsumers';
-import { hasTaskAcceptance, isAdvisoryTask, isFeasibilityReview, isFinalCandidateReview, taskGroup, taskReferenceDependencies, taskVersion,
+import { freshlyAccepted, isAdvisoryTask, isFeasibilityReview, isFinalCandidateReview, taskGroup, taskReferenceDependencies, taskVersion,
   type TaskRecord, type RouteRecord, type CooperativeAction } from '../tasks';
 
 export type ResearchBudget = Readonly<{ maxTurns: number; remainingMs: number; aborted: boolean }>;
@@ -33,11 +33,7 @@ export function routeAllowsTask(task: TaskRecord['task'], tasks: readonly TaskRe
 /** Advisory final review still needs a complete, freshly accepted original candidate. */
 export function finalCandidateReviewReady(tasks: readonly TaskRecord[]): boolean {
   const goals = tasks.filter(node => node.task.kind === 'goal');
-  return goals.length > 0 && goals.every(node => {
-    const proof = node.integratedCheck;
-    return !node.pendingValidation && node.status === 'integrated' && proof?.passed && hasTaskAcceptance(proof) &&
-      proof.taskDigest === taskVersion(node.task) && !proof.conditions?.length;
-  });
+  return goals.length > 0 && goals.every(node => !node.pendingValidation && freshlyAccepted(node, taskVersion(node.task)));
 }
 
 function dispatchRouteReady(route: ProofRoute, tasks: readonly TaskRecord[]) {

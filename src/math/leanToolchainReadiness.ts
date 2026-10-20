@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { limitMathOutput } from './mathProcess';
+import { mathDigest } from './mathRuntimeIo';
 
 export type LeanToolchainReadinessStatus = 'ready' | 'unavailable' | 'invalid';
 
@@ -28,14 +28,13 @@ export type LeanToolchainReadinessRequest = Readonly<{
   timeoutMs?: number;
 }>;
 
-const sha256 = (value: string): string => crypto.createHash('sha256').update(value, 'utf8').digest('hex');
 const MAX_DIAGNOSTICS = 2_000;
 const DEFAULT_TIMEOUT_MS = 10_000;
 
 const bounded = (value: string): string => limitMathOutput(value.trim().replace(/\s+/gu, ' '), MAX_DIAGNOSTICS, 'head');
 
 const fingerprint = (value: Omit<LeanToolchainReadiness, 'fingerprint'>): string =>
-  sha256(
+  mathDigest(
     JSON.stringify({
       schema: 'deepscientist.mathematics.lean-toolchain-readiness.v1',
       ...value,

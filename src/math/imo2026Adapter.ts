@@ -185,12 +185,9 @@ export const theoremQualifiedNamesFromSource = (source: string): readonly string
 const sourceBytesFor = (repositoryRoot: string, relativePath: string): Buffer =>
   gitBlob(repositoryRoot, IMO2026_SOURCE_COMMIT, relativePath);
 
-const trustedSourceRelativePath = (relative: string): string =>
-  relative === 'MathFlowBench/CacheWarm.lean' ? 'base/MathFlowBench/CacheWarm.lean' : `base/${relative}`;
-
 /** Read a pinned tree file and reject links/submodules before reading bytes. */
 const pinnedTrustedBytes = (repositoryRoot: string, relative: string): Buffer =>
-  sourceBytesFor(repositoryRoot, trustedSourceRelativePath(relative));
+  sourceBytesFor(repositoryRoot, `base/${relative}`);
 
 const copyTrustedBytes = (bytes: Uint8Array, target: string): void => {
   fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
@@ -215,11 +212,7 @@ const runtimeTrustedText = (relative: string): string | undefined => {
   return undefined;
 };
 
-const writeJson = (file: string, value: unknown, mode: 0o600 | 0o644 = 0o600): void => {
-  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-  fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, { mode });
-  fs.chmodSync(file, mode);
-};
+const writeJson = (file: string, value: unknown): void => writeTrustedText(file, `${JSON.stringify(value, null, 2)}\n`);
 
 const ensureFreshWorkspace = (workspaceRoot: string): string => {
   const resolved = path.resolve(workspaceRoot);
@@ -345,18 +338,12 @@ export async function bootstrapImo2026Problem(options: Imo2026BootstrapOptions):
   fs.mkdirSync(projectRoot, { recursive: true, mode: 0o700 });
   const trustedFiles = [...EXPECTED_TRUSTED_FILES];
   writeTrustedText(path.join(projectRoot, 'Challenge.lean'), source);
-  copyTrustedBytes(pinnedTrustedBytes(repositoryRoot, 'lakefile.lean'), path.join(projectRoot, 'lakefile.lean'));
-  writeTrustedText(path.join(projectRoot, 'lakefile.toml'), IMO2026_LAKEFILE_TOML);
-  copyTrustedBytes(pinnedTrustedBytes(repositoryRoot, 'lake-manifest.json'), path.join(projectRoot, 'lake-manifest.json'));
-  copyTrustedBytes(pinnedTrustedBytes(repositoryRoot, 'lean-toolchain'), path.join(projectRoot, 'lean-toolchain'));
-  copyTrustedBytes(
-    pinnedTrustedBytes(repositoryRoot, 'MathFlowBench/CacheWarm.lean'),
-    path.join(projectRoot, 'MathFlowBench/CacheWarm.lean')
-  );
-  writeTrustedText(
-    path.join(projectRoot, 'MathFlowBench/DeepScientistGenerated/A_probe/Probe.lean'),
-    IMO2026_PROBE_SOURCE
-  );
+  for (const relative of EXPECTED_TRUSTED_FILES) {
+    if (relative === 'Challenge.lean' || relative === 'docs/humanize/math-contract.json') continue;
+    const runtimeText = runtimeTrustedText(relative);
+    if (runtimeText) writeTrustedText(path.join(projectRoot, relative), runtimeText);
+    else copyTrustedBytes(pinnedTrustedBytes(repositoryRoot, relative), path.join(projectRoot, relative));
+  }
   writeTrustedText(path.join(projectRoot, 'Submission.lean'), source);
   const contract = contractFor(problemId, source);
   writeJson(path.join(projectRoot, 'docs/humanize/math-contract.json'), contractDocumentFor(problemId, contract));

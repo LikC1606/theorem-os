@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import type { TheoremKnowledgeBase } from './theoremKnowledge';
 import { mathematicalGapSchema } from './mathematicalGaps';
+import { largestFittingPage, splitsSurrogate } from './textPage';
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/u);
 const text = z.string().min(1).max(1_000_000);
@@ -173,23 +174,12 @@ export function getKnowledgeRouteFindingPage(base: SearchBase, id: string,
   if (!Number.isSafeInteger(begin) || begin < 0 || !Number.isSafeInteger(maxBytes) || maxBytes < 1024 || maxBytes > 65536)
     throw new Error('math_knowledge_finding_options_invalid');
   const entry = getKnowledgeRouteFinding(base, id), source = canonicalMathJson(entry);
-  const splitsSurrogate = (offset: number) => offset > 0 && offset < source.length &&
-    /[\uD800-\uDBFF]/u.test(source[offset - 1]!) && /[\uDC00-\uDFFF]/u.test(source[offset]!);
-  if (begin > source.length || splitsSurrogate(begin)) throw new Error('math_knowledge_finding_position_invalid');
+  if (begin > source.length || splitsSurrogate(source, begin)) throw new Error('math_knowledge_finding_position_invalid');
   const sha256 = mathDigest(source), bytes = Buffer.byteLength(source);
   const packet = (end: number) => ({ schema: 'theorem-os.knowledge-route-finding-page.v1' as const, id: entry.id,
     scopeDigest: entry.scopeDigest, evidence: entry.evidence, acceptance: entry.acceptance, advisoryOnly: true as const,
     sha256, bytes, offsetEncoding: 'utf16-code-unit' as const, endOffsetExclusive: true as const,
     display: { startOffset: begin, endOffset: end, bytes: Buffer.byteLength(source.slice(begin, end)) },
     text: source.slice(begin, end), truncated: end < source.length, ...(end < source.length ? { nextOffset: end } : {}) });
-  const fits = (end: number) => Buffer.byteLength(JSON.stringify(packet(end))) + 1 <= maxBytes;
-  if (fits(source.length)) return packet(source.length);
-  if (!fits(begin)) throw new Error('math_knowledge_finding_budget_too_small');
-  let lower = begin + 1, upper = Math.min(source.length - 1, begin + maxBytes), best = begin;
-  while (lower <= upper) {
-    const middle = Math.floor((lower + upper) / 2), end = splitsSurrogate(middle) ? middle - 1 : middle;
-    if (fits(end)) { best = end; lower = middle + 1; } else upper = middle - 1;
-  }
-  if (best === begin && begin < source.length) throw new Error('math_knowledge_finding_budget_too_small');
-  return packet(best);
+  return largestFittingPage(source, begin, source.length, maxBytes, packet, 'math_knowledge_finding_budget_too_small', true);
 }

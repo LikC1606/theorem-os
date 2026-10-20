@@ -1,7 +1,7 @@
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import { deliveryFinding, type DeliveryRecord } from './deliveries';
 import type { ProofRoute } from './proofRoutes';
-import { hasTaskAcceptance, isAdvisoryTask, taskVersion, type CooperativeTask, type TaskRecord } from './tasks';
+import { freshlyAccepted, parseWaitsOn, taskVersion, type CooperativeTask, type TaskRecord } from './tasks';
 
 export type ResearchChallengeDecision = Readonly<{
   id: string; deliveryId: string; contextDigest: string;
@@ -66,9 +66,8 @@ export function researchChallenges(state: ChallengeState): ResearchChallenge[] {
     const decision = recorded?.deliveryId === delivery.id && recorded.contextDigest === contextDigest &&
       waitingInputs?.every(input => input.currentDigest === input.taskDigest) !== false ? recorded : undefined;
     const reopened = decision?.status === 'deferred' && decision.waitsOn?.length && decision.waitsOn.every(input => {
-      const target = nodes.get(input.taskId), proof = target?.integratedCheck;
-      return target && taskVersion(target.task) === input.taskDigest && target.status === 'integrated' &&
-        proof?.passed && !proof.conditions?.length && proof.taskDigest === input.taskDigest && hasTaskAcceptance(proof);
+      const target = nodes.get(input.taskId);
+      return target && taskVersion(target.task) === input.taskDigest && freshlyAccepted(target, input.taskDigest);
     });
     return [{ id, deliveryId: delivery.id, sourceTaskId: node.task.id, sourceTaskDigest: taskVersion(node.task), findingDigest,
       contextDigest, activationDigest: mathDigest(canonicalMathJson({ contextDigest, recorded, waitingInputs })),
@@ -124,20 +123,11 @@ export function resolveResearchChallenges(state: ChallengeState, ids: readonly s
     if (evidenceRefs !== undefined && (!Array.isArray(evidenceRefs) || evidenceRefs.some(ref => typeof ref !== 'string' || !ref.trim())))
       throw new Error('math_challenge_evidence_invalid:' + id);
     if (response.status === 'disputed' && !evidenceRefs?.length) throw new Error('math_challenge_evidence_required:' + id);
-    const waitsOn = response.waitsOn;
-    if (waitsOn !== undefined && (response.status !== 'deferred' || !Array.isArray(waitsOn) || !waitsOn.length ||
-        new Set(waitsOn).size !== waitsOn.length || waitsOn.some(item => typeof item !== 'string')))
-      throw new Error('math_challenge_waits_on_invalid:' + id);
-    const waiting = waitsOn?.map((taskId: string) => {
-      const task = tasks.find(task => task.id === taskId);
-      if (!task || isAdvisoryTask(task) || task.kind === 'lemma' && !task.type?.trim())
-        throw new Error('math_challenge_waits_on_invalid:' + taskId);
-      return { taskId, taskDigest: taskVersion(task) };
-    });
+    const waiting = parseWaitsOn(response.waitsOn, response.status === 'deferred', taskId => tasks.find(task => task.id === taskId),
+      'math_challenge_waits_on_invalid:' + id, 'math_challenge_waits_on_invalid:');
     if (waiting?.every((input: { taskId: string; taskDigest: string }) => {
-      const node = state.tasks.find(node => node.task.id === input.taskId), proof = node?.integratedCheck;
-      return node?.status === 'integrated' && taskVersion(node.task) === input.taskDigest && proof?.passed &&
-        proof.taskDigest === input.taskDigest && !proof.conditions?.length && hasTaskAcceptance(proof);
+      const node = state.tasks.find(node => node.task.id === input.taskId);
+      return node?.status === 'integrated' && taskVersion(node.task) === input.taskDigest && freshlyAccepted(node, input.taskDigest);
     })) throw new Error('math_challenge_waits_on_satisfied:' + id);
     if (response.reopenOn !== undefined && (typeof response.reopenOn !== 'string' || !response.reopenOn.trim()))
       throw new Error('math_challenge_reopen_on_invalid:' + id);

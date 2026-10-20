@@ -1,5 +1,5 @@
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
-import { hasTaskAcceptance, taskGroup, taskVersion, type CooperativeTask, type TaskRecord } from './tasks';
+import { freshlyAccepted, hasTaskAcceptance, taskGroup, taskVersion, type CooperativeTask, type TaskRecord } from './tasks';
 
 export type ReopenCondition = { kind: 'contract-changed' } | { kind: 'environment-changed' } |
   { kind: 'dependency-checked'; taskId: string };
@@ -136,10 +136,7 @@ export function refreshRouteBlockers(records: RouteBlocker[], tasks: readonly Ta
     }
     const basis = routeBlockerBasis(node.task, tasks, environmentDigest, problemReceiptDigest, record.routeId);
     if (basis.contractDigest === record.basis.contractDigest) record.taskDigest = taskVersion(node.task);
-    const proof = node.integratedCheck;
-    const discharged = node.status === 'integrated' && proof?.passed && hasTaskAcceptance(proof) &&
-      proof.taskDigest === taskVersion(node.task) && !proof.conditions?.length;
-    const reason = discharged ? 'assigned-obligation-checked' : record.reopenOn.find(condition => {
+    const reason = freshlyAccepted(node, taskVersion(node.task)) ? 'assigned-obligation-checked' : record.reopenOn.find(condition => {
       if (condition.kind === 'contract-changed') return basis.contractDigest !== record.basis.contractDigest;
       if (condition.kind === 'environment-changed') return basis.environmentDigest !== record.basis.environmentDigest;
       const dependency = nodes.get(condition.taskId), receipt = dependency?.integratedCheck;

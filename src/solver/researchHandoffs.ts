@@ -1,6 +1,6 @@
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import type { DeliveryRecord } from './deliveries';
-import { hasTaskAcceptance, isAdvisoryTask, taskGroup, taskVersion, type CooperativeTask, type TaskRecord } from './tasks';
+import { freshlyAccepted, isAdvisoryTask, parseWaitsOn, taskGroup, taskVersion, type CooperativeTask, type TaskRecord } from './tasks';
 
 export type ResearchHandoffDecision = Readonly<{
   id: string; deliveryId: string; status: 'adopted' | 'rejected' | 'deferred';
@@ -23,10 +23,9 @@ export type ResearchHandoff = Readonly<{
 }>;
 
 function freshlyChecked(nodes: ReadonlyMap<string, TaskRecord>, reference: { taskId: string; taskDigest: string }): boolean {
-  const node = nodes.get(reference.taskId), proof = node?.integratedCheck;
-  return Boolean(node && !isAdvisoryTask(node.task) && taskVersion(node.task) === reference.taskDigest &&
-    node.status === 'integrated' && proof?.passed && proof.taskDigest === reference.taskDigest &&
-    !proof.conditions?.length && hasTaskAcceptance(proof));
+  const node = nodes.get(reference.taskId);
+  return Boolean(node && !isAdvisoryTask(node.task) && taskVersion(node.task) === reference.taskDigest) &&
+    freshlyAccepted(node, reference.taskDigest);
 }
 
 /** Adoption creates a proof obligation; it never turns an advisory proposal into a checked lemma. */
@@ -199,18 +198,8 @@ export function resolveResearchHandoffs(state: HandoffState, dispatchedIds: read
     seen.add(decision.id);
     const handoff = byAlias.get(decision.id), id = handoff?.id ?? decision.id;
     if (pending.has(id) && shown.has(id)) checkActivation(handoff!);
-    let waitsOn: ResearchHandoffDecision['waitsOn'];
-    if (decision.waitsOn !== undefined) {
-      if (decision.status !== 'deferred' || !Array.isArray(decision.waitsOn) || !decision.waitsOn.length ||
-          new Set(decision.waitsOn).size !== decision.waitsOn.length || decision.waitsOn.some((id: unknown) => typeof id !== 'string'))
-        throw new Error('math_handoff_waits_on_invalid');
-      waitsOn = decision.waitsOn.map((id: string) => {
-        const task = proposed.get(id);
-        if (!task || isAdvisoryTask(task) || (task.kind === 'lemma' && !task.type?.trim()))
-          throw new Error('math_handoff_waits_on_invalid:' + id);
-        return { taskId: id, taskDigest: taskVersion(task) };
-      }).sort((left: { taskId: string }, right: { taskId: string }) => left.taskId.localeCompare(right.taskId));
-    }
+    const waitsOn = parseWaitsOn(decision.waitsOn, decision.status === 'deferred', id => proposed.get(id),
+      'math_handoff_waits_on_invalid', 'math_handoff_waits_on_invalid:')?.sort((left, right) => left.taskId.localeCompare(right.taskId));
     const recorded = handoff?.decision ?? previous.get(decision.id);
     const response = { status: decision.status as 'rejected' | 'deferred', reason: decision.reason.trim(), ...(waitsOn ? { waitsOn } : {}) };
     // A primary solver can keep an acknowledged decision while editing its help requests.

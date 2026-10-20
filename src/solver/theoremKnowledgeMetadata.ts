@@ -1,6 +1,7 @@
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import { readKnowledgeSource, type TheoremKnowledgeBase } from './theoremKnowledge';
 import { knowledgeSearchGroup, knowledgeVersionSummary } from './theoremKnowledgeSearch';
+import { largestFittingPage, splitsSurrogate } from './textPage';
 
 const fieldNames = ['name', 'file', 'type', 'premises', 'environmentDigest', 'description', 'dependencies',
   'provenance', 'relatedVersions', 'files', 'elaboration'] as const;
@@ -13,9 +14,6 @@ type FieldDescriptor = {
 const invalidOptions = (): never => { throw new Error('math_knowledge_metadata_options_invalid'); };
 const validInteger = (value: unknown, minimum: number, maximum: number) =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= minimum && value <= maximum;
-const splitsSurrogate = (text: string, offset: number) => offset > 0 && offset < text.length &&
-  text.charCodeAt(offset - 1) >= 0xd800 && text.charCodeAt(offset - 1) <= 0xdbff &&
-  text.charCodeAt(offset) >= 0xdc00 && text.charCodeAt(offset) <= 0xdfff;
 
 /** Keep archived proof bodies out of metadata; every deferred field has an exact continuation. */
 export function getKnowledgeMetadata(base: TheoremKnowledgeBase, id: string, options: KnowledgeMetadataOptions = {}) {
@@ -56,20 +54,7 @@ export function getKnowledgeMetadata(base: TheoremKnowledgeBase, id: string, opt
       display: { startOffset: begin, endOffset: end, bytes: Buffer.byteLength(current.text.slice(begin, end)) },
       text: current.text.slice(begin, end), truncated: end < current.text.length,
       ...(end < current.text.length ? { nextOffset: end } : {}) });
-    if (current.text.length - begin <= maxBytes) {
-      const whole = packet(current.text.length);
-      if (fits(whole)) return whole;
-    }
-    if (!fits(packet(begin))) throw new Error('math_knowledge_metadata_budget_too_small');
-    let lower = begin + 1, upper = Math.min(current.text.length - 1, begin + maxBytes), best = begin;
-    while (lower <= upper) {
-      const middle = Math.floor((lower + upper) / 2);
-      const end = splitsSurrogate(current.text, middle) ? middle - 1 : middle;
-      if (fits(packet(end))) { best = end; lower = middle + 1; }
-      else upper = middle - 1;
-    }
-    if (best === begin && begin < current.text.length) throw new Error('math_knowledge_metadata_budget_too_small');
-    return packet(best);
+    return largestFittingPage(current.text, begin, current.text.length, maxBytes, packet, 'math_knowledge_metadata_budget_too_small');
   }
 
   const prepared = fieldNames.map(name => ({ name, ...prepare(name) }));

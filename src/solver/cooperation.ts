@@ -14,9 +14,8 @@ import { assertStatementSnapshot, isStatementAction, resetStatementReview } from
 import { captureProofReferences } from './proofReferences';
 import { captureDeliveryArtifacts, type DeliveryArtifactManifest } from './deliveryArtifacts';
 import { attributeTaskReferences } from './taskReferenceAttribution';
-import { pendingResearchHandoffs, retainedResearchHandoffs, resolveResearchHandoffs, selectResearchHandoffBatch, type ResearchHandoffDecision } from './researchHandoffs';
-import { pendingResearchChallenges, preserveResearchChallengeBacklog, retainedResearchChallenges, resolveResearchChallenges,
-  type ResearchChallengeDecision } from './researchChallenges';
+import { pendingResearchHandoffs, retainedResearchHandoffs, selectResearchHandoffBatch } from './researchHandoffs';
+import { pendingResearchChallenges, retainedResearchChallenges } from './researchChallenges';
 import { taskConsumerProjection } from './taskConsumers';
 import { hasRunningDuplicateQuestion, parallelQuestions } from './taskQuestions';
 import { mathematicalGaps, mathematicalGapVisible } from './mathematicalGaps';
@@ -134,8 +133,7 @@ export class CooperativeResearch extends CooperationInputs {
         if (!rejection?.stalled || rejection.proposalDigest !== this.proposedPlanDigest() ||
             rejection.inputDigest !== this.planningInputDigest()) {
           const plan = readCooperationPlan(this.input.state.problem, this.lead.worktree);
-          this.preserveHandoffBacklog(plan, []);
-          preserveResearchChallengeBacklog(this.archive, plan.tasks, plan.proofRoutes, []);
+          this.preserveAdvisoryBacklogs(plan);
           const initial = !this.archive.tasks.length;
           await this.acceptPlan(plan);
           if (initial) this.needsLead = false;
@@ -457,26 +455,6 @@ export class CooperativeResearch extends CooperationInputs {
       (!taskIds || taskIds.has(node.task.id)) && this.archive.tasks.includes(node) &&
       this.livePeers.some(worker => this.input.modules.M5.assign([node], worker, this.livePeers, this.archive.groups, this.archive.tasks) === node));
   }
-  protected recordChallengeDecisions(decisions: readonly ResearchChallengeDecision[]) {
-    if (!decisions.length) return;
-    const records = new Map(this.archive.challengeDecisions?.map(item => [item.id, item]));
-    for (const decision of decisions) {
-      records.set(decision.id, decision);
-      this.input.emit('research_challenge_decided', { ...decision });
-    }
-    this.archive.challengeDecisions = [...records.values()];
-    this.changed();
-  }
-  protected recordHandoffDecisions(decisions: readonly ResearchHandoffDecision[]) {
-    if (!decisions.length) return;
-    const records = new Map(this.archive.researchDecisions?.map(item => [item.id, item]));
-    for (const decision of decisions) {
-      records.set(decision.id, decision);
-      this.input.emit('research_handoff_decided', { ...decision });
-    }
-    this.archive.researchDecisions = [...records.values()];
-    this.changed();
-  }
   reviewed(check?: ProofCheck) {
     const required = this.fixedStatementReviewTasks();
     if (this.fixedReviewScope && !required) return false;
@@ -616,11 +594,7 @@ export class CooperativeResearch extends CooperationInputs {
           if (action.handoffIds?.length || action.challengeIds?.length) {
             try {
               const response = block(worker.worktree, 'math-plan');
-              const decisions = resolveResearchHandoffs(this.archive, action.handoffIds ?? [],
-                this.archive.tasks.map(node => node.task), response.handoffDecisions, action.handoffActivations);
-              const challenges = resolveResearchChallenges(this.archive, action.challengeIds ?? [], action.challengeActivations ?? {},
-                this.archive.tasks.map(node => node.task), response.challengeDecisions);
-              this.recordHandoffDecisions(decisions); this.recordChallengeDecisions(challenges);
+              this.recordAdvisoryDecisions(this.resolveAdvisoryDecisions(action, this.archive.tasks.map(node => node.task), response));
             } catch (error) {
               this.rejectPlan(error); this.changed(); return { finished: true as const, checkWhole: false };
             }
@@ -651,14 +625,9 @@ export class CooperativeResearch extends CooperationInputs {
             action.challengeIds?.length || retainedResearchChallenges(this.archive).length) {
           const response = block(worker.worktree, 'math-plan');
           const plan = recoveryPlan ?? parseCooperationPlan(this.input.state.problem, response);
-          const decisions = resolveResearchHandoffs(this.archive, action.handoffIds ?? [], plan.tasks, response.handoffDecisions, action.handoffActivations);
-          const challenges = resolveResearchChallenges(this.archive, action.challengeIds ?? [], action.challengeActivations ?? {},
-            plan.tasks, response.challengeDecisions);
-          this.preserveHandoffBacklog(plan, decisions);
-          preserveResearchChallengeBacklog(this.archive, plan.tasks, plan.proofRoutes, challenges);
+          const decided = this.resolveAdvisoryDecisions(action, plan.tasks, response, plan);
           await this.acceptPlan(plan);
-          this.recordHandoffDecisions(decisions);
-          this.recordChallengeDecisions(challenges);
+          this.recordAdvisoryDecisions(decided);
         } else await this.acceptPlan(recoveryPlan);
         accepted = true;
       } catch (error) {
@@ -752,11 +721,7 @@ export class CooperativeResearch extends CooperationInputs {
         if (hasPendingShownHandoff()) {
           try {
             const response = block(worker.worktree, 'math-help');
-            const decisions = resolveResearchHandoffs(this.archive, action.handoffIds ?? [],
-              this.archive.tasks.map(node => node.task), response.handoffDecisions, action.handoffActivations);
-            const challenges = resolveResearchChallenges(this.archive, action.challengeIds ?? [], action.challengeActivations ?? {},
-              this.archive.tasks.map(node => node.task), response.challengeDecisions);
-            this.recordHandoffDecisions(decisions); this.recordChallengeDecisions(challenges);
+            this.recordAdvisoryDecisions(this.resolveAdvisoryDecisions(action, this.archive.tasks.map(node => node.task), response));
             this.archive.error = undefined; this.changed();
           } catch (error) {
             const reason = error instanceof Error ? error.message : 'invalid response';
