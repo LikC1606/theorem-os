@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { mathDigest } from '../src/math/mathRuntimeIo';
 import type { TheoremKnowledgeBase, TheoremKnowledgeEntry } from '../src/solver/theoremKnowledge';
-import { knowledgeSearchGroup, knowledgeVersionSummary, searchTheoremKnowledge, searchTheoremKnowledgeBatch } from '../src/solver/theoremKnowledgeSearch';
+import { knowledgeSearchGroup, knowledgeVersionSummary, searchTheoremKnowledge, searchTheoremKnowledgeBatch,
+  searchTheoremKnowledgeRequests } from '../src/solver/theoremKnowledgeSearch';
 
 const normType = '∀ (q : ℕ) [NeZero q] (χ : DirichletCharacter ℂ q), χ.IsPrimitive → ‖χ.rootNumber‖ = 1';
 const name = 'Submission.Helpers.paper_root_number_norm';
@@ -386,5 +387,75 @@ describe('batched theorem knowledge retrieval', () => {
     const item = entry();
     Object.defineProperty(item, 'declaration', { get: () => { throw new Error('must not prepare'); } });
     expect(() => searchTheoremKnowledgeBatch(base(item), queries)).toThrow('math_knowledge_invalid_query');
+  });
+});
+
+describe('independent-goal knowledge batches', () => {
+  it('preserves the existing absent-goal treatment for null at runtime', () => {
+    const catalog = base(entry()), goal = null as unknown as string;
+    const expected = searchTheoremKnowledge(catalog, 'root');
+    expect(searchTheoremKnowledge(catalog, 'root', { goal })).toEqual(expected);
+    expect(searchTheoremKnowledgeBatch(catalog, ['root'], { goal })).toEqual([expected]);
+    expect(searchTheoremKnowledgeRequests(catalog, [{ query: 'root', goal }])).toEqual([expected]);
+  });
+
+  it('matches independent ranking, grouping and preferences for every full goal and query', () => {
+    const nat = entry('Saved.natural_reflexivity', 'forall (n : Nat), n = n');
+    const old = entry(), current = entry(name, normType, { id: mathDigest('current-proof'),
+      environmentDigest: 'current-environment', declaration: 'theorem paper_root_number_norm := by exact current_proof' });
+    current.provenance = [{ ...current.provenance[0]!, problemReceiptDigest: 'current-problem' }];
+    const foreign = entry('Foreign.natural_reflexivity', nat.type);
+    foreign.provenance = [{ ...foreign.provenance[0]!, problemId: 'another-problem' }];
+    const catalog = base(old, nat, foreign, current);
+    const requests = Object.freeze([
+      { query: 'unavailablekeyword' },
+      { query: '', goal: 'forall (value : Nat), value = value' },
+      { query: '', goal: normType },
+      { query: 'root norm', goal: nat.type },
+      { query: '', goal: normType },
+    ]);
+    const options = { limit: 2, displayGrouping: 'exact-interface' as const,
+      problemId: 'annals_dirichlet_weyl_bound', environmentDigest: 'current-environment', problemReceiptDigest: 'current-problem' };
+    const results = searchTheoremKnowledgeRequests(catalog, requests, options);
+    expect(results).toEqual(requests.map(request => searchTheoremKnowledge(catalog, request.query, { ...options, ...request })));
+    expect(results.map(result => result.hits[0]?.id)).toEqual([undefined, nat.id, current.id, current.id, current.id]);
+    expect(results.every(result => result.hits.every(hit => hit.id !== foreign.id))).toBe(true);
+  });
+
+  it('prepares declarations once and observes fresh metadata on the next call', () => {
+    const item = entry(), declaration = item.declaration;
+    let reads = 0;
+    Object.defineProperty(item, 'declaration', { get: () => { reads++; return declaration; } });
+    const catalog = base(item), requests = [{ query: 'root' }, { query: '', goal: normType }, { query: '', goal: 'True' }];
+    searchTheoremKnowledgeRequests(catalog, requests);
+    expect(reads).toBe(1);
+    item.type = 'NewTypeMarker';
+    expect(searchTheoremKnowledgeRequests(catalog, [{ query: 'NewTypeMarker' }])[0]!.hits[0]!.typePreview).toBe('NewTypeMarker');
+    expect(reads).toBe(2);
+  });
+
+  it('keeps full local hypotheses in result identities even when conclusions and queries match', () => {
+    const nat = entry('Saved.natural_case', 'SharedTarget Nat'), real = entry('Saved.real_case', 'SharedTarget Real');
+    const catalog = base(nat, real), requests = [
+      { query: '', goal: 'h : Nat\n⊢ SharedTarget' },
+      { query: '', goal: 'h : Real\n⊢ SharedTarget' },
+      { query: '', goal: 'h : Nat\n⊢ SharedTarget' },
+    ];
+    const results = searchTheoremKnowledgeRequests(catalog, requests);
+    expect(results).toEqual(requests.map(({ query, goal }) => searchTheoremKnowledge(catalog, query, { goal })));
+    expect(results.map(result => result.hits[0]!.id)).toEqual([nat.id, real.id, nat.id]);
+    results[0]!.hits[0]!.versions[0]!.problemIds.push('caller-change');
+    expect(results[2]!.hits[0]!.versions[0]!.problemIds).not.toContain('caller-change');
+  });
+
+  it.each([
+    [], Array(9).fill({ query: 'root' }), [{ query: 'root' }, { query: '' }],
+    [{ query: 'root' }, { query: '', goal: 'x'.repeat(16001) }],
+    [{ query: 'root' }, { query: 'x'.repeat(4001) }], [null],
+  ].map(requests => ({ requests })))('validates every request before reading the catalog: $requests', ({ requests }) => {
+    const item = entry();
+    Object.defineProperty(item, 'declaration', { get: () => { throw new Error('must not prepare'); } });
+    expect(() => searchTheoremKnowledgeRequests(base(item), requests as { query: string; goal?: string }[]))
+      .toThrow('math_knowledge_invalid_query');
   });
 });

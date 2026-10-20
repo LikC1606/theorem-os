@@ -11,6 +11,48 @@ const aliases = new Map([['ℕ', 'Nat'], ['ℤ', 'Int'], ['ℚ', 'Rat'], ['ℝ',
 const ambiguousSumTail = new Set(['=', '≠', '<', '>', '≤', '≥', '∧', '∨', '→', '->', '↔', '<->',
   '∈', '∉', '⊆', '⊂', '⊇', '⊃', ',', ';', ':']);
 
+export type KnowledgeResidualView = Readonly<{ display: string; target: string; goal: string; caseLabel?: string;
+  localContext: 'closed-for-retrieval' | 'target-only' | 'no-locals'; fallbackReason?: string }>;
+
+/** Split Lean's displayed cases, closing only simple local declarations. Never an elaborated type. */
+export function knowledgeResidualViews(value: string): KnowledgeResidualView[] {
+  if (!/⊢|\|-/u.test(value)) return [{ display: value, target: value, goal: value, localContext: 'no-locals' }];
+  const blocks = value.split(/(?=^\s*case\s+[^\n]+$)/gmu).filter(block => block.trim());
+  const result: KnowledgeResidualView[] = [];
+  for (const block of blocks) {
+    const markers = [...block.matchAll(/⊢|\|-/gu)];
+    if (markers.length !== 1) {
+      // Unsupported displays are searched as a whole, never by silently taking their final target.
+      result.push({ display: block, target: block, goal: block, localContext: 'target-only', fallbackReason: 'ambiguous-goal-display' });
+      continue;
+    }
+    const marker = markers[0]!, before = block.slice(0, marker.index), target = block.slice(marker.index! + marker[0].length).trim();
+    const lines = before.trim().split('\n').map(line => line.trim()).filter(Boolean);
+    const caseLabel = lines[0]?.startsWith('case ') ? lines.shift()!.slice(5).trim() : undefined;
+    const binders: string[] = [], names = new Set<string>();
+    let supported = true;
+    for (const line of lines) {
+      const declaration = /^([\p{L}_][\p{L}\p{M}\p{N}_' \t]*)\s*:\s*(.+)$/u.exec(line);
+      if (!declaration || /:=|[✝†]|\.{3}|…/u.test(line)) { supported = false; break; }
+      const declared = declaration[1]!.trim().split(/\s+/u), type = declaration[2]!.trim();
+      if (!type || declared.some(name => !simpleName.test(name) || names.has(name) || name === '_')) { supported = false; break; }
+      // Unbalanced or multiline locals and local definitions cannot be faithfully closed here.
+      const stack: string[] = [];
+      for (const char of type) {
+        if ('([{'.includes(char)) stack.push(char);
+        else if (')]}'.includes(char) && stack.pop() !== '([{'.charAt(')]}'.indexOf(char))) { supported = false; break; }
+      }
+      if (stack.length || !supported) { supported = false; break; }
+      declared.forEach(name => names.add(name));
+      binders.push(`(${declared.join(' ')} : ${type})`);
+    }
+    result.push({ display: block.trim(), target, goal: supported && binders.length ? `∀ ${binders.join(' ')}, ${target}` : target,
+      ...(caseLabel ? { caseLabel } : {}), localContext: !supported ? 'target-only' : binders.length ? 'closed-for-retrieval' : 'no-locals',
+      ...(!supported ? { fallbackReason: 'unsupported-local-declaration' } : {}) });
+  }
+  return result;
+}
+
 /** A conservative ranking surface, never evidence of Lean equivalence or applicability. */
 export function knowledgeGoalSurfaceShape(value: string): string | undefined {
   if (maskLeanComments(value).includes('"')) return undefined;

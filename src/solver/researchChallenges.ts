@@ -1,5 +1,5 @@
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
-import type { DeliveryRecord } from './deliveries';
+import { deliveryFinding, type DeliveryRecord } from './deliveries';
 import type { ProofRoute } from './proofRoutes';
 import { hasTaskAcceptance, isAdvisoryTask, taskVersion, type CooperativeTask, type TaskRecord } from './tasks';
 
@@ -16,6 +16,7 @@ type ChallengeState = Readonly<{
 export type ResearchChallenge = Readonly<{
   id: string; deliveryId: string; sourceTaskId: string; sourceTaskDigest: string; findingDigest: string;
   contextDigest: string; activationDigest: string; conclusion: string; summary: string; evidenceRefs: readonly string[];
+  finding: string;
   source?: { commit: string; notesPath: 'RESEARCH.md' };
   status: 'pending' | ResearchChallengeDecision['status']; decision?: ResearchChallengeDecision;
 }>;
@@ -45,13 +46,15 @@ export function researchChallenges(state: ChallengeState): ResearchChallenge[] {
   const decisions = new Map(state.challengeDecisions?.map(item => [item.id, item]));
   return (state.deliveries ?? []).flatMap(delivery => {
     const node = delivery.taskId && nodes.get(delivery.taskId);
-    if (delivery.kind !== 'research' || delivery.status === 'superseded' || !node?.finding ||
+    if (delivery.kind !== 'research' || delivery.status === 'superseded' || !node ||
         delivery.taskDigest !== taskVersion(node.task) || delivery.dependencies.some(input =>
           !nodes.has(input.taskId) || taskVersion(nodes.get(input.taskId)!.task) !== input.taskDigest)) return [];
+    const text = deliveryFinding(delivery, node.finding);
+    if (text === undefined) return [];
     let finding: any;
-    try { finding = JSON.parse(node.finding); } catch { return []; }
+    try { finding = JSON.parse(text); } catch { return []; }
     if (!finding || typeof finding !== 'object' || Array.isArray(finding)) return [];
-    const findingDigest = mathDigest(node.finding);
+    const findingDigest = mathDigest(text);
     if (delivery.findingDigest !== findingDigest ||
         finding.conclusion !== 'refuted' && finding.needsDecision !== true) return [];
     const id = mathDigest(canonicalMathJson({ deliveryId: delivery.id, findingDigest }));
@@ -69,7 +72,7 @@ export function researchChallenges(state: ChallengeState): ResearchChallenge[] {
     });
     return [{ id, deliveryId: delivery.id, sourceTaskId: node.task.id, sourceTaskDigest: taskVersion(node.task), findingDigest,
       contextDigest, activationDigest: mathDigest(canonicalMathJson({ contextDigest, recorded, waitingInputs })),
-      conclusion: finding.conclusion ?? 'inconclusive', summary: delivery.summary, evidenceRefs: delivery.evidenceRefs,
+      finding: text, conclusion: finding.conclusion ?? 'inconclusive', summary: delivery.summary, evidenceRefs: delivery.evidenceRefs,
       ...(delivery.commit ? { source: { commit: delivery.commit, notesPath: 'RESEARCH.md' as const } } : {}),
       status: reopened ? 'pending' as const : decision?.status ?? 'pending' as const, ...(decision ? { decision } : {}) }];
   });
@@ -78,11 +81,19 @@ export function researchChallenges(state: ChallengeState): ResearchChallenge[] {
 export const pendingResearchChallenges = (state: ChallengeState) => researchChallenges(state).filter(item => item.status === 'pending');
 export const retainedResearchChallenges = (state: ChallengeState) => researchChallenges(state).filter(item =>
   item.status === 'pending' || item.status === 'deferred' && Boolean(item.decision?.waitsOn?.length));
+export function researchChallengeContext(challenge: ResearchChallenge) {
+  const { finding, ...identity } = challenge;
+  return Buffer.byteLength(finding) <= 16 * 1024 ? challenge : { ...identity,
+    findingBytes: Buffer.byteLength(finding), findingSource: {
+      file: 'COOPERATION.json', collection: 'researchChallenges', id: challenge.id, findingDigest: challenge.findingDigest,
+      retrieval: 'Read the complete finding by id and require UTF-8 SHA-256(finding) = findingDigest. The finding remains advisory.',
+    } };
+}
 export function selectResearchChallengeBatch(state: ChallengeState) {
   const selected: ResearchChallenge[] = [];
   let bytes = 0;
   for (const item of pendingResearchChallenges(state)) {
-    const size = Buffer.byteLength(JSON.stringify(item));
+    const size = Buffer.byteLength(JSON.stringify(researchChallengeContext(item)));
     if (selected.length && (selected.length >= 8 || bytes + size > 32 * 1024)) break;
     selected.push(item); bytes += size;
   }

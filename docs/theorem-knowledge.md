@@ -71,6 +71,104 @@ bun bin/math.ts knowledge pack \
 Packing fully verifies the old catalog before writing. `build --format v1` is
 available for consumers that need the original single-file format.
 
+## Enrich Archived Interfaces
+
+Only an explicit enrichment operation invokes Lean. It uses a disposable copy of
+the complete archived proofs and an already installed, matching pinned toolchain:
+
+```bash
+bun bin/math.ts knowledge enrich \
+  --accepted-manifest accepted/accepted.json --problem PROBLEM_ID \
+  --output /PATH/knowledge/accepted-enrichment.json
+
+bun bin/math.ts knowledge build \
+  --accepted-manifest accepted/accepted.json \
+  --accepted-enrichment /PATH/knowledge/accepted-enrichment.json \
+  --output /PATH/knowledge/enriched-catalog.json
+```
+
+Use `--submitted-manifest` and `--submitted-enrichment` for locally verified
+archives whose official result remains pending. An enrichment snapshot may cover
+one problem in a larger manifest. Other problems and missing roots retain unknown
+coverage. Enrichment has no time limit and responds to cancellation. It does not
+install toolchains, replace unavailable versions, invoke a model or run a solver.
+External package dependencies require the existing frozen proof environment;
+mutable packages cannot establish a reusable environment identity.
+
+The independent, immutable sidecar binds the original manifest bytes, archive
+record, source commit, every source and configuration file, actual tools and
+environment, collector version and complete query templates. It embeds the exact
+queries, full type exports, statement contexts and diagnostic artifacts with
+their hashes. Explicit mismatches are rejected. Ordinary builds and searches do
+not compile archives, and importing a sidecar does not need its old compiler.
+
+Successful collection adds an `elaboration` field with the full Lean type,
+universe parameters, available statement context, explicit omissions and
+collection identities. The proof-aware full type is checked by elaborating it
+back in the recorded environment. The original `type` and `source-header` remain
+intact. Inspect the complete addition with `get --metadata --field elaboration`,
+following `nextOffset` until `truncated:false` and parsing the joined JSON. A
+failed or unavailable collection never becomes an empty dependency report.
+This information remains historical and advisory; it creates no M2 or S3 receipt.
+
+Collector v3 exports fully explicit proof-aware types up to 2,000,000 bytes with
+the same Lean round-trip equivalence check. This is an offline storage limit;
+search previews and model context budgets keep their existing bounds. Collector
+v1 and v2 retain their exact generators and 24,000 / 256,000 byte limits. The readable statement
+context keeps its existing limits; an oversized readable type is recorded as an
+omission without discarding a successfully round-tripped full type or references.
+Other Lean compilation and type-export errors still fail collection. Explicit reference collection allows up to
+4,096 references per closure, 256,000 report bytes and 2,000,000 distinct visited
+constants. Unavailable references retain their specific traversal, count, byte or
+missing-proof reason. These limits apply to archive enrichment; ordinary solver
+diagnostics keep their existing bounds. Readers validate each known collector's
+exact generator identity, so existing v1 and v2 sidecars remain readable without Lean.
+
+Retry only failed, unavailable or missing roots in a validated earlier snapshot:
+
+```bash
+bun bin/math.ts knowledge enrich \
+  --accepted-manifest accepted/accepted.json --problem PROBLEM_ID \
+  --retry-enrichment /PATH/knowledge/accepted-enrichment.json \
+  --output /PATH/knowledge/retry-enrichment.json
+```
+
+The retry validates the previous manifest, complete record binding and toolchain
+before invoking Lean. It preserves the original query indices and writes a new
+sidecar containing only the selected collection results. Successful roots in the
+previous snapshot are skipped. A retry with no remaining roots fails before Lean.
+Both sidecars remain independent historical evidence; the retry snapshot alone
+does not include successful results from the previous snapshot.
+
+If a published proof snapshot omits an official baseline dependency, reconstruct
+an independent archive and manifest from the pinned official bytes before
+collecting. Retain the original manifest, source hashes and baseline provenance
+alongside the restored projection. Adding an unverified earlier workspace copy
+does not establish its identity as an accepted dependency.
+
+## Inspect Historical Consumers
+
+```bash
+bun bin/math.ts knowledge consumers \
+  --catalog /PATH/knowledge/enriched-catalog.json --sha256 CATALOG_SHA256 \
+  --id THEOREM_ID --limit 8 --max-bytes 16000
+```
+
+Search hits include this reading handle. Consumers reverse recorded references
+only within the same complete source context and a known, identical environment,
+matching the exact file and qualified declaration name. Statement and proof uses
+are reported separately. These edges describe local transitive reference closures;
+they do not record direct application arguments or establish applicability in a
+new problem. An empty list is not evidence that no useful consumer exists.
+
+Each row includes complete small interfaces or explicit previews, hashes and
+metadata continuations for its type, premises and elaboration. Source and context
+handles locate the corresponding proof and project files. The complete JSON
+response, including its newline, respects `--max-bytes`; `nextOffset` continues
+with `--offset N`. Offsets count consumer rows in this command, rather than text
+code units. Read the consumer's complete premises and source before adapting the
+application, then check its remaining goals in the current problem with Lean.
+
 ## Advisory Route Memory
 
 Import recorded research separately from checked theorems with an explicit option:
@@ -102,6 +200,12 @@ catalogs preserve these records without adding them to checked theorem entries o
 installing their historical sources. A finding cannot grant acceptance or park a
 current task. Attached catalogs may contribute at most two finding hints per
 target, sharing the existing 4 KiB context allowance.
+
+Within one context build, route searches for distinct goals prepare the recorded
+statements and summary terms once. Each request keeps its complete raw goal and
+independent ranking; exact matches include source and dependency statements.
+Environment and receipt matches remain annotations. Repeated requests return
+independent result objects, and later calls read the metadata again.
 
 ## Search and Read
 
@@ -259,6 +363,24 @@ by the context budget. The checkpoint retains 128 retrieval observations and a
 dropped count; full observations are emitted as events. Old checkpoints without
 these observations have unknown coverage, rather than zero inferred lookups.
 
+`compare --phase prepare` and `sample-putnam --phase prepare` also accept
+`--knowledge-base FILE`. They freeze the catalog, its source objects, digest and
+`--knowledge-mode transfer|recovery` in the experiment plan and pass the frozen
+snapshot to every launch. The default `transfer` mode rejects recorded target
+problem provenance, target entry names, target declarations in archived source
+payloads and same-problem findings. This checks recorded identities, not
+mathematical equivalence. Use `recovery` for intentionally reusing the target's
+own history. Resume and report use the saved plan and reject changed snapshots.
+
+Each matching, knowledge-enabled comparison run reports a `knowledgeFunnel`:
+returned search hits, rendered candidates, included context, model selections,
+application checks and exact original-consumer closure. Checked references and
+elaborated applications remain separate; a completed helper does not close an
+original goal. Missing, truncated and legacy observations retain their coverage
+limits; unavailable search counts are `null`, while a recorded empty hit list is
+zero. Disabled or identity-mismatched runs have no funnel. These observations do
+not establish that knowledge caused a proof or cost improvement.
+
 A worker may report a saved theorem it tried in its normal RESEARCH.md JSON:
 
 ```json
@@ -272,6 +394,32 @@ does not prove historical authorship or current proof acceptance. Invalid claims
 are rejected telemetry and cannot reject an otherwise valid proof. Original-goal
 observations retain at most 256 records; task deliveries keep their own observations.
 
+For a specific adaptation, add an optional `application` to that same use:
+
+```json
+{"knowledgeUses":[{"id":"THEOREM_ID","catalogDigest":"PINNED_SHA256","declaration":{"name":"Current.adaptedHelper","file":"Submission.lean"},"application":{"expression":"Current.adaptedHelper","expectedType":"forall (n : Nat), n + 0 = 0 + n","context":{"file":"Submission.lean","declaration":"Current.consumer"},"adaptationSteps":["Instantiate the saved result for the current variables"],"remainingGoals":[],"reconsiderWhen":["The current premises or source change"]}}]}
+```
+
+Use the actual closed expression, expected type and assigned context. Optional
+`arguments` entries have `parameter` and `value`; `additionalPremises`,
+`typeclassIssues`, `adaptationSteps`, `remainingGoals` and `reconsiderWhen` are
+lists of notes. The host checks at most four new selected applications per
+publication in a proof-erased disposable context, recording `elaborated`,
+`failed` or `unavailable` and whether the selected declaration was actually used.
+The model cannot supply the host's `check`. Invalid optional reports do not
+reject a legitimate proof or reference claim.
+
+Application elaboration has authority `advisory-application-elaboration`: local
+declared results may be assumptions, so success checks the reported application
+under those interfaces. It does not prove them or close the consumer. Reuse
+requires the exact catalog, report, consumer contract, submitted sources, complete
+import/configuration closure, tools, frozen environment and intact diagnostic
+artifacts. Changed inputs require a new check. M4 can recall up to four scoped
+experiences with bounded previews and full local
+`.lake/knowledge-applications/<digest>.json` handles. Failures retain their scope
+and retry conditions instead of excluding a theorem permanently. Historical
+`knowledge consumers` reference closures remain a separate source of evidence.
+
 Knowledge remains `recorded-not-replayed` with `requiresFreshCheck: true`.
 Neither lookup nor import marks a task accepted, installs old receipts, or closes
 an original goal. The existing independent Lean checks and official evaluator
@@ -284,8 +432,34 @@ When a run attaches a catalog, M4 also searches its already validated metadata
 before dispatching proof work. A lemma assignment uses its complete closed Lean
 type. An original goal uses its frozen source header, including declared binders,
 instead of a type supplied by the planner. Research assignments search their
-objective. Lead planning first searches unresolved original-goal frontier tasks;
-the primary solver and initial planning use the frozen original targets.
+objective. Lead planning searches unresolved original-goal frontier tasks, placing
+the evidence-ranked preferred route first and using the current environment when
+reading recorded checks. Other active frontiers retain their existing order in
+the remaining slots. Residual diagnostic consumers use the same target selection.
+The primary solver and initial planning use the frozen original targets.
+
+If the current worker has complete Lean JSON diagnostics for one of those exact
+consumers, M4 first searches its full residual goal, including local hypotheses.
+It rechecks the complete local import closure, project configuration, sealed
+dependency identity and actual Lean tools before reading a goal. Only normal
+compiler exits with complete, hash-matched raw output are eligible. File positions
+must identify a unique qualified declaration and current task version. Missing,
+stale, interrupted, truncated or ambiguous diagnostics fall back to the task type,
+frozen source header or research objective above.
+
+Each accepted diagnostic is at most 16,000 bytes. Independent residuals and cases
+form separate queries; supported local declarations are closed with binders only
+for retrieval, while the original diagnostic stays intact. Unsupported syntax
+uses an explicit fallback. Stable ordering and round-robin allocation across
+consumers share at most eight search requests. The diagnostic reader retains at
+most eight matching messages and records how many additional messages it omitted.
+Candidate packets retain their existing 4 KiB limit. Retrieval observations
+record `searchSource: residual-goal`, each case's searched/omitted status, reader
+omissions and exact diagnostic, source, environment and tool identities, even
+when prompt budget omits the hint. `searchCandidateIds` records returned hits
+before packet limits; `candidateIds` records those actually rendered.
+The worker-writable `.lake/lean-diagnostics-latest.json` and its raw artifacts
+remain advisory and cannot supply proof acceptance or reopen a closed obligation.
 
 The host considers at most three targets and three candidates per target. Each
 target's hint section is at most 4 KiB; excess candidates are removed whole and
@@ -293,6 +467,13 @@ counted. An oversized query is explicitly reported as not searched, rather than
 truncating its mathematical input. These are retrieval and context limits, not
 solving deadlines. The normal context manifest records sections omitted for prompt
 budget, while exact current interfaces and assumptions remain mandatory.
+
+The theorem searches in one context build share catalog preparation. Each target
+keeps its complete query and goal, including local hypotheses, and receives the
+same ranking as an independent search. Repeated requests return independent
+result objects. The prepared corpus is discarded after the call, so later calls
+observe current metadata; empty and oversized targets retain their own explicit
+not-searched records.
 
 Hints bind the catalog digest, current consumer and search-input digest. They show
 bounded type previews, dependency coverage and recorded environment compatibility.

@@ -115,6 +115,30 @@ bun run math run \
 
 恢复时使用原有题目、构建、环境、模型和 Agent 数量。宿主校验运行身份，并重新验证已有证明；会话、失败记录和累计用量保留在运行档案中。
 
+新建续跑可用 `--continuation-manifest FILE` 明确附加历史证明、笔记或诊断。任务文件继续逐字作为必需题面，宿主不会按 Markdown 标题拆分或删除文字。附件清单例如：
+
+```json
+{
+  "schema": "theorem-os.continuation-input.v1",
+  "taskDigest": "TASK_FILE_SHA256",
+  "problemReceiptDigest": "FROZEN_PROBLEM_RECEIPT_DIGEST",
+  "attachments": [{
+    "id": "old-notes",
+    "kind": "research-notes",
+    "path": "previous/RESEARCH.md",
+    "bytes": 39133,
+    "sha256": "ATTACHMENT_SHA256",
+    "provenance": { "evidence": "recorded-not-replayed", "source": "previous run" }
+  }]
+}
+```
+
+摘要需替换为真实的 64 位十六进制值，字节数也须精确匹配。`taskDigest` 为完整任务文件的 SHA-256，`problemReceiptDigest` 为 `readSolverProblem` 返回的固定题目收据摘要；附件路径相对清单目录解析。`kind` 支持 `proof-source`、`research-notes`、`diagnostics`，`provenance` 可省略，缺省按未验证材料处理。
+
+宿主验证完整 UTF-8 文件并生成只读快照，工人从各自项目的 `.lake/continuation.json` 读取；必需上下文只含附件索引和读取命令。`continuation read --snapshot FILE --sha256 DIGEST --id old-notes --offset 0 --max-bytes 16000` 返回有界 JSON 页，按 `nextOffset` 继续，逐字连接 `text`，偏移单位为 UTF-16 code unit。历史检查须重新验证，附件不改变原题假设或证明验收。
+
+恢复时可以省略原清单，继续读取已冻结的快照；显式再次提供清单时必须完全匹配。快照损坏或缺失会拒绝恢复。既有无附件运行不能静默添加附件；需要附加材料时应显式新建运行。盲法声明回译不接收附件。
+
 ### 5. 查看研究状态与修改计划
 
 ```bash
@@ -227,6 +251,7 @@ Lead 计入 `--workers` 的总人数。默认配置中，Engineer 持续负责�
 | `--workers` | `4` | Agent 总数，支持 1–4 |
 | `--method` | `direct` | `direct` 或 `lemma` |
 | `--coordination` | `cooperative` | 协作，或 `independent` 独立并行尝试 |
+| `--continuation-manifest` | 无 | 新建时绑定显式历史附件；恢复时沿用同一只读快照 |
 | `--scheduler` | `plan` | 按计划顺序调度；`goals-first` 优先已就绪原题目标；`critical-path` 按依赖链排序；`continuation` 优先承接已证成果的主路径任务；`primary-led` 直接解题、按需请求协助 |
 | `--prepare-timeout-seconds` | `1800` | 环境准备与依赖预编译预算 |
 | `--max-run-seconds` | `1800` | 准备完成后的共享解题时间预算 |
@@ -275,9 +300,10 @@ bun run math bootstrap-lean-eval --help
 | `inspect` | 查看存档研究报告，导出 JSON 或带版本的可编辑计划 |
 | `edit` | 校验并提交人工计划修改，支持 `--dry-run` |
 | `compare` | 准备、运行并汇总固定预算的单 Agent / 独立并行 / 协作对照 |
-| `check-lean` | 对保存的 Lean 文件获取局部诊断 |
+| `check-lean` | 获取局部诊断、预检闭合类型或具体应用表达式 |
+| `continuation` | 按摘要及附件 ID 分页读取冻结的续跑材料 |
 | `search-lean` | 检索已验证的本地 Lean 包声明 |
-| `knowledge` | [导入、搜索和读取历史已检查定理](theorem-knowledge.md)，以固定版本供后续运行复用 |
+| `knowledge` | [导入、搜索和读取历史已检查定理](theorem-knowledge.md)；显式 enrich 补采类型与引用，consumers 回读历史应用链 |
 | `freeze-retrieval` | 冻结允许检索的本地源码语料 |
 | `summarize` | 汇总保存的实验记录 |
 
@@ -305,7 +331,11 @@ bun run math check-lean \
 
 `--context` 指定文件中已有声明，恢复其命名空间和 open 作用域；类型模式要求恰好一个文件。`elaborated` 仅表示闭合类型可展开，不代表有证明、等于原题或已获验收，尚不存在的 helper 也不会自动注入。材料保存在项目 `.lake/type-diagnostics/`，默认不限时。
 
+在同一命令中添加 `--expression 'fun n : Nat => Nat.add_comm n 0'` 可核对具体应用；将上例 `--type` 改为 `'forall (n : Nat), n + 0 = 0 + n'`。表达式必须是无洞、无 sorry 的完整 Lean 项。宿主在证明擦除副本中检查应用，局部声明仍可能是假设，所以这项结果不替代实际证明或原题验收。
+
 对照报告可用 `compare --phase check-report --directory DIR` 只读核对快照；续跑后旧报告标为过期，重新生成会保留 `report.json.history/`。预算等身份改变的续跑即使通过，也不会计入原固定预算对照。
+
+`compare` 和 `sample-putnam` 的 `--phase prepare` 支持 `--knowledge-base FILE`，冻结目录及源码对象，并向每次运行透传同一快照。`--knowledge-mode transfer` 为默认，拒绝可识别的目标题目来源、目标条目和源码声明及同题路线记忆；同题历史恢复显式使用 `--knowledge-mode recovery`。后续 run/report 沿用计划，目录或身份变化不能静默续跑。报告中的 `knowledgeFunnel` 区分检索命中、进入上下文、模型选择、应用检查与原题闭合；旧记录缺失保持未知，观测本身不证明解题收益。完整用法见[定理知识库](theorem-knowledge.md)。
 
 ## 架构与开发
 
@@ -353,6 +383,8 @@ agent 的常用协议只有两步：读取任务，写出成果。需要结构�
 声明投影失败会在 `<output>.runtime/statement-diagnostics/` 保存实际投影源码、各最多 1MB 的标准输出和错误输出及题目/提交绑定的清单，异常摘要优先显示首条 Lean 错误。这些含证明擦除占位符的投影仅用于诊断。
 
 需要提前共享时，向提示词指定的分工日志追加一行 `{"summary":"进展或卡点"}`；提前交付证明则先提交源码，再追加 `{"kind":"proof","commit":"完整 Git 提交","summary":"成果"}`。宿主自动补充消息编号、任务和版本，去重并随完成随检查、接入和通知；无须等待 Lead 或整批任务结束。`COOPERATION.json` 提供只读同伴状态。旧的 `math-plan`、`math-result`、`math-review` 等代码块及带版本字段的 `DELIVERIES.jsonl` 仍可读取，以便已有运行继续恢复。
+
+证明进行中也可向同一分工日志发表完整研究事件：`{"kind":"research","finding":{"summary":"完整论证、精确前提和局部缺口","conclusion":"refuted","needsDecision":true,"evidenceRefs":[],"lemmaRequests":[]}}`。宿主在独立快照中冻结该事件，不修改 worker 的工作文件；每次发表分别保留完整 finding，跨重启去重，并交给 Lead 处理反驳和引理提案。可选 `commit` 指向本次分工种子之后已冻结的支持材料。发表不结束当前证明、不接受定理，也不会仅因反驳结论停放路线。
 
 任务图为空的初始 Lead 还可向提示词指定的独立日志追加一行 `{"kind":"plan","baseVersion":"当前基版本","summary":"路线说明","tasks":[...]}`，提前发布一次完整有效计划并继续研究。其他角色从 canonical 源码开始；普通笔记草稿不会自动发布。必需上下文中的研究反驳须用 `challengeDecisions` 明确修订、附证据反对或说明等待输入，不能由省略字段静默忽略。
 

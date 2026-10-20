@@ -1,12 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { assertMathCanonicalPath } from '../math/paths';
-import { readMathText } from '../math/mathRuntimeIo';
+import { mathDigest, readMathText } from '../math/mathRuntimeIo';
 import type { ProofCheck } from './modules/evidence';
 import type { ProofReferences } from './proofReferences';
 import type { DeliveryArtifactManifest } from './deliveryArtifacts';
 import type { CooperativeTask } from './tasks';
 import type { KnowledgeUse } from './knowledgeUsage';
+import { mathematicalGapSchema, type MathematicalGap, type MathematicalGapScope } from './mathematicalGaps';
 
 // Long-lived task graphs can exceed a short prompt's display allowance. Keep the
 // complete host response bounded by the committed-source reader's byte allowance.
@@ -57,7 +58,11 @@ export type DeliveryRecord = {
   summary: string; evidenceRefs: readonly string[]; createdAt: number; commit?: string; sourceDigest?: string;
   /** Host identity for the complete advisory finding, separate from the short delivery summary. */
   findingDigest?: string;
+  /** Each publication retains its own complete finding, including during an active proof. */
+  finding?: string;
   knowledgeUses?: readonly KnowledgeUse[];
+  mathematicalGap?: MathematicalGap;
+  mathematicalGapScope?: MathematicalGapScope;
   evidence?: { passed: boolean; verification: Pick<ProofCheck['verification'], 'status' | 'targetCommit'> & { results: { receiptId: string }[] } };
   actualReferences?: ProofReferences;
   artifacts?: DeliveryArtifactManifest;
@@ -65,19 +70,27 @@ export type DeliveryRecord = {
   lemmaRequests?: readonly CooperativeTask[];
 };
 
+export function deliveryFinding(record: DeliveryRecord, nodeFinding?: string): string | undefined {
+  const finding = record.finding ?? nodeFinding;
+  return record.kind === 'research' && typeof finding === 'string' && record.findingDigest === mathDigest(finding)
+    ? finding : undefined;
+}
+
 export function deliveryDetails(value: any): Pick<DeliveryRecord, 'summary' | 'evidenceRefs'> &
-  Partial<Pick<DeliveryRecord, 'statement' | 'premises' | 'remainingObligations'>> {
+  Partial<Pick<DeliveryRecord, 'statement' | 'premises' | 'remainingObligations' | 'mathematicalGap'>> {
   const strings = (items: unknown) => Array.isArray(items) && items.every(item => typeof item === 'string');
   if (!value || (value.summary !== undefined && typeof value.summary !== 'string') ||
       (value.statement !== undefined && (typeof value.statement !== 'string' || !value.statement.trim())) ||
       (value.premises !== undefined && !strings(value.premises)) ||
-      (value.remainingObligations !== undefined && !strings(value.remainingObligations))) throw new Error('math_delivery_invalid');
+      (value.remainingObligations !== undefined && !strings(value.remainingObligations)) ||
+      (value.mathematicalGap !== undefined && !mathematicalGapSchema.safeParse(value.mathematicalGap).success)) throw new Error('math_delivery_invalid');
   const summary = value.summary ?? '';
   // The raw response remains in RESEARCH.md; a long advisory note does not invalidate its verdict or evidence.
   return { summary: summary.length <= 3000 ? summary : summary.slice(0, 2999).replace(/[\uD800-\uDBFF]$/u, '') + '…', evidenceRefs: advisoryEvidenceRefs(value.evidenceRefs),
     ...(value.statement === undefined ? {} : { statement: value.statement }),
     ...(value.premises === undefined ? {} : { premises: value.premises }),
-    ...(value.remainingObligations === undefined ? {} : { remainingObligations: value.remainingObligations }) };
+    ...(value.remainingObligations === undefined ? {} : { remainingObligations: value.remainingObligations }),
+    ...(value.mathematicalGap === undefined ? {} : { mathematicalGap: mathematicalGapSchema.parse(value.mathematicalGap) }) };
 }
 
 type DeliveryLogEntry = { line?: string; error?: 'math_delivery_line_too_large'; offset: number; discardingOversized: boolean };

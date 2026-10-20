@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { mathDigest } from '../src/math/mathRuntimeIo';
 import { pendingResearchChallenges, preserveResearchChallengeBacklog, researchChallenges, resolveResearchChallenges,
-  retainedResearchChallenges } from '../src/solver/researchChallenges';
+  retainedResearchChallenges, researchChallengeContext } from '../src/solver/researchChallenges';
 import { markTaskAcceptance, taskVersion, type CooperativeTask, type TaskRecord } from '../src/solver/tasks';
 import type { DeliveryRecord } from '../src/solver/deliveries';
 import type { TaskProof } from '../src/solver/cooperativeProof';
@@ -31,6 +31,19 @@ it('derives an advisory challenge with exact sources from a refuted reverse feas
     evidenceRefs: ['FIXED_COUNTEREXAMPLE_REF'], source: { commit: 'a'.repeat(40) } });
   expect(() => resolveResearchChallenges(state, [challenge.id], { [challenge.id]: challenge.activationDigest },
     state.tasks.map(node => node.task), undefined)).toThrow('math_challenge_unresolved');
+});
+
+it('keeps oversized complete findings retrievable without overflowing mandatory decision context', () => {
+  const state = fixture();
+  const finding = JSON.stringify({ conclusion: 'refuted', summary: 'A large complete argument', argument: 'precise '.repeat(100000) });
+  state.tasks[2].finding = finding;
+  Object.assign(state.deliveries[0], { finding, findingDigest: mathDigest(finding) });
+  const [challenge] = pendingResearchChallenges(state), context = researchChallengeContext(challenge);
+  expect(challenge.finding).toBe(finding);
+  expect(context).not.toHaveProperty('finding');
+  expect(context).toMatchObject({ findingBytes: Buffer.byteLength(finding),
+    findingSource: { id: challenge.id, findingDigest: mathDigest(finding) } });
+  expect(Buffer.byteLength(JSON.stringify(context))).toBeLessThan(4096);
 });
 
 it('persists a specific response through serialization without granting proof acceptance', () => {

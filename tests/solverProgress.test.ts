@@ -112,7 +112,9 @@ describe('recorded proof continuation', () => {
     const input = node('input'); checked(input);
     const core = node('core', 'lemma', ['input']);
     const inner = node('inner', kind, ['core']), outer = node('outer', 'research', ['inner']);
-    const goal = node('goal', 'goal', ['outer']), tasks = [input, core, inner, outer, goal];
+    const goal = node('goal', 'goal', ['outer']);
+    goal.task = { ...goal.task, conditional: false };
+    const tasks = [input, core, inner, outer, goal];
     const before = buildProofContinuation(tasks);
     inner.status = 'completed'; outer.status = 'completed';
     inner.finding = 'The substantive core estimate is still missing.'; outer.finding = 'The same estimate remains necessary.';

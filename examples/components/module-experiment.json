@@ -14,7 +14,7 @@
     },
     {
       "id": "critical-path",
-      "label": "M3 + M5: critical-path scheduling and shared assignment",
+      "label": "M3: critical-path task ordering",
       "plan": { "scheduler": "critical-path", "context": "full", "custom": [] }
     },
     {

@@ -121,7 +121,7 @@ describe('configured research comparisons', () => {
     expect(totals[2]).toMatchObject({ planned: 0, acceptanceRate: null });
   });
 
-  it.each([undefined, '1000'])('prepares all three arms with the shared token allowance %s without running a model', async allowance => {
+  it.each([undefined, '1000', '0'])('prepares all three arms with the shared token allowance %s without running a model', async allowance => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'math-comparison-prepare-')); directories.push(directory);
     const repository = path.join(directory, 'repo'); fs.mkdirSync(repository);
     const task = path.join(directory, 'task.md'); fs.writeFileSync(task, 'Prove the frozen public target.');
@@ -134,29 +134,35 @@ describe('configured research comparisons', () => {
     expect(await compareMathRuns(['--phase', 'prepare', '--directory', output, '--repo', repository,
       '--problem', imoAdapter.IMO2026_SUPPORTED_PROBLEMS[0], '--task-file', task, '--build-manifest', manifest,
       '--scheduler', 'continuation', ...(allowance ? ['--max-total-tokens', allowance,
-        '--max-turns', '0', '--max-run-seconds', '0', '--max-turn-seconds', '0'] : [])])).toBe(0);
+        '--max-turns', '0', '--max-run-seconds', '0', '--max-turn-seconds', '0', '--evaluator-timeout-seconds', '0'] : [])])).toBe(0);
     const plan = JSON.parse(fs.readFileSync(path.join(output, 'comparison.json'), 'utf8'));
     expect(plan.configuration).toMatchObject({ scheduler: 'continuation', maxTotalTokens: Number(allowance ?? 0),
-      maxTurns: allowance ? 0 : 200, maxRunSeconds: allowance ? 0 : 1800, maxTurnSeconds: allowance ? 0 : 180 });
+      maxTurns: allowance ? 0 : 200, maxRunSeconds: allowance ? 0 : 1800, maxTurnSeconds: allowance ? 0 : 180,
+      evaluatorTimeoutSeconds: allowance ? 0 : 1800 });
     expect(bootstrap).toHaveBeenCalledTimes(3);
     for (const job of plan.jobs) {
       const launch = JSON.parse(fs.readFileSync(job.launch, 'utf8'));
       expect(launch.args[launch.args.indexOf('--max-total-tokens') + 1]).toBe(allowance ?? '0');
       expect(launch.args[launch.args.indexOf('--scheduler') + 1]).toBe('continuation');
+      expect(launch.args[launch.args.indexOf('--evaluator-timeout-seconds') + 1]).toBe(allowance ? '0' : '1800');
       expect(job.methodDigest).toBe(solverMethodDigest(configuredSolverModules('direct', 'continuation'),
         job.arm === 'cooperative' ? 'cooperative' : 'independent'));
     }
   });
 
-  it('requires a comparison-wide limit even when individual turns have a timeout', async () => {
-    await expect(compareMathRuns(['--phase', 'prepare', '--directory', '/unused-comparison',
-      '--max-turns', '0', '--max-run-seconds', '0', '--max-turn-seconds', '180', '--max-total-tokens', '0']))
-      .rejects.toThrow('comparison requires a positive --max-turns, --max-run-seconds or --max-total-tokens');
+  it('rejects changing the frozen evaluator allowance after preparation', async () => {
+    await expect(compareMathRuns(['--phase', 'run', '--directory', '/unused-comparison', '--evaluator-timeout-seconds', '0']))
+      .rejects.toThrow('evaluator-timeout-seconds is frozen during prepare');
   });
 
   it.each(['-1', '1.5', 'NaN', '9007199254740992'])('rejects invalid token allowance %s before preparing sources', async allowance => {
     await expect(compareMathRuns(['--phase', 'prepare', '--directory', '/unused-comparison', `--max-total-tokens=${allowance}`]))
       .rejects.toThrow('invalid --max-total-tokens');
+  });
+
+  it.each(['-1', '1.5', 'NaN', '9007199254740992'])('rejects invalid evaluator allowance %s before preparing sources', async allowance => {
+    await expect(compareMathRuns(['--phase', 'prepare', '--directory', '/unused-comparison', `--evaluator-timeout-seconds=${allowance}`]))
+      .rejects.toThrow('invalid --evaluator-timeout-seconds');
   });
 
   it.each(['provider-observed-dispatch-limit', 'provider-observed-upstream-request-limit'] as const)
@@ -188,7 +194,7 @@ describe('configured research comparisons', () => {
     expect(readSolverRunState(stateFile).requestUsageAccounting).toEqual(requestUsageAccounting);
     expect(report.tokenBudgetEnforcement).toBe(enforcement);
     expect(report.runs[0]).toMatchObject({ status: 'limit_reached', accepted: false,
-      totalTokens: 120, usageComplete: true, overrunTokens: 20, tokenBudget });
+      totalTokens: 120, usageComplete: true, overrunTokens: 20, tokenBudget, knowledgeFunnel: null });
     expect(fs.readFileSync(stateFile)).toEqual(before);
     fs.writeFileSync(stateFile, JSON.stringify({ ...state, tokenBudget: { ...tokenBudget, maxTotalTokens: 200 } }));
     expect(comparisonReport(directory, plan).runs[0]).toMatchObject({ status: 'invalid', accepted: false,

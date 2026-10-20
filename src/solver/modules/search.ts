@@ -6,6 +6,8 @@ import type { ResearchOperation, ValueEstimate } from './value';
 import { proofRouteReady, type ProofRoute } from '../proofRoutes';
 import { createRecordedTaskSettlement } from '../progress';
 import { createProofRoutePriority } from '../routePriority';
+import { automaticTaskConnection, freshTaskConnection } from '../taskConnections';
+import { primaryApplicationConsumer, primaryOwnedGoal } from '../taskConsumers';
 import { hasTaskAcceptance, isAdvisoryTask, isFeasibilityReview, isFinalCandidateReview, taskGroup, taskReferenceDependencies, taskVersion,
   type TaskRecord, type RouteRecord, type CooperativeAction } from '../tasks';
 
@@ -72,7 +74,7 @@ export function plannedTaskDependencyIds(node: TaskRecord, tasks: readonly TaskR
 }
 
 /** Memoization lasts only for this selection; mutable task state never enters a global cache. */
-function taskReadiness(tasks: readonly TaskRecord[]) {
+function taskReadiness(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]) {
   const nodes = new Map(tasks.map(node => [node.task.id, node]));
   const checked = new Map<TaskRecord['task'], boolean>(), available = new Map<string, boolean>();
   const versions = new Map<TaskRecord['task'], string>();
@@ -109,7 +111,7 @@ function taskReadiness(tasks: readonly TaskRecord[]) {
     !nodes.get(task.id)!.alternativeRoutes!.some(route => !nodes.get(task.id)!.parkedRoutes?.[route.id]?.length && dispatchRouteReady(route, tasks)) ? false : isFinalCandidateReview(task)
     ? finalCandidateReviewReady(tasks) && dependenciesReady(task)
     : ['research', 'sketch'].includes(task.kind) || dependenciesReady(task) ||
-      Boolean(task.conditional && task.dependsOn.every(dependencyAvailable));
+      Boolean((task.conditional || automaticTaskConnection(task, tasks, groups)) && task.dependsOn.every(dependencyAvailable));
   return { dependenciesReady, canStart };
 }
 
@@ -118,12 +120,12 @@ export function taskDependenciesReady(task: TaskRecord['task'], tasks: readonly 
 }
 
 /** Fixed lemma statements can be assumed while constructing a conditional parent. */
-export function taskCanStart(task: TaskRecord['task'], tasks: readonly TaskRecord[]): boolean {
-  return taskReadiness(tasks).canStart(task);
+export function taskCanStart(task: TaskRecord['task'], tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): boolean {
+  return taskReadiness(tasks, groups).canStart(task);
 }
 
 export function readyResearchTasks(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): TaskRecord[] {
-  const readiness = taskReadiness(tasks);
+  const readiness = taskReadiness(tasks, groups);
   const priority = createProofRoutePriority(tasks, { groups });
   const checked = new Set(tasks.filter(node => node.status === 'integrated' && node.integratedCheck?.passed &&
     node.integratedCheck.taskDigest === taskVersion(node.task) && !node.integratedCheck.conditions?.length).map(node => node.task.id));
@@ -139,22 +141,22 @@ export function readyResearchTasks(tasks: readonly TaskRecord[], groups?: readon
   const rank = (node: TaskRecord) => isAdvisoryTask(node.task) || !readiness.dependenciesReady(node.task) ? 0 :
     node.task.kind === 'goal' ? 2 : consumed.has(node.task.id) && node.task.dependsOn.some(id => checked.has(id)) ? 1 : 0;
   const ready = tasks.filter(node => node.status === 'pending' && routeAllowsTask(node.task, tasks, groups) && readiness.canStart(node.task));
-  return prioritizeEarlyRouteChecks(ready.toSorted((a, b) => rank(b) - rank(a) || priority.compareTasks(a, b)), tasks);
+  return prioritizeEarlyRouteChecks(ready.toSorted((a, b) => rank(b) - rank(a) || priority.compareTasks(a, b)), tasks, groups);
 }
 
 /** Offer one fresh route check before investing in its still-unproved inputs. */
-function prioritizeEarlyRouteChecks(ready: TaskRecord[], tasks: readonly TaskRecord[]): TaskRecord[] {
+function prioritizeEarlyRouteChecks(ready: TaskRecord[], tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): TaskRecord[] {
   if (tasks.some(node => node.status === 'running' && (isFeasibilityReview(node.task) ||
-      node.task.conditional && !node.proof))) return ready;
+      (node.task.conditional || node.assignment?.connectionCheck) && !node.proof))) return ready;
   const review = ready.find(node => !node.attempts && isFeasibilityReview(node.task));
-  const bridge = ready.find(node => !node.attempts && node.task.conditional && !isAdvisoryTask(node.task) &&
+  const bridge = ready.find(node => freshTaskConnection(node, tasks, groups) && !isAdvisoryTask(node.task) &&
     node.task.dependsOn.some(id => tasks.some(input => input.task.id === id &&
       input.task.kind === 'lemma' && input.status !== 'integrated')) &&
     (node.task.kind === 'goal' || tasks.some(consumer => consumer.task.dependsOn.includes(node.task.id) ||
       consumer.alternativeRoutes?.some(route => route.closingTaskId === node.task.id))));
   const check = review ?? bridge;
   if (!check) return ready;
-  const readiness = taskReadiness(tasks);
+  const readiness = taskReadiness(tasks, groups);
   const consuming = ready.slice(0, ready.indexOf(check)).filter(node => !isAdvisoryTask(node.task) &&
     readiness.dependenciesReady(node.task) && (node.task.kind === 'goal' || node.task.dependsOn.some(id => {
       const input = tasks.find(candidate => candidate.task.id === id);
@@ -167,7 +169,7 @@ function prioritizeEarlyRouteChecks(ready: TaskRecord[], tasks: readonly TaskRec
 /** A simple M3 ablation: prefer ready original goals, preserving all readiness gates. */
 export function goalsFirstResearchTasks(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): TaskRecord[] {
   return prioritizeEarlyRouteChecks(readyResearchTasks(tasks, groups).toSorted((a, b) =>
-    Number(b.task.kind === 'goal') - Number(a.task.kind === 'goal')), tasks);
+    Number(b.task.kind === 'goal') - Number(a.task.kind === 'goal')), tasks, groups);
 }
 
 /** Unit-cost dependency depth is a scheduling heuristic, not a proof-time estimate. */
@@ -203,7 +205,7 @@ export function criticalPathResearchTasks(tasks: readonly TaskRecord[], groups?:
   return prioritizeEarlyRouteChecks(ready.toSorted((a, b) => {
     const left = priority(a.task.id), right = priority(b.task.id);
     return right.depth - left.depth || right.goals.size - left.goals.size;
-  }), tasks);
+  }), tasks, groups);
 }
 
 type GoalTaskFocus = Readonly<{
@@ -217,7 +219,7 @@ function collectOriginalGoalTaskFocus(tasks: readonly TaskRecord[], groups?: rea
   priority?: ReturnType<typeof createProofRoutePriority>, environmentDigest?: string, includeParkedTasks = false): GoalTaskFocus {
   const nodes = new Map(tasks.map(node => [node.task.id, node]));
   const active = (node: TaskRecord) => {
-    if ((node.task.status ?? 'active') !== 'active' || !includeParkedTasks && (node.routeParking?.length ||
+    if ((node.task.status ?? 'active') !== 'active' && !primaryOwnedGoal(node) || !includeParkedTasks && (node.routeParking?.length ||
         node.alternativeRoutes?.length && node.alternativeRoutes.every(route => node.parkedRoutes?.[route.id]?.length))) return false;
     const route = groups?.find(record => record.group.id === taskGroup(node.task));
     return !groups || Boolean(route && route.group.status === 'active' && route.turns < (route.group.maxTurns ?? Infinity));
@@ -281,6 +283,13 @@ function collectOriginalGoalTaskFocus(tasks: readonly TaskRecord[], groups?: rea
     if (isAdvisoryTask(node.task) || !settled(node)) inputs(node).forEach(visitSupport);
   };
   targetedResearch.forEach(visitSupport);
+  // Advisory application purpose must not become a proof prerequisite or authorize a paused goal.
+  for (const helper of tasks) {
+    const consumer = primaryApplicationConsumer(helper, tasks);
+    if (!consumer || !proofPath.has(consumer.task.id) || !active(helper)) continue;
+    if (isAdvisoryTask(helper.task)) targetedResearch.add(helper.task.id);
+    visitSupport(helper.task.id);
+  }
   return { proofPath, frontier, frontierGoals, targetedResearch, support };
 }
 
@@ -307,7 +316,7 @@ export function continuationResearchTasks(tasks: readonly TaskRecord[], groups?:
   const preferred = focus.preferred, priority = createProofRoutePriority(tasks, { groups });
   const checked = (node: TaskRecord | undefined) => Boolean(node?.status === 'integrated' && node.integratedCheck?.passed &&
     node.integratedCheck.taskDigest === taskVersion(node.task) && !node.integratedCheck.conditions?.length);
-  const ready = criticalPathResearchTasks(tasks, groups), readiness = taskReadiness(tasks);
+  const ready = criticalPathResearchTasks(tasks, groups), readiness = taskReadiness(tasks, groups);
   const unconditional = (node: TaskRecord) => ['goal', 'lemma'].includes(node.task.kind) && readiness.dependenciesReady(node.task);
   const continuing = new Set(ready.filter(node => focus.proofPath.has(node.task.id) && unconditional(node) &&
     plannedTaskDependencyIds(node, tasks).some(id => checked(nodes.get(id)))).map(node => node.task.id));
@@ -319,7 +328,7 @@ export function continuationResearchTasks(tasks: readonly TaskRecord[], groups?:
     rank(b) - rank(a) ||
     Number(continuing.has(b.task.id)) - Number(continuing.has(a.task.id)) ||
     Number(b.task.kind === 'goal') - Number(a.task.kind === 'goal') || priority.compareTasks(a, b));
-  return prioritizeEarlyRouteChecks(ranked, tasks);
+  return prioritizeEarlyRouteChecks(ranked, tasks, groups);
 }
 
 /** Candidate roots may be scoped; their prerequisites still use the complete task graph. */
@@ -327,6 +336,7 @@ export function researchCanAdvance(tasks: readonly TaskRecord[], groups: readonl
   liveWorkers: ReadonlySet<string>, canAssign?: (node: TaskRecord) => boolean, candidateIds?: ReadonlySet<string>): boolean {
   const nodes = new Map(tasks.map(node => [node.task.id, node]));
   const memo = new Map<string, boolean>();
+  const readiness = taskReadiness(tasks, groups);
   const visit = (id: string): boolean => {
     if (memo.has(id)) return memo.get(id)!;
     memo.set(id, false);
@@ -347,7 +357,9 @@ export function researchCanAdvance(tasks: readonly TaskRecord[], groups: readonl
       if (owners.some(id => !liveWorkers.has(id) || id !== owners[0]) || !routeAllowsTask(node.task, tasks, groups) ||
           (canAssign && !canAssign(node))) return false;
     }
-    const ready = (isAdvisoryTask(node.task) || node.task.dependsOn.every(visit)) && (!node.alternativeRoutes?.length ||
+    // Reuse future-progress traversal before checking whether assumed inputs allow an earlier start.
+    const ready = (isAdvisoryTask(node.task) || node.task.dependsOn.every(visit) ||
+      node.status !== 'conditional' && readiness.canStart(node.task)) && (!node.alternativeRoutes?.length ||
       node.alternativeRoutes.some(route => !node.parkedRoutes?.[route.id]?.length && [...route.prerequisiteTaskIds, route.closingTaskId].every(visit)));
     memo.set(id, ready);
     return ready;
@@ -373,7 +385,7 @@ export function selectLemmaAction(state: Readonly<SolverRunState>, options: read
   if (assignment) {
     const operation = assignment.kind === 'lead' ? 'decompose' : assignment.kind !== 'task' ? 'direct' :
       assignment.task.kind === 'lemma' ? 'prove-lemma' : assignment.task.kind !== 'goal' ? 'direct' :
-      assignment.task.conditional ? 'bridge' : assignment.task.dependsOn.length ? 'integrate-lemma' : 'direct';
+      assignment.task.conditional || assignment.assignment.connectionCheck ? 'bridge' : assignment.task.dependsOn.length ? 'integrate-lemma' : 'direct';
     if (!options.includes(operation)) return baseline;
     return { operation, reason: operation === 'decompose' ? 'direct-proof-gap' : operation === 'bridge' ? 'repair-bridge' :
       operation === 'prove-lemma' ? 'prove-needed-lemma' : operation === 'integrate-lemma' ? 'dependencies-checked' : 'continue' };

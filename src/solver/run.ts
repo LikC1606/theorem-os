@@ -28,6 +28,8 @@ import { buildTokenBudget } from './usageBudget';
 import { selectedDeepSeekProfile } from '../runtime/deepseek';
 import { selectedWestlakeProfile } from '../runtime/westlake';
 import { copyKnowledgeSnapshot, readKnowledgeCatalog } from './theoremKnowledgeStore';
+import { copyContinuationSnapshot, freezeContinuationInput, readContinuationInput, readContinuationSnapshot,
+  type ContinuationSnapshot } from './continuationInput';
 
 export async function runSolver(args: string[], root: string, customModules?: SolverModules): Promise<number> {
   const { values } = parseArgs({ args, options: {
@@ -39,7 +41,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
     'prepare-timeout-seconds': { type: 'string', default: '1800' }, 'max-turn-seconds': { type: 'string', default: '180' },
     'evaluator-command': { type: 'string' }, 'evaluator-timeout-seconds': { type: 'string', default: '1800' },
     'proof-environment-cache-dir': { type: 'string' }, 'startup-only': { type: 'boolean' }, help: { type: 'boolean' },
-    'knowledge-base': { type: 'string' },
+    'knowledge-base': { type: 'string' }, 'continuation-manifest': { type: 'string' },
     method: { type: 'string', default: 'direct' }, workers: { type: 'string', default: '4' },
     'module-plan': { type: 'string' },
     scheduler: { type: 'string', default: 'plan' }, coordination: { type: 'string', default: 'cooperative' },
@@ -47,6 +49,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
   if (values.help) {
     console.log('Usage: theorem-os run --workspace DIR --task-file FILE --output FILE --build-manifest FILE [--receipt-file FILE] [--resume] [--method direct|lemma] [--scheduler plan|goals-first|critical-path|continuation|primary-led] [--module-plan FILE] [--coordination cooperative|independent] [--workers 1|2|3|4] [--model MODEL --effort LEVEL] [--max-run-seconds N --max-turns N --max-turn-seconds N] [--max-total-tokens N] [--prepare-timeout-seconds N] [--evaluator-command CMD --evaluator-timeout-seconds N] [--proof-environment-cache-dir DIR] [--startup-only]\n--module-plan loads the shared research-module plan JSON; use --method direct and --scheduler plan.\nUse 0 for --max-run-seconds, --max-turns, --max-turn-seconds or --evaluator-timeout-seconds to disable that limit. Unlimited total solving time also disables proof verification deadlines.\n--max-total-tokens defaults to 0 (unlimited). A finite value stops new model turns after provider-reported consumption reaches it; in-flight turns finish and may exceed it. Resume retains cumulative usage and the saved allowance unless explicitly changed.');
     console.log('--knowledge-base FILE attaches an immutable saved-theorem catalog. Resume requires the same catalog digest. Historical knowledge never grants proof acceptance.');
+    console.log('--continuation-manifest FILE attaches explicit historical sources and notes without changing the verbatim task file. Resume retains the frozen attachment identity; historical material remains advisory.');
     return 0;
   }
   const configured = configuredSolverModules(values.method!, values.scheduler!);
@@ -109,6 +112,10 @@ export async function runSolver(args: string[], root: string, customModules?: So
       readMathBuildManifest(buildFile, root, bundleRoot);
       const task = fs.readFileSync(required('task-file'), 'utf8');
       const problem = readSolverProblem(workspace, values['receipt-file'] || path.join(workspace, 'active-problem.json'));
+      const continuationIdentity = { taskDigest: mathDigest(task), problemReceiptDigest: problem.receiptDigest };
+      const continuationInput = values['continuation-manifest']
+        ? readContinuationInput(values['continuation-manifest'], continuationIdentity) : undefined;
+      let continuation: ContinuationSnapshot | undefined;
       const slots = researchWorkers(path.join(directory, 'worktree'), problem.ownedFiles, workerCount);
       const workers = modules.M5.workers(slots[0].worktree, [...problem.ownedFiles], workerCount);
       if (workers.length !== workerCount || new Set(workers.map(worker => worker.id)).size !== workerCount ||
@@ -153,6 +160,11 @@ export async function runSolver(args: string[], root: string, customModules?: So
           state.problem.receiptDigest !== problem.receiptDigest ||
           Object.entries(identity).some(([key, value]) => state[key] !== value) ||
           state.worktree !== path.join(directory, 'worktree')) throw new Error('math_resume_identity_changed');
+        if (state.continuationDigest) {
+          continuation = readContinuationSnapshot(path.join(directory, 'continuation.json'), state.continuationDigest, continuationIdentity);
+          if (continuationInput && continuationInput.digest !== state.continuationDigest)
+            throw new Error('math_resume_continuation_changed');
+        } else if (continuationInput) throw new Error('math_resume_continuation_changed');
         // Use the current authoritative receipt instead of trusting nested archived source policy.
         state.problem = problem;
         sourceFeedback = solverSourceFeedback(state.problem, state.worktree);
@@ -171,8 +183,10 @@ export async function runSolver(args: string[], root: string, customModules?: So
       } else {
         if (fs.existsSync(stateFile) || fs.existsSync(output)) throw new Error('math_run_exists_use_resume');
         if (git(workspace, ['status', '--porcelain', '--untracked-files=no'])) throw new Error('math_workspace_has_uncommitted_sources');
+        if (continuationInput) continuation = freezeContinuationInput(continuationInput, directory);
         ownsRun = true;
         state = { schema: 'deepscientist.math.solver.v1', runId: crypto.randomUUID(), problem, ...identity,
+          ...(continuation ? { continuationDigest: continuation.digest } : {}),
           worktree: path.join(directory, 'worktree'), phase: 'prepared', turns: 0, dispatchCounts: {}, workerCount,
           coordination, moduleConfiguration, tokenBudget: buildTokenBudget(maxTotalTokens, [],
             westlakeProfile ? 'provider-observed-upstream-request-limit' : undefined) };
@@ -282,6 +296,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
       }
       const workerAccess = new Map<string, WorkerAccess>();
       const prepareAccess = (workerId: string, workerRoot: string, workerProject: string, workerCorpus?: string) => {
+        const workerContinuation = continuation && copyContinuationSnapshot(continuation, workerProject);
         let knowledgeFile: string | undefined;
         if (knowledge) {
           knowledgeFile = path.join(workerProject, '.lake', 'theorem-knowledge.json');
@@ -293,6 +308,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
         writeMathJsonDurable(environmentFile, projectMathematicsRuntimeEnvironment(environment), 0o400);
         workerAccess.set(workerId, { environment: resolveMathematicsRuntimeEnvironment(environment), corpusFile: workerCorpus,
           retrievalRoot: corpus?.projectSubdirectory ? workerRoot : workerProject,
+          ...(workerContinuation ? { continuation: workerContinuation } : {}),
           ...(knowledge ? { knowledgeFile, knowledgeDigest: knowledge.digest,
             knowledgeSnapshot: { digest: knowledge.digest, base: { entries: knowledge.base.entries, evidence: knowledge.base.evidence,
               routeFindings: knowledge.base.routeFindings } } } : {}) });

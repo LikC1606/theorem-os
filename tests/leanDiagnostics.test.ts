@@ -4,9 +4,11 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { bindLeanPackages, prepareLeanDiagnosticOverrides, runLeanDiagnostics } from '../src/math/leanDiagnostics';
 import { mathDigest } from '../src/math/mathRuntimeIo';
+import { parseLeanReferences } from '../src/math/leanReferences';
 
 const { run, lease, readiness, environment } = vi.hoisted(() => ({ run: vi.fn(), lease: vi.fn(), readiness: vi.fn(), environment: vi.fn() }));
-vi.mock('../src/math/verifier', () => ({ runMathematicsSandboxedCommand: run }));
+vi.mock('../src/math/verifier', () => ({ runMathematicsSandboxedCommand: run,
+  formalVerificationToolIdentity: () => 'a'.repeat(64) }));
 vi.mock('../src/math/mathProofEnvironment', () => ({
   MATH_PROOF_ENVIRONMENT_SANDBOX_ENV: 'DEEPSCIENTIST_MATH_PROOF_ENVIRONMENT_SANDBOX',
   acquireMathProofEnvironmentLease: lease,
@@ -65,6 +67,94 @@ describe('bounded local Lean diagnostics', () => {
     expect(run).toHaveBeenCalledTimes(4);
     await runLeanDiagnostics({ ...input, env: { ELAN_HOME: '/different/toolchain' } });
     expect(run).toHaveBeenCalledTimes(6);
+  });
+
+  it.each([
+    { cached: [false, false], prepare: 'none' },
+    { cached: [true, false], prepare: 'dependency' },
+    { cached: [true, true], prepare: 'all' },
+    { cached: [false, true], prepare: 'rebuild-dependency' },
+  ])('separates phase messages for $prepare cache reuse', async ({ cached, prepare }) => {
+    const warning = 'Note: This linter can be disabled with `set_option linter.unusedVariables false`';
+    const message = { caption: '', data: 'KNOWLEDGE_REFERENCES_0:[[],[]]', severity: 'information' };
+    const json = JSON.stringify(message), compile = run.getMockImplementation()!;
+    run.mockImplementation(async input => {
+      const result = await compile(input);
+      const dependency = input.args.at(-1).includes("-o '.lake/build/lib/lean/ChallengeDeps.olean'");
+      const output = dependency ? warning : json;
+      return { ...result, stdout: output, stderr: output };
+    });
+    const input = { projectRoot: root, files: ['Submission.lean'], timeoutMs: Infinity };
+    if (prepare !== 'none') await runLeanDiagnostics({ ...input, dependenciesOnly: prepare === 'dependency' });
+    if (prepare === 'rebuild-dependency') fs.writeFileSync(path.join(root, '.lake/build/lib/lean/ChallengeDeps.olean'), 'tampered');
+    run.mockClear();
+    const result = await runLeanDiagnostics(input);
+    expect(result.phases.map(phase => phase.cached)).toEqual(cached);
+    expect(run).toHaveBeenCalledTimes(cached.filter(value => !value).length);
+    for (const output of [result.stdout, result.stderr]) {
+      expect(output).toBe(warning + '\n' + json);
+      expect(JSON.parse(output.split('\n').at(-1)!)).toEqual(message);
+      expect(parseLeanReferences(output, 'KNOWLEDGE_REFERENCES_0:', ['ChallengeDeps.lean', 'Submission.lean']))
+        .toEqual({ statement: [], proof: [] });
+    }
+    expect(JSON.parse(fs.readFileSync(path.join(root, result.diagnosticArtifacts[0].path), 'utf8')).stdout).toBe(warning);
+    expect(JSON.parse(fs.readFileSync(path.join(root, result.diagnosticArtifacts[1].path), 'utf8')).stdout).toBe(json);
+  });
+
+  it.each([
+    { first: '', next: 'second', expected: 'second' },
+    { first: 'first\n', next: 'second', expected: 'first\nsecond' },
+    { first: 'first', next: '', expected: 'first' },
+    { first: '', next: '', expected: '' },
+  ])('preserves existing line and empty boundaries ($first, $next)', async ({ first, next, expected }) => {
+    const compile = run.getMockImplementation()!;
+    run.mockImplementation(async input => {
+      const result = await compile(input);
+      const dependency = input.args.at(-1).includes("-o '.lake/build/lib/lean/ChallengeDeps.olean'");
+      return { ...result, stdout: dependency ? first : next, stderr: dependency ? first : next };
+    });
+    const input = { projectRoot: root, files: ['Submission.lean'], timeoutMs: Infinity };
+    const fresh = await runLeanDiagnostics(input), cached = await runLeanDiagnostics(input);
+    expect(cached.phases.every(phase => phase.cached)).toBe(true);
+    for (const result of [fresh, cached]) {
+      expect(result.stdout).toBe(expected);
+      expect(result.stderr).toBe(expected);
+    }
+  });
+
+  it('publishes the complete latest input manifest on successful and fully cached checks', async () => {
+    const input = { projectRoot: root, files: ['Submission.lean'], timeoutMs: Infinity };
+    const first = await runLeanDiagnostics(input);
+    const latest = () => JSON.parse(fs.readFileSync(path.join(root, '.lake/lean-diagnostics-latest.json'), 'utf8'));
+    expect(latest()).toMatchObject({ schema: 'theoremos.lean-diagnostics-latest.v1', authority: 'advisory-lean-process',
+      requestedFiles: ['Submission.lean'], sourceDigest: first.sourceDigest, environmentDigest: first.environmentDigest,
+      toolIdentity: 'a'.repeat(64), exitCode: 0, timedOut: false, aborted: false,
+      sourceFiles: ['ChallengeDeps.lean', 'Submission.lean'].map(file => ({ file, digest: mathDigest(fs.readFileSync(path.join(root, file))) })),
+      diagnosticArtifacts: first.diagnosticArtifacts });
+    expect(latest().configuration).toHaveLength(5);
+    const repeat = await runLeanDiagnostics(input);
+    expect(repeat.phases.every(phase => phase.cached)).toBe(true);
+    expect(latest().diagnosticArtifacts).toEqual(first.diagnosticArtifacts);
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+
+  it('replaces a prior successful manifest when an aborted check never starts the compiler', async () => {
+    const input = { projectRoot: root, files: ['Submission.lean'], timeoutMs: Infinity };
+    await runLeanDiagnostics(input);
+    const controller = new AbortController(); controller.abort();
+    await expect(runLeanDiagnostics({ ...input, signal: controller.signal })).rejects.toThrow();
+    expect(JSON.parse(fs.readFileSync(path.join(root, '.lake/lean-diagnostics-latest.json'), 'utf8')))
+      .toMatchObject({ exitCode: null, timedOut: false, aborted: true, diagnosticArtifacts: [] });
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves the original compiler exception if latest metadata cannot be written', async () => {
+    run.mockRejectedValueOnce(new Error('original compiler exception'));
+    const mkdir = vi.spyOn(fs, 'mkdirSync').mockImplementation(() => { throw new Error('metadata write failed'); });
+    try {
+      await expect(runLeanDiagnostics({ projectRoot: root, files: ['Submission.lean'], timeoutMs: Infinity }))
+        .rejects.toThrow('original compiler exception');
+    } finally { mkdir.mockRestore(); }
   });
 
   it('rechecks dependants when rebuilding an imported artifact produces different bytes', async () => {
@@ -140,6 +230,8 @@ setInterval(() => {}, 1000);\n`);
     if (reason === 'abort') controller.abort();
     const result = await pending;
     expect(result).toMatchObject({ timedOut: reason === 'timeout', aborted: reason === 'abort' });
+    expect(JSON.parse(fs.readFileSync(path.join(root, '.lake/lean-diagnostics-latest.json'), 'utf8')))
+      .toMatchObject({ exitCode: result.exitCode, timedOut: reason === 'timeout', aborted: reason === 'abort' });
     expect(release).toHaveBeenCalledOnce();
     for (const pid of JSON.parse(fs.readFileSync(marker, 'utf8'))) {
       await vi.waitFor(() => {
@@ -157,6 +249,8 @@ setInterval(() => {}, 1000);\n`);
       const result = await runLeanDiagnostics({ projectRoot: root, files: ['Submission.lean'], timeoutMs: 1000 });
       expect(result).toMatchObject(failure);
       expect(result.stdout).toContain('error: unsolved goals');
+      expect(JSON.parse(fs.readFileSync(path.join(root, '.lake/lean-diagnostics-latest.json'), 'utf8')))
+        .toMatchObject({ ...failure, diagnosticArtifacts: result.diagnosticArtifacts });
       expect(Buffer.byteLength(result.stdout)).toBeLessThanOrEqual(8000);
       expect(run).toHaveBeenCalledTimes(1);
     });
@@ -273,6 +367,8 @@ fs.writeFileSync(args[args.indexOf('-o') + 1], source); console.log(file);
       .rejects.toThrow('binding changed');
     expect(run).not.toHaveBeenCalled();
     expect(readiness).not.toHaveBeenCalled();
+    expect(JSON.parse(fs.readFileSync(path.join(root, '.lake/lean-diagnostics-latest.json'), 'utf8')))
+      .toMatchObject({ exitCode: null, timedOut: false, aborted: false, diagnosticArtifacts: [] });
   });
 
   it.each(['missing', 'dangling', 'obsolete', 'correct'])('binds the pinned package cache when the link is %s', state => {

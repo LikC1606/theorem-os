@@ -178,7 +178,93 @@ describe('upstream request budget across session bridges', () => {
   });
 });
 
+describe('upstream stream liveness', () => {
+  it('completes an active SSE request beyond fifteen minutes with its complete usage receipt', async () => {
+    const settle = vi.fn(), incomplete = vi.fn();
+    const value = await bridge('https://provider.invalid/v1', incomplete, () => ({ allowed: true, settle }));
+    let source!: ReadableStreamDefaultController<Uint8Array>, signal!: AbortSignal;
+    const fetch = vi.fn(async (_input: unknown, options?: RequestInit) => {
+      signal = options!.signal!;
+      return new Response(new ReadableStream<Uint8Array>({ start(controller) {
+        source = controller;
+        signal.addEventListener('abort', () => controller.error(signal.reason), { once: true });
+        controller.enqueue(Buffer.from(`data: ${JSON.stringify(chunk({ content: 'working ' }))}\n\n`));
+      } }), { headers: { 'Content-Type': 'text/event-stream' } });
+    });
+    vi.stubGlobal('fetch', fetch);
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const response = await post(value), traffic = events(response);
+      void traffic.catch(() => {});
+      for (let elapsed = 30_000; elapsed <= 16 * 60_000; elapsed += 30_000) {
+        await vi.advanceTimersByTimeAsync(30_000);
+        expect(signal.aborted).toBe(false);
+        source.enqueue(Buffer.from(`data: ${JSON.stringify(chunk({ content: 'still working ' }))}\n\n`));
+        await vi.advanceTimersByTimeAsync(0);
+      }
+      source.enqueue(Buffer.from([chunk({}, 'stop'), { choices: [], usage: {
+        prompt_tokens: 10, completion_tokens: 2, total_tokens: 12,
+      } }].map(item => `data: ${JSON.stringify(item)}\n\n`).join('') + 'data: [DONE]\n\n'));
+      source.close();
+      const result = completed(await traffic);
+      expect(result.output[0].content[0].text).toBe('working ' + 'still working '.repeat(32));
+      expect(result.usage).toEqual({ input_tokens: 10, output_tokens: 2, total_tokens: 12 });
+      expect(settle).toHaveBeenCalledExactlyOnceWith({ complete: true, usage: {
+        inputTokens: 10, outputTokens: 2, totalTokens: 12,
+      } });
+      expect(incomplete).not.toHaveBeenCalled(); expect(fetch).toHaveBeenCalledOnce();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('still aborts an SSE request after sixty seconds without upstream data', async () => {
+    const settle = vi.fn(), incomplete = vi.fn();
+    const value = await bridge('https://provider.invalid/v1', incomplete, () => ({ allowed: true, settle }));
+    let signal!: AbortSignal;
+    const fetch = vi.fn(async (_input: unknown, options?: RequestInit) => {
+      signal = options!.signal!;
+      return new Response(new ReadableStream<Uint8Array>({ start(controller) {
+        signal.addEventListener('abort', () => controller.error(signal.reason), { once: true });
+        controller.enqueue(Buffer.from(`data: ${JSON.stringify(chunk({ content: 'working' }))}\n\n`));
+      } }), { headers: { 'Content-Type': 'text/event-stream' } });
+    });
+    vi.stubGlobal('fetch', fetch);
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const response = await post(value);
+      const stopped = response.text().then(() => 'ended', () => 'aborted');
+      await vi.advanceTimersByTimeAsync(59_999);
+      expect(signal.aborted).toBe(false); expect(settle).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(signal.aborted).toBe(true);
+      expect(await stopped).toBe('aborted');
+      expect(settle).toHaveBeenCalledExactlyOnceWith({ complete: false, usage: undefined });
+      expect(incomplete).toHaveBeenCalledOnce(); expect(fetch).toHaveBeenCalledOnce();
+    } finally { vi.useRealTimers(); }
+  });
+});
+
 describe('session-scoped Responses to Chat Completions bridge, entirely offline', () => {
+  it.each([
+    { tools: [], tool_choice: 'auto', parallel_tool_calls: false },
+    { tool_choice: 'auto', parallel_tool_calls: false },
+    { tools: [], tool_choice: 'none', parallel_tool_calls: true },
+    { parallel_tool_calls: true },
+  ])('omits Chat tool controls when no tools are available (%#)', async controls => {
+    const url = await upstream((_request, response, body) => {
+      if ('tools' in body || 'tool_choice' in body || 'parallel_tool_calls' in body) {
+        response.writeHead(400, { 'Content-Type': 'application/json' });
+        response.end(JSON.stringify({ error: { code: 'invalid_request', message: 'Tool controls require tools.' } }));
+        return;
+      }
+      expect(body).not.toHaveProperty('max_tokens');
+      sse(response, [chunk({ content: 'Conversation checkpoint.' }), chunk({}, 'stop'),
+        { choices: [], usage: { prompt_tokens: 100, completion_tokens: 10, total_tokens: 110 } }]);
+    });
+    const response = await post(await bridge(url), { ...basic, ...controls });
+    expect(response.status).toBe(200);
+    expect(completed(await events(response)).output[0].content[0].text).toBe('Conversation checkpoint.');
+  });
+
   it('streams function/custom tools and replays original reasoning and tool outputs after a fresh bridge', async () => {
     const forwarded: any[] = [];
     const patch = '*** Begin Patch\n*** Add File: Proof.lean\n+example : True := by trivial\n*** End Patch';
@@ -186,6 +272,10 @@ describe('session-scoped Responses to Chat Completions bridge, entirely offline'
       expect(request.url).toBe('/v1/chat/completions');
       expect(request.headers.authorization).toBe(`Bearer ${upstreamKey}`);
       forwarded.push(body);
+      if (forwarded.length === 1) {
+        expect(body.tool_choice).toBe('auto'); expect(body.parallel_tool_calls).toBe(true);
+        expect(body.tools).toHaveLength(2);
+      }
       if (forwarded.length === 1) sse(response, [
         chunk({ role: 'assistant', reasoning_content: 'Check the Lean ' }), chunk({ reasoning_content: 'goal first.' }),
         chunk({ tool_calls: [{ index: 0, id: 'call-shell', type: 'function', function: { name: 'exec_', arguments: '{"cmd":' } }] }),
@@ -345,6 +435,72 @@ describe('session-scoped Responses to Chat Completions bridge, entirely offline'
     expect(calls).toBe(1);
   });
 
+  it.each([
+    { message: 'Maximum context length exceeded for this request.', category: 'context_window_exceeded' },
+    { message: 'Missing required reasoning_content in assistant message.', category: 'missing_reasoning_content' },
+    { message: 'tool_call_id has no matching response.', category: 'tool_call_history_invalid' },
+    { message: 'max_tokens is outside the allowed range.', category: 'output_token_limit' },
+    { message: 'Unsupported parameter: response_format', category: 'unsupported_parameter' },
+  ])('retains safe $category diagnostics without disclosing provider messages', async ({ message, category }) => {
+    const settle = vi.fn(), incomplete = vi.fn();
+    const url = await upstream((_request, response) => {
+      response.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+      response.end(JSON.stringify({ error: { message: `${message} private prompt ${upstreamKey}`,
+        code: 'invalid_request', type: 'invalid_request_error', param: 'messages[2].reasoning_content' } }));
+    });
+    const response = await post(await bridge(url, incomplete, () => ({ allowed: true, settle })));
+    expect(response.status).toBe(400);
+    const body = await response.json() as any;
+    expect(body.error).toEqual({ type: 'chat_bridge_error', code: 'upstream_http_400',
+      message: category === 'context_window_exceeded' ? 'upstream_http_400: maximum context length exceeded' : 'upstream_http_400',
+      upstream: { category, code: 'invalid_request', type: 'invalid_request_error', param: 'messages[2].reasoning_content' } });
+    expect(JSON.stringify(body)).not.toContain(upstreamKey);
+    expect(JSON.stringify(body)).not.toContain('private prompt');
+    expect(JSON.stringify(body)).not.toContain(message);
+    expect(settle).toHaveBeenCalledExactlyOnceWith({ complete: false, usage: undefined });
+    expect(incomplete).toHaveBeenCalledOnce();
+  });
+
+  it('rejects sensitive or unstructured diagnostic fields', async () => {
+    const url = await upstream((_request, response) => {
+      response.writeHead(401, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ error: { code: `invalid_${upstreamKey}`, type: 'Bearer private',
+        param: { input: upstreamKey }, message: `private prompt ${upstreamKey}` } }));
+    });
+    const response = await post(await bridge(url));
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: { type: 'chat_bridge_error', code: 'upstream_http_401', message: 'upstream_http_401' } });
+  });
+
+  it.each(['{invalid', JSON.stringify({ error: { code: 'too_large', message: 'x'.repeat(16 * 1024) } }),
+    JSON.stringify({ error: null }), JSON.stringify({ error: ['invalid_request'] })])(
+    'preserves HTTP status for unusable JSON diagnostics (%#)', async body => {
+      const url = await upstream((_request, response) => {
+        response.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '3' }); response.end(body);
+      });
+      const response = await post(await bridge(url));
+      expect(response.status).toBe(429); expect(response.headers.get('retry-after')).toBe('3');
+      expect(await response.json()).toEqual({ error: { type: 'chat_bridge_error', code: 'upstream_http_429', message: 'upstream_http_429' } });
+    });
+
+  it('bounds JSON diagnostic reads even when the upstream never finishes or cancels', async () => {
+    const value = await bridge('https://provider.invalid/v1');
+    const never = new Promise<void>(() => {}), cancel = vi.fn(() => never);
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(new ReadableStream({
+      start(controller) { controller.enqueue(Buffer.from('{"error":')); }, cancel,
+    }), { status: 400, headers: { 'Content-Type': 'application/json' } })));
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const pending = post(value);
+      await expect.poll(() => vi.mocked(globalThis.fetch).mock.calls.length).toBe(1);
+      await vi.advanceTimersByTimeAsync(1000);
+      const response = await pending;
+      expect(response.status).toBe(400); expect(cancel).toHaveBeenCalledOnce();
+      expect(await response.json()).toEqual({ error: { type: 'chat_bridge_error', code: 'upstream_http_400', message: 'upstream_http_400' } });
+      await value.close();
+    } finally { vi.useRealTimers(); }
+  });
+
   it.each(['length', 'content_filter'])('reports %s as incomplete rather than completed', async reason => {
     const url = await upstream((_request, response) => sse(response, [chunk({ content: 'partial' }), chunk({}, reason)]));
     const traffic = await events(await post(await bridge(url)));
@@ -449,6 +605,8 @@ describe('session-scoped Responses to Chat Completions bridge, entirely offline'
     { ...basic, input: [{ role: 'user', content: [{ type: 'input_image', image_url: 'https://outside.invalid/image' }] }] },
     { ...basic, input: [{ type: 'reasoning', summary: [], encrypted_content: 'unknown-opaque-content' }] },
     { ...basic, tools: [{ type: 'web_search' }] }, { ...basic, tools: [{ type: 'namespace', name: 'collaboration', tools: [] }] },
+    { ...basic, tools: [], tool_choice: 'required' },
+    { ...basic, tool_choice: { type: 'function', name: 'missing' } },
     { ...basic, tools: functions, tool_choice: { type: 'function', name: 'missing' } },
     { ...basic, input: [{ type: 'function_call_output', call_id: 'unknown', output: 'untrusted' }] },
   ])('rejects unsupported input explicitly without a model request %#', async body => {

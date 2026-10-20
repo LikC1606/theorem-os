@@ -337,6 +337,7 @@ describe('original-goal recovery alongside independent proof work', () => {
   });
 
   it('allows a pending original prerequisite to advance before requesting recovery', async () => {
+    record('original_goal').task = { ...record('original_goal').task, conditional: false };
     record('missing_argument').status = 'pending'; priorAssessment();
     await expectWaiting();
     const work = await start('missing_argument');
@@ -345,6 +346,7 @@ describe('original-goal recovery alongside independent proof work', () => {
   });
 
   it('waits for running work on the original path instead of issuing a recovery', async () => {
+    record('original_goal').task = { ...record('original_goal').task, conditional: false };
     record('missing_argument').status = 'pending'; priorAssessment();
     await start('missing_argument');
     await expectWaiting();

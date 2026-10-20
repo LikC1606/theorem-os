@@ -20,6 +20,8 @@ const commands: Readonly<Record<string, string>> = {
   'search-lean': fs.existsSync(path.join(root, 'out/main/search-lean.js')) ? 'out/main/search-lean.js' : 'scripts/mathematics/searchLean.ts',
   knowledge: 'scripts/mathematics/theoremKnowledge.ts',
   'check-lean': 'scripts/mathematics/checkLean.ts',
+  'check-finite': 'scripts/mathematics/checkFinite.ts',
+  continuation: 'scripts/mathematics/readContinuation.ts',
   inspect: 'scripts/mathematics/inspectMathRun.ts',
   recover: 'scripts/mathematics/recoverMathSnapshot.ts',
   edit: 'scripts/mathematics/editMathRun.ts',
@@ -44,6 +46,8 @@ if (!command || ['help', '--help', '-h'].includes(command)) {
   search-lean          Find declarations in verified local Lean packages
   knowledge            Build and query previously checked theorem sources
   check-lean           Check changed Lean files with bounded diagnostics
+  check-finite         Replay finite Boolean constraints and return witnesses
+  continuation         Read frozen continuation attachments in bounded pages
   inspect              Read a research report or export a versioned task plan
   recover              Restore a research snapshot and recheck saved helpers
   edit                 Validate and queue a human plan edit

@@ -15,6 +15,7 @@ const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn() }));
 vi.mock('../src/math/verifier', async importOriginal => ({
   ...await importOriginal<typeof import('../src/math/verifier')>(),
   checkManyFormalVerifications: host.verify,
+  formalVerificationToolIdentity: () => undefined,
   resolveMathematicsLakePackagesCache: () => undefined,
 }));
 vi.mock('../src/runtime/codexSession', () => ({ createCodexMathSession: host.createSession }));
@@ -30,7 +31,9 @@ function verified(request: MathematicsVerifierBatchRequest): MathematicsVerifier
 
 const failedBatch = (request: MathematicsVerifierBatchRequest, status: 'failed' | 'unavailable'): MathematicsVerifierBatchResult => {
   const batch = verified(request);
-  return { ...batch, status, results: batch.results.map(item => ({ ...item, status, error: 'Fixture merged check failure.' })) };
+  return { ...batch, status, results: batch.results.map(item => ({ ...item, status,
+    error: status === 'failed' ? 'Lean exited with status 1.' : 'Fixture merged check failure.',
+    ...(status === 'failed' ? { stdoutPreview: 'Submission.lean:3:1: error: Fixture merged proof failure.' } : {}) })) };
 };
 const deferred = <T,>() => {
   let resolve!: (value: T) => void, reject!: (error: unknown) => void;

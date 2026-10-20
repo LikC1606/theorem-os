@@ -6,10 +6,11 @@ import { assertMathCanonicalPath } from './paths';
 import { canonicalMathJson, mathDigest, writeMathJsonDurable } from './mathRuntimeIo';
 import { runMathematicsSandboxedCommand } from './verifier';
 import { resolveMathematicsRuntimeEnvironment } from './mathRuntimeEnvironment';
-import { acquireMathProofEnvironmentLease, resolveMathProofEnvironment, MATH_PROOF_ENVIRONMENT_SANDBOX_ENV } from './mathProofEnvironment';
+import { acquireMathProofEnvironmentLease, MATH_PROOF_ENVIRONMENT_SANDBOX_ENV } from './mathProofEnvironment';
 import { checkResolvedLeanToolchainReadiness } from './leanToolchainReadiness';
 import { parseLeanDiagnosticOutput, renderLeanDiagnosticOutput } from './leanDiagnosticMessages';
 import type { LeanDiagnosticArtifactReference, LeanDiagnosticMessage } from './leanTypes';
+import { leanDiagnosticEnvironmentIdentity } from './leanResidualGoals';
 
 const DIAGNOSTIC_CAPTURE_LIMIT = 4_000_000;
 type DiagnosticCacheRecord = { source: string; output: string; stdout?: string; stderr?: string;
@@ -71,14 +72,13 @@ export async function runLeanDiagnostics(input: {
     const saved = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
     if (saved && typeof saved === 'object' && !Array.isArray(saved)) cache = saved;
   } catch { /* Missing or stale advisory cache. */ }
-  const configuration = () => ['lean-toolchain', 'lakefile.toml', 'lakefile.lean', 'lake-manifest.json', '.lake/package-overrides.json'].map(file => {
+  const configurationFiles = ['lean-toolchain', 'lakefile.toml', 'lakefile.lean', 'lake-manifest.json', '.lake/package-overrides.json'];
+  const configuration = () => configurationFiles.map(file => {
     const absolute = path.join(project, file);
     return fs.existsSync(absolute) ? mathDigest(fs.readFileSync(absolute)) : '';
   });
   const config = configuration();
-  const environmentIdentity = mathDigest(JSON.stringify([
-    'lean-json-diagnostics.v1', resolveMathProofEnvironment(project, env)?.identity, env.PATH, env.ELAN_HOME, env.LEAN_PATH, env.LEAN_SYSROOT,
-  ]));
+  const { environmentDigest: environmentIdentity, toolIdentity } = leanDiagnosticEnvironmentIdentity(project, env);
   const sourceFiles = () => modules.map(module => [module.file, mathDigest(fs.readFileSync(path.join(project, module.file)))]);
   const initialSources = sourceFiles();
   const sourceIdentity = () => mathDigest(JSON.stringify([configuration(), sourceFiles()]));
@@ -92,6 +92,8 @@ export async function runLeanDiagnostics(input: {
     return limitMathOutput(text, Math.max(0, outputLimit - Buffer.byteLength(notice)), 'head') +
       limitMathOutput(notice, outputLimit, 'head');
   };
+  const appendOutput = (previous: string, next: string) =>
+    cap(previous + (previous && !previous.endsWith('\n') && next ? '\n' : '') + next);
   const artifactDigest = (output: string) => mathDigest(JSON.stringify([
     output, output + '.private', output + '.server', output.replace(/\.olean$/u, '.ir'), output.replace(/\.olean$/u, '.ir.sig'),
   ].map(file => {
@@ -100,6 +102,19 @@ export async function runLeanDiagnostics(input: {
   })));
   let stdout = '', stderr = '';
   const messages: LeanDiagnosticMessage[] = [], diagnosticArtifacts: LeanDiagnosticArtifactReference[] = [];
+  const finish = <T extends { exitCode: number | null; timedOut: boolean; aborted?: boolean }>(result: T): T => {
+    const latest = path.join(project, '.lake', 'lean-diagnostics-latest.json');
+    assertMathCanonicalPath(latest);
+    fs.mkdirSync(path.dirname(latest), { recursive: true, mode: 0o700 });
+    writeMathJsonDurable(latest, {
+      schema: 'theoremos.lean-diagnostics-latest.v1', authority: 'advisory-lean-process',
+      sourceDigest, environmentDigest: environmentIdentity, toolIdentity, requestedFiles: [...input.files],
+      configuration: configurationFiles.map((file, index) => ({ file, digest: config[index] || null })),
+      sourceFiles: initialSources.map(([file, digest]) => ({ file, digest })),
+      exitCode: result.exitCode, timedOut: result.timedOut, aborted: result.aborted ?? false, diagnosticArtifacts,
+    });
+    return result;
+  };
   const captured = (reference: LeanDiagnosticArtifactReference) => {
     try {
       if (!reference || typeof reference.digest !== 'string' || !/^[a-f0-9]{64}$/u.test(reference.digest) ||
@@ -133,7 +148,7 @@ export async function runLeanDiagnostics(input: {
     const captureComplete = complete.includes(false) ? false : complete.includes(null) ? null : true;
     const observed = [...parseLeanDiagnosticOutput(result.stdout).messages, ...parseLeanDiagnosticOutput(result.stderr).messages];
     const artifact = { schema: 'theoremos.lean-diagnostics.v1', authority: 'advisory-lean-process', sourceDigest,
-      environmentDigest: environmentIdentity, file, sourceCurrent: sourceIdentity() === sourceDigest,
+      environmentDigest: environmentIdentity, toolIdentity, file, sourceCurrent: sourceIdentity() === sourceDigest,
       sourceFiles: initialSources.map(([file, digest]) => ({ file, digest })),
       exitCode: result.exitCode, timedOut: result.timedOut, aborted: result.aborted ?? false,
       captureComplete, captureLimit: DIAGNOSTIC_CAPTURE_LIMIT,
@@ -148,6 +163,7 @@ export async function runLeanDiagnostics(input: {
     return { reference, observed };
   };
   const quote = (value: string) => "'" + value.replaceAll("'", "'\\''") + "'";
+  try {
   for (const module of modules) {
     input.signal?.throwIfAborted();
     sources.push(mathDigest(fs.readFileSync(path.join(project, module.file))));
@@ -160,15 +176,15 @@ export async function runLeanDiagnostics(input: {
     if (saved?.source === digest && fs.existsSync(absoluteOutput) && saved.output === artifactDigest(absoluteOutput) &&
         saved.diagnosticArtifact && captured(saved.diagnosticArtifact)) {
       phases.push({ file: module.file, cached: true, durationMs: 0, exitCode: 0 });
-      stdout = cap(stdout + cap(typeof saved.stdout === 'string' ? saved.stdout : ''));
-      stderr = cap(stderr + cap(typeof saved.stderr === 'string' ? saved.stderr : ''));
+      stdout = appendOutput(stdout, cap(typeof saved.stdout === 'string' ? saved.stdout : ''));
+      stderr = appendOutput(stderr, cap(typeof saved.stderr === 'string' ? saved.stderr : ''));
       diagnosticArtifacts.push(saved.diagnosticArtifact); messages.push(...(saved.messages ?? []));
       sources.push(saved.output);
       continue;
     }
     input.onProgress?.(module.file);
     const remainingMs = deadline - Date.now();
-    if (remainingMs <= 0) return { exitCode: null, timedOut: true, stdout, stderr, phases, ...summary() };
+    if (remainingMs <= 0) return finish({ exitCode: null, timedOut: true, stdout, stderr, phases, ...summary() });
     const result = env[MATH_PROOF_ENVIRONMENT_SANDBOX_ENV]
       ? await runWorkerLean(project, module, output, env, remainingMs, input.signal, DIAGNOSTIC_CAPTURE_LIMIT)
       : await runMathematicsSandboxedCommand({ checkoutRoot: project, command: 'lake',
@@ -176,14 +192,14 @@ export async function runLeanDiagnostics(input: {
       env, signal: input.signal, timeoutMs: remainingMs, outputCapture: 'head', outputLimit: DIAGNOSTIC_CAPTURE_LIMIT });
     phases.push({ file: module.file, cached: false, durationMs: result.durationMs, exitCode: result.exitCode });
     const retained = retain(module.file, result);
-    if (sourceIdentity() !== sourceDigest) return { exitCode: 1, timedOut: false,
+    if (sourceIdentity() !== sourceDigest) return finish({ exitCode: 1, timedOut: false,
       stdout: cap(renderLeanDiagnosticOutput(result.stdout)), stderr: 'math_diagnostics_source_changed: saved sources changed during compilation',
-      phases, ...summary() };
+      phases, ...summary() });
     const moduleStdout = cap(renderLeanDiagnosticOutput(result.stdout)), moduleStderr = cap(renderLeanDiagnosticOutput(result.stderr));
-    stdout = cap(stdout + moduleStdout); stderr = cap(stderr + moduleStderr);
-    if (result.exitCode !== 0 || result.timedOut || result.aborted || !result.started) return {
+    stdout = appendOutput(stdout, moduleStdout); stderr = appendOutput(stderr, moduleStderr);
+    if (result.exitCode !== 0 || result.timedOut || result.aborted || !result.started) return finish({
       ...result, stdout: moduleStdout, stderr: moduleStderr, phases, ...summary(),
-    };
+    });
     if (fs.existsSync(absoluteOutput)) {
       const artifact = artifactDigest(absoluteOutput);
       cache[module.file] = { source: digest, output: artifact,
@@ -194,9 +210,15 @@ export async function runLeanDiagnostics(input: {
       fs.writeFileSync(cacheFile, JSON.stringify(cache) + '\n', { mode: 0o600 });
     }
   }
-  if (sourceIdentity() !== sourceDigest) return { exitCode: 1, timedOut: false, stdout,
-    stderr: 'math_diagnostics_source_changed: saved sources changed during diagnostics', phases, ...summary() };
-  return { exitCode: 0, timedOut: false, stdout, stderr, phases, ...summary() };
+  if (sourceIdentity() !== sourceDigest) return finish({ exitCode: 1, timedOut: false, stdout,
+    stderr: 'math_diagnostics_source_changed: saved sources changed during diagnostics', phases, ...summary() });
+  return finish({ exitCode: 0, timedOut: false, stdout, stderr, phases, ...summary() });
+  } catch (error) {
+    try {
+      finish({ exitCode: null, timedOut: error instanceof Error && error.name === 'TimeoutError', aborted: input.signal?.aborted });
+    } catch { /* Retaining advisory metadata must not replace the original compilation or filesystem error. */ }
+    throw error;
+  }
 }
 
 /** Rebind an existing or broken package link without deleting a real package directory. */

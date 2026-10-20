@@ -9,9 +9,19 @@ export type LeanStatementContext = {
   references?: LeanDeclarationReferences;
 };
 
+/** The type is parsed as one term; the generated declaration exists only in the advisory query. */
+export function leanStatementTypeCommands(name: string, type: string) {
+  return ['set_option autoImplicit false', 'run_cmd do',
+    `  let parsed <- match Lean.Parser.runParserCategory (<- Lean.getEnv) (Lean.Name.mkSimple "term") ${JSON.stringify(type)} with`,
+    '    | .ok stx => pure stx', '    | .error message => throwError "{message}"',
+    '  let parsed : Lean.TSyntax `term := ⟨parsed⟩',
+    `  Lean.Elab.Command.elabCommand (← \`(axiom $(Lean.mkIdent (${JSON.stringify('_root_.' + name)}.toName)) : $parsed))`].join('\n');
+}
+
 /** Follow local definitions and two levels of imported definitions; expose all bounds explicitly. */
 export function leanStatementContextCommands(roots: readonly { id: string; name: string }[],
-  projectModules: readonly { module: string; file: string }[], outputFile: string): string {
+  projectModules: readonly { module: string; file: string }[], outputFile: string,
+  options?: { omitOversizedType?: boolean }): string {
   return [
     'set_option pp.fullNames true',
     'set_option pp.notation false',
@@ -51,7 +61,9 @@ export function leanStatementContextCommands(roots: readonly { id: string; name:
     '  let collect (rootName : Lean.Name) : Lean.Elab.Term.TermElabM Lean.Json := do',
       '    let root <- Lean.getConstInfo rootName',
       '    let statement := (<- Lean.Meta.ppExpr root.type).pretty',
-      '    if statement.utf8ByteSize > 24000 then throwError "Statement type exceeds its export bound"',
+      options?.omitOversizedType === true
+        ? '    if statement.utf8ByteSize > 24000 then return Lean.Json.mkObj [("unavailable", Lean.toJson "statement-type-export-bound"), ("bytes", Lean.toJson statement.utf8ByteSize), ("limit", Lean.toJson (24000 : Nat))]'
+        : '    if statement.utf8ByteSize > 24000 then throwError "Statement type exceeds its export bound"',
       '    let mut todo := (Lean.Expr.getUsedConstants root.type).toList.map (fun name => (name, 0))',
       '    let mut visited : Lean.NameSet := {}',
       '    let mut constants : Array Lean.Json := #[]',

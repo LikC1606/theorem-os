@@ -43,6 +43,7 @@ describe('alternative route scheduling', () => {
     'does not promote a helper solely for a %s consumer', inactive => {
       const current = node('current'), input = node('checked_input'), helper = node('helper', 'lemma', [input.task.id]);
       const goal = node('goal', 'goal', [current.task.id]), unused = node('unused_goal', 'goal', [helper.task.id]);
+      goal.task = { ...goal.task, conditional: false };
       checked(input);
       if (inactive === 'paused' || inactive === 'stopped') unused.task = { ...unused.task, status: inactive };
       if (inactive === 'inactive-group' || inactive === 'exhausted-group') unused.task = { ...unused.task, groupId: 'old' };
@@ -62,7 +63,9 @@ describe('alternative route scheduling', () => {
     });
 
   it('follows checked input evidence on a later branch and recomputes priority after its version changes', () => {
-    const { a, b, c, goal, tasks } = fixture();
+    const { a, b, c, closeA, closeB, goal, tasks } = fixture();
+    closeA.task = { ...closeA.task, conditional: false };
+    closeB.task = { ...closeB.task, conditional: false };
     checked(b);
     expect(selectedTaskRoute(goal, tasks)?.id).toBe('b_route');
     expect(readyResearchTasks(tasks)).toEqual([c, a]);
@@ -86,17 +89,25 @@ describe('alternative route scheduling', () => {
     expect(goal.assignment.routeId).toBe('a_route');
   });
 
-  it('keeps old plans and dependency scheduling exactly compatible without route metadata', () => {
+  it('preserves old plan contracts while offering a conditional connection without route metadata', () => {
     const input = node('input'), goal = node('goal', 'goal', ['input']);
+    const version = taskVersion(goal.task);
     const parsed = parseCooperationPlan(problem, { tasks: [input.task, goal.task] });
     expect(parsed).toEqual({ tasks: [input.task, goal.task], groups: [
       { id: 'main', objective: 'Prove the original problem', status: 'active', revision: 0 },
     ] });
     expect(plannedTaskDependencyIds(goal, [input, goal])).toEqual(['input']);
     expect(selectedTaskRoute(goal, [input, goal])).toBeUndefined();
-    expect(readyResearchTasks([input, goal])).toEqual([input]);
+    expect(readyResearchTasks([input, goal])).toEqual([goal, input]);
+    expect(taskDependenciesReady(goal.task, [input, goal])).toBe(false);
+    expect(taskVersion(goal.task)).toBe(version);
+    expect(goal.task.conditional).toBeUndefined();
+    expect(goal.status).toBe('pending');
+    expect(finalCandidateReviewReady([input, goal])).toBe(false);
     checked(input);
     expect(readyResearchTasks([input, goal])).toEqual([goal]);
+    expect(taskDependenciesReady(goal.task, [input, goal])).toBe(true);
+    expect(finalCandidateReviewReady([input, goal])).toBe(false);
   });
 
   it('passes route contracts through the plan parser without rewriting frozen goal dependencies', () => {
@@ -191,6 +202,7 @@ describe('alternative route scheduling', () => {
 
   it('keeps route inputs on the original proof path in critical-path and continuation scheduling', () => {
     const { a, b, c, closeB, goal, tasks } = fixture(), unrelated = node('unrelated');
+    closeB.task = { ...closeB.task, conditional: false };
     a.status = 'blocked';
     expect(criticalPathResearchTasks([unrelated, ...tasks]).slice(0, 2)).toEqual([b, c]);
     checked(b); checked(c); checked(closeB, [b, c]);

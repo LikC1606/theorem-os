@@ -5,9 +5,9 @@ import { canonicalMathJson, mathDigest, readMathFile, writeMathJsonDurable } fro
 import { bindLeanPackages, prepareLeanDiagnosticOverrides, runLeanDiagnostics } from '../math/leanDiagnostics';
 import { renderLeanDiagnosticMessage } from '../math/leanDiagnosticMessages';
 import type { LeanDiagnosticArtifactReference } from '../math/leanTypes';
-import { leanStatementContextCommands, parseLeanStatementContexts, type LeanStatementContext } from '../math/leanStatementContext';
-import { maskLeanComments } from '../math/leanSyntax';
-import { inspectLeanDeclarationRegions } from '../math/leanSource';
+import { leanStatementContextCommands, leanStatementTypeCommands, parseLeanStatementContexts, type LeanStatementContext } from '../math/leanStatementContext';
+import { isSimpleLeanName, maskLeanComments } from '../math/leanSyntax';
+import { inspectLeanDeclarationRegions, inspectScopedLeanDeclarations, leanDeclarationContextCommands } from '../math/leanSource';
 import { assertMathCanonicalPath } from '../math/paths';
 import { committedSource, withSolverWorktree } from './problem';
 import { advisoryEvidenceRefs } from './deliveries';
@@ -42,36 +42,66 @@ export function statementReviewSummary({ workspace: _workspace, files: _files, r
 /** The blind view contains formal context and definitions, with no comments, proof bodies or journals. */
 export function statementSnapshot(problem: SolverProblem, task: CooperativeTask, worktree: string, commit: string,
   environmentDigest: string, dependencies: readonly { task: CooperativeTask; taskDigest: string }[], elaboration?: LeanStatementContext) {
-  const leanStatement = task.kind === 'lemma' ? `theorem ${task.theoremName} : ${task.type}` :
-    'theorem ' + problem.declarations[task.proofPath!]!.find(item => item.name.split('.').at(-1) === task.theoremName!.split('.').at(-1))!.header;
+  return createStatementSnapshotter(problem, worktree, commit, environmentDigest)(task, dependencies, elaboration);
+}
+
+/** Share committed source preparation only within one synchronous batch of blind snapshots. */
+export function createStatementSnapshotter(problem: SolverProblem, worktree: string, commit: string, environmentDigest: string) {
   const sources = [...new Set([...Object.keys(problem.trustedFiles), ...problem.ownedFiles])].filter(file => file.endsWith('.lean'));
-  let bytes = 0;
-  const definitions = sources.map(file => {
-    let source = maskLeanComments(committedSource(worktree, commit, `${problem.projectRelative}/${file}`));
-    for (const region of inspectLeanDeclarationRegions(source).reverse()) if (/^(?:theorem|lemma)\s/u.test(source.slice(region.startOffset, region.bodyOffset))) {
-      const target = task.kind === 'goal' && file === task.proofPath && region.name.split('.').at(-1) === task.theoremName!.split('.').at(-1);
-      source = source.slice(0, region.startOffset) + (target ? 'theorem ' + region.declarationType + '\n' : '') + source.slice(region.endOffset);
-    }
-    bytes += Buffer.byteLength(source);
-    if (bytes > 4_000_000) throw new Error('math_statement_snapshot_too_large');
-    return { file, source };
-  });
-  // Goal reviews certify the fixed original declaration. Helper task revisions do
-  // not change that declaration and must not force the same review to restart.
-  const snapshotDependencies = task.kind === 'goal' ? [] : dependencies;
-  const input = { leanStatement: maskLeanComments(leanStatement), theoremName: task.theoremName, proofPath: task.proofPath, environmentDigest,
-    ...(elaboration ? { elaboration } : {}),
-    dependencies: snapshotDependencies.map(({ task: dependency, taskDigest }) => ({ taskId: dependency.id, taskDigest,
-      theoremName: dependency.theoremName, leanType: dependency.type && maskLeanComments(dependency.type) })),
-    definitions: definitions.map((definition, index) => ({ originalFile: definition.file, path: `definitions/${index}.lean` })) };
-  // Keep full task versions in the audit input; only mathematical contracts bind review reuse.
-  const snapshotDigest = mathDigest(canonicalMathJson({ input: { ...input,
-    dependencies: input.dependencies.map((dependency, index) => ({ ...dependency,
-      taskDigest: taskProofContractVersion(snapshotDependencies[index]!.task) })) }, definitions }));
-  const references = elaboration?.references && captureProofReferences(problem, worktree, commit,
-    { name: task.theoremName!, file: task.proofPath! }, elaboration.references, environmentDigest, 'statement',
-    task.kind === 'lemma' ? task.type : undefined);
-  return { input, definitions, snapshotDigest, ...(references ? { references } : {}) };
+  const prepared = new Map<string, { source: string; regions: ReturnType<typeof inspectLeanDeclarationRegions> }>();
+  return (task: CooperativeTask, dependencies: readonly { task: CooperativeTask; taskDigest: string }[], elaboration?: LeanStatementContext) => {
+    const leanStatement = task.kind === 'lemma' ? `theorem ${task.theoremName} : ${task.type}` :
+      'theorem ' + problem.declarations[task.proofPath!]!.find(item => item.name.split('.').at(-1) === task.theoremName!.split('.').at(-1))!.header;
+    let bytes = 0;
+    const definitions = sources.map(file => {
+      let saved = prepared.get(file);
+      if (!saved) {
+        const source = maskLeanComments(committedSource(worktree, commit, `${problem.projectRelative}/${file}`));
+        saved = { source, regions: inspectLeanDeclarationRegions(source).reverse() };
+        prepared.set(file, saved);
+      }
+      let source = saved.source;
+      for (const region of saved.regions) if (/^(?:theorem|lemma)\s/u.test(source.slice(region.startOffset, region.bodyOffset))) {
+        const target = task.kind === 'goal' && file === task.proofPath && region.name.split('.').at(-1) === task.theoremName!.split('.').at(-1);
+        source = source.slice(0, region.startOffset) + (target ? 'theorem ' + region.declarationType + '\n' : '') + source.slice(region.endOffset);
+      }
+      bytes += Buffer.byteLength(source);
+      if (bytes > 4_000_000) throw new Error('math_statement_snapshot_too_large');
+      return { file, source };
+    });
+    // Goal reviews certify the fixed original declaration. Helper task revisions do
+    // not change that declaration and must not force the same review to restart.
+    const snapshotDependencies = task.kind === 'goal' ? [] : dependencies;
+    const input = { leanStatement: maskLeanComments(leanStatement), theoremName: task.theoremName, proofPath: task.proofPath, environmentDigest,
+      ...(elaboration ? { elaboration: structuredClone(elaboration) } : {}),
+      dependencies: snapshotDependencies.map(({ task: dependency, taskDigest }) => ({ taskId: dependency.id, taskDigest,
+        theoremName: dependency.theoremName, leanType: dependency.type && maskLeanComments(dependency.type) })),
+      definitions: definitions.map((definition, index) => ({ originalFile: definition.file, path: `definitions/${index}.lean` })) };
+    // Keep full task versions in the audit input; only mathematical contracts bind review reuse.
+    const snapshotDigest = mathDigest(canonicalMathJson({ input: { ...input,
+      dependencies: input.dependencies.map((dependency, index) => ({ ...dependency,
+        taskDigest: taskProofContractVersion(snapshotDependencies[index]!.task) })) }, definitions }));
+    const references = elaboration?.references && captureProofReferences(problem, worktree, commit,
+      { name: task.theoremName!, file: task.proofPath! }, elaboration.references, environmentDigest, 'statement',
+      task.kind === 'lemma' ? task.type : undefined);
+    return { input, definitions, snapshotDigest, ...(references ? { references } : {}) };
+  };
+}
+
+/** Reuse a known lookup context only when its original goal anchors agree. */
+function statementTypeContext(problem: SolverProblem, task: CooperativeTask, source: string) {
+  const requested = task.theoremName!.replace(/^_root_\./u, '');
+  if (!isSimpleLeanName(requested)) throw new Error('math_statement_elaboration_failed\nHelper declaration name is invalid.');
+  const namespace = requested.includes('.') ? requested.slice(0, requested.lastIndexOf('.')) : '';
+  const declarations = inspectScopedLeanDeclarations(source);
+  const exact = declarations.filter(item => item.qualifiedName === requested);
+  const anchors = exact.length ? exact : declarations.filter(item => item.kind === 'theorem' &&
+    item.namespace === namespace && problem.targets.some(target => target.proofPath === task.proofPath &&
+      target.theoremName.replace(/^_root_\./u, '') === item.qualifiedName));
+  const contexts = anchors.map(item => leanDeclarationContextCommands(source, item.qualifiedName));
+  if (exact.length > 1 || new Set(contexts.map(context => canonicalMathJson(context))).size > 1)
+    throw new Error('math_statement_elaboration_failed\nHelper declaration context is ambiguous.');
+  return contexts[0] ?? { before: namespace ? [`namespace ${namespace}`] : [], after: namespace ? [`end ${namespace}`] : [] };
 }
 
 /** Elaborate all requested types together in a disposable, proof-erased projection. This is not proof evidence. */
@@ -80,8 +110,10 @@ export async function captureStatementContexts(problem: SolverProblem, tasks: re
   return withSolverWorktree(worktree, commit, async checkout => {
     const project = path.join(checkout, problem.projectRelative);
     const sources = [...new Set([...Object.keys(problem.trustedFiles), ...problem.ownedFiles])].filter(file => file.endsWith('.lean'));
+    const originals = new Map<string, string>();
     for (const file of sources) {
       let source = committedSource(worktree, commit, `${problem.projectRelative}/${file}`);
+      originals.set(file, source);
       for (const region of inspectLeanDeclarationRegions(source).reverse())
         if (/^(?:theorem|lemma)\s/u.test(source.slice(region.startOffset, region.bodyOffset)))
           source = source.slice(0, region.bodyOffset) + ' by sorry\n' + source.slice(region.endOffset);
@@ -91,16 +123,20 @@ export async function captureStatementContexts(problem: SolverProblem, tasks: re
     const id = crypto.randomUUID().replaceAll('-', '');
     const query = `StatementContext${id}.lean`, output = `.lake/statement-context-${id}.json`;
     const roots = tasks.map((task, index) => ({ id: task.id, name: task.kind === 'lemma' ? `statementContext${id}_${index}` : task.theoremName! }));
-    const commands = ['import Lean', ...[...new Set(tasks.map(task => moduleName(task.proofPath!)))].map(module => `import ${module}`),
-      'set_option autoImplicit false',
-      ...tasks.flatMap((task, index) => task.kind === 'lemma' ? [`axiom ${roots[index].name} : ${task.type}`] : []),
-      leanStatementContextCommands(roots, sources.map(file => ({ module: moduleName(file), file })), output)].join('\n');
-    fs.writeFileSync(path.join(project, query), commands + '\n');
     const packages = path.join(worktree, problem.projectRelative, '.lake', 'packages');
     if (fs.existsSync(packages)) bindLeanPackages(project, packages);
     prepareLeanDiagnosticOverrides(project);
     let result: Awaited<ReturnType<typeof runLeanDiagnostics>> | undefined;
     try {
+      const commands = ['import Lean', ...[...new Set(tasks.map(task => moduleName(task.proofPath!)))].map(module => `import ${module}`),
+        'set_option autoImplicit false',
+        ...tasks.flatMap((task, index) => {
+          if (task.kind !== 'lemma') return [];
+          const context = statementTypeContext(problem, task, originals.get(task.proofPath!)!);
+          return ['section', ...context.before, leanStatementTypeCommands(roots[index].name, task.type!), ...context.after, 'end'];
+        }),
+        leanStatementContextCommands(roots, sources.map(file => ({ module: moduleName(file), file })), output)].join('\n');
+      fs.writeFileSync(path.join(project, query), commands + '\n');
       result = await runLeanDiagnostics({ projectRoot: project, files: [query], env, signal, timeoutMs, outputLimit: 1_000_000 });
       const report = path.join(project, output);
       if (result.exitCode !== 0 || result.timedOut || !fs.existsSync(report)) {
@@ -119,7 +155,8 @@ export async function captureStatementContexts(problem: SolverProblem, tasks: re
       const directory = path.join(path.dirname(worktree), 'statement-diagnostics', id);
       assertMathCanonicalPath(directory);
       fs.mkdirSync(path.join(directory, 'project'), { recursive: true, mode: 0o700 });
-      const files = [...new Set([...sources, ...Object.keys(problem.trustedFiles), ...problem.ownedFiles, query])].map(file => {
+      const files = [...new Set([...sources, ...Object.keys(problem.trustedFiles), ...problem.ownedFiles,
+        ...(fs.existsSync(path.join(project, query)) ? [query] : [])])].map(file => {
         const source = fs.readFileSync(path.join(project, file));
         const target = path.join(directory, 'project', file);
         assertMathCanonicalPath(target);

@@ -75,6 +75,17 @@ describe('accepted submission theorem knowledge', () => {
     expect(() => importAcceptedKnowledge(file)).toThrow('math_knowledge_accepted_source_changed');
   });
 
+  it('retains a source BOM and line endings in the complete archived byte identity', () => {
+    const files = { ...initialFiles, 'Submission.lean': '\ufeff' + source.replaceAll('\n', '\r\n') };
+    writeFiles('example', files);
+    const file = save([record('example', files)]), result = importAcceptedKnowledge(file);
+    expect(result.candidates[0]!.files['Submission.lean']).toBe(files['Submission.lean']);
+    const base = buildTheoremKnowledge(result.candidates);
+    const entry = base.entries.find(item => item.name === 'Submission.retained')!;
+    expect(base.contexts[entry.contextDigest]!['Submission.lean']).toBe(mathDigest(Buffer.from(files['Submission.lean'])));
+    expect(base.sources[base.contexts[entry.contextDigest]!['Submission.lean']!]).toBe(files['Submission.lean']);
+  });
+
   it.each(['pending', 'evaluated_passed'])('requires a recorded official_accepted status instead of %s', status => {
     expect(() => importAcceptedKnowledge(save([{ ...record(), status }]))).toThrow('math_knowledge_accepted_manifest_invalid');
   });

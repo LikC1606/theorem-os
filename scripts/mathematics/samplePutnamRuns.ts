@@ -9,6 +9,7 @@ import { DEFAULT_PUTNAM_SAMPLE_SEED, PUTNAM_BENCH_REPOSITORY_URL, PUTNAM_BENCH_S
   readPutnamBenchCatalog, samplePutnamBench } from '../../src/math/putnamBench';
 import { canonicalMathJson, mathDigest, readMathJson, readMathText, writeMathJsonDurable } from '../../src/math/mathRuntimeIo';
 import { assertMathCanonicalPath, isMathPathWithin } from '../../src/math/paths';
+import { assertExperimentKnowledge, experimentKnowledgeMode, experimentKnowledgeSchema, freezeExperimentKnowledge } from './experimentKnowledge';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const hash = z.string().regex(/^[0-9a-f]{64}$/u);
@@ -23,12 +24,14 @@ const manifestSchema = z.object({
   excludedCounts: z.record(z.number().int().nonnegative()),
   configuration: z.record(z.unknown()), buildDigest: hash, runtimeEnvironmentDigest: hash,
   moduleExperimentDigest: hash,
+  knowledge: experimentKnowledgeSchema.optional(),
   problems: z.array(z.object({ id: problemId, sourceRelativePath: z.string(), sourceSha256: hash,
     theoremNames: z.array(problemId).length(1),
     comparisonDirectory: z.string(), comparisonDigest: hash }).strict()).min(1).max(20),
 }).strict();
 const prepareOptions = ['repo', 'count', 'seed', 'build-manifest', 'module-experiment', 'provider', 'model', 'effort',
-  'workers', 'repetitions', 'max-turns', 'max-run-seconds', 'max-turn-seconds', 'max-total-tokens', 'proof-environment-cache-dir'];
+  'workers', 'repetitions', 'max-turns', 'max-run-seconds', 'max-turn-seconds', 'max-total-tokens',
+  'evaluator-timeout-seconds', 'proof-environment-cache-dir', 'knowledge-base', 'knowledge-mode'];
 type ComparisonPlan = Parameters<typeof comparisonReport>[1];
 
 export async function samplePutnamRuns(argv: string[]): Promise<number> {
@@ -38,6 +41,7 @@ export async function samplePutnamRuns(argv: string[]): Promise<number> {
       + 'prepare requires --repo PUTNAM_REPO --build-manifest FILE; defaults to 3 proof-only problems, a fixed sampling seed, '
       + 'Westlake deepseek-flash/high and the four module plans.\n'
       + '--count 1..20 --seed TEXT customize the reproducible sample. Budgets apply per problem and variant.\n'
+      + '--knowledge-base FILE [--knowledge-mode transfer|recovery] freezes one shared catalog; transfer rejects recorded target material.\n'
       + 'All phases are offline and never call a model. check-report reads report freshness without writing files. Individual comparison.json files retain the explicit run entry.');
     return 0;
   }
@@ -48,6 +52,7 @@ export async function samplePutnamRuns(argv: string[]): Promise<number> {
   if (isMathPathWithin(root, directory)) throw new Error('Keep PutnamBench experiments outside the source checkout.');
   const sampleFile = path.join(directory, 'sample.json');
   if (phase === 'prepare') {
+    const knowledgeMode = experimentKnowledgeMode(flags);
     if (fs.existsSync(directory)) throw new Error('PutnamBench sample directory already exists; use a new directory.');
     const count = Number(flags.get('count') ?? 3), seed = flags.get('seed') ?? DEFAULT_PUTNAM_SAMPLE_SEED;
     if (!Number.isSafeInteger(count) || count < 1 || count > 20) throw new Error('invalid --count (expected 1..20)');
@@ -62,11 +67,14 @@ export async function samplePutnamRuns(argv: string[]): Promise<number> {
     const defaults: Record<string, string> = { provider: 'westlake', workers: '4', repetitions: '1',
       'max-turns': '20', 'max-run-seconds': '600', 'max-turn-seconds': '180', 'max-total-tokens': '30000' };
     const forwarded = ['provider', 'model', 'effort', 'workers', 'repetitions', 'max-turns', 'max-run-seconds',
-      'max-turn-seconds', 'max-total-tokens', 'proof-environment-cache-dir'].flatMap(key => {
+      'max-turn-seconds', 'max-total-tokens', 'evaluator-timeout-seconds', 'proof-environment-cache-dir'].flatMap(key => {
       const value = flags.get(key) ?? defaults[key];
       return value === undefined ? [] : [`--${key}`, value];
     });
     fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+    const knowledge = flags.has('knowledge-base')
+      ? freezeExperimentKnowledge(directory, required(flags, 'knowledge-base'), knowledgeMode) : undefined;
+    if (knowledge) forwarded.push('--knowledge-base', knowledge.file, '--knowledge-mode', knowledge.mode);
     const plans: ComparisonPlan[] = [];
     const problems = [];
     for (const problem of selection.problems) {
@@ -90,6 +98,7 @@ export async function samplePutnamRuns(argv: string[]): Promise<number> {
       environment: { toolchain: catalog.toolchain, mathlibRevision: catalog.mathlibRevision, digest: catalog.environmentDigest },
       excludedCounts: catalog.excludedCounts, configuration: first.configuration,
       buildDigest: first.buildDigest, runtimeEnvironmentDigest: first.environmentDigest,
+      ...(knowledge ? { knowledge } : {}),
       moduleExperimentDigest: mathDigest(canonicalMathJson(first.moduleExperiment)), problems });
     writeMathJsonDurable(sampleFile, value);
     fs.chmodSync(sampleFile, 0o400);
@@ -99,6 +108,7 @@ export async function samplePutnamRuns(argv: string[]): Promise<number> {
   }
   if (prepareOptions.some(key => flags.has(key))) throw new Error('Sample options are frozen; report only accepts --directory.');
   const sample = manifestSchema.parse(readMathJson(sampleFile));
+  assertExperimentKnowledge(directory, sample.knowledge);
   if (sample.selection.count !== sample.problems.length || sample.selection.eligibleCount < sample.selection.count ||
       new Set(sample.problems.map(problem => problem.id)).size !== sample.problems.length)
     throw new Error('putnam_sample_identity_mismatch');
@@ -119,6 +129,8 @@ export async function samplePutnamRuns(argv: string[]): Promise<number> {
         plan.sourceProblem.environmentDigest !== sample.environment.digest ||
         canonicalMathJson(plan.configuration) !== canonicalMathJson(sample.configuration) ||
         plan.buildDigest !== sample.buildDigest || plan.environmentDigest !== sample.runtimeEnvironmentDigest ||
+        plan.knowledge?.digest !== sample.knowledge?.digest || plan.knowledge?.format !== sample.knowledge?.format ||
+        plan.knowledge?.mode !== sample.knowledge?.mode ||
         mathDigest(canonicalMathJson(plan.moduleExperiment)) !== sample.moduleExperimentDigest)
       throw new Error('putnam_sample_identity_mismatch');
     const reportFile = path.join(comparisonDirectory, 'report.json');
@@ -156,6 +168,7 @@ export async function samplePutnamRuns(argv: string[]): Promise<number> {
     official: false, evidence: 'recorded-not-replayed', selection: sample.selection,
     repositoryUrl: sample.repositoryUrl, sourceCommit: sample.sourceCommit,
     environment: sample.environment, configuration: sample.configuration,
+    ...(sample.knowledge ? { knowledge: sample.knowledge } : {}),
     totals: comparisonTotals(runs, names), problems: reports, runs };
   writeComparisonReport(reportFile, { ...report, reportHash: mathDigest(canonicalMathJson(report)) });
   console.log(JSON.stringify({ reportFile, problems: reports.length, plannedRuns: runs.length,

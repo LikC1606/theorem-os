@@ -89,6 +89,20 @@ describe('dependency readiness', () => {
     expect(researchCanAdvance([owned], undefined, new Set(['peer']))).toBe(false);
   });
 
+  it.each([undefined, true])('can check a consumer with conditional=%s when its input owner is offline', conditional => {
+    const input = node('input'), consumer = node('consumer', ['input']);
+    input.status = 'pending'; input.task.ownerId = 'offline';
+    consumer.status = 'pending'; consumer.task.kind = 'goal';
+    if (conditional !== undefined) consumer.task.conditional = conditional;
+    const tasks = [consumer, input], candidates = new Set(['consumer']);
+    expect(researchCanAdvance(tasks, undefined, new Set(), undefined, candidates)).toBe(true);
+    expect(taskDependenciesReady(consumer.task, tasks)).toBe(false);
+    expect(consumer.status).toBe('pending'); expect(input.status).toBe('pending');
+    expect(researchCanAdvance(tasks, undefined, new Set(), () => false, candidates)).toBe(false);
+    consumer.task.conditional = false;
+    expect(researchCanAdvance(tasks, undefined, new Set(), undefined, candidates)).toBe(false);
+  });
+
   it('requires dependency receipts to match the current task version', () => {
     const dependency = node('a'), target = node('target', ['a']);
     target.integratedCheck = { commit: 'checked', sourceDigest: 'source', passed: true, taskDigest: taskVersion(target.task), seedCommit: 'seed', changes: [],

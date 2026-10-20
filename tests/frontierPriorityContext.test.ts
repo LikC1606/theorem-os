@@ -4,7 +4,7 @@ import type { CooperationState } from '../src/solver/cooperation';
 import type { SolverRunState } from '../src/solver/archive';
 import type { SolverProblem } from '../src/solver/problem';
 import { buildResearchContext } from '../src/solver/modules/context';
-import { taskVersion, type CooperativeAction, type TaskRecord } from '../src/solver/tasks';
+import { assignmentDeliveryFile, initialPlanDeliveryFile, taskVersion, type CooperativeAction, type TaskRecord } from '../src/solver/tasks';
 import { canonicalMathJson, mathDigest } from '../src/math/mathRuntimeIo';
 import { researchHandoffs, resolveResearchHandoffs } from '../src/solver/researchHandoffs';
 
@@ -44,6 +44,44 @@ const contextFor = (cooperation: CooperationState, action: CooperativeAction) =>
 const packet = (message: string) => JSON.parse(message.split('Original-goal focus (advisory, not proof acceptance):\n')[1].split('\n\n')[0]);
 
 afterEach(() => vi.restoreAllMocks());
+
+it.each(['lemma', 'goal', 'research', 'sketch'] as const)(
+  'retains the complete %s delivery protocol without optional context or repeated protocol text', kind => {
+    const compile = contextCompiler.compileTaskContext;
+    vi.spyOn(contextCompiler, 'compileTaskContext').mockImplementation(input => compile({ ...input, maxOptionalContextBytes: 0 }));
+    const record = node('assigned', kind), action = actionFor(record);
+    if (action.kind !== 'task') throw new Error('fixture_assignment');
+    const context = contextFor({ canonicalCommit: seedCommit, tasks: [record] }, action);
+
+    expect(context.manifest).toMatchObject({ maxOptionalBytes: 0, optionalBytes: 0 });
+    expect(context.manifest!.included).toContainEqual(expect.objectContaining({ id: 'assignment-policy', required: true }));
+    expect(context.instructions).toContain(assignmentDeliveryFile(action.assignment));
+    expect(context.instructions).toContain('"kind":"research","finding":');
+    expect(context.instructions).toContain('publishing does not finish or park your proof task');
+    expect(context.instructions).toContain('The host freezes the saved sources and independently checks and integrates them');
+    expect(context.instructions).toContain('Do not truncate the delivery log');
+    expect((context.instructions + context.message).match(/To share before returning/g)).toHaveLength(1);
+    expect(context.message).toContain(`Your role: ${kind === 'goal' ? 'engineer' : 'researcher'}`);
+    expect(context.message).toContain('Delivery protocol: see session instructions.');
+    expect(context.message).toContain(formal);
+  });
+
+it('retains the complete initial plan publication protocol without optional context or repeated protocol text', () => {
+  const compile = contextCompiler.compileTaskContext;
+  vi.spyOn(contextCompiler, 'compileTaskContext').mockImplementation(input => compile({ ...input, maxOptionalContextBytes: 0 }));
+  const action: CooperativeAction = { kind: 'lead', seedCommit, initialPlanNonce: 'publication', planVersion: 'plan-version' };
+  const context = contextFor({ canonicalCommit: seedCommit, tasks: [] }, action);
+
+  expect(context.manifest).toMatchObject({ maxOptionalBytes: 0, optionalBytes: 0 });
+  expect(context.instructions).toContain(initialPlanDeliveryFile(action));
+  expect(context.instructions).toContain('"kind":"plan","baseVersion":"plan-version"');
+  expect(context.instructions).toContain('Only the first valid initial publication is accepted');
+  expect(context.instructions).toContain('Do not truncate the log');
+  expect((context.instructions + context.message).match(/Once a minimal executable initial plan is ready/g)).toHaveLength(1);
+  expect(context.message).toContain('Your role: lead');
+  expect(context.message).toContain('Delivery protocol: see session instructions.');
+  expect(context.message).toContain(formal);
+});
 
 it('retains the assigned support task, its actual consumer and open frontier without optional hints', () => {
   const compile = contextCompiler.compileTaskContext;
@@ -172,6 +210,7 @@ it.each([10, 100, 500])('keeps local mandatory route focus bounded across %i alt
   const cooperation: CooperationState = { canonicalCommit: seedCommit, tasks: [...inputs, ...closing, goal], proofRoutes };
   const context = contextFor(cooperation, actionFor(active)), focus = packet(context.message);
   expect(context.manifest!.mandatoryBytes).toBeLessThan(20 * 1024);
+  expect((context.instructions + context.message).match(/Prioritize a ready typed step/g)).toHaveLength(1);
   expect(focus.routePriority).toMatchObject({ selection: 'bounded-preview', totalCount: count, selectedCount: 4,
     omittedCount: count - 4, index: { path: 'COOPERATION.json', field: 'routePriority.routes', count } });
   expect(focus.routePriority.routes[0].routeId).toBe(proofRoutes.at(-1)!.id);

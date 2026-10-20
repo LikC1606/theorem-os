@@ -8,7 +8,8 @@ import { writeSolverRunState, type SolverRunState } from '../src/solver/archive'
 import { parseMathResponse, type DeliveryRecord } from '../src/solver/deliveries';
 import { taskVersion, type CooperativeTask } from '../src/solver/tasks';
 import { buildTheoremKnowledge, searchTheoremKnowledge, validateTheoremKnowledge, writeTheoremKnowledge } from '../src/solver/theoremKnowledge';
-import { getKnowledgeRouteFinding, getKnowledgeRouteFindingPage, searchKnowledgeRouteFindings } from '../src/solver/theoremKnowledgeFindings';
+import { buildKnowledgeRouteFindings, getKnowledgeRouteFinding, getKnowledgeRouteFindingPage, searchKnowledgeRouteFindings,
+  searchKnowledgeRouteFindingRequests, type KnowledgeRouteFindingCandidate, type KnowledgeRouteFindingSearchRequest } from '../src/solver/theoremKnowledgeFindings';
 import { importKnowledgeRuns } from '../src/solver/theoremKnowledgeRuns';
 import { copyKnowledgeSnapshot, readKnowledgeCatalog, writePackedKnowledge } from '../src/solver/theoremKnowledgeStore';
 import { recordRouteBlockers, validateBlockerProposals } from '../src/solver/routeControl';
@@ -220,6 +221,101 @@ describe('scoped route recall and immutable catalog storage', () => {
     expect(() => searchKnowledgeRouteFindings(base, 'density', { limit: 0 })).toThrow('invalid_query');
     expect(searchKnowledgeRouteFindings(base, 'density').hits).toEqual([]);
     expect(() => getKnowledgeRouteFinding(base, mathDigest('missing'))).toThrow('finding_not_found');
+  });
+});
+
+describe('batched route finding recall', () => {
+  const candidate = (statement: string): KnowledgeRouteFindingCandidate => ({
+    evidence: 'recorded-advisory-not-replayed', acceptance: 'not-assessed', conclusion: 'supporting',
+    summary: `Saved ${statement}`, finding: 'Archived reasoning', notes: 'Archived notes',
+    scope: { problemId: 'historical', problemReceiptDigest: mathDigest('receipt'), environmentDigest: 'environment',
+      source: { kind: 'lemma', statementKind: 'closed-task-type', statement, premises: [] }, dependencies: [] },
+    evidenceRefs: [], obstructions: [], remainingObligations: [], reconsiderWhen: [],
+    provenance: { source: '/archive/state.json', sourceDigest: mathDigest('state'), runId: 'old-run', taskId: 'old-task',
+      taskDigest: mathDigest(statement), groupId: 'main', deliveryId: 'delivery', sourceCommit: 'a'.repeat(40),
+      findingDigest: mathDigest('Archived reasoning'), notesDigest: mathDigest('Archived notes') },
+  });
+  const catalog = (...candidates: KnowledgeRouteFindingCandidate[]) => ({ routeFindings: buildKnowledgeRouteFindings(candidates) });
+
+  it('preserves every independent goal, exact dependency match, annotation, count and ordering', () => {
+    const nat = candidate('NatBound'), real = candidate('RealEstimate'), dependency = candidate('InvestigateBridge');
+    dependency.scope.dependencies = [{ kind: 'lemma', statementKind: 'closed-task-type', statement: 'MeasurePushforward', premises: [] }];
+    const different = { ...nat, scope: { ...nat.scope, environmentDigest: 'different-environment', problemReceiptDigest: mathDigest('different') } };
+    const base = catalog(nat, real, dependency, different), requests = Object.freeze([
+      { query: '', goal: 'NatBound' }, { query: '', goal: 'MeasurePushforward' },
+      { query: 'saved', goal: 'MissingTarget' }, { query: '', goal: 'RealEstimate' }, { query: '', goal: 'NatBound' },
+    ]);
+    const options = { limit: 2, problemId: 'historical', environmentDigest: 'environment', problemReceiptDigest: mathDigest('receipt') };
+    const results = searchKnowledgeRouteFindingRequests(base, requests, options);
+    expect(results).toEqual(requests.map(({ query, goal }) => searchKnowledgeRouteFindings(base, query, { ...options, goal })));
+    expect(results[0]!.total).toBe(2);
+    expect(results[0]!.hits.map(hit => hit.id)).toEqual(results[0]!.hits.map(hit => hit.id).toSorted());
+    expect(results[0]!.hits).toContainEqual(expect.objectContaining({ scopeMatch: 'statement-and-recorded-environment', environmentMatch: 'match' }));
+    expect(results[0]!.hits).toContainEqual(expect.objectContaining({ scopeMatch: 'not-established', environmentMatch: 'different', problemReceiptMatch: 'different' }));
+    expect(results[1]!.hits[0]).toMatchObject({ statementMatch: 'exact-recorded-text', score: 1001, matched: ['measurepushforward'] });
+    expect(results[2]!.total).toBe(4); expect(results[2]!.hits).toHaveLength(2);
+    expect(searchKnowledgeRouteFindingRequests(base, [{ query: '', goal: 'NatBound' }])[0]!.hits[0])
+      .toMatchObject({ environmentMatch: 'unknown', problemReceiptMatch: 'unknown', scopeMatch: 'not-established' });
+  });
+
+  it('keeps raw hypotheses and whitespace in exact identities and clones repeated result objects', () => {
+    const nat = 'h : Nat\n|- SharedTarget', real = 'h : Real\n|- SharedTarget', base = catalog(candidate(nat), candidate(real));
+    const requests = [{ query: '', goal: nat }, { query: '', goal: real }, { query: '', goal: nat + ' ' }, { query: '', goal: nat }];
+    const results = searchKnowledgeRouteFindingRequests(base, requests);
+    expect(results).toEqual(requests.map(({ query, goal }) => searchKnowledgeRouteFindings(base, query, { goal })));
+    expect(results[0]!.hits[0]!.id).not.toBe(results[1]!.hits[0]!.id);
+    expect(results[0]!.hits[0]!.statementMatch).toBe('exact-recorded-text');
+    expect(results[2]!.hits.every(hit => hit.statementMatch === 'lexical-only')).toBe(true);
+    results[0]!.hits[0]!.matched.push('caller-change'); results[0]!.hits[0]!.readWith.id = 'caller-change';
+    expect(results[3]!.hits[0]!.matched).not.toContain('caller-change');
+    expect(results[3]!.hits[0]!.readWith.id).not.toBe('caller-change');
+  });
+
+  it('prepares each record once, observes fresh metadata next call and propagates later read failures', () => {
+    const base = catalog(candidate('NatBound')), item = base.routeFindings[0]!;
+    let reads = 0, statement = item.scope.source.statement, failed = false;
+    Object.defineProperty(item.scope.source, 'statement', { get: () => {
+      reads++; if (failed) throw new Error('metadata-read-failed'); return statement;
+    } });
+    searchKnowledgeRouteFindingRequests(base, [{ query: '', goal: 'NatBound' }, { query: 'saved' }, { query: '', goal: 'RealEstimate' }]);
+    expect(reads).toBe(1);
+    statement = 'ChangedMarker';
+    expect(searchKnowledgeRouteFindingRequests(base, [{ query: '', goal: statement }])[0]!.hits[0]!.statementMatch).toBe('exact-recorded-text');
+    expect(reads).toBe(2);
+    failed = true;
+    expect(() => searchKnowledgeRouteFindingRequests(base, [{ query: 'saved' }])).toThrow('metadata-read-failed');
+  });
+
+  it('filters before reading statement metadata and does not load complete archived arguments or sources', () => {
+    const foreign = candidate('ForeignTarget'); foreign.scope.problemId = 'foreign';
+    const base = catalog(candidate('NatBound'), foreign);
+    for (const item of base.routeFindings) {
+      for (const field of ['finding', 'notes', 'provenance']) Object.defineProperty(item, field, { get: () => { throw new Error('unexpected-argument-read'); } });
+      if (item.scope.problemId === 'foreign') Object.defineProperty(item.scope.source, 'statement', { get: () => { throw new Error('unexpected-foreign-read'); } });
+    }
+    Object.defineProperty(base, 'sources', { get: () => { throw new Error('unexpected-source-read'); } });
+    const results = searchKnowledgeRouteFindingRequests(base, [{ query: '', goal: 'NatBound' }, { query: 'saved' }], { problemId: 'historical' });
+    expect(results.every(result => result.total === 1)).toBe(true);
+  });
+
+  it.each([
+    [], Array(9).fill({ query: 'saved' }), [null], [{ query: 'saved' }, { query: '' }],
+    [{ query: 'saved' }, { query: 'x'.repeat(4001) }], [{ query: 'saved' }, { query: '', goal: 'x'.repeat(16001) }],
+    [{ query: 'saved', goal: null }],
+  ].map(requests => ({ requests })))('validates the complete batch before reading metadata: $requests', ({ requests }) => {
+    const base = { get routeFindings(): never { throw new Error('must-not-prepare'); } };
+    expect(() => searchKnowledgeRouteFindingRequests(base, requests as KnowledgeRouteFindingSearchRequest[]))
+      .toThrow('math_knowledge_invalid_query');
+  });
+
+  it('preserves inclusive UTF-8 boundaries, strict single-query null rejection and old empty catalogs', () => {
+    const base = catalog(candidate('NatBound'));
+    const requests = [{ query: 'saved'.padEnd(4000, ' ') }, { query: '', goal: 'NatBound'.padEnd(16000, ' ') }];
+    expect(searchKnowledgeRouteFindingRequests(base, requests)).toEqual(requests.map(({ query, goal }) => searchKnowledgeRouteFindings(base, query, { goal })));
+    expect(() => searchKnowledgeRouteFindings(base, 'saved', { goal: null as unknown as string })).toThrow('math_knowledge_invalid_query');
+    expect(() => searchKnowledgeRouteFindingRequests(base, [{ query: '\u754c'.repeat(1334) }])).toThrow('math_knowledge_invalid_query');
+    expect(() => searchKnowledgeRouteFindingRequests(base, [{ query: '', goal: '\u754c'.repeat(5334) }])).toThrow('math_knowledge_invalid_query');
+    expect(searchKnowledgeRouteFindingRequests({}, [{ query: 'saved' }])[0]!.hits).toEqual([]);
   });
 });
 

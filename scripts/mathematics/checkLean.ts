@@ -12,11 +12,12 @@ async function main() {
   if (args[0] === 'check-lean') args.shift();
   const { values } = parseArgs({ args, options: {
     workspace: { type: 'string' }, file: { type: 'string', multiple: true },
-    type: { type: 'string' }, context: { type: 'string' },
+    type: { type: 'string' }, context: { type: 'string' }, expression: { type: 'string' },
     'timeout-seconds': { type: 'string', default: '0' }, help: { type: 'boolean' },
   } });
   if (values.help) console.log('Usage: theorem-os check-lean --workspace DIR --file FILE [--file FILE --timeout-seconds N]\n'
     + 'Optional: --type TYPE --context DECLARATION elaborates one closed type in a proof-erased snapshot of the single --file context.\n'
+    + 'Add --expression TERM to check one selected closed application against that type. Local theorem bodies are erased; this is advisory sufficiency, not proof acceptance.\n'
     + 'Checks saved sources against pinned packages. Timeout 0 waits until completion. Diagnostics and type elaboration are advisory, not proof acceptance.');
   else {
     const timeout = Number(values['timeout-seconds']);
@@ -24,6 +25,7 @@ async function main() {
       throw new Error('--workspace, --file and a nonnegative --timeout-seconds are required');
     if ((values.type !== undefined || values.context !== undefined) && (!values.type || !values.context || values.file.length !== 1))
       throw new Error('--type requires --context and exactly one --file');
+    if (values.expression !== undefined && !values.type) throw new Error('--expression requires --type and --context');
     const project = fs.realpathSync(values.workspace);
     const constraints = path.join(project, '.lake/source-constraints.json');
     if (fs.existsSync(constraints)) assertSolverProjectSources(readMathJson(constraints) as SolverSourceConstraints, project);
@@ -33,7 +35,7 @@ async function main() {
     let result;
     const shared = { projectRoot: values.workspace, timeoutMs: timeout === 0 ? Infinity : timeout * 1000,
       signal: controller.signal, onProgress: (file: string) => console.error(JSON.stringify({ event: 'lean_check_started', file })) };
-    try { result = values.type ? await checkLeanType({ ...shared, file: values.file[0], type: values.type, context: values.context! }) :
+    try { result = values.type ? await checkLeanType({ ...shared, file: values.file[0], type: values.type, context: values.context!, expression: values.expression }) :
       await runLeanDiagnostics({ ...shared, files: values.file });
     } finally { process.removeListener('SIGINT', abort); process.removeListener('SIGTERM', abort); }
     console.log(JSON.stringify(result));

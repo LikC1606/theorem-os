@@ -1,6 +1,6 @@
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import { maskLeanCommentsAndStrings } from '../math/leanSyntax';
-import { knowledgeGoalSurfaceShape } from './theoremKnowledgeGoal';
+import { knowledgeGoalSurfaceShape, knowledgeResidualViews } from './theoremKnowledgeGoal';
 import type { TheoremKnowledgeBase, TheoremKnowledgeEntry } from './theoremKnowledge';
 
 export type KnowledgeSearchOptions = {
@@ -8,6 +8,7 @@ export type KnowledgeSearchOptions = {
   /** Display diversity only; declaration identities and contextual versions remain separate. */
   displayGrouping?: 'exact-interface';
 };
+export type KnowledgeSearchRequest = { query: string; goal?: string };
 type KnowledgeSearchBase = Pick<TheoremKnowledgeBase, 'entries' | 'evidence'>;
 type PreferenceMatch = 'match' | 'different' | 'unknown' | 'not-requested';
 const boilerplate = new Set(['submission', 'helpers', 'helper', 'theorem', 'lemma', 'def', 'abbrev', 'opaque',
@@ -70,8 +71,13 @@ export function knowledgeTypeExpression(item: Pick<TheoremKnowledgeEntry, 'type'
 }
 
 function goalTarget(value: string): string {
-  const marker = Math.max(value.lastIndexOf('⊢'), value.lastIndexOf('|-'));
-  return marker < 0 ? value : value.slice(marker + (value[marker] === '⊢' ? 1 : 2));
+  const views = knowledgeResidualViews(value);
+  return views.length === 1 ? views[0]!.target : views.map(view => view.target).join('\n');
+}
+
+function goalShape(value: string) {
+  const views = knowledgeResidualViews(value);
+  return views.length === 1 ? knowledgeGoalSurfaceShape(views[0]!.goal) : undefined;
 }
 
 export function knowledgeSearchGroup(item: TheoremKnowledgeEntry): string {
@@ -117,8 +123,8 @@ function validateQuery(query: string, options: KnowledgeSearchOptions): void {
         (typeof value !== 'string' || !value.trim() || Buffer.byteLength(value) > 256))) throw new Error('math_knowledge_invalid_query');
 }
 
-function prepareSearch(base: KnowledgeSearchBase, options: KnowledgeSearchOptions, relevant: ReadonlySet<string>) {
-  const goalSurface = options.goal ? knowledgeGoalSurfaceShape(goalTarget(options.goal)) : undefined;
+function prepareSearch(base: KnowledgeSearchBase, options: Omit<KnowledgeSearchOptions, 'goal'>,
+  relevant: ReadonlySet<string>, includeSurfaceShapes: boolean) {
   const texts = new Map<string, string>(), plainTerms = new Map<string, Set<string>>(), boundTerms = new Map<string, Set<string>>();
   const text = (value: string) => {
     let result = texts.get(value);
@@ -138,7 +144,7 @@ function prepareSearch(base: KnowledgeSearchBase, options: KnowledgeSearchOption
         ? knowledgeInterfaceGroup(item) : group, fields: [field(item.name), field(type, true),
         field([...item.dependencies.statement, ...item.dependencies.proof].map(reference => reference.name).join(' ')),
         field(item.description), field(item.provenance.map(origin => origin.problemId).join(' '))],
-        normalizedType: text(type).toLowerCase().replace(/\s+/gu, ''), surfaceShape: goalSurface ? knowledgeGoalSurfaceShape(type) : undefined };
+        normalizedType: text(type).toLowerCase().replace(/\s+/gu, ''), surfaceShape: includeSurfaceShapes ? knowledgeGoalSurfaceShape(type) : undefined };
     });
   const groupsByToken = new Map<string, Set<string>>();
   for (const document of documents) {
@@ -149,7 +155,7 @@ function prepareSearch(base: KnowledgeSearchBase, options: KnowledgeSearchOption
       groups.add(document.corpusGroup);
     }
   }
-  return { documents, goalSurface, groupCount: new Set(documents.map(document => document.corpusGroup)).size,
+  return { documents, groupCount: new Set(documents.map(document => document.corpusGroup)).size,
     frequencies: new Map([...groupsByToken].map(([token, groups]) => [token, groups.size])) };
 }
 
@@ -161,22 +167,37 @@ export function searchTheoremKnowledge(base: KnowledgeSearchBase, query: string,
 /** Preparation belongs to this call, so later calls always observe current entry metadata. */
 export function searchTheoremKnowledgeBatch(base: KnowledgeSearchBase, queries: readonly string[], options: KnowledgeSearchOptions = {}) {
   if (!Array.isArray(queries) || queries.length < 1 || queries.length > 8) throw new Error('math_knowledge_invalid_query');
-  for (const query of queries) validateQuery(query, options);
-  const goal = options.goal ?? '', relevant = new Set(terms(goal, true));
-  for (const query of new Set(queries))
+  return searchTheoremKnowledgeRequests(base, queries.map(query => ({ query, goal: options.goal })), options);
+}
+
+/** Share corpus preparation while keeping each consumer's goal and ranking independent. */
+export function searchTheoremKnowledgeRequests(base: KnowledgeSearchBase, requests: readonly KnowledgeSearchRequest[],
+  options: Omit<KnowledgeSearchOptions, 'goal'> = {}) {
+  if (!Array.isArray(requests) || requests.length < 1 || requests.length > 8) throw new Error('math_knowledge_invalid_query');
+  for (const request of requests) {
+    if (!request || typeof request !== 'object') throw new Error('math_knowledge_invalid_query');
+    validateQuery(request.query, { ...options, goal: request.goal });
+  }
+  const relevant = new Set<string>(), goalSurfaces = new Map<string, string | undefined>();
+  for (const request of requests) {
+    const { query } = request, goal = request.goal ?? '';
+    for (const term of terms(goal, true)) relevant.add(term);
     for (const term of terms(query.trim() ? query : goalTarget(goal), !query.trim())) relevant.add(term);
-  const prepared = prepareSearch(base, options, relevant), results = new Map<string, ReturnType<typeof searchPrepared>>();
-  return queries.map(query => {
-    const cached = results.get(query);
+    if (!goalSurfaces.has(goal)) goalSurfaces.set(goal, goal ? goalShape(goal) : undefined);
+  }
+  const prepared = prepareSearch(base, options, relevant, [...goalSurfaces.values()].some(Boolean));
+  const results = new Map<string, ReturnType<typeof searchPrepared>>();
+  return requests.map(({ query, goal }) => {
+    const key = canonicalMathJson([query, goal ?? '']), cached = results.get(key);
     if (cached) return structuredClone(cached);
-    const result = searchPrepared(prepared, base.evidence, query, options);
-    results.set(query, result);
+    const result = searchPrepared(prepared, base.evidence, query, { ...options, goal }, goalSurfaces.get(goal ?? ''));
+    results.set(key, result);
     return result;
   });
 }
 
 function searchPrepared(prepared: ReturnType<typeof prepareSearch>, evidence: KnowledgeSearchBase['evidence'], query: string,
-  options: KnowledgeSearchOptions) {
+  options: KnowledgeSearchOptions, goalSurface: string | undefined) {
   const limit = options.limit ?? 10, goal = options.goal ?? '', { documents, groupCount, frequencies } = prepared;
   const goalOnly = !query.trim(), primary = terms(goalOnly ? goalTarget(goal) : query, goalOnly),
     goalTerms = terms(goal, true), normalizedGoal = canonical(goalTarget(goal));
@@ -196,7 +217,7 @@ function searchPrepared(prepared: ReturnType<typeof prepareSearch>, evidence: Kn
     const dependencies = primary.filter(term => fields[2]!.has(term));
     const exactGoal = Boolean(normalizedGoal && normalizedGoal === document.normalizedType),
       trailingGoal = Boolean(normalizedGoal.length >= 8 && document.normalizedType.endsWith(normalizedGoal)),
-      surfaceMatch = prepared.goalSurface !== undefined && prepared.goalSurface === document.surfaceShape;
+      surfaceMatch = goalSurface !== undefined && goalSurface === document.surfaceShape;
     if (goalOnly && !main.length && !exactGoal && !trailingGoal && !surfaceMatch) return undefined;
     const coverage = primaryWeight ? main.reduce((sum, term) => sum + idf.get(term)!, 0) / primaryWeight : 0;
     let score = nameScore;
@@ -241,6 +262,7 @@ function searchPrepared(prepared: ReturnType<typeof prepareSearch>, evidence: Kn
       const versions = declarations[0]!;
       const { item, matched } = versions[0]!, selected = knowledgeVersionSummary(item, options);
       return { id: item.id, name: item.name, kind: item.kind, typeKind: item.typeKind,
+        consumers: { command: 'knowledge consumers', id: item.id },
         typePreview: item.type.slice(0, 800), typeTruncated: item.type.length > 800, description: item.description.slice(0, 500),
         problemIds: selected.problemIds, sourceKinds: selected.sourceKinds, dependencyCoverage: item.dependencies.coverage,
         score: groupScore, matched, environmentMatch: selected.environmentMatch, problemReceiptMatch: selected.problemReceiptMatch,

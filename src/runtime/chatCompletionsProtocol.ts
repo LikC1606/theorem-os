@@ -124,8 +124,9 @@ export function translateChatBridgeRequest(value: unknown, model: string, effort
   if (choice === 'required' && !chatTools.length) throw new ChatBridgeError('unknown_tool_choice');
   return { tools, body: {
     model, messages, stream: true, stream_options: { include_usage: true }, reasoning_effort: request.reasoning?.effort ?? effort,
-    ...(chatTools.length ? { tools: chatTools } : {}), ...(choice === undefined ? {} : { tool_choice: choice }),
-    ...(request.parallel_tool_calls === undefined ? {} : { parallel_tool_calls: request.parallel_tool_calls }),
+    // Native context compaction disables tools but still supplies the Responses tool defaults.
+    ...(chatTools.length ? { tools: chatTools, ...(choice === undefined ? {} : { tool_choice: choice }),
+      ...(request.parallel_tool_calls === undefined ? {} : { parallel_tool_calls: request.parallel_tool_calls }) } : {}),
     ...(request.max_output_tokens === undefined ? {} : { max_tokens: request.max_output_tokens }),
     ...(request.temperature === undefined ? {} : { temperature: request.temperature }),
     ...(request.top_p === undefined ? {} : { top_p: request.top_p }),

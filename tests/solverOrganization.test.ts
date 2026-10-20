@@ -30,6 +30,8 @@ const capacityWorker = (id: string, role: ResearchWorker['role'] = 'researcher')
 });
 const capacityNode = (id: string, kind: TaskRecord['task']['kind'] = 'lemma', dependsOn: string[] = []): TaskRecord => ({
   task: { id, kind, objective: `Investigate ${id}`, dependsOn, revision: 0,
+    // Capacity fixtures isolate ordinary dependency waiting from the first application check.
+    ...(kind === 'goal' ? { conditional: false } : {}),
     ...(['lemma', 'goal'].includes(kind) ? { theoremName: id, proofPath: 'Submission.lean', type: 'True' } : {}) },
   status: 'pending', attempts: 0,
 });

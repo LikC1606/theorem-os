@@ -46,3 +46,17 @@ it('bounds optional claims and removes duplicate records', () => {
     expect.objectContaining({ status: 'checked-reference' }),
   ] });
 });
+
+it('retains distinct concrete adaptations and never trusts a model-supplied application verdict', () => {
+  const application = { expression: 'Current.bridge', expectedType: 'True',
+    context: { file: 'Submission.lean', declaration: 'Current.consumer' },
+    arguments: [{ parameter: 'n', value: '3' }], adaptationSteps: ['Normalize the target before exact.'],
+    reconsiderWhen: ['The missing hypothesis becomes available.'] };
+  const result = inspectKnowledgeUses([{ ...claim, application }, { ...claim, application: { ...application, expression: 'other' } }], knowledge, task);
+  expect(result.rejected).toBe(0); expect(result.uses).toHaveLength(2);
+  expect(result.uses[0].application).toEqual(application);
+  const forged = inspectKnowledgeUses([{ ...claim, application: { ...application, check: { status: 'elaborated' } } }], knowledge, task, proof);
+  expect(forged.rejected).toBe(1);
+  expect(forged.uses[0]).toMatchObject({ status: 'checked-reference' });
+  expect(forged.uses[0].application).toBeUndefined();
+});

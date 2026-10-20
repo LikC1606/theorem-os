@@ -3,6 +3,7 @@ import { assignSharedResearchTask, type ResearchWorker } from '../src/solver/mod
 import { continuationResearchTasks, originalGoalTaskFocus, readyResearchTasks } from '../src/solver/modules/search';
 import { markTaskAcceptance, taskVersion, type RouteRecord, type TaskRecord } from '../src/solver/tasks';
 import { buildProofContinuation } from '../src/solver/progress';
+import { createTaskConnectionCheck } from '../src/solver/taskConnections';
 
 const node = (id: string, kind: TaskRecord['task']['kind'] = 'lemma', dependsOn: string[] = []): TaskRecord => ({
   task: { id, kind, objective: `Prove ${id}`, dependsOn, revision: 0,
@@ -30,12 +31,27 @@ describe('original-goal frontier priority', () => {
 
     expect(ids(readyResearchTasks(tasks))).toEqual(['wrapper', 'peripheral', 'core']);
     expect(ids(continuationResearchTasks(tasks))).toEqual(['wrapper', 'core', 'peripheral']);
-    conditional.attempts = 1;
+    conditional.attempts = 3;
+    expect(ids(readyResearchTasks(tasks))[0]).toBe('wrapper');
+    expect(ids(continuationResearchTasks(tasks))[0]).toBe('wrapper');
+    conditional.assignment = { taskId: conditional.task.id, taskDigest: taskVersion(conditional.task),
+      workerId: 'engineer', seedCommit: 'current-seed',
+      dependencies: [{ taskId: core.task.id, taskDigest: taskVersion(core.task) }] };
+    conditional.assignment.connectionCheck = createTaskConnectionCheck(conditional.task, conditional.assignment, tasks,
+      { environmentDigest: 'environment', problemReceiptDigest: 'problem' });
     expect(ids(readyResearchTasks(tasks))).toEqual(['peripheral', 'wrapper', 'core']);
     expect(ids(continuationResearchTasks(tasks))).toEqual(['core', 'wrapper', 'peripheral']);
     expect(originalGoalTaskFocus(tasks).support.has('peripheral')).toBe(false);
     expect(core.status).toBe('pending');
     expect(conditional.integratedCheck).toBeUndefined();
+
+    const previousDigest = conditional.assignment.taskDigest;
+    conditional.task = { ...conditional.task, revision: 1 };
+    delete conditional.assignment;
+    expect(taskVersion(conditional.task)).not.toBe(previousDigest);
+    expect(conditional.attempts).toBe(3);
+    expect(ids(readyResearchTasks(tasks))[0]).toBe('wrapper');
+    expect(ids(continuationResearchTasks(tasks))[0]).toBe('wrapper');
   });
 
   it('recognizes transitive targeted investigations and their separately provable inputs', () => {
@@ -65,6 +81,7 @@ describe('original-goal frontier priority', () => {
     const completed = node('completed_finding', kind, ['core']); completed.status = 'completed';
     const outer = node('completed_review', 'research', ['completed_finding']); outer.status = 'completed';
     const goal = node('goal', 'goal', ['completed_review']);
+    goal.task = { ...goal.task, conditional: false };
     const goalProbe = node('goal_probe', 'research', ['goal']);
     const coreProbe = node('core_probe', 'research', ['core']);
     const tasks = [goalProbe, coreProbe, goal, completed, outer, core];
@@ -153,7 +170,8 @@ describe('original-goal frontier priority', () => {
     const probe = node('probe', 'research', ['core', 'helper']); probe.status = 'running';
     const old = node('old_exploration', 'research'); old.attempts = 5;
     const fresh = node('fresh_exploration', 'research'); fresh.task = { ...fresh.task, ownerId: 'researcher' };
-    const tasks = [helper, old, fresh, core, probe, node('goal', 'goal', ['core'])];
+    const goal = node('goal', 'goal', ['core']); goal.task = { ...goal.task, conditional: false };
+    const tasks = [helper, old, fresh, core, probe, goal];
     const ready = continuationResearchTasks(tasks, [main]);
     const engineer: ResearchWorker = { id: 'engineer', role: 'engineer', worktree: '/engineer', ownedFiles: [] };
     const researcher: ResearchWorker = { ...engineer, id: 'researcher', role: 'researcher' };
@@ -198,6 +216,7 @@ describe('original-goal frontier priority', () => {
 
   it('uses a newly checked premise to move from constructing the gap to its original consumer', () => {
     const core = node('core'), goal = node('goal', 'goal', ['core']);
+    goal.task = { ...goal.task, conditional: false };
     const probe = node('probe', 'research', ['core']);
     const tasks = [probe, goal, core];
     expect(continuationResearchTasks(tasks)[0]).toBe(core);

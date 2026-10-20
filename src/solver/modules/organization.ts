@@ -1,7 +1,8 @@
 import { originalGoalTaskFocus, plannedTaskDependencyIds, taskDependenciesReady, type ActionPlan, type ResearchBudget } from './search';
-import { isAdvisoryTask, isFeasibilityReview, taskGroup, taskVersion, type TaskRecord, type RouteRecord } from '../tasks';
+import { isFeasibilityReview, taskGroup, taskVersion, type TaskRecord, type RouteRecord } from '../tasks';
 import { hasRunningDuplicateQuestion } from '../taskQuestions';
 import { createProofRoutePriority } from '../routePriority';
+import { freshTaskConnection } from '../taskConnections';
 
 export type ResearchRole = 'lead' | 'researcher' | 'engineer' | 'reviewer';
 export type ResearchWorker = Readonly<{ id: string; role: ResearchRole; worktree: string; ownedFiles: readonly string[] }>;
@@ -34,8 +35,8 @@ export function assignSharedResearchTask(ready: readonly TaskRecord[], worker: R
   if (!['researcher', 'engineer'].includes(worker.role)) return;
   const eligible = eligibleResearchTasks(ready, worker, groups, tasks), first = eligible[0];
   if (!first || eligible.length === 1) return first;
-  if (first.task.kind === 'goal' || !first.attempts && (isFeasibilityReview(first.task) ||
-      first.task.conditional && !isAdvisoryTask(first.task))) return first;
+  if (first.task.kind === 'goal' || !first.attempts && isFeasibilityReview(first.task) ||
+      freshTaskConnection(first, tasks, groups)) return first;
   const proofWorkers = new Set(live.filter(peer => ['researcher', 'engineer'].includes(peer.role)).map(peer => peer.id));
   const running = tasks.filter(node => node.status === 'running' && node.assignment &&
     node.assignment.taskId === node.task.id && node.assignment.taskDigest === taskVersion(node.task) &&

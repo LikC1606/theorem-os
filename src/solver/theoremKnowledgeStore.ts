@@ -113,6 +113,7 @@ export function writePackedKnowledge(file: string, base: TheoremKnowledgeBase, o
     sources: Object.fromEntries(Object.entries(checked.sources).map(([digest, text]) => [digest, { bytes: Buffer.byteLength(text) }])),
     objectsDirectory, ...(originSha256 === undefined ? {} : { originSha256 }) };
   const text = canonicalMathJson(manifest) + '\n';
+  if (Buffer.byteLength(text) > maxBytes) throw new Error('math_knowledge_packed_too_large');
   parseManifest(text);
   fs.mkdirSync(path.dirname(resolved), { recursive: true, mode: 0o700 });
   assertMathCanonicalPath(path.dirname(resolved));

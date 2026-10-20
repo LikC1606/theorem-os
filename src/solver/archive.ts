@@ -11,6 +11,7 @@ import type { TokenBudget, UsageAccounting, RequestUsageAccounting } from './usa
 import type { ContextManifest } from './contextCompiler';
 import type { ModelTurnLedger } from './turnLedger';
 import type { KnowledgeRetrievalObservation, KnowledgeUse } from './knowledgeUsage';
+import { knowledgeUseSchema } from './knowledgeUsage';
 import { z } from 'zod';
 
 export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | 'previousThreadIds' |
@@ -46,6 +47,7 @@ export type SolverRunState = {
   moduleConfiguration?: { id: string; versions: Record<string, string> };
   retrievalDigest?: string;
   knowledgeDigest?: string;
+  continuationDigest?: string;
   knowledgeRetrievals?: { dropped: number; observations: KnowledgeRetrievalObservation[] };
   knowledgeUses?: (KnowledgeUse & { workerId: string; commit: string })[];
   model: string;
@@ -86,6 +88,9 @@ const phase = z.enum(['prepared', 'running', 'checking', 'evaluating', 'finished
 const count = z.number().int().nonnegative();
 const record = z.record(z.unknown());
 const safeCount = count.max(Number.MAX_SAFE_INTEGER);
+const knowledgeDiagnostic = z.object({ authority: z.literal('advisory-lean-process'), sourceDigest: z.string(), environmentDigest: z.string(),
+  toolIdentity: z.string(), artifact: z.object({ path: z.string(), digest: z.string() }), file: z.string(),
+  line: z.number().int().positive(), column: safeCount });
 const usageAccounting = z.object({ startedTurns: safeCount, reportedTurns: safeCount,
   pending: z.boolean(), incomplete: z.boolean() }).refine(value => value.reportedTurns <= value.startedTurns);
 const requestUsageAccounting = z.object({ startedRequests: safeCount, reportedRequests: safeCount,
@@ -135,9 +140,7 @@ const handoffDecision = z.object({ id: z.string(), deliveryId: z.string(), statu
     .refine(values => new Set(values.map(value => value.taskId)).size === values.length).optional(),
 }).passthrough().refine(value => value.waitsOn === undefined || value.status === 'deferred');
 const declarationReference = z.object({ name: z.string(), file: z.string() });
-const knowledgeUse = z.object({ id: z.string(), catalogDigest: z.string(), consumer: taskReference,
-  declaration: declarationReference, status: z.enum(['reported-attempt', 'checked-reference']),
-  attribution: z.literal('model-reported-origin'), checkedCommit: z.string().optional(), checkedSourceDigest: z.string().optional() });
+const knowledgeUse = knowledgeUseSchema;
 const challengeDecision = z.object({ id: z.string(), deliveryId: z.string(), contextDigest: z.string(),
   status: z.enum(['revised', 'disputed', 'deferred']), reason: z.string().trim().min(1),
   evidenceRefs: z.array(z.string().trim().min(1)).optional(), reopenOn: z.string().trim().min(1).optional(),
@@ -174,11 +177,24 @@ const research = z.object({ worktree: z.string().min(1), phase, turns: count, th
 const role = z.enum(['lead', 'researcher', 'engineer', 'reviewer']);
 const task = z.object({ id: z.string().min(1), kind: z.enum(['research', 'sketch', 'lemma', 'goal']),
   objective: z.string(), dependsOn: z.array(z.string()), revision: count }).passthrough();
+const connectionCheck = z.object({ schema: z.literal('theorem-os.consumer-connection.v1'), consumer: taskReference,
+  inputs: z.array(taskReference).min(1), seedCommit: z.string().min(1), dependenciesDigest: z.string().min(1),
+  routeId: z.string().optional(), routesDigest: z.string().min(1), problemReceiptDigest: z.string().min(1),
+  environmentDigest: z.string().min(1), basisDigest: z.string().min(1) }).strict();
 const taskRecord = z.object({ task, status: z.enum(['pending', 'running', 'blocked', 'conditional', 'delivered', 'integrated', 'completed']),
+  typePreflight: z.object({ status: z.enum(['elaborated', 'invalid', 'deferred', 'unavailable']), inputDigest: z.string(),
+    reason: z.string(), taskDigest: z.string(), context: z.string().optional(), type: z.string().optional(),
+    artifact: z.object({ path: z.string(), digest: z.string() }).optional(),
+    projectionReuse: z.object({ originInputDigest: z.string().regex(/^[a-f0-9]{64}$/u),
+      originSourceDigest: z.string().regex(/^[a-f0-9]{64}$/u), sourceDigest: z.string().regex(/^[a-f0-9]{64}$/u),
+      projectionDigest: z.string().regex(/^[a-f0-9]{64}$/u) }).strict().optional(),
+    evidence: z.literal('advisory-type-elaboration'), proofAcceptance: z.literal('not-assessed') })
+    .refine(value => !value.projectionReuse || value.status === 'elaborated', 'Only successful advisory elaboration can reuse a projection').optional(),
   pendingValidation: z.object({ id: z.string().min(1), taskDigest: z.string().min(1), canonicalCommit: z.string().min(1),
     environmentDigest: z.string().min(1), problemReceiptDigest: z.string().min(1), proof: z.boolean().optional() }).optional(),
   attempts: count, proof: check.optional(), integratedCheck: check.optional(), assignment: z.object({ taskId: z.string(),
-    taskDigest: z.string(), workerId: z.string(), seedCommit: z.string(), assignmentId: z.string().optional() }).passthrough().optional() }).passthrough();
+    taskDigest: z.string(), workerId: z.string(), seedCommit: z.string(), assignmentId: z.string().optional(),
+    connectionCheck: connectionCheck.optional() }).passthrough().optional() }).passthrough();
 const routeBlocker = z.object({ id: z.string(), taskId: z.string(), groupId: z.string(), taskDigest: z.string(),
   routeId: z.string().optional(),
   mechanism: z.string(), scope: z.string(), evidenceStatus: z.literal('advisory'), evidenceRefs: z.array(z.string()),
@@ -226,14 +242,22 @@ const progressReceipt = z.object({ schema: z.literal('theoremos.obligation-progr
 const runState = research.extend({ schema: z.literal('deepscientist.math.solver.v1'), runId: z.string().min(1),
   problem: z.object({ workspace: z.string(), receiptDigest: z.string() }).passthrough(),
   taskDigest: z.string(), buildDigest: z.string(), environmentDigest: z.string(), evaluatorDigest: z.string(),
+  continuationDigest: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
   providerProfile: z.string().optional(), providerProfileDigest: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
   model: z.string(), effort: z.string(), workerCount: z.number().int().positive().optional(),
   knowledgeDigest: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
   knowledgeRetrievals: z.object({ dropped: safeCount, observations: z.array(z.object({
     sectionId: z.string(), catalogDigest: z.string(), searchInputDigest: z.string(),
+    searchSource: z.enum(['closed-task-type', 'frozen-source-header', 'research-objective', 'residual-goal']).optional(),
+    diagnostic: knowledgeDiagnostic.optional(),
     consumer: z.object({ taskId: z.string().optional(), taskDigest: z.string().optional(),
       theoremName: z.string().optional(), proofPath: z.string().optional() }),
     candidateIds: z.array(z.string()), routeFindingIds: z.array(z.string()), included: z.boolean(), omissionReason: z.string().optional(),
+    searchCandidateIds: z.array(z.string()).optional(),
+    residualSearches: z.array(z.object({ inputDigest: z.string(), diagnostic: knowledgeDiagnostic,
+      caseLabel: z.string().optional(), localContext: z.enum(['closed-for-retrieval', 'target-only', 'no-locals']), fallbackReason: z.string().optional(),
+      searched: z.boolean(), candidateIds: z.array(z.string()) })).optional(),
+    residualOmissions: z.array(z.object({ count: safeCount, reason: z.literal('diagnostic-reader-budget') })).optional(),
     workerId: z.string(), workerTurn: safeCount, runTurn: safeCount, contextDigest: z.string(), at: safeCount,
   })) }).optional(),
   knowledgeUses: z.array(knowledgeUse.extend({ workerId: z.string(), commit: z.string() })).optional(),

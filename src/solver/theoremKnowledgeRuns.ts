@@ -131,6 +131,17 @@ function runFinding(state: SolverRunState, node: TaskRecord, delivery: DeliveryR
   if (!finding || finding.taskId !== task.id || !['supporting', 'refuted', 'inconclusive'].includes(finding.conclusion) ||
       typeof finding.summary !== 'string' || !finding.summary.trim()) return error('finding_invalid');
   const records = [...(state.cooperation?.tasks ?? []), ...(state.cooperation?.history ?? [])];
+  const gap = delivery.mathematicalGap, gapScope = delivery.mathematicalGapScope;
+  if (gap || gapScope || finding.mathematicalGap !== undefined) {
+    if (!gap || !gapScope || canonicalMathJson(gap) !== canonicalMathJson(finding.mathematicalGap) ||
+        gapScope.problemReceiptDigest !== state.problem.receiptDigest || gapScope.source.id !== task.id ||
+        taskVersion(gapScope.source) !== taskVersion(task) || gapScope.consumer.kind !== 'goal' ||
+        gap.consumer.taskId !== gapScope.consumer.id || gap.consumer.taskDigest !== taskVersion(gapScope.consumer) ||
+        !records.some(record => record.task.id === gapScope.consumer.id && taskVersion(record.task) === gap.consumer.taskDigest))
+      return error('finding_gap_scope_invalid');
+    if (!publicResearchTask(gapScope.consumer, state) || (state.cooperation?.tasks ?? []).some(record =>
+      record.task.id === gapScope.consumer.id && !publicResearchTask(record.task, state))) return error('finding_private');
+  }
   const dependencies = (delivery.dependencies ?? []).map(input => {
     const found = records.find(record => record.task.id === input.taskId && taskVersion(record.task) === input.taskDigest);
     if (!found) return error('finding_dependency_missing');
@@ -156,11 +167,14 @@ function runFinding(state: SolverRunState, node: TaskRecord, delivery: DeliveryR
     evidence: 'recorded-advisory-not-replayed', acceptance: 'not-assessed',
     conclusion: finding.conclusion, summary: finding.summary, finding: node.finding, notes,
     scope: { problemId: state.problem.contract.problemId, problemReceiptDigest: state.problem.receiptDigest,
-      environmentDigest: state.environmentDigest, source: routeContract(task, state),
+      environmentDigest: gapScope?.environmentDigest ?? state.environmentDigest, source: routeContract(task, state),
+      ...(delivery.mathematicalGapScope ? { originalConsumer: routeContract(delivery.mathematicalGapScope.consumer, state) } : {}),
       dependencies: dependencies.map(task => routeContract(task, state)).sort((a, b) => canonicalMathJson(a).localeCompare(canonicalMathJson(b))) },
     evidenceRefs: [...delivery.evidenceRefs],
     obstructions: blockers.map(blocker => ({ mechanism: blocker.mechanism, scope: blocker.scope, evidenceRefs: [...blocker.evidenceRefs] })),
-    remainingObligations: [...delivery.remainingObligations], reconsiderWhen,
+    remainingObligations: [...delivery.remainingObligations], reconsiderWhen: [...new Set([...reconsiderWhen,
+      ...(delivery.mathematicalGap?.reconsiderWhen ?? [])])],
+    ...(delivery.mathematicalGap ? { mathematicalGap: delivery.mathematicalGap } : {}),
     provenance: { source: stateFile, sourceDigest: stateDigest, runId: state.runId, taskId: task.id,
       taskDigest: taskVersion(task), groupId: taskGroup(task), deliveryId: delivery.id,
       sourceCommit: delivery.commit, findingDigest: delivery.findingDigest, notesDigest: mathDigest(notes) },

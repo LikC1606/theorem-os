@@ -52,6 +52,7 @@ describe.each(schedulers)('%s early route selection', (_name, schedule) => {
     running.status = 'running'; assignTo(running, busy.id);
     const premise = node('premise'), bridge = conditional('bridge', 'lemma', ['premise']);
     const original = node('original', 'goal', ['running', 'bridge']);
+    original.task = { ...original.task, conditional: false };
     const check = kind === 'feasibility' ? feasibility('route_check', ['original']) : bridge;
     const tasks = [running, premise, bridge, original, ...(check === bridge ? [] : [check]), node('independent', 'research')];
     const ready = schedule(tasks), before = structuredClone(tasks);
@@ -63,6 +64,7 @@ describe.each(schedulers)('%s early route selection', (_name, schedule) => {
   it.each(['pending', 'blocked'] as const)('investigates a consumer before its %s premise has a proof', status => {
     const premise = node('premise'); premise.status = status;
     const consumer = node('consumer', 'goal', ['premise']);
+    consumer.task = { ...consumer.task, conditional: false };
     const review = feasibility('consumer_feasibility', ['consumer']);
     const tasks = [premise, consumer, review], before = structuredClone(tasks);
     const ready = schedule(tasks);
@@ -84,6 +86,21 @@ describe.each(schedulers)('%s early route selection', (_name, schedule) => {
     expect(consumer.integratedCheck).toBeUndefined();
   });
 
+  it.each([undefined, true])('offers a first current-contract consumer check with conditional=%s despite earlier lifetime attempts', flag => {
+    const premise = node('premise'), consumer = node('consumer', 'goal', ['premise']);
+    if (flag !== undefined) consumer.task = { ...consumer.task, conditional: flag };
+    consumer.attempts = 9;
+    const tasks = [premise, consumer], before = structuredClone(tasks), available = worker('available');
+    const ready = schedule(tasks);
+    expect(ready[0]).toBe(consumer);
+    expect(taskCanStart(consumer.task, tasks)).toBe(true);
+    expect(assignSharedResearchTask(ready, available, [available], undefined, tasks)).toBe(consumer);
+    expect(tasks).toEqual(before);
+    expect(consumer.assignment).toBeUndefined();
+    expect(consumer.proof).toBeUndefined();
+    expect(consumer.integratedCheck).toBeUndefined();
+  });
+
   it('checks an OR closing lemma conditionally without dispatching the original goal before its route is proved', () => {
     const premise = node('premise'), closing = conditional('closing', 'lemma', ['premise']);
     const original = conditional('original', 'goal', []);
@@ -100,6 +117,7 @@ describe.each(schedulers)('%s early route selection', (_name, schedule) => {
   it('checks a conditional lemma before its premise when an original goal explicitly consumes it', () => {
     const premise = node('premise'), bridge = conditional('bridge', 'lemma', ['premise']);
     const original = node('original', 'goal', ['bridge']);
+    original.task = { ...original.task, conditional: false };
     const ready = schedule([premise, original, bridge]);
     expect(ready[0]).toBe(bridge);
     expect(ready).not.toContain(original);
@@ -121,9 +139,10 @@ describe.each(schedulers)('%s early route selection', (_name, schedule) => {
     expect(schedule([premise, consumer, review])[0]).toBe(review);
   });
 
-  it('does not give already attempted route checks another early priority', () => {
+  it('does not give an already assigned consumer or attempted feasibility review another early priority', () => {
     const original = node('ordinary_original', 'goal'), premise = node('premise');
     const consumer = conditional('consumer', 'goal', ['premise']); consumer.attempts = 1;
+    assignTo(consumer, 'route_checker');
     const review = feasibility('route_check', ['consumer']); review.attempts = 1;
     const ready = schedule([original, premise, consumer, review]);
     expect(ready[0]).not.toBe(consumer);

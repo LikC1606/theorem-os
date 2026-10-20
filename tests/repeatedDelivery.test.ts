@@ -53,7 +53,7 @@ describe('persistent typed delivery failure guards', () => {
   const exhaustRepair = async () => {
     await cooperative.deliver(researcher, action, seed);
     const repair = await cooperative.next(researcher, budget);
-    expect(repair?.kind).toBe('task');
+    expect(repair).toMatchObject({ kind: 'task', task: { id: candidate.task.id } });
     if (repair?.kind !== 'task') throw new Error('expected_local_repair');
     expect(cooperative.started(researcher, repair)).toBe(true);
     await cooperative.deliver(researcher, repair, seed);
@@ -71,7 +71,9 @@ describe('persistent typed delivery failure guards', () => {
     candidate = { task: task('candidate'), status: 'running', attempts: 1,
       assignment: { taskId: 'candidate', taskDigest: taskVersion(task('candidate')), workerId: 'researcher', seedCommit: seed } };
     state = { runId: 'fixture', turns: 0, environmentDigest: 'environment', buildDigest: 'build', evaluatorDigest: 'evaluator',
-      cooperation: { canonicalCommit: seed, tasks: [candidate, { task: task('goal', 'goal', ['candidate']), status: 'pending', attempts: 0 }],
+      // Keep this goal prerequisite-first so dispatches exercise the candidate's local repair.
+      cooperation: { canonicalCommit: seed, tasks: [candidate,
+        { task: { ...task('goal', 'goal', ['candidate']), conditional: false }, status: 'pending', attempts: 0 }],
         groups: [{ group: { id: 'main', objective: 'Original goal', status: 'active', revision: 0 }, turns: 0 }] },
       problem: { receiptDigest: 'problem', projectRelative: 'generated/p', ownedFiles: lead.ownedFiles,
         declarations: { 'Submission.lean': [] }, targets: [{ proofPath: 'Submission.lean', theoremName: 'goal' }],
@@ -102,11 +104,12 @@ describe('persistent typed delivery failure guards', () => {
     const failed = state.cooperation!.failedTaskInputs![0];
     expect(candidate.status).toBe('pending'); expect(failed.repair?.pending).toBe(true);
     let repair = await cooperative.next(researcher, budget);
-    expect(repair?.kind).toBe('task'); expect(failed.repair?.pending).toBe(true);
+    expect(repair).toMatchObject({ kind: 'task', task: { id: candidate.task.id } }); expect(failed.repair?.pending).toBe(true);
     if (repair?.kind !== 'task') throw new Error('expected_local_repair');
     cooperative.release(researcher, repair);
     expect(candidate.attempts).toBe(1); expect(failed.repair?.pending).toBe(true);
     repair = await cooperative.next(researcher, budget);
+    expect(repair).toMatchObject({ kind: 'task', task: { id: candidate.task.id } });
     if (repair?.kind !== 'task') throw new Error('expected_reserved_repair');
     expect(cooperative.started(researcher, repair)).toBe(true);
     expect(failed.repair?.pending).toBe(false); expect(candidate.attempts).toBe(2);
@@ -117,6 +120,7 @@ describe('persistent typed delivery failure guards', () => {
   it.each(['transport', 'restart'] as const)('preserves an uncompleted repair after %s before a source edit', async interruption => {
     await cooperative.deliver(researcher, action, seed);
     let work = await cooperative.next(researcher, budget);
+    expect(work).toMatchObject({ kind: 'task', task: { id: candidate.task.id } });
     if (work?.kind !== 'task') throw new Error('expected_local_repair');
     expect(cooperative.started(researcher, work)).toBe(true);
     let current = cooperative, currentState = state;
@@ -126,6 +130,7 @@ describe('persistent typed delivery failure guards', () => {
     } else await current.deliver(researcher, work, seed, true, 'request-failure');
     expect(currentState.cooperation!.failedTaskInputs![0].repair?.pending).toBe(true);
     work = await current.next(researcher, budget);
+    expect(work).toMatchObject({ kind: 'task', task: { id: candidate.task.id } });
     if (work?.kind !== 'task') throw new Error('expected_resumed_repair');
     expect(current.started(researcher, work)).toBe(true);
     await current.deliver(researcher, work, seed);
@@ -142,6 +147,7 @@ describe('persistent typed delivery failure guards', () => {
       await cooperative.deliver(researcher, work, version, true, kind);
       expect(candidate.status).toBe('pending');
       const next = await cooperative.next(researcher, budget);
+      expect(next).toMatchObject({ kind: 'task', task: { id: candidate.task.id } });
       if (next?.kind !== 'task') throw new Error('expected_changed_draft_continuation');
       expect(cooperative.started(researcher, next)).toBe(true); work = next;
     }

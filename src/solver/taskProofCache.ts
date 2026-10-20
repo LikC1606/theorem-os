@@ -1,22 +1,22 @@
-import type { TaskProof } from './cooperativeProof';
+import type { MathematicsVerifierBatchResult } from '../math/verifier';
 import { hasDeterministicLeanFailure } from './proofReuse';
 
-type CachedProofs = { proofs: TaskProof[]; attributed: boolean[]; cacheable?: boolean };
+export type TaskVerificationArtifact = { projectionCommit: string; verification: MathematicsVerifierBatchResult; cacheable?: boolean };
 
-/** A run owns this cache. Neither serialized receipts nor callers can seed its entries. */
+/** A run owns this cache; it retains verifier artifacts rather than task attribution. */
 export class TaskProofCache {
-  private readonly entries = new Map<string, { value: CachedProofs; bytes: number }>();
-  private readonly pending = new Map<string, { signal: AbortSignal; result: Promise<CachedProofs> }>();
+  private readonly entries = new Map<string, { value: TaskVerificationArtifact; bytes: number }>();
+  private readonly pending = new Map<string, { signal: AbortSignal; result: Promise<TaskVerificationArtifact> }>();
   private bytes = 0;
   constructor(private readonly maxEntries = 32, private readonly maxBytes = 32 * 1024 * 1024) {}
 
-  async check(key: string, signal: AbortSignal, valid: (proofs: readonly TaskProof[]) => boolean,
-    run: () => Promise<CachedProofs>): Promise<CachedProofs> {
+  async check(key: string, signal: AbortSignal, valid: (artifact: TaskVerificationArtifact) => boolean,
+    run: () => Promise<TaskVerificationArtifact>): Promise<TaskVerificationArtifact> {
     signal.throwIfAborted();
     const cached = this.entries.get(key);
     if (cached) {
       this.entries.delete(key); this.bytes -= cached.bytes;
-      if (valid(cached.value.proofs)) {
+      if (valid(cached.value)) {
         this.entries.set(key, cached); this.bytes += cached.bytes;
         return structuredClone(cached.value);
       }
@@ -25,8 +25,8 @@ export class TaskProofCache {
     if (pending?.signal === signal) return structuredClone(await pending.result);
     const result = run().then(value => {
       signal.throwIfAborted();
-      if (value.cacheable !== false && value.proofs.every((proof, index) =>
-        proof.passed || value.attributed[index] && hasDeterministicLeanFailure(proof.verification))) {
+      if (value.cacheable !== false && valid(value) &&
+          (value.verification.status === 'kernel_verified' || hasDeterministicLeanFailure(value.verification))) {
         const bytes = Buffer.byteLength(JSON.stringify(value));
         if (this.maxEntries > 0 && bytes <= this.maxBytes) {
           const previous = this.entries.get(key);

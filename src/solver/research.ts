@@ -23,10 +23,13 @@ import { aggregateUsage, buildTokenBudget, initializeUsageAccounting, modelDispa
 import { recoverModelTurnLedger, WorkerTurnLedger, type ModelTurnReceipt } from './turnLedger';
 import { ResearchUsage } from './researchUsage';
 import { inspectKnowledgeUses } from './knowledgeUsage';
+import { checkKnowledgeApplications } from './knowledgeApplications';
 import { parseMathResponse } from './deliveries';
 import { committedSource } from './problem';
+import type { ContinuationSnapshot } from './continuationInput';
 
 export type WorkerAccess = { environment: NodeJS.ProcessEnv; corpusFile?: string; retrievalRoot: string;
+  continuation?: ContinuationSnapshot;
   knowledgeFile?: string; knowledgeDigest?: string; knowledgeSnapshot?: KnowledgeContextSnapshot };
 
 /** Lead and isolated task workers share one budget; only a full canonical check grants acceptance. */
@@ -367,12 +370,16 @@ export async function runResearchWorkers(input: {
             'math-result', {}, 'summary').knowledgeUses; } catch { /* Ordinary notes need no usage response. */ }
           if (claims !== undefined) {
             const records = state.knowledgeUses ??= [];
-            state.problem.targets.forEach((target, index) => {
+            for (const [index, target] of state.problem.targets.entries()) {
               const task = state.cooperation?.tasks.find(node => node.task.kind === 'goal' && node.task.theoremName === target.theoremName &&
                 node.task.proofPath === target.proofPath)?.task ?? { id: `original_goal_${index + 1}`, kind: 'goal' as const,
                 objective: `Prove ${target.theoremName}`, revision: 0, dependsOn: [], ...target };
               const observed = inspectKnowledgeUses(claims, access.knowledgeSnapshot, task, research.check);
-              for (const use of observed.uses) {
+              const checked = await checkKnowledgeApplications(observed.uses, { task, projectRoot: path.join(worker.worktree, state.problem.projectRelative),
+                env: access.environment, environmentDigest: state.environmentDigest, commit: research.check.commit,
+                signal, timeoutMs: input.proofTimeoutMs, originalContexts: state.problem.targets, previous: records,
+                sourceAtCommit: file => committedSource(worker.worktree, research.check!.commit, path.posix.join(state.problem.projectRelative, file)) });
+              for (const use of checked) {
                 const record = { ...use, workerId: worker.id, commit: research.check!.commit };
                 const key = canonicalMathJson(record);
                 if (!records.some(previous => canonicalMathJson(previous) === key)) {
@@ -380,7 +387,7 @@ export async function runResearchWorkers(input: {
                 }
               }
               if (observed.rejected) emit('knowledge_use_rejected', { commit: research.check!.commit, rejected: observed.rejected });
-            });
+            }
             if (records.length > 256) records.splice(0, records.length - 256);
           }
         }

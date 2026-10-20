@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import type { TheoremKnowledgeBase } from './theoremKnowledge';
+import { mathematicalGapSchema } from './mathematicalGaps';
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/u);
 const text = z.string().min(1).max(1_000_000);
@@ -12,7 +13,7 @@ const contract = z.object({
 }).strict();
 const scope = z.object({
   problemId: z.string().min(1), problemReceiptDigest: hash, environmentDigest: z.string().min(1),
-  source: contract, dependencies: z.array(contract).max(1024),
+  source: contract, dependencies: z.array(contract).max(1024), originalConsumer: contract.optional(),
 }).strict();
 const provenance = z.object({
   source: z.string().min(1), sourceDigest: hash, runId: z.string().min(1),
@@ -30,6 +31,7 @@ const finding = z.object({
   remainingObligations: z.array(z.string().max(12_000)).max(256),
   /** Exact recorded text only; these conditions do not authorize scheduling or reopening. */
   reconsiderWhen: z.array(z.string().max(12_000)).max(256),
+  mathematicalGap: mathematicalGapSchema.optional(),
 }).strict();
 
 export const knowledgeRouteFindingSchema = finding.extend({ id: hash, scopeDigest: hash,
@@ -83,12 +85,11 @@ type SearchBase = Pick<TheoremKnowledgeBase, 'routeFindings'>;
 export type KnowledgeRouteFindingSearchOptions = {
   goal?: string; limit?: number; problemId?: string; environmentDigest?: string; problemReceiptDigest?: string;
 };
+export type KnowledgeRouteFindingSearchRequest = { query: string; goal?: string };
 const terms = (value: string) => [...new Set(value.toLowerCase().match(/[\p{L}\p{N}_']{2,}/gu) ?? [])];
 const preview = (value: string, max: number) => value.length <= max ? value : value.slice(0, max - 1).replace(/[\uD800-\uDBFF]$/u, '') + '…';
 
-/** Retrieval can recall a renamed task, but text matches never establish equivalent hypotheses or invalidate a route. */
-export function searchKnowledgeRouteFindings(base: SearchBase, query: string,
-  options: KnowledgeRouteFindingSearchOptions = {}) {
+function validateFindingQuery(query: string, options: KnowledgeRouteFindingSearchOptions) {
   const limit = options.limit ?? 10;
   if (typeof query !== 'string' || Buffer.byteLength(query) > 4000 ||
       (options.goal !== undefined && (typeof options.goal !== 'string' || Buffer.byteLength(options.goal) > 16000)) ||
@@ -96,11 +97,45 @@ export function searchKnowledgeRouteFindings(base: SearchBase, query: string,
       [options.problemId, options.environmentDigest, options.problemReceiptDigest].some(value => value !== undefined &&
         (typeof value !== 'string' || !value.trim() || Buffer.byteLength(value) > 256)))
     throw new Error('math_knowledge_invalid_query');
+}
+
+function prepareFindingSearch(base: SearchBase, options: Omit<KnowledgeRouteFindingSearchOptions, 'goal'>) {
+  return (base.routeFindings ?? []).filter(item => !options.problemId || item.scope.problemId === options.problemId)
+    .map(item => {
+      const statements = [item.scope.source.statement, ...item.scope.dependencies.map(value => value.statement)];
+      return { item, statements, haystack: new Set(terms([...statements, item.summary].join('\n'))) };
+    });
+}
+
+/** Retrieval can recall a renamed task, but text matches never establish equivalent hypotheses or invalidate a route. */
+export function searchKnowledgeRouteFindings(base: SearchBase, query: string,
+  options: KnowledgeRouteFindingSearchOptions = {}) {
+  return searchKnowledgeRouteFindingRequests(base, [{ query, goal: options.goal }], options)[0]!;
+}
+
+/** Share text preparation for this call only; exact goals, ranking and result objects remain separate. */
+export function searchKnowledgeRouteFindingRequests(base: SearchBase, requests: readonly KnowledgeRouteFindingSearchRequest[],
+  options: Omit<KnowledgeRouteFindingSearchOptions, 'goal'> = {}) {
+  if (!Array.isArray(requests) || requests.length < 1 || requests.length > 8) throw new Error('math_knowledge_invalid_query');
+  for (const request of requests) {
+    if (!request || typeof request !== 'object') throw new Error('math_knowledge_invalid_query');
+    validateFindingQuery(request.query, { ...options, goal: request.goal });
+  }
+  const prepared = prepareFindingSearch(base, options), results = new Map<string, ReturnType<typeof searchPreparedFindings>>();
+  return requests.map(({ query, goal }) => {
+    const key = canonicalMathJson([query, goal ?? '']), cached = results.get(key);
+    if (cached) return structuredClone(cached);
+    const result = searchPreparedFindings(prepared, query, { ...options, goal });
+    results.set(key, result);
+    return result;
+  });
+}
+
+function searchPreparedFindings(prepared: ReturnType<typeof prepareFindingSearch>, query: string,
+  options: KnowledgeRouteFindingSearchOptions) {
+  const limit = options.limit ?? 10;
   const inputs = terms(query + '\n' + (options.goal ?? ''));
-  const hits = (base.routeFindings ?? []).flatMap(item => {
-    if (options.problemId && item.scope.problemId !== options.problemId) return [];
-    const statements = [item.scope.source.statement, ...item.scope.dependencies.map(value => value.statement)];
-    const haystack = new Set(terms([...statements, item.summary].join('\n')));
+  const hits = prepared.flatMap(({ item, statements, haystack }) => {
     const matched = inputs.filter(value => haystack.has(value));
     const exactStatement = Boolean(options.goal && statements.includes(options.goal));
     if (!matched.length && !exactStatement) return [];

@@ -4,6 +4,7 @@ import { isSimpleLeanName } from '../math/leanSyntax';
 import type { DeliveryRecord } from './deliveries';
 import type { TaskProof } from './cooperativeProof';
 import type { StatementAction } from './statementReview';
+import type { TaskTypePreflight } from './taskTypePreflight';
 import { parseProofRoutes, type ProofRoute } from './proofRoutes';
 
 export type CooperativeTask = Readonly<{ id: string; kind: 'research' | 'sketch' | 'lemma' | 'goal'; objective: string;
@@ -15,11 +16,20 @@ export type RouteGroup = Readonly<{ id: string; objective: string; status: 'acti
   engineerId?: string; maxTurns?: number; maxConcurrent?: number }>;
 export type RouteRecord = { group: RouteGroup; turns: number; busy?: number };
 export const taskGroup = (task: CooperativeTask): string => task.groupId ?? 'main';
+export type TaskConnectionCheck = Readonly<{
+  schema: 'theorem-os.consumer-connection.v1'; consumer: { taskId: string; taskDigest: string };
+  inputs: readonly { taskId: string; taskDigest: string }[]; seedCommit: string; dependenciesDigest: string;
+  routeId?: string; routesDigest: string; problemReceiptDigest: string; environmentDigest: string; basisDigest: string;
+}>;
 export type TaskAssignment = { taskId: string; taskDigest: string; workerId: string; seedCommit: string; assignmentId?: string; groupId?: string; canonicalCommit?: string;
-  dependencies?: DeliveryRecord['dependencies']; routeId?: string };
+  dependencies?: DeliveryRecord['dependencies']; routeId?: string; connectionCheck?: TaskConnectionCheck };
 export type TaskRecord = { task: CooperativeTask; status: 'pending' | 'running' | 'blocked' | 'conditional' | 'delivered' | 'integrated' | 'completed';
   attempts: number; assignment?: TaskAssignment; proof?: TaskProof; integratedCheck?: TaskProof; feedback?: string; finding?: string;
+  /** Host-owned attention only. The goal stays paused and is never dispatched to a peer. */
+  primaryOwned?: boolean;
+  application?: { helperDigest: string; consumerTaskId: string; consumerDigest: string; residualGoal?: string };
   pendingValidation?: { id: string; taskDigest: string; canonicalCommit: string; environmentDigest: string; problemReceiptDigest: string; proof?: boolean };
+  typePreflight?: TaskTypePreflight;
   routeParking?: string[]; parkedRoutes?: Record<string, string[]>; alternativeRoutes?: readonly ProofRoute[] };
 export type CooperativeAction = { kind: 'lead' | 'assemble' | 'solve'; seedCommit: string; planVersion?: string; planningInputDigest?: string;
   initialPlanNonce?: string;

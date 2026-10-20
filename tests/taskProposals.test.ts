@@ -39,4 +39,14 @@ describe('research to typed proof proposals', () => {
     expect(() => validateLemmaRequests(problem, [research, goal], groups, research, [invalid]))
       .toThrow('math_research_lemma_requests_invalid');
   });
+
+  it('allows only a source-bound exact proposal to be repeated after adoption', () => {
+    const [proposal] = validateLemmaRequests(problem, [research, goal], groups, research, [request]);
+    const adopted = { ...proposal, objective: 'Apply the same exact target', revision: 1 };
+    expect(validateLemmaRequests(problem, [research, goal, adopted], groups, research, [request], [proposal])).toEqual([proposal]);
+    expect(() => validateLemmaRequests(problem, [research, goal, adopted], groups, research, [request]))
+      .toThrow('math_research_lemma_requests_invalid');
+    expect(() => validateLemmaRequests(problem, [research, goal, { ...adopted, type: 'False' }], groups, research, [request], [proposal]))
+      .toThrow('math_research_lemma_requests_invalid');
+  });
 });

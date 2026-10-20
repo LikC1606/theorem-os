@@ -6,6 +6,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
+import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 import { createCodexMathSession, type MathAgentSession } from '../../src/runtime/codexSession';
 import { startChatCompletionsBridge } from '../../src/runtime/chatCompletionsBridge';
 import type { ModelRequestGate, ModelRequestReceipt } from '../../src/runtime/modelRequest';
@@ -14,13 +15,14 @@ import { beginRequestUsage, buildTokenBudget, initializeRequestUsageAccounting, 
   type RequestUsageAccounting } from '../../src/solver/usageBudget';
 
 type Json = Record<string, any>;
-type Scenario = { name: string; usage: [boolean, boolean]; maxTotalTokens?: number };
+type Scenario = { name: string; usage: [boolean, boolean]; maxTotalTokens?: number; shellEnvironment?: boolean };
 const dummyKey = 'theoremos-offline-westlake-dummy-key';
 const toolMarker = 'THEOREMOS_LOCAL_PROTOCOL_OK';
 const patchMarker = 'THEOREMOS_LOCAL_PATCH_OK';
 const finalMarker = 'THEOREMOS_LOCAL_PROTOCOL_COMPLETE';
 const firstReasoning = 'The local fixture needs one harmless shell command.';
 const upstreamUrl = `${WESTLAKE_PROVIDER.baseUrl}/chat/completions`;
+const shellQuote = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`;
 
 function sse(chunks: Json[]): string {
   return chunks.map(chunk => `data: ${JSON.stringify(chunk)}\n\n`).join('') + 'data: [DONE]\n\n';
@@ -53,9 +55,13 @@ async function closeServer(server: http.Server): Promise<void> {
 async function checkScenario(executable: string, scenario: Scenario): Promise<void> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'theoremos-westlake-protocol-'));
   const profile = path.join(root, 'profile'), workspace = path.join(root, 'workspace'), home = path.join(root, 'home');
+  const pythonBin = path.join(workspace, 'fixture-bin'), pythonShim = path.join(pythonBin, 'python3');
+  const pythonReceiptFile = path.join(workspace, 'python-shell-check.json');
   fs.mkdirSync(workspace); fs.mkdirSync(home);
-  // Deliberately avoid inheriting credentials, global profiles, proxies, or user shell startup files.
-  const environment: NodeJS.ProcessEnv = { PATH: process.env.PATH, HOME: home, TMPDIR: root,
+  // Inherit no credentials or proxies. Existing scenarios use an isolated HOME; the shell scenario
+  // leaves HOME unset and relies on host session settings to prevent login/profile PATH replacement.
+  const environment: NodeJS.ProcessEnv = { PATH: scenario.shellEnvironment ? `${pythonBin}:${process.env.PATH ?? '/usr/bin:/bin'}` : process.env.PATH,
+    ...(scenario.shellEnvironment ? { SHELL: '/bin/bash' } : { HOME: home }), TMPDIR: root,
     WESTLAKEHPC_API_KEY: dummyKey, NO_PROXY: '127.0.0.1,localhost' };
   const originalFetch = globalThis.fetch;
   let session: MathAgentSession | undefined;
@@ -65,6 +71,26 @@ async function checkScenario(executable: string, scenario: Scenario): Promise<vo
   const usage: Json[] = [], activities: string[] = [];
   const requestRecord: { turns: number; usage?: Record<string, unknown>; requestUsageAccounting?: RequestUsageAccounting } = { turns: 0 };
   const requestReceipts: ModelRequestReceipt[] = [], deniedReasons: string[] = [];
+  const expectedPythonReceipt = { sysExecutable: pythonShim, cwd: workspace, resolvedPython: pythonShim,
+    writtenFile: pythonReceiptFile };
+  const pythonCommand = [
+    'set -eu',
+    // Fail before executing an unrelated interpreter if a login profile replaces the intended PATH.
+    `[ "$(command -v python3)" = ${shellQuote(pythonShim)} ] || { printf 'native_python_path_replaced\\n'; exit 86; }`,
+    `python3 - <<'THEOREMOS_PYTHON'`,
+    'import json, os, pathlib, shutil, sys',
+    `expected = ${JSON.stringify(expectedPythonReceipt)}`,
+    'assert sys.executable == expected["sysExecutable"], "native_python_interpreter_replaced"',
+    'assert os.getcwd() == expected["cwd"], "native_python_cwd_replaced"',
+    'assert shutil.which("python3") == expected["resolvedPython"], "native_python_path_replaced"',
+    'assert "WESTLAKEHPC_API_KEY" not in os.environ, "native_python_received_provider_key"',
+    'receipt = dict(sysExecutable=sys.executable, cwd=os.getcwd(), resolvedPython=shutil.which("python3"),',
+    '    writtenFile=str(pathlib.Path("python-shell-check.json").resolve()))',
+    'pathlib.Path("python-shell-check.json").write_text(json.dumps(receipt, sort_keys=True) + "\\n")',
+    `print(${JSON.stringify(toolMarker)})`,
+    'print(json.dumps(receipt, sort_keys=True))',
+    'THEOREMOS_PYTHON',
+  ].join('\n');
   const limited = scenario.maxTotalTokens !== undefined;
   if (limited) initializeRequestUsageAccounting(requestRecord);
   const requestBudget = () => buildTokenBudget(scenario.maxTotalTokens ?? 0, [requestRecord],
@@ -108,7 +134,8 @@ async function checkScenario(executable: string, scenario: Scenario): Promise<vo
         const patchTool = body.tools.find((tool: Json) => tool.function?.name === 'apply_patch');
         assert.ok(patchTool?.function.parameters.required.includes('input'), 'mock_custom_patch_schema_mismatch');
         assert.ok(body.tools.every((tool: Json) => tool.type === 'function'), 'mock_non_chat_tool');
-        const args = JSON.stringify({ cmd: `printf ${toolMarker}`, login: false, max_output_tokens: 100 });
+        const args = JSON.stringify(scenario.shellEnvironment ? { cmd: pythonCommand, max_output_tokens: 500 } :
+          { cmd: `printf ${toolMarker}`, login: false, max_output_tokens: 100 });
         const patchArgs = JSON.stringify({ input: `*** Begin Patch\n*** Add File: protocol-check.txt\n+${patchMarker}\n*** End Patch` });
         const split = Math.floor(args.length / 2);
         chunks = completionChunks(1, [
@@ -127,6 +154,11 @@ async function checkScenario(executable: string, scenario: Scenario): Promise<vo
         assert.ok(toolResult, 'mock_tool_result_missing');
         assert.match(toolResult.content, /Process exited with code 0/u, 'mock_native_command_failed');
         assert.ok(toolResult.content.includes(toolMarker), 'mock_native_command_did_not_execute');
+        if (scenario.shellEnvironment) {
+          const receipt = JSON.parse(fs.readFileSync(pythonReceiptFile, 'utf8'));
+          assert.deepEqual(receipt, expectedPythonReceipt, 'mock_native_python_environment_changed');
+          assert.ok(toolResult.content.includes(JSON.stringify(receipt.sysExecutable)), 'mock_native_python_receipt_not_returned');
+        }
         const patchResult = body.messages.find((message: Json) => message.role === 'tool'
           && message.tool_call_id === 'local_patch_call');
         assert.ok(patchResult, 'mock_custom_patch_result_missing');
@@ -156,7 +188,24 @@ async function checkScenario(executable: string, scenario: Scenario): Promise<vo
     const version = execFileSync(executable, ['--version'], { encoding: 'utf8', env: environment,
       stdio: ['ignore', 'pipe', 'ignore'], timeout: 10_000 }).trim();
     assert.match(version, /^codex-cli [0-9][0-9.\w-]*$/u, 'codex_version_unrecognized');
-    const profileDigest = prepareWestlakeProfile(profile, WESTLAKE_PROVIDER.defaultModel, 'high');
+    let profileDigest = prepareWestlakeProfile(profile, WESTLAKE_PROVIDER.defaultModel, 'high');
+    if (scenario.shellEnvironment) {
+      assert.equal(Object.hasOwn(environment, 'HOME'), false, 'offline_shell_fixture_must_not_override_home');
+      assert.ok(fs.existsSync('/usr/bin/python3'), 'offline_shell_fixture_system_python_missing');
+      fs.mkdirSync(pythonBin);
+      fs.symlinkSync('/usr/bin/python3', pythonShim);
+      // This disposable profile deliberately conflicts with the host's per-thread safeguards.
+      // Capture its frozen identity only after preparing those fixture inputs.
+      const configFile = path.join(profile, 'config.toml');
+      const config: Json = parseToml(fs.readFileSync(configFile, 'utf8'));
+      config.allow_login_shell = true;
+      config.features = { ...config.features, shell_snapshot: true };
+      config.shell_environment_policy = { ...config.shell_environment_policy, experimental_use_profile: true };
+      fs.chmodSync(configFile, 0o600);
+      fs.writeFileSync(configFile, stringifyToml(config));
+      fs.chmodSync(configFile, 0o400);
+      profileDigest = westlakeProfileDigest(profile);
+    }
     await new Promise<void>((resolve, reject) => {
       server.once('error', reject);
       server.listen(0, '127.0.0.1', resolve);
@@ -255,6 +304,9 @@ async function checkScenario(executable: string, scenario: Scenario): Promise<vo
       finalMessage: !limited, usage: expectedUsage, usageEvents: usage.length, incompleteSignals, incompleteAtTurnCompletion,
       ...(limited ? { toolsExecutedBeforeLocalDenial: true, localDeniedRequests: deniedReasons.length, localDenialStatus: 403,
         requestReceipts: requestReceipts.length, requestBudget: requestBudget(), nativeUsageIgnored: true } : {}),
+      ...(scenario.shellEnvironment ? { nativeShellIsolation: { defaultLoginParameter: true, intendedPythonResolved: true,
+        executableInWorkspace: true, cwdInWorkspace: true, writtenFileInWorkspace: true,
+        providerKeyExcluded: true, profileSettingsOverridden: true, environmentHomeOverridden: false } } : {}),
       bridgeListenerClosed: true, frozenProfileUnchanged: true, resumedThread: true, remoteRequests: 0 }));
   } finally {
     clearTimeout(deadline);
@@ -272,7 +324,7 @@ async function checkScenario(executable: string, scenario: Scenario): Promise<vo
 async function main(): Promise<void> {
   const { values } = parseArgs({ options: { codex: { type: 'string', default: 'codex' }, help: { type: 'boolean' } } });
   if (values.help) {
-    console.log('Usage: bun scripts/mathematics/checkWestlakeProtocol.ts [--codex PATH]\nRuns installed Codex against a local simulated gateway. Covers complete, partially missing and fully missing token usage, plus request budget exhaustion and missing-usage admission stops. No model calls or real credentials are used.');
+    console.log('Usage: bun scripts/mathematics/checkWestlakeProtocol.ts [--codex PATH]\nRuns installed Codex against a local simulated gateway. Covers token usage, request budget stops, and default shell Python/PATH/workspace isolation against conflicting disposable profile settings. No model calls or real credentials are used.');
     return;
   }
   const scenarios: Scenario[] = [
@@ -282,6 +334,7 @@ async function main(): Promise<void> {
     { name: 'missing-all-usage', usage: [false, false] },
     { name: 'request-budget-exhausted', usage: [true, true], maxTotalTokens: 33 },
     { name: 'request-budget-missing-usage', usage: [false, true], maxTotalTokens: 100 },
+    { name: 'native-shell-environment', usage: [true, true], shellEnvironment: true },
   ];
   for (const scenario of scenarios) await checkScenario(values.codex, scenario);
 }

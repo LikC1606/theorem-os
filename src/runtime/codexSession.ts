@@ -302,6 +302,11 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
         mcp_servers: disabled,
         'features.apps': false,
         'features.plugins': false,
+        // Preserve the projected proof environment; user profiles and shell snapshots
+        // can select tools that execute outside the isolated mathematical worktree.
+        allow_login_shell: false,
+        'features.shell_snapshot': false,
+        'shell_environment_policy.experimental_use_profile': false,
         ...(bridge ? { 'features.multi_agent': false, 'features.multi_agent_v2': false,
           'features.goals': false, 'features.view_image': false } : {}),
         model_reasoning_effort: options.effort,

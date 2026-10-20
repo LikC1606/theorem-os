@@ -153,6 +153,8 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     const base = config['model_providers.westlake.base_url'];
     expect(base).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/v1$/u);
     expect(config['features.multi_agent']).toBe(false);
+    expect(config).toMatchObject({ allow_login_shell: false, 'features.shell_snapshot': false,
+      'shell_environment_policy.experimental_use_profile': false });
     expect(config['shell_environment_policy.exclude']).toContain('WESTLAKEHPC_API_KEY*');
     expect((await fetch(base + '/models')).status).toBe(401);
     await session.close();
@@ -191,6 +193,10 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     expect(fs.readFileSync(path.join(nativeProfile, 'config.toml'), 'utf8')).toBe(config);
     expect(fs.readFileSync(path.join(nativeProfile, 'state-marker'), 'utf8')).toBe('retained');
     expect(fs.readFileSync(path.join(nativeProfile, 'calls.jsonl'), 'utf8')).toContain('thread/resume');
+    const resume = fs.readFileSync(path.join(nativeProfile, 'calls.jsonl'), 'utf8').trim().split('\n')
+      .map(line => JSON.parse(line)).find(call => call.method === 'thread/resume');
+    expect(resume.params.config).toMatchObject({ allow_login_shell: false, 'features.shell_snapshot': false,
+      'shell_environment_policy.experimental_use_profile': false });
     expect(await session.run('proof', 'resumed-turn', root, () => {})).toBe('completed');
     expect(profileDigest(profile)).toBe(digest);
   });

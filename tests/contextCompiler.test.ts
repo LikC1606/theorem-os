@@ -392,14 +392,14 @@ it('does not fill the hard context budget with optional history and records why 
   expect(context.manifest.usedBytes).toBe(Buffer.byteLength(context.message) + Buffer.byteLength(input([]).instructions));
 });
 
-it('keeps a full omission manifest with a bounded and verifiable inline preview', () => {
+it.each([17, 32, 1000])('keeps a full %i-item omission manifest with a bounded and verifiable inline preview', count => {
   const task = lemma('consumer');
   const context = compileTaskContext({ ...input([node(task)], assign(task)), maxOptionalContextBytes: 0,
-    optional: Array.from({ length: 1000 }, (_, index) => ({ id: `hint-${index}`, kind: 'history' as const, text: 'Advisory history.' })) });
+    optional: Array.from({ length: count }, (_, index) => ({ id: `hint-${index}`, kind: 'history' as const, text: 'Advisory history.' })) });
   const inline = JSON.parse(context.message.split('Context compilation manifest:\n')[1]);
-  expect(context.manifest.omitted).toHaveLength(1000);
+  expect(context.manifest.omitted).toHaveLength(count);
   expect(inline.omitted).toEqual(context.manifest.omitted.slice(0, 16));
-  expect(inline.omissionSet).toMatchObject({ selection: 'bounded-preview', count: 1000,
+  expect(inline.omissionSet).toMatchObject({ selection: 'bounded-preview', count,
     digest: mathDigest(canonicalMathJson(context.manifest.omitted)),
     reference: { path: 'CONTEXT-MANIFEST.json', field: 'omitted' } });
   expect(context.manifest.usedBytes).toBe(Buffer.byteLength(context.message) + Buffer.byteLength(input([]).instructions));

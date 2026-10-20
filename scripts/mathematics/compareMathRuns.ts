@@ -18,11 +18,14 @@ import { moduleExperimentSchema, describeModuleExperiment, moduleExperimentPairs
 import { proofReceiptsMatch, type ProofCheck } from '../../src/solver/modules/evidence';
 import type { SolverRunState } from '../../src/solver/archive';
 import { researchFailureCategory } from '../../src/solver/modules/search';
+import { summarizeKnowledgeFunnel } from '../../src/solver/knowledgeFunnel';
 import { buildTokenBudget, reportedTotalTokens } from '../../src/solver/usageBudget';
 import { DEEPSEEK_PROVIDER, deepSeekProfileDigest, expectedDeepSeekProfileDigest, prepareDeepSeekProfile,
   validateDeepSeekModel } from '../../src/runtime/deepseek';
 import { WESTLAKE_PROVIDER, westlakeProfileDigest, expectedWestlakeProfileDigest, prepareWestlakeProfile,
   validateWestlakeModel } from '../../src/runtime/westlake';
+import { assertExperimentKnowledge, experimentKnowledgeMode, freezeExperimentKnowledge,
+  type ExperimentKnowledge } from './experimentKnowledge';
 
 const providerProfiles = {
   deepseek: { metadata: DEEPSEEK_PROVIDER, validate: validateDeepSeekModel, prepare: prepareDeepSeekProfile,
@@ -44,8 +47,11 @@ type Plan = {
     toolchain: string; mathlibRevision: string; environmentDigest: string };
   taskDigest: string; buildDigest: string; environmentDigest: string;
   configuration: { model: string; effort: string; method: string; scheduler: string; workers: number; repetitions?: number;
-    maxTurns: number; maxRunSeconds: number; maxTurnSeconds: number; maxTotalTokens?: number; provider?: PreparedProvider };
+    maxTurns: number; maxRunSeconds: number; maxTurnSeconds: number; maxTotalTokens?: number;
+    evaluatorTimeoutSeconds?: number; provider?: PreparedProvider };
   moduleExperiment?: ModuleExperiment;
+  knowledge?: ExperimentKnowledge;
+  knowledgeTargetNames?: string[];
   jobs: Job[];
 };
 const json = (file: string) => JSON.parse(readMathText(file));
@@ -135,6 +141,7 @@ function recordedLocalAcceptance(state: SolverRunState, result?: Record<string, 
 
 export function comparisonReport(directory: string, plan: Plan) {
   assertDataset(plan);
+  const knowledge = assertExperimentKnowledge(directory, plan.knowledge, plan.problem, plan.knowledgeTargetNames ?? [plan.problem]);
   const { experiment, variants } = experimentDefinitions(plan) ?? {};
   assertProviderProfiles(plan, false);
   const batchFile = path.join(directory, 'batch.json');
@@ -150,6 +157,7 @@ export function comparisonReport(directory: string, plan: Plan) {
     let tokenBudget: SolverRunState['tokenBudget'] | null = null;
     let sourceSnapshot: ReturnType<typeof runInspectionSnapshot> | null = null;
     let comparisonIdentityMatches: boolean | null = null;
+    let knowledgeFunnel: ReturnType<typeof summarizeKnowledgeFunnel> | null = null;
     let currentObservation: { runId: string; phase: SolverRunState['phase']; status: string; turns: number;
       localAcceptanceEvidenceMatches: boolean; model: string; effort: string; maxTotalTokens: number;
       solutionCommit: unknown } | null = null;
@@ -175,6 +183,7 @@ export function comparisonReport(directory: string, plan: Plan) {
       const coordination = experiment || job.arm === 'cooperative' ? 'cooperative' : 'independent';
       if (state.problem.receiptDigest !== job.receiptDigest || state.taskDigest !== plan.taskDigest ||
           state.buildDigest !== plan.buildDigest || state.environmentDigest !== plan.environmentDigest || state.methodDigest !== job.methodDigest ||
+          state.knowledgeDigest !== plan.knowledge?.digest ||
           state.evaluatorDigest !== mathDigest('host-default') ||
           state.model !== plan.configuration.model || state.effort !== plan.configuration.effort ||
           (state.workerCount ?? 1) !== expectedWorkers ||
@@ -205,6 +214,7 @@ export function comparisonReport(directory: string, plan: Plan) {
       accepted = currentObservation.localAcceptanceEvidenceMatches;
       error = typeof result?.reason === 'string' ? result.reason : undefined;
       if (status === 'evaluated_passed' && !accepted) error = 'comparison_acceptance_evidence_incomplete';
+      if (state.knowledgeDigest) knowledgeFunnel = summarizeKnowledgeFunnel(state, { mode: plan.knowledge?.mode });
     } catch (cause) {
       status = fs.existsSync(`${job.output}.runtime/state.json`) || fs.existsSync(job.output) ? 'invalid' : 'missing';
       usageComplete = false;
@@ -216,7 +226,7 @@ export function comparisonReport(directory: string, plan: Plan) {
     const elapsed = execution?.startedAt && execution?.finishedAt
       ? Date.parse(execution.finishedAt) - Date.parse(execution.startedAt) : NaN;
     return { arm: job.arm, repetition: job.repetition, status, accepted, turns, dispatches: turns, dispatchCounts, solveWallMs,
-      sourceSnapshot, comparisonIdentityMatches, currentObservation,
+      sourceSnapshot, comparisonIdentityMatches, currentObservation, knowledgeFunnel,
       totalTokens, usageComplete, overrunTokens, tokenBudget, missingUsageWorkers, usage, workerErrors, error,
       failureCategory: researchFailureCategory(error),
       wallMs: Number.isFinite(elapsed) && elapsed >= 0 ? elapsed : null,
@@ -232,6 +242,7 @@ export function comparisonReport(directory: string, plan: Plan) {
     comparisonKind: experiment ? 'module-plan' : 'coordination',
     ...(plan.configuration.provider ? { provider: providerProfiles[plan.configuration.provider].metadata } : {}),
     sourceCommit: plan.sourceCommit, taskDigest: plan.taskDigest, buildDigest: plan.buildDigest, environmentDigest: plan.environmentDigest,
+    ...(knowledge ? { knowledge: knowledge.observation } : {}),
     ...(experiment ? { moduleExperiment: { baseline: experiment.baseline, variants },
       pairedComparisons: moduleExperimentPairs(experiment, rows) } : {}),
     tokenAccounting: 'provider-reported-all-roles',
@@ -254,7 +265,8 @@ export function comparisonReportFreshness(directory: string, plan: Plan, saved: 
   const rows = current.runs.map(row => {
     const previous = savedRows.find(item => item.arm === row.arm && item.repetition === row.repetition && item.result === row.result);
     const changed = previous && (canonicalMathJson(previous.sourceSnapshot) !== canonicalMathJson(row.sourceSnapshot) ||
-      previous.status !== row.status || previous.error !== row.error || previous.accepted !== row.accepted);
+      previous.status !== row.status || previous.error !== row.error || previous.accepted !== row.accepted ||
+      canonicalMathJson(previous.knowledgeFunnel ?? null) !== canonicalMathJson(row.knowledgeFunnel));
     const freshness = invalid ? 'invalid' : !bound || !previous ? 'unknown' : changed ? 'stale' :
       row.sourceSnapshot === null && row.status === 'invalid' ? 'unknown' : 'current';
     return { arm: row.arm, repetition: row.repetition, result: row.result, freshness,
@@ -295,19 +307,21 @@ export function writeComparisonReport(file: string, report: unknown) {
 export async function compareMathRuns(argv: string[]): Promise<number> {
   const flags = parseFlags(argv, ['phase', 'directory', 'repo', 'problem', 'task-file', 'build-manifest',
     'repetitions', 'model', 'effort', 'method', 'scheduler', 'workers', 'max-turns', 'max-run-seconds', 'max-turn-seconds',
-    'max-total-tokens', 'proof-environment-cache-dir', 'module-experiment', 'provider', 'dataset']);
+    'max-total-tokens', 'evaluator-timeout-seconds', 'proof-environment-cache-dir', 'module-experiment', 'provider', 'dataset',
+    'knowledge-base', 'knowledge-mode']);
   if (flags.has('help')) {
     console.log('Usage: theorem-os compare --phase prepare|run|report|check-report --directory DIR\n'
       + 'prepare also requires --repo PINNED_REPO --problem ID --task-file FILE --build-manifest FILE\n'
       + '--dataset imo2026|putnambench selects the pinned public source (default: imo2026).\n'
       + 'Optional: --repetitions 1 --workers 4 --model gpt-6.1-sol --effort xhigh --method direct --scheduler plan|goals-first|critical-path|continuation|primary-led\n'
-      + '          --max-turns 200 --max-run-seconds 1800 --max-turn-seconds 180 --max-total-tokens 0\n'
+      + '          --max-turns 200 --max-run-seconds 1800 --max-turn-seconds 180 --max-total-tokens 0 --evaluator-timeout-seconds 1800\n'
       + '          --proof-environment-cache-dir HOST_PRIVATE_DIR\n'
+      + '          --knowledge-base FILE [--knowledge-mode transfer|recovery] (frozen snapshot; default transfer rejects recorded target material)\n'
       + '          --module-experiment FILE (compare module plans with 3 or 4 cooperative workers instead of coordination arms)\n'
       + '          --provider profile|deepseek|westlake (private per-attempt profiles; deepseek-v4-pro/high or Westlake deepseek-flash/high)\n'
       + 'prepare never invokes a model. run executes every planned attempt sequentially. Every arm receives the same token allowance.\n'
       + 'check-report reads a saved report and its current observations without rewriting files; older unbound reports have unknown freshness.\n'
-      + 'Use 0 to disable a limit; at least max-turns, max-run-seconds or max-total-tokens must be positive.\n'
+      + 'Use 0 to disable a limit. All solving and evaluator limits may be zero for an unlimited experiment.\n'
       + '--max-turns caps dispatches. Token caps use provider reports, allow in-flight overrun, and do not guarantee equal cost.');
     return 0;
   }
@@ -321,7 +335,12 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
     throw new Error('--provider is frozen during prepare; run and report use comparison.json');
   if (phase !== 'prepare' && flags.has('dataset'))
     throw new Error('--dataset is frozen during prepare; run and report use comparison.json');
+  if (phase !== 'prepare' && flags.has('evaluator-timeout-seconds'))
+    throw new Error('--evaluator-timeout-seconds is frozen during prepare; run and report use comparison.json');
+  if (phase !== 'prepare' && (flags.has('knowledge-base') || flags.has('knowledge-mode')))
+    throw new Error('--knowledge-base and --knowledge-mode are frozen during prepare; run and report use comparison.json');
   if (phase === 'prepare') {
+    const knowledgeMode = experimentKnowledgeMode(flags);
     const number = (key: string, fallback: number, allowZero = false) => {
       const value = Number(flags.get(key) ?? fallback);
       if (!Number.isSafeInteger(value) || value < (allowZero ? 0 : 1)) throw new Error(`invalid --${key}`);
@@ -346,9 +365,8 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
     const configuration: Plan['configuration'] = { model, effort, method, scheduler,
       ...(preparedProvider ? { provider: preparedProvider } : {}),
       workers, repetitions, maxTurns: number('max-turns', 200, true), maxRunSeconds: number('max-run-seconds', 1800, true),
-      maxTurnSeconds: number('max-turn-seconds', 180, true), maxTotalTokens: number('max-total-tokens', 0, true) };
-    if (!configuration.maxTurns && !configuration.maxRunSeconds && !configuration.maxTotalTokens)
-      throw new Error('comparison requires a positive --max-turns, --max-run-seconds or --max-total-tokens');
+      maxTurnSeconds: number('max-turn-seconds', 180, true), maxTotalTokens: number('max-total-tokens', 0, true),
+      evaluatorTimeoutSeconds: number('evaluator-timeout-seconds', 1800, true) };
     const repositoryRoot = fs.realpathSync(required(flags, 'repo'));
     const problem = required(flags, 'problem');
     const dataset = flags.get('dataset') ?? 'imo2026';
@@ -367,6 +385,9 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
     for (const source of [root, repositoryRoot]) if (canonical === source || canonical.startsWith(source + path.sep))
       throw new Error('comparison directory must be outside source checkouts');
     fs.mkdirSync(directory, { mode: 0o700 });
+    const knowledge = flags.has('knowledge-base')
+      ? freezeExperimentKnowledge(directory, required(flags, 'knowledge-base'), knowledgeMode) : undefined;
+    assertExperimentKnowledge(directory, knowledge, problem, [problem]);
     const taskFile = path.join(directory, 'task.md');
     fs.writeFileSync(taskFile, task, { flag: 'wx', mode: 0o400 });
     const plan: Plan = { schema: 'deepscientist.math.comparison.v1', problem, dataset,
@@ -376,6 +397,7 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
         toolchain: putnamEnvironment!.toolchain, mathlibRevision: putnamEnvironment!.mathlibRevision!,
         environmentDigest: putnamEnvironment!.dependencyDigest } } : {}),
       taskDigest: mathDigest(task), buildDigest: mathDigest(fs.readFileSync(build)), environmentDigest: environmentDigest(), configuration,
+      ...(knowledge ? { knowledge } : {}),
       ...(experiment ? { moduleExperiment: experiment } : {}), jobs: [] };
     for (const item of comparisonOrder(repetitions, variants?.map(variant => variant.id))) {
       const jobRoot = path.join(directory, `${item.repetition}-${item.arm}`);
@@ -384,6 +406,10 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
       if (putnam) bootstrapPutnamBenchProblem({ repositoryRoot, problemId: problem, workspaceRoot: workspace });
       else await bootstrapImo2026Problem({ repositoryRoot, problemId: problem as typeof IMO2026_SUPPORTED_PROBLEMS[number], workspaceRoot: workspace });
       const receipt = readSolverProblem(workspace, path.join(workspace, 'active-problem.json'));
+      if (knowledge && !plan.knowledgeTargetNames) {
+        plan.knowledgeTargetNames = [...new Set([problem, ...(receipt.targets?.map(target => target.theoremName) ?? [])])];
+        assertExperimentKnowledge(directory, knowledge, problem, plan.knowledgeTargetNames);
+      }
       const variant = variants?.find(variant => variant.id === item.arm);
       const modulePlan = variant ? path.join(jobRoot, 'module-plan.json') : undefined;
       if (modulePlan) { writeNew(modulePlan, variant!.plan); fs.chmodSync(modulePlan, 0o400); }
@@ -399,6 +425,8 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
           '--coordination', coordination, ...(modulePlan ? ['--module-plan', modulePlan] : []),
           '--max-turns', String(configuration.maxTurns), '--max-run-seconds', String(configuration.maxRunSeconds),
           '--max-turn-seconds', String(configuration.maxTurnSeconds), '--max-total-tokens', String(configuration.maxTotalTokens),
+          '--evaluator-timeout-seconds', String(configuration.evaluatorTimeoutSeconds),
+          ...(knowledge ? ['--knowledge-base', knowledge.file] : []),
           ...(proofCache ? ['--proof-environment-cache-dir', proofCache] : [])] });
       plan.jobs.push({ ...item, launch, launchDigest: mathDigest(fs.readFileSync(launch)), output, receiptDigest: receipt.receiptDigest,
         methodDigest: variant?.methodDigest ?? solverMethodDigest(configuredSolverModules(method, scheduler), coordination),
@@ -414,6 +442,7 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
     throw new Error('invalid comparison plan');
   assertDataset(plan);
   experimentDefinitions(plan);
+  assertExperimentKnowledge(directory, plan.knowledge, plan.problem, plan.knowledgeTargetNames ?? [plan.problem]);
   if (phase === 'check-report') {
     const reportFile = path.join(directory, 'report.json');
     console.log(JSON.stringify({ reportFile, ...comparisonReportFreshness(directory, plan, json(reportFile)) }));

@@ -168,6 +168,29 @@ describe('packed theorem knowledge with lazy verified sources', () => {
     expect(fs.existsSync(file + '.objects')).toBe(false);
   });
 
+  it.each([
+    ['v1', writeTheoremKnowledge, 'math_knowledge_too_large'],
+    ['v2', writePackedKnowledge, 'math_knowledge_packed_too_large'],
+  ] as const)('rejects oversized %s catalogs before creating directories or files', (format, write, error) => {
+    const base = buildTheoremKnowledge([candidate()]), file = path.join(root, 'unpublished', 'catalog.json');
+    const measure = Buffer.byteLength;
+    let reportedBytes = 256 * 1024 * 1024 + 1;
+    // Exercise the complete preflight without allocating a 256 MiB catalog.
+    const byteLength = vi.spyOn(Buffer, 'byteLength').mockImplementation((value, encoding) =>
+      typeof value === 'string' && value.includes(`"schema":"theorem-os.theorem-knowledge.${format}"`) && value.endsWith('\n')
+        ? reportedBytes : measure(value, encoding));
+    const mkdir = vi.spyOn(fs, 'mkdirSync'), open = vi.spyOn(fs, 'openSync');
+    expect(() => write(file, base)).toThrow(error);
+    expect(mkdir).not.toHaveBeenCalled();
+    expect(open).not.toHaveBeenCalled();
+    expect(fs.existsSync(path.dirname(file))).toBe(false);
+
+    reportedBytes--;
+    const written = write(file, base);
+    byteLength.mockRestore();
+    expect(readKnowledgeCatalog(file, written.sha256).format).toBe(format);
+  });
+
   it('rejects invalid UTF-8 when the matching content-addressed object is requested', () => {
     const f = fixture(), manifest = JSON.parse(f.text), bytes = Buffer.from([0xff, 0xfe]), digest = mathDigest(bytes);
     manifest.sources[digest] = { bytes: bytes.length };

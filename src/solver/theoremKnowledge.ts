@@ -8,17 +8,38 @@ import { knowledgeSearchGroup, knowledgeVersionSummary } from './theoremKnowledg
 import { buildKnowledgeRouteFindings, knowledgeRouteFindingSchema, validateKnowledgeRouteFindings,
   type KnowledgeRouteFindingCandidate } from './theoremKnowledgeFindings';
 
-export { searchTheoremKnowledge, searchTheoremKnowledgeBatch } from './theoremKnowledgeSearch';
-export type { KnowledgeSearchOptions } from './theoremKnowledgeSearch';
-export { searchKnowledgeRouteFindings, getKnowledgeRouteFinding, getKnowledgeRouteFindingPage } from './theoremKnowledgeFindings';
+export { searchTheoremKnowledge, searchTheoremKnowledgeBatch, searchTheoremKnowledgeRequests } from './theoremKnowledgeSearch';
+export type { KnowledgeSearchOptions, KnowledgeSearchRequest } from './theoremKnowledgeSearch';
+export { getKnowledgeConsumers } from './theoremKnowledgeConsumers';
+export type { KnowledgeConsumersOptions } from './theoremKnowledgeConsumers';
+export { searchKnowledgeRouteFindings, searchKnowledgeRouteFindingRequests, getKnowledgeRouteFinding,
+  getKnowledgeRouteFindingPage } from './theoremKnowledgeFindings';
 export type { KnowledgeRouteFinding, KnowledgeRouteFindingCandidate, KnowledgeRouteContract,
-  KnowledgeRouteFindingSearchOptions } from './theoremKnowledgeFindings';
+  KnowledgeRouteFindingSearchOptions, KnowledgeRouteFindingSearchRequest } from './theoremKnowledgeFindings';
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/u);
 const reference = z.object({ file: z.string(), name: z.string() }).strict();
+const statementContext = z.object({
+  type: z.string().min(1).refine(value => Buffer.byteLength(value) <= 24000),
+  constants: z.array(z.object({ name: z.string().max(1000), module: z.string().max(1000),
+    type: z.string().refine(value => Buffer.byteLength(value) <= 8000),
+    definition: z.string().refine(value => Buffer.byteLength(value) <= 12000).optional() }).strict()).max(256),
+  omitted: z.array(z.string().max(1000)).max(257),
+  references: z.object({ statement: z.array(reference).max(256), proof: z.array(reference).max(256) }).strict().optional(),
+}).strict();
+/** An elaborated historical interface stays separate from its original source header. */
+export const knowledgeElaborationSchema = z.object({
+  schema: z.literal('theorem-os.knowledge-elaboration.v1'), evidence: z.literal('recorded-not-replayed'),
+  fullType: z.string().min(1).refine(value => Buffer.byteLength(value) <= 2_000_000),
+  universes: z.array(z.string().min(1).max(1000)).max(256), statementContext: statementContext.optional(),
+  omissions: z.array(z.string().max(1000)).max(512), enrichmentDigest: hash, sourceDigest: hash,
+  declarationDigest: hash, collectorDigest: hash, queryDigest: hash, artifactsDigest: hash,
+  environmentDigest: hash, toolIdentity: z.string().min(1).max(4096), sealedEnvironmentIdentity: z.string().max(4096).optional(),
+}).strict();
 const provenance = z.object({
   kind: z.enum(['solver-check', 'accepted-archive', 'local-verified-archive']), problemId: z.string().min(1),
   source: z.string(), sourceDigest: hash, sourceCommit: z.string().optional(),
+  archiveRecordDigest: hash.optional(),
   runId: z.string().optional(), taskId: z.string().optional(), taskDigest: z.string().optional(),
   environmentDigest: z.string().optional(), problemReceiptDigest: z.string().optional(),
   checkedCommit: z.string().optional(), receiptIds: z.array(z.string()),
@@ -28,6 +49,7 @@ const theorem = z.object({
   name: z.string().min(1), file: z.string(), type: z.string().min(1),
   typeKind: z.enum(['closed-task-type', 'source-header']), kind: z.enum(['lemma', 'goal']),
   description: z.string(), premises: z.array(z.string()),
+  elaboration: knowledgeElaborationSchema.optional(),
   dependencies: z.object({ statement: z.array(reference), proof: z.array(reference),
     tasks: z.array(z.object({ taskId: z.string(), taskDigest: z.string() }).strict()),
     coverage: z.enum(['recorded', 'unavailable']),
@@ -188,6 +210,7 @@ export function writeTheoremKnowledge(file: string, base: TheoremKnowledgeBase) 
   const resolved = path.resolve(file); assertMathCanonicalPath(resolved);
   validateTheoremKnowledge(base);
   const text = canonicalMathJson(base) + '\n';
+  if (Buffer.byteLength(text) > 256 * 1024 * 1024) throw new Error('math_knowledge_too_large');
   fs.mkdirSync(path.dirname(resolved), { recursive: true, mode: 0o700 });
   const fd = fs.openSync(resolved, 'wx', 0o400);
   try { fs.writeFileSync(fd, text); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }

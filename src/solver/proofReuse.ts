@@ -3,6 +3,7 @@ import path from 'node:path';
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import { resolveMathProofEnvironment } from '../math/mathProofEnvironment';
 import { resolveMathematicsRuntimeEnvironment } from '../math/mathRuntimeEnvironment';
+import { isMathFoundationalLeanAxiom } from '../math/contracts';
 import type { MathematicsVerifierBatchResult } from '../math/verifier';
 
 /** Mutable search paths cannot establish that the same Lean input was checked. */
@@ -41,10 +42,16 @@ export function hasDeterministicLeanFailure(verification: MathematicsVerifierBat
   return verification.status === 'failed' && verification.results.some(result => result.status === 'failed') &&
     verification.results.every(result => {
       const output = `${result.error || ''}\n${result.stdoutPreview || ''}\n${result.stderrPreview || ''}`;
+      const sourceRejection = result.error === 'Proof source contains sorry or admit.' &&
+          ((Number.isSafeInteger(result.sorryCount) && result.sorryCount > 0) ||
+            (Number.isSafeInteger(result.admitCount) && result.admitCount > 0)) ||
+        Boolean(result.axioms?.length && result.error === `Proof source declares explicit axioms: ${result.axioms.join(', ')}.`) ||
+        Boolean(result.error?.startsWith('Theorem depends on non-foundational Lean axioms: ') &&
+          result.axioms?.some(axiom => !isMathFoundationalLeanAxiom(axiom)));
       return result.targetCommit === verification.targetCommit && !result.cleanupError &&
         !/\b(?:timed?\s*out|timeout|deadline|abort(?:ed)?|interrupt(?:ed)?)\b/iu.test(output) &&
         (result.status === 'kernel_verified' || result.status === 'failed' &&
-          (!result.error || /^Lean exited with status 1\.?$/u.test(result.error.trim())) &&
-          /^.+\.lean:\d+:\d+:\s*error:/mu.test(output));
+          (sourceRejection || (!result.error || /^Lean exited with status 1\.?$/u.test(result.error.trim())) &&
+            /^.+\.lean:\d+:\d+:\s*error:/mu.test(output)));
     });
 }

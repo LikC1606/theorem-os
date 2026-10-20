@@ -2,13 +2,14 @@ import path from 'node:path';
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import { inspectLeanDeclarations, inspectLeanDeclarationRegions } from '../math/leanSource';
 import type { CooperationState } from './cooperation';
-import type { DeliveryRecord } from './deliveries';
+import { deliveryFinding, type DeliveryRecord } from './deliveries';
 import type { SolverProblem } from './problem';
 import { hasTaskAcceptance, taskGroup, taskVersion, type CooperativeAction, type TaskRecord } from './tasks';
 import { buildProofContinuation } from './progress';
 import { pendingResearchHandoffs, researchHandoffContext, selectResearchHandoffBatch } from './researchHandoffs';
-import { pendingResearchChallenges, selectResearchChallengeBatch } from './researchChallenges';
+import { pendingResearchChallenges, researchChallengeContext, selectResearchChallengeBatch } from './researchChallenges';
 import { contextTaskConsumers } from './taskConsumers';
+import { mathematicalGapContext } from './mathematicalGaps';
 
 export const DEFAULT_TASK_CONTEXT_BYTES = 512 * 1024;
 export const DEFAULT_OPTIONAL_TASK_CONTEXT_BYTES = 64 * 1024;
@@ -287,17 +288,19 @@ function optionalDeliveries(input: TaskContextInput, required: ReadonlySet<strin
         !findingSources.has(current.task.id)) findingSources.set(current.task.id, {
       deliveryId: record.id, commit: record.commit, notesPath: 'RESEARCH.md', sourceDigest: record.sourceDigest,
     });
-    const key = json([record.taskId ?? record.id, record.taskDigest, record.kind, record.producer]);
+    const key = json([record.taskId ?? record.id, record.taskDigest, record.kind, record.producer, record.findingDigest]);
     if (!reason && seen.has(key)) reason = 'duplicate';
     if (!reason && selected.length >= 8) reason = 'selection-limit';
     if (reason) { omitted.push({ id, kind: 'delivery', reason }); continue; }
     seen.add(key); selected.push(record);
   }
-  const sections = selected.map(record => {
+  const sections = selected.flatMap(record => {
     // Interfaces and receipts live in mandatory sections. A delivery summary is advisory prose.
     const current = record.taskId ? byId.get(record.taskId) : undefined;
     // Keep a shared mathematical finding independently selectable from its delivery metadata.
     const sharedFinding = deliveryMatchesFinding(record, current);
+    const ownFinding = sharedFinding ? undefined : deliveryFinding(record);
+    const findingId = sharedFinding ? `finding:${record.taskId}` : ownFinding ? `finding:delivery:${record.id}` : undefined;
     if (record.actualReferences || record.artifacts?.artifacts.some(artifact => artifact.declarations.length))
       omitted.push({ id: `delivery:${record.id}:details`, kind: 'delivery', reason: 'advisory-details-by-reference' });
     const visible = {
@@ -316,9 +319,12 @@ function optionalDeliveries(input: TaskContextInput, required: ReadonlySet<strin
       })) },
       artifactWarning: record.artifactWarning, lemmaRequests: record.lemmaRequests,
     };
-    return { ...section(`delivery:${record.id}`, 'delivery', 'Current-version delivery selected for this task (advisory; retain unproved obligations):',
-      { ...visible, ...(sharedFinding ? { summarySource: `finding:${record.taskId}` } : { summary: record.summary }) }),
-      priority: priority(record) * 10 + 2 };
+    return [{ ...section(`delivery:${record.id}`, 'delivery', 'Current-version delivery selected for this task (advisory; retain unproved obligations):',
+      { ...visible, ...(findingId ? { summarySource: findingId } : { summary: record.summary }) }),
+      priority: priority(record) * 10 + 2 }, ...(ownFinding ? [{ ...section(findingId!, 'finding', 'Immutable advisory research publication:', {
+        taskId: record.taskId, taskDigest: record.taskDigest, finding: ownFinding, findingDigest: record.findingDigest,
+        savedSource: { commit: record.commit, notesPath: 'RESEARCH.md' },
+      }), priority: priority(record) * 10 + 1 }] : [])];
   });
   return { sections, findingSources };
 }
@@ -371,12 +377,15 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
     `Host feedback for ${assigned.task.id}:`, assigned.feedback));
   if (selectedRoute) mandatory.push(section(`route:${selectedRoute.id}`, 'routes', 'Selected alternative route and exact closing obligation (planned, not accepted):', selectedRoute));
   if (input.cooperation) {
+    if (input.cooperation.mathematicalGaps?.length) mandatory.push(section('mathematical-gaps', 'finding',
+      'Persistent mathematical gaps (advisory; historical-scope reports require review of changed inputs; complete records remain in COOPERATION.json):',
+      mathematicalGapContext(input.cooperation.mathematicalGaps)));
     if (action?.kind === 'lead' || action?.kind === 'solve') {
       const challenges = pendingResearchChallenges(input.cooperation);
       const challengeIds = new Set(action.challengeIds ?? selectResearchChallengeBatch(input.cooperation).map(item => item.id));
       const shownChallenges = challenges.filter(item => challengeIds.has(item.id));
       if (shownChallenges.length) mandatory.push(section('research-challenges', 'assignment',
-        'Research challenges requiring a route decision (advisory, not proof acceptance):', shownChallenges));
+        'Research challenges requiring a route decision (advisory, not proof acceptance):', shownChallenges.map(researchChallengeContext)));
       if (challenges.length > shownChallenges.length) {
         const sources = new Map<string, { taskId: string; taskDigest: string; remaining: number }>();
         for (const item of challenges) if (!challengeIds.has(item.id)) {
@@ -599,7 +608,7 @@ function compileSections(instructions: string, mandatory: readonly ContextSectio
       omitted: [...initialOmissions, ...optional.filter(item => !includedIds.has(item.id))
         .map(item => ({ id: item.id, kind: item.kind, reason: omissionReasons.get(item.id) ?? 'budget' as const }))],
     };
-    const omissionPreview = manifest.omitted.length <= 32 ? undefined : {
+    const omissionPreview = manifest.omitted.length <= 16 ? undefined : {
       omitted: manifest.omitted.slice(0, 16),
       omissionSet: { selection: 'bounded-preview', count: manifest.omitted.length,
         digest: mathDigest(canonicalMathJson(manifest.omitted)),

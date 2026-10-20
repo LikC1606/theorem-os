@@ -140,7 +140,8 @@ describe('conditional proof declaration ownership', () => {
     expect(canonicalSource()).toContain('lemma child : True := by trivial');
     expect(canonicalSource()).toContain('lemma support : True := by trivial');
     expect(canonicalSource()).toContain('have h : True := And.left (And.intro child support)');
-    expect(host.verify).toHaveBeenCalledTimes(4);
+    // Delivery and integration share the exact child projection, retaining its original receipt.
+    expect(host.verify).toHaveBeenCalledTimes(3);
   });
 
   it.each(['Other.child', 'Tutorial.Other.child', '_root_.Tutorial.Other.child'])
@@ -264,7 +265,8 @@ describe('conditional proof declaration ownership', () => {
       const result = await verify(request);
       const source = fs.readFileSync(path.join(request.projectRoot, 'Submission.lean'), 'utf8');
       return request.items[0].theoremName === 'Tutorial.add_zero' && !source.includes('(child : True)')
-        ? { ...result, status: 'failed', results: result.results.map(item => ({ ...item, status: 'failed' })) } : result;
+        ? { ...result, status: 'failed', results: result.results.map(item => ({ ...item, status: 'failed',
+          error: 'Lean exited with status 1.', stdoutPreview: 'Submission.lean:1:0: error: fixture combined proof does not close the target' })) } : result;
     });
 
     await deliverChild(child);

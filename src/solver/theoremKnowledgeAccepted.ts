@@ -1,10 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
-import { mathDigest, readMathFile } from '../math/mathRuntimeIo';
+import { canonicalMathJson, mathDigest, readMathFile } from '../math/mathRuntimeIo';
 import { assertMathCanonicalPath } from '../math/paths';
 import { inspectLeanDeclarationRegions, inspectScopedLeanDeclarations } from '../math/leanSource';
 import { allowedKnowledgeFile, knowledgeDeclaration, type KnowledgeCandidate, type KnowledgeImportResult } from './theoremKnowledge';
+import { applyKnowledgeEnrichment, readKnowledgeEnrichment } from './theoremKnowledgeEnrichment';
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/u);
 const commit = z.string().regex(/^[a-f0-9]{40,64}$/u);
@@ -46,7 +47,7 @@ const safeRelative = (file: string) => Boolean(file && !path.posix.isAbsolute(fi
   file.split('/').every(part => part && part !== '.' && part !== '..' && !part.startsWith('.') && !forbiddenSegment.test(part)));
 
 /** Import historical official or local comparator archives without granting current proof acceptance. */
-export function importAcceptedKnowledge(manifestFile: string): KnowledgeImportResult {
+export function importAcceptedKnowledge(manifestFile: string, options: { enrichmentFile?: string } = {}): KnowledgeImportResult {
   const file = path.resolve(manifestFile);
   if (!['accepted.json', 'submitted.json'].includes(path.basename(file))) throw new Error('math_knowledge_accepted_manifest_invalid');
   assertMathCanonicalPath(file);
@@ -93,7 +94,7 @@ export function importAcceptedKnowledge(manifestFile: string): KnowledgeImportRe
       if (record.status === 'local_verified_pending_official' && source === 'verification.json')
         verificationText = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
       if (allowedKnowledgeFile(source)) {
-        try { files[source] = new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
+        try { files[source] = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes); }
         catch { throw new Error('math_knowledge_accepted_source_invalid_utf8'); }
       }
     }
@@ -140,11 +141,14 @@ export function importAcceptedKnowledge(manifestFile: string): KnowledgeImportRe
           premises: [], dependencies: { statement: [], proof: [], tasks: [], coverage: 'unavailable' }, files,
           provenance: { kind: record.status === 'official_accepted' ? 'accepted-archive' : 'local-verified-archive',
             problemId: record.problem_id, source: file, sourceDigest, sourceCommit: record.original_source_commit,
+            archiveRecordDigest: mathDigest(canonicalMathJson(record)),
             ...(record.status === 'official_accepted' ? { receiptIds: [], resultUrl: record.result_url }
               : { receiptIds: [record.local_verification.receipt_id], checkedCommit: record.local_verification.official_projection_commit }) } });
       }
     }
     if (candidates.length === before) skipped.push({ source: file, name: record.problem_id, reason: 'no-submission-theorem-declarations' });
   }
-  return { candidates, skipped };
+  return { candidates: options.enrichmentFile
+    ? applyKnowledgeEnrichment(candidates, readKnowledgeEnrichment(options.enrichmentFile), { manifestFile: file })
+    : candidates, skipped };
 }

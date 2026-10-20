@@ -12,7 +12,7 @@ import type { ResearchWorker } from '../src/solver/modules/organization';
 import { committedSource, commitSolverSources, git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
 import { taskVersion, type CooperativeAction, type CooperativeTask } from '../src/solver/tasks';
 
-const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn() }));
+const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn(), captureStatements: vi.fn() }));
 vi.mock('../src/math/verifier', async importOriginal => ({
   ...await importOriginal<typeof import('../src/math/verifier')>(),
   checkManyFormalVerifications: host.verify,
@@ -20,6 +20,10 @@ vi.mock('../src/math/verifier', async importOriginal => ({
   resolveMathematicsLakePackagesCache: () => undefined,
 }));
 vi.mock('../src/runtime/codexSession', () => ({ createCodexMathSession: host.createSession }));
+vi.mock('../src/solver/statementReview', async importOriginal => ({
+  ...await importOriginal<typeof import('../src/solver/statementReview')>(),
+  captureStatementContexts: host.captureStatements,
+}));
 
 function verified(request: MathematicsVerifierBatchRequest, passed = true): MathematicsVerifierBatchResult {
   const status = passed ? 'kernel_verified' : 'failed';
@@ -28,7 +32,8 @@ function verified(request: MathematicsVerifierBatchRequest, passed = true): Math
     results: request.items.map((item, index) => ({ ...item, sourceDeclarationHash: item.expectedSourceDeclarationHash,
       checkId: item.id?.trim() || `check-${index + 1}`, sessionId: 'plan-concurrency-fixture', checkedAt: 2,
       receiptId: `fixture-${request.targetCommit}-${item.theoremName}`, targetCommit: request.targetCommit,
-      status, claim: 'statement', ...(!passed ? { error: 'Fixture obsolete recheck failure.' } : {}) })) as MathematicsVerifierBatchResult['results'] };
+      status, claim: 'statement', ...(!passed ? { error: 'Lean exited with status 1.',
+        stdoutPreview: 'Submission.lean:1:0: error: fixture obsolete recheck failure' } : {}) })) as MathematicsVerifierBatchResult['results'] };
 }
 const deferred = <T,>() => {
   let resolve!: (value: T) => void;
@@ -84,6 +89,7 @@ describe('plan synchronization with concurrent host control', () => {
   beforeEach(() => {
     host.verify.mockReset().mockImplementation(async request => verified(request));
     host.createSession.mockReset().mockImplementation(() => { throw new Error('fixture_real_models_forbidden'); });
+    host.captureStatements.mockReset().mockImplementation(() => { throw new Error('fixture_statement_capture_forbidden'); });
     directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-plan-concurrency-')));
     workspace = path.join(directory, 'workspace');
     const receipt = bootstrapLocalExample(workspace); problem = readSolverProblem(workspace, receipt.activeProblemPath);
@@ -152,6 +158,7 @@ describe('plan synchronization with concurrent host control', () => {
 
   it.each([true, false])('discards an obsolete %s recheck after a mathematical revision without publishing a failure', async passed => {
     await integrateA(); const gate = gateCheck();
+    const prepare = vi.spyOn(cooperative as any, 'prepareStatementContexts').mockReturnValue(undefined);
     await edit('old-description', task => task.id === 'a' ? { ...task, revision: 1, objective: 'Describe a.' } : task);
     await gate.entered;
     await edit('new-mathematics', task => task.id === 'a' ? { ...task, revision: 2, type: 'True ∧ True' } : task);
@@ -159,8 +166,41 @@ describe('plan synchronization with concurrent host control', () => {
     gate.release(passed); await sync();
     expect(node('a')).toBe(current); expect(node('a')).toEqual(saved);
     expect(node('a').proof).toBeUndefined(); expect(node('a').integratedCheck).toBeUndefined();
+    expect(prepare.mock.calls.some(([tasks]) => tasks.some((item: { task: CooperativeTask }) =>
+      item.task.id === 'a' && item.task.revision === 1))).toBe(false);
+    expect(prepare.mock.calls.some(([tasks]) => tasks.some((item: { task: CooperativeTask }) =>
+      item.task.id === 'a' && item.task.revision === 2))).toBe(true);
     expect(state.cooperation!.deliveries?.some(item => item.kind === 'failure' || item.status === 'failed')).not.toBe(true);
     expect(events.some(item => item.event === 'delivery_rejected')).toBe(false);
+  });
+
+  it.each(['passed', 'failed', 'rejected', 'unavailable'] as const)('stops obsolete rechecks after an in-flight %s result settles', async result => {
+    await integrateA();
+    const tasks = ['a', 'b', 'c'].map(id => ({ ...node(id), status: 'integrated' as const, integratedCheck: undefined }));
+    const baseline = structuredClone(tasks);
+    const entered = deferred<void>(), release = deferred<void>();
+    releases.push(() => release.resolve());
+    const receipt = { ...node('a').proof!, passed: result === 'passed' };
+    const check = vi.spyOn(cooperative as any, 'check').mockImplementationOnce(async () => {
+      entered.resolve(); await release.promise;
+      if (result === 'unavailable') throw new Error('math_verifier_unavailable');
+      if (result === 'rejected') throw new Error('math_task_missing_declaration');
+      return receipt;
+    }).mockResolvedValue(receipt);
+    let current = true;
+    const rechecking = track((cooperative as any).recheckIntegrated(state.cooperation!.canonicalCommit!, true, {
+      tasks, ids: new Set(tasks.map(item => item.task.id)), environment: {}, environmentDigest: state.environmentDigest,
+      current: () => current,
+    }) as Promise<boolean>);
+    await entered.promise; current = false; release.resolve();
+    if (result === 'unavailable') await expect(rechecking).rejects.toThrow('math_verifier_unavailable');
+    else await rechecking;
+    expect(check.mock.calls.map(([task]) => task.id)).toEqual(['a']);
+    if (result !== 'unavailable') await expect(rechecking).resolves.toBe(false);
+    expect(tasks).toEqual(baseline);
+    expect(events.filter(item => item.event === 'task_recheck_finished')).toHaveLength(0);
+    expect(state.cooperation!.recheck).toMatchObject({ completed: 0, taskId: 'a' });
+    expect((cooperative as any).failure).toBeUndefined();
   });
 
   it('keeps newer progress when an identical task receives a new validation identity', async () => {
@@ -184,9 +224,10 @@ describe('plan synchronization with concurrent host control', () => {
     expect(newer.taskDigest).toBe(previous.taskDigest);
     const prepared = deferred<void>(), release = deferred<void>();
     releases.push(() => release.resolve());
-    vi.spyOn(cooperative as any, 'prepareStatementContexts').mockImplementationOnce(() => {
-      prepared.resolve(); return release.promise;
-    }).mockReturnValue(undefined);
+    const recheck = (cooperative as any).recheckIntegrated.bind(cooperative);
+    vi.spyOn(cooperative as any, 'recheckIntegrated').mockImplementationOnce(async (...args) => {
+      prepared.resolve(); await release.promise; return recheck(...args);
+    });
     const savesBeforeCompletion = saved.length;
     gate.release(); await prepared.promise;
     expect(state.cooperation!.recheck).toBe(newerProgress);
@@ -199,8 +240,42 @@ describe('plan synchronization with concurrent host control', () => {
     expect(saved.some(item => item.progress.completed === 1)).toBe(true);
   });
 
+  it('keeps every target pending when only one validation identity changes during a shared snapshot', async () => {
+    await integrateA();
+    const action = await cooperative.next(workers[3], { maxTurns: 20, remainingMs: Infinity });
+    expect(action).toMatchObject({ kind: 'task', task: { id: 'c' } });
+    await cooperative.deliver(workers[3], action!, writeLemma(workers[3], 'c'));
+    const gate = gateCheck();
+    const prepare = vi.spyOn(cooperative as any, 'prepareStatementContexts').mockReturnValue(undefined);
+    await edit('describe-independent-pair', task => ['a', 'c'].includes(task.id)
+      ? { ...task, revision: 1, objective: `Clarify ${task.id}.` } : task);
+    await gate.entered;
+    const first = node('a').pendingValidation!, second = { ...node('c').pendingValidation!, id: 'newer-c-validation' };
+    const checks = [node('a').integratedCheck, node('c').integratedCheck];
+    await exclusive(async () => { node('c').pendingValidation = second; });
+    const entered = deferred<void>(), release = deferred<void>(); releases.push(() => release.resolve());
+    const recheck = (cooperative as any).recheckIntegrated.bind(cooperative);
+    vi.spyOn(cooperative as any, 'recheckIntegrated').mockImplementationOnce(async (...args) => {
+      entered.resolve(); await release.promise; return recheck(...args);
+    });
+    const calls = host.verify.mock.calls.length;
+    gate.release(); await entered.promise;
+    expect(host.verify.mock.calls).toHaveLength(calls);
+    expect(node('a').pendingValidation).toBe(first); expect(node('c').pendingValidation).toBe(second);
+    expect(node('a').integratedCheck).toBe(checks[0]); expect(node('c').integratedCheck).toBe(checks[1]);
+    expect(prepare).not.toHaveBeenCalled();
+    release.resolve(); await sync();
+    for (const id of ['a', 'c']) {
+      expect(node(id).pendingValidation).toBeUndefined();
+      expect(node(id).integratedCheck?.taskDigest).toBe(taskVersion(node(id).task));
+      expect(node(id).status).toBe('integrated');
+    }
+  });
+
   it('rebases validation after an independent proof integrates and retains both declarations', async () => {
     await integrateA(); const gate = gateCheck();
+    const canonical = state.cooperation!.canonicalCommit!;
+    const prepare = vi.spyOn(cooperative as any, 'prepareStatementContexts').mockReturnValue(undefined);
     await edit('describe-before-integration', task => task.id === 'a' ? { ...task, revision: 1, objective: 'Describe a.' } : task);
     const old = await gate.entered;
     const action = await cooperative.next(workers[3], { maxTurns: 20, remainingMs: Infinity });
@@ -212,6 +287,7 @@ describe('plan synchronization with concurrent host control', () => {
     expect(node('a').pendingValidation).toBeUndefined();
     expect(node('a').status).toBe('integrated'); expect(node('c').status).toBe('integrated');
     expect(source()).toContain('lemma a : True := by trivial'); expect(source()).toContain('lemma c : True := by trivial');
+    expect(prepare.mock.calls.some(([, commit]) => commit === canonical)).toBe(false);
     expect(events).toContainEqual(expect.objectContaining({ event: 'plan_recheck_rebased' }));
     expect(node('a').integratedCheck!.commit).not.toBe(old.targetCommit);
   });
@@ -311,6 +387,25 @@ describe('plan synchronization with concurrent host control', () => {
     release.resolve(); await sync();
     expect(node('a').pendingValidation).toBeUndefined();
     expect(state.cooperation!.statementReviews).toContainEqual(expect.objectContaining({ taskId: 'a', status: 'pending' }));
+  });
+
+  it('skips obsolete statement preparation after waiting for an earlier preparation to settle', async () => {
+    await integrateA();
+    const tasks = state.cooperation!.tasks.map(item => ({ ...item, task: item.task.id === 'a'
+      ? { ...item.task, statementReview: true, informalStatement: 'True.' } : item.task }));
+    const release = deferred<void>(); releases.push(() => release.resolve());
+    const earlier = release.promise.finally(() => { (cooperative as any).preparingStatements = undefined; });
+    (cooperative as any).preparingStatements = earlier;
+    let current = true;
+    const preparing = track((cooperative as any).prepareStatementContexts(tasks, state.cooperation!.canonicalCommit!, {
+      environment: {}, digest: state.environmentDigest, current: () => current,
+    }) as Promise<void>);
+    expect(host.captureStatements).not.toHaveBeenCalled();
+    current = false; release.resolve();
+    await preparing;
+    expect(host.captureStatements).not.toHaveBeenCalled();
+    expect((cooperative as any).preparingStatementTasks.size).toBe(0);
+    expect((cooperative as any).preparingStatements).toBeUndefined();
   });
 
   it('integrates a previously delivered consumer once its source dependency finishes validation', async () => {

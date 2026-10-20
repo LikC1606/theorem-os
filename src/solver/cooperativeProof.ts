@@ -6,28 +6,41 @@ import { mathConstructionImports } from '../math/mathConstructionSources';
 import { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions, inspectScopedLeanDeclarations,
   leanDeclarationContextCommands } from '../math/leanSource';
 import { assertSolverSources, committedSource, commitSolverProjection, git, solverProofImports, withSolverWorktree, type SolverProblem } from './problem';
-import { checkProjectedDeclarations, type ProofCheck } from './modules/evidence';
+import { attributeProofEvidence, checkProjectedDeclarations, type ProofCheck } from './modules/evidence';
 import { taskVersion, type CooperativeTask, type TaskAssignment } from './tasks';
 import { captureProofReferences, type ProofReferences } from './proofReferences';
-import { proofReuseEnvironment } from './proofReuse';
-import { TaskProofCache } from './taskProofCache';
-import { formalVerificationToolIdentity } from '../math/verifier';
+import { hasDeterministicLeanFailure, proofReuseEnvironment } from './proofReuse';
+import { TaskProofCache, type TaskVerificationArtifact } from './taskProofCache';
+import { formalVerificationToolIdentity, type MathematicsVerifierBatchItem } from '../math/verifier';
+import { hasTaskConnectionCheck } from './taskConnections';
 
 export { TaskProofCache } from './taskProofCache';
 
 export type DeclarationChange = { file: string; name: string; before?: string; after: string; beforeName?: string; afterName?: string; tail?: string };
+export type TaskProjectionReuse = Readonly<{ schema: 'theorem-os.task-projection-reuse.v1'; projectionCommit: string;
+  checkedProjectionCommit: string; projectionTree: string; inputDigest: string }>;
 export type TaskProof = ProofCheck & { taskDigest: string; seedCommit: string; changes: DeclarationChange[];
   imports?: { file: string; module: string }[];
+  projectionReuse?: TaskProjectionReuse;
   /** Set by the host after checking the exact projection and its receipts. */
   projection?: Readonly<{ environmentDigest: string; problemReceiptDigest: string; sourceDigest: string }>;
   conditions?: NonNullable<TaskAssignment['dependencies']>; references?: ProofReferences };
 export type TaskProofRequest = { task: CooperativeTask; assignment: TaskAssignment; retainedGoals: readonly string[];
   conditions?: readonly CooperativeTask[] };
 const attributedProofs = new WeakMap<TaskProof, string>();
+const reusedProjections = new WeakMap<TaskProof, string>();
 
 /** Only unchanged task views attributed by this process may suppress a batch fallback. */
 export const isAttributedTaskProof = (proof: TaskProof): boolean =>
   attributedProofs.get(proof) === mathDigest(canonicalMathJson(proof));
+
+/** A restored, cloned or edited proof cannot authorize a receipt from another commit. */
+export function trustedTaskProjectionReuse(proof: TaskProof): TaskProjectionReuse | undefined {
+  try {
+    if (proof.projectionReuse && reusedProjections.get(proof) === mathDigest(canonicalMathJson(proof))) return proof.projectionReuse;
+  } catch { /* Invalid caller data cannot restore process-local trust. */ }
+  return undefined;
+}
 
 const local = (name: string) => name.split('.').at(-1)!;
 
@@ -217,7 +230,7 @@ export function createTaskSourceProjector(problem: SolverProblem, worktree: stri
         const declaration = byOffset.get(`${file}\0${region.startOffset}`)!;
         if (conditions.length && declaration.id === target) {
           const header = source.slice(region.startOffset, region.bodyOffset - 2);
-          const name = /^(?:theorem|lemma)\s+[^\s(\[{:]+/u.exec(header);
+          const name = (originalDefinition ? /^def\s+[^\s(\[{:]+/u : /^(?:theorem|lemma)\s+[^\s(\[{:]+/u).exec(header);
           if (!name || source.slice(region.bodyOffset - 2, region.bodyOffset) !== ':=') throw new Error('math_task_conditional_header_unsupported');
           let body = source.slice(region.bodyOffset, region.endOffset);
           // Qualified references must also refer to the explicit assumptions in this projection.
@@ -254,44 +267,20 @@ export async function checkTaskProofs(problem: SolverProblem, worktree: string, 
   environmentDigest = mathDigest(canonicalMathJson(env)), cache?: TaskProofCache): Promise<TaskProof[]> {
   signal.throwIfAborted();
   if (!requests.length) return [];
-  if (cache) {
-    const environment = proofReuseEnvironment(path.join(worktree, problem.projectRelative), env);
-    const tools = environment.reusable && formalVerificationToolIdentity(path.join(worktree, problem.projectRelative), environment.env);
-    if (environment.reusable && tools) {
-      const commit = git(worktree, ['rev-parse', `${sourceCommit}^{commit}`]);
-      const frozenProblem = structuredClone(problem), frozenRequests = structuredClone(requests);
-      const key = mathDigest(canonicalMathJson({ repository: git(worktree, ['rev-parse', '--path-format=absolute', '--git-common-dir']),
-        sourceCommit: commit, problem: frozenProblem, environment: environment.digest, tools, environmentDigest,
-        timeoutMs: timeoutMs === Infinity ? 'unlimited' : timeoutMs,
-        requests: frozenRequests.map(({ task, assignment, retainedGoals, conditions }) => ({ taskDigest: taskVersion(task),
-          seedCommit: assignment.seedCommit, dependencies: assignment.dependencies, retainedGoals,
-          conditions: conditions?.map(taskVersion) })) }));
-      const value = await cache.check(key, signal, proofs => {
-        try {
-          for (const target of new Set(proofs.map(proof => proof.verification.targetCommit))) {
-            if (!target) return false;
-            git(worktree, ['cat-file', '-e', `${target}^{commit}`]);
-          }
-          return true;
-        } catch { return false; }
-      }, async () => {
-        const proofs = await checkTaskProofs(frozenProblem, worktree, commit, frozenRequests, environment.env,
-          signal, timeoutMs, environmentDigest);
-        const after = proofReuseEnvironment(path.join(worktree, problem.projectRelative), env);
-        return { proofs, attributed: proofs.map(isAttributedTaskProof), cacheable: after.reusable &&
-          after.digest === environment.digest && formalVerificationToolIdentity(path.join(worktree, problem.projectRelative), after.env) === tools };
-      });
-      value.proofs.forEach((proof, index) => {
-        if (value.attributed[index]) attributedProofs.set(proof, mathDigest(canonicalMathJson(proof)));
-      });
-      return value.proofs;
-    }
-  }
+  problem = structuredClone(problem);
+  requests = structuredClone(requests);
+  sourceCommit = git(worktree, ['rev-parse', `${sourceCommit}^{commit}`]);
   return withSolverWorktree(worktree, sourceCommit, async checkout => {
     assertSolverSources(problem, checkout);
     const projectSources = createTaskSourceProjector(problem, checkout, sourceCommit);
     const prepared = requests.map(({ task, assignment, retainedGoals, conditions = [] }) => {
-      if (conditions.some(dependency => !task.conditional || dependency.kind !== 'lemma' || !dependency.type ||
+      const connection = hasTaskConnectionCheck(task, assignment);
+      if (assignment.connectionCheck && (!connection || assignment.connectionCheck.environmentDigest !== environmentDigest ||
+          assignment.connectionCheck.problemReceiptDigest !== problem.receiptDigest))
+        throw new Error('math_task_condition_version_invalid');
+      if (conditions.some(dependency => !(task.conditional || connection) || dependency.kind !== 'lemma' || !dependency.type ||
+          (connection && !assignment.connectionCheck!.inputs.some(input => input.taskId === dependency.id &&
+            input.taskDigest === taskVersion(dependency))) ||
           !assignment.dependencies?.some(version => version.taskId === dependency.id && version.taskDigest === taskVersion(dependency))))
         throw new Error('math_task_condition_version_invalid');
       const binders = conditions.map(dependency => `(${local(dependency.theoremName!)} : ${dependency.type})`).join(' ');
@@ -307,7 +296,7 @@ export async function checkTaskProofs(problem: SolverProblem, worktree: string, 
         .filter(declaration => declaration.qualifiedName === dependency.theoremName ||
           !dependency.theoremName!.includes('.') && declaration.name === dependency.theoremName)
         .map(declaration => `${dependency.proofPath}\0${declaration.name}`)));
-      return { task, assignment, conditions, imports, changes: changes.filter(change => !assumed.has(`${change.file}\0${change.name}`)),
+      return { task, assignment, retainedGoals, conditions, imports, changes: changes.filter(change => !assumed.has(`${change.file}\0${change.name}`)),
         taskDigest: taskVersion(task), sources: projectSources(task, retainedGoals, conditions),
         expectedType: task.kind === 'lemma' ? conditions.length ? `∀ ${binders}, ${task.type}` : task.type : undefined };
     });
@@ -317,13 +306,69 @@ export async function checkTaskProofs(problem: SolverProblem, worktree: string, 
     const project = path.join(checkout, problem.projectRelative);
     for (const [file, source] of sources) fs.writeFileSync(path.join(project, file), source);
     const commit = commitSolverProjection(problem, checkout, `Check cooperative tasks ${requests.map(item => item.task.id).join(', ')}`);
-    const { attributions } = await checkProjectedDeclarations(problem, checkout, worktree, commit,
-      prepared.map(({ task, taskDigest }) => ({ proofPath: task.proofPath!, theoremName: task.theoremName!, digest: taskDigest,
-        missingError: 'math_task_missing_declaration' })),
-    { env, signal, timeoutMs, prepareLocalDependencies: problem.kind === 'lean-eval', collectDeclarationReferences: true,
+    const execution = { prepareLocalDependencies: problem.kind === 'lean-eval', collectDeclarationReferences: true,
       ...(prepared.length === 1 ? { expectedDeclarationType: prepared[0]!.expectedType } : {
         expectedDeclarationTypes: Object.fromEntries(prepared.filter(item => item.expectedType !== undefined)
-          .map(item => [item.task.theoremName!, item.expectedType!])) }) });
+          .map(item => [item.task.theoremName!, item.expectedType!])) }) };
+    const targets = prepared.map(({ task, taskDigest }) => ({ proofPath: task.proofPath!, theoremName: task.theoremName!,
+      digest: taskDigest, missingError: 'math_task_missing_declaration' }));
+    const sourceProject = path.join(worktree, problem.projectRelative);
+    const environment = cache ? proofReuseEnvironment(sourceProject, env) : undefined;
+    const tools = environment && formalVerificationToolIdentity(project, environment.env);
+    const assertStableEnvironment = () => {
+      signal.throwIfAborted();
+      if (!environment) return;
+      const after = proofReuseEnvironment(sourceProject, env);
+      if (after.reusable !== environment.reusable || after.digest !== environment.digest ||
+          canonicalMathJson(after.env) !== canonicalMathJson(environment.env) ||
+          formalVerificationToolIdentity(project, after.env) !== tools) throw new Error('math_verifier_unavailable');
+    };
+    const run = async () => {
+      try {
+        return await checkProjectedDeclarations(problem, checkout, worktree, commit, targets,
+          { env: environment?.env ?? env, signal, timeoutMs, ...execution });
+      } finally { assertStableEnvironment(); }
+    };
+    let attributions: Awaited<ReturnType<typeof checkProjectedDeclarations>>['attributions'];
+    let projectionReuse: TaskProjectionReuse | undefined;
+    if (cache && environment?.reusable && tools) {
+      const projectionTree = git(checkout, ['rev-parse', `${commit}^{tree}`]);
+      const items: MathematicsVerifierBatchItem[] = targets.map(target => ({ proofPath: target.proofPath,
+        theoremName: target.theoremName, statementHash: target.digest, leanStatementHash: target.digest, claim: 'statement',
+        expectedSourceDeclarationHash: hashMathFormalSourceDeclaration(sources.get(target.proofPath)!, target.theoremName) }));
+      const inputDigest = mathDigest(canonicalMathJson({
+        repository: git(worktree, ['rev-parse', '--path-format=absolute', '--git-common-dir']),
+        projectionTree, problem, targets: items, environment: environment.digest, tools, environmentDigest,
+        execution: { ...execution, timeoutMs: timeoutMs === Infinity ? 'unlimited' : timeoutMs,
+          batchTimeoutMs: timeoutMs === Infinity ? 'unlimited' : 'default',
+          trustedLakePackagesRoots: (environment.env.DEEPSCIENTIST_MATH_TRUSTED_CACHE_ROOTS || '').split(path.delimiter).filter(Boolean) },
+        requests: prepared.map(({ taskDigest, assignment, retainedGoals, conditions }) => {
+          const { seedCommit: _seed, basisDigest: _basis, ...connection } = assignment.connectionCheck ?? {};
+          return { taskDigest, dependencies: assignment.dependencies ?? [], retainedGoals,
+            connectionCheck: assignment.connectionCheck ? connection : undefined, conditions: conditions.map(taskVersion) };
+        }),
+      }));
+      const valid = ({ projectionCommit, verification }: TaskVerificationArtifact) => {
+        try {
+          if (git(worktree, ['rev-parse', `${projectionCommit}^{tree}`]) !== projectionTree) return false;
+          return attributeProofEvidence(verification, projectionCommit, items).every(attribution =>
+            !attribution.verification.results.some(result => result.cleanupError) &&
+            (attribution.passed || attribution.attributable && hasDeterministicLeanFailure(attribution.verification)));
+        } catch { return false; }
+      };
+      let artifact: TaskVerificationArtifact;
+      try {
+        artifact = await cache.check(inputDigest, signal, valid, async () => {
+          const checked = await run();
+          return { projectionCommit: commit, verification: checked.verification };
+        });
+      } finally { assertStableEnvironment(); }
+      attributions = attributeProofEvidence(artifact.verification, artifact.projectionCommit, items);
+      if (artifact.projectionCommit !== commit) projectionReuse = {
+        schema: 'theorem-os.task-projection-reuse.v1', projectionCommit: commit,
+        checkedProjectionCommit: artifact.projectionCommit, projectionTree, inputDigest,
+      };
+    } else attributions = (await run()).attributions;
     const sourceDigest = ownedSourceDigest(problem, checkout, sourceCommit);
     return prepared.map(({ task, assignment, taskDigest, changes, imports, conditions }, index) => {
       const { passed, verification, attributable } = attributions[index]!;
@@ -332,9 +377,11 @@ export async function checkTaskProofs(problem: SolverProblem, worktree: string, 
         { name: task.theoremName!, file: task.proofPath! }, result.declarationReferences, environmentDigest) : undefined;
       const proof: TaskProof = { commit: sourceCommit, sourceDigest, passed, verification,
         taskDigest, seedCommit: assignment.seedCommit, changes, ...(imports.length ? { imports } : {}),
+        ...(projectionReuse ? { projectionReuse: { ...projectionReuse } } : {}),
         ...(references ? { references } : {}),
         ...(conditions.length ? { conditions: conditions.map(dependency => ({ taskId: dependency.id, taskDigest: taskVersion(dependency) })) } : {}) };
       if (attributable) attributedProofs.set(proof, mathDigest(canonicalMathJson(proof)));
+      if (projectionReuse) reusedProjections.set(proof, mathDigest(canonicalMathJson(proof)));
       return proof;
     });
   });

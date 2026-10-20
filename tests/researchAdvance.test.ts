@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { originalGoalTaskFocus, readyResearchTasks, researchCanAdvance } from '../src/solver/modules/search';
+import { originalGoalTaskFocus, readyResearchTasks, researchCanAdvance, taskDependenciesReady } from '../src/solver/modules/search';
 import { assignSharedResearchTask, type ResearchWorker } from '../src/solver/modules/organization';
 import { type RouteRecord, type TaskRecord } from '../src/solver/tasks';
 
@@ -23,9 +23,10 @@ describe('future research advancement', () => {
     expect(auxiliary.status).toBe('pending');
   });
 
-  it('scopes root candidates without dropping dependencies outside that set', () => {
+  it('scopes full-proof root candidates without dropping dependencies outside that set', () => {
     const premise = node('premise', 'lemma', [], 'blocked');
     const goal = node('goal', 'goal', ['premise']);
+    goal.task = { ...goal.task, conditional: false };
     const tasks = [premise, goal, node('auxiliary', 'lemma')], candidates = new Set(['goal']);
     expect(researchCanAdvance(tasks, undefined, new Set(), undefined, candidates)).toBe(false);
     premise.status = 'pending';
@@ -49,7 +50,9 @@ describe('future research advancement', () => {
     const core = node('core', 'lemma', [], 'blocked');
     const finding = node('finding', kind, ['core'], 'completed');
     const outer = node('outer', 'research', ['finding'], 'completed');
-    const tasks = [core, finding, outer, node('goal', 'goal', ['outer']), node('auxiliary', 'lemma')];
+    const goal = node('goal', 'goal', ['outer']);
+    goal.task = { ...goal.task, conditional: false };
+    const tasks = [core, finding, outer, goal, node('auxiliary', 'lemma')];
     const support = originalGoalTaskFocus(tasks).support;
     expect(researchCanAdvance(tasks, undefined, new Set())).toBe(true);
     expect(researchCanAdvance(tasks, undefined, new Set(), undefined, support)).toBe(false);
@@ -168,9 +171,14 @@ describe('future research advancement', () => {
     const premise = node('premise', 'lemma', [], 'integrated');
     const bridge = node('bridge', 'lemma', ['premise'], 'conditional');
     bridge.task = { ...bridge.task, conditional: true, ownerId: 'offline' };
-    const tasks = [premise, bridge, node('consumer', 'goal', ['bridge'])];
+    const consumer = node('consumer', 'goal', ['bridge']);
+    consumer.task = { ...consumer.task, conditional: false };
+    const tasks = [premise, bridge, consumer];
     expect(readyResearchTasks(tasks)).toEqual([]);
     expect(researchCanAdvance(tasks, undefined, new Set())).toBe(true);
+    expect(taskDependenciesReady(consumer.task, tasks)).toBe(false);
+    expect(bridge.status).toBe('conditional');
+    expect(consumer.status).toBe('pending');
   });
 
   it('keeps a conditional proof blocked on an unavailable premise', () => {

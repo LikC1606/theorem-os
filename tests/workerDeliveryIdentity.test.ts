@@ -132,19 +132,25 @@ describe('assignment-bound worker delivery identities', () => {
   });
 
   it.each(['scoped', 'legacy'] as const)('accepts reused explicit ids for different assignments in %s logs and checks each proof once', async log => {
-    for (const id of ['a', 'b']) {
+    for (const [index, id] of ['a', 'b'].entries()) {
       const action = await start(id), commit = saveProof(action);
       const value = { id: 'ready', kind: 'proof', commit, summary: `${id} proved.` };
       append(action, log, value); append(action, log, value);
       await cooperative.pulse(peer.id);
-      expect(state.cooperation!.tasks.find(node => node.task.id === id)?.status).toBe('integrated');
+      const node = state.cooperation!.tasks.find(node => node.task.id === id)!;
+      expect(node.status).toBe('integrated');
+      expect(node.proof).toMatchObject({ taskDigest: action.assignment.taskDigest, seedCommit: action.assignment.seedCommit });
+      expect(node.integratedCheck?.verification).toEqual(node.proof!.verification);
+      expect(node.integratedCheck?.verification.targetCommit).toBe(host.verify.mock.calls[index][0].targetCommit);
       expect(state.cooperation!.cursors?.[cursorKey(action, log)]).toBe(fs.statSync(path.join(peer.worktree, logName(action, log))).size);
       expect(state.cooperation!.deliveries?.filter(record => record.taskId === id && record.submissionId === 'ready'))
-        .toMatchObject([{ status: 'verified', assignmentKey: assignmentDeliveryFile(action.assignment) }]);
+        .toMatchObject([{ status: 'verified', taskDigest: action.assignment.taskDigest, assignmentKey: assignmentDeliveryFile(action.assignment) }]);
       await cooperative.pulse(peer.id);
+      expect(host.verify).toHaveBeenCalledTimes(index + 1);
       cooperative.deactivate(peer);
     }
-    expect(host.verify).toHaveBeenCalledTimes(4);
+    expect(host.verify.mock.calls.map(([request]) => request.items.map((item: { theoremName: string }) => item.theoremName)))
+      .toEqual([['Tutorial.a'], ['Tutorial.b']]);
     expect(events.some(item => item.event === 'delivery_rejected')).toBe(false);
   });
 
@@ -152,15 +158,27 @@ describe('assignment-bound worker delivery identities', () => {
     const first = await start('a');
     append(first, log, { id: 'ready', kind: 'proof', commit: saveProof(first) });
     await cooperative.pulse(peer.id); cooperative.deactivate(peer);
+    const firstVerification = state.cooperation!.tasks.find(node => node.task.id === 'a')!.integratedCheck!.verification;
+    expect(host.verify).toHaveBeenCalledOnce();
     await applyEdit(task => task.id === 'a' ? { ...task, revision: 1, premises: ['Revised mathematical premise'] } : task);
     const revised = await start('a');
     expect(revised.assignment.taskDigest).not.toBe(first.assignment.taskDigest);
     append(revised, log, { id: 'ready', kind: 'proof', commit: saveProof(revised) });
     await cooperative.pulse(peer.id); cooperative.deactivate(peer);
-    expect(state.cooperation!.tasks.find(node => node.task.id === 'a')).toMatchObject({ task: { revision: 1 }, status: 'integrated' });
-    expect(state.cooperation!.deliveries?.filter(record => record.submissionId === 'ready').map(record => record.status))
-      .toEqual(['superseded', 'verified']);
-    expect(host.verify).toHaveBeenCalledTimes(4);
+    const node = state.cooperation!.tasks.find(node => node.task.id === 'a')!;
+    expect(node).toMatchObject({ task: { revision: 1 }, status: 'integrated', proof: { taskDigest: revised.assignment.taskDigest } });
+    expect(node.integratedCheck?.verification).toEqual(node.proof!.verification);
+    expect(state.cooperation!.deliveries?.filter(record => record.submissionId === 'ready')).toMatchObject([
+      { status: 'superseded', taskDigest: first.assignment.taskDigest, assignmentKey: assignmentDeliveryFile(first.assignment) },
+      { status: 'verified', taskDigest: revised.assignment.taskDigest, assignmentKey: assignmentDeliveryFile(revised.assignment) },
+    ]);
+    expect(host.verify).toHaveBeenCalledTimes(2);
+    expect(host.verify.mock.calls.map(([request]) => request.items[0].statementHash))
+      .toEqual([first.assignment.taskDigest, revised.assignment.taskDigest]);
+    expect(host.verify.mock.calls[0][0].items[0].expectedSourceDeclarationHash)
+      .toBe(host.verify.mock.calls[1][0].items[0].expectedSourceDeclarationHash);
+    expect(firstVerification.results[0].statementHash).toBe(first.assignment.taskDigest);
+    expect(node.integratedCheck?.verification.results[0].statementHash).toBe(revised.assignment.taskDigest);
   });
 
   it.each(['passed', 'failed', 'unavailable'] as const)('allows independent work and isolates consumers while descriptive source revalidation is %s', async outcome => {
@@ -326,13 +344,22 @@ describe('assignment-bound worker delivery identities', () => {
     cooperative.deactivate(peer);
     expect(state.cooperation!.tasks.find(node => node.task.id === 'a')).toMatchObject({ task: { revision: 1 }, status: 'pending' });
     expect(state.cooperation!.tasks.find(node => node.task.id === 'a')?.proof).toBeUndefined();
+    expect(host.verify).toHaveBeenCalledOnce();
     const next = await start('a');
+    expect(next.assignment.taskDigest).not.toBe(old.assignment.taskDigest);
     append(next, log, { id: 'ready', kind: 'proof', commit: saveProof(next) });
     await cooperative.pulse(peer.id); cooperative.deactivate(peer);
-    expect(state.cooperation!.deliveries?.filter(record => record.submissionId === 'ready').map(record => record.status))
-      .toEqual(['superseded', 'verified']);
-    expect(state.cooperation!.tasks.find(node => node.task.id === 'a')?.status).toBe('integrated');
-    expect(host.verify).toHaveBeenCalledTimes(3);
+    expect(state.cooperation!.deliveries?.filter(record => record.submissionId === 'ready')).toMatchObject([
+      { status: 'superseded', taskDigest: old.assignment.taskDigest, assignmentKey: assignmentDeliveryFile(old.assignment) },
+      { status: 'verified', taskDigest: next.assignment.taskDigest, assignmentKey: assignmentDeliveryFile(next.assignment) },
+    ]);
+    const node = state.cooperation!.tasks.find(node => node.task.id === 'a')!;
+    expect(node).toMatchObject({ status: 'integrated', proof: { taskDigest: next.assignment.taskDigest } });
+    expect(node.integratedCheck?.verification).toEqual(node.proof!.verification);
+    expect(host.verify).toHaveBeenCalledTimes(2);
+    expect(host.verify.mock.calls.map(([request]) => request.items[0].statementHash))
+      .toEqual([old.assignment.taskDigest, next.assignment.taskDigest]);
+    expect(node.integratedCheck?.verification.targetCommit).toBe(host.verify.mock.calls[1][0].targetCommit);
   });
 
   it.each(['scoped', 'legacy'] as const)('deduplicates a persisted assignment after replaying a %s cursor', async log => {

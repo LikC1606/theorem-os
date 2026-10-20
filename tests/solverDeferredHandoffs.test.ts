@@ -175,7 +175,8 @@ describe('deferred research proposal activation', () => {
     expect(proof.verification.status).toBe('kernel_verified');
     expect(proof.verification.results.every(item => item.targetCommit === proof.verification.targetCommit)).toBe(true);
     expect(host.verify.mock.calls.some(([request]) => request.targetCommit === proof.verification.targetCommit)).toBe(true);
-    expect(host.verify.mock.calls.length).toBeGreaterThanOrEqual(2);
+    // The integration consumes the checked identical projection without another Lean invocation.
+    expect(host.verify).toHaveBeenCalledOnce();
     const record = state.cooperation!.deliveries!.find(item => item.taskId === 'premise' && item.kind === 'proof' && item.status === 'verified')!;
     expect(record.commit).toBe(commit);
     expect(record.evidence?.verification.results.every(item => item.receiptId)).toBe(true);

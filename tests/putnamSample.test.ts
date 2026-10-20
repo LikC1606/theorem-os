@@ -14,6 +14,8 @@ import { bootstrapLeanTask } from '../src/math/leanTask';
 import { getLeanTaskEnvironment } from '../src/math/leanTaskEnvironment';
 import { canonicalMathJson, mathDigest } from '../src/math/mathRuntimeIo';
 import { buildTokenBudget } from '../src/solver/usageBudget';
+import { buildTheoremKnowledge, writeTheoremKnowledge, type KnowledgeCandidate } from '../src/solver/theoremKnowledge';
+import { writePackedKnowledge } from '../src/solver/theoremKnowledgeStore';
 
 type Plan = Parameters<typeof comparisonReport>[1];
 type Sample = {
@@ -104,6 +106,7 @@ function recordedRun(plan: Plan, job: Plan['jobs'][number], source: string, tota
       schema: 'deepscientist.math.solver.v1', runId: job.output,
       problem: { kind: 'lean-task', receiptDigest: job.receiptDigest, contract: { formalStatement: source }, targets: [] },
       taskDigest: plan.taskDigest, buildDigest: plan.buildDigest, environmentDigest: plan.environmentDigest,
+      ...(plan.knowledge ? { knowledgeDigest: plan.knowledge.digest } : {}),
       evaluatorDigest: mathDigest('host-default'), methodDigest: job.methodDigest,
       providerProfile: fs.realpathSync(job.codexProfile!), providerProfileDigest: job.codexProfileDigest,
       model: plan.configuration.model, effort: plan.configuration.effort, workerCount: plan.configuration.workers,
@@ -115,7 +118,164 @@ function recordedRun(plan: Plan, job: Plan['jobs'][number], source: string, tota
   };
 }
 
+function savedKnowledge(directory: string, format: 'v1' | 'v2', problemId = 'previous-problem', sourceTail = '',
+  extraSources: Record<string, string> = {}) {
+  const candidate: KnowledgeCandidate = { name: 'Saved.identity', file: 'Submission.lean',
+    type: 'forall (n : Nat), n = n', typeKind: 'closed-task-type', kind: 'lemma', description: 'Historical identity', premises: [],
+    dependencies: { statement: [], proof: [], tasks: [], coverage: 'unavailable' },
+    files: { 'Submission.lean': 'namespace Saved\nlemma identity (n : Nat) : n = n := by rfl\nend Saved\n' + sourceTail,
+      ...extraSources },
+    provenance: { kind: 'solver-check', problemId, source: '/historical/state.json', sourceDigest: mathDigest('state'),
+      checkedCommit: 'previous-commit', receiptIds: [] } };
+  const file = path.join(directory, 'historical.json'), base = buildTheoremKnowledge([candidate]);
+  if (format === 'v2') writePackedKnowledge(file, base);
+  else writeTheoremKnowledge(file, base);
+  return { file, digest: mathDigest(fs.readFileSync(file)), base };
+}
+
 describe('offline PutnamBench module samples', () => {
+  it.each(['v1', 'v2'] as const)('freezes a %s catalog and launches every arm from isolated experiment snapshots', async format => {
+    const context = fixture(), saved = savedKnowledge(context.directory, format), output = path.join(context.directory, 'sample');
+    await samplePutnamRuns(['--phase', 'prepare', '--directory', output, '--repo', context.repository,
+      '--build-manifest', context.manifest, '--count', '1', '--knowledge-base', saved.file]);
+    const sample = read<Sample>(path.join(output, 'sample.json'));
+    expect(sample.knowledge).toMatchObject({ file: path.join(output, 'knowledge/catalog.json'), digest: saved.digest,
+      format, mode: 'transfer' });
+    const child = sample.problems[0], plan = read<Plan>(path.join(child.comparisonDirectory, 'comparison.json'));
+    expect(plan.knowledge).toEqual({ file: path.join(child.comparisonDirectory, 'knowledge/catalog.json'), digest: saved.digest,
+      format, mode: 'transfer' });
+    expect(fs.statSync(plan.knowledge!.file).mode & 0o222).toBe(0);
+    for (const job of plan.jobs) expect(argument(read(job.launch).args, '--knowledge-base')).toBe(plan.knowledge!.file);
+    // Replacing the live catalog cannot alter prepared attempts or their reports.
+    rewrite(saved.file, { replaced: true });
+    await samplePutnamRuns(['--phase', 'report', '--directory', output]);
+    expect(read(path.join(output, 'report.json')).knowledge).toEqual(sample.knowledge);
+    expect(read(path.join(child.comparisonDirectory, 'report.json')).knowledge).toMatchObject({
+      digest: saved.digest, mode: 'transfer', sameProblemEntries: 0, sameProblemFindings: 0 });
+    expect(context.runBatch).not.toHaveBeenCalled();
+    expect(context.fetch).not.toHaveBeenCalled();
+    fs.chmodSync(plan.knowledge!.file, 0o600); fs.appendFileSync(plan.knowledge!.file, '\n'); fs.chmodSync(plan.knowledge!.file, 0o400);
+    await expect(compareMathRuns(['--phase', 'run', '--directory', child.comparisonDirectory]))
+      .rejects.toThrow('math_knowledge_identity_changed');
+    expect(context.runBatch).not.toHaveBeenCalled();
+  });
+
+  it('requires explicit recovery mode for known same-problem knowledge and freezes that distinction', async () => {
+    const context = fixture(), problem = context.problems[0], saved = savedKnowledge(context.directory, 'v1', problem.id);
+    const args = (output: string) => ['--phase', 'prepare', '--directory', output, '--repo', context.repository,
+      '--dataset', 'putnambench', '--problem', problem.id, '--task-file', context.task,
+      '--build-manifest', context.manifest, '--knowledge-base', saved.file];
+    await expect(compareMathRuns(args(path.join(context.directory, 'transfer'))))
+      .rejects.toThrow('comparison_transfer_contains_target_knowledge');
+    const output = path.join(context.directory, 'recovery');
+    await compareMathRuns([...args(output), '--knowledge-mode', 'recovery']);
+    const plan = read<Plan>(path.join(output, 'comparison.json'));
+    expect(comparisonReport(output, plan).knowledge).toMatchObject({ mode: 'recovery', sameProblemEntries: 1 });
+    await expect(compareMathRuns(['--phase', 'run', '--directory', output, '--knowledge-base', saved.file]))
+      .rejects.toThrow('knowledge-base and --knowledge-mode are frozen');
+    expect(context.runBatch).not.toHaveBeenCalled();
+    expect(context.fetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects an original target hidden in a helper source during a transfer comparison', async () => {
+    const context = fixture(), problem = context.problems[0];
+    const saved = savedKnowledge(context.directory, 'v2', 'different-recorded-problem',
+      `\ntheorem ${problem.id} (n : Nat) : n = n := by rfl\n`);
+    await expect(compareMathRuns(['--phase', 'prepare', '--directory', path.join(context.directory, 'transfer'),
+      '--repo', context.repository, '--dataset', 'putnambench', '--problem', problem.id, '--task-file', context.task,
+      '--build-manifest', context.manifest, '--knowledge-base', saved.file]))
+      .rejects.toThrow('comparison_transfer_contains_target_knowledge');
+    expect(context.runBatch).not.toHaveBeenCalled();
+    expect(context.fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['v1', 'abbrev'], ['v1', 'opaque'], ['v2', 'abbrev'], ['v2', 'opaque'],
+  ] as const)('isolates a target-only %s source containing an %s declaration from transfer', async (format, keyword) => {
+    const context = fixture(), problem = context.problems[0];
+    const saved = savedKnowledge(context.directory, format, 'different-recorded-problem', '', {
+      'Target.lean': `${keyword} ${problem.id} : True := True.intro\n`,
+    });
+    const args = (output: string) => ['--phase', 'prepare', '--directory', output, '--repo', context.repository,
+      '--dataset', 'putnambench', '--problem', problem.id, '--task-file', context.task,
+      '--build-manifest', context.manifest, '--knowledge-base', saved.file];
+    await expect(compareMathRuns(args(path.join(context.directory, 'transfer'))))
+      .rejects.toThrow('comparison_transfer_contains_target_knowledge');
+    const output = path.join(context.directory, 'recovery');
+    await compareMathRuns([...args(output), '--knowledge-mode', 'recovery']);
+    const plan = read<Plan>(path.join(output, 'comparison.json'));
+    expect(comparisonReport(output, plan).knowledge).toMatchObject({ mode: 'recovery', sameProblemEntries: 0,
+      sameProblemFindings: 0, sameTargetSourceDeclarations: 1 });
+    expect(context.runBatch).not.toHaveBeenCalled();
+    expect(context.fetch).not.toHaveBeenCalled();
+  });
+
+  it('does not attribute a result from another catalog to the frozen knowledge comparison', async () => {
+    const context = fixture(), saved = savedKnowledge(context.directory, 'v1'), output = path.join(context.directory, 'sample');
+    await samplePutnamRuns(['--phase', 'prepare', '--directory', output, '--repo', context.repository,
+      '--build-manifest', context.manifest, '--count', '1', '--knowledge-base', saved.file]);
+    const sample = read<Sample>(path.join(output, 'sample.json')), child = sample.problems[0];
+    const plan = read<Plan>(path.join(child.comparisonDirectory, 'comparison.json')), job = plan.jobs[0];
+    const source = context.problems.find(problem => problem.id === plan.problem)!.source;
+    const recorded = recordedRun(plan, job, source, 100);
+    fs.writeFileSync(job.output, '{}');
+    vi.spyOn(inspection, 'readRunInspection').mockImplementation(file => {
+      if (file !== job.output) throw new Error('missing_fixture_result');
+      return recorded as never;
+    });
+    expect(comparisonReport(child.comparisonDirectory, plan).runs[0].comparisonIdentityMatches).toBe(true);
+    recorded.state.knowledgeDigest = mathDigest('different catalog');
+    expect(comparisonReport(child.comparisonDirectory, plan).runs[0]).toMatchObject({
+      comparisonIdentityMatches: false, status: 'invalid', accepted: false, totalTokens: null,
+      knowledgeFunnel: null, error: 'comparison_run_identity_mismatch' });
+    expect(context.runBatch).not.toHaveBeenCalled();
+  });
+
+  it('carries scoped knowledge observations through comparison and sample reports without running models', async () => {
+    const context = fixture(), saved = savedKnowledge(context.directory, 'v1'), output = path.join(context.directory, 'sample');
+    await samplePutnamRuns(['--phase', 'prepare', '--directory', output, '--repo', context.repository,
+      '--build-manifest', context.manifest, '--count', '1', '--knowledge-base', saved.file]);
+    const sample = read<Sample>(path.join(output, 'sample.json')), child = sample.problems[0];
+    const plan = read<Plan>(path.join(child.comparisonDirectory, 'comparison.json')), job = plan.jobs[0];
+    const source = context.problems.find(problem => problem.id === plan.problem)!.source;
+    const recorded = recordedRun(plan, job, source, 100), consumer = { taskId: 'original', taskDigest: 'exact-contract' };
+    const observation = { sectionId: 'knowledge', catalogDigest: plan.knowledge!.digest, searchInputDigest: 'query', consumer,
+      candidateIds: ['selected'], searchCandidateIds: ['selected', 'outside-packet'], routeFindingIds: [],
+      residualOmissions: [{ count: 3, reason: 'diagnostic-reader-budget' }], included: true,
+      contextDigest: 'context', workerId: 'solver', workerTurn: 1, runTurn: 1, at: 1 };
+    Object.assign(recorded.state, {
+      knowledgeRetrievals: { observations: [observation], dropped: 0 },
+      knowledgeUses: [{ id: 'selected', catalogDigest: plan.knowledge!.digest, consumer,
+        declaration: { name: 'Saved.identity', file: 'Submission.lean' }, status: 'reported-attempt',
+        attribution: 'model-reported-origin', workerId: 'solver', commit: 'selected-commit',
+        application: { expression: 'Saved.identity 0', expectedType: '0 = 0',
+          context: { file: 'Submission.lean', declaration: plan.problem },
+          check: { status: 'elaborated', selectedDeclarationUsed: true, environmentDigest: plan.environmentDigest,
+            authority: 'advisory-application-elaboration', proofAcceptance: 'not-assessed', consumerCoverage: 'not-assessed',
+            commit: 'selected-commit', reason: 'expression-elaborated' } } }],
+    });
+    fs.writeFileSync(job.output, '{}');
+    vi.spyOn(inspection, 'readRunInspection').mockImplementation(file => {
+      if (file !== job.output) throw new Error('missing_fixture_result');
+      return recorded as never;
+    });
+    await samplePutnamRuns(['--phase', 'report', '--directory', output]);
+    const report = read(path.join(output, 'report.json')), funnel = report.runs[0].knowledgeFunnel;
+    expect(funnel).toMatchObject({ mode: 'transfer', catalogDigest: plan.knowledge!.digest, evidence: 'recorded-not-replayed',
+      attribution: 'observed-not-causal', coverage: { rawSearchHits: 'recorded' },
+      retrieval: { returnedCandidateOccurrences: 2, packetCandidateOccurrences: 1, recordedOmittedResidualDiagnosticsAtReader: 3 },
+      context: { includedCandidateExposures: 1 }, selection: { recordedUses: 1, withRetainedIncludedContext: 1 },
+      application: { elaborated: 1, elaboratedUsingSelectedDeclaration: 1 },
+      consumerClosure: { recordedClosedOriginalGoals: 0 } });
+    expect(read(path.join(child.comparisonDirectory, 'report.json')).runs[0].knowledgeFunnel).toEqual(funnel);
+    expect(report.runs.slice(1).every(row => row.knowledgeFunnel === null)).toBe(true);
+    observation.searchCandidateIds.push('new-hit');
+    await samplePutnamRuns(['--phase', 'check-report', '--directory', output]);
+    expect(JSON.parse(String(context.log.mock.calls.at(-1)![0])).freshness).toBe('stale');
+    expect(context.runBatch).not.toHaveBeenCalled();
+    expect(context.fetch).not.toHaveBeenCalled();
+  });
+
   it('checks saved child report freshness offline without replacing reports or creating history', async () => {
     const context = await prepare();
     await samplePutnamRuns(['--phase', 'report', '--directory', context.output]);
@@ -157,7 +317,7 @@ describe('offline PutnamBench module samples', () => {
       expect(plan).toMatchObject({ dataset: 'putnambench', problem: selected.id, sourceCommit: putnam.PUTNAM_BENCH_SOURCE_COMMIT,
         sourceProblem: { sourceRelativePath: source.sourceRelativePath, sourceSha256: source.sourceSha256 },
         configuration: { provider: 'westlake', model: 'deepseek-flash', effort: 'high', workers: 4, repetitions: 1,
-          maxTurns: 20, maxRunSeconds: 600, maxTurnSeconds: 180, maxTotalTokens: 30000 } });
+          maxTurns: 20, maxRunSeconds: 600, maxTurnSeconds: 180, maxTotalTokens: 30000, evaluatorTimeoutSeconds: 1800 } });
       expect(mathDigest(fs.readFileSync(path.join(selected.comparisonDirectory, 'comparison.json')))).toBe(selected.comparisonDigest);
       expect(plan.jobs.map(job => job.arm)).toEqual(['default', 'essential-context', 'critical-path', 'construction-rule']);
       expect(new Set(plan.jobs.map(job => job.methodDigest)).size).toBe(4);
@@ -170,6 +330,7 @@ describe('offline PutnamBench module samples', () => {
         expect(argument(launch.args, '--model')).toBe('deepseek-flash');
         expect(argument(launch.args, '--effort')).toBe('high');
         expect(argument(launch.args, '--max-total-tokens')).toBe('30000');
+        expect(argument(launch.args, '--evaluator-timeout-seconds')).toBe('1800');
         expect(argument(launch.args, '--module-plan')).toBe(job.modulePlan);
         expect(mathDigest(fs.readFileSync(job.modulePlan!))).toBe(job.modulePlanDigest);
         expect(fs.statSync(path.join(job.codexProfile!, 'config.toml')).mode & 0o222).toBe(0);
@@ -186,6 +347,24 @@ describe('offline PutnamBench module samples', () => {
     expect(JSON.parse(String(context.log.mock.calls.at(-1)![0]))).toMatchObject({
       jobs: 12, status: 'prepared', invokesModel: false,
     });
+  });
+
+  it.each(['0', '37'])('freezes all unlimited research limits and evaluator allowance %s for every variant', async evaluator => {
+    const context = await prepare({ flags: ['--max-turns', '0', '--max-run-seconds', '0',
+      '--max-turn-seconds', '0', '--max-total-tokens', '0', '--evaluator-timeout-seconds', evaluator] });
+    for (const plan of context.plans) {
+      expect(plan.configuration).toMatchObject({ maxTurns: 0, maxRunSeconds: 0, maxTurnSeconds: 0,
+        maxTotalTokens: 0, evaluatorTimeoutSeconds: Number(evaluator) });
+      for (const job of plan.jobs) {
+        const launch = read(job.launch);
+        for (const flag of ['--max-turns', '--max-run-seconds', '--max-turn-seconds', '--max-total-tokens'])
+          expect(argument(launch.args, flag)).toBe('0');
+        expect(argument(launch.args, '--evaluator-timeout-seconds')).toBe(evaluator);
+        expect(launch.args).not.toContain('--resume');
+        expect(launch.args).not.toContain('--knowledge-base');
+      }
+    }
+    expect(context.runBatch).not.toHaveBeenCalled(); expect(context.fetch).not.toHaveBeenCalled();
   });
 
   it('reports all twelve missing attempts and preserves null costs and each problem\'s planned pairs', async () => {

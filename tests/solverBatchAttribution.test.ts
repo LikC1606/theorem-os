@@ -46,6 +46,41 @@ function rejected(input: MathematicsVerifierBatchRequest, indices = [0, 1]): Mat
 const attribute = (batch: MathematicsVerifierBatchResult) => attributeProofEvidence(batch, request.targetCommit, request.items);
 
 describe('per-target batch receipt attribution', () => {
+  it.each(['sorry', 'admit', 'explicit-axiom', 'unsupported-axiom'] as const)
+  ('retains a precisely bound %s source rejection without requiring a Lean process error', kind => {
+    const batch = verified(request);
+    batch.status = 'failed';
+    for (const result of batch.results) {
+      result.status = 'failed';
+      if (kind === 'sorry' || kind === 'admit') {
+        result.error = 'Proof source contains sorry or admit.';
+        if (kind === 'sorry') result.sorryCount = 1; else result.admitCount = 1;
+      } else {
+        result.axioms = ['Unproved.assumption'];
+        result.error = kind === 'explicit-axiom' ? 'Proof source declares explicit axioms: Unproved.assumption.' :
+          'Theorem depends on non-foundational Lean axioms: Unproved.assumption.';
+      }
+    }
+    expect(attribute(batch).map(check => [check.passed, check.attributable])).toEqual([[false, true], [false, true]]);
+    batch.results[0]!.targetCommit = 'wrong-commit';
+    expect(() => attribute(batch)).toThrow('math_task_check_identity_changed');
+  });
+
+  it.each(['missing-count', 'unrelated-error', 'foundational-axiom'] as const)
+  ('does not turn %s metadata into an attributable source rejection', kind => {
+    const batch = verified(request);
+    batch.status = 'failed';
+    for (const result of batch.results) {
+      result.status = 'failed';
+      result.error = kind === 'unrelated-error' ? 'Verifier transport unavailable.' :
+        kind === 'foundational-axiom' ? 'Theorem depends on non-foundational Lean axioms: propext.' :
+          'Proof source contains sorry or admit.';
+      if (kind === 'unrelated-error') result.sorryCount = 1;
+      if (kind === 'foundational-axiom') result.axioms = ['propext'];
+    }
+    expect(attribute(batch).map(check => check.attributable)).toEqual([false, false]);
+  });
+
   it('does not interpret a successfully checked declaration name as an interrupted invocation', () => {
     const batch = verified(request);
     batch.results[0]!.stdoutPreview = 'Checked theorem timeout; all goals closed.';

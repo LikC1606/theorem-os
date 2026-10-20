@@ -32,10 +32,10 @@ describe('proof continuation scheduling', () => {
   it('advances a consumer of checked helpers before untouched core gaps and disconnected work', () => {
     const tasks = [node('explore', 'research'), node('core'), integrated(node('checked')),
       node('bridge', 'lemma', ['checked']), node('middle', 'lemma', ['core']), node('goal', 'goal', ['bridge', 'middle'])];
-    expect(continuationResearchTasks(tasks).map(record => record.task.id)).toEqual(['bridge', 'core', 'explore']);
-    expect(readyResearchTasks(tasks).map(record => record.task.id)).toEqual(['bridge', 'explore', 'core']);
+    expect(continuationResearchTasks(tasks).map(record => record.task.id)).toEqual(['bridge', 'goal', 'core', 'middle', 'explore']);
+    expect(readyResearchTasks(tasks).map(record => record.task.id)).toEqual(['bridge', 'middle', 'explore', 'core', 'goal']);
     tasks.find(record => record.task.id === 'checked')!.integratedCheck!.taskDigest = 'obsolete';
-    expect(continuationResearchTasks(tasks).map(record => record.task.id)).toEqual(['core', 'bridge', 'explore']);
+    expect(continuationResearchTasks(tasks).map(record => record.task.id)).toEqual(['goal', 'core', 'bridge', 'middle', 'explore']);
   });
 
   it('prefers a ready original target and never counts conditional premises as proved', () => {
@@ -44,7 +44,7 @@ describe('proof continuation scheduling', () => {
     const conditional = node('conditional-goal', 'goal', ['open']); conditional.task = { ...conditional.task, conditional: true };
     const tasks = [open, checked, consumer, node('later-goal', 'goal', ['consumer']), conditional, goal];
     expect(continuationResearchTasks(tasks).map(record => record.task.id)).toEqual([
-      'ready-goal', 'consumer', 'conditional-goal', 'open',
+      'ready-goal', 'consumer', 'later-goal', 'open', 'conditional-goal',
     ]);
     expect(open.status).toBe('pending');
     expect(conditional.integratedCheck).toBeUndefined();
@@ -55,6 +55,8 @@ describe('proof continuation scheduling', () => {
     const tried = node('tried', 'research'); tried.attempts = 5;
     const fresh = node('fresh', 'research'); fresh.task = { ...fresh.task, ownerId: 'researcher' };
     const core = node('core'), goal = node('goal', 'goal', [...running.map(record => record.task.id), 'core']);
+    // This fixture exercises spare capacity after the consumer has declined early checking.
+    goal.task = { ...goal.task, conditional: false };
     const tasks = [tried, core, ...running, fresh, goal];
     const ready = continuationResearchTasks(tasks, [main]);
     expect(ready.map(record => record.task.id)).toEqual(['core', 'tried', 'fresh']);
@@ -88,13 +90,15 @@ describe('proof continuation scheduling', () => {
     running.forEach((record, index) => record.assignment = { taskId: record.task.id, taskDigest: taskVersion(record.task),
       workerId: workers[index]!.id, seedCommit: 'fixture' });
     const before = structuredClone(tasks);
-    expect(continuationResearchTasks(tasks).map(record => record.task.id)).toEqual(['ready', 'explore']);
+    expect(continuationResearchTasks(tasks).map(record => record.task.id)).toEqual(kind === 'original'
+      ? ['ready', 'explore'] : ['ready', 'unfinished-original', 'explore']);
     expect(assignSharedResearchTask(continuationResearchTasks(tasks), workers[2]!, workers, undefined, tasks)).toBe(consumer);
     expect(tasks).toEqual(before);
   });
 
   it('preserves dependency, pause, spent route and concurrency gates', () => {
     const tasks = [node('core'), node('blocked', 'goal', ['core']), node('paused'), node('full'), node('spent')];
+    tasks[1].task = { ...tasks[1].task, conditional: false };
     tasks[2].task = { ...tasks[2].task, status: 'paused' };
     tasks[3].task = { ...tasks[3].task, groupId: 'full' }; tasks[4].task = { ...tasks[4].task, groupId: 'spent' };
     const groups: RouteRecord[] = [main,
@@ -178,6 +182,8 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
 
   it('dispatches an imported unresolved frontier after one Lead assessment, then preserves a real failed attempt across restore', async () => {
     const core = parkCore(), budget = { maxTurns: Infinity, remainingMs: Infinity };
+    const goal = state.cooperation!.tasks.find(node => node.task.id === 'goal')!;
+    goal.task = { ...goal.task, conditional: false };
     state.cooperation!.blockers = []; core.routeParking = [];
     core.feedback = 'Historical unresolved checkpoint; needs current evidence.';
     const emit = vi.fn(); (cooperative as any).input.emit = emit;
@@ -275,7 +281,7 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
     expect(await leadNext).toBeUndefined();
   });
 
-  it('accepts a typed decomposition and dispatches its fresh premise before retrying the failed core', async () => {
+  it('accepts a typed decomposition and offers its consumer check while the fresh premise remains unproved', async () => {
     prepareRecovery();
     const next = await getRecovery();
     const premise = node('compactness_premise'); premise.task = { ...premise.task, type: 'Nat.succ 0 = 1' };
@@ -285,8 +291,11 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
     await cooperative.deliver(lead, next, recoveryPlan({ status: 'planned', taskIds: ['compactness_premise'] }, tasks));
     expect(state.cooperation!.frontierRecoveries).toEqual([expect.objectContaining({ status: 'planned', readyTaskIds: ['compactness_premise'] })]);
     const work = await cooperative.next(researcher, { maxTurns: Infinity, remainingMs: Infinity });
-    expect(work).toMatchObject({ kind: 'task', task: { id: 'compactness_premise' } });
-    expect(readyResearchTasks(state.cooperation!.tasks).some(node => node.task.id === 'core')).toBe(false);
+    expect(work).toMatchObject({ kind: 'task', task: { id: 'core' }, assignment: { connectionCheck: {
+      inputs: [{ taskId: 'compactness_premise', taskDigest: taskVersion(premise.task) }],
+    } } });
+    expect(readyResearchTasks(state.cooperation!.tasks).some(node => node.task.id === premise.task.id)).toBe(true);
+    expect(state.cooperation!.tasks.find(node => node.task.id === premise.task.id)!.integratedCheck).toBeUndefined();
     expect(state.cooperation!.tasks.find(node => node.task.id === 'goal')!.integratedCheck).toBeUndefined();
   });
 
@@ -421,7 +430,8 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
       state.cooperation!.planVersion = (cooperative as any).planVersion();
       state.cooperation!.lastLeadInputDigest = (cooperative as any).planningInputDigest();
       const next = await getRecovery();
-      const fresh = node('consume_bridge', 'lemma', ['bridge']); fresh.task = { ...fresh.task, type: '1 + 1 = (2 : Nat)' };
+      const fresh = node('consume_bridge', 'lemma', ['bridge']);
+      fresh.task = { ...fresh.task, type: '1 + 1 = (2 : Nat)', conditional: false };
       const tasks = state.cooperation!.tasks.map(node => node.task.id === 'core' ? { ...node.task, dependsOn: [fresh.task.id] } :
         change === 'dependency-contract' && node.task.id === 'base' ? { ...node.task, type: 'And True True' } : node.task);
       tasks.push(fresh.task);
@@ -516,8 +526,14 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
     await cooperative.deliver(lead, next, recoveryPlan({ status: 'planned', taskIds: [premise.task.id] }, tasks));
     expect(state.cooperation!.frontierRecoveries![0].status).toBe('planned');
     expect(await cooperative.next(researcher, { maxTurns: Infinity, remainingMs: Infinity })).toMatchObject({
-      kind: 'task', task: { id: premise.task.id }, assignment: { workerId: researcher.id },
+      kind: 'task', task: { id: 'core' }, assignment: { workerId: researcher.id, connectionCheck: {
+        inputs: [{ taskId: premise.task.id, taskDigest: taskVersion({ ...premise.task, ownerId: researcher.id }) }],
+      } },
     });
+    const rebound = state.cooperation!.tasks.find(node => node.task.id === premise.task.id)!;
+    expect(rebound.task.ownerId).toBe(researcher.id);
+    expect(assignSharedResearchTask([rebound], researcher, [lead, researcher], state.cooperation!.groups,
+      state.cooperation!.tasks)).toBe(rebound);
   });
 
   it('records an accepted decomposition even if subsequent source integration fails', async () => {
@@ -857,6 +873,9 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
   });
 
   const failureChecker = (result: Record<string, unknown> = {}, verification: Record<string, unknown> = {}) => {
+    // These fixtures exercise local repair and rejection reuse under ordinary dependency waiting.
+    const goal = state.cooperation!.tasks.find(node => node.task.kind === 'goal')!;
+    goal.task = { ...goal.task, conditional: false };
     record.task = { ...record.task, kind: 'lemma', theoremName: 'question', proofPath: 'Submission.lean', type: 'True' };
     record.assignment!.taskDigest = taskVersion(record.task);
     record.attempts = 1;
