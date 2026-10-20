@@ -13,6 +13,7 @@ import { canonicalMathProblemStatementPayloads, normalizeMathOfficialProblemMani
 import { canonicalMathOfficialManifestPayload, normalizedRepositoryUrl } from "./verifier";
 import { hashMathFormalSourceDeclaration } from "./leanSource";
 import { assertLeanEvalSubmissionComplete } from "./leanEvalSubmission";
+import { repositoryRelativePath } from "./paths";
 
 const LEAN_EVAL_ADAPTER_ID = 'lean-eval' as const;
 const LEAN_EVAL_ADAPTER_VERSION = '1' as const;
@@ -105,13 +106,8 @@ const runGitText = (root: string, args: readonly string[]) => mathGitText(root, 
 const runGitBytes = (root: string, args: readonly string[]) => mathGitBytes(root, args, { maxBuffer: MAX_GIT_OUTPUT_BYTES });
 
 const normalizeRelativePath = (value: string, field: string): string => {
-  const normalized = value.trim().replaceAll('\\', '/').replace(/^\.\//u, '');
-  if (!normalized || normalized.includes('\0') || path.posix.isAbsolute(normalized)) {
-    throw new Error(`${field} must be a repository-relative path.`);
-  }
-  if (normalized.split('/').some((part) => !part || part === '.' || part === '..')) {
-    throw new Error(`${field} must not contain traversal or empty segments.`);
-  }
+  const normalized = repositoryRelativePath(value.trim(), true);
+  if (!normalized) throw new Error(`${field} must be a repository-relative path without traversal or empty segments.`);
   return normalized;
 };
 

@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { repositoryRelativePath } from './paths';
+
 /**
  * Immutable identity and acceptance contract for one mathematical problem.
  *
@@ -97,12 +99,8 @@ export function normalizeMathOfficialProblemManifest(input: MathOfficialProblemM
   const trackedFilePathSet = new Set<string>();
   const trackedFiles = Object.freeze(
     input.trackedFiles.map((file, index) => {
-      const filePath = requiredText(file.path, `officialManifest.trackedFiles[${index}].path`)
-        .replaceAll('\\', '/')
-        .replace(/^\.\//u, '');
-      if (filePath.startsWith('/') || filePath.split('/').includes('..') || filePath.includes('\0')) {
-        throw new TypeError(`officialManifest.trackedFiles[${index}].path must be repository-relative`);
-      }
+      const filePath = repositoryRelativePath(requiredText(file.path, `officialManifest.trackedFiles[${index}].path`), true);
+      if (!filePath) throw new TypeError(`officialManifest.trackedFiles[${index}].path must be repository-relative`);
       trackedFilePathSet.add(filePath);
       return Object.freeze({
         path: filePath,

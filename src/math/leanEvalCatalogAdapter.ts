@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { mathGitText, mathGitResult } from './mathGit';
 import { mathDigest as sha256, readMathText } from './mathRuntimeIo';
-import { assertMathCanonicalPath, isMathPathWithin } from './paths';
+import { assertMathCanonicalPath, isMathPathWithin, repositoryRelativePath } from './paths';
 import { parse as parseToml } from 'smol-toml';
 
 export const LEAN_EVAL_BENCHMARK_COMMIT = '38361be884302c7edce1908c4aef8296eb2cb27e' as const;
@@ -111,19 +111,8 @@ const optionalText = <Key extends string>(key: Key, value: unknown): { [K in Key
 const positiveInt = (value: unknown, fallback = 1): number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : fallback;
 const safeRelativePath = (value: string, field: string): string => {
-  const normalized = value.trim();
-  const parts = normalized.split('/');
-  if (
-    !normalized ||
-    normalized.includes('\\') ||
-    normalized.includes('\0') ||
-    path.posix.isAbsolute(normalized) ||
-    /^[A-Za-z]:/u.test(normalized) ||
-    parts.some((part) => !part || part === '.' || part === '..') ||
-    path.posix.normalize(normalized) !== normalized
-  ) {
-    throw new Error(`LeanEval catalog ${field} must be repository-relative`);
-  }
+  const normalized = repositoryRelativePath(value.trim());
+  if (!normalized) throw new Error(`LeanEval catalog ${field} must be repository-relative`);
   return normalized;
 };
 

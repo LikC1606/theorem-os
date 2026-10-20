@@ -16,10 +16,11 @@ import { inspectLeanDeclarations } from "./leanSource";
 import { resolveMathematicsRuntimeEnvironment } from "./mathRuntimeEnvironment";
 import { readMathematicsReceiptSecret, signMathOfficialGateReceipt } from "./receiptAttestation";
 import type { MathOfficialGateReceipt } from "./contracts";
-import { assertMathCanonicalPath } from "./paths";
+import { assertMathCanonicalPath, repositoryRelativePath } from "./paths";
 import { mathDigest as sha256, readMathJson, writeMathJsonDurable } from "./mathRuntimeIo";
 import { mathGitBytes, mathGitText } from './mathGit';
 import { resolveLeanEvalSubmissionName } from "./leanEvalSubmission";
+import { z } from 'zod';
 
 export type LeanEvalBootstrapReceipt = Readonly<{
   schema: 'deepscientist.mathematics.lean-eval-bootstrap-receipt.v1';
@@ -164,18 +165,8 @@ export const assertLeanEvalBootstrapProjectPath = (
   projectRoot: string,
   generatedPath: string
 ): void => {
-  const relative = generatedPath.trim();
-  if (
-    !relative ||
-    relative.includes('\\') ||
-    relative.includes('\0') ||
-    path.posix.isAbsolute(relative) ||
-    /^[A-Za-z]:/u.test(relative) ||
-    relative.split('/').some((part) => !part || part === '.' || part === '..') ||
-    path.posix.normalize(relative) !== relative
-  ) {
-    throw new Error('Persisted Lean-Eval bootstrap generated path is unsafe');
-  }
+  const relative = repositoryRelativePath(generatedPath.trim());
+  if (!relative) throw new Error('Persisted Lean-Eval bootstrap generated path is unsafe');
   const expected = path.join(path.resolve(workspaceRoot), relative);
   if (path.resolve(projectRoot) !== expected) {
     throw new Error('Persisted Lean-Eval bootstrap solver project is not bound to the pinned problem path');
@@ -351,15 +342,8 @@ const assertRegisteredWorktree = (repositoryRoot: string, worktreeRoot: string, 
 };
 
 const safeRelative = (value: string): string => {
-  const normalized = value.replaceAll('\\', '/').replace(/^\.\//u, '');
-  if (
-    !normalized ||
-    normalized.startsWith('/') ||
-    /^[A-Za-z]:/u.test(normalized) ||
-    normalized.split('/').some((part) => !part || part === '.' || part === '..')
-  ) {
-    throw new Error(`LeanEval path is not repository-relative: ${value}`);
-  }
+  const normalized = repositoryRelativePath(value, true);
+  if (!normalized) throw new Error(`LeanEval path is not repository-relative: ${value}`);
   return normalized;
 };
 
@@ -656,57 +640,33 @@ export async function bootstrapLeanEvalProblem(options: LeanEvalBootstrapOptions
   }
 }
 
+const receiptHash = z.string().regex(/^[0-9a-f]{64}$/iu), positiveTime = z.number().finite().positive();
+const nonBlank = (value: string) => !!value.trim();
+// benchmarkCommit is compared at read time: the pinned commit is not a load-time constant under test hosts.
+const bootstrapReceiptSchema = z.object({
+  schema: z.literal('deepscientist.mathematics.lean-eval-bootstrap-receipt.v1'), receiptId: z.string().refine(nonBlank),
+  problemId: z.string().regex(/^[A-Za-z0-9_.-]+$/u), evaluationMode: z.enum(['official', 'benchmark']).optional(),
+  catalogHash: receiptHash, leaderboardSource: z.string().refine(nonBlank), leaderboardHash: receiptHash.optional(),
+  leaderboardGeneratedAt: positiveTime.optional(), workspaceRoot: z.string(), projectRoot: z.string(),
+  verifierProjectRoot: z.string().optional(), sourceProjectRoot: z.string().optional(), activeProblemPath: z.string(),
+  contract: z.object({}).passthrough(), solverOwnedFiles: z.array(z.unknown()), trustedFiles: z.array(z.unknown()),
+  createdAt: positiveTime,
+}).passthrough().refine(receipt => receipt.leaderboardSource !== LEAN_EVAL_LEADERBOARD_URL
+  || (receipt.leaderboardHash !== undefined && receipt.leaderboardGeneratedAt !== undefined));
+const publicObligationsSchema = z.array(z.object({ name: z.string().refine(nonBlank), declarationHash: z.string().regex(/^[a-f0-9]{64}$/u) }));
+
 /** Reload a bootstrap receipt after a process restart without trusting mutable
  * workspace metadata. The caller must still rebuild catalog/binding before
  * executing a gate. */
 export function readLeanEvalBootstrapReceipt(activeProblemPath: string): LeanEvalBootstrapReceipt {
   const absolute = path.resolve(activeProblemPath);
-  const parsed = readMathJson(absolute) as Partial<LeanEvalBootstrapReceipt>;
-  if (
-    parsed.schema !== 'deepscientist.mathematics.lean-eval-bootstrap-receipt.v1' ||
-    typeof parsed.receiptId !== 'string' ||
-    !parsed.receiptId.trim() ||
-    typeof parsed.problemId !== 'string' ||
-    !/^[A-Za-z0-9_.-]+$/u.test(parsed.problemId) ||
-    parsed.benchmarkCommit !== LEAN_EVAL_BENCHMARK_COMMIT ||
-    (parsed.evaluationMode !== undefined && !['official', 'benchmark'].includes(String(parsed.evaluationMode))) ||
-    typeof parsed.catalogHash !== 'string' ||
-    !/^[0-9a-f]{64}$/iu.test(parsed.catalogHash) ||
-    typeof parsed.leaderboardSource !== 'string' ||
-    !parsed.leaderboardSource.trim() ||
-    (parsed.leaderboardSource === LEAN_EVAL_LEADERBOARD_URL &&
-      (typeof parsed.leaderboardHash !== 'string' ||
-        !/^[0-9a-f]{64}$/iu.test(parsed.leaderboardHash) ||
-        !Number.isFinite(parsed.leaderboardGeneratedAt) ||
-        Number(parsed.leaderboardGeneratedAt) <= 0)) ||
-    (parsed.leaderboardHash !== undefined &&
-      (typeof parsed.leaderboardHash !== 'string' || !/^[0-9a-f]{64}$/iu.test(parsed.leaderboardHash))) ||
-    (parsed.leaderboardGeneratedAt !== undefined &&
-      (!Number.isFinite(parsed.leaderboardGeneratedAt) || Number(parsed.leaderboardGeneratedAt) <= 0)) ||
-    typeof parsed.workspaceRoot !== 'string' ||
-    typeof parsed.projectRoot !== 'string' ||
-    typeof parsed.activeProblemPath !== 'string' ||
-    !parsed.contract ||
-    !Array.isArray(parsed.solverOwnedFiles) ||
-    !Array.isArray(parsed.trustedFiles) ||
-    !Number.isFinite(parsed.createdAt) ||
-    Number(parsed.createdAt) <= 0
-  ) {
+  const parsed = readMathJson(absolute) as LeanEvalBootstrapReceipt;
+  if (!bootstrapReceiptSchema.safeParse(parsed).success || parsed.benchmarkCommit !== LEAN_EVAL_BENCHMARK_COMMIT) {
     throw new Error('LeanEval bootstrap receipt is invalid or not pinned');
   }
   let contract: MathProblemContract;
-  if (
-    parsed.publicObligations !== undefined &&
-    (!Array.isArray(parsed.publicObligations) ||
-      parsed.publicObligations.some(
-        (item) =>
-          !item ||
-          typeof item.name !== 'string' ||
-          !item.name.trim() ||
-          !/^[a-f0-9]{64}$/u.test(item.declarationHash)
-      ) ||
-      new Set(parsed.publicObligations.map((item) => item.name)).size !== parsed.publicObligations.length)
-  ) {
+  if (parsed.publicObligations !== undefined && (!publicObligationsSchema.safeParse(parsed.publicObligations).success
+    || new Set(parsed.publicObligations.map(item => item.name)).size !== parsed.publicObligations.length)) {
     throw new Error('LeanEval public obligations are invalid');
   }
   try {
@@ -750,16 +710,8 @@ export function readLeanEvalBootstrapReceipt(activeProblemPath: string): LeanEva
   assertMathCanonicalPath(absolute);
   const ownership = new Set<string>();
   for (const file of [...parsed.solverOwnedFiles, ...parsed.trustedFiles]) {
-    if (
-      typeof file !== 'string' ||
-      !file ||
-      file.startsWith('/') ||
-      file.includes('\\') ||
-      /^[A-Za-z]:/u.test(file) ||
-      file.split('/').some((part) => !part || part === '.' || part === '..') ||
-      ['Solution.lean', 'WorkspaceTest.lean', 'README.md'].includes(path.posix.basename(file)) ||
-      ownership.has(file)
-    ) {
+    if (typeof file !== 'string' || !repositoryRelativePath(file) ||
+      ['Solution.lean', 'WorkspaceTest.lean', 'README.md'].includes(path.posix.basename(file)) || ownership.has(file)) {
       throw new Error('LeanEval bootstrap receipt contains an unsafe file ownership path');
     }
     ownership.add(file);

@@ -23,6 +23,7 @@ import { readMathematicsReceiptSecret } from "./receiptAttestation";
 import { resolveMathematicsRuntimeEnvironment } from "./mathRuntimeEnvironment";
 import { createMathOperationLimiter, forEachWithConcurrency } from "./concurrency";
 import { mathDigest, mathFileIdentity, readMathText } from './mathRuntimeIo';
+import { repositoryRelativePath } from './paths';
 import { leanReferenceCommands, parseLeanReferences, type LeanDeclarationReferences } from './leanReferences';
 import { leanDeclarationContextCommands } from './leanSource';
 import { withVerifierCheckout, type VerifierCheckoutCleanupFailure } from './verifierCheckout';
@@ -265,56 +266,6 @@ const configuredVerificationConcurrency = (): number => {
   return Math.max(1, Math.min(MAX_CONCURRENT_VERIFICATIONS, configured));
 };
 
-/**
- * Cache keys must include the dependency material that Lean actually reads,
- * not only tracked source files.  This deliberately hashes paths and bytes in
- * a deterministic order and records symlink targets without following them.
- */
-const fingerprintPath = (candidate: string, limits = { files: 200_000, bytes: 2 * 1024 * 1024 * 1024 }): string => {
-  const digest = crypto.createHash('sha256');
-  let files = 0;
-  let bytes = 0;
-  const visit = (absolutePath: string, relativePath: string): void => {
-    let stat: fs.Stats;
-    try {
-      stat = fs.lstatSync(absolutePath);
-    } catch {
-      digest.update(`missing\0${relativePath}\0`);
-      return;
-    }
-    if (stat.isSymbolicLink()) {
-      digest.update(`link\0${relativePath}\0${fs.readlinkSync(absolutePath)}\0`);
-      return;
-    }
-    if (stat.isDirectory()) {
-      digest.update(`dir\0${relativePath}\0`);
-      for (const entry of fs
-        .readdirSync(absolutePath, { withFileTypes: true })
-        .toSorted((left, right) => left.name.localeCompare(right.name))) {
-        if (files >= limits.files || bytes >= limits.bytes) {
-          digest.update(`truncated\0${files}\0${bytes}\0`);
-          return;
-        }
-        visit(path.join(absolutePath, entry.name), path.posix.join(relativePath, entry.name));
-      }
-      return;
-    }
-    if (!stat.isFile()) {
-      digest.update(`other\0${relativePath}\0${stat.mode}\0`);
-      return;
-    }
-    files += 1;
-    if (bytes + stat.size > limits.bytes) {
-      digest.update(`truncated\0${relativePath}\0${files}\0${bytes}\0`);
-      return;
-    }
-    bytes += stat.size;
-    digest.update(`file\0${relativePath}\0${stat.size}\0${mathDigest(fs.readFileSync(absolutePath))}\0`);
-  };
-  visit(candidate, '.');
-  return digest.digest('hex');
-};
-
 /** Cheap dependency identity for non-Git Lake packages.  It deliberately
  * records metadata rather than reading every byte on the verifier's event
  * loop; the manifest and Git package identities remain the authoritative
@@ -374,8 +325,7 @@ const readPackageGitIdentity = (packageRoot: string): string | undefined => {
 const fingerprintVerifierDependency = (candidate: string): string => {
   try {
     const stat = fs.statSync(candidate);
-    if (stat.isDirectory()) return fingerprintMetadataTree(candidate, 8_192);
-    if (!stat.isFile()) return fingerprintPath(candidate);
+    if (!stat.isFile()) return fingerprintMetadataTree(candidate, 8_192);
     const descriptor = fs.openSync(candidate, 'r');
     try {
       const digest = crypto.createHash('sha256'), buffer = Buffer.allocUnsafe(1024 * 1024);
@@ -387,7 +337,8 @@ const fingerprintVerifierDependency = (candidate: string): string => {
       fs.closeSync(descriptor);
     }
   } catch {
-    return fingerprintPath(candidate);
+    // Missing or unreadable dependencies fall back to the metadata identity, which records `missing` itself.
+    return fingerprintMetadataTree(candidate, 8_192);
   }
 };
 
@@ -1592,14 +1543,8 @@ export async function runMathematicsSandboxedCommand(input: {
     }
   }
   const checkoutRoot = path.resolve(input.checkoutRoot);
-  const projectRelative = (input.projectRelative ?? '').trim().replaceAll('\\', '/');
-  if (
-    projectRelative &&
-    (projectRelative.startsWith('/') ||
-      projectRelative.split('/').some((part) => !part || part === '.' || part === '..'))
-  ) {
-    return unavailableProcessResult('Lean sandbox project path must be repository-relative.');
-  }
+  const requested = (input.projectRelative ?? '').trim(), projectRelative = requested && repositoryRelativePath(requested, true);
+  if (projectRelative === undefined) return unavailableProcessResult('Lean sandbox project path must be repository-relative.');
   const projectRoot = path.join(checkoutRoot, projectRelative);
   try {
     const rootStat = fs.lstatSync(checkoutRoot);
@@ -3017,11 +2962,9 @@ export const canonicalMathOfficialManifestPayload = (
   });
 
 const relativeOfficialManifestPath = (value: string): string => {
-  const normalized = value.trim().replaceAll('\\', '/');
-  if (!normalized || normalized.includes('\0') || path.isAbsolute(normalized) || normalized.split('/').includes('..')) {
-    throw new Error('Official problem manifest path must be relative to the committed project checkout.');
-  }
-  return normalized.replace(/^\.\//u, '');
+  const normalized = repositoryRelativePath(value.trim(), true);
+  if (!normalized) throw new Error('Official problem manifest path must be relative to the committed project checkout.');
+  return normalized;
 };
 
 /** Compare repository identities without case, trailing slashes or a `.git` suffix. */

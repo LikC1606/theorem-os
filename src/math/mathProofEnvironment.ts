@@ -97,6 +97,40 @@ function proofEnvironmentBlocked(message: unknown): Error {
   ].find(known => String(message ?? '').includes(known)) ?? 'helper failed before publication';
   return new Error(`Proof environment blocked: ${reason}.`);
 }
+type JsonLineRead<T> = Readonly<{ data: NodeJS.EventEmitter; owner: NodeJS.EventEmitter; end: 'close' | 'exit'; limit: number;
+  timeoutMs?: number; signal?: AbortSignal; timedOut: () => Error; aborted: () => Error; ended: string; invalid: string;
+  accept: (value: Record<string, unknown> | null) => T }>;
+
+/** First newline-terminated JSON value on `data`; every outcome detaches the listeners, timer and abort hook it added. */
+function readJsonLine<T>(read: JsonLineRead<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let text = '', settled = false;
+    const finish = (error?: Error, value?: T) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      read.signal?.removeEventListener('abort', aborted);
+      read.data.off('data', data);
+      read.owner.off('error', finish).off(read.end, ended);
+      if (error) reject(error); else resolve(value!);
+    };
+    const ended = () => finish(new Error(read.ended)), aborted = () => finish(read.aborted());
+    const timer = read.timeoutMs === undefined ? undefined : setTimeout(() => finish(read.timedOut()), read.timeoutMs);
+    const data = (chunk: Buffer) => {
+      text += chunk.toString();
+      if (text.length > read.limit) return finish(new Error(read.invalid));
+      const newline = text.indexOf('\n');
+      if (newline < 0) return;
+      let value: Record<string, unknown> | null;
+      try { value = JSON.parse(text.slice(0, newline)); } catch { return finish(new Error(read.invalid)); }
+      try { finish(undefined, read.accept(value)); } catch (error) { finish(error as Error); }
+    };
+    read.data.on('data', data);
+    read.owner.on('error', finish).on(read.end, ended);
+    read.signal?.addEventListener('abort', aborted, { once: true });
+    if (read.signal?.aborted) aborted();
+  });
+}
 export type MathProofEnvironment = Readonly<{
   packagesRoot: string;
   identity: string;
@@ -220,42 +254,13 @@ export async function acquireMathProofEnvironmentLease(
   const descriptor = descriptorSchema.parse(JSON.parse(env[MATH_PROOF_ENVIRONMENT_ENV]!));
   const socket = net.createConnection(readSandboxMapping(descriptor, env)?.leaseSocket ?? descriptor.leaseSocket);
   try {
-    await new Promise<void>((resolve, reject) => {
-      let text = '';
-      const timer = setTimeout(
-        () => finish(new DOMException('Proof environment lease handshake timed out.', 'TimeoutError')),
-        Math.max(1, Math.min(5000, deadlineAt === undefined ? 5000 : deadlineAt - Date.now()))
-      );
-      const abort = () => finish(new DOMException('Proof environment lease cancelled.', 'AbortError'));
-      const finish = (error?: Error) => {
-        clearTimeout(timer);
-        signal?.removeEventListener('abort', abort);
-        socket.off('error', fail);
-        socket.off('close', closed);
-        socket.off('data', data);
-        if (error) reject(error);
-        else resolve();
-      };
-      const fail = (error: Error) => finish(error);
-      const closed = () => finish(new Error('Proof environment lease closed before acknowledgement.'));
-      const data = (chunk: Buffer) => {
-        text += chunk.toString();
-        if (text.length > 1024) return finish(new Error('Invalid proof environment lease acknowledgement.'));
-        if (!text.includes('\n')) return;
-        try {
-          if (JSON.parse(text.slice(0, text.indexOf('\n'))).ok !== true) throw new Error();
-          finish();
-        } catch {
-          finish(new Error('Proof environment lease was rejected.'));
-        }
-      };
-      socket.once('connect', () => socket.write(`${JSON.stringify({ token: descriptor.leaseToken })}\n`));
-      socket.on('error', fail);
-      socket.on('close', closed);
-      socket.on('data', data);
-      signal?.addEventListener('abort', abort, { once: true });
-      if (signal?.aborted) abort();
-    });
+    socket.once('connect', () => socket.write(`${JSON.stringify({ token: descriptor.leaseToken })}\n`));
+    await readJsonLine({ data: socket, owner: socket, end: 'close', limit: 1024, signal,
+      timeoutMs: Math.max(1, Math.min(5000, deadlineAt === undefined ? 5000 : deadlineAt - Date.now())),
+      timedOut: () => new DOMException('Proof environment lease handshake timed out.', 'TimeoutError'),
+      aborted: () => new DOMException('Proof environment lease cancelled.', 'AbortError'),
+      ended: 'Proof environment lease closed before acknowledgement.', invalid: 'Invalid proof environment lease acknowledgement.',
+      accept: value => { if (value?.ok !== true) throw new Error('Proof environment lease was rejected.'); } });
     environment.verify();
     signal?.throwIfAborted();
     socket.on('error', () => {});
@@ -456,62 +461,16 @@ async function prepareEnvironment(
         stdio: ['pipe', 'pipe', 'pipe'],
       }
     );
-    const ready = await new Promise<Record<string, unknown>>((resolve, reject) => {
-      let output = '';
-      let settled = false;
-      const abort = () => finish(new Error('Proof environment preparation cancelled.'));
-      const timer =
-        options.deadlineAt === undefined
-          ? undefined
-          : setTimeout(
-              () => finish(new Error('Proof environment preparation deadline exceeded.')),
-              Math.max(1, options.deadlineAt - Date.now())
-            );
-      const heartbeat = setInterval(
-        () =>
-          report(cached ? 'mounting_cached_image' : 'building_image', {
-            cacheHit: Boolean(cached),
-          }),
-        5000
-      );
-      const finish = (error?: Error, value?: Record<string, unknown>) => {
-        if (settled) return;
-        settled = true;
-        if (timer) clearTimeout(timer);
-        clearInterval(heartbeat);
-        options.signal?.removeEventListener('abort', abort);
-        child!.stdout.off('data', data);
-        child!.off('error', failed);
-        child!.off('exit', exited);
-        // Continue draining any shutdown diagnostics without retaining contents.
-        child!.stdout.resume();
-        if (error) reject(error);
-        else resolve(value!);
-      };
-      const failed = (error: Error) => finish(error);
-      const exited = () => finish(new Error('Proof environment helper exited before readiness.'));
-      const data = (chunk: Buffer) => {
-        output += chunk.toString();
-        if (output.length > 64 * 1024) return finish(new Error('Invalid proof environment helper response.'));
-        const newline = output.indexOf('\n');
-        if (newline < 0) return;
-        try {
-          const value = JSON.parse(output.slice(0, newline));
-          if (value.state !== 'ready') {
-            return finish(proofEnvironmentBlocked(value.error));
-          }
-          finish(undefined, value);
-        } catch {
-          finish(new Error('Invalid proof environment helper response.'));
-        }
-      };
-      child!.stdout.on('data', data);
-      child!.stderr.resume();
-      child!.once('error', failed);
-      child!.once('exit', exited);
-      options.signal?.addEventListener('abort', abort, { once: true });
-      if (options.signal?.aborted) abort();
-    });
+    // Heartbeats keep long image builds visible; stdout keeps draining shutdown diagnostics without retaining them.
+    const heartbeat = setInterval(() => report(cached ? 'mounting_cached_image' : 'building_image', { cacheHit: Boolean(cached) }), 5000);
+    child.stderr.resume();
+    const ready = await readJsonLine({ data: child.stdout, owner: child, end: 'exit', limit: 64 * 1024, signal: options.signal,
+      timeoutMs: options.deadlineAt === undefined ? undefined : Math.max(1, options.deadlineAt - Date.now()),
+      timedOut: () => new Error('Proof environment preparation deadline exceeded.'),
+      aborted: () => new Error('Proof environment preparation cancelled.'),
+      ended: 'Proof environment helper exited before readiness.', invalid: 'Invalid proof environment helper response.',
+      accept: value => { if (value?.state !== 'ready') throw proofEnvironmentBlocked(value?.error); return value; },
+    }).finally(() => { clearInterval(heartbeat); child!.stdout.resume(); });
     checkpoint();
     if (ready.pid !== child.pid)
       throw new Error('Proof environment helper process identity does not match its launcher.');
