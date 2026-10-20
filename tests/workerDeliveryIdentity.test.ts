@@ -1,16 +1,18 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample } from '../src/math/localExample';
-import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } from '../src/math/verifier';
+import type { MathematicsVerifierBatchRequest } from '../src/math/verifier';
 import { readSolverRunState, writeSolverRunState, type SolverRunState } from '../src/solver/archive';
-import { CooperativeResearch, parseCooperationPlan } from '../src/solver/cooperation';
+import { parseCooperationPlan, type CooperativeResearch } from '../src/solver/cooperation';
 import { directSolverModules } from '../src/solver/modules';
 import { taskDependenciesReady } from '../src/solver/modules/search';
 import type { ResearchWorker } from '../src/solver/modules/organization';
-import { commitSolverSources, git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
+import { commitSolverSources, type SolverProblem } from '../src/solver/problem';
 import { assignmentDeliveryFile, type CooperativeAction, type CooperativeTask } from '../src/solver/tasks';
+import { deferred } from './helpers/async';
+import { cooperativeResearch } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
+import { verifiedBatch } from './helpers/verifier';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn() }));
 vi.mock('../src/math/verifier', async importOriginal => ({
@@ -20,13 +22,7 @@ vi.mock('../src/math/verifier', async importOriginal => ({
 }));
 vi.mock('../src/runtime/codexSession', () => ({ createCodexMathSession: host.createSession }));
 
-function verified(request: MathematicsVerifierBatchRequest): MathematicsVerifierBatchResult {
-  return { schema: 'deepscientist.mathematics.verification-batch/v1', status: 'kernel_verified',
-    targetCommit: request.targetCommit!, sessionId: 'delivery-identity-fixture', events: [], startedAt: 1, checkedAt: 2, durationMs: 1,
-    results: request.items.map(item => ({ ...item, sourceDeclarationHash: item.expectedSourceDeclarationHash,
-      receiptId: `fixture-${request.targetCommit}-${item.theoremName}`, targetCommit: request.targetCommit,
-      status: 'kernel_verified', claim: 'statement' })) as MathematicsVerifierBatchResult['results'] };
-}
+const verified = (request: MathematicsVerifierBatchRequest) => verifiedBatch(request, { sessionId: 'delivery-identity-fixture' });
 
 type TaskAction = Extract<CooperativeAction, { kind: 'task' }>;
 type Log = 'scoped' | 'legacy';
@@ -42,9 +38,8 @@ describe('assignment-bound worker delivery identities', () => {
   const create = () => {
     const controller = new AbortController();
     let queue = Promise.resolve();
-    const instance = new CooperativeResearch({ state, workers: [lead, peer, other],
-      access: new Map([lead, peer, other].map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-      signal: controller.signal, save: () => {}, emit: (event, details) => events.push({ event, details }),
+    const instance = cooperativeResearch({ state, workers: [lead, peer, other], retrievalRoot: directory,
+      signal: controller.signal, emit: (event, details) => events.push({ event, details }),
       modules: { ...directSolverModules, M5: { ...directSolverModules.M5, primaryLed: true } },
       exclusiveCheck: async check => {
         const previous = queue;
@@ -84,6 +79,10 @@ describe('assignment-bound worker delivery identities', () => {
     await cooperative.pulse(lead.id);
     expect(state.cooperation!.edits?.find(record => record.id === id)?.status).toBe('applied');
   };
+  const reassign = async () => {
+    await applyEdit(task => task.id === 'a' ? { ...task, ownerId: other.id } : task);
+    await applyEdit(task => task.id === 'a' ? { ...task, ownerId: peer.id } : task);
+  };
   const restart = async () => {
     const instance = instances.find(item => item.cooperative === cooperative)!;
     instance.controller.abort();
@@ -96,29 +95,20 @@ describe('assignment-bound worker delivery identities', () => {
   };
 
   beforeEach(() => {
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'worker-delivery-identity-')));
-    const workspace = path.join(directory, 'lead');
-    const receipt = bootstrapLocalExample(workspace);
-    problem = readSolverProblem(workspace, receipt.activeProblemPath);
-    const workers = ['peer', 'other'].map(id => {
-      const worktree = path.join(directory, id);
-      git(workspace, ['worktree', 'add', '--quiet', '--detach', worktree, problem.baseCommit]);
-      return { id, role: 'researcher' as const, worktree, ownedFiles: problem.ownedFiles };
-    });
-    lead = { id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles };
-    [peer, other] = workers;
+    const example = localExample('worker-delivery-identity-', 'lead');
+    ({ directory, problem } = example);
+    [peer, other] = ['peer', 'other'].map(id => peerWorker(example, id));
+    lead = leadWorker(problem, example.workspace);
     const plan = parseCooperationPlan(problem, { tasks: [
       ...problem.targets.map((target, index) => ({ id: `goal_${index}`, kind: 'goal', objective: `Prove ${target.theoremName}.`,
         proofPath: target.proofPath, theoremName: target.theoremName, status: 'paused' })),
       ...['a', 'b'].map(id => ({ id, kind: 'lemma', objective: `Prove helper ${id}.`, proofPath: 'Submission.lean',
         theoremName: `Tutorial.${id}`, type: 'True', ownerId: peer.id })),
     ] });
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'delivery-identity-fixture', problem,
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluator',
-      model: 'unused', effort: 'unused', worktree: workspace, phase: 'running', turns: 0, failures: [],
+    state = solverState(problem, example.workspace, { runId: 'delivery-identity-fixture', phase: 'running', failures: [],
       cooperation: { canonicalCommit: problem.baseCommit,
         tasks: plan.tasks.map(task => ({ task, status: 'pending', attempts: 0 })),
-        groups: plan.groups.map(group => ({ group, turns: 0 })) } };
+        groups: plan.groups.map(group => ({ group, turns: 0 })) } });
     host.verify.mockReset().mockImplementation(async request => verified(request));
     host.createSession.mockReset().mockImplementation(() => { throw new Error('real_models_are_not_used_in_delivery_tests'); });
     instances = []; events = []; edits = 0;
@@ -190,9 +180,7 @@ describe('assignment-bound worker delivery identities', () => {
     if (unrelated?.kind !== 'task') throw new Error('missing_unrelated_assignment');
     expect(unrelated.task.id).toBe('b');
     expect(cooperative.current(unrelated)).toBe(true);
-    let entered!: () => void, release!: () => void;
-    const checking = new Promise<void>(resolve => { entered = resolve; });
-    const blocked = new Promise<void>(resolve => { release = resolve; });
+    const { promise: checking, resolve: entered } = deferred(), { promise: blocked, resolve: release } = deferred();
     host.verify.mockImplementationOnce(async request => {
       expect(request.items.map((item: { theoremName: string }) => item.theoremName)).toEqual(['Tutorial.a']);
       entered(); await blocked;
@@ -273,8 +261,7 @@ describe('assignment-bound worker delivery identities', () => {
     append(first, log, { id: 'ready', kind: 'progress', summary: 'First assignment evidence.' });
     await cooperative.pulse(peer.id); cooperative.deactivate(peer);
     if (legacyRecord) delete state.cooperation!.deliveries![0].assignmentKey;
-    await applyEdit(task => task.id === 'a' ? { ...task, ownerId: other.id } : task);
-    await applyEdit(task => task.id === 'a' ? { ...task, ownerId: peer.id } : task);
+    await reassign();
     fs.writeFileSync(path.join(peer.worktree, 'RESEARCH.md'), 'A new assignment checkpoint.');
     commitSolverSources(problem, peer.worktree);
     await restart();
@@ -295,8 +282,7 @@ describe('assignment-bound worker delivery identities', () => {
     const first = await start('a');
     append(first, log, { id: 'ready', kind: 'progress', summary: 'First assignment evidence.' });
     await cooperative.pulse(peer.id); cooperative.deactivate(peer);
-    await applyEdit(task => task.id === 'a' ? { ...task, ownerId: other.id } : task);
-    await applyEdit(task => task.id === 'a' ? { ...task, ownerId: peer.id } : task);
+    await reassign();
     const next = await start('a');
     expect(next.assignment).not.toBe(first.assignment);
     expect(next.assignment.taskDigest).toBe(first.assignment.taskDigest);
@@ -314,8 +300,7 @@ describe('assignment-bound worker delivery identities', () => {
     const first = await start('a');
     append(first, 'scoped', { id: 'ready', kind: 'progress', summary: 'First assignment evidence.' });
     await cooperative.pulse(peer.id); cooperative.deactivate(peer);
-    await applyEdit(task => task.id === 'a' ? { ...task, ownerId: other.id } : task);
-    await applyEdit(task => task.id === 'a' ? { ...task, ownerId: peer.id } : task);
+    await reassign();
     const next = await start('a');
     expect(next.assignment.seedCommit).toBe(first.assignment.seedCommit);
     append(first, 'scoped', { id: 'late', kind: 'proof', commit: saveProof(next), summary: 'Late old assignment proof.' });
@@ -328,9 +313,7 @@ describe('assignment-bound worker delivery identities', () => {
   });
 
   it.each(['scoped', 'legacy'] as const)('keeps a stale asynchronous proof out of the revised task in %s logs', async log => {
-    let entered!: () => void, release!: () => void;
-    const checking = new Promise<void>(resolve => { entered = resolve; });
-    const blocked = new Promise<void>(resolve => { release = resolve; });
+    const { promise: checking, resolve: entered } = deferred(), { promise: blocked, resolve: release } = deferred();
     host.verify.mockImplementationOnce(async request => { entered(); await blocked; return verified(request); });
     const old = await start('a');
     append(old, log, { id: 'ready', kind: 'proof', commit: saveProof(old) });

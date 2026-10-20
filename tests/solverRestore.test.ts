@@ -1,15 +1,15 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample, LOCAL_EXAMPLE_STATEMENT } from '../src/math/localExample';
-import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } from '../src/math/verifier';
+import { LOCAL_EXAMPLE_STATEMENT } from '../src/math/localExample';
 import { readSolverRunState, writeSolverRunState, type SolverRunState } from '../src/solver/archive';
 import { CooperativeResearch, parseCooperationPlan, readCooperationPlan } from '../src/solver/cooperation';
-import { directSolverModules } from '../src/solver/modules';
 import type { ResearchWorker } from '../src/solver/modules/organization';
-import { commitSolverSources, committedSource, git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
+import { commitSolverSources, committedSource, git, type SolverProblem } from '../src/solver/problem';
 import { taskVersion, type CooperativeTask } from '../src/solver/tasks';
+import { cooperativeResearch } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
+import { verifiedBatch } from './helpers/verifier';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn() }));
 vi.mock('../src/math/verifier', async importOriginal => ({
@@ -18,14 +18,6 @@ vi.mock('../src/math/verifier', async importOriginal => ({
   resolveMathematicsLakePackagesCache: () => undefined,
 }));
 vi.mock('../src/runtime/codexSession', () => ({ createCodexMathSession: host.createSession }));
-
-function verified(request: MathematicsVerifierBatchRequest): MathematicsVerifierBatchResult {
-  return { schema: 'deepscientist.mathematics.verification-batch/v1', status: 'kernel_verified',
-    targetCommit: request.targetCommit!, sessionId: 'restore-fixture', events: [], startedAt: 1, checkedAt: 2, durationMs: 1,
-    results: request.items.map(item => ({ ...item, sourceDeclarationHash: item.expectedSourceDeclarationHash,
-      receiptId: `fixture-${request.targetCommit}-${item.theoremName}`, targetCommit: request.targetCommit,
-      status: 'kernel_verified', claim: 'statement' })) as MathematicsVerifierBatchResult['results'] };
-}
 
 describe('cooperative Lead checkpoint restoration', () => {
   let directory: string, workspace: string, problem: SolverProblem, state: SolverRunState;
@@ -48,10 +40,8 @@ describe('cooperative Lead checkpoint restoration', () => {
   const create = (requestLead = false) => {
     if (requestLead) state.cooperation!.error = 'A Lead assessment is requested.';
     const controller = new AbortController();
-    const cooperative = new CooperativeResearch({ state, workers: [lead, peer],
-      access: new Map([lead, peer].map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-      signal: controller.signal, save: () => {}, emit: (event, details) => events.push({ event, details }),
-      modules: directSolverModules, exclusiveCheck: async check => check() });
+    const cooperative = cooperativeResearch({ state, workers: [lead, peer], retrievalRoot: directory,
+      signal: controller.signal, emit: (event, details) => events.push({ event, details }) });
     instances.push({ cooperative, controller });
     return cooperative;
   };
@@ -90,20 +80,14 @@ describe('cooperative Lead checkpoint restoration', () => {
   };
 
   beforeEach(() => {
-    host.verify.mockReset().mockImplementation(async request => verified(request));
+    host.verify.mockReset().mockImplementation(async request => verifiedBatch(request, { sessionId: 'restore-fixture' }));
     host.createSession.mockReset().mockImplementation(() => { throw new Error('real_models_are_not_used_in_restore_tests'); });
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-restore-test-')));
-    workspace = path.join(directory, 'workspace');
-    const receipt = bootstrapLocalExample(workspace);
-    problem = readSolverProblem(workspace, receipt.activeProblemPath);
-    const peerWorkspace = path.join(directory, 'peer');
-    git(workspace, ['worktree', 'add', '--quiet', '--detach', peerWorkspace, problem.baseCommit]);
-    lead = { id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles };
-    peer = { id: 'researcher', role: 'researcher', worktree: peerWorkspace, ownedFiles: problem.ownedFiles };
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'restore-fixture', problem,
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluator',
-      model: 'unused', effort: 'unused', worktree: workspace, phase: 'running', turns: 0, failures: [],
-      cooperation: { canonicalCommit: problem.baseCommit, tasks: [] } };
+    const example = localExample('solver-restore-test-');
+    ({ directory, workspace, problem } = example);
+    lead = leadWorker(problem, workspace);
+    peer = peerWorker(example, 'researcher', { name: 'peer' });
+    state = solverState(problem, workspace, { runId: 'restore-fixture', phase: 'running', failures: [],
+      cooperation: { canonicalCommit: problem.baseCommit, tasks: [] } });
     instances = []; events = [];
     savePlan(goalTasks());
   });

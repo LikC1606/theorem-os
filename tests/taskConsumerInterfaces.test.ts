@@ -1,7 +1,6 @@
 import { expect, it } from 'vitest';
 import { compileTaskContext, frozenSourceContext, type TaskContextInput } from '../src/solver/contextCompiler';
-import { CooperativeResearch, type CooperationState } from '../src/solver/cooperation';
-import { directSolverModules } from '../src/solver/modules';
+import type { CooperationState } from '../src/solver/cooperation';
 import { buildResearchContext } from '../src/solver/modules/context';
 import { cooperativeWorkContract } from '../src/solver/modules/contracts';
 import type { ResearchWorker } from '../src/solver/modules/organization';
@@ -10,6 +9,7 @@ import type { SolverProblem } from '../src/solver/problem';
 import type { ProofRoute } from '../src/solver/proofRoutes';
 import { contextTaskConsumers, taskConsumerInterfaces, taskConsumerProjection } from '../src/solver/taskConsumers';
 import { taskVersion, type CooperativeAction, type CooperativeTask, type TaskRecord } from '../src/solver/tasks';
+import { cooperativeResearch } from './helpers/cooperation';
 
 const seedCommit = 'a'.repeat(40);
 const formal = 'namespace Original\nvariable (n : Nat)\ntheorem target (h : n > 0) : n > 0 := by sorry\nend Original';
@@ -36,11 +36,19 @@ const actionFor = (active: TaskRecord): Extract<CooperativeAction, { kind: 'task
   kind: 'task', task: active.task,
   assignment: { taskId: active.task.id, taskDigest: taskVersion(active.task), workerId: 'researcher', seedCommit },
 });
+const frozenContexts = () => ({ 'Submission.lean': frozenSourceContext(problem, 'Submission.lean', formal) });
 const inputFor = (active: TaskRecord, cooperation: CooperationState): TaskContextInput => ({
   problem, cooperation, action: actionFor(active), instructions: 'Preserve exact proof obligations.',
-  taskText: 'Prove the original target.', maxOptionalContextBytes: 0,
-  frozenContexts: { 'Submission.lean': frozenSourceContext(problem, 'Submission.lean', formal) },
+  taskText: 'Prove the original target.', maxOptionalContextBytes: 0, frozenContexts: frozenContexts(),
 });
+const stateFor = (cooperation: CooperationState) => ({ environmentDigest: 'environment', problem, cooperation } as SolverRunState);
+const researchContext = (cooperation: CooperationState, assignment: CooperativeAction) => buildResearchContext(problem,
+  stateFor(cooperation), { root: '/runtime', worktree: '/proof', environment: {}, taskText: 'Prove the original target.',
+    retrievalRoot: '/library', assignment, frozenContexts: frozenContexts() });
+const lead: ResearchWorker = { id: 'solver', role: 'lead', worktree: '/proof', ownedFiles: ['Submission.lean'] };
+const researcher: ResearchWorker = { ...lead, id: 'researcher', role: 'researcher' };
+const scopedFor = (cooperation: CooperationState, action: CooperativeAction) => cooperativeResearch({ state: stateFor(cooperation),
+  workers: [lead, researcher], retrievalRoot: '', access: new Map() }).contextState(action, researcher);
 const consumerRows = (message: string): Array<Record<string, any>> => {
   for (const line of message.split('\n')) {
     try {
@@ -182,10 +190,7 @@ it('uses the same global-only route consumer for the work contract and mathemati
   const cooperation: CooperationState = { tasks: [active], consumerInterfaces };
   const action = actionFor(active);
   expect(cooperativeWorkContract(action, cooperation.tasks, cooperation).plannedConsumers).toEqual([target.task.id]);
-  const context = buildResearchContext(problem, { problem, cooperation, environmentDigest: 'environment' } as SolverRunState, {
-    root: '/runtime', worktree: '/proof', environment: {}, taskText: 'Prove the original target.',
-    retrievalRoot: '/library', assignment: action, frozenContexts: inputFor(active, cooperation).frozenContexts,
-  });
+  const context = researchContext(cooperation, action);
   const focus = JSON.parse(context.message.split('Original-goal focus (advisory, not proof acceptance):\n')[1].split('\n\n')[0]);
 
   expect(context.workContract?.plannedConsumers).toEqual([target.task.id]);
@@ -199,13 +204,7 @@ it('exposes public pending consumer contracts through a context-only bypass with
   const privateSibling = node('private_sibling', [], { groupId: 'other', sharing: 'group', objective: 'PRIVATE_SIBLING_MATHEMATICS' });
   const privateConsumer = node('private_consumer', ['helper'], { groupId: 'other', sharing: 'group', objective: 'PRIVATE_CONSUMER_MATHEMATICS' });
   const cooperation: CooperationState = { canonicalCommit: seedCommit, tasks: [active, shared, privateSibling, privateConsumer] };
-  const state = { environmentDigest: 'environment', problem, cooperation } as SolverRunState;
-  const lead: ResearchWorker = { id: 'solver', role: 'lead', worktree: '/proof', ownedFiles: ['Submission.lean'] };
-  const researcher: ResearchWorker = { ...lead, id: 'researcher', role: 'researcher' };
-  const cooperative = new CooperativeResearch({ state, workers: [lead, researcher], access: new Map(),
-    signal: new AbortController().signal, save: () => {}, emit: () => {}, modules: directSolverModules,
-    exclusiveCheck: async check => check() });
-  const scoped = cooperative.contextState(actionFor(active), researcher);
+  const scoped = scopedFor(cooperation, actionFor(active));
 
   expect(scoped.tasks.map(item => item.task.id)).toEqual([active.task.id]);
   expect(scoped.consumerInterfaces).toMatchObject({ taskId: active.task.id, taskDigest: taskVersion(active.task) });
@@ -223,20 +222,10 @@ it('shows public in-flight questions across groups without expanding executable 
   const shared = node('shared', [], { kind: 'research', groupId: 'other', sharing: 'problem', objective: 'PUBLIC_QUESTION' });
   const secret = node('secret', [], { kind: 'research', groupId: 'other', sharing: 'group', objective: 'PRIVATE_QUESTION' });
   shared.status = secret.status = 'running';
-  const cooperation: CooperationState = { canonicalCommit: seedCommit, tasks: [active, shared, secret] };
-  const state = { environmentDigest: 'environment', problem, cooperation } as SolverRunState;
-  const lead: ResearchWorker = { id: 'solver', role: 'lead', worktree: '/proof', ownedFiles: ['Submission.lean'] };
-  const peer: ResearchWorker = { ...lead, id: 'researcher', role: 'researcher' };
-  const cooperative = new CooperativeResearch({ state, workers: [lead, peer], access: new Map(),
-    signal: new AbortController().signal, save: () => {}, emit: () => {}, modules: directSolverModules,
-    exclusiveCheck: async check => check() });
-  const action = actionFor(active), scoped = cooperative.contextState(action, peer);
+  const action = actionFor(active), scoped = scopedFor({ canonicalCommit: seedCommit, tasks: [active, shared, secret] }, action);
   expect(scoped.tasks.map(item => item.task.id)).toEqual(['active']);
   expect(scoped.parallelQuestions?.map(item => item.taskId)).toEqual(['shared']);
-  const context = buildResearchContext(problem, { ...state, cooperation: scoped }, {
-    root: '/runtime', worktree: '/proof', environment: {}, taskText: 'Prove the original target.',
-    retrievalRoot: '/library', assignment: action, frozenContexts: inputFor(active, scoped).frozenContexts,
-  });
+  const context = researchContext(scoped, action);
   expect(context.message).toContain('PUBLIC_QUESTION');
   expect(context.message).not.toContain('PRIVATE_QUESTION');
   expect(context.manifest?.requiredTaskIds).toEqual(['active']);

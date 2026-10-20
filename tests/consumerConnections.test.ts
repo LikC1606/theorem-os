@@ -1,19 +1,19 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample } from '../src/math/localExample';
 import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } from '../src/math/verifier';
 import { readSolverRunState, writeSolverRunState, type SolverRunState } from '../src/solver/archive';
-import { CooperativeResearch, parseCooperationPlan } from '../src/solver/cooperation';
-import { directSolverModules } from '../src/solver/modules';
+import { parseCooperationPlan, type CooperativeResearch } from '../src/solver/cooperation';
 import { buildResearchContext } from '../src/solver/modules/context';
 import type { ResearchWorker } from '../src/solver/modules/organization';
 import { readyResearchTasks, taskCanStart } from '../src/solver/modules/search';
-import { committedSource, commitSolverSources, git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
+import { committedSource, commitSolverSources, type SolverProblem } from '../src/solver/problem';
 import { automaticTaskConnection, createTaskConnectionCheck, freshTaskConnection, hasTaskConnectionCheck,
   taskConnectionCheckCurrent } from '../src/solver/taskConnections';
 import { taskVersion, type CooperativeAction, type CooperativeTask, type TaskAssignment, type TaskRecord } from '../src/solver/tasks';
+import { cooperativeResearch } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
+import { verifiedBatch } from './helpers/verifier';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn() }));
 vi.mock('../src/math/verifier', async importOriginal => ({
@@ -139,9 +139,8 @@ describe('host consumer connection lifecycle', () => {
   const node = (id: string) => state.cooperation!.tasks.find(item => item.task.id === id)!;
   const sourcePath = (worker: ResearchWorker) => path.join(worker.worktree, problem.projectRelative, 'Submission.lean');
   const create = () => {
-    const controller = new AbortController(), cooperative = new CooperativeResearch({ state, workers,
-      access: new Map(workers.map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-      signal: controller.signal, save: () => {}, emit: () => {}, modules: directSolverModules, exclusiveCheck: async check => check() });
+    const controller = new AbortController(), cooperative = cooperativeResearch({ state, workers, retrievalRoot: directory,
+      signal: controller.signal });
     instances.push({ cooperative, controller }); return cooperative;
   };
   const assigned = async (worker: ResearchWorker) => {
@@ -165,22 +164,15 @@ describe('host consumer connection lifecycle', () => {
   beforeEach(async () => {
     host.verify.mockReset().mockImplementation(async (request: MathematicsVerifierBatchRequest): Promise<MathematicsVerifierBatchResult> => {
       const source = fs.readFileSync(path.join(request.projectRoot, 'Submission.lean'), 'utf8'); checkedSources.push(source);
-      const passed = !/\b(?:sorry|admit)\b/u.test(source);
-      return { schema: 'deepscientist.mathematics.verification-batch/v1', status: passed ? 'kernel_verified' : 'failed',
-        targetCommit: request.targetCommit!, sessionId: 'connection-fixture', events: [], startedAt: 1, checkedAt: 2, durationMs: 1,
-        results: request.items.map(item => ({ ...item, sourceDeclarationHash: item.expectedSourceDeclarationHash,
-          receiptId: `fixture-${request.targetCommit}-${item.theoremName}`, targetCommit: request.targetCommit,
-          status: passed ? 'kernel_verified' : 'failed', claim: 'statement' })) as MathematicsVerifierBatchResult['results'] };
+      const batch = verifiedBatch(request, { sessionId: 'connection-fixture' });
+      return !/\b(?:sorry|admit)\b/u.test(source) ? batch
+        : { ...batch, status: 'failed', results: batch.results.map(item => ({ ...item, status: 'failed' })) };
     });
     host.createSession.mockReset().mockImplementation(() => { throw new Error('fixture_real_models_forbidden'); });
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'consumer-connection-')));
-    workspace = path.join(directory, 'workspace'); const receipt = bootstrapLocalExample(workspace);
-    problem = readSolverProblem(workspace, receipt.activeProblemPath);
-    workers = [{ id: 'lead', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles },
-      ...(['researcher', 'engineer', 'observer'] as const).map(id => {
-        const worktree = path.join(directory, id); git(workspace, ['worktree', 'add', '--quiet', '--detach', worktree, problem.baseCommit]);
-        return { id, role: id === 'engineer' ? 'engineer' as const : 'researcher' as const, worktree, ownedFiles: problem.ownedFiles };
-      })];
+    const example = localExample('consumer-connection-');
+    ({ directory, workspace, problem } = example);
+    workers = [leadWorker(problem, workspace, 'lead'), ...['researcher', 'engineer', 'observer']
+      .map(id => peerWorker(example, id, { role: id === 'engineer' ? 'engineer' : 'researcher' }))];
     const tasks: CooperativeTask[] = [{ id: 'helper', kind: 'lemma', objective: 'Core input', type: 'True',
       theoremName: 'Tutorial.helper', proofPath: 'Submission.lean', dependsOn: [], revision: 0, ownerId: 'researcher' },
     { id: 'independent', kind: 'research', objective: 'Independent useful investigation', dependsOn: [], revision: 0, ownerId: 'observer' },
@@ -188,9 +180,8 @@ describe('host consumer connection lifecycle', () => {
       theoremName: target.theoremName, proofPath: target.proofPath, dependsOn: index ? [] : ['helper'], revision: 0,
       ownerId: 'engineer', status: index ? 'paused' as const : 'active' as const }))];
     fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify({ tasks }) + '\n```');
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'connection-fixture', problem, taskDigest: 'task', buildDigest: 'build',
-      environmentDigest: 'environment', evaluatorDigest: 'evaluator', model: 'unused', effort: 'unused', worktree: workspace,
-      phase: 'running', turns: 0, failures: [], cooperation: { canonicalCommit: problem.baseCommit, tasks: [] } };
+    state = solverState(problem, workspace, { runId: 'connection-fixture', phase: 'running', failures: [],
+      cooperation: { canonicalCommit: problem.baseCommit, tasks: [] } });
     instances = []; checkedSources = []; cooperative = create(); await cooperative.restore();
   });
   afterEach(async () => {

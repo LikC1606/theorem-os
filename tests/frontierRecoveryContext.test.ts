@@ -1,12 +1,12 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import * as contextCompiler from '../src/solver/contextCompiler';
 import { CooperativeResearch, type CooperationState } from '../src/solver/cooperation';
-import { directSolverModules } from '../src/solver/modules';
 import { buildResearchContext } from '../src/solver/modules/context';
 import type { ResearchWorker } from '../src/solver/modules/organization';
 import type { SolverRunState } from '../src/solver/archive';
 import type { SolverProblem } from '../src/solver/problem';
 import { taskVersion, type CooperativeAction, type TaskRecord } from '../src/solver/tasks';
+import { cooperativeResearch } from './helpers/cooperation';
 
 const baseCommit = 'a'.repeat(40), seedCommit = 'b'.repeat(40);
 const formal = 'namespace Original\ntheorem target : True := by sorry\nend Original';
@@ -81,9 +81,7 @@ it('withholds global frontier recovery records from a scoped task worker and its
   const lead: ResearchWorker = { id: 'solver', role: 'lead', worktree: '/proof', ownedFiles: ['Submission.lean'] };
   const researcher: ResearchWorker = { ...lead, id: 'researcher', role: 'researcher' };
   vi.spyOn(CooperativeResearch.prototype as any, 'planningInputDigest').mockReturnValue('fixture-planning-input');
-  const cooperative = new CooperativeResearch({ state, workers: [lead, researcher], access: new Map(),
-    signal: new AbortController().signal, save: () => {}, emit: () => {}, modules: directSolverModules,
-    exclusiveCheck: async check => check() });
+  const cooperative = cooperativeResearch({ state, workers: [lead, researcher], retrievalRoot: '', access: new Map() });
   const assignment: Extract<CooperativeAction, { kind: 'task' }> = {
     kind: 'task', task: failed.task, assignment: failed.assignment!,
   };

@@ -4,6 +4,7 @@ import { recordRouteBlockers, refreshRouteBlockers, routeBlockerBasis, validateB
 import { readyResearchTasks, researchCanAdvance, routeAllowsTask } from '../src/solver/modules/search';
 import { markTaskAcceptance, taskVersion, type RouteRecord, type TaskRecord } from '../src/solver/tasks';
 import type { TaskProof } from '../src/solver/cooperativeProof';
+import { integratedProof } from './helpers/taskProof';
 
 const environment = 'environment', problem = 'frozen-problem';
 const proposal: BlockerProposal = { mechanism: 'missing stable-specific inequality', scope: 'the proposed saturation shortcut',
@@ -16,18 +17,10 @@ function node(id: string, dependsOn: string[] = [], kind: TaskRecord['task']['ki
 }
 
 function checked(item: TaskRecord, options: { fresh?: boolean; proofText?: string; environment?: string } = {}): TaskProof {
-  const proof = item.integratedCheck = { taskDigest: taskVersion(item.task), passed: true, commit: 'canonical',
-    sourceDigest: 'source', seedCommit: 'seed',
-    changes: [{ file: item.task.proofPath!, name: item.task.theoremName!,
-      after: `theorem ${item.task.theoremName!} : ${item.task.type!} := ${options.proofText ?? 'by trivial'}\n` }],
-    verification: { status: 'kernel_verified', targetCommit: 'projection', results: [
-      { status: 'kernel_verified', targetCommit: 'projection', receiptId: 'receipt' },
-    ] }, references: { environmentDigest: options.environment ?? environment, sourceCommit: 'projection', contextDigest: 'context',
-      inputs: [{ file: item.task.proofPath!, name: item.task.theoremName!, digest: options.proofText ?? 'by trivial' }],
-      root: { file: item.task.proofPath!, name: item.task.theoremName! }, tasks: [], statement: [], proof: [] } } as TaskProof;
-  item.status = 'integrated';
-  if (options.fresh !== false) markTaskAcceptance(proof);
-  return proof;
+  const text = options.proofText ?? 'by trivial', { proofPath: file, theoremName: name } = item.task;
+  return integratedProof(item, { accept: options.fresh !== false, receiptId: 'receipt', sourceCommit: 'projection',
+    environmentDigest: options.environment ?? environment, inputs: [{ file: file!, name: name!, digest: text }],
+    changes: [{ file: file!, name: name!, after: `theorem ${name!} : ${item.task.type!} := ${text}\n` }] });
 }
 
 function report(records: RouteBlocker[], item: TaskRecord, tasks: TaskRecord[], value: BlockerProposal[] = [proposal], at = 10) {

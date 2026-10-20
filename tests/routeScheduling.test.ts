@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { SolverProblem } from '../src/solver/problem';
-import type { TaskProof } from '../src/solver/cooperativeProof';
 import { describeProofRoutes, type ProofRoute } from '../src/solver/proofRoutes';
 import { recordRouteBlockers, refreshRouteBlockers, type RouteBlocker } from '../src/solver/routeControl';
 import { continuationResearchTasks, criticalPathResearchTasks, finalCandidateReviewReady, plannedTaskDependencyIds,
   readyResearchTasks, researchCanAdvance, routeAllowsTask, selectedTaskRoute, taskCanStart, taskDependenciesReady } from '../src/solver/modules/search';
-import { markTaskAcceptance, parseCooperationPlan, taskVersion, type CooperativeTask, type TaskRecord } from '../src/solver/tasks';
+import { parseCooperationPlan, taskVersion, type CooperativeTask, type TaskRecord } from '../src/solver/tasks';
+import { integratedProof } from './helpers/taskProof';
 
 const problem = { ownedFiles: ['Submission.lean'], targets: [{ theoremName: 'Submission.goal', proofPath: 'Submission.lean' }],
   declarations: { 'Submission.lean': [{ name: 'Submission.goal' }] } } as unknown as SolverProblem;
@@ -15,18 +15,7 @@ function node(id: string, kind: CooperativeTask['kind'] = 'lemma', dependsOn: st
     ...(['lemma', 'goal'].includes(kind) ? { proofPath: 'Submission.lean', theoremName: `Submission.${id}` } : {}),
     ...(kind === 'lemma' ? { type: 'True' } : {}) }, status: 'pending', attempts: 0 };
 }
-function checked(item: TaskRecord, uses: TaskRecord[] = []) {
-  item.status = 'integrated';
-  const proof = item.integratedCheck = { taskDigest: taskVersion(item.task), passed: true, commit: 'canonical',
-    sourceDigest: 'source', seedCommit: 'seed', changes: [], verification: { status: 'kernel_verified', targetCommit: 'projection',
-      results: [{ status: 'kernel_verified', targetCommit: 'projection', receiptId: `receipt-${item.task.id}` }] },
-    references: { sourceCommit: 'canonical', environmentDigest: 'environment', contextDigest: 'context', inputs: [],
-      root: { name: item.task.theoremName!, file: item.task.proofPath! }, statement: [],
-      proof: uses.map(input => ({ name: input.task.theoremName!, file: input.task.proofPath! })),
-      tasks: uses.map(input => ({ taskId: input.task.id, taskDigest: taskVersion(input.task) })) } } as TaskProof;
-  markTaskAcceptance(proof);
-  return proof;
-}
+function checked(item: TaskRecord, uses: TaskRecord[] = []) { return integratedProof(item, { uses }); }
 function fixture() {
   const a = node('a'), closeA = node('close_a', 'lemma', ['a']), b = node('b'), c = node('c');
   const closeB = node('close_b', 'lemma', ['b', 'c']), goal = node('goal', 'goal');

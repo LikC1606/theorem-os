@@ -1,15 +1,14 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample, LOCAL_EXAMPLE_PROOF } from '../src/math/localExample';
+import { LOCAL_EXAMPLE_PROOF } from '../src/math/localExample';
 import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } from '../src/math/verifier';
-import type { SolverRunState } from '../src/solver/archive';
-import { CooperativeResearch } from '../src/solver/cooperation';
+import type { CooperativeResearch } from '../src/solver/cooperation';
 import { checkTaskProof, TaskProofCache, trustedTaskProjectionReuse, type TaskProof } from '../src/solver/cooperativeProof';
-import { directSolverModules } from '../src/solver/modules';
-import { commitSolverSources, git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
+import { commitSolverSources, git, type SolverProblem } from '../src/solver/problem';
 import { taskVersion, type CooperativeTask, type TaskAssignment } from '../src/solver/tasks';
+import { cooperativeResearch } from './helpers/cooperation';
+import { leadWorker, localExample, solverState } from './helpers/solver';
 
 const host = vi.hoisted(() => ({ verify: vi.fn() }));
 vi.mock('../src/math/verifier', async importOriginal => ({
@@ -36,10 +35,8 @@ describe('host validation of content-equivalent task projections', () => {
           checkId: `check-${index + 1}`, receiptId: `original-receipt-${index}`, sessionId, checkedAt: 2,
           declarationReferences: { statement: [], proof: [] } })) as MathematicsVerifierBatchResult['results'] };
     });
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'host-projection-reuse-')));
-    workspace = path.join(directory, 'workspace');
-    const receipt = bootstrapLocalExample(workspace);
-    problem = readSolverProblem(workspace, receipt.activeProblemPath);
+    const example = localExample('host-projection-reuse-'), receipt = example.receipt;
+    ({ directory, workspace, problem } = example);
     const file = path.join(receipt.projectRoot, 'Submission.lean');
     fs.writeFileSync(file, LOCAL_EXAMPLE_PROOF);
     const seedCommit = commitSolverSources(problem, workspace);
@@ -56,14 +53,11 @@ describe('host validation of content-equivalent task projections', () => {
     raw = await checkTaskProof(problem, workspace, sourceCommit, task, assignment, [], environment, controller.signal, Infinity, [], 'environment', cache);
     expect(host.verify).toHaveBeenCalledOnce();
     expect(trustedTaskProjectionReuse(raw)).toBeDefined();
-    const state: SolverRunState = { schema: 'deepscientist.math.solver.v1', runId: 'projection-reuse-fixture', problem,
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluator', model: 'unused', effort: 'unused',
-      worktree: workspace, phase: 'running', turns: 0,
-      cooperation: { canonicalCommit: seedCommit, tasks: [{ task, assignment, status: 'delivered', proof: raw, attempts: 1 }] } };
-    const worker = { id: 'solver', role: 'lead' as const, worktree: workspace, ownedFiles: problem.ownedFiles };
-    cooperative = new CooperativeResearch({ state, workers: [worker],
-      access: new Map([[worker.id, { environment, retrievalRoot: workspace }]]),
-      signal: controller.signal, modules: directSolverModules, exclusiveCheck: operation => operation(), save: () => {}, emit: () => {} });
+    const state = solverState(problem, workspace, { runId: 'projection-reuse-fixture', phase: 'running',
+      cooperation: { canonicalCommit: seedCommit, tasks: [{ task, assignment, status: 'delivered', proof: raw, attempts: 1 }] } });
+    const worker = leadWorker(problem, workspace);
+    cooperative = cooperativeResearch({ state, workers: [worker], retrievalRoot: workspace,
+      access: new Map([[worker.id, { environment, retrievalRoot: workspace }]]), signal: controller.signal, exclusiveCheck: operation => operation() });
   });
   afterEach(() => { controller?.abort(); vi.restoreAllMocks(); fs.rmSync(directory, { recursive: true, force: true }); });
 

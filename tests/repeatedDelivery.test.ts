@@ -1,8 +1,7 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CooperativeResearch } from '../src/solver/cooperation';
+import type { CooperativeResearch } from '../src/solver/cooperation';
 import { ownedSourceDigest, type TaskProof } from '../src/solver/cooperativeProof';
 import { directSolverModules } from '../src/solver/modules';
 import type { ResearchWorker } from '../src/solver/modules/organization';
@@ -10,6 +9,9 @@ import { markTaskAcceptance, taskVersion, type CooperativeAction, type Cooperati
 import type { SolverRunState } from '../src/solver/archive';
 import { git, type SolverProblem } from '../src/solver/problem';
 import { hashMathFormalSourceDeclaration } from '../src/math/leanSource';
+import { deferred } from './helpers/async';
+import { cooperativeResearch } from './helpers/cooperation';
+import { temporaryDirectory } from './helpers/files';
 
 const task = (id: string, kind: CooperativeTask['kind'] = 'lemma', dependsOn: string[] = []): CooperativeTask => ({
   id, kind, objective: id, revision: 0, dependsOn,
@@ -41,15 +43,29 @@ describe('persistent typed delivery failure guards', () => {
       error: 'Lean exited with status 1.', stdoutPreview: 'Submission.lean:1:1: error: Unknown identifier FAILURE' }] },
   } as TaskProof);
   const create = (restored = state) => {
-    const instance = new CooperativeResearch({ state: restored, workers: [lead, researcher],
-      access: new Map([[lead.id, { environment: {} } as any]]), signal: new AbortController().signal,
-      save: () => {}, emit, exclusiveCheck: async check => check(),
+    const instance = cooperativeResearch({ state: restored, workers: [lead, researcher], retrievalRoot: '',
+      access: new Map([[lead.id, { environment: {} } as any]]), emit,
       modules: { ...directSolverModules, M2: { ...directSolverModules.M2, checkTask: checker } } });
     vi.spyOn(instance as any, 'seed').mockReturnValue(seed);
     instances.push(instance); return instance;
   };
   const check = (version = seed, conditions?: readonly CooperativeTask[], instance = cooperative) =>
     (instance as any).check(candidate.task, candidate.assignment, directory, version, conditions, undefined, true) as Promise<TaskProof>;
+  const reseed = (source: string) => {
+    fs.writeFileSync(sourceFile(), source);
+    seed = commit(); state.cooperation!.canonicalCommit = seed; candidate.assignment!.seedCommit = seed;
+  };
+  const failWith = (edit: (proof: TaskProof) => void) => checker.mockImplementation(
+    async (_problem, worktree, version, obligation, assignment, _goals, _env, _signal, _timeout, conditions) => {
+      const proof = failure(worktree, version, obligation, assignment, conditions); edit(proof); return proof;
+    });
+  const accepted = (record: TaskRecord, after: string, receiptId: string) => {
+    record.integratedCheck = { ...failure(directory, seed, record.task, candidate.assignment!), passed: true,
+      changes: [{ file: 'Submission.lean', name: record.task.id, after }],
+      verification: { status: 'kernel_verified', targetCommit: seed,
+        results: [{ status: 'kernel_verified', targetCommit: seed, receiptId }] } } as TaskProof;
+    markTaskAcceptance(record.integratedCheck); return record;
+  };
   const exhaustRepair = async () => {
     await cooperative.deliver(researcher, action, seed);
     const repair = await cooperative.next(researcher, budget);
@@ -61,7 +77,7 @@ describe('persistent typed delivery failure guards', () => {
     return repair;
   };
   beforeEach(() => {
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'repeated-delivery-')));
+    directory = temporaryDirectory('repeated-delivery-');
     fs.mkdirSync(path.join(directory, 'generated/p'), { recursive: true });
     fs.writeFileSync(sourceFile(), 'lemma candidate : True := by exact FAILURE\n');
     fs.writeFileSync(path.join(directory, 'generated/p/notes.txt'), 'Advisory material.');
@@ -179,8 +195,7 @@ describe('persistent typed delivery failure guards', () => {
   });
 
   it('blocks a revision, prose and missing-helper rename before dispatch while independent research remains ready', async () => {
-    fs.writeFileSync(sourceFile(), 'theorem goal : True := by sorry\n'); seed = commit();
-    state.cooperation!.canonicalCommit = seed; candidate.assignment!.seedCommit = seed;
+    reseed('theorem goal : True := by sorry\n');
     checker.mockRejectedValue(new Error(missing)); await exhaustRepair();
     candidate.task = { ...candidate.task, id: 'renamed', theoremName: 'new_helper', revision: 7, objective: 'A different description.' };
     candidate.status = 'pending'; candidate.attempts = 0; candidate.assignment = undefined; candidate.proof = undefined;
@@ -254,12 +269,8 @@ describe('persistent typed delivery failure guards', () => {
   });
 
   const checkedDependency = () => {
-    const dependency: TaskRecord = { task: task('dependency'), status: 'integrated', attempts: 1 };
-    dependency.integratedCheck = { ...failure(directory, seed, dependency.task, candidate.assignment!), passed: true,
-      changes: [{ file: 'Submission.lean', name: 'dependency', after: 'lemma dependency : True := by trivial\n' }],
-      verification: { status: 'kernel_verified', targetCommit: seed,
-        results: [{ status: 'kernel_verified', targetCommit: seed, receiptId: 'first' }] } } as TaskProof;
-    markTaskAcceptance(dependency.integratedCheck);
+    const dependency = accepted({ task: task('dependency'), status: 'integrated', attempts: 1 },
+      'lemma dependency : True := by trivial\n', 'first');
     state.cooperation!.tasks.push(dependency); candidate.task = { ...candidate.task, dependsOn: ['dependency'] };
     candidate.assignment!.taskDigest = taskVersion(candidate.task);
     return dependency;
@@ -285,14 +296,8 @@ describe('persistent typed delivery failure guards', () => {
   it('keeps a failed OR branch blocked after assignment reset and permits a different checked branch', async () => {
     candidate.task = task('candidate', 'goal'); candidate.assignment!.taskDigest = taskVersion(candidate.task);
     action = { kind: 'task', task: candidate.task, assignment: candidate.assignment! };
-    const branches = ['left', 'right'].map(id => {
-      const record: TaskRecord = { task: task(id), status: 'integrated', attempts: 1 };
-      record.integratedCheck = { ...failure(directory, seed, record.task, candidate.assignment!), passed: true,
-        changes: [{ file: 'Submission.lean', name: id, after: `lemma ${id} : True := by trivial\n` }],
-        verification: { status: 'kernel_verified', targetCommit: seed,
-          results: [{ status: 'kernel_verified', targetCommit: seed, receiptId: id }] } } as TaskProof;
-      markTaskAcceptance(record.integratedCheck); return record;
-    });
+    const branches = ['left', 'right'].map(id =>
+      accepted({ task: task(id), status: 'integrated', attempts: 1 }, `lemma ${id} : True := by trivial\n`, id));
     state.cooperation!.tasks.push(...branches);
     state.cooperation!.proofRoutes = branches.map(record => ({ id: `via_${record.task.id}`, targetTaskId: candidate.task.id,
       prerequisiteTaskIds: [], closingTaskId: record.task.id }));
@@ -311,8 +316,7 @@ describe('persistent typed delivery failure guards', () => {
   });
 
   it('serializes identical in-flight candidates before persisting a deterministic failure', async () => {
-    let release!: () => void;
-    const pending = new Promise<void>(resolve => { release = resolve; });
+    const { promise: pending, resolve: release } = deferred();
     checker.mockImplementationOnce(async (_problem, worktree, version, obligation, assignment, _goals, _env, _signal, _timeout, conditions) => {
       await pending; return failure(worktree, version, obligation, assignment, conditions);
     });
@@ -323,23 +327,19 @@ describe('persistent typed delivery failure guards', () => {
   });
 
   it.each(['unavailable', 'blocked', 'cleanup', 'no-diagnostics'] as const)('does not persist %s verification as a mathematical failure', async kind => {
-    checker.mockImplementation(async (_problem, worktree, version, obligation, assignment, _goals, _env, _signal, _timeout, conditions) => {
-      const proof = failure(worktree, version, obligation, assignment, conditions);
+    failWith(proof => {
       if (kind === 'unavailable' || kind === 'blocked') proof.verification.status = kind;
       else if (kind === 'cleanup') proof.verification.results[0].cleanupError = 'Temporary checkout unavailable.';
       else proof.verification.results[0].stdoutPreview = 'Request timed out before diagnostics.';
-      return proof;
     });
     await check(); await check();
     expect(checker).toHaveBeenCalledTimes(2); expect(state.cooperation!.failedTaskInputs).toBeUndefined();
   });
 
   it.each(['sorry', 'admit'] as const)('persists an explicit %s rejection even without compiler diagnostics', async kind => {
-    checker.mockImplementation(async (_problem, worktree, version, obligation, assignment, _goals, _env, _signal, _timeout, conditions) => {
-      const proof = failure(worktree, version, obligation, assignment, conditions);
+    failWith(proof => {
       proof.verification.results[0].stdoutPreview = undefined;
       proof.verification.results[0][kind === 'sorry' ? 'sorryCount' : 'admitCount'] = 1;
-      return proof;
     });
     await check(); await expect(check()).rejects.toThrow('math_task_repeated_failed_input');
     expect(checker).toHaveBeenCalledTimes(1); expect(state.cooperation!.failedTaskInputs).toHaveLength(1);
@@ -347,10 +347,7 @@ describe('persistent typed delivery failure guards', () => {
 
   it.each(['Invalid authentication', 'Request failed: rate limit', 'Request timed out'])(
     'ignores a transient verifier error even if a result retains diagnostics: %s', async error => {
-      checker.mockImplementation(async (_problem, worktree, version, obligation, assignment, _goals, _env, _signal, _timeout, conditions) => {
-        const proof = failure(worktree, version, obligation, assignment, conditions);
-        proof.verification.results[0].error = error; return proof;
-      });
+      failWith(proof => { proof.verification.results[0].error = error; });
       await check(); await check();
       expect(checker).toHaveBeenCalledTimes(2); expect(state.cooperation!.failedTaskInputs).toBeUndefined();
     });
@@ -370,8 +367,7 @@ describe('persistent typed delivery failure guards', () => {
   });
 
   it('allows a different already saved proof of the same type after a missing target', async () => {
-    fs.writeFileSync(sourceFile(), 'lemma available : True := by trivial\n'); seed = commit();
-    state.cooperation!.canonicalCommit = seed; candidate.assignment!.seedCommit = seed;
+    reseed('lemma available : True := by trivial\n');
     checker.mockRejectedValueOnce(new Error(missing)); await cooperative.deliver(researcher, action, seed);
     candidate.task = { ...candidate.task, theoremName: 'available' };
     candidate.assignment!.taskDigest = taskVersion(candidate.task);
@@ -389,10 +385,8 @@ describe('persistent typed delivery failure guards', () => {
   });
 
   it('separates saved same-body targets with different namespace and notation contexts', async () => {
-    fs.writeFileSync(sourceFile(), 'namespace Bad\nlocal notation "witness" => (0 : Nat)\n' +
-      'lemma bad : True := by exact witness\nend Bad\nnamespace Good\n' +
-      'local notation "witness" => True.intro\nlemma good : True := by exact witness\nend Good\n');
-    seed = commit(); state.cooperation!.canonicalCommit = seed; candidate.assignment!.seedCommit = seed;
+    reseed('namespace Bad\nlocal notation "witness" => (0 : Nat)\nlemma bad : True := by exact witness\nend Bad\n' +
+      'namespace Good\nlocal notation "witness" => True.intro\nlemma good : True := by exact witness\nend Good\n');
     candidate.task = { ...candidate.task, theoremName: 'Bad.bad' };
     candidate.assignment!.taskDigest = taskVersion(candidate.task);
     await check();

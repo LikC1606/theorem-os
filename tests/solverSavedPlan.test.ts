@@ -1,16 +1,17 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample } from '../src/math/localExample';
 import type { MathAgentOptions } from '../src/runtime/codexSession';
 import type { SolverRunState } from '../src/solver/archive';
 import { CooperativeResearch } from '../src/solver/cooperation';
 import { directSolverModules, type SolverModules } from '../src/solver/modules';
 import type { ResearchWorker } from '../src/solver/modules/organization';
-import { git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
+import { git, type SolverProblem } from '../src/solver/problem';
 import { runResearchWorkers } from '../src/solver/research';
 import { parseCooperationPlan, type CooperativeAction } from '../src/solver/tasks';
+import { deferred } from './helpers/async';
+import { workerAccess } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
 
 vi.mock('../src/math/mathBuildManifest', () => ({ readMathBuildManifest: vi.fn() }));
 
@@ -35,25 +36,19 @@ describe('saved Lead plans after request failure', () => {
       groups: parsed.groups.map(group => ({ group, turns: 0 })), error: 'A Lead decision is requested.' };
   };
   const run = (maxTotalTokens = 0) => runResearchWorkers({ state, workers, modules,
-    access: new Map(workers.map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
+    access: workerAccess(workers, directory),
     root: directory, buildFile: path.join(directory, 'build.json'), taskText: 'Prove the original targets.',
     executable: 'fixture-no-model', profile: 'fixture', signal: new AbortController().signal,
     deadline: Infinity, maxTurns: 3, maxTurnMs: Infinity, maxTotalTokens,
     save: () => {}, emit: (event, details) => events.push({ event, details }) });
 
   beforeEach(() => {
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-saved-plan-')));
-    const workspace = path.join(directory, 'lead');
-    const receipt = bootstrapLocalExample(workspace);
-    problem = readSolverProblem(workspace, receipt.activeProblemPath);
-    const peer = path.join(directory, 'engineer');
-    git(workspace, ['worktree', 'add', '--quiet', '--detach', peer, problem.baseCommit]);
-    workers = [{ id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles },
-      { id: 'engineer', role: 'engineer', worktree: peer, ownedFiles: problem.ownedFiles }];
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'saved-plan-fixture', problem,
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluation',
-      model: 'fixture', effort: 'fixture', worktree: workspace, phase: 'prepared', turns: 0,
-      workers: workers.map(worker => ({ ...worker, phase: 'prepared', turns: 0 })) };
+    const example = localExample('solver-saved-plan-', 'lead');
+    ({ directory, problem } = example);
+    workers = [leadWorker(problem, example.workspace), peerWorker(example, 'engineer', { role: 'engineer' })];
+    state = solverState(problem, example.workspace, { runId: 'saved-plan-fixture', phase: 'prepared',
+      evaluatorDigest: 'evaluation', model: 'fixture', effort: 'fixture',
+      workers: workers.map(worker => ({ ...worker, phase: 'prepared', turns: 0 })) });
     events = []; actions = []; sessionError = 'fetch failed'; requestAccounting = false;
     retry = vi.fn().mockReturnValue(undefined);
     close = vi.fn(async () => {});
@@ -217,11 +212,8 @@ describe('saved Lead plans after request failure', () => {
 
   it('waits for the planning writer to close before publishing its saved plan', async () => {
     requestAccounting = true; sessionError = 'HTTP 403 Forbidden';
-    let releaseClose!: () => void;
-    const closing = new Promise<void>(resolve => { releaseClose = resolve; });
-    let closeStarted!: () => void;
-    const startedClosing = new Promise<void>(resolve => { closeStarted = resolve; });
-    close.mockImplementation(async () => { closeStarted(); await closing; });
+    const closing = deferred(), startedClosing = deferred();
+    close.mockImplementation(async () => { startedClosing.resolve(); await closing.promise; });
     execute = async (_action, options) => {
       const admission = options.requestGate!(); expect(admission.allowed).toBe(true);
       if (admission.allowed) admission.settle({ usage: { totalTokens: 300, inputTokens: 250, outputTokens: 50 }, complete: true });
@@ -231,10 +223,10 @@ describe('saved Lead plans after request failure', () => {
     };
     const running = run(1000);
     try {
-      await startedClosing;
+      await startedClosing.promise;
       expect(events.some(item => ['plan_updated', 'task_assigned'].includes(item.event))).toBe(false);
       expect(state.cooperation!.tasks).toEqual([]);
-    } finally { releaseClose(); }
+    } finally { closing.resolve(); }
     await expect(running).resolves.toBeUndefined();
     expect(state.cooperation!.tasks.map(node => node.task.id)).toEqual(['goal_1', 'goal_2']);
     expect(events.some(item => item.event === 'task_assigned')).toBe(true);

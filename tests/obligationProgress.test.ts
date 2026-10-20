@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { captureObligationSnapshot, diffObligationProgress } from '../src/solver/obligationProgress';
 import { finalCandidateReviewReady } from '../src/solver/modules/search';
 import { hasTaskAcceptance, markTaskAcceptance, taskVersion, type RouteRecord, type TaskRecord } from '../src/solver/tasks';
-import type { TaskProof } from '../src/solver/cooperativeProof';
 import type { ProofRoute } from '../src/solver/proofRoutes';
 import type { RouteBlocker } from '../src/solver/routeControl';
+import { integratedProof } from './helpers/taskProof';
 
 const environmentDigest = 'environment';
 function node(id: string, kind: TaskRecord['task']['kind'] = 'lemma', dependsOn: string[] = []): TaskRecord {
@@ -13,16 +13,8 @@ function node(id: string, kind: TaskRecord['task']['kind'] = 'lemma', dependsOn:
     status: 'pending', attempts: 0 };
 }
 function checked(item: TaskRecord, uses: TaskRecord[] = []) {
-  item.status = 'integrated';
-  return item.integratedCheck = { taskDigest: taskVersion(item.task), passed: true, commit: 'canonical',
-    sourceDigest: 'source', seedCommit: 'seed', changes: [],
-    verification: { status: 'kernel_verified', targetCommit: 'projection', results: [
-      { status: 'kernel_verified', targetCommit: 'projection', receiptId: 'receipt' },
-    ] }, references: { environmentDigest, sourceCommit: 'projection', contextDigest: 'context',
-      inputs: [{ file: item.task.proofPath!, name: item.task.theoremName!, digest: 'declaration' }],
-      root: { file: item.task.proofPath!, name: item.task.theoremName! },
-      tasks: uses.map(input => ({ taskId: input.task.id, taskDigest: taskVersion(input.task) })), statement: [],
-      proof: uses.map(input => ({ file: input.task.proofPath!, name: input.task.theoremName! })) } } as TaskProof;
+  return integratedProof(item, { uses, accept: false, receiptId: 'receipt', sourceCommit: 'projection', environmentDigest,
+    inputs: [{ file: item.task.proofPath!, name: item.task.theoremName!, digest: 'declaration' }] });
 }
 function blocker(item: TaskRecord): RouteBlocker {
   return { id: 'local-obstruction', taskId: item.task.id, taskDigest: taskVersion(item.task), groupId: 'main',

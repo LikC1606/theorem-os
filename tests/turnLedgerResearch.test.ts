@@ -1,34 +1,22 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample } from '../src/math/localExample';
 import type { MathAgentOptions, MathAgentSession } from '../src/runtime/codexSession';
-import type { SolverRunState } from '../src/solver/archive';
 import { directSolverModules } from '../src/solver/modules';
 import type { SolverModules } from '../src/solver/modules';
 import type { ProofCheck } from '../src/solver/modules/evidence';
-import { commitSolverSources, git, readSolverProblem } from '../src/solver/problem';
+import { commitSolverSources } from '../src/solver/problem';
 import { runResearchWorkers } from '../src/solver/research';
-import type { ResearchWorker } from '../src/solver/modules/organization';
+import { workerAccess } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
 
 vi.mock('../src/math/mathBuildManifest', () => ({ readMathBuildManifest: vi.fn() }));
 const roots: string[] = [];
 afterEach(() => { vi.restoreAllMocks(); for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
 function fixture(cooperative = false) {
-  const directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'turn-ledger-research-'))); roots.push(directory);
-  const workspace = path.join(directory, 'lead'), receipt = bootstrapLocalExample(workspace);
-  const problem = readSolverProblem(workspace, receipt.activeProblemPath);
-  const lead: ResearchWorker = { id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles };
-  const workers = [lead];
-  if (cooperative) {
-    const worktree = path.join(directory, 'peer');
-    git(workspace, ['worktree', 'add', '--quiet', '--detach', worktree, problem.baseCommit]);
-    workers.push({ ...lead, id: 'peer', role: 'researcher', worktree });
-  }
-  const state: SolverRunState = { schema: 'deepscientist.math.solver.v1', runId: 'turn-ledger-integration', problem,
-    taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluator',
-    model: 'fixture', effort: 'fixture', worktree: workspace, phase: 'running', turns: 0,
+  const example = localExample('turn-ledger-research-', 'lead'), { directory, workspace, problem } = example; roots.push(directory);
+  const workers = [leadWorker(problem, workspace), ...cooperative ? [peerWorker(example, 'peer')] : []];
+  const state = solverState(problem, workspace, { runId: 'turn-ledger-integration', model: 'fixture', effort: 'fixture', phase: 'running',
     ...(cooperative ? { workers: workers.map(worker => ({ ...worker, phase: 'running' as const, turns: 0 })),
       cooperation: { canonicalCommit: problem.baseCommit, groups: [{ group: { id: 'main', objective: 'Prove originals',
         status: 'active' as const, revision: 0 }, turns: 0 }], tasks: [
@@ -37,10 +25,10 @@ function fixture(cooperative = false) {
         ...problem.targets.map((target, index) => ({ task: { id: `goal_${index + 1}`, kind: 'goal' as const,
           objective: target.theoremName, proofPath: target.proofPath, theoremName: target.theoremName,
           status: 'paused' as const, dependsOn: [], revision: 0 }, status: 'pending' as const, attempts: 0 })),
-      ] } } : {}) };
+      ] } } : {}) });
   const emit = vi.fn(), save = vi.fn();
   const run = (modules: SolverModules, maxTurns: number) => runResearchWorkers({ state, workers,
-    access: new Map(workers.map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])), modules,
+    access: workerAccess(workers, directory), modules,
     root: directory, buildFile: path.join(directory, 'mock-build.json'), taskText: 'Fixture', executable: 'unused-fixture', profile: 'unused-fixture',
     signal: new AbortController().signal, deadline: Infinity, maxTurnMs: Infinity, maxTurns, maxTotalTokens: 0, save, emit });
   const check = vi.fn(async (): Promise<ProofCheck> => {

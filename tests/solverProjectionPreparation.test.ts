@@ -1,16 +1,17 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { bootstrapLocalExample, LOCAL_EXAMPLE_PROOF } from '../src/math/localExample';
-import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } from '../src/math/verifier';
+import type { MathematicsVerifierBatchRequest } from '../src/math/verifier';
 import type { SolverRunState } from '../src/solver/archive';
-import { CooperativeResearch } from '../src/solver/cooperation';
+import type { CooperativeResearch } from '../src/solver/cooperation';
 import * as proofApi from '../src/solver/cooperativeProof';
-import { directSolverModules } from '../src/solver/modules';
-import type { ResearchWorker } from '../src/solver/modules/organization';
 import { committedSource, commitSolverSources, readSolverProblem, type SolverProblem } from '../src/solver/problem';
 import { taskVersion, type CooperativeTask } from '../src/solver/tasks';
+import { cooperativeResearch } from './helpers/cooperation';
+import { temporaryDirectory } from './helpers/files';
+import { leadWorker, solverState } from './helpers/solver';
+import { receiptBatch } from './helpers/verifier';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn() }));
 vi.mock('../src/math/verifier', async importOriginal => ({
@@ -24,19 +25,8 @@ vi.mock('../src/math/mathProofEnvironment', async importOriginal => ({
 }));
 vi.mock('../src/runtime/codexSession', () => ({ createCodexMathSession: host.createSession }));
 
-function verified(request: MathematicsVerifierBatchRequest): MathematicsVerifierBatchResult {
-  return { schema: 'deepscientist.mathematics.verification-batch/v1', status: 'kernel_verified',
-    targetCommit: request.targetCommit!, sessionId: 'projection-preparation-fixture', events: [], startedAt: 1, checkedAt: 2, durationMs: 1,
-    results: request.items.map((item, index) => ({
-      status: 'kernel_verified', targetCommit: request.targetCommit!, proofPath: item.proofPath, theoremName: item.theoremName,
-      statementHash: item.statementHash, leanStatementHash: item.leanStatementHash, claim: item.claim ?? 'statement',
-      sourceDeclarationHash: item.expectedSourceDeclarationHash, proofHash: 'fixture-proof',
-      statementBinding: 'caller-bound-to-committed-declaration', toolchain: { lean: 'fixture-lean' }, verifier: 'lean-kernel',
-      goalsRemaining: 0, sorryCount: 0, admitCount: 0, axioms: [], checkedAt: 2,
-      checkId: item.id?.trim() || `check-${index + 1}`, sessionId: 'projection-preparation-fixture',
-      receiptId: `receipt-${request.targetCommit}-${item.theoremName}`, declarationReferences: { statement: [], proof: [] },
-    })) };
-}
+const verified = (request: MathematicsVerifierBatchRequest) => receiptBatch(request,
+  { sessionId: 'projection-preparation-fixture', receiptId: (_, theoremName) => `receipt-${request.targetCommit}-${theoremName}` });
 
 type Projector = ReturnType<typeof proofApi.createTaskSourceProjector>;
 type Preparation = { commit: string; worktree: string; targets: string[]; project: Projector };
@@ -60,9 +50,7 @@ describe('integrated task projection preparation', () => {
     const declarations = tasks.map(task => `lemma ${task.id} : True := by trivial`).join('\n');
     fs.writeFileSync(file, LOCAL_EXAMPLE_PROOF.replace('theorem add_zero', `${declarations}\n\ntheorem add_zero`));
     const canonical = commitSolverSources(problem, workspace);
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'projection-preparation-fixture', problem,
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluator',
-      model: 'unused', effort: 'unused', worktree: workspace, phase: 'running', turns: 0, failures: [],
+    state = solverState(problem, workspace, { runId: 'projection-preparation-fixture', phase: 'running', failures: [],
       cooperation: { canonicalCommit: canonical,
         groups: [{ group: { id: 'main', objective: 'Prove the original problem.', status: 'active', revision: 0 }, turns: 0 }],
         tasks: [...tasks.map(task => ({ task, status: 'integrated' as const, attempts: 1 })),
@@ -70,13 +58,12 @@ describe('integrated task projection preparation', () => {
             task: { id: `goal_${index}`, kind: 'goal' as const, objective: `Prove ${target.theoremName}.`,
               theoremName: target.theoremName, proofPath: target.proofPath, dependsOn: [], revision: 0, status: 'paused' as const },
             status: 'pending' as const, attempts: 0,
-          }))] } };
-    const lead: ResearchWorker = { id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles };
-    cooperative = new CooperativeResearch({ state, workers: [lead],
+          }))] } });
+    const lead = leadWorker(problem, workspace);
+    cooperative = cooperativeResearch({ state, workers: [lead], retrievalRoot: directory,
       access: new Map([[lead.id, { environment: { PATH: '/usr/bin:/bin',
         DEEPSCIENTIST_MATH_ENV_FILE: path.join(directory, 'math.env') }, retrievalRoot: directory }]]),
-      signal: controller.signal, save: () => {}, emit: (event, details) => events.push({ event, details }),
-      modules: directSolverModules, exclusiveCheck: check => check() });
+      signal: controller.signal, emit: (event, details) => events.push({ event, details }), exclusiveCheck: check => check() });
     return canonical;
   };
   const expectVerified = (canonical: string) => {
@@ -95,7 +82,7 @@ describe('integrated task projection preparation', () => {
   beforeEach(() => {
     host.verify.mockReset().mockImplementation(async request => verified(request));
     host.createSession.mockReset().mockImplementation(() => { throw new Error('fixture_real_models_forbidden'); });
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-projection-preparation-')));
+    directory = temporaryDirectory('solver-projection-preparation-');
     workspace = path.join(directory, 'workspace');
     preparations = []; events = []; controller = new AbortController(); cooperative = undefined;
     const original = proofApi.createTaskSourceProjector;

@@ -1,12 +1,12 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample } from '../src/math/localExample';
 import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } from '../src/math/verifier';
 import { checkSolverProof, type ProofCheck } from '../src/solver/modules/evidence';
 import { checkLemmaResearch, type LemmaPlan, type LemmaResearch } from '../src/solver/lemma';
-import { git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
+import { git, type SolverProblem } from '../src/solver/problem';
+import { localExample } from './helpers/solver';
+import { failedBatch } from './helpers/verifier';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), environment: vi.fn() }));
 vi.mock('../src/math/verifier', async importOriginal => ({
@@ -24,11 +24,8 @@ function verified(request: MathematicsVerifierBatchRequest): MathematicsVerifier
       targetCommit: request.targetCommit, status: 'kernel_verified', claim: 'statement' })) as MathematicsVerifierBatchResult['results'] };
 }
 
-function rejected(request: MathematicsVerifierBatchRequest): MathematicsVerifierBatchResult {
-  const batch = verified(request);
-  return { ...batch, status: 'failed', results: batch.results.map(result => ({ ...result, status: 'failed',
-    error: 'Lean exited with status 1.', stdoutPreview: `${result.proofPath}:4:1: error: unsolved goals` })) };
-}
+const rejected = (request: MathematicsVerifierBatchRequest) =>
+  failedBatch(verified(request), { stdoutPreview: proofPath => `${proofPath}:4:1: error: unsolved goals` });
 
 describe('process-local deterministic Lean rejection reuse', () => {
   let directory: string, workspace: string, project: string, problem: SolverProblem, env: NodeJS.ProcessEnv;
@@ -51,11 +48,9 @@ describe('process-local deterministic Lean rejection reuse', () => {
   beforeEach(() => {
     host.verify.mockReset().mockImplementation(async request => rejected(request));
     host.environment.mockReset().mockReturnValue(undefined);
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-evidence-reuse-')));
-    workspace = path.join(directory, 'workspace');
-    const receipt = bootstrapLocalExample(workspace);
-    project = receipt.projectRoot;
-    problem = readSolverProblem(workspace, receipt.activeProblemPath);
+    const example = localExample('solver-evidence-reuse-');
+    ({ directory, workspace, problem } = example);
+    project = example.receipt.projectRoot;
     env = { DEEPSCIENTIST_MATH_ENV_FILE: path.join(directory, 'math.env'), PATH: '/usr/bin:/bin' };
   });
   afterEach(() => { vi.restoreAllMocks(); fs.rmSync(directory, { recursive: true, force: true }); });

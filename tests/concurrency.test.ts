@@ -1,11 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createMathOperationLimiter } from '../src/math/concurrency';
-
-function deferred() {
-  let resolve!: () => void;
-  const promise = new Promise<void>(done => { resolve = done; });
-  return { promise, resolve };
-}
+import { deferred } from './helpers/async';
 
 describe('verification concurrency pools', () => {
   it('limits operations and admits queued work in arrival order', async () => {

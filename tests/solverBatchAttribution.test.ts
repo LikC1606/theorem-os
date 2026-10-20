@@ -1,14 +1,14 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample } from '../src/math/localExample';
 import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } from '../src/math/verifier';
 import { checkTaskProofs, isAttributedTaskProof } from '../src/solver/cooperativeProof';
 import { attributeProofEvidence, proofReceiptsMatch } from '../src/solver/modules/evidence';
-import { commitSolverSources, readSolverProblem, type SolverProblem } from '../src/solver/problem';
+import { commitSolverSources, type SolverProblem } from '../src/solver/problem';
 import { hasDeterministicLeanFailure } from '../src/solver/proofReuse';
 import { taskVersion, type CooperativeTask } from '../src/solver/tasks';
+import { localExample } from './helpers/solver';
+import { failedBatch, receiptBatch } from './helpers/verifier';
 
 const host = vi.hoisted(() => ({ verify: vi.fn() }));
 vi.mock('../src/math/verifier', async importOriginal => ({
@@ -21,27 +21,10 @@ const request: MathematicsVerifierBatchRequest & { targetCommit: string } = {
     statementHash: `task-${name}`, leanStatementHash: `task-${name}`, expectedSourceDeclarationHash: `source-${name}`, claim: 'statement' })),
 };
 
-function verified(input: MathematicsVerifierBatchRequest): MathematicsVerifierBatchResult {
-  return { schema: 'deepscientist.mathematics.verification-batch/v1', status: 'kernel_verified',
-    targetCommit: input.targetCommit!, sessionId: 'batch-fixture', events: [], startedAt: 1, checkedAt: 2, durationMs: 1,
-    results: input.items.map((item, index) => ({
-      status: 'kernel_verified', targetCommit: input.targetCommit!, proofPath: item.proofPath, theoremName: item.theoremName,
-      statementHash: item.statementHash, leanStatementHash: item.leanStatementHash, claim: item.claim ?? 'statement',
-      sourceDeclarationHash: item.expectedSourceDeclarationHash, proofHash: 'fixture-proof',
-      statementBinding: 'caller-bound-to-committed-declaration', toolchain: { lean: 'fixture-lean' }, verifier: 'lean-kernel',
-      goalsRemaining: 0, sorryCount: 0, admitCount: 0, axioms: [], checkedAt: 2,
-      checkId: item.id?.trim() || `check-${index + 1}`, receiptId: `receipt-${input.targetCommit}-${index}`, sessionId: 'batch-fixture',
-      declarationReferences: { statement: [], proof: [] },
-    })) };
-}
-
-function rejected(input: MathematicsVerifierBatchRequest, indices = [0, 1]): MathematicsVerifierBatchResult {
-  const batch = verified(input);
-  batch.status = 'failed';
-  for (const index of indices) Object.assign(batch.results[index]!, { status: 'failed', goalsRemaining: 1,
-    error: 'Lean exited with status 1.', stdoutPreview: 'Submission.lean:4:1: error: unsolved goals' });
-  return batch;
-}
+const verified = (input: MathematicsVerifierBatchRequest) =>
+  receiptBatch(input, { sessionId: 'batch-fixture', receiptId: index => `receipt-${input.targetCommit}-${index}` });
+const rejected = (input: MathematicsVerifierBatchRequest, indices = [0, 1]) => failedBatch(verified(input),
+  { stdoutPreview: () => 'Submission.lean:4:1: error: unsolved goals', goalsRemaining: 1, selected: (_, index) => indices.includes(index) });
 
 const attribute = (batch: MathematicsVerifierBatchResult) => attributeProofEvidence(batch, request.targetCommit, request.items);
 
@@ -189,11 +172,9 @@ describe('task proof batch views', () => {
 
   beforeEach(() => {
     host.verify.mockReset().mockImplementation(async input => verified(input));
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-batch-attribution-')));
-    workspace = path.join(directory, 'workspace');
-    const receipt = bootstrapLocalExample(workspace);
-    problem = readSolverProblem(workspace, receipt.activeProblemPath);
-    const file = path.join(receipt.projectRoot, 'Submission.lean');
+    const example = localExample('solver-batch-attribution-');
+    ({ directory, workspace, problem } = example);
+    const file = path.join(example.receipt.projectRoot, 'Submission.lean');
     fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('theorem add_zero',
       'lemma first : True := by trivial\nlemma second : True := by trivial\n\ntheorem add_zero'));
     commit = commitSolverSources(problem, workspace);

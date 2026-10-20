@@ -42,13 +42,17 @@ const contextFor = (cooperation: CooperationState, action: CooperativeAction) =>
     frozenContexts: { 'Submission.lean': contextCompiler.frozenSourceContext(problem, 'Submission.lean', formal) },
   });
 const packet = (message: string) => JSON.parse(message.split('Original-goal focus (advisory, not proof acceptance):\n')[1].split('\n\n')[0]);
+/** Compiles every task context with no optional context allowance. */
+const withoutOptionalContext = () => {
+  const compile = contextCompiler.compileTaskContext;
+  vi.spyOn(contextCompiler, 'compileTaskContext').mockImplementation(input => compile({ ...input, maxOptionalContextBytes: 0 }));
+};
 
 afterEach(() => vi.restoreAllMocks());
 
 it.each(['lemma', 'goal', 'research', 'sketch'] as const)(
   'retains the complete %s delivery protocol without optional context or repeated protocol text', kind => {
-    const compile = contextCompiler.compileTaskContext;
-    vi.spyOn(contextCompiler, 'compileTaskContext').mockImplementation(input => compile({ ...input, maxOptionalContextBytes: 0 }));
+    withoutOptionalContext();
     const record = node('assigned', kind), action = actionFor(record);
     if (action.kind !== 'task') throw new Error('fixture_assignment');
     const context = contextFor({ canonicalCommit: seedCommit, tasks: [record] }, action);
@@ -67,8 +71,7 @@ it.each(['lemma', 'goal', 'research', 'sketch'] as const)(
   });
 
 it('retains the complete initial plan publication protocol without optional context or repeated protocol text', () => {
-  const compile = contextCompiler.compileTaskContext;
-  vi.spyOn(contextCompiler, 'compileTaskContext').mockImplementation(input => compile({ ...input, maxOptionalContextBytes: 0 }));
+  withoutOptionalContext();
   const action: CooperativeAction = { kind: 'lead', seedCommit, initialPlanNonce: 'publication', planVersion: 'plan-version' };
   const context = contextFor({ canonicalCommit: seedCommit, tasks: [] }, action);
 
@@ -84,8 +87,7 @@ it('retains the complete initial plan publication protocol without optional cont
 });
 
 it('retains the assigned support task, its actual consumer and open frontier without optional hints', () => {
-  const compile = contextCompiler.compileTaskContext;
-  vi.spyOn(contextCompiler, 'compileTaskContext').mockImplementation(input => compile({ ...input, maxOptionalContextBytes: 0 }));
+  withoutOptionalContext();
   const { seed, cooperation } = fixture();
   const context = contextFor(cooperation, actionFor(seed));
 
@@ -98,8 +100,7 @@ it('retains the assigned support task, its actual consumer and open frontier wit
 });
 
 it('keeps concrete concurrent questions mandatory while preserving private route scope and independent review', () => {
-  const compile = contextCompiler.compileTaskContext;
-  vi.spyOn(contextCompiler, 'compileTaskContext').mockImplementation(input => compile({ ...input, maxOptionalContextBytes: 0 }));
+  withoutOptionalContext();
   const { seed, core, probe, cooperation } = fixture();
   core.status = 'running'; probe.status = 'running';
   const hidden = node('private_question', 'research'); hidden.status = 'running';
@@ -167,16 +168,14 @@ it('shows adopted research and its missing consumer connection to Lead without r
   expect(context.instructions).toContain('does not prove a target or require every exploratory proposal to have a consumer immediately');
   expect(adopted.status).toBe('pending');
 
-  const compile = contextCompiler.compileTaskContext;
-  vi.spyOn(contextCompiler, 'compileTaskContext').mockImplementation(input => compile({ ...input, maxOptionalContextBytes: 0 }));
+  withoutOptionalContext();
   const compact = contextFor(cooperation, { kind: 'lead', seedCommit });
   expect(compact.manifest!.omitted).toContainEqual({ id: 'proof-continuation', kind: 'continuation', reason: 'optional-budget' });
   expect(compact.instructions).toContain('continuation.adoptedResearch in COOPERATION.json');
 });
 
 it('gives an early feasibility reviewer complete unproved interfaces even with no optional context budget', () => {
-  const compile = contextCompiler.compileTaskContext;
-  vi.spyOn(contextCompiler, 'compileTaskContext').mockImplementation(input => compile({ ...input, maxOptionalContextBytes: 0 }));
+  withoutOptionalContext();
   const { core, probe, goal, cooperation } = fixture();
   const exactType = '∀ (n : Nat), n > 0 → ∃ N : Nat, ∀ m ≥ N, m + n > m';
   core.task = { ...core.task, type: exactType };
@@ -197,8 +196,7 @@ it('gives an early feasibility reviewer complete unproved interfaces even with n
 });
 
 it.each([10, 100, 500])('keeps local mandatory route focus bounded across %i alternatives', count => {
-  const compile = contextCompiler.compileTaskContext;
-  vi.spyOn(contextCompiler, 'compileTaskContext').mockImplementation(input => compile({ ...input, maxOptionalContextBytes: 0 }));
+  withoutOptionalContext();
   const goal = node('goal', 'goal');
   const inputs = Array.from({ length: count }, (_, index) => node(`input_${index}`));
   const closing = inputs.map(input => node(`closing_${input.task.id}`, 'lemma', [input.task.id]));

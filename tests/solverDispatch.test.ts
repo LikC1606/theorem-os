@@ -1,14 +1,12 @@
 import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample } from '../src/math/localExample';
 import type { SolverRunState } from '../src/solver/archive';
-import { CooperativeResearch } from '../src/solver/cooperation';
+import type { CooperativeResearch } from '../src/solver/cooperation';
 import { directSolverModules } from '../src/solver/modules';
 import type { ResearchWorker } from '../src/solver/modules/organization';
-import { git, readSolverProblem } from '../src/solver/problem';
 import { parseCooperationPlan } from '../src/solver/tasks';
+import { cooperativeResearch } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
 
 describe.each(['lead', 'primary', 'peer'] as const)('%s dispatch wakeups', role => {
   let directory: string, state: SolverRunState, lead: ResearchWorker, peer: ResearchWorker;
@@ -17,34 +15,25 @@ describe.each(['lead', 'primary', 'peer'] as const)('%s dispatch wakeups', role 
   const worker = () => role === 'peer' ? peer : lead;
 
   beforeEach(() => {
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-dispatch-')));
-    const workspace = path.join(directory, 'lead');
-    const receipt = bootstrapLocalExample(workspace);
-    const problem = readSolverProblem(workspace, receipt.activeProblemPath);
-    const peerWorkspace = path.join(directory, 'peer');
-    git(workspace, ['worktree', 'add', '--quiet', '--detach', peerWorkspace, problem.baseCommit]);
-    lead = { id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles };
-    peer = { ...lead, id: 'peer', role: 'researcher', worktree: peerWorkspace };
+    const example = localExample('solver-dispatch-', 'lead'), { workspace, problem } = example;
+    directory = example.directory;
+    lead = leadWorker(problem, workspace);
+    peer = peerWorker(example, 'peer');
     const plan = parseCooperationPlan(problem, { tasks: [
       ...problem.targets.map((target, index) => ({ id: `goal_${index}`, kind: 'goal',
         objective: `Prove ${target.theoremName}`, proofPath: target.proofPath,
         theoremName: target.theoremName, status: 'paused' })),
       { id: 'investigation', kind: 'research', objective: 'Investigate a concrete route.', ownerId: peer.id },
     ] });
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'dispatch-fixture', problem,
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluation',
-      model: 'fixture', effort: 'fixture', worktree: workspace, phase: 'running', turns: 1,
-      cooperation: { canonicalCommit: problem.baseCommit, error: 'Reassess the saved mathematical input.',
+    state = solverState(problem, workspace, { runId: 'dispatch-fixture', phase: 'running', turns: 1,
+      evaluatorDigest: 'evaluation', model: 'fixture', effort: 'fixture', cooperation: { canonicalCommit: problem.baseCommit, error: 'Reassess the saved mathematical input.',
         tasks: plan.tasks.map(task => ({ task, status: 'pending', attempts: 0 })),
-        groups: plan.groups.map(group => ({ group, turns: 0 })) } };
+        groups: plan.groups.map(group => ({ group, turns: 0 })) } });
     controller = new AbortController();
     const unexpectedModel = () => { throw new Error('fixture_models_forbidden'); };
-    cooperative = new CooperativeResearch({ state, workers: [lead, peer],
-      access: new Map([lead, peer].map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-      signal: controller.signal, save: () => {}, emit: () => {},
+    cooperative = cooperativeResearch({ state, workers: [lead, peer], retrievalRoot: directory, signal: controller.signal,
       modules: { ...directSolverModules, M1: { ...directSolverModules.M1, open: unexpectedModel },
-        M5: { ...directSolverModules.M5, primaryLed: role === 'primary' } },
-      exclusiveCheck: async check => check() });
+        M5: { ...directSolverModules.M5, primaryLed: role === 'primary' } } });
   });
   afterEach(async () => {
     await cooperative.stop();

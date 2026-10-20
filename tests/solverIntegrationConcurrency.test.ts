@@ -1,15 +1,16 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample } from '../src/math/localExample';
 import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } from '../src/math/verifier';
 import type { SolverRunState } from '../src/solver/archive';
-import { CooperativeResearch } from '../src/solver/cooperation';
-import { directSolverModules } from '../src/solver/modules';
+import type { CooperativeResearch } from '../src/solver/cooperation';
 import type { ResearchWorker } from '../src/solver/modules/organization';
-import { committedSource, commitSolverSources, git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
+import { committedSource, commitSolverSources, type SolverProblem } from '../src/solver/problem';
 import { taskVersion, type CooperativeAction, type CooperativeTask } from '../src/solver/tasks';
+import { deferred } from './helpers/async';
+import { cooperativeResearch } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
+import { failedBatch, verifiedBatch } from './helpers/verifier';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn() }));
 vi.mock('../src/math/verifier', async importOriginal => ({
@@ -20,25 +21,12 @@ vi.mock('../src/math/verifier', async importOriginal => ({
 }));
 vi.mock('../src/runtime/codexSession', () => ({ createCodexMathSession: host.createSession }));
 
-function verified(request: MathematicsVerifierBatchRequest): MathematicsVerifierBatchResult {
-  return { schema: 'deepscientist.mathematics.verification-batch/v1', status: 'kernel_verified',
-    targetCommit: request.targetCommit!, sessionId: 'integration-concurrency-fixture', events: [], startedAt: 1, checkedAt: 2, durationMs: 1,
-    results: request.items.map((item, index) => ({ ...item, sourceDeclarationHash: item.expectedSourceDeclarationHash,
-      checkId: item.id?.trim() || `check-${index + 1}`, sessionId: 'integration-concurrency-fixture', checkedAt: 2,
-      receiptId: `fixture-${request.targetCommit}-${item.theoremName}`, targetCommit: request.targetCommit,
-      status: 'kernel_verified', claim: 'statement' })) as MathematicsVerifierBatchResult['results'] };
-}
-
-const failedBatch = (request: MathematicsVerifierBatchRequest, status: 'failed' | 'unavailable'): MathematicsVerifierBatchResult => {
+const verified = (request: MathematicsVerifierBatchRequest) =>
+  verifiedBatch(request, { sessionId: 'integration-concurrency-fixture', checks: true });
+const settled = (request: MathematicsVerifierBatchRequest, status: 'failed' | 'unavailable'): MathematicsVerifierBatchResult => {
   const batch = verified(request);
-  return { ...batch, status, results: batch.results.map(item => ({ ...item, status,
-    error: status === 'failed' ? 'Lean exited with status 1.' : 'Fixture merged check failure.',
-    ...(status === 'failed' ? { stdoutPreview: 'Submission.lean:3:1: error: Fixture merged proof failure.' } : {}) })) };
-};
-const deferred = <T,>() => {
-  let resolve!: (value: T) => void, reject!: (error: unknown) => void;
-  const promise = new Promise<T>((complete, fail) => { resolve = complete; reject = fail; });
-  return { promise, resolve, reject };
+  return status === 'failed' ? failedBatch(batch, { stdoutPreview: () => 'Submission.lean:3:1: error: Fixture merged proof failure.' })
+    : { ...batch, status, results: batch.results.map(item => ({ ...item, status, error: 'Fixture merged check failure.' })) };
 };
 type TaskAction = Extract<CooperativeAction, { kind: 'task' }>;
 type Failure = 'abort' | 'storage' | 'unavailable';
@@ -73,13 +61,11 @@ describe('task integration with concurrent host control', () => {
     releases.push(release);
     return { entered: entered.promise, release, fail: (error: unknown) => result.reject(error),
       finish: (status: 'kernel_verified' | 'failed' | 'unavailable') => result.resolve(status === 'kernel_verified'
-        ? verified(request!) : failedBatch(request!, status)), heldAtEntry: () => heldAtEntry };
+        ? verified(request!) : settled(request!, status)), heldAtEntry: () => heldAtEntry };
   };
-  const edit = (id: string, change: (task: CooperativeTask) => CooperativeTask) => {
-    fs.appendFileSync(path.join(directory, 'edits.jsonl'), JSON.stringify({ id,
-      baseVersion: state.cooperation!.planVersion,
-      tasks: state.cooperation!.tasks.map(item => change(item.task)),
-      groups: state.cooperation!.groups!.map(item => item.group),
+  const edit = (id: string, change: (task: CooperativeTask) => CooperativeTask, group = (value: object): object => value) => {
+    fs.appendFileSync(path.join(directory, 'edits.jsonl'), JSON.stringify({ id, baseVersion: state.cooperation!.planVersion,
+      tasks: state.cooperation!.tasks.map(item => change(item.task)), groups: state.cooperation!.groups!.map(item => group(item.group)),
     }) + '\n');
     return track(cooperative.pulse(workers[0].id));
   };
@@ -93,30 +79,21 @@ describe('task integration with concurrent host control', () => {
   beforeEach(() => {
     host.verify.mockReset().mockImplementation(async request => verified(request));
     host.createSession.mockReset().mockImplementation(() => { throw new Error('fixture_real_models_forbidden'); });
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-integration-concurrency-')));
-    workspace = path.join(directory, 'workspace');
-    const receipt = bootstrapLocalExample(workspace);
-    problem = readSolverProblem(workspace, receipt.activeProblemPath);
-    workers = [{ id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles },
-      ...['author', 'independent'].map(id => {
-        const worktree = path.join(directory, id);
-        git(workspace, ['worktree', 'add', '--quiet', '--detach', worktree, problem.baseCommit]);
-        return { id, role: 'researcher' as const, worktree, ownedFiles: problem.ownedFiles };
-      })];
+    const example = localExample('solver-integration-concurrency-');
+    ({ directory, workspace, problem } = example);
+    workers = [leadWorker(problem, workspace), ...['author', 'independent'].map(id => peerWorker(example, id))];
     const task: CooperativeTask = { id: 'integration', kind: 'lemma', objective: 'Prove a reusable integration lemma.',
       theoremName: 'Tutorial.integration_lemma', proofPath: 'Submission.lean', type: 'True', dependsOn: [], revision: 0 };
     action = { kind: 'task', task, assignment: { taskId: task.id, taskDigest: taskVersion(task), workerId: workers[1].id,
       seedCommit: problem.baseCommit, assignmentId: 'integration-dispatch', dependencies: [] } };
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'integration-concurrency-fixture', problem,
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluator',
-      model: 'unused', effort: 'unused', worktree: workspace, phase: 'running', turns: 0, failures: [],
+    state = solverState(problem, workspace, { runId: 'integration-concurrency-fixture', phase: 'running', failures: [],
       cooperation: { canonicalCommit: problem.baseCommit,
         groups: [{ group: { id: 'main', objective: 'Prove the original problem.', status: 'active', revision: 0 }, turns: 0 }],
         tasks: [{ task, assignment: action.assignment, status: 'running', attempts: 1 }, ...problem.targets.map((target, index) => ({
           task: { id: `goal_${index}`, kind: 'goal' as const, objective: `Prove ${target.theoremName}.`,
             theoremName: target.theoremName, proofPath: target.proofPath, dependsOn: [], revision: 0, status: 'paused' as const },
           status: 'pending' as const, attempts: 0,
-        }))] } };
+        }))] } });
     events = []; pending = []; releases = []; lockHeld = false; controller = new AbortController();
     let queue = Promise.resolve();
     exclusive = async check => {
@@ -126,10 +103,8 @@ describe('task integration with concurrent host control', () => {
       await previous; lockHeld = true;
       try { return await check(); } finally { lockHeld = false; release(); }
     };
-    cooperative = new CooperativeResearch({ state, workers,
-      access: new Map(workers.map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-      signal: controller.signal, save: () => {}, emit: (event, details) => events.push({ event, details }),
-      modules: directSolverModules, exclusiveCheck: check => exclusive(check) });
+    cooperative = cooperativeResearch({ state, workers, retrievalRoot: directory, signal: controller.signal,
+      emit: (event, details) => events.push({ event, details }), exclusiveCheck: check => exclusive(check) });
     state.cooperation!.planVersion = (cooperative as any).planVersion();
   });
   afterEach(async () => {
@@ -183,13 +158,8 @@ describe('task integration with concurrent host control', () => {
     await gate.entered;
     const delivered = node(), checked = delivered.proof;
     const editId = `group-${control}-during-merge`;
-    fs.appendFileSync(path.join(directory, 'edits.jsonl'), JSON.stringify({ id: editId,
-      baseVersion: state.cooperation!.planVersion,
-      tasks: state.cooperation!.tasks.map(item => item.task),
-      groups: state.cooperation!.groups!.map(item => ({ ...item.group, [control]: 2 })),
-    }) + '\n');
     let applied = false;
-    const pulse = track(cooperative.pulse(workers[0].id));
+    const pulse = edit(editId, task => task, group => ({ ...group, [control]: 2 }));
     void pulse.then(() => { applied = true; });
     await vi.waitFor(() => {
       expect(state.cooperation!.edits).toContainEqual(expect.objectContaining({ id: editId, status: 'applied' }));

@@ -1,26 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import type { TaskProof } from '../src/solver/cooperativeProof';
 import { proofRouteReady, type ProofRoute } from '../src/solver/proofRoutes';
 import { createProofRoutePriority } from '../src/solver/routePriority';
 import { markTaskAcceptance, taskVersion, type RouteRecord, type TaskRecord } from '../src/solver/tasks';
+import { integratedProof } from './helpers/taskProof';
 
 const node = (id: string, dependsOn: string[] = [], kind: 'lemma' | 'goal' = 'lemma'): TaskRecord => ({
   task: { id, kind, objective: id, dependsOn, revision: 0, proofPath: 'Submission.lean',
     theoremName: `Submission.${id}`, ...(kind === 'lemma' ? { type: 'True' } : {}) },
   status: 'pending', attempts: 0,
 });
-function checked(item: TaskRecord, uses: TaskRecord[] = []) {
-  item.status = 'integrated';
-  const proof = item.integratedCheck = { taskDigest: taskVersion(item.task), passed: true, commit: 'canonical',
-    sourceDigest: 'source', seedCommit: 'seed', changes: [], verification: { status: 'kernel_verified', targetCommit: 'projection',
-      results: [{ status: 'kernel_verified', targetCommit: 'projection', receiptId: `receipt-${item.task.id}` }] },
-    references: { sourceCommit: 'canonical', environmentDigest: 'environment', contextDigest: 'context', inputs: [],
-      root: { name: item.task.theoremName!, file: item.task.proofPath! }, statement: [],
-      proof: uses.map(input => ({ name: input.task.theoremName!, file: input.task.proofPath! })),
-      tasks: uses.map(input => ({ taskId: input.task.id, taskDigest: taskVersion(input.task) })) } } as TaskProof;
-  markTaskAcceptance(proof);
-  return proof;
-}
+function checked(item: TaskRecord, uses: TaskRecord[] = []) { return integratedProof(item, { uses }); }
 function conditional(item: TaskRecord, inputs: TaskRecord[]) {
   const proof = checked(item);
   delete item.integratedCheck;

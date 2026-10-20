@@ -1,19 +1,19 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample } from '../src/math/localExample';
 import type { SolverRunState } from '../src/solver/archive';
 import { CooperativeResearch } from '../src/solver/cooperation';
 import { ownedSourceDigest } from '../src/solver/cooperativeProof';
 import { directSolverModules, type SolverModules } from '../src/solver/modules';
 import type { ProofCheck } from '../src/solver/modules/evidence';
 import type { ResearchWorker } from '../src/solver/modules/organization';
-import { commitSolverSources, git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
+import { commitSolverSources, type SolverProblem } from '../src/solver/problem';
 import { runResearchWorkers } from '../src/solver/research';
 import * as statementReview from '../src/solver/statementReview';
 import { isStatementAction, statementSnapshot, writeStatementSnapshot, type StatementAction, type StatementReview } from '../src/solver/statementReview';
 import { parseCooperationPlan, taskVersion, type CooperativeAction } from '../src/solver/tasks';
+import { cooperativeResearch, workerAccess } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
 
 vi.mock('../src/math/mathBuildManifest', () => ({ readMathBuildManifest: vi.fn() }));
 
@@ -23,35 +23,32 @@ describe('failed turns superseded while their session closes', () => {
   let events: { event: string; details?: Record<string, unknown> }[];
 
   beforeEach(() => {
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-stale-failure-')));
-    const workspace = path.join(directory, 'lead');
-    const receipt = bootstrapLocalExample(workspace);
-    problem = readSolverProblem(workspace, receipt.activeProblemPath);
-    const peer = path.join(directory, 'peer');
-    git(workspace, ['worktree', 'add', '--quiet', '--detach', peer, problem.baseCommit]);
-    workers = [{ id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles },
-      { id: 'peer', role: 'engineer', worktree: peer, ownedFiles: problem.ownedFiles }];
+    const example = localExample('solver-stale-failure-', 'lead');
+    ({ directory, problem } = example);
+    workers = [leadWorker(problem, example.workspace), peerWorker(example, 'peer', { role: 'engineer' })];
     const plan = parseCooperationPlan(problem, { tasks: problem.targets.map((target, index) => ({
       id: `goal_${index}`, kind: 'goal', objective: `Prove ${target.theoremName}`,
       proofPath: target.proofPath, theoremName: target.theoremName,
     })) });
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'stale-failure-fixture', problem,
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluation',
-      model: 'fixture', effort: 'fixture', worktree: workspace, phase: 'prepared', turns: 0,
+    state = solverState(problem, example.workspace, { runId: 'stale-failure-fixture', phase: 'prepared',
+      evaluatorDigest: 'evaluation', model: 'fixture', effort: 'fixture',
       workers: workers.map(worker => ({ ...worker, phase: 'prepared', turns: 0 })),
       cooperation: { tasks: plan.tasks.map(task => ({ task, status: 'pending', attempts: 0 })),
-        groups: plan.groups.map(group => ({ group, turns: 0 })) } };
+        groups: plan.groups.map(group => ({ group, turns: 0 })) } });
     events = []; cooperative = undefined;
   });
   afterEach(() => { vi.restoreAllMocks(); fs.rmSync(directory, { recursive: true, force: true }); });
 
-  const restore = async () => {
+  const budget = { maxTurns: Infinity, remainingMs: Infinity };
+  const baseDigest = () => ownedSourceDigest(problem, workers[0].worktree, problem.baseCommit);
+  const create = () => {
     const controller = new AbortController();
-    cooperative = new CooperativeResearch({ state, workers,
-      access: new Map(workers.map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-      signal: controller.signal, modules: directSolverModules, save: () => {}, emit: () => {},
-      exclusiveCheck: async check => check() });
-    await cooperative.restore();
+    cooperative = cooperativeResearch({ state, workers, retrievalRoot: directory, signal: controller.signal });
+    return controller;
+  };
+  const restore = async () => {
+    const controller = create();
+    await cooperative!.restore();
     return controller;
   };
   const addStatementReview = (kind: StatementAction['kind']): StatementReview => {
@@ -73,8 +70,7 @@ describe('failed turns superseded while their session closes', () => {
     (['revise', 'remove', 'pause'] as const).map(change => ({ kind, change }))))
   ('preserves the new plan when an edit applies $change during a failed $kind session close', async ({ kind, change }) => {
     if (kind === 'lead') state.cooperation!.error = 'A new Lead assessment is requested.';
-    if (kind === 'review') state.cooperation!.review = { commit: problem.baseCommit,
-      sourceDigest: ownedSourceDigest(problem, workers[0].worktree, problem.baseCommit), status: 'pending' };
+    if (kind === 'review') state.cooperation!.review = { commit: problem.baseCommit, sourceDigest: baseDigest(), status: 'pending' };
     if (kind === 'backtranslate' || kind === 'statement-review') {
       vi.spyOn(statementReview, 'captureStatementContexts').mockImplementation(async (_problem, tasks) =>
         new Map(tasks.map(task => [task.id, { type: 'Mock fixed arithmetic type.', constants: [], omitted: [] }])));
@@ -147,8 +143,7 @@ describe('failed turns superseded while their session closes', () => {
     };
 
     const result = runResearchWorkers({ state, workers, modules,
-      access: new Map(workers.map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-      root: directory, buildFile: path.join(directory, 'build.json'), taskText: 'Prove the original targets.',
+      access: workerAccess(workers, directory), root: directory, buildFile: path.join(directory, 'build.json'), taskText: 'Prove the original targets.',
       executable: 'fixture-no-model', profile: 'fixture', signal: new AbortController().signal,
       deadline: Infinity, maxTurns: 1, maxTurnMs: Infinity, maxTotalTokens: 0,
       save: () => {}, emit: (event, details) => events.push({ event, details }),
@@ -173,52 +168,46 @@ describe('failed turns superseded while their session closes', () => {
   });
 
   it.each(['replacement', 'accepted'])('preserves a %s review and its records after late callbacks from the old action', async version => {
-    const controller = new AbortController();
-    cooperative = new CooperativeResearch({ state, workers,
-      access: new Map(workers.map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-      signal: controller.signal, modules: directSolverModules, save: () => {}, emit: () => {},
-      exclusiveCheck: async check => check() });
+    const controller = create();
     try {
-      await cooperative.restore();
-      const check: ProofCheck = { commit: problem.baseCommit,
-        sourceDigest: ownedSourceDigest(problem, workers[0].worktree, problem.baseCommit), passed: true,
+      await cooperative!.restore();
+      const check: ProofCheck = { commit: problem.baseCommit, sourceDigest: baseDigest(), passed: true,
         verification: { schema: 'deepscientist.mathematics.verification-batch/v1', status: 'kernel_verified',
           targetCommit: problem.baseCommit, sessionId: 'review-fixture', events: [], results: [],
           startedAt: 1, checkedAt: 2, durationMs: 1 } };
-      cooperative.requireReview(check);
-      const action = await cooperative.next(workers[1], { maxTurns: Infinity, remainingMs: Infinity });
+      cooperative!.requireReview(check);
+      const action = await cooperative!.next(workers[1], budget);
       if (action?.kind !== 'review') throw new Error('fixture_missing_review_assignment');
-      expect(cooperative.started(workers[1], action)).toBe(true);
+      expect(cooperative!.started(workers[1], action)).toBe(true);
       if (version === 'accepted') {
         fs.writeFileSync(path.join(workers[1].worktree, 'RESEARCH.md'), '```math-review\n' + JSON.stringify({
           commit: action.seedCommit, verdict: 'accepted', summary: 'Fixed candidate reviewed.',
         }) + '\n```');
-        await cooperative.deliver(workers[1], action, commitSolverSources(problem, workers[1].worktree));
+        await cooperative!.deliver(workers[1], action, commitSolverSources(problem, workers[1].worktree));
       } else {
         fs.writeFileSync(path.join(workers[0].worktree, 'RESEARCH.md'), 'A replacement immutable candidate.\n');
-        cooperative.requireReview({ ...check, commit: commitSolverSources(problem, workers[0].worktree) });
+        cooperative!.requireReview({ ...check, commit: commitSolverSources(problem, workers[0].worktree) });
       }
       const current = { ...state.cooperation!.review };
-      expect(cooperative.current(action)).toBe(false);
+      expect(cooperative!.current(action)).toBe(false);
 
-      cooperative.rejected(action, 'Late failure from the old review action.');
-      cooperative.interrupted(workers[1], action);
-      cooperative.release(workers[1], action);
-      await cooperative.deliver(workers[1], action, action.seedCommit);
+      cooperative!.rejected(action, 'Late failure from the old review action.');
+      cooperative!.interrupted(workers[1], action);
+      cooperative!.release(workers[1], action);
+      await cooperative!.deliver(workers[1], action, action.seedCommit);
 
       expect(state.cooperation!.review).toEqual(current);
       expect(state.cooperation!.review?.status).toBe(version === 'accepted' ? 'accepted' : 'pending');
       expect(state.cooperation!.deliveries?.filter(delivery => delivery.kind === 'review').map(delivery => delivery.status))
         .toEqual(version === 'accepted' ? ['accepted', 'superseded'] : ['superseded']);
       expect(state.cooperation!.deliveries?.some(delivery => delivery.kind === 'failure')).not.toBe(true);
-    } finally { controller.abort(); await cooperative.stop(); }
+    } finally { controller.abort(); await cooperative!.stop(); }
   });
 
   it.each(['accepted', 'changes_requested'] as const)('does not reopen a legacy %s review after late cancellation or release', async status => {
     const controller = await restore();
     try {
-      state.cooperation!.review = { commit: problem.baseCommit,
-        sourceDigest: ownedSourceDigest(problem, workers[0].worktree, problem.baseCommit), status, workerId: workers[1].id };
+      state.cooperation!.review = { commit: problem.baseCommit, sourceDigest: baseDigest(), status, workerId: workers[1].id };
       const action: CooperativeAction = { kind: 'review', seedCommit: problem.baseCommit,
         sourceDigest: state.cooperation!.review.sourceDigest };
       const before = { ...state.cooperation!.review };
@@ -231,13 +220,12 @@ describe('failed turns superseded while their session closes', () => {
   it('isolates repeated final reviews of the same commit and worker from every old callback', async () => {
     const controller = await restore();
     try {
-      state.cooperation!.review = { commit: problem.baseCommit,
-        sourceDigest: ownedSourceDigest(problem, workers[0].worktree, problem.baseCommit), status: 'pending' };
-      const first = await cooperative!.next(workers[1], { maxTurns: Infinity, remainingMs: Infinity });
+      state.cooperation!.review = { commit: problem.baseCommit, sourceDigest: baseDigest(), status: 'pending' };
+      const first = await cooperative!.next(workers[1], budget);
       if (first?.kind !== 'review') throw new Error('fixture_missing_review_assignment');
       expect(cooperative!.started(workers[1], first)).toBe(true);
       cooperative!.interrupted(workers[1], first);
-      const second = await cooperative!.next(workers[1], { maxTurns: Infinity, remainingMs: Infinity });
+      const second = await cooperative!.next(workers[1], budget);
       if (second?.kind !== 'review') throw new Error('fixture_missing_review_assignment');
       expect(first.assignmentId).toEqual(expect.any(String));
       expect(second.assignmentId).toEqual(expect.any(String));
@@ -272,13 +260,12 @@ describe('failed turns superseded while their session closes', () => {
   it('accepts a legacy running review only until its first new dispatch', async () => {
     const controller = await restore();
     try {
-      state.cooperation!.review = { commit: problem.baseCommit,
-        sourceDigest: ownedSourceDigest(problem, workers[0].worktree, problem.baseCommit), status: 'running', workerId: workers[1].id };
+      state.cooperation!.review = { commit: problem.baseCommit, sourceDigest: baseDigest(), status: 'running', workerId: workers[1].id };
       const legacy: CooperativeAction = { kind: 'review', seedCommit: problem.baseCommit,
         sourceDigest: state.cooperation!.review.sourceDigest };
       expect(cooperative!.current(legacy)).toBe(true);
       cooperative!.interrupted(workers[1], legacy);
-      const next = await cooperative!.next(workers[1], { maxTurns: Infinity, remainingMs: Infinity });
+      const next = await cooperative!.next(workers[1], budget);
       if (next?.kind !== 'review') throw new Error('fixture_missing_review_assignment');
       expect(next.assignmentId).toEqual(expect.any(String));
       expect(cooperative!.current(legacy)).toBe(false);
@@ -294,11 +281,11 @@ describe('failed turns superseded while their session closes', () => {
     const controller = await restore();
     try {
       const review = addStatementReview(kind);
-      const first = await cooperative!.next(workers[1], { maxTurns: Infinity, remainingMs: Infinity });
+      const first = await cooperative!.next(workers[1], budget);
       if (!first || first.kind !== kind) throw new Error('fixture_missing_statement_assignment');
       expect(cooperative!.started(workers[1], first)).toBe(true);
       cooperative!.interrupted(workers[1], first);
-      const second = await cooperative!.next(workers[1], { maxTurns: Infinity, remainingMs: Infinity });
+      const second = await cooperative!.next(workers[1], budget);
       if (!second || second.kind !== kind) throw new Error('fixture_missing_statement_assignment');
       expect(second.assignmentId).toEqual(expect.any(String));
       expect(second.assignmentId).not.toBe(first.assignmentId);
@@ -343,7 +330,7 @@ describe('failed turns superseded while their session closes', () => {
         snapshotDigest: review.snapshotDigest, seedCommit: review.commit, workspace: review.workspace };
       expect(cooperative!.current(legacy)).toBe(true);
       cooperative!.interrupted(workers[1], legacy);
-      const next = await cooperative!.next(workers[1], { maxTurns: Infinity, remainingMs: Infinity });
+      const next = await cooperative!.next(workers[1], budget);
       if (!next || next.kind !== kind) throw new Error('fixture_missing_statement_assignment');
       expect(next.assignmentId).toEqual(expect.any(String));
       expect(cooperative!.current(legacy)).toBe(false);

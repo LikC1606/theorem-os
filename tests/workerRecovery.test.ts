@@ -68,6 +68,15 @@ describe('bounded role session recovery', () => {
     host.delay.mockImplementation(async (milliseconds: number) => { now += milliseconds; });
     return { advance: (milliseconds: number) => { now += milliseconds; }, current: () => now };
   };
+  const claim = { id: 'claim', kind: 'goal', objective: 'Prove the original claim', theoremName: 'Submission.claim' };
+  const research = (options: MathAgentOptions, value: object) =>
+    fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify(value));
+  /** Runs two cooperative workers, recording the assignment each worktree receives. */
+  const cooperate = (assignments: Map<string, CooperativeAction>) => runSolver([...args, '--workers', '2'], directory,
+    { ...directSolverModules, M1: { ...directSolverModules.M1, execute: async (...input) => {
+      assignments.set(input[3].worktree, input[1].assignment!);
+      return directSolverModules.M1.execute(...input);
+    } } });
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -187,22 +196,14 @@ describe('bounded role session recovery', () => {
     host.open.mockImplementation(async (options: MathAgentOptions) => session(options, async () => {
       const action = assignments.get(options.workspace)!;
       if (action.kind === 'lead') {
-        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({ tasks: [
-          { id: 'claim', kind: 'goal', objective: 'Prove the original claim', theoremName: 'Submission.claim' },
-        ] }));
+        research(options, { tasks: [claim] });
         if (!leadOverflow) { leadOverflow = true; throw new Error('contextWindowExceeded'); }
       } else if (action.kind === 'task') fs.writeFileSync(proof(options), completed);
-      else if (action.kind === 'review') fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'),
-        JSON.stringify({ commit: action.seedCommit, verdict: 'accepted' }));
+      else if (action.kind === 'review') research(options, { commit: action.seedCommit, verdict: 'accepted' });
       else throw new Error(`unexpected action: ${action.kind}`);
       return 'completed';
     }));
-    const execute: typeof directSolverModules.M1.execute = async (...input) => {
-      assignments.set(input[3].worktree, input[1].assignment!);
-      return directSolverModules.M1.execute(...input);
-    };
-    expect(await runSolver([...args, '--workers', '2'], directory,
-      { ...directSolverModules, M1: { ...directSolverModules.M1, execute } })).toBe(0);
+    expect(await cooperate(assignments)).toBe(0);
     expect(leadOverflow).toBe(true);
     expect(events().filter(event => event.event === 'worker_failed')).toHaveLength(0);
     expect(events().filter(event => event.event === 'worker_context_recovering')).toHaveLength(1);
@@ -394,22 +395,14 @@ describe('bounded role session recovery', () => {
         throw new Error('math_codex_transport_closed');
       return session(options, async () => {
         const action = assignments.get(options.workspace)!;
-        if (action.kind === 'lead') fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({
-          tasks: [{ id: 'claim', kind: 'goal', objective: 'Prove the original claim', theoremName: 'Submission.claim', ownerId: 'engineer' }],
-        }));
+        if (action.kind === 'lead') research(options, { tasks: [{ ...claim, ownerId: 'engineer' }] });
         else if (action.kind === 'task') fs.writeFileSync(proof(options), completed);
-        else if (action.kind === 'review') fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'),
-          JSON.stringify({ commit: action.seedCommit, verdict: 'accepted' }));
+        else if (action.kind === 'review') research(options, { commit: action.seedCommit, verdict: 'accepted' });
         else throw new Error(`unexpected recovery action: ${action.kind}`);
         return 'completed';
       });
     });
-    const execute: typeof directSolverModules.M1.execute = async (...input) => {
-      assignments.set(input[3].worktree, input[1].assignment!);
-      return directSolverModules.M1.execute(...input);
-    };
-    expect(await runSolver([...args, '--workers', '2'], directory,
-      { ...directSolverModules, M1: { ...directSolverModules.M1, execute } })).toBe(0);
+    expect(await cooperate(assignments)).toBe(0);
     expect(state().workers.find((worker: { id: string }) => worker.id === workerId)).toMatchObject({
       recovery: { phase: 'recovered', reason: 'math_codex_transport_closed', cycles: 1, waitedMs: 60_000 },
     });
@@ -474,21 +467,14 @@ describe('bounded role session recovery', () => {
     let proofTurns = 0;
     host.open.mockImplementation(async (options: MathAgentOptions) => session(options, async () => {
       const action = assignments.get(options.workspace)!;
-      if (action.kind === 'lead') fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({
-        tasks: [{ id: 'claim', kind: 'goal', objective: 'Prove the original claim', theoremName: 'Submission.claim' }],
-      }));
+      if (action.kind === 'lead') research(options, { tasks: [claim] });
       else if (action.kind === 'task') {
         proofTurns++; fs.writeFileSync(proof(options), completed); options.onUsage({ totalTokens: 11 });
         return 'failed';
       } else throw new Error('hard-failed worker must not be dispatched for review');
       options.onUsage({ totalTokens: 8 }); return 'completed';
     }, error));
-    const execute: typeof directSolverModules.M1.execute = async (...input) => {
-      assignments.set(input[3].worktree, input[1].assignment!);
-      return directSolverModules.M1.execute(...input);
-    };
-    expect(await runSolver([...args, '--workers', '2'], directory,
-      { ...directSolverModules, M1: { ...directSolverModules.M1, execute } })).toBe(1);
+    expect(await cooperate(assignments)).toBe(1);
     expect(proofTurns).toBe(1);
     expect(events().filter(event => event.event === 'task_integrated' && event.taskId === 'claim')).toHaveLength(1);
     expect(events().filter(event => event.event === 'worker_recovered')).toHaveLength(0);
@@ -501,9 +487,7 @@ describe('bounded role session recovery', () => {
     let proofTurns = 0;
     host.open.mockImplementation(async (options: MathAgentOptions) => session(options, async () => {
       const action = assignments.get(options.workspace)!;
-      if (action.kind === 'lead') fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({
-        tasks: [{ id: 'claim', kind: 'goal', objective: 'Prove the original claim', theoremName: 'Submission.claim' }],
-      }));
+      if (action.kind === 'lead') research(options, { tasks: [claim] });
       else if (action.kind === 'task') {
         proofTurns++;
         const helpers = Array.from({ length: Math.min(proofTurns, 3) }, (_, index) =>
@@ -512,17 +496,11 @@ describe('bounded role session recovery', () => {
         fs.writeFileSync(proof(options), proofTurns <= 3 ? draft : draft.replace('by sorry', 'by exact checkpoint_3'));
         options.onUsage({ totalTokens: 11 });
         return proofTurns <= 3 ? 'checkpoint' : 'completed';
-      } else if (action.kind === 'review') fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'),
-        JSON.stringify({ commit: action.seedCommit, verdict: 'accepted' }));
+      } else if (action.kind === 'review') research(options, { commit: action.seedCommit, verdict: 'accepted' });
       else throw new Error(`unexpected checkpoint action: ${action.kind}`);
       options.onUsage({ totalTokens: 8 }); return 'completed';
     }));
-    const execute: typeof directSolverModules.M1.execute = async (...input) => {
-      assignments.set(input[3].worktree, input[1].assignment!);
-      return directSolverModules.M1.execute(...input);
-    };
-    expect(await runSolver([...args, '--workers', '2'], directory,
-      { ...directSolverModules, M1: { ...directSolverModules.M1, execute } })).toBe(0);
+    expect(await cooperate(assignments)).toBe(0);
     expect(proofTurns).toBe(4);
     expect(events().filter(event => event.event === 'turn_checkpoint')).toHaveLength(3);
     expect(state().cooperation.tasks[0].status).toBe('integrated');
@@ -535,24 +513,16 @@ describe('bounded role session recovery', () => {
     let proofTurns = 0;
     host.open.mockImplementation(async (options: MathAgentOptions) => session(options, async () => {
       const action = assignments.get(options.workspace)!;
-      if (action.kind === 'lead') fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({
-        tasks: [{ id: 'claim', kind: 'goal', objective: 'Prove the original claim', theoremName: 'Submission.claim' }],
-      }));
+      if (action.kind === 'lead') research(options, { tasks: [claim] });
       else if (action.kind === 'task') {
         proofTurns++; fs.writeFileSync(proof(options), completed);
         options.onUsage({ totalTokens: 11 });
         throw new Error('math_model_turn_failed', { cause: new Error('Error parsing function call: invalid JSON arguments') });
-      } else if (action.kind === 'review') fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'),
-        JSON.stringify({ commit: action.seedCommit, verdict: 'accepted' }));
+      } else if (action.kind === 'review') research(options, { commit: action.seedCommit, verdict: 'accepted' });
       else throw new Error(`unexpected offline action: ${action.kind}`);
       options.onUsage({ totalTokens: 8 }); return 'completed';
     }));
-    const execute: typeof directSolverModules.M1.execute = async (...input) => {
-      assignments.set(input[3].worktree, input[1].assignment!);
-      return directSolverModules.M1.execute(...input);
-    };
-    expect(await runSolver([...args, '--workers', '2'], directory,
-      { ...directSolverModules, M1: { ...directSolverModules.M1, execute } })).toBe(0);
+    expect(await cooperate(assignments)).toBe(0);
     expect(proofTurns).toBe(1);
     expect(events().filter(event => event.event === 'task_integrated' && event.taskId === 'claim')).toHaveLength(1);
     expect(events().filter(event => event.event === 'worker_recovered')).toEqual([

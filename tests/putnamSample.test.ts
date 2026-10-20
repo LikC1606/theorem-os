@@ -133,6 +133,11 @@ function savedKnowledge(directory: string, format: 'v1' | 'v2', problemId = 'pre
   return { file, digest: mathDigest(fs.readFileSync(file)), base };
 }
 
+/** No batch was launched and nothing was fetched. */
+function expectOffline(context: Pick<ReturnType<typeof fixture>, 'runBatch' | 'fetch'>) {
+  expect(context.runBatch).not.toHaveBeenCalled(); expect(context.fetch).not.toHaveBeenCalled();
+}
+
 describe('offline PutnamBench module samples', () => {
   it.each(['v1', 'v2'] as const)('freezes a %s catalog and launches every arm from isolated experiment snapshots', async format => {
     const context = fixture(), saved = savedKnowledge(context.directory, format), output = path.join(context.directory, 'sample');
@@ -152,8 +157,7 @@ describe('offline PutnamBench module samples', () => {
     expect(read(path.join(output, 'report.json')).knowledge).toEqual(sample.knowledge);
     expect(read(path.join(child.comparisonDirectory, 'report.json')).knowledge).toMatchObject({
       digest: saved.digest, mode: 'transfer', sameProblemEntries: 0, sameProblemFindings: 0 });
-    expect(context.runBatch).not.toHaveBeenCalled();
-    expect(context.fetch).not.toHaveBeenCalled();
+    expectOffline(context);
     fs.chmodSync(plan.knowledge!.file, 0o600); fs.appendFileSync(plan.knowledge!.file, '\n'); fs.chmodSync(plan.knowledge!.file, 0o400);
     await expect(compareMathRuns(['--phase', 'run', '--directory', child.comparisonDirectory]))
       .rejects.toThrow('math_knowledge_identity_changed');
@@ -173,8 +177,7 @@ describe('offline PutnamBench module samples', () => {
     expect(comparisonReport(output, plan).knowledge).toMatchObject({ mode: 'recovery', sameProblemEntries: 1 });
     await expect(compareMathRuns(['--phase', 'run', '--directory', output, '--knowledge-base', saved.file]))
       .rejects.toThrow('knowledge-base and --knowledge-mode are frozen');
-    expect(context.runBatch).not.toHaveBeenCalled();
-    expect(context.fetch).not.toHaveBeenCalled();
+    expectOffline(context);
   });
 
   it('rejects an original target hidden in a helper source during a transfer comparison', async () => {
@@ -185,8 +188,7 @@ describe('offline PutnamBench module samples', () => {
       '--repo', context.repository, '--dataset', 'putnambench', '--problem', problem.id, '--task-file', context.task,
       '--build-manifest', context.manifest, '--knowledge-base', saved.file]))
       .rejects.toThrow('comparison_transfer_contains_target_knowledge');
-    expect(context.runBatch).not.toHaveBeenCalled();
-    expect(context.fetch).not.toHaveBeenCalled();
+    expectOffline(context);
   });
 
   it.each([
@@ -206,8 +208,7 @@ describe('offline PutnamBench module samples', () => {
     const plan = read<Plan>(path.join(output, 'comparison.json'));
     expect(comparisonReport(output, plan).knowledge).toMatchObject({ mode: 'recovery', sameProblemEntries: 0,
       sameProblemFindings: 0, sameTargetSourceDeclarations: 1 });
-    expect(context.runBatch).not.toHaveBeenCalled();
-    expect(context.fetch).not.toHaveBeenCalled();
+    expectOffline(context);
   });
 
   it('does not attribute a result from another catalog to the frozen knowledge comparison', async () => {
@@ -272,8 +273,7 @@ describe('offline PutnamBench module samples', () => {
     observation.searchCandidateIds.push('new-hit');
     await samplePutnamRuns(['--phase', 'check-report', '--directory', output]);
     expect(JSON.parse(String(context.log.mock.calls.at(-1)![0])).freshness).toBe('stale');
-    expect(context.runBatch).not.toHaveBeenCalled();
-    expect(context.fetch).not.toHaveBeenCalled();
+    expectOffline(context);
   });
 
   it('checks saved child report freshness offline without replacing reports or creating history', async () => {
@@ -288,8 +288,7 @@ describe('offline PutnamBench module samples', () => {
     expect(checked.problems.every(problem => problem.report.freshness === 'current')).toBe(true);
     expect(files.map(file => fs.readFileSync(file))).toEqual(before);
     expect(files.some(file => fs.existsSync(`${file}.history`))).toBe(false);
-    expect(context.runBatch).not.toHaveBeenCalled();
-    expect(context.fetch).not.toHaveBeenCalled();
+    expectOffline(context);
     const childFile = files[1], { reportHash: _hash, ...child } = read(childFile);
     child.generatedAt++;
     fs.writeFileSync(childFile, JSON.stringify({ ...child, reportHash: mathDigest(canonicalMathJson(child)) }));
@@ -342,8 +341,7 @@ describe('offline PutnamBench module samples', () => {
         expect(fs.existsSync(job.output)).toBe(false);
       }
     }
-    expect(context.runBatch).not.toHaveBeenCalled();
-    expect(context.fetch).not.toHaveBeenCalled();
+    expectOffline(context);
     expect(JSON.parse(String(context.log.mock.calls.at(-1)![0]))).toMatchObject({
       jobs: 12, status: 'prepared', invokesModel: false,
     });
@@ -364,7 +362,7 @@ describe('offline PutnamBench module samples', () => {
         expect(launch.args).not.toContain('--knowledge-base');
       }
     }
-    expect(context.runBatch).not.toHaveBeenCalled(); expect(context.fetch).not.toHaveBeenCalled();
+    expectOffline(context);
   });
 
   it('reports all twelve missing attempts and preserves null costs and each problem\'s planned pairs', async () => {
@@ -389,8 +387,7 @@ describe('offline PutnamBench module samples', () => {
     expect(context.readCatalog).not.toHaveBeenCalled();
     expect(context.readProblem).not.toHaveBeenCalled();
     expect(context.bootstrap).not.toHaveBeenCalled();
-    expect(context.runBatch).not.toHaveBeenCalled();
-    expect(context.fetch).not.toHaveBeenCalled();
+    expectOffline(context);
   });
 
   it('pairs matching arms only within a problem even when other problems reuse repetition one', async () => {
@@ -431,8 +428,7 @@ describe('offline PutnamBench module samples', () => {
     if (field === 'directory') context.sample.problems[0].comparisonDirectory = context.sample.problems[1].comparisonDirectory;
     rewrite(context.sampleFile, context.sample);
     await expect(samplePutnamRuns(['--phase', 'report', '--directory', context.output])).rejects.toThrow('putnam_sample_identity_mismatch');
-    expect(context.runBatch).not.toHaveBeenCalled();
-    expect(context.fetch).not.toHaveBeenCalled();
+    expectOffline(context);
   });
 
   it('rejects changed child plan bytes before reading run results', async () => {
@@ -495,8 +491,7 @@ describe('PutnamBench single-problem comparison entry', () => {
     rewrite(path.join(directory, 'comparison.json'), plan);
     expect(() => comparisonReport(directory, plan)).toThrow(error);
     await expect(compareMathRuns(['--phase', 'run', '--directory', directory])).rejects.toThrow(error);
-    expect(context.runBatch).not.toHaveBeenCalled();
-    expect(context.fetch).not.toHaveBeenCalled();
+    expectOffline(context);
   });
 
   it.each(['receipt', 'kind', 'source'])('rechecks every Putnam workspace and rejects a changed %s before launching', async field => {
@@ -514,8 +509,7 @@ describe('PutnamBench single-problem comparison entry', () => {
       .rejects.toThrow('comparison_putnam_source_identity_mismatch');
     expect(readReceipt).toHaveBeenCalledTimes(4);
     expect(readReceipt).toHaveBeenLastCalledWith(lastWorkspace, path.join(lastWorkspace, 'active-problem.json'));
-    expect(context.runBatch).not.toHaveBeenCalled();
-    expect(context.fetch).not.toHaveBeenCalled();
+    expectOffline(context);
   });
 
   it.each([false, true])('retains the original IMO comparison entry (explicit dataset: %s)', async explicit => {
@@ -531,8 +525,7 @@ describe('PutnamBench single-problem comparison entry', () => {
     expect(bootstrap).toHaveBeenCalledTimes(3);
     expect(context.readProblem).not.toHaveBeenCalled();
     expect(context.bootstrap).not.toHaveBeenCalled();
-    expect(context.runBatch).not.toHaveBeenCalled();
-    expect(context.fetch).not.toHaveBeenCalled();
+    expectOffline(context);
     delete plan.dataset;
     expect(() => comparisonReport(directory, plan)).not.toThrow();
   });

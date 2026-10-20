@@ -1,18 +1,20 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample, LOCAL_EXAMPLE_PROOF } from '../src/math/localExample';
+import { LOCAL_EXAMPLE_PROOF } from '../src/math/localExample';
 import type { LeanDeclarationReferences } from '../src/math/leanReferences';
-import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } from '../src/math/verifier';
+import type { MathematicsVerifierBatchRequest } from '../src/math/verifier';
 import type { SolverRunState } from '../src/solver/archive';
-import { CooperativeResearch } from '../src/solver/cooperation';
+import type { CooperativeResearch } from '../src/solver/cooperation';
 import { directSolverModules } from '../src/solver/modules';
 import { checkSolverProof, hasFreshSolverCheck, type ProofCheck } from '../src/solver/modules/evidence';
 import type { ResearchWorker } from '../src/solver/modules/organization';
-import { commitSolverSources, git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
+import { commitSolverSources, type SolverProblem } from '../src/solver/problem';
 import { isStatementAction, statementSnapshot, writeStatementSnapshot, type StatementReview } from '../src/solver/statementReview';
 import { taskVersion, type TaskRecord } from '../src/solver/tasks';
+import { cooperativeResearch } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
+import { verifiedBatch } from './helpers/verifier';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn() }));
 vi.mock('../src/math/verifier', async importOriginal => ({
@@ -21,15 +23,6 @@ vi.mock('../src/math/verifier', async importOriginal => ({
   resolveMathematicsLakePackagesCache: () => undefined,
 }));
 vi.mock('../src/runtime/codexSession', () => ({ createCodexMathSession: host.createSession }));
-
-function verified(request: MathematicsVerifierBatchRequest): MathematicsVerifierBatchResult {
-  return { schema: 'deepscientist.mathematics.verification-batch/v1', status: 'kernel_verified',
-    targetCommit: request.targetCommit!, sessionId: 'final-review-scope-fixture', events: [], startedAt: 1, checkedAt: 2, durationMs: 1,
-    results: request.items.map((item, index) => ({ ...item, sourceDeclarationHash: item.expectedSourceDeclarationHash,
-      checkId: item.id?.trim() || `check-${index + 1}`, sessionId: 'final-review-scope-fixture', checkedAt: 2,
-      receiptId: `scope-${request.targetCommit}-${item.theoremName}`, targetCommit: request.targetCommit,
-      status: 'kernel_verified', claim: 'statement' })) as MathematicsVerifierBatchResult['results'] };
-}
 
 describe('fixed-candidate statement review scope', () => {
   let directory: string, workspace: string, problem: SolverProblem, state: SolverRunState;
@@ -50,11 +43,8 @@ describe('fixed-candidate statement review scope', () => {
     expect(hasFreshSolverCheck(check)).toBe(true);
     return check;
   };
-  const create = (primaryLed = false) => new CooperativeResearch({ state, workers,
-    access: new Map(workers.map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-    signal: controller.signal, save: () => {}, emit: (event, details) => events.push({ event, details }),
-    modules: { ...directSolverModules, M5: { ...directSolverModules.M5, primaryLed } },
-    exclusiveCheck: async callback => callback() });
+  const create = (primaryLed = false) => cooperativeResearch({ state, workers, retrievalRoot: directory, signal: controller.signal,
+    emit: (event, details) => events.push({ event, details }), modules: { ...directSolverModules, M5: { ...directSolverModules.M5, primaryLed } } });
   const addReview = (node: TaskRecord) => {
     const snapshot = statementSnapshot(problem, node.task, workspace, check.commit, state.environmentDigest, []);
     const reviewWorkspace = path.join(directory, 'statements', node.task.id);
@@ -92,24 +82,18 @@ describe('fixed-candidate statement review scope', () => {
     host.createSession.mockReset().mockImplementation(() => { throw new Error('fixture_real_models_forbidden'); });
     host.verify.mockReset().mockImplementation(async (request: MathematicsVerifierBatchRequest, options) => {
       expect(options.collectDeclarationReferences).toBe(true);
-      const result = verified(request);
+      const result = verifiedBatch(request, { sessionId: 'final-review-scope-fixture', receipt: 'scope', checks: true });
       return { ...result, results: result.results.map(receipt => ({ ...receipt,
         ...(reports.get(receipt.theoremName) ? { declarationReferences: reports.get(receipt.theoremName) } : {}) })) };
     });
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-final-review-scope-')));
-    workspace = path.join(directory, 'workspace');
-    const receipt = bootstrapLocalExample(workspace);
-    problem = readSolverProblem(workspace, receipt.activeProblemPath);
+    const example = localExample('solver-final-review-scope-');
+    ({ directory, workspace, problem } = example);
     fs.writeFileSync(path.join(workspace, problem.projectRelative, 'Submission.lean'), LOCAL_EXAMPLE_PROOF.replace('theorem add_zero',
       'lemma used : True := by trivial\nlemma transitive : True := by trivial\nlemma unused : True := by trivial\ntheorem add_zero'));
     const canonicalCommit = commitSolverSources(problem, workspace);
-    workers = [{ id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles },
-      { id: 'reviewer', role: 'researcher', worktree: path.join(directory, 'peer'), ownedFiles: problem.ownedFiles }];
-    git(workspace, ['worktree', 'add', '--quiet', '--detach', workers[1]!.worktree, canonicalCommit]);
+    workers = [leadWorker(problem, workspace), peerWorker(example, 'reviewer', { name: 'peer', commit: canonicalCommit })];
     reports = new Map(problem.targets.map(target => [target.theoremName, { statement: [], proof: [] }]));
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'final-review-scope-fixture', problem,
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluator',
-      model: 'unused', effort: 'unused', worktree: workspace, phase: 'running', turns: 0, failures: [],
+    state = solverState(problem, workspace, { runId: 'final-review-scope-fixture', phase: 'running', failures: [],
       cooperation: { canonicalCommit,
         groups: [{ group: { id: 'main', objective: 'Prove the original problem.', status: 'active', revision: 0 }, turns: 0 }],
         tasks: [...['used', 'transitive', 'unused'].map(id => ({ task: { id, kind: 'lemma' as const,
@@ -118,7 +102,7 @@ describe('fixed-candidate statement review scope', () => {
           status: 'pending' as const, attempts: 0 })), ...problem.targets.map((target, index) => ({ task: {
             id: `goal_${index}`, kind: 'goal' as const, objective: `Prove ${target.theoremName}.`,
             theoremName: target.theoremName, proofPath: target.proofPath, dependsOn: [], revision: 0 },
-            status: 'integrated' as const, attempts: 1 }))] } };
+            status: 'integrated' as const, attempts: 1 }))] } });
     await freshCheck();
     for (const node of state.cooperation!.tasks.filter(node => node.task.statementReview)) addReview(node);
     cooperative = create();

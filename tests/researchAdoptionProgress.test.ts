@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { canonicalMathJson } from '../src/math/mathRuntimeIo';
-import type { TaskProof } from '../src/solver/cooperativeProof';
 import type { DeliveryRecord } from '../src/solver/deliveries';
 import { buildProofContinuation } from '../src/solver/progress';
 import { researchHandoffs, resolveResearchHandoffs, type ResearchHandoff, type ResearchHandoffDecision } from '../src/solver/researchHandoffs';
-import { hasTaskAcceptance, markTaskAcceptance, taskVersion, type TaskRecord } from '../src/solver/tasks';
+import { hasTaskAcceptance, taskVersion, type TaskRecord } from '../src/solver/tasks';
+import { integratedProof } from './helpers/taskProof';
 
 const node = (id: string, kind: TaskRecord['task']['kind'] = 'lemma', dependsOn: string[] = []): TaskRecord => ({
   task: { id, kind, objective: id, dependsOn, revision: 0,
@@ -12,18 +12,7 @@ const node = (id: string, kind: TaskRecord['task']['kind'] = 'lemma', dependsOn:
   status: 'pending', attempts: 0,
 });
 function checked(item: TaskRecord, inputs: TaskRecord[] = [], statementOnly = false) {
-  item.status = 'integrated';
-  const proof = item.integratedCheck = { taskDigest: taskVersion(item.task), passed: true, commit: 'canonical',
-    sourceDigest: 'source', seedCommit: 'seed', changes: [],
-    verification: { status: 'kernel_verified', targetCommit: 'projection', results: [
-      { status: 'kernel_verified', targetCommit: 'projection', receiptId: `receipt-${item.task.id}` },
-    ] }, references: { sourceCommit: 'canonical', environmentDigest: 'environment', contextDigest: 'context', inputs: [],
-      root: { file: item.task.proofPath!, name: item.task.theoremName! },
-      tasks: inputs.map(input => ({ taskId: input.task.id, taskDigest: taskVersion(input.task) })),
-      statement: statementOnly ? inputs.map(input => ({ file: input.task.proofPath!, name: input.task.theoremName! })) : [],
-      proof: statementOnly ? [] : inputs.map(input => ({ file: input.task.proofPath!, name: input.task.theoremName! })) } } as TaskProof;
-  markTaskAcceptance(proof);
-  return proof;
+  return integratedProof(item, { uses: inputs, statementOnly });
 }
 type State = { tasks: TaskRecord[]; deliveries: DeliveryRecord[]; researchDecisions: ResearchHandoffDecision[] };
 function fixture() {

@@ -1,26 +1,22 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { canonicalMathJson, mathDigest } from '../src/math/mathRuntimeIo';
 import type { SolverRunState } from '../src/solver/archive';
-import { CooperativeResearch, type HumanEditRecord } from '../src/solver/cooperation';
-import { directSolverModules } from '../src/solver/modules';
+import type { CooperativeResearch, HumanEditRecord } from '../src/solver/cooperation';
 import type { ResearchWorker } from '../src/solver/modules/organization';
 import { git, type SolverProblem } from '../src/solver/problem';
 import { parseCooperationPlan, taskVersion, type CooperativeTask } from '../src/solver/tasks';
+import { deferred } from './helpers/async';
+import { cooperativeResearch } from './helpers/cooperation';
+import { temporaryDirectory } from './helpers/files';
+import { solverState } from './helpers/solver';
 
 const host = vi.hoisted(() => ({ capture: vi.fn() }));
 vi.mock('../src/solver/statementReview', async importOriginal => ({
   ...await importOriginal<typeof import('../src/solver/statementReview')>(),
   captureStatementContexts: host.capture,
 }));
-
-const deferred = () => {
-  let resolve!: () => void;
-  const promise = new Promise<void>(complete => { resolve = complete; });
-  return { promise, resolve };
-};
 
 describe('human edit recovery', () => {
   let directory: string, problem: SolverProblem, state: SolverRunState, cooperative: CooperativeResearch;
@@ -41,11 +37,10 @@ describe('human edit recovery', () => {
   };
   const record = (id: string) => state.cooperation!.edits?.find(edit => edit.id === id);
   const create = (peers: ResearchWorker[] = []) => {
-    const instance = new CooperativeResearch({ state,
+    const instance = cooperativeResearch({ state, retrievalRoot: directory,
       workers: [{ id: 'lead', role: 'lead', worktree: path.join(directory, 'lead'), ownedFiles: [] }, ...peers],
       access: new Map([['lead', { environment: {}, retrievalRoot: directory }]]),
-      signal: controller.signal, save, emit: (event, details) => events.push({ event, details }),
-      modules: directSolverModules, exclusiveCheck: check => exclusive(check) });
+      signal: controller.signal, save, emit: (event, details) => events.push({ event, details }), exclusiveCheck: check => exclusive(check) });
     // This fixture tests control records rather than worker-context file projections.
     vi.spyOn(instance as any, 'changed').mockImplementation((edit: unknown) => {
       const current = edit as HumanEditRecord | undefined;
@@ -64,18 +59,16 @@ describe('human edit recovery', () => {
   beforeEach(() => {
     host.capture.mockReset().mockImplementation(async (_problem: unknown, tasks: readonly CooperativeTask[]) =>
       new Map(tasks.map(task => [task.id, { type: 'True', constants: [], omitted: [] }])));
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-human-edit-recovery-')));
+    directory = temporaryDirectory('solver-human-edit-recovery-');
     fs.mkdirSync(path.join(directory, 'lead'));
     problem = { kind: 'example', workspace: path.join(directory, 'lead'), projectRelative: 'generated/p',
       baseCommit: 'a'.repeat(40), receiptDigest: 'human-edit-fixture', ownedFiles: [], targets: [], trustedFiles: {},
       declarations: {}, sourceStructure: {}, contract: { assumptions: [], formalStatement: 'Fixture research.' } } as unknown as SolverProblem;
     const initial = plan(0);
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'human-edit-fixture', problem,
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluator',
-      model: 'unused', effort: 'unused', worktree: path.join(directory, 'lead'), phase: 'running', turns: 0,
+    state = solverState(problem, path.join(directory, 'lead'), { runId: 'human-edit-fixture', phase: 'running',
       cooperation: { canonicalCommit: problem.baseCommit,
         tasks: initial.tasks.map(task => ({ task, status: 'pending', attempts: 0 })),
-        groups: initial.groups.map(group => ({ group, turns: 0 })) } };
+        groups: initial.groups.map(group => ({ group, turns: 0 })) } });
     events = []; snapshots = []; controller = new AbortController(); exclusive = async check => check();
     cooperative = create();
   });

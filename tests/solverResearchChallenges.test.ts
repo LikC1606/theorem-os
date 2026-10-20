@@ -1,16 +1,16 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { bootstrapLocalExample } from '../src/math/localExample';
 import { mathDigest } from '../src/math/mathRuntimeIo';
 import type { SolverRunState } from '../src/solver/archive';
-import { CooperativeResearch, parseCooperationPlan } from '../src/solver/cooperation';
+import { parseCooperationPlan, type CooperativeResearch } from '../src/solver/cooperation';
 import { directSolverModules } from '../src/solver/modules';
 import type { ResearchWorker } from '../src/solver/modules/organization';
-import { commitSolverSources, git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
+import { commitSolverSources, type SolverProblem } from '../src/solver/problem';
 import { pendingResearchChallenges, researchChallenges, resolveResearchChallenges } from '../src/solver/researchChallenges';
 import { taskVersion, type CooperativeTask } from '../src/solver/tasks';
+import { cooperativeResearch } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
 
 describe('deferred research challenge plan retention', () => {
   let directory: string, problem: SolverProblem, state: SolverRunState;
@@ -22,22 +22,17 @@ describe('deferred research challenge plan retention', () => {
   const plan = (proposed = tasks()) => ({ tasks: proposed, groups: state.cooperation!.groups!.map(record => record.group) });
   const create = (primaryLed = false) => {
     const controller = new AbortController();
-    const cooperative = new CooperativeResearch({ state, workers: [lead, peer],
-      access: new Map([lead, peer].map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-      modules: primaryLed ? { ...directSolverModules, M5: { ...directSolverModules.M5, primaryLed: true } } : directSolverModules,
-      signal: controller.signal, save: () => {}, emit: () => {}, exclusiveCheck: async check => check() });
+    const cooperative = cooperativeResearch({ state, workers: [lead, peer], retrievalRoot: directory, signal: controller.signal,
+      modules: primaryLed ? { ...directSolverModules, M5: { ...directSolverModules.M5, primaryLed: true } } : directSolverModules });
     instances.push({ cooperative, controller });
     return cooperative;
   };
 
   beforeEach(() => {
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-research-challenges-')));
-    const workspace = path.join(directory, 'lead'), receipt = bootstrapLocalExample(workspace);
-    problem = readSolverProblem(workspace, receipt.activeProblemPath);
-    const peerWorkspace = path.join(directory, 'peer');
-    git(workspace, ['worktree', 'add', '--quiet', '--detach', peerWorkspace, problem.baseCommit]);
-    lead = { id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles };
-    peer = { ...lead, id: 'researcher', role: 'researcher', worktree: peerWorkspace };
+    const example = localExample('solver-research-challenges-', 'lead'), workspace = example.workspace;
+    ({ directory, problem } = example);
+    lead = leadWorker(problem, workspace);
+    peer = peerWorker(example, 'researcher', { name: 'peer' });
     const source: CooperativeTask = { id: 'question', kind: 'research', objective: 'Test the proposed inference.',
       dependsOn: [], revision: 0 };
     const helpers: CooperativeTask[] = ['waiting', 'delivery_input'].map(id => ({ id, kind: 'lemma',
@@ -47,9 +42,7 @@ describe('deferred research challenge plan retention', () => {
       theoremName: target.theoremName, proofPath: target.proofPath, status: 'paused',
     }))] });
     const finding = JSON.stringify({ conclusion: 'refuted', summary: 'The inference omits a positivity assumption.' });
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'research-challenge-fixture', problem,
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluator',
-      model: 'unused', effort: 'unused', worktree: workspace, phase: 'running', turns: 0,
+    state = solverState(problem, workspace, { runId: 'research-challenge-fixture', phase: 'running',
       cooperation: { canonicalCommit: problem.baseCommit,
         groups: parsed.groups.map(group => ({ group, turns: 0 })),
         tasks: parsed.tasks.map(task => ({ task, attempts: 0, status: task.id === source.id ? 'completed' : 'pending',
@@ -58,7 +51,7 @@ describe('deferred research challenge plan retention', () => {
           taskId: source.id, taskDigest: taskVersion(parsed.tasks.find(task => task.id === source.id)!),
           findingDigest: mathDigest(finding), summary: 'The inference omits a positivity assumption.',
           statement: '', premises: [], evidenceRefs: ['fixed-notes'], remainingObligations: [], createdAt: 1,
-          dependencies: [{ taskId: 'delivery_input', taskDigest: taskVersion(parsed.tasks.find(task => task.id === 'delivery_input')!) }] }] } };
+          dependencies: [{ taskId: 'delivery_input', taskDigest: taskVersion(parsed.tasks.find(task => task.id === 'delivery_input')!) }] }] } });
     const challenge = pendingResearchChallenges(state.cooperation!)[0]!;
     state.cooperation!.challengeDecisions = resolveResearchChallenges(state.cooperation!, [challenge.id],
       { [challenge.id]: challenge.activationDigest }, tasks(), [{ id: challenge.id, status: 'deferred',

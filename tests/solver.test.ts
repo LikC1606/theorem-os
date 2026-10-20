@@ -16,7 +16,7 @@ import { runSolver } from '../src/solver/run';
 import { rememberSolverFailure, solverProofFeedback } from '../src/solver/feedback';
 import { createMathRetrievalCorpus } from '../src/math/mathRetrievalCorpus';
 import * as retrievalCorpus from '../src/math/mathRetrievalCorpus';
-import type { MathAgentOptions } from '../src/runtime/codexSession';
+import type { MathAgentOptions, MathAgentSession } from '../src/runtime/codexSession';
 import { prepareDeepSeekProfile } from '../src/runtime/deepseek';
 import { prepareWestlakeProfile } from '../src/runtime/westlake';
 import { checkLemmaResearch, readLemmaPlan } from '../src/solver/lemma';
@@ -37,6 +37,7 @@ import { readKnowledgeCatalog, writePackedKnowledge } from '../src/solver/theore
 import { pendingResearchHandoffs, researchHandoffs, resolveResearchHandoffs } from '../src/solver/researchHandoffs';
 import { buildRunInspection } from '../src/solver/inspection';
 import { createTaskConnectionCheck } from '../src/solver/taskConnections';
+import { deferred } from './helpers/async';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn(), officialGate: vi.fn(), build: vi.fn(), delay: vi.fn(),
   prepare: vi.fn(), freeze: vi.fn(), readiness: vi.fn(), connectivity: vi.fn(), packages: undefined as string | undefined }));
@@ -72,6 +73,24 @@ function verified(request: MathematicsVerifierBatchRequest): MathematicsVerifier
       checkId: item.id?.trim() || `check-${index + 1}`, sessionId: 'host', checkedAt: 2,
       receiptId: `fixture-${request.targetCommit}-${item.theoremName}`,
       targetCommit: request.targetCommit, status: 'kernel_verified', claim: 'statement' })) as MathematicsVerifierBatchResult['results'] };
+}
+
+/** Marks the batch and every result as failed; `fields` adds result fields such as an error preview. */
+function failed(batch: MathematicsVerifierBatchResult, fields: Partial<MathematicsVerifierBatchResult['results'][number]> = {}): MathematicsVerifierBatchResult {
+  return { ...batch, status: 'failed', results: batch.results.map(result => ({ ...result, status: 'failed', ...fields })) };
+}
+
+const unsolved = 'Submission.lean:4:1: error: unsolved goals\n⊢ True';
+
+/** A model session stub whose turns run `turn`; `fields` adds session fields such as lastError. */
+function session(thread: string | ((options: MathAgentOptions) => string),
+  turn: (options: MathAgentOptions, message: string) => Promise<string>, fields: Partial<MathAgentSession> = {}) {
+  return async (options: MathAgentOptions): Promise<MathAgentSession> => ({ threadId: typeof thread === 'string' ? thread : thread(options),
+    ...fields, run: message => turn(options, message), close: vi.fn(), interrupt: vi.fn() });
+}
+
+function commitFixture(worktree: string, message: string, ...flags: string[]) {
+  git(worktree, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', ...flags, '--no-gpg-sign', '--quiet', '-m', message]);
 }
 
 describe('isolated solver and host acceptance', () => {
@@ -122,7 +141,7 @@ describe('isolated solver and host acceptance', () => {
     fs.writeFileSync(receipt.activeProblemPath, JSON.stringify(receipt));
     git(workspace, ['init', '--quiet']);
     git(workspace, ['add', 'generated']);
-    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Public baseline']);
+    commitFixture(workspace, 'Public baseline');
     fs.appendFileSync(path.join(workspace, '.git', 'info', 'exclude'), '\n/active-problem.json\n**/.lake/\n');
     problem = readSolverProblem(workspace, receipt.activeProblemPath);
     output = path.join(directory, 'run.json');
@@ -131,11 +150,10 @@ describe('isolated solver and host acceptance', () => {
     args = ['--workspace', workspace, '--task-file', task, '--build-manifest', build, '--output', output, '--max-turns', '1', '--workers', '1'];
     host.verify.mockImplementation(async request => verified(request));
     host.officialGate.mockResolvedValue({ comparison: { status: 'official_verified' } });
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.threadId || 'fixture-thread',
-      run: async () => {
-        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.createSession.mockImplementation(session(options => options.threadId || 'fixture-thread', async options => {
+      fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+      return 'completed';
+    }));
   });
   afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllEnvs(); fs.rmSync(directory, { recursive: true, force: true }); });
 
@@ -149,7 +167,7 @@ describe('isolated solver and host acceptance', () => {
     fs.writeFileSync(problem.activeProblemPath, JSON.stringify(receipt));
     for (const file of ['Submission.lean', 'Challenge.lean']) fs.writeFileSync(path.join(project, file), source);
     git(workspace, ['add', '--', 'generated']);
-    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Original definition goal']);
+    commitFixture(workspace, 'Original definition goal');
     problem = readSolverProblem(workspace, problem.activeProblemPath);
     const task: CooperativeTask = { id: 'constant', kind: 'goal', objective: 'Fill the original definition', dependsOn: [], revision: 0,
       proofPath: 'Submission.lean', theoremName: 'Submission.C' };
@@ -260,21 +278,20 @@ describe('isolated solver and host acceptance', () => {
     const before = readSolverRunState(`${output}.runtime/state.json`);
     fs.rmSync(fixture.source); fs.rmSync(fixture.file);
     let received = false;
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'continuation-resume',
-      run: async (message: string) => {
-        const current = readSolverRunState(`${output}.runtime/state.json`);
-        const section = current.lastContextManifest!.included.find(item => item.id === `continuation-input:${before.continuationDigest}`);
-        expect(section).toMatchObject({ kind: 'continuation', required: true });
-        expect(message).toContain('continuation read --snapshot');
-        expect(message).toContain(before.continuationDigest);
-        expect(message).not.toContain(fixture.text);
-        const snapshot = path.join(options.workspace, problem.projectRelative, '.lake/continuation.json');
-        expect(message).toContain(snapshot);
-        expect(readContinuationPage(snapshot, before.continuationDigest!, 'previous').text).toBe(fixture.text);
-        fs.writeFileSync(path.join(options.workspace, problem.projectRelative, 'Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
-        received = true;
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.createSession.mockImplementation(session('continuation-resume', async (options, message) => {
+      const current = readSolverRunState(`${output}.runtime/state.json`);
+      const section = current.lastContextManifest!.included.find(item => item.id === `continuation-input:${before.continuationDigest}`);
+      expect(section).toMatchObject({ kind: 'continuation', required: true });
+      expect(message).toContain('continuation read --snapshot');
+      expect(message).toContain(before.continuationDigest);
+      expect(message).not.toContain(fixture.text);
+      const snapshot = path.join(options.workspace, problem.projectRelative, '.lake/continuation.json');
+      expect(message).toContain(snapshot);
+      expect(readContinuationPage(snapshot, before.continuationDigest!, 'previous').text).toBe(fixture.text);
+      fs.writeFileSync(path.join(options.workspace, problem.projectRelative, 'Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+      received = true;
+      return 'completed';
+    }));
     expect(await runSolver([...args, '--resume'], directory)).toBe(0);
     expect(received).toBe(true);
     expect(host.createSession).toHaveBeenCalledOnce();
@@ -382,19 +399,18 @@ describe('isolated solver and host acceptance', () => {
       return { ...result, results: result.results.map(item => ({ ...item, declarationReferences: { statement: [],
         proof: item.theoremName === 'Submission.first' ? [declaration] : [] } })) };
     });
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'knowledge-fixture',
-      run: async (message: string) => {
-        messages.push(message);
-        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original
-          .replace('theorem first', 'lemma saved_bridge : True := by trivial\ntheorem first')
-          .replace('first : True := by sorry', 'first : True := by exact saved_bridge')
-          .replace('second : True := by sorry', 'second : True := by trivial'));
-        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({
-          summary: 'Adapt the saved bridge for the first original target; prove the second directly.',
-          knowledgeUses: [claim, { ...claim, catalogDigest: mathDigest('forged-catalog') }],
-        }));
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.createSession.mockImplementation(session('knowledge-fixture', async (options, message) => {
+      messages.push(message);
+      fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original
+        .replace('theorem first', 'lemma saved_bridge : True := by trivial\ntheorem first')
+        .replace('first : True := by sorry', 'first : True := by exact saved_bridge')
+        .replace('second : True := by sorry', 'second : True := by trivial'));
+      fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({
+        summary: 'Adapt the saved bridge for the first original target; prove the second directly.',
+        knowledgeUses: [claim, { ...claim, catalogDigest: mathDigest('forged-catalog') }],
+      }));
+      return 'completed';
+    }));
     expect(await runSolver([...args, '--knowledge-base', catalog.file], directory)).toBe(0);
     const options = host.createSession.mock.calls[0]![0] as MathAgentOptions;
     expect(options.instructions).toContain('knowledge search --catalog');
@@ -458,18 +474,16 @@ describe('isolated solver and host acceptance', () => {
 
   it('runs independent peers without planning or sharing and accounts for both sessions', async () => {
     let started = 0;
-    let release!: () => void;
-    const bothStarted = new Promise<void>(resolve => { release = resolve; });
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'independent',
-      run: async (message: string) => {
-        expect(message).not.toContain('Cooperative assignment:');
-        expect(fs.existsSync(path.join(options.workspace, 'COOPERATION.json'))).toBe(false);
-        options.onUsage({ totalTokens: 100, inputTokens: 80, outputTokens: 20 });
-        if (++started === 2) release();
-        await bothStarted;
-        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    const bothStarted = deferred();
+    host.createSession.mockImplementation(session('independent', async (options, message) => {
+      expect(message).not.toContain('Cooperative assignment:');
+      expect(fs.existsSync(path.join(options.workspace, 'COOPERATION.json'))).toBe(false);
+      options.onUsage({ totalTokens: 100, inputTokens: 80, outputTokens: 20 });
+      if (++started === 2) bothStarted.resolve();
+      await bothStarted.promise;
+      fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+      return 'completed';
+    }));
     expect(await runSolver([...args, '--workers', '2', '--max-turns', '2', '--coordination', 'independent'], directory)).toBe(0);
     const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
     expect(state.cooperation).toBeUndefined();
@@ -488,18 +502,16 @@ describe('isolated solver and host acceptance', () => {
     const attempts = new Map<string, number>();
     host.verify.mockImplementation(async request => {
       const checked = verified(request);
-      return fs.readFileSync(path.join(request.projectRoot, 'Submission.lean'), 'utf8').includes('sorry')
-        ? { ...checked, status: 'failed', results: checked.results.map(result => ({ ...result, status: 'failed' })) } : checked;
+      return fs.readFileSync(path.join(request.projectRoot, 'Submission.lean'), 'utf8').includes('sorry') ? failed(checked) : checked;
     });
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.workspace,
-      run: async () => {
-        const count = (attempts.get(options.workspace) ?? 0) + 1;
-        attempts.set(options.workspace, count);
-        await Promise.resolve();
-        if (count === 6) fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'),
-          original.replaceAll('by sorry', 'by trivial'));
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.createSession.mockImplementation(session(options => options.workspace, async options => {
+      const count = (attempts.get(options.workspace) ?? 0) + 1;
+      attempts.set(options.workspace, count);
+      await Promise.resolve();
+      if (count === 6) fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'),
+        original.replaceAll('by sorry', 'by trivial'));
+      return 'completed';
+    }));
     const defaultBudget = args.filter((_, index) => args[index] !== '--max-turns' && args[index - 1] !== '--max-turns');
     expect(await runSolver([...defaultBudget, '--workers', '4', '--coordination', 'independent'], directory)).toBe(0);
     const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
@@ -510,12 +522,10 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it('counts failed independent turns within one shared budget', async () => {
-    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) }));
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'failed-independent',
-      lastError: 'fixture model failure', run: async () => {
-        options.onUsage({ totalTokens: 75 }); return 'failed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.verify.mockImplementation(async request => failed(verified(request)));
+    host.createSession.mockImplementation(session('failed-independent', async options => {
+      options.onUsage({ totalTokens: 75 }); return 'failed';
+    }, { lastError: 'fixture model failure' }));
     expect(await runSolver([...args, '--workers', '4', '--max-turns', '3', '--coordination', 'independent'], directory)).toBe(1);
     const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
     expect(state.turns).toBe(3);
@@ -527,12 +537,11 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it('stops new model turns at the reported token allowance without cancelling final proof verification', async () => {
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'token-proof',
-      run: async () => {
-        options.onUsage({ totalTokens: 120, inputTokens: 100, outputTokens: 20 });
-        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.createSession.mockImplementation(session('token-proof', async options => {
+      options.onUsage({ totalTokens: 120, inputTokens: 100, outputTokens: 20 });
+      fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+      return 'completed';
+    }));
     expect(await runSolver([...args, '--max-total-tokens', '100', '--max-turns', '0', '--max-run-seconds', '0',
       '--max-turn-seconds', '0'], directory)).toBe(0);
     const result = JSON.parse(fs.readFileSync(output, 'utf8'));
@@ -545,16 +554,14 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it('uses one reported allowance across independent workers and records in-flight overrun', async () => {
-    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) }));
+    host.verify.mockImplementation(async request => failed(verified(request)));
     let started = 0;
-    let release!: () => void;
-    const running = new Promise<void>(resolve => { release = resolve; });
+    const running = deferred();
     const runs = vi.fn();
     const interrupts = vi.fn();
     host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.workspace,
       run: async () => {
-        runs(); if (++started === 4) release(); await running;
+        runs(); if (++started === 4) running.resolve(); await running.promise;
         options.onUsage({ totalTokens: 40 });
         return 'completed';
       }, close: vi.fn(), interrupt: interrupts }));
@@ -573,8 +580,7 @@ describe('isolated solver and host acceptance', () => {
     const profile = path.join(directory, 'westlake-request-budget');
     prepareWestlakeProfile(profile, 'deepseek-flash', 'high');
     vi.stubEnv('CODEX_HOME', profile);
-    host.verify.mockImplementation(async request => solved ? verified(request) : { ...verified(request), status: 'failed',
-      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) });
+    host.verify.mockImplementation(async request => solved ? verified(request) : failed(verified(request)));
     const requests = vi.fn();
     host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'request-budget',
       usageSource: 'upstream-requests', lastError: 'HTTP 403 Forbidden',
@@ -611,24 +617,20 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it('uses complete receipts from concurrent peers before allowing their next internal request', async () => {
-    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) }));
+    host.verify.mockImplementation(async request => failed(verified(request)));
     let started = 0, settled = 0;
-    let release!: () => void, finished!: () => void;
-    const running = new Promise<void>(resolve => { release = resolve; });
-    const consumed = new Promise<void>(resolve => { finished = resolve; });
+    const running = deferred(), consumed = deferred();
     const requests = vi.fn();
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.workspace,
-      usageSource: 'upstream-requests', run: async () => {
-        const admission = options.requestGate!(); expect(admission.allowed).toBe(true);
-        if (admission.allowed) {
-          requests(); if (++started === 2) release(); await running;
-          admission.settle({ usage: { totalTokens: 60, inputTokens: 50, outputTokens: 10 }, complete: true });
-          if (++settled === 2) finished(); await consumed;
-        }
-        expect(options.requestGate!()).toEqual({ allowed: false, reason: 'math_total_token_limit' });
-        return 'failed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.createSession.mockImplementation(session(options => options.workspace, async options => {
+      const admission = options.requestGate!(); expect(admission.allowed).toBe(true);
+      if (admission.allowed) {
+        requests(); if (++started === 2) running.resolve(); await running.promise;
+        admission.settle({ usage: { totalTokens: 60, inputTokens: 50, outputTokens: 10 }, complete: true });
+        if (++settled === 2) consumed.resolve(); await consumed.promise;
+      }
+      expect(options.requestGate!()).toEqual({ allowed: false, reason: 'math_total_token_limit' });
+      return 'failed';
+    }, { usageSource: 'upstream-requests' }));
     expect(await runSolver([...args, '--workers', '2', '--coordination', 'independent', '--max-turns', '20', '--max-total-tokens', '100'], directory)).toBe(4);
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'limit_reached', reason: 'math_total_token_limit',
       usage: { totalTokens: 120 }, tokenBudget: { status: 'exhausted', usageComplete: true, overrunTokens: 20 } });
@@ -638,18 +640,16 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it('blocks internal requests immediately after a missing receipt and retains known earlier usage', async () => {
-    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) }));
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'request-missing-usage',
-      usageSource: 'upstream-requests', run: async () => {
-        const first = options.requestGate!();
-        if (first.allowed) first.settle({ usage: { totalTokens: 40, inputTokens: 30, outputTokens: 10 }, complete: true });
-        const second = options.requestGate!();
-        if (second.allowed) second.settle({ complete: false });
-        expect(options.requestGate!()).toEqual({ allowed: false, reason: 'math_model_usage_unavailable' });
-        options.onUsage({ totalTokens: 40 });
-        return 'failed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.verify.mockImplementation(async request => failed(verified(request)));
+    host.createSession.mockImplementation(session('request-missing-usage', async options => {
+      const first = options.requestGate!();
+      if (first.allowed) first.settle({ usage: { totalTokens: 40, inputTokens: 30, outputTokens: 10 }, complete: true });
+      const second = options.requestGate!();
+      if (second.allowed) second.settle({ complete: false });
+      expect(options.requestGate!()).toEqual({ allowed: false, reason: 'math_model_usage_unavailable' });
+      options.onUsage({ totalTokens: 40 });
+      return 'failed';
+    }, { usageSource: 'upstream-requests' }));
     expect(await runSolver([...args, '--max-turns', '20', '--max-total-tokens', '100'], directory)).toBe(4);
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'limit_reached', reason: 'math_model_usage_unavailable',
       usage: { totalTokens: 40 }, tokenBudget: { status: 'usage-unavailable', reportedTotalTokens: 40, usageComplete: false } });
@@ -659,24 +659,21 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it('keeps a peer rejected before its first upstream request at known zero consumption', async () => {
-    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) }));
-    let entered = 0, bothEntered!: () => void, consumed!: () => void;
-    const running = new Promise<void>(resolve => { bothEntered = resolve; });
-    const exhausted = new Promise<void>(resolve => { consumed = resolve; });
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.workspace,
-      usageSource: 'upstream-requests', run: async () => {
-        if (++entered === 2) bothEntered(); await running;
-        if (options.environment?.DEEPSCIENTIST_MATH_WORKER_ID === 'solver') {
-          const admission = options.requestGate!();
-          expect(admission.allowed).toBe(true);
-          if (admission.allowed) admission.settle({ usage: { totalTokens: 120, inputTokens: 100, outputTokens: 20 }, complete: true });
-          consumed(); return 'completed';
-        }
-        await exhausted;
-        expect(options.requestGate!()).toEqual({ allowed: false, reason: 'math_total_token_limit' });
-        return 'failed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.verify.mockImplementation(async request => failed(verified(request)));
+    let entered = 0;
+    const running = deferred(), exhausted = deferred();
+    host.createSession.mockImplementation(session(options => options.workspace, async options => {
+      if (++entered === 2) running.resolve(); await running.promise;
+      if (options.environment?.DEEPSCIENTIST_MATH_WORKER_ID === 'solver') {
+        const admission = options.requestGate!();
+        expect(admission.allowed).toBe(true);
+        if (admission.allowed) admission.settle({ usage: { totalTokens: 120, inputTokens: 100, outputTokens: 20 }, complete: true });
+        exhausted.resolve(); return 'completed';
+      }
+      await exhausted.promise;
+      expect(options.requestGate!()).toEqual({ allowed: false, reason: 'math_total_token_limit' });
+      return 'failed';
+    }, { usageSource: 'upstream-requests' }));
     expect(await runSolver([...args, '--workers', '2', '--coordination', 'independent', '--max-turns', '20', '--max-total-tokens', '100'], directory)).toBe(4);
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'limit_reached', reason: 'math_total_token_limit',
       usage: { totalTokens: 120 }, tokenBudget: { reportedTotalTokens: 120, usageComplete: true } });
@@ -691,17 +688,15 @@ describe('isolated solver and host acceptance', () => {
     vi.stubEnv('CODEX_HOME', profile);
     const requestArgs = [...args, '--model', 'deepseek-flash', '--effort', 'high'];
     let turns = 0;
-    host.verify.mockImplementation(async request => turns < 2 ? { ...verified(request), status: 'failed',
-      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) } : verified(request));
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.threadId ?? 'request-resume',
-      usageSource: 'upstream-requests', run: async () => {
-        const admission = options.requestGate!();
-        expect(admission.allowed).toBe(true);
-        if (admission.allowed) admission.settle({ usage: { totalTokens: 40, inputTokens: 30, outputTokens: 10 }, complete: true });
-        options.onUsage({ totalTokens: 40 });
-        if (++turns === 2) fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.verify.mockImplementation(async request => turns < 2 ? failed(verified(request)) : verified(request));
+    host.createSession.mockImplementation(session(options => options.threadId ?? 'request-resume', async options => {
+      const admission = options.requestGate!();
+      expect(admission.allowed).toBe(true);
+      if (admission.allowed) admission.settle({ usage: { totalTokens: 40, inputTokens: 30, outputTokens: 10 }, complete: true });
+      options.onUsage({ totalTokens: 40 });
+      if (++turns === 2) fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+      return 'completed';
+    }, { usageSource: 'upstream-requests' }));
     expect(await runSolver([...requestArgs, '--max-total-tokens', '100'], directory)).toBe(4);
     expect(JSON.parse(fs.readFileSync(output, 'utf8')).usage.totalTokens).toBe(40);
     if (legacy) {
@@ -721,8 +716,7 @@ describe('isolated solver and host acceptance', () => {
 
   it('keeps request consumption additive when context rotation creates a new thread', async () => {
     let turns = 0;
-    host.verify.mockImplementation(async request => turns < 2 ? { ...verified(request), status: 'failed',
-      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) } : verified(request));
+    host.verify.mockImplementation(async request => turns < 2 ? failed(verified(request)) : verified(request));
     host.createSession.mockImplementation(async (options: MathAgentOptions) => {
       const first = host.createSession.mock.calls.length === 1;
       if (!first) expect(options.threadId).toBeUndefined();
@@ -746,18 +740,15 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it.each([false, true])('fails closed on unavailable completed usage with a finite allowance (partial: %s)', async partial => {
-    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) }));
+    host.verify.mockImplementation(async request => failed(verified(request)));
     const runs = vi.fn();
     let started = 0;
-    let release!: () => void;
-    const running = new Promise<void>(resolve => { release = resolve; });
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.workspace,
-      run: async () => {
-        runs(); if (++started === (partial ? 2 : 1)) release(); await running;
-        if (partial && options.environment?.DEEPSCIENTIST_MATH_WORKER_ID === 'solver') options.onUsage({ totalTokens: 40 });
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    const running = deferred();
+    host.createSession.mockImplementation(session(options => options.workspace, async options => {
+      runs(); if (++started === (partial ? 2 : 1)) running.resolve(); await running.promise;
+      if (partial && options.environment?.DEEPSCIENTIST_MATH_WORKER_ID === 'solver') options.onUsage({ totalTokens: 40 });
+      return 'completed';
+    }));
     expect(await runSolver([...args, '--workers', partial ? '2' : '1', '--coordination', 'independent',
       '--max-turns', '20', '--max-total-tokens', '100'], directory)).toBe(4);
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'limit_reached', reason: 'math_model_usage_unavailable',
@@ -768,16 +759,14 @@ describe('isolated solver and host acceptance', () => {
 
   it.each(['transport', 'exception', 'failed', 'checkpoint', 'interrupted'] as const)
   ('keeps intermediate usage incomplete after a %s model turn with a finite allowance', async failure => {
-    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) }));
+    host.verify.mockImplementation(async request => failed(verified(request)));
     const runs = vi.fn();
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'partial-token-usage',
-      lastError: 'math_codex_transport_closed:fixture', run: async () => {
-        runs(); options.onUsage({ totalTokens: 40 });
-        if (failure === 'transport') throw new Error('math_codex_transport_closed:fixture');
-        if (failure === 'exception') throw new Error('fixture_request_exception');
-        return failure;
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.createSession.mockImplementation(session('partial-token-usage', async options => {
+      runs(); options.onUsage({ totalTokens: 40 });
+      if (failure === 'transport') throw new Error('math_codex_transport_closed:fixture');
+      if (failure === 'exception') throw new Error('fixture_request_exception');
+      return failure;
+    }, { lastError: 'math_codex_transport_closed:fixture' }));
     expect(await runSolver([...args, '--max-turns', '20', '--max-total-tokens', '100'], directory)).toBe(4);
     expect(runs).toHaveBeenCalledOnce();
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({
@@ -791,18 +780,16 @@ describe('isolated solver and host acceptance', () => {
 
   it.each(['reported-first', 'missing-first'] as const)
   ('preserves missing request usage inside a completed tool roundtrip (%s)', async order => {
-    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) }));
+    host.verify.mockImplementation(async request => failed(verified(request)));
     const runs = vi.fn();
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'mixed-request-usage',
-      run: async () => {
-        runs();
-        expect(options.onUsageIncomplete).toBeTypeOf('function');
-        if (order === 'missing-first') options.onUsageIncomplete!();
-        options.onUsage({ totalTokens: 40 });
-        if (order === 'reported-first') options.onUsageIncomplete!();
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.createSession.mockImplementation(session('mixed-request-usage', async options => {
+      runs();
+      expect(options.onUsageIncomplete).toBeTypeOf('function');
+      if (order === 'missing-first') options.onUsageIncomplete!();
+      options.onUsage({ totalTokens: 40 });
+      if (order === 'reported-first') options.onUsageIncomplete!();
+      return 'completed';
+    }));
     expect(await runSolver([...args, '--max-turns', '20', '--max-total-tokens', '100'], directory)).toBe(4);
     expect(runs).toHaveBeenCalledOnce();
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({
@@ -815,16 +802,14 @@ describe('isolated solver and host acceptance', () => {
 
   it('retains partial request usage across later completed turns with an unlimited allowance', async () => {
     let turns = 0;
-    host.verify.mockImplementation(async request => turns < 2 ? { ...verified(request), status: 'failed',
-      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) } : verified(request));
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'mixed-request-unlimited',
-      run: async () => {
-        options.onUsage({ totalTokens: ++turns * 40 });
-        if (turns === 1) options.onUsageIncomplete!();
-        else fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'),
-          original.replaceAll('by sorry', 'by trivial'));
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.verify.mockImplementation(async request => turns < 2 ? failed(verified(request)) : verified(request));
+    host.createSession.mockImplementation(session('mixed-request-unlimited', async options => {
+      options.onUsage({ totalTokens: ++turns * 40 });
+      if (turns === 1) options.onUsageIncomplete!();
+      else fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'),
+        original.replaceAll('by sorry', 'by trivial'));
+      return 'completed';
+    }));
     expect(await runSolver([...args, '--max-turns', '2', '--max-total-tokens', '0'], directory)).toBe(0);
     expect(turns).toBe(2);
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'evaluated_passed', usage: { totalTokens: 80 },
@@ -835,15 +820,13 @@ describe('isolated solver and host acceptance', () => {
 
   it('keeps partial usage visible while preserving unlimited retries after a transport failure', async () => {
     let turns = 0;
-    host.verify.mockImplementation(async request => turns < 2 ? { ...verified(request), status: 'failed',
-      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) } : verified(request));
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: `partial-token-${host.createSession.mock.calls.length}`,
-      lastError: 'math_codex_transport_closed:fixture', run: async () => {
-        options.onUsage({ totalTokens: 40 });
-        if (++turns === 1) throw new Error('math_codex_transport_closed:fixture');
-        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.verify.mockImplementation(async request => turns < 2 ? failed(verified(request)) : verified(request));
+    host.createSession.mockImplementation(session(() => `partial-token-${host.createSession.mock.calls.length}`, async options => {
+      options.onUsage({ totalTokens: 40 });
+      if (++turns === 1) throw new Error('math_codex_transport_closed:fixture');
+      fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+      return 'completed';
+    }, { lastError: 'math_codex_transport_closed:fixture' }));
     expect(await runSolver([...args, '--max-turns', '2', '--max-total-tokens', '0'], directory)).toBe(0);
     expect(turns).toBe(2);
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'evaluated_passed', usage: { totalTokens: 80 },
@@ -851,18 +834,15 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it('rechecks the shared allowance after opening a session while another worker consumes it', async () => {
-    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) }));
-    let opened!: () => void, consumed!: () => void;
-    const peerOpening = new Promise<void>(resolve => { opened = resolve; });
-    const allowanceConsumed = new Promise<void>(resolve => { consumed = resolve; });
+    host.verify.mockImplementation(async request => failed(verified(request)));
+    const peerOpening = deferred(), allowanceConsumed = deferred();
     const runs = vi.fn();
     host.createSession.mockImplementation(async (options: MathAgentOptions) => {
       const lead = options.environment?.DEEPSCIENTIST_MATH_WORKER_ID === 'solver';
-      if (!lead) { opened(); await allowanceConsumed; }
+      if (!lead) { peerOpening.resolve(); await allowanceConsumed.promise; }
       return { threadId: options.workspace, run: async () => {
-        runs(); await peerOpening;
-        options.onUsage({ totalTokens: 100 }); consumed(); return 'completed';
+        runs(); await peerOpening.promise;
+        options.onUsage({ totalTokens: 100 }); allowanceConsumed.resolve(); return 'completed';
       }, close: vi.fn(), interrupt: vi.fn() };
     });
     expect(await runSolver([...args, '--workers', '2', '--coordination', 'independent', '--max-turns', '20',
@@ -874,8 +854,7 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it('admits the actual model request atomically after asynchronous turn preparation', async () => {
-    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) }));
+    host.verify.mockImplementation(async request => failed(verified(request)));
     const runs = vi.fn();
     host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.workspace,
       run: async () => { runs(); options.onUsage({ totalTokens: 100 }); return 'completed'; },
@@ -889,15 +868,13 @@ describe('isolated solver and host acceptance', () => {
 
   it.each([80, 0])('retains the cumulative token allowance on resume and allows explicitly changing it to %s', async allowance => {
     let turns = 0;
-    host.verify.mockImplementation(async request => turns < 2 ? { ...verified(request), status: 'failed',
-      results: verified(request).results.map(result => ({ ...result, status: 'failed' })) } : verified(request));
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'token-resume',
-      run: async () => {
-        options.onUsage({ totalTokens: ++turns * 30 });
-        if (turns === 2) fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'),
-          original.replaceAll('by sorry', 'by trivial'));
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.verify.mockImplementation(async request => turns < 2 ? failed(verified(request)) : verified(request));
+    host.createSession.mockImplementation(session('token-resume', async options => {
+      options.onUsage({ totalTokens: ++turns * 30 });
+      if (turns === 2) fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'),
+        original.replaceAll('by sorry', 'by trivial'));
+      return 'completed';
+    }));
     expect(await runSolver([...args, '--max-turns', '20', '--max-total-tokens', '30'], directory)).toBe(4);
     expect(turns).toBe(1);
     // Omitting the option must not silently turn a saved finite allowance into unlimited work.
@@ -987,7 +964,7 @@ describe('isolated solver and host acceptance', () => {
       .replace('end Submission', 'def marker : String := "/-- literal -/"\n/-- Hidden helper documentation. -/\nlemma hidden : True := by trivial\nend Submission');
     fs.writeFileSync(path.join(project, 'Submission.lean'), source);
     git(workspace, ['add', 'generated/p/Submission.lean']);
-    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Documented baseline']);
+    commitFixture(workspace, 'Documented baseline');
     problem = readSolverProblem(workspace, problem.activeProblemPath);
     const commit = commitSolverSources(problem, workspace);
     const task: CooperativeTask = { id: target, kind: 'goal', objective: 'Prove the target', dependsOn: [], revision: 0,
@@ -1090,7 +1067,7 @@ describe('isolated solver and host acceptance', () => {
     const { source, task } = configureDefinitionGoal();
     fs.writeFileSync(path.join(project, 'Submission.lean'), edit(source.replace('C : Nat := by sorry', 'C : Nat := 7')));
     git(workspace, ['add', '--', 'generated/p/Submission.lean']);
-    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Invalid definition candidate']);
+    commitFixture(workspace, 'Invalid definition candidate');
     const commit = git(workspace, ['rev-parse', 'HEAD']);
     await expect(checkTaskProof(problem, workspace, commit, task,
       { taskId: task.id, taskDigest: taskVersion(task), workerId: 'engineer', seedCommit: problem.baseCommit },
@@ -1145,7 +1122,7 @@ describe('isolated solver and host acceptance', () => {
     receipt.solverOwnedFiles.push(helper); receipt.trustedFiles.push('ChallengeDeps.lean');
     fs.writeFileSync(problem.activeProblemPath, JSON.stringify(receipt));
     git(workspace, ['add', 'generated']);
-    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Freeze public imports']);
+    commitFixture(workspace, 'Freeze public imports');
     problem = readSolverProblem(workspace, problem.activeProblemPath);
     fs.writeFileSync(path.join(project, helper), 'import ChallengeDeps\n');
     if (cycle) expect(() => assertSolverSources(problem, workspace)).toThrow('math_local_module_import_cycle');
@@ -1226,9 +1203,7 @@ describe('isolated solver and host acceptance', () => {
     const messages: string[] = [];
     const closes = [vi.fn(), vi.fn()];
     const checkpoint = 'Checked helper: keep this proof.\n' + 'x'.repeat(20000) + '\nNext step: apply the retained helper to the final goal.';
-    host.verify.mockImplementation(async request => turn === 1 ? { ...verified(request), status: 'failed',
-      results: verified(request).results.map(item => ({ ...item, status: 'failed',
-        stdoutPreview: 'Submission.lean:4:1: error: unsolved goals\n⊢ True' })) } : verified(request));
+    host.verify.mockImplementation(async request => turn === 1 ? failed(verified(request), { stdoutPreview: unsolved }) : verified(request));
     host.createSession.mockImplementation(async (options: MathAgentOptions) => {
       const first = host.createSession.mock.calls.length === 1;
       return { threadId: first ? 'large-thread' : 'continued-thread', lastInputTokens: first ? 100_000 : 1000,
@@ -1273,18 +1248,17 @@ describe('isolated solver and host acceptance', () => {
     const messages: string[] = [];
     const solved = original.replaceAll('by sorry', 'by trivial');
     const withHelper = solved.replace('theorem first', 'lemma helper : True := by trivial\ntheorem first');
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'fixture-thread',
-      run: async (message: string) => {
-        messages.push(message);
-        if (messages.length === 2) {
-          expect(host.verify).not.toHaveBeenCalled();
-          expect(git(options.workspace, ['rev-parse', 'HEAD'])).toBe(problem.baseCommit);
-          expect(fs.readFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), 'utf8')).toContain('lemma helper');
-        }
-        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'),
-          messages.length === 1 ? withHelper.replace(from, to) : withHelper);
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.createSession.mockImplementation(session('fixture-thread', async (options, message) => {
+      messages.push(message);
+      if (messages.length === 2) {
+        expect(host.verify).not.toHaveBeenCalled();
+        expect(git(options.workspace, ['rev-parse', 'HEAD'])).toBe(problem.baseCommit);
+        expect(fs.readFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), 'utf8')).toContain('lemma helper');
+      }
+      fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'),
+        messages.length === 1 ? withHelper.replace(from, to) : withHelper);
+      return 'completed';
+    }));
     expect(await runSolver([...args, '--max-turns', '2'], directory)).toBe(0);
     expect(messages).toHaveLength(2);
     expect(messages[1]).toContain(reason);
@@ -1296,11 +1270,10 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it('keeps repeated invalid edits incomplete and resumable within the turn budget', async () => {
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'fixture-thread',
-      run: async () => {
-        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replace('first : True', 'first : False'));
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.createSession.mockImplementation(session('fixture-thread', async options => {
+      fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replace('first : True', 'first : False'));
+      return 'completed';
+    }));
     expect(await runSolver([...args, '--max-turns', '2'], directory)).toBe(4);
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'incomplete', turns: 2,
       solution_commit: null, solver_ready_receipt_valid: false, evaluator: { status: 'skipped' } });
@@ -1308,12 +1281,11 @@ describe('isolated solver and host acceptance', () => {
     expect(host.officialGate).not.toHaveBeenCalled();
     expect(git(workspace, ['rev-parse', 'HEAD'])).toBe(problem.baseCommit);
     const messages: string[] = [];
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.threadId!,
-      run: async (message: string) => {
-        messages.push(message);
-        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.createSession.mockImplementation(session(options => options.threadId!, async (options, message) => {
+      messages.push(message);
+      fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+      return 'completed';
+    }));
     expect(await runSolver([...args, '--resume', '--max-turns', '3'], directory)).toBe(0);
     expect(messages).toHaveLength(1);
     expect(messages[0]).toContain('math_original_declaration_changed');
@@ -1415,7 +1387,7 @@ describe('isolated solver and host acceptance', () => {
       declarationHash: hashMathFormalSourceDeclaration(challenge, name) }));
     fs.writeFileSync(problem.activeProblemPath, JSON.stringify(receipt));
     git(workspace, ['add', 'generated/p/Challenge.lean']);
-    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Canonical challenge namespace']);
+    commitFixture(workspace, 'Canonical challenge namespace');
     const mapped = readSolverProblem(workspace, problem.activeProblemPath);
     expect(mapped.targets.map(item => item.theoremName)).toEqual(['Submission.first', 'Submission.second']);
     expect(fs.readFileSync(path.join(project, 'Submission.lean'), 'utf8')).toBe(original);
@@ -1431,9 +1403,7 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it('reuses identical Lean rejections across notes while rechecking changed proofs and source constraints', async () => {
-    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(item => ({ ...item, status: 'failed',
-        stdoutPreview: 'Submission.lean:4:1: error: unsolved goals\n⊢ True' })) }));
+    host.verify.mockImplementation(async request => failed(verified(request), { stdoutPreview: unsolved }));
     const first = await checkSolverProof(problem, workspace, {});
     expect(await checkSolverProof(problem, workspace, {}, undefined, first)).toBe(first);
     expect(host.verify).toHaveBeenCalledTimes(1);
@@ -1595,9 +1565,8 @@ describe('isolated solver and host acceptance', () => {
         (options.expectedDeclarationType || options.expectedDeclarationTypes?.[item.theoremName]) &&
         source.includes(`${item.theoremName.split('.').at(-1)} : False`));
       const checked = verified(request);
-      return !source.includes('sorry') && !wrongType ? checked : { ...checked, status: 'failed',
-        results: checked.results.map(item => ({ ...item, status: 'failed',
-          stdoutPreview: 'Submission.lean:3:1: error: task type mismatch or unfinished proof\n⊢ True' })) };
+      return !source.includes('sorry') && !wrongType ? checked
+        : failed(checked, { stdoutPreview: 'Submission.lean:3:1: error: task type mismatch or unfinished proof\n⊢ True' });
     });
     host.createSession.mockImplementation(async (options: MathAgentOptions) => {
       const threadId = options.threadId || `thread-${options.environment!.DEEPSCIENTIST_MATH_WORKER_ID}`;
@@ -2343,8 +2312,7 @@ describe('isolated solver and host acceptance', () => {
 
   it('keeps cooperative in-flight helper checks after reaching the shared token allowance', async () => {
     let started = 0;
-    let release!: () => void;
-    const bothStarted = new Promise<void>(resolve => { release = resolve; });
+    const bothStarted = deferred();
     configureCooperation(async (action, options) => {
       if (action.kind === 'lead') {
         // Both proof slots must reach the helper barrier before this fixture exhausts its allowance.
@@ -2352,7 +2320,7 @@ describe('isolated solver and host acceptance', () => {
         return 'completed';
       }
       if (action.kind === 'task' && action.task.kind === 'lemma') {
-        if (++started === 2) release(); await bothStarted;
+        if (++started === 2) bothStarted.resolve(); await bothStarted.promise;
       }
       finishAssignment(action, options); return 'completed';
     });
@@ -2749,7 +2717,7 @@ describe('isolated solver and host acceptance', () => {
     receipt.solverOwnedFiles.push(helper);
     fs.writeFileSync(problem.activeProblemPath, JSON.stringify(receipt));
     git(workspace, ['add', '--', 'generated/p/Submission/Helpers.lean']);
-    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Owned helper module']);
+    commitFixture(workspace, 'Owned helper module');
     problem = readSolverProblem(workspace, problem.activeProblemPath);
     expect(await runSolver([...args, '--workers', '4', '--startup-only'], directory)).toBe(0);
     const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
@@ -2935,8 +2903,7 @@ describe('isolated solver and host acceptance', () => {
   it('applies revised M4 instructions while resuming the same model thread', async () => {
     const seen: string[] = [], emitted: string[] = [];
     let calls = 0;
-    host.verify.mockImplementationOnce(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(item => ({ ...item, status: 'failed' })) }));
+    host.verify.mockImplementationOnce(async request => failed(verified(request)));
     host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'audit-thread', close: vi.fn(), interrupt: vi.fn(),
       run: async () => {
         seen.push(options.instructions ?? ''); calls++;
@@ -3200,7 +3167,7 @@ describe('isolated solver and host acceptance', () => {
       await withSolverWorktree(workspace, good.verification.targetCommit!, async checkout => {
         fs.writeFileSync(path.join(checkout, 'generated/p/Challenge.lean'), 'def changedTrusted : Nat := 0\n');
         git(checkout, ['add', '--', 'generated/p/Challenge.lean']);
-        git(checkout, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Alter context']);
+        commitFixture(checkout, 'Alter context');
         const targetCommit = git(checkout, ['rev-parse', 'HEAD']);
         good.verification = { ...good.verification, targetCommit, results: good.verification.results.map(result => ({ ...result, targetCommit })) };
       });
@@ -3447,7 +3414,7 @@ describe('isolated solver and host acceptance', () => {
     receipt.solverOwnedFiles.push(helper);
     fs.writeFileSync(problem.activeProblemPath, JSON.stringify(receipt));
     git(workspace, ['add', '--', `generated/p/${helper}`]);
-    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Owned helper module']);
+    commitFixture(workspace, 'Owned helper module');
     problem = readSolverProblem(workspace, problem.activeProblemPath);
     const task: CooperativeTask = { id: 'first', kind: 'goal', objective: 'Prove the first target', dependsOn: [], revision: 0,
       proofPath: 'Submission.lean', theoremName: 'Submission.first' };
@@ -3477,7 +3444,7 @@ describe('isolated solver and host acceptance', () => {
     receipt.solverOwnedFiles.push(helper);
     fs.writeFileSync(problem.activeProblemPath, JSON.stringify(receipt));
     git(workspace, ['add', '--', `generated/p/${helper}`]);
-    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Owned helper module']);
+    commitFixture(workspace, 'Owned helper module');
     problem = readSolverProblem(workspace, problem.activeProblemPath);
     configureCooperation();
     fs.writeFileSync(path.join(project, helper), seed);
@@ -3691,17 +3658,15 @@ describe('isolated solver and host acceptance', () => {
 
   it('runs distinct helpers concurrently, combines same-file changes and checks the canonical proof after the turn budget is exhausted', async () => {
     let started = 0;
-    let release!: () => void;
-    const bothStarted = new Promise<void>(resolve => { release = resolve; });
+    const bothStarted = deferred();
     const checking = new Set<string>();
-    let releaseChecks!: () => void;
-    const bothChecking = new Promise<void>(resolve => { releaseChecks = resolve; });
+    const bothChecking = deferred();
     const checkTask = async (...inputs: Parameters<typeof directSolverModules.M2.checkTask>) => {
       const task = inputs[3];
       if (task.kind === 'lemma' && !checking.has(task.id)) {
         checking.add(task.id);
-        if (checking.size === 2) releaseChecks();
-        await bothChecking;
+        if (checking.size === 2) bothChecking.resolve();
+        await bothChecking.promise;
       }
       return directSolverModules.M2.checkTask(...inputs);
     };
@@ -3709,8 +3674,8 @@ describe('isolated solver and host acceptance', () => {
       if (action.kind === 'lead') { writePlan(options.workspace, waitingPlanTasks()); return 'completed'; }
       if (action.kind === 'task' && action.task.kind === 'lemma') {
         expect(fs.readFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), 'utf8')).toBe(original);
-        if (++started === 2) release();
-        await bothStarted;
+        if (++started === 2) bothStarted.resolve();
+        await bothStarted.promise;
       }
       finishAssignment(action, options); return 'completed';
     });
@@ -3815,8 +3780,7 @@ describe('isolated solver and host acceptance', () => {
       const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
       progress.push(state.cooperation.recheck?.completed ?? -1);
       const result = await verify(request, options);
-      return request.items.length > 1 && request.items[0].theoremName === 'Submission.a'
-        ? { ...result, status: 'failed', results: result.results.map(item => ({ ...item, status: 'failed' })) } : result;
+      return request.items.length > 1 && request.items[0].theoremName === 'Submission.a' ? failed(result) : result;
     });
     const before = host.verify.mock.calls.length, sessions = host.createSession.mock.calls.length;
     expect(await runSolver([...parallelArgs, '--resume', '--max-turns', '6'], directory)).toBe(1);
@@ -3892,13 +3856,13 @@ describe('isolated solver and host acceptance', () => {
           if (settlement === 'reject') options.signal.throwIfAborted();
         }
         const result = await verify(request, options);
-        return { ...result, status: 'failed', results: result.results.map(item => ({ ...item, status: 'failed' })) };
+        return failed(result);
       }
       if (phase === 'individual' && request.items[0].theoremName === 'Submission.b') {
         process.emit('SIGTERM');
         if (settlement === 'reject') options.signal.throwIfAborted();
         const result = await verify(request, options);
-        return { ...result, status: 'failed', results: result.results.map(item => ({ ...item, status: 'failed' })) };
+        return failed(result);
       }
       return verify(request, options);
     });
@@ -4098,16 +4062,15 @@ describe('isolated solver and host acceptance', () => {
     const tasks = planTasks().slice(2).map((task, index) => ({ ...task, dependsOn: [],
       ...(pinned ? { ownerId: index === 0 ? 'researcher-1' : 'engineer' } : {}) }));
     const assignments: { taskId: string; workerId: string }[] = [];
-    let release!: () => void;
-    const bothStarted = new Promise<void>(resolve => { release = resolve; });
+    const bothStarted = deferred();
     configureCooperation(async (action, options, message) => {
       if (action.kind === 'lead') writePlan(options.workspace, tasks);
       else if (action.kind === 'task') {
         expect(action.task.kind).toBe('goal');
         expect(message).toContain('Your role: engineer');
         assignments.push({ taskId: action.task.id, workerId: action.assignment.workerId });
-        if (assignments.length === 2) release();
-        await bothStarted;
+        if (assignments.length === 2) bothStarted.resolve();
+        await bothStarted.promise;
         const file = path.join(options.workspace, 'generated/p/Submission.lean');
         fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(
           `${action.task.id} : True := by sorry`, `${action.task.id} : True := by trivial`));
@@ -4127,14 +4090,13 @@ describe('isolated solver and host acceptance', () => {
 
   it('lets the Engineer prove an independent goal while both Researchers work on helpers', async () => {
     let started = 0;
-    let release!: () => void;
-    const threeStarted = new Promise<void>(resolve => { release = resolve; });
+    const threeStarted = deferred();
     configureCooperation(async (action, options) => {
       if (action.kind === 'lead') {
         writePlan(options.workspace, planTasks().map(task => task.id === 'second' ? { ...task, dependsOn: [] } : task));
       } else if (action.kind === 'task' && action.task.id !== 'first') {
-        if (++started === 3) release();
-        await threeStarted;
+        if (++started === 3) threeStarted.resolve();
+        await threeStarted.promise;
         if (action.task.id === 'second') {
           const file = path.join(options.workspace, 'generated/p/Submission.lean');
           fs.writeFileSync(file, original.replace('second : True := by sorry', 'second : True := by trivial'));
@@ -4151,16 +4113,15 @@ describe('isolated solver and host acceptance', () => {
     tasks.splice(2, 0, { ...tasks[0], id: 'c', theoremName: 'Submission.c' });
     tasks[3] = { ...tasks[3], dependsOn: ['a', 'b', 'c'] };
     const assignments: { taskId: string; workerId: string; worktree: string }[] = [];
-    let release!: () => void;
-    const threeStarted = new Promise<void>(resolve => { release = resolve; });
+    const threeStarted = deferred();
     configureCooperation(async (action, options, message) => {
       if (action.kind === 'lead') writePlan(options.workspace, tasks);
       else {
         if (action.kind === 'task' && action.task.kind === 'lemma') {
           expect(message).toContain('Your role: researcher');
           assignments.push({ taskId: action.task.id, workerId: action.assignment.workerId, worktree: options.workspace });
-          if (assignments.length === 3) release();
-          await threeStarted;
+          if (assignments.length === 3) threeStarted.resolve();
+          await threeStarted.promise;
         }
         finishAssignment(action, options);
       }
@@ -4263,10 +4224,9 @@ describe('isolated solver and host acceptance', () => {
       const source = fs.readFileSync(path.join(request.projectRoot, 'Submission.lean'), 'utf8');
       if (source.includes('LOCAL_REPAIR_GAP') || /lemma a : True := by sorry/u.test(source)) {
         const checked = verified(request);
-        return { ...checked, status: 'failed', results: checked.results.map(result => ({ ...result, status: 'failed',
-          error: failure === 'sorry' ? 'Proof source contains sorry or admit.' : 'Lean exited with status 1.',
+        return failed(checked, { error: failure === 'sorry' ? 'Proof source contains sorry or admit.' : 'Lean exited with status 1.',
           sorryCount: failure === 'sorry' ? 1 : 0,
-          stderrPreview: failure === 'lean' ? 'Submission.lean:3:1: error: Unknown identifier LOCAL_REPAIR_GAP' : undefined })) };
+          stderrPreview: failure === 'lean' ? 'Submission.lean:3:1: error: Unknown identifier LOCAL_REPAIR_GAP' : undefined });
       }
       return verify(request, options);
     });
@@ -4564,11 +4524,6 @@ describe('isolated solver and host acceptance', () => {
     expect(await runSolver([...args, '--workers', '4', '--max-turns', '8', '--resume'], directory)).toBe(0);
   });
 
-  const deferred = () => {
-    let resolve!: () => void;
-    const promise = new Promise<void>(done => { resolve = done; });
-    return { promise, resolve };
-  };
   const cooperationState = () => JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8')).cooperation;
   const appendDelivery = (options: MathAgentOptions, action: Extract<CooperativeAction, { kind: 'task' }>, value: Record<string, unknown>) =>
     fs.appendFileSync(path.join(options.workspace, 'DELIVERIES.jsonl'), JSON.stringify({ taskId: action.task.id,
@@ -5090,7 +5045,7 @@ describe('isolated solver and host acceptance', () => {
       instance: 'instance custom : Inhabited Nat := ⟨3⟩\n', structure: 'structure Extra where\n  value : Nat\n' };
     fs.writeFileSync(path.join(project, 'Submission.lean'), additions[change] + original);
     git(workspace, ['add', 'generated/p/Submission.lean']);
-    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Fingerprint context changes']);
+    commitFixture(workspace, 'Fingerprint context changes');
     expect(proofReferencesUnchanged(problem, workspace, git(workspace, ['rev-parse', 'HEAD']), references, 'fixed-env')).toBe(false);
   });
 
@@ -5113,7 +5068,7 @@ describe('isolated solver and host acceptance', () => {
     const tasks = statementTasks().filter(task => task.statementReview), prepare = host.prepare.getMockImplementation()!;
     fs.writeFileSync(path.join(project, 'lake-manifest.json'), JSON.stringify({ packages: [] }));
     git(workspace, ['add', 'generated/p/lake-manifest.json']);
-    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Pin package manifest']);
+    commitFixture(workspace, 'Pin package manifest');
     const receiptFile = path.join(workspace, 'active-problem.json'), receipt = JSON.parse(fs.readFileSync(receiptFile, 'utf8'));
     receipt.trustedFiles.push('lake-manifest.json');
     fs.writeFileSync(receiptFile, JSON.stringify(receipt));
@@ -5359,7 +5314,7 @@ describe('isolated solver and host acceptance', () => {
     receipt.solverOwnedFiles.push(helper);
     fs.writeFileSync(problem.activeProblemPath, JSON.stringify(receipt));
     git(workspace, ['add', '--', `generated/p/${helper}`]);
-    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Owned helper module']);
+    commitFixture(workspace, 'Owned helper module');
     problem = readSolverProblem(workspace, problem.activeProblemPath);
     configureCooperation(async (action, options) => {
       finishAssignment(action, options);
@@ -5478,7 +5433,7 @@ describe('isolated solver and host acceptance', () => {
       { statement: [{ name: 'Submission.used', file: 'Submission.lean' }], proof: [] }, 'fixed-env')!;
     const unchanged = () => {
       git(workspace, ['add', 'generated/p/Submission.lean']);
-      git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--allow-empty', '--no-gpg-sign', '--quiet', '-m', 'Fingerprint inputs']);
+      commitFixture(workspace, 'Fingerprint inputs', '--allow-empty');
       return proofReferencesUnchanged(problem, workspace, git(workspace, ['rev-parse', 'HEAD']), references, 'fixed-env');
     };
     fs.writeFileSync(file, source.replace('unrelated : Nat := 0', 'unrelated : Nat := 1')); expect(unchanged()).toBe(true);
@@ -5573,8 +5528,8 @@ describe('isolated solver and host acceptance', () => {
       const result = await verify(request, options);
       const source = fs.readFileSync(path.join(request.projectRoot, 'Submission.lean'), 'utf8');
       return failure === 'failed-combination' && request.items[0].theoremName === 'Submission.first' && !source.includes('(a : True)')
-        ? { ...result, status: 'failed', results: result.results.map((item: any) => ({ ...item, status: 'failed',
-          error: 'Lean exited with status 1.', stdoutPreview: 'Submission.lean:1:0: error: fixture combined proof does not close the target' })) } : result;
+        ? failed(result, { error: 'Lean exited with status 1.', stdoutPreview: 'Submission.lean:1:0: error: fixture combined proof does not close the target' })
+        : result;
     });
     expect(await runSolver([...args, '--workers', '4', '--max-turns', '4'], directory)).toBe(4);
     expect(cooperationState().tasks[2].status).toBe(failure === 'unproved-child' ? 'conditional' : 'blocked');
@@ -6074,12 +6029,11 @@ describe('isolated solver and host acceptance', () => {
 
   it('checks two independent early deliveries concurrently while both producers are still running', async () => {
     const entered = new Set<string>();
-    let release!: () => void;
-    const both = new Promise<void>(resolve => { release = resolve; });
+    const both = deferred();
     const checkTask = async (...input: Parameters<typeof checkTaskProof>) => {
       const task = input[3];
       if (['a', 'b'].includes(task.id) && input[1] !== path.join(`${output}.runtime`, 'worktree')) {
-        entered.add(task.id); if (entered.size === 2) release(); await both;
+        entered.add(task.id); if (entered.size === 2) both.resolve(); await both.promise;
       }
       return checkTaskProof(...input);
     };
@@ -6097,7 +6051,7 @@ describe('isolated solver and host acceptance', () => {
       expect(await runSolver([...args, '--workers', '4', '--max-turns', '8'], directory,
         { ...directSolverModules, M2: { ...directSolverModules.M2, checkTask } })).toBe(0);
       expect(entered.size).toBe(2);
-    } finally { release(); }
+    } finally { both.resolve(); }
   }, 30_000);
 
   it('continues polling human edits while an early proof check is waiting', async () => {
@@ -6145,23 +6099,21 @@ describe('isolated solver and host acceptance', () => {
       }
       const valid = !source.includes('sorry') && !(options.expectedDeclarationType && source.includes('helper : False'));
       const checked = verified(request);
-      return valid ? checked : { ...checked, status: 'failed', results: checked.results.map(item => ({ ...item,
-        status: 'failed', error: 'Proof source contains sorry or has a different helper type.' })) };
+      return valid ? checked : failed(checked, { error: 'Proof source contains sorry or has a different helper type.' });
     });
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.threadId || 'fixture-thread',
-      run: async (message: string) => {
-        const operation = /Research operation: ([\w-]+)\./u.exec(message)?.[1] || 'direct';
-        operations.push(operation);
-        if (operation !== 'direct') {
-          const file = path.join(options.workspace, 'generated/p/Submission.lean');
-          const helper = operation === 'decompose' || !proveHelper ? 'sorry' : 'trivial';
-          const second = operation === 'integrate-lemma' ? 'trivial' : 'sorry';
-          fs.writeFileSync(file, original.replace('theorem first', `theorem helper : True := by ${helper}\ntheorem first`)
-            .replace('first : True := by sorry', 'first : True := by exact helper').replace('second : True := by sorry', `second : True := by ${second}`));
-          fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), '```math-lemma\n' + JSON.stringify(plan) + '\n```\n');
-        }
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.createSession.mockImplementation(session(options => options.threadId || 'fixture-thread', async (options, message) => {
+      const operation = /Research operation: ([\w-]+)\./u.exec(message)?.[1] || 'direct';
+      operations.push(operation);
+      if (operation !== 'direct') {
+        const file = path.join(options.workspace, 'generated/p/Submission.lean');
+        const helper = operation === 'decompose' || !proveHelper ? 'sorry' : 'trivial';
+        const second = operation === 'integrate-lemma' ? 'trivial' : 'sorry';
+        fs.writeFileSync(file, original.replace('theorem first', `theorem helper : True := by ${helper}\ntheorem first`)
+          .replace('first : True := by sorry', 'first : True := by exact helper').replace('second : True := by sorry', `second : True := by ${second}`));
+        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), '```math-lemma\n' + JSON.stringify(plan) + '\n```\n');
+      }
+      return 'completed';
+    }));
     return operations;
   }
 
@@ -6200,8 +6152,7 @@ describe('isolated solver and host acceptance', () => {
     const verify = host.verify.getMockImplementation()!;
     host.verify.mockImplementation(async (request, options) => {
       const checked = await verify(request, options);
-      return request.items.length === 1 ? { ...checked, status: 'failed',
-        results: checked.results.map(item => ({ ...item, status: 'failed', error: 'Unsolved target under the lemma premise' })) } : checked;
+      return request.items.length === 1 ? failed(checked, { error: 'Unsolved target under the lemma premise' }) : checked;
     });
     expect(await runSolver([...args, '--method', 'lemma', '--max-turns', '3'], directory)).toBe(4);
     expect(operations).toEqual(['direct', 'decompose', 'bridge']);
@@ -6324,8 +6275,7 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it('keeps the host turn limit when a replacement search policy requests more work', async () => {
-    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(item => ({ ...item, status: 'failed' })) }));
+    host.verify.mockImplementation(async request => failed(verified(request)));
     const modules = { ...directSolverModules, M3: { ...directSolverModules.M3, version: 'test-continue-v1',
       select: () => ({ operation: 'direct' as const, reason: 'continue' as const }) } };
     expect(await runSolver(args, directory, modules)).toBe(4);
@@ -6337,17 +6287,15 @@ describe('isolated solver and host acceptance', () => {
     const timers = vi.spyOn(globalThis, 'setTimeout');
     const now = Date.now();
     const clock = vi.spyOn(Date, 'now').mockReturnValue(now);
-    host.verify.mockImplementationOnce(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(item => ({ ...item, status: 'failed' })) }));
+    host.verify.mockImplementationOnce(async request => failed(verified(request)));
     let turns = 0;
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'fixture-thread',
-      run: async () => {
-        turns++;
-        clock.mockReturnValue(now + turns * 24 * 60 * 60 * 1000);
-        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'),
-          original.replaceAll('by sorry', `by\n  -- attempt ${turns}\n  trivial`));
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.createSession.mockImplementation(session('fixture-thread', async options => {
+      turns++;
+      clock.mockReturnValue(now + turns * 24 * 60 * 60 * 1000);
+      fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'),
+        original.replaceAll('by sorry', `by\n  -- attempt ${turns}\n  trivial`));
+      return 'completed';
+    }));
     expect(await runSolver([...args, '--max-run-seconds', '0', '--max-turns', '0', '--max-turn-seconds', '0',
       '--evaluator-timeout-seconds', '0'], directory)).toBe(0);
     expect(turns).toBe(2);
@@ -6459,8 +6407,7 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it('requires fixed host acceptance even if a replacement evidence module reports success', async () => {
-    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(item => ({ ...item, status: 'failed' })) }));
+    host.verify.mockImplementation(async request => failed(verified(request)));
     const check = async (...inputs: Parameters<typeof checkSolverProof>) => ({ ...await checkSolverProof(...inputs), passed: true });
     const modules = { ...directSolverModules, M2: { version: 'test-false-positive-v1', check } };
     expect(await runSolver(args, directory, modules)).toBe(1);
@@ -6492,9 +6439,7 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it.each(['failed', 'transport_closed'])('saves Lean diagnostics after a %s turn and resumes from that failure', async status => {
-    const diagnostic = 'Submission.lean:4:1: error: unsolved goals\n⊢ True';
-    host.verify.mockImplementationOnce(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(item => ({ ...item, status: 'failed', stdoutPreview: diagnostic })) }));
+    host.verify.mockImplementationOnce(async request => failed(verified(request), { stdoutPreview: unsolved }));
     const run = vi.fn(async () => {
       if (status === 'transport_closed') throw new Error('math_codex_transport_closed');
       return status;
@@ -6515,7 +6460,7 @@ describe('isolated solver and host acceptance', () => {
       return { threadId: options.threadId!, run: resumed, close: vi.fn(), interrupt: vi.fn() };
     });
     expect(await runSolver([...args, '--resume', '--max-turns', '2'], directory)).toBe(0);
-    expect(resumed.mock.calls[0][0]).toContain(diagnostic);
+    expect(resumed.mock.calls[0][0]).toContain(unsolved);
     expect(host.createSession.mock.calls[1][0].threadId).toBe('fixture-thread');
     expect(host.verify).toHaveBeenCalledTimes(3);
   });
@@ -6540,10 +6485,8 @@ describe('isolated solver and host acceptance', () => {
   it.each(['stream disconnected before completion: Concurrency limit exceeded for account, please retry later',
     'stream disconnected before completion: error sending request', 'math_codex_transport_closed', 'Service unavailable (503)'])
   ('automatically resumes a failed request with saved proof and Lean feedback (%s)', async error => {
-    const diagnostic = 'Submission.lean:4:1: error: unsolved goals\n⊢ True';
     const partial = original.replace('theorem first : True := by sorry', 'theorem first : True := by trivial');
-    host.verify.mockImplementationOnce(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(item => ({ ...item, status: 'failed', stdoutPreview: diagnostic })) }));
+    host.verify.mockImplementationOnce(async request => failed(verified(request), { stdoutPreview: unsolved }));
     host.createSession.mockImplementationOnce(async (options: MathAgentOptions) => ({ threadId: 'fixture-thread',
       lastError: error,
       run: async () => {
@@ -6551,16 +6494,15 @@ describe('isolated solver and host acceptance', () => {
         return 'failed';
       }, close: vi.fn(), interrupt: vi.fn() }));
     const resumed = vi.fn();
-    host.createSession.mockImplementationOnce(async (options: MathAgentOptions) => ({ threadId: options.threadId || 'resumed-thread',
-      run: async (message: string) => {
-        resumed(message);
-        expect(fs.readFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), 'utf8')).toBe(partial);
-        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.createSession.mockImplementationOnce(session(options => options.threadId || 'resumed-thread', async (options, message) => {
+      resumed(message);
+      expect(fs.readFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), 'utf8')).toBe(partial);
+      fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+      return 'completed';
+    }));
     expect(await runSolver([...args, '--max-turns', '3'], directory)).toBe(0);
     expect(host.createSession.mock.calls[1][0].threadId).toBe(error.includes('Concurrency limit') ? 'fixture-thread' : undefined);
-    expect(resumed.mock.calls[0][0]).toContain(diagnostic);
+    expect(resumed.mock.calls[0][0]).toContain(unsolved);
     expect(host.delay).toHaveBeenCalledWith(10_000, undefined, { signal: expect.any(AbortSignal) });
     expect(host.verify).toHaveBeenCalledTimes(3);
     expect(host.officialGate).toHaveBeenCalledTimes(1);
@@ -6568,11 +6510,9 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it('starts a fresh thread after the first request failure while retaining proof and feedback', async () => {
-    const diagnostic = 'Submission.lean:4:1: error: unsolved goals\n⊢ True';
     const partial = original.replace('theorem first : True := by sorry', 'theorem first : True := by trivial');
     let turns = 0;
-    host.verify.mockImplementation(async request => turns < 3 ? ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(item => ({ ...item, status: 'failed', stdoutPreview: diagnostic })) }) : verified(request));
+    host.verify.mockImplementation(async request => turns < 3 ? failed(verified(request), { stdoutPreview: unsolved }) : verified(request));
     host.createSession.mockImplementation(async (options: MathAgentOptions) => ({
       threadId: options.threadId || (turns ? 'fresh-thread' : 'fixture-thread'),
       lastError: 'stream disconnected before completion: error sending request',
@@ -6583,7 +6523,7 @@ describe('isolated solver and host acceptance', () => {
         if (turns < 3) return 'failed';
         expect(options.threadId).toBe('fresh-thread');
         expect(fs.readFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), 'utf8')).toBe(partial);
-        expect(message).toContain(diagnostic);
+        expect(message).toContain(unsolved);
         fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
         return 'completed';
       }, close: vi.fn(), interrupt: vi.fn(),
@@ -6603,12 +6543,11 @@ describe('isolated solver and host acceptance', () => {
       fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), partial);
       throw new Error('math_codex_transport_closed:process_exit:code=9:signal=none');
     });
-    host.createSession.mockImplementationOnce(async (options: MathAgentOptions) => ({ threadId: 'reopened',
-      run: async () => {
-        expect(fs.readFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), 'utf8')).toBe(partial);
-        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.createSession.mockImplementationOnce(session('reopened', async options => {
+      expect(fs.readFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), 'utf8')).toBe(partial);
+      fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+      return 'completed';
+    }));
     expect(await runSolver(args, directory)).toBe(0);
     expect(host.createSession).toHaveBeenCalledTimes(2);
     expect(host.delay).toHaveBeenCalledOnce();
@@ -6625,8 +6564,7 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it('avoids preparing or opening a spare session when selection stops after retry backoff', async () => {
-    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(item => ({ ...item, status: 'failed' })) }));
+    host.verify.mockImplementation(async request => failed(verified(request)));
     host.createSession.mockResolvedValue({ threadId: 'fixture-thread', lastError: 'Concurrency limit exceeded for account',
       run: vi.fn().mockResolvedValue('failed'), close: vi.fn(), interrupt: vi.fn() });
     const build = vi.fn(directSolverModules.M4.build);
@@ -6645,8 +6583,7 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it.each([2, 10])('bounds request retries by both retry and turn limits (%s turns)', async maxTurns => {
-    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(item => ({ ...item, status: 'failed', stdoutPreview: 'Submission.lean:4:1: error: unsolved goals\n⊢ True' })) }));
+    host.verify.mockImplementation(async request => failed(verified(request), { stdoutPreview: unsolved }));
     host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.threadId || 'fixture-thread',
       lastError: 'Concurrency limit exceeded for account', run: vi.fn().mockResolvedValue('failed'), close: vi.fn(), interrupt: vi.fn() }));
     expect(await runSolver([...args, '--max-turns', String(maxTurns)], directory)).toBe(1);
@@ -6659,8 +6596,7 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it('stops an aborted rate-limit backoff without creating another session', async () => {
-    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(item => ({ ...item, status: 'failed' })) }));
+    host.verify.mockImplementation(async request => failed(verified(request)));
     host.createSession.mockResolvedValueOnce({ threadId: 'fixture-thread', lastError: 'Concurrency limit exceeded for account',
       run: vi.fn().mockResolvedValue('failed'), close: vi.fn(), interrupt: vi.fn() });
     host.delay.mockImplementationOnce(async () => { process.emit('SIGTERM'); });
@@ -6672,21 +6608,18 @@ describe('isolated solver and host acceptance', () => {
 
   it('resets the request retry count after successful turns', async () => {
     let turns = 0;
-    host.verify.mockImplementation(async request => turns === 8 ? verified(request) : ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(item => ({ ...item, status: 'failed' })) }));
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.threadId || 'fixture-thread',
-      lastError: 'stream disconnected before completion: error sending request', run: async () => {
-        if (++turns === 8) fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
-        return turns % 2 ? 'failed' : 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.verify.mockImplementation(async request => turns === 8 ? verified(request) : failed(verified(request)));
+    host.createSession.mockImplementation(session(options => options.threadId || 'fixture-thread', async options => {
+      if (++turns === 8) fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+      return turns % 2 ? 'failed' : 'completed';
+    }, { lastError: 'stream disconnected before completion: error sending request' }));
     expect(await runSolver([...args, '--max-turns', '10'], directory)).toBe(0);
     expect(host.delay.mock.calls.map(call => call[0])).toEqual([10_000, 10_000, 10_000, 10_000]);
     expect(host.officialGate).toHaveBeenCalledOnce();
   });
 
   it('reports authentication failures without retrying them', async () => {
-    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(item => ({ ...item, status: 'failed' })) }));
+    host.verify.mockImplementation(async request => failed(verified(request)));
     host.createSession.mockResolvedValueOnce({ threadId: 'fixture-thread', lastError: 'Invalid authentication',
       run: vi.fn().mockResolvedValue('failed'), close: vi.fn(), interrupt: vi.fn() });
     expect(await runSolver([...args, '--max-turns', '3'], directory)).toBe(1);
@@ -6758,7 +6691,7 @@ describe('isolated solver and host acceptance', () => {
       { name: 'mathlib', rev: 'a'.repeat(40), type: 'git' },
     ] }));
     git(workspace, ['add', '--', 'generated/p/lake-manifest.json']);
-    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Pinned dependency']);
+    commitFixture(workspace, 'Pinned dependency');
     expect(await runSolver([...args, ...(startup ? ['--startup-only'] : [])], directory)).toBe(1);
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({
       status: 'runtime_error', reason: 'math_lake_packages_unavailable', turns: 0,
@@ -6809,7 +6742,7 @@ describe('isolated solver and host acceptance', () => {
       { name: 'mathlib', rev: 'a'.repeat(40), url: 'https://github.com/leanprover-community/mathlib4' },
     ] }));
     git(workspace, ['add', '--', 'generated/p/lake-manifest.json']);
-    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Pinned library']);
+    commitFixture(workspace, 'Pinned library');
     const startup = [...args, '--workers', '4', '--startup-only'];
     expect(await runSolver(startup, directory)).toBe(0);
     const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
@@ -6832,16 +6765,14 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it('checks a timed checkpoint and resumes with host diagnostics', async () => {
-    host.verify.mockImplementationOnce(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(item => ({ ...item, status: 'failed', stdoutPreview: 'Submission.lean:4:1: error: unsolved goals' })) }));
+    host.verify.mockImplementationOnce(async request => failed(verified(request), { stdoutPreview: 'Submission.lean:4:1: error: unsolved goals' }));
     const messages: string[] = [];
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'fixture-thread',
-      run: async (message: string) => {
-        messages.push(message);
-        if (messages.length === 1) return 'checkpoint';
-        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.createSession.mockImplementation(session('fixture-thread', async (options, message) => {
+      messages.push(message);
+      if (messages.length === 1) return 'checkpoint';
+      fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
+      return 'completed';
+    }));
     expect(await runSolver([...args, '--max-turns', '2'], directory)).toBe(0);
     expect(messages).toHaveLength(2);
     expect(messages[1]).toContain('unsolved goals');
@@ -6876,9 +6807,7 @@ describe('isolated solver and host acceptance', () => {
   });
 
   it('keeps repeated unchanged rejections incomplete without recompiling the same commit', async () => {
-    host.verify.mockImplementation(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(item => ({ ...item, status: 'failed', error: 'Lean exited with status 1.',
-        stdoutPreview: 'Submission.lean:4:1: error: unsolved goals\n⊢ True' })) }));
+    host.verify.mockImplementation(async request => failed(verified(request), { error: 'Lean exited with status 1.', stdoutPreview: unsolved }));
     expect(await runSolver([...args, '--max-turns', '3'], directory)).toBe(4);
     expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ status: 'incomplete', turns: 3, evaluator: { status: 'skipped' } });
     expect(host.verify).toHaveBeenCalledTimes(1);
@@ -6891,17 +6820,14 @@ describe('isolated solver and host acceptance', () => {
     const messages: string[] = [];
     const leanError = 'Submission.lean:12:4: error: linarith failed to find a contradiction\nx : Nat\nh : 0 < x\n|- False\n';
     host.verify.mockImplementation(async request => messages.length <= 2
-      ? { ...verified(request), status: 'failed', results: verified(request).results.map(item => ({ ...item,
-        status: 'failed', error: 'Lean exited with status 1.', stdoutPreview:
-          'Submission.lean:1:1: warning: unused variable\n' + leanError })) }
+      ? failed(verified(request), { error: 'Lean exited with status 1.', stdoutPreview: 'Submission.lean:1:1: warning: unused variable\n' + leanError })
       : verified(request));
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'fixture-thread',
-      run: async (message: string) => {
-        messages.push(message);
-        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry',
-          changed || messages.length === 3 ? `by\n  -- attempt ${messages.length}\n  trivial` : 'by trivial'));
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.createSession.mockImplementation(session('fixture-thread', async (options, message) => {
+      messages.push(message);
+      fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry',
+        changed || messages.length === 3 ? `by\n  -- attempt ${messages.length}\n  trivial` : 'by trivial'));
+      return 'completed';
+    }));
     expect(await runSolver([...args, '--max-turns', '3'], directory)).toBe(0);
     expect(messages).toHaveLength(3);
     expect(messages[1].split(leanError.trim())).toHaveLength(2);
@@ -6927,16 +6853,14 @@ describe('isolated solver and host acceptance', () => {
   it('remembers a failure that recurs after another goal without bypassing acceptance', async () => {
     const messages: string[] = [];
     host.verify.mockImplementation(async request => messages.length <= 3
-      ? { ...verified(request), status: 'failed', results: verified(request).results.map(item => ({ ...item,
-        status: 'failed', stdoutPreview: `Submission.lean:${messages.length + 3}:1: error: unsolved goals\n⊢ ${messages.length === 2 ? 'False' : 'True'}` })) }
+      ? failed(verified(request), { stdoutPreview: `Submission.lean:${messages.length + 3}:1: error: unsolved goals\n⊢ ${messages.length === 2 ? 'False' : 'True'}` })
       : verified(request));
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: 'fixture-thread',
-      run: async (message: string) => {
-        messages.push(message);
-        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'),
-          original.replaceAll('by sorry', `by\n  -- attempt ${messages.length}\n  trivial`));
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.createSession.mockImplementation(session('fixture-thread', async (options, message) => {
+      messages.push(message);
+      fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'),
+        original.replaceAll('by sorry', `by\n  -- attempt ${messages.length}\n  trivial`));
+      return 'completed';
+    }));
     expect(await runSolver([...args, '--max-turns', '4'], directory)).toBe(0);
     expect(messages[2]).not.toContain('already occurred');
     expect(messages[3]).toContain('already occurred 1 time(s)');
@@ -6966,15 +6890,13 @@ describe('isolated solver and host acceptance', () => {
 
   it('resumes an incomplete proof with its saved Lean feedback', async () => {
     const diagnostic = 'Submission.lean:4:1: error: unsolved goals\nh : True\n|- True';
-    host.verify.mockImplementationOnce(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(item => ({ ...item, status: 'failed', error: 'open goals', stdoutPreview: diagnostic })) }));
+    host.verify.mockImplementationOnce(async request => failed(verified(request), { error: 'open goals', stdoutPreview: diagnostic }));
     expect(await runSolver(args, directory)).toBe(4);
     const messages: string[] = [];
-    host.createSession.mockImplementation(async (options: MathAgentOptions) => ({ threadId: options.threadId!,
-      run: async (message: string) => {
-        messages.push(message);
-        return 'completed';
-      }, close: vi.fn(), interrupt: vi.fn() }));
+    host.createSession.mockImplementation(session(options => options.threadId!, async (_options, message) => {
+      messages.push(message);
+      return 'completed';
+    }));
     expect(await runSolver([...args, '--resume', '--max-turns', '2'], directory)).toBe(0);
     expect(messages).toHaveLength(1);
     expect(messages[0]).toContain(diagnostic);
@@ -6994,7 +6916,7 @@ describe('isolated solver and host acceptance', () => {
       { name: 'mathlib', rev: 'a'.repeat(40), url: 'https://github.com/leanprover-community/mathlib4' },
     ] }));
     git(workspace, ['add', '--force', '--', 'generated/p/.lake/packages', 'generated/p/lake-manifest.json']);
-    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Pinned library fixture']);
+    commitFixture(workspace, 'Pinned library fixture');
     const file = path.join(directory, 'corpus.json');
     fs.writeFileSync(file, JSON.stringify(await createMathRetrievalCorpus(project, ['mathlib'])));
     vi.stubEnv('DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS', file);
@@ -7025,9 +6947,8 @@ describe('isolated solver and host acceptance', () => {
       { name: 'mathlib', rev: 'a'.repeat(40), url: 'https://github.com/leanprover-community/mathlib4' },
     ] }));
     git(workspace, ['add', '--', 'generated/p/lake-manifest.json']);
-    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Pinned library']);
-    host.verify.mockImplementationOnce(async request => ({ ...verified(request), status: 'failed',
-      results: verified(request).results.map(item => ({ ...item, status: 'failed' })) }));
+    commitFixture(workspace, 'Pinned library');
+    host.verify.mockImplementationOnce(async request => failed(verified(request)));
     expect(await runSolver(args, directory)).toBe(4);
     const options = host.createSession.mock.calls[0][0] as MathAgentOptions;
     const corpusFile = options.environment!.DEEPSCIENTIST_MATH_RETRIEVAL_CORPUS!;
@@ -7081,7 +7002,7 @@ describe('isolated solver and host acceptance', () => {
     fs.writeFileSync(path.join(worktree, 'generated/p/Submission.lean'), original);
     if (committed) {
       git(worktree, ['add', '--', 'generated/p/Submission.lean']);
-      git(worktree, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Changed proof']);
+      commitFixture(worktree, 'Changed proof');
     }
     expect(await runSolver([...args, '--resume'], directory)).toBe(4);
     expect(host.createSession).toHaveBeenCalledTimes(1);

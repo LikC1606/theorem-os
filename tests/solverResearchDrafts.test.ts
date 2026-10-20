@@ -1,16 +1,16 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample } from '../src/math/localExample';
 import { readSolverRunState, type SolverRunState } from '../src/solver/archive';
-import { CooperativeResearch } from '../src/solver/cooperation';
+import type { CooperativeResearch } from '../src/solver/cooperation';
 import { directSolverModules } from '../src/solver/modules';
 import type { ResearchWorker } from '../src/solver/modules/organization';
-import { commitSolverSources, git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
+import { commitSolverSources, git, type SolverProblem } from '../src/solver/problem';
 import * as problemSource from '../src/solver/problem';
 import { pendingResearchHandoffs } from '../src/solver/researchHandoffs';
 import { taskVersion, type CooperativeTask } from '../src/solver/tasks';
+import { cooperativeResearch } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
 
 describe('isolated advisory research drafts', () => {
   let directory: string, problem: SolverProblem, state: SolverRunState, cooperative: CooperativeResearch;
@@ -28,12 +28,10 @@ describe('isolated advisory research drafts', () => {
       theoremName: 'Candidate.bridge', type: 'True', proofPath: 'Submission.lean' }] });
   const saveFinding = () => write(peer, finding(), '```lean\nnamespace Candidate\nlemma probe : True := by trivial\nend Candidate\n```\n');
   const create = (current = state) => {
-    const instance = new CooperativeResearch({ state: current, workers: [lead, peer],
-      access: new Map([lead, peer].map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
+    const instance = cooperativeResearch({ state: current, workers: [lead, peer], retrievalRoot: directory,
       modules: { ...directSolverModules, M2: { ...directSolverModules.M2,
         check: async () => { throw new Error('fixture_unexpected_verifier'); },
-        checkTask: async () => { throw new Error('fixture_unexpected_verifier'); } } },
-      signal: new AbortController().signal, save: () => {}, emit: () => {}, exclusiveCheck: async check => check() });
+        checkTask: async () => { throw new Error('fixture_unexpected_verifier'); } } } });
     instances.push(instance); return instance;
   };
   const task = async () => {
@@ -43,6 +41,12 @@ describe('isolated advisory research drafts', () => {
     Object.assign(state.workers![1], { sessionRole: 'researcher', sessionTaskId: action.task.id,
       sessionTaskVersion: taskVersion(action.task), sessionGroupId: action.task.groupId ?? 'main' });
     return action;
+  };
+  const saveDraft = async () => {
+    const action = await task(); saveFinding();
+    const commit = commitSolverSources(problem, peer.worktree);
+    await cooperative.deliver(peer, action, commit, true);
+    return { action, commit };
   };
   const edit = async (statuses: Record<string, CooperativeTask['status']>) => {
     fs.appendFileSync(path.join(directory, 'edits.jsonl'), JSON.stringify({ id: `edit_${++sequence}`,
@@ -84,17 +88,12 @@ describe('isolated advisory research drafts', () => {
   };
   beforeEach(async () => {
     sequence = 0;
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-research-drafts-')));
-    const workspace = path.join(directory, 'lead'), receipt = bootstrapLocalExample(workspace);
-    problem = readSolverProblem(workspace, receipt.activeProblemPath);
-    const peerRoot = path.join(directory, 'researcher');
-    git(workspace, ['worktree', 'add', '--quiet', '--detach', peerRoot, problem.baseCommit]);
-    lead = { id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles };
-    peer = { ...lead, id: 'researcher', role: 'researcher', worktree: peerRoot };
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'research-drafts-fixture', problem,
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluation',
-      model: 'fixture', effort: 'fixture', worktree: workspace, phase: 'running', turns: 0,
-      workers: [lead, peer].map(worker => ({ ...worker, phase: 'running', turns: 0 })) };
+    const example = localExample('solver-research-drafts-', 'lead');
+    ({ directory, problem } = example);
+    lead = leadWorker(problem, example.workspace); peer = peerWorker(example, 'researcher');
+    state = solverState(problem, example.workspace, { runId: 'research-drafts-fixture', phase: 'running',
+      evaluatorDigest: 'evaluation', model: 'fixture', effort: 'fixture',
+      workers: [lead, peer].map(worker => ({ ...worker, phase: 'running', turns: 0 })) });
     write(lead, { tasks: [
       { id: 'first_route', kind: 'research', objective: 'Investigate the first route', groupId: 'a', sharing: 'problem' },
       { id: 'second_route', kind: 'research', objective: 'Investigate the second route', groupId: 'b', status: 'paused' },
@@ -110,9 +109,7 @@ describe('isolated advisory research drafts', () => {
 
   it.each(['research', 'sketch'] as const)('restores a %s draft after another task and process restart', async kind => {
     node('first_route').task = { ...node('first_route').task, kind };
-    const action = await task(); saveFinding();
-    const commit = commitSolverSources(problem, peer.worktree);
-    await cooperative.deliver(peer, action, commit, true);
+    const { action, commit } = await saveDraft();
     expect(node('first_route').status).toBe('pending');
     expect(state.cooperation!.researchDrafts!.first_route).toMatchObject({ commit, workerId: peer.id,
       seedCommit: action.assignment.seedCommit, taskDigest: taskVersion(action.task),
@@ -149,8 +146,7 @@ describe('isolated advisory research drafts', () => {
   });
 
   it('scopes saved drafts to visible task versions across groups', async () => {
-    const first = await task(); saveFinding();
-    await cooperative.deliver(peer, first, commitSolverSources(problem, peer.worktree), true);
+    const { action: first } = await saveDraft();
     await edit({ first_route: 'paused', second_route: 'active' });
     const second = await task();
     write(peer, { summary: 'SECOND_ROUTE_FINDING', conclusion: 'inconclusive' });
@@ -166,8 +162,7 @@ describe('isolated advisory research drafts', () => {
   });
 
   it('preserves a newer uncommitted checkpoint in the same task workspace', async () => {
-    const action = await task(); saveFinding();
-    await cooperative.deliver(peer, action, commitSolverSources(problem, peer.worktree), true);
+    await saveDraft();
     fs.writeFileSync(notes(), 'NEWER_UNCOMMITTED_FINDING');
     await restart();
     expect((await task()).task.id).toBe('first_route');
@@ -175,8 +170,7 @@ describe('isolated advisory research drafts', () => {
   });
 
   it.each(['legacy', 'task-version', 'assignment', 'dispatch-id', 'output-digest'] as const)('rejects %s snapshots after another responsibility', async mismatch => {
-    const action = await task(); saveFinding();
-    await cooperative.deliver(peer, action, commitSolverSources(problem, peer.worktree), true);
+    const { action } = await saveDraft();
     await switchTask();
     const draft = state.cooperation!.researchDrafts!.first_route;
     if (mismatch === 'legacy') delete state.cooperation!.researchDrafts;
@@ -217,9 +211,7 @@ describe('isolated advisory research drafts', () => {
   });
 
   it('does not restore a task paused while its snapshot is being read', async () => {
-    const action = await task(); saveFinding();
-    const commit = commitSolverSources(problem, peer.worktree);
-    await cooperative.deliver(peer, action, commit, true);
+    const { commit } = await saveDraft();
     await switchTask();
     duringRestore(commit, async () => { await edit({ first_route: 'paused' }); state.turns = 1; });
     await expect(cooperative.next(peer, { maxTurns: 1, remainingMs: Infinity })).resolves.toBeUndefined();
@@ -268,9 +260,7 @@ describe('isolated advisory research drafts', () => {
   });
 
   it('uses canonical source changes that arrive while a snapshot is being read', async () => {
-    const action = await task(); saveFinding();
-    const commit = commitSolverSources(problem, peer.worktree);
-    await cooperative.deliver(peer, action, commit, true);
+    const { action, commit } = await saveDraft();
     await switchTask();
     duringRestore(commit, advanceCanonical);
     const resumed = await task();
@@ -281,9 +271,7 @@ describe('isolated advisory research drafts', () => {
   });
 
   it('uses the current canonical proof when a snapshot read fails during canonical advancement', async () => {
-    const action = await task(); saveFinding();
-    const commit = commitSolverSources(problem, peer.worktree);
-    await cooperative.deliver(peer, action, commit, true);
+    const { action, commit } = await saveDraft();
     await switchTask();
     state.cooperation!.researchDrafts!.first_route.outputDigest = 'different-output';
     duringRestore(commit, advanceCanonical);
@@ -298,8 +286,7 @@ describe('isolated advisory research drafts', () => {
   });
 
   it('restores notes after a fixed candidate review uses the same worker', async () => {
-    const action = await task(); saveFinding();
-    await cooperative.deliver(peer, action, commitSolverSources(problem, peer.worktree), true);
+    await saveDraft();
     const commit = state.cooperation!.canonicalCommit!;
     cooperative.requireReview({ commit, sourceDigest: 'fixture-source', passed: true,
       verification: { status: 'kernel_verified', results: [], targetCommit: commit } } as any);

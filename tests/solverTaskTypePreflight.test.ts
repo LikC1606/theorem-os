@@ -1,15 +1,14 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample } from '../src/math/localExample';
-import { CooperativeResearch, parseCooperationPlan } from '../src/solver/cooperation';
-import { directSolverModules } from '../src/solver/modules';
-import { readSolverProblem, git } from '../src/solver/problem';
+import { parseCooperationPlan, type CooperativeResearch } from '../src/solver/cooperation';
+import { git } from '../src/solver/problem';
 import type { SolverRunState } from '../src/solver/archive';
 import type { ResearchWorker } from '../src/solver/modules/organization';
 import { TaskTypePreflightCache, type TaskTypePreflight } from '../src/solver/taskTypePreflight';
 import { taskVersion } from '../src/solver/tasks';
+import { cooperativeResearch } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
 
 describe('typed helper dispatch admission', () => {
   let directory: string, state: SolverRunState, workers: ResearchWorker[], cooperative: CooperativeResearch;
@@ -20,36 +19,29 @@ describe('typed helper dispatch admission', () => {
       evidence: 'advisory-type-elaboration', proofAcceptance: 'not-assessed' } as TaskTypePreflight });
   const peer = (index = 1) => (cooperative as any).nextPeer(workers[index], budget, true);
   const holdPreflight = () => {
-    let signal!: AbortSignal, finish!: (status?: TaskTypePreflight['status']) => void;
+    type Finish = (status?: TaskTypePreflight['status'], current?: () => boolean) => void;
+    let signal!: AbortSignal, finish!: Finish;
     vi.mocked(TaskTypePreflightCache.prototype.check).mockImplementation(input => {
       signal = input.signal!;
-      return new Promise(resolve => { finish = status => resolve(result(status)); });
+      return new Promise(resolve => { finish = (status, current) => resolve(result(status, current)); });
     });
-    return { get signal() { return signal; }, finish: (status?: TaskTypePreflight['status']) => finish(status) };
+    return { get signal() { return signal; }, finish: ((status, current) => finish(status, current)) as Finish };
   };
   beforeEach(() => {
     budget.maxTurns = Infinity;
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-type-preflight-')));
-    const workspace = path.join(directory, 'lead'), receipt = bootstrapLocalExample(workspace);
-    const problem = readSolverProblem(workspace, receipt.activeProblemPath);
-    workers = [{ id: 'lead', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles }, ...['proof', 'other'].map(id => {
-      const worktree = path.join(directory, id);
-      git(workspace, ['worktree', 'add', '--quiet', '--detach', worktree, problem.baseCommit]);
-      return { id, role: 'researcher' as const, worktree, ownedFiles: problem.ownedFiles };
-    })];
+    const example = localExample('solver-type-preflight-', 'lead'), { workspace, problem } = example;
+    directory = example.directory;
+    workers = [leadWorker(problem, workspace, 'lead'), ...['proof', 'other'].map(id => peerWorker(example, id))];
     const parsed = parseCooperationPlan(problem, { tasks: [{ id: 'helper', kind: 'lemma', objective: 'Prove helper',
       theoremName: 'Tutorial.helper', type: 'True', proofPath: 'Submission.lean', ownerId: 'proof' },
     { id: 'independent', kind: 'research', objective: 'Independent question', ownerId: 'other' },
     ...problem.targets.map((target, index) => ({ id: `original_goal_${index + 1}`, kind: 'goal', objective: 'Original',
       theoremName: target.theoremName, proofPath: target.proofPath, status: 'paused' }))] });
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'type-fixture', problem, worktree: workspace,
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluator',
-      model: 'unused', effort: 'unused', turns: 0, phase: 'running', cooperation: { canonicalCommit: problem.baseCommit,
-        tasks: parsed.tasks.map(task => ({ task, status: 'pending', attempts: 0 })) } };
+    state = solverState(problem, workspace, { runId: 'type-fixture', phase: 'running', cooperation: { canonicalCommit: problem.baseCommit,
+      tasks: parsed.tasks.map(task => ({ task, status: 'pending', attempts: 0 })) } });
     controller = new AbortController(); emit = vi.fn(); allowed = true;
-    cooperative = new CooperativeResearch({ state, workers, modules: directSolverModules, signal: controller.signal,
-      access: new Map(workers.map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-      emit, save: () => {}, modelDispatchAllowed: () => allowed, exclusiveCheck: async check => check() });
+    cooperative = cooperativeResearch({ state, workers, retrievalRoot: directory, signal: controller.signal, emit,
+      modelDispatchAllowed: () => allowed });
     vi.spyOn(TaskTypePreflightCache.prototype, 'check').mockImplementation(async () => result());
   });
   afterEach(async () => {
@@ -95,18 +87,15 @@ describe('typed helper dispatch admission', () => {
   });
 
   it('keeps independent work assignable while one type query is awaiting Lean', async () => {
-    let release!: (value: ReturnType<typeof result>) => void;
-    vi.mocked(TaskTypePreflightCache.prototype.check).mockImplementation(() => new Promise(resolve => { release = resolve; }));
-    const pending = peer();
+    const held = holdPreflight(), pending = peer();
     expect(await peer(2)).toMatchObject({ kind: 'task', task: { id: 'independent' } });
-    release(result()); expect(await pending).toMatchObject({ kind: 'task', task: { id: 'helper' } });
+    held.finish(); expect(await pending).toMatchObject({ kind: 'task', task: { id: 'helper' } });
   });
 
   it.each(['contract', 'canonical', 'source', 'admission', 'turns', 'owner', 'environment-binding'] as const)
   ('discards awaited preflight after %s changes', async change => {
-    let release!: (value: ReturnType<typeof result>) => void, current = true;
-    vi.mocked(TaskTypePreflightCache.prototype.check).mockImplementation(() => new Promise(resolve => { release = resolve; }));
-    const pending = peer(), node = state.cooperation!.tasks[0];
+    let current = true;
+    const held = holdPreflight(), pending = peer(), node = state.cooperation!.tasks[0];
     if (change === 'contract') node.task = { ...node.task, type: 'False', revision: 1 };
     if (change === 'canonical') state.cooperation!.canonicalCommit = 'b'.repeat(40);
     if (change === 'source') current = false;
@@ -114,7 +103,7 @@ describe('typed helper dispatch admission', () => {
     if (change === 'turns') { state.turns = 1; budget.maxTurns = 1; }
     if (change === 'owner') node.task = { ...node.task, ownerId: 'other' };
     if (change === 'environment-binding') (cooperative as any).input.access.set(workers[1].id, { environment: {}, retrievalRoot: directory });
-    release(result('elaborated', () => current));
+    held.finish('elaborated', () => current);
     expect(typeof await pending).toBe('symbol'); expect(node.status).toBe('pending'); expect(node.assignment).toBeUndefined();
     budget.maxTurns = Infinity;
   });
@@ -230,8 +219,7 @@ describe('typed helper dispatch admission', () => {
   });
 
   it('waits for host type work without reporting an idle or finished frontier', async () => {
-    let release!: (value: ReturnType<typeof result>) => void;
-    vi.mocked(TaskTypePreflightCache.prototype.check).mockImplementation(() => new Promise(resolve => { release = resolve; }));
+    const held = holdPreflight();
     state.cooperation!.tasks[1].task = { ...state.cooperation!.tasks[1].task, status: 'paused' };
     const pending = peer();
     (cooperative as any).needsLead = false;
@@ -239,6 +227,6 @@ describe('typed helper dispatch admission', () => {
     const lead = (cooperative as any).nextLead(workers[0], budget, true).then(() => { settled = true; });
     await new Promise(resolve => setTimeout(resolve, 15));
     expect(settled).toBe(false); expect(emit.mock.calls.some(([event]) => event === 'routes_idle')).toBe(false);
-    release(result()); await pending; await lead;
+    held.finish(); await pending; await lead;
   });
 });

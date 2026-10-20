@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { buildProofContinuation, createRecordedTaskSettlement, recordedTaskProofStatus } from '../src/solver/progress';
 import { markTaskAcceptance, taskVersion, type TaskRecord } from '../src/solver/tasks';
-import type { TaskProof } from '../src/solver/cooperativeProof';
 import type { ProofRoute } from '../src/solver/proofRoutes';
 import { originalGoalTaskFocus, readyResearchTasks } from '../src/solver/modules/search';
 import { captureObligationSnapshot, diffObligationProgress } from '../src/solver/obligationProgress';
+import { integratedProof } from './helpers/taskProof';
 
 function node(id: string, kind: TaskRecord['task']['kind'] = 'lemma', dependsOn: string[] = []): TaskRecord {
   return { task: { id, kind, objective: id, dependsOn, revision: 0,
@@ -12,17 +12,7 @@ function node(id: string, kind: TaskRecord['task']['kind'] = 'lemma', dependsOn:
     status: 'pending', attempts: 0 };
 }
 function checked(item: TaskRecord, uses: TaskRecord[] = [], statementOnly = false) {
-  item.status = 'integrated';
-  const proof = item.integratedCheck = { taskDigest: taskVersion(item.task), passed: true, commit: 'canonical',
-    sourceDigest: 'source', seedCommit: 'seed', changes: [],
-    verification: { status: 'kernel_verified', targetCommit: 'projection', results: [
-      { status: 'kernel_verified', targetCommit: 'projection', receiptId: 'receipt' },
-    ] }, references: { environmentDigest: 'environment', sourceCommit: 'projection', contextDigest: 'context', inputs: [],
-      root: { file: item.task.proofPath!, name: item.task.theoremName! },
-      tasks: uses.map(input => ({ taskId: input.task.id, taskDigest: taskVersion(input.task) })),
-      statement: statementOnly ? uses.map(input => ({ file: input.task.proofPath!, name: input.task.theoremName! })) : [],
-      proof: statementOnly ? [] : uses.map(input => ({ file: input.task.proofPath!, name: input.task.theoremName! })) } } as TaskProof;
-  return proof;
+  return integratedProof(item, { uses, statementOnly, accept: false, receiptId: 'receipt', sourceCommit: 'projection' });
 }
 
 describe('recorded proof continuation', () => {

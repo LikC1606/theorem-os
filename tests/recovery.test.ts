@@ -14,6 +14,7 @@ import { readSolverProblem, git } from '../src/solver/problem';
 import { recoverMathSnapshot, recheckMathSnapshot } from '../src/solver/recovery';
 import { taskVersion, type CooperativeTask } from '../src/solver/tasks';
 import type { TaskProof } from '../src/solver/cooperativeProof';
+import { failedBatch, verifiedBatch } from './helpers/verifier';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), packages: undefined as string | undefined }));
 vi.mock('../src/math/verifier', async importOriginal => ({
@@ -26,22 +27,13 @@ const roots: string[] = [];
 const missingTarget = 'f'.repeat(40);
 const original = 'namespace Submission\ntheorem original : True := by sorry\nend Submission\n';
 
-function verified(request: MathematicsVerifierBatchRequest): MathematicsVerifierBatchResult {
-  return {
-    schema: 'deepscientist.mathematics.verification-batch/v1', status: 'kernel_verified',
-    targetCommit: request.targetCommit!, sessionId: 'fresh-recovery-check', events: [], startedAt: 1, checkedAt: 2, durationMs: 1,
-    results: request.items.map((item, index) => ({ ...item, status: 'kernel_verified', claim: 'statement',
-      sourceDeclarationHash: item.expectedSourceDeclarationHash, targetCommit: request.targetCommit,
-      sessionId: 'fresh-recovery-check', checkId: item.id?.trim() || `check-${index + 1}`, checkedAt: 2,
-      receiptId: `fresh-${request.targetCommit}-${item.theoremName}` })) as MathematicsVerifierBatchResult['results'],
-  };
+function verified(request: MathematicsVerifierBatchRequest) {
+  return verifiedBatch(request, { sessionId: 'fresh-recovery-check', receipt: 'fresh', checks: true });
 }
 
-function rejected(request: MathematicsVerifierBatchRequest, names = request.items.map(item => item.theoremName)): MathematicsVerifierBatchResult {
-  const result = verified(request);
-  return { ...result, status: 'failed', results: result.results.map(item => names.includes(item.theoremName)
-    ? { ...item, status: 'failed', error: 'Lean exited with status 1.',
-      stdoutPreview: 'Submission.lean:3:1: error: unsolved goals' } : item) };
+function rejected(request: MathematicsVerifierBatchRequest, names = request.items.map(item => item.theoremName)) {
+  return failedBatch(verified(request), { stdoutPreview: () => 'Submission.lean:3:1: error: unsolved goals',
+    selected: item => names.includes(item.theoremName) });
 }
 
 function fixture(options: { separateProjections?: boolean } = {}) {

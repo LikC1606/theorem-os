@@ -1,23 +1,21 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample } from '../src/math/localExample';
 import { readSolverRunState, writeSolverRunState, type SolverRunState } from '../src/solver/archive';
-import { CooperativeResearch, parseCooperationPlan } from '../src/solver/cooperation';
+import { parseCooperationPlan, type CooperativeResearch } from '../src/solver/cooperation';
 import { MATHEMATICAL_GAP_CONTEXT_MAX_BYTES, mathematicalGapContext, type MathematicalGap } from '../src/solver/mathematicalGaps';
-import { directSolverModules } from '../src/solver/modules';
 import { buildResearchContext } from '../src/solver/modules/context';
 import type { ResearchWorker } from '../src/solver/modules/organization';
-import { committedSource, commitSolverSources, git, readSolverProblem } from '../src/solver/problem';
+import { committedSource, commitSolverSources } from '../src/solver/problem';
 import { taskVersion, type CooperativeAction } from '../src/solver/tasks';
 import { importKnowledgeRuns } from '../src/solver/theoremKnowledgeRuns';
+import { deferred } from './helpers/async';
+import { cooperativeResearch } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
 
 let directory: string, state: SolverRunState, workers: ResearchWorker[], cooperative: CooperativeResearch;
 let controller: AbortController, action: Extract<CooperativeAction, { kind: 'task' }>;
-const create = () => new CooperativeResearch({ state, workers, modules: directSolverModules,
-  access: new Map(workers.map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-  signal: controller.signal, save: () => {}, emit: () => {}, exclusiveCheck: async check => check() });
+const create = () => cooperativeResearch({ state, workers, retrievalRoot: directory, signal: controller.signal });
 const gap = (): MathematicalGap => {
   const consumer = state.cooperation!.tasks.find(node => node.task.kind === 'goal')!.task;
   return { consumer: { taskId: consumer.id, taskDigest: taskVersion(consumer) }, previousGap: 'Need a uniform nondegenerate count',
@@ -44,14 +42,9 @@ const otherAction = (): Extract<CooperativeAction, { kind: 'task' }> => {
 };
 
 beforeEach(() => {
-  directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-gap-')));
-  const workspace = path.join(directory, 'lead'), receipt = bootstrapLocalExample(workspace);
-  const problem = readSolverProblem(workspace, receipt.activeProblemPath);
-  workers = [{ id: 'lead', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles }, ...['proof', 'other'].map(id => {
-    const worktree = path.join(directory, id);
-    git(workspace, ['worktree', 'add', '--quiet', '--detach', worktree, problem.baseCommit]);
-    return { id, role: 'researcher' as const, worktree, ownedFiles: problem.ownedFiles };
-  })];
+  const example = localExample('solver-gap-', 'lead'), { workspace, problem } = example;
+  directory = example.directory;
+  workers = [leadWorker(problem, workspace, 'lead'), ...['proof', 'other'].map(id => peerWorker(example, id))];
   const parsed = parseCooperationPlan(problem, { tasks: [{ id: 'core', kind: 'research', objective: 'Public uniform-count investigation', sharing: 'problem' },
     { id: 'other', kind: 'research', objective: 'Independent route', groupId: 'other' },
     ...problem.targets.map((target, index) => ({ id: `original_goal_${index + 1}`, kind: 'goal',
@@ -61,11 +54,9 @@ beforeEach(() => {
   const task = parsed.tasks[0];
   action = { kind: 'task', task, assignment: { taskId: task.id, taskDigest: taskVersion(task), workerId: workers[1].id,
     seedCommit: problem.baseCommit, assignmentId: 'gap-assignment', dependencies: [] } };
-  state = { schema: 'deepscientist.math.solver.v1', runId: 'gap-fixture', problem, taskDigest: 'task', buildDigest: 'build',
-    environmentDigest: 'environment', evaluatorDigest: 'evaluator', model: 'unused', effort: 'unused', worktree: workspace,
-    phase: 'running', turns: 0, cooperation: { canonicalCommit: problem.baseCommit,
+  state = solverState(problem, workspace, { runId: 'gap-fixture', phase: 'running', cooperation: { canonicalCommit: problem.baseCommit,
       groups: parsed.groups.map(group => ({ group, turns: 0 })), tasks: parsed.tasks.map(task => ({ task, attempts: 1,
-        status: task.id === 'core' ? 'running' : 'pending', ...(task.id === 'core' ? { assignment: action.assignment } : {}) })) } };
+        status: task.id === 'core' ? 'running' : 'pending', ...(task.id === 'core' ? { assignment: action.assignment } : {}) })) } });
   controller = new AbortController(); cooperative = create();
 });
 afterEach(async () => {
@@ -147,18 +138,16 @@ it('rejects an invalid progress consumer before writing a blocker or delivery', 
 });
 
 it('revalidates the consumer after asynchronous knowledge checks before mutating research publication state', async () => {
-  let started!: () => void, release!: () => void;
-  const ready = new Promise<void>(resolve => { started = resolve; });
-  const waiting = new Promise<void>(resolve => { release = resolve; });
-  vi.spyOn(cooperative as any, 'knowledgeUses').mockImplementation(async () => { started(); await waiting; return []; });
+  const ready = deferred(), waiting = deferred();
+  vi.spyOn(cooperative as any, 'knowledgeUses').mockImplementation(async () => { ready.resolve(); await waiting.promise; return []; });
   const pending = publish({ kind: 'research', finding: { summary: 'Consumer changed during verification',
     conclusion: 'inconclusive', mathematicalGap: gap(),
     blockers: [{ mechanism: 'Must not persist', scope: 'A claimed local obstruction', evidenceRefs: [] }] } });
-  await ready;
+  await ready.promise;
   const consumer = state.cooperation!.tasks.find(node => node.task.kind === 'goal')!;
   consumer.task = { ...consumer.task, objective: 'Revised original consumer', revision: 1 };
   expect(cooperative.current(action)).toBe(true);
-  release();
+  waiting.resolve();
   await expect(pending).rejects.toThrow('gap_consumer');
   expect(state.cooperation!.blockers ?? []).toEqual([]);
   expect(state.cooperation!.deliveries ?? []).toEqual([]);

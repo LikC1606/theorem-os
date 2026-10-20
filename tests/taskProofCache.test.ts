@@ -1,15 +1,17 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample, LOCAL_EXAMPLE_PROOF } from '../src/math/localExample';
+import { LOCAL_EXAMPLE_PROOF } from '../src/math/localExample';
 import * as leanSource from '../src/math/leanSource';
 import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } from '../src/math/verifier';
 import { checkTaskProofs, createTaskSourceProjector, isAttributedTaskProof, trustedTaskProjectionReuse, TaskProofCache,
   type TaskProof, type TaskProofRequest } from '../src/solver/cooperativeProof';
 import * as problemApi from '../src/solver/problem';
-import { commitSolverSources, git, readSolverProblem, withSolverWorktree, type SolverProblem } from '../src/solver/problem';
+import { commitSolverSources, git, withSolverWorktree, type SolverProblem } from '../src/solver/problem';
 import { taskVersion, type CooperativeTask } from '../src/solver/tasks';
+import { deferred } from './helpers/async';
+import { localExample } from './helpers/solver';
+import { failedBatch, receiptBatch } from './helpers/verifier';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), environment: vi.fn(), tools: vi.fn() }));
 vi.mock('../src/math/verifier', async importOriginal => ({
@@ -20,26 +22,10 @@ vi.mock('../src/math/mathProofEnvironment', async importOriginal => ({
   ...await importOriginal<typeof import('../src/math/mathProofEnvironment')>(), resolveMathProofEnvironment: host.environment,
 }));
 
-function verified(input: MathematicsVerifierBatchRequest): MathematicsVerifierBatchResult {
-  return { schema: 'deepscientist.mathematics.verification-batch/v1', status: 'kernel_verified',
-    targetCommit: input.targetCommit!, sessionId: 'cache-fixture', events: [], startedAt: 1, checkedAt: 2, durationMs: 1,
-    results: input.items.map((item, index) => ({
-      status: 'kernel_verified', targetCommit: input.targetCommit!, proofPath: item.proofPath, theoremName: item.theoremName,
-      statementHash: item.statementHash, leanStatementHash: item.leanStatementHash, claim: item.claim ?? 'statement',
-      sourceDeclarationHash: item.expectedSourceDeclarationHash, proofHash: 'fixture-proof',
-      statementBinding: 'caller-bound-to-committed-declaration', toolchain: { lean: 'fixture-lean' }, verifier: 'lean-kernel',
-      goalsRemaining: 0, sorryCount: 0, admitCount: 0, axioms: [], checkedAt: 2,
-      checkId: item.id?.trim() || `check-${index + 1}`, receiptId: `receipt-${input.targetCommit}-${index}`, sessionId: 'cache-fixture',
-      declarationReferences: { statement: [], proof: [] },
-    })) };
-}
-function rejected(input: MathematicsVerifierBatchRequest): MathematicsVerifierBatchResult {
-  const batch = verified(input);
-  batch.status = 'failed';
-  for (const result of batch.results) Object.assign(result, { status: 'failed', goalsRemaining: 1,
-    error: 'Lean exited with status 1.', stdoutPreview: `${result.proofPath}:4:1: error: unsolved goals` });
-  return batch;
-}
+const verified = (input: MathematicsVerifierBatchRequest) =>
+  receiptBatch(input, { sessionId: 'cache-fixture', receiptId: index => `receipt-${input.targetCommit}-${index}` });
+const rejected = (input: MathematicsVerifierBatchRequest, selected?: (result: unknown, index: number) => boolean) =>
+  failedBatch(verified(input), { stdoutPreview: proofPath => `${proofPath}:4:1: error: unsolved goals`, goalsRemaining: 1, selected });
 const proofViews = (proofs: TaskProof[]) => proofs.map(({ projectionReuse: _reuse, ...proof }) => proof);
 
 describe('run-local task proof projection cache', () => {
@@ -57,16 +43,19 @@ describe('run-local task proof projection cache', () => {
       'commit', '--allow-empty', '--no-gpg-sign', '--quiet', '-m', 'Equivalent source snapshot']);
     return git(workspace, ['rev-parse', 'HEAD']);
   };
+  const hold = () => {
+    const gate = deferred(), started = deferred();
+    host.verify.mockImplementationOnce(async input => { started.resolve(); await gate.promise; return verified(input); });
+    return { release: gate.resolve, entered: started.promise };
+  };
 
   beforeEach(() => {
     host.verify.mockReset().mockImplementation(async input => verified(input));
     host.environment.mockReset().mockReturnValue(undefined);
     host.tools.mockReset().mockReturnValue('fixture-tools-first');
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'task-proof-cache-')));
-    workspace = path.join(directory, 'workspace');
-    const receipt = bootstrapLocalExample(workspace);
-    project = receipt.projectRoot;
-    problem = readSolverProblem(workspace, receipt.activeProblemPath);
+    const example = localExample('task-proof-cache-');
+    ({ directory, workspace, problem } = example);
+    project = example.receipt.projectRoot;
     const file = path.join(project, 'Submission.lean');
     fs.writeFileSync(file, LOCAL_EXAMPLE_PROOF);
     seedCommit = commitSolverSources(problem, workspace);
@@ -109,10 +98,7 @@ describe('run-local task proof projection cache', () => {
   });
 
   it('shares an in-flight verification only for callers using the same abort signal', async () => {
-    let release!: () => void, started!: () => void;
-    const gate = new Promise<void>(resolve => { release = resolve; });
-    const entered = new Promise<void>(resolve => { started = resolve; });
-    host.verify.mockImplementationOnce(async input => { started(); await gate; return verified(input); });
+    const { release, entered } = hold();
     const first = check();
     await entered;
     const second = check();
@@ -127,10 +113,7 @@ describe('run-local task proof projection cache', () => {
   });
 
   it('keeps different cancellation domains out of the same in-flight verification', async () => {
-    let release!: () => void, started!: () => void;
-    const gate = new Promise<void>(resolve => { release = resolve; });
-    const entered = new Promise<void>(resolve => { started = resolve; });
-    host.verify.mockImplementationOnce(async input => { started(); await gate; return verified(input); });
+    const { release, entered } = hold();
     const first = check();
     await entered;
     const second = check({ signal: new AbortController().signal });
@@ -231,10 +214,7 @@ describe('run-local task proof projection cache', () => {
   });
 
   it('rebuilds each caller attribution when equal-tree commits share a verification in flight', async () => {
-    let release!: () => void, started!: () => void;
-    const gate = new Promise<void>(resolve => { release = resolve; });
-    const entered = new Promise<void>(resolve => { started = resolve; });
-    host.verify.mockImplementationOnce(async input => { started(); await gate; return verified(input); });
+    const { release, entered } = hold();
     const first = check();
     await entered;
     const changedCommit = recommit();
@@ -443,13 +423,7 @@ describe('run-local task proof projection cache', () => {
   });
 
   it('preserves ordered success and deterministic rejection receipts when reusing a full batch', async () => {
-    host.verify.mockImplementation(async input => {
-      const batch = verified(input), result = batch.results[1]!;
-      batch.status = 'failed';
-      Object.assign(result, { status: 'failed', goalsRemaining: 1, error: 'Lean exited with status 1.',
-        stdoutPreview: `${result.proofPath}:4:1: error: unsolved goals` });
-      return batch;
-    });
+    host.verify.mockImplementation(async input => rejected(input, (_, index) => index === 1));
     const both = tasks.map(task => request(task));
     const first = await check({ requests: both });
     const current = await check({ requests: both, sourceCommit: recommit() });
@@ -488,10 +462,7 @@ describe('run-local task proof projection cache', () => {
 
   it('does not let cancellation in one domain poison a completed independent verification', async () => {
     const controller = new AbortController();
-    let release!: () => void, started!: () => void;
-    const gate = new Promise<void>(resolve => { release = resolve; });
-    const entered = new Promise<void>(resolve => { started = resolve; });
-    host.verify.mockImplementationOnce(async input => { started(); await gate; return verified(input); });
+    const { release, entered } = hold();
     const interrupted = check({ signal: controller.signal });
     const rejectedCheck = expect(interrupted).rejects.toMatchObject({ name: 'AbortError' });
     await entered;

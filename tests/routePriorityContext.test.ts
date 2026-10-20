@@ -3,28 +3,17 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { canonicalMathJson, mathDigest } from '../src/math/mathRuntimeIo';
-import type { TaskProof } from '../src/solver/cooperativeProof';
 import type { ProofRoute } from '../src/solver/proofRoutes';
 import { createProofRoutePriority, createProofRoutePriorityIndex, selectProofRoutePriorityContext } from '../src/solver/routePriority';
-import { markTaskAcceptance, taskVersion, type TaskRecord } from '../src/solver/tasks';
+import type { TaskRecord } from '../src/solver/tasks';
+import { integratedProof } from './helpers/taskProof';
 
 const node = (id: string, dependsOn: string[] = [], kind: 'lemma' | 'goal' = 'lemma'): TaskRecord => ({
   task: { id, kind, objective: id, dependsOn, revision: 0, proofPath: 'Submission.lean',
     theoremName: `Submission.${id}`, ...(kind === 'lemma' ? { type: 'True' } : {}) },
   status: 'pending', attempts: 0,
 });
-function checked(item: TaskRecord, inputs: TaskRecord[] = []) {
-  item.status = 'integrated';
-  item.integratedCheck = { taskDigest: taskVersion(item.task), passed: true, commit: 'canonical',
-    sourceDigest: 'source', seedCommit: 'seed', changes: [],
-    verification: { status: 'kernel_verified', targetCommit: 'projection', results: [
-      { status: 'kernel_verified', targetCommit: 'projection', receiptId: `receipt-${item.task.id}` },
-    ] }, references: { sourceCommit: 'canonical', environmentDigest: 'environment', contextDigest: 'context', inputs: [],
-      root: { name: item.task.theoremName!, file: item.task.proofPath! }, statement: [],
-      proof: inputs.map(input => ({ name: input.task.theoremName!, file: input.task.proofPath! })),
-      tasks: inputs.map(input => ({ taskId: input.task.id, taskDigest: taskVersion(input.task) })) } } as TaskProof;
-  markTaskAcceptance(item.integratedCheck);
-}
+function checked(item: TaskRecord, inputs: TaskRecord[] = []) { integratedProof(item, { uses: inputs }); }
 function fixture(count: number) {
   const goal = node('goal', [], 'goal');
   const cores = Array.from({ length: count }, (_, index) => node(`core_${index}`));

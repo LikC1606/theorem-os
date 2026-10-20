@@ -18,6 +18,9 @@ afterEach(() => {
   vi.restoreAllMocks();
   for (const directory of directories.splice(0)) fs.rmSync(directory, { recursive: true, force: true });
 });
+const temporary = (prefix: string) => { const directory = fs.mkdtempSync(path.join(os.tmpdir(), prefix)); directories.push(directory); return directory; };
+const planIdentity = { schema: 'deepscientist.math.comparison.v1' as const, problem: 'p', sourceCommit: 'source',
+  taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment' };
 
 describe('configured research comparisons', () => {
   const node = (id: string, kind: 'lemma' | 'goal', dependsOn: string[] = [], status?: 'paused'): TaskRecord => ({
@@ -122,7 +125,7 @@ describe('configured research comparisons', () => {
   });
 
   it.each([undefined, '1000', '0'])('prepares all three arms with the shared token allowance %s without running a model', async allowance => {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'math-comparison-prepare-')); directories.push(directory);
+    const directory = temporary('math-comparison-prepare-');
     const repository = path.join(directory, 'repo'); fs.mkdirSync(repository);
     const task = path.join(directory, 'task.md'); fs.writeFileSync(task, 'Prove the frozen public target.');
     const manifest = path.join(directory, 'build.json'); fs.writeFileSync(manifest, '{}');
@@ -167,10 +170,9 @@ describe('configured research comparisons', () => {
 
   it.each(['provider-observed-dispatch-limit', 'provider-observed-upstream-request-limit'] as const)
   ('preserves %s overrun and rejects a changed or absent finite allowance', enforcement => {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'math-comparison-budget-')); directories.push(directory);
+    const directory = temporary('math-comparison-budget-');
     const output = path.join(directory, 'result.json');
-    const plan = { schema: 'deepscientist.math.comparison.v1' as const, problem: 'p', sourceCommit: 'source',
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment',
+    const plan = { ...planIdentity,
       configuration: { model: 'fixture', effort: 'xhigh', method: 'direct', scheduler: 'continuation', workers: 2,
         maxTurns: 0, maxRunSeconds: 0, maxTurnSeconds: 0, maxTotalTokens: 100 },
       jobs: [{ arm: 'single' as const, repetition: 1, launch: '', launchDigest: '', output,
@@ -211,9 +213,8 @@ describe('configured research comparisons', () => {
       'provider-observed-upstream-request-limit', undefined], expected: 'mixed' },
     { name: 'untracked legacy records', enforcements: [undefined, undefined], expected: 'unknown' },
   ])('reports $name without overstating enforcement', ({ enforcements, expected }) => {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'math-comparison-enforcement-')); directories.push(directory);
-    const plan = { schema: 'deepscientist.math.comparison.v1' as const, problem: 'p', sourceCommit: 'source',
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment',
+    const directory = temporary('math-comparison-enforcement-');
+    const plan = { ...planIdentity,
       configuration: { model: 'fixture', effort: 'xhigh', method: 'direct', scheduler: 'plan', workers: 2,
         maxTurns: 20, maxRunSeconds: 1800, maxTurnSeconds: 180, maxTotalTokens: 0 },
       jobs: enforcements.map((enforcement, index) => {
@@ -249,10 +250,9 @@ describe('configured research comparisons', () => {
     { name: 'a peer with an attempted request missing its receipt', consumed: 40, peerAttempted: true,
       inheritedIncomplete: false, totalTokens: null, budgetStatus: 'usage-unavailable' },
   ])('accounts for $name using actual upstream attempts', ({ consumed, peerAttempted, inheritedIncomplete, totalTokens, budgetStatus }) => {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'math-comparison-zero-requests-')); directories.push(directory);
+    const directory = temporary('math-comparison-zero-requests-');
     const output = path.join(directory, 'result.json'), stateFile = `${output}.runtime/state.json`;
-    const plan = { schema: 'deepscientist.math.comparison.v1' as const, problem: 'p', sourceCommit: 'source',
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment',
+    const plan = { ...planIdentity,
       configuration: { model: 'fixture', effort: 'high', method: 'direct', scheduler: 'plan', workers: 2,
         maxTurns: 20, maxRunSeconds: 600, maxTurnSeconds: 180, maxTotalTokens: 100 },
       jobs: [{ arm: 'independent', repetition: 1, launch: '', launchDigest: '', output,
@@ -284,10 +284,9 @@ describe('configured research comparisons', () => {
   });
 
   it('keeps partial provider consumption visible without treating missing role usage as complete', () => {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'math-comparison-partial-budget-')); directories.push(directory);
+    const directory = temporary('math-comparison-partial-budget-');
     const output = path.join(directory, 'result.json');
-    const plan = { schema: 'deepscientist.math.comparison.v1' as const, problem: 'p', sourceCommit: 'source',
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment',
+    const plan = { ...planIdentity,
       configuration: { model: 'fixture', effort: 'xhigh', method: 'direct', scheduler: 'continuation', workers: 2,
         maxTurns: 0, maxRunSeconds: 0, maxTurnSeconds: 0, maxTotalTokens: 100 },
       jobs: [{ arm: 'independent' as const, repetition: 1, launch: '', launchDigest: '', output,
@@ -314,9 +313,8 @@ describe('configured research comparisons', () => {
   });
 
   it('reports failed usage, partial usage and missing results without manufacturing acceptance', () => {
-    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'math-comparison-')); directories.push(directory);
-    const plan = { schema: 'deepscientist.math.comparison.v1' as const, problem: 'p', sourceCommit: 'source',
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment',
+    const directory = temporary('math-comparison-');
+    const plan = { ...planIdentity,
       configuration: { model: 'fixture', effort: 'xhigh', method: 'direct', scheduler: 'plan', workers: 2,
         maxTurns: 20, maxRunSeconds: 1800, maxTurnSeconds: 180 },
       jobs: comparisonOrder(1).map(item => ({ ...item, launch: path.join(directory, item.arm + '-launch.json'),

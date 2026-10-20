@@ -1,15 +1,15 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample } from '../src/math/localExample';
 import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } from '../src/math/verifier';
 import type { SolverRunState } from '../src/solver/archive';
-import { CooperativeResearch } from '../src/solver/cooperation';
-import { directSolverModules } from '../src/solver/modules';
+import type { CooperativeResearch } from '../src/solver/cooperation';
 import type { ResearchWorker } from '../src/solver/modules/organization';
-import { committedSource, commitSolverSources, git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
+import { committedSource, commitSolverSources, type SolverProblem } from '../src/solver/problem';
 import { assignmentDeliveryFile, taskVersion, type CooperativeAction, type CooperativeTask } from '../src/solver/tasks';
+import { cooperativeResearch } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
+import { failedBatch, verifiedBatch } from './helpers/verifier';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn() }));
 vi.mock('../src/math/verifier', async importOriginal => ({
@@ -20,25 +20,18 @@ vi.mock('../src/math/verifier', async importOriginal => ({
 }));
 vi.mock('../src/runtime/codexSession', () => ({ createCodexMathSession: host.createSession }));
 
-function verified(request: MathematicsVerifierBatchRequest): MathematicsVerifierBatchResult {
-  return { schema: 'deepscientist.mathematics.verification-batch/v1', status: 'kernel_verified',
-    targetCommit: request.targetCommit!, sessionId: 'integration-recovery-fixture', events: [], startedAt: 1, checkedAt: 2, durationMs: 1,
-    results: request.items.map((item, index) => ({ ...item, sourceDeclarationHash: item.expectedSourceDeclarationHash,
-      checkId: item.id?.trim() || `check-${index + 1}`, sessionId: 'integration-recovery-fixture', checkedAt: 2,
-      receiptId: `fixture-${request.targetCommit}-${item.theoremName}`, targetCommit: request.targetCommit,
-      status: 'kernel_verified', claim: 'statement' })) as MathematicsVerifierBatchResult['results'] };
-}
+const verified = (request: MathematicsVerifierBatchRequest) =>
+  verifiedBatch(request, { sessionId: 'integration-recovery-fixture', checks: true });
 
 type TaskAction = Extract<CooperativeAction, { kind: 'task' }>;
 type Failure = 'abort' | 'storage' | 'unavailable';
 const failureError = (failure: Failure) => failure === 'abort' ? new DOMException('Merged check interrupted.', 'AbortError') :
   failure === 'storage' ? Object.assign(new Error('Transient integration storage failure.'), { code: 'EIO' }) :
     new Error('math_verifier_unavailable');
-const failedBatch = (request: MathematicsVerifierBatchRequest, status: 'failed' | 'unavailable'): MathematicsVerifierBatchResult => {
+const unavailableBatch = (request: MathematicsVerifierBatchRequest): MathematicsVerifierBatchResult => {
   const batch = verified(request);
-  return { ...batch, status, results: batch.results.map(item => ({ ...item, status,
-    error: status === 'failed' ? 'Lean exited with status 1.' : 'Fixture merged check failure.',
-    ...(status === 'failed' ? { stdoutPreview: 'Submission.lean:3:1: error: Fixture merged proof failure.' } : {}) })) };
+  return { ...batch, status: 'unavailable',
+    results: batch.results.map(item => ({ ...item, status: 'unavailable', error: 'Fixture merged check failure.' })) };
 };
 
 describe('checked task integration recovery', () => {
@@ -76,12 +69,25 @@ describe('checked task integration recovery', () => {
     let calls = 0;
     host.verify.mockImplementation(async (request: MathematicsVerifierBatchRequest) => {
       if (++calls === 2) {
-        if (failure === 'unavailable') return failedBatch(request, 'unavailable');
+        if (failure === 'unavailable') return unavailableBatch(request);
         throw error;
       }
       return verified(request);
     });
     return error;
+  };
+  const conditionalParent = async (running: boolean) => {
+    const childTask: CooperativeTask = { id: 'child', kind: 'lemma', objective: 'Prove the child.',
+      theoremName: 'Tutorial.recovery_child', proofPath: 'Submission.lean', type: 'True', dependsOn: [], revision: 0 };
+    const child = assign(childTask, workers[2]);
+    const parentTask = { ...action.task, dependsOn: ['child'], conditional: true };
+    action = assign(parentTask, workers[1], [{ taskId: childTask.id, taskDigest: taskVersion(childTask) }]);
+    Object.assign(node(), { task: parentTask, assignment: action.assignment });
+    state.cooperation!.tasks.push(running ? { task: childTask, assignment: child.assignment, status: 'running', attempts: 1 }
+      : { task: childTask, status: 'pending', attempts: 0 });
+    const commit = writeLemma(workers[1], 'lemma recovery_lemma : True := by exact recovery_child');
+    proofLog(commit); await poll();
+    return { child, commit };
   };
   const expectNoMathematicalFailure = (feedback?: string) => {
     expect(records().filter(record => record.kind === 'failure' || record.status === 'failed')).toEqual([]);
@@ -94,34 +100,23 @@ describe('checked task integration recovery', () => {
   beforeEach(() => {
     host.verify.mockReset().mockImplementation(async request => verified(request));
     host.createSession.mockReset().mockImplementation(() => { throw new Error('fixture_real_models_forbidden'); });
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-integration-recovery-')));
-    workspace = path.join(directory, 'workspace');
-    const receipt = bootstrapLocalExample(workspace);
-    problem = readSolverProblem(workspace, receipt.activeProblemPath);
-    workers = [{ id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles },
-      ...['parent', 'child'].map(id => {
-        const worktree = path.join(directory, id);
-        git(workspace, ['worktree', 'add', '--quiet', '--detach', worktree, problem.baseCommit]);
-        return { id, role: 'researcher' as const, worktree, ownedFiles: problem.ownedFiles };
-      })];
+    const example = localExample('solver-integration-recovery-');
+    ({ directory, workspace, problem } = example);
+    workers = [leadWorker(problem, workspace), ...['parent', 'child'].map(id => peerWorker(example, id))];
     const task: CooperativeTask = { id: 'recovery', kind: 'lemma', objective: 'Prove a reusable recovery lemma.',
       theoremName: 'Tutorial.recovery_lemma', proofPath: 'Submission.lean', type: 'True', dependsOn: [], revision: 0 };
     action = assign(task, workers[1]);
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'integration-recovery-fixture', problem,
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluator',
-      model: 'unused', effort: 'unused', worktree: workspace, phase: 'running', turns: 0, failures: [],
+    state = solverState(problem, workspace, { runId: 'integration-recovery-fixture', phase: 'running', failures: [],
       cooperation: { canonicalCommit: problem.baseCommit,
         groups: [{ group: { id: 'main', objective: 'Prove the original problem.', status: 'active', revision: 0 }, turns: 0 }],
         tasks: [{ task, assignment: action.assignment, status: 'running', attempts: 1 }, ...problem.targets.map((target, index) => ({
           task: { id: `goal_${index}`, kind: 'goal' as const, objective: `Prove ${target.theoremName}.`,
             theoremName: target.theoremName, proofPath: target.proofPath, dependsOn: [], revision: 0, status: 'paused' as const },
           status: 'pending' as const, attempts: 0,
-        }))] } };
+        }))] } });
     cursors = {}; snapshots = []; events = []; controller = new AbortController();
-    cooperative = new CooperativeResearch({ state, workers,
-      access: new Map(workers.map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-      signal: controller.signal, save: () => snapshots.push({ ...cursors }), emit: (event, details) => events.push({ event, details }),
-      modules: directSolverModules, exclusiveCheck: async check => check() });
+    cooperative = cooperativeResearch({ state, workers, retrievalRoot: directory, signal: controller.signal,
+      save: () => snapshots.push({ ...cursors }), emit: (event, details) => events.push({ event, details }) });
   });
   afterEach(async () => {
     controller.abort(); await cooperative.stop();
@@ -216,7 +211,7 @@ describe('checked task integration recovery', () => {
     const commit = writeLemma(workers[1], 'lemma recovery_lemma : True := by trivial');
     const error = failureError(failure), rejected = vi.spyOn(cooperative, 'rejected');
     host.verify.mockImplementationOnce(async (request: MathematicsVerifierBatchRequest) => {
-      if (failure === 'unavailable') return failedBatch(request, 'unavailable');
+      if (failure === 'unavailable') return unavailableBatch(request);
       throw error;
     });
 
@@ -239,14 +234,7 @@ describe('checked task integration recovery', () => {
   });
 
   it('records a conditional proof once across incremental and direct delivery of the same assignment commit', async () => {
-    const childTask: CooperativeTask = { id: 'child', kind: 'lemma', objective: 'Prove the child.',
-      theoremName: 'Tutorial.recovery_child', proofPath: 'Submission.lean', type: 'True', dependsOn: [], revision: 0 };
-    const parentTask = { ...action.task, dependsOn: ['child'], conditional: true };
-    action = assign(parentTask, workers[1], [{ taskId: childTask.id, taskDigest: taskVersion(childTask) }]);
-    Object.assign(node(), { task: parentTask, assignment: action.assignment });
-    state.cooperation!.tasks.push({ task: childTask, status: 'pending', attempts: 0 });
-    const commit = writeLemma(workers[1], 'lemma recovery_lemma : True := by exact recovery_child');
-    proofLog(commit); await poll();
+    const { commit } = await conditionalParent(false);
     const checked = node().proof, accepted = [...records()];
     expect(records().filter(record => record.kind === 'proof')).toMatchObject([{
       status: 'conditional', assignmentKey: assignmentDeliveryFile(action.assignment), submissionId: 'proof', commit,
@@ -264,15 +252,7 @@ describe('checked task integration recovery', () => {
   });
 
   it('continues ready parent integration when an already recorded conditional proof is replayed', async () => {
-    const childTask: CooperativeTask = { id: 'child', kind: 'lemma', objective: 'Prove the child.',
-      theoremName: 'Tutorial.recovery_child', proofPath: 'Submission.lean', type: 'True', dependsOn: [], revision: 0 };
-    const child = assign(childTask, workers[2]);
-    const parentTask = { ...action.task, dependsOn: ['child'], conditional: true };
-    action = assign(parentTask, workers[1], [{ taskId: childTask.id, taskDigest: taskVersion(childTask) }]);
-    Object.assign(node(), { task: parentTask, assignment: action.assignment });
-    state.cooperation!.tasks.push({ task: childTask, assignment: child.assignment, status: 'running', attempts: 1 });
-    const parentCommit = writeLemma(workers[1], 'lemma recovery_lemma : True := by exact recovery_child');
-    proofLog(parentCommit); await poll();
+    const { child, commit: parentCommit } = await conditionalParent(true);
     expect(node()).toMatchObject({ status: 'conditional', proof: { passed: true, conditions: [{ taskId: 'child' }] } });
     expect(records().filter(record => record.kind === 'proof')).toMatchObject([{ status: 'conditional', submissionId: 'proof' }]);
     const checked = node().proof;
@@ -310,15 +290,7 @@ describe('checked task integration recovery', () => {
   });
 
   it('finishes an accepted parent publication when replaying the child after statement preparation failed', async () => {
-    const childTask: CooperativeTask = { id: 'child', kind: 'lemma', objective: 'Prove the child.',
-      theoremName: 'Tutorial.recovery_child', proofPath: 'Submission.lean', type: 'True', dependsOn: [], revision: 0 };
-    const child = assign(childTask, workers[2]);
-    const parentTask = { ...action.task, dependsOn: ['child'], conditional: true };
-    action = assign(parentTask, workers[1], [{ taskId: childTask.id, taskDigest: taskVersion(childTask) }]);
-    Object.assign(node(), { task: parentTask, assignment: action.assignment });
-    state.cooperation!.tasks.push({ task: childTask, assignment: child.assignment, status: 'running', attempts: 1 });
-    const parentCommit = writeLemma(workers[1], 'lemma recovery_lemma : True := by exact recovery_child');
-    proofLog(parentCommit); await poll();
+    const { child } = await conditionalParent(true);
     const childCommit = writeLemma(workers[2], 'lemma recovery_child : True := by trivial');
     const childFile = path.join(workers[2].worktree, assignmentDeliveryFile(child.assignment));
     const childKey = `${workers[2].id}/${assignmentDeliveryFile(child.assignment)}`;
@@ -363,7 +335,8 @@ describe('checked task integration recovery', () => {
     const commit = writeLemma(workers[1], 'lemma recovery_lemma : True := by trivial');
     proofLog(commit);
     host.verify.mockImplementation(async (request: MathematicsVerifierBatchRequest) =>
-      host.verify.mock.calls.length === 2 ? failedBatch(request, 'failed') : verified(request));
+      host.verify.mock.calls.length === 2 ? failedBatch(verified(request),
+      { stdoutPreview: () => 'Submission.lean:3:1: error: Fixture merged proof failure.' }) : verified(request));
 
     await poll(); await poll();
 

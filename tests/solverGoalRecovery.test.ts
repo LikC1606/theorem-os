@@ -1,17 +1,17 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample } from '../src/math/localExample';
 import type { SolverRunState } from '../src/solver/archive';
-import { CooperativeResearch } from '../src/solver/cooperation';
+import type { CooperativeResearch } from '../src/solver/cooperation';
 import type { TaskProof } from '../src/solver/cooperativeProof';
 import { configuredSolverModules } from '../src/solver/modules';
 import type { ResearchWorker } from '../src/solver/modules/organization';
 import { buildProofContinuation } from '../src/solver/progress';
-import { commitSolverSources, git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
+import { commitSolverSources, git, type SolverProblem } from '../src/solver/problem';
 import { markTaskAcceptance, parseCooperationPlan, taskVersion,
   type CooperativeAction, type CooperativeTask, type TaskRecord } from '../src/solver/tasks';
+import { cooperativeResearch } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState, type LocalExample } from './helpers/solver';
 
 const host = vi.hoisted(() => ({ capture: vi.fn(), checkTask: vi.fn(), session: vi.fn() }));
 vi.mock('../src/solver/statementReview', async importOriginal => ({
@@ -26,7 +26,7 @@ type LeadAction = Extract<CooperativeAction, { kind: 'lead' }>;
 describe('original-goal recovery alongside independent proof work', () => {
   let directory: string, workspace: string, seed: string, problem: SolverProblem, state: SolverRunState;
   let cooperative: CooperativeResearch, lead: ResearchWorker, researcher: ResearchWorker, controller: AbortController;
-  let events: { event: string; details?: Record<string, unknown> }[], pending: Promise<unknown>[];
+  let events: { event: string; details?: Record<string, unknown> }[], pending: Promise<unknown>[], example: LocalExample;
   const record = (id: string) => state.cooperation!.tasks.find(item => item.task.id === id)!;
   const helper = (id: string, dependsOn: string[] = [], type = 'True'): CooperativeTask => ({
     id, kind: 'lemma', objective: `Prove ${id}.`, theoremName: `Tutorial.${id}`, proofPath: 'Submission.lean',
@@ -39,6 +39,12 @@ describe('original-goal recovery alongside independent proof work', () => {
       'commit', '--no-gpg-sign', '--quiet', '--allow-empty', '-m', 'Save recovery fixture notes']);
     return git(worker.worktree, ['rev-parse', 'HEAD']);
   };
+  const build = (workers: ResearchWorker[]) => {
+    const modules = configuredSolverModules('direct', 'continuation');
+    return cooperativeResearch({ state, workers, retrievalRoot: directory, signal: controller.signal,
+      emit: (event, details) => events.push({ event, details }), modules: { ...modules, M2: { ...modules.M2, checkTask: host.checkTask } } });
+  };
+  const peer = (id: string, role: ResearchWorker['role'] = 'researcher', name = id) => peerWorker(example, id, { role, name, commit: seed });
   const priorAssessment = () => {
     state.cooperation!.planVersion = (cooperative as any).planVersion();
     state.cooperation!.lastLeadInputDigest = (cooperative as any).planningInputDigest();
@@ -73,11 +79,6 @@ describe('original-goal recovery alongside independent proof work', () => {
     return action;
   };
   const feasibilityPeers = (role: ResearchWorker['role'] = 'researcher', pinned = false) => {
-    const peer = (id: string, peerRole: ResearchWorker['role'] = 'researcher'): ResearchWorker => {
-      const worktree = path.join(directory, id);
-      git(workspace, ['worktree', 'add', '--quiet', '--detach', worktree, seed]);
-      return { ...researcher, id, role: peerRole, worktree };
-    };
     const checker = peer('early-checker', role), replacement = peer('replacement-checker');
     const core = record('missing_argument');
     core.assignment = { taskId: core.task.id, taskDigest: taskVersion(core.task), workerId: researcher.id, seedCommit: seed };
@@ -86,11 +87,7 @@ describe('original-goal recovery alongside independent proof work', () => {
       objective: 'Independently test the core estimate and its original-goal application.',
       dependsOn: ['original_goal', core.task.id], revision: 0, ...(pinned ? { ownerId: checker.id } : {}) };
     state.cooperation!.tasks.push({ task, status: 'pending', attempts: 0 });
-    const workers = [lead, researcher, checker, replacement], modules = configuredSolverModules('direct', 'continuation');
-    const create = () => new CooperativeResearch({ state, workers,
-      access: new Map(workers.map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-      signal: controller.signal, save: () => {}, emit: (event, details) => events.push({ event, details }),
-      modules: { ...modules, M2: { ...modules.M2, checkTask: host.checkTask } }, exclusiveCheck: async check => check() });
+    const create = () => build([lead, researcher, checker, replacement]);
     cooperative = create(); priorAssessment();
     const claim = async (worker = checker): Promise<TaskAction> => {
       const action = await cooperative.next(worker, budget);
@@ -134,17 +131,12 @@ describe('original-goal recovery alongside independent proof work', () => {
       new Map(tasks.map(task => [task.id, { type: task.type ?? 'True', constants: [], omitted: [] }])));
     host.checkTask.mockReset().mockImplementation(() => { throw new Error('unexpected_fixture_proof_check'); });
     host.session.mockReset().mockImplementation(() => { throw new Error('fixture_models_forbidden'); });
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-goal-recovery-')));
-    workspace = path.join(directory, 'lead');
-    const receipt = bootstrapLocalExample(workspace);
-    problem = readSolverProblem(workspace, receipt.activeProblemPath);
+    example = localExample('solver-goal-recovery-', 'lead');
+    ({ directory, workspace, problem } = example);
     const file = path.join(workspace, problem.projectRelative, 'Submission.lean');
     fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('theorem add_zero', 'lemma saved_auxiliary : True := by trivial\n\ntheorem add_zero'));
     seed = commitSolverSources(problem, workspace);
-    const worktree = path.join(directory, 'researcher');
-    git(workspace, ['worktree', 'add', '--quiet', '--detach', worktree, seed]);
-    lead = { id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles };
-    researcher = { ...lead, id: 'researcher', role: 'researcher', worktree };
+    lead = leadWorker(problem, workspace); researcher = peer('researcher');
     const tasks: CooperativeTask[] = [helper('saved_auxiliary'), helper('more_auxiliary', ['saved_auxiliary'], 'Nat.succ 0 = 1'),
       helper('missing_argument'), ...problem.targets.map((target, index) => ({
         id: index === 0 ? 'original_goal' : `other_goal_${index}`, kind: 'goal' as const,
@@ -153,11 +145,9 @@ describe('original-goal recovery alongside independent proof work', () => {
         ...(index === 0 ? {} : { status: 'paused' as const }),
       }))];
     const plan = parseCooperationPlan(problem, { tasks });
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'goal-recovery-fixture', problem,
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluator',
-      model: 'unused', effort: 'unused', worktree: workspace, phase: 'running', turns: 0, failures: [],
+    state = solverState(problem, workspace, { runId: 'goal-recovery-fixture', phase: 'running', failures: [],
       cooperation: { canonicalCommit: seed, tasks: plan.tasks.map(task => ({ task, status: 'pending', attempts: 0 })),
-        groups: plan.groups.map(group => ({ group, turns: 0 })) } };
+        groups: plan.groups.map(group => ({ group, turns: 0 })) } });
     const saved = record('saved_auxiliary');
     saved.status = 'integrated';
     saved.integratedCheck = { passed: true, taskDigest: taskVersion(saved.task), commit: seed, seedCommit: seed,
@@ -171,12 +161,7 @@ describe('original-goal recovery alongside independent proof work', () => {
     const core = record('missing_argument'); core.status = 'blocked'; core.attempts = 2;
     core.feedback = 'The independent check found that the substantive original argument is missing.';
     events = []; pending = []; controller = new AbortController();
-    const modules = configuredSolverModules('direct', 'continuation');
-    cooperative = new CooperativeResearch({ state, workers: [lead, researcher],
-      access: new Map([lead, researcher].map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-      signal: controller.signal, save: () => {}, emit: (event, details) => events.push({ event, details }),
-      modules: { ...modules, M2: { ...modules.M2, checkTask: host.checkTask } }, exclusiveCheck: async check => check() });
-    priorAssessment();
+    cooperative = build([lead, researcher]); priorAssessment();
   });
 
   afterEach(async () => {
@@ -375,9 +360,7 @@ describe('original-goal recovery alongside independent proof work', () => {
 
   it.each(['supporting', 'refuted', 'inconclusive'] as const)
   ('dispatches an independent early review of blocked inputs and retains a %s result as advisory', async conclusion => {
-    const reviewRoot = path.join(directory, 'independent-reviewer');
-    git(workspace, ['worktree', 'add', '--quiet', '--detach', reviewRoot, seed]);
-    const checker: ResearchWorker = { ...researcher, id: 'independent-checker', worktree: reviewRoot };
+    const checker = peer('independent-checker', 'researcher', 'independent-reviewer');
     const core = record('missing_argument');
     core.assignment = { taskId: core.task.id, taskDigest: taskVersion(core.task),
       workerId: researcher.id, seedCommit: seed };
@@ -385,12 +368,7 @@ describe('original-goal recovery alongside independent proof work', () => {
       objective: 'Test whether the proposed core input is sufficient and mathematically feasible.',
       dependsOn: ['original_goal', core.task.id], revision: 0 };
     state.cooperation!.tasks.push({ task, status: 'pending', attempts: 0 });
-    const modules = configuredSolverModules('direct', 'continuation');
-    cooperative = new CooperativeResearch({ state, workers: [lead, researcher, checker],
-      access: new Map([lead, researcher, checker].map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-      signal: controller.signal, save: () => {}, emit: (event, details) => events.push({ event, details }),
-      modules: { ...modules, M2: { ...modules.M2, checkTask: host.checkTask } }, exclusiveCheck: async check => check() });
-    priorAssessment();
+    cooperative = build([lead, researcher, checker]); priorAssessment();
 
     const ordinary = await cooperative.next(researcher, budget);
     expect(ordinary).toMatchObject({ kind: 'task', task: { id: 'more_auxiliary' } });

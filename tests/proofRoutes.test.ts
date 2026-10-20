@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { describeProofRoutes, parseProofRoutes, proofRouteReady, type ProofRoute } from '../src/solver/proofRoutes';
 import { markTaskAcceptance, taskVersion, type CooperativeTask, type TaskRecord } from '../src/solver/tasks';
-import type { TaskProof } from '../src/solver/cooperativeProof';
+import { integratedProof } from './helpers/taskProof';
 
 function node(id: string, kind: CooperativeTask['kind'] = 'lemma', dependsOn: string[] = []): TaskRecord {
   return { task: { id, kind, objective: id, dependsOn, revision: 0,
@@ -10,18 +10,9 @@ function node(id: string, kind: CooperativeTask['kind'] = 'lemma', dependsOn: st
 }
 
 function checked(item: TaskRecord, uses: TaskRecord[] = [], fresh = true) {
-  item.status = 'integrated';
   const digest = taskVersion(item.task);
-  const proof = item.integratedCheck = { taskDigest: digest, passed: true, commit: 'canonical', sourceDigest: 'source',
-    seedCommit: 'seed', changes: [], verification: { status: 'kernel_verified', targetCommit: 'projection', results: [
-      { status: 'kernel_verified', targetCommit: 'projection', receiptId: `receipt-${item.task.id}`, proofPath: item.task.proofPath,
-        theoremName: item.task.theoremName, statementHash: digest, leanStatementHash: digest },
-    ] }, references: { environmentDigest: 'environment', sourceCommit: 'canonical', contextDigest: 'context', inputs: [],
-      root: { file: item.task.proofPath!, name: item.task.theoremName! },
-      tasks: uses.map(input => ({ taskId: input.task.id, taskDigest: taskVersion(input.task) })),
-      statement: [], proof: uses.map(input => ({ file: input.task.proofPath!, name: input.task.theoremName! })) } } as TaskProof;
-  if (fresh) markTaskAcceptance(proof);
-  return proof;
+  return integratedProof(item, { uses, accept: fresh, result: { proofPath: item.task.proofPath, theoremName: item.task.theoremName,
+    statementHash: digest, leanStatementHash: digest } });
 }
 
 function fixture() {

@@ -1,17 +1,17 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LEAN_EVAL_BENCHMARK_COMMIT } from '../src/math/leanEvalCatalogAdapter';
-import { bootstrapLocalExample } from '../src/math/localExample';
-import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } from '../src/math/verifier';
+import type { MathematicsVerifierBatchRequest } from '../src/math/verifier';
 import { inspectScopedLeanDeclarations } from '../src/math/leanSource';
 import { readSolverRunState, writeSolverRunState, type SolverRunState } from '../src/solver/archive';
-import { CooperativeResearch, readCooperationPlan } from '../src/solver/cooperation';
-import { directSolverModules } from '../src/solver/modules';
+import { readCooperationPlan, type CooperativeResearch } from '../src/solver/cooperation';
 import type { ResearchWorker } from '../src/solver/modules/organization';
 import { committedSource, commitSolverSources, git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
 import type { CooperativeAction, CooperativeTask } from '../src/solver/tasks';
+import { cooperativeResearch } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
+import { failedBatch, verifiedBatch } from './helpers/verifier';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn() }));
 vi.mock('../src/math/verifier', async importOriginal => ({
@@ -20,14 +20,6 @@ vi.mock('../src/math/verifier', async importOriginal => ({
   resolveMathematicsLakePackagesCache: () => undefined,
 }));
 vi.mock('../src/runtime/codexSession', () => ({ createCodexMathSession: host.createSession }));
-
-function verified(request: MathematicsVerifierBatchRequest): MathematicsVerifierBatchResult {
-  return { schema: 'deepscientist.mathematics.verification-batch/v1', status: 'kernel_verified',
-    targetCommit: request.targetCommit!, sessionId: 'conditional-fixture', events: [], startedAt: 1, checkedAt: 2, durationMs: 1,
-    results: request.items.map(item => ({ ...item, sourceDeclarationHash: item.expectedSourceDeclarationHash,
-      receiptId: `fixture-${request.targetCommit}-${item.theoremName}`, targetCommit: request.targetCommit,
-      status: 'kernel_verified', claim: 'statement' })) as MathematicsVerifierBatchResult['results'] };
-}
 
 describe('conditional proof declaration ownership', () => {
   let directory: string, workspace: string, problem: SolverProblem, state: SolverRunState;
@@ -45,10 +37,7 @@ describe('conditional proof declaration ownership', () => {
   const node = (id: string) => state.cooperation!.tasks.find(node => node.task.id === id)!;
   const create = () => {
     const controller = new AbortController();
-    const cooperative = new CooperativeResearch({ state, workers,
-      access: new Map(workers.map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-      signal: controller.signal, save: () => {}, emit: () => {}, modules: directSolverModules,
-      exclusiveCheck: async check => check() });
+    const cooperative = cooperativeResearch({ state, workers, retrievalRoot: directory, signal: controller.signal });
     instances.push({ cooperative, controller });
     return cooperative;
   };
@@ -83,7 +72,7 @@ describe('conditional proof declaration ownership', () => {
       const files = Object.fromEntries(problem.ownedFiles.filter(file => file.endsWith('.lean'))
         .map(file => [file, fs.readFileSync(path.join(request.projectRoot, file), 'utf8')]));
       for (const item of request.items) projections.push({ theoremName: item.theoremName, files });
-      const result = verified(request);
+      const result = verifiedBatch(request, { sessionId: 'conditional-fixture' });
       const parent = request.items.find(item => item.theoremName.endsWith('.add_zero'));
       const namespace = parent?.theoremName.split('.').slice(0, -1).join('.');
       const required = parent ? [{ file: 'Submission.lean', name: `${namespace}.support` }, ...requiredParentHelpers] : [];
@@ -93,16 +82,9 @@ describe('conditional proof declaration ownership', () => {
         results: result.results.map(item => ({ ...item, status: 'failed', error: 'fixture_missing_local_declaration_or_unfinished_proof' })) } : result;
     });
     host.createSession.mockReset().mockImplementation(() => { throw new Error('fixture_real_models_forbidden'); });
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-conditional-integration-')));
-    workspace = path.join(directory, 'workspace');
-    const receipt = bootstrapLocalExample(workspace);
-    problem = readSolverProblem(workspace, receipt.activeProblemPath);
-    workers = [{ id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles },
-      ...(['researcher', 'engineer'] as const).map(id => {
-        const worktree = path.join(directory, id);
-        git(workspace, ['worktree', 'add', '--quiet', '--detach', worktree, problem.baseCommit]);
-        return { id, role: id, worktree, ownedFiles: problem.ownedFiles };
-      })];
+    const example = localExample('solver-conditional-integration-');
+    ({ directory, workspace, problem } = example);
+    workers = [leadWorker(problem, workspace), ...(['researcher', 'engineer'] as const).map(id => peerWorker(example, id, { role: id }))];
     const tasks: CooperativeTask[] = [{ id: 'child', kind: 'lemma', objective: 'Prove a reusable child.',
       theoremName: 'Tutorial.child', proofPath: 'Submission.lean', type: 'True', dependsOn: [], revision: 0,
       ownerId: 'researcher' }, ...problem.targets.map((target, index) => ({
@@ -111,10 +93,8 @@ describe('conditional proof declaration ownership', () => {
       revision: 0, ownerId: 'engineer', conditional: index === 0, status: index === 0 ? 'active' as const : 'paused' as const,
     }))];
     fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify({ tasks }) + '\n```');
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'conditional-fixture', problem,
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluator',
-      model: 'unused', effort: 'unused', worktree: workspace, phase: 'running', turns: 0, failures: [],
-      cooperation: { canonicalCommit: problem.baseCommit, tasks: [] } };
+    state = solverState(problem, workspace, { runId: 'conditional-fixture', phase: 'running', failures: [],
+      cooperation: { canonicalCommit: problem.baseCommit, tasks: [] } });
     instances = []; requiredParentHelpers = []; projections = [];
     cooperative = create();
     await cooperative.restore();
@@ -265,8 +245,7 @@ describe('conditional proof declaration ownership', () => {
       const result = await verify(request);
       const source = fs.readFileSync(path.join(request.projectRoot, 'Submission.lean'), 'utf8');
       return request.items[0].theoremName === 'Tutorial.add_zero' && !source.includes('(child : True)')
-        ? { ...result, status: 'failed', results: result.results.map(item => ({ ...item, status: 'failed',
-          error: 'Lean exited with status 1.', stdoutPreview: 'Submission.lean:1:0: error: fixture combined proof does not close the target' })) } : result;
+        ? failedBatch(result, { stdoutPreview: () => 'Submission.lean:1:0: error: fixture combined proof does not close the target' }) : result;
     });
 
     await deliverChild(child);

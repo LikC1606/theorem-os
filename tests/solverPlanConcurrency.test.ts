@@ -1,16 +1,18 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample } from '../src/math/localExample';
 import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } from '../src/math/verifier';
 import type { SolverRunState } from '../src/solver/archive';
-import { CooperativeResearch } from '../src/solver/cooperation';
+import type { CooperativeResearch } from '../src/solver/cooperation';
 import { directSolverModules } from '../src/solver/modules';
 import { taskDependenciesReady } from '../src/solver/modules/search';
 import type { ResearchWorker } from '../src/solver/modules/organization';
-import { committedSource, commitSolverSources, git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
+import { committedSource, commitSolverSources, git, type SolverProblem } from '../src/solver/problem';
 import { taskVersion, type CooperativeAction, type CooperativeTask } from '../src/solver/tasks';
+import { deferred } from './helpers/async';
+import { cooperativeResearch } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
+import { failedBatch, verifiedBatch } from './helpers/verifier';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn(), captureStatements: vi.fn() }));
 vi.mock('../src/math/verifier', async importOriginal => ({
@@ -26,20 +28,10 @@ vi.mock('../src/solver/statementReview', async importOriginal => ({
 }));
 
 function verified(request: MathematicsVerifierBatchRequest, passed = true): MathematicsVerifierBatchResult {
-  const status = passed ? 'kernel_verified' : 'failed';
-  return { schema: 'deepscientist.mathematics.verification-batch/v1', status,
-    targetCommit: request.targetCommit!, sessionId: 'plan-concurrency-fixture', events: [], startedAt: 1, checkedAt: 2, durationMs: 1,
-    results: request.items.map((item, index) => ({ ...item, sourceDeclarationHash: item.expectedSourceDeclarationHash,
-      checkId: item.id?.trim() || `check-${index + 1}`, sessionId: 'plan-concurrency-fixture', checkedAt: 2,
-      receiptId: `fixture-${request.targetCommit}-${item.theoremName}`, targetCommit: request.targetCommit,
-      status, claim: 'statement', ...(!passed ? { error: 'Lean exited with status 1.',
-        stdoutPreview: 'Submission.lean:1:0: error: fixture obsolete recheck failure' } : {}) })) as MathematicsVerifierBatchResult['results'] };
+  const batch = verifiedBatch(request, { sessionId: 'plan-concurrency-fixture', checks: true });
+  return passed ? batch : failedBatch(batch, { stdoutPreview: () => 'Submission.lean:1:0: error: fixture obsolete recheck failure' });
 }
-const deferred = <T,>() => {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>(complete => { resolve = complete; });
-  return { promise, resolve };
-};
+const budget = { maxTurns: 20, remainingMs: Infinity };
 type TaskAction = Extract<CooperativeAction, { kind: 'task' }>;
 
 describe('plan synchronization with concurrent host control', () => {
@@ -50,10 +42,8 @@ describe('plan synchronization with concurrent host control', () => {
   let events: { event: string; details?: Record<string, unknown> }[];
   const node = (id: string) => state.cooperation!.tasks.find(item => item.task.id === id)!;
   const track = <T,>(promise: Promise<T>) => { pending.push(promise); void promise.catch(() => {}); return promise; };
-  const create = () => new CooperativeResearch({ state, workers,
-    access: new Map(workers.map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-    signal: controller.signal, save: () => {}, emit: (event, details) => events.push({ event, details }),
-    modules: directSolverModules, exclusiveCheck: check => exclusive(check) });
+  const create = () => cooperativeResearch({ state, workers, retrievalRoot: directory, signal: controller.signal,
+    emit: (event, details) => events.push({ event, details }), exclusiveCheck: check => exclusive(check) });
   const source = () => committedSource(workspace, state.cooperation!.canonicalCommit!, `${problem.projectRelative}/Submission.lean`);
   const writeLemma = (worker: ResearchWorker, name: string) => {
     const file = path.join(worker.worktree, problem.projectRelative, 'Submission.lean');
@@ -78,6 +68,9 @@ describe('plan synchronization with concurrent host control', () => {
       tasks: state.cooperation!.tasks.map(item => change(item.task)), groups: state.cooperation!.groups!.map(item => item.group) }) + '\n');
     return track(cooperative.pulse(workers[0].id));
   };
+  const writeLeadPlan = () => fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify({
+    tasks: state.cooperation!.tasks.map(item => item.task), groups: state.cooperation!.groups!.map(item => item.group),
+  }) + '\n```\n');
   const sync = () => track((cooperative as any).schedulePlanSynchronization() as Promise<void>);
   const integrateA = async () => {
     const current = node('a');
@@ -90,21 +83,13 @@ describe('plan synchronization with concurrent host control', () => {
     host.verify.mockReset().mockImplementation(async request => verified(request));
     host.createSession.mockReset().mockImplementation(() => { throw new Error('fixture_real_models_forbidden'); });
     host.captureStatements.mockReset().mockImplementation(() => { throw new Error('fixture_statement_capture_forbidden'); });
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-plan-concurrency-')));
-    workspace = path.join(directory, 'workspace');
-    const receipt = bootstrapLocalExample(workspace); problem = readSolverProblem(workspace, receipt.activeProblemPath);
-    workers = [{ id: 'lead', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles },
-      ...['author', 'consumer', 'independent'].map(id => {
-        const worktree = path.join(directory, id);
-        git(workspace, ['worktree', 'add', '--quiet', '--detach', worktree, problem.baseCommit]);
-        return { id, role: 'researcher' as const, worktree, ownedFiles: problem.ownedFiles };
-      })];
+    const example = localExample('solver-plan-concurrency-');
+    ({ directory, workspace, problem } = example);
+    workers = [leadWorker(problem, workspace, 'lead'), ...['author', 'consumer', 'independent'].map(id => peerWorker(example, id))];
     const lemma = (id: string, ownerId: string, dependsOn: string[] = []): CooperativeTask => ({ id, ownerId, kind: 'lemma',
       objective: `Prove ${id}.`, proofPath: 'Submission.lean', theoremName: `Tutorial.${id}`, type: 'True', dependsOn, revision: 0 });
     const a = lemma('a', 'author');
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'plan-concurrency-fixture', problem,
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluator',
-      model: 'unused', effort: 'unused', worktree: workspace, phase: 'running', turns: 0, failures: [],
+    state = solverState(problem, workspace, { runId: 'plan-concurrency-fixture', phase: 'running', failures: [],
       cooperation: { canonicalCommit: problem.baseCommit,
         groups: [{ group: { id: 'main', objective: 'Prove the original problem.', status: 'active', revision: 0 }, turns: 0 }],
         tasks: [{ task: a, status: 'running', attempts: 1,
@@ -113,15 +98,14 @@ describe('plan synchronization with concurrent host control', () => {
         ...[lemma('b', 'consumer', ['a']), lemma('c', 'independent')].map(task => ({ task, status: 'pending' as const, attempts: 0 })),
         ...problem.targets.map((target, index) => ({ task: { id: `goal_${index}`, kind: 'goal' as const,
           objective: `Prove ${target.theoremName}.`, theoremName: target.theoremName, proofPath: target.proofPath,
-          dependsOn: ['b'], revision: 0, status: 'paused' as const }, status: 'pending' as const, attempts: 0 }))] } };
+          dependsOn: ['b'], revision: 0, status: 'paused' as const }, status: 'pending' as const, attempts: 0 }))] } });
     events = []; pending = []; releases = []; lockHeld = false; controller = new AbortController();
     let queue = Promise.resolve();
     exclusive = async check => {
-      const previous = queue;
-      let release!: () => void;
-      queue = new Promise<void>(resolve => { release = resolve; });
+      const previous = queue, { promise, resolve } = deferred();
+      queue = promise;
       await previous; lockHeld = true;
-      try { return await check(); } finally { lockHeld = false; release(); }
+      try { return await check(); } finally { lockHeld = false; resolve(); }
     };
     cooperative = create(); state.cooperation!.planVersion = (cooperative as any).planVersion();
   });
@@ -142,7 +126,7 @@ describe('plan synchronization with concurrent host control', () => {
     expect(state.cooperation!.cursors!.edits).toBe(fs.statSync(path.join(directory, 'edits.jsonl')).size);
     expect(taskDependenciesReady(node('b').task, state.cooperation!.tasks)).toBe(false);
     expect(directSolverModules.M3.ready(state.cooperation!.tasks, state.cooperation!.groups).map(item => item.task.id)).not.toContain('b');
-    const independent = await cooperative.next(workers[3], { maxTurns: 20, remainingMs: Infinity });
+    const independent = await cooperative.next(workers[3], budget);
     expect(independent).toMatchObject({ kind: 'task', task: { id: 'c' } });
     expect(cooperative.started(workers[3], independent!)).toBe(true);
     const waiting = node('b');
@@ -242,7 +226,7 @@ describe('plan synchronization with concurrent host control', () => {
 
   it('keeps every target pending when only one validation identity changes during a shared snapshot', async () => {
     await integrateA();
-    const action = await cooperative.next(workers[3], { maxTurns: 20, remainingMs: Infinity });
+    const action = await cooperative.next(workers[3], budget);
     expect(action).toMatchObject({ kind: 'task', task: { id: 'c' } });
     await cooperative.deliver(workers[3], action!, writeLemma(workers[3], 'c'));
     const gate = gateCheck();
@@ -278,7 +262,7 @@ describe('plan synchronization with concurrent host control', () => {
     const prepare = vi.spyOn(cooperative as any, 'prepareStatementContexts').mockReturnValue(undefined);
     await edit('describe-before-integration', task => task.id === 'a' ? { ...task, revision: 1, objective: 'Describe a.' } : task);
     const old = await gate.entered;
-    const action = await cooperative.next(workers[3], { maxTurns: 20, remainingMs: Infinity });
+    const action = await cooperative.next(workers[3], budget);
     expect(action).toMatchObject({ kind: 'task', task: { id: 'c' } });
     await cooperative.deliver(workers[3], action!, writeLemma(workers[3], 'c'));
     expect(node('c').status).toBe('integrated');
@@ -323,9 +307,7 @@ describe('plan synchronization with concurrent host control', () => {
     commitSolverSources(problem, workspace);
     const seed = (cooperative as any).seed(workers[0], canonical) as string;
     expect(seed).not.toBe(canonical);
-    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify({
-      tasks: state.cooperation!.tasks.map(item => item.task), groups: state.cooperation!.groups!.map(item => item.group),
-    }) + '\n```\n');
+    writeLeadPlan();
     const commit = writeLemma(workers[0], 'lead_helper');
     const action: CooperativeAction = { kind: 'lead', seedCommit: seed, planVersion: state.cooperation!.planVersion };
     const gate = gateCheck(), delivery = track(cooperative.deliver(workers[0], action, commit));
@@ -380,7 +362,7 @@ describe('plan synchronization with concurrent host control', () => {
     await entered.promise;
     expect(node('a').pendingValidation).toBeDefined();
     expect(taskDependenciesReady(node('b').task, state.cooperation!.tasks)).toBe(false);
-    const independent = await cooperative.next(workers[3], { maxTurns: 20, remainingMs: Infinity });
+    const independent = await cooperative.next(workers[3], budget);
     expect(independent).toMatchObject({ kind: 'task', task: { id: 'c' } });
     await edit('control-during-statement', task => task.id === 'b' ? { ...task, status: 'paused' } : task);
     expect(state.cooperation!.edits!.find(item => item.id === 'control-during-statement')!.status).toBe('applied');
@@ -410,14 +392,12 @@ describe('plan synchronization with concurrent host control', () => {
 
   it('integrates a previously delivered consumer once its source dependency finishes validation', async () => {
     await integrateA();
-    const consumer = await cooperative.next(workers[2], { maxTurns: 20, remainingMs: Infinity });
+    const consumer = await cooperative.next(workers[2], budget);
     expect(consumer).toMatchObject({ kind: 'task', task: { id: 'b' } });
     const consumerCommit = writeLemma(workers[2], 'b');
     const canonical = state.cooperation!.canonicalCommit!;
     const seed = (cooperative as any).seed(workers[0], canonical) as string;
-    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify({
-      tasks: state.cooperation!.tasks.map(item => item.task), groups: state.cooperation!.groups!.map(item => item.group),
-    }) + '\n```\n');
+    writeLeadPlan();
     delete node('a').integratedCheck!.references;
     const commit = writeLemma(workers[0], 'lead_helper');
     const gate = gateCheck(), delivery = track(cooperative.deliver(workers[0], {

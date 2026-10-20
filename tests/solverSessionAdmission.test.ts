@@ -1,16 +1,16 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample } from '../src/math/localExample';
 import type { MathAgentSession } from '../src/runtime/codexSession';
 import type { SolverRunState } from '../src/solver/archive';
 import { CooperativeResearch } from '../src/solver/cooperation';
 import { directSolverModules, type SolverModules } from '../src/solver/modules';
 import type { ResearchWorker } from '../src/solver/modules/organization';
-import { git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
+import type { SolverProblem } from '../src/solver/problem';
 import { runResearchWorkers } from '../src/solver/research';
 import { parseCooperationPlan, type CooperativeAction } from '../src/solver/tasks';
+import { workerAccess } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
 
 const backoff = vi.hoisted(() => ({ run: vi.fn<() => Promise<void>>() }));
 vi.mock('../src/math/mathBuildManifest', () => ({ readMathBuildManifest: vi.fn() }));
@@ -21,14 +21,9 @@ describe('cooperative session admission', () => {
 
   beforeEach(() => {
     backoff.run.mockReset();
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-session-admission-')));
-    const workspace = path.join(directory, 'lead');
-    const receipt = bootstrapLocalExample(workspace);
-    problem = readSolverProblem(workspace, receipt.activeProblemPath);
-    const peer = path.join(directory, 'peer');
-    git(workspace, ['worktree', 'add', '--quiet', '--detach', peer, problem.baseCommit]);
-    workers = [{ id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles },
-      { id: 'peer', role: 'researcher', worktree: peer, ownedFiles: problem.ownedFiles }];
+    const example = localExample('solver-session-admission-', 'lead'), workspace = example.workspace;
+    ({ directory, problem } = example);
+    workers = [leadWorker(problem, workspace), peerWorker(example, 'peer')];
     const plan = parseCooperationPlan(problem, { tasks: [
       ...problem.targets.map((target, index) => ({ id: `goal_${index}`, kind: 'goal',
         objective: `Prove ${target.theoremName}`, proofPath: target.proofPath,
@@ -36,12 +31,10 @@ describe('cooperative session admission', () => {
       { id: 'first_investigation', kind: 'research', objective: 'Investigate the first route.', ownerId: 'peer' },
       { id: 'next_investigation', kind: 'research', objective: 'Investigate the next route.', ownerId: 'peer' },
     ] });
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'session-admission-fixture', problem,
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluation',
-      model: 'fixture', effort: 'fixture', worktree: workspace, phase: 'prepared', turns: 0,
-      workers: workers.map(worker => ({ ...worker, phase: 'prepared', turns: 0 })),
+    state = solverState(problem, workspace, { runId: 'session-admission-fixture', phase: 'prepared',
+      evaluatorDigest: 'evaluation', model: 'fixture', effort: 'fixture', workers: workers.map(worker => ({ ...worker, phase: 'prepared', turns: 0 })),
       cooperation: { tasks: plan.tasks.map(task => ({ task, status: 'pending', attempts: 0 })),
-        groups: plan.groups.map(group => ({ group, turns: 0 })) } };
+        groups: plan.groups.map(group => ({ group, turns: 0 })) } });
   });
   afterEach(() => { vi.restoreAllMocks(); fs.rmSync(directory, { recursive: true, force: true }); });
 
@@ -107,8 +100,7 @@ describe('cooperative session admission', () => {
       }) },
     };
 
-    await expect(runResearchWorkers({ state, workers, modules,
-      access: new Map(workers.map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
+    await expect(runResearchWorkers({ state, workers, modules, access: workerAccess(workers, directory),
       root: directory, buildFile: path.join(directory, 'build.json'), taskText: 'Prove the original targets.',
       executable: 'fixture-no-model', profile: 'fixture', signal: new AbortController().signal,
       deadline: Infinity, maxTurns: 1, maxTurnMs: Infinity, maxTotalTokens: 0,

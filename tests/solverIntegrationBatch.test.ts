@@ -1,15 +1,16 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample } from '../src/math/localExample';
 import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } from '../src/math/verifier';
 import type { SolverRunState } from '../src/solver/archive';
-import { CooperativeResearch } from '../src/solver/cooperation';
+import type { CooperativeResearch } from '../src/solver/cooperation';
 import { directSolverModules } from '../src/solver/modules';
 import type { ResearchWorker } from '../src/solver/modules/organization';
-import { committedSource, commitSolverSources, git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
+import { committedSource, commitSolverSources, type SolverProblem } from '../src/solver/problem';
 import { taskVersion, type CooperativeTask, type TaskAssignment, type TaskRecord } from '../src/solver/tasks';
+import { deferred } from './helpers/async';
+import { cooperativeResearch } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn() }));
 vi.mock('../src/math/verifier', async importOriginal => ({
@@ -20,11 +21,7 @@ vi.mock('../src/math/verifier', async importOriginal => ({
 }));
 vi.mock('../src/runtime/codexSession', () => ({ createCodexMathSession: host.createSession }));
 
-const deferred = <T,>() => {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>(complete => { resolve = complete; });
-  return { promise, resolve };
-};
+type Fault = 'unavailable' | 'abort' | 'storage' | 'cleanup' | 'corrupt-receipt';
 
 describe('same-layer checked task integration batches', () => {
   let directory: string, workspace: string, problem: SolverProblem, state: SolverRunState;
@@ -86,6 +83,19 @@ describe('same-layer checked task integration batches', () => {
     const release = () => { if (held) result.resolve(resultFor(held)); };
     releases.push(release); return { entered: entered.promise, release };
   };
+  const failVerifier = (failure: Fault, error: Error, cleanupError: string) =>
+    host.verify.mockImplementation(async (request: MathematicsVerifierBatchRequest) => {
+      if (failure === 'abort' || failure === 'storage') throw error;
+      const batch = verified(request);
+      if (failure === 'unavailable') {
+        batch.status = 'unavailable'; batch.results = batch.results.map(item => ({ ...item, status: 'unavailable', error: error.message }));
+      } else if (failure === 'cleanup') {
+        batch.status = 'failed';
+        batch.results = batch.results.map(item => ({ ...item, status: 'failed', error: 'Lean exited with status 1.',
+          stdoutPreview: 'Submission.lean:3:1: error: Fixture cleanup failure.', cleanupError }));
+      } else batch.results = batch.results.map(item => ({ ...item, targetCommit: '0'.repeat(40) }));
+      return batch;
+    });
   const expectNoFailure = () => {
     expect(state.cooperation!.failedTaskInputs ?? []).toEqual([]);
     expect(state.cooperation!.blockers ?? []).toEqual([]);
@@ -96,16 +106,9 @@ describe('same-layer checked task integration batches', () => {
     receipts = []; sequence = 0; releases = []; pending = []; events = [];
     host.verify.mockReset().mockImplementation(async request => verified(request));
     host.createSession.mockReset().mockImplementation(() => { throw new Error('fixture_real_models_forbidden'); });
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-integration-batch-')));
-    workspace = path.join(directory, 'workspace');
-    const receipt = bootstrapLocalExample(workspace);
-    problem = readSolverProblem(workspace, receipt.activeProblemPath);
-    workers = [{ id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles },
-      ...['first', 'second', 'independent'].map(id => {
-        const worktree = path.join(directory, id);
-        git(workspace, ['worktree', 'add', '--quiet', '--detach', worktree, problem.baseCommit]);
-        return { id, role: 'researcher' as const, worktree, ownedFiles: problem.ownedFiles };
-      })];
+    const example = localExample('solver-integration-batch-');
+    ({ directory, workspace, problem } = example);
+    workers = [leadWorker(problem, workspace), ...['first', 'second', 'independent'].map(id => peerWorker(example, id))];
     const tasks: TaskRecord[] = ['first', 'second'].map(id => {
       const task: CooperativeTask = { id, kind: 'lemma', objective: `Prove independent helper ${id}.`,
         theoremName: `Tutorial.batch_${id}`, proofPath: 'Submission.lean', type: 'True', dependsOn: [], revision: 0 };
@@ -113,27 +116,23 @@ describe('same-layer checked task integration batches', () => {
         seedCommit: problem.baseCommit, assignmentId: `batch-dispatch-${id}`, dependencies: [] };
       return { task, assignment, status: 'running', attempts: 1 };
     });
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'integration-batch-fixture', problem,
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluator',
-      model: 'unused', effort: 'unused', worktree: workspace, phase: 'running', turns: 0, failures: [],
+    state = solverState(problem, workspace, { runId: 'integration-batch-fixture', phase: 'running', failures: [],
       cooperation: { canonicalCommit: problem.baseCommit,
         groups: [{ group: { id: 'main', objective: 'Prove the original problem.', status: 'active', revision: 0 }, turns: 0 }],
         tasks: [...tasks, ...problem.targets.map((target, index) => ({
           task: { id: `goal_${index}`, kind: 'goal' as const, objective: `Prove ${target.theoremName}.`,
             theoremName: target.theoremName, proofPath: target.proofPath, dependsOn: [], revision: 0, status: 'paused' as const },
           status: 'pending' as const, attempts: 0,
-        }))] } };
+        }))] } });
     controller = new AbortController();
     let queue = Promise.resolve();
-    cooperative = new CooperativeResearch({ state, workers,
-      access: new Map(workers.map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-      signal: controller.signal, save: () => {}, emit: (event, details) => events.push({ event, details }), modules: directSolverModules,
+    cooperative = cooperativeResearch({ state, workers, retrievalRoot: directory, signal: controller.signal,
+      emit: (event, details) => events.push({ event, details }),
       exclusiveCheck: async check => {
-        const previous = queue;
-        let release!: () => void;
-        queue = new Promise<void>(resolve => { release = resolve; });
+        const previous = queue, { promise, resolve } = deferred();
+        queue = promise;
         await previous;
-        try { return await check(); } finally { release(); }
+        try { return await check(); } finally { resolve(); }
       } });
     state.cooperation!.planVersion = (cooperative as any).planVersion();
   });
@@ -365,18 +364,7 @@ describe('same-layer checked task integration batches', () => {
     const proofs = await preparePair();
     const error = failure === 'abort' ? new DOMException('Fixture aborted.', 'AbortError') : failure === 'storage'
       ? Object.assign(new Error('Fixture storage failure.'), { code: 'EIO' }) : new Error('math_verifier_unavailable');
-    host.verify.mockImplementation(async (request: MathematicsVerifierBatchRequest) => {
-      if (failure === 'abort' || failure === 'storage') throw error;
-      const batch = verified(request);
-      if (failure === 'unavailable') {
-        batch.status = 'unavailable'; batch.results = batch.results.map(item => ({ ...item, status: 'unavailable', error: error.message }));
-      } else if (failure === 'cleanup') {
-        batch.status = 'failed';
-        batch.results = batch.results.map(item => ({ ...item, status: 'failed', error: 'Lean exited with status 1.',
-          stdoutPreview: 'Submission.lean:3:1: error: Fixture cleanup failure.', cleanupError: 'EIO removing scratch directory.' }));
-      } else batch.results = batch.results.map(item => ({ ...item, targetCommit: '0'.repeat(40) }));
-      return batch;
-    });
+    failVerifier(failure, error, 'EIO removing scratch directory.');
 
     await expect(integrate()).rejects.toBeInstanceOf(Error);
 
@@ -435,18 +423,7 @@ describe('same-layer checked task integration batches', () => {
     host.verify.mockClear(); receipts = [];
     const error = failure === 'abort' ? new DOMException('Fixture recheck interrupted.', 'AbortError') : failure === 'storage'
       ? Object.assign(new Error('Fixture recheck storage failure.'), { code: 'EIO' }) : new Error('math_verifier_unavailable');
-    host.verify.mockImplementation(async (request: MathematicsVerifierBatchRequest) => {
-      if (failure === 'abort' || failure === 'storage') throw error;
-      const batch = verified(request);
-      if (failure === 'unavailable') {
-        batch.status = 'unavailable'; batch.results = batch.results.map(item => ({ ...item, status: 'unavailable', error: error.message }));
-      } else if (failure === 'cleanup') {
-        batch.status = 'failed';
-        batch.results = batch.results.map(item => ({ ...item, status: 'failed', error: 'Lean exited with status 1.',
-          stdoutPreview: 'Submission.lean:3:1: error: Fixture cleanup failure.', cleanupError: 'EIO removing recheck checkout.' }));
-      } else batch.results = batch.results.map(item => ({ ...item, targetCommit: '0'.repeat(40) }));
-      return batch;
-    });
+    failVerifier(failure, error, 'EIO removing recheck checkout.');
 
     await expect(track((cooperative as any).recheckIntegrated(canonical, false))).rejects.toBeInstanceOf(Error);
 

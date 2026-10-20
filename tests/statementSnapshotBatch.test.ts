@@ -1,15 +1,15 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample, LOCAL_EXAMPLE_STATEMENT } from '../src/math/localExample';
+import { LOCAL_EXAMPLE_STATEMENT } from '../src/math/localExample';
 import type { LeanStatementContext } from '../src/math/leanStatementContext';
 import type { SolverRunState } from '../src/solver/archive';
-import { CooperativeResearch } from '../src/solver/cooperation';
-import { directSolverModules } from '../src/solver/modules';
-import { commitSolverSources, readSolverProblem, type SolverProblem } from '../src/solver/problem';
+import type { CooperativeResearch } from '../src/solver/cooperation';
+import { commitSolverSources, type SolverProblem } from '../src/solver/problem';
 import { createStatementSnapshotter, statementSnapshot } from '../src/solver/statementReview';
 import { taskVersion, type CooperativeTask } from '../src/solver/tasks';
+import { cooperativeResearch } from './helpers/cooperation';
+import { leadWorker, localExample, solverState } from './helpers/solver';
 
 const host = vi.hoisted(() => ({ reads: vi.fn(), inspections: vi.fn(), masks: vi.fn(), capture: vi.fn(), sessions: vi.fn() }));
 vi.mock('../src/solver/problem', async importOriginal => {
@@ -55,10 +55,7 @@ describe('statement snapshot preparation within a single call', () => {
     host.capture.mockReset().mockImplementation(async (_problem: SolverProblem, requested: CooperativeTask[]) =>
       new Map(requested.map(task => [task.id, context(task)])));
     host.sessions.mockReset().mockImplementation(() => { throw new Error('fixture_real_models_forbidden'); });
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'statement-snapshot-batch-')));
-    workspace = path.join(directory, 'workspace');
-    const receipt = bootstrapLocalExample(workspace);
-    problem = readSolverProblem(workspace, receipt.activeProblemPath);
+    ({ directory, workspace, problem } = localExample('statement-snapshot-batch-'));
     const source = LOCAL_EXAMPLE_STATEMENT.replace('theorem add_zero',
       'def kept : String := "visible definition"\nlemma helper : True := by trivial /- COMMENT_SECRET PROOF_SECRET -/\ntheorem add_zero');
     fs.writeFileSync(path.join(workspace, problem.projectRelative, 'Submission.lean'), source);
@@ -70,14 +67,11 @@ describe('statement snapshot preparation within a single call', () => {
       { id: 'helper', kind: 'lemma', theoremName: 'Tutorial.helper', proofPath: 'Submission.lean', type: 'True',
         dependsOn: ['goal_0'], revision: 0 },
     ].map(task => ({ ...task, objective: 'INTENT_SECRET', informalStatement: 'INTENT_SECRET', statementReview: true }));
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'statement-batch-fixture', problem, taskDigest: 'task', buildDigest: 'build',
-      environmentDigest, evaluatorDigest: 'evaluator', model: 'unused', effort: 'unused', worktree: workspace, phase: 'running', turns: 0,
-      cooperation: { canonicalCommit: commit, tasks: tasks.map(task => ({ task, status: 'pending', attempts: 0 })) } };
+    state = solverState(problem, workspace, { runId: 'statement-batch-fixture', phase: 'running', environmentDigest,
+      cooperation: { canonicalCommit: commit, tasks: tasks.map(task => ({ task, status: 'pending', attempts: 0 })) } });
     controller = new AbortController();
-    const lead = { id: 'lead', role: 'lead' as const, worktree: workspace, ownedFiles: problem.ownedFiles };
-    cooperative = new CooperativeResearch({ state, workers: [lead], signal: controller.signal,
-      access: new Map([[lead.id, { environment: {}, retrievalRoot: directory }]]), modules: directSolverModules,
-      exclusiveCheck: operation => operation(), save: () => {}, emit: () => {} });
+    cooperative = cooperativeResearch({ state, workers: [leadWorker(problem, workspace, 'lead')], retrievalRoot: directory,
+      signal: controller.signal, exclusiveCheck: operation => operation() });
     clearCounts();
   });
   afterEach(async () => {

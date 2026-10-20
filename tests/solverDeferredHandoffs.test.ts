@@ -1,20 +1,21 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample } from '../src/math/localExample';
-import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } from '../src/math/verifier';
+import type { MathematicsVerifierBatchRequest } from '../src/math/verifier';
 import { readSolverRunState, type SolverRunState } from '../src/solver/archive';
-import { CooperativeResearch, parseCooperationPlan } from '../src/solver/cooperation';
+import { parseCooperationPlan, type CooperativeResearch } from '../src/solver/cooperation';
 import { directSolverModules } from '../src/solver/modules';
 import type { ResearchWorker } from '../src/solver/modules/organization';
-import { commitSolverSources, git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
+import { commitSolverSources, type SolverProblem } from '../src/solver/problem';
 import { pendingResearchHandoffs, researchHandoffs } from '../src/solver/researchHandoffs';
 import { pendingResearchChallenges, researchChallenges } from '../src/solver/researchChallenges';
 import { mathDigest } from '../src/math/mathRuntimeIo';
 import type { KnowledgeContextSnapshot } from '../src/solver/knowledgeContext';
 import { buildTheoremKnowledge } from '../src/solver/theoremKnowledge';
 import { taskVersion, type CooperativeAction, type CooperativeTask } from '../src/solver/tasks';
+import { cooperativeResearch } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
+import { verifiedBatch } from './helpers/verifier';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn() }));
 vi.mock('../src/math/verifier', async importOriginal => ({
@@ -24,13 +25,7 @@ vi.mock('../src/math/verifier', async importOriginal => ({
 }));
 vi.mock('../src/runtime/codexSession', () => ({ createCodexMathSession: host.createSession }));
 
-function verified(request: MathematicsVerifierBatchRequest): MathematicsVerifierBatchResult {
-  return { schema: 'deepscientist.mathematics.verification-batch/v1', status: 'kernel_verified',
-    targetCommit: request.targetCommit!, sessionId: 'deferred-handoff-fixture', events: [], startedAt: 1, checkedAt: 2, durationMs: 1,
-    results: request.items.map(item => ({ ...item, sourceDeclarationHash: item.expectedSourceDeclarationHash,
-      receiptId: `fixture-${request.targetCommit}-${item.theoremName}`, targetCommit: request.targetCommit,
-      status: 'kernel_verified', claim: 'statement' })) as MathematicsVerifierBatchResult['results'] };
-}
+const verified = (request: MathematicsVerifierBatchRequest) => verifiedBatch(request, { sessionId: 'deferred-handoff-fixture' });
 
 type PlanningAction = Extract<CooperativeAction, { kind: 'lead' | 'assemble' | 'solve' }>;
 const budget = { maxTurns: Infinity, remainingMs: Infinity };
@@ -47,14 +42,14 @@ describe('deferred research proposal activation', () => {
   const tasks = () => state.cooperation!.tasks.map(item => item.task);
   const notes = (value: unknown) => fs.writeFileSync(path.join(lead.worktree, 'RESEARCH.md'), JSON.stringify(value));
   const create = () => {
-    const instance = new CooperativeResearch({ state, workers: [lead, peer],
+    const instance = cooperativeResearch({ state, workers: [lead, peer], retrievalRoot: directory,
       access: new Map([lead, peer].map(worker => [worker.id, { environment: {}, retrievalRoot: directory,
         ...(worker.id === peer.id && knowledgeSnapshot ? { knowledgeSnapshot } : {}) }])),
       modules: primaryLed ? { ...directSolverModules, M5: { ...directSolverModules.M5, primaryLed: true } } : directSolverModules,
-      signal: new AbortController().signal, save: () => {}, emit: (event, details) => events.push({ event, details }),
-      exclusiveCheck: async check => check() });
+      emit: (event, details) => events.push({ event, details }) });
     instances.push(instance); return instance;
   };
+  const deliverLead = (action: CooperativeAction) => cooperative.deliver(lead, action, commitSolverSources(problem, lead.worktree));
   const planResponse = (handoffDecisions: unknown[], proposed = tasks(), requests?: CooperativeTask[]) => notes(primaryLed
     ? { requests: requests ?? proposed.filter(task => task.kind === 'lemma'), handoffDecisions }
     : { tasks: proposed, groups: state.cooperation!.groups!.map(record => record.group), handoffDecisions });
@@ -68,7 +63,7 @@ describe('deferred research proposal activation', () => {
   const defer = async () => {
     const action = await dispatch();
     planResponse([{ id: handoff().id, status: 'deferred', reason: 'Wait for the precise checked premise.', waitsOn: ['premise'] }]);
-    await cooperative.deliver(lead, action, commitSolverSources(problem, lead.worktree));
+    await deliverLead(action);
     expect(state.cooperation!.error).toBeUndefined();
     expect(handoff()).toMatchObject({ status: 'deferred', decision: { waitsOn: [{
       taskId: 'premise', taskDigest: taskVersion(node('premise').task),
@@ -89,7 +84,7 @@ describe('deferred research proposal activation', () => {
   };
   const reject = async (action: PlanningAction) => {
     planResponse([{ id: handoff().id, status: 'rejected', reason: 'The estimate does not close the original goal.' }]);
-    await cooperative.deliver(lead, action, commitSolverSources(problem, lead.worktree));
+    await deliverLead(action);
   };
   const saveAndRead = () => {
     const file = path.join(directory, 'saved-state.json');
@@ -100,13 +95,9 @@ describe('deferred research proposal activation', () => {
   beforeEach(() => {
     host.verify.mockReset().mockImplementation(async request => verified(request));
     host.createSession.mockReset().mockImplementation(() => { throw new Error('fixture_real_models_forbidden'); });
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-deferred-handoffs-')));
-    const workspace = path.join(directory, 'lead'), receipt = bootstrapLocalExample(workspace);
-    problem = readSolverProblem(workspace, receipt.activeProblemPath);
-    const peerRoot = path.join(directory, 'peer');
-    git(workspace, ['worktree', 'add', '--quiet', '--detach', peerRoot, problem.baseCommit]);
-    lead = { id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles };
-    peer = { ...lead, id: 'researcher', role: 'researcher', worktree: peerRoot };
+    const example = localExample('solver-deferred-handoffs-', 'lead');
+    ({ directory, problem } = example);
+    lead = leadWorker(problem, example.workspace); peer = peerWorker(example, 'researcher', { name: 'peer' });
     const question: CooperativeTask = { id: 'question', kind: 'research', objective: 'Find the missing quantitative bridge.',
       dependsOn: [], revision: 0 };
     const premise: CooperativeTask = { id: 'premise', kind: 'lemma', objective: 'Prove the precise required estimate.',
@@ -117,15 +108,13 @@ describe('deferred research proposal activation', () => {
       id: `original_goal_${index + 1}`, kind: 'goal', objective: `Prove ${target.theoremName}.`,
       theoremName: target.theoremName, proofPath: target.proofPath, status: 'paused',
     }))] });
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'deferred-handoff-fixture', problem,
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluator',
-      model: 'unused', effort: 'unused', worktree: workspace, phase: 'running', turns: 0, failures: [],
+    state = solverState(problem, example.workspace, { runId: 'deferred-handoff-fixture', phase: 'running', failures: [],
       cooperation: { canonicalCommit: problem.baseCommit,
         groups: plan.groups.map(group => ({ group, turns: 0 })),
         tasks: plan.tasks.map(task => ({ task, status: task.id === question.id ? 'completed' : 'pending', attempts: 0 })),
         deliveries: [{ id: 'proposal-delivery', producer: peer.id, taskId: question.id, taskDigest: taskVersion(question),
           kind: 'research', status: 'advisory', summary: 'An exact bridge waits on the estimate.', statement: '', premises: [],
-          dependencies: [], remainingObligations: [], evidenceRefs: [], createdAt: 1, lemmaRequests: [proposal] }] } };
+          dependencies: [], remainingObligations: [], evidenceRefs: [], createdAt: 1, lemmaRequests: [proposal] }] } });
     primaryLed = false; knowledgeSnapshot = undefined; events = []; cooperative = create();
   });
   afterEach(async () => {
@@ -208,13 +197,13 @@ describe('deferred research proposal activation', () => {
     expect(action.challengeIds).toEqual([challenge.id]);
     expect(action.challengeActivations).toEqual({ [challenge.id]: challenge.activationDigest });
     notes(primary ? { requests: [] } : { tasks: tasks() });
-    await cooperative.deliver(lead, action, commitSolverSources(problem, lead.worktree));
+    await deliverLead(action);
     expect(state.cooperation!.error).toContain('math_challenge_unresolved');
     expect(pendingResearchChallenges(state.cooperation!)).toHaveLength(1);
     const challengeDecisions = [{ id: challenge.id, status: 'disputed', reason: 'Its input violates the positivity premise.',
       evidenceRefs: ['counterargument-commit:RESEARCH.md'] }];
     notes(primary ? { requests: [], challengeDecisions } : { tasks: tasks(), challengeDecisions });
-    await cooperative.deliver(lead, action, commitSolverSources(problem, lead.worktree));
+    await deliverLead(action);
     expect(state.cooperation!.error).toBeUndefined();
     expect(researchChallenges(state.cooperation!)[0]).toMatchObject({ status: 'disputed' });
     expect(saveAndRead().cooperation!.challengeDecisions).toEqual(state.cooperation!.challengeDecisions);
@@ -229,7 +218,7 @@ describe('deferred research proposal activation', () => {
     expect(handoff().activationDigest).not.toBe(original.handoffActivations![handoff().id]);
     const action = await dispatch(), checks = host.verify.mock.calls.length;
     planResponse([], [...tasks(), proposal]);
-    await cooperative.deliver(lead, action, commitSolverSources(problem, lead.worktree));
+    await deliverLead(action);
 
     expect(state.cooperation!.error).toBeUndefined();
     expect(handoff().status).toBe('adopted');
@@ -252,7 +241,7 @@ describe('deferred research proposal activation', () => {
     expect(pendingResearchHandoffs(state.cooperation!)).toHaveLength(1);
     const action = await dispatch(), checks = host.verify.mock.calls.length;
     planResponse([], [...tasks(), proposal]);
-    await cooperative.deliver(lead, action, commitSolverSources(problem, lead.worktree));
+    await deliverLead(action);
     expect(state.cooperation!.error).toBeUndefined();
     expect(state.cooperation!.researchDecisions).toMatchObject([
       { deliveryId: original.id, status: 'adopted', taskId: proposal.id },
@@ -271,7 +260,7 @@ describe('deferred research proposal activation', () => {
     expect(cooperative.current(action)).toBe(true);
     notes({ handoffDecisions: [{ id: originalId, status: 'rejected', reason: 'The exact interface does not close the gap.' }] });
     const before = structuredClone(tasks());
-    await cooperative.deliver(lead, action, commitSolverSources(problem, lead.worktree));
+    await deliverLead(action);
     expect(state.cooperation!.error).toBeUndefined();
     expect(state.cooperation!.researchDecisions).toMatchObject([
       { deliveryId: 'earlier-proposal-delivery', status: 'rejected' }, { deliveryId: original.id, status: 'rejected' },
@@ -287,7 +276,7 @@ describe('deferred research proposal activation', () => {
     const original = await dispatch(), originalId = original.handoffIds![0], delivery = state.cooperation!.deliveries![0];
     state.cooperation!.deliveries!.unshift({ ...structuredClone(delivery), id: 'earlier-proposal-delivery', createdAt: 0 });
     planResponse([{ id: originalId, status: 'deferred', reason: 'Wait for the checked premise.', waitsOn: ['premise'] }]);
-    await cooperative.deliver(lead, original, commitSolverSources(problem, lead.worktree));
+    await deliverLead(original);
     expect(state.cooperation!.error).toBeUndefined();
     expect(handoff().status).toBe('deferred');
     expect(node('question').status).toBe('completed');
@@ -295,7 +284,7 @@ describe('deferred research proposal activation', () => {
     const previous = structuredClone(state.cooperation!.researchDecisions), checks = host.verify.mock.calls.length;
     expect(cooperative.current(original)).toBe(false);
     planResponse([{ id: originalId, status: 'rejected', reason: 'An outdated response.' }]);
-    await cooperative.deliver(lead, original, commitSolverSources(problem, lead.worktree));
+    await deliverLead(original);
     expect(state.cooperation!.researchDecisions).toEqual(previous);
     expect(handoff()).toMatchObject({ status: 'pending', reopened: 'checked-prerequisites' });
     expect(events.some(item => item.event === 'research_handoff_superseded')).toBe(true);
@@ -350,7 +339,7 @@ describe('deferred research proposal activation', () => {
     const action = await dispatch();
     planResponse([{ id: handoff().id, status: 'deferred', reason: 'Wait for the same premise again.', waitsOn: ['premise'] }]);
 
-    await cooperative.deliver(lead, action, commitSolverSources(problem, lead.worktree));
+    await deliverLead(action);
 
     expect(state.cooperation!.error).toContain('math_handoff_waits_on_satisfied');
     expect(state.cooperation!.researchDecisions).toEqual(previous);
@@ -366,15 +355,14 @@ describe('deferred research proposal activation', () => {
       planVersion: state.cooperation!.planVersion, handoffIds: [], handoffActivations: {} };
     planResponse([], tasks().filter(task => task.id !== 'question'));
 
-    await cooperative.deliver(lead, action, commitSolverSources(problem, lead.worktree));
+    await deliverLead(action);
 
     expect(state.cooperation!.error).toContain('math_handoff_backlog_source_required:question');
     expect(tasks()).toEqual(before);
     expect(handoff().status).toBe('deferred');
     planResponse([{ id: handoff().id, status: 'rejected', reason: 'The route is deliberately abandoned.' }],
       tasks().filter(task => task.id !== 'question'));
-    await cooperative.deliver(lead, { ...action, planVersion: state.cooperation!.planVersion },
-      commitSolverSources(problem, lead.worktree));
+    await deliverLead({ ...action, planVersion: state.cooperation!.planVersion });
     expect(state.cooperation!.error).toBeUndefined();
     expect(tasks().some(task => task.id === 'question')).toBe(false);
     expect(state.cooperation!.researchDecisions).toMatchObject([{ status: 'rejected' }]);
@@ -390,7 +378,7 @@ describe('deferred research proposal activation', () => {
     const sameNotes = fs.readFileSync(path.join(lead.worktree, 'RESEARCH.md'), 'utf8');
     const ordinary: PlanningAction = { kind: 'solve', seedCommit: state.cooperation!.canonicalCommit!,
       handoffIds: [], handoffActivations: {} };
-    await cooperative.deliver(lead, ordinary, commitSolverSources(problem, lead.worktree));
+    await deliverLead(ordinary);
     await cooperative.pulse();
     expect(node('question').status).toBe('completed');
     expect(node('premise').status).toBe('pending');
@@ -402,7 +390,7 @@ describe('deferred research proposal activation', () => {
     const acceptedHelp = events.filter(item => item.event === 'help_requested').length;
     expect(handoff().activationDigest).toBe(oldActivation);
     fs.writeFileSync(path.join(lead.worktree, 'RESEARCH.md'), sameNotes);
-    await cooperative.deliver(lead, action, commitSolverSources(problem, lead.worktree));
+    await deliverLead(action);
     expect(state.cooperation!.error).toBeUndefined();
     expect(state.cooperation!.researchDecisions).toMatchObject([{ status: 'adopted', taskId: 'bridge' }]);
     expect(events.filter(item => item.event === 'help_requested')).toHaveLength(acceptedHelp + 1);
@@ -436,7 +424,7 @@ describe('deferred research proposal activation', () => {
 
     await cooperative.pulse();
     cooperative.deactivate(lead);
-    await cooperative.deliver(lead, action, commitSolverSources(problem, lead.worktree));
+    await deliverLead(action);
 
     expect(state.cooperation!.error).toBeUndefined();
     expect(handoff()).toMatchObject({ status: 'deferred', decision: { waitsOn: [{

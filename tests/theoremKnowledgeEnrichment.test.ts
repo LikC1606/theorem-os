@@ -105,15 +105,17 @@ describe('explicit accepted knowledge enrichment sidecars', () => {
     artifact.bytes = embedded.bytes = bytes.length; artifact.digest = embedded.digest = mathDigest(bytes);
     embedded.contentsBase64 = bytes.toString('base64');
   };
-  const editReferenceReport = (sidecar: KnowledgeEnrichment,
-    edit: (report: Record<string, any>) => void, index = 0) => {
-    const record = sidecar.records[0]!, root = record.collection.roots[index]!;
-    const artifact = root.artifacts.find(item => item.kind === 'diagnostics')!, embedded = sidecar.artifacts.find(item => item.path === artifact.path)!;
-    const diagnostics = JSON.parse(Buffer.from(embedded.contentsBase64, 'base64').toString('utf8'));
-    const marker = `KNOWLEDGE_REFERENCES_${index}:`, report = JSON.parse(diagnostics.stdout.slice(marker.length));
-    edit(report); diagnostics.stdout = marker + JSON.stringify(report);
-    replaceArtifact(sidecar, root, 'diagnostics', JSON.stringify(diagnostics));
+  /** Re-embeds the root's diagnostics report after `edit` changes it. */
+  const editDiagnostics = (sidecar: KnowledgeEnrichment, root: Parameters<typeof replaceArtifact>[1], edit: (report: Record<string, any>) => void) => {
+    const artifact = root.artifacts.find(item => item.kind === 'diagnostics')!;
+    const report = JSON.parse(Buffer.from(sidecar.artifacts.find(item => item.path === artifact.path)!.contentsBase64, 'base64').toString('utf8'));
+    edit(report); replaceArtifact(sidecar, root, 'diagnostics', JSON.stringify(report));
   };
+  const editReferenceReport = (sidecar: KnowledgeEnrichment, edit: (report: Record<string, any>) => void, index = 0) =>
+    editDiagnostics(sidecar, sidecar.records[0]!.collection.roots[index]!, diagnostics => {
+      const marker = `KNOWLEDGE_REFERENCES_${index}:`, report = JSON.parse(diagnostics.stdout.slice(marker.length));
+      edit(report); diagnostics.stdout = marker + JSON.stringify(report);
+    });
   const omitOversizedContext = (sidecar: KnowledgeEnrichment) => {
     const root = sidecar.records[0]!.collection.roots[0]!;
     const rows = [{ id: root.id, context: { unavailable: 'statement-type-export-bound', bytes: 31000, limit: 24000 } }];
@@ -468,10 +470,7 @@ describe('explicit accepted knowledge enrichment sidecars', () => {
     const root = sidecar.records[0]!.collection.roots[0]!;
     delete root.references; root.omissions = ['proof-and-statement-references-unavailable',
       ...(version !== legacyCollector ? ['proof-and-statement-references:missing-report'] : [])];
-    const diagnostics = root.artifacts.find(item => item.kind === 'diagnostics')!, embedded = sidecar.artifacts.find(item => item.path === diagnostics.path)!;
-    const report = JSON.parse(Buffer.from(embedded.contentsBase64, 'base64').toString('utf8')); report.stdout = 'reference export unavailable';
-    const bytes = Buffer.from(JSON.stringify(report));
-    diagnostics.bytes = embedded.bytes = bytes.length; diagnostics.digest = embedded.digest = mathDigest(bytes); embedded.contentsBase64 = bytes.toString('base64');
+    editDiagnostics(sidecar, root, report => { report.stdout = 'reference export unavailable'; });
     const retained = apply(reseal(sidecar))[0]!;
     expect(retained.elaboration).toBeDefined(); expect(retained.dependencies.coverage).toBe('unavailable');
   });
@@ -483,14 +482,7 @@ describe('explicit accepted knowledge enrichment sidecars', () => {
     else if (missing === 'environment') delete record.collection.identity.environmentDigest;
     else if (missing === 'query') { delete root.queryDigest; root.artifacts = root.artifacts.filter(item => item.kind !== 'query'); }
     else if (missing === 'type-artifact') root.artifacts = root.artifacts.filter(item => item.kind !== 'full-type');
-    else {
-      const artifact = root.artifacts.find(item => item.kind === 'diagnostics')!, embedded = sidecar.artifacts.find(item => item.path === artifact.path)!;
-      const report = JSON.parse(Buffer.from(embedded.contentsBase64, 'base64').toString('utf8'));
-      delete report[missing === 'diagnostic-source' ? 'sourceDigest' : 'environmentDigest'];
-      const bytes = Buffer.from(JSON.stringify(report));
-      embedded.contentsBase64 = bytes.toString('base64'); embedded.bytes = artifact.bytes = bytes.length;
-      embedded.digest = artifact.digest = mathDigest(bytes);
-    }
+    else editDiagnostics(sidecar, root, report => { delete report[missing === 'diagnostic-source' ? 'sourceDigest' : 'environmentDigest']; });
     const retained = apply(pruneArtifacts(sidecar))[0]!;
     expect(retained.elaboration).toBeUndefined(); expect(retained.dependencies.coverage).toBe('unavailable');
   });
@@ -530,11 +522,7 @@ describe('explicit accepted knowledge enrichment sidecars', () => {
 
   it('rejects collected status if its retained diagnostic reports failure', async () => {
     const sidecar = await enrichAcceptedKnowledge(manifestFile, 'example'), root = sidecar.records[0]!.collection.roots[0]!;
-    const artifact = root.artifacts.find(item => item.kind === 'diagnostics')!, embedded = sidecar.artifacts.find(item => item.path === artifact.path)!;
-    const report = JSON.parse(Buffer.from(embedded.contentsBase64, 'base64').toString('utf8')); report.exitCode = 1;
-    const bytes = Buffer.from(JSON.stringify(report));
-    embedded.contentsBase64 = bytes.toString('base64'); embedded.bytes = artifact.bytes = bytes.length;
-    embedded.digest = artifact.digest = mathDigest(bytes);
+    editDiagnostics(sidecar, root, report => { report.exitCode = 1; });
     expect(() => validateKnowledgeEnrichment(reseal(sidecar))).toThrow('math_knowledge_enrichment_artifact_changed');
   });
 
@@ -547,14 +535,9 @@ describe('explicit accepted knowledge enrichment sidecars', () => {
       record.collection.identity.executionConfiguration.find(item => item.file === '.lake/package-overrides.json')!.digest = mathDigest('another override');
       record.collection.identity.executionSourceDigest = mathDigest(canonicalMathJson({ sources: record.collection.identity.sources,
         configuration: record.collection.identity.executionConfiguration }));
-    } else {
-      const artifact = root.artifacts.find(item => item.kind === 'diagnostics')!, embedded = sidecar.artifacts.find(item => item.path === artifact.path)!;
-      const report = JSON.parse(Buffer.from(embedded.contentsBase64, 'base64').toString('utf8'));
+    } else editDiagnostics(sidecar, root, report => {
       report[changed === 'diagnostic-environment' ? 'environmentDigest' : 'sourceDigest'] = mathDigest('unrelated input');
-      const bytes = Buffer.from(JSON.stringify(report));
-      embedded.contentsBase64 = bytes.toString('base64'); embedded.bytes = artifact.bytes = bytes.length;
-      embedded.digest = artifact.digest = mathDigest(bytes);
-    }
+    });
     expect(() => validateKnowledgeEnrichment(reseal(sidecar))).toThrow('math_knowledge_enrichment_artifact_changed');
   });
 

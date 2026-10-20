@@ -1,37 +1,39 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample } from '../src/math/localExample';
 import type { SolverRunState } from '../src/solver/archive';
 import type { TaskProof } from '../src/solver/cooperativeProof';
-import { CooperativeResearch, parseCooperationPlan } from '../src/solver/cooperation';
-import { directSolverModules } from '../src/solver/modules';
+import { parseCooperationPlan, type CooperativeResearch } from '../src/solver/cooperation';
 import { buildResearchContext } from '../src/solver/modules/context';
 import type { ResearchWorker } from '../src/solver/modules/organization';
-import { committedSource, commitSolverSources, git, readSolverProblem } from '../src/solver/problem';
+import { committedSource, commitSolverSources, git } from '../src/solver/problem';
 import { pendingResearchChallenges } from '../src/solver/researchChallenges';
 import { pendingResearchHandoffs } from '../src/solver/researchHandoffs';
 import { assignmentDeliveryFile, taskVersion, type CooperativeAction } from '../src/solver/tasks';
+import { deferred } from './helpers/async';
+import { cooperativeResearch } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
 
 let directory: string, state: SolverRunState, workers: ResearchWorker[], cooperative: CooperativeResearch;
 let controller: AbortController, action: Extract<CooperativeAction, { kind: 'task' }>;
 const finding = (summary = 'EXACT_LOCAL_COUNTEREXAMPLE') => ({ summary, conclusion: 'refuted', needsDecision: true,
   evidenceRefs: ['nine-listed-constraints-only'], remainingObligations: ['original_goal_1'] });
 const publish = (value: unknown) => (cooperative as any).receive(workers[1], action, value, true);
-const create = () => new CooperativeResearch({ state, workers, modules: directSolverModules,
-  access: new Map(workers.map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-  signal: controller.signal, save: () => {}, emit: () => {}, exclusiveCheck: async check => check() });
+const create = () => cooperativeResearch({ state, workers, retrievalRoot: directory, signal: controller.signal });
+const blockedProof = () => {
+  const node = state.cooperation!.tasks[0];
+  const proof = { taskDigest: taskVersion(node.task), passed: false, commit: state.problem.baseCommit,
+    sourceDigest: 'source', verification: { status: 'failed', targetCommit: state.problem.baseCommit, results: [] } } as unknown as TaskProof;
+  node.status = 'blocked'; node.proof = proof;
+  const checking = deferred<[]>();
+  vi.spyOn(cooperative as any, 'knowledgeUses').mockReturnValue(checking.promise);
+  return { node, proof, release: () => checking.resolve([]) };
+};
 
 beforeEach(() => {
-  directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'research-publication-')));
-  const workspace = path.join(directory, 'lead'), receipt = bootstrapLocalExample(workspace);
-  const problem = readSolverProblem(workspace, receipt.activeProblemPath);
-  workers = [{ id: 'lead', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles }, ...['proof', 'other'].map(id => {
-    const worktree = path.join(directory, id);
-    git(workspace, ['worktree', 'add', '--quiet', '--detach', worktree, problem.baseCommit]);
-    return { id, role: 'researcher' as const, worktree, ownedFiles: problem.ownedFiles };
-  })];
+  const example = localExample('research-publication-', 'lead'), { workspace, problem } = example;
+  directory = example.directory;
+  workers = [leadWorker(problem, workspace, 'lead'), ...['proof', 'other'].map(id => peerWorker(example, id))];
   const parsed = parseCooperationPlan(problem, { tasks: [{ id: 'helper', kind: 'lemma', objective: 'Prove the exact helper.',
     theoremName: 'Tutorial.helper', type: 'True', proofPath: 'Submission.lean', sharing: 'group' },
     { id: 'other', kind: 'research', objective: 'Independent route', groupId: 'other' },
@@ -41,11 +43,9 @@ beforeEach(() => {
   const task = parsed.tasks[0];
   action = { kind: 'task', task, assignment: { taskId: task.id, taskDigest: taskVersion(task), workerId: 'proof',
     seedCommit: problem.baseCommit, assignmentId: 'active-proof', dependencies: [] } };
-  state = { schema: 'deepscientist.math.solver.v1', runId: 'publication-fixture', problem, taskDigest: 'task',
-    buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluator', model: 'unused', effort: 'unused',
-    worktree: workspace, phase: 'running', turns: 0, cooperation: { canonicalCommit: problem.baseCommit,
+  state = solverState(problem, workspace, { runId: 'publication-fixture', phase: 'running', cooperation: { canonicalCommit: problem.baseCommit,
       groups: parsed.groups.map(group => ({ group, turns: 0 })), tasks: parsed.tasks.map(task => ({ task, attempts: 1,
-        status: task.id === 'helper' ? 'running' : 'pending', ...(task.id === 'helper' ? { assignment: action.assignment } : {}) })) } };
+        status: task.id === 'helper' ? 'running' : 'pending', ...(task.id === 'helper' ? { assignment: action.assignment } : {}) })) } });
   controller = new AbortController(); cooperative = create();
 });
 afterEach(async () => {
@@ -55,13 +55,7 @@ afterEach(async () => {
 
 it.each(['task', 'status', 'assignment', 'proof', 'integrated-check', 'environment', 'removed'] as const)
 ('does not publish an old proof when %s changes during application checking', async change => {
-  const node = state.cooperation!.tasks[0];
-  const proof = { taskDigest: taskVersion(node.task), passed: false, commit: state.problem.baseCommit,
-    sourceDigest: 'source', verification: { status: 'failed', targetCommit: state.problem.baseCommit, results: [] } } as unknown as TaskProof;
-  node.status = 'blocked'; node.proof = proof;
-  let release!: (value: []) => void;
-  const checking = new Promise<[]>(resolve => { release = resolve; });
-  vi.spyOn(cooperative as any, 'knowledgeUses').mockReturnValue(checking);
+  const { node, proof, release } = blockedProof();
   const pending = (cooperative as any).finishProofDelivery(workers[1], node, proof, 'Old proof result', {});
   if (change === 'task') node.task = { ...node.task, revision: node.task.revision + 1 };
   if (change === 'status') node.status = 'running';
@@ -70,20 +64,14 @@ it.each(['task', 'status', 'assignment', 'proof', 'integrated-check', 'environme
   if (change === 'integrated-check') node.integratedCheck = { ...proof };
   if (change === 'environment') state.environmentDigest = 'changed-environment';
   if (change === 'removed') state.cooperation!.tasks.shift();
-  release([]); await pending;
+  release(); await pending;
   expect(state.cooperation!.deliveries ?? []).toEqual([]);
 });
 
 it('publishes an unchanged proof once when duplicate application checks finish together', async () => {
-  const node = state.cooperation!.tasks[0];
-  const proof = { taskDigest: taskVersion(node.task), passed: false, commit: state.problem.baseCommit,
-    sourceDigest: 'source', verification: { status: 'failed', targetCommit: state.problem.baseCommit, results: [] } } as unknown as TaskProof;
-  node.status = 'blocked'; node.proof = proof;
-  let release!: (value: []) => void;
-  const checking = new Promise<[]>(resolve => { release = resolve; });
-  vi.spyOn(cooperative as any, 'knowledgeUses').mockReturnValue(checking);
+  const { node, proof, release } = blockedProof();
   const publications = [1, 2].map(() => (cooperative as any).finishProofDelivery(workers[1], node, proof, 'Same proof', {}));
-  release([]); await Promise.all(publications);
+  release(); await Promise.all(publications);
   expect(state.cooperation!.deliveries).toHaveLength(1);
   expect(state.cooperation!.deliveries![0]).toMatchObject({ taskDigest: taskVersion(node.task), status: 'failed',
     commit: state.problem.baseCommit });

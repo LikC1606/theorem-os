@@ -1,17 +1,16 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bootstrapLocalExample } from '../src/math/localExample';
 import { readSolverRunState, writeSolverRunState, type SolverRunState } from '../src/solver/archive';
-import { CooperativeResearch } from '../src/solver/cooperation';
-import { directSolverModules } from '../src/solver/modules';
+import type { CooperativeResearch } from '../src/solver/cooperation';
 import type { ResearchWorker } from '../src/solver/modules/organization';
-import { commitSolverSources, git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
+import { commitSolverSources, git, type SolverProblem } from '../src/solver/problem';
 import { ResearchUsage } from '../src/solver/researchUsage';
 import { initialPlanDeliveryFile, type CooperativeAction } from '../src/solver/tasks';
 import { WorkerTurnLedger } from '../src/solver/turnLedger';
 import { buildTokenBudget, initializeUsageAccounting } from '../src/solver/usageBudget';
+import { cooperativeResearch } from './helpers/cooperation';
+import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
 
 describe('explicit initial Lead plan publication', () => {
   let directory: string, problem: SolverProblem, state: SolverRunState, lead: ResearchWorker, peer: ResearchWorker;
@@ -25,10 +24,8 @@ describe('explicit initial Lead plan publication', () => {
   })) });
   const create = () => {
     const controller = new AbortController();
-    const cooperative = new CooperativeResearch({ state, workers: [lead, peer], modules: directSolverModules,
-      access: new Map([lead, peer].map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-      signal: controller.signal, save: () => {}, emit: (event, details) => events.push({ event, details }),
-      exclusiveCheck: async check => check() });
+    const cooperative = cooperativeResearch({ state, workers: [lead, peer], retrievalRoot: directory,
+      signal: controller.signal, emit: (event, details) => events.push({ event, details }) });
     instances.push({ cooperative, controller });
     return cooperative;
   };
@@ -51,16 +48,12 @@ describe('explicit initial Lead plan publication', () => {
   };
 
   beforeEach(() => {
-    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'solver-initial-plan-')));
-    const workspace = path.join(directory, 'lead'), receipt = bootstrapLocalExample(workspace);
-    problem = readSolverProblem(workspace, receipt.activeProblemPath);
-    const peerWorkspace = path.join(directory, 'engineer');
-    git(workspace, ['worktree', 'add', '--quiet', '--detach', peerWorkspace, problem.baseCommit]);
-    lead = { id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles };
-    peer = { id: 'engineer', role: 'engineer', worktree: peerWorkspace, ownedFiles: problem.ownedFiles };
-    state = { schema: 'deepscientist.math.solver.v1', runId: 'initial-plan-fixture', problem,
-      taskDigest: 'task', buildDigest: 'build', environmentDigest: 'environment', evaluatorDigest: 'evaluation',
-      model: 'fixture', effort: 'fixture', worktree: workspace, phase: 'prepared', turns: 0 };
+    const example = localExample('solver-initial-plan-', 'lead');
+    ({ directory, problem } = example);
+    lead = leadWorker(problem, example.workspace);
+    peer = peerWorker(example, 'engineer', { role: 'engineer' });
+    state = solverState(problem, example.workspace, { runId: 'initial-plan-fixture', phase: 'prepared',
+      evaluatorDigest: 'evaluation', model: 'fixture', effort: 'fixture' });
     instances = []; events = []; interrupt = vi.fn(async () => {});
   });
   afterEach(async () => {
