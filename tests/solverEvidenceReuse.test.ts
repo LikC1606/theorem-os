@@ -3,7 +3,6 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } from '../src/math/verifier';
 import { checkSolverProof, type ProofCheck } from '../src/solver/modules/evidence';
-import { checkLemmaResearch, type LemmaPlan, type LemmaResearch } from '../src/solver/lemma';
 import { git, type SolverProblem } from '../src/solver/problem';
 import { localExample } from './helpers/solver';
 import { failedBatch } from './helpers/verifier';
@@ -29,21 +28,9 @@ const rejected = (request: MathematicsVerifierBatchRequest) =>
 
 describe('process-local deterministic Lean rejection reuse', () => {
   let directory: string, workspace: string, project: string, problem: SolverProblem, env: NodeJS.ProcessEnv;
-  const signal = () => new AbortController().signal;
   const check = (previous?: ProofCheck, environment = env, task = problem) =>
     checkSolverProof(task, workspace, environment, undefined, previous);
   const writeNotes = () => fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), 'Another research direction\n');
-  const prepareLemma = async () => {
-    const sourceFile = path.join(project, 'Submission.lean');
-    fs.writeFileSync(sourceFile, fs.readFileSync(sourceFile, 'utf8')
-      .replace('theorem add_zero', 'theorem helper : True := by trivial\n\ntheorem add_zero'));
-    const source = await check();
-    const plan: LemmaPlan = { proofPath: 'Submission.lean', target: 'Tutorial.add_zero', lemma: 'Tutorial.helper', type: 'True' };
-    host.verify.mockClear();
-    return { source, plan };
-  };
-  const checkLemma = (source: ProofCheck, plan: LemmaPlan, previous?: LemmaResearch) =>
-    checkLemmaResearch(problem, workspace, env, signal(), source, plan, previous);
 
   beforeEach(() => {
     host.verify.mockReset().mockImplementation(async request => rejected(request));
@@ -166,71 +153,4 @@ describe('process-local deterministic Lean rejection reuse', () => {
       await check(first);
       expect(host.verify).toHaveBeenCalledTimes(2);
     });
-
-  it('reuses a failed bridge projection across notes and advances the repeated-input signal', async () => {
-    let { source, plan } = await prepareLemma();
-    const first = await checkLemma(source, plan);
-    expect(first.bridge).toMatchObject({ passed: false, reused: false, unchangedFailures: 1 });
-    expect(first.lemma).toBeUndefined();
-    writeNotes();
-    source = await check(source);
-    const next = await checkLemma(source, plan, first);
-    expect(next.bridge).toMatchObject({ passed: false, reused: true, unchangedFailures: 2, sourceCommit: source.commit });
-    expect(next.bridge!.verification).toBe(first.bridge!.verification);
-    expect(next.bridge!.commit).toBe(first.bridge!.commit);
-    expect(next.bridge!.verification.targetCommit).toBe(first.bridge!.commit);
-    expect(host.verify).toHaveBeenCalledOnce();
-    const third = await checkLemma(source, plan, next);
-    expect(third.bridge!.unchangedFailures).toBe(3);
-    expect(host.verify).toHaveBeenCalledOnce();
-  });
-
-  it('reuses a failed helper after its checked bridge and rechecks a changed helper body', async () => {
-    let { source, plan } = await prepareLemma();
-    host.verify.mockImplementation(async request => request.items[0]?.theoremName === plan.target ? verified(request) : rejected(request));
-    const first = await checkLemma(source, plan);
-    const next = await checkLemma(source, plan, first);
-    expect(next.bridge).toMatchObject({ passed: true, reused: true });
-    expect(next.lemma).toMatchObject({ passed: false, reused: true, unchangedFailures: 2 });
-    expect(next.lemma!.verification).toBe(first.lemma!.verification);
-    expect(host.verify).toHaveBeenCalledTimes(2);
-    const file = path.join(project, 'Submission.lean');
-    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('helper : True := by trivial', 'helper : True := by exact True.intro'));
-    source = await check(source);
-    const changed = await checkLemma(source, plan, next);
-    expect(changed.bridge).toMatchObject({ passed: true, reused: true });
-    expect(changed.lemma).toMatchObject({ passed: false, reused: false, unchangedFailures: 1 });
-    expect(host.verify).toHaveBeenCalledTimes(4);
-  });
-
-  it.each(['restored', 'mutated-passed', 'mutated-receipt'] as const)('rechecks a %s failed projection', async kind => {
-    const { source, plan } = await prepareLemma();
-    const first = await checkLemma(source, plan);
-    let previous = first;
-    if (kind === 'restored') previous = JSON.parse(JSON.stringify(first));
-    else if (kind === 'mutated-passed') Object.assign(first.bridge!, { passed: true });
-    else first.bridge!.verification.results[0]!.receiptId = 'changed-projection-receipt';
-    const next = await checkLemma(source, plan, previous);
-    expect(next.bridge).toMatchObject({ passed: false, reused: false, unchangedFailures: 1 });
-    expect(next.lemma).toBeUndefined();
-    expect(host.verify).toHaveBeenCalledTimes(2);
-  });
-
-  it('rechecks failed projections with transient errors or changed environments', async () => {
-    const { source, plan } = await prepareLemma();
-    host.verify.mockImplementation(async request => {
-      const batch = rejected(request);
-      batch.results[0]!.error = 'Lean verification timed out.';
-      return batch;
-    });
-    let previous = await checkLemma(source, plan);
-    previous = await checkLemma(source, plan, previous);
-    expect(previous.bridge!.reused).toBe(false);
-    expect(host.verify).toHaveBeenCalledTimes(2);
-    host.verify.mockImplementation(async request => rejected(request));
-    previous = await checkLemma(source, plan, previous);
-    env = { ...env, LEAN_NUM_THREADS: '2' };
-    expect((await checkLemma(source, plan, previous)).bridge!.reused).toBe(false);
-    expect(host.verify).toHaveBeenCalledTimes(4);
-  });
 });

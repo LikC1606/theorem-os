@@ -10,7 +10,7 @@ import { hashMathFormalSourceDeclaration, type MathematicsVerifierBatchRequest, 
 import * as verifier from '../src/math/verifier';
 import { readSolverProblem, assertSolverSources, assertSolverProjectSources, commitSolverSources, git, withSolverWorktree, SolverSourceError, type SolverProblem } from '../src/solver/problem';
 import { checkSolverProof } from '../src/solver/modules/evidence';
-import { directSolverModules, lemmaSolverModules } from '../src/solver/modules';
+import { directSolverModules } from '../src/solver/modules';
 import { configurableSolverModules } from '../src/solver/modules/custom';
 import { runSolver } from '../src/solver/run';
 import { rememberSolverFailure, solverProofFeedback } from '../src/solver/feedback';
@@ -19,7 +19,6 @@ import * as retrievalCorpus from '../src/math/mathRetrievalCorpus';
 import type { MathAgentOptions, MathAgentSession } from '../src/runtime/codexSession';
 import { prepareDeepSeekProfile } from '../src/runtime/deepseek';
 import { prepareWestlakeProfile } from '../src/runtime/westlake';
-import { checkLemmaResearch, readLemmaPlan } from '../src/solver/lemma';
 import { CooperativeResearch, readCooperationPlan, parseCooperationPlan, taskVersion, assignmentDeliveryFile, type CooperativeAction, type CooperativeTask, type RouteGroup } from '../src/solver/cooperation';
 import { canonicalMathJson } from '../src/math/mathRuntimeIo';
 import { deliveryDetails, readDeliveryLines, readMathResponse } from '../src/solver/deliveries';
@@ -2429,26 +2428,21 @@ describe('isolated solver and host acceptance', () => {
     if (stoppedKind === 'statement-review') expect(state.cooperation.statementReviews[0].status).toBe('translated');
   });
 
-  it.each(['direct', 'lemma'])('executes the %s method through cooperative roles without singleton lemma proposals', async method => {
+  it('executes the direct method through cooperative roles without singleton lemma proposals', async () => {
     const operations: string[] = [];
     configureCooperation(async (action, options, message) => {
       expect(message).not.toContain('Propose one new ordinary theorem');
       expect(message).not.toContain('"target":"Original.qualifiedTarget"');
-      if (method === 'lemma' && action.kind === 'lead') expect(options.instructions).toContain('Delegate a specific uncertain inference as research');
+      expect(message).not.toContain('Research operation:');
       finishAssignment(action, options); return 'completed';
     });
-    const base = method === 'lemma' ? lemmaSolverModules : directSolverModules;
     const execute = vi.fn(async (...inputs: Parameters<typeof directSolverModules.M1.execute>) => {
       operations.push(inputs[2]);
-      const candidate = await directSolverModules.M1.execute(...inputs);
-      expect(candidate.lemmaPlanError).toBeUndefined();
-      return candidate;
+      return directSolverModules.M1.execute(...inputs);
     });
-    const checkLemma = vi.fn(checkLemmaResearch);
     expect(await runSolver([...args, '--workers', '4', '--max-turns', '6'], directory,
-      { ...base, M1: { ...base.M1, execute }, M2: { ...base.M2, checkLemma } })).toBe(0);
-    expect(new Set(operations)).toEqual(new Set(method === 'lemma' ? ['decompose', 'bridge', 'prove-lemma', 'integrate-lemma', 'direct'] : ['direct']));
-    expect(checkLemma).not.toHaveBeenCalled();
+      { ...directSolverModules, M1: { ...directSolverModules.M1, execute } })).toBe(0);
+    expect(new Set(operations)).toEqual(new Set(['direct']));
     expect(cooperationState().tasks.every((node: any) => node.status === 'integrated')).toBe(true);
     expect(host.officialGate).toHaveBeenCalledOnce();
   });
@@ -5076,10 +5070,10 @@ describe('isolated solver and host acceptance', () => {
     expect(captureProofReferences(problem, workspace, commit, root, { statement: [], proof: [{ name: 'outside', file: '../outside.lean' }] }, 'fixed-env')).toBeUndefined();
   });
 
-  it.each(['direct', 'lemma'])('checks a %s conditional parent while its lemmas run and integrates it without another model turn once they close', async method => {
+  it('checks a conditional parent while its lemmas run and integrates it without another model turn once they close', async () => {
     const tasks = planTasks(); tasks[2] = { ...tasks[2], conditional: true };
     let parentTurns = 0, conditionalChecks = 0;
-    configureCooperation(async (action, options, message) => {
+    configureCooperation(async (action, options) => {
       if (action.kind === 'lead') writePlan(options.workspace, tasks);
       else if (action.kind === 'task' && action.task.kind === 'lemma') {
         await expect.poll(() => cooperationState().tasks[2].status).toBe('conditional');
@@ -5089,7 +5083,6 @@ describe('isolated solver and host acceptance', () => {
         expect(parent.proof.conditions.map((condition: any) => condition.taskId)).toEqual(['a', 'b']);
         finishAssignment(action, options);
       } else if (action.kind === 'task' && action.task.id === 'first') {
-        if (method === 'lemma') expect(message).toContain('Research operation: bridge.');
         parentTurns++;
         expect(cooperationState().tasks.slice(0, 2).every((node: any) => node.status === 'running')).toBe(true);
         const file = path.join(options.workspace, 'generated/p/Submission.lean');
@@ -5113,7 +5106,7 @@ describe('isolated solver and host acceptance', () => {
       }
       return verify(request, options);
     });
-    expect(await runSolver([...args, '--method', method, '--workers', '4', '--max-turns', '6'], directory)).toBe(0);
+    expect(await runSolver([...args, '--workers', '4', '--max-turns', '6'], directory)).toBe(0);
     expect(parentTurns).toBe(1); expect(conditionalChecks).toBe(1);
     expect(cooperationState().tasks.every((node: any) => node.status === 'integrated')).toBe(true);
     const records = cooperationState().deliveries.filter((record: any) => record.taskId === 'first' && record.kind === 'proof');
@@ -5701,181 +5694,6 @@ describe('isolated solver and host acceptance', () => {
         { ...directSolverModules, M2: { ...directSolverModules.M2, checkTask } })).toBe(0);
     } finally { resume.resolve(); }
   }, 30_000);
-
-  function configureLemmaRun(proveHelper = true) {
-    const operations: string[] = [];
-    const plan = { proofPath: 'Submission.lean', target: 'Submission.first', lemma: 'Submission.helper', type: 'True' };
-    host.verify.mockImplementation(async (request, options) => {
-      const source = fs.readFileSync(path.join(request.projectRoot, request.items[0].proofPath), 'utf8');
-      if (request.items.length === 1 && request.items[0].theoremName === plan.target) {
-        expect(source).toContain('theorem first (helper : True) : True');
-        expect(source).not.toContain('theorem helper');
-        expect(source).not.toContain('theorem second');
-      }
-      if (request.items[0].theoremName === plan.lemma) {
-        expect(options).toMatchObject({ expectedDeclarationType: 'True' });
-        expect(options.prepareLocalDependencies).toBeUndefined();
-        expect(source).not.toContain('theorem first');
-        expect(source).not.toContain('theorem second');
-      }
-      const valid = !source.includes('sorry') && !(options.expectedDeclarationType && source.includes('helper : False'));
-      const checked = verified(request);
-      return valid ? checked : failed(checked, { error: 'Proof source contains sorry or has a different helper type.' });
-    });
-    host.createSession.mockImplementation(session(options => options.threadId || 'fixture-thread', async (options, message) => {
-      const operation = /Research operation: ([\w-]+)\./u.exec(message)?.[1] || 'direct';
-      operations.push(operation);
-      if (operation !== 'direct') {
-        const file = path.join(options.workspace, 'generated/p/Submission.lean');
-        const helper = operation === 'decompose' || !proveHelper ? 'sorry' : 'trivial';
-        const second = operation === 'integrate-lemma' ? 'trivial' : 'sorry';
-        fs.writeFileSync(file, original.replace('theorem first', `theorem helper : True := by ${helper}\ntheorem first`)
-          .replace('first : True := by sorry', 'first : True := by exact helper').replace('second : True := by sorry', `second : True := by ${second}`));
-        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), '```math-lemma\n' + JSON.stringify(plan) + '\n```\n');
-      }
-      return 'completed';
-    }));
-    return operations;
-  }
-
-  it('checks a conditional bridge, proves its lemma, then independently accepts every original target', async () => {
-    const operations = configureLemmaRun();
-    expect(await runSolver([...args, '--method', 'lemma', '--max-turns', '4'], directory)).toBe(0);
-    expect(operations).toEqual(['direct', 'decompose', 'prove-lemma', 'integrate-lemma']);
-    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
-    expect(state.lemmaResearch.bridge).toMatchObject({ obligation: 'bridge', passed: true });
-    expect(state.lemmaResearch.lemma).toMatchObject({ obligation: 'lemma', passed: true });
-    expect(state.lemmaResearch.bridge.planDigest).toBe(state.lemmaResearch.lemma.planDigest);
-    expect(state.lemmaResearch.bridge.sourceCommit).toBe(state.lemmaResearch.lemma.sourceCommit);
-    expect(state.lemmaResearch.bridge.commit).not.toBe(state.lemmaResearch.bridge.sourceCommit);
-    expect(state.lemmaResearch.bridge.reused).toBe(true);
-    expect(host.verify).toHaveBeenCalledTimes(8);
-    expect(host.officialGate).toHaveBeenCalledTimes(1);
-    expect(fs.readFileSync(path.join(project, 'Submission.lean'), 'utf8')).not.toContain('(helper : True)');
-  });
-
-  it('does not accept a checked connection whose lemma is unproved, and shares the original turn budget', async () => {
-    const operations = configureLemmaRun(false);
-    expect(await runSolver([...args, '--method', 'lemma', '--max-turns', '3'], directory)).toBe(4);
-    expect(operations).toEqual(['direct', 'decompose', 'prove-lemma']);
-    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
-    expect(state.lemmaResearch.bridge.passed).toBe(true);
-    expect(state.lemmaResearch.lemma.passed).toBe(false);
-    expect(JSON.parse(fs.readFileSync(output, 'utf8'))).toMatchObject({ turns: 3, status: 'incomplete',
-      solver_ready_receipt_valid: false, completion_signal_valid: false, solution_commit: null });
-    expect(host.officialGate).not.toHaveBeenCalled();
-    expect(git(workspace, ['rev-parse', 'HEAD'])).toBe(problem.baseCommit);
-    expect(git(workspace, ['worktree', 'list', '--porcelain']).match(/^worktree /gmu)).toHaveLength(2);
-  });
-
-  it('repairs a failed connection before investing in its lemma', async () => {
-    const operations = configureLemmaRun();
-    const verify = host.verify.getMockImplementation()!;
-    host.verify.mockImplementation(async (request, options) => {
-      const checked = await verify(request, options);
-      return request.items.length === 1 ? failed(checked, { error: 'Unsolved target under the lemma premise' }) : checked;
-    });
-    expect(await runSolver([...args, '--method', 'lemma', '--max-turns', '3'], directory)).toBe(4);
-    expect(operations).toEqual(['direct', 'decompose', 'bridge']);
-    expect(host.verify.mock.calls.some(([request]) => request.items[0].theoremName === 'Submission.helper')).toBe(false);
-    expect(host.officialGate).not.toHaveBeenCalled();
-  });
-
-  it('reconsiders a lemma route after the same failed obligation remains unchanged twice', async () => {
-    const operations = configureLemmaRun(false);
-    expect(await runSolver([...args, '--method', 'lemma', '--max-turns', '4'], directory)).toBe(4);
-    expect(operations).toEqual(['direct', 'decompose', 'prove-lemma', 'decompose']);
-    const events = vi.mocked(console.log).mock.calls.map(([event]) => JSON.parse(event));
-    expect(events).toContainEqual(expect.objectContaining({ event: 'research_action', operation: 'decompose', reason: 'stalled-obligation' }));
-    expect(host.officialGate).not.toHaveBeenCalled();
-  });
-
-  it('reuses only checked projections with the same complete inputs and environment', async () => {
-    configureLemmaRun();
-    const plan = { proofPath: 'Submission.lean', target: 'Submission.first', lemma: 'Submission.helper', type: 'True' };
-    fs.writeFileSync(path.join(project, 'Submission.lean'), original.replace('theorem first', 'theorem helper : True := by trivial\ntheorem first')
-      .replace('first : True := by sorry', 'first : True := by exact helper'));
-    let source = await checkSolverProof(problem, workspace, {});
-    let evidence = await checkLemmaResearch(problem, workspace, {}, new AbortController().signal, source, plan);
-    expect(evidence.bridge?.reused).toBe(false);
-    expect(evidence.lemma?.reused).toBe(false);
-    const calls = host.verify.mock.calls.length;
-
-    // Journal edits create a new candidate commit but do not alter proof inputs.
-    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), 'Updated research notes\n');
-    source = await checkSolverProof(problem, workspace, {});
-    evidence = await checkLemmaResearch(problem, workspace, {}, new AbortController().signal, source, plan, evidence);
-    expect(evidence.bridge).toMatchObject({ reused: true, sourceCommit: source.commit, sourceDigest: source.sourceDigest });
-    expect(evidence.lemma).toMatchObject({ reused: true, sourceCommit: source.commit });
-    expect(host.verify).toHaveBeenCalledTimes(calls + 1);
-
-    const restored = JSON.parse(JSON.stringify(evidence));
-    evidence = await checkLemmaResearch(problem, workspace, {}, new AbortController().signal, source, plan, restored);
-    expect(evidence.bridge?.reused).toBe(false);
-    expect(evidence.lemma?.reused).toBe(false);
-    expect(host.verify).toHaveBeenCalledTimes(calls + 3);
-
-    evidence = await checkLemmaResearch(problem, workspace, { LEAN_NUM_THREADS: '2' }, new AbortController().signal, source, plan, evidence);
-    expect(evidence.bridge?.reused).toBe(false);
-    expect(evidence.lemma?.reused).toBe(false);
-    expect(host.verify).toHaveBeenCalledTimes(calls + 5);
-
-    fs.writeFileSync(path.join(project, 'Submission.lean'), fs.readFileSync(path.join(project, 'Submission.lean'), 'utf8')
-      .replace('first : True := by exact helper', 'first : True := by simpa using helper'));
-    source = await checkSolverProof(problem, workspace, { LEAN_NUM_THREADS: '2' });
-    evidence = await checkLemmaResearch(problem, workspace, { LEAN_NUM_THREADS: '2' }, new AbortController().signal, source, plan, evidence);
-    expect(evidence.bridge?.reused).toBe(false);
-    expect(evidence.lemma?.reused).toBe(true);
-    expect(host.verify).toHaveBeenCalledTimes(calls + 7);
-
-    // Mutable external libraries must be checked even when their path is unchanged.
-    fs.mkdirSync(path.join(project, '.lake', 'packages'), { recursive: true });
-    evidence = await checkLemmaResearch(problem, workspace, { LEAN_NUM_THREADS: '2' }, new AbortController().signal, source, plan, evidence);
-    expect(evidence.bridge?.reused).toBe(false);
-    expect(evidence.lemma?.reused).toBe(false);
-    expect(host.verify).toHaveBeenCalledTimes(calls + 9);
-    evidence = await checkLemmaResearch(problem, workspace, { LEAN_NUM_THREADS: '2' }, new AbortController().signal, source, plan, evidence);
-    expect(evidence.bridge?.reused).toBe(false);
-    expect(evidence.lemma?.reused).toBe(false);
-    expect(host.verify).toHaveBeenCalledTimes(calls + 11);
-  });
-
-  it('rechecks auxiliary obligations on resume before choosing integration', async () => {
-    const operations = configureLemmaRun();
-    expect(await runSolver([...args, '--method', 'lemma', '--max-turns', '3'], directory)).toBe(4);
-    expect(await runSolver([...args, '--method', 'lemma', '--max-turns', '5', '--resume'], directory)).toBe(0);
-    expect(operations).toEqual(['direct', 'decompose', 'prove-lemma', 'bridge', 'integrate-lemma']);
-    expect(host.officialGate).toHaveBeenCalledTimes(1);
-  });
-
-  it('rejects an altered helper closed type instead of reusing its previous receipt', async () => {
-    configureLemmaRun();
-    expect(await runSolver([...args, '--method', 'lemma', '--max-turns', '3'], directory)).toBe(4);
-    const file = path.join(`${output}.runtime/worktree`, 'generated/p/Submission.lean');
-    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('helper : True := by trivial', 'helper : False := by sorry'));
-    const session = await host.createSession.mock.results[0].value;
-    host.createSession.mockResolvedValue({ ...session, run: async () => 'completed' });
-    expect(await runSolver([...args, '--method', 'lemma', '--max-turns', '4', '--resume'], directory)).toBe(4);
-    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
-    expect(state.lemmaResearch.lemma.passed).toBe(false);
-    expect(state.lemmaResearch.bridge.planDigest).toBe(state.lemmaResearch.lemma.planDigest);
-    expect(host.officialGate).not.toHaveBeenCalled();
-  });
-
-  it('requires a single proposal bound to an owned original target', () => {
-    const file = path.join(workspace, 'RESEARCH.md');
-    expect(() => readLemmaPlan(problem, workspace)).toThrow('math_lemma_plan_missing');
-    const block = '```math-lemma\n' + JSON.stringify({ proofPath: '../outside.lean', target: 'Submission.first',
-      lemma: 'Submission.helper', type: 'True' }) + '\n```\n';
-    fs.writeFileSync(file, block);
-    expect(() => readLemmaPlan(problem, workspace)).toThrow('math_lemma_plan_invalid');
-    fs.writeFileSync(file, block + block);
-    expect(() => readLemmaPlan(problem, workspace)).toThrow('math_lemma_plan_requires_one_block');
-    const plan = { proofPath: 'Submission.lean', target: 'Submission.first', lemma: 'Submission.helper',
-      type: '(True ∧ '.repeat(1000) + 'True' + ')'.repeat(1000) };
-    fs.writeFileSync(file, JSON.stringify(plan));
-    expect(readLemmaPlan(problem, workspace)).toEqual(plan);
-  });
 
   it('keeps search stopping decisions separate from proof acceptance', async () => {
     const select = vi.fn((...inputs: Parameters<typeof directSolverModules.M3.select>) => {

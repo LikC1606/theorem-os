@@ -223,9 +223,14 @@ describe('frozen module comparison launches', () => {
     expect(run).not.toHaveBeenCalled();
   });
 
-  it.each([['--workers', '2'], ['--method', 'lemma'], ['--scheduler', 'goals-first']])('rejects incompatible common option %s %s', async (flag, value) => {
+  it.each([['--workers', '2'], ['--scheduler', 'goals-first']])('rejects incompatible common option %s %s', async (flag, value) => {
     await expect(compareMathRuns(['--phase', 'prepare', '--directory', '/unused', flag, value,
       '--module-experiment', path.join(root, 'examples/components/module-experiment.json')])).rejects.toThrow('module experiments require');
+  });
+
+  it('rejects the removed lemma method when preparing a comparison', async () => {
+    await expect(compareMathRuns(['--phase', 'prepare', '--directory', '/unused', '--method', 'lemma']))
+      .rejects.toThrow('invalid method or scheduler');
   });
 
   it('rejects a dropped planned attempt instead of silently shrinking the denominator', async () => {
@@ -279,7 +284,11 @@ describe('CLI module-plan boundary', () => {
     expect(fs.readdirSync(directory)).toEqual(['module-plan.json']);
   });
 
-  it.each([['--method', 'lemma'], ['--scheduler', 'critical-path']])('rejects conflicting %s before reading a module plan', async (flag, value) => {
-    await expect(runSolver(['--module-plan', '/unused.json', flag, value], root)).rejects.toThrow('--module-plan requires');
+  it('rejects a conflicting scheduler before reading a module plan', async () => {
+    await expect(runSolver(['--module-plan', '/unused.json', '--scheduler', 'critical-path'], root)).rejects.toThrow('--module-plan requires');
+  });
+
+  it('rejects the removed lemma method', async () => {
+    await expect(runSolver(['--module-plan', '/unused.json', '--method', 'lemma'], root)).rejects.toThrow('invalid --method');
   });
 });

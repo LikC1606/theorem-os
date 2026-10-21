@@ -51,7 +51,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
     scheduler: { type: 'string', default: 'plan' }, coordination: { type: 'string', default: 'cooperative' },
   } });
   if (values.help) {
-    console.log('Usage: theorem-os run --workspace DIR --task-file FILE --output FILE --build-manifest FILE [--receipt-file FILE] [--resume] [--method direct|lemma] [--scheduler plan|goals-first|critical-path|continuation] [--module-plan FILE] [--coordination cooperative|independent] [--workers 1|2|3|4] [--model MODEL --effort LEVEL] [--max-run-seconds N --max-turns N --max-turn-seconds N] [--max-total-tokens N] [--prepare-timeout-seconds N] [--evaluator-command CMD --evaluator-timeout-seconds N] [--proof-environment-cache-dir DIR] [--startup-only]\n--module-plan loads the shared research-module plan JSON; use --method direct and --scheduler plan.\nUse 0 for --max-run-seconds, --max-turns, --max-turn-seconds or --evaluator-timeout-seconds to disable that limit. Unlimited total solving time also disables proof verification deadlines.\n--max-total-tokens defaults to 0 (unlimited). A finite value stops new model turns after provider-reported consumption reaches it; in-flight turns finish and may exceed it. Resume retains cumulative usage and the saved allowance unless explicitly changed.');
+    console.log('Usage: theorem-os run --workspace DIR --task-file FILE --output FILE --build-manifest FILE [--receipt-file FILE] [--resume] [--method direct] [--scheduler plan|goals-first|critical-path|continuation] [--module-plan FILE] [--coordination cooperative|independent] [--workers 1|2|3|4] [--model MODEL --effort LEVEL] [--max-run-seconds N --max-turns N --max-turn-seconds N] [--max-total-tokens N] [--prepare-timeout-seconds N] [--evaluator-command CMD --evaluator-timeout-seconds N] [--proof-environment-cache-dir DIR] [--startup-only]\n--module-plan loads the shared research-module plan JSON; use --scheduler plan.\nUse 0 for --max-run-seconds, --max-turns, --max-turn-seconds or --evaluator-timeout-seconds to disable that limit. Unlimited total solving time also disables proof verification deadlines.\n--max-total-tokens defaults to 0 (unlimited). A finite value stops new model turns after provider-reported consumption reaches it; in-flight turns finish and may exceed it. Resume retains cumulative usage and the saved allowance unless explicitly changed.');
     console.log('--knowledge-base FILE attaches an immutable saved-theorem catalog. Resume requires the same catalog digest. Historical knowledge never grants proof acceptance.');
     console.log('--continuation-manifest FILE attaches explicit historical sources and notes without changing the verbatim task file. Resume retains the frozen attachment identity; historical material remains advisory.');
     return 0;
@@ -60,8 +60,8 @@ export async function runSolver(args: string[], root: string, customModules?: So
   if (customModules && values.scheduler !== 'plan') throw new Error('custom modules cannot combine with --scheduler');
   if (!['cooperative', 'independent'].includes(values.coordination!)) throw new Error('invalid --coordination');
   const coordination = values.coordination as 'cooperative' | 'independent';
-  if (values['module-plan'] && (customModules || values.method !== 'direct' || values.scheduler !== 'plan'))
-    throw new Error('--module-plan requires --method direct, --scheduler plan and no injected modules');
+  if (values['module-plan'] && (customModules || values.scheduler !== 'plan'))
+    throw new Error('--module-plan requires --scheduler plan and no injected modules');
   const modules = values['module-plan']
     ? configurableSolverModules(researchModulePlanSchema.parse(readMathJson(values['module-plan'])) as ResearchModulePlan, coordination, Number(values.workers))
     : customModules ?? configured;
@@ -352,12 +352,6 @@ export async function runSolver(args: string[], root: string, customModules?: So
       deadline = state.solveStartedAt + maxRunMs;
       timer = Number.isFinite(maxRunMs) ? setTimeout(abort, maxRunMs) : undefined;
       emit('solve_started', { budgetMs: maxRunMs, maxTurnMs });
-      if (values.resume) {
-        // Persisted auxiliary receipts cannot authorize reuse after a process restart.
-        for (const research of state.workers ?? [state]) if (research.lemmaResearch)
-          research.lemmaResearch = { plan: research.lemmaResearch.plan, error: research.lemmaResearch.error };
-        save();
-      }
       const winner = await runResearchWorkers({ state, workers, access: workerAccess, modules, root, buildFile, taskText: task,
         executable: values.codex || process.env.DEEPSCIENTIST_MATH_CODEX_EXECUTABLE || 'codex',
         profile,

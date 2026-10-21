@@ -349,11 +349,11 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
     const repetitions = number('repetitions', 1), workers = number('workers', 4);
     if (workers < 2 || workers > 4) throw new Error('--workers must be 2, 3 or 4');
     const method = flags.get('method') ?? 'direct', scheduler = flags.get('scheduler') ?? 'plan';
-    if (!['direct', 'lemma'].includes(method) || !['plan', 'goals-first', 'critical-path', 'continuation'].includes(scheduler)) throw new Error('invalid method or scheduler');
+    if (method !== 'direct' || !['plan', 'goals-first', 'critical-path', 'continuation'].includes(scheduler)) throw new Error('invalid method or scheduler');
     const experiment = flags.has('module-experiment')
       ? moduleExperimentSchema.parse(json(required(flags, 'module-experiment'))) : undefined;
-    if (experiment && (method !== 'direct' || scheduler !== 'plan' || workers < 3))
-      throw new Error('module experiments require --method direct, --scheduler plan and 3 or 4 cooperative workers');
+    if (experiment && (scheduler !== 'plan' || workers < 3))
+      throw new Error('module experiments require --scheduler plan and 3 or 4 cooperative workers');
     const variants = experiment ? describeModuleExperiment(experiment, workers) : undefined;
     const provider = flags.get('provider') ?? 'profile';
     if (provider !== 'profile' && !Object.hasOwn(providerProfiles, provider)) throw new Error('invalid --provider');

@@ -3,7 +3,6 @@ import type { SolverProblem } from './problem';
 import type { ProofCheck } from './modules/evidence';
 import type { SolverFailure } from './feedback';
 import type { ResearchCandidate } from './modules/execution';
-import type { LemmaResearch } from './lemma';
 import type { ResearchRole } from './modules/organization';
 import type { CooperationState } from './cooperation';
 import type { MathAgentActivity } from '../runtime/codexSession';
@@ -14,7 +13,7 @@ import { knowledgeUseSchema } from './knowledgeUsage';
 import { z } from 'zod';
 
 export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | 'previousThreadIds' |
-  'lastInputTokens' | 'lastActivity' | 'lastFailure' | 'recovery' | 'contextOverflow' | 'lastContextManifest' | 'phase' | 'turns' | 'dispatchCounts' | 'usage' | 'usageBeforeThread' | 'usageAccounting' | 'requestUsageAccounting' | 'check' | 'candidate' | 'lemmaResearch' | 'failures' | 'error'> & {
+  'lastInputTokens' | 'lastActivity' | 'lastFailure' | 'recovery' | 'contextOverflow' | 'lastContextManifest' | 'phase' | 'turns' | 'dispatchCounts' | 'usage' | 'usageBeforeThread' | 'usageAccounting' | 'requestUsageAccounting' | 'check' | 'candidate' | 'failures' | 'error'> & {
   id: string;
   role: ResearchRole;
   sessionRole?: ResearchRole;
@@ -73,7 +72,6 @@ export type SolverRunState = {
   tokenBudget?: TokenBudget;
   check?: ProofCheck;
   candidate?: ResearchCandidate;
-  lemmaResearch?: LemmaResearch;
   failures?: SolverFailure[];
   error?: string;
   workerCount?: number;
@@ -140,7 +138,7 @@ const research = z.object({ worktree: z.string().min(1), phase, turns: count, th
   usage: record.optional(), usageBeforeThread: record.optional(), usageAccounting: usageAccounting.optional(),
   requestUsageAccounting: requestUsageAccounting.optional(),
   tokenBudget: tokenBudget.optional(), candidate: record.optional(),
-  lemmaResearch: record.optional(), failures: z.array(record).optional(), error: z.string().optional() }).passthrough();
+  failures: z.array(record).optional(), error: z.string().optional() }).passthrough();
 const role = z.enum(['lead', 'researcher', 'engineer', 'reviewer']);
 const task = z.object({ id: z.string().min(1), kind: z.enum(['research', 'sketch', 'lemma', 'goal']),
   objective: z.string(), dependsOn: z.array(z.string()), revision: count }).passthrough();

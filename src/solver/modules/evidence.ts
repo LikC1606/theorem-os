@@ -92,13 +92,6 @@ export async function checkProofEvidence(request: MathematicsVerifierBatchReques
   return { verification, passed: proofReceiptsMatch(verification, request.targetCommit, request.items) };
 }
 
-/** Both single-worker and cooperative projections use the same saved declaration and package binding. */
-export function checkProjectedDeclaration(problem: SolverProblem, checkout: string, sourceWorktree: string, commit: string,
-  target: { proofPath: string; theoremName: string; digest: string; missingError: string },
-  options: MathematicsVerifierExecutionOptions & { timeoutMs: number }) {
-  return checkProjectedDeclarations(problem, checkout, sourceWorktree, commit, [target], options);
-}
-
 export async function checkProjectedDeclarations(problem: SolverProblem, checkout: string, sourceWorktree: string, commit: string,
   targets: readonly { proofPath: string; theoremName: string; digest: string; missingError: string }[],
   options: MathematicsVerifierExecutionOptions & { timeoutMs: number }) {

@@ -2,9 +2,8 @@ import { createCodexMathSession } from '../../runtime/codexSession';
 import { checkSolverProof } from './evidence';
 import { executeResearch } from './execution';
 import { buildResearchContext, buildStatementReviewContext } from './context';
-import { selectResearchAction, selectLemmaAction, planResearchRetry, readyResearchTasks, goalsFirstResearchTasks, criticalPathResearchTasks, continuationResearchTasks } from './search';
+import { selectResearchAction, planResearchRetry, readyResearchTasks, goalsFirstResearchTasks, criticalPathResearchTasks, continuationResearchTasks } from './search';
 import { assignSharedResearchTask, researchWorkers, assignResearchReviewer } from './organization';
-import { checkLemmaResearch } from '../lemma';
 import { checkTaskProof } from '../cooperativeProof';
 import { canonicalMathJson, mathDigest } from '../../math/mathRuntimeIo';
 
@@ -19,21 +18,15 @@ export const directSolverModules = {
 };
 
 export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M5'> & {
-  M2: Omit<typeof directSolverModules.M2, 'checkTask'> & { checkTask?: typeof checkTaskProof; checkLemma?: typeof checkLemmaResearch };
+  M2: Omit<typeof directSolverModules.M2, 'checkTask'> & { checkTask?: typeof checkTaskProof };
   M5: typeof directSolverModules.M5;
-};
-
-export const lemmaSolverModules: SolverModules = {
-  ...directSolverModules, id: 'lemma-v1',
-  M2: { ...directSolverModules.M2, version: 'lean-obligations-v14/declaration-prefix-projection-v1/task-root-references-v1/conditional-child-changes-v1/scoped-conditional-projection-v1/exact-input-failure-reuse-v1/conditional-projection-identity-v1/attributed-batch-evidence-v1/fixed-candidate-references-v1/exact-projection-cache-v1/shared-source-index-v1/host-consumer-connection-v1', checkLemma: checkLemmaResearch },
-  M3: { ...directSolverModules.M3, version: 'lemma-route-search-v13/blocker-or-routes-v1/structured-provider-failure-v1/assignable-work-v1/advisory-settlement-v3/goal-scoped-advancement-v1/early-route-checks-v1/ready-consumers-v1/evidence-ranked-routes-v2/capacity-free-ranking-v1/active-or-frontier-v1/context-overflow-recovery-v1/pending-validation-v1/trusted-local-stop-v1/host-consumer-connection-v1', select: selectLemmaAction },
 };
 
 /** Named CLI policies bind search and assignment versions without changing host acceptance. */
 export function configuredSolverModules(method: string, scheduler: string): SolverModules {
-  if (!['direct', 'lemma'].includes(method)) throw new Error('invalid --method');
+  if (method !== 'direct') throw new Error('invalid --method');
   if (!['plan', 'goals-first', 'critical-path', 'continuation'].includes(scheduler)) throw new Error('invalid --scheduler');
-  const base = method === 'lemma' ? lemmaSolverModules : directSolverModules;
+  const base: SolverModules = directSolverModules;
   if (scheduler === 'critical-path') return { ...base,
     M3: { ...base.M3, version: `${base.M3.version}/critical-path-v1`, ready: criticalPathResearchTasks },
     M5: { ...base.M5, version: `${base.M5.version}/shared-work-v1`, assign: assignSharedResearchTask } };

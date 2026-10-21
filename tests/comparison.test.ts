@@ -34,6 +34,7 @@ describe('configured research comparisons', () => {
     for (const module of ['M1', 'M2', 'M4', 'M5']) expect(modules[module]).toBe(directSolverModules[module]);
     expect(configuredSolverModules('direct', 'plan')).toBe(directSolverModules);
     expect(() => configuredSolverModules('direct', 'typo')).toThrow('invalid --scheduler');
+    expect(() => configuredSolverModules('lemma', 'plan')).toThrow('invalid --method');
   });
 
   it('prioritizes unfinished goal dependency depth, then distinct goal coverage, with stable ties', () => {
@@ -87,14 +88,14 @@ describe('configured research comparisons', () => {
     expect(modules.M5.assign([goal], engineer, workers, groups)).toBe(goal);
   });
 
-  it.each(['direct', 'lemma'])('binds critical-path search and assignment versions for %s', method => {
-    const base = configuredSolverModules(method, 'plan'), modules = configuredSolverModules(method, 'critical-path');
+  it('binds critical-path search and assignment versions', () => {
+    const base = configuredSolverModules('direct', 'plan'), modules = configuredSolverModules('direct', 'critical-path');
     for (const module of ['M1', 'M2', 'M4']) expect(modules[module]).toBe(base[module]);
     expect(modules.M3.select).toBe(base.M3.select);
     expect(modules.M5.workers).toBe(base.M5.workers);
     expect(modules.M5.reviewer).toBe(base.M5.reviewer);
     const digests = ['plan', 'goals-first', 'critical-path'].map(scheduler =>
-      solverMethodDigest(configuredSolverModules(method, scheduler), 'cooperative'));
+      solverMethodDigest(configuredSolverModules('direct', scheduler), 'cooperative'));
     expect(new Set(digests).size).toBe(3);
   });
 

@@ -1,1 +1,1 @@
-export type ResearchOperation = 'direct' | 'decompose' | 'bridge' | 'prove-lemma' | 'integrate-lemma';
+export type ResearchOperation = 'direct';

@@ -4,7 +4,6 @@ import type { SolverProblem } from '../problem';
 import type { ContextBundle } from './context';
 import type { ResearchOperation } from './value';
 import type { ResearchWorker } from './organization';
-import { readLemmaPlan, type LemmaPlan } from '../lemma';
 
 export type ResearchCandidate = Readonly<{
   status: string;
@@ -12,8 +11,6 @@ export type ResearchCandidate = Readonly<{
   problemReceiptDigest: string;
   operation: ResearchOperation;
   provenance: Readonly<{ workerId: string; threadId: string }>;
-  lemmaPlan?: LemmaPlan;
-  lemmaPlanError?: string;
 }>;
 
 /** A closed transport is a failed turn; aborts and other errors keep their original meaning. */
@@ -35,13 +32,6 @@ export async function executeResearch(task: SolverProblem, context: ContextBundl
   worker: ResearchWorker, session: MathAgentSession, signal: AbortSignal,
   onStarted: (turnId: string) => void): Promise<ResearchCandidate> {
   const status = await runResearchTurn(session, context.message, worker.worktree, signal, onStarted);
-  let lemmaPlan: LemmaPlan | undefined;
-  let lemmaPlanError: string | undefined;
-  if (operation !== 'direct' && !context.assignment) {
-    try { lemmaPlan = readLemmaPlan(task, worker.worktree); }
-    catch (error) { lemmaPlanError = error instanceof Error ? error.message : 'math_lemma_plan_invalid'; }
-  }
   return { status, worktree: worker.worktree, problemReceiptDigest: task.receiptDigest, operation,
-    provenance: { workerId: worker.id, threadId: session.threadId },
-    ...(operation !== 'direct' ? { lemmaPlan, lemmaPlanError } : {}) };
+    provenance: { workerId: worker.id, threadId: session.threadId } };
 }

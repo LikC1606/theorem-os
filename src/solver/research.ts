@@ -123,10 +123,10 @@ export async function runResearchWorkers(input: {
         }
       };
       const context = (feedback?: string, previousCheck?: ProofCheck, previousFailures = research.failures,
-        operation?: ResearchOperation, assignment?: CooperativeAction) => modules.M4.build(state.problem,
+        assignment?: CooperativeAction) => modules.M4.build(state.problem,
           { ...view(), ...(cooperation ? { cooperation: cooperation.contextState(assignment, worker) } : {}) }, {
           root: input.root, worktree: worker.worktree, taskText: input.taskText, ...access,
-          sourceFeedback: feedback, previousCheck, previousFailures, operation, assignment,
+          sourceFeedback: feedback, previousCheck, previousFailures, assignment,
           maxOptionalContextBytes: research.contextOverflow?.maxOptionalContextBytes,
         });
       let feedbackCheck: ProofCheck | undefined;
@@ -348,7 +348,7 @@ export async function runResearchWorkers(input: {
         research.usageBeforeThread = research.usage; save();
         emit('context_restarted', { previousThreadId: previous, turns: research.turns, reason });
       };
-      const checkWhole = async (candidate = research.candidate, operation: ResearchOperation = 'direct') => {
+      const checkWhole = async (candidate = research.candidate) => {
         const previousFailures = research.failures;
         const checkStarted = Date.now();
         emit('proof_check_started', { turn: research.turns });
@@ -395,18 +395,6 @@ export async function runResearchWorkers(input: {
           return;
         }
         if (['unavailable', 'blocked'].includes(research.check.verification.status)) throw new Error('math_verifier_unavailable');
-        if (!cooperation && modules.M2.checkLemma && operation !== 'direct') {
-          research.lemmaResearch = candidate?.lemmaPlan
-            ? await modules.M2.checkLemma(state.problem, worker.worktree, access.environment, signal,
-              research.check, candidate.lemmaPlan, research.lemmaResearch)
-            : { error: candidate?.lemmaPlanError || 'math_lemma_plan_missing' };
-          save();
-          emit('lemma_checked', { bridge: research.lemmaResearch.bridge?.passed ?? false,
-            lemma: research.lemmaResearch.lemma?.passed ?? false, error: research.lemmaResearch.error,
-            bridgeReused: research.lemmaResearch.bridge?.reused ?? false, lemmaReused: research.lemmaResearch.lemma?.reused ?? false });
-          if ([research.lemmaResearch.bridge, research.lemmaResearch.lemma].some(receipt => receipt &&
-              ['unavailable', 'blocked'].includes(receipt.verification.status))) throw new Error('math_verifier_unavailable');
-        }
       };
       try {
         await waitForRecovery(true);
@@ -458,10 +446,7 @@ export async function runResearchWorkers(input: {
           if (research.threadId && Math.max(session?.lastInputTokens ?? 0, research.lastInputTokens ?? 0) >= 96_000) {
             await rotateSession('context');
           }
-          const options: readonly ResearchOperation[] = assignment?.kind === 'lead' ? ['direct', 'decompose'] :
-            assignment?.kind === 'task' ? assignment.task.kind === 'lemma' ? ['direct', 'prove-lemma'] :
-              assignment.task.kind === 'goal' ? ['direct', 'bridge', 'integrate-lemma'] : ['direct'] :
-            !cooperation && modules.M2.checkLemma ? ['direct', 'decompose', 'bridge', 'prove-lemma', 'integrate-lemma'] : ['direct'];
+          const options: readonly ResearchOperation[] = ['direct'];
           while ((pendingTurn = waitForTurn())) await pendingTurn;
           const action = modules.M3.select(view(), options, budget(), assignment);
           if (action.operation === 'stop') break;
@@ -526,7 +511,7 @@ export async function runResearchWorkers(input: {
           }
           const repair = solverSourceFeedback(state.problem, worker.worktree);
           if (repair) research.check = undefined;
-          const currentContext = { ...context(repair, feedbackCheck, feedbackFailures, action.operation, assignment),
+          const currentContext = { ...context(repair, feedbackCheck, feedbackFailures, assignment),
             ...(assignment ? { assignment } : {}) };
           // Resume the same thread with new instructions, preserving its history and cumulative usage.
           if (session && sessionInstructions !== currentContext.instructions) await close();
@@ -585,7 +570,7 @@ export async function runResearchWorkers(input: {
           if (turn === 'failed') emit('turn_failed', { reason: researchFailureReason(turnError), ...(diagnostic ? { diagnostic } : {}) });
           const sourceError = solverSourceFeedback(state.problem, worker.worktree);
           if (sourceError) {
-            research.check = undefined; research.lemmaResearch = undefined;
+            research.check = undefined;
             if (assignment) cooperation!.rejected(assignment, sourceError);
             save(); emit('source_rejected');
             if (turn === 'failed' || planningCheckpoint) throw new Error(sourceError);
@@ -619,7 +604,7 @@ export async function runResearchWorkers(input: {
             checkWholeRequired = delivery.checkWhole;
             if (!checkWholeRequired) save();
           }
-          if (checkWholeRequired) await exclusiveCheck(() => checkWhole(candidate, operation));
+          if (checkWholeRequired) await exclusiveCheck(() => checkWhole(candidate));
           feedbackCheck = previousCheck; feedbackFailures = previousFailures;
           if (!winner && turn === 'failed') {
             if ((!savedTaskProof && !savedPlan) || researchFailureReason(turnError) === 'math_model_context_window_exceeded')

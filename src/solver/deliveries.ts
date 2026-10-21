@@ -16,7 +16,7 @@ export const MAX_RESEARCH_NOTES_BYTES = 1_000_000;
 /** JSON for host decisions, optional Markdown for explanations; legacy fences remain readable. */
 export function readMathResponse(worktree: string, legacyFence: string, bindings: Record<string, unknown> = {}, textField?: string): any {
   const file = path.join(worktree, 'RESEARCH.md');
-  const errorPrefix = legacyFence === 'math-lemma' ? 'math_lemma_plan' : `math_${legacyFence}`;
+  const errorPrefix = `math_${legacyFence}`;
   let text: string;
   try { assertMathCanonicalPath(file); text = readMathText(file, MAX_RESEARCH_NOTES_BYTES).trim(); }
   catch { throw new Error(`${errorPrefix}_missing_or_too_large`); }
@@ -25,7 +25,7 @@ export function readMathResponse(worktree: string, legacyFence: string, bindings
 
 /** The same parser also reads immutable checkpoint text without consulting a live workspace. */
 export function parseMathResponse(text: string, legacyFence: string, bindings: Record<string, unknown> = {}, textField?: string): any {
-  const errorPrefix = legacyFence === 'math-lemma' ? 'math_lemma_plan' : `math_${legacyFence}`;
+  const errorPrefix = `math_${legacyFence}`;
   text = text.trim();
   const blocks = [...text.matchAll(new RegExp('```(?:math|json|' + legacyFence + ')\\s*\\n([\\s\\S]*?)\\n```', 'gu'))]
     .filter(block => !textField || block[1].trimStart().startsWith('{'));

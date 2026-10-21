@@ -8,8 +8,8 @@ it('keeps M3 priority for both proof roles under every configured scheduler', ()
   const engineer: ResearchWorker = { ...researcher, id: 'engineer', role: 'engineer' };
   const goal: TaskRecord = { task: { id: 'original', kind: 'goal', objective: 'Original', dependsOn: [], revision: 0 }, status: 'pending', attempts: 0 };
   const research: TaskRecord = { ...goal, task: { ...goal.task, id: 'explore', kind: 'research' } };
-  for (const method of ['direct', 'lemma']) for (const scheduler of ['plan', 'goals-first', 'critical-path', 'continuation']) {
-    const { M5 } = configuredSolverModules(method, scheduler);
+  for (const scheduler of ['plan', 'goals-first', 'critical-path', 'continuation']) {
+    const { M5 } = configuredSolverModules('direct', scheduler);
     for (const worker of [researcher, engineer]) {
       expect(M5.assign([goal, research], worker, [researcher, engineer])).toBe(goal);
       expect(M5.assign([research, goal], worker, [researcher, engineer])).toBe(research);

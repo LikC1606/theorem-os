@@ -211,9 +211,7 @@ Lead 计入 `--workers` 的总人数。默认配置中，Engineer 持续负责�
 
 任务按依赖就绪异步执行，最多三个 worker 并发。多条路线共享 Agent 名额与原题预算，可以分别设置任务、负责人、暂停状态和路线预算。
 
-### 直接证明与辅助引理
-
-`--method direct` 为默认方法。`--method lemma` 启用辅助引理流程：尝试原题 → 提出引理 → 检查引理对原题的条件性连接 → 证明引理 → 完成原题。两种方法都支持协作运行。
+### 辅助引理与条件性检查
 
 条件性检查在临时源码投影中将待证引理转换为显式参数，保留未完成义务；依赖闭合后再组合并检查普通证明。局部引理、研究笔记和审阅意见分别记录，最终验收检查全部原题目标。
 
@@ -249,7 +247,7 @@ Lead 计入 `--workers` 的总人数。默认配置中，Engineer 持续负责�
 | `--model` | `gpt-6.1-sol` | 所选 provider 提供的模型 ID |
 | `--effort` | `xhigh` | 推理强度 |
 | `--workers` | `4` | Agent 总数，支持 1–4 |
-| `--method` | `direct` | `direct` 或 `lemma` |
+| `--method` | `direct` | 仅支持 `direct`，保留以兼容已有命令 |
 | `--coordination` | `cooperative` | 协作，或 `independent` 独立并行尝试 |
 | `--continuation-manifest` | 无 | 新建时绑定显式历史附件；恢复时沿用同一只读快照 |
 | `--scheduler` | `plan` | 按计划顺序调度；`goals-first` 优先已就绪原题目标；`critical-path` 按依赖链排序；`continuation` 优先承接已证成果的主路径任务 |
@@ -357,7 +355,7 @@ bun run math check-lean \
 
 `--scheduler continuation` 优先推进通往未完成原题、能够使用当前已证引理的就绪任务，再推进主路径的核心缺口；两项主路径工作并行时，为其他就绪路线保留一个探索机会。负责人、依赖、路线和固定版本检查继续生效。Lead、证明角色与 `inspect` 报告会看到原题的未闭合依赖前沿，并分别列出计划消费者、Lean 回执中的证明引用、声明引用和条件性引用。未记录消费者不代表引理无用；这些摘要不提供完成百分比或新的证明验收。重复两次交付未更新的继承研究笔记会交给 Lead 决策，正常长研究与 checkpoint 不按此计数。
 
-辅助引理方法在 [lemma.ts](../src/solver/lemma.ts)；Codex stdio 协议适配在 [codexSession.ts](../src/runtime/codexSession.ts)。
+Codex stdio 协议适配在 [codexSession.ts](../src/runtime/codexSession.ts)。
 
 <details>
 <summary>Agent 交付协议与提前共享</summary>
@@ -385,10 +383,6 @@ agent 的常用协议只有两步：读取任务，写出成果。需要结构�
 证明进行中也可向同一分工日志发表完整研究事件：`{"kind":"research","finding":{"summary":"完整论证、精确前提和局部缺口","conclusion":"refuted","needsDecision":true,"evidenceRefs":[],"lemmaRequests":[]}}`。宿主在独立快照中冻结该事件，不修改 worker 的工作文件；每次发表分别保留完整 finding，跨重启去重，并交给 Lead 处理反驳和引理提案。可选 `commit` 指向本次分工种子之后已冻结的支持材料。发表不结束当前证明、不接受定理，也不会仅因反驳结论停放路线。
 
 任务图为空的初始 Lead 还可向提示词指定的独立日志追加一行 `{"kind":"plan","baseVersion":"当前基版本","summary":"路线说明","tasks":[...]}`，提前发布一次完整有效计划并继续研究。其他角色从 canonical 源码开始；普通笔记草稿不会自动发布。必需上下文中的研究反驳须用 `challengeDecisions` 明确修订、附证据反对或说明等待输入，不能由省略字段静默忽略。
-
-单 Agent 的辅助引理提案使用 `RESEARCH.md` 中的 `math-lemma` JSON 代码块，包含 `proofPath`、原题完整名称 `target`、引理完整名称 `lemma` 和闭合 Lean 类型 `type`。引理置于目标之前，使用普通 `:=` 证明；目标通过引理的局部名称引用它。连接与引理分别在临时投影中检查。
-
-辅助义务仅在完整投影、提案和环境一致时复用本进程的成功回执；输入变化或进程恢复后重新检查。同一失败义务连续两次没有证明输入变化时，控制器重新分解路线并保留失败原因。
 
 </details>
 

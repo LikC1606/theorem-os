@@ -8,7 +8,6 @@ import type { SolverRunState } from '../archive';
 import { committedSource, type SolverProblem } from '../problem';
 import type { ProofCheck } from './evidence';
 import { solverProofFeedback, type SolverFailure } from '../feedback';
-import type { ResearchOperation } from './value';
 import { assignmentDeliveryFile, initialPlanDeliveryFile, isFeasibilityReview, taskGroup, taskVersion, type CooperativeAction } from '../tasks';
 import type { CooperationState } from '../cooperation';
 import { statementReviewSummary, type StatementAction, type StatementReview } from '../statementReview';
@@ -38,7 +37,6 @@ export type ContextAccess = Readonly<{
   sourceFeedback?: string;
   previousCheck?: ProofCheck;
   previousFailures?: readonly SolverFailure[];
-  operation?: ResearchOperation;
   assignment?: CooperativeAction;
   /** Prompt byte allowance only; this does not limit solving time or turns. */
   maxContextBytes?: number;
@@ -126,20 +124,6 @@ ${access.corpusFile ? `For library lookup, run ${command} search-lean --workspac
       checkpoint = readMathText(notes, 1_000_000);
     }
   }
-  if (!state.cooperation && access.operation && access.operation !== 'direct' && !access.sourceFeedback) {
-    const research = state.lemmaResearch;
-    message += `\n\nResearch operation: ${access.operation}.\n` +
-      'Add a helper before an original target in the same owned file; use its unqualified name in the target proof. Give its full closed Lean type with all parameters and hypotheses.\n' +
-      'Write one JSON object in RESEARCH.md (plain JSON or a math/json fence): {"proofPath":"owned/file.lean","target":"Original.qualifiedTarget","lemma":"Original.helper","type":"FULL_CLOSED_LEAN_TYPE"}.\n' +
-      'For decompose/bridge, prove the target using the draft helper; the host tests this connection under an explicit helper premise. For prove-lemma, prove the helper independently: original theorem drafts are removed during checking. For integrate-lemma, use checked helpers to close all original targets. These checks share the run budget; a conditional bridge alone is not a solution.\n' +
-      `Current plan: ${JSON.stringify(research?.plan ?? null)}\nProposal error: ${research?.error ?? 'none'}\n` +
-      `Conditional bridge: ${research?.bridge?.passed ? 'checked under the explicit lemma premise' : 'unverified'}\nLemma: ${research?.lemma?.passed ? 'checked at the recorded source version' : 'unverified'}\n`;
-    for (const receipt of [research?.bridge, research?.lemma]) {
-      if (receipt && !receipt.passed) message += `\n${receipt.obligation} obligation feedback:\n${solverProofFeedback(receipt)}\n`;
-      if (receipt && !receipt.passed && receipt.unchangedFailures >= 2)
-        message += `\nThe ${receipt.obligation} obligation failed ${receipt.unchangedFailures} consecutive checks with unchanged proof inputs. Reconsider the candidate lemma or its connection, and test a revised route before resubmitting. Preserve useful proved helpers.\n`;
-    }
-  }
   const bundle: ContextBundle = { instructions,
     message, scope: 'original-problem-and-allowed-library',
     sources: { problemReceiptDigest: task.receiptDigest } };
@@ -172,7 +156,7 @@ ${access.corpusFile ? `For library lookup, run ${command} search-lean --workspac
     ...(continuation ? { mandatory: [continuationContextSection(continuation, command, task.projectRelative)] } : {}),
     optional: [...residualSections, ...knowledgeSections, ...applicationSections] };
   const compiled = access.assignment && cooperation ? buildCooperativeContext(task, cooperation, bundle, access.assignment,
-    access.operation ?? 'direct', compilation) : { ...bundle, ...compileTaskContext({ ...compilation, instructions }) };
+    compilation) : { ...bundle, ...compileTaskContext({ ...compilation, instructions }) };
   return { ...compiled, ...(access.knowledgeSnapshot ? { knowledgeRetrievals: knowledgeSections.map(section => ({
     ...section.knowledge, included: compiled.manifest?.included.some(item => item.id === section.id) ?? false,
     omissionReason: compiled.manifest?.omitted.find(item => item.id === section.id)?.reason })) } : {}) };
@@ -213,7 +197,7 @@ function readFrozenContexts(problem: SolverProblem, access: ContextAccess): Read
 
 /** Add role rules; the compiler selects a scoped, versioned mathematical context for dispatch. */
 function buildCooperativeContext(problem: SolverProblem, cooperation: CooperationState, context: ContextBundle,
-  action: CooperativeAction, operation: ResearchOperation, compilation: Omit<TaskContextInput, 'instructions'>): ContextBundle {
+  action: CooperativeAction, compilation: Omit<TaskContextInput, 'instructions'>): ContextBundle {
   const workContract = cooperativeWorkContract(action, cooperation.tasks, cooperation);
   const feasibilityRules = action.kind === 'task' && isFeasibilityReview(action.task)
     ? 'This is an early mathematical feasibility review. Independently challenge the exact dependency interfaces and their proposed original-goal application before their proofs are complete. Identify the hardest missing construction or estimate and whether its difficulty has merely moved into a helper or assumption. Check quantifier order, uniform constants, quantitative strength, boundary cases and applicability of cited results. First test whether the proposed inputs would actually suffice for the consumer; then test the most doubtful input with a counterexample, tractable special case, weaker statement or alternative construction. Choose a discriminating check that can change the route decision, rather than repeating an unchanged search. Keep a complete useful argument, exact remaining gap and reproducible evidence in RESEARCH.md. Use the existing research response with conclusion supporting, refuted or inconclusive; distinguish an invalid route from a false original theorem. Supporting evidence and local Lean probes remain advisory. Leave Lean sources unchanged on delivery.\n'
@@ -284,8 +268,7 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
     (action.kind !== 'task' || taskGroup(node.task) === taskGroup(action.task) || node.task.sharing !== 'group'))
     .map(node => ({ taskId: node.task.id, taskDigest: taskVersion(node.task), kind: node.task.kind, objective: node.task.objective,
       theoremName: node.task.theoremName, workerId: node.assignment?.workerId, routeId: node.assignment?.routeId }));
-  const roleText = `Your role: ${action.kind === 'review' || action.kind === 'task' && isFeasibilityReview(action.task) ? 'reviewer' : action.kind === 'task' ? action.task.kind === 'goal' ? 'engineer' : 'researcher' : 'lead'}` + '\n' +
-    (operation === 'direct' ? '' : `Research operation: ${operation}.\n`);
+  const roleText = `Your role: ${action.kind === 'review' || action.kind === 'task' && isFeasibilityReview(action.task) ? 'reviewer' : action.kind === 'task' ? action.task.kind === 'goal' ? 'engineer' : 'researcher' : 'lead'}` + '\n';
   const routeRules = 'Report a stable local obstruction in a research/sketch response or progress delivery with blockers:[{mechanism:"stable local mechanism",scope:"exact affected inference",evidenceRefs:[],reopenOn:[{kind:"contract-changed"},{kind:"environment-changed"},{kind:"dependency-checked",taskId:"ACTUAL_DECLARED_DEPENDENCY_ID"}]}]. When reporting an existing obstruction in different words, optionally include blockerId:"EXISTING_BLOCKER_ID" from this task and route to keep its history; use a new entry for a distinct obstruction. Use actual declared dependency ids; reopenOn may be omitted for the host default. A blocker is advisory and applies only to its stated inference. Repeating the same local premises, evidence and environment twice parks the affected task; it does not establish that the original theorem is false or impose a solving deadline. Preserve useful proofs and state an explicit reopening condition.\n';
   const handoffRules = action.kind === 'lead' ?
     'Research challenges are required advisory inputs even when optional research excerpts are omitted. For every shown challenge id, include ' +
