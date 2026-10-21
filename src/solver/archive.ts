@@ -9,7 +9,6 @@ import type { CooperationState } from './cooperation';
 import type { MathAgentActivity } from '../runtime/codexSession';
 import type { TokenBudget, UsageAccounting, RequestUsageAccounting } from './usageBudget';
 import type { ContextManifest } from './contextCompiler';
-import type { ModelTurnLedger } from './turnLedger';
 import type { KnowledgeRetrievalObservation, KnowledgeUse } from './knowledgeUsage';
 import { knowledgeUseSchema } from './knowledgeUsage';
 import { z } from 'zod';
@@ -72,7 +71,6 @@ export type SolverRunState = {
   usageAccounting?: UsageAccounting;
   requestUsageAccounting?: RequestUsageAccounting;
   tokenBudget?: TokenBudget;
-  turnLedger?: ModelTurnLedger;
   check?: ProofCheck;
   candidate?: ResearchCandidate;
   lemmaResearch?: LemmaResearch;
@@ -101,37 +99,6 @@ const tokenBudget = z.object({ maxTotalTokens: safeCount,
   status: z.enum(['unlimited', 'available', 'exhausted', 'usage-unavailable']), reportedTotalTokens: safeCount.nullable(),
   usageComplete: z.boolean(), overrunTokens: safeCount.nullable(),
   reason: z.enum(['math_total_token_limit', 'math_model_usage_unavailable']).optional() });
-const turnOutcome = z.object({ evidence: z.literal('recorded-not-replayed'), acceptance: z.literal('not-assessed'),
-  attribution: z.literal('observed-not-causal'), observedProgress: z.object({ scope: z.enum(['assignment-cone', 'run']),
-    taskVersionMatches: z.boolean(), beforeDigest: z.string(), afterDigest: z.string(),
-    obligations: z.object({ closed: z.array(z.string()), reopened: z.array(z.string()), changed: z.array(z.string()) }),
-    frontierChangedGoalIds: z.array(z.string()), advisoryChangedTaskIds: z.array(z.string()) }),
-  retainedWork: z.object({ value: z.literal('not-assessed'), deliveries: z.array(z.object({ id: z.string(), kind: z.string(), status: z.string(),
-    taskId: z.string().optional(), taskDigest: z.string().optional(), commit: z.string().optional(), findingDigest: z.string().optional(),
-    evidenceRefs: z.array(z.string()), artifacts: z.object({ scope: z.string(), digest: z.string() }).optional() })),
-  drafts: z.array(z.object({ taskId: z.string(), taskDigest: z.string(), assignmentId: z.string().optional(), commit: z.string(),
-    outputDigest: z.string(), artifactDigest: z.string(), evidenceStatus: z.literal('advisory-unverified') })),
-  blockers: z.array(z.object({ id: z.string(), taskId: z.string(), taskDigest: z.string(), status: z.string(), mechanism: z.string(),
-    scope: z.string(), evidenceRefs: z.array(z.string()), count: safeCount, evidenceStatus: z.literal('advisory') })),
-  failedInputs: z.array(z.object({ id: z.string(), taskId: z.string(), taskDigest: z.string(), attemptFingerprint: z.string().optional(),
-    relatedFailureIds: z.array(z.string()).optional(), feedbackDigest: z.string(), evidenceStatus: z.literal('recorded-failure') })),
-  checkpoint: z.object({ taskDigest: z.string(), inputDigest: z.string(), outputDigest: z.string(), count: safeCount, paused: z.boolean(),
-    evidenceStatus: z.literal('candidate-not-scored') }).passthrough().optional(),
-  check: z.object({ commit: z.string(), sourceDigest: z.string(), passed: z.boolean(), status: z.string(), receiptIds: z.array(z.string()) }).optional(),
-}) });
-const modelTurnReceipt = z.object({ schema: z.literal('theoremos.model-turn.v1'), id: z.string(), workerId: z.string(),
-  sessionId: z.string().optional(), threadId: z.string().optional(), turnId: z.string().optional(),
-  workerTurn: safeCount, runTurn: safeCount, startedAt: safeCount,
-  modelFinishedAt: safeCount.optional(), settledAt: safeCount.optional(),
-  scope: z.object({ actionKind: z.string(), operation: z.string(), taskId: z.string().optional(), taskDigest: z.string().optional(),
-    assignmentId: z.string().optional(), groupId: z.string().optional(), routeId: z.string().optional(),
-    seedCommit: z.string().optional(), reviewId: z.string().optional(), planVersion: z.string().optional() }),
-  execution: z.enum(['running', 'completed', 'interrupted', 'failed', 'recovered']),
-  usage: z.object({ basis: z.literal('provider-thread-window'), attribution: z.literal('unverified'),
-    coverage: z.enum(['pending', 'reported', 'partial', 'unknown']), beforeTotalTokens: safeCount.nullable(),
-    afterTotalTokens: safeCount.nullable(), observedDeltaTokens: safeCount.nullable(), reportedUpdates: safeCount,
-    uncertainReasons: z.array(z.string()) }),
-  outcomeStatus: z.enum(['pending', 'recorded', 'unavailable-after-restart']), outcome: turnOutcome.optional() });
 const taskReference = z.object({ taskId: z.string(), taskDigest: z.string() });
 const handoffDecision = z.object({ id: z.string(), deliveryId: z.string(), status: z.enum(['adopted', 'rejected', 'deferred']),
   taskId: z.string().optional(), taskDigest: z.string().optional(), reason: z.string().optional(),
@@ -262,8 +229,6 @@ const runState = research.extend({ schema: z.literal('deepscientist.math.solver.
   })) }).optional(),
   knowledgeUses: z.array(knowledgeUse.extend({ workerId: z.string(), commit: z.string() })).optional(),
   coordination: z.enum(['cooperative', 'independent']).optional(),
-  turnLedger: z.object({ retainedLimit: safeCount.min(1), dropped: safeCount, unscopedReports: safeCount,
-    turns: z.array(modelTurnReceipt) }).optional(),
   workers: z.array(research.extend({ id: z.string(), role, sessionRole: role.optional(),
     sessionAssignmentId: z.string().optional() })).optional(),
   cooperation: z.object({ tasks: z.array(taskRecord), groups: z.array(z.object({ group: z.object({ id: z.string(),

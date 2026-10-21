@@ -14,9 +14,9 @@ vi.mock('../src/math/mathBuildManifest', () => ({ readMathBuildManifest: vi.fn()
 const roots: string[] = [];
 afterEach(() => { vi.restoreAllMocks(); for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
 function fixture(cooperative = false) {
-  const example = localExample('turn-ledger-research-', 'lead'), { directory, workspace, problem } = example; roots.push(directory);
+  const example = localExample('research-usage-', 'lead'), { directory, workspace, problem } = example; roots.push(directory);
   const workers = [leadWorker(problem, workspace), ...cooperative ? [peerWorker(example, 'peer')] : []];
-  const state = solverState(problem, workspace, { runId: 'turn-ledger-integration', model: 'fixture', effort: 'fixture', phase: 'running',
+  const state = solverState(problem, workspace, { runId: 'research-usage-integration', model: 'fixture', effort: 'fixture', phase: 'running',
     ...(cooperative ? { workers: workers.map(worker => ({ ...worker, phase: 'running' as const, turns: 0 })),
       cooperation: { canonicalCommit: problem.baseCommit, groups: [{ group: { id: 'main', objective: 'Prove originals',
         status: 'active' as const, revision: 0 }, turns: 0 }], tasks: [
@@ -46,8 +46,8 @@ function fixture(cooperative = false) {
   return { state, workers, run, check, modules, emit, save };
 }
 
-describe('turn ledger at the real research worker boundary', () => {
-  it('settles each model call after host checking and preserves usage totals and provider turn ids', async () => {
+describe('research usage at the real research worker boundary', () => {
+  it('checks each model call and preserves complete usage totals', async () => {
     const { state, run, modules, check, emit } = fixture(); let calls = 0;
     const open = vi.fn(async (options: MathAgentOptions): Promise<MathAgentSession> => ({ threadId: 'fixture-thread',
       run: async (_message, _messageId, workspace, onStarted) => {
@@ -58,17 +58,12 @@ describe('turn ledger at the real research worker boundary', () => {
     await expect(run(modules(open), 2)).resolves.toBeUndefined();
     expect(calls).toBe(2); expect(check).toHaveBeenCalledTimes(2);
     expect(state.usage!.totalTokens).toBe(60);
-    expect(state.turnLedger!.turns).toHaveLength(2);
-    for (const [index, turn] of state.turnLedger!.turns.entries()) {
-      expect(turn).toMatchObject({ turnId: 'provider-turn-' + (index + 1), execution: 'completed', outcomeStatus: 'recorded',
-        scope: { actionKind: 'independent', operation: 'direct' },
-        usage: { observedDeltaTokens: 30, coverage: 'reported', attribution: 'unverified' },
-        outcome: { acceptance: 'not-assessed', retainedWork: { check: { passed: false, status: 'failed' } } } });
-    }
-    expect(emit.mock.calls.filter(([event]) => event === 'model_turn_ledger_recorded')).toHaveLength(2);
+    expect(state.usageAccounting).toEqual({ startedTurns: 2, reportedTurns: 2, pending: false, incomplete: false });
+    expect(emit.mock.calls.filter(([event]) => event === 'turn_started').map(([, details]) => details.turnId))
+      .toEqual(['provider-turn-1', 'provider-turn-2']);
   });
 
-  it('keeps a recovered failed request and the new session consumption partial instead of charging the retry precisely', async () => {
+  it('keeps usage incomplete after a failed request and its replacement session', async () => {
     const { state, run, modules } = fixture(); let calls = 0, sessions = 0;
     const open = vi.fn(async (options: MathAgentOptions): Promise<MathAgentSession> => ({ threadId: 'thread-' + ++sessions,
       run: async (_message, _messageId, workspace, onStarted) => {
@@ -77,10 +72,7 @@ describe('turn ledger at the real research worker boundary', () => {
       }, interrupt: async () => {}, close: async () => {} }));
     await expect(run(modules(open), 2)).resolves.toBeUndefined();
     expect(sessions).toBe(2); expect(state.usage!.totalTokens).toBe(13);
-    expect(state.turnLedger!.turns.map(turn => [turn.execution, turn.usage.coverage, turn.usage.observedDeltaTokens]))
-      .toEqual([['failed', 'partial', 10], ['completed', 'partial', 3]]);
-    expect(state.turnLedger!.turns[1].usage.uncertainReasons).toContain('prior-thread-usage-incomplete');
-    expect(state.usageAccounting!.incomplete).toBe(true);
+    expect(state.usageAccounting).toMatchObject({ startedTurns: 2, reportedTurns: 1, incomplete: true });
   });
 
   it('quarantines a closed session report without merging it into or satisfying the next model turn', async () => {
@@ -100,13 +92,6 @@ describe('turn ledger at the real research worker boundary', () => {
     expect(calls).toBe(2); expect(sessions).toBe(2);
     expect(state.usage!.totalTokens).toBe(10);
     expect(state.usageAccounting).toMatchObject({ startedTurns: 2, reportedTurns: 0, incomplete: true, pending: false });
-    expect(state.turnLedger!.unscopedReports).toBe(1);
-    expect(state.turnLedger!.turns[0].usage).toMatchObject({ coverage: 'partial', observedDeltaTokens: 10 });
-    expect(state.turnLedger!.turns[0].usage.uncertainReasons).toContain('late-or-unscoped-usage-report');
-    expect(state.turnLedger!.turns[1].usage).toMatchObject({ coverage: 'unknown', reportedUpdates: 0,
-      afterTotalTokens: null, observedDeltaTokens: null });
-    expect(state.turnLedger!.turns[1].usage.uncertainReasons)
-      .toEqual(expect.arrayContaining(['cross-session-usage-report', 'missing-usage-report']));
     expect(emit).toHaveBeenCalledWith('worker_usage_unscoped', expect.objectContaining({ reportedTotalTokens: 1000 }));
   });
 
@@ -131,9 +116,6 @@ describe('turn ledger at the real research worker boundary', () => {
     expect(calls).toBe(2); expect(sessions).toBe(2);
     expect(state.usage!.totalTokens).toBe(13);
     expect(state.usageAccounting).toMatchObject({ startedTurns: 2, reportedTurns: 1, incomplete: true, pending: false });
-    expect(state.turnLedger!.unscopedReports).toBe(1);
-    expect(state.turnLedger!.turns.map(turn => turn.usage.observedDeltaTokens)).toEqual([10, 3]);
-    expect(state.turnLedger!.turns[0].usage.uncertainReasons).toContain('late-or-unscoped-usage-report');
     expect(emit).toHaveBeenCalledWith('worker_usage_unscoped', expect.objectContaining({ reportedTotalTokens: 1000 }));
   });
 
@@ -163,7 +145,6 @@ describe('turn ledger at the real research worker boundary', () => {
     expect(state.usage!.totalTokens).toBe(13);
     expect(state.requestUsageAccounting).toEqual({ startedRequests: 2, reportedRequests: 2, pendingRequests: 0, incomplete: false });
     expect(state.usageAccounting).toEqual({ startedTurns: 2, reportedTurns: 2, pending: false, incomplete: false });
-    expect(state.turnLedger!.turns.map(turn => turn.execution)).toEqual(['failed', 'completed']);
     expect(state.error).toBeUndefined();
   });
 
@@ -199,12 +180,9 @@ describe('turn ledger at the real research worker boundary', () => {
     expect(state.requestUsageAccounting).toEqual({ startedRequests: 2, reportedRequests: complete ? 2 : 1, pendingRequests: 0, incomplete: true });
     expect(state.usageAccounting).toEqual({ startedTurns: 2, reportedTurns: complete ? 1 : 0, pending: false, incomplete: true });
     expect(state.tokenBudget).toMatchObject({ status: 'unlimited', reportedTotalTokens: 13, usageComplete: false });
-    expect(state.turnLedger!.turns[0].usage.uncertainReasons).toContain('late-or-unscoped-usage-report');
-    expect(state.turnLedger!.turns[1].usage.reportedUpdates).toBe(1);
-    if (timing === 'replacement') expect(state.turnLedger!.turns[1].usage.uncertainReasons).toContain('cross-session-usage-report');
   });
 
-  it('settles an interrupted cooperative assignment only after the host has saved its advisory draft', async () => {
+  it('saves an interrupted cooperative assignment as an advisory draft without checking it', async () => {
     const { state, run, modules, check } = fixture(true);
     const open = vi.fn(async (options: MathAgentOptions): Promise<MathAgentSession> => ({ threadId: 'advisory-thread',
       run: async (_message, _messageId, workspace, onStarted) => {
@@ -214,15 +192,10 @@ describe('turn ledger at the real research worker boundary', () => {
       }, interrupt: async () => {}, close: async () => {} }));
     await expect(run(modules(open), 1)).resolves.toBeUndefined();
     expect(open).toHaveBeenCalledTimes(1); expect(check).not.toHaveBeenCalled();
-    const turn = state.turnLedger!.turns[0];
-    expect(turn).toMatchObject({ workerId: 'peer', execution: 'interrupted', outcomeStatus: 'recorded',
-      scope: { actionKind: 'task', taskId: 'investigation', groupId: 'main' },
-      usage: { coverage: 'partial', observedDeltaTokens: 20 },
-      outcome: { acceptance: 'not-assessed', retainedWork: { value: 'not-assessed', drafts: [{
-        taskId: 'investigation', evidenceStatus: 'advisory-unverified',
-      }] } } });
-    expect(turn.scope.assignmentId).toBeTypeOf('string');
-    expect(turn.outcome!.retainedWork.drafts[0].assignmentId).toBe(turn.scope.assignmentId);
+    const draft = state.cooperation!.researchDrafts!.investigation!;
+    expect(draft).toMatchObject({ workerId: 'peer' });
+    expect(draft.assignmentId).toBeTypeOf('string');
+    expect(state.workers!.find(worker => worker.id === 'peer')!.usage!.totalTokens).toBe(20);
     expect(state.cooperation!.tasks.find(node => node.task.id === 'investigation')!.status).toBe('pending');
     expect(state.cooperation!.tasks.filter(node => node.task.kind === 'goal').every(node => !node.integratedCheck)).toBe(true);
   });

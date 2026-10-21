@@ -608,9 +608,6 @@ describe('isolated solver and host acceptance', () => {
     expect(state.requestUsageAccounting).toEqual({ startedRequests: 2, reportedRequests: 2, pendingRequests: 0, incomplete: false });
     expect(state.lastFailure?.reason).toBe(solved ? undefined : 'math_total_token_limit');
     expect(state.usageAccounting).toMatchObject({ startedTurns: 1, reportedTurns: 1, pending: false, incomplete: false });
-    expect(state.turnLedger.turns).toHaveLength(1);
-    expect(state.turnLedger.turns[0]).toMatchObject({ execution: 'failed', outcomeStatus: 'recorded',
-      usage: { beforeTotalTokens: 0, afterTotalTokens: 110, observedDeltaTokens: 110, reportedUpdates: 2, coverage: 'partial' } });
     expect(requests).toHaveBeenCalledTimes(2); expect(host.delay).not.toHaveBeenCalled();
     expect(host.officialGate).toHaveBeenCalledTimes(Number(solved));
   });
@@ -2300,7 +2297,6 @@ describe('isolated solver and host acceptance', () => {
     const state = readSolverRunState(`${output}.runtime/state.json`);
     expect(leadTurns).toBe(1); expect(proofTurns).toBe(2);
     expect(state.cooperation!.initialPlanFallback).toBeDefined();
-    expect(state.turnLedger!.turns[0].execution).toBe('interrupted');
     expect(state.tokenBudget).toMatchObject({ status: 'available', usageComplete: true });
     expect(state.workers!.every(worker => !worker.lastFailure && !worker.error)).toBe(true);
     expect(state.cooperation!.tasks.every(node => node.status === 'integrated')).toBe(true);

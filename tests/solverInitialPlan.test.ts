@@ -7,7 +7,6 @@ import type { ResearchWorker } from '../src/solver/modules/organization';
 import { commitSolverSources, git, type SolverProblem } from '../src/solver/problem';
 import { ResearchUsage } from '../src/solver/researchUsage';
 import { initialPlanDeliveryFile, type CooperativeAction } from '../src/solver/tasks';
-import { WorkerTurnLedger } from '../src/solver/turnLedger';
 import { buildTokenBudget, initializeUsageAccounting } from '../src/solver/usageBudget';
 import { cooperativeResearch } from './helpers/cooperation';
 import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
@@ -211,15 +210,15 @@ describe('explicit initial Lead plan publication', () => {
     const cooperative = create(), action = await startLead(cooperative);
     initializeUsageAccounting(state);
     state.tokenBudget = buildTokenBudget(1000, [state], 'provider-observed-upstream-request-limit');
-    const controller = instances[0].controller, ledger = new WorkerTurnLedger(state, lead.id, state, () => {});
-    const usage = new ResearchUsage({ state, research: state, ledger, maxTotalTokens: 1000,
+    const controller = instances[0].controller;
+    const usage = new ResearchUsage({ state, research: state, maxTotalTokens: 1000,
       signal: controller.signal, remainingMs: () => Infinity,
       changed: () => { state.tokenBudget = buildTokenBudget(1000, [state], 'provider-observed-upstream-request-limit'); },
       emit: (name, details) => events.push({ event: name, details }) });
     const callbacks = usage.bindSession('fixture-session', () => undefined);
     usage.sessionOpened({ threadId: 'fixture-thread', usageSource: 'upstream-requests', run: async () => 'completed',
       close: async () => {}, interrupt: async () => {} });
-    usage.begin('fixture-thread', 'direct', action);
+    usage.begin(action);
     const first = callbacks.requestGate!(), second = callbacks.requestGate!();
     if (!first.allowed || !second.allowed) throw new Error('fixture_request_not_admitted');
     first.settle({ usage: { totalTokens: 20, inputTokens: 15, outputTokens: 5 }, complete: true });
@@ -232,7 +231,7 @@ describe('explicit initial Lead plan publication', () => {
     second.settle({ usage: { totalTokens: 500, inputTokens: 450, outputTokens: 50 }, complete: true });
     third.settle({ usage: { totalTokens: 500, inputTokens: 450, outputTokens: 50 }, complete: true });
     expect(callbacks.requestGate!()).toEqual({ allowed: false, reason: 'math_total_token_limit' });
-    usage.finish(true, 'completed');
+    usage.finish(true);
     expect(state.requestUsageAccounting).toMatchObject({ reportedRequests: 3, pendingRequests: 0, incomplete: false });
     expect(events.some(item => item.event === 'planning_budget_stopped')).toBe(false);
   });

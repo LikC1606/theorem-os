@@ -162,7 +162,6 @@ describe('saved Lead plans after request failure', () => {
       expect(lead.requestUsageAccounting).toEqual({ startedRequests: mode === 'requests' ? 2 : 1,
         reportedRequests: mode === 'requests' ? 2 : 1, pendingRequests: 0, incomplete: false });
       expect(lead.lastFailure).toBeUndefined(); expect(lead.error).toBeUndefined();
-      expect(state.turnLedger!.turns.at(-1)).toMatchObject({ execution: 'interrupted', outcomeStatus: 'recorded' });
       expect(state.cooperation!.tasks.map(node => node.task.id)).toEqual(mode === 'saved-plan'
         ? ['goal_1', 'goal_2'] : ['initial_goal_1', 'initial_goal_2']);
       expect(state.cooperation!.tasks.every(node => node.status === 'pending' && !node.proof)).toBe(true);
@@ -205,7 +204,6 @@ describe('saved Lead plans after request failure', () => {
     await expect(run(1000)).rejects.toThrow('math_model_request_stopped');
     expect(state.cooperation!.tasks).toEqual([]);
     expect(state.cooperation!.initialPlanFallback).toBeUndefined();
-    expect(state.turnLedger!.turns.at(-1)?.execution).toBe('failed');
     expect(events.some(item => item.event === 'planning_budget_stopped')).toBe(false);
     expect(state.tokenBudget).toMatchObject({ status: 'available', usageComplete: true, reportedTotalTokens: 40 });
   });
@@ -267,7 +265,6 @@ describe('saved Lead plans after request failure', () => {
       : mode === 'returned' ? 'math_source_outside_ownership' : 'math_candidate_identity_changed');
     expect(state.cooperation!.initialPlanFallback).toBeUndefined();
     expect(state.cooperation!.tasks).toEqual([]);
-    if (mode !== 'changed-source') expect(state.turnLedger!.turns.at(-1)?.execution).toBe('failed');
   });
 
   it.each(['research', 'sketch'])('keeps failed %s work on the ordinary retry path', async kind => {

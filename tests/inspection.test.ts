@@ -11,7 +11,6 @@ import type { TaskProof } from '../src/solver/cooperativeProof';
 import { researchFailureCategory } from '../src/solver/modules/search';
 import type { RequestUsageAccounting } from '../src/solver/usageBudget';
 import { researchHandoffs, resolveResearchHandoffs } from '../src/solver/researchHandoffs';
-import { WorkerTurnLedger } from '../src/solver/turnLedger';
 
 const roots: string[] = [];
 function fixture() {
@@ -65,19 +64,12 @@ describe('run inspection', () => {
     expect(report.progress.checkedProofTasks).toBe(0);
   });
 
-  it('keeps protocol failures separate from mathematical proof failures and consumes retained turn observations', () => {
+  it('keeps protocol failures separate from mathematical proof failures', () => {
     const { state } = fixture();
     state.cooperation!.tasks[0].attempts = 48;
     state.cooperation!.tasks[0].feedback = 'math_codex_rpc_failed:-32600:turn/start';
-    const ledger = new WorkerTurnLedger(state, 'solver', state.workers![0], () => {});
-    ledger.begin('session', 'thread', 'direct'); ledger.finish('failed'); ledger.settle();
-    const report = buildRunInspection(state), markdown = renderRunInspection(report);
+    const report = buildRunInspection(state);
     expect(report.tasks[0]).toMatchObject({ attempts: 48, feedbackCategory: 'protocol', proof: { status: 'none' } });
-    expect(report.modelTurns).toMatchObject({ available: true, retained: 1, attribution: 'observed-not-causal',
-      turns: [{ execution: 'failed', usage: { coverage: 'unknown', observedDeltaTokens: null },
-        observedProgress: { obligations: { closed: [] } } }] });
-    expect(markdown).toContain('Retained model turns');
-    expect(markdown).toContain('Missing changes do not establish wasted work');
     expect(report.snapshot.stateDigest).toMatch(/^[a-f0-9]{64}$/u);
     expect(researchFailureCategory('math_delivery_invalid_json')).toBe('protocol');
     expect(researchFailureCategory('math_research_delivery_invalid')).toBe('protocol');

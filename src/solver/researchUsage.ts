@@ -1,9 +1,7 @@
 import type { MathAgentOptions, MathAgentSession } from '../runtime/codexSession';
 import type { ModelRequestAdmission, ModelRequestStopReason } from '../runtime/modelRequest';
 import type { SolverRunState, SolverWorkerState } from './archive';
-import type { ResearchOperation } from './modules/value';
 import type { CooperativeAction } from './tasks';
-import type { ModelTurnReceipt, WorkerTurnLedger } from './turnLedger';
 import { beginRequestUsage, initializeRequestUsageAccounting, modelDispatchAllowed,
   recordThreadUsage, reportedTotalTokens } from './usageBudget';
 
@@ -16,16 +14,15 @@ export class ResearchUsage {
   stopReason?: ModelRequestStopReason;
 
   constructor(private input: {
-    state: SolverRunState; research: SolverRunState | SolverWorkerState; ledger: WorkerTurnLedger;
+    state: SolverRunState; research: SolverRunState | SolverWorkerState;
     maxTotalTokens: number; signal: AbortSignal; remainingMs: () => number;
     changed: () => void; emit: (event: string, details: Record<string, unknown>) => void;
   }) {}
 
   resetTurn() { this.stopReason = undefined; }
 
-  begin(threadId: string | undefined, operation: ResearchOperation, assignment?: CooperativeAction) {
-    const { state, research, ledger, maxTotalTokens } = this.input;
-    ledger.begin(this.sessionId, threadId, operation, assignment);
+  begin(assignment?: CooperativeAction) {
+    const { state, research, maxTotalTokens } = this.input;
     research.usageAccounting!.startedTurns++;
     research.usageAccounting!.pending = true;
     this.active = { reported: false, incomplete: false,
@@ -34,8 +31,8 @@ export class ResearchUsage {
     this.input.changed();
   }
 
-  finish(completed: boolean, execution: ModelTurnReceipt['execution']) {
-    const { research, ledger } = this.input;
+  finish(completed: boolean) {
+    const { research } = this.input;
     const turn = this.active!;
     const accounting = research.usageAccounting!, requests = research.requestUsageAccounting;
     accounting.pending = false;
@@ -45,7 +42,6 @@ export class ResearchUsage {
     else accounting.incomplete = true;
     if (requests?.pendingRequests) requests.incomplete = true;
     this.active = undefined;
-    ledger.finish(execution);
     this.input.changed();
   }
 
@@ -61,7 +57,7 @@ export class ResearchUsage {
 
   bindSession(sessionId: string, inputTokens: () => number | undefined): UsageCallbacks {
     this.sessionId = sessionId;
-    const { research, ledger, emit, changed } = this.input;
+    const { research, emit, changed } = this.input;
     return {
       onUsage: usage => {
         if (research.requestUsageAccounting) {
@@ -71,13 +67,11 @@ export class ResearchUsage {
         if (this.sessionId !== sessionId) {
           // A closed session's cumulative total has no safe baseline in the current thread.
           research.usageAccounting!.incomplete = true;
-          ledger.usage(sessionId, false);
           emit('worker_usage_unscoped', { sessionId, reportedTotalTokens: reportedTotalTokens(usage) });
           changed(); return;
         }
         research.lastInputTokens = inputTokens() ?? research.lastInputTokens;
         const reported = recordThreadUsage(research, usage);
-        ledger.usage(sessionId, reported);
         if (this.active && reported) this.active.reported = true;
         changed();
       },
@@ -85,7 +79,6 @@ export class ResearchUsage {
         research.usageAccounting!.incomplete = true;
         if (research.requestUsageAccounting) research.requestUsageAccounting.incomplete = true;
         if (this.active) this.active.incomplete = true;
-        ledger.usage(sessionId, false);
         changed();
       },
       requestGate: () => this.admitRequest(sessionId),
@@ -106,7 +99,7 @@ export class ResearchUsage {
   }
 
   private admitRequest(sessionId: string): ModelRequestAdmission {
-    const { state, research, signal, remainingMs, maxTotalTokens, ledger, changed } = this.input;
+    const { state, research, signal, remainingMs, maxTotalTokens, changed } = this.input;
     if (!modelDispatchAllowed(state.tokenBudget!)) return this.rejectRequest(sessionId, state.tokenBudget!.reason!);
     if (this.sessionId !== sessionId || !this.active || signal.aborted || remainingMs() <= 0)
       return this.rejectRequest(sessionId, 'math_model_request_stopped');
@@ -123,7 +116,6 @@ export class ResearchUsage {
       settled = true;
       settle(receipt);
       if (this.active && !receipt.complete) this.active.incomplete = true;
-      ledger.usage(sessionId, receipt.complete && reportedTotalTokens(receipt.usage) !== null);
       changed();
     } };
   }

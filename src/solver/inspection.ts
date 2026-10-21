@@ -28,18 +28,6 @@ export function readRunInspection(run: string) {
   return { stateFile, state, result, snapshot: runInspectionSnapshot(state, result) };
 }
 
-function turnObservations(state: SolverRunState) {
-  const ledger = state.turnLedger;
-  return { available: Boolean(ledger), retained: ledger?.turns.length ?? 0, dropped: ledger?.dropped ?? 0,
-    unscopedReports: ledger?.unscopedReports ?? 0, retainedLimit: ledger?.retainedLimit ?? null,
-    evidence: 'recorded-not-replayed' as const, attribution: 'observed-not-causal' as const,
-    turns: (ledger?.turns ?? []).map(receipt => ({ id: receipt.id, workerId: receipt.workerId,
-      runTurn: receipt.runTurn, scope: receipt.scope, execution: receipt.execution,
-      usage: receipt.usage, outcomeStatus: receipt.outcomeStatus,
-      observedProgress: receipt.outcome?.observedProgress,
-      retainedWork: receipt.outcome?.retainedWork })) };
-}
-
 function proofRecord(node: TaskRecord, state: SolverRunState) {
   const proof = node.integratedCheck ?? node.proof;
   if (!proof) return { status: 'none' as const };
@@ -76,7 +64,6 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
       buildDigest: state.buildDigest, environmentDigest: state.environmentDigest, methodDigest: state.methodDigest,
       knowledgeDigest: state.knowledgeDigest },
     turns: state.turns, usage: state.usage, planVersion: cooperative?.planVersion,
-    modelTurns: turnObservations(state),
     knowledge: { status: state.knowledgeDigest ? 'enabled' : 'disabled', catalogDigest: state.knowledgeDigest,
       evidence: 'recorded-not-replayed', attribution: 'model-reported-origin',
       retrievalCoverage: state.knowledgeRetrievals ? 'recorded' : 'unknown',
@@ -161,15 +148,6 @@ export function renderRunInspection(report: Inspection): string {
   if (report.knowledge.catalogDigest) text += `\nPinned catalog: ${report.knowledge.catalogDigest}. ` +
     `Dropped retrieval observations: ${report.knowledge.droppedRetrievals}. ` +
     'Usage origins are model-reported; checked references confirm a declaration in a recorded proof, not historical authorship or current acceptance.\n';
-  if (report.modelTurns.available) {
-    text += section('Retained model turns', table(['Turn', 'Worker', 'Responsibility', 'Task', 'Execution', 'Usage coverage', 'Closed obligations', 'Changed original frontiers'],
-      report.modelTurns.turns.slice(-12).map(receipt => [receipt.runTurn, receipt.workerId, receipt.scope.actionKind,
-        receipt.scope.taskId, receipt.execution, receipt.usage.coverage,
-        receipt.observedProgress?.obligations.closed.join(', ') || 'none recorded',
-        receipt.observedProgress?.frontierChangedGoalIds.join(', ') || 'none recorded'])));
-    text += `\nRetained ${report.modelTurns.retained} turns; dropped ${report.modelTurns.dropped}; unscoped usage reports ${report.modelTurns.unscopedReports}. ` +
-      'Usage windows have unverified turn attribution. Missing changes do not establish wasted work or mathematical failure.\n';
-  }
   text += section('Original targets', table(['Declaration', 'File'], report.problem.targets.map(target => [target.theoremName, target.proofPath])));
   text += section('Recorded progress', `${report.progress.checkedProofTasks} checked proof tasks; ${report.progress.conditionalProofTasks} conditional; ${report.progress.completedResearchTasks} completed research tasks.\n\nOpen proof tasks: ${report.progress.openProofTasks.join(', ') || 'none'}. Dispatch counts include retries and do not measure mathematical progress.`);
   text += section('Proof continuation', table(['Original goal', 'Recorded proof', 'Open dependency frontier', 'Missing tasks'],
