@@ -888,7 +888,7 @@ describe('isolated solver and host acceptance', () => {
   it.each(['coordination', 'scheduler'])('freezes the CLI %s policy across resume', async policy => {
     expect(await runSolver([...args, '--startup-only'], directory)).toBe(0);
     const prepared = fs.readFileSync(output, 'utf8');
-    expect(await runSolver([...args, '--resume', `--${policy}`, policy === 'scheduler' ? 'goals-first' : 'independent'], directory)).toBe(1);
+    expect(await runSolver([...args, '--resume', `--${policy}`, policy === 'scheduler' ? 'continuation' : 'independent'], directory)).toBe(1);
     expect(fs.readFileSync(output, 'utf8')).toBe(prepared);
     expect(host.createSession).not.toHaveBeenCalled();
   });

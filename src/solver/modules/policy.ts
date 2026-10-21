@@ -10,7 +10,7 @@ export type CustomResearchModule = {
   instructions: string;
 };
 export type ResearchModulePlan = {
-  scheduler: 'plan' | 'goals-first' | 'critical-path' | 'continuation';
+  scheduler: 'plan' | 'critical-path' | 'continuation';
   context: 'full' | 'essential';
   custom: CustomResearchModule[];
 };
@@ -32,7 +32,7 @@ const customResearchModuleSchema = z.object({
 }).strict();
 
 export const researchModulePlanDraftSchema = z.object({
-  scheduler: z.enum(['plan', 'goals-first', 'critical-path', 'continuation']),
+  scheduler: z.enum(['plan', 'critical-path', 'continuation']),
   context: z.enum(['full', 'essential']),
   custom: z.array(customResearchModuleSchema).max(8, '最多添加 8 个自定义模块。'),
 }).strict().superRefine((plan, context) => {

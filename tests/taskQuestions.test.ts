@@ -13,7 +13,7 @@ it('prevents every scheduler from concurrently assigning an identical public que
   first.status = 'running';
   const tasks = [first, second, different];
   const worker = { id: 'researcher', role: 'researcher' as const, worktree: '/proof', ownedFiles: [] };
-  for (const scheduler of ['plan', 'continuation', 'goals-first', 'critical-path'])
+  for (const scheduler of ['plan', 'continuation', 'critical-path'])
     expect(configuredSolverModules('direct', scheduler).M5.assign([second, different], worker, [worker], undefined, tasks)).toBe(different);
   first.status = 'completed';
   expect(hasRunningDuplicateQuestion(second, tasks)).toBe(false);

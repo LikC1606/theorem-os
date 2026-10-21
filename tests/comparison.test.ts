@@ -7,7 +7,7 @@ import * as imoAdapter from '../src/math/imo2026Adapter';
 import * as buildManifest from '../src/math/mathBuildManifest';
 import * as solverProblem from '../src/solver/problem';
 import { configuredSolverModules, directSolverModules, solverMethodDigest } from '../src/solver/modules';
-import { readyResearchTasks } from '../src/solver/modules/search';
+import { goalsFirstResearchTasks, readyResearchTasks } from '../src/solver/modules/search';
 import { researchWorkers } from '../src/solver/modules/organization';
 import { canonicalMathJson, mathDigest } from '../src/math/mathRuntimeIo';
 import type { RouteRecord, TaskRecord } from '../src/solver/tasks';
@@ -26,14 +26,13 @@ describe('configured research comparisons', () => {
   const node = (id: string, kind: 'lemma' | 'goal', dependsOn: string[] = [], status?: 'paused'): TaskRecord => ({
     task: { id, kind, objective: id, dependsOn, revision: 0, status }, status: 'pending', attempts: 0 });
 
-  it('replaces only M3 ordering while retaining dependency and pause gates', () => {
+  it('keeps the goals-first example ordering behind dependency and pause gates', () => {
     const tasks = [node('helper', 'lemma'), node('blocked-goal', 'goal', ['helper']), node('ready-goal', 'goal'), node('paused', 'goal', [], 'paused')];
-    const modules = configuredSolverModules('direct', 'goals-first');
     expect(readyResearchTasks(tasks).map(node => node.task.id)).toEqual(['ready-goal', 'helper']);
-    expect(modules.M3.ready(tasks).map(node => node.task.id)).toEqual(['ready-goal', 'helper']);
-    for (const module of ['M1', 'M2', 'M4', 'M5']) expect(modules[module]).toBe(directSolverModules[module]);
+    expect(goalsFirstResearchTasks(tasks).map(node => node.task.id)).toEqual(['ready-goal', 'helper']);
     expect(configuredSolverModules('direct', 'plan')).toBe(directSolverModules);
     expect(() => configuredSolverModules('direct', 'typo')).toThrow('invalid --scheduler');
+    expect(() => configuredSolverModules('direct', 'goals-first')).toThrow('invalid --scheduler');
     expect(() => configuredSolverModules('lemma', 'plan')).toThrow('invalid --method');
   });
 
@@ -94,7 +93,7 @@ describe('configured research comparisons', () => {
     expect(modules.M3.select).toBe(base.M3.select);
     expect(modules.M5.workers).toBe(base.M5.workers);
     expect(modules.M5.reviewer).toBe(base.M5.reviewer);
-    const digests = ['plan', 'goals-first', 'critical-path'].map(scheduler =>
+    const digests = ['plan', 'continuation', 'critical-path'].map(scheduler =>
       solverMethodDigest(configuredSolverModules('direct', scheduler), 'cooperative'));
     expect(new Set(digests).size).toBe(3);
   });
@@ -104,7 +103,7 @@ describe('configured research comparisons', () => {
       .filter(([key]) => key !== 'id').map(([key, module]) => [key, (module as { version: string }).version]) }));
     expect(solverMethodDigest(directSolverModules, 'cooperative')).toBe(previous);
     expect(solverMethodDigest(directSolverModules, 'independent')).not.toBe(previous);
-    expect(solverMethodDigest(configuredSolverModules('direct', 'goals-first'), 'cooperative')).not.toBe(previous);
+    expect(solverMethodDigest(configuredSolverModules('direct', 'continuation'), 'cooperative')).not.toBe(previous);
   });
 
   it('rotates arm order and includes missing runs in the planned denominator', () => {

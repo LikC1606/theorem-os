@@ -153,7 +153,7 @@ function prioritizeEarlyRouteChecks(ready: TaskRecord[], tasks: readonly TaskRec
   return [...consuming, check, ...ready.filter(node => node !== check && !consuming.includes(node))];
 }
 
-/** A simple M3 ablation: prefer ready original goals, preserving all readiness gates. */
+/** The scripts/mathematics/runGoalsFirst.ts extension example: prefer ready original goals, preserving all readiness gates. */
 export function goalsFirstResearchTasks(tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): TaskRecord[] {
   return prioritizeEarlyRouteChecks(readyResearchTasks(tasks, groups).toSorted((a, b) =>
     Number(b.task.kind === 'goal') - Number(a.task.kind === 'goal')), tasks, groups);

@@ -83,8 +83,8 @@ Missing counters or timings are not zero-cost attempts. Monetary costs are not
 estimated.
 
 For a component replacement experiment, prepare another comparison with
-`--scheduler goals-first` or `--scheduler continuation`. Default `plan` preserves plan order; `goals-first`
-changes only M3's ordering of ready tasks to prefer original goals. Dependency,
+`--scheduler critical-path` or `--scheduler continuation`. Default `plan` preserves plan order; `continuation`
+reorders M3's ready tasks to advance work that uses checked results on the main route. Dependency,
 route and ownership checks still apply. Module versions are saved, and resume
 rejects a changed policy. This is an ablation to measure, with no claimed
 improvement. Use multiple problems and repetitions under the same configuration

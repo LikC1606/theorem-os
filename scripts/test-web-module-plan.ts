@@ -239,7 +239,7 @@ try {
     await page.locator('#max-turns').fill('7'); await page.locator('#max-seconds').fill('90'); await page.locator('#workers').fill('3');
     const savedPlan = await saveLibraryPlan(page, 'My research workflow');
     assert.deepEqual(savedPlan.plan, original);
-    await page.locator('#module-plan-scheduler').selectOption('goals-first');
+    await page.locator('#module-plan-scheduler').selectOption('continuation');
     await rule(page, original.custom[0]!.id).locator('[data-module-plan-field="instructions"]').fill('A task-specific strategy');
     const before = await editorPlan(page);
     const otherFields = async () => page.evaluate(() => Object.fromEntries(['source', 'task', 'api-key', 'max-turns', 'max-seconds', 'workers', 'model', 'environment', 'provider']
@@ -421,7 +421,7 @@ try {
 
   await scenario('Editing and conflicting replacement policies stay local and block invalid submission', async h => {
     const { page } = h;
-    let plan = await configure(page, [enabledRule, disabledRule], 'goals-first');
+    let plan = await configure(page, [enabledRule, disabledRule], 'continuation');
     const first = plan.custom[0]!, second = plan.custom[1]!;
     await rule(page, first.id).locator('[data-module-plan-field="name"]').fill('Edited construction policy');
     await rule(page, first.id).locator('[data-module-plan-field="enabled"]').uncheck();
@@ -451,7 +451,7 @@ try {
     await rule(page, second.id).locator('[data-module-plan-field="instructions"]').fill('');
     plan = await editorPlan(page); await saved(page, plan);
     const exported = await exportDraft(page); assert.deepEqual(exported.draft.modulePlan, plan);
-    assert.equal(plan.scheduler, 'goals-first'); assert.equal(plan.context, 'essential');
+    assert.equal(plan.scheduler, 'continuation'); assert.equal(plan.context, 'essential');
     assert.equal(plan.custom[0]!.name, 'Edited construction policy'); assert.equal(plan.custom[1]!.enabled, false);
     assert.equal(plan.custom[1]!.instructions, '', 'an unfinished disabled rule must remain editable and exportable');
   });

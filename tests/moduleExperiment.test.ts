@@ -87,7 +87,6 @@ describe('module experiment definitions', () => {
       return modules.M5.assign(modules.M3.ready(tasks), workers[1], workers)?.task.id;
     };
     expect(assigned('plan')).toBe('ready-goal');
-    expect(assigned('goals-first')).toBe('ready-goal');
     expect(assigned('critical-path')).toBe('bridge');
   });
 });
@@ -223,7 +222,7 @@ describe('frozen module comparison launches', () => {
     expect(run).not.toHaveBeenCalled();
   });
 
-  it.each([['--workers', '2'], ['--scheduler', 'goals-first']])('rejects incompatible common option %s %s', async (flag, value) => {
+  it.each([['--workers', '2'], ['--scheduler', 'continuation']])('rejects incompatible common option %s %s', async (flag, value) => {
     await expect(compareMathRuns(['--phase', 'prepare', '--directory', '/unused', flag, value,
       '--module-experiment', path.join(root, 'examples/components/module-experiment.json')])).rejects.toThrow('module experiments require');
   });

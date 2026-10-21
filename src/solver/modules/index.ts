@@ -2,7 +2,7 @@ import { createCodexMathSession } from '../../runtime/codexSession';
 import { checkSolverProof } from './evidence';
 import { executeResearch } from './execution';
 import { buildResearchContext, buildStatementReviewContext } from './context';
-import { selectResearchAction, planResearchRetry, readyResearchTasks, goalsFirstResearchTasks, criticalPathResearchTasks, continuationResearchTasks } from './search';
+import { selectResearchAction, planResearchRetry, readyResearchTasks, criticalPathResearchTasks, continuationResearchTasks } from './search';
 import { assignSharedResearchTask, researchWorkers, assignResearchReviewer } from './organization';
 import { checkTaskProof } from '../cooperativeProof';
 import { canonicalMathJson, mathDigest } from '../../math/mathRuntimeIo';
@@ -25,16 +25,14 @@ export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M5'> & {
 /** Named CLI policies bind search and assignment versions without changing host acceptance. */
 export function configuredSolverModules(method: string, scheduler: string): SolverModules {
   if (method !== 'direct') throw new Error('invalid --method');
-  if (!['plan', 'goals-first', 'critical-path', 'continuation'].includes(scheduler)) throw new Error('invalid --scheduler');
+  if (!['plan', 'critical-path', 'continuation'].includes(scheduler)) throw new Error('invalid --scheduler');
   const base: SolverModules = directSolverModules;
   if (scheduler === 'critical-path') return { ...base,
     M3: { ...base.M3, version: `${base.M3.version}/critical-path-v1`, ready: criticalPathResearchTasks },
     M5: { ...base.M5, version: `${base.M5.version}/shared-work-v1`, assign: assignSharedResearchTask } };
-  if (scheduler === 'continuation') return { ...base,
+  return scheduler === 'plan' ? base : { ...base,
     M3: { ...base.M3, version: `${base.M3.version}/continuation-v5/original-goal-frontier-v3/ready-consumers-v1`, ready: continuationResearchTasks },
     M5: { ...base.M5, version: `${base.M5.version}/shared-work-v1`, assign: assignSharedResearchTask } };
-  return scheduler === 'plan' ? base : { ...base,
-    M3: { ...base.M3, version: `${base.M3.version}/goals-first-v1`, ready: goalsFirstResearchTasks } };
 }
 
 export function solverModuleConfiguration(modules: SolverModules) {

@@ -25,7 +25,7 @@ export type ModuleViewInput = {
   modulePlan?: ResearchModulePlan;
 };
 
-const schedulers: Record<string, string> = { plan: '按计划', 'goals-first': '原题目标优先', 'critical-path': '关键路径优先', continuation: '延续已有进展' };
+const schedulers: Record<string, string> = { plan: '按计划', 'critical-path': '关键路径优先', continuation: '延续已有进展' };
 
 export function customModuleState(rule: CustomResearchModule, input: Pick<ModuleViewInput, 'run' | 'coordination' | 'workers'>,
   snapshot?: WebModuleSnapshot): string {

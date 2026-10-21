@@ -32,7 +32,7 @@ const event = (sequence = 1, changes: Partial<WebEvent['details']> = {}): WebEve
 
 describe('web module plan persistence and worker boundary', () => {
   it('round trips complete and unfinished plans through drafts and archived runs', () => {
-    const configured = { ...plan(rule()), scheduler: 'goals-first' as const, context: 'essential' as const };
+    const configured = { ...plan(rule()), scheduler: 'continuation' as const, context: 'essential' as const };
     for (const value of [configured, plan(rule({ name: '', instructions: '' })), undefined]) {
       const saved = draft(value);
       expect(decodeTaskDraft(JSON.parse(encodeTaskDraft(saved)))).toEqual(saved);

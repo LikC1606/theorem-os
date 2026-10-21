@@ -10,7 +10,7 @@ const maximumLibraryCharacters = 1024 * 1024;
 
 const nameSchema = z.string().trim().min(1).max(40).refine(value => !value.includes('\0'));
 // Saved presets outlive removed strategies; such a preset reopens with the default scheduler instead of hiding the library.
-const retiredSchedulers = new Set(['primary-led']);
+const retiredSchedulers = new Set(['primary-led', 'goals-first']);
 const savedPlanSchema = z.object({
   id: z.string().regex(/^saved-[A-Za-z0-9_-]{12,64}$/), name: nameSchema,
   plan: z.preprocess(plan => plan && typeof plan === 'object' && retiredSchedulers.has((plan as { scheduler?: unknown }).scheduler as string)
