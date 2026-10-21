@@ -1,7 +1,6 @@
 import { isAdvisoryTask, taskGroup, taskVersion, type RouteRecord, type TaskRecord } from './tasks';
 import { describeProofRoutes, type ProofRoute } from './proofRoutes';
 import type { ResearchHandoff } from './researchHandoffs';
-import { primaryApplicationConsumer, primaryOwnedGoal } from './taskConsumers';
 
 /** Stored receipts describe a checkpoint; this function never replays or authorizes a proof. */
 export function recordedTaskProofStatus(node: TaskRecord, environmentDigest?: string) {
@@ -69,13 +68,7 @@ export function buildProofContinuation(tasks: readonly TaskRecord[], options: {
   }
   const goalPaths = new Map<string, Set<string>>();
   const frontierGoals = new Map<string, string[]>();
-  const primaryApplications = tasks.flatMap(helper => {
-    const consumer = primaryApplicationConsumer(helper, tasks);
-    return consumer && (!options.groups || options.groups.some(route => route.group.id === taskGroup(consumer.task) &&
-      route.group.status === 'active')) ? [{ taskId: helper.task.id, ...helper.application! }] : [];
-  });
-  const goals = tasks.filter(node => node.task.kind === 'goal' && (active(node) || primaryOwnedGoal(node) &&
-    (!options.groups || options.groups.some(route => route.group.id === taskGroup(node.task) && route.group.status === 'active')))).map(goal => {
+  const goals = tasks.filter(node => node.task.kind === 'goal' && active(node)).map(goal => {
     const seen = new Set<string>(), frontier = new Set<string>(), missing = new Set<string>();
     const visitPath = (id: string) => {
       if (seen.has(id)) return;
@@ -112,8 +105,6 @@ export function buildProofContinuation(tasks: readonly TaskRecord[], options: {
       const list = frontierGoals.get(id) ?? []; list.push(goal.task.id); frontierGoals.set(id, list);
     }
     return { taskId: goal.task.id, status: goal.status, recordedProof: status.get(goal.task.id)!,
-      ...(primaryOwnedGoal(goal) ? { executionOwner: 'primary' as const,
-        advisoryApplications: primaryApplications.filter(item => item.consumerTaskId === goal.task.id) } : {}),
       frontier: [...frontier], missingDependencies: [...missing],
       checkedDependencies: [...seen].filter(id => id !== goal.task.id && nodes.get(id)?.task.kind === 'lemma' && settled(nodes.get(id))),
       advisoryDependencies: [...seen].filter(id => nodes.get(id)?.status === 'completed' &&
@@ -179,15 +170,14 @@ export function buildProofContinuation(tasks: readonly TaskRecord[], options: {
       referenceCoverage: missingReferenceTaskIds.length ? 'unknown' as const : 'recorded' as const,
       missingReferenceTaskIds }];
   });
-  return { evidence: 'recorded-not-replayed' as const, goals, frontier, reuse, adoptedResearch, primaryApplications,
+  return { evidence: 'recorded-not-replayed' as const, goals, frontier, reuse, adoptedResearch,
     continuationCandidates: tasks.filter(node => active(node) && node.status === 'pending' &&
       ['lemma', 'goal'].includes(node.task.kind) && goalPaths.has(node.task.id) && checkedInputs(node).length > 0 &&
       node.task.dependsOn.every(id => settled(nodes.get(id))) && !node.routeParking?.length &&
       (!alternatives(node.task.id).length || alternatives(node.task.id).some(route =>
         !node.parkedRoutes?.[route.id]?.length &&
         [...route.prerequisiteTaskIds, route.closingTaskId].every(id => settled(nodes.get(id)))))).map(node => node.task.id),
-    unconnectedTasks: tasks.filter(node => active(node) && node.task.kind !== 'goal' && !goalPaths.has(node.task.id) &&
-      !primaryApplications.some(item => item.taskId === node.task.id)).map(node => node.task.id),
+    unconnectedTasks: tasks.filter(node => active(node) && node.task.kind !== 'goal' && !goalPaths.has(node.task.id)).map(node => node.task.id),
     referenceCoverageMissing: tasks.filter(node => settled(node) && ['lemma', 'goal'].includes(node.task.kind) &&
       !(node.integratedCheck ?? node.proof)?.references?.tasks).map(node => node.task.id),
     ...(routes.length ? { proofRoutes: describeProofRoutes(routes, tasks, options.environmentDigest) } : {}) };

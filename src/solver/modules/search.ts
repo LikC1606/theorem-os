@@ -7,7 +7,6 @@ import { proofRouteReady, type ProofRoute } from '../proofRoutes';
 import { createRecordedTaskSettlement } from '../progress';
 import { createProofRoutePriority } from '../routePriority';
 import { automaticTaskConnection, freshTaskConnection } from '../taskConnections';
-import { primaryApplicationConsumer, primaryOwnedGoal } from '../taskConsumers';
 import { allRoutesParked, checkedUnconditionally, freshlyAccepted, groupOpen, isAdvisoryTask, isFeasibilityReview, isFinalCandidateReview,
   openRoutes, taskGroup, taskReferenceDependencies, taskVersion, type TaskRecord, type RouteRecord, type CooperativeAction } from '../tasks';
 
@@ -205,7 +204,7 @@ function collectOriginalGoalTaskFocus(tasks: readonly TaskRecord[], groups?: rea
   priority?: ReturnType<typeof createProofRoutePriority>, environmentDigest?: string, includeParkedTasks = false): GoalTaskFocus {
   const nodes = new Map(tasks.map(node => [node.task.id, node]));
   const active = (node: TaskRecord) => {
-    if ((node.task.status ?? 'active') !== 'active' && !primaryOwnedGoal(node) ||
+    if ((node.task.status ?? 'active') !== 'active' ||
         !includeParkedTasks && (node.routeParking?.length || allRoutesParked(node))) return false;
     return !groups || groupOpen(groups.find(record => record.group.id === taskGroup(node.task)));
   };
@@ -268,13 +267,6 @@ function collectOriginalGoalTaskFocus(tasks: readonly TaskRecord[], groups?: rea
     if (isAdvisoryTask(node.task) || !settled(node)) inputs(node).forEach(visitSupport);
   };
   targetedResearch.forEach(visitSupport);
-  // Advisory application purpose must not become a proof prerequisite or authorize a paused goal.
-  for (const helper of tasks) {
-    const consumer = primaryApplicationConsumer(helper, tasks);
-    if (!consumer || !proofPath.has(consumer.task.id) || !active(helper)) continue;
-    if (isAdvisoryTask(helper.task)) targetedResearch.add(helper.task.id);
-    visitSupport(helper.task.id);
-  }
   return { proofPath, frontier, frontierGoals, targetedResearch, support };
 }
 

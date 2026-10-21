@@ -62,7 +62,7 @@ function searchTargets(problem: SolverProblem, cooperation?: CooperationState, a
     const target = taskTarget(problem, action.task);
     return target ? [target] : [];
   }
-  if (action && action.kind !== 'lead' && action.kind !== 'solve') return [];
+  if (action && action.kind !== 'lead') return [];
   if (action?.kind === 'lead' && cooperation?.tasks.length) {
     const focus = originalGoalTaskFocus(cooperation.tasks, cooperation.groups, environmentDigest);
     const targets = cooperation.tasks.filter(node => focus.frontier.has(node.task.id))

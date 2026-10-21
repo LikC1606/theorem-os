@@ -40,7 +40,7 @@ describe('assignment-bound worker delivery identities', () => {
     let queue = Promise.resolve();
     const instance = cooperativeResearch({ state, workers: [lead, peer, other], retrievalRoot: directory,
       signal: controller.signal, emit: (event, details) => events.push({ event, details }),
-      modules: { ...directSolverModules, M5: { ...directSolverModules.M5, primaryLed: true } },
+      modules: directSolverModules,
       exclusiveCheck: async check => {
         const previous = queue;
         let release!: () => void;

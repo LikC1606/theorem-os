@@ -202,7 +202,7 @@ export function resolveResearchHandoffs(state: HandoffState, dispatchedIds: read
       'math_handoff_waits_on_invalid', 'math_handoff_waits_on_invalid:')?.sort((left, right) => left.taskId.localeCompare(right.taskId));
     const recorded = handoff?.decision ?? previous.get(decision.id);
     const response = { status: decision.status as 'rejected' | 'deferred', reason: decision.reason.trim(), ...(waitsOn ? { waitsOn } : {}) };
-    // A primary solver can keep an acknowledged decision while editing its help requests.
+    // A response may restate an already recorded decision unchanged.
     if (!pending.has(id) && recorded?.status === response.status && recorded.reason === response.reason &&
         canonicalMathJson(recorded.waitsOn ?? []) === canonicalMathJson(waitsOn ?? [])) continue;
     if (!(shown.has(id) && pending.has(id)) && !waiting.has(id))

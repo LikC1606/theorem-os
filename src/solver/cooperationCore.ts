@@ -92,7 +92,7 @@ export abstract class CooperationCore {
     this.syncProofRoutes();
     if (!this.archive.canonicalCommit) {
       this.archive.canonicalCommit = git(this.lead.worktree, ['rev-parse', 'HEAD']);
-      if (!this.primaryLed) this.archive.leadSeedCommit ??= this.archive.canonicalCommit;
+      this.archive.leadSeedCommit ??= this.archive.canonicalCommit;
     }
     this.liveWorkers = new Set(input.workers.map(worker => worker.id));
     this.needsLead = !this.archive.tasks.length || Boolean(this.archive.error) ||
@@ -108,7 +108,6 @@ export abstract class CooperationCore {
     for (const worker of this.input.state.workers ?? []) if (worker.recovery?.phase === 'cooling-down') occupied.add(worker.id);
     return this.livePeers.filter(worker => !occupied.has(worker.id));
   }
-  protected get primaryLed() { return this.input.modules.M5.primaryLed === true; }
   protected syncProofRoutes() {
     for (const node of this.archive.tasks) node.alternativeRoutes = this.archive.proofRoutes?.filter(route => route.targetTaskId === node.task.id);
   }
@@ -204,12 +203,12 @@ export abstract class CooperationCore {
   deactivate(worker: ResearchWorker) { this.active.delete(worker.id); this.changed(); }
   current(action: CooperativeAction) {
     if (action.kind === 'assemble') return !this.failure && !this.stopping && this.liveWorkers.has(this.lead.id) && this.canAssemble(action.seedCommit);
-    if ((action.kind === 'lead' || action.kind === 'solve') && action.handoffActivations) {
+    if (action.kind === 'lead' && action.handoffActivations) {
       const pending = new Map(pendingResearchHandoffs(this.archive).flatMap(item =>
         item.sources.map(source => [source.handoffId, item.activationDigest] as const)));
       if (action.handoffIds?.some(id => pending.has(id) && pending.get(id) !== action.handoffActivations![id])) return false;
     }
-    if ((action.kind === 'lead' || action.kind === 'solve') && action.challengeActivations) {
+    if (action.kind === 'lead' && action.challengeActivations) {
       const pending = new Map(pendingResearchChallenges(this.archive).map(item => [item.id, item.activationDigest]));
       if (action.challengeIds?.some(id => pending.has(id) && pending.get(id) !== action.challengeActivations![id])) return false;
     }
@@ -372,7 +371,7 @@ export abstract class CooperationCore {
       fs.writeFileSync(path.join(worker.worktree, this.input.state.problem.projectRelative, file), source);
     }
     const seed = commitSolverSources(this.input.state.problem, worker.worktree);
-    if (worker.id === this.lead.id && !this.primaryLed) {
+    if (worker.id === this.lead.id) {
       this.archive.leadSeedCommit = seed; this.pin(seed); this.input.save();
     }
     return seed;

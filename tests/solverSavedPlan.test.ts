@@ -303,15 +303,6 @@ describe('saved Lead plans after request failure', () => {
     expect(events.some(item => item.event === 'worker_recovered')).toBe(false);
   });
 
-  it('keeps failed Primary solve work on the ordinary retry path', async () => {
-    modules.M5 = { ...modules.M5, primaryLed: true };
-    await expect(run()).rejects.toThrow('math_model_request_failed');
-    expect(actions.map(action => action.kind)).toEqual(['solve']);
-    expect(retry).toHaveBeenCalledOnce();
-    expect(state.cooperation!.tasks).toEqual([]);
-    expect(events.some(item => item.event === 'worker_recovered')).toBe(false);
-  });
-
   it('discards a saved plan without retrying its superseded Lead assignment', async () => {
     existingPlan();
     state.cooperation!.planVersion = 'assigned-plan-version';

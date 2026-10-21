@@ -20,10 +20,10 @@ describe('deferred research challenge plan retention', () => {
   const tasks = () => state.cooperation!.tasks.map(node => node.task);
   const notes = (value: unknown) => fs.writeFileSync(path.join(lead.worktree, 'RESEARCH.md'), JSON.stringify(value));
   const plan = (proposed = tasks()) => ({ tasks: proposed, groups: state.cooperation!.groups!.map(record => record.group) });
-  const create = (primaryLed = false) => {
+  const create = () => {
     const controller = new AbortController();
     const cooperative = cooperativeResearch({ state, workers: [lead, peer], retrievalRoot: directory, signal: controller.signal,
-      modules: primaryLed ? { ...directSolverModules, M5: { ...directSolverModules.M5, primaryLed: true } } : directSolverModules });
+      modules: directSolverModules });
     instances.push({ cooperative, controller });
     return cooperative;
   };
@@ -104,17 +104,6 @@ describe('deferred research challenge plan retention', () => {
     await cooperative.restore();
     expect(state.cooperation!.error).toBe('math_challenge_backlog_source_required:question');
     expect(tasks().some(task => task.id === 'waiting')).toBe(true);
-    expect(researchChallenges(state.cooperation!)[0]!.status).toBe('deferred');
-  });
-
-  it('retains delivery inputs outside source dependsOn when the primary solver replaces helper requests', async () => {
-    const cooperative = create(true), action = await cooperative.next(lead, budget);
-    if (action?.kind !== 'solve') throw new Error('fixture_expected_primary_solver');
-    expect(action.challengeIds).toEqual([]);
-    notes({ requests: [] });
-    await cooperative.deliver(lead, action, commitSolverSources(problem, lead.worktree));
-    expect(state.cooperation!.error).toBeUndefined();
-    expect(tasks().map(task => task.id)).toEqual(expect.arrayContaining(['question', 'waiting', 'delivery_input']));
     expect(researchChallenges(state.cooperation!)[0]!.status).toBe('deferred');
   });
 });

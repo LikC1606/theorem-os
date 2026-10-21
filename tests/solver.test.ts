@@ -1668,7 +1668,7 @@ describe('isolated solver and host acceptance', () => {
     expect(host.createSession).not.toHaveBeenCalled();
   });
 
-  function handoffQueue(primaryLed = false, count = 18) {
+  function handoffQueue(count = 18) {
     const question: CooperativeTask = { id: 'question', kind: 'research', objective: 'Investigate exact bridges', dependsOn: [], revision: 0 };
     const proposals = Array.from({ length: count }, (_, index) => ({ ...planTasks()[0],
       id: `bridge_${index}`, theoremName: `Submission.bridge_${index}` }));
@@ -1685,14 +1685,13 @@ describe('isolated solver and host acceptance', () => {
           evidenceRefs: [], createdAt: 1, lemmaRequests: proposals }] } } as any;
     const emit = vi.fn();
     const create = (restored = state) => new CooperativeResearch({ state: restored, workers: [lead, peer], access: new Map(),
-      signal: new AbortController().signal, modules: primaryLed ? { ...directSolverModules,
-        M5: { ...directSolverModules.M5, primaryLed: true } } : directSolverModules,
+      signal: new AbortController().signal, modules: directSolverModules,
       save: vi.fn(), emit, exclusiveCheck: check => check() });
     return { state, question, proposals, lead, peer, emit, create, cooperative: create() };
   }
 
   it('recovers a failed Lead request when an existing handoff decision adopts the current task revision', async () => {
-    const { state, proposals, lead, cooperative } = handoffQueue(false, 1);
+    const { state, proposals, lead, cooperative } = handoffQueue(1);
     const plan = parseCooperationPlan(problem, { tasks: [
       ...state.cooperation.tasks.map((node: TaskRecord) => node.task), { ...proposals[0], revision: 1 },
     ] });
@@ -1768,7 +1767,7 @@ describe('isolated solver and host acceptance', () => {
 
   it.each(['removed', 'revised', 'group-revised', 'prerequisite-revised', 'late-arrival'] as const)(
     'rejects a model plan before mutation when it would lose a queued proposal source: %s', async change => {
-      const { state, lead, question, create, cooperative } = handoffQueue(false, change === 'late-arrival' ? 8 : 9);
+      const { state, lead, question, create, cooperative } = handoffQueue(change === 'late-arrival' ? 8 : 9);
       if (change === 'prerequisite-revised') {
         const prerequisite = planTasks()[0];
         state.cooperation.tasks.push({ task: prerequisite, status: 'pending', attempts: 0 });
@@ -1802,204 +1801,6 @@ describe('isolated solver and host acceptance', () => {
         expect(pendingResearchHandoffs(restored.cooperation)).toHaveLength(9);
       }
     });
-
-  it.each(['active', 'paused', 'stopped'] as const)('retains primary-led provenance and the existing %s prerequisite control across batches', async control => {
-    const { state, question, proposals, lead, peer, cooperative } = handoffQueue(true, 9);
-    state.cooperation.groups[0].group = { ...state.cooperation.groups[0].group, objective: 'Preserve this mathematical route', revision: 7 };
-    proposals[0].status = control;
-    proposals[8].dependsOn = [proposals[0].id];
-    const action = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
-    if (action?.kind !== 'solve') throw new Error('missing_primary_batch');
-    cooperative.activate(lead, action, async () => {}, async () => {});
-    const baseId = pendingResearchHandoffs(state.cooperation).find(item => item.proposal.id === proposals[0].id)!.id;
-    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify({ requests: [proposals[0]],
-      handoffDecisions: action.handoffIds!.filter(id => id !== baseId).map(id => ({ id, status: 'deferred', reason: 'Await the base bridge.' })) }));
-    cooperative.deactivate(lead); await cooperative.pulse(lead.id);
-    expect(pendingResearchHandoffs(state.cooperation)).toHaveLength(9);
-    await cooperative.deliver(lead, action, commitSolverSources(problem, workspace));
-    expect(state.cooperation.error).toBeUndefined();
-    const source = state.cooperation.tasks.find((item: any) => item.task.id === question.id);
-    expect(source.status).toBe('completed'); expect(source.task).toEqual(question);
-    expect(state.cooperation.groups[0].group).toMatchObject({ objective: 'Preserve this mathematical route', revision: 7 });
-    expect(pendingResearchHandoffs(state.cooperation).map(item => item.proposal.id)).toEqual([proposals[8].id]);
-    const next = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
-    if (next?.kind !== 'solve') throw new Error('missing_primary_consumer_batch');
-    cooperative.activate(lead, next, async () => {}, async () => {});
-    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify({ requests: [proposals[8]] }));
-    await cooperative.pulse(lead.id); cooperative.deactivate(lead);
-    await cooperative.deliver(lead, next, commitSolverSources(problem, workspace));
-    expect(state.cooperation.error).toBeUndefined();
-    expect(state.cooperation.tasks.find((item: any) => item.task.id === proposals[0].id)).toMatchObject({
-      status: 'pending', task: { status: control } });
-    expect(state.cooperation.tasks.find((item: any) => item.task.id === proposals[8].id).task.dependsOn).toEqual([proposals[0].id]);
-    expect(pendingResearchHandoffs(state.cooperation)).toEqual([]);
-    if (control === 'active') expect(await cooperative.next(peer, { maxTurns: Infinity, remainingMs: Infinity }))
-      .toMatchObject({ kind: 'task', task: { id: proposals[0].id } });
-    else expect(directSolverModules.M3.ready(state.cooperation.tasks, state.cooperation.groups)).toEqual([]);
-    expect(host.createSession).not.toHaveBeenCalled();
-    expect(host.verify).not.toHaveBeenCalled();
-  });
-
-  it.each(['active', 'paused', 'stopped'] as const)(
-    'preserves a provenance-only %s prerequisite until a later help batch consumes it across JSON restore', async control => {
-      const { state, question, proposals, lead, peer, create, cooperative } = handoffQueue(true, 9);
-      const base = { ...planTasks()[0], id: 'prior_base', theoremName: 'Submission.prior_base', status: control };
-      state.cooperation.tasks.push({ task: base, status: 'pending', attempts: 0 });
-      proposals[8].dependsOn = [base.id];
-      const action = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
-      if (action?.kind !== 'solve') throw new Error('missing_primary_provenance_batch');
-      cooperative.activate(lead, action, async () => {}, async () => {});
-      fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify({ requests: [],
-        handoffDecisions: action.handoffIds!.map(id => ({ id, status: 'deferred', reason: 'Await the existing base estimate.' })) }));
-      cooperative.deactivate(lead);
-      await cooperative.deliver(lead, action, commitSolverSources(problem, workspace));
-      expect(state.cooperation.error).toBeUndefined();
-      expect(state.cooperation.tasks.find((item: any) => item.task.id === base.id).task).toEqual(base);
-      expect(state.cooperation.tasks.find((item: any) => item.task.id === question.id).status).toBe('completed');
-      expect(pendingResearchHandoffs(state.cooperation).map(item => item.proposal.id)).toEqual([proposals[8].id]);
-      const restored = JSON.parse(JSON.stringify(state)), resumed = create(restored);
-      await resumed.restore();
-      const next = await resumed.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
-      if (next?.kind !== 'solve') throw new Error('missing_restored_primary_consumer_batch');
-      resumed.activate(lead, next, async () => {}, async () => {});
-      fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify({ requests: [proposals[8]] }));
-      await resumed.pulse(lead.id); resumed.deactivate(lead);
-      await resumed.deliver(lead, next, commitSolverSources(problem, workspace));
-      expect(restored.cooperation.error).toBeUndefined();
-      expect(restored.cooperation.tasks.find((item: any) => item.task.id === base.id))
-        .toMatchObject({ status: 'pending', task: { status: control } });
-      expect(pendingResearchHandoffs(restored.cooperation)).toEqual([]);
-      if (control === 'active') expect(await resumed.next(peer, { maxTurns: Infinity, remainingMs: Infinity }))
-        .toMatchObject({ kind: 'task', task: { id: base.id } });
-      else expect(directSolverModules.M3.ready(restored.cooperation.tasks, restored.cooperation.groups)).toEqual([]);
-      expect(host.createSession).not.toHaveBeenCalled();
-      expect(host.verify).not.toHaveBeenCalled();
-    });
-
-  it.each(['contract', 'assignment'] as const)('does not dispatch obsolete %s prerequisites after revising an explicit help request', async dependencySource => {
-    const { state, lead, peer } = handoffQueue(true, 0);
-    const obsolete = { ...planTasks()[0], id: 'obsolete', theoremName: 'Submission.obsolete' };
-    const base = { ...planTasks()[0], id: 'base', theoremName: 'Submission.base',
-      dependsOn: dependencySource === 'contract' ? [obsolete.id] : [] };
-    state.cooperation.tasks.push({ task: base, status: 'pending', attempts: 0,
-      ...(dependencySource === 'assignment' ? { assignment: { taskId: base.id, taskDigest: taskVersion(base), workerId: peer.id,
-        seedCommit: state.cooperation.canonicalCommit, dependencies: [{ taskId: obsolete.id, taskDigest: taskVersion(obsolete) }] } } : {}) },
-    { task: obsolete, status: 'pending', attempts: 0 });
-    const revised = { ...base, revision: 1, dependsOn: [] };
-    const consumer = { ...planTasks()[1], id: 'consumer', theoremName: 'Submission.consumer', dependsOn: [base.id] };
-    const engineer = { ...peer, id: 'engineer', role: 'engineer' as const };
-    const cooperative = new CooperativeResearch({ state, workers: [lead, peer, engineer], access: new Map(),
-      signal: new AbortController().signal, modules: { ...directSolverModules, M5: { ...directSolverModules.M5, primaryLed: true } },
-      save: vi.fn(), emit: vi.fn(), exclusiveCheck: check => check() });
-    const action = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
-    if (action?.kind !== 'solve') throw new Error('missing_primary_revision');
-    cooperative.activate(lead, action, async () => {}, async () => {});
-    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify({ requests: [revised, consumer] }));
-    await cooperative.pulse(lead.id); cooperative.deactivate(lead);
-    await cooperative.deliver(lead, action, commitSolverSources(problem, workspace));
-    expect(state.cooperation.error).toBeUndefined();
-    expect(state.cooperation.tasks.some((item: TaskRecord) => item.task.id === obsolete.id)).toBe(false);
-    expect(state.cooperation.tasks.find((item: TaskRecord) => item.task.id === base.id).task).toEqual(revised);
-    expect(directSolverModules.M3.ready(state.cooperation.tasks, state.cooperation.groups).map(item => item.task.id)).toEqual([base.id]);
-    expect(await cooperative.next(peer, { maxTurns: Infinity, remainingMs: Infinity }))
-      .toMatchObject({ kind: 'task', task: { id: base.id, revision: 1 } });
-    expect(host.createSession).not.toHaveBeenCalled();
-    expect(host.verify).not.toHaveBeenCalled();
-  });
-
-  it.each(['current', 'stale'] as const)(
-    'retains only %s assignment inputs for an unchanged help request without cancelling live work', async version => {
-    const { state, question, lead, peer, cooperative } = handoffQueue(true, 0);
-    const base = planTasks()[0];
-    const assignment = { taskId: base.id, taskDigest: taskVersion(version === 'current' ? base : { ...base, revision: 1 }),
-      workerId: peer.id, seedCommit: state.cooperation.canonicalCommit,
-      dependencies: [{ taskId: question.id, taskDigest: taskVersion(question) }] };
-    state.cooperation.tasks.push({ task: base, status: 'pending', attempts: 0, assignment });
-    const interrupt = vi.fn(async () => {});
-    let running: Extract<CooperativeAction, { kind: 'task' }> | undefined;
-    if (version === 'current') {
-      const next = await cooperative.next(peer, { maxTurns: Infinity, remainingMs: Infinity });
-      if (next?.kind !== 'task') throw new Error('missing_current_assignment');
-      running = next;
-      expect(cooperative.started(peer, running)).toBe(true);
-      cooperative.activate(peer, running, interrupt, async () => {});
-    }
-    const action = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
-    if (action?.kind !== 'solve') throw new Error('missing_assignment_help');
-    cooperative.activate(lead, action, async () => {}, async () => {});
-    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify({ requests: [base] }));
-
-    await cooperative.pulse(lead.id); cooperative.deactivate(lead);
-    await cooperative.deliver(lead, action, commitSolverSources(problem, workspace));
-
-    expect(state.cooperation.error).toBeUndefined();
-    const current = state.cooperation.tasks.find((node: TaskRecord) => node.task.id === base.id);
-    if (running) {
-      expect(cooperative.current(running)).toBe(true);
-      expect(current).toMatchObject({ status: 'running', attempts: 1 });
-      expect(current.assignment).toBe(assignment);
-      expect(state.cooperation.tasks.find((node: TaskRecord) => node.task.id === question.id).status).toBe('completed');
-      cooperative.deactivate(peer);
-    } else {
-      expect(state.cooperation.tasks.some((node: TaskRecord) => node.task.id === question.id)).toBe(false);
-      expect(current.assignment).toBeUndefined();
-    }
-    expect(interrupt).not.toHaveBeenCalled();
-    expect(host.verify).not.toHaveBeenCalled();
-    expect(host.createSession).not.toHaveBeenCalled();
-  });
-
-  it.each(['full', 'defaulted'] as const)(
-    'preserves a checked proof and its actual prerequisite when an unchanged %s help request omits that prerequisite', async requestKind => {
-    const { state, question, lead, peer } = handoffQueue(true, 0);
-    const [prerequisite, consumer] = planTasks();
-    host.verify.mockImplementation(async request => {
-      const result = verified(request);
-      result.results = result.results.map(item => ({ ...item, declarationReferences: { statement: [],
-        proof: item.theoremName === consumer.theoremName ? [{ name: prerequisite.theoremName!, file: prerequisite.proofPath! }] : [] } }));
-      return result;
-    });
-    state.cooperation.tasks.push(...[prerequisite, consumer].map(task => ({ task, status: 'pending', attempts: 0 })));
-    const cooperative = new CooperativeResearch({ state, workers: [lead, peer],
-      access: new Map([lead, peer].map(worker => [worker.id, { environment: {}, retrievalRoot: directory }])),
-      signal: new AbortController().signal, modules: { ...directSolverModules, M5: { ...directSolverModules.M5, primaryLed: true } },
-      save: vi.fn(), emit: vi.fn(), exclusiveCheck: check => check() });
-    for (const task of [prerequisite, consumer]) {
-      const assignment = await cooperative.next(peer, { maxTurns: Infinity, remainingMs: Infinity });
-      if (assignment?.kind !== 'task') throw new Error('missing_unchanged_proof_assignment');
-      expect(assignment.task.id).toBe(task.id);
-      expect(cooperative.started(peer, assignment)).toBe(true);
-      const file = path.join(workspace, problem.projectRelative, 'Submission.lean');
-      fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('end Submission',
-        `lemma ${task.id} : True := by ${task.id === prerequisite.id ? 'trivial' : `exact ${prerequisite.id}`}\nend Submission`));
-      await cooperative.deliver(peer, assignment, commitSolverSources(problem, workspace));
-      expect(state.cooperation.tasks.find((node: TaskRecord) => node.task.id === task.id).status).toBe('integrated');
-    }
-    const checked = state.cooperation.tasks.find((node: TaskRecord) => node.task.id === consumer.id);
-    expect(checked.task.dependsOn).toEqual([]);
-    expect(checked.assignment.dependencies).toEqual([]);
-    expect(checked.integratedCheck.references.tasks).toEqual([{ taskId: prerequisite.id, taskDigest: taskVersion(prerequisite) }]);
-    checked.assignment.dependencies = [{ taskId: question.id, taskDigest: taskVersion(question) }];
-    const proof = checked.integratedCheck;
-    const checks = host.verify.mock.calls.length;
-    const action = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
-    if (action?.kind !== 'solve') throw new Error('missing_unchanged_proof_help');
-    cooperative.activate(lead, action, async () => {}, async () => {});
-    const { proofPath: _path, revision: _revision, ...defaulted } = consumer;
-    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify({ requests: [requestKind === 'full' ? consumer : defaulted] }));
-
-    await cooperative.pulse(lead.id); cooperative.deactivate(lead);
-    await cooperative.deliver(lead, action, commitSolverSources(problem, workspace));
-
-    expect(state.cooperation.error).toBeUndefined();
-    expect(state.cooperation.tasks.find((node: TaskRecord) => node.task.id === prerequisite.id).status).toBe('integrated');
-    expect(state.cooperation.tasks.find((node: TaskRecord) => node.task.id === consumer.id)).toBe(checked);
-    expect(checked.integratedCheck).toBe(proof);
-    expect(checked.status).toBe('integrated');
-    expect(state.cooperation.tasks.some((node: TaskRecord) => node.task.id === question.id)).toBe(false);
-    expect(host.verify).toHaveBeenCalledTimes(checks);
-    expect(host.createSession).not.toHaveBeenCalled();
-  });
 
   it('replans a ready original goal after its pinned engineer exits instead of waiting for an impossible assignment', async () => {
     const tasks = planTasks().slice(2).map(task => ({ ...task, dependsOn: task.id === 'first' ? [] : ['first'] }));
@@ -2051,35 +1852,6 @@ describe('isolated solver and host acceptance', () => {
         } finally { await cooperative.stop(); }
       });
     });
-  });
-
-  it.each(['adopted', 'rejected', 'deferred'] as const)('consumes a primary-led research handoff through its help protocol: %s', async status => {
-    const question: CooperativeTask = { id: 'question', kind: 'research', objective: 'Investigate a bridge', dependsOn: [], revision: 0 };
-    const proposal = planTasks()[0];
-    const lead = { id: 'solver', role: 'lead', worktree: workspace, ownedFiles: problem.ownedFiles } as const;
-    const peer = { ...lead, id: 'researcher-1', role: 'researcher' } as const;
-    const state = { problem, environmentDigest: 'environment', turns: 0,
-      cooperation: { tasks: [{ task: question, status: 'completed', attempts: 1 }], deliveries: [{
-        id: 'proposal', producer: peer.id, taskId: question.id, taskDigest: taskVersion(question), kind: 'research', status: 'advisory',
-        summary: 'An exact helper could close the first goal.', statement: '', premises: [], dependencies: [], remainingObligations: [],
-        evidenceRefs: [], createdAt: 1, lemmaRequests: [proposal] }] } } as any;
-    const modules = { ...directSolverModules, M5: { ...directSolverModules.M5, primaryLed: true } };
-    const cooperative = new CooperativeResearch({ state, workers: [lead, peer], access: new Map(), signal: new AbortController().signal,
-      modules, save: vi.fn(), emit: vi.fn(), exclusiveCheck: check => check() });
-    const action = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
-    if (action?.kind !== 'solve') throw new Error('missing_primary_assignment');
-    const id = pendingResearchHandoffs(state.cooperation)[0].id;
-    expect(action.handoffIds).toEqual([id]);
-    cooperative.activate(lead, action, async () => {}, async () => {});
-    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify(status === 'adopted' ? { requests: [proposal] } :
-      { handoffDecisions: [{ id, status, reason: 'Need a stronger quantitative premise.' }] }));
-    cooperative.deactivate(lead);
-    expect(await cooperative.deliver(lead, action, commitSolverSources(problem, workspace))).toEqual({ checkWhole: true });
-    expect(state.cooperation.researchDecisions[0]).toMatchObject({ id, status });
-    if (status === 'adopted') expect(state.cooperation.tasks.find((item: any) => item.task.id === proposal.id).status).toBe('pending');
-    expect(pendingResearchHandoffs(state.cooperation)).toEqual([]);
-    expect(host.verify).not.toHaveBeenCalled();
-    expect(host.createSession).not.toHaveBeenCalled();
   });
 
   it('starts peer work after a completed invalid initial plan without consuming an unlimited planning loop', async () => {
@@ -2559,150 +2331,6 @@ describe('isolated solver and host acceptance', () => {
       fs.writeFileSync(file, source.replace('first : True := by sorry', 'first : True := by exact And.left (And.intro a b)'));
     } else fs.writeFileSync(file, source.replace('second : True := by sorry', 'second : True := by exact first'));
   }
-
-  it('primary-led starts the whole proof immediately and independently reviews it without planning', async () => {
-    const actions: { kind: string; workspace: string }[] = [];
-    configureCooperation(async (action, options, message) => {
-      actions.push({ kind: action.kind, workspace: options.workspace });
-      if (action.kind === 'solve') {
-        expect(message).toContain('Your role: primary solver');
-        expect(options.instructions).toContain('Start proving the entire original problem immediately');
-        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
-      } else finishAssignment(action, options);
-      return 'completed';
-    });
-    expect(await runSolver([...args, '--workers', '4', '--scheduler', 'primary-led', '--max-turns', '2'], directory)).toBe(0);
-    expect(actions.map(action => action.kind)).toEqual(['solve', 'review']);
-    expect(actions[0].workspace).not.toBe(actions[1].workspace);
-    const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
-    expect(state.dispatchCounts).toEqual({ proof: 1, review: 1 });
-    expect(state.cooperation.review).toMatchObject({ status: 'accepted', commit: state.check.commit, sourceDigest: state.check.sourceDigest });
-    expect(state.cooperation.tasks).toEqual([]);
-    expect(host.officialGate).toHaveBeenCalledOnce();
-  });
-
-  it('primary-led receives a checked helper during its own active turn without replacing its proofs', async () => {
-    const helper = planTasks()[0];
-    let helped = false;
-    configureCooperation(async (action, options) => {
-      if (action.kind === 'solve') {
-        const file = path.join(options.workspace, 'generated/p/Submission.lean');
-        const partial = original.replace('first : True := by sorry', 'first : True := by trivial');
-        fs.writeFileSync(file, partial);
-        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({ requests: [helper] }));
-        await expect.poll(() => cooperationState().tasks.find((node: any) => node.task.id === 'a')?.status, { timeout: 5000 }).toBe('integrated');
-        expect(fs.readFileSync(file, 'utf8')).toBe(partial);
-        const node = cooperationState().tasks.find((item: any) => item.task.id === 'a');
-        const peer = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8')).workers.find((worker: any) => worker.id === node.assignment.workerId);
-        expect(fs.readFileSync(path.join(peer.worktree, 'generated/p/Submission.lean'), 'utf8')).toContain('lemma a : True := by trivial');
-        fs.writeFileSync(file, partial.replace('theorem first', 'lemma a : True := by trivial\ntheorem first')
-          .replace('second : True := by sorry', 'second : True := by exact a'));
-        helped = true;
-      } else finishAssignment(action, options);
-      return 'completed';
-    });
-    expect(await runSolver([...args, '--workers', '4', '--scheduler', 'primary-led', '--max-turns', '3'], directory)).toBe(0);
-    expect(helped).toBe(true);
-    expect(cooperationState().tasks.filter((node: any) => node.task.kind === 'goal').every((node: any) => node.task.status === 'paused')).toBe(true);
-    expect(cooperationState().tasks.find((node: any) => node.task.id === 'a')).toMatchObject({ status: 'integrated', attempts: 1 });
-    expect(host.officialGate).toHaveBeenCalledOnce();
-  });
-
-  it('primary-led continues after an advisory helper violates its source scope', async () => {
-    configureCooperation(async (action, options) => {
-      const file = path.join(options.workspace, 'generated/p/Submission.lean');
-      if (action.kind === 'solve') {
-        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({ requests: [{ id: 'probe', kind: 'research', objective: 'Find a useful library fact.' }] }));
-        await expect.poll(() => cooperationState().tasks.find((node: any) => node.task.id === 'probe')?.status, { timeout: 5000 }).toBe('blocked');
-        fs.writeFileSync(file, original.replaceAll('by sorry', 'by trivial'));
-      } else if (action.kind === 'task') fs.writeFileSync(file, original.replace('first : True := by sorry', 'first : True := by trivial'));
-      else finishAssignment(action, options);
-      return 'completed';
-    });
-    expect(await runSolver([...args, '--workers', '4', '--scheduler', 'primary-led', '--max-turns', '3'], directory)).toBe(0);
-    expect(cooperationState().tasks.find((node: any) => node.task.id === 'probe')).toMatchObject({ status: 'blocked', attempts: 1, feedback: 'math_task_source_outside_scope' });
-    expect(host.officialGate).toHaveBeenCalledOnce();
-  });
-
-  it('primary-led refuses to delegate original goals while allowing the primary proof to finish', async () => {
-    configureCooperation(async (action, options) => {
-      if (action.kind === 'solve') {
-        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({ requests: [planTasks()[2]] }));
-        await expect.poll(() => cooperationState().error, { timeout: 5000 }).toBe('math_help_invalid_requests');
-        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
-      } else finishAssignment(action, options);
-      return 'completed';
-    });
-    expect(await runSolver([...args, '--workers', '4', '--scheduler', 'primary-led', '--max-turns', '2'], directory)).toBe(0);
-    expect(cooperationState().tasks).toEqual([]);
-    expect(host.officialGate).toHaveBeenCalledOnce();
-  });
-
-  it('primary-led stops unfinished assistance before reviewing the complete primary proof', async () => {
-    const helperStarted = deferred(), interrupted = deferred();
-    configureCooperation(async (action, options) => {
-      if (action.kind === 'solve') {
-        fs.writeFileSync(path.join(options.workspace, 'RESEARCH.md'), JSON.stringify({ requests: [planTasks()[0]] }));
-        await helperStarted.promise;
-        fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
-      } else if (action.kind === 'task') {
-        helperStarted.resolve(); await interrupted.promise;
-        finishAssignment(action, options);
-      } else finishAssignment(action, options);
-      return 'completed';
-    });
-    const open = host.createSession.getMockImplementation()!;
-    host.createSession.mockImplementation(async options => {
-      const session = await open(options);
-      session.interrupt.mockImplementation(async () => { interrupted.resolve(); });
-      return session;
-    });
-    expect(await runSolver([...args, '--workers', '4', '--scheduler', 'primary-led', '--max-turns', '3'], directory)).toBe(0);
-    expect(cooperationState().tasks.find((node: any) => node.task.id === 'a')?.status).not.toBe('integrated');
-    expect(cooperationState().review.status).toBe('accepted');
-    expect(host.officialGate).toHaveBeenCalledOnce();
-  });
-
-  it('primary-led resumes the same proof context without restoring an older helper snapshot over it', async () => {
-    let calls = 0;
-    configureCooperation(async (action, options) => {
-      if (action.kind === 'solve') {
-        calls++;
-        const file = path.join(options.workspace, 'generated/p/Submission.lean');
-        if (calls === 1) fs.writeFileSync(file, original.replace('first : True := by sorry', 'first : True := by trivial'));
-        else {
-          expect(fs.readFileSync(file, 'utf8')).toContain('first : True := by trivial');
-          expect(options.threadId).toBe('thread-solver');
-          fs.writeFileSync(file, original.replaceAll('by sorry', 'by trivial'));
-        }
-      } else finishAssignment(action, options);
-      return 'completed';
-    });
-    const primaryArgs = [...args, '--workers', '4', '--scheduler', 'primary-led'];
-    await runSolver([...primaryArgs, '--max-turns', '1'], directory);
-    expect(JSON.parse(fs.readFileSync(output, 'utf8')).status).toBe('incomplete');
-    expect(await runSolver([...primaryArgs, '--resume', '--max-turns', '3'], directory)).toBe(0);
-    expect(calls).toBe(2);
-    expect(host.officialGate).toHaveBeenCalledOnce();
-  });
-
-  it('primary-led saves an unaffordable final review and resumes it without another proof turn', async () => {
-    const actions: string[] = [];
-    configureCooperation(async (action, options) => {
-      actions.push(action.kind);
-      if (action.kind === 'solve') fs.writeFileSync(path.join(options.workspace, 'generated/p/Submission.lean'), original.replaceAll('by sorry', 'by trivial'));
-      else finishAssignment(action, options);
-      return 'completed';
-    });
-    const primaryArgs = [...args, '--workers', '4', '--scheduler', 'primary-led'];
-    expect(await runSolver([...primaryArgs, '--max-turns', '1'], directory)).toBe(4);
-    expect(cooperationState().review.status).toBe('pending');
-    expect(host.officialGate).not.toHaveBeenCalled();
-    expect(await runSolver([...primaryArgs, '--resume', '--max-turns', '2'], directory)).toBe(0);
-    expect(actions).toEqual(['solve', 'review']);
-    expect(cooperationState().review.status).toBe('accepted');
-    expect(host.officialGate).toHaveBeenCalledOnce();
-  });
 
   it('provides an unambiguous Lead plan example when multiple Lean files are owned', async () => {
     const helper = 'Submission/Helpers.lean';

@@ -99,12 +99,11 @@ describe('configured solver strategy rules without inference or Lean calls', () 
     expect(configurableSolverModules()).toBe(directSolverModules);
     expect(configurableSolverModules(defaultResearchModulePlan())).toBe(directSolverModules);
     expect(configurableSolverModules(plan([custom('M1', { enabled: false })]))).toBe(directSolverModules);
-    for (const scheduler of ['goals-first', 'critical-path', 'continuation', 'primary-led'] as const) {
+    for (const scheduler of ['goals-first', 'critical-path', 'continuation'] as const) {
       const actual = configurableSolverModules(plan([], { scheduler }));
       const expected = configuredSolverModules('direct', scheduler);
       expect(actual.M3.ready).toBe(expected.M3.ready);
       expect(actual.M5.assign).toBe(expected.M5.assign);
-      expect(actual.M5.primaryLed).toBe(expected.M5.primaryLed);
       expect(solverMethodDigest(actual, 'cooperative')).toBe(solverMethodDigest(expected, 'cooperative'));
     }
   });

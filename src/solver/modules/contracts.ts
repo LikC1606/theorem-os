@@ -6,7 +6,7 @@ export function cooperativeWorkContract(action: CooperativeAction, tasks: readon
   const stage = action.kind === 'task' ? isFeasibilityReview(action.task) ? 'feasibility-review' :
     isAdvisoryTask(action.task) ? 'investigation' : action.assignment.connectionCheck ? 'consumer-connection' : 'formal-proof' :
     action.kind === 'lead' ? 'route-planning' : action.kind === 'review' ? 'candidate-review' :
-      action.kind === 'solve' ? 'primary-proof' : action.kind === 'assemble' ? 'integration' : action.kind;
+      action.kind === 'assemble' ? 'integration' : action.kind;
   const products = {
     'route-planning': { owner: 'lead', output: 'validated-task-graph-and-handoff-decisions',
       consumer: 'M3-ready-selection-and-M5-assignment', acceptance: 'host-plan-validation', sourcePolicy: 'host-checks-any-source-repair' },
@@ -18,8 +18,6 @@ export function cooperativeWorkContract(action: CooperativeAction, tasks: readon
       consumer: 'M2-then-canonical-integration', acceptance: 'independent-exact-source-check', sourcePolicy: 'owned-proof-sources' },
     'consumer-connection': { owner: 'proof-worker', output: 'consumer-proof-from-fixed-typed-inputs',
       consumer: 'M2-then-input-proofs-and-unconditional-integration', acceptance: 'conditional-check-only', sourcePolicy: 'owned-proof-sources' },
-    'primary-proof': { owner: 'primary-solver', output: 'saved-original-targets',
-      consumer: 'M2-then-independent-review-and-S3', acceptance: 'S3-final-evaluation', sourcePolicy: 'owned-proof-sources' },
     integration: { owner: 'host', output: 'fixed-original-proof-check',
       consumer: 'independent-review-then-S3', acceptance: 'independent-exact-source-check', sourcePolicy: 'read-only' },
     'candidate-review': { owner: 'reviewer', output: 'fixed-candidate-verdict',
@@ -34,7 +32,7 @@ export function cooperativeWorkContract(action: CooperativeAction, tasks: readon
       seedCommit: action.assignment.seedCommit, dependencies: action.assignment.dependencies ?? [],
       ...(action.assignment.connectionCheck ? { connectionCheck: action.assignment.connectionCheck,
         purpose: 'check-consumer-sufficiency-with-fixed-inputs', acceptance: 'conditional-only-until-inputs-checked' } : {}) } : { seedCommit: action.seedCommit },
-    ...(action.kind === 'lead' || action.kind === 'solve' ? { handoffIds: action.handoffIds ?? [],
+    ...(action.kind === 'lead' ? { handoffIds: action.handoffIds ?? [],
       handoffActivations: action.handoffActivations ?? {}, challengeIds: action.challengeIds ?? [],
       challengeActivations: action.challengeActivations ?? {} } : {}),
     ...(action.kind === 'task' ? { plannedConsumers: contextTaskConsumers(action.task, tasks, context)

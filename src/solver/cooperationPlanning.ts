@@ -172,7 +172,7 @@ export abstract class CooperationPlanning extends CooperationIntegration {
     await this.wait();
     return true;
   }
-  protected validateRecoveryPlan(action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' | 'solve' }>,
+  protected validateRecoveryPlan(action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' }>,
     plan: ReturnType<typeof parseCooperationPlan>, response: any) {
     const recovery = this.archive.frontierRecoveries?.find(item => item.id === action.recovery?.id);
     if (!recovery || recovery.status !== 'requested') throw new Error('math_frontier_recovery_superseded');
@@ -303,8 +303,6 @@ export abstract class CooperationPlanning extends CooperationIntegration {
   protected async acceptPlan(plan = readCooperationPlan(this.input.state.problem, this.lead.worktree), edit?: HumanEditRecord,
     publication?: { action: CooperativeAction; receipt: Omit<InitialPlanPublication, 'planVersion'> }) {
     const { tasks, groups, proofRoutes } = plan;
-    if (this.primaryLed && tasks.some(task => task.kind === 'goal' && !['paused', 'stopped'].includes(task.status ?? 'active')))
-      throw new Error('math_help_original_goals_owned_by_primary');
     for (const task of tasks) if (task.ownerId) {
       const owner = this.input.workers.find(worker => worker.id === task.ownerId);
       if (!owner || (task.kind === 'goal' ? !['engineer', 'researcher'].includes(owner.role) : owner.role !== 'researcher'))
@@ -341,10 +339,8 @@ export abstract class CooperationPlanning extends CooperationIntegration {
         }
         return previous;
       }
-      return { task, status: 'pending', attempts: previous?.attempts ?? 0,
-        ...(previous?.primaryOwned !== undefined ? { primaryOwned: previous.primaryOwned } : {}) };
+      return { task, status: 'pending', attempts: previous?.attempts ?? 0 };
     });
-    if (edit) for (const node of this.archive.tasks) if (node.task.kind === 'goal') node.primaryOwned = false;
     this.archive.groups = configuredGroups.map(group => ({ group, turns: previousGroups.get(group.id)?.turns ?? 0 }));
     this.archive.proofRoutes = proofRoutes;
     this.syncProofRoutes();

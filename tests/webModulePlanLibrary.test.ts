@@ -106,6 +106,16 @@ describe('browser-local module plan library', () => {
     expect(values.get(modulePlanLibraryStorageKey)).toBe(stored);
   });
 
+  it('reopens a preset saved with a removed scheduler under the default scheduler', async () => {
+    const { library, values } = setup();
+    const saved = await library.save('Retired', plan());
+    values.set(modulePlanLibraryStorageKey, JSON.stringify({ schema: modulePlanLibraryStorageKey,
+      plans: [{ ...saved, plan: { ...saved.plan, scheduler: 'primary-led' } }] }));
+    expect(library.list()).toEqual([{ ...saved, plan: { ...plan(), scheduler: 'plan' } }]);
+    await library.remove(library.list()[0]!);
+    expect(library.list()).toEqual([]);
+  });
+
   it('rejects duplicate identities, missing plan fields and executable or credential metadata', async () => {
     const { library, values } = setup();
     const saved = await library.save('Workflow', plan());

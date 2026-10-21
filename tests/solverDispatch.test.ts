@@ -8,7 +8,7 @@ import { parseCooperationPlan } from '../src/solver/tasks';
 import { cooperativeResearch } from './helpers/cooperation';
 import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
 
-describe.each(['lead', 'primary', 'peer'] as const)('%s dispatch wakeups', role => {
+describe.each(['lead', 'peer'] as const)('%s dispatch wakeups', role => {
   let directory: string, state: SolverRunState, lead: ResearchWorker, peer: ResearchWorker;
   let cooperative: CooperativeResearch, controller: AbortController;
   const budget = { maxTurns: 1, remainingMs: Infinity };
@@ -32,8 +32,7 @@ describe.each(['lead', 'primary', 'peer'] as const)('%s dispatch wakeups', role 
     controller = new AbortController();
     const unexpectedModel = () => { throw new Error('fixture_models_forbidden'); };
     cooperative = cooperativeResearch({ state, workers: [lead, peer], retrievalRoot: directory, signal: controller.signal,
-      modules: { ...directSolverModules, M1: { ...directSolverModules.M1, open: unexpectedModel },
-        M5: { ...directSolverModules.M5, primaryLed: role === 'primary' } } });
+      modules: { ...directSolverModules, M1: { ...directSolverModules.M1, open: unexpectedModel } } });
   });
   afterEach(async () => {
     await cooperative.stop();
@@ -49,7 +48,7 @@ describe.each(['lead', 'primary', 'peer'] as const)('%s dispatch wakeups', role 
       cooperative.settleTurn(peer);
     });
     const action = await next;
-    expect(action?.kind).toBe(role === 'primary' ? 'solve' : role === 'peer' ? 'task' : 'lead');
+    expect(action?.kind).toBe(role === 'peer' ? 'task' : 'lead');
     expect(state.turns).toBe(0);
     expect(state.cooperation!.groups!.every(group => group.turns === 0)).toBe(true);
     expect(state.cooperation!.tasks.every(node => node.attempts === 0)).toBe(true);

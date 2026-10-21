@@ -14,7 +14,7 @@ import { assertStatementSnapshot, isStatementAction, resetStatementReview } from
 import { captureProofReferences } from './proofReferences';
 import { captureDeliveryArtifacts, type DeliveryArtifactManifest } from './deliveryArtifacts';
 import { attributeTaskReferences } from './taskReferenceAttribution';
-import { pendingResearchHandoffs, retainedResearchHandoffs, selectResearchHandoffBatch } from './researchHandoffs';
+import { retainedResearchHandoffs, selectResearchHandoffBatch } from './researchHandoffs';
 import { pendingResearchChallenges, retainedResearchChallenges } from './researchChallenges';
 import { taskConsumerProjection } from './taskConsumers';
 import { hasRunningDuplicateQuestion, parallelQuestions } from './taskQuestions';
@@ -90,7 +90,7 @@ export class CooperativeResearch extends CooperationInputs {
     if (failure && !this.input.signal.aborted) throw failure;
     await Promise.allSettled([...this.notifications]);
     this.syncPlanNotes();
-    if (!this.input.signal.aborted && !this.primaryLed) this.archive.canonicalCommit = this.seed(this.lead, this.archive.canonicalCommit!);
+    if (!this.input.signal.aborted) this.archive.canonicalCommit = this.seed(this.lead, this.archive.canonicalCommit!);
     this.input.save();
   }
   async pulse(workerId?: string): Promise<void> {
@@ -125,7 +125,7 @@ export class CooperativeResearch extends CooperationInputs {
     }
     // A resumed review must inspect the fixed version again.
     if (this.archive.review) { this.archive.review.status = 'pending'; this.archive.review.workerId = undefined; }
-    if (!this.primaryLed && !(this.archive.initialPlanPublication && !this.archive.initialPlanPublication.finalized) &&
+    if (!(this.archive.initialPlanPublication && !this.archive.initialPlanPublication.finalized) &&
         !this.archive.frontierRecoveries?.some(record => record.status !== 'planned') &&
         fs.existsSync(path.join(this.lead.worktree, 'RESEARCH.md'))) {
       try {
@@ -141,7 +141,7 @@ export class CooperativeResearch extends CooperationInputs {
       } catch (error) { this.rejectPlan(error); }
     }
     if (!solverSourceFeedback(this.input.state.problem, this.lead.worktree)) {
-      if (!this.primaryLed) await this.restoreLeadSources();
+      await this.restoreLeadSources();
       const integrated = this.archive.tasks.filter(node => node.status === 'integrated');
       this.markPendingValidation(integrated, new Set(integrated.map(node => node.task.id)));
       if (integrated.length || this.archive.edits?.some(edit => edit.pendingSync)) await this.schedulePlanSynchronization();
@@ -170,7 +170,7 @@ export class CooperativeResearch extends CooperationInputs {
   protected canAssemble(commit: string) {
     if (commit !== this.archive.canonicalCommit || this.candidateSynchronizationBlocked()) return false;
     const goals = this.archive.tasks.filter(node => node.task.kind === 'goal');
-    return this.reviewed() || !this.primaryLed && goals.length > 0 && goals.every(node => node.status === 'integrated');
+    return this.reviewed() || goals.length > 0 && goals.every(node => node.status === 'integrated');
   }
   async next(worker: ResearchWorker, budget: DispatchBudget): Promise<CooperativeAction | undefined> {
     for (;;) {
@@ -198,7 +198,6 @@ export class CooperativeResearch extends CooperationInputs {
           this.input.state.turns >= budget.maxTurns && !this.reservedTurns.size || !modelAllowed && !this.active.size) return;
       return this.waitForDispatch();
     }
-    if (this.primaryLed) return this.nextPrimaryLead(worker, budget, modelAllowed);
     const head = this.archive.canonicalCommit!;
     if (this.canAssemble(head) && this.lastAssembly !== head) {
       this.syncPlanNotes();
@@ -275,24 +274,6 @@ export class CooperativeResearch extends CooperationInputs {
       return action;
     }
     return this.waitForDispatch();
-  }
-  private async nextPrimaryLead(worker: ResearchWorker, budget: DispatchBudget, modelAllowed: boolean): Promise<DispatchResult> {
-    const review = this.archive.review;
-    if (review && ['pending', 'running'].includes(review.status)) {
-      if (!this.livePeers.length) return;
-      if (review.status === 'pending' &&
-          ((this.input.state.turns >= budget.maxTurns && !this.reservedTurns.size) || budget.remainingMs <= 0 || !modelAllowed)) {
-        return !modelAllowed && this.active.size ? this.waitForDispatch() : undefined;
-      }
-      return this.waitForDispatch();
-    }
-    if (review && this.canAssemble(review.commit) && this.lastAssembly !== review.commit) {
-      this.lastAssembly = review.commit;
-      return { kind: 'assemble', seedCommit: review.commit };
-    }
-    if (this.dispatchBudgetExhausted(budget, modelAllowed)) return this.exhaustedDispatch(budget, modelAllowed,
-      this.preparingTaskTypes.size > 0 || !modelAllowed && (this.active.size > 0 || this.archive.tasks.some(node => ['running', 'delivered'].includes(node.status))));
-    return { kind: 'solve', seedCommit: git(worker.worktree, ['rev-parse', 'HEAD']), ...this.handoffDispatch() };
   }
   private async nextPeer(worker: ResearchWorker, budget: DispatchBudget, modelAllowed: boolean): Promise<DispatchResult> {
     if (budget.remainingMs <= 0 || !modelAllowed) return;
@@ -464,18 +445,6 @@ export class CooperativeResearch extends CooperationInputs {
         review.taskId === node.task.id && review.taskDigest === digest(node.task) && review.status === 'accepted'));
   }
   requireReview(check: ProofCheck) {
-    if (this.primaryLed) {
-      this.archive.canonicalCommit = check.commit;
-      for (const node of this.archive.tasks) {
-        node.task = { ...node.task, status: 'paused' };
-        if (node.task.kind === 'goal') node.primaryOwned = false;
-        if (node.status === 'running') node.status = 'pending';
-      }
-      this.archive.planVersion = this.planVersion();
-      for (const active of this.active.values()) if (active.action.kind === 'task' && !active.cancelled) {
-        active.cancelled = true; void active.interrupt().catch(() => {});
-      }
-    }
     if (this.archive.review?.commit !== check.commit || this.archive.review.sourceDigest !== check.sourceDigest) {
       this.archive.review = { commit: check.commit, sourceDigest: check.sourceDigest, status: 'pending' };
       this.input.emit('review_requested', { commit: check.commit });
@@ -558,7 +527,7 @@ export class CooperativeResearch extends CooperationInputs {
         visible(item.task.id, digest(item.task))))?.map(scopedFinding),
       statementReviews: this.archive.statementReviews?.filter(item => item.status !== 'superseded' && visible(item.taskId, item.taskDigest)) };
   }
-  private async deliverLead(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' | 'solve' }>, commit: string,
+  private async deliverLead(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' }>, commit: string,
     recovering: boolean, recoveryKind: 'checkpoint' | 'request-failure'): Promise<{ checkWhole: boolean; savedPlan?: boolean }> {
     const staged = await this.input.exclusiveCheck(async () => {
       if (!this.current(action)) {
@@ -708,31 +677,6 @@ export class CooperativeResearch extends CooperationInputs {
   async deliver(worker: ResearchWorker, action: CooperativeAction, commit: string, recovering = false,
     recoveryKind: 'checkpoint' | 'request-failure' = 'checkpoint'): Promise<{ check?: ProofCheck; checkWhole: boolean; savedPlan?: boolean }> {
     if (isStatementAction(action)) return this.deliverStatement(worker, action);
-    if (action.kind === 'solve') {
-      if (!this.current(action)) {
-        this.input.emit('research_handoff_superseded', { workerId: worker.id }); return { checkWhole: false };
-      }
-      const shownHandoffs = new Set(action.handoffIds ?? []);
-      const hasPendingShownHandoff = () => pendingResearchHandoffs(this.archive).some(item =>
-        item.sources.some(source => shownHandoffs.has(source.handoffId))) || pendingResearchChallenges(this.archive).some(item =>
-          action.challengeIds?.includes(item.id));
-      if (!recovering && hasPendingShownHandoff()) {
-        await this.readHelpRequest(action);
-        if (hasPendingShownHandoff()) {
-          try {
-            const response = block(worker.worktree, 'math-help');
-            this.recordAdvisoryDecisions(this.resolveAdvisoryDecisions(action, this.archive.tasks.map(node => node.task), response));
-            this.archive.error = undefined; this.changed();
-          } catch (error) {
-            const reason = error instanceof Error ? error.message : 'invalid response';
-            this.archive.error = /^(math_handoff_|math_challenge_)/u.test(reason) ? reason : 'math_handoff_decision_invalid: ' + reason;
-            this.input.emit('research_handoff_rejected', { reason: this.archive.error }); this.changed();
-            return { checkWhole: false };
-          }
-        }
-      }
-      return { checkWhole: true };
-    }
     if (action.kind === 'review') {
       const review = this.archive.review;
       if (!review || !this.current(action) || review.workerId !== worker.id) {

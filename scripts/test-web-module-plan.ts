@@ -879,7 +879,7 @@ try {
     const exported = await exportDraft(page); assert.deepEqual(exported.draft.modulePlan, plan);
     await page.reload(); await page.locator('#submit-run:enabled').waitFor(); await openSettings(page);
     assert.deepEqual(await editorPlan(page), plan); assert.equal(await page.locator('#api-key').inputValue(), '');
-    await page.locator('#module-plan-scheduler').selectOption('primary-led'); await page.locator('#api-key').fill(credential);
+    await page.locator('#module-plan-scheduler').selectOption('plan'); await page.locator('#api-key').fill(credential);
     await importFile(page, exported, 'module-plan-draft.json'); await openSettings(page);
     assert.deepEqual(await editorPlan(page), plan); assert.equal(await page.locator('#api-key').inputValue(), '');
     const draft = exported.draft, now = new Date().toISOString();
@@ -905,7 +905,7 @@ try {
     await showChat(page); await page.locator('#return-to-draft').click(); await openSettings(page);
     await rule(page, plan.custom[0]!.id).locator('[data-module-plan-field="name"]').fill('Changed later draft');
     await rule(page, plan.custom[0]!.id).locator('[data-module-plan-field="enabled"]').uncheck();
-    await page.locator('#module-plan-scheduler').selectOption('primary-led'); await page.locator('#api-key').fill(credential);
+    await page.locator('#module-plan-scheduler').selectOption('plan'); await page.locator('#api-key').fill(credential);
     assert.notDeepEqual(await editorPlan(page), plan);
     assert.equal(await page.locator('#source').inputValue(), draftSource, 'module edits must preserve the existing source before explicit task reuse');
     assert.deepEqual((await readRun(h, run.id)).modulePlan, plan, 'later draft edits must not mutate a running plan');

@@ -2,25 +2,22 @@ import { parseCooperationPlan, isAdvisoryTask as advisory } from './tasks';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { canonicalMathJson, mathDigest, readMathText } from '../math/mathRuntimeIo';
+import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import { mathGitResult } from '../math/mathGit';
 import { commitSolverSources, withSolverWorktree } from './problem';
 import { type ResearchWorker } from './modules/organization';
 import { taskCanStart } from './modules/search';
-import { deliveryDetails, readDeliveryLines, readMathResponse as block, MAX_RESEARCH_NOTES_BYTES } from './deliveries';
+import { deliveryDetails, readDeliveryLines } from './deliveries';
 import { isStatementAction } from './statementReview';
-import { proofReferencesUnchanged } from './proofReferences';
 import { captureDeliveryArtifacts } from './deliveryArtifacts';
-import { pendingResearchHandoffs, retainedResearchHandoffs, researchHandoffs, resolveResearchHandoffs, type ResearchHandoffDecision } from './researchHandoffs';
-import { pendingResearchChallenges, preserveResearchChallengeBacklog, retainedResearchChallenges, resolveResearchChallenges,
-  type ResearchChallengeDecision } from './researchChallenges';
-import { primaryHelpApplications } from './taskConsumers';
+import { researchHandoffs, resolveResearchHandoffs, type ResearchHandoffDecision } from './researchHandoffs';
+import { preserveResearchChallengeBacklog, resolveResearchChallenges, type ResearchChallengeDecision } from './researchChallenges';
 import { bindMathematicalGap } from './mathematicalGaps';
-import { taskReferenceDependencies, assignmentDeliveryFile, initialPlanDeliveryFile, type CooperativeTask, type TaskRecord, type CooperativeAction } from './tasks';
+import { assignmentDeliveryFile, initialPlanDeliveryFile, type CooperativeTask, type TaskRecord, type CooperativeAction } from './tasks';
 import { digest, directDeliveryRejections, rejectionCode, HumanEditRecord, TaskVersions, bounded } from './cooperationShared';
 import { CooperationPlanning } from './cooperationPlanning';
 
-/** Worker delivery intake and lead help requests. */
+/** Worker delivery intake. */
 export abstract class CooperationInputs extends CooperationPlanning {
   protected syncEditChecks(nodes: ReadonlyMap<string, TaskRecord>, versions: TaskVersions) {
     for (const edit of this.archive.edits ?? []) {
@@ -54,7 +51,6 @@ export abstract class CooperationInputs extends CooperationPlanning {
   }
   /** Serialize input edits while allowing independent proof checks to continue. */
   private async readInputs(): Promise<ReadonlyMap<string, Promise<void>>> {
-    if (this.primaryLed) await this.input.exclusiveCheck(() => this.readHelpRequest());
     if (this.archive.tasks.some(node => node.pendingValidation) || this.archive.edits?.some(edit => edit.status === 'applied' && edit.pendingSync))
       this.schedulePlanSynchronization();
     const cursors = this.archive.cursors ??= {};
@@ -103,7 +99,7 @@ export abstract class CooperationInputs extends CooperationPlanning {
         this.input.signal.throwIfAborted();
         const reason = error instanceof Error ? error.message : 'math_edit_invalid';
         if (record?.status === 'applied' || !(error instanceof Error) || error.name === 'AbortError' ||
-            !/^math_(?:edit_(?:invalid(?:_json|_id)?|version_conflict)$|plan_[a-z_]+(?:$|:)|help_original_goals_owned_by_primary$)/u.test(reason)) throw error;
+            !/^math_(?:edit_(?:invalid(?:_json|_id)?|version_conflict)$|plan_[a-z_]+(?:$|:))/u.test(reason)) throw error;
         if (record) { record.status = 'rejected'; record.reason = reason; }
         else (this.archive.edits ??= []).push({ id, status: 'rejected', reason, receivedAt: Date.now() });
         this.changed();
@@ -129,7 +125,7 @@ export abstract class CooperationInputs extends CooperationPlanning {
   }
   private async readInitialPlanDelivery(cursors: Record<string, number>) {
     const action = this.active.get(this.lead.id)?.action;
-    if (!action || action.kind !== 'lead' || this.primaryLed) return;
+    if (!action || action.kind !== 'lead') return;
     const file = initialPlanDeliveryFile(action);
     if (!file) return;
     const key = `${this.lead.id}/${file}`, discardKey = `${key}/discardingOversized`;
@@ -180,108 +176,6 @@ export abstract class CooperationInputs extends CooperationPlanning {
       cursors[key] = batch.offset; cursors[discardKey] = batch.discardingOversized ? 1 : 0;
     } finally { if (advanced) this.input.save(); }
   }
-  protected async readHelpRequest(dispatch?: CooperativeAction) {
-    if (this.archive.review && this.archive.review.status !== 'changes_requested') return;
-    const action = dispatch ?? this.active.get(this.lead.id)?.action;
-    if (!action && (pendingResearchHandoffs(this.archive).length || pendingResearchChallenges(this.archive).length)) return;
-    const notes = path.join(this.lead.worktree, 'RESEARCH.md');
-    if (!fs.existsSync(notes)) return;
-    const fingerprint = mathDigest(canonicalMathJson({ notes: readMathText(notes, MAX_RESEARCH_NOTES_BYTES),
-      handoffActivations: action?.kind === 'solve' ? action.handoffActivations : undefined,
-      challengeActivations: action?.kind === 'solve' ? action.challengeActivations : undefined }));
-    if (fingerprint === this.archive.helpRequestDigest) return;
-    this.archive.helpRequestDigest = fingerprint;
-    try {
-      const { requests, handoffDecisions, challengeDecisions } = block(this.lead.worktree, 'math-help');
-      if (requests === undefined) return;
-      if (!Array.isArray(requests) || requests.length > this.input.workers.length - 1 ||
-          requests.some(task => !task || !['lemma', 'research', 'sketch'].includes(task.kind) ||
-            task.ownerId === this.lead.id || task.statementReview)) throw new Error('math_help_invalid_requests');
-      const goals = this.input.state.problem.targets.map((target, index) => {
-        const previous = this.archive.tasks.find(node => node.task.kind === 'goal' &&
-          node.task.theoremName === target.theoremName && node.task.proofPath === target.proofPath);
-        return previous?.task ?? { id: `original_goal_${index + 1}`, kind: 'goal',
-          objective: `Primary solver owns ${target.theoremName}.`, theoremName: target.theoremName,
-          proofPath: target.proofPath, status: 'paused' };
-      });
-      const solve = action?.kind === 'solve' ? action : undefined;
-      const plan = this.helpPlan([...goals, ...requests], solve?.handoffIds ?? [], handoffDecisions);
-      const decided = this.resolveAdvisoryDecisions(solve, plan.tasks, { handoffDecisions, challengeDecisions }, plan);
-      const applications = primaryHelpApplications(requests, plan.tasks.map(task => ({ task, status: 'pending', attempts: 0 })));
-      await this.acceptPlan(plan);
-      for (const node of this.archive.tasks) if (node.task.kind === 'goal') node.primaryOwned ??= true;
-      for (const request of requests) this.node(request.id)!.application = applications.find(item => item.taskId === request.id)?.application;
-      this.changed();
-      this.recordAdvisoryDecisions(decided);
-      this.input.emit('help_requested', { taskIds: requests.map(task => task.id),
-        consumerSelectionRequired: requests.filter(request => !applications.some(item => item.taskId === request.id)).map(task => task.id) });
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : 'math_help_invalid_requests';
-      if (reason.endsWith('_requires_one_block')) return;
-      this.archive.error = reason;
-      this.input.emit('help_request_rejected', { reason }); this.changed();
-    }
-  }
-  private helpPlan(tasks: readonly CooperativeTask[], shownIds: readonly string[], decisions?: unknown) {
-    const proposed = new Map(tasks.map(task => [task.id, task]));
-    const retained = new Map<string, CooperativeTask>();
-    const current = new Map(this.archive.tasks.map(node => [node.task.id, node]));
-    const visited = new Set<string>();
-    let normalized = false;
-    const retain = (id: string) => {
-      if (visited.has(id)) return;
-      visited.add(id);
-      const requested = proposed.get(id), node = current.get(id);
-      const task = requested ?? node?.task;
-      if (!task) return;
-      if (!requested) retained.set(id, task);
-      for (const dependency of task.dependsOn ?? []) retain(dependency);
-      if (normalized && node && digest(task) === digest(node.task)) {
-        const references = taskReferenceDependencies(node);
-        const inputs = references && proofReferencesUnchanged(this.input.state.problem, this.lead.worktree,
-          this.archive.canonicalCommit!, node.integratedCheck!.references!, this.input.state.environmentDigest) ? references :
-          node.assignment?.taskDigest === digest(task) ? node.assignment.dependencies ?? [] : [];
-        for (const dependency of inputs) retain(dependency.taskId);
-      }
-    };
-    // Current requests own their contracts; retained prerequisites keep their original execution controls.
-    for (const task of tasks) retain(task.id);
-    for (const challenge of retainedResearchChallenges(this.archive)) {
-      retain(challenge.sourceTaskId);
-      for (const input of this.archive.deliveries?.find(item => item.id === challenge.deliveryId)?.dependencies ?? []) retain(input.taskId);
-      for (const input of challenge.decision?.waitsOn ?? []) retain(input.taskId);
-    }
-    const aliases = new Map(researchHandoffs(this.archive).flatMap(item =>
-      item.sources.map(source => [source.handoffId, item.id] as const)));
-    const canonical = (id: string) => aliases.get(id) ?? id;
-    const shown = new Set(shownIds.map(canonical));
-    const deferring = new Map<string, string[]>((Array.isArray(decisions) ? decisions : []).filter(decision =>
-      decision?.status === 'deferred' && typeof decision.id === 'string' && Array.isArray(decision.waitsOn) && decision.waitsOn.length)
-      .map(decision => [canonical(decision.id), decision.waitsOn.filter((id: unknown) => typeof id === 'string')]));
-    const dismissing = new Set<string>((Array.isArray(decisions) ? decisions : []).filter(decision =>
-      decision && typeof decision.id === 'string' && (decision.status === 'rejected' ||
-        decision.status === 'deferred' && decision.waitsOn === undefined)).map(decision => canonical(decision.id)));
-    // Completed sources remain completed without pausing unfinished inputs needed by a later batch.
-    for (const handoff of retainedResearchHandoffs(this.archive)) if (!dismissing.has(handoff.id) &&
-        (!shown.has(handoff.id) || deferring.has(handoff.id))) {
-      retain(handoff.sourceTaskId);
-      for (const dependency of this.archive.deliveries?.find(item => item.id === handoff.deliveryId)?.dependencies ?? []) retain(dependency.taskId);
-      for (const dependency of handoff.proposal.dependsOn) retain(dependency);
-      const waitsOn = deferring.get(handoff.id) ?? handoff.decision?.waitsOn?.map(input => input.taskId) ?? [];
-      for (const id of waitsOn) retain(id);
-    }
-    const groups = this.archive.groups?.map(record => record.group);
-    const parse = () => parseCooperationPlan(this.input.state.problem, { tasks: [...proposed.values(), ...retained.values()],
-      ...(groups?.length ? { groups: groups.some(group => group.id === 'main') ? groups :
-        [...groups, { id: 'main', objective: 'Prove the original problem' }] } : {}) });
-    const plan = parse();
-    // Omitted request defaults must compare as the same parsed mathematical contract.
-    for (const task of plan.tasks) if (proposed.has(task.id)) proposed.set(task.id, task);
-    normalized = true;
-    visited.clear();
-    for (const task of plan.tasks) retain(task.id);
-    return parse();
-  }
   protected preserveHandoffBacklog(plan: ReturnType<typeof parseCooperationPlan>, decisions: readonly ResearchHandoffDecision[]) {
     const decided = new Map(decisions.map(decision => [decision.id, decision]));
     const remaining = researchHandoffs(this.archive).filter(item => {
@@ -306,12 +200,12 @@ export abstract class CooperationInputs extends CooperationPlanning {
     preserveResearchChallengeBacklog(this.archive, plan.tasks, plan.proofRoutes, challenges);
   }
   /** Resolve a lead response's handoff and challenge decisions, checking both backlogs against a replacement plan. */
-  protected resolveAdvisoryDecisions(action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' | 'solve' }> | undefined,
+  protected resolveAdvisoryDecisions(action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' }>,
     tasks: readonly CooperativeTask[], response: { handoffDecisions?: unknown; challengeDecisions?: unknown },
     plan?: ReturnType<typeof parseCooperationPlan>) {
-    const handoffs = resolveResearchHandoffs(this.archive, action?.handoffIds ?? [], tasks, response.handoffDecisions, action?.handoffActivations);
-    const challenges = action ? resolveResearchChallenges(this.archive, action.challengeIds ?? [], action.challengeActivations ?? {},
-      tasks, response.challengeDecisions) : [];
+    const handoffs = resolveResearchHandoffs(this.archive, action.handoffIds ?? [], tasks, response.handoffDecisions, action.handoffActivations);
+    const challenges = resolveResearchChallenges(this.archive, action.challengeIds ?? [], action.challengeActivations ?? {},
+      tasks, response.challengeDecisions);
     if (plan) this.preserveAdvisoryBacklogs(plan, handoffs, challenges);
     return { handoffs, challenges };
   }

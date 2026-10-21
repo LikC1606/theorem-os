@@ -436,7 +436,7 @@ objective. Lead planning searches unresolved original-goal frontier tasks, placi
 the evidence-ranked preferred route first and using the current environment when
 reading recorded checks. Other active frontiers retain their existing order in
 the remaining slots. Residual diagnostic consumers use the same target selection.
-The primary solver and initial planning use the frozen original targets.
+Initial planning uses the frozen original targets.
 
 If the current worker has complete Lean JSON diagnostics for one of those exact
 consumers, M4 first searches its full residual goal, including local hypotheses.

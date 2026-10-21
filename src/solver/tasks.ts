@@ -25,13 +25,10 @@ export type TaskAssignment = { taskId: string; taskDigest: string; workerId: str
   dependencies?: DeliveryRecord['dependencies']; routeId?: string; connectionCheck?: TaskConnectionCheck };
 export type TaskRecord = { task: CooperativeTask; status: 'pending' | 'running' | 'blocked' | 'conditional' | 'delivered' | 'integrated' | 'completed';
   attempts: number; assignment?: TaskAssignment; proof?: TaskProof; integratedCheck?: TaskProof; feedback?: string; finding?: string;
-  /** Host-owned attention only. The goal stays paused and is never dispatched to a peer. */
-  primaryOwned?: boolean;
-  application?: { helperDigest: string; consumerTaskId: string; consumerDigest: string; residualGoal?: string };
   pendingValidation?: { id: string; taskDigest: string; canonicalCommit: string; environmentDigest: string; problemReceiptDigest: string; proof?: boolean };
   typePreflight?: TaskTypePreflight;
   routeParking?: string[]; parkedRoutes?: Record<string, string[]>; alternativeRoutes?: readonly ProofRoute[] };
-export type CooperativeAction = { kind: 'lead' | 'assemble' | 'solve'; seedCommit: string; planVersion?: string; planningInputDigest?: string;
+export type CooperativeAction = { kind: 'lead' | 'assemble'; seedCommit: string; planVersion?: string; planningInputDigest?: string;
   initialPlanNonce?: string;
   handoffIds?: readonly string[];
   handoffActivations?: Readonly<Record<string, string>>;

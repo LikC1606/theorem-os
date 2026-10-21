@@ -8,7 +8,7 @@ it('keeps M3 priority for both proof roles under every configured scheduler', ()
   const engineer: ResearchWorker = { ...researcher, id: 'engineer', role: 'engineer' };
   const goal: TaskRecord = { task: { id: 'original', kind: 'goal', objective: 'Original', dependsOn: [], revision: 0 }, status: 'pending', attempts: 0 };
   const research: TaskRecord = { ...goal, task: { ...goal.task, id: 'explore', kind: 'research' } };
-  for (const method of ['direct', 'lemma']) for (const scheduler of ['plan', 'goals-first', 'critical-path', 'continuation', 'primary-led']) {
+  for (const method of ['direct', 'lemma']) for (const scheduler of ['plan', 'goals-first', 'critical-path', 'continuation']) {
     const { M5 } = configuredSolverModules(method, scheduler);
     for (const worker of [researcher, engineer]) {
       expect(M5.assign([goal, research], worker, [researcher, engineer])).toBe(goal);
@@ -51,7 +51,7 @@ function capacityFixture(slots = 3, occupied = slots - 1) {
   return { workers, running, core, independent, goal, tasks: [...running, core, independent, goal] };
 }
 
-describe.each(['plan', 'goals-first', 'critical-path', 'continuation', 'primary-led'])('%s shared proof capacity', scheduler => {
+describe.each(['plan', 'goals-first', 'critical-path', 'continuation'])('%s shared proof capacity', scheduler => {
   it.each([2, 3, 4])('reserves the last of %i actual proof slots for an independent question', slots => {
     const workers = Array.from({ length: slots }, (_, index) => capacityWorker(`worker-${index}`));
     const support = Array.from({ length: slots + 1 }, (_, index) => capacityNode(`support-${index}`));

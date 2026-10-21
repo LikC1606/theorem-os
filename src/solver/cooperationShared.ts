@@ -62,7 +62,6 @@ export type CooperationState = { tasks: TaskRecord[]; groups?: RouteRecord[]; ca
   challengeDecisions?: ResearchChallengeDecision[];
   planVersion?: string; planEdited?: boolean; statementReviews?: StatementReview[];
   initialPlanPublication?: InitialPlanPublication;
-  helpRequestDigest?: string;
   planRejection?: { proposalDigest: string; inputDigest: string; error: string; stalled: boolean };
   lastLeadInputDigest?: string;
   frontierRecoveries?: { id: string; taskIds: string[]; goalIds: string[];

@@ -390,7 +390,7 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
     if (input.cooperation.mathematicalGaps?.length) mandatory.push(section('mathematical-gaps', 'finding',
       'Persistent mathematical gaps (advisory; historical-scope reports require review of changed inputs; complete records remain in COOPERATION.json):',
       mathematicalGapContext(input.cooperation.mathematicalGaps)));
-    if (action?.kind === 'lead' || action?.kind === 'solve') {
+    if (action?.kind === 'lead') {
       const challenges = pendingResearchChallenges(input.cooperation);
       const challengeIds = new Set(action.challengeIds ?? selectResearchChallengeBatch(input.cooperation).map(item => item.id));
       const shownChallenges = challenges.filter(item => challengeIds.has(item.id));
@@ -415,8 +415,6 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
         'Queued research proposals (not required in this response; preserve their sources and prerequisites for subsequent batches):', {
           pending: pending.length, shown: handoffs.length, remaining: pending.length - handoffs.length, sources: backlogSources(pending, shown),
         }));
-      if (action.kind === 'solve' && (input.cooperation.error?.startsWith('math_handoff_') || input.cooperation.error?.startsWith('math_challenge_')))
-        mandatory.push(section('handoff-feedback', 'feedback', 'Repair the research handoff decision:', input.cooperation.error));
     }
     mandatory.push(section('task-interfaces', 'interfaces', 'Lead task graph and host feedback:', graph));
     if (graph.some(node => 'objectiveDigest' in node)) mandatory.push(section('task-objective-reference-encoding', 'sources',

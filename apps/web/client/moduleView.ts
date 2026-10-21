@@ -25,7 +25,7 @@ export type ModuleViewInput = {
   modulePlan?: ResearchModulePlan;
 };
 
-const schedulers = { plan: '按计划', 'goals-first': '原题目标优先', 'critical-path': '关键路径优先', continuation: '延续已有进展', 'primary-led': '主求解器带队' };
+const schedulers: Record<string, string> = { plan: '按计划', 'goals-first': '原题目标优先', 'critical-path': '关键路径优先', continuation: '延续已有进展' };
 
 export function customModuleState(rule: CustomResearchModule, input: Pick<ModuleViewInput, 'run' | 'coordination' | 'workers'>,
   snapshot?: WebModuleSnapshot): string {
@@ -276,7 +276,7 @@ export class ModuleView {
     if (this.selected === 'M1') facts.push(['模型', input.model || '未设置']);
     if (this.selected === 'M2' || this.selected === 'S3') facts.push(['证明环境', input.environment]);
     if (this.selected === 'M3' && details?.operation) facts.push(['最近决策', operations[details.operation]]);
-    if (this.selected === 'M3') facts.push(['调度策略', `${schedulers[plan.scheduler]}${input.coordination !== 'cooperative' || input.workers <= 1 ? ' · 多 Agent 协作时生效' : ''}`]);
+    if (this.selected === 'M3') facts.push(['调度策略', `${schedulers[plan.scheduler] ?? plan.scheduler}${input.coordination !== 'cooperative' || input.workers <= 1 ? ' · 多 Agent 协作时生效' : ''}`]);
     if (this.selected === 'M4') facts.push(['上下文范围', plan.context === 'essential' ? '必要原题、接口与检查反馈' : '完整研究证据']);
     if (this.selected === 'M4' && details?.usedBytes !== undefined)
       facts.push(['上下文大小', `${bytes(details.usedBytes)}${details.maxBytes !== undefined ? ` / ${bytes(details.maxBytes)}` : ''}`]);

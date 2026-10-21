@@ -42,7 +42,7 @@ const delivery = (task: CooperativeTask, id: string, summary = id): DeliveryReco
   id, taskId: task.id, taskDigest: taskVersion(task), kind: 'failure', status: 'failed', groupId: task.groupId,
   producer: 'peer', statement: '', premises: [], dependencies: [], remainingObligations: [], summary, evidenceRefs: [], createdAt: 1 });
 
-it.each(['lead', 'solve'] as const)('keeps reverse feasibility refutations mandatory for %s with no optional context', kind => {
+it.each(['lead'] as const)('keeps reverse feasibility refutations mandatory for %s with no optional context', kind => {
   const core = lemma('core'), goal: CooperativeTask = { id: 'goal', kind: 'goal', objective: 'Original target', revision: 0,
     dependsOn: ['core'], proofPath: 'Submission.lean', theoremName: 'Original.target' };
   const review: CooperativeTask = { id: 'feasibility', kind: 'research', objective: 'Challenge the core', revision: 0,
@@ -199,7 +199,7 @@ it('does not require proposals that arrived after the Lead dispatch', () => {
   expect(context.message).not.toContain(proposal.theoremName);
 });
 
-it.each(['lead', 'solve'] as const)('compacts repeated provenance and resolves a legacy %s handoff alias', kind => {
+it.each(['lead'] as const)('compacts repeated provenance and resolves a legacy %s handoff alias', kind => {
   const research: CooperativeTask = { id: 'investigate', kind: 'research', objective: 'Find a bridge', dependsOn: [], revision: 0 };
   const tasks = [{ ...node(research), status: 'completed' as const }], proposal = lemma('unique_bridge');
   const deliveries = Array.from({ length: 1000 }, (_, index) => ({ ...delivery(research, `source-${index}`),
@@ -218,7 +218,7 @@ it.each(['lead', 'solve'] as const)('compacts repeated provenance and resolves a
   expect(handoff.sources).toHaveLength(1000);
 });
 
-it.each(['lead', 'solve'] as const)('keeps a thousand proposals in bounded %s batches with zero optional allowance', kind => {
+it.each(['lead'] as const)('keeps a thousand proposals in bounded %s batches with zero optional allowance', kind => {
   const research: CooperativeTask = { id: 'investigate', kind: 'research', objective: 'Find exact bridges', dependsOn: [], revision: 0 };
   const tasks = [{ ...node(research), status: 'completed' as const }];
   const proposals = Array.from({ length: 1000 }, (_, index) => lemma(`proposal_${index}`, [], 'True'));
@@ -233,20 +233,6 @@ it.each(['lead', 'solve'] as const)('keeps a thousand proposals in bounded %s ba
   expect(context.message).toContain('"pending":1000,"shown":8,"remaining":992');
   expect(context.message).not.toContain(proposals[999].theoremName);
   expect(cooperation).toEqual(before);
-});
-
-it('keeps the primary solver research inbox and decision feedback mandatory', () => {
-  const research: CooperativeTask = { id: 'investigate', kind: 'research', objective: 'Find a bridge', dependsOn: [], revision: 0 };
-  const tasks = [node(research)], proposal = lemma('primary_proposal');
-  const cooperation = { tasks, deliveries: [{ ...delivery(research, 'primary'), kind: 'research' as const,
-    status: 'advisory' as const, lemmaRequests: [proposal] }], error: 'math_handoff_unresolved: repair the decision' };
-  const handoff = pendingResearchHandoffs(cooperation)[0];
-  const context = compileTaskContext({ ...input(tasks, { kind: 'solve', seedCommit: baseCommit, handoffIds: [handoff.id] }),
-    cooperation, maxOptionalContextBytes: 0 });
-  expect(context.message).toContain(proposal.theoremName);
-  expect(context.message).toContain(cooperation.error);
-  expect(context.manifest.included).toContainEqual(expect.objectContaining({ id: 'research-handoffs', required: true }));
-  expect(context.manifest.included).toContainEqual(expect.objectContaining({ id: 'handoff-feedback', required: true }));
 });
 
 it('dispatches one explicit work contract while retaining exact proof inputs and host acceptance', () => {

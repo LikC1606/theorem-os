@@ -43,8 +43,8 @@ describe('fixed-candidate statement review scope', () => {
     expect(hasFreshSolverCheck(check)).toBe(true);
     return check;
   };
-  const create = (primaryLed = false) => cooperativeResearch({ state, workers, retrievalRoot: directory, signal: controller.signal,
-    emit: (event, details) => events.push({ event, details }), modules: { ...directSolverModules, M5: { ...directSolverModules.M5, primaryLed } } });
+  const create = () => cooperativeResearch({ state, workers, retrievalRoot: directory, signal: controller.signal,
+    emit: (event, details) => events.push({ event, details }), modules: directSolverModules });
   const addReview = (node: TaskRecord) => {
     const snapshot = statementSnapshot(problem, node.task, workspace, check.commit, state.environmentDigest, []);
     const reviewWorkspace = path.join(directory, 'statements', node.task.id);
@@ -180,13 +180,10 @@ describe('fixed-candidate statement review scope', () => {
     expect(cooperative.reviewed(untrusted)).toBe(false);
   });
 
-  it('waits for required statements in primary-led mode after the fixed proof review was accepted', async () => {
+  it('waits for required statements before assembling after the fixed proof review was accepted', async () => {
     reports.set(problem.targets[0]!.theoremName, { statement: [], proof: [{ name: 'Tutorial.used', file: 'Submission.lean' }] });
     await freshCheck();
-    await cooperative.stop(); cooperative = create(true);
-    task('used').task = { ...task('used').task, status: 'active' };
     cooperative.requireReview(check); state.cooperation!.review!.status = 'accepted';
-    expect(task('used').task.status).toBe('paused');
     let settled = false;
     const nextLead = track(cooperative.next(workers[0]!, budget).then(action => { settled = true; return action; }));
     await Promise.resolve();

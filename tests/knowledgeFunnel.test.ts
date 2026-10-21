@@ -162,13 +162,11 @@ describe('knowledge observations across retrieval, context, application and orig
     expect(summarizeKnowledgeFunnel(input).consumerClosure.recordedClosedOriginalGoals).toBe(0);
   });
 
-  it('does not count a checked helper, plan dependency or advisory link as original closure', () => {
+  it('does not count a checked helper or plan dependency as original closure', () => {
     const original = goal(), helper: TaskRecord = { ...goal('helper'), task: { ...goal('helper').task, kind: 'lemma',
       theoremName: 'Current.helper', type: 'True' } };
     checked(helper);
     original.task = { ...original.task, dependsOn: ['helper'] };
-    helper.application = { helperDigest: taskVersion(helper.task), consumerTaskId: original.task.id,
-      consumerDigest: taskVersion(original.task) };
     const input = state([helper, original]); saveUse(input, use(helper));
     expect(summarizeKnowledgeFunnel(input).consumerClosure).toMatchObject({ originalGoals: 1,
       recordedClosedOriginalGoals: 0, usesWithClosedOriginalConsumer: 0 });

@@ -313,7 +313,7 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
     console.log('Usage: theorem-os compare --phase prepare|run|report|check-report --directory DIR\n'
       + 'prepare also requires --repo PINNED_REPO --problem ID --task-file FILE --build-manifest FILE\n'
       + '--dataset imo2026|putnambench selects the pinned public source (default: imo2026).\n'
-      + 'Optional: --repetitions 1 --workers 4 --model gpt-6.1-sol --effort xhigh --method direct --scheduler plan|goals-first|critical-path|continuation|primary-led\n'
+      + 'Optional: --repetitions 1 --workers 4 --model gpt-6.1-sol --effort xhigh --method direct --scheduler plan|goals-first|critical-path|continuation\n'
       + '          --max-turns 200 --max-run-seconds 1800 --max-turn-seconds 180 --max-total-tokens 0 --evaluator-timeout-seconds 1800\n'
       + '          --proof-environment-cache-dir HOST_PRIVATE_DIR\n'
       + '          --knowledge-base FILE [--knowledge-mode transfer|recovery] (frozen snapshot; default transfer rejects recorded target material)\n'
@@ -349,7 +349,7 @@ export async function compareMathRuns(argv: string[]): Promise<number> {
     const repetitions = number('repetitions', 1), workers = number('workers', 4);
     if (workers < 2 || workers > 4) throw new Error('--workers must be 2, 3 or 4');
     const method = flags.get('method') ?? 'direct', scheduler = flags.get('scheduler') ?? 'plan';
-    if (!['direct', 'lemma'].includes(method) || !['plan', 'goals-first', 'critical-path', 'continuation', 'primary-led'].includes(scheduler)) throw new Error('invalid method or scheduler');
+    if (!['direct', 'lemma'].includes(method) || !['plan', 'goals-first', 'critical-path', 'continuation'].includes(scheduler)) throw new Error('invalid method or scheduler');
     const experiment = flags.has('module-experiment')
       ? moduleExperimentSchema.parse(json(required(flags, 'module-experiment'))) : undefined;
     if (experiment && (method !== 'direct' || scheduler !== 'plan' || workers < 3))

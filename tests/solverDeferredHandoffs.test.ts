@@ -27,12 +27,12 @@ vi.mock('../src/runtime/codexSession', () => ({ createCodexMathSession: host.cre
 
 const verified = (request: MathematicsVerifierBatchRequest) => verifiedBatch(request, { sessionId: 'deferred-handoff-fixture' });
 
-type PlanningAction = Extract<CooperativeAction, { kind: 'lead' | 'assemble' | 'solve' }>;
+type PlanningAction = Extract<CooperativeAction, { kind: 'lead' | 'assemble' }>;
 const budget = { maxTurns: Infinity, remainingMs: Infinity };
 
 describe('deferred research proposal activation', () => {
   let directory: string, problem: SolverProblem, state: SolverRunState;
-  let lead: ResearchWorker, peer: ResearchWorker, cooperative: CooperativeResearch, primaryLed: boolean;
+  let lead: ResearchWorker, peer: ResearchWorker, cooperative: CooperativeResearch;
   let proposal: CooperativeTask;
   let knowledgeSnapshot: KnowledgeContextSnapshot | undefined;
   let events: { event: string; details?: Record<string, unknown> }[];
@@ -45,17 +45,16 @@ describe('deferred research proposal activation', () => {
     const instance = cooperativeResearch({ state, workers: [lead, peer], retrievalRoot: directory,
       access: new Map([lead, peer].map(worker => [worker.id, { environment: {}, retrievalRoot: directory,
         ...(worker.id === peer.id && knowledgeSnapshot ? { knowledgeSnapshot } : {}) }])),
-      modules: primaryLed ? { ...directSolverModules, M5: { ...directSolverModules.M5, primaryLed: true } } : directSolverModules,
+      modules: directSolverModules,
       emit: (event, details) => events.push({ event, details }) });
     instances.push(instance); return instance;
   };
   const deliverLead = (action: CooperativeAction) => cooperative.deliver(lead, action, commitSolverSources(problem, lead.worktree));
-  const planResponse = (handoffDecisions: unknown[], proposed = tasks(), requests?: CooperativeTask[]) => notes(primaryLed
-    ? { requests: requests ?? proposed.filter(task => task.kind === 'lemma'), handoffDecisions }
-    : { tasks: proposed, groups: state.cooperation!.groups!.map(record => record.group), handoffDecisions });
+  const planResponse = (handoffDecisions: unknown[], proposed = tasks()) =>
+    notes({ tasks: proposed, groups: state.cooperation!.groups!.map(record => record.group), handoffDecisions });
   const dispatch = async () => {
     const action = await cooperative.next(lead, budget);
-    if (!action || action.kind !== (primaryLed ? 'solve' : 'lead')) throw new Error('fixture_expected_handoff_dispatch');
+    if (!action || action.kind !== 'lead') throw new Error('fixture_expected_handoff_dispatch');
     expect(action.handoffIds).toEqual([handoff().id]);
     expect(action.handoffActivations).toEqual({ [handoff().id]: handoff().activationDigest });
     return action as PlanningAction;
@@ -115,7 +114,7 @@ describe('deferred research proposal activation', () => {
         deliveries: [{ id: 'proposal-delivery', producer: peer.id, taskId: question.id, taskDigest: taskVersion(question),
           kind: 'research', status: 'advisory', summary: 'An exact bridge waits on the estimate.', statement: '', premises: [],
           dependencies: [], remainingObligations: [], evidenceRefs: [], createdAt: 1, lemmaRequests: [proposal] }] } });
-    primaryLed = false; knowledgeSnapshot = undefined; events = []; cooperative = create();
+    knowledgeSnapshot = undefined; events = []; cooperative = create();
   });
   afterEach(async () => {
     for (const instance of instances.splice(0)) await instance.stop();
@@ -185,24 +184,23 @@ describe('deferred research proposal activation', () => {
     expect(state.cooperation!.error).toBeUndefined();
   });
 
-  it.each([false, true])('requires and persists challenge decisions in a primary-led=%s dispatch', async primary => {
+  it('requires and persists challenge decisions in a Lead dispatch', async () => {
     const question = node('question');
     question.finding = JSON.stringify({ conclusion: 'refuted', needsDecision: true, summary: 'A fixed counterexample.' });
     state.cooperation!.deliveries = [{ ...state.cooperation!.deliveries![0], lemmaRequests: undefined,
       findingDigest: mathDigest(question.finding), summary: 'A fixed counterexample.', evidenceRefs: ['fixed-source'] }];
-    primaryLed = primary; cooperative = create();
     const action = await cooperative.next(lead, budget);
-    if (!action || action.kind !== (primary ? 'solve' : 'lead')) throw new Error('fixture_challenge_dispatch_required');
+    if (!action || action.kind !== 'lead') throw new Error('fixture_challenge_dispatch_required');
     const challenge = pendingResearchChallenges(state.cooperation!)[0];
     expect(action.challengeIds).toEqual([challenge.id]);
     expect(action.challengeActivations).toEqual({ [challenge.id]: challenge.activationDigest });
-    notes(primary ? { requests: [] } : { tasks: tasks() });
+    notes({ tasks: tasks() });
     await deliverLead(action);
     expect(state.cooperation!.error).toContain('math_challenge_unresolved');
     expect(pendingResearchChallenges(state.cooperation!)).toHaveLength(1);
     const challengeDecisions = [{ id: challenge.id, status: 'disputed', reason: 'Its input violates the positivity premise.',
       evidenceRefs: ['counterargument-commit:RESEARCH.md'] }];
-    notes(primary ? { requests: [], challengeDecisions } : { tasks: tasks(), challengeDecisions });
+    notes({ tasks: tasks(), challengeDecisions });
     await deliverLead(action);
     expect(state.cooperation!.error).toBeUndefined();
     expect(researchChallenges(state.cooperation!)[0]).toMatchObject({ status: 'disputed' });
@@ -252,13 +250,12 @@ describe('deferred research proposal activation', () => {
     expect(host.verify).toHaveBeenCalledTimes(checks);
   });
 
-  it('resolves a Primary solve response under its original alias after a duplicate becomes the primary handoff', async () => {
-    primaryLed = true; cooperative = create();
+  it('resolves a Lead response under its original alias after a duplicate becomes the canonical handoff', async () => {
     const action = await dispatch(), originalId = action.handoffIds![0], original = state.cooperation!.deliveries![0];
     state.cooperation!.deliveries!.unshift({ ...structuredClone(original), id: 'earlier-proposal-delivery', createdAt: 0 });
     expect(handoff().id).not.toBe(originalId);
     expect(cooperative.current(action)).toBe(true);
-    notes({ handoffDecisions: [{ id: originalId, status: 'rejected', reason: 'The exact interface does not close the gap.' }] });
+    planResponse([{ id: originalId, status: 'rejected', reason: 'The exact interface does not close the gap.' }]);
     const before = structuredClone(tasks());
     await deliverLead(action);
     expect(state.cooperation!.error).toBeUndefined();
@@ -271,8 +268,7 @@ describe('deferred research proposal activation', () => {
     expect(host.verify).not.toHaveBeenCalled();
   });
 
-  it('retains Primary waits expressed through an old alias and rejects that dispatch after the prerequisites reactivate it', async () => {
-    primaryLed = true; cooperative = create();
+  it('retains Lead waits expressed through an old alias and rejects that dispatch after the prerequisites reactivate it', async () => {
     const original = await dispatch(), originalId = original.handoffIds![0], delivery = state.cooperation!.deliveries![0];
     state.cooperation!.deliveries!.unshift({ ...structuredClone(delivery), id: 'earlier-proposal-delivery', createdAt: 0 });
     planResponse([{ id: originalId, status: 'deferred', reason: 'Wait for the checked premise.', waitsOn: ['premise'] }]);
@@ -287,7 +283,7 @@ describe('deferred research proposal activation', () => {
     await deliverLead(original);
     expect(state.cooperation!.researchDecisions).toEqual(previous);
     expect(handoff()).toMatchObject({ status: 'pending', reopened: 'checked-prerequisites' });
-    expect(events.some(item => item.event === 'research_handoff_superseded')).toBe(true);
+    expect(events.some(item => item.event === 'lead_decision_superseded')).toBe(true);
     expect(host.verify).toHaveBeenCalledTimes(checks);
     await reject(await dispatch());
     expect(state.cooperation!.error).toBeUndefined();
@@ -366,77 +362,5 @@ describe('deferred research proposal activation', () => {
     expect(state.cooperation!.error).toBeUndefined();
     expect(tasks().some(task => task.id === 'question')).toBe(false);
     expect(state.cooperation!.researchDecisions).toMatchObject([{ status: 'rejected' }]);
-  });
-
-  it('preserves waiting research through Primary help edits and parses an identical adopted request in a new activation', async () => {
-    primaryLed = true; cooperative = create();
-    await defer();
-    expect(node('question').status).toBe('completed');
-    expect(node('premise').status).toBe('pending');
-    const oldActivation = handoff().activationDigest;
-    planResponse([], tasks(), [proposal]);
-    const sameNotes = fs.readFileSync(path.join(lead.worktree, 'RESEARCH.md'), 'utf8');
-    const ordinary: PlanningAction = { kind: 'solve', seedCommit: state.cooperation!.canonicalCommit!,
-      handoffIds: [], handoffActivations: {} };
-    await deliverLead(ordinary);
-    await cooperative.pulse();
-    expect(node('question').status).toBe('completed');
-    expect(node('premise').status).toBe('pending');
-    expect(node('bridge').status).toBe('pending');
-    expect(handoff().status).toBe('deferred');
-    await proveNext();
-
-    const action = await dispatch();
-    const acceptedHelp = events.filter(item => item.event === 'help_requested').length;
-    expect(handoff().activationDigest).toBe(oldActivation);
-    fs.writeFileSync(path.join(lead.worktree, 'RESEARCH.md'), sameNotes);
-    await deliverLead(action);
-    expect(state.cooperation!.error).toBeUndefined();
-    expect(state.cooperation!.researchDecisions).toMatchObject([{ status: 'adopted', taskId: 'bridge' }]);
-    expect(events.filter(item => item.event === 'help_requested')).toHaveLength(acceptedHelp + 1);
-    expect(pendingResearchHandoffs(state.cooperation!)).toEqual([]);
-    expect(node('bridge').status).toBe('pending');
-    expect(node('premise').status).toBe('integrated');
-  });
-
-  it.each(['none', 'source', 'proposal', 'delivery'] as const)
-  ('updates Primary waits without retaining an obsolete premise unless referenced by %s', async reference => {
-    proposal = { ...proposal, dependsOn: reference === 'proposal' ? ['premise'] : [] };
-    const delivery = state.cooperation!.deliveries![0];
-    delivery.lemmaRequests = [proposal];
-    if (reference === 'source') {
-      node('question').task = { ...node('question').task, dependsOn: ['premise'] };
-      delivery.taskDigest = taskVersion(node('question').task);
-    }
-    if (reference === 'delivery') delivery.dependencies = [{
-      taskId: 'premise', taskDigest: taskVersion(node('premise').task),
-    }];
-    primaryLed = true; cooperative = create();
-    await defer();
-    const replacement = { ...node('premise').task, id: 'replacement', theoremName: 'Tutorial.replacement',
-      objective: 'Prove the replacement estimate.' };
-    const action = await cooperative.next(lead, budget);
-    if (action?.kind !== 'solve') throw new Error('fixture_expected_primary_dispatch');
-    expect(action.handoffIds).toEqual([]);
-    cooperative.activate(lead, action, async () => {}, async () => {});
-    planResponse([{ id: handoff().id, status: 'deferred', reason: 'Use the replacement estimate.', waitsOn: ['replacement'] }],
-      tasks(), [replacement]);
-
-    await cooperative.pulse();
-    cooperative.deactivate(lead);
-    await deliverLead(action);
-
-    expect(state.cooperation!.error).toBeUndefined();
-    expect(handoff()).toMatchObject({ status: 'deferred', decision: { waitsOn: [{
-      taskId: replacement.id, taskDigest: taskVersion(replacement),
-    }] } });
-    expect(node('question').status).toBe('completed');
-    expect(node('replacement').status).toBe('pending');
-    expect(tasks().some(task => task.id === 'premise')).toBe(reference !== 'none');
-    if (reference === 'none') {
-      const proof = await cooperative.next(peer, budget);
-      expect(proof).toMatchObject({ kind: 'task', task: { id: replacement.id } });
-    } else expect(node('premise').status).toBe('pending');
-    expect(host.verify).not.toHaveBeenCalled();
   });
 });
