@@ -42,14 +42,15 @@ describe('scoped route priority context', () => {
     expect(tasks.every(item => item.status === 'pending')).toBe(true);
   });
 
-  it('retains an assigned parked route even when all other previews are disabled', () => {
+  it('retains an assigned parked route ahead of the full preview allowance', () => {
     const { goal, routes, tasks } = fixture(10);
     goal.parkedRoutes = { [routes.at(-1)!.id]: ['local-obstruction'] };
     const index = createProofRoutePriorityIndex(tasks);
-    const context = selectProofRoutePriorityContext(index, { assignedRouteId: routes.at(-1)!.id, preferredLimit: 0 });
+    const context = selectProofRoutePriorityContext(index, { assignedRouteId: routes.at(-1)!.id });
 
-    expect(context.routes).toEqual([expect.objectContaining({ routeId: routes.at(-1)!.id, parked: true })]);
-    expect(context.omittedCount).toBe(9);
+    expect(context.routes[0]).toEqual(expect.objectContaining({ routeId: routes.at(-1)!.id, parked: true }));
+    expect(context.routes.slice(1).every(route => !route.parked)).toBe(true);
+    expect(context).toMatchObject({ selectedCount: 5, omittedCount: 5 });
     expect(goal.status).toBe('pending');
   });
 
@@ -60,22 +61,22 @@ describe('scoped route priority context', () => {
     checked(cores[8]!); checked(closings[8]!, [cores[8]!]);
     const index = createProofRoutePriorityIndex(tasks, { environmentDigest: 'environment' });
     const context = selectProofRoutePriorityContext(index, { assignedRouteId: routes[9]!.id,
-      relatedRouteIds: [routes[7]!.id, routes[8]!.id], preferredLimit: 3 });
+      relatedRouteIds: [routes[7]!.id, routes[8]!.id] });
 
-    expect(context.routes.map(route => route.routeId)).toEqual(['route_9', 'route_8', 'route_7', 'route_0']);
+    expect(context.routes.map(route => route.routeId)).toEqual(['route_9', 'route_8', 'route_7', 'route_0', 'route_1']);
     expect(context.routes[1]).toMatchObject({ checkedInputIds: ['core_8', 'closing_8'], frontierTaskIds: [] });
-    expect(selectProofRoutePriorityContext(index, { relatedRouteIds: [routes[7]!.id], preferredLimit: 1 })
-      .routes.map(route => route.routeId)).toEqual(['route_7']);
+    expect(selectProofRoutePriorityContext(index, { relatedRouteIds: [routes[7]!.id] })
+      .routes.map(route => route.routeId)).toEqual(['route_7', 'route_0', 'route_8', 'route_1']);
   });
 
   it('counts an assigned route only once when it is also related or globally preferred', () => {
     const { routes, tasks } = fixture(10);
     const context = selectProofRoutePriorityContext(createProofRoutePriorityIndex(tasks), {
-      assignedRouteId: routes[0]!.id, relatedRouteIds: [routes[0]!.id, routes[0]!.id], preferredLimit: 1,
+      assignedRouteId: routes[0]!.id, relatedRouteIds: [routes[0]!.id, routes[0]!.id],
     });
 
-    expect(context.routes.map(route => route.routeId)).toEqual(['route_0', 'route_1']);
-    expect(context).toMatchObject({ selectedCount: 2, omittedCount: 8 });
+    expect(context.routes.map(route => route.routeId)).toEqual(['route_0', 'route_1', 'route_2', 'route_3', 'route_4']);
+    expect(context).toMatchObject({ selectedCount: 5, omittedCount: 5 });
   });
 
   it('uses explicit routes for scheduling and treats an explicit empty array as authoritative', () => {
@@ -141,11 +142,6 @@ describe('scoped route priority context', () => {
       full[0].parked = !full[0].parked;
       expect(mathDigest(canonicalMathJson(full))).not.toBe(context.index.digest);
     } finally { fs.rmSync(directory, { recursive: true, force: true }); }
-  });
-
-  it.each([-1, 0.5, 5, Infinity, NaN])('rejects an invalid preview allowance %s', preferredLimit => {
-    const index = createProofRoutePriorityIndex(fixture(1).tasks);
-    expect(() => selectProofRoutePriorityContext(index, { preferredLimit })).toThrow('math_context_invalid_route_limit');
   });
 
   it('reports an empty or fully included scope without pretending that it covers omitted alternatives', () => {

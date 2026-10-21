@@ -97,19 +97,14 @@ export function createProofRoutePriorityIndex(tasks: readonly TaskRecord[], opti
     count: routes.length, digest: mathDigest(canonicalMathJson(routes)), routes };
 }
 
-/** A local preview retains its assigned route, then related work within a fixed allowance. */
-export function selectProofRoutePriorityContext(index: ProofRoutePriorityIndex, options: {
-  assignedRouteId?: string; relatedRouteIds?: readonly string[];
-  /** Lower this allowance to select fewer previews; the assigned route is additional. */
-  preferredLimit?: number;
-} = {}) {
-  const limit = options.preferredLimit ?? 4;
-  if (!Number.isSafeInteger(limit) || limit < 0 || limit > 4) throw new Error('math_context_invalid_route_limit');
+/** A local preview retains its assigned route, then at most four related or global routes. */
+export function selectProofRoutePriorityContext(index: ProofRoutePriorityIndex,
+  options: { assignedRouteId?: string; relatedRouteIds?: readonly string[] } = {}) {
   const assigned = index.routes.find(route => route.routeId === options.assignedRouteId);
   const relatedIds = new Set(options.relatedRouteIds ?? []);
   const remaining = index.routes.filter(route => route !== assigned);
   const preferred = [...remaining.filter(route => relatedIds.has(route.routeId)).toSorted(compare),
-    ...remaining.filter(route => !relatedIds.has(route.routeId)).toSorted(compare)].slice(0, limit);
+    ...remaining.filter(route => !relatedIds.has(route.routeId)).toSorted(compare)].slice(0, 4);
   const routes = [...(assigned ? [assigned] : []), ...preferred];
   return { evidence: index.evidence, selection: 'bounded-preview' as const,
     routes, selectedCount: routes.length, totalCount: index.count, omittedCount: index.count - routes.length,

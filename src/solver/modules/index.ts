@@ -2,10 +2,8 @@ import { createCodexMathSession } from '../../runtime/codexSession';
 import { checkSolverProof } from './evidence';
 import { executeResearch } from './execution';
 import { buildResearchContext, buildStatementReviewContext } from './context';
-import type { ResearchOperation, ValueEstimate } from './value';
-import type { SolverRunState } from '../archive';
 import { selectResearchAction, selectLemmaAction, planResearchRetry, readyResearchTasks, goalsFirstResearchTasks, criticalPathResearchTasks, continuationResearchTasks } from './search';
-import { assignSharedResearchTask, researchWorkers, assignResearchReviewer, type organizeResearch } from './organization';
+import { assignSharedResearchTask, researchWorkers, assignResearchReviewer } from './organization';
 import { checkLemmaResearch } from '../lemma';
 import { checkTaskProof } from '../cooperativeProof';
 import { canonicalMathJson, mathDigest } from '../../math/mathRuntimeIo';
@@ -20,12 +18,9 @@ export const directSolverModules = {
   M5: { version: 'route-cooperation-v33/persistent-failed-input-v1/continuous-frontier-input-v1/research-handoff-batches-v3/assignable-work-v1/resumable-lead-drafts-v1/assignment-deliveries-v1/scoped-research-drafts-v1/review-dispatches-v1/recoverable-delivery-cursors-v1/recoverable-human-edits-v1/recoverable-proof-integration-v1/deferred-handoff-reactivation-v1/concurrent-frontier-recovery-v1/complete-research-findings-v1/consumer-interface-projection-v1/independent-feasibility-v1/ranked-assignment-v1/local-checkpoint-evidence-v1/stable-handoff-inputs-v1/local-attempt-identity-v1/exact-inflight-questions-v1/description-source-recheck-v1/conditional-restore-v1/live-capacity-exploration-v1/snapshot-statement-review-reuse-v1/concurrent-merged-check-v1/adopted-research-use-v1/fixed-candidate-statement-scope-v1/semantic-dependency-review-v1/nonblocking-plan-validation-v1/exact-projection-cache-v1/required-research-challenges-v1/initial-plan-publication-v1/observed-knowledge-use-v1/host-consumer-connection-v1/live-research-publication-v1/typed-helper-preflight-v1/stale-preflight-cancellation-v1/type-projection-preflight-reuse-v1/stale-plan-recheck-stop-v1/shared-statement-preparation-v1/scoped-statement-types-v1/empty-route-list-v1', workers: researchWorkers, reviewer: assignResearchReviewer, assign: assignSharedResearchTask },
 };
 
-export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M3' | 'M5'> & {
+export type SolverModules = Omit<typeof directSolverModules, 'M2' | 'M5'> & {
   M2: Omit<typeof directSolverModules.M2, 'checkTask'> & { checkTask?: typeof checkTaskProof; checkLemma?: typeof checkLemmaResearch };
-  M3: typeof directSolverModules.M3 & {
-    estimate?: (state: Readonly<SolverRunState>, options: readonly ResearchOperation[]) => readonly ValueEstimate[];
-  };
-  M5: typeof directSolverModules.M5 & { organize?: typeof organizeResearch; primaryLed?: boolean };
+  M5: typeof directSolverModules.M5 & { primaryLed?: boolean };
 };
 
 export const lemmaSolverModules: SolverModules = {

@@ -66,7 +66,7 @@ describe('saved Lead plans after request failure', () => {
         check: async () => { throw new Error('fixture_unexpected_whole_proof_check'); },
         checkTask: async () => { throw new Error('fixture_unexpected_task_proof_check'); } },
       M3: { ...directSolverModules.M3, retry,
-        select: (_state, _operations, _estimates, _budget, assignment) => assignment?.kind === 'task'
+        select: (_state, _operations, _budget, assignment) => assignment?.kind === 'task'
           ? { operation: 'stop', reason: 'fixture_task_dispatch_observed' }
           : { operation: 'direct', reason: 'fixture_lead_request' } },
       M4: { ...directSolverModules.M4, build: (_problem, _state, access) => ({

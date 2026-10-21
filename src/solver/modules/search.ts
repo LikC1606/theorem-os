@@ -2,7 +2,7 @@ import type { SolverRunState } from '../archive';
 import type { MathAgentFailureDiagnostic } from '../../runtime/codexSession';
 import type { ModelRequestStopReason } from '../../runtime/modelRequest';
 import { canonicalMathJson, mathDigest } from '../../math/mathRuntimeIo';
-import type { ResearchOperation, ValueEstimate } from './value';
+import type { ResearchOperation } from './value';
 import { proofRouteReady, type ProofRoute } from '../proofRoutes';
 import { createRecordedTaskSettlement } from '../progress';
 import { createProofRoutePriority } from '../routePriority';
@@ -351,9 +351,9 @@ export function researchCanAdvance(tasks: readonly TaskRecord[], groups: readonl
     ['pending', 'blocked'].includes(node.status) && visit(node.task.id));
 }
 
-/** M3 chooses actions; estimates never change mathematical acceptance. */
+/** M3 chooses actions; a selected action never changes mathematical acceptance. */
 export function selectResearchAction(state: Readonly<SolverRunState>, options: readonly ResearchOperation[],
-  _estimates: readonly ValueEstimate[], budget: ResearchBudget, _assignment?: CooperativeAction): ActionPlan {
+  budget: ResearchBudget, _assignment?: CooperativeAction): ActionPlan {
   if (budget.aborted || budget.remainingMs <= 0 || state.turns >= budget.maxTurns)
     return { operation: 'stop', reason: 'budget-exhausted' };
   return options.includes('direct') ? { operation: 'direct', reason: 'continue' } :
@@ -362,8 +362,8 @@ export function selectResearchAction(state: Readonly<SolverRunState>, options: r
 
 /** A single conditional connection is checked before investing in its lemma. */
 export function selectLemmaAction(state: Readonly<SolverRunState>, options: readonly ResearchOperation[],
-  estimates: readonly ValueEstimate[], budget: ResearchBudget, assignment?: CooperativeAction): ActionPlan {
-  const baseline = selectResearchAction(state, options, estimates, budget);
+  budget: ResearchBudget, assignment?: CooperativeAction): ActionPlan {
+  const baseline = selectResearchAction(state, options, budget);
   if (baseline.operation === 'stop') return baseline;
   if (assignment) {
     const operation = assignment.kind === 'lead' ? 'decompose' : assignment.kind !== 'task' ? 'direct' :

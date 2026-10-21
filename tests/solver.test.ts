@@ -23,7 +23,6 @@ import { checkLemmaResearch, readLemmaPlan } from '../src/solver/lemma';
 import { CooperativeResearch, readCooperationPlan, parseCooperationPlan, taskVersion, assignmentDeliveryFile, type CooperativeAction, type CooperativeTask, type RouteGroup } from '../src/solver/cooperation';
 import { canonicalMathJson } from '../src/math/mathRuntimeIo';
 import { deliveryDetails, readDeliveryLines, readMathResponse } from '../src/solver/deliveries';
-import { organizeResearch } from '../src/solver/modules/organization';
 import { assertStatementSnapshot, captureStatementContexts, isStatementAction, readBacktranslation, statementSnapshot, writeStatementSnapshot } from '../src/solver/statementReview';
 import { parseLeanStatementContexts } from '../src/math/leanStatementContext';
 import { captureProofReferences, proofReferencesUnchanged } from '../src/solver/proofReferences';
@@ -2786,14 +2785,14 @@ describe('isolated solver and host acceptance', () => {
       return 'completed';
     });
     const select = vi.fn((...inputs: Parameters<typeof directSolverModules.M3.select>) => {
-      const assignment = inputs[4]!;
+      const assignment = inputs[3]!;
       const stop = stoppedKind === 'lead' ? true : stoppedKind === 'review' ? assignment.kind === 'review' :
         assignment.kind !== 'lead' && !(stoppedKind === 'statement-review' && assignment.kind === 'backtranslate');
       return stop ? { operation: 'stop' as const, reason: 'no-operation' as const } : directSolverModules.M3.select(...inputs);
     });
     expect(await runSolver([...args, '--workers', '4', '--max-turns', '12'], directory,
       { ...directSolverModules, M3: { ...directSolverModules.M3, select } })).toBe(4);
-    expect(select.mock.calls.some(call => call[4]?.kind === stoppedKind)).toBe(true);
+    expect(select.mock.calls.some(call => call[3]?.kind === stoppedKind)).toBe(true);
     const state = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
     const spent = stoppedKind === 'review' ? 4 : stoppedKind === 'statement-review' ? 1 : 0;
     expect(state.cooperation.groups?.[0]?.turns ?? 0).toBe(spent);
@@ -2836,7 +2835,6 @@ describe('isolated solver and host acceptance', () => {
       directSolverModules.M5.workers(...inputs).map((worker, index) => index === 1 ? { ...worker, id: 'mathematician' } :
         index === 2 ? { ...worker, id: 'auditor', role: 'reviewer' as const } : worker));
     const reviewer = vi.fn(directSolverModules.M5.reviewer);
-    const organize = vi.fn(organizeResearch);
     const statement = vi.fn((...inputs: Parameters<typeof directSolverModules.M4.statement>) => {
       if (inputs[1].kind === 'backtranslate') {
         expect(inputs[0].intendedStatement).toBe(''); expect(inputs[0].premises).toEqual([]);
@@ -2857,11 +2855,10 @@ describe('isolated solver and host acceptance', () => {
     });
     expect(await runSolver([...args, '--workers', '4', '--max-turns', '8'], directory, {
       ...directSolverModules, M2: { ...directSolverModules.M2, checkTask }, M4: { ...directSolverModules.M4, statement },
-      M5: { ...directSolverModules.M5, workers, reviewer, organize },
+      M5: { ...directSolverModules.M5, workers, reviewer },
     })).toBe(0);
     expect(checkTask).toHaveBeenCalled(); expect(statement).toHaveBeenCalledTimes(2); expect(workers).toHaveBeenCalledOnce();
     expect(reviewer).toHaveBeenCalled(); expect(reviews).toEqual(['auditor', 'auditor', 'auditor']);
-    expect(organize.mock.calls.every(call => call[1].length === 4)).toBe(true);
     expect(host.officialGate).toHaveBeenCalledOnce();
   });
 
@@ -6256,17 +6253,13 @@ describe('isolated solver and host acceptance', () => {
     expect(readLemmaPlan(problem, workspace)).toEqual(plan);
   });
 
-  it('keeps value estimates separate from stopping decisions and proof acceptance', async () => {
-    const estimate = vi.fn(() => [{ operation: 'direct' as const, target: 'remaining-turns' as const,
-      value: 100, uncertainty: null, calibration: 'uncalibrated' as const }]);
+  it('keeps search stopping decisions separate from proof acceptance', async () => {
     const select = vi.fn((...inputs: Parameters<typeof directSolverModules.M3.select>) => {
-      expect(inputs[2][0].value).toBe(100);
-      expect(inputs[3]).toMatchObject({ maxTurns: 1, aborted: false });
+      expect(inputs[2]).toMatchObject({ maxTurns: 1, aborted: false });
       return { operation: 'stop' as const, reason: 'no-operation' as const };
     });
-    const modules = { ...directSolverModules, M3: { ...directSolverModules.M3, estimate, version: 'test-stop-v1', select } };
+    const modules = { ...directSolverModules, M3: { ...directSolverModules.M3, version: 'test-stop-v1', select } };
     expect(await runSolver(args, directory, modules)).toBe(4);
-    expect(estimate).toHaveBeenCalledTimes(1);
     expect(select).toHaveBeenCalledTimes(1);
     expect(host.createSession).not.toHaveBeenCalled();
     expect(host.verify).not.toHaveBeenCalled();

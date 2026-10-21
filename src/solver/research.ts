@@ -470,19 +470,11 @@ export async function runResearchWorkers(input: {
               assignment.task.kind === 'goal' ? ['direct', 'bridge', 'integrate-lemma'] : ['direct'] :
             !cooperation && modules.M2.checkLemma ? ['direct', 'decompose', 'bridge', 'prove-lemma', 'integrate-lemma'] : ['direct'];
           while ((pendingTurn = waitForTurn())) await pendingTurn;
-          const estimates = modules.M3.estimate?.(view(), options) ?? [];
-          const action = modules.M3.select(view(), options, estimates, budget(), assignment);
+          const action = modules.M3.select(view(), options, budget(), assignment);
           if (action.operation === 'stop') break;
           const operation = action.operation;
           if (!options.includes(action.operation)) throw new Error('math_research_operation_unavailable');
-          emit('research_action', { operation: action.operation, reason: action.reason,
-            ...(estimates.length ? { estimates } : {}) });
-          if (modules.M5.organize) {
-            const team = modules.M5.organize(action, input.workers, budget());
-            if (team.workers.some(item => !input.workers.includes(item)))
-              throw new Error('math_solver_worker_outside_ownership');
-            if (!team.workers.includes(worker)) break;
-          }
+          emit('research_action', { operation: action.operation, reason: action.reason });
           readMathBuildManifest(input.buildFile, input.root, path.join(input.root, 'out', 'main'));
           const onStarted = (turnId: string) => {
             turnLedger.started(turnId);

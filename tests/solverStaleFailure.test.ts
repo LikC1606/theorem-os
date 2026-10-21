@@ -130,7 +130,7 @@ describe('failed turns superseded while their session closes', () => {
       M2: { ...directSolverModules.M2,
         check: async () => { throw new Error('fixture_unexpected_proof_check'); },
         checkTask: async () => { throw new Error('fixture_unexpected_task_check'); } },
-      M3: { ...directSolverModules.M3, retry, select: (_state, _options, _estimates, _budget, assignment) =>
+      M3: { ...directSolverModules.M3, retry, select: (_state, _options, _budget, assignment) =>
         kind === 'lead' && assignment?.kind === 'task' ? { operation: 'stop', reason: 'fixture_only_lead_runs' }
           : { operation: 'direct', reason: 'fixture_failure' } },
       M4: { ...directSolverModules.M4, build: (_problem, _state, access) => ({

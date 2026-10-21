@@ -1,4 +1,4 @@
-import { originalGoalTaskFocus, plannedTaskDependencyIds, taskDependenciesReady, type ActionPlan, type ResearchBudget } from './search';
+import { originalGoalTaskFocus, plannedTaskDependencyIds, taskDependenciesReady } from './search';
 import { checkedUnconditionally, isFeasibilityReview, taskGroup, taskVersion, type TaskRecord, type RouteRecord } from '../tasks';
 import { hasRunningDuplicateQuestion } from '../taskQuestions';
 import { createProofRoutePriority } from '../routePriority';
@@ -6,7 +6,6 @@ import { freshTaskConnection } from '../taskConnections';
 
 export type ResearchRole = 'lead' | 'researcher' | 'engineer' | 'reviewer';
 export type ResearchWorker = Readonly<{ id: string; role: ResearchRole; worktree: string; ownedFiles: readonly string[] }>;
-export type TeamPlan = Readonly<{ workers: readonly ResearchWorker[] }>;
 
 export function independentFeasibilityWorker(node: TaskRecord, worker: ResearchWorker,
   tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): boolean {
@@ -72,11 +71,4 @@ export function researchWorkers(worktree: string, ownedFiles: readonly string[],
 export function assignResearchReviewer(live: readonly ResearchWorker[], producerId?: string): ResearchWorker | undefined {
   const eligible = live.filter(worker => worker.role !== 'lead' && worker.id !== producerId);
   return eligible.find(worker => worker.role === 'reviewer') ?? eligible.find(worker => worker.role === 'researcher') ?? eligible[0];
-}
-
-/** M5 supplies isolated role slots under the same host budget. Idle researchers can review fixed deliveries. */
-export function organizeResearch(action: ActionPlan, workers: readonly ResearchWorker[], budget: ResearchBudget): TeamPlan {
-  if (action.operation === 'stop' || !workers.length || budget.aborted || budget.remainingMs <= 0)
-    throw new Error('math_solver_worker_unavailable');
-  return { workers };
 }
