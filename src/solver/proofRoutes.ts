@@ -75,7 +75,7 @@ export function parseProofRoutes(value: unknown, tasks: readonly CooperativeTask
 export type RecordedRouteProofStatus = 'none' | 'conditional' | 'checked' | 'stale' | 'unverified';
 
 /** Inspect receipts without replaying Lean. No recorded result authorizes acceptance. */
-function routeEvidence(tasks: readonly TaskRecord[], environmentDigest?: string) {
+export function routeEvidence(tasks: readonly TaskRecord[], environmentDigest?: string) {
   const nodes = new Map(tasks.map(node => [node.task.id, node]));
   const statuses = new Map<string, RecordedRouteProofStatus>();
   const status = (id: string): RecordedRouteProofStatus => {

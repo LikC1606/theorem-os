@@ -1,15 +1,14 @@
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
-import { buildProofContinuation, recordedTaskProofStatus } from './progress';
-import { describeProofRoutes, type ProofRoute } from './proofRoutes';
+import { buildProofContinuation } from './progress';
+import { describeProofRoutes, routeEvidence, type ProofRoute, type RecordedRouteProofStatus } from './proofRoutes';
 import type { RouteBlocker } from './routeControl';
 import { taskGroup, taskVersion, type RouteRecord, type TaskRecord } from './tasks';
 
-type RecordedProofStatus = ReturnType<typeof recordedTaskProofStatus>;
 type TaskReference = { taskId: string; taskDigest: string };
 export type RecordedObligation = {
   taskId: string; taskDigest: string; kind: 'lemma' | 'goal'; groupId: string;
-  recordedProof: RecordedProofStatus;
-  /** A matching, unconditional integrated checkpoint; this is never official acceptance. */
+  recordedProof: RecordedRouteProofStatus;
+  /** A recursively settled integrated checkpoint; this is never official acceptance. */
   closed: boolean;
   conditions: TaskReference[]; referenceCoverage: 'available' | 'missing'; evidenceDigest?: string;
 };
@@ -57,42 +56,16 @@ export function captureObligationSnapshot(tasks: readonly TaskRecord[], options:
 } = {}): ObligationSnapshot {
   const nodes = new Map(tasks.map(node => [node.task.id, node]));
   const versions = new Map(tasks.map(node => [node.task.id, taskVersion(node.task)]));
-  const statuses = new Map<string, RecordedProofStatus>();
-  const recordedStatus = (id: string): RecordedProofStatus => {
-    const known = statuses.get(id); if (known) return known;
-    // Cyclic recorded reference graphs remain unknown.
-    statuses.set(id, 'unverified');
-    const node = nodes.get(id);
-    if (!node) return 'unverified';
-    let status = recordedTaskProofStatus(node, options.environmentDigest);
-    const proof = node.integratedCheck ?? node.proof, refs = proof?.references;
-    if (status === 'checked') {
-      const wrongTarget = proof!.verification.results.some(receipt =>
-        (receipt.proofPath !== undefined && receipt.proofPath !== node.task.proofPath) ||
-        (receipt.theoremName !== undefined && receipt.theoremName !== node.task.theoremName) ||
-        (receipt.statementHash !== undefined && receipt.statementHash !== proof!.taskDigest) ||
-        (receipt.leanStatementHash !== undefined && receipt.leanStatementHash !== proof!.taskDigest));
-      if (wrongTarget || (options.environmentDigest && !refs) || (node.task.dependsOn.length && !refs?.tasks) ||
-          (refs && (refs.scope === 'statement' || refs.root.file !== node.task.proofPath ||
-            !(refs.root.name === node.task.theoremName || refs.root.name.endsWith('.' + node.task.theoremName))))) status = 'unverified';
-      else if (refs?.tasks?.some(input => nodes.has(input.taskId) && versions.get(input.taskId) !== input.taskDigest)) status = 'stale';
-      else {
-        const inputs = refs?.tasks ?? [], inputStatuses = inputs.map(input => recordedStatus(input.taskId));
-        if (inputStatuses.includes('stale')) status = 'stale';
-        else if (inputs.some((input, index) => inputStatuses[index] !== 'checked' || nodes.get(input.taskId)?.status !== 'integrated')) status = 'unverified';
-      }
-    }
-    statuses.set(id, status); return status;
-  };
+  const recorded = routeEvidence(tasks, options.environmentDigest);
   const obligations = byTask(tasks.filter(typed).map((node): RecordedObligation => {
-    const proof = node.integratedCheck ?? node.proof, refs = proof?.references, recordedProof = recordedStatus(node.task.id);
+    const proof = node.integratedCheck ?? node.proof, refs = proof?.references, recordedProof = recorded.status(node.task.id);
     // Receipt IDs, projection commits and whole-source hashes describe a replay,
     // whereas conditions and referenced declarations describe mathematical inputs.
     const evidence = proof && { recordedProof, conditions: references(proof.conditions ?? []),
       ...(refs ? { root: refs.root, scope: refs.scope, tasks: references(refs.tasks ?? []),
         inputs: [...refs.inputs].sort((a, b) => compareText(canonicalMathJson(a), canonicalMathJson(b))) } : {}) };
     return { taskId: node.task.id, taskDigest: versions.get(node.task.id)!, kind: node.task.kind as 'lemma' | 'goal',
-      groupId: taskGroup(node.task), recordedProof, closed: node.status === 'integrated' && recordedProof === 'checked',
+      groupId: taskGroup(node.task), recordedProof, closed: recorded.settled(node.task.id, false),
       conditions: references(proof?.conditions ?? []), referenceCoverage: refs?.tasks ? 'available' : 'missing',
       ...(evidence ? { evidenceDigest: hash(evidence) } : {}) };
   }));
