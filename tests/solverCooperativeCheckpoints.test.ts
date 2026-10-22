@@ -7,7 +7,7 @@ import { CooperativeResearch } from '../src/solver/cooperation';
 import { directSolverModules, type SolverModules } from '../src/solver/modules';
 import { committedSource, git } from '../src/solver/problem';
 import { runResearchWorkers } from '../src/solver/research';
-import { leadPlanDeliveryFile, parseCooperationPlan, type CooperativeAction } from '../src/solver/tasks';
+import { leadPlanDeliveryFile, parseCooperationPlan, taskVersion, type CooperativeAction } from '../src/solver/tasks';
 import { deferred } from './helpers/async';
 import { workerAccess } from './helpers/cooperation';
 import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
@@ -65,14 +65,18 @@ describe('cooperative advisory scheduling checkpoints', () => {
     const events: { event: string; details?: Record<string, unknown> }[] = [];
     const controller = new AbortController();
     controllers.push(controller);
+    const contextSettings = { instructionsSuffix: '' };
     const modules = (open: (options: MathAgentOptions) => Promise<MathAgentSession>): SolverModules => ({
       ...directSolverModules, M1: { ...directSolverModules.M1, open },
       M2: { ...directSolverModules.M2, check, checkTask: check },
       M4: { ...directSolverModules.M4, build: (_problem, _state, access) => {
         const assignment = access.assignment!;
-        const current = { assignment, receipt: leadPlanDeliveryFile(assignment) };
+        const current = { assignment, receipt: leadPlanDeliveryFile(assignment),
+          feedback: assignment.kind === 'task' ? _state.cooperation?.tasks.find(node => node.task.id === assignment.task.id)?.feedback : undefined,
+          inbox: _state.cooperation?.deliveries?.map(delivery => delivery.summary) ?? [] };
         return {
-          instructions: 'Offline scheduling fixture.' + (continuation && assignment.kind === 'lead' ? assignment.planNonce : ''),
+          instructions: 'Offline scheduling fixture.' + contextSettings.instructionsSuffix +
+            (continuation && assignment.kind === 'lead' ? assignment.planNonce : ''),
           message: continuation ? JSON.stringify({ ...current, mode: 'full',
             exactTasks: state.cooperation!.tasks.map(node => node.task), sentinel: 'full-context-exact-types-'.repeat(300) })
             : JSON.stringify(assignment),
@@ -91,7 +95,7 @@ describe('cooperative advisory scheduling checkpoints', () => {
       });
       running.push(completion); return completion;
     };
-    return { state, workers, problem, check, events, controller, run };
+    return { state, workers, problem, check, events, controller, run, contextSettings };
   }
 
   function heldAdvisoryTurns(count: number) {
@@ -129,7 +133,8 @@ describe('cooperative advisory scheduling checkpoints', () => {
 
   function heldContinuationTurns(options: { saveNotes?: boolean; highContext?: boolean } = {}) {
     const started = [deferred(), deferred()], done = [deferred<string>(), deferred<string>()];
-    const messages: { assignment: CooperativeAction; receipt?: string; mode: string; exactTasks?: unknown[]; sentinel?: string }[] = [];
+    const messages: { assignment: CooperativeAction; receipt?: string; mode: string; exactTasks?: unknown[]; sentinel?: string;
+      feedback?: string; inbox?: string[] }[] = [];
     const threads: string[] = [];
     let turns = 0, newThreads = 0, active: ReturnType<typeof deferred<string>> | undefined;
     const interrupt = vi.fn(async () => { active?.resolve('interrupted'); });
@@ -217,6 +222,7 @@ describe('cooperative advisory scheduling checkpoints', () => {
     if (latest.kind !== 'lead') throw new Error('fixture_not_lead');
     expect(held.messages[1].mode).toBe('short');
     expect(latest.capacityRefill).toEqual(state.cooperation!.lastCapacityRefill && {
+      requestId: state.cooperation!.lastCapacityRefill.requestId,
       inputDigest: state.cooperation!.lastCapacityRefill.inputDigest,
       workerIds: state.cooperation!.lastCapacityRefill.workerIds,
       requestedAt: state.cooperation!.lastCapacityRefill.requestedAt,
@@ -258,19 +264,90 @@ describe('cooperative advisory scheduling checkpoints', () => {
     controller.abort(new Error('fixture_complete')); await expect(completion).rejects.toThrow('fixture_complete');
   });
 
-  it('ignores a custom short message for a non-Lead advisory assignment', async () => {
+  it('resumes a same-thread advisory assignment with its current short message', async () => {
     const { state, check, events, controller, run } = fixture(false, undefined, 'peer');
     const held = heldContinuationTurns(), completion = run(held.open, Infinity); void completion.catch(() => {});
     await held.wait(0, completion);
     await vi.advanceTimersByTimeAsync(120_000); await held.wait(1, completion);
     expect(held.messages.every(message => message.assignment.kind === 'task')).toBe(true);
-    expect(held.messages.map(message => message.mode)).toEqual(['full', 'full']);
+    expect(held.messages.map(message => message.mode)).toEqual(['full', 'short']);
     expect(held.threads).toEqual(['continuation-thread-1', 'continuation-thread-1']);
-    expect(events.filter(item => item.event === 'context_dispatched').map(item => item.details?.mode)).toEqual(['full', 'full']);
+    expect(events.filter(item => item.event === 'context_dispatched').map(item => item.details?.mode)).toEqual(['full', 'continuation']);
     expect(state.tokenBudget).toMatchObject({ maxTotalTokens: 0, status: 'unlimited' });
     expect(check).not.toHaveBeenCalled(); expect(state.check).toBeUndefined();
     controller.abort(new Error('fixture_complete')); await expect(completion).rejects.toThrow('fixture_complete');
   });
+
+  it('sends new feedback and inbox findings in a same-thread short advisory continuation', async () => {
+    const { state, check, events, controller, run } = fixture(false, undefined, 'peer');
+    const next = CooperativeResearch.prototype.next;
+    let peerDispatches = 0;
+    vi.spyOn(CooperativeResearch.prototype, 'next').mockImplementation(async function (this: CooperativeResearch, worker, budget) {
+      const action = await next.call(this, worker, budget);
+      if (action?.kind === 'task' && action.task.id === 'investigate' && ++peerDispatches === 2) {
+        const node = state.cooperation!.tasks.find(node => node.task.id === action.task.id)!;
+        node.feedback = 'Use the newly saved exact coercion lemma before another library search.';
+        (state.cooperation!.deliveries ??= []).push({ id: 'fresh-peer-input', producer: 'solver',
+          taskId: node.task.id, taskDigest: action.assignment.taskDigest, kind: 'research', status: 'advisory',
+          summary: 'A saved finding identifies the exact missing library interface.', statement: '', premises: [],
+          dependencies: [], remainingObligations: [], evidenceRefs: [], createdAt: Date.now() });
+      }
+      return action;
+    });
+    const held = heldContinuationTurns(), completion = run(held.open, Infinity); void completion.catch(() => {});
+    await held.wait(0, completion);
+    await vi.advanceTimersByTimeAsync(120_000); await held.wait(1, completion);
+    expect(held.messages.map(message => message.mode)).toEqual(['full', 'short']);
+    expect(held.messages[1].feedback).toContain('newly saved exact coercion lemma');
+    expect(held.messages[1].inbox).toContain('A saved finding identifies the exact missing library interface.');
+    expect(held.threads).toEqual(['continuation-thread-1', 'continuation-thread-1']);
+    expect(events.filter(item => item.event === 'context_dispatched').map(item => item.details?.mode)).toEqual(['full', 'continuation']);
+    expect(check).not.toHaveBeenCalled();
+    controller.abort(new Error('fixture_complete')); await expect(completion).rejects.toThrow('fixture_complete');
+  });
+
+  it.each(['task', 'environment', 'seed', 'instructions'] as const)(
+    'sends full advisory context when its %s responsibility changes', async change => {
+      const { state, workers, check, events, controller, run, contextSettings } = fixture(false, undefined, 'peer');
+      const next = CooperativeResearch.prototype.next;
+      let peerDispatches = 0;
+      vi.spyOn(CooperativeResearch.prototype, 'next').mockImplementation(async function (this: CooperativeResearch, worker, budget) {
+        const action = await next.call(this, worker, budget);
+        if (action?.kind === 'task' && action.task.id === 'investigate' && ++peerDispatches === 2) {
+          const node = state.cooperation!.tasks.find(node => node.task.id === action.task.id)!;
+          if (change === 'task') {
+            node.task = { ...node.task, objective: 'Resolve the distinct finite-dimensional construction.', revision: node.task.revision + 1 };
+            action.task = node.task; action.assignment.taskDigest = taskVersion(node.task);
+          }
+          if (change === 'environment') state.environmentDigest = 'revised-offline-environment';
+          if (change === 'seed') {
+            git(workers[1].worktree, ['-c', 'user.name=Offline fixture', '-c', 'user.email=fixture@localhost',
+              'commit', '--allow-empty', '--no-gpg-sign', '--quiet', '-m', 'Revise disposable continuation seed']);
+            action.assignment.seedCommit = git(workers[1].worktree, ['rev-parse', 'HEAD']);
+          }
+          if (change === 'instructions') contextSettings.instructionsSuffix = ' Revised offline role instructions.';
+        }
+        return action;
+      });
+      const held = heldContinuationTurns(), completion = run(held.open, Infinity); void completion.catch(() => {});
+      await held.wait(0, completion);
+      await vi.advanceTimersByTimeAsync(120_000); await held.wait(1, completion);
+      expect(held.messages.map(message => message.mode)).toEqual(['full', 'full']);
+      expect(held.messages[1].sentinel).toContain('full-context-exact-types');
+      expect(held.threads).toEqual(['continuation-thread-1', change === 'task' ? 'continuation-thread-2' : 'continuation-thread-1']);
+      expect(events.filter(item => item.event === 'context_dispatched').map(item => item.details?.mode)).toEqual(['full', 'full']);
+      if (change === 'task') {
+        const revised = held.messages[1].assignment;
+        expect(revised.kind === 'task' && revised.task.objective).toContain('distinct finite-dimensional construction');
+      }
+      if (change === 'seed') {
+        const first = held.messages[0].assignment, revised = held.messages[1].assignment;
+        expect(first.kind === 'task' && revised.kind === 'task' && revised.assignment.seedCommit).not.toBe(
+          first.kind === 'task' && first.assignment.seedCommit);
+      }
+      expect(check).not.toHaveBeenCalled(); expect(state.check).toBeUndefined();
+      controller.abort(new Error('fixture_complete')); await expect(completion).rejects.toThrow('fixture_complete');
+    });
 
   it.each(['acknowledged', 'stalled'] as const)(
     'checkpoints a %s advisory turn, resumes its exact draft and clears old timers before continuing', async interruptKind => {

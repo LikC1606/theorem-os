@@ -51,7 +51,7 @@ export type ContextBundle = Readonly<{
   workContract?: ReturnType<typeof cooperativeWorkContract>;
   instructions: string;
   message: string;
-  /** Same-thread Lead continuation; full compilation remains the context manifest. */
+  /** Same-thread responsibility continuation; full compilation remains the context manifest. */
   continuationMessage?: string;
   scope: 'original-problem-and-allowed-library' | 'fixed-statement';
   sources: Readonly<{ problemReceiptDigest: string }>;
@@ -240,8 +240,18 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
     : (action.task.kind === 'lemma' ? 'You are a Lean Prover. Write and deliver the assigned auxiliary proof for its declared consumers. '
       : 'You are the main-goal Engineer. Close the original target using checked helpers. ') +
       'Prove the assigned Lean declaration with its exact requested type. Develop a complete mathematical argument and use Lean to validate its steps. When a check fails, distinguish a missing mathematical inference from a library-name, type or tactic issue; preserve the useful argument and exact remaining goal in RESEARCH.md. An original goal may be a def: fill only its body, retaining its frozen declaration kind, name, parameters, type and placement. Helper proof targets must be theorems or lemmas. Add newly named supporting helpers in owned Lean files as needed. You may repair proof bodies of solver-created lemmas while preserving their names, parameters, types and placement. Preserve other original goals and every other existing definition body. Conditional tasks may reference fixed dependency lemmas; do not add stubs or extra assumptions. Run diagnostics on the saved target file and its local imports before delivery; a Helpers-only check does not check Submission. Unrelated original goals may still contain sorry placeholders or pre-existing diagnostics: preserve their exact seed bodies and do not prove or rewrite them to make the whole file pass. The host checks the assigned declaration in a disposable projection and checks the full candidate after integration. Save concise notes in RESEARCH.md and return for host checking and integration.\n';
+  const assessmentRules = action.kind === 'lead' && !action.recovery && (action.capacityRefill || action.stagnationRecovery)
+    ? 'After assessing the shown requests, if no independent executable obligation is known and no handoff/challenge decision remains, ' +
+      'append one complete event to ' + leadPlanDeliveryFile(action) + ': ' + JSON.stringify({ kind: 'assessment',
+        baseVersion: action.planVersion, dispatchNonce: action.planNonce, assessments: [
+          ...(action.capacityRefill ? [{ kind: 'capacity', requestId: action.capacityRefill.requestId,
+            inputDigest: action.capacityRefill.inputDigest, outcome: 'no-independent-work', reason: 'EXACT_MISSING_MATHEMATICAL_INPUT' }] : []),
+          ...(action.stagnationRecovery ? [{ kind: 'stagnation', requestId: action.stagnationRecovery.requestId,
+            inputDigest: action.stagnationRecovery.inputDigest, outcome: 'no-independent-work', reason: 'EXACT_MISSING_MATHEMATICAL_INPUT' }] : []),
+        ] }) + '. Replace each reason with the precise unresolved input. A checkpoint or unchanged plan does not acknowledge these requests. ' +
+      'New evidence can reopen assessment. Resolve pending handoffs/challenges through the existing handoff/full-plan protocol first.\n' : '';
   const sharing = action.kind === 'task'
-    ? `To share before returning, append a JSON line to ${assignmentDeliveryFile(action.assignment)}: {"summary":"progress or gap"}. To publish a complete research finding while continuing proof work, append {"kind":"research","finding":{"summary":"complete argument, exact assumptions and gap","conclusion":"inconclusive","needsDecision":true,"evidenceRefs":[],"remainingObligations":["precise unresolved mathematical inference"],"lemmaRequests":[]}}. Inline the complete finding; the host freezes immutable notes separately from live files. An optional supporting commit must descend from the assignment seed. Findings stay separate and advisory; publishing does not finish or park your proof task. Save ready sources/notes and return. Do not run git add or git commit. The host freezes the saved sources and independently checks and integrates them after your turn ends. Do not truncate the delivery log. Progress remains advisory.\n`
+    ? `To share before returning, append JSON to ${assignmentDeliveryFile(action.assignment)}: {"summary":"progress or gap"}. Publish a finding during proof work with {"kind":"research","finding":{"summary":"complete argument, exact assumptions and gap","conclusion":"inconclusive","needsDecision":true,"evidenceRefs":[],"remainingObligations":["precise unresolved mathematical inference"],"lemmaRequests":[]}}. Inline the full finding; the host snapshots notes. Supporting commits must descend from the assignment seed; publishing does not finish or park your proof task. For typed proofs, save files, append {"kind":"ready","summary":"saved proof"}, stop editing and return. Omit commit/targets. The host freezes the saved sources and independently checks and integrates them after turn settlement and confirmed shutdown. Receipts: COOPERATION.json proofReadyRecords. Retry failures with a new id; unconfirmed shutdown quarantines this workspace. Returning naturally also submits. Do not run git add or git commit. Do not truncate the delivery log.\n`
       : leadPlanDeliveryFile(action) ? `Once a useful executable plan is ready, publish it promptly: append one complete JSON line to ${leadPlanDeliveryFile(action)}. ` +
         `Use {"kind":"plan","baseVersion":${JSON.stringify(action.kind === 'lead' ? action.planVersion : '')},` +
         (action.kind === 'lead' && action.planNonce ? `"dispatchNonce":${JSON.stringify(action.planNonce)},` : '') +
@@ -347,7 +357,7 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
     'A delivery summarySource identifies its full finding in the manifest. If omitted for budget, retrieve complete notes via savedSource commit and notesPath; omission does not mean no result was saved.\n' +
     'Original declarations retain the frozen source order shown below. A goal cannot depend on a later original goal in the same file. Extract their shared argument into a newly named lemma before both goals; preserve every other original proof and declaration placement.\n' +
     'COOPERATION.json contains scoped live peer work, findings, gaps and checked results; leave it and CONTEXT-MANIFEST.json unchanged. The manifest records included/omitted material and reasons. Exact mathematical interfaces and original assumptions are mandatory; retrieve full proof sources/context by immutable commit/path. Replace old responses with one JSON object, plain or in a math/json fence. The host manages versions, receipts and budgets and independently checks all original targets. Unproved dependencies and reviews remain advisory.\n' +
-    sharing + roleText;
+    sharing + assessmentRules + roleText;
   const optional: ContextSection[] = [
     ...(compilation.optional ?? []),
     { id: 'plan-feedback', kind: 'feedback', text: `Review: ${JSON.stringify(cooperation.review ?? null)}` },
@@ -355,14 +365,46 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
     { id: 'statement-reviews', kind: 'statement-review', text: 'Statement reviews: ' + JSON.stringify(cooperation.statementReviews?.filter(review => review.status !== 'superseded')
       .map(statementReviewSummary) ?? []) },
   ];
+  const taskContinuation = action.kind === 'task' && !isFeasibilityReview(action.task);
+  const assignedNode = action.kind === 'task' ? cooperation.tasks.find(node => node.task.id === action.task.id) : undefined;
+  const taskReceipts = action.kind === 'task' ? cooperation.deliveryReceipts?.filter(receipt =>
+    receipt.status === 'needs-correction' && receipt.workerId === action.assignment.workerId && receipt.taskId === action.task.id &&
+    receipt.taskDigest === action.assignment.taskDigest && receipt.seedCommit === action.assignment.seedCommit &&
+    receipt.assignmentKey === assignmentDeliveryFile(action.assignment) && receipt.environmentDigest === compilation.environmentDigest) ?? [] : [];
+  const taskInbox = taskContinuation ? {
+    file: 'COOPERATION.json',
+    deliveries: (cooperation.deliveries ?? []).slice(-16).map(record => ({ id: record.id, taskId: record.taskId,
+      taskDigest: record.taskDigest, kind: record.kind, status: record.status, findingDigest: record.findingDigest,
+      commit: record.commit, sourceDigest: record.sourceDigest })),
+    gaps: (cooperation.mathematicalGaps ?? []).map(gap => ({ deliveryId: gap.deliveryId,
+      consumer: gap.consumer, scopeStatus: gap.scopeStatus })),
+    handoffDecisions: cooperation.researchDecisions ?? [],
+    challengeDecisions: cooperation.challengeDecisions ?? [],
+    parallelQuestions: (cooperation.parallelQuestions ?? []).map(question => ({ taskId: question.taskId, taskDigest: question.taskDigest })),
+  } : undefined;
   const continuationMessage = action.kind === 'lead' ? [
     'Continue the current Lead responsibility in this saved thread. The original problem and unchanged task graph are already in its history.',
     'Before further investigation, update worktree-root RESEARCH.md with the current argument and precise unresolved inference. Read the latest COOPERATION.json for new findings, handoffs, blockers and active peers; read their referenced saved evidence as needed. Preserve the complete current math-plan in RESEARCH.md.',
     'Current cooperative assignment (replaces every previous dispatch nonce and receipt):\n' + JSON.stringify(action),
     'Current host work contract:\n' + JSON.stringify(workContract),
     compilation.feedback ? 'Current host feedback:\n' + compilation.feedback : '',
-    checkpointRules, leadDeliveryRules, sharing, handoffPublicationRules,
+    checkpointRules, leadDeliveryRules, sharing, handoffPublicationRules, assessmentRules,
     'Act on the current capacity/stagnation requests and shown handoff/challenge activations. Publish a useful complete plan or explicit supported decisions promptly; retain the exact mathematical gap if it is unresolved. A checkpoint, unchanged control plan, or activity report does not establish decision progress or proof acceptance.',
+  ].filter(Boolean).join('\n\n') : taskContinuation ? [
+    'Continue the current task responsibility in this saved thread. Its frozen problem, exact interfaces, and unchanged source rules are already in the thread history.',
+    'Current cooperative assignment:\n' + JSON.stringify(action),
+    'Current host work contract:\n' + JSON.stringify(workContract),
+    compilation.feedback ? 'Current host feedback:\n' + compilation.feedback : '',
+    assignedNode?.feedback ? 'Current task feedback:\n' + assignedNode.feedback : '',
+    ...(compilation.optional ?? []).filter(section => section.kind === 'feedback').map(section => section.text),
+    'Current assignment delivery receipts (intake feedback, not proof acceptance):\n' + JSON.stringify(taskReceipts),
+    'Current scoped inbox references (retrieve full records before using them):\n' + JSON.stringify(taskInbox),
+    'Read the latest worktree-root COOPERATION.json before continuing. Inspect referenced deliveries, mathematicalGaps, researchHandoffs, researchChallenges, blockers, peers and their saved source references for new scoped input. A matching task digest does not mean its feedback or inbox is unchanged. Missing or unavailable referenced evidence supplies no premise.',
+    'Correct every needs-correction receipt by appending a new complete event to ' +
+      (action.kind === 'task' ? assignmentDeliveryFile(action.assignment) : '') +
+      '; include replacesReceipt with the receipt id inside the corrected finding, and preserve the log and earlier valid work. Read RESEARCH.md and resume the saved argument, exact unresolved inference and retry trigger. Do not repeat an unchanged negative search without new input or a different mathematical method.',
+    'Save useful progress and use the current assignment delivery protocol. A progress report, retained draft or intake receipt is advisory; only independent host checking can establish proof acceptance.',
+    sharing,
   ].filter(Boolean).join('\n\n') : undefined;
   return { ...context, assignment: action, workContract, instructions, continuationMessage,
     ...compileTaskContext({ ...compilation, instructions, optional,

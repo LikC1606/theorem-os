@@ -19,7 +19,7 @@ vi.mock('../src/math/verifier', async importOriginal => ({
 vi.mock('../src/runtime/codexSession', () => ({ createCodexMathSession: host.createSession }));
 
 type Lead = Extract<CooperativeAction, { kind: 'lead' | 'assemble' }>;
-const lead = (fields: Partial<Lead> = {}): Lead => ({ kind: 'lead', seedCommit: 'seed-a', planVersion: 'graph-a',
+const lead = (fields: Partial<Lead> = {}): Lead => ({ kind: 'lead', seedCommit: 'seed-a', planVersion: 'graph-a', responsibilityDigest: 'responsibility-a',
   planNonce: 'nonce-a', planningInputDigest: 'operational-input-a',
   handoffIds: ['h2', 'h1'], handoffActivations: { h1: 'ha', h2: 'hb' },
   challengeIds: ['c2', 'c1'], challengeActivations: { c1: 'ca', c2: 'cb' },
@@ -41,10 +41,15 @@ describe('semantic advisory checkpoint inputs', () => {
     ['challenge activation', { challengeActivations: { c1: 'new', c2: 'cb' } }],
     ['challenge identity', { challengeIds: ['c1', 'c3'], challengeActivations: { c1: 'ca', c3: 'cb' } }],
     ['capacity input', { capacityRefill: { inputDigest: 'capacity-b', workerIds: ['worker-a'], requestedAt: 1 } }],
-    ['new base graph', { planVersion: 'graph-b' }],
-    ['frontier recovery', { recovery: { id: 'recovery-a', taskIds: ['task'], goalIds: ['goal'] } }],
-  ] as const)('gives new %s a fresh scope instead of inheriting unrelated backoff', (_label, change) => {
-    expect(advisoryCheckpointScope(lead(change as Partial<Lead>))).not.toBe(advisoryCheckpointScope(lead()));
+    ['new base graph presentation', { planVersion: 'graph-b' }],
+  ] as const)('keeps new %s from resetting the same responsibility guard', (_label, change) => {
+    expect(advisoryCheckpointScope(lead(change as Partial<Lead>))).toBe(advisoryCheckpointScope(lead()));
+  });
+
+  it('gives a changed mathematical responsibility a fresh scope', () => {
+    expect(advisoryCheckpointScope(lead({ responsibilityDigest: 'responsibility-b' }))).not.toBe(advisoryCheckpointScope(lead()));
+    expect(advisoryCheckpointScope(lead({ recovery: { id: 'recovery-a', taskIds: ['task'], goalIds: ['goal'] } })))
+      .not.toBe(advisoryCheckpointScope(lead()));
   });
 
   it('keeps recovery inputs stable when reordered but resets changed recovery contracts', () => {

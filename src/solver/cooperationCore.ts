@@ -11,7 +11,10 @@ import type { WorkerAccess } from './research';
 import type { SolverModules } from './modules';
 import { originalGoalTaskFocus, originalGoalFrontierSnapshot, plannedTaskDependencyIds } from './modules/search';
 import { type DeliveryRecord } from './deliveries';
-import { createTaskSourceProjector, omitTaskHelpers, TaskProofCache, type TaskProof } from './cooperativeProof';
+import { rejectedDeliveryReceipt, deliveryReceiptFeedback, type DeliveryReceipt } from './deliveryReceipts';
+import { proofReadyRecord, type ProofReadyRecord } from './proofReady';
+import type { ProofCheck } from './modules/evidence';
+import { createTaskSourceProjector, omitTaskHelpers, ownedSourceDigest, TaskProofCache, type TaskProof } from './cooperativeProof';
 import { isStatementAction, statementReviewSummary } from './statementReview';
 import { type ProofReferences } from './proofReferences';
 import { buildProofContinuation } from './progress';
@@ -25,7 +28,7 @@ import { bindMathematicalGap, mathematicalGapVisible } from './mathematicalGaps'
 import { taskConnectionCheckCurrent } from './taskConnections';
 import { TaskTypePreflightCache } from './taskTypePreflight';
 import { currentCapacityExploration, plannedTaskRecords } from './capacityExploration';
-import { isFeasibilityReview, taskGroup, taskReferenceDependencies, type CooperativeTask, type TaskRecord, type CooperativeAction } from './tasks';
+import { assignmentDeliveryFile, isFeasibilityReview, taskGroup, taskReferenceDependencies, type CooperativeTask, type TaskRecord, type CooperativeAction } from './tasks';
 import { digest, ReviewRecord, HumanEditRecord, CooperationState, TaskVersions, RETRY_DISPATCH, bounded } from './cooperationShared';
 
 /** Shared cooperation state, scheduling primitives and the per-worker context projection. */
@@ -56,8 +59,11 @@ export abstract class CooperationCore {
   protected planSynchronization?: Promise<void>;
   protected planSynchronizations = new Set<Promise<void>>();
   protected leadDeliveries = new Set<Promise<unknown>>();
-  protected active = new Map<string, { action: CooperativeAction; interrupt: () => Promise<void>; notify: (message: string) => Promise<void>; cancelled?: boolean }>();
+  protected active = new Map<string, { action: CooperativeAction; interrupt: () => Promise<void>; notify: (message: string) => Promise<void>;
+    requestReady?: () => Promise<void>; cancelled?: boolean }>();
+  private freshProofReady = new WeakMap<CooperativeAction, string>();
   protected notifications = new Set<Promise<void>>();
+  private deliveryReceiptNotifications = new Set<string>();
   protected pendingPulse?: Promise<ReadonlyMap<string, Promise<void>>>;
   protected deliveryChecks = new Map<string, Promise<void>>();
   protected proofPublications = new Map<string, Promise<TaskProof | undefined>>();
@@ -254,6 +260,8 @@ export abstract class CooperationCore {
           ...(visible.has(node.task.id) ? { objective: node.task.objective, feedback: node.feedback,
             actualReferences: (node.integratedCheck ?? node.proof)?.references } : {}) })),
         deliveries: deliveries.map(({ evidence: _evidence, ...record }) => record),
+        deliveryReceipts: scoped.deliveryReceipts ?? [],
+        proofReadyRecords: scoped.proofReadyRecords ?? [],
         researchHandoffs: handoffs,
         researchChallenges: researchChallenges(scoped),
         mathematicalGaps: scoped.mathematicalGaps ?? [],
@@ -281,8 +289,129 @@ export abstract class CooperationCore {
     this.waiters.clear();
   }
   modelBudgetChanged() { this.wake(); }
-  activate(worker: ResearchWorker, action: CooperativeAction, interrupt: () => Promise<void>, notify: (message: string) => Promise<void>) {
-    this.active.set(worker.id, { action, interrupt, notify }); this.changed();
+  protected rejectWorkerDelivery(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>,
+    submission: string, error: Error): DeliveryReceipt {
+    const receipt = rejectedDeliveryReceipt({ assignment: action.assignment, workerId: worker.id,
+      environmentDigest: this.input.state.environmentDigest, submission, error, now: Date.now() });
+    const receipts = this.archive.deliveryReceipts ??= [];
+    const previous = receipts.find(item => item.id === receipt.id);
+    if (previous) return previous;
+    receipts.push(receipt);
+    const node = this.node(action.task.id);
+    if (this.current(action) && node) node.feedback = deliveryReceiptFeedback(receipt);
+    return receipt;
+  }
+  protected async notifyDeliveryReceipts(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>) {
+    const active = this.active?.get(worker.id);
+    if (!active || active.action !== action || !this.current(action)) return;
+    const notified = this.deliveryReceiptNotifications ??= new Set();
+    for (const receipt of this.archive.deliveryReceipts ?? []) {
+      if (receipt.status !== 'needs-correction' || receipt.workerId !== worker.id || receipt.assignmentKey !== assignmentDeliveryFile(action.assignment) ||
+          receipt.environmentDigest !== this.input.state.environmentDigest || notified.has(receipt.id)) continue;
+      try { await active.notify(deliveryReceiptFeedback(receipt)); notified.add(receipt.id); }
+      catch { this.input.emit('delivery_receipt_notification_deferred', { workerId: worker.id, receiptId: receipt.id }); }
+    }
+  }
+  protected resolveDeliveryReceipts(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>,
+    replacesReceipt?: unknown, complete = false) {
+    for (const receipt of this.archive.deliveryReceipts ?? []) {
+      if (receipt.status !== 'needs-correction' || receipt.workerId !== worker.id ||
+          receipt.assignmentKey !== assignmentDeliveryFile(action.assignment) ||
+          receipt.environmentDigest !== this.input.state.environmentDigest ||
+          !complete && receipt.id !== replacesReceipt) continue;
+      receipt.status = 'recorded';
+      const node = this.node(action.task.id);
+      if (node.feedback === deliveryReceiptFeedback({ ...receipt, status: 'needs-correction' }))
+        node.feedback = undefined;
+    }
+    const pending = this.archive.deliveryReceipts?.findLast(receipt => receipt.status === 'needs-correction' &&
+      receipt.workerId === worker.id && receipt.assignmentKey === assignmentDeliveryFile(action.assignment) &&
+      receipt.environmentDigest === this.input.state.environmentDigest);
+    const node = this.node(action.task.id);
+    if (pending && !node.feedback) node.feedback = deliveryReceiptFeedback(pending);
+  }
+  protected receiveProofReady(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>, submissionId: string) {
+    const created = proofReadyRecord({ assignment: action.assignment, workerId: worker.id, submissionId,
+      problemReceiptDigest: this.input.state.problem.receiptDigest, environmentDigest: this.input.state.environmentDigest, now: Date.now() });
+    const records = this.archive.proofReadyRecords ??= [];
+    let record = records.find(item => item.id === created.id);
+    if (record && ['checked', 'failed', 'superseded'].includes(record.status)) return;
+    if (!record) { records.push(created); record = created; }
+    if (!this.current(action) || worker.id !== action.assignment.workerId) {
+      record.status = 'superseded'; record.reason = 'Assignment changed before readiness intake.'; this.changed(); return;
+    }
+    const fresh = this.freshProofReady.get(action) === record.id;
+    for (const other of records) if (other !== record && other.assignmentKey === record.assignmentKey &&
+        other.workerId === worker.id && other.status === 'awaiting-freeze') {
+      other.status = 'superseded'; other.reason = 'A later readiness event replaced this request.';
+    }
+    // Only a newly consumed event can grant this process permission to freeze a live workspace.
+    this.freshProofReady.set(action, record.id);
+    this.changed();
+    const active = this.active.get(worker.id);
+    if (!fresh && record.status === 'awaiting-freeze' && active?.action === action && active.requestReady) {
+      const pending = active.requestReady().catch(() => {
+        this.input.emit('proof_ready_notification_deferred', { workerId: worker.id, receiptId: record!.id });
+      });
+      this.notifications.add(pending); void pending.finally(() => this.notifications.delete(pending));
+    }
+  }
+  private proofReadyCurrent(record: ProofReadyRecord, worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>) {
+    return record.workerId === worker.id && worker.id === action.assignment.workerId &&
+      record.assignmentKey === assignmentDeliveryFile(action.assignment) && record.taskId === action.task.id &&
+      record.taskDigest === action.assignment.taskDigest && record.seedCommit === action.assignment.seedCommit &&
+      record.problemReceiptDigest === this.input.state.problem.receiptDigest &&
+      record.environmentDigest === this.input.state.environmentDigest && this.current(action);
+  }
+  pendingProofReady(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>): ProofReadyRecord | undefined {
+    const records = (this.archive.proofReadyRecords ?? []).filter(record => record.workerId === worker.id &&
+      record.assignmentKey === assignmentDeliveryFile(action.assignment) && ['awaiting-freeze', 'frozen'].includes(record.status));
+    let changed = false;
+    for (const record of records) if (!this.proofReadyCurrent(record, worker, action)) {
+      record.status = 'superseded'; record.reason = 'Assignment or frozen input identity changed.'; changed = true;
+    }
+    if (changed) this.changed();
+    return records.findLast(record => record.status === 'frozen' || record.status === 'awaiting-freeze' &&
+      this.freshProofReady.get(action) === record.id);
+  }
+  proofReadyFrozen(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>, commit: string): ProofReadyRecord | undefined {
+    const record = this.pendingProofReady(worker, action);
+    if (!record) return;
+    if (record.snapshotCommit) {
+      if (record.snapshotCommit !== commit) throw new Error('math_proof_ready_snapshot_changed');
+      return record;
+    }
+    // Callers stop the writer first. Every read here addresses the host's immutable commit.
+    const sourceDigest = ownedSourceDigest(this.input.state.problem, worker.worktree, commit);
+    this.pin(commit);
+    Object.assign(record, { status: 'frozen', snapshotCommit: commit, sourceDigest });
+    this.changed(); return record;
+  }
+  proofReadyCompleted(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>,
+    proof?: ProofCheck & { conditions?: TaskProof['conditions'] }, reason?: string): void {
+    const record = this.pendingProofReady(worker, action);
+    if (!record) return;
+    if (!proof || !proof.passed) {
+      record.status = 'failed'; record.reason = reason ?? 'The fixed declaration did not pass independent checking.';
+    } else {
+      if (record.status !== 'frozen' || proof.commit !== record.snapshotCommit || proof.sourceDigest !== record.sourceDigest ||
+          !this.checkedDeliveries.has(proof as TaskProof) || !proof.verification.results.length)
+        throw new Error('math_proof_ready_check_identity_changed');
+      Object.assign(record, { status: 'checked', evidence: proof.conditions?.length ? 'conditional' : 'unconditional',
+        conditions: proof.conditions ? [...proof.conditions] : [], receiptIds: proof.verification.results.map(result => result.receiptId) });
+      delete record.reason;
+    }
+    this.freshProofReady.delete(action); this.changed();
+  }
+  proofReadyFailedFreeze(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>, reason: string): void {
+    const record = this.pendingProofReady(worker, action);
+    if (!record || record.snapshotCommit) return;
+    record.status = 'failed'; record.reason = 'Freeze unconfirmed: ' + reason;
+    this.freshProofReady.delete(action); this.changed();
+  }
+  activate(worker: ResearchWorker, action: CooperativeAction, interrupt: () => Promise<void>, notify: (message: string) => Promise<void>,
+    requestReady?: () => Promise<void>) {
+    this.active.set(worker.id, { action, interrupt, notify, requestReady }); this.changed();
   }
   deactivate(worker: ResearchWorker) { this.active.delete(worker.id); this.changed(); }
   current(action: CooperativeAction) {

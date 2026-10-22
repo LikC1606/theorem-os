@@ -44,6 +44,16 @@ describe('advisory type and residual checkpoint records', () => {
     expect(read().knowledgeRetrievals!.observations[0].diagnostic).toBeUndefined();
   });
 
+  it('preserves assignment scoped intake feedback across archive recovery', () => {
+    state.cooperation!.deliveryReceipts = [{ id: mathDigest('rejected'), submissionDigest: mathDigest('event'),
+      workerId: 'peer', assignmentKey: 'DELIVERIES-fixed.jsonl', taskId: 'helper', taskDigest: mathDigest('task'),
+      seedCommit: 'a'.repeat(40), environmentDigest: 'environment', createdAt: 100,
+      status: 'needs-correction', code: 'math_delivery_invalid',
+      issues: [{ path: 'mathematicalGap.previousDeliveryId', message: 'The previous gap has no valid frozen scope.' }] }];
+    expect(read().cooperation!.deliveryReceipts).toEqual(state.cooperation!.deliveryReceipts);
+    expect(read().cooperation!.tasks[0].proof).toBeUndefined();
+  });
+
   it('preserves case search coverage, reader omissions and application experiences across recovery', () => {
     const observation = state.knowledgeRetrievals!.observations[0];
     observation.searchCandidateIds = ['included', 'omitted-for-bytes'];

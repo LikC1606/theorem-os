@@ -155,6 +155,8 @@ export async function runSolver(args: string[], root: string, customModules?: So
       let sourceFeedback: string | undefined;
       if (values.resume) {
         state = readSolverRunState(stateFile);
+        if ([state, ...(state.workers ?? [])].some(record => record.writerStopUnconfirmed))
+          throw new Error('math_writer_stop_unconfirmed: recover into a new isolated workspace before resuming.');
         if (!tokenLimitSpecified) maxTotalTokens = state.tokenBudget?.maxTotalTokens ?? 0;
         if (!state.methodDigest && modules === directSolverModules && coordination === 'cooperative') state.methodDigest = identity.methodDigest;
         if ((state.coordination ?? 'cooperative') !== coordination) throw new Error('math_resume_coordination_changed');

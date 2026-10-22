@@ -37,15 +37,15 @@ export function capacityExplorationInput(target: CooperativeTask, tasks: readonl
     basis: routeBlockerBasis(consumer, mathematicalTasks, identity.environmentDigest, identity.problemReceiptDigest, '') });
 }
 
-/** Completed discovery never licenses the same mathematical input/method again. */
+/** Issuing every method is not exhaustion while any current investigation is unfinished. */
 export function exhaustedCapacityExploration(target: CooperativeTask, tasks: readonly TaskRecord[], identity: Identity,
   inputs: readonly { targetTaskId: string; inputDigest: string; focus: CapacityExplorationFocus }[] = []): boolean {
   const inputDigest = capacityExplorationInput(target, tasks, identity);
-  return CAPACITY_EXPLORATION_FOCUSES.every(focus => inputs.some(input =>
-    input.targetTaskId === target.id && input.inputDigest === inputDigest && input.focus === focus)) &&
-    tasks.some(node => node.capacityExploration?.targetTaskId === target.id &&
-      node.capacityExploration.inputDigest === inputDigest && node.status === 'completed' &&
-      currentCapacityExploration(node, tasks, identity));
+  const current = tasks.filter(node => node.capacityExploration?.targetTaskId === target.id &&
+    node.capacityExploration.inputDigest === inputDigest && currentCapacityExploration(node, tasks, identity));
+  return current.every(node => node.status === 'completed') && CAPACITY_EXPLORATION_FOCUSES.every(focus =>
+    inputs.some(input => input.targetTaskId === target.id && input.inputDigest === inputDigest && input.focus === focus) &&
+    current.some(node => node.capacityExploration!.focus === focus && node.status === 'completed'));
 }
 
 const taskId = (marker: Pick<CapacityExploration, 'targetTaskId' | 'inputDigest' | 'focus' | 'environmentDigest' | 'problemReceiptDigest'>) =>

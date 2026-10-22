@@ -2,8 +2,9 @@ import { expect, it } from 'vitest';
 import { buildResearchContext } from '../src/solver/modules/context';
 import type { SolverProblem } from '../src/solver/problem';
 import type { SolverRunState } from '../src/solver/archive';
+import type { DeliveryReceipt } from '../src/solver/deliveryReceipts';
 import { deliveryDetails, parseMathResponse, type DeliveryRecord } from '../src/solver/deliveries';
-import { leadPlanDeliveryFile, taskVersion, type CooperativeAction, type CooperativeTask } from '../src/solver/tasks';
+import { assignmentDeliveryFile, leadPlanDeliveryFile, taskVersion, type CooperativeAction, type CooperativeTask } from '../src/solver/tasks';
 
 it('deduplicates repeated findings and progress while preserving exact Lean types and version references', () => {
   const exactType = '∀ (n : Nat), ' + 'True ∧ '.repeat(2100) + 'True';
@@ -92,7 +93,7 @@ it('asks researchers to save scoped negative evidence and publish a schema-valid
   expect(context.instructions).toContain('pinned library/environment version, searched paths, queries or method, exact result');
   expect(context.instructions).toContain('A scoped search failure is not proof of global absence');
   expect(context.instructions).toContain('needsDecision:true, conclusion:"inconclusive"');
-  const encoded = context.instructions.split('To publish a complete research finding while continuing proof work, append ')[1].split('. Inline the complete finding;')[0];
+  const encoded = context.instructions.split('Publish a finding during proof work with ')[1].split('. Inline the full finding;')[0];
   const publication = JSON.parse(encoded);
   expect(publication.kind).toBe('research');
   const finding = parseMathResponse(JSON.stringify(publication.finding), 'math-result', { taskId: 'frontier' }, 'summary');
@@ -138,7 +139,67 @@ it('does not inject work recovery instructions into fixed-candidate independent 
   expect(context.manifest!.included.some(item => item.id === 'stagnation-recovery')).toBe(false);
 });
 
-it.each(['research', 'lemma', 'goal', 'review'] as const)(
-  'keeps %s context on the full-message protocol', kind => {
-    expect(gapContext(kind).continuationMessage).toBeUndefined();
+it.each(['research', 'lemma', 'goal'] as const)(
+  'offers a short same-responsibility continuation for %s while retaining full compilation', kind => {
+    const context = gapContext(kind);
+    expect(context.continuationMessage).toContain('Current cooperative assignment:');
+    expect(context.continuationMessage).toContain(JSON.stringify(context.assignment));
+    expect(context.continuationMessage).toContain(JSON.stringify(context.workContract));
+    expect(context.continuationMessage).toContain('COOPERATION.json');
+    expect(context.continuationMessage).toContain('proof acceptance');
+    expect(context.message).toContain('Frozen source context and immutable retrieval references:');
+    expect(context.manifest).toBeDefined();
   });
+
+it('keeps fixed independent review on the full-message protocol', () => {
+  expect(gapContext('review').continuationMessage).toBeUndefined();
+});
+
+
+it('keeps current task feedback and scoped intake receipts inline without repeating full finding bodies', () => {
+  const task: CooperativeTask = { id: 'investigate', kind: 'research', objective: 'Resolve the exact classification gap.',
+    dependsOn: [], revision: 0, groupId: 'route', sharing: 'group' };
+  const action: Extract<CooperativeAction, { kind: 'task' }> = { kind: 'task', task,
+    assignment: { taskId: task.id, taskDigest: taskVersion(task), workerId: 'researcher',
+      seedCommit: 'fixed-commit', assignmentId: 'fixed-assignment' } };
+  const fullFinding = 'Complete retained classification argument. ' + 'Precise intermediate evidence. '.repeat(500);
+  const problem = { projectRelative: '.', ownedFiles: ['Submission.lean'], declarations: {}, targets: [], receiptDigest: 'problem',
+    baseCommit: 'fixed-commit', contract: { formalStatement: 'theorem target : True := by sorry', assumptions: [] } } as unknown as SolverProblem;
+  const receipt: DeliveryReceipt = { id: 'own-receipt', submissionDigest: 'submission', workerId: 'researcher',
+    assignmentKey: assignmentDeliveryFile(action.assignment), taskId: task.id, taskDigest: taskVersion(task),
+    seedCommit: action.assignment.seedCommit, environmentDigest: 'current-environment', createdAt: 1,
+    status: 'needs-correction', code: 'math_delivery_invalid',
+    issues: [{ path: 'mathematicalGap.previousDeliveryId', message: 'Use a visible scoped prior gap or omit the reference.' }] };
+  const state = { environmentDigest: 'current-environment', cooperation: {
+    tasks: [{ task, status: 'pending', attempts: 1, finding: fullFinding, feedback: 'Exact missing uniformity inference.' }],
+    deliveries: [{ id: 'latest-finding', kind: 'research', status: 'advisory', producer: 'peer', taskId: task.id,
+      taskDigest: taskVersion(task), summary: fullFinding, statement: '', premises: [], dependencies: [],
+      remainingObligations: [], evidenceRefs: [], createdAt: 1, findingDigest: 'finding-reference', commit: 'saved-commit' }],
+    deliveryReceipts: [receipt, { ...receipt, id: 'other-worker-secret', workerId: 'other' },
+      { ...receipt, id: 'old-seed-secret', seedCommit: 'old-seed' },
+      { ...receipt, id: 'old-env-secret', environmentDigest: 'old-environment' }],
+  } } as unknown as SolverRunState;
+  const access = { root: '/runtime', worktree: '/proof', environment: {}, taskText: 'Prove the target', retrievalRoot: '/library',
+    frozenContexts: { 'Submission.lean': 'theorem target : True := /- body omitted -/' }, assignment: action,
+    sourceFeedback: 'Current host correction: preserve the exact original source.' };
+  const first = buildResearchContext(problem, state, access);
+  expect(first.continuationMessage).toContain(JSON.stringify(receipt));
+  expect(first.continuationMessage).toContain('Current host correction: preserve the exact original source.');
+  expect(first.continuationMessage).toContain('Exact missing uniformity inference.');
+  expect(first.continuationMessage).toContain('latest-finding');
+  expect(first.continuationMessage).toContain('finding-reference');
+  expect(first.continuationMessage).toContain('saved-commit');
+  expect(first.continuationMessage).not.toContain('other-worker-secret');
+  expect(first.continuationMessage).not.toContain('old-seed-secret');
+  expect(first.continuationMessage).not.toContain('old-env-secret');
+  expect(first.continuationMessage).not.toContain(fullFinding);
+  expect(first.continuationMessage!.length).toBeLessThan(first.message.length / 2);
+  expect(first.continuationMessage).toContain('matching task digest does not mean its feedback or inbox is unchanged');
+  state.cooperation!.tasks[0].feedback = 'New diagnostic under the same exact task digest.';
+  const updated = { ...receipt, id: 'new-receipt', issues: [{ path: 'summary', message: 'Include the new exact counterexample.' }] };
+  state.cooperation!.deliveryReceipts!.push(updated);
+  const next = buildResearchContext(problem, state, access);
+  expect(next.continuationMessage).toContain('New diagnostic under the same exact task digest.');
+  expect(next.continuationMessage).toContain(JSON.stringify(updated));
+  expect(next.assignment).toEqual(first.assignment);
+});

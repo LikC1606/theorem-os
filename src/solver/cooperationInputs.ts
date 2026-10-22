@@ -17,9 +17,54 @@ import { assignmentDeliveryFile, leadPlanDeliveryFile, type CooperativeTask, typ
 import { digest, directDeliveryRejections, rejectionCode, HumanEditRecord, TaskVersions, bounded } from './cooperationShared';
 import { CooperationPlanning } from './cooperationPlanning';
 import { composeHandoffPublication } from './handoffPublication';
+import { finishLeadAssessment, type LeadAssessmentKind } from './leadAssessment';
+import { pendingResearchHandoffs } from './researchHandoffs';
+import { pendingResearchChallenges } from './researchChallenges';
+import { prepareResearchDelivery, ResearchAdmissionError } from './researchAdmission';
 
 /** Worker delivery intake. */
 export abstract class CooperationInputs extends CooperationPlanning {
+  /** A scheduling decision does not edit the task graph or grant proof acceptance. */
+  protected acceptLeadAssessment(action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' }>, response: any): void {
+    const invalid = (reason: string) => new Error('math_plan_assessment_' + reason);
+    const keys = (value: any, allowed: readonly string[]) => value && typeof value === 'object' && !Array.isArray(value) &&
+      Object.keys(value).every(key => allowed.includes(key));
+    if (action.kind !== 'lead' || action.initialPlanNonce || action.recovery || !action.planNonce ||
+        !keys(response, ['kind', 'dispatchNonce', 'baseVersion', 'summary', 'assessments']) || response.kind !== 'assessment' ||
+        response.dispatchNonce !== action.planNonce || response.baseVersion !== action.planVersion ||
+        response.baseVersion !== this.archive.planVersion || !this.current(action) || !Array.isArray(response.assessments))
+      throw invalid('invalid');
+    if (action.handoffIds?.length || action.challengeIds?.length || pendingResearchHandoffs(this.archive).length ||
+        pendingResearchChallenges(this.archive).length) throw invalid('inbox_unresolved');
+    const requests = [['capacity', action.capacityRefill, this.archive.lastCapacityRefill],
+      ['stagnation', action.stagnationRecovery, this.archive.lastStagnationRecovery]] as const;
+    const expected = requests.filter(([, request]) => request);
+    if (!expected.length || response.assessments.length !== expected.length) throw invalid('request_count');
+    const seen = new Set<LeadAssessmentKind>();
+    for (const item of response.assessments) {
+      const entry = expected.find(([kind]) => kind === item?.kind);
+      if (!entry || seen.has(item.kind) || !keys(item, ['kind', 'requestId', 'inputDigest', 'outcome', 'reason']) ||
+          item.outcome !== 'no-independent-work' || typeof item.reason !== 'string' || !item.reason.trim() ||
+          item.reason.length > 12000) throw invalid('invalid');
+      const [, request, receipt] = entry;
+      if (!request.requestId || item.requestId !== request.requestId || item.inputDigest !== request.inputDigest ||
+          receipt?.requestId !== request.requestId || receipt.inputDigest !== request.inputDigest ||
+          receipt.dispatchNonce !== action.planNonce || receipt.status === 'assessed' &&
+          (receipt.outcome !== 'no-independent-work' || receipt.decisionReason !== item.reason)) throw invalid('superseded');
+      seen.add(item.kind);
+    }
+    // Validate the complete batch before acknowledging any request.
+    for (const [kind, request, receipt] of expected) {
+      const item = response.assessments.find((item: any) => item.kind === kind);
+      if (finishLeadAssessment(receipt, request, action.planNonce,
+        { at: Date.now(), outcome: 'no-independent-work', reason: item.reason }))
+        this.input.emit(kind === 'capacity' ? 'capacity_refill_assessed' : 'stagnation_recovery_assessed',
+          { ...receipt, evidenceStatus: 'advisory' });
+    }
+    if (action.planningInputDigest) this.archive.lastLeadInputDigest =
+      this.leadEvidence.get(action) === this.planningEvidenceDigest() ? this.planningInputDigest() : action.planningInputDigest;
+    this.changed();
+  }
   protected syncEditChecks(nodes: ReadonlyMap<string, TaskRecord>, versions: TaskVersions) {
     for (const edit of this.archive.edits ?? []) {
       if (edit.status !== 'applied' || !edit.recheck) continue;
@@ -149,7 +194,7 @@ export abstract class CooperationInputs extends CooperationPlanning {
           catch { reject(code('invalid_json')); }
           if (response !== undefined) {
             try {
-              if (!response || typeof response !== 'object' || Array.isArray(response) || !['plan', 'handoff'].includes(response.kind) ||
+              if (!response || typeof response !== 'object' || Array.isArray(response) || !['plan', 'handoff', 'assessment'].includes(response.kind) ||
                   typeof response.baseVersion !== 'string' || !initial && response.dispatchNonce !== nonce)
                 throw new Error(code('invalid'));
               const details = deliveryDetails(response);
@@ -161,6 +206,12 @@ export abstract class CooperationInputs extends CooperationPlanning {
                   throw new Error(code('superseded'));
                 if (!action.planVersion || response.baseVersion !== action.planVersion ||
                     response.baseVersion !== this.archive.planVersion) throw new Error(code('version_conflict'));
+                if (response.kind === 'assessment') {
+                  this.acceptLeadAssessment(action, response);
+                  this.input.emit('lead_assessment_published', { workerId: this.lead.id, file, eventDigest,
+                    dispatchNonce: nonce, summary: details.summary });
+                  return;
+                }
                 // Compose against the current graph only after acquiring the same CAS lock as full plans and human edits.
                 const handoff = response.kind === 'handoff' ? composeHandoffPublication(this.input.state.problem, this.archive, {
                   tasks: this.plannedTasks().map(node => node.task), groups: this.archive.groups?.map(route => route.group),
@@ -231,7 +282,11 @@ export abstract class CooperationInputs extends CooperationPlanning {
     const invalidInput = new Set([...directDeliveryRejections, 'math_delivery_invalid_commit',
       'math_delivery_requires_fixed_proof', 'math_delivery_unfinished_dependencies', 'math_route_blocker_invalid']);
     let advanced = false;
-    const reject = (reason: string) => this.input.emit('delivery_rejected', { workerId: worker.id, reason });
+    const reject = (reason: Error | string, submission: string) => {
+      const error = typeof reason === 'string' ? new Error(reason) : reason;
+      this.rejectWorkerDelivery(worker, action, submission, error);
+      this.input.emit('delivery_rejected', { workerId: worker.id, reason: error.message });
+    };
     try {
       for (const log of [assignmentDeliveryFile(action.assignment), 'DELIVERIES.jsonl']) {
         const scoped = log !== 'DELIVERIES.jsonl', key = scoped ? `${worker.id}/${log}` : worker.id;
@@ -240,17 +295,17 @@ export abstract class CooperationInputs extends CooperationPlanning {
           { discardingOversized: cursors[discardKey] === 1 });
         for (const entry of batch.entries!) {
           this.input.signal.throwIfAborted();
-          if (entry.error) reject(entry.error);
+          if (entry.error) reject(entry.error, `${key}:${entry.offset}:${entry.error}`);
           else if (entry.line?.trim()) {
             let value: unknown;
             try { value = JSON.parse(entry.line); }
-            catch { reject('math_delivery_invalid_json'); }
+            catch { reject('math_delivery_invalid_json', entry.line); }
             if (value !== undefined) {
               try { await this.receive(worker, action, value, scoped); }
               catch (error) {
                 this.input.signal.throwIfAborted();
                 if (!(error instanceof Error) || !invalidInput.has(rejectionCode(error))) throw error;
-                reject(error.message);
+                reject(error, entry.line);
               }
             }
           }
@@ -263,6 +318,7 @@ export abstract class CooperationInputs extends CooperationPlanning {
         cursors[discardKey] = batch.discardingOversized ? 1 : 0;
       }
     } finally { if (advanced) this.input.save(); }
+    await this.notifyDeliveryReceipts(worker, action);
   }
   private async receive(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>, value: any, scoped = false) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('math_delivery_invalid');
@@ -272,7 +328,13 @@ export abstract class CooperationInputs extends CooperationPlanning {
       taskDigest: action.assignment.taskDigest, ...value };
     const details = deliveryDetails(value);
     if (!value || typeof value.id !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/u.test(value.id) ||
-        !['progress', 'proof', 'research'].includes(value.kind) || value.taskId !== action.task.id || value.taskDigest !== action.assignment.taskDigest) throw new Error('math_delivery_invalid');
+        !['progress', 'proof', 'research', 'ready'].includes(value.kind) || value.taskId !== action.task.id || value.taskDigest !== action.assignment.taskDigest) throw new Error('math_delivery_invalid');
+    if (value.kind === 'ready') {
+      if (!scoped || advisory(action.task) || value.commit !== undefined || value.targets !== undefined)
+        throw new Error('math_delivery_invalid');
+      this.receiveProofReady(worker, action, value.id);
+      return;
+    }
     // Legacy automatic ids already bind the assignment; unscoped old ids cannot identify a new seed.
     if (this.archive.deliveries?.some(record => record.producer === worker.id && record.submissionId === value.id &&
       record.taskId === action.task.id && record.taskDigest === action.assignment.taskDigest &&
@@ -288,9 +350,13 @@ export abstract class CooperationInputs extends CooperationPlanning {
     }
     const node = this.node(action.task.id);
     if (value.kind === 'research') {
-      const finding = { taskId: node.task.id, conclusion: 'inconclusive', ...value.finding };
       if (!value.finding || typeof value.finding !== 'object' || Array.isArray(value.finding))
         throw new Error('math_research_delivery_invalid');
+      const admission = prepareResearchDelivery({ kind: 'event', value: value.finding }, { source: node.task,
+        assignment: action.assignment, tasks: this.archive.tasks, deliveries: this.archive.deliveries,
+        identity: { problemReceiptDigest: this.input.state.problem.receiptDigest, environmentDigest: this.input.state.environmentDigest } });
+      if (admission.status === 'rejected') throw new ResearchAdmissionError(admission);
+      const finding = admission.finding;
       const base = value.commit ?? action.assignment.seedCommit;
       if (typeof base !== 'string' || !/^[a-f0-9]{40,64}$/u.test(base)) throw new Error('math_delivery_invalid_commit');
       const fixed = mathGitResult(worker.worktree, ['merge-base', '--is-ancestor', action.assignment.seedCommit, base], { maxBuffer: 4096 });

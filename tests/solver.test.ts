@@ -3214,9 +3214,12 @@ describe('isolated solver and host acceptance', () => {
     expect(host.officialGate).toHaveBeenCalledOnce();
   });
 
-  it.each(['math-result', 'json'])('keeps explicit response bindings for host validation and rejects ambiguous %s blocks', fence => {
+  it('prefers an explicit research response and rejects ambiguous legacy blocks', () => {
     const file = path.join(workspace, 'RESEARCH.md');
-    fs.writeFileSync(file, '```math\n{"summary":"first"}\n```\n```' + fence + '\n{"summary":"second"}\n```');
+    fs.writeFileSync(file, '```math\n{"summary":"first"}\n```\n```math-result\n{"summary":"second"}\n```');
+    expect(readMathResponse(workspace, 'math-result').summary).toBe('second');
+    expect(readMathResponse(workspace, 'math-result', {}, 'summary').summary).toBe('second');
+    fs.writeFileSync(file, '```math\n{"summary":"first"}\n```\n```json\n{"summary":"second"}\n```');
     expect(() => readMathResponse(workspace, 'math-result')).toThrow('requires_one_block');
     expect(() => readMathResponse(workspace, 'math-result', {}, 'summary')).toThrow('requires_one_block');
     fs.writeFileSync(file, '```math\n{"commit":"wrong-version","summary":"first"}\n```');
