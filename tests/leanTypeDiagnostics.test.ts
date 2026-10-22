@@ -106,7 +106,8 @@ describe.skipIf(!lean)('local Lean closed-type preflight', () => {
       theoremName: 'Geometry.helper', proofPath: 'Submission.lean', type: 'Box -> Nat' };
     const problem = { targets: [{ theoremName: 'Geometry.original', proofPath: 'Submission.lean' }] } as SolverProblem;
     const cache = new TaskTypePreflightCache(), input = { task, problem, dependencies: [], projectRoot: root,
-      environmentDigest: 'test-environment', env: {}, timeoutMs: Infinity };
+      // This standalone Lean fixture has no packages; do not import a host's mutable cache settings.
+      environmentDigest: 'test-environment', env: { DEEPSCIENTIST_MATH_ENV_FILE: path.join(root, 'fixture.env') }, timeoutMs: Infinity };
     const first = await cache.check(input), commands = run.mock.calls.length;
     expect(first.result.status, first.result.reason).toBe('elaborated'); expect(commands).toBeGreaterThan(0);
     const file = path.join(root, 'Submission.lean');

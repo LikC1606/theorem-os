@@ -1,0 +1,19 @@
+{
+  "schema": "theorem-os.independent-candidate-check.v1",
+  "checkedAt": "2026-10-22T19:11:15.439437+00:00",
+  "target": "OAI.HadamardSix.rowRatio_cubeFiber_sum_zero",
+  "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/hadamard-progress-20261023/HadamardCandidate.lean",
+  "sha256": "59b22d224c39135587c4d30d75f9c5acbd32392b45e768bdf7ebedcdbc25d793",
+  "originalSha256": "9f412781be8b38c88a6efb3a4528d4c990071a233cd931612d4710213d6366a1",
+  "originalHeaderPreserved": true,
+  "originalProtectedPrefixPreserved": true,
+  "leanToolchain": "leanprover/lean4:v4.34.1",
+  "mathlibRevision": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+  "exitCode": 0,
+  "axioms": "[propext, Classical.choice, Quot.sound]",
+  "hasSorryAdmitAxiomCommands": false,
+  "publisherSolutionRead": false,
+  "activeCampaignModified": false,
+  "campaignAcceptance": false,
+  "proofMethod": "row orthogonality gives moments one and two zero; unit norm converts conjugate square times cubic to first power; two cubic values give a pointwise fiber projector identity."
+}

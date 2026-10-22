@@ -1,0 +1,90 @@
+{
+  "schema": "theorem-os.result-file-manifest.v1",
+  "generatedAt": "2026-10-22T19:17:17.666173+00:00",
+  "algorithm": "sha256",
+  "excludes": [
+    "manifest.json"
+  ],
+  "files": [
+    {
+      "path": "AxiomAudit.lean",
+      "bytes": 70,
+      "sha256": "9782c035cb55c8c2b725114331189c8edc27b0de39aa7e045fd09263a76df09b"
+    },
+    {
+      "path": "Challenge.lean",
+      "bytes": 494,
+      "sha256": "c75e9be97bcb12a6c289b6652337fc32398064fe8bef7cd910110a9d96fae56e"
+    },
+    {
+      "path": "LICENSE.openai-math",
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "path": "NOTICE",
+      "bytes": 392,
+      "sha256": "c24800ee2a31062b25eb950669fbb82aba6117a075f7dbe3a81d6aa3f5de0ca1"
+    },
+    {
+      "path": "README.md",
+      "bytes": 2272,
+      "sha256": "22f0c2adc484b763a4a261f655f27616935630ed22cb6bc7af8ced77882a5a21"
+    },
+    {
+      "path": "Submission.lean",
+      "bytes": 12520,
+      "sha256": "9d72760a5711fa88fe8dc47201125fc5273cd585cbb5cec0b41c7bb45b1bd1b9"
+    },
+    {
+      "path": "comparator.json",
+      "bytes": 280,
+      "sha256": "fa5fc25376120f7ad2ebd18f6533cec573deeebc599d381f3b264c3ce5278ec4"
+    },
+    {
+      "path": "comparator.upstream.json",
+      "bytes": 357,
+      "sha256": "dce1e6a3d800cb5b61ab13b7dd5cd76566960b963678f1dd238f922fcc4801f1"
+    },
+    {
+      "path": "evidence/kernel-axiom-receipt.json",
+      "bytes": 4120,
+      "sha256": "7f0e375cf5ad706b61cd3476a018dfd24defe4c4a208c4a36812916a614ff30f"
+    },
+    {
+      "path": "evidence/sealed-comparator-receipt.json",
+      "bytes": 9446,
+      "sha256": "773c122342903ee81969957c09e4bfc985d89a9ace2d29a4ddf9b9acf50396d5"
+    },
+    {
+      "path": "lake-manifest.json",
+      "bytes": 3571,
+      "sha256": "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829"
+    },
+    {
+      "path": "lakefile.toml",
+      "bytes": 321,
+      "sha256": "5626031b96b817d4ed6b2615ac3ebddeb0f1856208d6363bddea8b64cfe6e6b6"
+    },
+    {
+      "path": "lean-toolchain",
+      "bytes": 25,
+      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "path": "provenance.json",
+      "bytes": 1265,
+      "sha256": "27bee7089a3ca5f049807c8755a480e501d99a4ef864c182efd836f332fa2305"
+    },
+    {
+      "path": "run-sealed-comparator.sh",
+      "bytes": 2383,
+      "sha256": "90bf7b6b41236d4f3eb7e41bf25c36eb1eaedcfbb54c9ff22526bdbb73f6f29d"
+    },
+    {
+      "path": "verification.json",
+      "bytes": 2064,
+      "sha256": "a00b17aa2c357fad8d22fe1d0d069ba0e5864a79ff00cf9ca1c0929f46f8567a"
+    }
+  ]
+}

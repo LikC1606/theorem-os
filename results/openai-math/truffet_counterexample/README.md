@@ -49,3 +49,7 @@ Challenge 中的占位 sorry 不属于 Submission 的证明。AxiomAudit 打印 
 ## 来源与许可
 
 原题和原比较器配置来自 openai/math 提交 1581d4cbdd69a0faf34b2089614fe2a814316a6a，按 [Apache-2.0](LICENSE.openai-math) 保留许可。Submission.lean 在冻结原题基础上新增 91 个辅助引理并填充最终证明；comparator.json 仅修改模块名称。修改说明和归属见 [NOTICE](NOTICE)，其余本项目材料遵循仓库根许可证。
+
+## 后续原生验收更新
+
+北京时间 2026-10-23 02:44:45，续跑 de7a57e9-becf-4f94-9276-2090ab3f2738 完成 evaluated_passed，campaign accepted=true。同版本审阅、全目标检查和本地比较器通过，official=false。见 [新增原生通过回执](evidence/native-acceptance-update.json)；归档时 pending 快照及旧 run 失败历史原样保留。

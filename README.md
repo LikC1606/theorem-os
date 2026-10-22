@@ -65,7 +65,7 @@
 
 后四题于 2026 年 10 月 16 日在 [Lean-Eval 提交 #2144](https://github.com/leanprover/lean-eval-submissions/issues/2144) 获得官方托管评测 4/4 通过。证明包仍保留在原提交归档目录，目录名不表示当前验收状态。
 
-[OpenAI math 求解成果](results/openai-math/README.md)另收录 Truffet 有限反例的完整原题证明及本地原比较器验证证据；尚无 OpenAI 托管验收记录，难度 D 为本项目评估。
+[OpenAI math 求解成果](results/openai-math/README.md)另收录 Truffet 有限反例、三维完备局部复代数和 Hadamard 三次纤维消去的完整证明及本地原比较器证据。Truffet 已完成 TheoremOS 原生验收，其余状态见索引；尚无 OpenAI 托管验收记录，D/C 分档为本项目评估。
 
 <details>
 <summary>预览证明档案与历史研究快照</summary>

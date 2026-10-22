@@ -2,7 +2,7 @@
   "schema": "theorem-os.openai-math-result.v1",
   "archivedAt": "2026-10-22T18:43:03.760937+00:00",
   "id": "TruffetCounterexample",
-  "status": "local_publisher_comparator_passed",
+  "status": "native_evaluated_passed",
   "officialHostedAcceptance": false,
   "theorem": "OAI.TruffetV4Counterexample.finite_execution_not_optimal",
   "manuscriptIds": [
@@ -77,5 +77,6 @@
     },
     "campaignAccepted": false,
     "note": "Local standalone publisher-comparator pass does not overwrite native result or establish OpenAI hosted acceptance."
-  }
+  },
+  "nativeAcceptanceUpdate": "evidence/native-acceptance-update.json"
 }

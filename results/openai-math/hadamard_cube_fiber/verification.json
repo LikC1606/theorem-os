@@ -1,0 +1,47 @@
+{
+  "schema": "theorem-os.openai-math-result.v1",
+  "archivedAt": "2026-10-22T19:17:17.666173+00:00",
+  "id": "HadamardCubeFiber",
+  "status": "local_publisher_comparator_passed",
+  "officialHostedAcceptance": false,
+  "theorem": "OAI.HadamardSix.rowRatio_cubeFiber_sum_zero",
+  "manuscriptIds": [
+    "266-02"
+  ],
+  "tier": "C",
+  "tierIsOfficial": false,
+  "proof": {
+    "file": "Submission.lean",
+    "sha256": "1766d3c0915cf8358a64808fb12736dd4d0558f0a70c887b27723e9f0fd3cc91",
+    "bytes": 4058,
+    "lines": 100,
+    "axioms": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "sorryCount": 0,
+    "admitCount": 0
+  },
+  "environment": {
+    "leanToolchain": "leanprover/lean4:v4.34.1",
+    "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612"
+  },
+  "validation": {
+    "kernel": "evidence/kernel-axiom-receipt.json",
+    "sourceGuard": "evidence/source-guard-receipt.json",
+    "publisherComparator": "evidence/sealed-comparator-receipt.json",
+    "publisherComparatorObservedAt": "2026-10-22T19:14:47.145Z",
+    "publisherComparatorExitCode": 0,
+    "publisherComparatorSandbox": "bwrap",
+    "sealedEnvironment": true,
+    "nanodaEnabled": false,
+    "comparatorPolicyUnchanged": true
+  },
+  "attribution": {
+    "externalProofAssistance": "inspect_campaign_runner agent constructed and checked the proof; root coordinated archival",
+    "fromScratchModelBenchmark": false,
+    "publishedSolutionExposed": false
+  },
+  "campaignAcceptance": false
+}

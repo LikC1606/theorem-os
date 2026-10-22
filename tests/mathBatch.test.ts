@@ -24,6 +24,7 @@ function fixture(root: string, id: string, exitCode = 0) {
     fs.writeFileSync('started', String(process.pid));
     console.log('stdout:' + ${JSON.stringify(id)}); console.error('stderr:' + ${JSON.stringify(id)});
     process.on('SIGTERM', () => { fs.writeFileSync('checkpoint', 'saved'); process.exit(0); });
+    fs.writeFileSync('ready', String(process.pid));
     const timer = setInterval(() => { if (fs.existsSync('release')) {
       fs.writeFileSync('result.json', JSON.stringify({ fixture: true, envFile, codexHome: process.env.CODEX_HOME || '' }));
       clearInterval(timer); process.exit(${exitCode});
@@ -146,12 +147,16 @@ describe('independent problem batches', () => {
       child.once('error', reject); child.once('close', resolve);
     });
     try {
-      await expect.poll(() => fs.existsSync(path.join(a.directory, 'started'))).toBe(true);
+      // Process creation precedes signal-handler registration; cancel only after the solver can save.
+      await expect.poll(() => fs.existsSync(path.join(a.directory, 'ready'))).toBe(true);
       child.kill('SIGTERM');
       expect(await closed).toBe(143);
       expect(fs.readFileSync(path.join(a.directory, 'checkpoint'), 'utf8')).toBe('saved');
       expect(fs.existsSync(path.join(b.directory, 'started'))).toBe(false);
-      expect(JSON.parse(fs.readFileSync(output, 'utf8')).jobs.map(job => job.status)).toEqual(['cancelled', 'skipped']);
+      const result = JSON.parse(fs.readFileSync(output, 'utf8'));
+      expect(result.interruptedBy).toBe('SIGTERM');
+      expect(result.jobs.map(job => job.status)).toEqual(['cancelled', 'skipped']);
+      expect(result.jobs[0]).toMatchObject({ exitCode: 0, signal: null });
     } finally {
       if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
       await closed;

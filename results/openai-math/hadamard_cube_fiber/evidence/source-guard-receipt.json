@@ -1,0 +1,22 @@
+{
+  "observedAt": "2026-10-22T19:13:10.495Z",
+  "passed": true,
+  "standaloneAudit": true,
+  "campaignAcceptance": false,
+  "source": "Submission.lean",
+  "submissionSHA256": "1766d3c0915cf8358a64808fb12736dd4d0558f0a70c887b27723e9f0fd3cc91",
+  "originalSHA256": "9f412781be8b38c88a6efb3a4528d4c990071a233cd931612d4710213d6366a1",
+  "frozenProblemDigest": "773ee0ce6da8f56a4a010c8c3d5699fb3679fe96c69c3696ff527b15c5570cae",
+  "targetNames": [
+    "OAI.HadamardSix.rowRatio_cubeFiber_sum_zero"
+  ],
+  "trustedFileNames": [
+    "Challenge.lean",
+    "lean-toolchain",
+    "lakefile.toml",
+    "lake-manifest.json"
+  ],
+  "projectRelative": "source-guard-workspace/generated/problem",
+  "auditSHA256": "59b22d224c39135587c4d30d75f9c5acbd32392b45e768bdf7ebedcdbc25d793",
+  "auditCommandRemoved": "#print axioms rowRatio_cubeFiber_sum_zero"
+}
