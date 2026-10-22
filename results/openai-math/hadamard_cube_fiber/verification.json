@@ -2,7 +2,7 @@
   "schema": "theorem-os.openai-math-result.v1",
   "archivedAt": "2026-10-22T19:17:17.666173+00:00",
   "id": "HadamardCubeFiber",
-  "status": "local_publisher_comparator_passed",
+  "status": "native_evaluated_passed",
   "officialHostedAcceptance": false,
   "theorem": "OAI.HadamardSix.rowRatio_cubeFiber_sum_zero",
   "manuscriptIds": [
@@ -43,5 +43,13 @@
     "fromScratchModelBenchmark": false,
     "publishedSolutionExposed": false
   },
-  "campaignAcceptance": false
+  "campaignAcceptance": true,
+  "nativeProof": {
+    "file": "NativeSubmission.lean",
+    "sha256": "d818e4c8217e53057b254f92285bb22930f2b47504ed68d7e8def9d2547fa3a1",
+    "bytes": 5062,
+    "acceptedCommit": "be3ac1e85859e7f88229dd3eab02a492b9ca2d5a",
+    "runId": "3f2c13eb-fbf3-47d4-bff5-aed2489d23aa",
+    "receipt": "evidence/native-acceptance-update.json"
+  }
 }
