@@ -1,0 +1,62 @@
+{
+  "schema": "theorem-os.openai-math-result.v1",
+  "archivedAt": "2026-10-22T19:10:19.527009+00:00",
+  "id": "SurfaceConeCandidateSupport",
+  "status": "local_publisher_comparator_passed",
+  "officialHostedAcceptance": false,
+  "theorem": "OAI.SmallCM.candidate_ring_properties",
+  "manuscriptIds": [
+    "195-01"
+  ],
+  "tier": "D",
+  "tierIsOfficial": false,
+  "proof": {
+    "file": "Submission.lean",
+    "sha256": "9d72760a5711fa88fe8dc47201125fc5273cd585cbb5cec0b41c7bb45b1bd1b9",
+    "bytes": 12520,
+    "lines": 274,
+    "axioms": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "sorryCount": 0,
+    "admitCount": 0
+  },
+  "environment": {
+    "leanToolchain": "leanprover/lean4:v4.34.1",
+    "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612"
+  },
+  "validation": {
+    "kernel": "evidence/kernel-axiom-receipt.json",
+    "publisherComparator": "evidence/sealed-comparator-receipt.json",
+    "publisherComparatorExitCode": 0,
+    "publisherComparatorSandbox": "bwrap",
+    "sealedEnvironment": true,
+    "nanodaEnabled": false,
+    "comparatorPolicyUnchanged": true,
+    "comparatorConfigAdaptations": [
+      "challenge_module renamed to Challenge",
+      "solution_module renamed to Submission"
+    ]
+  },
+  "attribution": {
+    "campaign": "openai-math-d-to-s-20261022",
+    "activeModel": "deepseek-flash",
+    "activeEffort": "max",
+    "externalProofAssistance": {
+      "map_official_targets": "Dimension and maximal-ideal completeness",
+      "inspect_campaign_runner": "Normality of power series over Noetherian integrally closed domains",
+      "root": "Residue field, source-context assembly and independent validation"
+    },
+    "fromScratchModelBenchmark": false,
+    "publishedSolutionExposed": false
+  },
+  "nativeRunSnapshot": {
+    "runId": "cbfa1f3c-2760-4d7e-987a-97b48698fd49",
+    "status": "prepared",
+    "review": "running",
+    "campaignAccepted": false,
+    "note": "Native canonical differs by helper inlining and formatting; its final acceptance needs a separate exact-source hash."
+  }
+}

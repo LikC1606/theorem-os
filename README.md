@@ -61,7 +61,7 @@
 
 另有 [4 道本地官方比较器通过、等待官方复验的证明](submitted/README.md)：Sunflower、Lorentzian polynomials、Möbius 和 Algebraic integers，均已提交 [#2144](https://github.com/leanprover/lean-eval-submissions/issues/2144)，不计入上述官方通过数量。
 
-[OpenAI math 求解成果](results/openai-math/README.md)另收录 Truffet 有限反例的完整原题证明及本地原比较器验证证据；尚无 OpenAI 托管验收记录，难度 D 为本项目评估。
+[OpenAI math 求解成果](results/openai-math/README.md)另收录 Truffet 有限反例、三维完备局部复代数和 Hadamard 三次纤维消去的完整证明及本地原比较器证据。Truffet 已完成 TheoremOS 原生验收，其余状态见索引；尚无 OpenAI 托管验收记录，D/C 分档为本项目评估。
 
 <details>
 <summary>预览证明档案与历史研究快照</summary>

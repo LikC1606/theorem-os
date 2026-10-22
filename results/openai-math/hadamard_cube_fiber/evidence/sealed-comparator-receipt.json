@@ -1,0 +1,35 @@
+{
+  "observedAt": "2026-10-22T19:14:47.145Z",
+  "passed": true,
+  "standaloneAudit": true,
+  "campaignAcceptance": false,
+  "sealedEnvironment": true,
+  "networkIsolation": "frozen-runtime-sealed-policy",
+  "submissionSHA256": "1766d3c0915cf8358a64808fb12736dd4d0558f0a70c887b27723e9f0fd3cc91",
+  "challengeSHA256": "9f412781be8b38c88a6efb3a4528d4c990071a233cd931612d4710213d6366a1",
+  "auditSHA256": "59b22d224c39135587c4d30d75f9c5acbd32392b45e768bdf7ebedcdbc25d793",
+  "commandSHA256": "fc98a3c8350ef01e4f1341737d76dcf960176c8de606b05040e9e33c1542d578",
+  "officialConfigSHA256": "bcb65530d2cee7c6377770c945ff888b1b3534a42195091a9abbb92976178698",
+  "comparatorConfig": {
+    "challenge_module": "Challenge",
+    "solution_module": "Submission",
+    "theorem_names": [
+      "OAI.HadamardSix.rowRatio_cubeFiber_sum_zero"
+    ],
+    "definition_names": [],
+    "permitted_axioms": [
+      "propext",
+      "Quot.sound",
+      "Classical.choice"
+    ],
+    "enable_nanoda": false
+  },
+  "result": {
+    "started": true,
+    "exitCode": 0,
+    "timedOut": false,
+    "aborted": false,
+    "stdout": "✔ [8924/8927] Built Submission (3.2s)\n⚠ [8926/8927] Built Challenge (2.9s)\nwarning: Challenge.lean:28:6: declaration uses `sorry`\nBuild completed successfully (8927 jobs).\nBuilding Challenge\n⚠ [8924/8925] Replayed Challenge\nwarning: Challenge.lean:28:6: declaration uses `sorry`\nBuild completed successfully (8925 jobs).\nExporting #[OAI.HadamardSix.rowRatio_cubeFiber_sum_zero, propext, Quot.sound, Classical.choice, Nat.add, Nat.sub, Nat.mul, Nat.pow, Nat.gcd, Nat.div, Nat.mod, Nat.beq, Nat.ble, Nat.land, Nat.lor, Nat.xor, Nat.shiftLeft, Nat.shiftRight, String.ofList] from Challenge\nBuilding Submission\nBuild completed successfully (8925 jobs).\nExporting #[OAI.HadamardSix.rowRatio_cubeFiber_sum_zero, propext, Quot.sound, Classical.choice, Nat.add, Nat.sub, Nat.mul, Nat.pow, Nat.gcd, Nat.div, Nat.mod, Nat.beq, Nat.ble, Nat.land, Nat.lor, Nat.xor, Nat.shiftLeft, Nat.shiftRight, String.ofList] from Submission\nRunning Lean default kernel on solution.\nLean default kernel accepts the solution\nYour solution is okay!\n",
+    "stderr": ""
+  }
+}

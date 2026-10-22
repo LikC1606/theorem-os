@@ -1,0 +1,95 @@
+{
+  "schema": "theorem-os.result-file-manifest.v1",
+  "generatedAt": "2026-10-22T19:17:17.666173+00:00",
+  "algorithm": "sha256",
+  "excludes": [
+    "manifest.json"
+  ],
+  "files": [
+    {
+      "path": "AxiomAudit.lean",
+      "bytes": 76,
+      "sha256": "7f89c5d80dae3072c1521cbd22142785188c8d22f3ae0840e99d1b3d40825c0f"
+    },
+    {
+      "path": "Challenge.lean",
+      "bytes": 1084,
+      "sha256": "9f412781be8b38c88a6efb3a4528d4c990071a233cd931612d4710213d6366a1"
+    },
+    {
+      "path": "LICENSE.openai-math",
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "path": "NOTICE",
+      "bytes": 387,
+      "sha256": "bd979f258f286cdc563401c99cdb21e2e9bb4aa4835d8f9a3300d4a1fb16d4c6"
+    },
+    {
+      "path": "README.md",
+      "bytes": 1985,
+      "sha256": "9da766afed4bca010e1992c3bc32cdf3290b10d211c98a3407942c4f973b4937"
+    },
+    {
+      "path": "Submission.lean",
+      "bytes": 4058,
+      "sha256": "1766d3c0915cf8358a64808fb12736dd4d0558f0a70c887b27723e9f0fd3cc91"
+    },
+    {
+      "path": "comparator.json",
+      "bytes": 286,
+      "sha256": "b8d9fbeb932532ace3137a6de9b57cd1a0570c6f2d435263a7e616fe009ac85a"
+    },
+    {
+      "path": "comparator.upstream.json",
+      "bytes": 336,
+      "sha256": "bcb65530d2cee7c6377770c945ff888b1b3534a42195091a9abbb92976178698"
+    },
+    {
+      "path": "evidence/kernel-axiom-receipt.json",
+      "bytes": 1064,
+      "sha256": "f9f7923bd6288b5e9613a57114d33c6d2dfb21a524eafde69ea5505fb1e60fdb"
+    },
+    {
+      "path": "evidence/sealed-comparator-receipt.json",
+      "bytes": 2167,
+      "sha256": "59c49652df4798cc2b2b5d7cea49080989175c0339e49cb013e5316bd57a1e8a"
+    },
+    {
+      "path": "evidence/source-guard-receipt.json",
+      "bytes": 838,
+      "sha256": "53f3d02f3c64430d3047d934345529b8795683f432cdc889840375e50b7e4ecf"
+    },
+    {
+      "path": "lake-manifest.json",
+      "bytes": 3571,
+      "sha256": "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829"
+    },
+    {
+      "path": "lakefile.toml",
+      "bytes": 321,
+      "sha256": "5626031b96b817d4ed6b2615ac3ebddeb0f1856208d6363bddea8b64cfe6e6b6"
+    },
+    {
+      "path": "lean-toolchain",
+      "bytes": 25,
+      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "path": "provenance.json",
+      "bytes": 1222,
+      "sha256": "02811048f43bbbf26e8156e4f68d65110d2b570ecfa0c010f7d53e4c6f658269"
+    },
+    {
+      "path": "run-sealed-comparator.sh",
+      "bytes": 2389,
+      "sha256": "fc98a3c8350ef01e4f1341737d76dcf960176c8de606b05040e9e33c1542d578"
+    },
+    {
+      "path": "verification.json",
+      "bytes": 1493,
+      "sha256": "775d170aca5fe891c73161da0c6f465186e053f841a800402272a14e6ffba86d"
+    }
+  ]
+}
