@@ -1,0 +1,129 @@
+{
+  "lean": "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+  "lean_path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/plausible/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/aesop/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/batteries/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/importGraph/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/Qq/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/mathlib/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/LeanSearchClient/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/proofwidgets/.lake/build/lib/lean",
+  "order": [
+    "OAI.AlgebraicGeometry.CartierSections.PolynomialValuation",
+    "OAI.AlgebraicGeometry.CartierSections.FormalValuation",
+    "OAI.AlgebraicGeometry.CartierSections.Weights",
+    "OAI.AlgebraicGeometry.CartierSections.ExpansionValuation",
+    "OAI.AlgebraicGeometry.CartierSections.ConeTopology",
+    "OAI.AlgebraicGeometry.CartierSections.FractionValuation",
+    "OAI.AlgebraicGeometry.CartierSections.FieldTopology",
+    "OAI.AlgebraicGeometry.CartierSections.InfinitesimalCharts",
+    "OAI.AlgebraicGeometry.CartierSections.ChartCompletion",
+    "OAI.AlgebraicGeometry.CartierSections.ClosedCharts",
+    "OAI.AlgebraicGeometry.CartierSections.ChartRetraction",
+    "OAI.AlgebraicGeometry.CartierSections.FieldRetraction"
+  ],
+  "records": [
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.PolynomialValuation",
+      "exit_code": 0,
+      "started_at": "2026-10-22T19:09:24.399537+00:00",
+      "source_sha256": "0277ef0b5444948e581ae8605c11214e1f9204f0bda3c28b3e58d9043592e33b",
+      "output_path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/lib/lean/OAI/AlgebraicGeometry/CartierSections/PolynomialValuation.olean",
+      "log": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/logs/PolynomialValuation.log",
+      "diagnostic_chars": 0
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.FormalValuation",
+      "exit_code": 0,
+      "started_at": "2026-10-22T19:09:25.516499+00:00",
+      "source_sha256": "1a1cfacb8e9fa2e60321d9303252f79f4d900a3954d4ac91db572d84e9cf619d",
+      "output_path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/lib/lean/OAI/AlgebraicGeometry/CartierSections/FormalValuation.olean",
+      "log": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/logs/FormalValuation.log",
+      "diagnostic_chars": 0
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.Weights",
+      "exit_code": 0,
+      "started_at": "2026-10-22T19:09:26.736317+00:00",
+      "source_sha256": "8bb6abc631899789bb0b8af044752653e7c240fa1f000f7db242e2684f089bb3",
+      "output_path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/lib/lean/OAI/AlgebraicGeometry/CartierSections/Weights.olean",
+      "log": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/logs/Weights.log",
+      "diagnostic_chars": 0
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.ExpansionValuation",
+      "exit_code": 0,
+      "started_at": "2026-10-22T19:09:28.322814+00:00",
+      "source_sha256": "70341cf246a0491148fb2c6f25f300eaaff27656cb89e44af674b21b07c89a43",
+      "output_path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/lib/lean/OAI/AlgebraicGeometry/CartierSections/ExpansionValuation.olean",
+      "log": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/logs/ExpansionValuation.log",
+      "diagnostic_chars": 0
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.ConeTopology",
+      "exit_code": 0,
+      "started_at": "2026-10-22T19:09:29.915846+00:00",
+      "source_sha256": "ad2fe07a0c6b698be1ed1050cdac914eb1d289af807cf6ef011187def9abdc43",
+      "output_path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/lib/lean/OAI/AlgebraicGeometry/CartierSections/ConeTopology.olean",
+      "log": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/logs/ConeTopology.log",
+      "diagnostic_chars": 0
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.FractionValuation",
+      "exit_code": 0,
+      "started_at": "2026-10-22T19:09:31.591580+00:00",
+      "source_sha256": "6185d5645073eabbe99a48577f700bb1a4b57dc5e36510f854cfe2d0edeff551",
+      "output_path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/lib/lean/OAI/AlgebraicGeometry/CartierSections/FractionValuation.olean",
+      "log": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/logs/FractionValuation.log",
+      "diagnostic_chars": 0
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.FieldTopology",
+      "exit_code": 0,
+      "started_at": "2026-10-22T19:09:32.679801+00:00",
+      "source_sha256": "3a7efb432aa2da78ae19ec3cc2153399080b2e7a93643174d9128c62e5a33a85",
+      "output_path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/lib/lean/OAI/AlgebraicGeometry/CartierSections/FieldTopology.olean",
+      "log": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/logs/FieldTopology.log",
+      "diagnostic_chars": 0
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.InfinitesimalCharts",
+      "exit_code": 0,
+      "started_at": "2026-10-22T19:09:34.284806+00:00",
+      "source_sha256": "4db085e588fc29325562ef44b8aff172ff18ae641c62c9be7861ce140d77c8ac",
+      "output_path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/lib/lean/OAI/AlgebraicGeometry/CartierSections/InfinitesimalCharts.olean",
+      "log": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/logs/InfinitesimalCharts.log",
+      "diagnostic_chars": 0
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.ChartCompletion",
+      "exit_code": 0,
+      "started_at": "2026-10-22T19:09:35.762186+00:00",
+      "source_sha256": "cd5ab4b977be67e7f6726b14c7c63a2adaa5c12c80636b86d026905494d324ce",
+      "output_path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/lib/lean/OAI/AlgebraicGeometry/CartierSections/ChartCompletion.olean",
+      "log": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/logs/ChartCompletion.log",
+      "diagnostic_chars": 0
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.ClosedCharts",
+      "exit_code": 0,
+      "started_at": "2026-10-22T19:09:37.461639+00:00",
+      "source_sha256": "f77c79ba517df2051cde521b4a873128c0e5cde7d93d66cd81d3f6507c2e7d28",
+      "output_path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/lib/lean/OAI/AlgebraicGeometry/CartierSections/ClosedCharts.olean",
+      "log": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/logs/ClosedCharts.log",
+      "diagnostic_chars": 0
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.ChartRetraction",
+      "exit_code": 0,
+      "started_at": "2026-10-22T19:09:39.015896+00:00",
+      "source_sha256": "341066936c7dbb1fb1a85d285039db24de1c1380ff6cd71533c2159c45f9ebfa",
+      "output_path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/lib/lean/OAI/AlgebraicGeometry/CartierSections/ChartRetraction.olean",
+      "log": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/logs/ChartRetraction.log",
+      "diagnostic_chars": 0
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.FieldRetraction",
+      "exit_code": 0,
+      "started_at": "2026-10-22T19:09:40.747240+00:00",
+      "source_sha256": "f5876a3015bd47a08735dcc50d8f4219c88706303bfca0c244cb12a14fad3b31",
+      "output_path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/lib/lean/OAI/AlgebraicGeometry/CartierSections/FieldRetraction.olean",
+      "log": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/support-build/logs/FieldRetraction.log",
+      "diagnostic_chars": 0
+    }
+  ],
+  "complete": true
+}

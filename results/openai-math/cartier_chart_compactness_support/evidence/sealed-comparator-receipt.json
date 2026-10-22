@@ -1,0 +1,43 @@
+{
+  "observedAt": "2026-10-22T19:19:49.935Z",
+  "passed": true,
+  "standaloneAudit": true,
+  "campaignAcceptance": false,
+  "attribution": "external independent assistance",
+  "sealedEnvironment": true,
+  "originalTargetAndAxiomWhitelistPreserved": true,
+  "sourceGuardAdaptedDependencyPassed": false,
+  "result": {
+    "started": true,
+    "exitCode": 0,
+    "signal": null,
+    "stdout": "✔ [1585/1616] Built OAI.AlgebraicGeometry.CartierSections.PolynomialValuation (1.5s)\n✔ [1615/1935] Built OAI.AlgebraicGeometry.CartierSections.FormalValuation (1.6s)\n✔ [3114/3120] Built OAI.AlgebraicGeometry.CartierSections.FractionValuation (1.2s)\n✔ [3116/3120] Built OAI.AlgebraicGeometry.CartierSections.Weights (1.9s)\n✔ [3117/3120] Built OAI.AlgebraicGeometry.CartierSections.ExpansionValuation (1.8s)\n✔ [3118/3120] Built OAI.AlgebraicGeometry.CartierSections.ConeTopology (1.0s)\n✔ [3119/3160] Built OAI.AlgebraicGeometry.CartierSections.FieldTopology (1.7s)\n✔ [3156/3190] Built OAI.AlgebraicGeometry.CartierSections.InfinitesimalCharts (1.7s)\n✔ [3242/3291] Built OAI.AlgebraicGeometry.CartierSections.ChartCompletion (2.4s)\n✔ [3285/3291] Built OAI.AlgebraicGeometry.CartierSections.ClosedCharts (1.8s)\n✔ [3286/3291] Built OAI.AlgebraicGeometry.CartierSections.ChartRetraction (1.0s)\n✔ [3287/3291] Built OAI.AlgebraicGeometry.CartierSections.FieldRetraction (2.2s)\n✔ [3288/3291] Built Submission (2.2s)\n⚠ [3290/3291] Built Challenge (1.7s)\nwarning: Challenge.lean:25:6: declaration uses `sorry`\nBuild completed successfully (3291 jobs).\nBuilding Challenge\n⚠ [3288/3289] Replayed Challenge\nwarning: Challenge.lean:25:6: declaration uses `sorry`\nBuild completed successfully (3289 jobs).\nExporting #[OAI.CartierSections.isCompact_closedChartFieldRetraction_cone, propext, Quot.sound, Classical.choice, Nat.add, Nat.sub, Nat.mul, Nat.pow, Nat.gcd, Nat.div, Nat.mod, Nat.beq, Nat.ble, Nat.land, Nat.lor, Nat.xor, Nat.shiftLeft, Nat.shiftRight, String.ofList] from Challenge\nBuilding Submission\nBuild completed successfully (3289 jobs).\nExporting #[OAI.CartierSections.isCompact_closedChartFieldRetraction_cone, propext, Quot.sound, Classical.choice, Nat.add, Nat.sub, Nat.mul, Nat.pow, Nat.gcd, Nat.div, Nat.mod, Nat.beq, Nat.ble, Nat.land, Nat.lor, Nat.xor, Nat.shiftLeft, Nat.shiftRight, String.ofList] from Submission\nRunning Lean default kernel on solution.\nLean default kernel accepts the solution\nYour solution is okay!\n",
+    "stderr": "",
+    "stdoutSha256": "3084f14fae9dde7c2e14e22adaf940f0643dfd5763ab5a90fdf9d4ab9eaebb8a",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "timedOut": false,
+    "aborted": false,
+    "durationMs": 126202,
+    "sandboxBackend": "bwrap"
+  },
+  "commandSHA256": "5a50ddf632406ecf6ae4e7d6f8cbf648b7419b37ea2411ac212d539539ed75a0",
+  "comparatorConfig": {
+    "challenge_module": "Challenge",
+    "solution_module": "Submission",
+    "theorem_names": [
+      "OAI.CartierSections.isCompact_closedChartFieldRetraction_cone"
+    ],
+    "definition_names": [],
+    "permitted_axioms": [
+      "propext",
+      "Quot.sound",
+      "Classical.choice"
+    ],
+    "enable_nanoda": false
+  },
+  "officialConfigSHA256": "242cadf7dd3f4675b1db7043075221e2044ddc7786837ed97971138a31b62c0f",
+  "submissionSHA256": "cb8822de8e7a520cb27cf636075c9594d5cec82d2bc9c4bd052d78f8768e980b",
+  "challengeSHA256": "05de6915fb577137d01be2fcaab5ebcc252d80f628ffb913bea4bef87b54ea64",
+  "networkIsolation": "unmodified runtime-v2 bwrap --unshare-net",
+  "comparatorBinarySHA256": "104ea0297ecd090486b15eb8f2be590318eb58ccd552c2779b22f64c318070f1"
+}

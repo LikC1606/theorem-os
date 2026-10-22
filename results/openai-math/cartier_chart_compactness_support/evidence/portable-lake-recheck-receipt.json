@@ -1,0 +1,32 @@
+{
+  "observedAt": "2026-10-22T19:24:31.217367+00:00",
+  "passed": true,
+  "archiveLayout": "root requires cartier_support at relative path support; package exports OAI",
+  "disposableCopyUsed": true,
+  "archiveUntouchedByBuild": true,
+  "leanToolchain": "leanprover/lean4:v4.34.1",
+  "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+  "commands": [
+    {
+      "command": "lake build Challenge Submission",
+      "exitCode": 0,
+      "stdout": "portable-lake-build.log"
+    },
+    {
+      "command": "lake env lean AxiomAudit.lean",
+      "exitCode": 0,
+      "stdout": "portable-lake-axioms.log"
+    }
+  ],
+  "dependencyPreparation": "fixed independent local cache copies, path overrides for offline resolution; cartier_support resolves to the copied archive support directory",
+  "sandboxed": false,
+  "sealedAcceptanceEvidence": "sealed-comparator-receipt.json",
+  "sources": {
+    "Submission.lean": "cb8822de8e7a520cb27cf636075c9594d5cec82d2bc9c4bd052d78f8768e980b",
+    "Challenge.lean": "05de6915fb577137d01be2fcaab5ebcc252d80f628ffb913bea4bef87b54ea64",
+    "lakefile.toml": "b3c8b26d9f3dd90cd3ac4604edeec7f5bd35d2daee33d21ea2892559af59f646",
+    "lake-manifest.json": "5479259030ceff31b46c71bbba5dc6f39caf77250b75e46dc3d369f59cfc2989",
+    "AxiomAudit.lean": "7721a487c191464c1bf29c465a2e7f752cef677df7398cbf08c2da9145f7319f"
+  },
+  "campaignAcceptance": false
+}

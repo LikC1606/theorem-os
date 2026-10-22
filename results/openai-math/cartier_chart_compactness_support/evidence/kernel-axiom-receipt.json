@@ -1,0 +1,41 @@
+{
+  "generated_at": "2026-10-22T19:09:57.227991+00:00",
+  "attribution": "external independent assistance; not a theorem-os model-discovery result",
+  "original_challenge": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/metadata/challenges/CartierChartCompactnessSupport.lean",
+  "original_sha256": "05de6915fb577137d01be2fcaab5ebcc252d80f628ffb913bea4bef87b54ea64",
+  "candidate": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/CartierChartCompactnessSupport.lean",
+  "candidate_sha256": "cb8822de8e7a520cb27cf636075c9594d5cec82d2bc9c4bd052d78f8768e980b",
+  "proof_holes": 0,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/CartierChartCompactnessSupport.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/CartierChartCompactnessSupport.lean"
+  ],
+  "exit_code": 0,
+  "log": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/CartierChartCompactnessSupport.log",
+  "published_target_solution_read": false,
+  "axiom_check": {
+    "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/CheckAxioms.lean",
+    "exit_code": 0,
+    "output": "'OAI.CartierSections.isCompact_closedChartFieldRetraction_cone' depends on axioms: [propext,\n Classical.choice,\n Quot.sound]\n",
+    "sorryAx_present": false
+  },
+  "standalone_official_comparator": {
+    "passed": true,
+    "exit_code": 0,
+    "sandbox_backend": "bwrap",
+    "receipt": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-progress-20261023/sealed-isolated-comparator-receipt.json",
+    "campaign_acceptance": false
+  },
+  "archiveSource": "Submission.lean",
+  "archiveAxiomAudit": "AxiomAudit.lean",
+  "environment": {
+    "leanToolchain": "leanprover/lean4:v4.34.1",
+    "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612"
+  },
+  "archivedReceiptPathAdaptation": {
+    "source": "CartierChartCompactnessSupport.lean compiled as historical candidate module; archive name Submission.lean, bytes unchanged",
+    "axiomAudit": "archive AxiomAudit imports Submission; historical check imported candidate module, target unchanged"
+  }
+}
