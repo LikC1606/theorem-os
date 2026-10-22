@@ -1,0 +1,17 @@
+{
+  "exitCode": 0,
+  "sha256": "efb41f264587a47d89ff9177d54fb98137580f3e6bbebbd31c7e2d6ce4a33f9a",
+  "durationSeconds": 302.14698867313564,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-j1",
+    "-DElab.async=false",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-certificate-progress-20261023/CertificateFullKernel.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-certificate-progress-20261023/CertificateFullKernel.lean"
+  ],
+  "source": "CertificateFullKernel.lean",
+  "originalReceiptSHA256": "58fe6b9632b7888e13b41b58b0fe26c450574c498a85638d3900c79ca7d399d1",
+  "originalLogSHA256": "144a37511cf8c8c52c5dcd6cfcd70f57072661367219a1a773260f31ef91eff7",
+  "outputBytes": 102
+}

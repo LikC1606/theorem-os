@@ -1,0 +1,17 @@
+[
+  "ChallengePrelude",
+  "CleanOrdinaryBridge",
+  "CleanGenericThreat",
+  "CertificateData",
+  "CleanCertificateSemantics",
+  "CleanOpeningDefinitionsProbe",
+  "CleanEscapeFiltersProbe",
+  "CleanRootFiltersProbe",
+  "CleanInitialFilterProbe",
+  "CleanCommonBoundsProbe",
+  "CleanLastGeometryProbe",
+  "CleanOpeningSemanticsModular",
+  "CertificateRows",
+  "CleanFullTarget",
+  "ExactTarget"
+]

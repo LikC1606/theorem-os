@@ -1,0 +1,33 @@
+{
+  "createdAt": "2026-10-22T21:22:48.429065+00:00",
+  "upstreamRepository": "openai/math",
+  "upstreamCommit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+  "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+  "lean": "leanprover/lean4:v4.34.1",
+  "attribution": "external independent assistance; not counted as unaided TheoremOS model discovery",
+  "officialHostedAcceptance": false,
+  "budgetCaps": {
+    "maxRunSeconds": 0,
+    "maxTurns": 0,
+    "maxTurnSeconds": 0,
+    "maxTotalTokens": 0,
+    "evaluatorTimeoutSeconds": 0
+  },
+  "sourceModules": {
+    "ChallengePrelude": "f58ea7df8dd723e2ce191bd3994a217ffac9486e8b558abe5fcad2959f9ff346",
+    "CleanOrdinaryBridge": "81741fb923315ae0df3019389d003e5a3c18a98a6249e11309d78827c8504e72",
+    "CleanGenericThreat": "762f6113335ad8fe0583bdd10d7edf5679900de4dbaf1775c7f4d8696c7dbb21",
+    "CertificateData": "50f887dc52197f46c27e9d37602110f23265e52298bc55b50ffd6baa87257fe9",
+    "CleanCertificateSemantics": "b6a04e665e95da601f891080a5118bb6f508bb6ecfb03946158dd2426206285e",
+    "CleanOpeningDefinitionsProbe": "9b90fe1f53b745225759ab5c16847127e6d006e719ff1f0dda3b672aa6067353",
+    "CleanEscapeFiltersProbe": "a0c3d05b82e83a3afc919b0f45fe111ef33fe93783457a4946221825673bb58e",
+    "CleanRootFiltersProbe": "b02cee883afd6f9443b44f0b575fb7e4714df2a22dd3d658239da00ee0ed9fdc",
+    "CleanInitialFilterProbe": "f4be2366789fb9fd90adc7c98d61cb733759b224cc3eb62f6ad80d5eb831d559",
+    "CleanCommonBoundsProbe": "5020906c21296a198b33c76c2acc3fb5a469e29e7bbafe9c2b80ce792461a1de",
+    "CleanLastGeometryProbe": "1390dce7885c3771af6f0c42181becd278664ebf82511261c49ceb225e6eb11b",
+    "CleanOpeningSemanticsModular": "34f4cd975a4e6de837e039f06a748f8f80eb2d0b7c105c14500215edd2d4ea95",
+    "CertificateRows": "2e2389167e7eb72be8a1d86c229d84fe2bd1d9d99d09a60b3760850b5671ff57",
+    "CleanFullTarget": "34bc6af6c0040b746a9c388c9cd2986d090fe46cec855265f031e3ef50d09b57",
+    "ExactTarget": "6c4b0165b864e76095ee158928a9544839886135e0846d6a56b3fa9a1088f0fb"
+  }
+}

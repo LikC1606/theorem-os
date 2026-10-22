@@ -1,0 +1,100 @@
+{
+  "schema": "theorem-os.result-file-manifest.v1",
+  "generatedAt": "2026-10-22T21:22:48.429065+00:00",
+  "algorithm": "sha256",
+  "excludes": [
+    "manifest.json"
+  ],
+  "files": [
+    {
+      "path": "CertificateData.lean",
+      "bytes": 70010,
+      "sha256": "50f887dc52197f46c27e9d37602110f23265e52298bc55b50ffd6baa87257fe9"
+    },
+    {
+      "path": "CertificateFullKernel.lean",
+      "bytes": 133721,
+      "sha256": "efb41f264587a47d89ff9177d54fb98137580f3e6bbebbd31c7e2d6ce4a33f9a"
+    },
+    {
+      "path": "CertificateRows.lean",
+      "bytes": 989143,
+      "sha256": "2e2389167e7eb72be8a1d86c229d84fe2bd1d9d99d09a60b3760850b5671ff57"
+    },
+    {
+      "path": "Challenge.lean",
+      "bytes": 70348,
+      "sha256": "591087a6b083d2b610bd863e0b5e7424f83d8ca8c3587cf77785570d06e8bedf"
+    },
+    {
+      "path": "LICENSE.openai-math",
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "path": "NOTICE",
+      "bytes": 224,
+      "sha256": "ad8ef437da774e4d4ce79fd66caca6fddead61f2ba3122de8e7112a9078ffac1"
+    },
+    {
+      "path": "README.md",
+      "bytes": 1529,
+      "sha256": "ffb787c134353f6a3b028efc9312aaf6931458697a8342aba6d6c4aea07a4d5f"
+    },
+    {
+      "path": "evidence/CertificateData.receipt.json",
+      "bytes": 832,
+      "sha256": "6d05b6e865dc7ff566f93149d108e8942e708382c4972f11970ff3c1b820e91f"
+    },
+    {
+      "path": "evidence/CertificateFullKernel.receipt.json",
+      "bytes": 799,
+      "sha256": "38573856fdadef98e2be1b45babdcb70a5b454e2fdd1499e9d931d6741e00c15"
+    },
+    {
+      "path": "evidence/CertificateRows.receipt.json",
+      "bytes": 875,
+      "sha256": "210e9df329cf8551266c9d3363f9aaa2ebf2e27abcf892bbada498fb514ad29a"
+    },
+    {
+      "path": "evidence/axioms.txt",
+      "bytes": 102,
+      "sha256": "144a37511cf8c8c52c5dcd6cfcd70f57072661367219a1a773260f31ef91eff7"
+    },
+    {
+      "path": "lake-manifest.json",
+      "bytes": 3551,
+      "sha256": "9423cd5ba63b06d018d6955536ed03a4ce4087742d5cb7539c29c753729d42e8"
+    },
+    {
+      "path": "lakefile.toml",
+      "bytes": 358,
+      "sha256": "c749fb99df7eadbd13a4c4dcb626761016d4cc43234ef599087231d6df2ae7ff"
+    },
+    {
+      "path": "lean-toolchain",
+      "bytes": 25,
+      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "path": "module-order.json",
+      "bytes": 72,
+      "sha256": "244469f691acc6677e87f71f6d1c483ee7859997b26e0640ac41b25ca294c5d8"
+    },
+    {
+      "path": "provenance.json",
+      "bytes": 850,
+      "sha256": "0f4ce965b7ac45b566a1d33f721d3afe80ac9ee412f1f61fac6ec2a52efb0bba"
+    },
+    {
+      "path": "verification.json",
+      "bytes": 854,
+      "sha256": "8eef21a8fdf9a97deae1b2bffbb7fcc2fc6c71ee5957321e83dc387fe643bb24"
+    },
+    {
+      "path": "verify-kernel.py",
+      "bytes": 1303,
+      "sha256": "ae1cfb1f730048e2d3576e2411f1f5a7a1869d2cc490daa59dc851b8286ef127"
+    }
+  ]
+}

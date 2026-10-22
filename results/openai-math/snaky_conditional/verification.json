@@ -1,0 +1,25 @@
+{
+  "schema": "theorem-os.kernel-proof-result.v1",
+  "observedAt": "2026-10-22T21:22:48.429065+00:00",
+  "challenge": "SnakyConditional",
+  "difficultyTier": "C",
+  "manuscriptIds": [
+    "187-01"
+  ],
+  "completeOriginalTargetKernelPassed": true,
+  "moduleSourcesAllNoSorryOrNewAxiom": true,
+  "axioms": [
+    "propext",
+    "Classical.choice",
+    "Quot.sound"
+  ],
+  "publisherComparatorPassed": false,
+  "nativeAcceptance": false,
+  "officialHostedAcceptance": false,
+  "singleFileAccepted": false,
+  "status": "complete_modular_kernel_proof; portable_single_file_comparator_and_native_acceptance_pending",
+  "moduleCount": 15,
+  "finalModule": "ExactTarget",
+  "challengeSHA256": "3ab27d66779b557d0efcc3cfcf8317c40511e3cc655da29e61e95ba3f34d45ea",
+  "finalSourceSHA256": "6c4b0165b864e76095ee158928a9544839886135e0846d6a56b3fa9a1088f0fb"
+}

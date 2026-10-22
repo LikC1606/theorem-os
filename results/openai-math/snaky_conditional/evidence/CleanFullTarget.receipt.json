@@ -1,0 +1,19 @@
+{
+  "observedAt": "2026-10-22T21:18:31.624712+00:00",
+  "source": "CleanFullTarget.lean",
+  "sourceSha256": "34bc6af6c0040b746a9c388c9cd2986d090fe46cec855265f031e3ef50d09b57",
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-j1",
+    "-DElab.async=false",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/CleanFullTarget.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/CleanFullTarget.lean"
+  ],
+  "exitCode": 0,
+  "attribution": "external independent assistance",
+  "campaignAcceptance": false,
+  "originalReceiptSHA256": "904405af24bca832962a402869905015594790afc0f6ab2356e06411d010812b",
+  "originalLogSHA256": "788e3063fa6f68c2490cf9067f6cadb62329d9b3bf2411987451823814693ec4",
+  "outputBytes": 146
+}
