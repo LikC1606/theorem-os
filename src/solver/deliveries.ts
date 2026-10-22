@@ -23,10 +23,39 @@ export function readMathResponse(worktree: string, legacyFence: string, bindings
   return parseMathResponse(text, legacyFence, bindings, textField);
 }
 
+/** A research control response is explicit; JSON used to explain mathematics stays prose. */
+function researchResponse(text: string, textField?: string): unknown {
+  const blocks = [...text.matchAll(/```([a-z-]+)\s*\n([\s\S]*?)\n```/gu)];
+  const explicit = blocks.filter(block => block[1] === 'math-result');
+  if (explicit.length > 1) throw new Error('math_math-result_requires_one_block');
+  if (explicit.length) return JSON.parse(explicit[0][2]);
+  // A different control response must never become an ordinary research finding.
+  if (/```math-[a-z-]+\s*\n/u.test(text)) throw new Error('math_math-result_requires_one_block');
+  if (text.startsWith('{')) return JSON.parse(text);
+  const researchKeys = /"(?:summary|conclusion|taskId|taskDigest|mathematicalGap|lemmaRequests|remainingObligations|evidenceRefs|blockers|knowledgeUses|leanChecks)"\s*:/u;
+  const legacy = blocks.filter(block => {
+    if (!['math', 'json'].includes(block[1]) || !block[2].trimStart().startsWith('{')) return false;
+    try {
+      const value = JSON.parse(block[2]);
+      return value && typeof value === 'object' && !Array.isArray(value) &&
+        Object.keys(value).some(key => researchKeys.test(JSON.stringify(key) + ':'));
+    } catch { return researchKeys.test(block[2]); }
+  });
+  if (legacy.length > 1) throw new Error('math_math-result_requires_one_block');
+  if (legacy.length) return JSON.parse(legacy[0][2]);
+  return textField && text ? { [textField]: text } : undefined;
+}
+
 /** The same parser also reads immutable checkpoint text without consulting a live workspace. */
 export function parseMathResponse(text: string, legacyFence: string, bindings: Record<string, unknown> = {}, textField?: string): any {
   const errorPrefix = `math_${legacyFence}`;
   text = text.trim();
+  if (legacyFence === 'math-result') {
+    const value = researchResponse(text, textField);
+    if (value === undefined) throw new Error(errorPrefix + '_requires_one_block');
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('math_response_invalid');
+    return { ...bindings, ...value };
+  }
   const blocks = [...text.matchAll(new RegExp('```(?:math|json|' + legacyFence + ')\\s*\\n([\\s\\S]*?)\\n```', 'gu'))]
     .filter(block => !textField || block[1].trimStart().startsWith('{'));
   if (blocks.length > 1) throw new Error(`${errorPrefix}_requires_one_block`);

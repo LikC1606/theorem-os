@@ -67,12 +67,12 @@ describe('advisory stagnation is a stable scheduling signal', () => {
     }
   });
 
-  it('requests typed decomposition when every focus is already used and a discovery has finished', () => {
+  it('requests typed decomposition only after every current focus has finished', () => {
     const input = fixture(); input.workers = [];
     const target = input.tasks[1];
     const explored = CAPACITY_EXPLORATION_FOCUSES.map((focus, index) => {
       const node = createCapacityExploration(target, { id: 'prover-' + index }, input.tasks, identity, focus);
-      node.status = index ? 'running' : 'completed'; return node;
+      node.status = 'completed'; return node;
     });
     const explorationInputs = explored.map(node => ({ ...node.capacityExploration!, taskId: node.task.id }));
     const completed = { ...input, tasks: [...input.tasks, ...explored], explorationInputs };
@@ -80,6 +80,26 @@ describe('advisory stagnation is a stable scheduling signal', () => {
     expect(advisoryStagnation({ ...completed, explorationInputs: explorationInputs.slice(1) })).toBeUndefined();
     explored[0].status = 'running';
     expect(advisoryStagnation(completed)).toBeUndefined();
+  });
+
+  it.each(['pending', 'running', 'blocked'] as const)('does not treat issued %s investigations as exhausted', status => {
+    const input = fixture(); input.workers = [];
+    const explored = CAPACITY_EXPLORATION_FOCUSES.map((focus, index) => {
+      const node = createCapacityExploration(input.tasks[1], { id: 'prover-' + index }, input.tasks, identity, focus);
+      node.status = index ? status : 'completed'; return node;
+    });
+    const explorationInputs = explored.map(node => ({ ...node.capacityExploration!, taskId: node.task.id }));
+    expect(advisoryStagnation({ ...input, tasks: [...input.tasks, ...explored], explorationInputs })).toBeUndefined();
+  });
+
+  it('does not let an issued tombstone substitute for a missing completed investigation', () => {
+    const input = fixture(); input.workers = [];
+    const explored = CAPACITY_EXPLORATION_FOCUSES.map((focus, index) => {
+      const node = createCapacityExploration(input.tasks[1], { id: 'prover-' + index }, input.tasks, identity, focus);
+      node.status = 'completed'; return node;
+    });
+    const explorationInputs = explored.map(node => ({ ...node.capacityExploration!, taskId: node.task.id }));
+    expect(advisoryStagnation({ ...input, tasks: [...input.tasks, ...explored.slice(1)], explorationInputs })).toBeUndefined();
   });
 
   it('keeps legacy archives with no worker metadata healthy and ignores stale exploration identities', () => {

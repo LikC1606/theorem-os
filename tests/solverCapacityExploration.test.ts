@@ -376,6 +376,8 @@ describe('host exploration for spare cooperative capacity', () => {
     await startGeneralists();
     const actions = await Promise.all(provers().map(claim));
     await complete(provers()[0], actions[0]);
+    expect((cooperative as any).stagnationRecovery()).toBeUndefined();
+    for (const [index, action] of actions.entries()) if (index) await complete(provers()[index], action);
     const ledger = structuredClone(state.cooperation!.capacityExplorationInputs);
     const busyAssignment = node('busy_helper').assignment;
     const lead = await startLead();

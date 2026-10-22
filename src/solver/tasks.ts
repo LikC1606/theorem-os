@@ -39,10 +39,12 @@ export type TaskRecord = { task: CooperativeTask; status: 'pending' | 'running' 
 export type CooperativeAction = { kind: 'lead' | 'assemble'; seedCommit: string; planVersion?: string; planningInputDigest?: string;
   initialPlanNonce?: string;
   planNonce?: string;
+  /** Stable mathematical responsibility, independent of inbox freshness or graph presentation. */
+  responsibilityDigest?: string;
   /** Advisory capacity at dispatch; never infer this request from a later archive receipt. */
-  capacityRefill?: Readonly<{ inputDigest: string; workerIds: readonly string[]; requestedAt: number }>;
+  capacityRefill?: Readonly<{ requestId?: string; inputDigest: string; workerIds: readonly string[]; requestedAt: number }>;
   /** Host scheduling recovery only; never a mathematical blocker or proof verdict. */
-  stagnationRecovery?: Readonly<{ inputDigest: string; taskIds: readonly string[]; workerIds: readonly string[]; requestedAt: number;
+  stagnationRecovery?: Readonly<{ requestId?: string; inputDigest: string; taskIds: readonly string[]; workerIds: readonly string[]; requestedAt: number;
     reason: 'advisory-no-durable-progress' | 'frontier-not-decomposed' }>;
   handoffIds?: readonly string[];
   handoffActivations?: Readonly<Record<string, string>>;

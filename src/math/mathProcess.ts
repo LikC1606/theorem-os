@@ -3,6 +3,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import path from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import type { Readable } from 'node:stream';
+import { setTimeout as delay } from 'node:timers/promises';
 
 export const MATH_PROCESS_OUTPUT_LIMIT = 12_000;
 
@@ -66,6 +67,33 @@ export const stopMathProcess = (child: ChildProcess, signal: NodeJS.Signals): vo
     // The process may have exited between the state check and kill.
   }
 };
+
+export type MathProcessStopReceipt = Readonly<{ status: 'stopped' } | { status: 'unconfirmed';
+  reason: 'process-exit-unconfirmed' | 'process-identity-unavailable' | 'unsupported-platform' |
+    'process-group-active' | 'process-group-unavailable' }>;
+
+/** A bounded close is cleanup, not proof that the owned writer process group has exited. */
+export async function confirmMathProcessStopped(child: ChildProcess, timeoutMs = 1000): Promise<MathProcessStopReceipt> {
+  if (process.platform === 'win32') return { status: 'unconfirmed', reason: 'unsupported-platform' };
+  if (!Number.isSafeInteger(child.pid) || child.pid! <= 0)
+    return { status: 'unconfirmed', reason: 'process-identity-unavailable' };
+  const deadline = Date.now() + Math.max(0, timeoutMs);
+  for (;;) {
+    const exited = typeof child.exitCode === 'number' || typeof child.signalCode === 'string';
+    let group: 'absent' | 'active';
+    try { process.kill(-child.pid!, 0); group = 'active'; }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ESRCH')
+        return { status: 'unconfirmed', reason: 'process-group-unavailable' };
+      group = 'absent';
+    }
+    if (exited && group === 'absent') return { status: 'stopped' };
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) return { status: 'unconfirmed',
+      reason: !exited ? 'process-exit-unconfirmed' : 'process-group-active' };
+    await delay(Math.min(25, remaining));
+  }
+}
 
 /** Cleanup has a finite deadline even when solving has none. Launch owned children detached on POSIX. */
 export function closeMathProcess(child: ChildProcess, gracefulInput = false, graceMs = 3_000): Promise<void> {

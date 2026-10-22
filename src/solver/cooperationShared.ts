@@ -15,6 +15,8 @@ import { type TaskConsumerProjection } from './taskConsumers';
 import { type CheckpointCandidate } from './researchEvidence';
 import { type ParallelQuestion } from './taskQuestions';
 import { mathematicalGaps } from './mathematicalGaps';
+import type { DeliveryReceipt } from './deliveryReceipts';
+import type { ProofReadyRecord } from './proofReady';
 import { taskVersion, type CooperativeTask, type RouteRecord, type TaskRecord, type CooperativeAction } from './tasks';
 
 export const digest = taskVersion;
@@ -69,6 +71,8 @@ export type CooperationState = { tasks: TaskRecord[]; groups?: RouteRecord[]; ca
   parallelQuestions?: readonly ParallelQuestion[];
   history?: { task: CooperativeTask; producer?: string; proof?: TaskProof; integratedCheck?: ProofCheck; finding?: string }[];
   deliveries?: DeliveryRecord[]; cursors?: Record<string, number>; edits?: HumanEditRecord[];
+  deliveryReceipts?: DeliveryReceipt[];
+  proofReadyRecords?: ProofReadyRecord[];
   researchDecisions?: ResearchHandoffDecision[];
   challengeDecisions?: ResearchChallengeDecision[];
   planVersion?: string; planEdited?: boolean; statementReviews?: StatementReview[];
@@ -78,10 +82,10 @@ export type CooperationState = { tasks: TaskRecord[]; groups?: RouteRecord[]; ca
   planRejection?: { proposalDigest: string; inputDigest: string; error: string; stalled: boolean };
   lastLeadInputDigest?: string;
   /** One capacity assessment per mathematical input, including across process restarts. */
-  lastCapacityRefill?: { inputDigest: string; workerIds: string[]; requestedAt: number; status: 'requested' | 'assessed' };
+  lastCapacityRefill?: import('./leadAssessment').LeadAssessmentReceipt & { workerIds: string[] };
   /** One planning assessment per mathematical/evidence input; unresolved need remains visible. */
-  lastStagnationRecovery?: { inputDigest: string; taskIds: string[]; workerIds: string[]; requestedAt: number;
-    status: 'requested' | 'assessed'; reason: 'advisory-no-durable-progress' | 'frontier-not-decomposed' };
+  lastStagnationRecovery?: import('./leadAssessment').LeadAssessmentReceipt & { taskIds: string[]; workerIds: string[];
+    reason: 'advisory-no-durable-progress' | 'frontier-not-decomposed' };
   /** Durable mathematical input/method tombstones, independent of scheduling and plan revisions. */
   capacityExplorationInputs?: { inputDigest: string; focus: import('./capacityExploration').CapacityExplorationFocus;
     targetTaskId: string; taskId: string }[];

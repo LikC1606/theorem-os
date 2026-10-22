@@ -139,6 +139,39 @@ it('rejects an invalid research event and continues consuming the following line
   await (cooperative as any).readWorkerDeliveries(workers[1], action, cursors);
   expect(state.cooperation!.deliveries).toHaveLength(1);
   expect(pendingResearchChallenges(state.cooperation!)).toHaveLength(1);
+  expect(state.cooperation!.deliveryReceipts).toEqual([expect.objectContaining({
+    status: 'needs-correction', taskId: action.task.id, assignmentKey: assignmentDeliveryFile(action.assignment),
+    issues: [{ path: 'conclusion', message: 'Use supporting, refuted, or inconclusive.' }],
+  })]);
+  expect(cooperative.contextState(action, workers[1]).deliveryReceipts).toHaveLength(1);
+  expect(cooperative.contextState(undefined, workers[2]).deliveryReceipts).toEqual([]);
+});
+
+it('resolves the explicitly replaced receipt only after a corrected finding is recorded', async () => {
+  const log = path.join(workers[1].worktree, assignmentDeliveryFile(action.assignment));
+  fs.writeFileSync(log, JSON.stringify({ kind: 'research', finding: { summary: 'Invalid', conclusion: 'accepted' } }) + '\n');
+  await (cooperative as any).readWorkerDeliveries(workers[1], action, {});
+  const receipt = state.cooperation!.deliveryReceipts![0];
+  await publish({ kind: 'research', finding: { ...finding(), replacesReceipt: receipt.id } });
+  expect(receipt.status).toBe('recorded');
+  expect(state.cooperation!.tasks[0].feedback).toBeUndefined();
+  const contextFile = JSON.parse(fs.readFileSync(path.join(workers[1].worktree, 'COOPERATION.json'), 'utf8'));
+  expect(contextFile.deliveryReceipts).toMatchObject([{ status: 'recorded' }]);
+  expect(state.cooperation!.deliveries).toHaveLength(1);
+  expect(state.cooperation!.tasks[0].status).toBe('running');
+  expect(state.cooperation!.tasks[0].proof).toBeUndefined();
+});
+
+it.each(['environment', 'problem'] as const)('does not bind an old finding to a new %s after asynchronous application checking', async change => {
+  const checking = deferred<[]>(), entered = deferred();
+  vi.spyOn(cooperative as any, 'knowledgeUses').mockImplementation(() => { entered.resolve(); return checking.promise; });
+  const pending = publish({ kind: 'research', finding: finding() });
+  await entered.promise;
+  if (change === 'environment') state.environmentDigest = 'replacement-environment';
+  else state.problem = { ...state.problem, receiptDigest: 'replacement-problem' };
+  checking.resolve([]); await pending;
+  expect(state.cooperation!.deliveries ?? []).toEqual([]);
+  expect(state.cooperation!.tasks[0].status).toBe('running');
 });
 
 it('tracks changed complete arguments even when short summaries and advisory conclusions match', async () => {
@@ -166,4 +199,53 @@ it('preserves notes-only Lean support under its actual commit independently of t
     reportedChecks: [{ status: 'passed', path: 'RESEARCH.md' }] });
   expect(committedSource(workers[0].worktree, support, 'RESEARCH.md')).toContain(code);
   expect(committedSource(workers[0].worktree, record.commit!, 'RESEARCH.md')).toBe(record.finding);
+});
+
+it('keeps a malformed final research report on its original assignment and accepts its corrected finding', async () => {
+  const node = state.cooperation!.tasks[0];
+  const task = { ...node.task, kind: 'research' as const, theoremName: undefined, type: undefined, proofPath: undefined,
+    objective: 'Retain the exact classification argument and remaining gap.' };
+  action = { kind: 'task', task, assignment: { ...action.assignment, taskDigest: taskVersion(task) } };
+  node.task = task; node.assignment = action.assignment; node.status = 'running';
+  state.workers = workers.map(worker => ({ ...worker, phase: 'running', turns: 0,
+    ...(worker.id === workers[1].id ? { threadId: 'original-research-thread', sessionTaskId: task.id,
+      sessionTaskVersion: taskVersion(task), sessionAssignmentId: action.assignment.assignmentId } : {}) }));
+  const originalAssignment = action.assignment;
+  const saved: SolverRunState[] = [];
+  (cooperative as any).input.save = () => saved.push(JSON.parse(JSON.stringify(state)));
+  const notes = path.join(workers[1].worktree, 'RESEARCH.md');
+  const ticks = String.fromCharCode(96).repeat(3);
+  const malformed = ticks + 'math-result\n{"summary":\n' + ticks;
+  fs.writeFileSync(notes, malformed);
+  const invalidCommit = commitSolverSources(state.problem, workers[1].worktree);
+  await expect(cooperative.deliver(workers[1], action, invalidCommit)).resolves.toEqual({ checkWhole: false });
+  expect(node.status).toBe('pending'); expect(node.assignment).toBe(originalAssignment);
+  expect(state.workers.find(worker => worker.id === workers[1].id)?.threadId).toBe('original-research-thread');
+  expect(state.cooperation!.deliveryReceipts).toEqual([expect.objectContaining({ status: 'needs-correction',
+    taskId: task.id, taskDigest: taskVersion(task), assignmentKey: assignmentDeliveryFile(originalAssignment),
+    code: 'math_research_delivery_invalid', issues: [{ path: '$', message: 'The research control response must contain valid JSON.' }],
+  })]);
+  expect(saved.some(snapshot => snapshot.cooperation?.deliveryReceipts?.length === 1)).toBe(true);
+  expect(state.cooperation!.deliveries?.filter(delivery => delivery.kind === 'research') ?? []).toEqual([]);
+  expect(state.cooperation!.blockers ?? []).toEqual([]);
+  const resumed = await cooperative.next(workers[1], { maxTurns: Infinity, remainingMs: Infinity, aborted: false });
+  expect(resumed?.kind).toBe('task');
+  if (!resumed || resumed.kind !== 'task') throw new Error('Expected the same research responsibility');
+  expect(resumed.assignment).toBe(originalAssignment);
+  expect(state.workers.find(worker => worker.id === workers[1].id)?.threadId).toBe('original-research-thread');
+  expect(fs.readFileSync(notes, 'utf8')).toBe(malformed);
+  const corrected = { summary: 'Exact boundary result retained; uniform classification remains unresolved.',
+    conclusion: 'inconclusive', argument: 'Complete immutable argument with quantified remaining hypotheses.' };
+  const finalNotes = '# Retained derivation\n\n' + ticks + 'json\n{"nodes":["boundary","uniform"]}\n' + ticks +
+    '\n\n' + ticks + 'math-result\n' + JSON.stringify(corrected) + '\n' + ticks + '\n';
+  fs.writeFileSync(notes, finalNotes);
+  const validCommit = commitSolverSources(state.problem, workers[1].worktree);
+  await expect(cooperative.deliver(workers[1], resumed, validCommit)).resolves.toEqual({ checkWhole: false });
+  expect(node.status).toBe('completed'); expect(node.assignment).toBe(originalAssignment);
+  expect(state.cooperation!.deliveryReceipts![0].status).toBe('recorded');
+  const [delivery] = state.cooperation!.deliveries!.filter(item => item.kind === 'research');
+  expect(JSON.parse(delivery.finding!)).toMatchObject({ ...corrected, taskId: task.id, taskDigest: taskVersion(task) });
+  expect(delivery.commit).toBe(validCommit);
+  expect(committedSource(workers[0].worktree, delivery.commit!, 'RESEARCH.md')).toBe(finalNotes);
+  expect(node.proof).toBeUndefined(); expect(state.check).toBeUndefined();
 });

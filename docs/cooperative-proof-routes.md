@@ -72,6 +72,18 @@ Lead 的计划和人工导出计划新增可选的顶层字段：
 
 所有快照和变化均标为 `recorded-not-replayed`、`acceptance: not-assessed`。畸形记录在恢复读取时拒绝。原题检查与匹配的最终评测独立决定验收，官方通过仍只出现在独立 Evaluation 结果中。
 
+## 5. 交付回执与固定快照验收
+
+研究日志和最终 `RESEARCH.md` 共用准入规则。显式 `math-result` fence 优先于说明用 JSON；没有显式结果时仍兼容旧结果对象和普通 Markdown。任务身份或字段无效时，宿主保存带具体字段路径的 `deliveryReceipts`，在当前分工继续纠正，不把协议错误当作数学路线失败。模型应在原分工日志追加完整修正版，通过 finding 的 `replacesReceipt` 指向待纠正回执；不要删除旧日志。通知失败不会丢失已保存的反馈，恢复后会按当前分工重新送达。回执只说明准入状态。
+
+Lead 的 capacity/stagnation 请求保存稳定的 `requestId`、原始 `inputDigest` 和当前 dispatch nonce。未完成的请求续接沿用身份；完成回复须匹配当前请求和 nonce。有待处理 handoff/challenge 时，先走原有决策协议。没有独立可执行工作时，可提交上下文给出的 `assessment` 短回执和具体数学缺口。新输入可重新触发评估；worker 调度、inbox 变化或纯计划版本变化不会清除同一数学责任的无进展保护。探索耗尽要求当前全部 focus 实际完成，只有派发记录不算完成。
+
+对于有类型的证明任务，worker 保存源码后，可向当前分工日志追加 `{"kind":"ready","summary":"saved proof ready for checking"}`，随即停止编辑并返回。宿主先持久记录请求，再等待 turn 结束、确认受管 writer 进程组停止，然后固定 Git commit 并独立检查。中断请求的应答和普通 `close()` 都不能代替停写确认；主动交回写权后的中断若未结束，复用现有 10 秒清理期限关闭会话。无法确认停止时，不提交或验收活动源码，回执记为失败，并持久隔离该 writer 的工作目录；禁止同目录重派或直接恢复，须恢复到新的隔离目录。普通验收失败可通过带新 id 的事件重试。自然 turn 完成仍兼容原交付协议。
+
+`proofReadyRecords` 区分 `awaiting-freeze`、`frozen`、`checked`、`failed` 和 `superseded`，保存固定 snapshot、源码摘要和 Lean 回执。恢复未冻结请求必须在新会话重新提交 ready；已有 frozen snapshot 直接按原 commit 重新验收，不再启动写入 turn，也不替换为后续活动源码。条件证明明确保留依赖条件并释放当前 Engineer；它不能关闭原目标，仍须后续无条件集成与独立最终评测。停写确认针对本 runtime 管理的进程组；ready 协议要求合作式交回写权。
+
+普通研究与证明任务在同一线程、同一冻结原题/环境及完整分工合同下使用增量上下文，持续携带当前诊断、待纠正回执和最新 inbox 引用。新线程、合同、seed 或 instructions 变化回到完整上下文。完整 M4 编译和 manifest 仍保留；增量消息不把相同任务摘要当作“没有新反馈”。
+
 ## 验证与运行边界
 
 回归使用本地可丢弃 fixture 和 mock 模型／验证器，覆盖实际分工日志、计划修改、恢复、分支切换、严格原目标检查以及上下文日志的源码边界。未用真实模型测量解题收益。

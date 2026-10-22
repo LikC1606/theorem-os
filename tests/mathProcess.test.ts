@@ -2,9 +2,10 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { spawn } from 'node:child_process';
-import { closeMathProcess, limitMathOutput, MATH_PROCESS_OUTPUT_LIMIT, runMathProcess, runLeanProcess } from '../src/math/mathProcess';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { spawn, type ChildProcess } from 'node:child_process';
+import { EventEmitter } from 'node:events';
+import { closeMathProcess, confirmMathProcessStopped, limitMathOutput, MATH_PROCESS_OUTPUT_LIMIT, runMathProcess, runLeanProcess } from '../src/math/mathProcess';
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
@@ -53,6 +54,34 @@ describe('process lifecycle and bounded output', () => {
     await new Promise(resolve => child.stdout!.once('data', resolve));
     await closeMathProcess(child, true, 20);
     expect(child.signalCode).toBe('SIGKILL');
+    if (process.platform !== 'win32') expect(await confirmMathProcessStopped(child)).toEqual({ status: 'stopped' });
+  });
+
+  it.skipIf(process.platform === 'win32')('does not turn a fallback cleanup resolution into confirmed writer exit', async () => {
+    vi.useFakeTimers();
+    const child = Object.assign(new EventEmitter(), { pid: 424242, exitCode: null, signalCode: null,
+      stdin: { destroy: vi.fn() }, stdout: { destroy: vi.fn() }, stderr: { destroy: vi.fn() } }) as unknown as ChildProcess;
+    const kill = vi.spyOn(process, 'kill').mockImplementation((_pid, signal) => {
+      if (signal === 0) throw Object.assign(new Error('No process'), { code: 'ESRCH' });
+      return true;
+    });
+    try {
+      const closed = closeMathProcess(child, false, 0);
+      await vi.advanceTimersByTimeAsync(1000); await closed;
+      expect(await confirmMathProcessStopped(child, 0)).toEqual({ status: 'unconfirmed', reason: 'process-exit-unconfirmed' });
+    } finally { kill.mockRestore(); vi.useRealTimers(); }
+  });
+
+  it.skipIf(process.platform === 'win32')('requires both observed child exit and an absent owned process group', async () => {
+    const child = { pid: 424242, exitCode: 0, signalCode: null } as ChildProcess;
+    const kill = vi.spyOn(process, 'kill').mockReturnValue(true);
+    try {
+      expect(await confirmMathProcessStopped(child, 0)).toEqual({ status: 'unconfirmed', reason: 'process-group-active' });
+      kill.mockImplementation(() => { throw Object.assign(new Error('No permission'), { code: 'EPERM' }); });
+      expect(await confirmMathProcessStopped(child, 0)).toEqual({ status: 'unconfirmed', reason: 'process-group-unavailable' });
+      kill.mockImplementation(() => { throw Object.assign(new Error('No process'), { code: 'ESRCH' }); });
+      expect(await confirmMathProcessStopped(child, 0)).toEqual({ status: 'stopped' });
+    } finally { kill.mockRestore(); }
   });
   it('does not report a missing executable as started', async () => {
     const result = await runMathProcess('/nonexistent/math-command', [], { cwd: os.tmpdir(), timeoutMs: 1000 });

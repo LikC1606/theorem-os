@@ -6,7 +6,8 @@ import { readSolverRunState, type SolverRunState } from './archive';
 import { recordedTaskProofStatus } from './progress';
 import { isAdvisoryTask, taskGroup, taskVersion, type CooperativeTask, type TaskRecord } from './tasks';
 import { allowedKnowledgeFile, locateKnowledgeDeclaration, type KnowledgeCandidate, type KnowledgeImportResult } from './theoremKnowledge';
-import { parseMathResponse, type DeliveryRecord } from './deliveries';
+import type { DeliveryRecord } from './deliveries';
+import { prepareResearchDelivery, type ResearchAdmissionScope } from './researchAdmission';
 import { buildKnowledgeRouteFindings, type KnowledgeRouteContract, type KnowledgeRouteFindingCandidate } from './theoremKnowledgeFindings';
 
 const oid = /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/u;
@@ -152,8 +153,20 @@ function runFinding(state: SolverRunState, node: TaskRecord, delivery: DeliveryR
   const roots = [...new Set([state.problem.workspace, state.worktree, ...(state.workers ?? []).map(worker => worker.worktree)]
     .filter((root): root is string => typeof root === 'string' && path.isAbsolute(root)))];
   const notes = committedFiles(roots, delivery.commit, '', ['RESEARCH.md'])['RESEARCH.md']!;
-  const recorded = JSON.stringify(parseMathResponse(notes, 'math-result', { taskId: task.id, conclusion: 'inconclusive' }, 'summary'));
-  if (recorded !== node.finding) return error('finding_source_mismatch');
+  // Replay the publication admission, including host identity defaults and gap normalization.
+  // Historical notes can omit taskDigest, but cannot override the frozen task identity.
+  const admissionScope: ResearchAdmissionScope = { source: task,
+    assignment: { taskId: task.id, taskDigest: taskVersion(task), workerId: delivery.producer, seedCommit: delivery.commit },
+    identity: { problemReceiptDigest: state.problem.receiptDigest,
+      environmentDigest: gapScope?.environmentDigest ?? state.environmentDigest },
+    tasks: [...records.map(record => ({ status: 'completed' as const, attempts: 0, ...record })),
+      ...dependencies.map(task => ({ task, status: 'completed' as const, attempts: 0 })),
+      ...(gapScope ? [{ task: gapScope.consumer, status: 'completed' as const, attempts: 0 }] : []), node],
+    deliveries: state.cooperation?.deliveries };
+  const recorded = prepareResearchDelivery({ kind: 'notes', text: notes }, admissionScope);
+  const archived = prepareResearchDelivery({ kind: 'event', value: finding }, admissionScope);
+  if (recorded.status !== 'admitted' || archived.status !== 'admitted' ||
+      canonicalMathJson(recorded.finding) !== canonicalMathJson(archived.finding)) return error('finding_source_mismatch');
   const blockers = (state.cooperation?.blockers ?? []).filter(blocker => blocker.taskId === task.id &&
     blocker.taskDigest === delivery.taskDigest);
   const reconsiderWhen = [...new Set(blockers.flatMap(blocker => blocker.reopenOn.map(condition => {

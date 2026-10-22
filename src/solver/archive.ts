@@ -11,9 +11,19 @@ import type { ContextManifest } from './contextCompiler';
 import type { KnowledgeRetrievalObservation, KnowledgeUse } from './knowledgeUsage';
 import { knowledgeUseSchema } from './knowledgeUsage';
 import { z } from 'zod';
+import { deliveryReceiptSchema } from './deliveryReceipts';
+import { proofReadyRecordSchema } from './proofReady';
+
+const leadAssessmentFields = {
+  requestId: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
+  evidenceDigest: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
+  dispatchNonce: z.string().min(1).optional(), coveredInputDigest: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
+  assessedAt: z.number().int().nonnegative().optional(), outcome: z.enum(['plan-published', 'no-independent-work']).optional(),
+  decisionReason: z.string().optional(),
+};
 
 export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | 'previousThreadIds' |
-  'lastInputTokens' | 'lastActivity' | 'lastFailure' | 'recovery' | 'contextOverflow' | 'contextCheckpoint' | 'contextCheckpointBaseline' | 'advisoryCheckpoint' | 'lastContextManifest' | 'phase' | 'turns' | 'dispatchCounts' | 'usage' | 'usageBeforeThread' | 'usageAccounting' | 'requestUsageAccounting' | 'check' | 'candidate' | 'failures' | 'error'> & {
+  'lastInputTokens' | 'lastActivity' | 'lastFailure' | 'recovery' | 'contextOverflow' | 'contextCheckpoint' | 'contextCheckpointBaseline' | 'advisoryCheckpoint' | 'lastContextManifest' | 'phase' | 'turns' | 'dispatchCounts' | 'usage' | 'usageBeforeThread' | 'usageAccounting' | 'requestUsageAccounting' | 'check' | 'candidate' | 'failures' | 'error' | 'writerStopUnconfirmed'> & {
   id: string;
   role: ResearchRole;
   sessionRole?: ResearchRole;
@@ -58,6 +68,8 @@ export type SolverRunState = {
   lastInputTokens?: number;
   lastActivity?: MathAgentActivity & { at: number };
   lastFailure?: { at: number; reason: string; taskId?: string };
+  /** This workspace cannot host another writer without independent recovery. */
+  writerStopUnconfirmed?: { at: number; reason: string };
   recovery?: ResearchRecovery;
   contextOverflow?: { maxOptionalContextBytes: number; failedFreshContextDigests: string[] };
   /** A checkpoint request is scheduling evidence only; it never grants proof acceptance. */
@@ -140,6 +152,7 @@ const research = z.object({ worktree: z.string().min(1), phase, turns: count, th
   previousThreadIds: z.array(z.string()).optional(), lastInputTokens: count.optional(), check: check.optional(),
   lastActivity: z.object({ at: count, event: z.string().min(1).max(64), itemType: z.string().max(64).optional() }).optional(),
   lastFailure: z.object({ at: count, reason: z.string(), taskId: z.string().optional() }).optional(),
+  writerStopUnconfirmed: z.object({ at: safeCount, reason: z.string().min(1) }).optional(),
   recovery: z.object({ phase: z.enum(['cooling-down', 'retrying', 'recovered']), reason: z.string(),
     cycles: safeCount.min(1), startedAt: safeCount, nextRetryAt: safeCount, waitedMs: safeCount,
     recoveredAt: safeCount.optional() }).optional(),
@@ -256,14 +269,15 @@ const runState = research.extend({ schema: z.literal('deepscientist.math.solver.
   cooperation: z.object({ tasks: z.array(taskRecord), groups: z.array(z.object({ group: z.object({ id: z.string(),
     status: z.enum(['active', 'paused', 'stopped']), revision: count }).passthrough(), turns: count }).passthrough()).optional(),
     history: z.array(z.object({ task, proof: check.optional(), integratedCheck: check.optional() }).passthrough()).optional(),
-    deliveries: z.array(record).optional(), blockers: z.array(routeBlocker).optional(),
+    deliveries: z.array(record).optional(), deliveryReceipts: z.array(deliveryReceiptSchema).optional(), blockers: z.array(routeBlocker).optional(),
+    proofReadyRecords: z.array(proofReadyRecordSchema).optional(),
     researchDecisions: z.array(handoffDecision).optional(),
     challengeDecisions: z.array(challengeDecision).optional(),
     initialPlanPublication: planPublication.optional(), planPublication: planPublication.optional(),
     lastCapacityRefill: z.object({ inputDigest: z.string().regex(/^[a-f0-9]{64}$/u), workerIds: z.array(z.string()),
-      requestedAt: safeCount, status: z.enum(['requested', 'assessed']) }).optional(),
+      requestedAt: safeCount, ...leadAssessmentFields, status: z.enum(['requested', 'assessed']) }).optional(),
     lastStagnationRecovery: z.object({ inputDigest: z.string().regex(/^[a-f0-9]{64}$/u),
-      taskIds: z.array(z.string()), workerIds: z.array(z.string()), requestedAt: safeCount,
+      taskIds: z.array(z.string()), workerIds: z.array(z.string()), requestedAt: safeCount, ...leadAssessmentFields,
       status: z.enum(['requested', 'assessed']),
       reason: z.enum(['advisory-no-durable-progress', 'frontier-not-decomposed']) }).optional(),
     capacityExplorationInputs: z.array(z.object({ inputDigest: z.string().regex(/^[a-f0-9]{64}$/u),

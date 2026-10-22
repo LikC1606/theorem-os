@@ -28,6 +28,7 @@ import { taskReferenceDependencies, assignmentDeliveryFile, markTaskReferences, 
   type TaskAssignment, type TaskRecord, type CooperativeAction } from './tasks';
 import { digest, FailedTaskInput, bounded, deliveryInputFields } from './cooperationShared';
 import { CooperationStatements } from './cooperationStatements';
+import { prepareResearchDelivery, ResearchAdmissionError } from './researchAdmission';
 
 /** Task proof checks, failed-input memory and research checkpoints. */
 export abstract class CooperationTaskProofs extends CooperationStatements {
@@ -342,6 +343,12 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
   }
   protected async publishResearchFinding(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>, commit: string,
     finding: any, complete: boolean, options: Partial<DeliveryRecord> = {}) {
+    const environmentDigest = this.input.state.environmentDigest, problemReceiptDigest = this.input.state.problem.receiptDigest;
+    const admission = prepareResearchDelivery({ kind: 'event', value: finding }, { source: action.task,
+      assignment: action.assignment, tasks: this.archive.tasks, deliveries: this.archive.deliveries,
+      identity: { problemReceiptDigest: this.input.state.problem.receiptDigest, environmentDigest: this.input.state.environmentDigest } });
+    if (admission.status === 'rejected') throw new ResearchAdmissionError(admission);
+    finding = admission.finding;
     const node = this.node(action.task.id), details = deliveryDetails(finding);
     if (details.mathematicalGap) bindMathematicalGap(details.mathematicalGap, node.task, this.archive,
       { problemReceiptDigest: this.input.state.problem.receiptDigest, environmentDigest: this.input.state.environmentDigest });
@@ -358,7 +365,8 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
     if (lemmaRequests.some(proposal => proposal.dependsOn.some(id => explorationIds.has(id))))
       throw new Error('math_research_lemma_requests_invalid: advisory exploration IDs are provenance, not typed proof inputs.');
     const knowledgeUses = await this.knowledgeUses(worker, node.task, commit);
-    if (!this.current(action)) return;
+    if (!this.current(action) || environmentDigest !== this.input.state.environmentDigest ||
+        problemReceiptDigest !== this.input.state.problem.receiptDigest) return;
     if (details.mathematicalGap) bindMathematicalGap(details.mathematicalGap, node.task, this.archive,
       { problemReceiptDigest: this.input.state.problem.receiptDigest, environmentDigest: this.input.state.environmentDigest });
     // A challenge alone is never a repeated-blocker report that parks the proof task.
@@ -377,6 +385,8 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
     this.record(worker, node.task, 'research', !remaining.length && node.task.kind !== 'sketch' ? 'advisory' : 'conditional', details.summary,
       { ...details, ...options, remainingObligations: remaining, commit, artifacts, lemmaRequests, finding: text, findingDigest: mathDigest(text),
         knowledgeUses, ...(artifactWarning ? { artifactWarning } : {}) });
+    this.resolveDeliveryReceipts(worker, action, finding.replacesReceipt, complete);
+    this.changed();
     this.input.emit('research_delivered', { taskId: node.task.id, conclusion: finding.conclusion, complete });
   }
   private sourceProjector(worktree: string, commit: string) {

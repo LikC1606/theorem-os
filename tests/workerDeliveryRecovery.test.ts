@@ -108,6 +108,28 @@ describe('worker delivery log recovery', () => {
     expect(cooperative.publishTaskProof).not.toHaveBeenCalled();
   });
 
+  it('saves actionable rejection receipts with the cursor and retries notification after restore', async () => {
+    fs.appendFileSync(path.join(directory, log()), '{broken\n');
+    const notify = vi.fn().mockRejectedValueOnce(new Error('transport unavailable'));
+    cooperative.active = new Map([['peer', { action, notify }]]);
+    await poll();
+    const receipt = cooperative.archive.deliveryReceipts[0];
+    expect(receipt).toMatchObject({ workerId: 'peer', assignmentKey: log(), taskId: action.task.id,
+      taskDigest: action.assignment.taskDigest, status: 'needs-correction', code: 'math_delivery_invalid_json',
+      issues: [{ path: '$', message: 'math_delivery_invalid_json' }] });
+    expect(snapshots.at(-1)?.[key()]).toBe(fs.statSync(path.join(directory, log())).size);
+    const saved = JSON.parse(JSON.stringify(cooperative.archive.deliveryReceipts));
+    cursors = JSON.parse(JSON.stringify(cursors)); cooperative = create();
+    cooperative.archive.deliveryReceipts = saved;
+    const resumedNotify = vi.fn().mockResolvedValue(undefined);
+    cooperative.active = new Map([['peer', { action, notify: resumedNotify }]]);
+    await poll(); await poll();
+    expect(resumedNotify).toHaveBeenCalledOnce();
+    expect(resumedNotify.mock.calls[0][0]).toContain(receipt.id);
+    expect(cooperative.archive.deliveryReceipts).toEqual(saved);
+    expect(events.filter(event => event.event === 'delivery_rejected')).toHaveLength(1);
+  });
+
   it('rejects a commit outside the frozen problem history once without blocking following progress', async () => {
     const tree = git(directory, ['rev-parse', `${commit}^{tree}`]);
     const unrelated = git(directory, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost',

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { mathDigest } from '../src/math/mathRuntimeIo';
 import { readSolverRunState, writeSolverRunState, type SolverRunState } from '../src/solver/archive';
 import { parseCooperationPlan, type CooperativeResearch } from '../src/solver/cooperation';
 import { MATHEMATICAL_GAP_CONTEXT_MAX_BYTES, mathematicalGapContext, type MathematicalGap } from '../src/solver/mathematicalGaps';
@@ -23,8 +24,8 @@ const gap = (): MathematicalGap => {
     evidenceScope: 'A local advisory argument only', reconsiderWhen: ['An exact uniform removal input becomes available'] };
 };
 const publish = (value: unknown) => (cooperative as any).receive(workers[1], action, value, true);
-const complete = async (extra: Record<string, unknown> = {}) => {
-  fs.writeFileSync(path.join(workers[1].worktree, 'RESEARCH.md'), JSON.stringify({ summary: 'Retained exact mathematical gap',
+const complete = async (extra: Record<string, unknown> = {}, render: (value: Record<string, unknown>) => string = JSON.stringify) => {
+  fs.writeFileSync(path.join(workers[1].worktree, 'RESEARCH.md'), render({ summary: 'Retained exact mathematical gap',
     conclusion: 'inconclusive', mathematicalGap: gap(), ...extra }));
   const commit = commitSolverSources(state.problem, workers[1].worktree);
   await cooperative.deliver(workers[1], action, commit);
@@ -126,6 +127,38 @@ it('imports a public consumer contract from immutable finding evidence and rejec
   state.cooperation!.deliveries![0].mathematicalGap = { ...gap(), remaining: 'Forged independent metadata' };
   writeSolverRunState(checkpoint, state);
   expect(importKnowledgeRuns([checkpoint], { includeFindings: true }).skipped[0].reason).toBe('math_knowledge_run_finding_gap_scope_invalid');
+});
+
+it.each(['json', 'math-result'] as const)('imports host-normalized %s findings from immutable notes with the same admission rules', async format => {
+  const fence = String.fromCharCode(96).repeat(3);
+  await complete({ mathematicalGap: { ...gap(), reduced: '  Only a degenerate count established  ' } }, value => format === 'json'
+    ? JSON.stringify(value)
+    : 'Explanation and an illustrative JSON object:\n' + fence + 'json\n{"example":true}\n' + fence + '\n\n' +
+      fence + 'math-result\n' + JSON.stringify(value) + '\n' + fence);
+  const delivery = state.cooperation!.deliveries![0], normalized = state.cooperation!.tasks[0].finding!;
+  const notes = committedSource(workers[1].worktree, delivery.commit!, 'RESEARCH.md');
+  expect(notes).not.toContain(action.assignment.taskDigest);
+  expect(JSON.parse(normalized)).toMatchObject({ taskDigest: action.assignment.taskDigest, mathematicalGap: gap() });
+  fs.writeFileSync(path.join(workers[1].worktree, 'RESEARCH.md'), 'A changed live journal must not be imported.');
+  const checkpoint = path.join(directory, 'state.json'); writeSolverRunState(checkpoint, state);
+  const imported = importKnowledgeRuns([checkpoint], { includeFindings: true });
+  expect(imported.skipped).toEqual([]);
+  expect(imported.findings).toMatchObject([{ finding: normalized, notes, mathematicalGap: gap(),
+    provenance: { findingDigest: mathDigest(normalized), notesDigest: mathDigest(notes), sourceCommit: delivery.commit } }]);
+});
+
+it.each(['summary', 'taskDigest', 'extra-field'] as const)('rejects a forged normalized finding %s even with a recomputed finding digest', async field => {
+  await complete();
+  const node = state.cooperation!.tasks[0], delivery = state.cooperation!.deliveries![0];
+  const finding = JSON.parse(node.finding!);
+  if (field === 'summary') finding.summary = 'Forged independently edited evidence';
+  else if (field === 'taskDigest') finding.taskDigest = 'f'.repeat(64);
+  else finding.unrecordedEvidence = 'This claim was never present in immutable notes';
+  node.finding = JSON.stringify(finding); delivery.finding = node.finding; delivery.findingDigest = mathDigest(node.finding);
+  const checkpoint = path.join(directory, 'state.json'); writeSolverRunState(checkpoint, state);
+  const imported = importKnowledgeRuns([checkpoint], { includeFindings: true });
+  expect(imported.findings).toEqual([]);
+  expect(imported.skipped).toMatchObject([{ reason: 'math_knowledge_run_finding_source_mismatch' }]);
 });
 
 it('rejects an invalid progress consumer before writing a blocker or delivery', async () => {

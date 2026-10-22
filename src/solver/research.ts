@@ -27,6 +27,7 @@ import { MAX_RESEARCH_NOTES_BYTES, parseMathResponse } from './deliveries';
 import { assertMathCanonicalPath } from '../math/paths';
 import { committedSource } from './problem';
 import type { ContinuationSnapshot } from './continuationInput';
+import type { ProofReadyRecord } from './proofReady';
 
 // Scheduling checkpoints preserve unlimited solving budgets and resume the same assignment/thread.
 const advisoryCheckpointNoticeMs = 90_000;
@@ -37,17 +38,10 @@ const advisoryNoProgressProtection = 3;
 
 export function advisoryCheckpointScope(assignment: CooperativeAction | undefined): string | undefined {
   if (assignment?.kind === 'lead') {
-    const activations = (ids: readonly string[] = [], values?: Readonly<Record<string, string>>) =>
-      [...new Set(ids)].sort().map(id => [id, values?.[id] ?? null]);
-    // Reconsider new mathematical inbox inputs without resetting protection for
-    // another dispatch, worker allocation, or reordered copy of the same work.
+    // New inbox content warrants reconsideration, but does not change the mathematical responsibility.
     return mathDigest(canonicalMathJson({ kind: 'lead',
       phase: assignment.initialPlanNonce ? 'initial' : assignment.recovery ? 'recovery' : 'revision',
-      planVersion: assignment.planVersion,
-      handoffs: activations(assignment.handoffIds, assignment.handoffActivations),
-      challenges: activations(assignment.challengeIds, assignment.challengeActivations),
-      capacityInputDigest: assignment.capacityRefill?.inputDigest,
-      stagnationInputDigest: assignment.stagnationRecovery?.inputDigest,
+      responsibility: assignment.responsibilityDigest,
       recovery: assignment.recovery && { id: assignment.recovery.id,
         taskIds: [...new Set(assignment.recovery.taskIds)].sort(),
         goalIds: [...new Set(assignment.recovery.goalIds)].sort() } }));
@@ -72,6 +66,9 @@ export async function runResearchWorkers(input: {
   const parallel = Boolean(state.workers);
   const records = input.workers.map(worker => ({ worker,
     research: parallel ? state.workers!.find(item => item.id === worker.id)! : state }));
+  const quarantined = records.find(({ research }) => research.writerStopUnconfirmed);
+  if (quarantined) throw new Error('math_writer_stop_unconfirmed:' + quarantined.worker.id +
+    ': recover into a new isolated workspace before starting another writer.');
   for (const { research } of records) initializeUsageAccounting(research);
   const enforcement = state.tokenBudget?.enforcement;
   state.tokenBudget = buildTokenBudget(input.maxTotalTokens, records.map(record => record.research), enforcement);
@@ -170,7 +167,7 @@ export async function runResearchWorkers(input: {
       let cooperativeCheckpoint = false;
       let advisoryTurn: { scope: string; contentDigest?: string } | undefined;
       let turnContext: { digest: string; fresh: boolean } | undefined;
-      let leadContext: { threadId: string; responsibility: string } | undefined;
+      let dispatchedContext: { threadId: string; responsibility: string } | undefined;
       let rebuildContext = false;
       const usage = new ResearchUsage({ state, research, maxTotalTokens: input.maxTotalTokens,
         signal, remainingMs: () => budget().remainingMs, changed: () => { updateUsage(); save(); }, emit });
@@ -246,16 +243,13 @@ export async function runResearchWorkers(input: {
         }
         reservedTurn = false; unstarted = undefined;
         cooperation?.settleTurn(worker);
-        if (assignment) cooperation!.activate(worker, assignment,
-          async () => { await session?.interrupt(); },
-          async message => { if (!isStatementAction(assignment)) await session?.notify?.(message); });
         planningCheckpoint = false;
         cooperativeCheckpoint = false;
         advisoryTurn = undefined;
         usage.begin(assignment);
         const activeSession = session!;
         const advisoryScope = advisoryCheckpointScope(assignment);
-        let finished = false, armed = false, checkpointRequested = false, checkpointClosing = false;
+        let finished = false, armed = false, checkpointRequested = false, checkpointClosing = false, readyRequested = false;
         let noticeTimer: ReturnType<typeof setTimeout> | undefined;
         let checkpointTimer: ReturnType<typeof setTimeout> | undefined;
         let interruptTimer: ReturnType<typeof setTimeout> | undefined;
@@ -265,10 +259,23 @@ export async function runResearchWorkers(input: {
         const closeStalledTurn = () => {
           if (!current() || checkpointClosing) return;
           checkpointClosing = true;
-          emit('cooperative_checkpoint_session_closed', { reason: 'interrupt-not-settled' });
+          emit(readyRequested ? 'proof_ready_session_closed' : 'cooperative_checkpoint_session_closed',
+            { reason: 'interrupt-not-settled' });
           // close() retains research.threadId; the next session resumes the saved thread.
           void close().catch(() => {});
         };
+        if (assignment) cooperation!.activate(worker, assignment,
+          async () => { await activeSession.interrupt(); },
+          async message => { if (!isStatementAction(assignment)) await activeSession.notify?.(message); },
+          async () => {
+            if (!current() || readyRequested) return;
+            readyRequested = true;
+            emit('proof_ready_checkpoint_requested');
+            // Ready explicitly hands back writing; this bounds cleanup, not proof work.
+            interruptTimer ??= setTimeout(closeStalledTurn, advisoryInterruptGraceMs);
+            interruptTimer.unref();
+            try { await activeSession.interrupt(); } catch { closeStalledTurn(); }
+          });
         const started = (turnId: string) => {
           onStarted(turnId);
           if (!advisoryScope) {
@@ -530,7 +537,7 @@ export async function runResearchWorkers(input: {
         await delay(retry.delayMs, undefined, { signal });
       };
       const rotateSession = async (reason: 'context' | 'responsibility' | 'route' | 'request') => {
-        leadContext = undefined;
+        dispatchedContext = undefined;
         const previous = research.threadId;
         await close();
         if (previous) research.previousThreadIds = [...(research.previousThreadIds ?? []), previous];
@@ -586,6 +593,16 @@ export async function runResearchWorkers(input: {
         }
         if (['unavailable', 'blocked'].includes(research.check.verification.status)) throw new Error('math_verifier_unavailable');
       };
+      const checkReadySnapshot = async (assignment: Extract<CooperativeAction, { kind: 'task' }>, ready: ProofReadyRecord) => {
+        if (!ready.snapshotCommit) throw new Error('math_proof_ready_snapshot_missing');
+        state.phase = research.phase = 'checking'; save();
+        const delivery = await cooperation!.deliver(worker, assignment, ready.snapshotCommit);
+        research.check = delivery.check;
+        cooperation!.proofReadyCompleted(worker, assignment, delivery.check);
+        emit('proof_ready_checked', { receiptId: ready.id, commit: ready.snapshotCommit,
+          passed: delivery.check?.passed === true, conditional: ready.evidence === 'conditional' });
+        retries = 0; save();
+      };
       try {
         await waitForRecovery(true);
         while (!signal.aborted) {
@@ -600,6 +617,12 @@ export async function runResearchWorkers(input: {
               await checkWhole();
               if (!winner && !research.check!.passed) cooperation!.assemblyFailed(research.check!);
             });
+            continue;
+          }
+          const frozenReady = assignment?.kind === 'task' ? cooperation?.pendingProofReady(worker, assignment) : undefined;
+          if (frozenReady?.snapshotCommit && assignment?.kind === 'task') {
+            await close();
+            await checkReadySnapshot(assignment, frozenReady);
             continue;
           }
           while ((pendingTurn = waitForTurn())) await pendingTurn;
@@ -720,11 +743,16 @@ export async function runResearchWorkers(input: {
           if (repair) research.check = undefined;
           const currentContext = { ...context(repair, feedbackCheck, feedbackFailures, assignment),
             ...(assignment ? { assignment } : {}) };
-          const leadResponsibility = assignment?.kind === 'lead' ? canonicalMathJson({ planVersion: assignment.planVersion,
-            initial: Boolean(assignment.initialPlanNonce), recovery: assignment.recovery }) : undefined;
-          const continuation = Boolean(leadContext) && Boolean(research.threadId) &&
-            assignment?.kind === 'lead' && currentContext.continuationMessage !== undefined &&
-            leadContext?.threadId === research.threadId && leadContext?.responsibility === leadResponsibility;
+          const responsibility = assignment?.kind === 'lead' ? canonicalMathJson({ planVersion: assignment.planVersion,
+            initial: Boolean(assignment.initialPlanNonce), recovery: assignment.recovery,
+            problemReceiptDigest: state.problem.receiptDigest, environmentDigest: state.environmentDigest })
+            : assignment?.kind === 'task' && !isFeasibilityReview(assignment.task) ? canonicalMathJson({
+              kind: 'task', task: assignment.task, assignment: assignment.assignment,
+              problemReceiptDigest: state.problem.receiptDigest, environmentDigest: state.environmentDigest,
+              workContract: currentContext.workContract, instructions: currentContext.instructions }) : undefined;
+          const continuation = responsibility !== undefined && Boolean(research.threadId) &&
+            currentContext.continuationMessage !== undefined &&
+            dispatchedContext?.threadId === research.threadId && dispatchedContext?.responsibility === responsibility;
           if (continuation) currentContext.message = currentContext.continuationMessage!;
           if (research.threadId && research.contextCheckpoint?.threadId === research.threadId && !currentCheckpointNotesDigest())
             currentContext.message = contextCheckpointInstruction + '\n\n' + currentContext.message;
@@ -743,8 +771,7 @@ export async function runResearchWorkers(input: {
           try {
             try {
               candidate = await modelTurn(started => modules.M1.execute(state.problem, currentContext, operation, worker, turnSession, signal, turnId => {
-                if (leadResponsibility !== undefined) leadContext = { threadId: turnSession.threadId, responsibility: leadResponsibility };
-                else leadContext = undefined;
+                dispatchedContext = responsibility === undefined ? undefined : { threadId: turnSession.threadId, responsibility };
                 emit('context_dispatched', { mode: continuation ? 'continuation' : 'full', threadId: turnSession.threadId,
                   messageBytes: Buffer.byteLength(currentContext.message), messageDigest: mathDigest(currentContext.message),
                   compiledContentDigest: currentContext.manifest?.contentDigest });
@@ -770,6 +797,36 @@ export async function runResearchWorkers(input: {
           const lastInputTokens = session?.lastInputTokens;
           const diagnostic = session?.lastFailureDiagnostic;
           const turnError = executionError ?? failureDetail(session?.lastError, undefined, diagnostic);
+          const ready = assignment?.kind === 'task' ? cooperation?.pendingProofReady(worker, assignment) : undefined;
+          if (ready && assignment?.kind === 'task') {
+            if (candidate.worktree !== worker.worktree || candidate.problemReceiptDigest !== state.problem.receiptDigest ||
+                candidate.operation !== action.operation || candidate.provenance.workerId !== worker.id)
+              throw new Error('math_candidate_identity_changed');
+            if (!ready.snapshotCommit) {
+              const stopped = await turnSession.stopForFreeze?.().catch(() => ({ status: 'unconfirmed' as const, reason: 'shutdown-failed' }));
+              await close();
+              if (stopped?.status !== 'stopped') {
+                const reason = stopped?.reason ?? 'writer-stop-confirmation-unavailable';
+                research.writerStopUnconfirmed = { at: Date.now(), reason };
+                cooperation!.proofReadyFailedFreeze(worker, assignment, reason);
+                cooperation!.interrupted(worker, assignment);
+                emit('proof_ready_freeze_deferred', { receiptId: ready.id, reason });
+                save();
+                throw new Error('math_writer_stop_unconfirmed:' + worker.id + ':' + reason);
+              }
+              // stopForFreeze closes the session but preserves its resumable thread.
+              if (!cooperation!.pendingProofReady(worker, assignment)) continue;
+              const sourceError = solverSourceFeedback(state.problem, worker.worktree);
+              if (sourceError) {
+                cooperation!.proofReadyFailedFreeze(worker, assignment, sourceError);
+                cooperation!.rejected(assignment, sourceError); continue;
+              }
+              const commit = commitSolverSources(state.problem, worker.worktree);
+              if (!cooperation!.proofReadyFrozen(worker, assignment, commit)) continue;
+            } else await close();
+            await checkReadySnapshot(assignment, ready);
+            continue;
+          }
           // Closing can yield to a plan edit; check ownership after the writer has stopped.
           if (candidate.status === 'failed' || planningCheckpoint) await close();
           if (assignment && cooperation && !cooperation.current(assignment)) {

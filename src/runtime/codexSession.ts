@@ -1,5 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { closeMathProcess } from '../math/mathProcess';
+import { closeMathProcess, confirmMathProcessStopped, type MathProcessStopReceipt } from '../math/mathProcess';
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -74,6 +74,9 @@ export type MathAgentSession = {
   notify?: (message: string) => Promise<void>;
   interrupt: () => Promise<void>;
   close: () => Promise<void>;
+  /** After turn settlement, close this writer and confirm its owned process group has exited. */
+  stopForFreeze?: () => Promise<MathProcessStopReceipt | Readonly<{ status: 'unconfirmed';
+    reason: 'turn-not-settled' | 'shutdown-failed' }>>;
 };
 
 /** The host removes scratch between deliveries; never follow a worker-created link while recreating it. */
@@ -178,6 +181,7 @@ class CodexRpc {
   }
 
   close(): Promise<void> { return this.closing ??= closeMathProcess(this.child); }
+  confirmStopped(): Promise<MathProcessStopReceipt> { return confirmMathProcessStopped(this.child); }
 }
 
 export async function createCodexMathSession(options: MathAgentOptions): Promise<MathAgentSession> {
@@ -411,6 +415,13 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
           input: [{ type: 'text', text: message, text_elements: [] }] });
       },
       close: closeSession,
+      stopForFreeze: async () => {
+        // An interrupt RPC acknowledgement does not settle the active turn.
+        if (completion || activeTurn) return { status: 'unconfirmed', reason: 'turn-not-settled' };
+        try { await closeSession(); }
+        catch { return { status: 'unconfirmed', reason: 'shutdown-failed' }; }
+        return rpc.confirmStopped();
+      },
     };
   } catch (error) { await closeSession(); throw error; }
 }

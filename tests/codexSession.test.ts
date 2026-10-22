@@ -384,6 +384,21 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     expect(await done).toBe('interrupted');
   });
 
+  it('requires turn settlement before confirming writer shutdown and retains the resumable thread', async () => {
+    session = await createCodexMathSession({ ...options, threadId: 'freeze-thread' });
+    let started = false;
+    const done = session.run('wait', 'ready-turn', root, () => { started = true; });
+    await expect.poll(() => started).toBe(true);
+    expect(await session.stopForFreeze!()).toEqual({ status: 'unconfirmed', reason: 'turn-not-settled' });
+    await session.interrupt();
+    expect(await done).toBe('interrupted');
+    expect(await session.stopForFreeze!()).toEqual(process.platform === 'win32'
+      ? { status: 'unconfirmed', reason: 'unsupported-platform' } : { status: 'stopped' });
+    expect(session.threadId).toBe('freeze-thread');
+    session = await createCodexMathSession({ ...options, threadId: session.threadId });
+    expect(await session.run('proof', 'continued-after-freeze', root, () => {})).toBe('completed');
+  });
+
   it('steers a live turn with its exact turn precondition and skips idle notifications', async () => {
     session = await createCodexMathSession(options);
     await session.notify!('idle');
