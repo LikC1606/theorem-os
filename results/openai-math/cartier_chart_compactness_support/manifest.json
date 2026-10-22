@@ -1,6 +1,6 @@
 {
   "schema": "theorem-os.result-file-manifest.v1",
-  "generatedAt": "2026-10-22T19:24:31.217367+00:00",
+  "generatedAt": "2026-10-22T19:49:29.765591+00:00",
   "algorithm": "sha256",
   "excludes": [
     "manifest.json"
@@ -27,9 +27,14 @@
       "sha256": "2490c285b0b2cf47cbf53c20e4c8db3451d23452fa4494f29e8f528fc5a93f1e"
     },
     {
+      "path": "NativeSubmission.lean",
+      "bytes": 1665,
+      "sha256": "7e6a54b69a536f63b9f36a33cf616644f03d107f22e586bc59ddef1c55f6b797"
+    },
+    {
       "path": "README.md",
-      "bytes": 3450,
-      "sha256": "6325b3f06b160308789396e953f16fb2b6f5a25bc96448c1c07a704752dff5c3"
+      "bytes": 4324,
+      "sha256": "9e2064965b3d6a640094bd06be652432fb443a05c9aaca33a4adb48f4ebdc421"
     },
     {
       "path": "Submission.lean",
@@ -60,6 +65,11 @@
       "path": "evidence/kernel-axiom-receipt.json",
       "bytes": 2357,
       "sha256": "0d5d8d8ab91b0cfa9ee58a979f01659b89e02c57efdf67b8a22595a18370566a"
+    },
+    {
+      "path": "evidence/native-acceptance-update.json",
+      "bytes": 2547,
+      "sha256": "85435156e3528624bf577a9acfd3f1f8eedd3bba1931120c1b14914c69b84447"
     },
     {
       "path": "evidence/portable-lake-axioms.log",
@@ -208,8 +218,8 @@
     },
     {
       "path": "verification.json",
-      "bytes": 2309,
-      "sha256": "0599e5682d80ac989adbcd3c72791a3d5d9d2b1e9020a7c48741bdc1a8ac6597"
+      "bytes": 3035,
+      "sha256": "7402e5395e2b36b494370b1717a52933b22022a64b11c041e5672154e4035156"
     }
   ]
 }

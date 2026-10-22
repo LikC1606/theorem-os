@@ -4,14 +4,17 @@
 
 证明将闭图场收缩展开为忠实形式坐标展开对应的分式域赋值，再应用正式 imports 中的通用紧性引理 isCompact_expandedFractionValuation_cone。Submission 只替换原 sorry；没有 sorry/admit，公理只有 propext、Classical.choice、Quot.sound。
 
-- [Submission.lean](Submission.lean)：精确验收源码；[Challenge.lean](Challenge.lean) 保留原题占位 sorry。
+- [Submission.lean](Submission.lean)：独立比较器通过的候选源码；[Challenge.lean](Challenge.lean) 保留原题占位 sorry。
+- [NativeSubmission.lean](NativeSubmission.lean)：新受保护环境中原生最终接受的精确源码；[原生验收回执](evidence/native-acceptance-update.json) 给出独立 run、commit、SHA 和环境 digest。
 - [support](support)：固定上游 commit 的全部 12 个支撑源码；[support-manifest.json](support-manifest.json) 给出来源、SHA、递归 imports 与审查结果。
 - [verification.json](verification.json)、[provenance.json](provenance.json) 和 [manifest.json](manifest.json)：范围、归因和全文件 SHA。
 - [内核回执](evidence/kernel-axiom-receipt.json)、[源码守卫回执](evidence/source-guard-receipt.json)、[隔离比较器回执](evidence/sealed-comparator-receipt.json)。
 
-这是外部独立辅助证明，campaignAcceptance=false，不计模型从零解题成绩，也不是 OpenAI 托管验收。C 档为本项目判断；该结果只覆盖手稿 066-02 的支撑结论，不表示完整证明该手稿的全部主张。未读取发布的 ChartCompactness 目标解答。
+2026-10-23 03:47 北京时间，独立原生补跑 evaluated_passed，固定审阅、全原目标内核复核和禁网原比较器全部通过。接受 commit 为 1dbd33666801d79b0bc99be6a8e719409e86795e；原生源码 SHA-256 为 7e6a54b69a536f63b9f36a33cf616644f03d107f22e586bc59ddef1c55f6b797。
 
-真实契约边界：原版 runtime-v2 源码守卫接受候选声明和上下文，但在 lakefile/manifest 注册必要的 OAI 支撑 path package 后拒绝 math_trusted_source_changed。没有绕过此检查。本归档的 Lake 配置属于 standalone，不能表述为原生 guard accepted；活动队列需另行授权的环境契约修订。
+这是外部辅助证明经原生系统验收的成果，不计模型从零解题成绩，也不是 OpenAI 托管验收。主 campaign 的历史 dependency blocked 状态保留，独立补跑 nativeAcceptance=true。C 档为本项目判断；该结果只覆盖手稿 066-02 的支撑结论，不表示完整证明该手稿的全部主张。未读取发布的 ChartCompactness 目标解答。
+
+真实契约边界：原版 runtime-v2 源码守卫接受候选声明和上下文，但在 lakefile/manifest 注册必要的 OAI 支撑 path package 后拒绝 math_trusted_source_changed。没有绕过此检查。本归档的 Lake 配置属于 standalone，不能表述为原生 guard accepted；随后创建独立新 build 与 openai-math-cartier-reviewed-v1 环境，将全部 12 个固定 SHA 的支撑源码纳入 trustedFiles/环境 digest，原守卫不改；8 项保护检查、41 项现有测试、类型检查和构建通过。原 campaign/build 未改，独立补跑正常通过。
 
 固定 Lean leanprover/lean4:v4.34.1、Mathlib d13f23b723b8a846827a245b89c10fc7d3f11612、OpenAI math 1581d4cbdd69a0faf34b2089614fe2a814316a6a。普通独立复验在本目录执行：
 
