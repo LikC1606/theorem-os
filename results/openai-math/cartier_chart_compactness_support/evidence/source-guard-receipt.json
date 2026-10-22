@@ -1,0 +1,26 @@
+{
+  "observedAt": "2026-10-22T19:14:05.273Z",
+  "standaloneAudit": true,
+  "campaignAcceptance": false,
+  "runtime": "runtime-v2",
+  "originalStatementPreserved": true,
+  "nativeCandidate": {
+    "passed": true
+  },
+  "adaptedDependency": {
+    "passed": false,
+    "error": "math_trusted_source_changed"
+  },
+  "frozenProblem": "e7c6eed8cb7219dd2a0c9aa092f4016b6dd79d1bfaf06369c6341af14cef1464",
+  "blocker": "Native frozen environment does not authorize extra OAI package configuration; no guard bypass attempted.",
+  "submissionSHA256": "cb8822de8e7a520cb27cf636075c9594d5cec82d2bc9c4bd052d78f8768e980b",
+  "originalSHA256": "05de6915fb577137d01be2fcaab5ebcc252d80f628ffb913bea4bef87b54ea64",
+  "targetNames": [
+    "OAI.CartierSections.isCompact_closedChartFieldRetraction_cone"
+  ],
+  "originalGuardSHA256": "70801c6350ca32702bea9190d8f4b9b8d7249d9cf86fbe889f9395aa9f589900",
+  "environmentDefinitionSHA256": "6ca800b537b827260cafa6b50b69d8da7a79bad60801651129e726b6aa977b25",
+  "auditDriver": "evidence/check-source-guard.ts",
+  "dependencyRegistrationAccepted": false,
+  "guardBypassed": false
+}

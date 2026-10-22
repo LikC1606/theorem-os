@@ -1,0 +1,62 @@
+{
+  "schema": "theorem-os.openai-math-result.v1",
+  "archivedAt": "2026-10-22T19:22:28.661348+00:00",
+  "id": "CartierChartCompactnessSupport",
+  "status": "local_publisher_comparator_passed_native_dependency_contract_blocked",
+  "officialHostedAcceptance": false,
+  "theorem": "OAI.CartierSections.isCompact_closedChartFieldRetraction_cone",
+  "manuscriptIds": [
+    "066-02"
+  ],
+  "coverage": "support_only",
+  "tier": "C",
+  "tierIsOfficial": false,
+  "proof": {
+    "file": "Submission.lean",
+    "sha256": "cb8822de8e7a520cb27cf636075c9594d5cec82d2bc9c4bd052d78f8768e980b",
+    "bytes": 1666,
+    "lines": 41,
+    "axioms": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "sorryCount": 0,
+    "admitCount": 0
+  },
+  "environment": {
+    "leanToolchain": "leanprover/lean4:v4.34.1",
+    "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+    "supportUpstreamCommit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+    "supportModules": 12,
+    "standalonePathPackage": "support",
+    "nativeEnvironmentAccepted": false
+  },
+  "validation": {
+    "kernel": "evidence/kernel-axiom-receipt.json",
+    "sourceGuard": "evidence/source-guard-receipt.json",
+    "publisherComparator": "evidence/sealed-comparator-receipt.json",
+    "publisherComparatorObservedAt": "2026-10-22T19:19:49.935Z",
+    "publisherComparatorExitCode": 0,
+    "publisherComparatorSandbox": "bwrap",
+    "sealedEnvironment": true,
+    "nanodaEnabled": false,
+    "comparatorPolicyUnchanged": true,
+    "nativeSourceGuardCandidatePassed": true,
+    "nativeSourceGuardDependencyPackagePassed": false,
+    "nativeDependencyContractBlocker": "math_trusted_source_changed",
+    "portableLakeLayout": "evidence/portable-lake-recheck-receipt.json"
+  },
+  "archiveAdaptations": {
+    "rootSupportPath": "support instead of .lake/packages/cartier_support, for portable standalone Lake resolution",
+    "supportSourcesChanged": false,
+    "auditedComparatorScriptUnchanged": true,
+    "portableLakeLayoutRechecked": true
+  },
+  "attribution": {
+    "externalProofAssistance": "map_official_targets agent constructed and validated the independent proof; root coordinated the campaign and archival",
+    "fromScratchModelBenchmark": false,
+    "publishedSolutionExposed": false
+  },
+  "campaignAcceptance": false
+}

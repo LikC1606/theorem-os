@@ -1,0 +1,9 @@
+OpenAI math, commit 1581d4cbdd69a0faf34b2089614fe2a814316a6a.
+Challenge, original comparator config and all 12 support source modules: Apache-2.0.
+Original copyright/author notices and source bytes are preserved in the support package.
+Submission replaces only the original target proof hole using the allowed general compactness theorem.
+Independent proof and validation by TheoremOS external map_official_targets agent; not a model benchmark result.
+Comparator module names adapted to Challenge and Submission; target and permitted axioms unchanged.
+Standalone Lake support package path and local project configuration are added for reproducibility.
+No published ChartCompactness target solution was fetched or read. Native frozen extra-dependency guard remains blocked.
+Other project material follows the root project license.

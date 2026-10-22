@@ -1,0 +1,37 @@
+{
+  "schema": "theorem-os.openai-math-provenance.v1",
+  "repository": "https://github.com/openai/math",
+  "upstreamCommit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+  "id": "CartierChartCompactnessSupport",
+  "statement": {
+    "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/ComparatorChallenges/CartierChartCompactnessSupport.lean",
+    "source_path": "lean/ComparatorChallenges/CartierChartCompactnessSupport.lean",
+    "sha256": "05de6915fb577137d01be2fcaab5ebcc252d80f628ffb913bea4bef87b54ea64",
+    "bytes": 1365
+  },
+  "comparator": {
+    "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/ComparatorChallenges/CartierChartCompactnessSupport.json",
+    "source_path": "lean/ComparatorChallenges/CartierChartCompactnessSupport.json",
+    "sha256": "242cadf7dd3f4675b1db7043075221e2044ddc7786837ed97971138a31b62c0f",
+    "bytes": 390
+  },
+  "publisherTargets": [
+    "OAI.CartierSections.isCompact_closedChartFieldRetraction_cone"
+  ],
+  "manuscriptIds": [
+    "066-02"
+  ],
+  "coverage": "support_only",
+  "manuscriptTitle": "Uniform Cartier sections for Fano type contractions",
+  "resultLabel": "Compactness of normalized chart-field retractions",
+  "tier": {
+    "value": "C",
+    "official": false
+  },
+  "publishedSolutionExposed": false,
+  "supportClosure": "support-manifest.json",
+  "upstreamLicense": {
+    "spdx": "Apache-2.0",
+    "file": "LICENSE.openai-math"
+  }
+}

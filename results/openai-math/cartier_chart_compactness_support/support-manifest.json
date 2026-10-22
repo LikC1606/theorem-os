@@ -1,0 +1,768 @@
+{
+  "generated_at": "2026-10-22T19:09:01.604867+00:00",
+  "upstream_commit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+  "root_imports": [
+    "OAI.AlgebraicGeometry.CartierSections.FieldTopology",
+    "OAI.AlgebraicGeometry.CartierSections.FieldRetraction"
+  ],
+  "prohibited_modules": [
+    "OAI.AlgebraicGeometry.CartierSections.ChartCompactness"
+  ],
+  "blocked": false,
+  "blockers": [],
+  "complete_closure": true,
+  "files": [
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.FieldTopology",
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/FieldTopology.lean",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CartierSections/FieldTopology.lean",
+      "commit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+      "bytes": 4682,
+      "sha256": "3a7efb432aa2da78ae19ec3cc2153399080b2e7a93643174d9128c62e5a33a85",
+      "line_count": 119,
+      "imports": [
+        "OAI.AlgebraicGeometry.CartierSections.ConeTopology",
+        "OAI.AlgebraicGeometry.CartierSections.FractionValuation",
+        "Mathlib.Topology.Instances.ENNReal.Lemmas",
+        "Mathlib.Topology.Order.WithTop"
+      ],
+      "target_name_lines": [],
+      "prohibited_module_present": false,
+      "sorry_lines": [],
+      "axiom_lines": [],
+      "declarations": [
+        {
+          "line": 24,
+          "header": "lemma nonnegToExtendedReal_eq_coe_toReal {x : ENNReal} (hx : x ≠ ⊤) :"
+        },
+        {
+          "line": 38,
+          "header": "lemma continuous_fractionValuation_apply"
+        },
+        {
+          "line": 68,
+          "header": "lemma continuous_fractionValuation_evaluations"
+        },
+        {
+          "line": 83,
+          "header": "noncomputable def expandedFractionValuation"
+        },
+        {
+          "line": 89,
+          "header": "@[simp] lemma expandedFractionValuation_regular"
+        },
+        {
+          "line": 96,
+          "header": "lemma continuous_expandedFractionValuation_evaluations"
+        },
+        {
+          "line": 106,
+          "header": "lemma isCompact_expandedFractionValuation_cone"
+        }
+      ]
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.FieldRetraction",
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/FieldRetraction.lean",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CartierSections/FieldRetraction.lean",
+      "commit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+      "bytes": 1879,
+      "sha256": "f5876a3015bd47a08735dcc50d8f4219c88706303bfca0c244cb12a14fad3b31",
+      "line_count": 45,
+      "imports": [
+        "OAI.AlgebraicGeometry.CartierSections.ChartRetraction",
+        "OAI.AlgebraicGeometry.CartierSections.FractionValuation"
+      ],
+      "target_name_lines": [],
+      "prohibited_module_present": false,
+      "sorry_lines": [],
+      "axiom_lines": [],
+      "declarations": [
+        {
+          "line": 31,
+          "header": "noncomputable def closedChartFieldRetraction (w : σ → NNReal) : AddValuation K (WithTop ℝ) :="
+        },
+        {
+          "line": 35,
+          "header": "@[simp] lemma closedChartFieldRetraction_regular (w : σ → NNReal) (f : A) :"
+        }
+      ]
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.ConeTopology",
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/ConeTopology.lean",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CartierSections/ConeTopology.lean",
+      "commit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+      "bytes": 7058,
+      "sha256": "ad2fe07a0c6b698be1ed1050cdac914eb1d289af807cf6ef011187def9abdc43",
+      "line_count": 157,
+      "imports": [
+        "OAI.AlgebraicGeometry.CartierSections.ExpansionValuation"
+      ],
+      "target_name_lines": [],
+      "prohibited_module_present": false,
+      "sorry_lines": [],
+      "axiom_lines": [],
+      "declarations": [
+        {
+          "line": 24,
+          "header": "lemma exists_finite_formula (f : MvPowerSeries σ k) :"
+        },
+        {
+          "line": 36,
+          "header": "lemma continuous_weight (d : σ →₀ ℕ) :"
+        },
+        {
+          "line": 42,
+          "header": "lemma continuous_value (f : MvPowerSeries σ k) :"
+        },
+        {
+          "line": 53,
+          "header": "lemma continuous_monomial_evaluation (θ : A →ₐ[k] MvPowerSeries σ k) (f : A) :"
+        },
+        {
+          "line": 59,
+          "header": "lemma continuous_monomial_evaluations (θ : A →ₐ[k] MvPowerSeries σ k) :"
+        },
+        {
+          "line": 65,
+          "header": "def normalizedWeights (a : σ → NNReal) : Set (σ → NNReal) :="
+        },
+        {
+          "line": 68,
+          "header": "lemma isClosed_normalizedWeights (a : σ → NNReal) :"
+        },
+        {
+          "line": 73,
+          "header": "lemma isCompact_normalizedWeights (a : σ → NNReal) (ha : ∀ i, 0 < a i) :"
+        },
+        {
+          "line": 87,
+          "header": "lemma isCompact_monomial_cone (θ : A →ₐ[k] MvPowerSeries σ k)"
+        },
+        {
+          "line": 104,
+          "header": "def valuationConstraints (h : A) (F : J → A) (m : J → ENNReal) : Set (A → ENNReal) :="
+        },
+        {
+          "line": 108,
+          "header": "lemma isClosed_valuationConstraints (h : A) (F : J → A) (m : J → ENNReal) :"
+        },
+        {
+          "line": 114,
+          "header": "def finiteChartSlice (θ : ι → A →ₐ[k] MvPowerSeries σ k)"
+        },
+        {
+          "line": 119,
+          "header": "lemma isCompact_finiteChartSlice (θ : ι → A →ₐ[k] MvPowerSeries σ k)"
+        },
+        {
+          "line": 128,
+          "header": "lemma simultaneous_targets_of_finite (θ : ι → A →ₐ[k] MvPowerSeries σ k)"
+        }
+      ]
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.FractionValuation",
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/FractionValuation.lean",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CartierSections/FractionValuation.lean",
+      "commit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+      "bytes": 3838,
+      "sha256": "6185d5645073eabbe99a48577f700bb1a4b57dc5e36510f854cfe2d0edeff551",
+      "line_count": 100,
+      "imports": [
+        "Mathlib.RingTheory.Valuation.ExtendToLocalization",
+        "Mathlib.RingTheory.Localization.FractionRing",
+        "Mathlib.Basic.ENNReal.Basic"
+      ],
+      "target_name_lines": [],
+      "prohibited_module_present": false,
+      "sorry_lines": [],
+      "axiom_lines": [],
+      "declarations": [
+        {
+          "line": 20,
+          "header": "def nonnegToExtendedReal : ENNReal →+ WithTop ℝ :="
+        },
+        {
+          "line": 23,
+          "header": "@[simp] theorem nonnegToExtendedReal_top : nonnegToExtendedReal ⊤ = ⊤ := rfl"
+        },
+        {
+          "line": 24,
+          "header": "@[simp] theorem nonnegToExtendedReal_coe (a : NNReal) :"
+        },
+        {
+          "line": 27,
+          "header": "lemma nonnegToExtendedReal_monotone : Monotone nonnegToExtendedReal := by"
+        },
+        {
+          "line": 36,
+          "header": "@[simp] lemma nonnegToExtendedReal_eq_top {a : ENNReal} :"
+        },
+        {
+          "line": 47,
+          "header": "noncomputable def realLocalValuation (v : AddValuation A ENNReal) : AddValuation A (WithTop ℝ) :="
+        },
+        {
+          "line": 50,
+          "header": "@[simp] lemma realLocalValuation_apply (v : AddValuation A ENNReal) (a : A) :"
+        },
+        {
+          "line": 59,
+          "header": "lemma realLocalValuation_denominators (v : AddValuation A ENNReal)"
+        },
+        {
+          "line": 67,
+          "header": "noncomputable def fractionValuation (v : AddValuation A ENNReal)"
+        },
+        {
+          "line": 72,
+          "header": "@[simp] lemma fractionValuation_algebraMap (v : AddValuation A ENNReal)"
+        },
+        {
+          "line": 79,
+          "header": "lemma fractionValuation_ratio (v : AddValuation A ENNReal)"
+        },
+        {
+          "line": 86,
+          "header": "lemma fractionValuation_unique (v : AddValuation A ENNReal)"
+        }
+      ]
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.ChartRetraction",
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/ChartRetraction.lean",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CartierSections/ChartRetraction.lean",
+      "commit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+      "bytes": 3220,
+      "sha256": "341066936c7dbb1fb1a85d285039db24de1c1380ff6cd71533c2159c45f9ebfa",
+      "line_count": 75,
+      "imports": [
+        "OAI.AlgebraicGeometry.CartierSections.ExpansionValuation",
+        "OAI.AlgebraicGeometry.CartierSections.ClosedCharts"
+      ],
+      "target_name_lines": [],
+      "prohibited_module_present": false,
+      "sorry_lines": [],
+      "axiom_lines": [],
+      "declarations": [
+        {
+          "line": 17,
+          "header": "noncomputable def completionIdealCongr {P A : Type*} [CommRing P] [CommRing A]"
+        },
+        {
+          "line": 38,
+          "header": "noncomputable def closedChartEquiv : MvPowerSeries σ k ≃ₐ[MvPolynomial σ k]"
+        },
+        {
+          "line": 45,
+          "header": "noncomputable def closedChartExpansion : A →ₐ[k] MvPowerSeries σ k :="
+        },
+        {
+          "line": 49,
+          "header": "@[simp] lemma closedChartExpansion_coordinate (i : σ) :"
+        },
+        {
+          "line": 55,
+          "header": "noncomputable def closedChartRetraction (w : σ → ℝ≥0) : AddValuation A ENNReal :="
+        },
+        {
+          "line": 58,
+          "header": "lemma closedChartExpansion_injective :"
+        },
+        {
+          "line": 66,
+          "header": "lemma closedChartRetraction_finite (w : σ → ℝ≥0) {f : A} (hf : f ≠ 0) :"
+        }
+      ]
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.ExpansionValuation",
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/ExpansionValuation.lean",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CartierSections/ExpansionValuation.lean",
+      "commit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+      "bytes": 2401,
+      "sha256": "70341cf246a0491148fb2c6f25f300eaaff27656cb89e44af674b21b07c89a43",
+      "line_count": 68,
+      "imports": [
+        "OAI.AlgebraicGeometry.CartierSections.FormalValuation",
+        "OAI.AlgebraicGeometry.CartierSections.Weights"
+      ],
+      "target_name_lines": [],
+      "prohibited_module_present": false,
+      "sorry_lines": [],
+      "axiom_lines": [],
+      "declarations": [
+        {
+          "line": 20,
+          "header": "def seriesWeight (w : σ → ℝ) (f : MvPowerSeries σ k) : ENNReal :="
+        },
+        {
+          "line": 23,
+          "header": "def IsMonomialInExpansion (v : AddValuation R ENNReal)"
+        },
+        {
+          "line": 27,
+          "header": "lemma coe_finsupp_weight (w : σ → ℝ≥0) (d : σ →₀ ℕ) :"
+        },
+        {
+          "line": 32,
+          "header": "lemma formalValue_eq_seriesWeight (w : σ → ℝ≥0) (f : MvPowerSeries σ k) :"
+        },
+        {
+          "line": 42,
+          "header": "def expansionValuation (θ : R →ₐ[k] MvPowerSeries σ k) (w : σ → ℝ≥0) :"
+        },
+        {
+          "line": 45,
+          "header": "lemma expansionValuation_monomial (θ : R →ₐ[k] MvPowerSeries σ k) (w : σ → ℝ≥0) :"
+        },
+        {
+          "line": 50,
+          "header": "lemma expansionValuation_finite (θ : R →ₐ[k] MvPowerSeries σ k)"
+        }
+      ]
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.ClosedCharts",
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/ClosedCharts.lean",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CartierSections/ClosedCharts.lean",
+      "commit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+      "bytes": 6314,
+      "sha256": "f77c79ba517df2051cde521b4a873128c0e5cde7d93d66cd81d3f6507c2e7d28",
+      "line_count": 134,
+      "imports": [
+        "OAI.AlgebraicGeometry.CartierSections.ChartCompletion",
+        "Mathlib.FieldTheory.IsAlgClosed.Basic",
+        "Mathlib.RingTheory.Localization.AtPrime.Extension",
+        "Mathlib.RingTheory.Unramified.LocalRing"
+      ],
+      "target_name_lines": [],
+      "prohibited_module_present": false,
+      "sorry_lines": [],
+      "axiom_lines": [],
+      "declarations": [
+        {
+          "line": 23,
+          "header": "theorem local_unramified_base_bijective"
+        },
+        {
+          "line": 48,
+          "header": "theorem idealOfVars_eq_ker_constantCoeff {σ k : Type*} [CommRing k] :"
+        },
+        {
+          "line": 60,
+          "header": "noncomputable def polynomialOriginResidueEquiv {σ k : Type*} [CommRing k] :"
+        },
+        {
+          "line": 66,
+          "header": "@[simp] theorem polynomialOriginResidueEquiv_mk {σ k : Type*} [CommRing k]"
+        },
+        {
+          "line": 71,
+          "header": "theorem polynomialOrigin_isMaximal {σ k : Type*} [Field k] :"
+        },
+        {
+          "line": 92,
+          "header": "theorem closed_chart_maximalIdeal :"
+        },
+        {
+          "line": 104,
+          "header": "theorem closed_chart_base_bijective :"
+        }
+      ]
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.FormalValuation",
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/FormalValuation.lean",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CartierSections/FormalValuation.lean",
+      "commit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+      "bytes": 9572,
+      "sha256": "1a1cfacb8e9fa2e60321d9303252f79f4d900a3954d4ac91db572d84e9cf619d",
+      "line_count": 238,
+      "imports": [
+        "OAI.AlgebraicGeometry.CartierSections.PolynomialValuation",
+        "Mathlib.RingTheory.MvPowerSeries.NoZeroDivisors",
+        "Mathlib.Data.Finsupp.Order",
+        "Mathlib.Data.Finsupp.PWO"
+      ],
+      "target_name_lines": [],
+      "prohibited_module_present": false,
+      "sorry_lines": [],
+      "axiom_lines": [],
+      "declarations": [
+        {
+          "line": 23,
+          "header": "def value (w : σ → ℝ≥0) (f : MvPowerSeries σ k) : ENNReal :="
+        },
+        {
+          "line": 26,
+          "header": "lemma le_value_iff (w : σ → ℝ≥0) {f : MvPowerSeries σ k} {a : ENNReal} :"
+        },
+        {
+          "line": 31,
+          "header": "lemma value_le_weight (w : σ → ℝ≥0) {f : MvPowerSeries σ k} {d : σ →₀ ℕ}"
+        },
+        {
+          "line": 36,
+          "header": "lemma finite_dominated_generators [Fintype σ] (S : Set (σ →₀ ℕ)) :"
+        },
+        {
+          "line": 52,
+          "header": "lemma weight_mono (w : σ → ℝ≥0) : Monotone (Finsupp.weight w : (σ →₀ ℕ) →+ ℝ≥0) := by"
+        },
+        {
+          "line": 58,
+          "header": "lemma exists_initial [Fintype σ] (w : σ → ℝ≥0) {f : MvPowerSeries σ k} (hf : f ≠ 0) :"
+        },
+        {
+          "line": 76,
+          "header": "lemma value_eq_of_initial (w : σ → ℝ≥0) {f : MvPowerSeries σ k} {d : σ →₀ ℕ}"
+        },
+        {
+          "line": 83,
+          "header": "lemma value_attained [Fintype σ] (w : σ → ℝ≥0) {f : MvPowerSeries σ k} (hf : f ≠ 0) :"
+        },
+        {
+          "line": 88,
+          "header": "@[simp] lemma value_zero (w : σ → ℝ≥0) : value (k := k) w 0 = ⊤ := by"
+        },
+        {
+          "line": 91,
+          "header": "@[simp] lemma value_one [IsDomain k] (w : σ → ℝ≥0) : value (k := k) w 1 = 0 := by"
+        },
+        {
+          "line": 96,
+          "header": "lemma value_add (w : σ → ℝ≥0) (f g : MvPowerSeries σ k) :"
+        },
+        {
+          "line": 107,
+          "header": "lemma le_value_mul (w : σ → ℝ≥0) (f g : MvPowerSeries σ k) :"
+        },
+        {
+          "line": 121,
+          "header": "def component (w : σ → ℝ≥0) (a : ℝ≥0) (f : MvPowerSeries σ k) : MvPowerSeries σ k :="
+        },
+        {
+          "line": 124,
+          "header": "@[simp] lemma coeff_component (w : σ → ℝ≥0) (a : ℝ≥0)"
+        },
+        {
+          "line": 129,
+          "header": "lemma component_mul_at_lower_bounds (w : σ → ℝ≥0) (f g : MvPowerSeries σ k)"
+        },
+        {
+          "line": 169,
+          "header": "lemma component_ne_zero (w : σ → ℝ≥0) (f : MvPowerSeries σ k)"
+        },
+        {
+          "line": 182,
+          "header": "lemma value_mul (w : σ → ℝ≥0) (f g : MvPowerSeries σ k) :"
+        },
+        {
+          "line": 213,
+          "header": "def valuation (w : σ → ℝ≥0) : AddValuation (MvPowerSeries σ k) ENNReal :="
+        },
+        {
+          "line": 216,
+          "header": "@[simp] lemma valuation_apply (w : σ → ℝ≥0) (f : MvPowerSeries σ k) :"
+        },
+        {
+          "line": 220,
+          "header": "lemma combine_dominates {ι : Type*} (s : Finset ι) (c : ι → ℝ≥0)"
+        }
+      ]
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.Weights",
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/Weights.lean",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CartierSections/Weights.lean",
+      "commit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+      "bytes": 2366,
+      "sha256": "8bb6abc631899789bb0b8af044752653e7c240fa1f000f7db242e2684f089bb3",
+      "line_count": 68,
+      "imports": [
+        "Mathlib.Algebra.Order.Archimedean.Real.Basic",
+        "Mathlib.Data.Finsupp.Interval",
+        "Mathlib.LinearAlgebra.LinearIndependent.Defs",
+        "Mathlib.Tactic"
+      ],
+      "target_name_lines": [],
+      "prohibited_module_present": false,
+      "sorry_lines": [],
+      "axiom_lines": [],
+      "declarations": [
+        {
+          "line": 22,
+          "header": "noncomputable def realWeight (w : ι → ℝ) (d : ι →₀ ℕ) : ℝ :="
+        },
+        {
+          "line": 25,
+          "header": "@[simp] theorem realWeight_zero (w : ι → ℝ) : realWeight w 0 = 0 := by"
+        },
+        {
+          "line": 28,
+          "header": "@[simp] theorem realWeight_add (w : ι → ℝ) (d e : ι →₀ ℕ) :"
+        },
+        {
+          "line": 32,
+          "header": "@[simp] theorem realWeight_nsmul (w : ι → ℝ) (n : ℕ) (d : ι →₀ ℕ) :"
+        },
+        {
+          "line": 36,
+          "header": "theorem realWeight_nonneg {w : ι → ℝ} (hw : ∀ i, 0 ≤ w i) (d : ι →₀ ℕ) :"
+        },
+        {
+          "line": 40,
+          "header": "theorem realWeight_injective {w : ι → ℝ} (hw : LinearIndependent ℚ w) :"
+        },
+        {
+          "line": 50,
+          "header": "theorem finite_weight_sublevel {w : ι → ℝ} (hw : ∀ i, 0 < w i) (L : ℝ) :"
+        }
+      ]
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.ChartCompletion",
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/ChartCompletion.lean",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CartierSections/ChartCompletion.lean",
+      "commit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+      "bytes": 9478,
+      "sha256": "cd5ab4b977be67e7f6726b14c7c63a2adaa5c12c80636b86d026905494d324ce",
+      "line_count": 190,
+      "imports": [
+        "OAI.AlgebraicGeometry.CartierSections.InfinitesimalCharts",
+        "Mathlib.RingTheory.AdicCompletion.AsTensorProduct",
+        "Mathlib.RingTheory.AdicCompletion.LocalRing",
+        "Mathlib.RingTheory.Flat.FaithfullyFlat.Algebra",
+        "Mathlib.RingTheory.MvPowerSeries.Equiv"
+      ],
+      "target_name_lines": [],
+      "prohibited_module_present": false,
+      "sorry_lines": [],
+      "axiom_lines": [],
+      "declarations": [
+        {
+          "line": 28,
+          "header": "theorem completion_eval_factor (I : Ideal R) {m n : ℕ} (h : m ≤ n)"
+        },
+        {
+          "line": 39,
+          "header": "theorem quotientPowerMap_eval_compatible (I : Ideal R) {m n : ℕ} (h : m ≤ n) :"
+        },
+        {
+          "line": 50,
+          "header": "noncomputable def chartCompletionMap (I : Ideal R) :"
+        },
+        {
+          "line": 56,
+          "header": "@[simp] theorem chartCompletionMap_eval (I : Ideal R) (n : ℕ) (x : AdicCompletion I R) :"
+        },
+        {
+          "line": 63,
+          "header": "theorem chartCompletionMap_bijective [Algebra.FormallyEtale R A]"
+        },
+        {
+          "line": 104,
+          "header": "noncomputable def chartCompletionEquiv [Algebra.FormallyEtale R A]"
+        },
+        {
+          "line": 110,
+          "header": "noncomputable def polynomialChartSeriesEquiv"
+        },
+        {
+          "line": 120,
+          "header": "@[simp] theorem polynomialChartSeriesEquiv_coe"
+        },
+        {
+          "line": 129,
+          "header": "noncomputable def completionExpansion"
+        },
+        {
+          "line": 135,
+          "header": "theorem completionExpansion_faithfullyFlat"
+        },
+        {
+          "line": 148,
+          "header": "theorem completionExpansion_isLocalHom"
+        },
+        {
+          "line": 162,
+          "header": "noncomputable def chartSeriesExpansion"
+        },
+        {
+          "line": 168,
+          "header": "@[simp] theorem chartSeriesExpansion_toRingHom"
+        },
+        {
+          "line": 173,
+          "header": "@[simp] theorem chartSeriesExpansion_coordinate"
+        }
+      ]
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.PolynomialValuation",
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/PolynomialValuation.lean",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CartierSections/PolynomialValuation.lean",
+      "commit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+      "bytes": 8415,
+      "sha256": "0277ef0b5444948e581ae8605c11214e1f9204f0bda3c28b3e58d9043592e33b",
+      "line_count": 215,
+      "imports": [
+        "Mathlib.RingTheory.MvPolynomial.WeightedHomogeneous",
+        "Mathlib.RingTheory.Valuation.Basic",
+        "Mathlib.Basic.ENNReal.BigOperators",
+        "Mathlib.Tactic.Ring"
+      ],
+      "target_name_lines": [],
+      "prohibited_module_present": false,
+      "sorry_lines": [],
+      "axiom_lines": [],
+      "declarations": [
+        {
+          "line": 23,
+          "header": "def value (w : σ → ℝ≥0) (p : MvPolynomial σ k) : ENNReal :="
+        },
+        {
+          "line": 26,
+          "header": "@[simp] lemma value_zero (w : σ → ℝ≥0) : value (k := k) w 0 = ⊤ := by"
+        },
+        {
+          "line": 29,
+          "header": "lemma value_le_weight (w : σ → ℝ≥0) {p : MvPolynomial σ k} {d : σ →₀ ℕ}"
+        },
+        {
+          "line": 33,
+          "header": "lemma le_value_iff (w : σ → ℝ≥0) {p : MvPolynomial σ k} {a : ENNReal} :"
+        },
+        {
+          "line": 37,
+          "header": "lemma value_attained (w : σ → ℝ≥0) {p : MvPolynomial σ k} (hp : p ≠ 0) :"
+        },
+        {
+          "line": 41,
+          "header": "lemma value_lt_top (w : σ → ℝ≥0) {p : MvPolynomial σ k} (hp : p ≠ 0) :"
+        },
+        {
+          "line": 47,
+          "header": "@[simp] lemma value_one [Nontrivial k] (w : σ → ℝ≥0) : value (k := k) w 1 = 0 := by"
+        },
+        {
+          "line": 50,
+          "header": "lemma value_add (w : σ → ℝ≥0) (p q : MvPolynomial σ k) :"
+        },
+        {
+          "line": 61,
+          "header": "lemma le_value_mul (w : σ → ℝ≥0) (p q : MvPolynomial σ k) :"
+        },
+        {
+          "line": 73,
+          "header": "lemma component_mul_at_lower_bounds (w : σ → ℝ≥0) (p q : MvPolynomial σ k)"
+        },
+        {
+          "line": 118,
+          "header": "lemma component_ne_zero_of_attained (w : σ → ℝ≥0) (p : MvPolynomial σ k)"
+        },
+        {
+          "line": 130,
+          "header": "lemma value_mul (w : σ → ℝ≥0) (p q : MvPolynomial σ k) :"
+        },
+        {
+          "line": 157,
+          "header": "def valuation (w : σ → ℝ≥0) : AddValuation (MvPolynomial σ k) ENNReal :="
+        },
+        {
+          "line": 160,
+          "header": "@[simp] lemma valuation_apply (w : σ → ℝ≥0) (p : MvPolynomial σ k) :"
+        },
+        {
+          "line": 169,
+          "header": "def combine (s : Finset ι) (c : ι → ℝ≥0) (w : ι → σ → ℝ≥0) : σ → ℝ≥0 :="
+        },
+        {
+          "line": 172,
+          "header": "lemma weight_combine (s : Finset ι) (c : ι → ℝ≥0) (w : ι → σ → ℝ≥0)"
+        },
+        {
+          "line": 187,
+          "header": "lemma combine_dominates [IsDomain k] (s : Finset ι) (c : ι → ℝ≥0) (w : ι → σ → ℝ≥0)"
+        },
+        {
+          "line": 201,
+          "header": "lemma linear_equation_combine (s : Finset ι) (c : ι → ℝ≥0)"
+        }
+      ]
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CartierSections.InfinitesimalCharts",
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/InfinitesimalCharts.lean",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CartierSections/InfinitesimalCharts.lean",
+      "commit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+      "bytes": 6535,
+      "sha256": "4db085e588fc29325562ef44b8aff172ff18ae641c62c9be7861ce140d77c8ac",
+      "line_count": 150,
+      "imports": [
+        "Mathlib.RingTheory.Etale.Basic",
+        "Mathlib.RingTheory.Ideal.Quotient.Operations"
+      ],
+      "target_name_lines": [],
+      "prohibited_module_present": false,
+      "sorry_lines": [],
+      "axiom_lines": [],
+      "declarations": [
+        {
+          "line": 21,
+          "header": "theorem scalarTower_self {R : Type*} [CommRing R] : IsScalarTower R R R :="
+        },
+        {
+          "line": 31,
+          "header": "theorem quotient_reduction_nilpotent (I : Ideal S) (n : ℕ) :"
+        },
+        {
+          "line": 39,
+          "header": "theorem formally_smooth_lift_to_power [Algebra.FormallySmooth R A]"
+        },
+        {
+          "line": 53,
+          "header": "theorem formally_unramified_unique_to_power [Algebra.FormallyUnramified R A]"
+        },
+        {
+          "line": 71,
+          "header": "def quotientPowerMap (I : Ideal R) (n : ℕ) :"
+        },
+        {
+          "line": 77,
+          "header": "@[simp] theorem quotientPowerMap_mk (I : Ideal R) (n : ℕ) (r : R) :"
+        },
+        {
+          "line": 81,
+          "header": "@[simp] theorem quotientPowerMap_algebraMap (I : Ideal R) (n : ℕ) (r : R) :"
+        },
+        {
+          "line": 86,
+          "header": "theorem quotientPowerMap_factor (I : Ideal R) {m n : ℕ} (h : m ≤ n) :"
+        },
+        {
+          "line": 94,
+          "header": "def quotientBaseMap (I : Ideal R) : R ⧸ I →ₐ[R] A ⧸ I.map (algebraMap R A) :="
+        },
+        {
+          "line": 99,
+          "header": "theorem etale_quotient_power_bijective [Algebra.FormallyEtale R A]"
+        }
+      ]
+    }
+  ],
+  "pending": [],
+  "review": {
+    "source_import_closure_complete": true,
+    "all_olean_builds_passed": true,
+    "target_module_excluded": true,
+    "exact_target_declaration_absent": true,
+    "renamed_target_copy_found": false,
+    "normal_library_support_lemma_explicitly_allowed": "isCompact_expandedFractionValuation_cone",
+    "approval_scope": "Parent authorized fixed-commit support-only recursive imports; no published target solution access."
+  },
+  "archivePathMapping": "Only local path labels adapted; source bytes and upstream SHA256 unchanged."
+}

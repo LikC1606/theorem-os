@@ -1,0 +1,215 @@
+{
+  "schema": "theorem-os.result-file-manifest.v1",
+  "generatedAt": "2026-10-22T19:24:31.217367+00:00",
+  "algorithm": "sha256",
+  "excludes": [
+    "manifest.json"
+  ],
+  "files": [
+    {
+      "path": "AxiomAudit.lean",
+      "bytes": 94,
+      "sha256": "7721a487c191464c1bf29c465a2e7f752cef677df7398cbf08c2da9145f7319f"
+    },
+    {
+      "path": "Challenge.lean",
+      "bytes": 1365,
+      "sha256": "05de6915fb577137d01be2fcaab5ebcc252d80f628ffb913bea4bef87b54ea64"
+    },
+    {
+      "path": "LICENSE.openai-math",
+      "bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "path": "NOTICE",
+      "bytes": 830,
+      "sha256": "2490c285b0b2cf47cbf53c20e4c8db3451d23452fa4494f29e8f528fc5a93f1e"
+    },
+    {
+      "path": "README.md",
+      "bytes": 3450,
+      "sha256": "6325b3f06b160308789396e953f16fb2b6f5a25bc96448c1c07a704752dff5c3"
+    },
+    {
+      "path": "Submission.lean",
+      "bytes": 1666,
+      "sha256": "cb8822de8e7a520cb27cf636075c9594d5cec82d2bc9c4bd052d78f8768e980b"
+    },
+    {
+      "path": "comparator.json",
+      "bytes": 304,
+      "sha256": "21d59b0a314b36643b3e5541d482fefaa05a70a4deccdfe3bd5f2f0f665263dd"
+    },
+    {
+      "path": "comparator.upstream.json",
+      "bytes": 390,
+      "sha256": "242cadf7dd3f4675b1db7043075221e2044ddc7786837ed97971138a31b62c0f"
+    },
+    {
+      "path": "evidence/axiom-output.txt",
+      "bytes": 125,
+      "sha256": "4b17e5917356e4952e9583887355b9ec22581f160ae5219b441590bf7bfeda11"
+    },
+    {
+      "path": "evidence/check-source-guard.ts",
+      "bytes": 2717,
+      "sha256": "8690ad75f42b717d1aeed9a5b9b5da7723bbf7cf98683d902b232b923cbba80d"
+    },
+    {
+      "path": "evidence/kernel-axiom-receipt.json",
+      "bytes": 2357,
+      "sha256": "0d5d8d8ab91b0cfa9ee58a979f01659b89e02c57efdf67b8a22595a18370566a"
+    },
+    {
+      "path": "evidence/portable-lake-axioms.log",
+      "bytes": 125,
+      "sha256": "4b17e5917356e4952e9583887355b9ec22581f160ae5219b441590bf7bfeda11"
+    },
+    {
+      "path": "evidence/portable-lake-build.log",
+      "bytes": 1170,
+      "sha256": "339d6718e2fdb66d022cf720c629c9294d07b7c1b49ffab384677fe2d1375a4f"
+    },
+    {
+      "path": "evidence/portable-lake-recheck-receipt.json",
+      "bytes": 1384,
+      "sha256": "7242144765c1b1f457db2c528b4b62a04e258f4cf4acec73ab915522caaaefb4"
+    },
+    {
+      "path": "evidence/run-sealed-isolated-comparator.ts",
+      "bytes": 2167,
+      "sha256": "3261d72417638f78c12f81c4a7d839b3d1c42c33b8996e56ec98828e64798879"
+    },
+    {
+      "path": "evidence/sealed-comparator-receipt.json",
+      "bytes": 3654,
+      "sha256": "926b81f9c9860063da929ed6ab90edd61a3b14ec5dd0d894879c507d608c9d10"
+    },
+    {
+      "path": "evidence/source-guard-receipt.json",
+      "bytes": 1103,
+      "sha256": "9dc36cc8dba9367cff729808fe3435741cfb9802b1c46fe40aa265e3ab041f85"
+    },
+    {
+      "path": "evidence/support-build-receipt.json",
+      "bytes": 9471,
+      "sha256": "98c73f9e1ad5733fcb79f7c4572a9c33f6c3c79da83ee6f545e390559d50529e"
+    },
+    {
+      "path": "lake-manifest.json",
+      "bytes": 3769,
+      "sha256": "5479259030ceff31b46c71bbba5dc6f39caf77250b75e46dc3d369f59cfc2989"
+    },
+    {
+      "path": "lakefile.toml",
+      "bytes": 376,
+      "sha256": "b3c8b26d9f3dd90cd3ac4604edeec7f5bd35d2daee33d21ea2892559af59f646"
+    },
+    {
+      "path": "lean-toolchain",
+      "bytes": 25,
+      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "path": "provenance.json",
+      "bytes": 1488,
+      "sha256": "bc8fc8613403c1772b9a4df70c46ea32b02be56d9503ef488e125e6e9f3abc52"
+    },
+    {
+      "path": "run-sealed-comparator.sh",
+      "bytes": 2407,
+      "sha256": "5a50ddf632406ecf6ae4e7d6f8cbf648b7419b37ea2411ac212d539539ed75a0"
+    },
+    {
+      "path": "stage-sealed-support.py",
+      "bytes": 657,
+      "sha256": "dfd2c84d7c0e2fdbaf941abd48aec5c297fde729ff4c6d3225e8e3db890154fe"
+    },
+    {
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/ChartCompletion.lean",
+      "bytes": 9478,
+      "sha256": "cd5ab4b977be67e7f6726b14c7c63a2adaa5c12c80636b86d026905494d324ce"
+    },
+    {
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/ChartRetraction.lean",
+      "bytes": 3220,
+      "sha256": "341066936c7dbb1fb1a85d285039db24de1c1380ff6cd71533c2159c45f9ebfa"
+    },
+    {
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/ClosedCharts.lean",
+      "bytes": 6314,
+      "sha256": "f77c79ba517df2051cde521b4a873128c0e5cde7d93d66cd81d3f6507c2e7d28"
+    },
+    {
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/ConeTopology.lean",
+      "bytes": 7058,
+      "sha256": "ad2fe07a0c6b698be1ed1050cdac914eb1d289af807cf6ef011187def9abdc43"
+    },
+    {
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/ExpansionValuation.lean",
+      "bytes": 2401,
+      "sha256": "70341cf246a0491148fb2c6f25f300eaaff27656cb89e44af674b21b07c89a43"
+    },
+    {
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/FieldRetraction.lean",
+      "bytes": 1879,
+      "sha256": "f5876a3015bd47a08735dcc50d8f4219c88706303bfca0c244cb12a14fad3b31"
+    },
+    {
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/FieldTopology.lean",
+      "bytes": 4682,
+      "sha256": "3a7efb432aa2da78ae19ec3cc2153399080b2e7a93643174d9128c62e5a33a85"
+    },
+    {
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/FormalValuation.lean",
+      "bytes": 9572,
+      "sha256": "1a1cfacb8e9fa2e60321d9303252f79f4d900a3954d4ac91db572d84e9cf619d"
+    },
+    {
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/FractionValuation.lean",
+      "bytes": 3838,
+      "sha256": "6185d5645073eabbe99a48577f700bb1a4b57dc5e36510f854cfe2d0edeff551"
+    },
+    {
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/InfinitesimalCharts.lean",
+      "bytes": 6535,
+      "sha256": "4db085e588fc29325562ef44b8aff172ff18ae641c62c9be7861ce140d77c8ac"
+    },
+    {
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/PolynomialValuation.lean",
+      "bytes": 8415,
+      "sha256": "0277ef0b5444948e581ae8605c11214e1f9204f0bda3c28b3e58d9043592e33b"
+    },
+    {
+      "path": "support/OAI/AlgebraicGeometry/CartierSections/Weights.lean",
+      "bytes": 2366,
+      "sha256": "8bb6abc631899789bb0b8af044752653e7c240fa1f000f7db242e2684f089bb3"
+    },
+    {
+      "path": "support/lake-manifest.json",
+      "bytes": 3548,
+      "sha256": "3529d12be351e3842046e936b81ea73042814ea42e25c81f3805dac7afc8e2b2"
+    },
+    {
+      "path": "support/lakefile.toml",
+      "bytes": 210,
+      "sha256": "6e7a90f69e3c9bc542eb59cf32de3a6b74727193caf1034f5c059fb0e765df70"
+    },
+    {
+      "path": "support/lean-toolchain",
+      "bytes": 25,
+      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "path": "support-manifest.json",
+      "bytes": 28530,
+      "sha256": "54058c8d0011598c45e04460e7b72cbb74de320d0c495ed580bf718e2689f518"
+    },
+    {
+      "path": "verification.json",
+      "bytes": 2309,
+      "sha256": "0599e5682d80ac989adbcd3c72791a3d5d9d2b1e9020a7c48741bdc1a8ac6597"
+    }
+  ]
+}
