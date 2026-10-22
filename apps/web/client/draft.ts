@@ -66,7 +66,7 @@ function validatedDraft(value: unknown): TaskDraft {
     providerId: text(draft, 'providerId', 64), model: text(draft, 'model', 128),
     source: utf8Text(draft, 'source', 32 * 1024), task: utf8Text(draft, 'task', 8_000),
     maxTurns: budget(draft, 'maxTurns'), maxRunSeconds: budget(draft, 'maxRunSeconds'), workers: budget(draft, 'workers'),
-    effort: enumeration(draft, 'effort', ['low', 'medium', 'high', 'xhigh']),
+    effort: enumeration(draft, 'effort', ['low', 'medium', 'high', 'xhigh', 'max']),
     environment: enumeration(draft, 'environment', ['standard', 'mathlib']),
     coordination: enumeration(draft, 'coordination', ['cooperative', 'independent']),
     templateId: text(draft, 'templateId', 64),

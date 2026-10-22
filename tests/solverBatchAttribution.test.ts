@@ -92,6 +92,53 @@ describe('per-target batch receipt attribution', () => {
     expect(checks.every(check => hasDeterministicLeanFailure(check.verification))).toBe(true);
   });
 
+  it.each(['timeout', 'deadline', 'abort', 'interrupted'])
+  ('keeps Lean errors mentioning %s attributable in raw and JSON diagnostics', word => {
+    for (const stdoutPreview of [
+      `Submission.lean:4:1: error(lean.unknownIdentifier): Unknown identifier ${word}`,
+      JSON.stringify({ severity: 'error', fileName: 'Submission.lean', pos: { line: 4, column: 0 },
+        data: `Unknown identifier ${word}` }),
+    ]) {
+      const batch = rejected(request, [1]);
+      batch.results[0]!.stdoutPreview = `Checked theorem ${word}; all goals closed.`;
+      batch.results[1]!.stdoutPreview = stdoutPreview;
+      expect(hasDeterministicLeanFailure(batch)).toBe(true);
+      expect(attribute(batch).map(check => [check.passed, check.attributable]))
+        .toEqual([[true, true], [false, true]]);
+    }
+  });
+
+  it.each(['stdoutPreview', 'stderrPreview'] as const)
+  ('attributes coded Lean diagnostics in %s without changing rejection receipts', channel => {
+    const batch = rejected(request);
+    for (const result of batch.results) {
+      delete result.stdoutPreview;
+      result[channel] = 'Projection.lean:380:8: error(lean.unknownIdentifier): Unknown identifier terminal_unique_of_prod_gt_one';
+    }
+    const before = JSON.stringify(batch), checks = attribute(batch);
+    expect(checks.map(check => [check.passed, check.attributable])).toEqual([[false, true], [false, true]]);
+    expect(checks.every(check => hasDeterministicLeanFailure(check.verification))).toBe(true);
+    expect(JSON.stringify(batch)).toBe(before);
+  });
+
+  it.each(['crashed', 'cleanup', 'timeout', 'unrelated-error', 'warning-only', 'no-location'] as const)
+  ('does not turn %s into a deterministic source failure when coded output is present', kind => {
+    const batch = rejected(request);
+    for (const result of batch.results) {
+      result.stdoutPreview = 'Projection.lean:380:8: error(lean.unknownIdentifier): Unknown identifier missing';
+      if (kind === 'crashed') result.error = 'Lean exited with status 137.';
+      else if (kind === 'cleanup') result.cleanupError = 'Checkout cleanup failed.';
+      else if (kind === 'timeout') result.error = 'Lean verification timed out.';
+      else if (kind === 'unrelated-error') result.error = 'Verifier transport unavailable.';
+      else if (kind === 'warning-only') result.stdoutPreview = 'Projection.lean:380:8: warning(lean.unusedVariables): unused variable';
+      else result.stdoutPreview = 'error(lean.unknownIdentifier): Unknown identifier missing';
+    }
+    expect(hasDeterministicLeanFailure(batch)).toBe(false);
+    const checks = attribute(batch);
+    expect(checks.every(check => !check.passed && !hasDeterministicLeanFailure(check.verification))).toBe(true);
+    if (kind !== 'cleanup' && kind !== 'timeout') expect(checks.every(check => !check.attributable)).toBe(true);
+  });
+
   it('keeps generic failures eligible for an individual fallback', () => {
     const batch = rejected(request);
     for (const result of batch.results) { delete result.stdoutPreview; delete result.error; }
@@ -202,6 +249,17 @@ describe('task proof batch views', () => {
     const proofs = await check();
     expect(proofs.map(proof => proof.passed)).toEqual([false, false]);
     expect(proofs.map(isAttributedTaskProof)).toEqual([true, true]);
+    expect(host.verify).toHaveBeenCalledOnce();
+  });
+
+  it('returns attributable failed task views for coded diagnostics instead of verifier unavailability', async () => {
+    host.verify.mockImplementation(async input => failedBatch(verified(input), {
+      stdoutPreview: () => 'Projection.lean:380:8: error(lean.unknownIdentifier): Unknown identifier terminal_unique_of_prod_gt_one',
+    }));
+    const proofs = await check();
+    expect(proofs.map(proof => proof.passed)).toEqual([false, false]);
+    expect(proofs.map(isAttributedTaskProof)).toEqual([true, true]);
+    expect(proofs.every(proof => hasDeterministicLeanFailure(proof.verification))).toBe(true);
     expect(host.verify).toHaveBeenCalledOnce();
   });
 

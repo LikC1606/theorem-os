@@ -325,7 +325,11 @@ describe('saved Lead plans after request failure', () => {
     const next = CooperativeResearch.prototype.next;
     vi.spyOn(CooperativeResearch.prototype, 'next').mockImplementation(async function(worker, budget) {
       const action = await next.call(this, worker, budget);
-      return action?.kind === 'lead' ? { ...action, recovery: { id: 'fixture-recovery', taskIds: ['goal_1'], goalIds: ['goal_1'] } } : action;
+      // Keep the dispatched object's identity; the host binds its authority to this object.
+      if (action?.kind === 'lead') Object.assign(action, {
+        recovery: { id: 'fixture-recovery', taskIds: ['goal_1'], goalIds: ['goal_1'] },
+      });
+      return action;
     });
     execute = async (_action, options) => {
       const revised = plan(); revised.tasks[0].objective = 'An incomplete recovery proposal';

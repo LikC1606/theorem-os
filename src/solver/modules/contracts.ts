@@ -3,8 +3,9 @@ import { contextTaskConsumers, type TaskConsumerContext } from '../taskConsumers
 
 /** One work product per dispatch; worker slots and mathematical responsibilities are separate. */
 export function cooperativeWorkContract(action: CooperativeAction, tasks: readonly TaskRecord[], context: TaskConsumerContext = {}) {
+  const exploration = action.kind === 'task' ? tasks.find(node => node.task.id === action.task.id)?.capacityExploration : undefined;
   const stage = action.kind === 'task' ? isFeasibilityReview(action.task) ? 'feasibility-review' :
-    isAdvisoryTask(action.task) ? 'investigation' : action.assignment.connectionCheck ? 'consumer-connection' : 'formal-proof' :
+    exploration ? 'capacity-exploration' : isAdvisoryTask(action.task) ? 'investigation' : action.assignment.connectionCheck ? 'consumer-connection' : 'formal-proof' :
     action.kind === 'lead' ? 'route-planning' : action.kind === 'review' ? 'candidate-review' :
       action.kind === 'assemble' ? 'integration' : action.kind;
   const products = {
@@ -12,6 +13,8 @@ export function cooperativeWorkContract(action: CooperativeAction, tasks: readon
       consumer: 'M3-ready-selection-and-M5-assignment', acceptance: 'host-plan-validation', sourcePolicy: 'host-checks-any-source-repair' },
     investigation: { owner: 'researcher', output: 'advisory-finding-retained-code-and-exact-lemma-proposals',
       consumer: 'lead-handoff-decision', acceptance: 'advisory-only', sourcePolicy: 'read-only' },
+    'capacity-exploration': { owner: 'idle-proof-or-research-worker', output: 'distinct-frontier-finding-retained-lean-probe-and-exact-interface',
+      consumer: 'target-owner-and-lead-handoff-decision', acceptance: 'advisory-only', sourcePolicy: 'read-only' },
     'feasibility-review': { owner: 'independent-researcher', output: 'core-inference-risk-and-discriminating-evidence',
       consumer: 'lead-route-decision', acceptance: 'advisory-only', sourcePolicy: 'read-only' },
     'formal-proof': { owner: 'proof-worker', output: 'saved-exact-typed-declaration',
@@ -34,8 +37,10 @@ export function cooperativeWorkContract(action: CooperativeAction, tasks: readon
         purpose: 'check-consumer-sufficiency-with-fixed-inputs', acceptance: 'conditional-only-until-inputs-checked' } : {}) } : { seedCommit: action.seedCommit },
     ...(action.kind === 'lead' ? { handoffIds: action.handoffIds ?? [],
       handoffActivations: action.handoffActivations ?? {}, challengeIds: action.challengeIds ?? [],
-      challengeActivations: action.challengeActivations ?? {} } : {}),
+      challengeActivations: action.challengeActivations ?? {},
+      ...(action.capacityRefill ? { capacityRefill: action.capacityRefill } : {}) } : {}),
     ...(action.kind === 'task' ? { plannedConsumers: contextTaskConsumers(action.task, tasks, context)
       .map(consumer => consumer.task.id) } : {}),
+    ...(exploration ? { capacityExploration: exploration } : {}),
   };
 }

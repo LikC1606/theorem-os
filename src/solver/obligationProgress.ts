@@ -54,6 +54,11 @@ const typed = (node: TaskRecord) => node.task.kind === 'lemma' || node.task.kind
 export function captureObligationSnapshot(tasks: readonly TaskRecord[], options: {
   groups?: readonly RouteRecord[]; environmentDigest?: string; blockers?: readonly RouteBlocker[]; proofRoutes?: readonly ProofRoute[];
 } = {}): ObligationSnapshot {
+  // Host capacity work is advisory scheduling, never a proposed or closed proof obligation.
+  const capacityIds = new Set(tasks.filter(node => node.capacityExploration).map(node => node.task.id));
+  tasks = tasks.filter(node => !capacityIds.has(node.task.id));
+  if (capacityIds.size) options = { ...options,
+    blockers: options.blockers?.filter(blocker => !capacityIds.has(blocker.taskId)) };
   const nodes = new Map(tasks.map(node => [node.task.id, node]));
   const versions = new Map(tasks.map(node => [node.task.id, taskVersion(node.task)]));
   const recorded = routeEvidence(tasks, options.environmentDigest);

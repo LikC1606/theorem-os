@@ -13,7 +13,7 @@ services:
       THEOREMOS_WEB_PUBLIC_URL: ${THEOREMOS_WEB_PUBLIC_URL:-http://127.0.0.1:8787}
       THEOREMOS_WEB_WORKER_IMAGE: theorem-os-worker:local
       THEOREMOS_WEB_CONCURRENCY: ${THEOREMOS_WEB_CONCURRENCY:-1}
-      THEOREMOS_WEB_PROVIDERS: ${THEOREMOS_WEB_PROVIDERS:-[{"id":"openai","name":"OpenAI","baseUrl":"https://api.openai.com/v1"}]}
+      THEOREMOS_WEB_PROVIDERS: "${THEOREMOS_WEB_PROVIDERS:-}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped

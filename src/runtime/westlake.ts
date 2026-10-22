@@ -4,7 +4,7 @@ import { createProviderProfile } from './providerProfile';
 export const WESTLAKE_PROVIDER = {
   id: 'westlake', baseUrl: 'https://hpc-api.westlake.edu.cn/v1', wireApi: 'chat-completions',
   transport: 'session-local-responses-bridge', apiKeyEnvironment: 'WESTLAKEHPC_API_KEY',
-  defaultModel: 'deepseek-flash', defaultEffort: 'high',
+  defaultModel: 'deepseek-flash', defaultEffort: 'max',
 } as const;
 
 export function validateWestlakeModel(model: string, effort: string): void {

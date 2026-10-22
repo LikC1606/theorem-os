@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { canonicalMathJson, readMathText, withMathRuntimeLease } from '../math/mathRuntimeIo';
 import { parseCooperationPlan } from './tasks';
 import { readRunInspection } from './inspection';
+import { researchWorkerCanNode } from './modules/organization';
 
 /** Queue an edit through the existing host protocol; never write the checkpoint. */
 export async function queueRunEdit(run: string, proposal: unknown, dryRun = false) {
@@ -19,8 +20,13 @@ export async function queueRunEdit(run: string, proposal: unknown, dryRun = fals
     if (!state.cooperation?.planVersion) throw new Error('math_edit_plan_unavailable');
     const plan = parseCooperationPlan(state.problem, value);
     const workers = state.workers ?? [];
-    for (const task of plan.tasks) if (task.ownerId && !workers.some(worker => worker.id === task.ownerId &&
-      worker.role === (task.kind === 'goal' ? 'engineer' : 'researcher'))) throw new Error('math_plan_task_owner_unavailable');
+    for (const task of plan.tasks) if (task.ownerId) {
+      const previous = state.cooperation.tasks.find(node => node.task.id === task.id);
+      const ownershipTask = previous?.capacityExploration ? { ...task, status: 'active' as const } : task;
+      if (!workers.some(worker => worker.id === task.ownerId && researchWorkerCanNode(worker,
+        { ...(previous ?? { status: 'pending', attempts: 0 }), task: ownershipTask })))
+        throw new Error('math_plan_task_owner_unavailable');
+    }
     for (const group of plan.groups) if (group.engineerId && !workers.some(worker => worker.id === group.engineerId && worker.role === 'engineer'))
       throw new Error('math_plan_group_engineer_unavailable');
     const edit = { id, baseVersion: value.baseVersion, ...plan };

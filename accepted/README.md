@@ -1,6 +1,6 @@
 # Accepted LeanEval proofs
 
-Six proof packages with passing results from the official LeanEval evaluation. Open a title to inspect the source package, or the result link to read the official response.
+This directory contains six proof packages with passing results from the official LeanEval evaluation. Four more officially accepted proofs remain in the original [submitted archive](../submitted/); the repository now documents ten official passes in total. Open a title to inspect the source package, or the result link to read the official response.
 
 | Proof | Area | System / model | Official acceptance |
 | --- | --- | --- | --- |
@@ -17,4 +17,4 @@ Official acceptance is identified by the linked LeanEval response. A local `veri
 
 [accepted.json](accepted.json) records the statement revisions, original source commits, model attribution, official acceptance responses, and SHA-256 checksums. All files inside each problem directory are preserved byte for byte from the archived submission package.
 
-Four further proofs have passed the local official comparator and are archived in [submitted](../submitted/) while hosted official evaluation is pending. They are excluded from the six official acceptances above. Historical research snapshots are preserved in [in-progress](../in-progress/).
+The four proofs in [submitted](../submitted/) received a 4/4 pass in [LeanEval submission #2144](https://github.com/leanprover/lean-eval-submissions/issues/2144) on October 16, 2026. Their directory and local-verification manifest preserve the submission-time archive; neither implies that official evaluation is still pending. Historical research snapshots are preserved in [in-progress](../in-progress/).

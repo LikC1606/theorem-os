@@ -45,10 +45,9 @@ bun run math inspect --run "$THEOREMOS_REPLAY/result.json"
 
 ## 再让 Agent 自己证明
 
-使用另一个新目录，并选择已认证的 Codex profile：
+使用另一个新目录。CLI 默认使用本机已配置的 Sub2API DeepSeek profile；需要其他配置时设置 `CODEX_HOME`：
 
 ```bash
-export CODEX_HOME="/absolute/path/to/your/codex-profile"
 export THEOREMOS_CASE="$PWD/../theorem-os-runs/first-model-run"
 
 bun run math doctor
@@ -59,7 +58,7 @@ bun run math example resume --dir "$THEOREMOS_CASE"
 ```
 
 `prepare` 和 `check` 不调用模型；`resume` 会调用模型并产生相应费用。
-默认使用单 Agent、`gpt-6.1-sol`、`xhigh`，最多 5 次调度和 5 分钟解题时间。
+默认使用单 Agent、`deepseek-flash`、`max`，最多 5 次调度和 5 分钟解题时间。
 需要其他模型时，在 `prepare` 中传入 `--model`、`--effort` 或 `--codex`，后续命令会使用保存的配置。
 中断后保留原构建、环境和配置，重复 `resume` 命令继续。
 

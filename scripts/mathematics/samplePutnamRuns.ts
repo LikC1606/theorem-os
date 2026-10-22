@@ -39,7 +39,7 @@ export async function samplePutnamRuns(argv: string[]): Promise<number> {
   if (flags.has('help')) {
     console.log('Usage: theorem-os sample-putnam --phase prepare|report|check-report --directory DIR\n'
       + 'prepare requires --repo PUTNAM_REPO --build-manifest FILE; defaults to 3 proof-only problems, a fixed sampling seed, '
-      + 'Westlake deepseek-flash/high and the four module plans.\n'
+      + 'sub2api deepseek-flash/max and the four module plans.\n'
       + '--count 1..20 --seed TEXT customize the reproducible sample. Budgets apply per problem and variant.\n'
       + '--knowledge-base FILE [--knowledge-mode transfer|recovery] freezes one shared catalog; transfer rejects recorded target material.\n'
       + 'All phases are offline and never call a model. check-report reads report freshness without writing files. Individual comparison.json files retain the explicit run entry.');
@@ -64,7 +64,7 @@ export async function samplePutnamRuns(argv: string[]): Promise<number> {
     const manifest = fs.realpathSync(required(flags, 'build-manifest'));
     const moduleFile = path.resolve(flags.get('module-experiment') ?? path.join(root, 'examples/components/module-experiment.json'));
     const taskFile = path.join(root, 'examples/putnambench/experiment-task.md');
-    const defaults: Record<string, string> = { provider: 'westlake', workers: '4', repetitions: '1',
+    const defaults: Record<string, string> = { provider: 'sub2api', workers: '4', repetitions: '1',
       'max-turns': '20', 'max-run-seconds': '600', 'max-turn-seconds': '180', 'max-total-tokens': '30000' };
     const forwarded = ['provider', 'model', 'effort', 'workers', 'repetitions', 'max-turns', 'max-run-seconds',
       'max-turn-seconds', 'max-total-tokens', 'evaluator-timeout-seconds', 'proof-environment-cache-dir'].flatMap(key => {

@@ -20,7 +20,9 @@ docker compose -f apps/web/compose.yml ps
 
 输入区上方会提示当前缺少的提交配置，点击提示可直接前往对应字段。首次进入时需要填写 API Key；所有字段满足本地格式检查后显示“提交配置已填写”，Key 与模型的可用性在实际提交时确认。空白任务、模型或密钥格式错误、超出字节大小和执行预算限制会在字段旁提示，修正后清除；这些本地检查不会创建任务或调用服务商。
 
-默认模型沿用运行时的 `gpt-6.1-sol`，请使用所选服务商实际提供的模型。默认推理强度为 `xhigh`，服务商及模型也需支持对应参数。
+网页默认使用宿主机已部署的 Sub2API 网关、`deepseek-flash` 模型和 `max` 推理强度，API Key 填写该网关的访问密钥。OpenAI 保留为可选服务商；切换服务商后，请填写该服务商实际提供的模型，并选择其支持的推理强度。已保存的草稿保留原配置，可在研究配置中手动调整。
+
+默认网关地址为 `http://host.docker.internal:8080/v1`。worker 启动时通过 Docker `host-gateway` 映射访问宿主机，因此网关的 8080 端口需要对 Docker bridge 可达。CLI 使用的 `http://127.0.0.1:8080/v1` 指向同一网关；在 worker 容器里，`127.0.0.1` 指向容器自身。每次 Sub2API 运行都会生成独立的 DeepSeek 模型配置，固定 131,072 Token 上下文并支持 `max` 推理强度。
 
 ### 配置研究模块
 
@@ -57,21 +59,21 @@ docker compose -f apps/web/compose.yml down
 
 ## 配置兼容 Responses API 的服务
 
-服务商由部署者配置，网页访客从列表选择。每个地址必须是可信的 HTTPS API 根地址，通常以 `/v1` 结尾，不能包含凭据、查询串或片段。工作台使用 Codex 的自定义模型服务配置 `wire_api = "responses"`、`env_key` 与 Bearer API Key；仅兼容 Chat Completions 的服务暂不支持。
+服务商由部署者配置，网页访客从列表选择。地址使用 HTTPS；宿主机网关可使用 `http://host.docker.internal:端口/v1`。地址不能包含凭据、查询串或片段。工作台使用 Codex 的自定义模型服务配置 `wire_api = "responses"`、`env_key` 与 Bearer API Key；Sub2API 需启用 Responses API 兼容端点，仅兼容 Chat Completions 的服务暂不支持。
 
 启动前在 shell 设置以下环境变量，再运行 Compose：
 
 ```bash
-export THEOREMOS_WEB_PROVIDERS='[{"id":"openai","name":"OpenAI","baseUrl":"https://api.openai.com/v1"},{"id":"compatible","name":"兼容服务","baseUrl":"https://api.example.com/v1"}]'
+export THEOREMOS_WEB_PROVIDERS='[{"id":"sub2api","name":"Sub2API · DeepSeek","baseUrl":"http://host.docker.internal:8080/v1"},{"id":"openai","name":"OpenAI","baseUrl":"https://api.openai.com/v1"}]'
 docker compose -f apps/web/compose.yml up -d web
 ```
 
-上例的第二个地址需要替换。这里仅配置服务地址；用户的 API Key 在网页中逐次输入。
+上例与默认服务商列表一致；网关使用其他端口或 HTTPS 域名时，修改第一个地址。这里仅配置服务地址；用户的 API Key 在网页中逐次输入。
 
 | 环境变量 | 默认值 | 用途 |
 | --- | --- | --- |
 | `THEOREMOS_WEB_PUBLIC_URL` | `http://127.0.0.1:8787` | 浏览器实际访问的 origin，不带子路径 |
-| `THEOREMOS_WEB_PROVIDERS` | OpenAI `/v1` | 可选服务商 JSON 数组 |
+| `THEOREMOS_WEB_PROVIDERS` | Sub2API 宿主机 `:8080/v1`、OpenAI `/v1` | 可选服务商 JSON 数组；留空使用默认列表 |
 | `THEOREMOS_WEB_CONCURRENCY` | `1` | 同时运行任务数，1–8 |
 | `THEOREMOS_WEB_QUEUE_LIMIT` | `8` | 排队与运行中的任务总数，1–32；直接启动时可配置 |
 | `THEOREMOS_WEB_WORKER_IMAGE` | `theorem-os-worker:local` | 运行镜像；Compose 使用固定本地标签 |

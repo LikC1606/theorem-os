@@ -13,7 +13,7 @@ import { knowledgeUseSchema } from './knowledgeUsage';
 import { z } from 'zod';
 
 export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | 'previousThreadIds' |
-  'lastInputTokens' | 'lastActivity' | 'lastFailure' | 'recovery' | 'contextOverflow' | 'lastContextManifest' | 'phase' | 'turns' | 'dispatchCounts' | 'usage' | 'usageBeforeThread' | 'usageAccounting' | 'requestUsageAccounting' | 'check' | 'candidate' | 'failures' | 'error'> & {
+  'lastInputTokens' | 'lastActivity' | 'lastFailure' | 'recovery' | 'contextOverflow' | 'contextCheckpoint' | 'contextCheckpointBaseline' | 'advisoryCheckpoint' | 'lastContextManifest' | 'phase' | 'turns' | 'dispatchCounts' | 'usage' | 'usageBeforeThread' | 'usageAccounting' | 'requestUsageAccounting' | 'check' | 'candidate' | 'failures' | 'error'> & {
   id: string;
   role: ResearchRole;
   sessionRole?: ResearchRole;
@@ -22,6 +22,8 @@ export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | '
   sessionTaskVersion?: string;
   sessionAssignmentId?: string;
   sessionStatementReview?: boolean;
+  scheduling?: { status: 'working' | 'preparing' | 'stopping' | 'idle' | 'stopped'; since: number;
+    action?: string; taskId?: string };
 };
 
 export type ResearchRecovery = {
@@ -58,6 +60,11 @@ export type SolverRunState = {
   lastFailure?: { at: number; reason: string; taskId?: string };
   recovery?: ResearchRecovery;
   contextOverflow?: { maxOptionalContextBytes: number; failedFreshContextDigests: string[] };
+  /** A checkpoint request is scheduling evidence only; it never grants proof acceptance. */
+  contextCheckpoint?: { threadId: string; requestedAt: number; notesDigest?: string; deferredAt?: number };
+  contextCheckpointBaseline?: { threadId: string; notesDigest?: string };
+  /** Scheduling protection for one mathematical responsibility, independent of dispatch nonces. */
+  advisoryCheckpoint?: { scope: string; noProgressStreak: number; contentDigest?: string };
   lastContextManifest?: ContextManifest;
   phase: 'prepared' | 'running' | 'checking' | 'evaluating' | 'finished';
   turns: number;
@@ -84,6 +91,9 @@ const phase = z.enum(['prepared', 'running', 'checking', 'evaluating', 'finished
 const count = z.number().int().nonnegative();
 const record = z.record(z.unknown());
 const safeCount = count.max(Number.MAX_SAFE_INTEGER);
+const planPublication = z.object({ nonce: z.string().min(1), file: z.string().regex(/^DELIVERIES-[a-f0-9]{64}\.jsonl$/u),
+  offset: safeCount, eventDigest: z.string().regex(/^[a-f0-9]{64}$/u), baseVersion: z.string(), planVersion: z.string(),
+  acceptedAt: safeCount, finalized: z.boolean().optional() });
 const knowledgeDiagnostic = z.object({ authority: z.literal('advisory-lean-process'), sourceDigest: z.string(), environmentDigest: z.string(),
   toolIdentity: z.string(), artifact: z.object({ path: z.string(), digest: z.string() }), file: z.string(),
   line: z.number().int().positive(), column: safeCount });
@@ -135,18 +145,30 @@ const research = z.object({ worktree: z.string().min(1), phase, turns: count, th
     recoveredAt: safeCount.optional() }).optional(),
   contextOverflow: z.object({ maxOptionalContextBytes: safeCount,
     failedFreshContextDigests: z.array(z.string().regex(/^[a-f0-9]{64}$/u)) }).optional(),
+  contextCheckpoint: z.object({ threadId: z.string().min(1), requestedAt: safeCount, deferredAt: safeCount.optional(),
+    notesDigest: z.string().regex(/^[a-f0-9]{64}$/u).optional() }).optional(),
+  contextCheckpointBaseline: z.object({ threadId: z.string().min(1),
+    notesDigest: z.string().regex(/^[a-f0-9]{64}$/u).optional() }).optional(),
+  advisoryCheckpoint: z.object({ scope: z.string().regex(/^[a-f0-9]{64}$/u), noProgressStreak: safeCount,
+    contentDigest: z.string().regex(/^[a-f0-9]{64}$/u).optional() }).optional(),
   usage: record.optional(), usageBeforeThread: record.optional(), usageAccounting: usageAccounting.optional(),
   requestUsageAccounting: requestUsageAccounting.optional(),
   tokenBudget: tokenBudget.optional(), candidate: record.optional(),
   failures: z.array(record).optional(), error: z.string().optional() }).passthrough();
-const role = z.enum(['lead', 'researcher', 'engineer', 'reviewer']);
+const role = z.enum(['lead', 'researcher', 'prover', 'engineer', 'reviewer']);
 const task = z.object({ id: z.string().min(1), kind: z.enum(['research', 'sketch', 'lemma', 'goal']),
   objective: z.string(), dependsOn: z.array(z.string()), revision: count }).passthrough();
 const connectionCheck = z.object({ schema: z.literal('theorem-os.consumer-connection.v1'), consumer: taskReference,
   inputs: z.array(taskReference).min(1), seedCommit: z.string().min(1), dependenciesDigest: z.string().min(1),
+  assumedInputs: z.array(taskReference).optional(), workerId: z.string().min(1).optional(), assignmentId: z.string().optional(),
   routeId: z.string().optional(), routesDigest: z.string().min(1), problemReceiptDigest: z.string().min(1),
   environmentDigest: z.string().min(1), basisDigest: z.string().min(1) }).strict();
 const taskRecord = z.object({ task, status: z.enum(['pending', 'running', 'blocked', 'conditional', 'delivered', 'integrated', 'completed']),
+  capacityExploration: z.object({ schema: z.literal('theorem-os.capacity-exploration.v1'),
+    targetTaskId: z.string(), targetTaskDigest: z.string().regex(/^[a-f0-9]{64}$/u),
+    inputDigest: z.string().regex(/^[a-f0-9]{64}$/u), focus: z.enum(['construction', 'interface', 'decomposition', 'boundary']),
+    workerId: z.string(), taskDigest: z.string().regex(/^[a-f0-9]{64}$/u),
+    environmentDigest: z.string(), problemReceiptDigest: z.string() }).strict().optional(),
   typePreflight: z.object({ status: z.enum(['elaborated', 'invalid', 'deferred', 'unavailable']), inputDigest: z.string(),
     reason: z.string(), taskDigest: z.string(), context: z.string().optional(), type: z.string().optional(),
     artifact: z.object({ path: z.string(), digest: z.string() }).optional(),
@@ -228,16 +250,24 @@ const runState = research.extend({ schema: z.literal('deepscientist.math.solver.
   knowledgeUses: z.array(knowledgeUse.extend({ workerId: z.string(), commit: z.string() })).optional(),
   coordination: z.enum(['cooperative', 'independent']).optional(),
   workers: z.array(research.extend({ id: z.string(), role, sessionRole: role.optional(),
-    sessionAssignmentId: z.string().optional() })).optional(),
+    sessionAssignmentId: z.string().optional(),
+    scheduling: z.object({ status: z.enum(['working', 'preparing', 'stopping', 'idle', 'stopped']), since: safeCount,
+      action: z.string().optional(), taskId: z.string().optional() }).optional() })).optional(),
   cooperation: z.object({ tasks: z.array(taskRecord), groups: z.array(z.object({ group: z.object({ id: z.string(),
     status: z.enum(['active', 'paused', 'stopped']), revision: count }).passthrough(), turns: count }).passthrough()).optional(),
     history: z.array(z.object({ task, proof: check.optional(), integratedCheck: check.optional() }).passthrough()).optional(),
     deliveries: z.array(record).optional(), blockers: z.array(routeBlocker).optional(),
     researchDecisions: z.array(handoffDecision).optional(),
     challengeDecisions: z.array(challengeDecision).optional(),
-    initialPlanPublication: z.object({ nonce: z.string().min(1), file: z.string().regex(/^DELIVERIES-[a-f0-9]{64}\.jsonl$/u),
-      offset: safeCount, eventDigest: z.string().regex(/^[a-f0-9]{64}$/u), baseVersion: z.string(), planVersion: z.string(),
-      acceptedAt: safeCount, finalized: z.boolean().optional() }).optional(),
+    initialPlanPublication: planPublication.optional(), planPublication: planPublication.optional(),
+    lastCapacityRefill: z.object({ inputDigest: z.string().regex(/^[a-f0-9]{64}$/u), workerIds: z.array(z.string()),
+      requestedAt: safeCount, status: z.enum(['requested', 'assessed']) }).optional(),
+    lastStagnationRecovery: z.object({ inputDigest: z.string().regex(/^[a-f0-9]{64}$/u),
+      taskIds: z.array(z.string()), workerIds: z.array(z.string()), requestedAt: safeCount,
+      status: z.enum(['requested', 'assessed']),
+      reason: z.enum(['advisory-no-durable-progress', 'frontier-not-decomposed']) }).optional(),
+    capacityExplorationInputs: z.array(z.object({ inputDigest: z.string().regex(/^[a-f0-9]{64}$/u),
+      focus: z.enum(['construction', 'interface', 'decomposition', 'boundary']), targetTaskId: z.string(), taskId: z.string() }).strict()).optional(),
     leadSeedCommit: z.string().regex(/^[a-f0-9]{40,64}$/u).optional(),
     researchDrafts: z.record(z.object({ taskDigest: z.string(), workerId: z.string(), assignmentId: z.string().optional(),
       seedCommit: z.string().regex(/^[a-f0-9]{40,64}$/u), canonicalCommit: z.string().regex(/^[a-f0-9]{40,64}$/u).optional(),

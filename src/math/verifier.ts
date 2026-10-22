@@ -936,7 +936,11 @@ export function formalVerificationToolIdentity(projectRoot: string, env: NodeJS.
 // files, and `import Mathlib` maps ~5.1 GiB of .olean/.olean.private data, so
 // 8 GiB made Lean fail with "failed to read file '...olean.private'" (run 23
 // attempt 10); a 450-line Q6 proof peaks at ~10.4 GiB virtual.
-const LEAN_SANDBOX_ADDRESS_SPACE_KB = 16 * 1024 * 1024;
+const LEAN_SANDBOX_ADDRESS_SPACE_KB = 32 * 1024 * 1024;
+// Lake schedules one build process per core by default. On a 128-core host the
+// old 256-process cap made Lean's pthread_create fail with EAGAIN while
+// building Mathlib dependencies; 4096 keeps a bounded fork-bomb guard.
+const LEAN_SANDBOX_PROCESS_LIMIT = 4096;
 
 // Local verification may use an explicitly supplied test/toolchain wrapper
 // (for example a Node-based Lean harness).  Keep the same sandbox boundary but
@@ -956,7 +960,7 @@ overrides=$1
 shift
 mount --make-rprivate /
 ulimit -v ${LEAN_SANDBOX_ADDRESS_SPACE_KB} 2>/dev/null || true
-ulimit -u 256 2>/dev/null || true
+ulimit -u ${LEAN_SANDBOX_PROCESS_LIMIT} 2>/dev/null || true
 ulimit -n 4096 2>/dev/null || true
 mount --bind /usr "$root/usr"
 mount -o remount,bind,ro "$root/usr"
@@ -997,7 +1001,7 @@ else
 fi
 if [ -z "$toolchain_bin" ]; then toolchain_bin=/toolchains/elan/bin; fi
 exec chroot "$root" /usr/bin/env -i \
-  PATH=/runtime/node/bin:$toolchain_bin:/usr/local/bin:/usr/bin:/bin \
+  PATH=/runtime/node:/runtime/node/bin:$toolchain_bin:/usr/local/bin:/usr/bin:/bin \
   HOME=/tmp TMPDIR=/tmp LANG=C.UTF-8 ELAN_HOME=/toolchains/elan LEAN_NUM_THREADS=1 LEAN_STACK_SIZE_KB=8192 \
   DEEPSCIENTIST_TEST_LEAN_COUNTER="$counter" \
   DEEPSCIENTIST_TEST_LEAN_AXIOMS="$axioms" \
@@ -1094,7 +1098,7 @@ const bwrapProjectPath = (projectRelative: string): string =>
 /** Sandbox variables in argument order; the test hooks are kept even when empty unless `omitEmptyTestHooks`. */
 const sandboxVariables = (input: { runtimeRoot: string; toolchainBin: string; testCounter: string; testAxioms: string },
   omitEmptyTestHooks = false): [string, string][] => [
-  ['PATH', `${input.runtimeRoot ? '/runtime/node/bin:' : ''}${input.toolchainBin ? `${input.toolchainBin}:` : ''}/usr/local/bin:/usr/bin:/bin`],
+  ['PATH', `${input.runtimeRoot ? '/runtime/node:/runtime/node/bin:' : ''}${input.toolchainBin ? `${input.toolchainBin}:` : ''}/usr/local/bin:/usr/bin:/bin`],
   ['HOME', '/tmp'], ['TMPDIR', '/tmp'], ['LANG', 'C.UTF-8'], ['ELAN_HOME', '/toolchains/elan'],
   ['LEAN_NUM_THREADS', '1'], ['LEAN_STACK_SIZE_KB', '8192'],
   ...([['DEEPSCIENTIST_TEST_LEAN_COUNTER', input.testCounter], ['DEEPSCIENTIST_TEST_LEAN_AXIOMS', input.testAxioms]] as [string, string][])
@@ -1135,7 +1139,7 @@ const buildBwrapArguments = (input: {
   if (input.runtimeRoot) args.push('--ro-bind', input.runtimeRoot, '/runtime/node');
   args.push('--chdir', projectPath, ...sandboxVariables(input).flatMap(([name, value]) => ['--setenv', name, value]),
     '--', '/bin/sh', '-ceu',
-    `ulimit -v ${LEAN_SANDBOX_ADDRESS_SPACE_KB} 2>/dev/null || true; ulimit -u 256 2>/dev/null || true; ulimit -n 4096 2>/dev/null || true; exec "$@"`,
+    `ulimit -v ${LEAN_SANDBOX_ADDRESS_SPACE_KB} 2>/dev/null || true; ulimit -u ${LEAN_SANDBOX_PROCESS_LIMIT} 2>/dev/null || true; ulimit -n 4096 2>/dev/null || true; exec "$@"`,
     '--', input.command, ...input.commandArgs);
   return args;
 };
@@ -1328,8 +1332,9 @@ const runLeanSandboxed = async (input: {
 if [ "$#" = 1 ] && [ "$1" = --print-prefix ]; then printf '%s\\n' ${prefix}; exit 0; fi
 exec /runtime/pinned-lean/bin/lean "$@" -j1
 `,
-        { mode: 0o500 }
+        { mode: 0o555 }
       );
+      fs.chmodSync(leanLauncherPath, 0o555);
     }
     const sessionContainerIdFile = input.onDuplexSpawn ? path.join(temporaryRoot, 'session.cid') : undefined;
     let sessionContainerExecutable: string | undefined;
@@ -1437,7 +1442,12 @@ exec /runtime/pinned-lean/bin/lean "$@" -j1
           : backend.kind === 'bwrap'
             ? buildBwrapArguments({
                 ...mounts, candidateRoot: input.checkoutRoot, lakePackagesMountPath: input.lakePackagesMountPath,
-                lakePackagesFd: sealedRootFd === undefined ? undefined : 3, leanLauncherPath,
+                lakePackagesFd: sealedRootFd === undefined ? undefined : 3,
+                // The shell launcher is only reliable inside the sealed proof
+                // image; the unsealed official `lake test` build cannot exec a
+                // bind-mounted script for its final Challenge job. The real
+                // pinned toolchain binary is used there instead.
+                leanLauncherPath: sealedRootFd === undefined ? undefined : leanLauncherPath,
               })
             : buildContainerArguments({
                 ...mounts, checkoutRoot: input.checkoutRoot,

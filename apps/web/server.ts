@@ -13,7 +13,7 @@ import { researchModulePlanSchema } from '../../src/solver/modules/policy';
 const inputSchema = z.object({
   providerId: z.string().min(1).max(40), apiKey: z.string().min(8).max(4096).regex(/^[\x21-\x7e]+$/),
   model: z.string().trim().min(1).max(128).regex(/^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/),
-  effort: z.enum(['low', 'medium', 'high', 'xhigh']),
+  effort: z.enum(['low', 'medium', 'high', 'xhigh', 'max']),
   environment: z.enum(['standard', 'mathlib']).default('standard'),
   source: z.string().trim().min(1).refine(value => Buffer.byteLength(value) <= webLimits.maxSourceBytes),
   task: z.string().trim().min(1).refine(value => Buffer.byteLength(value) <= webLimits.maxTaskBytes),

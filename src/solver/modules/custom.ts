@@ -1,12 +1,13 @@
 import { canonicalMathJson, mathDigest } from '../../math/mathRuntimeIo';
 import { configuredSolverModules, directSolverModules, type SolverModules } from './index';
 import { researchModulePlanSchema, type ResearchModulePlan, type ResearchModuleSlot } from './policy';
+import { MAX_RESEARCH_WORKERS } from './organization';
 
 export function configurableSolverModules(plan?: ResearchModulePlan,
   coordination: 'cooperative' | 'independent' = 'cooperative', workers = 4): SolverModules {
   if (plan === undefined) return directSolverModules;
   if (!['cooperative', 'independent'].includes(coordination)) throw new Error('math_module_invalid_coordination');
-  if (!Number.isSafeInteger(workers) || workers < 1 || workers > 4) throw new Error('math_module_invalid_workers');
+  if (!Number.isSafeInteger(workers) || workers < 1 || workers > MAX_RESEARCH_WORKERS) throw new Error('math_module_invalid_workers');
   const configuration = researchModulePlanSchema.parse(plan) as ResearchModulePlan;
   const base = configuredSolverModules('direct', configuration.scheduler);
   const rules = configuration.custom.filter(module => module.enabled &&

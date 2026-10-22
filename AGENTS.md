@@ -6,6 +6,6 @@ Keep the CLI and mathematics proof behavior independent of the original DeepScie
 
 Preserve frozen problem/source identities, isolated solver worktrees, Lean receipts, independent evaluation, and resumable runs. A model's completed message is never proof acceptance.
 
-New runs use `gpt-6.1-sol` with `xhigh` reasoning and the isolated existing `my_codex` profile unless the user chooses otherwise. Do not copy credentials, alter global Codex configuration, or call real models merely to validate a local extraction.
+New runs use `deepseek-flash` with `max` reasoning through the local sub2api gateway (`http://127.0.0.1:8080/v1`) and the profile at `~/.config/deepscientist/math-sol-codex`. This local profile uses an auth command to read the existing Sub2API Westlake pool key; generated per-attempt Sub2API profiles require `SUB2API_WESTLAKE_API_KEY`. The previous direct Westlake profile is preserved as `~/.config/deepscientist/math-sol-codex-westlake`, and the `my_codex` / `gpt-6.1-sol` profile as `~/.config/deepscientist/math-sol-codex-my_codex`, for resuming older runs via `CODEX_HOME`. Do not copy credentials, alter global Codex configuration, or call real models merely to validate a local extraction.
 
 Make the smallest requested change. Run focused tests and the headless bundle build when modifying runtime boundaries. Do not commit, publish, or modify the original checkout without an explicit request.

@@ -87,9 +87,12 @@ bun bin/math.ts knowledge build \
   --output /PATH/knowledge/enriched-catalog.json
 ```
 
-Use `--submitted-manifest` and `--submitted-enrichment` for locally verified
-archives whose official result remains pending. An enrichment snapshot may cover
-one problem in a larger manifest. Other problems and missing roots retain unknown
+Use `--submitted-manifest` and `--submitted-enrichment` for the archived local
+verification records. The four proofs in that submission received an official
+4/4 pass in [LeanEval submission #2144](https://github.com/leanprover/lean-eval-submissions/issues/2144)
+on October 16, 2026; the manifest preserves their earlier pending status.
+An enrichment snapshot may cover one problem in a larger manifest.
+Other problems and missing roots retain unknown
 coverage. Enrichment has no time limit and responds to cancellation. It does not
 install toolchains, replace unavailable versions, invoke a model or run a solver.
 External package dependencies require the existing frozen proof environment;

@@ -5,9 +5,11 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { parse as parseToml } from 'smol-toml';
 import { mathProofEnvironmentWorkerEnvironment } from '../math/mathProofEnvironment';
+import { assertMathCanonicalPath } from '../math/paths';
 import { startChatCompletionsBridge } from './chatCompletionsBridge';
 import { DEEPSEEK_PROVIDER } from './deepseek';
 import { WESTLAKE_PROVIDER, validateWestlakeModel } from './westlake';
+import { SUB2API_PROVIDER } from './sub2api';
 import type { ModelRequestGate } from './modelRequest';
 
 type Json = Record<string, unknown>;
@@ -73,6 +75,15 @@ export type MathAgentSession = {
   interrupt: () => Promise<void>;
   close: () => Promise<void>;
 };
+
+/** The host removes scratch between deliveries; never follow a worker-created link while recreating it. */
+function prepareWorkerTemporaryDirectory(workspace: string): string {
+  const temporaryDirectory = path.join(workspace, '.scratch', 'tmp');
+  assertMathCanonicalPath(temporaryDirectory);
+  fs.mkdirSync(temporaryDirectory, { recursive: true, mode: 0o700 });
+  assertMathCanonicalPath(temporaryDirectory);
+  return temporaryDirectory;
+}
 
 /** One persistent Codex app-server; all protocol traffic stays on stdio. */
 class CodexRpc {
@@ -183,7 +194,11 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
   const workerEnvironment = options.proofProjectRoot
     ? mathProofEnvironmentWorkerEnvironment(options.proofProjectRoot, options.environment ?? process.env)
     : options.environment;
+  const temporaryDirectory = options.proofProjectRoot ? prepareWorkerTemporaryDirectory(options.workspace) : undefined;
   const policy = profileConfig.shell_environment_policy ? object(profileConfig.shell_environment_policy) : {};
+  const shellTemporaryPolicy = temporaryDirectory ? {
+    'shell_environment_policy.set': { ...(policy.set ? object(policy.set) : {}), TMPDIR: temporaryDirectory },
+  } : {};
   const filters = policy.filters;
   const exclude = Array.isArray(policy.exclude) ? policy.exclude.filter((value): value is string => typeof value === 'string') : [];
   const shellCredentialPolicy = !envKey ? {} : filters && typeof filters === 'object'
@@ -191,6 +206,7 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
     : { 'shell_environment_policy.exclude': [...new Set([...exclude, envKey])] };
   // Credentials enter only the provider process, after preparing solver-visible environments.
   let environment = envKey ? { ...(workerEnvironment ?? process.env), [envKey]: apiKey } : workerEnvironment;
+  if (temporaryDirectory) environment = { ...(environment ?? process.env), TMPDIR: temporaryDirectory };
   let bridge: Awaited<ReturnType<typeof startChatCompletionsBridge>> | undefined;
   let nativeProfile = options.profile;
   if (providerId === WESTLAKE_PROVIDER.id) {
@@ -198,7 +214,8 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
       throw new Error('math_westlake_profile_invalid');
     validateWestlakeModel(options.model, options.effort);
   }
-  if (providerId === DEEPSEEK_PROVIDER.id || providerId === WESTLAKE_PROVIDER.id) {
+  if (providerId === DEEPSEEK_PROVIDER.id || providerId === WESTLAKE_PROVIDER.id ||
+      providerId === SUB2API_PROVIDER.id) {
     // Codex persists project trust in config.toml; keep those writes outside the frozen profile.
     nativeProfile = path.join(options.profile, 'runtime');
     fs.mkdirSync(nativeProfile, { recursive: true, mode: 0o700 });
@@ -312,6 +329,7 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
         model_reasoning_effort: options.effort,
         'sandbox_workspace_write.network_access': true,
         ...shellCredentialPolicy,
+        ...shellTemporaryPolicy,
         ...providerSettings,
       },
     };
@@ -334,6 +352,7 @@ export async function createCodexMathSession(options: MathAgentOptions): Promise
       run: async (message, messageId, workspace, onStarted) => {
         if (transportFailure) throw transportFailure;
         if (completion) throw new Error('math_codex_turn_already_running');
+        if (temporaryDirectory) prepareWorkerTemporaryDirectory(options.workspace);
         lastError = undefined;
         lastFailureDiagnostic = undefined;
         let resolve!: (turn: Json) => void;

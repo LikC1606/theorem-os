@@ -82,6 +82,7 @@ function fixture(realReceipts = false) {
   const fetch = vi.fn(() => { throw new Error('unexpected_network_in_offline_preparation'); });
   vi.stubGlobal('fetch', fetch);
   vi.stubEnv('WESTLAKEHPC_API_KEY', '');
+  vi.stubEnv('SUB2API_WESTLAKE_API_KEY', '');
   const log = vi.spyOn(console, 'log').mockImplementation(() => {});
   return { directory, repository, manifest, task, catalog, problems, bootstrap, readCatalog, readProblem, runBatch, fetch, log };
 }
@@ -298,7 +299,7 @@ describe('offline PutnamBench module samples', () => {
     expect(changed.problems.every(problem => problem.report.freshness === 'current')).toBe(true);
   });
 
-  it('prepares three proof identities and twelve isolated Westlake attempts without a model or network', async () => {
+  it('prepares three proof identities and twelve isolated Sub2API attempts without a model or network', async () => {
     const context = await prepare({ realReceipts: true });
     const { sample, plans, bootstrap, readProblem, output } = context;
     expect(sample.selection).toMatchObject({ count: 3, seed: putnam.DEFAULT_PUTNAM_SAMPLE_SEED, eligibleCount: 5 });
@@ -315,7 +316,7 @@ describe('offline PutnamBench module samples', () => {
       const selected = sample.problems[index], source = context.problems.find(problem => problem.id === selected.id)!;
       expect(plan).toMatchObject({ dataset: 'putnambench', problem: selected.id, sourceCommit: putnam.PUTNAM_BENCH_SOURCE_COMMIT,
         sourceProblem: { sourceRelativePath: source.sourceRelativePath, sourceSha256: source.sourceSha256 },
-        configuration: { provider: 'westlake', model: 'deepseek-flash', effort: 'high', workers: 4, repetitions: 1,
+        configuration: { provider: 'sub2api', model: 'deepseek-flash', effort: 'max', workers: 4, repetitions: 1,
           maxTurns: 20, maxRunSeconds: 600, maxTurnSeconds: 180, maxTotalTokens: 30000, evaluatorTimeoutSeconds: 1800 } });
       expect(mathDigest(fs.readFileSync(path.join(selected.comparisonDirectory, 'comparison.json')))).toBe(selected.comparisonDigest);
       expect(plan.jobs.map(job => job.arm)).toEqual(['default', 'essential-context', 'critical-path', 'construction-rule']);
@@ -327,7 +328,7 @@ describe('offline PutnamBench module samples', () => {
         expect(argument(launch.args, '--workers')).toBe('4');
         expect(argument(launch.args, '--coordination')).toBe('cooperative');
         expect(argument(launch.args, '--model')).toBe('deepseek-flash');
-        expect(argument(launch.args, '--effort')).toBe('high');
+        expect(argument(launch.args, '--effort')).toBe('max');
         expect(argument(launch.args, '--max-total-tokens')).toBe('30000');
         expect(argument(launch.args, '--evaluator-timeout-seconds')).toBe('1800');
         expect(argument(launch.args, '--module-plan')).toBe(job.modulePlan);

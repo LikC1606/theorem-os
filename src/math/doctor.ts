@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { parse as parseToml } from 'smol-toml';
 import { runMathProcess } from './mathProcess';
 import { DEFAULT_MATHEMATICS_ENV_FILE, resolveMathematicsRuntimeEnvironment } from './mathRuntimeEnvironment';
 import { checkResolvedLeanToolchainReadiness } from './leanToolchainReadiness';
@@ -97,11 +98,52 @@ export async function diagnoseEnvironment(options: {
 
   const profile = source.CODEX_HOME || path.join(os.homedir(), '.config/deepscientist/math-sol-codex');
   if (codex) {
-    const auth = await runMathProcess(codex, ['login', 'status'], { cwd: process.cwd(),
-      env: { ...env, CODEX_HOME: profile }, timeoutMs: 5_000, outputLimit: 2_000 });
-    add('codex-auth', auth.exitCode === 0 ? 'pass' : 'fail', auth.exitCode === 0
-      ? `Codex reports a login for profile: ${profile}` : 'Codex could not confirm a login for the selected profile.',
-    auth.exitCode === 0 ? undefined : 'Use your existing authenticated CODEX_HOME, or run codex login with that profile. Custom providers may require separate authentication; doctor does not verify model access.');
+    try {
+      const configFile = path.join(profile, 'config.toml');
+      const config = fs.existsSync(configFile) ? parseToml(fs.readFileSync(configFile, 'utf8')) : {};
+      const provider = typeof config.model_provider === 'string' && config.model_providers && typeof config.model_providers === 'object'
+        ? config.model_providers[config.model_provider] : undefined;
+      if (provider && typeof provider === 'object' && provider.requires_openai_auth !== true) {
+        if (typeof provider.env_key === 'string') {
+          const key = provider.env_key;
+          if (!/^[A-Za-z_][A-Za-z0-9_]{0,127}$/u.test(key)) throw new Error('invalid provider environment key');
+          // Tool environments intentionally exclude credentials; inspect the host source only.
+          const available = Boolean(source[key]?.trim());
+          add('codex-auth', available ? 'pass' : 'fail', available
+            ? `Provider credential is set in ${key}.` : `Provider credential is missing: ${key}.`,
+          available ? undefined : `Set ${key} in the calling environment before running the CLI.`);
+        } else if (provider.env_key !== undefined) {
+          throw new Error('invalid provider environment key');
+        } else if (provider.auth && typeof provider.auth === 'object') {
+          const auth = provider.auth;
+          if (typeof auth.command !== 'string' || !auth.command.trim() ||
+              auth.args !== undefined && (!Array.isArray(auth.args) || auth.args.some(arg => typeof arg !== 'string')) ||
+              auth.cwd !== undefined && typeof auth.cwd !== 'string') throw new Error('invalid provider authentication command');
+          const result = await runMathProcess(auth.command, (auth.args ?? []) as string[], {
+            cwd: typeof auth.cwd === 'string' ? auth.cwd : process.cwd(), env: { ...env, CODEX_HOME: profile },
+            timeoutMs: 5_000, outputLimit: 2_000,
+          });
+          const available = result.exitCode === 0 && Boolean(result.stdout.trim()) && !/[\r\n]/u.test(result.stdout.trim());
+          add('codex-auth', available ? 'pass' : 'fail', available
+            ? 'The provider authentication command returned a credential.' : 'The provider authentication command could not return a credential.',
+          available ? undefined : 'Check the selected provider auth command and its credential source.');
+        } else if (typeof provider.experimental_bearer_token === 'string' && provider.experimental_bearer_token.trim()) {
+          add('codex-auth', 'pass', 'A bearer credential is configured for the selected provider.');
+        } else {
+          add('codex-auth', 'warn', 'The custom provider does not declare credential authentication.',
+            'If the provider requires a key, configure env_key or an auth command in its Codex profile.');
+        }
+      } else {
+        const auth = await runMathProcess(codex, ['login', 'status'], { cwd: process.cwd(),
+          env: { ...env, CODEX_HOME: profile }, timeoutMs: 5_000, outputLimit: 2_000 });
+        add('codex-auth', auth.exitCode === 0 ? 'pass' : 'fail', auth.exitCode === 0
+          ? `Codex reports a login for profile: ${profile}` : 'Codex could not confirm a login for the selected profile.',
+        auth.exitCode === 0 ? undefined : 'Use your existing authenticated CODEX_HOME, or run codex login with that profile.');
+      }
+    } catch {
+      add('codex-auth', 'fail', 'The provider authentication configuration could not be checked.',
+        'Check config.toml in the selected CODEX_HOME.');
+    }
   }
   if (bwrap && process.platform === 'linux') {
     const sandbox = await probe(bwrap, ['--unshare-all', '--die-with-parent', '--ro-bind', '/', '/', '--proc', '/proc', '--dev', '/dev', '--', '/bin/true']);

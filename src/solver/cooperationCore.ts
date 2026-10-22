@@ -24,6 +24,7 @@ import { captureObligationSnapshot, diffObligationProgress } from './obligationP
 import { bindMathematicalGap, mathematicalGapVisible } from './mathematicalGaps';
 import { taskConnectionCheckCurrent } from './taskConnections';
 import { TaskTypePreflightCache } from './taskTypePreflight';
+import { currentCapacityExploration, plannedTaskRecords } from './capacityExploration';
 import { isFeasibilityReview, taskGroup, taskReferenceDependencies, type CooperativeTask, type TaskRecord, type CooperativeAction } from './tasks';
 import { digest, ReviewRecord, HumanEditRecord, CooperationState, TaskVersions, RETRY_DISPATCH, bounded } from './cooperationShared';
 
@@ -41,7 +42,7 @@ export abstract class CooperationCore {
   protected readonly rejectedIntegrationBatches = new Set<string>();
   protected readonly taskTypePreflight = new TaskTypePreflightCache();
   protected preparingTaskTypes = new Map<TaskRecord, {
-    controller: AbortController; current: () => boolean; settled: Promise<void>;
+    workerId: string; controller: AbortController; current: () => boolean; settled: Promise<void>;
   }>();
   protected invalidTaskTypes = new Map<TaskRecord, { canonical: string; environment: string; taskDigest: string;
     dependencies: string; project: string; workerId: string; environmentIdentity?: string }>();
@@ -62,7 +63,7 @@ export abstract class CooperationCore {
   protected proofPublications = new Map<string, Promise<TaskProof | undefined>>();
   protected integrationQueue = Promise.resolve();
   protected leadEvidence = new WeakMap<CooperativeAction, string>();
-  protected initialPlans = new WeakMap<CooperativeAction, { plan: ReturnType<typeof parseCooperationPlan>; version: string }>();
+  protected publishedPlans = new WeakMap<CooperativeAction, { plan: ReturnType<typeof parseCooperationPlan>; version: string; responseDigest: string }>();
   protected checkingTaskInputs = new Map<string, Promise<void>>();
   protected leanSourceDigests = new Map<string, string>();
   protected timer?: NodeJS.Timeout;
@@ -74,6 +75,7 @@ export abstract class CooperationCore {
   protected abstract syncEditChecks(nodes: ReadonlyMap<string, TaskRecord>, versions: TaskVersions): void;
   protected abstract refreshFeasibilityAssignments(): boolean;
   protected abstract planningInputDigest(): string;
+  protected abstract markCapacityRefillAssessed(action: CooperativeAction): void;
   protected abstract refreshFailedTaskInputs(): boolean;
   protected abstract refreshResearchCheckpoints(): void;
   protected abstract suspendResearchDrafts(worker: ResearchWorker, taskId?: string): void;
@@ -108,10 +110,76 @@ export abstract class CooperationCore {
     for (const worker of this.input.state.workers ?? []) if (worker.recovery?.phase === 'cooling-down') occupied.add(worker.id);
     return this.livePeers.filter(worker => !occupied.has(worker.id));
   }
+  protected get explorationIdentity() {
+    return { environmentDigest: this.input.state.environmentDigest,
+      problemReceiptDigest: this.input.state.problem.receiptDigest };
+  }
+  /** The CAS plan belongs to Lead; host advisory capacity is a separate execution overlay. */
+  protected plannedTasks() { return plannedTaskRecords(this.archive.tasks); }
+  protected refreshCapacityExplorations() {
+    let changed = false;
+    for (const node of this.archive.tasks) {
+      if (!node.capacityExploration || (node.task.status ?? 'active') !== 'active' ||
+          currentCapacityExploration(node, this.archive.tasks, this.explorationIdentity)) continue;
+      node.task = { ...node.task, status: 'stopped' };
+      node.status = 'blocked'; node.feedback = 'math_capacity_exploration_expired: Its frozen target or mathematical inputs are no longer current.';
+      for (const record of this.archive.deliveries ?? []) if (record.taskId === node.task.id) record.status = 'superseded';
+      const active = node.assignment && this.active.get(node.assignment.workerId);
+      if (active?.action.kind === 'task' && active.action.assignment === node.assignment && !active.cancelled) {
+        active.cancelled = true; void active.interrupt().catch(() => {});
+      }
+      this.input.emit('capacity_exploration_expired', { taskId: node.task.id,
+        targetTaskId: node.capacityExploration.targetTaskId, inputDigest: node.capacityExploration.inputDigest });
+      changed = true;
+    }
+    return changed;
+  }
+  protected capacityPlanView(plan: ReturnType<typeof parseCooperationPlan>): TaskRecord[] {
+    const existing = new Map(this.archive.tasks.map(node => [node.task.id, node]));
+    return plan.tasks.map(task => {
+      const previous = existing.get(task.id);
+      return { ...(previous && digest(previous.task) === digest(task) ? previous : { status: 'pending' as const, attempts: 0 }),
+        task, alternativeRoutes: plan.proofRoutes?.filter(route => route.targetTaskId === task.id) };
+    });
+  }
+  protected includeCapacityExplorations(plan: ReturnType<typeof parseCooperationPlan>) {
+    const existing = new Map(this.archive.tasks.map(node => [node.task.id, node]));
+    const hostIds = new Set(this.archive.tasks.filter(node => node.capacityExploration).map(node => node.task.id));
+    for (const task of plan.tasks) {
+      const previous = existing.get(task.id);
+      if (previous?.capacityExploration) {
+        if (digest(task) !== digest(previous.task) || task.ownerId !== previous.capacityExploration.workerId)
+          throw new Error('math_plan_host_exploration_changed: create a separate typed task for an adopted interface.');
+      } else if (task.dependsOn.some(id => hostIds.has(id)))
+        throw new Error('math_plan_host_exploration_dependency: use the actual typed inputs, not advisory exploration IDs.');
+    }
+    const proposed = this.capacityPlanView(plan);
+    plan.tasks = plan.tasks.filter(task => {
+      const previous = existing.get(task.id);
+      return !previous?.capacityExploration || digest(previous.task) !== digest(task) ||
+        currentCapacityExploration({ ...previous, task }, proposed, this.explorationIdentity);
+    });
+    const ids = new Set(plan.tasks.map(task => task.id));
+    for (const node of this.archive.tasks) if (node.capacityExploration && !ids.has(node.task.id) &&
+        plan.groups.some(group => group.id === taskGroup(node.task)) &&
+        currentCapacityExploration(node, proposed, this.explorationIdentity)) {
+      plan.tasks.push(node.task); ids.add(node.task.id);
+    }
+    return plan;
+  }
+  /** Preview expiry for inbox validation; rejected plans must leave the live archive untouched. */
+  protected advisoryArchiveForPlan(plan: ReturnType<typeof parseCooperationPlan>) {
+    const proposed = new Map(plan.tasks.map(task => [task.id, digest(task)]));
+    const retired = new Set(this.archive.tasks.filter(node => node.capacityExploration &&
+      proposed.get(node.task.id) !== digest(node.task)).map(node => node.task.id));
+    return retired.size ? { ...this.archive, deliveries: this.archive.deliveries?.map(record =>
+      record.taskId && retired.has(record.taskId) ? { ...record, status: 'superseded' as const } : record) } : this.archive;
+  }
   protected syncProofRoutes() {
     for (const node of this.archive.tasks) node.alternativeRoutes = this.archive.proofRoutes?.filter(route => route.targetTaskId === node.task.id);
   }
   protected changed(edit?: HumanEditRecord) {
+    this.refreshCapacityExplorations();
     this.refreshFeasibilityAssignments();
     this.refreshResearchCheckpoints();
     for (const blocker of refreshRouteBlockers(this.archive.blockers ?? [], this.archive.tasks,
@@ -144,15 +212,27 @@ export abstract class CooperationCore {
     this.archive.planVersion ??= this.planVersion();
     if (edit?.status === 'applied') edit.planVersion = this.archive.planVersion;
     this.syncEditChecks(nodes, versions);
-    this.input.save();
     const agents = this.input.workers.map(peer => {
-      const work = this.active.get(peer.id)?.action;
+      const active = this.active.get(peer.id), work = active?.action;
+      const preparation = [...this.preparingTaskTypes].find(([, item]) => item.workerId === peer.id)?.[0];
+      const status = !this.liveWorkers.has(peer.id) ? 'stopped' as const
+        : active && (active.cancelled || !this.current(active.action)) ? 'stopping' as const
+        : work ? 'working' as const : preparation ? 'preparing' as const : 'idle' as const;
+      const action = work?.kind ?? (preparation ? 'task' : undefined);
+      const taskId = work?.kind === 'task' ? work.task.id : preparation?.task.id;
+      const record = this.input.state.workers?.find(worker => worker.id === peer.id);
+      if (record) {
+        const previous = record.scheduling;
+        const same = previous?.status === status && previous.action === action && previous.taskId === taskId;
+        record.scheduling = { status, action, taskId, since: same ? previous.since : Date.now() };
+      }
       return { id: peer.id, role: work && (work.kind === 'review' || isStatementAction(work) ||
         work.kind === 'task' && isFeasibilityReview(work.task)) ? 'reviewer' : peer.role,
-        status: work ? 'working' : this.liveWorkers.has(peer.id) ? 'idle' : 'stopped',
+        status,
         work: work && { kind: work.kind, taskId: work.kind === 'task' ? work.task.id : undefined,
           version: work.kind === 'task' ? work.assignment.taskDigest : work.seedCommit } };
     });
+    this.input.save();
     for (const worker of this.input.workers) {
       const action = this.active.get(worker.id)?.action;
       const scoped = this.contextState(action, worker, versions);
@@ -163,6 +243,10 @@ export abstract class CooperationCore {
         planVersion: this.archive.planVersion,
         edits: (this.archive.edits ?? []).slice(-16),
         agents,
+        ...(worker.id === this.lead.id && scoped.lastCapacityRefill ? { lastCapacityRefill: scoped.lastCapacityRefill } : {}),
+        ...(worker.id === this.lead.id && scoped.lastStagnationRecovery ? { lastStagnationRecovery: scoped.lastStagnationRecovery } : {}),
+        capacityExplorations: scoped.tasks.filter(node => node.capacityExploration).map(node => ({
+          taskId: node.task.id, status: node.status, ...node.capacityExploration })),
         parallelQuestions: scoped.parallelQuestions ?? [],
         peers: this.archive.tasks.map(node => ({ id: node.task.id, taskDigest: digest(node.task),
           objectiveDigest: mathDigest(node.task.objective), groupId: taskGroup(node.task), kind: node.task.kind,
@@ -203,6 +287,7 @@ export abstract class CooperationCore {
   deactivate(worker: ResearchWorker) { this.active.delete(worker.id); this.changed(); }
   current(action: CooperativeAction) {
     if (action.kind === 'assemble') return !this.failure && !this.stopping && this.liveWorkers.has(this.lead.id) && this.canAssemble(action.seedCommit);
+    if (action.kind === 'lead' && (action.planNonce || action.initialPlanNonce) && !this.leadEvidence.has(action)) return false;
     if (action.kind === 'lead' && action.handoffActivations) {
       const pending = new Map(pendingResearchHandoffs(this.archive).flatMap(item =>
         item.sources.map(source => [source.handoffId, item.activationDigest] as const)));
@@ -222,7 +307,7 @@ export abstract class CooperationCore {
         digest(node.task) === action.taskDigest && this.statementReviewAllowed(node.task));
     }
     if (action.kind === 'lead') {
-      const version = this.initialPlans.get(action)?.version ?? action.planVersion;
+      const version = this.publishedPlans.get(action)?.version ?? action.planVersion;
       return version === undefined || version === this.archive.planVersion;
     }
     if (action.kind === 'review') {
@@ -231,6 +316,7 @@ export abstract class CooperationCore {
         review.sourceDigest === action.sourceDigest && review.assignmentId === action.assignmentId);
     }
     return action.kind !== 'task' || this.archive.tasks.some(node => node.assignment === action.assignment && digest(node.task) === action.assignment.taskDigest &&
+      (!node.capacityExploration || currentCapacityExploration(node, this.archive.tasks, this.explorationIdentity)) &&
       (!action.assignment.connectionCheck || taskReferenceDependencies(node) || taskConnectionCheckCurrent(node.task,
         action.assignment, this.archive.tasks, { environmentDigest: this.input.state.environmentDigest,
           problemReceiptDigest: this.input.state.problem.receiptDigest })) &&
@@ -369,6 +455,12 @@ export abstract class CooperationCore {
       let source = committedSource(this.lead.worktree, commit, `${this.input.state.problem.projectRelative}/${file}`);
       if (file.endsWith('.lean')) source = omitTaskHelpers(this.input.state.problem, file, source, hidden);
       fs.writeFileSync(path.join(worker.worktree, this.input.state.problem.projectRelative, file), source);
+    }
+    const problem = this.input.state.problem;
+    if (fs.existsSync(path.join(worker.worktree, problem.projectRelative, '.lake/source-constraints.json'))) {
+      writeMathJsonDurable(path.join(worker.worktree, problem.projectRelative, '.lake/source-constraints.json'),
+        { trustedFiles: problem.trustedFiles, declarations: problem.declarations,
+          sourceStructure: problem.sourceStructure, sourceImports: problem.sourceImports }, 0o400);
     }
     const seed = commitSolverSources(this.input.state.problem, worker.worktree);
     if (worker.id === this.lead.id) {

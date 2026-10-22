@@ -13,7 +13,8 @@ type BatchJob = {
   output: string;
   log: string;
   codexHome?: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'skipped';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'stalled' | 'skipped';
+  stalled?: boolean;
   pid?: number;
   startedAt?: string;
   finishedAt?: string;
@@ -27,21 +28,28 @@ export async function runMathBatch(argv: string[]): Promise<number> {
   const { values, tokens } = parseArgs({ args: argv, tokens: true, options: {
     launch: { type: 'string', multiple: true },
     concurrency: { type: 'string', default: '2' },
+    'idle-timeout-seconds': { type: 'string', default: '0' },
     output: { type: 'string' },
     help: { type: 'boolean' },
   } });
   if (values.help) {
-    console.log('Usage: theorem-os batch --launch FILE [--launch FILE ...] --output FILE [--concurrency 2]\n'
+    console.log('Usage: theorem-os batch --launch FILE [--launch FILE ...] --output FILE [--concurrency 2]'
+      + ' [--idle-timeout-seconds N]\n'
       + 'Launch JSON: {"args":["bun","/path/to/math-solver.js","--workspace","...","--output","...",...],"cwd":"...","envFile":"...","codexHome":"..."}\n'
-      + 'cwd defaults to the launch file directory; envFile and codexHome are optional. Workspaces must already be prepared.');
+      + 'cwd defaults to the launch file directory; envFile and codexHome are optional. Workspaces must already be prepared.\n'
+      + '--idle-timeout-seconds N terminates an attempt whose log stops growing for N seconds (0 disables, the default).'
+      + ' A stalled attempt is recorded as status "stalled" and does not fail the batch.');
     return 0;
   }
-  for (const name of ['concurrency', 'output']) {
+  for (const name of ['concurrency', 'idle-timeout-seconds', 'output']) {
     if (tokens.filter(token => token.kind === 'option' && token.name === name).length > 1)
       throw new Error(`Duplicate argument: --${name}`);
   }
   const concurrency = Number(values.concurrency);
   if (!Number.isSafeInteger(concurrency) || concurrency < 1) throw new Error('--concurrency must be a positive integer');
+  const idleTimeout = Number(values['idle-timeout-seconds']);
+  if (!Number.isSafeInteger(idleTimeout) || idleTimeout < 0)
+    throw new Error('--idle-timeout-seconds must be a non-negative integer');
   if (!values.launch?.length) throw new Error('At least one --launch is required');
   if (!values.output?.trim()) throw new Error('--output is required');
   const output = path.resolve(values.output);
@@ -117,10 +125,13 @@ export async function runMathBatch(argv: string[]): Promise<number> {
     const launch = launches[index], job = jobs[index];
     job.status = 'running'; job.startedAt = new Date().toISOString();
     await new Promise<void>(resolve => {
-      let descriptor: number | undefined;
+      let descriptor: number | undefined, monitor: NodeJS.Timeout | undefined, force: NodeJS.Timeout | undefined;
       const finish = (code: number | null, signal: NodeJS.Signals | null) => {
+        if (monitor) clearInterval(monitor);
+        if (force) clearTimeout(force);
         job.exitCode = code; job.signal = signal; job.finishedAt = new Date().toISOString();
-        job.status = state.interruptedBy ? 'cancelled' : code === 0 && !job.error ? 'completed' : 'failed';
+        job.status = state.interruptedBy ? 'cancelled' : job.stalled ? 'stalled'
+          : code === 0 && !job.error ? 'completed' : 'failed';
         resolve();
       };
       try {
@@ -132,6 +143,24 @@ export async function runMathBatch(argv: string[]): Promise<number> {
           stdio: ['ignore', descriptor, descriptor],
         });
         active.add(child); job.pid = child.pid;
+        // A bounded attempt must not consume a concurrency slot forever. Only explicit opt-in: a quiet model turn
+        // is not a stall unless the caller set a bound. Stalled attempts stay recorded and do not fail the batch.
+        if (idleTimeout > 0) {
+          let size = 0, changedAt = Date.now();
+          monitor = setInterval(() => {
+            try {
+              const current = fs.statSync(job.log).size;
+              if (current !== size) { size = current; changedAt = Date.now(); return; }
+            } catch { return; }
+            if (Date.now() - changedAt < idleTimeout * 1000) return;
+            job.stalled = true; job.error = 'idle-timeout';
+            if (monitor) clearInterval(monitor); monitor = undefined;
+            stopMathProcess(child, 'SIGTERM');
+            force = setTimeout(() => { if (active.has(child)) stopMathProcess(child, 'SIGKILL'); }, 30_000);
+            force.unref();
+          }, Math.max(250, Math.min(30_000, idleTimeout * 250)));
+          monitor.unref();
+        }
         child.once('error', error => { job.error = error.message; });
         child.once('close', (code, signal) => { active.delete(child); finish(code, signal); });
       } catch (error) {
@@ -166,7 +195,7 @@ export async function runMathBatch(argv: string[]): Promise<number> {
     const failed = results.find(result => result.status === 'rejected');
     if (failed?.status === 'rejected') throw failed.reason;
     return state.interruptedBy === 'SIGINT' ? 130 : state.interruptedBy ? 143
-      : jobs.every(job => job.status === 'completed') ? 0 : 1;
+      : jobs.every(job => job.status === 'completed' || job.status === 'stalled') ? 0 : 1;
   } finally {
     clearTimeout(forceStop);
     process.removeListener('SIGINT', interrupt); process.removeListener('SIGTERM', terminate);

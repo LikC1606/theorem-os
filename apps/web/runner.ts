@@ -57,6 +57,7 @@ export class DockerWebRunner implements WebRunner {
     const mathlib = environment === 'mathlib';
     const memory = mathlib ? '8g' : '4g';
     const args = ['create', '--interactive', '--pull=never', '--name', name,
+      '--add-host=host.docker.internal:host-gateway',
       '--log-driver=none', '--read-only', '--cap-drop=ALL', '--security-opt=no-new-privileges',
       '--security-opt=seccomp=unconfined', '--security-opt=apparmor=unconfined',
       '--security-opt=systempaths=unconfined',

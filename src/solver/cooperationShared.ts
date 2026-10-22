@@ -18,6 +18,8 @@ import { mathematicalGaps } from './mathematicalGaps';
 import { taskVersion, type CooperativeTask, type RouteRecord, type TaskRecord, type CooperativeAction } from './tasks';
 
 export const digest = taskVersion;
+/** Derived from stored task and failure records; the marker is never a separate acceptance state. */
+export type InvestigationOutcome = { taskId: string; state: 'dispatched' | 'delivered' | 'rejected' | 'abandoned'; reason?: string };
 export const taskSourceRejections = new Set(['math_task_source_outside_scope', 'math_task_ambiguous_declaration',
   'math_task_existing_declaration_removed', 'math_task_existing_declaration_changed', 'math_task_requires_theorem',
   'math_task_helper_is_original_declaration', 'math_task_conditional_header_unsupported',
@@ -34,6 +36,13 @@ export const directDeliveryRejections = new Set([...taskSourceRejections, 'math_
   'math_delivery_artifact_not_regular_file', 'math_delivery_artifact_too_large', 'math_delivery_artifact_invalid_commit',
   'math_delivery_artifact_path_invalid', 'math_delivery_artifact_claim_invalid', 'math_delivery_artifact_required', 'math_route_blocker_invalid']);
 export const rejectionCode = (error: Error) => error.message.split(/[\n:]/u, 1)[0];
+/** Source-contract failures need a local correction before a mathematical route decision. */
+export const taskSourceRepairRejections = new Set(['math_task_existing_declaration_removed', 'math_task_existing_declaration_changed',
+  'math_original_declaration_changed', 'math_original_context_changed']);
+export function isTaskSourceRepairFeedback(feedback: string): boolean {
+  const sourceCode = /^Host rejected the edited source before committing or checking it in Lean\.\nFile: [^\n]+\nError: ([^\n]+)\n/u.exec(feedback)?.[1];
+  return taskSourceRepairRejections.has(sourceCode ?? feedback.split(/[\n:]/u, 1)[0]);
+}
 
 export type ReviewRecord = { commit: string; sourceDigest: string; status: 'pending' | 'running' | 'accepted' | 'changes_requested';
   workerId?: string; assignmentId?: string; summary?: string };
@@ -42,8 +51,10 @@ export type HumanEditRecord = { id: string; status: 'received' | 'applied' | 're
   recheck?: { status: 'pending' | 'passed' | 'failed' | 'not-required' | 'superseded';
     tasks: { taskId: string; taskDigest: string; status: 'pending' | 'conditional' | 'passed' | 'failed' | 'removed' | 'superseded'; reason?: string;
       lastCheck?: { commit: string; sourceDigest: string; environmentDigest: string; passed: boolean; conditional: boolean; receiptIds: string[] } }[] } };
-export type InitialPlanPublication = { nonce: string; file: string; offset: number; eventDigest: string;
+export type PlanPublication = { nonce: string; file: string; offset: number; eventDigest: string;
   baseVersion: string; planVersion: string; acceptedAt: number; finalized?: boolean };
+export type InitialPlanPublication = PlanPublication;
+export type AdvisoryDecisions = { handoffs: readonly ResearchHandoffDecision[]; challenges: readonly ResearchChallengeDecision[] };
 export type FailedTaskInput = { id: string; taskId: string; taskDigest: string; inputDigest: string; basis: BlockerBasis;
   attemptFingerprint?: string; relatedFailureIds?: string[];
   sourceDigest: string; targetDigest: string; seedSourceDigest: string; seedTargetDigest: string;
@@ -62,12 +73,23 @@ export type CooperationState = { tasks: TaskRecord[]; groups?: RouteRecord[]; ca
   challengeDecisions?: ResearchChallengeDecision[];
   planVersion?: string; planEdited?: boolean; statementReviews?: StatementReview[];
   initialPlanPublication?: InitialPlanPublication;
+  /** Last immutable live publication; its dispatch continuation is process-local. */
+  planPublication?: PlanPublication;
   planRejection?: { proposalDigest: string; inputDigest: string; error: string; stalled: boolean };
   lastLeadInputDigest?: string;
+  /** One capacity assessment per mathematical input, including across process restarts. */
+  lastCapacityRefill?: { inputDigest: string; workerIds: string[]; requestedAt: number; status: 'requested' | 'assessed' };
+  /** One planning assessment per mathematical/evidence input; unresolved need remains visible. */
+  lastStagnationRecovery?: { inputDigest: string; taskIds: string[]; workerIds: string[]; requestedAt: number;
+    status: 'requested' | 'assessed'; reason: 'advisory-no-durable-progress' | 'frontier-not-decomposed' };
+  /** Durable mathematical input/method tombstones, independent of scheduling and plan revisions. */
+  capacityExplorationInputs?: { inputDigest: string; focus: import('./capacityExploration').CapacityExplorationFocus;
+    targetTaskId: string; taskId: string }[];
   frontierRecoveries?: { id: string; taskIds: string[]; goalIds: string[];
     status: 'requested' | 'planned' | 'awaiting-input'; taskInputDigests: string[]; readyTaskIds?: string[]; reason?: string;
-    investigationTaskId?: string }[];
-  frontierWaiting?: { inputDigest: string; taskIds: string[]; goalIds: string[]; reason: 'awaiting-new-mathematical-input' };
+    investigationTaskId?: string; investigationAttempts?: number }[];
+  frontierWaiting?: { inputDigest: string; taskIds: string[]; goalIds: string[]; reason: 'awaiting-new-mathematical-input';
+    investigation?: InvestigationOutcome };
   failedTaskInputs?: FailedTaskInput[];
   blockers?: RouteBlocker[];
   proofRoutes?: ProofRoute[];

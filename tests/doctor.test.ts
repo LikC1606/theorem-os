@@ -24,6 +24,10 @@ function fixture() {
     command.endsWith('/node') ? 'v22.1.0' : command.endsWith('/bun') ? '1.2.0' : '', stderr: '' }));
   return { root, env };
 }
+function providerConfig(env: NodeJS.ProcessEnv, settings: string) {
+  fs.mkdirSync(env.CODEX_HOME!, { recursive: true });
+  fs.writeFileSync(path.join(env.CODEX_HOME!, 'config.toml'), 'model_provider = "sub2api"\n[model_providers.sub2api]\n' + settings);
+}
 describe('environment doctor', () => {
   it('checks every pinned dependency before warming the reusable image and disposes its mount', async () => {
     const { root, env } = fixture();
@@ -73,6 +77,34 @@ describe('environment doctor', () => {
       expect.objectContaining({ id: 'codex-auth', status: 'fail' }), expect.objectContaining({ id: 'sandbox', status: 'fail' }),
     ]));
     expect(JSON.stringify(report)).not.toContain('SECRET');
+  });
+  it.each([true, false])('checks a custom provider key without requiring an OpenAI login (key present: %s)', async present => {
+    const { env } = fixture();
+    providerConfig(env, 'env_key = "SUB2API_WESTLAKE_API_KEY"\nrequires_openai_auth = false\n');
+    const report = await diagnoseEnvironment({ env: { ...env, SUB2API_WESTLAKE_API_KEY: present ? 'private-fixture-key' : '  ' } });
+    expect(report.checks).toContainEqual(expect.objectContaining({ id: 'codex-auth', status: present ? 'pass' : 'fail' }));
+    expect(mocks.run.mock.calls.some(([, args]) => args.includes('login'))).toBe(false);
+    expect(JSON.stringify(report)).not.toContain('private-fixture-key');
+    expect(mocks.run.mock.calls.every(([, , options]) => !options.env.SUB2API_WESTLAKE_API_KEY)).toBe(true);
+  });
+  it.each([0, 1])('checks command-backed provider credentials without echoing their output (exit: %s)', async exitCode => {
+    const { root, env } = fixture();
+    providerConfig(env, '[model_providers.sub2api.auth]\ncommand = "/fixture/read-key"\nargs = ["westlake"]\n');
+    const run = mocks.run.getMockImplementation()!;
+    mocks.run.mockImplementation((command, args, options) => command === '/fixture/read-key'
+      ? Promise.resolve({ exitCode, stdout: 'private-command-key\n', stderr: 'private-command-error' }) : run(command, args, options));
+    const report = await diagnoseEnvironment({ env });
+    expect(report.checks).toContainEqual(expect.objectContaining({ id: 'codex-auth', status: exitCode === 0 ? 'pass' : 'fail' }));
+    expect(mocks.run).toHaveBeenCalledWith('/fixture/read-key', ['westlake'], expect.objectContaining({ env: expect.objectContaining({ CODEX_HOME: env.CODEX_HOME }) }));
+    expect(mocks.run.mock.calls.some(([, args]) => args.includes('login'))).toBe(false);
+    expect(JSON.stringify(report)).not.toMatch(/private-command/);
+    expect(fs.existsSync(path.join(root, 'auth.json'))).toBe(false);
+  });
+  it('reports an invalid provider configuration without falling back to a login check', async () => {
+    const { env } = fixture(); providerConfig(env, 'env_key = ["invalid"]\n[invalid');
+    const report = await diagnoseEnvironment({ env });
+    expect(report.checks).toContainEqual(expect.objectContaining({ id: 'codex-auth', status: 'fail' }));
+    expect(mocks.run.mock.calls.some(([, args]) => args.includes('login'))).toBe(false);
   });
   it('rejects an explicitly missing environment file', async () => {
     const { env } = fixture(); env.DEEPSCIENTIST_MATH_ENV_FILE += '.missing';

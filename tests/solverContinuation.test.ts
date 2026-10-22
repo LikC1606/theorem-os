@@ -377,9 +377,52 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
     } finally { await resumed.stop(); }
   });
 
+  it('dispatches one replacement investigation after a later plan abandons the first', async () => {
+    await waitForRecoveryInput();
+    const pendingLead = cooperative.next(lead, budget);
+    await vi.waitFor(() => expect(state.cooperation!.frontierRecoveries![0].investigationTaskId).toBeTruthy());
+    const recovery = state.cooperation!.frontierRecoveries![0];
+    const taskId = recovery.investigationTaskId!;
+    const work = await cooperative.next(researcher, budget);
+    expect(work).toMatchObject({ kind: 'task', task: { id: taskId, kind: 'research' } });
+    if (work?.kind !== 'task') throw new Error('expected_frontier_investigation');
+    expect(cooperative.started(researcher, work)).toBe(true);
+    cooperative.rejected(work, 'math_delivery_requires_fixed_proof', seed);
+    const assessment = await pendingLead;
+    expect(assessment).toMatchObject({ kind: 'lead' });
+    if (assessment?.kind !== 'lead') throw new Error('expected_investigation_assessment');
+    const tasks = state.cooperation!.tasks.filter(node => node.task.id !== taskId).map(node => node.task);
+    await cooperative.deliver(lead, assessment, recoveryPlan(undefined, tasks));
+    expect(state.cooperation!.tasks.some(node => node.task.id === taskId)).toBe(false);
+    const replacement = cooperative.next(lead, budget);
+    await vi.waitFor(() => expect(state.cooperation!.frontierRecoveries![0].investigationAttempts).toBe(2));
+    const second = await cooperative.next(researcher, budget);
+    expect(second).toMatchObject({ kind: 'task', task: { id: taskId, kind: 'research' } });
+    if (second?.kind !== 'task') throw new Error('expected_replacement_investigation');
+    expect(second.task.objective).toContain('ended without an accepted finding');
+    expect(second.task.objective).toContain('math_delivery_requires_fixed_proof');
+    expect(cooperative.started(researcher, second)).toBe(true);
+    await cooperative.stop(); expect(await replacement).toBeUndefined();
+  });
+
+  it('reports an exhausted abandoned investigation in the waiting state without dispatching another', async () => {
+    await waitForRecoveryInput();
+    const recovery = state.cooperation!.frontierRecoveries![0];
+    recovery.investigationTaskId = 'removed-investigation';
+    recovery.investigationAttempts = 2;
+    state.cooperation!.lastLeadInputDigest = (cooperative as any).planningInputDigest();
+    const emit = vi.fn(); (cooperative as any).input.emit = emit;
+    const waiting = cooperative.next(lead, budget);
+    await vi.waitFor(() => expect(state.cooperation!.frontierWaiting?.investigation).toMatchObject({
+      taskId: 'removed-investigation', state: 'abandoned' }));
+    expect(state.cooperation!.tasks.some(node => node.task.id === 'removed-investigation')).toBe(false);
+    expect(emit).toHaveBeenCalledWith('frontier_investigation_exhausted', expect.objectContaining({ attempts: 2 }));
+    await cooperative.stop(); expect(await waiting).toBeUndefined();
+  });
+
   it.each(['abort', 'new-input'])('wakes continuous frontier waiting after %s', async change => {
     await waitForRecoveryInput();
-    state.cooperation!.frontierRecoveries![0].investigationTaskId = 'already_investigated';
+    state.cooperation!.frontierRecoveries![0].investigationTaskId = 'core';
     const controller = new AbortController(); (cooperative as any).input.signal = controller.signal;
     const waiting = cooperative.next(lead, budget);
     const settled = waiting.then(value => ({ value }), error => ({ error }));

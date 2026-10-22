@@ -137,7 +137,26 @@ describe('explicit initial Lead plan publication', () => {
     await cooperative.pulse();
     expect(state.cooperation!.edits?.[0].status).toBe('applied');
     expect(cooperative.current(action)).toBe(false);
+    expect(cooperative.started(lead, action)).toBe(false);
     expect(cooperative.initialPlanSnapshot(action)).toBeUndefined();
+    expect(interrupt).toHaveBeenCalledOnce();
+  });
+
+  it('leaves the current Lead running for a stale edit or an accepted unchanged graph', async () => {
+    const cooperative = create(), action = await startLead(cooperative);
+    await publish(cooperative, action);
+    const version = state.cooperation!.planVersion;
+    fs.appendFileSync(path.join(directory, 'edits.jsonl'), JSON.stringify({ id: 'stale-edit',
+      baseVersion: 'obsolete-version', ...plan('_stale') }) + '\n');
+    await cooperative.pulse();
+    expect(state.cooperation!.edits?.[0]).toMatchObject({ status: 'rejected', reason: 'math_edit_version_conflict' });
+    fs.appendFileSync(path.join(directory, 'edits.jsonl'), JSON.stringify({ id: 'unchanged-edit', baseVersion: version,
+      tasks: state.cooperation!.tasks.map(item => item.task), groups: state.cooperation!.groups!.map(item => item.group) }) + '\n');
+    await cooperative.pulse();
+    expect(state.cooperation!.edits?.[1].status).toBe('applied');
+    expect(state.cooperation!.planVersion).toBe(version);
+    expect(cooperative.current(action)).toBe(true);
+    expect(interrupt).not.toHaveBeenCalled();
   });
 
   it('restores the accepted graph without importing a newer unpublished valid notes draft', async () => {

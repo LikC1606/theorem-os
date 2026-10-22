@@ -140,6 +140,60 @@ describe('plan synchronization with concurrent host control', () => {
     expect(state.cooperation!.edits!.every(item => !item.pendingSync)).toBe(true);
   });
 
+  it('reclaims a stale Lead while preserving integrated proof and active peer work and waking a waiting peer', async () => {
+    await integrateA();
+    const acceptedProof = structuredClone(node('a').proof), acceptedCheck = structuredClone(node('a').integratedCheck);
+    const running = await cooperative.next(workers[3], budget);
+    expect(running).toMatchObject({ kind: 'task', task: { id: 'c' } });
+    expect(cooperative.started(workers[3], running!)).toBe(true);
+    const peerInterrupt = vi.fn(async () => {});
+    cooperative.activate(workers[3], running!, peerInterrupt, async () => {});
+    const peerAssignment = node('c').assignment;
+    const oldLead: CooperativeAction = { kind: 'lead', seedCommit: state.cooperation!.canonicalCommit!,
+      planVersion: state.cooperation!.planVersion! };
+    const leadInterrupt = vi.fn(async () => {});
+    cooperative.activate(workers[0], oldLead, leadInterrupt, async () => {});
+    const oldPlan = state.cooperation!.tasks.map(item => item.task);
+
+    const waiting = track(cooperative.next(workers[1], budget));
+    const task: CooperativeTask = { id: 'new_frontier', ownerId: 'author', kind: 'lemma',
+      objective: 'Prove the newly identified independent frontier lemma.', proofPath: 'Submission.lean',
+      theoremName: 'Tutorial.new_frontier', type: 'True', dependsOn: [], revision: 0 };
+    fs.appendFileSync(path.join(directory, 'edits.jsonl'), JSON.stringify({ id: 'add-frontier',
+      baseVersion: state.cooperation!.planVersion,
+      tasks: [...state.cooperation!.tasks.map(item => item.task), task],
+      groups: state.cooperation!.groups!.map(item => item.group) }) + '\n');
+    await cooperative.pulse(workers[0].id);
+    const assigned = await waiting;
+
+    expect(assigned).toMatchObject({ kind: 'task', task: { id: 'new_frontier' }, assignment: { workerId: 'author' } });
+    expect(node('a').status).toBe('integrated');
+    expect(node('a').proof).toEqual(acceptedProof);
+    expect(node('a').integratedCheck).toEqual(acceptedCheck);
+    expect(node('c').status).toBe('running');
+    expect(node('c').assignment).toBe(peerAssignment);
+    expect(cooperative.current(running!)).toBe(true);
+    expect(peerInterrupt).not.toHaveBeenCalled();
+    expect(leadInterrupt).toHaveBeenCalledOnce();
+    expect(cooperative.current(oldLead)).toBe(false);
+    expect(cooperative.started(workers[0], oldLead)).toBe(false);
+
+    // An interrupted session can still flush its old response; it must not replace the accepted graph.
+    const version = state.cooperation!.planVersion;
+    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify({
+      tasks: oldPlan, groups: state.cooperation!.groups!.map(item => item.group),
+    }) + '\n```\n');
+    cooperative.deactivate(workers[0]);
+    await cooperative.deliver(workers[0], oldLead, commitSolverSources(problem, workspace));
+    expect(state.cooperation!.planVersion).toBe(version);
+    expect(node('new_frontier').assignment).toBe(assigned!.kind === 'task' ? assigned!.assignment : undefined);
+    expect(events.some(item => item.event === 'lead_decision_superseded')).toBe(true);
+    const freshLead = await cooperative.next(workers[0], budget);
+    expect(freshLead).toMatchObject({ kind: 'lead', planVersion: version });
+    expect(cooperative.current(freshLead!)).toBe(true);
+    expect(leadInterrupt).toHaveBeenCalledOnce();
+  });
+
   it.each([true, false])('discards an obsolete %s recheck after a mathematical revision without publishing a failure', async passed => {
     await integrateA(); const gate = gateCheck();
     const prepare = vi.spyOn(cooperative as any, 'prepareStatementContexts').mockReturnValue(undefined);

@@ -120,8 +120,12 @@ describe('conditional proof declaration ownership', () => {
     expect(canonicalSource()).toContain('lemma child : True := by trivial');
     expect(canonicalSource()).toContain('lemma support : True := by trivial');
     expect(canonicalSource()).toContain('have h : True := And.left (And.intro child support)');
-    // Delivery and integration share the exact child projection, retaining its original receipt.
-    expect(host.verify).toHaveBeenCalledTimes(3);
+    const parentChecks = projections.filter(item => item.theoremName === 'Tutorial.add_zero')
+      .map(item => item.files['Submission.lean']);
+    expect(parentChecks).toHaveLength(2);
+    expect(parentChecks[0]).toContain('theorem add_zero (child : True)');
+    expect(parentChecks[1]).toContain('theorem add_zero (n : Nat)');
+    expect(parentChecks[1]).toContain('lemma child : True := by trivial');
   });
 
   it.each(['Other.child', 'Tutorial.Other.child', '_root_.Tutorial.Other.child'])

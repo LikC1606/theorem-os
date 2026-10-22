@@ -67,6 +67,25 @@ describe('independent problem batches', () => {
     }
   });
 
+  it('bounds an idle attempt, records it as stalled and continues the remaining jobs', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const root = temp(), idle = fixture(root, 'idle'), done = fixture(root, 'done');
+    fs.writeFileSync(path.join(done.directory, 'release'), '');
+    const output = path.join(root, 'batch.json');
+    expect(await runMathBatch(['--launch', idle.launch, '--launch', done.launch,
+      '--idle-timeout-seconds', '1', '--output', output])).toBe(0);
+    const { jobs } = JSON.parse(fs.readFileSync(output, 'utf8'));
+    expect(jobs[0]).toMatchObject({ status: 'stalled', stalled: true, error: 'idle-timeout' });
+    expect(jobs[1]).toMatchObject({ status: 'completed', exitCode: 0 });
+  }, 20_000);
+
+  it('rejects an invalid idle timeout before starting jobs', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const root = temp(), a = fixture(root, 'a');
+    await expect(runMathBatch(['--launch', a.launch, '--idle-timeout-seconds', 'soon',
+      '--output', path.join(root, 'batch.json')])).rejects.toThrow('--idle-timeout-seconds must be a non-negative integer');
+  });
+
   it('continues queued problems when an executable cannot start', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
     const root = temp(), a = fixture(root, 'a'), b = fixture(root, 'b');

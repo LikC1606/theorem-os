@@ -9,6 +9,7 @@ import { markTaskAcceptance, taskVersion, type CooperativeAction, type Cooperati
 import type { SolverRunState } from '../src/solver/archive';
 import { git, type SolverProblem } from '../src/solver/problem';
 import { hashMathFormalSourceDeclaration } from '../src/math/leanSource';
+import { mathDigest } from '../src/math/mathRuntimeIo';
 import { deferred } from './helpers/async';
 import { cooperativeResearch } from './helpers/cooperation';
 import { temporaryDirectory } from './helpers/files';
@@ -93,7 +94,7 @@ describe('persistent typed delivery failure guards', () => {
         groups: [{ group: { id: 'main', objective: 'Original goal', status: 'active', revision: 0 }, turns: 0 }] },
       problem: { receiptDigest: 'problem', projectRelative: 'generated/p', ownedFiles: lead.ownedFiles,
         declarations: { 'Submission.lean': [] }, targets: [{ proofPath: 'Submission.lean', theoremName: 'goal' }],
-        trustedFiles: {}, baseCommit: seed, sourceStructure: {}, sourceImports: {},
+        trustedFiles: {}, baseCommit: seed, sourceStructure: { 'Submission.lean': mathDigest('') }, sourceImports: {},
         contract: { assumptions: [], formalStatement: 'Original goal.' } } as unknown as SolverProblem } as SolverRunState;
     checker = vi.fn(async (_problem, worktree, version, obligation, assignment, _goals, _environment, _signal, _timeout, conditions = []) =>
       failure(worktree, version, obligation, assignment, conditions));
@@ -114,6 +115,19 @@ describe('persistent typed delivery failure guards', () => {
     expect(state.cooperation!.failedTaskInputs).toHaveLength(1);
   });
 
+  it('persists a coded unknownIdentifier rejection and offers its worker a local repair', async () => {
+    failWith(proof => { proof.verification.results[0]!.stdoutPreview =
+      'Submission.lean:1:1: error(lean.unknownIdentifier): Unknown identifier FAILURE'; });
+    await cooperative.deliver(researcher, action, seed);
+    expect(candidate.status).toBe('pending');
+    expect(state.cooperation!.failedTaskInputs).toHaveLength(1);
+    expect(state.cooperation!.failedTaskInputs![0]).toMatchObject({
+      feedback: expect.stringContaining('error(lean.unknownIdentifier)'), repair: { pending: true, workerId: researcher.id },
+    });
+    expect(await cooperative.next(researcher, budget)).toMatchObject({ kind: 'task', task: { id: candidate.task.id } });
+    expect(checker).toHaveBeenCalledOnce();
+  });
+
   it('retains the repair grant through next and release, and consumes it only at started', async () => {
     checker.mockRejectedValue(new Error(missing));
     await cooperative.deliver(researcher, action, seed);
@@ -131,6 +145,91 @@ describe('persistent typed delivery failure guards', () => {
     expect(failed.repair?.pending).toBe(false); expect(candidate.attempts).toBe(2);
     await cooperative.deliver(researcher, repair, seed);
     expect(candidate.status).toBe('blocked'); expect(checker).toHaveBeenCalledTimes(1);
+  });
+
+  const publishGap = async (extra: Record<string, unknown> = {}) => {
+    const consumer = state.cooperation!.tasks.find(node => node.task.kind === 'goal')!.task;
+    await (cooperative as any).receive(researcher, action, { id: 'mathematical-gap', kind: 'research',
+      taskId: action.task.id, taskDigest: action.assignment.taskDigest, finding: {
+      summary: 'The classification input is unavailable; no declaration was proved.', conclusion: 'inconclusive', needsDecision: true,
+      mathematicalGap: { consumer: { taskId: consumer.id, taskDigest: taskVersion(consumer) }, previousGap: 'Critical-set sufficiency',
+        reduced: 'Only elementary rank reduction is checked', remaining: 'The independent classification theorem is still missing',
+        evidenceScope: 'Advisory report; no Lean proof', reconsiderWhen: ['A checked classification input or a genuinely different plan'] },
+      ...extra,
+    } });
+  };
+  const missingCandidate = () => {
+    const source = 'theorem goal : True := by sorry\n';
+    reseed(source);
+    state.problem = { ...state.problem, targets: [{ proofPath: 'Submission.lean', theoremName: 'goal',
+      declarationHash: hashMathFormalSourceDeclaration(source, 'goal')! }] };
+    checker.mockRejectedValue(new Error(missing));
+  };
+
+  it('blocks an unchanged absent theorem with a current mathematical gap instead of granting local repair', async () => {
+    missingCandidate(); await publishGap();
+    await cooperative.deliver(researcher, action, seed);
+    expect(candidate.status).toBe('blocked'); expect(candidate.attempts).toBe(1);
+    expect(state.cooperation!.failedTaskInputs![0].repair).toBeUndefined();
+    expect(candidate.proof).toBeUndefined(); expect(candidate.integratedCheck).toBeUndefined();
+    expect(emit.mock.calls.some(([event]) => event === 'task_repair_requested')).toBe(false);
+    expect(emit).toHaveBeenCalledWith('task_mathematical_gap_blocked', expect.objectContaining({ taskId: 'candidate' }));
+    expect(await cooperative.next(lead, budget)).toMatchObject({ kind: 'lead' });
+    const restored = JSON.parse(JSON.stringify(state)) as SolverRunState, resumed = create(restored);
+    await resumed.restore();
+    expect(restored.cooperation!.tasks[0].status).toBe('blocked');
+    expect(restored.cooperation!.failedTaskInputs![0].repair).toBeUndefined();
+  });
+
+  it('persists the mathematical stop before delivery publication so restore cannot invent a repair', async () => {
+    missingCandidate(); await publishGap();
+    await expect(check()).rejects.toThrow('math_task_missing_declaration');
+    expect(candidate.status).toBe('blocked');
+    expect(state.cooperation!.failedTaskInputs![0].repair).toBeUndefined();
+    const restored = JSON.parse(JSON.stringify(state)) as SolverRunState, resumed = create(restored);
+    await resumed.restore();
+    expect(restored.cooperation!.tasks[0].status).toBe('blocked');
+    expect(restored.cooperation!.failedTaskInputs![0].repair).toBeUndefined();
+  });
+
+  it.each(['checkpoint', 'request-failure'] as const)('keeps a current mathematical gap blocked after %s recovery', async recovery => {
+    missingCandidate(); await publishGap();
+    await cooperative.deliver(researcher, action, seed, true, recovery);
+    expect(candidate.status).toBe('blocked'); expect(candidate.attempts).toBe(1);
+    expect(state.cooperation!.failedTaskInputs![0].repair).toBeUndefined();
+    expect(emit.mock.calls.some(([event]) => event === 'task_checkpoint_continuation_requested')).toBe(false);
+    expect(emit.mock.calls.some(([event]) => event === 'task_repair_requested')).toBe(false);
+    expect(await cooperative.next(lead, budget)).toMatchObject({ kind: 'lead' });
+  });
+
+  it.each(['no-decision', 'historical-consumer', 'changed-source', 'different-assignment'] as const)(
+    'keeps missing declaration repair for a %s gap report', async scenario => {
+      missingCandidate(); await publishGap(scenario === 'no-decision' ? { needsDecision: false } : {});
+      if (scenario === 'historical-consumer') {
+        const consumer = state.cooperation!.tasks.find(node => node.task.kind === 'goal')!;
+        consumer.task = { ...consumer.task, revision: 1 };
+      } else if (scenario === 'changed-source') {
+        fs.appendFileSync(sourceFile(), 'lemma supporting : True := by trivial\n'); seed = commit();
+      } else if (scenario === 'different-assignment') action.assignment.assignmentId = 'new-assignment';
+      await cooperative.deliver(researcher, action, seed);
+      expect(candidate.status).toBe('pending'); expect(state.cooperation!.failedTaskInputs![0].repair?.pending).toBe(true);
+    });
+
+  it('retains deterministic compile repair even when a mathematical gap was reported', async () => {
+    await publishGap(); await cooperative.deliver(researcher, action, seed);
+    expect(candidate.status).toBe('pending'); expect(state.cooperation!.failedTaskInputs![0].repair?.pending).toBe(true);
+    expect(checker).toHaveBeenCalledTimes(1);
+  });
+
+  it('reopens the mathematical stop for a changed typed contract without accepting the reported gap', async () => {
+    missingCandidate(); await publishGap(); await cooperative.deliver(researcher, action, seed);
+    candidate.task = { ...candidate.task, type: '1 = 1', revision: 1 };
+    candidate.assignment!.taskDigest = taskVersion(candidate.task);
+    (cooperative as any).refreshFailedTaskInputs();
+    expect(candidate.status).toBe('pending'); expect(candidate.proof).toBeUndefined();
+    await cooperative.deliver(researcher, { kind: 'task', task: candidate.task, assignment: candidate.assignment! }, seed);
+    expect(state.cooperation!.failedTaskInputs).toHaveLength(2);
+    expect(state.cooperation!.failedTaskInputs![1].repair?.pending).toBe(true);
   });
 
   it.each(['transport', 'restart'] as const)('preserves an uncompleted repair after %s before a source edit', async interruption => {

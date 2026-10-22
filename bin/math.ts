@@ -22,6 +22,7 @@ const commands: Readonly<Record<string, string>> = {
   'check-lean': 'scripts/mathematics/checkLean.ts',
   'check-finite': 'scripts/mathematics/checkFinite.ts',
   continuation: 'scripts/mathematics/readContinuation.ts',
+  'continuation-seed': 'scripts/mathematics/seedContinuation.ts',
   inspect: 'scripts/mathematics/inspectMathRun.ts',
   recover: 'scripts/mathematics/recoverMathSnapshot.ts',
   edit: 'scripts/mathematics/editMathRun.ts',
@@ -48,6 +49,7 @@ if (!command || ['help', '--help', '-h'].includes(command)) {
   check-lean           Check changed Lean files with bounded diagnostics
   check-finite         Replay finite Boolean constraints and return witnesses
   continuation         Read frozen continuation attachments in bounded pages
+  continuation-seed    Initialize a new prepared run from advisory sources and fresh helper checks
   inspect              Read a research report or export a versioned task plan
   recover              Restore a research snapshot and recheck saved helpers
   edit                 Validate and queue a human plan edit

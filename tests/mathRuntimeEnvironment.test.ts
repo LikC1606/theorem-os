@@ -85,6 +85,15 @@ describe('resolved mathematics environment', () => {
     expect(projectMathematicsRuntimeEnvironment(env).HTTP_PROXY).toBe('http://runner:18082');
   });
 
+  it('passes the configured verifier concurrency through a local environment file', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'math-env-')); roots.push(root);
+    const file = path.join(root, 'math.env');
+    fs.writeFileSync(file, 'DEEPSCIENTIST_MATH_VERIFIER_CONCURRENCY=1\n');
+    const env = resolveMathematicsRuntimeEnvironment({}, file);
+    expect(env.DEEPSCIENTIST_MATH_VERIFIER_CONCURRENCY).toBe('1');
+    expect(projectMathematicsRuntimeEnvironment(env).DEEPSCIENTIST_MATH_VERIFIER_CONCURRENCY).toBe('1');
+  });
+
   it.each(['.env', '.json'])('keeps a host snapshot after its %s defaults change', extension => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'math-env-')); roots.push(root);
     const file = path.join(root, `math${extension}`);

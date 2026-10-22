@@ -2,7 +2,7 @@
 
 从 [PutnamBench](https://github.com/trishullab/PutnamBench) 的 Lean 原题中固定抽取三道，
 每题分别准备默认方案、精简上下文、关键路径组合和自定义规则四组，共 12 次计划运行。
-服务商沿用 Westlake `deepseek-flash` / `high`。准备与汇总命令不调用模型。
+新计划默认使用本地 Sub2API 的 `deepseek-flash` / `max`。准备与汇总命令不调用模型。
 已完成一题默认方案的[请求级预算真实校准](CALIBRATION-REQUEST-BUDGET-20261019.md)：
 两次请求完整上报 38,104 token，后续请求被本地拒绝，尚无通过验收的证明。
 [此前的调度级校准](CALIBRATION-20261019.md)保留为历史记录。
@@ -56,8 +56,8 @@ bun run math sample-putnam --phase report \
 ```
 
 `--count 1..20` 和 `--seed TEXT` 可在准备时调整抽样；默认题池由固定提交读取，
-不要求当前 checkout 位于该提交。模型默认 Westlake DeepSeek，可显式传入
-`--provider westlake --model deepseek-flash --effort high`。
+不要求当前 checkout 位于该提交。模型默认使用 Sub2API DeepSeek，可显式传入
+`--provider sub2api --model deepseek-flash --effort max`。执行独立实验 profile 时，需在调用环境中设置 `SUB2API_WESTLAKE_API_KEY`。
 
 每题每组使用独立工作区、原始 Lean 文件和无密钥的 Codex profile。
 默认四名协作 Agent、一次重复、20 次调度、解题十分钟、单次调度三分钟，
@@ -91,7 +91,7 @@ bun run math batch \
 ```
 
 `compare --phase run --directory /absolute/new/putnam-pilot/putnam_2025_b2` 会启动该题全部四组。
-运行前需完成 [Westlake 配置](../components/WESTLAKE.md)与对应 Lean/Mathlib 环境检查。
+运行前需完成 [CLI provider 配置](../../docs/usage.md#1-准备环境并构建)与对应 Lean/Mathlib 环境检查。
 代码、构建或预算改变后，应重新准备到新目录，保留旧计划与结果。
 原 IMO2026 实验使用不同的依赖版本，不能直接复用其编译缓存。
 目前没有配对完成的模块实验，也没有模块收益或完整成本结论。

@@ -5,6 +5,7 @@ import { resolveMathProofEnvironment } from '../math/mathProofEnvironment';
 import { resolveMathematicsRuntimeEnvironment } from '../math/mathRuntimeEnvironment';
 import { isMathFoundationalLeanAxiom } from '../math/contracts';
 import { LAKE_CONFIGURATION_FILES } from '../math/mathConstructionSources';
+import { parseLeanDiagnosticOutput } from '../math/leanDiagnosticMessages';
 import type { MathematicsVerifierBatchResult } from '../math/verifier';
 
 /** Mutable search paths cannot establish that the same Lean input was checked. */
@@ -37,6 +38,11 @@ export function proofReuseEnvironment(projectRoot: string, env: NodeJS.ProcessEn
 export const proofVerificationDigest = (verification: MathematicsVerifierBatchResult): string =>
   mathDigest(canonicalMathJson(verification));
 
+/** Use the same raw/JSON diagnostic formats as the local Lean tools. */
+export const hasLeanSourceDiagnostic = (output: string): boolean =>
+  parseLeanDiagnosticOutput(output).messages.some(message => message.severity === 'error' &&
+    message.file?.endsWith('.lean') && message.line !== undefined && message.column !== undefined);
+
 /** A batch can aggregate to failed while another target timed out or was blocked. */
 export function hasDeterministicLeanFailure(verification: MathematicsVerifierBatchResult): boolean {
   return verification.status === 'failed' && verification.results.some(result => result.status === 'failed') &&
@@ -48,10 +54,10 @@ export function hasDeterministicLeanFailure(verification: MathematicsVerifierBat
         Boolean(result.axioms?.length && result.error === `Proof source declares explicit axioms: ${result.axioms.join(', ')}.`) ||
         Boolean(result.error?.startsWith('Theorem depends on non-foundational Lean axioms: ') &&
           result.axioms?.some(axiom => !isMathFoundationalLeanAxiom(axiom)));
+      // Invocation failures are bound by status and error; Lean text may name a variable "timeout".
       return result.targetCommit === verification.targetCommit && !result.cleanupError &&
-        !/\b(?:timed?\s*out|timeout|deadline|abort(?:ed)?|interrupt(?:ed)?)\b/iu.test(output) &&
         (result.status === 'kernel_verified' || result.status === 'failed' &&
           (sourceRejection || (!result.error || /^Lean exited with status 1\.?$/u.test(result.error.trim())) &&
-            /^.+\.lean:\d+:\d+:\s*error:/mu.test(output)));
+            hasLeanSourceDiagnostic(output)));
     });
 }

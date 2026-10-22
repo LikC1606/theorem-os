@@ -100,6 +100,24 @@ describe('web HTTP boundary with disposable local servers and no model calls', (
     });
   }
 
+  it('submits the advertised sub2api DeepSeek defaults to the worker', async () => {
+    const alice = await session();
+    const provider = alice.session.providers[0];
+    expect(provider).toMatchObject({ id: 'sub2api', baseUrl: 'http://host.docker.internal:8080/v1' });
+    expect(alice.session.defaults).toMatchObject({ model: 'deepseek-flash', effort: 'max' });
+
+    const submitted = { ...input(), ...alice.session.defaults, providerId: provider.id };
+    const created = await request('/api/runs', alice, { body: submitted });
+    expect(created.status).toBe(201);
+    const { run } = await created.json();
+    expect(run).toMatchObject({ providerId: provider.id, model: submitted.model, effort: submitted.effort });
+    await tick();
+    expect(runner.calls).toHaveLength(1);
+    expect(runner.calls[0].value).toMatchObject({ provider,
+      input: { providerId: provider.id, model: 'deepseek-flash', effort: 'max' } });
+    runner.calls[0].finish();
+  });
+
   it('validates custom module plans and keeps the selected configuration in the run and download', async () => {
     const alice = await session();
     const custom = { id: 'library-strategy', name: 'Library strategy', slot: 'M1', mode: 'replace',
@@ -132,7 +150,7 @@ describe('web HTTP boundary with disposable local servers and no model calls', (
     expect((await request('/api/runs')).status).toBe(401);
     expect((await request('/api/runs', undefined, { body: input() })).status).toBe(401);
     const alice = await session();
-    expect(alice.session.providers.map(provider => provider.id)).toEqual(['openai']);
+    expect(alice.session.providers.map(provider => provider.id)).toEqual(['sub2api', 'openai']);
     const refresh = await request('/api/session', alice);
     expect((await refresh.json()).csrfToken).toBe(alice.csrf);
     const missingCsrf = await request('/api/runs', alice, { body: input(), headers: { 'X-CSRF-Token': '' } });

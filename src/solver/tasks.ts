@@ -6,6 +6,7 @@ import type { TaskProof } from './cooperativeProof';
 import type { StatementAction } from './statementReview';
 import type { TaskTypePreflight } from './taskTypePreflight';
 import { parseProofRoutes, type ProofRoute } from './proofRoutes';
+import type { CapacityExploration } from './capacityExploration';
 
 export type CooperativeTask = Readonly<{ id: string; kind: 'research' | 'sketch' | 'lemma' | 'goal'; objective: string;
   dependsOn: readonly string[]; revision: number; proofPath?: string; theoremName?: string; type?: string;
@@ -19,17 +20,30 @@ export const taskGroup = (task: CooperativeTask): string => task.groupId ?? 'mai
 export type TaskConnectionCheck = Readonly<{
   schema: 'theorem-os.consumer-connection.v1'; consumer: { taskId: string; taskDigest: string };
   inputs: readonly { taskId: string; taskDigest: string }[]; seedCommit: string; dependenciesDigest: string;
+  /** Fixed dispatch inputs that still needed local binders in the worker's seed. */
+  assumedInputs?: readonly { taskId: string; taskDigest: string }[]; workerId?: string; assignmentId?: string;
   routeId?: string; routesDigest: string; problemReceiptDigest: string; environmentDigest: string; basisDigest: string;
 }>;
 export type TaskAssignment = { taskId: string; taskDigest: string; workerId: string; seedCommit: string; assignmentId?: string; groupId?: string; canonicalCommit?: string;
   dependencies?: DeliveryRecord['dependencies']; routeId?: string; connectionCheck?: TaskConnectionCheck };
 export type TaskRecord = { task: CooperativeTask; status: 'pending' | 'running' | 'blocked' | 'conditional' | 'delivered' | 'integrated' | 'completed';
+  /** Host-owned advisory work; never supplied by a model plan. */
+  capacityExploration?: CapacityExploration;
   attempts: number; assignment?: TaskAssignment; proof?: TaskProof; integratedCheck?: TaskProof; feedback?: string; finding?: string;
+  /** One source-contract correction belongs to this assignment, not equivalent mathematical tasks. */
+  sourceRepair?: { taskDigest: string; workerId: string; assignmentId?: string; seedCommit: string;
+    pending: boolean; startedAttempt?: number };
   pendingValidation?: { id: string; taskDigest: string; canonicalCommit: string; environmentDigest: string; problemReceiptDigest: string; proof?: boolean };
   typePreflight?: TaskTypePreflight;
   routeParking?: string[]; parkedRoutes?: Record<string, string[]>; alternativeRoutes?: readonly ProofRoute[] };
 export type CooperativeAction = { kind: 'lead' | 'assemble'; seedCommit: string; planVersion?: string; planningInputDigest?: string;
   initialPlanNonce?: string;
+  planNonce?: string;
+  /** Advisory capacity at dispatch; never infer this request from a later archive receipt. */
+  capacityRefill?: Readonly<{ inputDigest: string; workerIds: readonly string[]; requestedAt: number }>;
+  /** Host scheduling recovery only; never a mathematical blocker or proof verdict. */
+  stagnationRecovery?: Readonly<{ inputDigest: string; taskIds: readonly string[]; workerIds: readonly string[]; requestedAt: number;
+    reason: 'advisory-no-durable-progress' | 'frontier-not-decomposed' }>;
   handoffIds?: readonly string[];
   handoffActivations?: Readonly<Record<string, string>>;
   challengeIds?: readonly string[];
@@ -109,6 +123,13 @@ export const initialPlanDeliveryFile = (action: CooperativeAction) => action.kin
   ? `DELIVERIES-${mathDigest(canonicalMathJson({ kind: 'initial-plan', nonce: action.initialPlanNonce,
     seedCommit: action.seedCommit, planVersion: action.planVersion, planningInputDigest: action.planningInputDigest }))}.jsonl`
   : undefined;
+
+/** Later plans also publish once per frozen dispatch, with an explicit compare-and-swap base. */
+export const leadPlanDeliveryFile = (action: CooperativeAction) => initialPlanDeliveryFile(action) ??
+  (action.kind === 'lead' && action.planNonce
+    ? `DELIVERIES-${mathDigest(canonicalMathJson({ kind: 'plan', nonce: action.planNonce,
+      seedCommit: action.seedCommit, planVersion: action.planVersion, planningInputDigest: action.planningInputDigest }))}.jsonl`
+    : undefined);
 
 export const isAdvisoryTask = (task: CooperativeTask) => task.kind === 'research' || task.kind === 'sketch';
 export const isFinalCandidateReview = (task: CooperativeTask) => isAdvisoryTask(task) &&

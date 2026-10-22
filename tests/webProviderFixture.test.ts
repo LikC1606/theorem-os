@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseToml } from 'smol-toml';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { webProviderConfig } from '../apps/web/worker';
+import { prepareWebProviderProfile, webProviderConfig } from '../apps/web/worker';
 import { createCodexMathSession, type MathAgentSession } from '../src/runtime/codexSession';
 import type { WorkerInput } from '../apps/web/shared';
 import { webTemplates } from '../apps/web/config';
@@ -57,6 +57,28 @@ describe('web BYOK provider configuration and offline app-server fixture', () =>
       responsesProvider: true, privateProfile: true });
     expect(activity).toHaveBeenCalledWith({ event: 'item_started', itemType: 'commandExecution' });
     expect(JSON.stringify(checks)).not.toContain(request.input.apiKey);
+  });
+
+  it('runs a sub2api DeepSeek session with its bounded model catalog and injected BYOK key', async () => {
+    request.provider = { id: 'sub2api', name: 'Sub2API · DeepSeek', baseUrl: 'http://host.docker.internal:8080/v1' };
+    Object.assign(request.input, { providerId: 'sub2api', model: 'deepseek-flash', effort: 'max' });
+    const profile = path.join(root, 'sub2api-profile');
+    prepareWebProviderProfile(profile, request);
+    const configText = fs.readFileSync(path.join(profile, 'config.toml'), 'utf8');
+    const config = parseToml(configText);
+    expect(config).toMatchObject({ model: 'deepseek-flash', model_reasoning_effort: 'max',
+      model_providers: { web_provider: { base_url: request.provider.baseUrl, wire_api: 'responses' } },
+      features: { multi_agent: false, multi_agent_v2: false, view_image: false } });
+    const catalogText = fs.readFileSync(String(config.model_catalog_json), 'utf8');
+    const catalog = JSON.parse(catalogText);
+    expect(catalog.models).toHaveLength(1);
+    expect(catalog.models[0]).toMatchObject({ slug: 'deepseek-flash', context_window: 131072,
+      input_modalities: ['text'], supports_search_tool: false });
+    expect(catalog.models[0].supported_reasoning_levels).toContainEqual({ effort: 'max', description: 'max reasoning' });
+    expect(configText + catalogText).not.toContain(request.input.apiKey);
+    session = await createCodexMathSession({ ...options(), profile });
+    expect(await session.run('WEB_SMOKE_VALID_PROOF', 'sub2api-turn', path.join(root, 'workspace'), () => {})).toBe('completed');
+    expect(fs.readFileSync(path.join(root, 'workspace/generated/problem/Submission.lean'), 'utf8')).not.toContain('sorry');
   });
 
   it('can emit a syntactically valid but mathematically invalid Lean candidate', async () => {

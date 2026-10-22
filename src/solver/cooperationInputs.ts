@@ -13,9 +13,10 @@ import { captureDeliveryArtifacts } from './deliveryArtifacts';
 import { researchHandoffs, resolveResearchHandoffs, type ResearchHandoffDecision } from './researchHandoffs';
 import { preserveResearchChallengeBacklog, resolveResearchChallenges, type ResearchChallengeDecision } from './researchChallenges';
 import { bindMathematicalGap } from './mathematicalGaps';
-import { assignmentDeliveryFile, initialPlanDeliveryFile, type CooperativeTask, type TaskRecord, type CooperativeAction } from './tasks';
+import { assignmentDeliveryFile, leadPlanDeliveryFile, type CooperativeTask, type TaskRecord, type CooperativeAction } from './tasks';
 import { digest, directDeliveryRejections, rejectionCode, HumanEditRecord, TaskVersions, bounded } from './cooperationShared';
 import { CooperationPlanning } from './cooperationPlanning';
+import { composeHandoffPublication } from './handoffPublication';
 
 /** Worker delivery intake. */
 export abstract class CooperationInputs extends CooperationPlanning {
@@ -107,7 +108,7 @@ export abstract class CooperationInputs extends CooperationPlanning {
       }
       advance(entry.offset);
     }
-    await this.readInitialPlanDelivery(cursors);
+    await this.readPlanDelivery(cursors);
     for (const worker of this.input.workers) {
       if (this.deliveryChecks.has(worker.id)) continue;
       const active = this.active.get(worker.id);
@@ -123,16 +124,19 @@ export abstract class CooperationInputs extends CooperationPlanning {
     }
     return new Map(this.deliveryChecks);
   }
-  private async readInitialPlanDelivery(cursors: Record<string, number>) {
+  private async readPlanDelivery(cursors: Record<string, number>) {
     const action = this.active.get(this.lead.id)?.action;
     if (!action || action.kind !== 'lead') return;
-    const file = initialPlanDeliveryFile(action);
+    const file = leadPlanDeliveryFile(action);
     if (!file) return;
+    const initial = Boolean(action.initialPlanNonce), nonce = action.initialPlanNonce ?? action.planNonce!;
+    const code = (reason: string) => `math_${initial ? 'initial_plan' : 'plan_publication'}_${reason}`;
     const key = `${this.lead.id}/${file}`, discardKey = `${key}/discardingOversized`;
     const batch = readDeliveryLines(path.join(this.lead.worktree, file), cursors[key] ?? 0,
       { discardingOversized: cursors[discardKey] === 1 });
     let advanced = false;
-    const reject = (reason: string) => this.input.emit('initial_plan_rejected', { workerId: this.lead.id, file, reason });
+    const reject = (reason: string) => this.input.emit(initial ? 'initial_plan_rejected' : 'plan_publication_rejected',
+      { workerId: this.lead.id, file, reason });
     try {
       for (const entry of batch.entries!) {
         this.input.signal.throwIfAborted();
@@ -142,26 +146,36 @@ export abstract class CooperationInputs extends CooperationPlanning {
           const eventDigest = mathDigest(entry.line);
           let response: any;
           try { response = JSON.parse(entry.line); }
-          catch { reject('math_initial_plan_invalid_json'); }
+          catch { reject(code('invalid_json')); }
           if (response !== undefined) {
             try {
-              if (!response || typeof response !== 'object' || Array.isArray(response) || response.kind !== 'plan' ||
-                  typeof response.baseVersion !== 'string') throw new Error('math_initial_plan_invalid');
+              if (!response || typeof response !== 'object' || Array.isArray(response) || !['plan', 'handoff'].includes(response.kind) ||
+                  typeof response.baseVersion !== 'string' || !initial && response.dispatchNonce !== nonce)
+                throw new Error(code('invalid'));
               const details = deliveryDetails(response);
-              const plan = parseCooperationPlan(this.input.state.problem, response);
               await this.input.exclusiveCheck(async () => {
-                const publication = this.archive.initialPlanPublication;
-                if (publication?.nonce === action.initialPlanNonce && publication.eventDigest === eventDigest) return;
-                if (publication || this.archive.tasks.length || action.recovery ||
+                const publication = this.archive.planPublication ?? this.archive.initialPlanPublication;
+                if (publication?.nonce === nonce && publication.eventDigest === eventDigest) return;
+                if (publication?.nonce === nonce || initial && (this.archive.initialPlanPublication || this.archive.tasks.length) || action.recovery ||
                     this.active.get(this.lead.id)?.action !== action || !this.current(action))
-                  throw new Error('math_initial_plan_superseded');
+                  throw new Error(code('superseded'));
                 if (!action.planVersion || response.baseVersion !== action.planVersion ||
-                    response.baseVersion !== this.archive.planVersion) throw new Error('math_initial_plan_version_conflict');
-                this.preserveAdvisoryBacklogs(plan);
-                await this.acceptPlan(plan, undefined, { action, receipt: { nonce: action.initialPlanNonce!, file,
-                  offset: entry.offset, eventDigest, baseVersion: response.baseVersion, acceptedAt: Date.now() } });
-                this.input.emit('initial_plan_published', { ...this.archive.initialPlanPublication,
-                  workerId: this.lead.id, summary: details.summary, taskIds: plan.tasks.map(task => task.id) });
+                    response.baseVersion !== this.archive.planVersion) throw new Error(code('version_conflict'));
+                // Compose against the current graph only after acquiring the same CAS lock as full plans and human edits.
+                const handoff = response.kind === 'handoff' ? composeHandoffPublication(this.input.state.problem, this.archive, {
+                  tasks: this.plannedTasks().map(node => node.task), groups: this.archive.groups?.map(route => route.group),
+                  proofRoutes: this.archive.proofRoutes,
+                }, action, response) : undefined;
+                const plan = handoff?.plan ?? parseCooperationPlan(this.input.state.problem, response);
+                const decisions = handoff?.decisions ?? this.resolveAdvisoryDecisions(action, plan.tasks, response, plan);
+                if (handoff) this.preserveAdvisoryBacklogs(plan, decisions.handoffs, []);
+                await this.acceptPlan(plan, undefined, { action, receipt: { nonce, file,
+                  offset: entry.offset, eventDigest, baseVersion: response.baseVersion, acceptedAt: Date.now() } }, decisions);
+                this.markCapacityRefillAssessed(action);
+                this.changed();
+                this.input.emit(initial ? 'initial_plan_published' : 'plan_published', { ...this.archive.planPublication,
+                  workerId: this.lead.id, summary: details.summary, taskIds: plan.tasks.map(task => task.id),
+                  ...(handoff ? { publicationKind: 'handoff', adoptedTaskIds: handoff.adoptedTaskIds } : {}) });
               });
             } catch (error) {
               this.input.signal.throwIfAborted();
@@ -178,7 +192,7 @@ export abstract class CooperationInputs extends CooperationPlanning {
   }
   protected preserveHandoffBacklog(plan: ReturnType<typeof parseCooperationPlan>, decisions: readonly ResearchHandoffDecision[]) {
     const decided = new Map(decisions.map(decision => [decision.id, decision]));
-    const remaining = researchHandoffs(this.archive).filter(item => {
+    const remaining = researchHandoffs(this.advisoryArchiveForPlan(plan)).filter(item => {
       const decision = decided.get(item.id) ?? item.decision;
       return decision?.status === 'deferred' && decision.waitsOn?.length || (item.status === 'pending' && !decided.has(item.id));
     });
@@ -196,34 +210,22 @@ export abstract class CooperationInputs extends CooperationPlanning {
   /** A replacement plan must keep every queued handoff and challenge decidable (handoffs checked first). */
   protected preserveAdvisoryBacklogs(plan: ReturnType<typeof parseCooperationPlan>, handoffs: readonly ResearchHandoffDecision[] = [],
     challenges: readonly ResearchChallengeDecision[] = []) {
+    this.includeCapacityExplorations(plan);
     this.preserveHandoffBacklog(plan, handoffs);
-    preserveResearchChallengeBacklog(this.archive, plan.tasks, plan.proofRoutes, challenges);
+    preserveResearchChallengeBacklog(this.advisoryArchiveForPlan(plan), plan.tasks, plan.proofRoutes, challenges);
   }
   /** Resolve a lead response's handoff and challenge decisions, checking both backlogs against a replacement plan. */
   protected resolveAdvisoryDecisions(action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' }>,
     tasks: readonly CooperativeTask[], response: { handoffDecisions?: unknown; challengeDecisions?: unknown },
     plan?: ReturnType<typeof parseCooperationPlan>) {
+    if (plan) { this.includeCapacityExplorations(plan); tasks = plan.tasks; }
+    // Explicit decisions apply to the immutable inbox actually shown at dispatch.
+    // The candidate retirement view is only for preserving unseen backlogs below.
     const handoffs = resolveResearchHandoffs(this.archive, action.handoffIds ?? [], tasks, response.handoffDecisions, action.handoffActivations);
     const challenges = resolveResearchChallenges(this.archive, action.challengeIds ?? [], action.challengeActivations ?? {},
       tasks, response.challengeDecisions);
     if (plan) this.preserveAdvisoryBacklogs(plan, handoffs, challenges);
     return { handoffs, challenges };
-  }
-  /** Upsert each kind by id, announcing every decision and persisting once per non-empty kind (handoffs first). */
-  protected recordAdvisoryDecisions({ handoffs, challenges }: { handoffs: readonly ResearchHandoffDecision[];
-    challenges: readonly ResearchChallengeDecision[] }) {
-    const upsert = <Decision extends { id: string }>(previous: readonly Decision[] | undefined, decisions: readonly Decision[],
-      event: string) => {
-      const records = new Map(previous?.map(item => [item.id, item]));
-      for (const decision of decisions) { records.set(decision.id, decision); this.input.emit(event, { ...decision }); }
-      return [...records.values()];
-    };
-    if (handoffs.length) {
-      this.archive.researchDecisions = upsert(this.archive.researchDecisions, handoffs, 'research_handoff_decided'); this.changed();
-    }
-    if (challenges.length) {
-      this.archive.challengeDecisions = upsert(this.archive.challengeDecisions, challenges, 'research_challenge_decided'); this.changed();
-    }
   }
   private async readWorkerDeliveries(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>, cursors: Record<string, number>) {
     const invalidInput = new Set([...directDeliveryRejections, 'math_delivery_invalid_commit',

@@ -147,11 +147,12 @@ describe('frozen module comparison launches', () => {
   it.each([
     ['deepseek', 'deepseek-v4-pro', 'DEEPSEEK_API_KEY', 'https://api.deepseek.com', 'responses'],
     ['westlake', 'deepseek-flash', 'WESTLAKEHPC_API_KEY', 'https://hpc-api.westlake.edu.cn/v1', 'chat-completions'],
+    ['sub2api', 'deepseek-flash', 'SUB2API_WESTLAKE_API_KEY', 'http://127.0.0.1:8080/v1', 'responses'],
   ])('prepares %s experiments without a key or model call and isolates every provider profile', async (provider, model, envKey, baseUrl, wireApi) => {
     vi.stubEnv(envKey, '');
     const run = vi.spyOn(batch, 'runMathBatch').mockResolvedValue(0);
     const { directory, plan } = await prepare(2, provider);
-    expect(plan.configuration).toMatchObject({ provider, model, effort: 'high' });
+    expect(plan.configuration).toMatchObject({ provider, model, effort: provider === 'deepseek' ? 'high' : 'max' });
     expect(new Set(plan.jobs.map(job => job.codexProfile)).size).toBe(8);
     for (const job of plan.jobs) {
       expect(read(job.launch).codexHome).toBe(job.codexProfile);

@@ -12,6 +12,7 @@ import { runSolver } from '../../src/solver/run';
 import { directSolverModules, type SolverModules } from '../../src/solver/modules';
 import type { MathAgentOptions, MathAgentSession } from '../../src/runtime/codexSession';
 import { componentPaths } from '../../src/solver/componentTemplate';
+import { MAX_RESEARCH_WORKERS } from '../../src/solver/modules/organization';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const task = 'Prove both original natural-number addition targets in generated/addition/Submission.lean. Preserve their declarations and all protected files. Use Lean feedback to repair your proofs.';
@@ -57,7 +58,7 @@ async function main(): Promise<number> {
     component: { type: 'string' }, workers: { type: 'string' }, help: { type: 'boolean' },
   } });
   if (values.help) {
-    console.log('Usage: theorem-os example prepare|check|solve|resume|replay --dir DIR [--component NAME] [--workers 1|2|3|4] [--model MODEL] [--effort LEVEL] [--codex FILE]\nprepare: create a small Lean-only problem and freeze the build and configuration.\ncheck: run the startup preflight without a model.\nsolve / resume: use the saved configuration (default: single agent, at most 5 dispatches).\nreplay: prepare a NEW directory and check two preset candidates with real Lean; no model or provider connection.\n--component uses src/components/NAME.ts; M3.ready ordering is exercised by cooperative model runs with at least 3 workers.\nInstall leanprover/lean4:v4.33.0 first. Keep the same build and environment when resuming.');
+    console.log(`Usage: theorem-os example prepare|check|solve|resume|replay --dir DIR [--component NAME] [--workers 1..${MAX_RESEARCH_WORKERS}] [--model MODEL] [--effort LEVEL] [--codex FILE]\nprepare: create a small Lean-only problem and freeze the build and configuration.\ncheck: run the startup preflight without a model.\nsolve / resume: use the saved configuration (default: single agent, at most 5 dispatches).\nreplay: prepare a NEW directory and check two preset candidates with real Lean; no model or provider connection.\n--component uses src/components/NAME.ts; M3.ready ordering is exercised by cooperative model runs with at least 3 workers.\nInstall leanprover/lean4:v4.33.0 first. Keep the same build and environment when resuming.`);
     return 0;
   }
   const action = positionals[0];
@@ -67,7 +68,8 @@ async function main(): Promise<number> {
   assertMathCanonicalPath(directory);
   if (isMathPathWithin(root, directory)) throw new Error('Keep example cases outside the source checkout.');
   const workers = values.workers === undefined ? 1 : Number(values.workers);
-  if (!Number.isInteger(workers) || workers < 1 || workers > 4) throw new Error('--workers must be 1, 2, 3 or 4.');
+  if (!Number.isSafeInteger(workers) || workers < 1 || workers > MAX_RESEARCH_WORKERS)
+    throw new Error(`--workers must be an integer from 1 to ${MAX_RESEARCH_WORKERS}.`);
   if (action === 'replay' && (workers !== 1 || values.model || values.effort || values.codex))
     throw new Error('Replay uses preset candidates with one worker; prepare a separate case for model runs.');
   if (values.component) {
@@ -77,12 +79,12 @@ async function main(): Promise<number> {
   }
   if (action === 'prepare' || action === 'replay') await prepare(directory, {
     mode: action === 'replay' ? 'replay' : 'model', component: values.component, workers,
-    model: values.model || 'gpt-6.1-sol', effort: values.effort || 'xhigh', codex: values.codex,
+    model: values.model || 'deepseek-flash', effort: values.effort || 'max', codex: values.codex,
   });
   if (action === 'prepare') return 0;
   const config = readMathJson(path.join(directory, 'case.json')) as ExampleCase;
   if (config.schema !== 'theorem-os.example-case.v1' || !['model', 'replay'].includes(config.mode) ||
-      !Number.isInteger(config.workers) || config.workers < 1 || config.workers > 4 || !config.model || !config.effort)
+      !Number.isSafeInteger(config.workers) || config.workers < 1 || config.workers > MAX_RESEARCH_WORKERS || !config.model || !config.effort)
     throw new Error('Invalid example case.');
   for (const key of ['model', 'effort', 'codex', 'component', 'workers'] as const)
     if (values[key] !== undefined && String(values[key]) !== String(config[key])) throw new Error(`--${key} differs from the prepared case; use its saved configuration or prepare a new case.`);

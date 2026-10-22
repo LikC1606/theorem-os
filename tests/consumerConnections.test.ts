@@ -2,15 +2,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } from '../src/math/verifier';
+import { canonicalMathJson, mathDigest } from '../src/math/mathRuntimeIo';
 import { readSolverRunState, writeSolverRunState, type SolverRunState } from '../src/solver/archive';
 import { parseCooperationPlan, type CooperativeResearch } from '../src/solver/cooperation';
 import { buildResearchContext } from '../src/solver/modules/context';
 import type { ResearchWorker } from '../src/solver/modules/organization';
 import { readyResearchTasks, taskCanStart } from '../src/solver/modules/search';
-import { committedSource, commitSolverSources, type SolverProblem } from '../src/solver/problem';
+import { committedSource, commitSolverSources, git, readSolverProblem, type SolverProblem } from '../src/solver/problem';
 import { automaticTaskConnection, createTaskConnectionCheck, freshTaskConnection, hasTaskConnectionCheck,
   taskConnectionCheckCurrent } from '../src/solver/taskConnections';
-import { taskVersion, type CooperativeAction, type CooperativeTask, type TaskAssignment, type TaskRecord } from '../src/solver/tasks';
+import { freshlyAccepted, taskVersion, type CooperativeAction, type CooperativeTask, type TaskAssignment, type TaskRecord } from '../src/solver/tasks';
 import { cooperativeResearch } from './helpers/cooperation';
 import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
 import { verifiedBatch } from './helpers/verifier';
@@ -58,6 +59,32 @@ describe('consumer connection dispatch', () => {
     next.connectionCheck = createTaskConnectionCheck(fresh[1].task, next, fresh, identity);
     fresh[1].alternativeRoutes = [{ id: 'route', targetTaskId: 'consumer', closingTaskId: 'input', prerequisiteTaskIds: [] }];
     expect(taskConnectionCheckCurrent(fresh[1].task, next, fresh, identity)).toBe(false);
+  });
+
+  it('freezes only unfinished inputs and binds their assumption permission to the exact worker dispatch', () => {
+    const tasks = records(), assignment: TaskAssignment = { ...assignmentFor(tasks), assignmentId: 'dispatch-1' };
+    tasks.push({ ...tasks[0], task: { ...tasks[0].task, id: 'ready', theoremName: 'N.ready' }, status: 'integrated' });
+    assignment.dependencies.push({ taskId: 'ready', taskDigest: taskVersion(tasks[2].task) });
+    assignment.connectionCheck = createTaskConnectionCheck(tasks[1].task, assignment, tasks, identity);
+    expect(assignment.connectionCheck.assumedInputs).toEqual([{ taskId: 'input', taskDigest: taskVersion(tasks[0].task) }]);
+    tasks[0].status = 'integrated';
+    expect(taskConnectionCheckCurrent(tasks[1].task, assignment, tasks, identity)).toBe(true);
+    expect(hasTaskConnectionCheck(tasks[1].task, { ...assignment, workerId: 'another-worker' })).toBe(false);
+    expect(hasTaskConnectionCheck(tasks[1].task, { ...assignment, assignmentId: 'dispatch-2' })).toBe(false);
+    expect(hasTaskConnectionCheck({ ...tasks[1].task, objective: 'Changed contract' }, assignment)).toBe(false);
+  });
+
+  it.each([
+    ['absent', 'namespace N\nend N\n'],
+    ['in another namespace', 'namespace Other\nlemma N.input : True := by trivial\nend Other\n'],
+  ])('includes integrated inputs %s from an upgraded historical assignment seed', (_description, source) => {
+    const tasks = records(), assignment = assignmentFor(tasks);
+    tasks[0].status = 'integrated';
+    tasks.push({ ...tasks[0], task: { ...tasks[0].task, id: 'unfinished', theoremName: 'N.unfinished' }, status: 'pending' });
+    assignment.dependencies.push({ taskId: 'unfinished', taskDigest: taskVersion(tasks[2].task) });
+    assignment.connectionCheck = createTaskConnectionCheck(tasks[1].task, assignment, tasks, identity,
+      () => source);
+    expect(assignment.connectionCheck.assumedInputs).toEqual(assignment.dependencies);
   });
 
   it('respects explicit opt out, untyped blockers, private inputs and paused groups', () => {
@@ -210,11 +237,141 @@ describe('host consumer connection lifecycle', () => {
     expect(canonical).toContain('lemma helper : True := by trivial'); expect(canonical).not.toContain('(helper : True)');
   });
 
+  const rejectForwardInputReferences = () => {
+    const verify = host.verify.getMockImplementation()!;
+    host.verify.mockImplementation(async (request: MathematicsVerifierBatchRequest) => {
+      const source = fs.readFileSync(path.join(request.projectRoot, 'Submission.lean'), 'utf8');
+      const reference = source.indexOf('Tutorial.helper'), declaration = source.indexOf('lemma helper : True');
+      const result = await verify(request);
+      return reference >= 0 && (declaration < 0 || declaration > reference)
+        ? { ...result, status: 'failed', results: result.results.map(item => ({ ...item, status: 'failed',
+          error: 'Lean exited with status 1.',
+          stdoutPreview: 'Submission.lean:5:4: error(lean.unknownIdentifier): Unknown identifier `Tutorial.helper`' })) }
+        : result;
+    });
+  };
+
+  it.each(['snapshot', 'legacy', 'explicit'] as const)('keeps %s dispatch assumptions when the input integrates before the worker delivers its old source', async mode => {
+    rejectForwardInputReferences();
+    const parentWorker = mode === 'explicit' ? workers[3] : workers[2];
+    if (mode === 'explicit') {
+      const tasks = state.cooperation!.tasks.map(item => item.task.id === 'goal_0' ? { ...item.task, status: 'paused' as const } : item.task);
+      tasks.splice(tasks.findIndex(task => task.id === 'independent'), 1, { id: 'consumer', kind: 'lemma', conditional: true,
+        objective: 'An explicitly conditional helper without an active downstream consumer', type: 'True',
+        theoremName: 'Tutorial.consumer', proofPath: 'Submission.lean', dependsOn: ['helper'], revision: 0, ownerId: 'observer' });
+      await (cooperative as any).acceptPlan(parseCooperationPlan(problem, { tasks }));
+    }
+    const parent = await assigned(parentWorker);
+    expect(parent.task.id).toBe(mode === 'explicit' ? 'consumer' : 'goal_0');
+    if (mode === 'explicit') expect(parent.assignment.connectionCheck).toBeUndefined();
+    if (mode === 'legacy') {
+      const { assumedInputs: _inputs, workerId: _worker, assignmentId: _assignment, basisDigest: _basis, ...legacy } = parent.assignment.connectionCheck!;
+      parent.assignment.connectionCheck = { ...legacy, basisDigest: mathDigest(canonicalMathJson(legacy)) };
+    }
+    const source = fs.readFileSync(sourcePath(parentWorker), 'utf8');
+    fs.writeFileSync(sourcePath(parentWorker), mode === 'explicit'
+      ? source.replace('theorem add_zero', 'lemma consumer : True := by exact Tutorial.helper\ntheorem add_zero')
+      : source.replace('n + 0 = n := by sorry', 'n + 0 = n := by\n  have h : True := Tutorial.helper\n  rfl'));
+    const commit = commitSolverSources(problem, parentWorker.worktree);
+    expect(committedSource(workspace, commit, `${problem.projectRelative}/Submission.lean`)).not.toContain('lemma helper');
+    await deliverInput(await assigned(workers[1]));
+    expect(node('helper').status).toBe('integrated');
+    await cooperative.deliver(parentWorker, parent, commit);
+    const consumer = node(parent.task.id);
+    expect(consumer.status).toBe('integrated');
+    expect(consumer.proof!.conditions).toEqual([{ taskId: 'helper', taskDigest: taskVersion(node('helper').task) }]);
+    expect(consumer.integratedCheck!.conditions ?? []).toEqual([]);
+    expect(freshlyAccepted(consumer, taskVersion(consumer.task))).toBe(true);
+    expect(checkedSources.some(source => source.includes(`${mode === 'explicit' ? 'lemma consumer' : 'theorem add_zero'} (helper : True)`))).toBe(true);
+    expect(checkedSources.at(-1)).toContain('lemma helper : True := by trivial');
+    expect(checkedSources.at(-1)).not.toContain('(helper : True)');
+    expect(state.cooperation!.error).toBeUndefined();
+  });
+
+  it('checks an ordinary dispatch using its already integrated source without assumption binders', async () => {
+    rejectForwardInputReferences();
+    await deliverInput(await assigned(workers[1]));
+    const parent = await deliverConsumer();
+    expect(parent.assignment.connectionCheck).toBeUndefined();
+    expect(node('goal_0').proof!.conditions).toBeUndefined();
+    expect(node('goal_0').integratedCheck!.conditions).toBeUndefined();
+    expect(checkedSources.some(source => source.includes('theorem add_zero (helper : True)'))).toBe(false);
+  });
+
+  it.each(['goal', 'lemma'] as const)('discharges a conditional %s after a later input declaration and preserves added helper order', async kind => {
+    rejectForwardInputReferences();
+    const tasks = state.cooperation!.tasks.map(item => item.task);
+    const parentWorker = kind === 'lemma' ? workers[3] : workers[2];
+    if (kind === 'lemma') {
+      const goal = tasks.findIndex(task => task.id === 'goal_0');
+      tasks[goal] = { ...tasks[goal], dependsOn: ['consumer'], conditional: false };
+      tasks.splice(tasks.findIndex(task => task.id === 'independent'), 1, { id: 'consumer', kind: 'lemma', objective: 'Combine the input', type: 'True',
+        theoremName: 'Tutorial.consumer', proofPath: 'Submission.lean', dependsOn: ['helper'], revision: 0, ownerId: 'observer' });
+      await (cooperative as any).acceptPlan(parseCooperationPlan(problem, { tasks }));
+    }
+    const parent = await assigned(parentWorker);
+    expect(parent.task.id).toBe(kind === 'goal' ? 'goal_0' : 'consumer');
+    let source = fs.readFileSync(sourcePath(parentWorker), 'utf8');
+    source = kind === 'goal' ? source.replace('n + 0 = n := by sorry',
+      'n + 0 = n := by\n  have h : True := Tutorial.helper\n  rfl') : source.replace('theorem add_zero',
+      'lemma support_a : True := by exact Tutorial.helper\nlemma support_b : True := by exact Tutorial.helper\n' +
+      'lemma consumer : True := by exact Tutorial.helper\ntheorem add_zero');
+    fs.writeFileSync(sourcePath(parentWorker), source);
+    await cooperative.deliver(parentWorker, parent, commitSolverSources(problem, parentWorker.worktree));
+    expect(node(parent.task.id).status).toBe('conditional');
+    const input = await assigned(workers[1]);
+    fs.writeFileSync(sourcePath(workers[1]), fs.readFileSync(sourcePath(workers[1]), 'utf8')
+      .replace('theorem zero_add', 'lemma helper : True := by trivial\ntheorem zero_add'));
+    await cooperative.deliver(workers[1], input, commitSolverSources(problem, workers[1].worktree));
+    const consumer = node(parent.task.id);
+    expect(consumer.status).toBe('integrated');
+    expect(consumer.integratedCheck!.conditions ?? []).toEqual([]);
+    expect(freshlyAccepted(consumer, taskVersion(consumer.task))).toBe(true);
+    const canonical = committedSource(workspace, state.cooperation!.canonicalCommit!, `${problem.projectRelative}/Submission.lean`);
+    const consumerName = kind === 'goal' ? 'theorem add_zero' : 'lemma consumer';
+    expect(canonical.indexOf('lemma helper')).toBeLessThan(canonical.indexOf(consumerName));
+    if (kind === 'lemma') {
+      expect(canonical.indexOf('lemma helper')).toBeLessThan(canonical.indexOf('lemma support_a'));
+      expect(canonical.indexOf('lemma support_a')).toBeLessThan(canonical.indexOf('lemma support_b'));
+      expect(canonical.indexOf('lemma support_b')).toBeLessThan(canonical.indexOf('lemma consumer'));
+    }
+    expect(canonical).not.toContain('(helper : True)');
+  });
+
+  it('blocks a conditional reorder across a frozen option command without advancing canonical acceptance', async () => {
+    for (const instance of instances) { instance.controller.abort(); await instance.cooperative.stop(); }
+    const file = sourcePath(workers[0]);
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('theorem zero_add', 'set_option maxRecDepth 1000\ntheorem zero_add'));
+    git(workspace, ['add', '--', `${problem.projectRelative}/Submission.lean`]);
+    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--quiet', '--no-gpg-sign', '-m', 'Freeze a context barrier']);
+    problem = readSolverProblem(workspace, problem.activeProblemPath);
+    for (const worker of workers.slice(1)) git(worker.worktree, ['reset', '--hard', problem.baseCommit]);
+    state = solverState(problem, workspace, { runId: 'connection-fixture', phase: 'running', failures: [],
+      cooperation: { canonicalCommit: problem.baseCommit, tasks: [] } });
+    instances = []; cooperative = create(); await cooperative.restore();
+    rejectForwardInputReferences();
+    await deliverConsumer();
+    const input = await assigned(workers[1]);
+    fs.writeFileSync(sourcePath(workers[1]), fs.readFileSync(sourcePath(workers[1]), 'utf8')
+      .replace('theorem zero_add', 'lemma helper : True := by trivial\ntheorem zero_add'));
+    await cooperative.deliver(workers[1], input, commitSolverSources(problem, workers[1].worktree));
+    expect(node('helper').status).toBe('integrated');
+    expect(node('goal_0').status).toBe('blocked');
+    expect(node('goal_0').feedback).toContain('math_task_integration_missing_context');
+    expect(node('goal_0').feedback).not.toContain('math_verifier_unavailable');
+    expect(state.cooperation!.canonicalCommit).toBe(node('helper').integratedCheck!.commit);
+    expect(freshlyAccepted(node('goal_0'), taskVersion(node('goal_0').task))).toBe(false);
+    const canonical = committedSource(workspace, state.cooperation!.canonicalCommit!, `${problem.projectRelative}/Submission.lean`);
+    expect(canonical).toContain('n + 0 = n := by sorry');
+    expect(state.cooperation!.error).toBeUndefined();
+  });
+
   it('rechecks restored conditional receipts without another consumer dispatch or granting unproved inputs acceptance', async () => {
     await deliverConsumer(); const proof = node('goal_0').proof!, previous = host.verify.mock.calls.length;
     const snapshot = path.join(directory, 'state.json'); writeSolverRunState(snapshot, state);
     for (const instance of instances) { instance.controller.abort(); await instance.cooperative.stop(); }
     state = readSolverRunState(snapshot); cooperative = create(); await cooperative.restore();
+    expect(node('goal_0').assignment!.connectionCheck!.assumedInputs).toEqual(node('goal_0').proof!.conditions);
     expect(host.verify.mock.calls.length).toBeGreaterThan(previous);
     expect(node('goal_0')).toMatchObject({ status: 'conditional', attempts: 1, proof: { commit: proof.commit } });
     expect(node('goal_0').integratedCheck).toBeUndefined();

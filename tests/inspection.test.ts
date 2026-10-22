@@ -41,6 +41,20 @@ function fixture() {
 afterEach(() => { for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
 
 describe('run inspection', () => {
+  it('uses saved dispatch state for concurrency and hides tasks left over from an idle session', () => {
+    const { state, stateFile } = fixture();
+    state.workers![0].phase = 'checking';
+    state.workers![0].sessionTaskId = 'old-finished-task';
+    state.workers![0].scheduling = { status: 'idle', since: 1000 };
+    state.workers![1].scheduling = { status: 'working', since: 1001, action: 'task', taskId: 'goal' };
+    writeSolverRunState(stateFile, state);
+    const report = buildRunInspection(readSolverRunState(stateFile));
+    expect(report.scheduling).toMatchObject({ observedWorkers: 2, working: 1, proofAssignments: 1, idle: 1 });
+    expect(report.workers[0].task).toBeUndefined();
+    expect(report.workers[1].task).toBe('goal');
+    expect(renderRunInspection(report)).toContain('| solver | lead | — | idle | checking |');
+  });
+
   it('shows pinned knowledge activation and observations after restore without claiming current proof acceptance', () => {
     const { state, stateFile } = fixture(), consumer = state.cooperation!.tasks[0]!.task;
     expect(buildRunInspection(state).knowledge).toMatchObject({ status: 'disabled', retrievalCoverage: 'unknown' });

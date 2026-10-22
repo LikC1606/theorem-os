@@ -18,6 +18,7 @@ const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn() }));
 vi.mock('../src/math/verifier', async importOriginal => ({
   ...await importOriginal<typeof import('../src/math/verifier')>(),
   checkManyFormalVerifications: host.verify,
+  formalVerificationToolIdentity: () => 'delivery-identity-fixture-tools',
   resolveMathematicsLakePackagesCache: () => undefined,
 }));
 vi.mock('../src/runtime/codexSession', () => ({ createCodexMathSession: host.createSession }));
@@ -34,11 +35,13 @@ describe('assignment-bound worker delivery identities', () => {
   let instances: { cooperative: CooperativeResearch; controller: AbortController }[];
   let events: { event: string; details?: Record<string, unknown> }[];
   let edits: number;
+  let environment: NodeJS.ProcessEnv;
 
   const create = () => {
     const controller = new AbortController();
     let queue = Promise.resolve();
     const instance = cooperativeResearch({ state, workers: [lead, peer, other], retrievalRoot: directory,
+      access: new Map([lead, peer, other].map(worker => [worker.id, { environment, retrievalRoot: directory }])),
       signal: controller.signal, emit: (event, details) => events.push({ event, details }),
       modules: directSolverModules,
       exclusiveCheck: async check => {
@@ -97,6 +100,9 @@ describe('assignment-bound worker delivery identities', () => {
   beforeEach(() => {
     const example = localExample('worker-delivery-identity-', 'lead');
     ({ directory, problem } = example);
+    const envFile = path.join(directory, 'math.env');
+    fs.writeFileSync(envFile, '');
+    environment = { PATH: '/usr/bin:/bin', DEEPSCIENTIST_MATH_ENV_FILE: envFile };
     [peer, other] = ['peer', 'other'].map(id => peerWorker(example, id));
     lead = leadWorker(problem, example.workspace);
     const plan = parseCooperationPlan(problem, { tasks: [

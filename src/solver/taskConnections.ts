@@ -1,4 +1,5 @@
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
+import { inspectLeanDeclarationRegions, inspectLeanSource, inspectScopedLeanDeclarations } from '../math/leanSource';
 import { isAdvisoryTask, taskGroup, taskReferenceDependencies, taskVersion,
   type CooperativeTask, type RouteRecord, type TaskAssignment, type TaskConnectionCheck, type TaskRecord } from './tasks';
 
@@ -8,6 +9,24 @@ const basisDigest = ({ basisDigest: _basis, ...basis }: TaskConnectionCheck) => 
 const routesDigest = (taskId: string, tasks: readonly TaskRecord[]) => mathDigest(canonicalMathJson(tasks
   .flatMap(node => node.alternativeRoutes ?? []).filter(route => route.targetTaskId === taskId ||
     route.closingTaskId === taskId || route.prerequisiteTaskIds.includes(taskId)).toSorted((a, b) => a.id.localeCompare(b.id))));
+
+/** Recover missing assumptions from an immutable historical seed, with current contracts checked exactly. */
+export function taskInputsMissingFromSeed(inputs: TaskConnectionCheck['inputs'], tasks: readonly TaskRecord[],
+  readSource: (task: CooperativeTask) => string): TaskConnectionCheck['inputs'] {
+  return inputs.filter(reference => {
+    const dependency = tasks.find(node => node.task.id === reference.taskId)?.task;
+    if (!dependency || dependency.kind !== 'lemma' || !dependency.type?.trim() || taskVersion(dependency) !== reference.taskDigest)
+      throw new Error('math_task_condition_version_invalid');
+    const source = readSource(dependency), declarations = inspectScopedLeanDeclarations(source).filter(declaration =>
+      declaration.qualifiedName === dependency.theoremName || !dependency.theoremName!.includes('.') && declaration.name === dependency.theoremName);
+    if (!declarations.length) return true;
+    if (declarations.length !== 1) throw new Error('math_task_condition_version_invalid');
+    if (declarations[0].kind !== 'theorem') return true;
+    const region = inspectLeanDeclarationRegions(source).find(region => region.startOffset === declarations[0].startOffset)!;
+    const inspected = inspectLeanSource(source.slice(region.startOffset, region.endOffset));
+    return inspected.sorryCount > 0 || inspected.admitCount > 0;
+  });
+}
 
 /** A declared dependency is a proposed application; its inputs need not already have proofs. */
 export function automaticTaskConnection(task: CooperativeTask, tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): boolean {
@@ -45,14 +64,17 @@ export function automaticTaskConnection(task: CooperativeTask, tasks: readonly T
 
 /** The permission belongs to a fixed host dispatch, never to a mutated task contract. */
 export function createTaskConnectionCheck(task: CooperativeTask, assignment: TaskAssignment,
-  tasks: readonly TaskRecord[], identity: ConnectionIdentity): TaskConnectionCheck {
+  tasks: readonly TaskRecord[], identity: ConnectionIdentity, readSeedSource?: (task: CooperativeTask) => string): TaskConnectionCheck {
   const nodes = new Map(tasks.map(node => [node.task.id, node]));
   const inputs = (assignment.dependencies ?? []).filter(reference => {
     const input = nodes.get(reference.taskId);
     return input?.task.kind === 'lemma' && Boolean(input.task.type?.trim()) && taskVersion(input.task) === reference.taskDigest;
   }).map(reference => ({ ...reference }));
+  const missing = new Set(readSeedSource ? taskInputsMissingFromSeed(inputs, tasks, readSeedSource).map(input => input.taskId) : []);
   const check: TaskConnectionCheck = { schema: 'theorem-os.consumer-connection.v1',
     consumer: { taskId: task.id, taskDigest: taskVersion(task) }, inputs, seedCommit: assignment.seedCommit,
+    assumedInputs: inputs.filter(reference => nodes.get(reference.taskId)!.status !== 'integrated' || missing.has(reference.taskId)),
+    workerId: assignment.workerId, ...(assignment.assignmentId !== undefined ? { assignmentId: assignment.assignmentId } : {}),
     dependenciesDigest: referencesDigest(assignment), ...(assignment.routeId ? { routeId: assignment.routeId } : {}),
     routesDigest: routesDigest(task.id, tasks), ...identity, basisDigest: '' };
   return { ...check, basisDigest: basisDigest(check) };
@@ -66,10 +88,17 @@ export function hasTaskConnectionCheck(task: CooperativeTask, assignment: TaskAs
     check.consumer.taskDigest === taskVersion(task) && assignment.taskId === task.id &&
     assignment.taskDigest === check.consumer.taskDigest && check.seedCommit === assignment.seedCommit &&
     check.routeId === assignment.routeId && check.dependenciesDigest === referencesDigest(assignment) &&
+    (check.workerId === undefined || check.workerId === assignment.workerId) &&
+    (check.assignmentId === undefined || check.assignmentId === assignment.assignmentId) &&
     check.environmentDigest && check.problemReceiptDigest && Array.isArray(check.inputs) && check.inputs.length &&
     new Set(check.inputs.map(input => input.taskId)).size === check.inputs.length &&
     check.inputs.every(input => assignment.dependencies?.some(reference => reference.taskId === input.taskId &&
-      reference.taskDigest === input.taskDigest)) && check.basisDigest === basisDigest(check));
+      reference.taskDigest === input.taskDigest)) &&
+    (check.assumedInputs === undefined || Array.isArray(check.assumedInputs) && check.workerId === assignment.workerId &&
+      check.assignmentId === assignment.assignmentId &&
+      new Set(check.assumedInputs.map(input => input.taskId)).size === check.assumedInputs.length &&
+      check.assumedInputs.every(input => check.inputs.some(reference => reference.taskId === input.taskId &&
+        reference.taskDigest === input.taskDigest))) && check.basisDigest === basisDigest(check));
 }
 
 export function taskConnectionCheckCurrent(task: CooperativeTask, assignment: TaskAssignment,

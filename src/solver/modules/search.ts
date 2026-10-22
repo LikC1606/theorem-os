@@ -195,6 +195,7 @@ export function criticalPathResearchTasks(tasks: readonly TaskRecord[], groups?:
 
 type GoalTaskFocus = Readonly<{
   proofPath: ReadonlySet<string>; frontier: ReadonlySet<string>;
+  proofGoals: ReadonlyMap<string, ReadonlySet<string>>;
   frontierGoals: ReadonlyMap<string, ReadonlySet<string>>;
   targetedResearch: ReadonlySet<string>; support: ReadonlySet<string>;
 }>;
@@ -217,13 +218,15 @@ function collectOriginalGoalTaskFocus(tasks: readonly TaskRecord[], groups?: rea
   };
   const inputs = (node: TaskRecord) => [...new Set([...node.task.dependsOn,
     ...routes(node).flatMap(route => [...route.prerequisiteTaskIds, route.closingTaskId])])];
-  const proofPath = new Set<string>(), frontier = new Set<string>();
-  const visitPath = (id: string) => {
-    if (proofPath.has(id)) return;
+  const proofPath = new Set<string>(), frontier = new Set<string>(), proofGoals = new Map<string, Set<string>>();
+  const visitPath = (id: string, goalId: string) => {
+    if (proofGoals.get(id)?.has(goalId)) return;
     const node = nodes.get(id);
     if (!node || !active(node)) return;
     proofPath.add(id);
-    if (isAdvisoryTask(node.task) || !settled(node)) inputs(node).forEach(visitPath);
+    const goals = proofGoals.get(id) ?? new Set<string>();
+    goals.add(goalId); proofGoals.set(id, goals);
+    if (isAdvisoryTask(node.task) || !settled(node)) inputs(node).forEach(dependency => visitPath(dependency, goalId));
   };
   const frontierGoals = new Map<string, Set<string>>();
   const visitFrontier = (id: string, goalId: string, visited: Set<string>) => {
@@ -245,7 +248,7 @@ function collectOriginalGoalTaskFocus(tasks: readonly TaskRecord[], groups?: rea
     }
   };
   for (const node of tasks) if (node.task.kind === 'goal' && active(node) && !settled(node)) {
-    visitPath(node.task.id); visitFrontier(node.task.id, node.task.id, new Set());
+    visitPath(node.task.id, node.task.id); visitFrontier(node.task.id, node.task.id, new Set());
   }
   const reachesFrontier = (id: string, visited = new Set<string>()): boolean => {
     if (frontier.has(id)) return true;
@@ -267,7 +270,7 @@ function collectOriginalGoalTaskFocus(tasks: readonly TaskRecord[], groups?: rea
     if (isAdvisoryTask(node.task) || !settled(node)) inputs(node).forEach(visitSupport);
   };
   targetedResearch.forEach(visitSupport);
-  return { proofPath, frontier, frontierGoals, targetedResearch, support };
+  return { proofPath, frontier, proofGoals, frontierGoals, targetedResearch, support };
 }
 
 /** Preserve every active frontier, with a separate evidence-ranked focus for allocation. */

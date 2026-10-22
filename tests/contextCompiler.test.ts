@@ -248,6 +248,19 @@ it('dispatches one explicit work contract while retaining exact proof inputs and
       acceptance: 'independent-exact-source-check', input: { seedCommit: proofCommit } });
 });
 
+it('keeps a goal worker on its assigned proof when unrelated seed goals are unfinished', () => {
+  const task: CooperativeTask = { id: 'goal', kind: 'goal', objective: 'Prove the original target',
+    proofPath: 'Submission.lean', theoremName: 'Original.target', dependsOn: [], revision: 0 };
+  const state = { environmentDigest: 'environment', cooperation: { tasks: [node(task)] } } as SolverRunState;
+  const context = buildResearchContext(problem, state, { root: '/runtime', worktree: '/proof', environment: {},
+    taskText: 'Prove the original target', retrievalRoot: '/library', assignment: assign(task), frozenContexts: input([]).frozenContexts });
+  expect(context.instructions).toContain('This assignment proves only Original.target');
+  expect(context.instructions).toContain('including existing sorry placeholders');
+  expect(context.instructions).toContain('do not prove or rewrite them to make the whole file pass');
+  expect(context.instructions).toContain('checks the full candidate after integration');
+  expect(context.instructions).not.toContain('Check the complete saved target file and its local imports before delivery');
+});
+
 it('rejects mismatched mandatory dependency and proof evidence versions', () => {
   const prerequisite = lemma('prerequisite'), consumer = lemma('consumer', [prerequisite.id]), action = assign(consumer);
   action.assignment.dependencies = [{ taskId: prerequisite.id, taskDigest: 'old-version' }];

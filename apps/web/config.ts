@@ -33,12 +33,14 @@ export function readWebConfig(env: NodeJS.ProcessEnv = process.env): WebConfig {
   if (!['http:', 'https:'].includes(publicUrl.protocol) || publicUrl.pathname !== '/' || publicUrl.search ||
       publicUrl.hash || publicUrl.username || publicUrl.password) throw new Error('Use an HTTP(S) origin for THEOREMOS_WEB_PUBLIC_URL.');
   const providers = z.array(providerSchema).min(1).max(20).parse(JSON.parse(env.THEOREMOS_WEB_PROVIDERS ||
-    '[{"id":"openai","name":"OpenAI","baseUrl":"https://api.openai.com/v1"}]')) as WebProvider[];
+    '[{"id":"sub2api","name":"Sub2API · DeepSeek","baseUrl":"http://host.docker.internal:8080/v1"},'
+    + '{"id":"openai","name":"OpenAI","baseUrl":"https://api.openai.com/v1"}]')) as WebProvider[];
   if (new Set(providers.map(provider => provider.id)).size !== providers.length) throw new Error('Provider IDs must be unique.');
   for (const provider of providers) {
     const url = new URL(provider.baseUrl);
-    if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash)
-      throw new Error('Provider base URLs must use HTTPS without credentials, queries or fragments.');
+    const hostGateway = url.protocol === 'http:' && url.hostname === 'host.docker.internal';
+    if ((!hostGateway && url.protocol !== 'https:') || url.username || url.password || url.search || url.hash)
+      throw new Error('Provider base URLs must use HTTPS or HTTP on host.docker.internal, without credentials, queries or fragments.');
     provider.baseUrl = url.href.replace(/\/$/, '');
   }
   return {
@@ -53,7 +55,8 @@ export function readWebConfig(env: NodeJS.ProcessEnv = process.env): WebConfig {
 
 export const webLimits = Object.freeze({ maxTurns: 20, maxRunSeconds: 900, maxWorkers: 4,
   maxSourceBytes: 32_768, maxTaskBytes: 8_000 });
-export const webDefaults = Object.freeze({ model: 'gpt-6.1-sol', effort: 'xhigh' as const,
+// The first provider is the host's deployed sub2api gateway, reached from isolated Docker workers.
+export const webDefaults = Object.freeze({ model: 'deepseek-flash', effort: 'max' as const,
   environment: 'mathlib' as const, maxTurns: 5, maxRunSeconds: 300, workers: 1, coordination: 'cooperative' as const });
 
 export function getWebEnvironments(): WebEnvironmentOption[] {

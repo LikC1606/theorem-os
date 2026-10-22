@@ -44,7 +44,7 @@
 
 ## 已验收证明
 
-仓库收录了 **6 个具有 Lean-Eval 官方通过记录的证明包**。题目链接指向归档源码，结果链接指向官方回复。
+仓库收录了 **10 个具有 Lean-Eval 官方通过记录的证明包**。题目链接指向归档源码，结果链接指向官方回复。
 
 | 题目 | 数学领域 | 官方结果 |
 | --- | --- | --- |
@@ -54,12 +54,16 @@
 | [Fractional expectation thresholds · 分数期望阈值](accepted/annals_fractional_expectation_thresholds/) | 概率组合 | [#2141 · pass](https://github.com/leanprover/lean-eval-submissions/issues/2141#issuecomment-6197783762) |
 | [Dimitrov · 代数整数的 house 下界](accepted/dimitrov/) | 代数数论 | [#2143 · pass](https://github.com/leanprover/lean-eval-submissions/issues/2143#issuecomment-6215093969) |
 | [Hopf–Rinow · 测地完备与度量完备](accepted/hopf_rinow/) | 微分几何 | [#2143 · pass](https://github.com/leanprover/lean-eval-submissions/issues/2143#issuecomment-6215093969) |
+| [Sunflower · 向日葵引理改进界](submitted/annals_improved_bounds_sunflower_lemma/) | 组合数学 | [#2144 · pass](https://github.com/leanprover/lean-eval-submissions/issues/2144) |
+| [Lorentzian polynomials](submitted/annals_lorentzian_polynomials/) | 代数组合 | [#2144 · pass](https://github.com/leanprover/lean-eval-submissions/issues/2144) |
+| [The optimal paper Möbius band](submitted/annals_optimal_moebius/) | 几何 | [#2144 · pass](https://github.com/leanprover/lean-eval-submissions/issues/2144) |
+| [Algebraic integers](submitted/annals_algebraic_integers/) | 代数数论 | [#2144 · pass](https://github.com/leanprover/lean-eval-submissions/issues/2144) |
 
-这些成果来自前身 DeepScientist / DeepScientist Math 及后续工作，包含复用早期证明的继续运行和环境迁移，不构成当前版本从零求解的成功率评测。[成果档案](accepted/README.md)保留模型归因、题目版本、提交来源和 SHA-256 校验值。
+这些成果来自前身 DeepScientist / DeepScientist Math 及后续工作，包含复用早期证明的继续运行和环境迁移，不构成当前版本从零求解的成功率评测。[早期成果档案](accepted/README.md)与 [#2144 证明档案](submitted/README.md)保留模型归因、题目版本、提交来源和 SHA-256 校验值。
 
 [定理知识库](docs/theorem-knowledge.md)可将这些证明包及运行中已检查的辅助定理导入统一索引，供 Agent 按需搜索完整类型、前提、依赖和源码；跨题复用仍需重新通过 Lean 检查。
 
-另有 [4 道本地官方比较器通过、等待官方复验的证明](submitted/README.md)：Sunflower、Lorentzian polynomials、Möbius 和 Algebraic integers，均已提交 [#2144](https://github.com/leanprover/lean-eval-submissions/issues/2144)，不计入上述官方通过数量。
+后四题于 2026 年 10 月 16 日在 [Lean-Eval 提交 #2144](https://github.com/leanprover/lean-eval-submissions/issues/2144) 获得官方托管评测 4/4 通过。证明包仍保留在原提交归档目录，目录名不表示当前验收状态。
 
 [OpenAI math 求解成果](results/openai-math/README.md)另收录 Truffet 有限反例的完整原题证明及本地原比较器验证证据；尚无 OpenAI 托管验收记录，难度 D 为本项目评估。
 
@@ -73,7 +77,7 @@
   </picture>
 </a>
 
-[在线档案](https://likc1606.github.io/theorem-os/archive.html)可搜索、筛选题目，查看 Lean 源码和验收证据，并下载公开记录。
+[在线档案](https://likc1606.github.io/theorem-os/archive.html)可搜索、筛选题目，查看 Lean 源码和验收证据，并下载公开记录；当前展示早期 6 道已验收题目。#2144 的 4 道证明见上表和[提交归档](submitted/README.md)。
 
 [历史研究快照](in-progress/README.md)保留 Dimitrov、Hopf–Rinow 与 Szemerédi 的 Agent 工作区、研究记录与历史。其中前两题已有上述最终验收包，Szemerédi 尚未获官方验收；历史草稿可能包含 `sorry` 和未完成路线。
 
@@ -94,7 +98,7 @@ docker compose -f apps/web/compose.yml build worker web
 docker compose -f apps/web/compose.yml up -d web
 ```
 
-打开 <http://127.0.0.1:8787>，选择证明环境和模板，输入模型名称与自己的 API Key。默认使用 Mathlib，也可切换为 Lean 标准库；页面会显示固定的 Lean 工具链和 Mathlib 版本。
+打开 <http://127.0.0.1:8787>，选择证明环境和模板，填写自己的 API Key。默认连接宿主机 8080 端口的 Sub2API，模型为 `deepseek-flash`、推理强度为 `max`；也可选择 OpenAI 并填写其支持的模型。默认使用 Mathlib，也可切换为 Lean 标准库；页面会显示固定的 Lean 工具链和 Mathlib 版本。
 
 <details>
 <summary>资源要求、API Key 与运行记录</summary>
@@ -199,7 +203,7 @@ CLI 档案保存候选、失败反馈、任务计划、会话、版本和累计�
 
 例如，用 `bun run math component init --name my-search` 生成 M3 模板，修改任务排序函数，再用 `bun run math component check --name my-search` 检查基本约定。完整接入步骤见[组件示例](examples/components/README.md)，接口定义见 [SolverModules](src/solver/modules/index.ts)。
 
-支持单 Agent、独立并行尝试与多 Agent 协作，组件与 Agent 数量相互独立。比较策略时固定题目、环境、模型和预算，使用[三组对照实验](examples/imo2026/COMPARISON.md)检查效果；目前尚无证据表明协作一定更快或更容易解出题目。
+支持单 Agent、独立并行尝试与多 Agent 协作，组件与 Agent 数量相互独立。CLI 每轮支持 1–8 个 Agent，默认四人；扩展名额由专门证明辅助引理的 Prover 承接，依赖就绪且任务充足时八人配置最多执行七个任务。已有运行的人数保持冻结，扩容需创建新运行，见[职责与并发配置](docs/usage.md#协作方式)。比较策略时固定题目、环境、模型和预算，使用[三组对照实验](examples/imo2026/COMPARISON.md)检查效果；目前尚无证据表明协作一定更快或更容易解出题目。
 
 [模块实验](examples/components/EXPERIMENTS.md)提供默认方案、精简上下文、关键路径组合和自定义规则的固定预算对照入口，支持 [Westlake DeepSeek](examples/components/WESTLAKE.md) 和 [DeepSeek 官方服务](examples/components/DEEPSEEK.md)。Westlake 的 Chat Completions 由会话内临时兼容器接入 Codex。工具与实验配置已具备，真实模块效果实验尚未完成，不能据此声称解题率或效率提升。
 

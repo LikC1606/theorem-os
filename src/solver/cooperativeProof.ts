@@ -274,7 +274,7 @@ export async function checkTaskProofs(problem: SolverProblem, worktree: string, 
           assignment.connectionCheck.problemReceiptDigest !== problem.receiptDigest))
         throw new Error('math_task_condition_version_invalid');
       if (conditions.some(dependency => !(task.conditional || connection) || dependency.kind !== 'lemma' || !dependency.type ||
-          (connection && !assignment.connectionCheck!.inputs.some(input => input.taskId === dependency.id &&
+          (connection && !(assignment.connectionCheck!.assumedInputs ?? assignment.connectionCheck!.inputs).some(input => input.taskId === dependency.id &&
             input.taskDigest === taskVersion(dependency))) ||
           !assignment.dependencies?.some(version => version.taskId === dependency.id && version.taskDigest === taskVersion(dependency))))
         throw new Error('math_task_condition_version_invalid');
@@ -382,9 +382,49 @@ export async function checkTaskProofs(problem: SolverProblem, worktree: string, 
   });
 }
 
+/** Discharge saved assumptions against declarations that may have arrived after the old insertion anchor. */
+function orderConditionalChanges(source: string, file: string, changes: readonly DeclarationChange[],
+  conditions: readonly CooperativeTask[]): string {
+  const names = new Set(changes.filter(change => change.file === file).map(change => change.name));
+  const ordered = inspectScopedLeanDeclarations(source).filter(declaration => names.has(declaration.name));
+  const previous = new Map<string, string>();
+  for (const original of ordered) {
+    const declarations = inspectScopedLeanDeclarations(source), regions = inspectLeanDeclarationRegions(source);
+    const declaration = declarations.find(item => item.qualifiedName === original.qualifiedName)!;
+    const region = regions.find(item => item.startOffset === declaration.startOffset)!;
+    const context = canonicalMathJson(leanDeclarationContextCommands(source, declaration.qualifiedName));
+    const text = source.slice(region.startOffset, region.endOffset);
+    const references = new Set([...maskLeanCommentsAndStrings(text).matchAll(/[\p{L}_][\p{L}\p{M}\p{N}_']*(?:\.[\p{L}_][\p{L}\p{M}\p{N}_']*)*/gu)]
+      .map(match => match[0].replace(/^_root_\./u, '')));
+    const inputs = conditions.filter(input => input.proofPath === file &&
+      (references.has(input.theoremName!) || references.has(local(input.theoremName!))));
+    const candidates = declarations.filter(item => item.qualifiedName === previous.get(context) || inputs.some(input =>
+      item.qualifiedName === input.theoremName || !input.theoremName!.includes('.') && item.name === input.theoremName));
+    const anchor = candidates.filter(item => item.startOffset > declaration.startOffset)
+      .toSorted((a, b) => b.startOffset - a.startOffset)[0];
+    previous.set(context, declaration.qualifiedName);
+    if (!anchor) continue;
+    const anchorRegion = regions.find(item => item.startOffset === anchor.startOffset)!;
+    // Scope equality alone omits variable/notation/attribute commands. Only cross declarations
+    // and comments; other context changes require an explicit source repair from the worker.
+    let between = source.slice(region.endOffset, anchorRegion.endOffset);
+    for (const crossed of regions.filter(item => item.startOffset >= region.endOffset && item.endOffset <= anchorRegion.endOffset).reverse()) {
+      const start = crossed.startOffset - region.endOffset, end = crossed.endOffset - region.endOffset;
+      between = between.slice(0, start) + between.slice(end);
+    }
+    if (canonicalMathJson(leanDeclarationContextCommands(source, anchor.qualifiedName)) !== context || maskLeanComments(between).trim())
+      throw new Error('math_task_integration_missing_context\nA conditional consumer precedes its checked input across context commands. ' +
+        'Move the consumer and its supporting helpers after that input while preserving the frozen source context.');
+    const start = source.lastIndexOf('\n', region.startOffset - 1) + 1;
+    const moved = source.slice(start, region.endOffset);
+    source = source.slice(0, start) + source.slice(region.endOffset, anchorRegion.endOffset) + moved + source.slice(anchorRegion.endOffset);
+  }
+  return source;
+}
+
 /** Merge disjoint declaration edits, including helpers sharing a file, without overwriting peer work. */
 export function applyTaskChanges(problem: SolverProblem, worktree: string, changes: readonly DeclarationChange[],
-  imports: NonNullable<TaskProof['imports']> = []): void {
+  imports: NonNullable<TaskProof['imports']> = [], conditions: readonly CooperativeTask[] = []): void {
   const files = new Map<string, string>();
   for (const change of changes) {
     if (!problem.ownedFiles.includes(change.file)) throw new Error('math_task_source_outside_scope');
@@ -424,6 +464,7 @@ export function applyTaskChanges(problem: SolverProblem, worktree: string, chang
     const source = files.get(file) ?? fs.readFileSync(path.join(worktree, problem.projectRelative, file), 'utf8');
     if (!solverProofImports(problem, source).includes(module)) files.set(file, `import ${module}\n` + source);
   }
-  for (const [file, source] of files) fs.writeFileSync(path.join(worktree, problem.projectRelative, file), source);
+  for (const [file, source] of files) fs.writeFileSync(path.join(worktree, problem.projectRelative, file),
+    conditions.length && file.endsWith('.lean') ? orderConditionalChanges(source, file, changes, conditions) : source);
   assertSolverSources(problem, worktree);
 }

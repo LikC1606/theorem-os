@@ -31,7 +31,7 @@ export class SolverSourceError extends Error {
     return this.message === 'math_original_context_changed'
       ? 'Restore the original imports, namespace/section placement, variables, opens, scopes and options from the seed commit. ' +
         'Keep new helpers; move helper-specific scopes and instances inside their proofs. Added imports may use explicit Mathlib.* modules or frozen local modules already imported by the original owned sources; avoid import cycles.'
-      : `Restore the original name, parameters, type and any frozen definition body${this.declarationName ? ` of ${this.declarationName}` : ''} from the seed commit. Preserve new proof work.`;
+      : `Restore the original name, parameters, type and any frozen proof or definition body${this.declarationName ? ` of ${this.declarationName}` : ''} from the seed commit. Preserve new proof work.`;
   }
 }
 export type SolverProblem = Readonly<{
@@ -219,17 +219,43 @@ export function assertSolverProjectSources(problem: SolverSourceConstraints, pro
   }
 }
 
+/** Scratch remains advisory in the worker, never in a proof checkpoint. Only untracked
+ *  regular files at explicit scratch roots qualify; staged/tracked paths still fail ownership. */
+const solverScratch = (problem: SolverProblem, relative: string) => {
+  if (/(^|\/)Probe[^/]*\.lean$/u.test(relative)) return true;
+  const roots = ['', problem.projectRelative === '.' ? '' : `${problem.projectRelative}/`];
+  return roots.some(root => {
+    if (!relative.startsWith(root)) return false;
+    const top = relative.slice(root.length).split('/')[0]!;
+    return top === '.scratch' || top === 'scratch' || top === '.probe' || /^scratch_/u.test(top);
+  });
+};
+function isUntrackedSolverScratch(problem: SolverProblem, worktree: string, relative: string,
+  untracked: ReadonlySet<string>): boolean {
+  if (!untracked.has(relative) || !solverScratch(problem, relative)) return false;
+  const file = path.join(worktree, relative);
+  try {
+    assertMathCanonicalPath(file);
+    return fs.lstatSync(file).isFile();
+  } catch { return false; }
+}
+const solverGitPaths = (worktree: string, args: string[]): string[] => mathGitBytes(worktree, args,
+  { timeout: 30_000, maxBuffer: 1024 * 1024, errorMessage: `math_git_failed:${args[0]}` }).toString('utf8').split('\0').filter(Boolean);
+
 export function assertSolverSources(problem: SolverProblem, worktree: string): void {
   const project = path.join(worktree, problem.projectRelative);
   assertSolverProjectSources(problem, project);
   git(worktree, ['merge-base', '--is-ancestor', problem.baseCommit, 'HEAD']);
-  const changed = [...git(worktree, ['diff', '--name-only', problem.baseCommit]).split('\n'),
-    ...git(worktree, ['ls-files', '--others', '--exclude-standard']).split('\n')].filter(Boolean);
+  const untracked = new Set(solverGitPaths(worktree, ['ls-files', '--others', '--exclude-standard', '-z']));
+  // Include the index separately: an added file deleted from disk must not enter the checkpoint.
+  const changed = new Set([...solverGitPaths(worktree, ['diff', '--name-only', '-z', problem.baseCommit]),
+    ...solverGitPaths(worktree, ['diff', '--cached', '--name-only', '-z', problem.baseCommit]), ...untracked]);
   const allowed = new Set([...problem.ownedFiles.map(relative => path.join(problem.projectRelative, relative)),
     'RESEARCH.md', 'DELIVERIES.jsonl', 'COOPERATION.json', 'CONTEXT-MANIFEST.json']);
   // A worker's own redirect of a Lean or script diagnostic is not proof content and is not committed.
   const diagnosticLog = (relative: string) => !relative.includes('/') && /\.log$/u.test(relative);
   for (const relative of changed) if (!allowed.has(relative) && !/^DELIVERIES-[a-f0-9]{64}\.jsonl$/u.test(relative) &&
+      !isUntrackedSolverScratch(problem, worktree, relative, untracked) &&
       !(diagnosticLog(relative) && !git(worktree, ['ls-files', '--', relative]))) throw new Error('math_source_outside_ownership');
   for (const target of problem.targets) {
     const file = path.join(project, target.proofPath);

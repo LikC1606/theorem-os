@@ -3,7 +3,7 @@ import path from 'node:path';
 import { checkManyFormalVerifications, type MathematicsVerifierBatchItem, type MathematicsVerifierBatchRequest,
   type MathematicsVerifierBatchResult, type MathematicsVerifierExecutionOptions } from '../../math/verifier';
 import { canonicalMathJson, mathDigest } from '../../math/mathRuntimeIo';
-import { commitSolverSources, git, type SolverProblem } from '../problem';
+import { commitSolverSources, git, withSolverWorktree, type SolverProblem } from '../problem';
 import { bindLeanPackages } from '../../math/leanDiagnostics';
 import { hashMathFormalSourceDeclaration } from '../../math/leanSource';
 import { hasDeterministicLeanFailure, proofReuseEnvironment, proofVerificationDigest } from '../proofReuse';
@@ -132,11 +132,19 @@ export async function checkSolverProof(problem: SolverProblem, worktree: string,
     checkedRejections.set(reused, provenance);
     return reused;
   }
-  const evidence = await checkProofEvidence({ projectRoot, targetCommit: commit, timeoutMs,
+  const verify = (checkout: string) => checkProofEvidence({ projectRoot: path.join(checkout, problem.projectRelative), targetCommit: commit, timeoutMs,
     items: problem.targets.map(target => ({ proofPath: target.proofPath, theoremName: target.theoremName,
       expectedSourceDeclarationHash: target.declarationHash, statementHash: problem.contract.statementHash,
       leanStatementHash: problem.contract.leanStatementHash, claim: 'statement' as const })) },
   { env: environment.env, signal, prepareLocalDependencies: problem.kind === 'lean-eval', collectDeclarationReferences: true });
+  // Advisory scratch and diagnostic logs stay in the worker. The strict verifier receives
+  // only the fixed commit and the same pinned packages, without weakening its clean-tree gate.
+  const evidence = git(worktree, ['status', '--porcelain=v1', '--untracked-files=all'])
+    ? await withSolverWorktree(worktree, commit, async checkout => {
+      const packages = path.join(projectRoot, '.lake', 'packages');
+      if (fs.existsSync(packages)) bindLeanPackages(path.join(checkout, problem.projectRelative), packages);
+      return verify(checkout);
+    }) : await verify(worktree);
   const check = { commit, sourceDigest, ...evidence };
   if (check.passed) checkedProofs.set(check, proofIdentity(check));
   if (!check.passed && inputDigest && hasDeterministicLeanFailure(check.verification) &&

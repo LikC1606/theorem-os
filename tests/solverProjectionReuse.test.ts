@@ -45,7 +45,10 @@ describe('host validation of content-equivalent task projections', () => {
     task = { id: 'helper', kind: 'lemma', objective: 'Prove the current helper.', proofPath: 'Submission.lean',
       theoremName: 'Tutorial.helper', type: 'True', dependsOn: [], revision: 0 };
     assignment = { taskId: task.id, taskDigest: taskVersion(task), seedCommit, workerId: 'solver' };
-    controller = new AbortController(); environment = { PATH: '/usr/bin:/bin' };
+    controller = new AbortController();
+    const envFile = path.join(directory, 'math.env');
+    fs.writeFileSync(envFile, '');
+    environment = { PATH: '/usr/bin:/bin', DEEPSCIENTIST_MATH_ENV_FILE: envFile };
     const cache = new TaskProofCache();
     await checkTaskProof(problem, workspace, first, task, assignment, [], environment, controller.signal, Infinity, [], 'environment', cache);
     git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--allow-empty', '--no-gpg-sign', '--quiet', '-m', 'Same content, new source commit']);

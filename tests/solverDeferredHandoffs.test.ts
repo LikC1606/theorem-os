@@ -21,6 +21,7 @@ const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn() }));
 vi.mock('../src/math/verifier', async importOriginal => ({
   ...await importOriginal<typeof import('../src/math/verifier')>(),
   checkManyFormalVerifications: host.verify,
+  formalVerificationToolIdentity: () => 'deferred-handoff-fixture-tools',
   resolveMathematicsLakePackagesCache: () => undefined,
 }));
 vi.mock('../src/runtime/codexSession', () => ({ createCodexMathSession: host.createSession }));
@@ -36,6 +37,7 @@ describe('deferred research proposal activation', () => {
   let proposal: CooperativeTask;
   let knowledgeSnapshot: KnowledgeContextSnapshot | undefined;
   let events: { event: string; details?: Record<string, unknown> }[];
+  let environment: NodeJS.ProcessEnv;
   const instances: CooperativeResearch[] = [];
   const node = (id: string) => state.cooperation!.tasks.find(item => item.task.id === id)!;
   const handoff = () => researchHandoffs(state.cooperation!)[0];
@@ -43,7 +45,7 @@ describe('deferred research proposal activation', () => {
   const notes = (value: unknown) => fs.writeFileSync(path.join(lead.worktree, 'RESEARCH.md'), JSON.stringify(value));
   const create = () => {
     const instance = cooperativeResearch({ state, workers: [lead, peer], retrievalRoot: directory,
-      access: new Map([lead, peer].map(worker => [worker.id, { environment: {}, retrievalRoot: directory,
+      access: new Map([lead, peer].map(worker => [worker.id, { environment, retrievalRoot: directory,
         ...(worker.id === peer.id && knowledgeSnapshot ? { knowledgeSnapshot } : {}) }])),
       modules: directSolverModules,
       emit: (event, details) => events.push({ event, details }) });
@@ -96,6 +98,9 @@ describe('deferred research proposal activation', () => {
     host.createSession.mockReset().mockImplementation(() => { throw new Error('fixture_real_models_forbidden'); });
     const example = localExample('solver-deferred-handoffs-', 'lead');
     ({ directory, problem } = example);
+    const envFile = path.join(directory, 'math.env');
+    fs.writeFileSync(envFile, '');
+    environment = { PATH: '/usr/bin:/bin', DEEPSCIENTIST_MATH_ENV_FILE: envFile };
     lead = leadWorker(problem, example.workspace); peer = peerWorker(example, 'researcher', { name: 'peer' });
     const question: CooperativeTask = { id: 'question', kind: 'research', objective: 'Find the missing quantitative bridge.',
       dependsOn: [], revision: 0 };

@@ -50,6 +50,8 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
     ? result.evaluator as Record<string, unknown> : undefined;
   const tasks = cooperative?.tasks ?? [];
   const checked = tasks.filter(node => proofRecord(node, state).status === 'checked');
+  const scheduled = (state.workers ?? []).filter(worker => worker.scheduling);
+  const working = scheduled.filter(worker => worker.scheduling!.status === 'working');
   return {
     schema: 'deepscientist.math.inspection.v1', runId: state.runId,
     snapshot: runInspectionSnapshot(state, result),
@@ -64,6 +66,15 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
       buildDigest: state.buildDigest, environmentDigest: state.environmentDigest, methodDigest: state.methodDigest,
       knowledgeDigest: state.knowledgeDigest },
     turns: state.turns, usage: state.usage, planVersion: cooperative?.planVersion,
+    scheduling: { evidence: 'recorded-dispatch-state', observedWorkers: scheduled.length,
+      working: working.length,
+      proofAssignments: working.filter(worker => tasks.some(node => node.task.id === worker.scheduling!.taskId &&
+        ['lemma', 'goal'].includes(node.task.kind))).length,
+      preparing: scheduled.filter(worker => worker.scheduling!.status === 'preparing').length,
+      stopping: scheduled.filter(worker => worker.scheduling!.status === 'stopping').length,
+      idle: scheduled.filter(worker => worker.scheduling!.status === 'idle').length,
+      stopped: scheduled.filter(worker => worker.scheduling!.status === 'stopped').length,
+      capacityRefill: cooperative?.lastCapacityRefill },
     knowledge: { status: state.knowledgeDigest ? 'enabled' : 'disabled', catalogDigest: state.knowledgeDigest,
       evidence: 'recorded-not-replayed', attribution: 'model-reported-origin',
       retrievalCoverage: state.knowledgeRetrievals ? 'recorded' : 'unknown',
@@ -82,10 +93,12 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
       conditionalProofTasks: tasks.filter(node => proofRecord(node, state).status === 'conditional').length,
       completedResearchTasks: tasks.filter(node => ['research', 'sketch'].includes(node.task.kind) && node.status === 'completed').length,
       openProofTasks: tasks.filter(node => ['lemma', 'goal'].includes(node.task.kind) && !checked.includes(node)).map(node => node.task.id) },
+    waiting: cooperative?.frontierWaiting ? { ...cooperative.frontierWaiting } : undefined,
     groups: cooperative?.groups ?? [],
     tasks: (cooperative?.tasks ?? []).map(node => ({
       id: node.task.id, kind: node.task.kind, objective: node.task.objective,
       group: taskGroup(node.task), status: node.status, control: node.task.status ?? 'active',
+      ...(node.capacityExploration ? { capacityExploration: node.capacityExploration } : {}),
       owner: node.task.ownerId ?? node.assignment?.workerId,
       version: taskVersion(node.task), theorem: node.task.theoremName, type: node.task.type,
       informalStatement: node.task.informalStatement, premises: node.task.premises ?? [],
@@ -95,12 +108,15 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
       parkedRoutes: node.parkedRoutes ?? {},
     })),
     workers: (state.workers ?? [{ id: 'solver', role: 'lead', ...state }]).map(worker => ({
-      id: worker.id, role: worker.role, phase: worker.phase, turns: worker.turns,
+      id: worker.id, role: worker.role, sessionRole: 'sessionRole' in worker ? worker.sessionRole : undefined,
+      phase: worker.phase, turns: worker.turns,
+      scheduling: 'scheduling' in worker ? worker.scheduling : undefined,
       usage: worker.usage,
       lastActivity: worker.lastActivity,
       lastFailure: worker.lastFailure && { ...worker.lastFailure, category: researchFailureCategory(worker.lastFailure.reason) },
       recovery: worker.recovery && { ...worker.recovery, category: researchFailureCategory(worker.recovery.reason) },
-      task: 'sessionTaskId' in worker ? worker.sessionTaskId : undefined,
+      task: 'scheduling' in worker && worker.scheduling ? worker.scheduling.taskId :
+        'sessionTaskId' in worker ? worker.sessionTaskId : undefined,
       context: worker.lastContextManifest,
       failures: worker.failures, error: 'error' in worker ? worker.error : undefined,
       failureCategory: researchFailureCategory(worker.error),
@@ -150,6 +166,9 @@ export function renderRunInspection(report: Inspection): string {
     'Usage origins are model-reported; checked references confirm a declaration in a recorded proof, not historical authorship or current acceptance.\n';
   text += section('Original targets', table(['Declaration', 'File'], report.problem.targets.map(target => [target.theoremName, target.proofPath])));
   text += section('Recorded progress', `${report.progress.checkedProofTasks} checked proof tasks; ${report.progress.conditionalProofTasks} conditional; ${report.progress.completedResearchTasks} completed research tasks.\n\nOpen proof tasks: ${report.progress.openProofTasks.join(', ') || 'none'}. Dispatch counts include retries and do not measure mathematical progress.`);
+  if (report.waiting) text += section('Waiting for input', `${report.waiting.reason}${report.waiting.investigation
+    ? `; investigation ${report.waiting.investigation.state}${report.waiting.investigation.reason ? ` (${report.waiting.investigation.reason})` : ''}` : ''}
+Waiting is a scheduling state, not a mathematical failure. An abandoned or rejected advisory investigation produced no accepted finding.`);
   text += section('Proof continuation', table(['Original goal', 'Recorded proof', 'Open dependency frontier', 'Missing tasks'],
     report.continuation.goals.map(goal => [goal.taskId, goal.recordedProof, goal.frontier.join(', ') || 'none', goal.missingDependencies.join(', ') || 'none'])));
   const transitions = report.mathematics.recentChanges.filter(receipt => receipt.kind === 'transition').slice(-12);
@@ -190,8 +209,11 @@ export function renderRunInspection(report: Inspection): string {
     (report.continuation.unconnectedTasks.join(', ') || 'none') + '. This does not establish that a result is mathematically unhelpful.\n';
   if (report.continuation.referenceCoverageMissing.length) text += '\nActual-reference evidence unavailable for: ' +
     report.continuation.referenceCoverageMissing.join(', ') + '.\n';
-  text += section('Workers', table(['Worker', 'Phase', 'Task', 'Last activity', 'At'], report.workers.map(worker => [
-    worker.id, worker.phase, worker.task, worker.lastActivity?.event,
+  text += section('Scheduling', `Recorded active dispatches: ${report.scheduling.working}; proof assignments: ${report.scheduling.proofAssignments}; ` +
+    `preparing: ${report.scheduling.preparing}; stopping: ${report.scheduling.stopping}; idle: ${report.scheduling.idle}. ` +
+    'These checkpoint observations do not establish current process liveness or mathematical progress.');
+  text += section('Workers', table(['Worker', 'Role', 'Session role', 'Scheduling', 'Phase', 'Task', 'Last activity', 'At'], report.workers.map(worker => [
+    worker.id, worker.role, worker.sessionRole, worker.scheduling?.status ?? 'unknown', worker.phase, worker.task, worker.lastActivity?.event,
     worker.lastActivity ? new Date(worker.lastActivity.at).toISOString() : undefined])));
   const recoveries = report.workers.filter(worker => worker.recovery);
   if (recoveries.length) text += section('Session recovery', table([

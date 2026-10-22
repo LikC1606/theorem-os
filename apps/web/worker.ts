@@ -7,6 +7,7 @@ import { getLeanTaskEnvironment } from '../../src/math/leanTaskEnvironment';
 import { readMathJson, readMathText } from '../../src/math/mathRuntimeIo';
 import { readMathBuildManifest } from '../../src/math/mathBuildManifest';
 import { createCodexMathSession } from '../../src/runtime/codexSession';
+import { sub2apiModelCatalog } from '../../src/runtime/sub2api';
 import type { SolverModules } from '../../src/solver/modules';
 import { configurableSolverModules } from '../../src/solver/modules/custom';
 import { researchWorkers } from '../../src/solver/modules/organization';
@@ -98,9 +99,11 @@ export function readWebResultProof(options: {
   return '';
 }
 
-export function webProviderConfig(input: WorkerInput): string {
+export function webProviderConfig(input: WorkerInput, modelCatalog?: string): string {
   return stringifyToml({
     model: input.input.model, model_provider: 'web_provider', model_reasoning_effort: input.input.effort,
+    ...(modelCatalog ? { model_catalog_json: modelCatalog,
+      features: { multi_agent: false, multi_agent_v2: false, goals: false, view_image: false } } : {}),
     approval_policy: 'never', sandbox_mode: 'workspace-write',
     model_providers: { web_provider: { name: input.provider.name, base_url: input.provider.baseUrl,
       wire_api: 'responses', env_key: 'THEOREMOS_PROVIDER_API_KEY', requires_openai_auth: false,
@@ -108,6 +111,13 @@ export function webProviderConfig(input: WorkerInput): string {
     shell_environment_policy: { inherit: 'all', exclude: ['THEOREMOS_PROVIDER_API_KEY'] },
     history: { persistence: 'none' }, analytics: { enabled: false },
   });
+}
+
+export function prepareWebProviderProfile(profile: string, request: WorkerInput): void {
+  fs.mkdirSync(profile, { mode: 0o700 });
+  const modelCatalog = request.provider.id === 'sub2api' ? path.join(profile, 'models.json') : undefined;
+  if (modelCatalog) fs.writeFileSync(modelCatalog, JSON.stringify(sub2apiModelCatalog()), { mode: 0o600, flag: 'wx' });
+  fs.writeFileSync(path.join(profile, 'config.toml'), webProviderConfig(request, modelCatalog), { mode: 0o600, flag: 'wx' });
 }
 
 export function webSolverModules(request: WorkerInput): SolverModules {
@@ -133,8 +143,7 @@ async function main() {
   const workspaceRoot = process.env.THEOREMOS_WORKER_ROOT || '/work';
   const directory = fs.mkdtempSync(path.join(workspaceRoot, 'run-'));
   const profile = path.join(directory, 'codex');
-  fs.mkdirSync(profile, { mode: 0o700 });
-  fs.writeFileSync(path.join(profile, 'config.toml'), webProviderConfig(request), { mode: 0o600, flag: 'wx' });
+  prepareWebProviderProfile(profile, request);
   fs.mkdirSync(process.env.HOME || '/work/home', { recursive: true, mode: 0o700 });
   // Each container owns this profile. No machine profile or authentication file is read.
   process.env.CODEX_HOME = profile;

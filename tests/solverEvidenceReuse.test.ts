@@ -71,6 +71,18 @@ describe('process-local deterministic Lean rejection reuse', () => {
     expect(host.verify).toHaveBeenCalledTimes(2);
   });
 
+  it('reuses a normal Lean rejection whose goal contains an interruption keyword', async () => {
+    host.verify.mockImplementation(async request => {
+      const batch = rejected(request);
+      for (const result of batch.results) result.stdoutPreview =
+        'Submission.lean:4:1: error: unsolved goals\ndeadline : Nat\n⊢ deadline = 0';
+      return batch;
+    });
+    const first = await check();
+    expect(await check(first)).toBe(first);
+    expect(host.verify).toHaveBeenCalledOnce();
+  });
+
   it.each(['receipt', 'targets', 'statement'] as const)('rechecks a changed %s identity', async change => {
     const first = await check();
     const changed = change === 'receipt' ? { ...problem, receiptDigest: 'new-problem' } :

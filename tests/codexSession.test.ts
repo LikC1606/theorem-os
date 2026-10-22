@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCodexMathSession, type MathAgentOptions, type MathAgentSession } from '../src/runtime/codexSession';
 import { deepSeekProfileDigest, prepareDeepSeekProfile } from '../src/runtime/deepseek';
 import { prepareWestlakeProfile, westlakeProfileDigest } from '../src/runtime/westlake';
+import { prepareSub2apiProfile, sub2apiProfileDigest } from '../src/runtime/sub2api';
 
 describe('Codex app-server adapter without provider calls', () => {
   let root: string;
@@ -16,6 +17,7 @@ describe('Codex app-server adapter without provider calls', () => {
     fs.writeFileSync(path.join(root, 'config.toml'), '[mcp_servers.unrelated]\ncommand = "unrelated"\n');
     fs.writeFileSync(executable, `#!${process.execPath}
 const fs = require('node:fs');
+const path = require('node:path');
 const readline = require('node:readline');
 fs.writeFileSync(process.env.CODEX_HOME + '/provider-environment.json', JSON.stringify({
   deepseekKeyPresent: Boolean(process.env.DEEPSEEK_API_KEY), unrelatedSecretPresent: Boolean(process.env.UNRELATED_FIXTURE_SECRET),
@@ -54,6 +56,13 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   if (call.method === 'turn/start') {
     turn = { id: call.params.clientUserMessageId, status: 'inProgress' };
     const message = call.params.input[0].text;
+    if (message === 'temporary-file') {
+      const temporaryDirectory = settings.config['shell_environment_policy.set']?.TMPDIR || process.env.TMPDIR;
+      fs.writeFileSync(path.join(temporaryDirectory, call.params.clientUserMessageId + '.txt'), 'temporary fixture');
+      fs.writeFileSync(process.env.CODEX_HOME + '/temporary-environment.json', JSON.stringify({
+        inherited: process.env.TMPDIR, shell: temporaryDirectory,
+      }));
+    }
     if (message === 'crash') return process.exit(9);
     if (message === 'oversized-frame') { process.stdout.write('数'.repeat(3 * 1024 * 1024)); return; }
     if (message === 'invalid-frame') { process.stdout.write('[]\\n'); return; }
@@ -166,6 +175,8 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
       prepare: prepareDeepSeekProfile, profileDigest: deepSeekProfileDigest },
     { provider: 'westlake', model: 'deepseek-flash', apiKeyEnvironment: 'WESTLAKEHPC_API_KEY',
       prepare: prepareWestlakeProfile, profileDigest: westlakeProfileDigest },
+    { provider: 'sub2api', model: 'deepseek-flash', apiKeyEnvironment: 'SUB2API_WESTLAKE_API_KEY',
+      prepare: prepareSub2apiProfile, profileDigest: sub2apiProfileDigest },
   ])('isolates $provider trust writes, refreshes frozen settings and preserves state for resume without copying auth', async ({
     provider, model, apiKeyEnvironment, prepare, profileDigest,
   }) => {
@@ -283,6 +294,77 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     await expect(createCodexMathSession({ ...options, proofProjectRoot: root,
       environment: { DEEPSCIENTIST_MATH_PROOF_ENVIRONMENT: '{}' } })).rejects.toThrow();
     expect(fs.existsSync(path.join(root, 'calls.jsonl'))).toBe(false);
+  });
+
+  it('isolates mathematical temporary files by worktree and overrides inherited shell settings', async () => {
+    fs.appendFileSync(path.join(root, 'config.toml'), '\n[shell_environment_policy.set]\nTMPDIR = "/external-profile-tmp"\nLANG = "C.UTF-8"\n');
+    for (const name of ['worker-one', 'worker-two']) {
+      const workspace = path.join(root, name), project = path.join(workspace, 'generated', 'proof');
+      fs.mkdirSync(project, { recursive: true });
+      session = await createCodexMathSession({ ...options, workspace, proofProjectRoot: project,
+        environment: { PATH: process.env.PATH, TMPDIR: '/external-inherited-tmp' } });
+      expect(await session.run('temporary-file', name, workspace, () => {})).toBe('completed');
+      const temporaryDirectory = path.join(workspace, '.scratch', 'tmp');
+      expect(fs.readFileSync(path.join(temporaryDirectory, `${name}.txt`), 'utf8')).toBe('temporary fixture');
+      expect(fs.existsSync(path.join(project, '.scratch'))).toBe(false);
+      expect(JSON.parse(fs.readFileSync(path.join(root, 'temporary-environment.json'), 'utf8')))
+        .toEqual({ inherited: temporaryDirectory, shell: temporaryDirectory });
+      const calls = fs.readFileSync(path.join(root, 'calls.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
+      expect(calls.filter(call => call.method === 'thread/start').at(-1).params.config['shell_environment_policy.set'])
+        .toEqual({ TMPDIR: temporaryDirectory, LANG: 'C.UTF-8' });
+      expect(calls.filter(call => call.method === 'turn/start').at(-1).params.sandboxPolicy).toEqual({
+        type: 'workspaceWrite', writableRoots: [workspace], networkAccess: true, excludeTmpdirEnvVar: true, excludeSlashTmp: true,
+      });
+      await session.close();
+      session = undefined;
+    }
+    expect(fs.readdirSync(path.join(root, 'worker-one', '.scratch', 'tmp'))).toEqual(['worker-one.txt']);
+    expect(fs.readdirSync(path.join(root, 'worker-two', '.scratch', 'tmp'))).toEqual(['worker-two.txt']);
+  });
+
+  it('recreates the temporary directory before a later turn after host scratch cleanup', async () => {
+    session = await createCodexMathSession({ ...options, proofProjectRoot: root,
+      environment: { PATH: process.env.PATH, TMPDIR: '/external-inherited-tmp' } });
+    expect(await session.run('temporary-file', 'before-cleanup', root, () => {})).toBe('completed');
+    fs.rmSync(path.join(root, '.scratch'), { recursive: true });
+    expect(await session.run('temporary-file', 'after-cleanup', root, () => {})).toBe('completed');
+    expect(fs.readdirSync(path.join(root, '.scratch', 'tmp'))).toEqual(['after-cleanup.txt']);
+  });
+
+  it.each(['.scratch', '.scratch/tmp'])('rejects a %s symlink before host directory creation', async relative => {
+    const workspace = path.join(root, 'worker'), outside = path.join(root, 'outside');
+    fs.mkdirSync(workspace); fs.mkdirSync(outside);
+    const link = path.join(workspace, relative);
+    fs.mkdirSync(path.dirname(link), { recursive: true });
+    fs.symlinkSync(outside, link);
+    await expect(createCodexMathSession({ ...options, workspace, proofProjectRoot: workspace,
+      environment: { PATH: process.env.PATH } })).rejects.toThrow('math_path_invalid');
+    expect(fs.readdirSync(outside)).toEqual([]);
+    expect(fs.existsSync(path.join(root, 'calls.jsonl'))).toBe(false);
+  });
+
+  it('rejects a scratch symlink inserted between turns before dispatching another turn', async () => {
+    const workspace = path.join(root, 'worker'), outside = path.join(root, 'outside');
+    fs.mkdirSync(workspace); fs.mkdirSync(outside);
+    session = await createCodexMathSession({ ...options, workspace, proofProjectRoot: workspace,
+      environment: { PATH: process.env.PATH } });
+    expect(await session.run('temporary-file', 'first', workspace, () => {})).toBe('completed');
+    fs.rmSync(path.join(workspace, '.scratch'), { recursive: true });
+    fs.symlinkSync(outside, path.join(workspace, '.scratch'));
+    await expect(session.run('temporary-file', 'unsafe', workspace, () => {})).rejects.toThrow('math_path_invalid');
+    expect(fs.readdirSync(outside)).toEqual([]);
+    const calls = fs.readFileSync(path.join(root, 'calls.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
+    expect(calls.filter(call => call.method === 'turn/start')).toHaveLength(1);
+  });
+
+  it('preserves generic session temporary directory behavior without a proof project', async () => {
+    const inherited = path.join(root, 'generic-tmp'); fs.mkdirSync(inherited);
+    session = await createCodexMathSession({ ...options, environment: { PATH: process.env.PATH, TMPDIR: inherited } });
+    expect(await session.run('temporary-file', 'generic', root, () => {})).toBe('completed');
+    expect(fs.readFileSync(path.join(inherited, 'generic.txt'), 'utf8')).toBe('temporary fixture');
+    expect(fs.existsSync(path.join(root, '.scratch'))).toBe(false);
+    const calls = fs.readFileSync(path.join(root, 'calls.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
+    expect(calls.find(call => call.method === 'thread/start').params.config).not.toHaveProperty('shell_environment_policy.set');
   });
 
   it('bounds unrelated early completion messages and retains the current completion', async () => {

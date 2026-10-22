@@ -391,6 +391,9 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
       'Persistent mathematical gaps (advisory; historical-scope reports require review of changed inputs; complete records remain in COOPERATION.json):',
       mathematicalGapContext(input.cooperation.mathematicalGaps)));
     if (action?.kind === 'lead') {
+      if (action.stagnationRecovery) mandatory.push(section('stagnation-recovery', 'assignment',
+        'Host stagnation recovery request (advisory scheduling evidence; not proof failure or acceptance):',
+        action.stagnationRecovery));
       const challenges = pendingResearchChallenges(input.cooperation);
       const challengeIds = new Set(action.challengeIds ?? selectResearchChallengeBatch(input.cooperation).map(item => item.id));
       const shownChallenges = challenges.filter(item => challengeIds.has(item.id));
@@ -574,7 +577,7 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
     mandatory.push(section('checkpoint-source', 'sources', 'Complete current research checkpoint source (advisory, not proof acceptance):', {
       path: 'RESEARCH.md', bytes: Buffer.byteLength(input.checkpoint), digest: mathDigest(input.checkpoint),
       retrieval: 'If the checkpoint section is omitted for budget, read worktree-root RESEARCH.md before continuing the argument. ' +
-        'Require the recorded byte length and UTF-8 SHA-256 to match; otherwise report that the saved checkpoint is unavailable. Recheck claims in Lean.',
+        'Require the recorded byte length and UTF-8 SHA-256 to match; otherwise report that the saved checkpoint is unavailable. Resume from its attempted methods, exact results and evidence locations, scoped negative searches, and precise unresolved next inference; retain these before the next checkpoint or context rotation. Recheck claims in Lean and reopen a negatively searched scope only with a relevant changed input or genuinely different mathematical method.',
     }));
     optional.push({ ...section('checkpoint', 'checkpoint', 'Current research checkpoint (advisory; recheck claims in Lean):', input.checkpoint), priority: 5 });
   }

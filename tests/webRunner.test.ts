@@ -1,5 +1,82 @@
-import { describe, expect, it } from 'vitest';
-import { parseWorkerMessage } from '../apps/web/runner';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
+import { readWebConfig, webDefaults } from '../apps/web/config';
+import { DockerWebRunner, parseWorkerMessage } from '../apps/web/runner';
+import type { WorkerInput, WorkerMessage } from '../apps/web/shared';
+
+describe('Docker web runner', () => {
+  it('routes the default sub2api request through private stdin and removes its container', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'theoremos-docker-runner-'));
+    fs.writeFileSync(path.join(root, 'docker'), `#!${process.execPath}
+const fs = require('node:fs');
+const path = require('node:path');
+const root = __dirname;
+const args = process.argv.slice(2);
+fs.appendFileSync(path.join(root, 'calls.jsonl'), JSON.stringify(args) + '\\n');
+const container = path.join(root, 'container');
+async function main() {
+  if (args[0] === 'create') {
+    fs.writeFileSync(container, 'created');
+  } else if (args[0] === 'start') {
+    if (!fs.existsSync(container)) process.exit(1);
+    let input = '';
+    for await (const chunk of process.stdin) input += chunk;
+    const request = JSON.parse(input);
+    fs.writeFileSync(path.join(root, 'private-input.json'), input, { mode: 0o600 });
+    fs.writeFileSync(path.join(root, 'metadata.json'), JSON.stringify({
+      apiKeyInEnvironment: Object.values(process.env).some(value => value.includes(request.input.apiKey)),
+    }));
+    process.stdout.write(JSON.stringify({ type: 'result', result: {
+      status: 'incomplete', proof: '', report: { fixture: true },
+    } }) + '\\n');
+  } else if (args[0] === 'rm') {
+    fs.rmSync(container, { force: true });
+  } else process.exit(1);
+}
+main().catch(() => process.exit(1));
+`, { mode: 0o700 });
+    // Only this executable can resolve as docker; the fixture uses an absolute Node shebang.
+    vi.stubEnv('PATH', root);
+    try {
+      const config = readWebConfig({});
+      const request: WorkerInput = {
+        id: 'sub2api-fixture', provider: config.providers[0], input: {
+          ...webDefaults, providerId: config.providers[0].id, apiKey: 'sk-private-runner-fixture',
+          source: 'theorem example : True := by sorry', task: 'Offline fixture',
+        },
+      };
+      const messages: WorkerMessage[] = [];
+      await new DockerWebRunner(config).run(request, message => messages.push(message), new AbortController().signal);
+
+      const calls = fs.readFileSync(path.join(root, 'calls.jsonl'), 'utf8').trim().split('\n')
+        .map(line => JSON.parse(line) as string[]);
+      expect(calls.map(args => args[0])).toEqual(['create', 'start', 'rm']);
+      expect(calls[0]).toContain('--add-host=host.docker.internal:host-gateway');
+      const name = `theoremos-web-${request.id}`;
+      expect(calls[1]).toEqual(['start', '--attach', '--interactive', name]);
+      expect(calls[2]).toEqual(['rm', '--force', '--volumes', name]);
+      expect(fs.existsSync(path.join(root, 'container'))).toBe(false);
+
+      const received = JSON.parse(fs.readFileSync(path.join(root, 'private-input.json'), 'utf8'));
+      expect(received).toEqual(request);
+      expect(received).toMatchObject({
+        provider: { id: 'sub2api', baseUrl: 'http://host.docker.internal:8080/v1' },
+        input: { model: 'deepseek-flash', effort: 'max' },
+      });
+      const metadata = JSON.parse(fs.readFileSync(path.join(root, 'metadata.json'), 'utf8'));
+      expect(metadata).toEqual({ apiKeyInEnvironment: false });
+      expect(messages).toEqual([{ type: 'result', result: {
+        status: 'incomplete', proof: '', report: { fixture: true },
+      } }]);
+      expect(JSON.stringify({ calls, metadata, messages })).not.toContain(request.input.apiKey);
+    } finally {
+      vi.unstubAllEnvs();
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
 
 describe('web worker protocol boundary', () => {
   it('accepts progress and a structured acceptance result', () => {

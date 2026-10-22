@@ -65,7 +65,7 @@ it.each(['lemma', 'goal', 'research', 'sketch'] as const)(
     expect(context.instructions).toContain('The host freezes the saved sources and independently checks and integrates them');
     expect(context.instructions).toContain('Do not truncate the delivery log');
     expect((context.instructions + context.message).match(/To share before returning/g)).toHaveLength(1);
-    expect(context.message).toContain(`Your role: ${kind === 'goal' ? 'engineer' : 'researcher'}`);
+    expect(context.message).toContain(`Your role: ${kind === 'goal' ? 'engineer' : kind === 'lemma' ? 'prover' : 'researcher'}`);
     expect(context.message).toContain('Delivery protocol: see session instructions.');
     expect(context.message).toContain(formal);
   });
@@ -78,9 +78,9 @@ it('retains the complete initial plan publication protocol without optional cont
   expect(context.manifest).toMatchObject({ maxOptionalBytes: 0, optionalBytes: 0 });
   expect(context.instructions).toContain(initialPlanDeliveryFile(action));
   expect(context.instructions).toContain('"kind":"plan","baseVersion":"plan-version"');
-  expect(context.instructions).toContain('Only the first valid initial publication is accepted');
+  expect(context.instructions).toContain('Only the first valid publication in this dispatch is accepted');
   expect(context.instructions).toContain('Do not truncate the log');
-  expect((context.instructions + context.message).match(/Once a minimal executable initial plan is ready/g)).toHaveLength(1);
+  expect((context.instructions + context.message).match(/Once a useful executable plan is ready, publish it promptly/g)).toHaveLength(1);
   expect(context.message).toContain('Your role: lead');
   expect(context.message).toContain('Delivery protocol: see session instructions.');
   expect(context.message).toContain(formal);

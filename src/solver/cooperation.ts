@@ -2,12 +2,16 @@ import { parseCooperationPlan, isAdvisoryTask as advisory } from './tasks';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { canonicalMathJson, mathDigest, readMathText } from '../math/mathRuntimeIo';
-import { committedSource, git } from './problem';
+import { canonicalMathJson, mathDigest, readMathText, writeMathJsonDurable } from '../math/mathRuntimeIo';
+import { inspectLeanDeclarationRegions } from '../math/leanSource';
+import { commitSolverSources, committedSource, git } from './problem';
 import { solverProofFeedback, solverSourceFeedback } from './feedback';
-import { independentFeasibilityWorker, type ResearchWorker } from './modules/organization';
+import { assignSharedResearchTask, independentFeasibilityWorker, researchWorkerCanNode, type ResearchWorker } from './modules/organization';
+import { CAPACITY_EXPLORATION_FOCUSES, capacityExplorationInput, createCapacityExploration,
+  currentCapacityExploration } from './capacityExploration';
+import { advisoryStagnation } from './advisoryStagnation';
 import { hasFreshSolverCheck, proofReceiptsMatch, type ProofCheck } from './modules/evidence';
-import { originalGoalTaskFocus, researchCanAdvance, routeAllowsTask, taskCanStart, taskDependenciesReady, selectedTaskRoute } from './modules/search';
+import { originalGoalTaskFocus, readyResearchTasks, researchCanAdvance, routeAllowsTask, taskCanStart, taskDependenciesReady, selectedTaskRoute } from './modules/search';
 import { deliveryDetails, reviewVerdict, readMathResponse as block, MAX_RESEARCH_NOTES_BYTES } from './deliveries';
 import { ownedSourceDigest, taskChanges } from './cooperativeProof';
 import { assertStatementSnapshot, isStatementAction, resetStatementReview } from './statementReview';
@@ -21,9 +25,10 @@ import { hasRunningDuplicateQuestion, parallelQuestions } from './taskQuestions'
 import { mathematicalGaps, mathematicalGapVisible } from './mathematicalGaps';
 import { automaticTaskConnection, createTaskConnectionCheck } from './taskConnections';
 import { taskTypePreflightEnvironmentIdentity, type TaskTypePreflight } from './taskTypePreflight';
-import { isFeasibilityReview, taskGroup, type CooperativeTask, type CooperativeAction } from './tasks';
-import { digest, directDeliveryRejections, rejectionCode, CooperationState, TaskVersions, DispatchBudget, RETRY_DISPATCH, DispatchResult, bounded,
-  readCooperationPlan } from './cooperationShared';
+import { captureObligationSnapshot } from './obligationProgress';
+import { groupOpen, isFeasibilityReview, taskGroup, type CooperativeTask, type CooperativeAction, type TaskRecord } from './tasks';
+import { digest, directDeliveryRejections, isTaskSourceRepairFeedback, rejectionCode, CooperationState, TaskVersions, DispatchBudget, RETRY_DISPATCH, DispatchResult, bounded,
+  deliveryInputFields, readCooperationPlan } from './cooperationShared';
 import { CooperationInputs } from './cooperationInputs';
 import type { CooperationPlanning } from './cooperationPlanning';
 export { parseCooperationPlan } from './tasks';
@@ -34,6 +39,150 @@ export type { ReviewRecord, HumanEditRecord, InitialPlanPublication, Cooperation
 
 /** Lead plans; workers claim distinct ready obligations; only checked source enters the canonical proof. */
 export class CooperativeResearch extends CooperationInputs {
+  /** Optional advisory supply for otherwise idle expanded teams, without a Lead graph mutation. */
+  private async requestCapacityExploration(worker: ResearchWorker, budget: DispatchBudget, previousReady: readonly TaskRecord[]) {
+    if (!this.input.continuousResearch || this.input.workers.length <= 4 ||
+        !['prover', 'researcher'].includes(worker.role) || budget.maxTurns !== Infinity || budget.remainingMs !== Infinity) return false;
+    return this.input.exclusiveCheck(async () => {
+      if (this.stopping || this.failure || this.input.signal.aborted || this.input.modelDispatchAllowed?.() === false ||
+          !this.liveWorkers.has(this.lead.id) || !this.allocationPeers.some(peer => peer.id === worker.id) ||
+          this.active.has(worker.id) || this.reservedTurns.has(worker.id) || this.deliveryChecks.has(worker.id) ||
+          [...this.preparingTaskTypes.values()].some(pending => pending.workerId === worker.id) ||
+          this.pendingFixedStatementReviews() || this.archive.review && ['pending', 'running'].includes(this.archive.review.status)) return false;
+      const ready = readyResearchTasks(this.archive.tasks, this.archive.groups)
+        .filter(node => !this.preparingTaskTypes.has(node) && !this.synchronizationBlocked(node.task) &&
+          (!node.capacityExploration || currentCapacityExploration(node, this.archive.tasks, this.explorationIdentity)));
+      // A peer may have published real work while this request waited for the archive transaction.
+      const newlyReady = assignSharedResearchTask(ready, worker, this.allocationPeers, this.archive.groups, this.archive.tasks);
+      if (newlyReady) return !previousReady.includes(newlyReady);
+      const focus = originalGoalTaskFocus(this.plannedTasks(), this.archive.groups, this.input.state.environmentDigest);
+      const targets = [...focus.frontier].map(id => this.node(id)).filter(node => node &&
+        ['lemma', 'goal'].includes(node.task.kind) && !['integrated', 'completed', 'delivered'].includes(node.status) &&
+        !this.synchronizationBlocked(node.task) && routeAllowsTask(node.task, this.archive.tasks, this.archive.groups));
+      for (const method of CAPACITY_EXPLORATION_FOCUSES) for (const target of targets) {
+        const inputDigest = capacityExplorationInput(target.task, this.archive.tasks, this.explorationIdentity);
+        if (this.archive.capacityExplorationInputs?.some(input => input.targetTaskId === target.task.id &&
+            input.inputDigest === inputDigest && input.focus === method)) continue;
+        const node = createCapacityExploration(target, worker, this.archive.tasks, this.explorationIdentity, method);
+        if (this.archive.tasks.some(existing => existing.task.id === node.task.id) ||
+            !currentCapacityExploration(node, this.archive.tasks, this.explorationIdentity) ||
+            !routeAllowsTask(node.task, [...this.archive.tasks, node], this.archive.groups)) continue;
+        // Marker and tombstone become durable together. No Lead files or CAS base are rewritten.
+        (this.archive.capacityExplorationInputs ??= []).push({ inputDigest, focus: method,
+          targetTaskId: target.task.id, taskId: node.task.id });
+        this.archive.tasks.push(node);
+        this.input.emit('capacity_exploration_requested', { workerId: worker.id, taskId: node.task.id,
+          targetTaskId: target.task.id, inputDigest, focus: method, evidenceStatus: 'advisory' });
+        this.changed(); return true;
+      }
+      return false;
+    });
+  }
+  /** A normal advisory checkpoint preserves the draft before the new typed task takes priority. */
+  shouldYieldCapacityExploration(worker: ResearchWorker, action: CooperativeAction): boolean {
+    if (action.kind !== 'task' || !this.current(action)) return false;
+    const node = this.node(action.task.id);
+    if (!node?.capacityExploration || worker.role !== 'prover') return false;
+    const groups = this.archive.groups?.map(route => ({ ...route,
+      busy: Math.max(0, (route.busy ?? 0) - Number(route.group.id === taskGroup(node.task))) }));
+    const ready = readyResearchTasks(this.archive.tasks, groups).filter(candidate => !candidate.capacityExploration &&
+      !advisory(candidate.task) && !this.preparingTaskTypes.has(candidate) && !this.synchronizationBlocked(candidate.task));
+    return Boolean(assignSharedResearchTask(ready, worker, this.allocationPeers, groups, this.archive.tasks));
+  }
+  private stagnationDispatches = new WeakMap<CooperativeAction, {
+    receipt: NonNullable<CooperationState['lastStagnationRecovery']>; evidenceDigest: string;
+  }>();
+  private stagnationInput() {
+    const { evidenceDigest } = this.capacityRefillInput();
+    const recovery = advisoryStagnation({ tasks: this.archive.tasks, groups: this.archive.groups,
+      workers: this.input.state.workers ?? [], identity: this.explorationIdentity,
+      sourceDigest: ownedSourceDigest(this.input.state.problem, this.lead.worktree, this.archive.canonicalCommit!),
+      evidenceDigest, explorationInputs: this.archive.capacityExplorationInputs });
+    return recovery && { ...recovery, evidenceDigest };
+  }
+  private stagnationRecovery() {
+    if (this.active.has(this.lead.id) || this.reservedTurns.has(this.lead.id) || this.leadDeliveries.size) return;
+    const recovery = this.stagnationInput();
+    if (!recovery || this.archive.lastStagnationRecovery?.status === 'assessed' &&
+        this.archive.lastStagnationRecovery.inputDigest === recovery.inputDigest) return;
+    return recovery;
+  }
+  private capacityRefillDispatches = new WeakMap<CooperativeAction, {
+    receipt: NonNullable<CooperationState['lastCapacityRefill']>; evidenceDigest: string;
+  }>();
+  private capacityRefillInput() {
+    const snapshot = captureObligationSnapshot(this.archive.tasks, { groups: this.archive.groups,
+      environmentDigest: this.input.state.environmentDigest, proofRoutes: this.archive.proofRoutes, blockers: this.archive.blockers });
+    const versions = this.taskVersions();
+    const external = (this.archive.deliveries ?? []).filter(record => record.producer !== this.lead.id &&
+      ['research', 'proof', 'failure'].includes(record.kind));
+    const finding = (record: (typeof external)[number]) => canonicalMathJson(deliveryInputFields(record));
+    const source = ownedSourceDigest(this.input.state.problem, this.lead.worktree, this.archive.canonicalCommit!);
+    const findings = [...new Set(external.filter(record => this.deliveryVisible(record, undefined, versions)).map(finding))].sort();
+    // External content detects arrivals while Lead works, independently of its own plan revisions.
+    const evidence = [...new Set(external.map(record => {
+      const { status: _status, ...content } = deliveryInputFields(record);
+      return canonicalMathJson(content);
+    }))].sort();
+    return { inputDigest: mathDigest(canonicalMathJson({ problem: this.input.state.problem.receiptDigest,
+      environment: this.input.state.environmentDigest, mathematics: snapshot.digest, source, findings })),
+    evidenceDigest: mathDigest(canonicalMathJson({ source, evidence })) };
+  }
+  private capacityRefill() {
+    if (this.active.has(this.lead.id) || this.reservedTurns.has(this.lead.id) || this.leadDeliveries.size) return;
+    const groups = this.archive.groups?.map(route => ({ ...route,
+      busy: route.busy ?? this.archive.tasks.filter(node => node.status === 'running' &&
+        taskGroup(node.task) === route.group.id).length }));
+    const available = () => !groups || groups.some(route => groupOpen(route) &&
+      (route.busy ?? 0) < (route.group.maxConcurrent ?? 3));
+    if (!originalGoalTaskFocus(this.archive.tasks, this.archive.groups, this.input.state.environmentDigest).frontier.size ||
+        !available()) return;
+    const occupied = new Set([...this.active.keys(), ...this.deliveryChecks.keys(),
+      ...[...this.preparingTaskTypes.values()].map(pending => pending.workerId),
+      ...this.archive.tasks.filter(node => ['running', 'delivered'].includes(node.status) && node.assignment &&
+        node.assignment.taskDigest === digest(node.task)).map(node => node.assignment!.workerId)]);
+    const peers = this.allocationPeers;
+    const idle = peers.filter(worker => worker.role === 'prover' && !occupied.has(worker.id));
+    if (!idle.length) return;
+    // Capacity estimation is host-owned and must not consume a configurable scheduler's state.
+    const ready = readyResearchTasks(this.archive.tasks, groups)
+      .filter(node => !this.preparingTaskTypes.has(node) && !this.synchronizationBlocked(node.task));
+    const workerIds: string[] = [];
+    for (const worker of idle) {
+      const candidates = ready.filter(node => routeAllowsTask(node.task, this.archive.tasks, groups));
+      const node = assignSharedResearchTask(candidates, worker, peers, groups, this.archive.tasks);
+      if (!node) { workerIds.push(worker.id); continue; }
+      // Simulate distinct claims so one shared task cannot occupy several idle Provers.
+      ready.splice(ready.indexOf(node), 1);
+      const route = groups?.find(route => route.group.id === taskGroup(node.task));
+      if (route) route.busy = (route.busy ?? 0) + 1;
+    }
+    if (!workerIds.length || !available()) return;
+    const input = this.capacityRefillInput();
+    const previous = this.archive.lastCapacityRefill;
+    // An unfinished request can be retried after admission failure or process restore.
+    if (previous?.status === 'assessed' && previous.inputDigest === input.inputDigest) return;
+    return { ...input, workerIds };
+  }
+  /** Called after an accepted final or immutable live plan, before its normal save. */
+  protected markCapacityRefillAssessed(action: CooperativeAction): void {
+    const stagnation = this.stagnationDispatches.get(action);
+    if (stagnation && this.archive.lastStagnationRecovery === stagnation.receipt) {
+      const input = this.stagnationInput();
+      if (input && input.evidenceDigest === stagnation.evidenceDigest) stagnation.receipt.inputDigest = input.inputDigest;
+      const assessed = stagnation.receipt.status === 'assessed';
+      stagnation.receipt.status = 'assessed';
+      if (!assessed) this.input.emit('stagnation_recovery_assessed', { ...stagnation.receipt, evidenceStatus: 'advisory' });
+    }
+    const dispatch = this.capacityRefillDispatches.get(action);
+    if (!dispatch || this.archive.lastCapacityRefill !== dispatch.receipt) return;
+    const input = this.capacityRefillInput();
+    if (dispatch.evidenceDigest === input.evidenceDigest) dispatch.receipt.inputDigest = input.inputDigest;
+    const assessed = dispatch.receipt.status === 'assessed';
+    dispatch.receipt.status = 'assessed';
+    if (!assessed) this.input.emit('capacity_refill_assessed', { inputDigest: dispatch.receipt.inputDigest,
+      workerIds: dispatch.receipt.workerIds });
+  }
   protected refreshFeasibilityAssignments() {
     let changed = false;
     for (const node of this.archive.tasks) {
@@ -57,9 +206,10 @@ export class CooperativeResearch extends CooperationInputs {
     return changed;
   }
   /** A live publication never authorizes a superseded dispatch or changed decisions. */
-  initialPlanSnapshot(action: CooperativeAction) {
-    return this.current(action) ? this.initialPlans.get(action)?.plan : undefined;
+  planSnapshot(action: CooperativeAction) {
+    return this.current(action) ? this.publishedPlans.get(action)?.plan : undefined;
   }
+  initialPlanSnapshot(action: CooperativeAction) { return this.planSnapshot(action); }
   start() {
     this.timer = setInterval(() => { void this.inputs().catch(error => {
       this.input.emit('cooperation_poll_failed', { reason: error instanceof Error ? error.message : 'unknown' });
@@ -102,6 +252,7 @@ export class CooperativeResearch extends CooperationInputs {
   }
   async restore() {
     if (this.refreshFeasibilityAssignments()) this.changed();
+    for (const node of this.archive.tasks) if (['pending', 'running'].includes(node.status)) this.restoreTaskSourceRepair(node);
     for (const failed of this.archive.failedTaskInputs ?? []) {
       let repair = failed.repair;
       const node = this.node(repair?.taskId ?? failed.taskId);
@@ -125,7 +276,8 @@ export class CooperativeResearch extends CooperationInputs {
     }
     // A resumed review must inspect the fixed version again.
     if (this.archive.review) { this.archive.review.status = 'pending'; this.archive.review.workerId = undefined; }
-    if (!(this.archive.initialPlanPublication && !this.archive.initialPlanPublication.finalized) &&
+    const publication = this.archive.planPublication ?? this.archive.initialPlanPublication;
+    if (!(publication && !publication.finalized) &&
         !this.archive.frontierRecoveries?.some(record => record.status !== 'planned') &&
         fs.existsSync(path.join(this.lead.worktree, 'RESEARCH.md'))) {
       try {
@@ -138,7 +290,13 @@ export class CooperativeResearch extends CooperationInputs {
           await this.acceptPlan(plan);
           if (initial) this.needsLead = false;
         }
-      } catch (error) { this.rejectPlan(error); }
+      } catch (error) {
+        if (this.archive.lastCapacityRefill?.status === 'requested') {
+          // Restoring an interrupted draft is not another completed planning decision.
+          this.preserveLeadDraft(commitSolverSources(this.input.state.problem, this.lead.worktree), this.archive.leadSeedCommit,
+            error instanceof Error ? error.message : 'math_plan_incomplete');
+        } else this.rejectPlan(error);
+      }
     }
     if (!solverSourceFeedback(this.input.state.problem, this.lead.worktree)) {
       await this.restoreLeadSources();
@@ -157,6 +315,10 @@ export class CooperativeResearch extends CooperationInputs {
     await this.integrateReady();
     const statements = this.prepareStatementContexts(); if (statements) await statements;
     this.syncStatementReviews();
+    if (publication && !publication.finalized) {
+      // Preserve the draft in restoreLeadSources, then seed future decisions from the accepted graph.
+      this.archive.planEdited = true; this.syncPlanNotes();
+    }
     this.changed();
   }
   private dispatchBudgetExhausted(budget: DispatchBudget, modelAllowed: boolean) {
@@ -177,6 +339,7 @@ export class CooperativeResearch extends CooperationInputs {
       if (this.stopping) return;
       this.input.signal.throwIfAborted();
       if (this.failure) throw this.failure;
+      if (this.refreshCapacityExplorations()) this.changed();
       if (this.refreshFeasibilityAssignments()) this.changed();
       this.refreshResearchCheckpoints();
       if (this.refreshFailedTaskInputs()) this.changed();
@@ -214,11 +377,14 @@ export class CooperativeResearch extends CooperationInputs {
     if (this.dispatchBudgetExhausted(budget, modelAllowed)) return this.exhaustedDispatch(budget, modelAllowed, running);
     if (!running && !this.livePeers.length) return;
     if (this.archive.review && ['pending', 'running'].includes(this.archive.review.status)) return this.waitForDispatch();
+    const stagnation = this.stagnationRecovery();
+    if (stagnation) this.needsLead = true;
     const rejection = this.archive.planRejection;
-    if (rejection?.stalled) {
+    if (rejection?.stalled && !stagnation) {
       if (rejection.inputDigest === this.planningInputDigest() && rejection.proposalDigest === this.proposedPlanDigest()) {
         this.needsLead = false;
         if (!running && !this.canAdvance()) {
+          if (this.input.continuousResearch) return this.idleFrontier(this.activeGoalFrontier(), rejection.inputDigest, false);
           this.input.emit('plan_stalled', { ...rejection }); return;
         }
         return this.waitForDispatch();
@@ -244,6 +410,8 @@ export class CooperativeResearch extends CooperationInputs {
         }
       }
     }
+    const refill = budget.maxTurns === Infinity && budget.remainingMs === Infinity ? this.capacityRefill() : undefined;
+    if (refill) this.needsLead = true;
     if (!running && !this.needsLead && this.archive.tasks.length && (!this.archive.review || this.archive.review.status === 'changes_requested') &&
         !this.canAdvance()) {
       // Parking prevents repeating an inference, not reconsidering its unfinished original goal.
@@ -257,7 +425,7 @@ export class CooperativeResearch extends CooperationInputs {
     if (this.needsLead || (!running && (!this.livePeers.length || !this.hasAssignableTask()))) {
       this.needsLead = false;
       const inputDigest = this.planningInputDigest();
-      if (inputDigest === this.archive.lastLeadInputDigest && !this.archive.error && !pendingHandoffs.length &&
+      if (!refill && !stagnation && inputDigest === this.archive.lastLeadInputDigest && !this.archive.error && !pendingHandoffs.length &&
           !pendingResearchChallenges(this.archive).length) {
         return !running && !this.hasAssignableTask() ? this.idleFrontier(this.activeGoalFrontier(), inputDigest) : RETRY_DISPATCH;
       }
@@ -269,8 +437,32 @@ export class CooperativeResearch extends CooperationInputs {
       const planVersion = this.archive.planVersion ??= this.planVersion();
       const action: CooperativeAction = { kind: 'lead', seedCommit: this.seed(worker, head), planVersion,
         planningInputDigest: inputDigest, ...this.handoffDispatch(pendingHandoffs),
-        ...(!this.archive.tasks.length && !this.archive.initialPlanPublication ? { initialPlanNonce: crypto.randomUUID() } : {}) };
+        ...(!this.archive.tasks.length && !this.archive.initialPlanPublication ? { initialPlanNonce: crypto.randomUUID() } : {}),
+        ...(this.archive.tasks.length ? { planNonce: crypto.randomUUID() } : {}) };
       this.leadEvidence.set(action, this.planningEvidenceDigest());
+      if (stagnation) {
+        const receipt: NonNullable<CooperationState['lastStagnationRecovery']> = { inputDigest: stagnation.inputDigest,
+          taskIds: [...stagnation.taskIds], workerIds: [...stagnation.workerIds], reason: stagnation.reason,
+          requestedAt: Date.now(), status: 'requested' };
+        action.stagnationRecovery = Object.freeze({ inputDigest: receipt.inputDigest,
+          taskIds: Object.freeze([...receipt.taskIds]), workerIds: Object.freeze([...receipt.workerIds]),
+          requestedAt: receipt.requestedAt, reason: receipt.reason });
+        this.archive.lastStagnationRecovery = receipt;
+        this.stagnationDispatches.set(action, { receipt, evidenceDigest: stagnation.evidenceDigest });
+        this.input.emit('stagnation_recovery_requested', { ...receipt, evidenceStatus: 'advisory',
+          request: 'Identify independent closed typed sub-obligations with an exact consumer derivation, or retain the precise unresolved gap. Do not repeat the same exploration or count scheduling inactivity as proof failure.' });
+        this.changed();
+      }
+      if (refill) {
+        const receipt: NonNullable<CooperationState['lastCapacityRefill']> = { inputDigest: refill.inputDigest,
+          workerIds: [...refill.workerIds], requestedAt: Date.now(), status: 'requested' };
+        action.capacityRefill = Object.freeze({ inputDigest: receipt.inputDigest,
+          workerIds: Object.freeze([...receipt.workerIds]), requestedAt: receipt.requestedAt });
+        this.archive.lastCapacityRefill = receipt;
+        this.capacityRefillDispatches.set(action, { receipt, evidenceDigest: refill.evidenceDigest });
+        this.input.emit('capacity_refill_requested', { ...receipt, planVersion });
+        this.changed();
+      }
       return action;
     }
     return this.waitForDispatch();
@@ -303,12 +495,17 @@ export class CooperativeResearch extends CooperationInputs {
         assignmentId: review.assignmentId };
     }
     const ready = this.input.modules.M3.ready(this.archive.tasks, this.archive.groups)
-      .filter(node => !this.preparingTaskTypes.has(node) && !this.synchronizationBlocked(node.task));
+      .filter(node => !this.preparingTaskTypes.has(node) && !this.synchronizationBlocked(node.task) &&
+        (!node.capacityExploration || currentCapacityExploration(node, this.archive.tasks, this.explorationIdentity)));
     const node = this.input.modules.M5.assign(ready, worker,
       this.allocationPeers, this.archive.groups, this.archive.tasks);
-    if (!node) return this.liveWorkers.has(worker.id) ? this.waitForDispatch() : undefined;
+    if (!node) {
+      if (await this.requestCapacityExploration(worker, budget, ready)) return RETRY_DISPATCH;
+      return this.liveWorkers.has(worker.id) ? this.waitForDispatch() : undefined;
+    }
     const engineerId = node.task.kind === 'goal' && this.archive.groups?.find(route => route.group.id === taskGroup(node.task))?.group.engineerId;
     if (!ready.includes(node) || !this.archive.tasks.includes(node) || node.status !== 'pending' ||
+        !researchWorkerCanNode(worker, node) ||
         !taskCanStart(node.task, this.archive.tasks, this.archive.groups) ||
         !routeAllowsTask(node.task, this.archive.tasks, this.archive.groups) ||
         !independentFeasibilityWorker(node, worker, this.archive.tasks, this.archive.groups) ||
@@ -361,7 +558,8 @@ export class CooperativeResearch extends CooperationInputs {
       // Cancellation keeps the worker occupied until the Lean check has cleaned up.
       let finishPreparation!: () => void;
       const settled = new Promise<void>(resolve => { finishPreparation = resolve; });
-      this.preparingTaskTypes.set(node, { controller, current, settled });
+      this.preparingTaskTypes.set(node, { workerId: worker.id, controller, current, settled });
+      this.changed();
       try {
         const checked: { result: TaskTypePreflight; current: () => boolean } = workerAccess ? await this.taskTypePreflight.check({ problem: this.input.state.problem, task,
           projectRoot: project,
@@ -387,7 +585,7 @@ export class CooperativeResearch extends CooperationInputs {
           this.needsLead = true; this.changed(); return RETRY_DISPATCH;
         }
       } finally {
-        this.preparingTaskTypes.delete(node); finishPreparation(); this.wake();
+        this.preparingTaskTypes.delete(node); finishPreparation(); this.changed();
       }
     }
     node.assignment ??= { taskId: node.task.id, taskDigest: digest(node.task), workerId: worker.id,
@@ -398,9 +596,30 @@ export class CooperativeResearch extends CooperationInputs {
       // Upgrading an idle historical assignment keeps its saved draft but supersedes late publications.
       if (resuming) node.assignment = { ...node.assignment, assignmentId: crypto.randomUUID() };
       node.assignment.connectionCheck = createTaskConnectionCheck(node.task, node.assignment, this.archive.tasks,
-        { environmentDigest: this.input.state.environmentDigest, problemReceiptDigest: this.input.state.problem.receiptDigest });
+        { environmentDigest: this.input.state.environmentDigest, problemReceiptDigest: this.input.state.problem.receiptDigest },
+        dependency => committedSource(worker.worktree, node.assignment!.seedCommit,
+          `${this.input.state.problem.projectRelative}/${dependency.proofPath}`));
       this.input.emit('task_connection_check_assigned', { taskId: node.task.id, workerId: worker.id,
         connectionCheck: node.assignment.connectionCheck });
+    }
+    if (!advisory(node.task) &&
+        fs.existsSync(path.join(worker.worktree, this.input.state.problem.projectRelative, '.lake/source-constraints.json'))) {
+      const problem = this.input.state.problem;
+      // Local diagnostics should reject the same unrelated goal edits as task delivery,
+      // before the worker spends time compiling a candidate it cannot submit.
+      const declarations = Object.fromEntries(Object.entries(problem.declarations).map(([file, originals]) => {
+        const source = committedSource(worker.worktree, node.assignment!.seedCommit, `${problem.projectRelative}/${file}`);
+        const regions = inspectLeanDeclarationRegions(source);
+        return [file, originals.map(original => {
+          if (original.body || file === node.task.proofPath &&
+              original.name.split('.').at(-1) === node.task.theoremName?.split('.').at(-1)) return original;
+          const region = regions.find(item => item.name === original.name)!;
+          return { ...original, body: mathDigest(source.slice(region.bodyOffset, region.endOffset).trim()) };
+        })];
+      }));
+      writeMathJsonDurable(path.join(worker.worktree, problem.projectRelative, '.lake/source-constraints.json'),
+        { trustedFiles: problem.trustedFiles, declarations, sourceStructure: problem.sourceStructure,
+          sourceImports: problem.sourceImports }, 0o400);
     }
     node.status = 'running';
     const route = this.archive.groups?.find(record => record.group.id === taskGroup(node.task));
@@ -501,6 +720,7 @@ export class CooperativeResearch extends CooperationInputs {
     const scopedTasks = tasks.map(node => scopedFinding(node.alternativeRoutes?.length ? { ...node,
       alternativeRoutes: proofRoutes.filter(route => route.targetTaskId === node.task.id) } : node));
     return { ...this.archive, tasks: scopedTasks,
+      lastStagnationRecovery: action?.kind === 'lead' || worker?.id === this.lead.id ? this.archive.lastStagnationRecovery : undefined,
       parallelQuestions: parallelQuestions(this.archive.tasks, task).filter(question => !ordinaryWorker || task ||
         versions.get(question.taskId)?.task.sharing !== 'group'),
       consumerInterfaces: task ? taskConsumerProjection(task, this.archive.tasks, this.archive.proofRoutes) : undefined,
@@ -528,7 +748,7 @@ export class CooperativeResearch extends CooperationInputs {
       statementReviews: this.archive.statementReviews?.filter(item => item.status !== 'superseded' && visible(item.taskId, item.taskDigest)) };
   }
   private async deliverLead(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' }>, commit: string,
-    recovering: boolean, recoveryKind: 'checkpoint' | 'request-failure'): Promise<{ checkWhole: boolean; savedPlan?: boolean }> {
+    recovering: boolean, recoveryKind: 'checkpoint' | 'request-failure' | 'scheduling-checkpoint'): Promise<{ checkWhole: boolean; savedPlan?: boolean }> {
     const staged = await this.input.exclusiveCheck(async () => {
       if (!this.current(action)) {
         this.input.emit('lead_decision_superseded', { commit }); this.syncPlanNotes(); this.needsLead = true; this.changed();
@@ -580,14 +800,33 @@ export class CooperativeResearch extends CooperationInputs {
         }
       }
       let accepted = false;
-      const publishedPlan = this.initialPlanSnapshot(action);
+      const publishedPlan = this.planSnapshot(action);
       const previousPlanVersion = this.planVersion();
       const previousDecisions = canonicalMathJson([this.archive.researchDecisions ?? [], this.archive.challengeDecisions ?? []]);
       try {
+        const schedulingDraft = recovering && recoveryKind === 'scheduling-checkpoint' && !action.initialPlanNonce &&
+          !publishedPlan && this.archive.tasks.length > 0;
         const notesFile = path.join(worker.worktree, 'RESEARCH.md');
-        const notes = publishedPlan && fs.existsSync(notesFile) ? readMathText(notesFile, MAX_RESEARCH_NOTES_BYTES).trimStart() : '';
-        const hasFinalPlan = notes.startsWith('{') || /```(?:math|json|math-plan)\s*\n/u.test(notes);
-        if (publishedPlan && !hasFinalPlan) {
+        const savedNotes = (publishedPlan || schedulingDraft) && fs.existsSync(notesFile)
+          ? readMathText(notesFile, MAX_RESEARCH_NOTES_BYTES) : '';
+        let unchangedCheckpoint = false;
+        if (schedulingDraft) {
+          try {
+            const seedNotes = git(worker.worktree, ['ls-tree', '--name-only', action.seedCommit, '--', 'RESEARCH.md'])
+              ? committedSource(worker.worktree, action.seedCommit, 'RESEARCH.md') : '';
+            unchangedCheckpoint = this.proposedPlanDigest(seedNotes) === this.proposedPlanDigest(savedNotes);
+          } catch { /* Without a readable dispatch baseline, validate the saved response normally. */ }
+        }
+        const notes = savedNotes.trimStart();
+        const hasFinalPlan = this.publishedPlans.get(action)?.responseDigest !== this.proposedPlanDigest() &&
+          (notes.startsWith('{') || /```(?:math|json|math-plan)\s*\n/u.test(notes));
+        if (unchangedCheckpoint) {
+          // Inherited control notes are a draft, not a fresh response to this inbox.
+          // Continue below so saved Lean source changes still take the ordinary merge path.
+          this.pin(commit); this.needsLead = true;
+          this.input.emit('lead_checkpoint_saved', { commit, seedCommit: action.seedCommit,
+            reason: 'unchanged-control-response' });
+        } else if (publishedPlan && !hasFinalPlan) {
           // A published immutable event remains useful when the continued writer only saves notes.
           accepted = true;
         } else if (action.handoffIds?.length || retainedResearchHandoffs(this.archive).length ||
@@ -595,23 +834,33 @@ export class CooperativeResearch extends CooperationInputs {
           const response = block(worker.worktree, 'math-plan');
           const plan = recoveryPlan ?? parseCooperationPlan(this.input.state.problem, response);
           const decided = this.resolveAdvisoryDecisions(action, plan.tasks, response, plan);
-          await this.acceptPlan(plan);
-          this.recordAdvisoryDecisions(decided);
+          await this.acceptPlan(plan, undefined, undefined, decided);
         } else await this.acceptPlan(recoveryPlan);
-        accepted = true;
+        if (!unchangedCheckpoint) accepted = true;
       } catch (error) {
-        this.rejectPlan(error);
+        if (recovering) {
+          // A checkpoint or failed request may leave only a partial graph. Keep it resumable.
+          this.archive.planRejection = undefined;
+          const reason = error instanceof Error ? error.message : 'math_plan_incomplete';
+          this.input.emit('plan_rejected', { proposalDigest: this.proposedPlanDigest(), inputDigest: this.planningInputDigest(),
+            error: reason, stalled: false, incomplete: true, recoveryKind });
+          this.preserveLeadDraft(commit, action.seedCommit, reason);
+        } else this.rejectPlan(error);
         if (!this.archive.tasks.length && !(recovering && recoveryKind === 'request-failure')) {
           try { await this.startInitialTasks(); }
           catch (fallbackError) { this.input.emit('initial_plan_fallback_failed', {
             reason: fallbackError instanceof Error ? fallbackError.message : 'math_initial_plan_failed' }); }
         }
       }
-      const savedPlan = recovering && recoveryKind === 'request-failure' && (Boolean(publishedPlan) || accepted &&
+      const decisionProgress = Boolean(publishedPlan) || accepted &&
         (previousPlanVersion !== this.planVersion() ||
-          previousDecisions !== canonicalMathJson([this.archive.researchDecisions ?? [], this.archive.challengeDecisions ?? []])));
-      if (accepted && !recovering && action.kind === 'lead' && this.archive.initialPlanPublication)
-        this.archive.initialPlanPublication.finalized = true;
+          previousDecisions !== canonicalMathJson([this.archive.researchDecisions ?? [], this.archive.challengeDecisions ?? []]));
+      const savedPlan = recovering && recoveryKind === 'request-failure' && decisionProgress;
+      if (accepted && !recovering && action.kind === 'lead') {
+        const nonce = action.initialPlanNonce ?? action.planNonce;
+        for (const publication of [this.archive.planPublication, this.archive.initialPlanPublication])
+          if (nonce && publication?.nonce === nonce) publication.finalized = true;
+      }
       if (accepted && resolution) {
         resolution.recovery.status = 'planned'; resolution.recovery.readyTaskIds = resolution.taskIds;
         this.input.emit('frontier_recovery_planned', { recoveryId: resolution.recovery.id,
@@ -620,6 +869,7 @@ export class CooperativeResearch extends CooperationInputs {
       }
       if (accepted && !recovering && action.planningInputDigest) this.archive.lastLeadInputDigest =
         this.leadEvidence.get(action) === this.planningEvidenceDigest() ? this.planningInputDigest() : action.planningInputDigest;
+      if (accepted && (!recovering || decisionProgress)) this.markCapacityRefillAssessed(action);
       this.changed();
       return { finished: false as const, sourceChanged, savedPlan, planVersion: this.archive.planVersion };
     });
@@ -675,7 +925,7 @@ export class CooperativeResearch extends CooperationInputs {
     }
   }
   async deliver(worker: ResearchWorker, action: CooperativeAction, commit: string, recovering = false,
-    recoveryKind: 'checkpoint' | 'request-failure' = 'checkpoint'): Promise<{ check?: ProofCheck; checkWhole: boolean; savedPlan?: boolean }> {
+    recoveryKind: 'checkpoint' | 'request-failure' | 'scheduling-checkpoint' = 'checkpoint'): Promise<{ check?: ProofCheck; checkWhole: boolean; savedPlan?: boolean }> {
     if (isStatementAction(action)) return this.deliverStatement(worker, action);
     if (action.kind === 'review') {
       const review = this.archive.review;
@@ -727,8 +977,8 @@ export class CooperativeResearch extends CooperationInputs {
       if (advisory(node.task)) {
         if (recovering) {
           this.preserveResearchDraft(worker, action, commit, artifacts);
-          if (recoveryKind === 'request-failure') this.interrupted(worker, action);
-          else this.researchCheckpoint(worker, action, commit);
+          if (recoveryKind === 'checkpoint') this.researchCheckpoint(worker, action, commit);
+          else this.interrupted(worker, action);
           return { checkWhole: false };
         }
         taskChanges(this.input.state.problem, worker.worktree, commit, node.task, action.assignment);
@@ -760,10 +1010,13 @@ export class CooperativeResearch extends CooperationInputs {
         return { checkWhole: false };
       }
       if (recovering && feedback.startsWith('math_task_missing_declaration\n')) {
-        this.continueTaskCheckpoint(worker, node, commit);
-        node.feedback = feedback; this.interrupted(worker, action); return { checkWhole: false };
+        if (this.continueTaskCheckpoint(worker, node, commit)) {
+          node.feedback = feedback; this.interrupted(worker, action);
+        } else this.rejected(action, feedback, commit);
+        return { checkWhole: false };
       }
-      if (/^math_task_(?:missing_declaration|repeated_failed_input)\n/u.test(feedback)) this.rejected(action, feedback, commit);
+      if (/^math_task_(?:missing_declaration|repeated_failed_input)\n/u.test(feedback) || isTaskSourceRepairFeedback(feedback))
+        this.rejected(action, feedback, commit, recovering);
       else if (recovering) { node.feedback = feedback; this.interrupted(worker, action); }
       else if (unchangedNotesBlob !== undefined) {
         this.reportBlockers(node.task, [{ mechanism: 'unchanged-research-delivery', scope: 'assigned-local-inference' }]);
@@ -792,7 +1045,7 @@ export class CooperativeResearch extends CooperationInputs {
     else this.needsLead = true;
     this.changed();
   }
-  rejected(action: CooperativeAction, feedback: string, commit?: string) {
+  rejected(action: CooperativeAction, feedback: string, commit?: string, incomplete = false) {
     if (['task', 'lead', 'review'].includes(action.kind) && !this.current(action)) return;
     let localRepair = false;
     let reviewWorker: ResearchWorker | undefined;
@@ -809,7 +1062,10 @@ export class CooperativeResearch extends CooperationInputs {
       return;
     } else if (action.kind === 'task') {
       const node = this.node(action.task.id); node.status = 'blocked'; node.feedback = feedback;
-      if (/^math_task_(?:missing_declaration|repeated_failed_input)\n/u.test(feedback)) {
+      if (incomplete) this.restoreTaskSourceRepair(node);
+      else this.settleTaskSourceRepair(node);
+      if (isTaskSourceRepairFeedback(feedback)) localRepair = this.retryTaskSourceLocally(node);
+      else if (/^math_task_(?:missing_declaration|repeated_failed_input)\n/u.test(feedback)) {
         const worker = this.input.workers.find(worker => worker.id === action.assignment.workerId);
         if (worker && commit && feedback.startsWith('math_task_missing_declaration\n'))
           this.rememberTaskFailure(this.failedTaskInput(action.task, action.assignment, worker.worktree, commit), feedback);
@@ -869,6 +1125,8 @@ export class CooperativeResearch extends CooperationInputs {
     if (route && !fixedStatement) route.turns++;
     if (action.kind === 'task') {
       const node = this.node(action.task.id);
+      const sourceRepair = this.currentTaskSourceRepair(node);
+      if (sourceRepair?.pending) { sourceRepair.pending = false; sourceRepair.startedAttempt = node.attempts + 1; }
       for (const record of this.archive.failedTaskInputs ?? []) if (this.pendingTaskRepair(node, record)) {
         record.repair!.pending = false; record.repair!.startedAttempt = node.attempts + 1;
       }

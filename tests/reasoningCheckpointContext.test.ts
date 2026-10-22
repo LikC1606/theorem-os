@@ -52,6 +52,10 @@ function expectCheckpointSource(context: Compiled) {
   expect(source).toMatchObject({ path: 'RESEARCH.md', bytes: Buffer.byteLength(checkpoint), digest: mathDigest(checkpoint) });
   expect(context.message).toContain('worktree-root RESEARCH.md');
   expect(context.message).toContain('UTF-8');
+  expect(source.retrieval).toContain('attempted methods, exact results and evidence locations, scoped negative searches');
+  expect(source.retrieval).toContain('precise unresolved next inference');
+  expect(source.retrieval).toContain('retain these before the next checkpoint or context rotation');
+  expect(source.retrieval).toContain('reopen a negatively searched scope only with a relevant changed input or genuinely different mathematical method');
   expect(context.message).not.toContain('\uFFFD');
 }
 
