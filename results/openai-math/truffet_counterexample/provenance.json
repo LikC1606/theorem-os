@@ -1,0 +1,47 @@
+{
+  "upstreamCommit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+  "id": "TruffetCounterexample",
+  "statement": {
+    "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/ComparatorChallenges/TruffetCounterexample.lean",
+    "status": 200,
+    "source_path": "lean/ComparatorChallenges/TruffetCounterexample.lean",
+    "sha256": "03fe8de8feab6eeb5144931898f079a0f900e695bf3f8c5d3de3dbc177e21169",
+    "bytes": 4547
+  },
+  "comparator": {
+    "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/ComparatorChallenges/TruffetCounterexample.json",
+    "status": 200,
+    "source_path": "lean/ComparatorChallenges/TruffetCounterexample.json",
+    "sha256": "5b6a0aaf8f27c927a9c0b6a07fb82f43b282c3265058616b0a58fed5eb212f3b",
+    "bytes": 369
+  },
+  "publisherTargets": [
+    "OAI.TruffetV4Counterexample.finite_execution_not_optimal"
+  ],
+  "frozenHostTargets": [
+    {
+      "name": "OAI.TruffetV4Counterexample.finite_execution_not_optimal",
+      "declarationHash": "5dd8584ea99ca370c40ac98e408fc34eac3e0ab4886a31964d709c5878701ae8"
+    }
+  ],
+  "manuscriptIds": [
+    "104-03"
+  ],
+  "mappingStatus": "scope_reviewed",
+  "mappingAmbiguous": false,
+  "independentSolution": true,
+  "publishedSolutionExposed": false,
+  "schema": "theorem-os.openai-math-provenance.v1",
+  "repository": "https://github.com/openai/math",
+  "tier": {
+    "value": "D",
+    "source": "TheoremOS research-difficulty assessment",
+    "official": false
+  },
+  "upstreamLicense": {
+    "spdx": "Apache-2.0",
+    "file": "LICENSE.openai-math",
+    "source_path": "LICENSE",
+    "upstreamNoticePresent": false
+  }
+}

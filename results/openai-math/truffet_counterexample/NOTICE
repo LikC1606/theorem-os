@@ -1,0 +1,18 @@
+OpenAI math source attribution
+
+Upstream repository: https://github.com/openai/math
+Frozen upstream commit: 1581d4cbdd69a0faf34b2089614fe2a814316a6a
+Upstream license: Apache License 2.0 (LICENSE.openai-math).
+No upstream root NOTICE file was present at this frozen commit.
+
+Challenge.lean is a byte-for-byte copy of the frozen challenge source.
+comparator.upstream.json is a byte-for-byte copy of the frozen comparator config.
+Submission.lean is a modified derivative of Challenge.lean: TheoremOS added
+91 auxiliary lemmas and filled finite_execution_not_optimal with a complete proof.
+Its verified bytes are preserved without a new header; this adjacent notice
+identifies the changes and original attribution.
+comparator.json changes only the challenge and solution module names.
+Proof additions, archival metadata, and documentation: TheoremOS contributors,
+2026, under the repository root license unless an individual file states otherwise.
+
+The local validation records do not constitute publisher-hosted acceptance.

@@ -1,0 +1,16 @@
+{
+  "sourceArtifact": "validation/delivery-repair-20261023/verified-proof-status.json",
+  "sourceArtifactSha256": "828a00fbe78d7603b101df9ddd2b5f04c728e2990095e6b8ceb9aefb76b35721",
+  "observedAt": "2026-10-23T02:20:54.925468+08:00",
+  "runId": "af4835ea-00e9-4705-a64d-9920adaa1b06",
+  "proofSha256": "442334bfd22cf81c9582b071cd6b370f2b6969d961418e6b084a25cc87ae4a91",
+  "canonicalCommit": "83251f79547dc27e378c0d11894011d9e86b78f7",
+  "review": {
+    "assignmentId": "329ad428-22a1-4a0f-baf1-82cd9cf303a1",
+    "commit": "83251f79547dc27e378c0d11894011d9e86b78f7",
+    "sourceDigest": "1fbbc99ab18278f81b9da8ae8a4ee13c4bc77fac32479d8f8d5bd688629af968",
+    "status": "accepted",
+    "summary": "The fixed proof in generated/problem/Submission.lean is kernel-checked and satisfies the frozen target. The owned file contains no sorry, admit, native_decide, unsafe, or user-declared axiom; host check-lean returned exitCode 0 with captureComplete true and zero errors, direct lake env lean returned exit code 0, and #print axioms on OAI.TruffetV4Counterexample.finite_execution_not_optimal reports only [propext, Classical.choice, Quot.sound]. The frozen source prefix (lines 1-117) and theorem header/type are byte-identical to seed commit dcd33f0, the original declaration order and bodies are retained, and the trusted problem files are unchanged. The mathematical content also checks: the cross-row witness w = [0,0,|α|+10] works for both ordered row pairs, the two advances compute middle and finalState with all required ForcedSingletonStep predicates, output and better are feasible in initial, and 0 = eval initial.cost better < 1 = eval finalState.cost output = eval initial.cost output."
+  },
+  "scope": "Fixed-version local reviewer, not publisher-hosted acceptance"
+}

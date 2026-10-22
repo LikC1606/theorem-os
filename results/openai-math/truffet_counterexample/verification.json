@@ -1,0 +1,81 @@
+{
+  "schema": "theorem-os.openai-math-result.v1",
+  "archivedAt": "2026-10-22T18:43:03.760937+00:00",
+  "id": "TruffetCounterexample",
+  "status": "local_publisher_comparator_passed",
+  "officialHostedAcceptance": false,
+  "theorem": "OAI.TruffetV4Counterexample.finite_execution_not_optimal",
+  "manuscriptIds": [
+    "104-03"
+  ],
+  "tier": "D",
+  "tierIsOfficial": false,
+  "proof": {
+    "file": "Submission.lean",
+    "sha256": "442334bfd22cf81c9582b071cd6b370f2b6969d961418e6b084a25cc87ae4a91",
+    "bytes": 26256,
+    "lines": 572,
+    "auxiliaryLemmas": 91,
+    "targetConjuncts": 13,
+    "axioms": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "sorryCount": 0,
+    "admitCount": 0
+  },
+  "environment": {
+    "leanToolchain": "leanprover/lean4:v4.34.1",
+    "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612"
+  },
+  "validation": {
+    "kernel": "evidence/host-kernel-receipt.json",
+    "review": "evidence/fixed-version-review.json",
+    "publisherComparator": "evidence/sealed-comparator-receipt.json",
+    "publisherComparatorObservedAt": "2026-10-22T18:27:46.194Z",
+    "publisherComparatorExitCode": 0,
+    "publisherComparatorSandbox": "bwrap",
+    "sealedEnvironment": true,
+    "nanodaEnabled": false,
+    "comparatorConfigAdaptations": [
+      "challenge_module renamed to Challenge",
+      "solution_module renamed to Submission"
+    ],
+    "comparatorPolicyUnchanged": true
+  },
+  "attribution": {
+    "campaign": "openai-math-d-to-s-20261022",
+    "originalRunId": "af4835ea-00e9-4705-a64d-9920adaa1b06",
+    "originalCanonicalCommit": "83251f79547dc27e378c0d11894011d9e86b78f7",
+    "frozenBuildDigest": "9a4f6c9a30a35923b28b3d02b0c39e60e8f809239ca3f8aba0e4f86aa1bbfed3",
+    "activeModel": "deepseek-flash",
+    "activeEffort": "max",
+    "manualInterventions": [
+      "Delivery orchestration repair and retirement of redundant research tasks",
+      "Independent copied writable dependencies and manifest-derived package path overrides",
+      "Single-threaded prebuild and pinned Lean executable path before the unchanged comparator",
+      "Continuation attempt seeded with byte-identical verified proof; acceptance not imported"
+    ],
+    "fromScratchCurrentVersionBenchmark": false,
+    "publishedSolutionExposed": false,
+    "originalModel": "deepseek-flash",
+    "originalEffort": "max"
+  },
+  "nativeRunSnapshot": {
+    "observedAt": "2026-10-22T18:43:03.760937+00:00",
+    "original": {
+      "runId": "af4835ea-00e9-4705-a64d-9920adaa1b06",
+      "status": "evaluated_failed",
+      "environmentFailure": "Comparator inner build failed to create thread; retain original failed result"
+    },
+    "continuation": {
+      "runId": "de7a57e9-becf-4f94-9276-2090ab3f2738",
+      "status": "prepared",
+      "phase": "running",
+      "turns": 1
+    },
+    "campaignAccepted": false,
+    "note": "Local standalone publisher-comparator pass does not overwrite native result or establish OpenAI hosted acceptance."
+  }
+}
