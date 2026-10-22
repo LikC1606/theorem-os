@@ -1,0 +1,35 @@
+{
+  "schema": "theorem-os.openai-math-provenance.v1",
+  "repository": "https://github.com/openai/math",
+  "upstreamCommit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+  "id": "HadamardCubeFiber",
+  "statement": {
+    "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/ComparatorChallenges/HadamardCubeFiber.lean",
+    "status": 200,
+    "source_path": "lean/ComparatorChallenges/HadamardCubeFiber.lean",
+    "sha256": "9f412781be8b38c88a6efb3a4528d4c990071a233cd931612d4710213d6366a1",
+    "bytes": 1084
+  },
+  "comparator": {
+    "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/ComparatorChallenges/HadamardCubeFiber.json",
+    "status": 200,
+    "source_path": "lean/ComparatorChallenges/HadamardCubeFiber.json",
+    "sha256": "bcb65530d2cee7c6377770c945ff888b1b3534a42195091a9abbb92976178698",
+    "bytes": 336
+  },
+  "publisherTargets": [
+    "OAI.HadamardSix.rowRatio_cubeFiber_sum_zero"
+  ],
+  "manuscriptIds": [
+    "266-02"
+  ],
+  "tier": {
+    "value": "C",
+    "official": false
+  },
+  "publishedSolutionExposed": false,
+  "upstreamLicense": {
+    "spdx": "Apache-2.0",
+    "file": "LICENSE.openai-math"
+  }
+}

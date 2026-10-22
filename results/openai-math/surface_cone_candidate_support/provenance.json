@@ -1,0 +1,35 @@
+{
+  "schema": "theorem-os.openai-math-provenance.v1",
+  "repository": "https://github.com/openai/math",
+  "upstreamCommit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+  "id": "SurfaceConeCandidateSupport",
+  "statement": {
+    "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/ComparatorChallenges/SurfaceConeCandidateSupport.lean",
+    "status": 200,
+    "source_path": "lean/ComparatorChallenges/SurfaceConeCandidateSupport.lean",
+    "sha256": "c75e9be97bcb12a6c289b6652337fc32398064fe8bef7cd910110a9d96fae56e",
+    "bytes": 494
+  },
+  "comparator": {
+    "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/ComparatorChallenges/SurfaceConeCandidateSupport.json",
+    "status": 200,
+    "source_path": "lean/ComparatorChallenges/SurfaceConeCandidateSupport.json",
+    "sha256": "dce1e6a3d800cb5b61ab13b7dd5cd76566960b963678f1dd238f922fcc4801f1",
+    "bytes": 357
+  },
+  "publisherTargets": [
+    "OAI.SmallCM.candidate_ring_properties"
+  ],
+  "manuscriptIds": [
+    "195-01"
+  ],
+  "tier": {
+    "value": "D",
+    "official": false
+  },
+  "publishedSolutionExposed": false,
+  "upstreamLicense": {
+    "spdx": "Apache-2.0",
+    "file": "LICENSE.openai-math"
+  }
+}
