@@ -1,6 +1,6 @@
 {
   "schema": "theorem-os.result-file-manifest.v1",
-  "generatedAt": "2026-10-22T19:17:17.666173+00:00",
+  "generatedAt": "2026-10-22T19:40:22.824233+00:00",
   "algorithm": "sha256",
   "excludes": [
     "manifest.json"
@@ -27,9 +27,14 @@
       "sha256": "bd979f258f286cdc563401c99cdb21e2e9bb4aa4835d8f9a3300d4a1fb16d4c6"
     },
     {
+      "path": "NativeSubmission.lean",
+      "bytes": 5062,
+      "sha256": "d818e4c8217e53057b254f92285bb22930f2b47504ed68d7e8def9d2547fa3a1"
+    },
+    {
       "path": "README.md",
-      "bytes": 1985,
-      "sha256": "9da766afed4bca010e1992c3bc32cdf3290b10d211c98a3407942c4f973b4937"
+      "bytes": 2568,
+      "sha256": "cd7761190d4db2523170f4ae1dfe3407dbe580d26319e1910935ed26944f2663"
     },
     {
       "path": "Submission.lean",
@@ -50,6 +55,11 @@
       "path": "evidence/kernel-axiom-receipt.json",
       "bytes": 1064,
       "sha256": "f9f7923bd6288b5e9613a57114d33c6d2dfb21a524eafde69ea5505fb1e60fdb"
+    },
+    {
+      "path": "evidence/native-acceptance-update.json",
+      "bytes": 2071,
+      "sha256": "91976b292e30c50804cfe034b100a0c6c81e660746eeae638b7bbfa09287627a"
     },
     {
       "path": "evidence/sealed-comparator-receipt.json",
@@ -88,8 +98,8 @@
     },
     {
       "path": "verification.json",
-      "bytes": 1493,
-      "sha256": "775d170aca5fe891c73161da0c6f465186e053f841a800402272a14e6ffba86d"
+      "bytes": 1819,
+      "sha256": "4b01a9f7de0996dc5dff24a6d20a0544d32f69a1a018fcfc63940c7863a6c1dc"
     }
   ]
 }

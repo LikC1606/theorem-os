@@ -2,7 +2,7 @@
   "schema": "theorem-os.openai-math-result.v1",
   "archivedAt": "2026-10-22T19:22:28.661348+00:00",
   "id": "CartierChartCompactnessSupport",
-  "status": "local_publisher_comparator_passed_native_dependency_contract_blocked",
+  "status": "native_evaluated_passed_in_reviewed_support_environment",
   "officialHostedAcceptance": false,
   "theorem": "OAI.CartierSections.isCompact_closedChartFieldRetraction_cone",
   "manuscriptIds": [
@@ -30,7 +30,14 @@
     "supportUpstreamCommit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
     "supportModules": 12,
     "standalonePathPackage": "support",
-    "nativeEnvironmentAccepted": false
+    "nativeEnvironmentAccepted": true,
+    "nativeEnvironment": {
+      "name": "openai-math-cartier-reviewed-v1",
+      "digest": "a8cdd8e06146d3a9695fd194f25aa8aeafc72d6ac7b6f819eb2769185b267cc7",
+      "buildId": "2bce5bbc-ad37-4ebb-af79-335f835810e3",
+      "supportModules": 12,
+      "trustedSourceGuardUnchanged": true
+    }
   },
   "validation": {
     "kernel": "evidence/kernel-axiom-receipt.json",
@@ -45,7 +52,9 @@
     "nativeSourceGuardCandidatePassed": true,
     "nativeSourceGuardDependencyPackagePassed": false,
     "nativeDependencyContractBlocker": "math_trusted_source_changed",
-    "portableLakeLayout": "evidence/portable-lake-recheck-receipt.json"
+    "portableLakeLayout": "evidence/portable-lake-recheck-receipt.json",
+    "nativeFollowupPassed": true,
+    "historicalDependencyBlockRetained": true
   },
   "archiveAdaptations": {
     "rootSupportPath": "support instead of .lake/packages/cartier_support, for portable standalone Lake resolution",
@@ -58,5 +67,14 @@
     "fromScratchModelBenchmark": false,
     "publishedSolutionExposed": false
   },
-  "campaignAcceptance": false
+  "campaignAcceptance": false,
+  "nativeAcceptance": true,
+  "nativeProof": {
+    "file": "NativeSubmission.lean",
+    "sha256": "7e6a54b69a536f63b9f36a33cf616644f03d107f22e586bc59ddef1c55f6b797",
+    "bytes": 1665,
+    "acceptedCommit": "1dbd33666801d79b0bc99be6a8e719409e86795e",
+    "runId": "8e9999f3-c1a1-4bfd-b4ef-5cb62364d34f",
+    "receipt": "evidence/native-acceptance-update.json"
+  }
 }
