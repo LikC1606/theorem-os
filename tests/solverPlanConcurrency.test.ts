@@ -8,7 +8,7 @@ import { directSolverModules } from '../src/solver/modules';
 import { taskDependenciesReady } from '../src/solver/modules/search';
 import type { ResearchWorker } from '../src/solver/modules/organization';
 import { committedSource, commitSolverSources, git, type SolverProblem } from '../src/solver/problem';
-import { taskVersion, type CooperativeAction, type CooperativeTask } from '../src/solver/tasks';
+import { hasTaskAcceptance, taskVersion, type CooperativeAction, type CooperativeTask } from '../src/solver/tasks';
 import { deferred } from './helpers/async';
 import { cooperativeResearch } from './helpers/cooperation';
 import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
@@ -45,9 +45,9 @@ describe('plan synchronization with concurrent host control', () => {
   const create = () => cooperativeResearch({ state, workers, retrievalRoot: directory, signal: controller.signal,
     emit: (event, details) => events.push({ event, details }), exclusiveCheck: check => exclusive(check) });
   const source = () => committedSource(workspace, state.cooperation!.canonicalCommit!, `${problem.projectRelative}/Submission.lean`);
-  const writeLemma = (worker: ResearchWorker, name: string) => {
+  const writeLemma = (worker: ResearchWorker, name: string, type = 'True', proof = 'by trivial') => {
     const file = path.join(worker.worktree, problem.projectRelative, 'Submission.lean');
-    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('theorem add_zero', `lemma ${name} : True := by trivial\ntheorem add_zero`));
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('theorem add_zero', `lemma ${name} : ${type} := ${proof}\ntheorem add_zero`));
     return commitSolverSources(problem, worker.worktree);
   };
   const gateCheck = () => {
@@ -72,10 +72,10 @@ describe('plan synchronization with concurrent host control', () => {
     tasks: state.cooperation!.tasks.map(item => item.task), groups: state.cooperation!.groups!.map(item => item.group),
   }) + '\n```\n');
   const sync = () => track((cooperative as any).schedulePlanSynchronization() as Promise<void>);
-  const integrateA = async () => {
+  const integrateA = async (proof = 'by trivial') => {
     const current = node('a');
     const action: TaskAction = { kind: 'task', task: current.task, assignment: current.assignment! };
-    await cooperative.deliver(workers[1], action, writeLemma(workers[1], 'a'));
+    await cooperative.deliver(workers[1], action, writeLemma(workers[1], 'a', current.task.type, proof));
     expect(node('a').status).toBe('integrated');
   };
 
@@ -140,6 +140,61 @@ describe('plan synchronization with concurrent host control', () => {
     expect(state.cooperation!.edits!.every(item => !item.pendingSync)).toBe(true);
   });
 
+  it.each(['type-spelling', 'conditional-flag', 'default-group', 'different-type', 'new-dependency'] as const)
+  ('rechecks the saved canonical proof under a revised %s contract before accepting or blocking it', async change => {
+    const previous = node('a');
+    if (change === 'type-spelling') previous.task = { ...previous.task, type: 'forall n : Nat, True -> True' };
+    if (change === 'conditional-flag') previous.task = { ...previous.task, conditional: true };
+    if (change === 'default-group') previous.task = { ...previous.task, groupId: 'main' };
+    previous.assignment = { ...previous.assignment!, taskDigest: taskVersion(previous.task) };
+    await integrateA(change === 'type-spelling' ? 'by intro n h; exact h' : 'by trivial');
+    const receipt = previous.integratedCheck!, canonical = state.cooperation!.canonicalCommit, independent = node('c');
+    const gate = gateCheck();
+    await edit('revise-proof-contract', task => task.id !== 'a' ? task
+      : change === 'type-spelling' ? { ...task, type: '∀ n : Nat, True → True' }
+      : change === 'conditional-flag' ? { ...task, conditional: undefined }
+      : change === 'default-group' ? { ...task, groupId: undefined }
+      : change === 'different-type' ? { ...task, type: 'False' } : { ...task, dependsOn: ['c'] });
+    await gate.entered;
+    expect(node('a')).toBe(previous);
+    expect(previous.pendingValidation).toMatchObject({ proof: true, taskDigest: taskVersion(previous.task) });
+    expect(previous.integratedCheck).toBe(receipt);
+    expect(previous.integratedCheck!.taskDigest).not.toBe(taskVersion(previous.task));
+    expect(taskDependenciesReady(node('b').task, state.cooperation!.tasks)).toBe(false);
+    expect(host.verify.mock.calls.at(-1)![1]).toMatchObject({ expectedDeclarationType: previous.task.type });
+    expect(node('c')).toBe(independent); expect(independent.status).toBe('pending');
+    expect(independent.pendingValidation).toBeUndefined(); expect(independent.attempts).toBe(0);
+    gate.release(change !== 'different-type'); await sync();
+    expect(previous.pendingValidation).toBeUndefined();
+    expect(previous.attempts).toBe(1);
+    expect(state.cooperation!.canonicalCommit).toBe(canonical);
+    expect(previous.integratedCheck).not.toBe(receipt);
+    expect(previous.integratedCheck!.taskDigest).toBe(taskVersion(previous.task));
+    if (change === 'different-type') {
+      expect(previous.status).toBe('blocked'); expect(previous.integratedCheck!.passed).toBe(false);
+    } else if (change === 'new-dependency') {
+      expect(previous).toMatchObject({ status: 'blocked', feedback: 'math_task_dependency_invalidated' });
+    } else {
+      expect(previous.status).toBe('integrated'); expect(previous.feedback).toBeUndefined();
+      expect(hasTaskAcceptance(previous.integratedCheck!)).toBe(true);
+    }
+    expect(node('c')).toBe(independent); expect(independent.status).toBe('pending');
+    expect(independent.pendingValidation).toBeUndefined(); expect(independent.attempts).toBe(0);
+  });
+
+  it('resets a renamed declaration without trying to revalidate it as the old theorem', async () => {
+    await integrateA();
+    const previous = node('a'), receipt = previous.integratedCheck;
+    host.verify.mockClear();
+    await edit('rename-helper', task => task.id === 'a' ? { ...task, theoremName: 'Tutorial.renamed' } : task);
+    await sync();
+    expect(node('a')).not.toBe(previous);
+    expect(node('a')).toMatchObject({ status: 'pending', attempts: 1 });
+    expect(node('a').pendingValidation).toBeUndefined(); expect(node('a').integratedCheck).toBeUndefined();
+    expect(state.cooperation!.history).toContainEqual(expect.objectContaining({ integratedCheck: receipt }));
+    expect(host.verify).not.toHaveBeenCalled();
+  });
+
   it('reclaims a stale Lead while preserving integrated proof and active peer work and waking a waiting peer', async () => {
     await integrateA();
     const acceptedProof = structuredClone(node('a').proof), acceptedCheck = structuredClone(node('a').integratedCheck);
@@ -201,9 +256,15 @@ describe('plan synchronization with concurrent host control', () => {
     await gate.entered;
     await edit('new-mathematics', task => task.id === 'a' ? { ...task, revision: 2, type: 'True ∧ True' } : task);
     const current = node('a'), saved = JSON.parse(JSON.stringify(current));
-    gate.release(passed); await sync();
+    const latest = gateCheck();
+    gate.release(passed); await latest.entered;
     expect(node('a')).toBe(current); expect(node('a')).toEqual(saved);
-    expect(node('a').proof).toBeUndefined(); expect(node('a').integratedCheck).toBeUndefined();
+    expect(node('a').pendingValidation).toMatchObject({ taskDigest: taskVersion(node('a').task), proof: true });
+    expect(taskDependenciesReady(node('b').task, state.cooperation!.tasks)).toBe(false);
+    expect(host.verify.mock.calls.at(-1)![1]).toMatchObject({ expectedDeclarationType: 'True ∧ True' });
+    latest.release(false); await sync();
+    expect(node('a').pendingValidation).toBeUndefined();
+    expect(node('a')).toMatchObject({ status: 'blocked', integratedCheck: { passed: false, taskDigest: taskVersion(node('a').task) } });
     expect(prepare.mock.calls.some(([tasks]) => tasks.some((item: { task: CooperativeTask }) =>
       item.task.id === 'a' && item.task.revision === 1))).toBe(false);
     expect(prepare.mock.calls.some(([tasks]) => tasks.some((item: { task: CooperativeTask }) =>

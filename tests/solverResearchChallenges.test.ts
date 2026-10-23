@@ -77,6 +77,29 @@ describe('deferred research challenge plan retention', () => {
     expect(researchChallenges(state.cooperation!)[0]!.status).toBe('deferred');
   });
 
+  it('accepts a later full plan that repeats a previously resolved challenge decision', async () => {
+    const challenge = researchChallenges(state.cooperation!)[0]!;
+    const response = { id: challenge.id, status: 'revised', reason: 'The exact missing estimate is assigned to waiting.' };
+    state.cooperation!.challengeDecisions = resolveResearchChallenges(state.cooperation!, [], {}, tasks(), [response]);
+    state.cooperation!.deliveries!.push({ ...state.cooperation!.deliveries![0]!, id: 'still-waiting-delivery' });
+    const waiting = pendingResearchChallenges(state.cooperation!)[0]!;
+    state.cooperation!.challengeDecisions.push(...resolveResearchChallenges(state.cooperation!, [waiting.id],
+      { [waiting.id]: waiting.activationDigest }, tasks(), [{ id: waiting.id, status: 'deferred',
+        reason: 'Wait for the checked estimate.', waitsOn: ['waiting'] }]));
+    const previous = structuredClone(state.cooperation!.challengeDecisions);
+    state.cooperation!.error = 'An unrelated task needs planning.';
+    const cooperative = create(), action = await cooperative.next(lead, budget);
+    if (action?.kind !== 'lead') throw new Error('fixture_expected_lead');
+    expect(action.challengeIds).toEqual([]);
+    notes({ ...plan(), challengeDecisions: [response] });
+    await cooperative.deliver(lead, action, commitSolverSources(problem, lead.worktree));
+    expect(state.cooperation!.error).toBeUndefined();
+    expect(state.cooperation!.planRejection).toBeUndefined();
+    expect(state.cooperation!.challengeDecisions).toEqual(previous);
+    expect(pendingResearchChallenges(state.cooperation!)).toEqual([]);
+    expect(state.cooperation!.tasks.every(node => !node.integratedCheck)).toBe(true);
+  });
+
   it('dispatches the remaining challenge batch after a successful decision records the current planning digest', async () => {
     state.cooperation!.challengeDecisions = [];
     for (const node of state.cooperation!.tasks) if (node.task.kind !== 'research') node.task = { ...node.task, status: 'paused' };

@@ -508,6 +508,66 @@ describe('bounded role session recovery', () => {
     expect(host.delay).not.toHaveBeenCalled(); expect(host.official).toHaveBeenCalledOnce();
   });
 
+  it.each(['completed', 'failed', 'checkpoint'] as const)('keeps a late assignment and its saved bytes through repeated ownership rejections on %s turns', async status => {
+    const assignments = new Map<string, CooperativeAction>();
+    const relative = 'generated/p/generated/p/.scratch/tmp/Bridge.lean';
+    const content = 'lemma advisory_bridge : True := by trivial\n';
+    const draft = original.replace('theorem claim', 'lemma checkpoint_1 : True := by trivial\nlemma checkpoint_2 : True := by trivial\ntheorem claim')
+      .replace('by sorry', 'by exact checkpoint_2');
+    let proofTurns = 0, first: Extract<CooperativeAction, { kind: 'task' }> | undefined;
+    let before: string | undefined, thread: string | undefined;
+    let priorFailures: unknown[] = [];
+    host.open.mockImplementation(async (options: MathAgentOptions) => {
+      const current = session(options, async message => {
+        const action = assignments.get(options.workspace)!;
+        if (action.kind === 'lead') research(options, { tasks: [{ ...claim, ownerId: 'engineer' }] });
+        else if (action.kind === 'task') {
+          proofTurns++;
+          first ??= action;
+          expect(action.assignment).toEqual(first.assignment);
+          expect(current.threadId).toBe(thread ??= current.threadId);
+          options.onUsage({ totalTokens: 3 });
+          if (proofTurns <= 2) {
+            const helpers = Array.from({ length: proofTurns }, (_, index) => `lemma checkpoint_${index + 1} : True := by trivial\n`).join('');
+            fs.writeFileSync(proof(options), original.replace('theorem claim', helpers + 'theorem claim'));
+            return 'checkpoint';
+          }
+          const misplaced = path.join(options.workspace, relative);
+          if (proofTurns === 3) {
+            priorFailures = state().cooperation.failedTaskInputs ?? [];
+            fs.mkdirSync(path.dirname(misplaced), { recursive: true }); fs.writeFileSync(misplaced, content);
+            fs.writeFileSync(proof(options), draft); before = git(options.workspace, ['rev-parse', 'HEAD']);
+          } else {
+            expect(message).toContain(`File: ${relative}\nError: math_source_outside_ownership`);
+            expect(fs.readFileSync(misplaced, 'utf8')).toBe(content);
+            expect(fs.readFileSync(proof(options), 'utf8')).toBe(draft);
+            expect(git(options.workspace, ['rev-parse', 'HEAD'])).toBe(before);
+            expect(git(options.workspace, ['diff', '--cached', '--name-only'])).toBe('');
+            expect(state().cooperation.failedTaskInputs ?? []).toEqual(priorFailures);
+          }
+          if (proofTurns < 6) return status;
+          const corrected = path.join(options.workspace, 'generated/p/.scratch/tmp/Bridge.lean');
+          fs.mkdirSync(path.dirname(corrected), { recursive: true }); fs.renameSync(misplaced, corrected);
+          return 'completed';
+        } else if (action.kind === 'review') research(options, { commit: action.seedCommit, verdict: 'accepted' });
+        else throw new Error(`unexpected ownership recovery action: ${action.kind}`);
+        options.onUsage({ totalTokens: 3 }); return 'completed';
+      });
+      return current;
+    });
+    const exit = await cooperate(assignments);
+    expect(exit, JSON.stringify(events().filter(event => event.event === 'worker_failed'))).toBe(0);
+    expect(proofTurns).toBe(6);
+    expect(events().filter(event => event.event === 'source_repair_requested')).toHaveLength(3);
+    expect(events().filter(event => event.event === 'worker_failed')).toHaveLength(0);
+    expect(state().cooperation.tasks[0]).toMatchObject({ status: 'integrated', attempts: 6 });
+    expect(state().cooperation.tasks[0].assignment).toEqual(JSON.parse(JSON.stringify(first!.assignment)));
+    expect(state().cooperation.failedTaskInputs ?? []).toEqual(priorFailures);
+    expect(state().cooperation.deliveries.filter((delivery: { kind: string; summary?: string }) =>
+      delivery.kind === 'failure' && delivery.summary?.includes('math_source_outside_ownership'))).toEqual([]);
+    expect(host.delay).not.toHaveBeenCalled(); expect(host.official).toHaveBeenCalledOnce();
+  });
+
   it('checks and integrates a saved proof once after a tool failure, then keeps the peer available for independent review', async () => {
     const assignments = new Map<string, CooperativeAction>();
     let proofTurns = 0;

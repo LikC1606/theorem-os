@@ -62,6 +62,7 @@ export abstract class CooperationCore {
   protected leadDeliveries = new Set<Promise<unknown>>();
   protected active = new Map<string, { action: CooperativeAction; interrupt: () => Promise<void>; notify: (message: string) => Promise<void>;
     requestReady?: () => Promise<void>; cancelled?: boolean }>();
+  private checkingWorkers = new Map<string, Set<{ action?: CooperativeAction }>>();
   private freshProofReady = new WeakMap<CooperativeAction, string>();
   protected notifications = new Set<Promise<void>>();
   private deliveryReceiptNotifications = new Set<string>();
@@ -236,26 +237,7 @@ export abstract class CooperationCore {
     this.archive.planVersion ??= this.planVersion();
     if (edit?.status === 'applied') edit.planVersion = this.archive.planVersion;
     this.syncEditChecks(nodes, versions);
-    const agents = this.input.workers.map(peer => {
-      const active = this.active.get(peer.id), work = active?.action;
-      const preparation = [...this.preparingTaskTypes].find(([, item]) => item.workerId === peer.id)?.[0];
-      const status = !this.liveWorkers.has(peer.id) ? 'stopped' as const
-        : active && (active.cancelled || !this.current(active.action)) ? 'stopping' as const
-        : work ? 'working' as const : preparation ? 'preparing' as const : 'idle' as const;
-      const action = work?.kind ?? (preparation ? 'task' : undefined);
-      const taskId = work?.kind === 'task' ? work.task.id : preparation?.task.id;
-      const record = this.input.state.workers?.find(worker => worker.id === peer.id);
-      if (record) {
-        const previous = record.scheduling;
-        const same = previous?.status === status && previous.action === action && previous.taskId === taskId;
-        record.scheduling = { status, action, taskId, since: same ? previous.since : Date.now() };
-      }
-      return { id: peer.id, role: work && (work.kind === 'review' || isStatementAction(work) ||
-        work.kind === 'task' && isFeasibilityReview(work.task)) ? 'reviewer' : peer.role,
-        status,
-        work: work && { kind: work.kind, taskId: work.kind === 'task' ? work.task.id : undefined,
-          version: work.kind === 'task' ? work.assignment.taskDigest : work.seedCommit } };
-    });
+    const agents = this.refreshWorkerScheduling();
     this.input.save();
     for (const worker of this.input.workers) {
       const action = this.active.get(worker.id)?.action;
@@ -296,6 +278,32 @@ export abstract class CooperationCore {
       });
     }
     this.wake();
+  }
+  /** Display observations do not change task control or wake a model dispatcher. */
+  private refreshWorkerScheduling() {
+    return this.input.workers.map(peer => {
+      const active = this.active.get(peer.id), work = active?.action;
+      const checking = this.checkingWorkers.get(peer.id)?.values().next().value;
+      const activity = checking?.action ?? work;
+      const preparation = [...this.preparingTaskTypes].find(([, item]) => item.workerId === peer.id)?.[0];
+      const status = !this.liveWorkers.has(peer.id) ? 'stopped' as const
+        : checking ? 'checking' as const
+        : active && (active.cancelled || !this.current(active.action)) ? 'stopping' as const
+        : work ? 'working' as const : preparation ? 'preparing' as const : 'idle' as const;
+      const action = activity?.kind ?? (preparation ? 'task' : undefined);
+      const taskId = activity?.kind === 'task' ? activity.task.id : preparation?.task.id;
+      const record = this.input.state.workers?.find(worker => worker.id === peer.id);
+      if (record) {
+        const previous = record.scheduling;
+        const same = previous?.status === status && previous.action === action && previous.taskId === taskId;
+        record.scheduling = { status, action, taskId, since: same ? previous.since : Date.now() };
+      }
+      return { id: peer.id, role: work && (work.kind === 'review' || isStatementAction(work) ||
+        work.kind === 'task' && isFeasibilityReview(work.task)) ? 'reviewer' : peer.role,
+        status,
+        work: work && { kind: work.kind, taskId: work.kind === 'task' ? work.task.id : undefined,
+          version: work.kind === 'task' ? work.assignment.taskDigest : work.seedCommit } };
+    });
   }
   protected cancelStaleTaskTypes() {
     for (const pending of this.preparingTaskTypes.values())
@@ -432,6 +440,22 @@ export abstract class CooperationCore {
     this.active.set(worker.id, { action, interrupt, notify, requestReady }); this.changed();
   }
   deactivate(worker: ResearchWorker) { this.active.delete(worker.id); this.changed(); }
+  /** Host validation remains busy after its model turn has released the dispatch. */
+  beginChecking(worker: ResearchWorker, action: CooperativeAction | undefined): () => void {
+    const pending = { action };
+    const checks = this.checkingWorkers.get(worker.id) ?? new Set<{ action?: CooperativeAction }>();
+    checks.add(pending); this.checkingWorkers.set(worker.id, checks);
+    const cleanup = () => {
+      const current = checks.values().next().value === pending;
+      checks.delete(pending);
+      if (!checks.size) this.checkingWorkers.delete(worker.id);
+      if (current) { this.refreshWorkerScheduling(); this.input.save(); }
+    };
+    try {
+      if (checks.size === 1) { this.refreshWorkerScheduling(); this.input.save(); }
+      return cleanup;
+    } catch (error) { cleanup(); throw error; }
+  }
   current(action: CooperativeAction) {
     if (action.kind === 'assemble') return !this.failure && !this.stopping && this.liveWorkers.has(this.lead.id) && this.canAssemble(action.seedCommit);
     if (action.kind === 'lead' && (action.planNonce || action.initialPlanNonce) && !this.leadEvidence.has(action)) return false;

@@ -5,6 +5,15 @@ export type ReopenCondition = { kind: 'contract-changed' } | { kind: 'environmen
   { kind: 'dependency-checked'; taskId: string };
 export type BlockerProposal = { mechanism: string; scope: string; blockerId?: string; evidenceRefs?: readonly string[];
   reopenOn?: readonly ReopenCondition[] };
+/** Field feedback is carried unchanged into the assignment's delivery receipt. */
+export class RouteBlockerValidationError extends Error {
+  readonly issues: readonly { path: string; message: string }[];
+  constructor(path: string, message: string) {
+    super('math_route_blocker_invalid: ' + path + ': ' + message);
+    this.name = 'RouteBlockerValidationError';
+    this.issues = [{ path, message }];
+  }
+}
 export type BlockerBasis = { contractDigest: string; environmentDigest: string;
   dependencies: Record<string, { contractDigest: string; evidenceDigest?: string }> };
 export type RouteBlocker = { id: string; taskId: string; groupId: string; taskDigest: string; routeId?: string;
@@ -50,18 +59,44 @@ export function routeBlockerBasis(task: CooperativeTask, tasks: readonly TaskRec
 
 export function validateBlockerProposals(value: unknown, task: CooperativeTask, tasks: readonly TaskRecord[]): BlockerProposal[] {
   if (value === undefined) return [];
-  if (!Array.isArray(value) || value.length > 16) throw new Error('math_route_blocker_invalid');
+  if (!Array.isArray(value) || value.length > 16)
+    throw new RouteBlockerValidationError('blockers', 'Provide an array of at most 16 local obstruction reports.');
   const local = routeBlockerBasis(task, tasks, '', '').dependencies;
-  return value.map(item => {
-    if (!item || typeof item.mechanism !== 'string' || !item.mechanism.trim() || item.mechanism.length > 500 ||
-        typeof item.scope !== 'string' || !item.scope.trim() || item.scope.length > 2000 ||
-        (item.blockerId !== undefined && (typeof item.blockerId !== 'string' || !/^blocker_[a-f0-9]{24}$/u.test(item.blockerId))) ||
-        (item.evidenceRefs !== undefined && (!Array.isArray(item.evidenceRefs) || item.evidenceRefs.length > 32 ||
-          item.evidenceRefs.some((ref: unknown) => typeof ref !== 'string' || ref.length > 2000))) ||
-        (item.reopenOn !== undefined && (!Array.isArray(item.reopenOn) || !item.reopenOn.length || item.reopenOn.length > 64 ||
-          item.reopenOn.some((condition: any) => !condition || !['contract-changed', 'environment-changed', 'dependency-checked'].includes(condition.kind) ||
-            (condition.kind === 'dependency-checked' && (typeof condition.taskId !== 'string' || !Object.hasOwn(local, condition.taskId)))))))
-      throw new Error('math_route_blocker_invalid');
+  return value.map((item, index) => {
+    const field = `blockers[${index}]`;
+    if (!item || typeof item.mechanism !== 'string' || !item.mechanism.trim() || item.mechanism.length > 500)
+      throw new RouteBlockerValidationError(field + '.mechanism', 'Provide a nonempty mechanism string of at most 500 characters.');
+    if (typeof item.scope !== 'string' || !item.scope.trim() || item.scope.length > 2000)
+      throw new RouteBlockerValidationError(field + '.scope', 'Provide a nonempty local inference scope of at most 2000 characters.');
+    if (item.blockerId !== undefined && (typeof item.blockerId !== 'string' || !/^blocker_[a-f0-9]{24}$/u.test(item.blockerId)))
+      throw new RouteBlockerValidationError(field + '.blockerId', 'Use an existing blocker_ ID with 24 lowercase hexadecimal characters, or omit blockerId for a new obstruction.');
+    if (item.evidenceRefs !== undefined) {
+      if (!Array.isArray(item.evidenceRefs) || item.evidenceRefs.length > 32)
+        throw new RouteBlockerValidationError(field + '.evidenceRefs', 'Provide an array of at most 32 evidence reference strings.');
+      item.evidenceRefs.forEach((ref: unknown, refIndex: number) => {
+        if (typeof ref !== 'string' || ref.length > 2000)
+          throw new RouteBlockerValidationError(`${field}.evidenceRefs[${refIndex}]`, 'Provide an evidence reference string of at most 2000 characters.');
+      });
+    }
+    if (item.reopenOn !== undefined) {
+      if (!Array.isArray(item.reopenOn) || !item.reopenOn.length || item.reopenOn.length > 64)
+        throw new RouteBlockerValidationError(field + '.reopenOn', 'Provide 1 to 64 reopening conditions, or omit reopenOn for host defaults.');
+      item.reopenOn.forEach((condition: any, conditionIndex: number) => {
+        const path = `${field}.reopenOn[${conditionIndex}]`;
+        if (!condition || !['contract-changed', 'environment-changed', 'dependency-checked'].includes(condition.kind))
+          throw new RouteBlockerValidationError(path + '.kind', 'Use contract-changed, environment-changed, or dependency-checked.');
+        if (condition.kind !== 'dependency-checked') return;
+        if (typeof condition.taskId !== 'string')
+          throw new RouteBlockerValidationError(path + '.taskId', 'Provide a string taskId from this task\'s declared dependency cone.');
+        if (!Object.hasOwn(local, condition.taskId)) {
+          const allowed = Object.keys(local).sort();
+          throw new RouteBlockerValidationError(path + '.taskId',
+            `Task ${JSON.stringify(condition.taskId)} is outside the declared dependency cone of task ${JSON.stringify(task.id)}. ` +
+            (allowed.length ? `Allowed dependency taskIds: ${JSON.stringify(allowed)}. ` : 'This task has no declared dependencies for dependency-checked. ') +
+            'Remove this condition, use an allowed dependency, or omit reopenOn for host defaults.');
+        }
+      });
+    }
     return { mechanism: normalize(item.mechanism), scope: normalize(item.scope),
       ...(item.blockerId ? { blockerId: item.blockerId } : {}), evidenceRefs: item.evidenceRefs ?? [],
       reopenOn: item.reopenOn ?? [{ kind: 'contract-changed' }, { kind: 'environment-changed' },

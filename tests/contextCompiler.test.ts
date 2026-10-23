@@ -4,7 +4,8 @@ import { compileTaskContext, DEFAULT_OPTIONAL_TASK_CONTEXT_BYTES, DEFAULT_TASK_C
   frozenSourceContext, type TaskContextInput } from '../src/solver/contextCompiler';
 import { buildResearchContext } from '../src/solver/modules/context';
 import { cooperativeWorkContract } from '../src/solver/modules/contracts';
-import { hasTaskAcceptance, markTaskAcceptance, taskVersion, type CooperativeAction, type CooperativeTask, type TaskRecord } from '../src/solver/tasks';
+import { hasTaskAcceptance, markTaskAcceptance, markTaskReferences, taskVersion,
+  type CooperativeAction, type CooperativeTask, type TaskRecord } from '../src/solver/tasks';
 import type { SolverProblem } from '../src/solver/problem';
 import type { SolverRunState } from '../src/solver/archive';
 import type { TaskProof } from '../src/solver/cooperativeProof';
@@ -269,6 +270,56 @@ it('rejects mismatched mandatory dependency and proof evidence versions', () => 
   const proof = { ...checked(prerequisite), taskDigest: 'old-version' };
   expect(() => compileTaskContext(input([node(consumer), { ...node(prerequisite), status: 'integrated', integratedCheck: proof }], assign(consumer))))
     .toThrow('math_context_stale_required:evidence:prerequisite');
+});
+
+function unusedPlannedDependency() {
+  const a = lemma('a'), b = lemma('b'), first = lemma('first', [a.id, b.id]), second = lemma('second', [first.id]);
+  const oldProof = checked(a);
+  oldProof.sourceDigest = 'STALE_UNUSED_A_SOURCE';
+  oldProof.verification.results[0].receiptId = 'STALE_UNUSED_A_RECEIPT';
+  const revisedA = { ...a, revision: 1, premises: ['Revised mathematical input'] };
+  const waiting: TaskRecord = { ...node(revisedA), status: 'integrated', proof: oldProof, integratedCheck: oldProof,
+    pendingValidation: { id: 'recheck-a', taskDigest: taskVersion(revisedA), canonicalCommit: proofCommit,
+      environmentDigest: 'fixed-environment', problemReceiptDigest: problem.receiptDigest, proof: true } };
+  const proof = referenceProof(first);
+  proof.references!.tasks = [{ taskId: b.id, taskDigest: taskVersion(b) }];
+  markTaskReferences(proof); markTaskAcceptance(proof);
+  const accepted: TaskRecord = { ...node(first), status: 'integrated', integratedCheck: proof };
+  const action = assign(second);
+  action.assignment.dependencies = [first, b].map(task => ({ taskId: task.id, taskDigest: taskVersion(task) }));
+  const source = { ...input([node(second), accepted, waiting, { ...node(b), status: 'integrated', integratedCheck: checked(b) }], action),
+    environmentDigest: 'fixed-environment' };
+  return { source, waiting, accepted, action };
+}
+
+it('uses host-checked actual dependencies without reviving an unused planned input awaiting revalidation', () => {
+  const { source } = unusedPlannedDependency(), context = compileTaskContext(source);
+  expect(context.manifest.requiredTaskIds).toEqual(['second', 'first', 'b']);
+  expect(compiledGraph(context.message).find(row => row.id === 'first').evidence.references.tasks)
+    .toEqual([{ taskId: 'b', taskDigest: taskVersion(lemma('b')) }]);
+  const unused = compiledGraph(context.message).find(row => row.id === 'a');
+  expect(unused?.evidence).toBeUndefined();
+  expect(unused?.source).toBeUndefined();
+  expect(context.message).not.toContain('STALE_UNUSED_A_SOURCE');
+  expect(context.message).not.toContain('STALE_UNUSED_A_RECEIPT');
+});
+
+it.each([
+  ['mandatory-recheck', 'evidence:a'],
+  ['restored-references', 'evidence:a'],
+  ['stale-actual-reference', 'dependency:b'],
+  ['incomplete-receipts', 'evidence:first'],
+] as const)('rejects %s instead of hiding required or unauthenticated stale evidence', (kind, reason) => {
+  const { source, waiting, accepted, action } = unusedPlannedDependency();
+  if (kind === 'mandatory-recheck') action.assignment.dependencies!.push({ taskId: waiting.task.id, taskDigest: taskVersion(waiting.task) });
+  if (kind === 'restored-references') {
+    accepted.integratedCheck = structuredClone(accepted.integratedCheck!);
+    // Acceptance alone cannot restore the host's independent reference attribution.
+    markTaskAcceptance(accepted.integratedCheck);
+  }
+  if (kind === 'stale-actual-reference') accepted.integratedCheck!.references!.tasks![0].taskDigest = 'old-b-version';
+  if (kind === 'incomplete-receipts') accepted.integratedCheck!.verification.results = [];
+  expect(() => compileTaskContext(source)).toThrow(`math_context_stale_required:${reason}`);
 });
 
 it('retains the parked original-goal frontier and its reopening conditions when advisory notes do not fit', () => {

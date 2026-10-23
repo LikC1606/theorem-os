@@ -47,6 +47,29 @@ describe('route blocker proposals', () => {
       target.task, tasks)).toThrow('math_route_blocker_invalid');
   });
 
+  it('identifies the rejected dependency condition and lists the allowed transitive dependency cone', () => {
+    const root = node('root'), intermediate = node('intermediate', ['root']), target = node('target', ['intermediate']);
+    const unrelated = node('unrelated'), tasks = [root, intermediate, target, unrelated];
+    const value = [proposal, { ...proposal, reopenOn: [{ kind: 'contract-changed' },
+      { kind: 'dependency-checked', taskId: unrelated.task.id }] }];
+    const before = structuredClone(value);
+    let error: unknown;
+    try { validateBlockerProposals(value, target.task, tasks); } catch (caught) { error = caught; }
+    expect(error).toMatchObject({ issues: [{ path: 'blockers[1].reopenOn[1].taskId',
+      message: expect.stringContaining('Task "unrelated" is outside the declared dependency cone of task "target".') }] });
+    expect((error as { issues: { message: string }[] }).issues[0].message)
+      .toContain('Allowed dependency taskIds: ["intermediate","root"]');
+    expect(value).toEqual(before);
+    expect(() => validateBlockerProposals([{ ...proposal,
+      reopenOn: [{ kind: 'dependency-checked', taskId: root.task.id }] }], target.task, tasks)).not.toThrow();
+  });
+
+  it('explains that an independent task cannot reopen on a checked unrelated goal', () => {
+    const target = node('target'), goal = node('goal');
+    expect(() => validateBlockerProposals([{ ...proposal, reopenOn: [{ kind: 'dependency-checked', taskId: goal.task.id }] }],
+      target.task, [target, goal])).toThrow('This task has no declared dependencies for dependency-checked.');
+  });
+
   it.each([null, {}, [null], [{ ...proposal, scope: '' }], [{ ...proposal, scope: 12 }],
     [{ ...proposal, scope: 'x'.repeat(2001) }], [{ ...proposal, mechanism: ' ' }],
     [{ ...proposal, evidenceRefs: [42] }], [{ ...proposal, reopenOn: [] }],

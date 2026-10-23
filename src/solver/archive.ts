@@ -32,7 +32,7 @@ export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | '
   sessionTaskVersion?: string;
   sessionAssignmentId?: string;
   sessionStatementReview?: boolean;
-  scheduling?: { status: 'working' | 'preparing' | 'stopping' | 'idle' | 'stopped'; since: number;
+  scheduling?: { status: 'working' | 'checking' | 'preparing' | 'stopping' | 'idle' | 'stopped'; since: number;
     action?: string; taskId?: string };
 };
 
@@ -264,7 +264,7 @@ const runState = research.extend({ schema: z.literal('deepscientist.math.solver.
   coordination: z.enum(['cooperative', 'independent']).optional(),
   workers: z.array(research.extend({ id: z.string(), role, sessionRole: role.optional(),
     sessionAssignmentId: z.string().optional(),
-    scheduling: z.object({ status: z.enum(['working', 'preparing', 'stopping', 'idle', 'stopped']), since: safeCount,
+    scheduling: z.object({ status: z.enum(['working', 'checking', 'preparing', 'stopping', 'idle', 'stopped']), since: safeCount,
       action: z.string().optional(), taskId: z.string().optional() }).optional() })).optional(),
   cooperation: z.object({ tasks: z.array(taskRecord), groups: z.array(z.object({ group: z.object({ id: z.string(),
     status: z.enum(['active', 'paused', 'stopped']), revision: count }).passthrough(), turns: count }).passthrough()).optional(),

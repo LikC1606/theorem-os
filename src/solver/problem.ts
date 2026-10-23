@@ -21,11 +21,13 @@ export function committedSource(worktree: string, commit: string, file: string):
 
 export type ProofTarget = Readonly<{ proofPath: string; theoremName: string; declarationHash: string }>;
 export class SolverSourceError extends Error {
-  constructor(readonly proofPath: string, reason: 'math_original_declaration_changed' | 'math_original_context_changed' | 'math_local_module_import_cycle',
+  constructor(readonly proofPath: string, reason: 'math_original_declaration_changed' | 'math_original_context_changed' | 'math_local_module_import_cycle' | 'math_source_outside_ownership',
     readonly declarationName?: string) {
     super(reason);
   }
   get recovery(): string {
+    if (this.message === 'math_source_outside_ownership')
+      return 'Preserve the saved proof and advisory bytes. Correct this repository-relative path or its staged/tracked addition before resubmitting; moving a file alone does not remove an index or history entry.';
     if (this.message === 'math_local_module_import_cycle')
       return 'Remove the added local import that creates a cycle. Shared helpers may import frozen dependencies, but cannot import a module that imports them. Preserve the saved proof work.';
     return this.message === 'math_original_context_changed'
@@ -256,7 +258,8 @@ export function assertSolverSources(problem: SolverProblem, worktree: string): v
   const diagnosticLog = (relative: string) => !relative.includes('/') && /\.log$/u.test(relative);
   for (const relative of changed) if (!allowed.has(relative) && !/^DELIVERIES-[a-f0-9]{64}\.jsonl$/u.test(relative) &&
       !isUntrackedSolverScratch(problem, worktree, relative, untracked) &&
-      !(diagnosticLog(relative) && !git(worktree, ['ls-files', '--', relative]))) throw new Error('math_source_outside_ownership');
+      !(diagnosticLog(relative) && !git(worktree, ['ls-files', '--', relative])))
+    throw new SolverSourceError(relative, 'math_source_outside_ownership');
   for (const target of problem.targets) {
     const file = path.join(project, target.proofPath);
     if (hashMathFormalSourceDeclaration(fs.readFileSync(file, 'utf8'), target.theoremName) !== target.declarationHash)

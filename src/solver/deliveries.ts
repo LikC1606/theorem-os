@@ -123,11 +123,12 @@ export function deliveryDetails(value: any): Pick<DeliveryRecord, 'summary' | 'e
 }
 
 type DeliveryLogEntry = { line?: string; error?: 'math_delivery_line_too_large'; offset: number; discardingOversized: boolean };
-type DeliveryLogBatch = { lines: string[]; offset: number; entries?: DeliveryLogEntry[]; discardingOversized?: boolean };
+type DeliveryLogBatch = { lines: string[]; offset: number; entries?: DeliveryLogEntry[]; discardingOversized?: boolean;
+  truncated?: { previousOffset: number; size: number } };
 
 /** Read complete appended lines only. The durable cursor survives restarts and partial writes. */
 export function readDeliveryLines(file: string, offset: number,
-  recovery?: { discardingOversized: boolean }): DeliveryLogBatch {
+  recovery?: { discardingOversized: boolean; replayTruncated?: boolean }): DeliveryLogBatch {
   if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('math_delivery_log_invalid');
   if (!fs.existsSync(file)) return { lines: [], offset, entries: [],
     ...(recovery ? { discardingOversized: recovery.discardingOversized } : {}) };
@@ -135,11 +136,16 @@ export function readDeliveryLines(file: string, offset: number,
   const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
   try {
     const stat = fs.fstatSync(fd);
-    if (!stat.isFile() || stat.nlink !== 1 || stat.size < offset) throw new Error('math_delivery_log_invalid');
+    if (!stat.isFile() || stat.nlink !== 1 || stat.size < offset && !recovery?.replayTruncated)
+      throw new Error('math_delivery_log_invalid');
+    // Worker submissions have durable assignment-bound identities. A corrected
+    // shorter file can be replayed through that consumer without repeating proof acceptance.
+    const truncated = stat.size < offset ? { previousOffset: offset, size: stat.size } : undefined;
+    if (truncated) offset = 0;
     const buffer = Buffer.alloc(Math.min(stat.size - offset, 64_000));
     const size = fs.readSync(fd, buffer, 0, buffer.length, offset);
     const entries: DeliveryLogEntry[] = [];
-    let start = 0, discarding = recovery?.discardingOversized ?? false;
+    let start = 0, discarding = !truncated && (recovery?.discardingOversized ?? false);
     // A rejected long line may span several polls; never parse its trailing fragment.
     if (discarding) {
       const newline = buffer.subarray(0, size).indexOf(10);
@@ -161,6 +167,6 @@ export function readDeliveryLines(file: string, offset: number,
       entries.push({ line, offset: offset + start, discardingOversized: false });
     }
     return { lines: entries.flatMap(entry => entry.line?.trim() ? [entry.line] : []), offset: offset + start,
-      entries, ...(recovery ? { discardingOversized: discarding } : {}) };
+      entries, ...(recovery ? { discardingOversized: discarding } : {}), ...(truncated ? { truncated } : {}) };
   } finally { fs.closeSync(fd); }
 }

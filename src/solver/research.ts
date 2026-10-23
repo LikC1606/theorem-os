@@ -10,7 +10,7 @@ import { commitSolverSources, git } from './problem';
 import { CooperativeResearch } from './cooperation';
 import { isFeasibilityReview, taskGroup, type CooperativeAction } from './tasks';
 import { isStatementAction } from './statementReview';
-import { rememberSolverFailure, solverSourceFeedback } from './feedback';
+import { isSolverSourceOwnershipFeedback, rememberSolverFailure, solverSourceFeedback } from './feedback';
 import type { SolverModules } from './modules';
 import { solverProofIsCurrent, type ProofCheck } from './modules/evidence';
 import type { ContextBundle } from './modules/context';
@@ -30,9 +30,7 @@ import type { ContinuationSnapshot } from './continuationInput';
 import { WorkerProofLifecycle } from './workerProofLifecycle';
 import type { TaskProof } from './cooperativeProof';
 
-// Scheduling checkpoints preserve unlimited solving budgets and resume the same assignment/thread.
-const advisoryCheckpointNoticeMs = 90_000;
-const advisoryCheckpointMs = 120_000;
+// Cleanup is bounded only after a worker has handed back writing or typed work is ready.
 const advisoryInterruptGraceMs = 10_000;
 const advisoryProgressPollMs = 5_000;
 const advisoryNoProgressProtection = 3;
@@ -252,8 +250,6 @@ export async function runResearchWorkers(input: {
         const activeSession = session!;
         const advisoryScope = advisoryCheckpointScope(assignment);
         let finished = false, armed = false, checkpointRequested = false, checkpointClosing = false, readyRequested = false;
-        let noticeTimer: ReturnType<typeof setTimeout> | undefined;
-        let checkpointTimer: ReturnType<typeof setTimeout> | undefined;
         let interruptTimer: ReturnType<typeof setTimeout> | undefined;
         let capacityTimer: ReturnType<typeof setInterval> | undefined;
         const current = () => !finished && !signal.aborted && session === activeSession &&
@@ -292,53 +288,24 @@ export async function runResearchWorkers(input: {
           research.advisoryCheckpoint = { scope: advisoryScope, contentDigest, noProgressStreak };
           advisoryTurn = { scope: advisoryScope, contentDigest };
           save();
-          const protectedTurn = noProgressStreak >= advisoryNoProgressProtection;
-          const checkpointAfterMs = advisoryCheckpointMs * 2 ** Math.min(noProgressStreak, advisoryNoProgressProtection);
-          const noticeAfterMs = checkpointAfterMs * advisoryCheckpointNoticeMs / advisoryCheckpointMs;
-          emit('cooperative_checkpoint_scheduled', { turnId, checkpointAfterMs, noticeAfterMs, noProgressStreak, protected: protectedTurn });
-          if (noProgressStreak) emit('cooperative_checkpoint_deferred', { turnId, checkpointAfterMs,
-            noProgressStreak, protected: protectedTurn, reason: 'no-durable-progress' });
-          noticeTimer = setTimeout(() => {
-            if (!current()) return;
-            emit('cooperative_checkpoint_requested', { turnId, checkpointAfterMs, noProgressStreak, protected: protectedTurn });
-            void Promise.resolve().then(() => {
-              if (!current()) return;
-              return activeSession.notify?.('Save the current mathematical argument, exact unresolved step and useful references in RESEARCH.md now. ' +
-                'For planning, save or publish the smallest valid complete task graph using this assignment\'s delivery protocol. ' +
-                (protectedTurn ? 'This turn remains protected while no new content is saved; once content is saved it may yield a scheduling checkpoint. ' :
-                  'This advisory turn will yield a scheduling checkpoint shortly; ') +
-                'Saved work and this thread will remain available for continuation.');
-            }).catch(() => { if (current()) emit('cooperative_checkpoint_notice_failed'); });
-          }, noticeAfterMs);
-          let deferred = false;
-          const checkpoint = (yieldForProof = false) => {
+          const yieldForTypedWork = () => {
             if (!current() || checkpointRequested) return;
-            const content = protectedTurn ? advisoryContentDigest() : undefined;
-            if (!yieldForProof && protectedTurn && (content === undefined || content === contentDigest)) {
-              if (!deferred) emit('cooperative_checkpoint_deferred', { turnId, checkpointAfterMs, noProgressStreak,
-                protected: true, reason: 'awaiting-durable-progress' });
-              deferred = true;
-              checkpointTimer = setTimeout(() => checkpoint(), advisoryProgressPollMs); checkpointTimer.unref();
-              return;
-            }
             checkpointRequested = true;
-            if (yieldForProof) emit('capacity_exploration_yielded', { turnId, reason: 'typed-work-ready' });
-            emit('cooperative_checkpoint_interrupted', { turnId, checkpointAfterMs, noProgressStreak, protected: protectedTurn });
+            emit('capacity_exploration_yielded', { turnId, reason: 'typed-work-ready' });
+            emit('cooperative_checkpoint_interrupted', { turnId, reason: 'typed-work-ready' });
             interruptTimer = setTimeout(closeStalledTurn, advisoryInterruptGraceMs);
             interruptTimer.unref();
             void Promise.resolve().then(async () => {
               if (current()) await activeSession.interrupt();
             }).catch(closeStalledTurn);
           };
-          checkpointTimer = setTimeout(() => checkpoint(), checkpointAfterMs);
           if (assignment?.kind === 'task' && state.cooperation?.tasks.some(node =>
               node.task.id === assignment.task.id && node.capacityExploration)) {
             capacityTimer = setInterval(() => {
-              if (current() && cooperation?.shouldYieldCapacityExploration(worker, assignment)) checkpoint(true);
+              if (current() && cooperation?.shouldYieldCapacityExploration(worker, assignment)) yieldForTypedWork();
             }, advisoryProgressPollMs);
             capacityTimer.unref();
           }
-          noticeTimer.unref(); checkpointTimer.unref();
         };
         let completed = false;
         try {
@@ -362,7 +329,7 @@ export async function runResearchWorkers(input: {
         }
         finally {
           finished = true;
-          clearTimeout(noticeTimer); clearTimeout(checkpointTimer); clearTimeout(interruptTimer);
+          clearTimeout(interruptTimer);
           clearInterval(capacityTimer);
           // A transport failure may settle run() before process-group teardown finishes.
           // Do not freeze sources or reopen this thread until the writer is fully closed.
@@ -606,11 +573,14 @@ export async function runResearchWorkers(input: {
           if (assignment?.kind === 'assemble') {
             state.phase = research.phase = 'checking'; save();
             emit('assembly_started', { commit: assignment.seedCommit });
-            await exclusiveCheck(async () => {
-              if (!cooperation!.current(assignment)) return;
-              await checkWhole();
-              if (!winner && !research.check!.passed) cooperation!.assemblyFailed(research.check!);
-            });
+            const stopChecking = cooperation!.beginChecking(worker, assignment);
+            try {
+              await exclusiveCheck(async () => {
+                if (!cooperation!.current(assignment)) return;
+                await checkWhole();
+                if (!winner && !research.check!.passed) cooperation!.assemblyFailed(research.check!);
+              });
+            } finally { stopChecking(); }
             continue;
           }
           if (await proofLifecycle?.resumeFrozen(assignment)) continue;
@@ -705,7 +675,9 @@ export async function runResearchWorkers(input: {
               if (!cooperation!.current(assignment) || status === 'completed') {
                 retries = 0;
                 await close();
-                await exclusiveCheck(() => cooperation!.deliverStatement(worker, assignment));
+                const stopChecking = cooperation!.beginChecking(worker, assignment);
+                try { await exclusiveCheck(() => cooperation!.deliverStatement(worker, assignment)); }
+                finally { stopChecking(); }
               } else if (['interrupted', 'checkpoint'].includes(status)) {
                 retries = 0;
                 cooperation!.interrupted(worker, assignment); emit('turn_checkpoint', { turn: research.turns });
@@ -715,7 +687,9 @@ export async function runResearchWorkers(input: {
                 await close();
                 if (!cooperation!.current(assignment)) {
                   retries = 0;
-                  await exclusiveCheck(() => cooperation!.deliverStatement(worker, assignment));
+                  const stopChecking = cooperation!.beginChecking(worker, assignment);
+                  try { await exclusiveCheck(() => cooperation!.deliverStatement(worker, assignment)); }
+                  finally { stopChecking(); }
                   emit('assignment_superseded'); continue;
                 }
                 emit('turn_failed', { reason: researchFailureReason(turnError), ...(diagnostic ? { diagnostic } : {}) });
@@ -814,6 +788,10 @@ export async function runResearchWorkers(input: {
             research.check = undefined;
             if (assignment) cooperation!.rejected(assignment, sourceError, undefined, turn !== 'completed');
             save(); emit('source_rejected');
+            if (isSolverSourceOwnershipFeedback(sourceError) && (!assignment || assignment.kind === 'task')) {
+              if (turn === 'failed' && turnError) await retryFailedTurn(turnError);
+              continue;
+            }
             if (turn === 'failed' || planningCheckpoint) throw new Error(sourceError);
             continue;
           }
@@ -828,26 +806,29 @@ export async function runResearchWorkers(input: {
             await retryFailedTurn(turnError);
             continue;
           }
-          state.phase = research.phase = 'checking'; save();
           const previousCheck = research.check;
           const previousFailures = research.failures;
-          let checkWholeRequired = true;
           let savedTaskProof = false;
           let savedPlan = false;
-          if (cooperation && assignment) {
-            const commit = commitSolverSources(state.problem, worker.worktree);
-            recordAdvisoryOutput(turn === 'checkpoint');
-            const deliver = () => cooperation.deliver(worker, assignment, commit, turn !== 'completed',
-              turn === 'failed' ? 'request-failure' : cooperativeCheckpoint ? 'scheduling-checkpoint' : 'checkpoint');
-            const delivery = assignment.kind === 'task' || assignment.kind === 'lead' ? await deliver() : await exclusiveCheck(deliver);
-            if (assignment.kind === 'lead' && turn === 'checkpoint') await cooperation.startInitialTasks();
-            research.check = delivery.check;
-            savedTaskProof = delivery.check?.passed === true;
-            savedPlan = delivery.savedPlan === true;
-            checkWholeRequired = delivery.checkWhole;
-            if (!checkWholeRequired) save();
-          }
-          if (checkWholeRequired) await exclusiveCheck(() => checkWhole(candidate));
+          const stopChecking = cooperation?.beginChecking(worker, assignment);
+          try {
+            state.phase = research.phase = 'checking'; save();
+            let checkWholeRequired = true;
+            if (cooperation && assignment) {
+              const commit = commitSolverSources(state.problem, worker.worktree);
+              recordAdvisoryOutput(turn === 'checkpoint');
+              const deliver = () => cooperation.deliver(worker, assignment, commit, turn !== 'completed',
+                turn === 'failed' ? 'request-failure' : cooperativeCheckpoint ? 'scheduling-checkpoint' : 'checkpoint');
+              const delivery = assignment.kind === 'task' || assignment.kind === 'lead' ? await deliver() : await exclusiveCheck(deliver);
+              if (assignment.kind === 'lead' && turn === 'checkpoint') await cooperation.startInitialTasks();
+              research.check = delivery.check;
+              savedTaskProof = delivery.check?.passed === true;
+              savedPlan = delivery.savedPlan === true;
+              checkWholeRequired = delivery.checkWhole;
+              if (!checkWholeRequired) save();
+            }
+            if (checkWholeRequired) await exclusiveCheck(() => checkWhole(candidate));
+          } finally { stopChecking?.(); }
           feedbackCheck = previousCheck; feedbackFailures = previousFailures;
           if (!winner && turn === 'failed') {
             if ((!savedTaskProof && !savedPlan) || researchFailureReason(turnError) === 'math_model_context_window_exceeded')

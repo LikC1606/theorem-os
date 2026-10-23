@@ -130,6 +130,81 @@ describe('worker delivery log recovery', () => {
     expect(events.filter(event => event.event === 'delivery_rejected')).toHaveLength(1);
   });
 
+  it.each([false, true])('replays a one-byte correction without duplicating accepted submissions (legacy=%s)', async legacy => {
+    const name = legacy ? 'DELIVERIES.jsonl' : log(), cursorKey = legacy ? 'peer' : key();
+    const file = path.join(directory, name), value = { id: 'corrected', kind: 'progress', summary: 'Corrected progress.',
+      ...(legacy ? { taskId: action.task.id, taskDigest: action.assignment.taskDigest } : {}) };
+    const malformed = JSON.stringify(value) + '}\n';
+    fs.writeFileSync(file, malformed);
+    append({ id: 'accepted-proof', kind: 'proof', commit, summary: 'Already checked.' }, legacy);
+    append({ id: 'suffix', kind: 'progress', summary: 'Accepted suffix.' }, legacy);
+    await poll();
+    const previousOffset = cursors[cursorKey]!;
+    expect(events.map(event => event.reason)).toEqual(['math_delivery_invalid_json']);
+    expect(cooperative.publishTaskProof).toHaveBeenCalledOnce();
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('}}\n', '}\n'));
+    expect(fs.statSync(file).size).toBe(previousOffset - 1);
+    cursors = JSON.parse(JSON.stringify(cursors)); cooperative = create();
+    cooperative.integrateReady = vi.fn().mockResolvedValue(undefined);
+    snapshots = [];
+    await poll(); await poll();
+    expect(records.map(record => record.summary)).toEqual(['Already checked.', 'Accepted suffix.', 'Corrected progress.']);
+    expect(cooperative.publishTaskProof).not.toHaveBeenCalled();
+    expect(events.filter(event => event.event === 'delivery_log_restarted')).toEqual([{
+      event: 'delivery_log_restarted', workerId: 'peer', file: name, reason: 'file-truncated',
+      previousOffset, size: previousOffset - 1,
+    }]);
+    expect(snapshots[0]![cursorKey]).toBe(0);
+    expect(snapshots.at(-1)![cursorKey]).toBe(fs.statSync(file).size);
+    expect(cursors[cursorKey]).toBe(fs.statSync(file).size);
+    expect(events.filter(event => event.event === 'delivery_rejected')).toHaveLength(1);
+  });
+
+  it('retains an unconsumed proof and durable cursor after a truncated-log replay fails', async () => {
+    const file = path.join(directory, log());
+    append({ summary: 'An obsolete log prefix. '.repeat(200) });
+    const accepted = { id: 'accepted-proof', kind: 'proof', commit, summary: 'Previously checked.' };
+    append(accepted); await poll();
+    fs.writeFileSync(file, JSON.stringify(accepted) + '\n');
+    const acceptedEnd = fs.statSync(file).size;
+    append({ id: 'retry-proof', kind: 'proof', commit, summary: 'Retry this proof.' });
+    expect(fs.statSync(file).size).toBeLessThan(cursors[key()]!);
+    cooperative.integrateReady = vi.fn().mockResolvedValue(undefined);
+    cooperative.publishTaskProof.mockRejectedValueOnce(new Error('math_verifier_unavailable'));
+    await expect(poll()).rejects.toThrow('math_verifier_unavailable');
+    expect(cursors[key()]).toBe(acceptedEnd);
+    expect(snapshots.at(-1)![key()]).toBe(acceptedEnd);
+    expect(records.filter(record => record.kind === 'proof')).toHaveLength(1);
+    cursors = JSON.parse(JSON.stringify(cursors)); cooperative = create();
+    await poll();
+    expect(records.filter(record => record.kind === 'proof').map(record => record.summary)).toEqual([
+      'Previously checked.', 'Retry this proof.',
+    ]);
+    expect(cooperative.publishTaskProof).toHaveBeenCalledOnce();
+    expect(cursors[key()]).toBe(fs.statSync(file).size);
+    expect(events.filter(event => event.event === 'delivery_log_restarted')).toHaveLength(1);
+  });
+
+  it('resets oversized-line discard state when the worker replaces its truncated log', async () => {
+    const file = path.join(directory, log());
+    fs.writeFileSync(file, 'x'.repeat(64_000)); await poll();
+    expect(cursors[`${key()}/discardingOversized`]).toBe(1);
+    fs.writeFileSync(file, JSON.stringify({ summary: 'A complete corrected line.' }) + '\n');
+    await poll();
+    expect(records.map(record => record.summary)).toEqual(['A complete corrected line.']);
+    expect(cursors[`${key()}/discardingOversized`]).toBe(0);
+  });
+
+  it('durably rewinds a worker log truncated to an empty file', async () => {
+    const file = path.join(directory, log()); append({ summary: 'Before truncation.' }); await poll();
+    fs.truncateSync(file); await poll(); await poll();
+    expect(cursors[key()]).toBe(0);
+    expect(snapshots.at(-1)![key()]).toBe(0);
+    expect(events.filter(event => event.event === 'delivery_log_restarted')).toHaveLength(1);
+    append({ summary: 'After truncation.' }); await poll();
+    expect(records.map(record => record.summary)).toEqual(['Before truncation.', 'After truncation.']);
+  });
+
   it('rejects a commit outside the frozen problem history once without blocking following progress', async () => {
     const tree = git(directory, ['rev-parse', `${commit}^{tree}`]);
     const unrelated = git(directory, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost',

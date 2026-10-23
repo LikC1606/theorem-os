@@ -12,6 +12,7 @@ import { deferred } from './helpers/async';
 import { cooperativeResearch, workerAccess } from './helpers/cooperation';
 import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
 import { receiptBatch } from './helpers/verifier';
+import { buildRunInspection } from '../src/solver/inspection';
 
 const host = vi.hoisted(() => ({ verify: vi.fn() }));
 vi.mock('../src/math/mathBuildManifest', () => ({ readMathBuildManifest: vi.fn() }));
@@ -42,7 +43,7 @@ describe('runner proof readiness freeze barrier', () => {
     vi.useRealTimers(); vi.restoreAllMocks();
   });
 
-  function fixture(options: { stop?: 'missing' | 'unconfirmed' | 'throw'; closeRejects?: boolean } = {}) {
+  function fixture(options: { stop?: 'missing' | 'unconfirmed' | 'throw'; closeRejects?: boolean; attempts?: number } = {}) {
     const example = localExample('solver-proof-ready-runner-', 'lead');
     const { directory, workspace, problem } = example;
     const writer = peerWorker(example, 'writer', { role: 'engineer' });
@@ -53,7 +54,7 @@ describe('runner proof readiness freeze barrier', () => {
     })) });
     const state = solverState(problem, workspace, { runId: 'proof-ready-runner', phase: 'prepared', failures: [],
       workers: workers.map(worker => ({ ...worker, phase: 'prepared', turns: 0 })),
-      cooperation: { canonicalCommit: problem.baseCommit, tasks: plan.tasks.map(task => ({ task, status: 'pending', attempts: 0 })),
+      cooperation: { canonicalCommit: problem.baseCommit, tasks: plan.tasks.map(task => ({ task, status: 'pending', attempts: options.attempts ?? 0 })),
         groups: plan.groups.map(group => ({ group, turns: 0 })) },
     });
     let cooperation!: CooperativeResearch;
@@ -109,14 +110,81 @@ describe('runner proof readiness freeze barrier', () => {
     };
     const sourceFile = path.join(writer.worktree, problem.projectRelative, 'Submission.lean');
     const writeProof = () => fs.writeFileSync(sourceFile, fs.readFileSync(sourceFile, 'utf8').replace('by sorry', 'by rfl'));
-    const appendReady = () => fs.appendFileSync(path.join(writer.worktree, assignmentDeliveryFile(action().assignment)),
-      JSON.stringify({ kind: 'ready', id: 'ready-runner-submission' }) + '\n');
+    const appendReady = (id = 'ready-runner-submission') => fs.appendFileSync(path.join(writer.worktree, assignmentDeliveryFile(action().assignment)),
+      JSON.stringify({ kind: 'ready', id }) + '\n');
     const current = { directory, problem, state, workers, modules, writer, controller, stopResult, turns, events, interrupt, stopForFreeze,
       open, closed, completion, action, writeProof, appendReady, waitEvent, wait, started, stopping,
       pulse: () => cooperation.pulse(writer.id), head: () => git(writer.worktree, ['rev-parse', 'HEAD']),
+      hostCheck: async <T>(check: () => Promise<T>) => {
+        const stopChecking = cooperation.beginChecking(writer, action());
+        try { return await check(); }
+        finally { stopChecking(); }
+      },
     };
     fixtures.push(current); return current;
   }
+
+  it('keeps a frozen proof in checking status until the host verifier settles', async () => {
+    const entered = deferred(), resume = deferred();
+    host.verify.mockImplementation(async request => {
+      entered.resolve(); await resume.promise;
+      return receiptBatch(request, { sessionId: 'proof-ready-status', receiptId: () => 'ready-status-receipt' });
+    });
+    const current = fixture();
+    try {
+      await current.wait(current.started.promise);
+      current.writeProof(); current.appendReady(); await current.pulse();
+      current.turns[0].done.resolve('interrupted');
+      current.stopResult.resolve({ status: 'stopped' }); await current.wait(entered.promise);
+      const writer = current.state.workers!.find(worker => worker.id === current.writer.id)!;
+      expect(writer.scheduling).toMatchObject({ status: 'checking', action: 'task', taskId: current.action().task.id });
+      expect(buildRunInspection(current.state).workers.find(worker => worker.id === writer.id)?.currentStatus).toBe('checking');
+      const saved = path.join(current.directory, 'checking-state.json');
+      writeSolverRunState(saved, current.state);
+      expect(readSolverRunState(saved).workers!.find(worker => worker.id === writer.id)?.scheduling?.status).toBe('checking');
+      resume.resolve(); await current.waitEvent('proof_ready_checked');
+      await vi.waitFor(() => expect(writer.scheduling?.status).not.toBe('checking'));
+    } finally { resume.resolve(); }
+  });
+
+  it('keeps overlapping host checks busy until both settle and clears a rejected check', async () => {
+    const current = fixture(); await current.wait(current.started.promise);
+    const first = deferred(), second = deferred();
+    const firstCheck = current.hostCheck(() => first.promise);
+    const secondCheck = current.hostCheck(() => second.promise);
+    const writer = current.state.workers!.find(worker => worker.id === current.writer.id)!;
+    try {
+      expect(writer.scheduling?.status).toBe('checking');
+      const since = writer.scheduling!.since;
+      first.resolve(); await firstCheck;
+      expect(writer.scheduling).toMatchObject({ status: 'checking', since });
+      second.reject(new Error('fixture_host_check_failed'));
+      await expect(secondCheck).rejects.toThrow('fixture_host_check_failed');
+      expect(writer.scheduling?.status).toBe('working');
+    } finally { first.resolve(); second.resolve(); await Promise.allSettled([firstCheck, secondCheck]); }
+  });
+
+  it('shows host verification of a live fixed proof delivery while its model turn is still open', async () => {
+    const entered = deferred(), resume = deferred();
+    host.verify.mockImplementation(async request => {
+      entered.resolve(); await resume.promise;
+      return receiptBatch(request, { sessionId: 'live-proof-status', receiptId: () => 'live-status-receipt' });
+    });
+    const current = fixture(); await current.wait(current.started.promise);
+    current.writeProof();
+    const commit = commitSolverSources(current.problem, current.writer.worktree);
+    fs.appendFileSync(path.join(current.writer.worktree, assignmentDeliveryFile(current.action().assignment)),
+      JSON.stringify({ kind: 'proof', commit, summary: 'Fixed source proof' }) + '\n');
+    const pulse = current.pulse();
+    try {
+      await current.wait(entered.promise);
+      const writer = current.state.workers!.find(worker => worker.id === current.writer.id)!;
+      expect(writer.phase).toBe('running');
+      expect(writer.scheduling).toMatchObject({ status: 'checking', action: 'task', taskId: current.action().task.id });
+      resume.resolve(); await pulse;
+      expect(writer.scheduling?.status).not.toBe('checking');
+    } finally { resume.resolve(); await pulse; }
+  });
 
   it('waits for settled turn and confirmed process stop before freezing one checked snapshot', async () => {
     const current = fixture(); await current.wait(current.started.promise);
@@ -223,6 +291,37 @@ describe('runner proof readiness freeze barrier', () => {
     expect(host.verify).not.toHaveBeenCalled(); current.stopResult.resolve({ status: 'stopped' });
     await current.waitEvent('proof_ready_checked');
     expect(current.state.cooperation!.proofReadyRecords).toMatchObject([{ status: 'checked' }]);
+    expect(host.verify).toHaveBeenCalled();
+  });
+
+  it('reopens the same late proof assignment after a rejected ownership freeze and checks only the corrected snapshot', async () => {
+    const current = fixture({ attempts: 2 }); await current.wait(current.started.promise);
+    const first = current.action(), before = current.head();
+    const relative = path.join(current.problem.projectRelative, current.problem.projectRelative, '.scratch/tmp/Bridge.lean');
+    const misplaced = path.join(current.writer.worktree, relative), content = 'lemma saved_bridge : True := by trivial\n';
+    fs.mkdirSync(path.dirname(misplaced), { recursive: true }); fs.writeFileSync(misplaced, content);
+    current.writeProof();
+    const proofFile = path.join(current.writer.worktree, current.problem.projectRelative, 'Submission.lean');
+    const savedProof = fs.readFileSync(proofFile, 'utf8');
+    current.appendReady(); await current.pulse(); current.turns[0].done.resolve('interrupted');
+    await current.wait(current.stopping.promise); current.stopResult.resolve({ status: 'stopped' });
+    await current.waitEvent('source_rejected');
+    await vi.waitFor(() => expect(current.turns).toHaveLength(2), { timeout: 5000 });
+    expect(current.turns[1].action).toMatchObject({ kind: 'task', assignment: first.assignment });
+    expect(current.head()).toBe(before); expect(host.verify).not.toHaveBeenCalled();
+    expect(fs.readFileSync(misplaced, 'utf8')).toBe(content); expect(fs.readFileSync(proofFile, 'utf8')).toBe(savedProof);
+    expect(current.state.cooperation!.tasks[0].feedback).toContain(`File: ${relative}\nError: math_source_outside_ownership`);
+    expect(current.state.cooperation!.proofReadyRecords).toMatchObject([{ status: 'failed' }]);
+    expect(current.state.cooperation!.proofReadyRecords![0].snapshotCommit).toBeUndefined();
+    expect(current.state.cooperation!.failedTaskInputs ?? []).toEqual([]);
+    expect(current.events.some(item => item.event === 'worker_failed')).toBe(false);
+    const corrected = path.join(current.writer.worktree, current.problem.projectRelative, '.scratch/tmp/Bridge.lean');
+    fs.mkdirSync(path.dirname(corrected), { recursive: true }); fs.renameSync(misplaced, corrected);
+    current.appendReady('corrected-ready-submission'); await current.pulse(); current.turns[1].done.resolve('interrupted');
+    await current.waitEvent('proof_ready_checked');
+    expect(current.state.cooperation!.proofReadyRecords).toMatchObject([{ status: 'failed' }, { status: 'checked' }]);
+    expect(current.state.cooperation!.tasks[0].proof?.passed).toBe(true);
+    expect(fs.readFileSync(corrected, 'utf8')).toBe(content);
     expect(host.verify).toHaveBeenCalled();
   });
 

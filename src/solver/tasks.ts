@@ -30,8 +30,8 @@ export type TaskRecord = { task: CooperativeTask; status: 'pending' | 'running' 
   /** Host-owned advisory work; never supplied by a model plan. */
   capacityExploration?: CapacityExploration;
   attempts: number; assignment?: TaskAssignment; proof?: TaskProof; integratedCheck?: TaskProof; feedback?: string; finding?: string;
-  /** One source-contract correction belongs to this assignment, not equivalent mathematical tasks. */
-  sourceRepair?: { taskDigest: string; workerId: string; assignmentId?: string; seedCommit: string;
+  /** Source corrections belong to this assignment; workspace path corrections have no retry cap. */
+  sourceRepair?: { taskDigest: string; workerId: string; assignmentId?: string; seedCommit: string; reason?: 'source-ownership';
     pending: boolean; startedAttempt?: number };
   pendingValidation?: { id: string; taskDigest: string; canonicalCommit: string; environmentDigest: string; problemReceiptDigest: string; proof?: boolean };
   typePreflight?: TaskTypePreflight;

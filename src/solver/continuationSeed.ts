@@ -110,6 +110,30 @@ const sourceSchema = z.object({
 }).strict();
 type SeedSource = z.infer<typeof sourceSchema>;
 
+// Legacy seed diagnostics retained only { commit, passed }. They can nominate a
+// canonical declaration for a new unconditional check, never replay acceptance.
+const historicalCanonicalCandidate = z.object({ task: handoffTask, integratedCheck: z.object({
+  passed: z.literal(true), conditions: z.array(z.unknown()).max(0).optional(),
+  verification: z.object({ status: z.literal('kernel_verified') }).passthrough().optional(),
+}).passthrough() }).passthrough();
+const historicalCanonicalHints = z.object({ history: z.array(z.unknown()).optional(),
+  canonicalCandidateHints: z.array(handoffTask).optional() }).passthrough();
+
+function canonicalHistoryCandidates(state: SolverRunState, previousHistory?: unknown): CooperativeTask[] {
+  const candidates = new Map<string, CooperativeTask>();
+  const add = (task: CooperativeTask) => {
+    if (!isAdvisoryTask(task) && task.proofPath && task.theoremName)
+      candidates.set(canonicalMathJson([task.id, task.kind, task.proofPath, task.theoremName]), task);
+  };
+  const previous = historicalCanonicalHints.safeParse(previousHistory);
+  for (const record of [...(state.cooperation?.history ?? []), ...(previous.success ? previous.data.history ?? [] : [])]) {
+    const parsed = historicalCanonicalCandidate.safeParse(record);
+    if (parsed.success) add(parsed.data.task);
+  }
+  if (previous.success) for (const task of previous.data.canonicalCandidateHints ?? []) add(task);
+  return [...candidates.values()];
+}
+
 export type ContinuationSeedReport = {
   schema: 'theorem-os.continuation-seed.v1'; sourceRunId: string; runId: string; sourceStateFile: string;
   stateFile: string; sourceDigest: string; snapshotDigest?: string; canonicalCommit?: string;
@@ -317,6 +341,7 @@ function captureSource(sourceStateFile: string, stateFile: string, state: Solver
   const capacities = capturedCapacityRecords(archived);
   let previousCapacity: z.infer<typeof capacitySource> | undefined;
   let previousHandoffs: HandoffSource | undefined;
+  let previousHistory: unknown;
   if (archived.continuationDigest) {
     const snapshot = readContinuationSnapshot(path.join(sourceDirectory, 'continuation.json'), archived.continuationDigest,
       { taskDigest: archived.taskDigest, problemReceiptDigest: archived.problem.receiptDigest });
@@ -337,7 +362,15 @@ function captureSource(sourceStateFile: string, stateFile: string, state: Solver
         throw new Error('math_continuation_content_changed');
       previousHandoffs = handoffSource.parse(JSON.parse(bytes.toString('utf8')));
     }
+    const history = snapshot.manifest.attachments.find(item => item.id === 'seed-history');
+    if (history) {
+      const bytes = readMathFile(path.join(sourceDirectory, history.contentPath), history.bytes).bytes;
+      if (bytes.length !== history.bytes || mathDigest(bytes) !== history.sha256)
+        throw new Error('math_continuation_content_changed');
+      previousHistory = z.object({ history: z.unknown() }).parse(JSON.parse(bytes.toString('utf8'))).history;
+    }
   }
+  const historicalCandidates = canonicalHistoryCandidates(archived, previousHistory);
   const capacityVersions = new Set(capacities.map(record =>
     canonicalMathJson([record.task.id, record.capacityExploration.taskDigest])));
   const notes = new Map<string, z.infer<typeof capacitySource>['notes'][number]>();
@@ -380,11 +413,15 @@ function captureSource(sourceStateFile: string, stateFile: string, state: Solver
     plan, canonicalSources, workers, conditionalCandidates,
     candidateIds: planned.filter(node => !isAdvisoryTask(node.task) &&
       ((node.proof?.passed && !node.proof.conditions?.length) ||
-        (node.integratedCheck?.passed && !node.integratedCheck.conditions?.length))).map(node => node.task.id),
+        (node.integratedCheck?.passed && !node.integratedCheck.conditions?.length) ||
+        historicalCandidates.some(task => task.id === node.task.id && task.kind === node.task.kind &&
+          task.proofPath === node.task.proofPath && task.theoremName === node.task.theoremName)))
+      .filter(node => !conditionalCandidates.some(candidate => candidate.taskId === node.task.id)).map(node => node.task.id),
     ...(capacities.length || archived.cooperation.capacityExplorationInputs !== undefined ? { capacityExplorations: {
       records: capacities, inputs: archived.cooperation.capacityExplorationInputs, notes: [...notes.values()] } } : {}),
     ...(handoffs ? { researchHandoffs: handoffs } : {}),
     history: { evidence: 'recorded-not-replayed', sourcePhase: archived.phase,
+      canonicalCandidateHints: historicalCandidates,
       tasks: archived.cooperation.tasks.map(node => ({ taskId: node.task.id, taskDigest: taskVersion(node.task), status: node.status,
         attempts: node.attempts, assignment: node.assignment, finding: node.finding,
         proof: proofHistory(node.proof), integratedCheck: proofHistory(node.integratedCheck) })),

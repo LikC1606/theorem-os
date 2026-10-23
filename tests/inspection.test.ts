@@ -50,9 +50,34 @@ describe('run inspection', () => {
     writeSolverRunState(stateFile, state);
     const report = buildRunInspection(readSolverRunState(stateFile));
     expect(report.scheduling).toMatchObject({ observedWorkers: 2, working: 1, proofAssignments: 1, idle: 1 });
+    expect(report.currentStatus).toBe('working');
+    expect(report.workers[0]).toMatchObject({ phase: 'checking', currentStatus: 'idle' });
+    expect(report.workers[1].currentStatus).toBe('working');
     expect(report.workers[0].task).toBeUndefined();
     expect(report.workers[1].task).toBe('goal');
     expect(renderRunInspection(report)).toContain('| solver | lead | — | idle | checking |');
+  });
+
+  it('shows host checks independently of the last run phase and restores checking scheduling', () => {
+    const { state, stateFile } = fixture();
+    state.phase = 'running';
+    state.workers![0].phase = 'checking';
+    state.workers![0].scheduling = { status: 'idle', since: 1000 };
+    state.workers![1].scheduling = { status: 'checking', since: 1001, action: 'task', taskId: 'goal' };
+    writeSolverRunState(stateFile, state);
+    const report = buildRunInspection(readSolverRunState(stateFile));
+    expect(report).toMatchObject({ phase: 'running', currentStatus: 'checking',
+      scheduling: { observedWorkers: 2, working: 0, checking: 1, idle: 1 } });
+    expect(report.workers[1]).toMatchObject({ currentStatus: 'checking', task: 'goal' });
+    expect(renderRunInspection(report)).toContain('host checks: 1');
+  });
+
+  it('reports legacy cooperative activity as unknown when only historical phase was saved', () => {
+    const { state } = fixture();
+    state.phase = state.workers![0].phase = state.workers![1].phase = 'checking';
+    const report = buildRunInspection(state);
+    expect(report.currentStatus).toBe('unknown');
+    expect(report.workers.every(worker => worker.currentStatus === 'unknown')).toBe(true);
   });
 
   it('shows pinned knowledge activation and observations after restore without claiming current proof acceptance', () => {

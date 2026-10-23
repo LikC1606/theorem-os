@@ -1,6 +1,7 @@
 import { parseMathResponse, type DeliveryRecord } from './deliveries';
 import { bindMathematicalGap, mathematicalGapSchema, type MathematicalGap, type MathematicalGapScope } from './mathematicalGaps';
 import { type CooperativeTask, type TaskAssignment, type TaskRecord } from './tasks';
+import { RouteBlockerValidationError, validateBlockerProposals } from './routeControl';
 
 export type ResearchSubmission =
   | Readonly<{ kind: 'notes'; text: string }>
@@ -74,6 +75,16 @@ export function prepareResearchDelivery(input: ResearchSubmission, scope: Resear
     if (finding[key] !== undefined && (!Array.isArray(finding[key]) ||
         !(finding[key] as unknown[]).every(item => typeof item === 'string')))
       return rejection('math_delivery_invalid', key, 'Provide an array of strings.');
+  }
+  if (finding.lemmaRequests !== undefined && (!Array.isArray(finding.lemmaRequests) ||
+      finding.lemmaRequests.some(proposal => !object(proposal) || proposal.kind !== 'lemma')))
+    return rejection('math_research_lemma_requests_invalid', 'lemmaRequests',
+      'Provide an array of lemma objects with id, kind:"lemma", objective, theoremName, full closed Lean type, proofPath and dependsOn. ' +
+      'Put names or informal requests in remainingObligations and use lemmaRequests:[] until an exact contract is available.');
+  try { validateBlockerProposals(finding.blockers, scope.source, scope.tasks); }
+  catch (error) {
+    if (!(error instanceof RouteBlockerValidationError)) throw error;
+    return { status: 'rejected', code: 'math_route_blocker_invalid', issues: error.issues, recovery: 'correct-and-resubmit' };
   }
   let mathematicalGapScope: MathematicalGapScope | undefined;
   if (finding.mathematicalGap !== undefined) {

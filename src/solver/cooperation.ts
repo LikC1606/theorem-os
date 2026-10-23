@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import { canonicalMathJson, mathDigest, readMathText, writeMathJsonDurable } from '../math/mathRuntimeIo';
 import { inspectLeanDeclarationRegions } from '../math/leanSource';
 import { commitSolverSources, committedSource, git } from './problem';
-import { solverProofFeedback, solverSourceFeedback } from './feedback';
+import { isSolverSourceOwnershipFeedback, solverProofFeedback, solverSourceFeedback } from './feedback';
 import { assignSharedResearchTask, independentFeasibilityWorker, researchWorkerCanNode, type ResearchWorker } from './modules/organization';
 import { CAPACITY_EXPLORATION_FOCUSES, capacityExplorationInput, createCapacityExploration,
   currentCapacityExploration } from './capacityExploration';
@@ -958,122 +958,125 @@ export class CooperativeResearch extends CooperationInputs {
   }
   async deliver(worker: ResearchWorker, action: CooperativeAction, commit: string, recovering = false,
     recoveryKind: 'checkpoint' | 'request-failure' | 'scheduling-checkpoint' = 'checkpoint'): Promise<{ check?: ProofCheck; checkWhole: boolean; savedPlan?: boolean }> {
-    if (isStatementAction(action)) return this.deliverStatement(worker, action);
-    if (action.kind === 'review') {
-      const review = this.archive.review;
-      if (!review || !this.current(action) || review.workerId !== worker.id) {
-        this.record(worker, undefined, 'review', 'superseded', 'The reviewed version is no longer current.', { commit: action.seedCommit });
-        return { checkWhole: false };
-      }
-      if (recovering) { this.interrupted(worker, action); return { checkWhole: false }; }
-      let evidenceRefs: readonly string[] = [];
-      try {
-        if (ownedSourceDigest(this.input.state.problem, worker.worktree, commit) !== action.sourceDigest)
-          throw new Error('math_review_source_changed');
-        const result = block(worker.worktree, 'math-review', { commit: action.seedCommit });
-        if (result.commit !== action.seedCommit) throw new Error('math_review_delivery_invalid');
-        const status = reviewVerdict(result.verdict, 'math_review_delivery_invalid');
-        const details = deliveryDetails(result);
-        review.status = status; review.summary = details.summary;
-        evidenceRefs = details.evidenceRefs;
-        this.input.emit('review_completed', { commit: review.commit, verdict: review.status, workerId: worker.id });
-      } catch (error) {
-        review.status = 'changes_requested'; review.summary = error instanceof Error ? error.message : 'math_review_failed';
-      }
-      review.workerId = undefined;
-      if (review.status === 'accepted') this.lastAssembly = undefined;
-      else { this.archive.error = review.summary; this.needsLead = true; }
-      this.record(worker, undefined, 'review', review.status, review.summary ?? '', { commit: review.commit, sourceDigest: review.sourceDigest, evidenceRefs });
-      return { checkWhole: false };
-    }
-    if (action.kind === 'assemble') {
-      this.changed();
-      return { checkWhole: true };
-    }
-    if (action.kind !== 'task') {
-      const pending = this.deliverLead(worker, action, commit, recovering, recoveryKind);
-      this.leadDeliveries.add(pending);
-      try { return await pending; } finally { this.leadDeliveries.delete(pending); this.wake(); }
-    }
-    const node = this.node(action.task.id);
-    if (!this.current(action)) {
-      this.record(worker, action.task, advisory(action.task) ? 'research' : 'proof', 'superseded', 'Delivery belongs to a superseded assignment.',
-        { taskDigest: action.assignment.taskDigest, premises: action.task.premises ?? [], dependencies: action.assignment.dependencies ?? [], commit });
-      this.input.emit('task_delivery_superseded', { taskId: action.task.id, workerId: worker.id, commit });
-      return { checkWhole: false };
-    }
-    let unchangedNotesBlob: string | undefined;
-    let artifacts: DeliveryArtifactManifest | undefined;
+    const stopChecking = this.beginChecking(worker, action);
     try {
-      artifacts = captureDeliveryArtifacts({ problem: this.input.state.problem, worktree: worker.worktree, commit, assignment: action.assignment });
-      if (advisory(node.task)) {
-        if (recovering) {
-          this.preserveResearchDraft(worker, action, commit, artifacts);
-          if (recoveryKind === 'checkpoint') this.researchCheckpoint(worker, action, commit);
-          else this.interrupted(worker, action);
+      if (isStatementAction(action)) return this.deliverStatement(worker, action);
+      if (action.kind === 'review') {
+        const review = this.archive.review;
+        if (!review || !this.current(action) || review.workerId !== worker.id) {
+          this.record(worker, undefined, 'review', 'superseded', 'The reviewed version is no longer current.', { commit: action.seedCommit });
           return { checkWhole: false };
         }
-        taskChanges(this.input.state.problem, worker.worktree, commit, node.task, action.assignment);
-        const notesBlob = (version: string) => git(worker.worktree, ['ls-tree', '--format=%(objectname)', version, '--', 'RESEARCH.md']);
-        const inherited = notesBlob(action.assignment.seedCommit);
-        if (inherited === notesBlob(commit)) {
-          unchangedNotesBlob = inherited;
-          throw new Error('math_research_delivery_unchanged: Replace inherited RESEARCH.md with findings for the current task.');
+        if (recovering) { this.interrupted(worker, action); return { checkWhole: false }; }
+        let evidenceRefs: readonly string[] = [];
+        try {
+          if (ownedSourceDigest(this.input.state.problem, worker.worktree, commit) !== action.sourceDigest)
+            throw new Error('math_review_source_changed');
+          const result = block(worker.worktree, 'math-review', { commit: action.seedCommit });
+          if (result.commit !== action.seedCommit) throw new Error('math_review_delivery_invalid');
+          const status = reviewVerdict(result.verdict, 'math_review_delivery_invalid');
+          const details = deliveryDetails(result);
+          review.status = status; review.summary = details.summary;
+          evidenceRefs = details.evidenceRefs;
+          this.input.emit('review_completed', { commit: review.commit, verdict: review.status, workerId: worker.id });
+        } catch (error) {
+          review.status = 'changes_requested'; review.summary = error instanceof Error ? error.message : 'math_review_failed';
         }
-        const admission = prepareResearchDelivery({ kind: 'notes', text: committedSource(worker.worktree, commit, 'RESEARCH.md') },
-          { source: node.task, assignment: action.assignment, tasks: this.archive.tasks, deliveries: this.archive.deliveries,
-            identity: { problemReceiptDigest: this.input.state.problem.receiptDigest, environmentDigest: this.input.state.environmentDigest } });
-        if (admission.status === 'rejected') throw new ResearchAdmissionError(admission);
-        await this.publishResearchFinding(worker, action, commit, admission.finding, true);
-      } else {
-        const proof = await this.publishTaskProof(worker, action, commit,
-          'Fixed declaration checked; unresolved lemma assumptions remain obligations.', { artifacts }, recovering);
-        return { check: proof, checkWhole: false };
-      }
-    } catch (error) {
-      this.input.signal.throwIfAborted();
-      if (!(error instanceof Error) || error.name === 'AbortError' ||
-          ['delivered', 'conditional', 'integrated'].includes(node.status) ||
-          !(error instanceof SyntaxError) && !directDeliveryRejections.has(rejectionCode(error))) throw error;
-      if (!this.current(action)) return { checkWhole: false };
-      const feedback = error instanceof Error ? error.message : 'math_task_delivery_failed';
-      if (advisory(node.task)) {
-        this.rejectWorkerDelivery(worker, action, committedSource(worker.worktree, commit, 'RESEARCH.md'), error);
-        this.input.save();
-      }
-      if (artifacts?.artifacts.length) this.record(worker, node.task, 'progress', 'advisory',
-        'Recoverable supporting code retained after an incomplete or rejected delivery; it still requires typed host checking.',
-        { commit, artifacts, remainingObligations: [node.task.id] });
-      if (error instanceof ResearchAdmissionError) {
-        // A malformed report is corrected by the same writer, not a mathematical route failure.
-        this.preserveResearchDraft(worker, action, commit, artifacts);
-        this.interrupted(worker, action);
+        review.workerId = undefined;
+        if (review.status === 'accepted') this.lastAssembly = undefined;
+        else { this.archive.error = review.summary; this.needsLead = true; }
+        this.record(worker, undefined, 'review', review.status, review.summary ?? '', { commit: review.commit, sourceDigest: review.sourceDigest, evidenceRefs });
         return { checkWhole: false };
       }
-      if (recovering && recoveryKind === 'request-failure' && feedback.startsWith('math_task_repeated_failed_input\n') &&
-          this.restoreInterruptedRepair(worker, action, commit)) {
+      if (action.kind === 'assemble') {
+        this.changed();
+        return { checkWhole: true };
+      }
+      if (action.kind !== 'task') {
+        const pending = this.deliverLead(worker, action, commit, recovering, recoveryKind);
+        this.leadDeliveries.add(pending);
+        try { return await pending; } finally { this.leadDeliveries.delete(pending); this.wake(); }
+      }
+      const node = this.node(action.task.id);
+      if (!this.current(action)) {
+        this.record(worker, action.task, advisory(action.task) ? 'research' : 'proof', 'superseded', 'Delivery belongs to a superseded assignment.',
+          { taskDigest: action.assignment.taskDigest, premises: action.task.premises ?? [], dependencies: action.assignment.dependencies ?? [], commit });
+        this.input.emit('task_delivery_superseded', { taskId: action.task.id, workerId: worker.id, commit });
         return { checkWhole: false };
       }
-      if (recovering && feedback.startsWith('math_task_missing_declaration\n')) {
-        if (this.continueTaskCheckpoint(worker, node, commit)) {
-          node.feedback = feedback; this.interrupted(worker, action);
+      let unchangedNotesBlob: string | undefined;
+      let artifacts: DeliveryArtifactManifest | undefined;
+      try {
+        artifacts = captureDeliveryArtifacts({ problem: this.input.state.problem, worktree: worker.worktree, commit, assignment: action.assignment });
+        if (advisory(node.task)) {
+          if (recovering) {
+            this.preserveResearchDraft(worker, action, commit, artifacts);
+            if (recoveryKind === 'checkpoint') this.researchCheckpoint(worker, action, commit);
+            else this.interrupted(worker, action);
+            return { checkWhole: false };
+          }
+          taskChanges(this.input.state.problem, worker.worktree, commit, node.task, action.assignment);
+          const notesBlob = (version: string) => git(worker.worktree, ['ls-tree', '--format=%(objectname)', version, '--', 'RESEARCH.md']);
+          const inherited = notesBlob(action.assignment.seedCommit);
+          if (inherited === notesBlob(commit)) {
+            unchangedNotesBlob = inherited;
+            throw new Error('math_research_delivery_unchanged: Replace inherited RESEARCH.md with findings for the current task.');
+          }
+          const admission = prepareResearchDelivery({ kind: 'notes', text: committedSource(worker.worktree, commit, 'RESEARCH.md') },
+            { source: node.task, assignment: action.assignment, tasks: this.archive.tasks, deliveries: this.archive.deliveries,
+              identity: { problemReceiptDigest: this.input.state.problem.receiptDigest, environmentDigest: this.input.state.environmentDigest } });
+          if (admission.status === 'rejected') throw new ResearchAdmissionError(admission);
+          await this.publishResearchFinding(worker, action, commit, admission.finding, true);
+        } else {
+          const proof = await this.publishTaskProof(worker, action, commit,
+            'Fixed declaration checked; unresolved lemma assumptions remain obligations.', { artifacts }, recovering);
+          return { check: proof, checkWhole: false };
+        }
+      } catch (error) {
+        this.input.signal.throwIfAborted();
+        if (!(error instanceof Error) || error.name === 'AbortError' ||
+            ['delivered', 'conditional', 'integrated'].includes(node.status) ||
+            !(error instanceof SyntaxError) && !directDeliveryRejections.has(rejectionCode(error))) throw error;
+        if (!this.current(action)) return { checkWhole: false };
+        const feedback = error instanceof Error ? error.message : 'math_task_delivery_failed';
+        if (advisory(node.task)) {
+          this.rejectWorkerDelivery(worker, action, committedSource(worker.worktree, commit, 'RESEARCH.md'), error);
+          this.input.save();
+        }
+        if (artifacts?.artifacts.length) this.record(worker, node.task, 'progress', 'advisory',
+          'Recoverable supporting code retained after an incomplete or rejected delivery; it still requires typed host checking.',
+          { commit, artifacts, remainingObligations: [node.task.id] });
+        if (error instanceof ResearchAdmissionError) {
+          // A malformed report is corrected by the same writer, not a mathematical route failure.
+          this.preserveResearchDraft(worker, action, commit, artifacts);
+          this.interrupted(worker, action);
+          return { checkWhole: false };
+        }
+        if (recovering && recoveryKind === 'request-failure' && feedback.startsWith('math_task_repeated_failed_input\n') &&
+            this.restoreInterruptedRepair(worker, action, commit)) {
+          return { checkWhole: false };
+        }
+        if (recovering && feedback.startsWith('math_task_missing_declaration\n')) {
+          if (this.continueTaskCheckpoint(worker, node, commit)) {
+            node.feedback = feedback; this.interrupted(worker, action);
+          } else this.rejected(action, feedback, commit);
+          return { checkWhole: false };
+        }
+        if (/^math_task_(?:missing_declaration|repeated_failed_input)\n/u.test(feedback) || isTaskSourceRepairFeedback(feedback))
+          this.rejected(action, feedback, commit, recovering);
+        else if (recovering) { node.feedback = feedback; this.interrupted(worker, action); }
+        else if (unchangedNotesBlob !== undefined) {
+          this.reportBlockers(node.task, [{ mechanism: 'unchanged-research-delivery', scope: 'assigned-local-inference' }]);
+          const previous = this.archive.unchangedResearch?.[node.task.id];
+          const count = previous?.taskDigest === action.assignment.taskDigest && previous.notesBlob === unchangedNotesBlob ? previous.count + 1 : 1;
+          (this.archive.unchangedResearch ??= {})[node.task.id] = { taskDigest: action.assignment.taskDigest, notesBlob: unchangedNotesBlob, count };
+          this.input.emit('research_delivery_unchanged', { taskId: node.task.id, taskDigest: action.assignment.taskDigest, count, needsDecision: count >= 2 });
+          if (count >= 2) this.rejected(action, feedback, commit);
+          else { node.feedback = feedback; this.interrupted(worker, action); }
         } else this.rejected(action, feedback, commit);
-        return { checkWhole: false };
       }
-      if (/^math_task_(?:missing_declaration|repeated_failed_input)\n/u.test(feedback) || isTaskSourceRepairFeedback(feedback))
-        this.rejected(action, feedback, commit, recovering);
-      else if (recovering) { node.feedback = feedback; this.interrupted(worker, action); }
-      else if (unchangedNotesBlob !== undefined) {
-        this.reportBlockers(node.task, [{ mechanism: 'unchanged-research-delivery', scope: 'assigned-local-inference' }]);
-        const previous = this.archive.unchangedResearch?.[node.task.id];
-        const count = previous?.taskDigest === action.assignment.taskDigest && previous.notesBlob === unchangedNotesBlob ? previous.count + 1 : 1;
-        (this.archive.unchangedResearch ??= {})[node.task.id] = { taskDigest: action.assignment.taskDigest, notesBlob: unchangedNotesBlob, count };
-        this.input.emit('research_delivery_unchanged', { taskId: node.task.id, taskDigest: action.assignment.taskDigest, count, needsDecision: count >= 2 });
-        if (count >= 2) this.rejected(action, feedback, commit);
-        else { node.feedback = feedback; this.interrupted(worker, action); }
-      } else this.rejected(action, feedback, commit);
-    }
-    return { checkWhole: false };
+      return { checkWhole: false };
+    } finally { stopChecking(); }
   }
   interrupted(worker: ResearchWorker, action: CooperativeAction) {
     if (isStatementAction(action)) {
@@ -1092,6 +1095,19 @@ export class CooperativeResearch extends CooperationInputs {
   }
   rejected(action: CooperativeAction, feedback: string, commit?: string, incomplete = false) {
     if (['task', 'lead', 'review'].includes(action.kind) && !this.current(action)) return;
+    if (action.kind === 'task' && isSolverSourceOwnershipFeedback(feedback)) {
+      const node = this.node(action.task.id);
+      if (!['pending', 'running', 'blocked'].includes(node.status)) return;
+      node.feedback = feedback;
+      node.sourceRepair = { taskDigest: action.assignment.taskDigest, workerId: action.assignment.workerId,
+        assignmentId: action.assignment.assignmentId, seedCommit: action.assignment.seedCommit,
+        reason: 'source-ownership', pending: true };
+      node.status = 'pending';
+      this.input.emit('source_repair_requested', { kind: action.kind, reason: 'math_source_outside_ownership',
+        taskId: action.task.id, workerId: action.assignment.workerId, assignmentId: action.assignment.assignmentId, feedback });
+      this.changed();
+      return;
+    }
     let localRepair = false;
     let reviewWorker: ResearchWorker | undefined;
     if (isStatementAction(action)) {

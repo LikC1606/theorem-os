@@ -13,7 +13,7 @@ import { withMathRuntimeLease } from '../src/math/mathRuntimeIo';
 import type { MathematicsVerifierBatchRequest, MathematicsVerifierExecutionOptions } from '../src/math/verifier';
 import { readSolverRunState, writeSolverRunState, type SolverRunState } from '../src/solver/archive';
 import { seedSolverContinuation } from '../src/solver/continuationSeed';
-import { readContinuationPage, readContinuationSnapshot } from '../src/solver/continuationInput';
+import { freezeContinuationInput, readContinuationPage, readContinuationSnapshot, type ContinuationManifest } from '../src/solver/continuationInput';
 import { committedSource, git, readSolverProblem } from '../src/solver/problem';
 import { taskVersion, type CooperativeTask } from '../src/solver/tasks';
 import type { TaskProof } from '../src/solver/cooperativeProof';
@@ -136,6 +136,30 @@ function conditionalFixture() {
   f.oldState.workers![1]!.sessionTaskId = task.id;
   writeSolverRunState(f.sourceStateFile, f.oldState);
   return { ...f, task, condition, proofCommit };
+}
+
+function canonicalHistoryFixture(location: 'archive' | 'seed-history' | 'seed-hint') {
+  const f = fixture(), archive = f.oldState.cooperation!, prior = structuredClone(archive.tasks[0]!);
+  prior.task = { ...prior.task, conditional: true, groupId: 'main' };
+  archive.tasks[0] = { task: { ...archive.tasks[0]!.task, type: '(True)' }, status: 'pending', attempts: 2 };
+  if (location === 'archive') archive.history = [prior];
+  else {
+    // Existing migrated diagnostics abbreviated integratedCheck to {commit, passed}.
+    const history = location === 'seed-history' ? { history: [{ task: prior.task,
+      integratedCheck: { commit: prior.integratedCheck!.commit, passed: true } }] }
+      : { canonicalCandidateHints: [prior.task] };
+    const text = canonicalMathJson({ history }), sha256 = mathDigest(text);
+    const manifest: ContinuationManifest = { schema: 'theorem-os.continuation-snapshot.v1',
+      taskDigest: f.oldState.taskDigest, problemReceiptDigest: f.oldState.problem.receiptDigest,
+      attachments: [{ id: 'seed-history', kind: 'diagnostics', path: 'seed-history.json',
+        bytes: Buffer.byteLength(text), sha256, contentPath: `continuation/${sha256}.txt`,
+        provenance: { evidence: 'recorded-not-replayed' } }] };
+    archive.history = [];
+    f.oldState.continuationDigest = freezeContinuationInput({ manifest,
+      digest: mathDigest(canonicalMathJson(manifest)), contents: new Map([[sha256, text]]) }, f.oldDirectory).digest;
+  }
+  writeSolverRunState(f.sourceStateFile, f.oldState);
+  return f;
 }
 
 function freshReceipts(request: MathematicsVerifierBatchRequest) {
@@ -279,6 +303,62 @@ describe('explicit prepared-run continuation initialization', () => {
     expect(fs.statSync(path.join(f.directory, 'continuation-seed-source.json')).mode & 0o777).toBe(0o400);
   });
 
+  it.each(['archive', 'seed-history', 'seed-hint'] as const)(
+    'rechecks canonical helpers named by %s after a task spelling change', async location => {
+      const f = canonicalHistoryFixture(location), sourceState = fs.readFileSync(f.sourceStateFile);
+      host.verify.mockImplementation((request: MathematicsVerifierBatchRequest, options: MathematicsVerifierExecutionOptions) => {
+        expect(options.expectedDeclarationType).toBe(request.items[0]!.theoremName!.endsWith('first_helper') ? '(True)' : 'True');
+        return freshReceipts(request);
+      });
+      const report = await seedSolverContinuation({ ...f.options, onProgress: event => {
+        if (event === 'continuation_seed_installed') {
+          const state = readSolverRunState(f.stateFile);
+          expect(state.cooperation!.tasks.every(node => node.status === 'pending' && !node.integratedCheck)).toBe(true);
+          expect(host.verify).not.toHaveBeenCalled();
+        }
+      } });
+      const state = readSolverRunState(f.stateFile), first = state.cooperation!.tasks[0]!;
+      expect(report.candidates).toEqual(['first', 'second']);
+      expect(report.failed).toEqual([]); expect(host.verify).toHaveBeenCalledTimes(2);
+      expect(first.status).toBe('integrated');
+      expect(first.integratedCheck!.taskDigest).toBe(taskVersion(first.task));
+      expect(first.integratedCheck!.verification.results[0]!.receiptId).toContain('fresh-seed-');
+      expect(fs.readFileSync(f.sourceStateFile)).toEqual(sourceState);
+      const inherited = JSON.parse(readContinuationPage(path.join(f.directory, 'continuation.json'),
+        state.continuationDigest!, 'seed-history').text);
+      expect(inherited.history.canonicalCandidateHints).toEqual([expect.objectContaining({ id: 'first' })]);
+    });
+
+  it('rejects a changed current contract when rechecking a historical canonical candidate', async () => {
+    const f = canonicalHistoryFixture('archive');
+    f.oldState.cooperation!.tasks[0]!.task = { ...f.oldState.cooperation!.tasks[0]!.task, type: 'False' };
+    writeSolverRunState(f.sourceStateFile, f.oldState);
+    host.verify.mockImplementation((request: MathematicsVerifierBatchRequest, options: MathematicsVerifierExecutionOptions) => {
+      const verified = freshReceipts(request);
+      return options.expectedDeclarationType === 'False'
+        ? failedBatch(verified, { stdoutPreview: () => 'error: declaration type is not False' }) : verified;
+    });
+    const report = await f.seed(), state = readSolverRunState(f.stateFile);
+    expect(report.candidates).toEqual(['first', 'second']); expect(report.failed).toEqual(['first']);
+    expect(state.cooperation!.tasks.map(node => node.status)).toEqual(['blocked', 'integrated', 'pending']);
+    expect(state.cooperation!.tasks[0]!.integratedCheck?.passed).toBe(false);
+    expect(host.verify.mock.calls[0]![1].expectedDeclarationType).toBe('False');
+  });
+
+  it.each(['kind', 'name', 'path', 'conditional'] as const)(
+    'does not select a historical canonical hint with mismatched %s', async changed => {
+      const f = canonicalHistoryFixture('archive'), record = f.oldState.cooperation!.history![0]!;
+      if (changed === 'kind') record.task = { ...record.task, kind: 'goal' };
+      if (changed === 'name') record.task = { ...record.task, theoremName: 'Submission.Helpers.other_helper' };
+      if (changed === 'path') record.task = { ...record.task, proofPath: 'Submission.lean' };
+      if (changed === 'conditional') record.integratedCheck!.conditions = [{ taskId: 'second', taskDigest: taskVersion(f.tasks[1]!) }];
+      writeSolverRunState(f.sourceStateFile, f.oldState);
+      const report = await f.seed();
+      expect(report.candidates).toEqual(['second']);
+      expect(readSolverRunState(f.stateFile).cooperation!.tasks[0]!.status).toBe('pending');
+      expect(host.verify).toHaveBeenCalledOnce();
+    });
+
   it('rechecks a conditional declaration absent from canonical source with its exact typed obligation', async () => {
     const f = conditionalFixture(), oldState = fs.readFileSync(f.sourceStateFile);
     expect(fs.readFileSync(path.join(f.sourceWorktree, f.projectRelative, 'Submission/Helpers.lean'), 'utf8'))
@@ -303,6 +383,16 @@ describe('explicit prepared-run continuation initialization', () => {
     expect(snapshot.manifest.attachments.some(item => item.id === 'seed-history')).toBe(true);
     expect(draft.notes).toBe(f.notes);
     expect(draft.sources['Submission/Helpers.lean']).toContain('bridge_helper');
+  });
+
+  it('keeps current conditional sources ahead of historical canonical hints for the same task', async () => {
+    const f = conditionalFixture(), bridge = f.oldState.cooperation!.tasks.find(node => node.task.id === 'bridge')!;
+    f.oldState.cooperation!.history = [{ task: bridge.task, integratedCheck: { ...bridge.proof!, conditions: undefined } }];
+    writeSolverRunState(f.sourceStateFile, f.oldState);
+    const report = await f.seed(), state = readSolverRunState(f.stateFile);
+    expect(report.candidates).toEqual(['first', 'second', 'bridge']);
+    expect(report.failed).toEqual([]); expect(host.verify).toHaveBeenCalledTimes(3);
+    expect(state.cooperation!.tasks.find(node => node.task.id === 'bridge')!.status).toBe('conditional');
   });
 
   it('reuses a held lease and proof environment and hands off only fresh unconditional receipts', async () => {

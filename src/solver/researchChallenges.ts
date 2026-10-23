@@ -106,12 +106,35 @@ export function resolveResearchChallenges(state: ChallengeState, ids: readonly s
   const challenges = researchChallenges(state);
   const pending = new Map(challenges.filter(item => item.status === 'pending').map(item => [item.id, item]));
   const deferred = new Map(challenges.filter(item => item.status === 'deferred').map(item => [item.id, item]));
-  const shown = new Set(ids), responses = new Map<string, any>();
+  const shown = new Set(ids), seen = new Set<string>(), responses = new Map<string, any>();
   for (const response of (value ?? []) as any[]) {
-    if (!response || typeof response.id !== 'string' || (!shown.has(response.id) && !deferred.has(response.id)) || responses.has(response.id) ||
+    if (!response || typeof response.id !== 'string' || seen.has(response.id) ||
         !['revised', 'disputed', 'deferred'].includes(response.status) || typeof response.reason !== 'string' || !response.reason.trim())
       throw new Error('math_challenge_decision_invalid');
-    responses.set(response.id, response);
+    seen.add(response.id);
+    const id = response.id;
+    const evidenceRefs = response.evidenceRefs;
+    if (evidenceRefs !== undefined && (!Array.isArray(evidenceRefs) || evidenceRefs.some(ref => typeof ref !== 'string' || !ref.trim())))
+      throw new Error('math_challenge_evidence_invalid:' + id);
+    if (response.status === 'disputed' && !evidenceRefs?.length) throw new Error('math_challenge_evidence_required:' + id);
+    const waiting = parseWaitsOn(response.waitsOn, response.status === 'deferred', taskId => tasks.find(task => task.id === taskId),
+      'math_challenge_waits_on_invalid:' + id, 'math_challenge_waits_on_invalid:');
+    if (response.reopenOn !== undefined && (typeof response.reopenOn !== 'string' || !response.reopenOn.trim()))
+      throw new Error('math_challenge_reopen_on_invalid:' + id);
+    if (response.status === 'deferred' && !waiting?.length && !response.reopenOn?.trim())
+      throw new Error('math_challenge_reopen_on_required:' + id);
+    const normalized = { status: response.status, reason: response.reason.trim(), ...(evidenceRefs ? { evidenceRefs } : {}),
+      ...(waiting ? { waitsOn: waiting } : {}), ...(response.reopenOn ? { reopenOn: response.reopenOn.trim() } : {}) };
+    if (!shown.has(id) && !deferred.has(id)) {
+      const challenge = challenges.find(item => item.id === id), recorded = challenge?.decision;
+      const { id: _id, deliveryId: _delivery, contextDigest: _context, ...previous } = recorded ?? {};
+      // Later full plans may repeat an accepted decision. Its current evidence binding
+      // must still hold, and restating it neither reopens the inbox nor grants acceptance.
+      if (!recorded || challenge.status === 'pending' || canonicalMathJson(previous) !== canonicalMathJson(normalized))
+        throw new Error('math_challenge_decision_invalid');
+      continue;
+    }
+    responses.set(id, normalized);
   }
   return [...new Set([...shown, ...responses.keys()])].flatMap(id => {
     const challenge = pending.get(id) ?? (responses.has(id) ? deferred.get(id) : undefined);
@@ -119,23 +142,11 @@ export function resolveResearchChallenges(state: ChallengeState, ids: readonly s
     if (shown.has(id) && activations[id] !== challenge.activationDigest) throw new Error('math_challenge_dispatch_superseded:' + id);
     const response = responses.get(id);
     if (!response) throw new Error('math_challenge_unresolved:' + id);
-    const evidenceRefs = response.evidenceRefs;
-    if (evidenceRefs !== undefined && (!Array.isArray(evidenceRefs) || evidenceRefs.some(ref => typeof ref !== 'string' || !ref.trim())))
-      throw new Error('math_challenge_evidence_invalid:' + id);
-    if (response.status === 'disputed' && !evidenceRefs?.length) throw new Error('math_challenge_evidence_required:' + id);
-    const waiting = parseWaitsOn(response.waitsOn, response.status === 'deferred', taskId => tasks.find(task => task.id === taskId),
-      'math_challenge_waits_on_invalid:' + id, 'math_challenge_waits_on_invalid:');
-    if (waiting?.every((input: { taskId: string; taskDigest: string }) => {
+    if (response.waitsOn?.every((input: { taskId: string; taskDigest: string }) => {
       const node = state.tasks.find(node => node.task.id === input.taskId);
       return node?.status === 'integrated' && taskVersion(node.task) === input.taskDigest && freshlyAccepted(node, input.taskDigest);
     })) throw new Error('math_challenge_waits_on_satisfied:' + id);
-    if (response.reopenOn !== undefined && (typeof response.reopenOn !== 'string' || !response.reopenOn.trim()))
-      throw new Error('math_challenge_reopen_on_invalid:' + id);
-    if (response.status === 'deferred' && !waiting?.length && !response.reopenOn?.trim())
-      throw new Error('math_challenge_reopen_on_required:' + id);
-    return [{ id, deliveryId: challenge.deliveryId, contextDigest: challenge.contextDigest,
-      status: response.status, reason: response.reason.trim(), ...(evidenceRefs ? { evidenceRefs } : {}),
-      ...(waiting ? { waitsOn: waiting } : {}), ...(response.reopenOn ? { reopenOn: response.reopenOn.trim() } : {}) }];
+    return [{ id, deliveryId: challenge.deliveryId, contextDigest: challenge.contextDigest, ...response }];
   });
 }
 

@@ -51,6 +51,7 @@ describe('conditional proof declaration ownership', () => {
   const deliverParent = async (declaration = '', files: Record<string, string> = {}, helper = 'support', imports: string[] = []) => {
     const parent = await assigned(workers[2]);
     expect(parent.task.id).toBe('goal_0');
+    node('goal_0').feedback = 'The previous parent proof failed.';
     fs.writeFileSync(sourcePath(workers[2]), imports.map(module => `import ${module}\n`).join('') + source(workers[2])
       .replace('theorem add_zero', declaration + 'lemma support : True := by trivial\ntheorem add_zero')
       .replace('n + 0 = n := by sorry', `n + 0 = n := by\n  have h : True := And.left (And.intro child ${helper})\n  rfl`));
@@ -58,6 +59,7 @@ describe('conditional proof declaration ownership', () => {
       fs.writeFileSync(path.join(workers[2].worktree, problem.projectRelative, file), content);
     await cooperative.deliver(workers[2], parent, commitSolverSources(problem, workers[2].worktree));
     expect(node('goal_0').status).toBe('conditional');
+    expect(node('goal_0').feedback).toBeUndefined();
     return parent;
   };
   const deliverChild = async (child: TaskAction) => {

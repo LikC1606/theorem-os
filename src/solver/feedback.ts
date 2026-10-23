@@ -1,3 +1,4 @@
+import path from 'node:path';
 import type { ProofCheck } from './modules/evidence';
 import { assertSolverSources, SolverSourceError, type SolverProblem } from './problem';
 import { mathDigest } from '../math/mathRuntimeIo';
@@ -52,8 +53,16 @@ export function solverSourceFeedback(problem: SolverProblem, worktree: string): 
     assertSolverSources(problem, worktree);
   } catch (error) {
     if (!(error instanceof SolverSourceError)) throw error;
+    if (error.message === 'math_source_outside_ownership')
+      return `Host rejected the edited source before committing or checking it in Lean.\nFile: ${error.proofPath}\nError: ${error.message}\n${error.recovery}\nRepository root: ${worktree}\nProject directory: ${path.join(worktree, problem.projectRelative)}\nOwned proof files (repository-relative): ${problem.ownedFiles.map(file => path.join(problem.projectRelative, file)).join(', ')}\nAdvisory scratch must remain untracked regular files under .scratch/ at the repository root or ${path.join(problem.projectRelative, '.scratch')}/ at the project root. Check pwd before writing: when already in the project directory, use .scratch/ directly instead of repeating ${problem.projectRelative}/. Correct the location manually while preserving its contents; do not reset or discard the worktree. All source checks must pass before committing or Lean acceptance.`;
     return `Host rejected the edited source before committing or checking it in Lean.\nFile: ${problem.projectRelative}/${error.proofPath}\nError: ${error.message}\n${error.recovery}\nCompare this file with baseline commit ${problem.baseCommit} using git show. Edit only the allowed files; do not reset or discard the worktree. The original source checks must pass before Lean acceptance.`;
   }
+}
+
+/** Only host source inspection, not a provider's error text, supplies this feedback. */
+export function isSolverSourceOwnershipFeedback(feedback: string): boolean {
+  return feedback.startsWith('Host rejected the edited source before committing or checking it in Lean.\n') &&
+    feedback.includes('\nError: math_source_outside_ownership\n');
 }
 
 /** Keep Lean's goal/context blocks, without repeating a file's output for each target. */

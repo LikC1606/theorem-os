@@ -69,4 +69,26 @@ describe('solver input boundaries', () => {
     expect(() => readDeliveryLines(file, 0)).toThrow('math_delivery_log_invalid');
     expect(() => readMathResponse(root, 'math-result')).toThrow('missing_or_too_large');
   });
+
+  it('keeps truncated edit and plan logs strict unless the consumer explicitly permits replay', () => {
+    const file = path.join(temp(), 'edits.jsonl'); fs.writeFileSync(file, '{}\n');
+    expect(() => readDeliveryLines(file, 4)).toThrow('math_delivery_log_invalid');
+    expect(() => readDeliveryLines(file, 4, { discardingOversized: false })).toThrow('math_delivery_log_invalid');
+    expect(readDeliveryLines(file, 4, { discardingOversized: false, replayTruncated: true })).toMatchObject({
+      lines: ['{}'], offset: 3, truncated: { previousOffset: 4, size: 3 }, discardingOversized: false,
+    });
+  });
+
+  it.each(['symlink', 'hardlink', 'directory', 'fifo'] as const)(
+    'rejects unsafe %s inputs even when the worker permits truncated-log replay', kind => {
+      const root = temp(), file = path.join(root, 'DELIVERIES.jsonl'), original = path.join(root, 'original');
+      if (kind === 'directory') fs.mkdirSync(file);
+      else if (kind === 'fifo') expect(spawnSync('mkfifo', [file], { timeout: 1000 }).status).toBe(0);
+      else {
+        fs.writeFileSync(original, '{}\n');
+        if (kind === 'symlink') fs.symlinkSync(original, file);
+        else fs.linkSync(original, file);
+      }
+      expect(() => readDeliveryLines(file, 10, { discardingOversized: false, replayTruncated: true })).toThrow();
+    });
 });

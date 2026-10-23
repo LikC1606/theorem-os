@@ -242,6 +242,7 @@ export abstract class CooperationIntegration extends CooperationTaskProofs {
     };
     await persistProgress();
     const finish = async (node: TaskRecord) => {
+      if (node.status === 'integrated') node.feedback = undefined;
       checked.add(node.task.id); progress.completed++; progress.taskId = undefined;
       this.input.emit('task_recheck_finished', { ...progress, taskId: node.task.id, passed: node.status === 'integrated', ...(snapshot ? { staged: true } : {}) });
       await persistProgress();
@@ -350,7 +351,7 @@ export abstract class CooperationIntegration extends CooperationTaskProofs {
         node.proof = proof;
         if (!proof.passed) {
           node.status = 'blocked'; node.feedback = solverProofFeedback(proof); this.needsLead = true;
-        }
+        } else node.feedback = undefined;
       } catch (error) {
         this.input.signal.throwIfAborted();
         node.feedback = expectedRejection(error, integrationRejections).message; node.status = 'blocked'; this.needsLead = true;
@@ -482,7 +483,9 @@ export abstract class CooperationIntegration extends CooperationTaskProofs {
       if (receipts.some(receipt => receipt.references && canonicalMathJson(receipt.references.tasks) !==
           canonicalMathJson(attributeTaskReferences(receipt.references, this.archive.tasks)))) return 'retry' as const;
       this.archive.canonicalCommit = merged;
-      snapshots.forEach((snapshot, index) => { snapshot.node.integratedCheck = receipts[index]; snapshot.node.status = 'integrated'; });
+      snapshots.forEach((snapshot, index) => {
+        snapshot.node.integratedCheck = receipts[index]; snapshot.node.status = 'integrated'; snapshot.node.feedback = undefined;
+      });
       snapshots.forEach(snapshot => this.input.emit('task_integrated', { taskId: snapshot.task.id,
         groupId: taskGroup(snapshot.task), sharing: snapshot.task.sharing ?? 'problem', commit: merged, batchSize: snapshots.length }));
       this.changed();
@@ -566,7 +569,7 @@ export abstract class CooperationIntegration extends CooperationTaskProofs {
           this.input.emit('task_integration_superseded', { taskId: snapshot.task.id, reason: 'actual-reference-changed' });
           this.changed(); return 'superseded';
         }
-        node.integratedCheck = receipt; this.archive.canonicalCommit = merged; node.status = 'integrated';
+        node.integratedCheck = receipt; this.archive.canonicalCommit = merged; node.status = 'integrated'; node.feedback = undefined;
         this.input.emit('task_integrated', { taskId: node.task.id, groupId: taskGroup(node.task), sharing: node.task.sharing ?? 'problem', commit: merged });
         this.changed(); return 'integrated';
       });

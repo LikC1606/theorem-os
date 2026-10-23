@@ -124,6 +124,20 @@ describe('checked task integration recovery', () => {
     vi.restoreAllMocks(); fs.rmSync(directory, { recursive: true, force: true });
   });
 
+  it('clears a previous failure after a corrected proof is checked and integrated', async () => {
+    node().feedback = 'Continue the original proof. The frozen commit failed host acceptance.';
+    const commit = writeLemma(workers[1], 'lemma recovery_lemma : True := by trivial');
+    proofLog(commit);
+
+    await poll();
+
+    expect(node()).toMatchObject({ status: 'integrated', integratedCheck: { passed: true } });
+    expect(node().feedback).toBeUndefined();
+    expect(records().filter(record => record.kind === 'proof')).toMatchObject([
+      { status: 'verified', summary: 'A checked recovery lemma.' },
+    ]);
+  });
+
   it.each(['abort', 'storage', 'unavailable'] as const)
   ('retains a checked proof and the reader prefix after a merged %s failure, then retries only integration', async failure => {
     const commit = writeLemma(workers[1], 'lemma recovery_lemma : True := by trivial');

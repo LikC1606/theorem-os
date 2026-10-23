@@ -153,40 +153,43 @@ export abstract class CooperationStatements extends CooperationCore {
     return fixed;
   }
   async deliverStatement(worker: ResearchWorker, action: StatementAction): Promise<{ checkWhole: false }> {
-    const review = this.archive.statementReviews?.find(item => item.id === action.reviewId);
-    if (!review) throw new Error('math_statement_review_unknown');
-    const kind = action.kind === 'backtranslate' ? 'backtranslation' : 'statement-review';
-    const options = { statementReviewId: review.id, taskId: review.taskId, taskDigest: review.taskDigest, statement: review.leanStatement,
-      premises: review.premises, dependencies: review.dependencies, commit: review.commit, sourceDigest: review.snapshotDigest };
-    if (!this.current(action) || review.workerId !== worker.id) {
-      this.record(worker, undefined, kind, 'superseded', 'Statement delivery belongs to a superseded assignment.', options);
-      return { checkWhole: false };
-    }
-    let evidenceRefs: readonly string[] = [];
+    const stopChecking = this.beginChecking(worker, action);
     try {
-      assertStatementSnapshot(review);
-      const result = block(review.workspace, action.kind === 'backtranslate' ? 'math-backtranslation' : 'math-statement-review',
-        { reviewId: review.id, snapshotDigest: review.snapshotDigest }, action.kind === 'backtranslate' ? 'mathematics' : undefined);
-      if (result.reviewId !== review.id || result.snapshotDigest !== review.snapshotDigest) throw new Error('math_statement_review_identity_changed');
-      if (action.kind === 'backtranslate') {
-        review.translation = readBacktranslation(result); review.status = 'translated';
-        review.summary = 'Independent backtranslation saved; mathematical comparison remains pending.';
-        evidenceRefs = review.translation.evidenceRefs;
-      } else {
-        const details = deliveryDetails(result);
-        if (!review.translation) throw new Error('math_statement_review_invalid');
-        review.status = reviewVerdict(result.verdict, 'math_statement_review_invalid');
-        review.summary = details.summary; evidenceRefs = details.evidenceRefs;
+      const review = this.archive.statementReviews?.find(item => item.id === action.reviewId);
+      if (!review) throw new Error('math_statement_review_unknown');
+      const kind = action.kind === 'backtranslate' ? 'backtranslation' : 'statement-review';
+      const options = { statementReviewId: review.id, taskId: review.taskId, taskDigest: review.taskDigest, statement: review.leanStatement,
+        premises: review.premises, dependencies: review.dependencies, commit: review.commit, sourceDigest: review.snapshotDigest };
+      if (!this.current(action) || review.workerId !== worker.id) {
+        this.record(worker, undefined, kind, 'superseded', 'Statement delivery belongs to a superseded assignment.', options);
+        return { checkWhole: false };
       }
-    } catch (error) {
-      review.status = 'changes_requested'; review.summary = error instanceof Error ? error.message : 'math_statement_review_failed';
-    }
-    review.workerId = undefined;
-    if (review.status === 'accepted') this.lastAssembly = undefined;
-    if (review.status === 'changes_requested') { this.archive.error = review.summary; this.needsLead = true; }
-    this.record(worker, this.node(review.taskId).task, kind, review.status === 'translated' ? 'advisory' : review.status,
-      review.summary ?? '', { ...options, evidenceRefs });
-    this.input.emit('statement_review_completed', { workerId: worker.id, taskId: review.taskId, reviewId: review.id, kind, status: review.status });
-    return { checkWhole: false };
+      let evidenceRefs: readonly string[] = [];
+      try {
+        assertStatementSnapshot(review);
+        const result = block(review.workspace, action.kind === 'backtranslate' ? 'math-backtranslation' : 'math-statement-review',
+          { reviewId: review.id, snapshotDigest: review.snapshotDigest }, action.kind === 'backtranslate' ? 'mathematics' : undefined);
+        if (result.reviewId !== review.id || result.snapshotDigest !== review.snapshotDigest) throw new Error('math_statement_review_identity_changed');
+        if (action.kind === 'backtranslate') {
+          review.translation = readBacktranslation(result); review.status = 'translated';
+          review.summary = 'Independent backtranslation saved; mathematical comparison remains pending.';
+          evidenceRefs = review.translation.evidenceRefs;
+        } else {
+          const details = deliveryDetails(result);
+          if (!review.translation) throw new Error('math_statement_review_invalid');
+          review.status = reviewVerdict(result.verdict, 'math_statement_review_invalid');
+          review.summary = details.summary; evidenceRefs = details.evidenceRefs;
+        }
+      } catch (error) {
+        review.status = 'changes_requested'; review.summary = error instanceof Error ? error.message : 'math_statement_review_failed';
+      }
+      review.workerId = undefined;
+      if (review.status === 'accepted') this.lastAssembly = undefined;
+      if (review.status === 'changes_requested') { this.archive.error = review.summary; this.needsLead = true; }
+      this.record(worker, this.node(review.taskId).task, kind, review.status === 'translated' ? 'advisory' : review.status,
+        review.summary ?? '', { ...options, evidenceRefs });
+      this.input.emit('statement_review_completed', { workerId: worker.id, taskId: review.taskId, reviewId: review.id, kind, status: review.status });
+      return { checkWhole: false };
+    } finally { stopChecking(); }
   }
 }

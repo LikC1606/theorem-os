@@ -147,6 +147,36 @@ describe('live explicit handoff publication', () => {
     expect(state.cooperation!.tasks.every(item => !item.proof && !item.integratedCheck)).toBe(true);
   });
 
+  it.each([true, false])('readopts the same obligation after a full plan changes explicit default group %s', async explicit => {
+    proposal = { ...proposal, ...(explicit ? { groupId: 'main' } : {}) };
+    state.cooperation!.deliveries![0].lemmaRequests = [proposal];
+    const original = await start();
+    await publish(original, event(original, [{ id: original.handoffIds![0], status: 'adopted', ownerId: workers[2].id }]));
+    const previousDigest = taskVersion(node(proposal.id).task);
+    const plan = { ...graph(), tasks: graph().tasks.map(task => {
+      if (task.id !== proposal.id) return task;
+      const { groupId: _group, ...rest } = task;
+      return explicit ? rest : { ...rest, groupId: 'main' };
+    }) };
+    fs.writeFileSync(path.join(workers[0].worktree, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify(plan) + '\n```');
+    cooperative.deactivate(workers[0]);
+    await cooperative.deliver(workers[0], original, commitSolverSources(problem, workers[0].worktree));
+    const existing = node(proposal.id), before = snapshot(), currentDigest = taskVersion(existing.task);
+    expect(currentDigest).not.toBe(previousDigest);
+    expect(inbox()).toHaveLength(1);
+    const action = await start();
+    await publish(action);
+    expect(node(proposal.id)).toBe(existing);
+    expect(graph()).toEqual({ tasks: before.tasks, groups: before.groups, proofRoutes: before.proofRoutes });
+    expect(existing).toMatchObject({ task: { ownerId: workers[2].id }, status: 'pending', attempts: 0 });
+    expect(existing.proof).toBeUndefined(); expect(existing.integratedCheck).toBeUndefined();
+    expect(state.cooperation!.researchDecisions).toMatchObject([{ status: 'adopted', taskId: proposal.id, taskDigest: currentDigest }]);
+    expect(inbox()).toEqual([]);
+    expect(pendingResearchHandoffs(JSON.parse(JSON.stringify(state.cooperation!)))).toEqual([]);
+    expect(events.filter(item => item.event === 'plan_publication_rejected')).toEqual([]);
+    expect(state.check).toBeUndefined();
+  });
+
   it('retains an existing alternative proof route and all its original task contracts during adoption', async () => {
     const prerequisite = { ...helper('route_input'), status: 'paused' as const };
     const closing = { ...helper('route_closer'), dependsOn: [prerequisite.id], status: 'paused' as const };
@@ -229,9 +259,10 @@ describe('live explicit handoff publication', () => {
     expect(events.filter(item => item.event === 'plan_publication_rejected')).toHaveLength(1);
   });
 
-  it.each(['typed-conflict', 'ownership-override'] as const)
+  it.each(['typed-conflict', 'group-conflict', 'ownership-override'] as const)
   ('rejects an existing target %s without changing its contract or owner', async mode => {
     const existing = { ...proposal, ownerId: workers[1].id, ...(mode === 'typed-conflict' ? { type: 'False' } : {}) };
+    if (mode === 'group-conflict') state.cooperation!.deliveries![0].lemmaRequests = [{ ...proposal, groupId: 'other-route' }];
     addExistingTasks(existing);
     const action = await start(), before = snapshot(), original = node(proposal.id);
     await publish(action, event(action, [{ id: action.handoffIds![0], status: 'adopted',
@@ -239,6 +270,9 @@ describe('live explicit handoff publication', () => {
     expect(snapshot()).toEqual(before);
     expect(node(proposal.id)).toBe(original); expect(node(proposal.id).task).toEqual(existing);
     expect(inbox()).toHaveLength(1);
+    expect(events.filter(item => item.event === 'plan_publication_rejected')).toMatchObject([
+      { details: { reason: 'math_handoff_target_conflict:' + proposal.id } },
+    ]);
   });
 
   it.each(['dispatchNonce', 'baseVersion'] as const)('rejects a wrong %s before changing the graph or recording a decision', async key => {

@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mathDigest } from '../src/math/mathRuntimeIo';
 import { LOCAL_EXAMPLE_PROOF } from '../src/math/localExample';
 import { assertSolverSources, commitSolverSources, committedSource, git, withSolverWorktree,
-  type SolverProblem } from '../src/solver/problem';
+  SolverSourceError, type SolverProblem } from '../src/solver/problem';
+import { isSolverSourceOwnershipFeedback, solverSourceFeedback } from '../src/solver/feedback';
 import { localExample } from './helpers/solver';
 
 describe('advisory scratch source ownership', () => {
@@ -37,6 +38,33 @@ describe('advisory scratch source ownership', () => {
     project = path.join(workspace, problem.projectRelative);
   });
   afterEach(() => fs.rmSync(directory, { recursive: true, force: true }));
+
+  it('reports a doubled project prefix exactly and preserves every byte until its author corrects the path', () => {
+    const relative = path.join(problem.projectRelative, problem.projectRelative, '.scratch/tmp/Bridge.lean');
+    const content = 'lemma advisory_bridge : True := by trivial\n';
+    const file = write(relative, content);
+    fs.writeFileSync(path.join(project, 'Submission.lean'), LOCAL_EXAMPLE_PROOF);
+    let failure: unknown;
+    try { assertSolverSources(problem, workspace); } catch (error) { failure = error; }
+    expect(failure).toBeInstanceOf(SolverSourceError);
+    expect(failure).toMatchObject({ message: 'math_source_outside_ownership', proofPath: relative });
+    const feedback = solverSourceFeedback(problem, workspace)!;
+    expect(isSolverSourceOwnershipFeedback(feedback)).toBe(true);
+    expect(feedback).toContain(`File: ${relative}\nError: math_source_outside_ownership\n`);
+    expect(feedback).toContain(`Project directory: ${project}`);
+    expect(feedback).toContain('Check pwd');
+    expect(feedback).toContain('moving a file alone does not remove an index or history entry');
+    unchangedFailure();
+    expect(fs.readFileSync(file, 'utf8')).toBe(content);
+    expect(fs.readFileSync(path.join(project, 'Submission.lean'), 'utf8')).toBe(LOCAL_EXAMPLE_PROOF);
+    const corrected = path.join(project, '.scratch/tmp/Bridge.lean');
+    fs.mkdirSync(path.dirname(corrected), { recursive: true }); fs.renameSync(file, corrected);
+    expect(solverSourceFeedback(problem, workspace)).toBeUndefined();
+    const commit = commitSolverSources(problem, workspace);
+    expect(tree(commit)).not.toContain(path.join(problem.projectRelative, '.scratch/tmp/Bridge.lean'));
+    expect(fs.readFileSync(corrected, 'utf8')).toBe(content);
+    expect(committedSource(workspace, commit, path.join(problem.projectRelative, 'Submission.lean'))).toBe(LOCAL_EXAMPLE_PROOF);
+  });
 
   it.each(['repository', 'project'] as const)('retains ordinary untracked advisory files at every reserved %s scratch root', scope => {
     const files = ['.scratch/search.py', 'scratch/experiment.c', '.probe/Claim.lean', 'scratch_trial/nested/findings.md', 'scratch_summary'];

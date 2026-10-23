@@ -87,6 +87,24 @@ const gapContext = (kind: 'research' | 'lemma' | 'goal' | 'lead' | 'review',
     frozenContexts: { 'Submission.lean': formal }, assignment: action });
 };
 
+it.each(['research', 'lemma', 'goal', 'lead'] as const)(
+  'keeps optional scoped references out of default delivery examples for %s work', kind => {
+    const { instructions } = gapContext(kind);
+    const blockerExample = instructions.split('Report local obstructions in research/sketch responses or progress: ')[1]
+      .split('. For the same obstruction')[0];
+    expect(blockerExample).toBe('blockers:[{mechanism:"stable mechanism",scope:"exact inference",evidenceRefs:[]}]');
+    expect(instructions).toContain('Omit reopenOn for host defaults.');
+    expect(instructions).toContain('dependency-checked may reference only taskIds in this task\'s allowed declared dependency cone');
+    expect(instructions).toContain('A proposed or otherwise visible helper is not an allowed dependency unless it belongs to that cone.');
+    expect(instructions).toContain('When this task has no declared dependencies or assigned route inputs, omit dependency-checked.');
+    const gapExample = instructions.split('Report gaps in research/progress JSON: ')[1]
+      .split('. In a kind:"research" delivery')[0];
+    expect(gapExample).toContain('mathematicalGap:{consumer:{taskId:"ORIGINAL_ID",taskDigest:"EXACT_DIGEST"}');
+    expect(gapExample).not.toContain('previousDeliveryId');
+    expect(instructions).toContain('Reference previousDeliveryId only when that visible delivery already has a mathematicalGapScope for the same consumer; omit it otherwise');
+    expect(instructions).toContain('including when the prior delivery is a failed proof.');
+  });
+
 it('asks researchers to save scoped negative evidence and publish a schema-valid gap decision promptly', () => {
   const context = gapContext('research');
   expect(context.instructions).toContain('Save a scoped negative library result or a classification gap in worktree-root RESEARCH.md as soon as it is established');

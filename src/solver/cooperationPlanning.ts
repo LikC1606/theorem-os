@@ -13,7 +13,7 @@ import { pendingResearchHandoffs } from './researchHandoffs';
 import { pendingResearchChallenges } from './researchChallenges';
 import { captureObligationSnapshot } from './obligationProgress';
 import { taskConnectionCheckCurrent } from './taskConnections';
-import { taskGroup, taskVersion, taskProofContractVersion, taskReferenceDependencies, invalidatedTaskIds, type CooperativeTask, type TaskRecord,
+import { taskGroup, taskReferenceDependencies, invalidatedTaskIds, type CooperativeTask, type TaskRecord,
   type CooperativeAction } from './tasks';
 import { digest, HumanEditRecord, InitialPlanPublication, RETRY_DISPATCH, DispatchResult, bounded, deliveryInputFields, readCooperationPlan,
   type AdvisoryDecisions, type InvestigationOutcome } from './cooperationShared';
@@ -338,7 +338,7 @@ export abstract class CooperationPlanning extends CooperationIntegration {
     }
     this.archive.canonicalCommit = this.seed(this.lead, this.archive.canonicalCommit!);
   }
-  protected planInvalidation({ tasks, groups, proofRoutes }: ReturnType<typeof parseCooperationPlan>, proofContracts = false) {
+  protected planInvalidation({ tasks, groups, proofRoutes }: ReturnType<typeof parseCooperationPlan>) {
     const previousGroups = new Map(this.archive.groups?.map(record => [record.group.id, record]));
     const changedGroups = new Set(groups.filter(group => {
       const previous = previousGroups.get(group.id)?.group;
@@ -358,8 +358,7 @@ export abstract class CooperationPlanning extends CooperationIntegration {
       (canonicalMathJson(node.alternativeRoutes ?? []) !== canonicalMathJson(proofRoutes?.filter(route => route.targetTaskId === node.task.id) ?? []) ||
         node.assignment?.connectionCheck && !taskConnectionCheckCurrent(node.task, node.assignment, proposed)))
       .map(node => node.task.id));
-    const invalidated = invalidatedTaskIds(this.archive.tasks, tasks, changedGroups, dependencies, routeChanges,
-      proofContracts ? taskProofContractVersion : taskVersion);
+    const invalidated = invalidatedTaskIds(this.archive.tasks, tasks, changedGroups, dependencies, routeChanges);
     const view = this.capacityPlanView({ tasks, groups, proofRoutes });
     for (const node of this.archive.tasks) if (node.capacityExploration &&
         tasks.some(task => task.id === node.task.id && digest(task) === digest(node.task)) &&
@@ -389,8 +388,13 @@ export abstract class CooperationPlanning extends CooperationIntegration {
     });
     const current = new Map(this.archive.tasks.map(node => [node.task.id, node]));
     const invalidated = this.planInvalidation(plan);
-    const proofChanges = this.planInvalidation(plan, true);
-    const revalidate = new Set([...invalidated].filter(id => !proofChanges.has(id) && current.get(id)?.status === 'integrated'));
+    // Keep the canonical declaration available for a fresh check of the new contract.
+    // A changed type or input invalidates acceptance, not the saved proof source.
+    const revalidate = new Set(tasks.filter(task => {
+      const previous = current.get(task.id);
+      return invalidated.has(task.id) && previous?.status === 'integrated' && !advisory(task) &&
+        previous.task.kind === task.kind && previous.task.theoremName === task.theoremName && previous.task.proofPath === task.proofPath;
+    }).map(task => task.id));
     this.input.signal.throwIfAborted();
     for (const id of invalidated) if (this.archive.unchangedResearch) delete this.archive.unchangedResearch[id];
     for (const id of invalidated) if (this.archive.researchCheckpoints) delete this.archive.researchCheckpoints[id];

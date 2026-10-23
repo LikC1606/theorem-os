@@ -194,8 +194,7 @@ export function createTaskSourceProjector(problem: SolverProblem, worktree: stri
     }
     // Only unambiguous source names guide projection cleanup; Lean owns actual dependency evidence.
     const referenceKey = (declaration: typeof declarations[number], name: string) => {
-      if (!name.includes('.') && (declaration.header.includes(name) || declaration.opened)) return;
-      if (declaration.opened && !name.startsWith('_root_.') && !bindings.has(name)) return;
+      if (!name.includes('.') && declaration.header.includes(name)) return;
       const namespace = declaration.namespace.split('.').filter(Boolean);
       const names = name.startsWith('_root_.') ? [name.slice(7)] :
         Array.from({ length: namespace.length + 1 }, (_, index) => [...namespace.slice(0, namespace.length - index), name].join('.'));
@@ -203,7 +202,11 @@ export function createTaskSourceProjector(problem: SolverProblem, worktree: stri
         const candidates = (bindings.get(qualified) ?? []).filter(item => visible.get(declaration.file)!.has(item.file));
         const own = candidates.filter(item => item.file === declaration.file);
         const ids = new Set((own.length ? own : candidates).map(item => item.id));
-        if (ids.size) return ids.size === 1 ? [...ids][0] : undefined;
+        if (!ids.size) continue;
+        // An open command must not hide a known same-file binding. Relative imported
+        // names still need Lean to resolve their open-namespace lookup context.
+        if (declaration.opened && !name.startsWith('_root_.') && !bindings.has(name) && !own.length) return;
+        return ids.size === 1 ? [...ids][0] : undefined;
       }
     };
     for (const item of declarations) if (item.theorem && !keep.has(item.id) &&
@@ -382,6 +385,28 @@ export async function checkTaskProofs(problem: SolverProblem, worktree: string, 
   });
 }
 
+/** Move an attached document comment with its declaration without changing archived patch text. */
+function declarationStartWithDoc(source: string, startOffset: number): number {
+  const lineStart = source.lastIndexOf('\n', startOffset - 1) + 1;
+  let cursor = lineStart;
+  while (cursor > 0 && /\s/u.test(source[cursor - 1])) cursor--;
+  if (source.slice(cursor - 2, cursor) !== '-/') return lineStart;
+  cursor -= 2;
+  let depth = 1;
+  while (cursor > 0) {
+    const pair = source.slice(cursor - 2, cursor);
+    if (pair === '-/') { depth++; cursor -= 2; }
+    else if (pair === '/-') {
+      cursor -= 2;
+      if (--depth === 0) {
+        const commentLine = source.lastIndexOf('\n', cursor - 1) + 1;
+        return source.startsWith('/--', cursor) && !source.slice(commentLine, cursor).trim() ? commentLine : lineStart;
+      }
+    } else cursor--;
+  }
+  return lineStart;
+}
+
 /** Discharge saved assumptions against declarations that may have arrived after the old insertion anchor. */
 function orderConditionalChanges(source: string, file: string, changes: readonly DeclarationChange[],
   conditions: readonly CooperativeTask[]): string {
@@ -415,7 +440,7 @@ function orderConditionalChanges(source: string, file: string, changes: readonly
     if (canonicalMathJson(leanDeclarationContextCommands(source, anchor.qualifiedName)) !== context || maskLeanComments(between).trim())
       throw new Error('math_task_integration_missing_context\nA conditional consumer precedes its checked input across context commands. ' +
         'Move the consumer and its supporting helpers after that input while preserving the frozen source context.');
-    const start = source.lastIndexOf('\n', region.startOffset - 1) + 1;
+    const start = declarationStartWithDoc(source, region.startOffset);
     const moved = source.slice(start, region.endOffset);
     source = source.slice(0, start) + source.slice(region.endOffset, anchorRegion.endOffset) + moved + source.slice(anchorRegion.endOffset);
   }
@@ -440,10 +465,12 @@ export function applyTaskChanges(problem: SolverProblem, worktree: string, chang
         if (!anchor || canonicalMathJson(leanDeclarationContextCommands(source, change.name)) !==
             canonicalMathJson(leanDeclarationContextCommands(source, change.afterName)))
           throw new Error('math_task_integration_missing_context');
-        if (actual === change.after && anchor.endOffset === start) continue;
-        source = source.slice(0, start) + source.slice(existing.endOffset);
+        const moveStart = declarationStartWithDoc(source, existing.startOffset);
+        const documentation = source.slice(moveStart, start);
+        if (actual === change.after && anchor.endOffset === moveStart) continue;
+        source = source.slice(0, moveStart) + source.slice(existing.endOffset);
         const offset = inspectLeanDeclarationRegions(source).find(region => region.name === change.afterName)!.endOffset;
-        source = source.slice(0, offset) + change.after + source.slice(offset);
+        source = source.slice(0, offset) + documentation + change.after + source.slice(offset);
       } else {
         if (actual === change.after) continue;
         source = source.slice(0, start) + change.after + source.slice(existing.endOffset);
@@ -451,7 +478,7 @@ export function applyTaskChanges(problem: SolverProblem, worktree: string, chang
     } else {
       if (change.before) throw new Error('math_task_integration_missing_declaration');
       const anchor = change.beforeName && regions.find(region => region.name === change.beforeName);
-      const offset = anchor ? source.lastIndexOf('\n', anchor.startOffset - 1) + 1 :
+      const offset = anchor ? declarationStartWithDoc(source, anchor.startOffset) :
         change.tail !== undefined && source.endsWith(change.tail) ? source.length - change.tail.length : -1;
       if (offset < 0) throw new Error('math_task_integration_missing_context');
       source = source.slice(0, offset) + change.after + source.slice(offset);

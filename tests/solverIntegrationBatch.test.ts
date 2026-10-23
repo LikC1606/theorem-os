@@ -145,6 +145,8 @@ describe('same-layer checked task integration batches', () => {
 
   it('checks a ready pair once and preserves each target\'s original receipt while publishing the union', async () => {
     const proofs = await preparePair();
+    node().feedback = 'The first historical candidate failed Lean.';
+    node('second').feedback = 'The second historical candidate failed Lean.';
 
     await integrate();
 
@@ -155,6 +157,7 @@ describe('same-layer checked task integration batches', () => {
     expect(canonicalSource()).toContain('lemma batch_first : True := by trivial');
     expect(canonicalSource()).toContain('lemma batch_second : True := by trivial');
     for (const record of [node(), node('second')]) {
+      expect(record.feedback).toBeUndefined();
       const check = record.integratedCheck!, raw = receipts[0]!;
       expect(check.passed).toBe(true);
       expect(check.verification.sessionId).toBe(raw.sessionId);
@@ -182,11 +185,15 @@ describe('same-layer checked task integration batches', () => {
     await preparePair();
     if (exclusion === 'paused') changeTask('second', { status: 'paused' });
     if (exclusion === 'unchecked') node('second').proof = structuredClone(node('second').proof);
+    node().feedback = 'Previous individual proof failed.';
+    node('second').feedback = 'This candidate has not been integrated yet.';
 
     await integrate();
 
     expect(calls()).toHaveLength(1); expect(calls()[0]!.items).toHaveLength(1);
     expect(node().status).toBe('integrated'); expect(node('second').status).toBe('delivered');
+    expect(node().feedback).toBeUndefined();
+    expect(node('second').feedback).toBe('This candidate has not been integrated yet.');
     expect(canonicalSource()).toContain('lemma batch_first'); expect(canonicalSource()).not.toContain('lemma batch_second');
   });
 

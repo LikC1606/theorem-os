@@ -37,6 +37,11 @@ function sameProofTarget(proposal: CooperativeTask, task: CooperativeTask) {
     proposal.dependsOn.every(id => task.dependsOn.includes(id));
 }
 
+/** Compare handoff contracts with the implicit main group, without changing persisted task identities. */
+export function sameHandoffTaskContract(left: CooperativeTask, right: CooperativeTask) {
+  return taskVersion({ ...left, groupId: taskGroup(left) }) === taskVersion({ ...right, groupId: taskGroup(right) });
+}
+
 const legacyHandoffId = (delivery: DeliveryRecord, proposal: CooperativeTask) =>
   mathDigest(canonicalMathJson({ deliveryId: delivery.id, proposalDigest: taskVersion(proposal) }));
 const normalizedDependencies = (delivery: DeliveryRecord) => [...new Map((delivery.dependencies ?? [])

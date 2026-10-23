@@ -189,6 +189,9 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
     for (const node of this.archive.tasks) {
       if (advisory(node.task) || !['pending', 'blocked'].includes(node.status) ||
           [node.proof, node.integratedCheck].some(proof => proof?.passed && proof.taskDigest === digest(node.task))) continue;
+      const repair = this.currentTaskSourceRepair(node);
+      // HEAD still names the old failed proof until the workspace path is corrected.
+      if (repair?.pending && repair.reason === 'source-ownership') continue;
       const { inputDigest } = this.failedTaskBasis(node.task);
       const worker = this.input.workers.find(worker => worker.id === node.assignment?.workerId);
       const session = worker && this.input.state.workers?.find(record => record.id === worker.id);
@@ -520,10 +523,14 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
     const key = canonicalMathJson([worker.id, assignmentDeliveryFile(action.assignment), commit]);
     const previous = this.proofPublications.get(key);
     if (previous) return previous;
+    const stopChecking = this.beginChecking(worker, action);
     const pending = this.publishCheckedTaskProof(worker, action, commit, summary, options, recovering);
     this.proofPublications.set(key, pending);
     try { return await pending; }
-    finally { if (this.proofPublications.get(key) === pending) this.proofPublications.delete(key); }
+    finally {
+      if (this.proofPublications.get(key) === pending) this.proofPublications.delete(key);
+      stopChecking();
+    }
   }
   private async publishCheckedTaskProof(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>,
     commit: string, summary: string, options: Partial<DeliveryRecord>, recovering: boolean): Promise<TaskProof | undefined> {
@@ -658,7 +665,8 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
     this.settleTaskSourceRepair(node);
     if (proof.passed || this.deterministicTaskFailure(proof)) this.settleTaskRepair(node);
     node.status = proof.passed ? proof.conditions?.length ? 'conditional' : 'delivered' : 'blocked';
-    if (!proof.passed) {
+    if (proof.passed) node.feedback = undefined;
+    else {
       node.feedback = solverProofFeedback(proof);
       const repairable = this.deterministicTaskFailure(proof) || proof.verification.status === 'failed' && proof.verification.results.some(result =>
         result.status === 'failed' && ((result.sorryCount ?? 0) > 0 || result.error === 'Lean exited with status 1.'));

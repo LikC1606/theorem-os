@@ -1,7 +1,7 @@
 import { canonicalMathJson } from '../math/mathRuntimeIo';
 import type { SolverProblem } from './problem';
-import { researchHandoffs, resolveResearchHandoffs } from './researchHandoffs';
-import { parseCooperationPlan, taskVersion, type CooperativeAction } from './tasks';
+import { researchHandoffs, resolveResearchHandoffs, sameHandoffTaskContract } from './researchHandoffs';
+import { parseCooperationPlan, type CooperativeAction } from './tasks';
 
 /** An explicit decision materializes the immutable proposal, never model-supplied proof or task fields. */
 export function composeHandoffPublication(problem: SolverProblem, state: Parameters<typeof researchHandoffs>[0],
@@ -32,7 +32,7 @@ export function composeHandoffPublication(problem: SolverProblem, state: Paramet
     if (decision.status !== 'adopted') { responses.push(decision); continue; }
     const proposal = handoff.proposal, existing = tasks.find(task => task.id === proposal.id);
     if (existing) {
-      if (taskVersion(existing) !== taskVersion(proposal) || decision.ownerId !== undefined && decision.ownerId !== existing.ownerId)
+      if (!sameHandoffTaskContract(existing, proposal) || decision.ownerId !== undefined && decision.ownerId !== existing.ownerId)
         throw new Error('math_handoff_target_conflict:' + proposal.id);
     } else {
       tasks.push({ ...proposal, ...(decision.ownerId === undefined ? {} : { ownerId: decision.ownerId }) });

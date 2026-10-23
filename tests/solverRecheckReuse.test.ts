@@ -86,6 +86,8 @@ describe('process-local reuse of unchanged integrated projections', () => {
 
   it('keeps receipts for unchanged helpers and goals when Lead completes only the last goal', async () => {
     const helper = node('helper').integratedCheck, goal = node('goal_0').integratedCheck;
+    node('helper').feedback = 'An earlier helper failed before it was corrected.';
+    node('goal_0').feedback = 'An earlier goal failed before it was corrected.';
     finishLastGoal();
 
     await synchronize();
@@ -94,6 +96,8 @@ describe('process-local reuse of unchanged integrated projections', () => {
     expect(reusedIds()).toEqual(['helper', 'goal_0']);
     expect(node('helper').integratedCheck).toBe(helper);
     expect(node('goal_0').integratedCheck).toBe(goal);
+    expect(node('helper').feedback).toBeUndefined();
+    expect(node('goal_0').feedback).toBeUndefined();
     expect(node('helper').pendingValidation).toBeUndefined();
     expect(node('goal_0').pendingValidation).toBeUndefined();
     expect(state.cooperation!.recheck).toMatchObject({ total: 2, completed: 2 });
@@ -105,6 +109,7 @@ describe('process-local reuse of unchanged integrated projections', () => {
       proofPath: 'Submission.lean', theoremName: 'Tutorial.extra', dependsOn: [], revision: 0 };
     update(text => text.replace('theorem add_zero', 'lemma extra : True := by trivial\n\ntheorem add_zero'));
     state.cooperation!.tasks.splice(1, 0, { task: extra, status: 'integrated', attempts: 0 });
+    node('helper').feedback = 'An obsolete Lean failure from the saved state.';
     finishLastGoal();
     const check = vi.spyOn(cooperative as any, 'check');
 
@@ -118,6 +123,7 @@ describe('process-local reuse of unchanged integrated projections', () => {
     ]);
     expect(check).toHaveBeenCalledTimes(3);
     for (const current of [node('helper'), node('extra'), node('goal_0')]) {
+      expect(current.feedback).toBeUndefined();
       expect(current.integratedCheck).toMatchObject({ passed: true, commit: state.cooperation!.canonicalCommit,
         verification: { results: [{ theoremName: current.task.theoremName }] } });
       expect(current.integratedCheck!.verification.results).toHaveLength(1);

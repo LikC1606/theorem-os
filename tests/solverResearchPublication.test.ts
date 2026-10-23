@@ -18,6 +18,12 @@ let directory: string, state: SolverRunState, workers: ResearchWorker[], coopera
 let controller: AbortController, action: Extract<CooperativeAction, { kind: 'task' }>;
 const finding = (summary = 'EXACT_LOCAL_COUNTEREXAMPLE') => ({ summary, conclusion: 'refuted', needsDecision: true,
   evidenceRefs: ['nine-listed-constraints-only'], remainingObligations: ['original_goal_1'] });
+const gap = () => {
+  const consumer = state.cooperation!.tasks.find(node => node.task.id === 'original_goal_1')!.task;
+  return { consumer: { taskId: consumer.id, taskDigest: taskVersion(consumer) }, previousGap: 'The uniform construction was missing.',
+    reduced: 'The boundary case is established.', remaining: 'Construct the witness uniformly for every nondegenerate input.',
+    evidenceScope: 'Advisory argument only; no checked uniform construction.', reconsiderWhen: ['A checked construction is available.'] };
+};
 const publish = (value: unknown) => (cooperative as any).receive(workers[1], action, value, true);
 const create = () => cooperativeResearch({ state, workers, retrievalRoot: directory, signal: controller.signal });
 const blockedProof = () => {
@@ -162,6 +168,72 @@ it('resolves the explicitly replaced receipt only after a corrected finding is r
   expect(state.cooperation!.tasks[0].proof).toBeUndefined();
 });
 
+it.each(['progress', 'research'] as const)('forwards exact %s blocker fields and valid dependency choices to the writer', async kind => {
+  const log = path.join(workers[1].worktree, assignmentDeliveryFile(action.assignment)), cursors = {};
+  const blockers = [{ mechanism: 'Need the boundary input', scope: 'Local inference',
+    reopenOn: [{ kind: 'dependency-checked', taskId: 'original_goal_1' }] }];
+  const event = kind === 'progress' ? { kind, summary: 'Incomplete local inference.', blockers }
+    : { kind, finding: { ...finding(), blockers } };
+  fs.writeFileSync(log, JSON.stringify(event) + '\n');
+  const notify = vi.fn(async () => {});
+  cooperative.activate(workers[1], action, async () => {}, notify);
+  await (cooperative as any).readWorkerDeliveries(workers[1], action, cursors);
+  const receipt = state.cooperation!.deliveryReceipts![0];
+  const field = (kind === 'research' ? 'finding.' : '') + 'blockers[0].reopenOn[0].taskId';
+  expect(receipt).toMatchObject({ code: 'math_route_blocker_invalid', status: 'needs-correction',
+    issues: [{ path: field, message: expect.stringContaining('Task "original_goal_1" is outside') }] });
+  expect(receipt.issues[0].message).toContain('no declared dependencies');
+  expect(notify).toHaveBeenCalledWith(expect.stringContaining(field));
+  expect(state.cooperation!.deliveries ?? []).toEqual([]);
+  expect(state.cooperation!.blockers ?? []).toEqual([]);
+  expect(state.cooperation!.tasks[0]).toMatchObject({ status: 'running', assignment: action.assignment });
+});
+
+it('rejects misplaced gap and blocker fields, then retains the corrected nested report without accepting the proof', async () => {
+  const log = path.join(workers[1].worktree, assignmentDeliveryFile(action.assignment)), cursors = {};
+  const mathematicalGap = gap(), blockers = [{ mechanism: 'missing-uniform-construction', scope: 'assigned-local-inference' }];
+  fs.writeFileSync(log, JSON.stringify({ kind: 'research', finding: finding(), mathematicalGap, blockers }) + '\n');
+  await (cooperative as any).readWorkerDeliveries(workers[1], action, cursors);
+  const receipt = state.cooperation!.deliveryReceipts![0];
+  expect(receipt).toMatchObject({ status: 'needs-correction', code: 'math_research_delivery_invalid', issues: [
+    { path: 'mathematicalGap', message: expect.stringContaining('finding.mathematicalGap') },
+    { path: 'blockers', message: expect.stringContaining('finding.blockers') },
+  ] });
+  expect(state.cooperation!.deliveries ?? []).toEqual([]);
+  expect(state.cooperation!.blockers ?? []).toEqual([]);
+  fs.appendFileSync(log, JSON.stringify({ kind: 'research', finding: {
+    ...finding(), mathematicalGap, blockers, replacesReceipt: receipt.id,
+  } }) + '\n');
+  await (cooperative as any).readWorkerDeliveries(workers[1], action, cursors);
+  await (cooperative as any).readWorkerDeliveries(workers[1], action, cursors);
+  const [delivery] = state.cooperation!.deliveries!;
+  expect(state.cooperation!.deliveries).toHaveLength(1);
+  expect(delivery).toMatchObject({ mathematicalGap, mathematicalGapScope: {
+    problemReceiptDigest: state.problem.receiptDigest, environmentDigest: state.environmentDigest,
+    source: action.task, consumer: state.cooperation!.tasks.find(node => node.task.id === 'original_goal_1')!.task,
+  } });
+  expect(JSON.parse(delivery.finding!)).toMatchObject({ mathematicalGap, blockers });
+  expect(state.cooperation!.blockers).toMatchObject([{ ...blockers[0], status: 'open', count: 1 }]);
+  expect(receipt.status).toBe('recorded');
+  expect(state.cooperation!.tasks[0]).toMatchObject({ status: 'running', assignment: action.assignment });
+  expect(state.cooperation!.tasks[0].proof).toBeUndefined();
+  expect(state.cooperation!.tasks[0].finding).toBeUndefined();
+  expect(state.check).toBeUndefined();
+});
+
+it.each(['mathematicalGap', 'lemmaRequests', 'blockers'] as const)(
+  'rejects an outer %s even when a nested field also exists instead of merging them', async field => {
+    const fields = { mathematicalGap: gap(), lemmaRequests: [], blockers: [] };
+    const outer = field === 'mathematicalGap' ? { ...gap(), remaining: 'A different outer gap.' }
+      : field === 'lemmaRequests' ? [{ id: 'outer', kind: 'lemma' }] : [{ mechanism: 'outer-blocker', scope: 'other-inference' }];
+    await expect(publish({ kind: 'research', [field]: outer, finding: { ...finding(), [field]: fields[field] } }))
+      .rejects.toMatchObject({ message: 'math_research_delivery_invalid',
+        issues: [{ path: field, message: expect.stringContaining(`finding.${field}`) }] });
+    expect(state.cooperation!.deliveries ?? []).toEqual([]);
+    expect(state.cooperation!.blockers ?? []).toEqual([]);
+    expect(state.cooperation!.tasks[0].status).toBe('running');
+  });
+
 it.each(['environment', 'problem'] as const)('does not bind an old finding to a new %s after asynchronous application checking', async change => {
   const checking = deferred<[]>(), entered = deferred();
   vi.spyOn(cooperative as any, 'knowledgeUses').mockImplementation(() => { entered.resolve(); return checking.promise; });
@@ -190,6 +262,7 @@ it('preserves notes-only Lean support under its actual commit independently of t
   const code = 'namespace Probe\nlemma retained : True := by trivial\nend Probe\n';
   fs.writeFileSync(path.join(workers[1].worktree, 'RESEARCH.md'), '```lean\n' + code + '```\n');
   const support = commitSolverSources(state.problem, workers[1].worktree);
+  fs.writeFileSync(path.join(workers[1].worktree, 'RESEARCH.md'), 'Later live notes are not part of the nominated commit.\n');
   await publish({ kind: 'research', commit: support, finding: { ...finding(),
     leanChecks: [{ status: 'passed', path: 'RESEARCH.md', declarations: ['Probe.retained'] }] } });
   const [record] = state.cooperation!.deliveries!;
@@ -201,7 +274,52 @@ it('preserves notes-only Lean support under its actual commit independently of t
   expect(committedSource(workers[0].worktree, record.commit!, 'RESEARCH.md')).toBe(record.finding);
 });
 
-it('keeps a malformed final research report on its original assignment and accepts its corrected finding', async () => {
+it.each(['notes', 'owned-source'] as const)('freezes saved %s for a research event without a worker commit or live index changes', async location => {
+  const worker = workers[1], notes = path.join(worker.worktree, 'RESEARCH.md');
+  const relative = path.join(state.problem.projectRelative, 'Submission.lean');
+  const sourceFile = path.join(worker.worktree, relative);
+  const original = fs.readFileSync(sourceFile, 'utf8');
+  const code = 'namespace Probe\nlemma retained : True := by trivial\nend Probe\n';
+  const sourceCode = 'lemma Probe.retained : True := by trivial\n';
+  fs.writeFileSync(sourceFile, original + '\n-- Staged work must remain untouched.\n');
+  git(worker.worktree, ['add', '--', relative]);
+  fs.writeFileSync(sourceFile, location === 'owned-source' ? original + '\n' + sourceCode : original);
+  const savedNotes = location === 'notes' ? '# Checked probe\n\n```lean\n' + code + '```\n' : 'Saved supporting lemma.\n';
+  fs.writeFileSync(notes, savedNotes);
+  const head = git(worker.worktree, ['rev-parse', 'HEAD']);
+  const index = git(worker.worktree, ['diff', '--cached', '--binary']);
+  await publish({ kind: 'research', finding: { ...finding(),
+    leanChecks: [{ status: 'passed', path: location === 'notes' ? 'RESEARCH.md' : 'Submission.lean',
+      declarations: ['Probe.retained'] }] } });
+  const [record] = state.cooperation!.deliveries!;
+  expect(record.artifacts).toMatchObject({ scope: 'advisory-unverified', seedCommit: action.assignment.seedCommit,
+    problemReceiptDigest: state.problem.receiptDigest, taskDigest: action.assignment.taskDigest,
+    artifacts: [expect.objectContaining({ kind: location === 'notes' ? 'notes-lean' : 'owned-source',
+      declarations: [expect.objectContaining({ name: 'Probe.retained', draft: false })] })],
+    reportedChecks: [{ status: 'passed', declarations: ['Probe.retained'] }] });
+  expect(record.artifacts!.commit).not.toBe(record.commit);
+  expect(committedSource(worker.worktree, record.artifacts!.commit, location === 'notes' ? 'RESEARCH.md' : relative))
+    .toContain(location === 'notes' ? code : sourceCode);
+  expect(committedSource(worker.worktree, record.commit!, 'RESEARCH.md')).toBe(record.finding);
+  expect(git(worker.worktree, ['rev-parse', 'HEAD'])).toBe(head);
+  expect(git(worker.worktree, ['diff', '--cached', '--binary'])).toBe(index);
+  expect(fs.readFileSync(notes, 'utf8')).toBe(savedNotes);
+  expect(fs.readFileSync(sourceFile, 'utf8')).toBe(location === 'owned-source' ? original + '\n' + sourceCode : original);
+  expect(state.cooperation!.tasks[0]).toMatchObject({ status: 'running', assignment: action.assignment });
+  expect(state.cooperation!.tasks[0].proof).toBeUndefined();
+  expect(state.check).toBeUndefined();
+});
+
+it('still rejects an unsaved success claim in an event without a commit', async () => {
+  fs.writeFileSync(path.join(workers[1].worktree, 'RESEARCH.md'), 'The temporary Lean check passed, but its source was restored.\n');
+  await expect(publish({ kind: 'research', finding: { ...finding(),
+    leanChecks: [{ status: 'passed', path: 'RESEARCH.md', declarations: ['Probe.missing'] }] } }))
+    .rejects.toThrow('math_delivery_artifact_required');
+  expect(state.cooperation!.deliveries ?? []).toEqual([]);
+  expect(state.cooperation!.tasks[0].status).toBe('running');
+});
+
+it.each(['json', 'blocker'] as const)('keeps a malformed %s final research report on its original assignment and accepts its corrected finding', async failure => {
   const node = state.cooperation!.tasks[0];
   const task = { ...node.task, kind: 'research' as const, theoremName: undefined, type: undefined, proofPath: undefined,
     objective: 'Retain the exact classification argument and remaining gap.' };
@@ -215,7 +333,9 @@ it('keeps a malformed final research report on its original assignment and accep
   (cooperative as any).input.save = () => saved.push(JSON.parse(JSON.stringify(state)));
   const notes = path.join(workers[1].worktree, 'RESEARCH.md');
   const ticks = String.fromCharCode(96).repeat(3);
-  const malformed = ticks + 'math-result\n{"summary":\n' + ticks;
+  const malformed = failure === 'json' ? ticks + 'math-result\n{"summary":\n' + ticks
+    : JSON.stringify({ ...finding(), blockers: [{ mechanism: 'Missing uniform input', scope: 'Local inference',
+      reopenOn: [{ kind: 'dependency-checked', taskId: 'original_goal_1' }] }] });
   fs.writeFileSync(notes, malformed);
   const invalidCommit = commitSolverSources(state.problem, workers[1].worktree);
   await expect(cooperative.deliver(workers[1], action, invalidCommit)).resolves.toEqual({ checkWhole: false });
@@ -223,7 +343,10 @@ it('keeps a malformed final research report on its original assignment and accep
   expect(state.workers.find(worker => worker.id === workers[1].id)?.threadId).toBe('original-research-thread');
   expect(state.cooperation!.deliveryReceipts).toEqual([expect.objectContaining({ status: 'needs-correction',
     taskId: task.id, taskDigest: taskVersion(task), assignmentKey: assignmentDeliveryFile(originalAssignment),
-    code: 'math_research_delivery_invalid', issues: [{ path: '$', message: 'The research control response must contain valid JSON.' }],
+    ...(failure === 'json' ? { code: 'math_research_delivery_invalid',
+      issues: [{ path: '$', message: 'The research control response must contain valid JSON.' }] }
+      : { code: 'math_route_blocker_invalid', issues: [{ path: 'blockers[0].reopenOn[0].taskId',
+        message: expect.stringContaining('no declared dependencies') }] }),
   })]);
   expect(saved.some(snapshot => snapshot.cooperation?.deliveryReceipts?.length === 1)).toBe(true);
   expect(state.cooperation!.deliveries?.filter(delivery => delivery.kind === 'research') ?? []).toEqual([]);

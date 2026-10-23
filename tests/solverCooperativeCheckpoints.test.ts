@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MathAgentOptions, MathAgentSession } from '../src/runtime/codexSession';
 import { readSolverRunState, writeSolverRunState } from '../src/solver/archive';
 import { CooperativeResearch } from '../src/solver/cooperation';
+import { createCapacityExploration } from '../src/solver/capacityExploration';
 import { directSolverModules, type SolverModules } from '../src/solver/modules';
 import { committedSource, git } from '../src/solver/problem';
 import { runResearchWorkers } from '../src/solver/research';
@@ -14,7 +15,7 @@ import { leadWorker, localExample, peerWorker, solverState } from './helpers/sol
 
 vi.mock('../src/math/mathBuildManifest', () => ({ readMathBuildManifest: vi.fn() }));
 
-describe('cooperative advisory scheduling checkpoints', () => {
+describe('cooperative advisory continuation and event driven handoffs', () => {
   let directory: string;
   let controllers: AbortController[], running: Promise<unknown>[];
 
@@ -30,7 +31,7 @@ describe('cooperative advisory scheduling checkpoints', () => {
     if (directory) fs.rmSync(directory, { recursive: true, force: true });
   });
 
-  function fixture(initial = false, projectRelative?: string, continuation?: 'lead' | 'lead-capacity' | 'custom-full' | 'peer') {
+  function fixture(initial = false, projectRelative?: string, continuation?: 'lead' | 'lead-capacity' | 'custom-full' | 'peer', capacity = false) {
     const example = localExample('solver-advisory-checkpoint-', 'lead');
     directory = example.directory;
     if (projectRelative) {
@@ -41,16 +42,24 @@ describe('cooperative advisory scheduling checkpoints', () => {
     }
     const { workspace, problem } = example;
     const workers = [leadWorker(problem, workspace), peerWorker(example, initial ? 'engineer' : 'researcher',
-      { role: initial ? 'engineer' : continuation === 'lead-capacity' ? 'prover' : 'researcher' })];
+      { role: initial ? 'engineer' : capacity || continuation === 'lead-capacity' ? 'prover' : 'researcher' })];
     const plan = parseCooperationPlan(problem, { tasks: [
       ...problem.targets.map((target, index) => ({ id: `goal_${index + 1}`, kind: 'goal',
-        objective: `Prove ${target.theoremName}`, ...target, status: 'paused' })),
+        objective: `Prove ${target.theoremName}`, ...target, status: capacity ? 'active' : 'paused',
+        ...(capacity ? { ownerId: 'unavailable-prover' } : {}) })),
       { id: 'investigate', kind: 'research', ownerId: 'researcher', objective: 'Resolve the precise missing construction.' },
     ] });
     const state = solverState(problem, workspace, { runId: 'advisory-checkpoint-fixture', phase: 'prepared',
       workers: workers.map(worker => ({ ...worker, phase: 'prepared', turns: 0 })),
       ...initial ? {} : { cooperation: { tasks: plan.tasks.map(task => ({ task, status: 'pending', attempts: 0 })),
         groups: plan.groups.map(group => ({ group, turns: 0 })) } } });
+    if (capacity) {
+      const nodes = state.cooperation!.tasks;
+      const exploration = createCapacityExploration(nodes[0], workers[1], nodes, {
+        environmentDigest: state.environmentDigest!, problemReceiptDigest: problem.receiptDigest,
+      }, 'interface');
+      state.cooperation!.tasks = nodes.filter(node => node.task.id !== 'investigate').concat(exploration);
+    }
     if (continuation && continuation !== 'peer') {
       state.cooperation!.error = 'offline_lead_replanning_required';
       state.cooperation!.tasks.find(node => node.task.id === 'investigate')!.task.status = 'paused';
@@ -123,14 +132,6 @@ describe('cooperative advisory scheduling checkpoints', () => {
     return { started, done, actions, interrupt, notify, open, wait };
   }
 
-  async function reachProtectedTurn(held: ReturnType<typeof heldAdvisoryTurns>, completion: Promise<unknown>) {
-    await held.wait(0, completion);
-    for (const [turn, interval] of [120_000, 240_000, 480_000].entries()) {
-      await vi.advanceTimersByTimeAsync(interval);
-      await held.wait(turn + 1, completion);
-    }
-  }
-
   function heldContinuationTurns(options: { saveNotes?: boolean; highContext?: boolean } = {}) {
     const started = [deferred(), deferred()], done = [deferred<string>(), deferred<string>()];
     const messages: { assignment: CooperativeAction; receipt?: string; mode: string; exactTasks?: unknown[]; sentinel?: string;
@@ -155,8 +156,28 @@ describe('cooperative advisory scheduling checkpoints', () => {
     });
     const wait = (turn: number, completion: Promise<unknown>) => Promise.race([started[turn].promise,
       completion.then(() => { throw new Error('fixture_finished_before_continuation:' + turn); })]);
-    return { open, close, interrupt, messages, threads, wait };
+    return { open, close, interrupt, messages, threads, wait, done };
   }
+
+  it.each(['lead', 'peer'] as const)('does not interrupt unlimited %s work after two minutes or after saving progress', async role => {
+    const { workers, check, events, controller, run } = fixture(false, undefined, role);
+    const held = heldContinuationTurns(), completion = run(held.open, Infinity); void completion.catch(() => {});
+    await held.wait(0, completion);
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(held.interrupt).not.toHaveBeenCalled();
+    expect(held.open).toHaveBeenCalledOnce();
+    fs.writeFileSync(path.join(workers[role === 'lead' ? 0 : 1].worktree, 'RESEARCH.md'),
+      'Durable mathematical progress; the exact remaining inference is still being investigated.\n');
+    await vi.advanceTimersByTimeAsync(3_600_000);
+    expect(held.interrupt).not.toHaveBeenCalled();
+    expect(held.open).toHaveBeenCalledOnce();
+    expect(events.some(item => item.event === 'cooperative_checkpoint_scheduled' ||
+      item.event === 'cooperative_checkpoint_interrupted' || item.event === 'plan_rejected')).toBe(false);
+    expect(check).not.toHaveBeenCalled();
+    controller.abort(new Error('fixture_complete'));
+    await expect(completion).rejects.toThrow('fixture_complete');
+    expect(vi.getTimerCount()).toBe(0);
+  });
 
   it.each(['lead', 'custom-full'] as const)(
     'keeps first Lead dispatch full and resumes %s with the current nonce and receipt', async mode => {
@@ -166,7 +187,7 @@ describe('cooperative advisory scheduling checkpoints', () => {
       expect(held.messages[0].assignment.kind).toBe('lead');
       expect(held.messages[0].mode).toBe('full');
       expect(held.messages[0].sentinel).toContain('full-context-exact-types');
-      await vi.advanceTimersByTimeAsync(120_000); await held.wait(1, completion);
+      held.done[0].resolve('interrupted'); await held.wait(1, completion);
       const [first, latest] = held.messages;
       expect(latest.assignment.kind).toBe('lead');
       if (first.assignment.kind !== 'lead' || latest.assignment.kind !== 'lead') throw new Error('fixture_not_lead');
@@ -197,7 +218,7 @@ describe('cooperative advisory scheduling checkpoints', () => {
     const held = heldContinuationTurns({ saveNotes: true, highContext: true });
     const completion = run(held.open, Infinity); void completion.catch(() => {});
     await held.wait(0, completion);
-    await vi.advanceTimersByTimeAsync(120_000); await held.wait(1, completion);
+    held.done[0].resolve('interrupted'); await held.wait(1, completion);
     expect(held.threads).toEqual(['continuation-thread-1', 'continuation-thread-2']);
     expect(held.messages.map(message => message.mode)).toEqual(['full', 'full']);
     expect(held.messages[1].sentinel).toContain('full-context-exact-types');
@@ -217,7 +238,7 @@ describe('cooperative advisory scheduling checkpoints', () => {
     if (first.kind !== 'lead') throw new Error('fixture_not_lead');
     expect(first.capacityRefill).toMatchObject({ workerIds: ['researcher'] });
     expect(state.cooperation!.lastCapacityRefill?.status).toBe('requested');
-    await vi.advanceTimersByTimeAsync(120_000); await held.wait(1, completion);
+    held.done[0].resolve('interrupted'); await held.wait(1, completion);
     const latest = held.messages[1].assignment;
     if (latest.kind !== 'lead') throw new Error('fixture_not_lead');
     expect(held.messages[1].mode).toBe('short');
@@ -250,7 +271,7 @@ describe('cooperative advisory scheduling checkpoints', () => {
     });
     const held = heldContinuationTurns(), completion = run(held.open, Infinity); void completion.catch(() => {});
     await held.wait(0, completion);
-    await vi.advanceTimersByTimeAsync(120_000); await held.wait(1, completion);
+    held.done[0].resolve('interrupted'); await held.wait(1, completion);
     const [first, revised] = held.messages;
     expect(first.assignment.kind).toBe('lead'); expect(revised.assignment.kind).toBe('lead');
     if (first.assignment.kind !== 'lead' || revised.assignment.kind !== 'lead') throw new Error('fixture_not_lead');
@@ -268,7 +289,7 @@ describe('cooperative advisory scheduling checkpoints', () => {
     const { state, check, events, controller, run } = fixture(false, undefined, 'peer');
     const held = heldContinuationTurns(), completion = run(held.open, Infinity); void completion.catch(() => {});
     await held.wait(0, completion);
-    await vi.advanceTimersByTimeAsync(120_000); await held.wait(1, completion);
+    held.done[0].resolve('interrupted'); await held.wait(1, completion);
     expect(held.messages.every(message => message.assignment.kind === 'task')).toBe(true);
     expect(held.messages.map(message => message.mode)).toEqual(['full', 'short']);
     expect(held.threads).toEqual(['continuation-thread-1', 'continuation-thread-1']);
@@ -296,7 +317,7 @@ describe('cooperative advisory scheduling checkpoints', () => {
     });
     const held = heldContinuationTurns(), completion = run(held.open, Infinity); void completion.catch(() => {});
     await held.wait(0, completion);
-    await vi.advanceTimersByTimeAsync(120_000); await held.wait(1, completion);
+    held.done[0].resolve('interrupted'); await held.wait(1, completion);
     expect(held.messages.map(message => message.mode)).toEqual(['full', 'short']);
     expect(held.messages[1].feedback).toContain('newly saved exact coercion lemma');
     expect(held.messages[1].inbox).toContain('A saved finding identifies the exact missing library interface.');
@@ -331,7 +352,7 @@ describe('cooperative advisory scheduling checkpoints', () => {
       });
       const held = heldContinuationTurns(), completion = run(held.open, Infinity); void completion.catch(() => {});
       await held.wait(0, completion);
-      await vi.advanceTimersByTimeAsync(120_000); await held.wait(1, completion);
+      held.done[0].resolve('interrupted'); await held.wait(1, completion);
       expect(held.messages.map(message => message.mode)).toEqual(['full', 'full']);
       expect(held.messages[1].sentinel).toContain('full-context-exact-types');
       expect(held.threads).toEqual(['continuation-thread-1', change === 'task' ? 'continuation-thread-2' : 'continuation-thread-1']);
@@ -350,9 +371,13 @@ describe('cooperative advisory scheduling checkpoints', () => {
     });
 
   it.each(['acknowledged', 'stalled'] as const)(
-    'checkpoints a %s advisory turn, resumes its exact draft and clears old timers before continuing', async interruptKind => {
-      const { state, workers, problem, check, events, run } = fixture();
+    'yields a %s capacity exploration only when typed work is ready and preserves its exact draft', async interruptKind => {
+      const { state, workers, problem, check, events, run } = fixture(false, undefined, undefined, true);
+      const explorationId = state.cooperation!.tasks.find(node => node.capacityExploration)!.task.id;
       const firstStarted = deferred(), resumed = deferred(), interrupted = deferred<string>(), finish = deferred<string>();
+      let typedWorkReady = false;
+      vi.spyOn(CooperativeResearch.prototype, 'shouldYieldCapacityExploration')
+        .mockImplementation(() => typedWorkReady);
       const teardown = deferred();
       const actions: Extract<CooperativeAction, { kind: 'task' }>[] = [];
       let turns = 0, active: ReturnType<typeof deferred<string>> | undefined, lastError: string | undefined;
@@ -368,7 +393,8 @@ describe('cooperative advisory scheduling checkpoints', () => {
         run: async (message, _messageId, _workspace, onStarted) => {
           lastError = undefined;
           const action = JSON.parse(message) as Extract<CooperativeAction, { kind: 'task' }>;
-          actions.push(action); onStarted(`advisory-turn-${++turns}`);
+          actions.push(action);
+          onStarted(`advisory-turn-${++turns}`);
           const notes = path.join(options.workspace, 'RESEARCH.md');
           if (turns === 1) {
             fs.writeFileSync(notes, 'A partial construction and its exact remaining quantitative gap.\n');
@@ -376,10 +402,10 @@ describe('cooperative advisory scheduling checkpoints', () => {
             return interrupted.promise;
           }
           expect(fs.readFileSync(notes, 'utf8')).toContain('exact remaining quantitative gap');
-          const draft = state.cooperation!.researchDrafts!.investigate;
+          const draft = state.cooperation!.researchDrafts![explorationId];
           expect(draft).toMatchObject({ workerId: 'researcher', assignmentId: actions[0].assignment.assignmentId });
           expect(committedSource(workers[1].worktree, draft.commit, 'RESEARCH.md')).toContain('partial construction');
-          const node = state.cooperation!.tasks.find(node => node.task.id === 'investigate')!;
+          const node = state.cooperation!.tasks.find(node => node.task.id === explorationId)!;
           expect(node.status).toBe('running'); expect(node.proof).toBeUndefined(); expect(node.integratedCheck).toBeUndefined();
           expect(state.check).toBeUndefined(); expect(check).not.toHaveBeenCalled();
           fs.writeFileSync(notes, 'A completed advisory construction with its precise assumptions and unresolved quantitative gap.\n');
@@ -392,15 +418,17 @@ describe('cooperative advisory scheduling checkpoints', () => {
       void stopped.catch(() => {});
       await Promise.race([firstStarted.promise, stopped]);
       expect(open.mock.calls[0][0].turnTimeoutMs).toBeUndefined();
-      await vi.advanceTimersByTimeAsync(90_000);
-      expect(notify).toHaveBeenCalledOnce(); expect(interrupt).not.toHaveBeenCalled();
-      await vi.advanceTimersByTimeAsync(30_000);
+      await vi.advanceTimersByTimeAsync(3_600_000);
+      expect(notify).not.toHaveBeenCalled(); expect(interrupt).not.toHaveBeenCalled();
+      typedWorkReady = true;
+      await vi.advanceTimersByTimeAsync(5_000);
+      typedWorkReady = false;
       expect(interrupt).toHaveBeenCalledOnce();
       if (interruptKind === 'stalled') {
         expect(close).not.toHaveBeenCalled();
         await vi.advanceTimersByTimeAsync(10_000);
         expect(close).toHaveBeenCalledOnce(); expect(open).toHaveBeenCalledOnce();
-        expect(state.cooperation!.researchDrafts?.investigate).toBeUndefined();
+        expect(state.cooperation!.researchDrafts?.[explorationId]).toBeUndefined();
         expect(state.workers![1].candidate).toBeUndefined();
         teardown.resolve();
       }
@@ -408,7 +436,7 @@ describe('cooperative advisory scheduling checkpoints', () => {
       expect(actions[1].assignment).toEqual(actions[0].assignment);
       expect(open).toHaveBeenCalledTimes(interruptKind === 'stalled' ? 2 : 1);
       if (interruptKind === 'stalled') expect(open.mock.calls[1][0].threadId).toBe('saved-advisory-thread');
-      expect(vi.getTimerCount()).toBe(2);
+      expect(vi.getTimerCount()).toBe(1);
       await vi.advanceTimersByTimeAsync(15_000);
       expect(interrupt).toHaveBeenCalledOnce();
       expect(close).toHaveBeenCalledTimes(interruptKind === 'stalled' ? 1 : 0);
@@ -416,8 +444,8 @@ describe('cooperative advisory scheduling checkpoints', () => {
       expect(vi.getTimerCount()).toBe(0);
       expect(check).not.toHaveBeenCalled(); expect(state.check).toBeUndefined();
       expect(state.tokenBudget).toMatchObject({ maxTotalTokens: 0, status: 'unlimited' });
-      expect(state.workers![1]).toMatchObject({ threadId: 'saved-advisory-thread', sessionTaskId: 'investigate' });
-      expect(state.cooperation!.tasks.find(node => node.task.id === 'investigate')?.status).toBe('completed');
+      expect(state.workers![1]).toMatchObject({ threadId: 'saved-advisory-thread', sessionTaskId: explorationId });
+      expect(state.cooperation!.tasks.find(node => node.task.id === explorationId)?.status).toBe('completed');
       expect(state.cooperation!.deliveries?.some(delivery => delivery.kind === 'proof' || delivery.kind === 'failure')).toBeFalsy();
       expect(events).toContainEqual({ event: 'turn_checkpoint', details: {
         workerId: 'researcher', turn: 1, reason: 'math_cooperative_scheduling_checkpoint',
@@ -427,7 +455,7 @@ describe('cooperative advisory scheduling checkpoints', () => {
         state.cooperation!.canonicalCommit!, path.join(problem.projectRelative, target.proofPath))).toContain('sorry');
     });
 
-  it('preserves project scratch through a scheduling checkpoint without committing it or changing the assignment', async () => {
+  it('preserves project scratch through a natural checkpoint without committing it or changing the assignment', async () => {
     const { state, workers, problem, check, events, run } = fixture(false, 'generated/project');
     const held = heldAdvisoryTurns(2), completion = run(held.open); void completion.catch(() => {});
     await held.wait(0, completion);
@@ -437,9 +465,9 @@ describe('cooperative advisory scheduling checkpoints', () => {
     const probe = '-- Advisory library probe, never accepted proof content.\n#check Nat.add_zero\n';
     fs.mkdirSync(path.dirname(scratch), { recursive: true }); fs.writeFileSync(scratch, probe);
     fs.writeFileSync(notes, 'A saved construction with its exact remaining quantitative gap.\n');
-    await vi.advanceTimersByTimeAsync(120_000); await held.wait(1, completion);
+    held.done[0].resolve('interrupted'); await held.wait(1, completion);
 
-    expect(held.interrupt).toHaveBeenCalledOnce(); expect(held.open).toHaveBeenCalledOnce();
+    expect(held.interrupt).not.toHaveBeenCalled(); expect(held.open).toHaveBeenCalledOnce();
     expect(held.actions[1].task.id).toBe(held.actions[0].task.id);
     expect(held.actions[1].assignment).toEqual(held.actions[0].assignment);
     expect(state.workers![1]).toMatchObject({ threadId: 'persistent-backoff-thread', sessionTaskId: 'investigate' });
@@ -461,7 +489,7 @@ describe('cooperative advisory scheduling checkpoints', () => {
     expect(git(worktree, ['ls-tree', '-r', '--name-only', 'HEAD', '--', relative])).toBe('');
     expect(git(workers[0].worktree, ['ls-tree', '-r', '--name-only', state.cooperation!.canonicalCommit!, '--', relative])).toBe('');
     expect(events).toContainEqual({ event: 'turn_checkpoint', details: {
-      workerId: 'researcher', turn: 1, reason: 'math_cooperative_scheduling_checkpoint',
+      workerId: 'researcher', turn: 1,
     } });
     expect(events.some(item => item.event === 'worker_failed' || item.event === 'turn_failed')).toBe(false);
     expect(state.cooperation!.deliveries?.some(delivery => delivery.kind === 'proof' || delivery.kind === 'failure')).toBeFalsy();
@@ -470,19 +498,19 @@ describe('cooperative advisory scheduling checkpoints', () => {
       state.cooperation!.canonicalCommit!, path.join(problem.projectRelative, target.proofPath))).toContain('sorry');
   });
 
-  it('keeps a genuine tool failure as a failure when it coincides with a scheduling interrupt', async () => {
+  it('keeps a genuine tool failure after long reasoning as a failure', async () => {
     const { check, events, run } = fixture();
     const started = deferred(), done = deferred<string>();
     let lastError: string | undefined;
     const open = async (): Promise<MathAgentSession> => ({ threadId: 'failed-advisory-thread',
-      get lastError() { return lastError; }, close: async () => {},
-      interrupt: async () => { lastError = 'math_model_tool_failed'; done.resolve('failed'); },
+      get lastError() { return lastError; }, close: async () => {}, interrupt: async () => {},
       run: async (_message, _messageId, _workspace, onStarted) => {
         onStarted('failed-turn'); started.resolve(); return done.promise;
       } });
     const completion = run(open, 1); void completion.catch(() => {});
     await started.promise;
-    await vi.advanceTimersByTimeAsync(120_000);
+    await vi.advanceTimersByTimeAsync(3_600_000);
+    lastError = 'math_model_tool_failed'; done.resolve('failed');
     await expect(completion).rejects.toThrow('math_model_tool_failed');
     expect(events.some(item => item.event === 'turn_checkpoint')).toBe(false);
     expect(events).toContainEqual({ event: 'turn_failed', details: {
@@ -491,89 +519,33 @@ describe('cooperative advisory scheduling checkpoints', () => {
     expect(check).not.toHaveBeenCalled(); expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('extends empty slices three times, then protects long reasoning through repeated deadlines and metadata changes', async () => {
-    const { state, workers, check, events, run } = fixture();
-    const held = heldAdvisoryTurns(4), completion = run(held.open, 4); void completion.catch(() => {});
-    await reachProtectedTurn(held, completion);
-    expect(held.interrupt).toHaveBeenCalledTimes(3);
-    expect(state.workers![1].advisoryCheckpoint).toMatchObject({ noProgressStreak: 3 });
-    expect(state.cooperation!.researchCheckpoints?.investigate?.paused).not.toBe(true);
-    const notes = path.join(workers[1].worktree, 'RESEARCH.md');
-    fs.writeFileSync(notes, '');
-    fs.utimesSync(notes, new Date(), new Date(Date.now() + 1_000));
-    fs.writeFileSync(path.join(workers[1].worktree, 'COOPERATION.json'), '{"hostStatus":"updated"}');
-    await vi.advanceTimersByTimeAsync(3_600_000);
-    expect(held.interrupt).toHaveBeenCalledTimes(3);
-    expect(held.notify).toHaveBeenCalledTimes(4);
-    expect(state.workers![1].advisoryCheckpoint?.noProgressStreak).toBe(3);
-    expect(events.filter(item => item.event === 'cooperative_checkpoint_scheduled')
-      .map(item => item.details!.checkpointAfterMs)).toEqual([120_000, 240_000, 480_000, 960_000]);
-    expect(events).toContainEqual({ event: 'cooperative_checkpoint_deferred', details: {
-      workerId: 'researcher', turnId: 'backoff-turn-3', checkpointAfterMs: 960_000, noProgressStreak: 3,
-      protected: true, reason: 'awaiting-durable-progress',
-    } });
-    fs.writeFileSync(notes, 'The long uninterrupted argument is now saved with its exact remaining gap.\n');
-    held.done[3].resolve('completed'); await expect(completion).resolves.toBeUndefined();
-    expect(state.workers![1].advisoryCheckpoint?.noProgressStreak).toBe(0);
-    expect(held.actions.every(action => action.assignment.taskDigest === held.actions[0].assignment.taskDigest)).toBe(true);
-    expect(check).not.toHaveBeenCalled(); expect(state.check).toBeUndefined(); expect(vi.getTimerCount()).toBe(0);
-  });
-
-  it.each([false, true])('restores checkpoint backoff from disk and resets it when the task scope changes (%s)', async changeScope => {
-    const { state, workers, run } = fixture();
+  it('restores saved progress without reviving legacy time slicing or interrupting new source edits', async () => {
+    const { state, workers, problem, check, events, controller, run } = fixture();
     const held = heldAdvisoryTurns(2), first = run(held.open, 1); void first.catch(() => {});
-    await held.wait(0, first); await vi.advanceTimersByTimeAsync(120_000);
+    await held.wait(0, first); held.done[0].resolve('interrupted');
     await expect(first).resolves.toBeUndefined();
     expect(state.workers![1].advisoryCheckpoint?.noProgressStreak).toBe(1);
-    const checkpointFile = path.join(directory, 'backoff-state.json');
+    const checkpointFile = path.join(directory, 'checkpoint-state.json');
     writeSolverRunState(checkpointFile, state);
     Object.assign(state, readSolverRunState(checkpointFile));
-    expect(state.workers![1].advisoryCheckpoint?.noProgressStreak).toBe(1);
-    if (changeScope) {
-      const task = state.cooperation!.tasks.find(node => node.task.id === 'investigate')!.task;
-      task.revision++; task.objective = 'Investigate the revised exact construction.';
-    }
-    const second = run(held.open, 2); void second.catch(() => {});
+    const second = run(held.open, Infinity); void second.catch(() => {});
     await held.wait(1, second);
-    expect(held.open.mock.calls[1][0].threadId).toBe(changeScope ? undefined : 'persistent-backoff-thread');
-    if (!changeScope) {
-      await vi.advanceTimersByTimeAsync(120_000);
-      expect(held.interrupt).toHaveBeenCalledOnce();
-      await vi.advanceTimersByTimeAsync(60_000);
-      expect(held.notify).toHaveBeenCalledTimes(2);
-      await vi.advanceTimersByTimeAsync(60_000);
-    } else await vi.advanceTimersByTimeAsync(120_000);
-    await expect(second).resolves.toBeUndefined();
-    expect(state.workers![1].advisoryCheckpoint?.noProgressStreak).toBe(changeScope ? 1 : 2);
-    expect(state.workers![1].threadId).toBe('persistent-backoff-thread');
-    expect(held.interrupt).toHaveBeenCalledTimes(2); expect(vi.getTimerCount()).toBe(0);
-    expect(workers[1].role).toBe('researcher');
-  });
-
-  it('allows a protected turn to checkpoint after new owned source is saved and restores the first interval', async () => {
-    const { state, workers, problem, check, events, run } = fixture();
-    const held = heldAdvisoryTurns(5), completion = run(held.open, 5); void completion.catch(() => {});
-    await reachProtectedTurn(held, completion);
-    await vi.advanceTimersByTimeAsync(960_000);
-    expect(held.interrupt).toHaveBeenCalledTimes(3);
-    const relative = path.join(problem.projectRelative, 'Submission.lean');
-    const source = path.join(workers[1].worktree, relative);
+    expect(held.open.mock.calls[1][0].threadId).toBe('persistent-backoff-thread');
+    await vi.advanceTimersByTimeAsync(3_600_000);
+    const source = path.join(workers[1].worktree, problem.projectRelative, 'Submission.lean');
     fs.writeFileSync(source, fs.readFileSync(source, 'utf8').replace('theorem add_zero',
       'lemma partial_construction : True := by trivial\ntheorem add_zero'));
-    await vi.advanceTimersByTimeAsync(5_000); await held.wait(4, completion);
-    expect(held.interrupt).toHaveBeenCalledTimes(4);
-    expect(state.workers![1].advisoryCheckpoint?.noProgressStreak).toBe(0);
-    const draft = state.cooperation!.researchDrafts!.investigate;
-    expect(committedSource(workers[1].worktree, draft.commit, relative)).toContain('lemma partial_construction : True := by trivial');
-    expect(events.filter(item => item.event === 'cooperative_checkpoint_scheduled').at(-1)?.details)
-      .toMatchObject({ checkpointAfterMs: 120_000, noProgressStreak: 0, protected: false });
-    await vi.advanceTimersByTimeAsync(120_000); await expect(completion).resolves.toBeUndefined();
-    expect(held.interrupt).toHaveBeenCalledTimes(5);
-    expect(state.workers![1].advisoryCheckpoint?.noProgressStreak).toBe(1);
-    expect(check).not.toHaveBeenCalled(); expect(state.check).toBeUndefined(); expect(vi.getTimerCount()).toBe(0);
+    await vi.advanceTimersByTimeAsync(3_600_000);
+    expect(held.interrupt).not.toHaveBeenCalled(); expect(held.notify).not.toHaveBeenCalled();
+    expect(held.open).toHaveBeenCalledTimes(2);
+    expect(events.some(item => item.event === 'cooperative_checkpoint_scheduled')).toBe(false);
+    expect(check).not.toHaveBeenCalled(); expect(state.check).toBeUndefined();
+    controller.abort(new Error('fixture_complete'));
+    await expect(second).rejects.toThrow('fixture_complete');
+    expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('yields an unfinished Lead plan to original-goal work and leaves the proof writer unlimited', async () => {
+  it('handles a natural unfinished Lead checkpoint and leaves the proof writer unlimited', async () => {
     const { state, workers, check, events, controller, run } = fixture(true);
     const leadStarted = deferred(), proofStarted = deferred();
     const leadDone = deferred<string>(), proofDone = deferred<string>();
@@ -595,10 +567,10 @@ describe('cooperative advisory scheduling checkpoints', () => {
     });
     const completion = run(open); void completion.catch(() => {});
     await leadStarted.promise;
-    await vi.advanceTimersByTimeAsync(120_000);
-    await proofStarted.promise;
-    expect(sessions.get('solver')!.notify).toHaveBeenCalledOnce();
-    expect(sessions.get('solver')!.interrupt).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(3_600_000);
+    expect(sessions.get('solver')!.notify).not.toHaveBeenCalled();
+    expect(sessions.get('solver')!.interrupt).not.toHaveBeenCalled();
+    leadDone.resolve('interrupted'); await proofStarted.promise;
     expect(state.cooperation!.initialPlanFallback).toBeDefined();
     expect(fs.readFileSync(path.join(workers[0].worktree, 'RESEARCH.md'), 'utf8')).toContain('a quantifier bridge remains open');
     expect(state.cooperation!.tasks.filter(node => node.task.kind === 'goal')).toHaveLength(state.problem.targets.length);
@@ -608,8 +580,8 @@ describe('cooperative advisory scheduling checkpoints', () => {
     expect(sessions.get('engineer')!.interrupt).not.toHaveBeenCalled();
     expect(sessions.get('engineer')!.notify).not.toHaveBeenCalled();
     expect(open.mock.calls.every(([options]) => options.turnTimeoutMs === undefined)).toBe(true);
-    expect(events.some(item => item.event === 'turn_checkpoint' &&
-      item.details?.reason === 'math_cooperative_scheduling_checkpoint')).toBe(true);
+    expect(events.some(item => item.event === 'turn_checkpoint')).toBe(true);
+    expect(events.some(item => item.event === 'cooperative_checkpoint_scheduled')).toBe(false);
     controller.abort(new Error('fixture_complete'));
     await expect(completion).rejects.toThrow('fixture_complete');
     expect(check).not.toHaveBeenCalled(); expect(state.check).toBeUndefined();

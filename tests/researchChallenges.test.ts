@@ -57,6 +57,33 @@ it('persists a specific response through serialization without granting proof ac
   expect(restored.tasks.map((node: TaskRecord) => node.status)).toEqual(['pending', 'pending', 'completed']);
 });
 
+it.each(['revised', 'disputed'])('allows an unchanged %s decision in a later full plan without another inbox dispatch', status => {
+  const state = fixture(), [challenge] = pendingResearchChallenges(state);
+  const response = { id: challenge.id, status, reason: 'The exact inference has been addressed.',
+    ...(status === 'disputed' ? { evidenceRefs: ['fixed-counterargument'] } : {}) };
+  const challengeDecisions = resolveResearchChallenges(state, [challenge.id], { [challenge.id]: challenge.activationDigest },
+    state.tasks.map(node => node.task), [response]);
+  const restored = JSON.parse(JSON.stringify({ ...state, challengeDecisions }));
+  const tasks = restored.tasks.map((node: TaskRecord) => node.task);
+  expect(resolveResearchChallenges(restored, [], {}, tasks, [response])).toEqual([]);
+  expect(() => resolveResearchChallenges(restored, [], {}, tasks, [{ ...response, reason: 'A different decision.' }]))
+    .toThrow('math_challenge_decision_invalid');
+  expect(() => resolveResearchChallenges(restored, [], {}, tasks, [response, response]))
+    .toThrow('math_challenge_decision_invalid');
+  expect(restored.tasks.every((node: TaskRecord) => !node.integratedCheck)).toBe(true);
+});
+
+it('requires a new dispatch when a repeated decision no longer matches the current evidence context', () => {
+  const state = fixture(), [challenge] = pendingResearchChallenges(state);
+  const response = { id: challenge.id, status: 'revised', reason: 'The route has been repaired.' };
+  const challengeDecisions = resolveResearchChallenges(state, [challenge.id], { [challenge.id]: challenge.activationDigest },
+    state.tasks.map(node => node.task), [response]);
+  const changed = { ...state, challengeDecisions, proofRoutes: [{ ...state.proofRoutes[0], prerequisiteTaskIds: ['core'] }] };
+  expect(pendingResearchChallenges(changed)).toHaveLength(1);
+  expect(() => resolveResearchChallenges(changed, [], {}, changed.tasks.map(node => node.task), [response]))
+    .toThrow('math_challenge_decision_invalid');
+});
+
 it('invalidates a decision on same-ID OR topology changes and rejects a stale dispatched activation', () => {
   const state = fixture(), [original] = pendingResearchChallenges(state);
   const response = [{ id: original.id, status: 'deferred', reason: 'Need a new bound.', reopenOn: 'A valid uniform bound is available.' }];

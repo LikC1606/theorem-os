@@ -2,12 +2,13 @@ import { parseCooperationPlan, isAdvisoryTask as advisory } from './tasks';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
+import { canonicalMathJson, mathDigest, readMathFile } from '../math/mathRuntimeIo';
 import { mathGitResult } from '../math/mathGit';
+import { assertMathCanonicalPath } from '../math/paths';
 import { commitSolverSources, withSolverWorktree } from './problem';
 import { type ResearchWorker } from './modules/organization';
 import { taskCanStart } from './modules/search';
-import { deliveryDetails, readDeliveryLines } from './deliveries';
+import { deliveryDetails, readDeliveryLines, MAX_RESEARCH_NOTES_BYTES } from './deliveries';
 import { isStatementAction } from './statementReview';
 import { captureDeliveryArtifacts } from './deliveryArtifacts';
 import { researchHandoffs, resolveResearchHandoffs, type ResearchHandoffDecision } from './researchHandoffs';
@@ -292,7 +293,16 @@ export abstract class CooperationInputs extends CooperationPlanning {
         const scoped = log !== 'DELIVERIES.jsonl', key = scoped ? `${worker.id}/${log}` : worker.id;
         const discardKey = `${key}/discardingOversized`;
         const batch = readDeliveryLines(path.join(worker.worktree, log), cursors[key] ?? 0,
-          { discardingOversized: cursors[discardKey] === 1 });
+          { discardingOversized: cursors[discardKey] === 1, replayTruncated: true });
+        if (batch.truncated) {
+          this.input.signal.throwIfAborted();
+          cursors[key] = 0; cursors[discardKey] = 0;
+          this.input.emit('delivery_log_restarted', { workerId: worker.id, file: log,
+            reason: 'file-truncated', ...batch.truncated });
+          // Save the rewind before processing entries; a failed proof or restart
+          // must resume from the last consumed line in the corrected file.
+          this.input.save();
+        }
         for (const entry of batch.entries!) {
           this.input.signal.throwIfAborted();
           if (entry.error) reject(entry.error, `${key}:${entry.offset}:${entry.error}`);
@@ -326,6 +336,12 @@ export abstract class CooperationInputs extends CooperationPlanning {
     const automaticId = scoped ? mathDigest(canonicalMathJson({ file: assignmentKey, value })) : undefined;
     if (scoped) value = { id: automaticId, kind: 'progress', taskId: action.task.id,
       taskDigest: action.assignment.taskDigest, ...value };
+    if (value.kind === 'research') {
+      const misplaced = ['mathematicalGap', 'lemmaRequests', 'blockers'].filter(key => Object.hasOwn(value, key));
+      if (misplaced.length) throw new ResearchAdmissionError({ status: 'rejected', code: 'math_research_delivery_invalid',
+        recovery: 'correct-and-resubmit', issues: misplaced.map(key => ({ path: key,
+          message: `Move ${key} inside finding.${key}; research events publish the complete nested finding. Remove the outer field.` })) });
+    }
     const details = deliveryDetails(value);
     if (!value || typeof value.id !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/u.test(value.id) ||
         !['progress', 'proof', 'research', 'ready'].includes(value.kind) || value.taskId !== action.task.id || value.taskDigest !== action.assignment.taskDigest) throw new Error('math_delivery_invalid');
@@ -355,22 +371,46 @@ export abstract class CooperationInputs extends CooperationPlanning {
       const admission = prepareResearchDelivery({ kind: 'event', value: value.finding }, { source: node.task,
         assignment: action.assignment, tasks: this.archive.tasks, deliveries: this.archive.deliveries,
         identity: { problemReceiptDigest: this.input.state.problem.receiptDigest, environmentDigest: this.input.state.environmentDigest } });
-      if (admission.status === 'rejected') throw new ResearchAdmissionError(admission);
+      if (admission.status === 'rejected') throw new ResearchAdmissionError({ ...admission,
+        issues: admission.issues.map(issue => admission.code === 'math_route_blocker_invalid'
+          ? { ...issue, path: 'finding.' + issue.path } : issue) });
       const finding = admission.finding;
       const base = value.commit ?? action.assignment.seedCommit;
       if (typeof base !== 'string' || !/^[a-f0-9]{40,64}$/u.test(base)) throw new Error('math_delivery_invalid_commit');
       const fixed = mathGitResult(worker.worktree, ['merge-base', '--is-ancestor', action.assignment.seedCommit, base], { maxBuffer: 4096 });
       if (fixed.error) throw fixed.error;
       if (fixed.status !== 0) throw new Error('math_delivery_invalid_commit');
-      const supportingArtifacts = value.commit ? captureDeliveryArtifacts({ problem: this.input.state.problem,
-        worktree: worker.worktree, commit: base, assignment: action.assignment }) : undefined;
+      const problem = this.input.state.problem;
+      // Workers publish saved files without committing. Read only owned inputs, before yielding,
+      // and freeze them separately from the event JSON without touching the writer's HEAD/index.
+      const saved = value.commit === undefined ? [...problem.ownedFiles.map(file =>
+        path.join(problem.projectRelative, file)), 'RESEARCH.md'].flatMap(relative => {
+        const file = path.join(worker.worktree, relative);
+        try {
+          assertMathCanonicalPath(file);
+          const bytes = readMathFile(file, relative === 'RESEARCH.md' ? MAX_RESEARCH_NOTES_BYTES : 4 * 1024 * 1024).bytes;
+          return [{ relative, bytes }];
+        } catch (error) {
+          if (relative === 'RESEARCH.md' && (error as NodeJS.ErrnoException)?.code === 'ENOENT') return [];
+          if (error instanceof Error && error.message === 'math_runtime_file_too_large')
+            throw new Error('math_delivery_artifact_too_large');
+          throw new Error(`math_delivery_artifact_required: Cannot freeze ${relative}; save its complete regular-file source before publishing the finding.`);
+        }
+      }) : undefined;
       // Freeze the explicit event in a disposable checkout; the worker keeps its live files and Git index.
       await withSolverWorktree(worker.worktree, base, async checkout => {
+        if (saved) {
+          fs.rmSync(path.join(checkout, 'RESEARCH.md'), { force: true });
+          for (const { relative, bytes } of saved) fs.writeFileSync(path.join(checkout, relative), bytes);
+        }
+        const support = saved ? commitSolverSources(problem, checkout) : base;
+        const supportingArtifacts = captureDeliveryArtifacts({ problem, worktree: checkout,
+          commit: support, assignment: action.assignment });
         fs.writeFileSync(path.join(checkout, 'RESEARCH.md'), JSON.stringify(finding));
-        const commit = commitSolverSources(this.input.state.problem, checkout);
+        const commit = commitSolverSources(problem, checkout);
         if (!this.current(action)) return;
         await this.publishResearchFinding({ ...worker, worktree: checkout }, action, commit, finding, false,
-          { submissionId: value.id, assignmentKey, ...(supportingArtifacts ? { artifacts: supportingArtifacts } : {}) });
+          { submissionId: value.id, assignmentKey, artifacts: supportingArtifacts });
       });
       return;
     }

@@ -64,8 +64,10 @@ export class WorkerProofLifecycle {
       if (!cooperation.pendingProofReady(worker, assignment)) return true;
       const sourceError = solverSourceFeedback(state.problem, worker.worktree);
       if (sourceError) {
+        research.check = undefined;
         cooperation.proofReadyFailedFreeze(worker, assignment, sourceError);
         cooperation.rejected(assignment, sourceError);
+        save(); emit('source_rejected');
         return true;
       }
       const commit = commitSolverSources(state.problem, worker.worktree);

@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { readSolverRunState, type SolverRunState } from './archive';
+import { readSolverRunState, type SolverRunState, type SolverWorkerState } from './archive';
 import { canonicalMathJson, mathDigest, readMathJson } from '../math/mathRuntimeIo';
 import { taskGroup, taskVersion, type TaskRecord } from './tasks';
 import { researchFailureCategory } from './modules/search';
@@ -41,6 +41,12 @@ function proofRecord(node: TaskRecord, state: SolverRunState) {
   };
 }
 
+type WorkerStatus = NonNullable<SolverWorkerState['scheduling']>['status'] | 'prepared' | 'unknown';
+function currentWorkerStatus(worker: Pick<SolverWorkerState, 'phase' | 'scheduling'>): WorkerStatus {
+  if (worker.phase === 'finished') return 'stopped';
+  return worker.scheduling?.status ?? (worker.phase === 'prepared' ? 'prepared' : 'unknown');
+}
+
 export function buildRunInspection(state: SolverRunState, result?: Record<string, unknown>) {
   const cooperative = state.cooperation;
   const resultMatches = state.phase === 'finished' && result?.runId === state.runId &&
@@ -52,10 +58,15 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
   const checked = tasks.filter(node => proofRecord(node, state).status === 'checked');
   const scheduled = (state.workers ?? []).filter(worker => worker.scheduling);
   const working = scheduled.filter(worker => worker.scheduling!.status === 'working');
+  const workers = state.workers ?? [{ id: 'solver', role: 'lead' as const, ...state }];
+  const currentStatuses = workers.map(currentWorkerStatus);
+  const currentStatus = state.phase === 'finished' || state.phase === 'evaluating' ? state.phase :
+    (['working', 'checking', 'preparing', 'stopping', 'unknown', 'idle', 'prepared', 'stopped'] as const)
+      .find(status => currentStatuses.includes(status)) ?? 'unknown';
   return {
     schema: 'deepscientist.math.inspection.v1', runId: state.runId,
     snapshot: runInspectionSnapshot(state, result),
-    evidence: 'recorded-not-replayed', phase: state.phase,
+    evidence: 'recorded-not-replayed', phase: state.phase, currentStatus,
     recordedOutcome: resultMatches ? result?.status : undefined,
     evaluator: evaluator ? { status: evaluator.status, method: evaluator.method, official: evaluator.official } : undefined,
     problem: { id: state.problem.contract.problemId, statement: state.problem.contract.informalStatement,
@@ -68,6 +79,7 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
     turns: state.turns, usage: state.usage, planVersion: cooperative?.planVersion,
     scheduling: { evidence: 'recorded-dispatch-state', observedWorkers: scheduled.length,
       working: working.length,
+      checking: scheduled.filter(worker => worker.scheduling!.status === 'checking').length,
       proofAssignments: working.filter(worker => tasks.some(node => node.task.id === worker.scheduling!.taskId &&
         ['lemma', 'goal'].includes(node.task.kind))).length,
       preparing: scheduled.filter(worker => worker.scheduling!.status === 'preparing').length,
@@ -107,9 +119,9 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
       parkedBy: node.routeParking ?? [],
       parkedRoutes: node.parkedRoutes ?? {},
     })),
-    workers: (state.workers ?? [{ id: 'solver', role: 'lead', ...state }]).map(worker => ({
+    workers: workers.map(worker => ({
       id: worker.id, role: worker.role, sessionRole: 'sessionRole' in worker ? worker.sessionRole : undefined,
-      phase: worker.phase, turns: worker.turns,
+      phase: worker.phase, currentStatus: currentWorkerStatus(worker), turns: worker.turns,
       scheduling: 'scheduling' in worker ? worker.scheduling : undefined,
       usage: worker.usage,
       lastActivity: worker.lastActivity,
@@ -146,8 +158,8 @@ const section = (title: string, text: string) => `\n## ${title}\n\n${text}\n`;
 
 export function renderRunInspection(report: Inspection): string {
   let text = '# Mathematics research run\n\nStored evidence only; this report does not rerun Lean or grant proof acceptance.\n';
-  text += section('Run', table(['Problem', 'Phase', 'Recorded outcome', 'Model', 'Agents', 'Turns'], [[
-    report.problem.id, report.phase, report.recordedOutcome, report.configuration.model, report.configuration.workers, report.turns]]));
+  text += section('Run', table(['Problem', 'Current status', 'Last phase', 'Recorded outcome', 'Model', 'Agents', 'Turns'], [[
+    report.problem.id, report.currentStatus, report.phase, report.recordedOutcome, report.configuration.model, report.configuration.workers, report.turns]]));
   text += `\nObservation: ${report.snapshot.stateDigest}; result: ${report.snapshot.resultDigest ?? 'absent'}.\n`;
   text += `\n${report.problem.statement}\n\nRun: ${report.runId}\n\nPlan version: ${report.planVersion ?? 'not yet planned'}\n`;
   text += section('Model usage', table(['Shared token allowance', 'Reported tokens', 'Complete usage', 'Observed overrun', 'Dispatch status'], [[
@@ -210,10 +222,10 @@ Waiting is a scheduling state, not a mathematical failure. An abandoned or rejec
   if (report.continuation.referenceCoverageMissing.length) text += '\nActual-reference evidence unavailable for: ' +
     report.continuation.referenceCoverageMissing.join(', ') + '.\n';
   text += section('Scheduling', `Recorded active dispatches: ${report.scheduling.working}; proof assignments: ${report.scheduling.proofAssignments}; ` +
-    `preparing: ${report.scheduling.preparing}; stopping: ${report.scheduling.stopping}; idle: ${report.scheduling.idle}. ` +
+    `host checks: ${report.scheduling.checking}; preparing: ${report.scheduling.preparing}; stopping: ${report.scheduling.stopping}; idle: ${report.scheduling.idle}. ` +
     'These checkpoint observations do not establish current process liveness or mathematical progress.');
-  text += section('Workers', table(['Worker', 'Role', 'Session role', 'Scheduling', 'Phase', 'Task', 'Last activity', 'At'], report.workers.map(worker => [
-    worker.id, worker.role, worker.sessionRole, worker.scheduling?.status ?? 'unknown', worker.phase, worker.task, worker.lastActivity?.event,
+  text += section('Workers', table(['Worker', 'Role', 'Session role', 'Current status', 'Last phase', 'Task', 'Last activity', 'At'], report.workers.map(worker => [
+    worker.id, worker.role, worker.sessionRole, worker.currentStatus, worker.phase, worker.task, worker.lastActivity?.event,
     worker.lastActivity ? new Date(worker.lastActivity.at).toISOString() : undefined])));
   const recoveries = report.workers.filter(worker => worker.recovery);
   if (recoveries.length) text += section('Session recovery', table([

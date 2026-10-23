@@ -83,6 +83,27 @@ describe('research delivery admission', () => {
   it.each(['premises', 'remainingObligations'])('reports invalid %s field paths', field => {
     expect(admit({ ...finding, [field]: [42] })).toMatchObject({ status: 'rejected', code: 'math_delivery_invalid', issues: [{ path: field }] });
   });
+  it('returns the same precise blocker correction for notes and event findings without changing their contents', () => {
+    const current = scope(), value = { ...finding, blockers: [{ mechanism: 'Need a uniform input', scope: 'Local inference',
+      reopenOn: [{ kind: 'dependency-checked', taskId: consumer.id }] }] }, original = structuredClone(value);
+    const outcome = admit(value, current);
+    expect(outcome).toMatchObject({ status: 'rejected', code: 'math_route_blocker_invalid', recovery: 'correct-and-resubmit',
+      issues: [{ path: 'blockers[0].reopenOn[0].taskId', message: expect.stringContaining('no declared dependencies') }] });
+    expect(prepareResearchDelivery({ kind: 'notes', text: JSON.stringify(value) }, current)).toEqual(outcome);
+    expect(value).toEqual(original);
+    const corrected = { ...value, blockers: [{ ...value.blockers[0], reopenOn: [{ kind: 'contract-changed' }] }] };
+    expect(admit(corrected, current)).toMatchObject({ status: 'admitted', finding: corrected });
+  });
+  it.each([{ lemmaRequests: ['named_helper'] }, { lemmaRequests: [{ name: 'named_helper', purpose: 'A useful bridge' }] },
+    { lemmaRequests: 'named_helper' }])(
+    'explains the typed proposal object requirement for malformed lemmaRequests %#', ({ lemmaRequests }) => {
+      const result = admit({ ...finding, lemmaRequests });
+      expect(result).toMatchObject({ status: 'rejected', code: 'math_research_lemma_requests_invalid',
+        recovery: 'correct-and-resubmit', issues: [{ path: 'lemmaRequests',
+          message: expect.stringContaining('full closed Lean type') }] });
+      expect(result.status === 'rejected' && result.issues[0].message).toContain('remainingObligations');
+      expect(admit({ ...finding, remainingObligations: ['State the exact helper contract.'], lemmaRequests: [] }).status).toBe('admitted');
+    });
   it('strictly validates gap fields and returns exact issue paths', () => {
     expect(admit({ ...finding, mathematicalGap: { ...gap(), remaining: '' } })).toMatchObject({
       status: 'rejected', code: 'math_delivery_invalid', issues: [{ path: 'mathematicalGap.remaining' }],

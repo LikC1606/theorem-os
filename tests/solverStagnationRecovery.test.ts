@@ -198,7 +198,7 @@ describe('durable checkpoint before context rotation', () => {
   });
 
   it('deduplicates checkpoint requests across repeated turns and a persisted run', async () => {
-    const { state, check, events, run } = fixture();
+    const { state, problem, check, events, run } = fixture();
     const started = Array.from({ length: 3 }, () => deferred());
     const done = Array.from({ length: 3 }, () => deferred<string>());
     let turns = 0;
@@ -210,13 +210,16 @@ describe('durable checkpoint before context rotation', () => {
       run: async (message, _messageId, _workspace, onStarted) => {
         const turn = turns++;
         if (turn >= 3) throw new Error('fixture_unexpected_fourth_turn');
+        // Each natural checkpoint saves a new draft, while the requested argument notes remain unsaved.
+        fs.appendFileSync(path.join(options.workspace, problem.projectRelative, problem.ownedFiles[0]),
+          `\n-- Current-thread draft probe ${turn}; the mathematical argument still needs RESEARCH.md.\n`);
         messages.push(message); onStarted(`deduplicated-turn-${turn}`);
         started[turn].resolve(); return done[turn].promise;
       },
     }));
     const first = run(open, 2); await started[0].promise;
-    await vi.advanceTimersByTimeAsync(120_000); await started[1].promise;
-    await vi.advanceTimersByTimeAsync(240_000); await expect(first).resolves.toBeUndefined();
+    done[0].resolve('checkpoint'); await started[1].promise;
+    done[1].resolve('checkpoint'); await expect(first).resolves.toBeUndefined();
     const file = path.join(directory, 'pending-checkpoint.json');
     writeSolverRunState(file, state);
     const persisted = readSolverRunState(file);
