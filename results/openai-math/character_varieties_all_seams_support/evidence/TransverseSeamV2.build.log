@@ -1,0 +1,50 @@
+OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_transverseSeam {F S V K : Type} {arity : S → ℕ}
+  [Field K] (D : OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram F S V arity) (q : S) [Finite V]
+  {f h : ((i : Fin (arity q)) × Fin (D.childDim q i) → K) ≃ₗ[K] Fin (D.rank (D.ports.facet ⟨q, none⟩)) → K}
+  (w : OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand (D.childDim q) f h)
+  (u : Fin (w.shape.atomicBand.length + 1)) (p : (w.shape.atomicBand.kind u).table.Port)
+  (ss :
+    (OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.wiring (D.ports.mapFacet Sum.inl) q
+        (D.ports.refinedBandForSeam q w.shape)).Seam)
+  (b : Bool) (ho : (D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).ports.attach ⟨Sum.inr (Sum.inl u), p⟩ = (ss, b))
+  (hm :
+    (D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).ports.attach ⟨Sum.inr (Sum.inr u), (w.shape.atomicBand.kind u).mirrorPort p⟩ =
+      (ss, !b))
+  {R : Type} [CommRing R] (φ : R →+* K)
+  (g :
+    (e : (D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).Generator) →
+      (Matrix (Fin ((D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).generatorRank e))
+          (Fin ((D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).generatorRank e)) K)ˣ)
+  (old : D.PortFrames)
+  (T :
+    OAI.IntegralCharacterVarieties.MatrixIso K (Fin (D.rank (D.ports.facet ⟨q, none⟩)))
+      (Fin (D.rank (D.ports.facet ⟨q, none⟩))))
+  (hin : p ≠ (w.shape.atomicBand.kind u).input) (hout : p ≠ (w.shape.atomicBand.kind u).output)
+  (hframes :
+    ∀
+      (a :
+        OAI.IntegralCharacterVarieties.OccurrenceIncidence.LocalPort
+          (V ⊕
+            Fin ((D.ports.refinedBandForSeam q w.shape).length + 1) ⊕
+              Fin ((D.ports.refinedBandForSeam q w.shape).length + 1))
+          (D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).ports.kind),
+      (D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).portFrame g a = D.namedCutPortFrames q w old T a)
+  (hone :
+    ∀
+      (i :
+        Option
+          (Fin
+            ((OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.wiring (D.ports.mapFacet Sum.inl) q
+                  (D.ports.refinedBandForSeam q w.shape)).seamArity
+              ss))),
+      g (OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.Generator.side ⟨ss, i⟩) = 1) :
+  OAI.IntegralCharacterVarieties.SameFramedFlag ((D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).seamGrade ss)
+    (OAI.IntegralCharacterVarieties.HomTransport.matrixUnitEquiv
+      (OAI.IntegralCharacterVarieties.MatrixExpression.Term.eval φ g
+        ((D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).seamLeft ss)))
+    (OAI.IntegralCharacterVarieties.HomTransport.matrixUnitEquiv
+      (OAI.IntegralCharacterVarieties.MatrixExpression.Term.eval φ g
+        ((D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).seamRight ss)))
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_transverseSeam' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

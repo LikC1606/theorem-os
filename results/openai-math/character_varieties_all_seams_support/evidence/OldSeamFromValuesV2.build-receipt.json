@@ -1,0 +1,15 @@
+{
+  "exitCode": 0,
+  "sourceSha256": "5f92e62d142e9539530811702dce9d9e9f2d1a11e981b2d314df91db3ab13ef2",
+  "sourceUnchanged": true,
+  "durationSeconds": 1745.523,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-j1",
+    "-DElab.async=false",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OldSeamFromValuesV2.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OldSeamFromValuesV2.lean"
+  ],
+  "log": "OldSeamFromValuesV2.build.log"
+}

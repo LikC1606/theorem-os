@@ -1,0 +1,211 @@
+name = "theorem_os_problem"
+version = "0.1.0"
+defaultTargets = ["AllSeamsAssemblyInferredV2"]
+
+[[require]]
+name = "mathlib"
+git = "https://github.com/leanprover-community/mathlib4.git"
+rev = "d13f23b723b8a846827a245b89c10fc7d3f11612"
+
+[[lean_lib]]
+name = "OAI"
+roots = ["OAI.AlgebraicGeometry.CharacterVarieties.Seams.ProducedEquations"]
+globs = ["OAI.+"]
+
+[[lean_lib]]
+name = "SeamCases"
+
+[[lean_lib]]
+name = "AllSeamsFromBranchesInferredV1"
+
+[[lean_lib]]
+name = "FrameIndexBridge"
+
+[[lean_lib]]
+name = "NamedFramePortAt"
+
+[[lean_lib]]
+name = "NamedEndpointFlag"
+
+[[lean_lib]]
+name = "NamedEndpointCancel"
+
+[[lean_lib]]
+name = "SigmaFinCoordinates"
+
+[[lean_lib]]
+name = "MatrixReindexCancel"
+
+[[lean_lib]]
+name = "EndpointNormalization"
+
+[[lean_lib]]
+name = "TransportedFrameNamed"
+
+[[lean_lib]]
+name = "ParentSelectedOldPort"
+
+[[lean_lib]]
+name = "OldEndpointAssemblyShared"
+
+[[lean_lib]]
+name = "ParentSelectedSideTransport"
+
+[[lean_lib]]
+name = "SeamCoordinateBridge"
+
+[[lean_lib]]
+name = "NamedEndpointFlagFromFrames"
+
+[[lean_lib]]
+name = "EndpointActualMatrix"
+
+[[lean_lib]]
+name = "OldSeamFromValuesV2"
+
+[[lean_lib]]
+name = "ParentMarkedValueDataV2"
+
+[[lean_lib]]
+name = "MarkedCutNamedBridge"
+
+[[lean_lib]]
+name = "ParentMarkedCutLiftData"
+
+[[lean_lib]]
+name = "ParentProducedValueDataInferredV1"
+
+[[lean_lib]]
+name = "ProducedOldSeamDataInferredV3"
+
+[[lean_lib]]
+name = "NamedTransportOne"
+
+[[lean_lib]]
+name = "UnitSideSeam"
+
+[[lean_lib]]
+name = "OriginalInternalSeam"
+
+[[lean_lib]]
+name = "InternalSideValues"
+
+[[lean_lib]]
+name = "ProducedOriginalInternalSeamDataInferredV2"
+
+[[lean_lib]]
+name = "MirrorInteriorFrame"
+
+[[lean_lib]]
+name = "MirrorInternalSeam"
+
+[[lean_lib]]
+name = "ProducedMirrorInternalSeamDataInferredV2"
+
+[[lean_lib]]
+name = "TransverseSeamV2"
+
+[[lean_lib]]
+name = "TransverseWiringGeneric"
+
+[[lean_lib]]
+name = "TransverseSideAttachGeneric"
+
+[[lean_lib]]
+name = "TransverseNonprincipal"
+
+[[lean_lib]]
+name = "ProducedTransverseSeamsDataInferredV2"
+
+[[lean_lib]]
+name = "FirstCommonEqualityV3"
+
+[[lean_lib]]
+name = "FirstPortFrameShared"
+
+[[lean_lib]]
+name = "FirstNegativeFrameShared"
+
+[[lean_lib]]
+name = "FirstSeamShared"
+
+[[lean_lib]]
+name = "GraftShortUnit"
+
+[[lean_lib]]
+name = "BandFirstShortValues"
+
+[[lean_lib]]
+name = "RefinedFirstShortAtPortV2"
+
+[[lean_lib]]
+name = "MarkedLiftFirstSide"
+
+[[lean_lib]]
+name = "ProducedFirstShortSharedInferredV2"
+
+[[lean_lib]]
+name = "ParentSelectedLastPortFixed"
+
+[[lean_lib]]
+name = "ParentSelectedEndpointsModular"
+
+[[lean_lib]]
+name = "ParentSelectedSeam"
+
+[[lean_lib]]
+name = "ParentSelectedSideEndpointCoordinates"
+
+[[lean_lib]]
+name = "ParentSelectedFromSides"
+
+[[lean_lib]]
+name = "ParentSelectedFlagAlgebra"
+
+[[lean_lib]]
+name = "ParentSelectedBandFlag"
+
+[[lean_lib]]
+name = "ParentProducedSelectedSeamInferredV2"
+
+[[lean_lib]]
+name = "MirrorPrincipalBridge"
+
+[[lean_lib]]
+name = "ParentMirrorPrincipalNormalizedV2"
+
+[[lean_lib]]
+name = "ParentWrapRawFrames"
+
+[[lean_lib]]
+name = "ParentWrapPortFrames"
+
+[[lean_lib]]
+name = "ParentWrapEndpoints"
+
+[[lean_lib]]
+name = "ParentWrapSeam"
+
+[[lean_lib]]
+name = "ParentWrapSideTransport"
+
+[[lean_lib]]
+name = "ParentBlockIdentity"
+
+[[lean_lib]]
+name = "ParentWrapSideEndpointCoordinates"
+
+[[lean_lib]]
+name = "ParentWrapFromSides"
+
+[[lean_lib]]
+name = "ParentWrapFlagAlgebra"
+
+[[lean_lib]]
+name = "ParentWrapBandFlagV3"
+
+[[lean_lib]]
+name = "ParentProducedWrapSeamInferredV2"
+
+[[lean_lib]]
+name = "AllSeamsAssemblyInferredV2"

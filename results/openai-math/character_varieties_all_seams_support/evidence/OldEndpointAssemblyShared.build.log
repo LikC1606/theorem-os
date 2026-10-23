@@ -1,0 +1,6 @@
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldNegativeEndpoint_eq' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldPositiveEndpoint_eq' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

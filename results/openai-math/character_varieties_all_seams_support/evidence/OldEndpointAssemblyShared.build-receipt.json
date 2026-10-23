@@ -1,0 +1,15 @@
+{
+  "exitCode": 0,
+  "sourceSha256": "96860ce4465fd6af1c35d9b86332d8c75ac880f95e350aa435669bb069196874",
+  "sourceUnchanged": true,
+  "durationSeconds": 3353.385,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-j1",
+    "-DElab.async=false",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OldEndpointAssemblyShared.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OldEndpointAssemblyShared.lean"
+  ],
+  "log": "OldEndpointAssemblyShared.build.log"
+}

@@ -1,0 +1,7 @@
+/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/MirrorInternalSeam.lean:113:4: warning: Unused tactic linter: `change
+  ((((w).shape.atomicBand.kind j.succ).mirror.childEnumeration ki)
+        ((w).external_mirrorInteriorChild j ((((w).shape.atomicBand.kind j.castSucc).mirrorChild _) b))).val =
+    ((((w).shape.atomicBand.kind j.castSucc).mirror.childEnumeration ko)
+        ((((w).shape.atomicBand.kind j.castSucc).mirrorChild _) b)).val` does nothing
+
+Note: This linter can be disabled with `set_option linter.unusedTactic false`

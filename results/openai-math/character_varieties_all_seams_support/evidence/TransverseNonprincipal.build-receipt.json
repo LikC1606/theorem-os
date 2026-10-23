@@ -1,0 +1,14 @@
+{
+  "exitCode": 0,
+  "sourceSha256": "da8a8695d747ea4626b374548699188f345277e605f9edfe8c912c905d70789c",
+  "sourceUnchanged": true,
+  "durationSeconds": 1.601,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-j1",
+    "-DElab.async=false",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/TransverseNonprincipal.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/TransverseNonprincipal.lean"
+  ]
+}

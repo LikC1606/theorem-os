@@ -1,0 +1,11 @@
+{
+  "exitCode": 0,
+  "sourceSha256": "267e06b3f3a6233d7dd0969aba659fcd23dd3299f8a319d6534e4265ab015206",
+  "durationSeconds": 1.755,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/TransverseWiringGeneric.lean"
+  ],
+  "leanPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/plausible/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/aesop/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/batteries/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/importGraph/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/Qq/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/mathlib/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/LeanSearchClient/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/proofwidgets/.lake/build/lib/lean",
+  "log": "TransverseWiringGeneric.log"
+}

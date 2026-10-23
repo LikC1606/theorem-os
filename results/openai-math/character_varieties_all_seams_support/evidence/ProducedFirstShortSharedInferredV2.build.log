@@ -1,0 +1,12 @@
+/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ProducedFirstShortSharedInferredV2.lean:34:0: warning: Definition `external_producedFirstSide_one_shared` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ProducedFirstShortSharedInferredV2.lean:41:0: warning: Definition `external_producedFirstShortEquation_shared` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_producedFirstSide_one_shared' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_producedFirstShortEquation_shared' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

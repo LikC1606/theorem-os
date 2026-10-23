@@ -1,0 +1,6 @@
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_markedLiftSide_rebased' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_markedLiftCutPortFrame' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

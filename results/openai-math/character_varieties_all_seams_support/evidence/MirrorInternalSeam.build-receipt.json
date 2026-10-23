@@ -1,0 +1,15 @@
+{
+  "exitCode": 0,
+  "sourceSha256": "299a5302c104836e317fe6abc243fab2468c2804bb91a4836b7566bee0a8a71b",
+  "sourceUnchanged": true,
+  "durationSeconds": 2928.594,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-j1",
+    "-DElab.async=false",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/MirrorInternalSeam.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/MirrorInternalSeam.lean"
+  ],
+  "log": "MirrorInternalSeam.build.log"
+}

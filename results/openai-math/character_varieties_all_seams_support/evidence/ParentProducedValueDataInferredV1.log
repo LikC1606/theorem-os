@@ -1,0 +1,97 @@
+/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentProducedValueDataInferredV1.lean:19:0: warning: Definition `parent_producedMarkedSideValue` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentProducedValueDataInferredV1.lean:25:0: warning: Definition `parent_producedMarkedPortFrame` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentProducedValueDataInferredV1.lean:31:0: warning: Definition `parent_producedCutPortFrame` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_producedMarkedSideValue {F S V R K : Type}
+  {arity : S → ℕ} [CommRing R] [Field K] [Algebra R K]
+  (D : OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram F S V arity) (q : S) [Finite V] (hproper : D.Proper)
+  (hmax : ∀ (f : F), D.rank f ≤ D.rank (D.ports.facet ⟨q, none⟩)) (hg : 0 < D.genus (D.bandCutParent q))
+  (P : D.Punctures R) (x : D.Solution P K) (b0 : Fin (D.boundaryCount (D.bandCutParent q)))
+  (i0 : Fin (D.boundaryLength (D.bandCutParent q) b0))
+  (side :
+    OAI.IntegralCharacterVarieties.OccurrenceIncidence.Side
+      (OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.wiring (D.ports.mapFacet Sum.inl) q
+          (D.ports.refinedBandForSeam q (D.producedCutBand q hg P x b0 i0).shape)).Seam
+      (OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.wiring (D.ports.mapFacet Sum.inl) q
+          (D.ports.refinedBandForSeam q (D.producedCutBand q hg P x b0 i0).shape)).seamArity) :
+  D.refinedMarkedLiftValues q (D.producedCutBand q hg P x b0 i0).shape ⋯ ⋯ ⋯ hproper hmax (algebraMap R K) (↑↑x) b0 i0
+      (D.bandCutHandleT q hg P x) (D.bandCutHandleA q hg P x) (D.producedMarkedFrames q hproper hmax hg P x b0 i0)
+      (OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.Generator.side side) =
+    D.refinedCutSideValues q (D.producedCutBand q hg P x b0 i0).shape ⋯ ⋯ ⋯
+      (fun z =>
+        D.bandCutLiftGenerators q (algebraMap R K) (↑↑x) b0 (D.bandCutHandleT q hg P x) (D.bandCutHandleA q hg P x)
+          (OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.Generator.side z))
+      ((OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.rebaseUnit ⋯)
+        (D.bandCutChosenJ q (algebraMap R K)
+          (D.bandCutLiftGenerators q (algebraMap R K) (↑↑x) b0 (D.bandCutHandleT q hg P x) (D.bandCutHandleA q hg P x))
+          b0 i0 (D.bandCutHandleA q hg P x)))
+      ((((OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.rebaseUnit ⋯)
+                (D.bandCutChosenT q (algebraMap R K)
+                  (D.bandCutLiftGenerators q (algebraMap R K) (↑↑x) b0 (D.bandCutHandleT q hg P x)
+                    (D.bandCutHandleA q hg P x))
+                  b0 i0 (D.bandCutHandleT q hg P x)))⁻¹ *
+            ((OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.rebaseUnit ⋯)
+                (D.bandCutChosenJ q (algebraMap R K)
+                  (D.bandCutLiftGenerators q (algebraMap R K) (↑↑x) b0 (D.bandCutHandleT q hg P x)
+                    (D.bandCutHandleA q hg P x))
+                  b0 i0 (D.bandCutHandleA q hg P x)))⁻¹ *
+          have this :=
+            D.bandCutLiftGenerators q (algebraMap R K) (↑↑x) b0 (D.bandCutHandleT q hg P x) (D.bandCutHandleA q hg P x)
+              (OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.Generator.side ⟨q, none⟩);
+          this) *
+        (OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.rebaseUnit ⋯)
+          (D.bandCutChosenT q (algebraMap R K)
+            (D.bandCutLiftGenerators q (algebraMap R K) (↑↑x) b0 (D.bandCutHandleT q hg P x)
+              (D.bandCutHandleA q hg P x))
+            b0 i0 (D.bandCutHandleT q hg P x)))
+      side
+OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_producedMarkedPortFrame {F S V R K : Type}
+  {arity : S → ℕ} [CommRing R] [Field K] [Algebra R K]
+  (D : OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram F S V arity) (q : S) [Finite V] (hproper : D.Proper)
+  (hmax : ∀ (f : F), D.rank f ≤ D.rank (D.ports.facet ⟨q, none⟩)) (hg : 0 < D.genus (D.bandCutParent q))
+  (P : D.Punctures R) (x : D.Solution P K) (b0 : Fin (D.boundaryCount (D.bandCutParent q)))
+  (i0 : Fin (D.boundaryLength (D.bandCutParent q) b0))
+  (p :
+    OAI.IntegralCharacterVarieties.OccurrenceIncidence.LocalPort
+      (V ⊕
+        Fin ((D.ports.refinedBandForSeam q (D.producedCutBand q hg P x b0 i0).shape).length + 1) ⊕
+          Fin ((D.ports.refinedBandForSeam q (D.producedCutBand q hg P x b0 i0).shape).length + 1))
+      (D.refinedMarkedDiagram q (D.producedCutBand q hg P x b0 i0).shape ⋯ ⋯ ⋯ hproper hmax).ports.kind) :
+  (D.refinedMarkedDiagram q (D.producedCutBand q hg P x b0 i0).shape ⋯ ⋯ ⋯ hproper hmax).portFrame
+      (D.refinedMarkedLiftValues q (D.producedCutBand q hg P x b0 i0).shape ⋯ ⋯ ⋯ hproper hmax (algebraMap R K) (↑↑x) b0
+        i0 (D.bandCutHandleT q hg P x) (D.bandCutHandleA q hg P x) (D.producedMarkedFrames q hproper hmax hg P x b0 i0))
+      p =
+    D.producedMarkedFrames q hproper hmax hg P x b0 i0 p
+OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_producedCutPortFrame {F S V R K : Type}
+  {arity : S → ℕ} [CommRing R] [Field K] [Algebra R K]
+  (D : OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram F S V arity) (q : S) [Finite V] (hproper : D.Proper)
+  (hmax : ∀ (f : F), D.rank f ≤ D.rank (D.ports.facet ⟨q, none⟩)) (hg : 0 < D.genus (D.bandCutParent q))
+  (P : D.Punctures R) (x : D.Solution P K) (b0 : Fin (D.boundaryCount (D.bandCutParent q)))
+  (i0 : Fin (D.boundaryLength (D.bandCutParent q) b0))
+  (p :
+    OAI.IntegralCharacterVarieties.OccurrenceIncidence.LocalPort
+      (V ⊕
+        Fin ((D.ports.refinedBandForSeam q (D.producedCutBand q hg P x b0 i0).shape).length + 1) ⊕
+          Fin ((D.ports.refinedBandForSeam q (D.producedCutBand q hg P x b0 i0).shape).length + 1))
+      (D.refinedCutDiagram q (D.producedCutBand q hg P x b0 i0).shape ⋯ ⋯ ⋯).ports.kind) :
+  (D.refinedCutDiagram q (D.producedCutBand q hg P x b0 i0).shape ⋯ ⋯ ⋯).portFrame
+      (D.external_markedAsCutValues q (D.producedCutBand q hg P x b0 i0).shape ⋯ ⋯ ⋯ hproper hmax
+        (D.refinedMarkedLiftValues q (D.producedCutBand q hg P x b0 i0).shape ⋯ ⋯ ⋯ hproper hmax (algebraMap R K) (↑↑x)
+          b0 i0 (D.bandCutHandleT q hg P x) (D.bandCutHandleA q hg P x)
+          (D.producedMarkedFrames q hproper hmax hg P x b0 i0)))
+      p =
+    D.producedMarkedFrames q hproper hmax hg P x b0 i0 p
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_producedMarkedSideValue' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_producedMarkedPortFrame' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_producedCutPortFrame' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

@@ -1,0 +1,66 @@
+OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldSeamFromValues {F S V K : Type} {arity : S → ℕ}
+  [Field K] (D : OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram F S V arity) (q : S) [Finite V]
+  {f h : ((i : Fin (arity q)) × Fin (D.childDim q i) → K) ≃ₗ[K] Fin (D.rank (D.ports.facet ⟨q, none⟩)) → K}
+  (w : OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand (D.childDim q) f h) (s : S) (hs : s ≠ q) {R : Type}
+  [CommRing R] (φ : R →+* K) (g : (e : D.Generator) → (Matrix (Fin (D.generatorRank e)) (Fin (D.generatorRank e)) K)ˣ)
+  (T :
+    OAI.IntegralCharacterVarieties.MatrixIso K (Fin (D.rank (D.ports.facet ⟨q, none⟩)))
+      (Fin (D.rank (D.ports.facet ⟨q, none⟩))))
+  (z :
+    (e : (D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).Generator) →
+      (Matrix (Fin ((D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).generatorRank e))
+          (Fin ((D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).generatorRank e)) K)ˣ)
+  (hframes :
+    ∀
+      (p :
+        OAI.IntegralCharacterVarieties.OccurrenceIncidence.LocalPort
+          (V ⊕
+            Fin ((D.ports.refinedBandForSeam q w.shape).length + 1) ⊕
+              Fin ((D.ports.refinedBandForSeam q w.shape).length + 1))
+          (D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).ports.kind),
+      (D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).portFrame z p = D.namedCutPortFrames q w (D.portFrame g) T p)
+  (hparent :
+    (OAI.IntegralCharacterVarieties.MatrixIso.unit
+            (z
+              (OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.Generator.side
+                ⟨OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.oldPort (D.ports.mapFacet Sum.inl) q
+                    (D.ports.refinedBandForSeam q w.shape) s true,
+                  none⟩))).reindex
+        (D.external_oldSideParent q w.shape ⋯ ⋯ ⋯ s) (D.external_oldSideParent q w.shape ⋯ ⋯ ⋯ s) =
+      OAI.IntegralCharacterVarieties.MatrixIso.unit
+        (g (OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.Generator.side ⟨s, none⟩)))
+  (hchild :
+    (OAI.IntegralCharacterVarieties.MatrixIso.block fun ii =>
+            OAI.IntegralCharacterVarieties.MatrixIso.unit
+              (z
+                  (OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.Generator.side
+                    ⟨OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.oldPort (D.ports.mapFacet Sum.inl) q
+                        (D.ports.refinedBandForSeam q w.shape) s true,
+                      some ii⟩))⁻¹).reindex
+        (D.external_oldSideColumns q w.shape ⋯ ⋯ ⋯ s) (D.external_oldSideColumns q w.shape ⋯ ⋯ ⋯ s) =
+      OAI.IntegralCharacterVarieties.MatrixIso.block fun ii =>
+        OAI.IntegralCharacterVarieties.MatrixIso.unit
+          (g (OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.Generator.side ⟨s, some ii⟩))⁻¹)
+  (hold :
+    OAI.IntegralCharacterVarieties.SameFramedFlag (fun i => ↑i.fst)
+      (D.namedSeamFrame s (g (OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.Generator.frame s false)) ≪≫ₗ
+        D.namedParentLinear s g)
+      (D.namedChildInverse s g ≪≫ₗ
+        D.namedSeamFrame s (g (OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.Generator.frame s true)))) :
+  OAI.IntegralCharacterVarieties.SameFramedFlag
+    ((D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).seamGrade
+      (OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.oldPort (D.ports.mapFacet Sum.inl) q
+        (D.ports.refinedBandForSeam q w.shape) s true))
+    (OAI.IntegralCharacterVarieties.HomTransport.matrixUnitEquiv
+      (OAI.IntegralCharacterVarieties.MatrixExpression.Term.eval φ z
+        ((D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).seamLeft
+          (OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.oldPort (D.ports.mapFacet Sum.inl) q
+            (D.ports.refinedBandForSeam q w.shape) s true))))
+    (OAI.IntegralCharacterVarieties.HomTransport.matrixUnitEquiv
+      (OAI.IntegralCharacterVarieties.MatrixExpression.Term.eval φ z
+        ((D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).seamRight
+          (OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.oldPort (D.ports.mapFacet Sum.inl) q
+            (D.ports.refinedBandForSeam q w.shape) s true))))
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldSeamFromValues' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

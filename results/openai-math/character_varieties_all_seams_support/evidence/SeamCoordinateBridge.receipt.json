@@ -1,0 +1,12 @@
+{
+  "exitCode": 0,
+  "durationSeconds": 2.638003963045776,
+  "sha256": "1aaf8df515755be3707a7fc7cfa074b8e47eed159d66c61634d4dcbc32d65b6d",
+  "sourceUnchanged": true,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/SeamCoordinateBridge.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/SeamCoordinateBridge.lean"
+  ]
+}

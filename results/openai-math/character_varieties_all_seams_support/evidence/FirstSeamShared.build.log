@@ -1,0 +1,44 @@
+OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstActualFlagFromPortFrames_shared
+  {F S V K : Type} {arity : S → ℕ} [Field K]
+  (D : OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram F S V arity) (q : S) [Finite V]
+  {f h : ((i : Fin (arity q)) × Fin (D.childDim q i) → K) ≃ₗ[K] Fin (D.rank (D.ports.facet ⟨q, none⟩)) → K}
+  (w : OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand (D.childDim q) f h)
+  (g : (e : D.Generator) → (Matrix (Fin (D.generatorRank e)) (Fin (D.generatorRank e)) K)ˣ)
+  (T :
+    OAI.IntegralCharacterVarieties.MatrixIso K (Fin (D.rank (D.ports.facet ⟨q, none⟩)))
+      (Fin (D.rank (D.ports.facet ⟨q, none⟩))))
+  (z :
+    (e : (D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).Generator) →
+      (Matrix (Fin ((D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).generatorRank e))
+          (Fin ((D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).generatorRank e)) K)ˣ)
+  (hframes :
+    ∀
+      (p :
+        OAI.IntegralCharacterVarieties.OccurrenceIncidence.LocalPort
+          (V ⊕
+            Fin ((D.ports.refinedBandForSeam q w.shape).length + 1) ⊕
+              Fin ((D.ports.refinedBandForSeam q w.shape).length + 1))
+          (D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).ports.kind),
+      (D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).portFrame z p = D.namedCutPortFrames q w (D.portFrame g) T p)
+  (hf :
+    f = D.namedSeamFrame q (g (OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.Generator.frame q false))) :
+  OAI.IntegralCharacterVarieties.SameFramedFlag (fun i => ↑i.fst)
+    ((D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).namedSeamFrame
+      (OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.originalPort (D.ports.mapFacet Sum.inl) q
+        (D.ports.refinedBandForSeam q w.shape) 0 true)
+      (z
+        (OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.Generator.frame
+          (OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.originalPort (D.ports.mapFacet Sum.inl) q
+            (D.ports.refinedBandForSeam q w.shape) 0 true)
+          false)))
+    ((D.refinedCutDiagram q w.shape ⋯ ⋯ ⋯).namedSeamFrame
+      (OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.originalPort (D.ports.mapFacet Sum.inl) q
+        (D.ports.refinedBandForSeam q w.shape) 0 true)
+      (z
+        (OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.Generator.frame
+          (OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.originalPort (D.ports.mapFacet Sum.inl) q
+            (D.ports.refinedBandForSeam q w.shape) 0 true)
+          true)))
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstActualFlagFromPortFrames_shared' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

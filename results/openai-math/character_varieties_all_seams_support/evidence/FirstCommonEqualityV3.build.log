@@ -1,0 +1,6 @@
+/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/FirstCommonEqualityV3.lean:41:0: warning: automatically included section variable(s) unused in theorem `OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstArity`:
+  [Finite V]
+consider restructuring your `variable` declarations so that the variables are not in scope or explicitly omit them:
+  omit [Finite V] in theorem ...
+
+Note: This linter can be disabled with `set_option linter.unusedSectionVars false`

@@ -1,0 +1,14 @@
+{
+  "exitCode": 0,
+  "sourceSha256": "431048f2d42d3174224254a10058c1b811cb39b53548e597d9d816832fa4b2ed",
+  "durationSeconds": 13.535661074100062,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-j1",
+    "-DElab.async=false",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/MirrorPrincipalBridge.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/MirrorPrincipalBridge.lean"
+  ],
+  "log": "MirrorPrincipalBridge.build.log"
+}

@@ -1,0 +1,14 @@
+{
+  "exitCode": 0,
+  "sourceSha256": "097a49b12a301c39e5f0e9128f781212b5366415249117b7492291792420360b",
+  "sourceUnchanged": true,
+  "durationSeconds": 4801.212042570114,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-j1",
+    "-DElab.async=false",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/FirstCommonEqualityV3.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/FirstCommonEqualityV3.lean"
+  ]
+}

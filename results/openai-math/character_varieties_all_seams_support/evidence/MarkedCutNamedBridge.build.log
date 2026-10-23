@@ -1,0 +1,84 @@
+OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_markedAsCutValues {F S V K : Type} {arity : S → ℕ}
+  [Field K] (D : OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram F S V arity) (q : S) [Finite V] {r : ℕ}
+  (d : OAI.IntegralCharacterVarieties.TwoFlagBand.RankShape (arity q) (arity q) r)
+  (hp : D.rank (D.ports.facet ⟨q, none⟩) = r)
+  (hc :
+    ∀ (i : Fin (arity q)),
+      D.rank (D.ports.facet ⟨q, some i⟩) = d.secondaryRank (OAI.IntegralCharacterVarieties.TwoFlagBand.Secondary.row i))
+  (hc' :
+    ∀ (i : Fin (arity q)),
+      D.rank (D.ports.facet ⟨q, some i⟩) = d.secondaryRank (OAI.IntegralCharacterVarieties.TwoFlagBand.Secondary.col i))
+  (hpMark : D.Proper) (hmaxMark : ∀ (f : F), D.rank f ≤ D.rank (D.ports.facet ⟨q, none⟩))
+  (z :
+    (e : (D.refinedMarkedDiagram q d hp hc hc' hpMark hmaxMark).Generator) →
+      (Matrix (Fin ((D.refinedMarkedDiagram q d hp hc hc' hpMark hmaxMark).generatorRank e))
+          (Fin ((D.refinedMarkedDiagram q d hp hc hc' hpMark hmaxMark).generatorRank e)) K)ˣ)
+  (e : (D.refinedCutDiagram q d hp hc hc').Generator) :
+  (Matrix (Fin ((D.refinedCutDiagram q d hp hc hc').generatorRank e))
+      (Fin ((D.refinedCutDiagram q d hp hc hc').generatorRank e)) K)ˣ
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_markedAsCutValues' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_markedAsCutValues_portFrame {F S V K : Type}
+  {arity : S → ℕ} [Field K] (D : OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram F S V arity) (q : S)
+  [Finite V] {r : ℕ} (d : OAI.IntegralCharacterVarieties.TwoFlagBand.RankShape (arity q) (arity q) r)
+  (hp : D.rank (D.ports.facet ⟨q, none⟩) = r)
+  (hc :
+    ∀ (i : Fin (arity q)),
+      D.rank (D.ports.facet ⟨q, some i⟩) = d.secondaryRank (OAI.IntegralCharacterVarieties.TwoFlagBand.Secondary.row i))
+  (hc' :
+    ∀ (i : Fin (arity q)),
+      D.rank (D.ports.facet ⟨q, some i⟩) = d.secondaryRank (OAI.IntegralCharacterVarieties.TwoFlagBand.Secondary.col i))
+  (hpMark : D.Proper) (hmaxMark : ∀ (f : F), D.rank f ≤ D.rank (D.ports.facet ⟨q, none⟩))
+  (z :
+    (e : (D.refinedMarkedDiagram q d hp hc hc' hpMark hmaxMark).Generator) →
+      (Matrix (Fin ((D.refinedMarkedDiagram q d hp hc hc' hpMark hmaxMark).generatorRank e))
+          (Fin ((D.refinedMarkedDiagram q d hp hc hc' hpMark hmaxMark).generatorRank e)) K)ˣ)
+  (p :
+    OAI.IntegralCharacterVarieties.OccurrenceIncidence.LocalPort
+      (V ⊕ Fin ((D.ports.refinedBandForSeam q d).length + 1) ⊕ Fin ((D.ports.refinedBandForSeam q d).length + 1))
+      (D.refinedCutDiagram q d hp hc hc').ports.kind) :
+  (D.refinedCutDiagram q d hp hc hc').portFrame (D.external_markedAsCutValues q d hp hc hc' hpMark hmaxMark z) p =
+    (D.refinedMarkedDiagram q d hp hc hc' hpMark hmaxMark).portFrame z p
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_markedAsCutValues_portFrame' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_markedSeam_of_cut {F S V R K : Type} {arity : S → ℕ}
+  [CommRing R] [Field K] (D : OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram F S V arity) (q : S) [Finite V]
+  {r : ℕ} (d : OAI.IntegralCharacterVarieties.TwoFlagBand.RankShape (arity q) (arity q) r)
+  (hp : D.rank (D.ports.facet ⟨q, none⟩) = r)
+  (hc :
+    ∀ (i : Fin (arity q)),
+      D.rank (D.ports.facet ⟨q, some i⟩) = d.secondaryRank (OAI.IntegralCharacterVarieties.TwoFlagBand.Secondary.row i))
+  (hc' :
+    ∀ (i : Fin (arity q)),
+      D.rank (D.ports.facet ⟨q, some i⟩) = d.secondaryRank (OAI.IntegralCharacterVarieties.TwoFlagBand.Secondary.col i))
+  (hpMark : D.Proper) (hmaxMark : ∀ (f : F), D.rank f ≤ D.rank (D.ports.facet ⟨q, none⟩))
+  (z :
+    (e : (D.refinedMarkedDiagram q d hp hc hc' hpMark hmaxMark).Generator) →
+      (Matrix (Fin ((D.refinedMarkedDiagram q d hp hc hc' hpMark hmaxMark).generatorRank e))
+          (Fin ((D.refinedMarkedDiagram q d hp hc hc' hpMark hmaxMark).generatorRank e)) K)ˣ)
+  (φ : R →+* K)
+  (s :
+    (OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.wiring (D.ports.mapFacet Sum.inl) q
+        (D.ports.refinedBandForSeam q d)).Seam)
+  (hs :
+    OAI.IntegralCharacterVarieties.SameFramedFlag ((D.refinedCutDiagram q d hp hc hc').seamGrade s)
+      (OAI.IntegralCharacterVarieties.HomTransport.matrixUnitEquiv
+        (OAI.IntegralCharacterVarieties.MatrixExpression.Term.eval φ
+          (D.external_markedAsCutValues q d hp hc hc' hpMark hmaxMark z)
+          ((D.refinedCutDiagram q d hp hc hc').seamLeft s)))
+      (OAI.IntegralCharacterVarieties.HomTransport.matrixUnitEquiv
+        (OAI.IntegralCharacterVarieties.MatrixExpression.Term.eval φ
+          (D.external_markedAsCutValues q d hp hc hc' hpMark hmaxMark z)
+          ((D.refinedCutDiagram q d hp hc hc').seamRight s)))) :
+  OAI.IntegralCharacterVarieties.SameFramedFlag ((D.refinedMarkedDiagram q d hp hc hc' hpMark hmaxMark).seamGrade s)
+    (OAI.IntegralCharacterVarieties.HomTransport.matrixUnitEquiv
+      (OAI.IntegralCharacterVarieties.MatrixExpression.Term.eval φ z
+        ((D.refinedMarkedDiagram q d hp hc hc' hpMark hmaxMark).seamLeft s)))
+    (OAI.IntegralCharacterVarieties.HomTransport.matrixUnitEquiv
+      (OAI.IntegralCharacterVarieties.MatrixExpression.Term.eval φ z
+        ((D.refinedMarkedDiagram q d hp hc hc' hpMark hmaxMark).seamRight s)))
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_markedSeam_of_cut' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

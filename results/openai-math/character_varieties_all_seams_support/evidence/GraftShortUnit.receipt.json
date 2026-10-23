@@ -1,0 +1,14 @@
+{
+  "exitCode": 0,
+  "sourceSha256": "9ce695f6b8b681905f6d5a2b721e4e510aecbc0a6de83c544100e504f24c99a4",
+  "durationSeconds": 2.531326591037214,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-j1",
+    "-DElab.async=false",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/GraftShortUnit.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/GraftShortUnit.lean"
+  ],
+  "log": "GraftShortUnit.log"
+}

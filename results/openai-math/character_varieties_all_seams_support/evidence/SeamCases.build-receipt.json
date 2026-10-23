@@ -1,0 +1,15 @@
+{
+  "exitCode": 0,
+  "sourceSha256": "0b066ee18599b59ffd8351bb3a338312cb2be5a825dfab4100cbeac94b7a6a4d",
+  "sourceUnchanged": true,
+  "durationSeconds": 1.582,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-j1",
+    "-DElab.async=false",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/SeamCases.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/SeamCases.lean"
+  ],
+  "log": "SeamCases.build.log"
+}

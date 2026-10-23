@@ -1,0 +1,14 @@
+{
+  "exitCode": 0,
+  "sourceSha256": "beb1704053b4342f71bb105139aad230fd94077a655e57e51f2e74793d4c693d",
+  "sourceUnchanged": true,
+  "durationSeconds": 1.3938031196594238,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-j1",
+    "-DElab.async=false",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/MatrixReindexCancel.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/MatrixReindexCancel.lean"
+  ]
+}

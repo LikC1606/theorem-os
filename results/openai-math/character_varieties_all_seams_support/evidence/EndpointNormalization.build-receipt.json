@@ -1,0 +1,14 @@
+{
+  "exitCode": 0,
+  "sourceSha256": "3db0a098c3c01ca71511c5510a03e240392e31b700b904531e5d4be1dcf62cce",
+  "sourceUnchanged": true,
+  "durationSeconds": 1.9489076137542725,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-j1",
+    "-DElab.async=false",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/EndpointNormalization.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/EndpointNormalization.lean"
+  ]
+}

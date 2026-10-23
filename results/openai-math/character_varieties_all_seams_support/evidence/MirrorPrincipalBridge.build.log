@@ -1,0 +1,6 @@
+'OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.external_mirror_basis_normalized' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.external_mirror_principal_frame' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

@@ -1,0 +1,750 @@
+{
+  "leanPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/plausible/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/aesop/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/batteries/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/importGraph/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/Qq/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/mathlib/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/LeanSearchClient/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/proofwidgets/.lake/build/lib/lean",
+  "compiler": "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+  "modules": {
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.CutCircleIndex": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.CutCircleIndex",
+      "exitCode": 0,
+      "durationSeconds": 1.465,
+      "sha256": "fd1bba37345bcc08c5d42c412604c656a134c6a89194be77eabb9cb8480d0c37",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.CutCircleIndex.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/CutCircleIndex.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/CutCircleIndex.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.Flags": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.Flags",
+      "exitCode": 0,
+      "durationSeconds": 1.781,
+      "sha256": "0a5412a7d8bf468799a766580cd66647e299bb94b0f8ffc62ed15db3d0542fcb",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.Flags.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/Flags.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/Flags.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Frames.GradeMaps": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Frames.GradeMaps",
+      "exitCode": 0,
+      "durationSeconds": 1.765,
+      "sha256": "ae2e9a8e490bc740d0e2907ff8be7cce1a6a6a02b356aafe3cae0562edecc4df",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Frames.GradeMaps.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Frames/GradeMaps.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Frames/GradeMaps.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.MatrixPresentation": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.MatrixPresentation",
+      "exitCode": 0,
+      "durationSeconds": 2.049,
+      "sha256": "d108c8d57e24295c8000ba6162e762a94ba86725b9a005d9058e4586505c2081",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.MatrixPresentation.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/MatrixPresentation.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/MatrixPresentation.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.MatrixExpressions": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.MatrixExpressions",
+      "exitCode": 0,
+      "durationSeconds": 2.301,
+      "sha256": "ca37156a02617cfb605ca20f2743adb40dc5a094fef4a1d9890e87ccf7eb7d3f",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.MatrixExpressions.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/MatrixExpressions.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/MatrixExpressions.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.Incidence": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.Incidence",
+      "exitCode": 0,
+      "durationSeconds": 1.897,
+      "sha256": "2fffa90d905943cea29115230b87fcdd93b2aaac3a33137265ad192e03a3a48a",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.Incidence.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/Incidence.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/Incidence.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.SurfacePresentation": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.SurfacePresentation",
+      "exitCode": 0,
+      "durationSeconds": 2.674,
+      "sha256": "1030f673451af317691dec29b2ae4a8eb9e6c242e8723966dfccd5124497c5db",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.SurfacePresentation.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SurfacePresentation.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SurfacePresentation.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BoundaryCycles": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BoundaryCycles",
+      "exitCode": 0,
+      "durationSeconds": 1.753,
+      "sha256": "c7dc483155d5f61ca1c7bab6c6e4997e2ec90f080d6ec40e4df030e3126f0bf4",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BoundaryCycles.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryCycles.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryCycles.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.DiskGauge": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.DiskGauge",
+      "exitCode": 0,
+      "durationSeconds": 1.891,
+      "sha256": "df63a0038156c23043007bdd52691214122a063909e6ac6ebf3ed8ca311e10e0",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.DiskGauge.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/DiskGauge.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/DiskGauge.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BandIncidence": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BandIncidence",
+      "exitCode": 0,
+      "durationSeconds": 2.294,
+      "sha256": "dd7d2c5925d600305a367ee020f08708322c25fd2f0e283a6a7a2896c4f04203",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BandIncidence.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandIncidence.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandIncidence.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.PortPatches": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.PortPatches",
+      "exitCode": 0,
+      "durationSeconds": 1.848,
+      "sha256": "7fc965a6b2cd6ee4202f888980c28570fa34aea1e429438efd7042e549270295",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.PortPatches.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/PortPatches.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/PortPatches.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BandCutTopology": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BandCutTopology",
+      "exitCode": 0,
+      "durationSeconds": 1.598,
+      "sha256": "be87cf0c88a2c31353d0caff8654294451d8d8d29ae78d1422b63f470d3bffca",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BandCutTopology.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCutTopology.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCutTopology.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.FlagGalleries": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.FlagGalleries",
+      "exitCode": 0,
+      "durationSeconds": 2.456,
+      "sha256": "074f36a1e6824e12ac4eb5899c29a37bdb56a1b94ffdaf886edf7a895645efc7",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.FlagGalleries.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/FlagGalleries.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/FlagGalleries.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.ComplementaryPatches": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.ComplementaryPatches",
+      "exitCode": 0,
+      "durationSeconds": 3.364,
+      "sha256": "9a4296f8f0da290eeb43e492c3a09572a5932ee8f093f2804e9d144f3ed1daf9",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.ComplementaryPatches.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/ComplementaryPatches.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/ComplementaryPatches.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Frames.Graded": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Frames.Graded",
+      "exitCode": 0,
+      "durationSeconds": 1.811,
+      "sha256": "5a6a4b4913f7fdc5147d8eaf6e7dd53bfeeac313425fcb5ad78bf423ac12211c",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Frames.Graded.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Frames/Graded.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Frames/Graded.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.PatchCycles": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.PatchCycles",
+      "exitCode": 0,
+      "durationSeconds": 2.565,
+      "sha256": "9d1fe36c82a24db570b509412a6fb925c96cf38f61a290cad0e573266de00255",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.PatchCycles.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/PatchCycles.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/PatchCycles.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.RoutedFamilies": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.RoutedFamilies",
+      "exitCode": 0,
+      "durationSeconds": 2.266,
+      "sha256": "14cd1bab885fc0d6863b342445170b6d08ca9472697f7aaef39463bb2c2d6e5f",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.RoutedFamilies.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/RoutedFamilies.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/RoutedFamilies.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.FreshGallery": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.FreshGallery",
+      "exitCode": 0,
+      "durationSeconds": 1.966,
+      "sha256": "03bc6dc8412236efb81ab1fb7555f3ff4e2a2b02c9904b256a12b4328b48d02d",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Cutting.FreshGallery.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/FreshGallery.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/FreshGallery.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.VertexFrames": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.VertexFrames",
+      "exitCode": 0,
+      "durationSeconds": 6.964,
+      "sha256": "c7815746c9b3e76ccbaab66c637ad58619f848131339c2f913ef17448dda2ae4",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.VertexFrames.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/VertexFrames.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/VertexFrames.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.SplitFlags": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.SplitFlags",
+      "exitCode": 0,
+      "durationSeconds": 1.932,
+      "sha256": "e850306aae38bb29a2b5b894c2114f23b065eb80982f59a7f4294e8e0cf6d4f2",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.SplitFlags.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SplitFlags.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SplitFlags.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.AtomicFrames": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.AtomicFrames",
+      "exitCode": 0,
+      "durationSeconds": 3.426,
+      "sha256": "c18e42ad63992b03784a72eb5d116891f91c20a9e6cd83e16bd727d38dec6b17",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Cutting.AtomicFrames.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/AtomicFrames.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/AtomicFrames.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BoundaryFrames": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BoundaryFrames",
+      "exitCode": 0,
+      "durationSeconds": 1.966,
+      "sha256": "7e2548494bc5cc1e3a93ea90abe2c456c81175eeb6abcaa286a7b0376e0deb77",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BoundaryFrames.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryFrames.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryFrames.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.SurfaceSurgery": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.SurfaceSurgery",
+      "exitCode": 0,
+      "durationSeconds": 2.169,
+      "sha256": "3b73867f4099c938af3970ad6048c1d75a7c43ba59d84c33cca70bcb840c4b22",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.SurfaceSurgery.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SurfaceSurgery.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SurfaceSurgery.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.AtomicGallery": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.AtomicGallery",
+      "exitCode": 0,
+      "durationSeconds": 2.833,
+      "sha256": "83b06889c39882e36f9f2bba052ab4fc5e6417122d483b9a1ac9c187ae8c7437",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Cutting.AtomicGallery.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/AtomicGallery.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/AtomicGallery.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BoundaryBands": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BoundaryBands",
+      "exitCode": 0,
+      "durationSeconds": 1.628,
+      "sha256": "695a05daf5bd698f836d8cae8cc056f7624df70a8d9863e33adb08df05106ad2",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BoundaryBands.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryBands.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryBands.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Frames.AtomicFlags": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Frames.AtomicFlags",
+      "exitCode": 0,
+      "durationSeconds": 1.472,
+      "sha256": "0ffacc11715e24abff00fe2e27b40aacb0b1c6ca10620ea96025271093fe30de",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Frames.AtomicFlags.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Frames/AtomicFlags.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Frames/AtomicFlags.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BandCycles": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BandCycles",
+      "exitCode": 0,
+      "durationSeconds": 1.521,
+      "sha256": "398444074f4e7593382eb8a36840f450ab5294a9c4e439b51fda29d22b0c8cde",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BandCycles.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCycles.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCycles.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.VertexGauge": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.VertexGauge",
+      "exitCode": 0,
+      "durationSeconds": 2.885,
+      "sha256": "d8841ea315aa4ac972f7fea8f22cf9ca8c3c18a6d57ffea2e037544135025971",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.VertexGauge.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/VertexGauge.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/VertexGauge.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.Grafting": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.Grafting",
+      "exitCode": 0,
+      "durationSeconds": 6.085,
+      "sha256": "50d3fdaa1ffb7fddc4220578ea2644eb220d9166ee449e8171ae82b9411d20a8",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Cutting.Grafting.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/Grafting.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/Grafting.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.StripForest": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.StripForest",
+      "exitCode": 0,
+      "durationSeconds": 1.635,
+      "sha256": "97ff940793081084281700fbea546e6d749c7b95b488b0b9527e8ec490a82178",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Cutting.StripForest.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/StripForest.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/StripForest.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.GeneratorGauge": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.GeneratorGauge",
+      "exitCode": 0,
+      "durationSeconds": 2.1,
+      "sha256": "bd702283534cde3f405705e7767cfa767c040c9a12692a685226d8e4a0ed4d8a",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.GeneratorGauge.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/GeneratorGauge.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/GeneratorGauge.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Frames.BandBases": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Frames.BandBases",
+      "exitCode": 0,
+      "durationSeconds": 1.936,
+      "sha256": "b0acd4e240c053747a46a1967b453db85eb96d38dadd847c19d1053307f6c684",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Frames.BandBases.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Frames/BandBases.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Frames/BandBases.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.DoubledStrips": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.DoubledStrips",
+      "exitCode": 0,
+      "durationSeconds": 1.743,
+      "sha256": "02b2a07bf24fa256f8de4e4c2d5017a6af04b10b391669e741a8d3e339f48b39",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Cutting.DoubledStrips.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/DoubledStrips.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/DoubledStrips.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.CornerGauge": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.CornerGauge",
+      "exitCode": 0,
+      "durationSeconds": 2.072,
+      "sha256": "0c18bfd3693e4b2c5fb40f2b542a1de619de808252c2f0dbe2c3f527cc28ec0c",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.CornerGauge.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/CornerGauge.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/CornerGauge.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BandCut": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BandCut",
+      "exitCode": 0,
+      "durationSeconds": 2.466,
+      "sha256": "ebe9d957cc8a91f223a3fe09b66cff4aa6df869e7424fbee6aa366dbc2ce8618",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BandCut.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCut.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCut.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.PortSurgery": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.PortSurgery",
+      "exitCode": 0,
+      "durationSeconds": 1.844,
+      "sha256": "f8457fca8ea3fe538b37ee8193385b729a75e5243454d7d65751f34d5ec71bed",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Cutting.PortSurgery.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/PortSurgery.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/PortSurgery.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BoundaryReordering": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BoundaryReordering",
+      "exitCode": 0,
+      "durationSeconds": 1.567,
+      "sha256": "0890150d3f08276bd70dd81559fe7cabd22c982e1b1dc9efcebb5979c2f76f87",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BoundaryReordering.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryReordering.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryReordering.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Frames.BandGauges": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Frames.BandGauges",
+      "exitCode": 0,
+      "durationSeconds": 1.977,
+      "sha256": "a459e8469de543859fd373fed747cad0ec2d63117cbe3187cada9f9893e4b40c",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Frames.BandGauges.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Frames/BandGauges.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Frames/BandGauges.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Frames.Endpoints": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Frames.Endpoints",
+      "exitCode": 0,
+      "durationSeconds": 3.927,
+      "sha256": "b101181228f53dfeb10fba4c1308c0760ee5d27eff90612487f76b7f83fc3f3b",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Frames.Endpoints.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Frames/Endpoints.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Frames/Endpoints.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.StripFacets": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.StripFacets",
+      "exitCode": 0,
+      "durationSeconds": 5.858,
+      "sha256": "83ff80de6bf61e89abfd8ffc618e7227b9d10eb4d707a225cf59a33029c0ecc9",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Cutting.StripFacets.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/StripFacets.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/StripFacets.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Frames.NamedSeams": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Frames.NamedSeams",
+      "exitCode": 0,
+      "durationSeconds": 5.803,
+      "sha256": "2c14619c012b0164533e13b64ca39c3beaa1e5fb0e487519553cd0b91320283f",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Frames.NamedSeams.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Frames/NamedSeams.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Frames/NamedSeams.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Seams.CutWords": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Seams.CutWords",
+      "exitCode": 0,
+      "durationSeconds": 1.939,
+      "sha256": "a231f656d6958d2a0c658acfdf8454fda45b7d2569cd58c7362dc66f4d75a47c",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Seams.CutWords.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Seams/CutWords.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Seams/CutWords.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.BoundarySurgery": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.BoundarySurgery",
+      "exitCode": 0,
+      "durationSeconds": 1.932,
+      "sha256": "cacb010e82dd811b216bb72aaaf76ebd4efe2b0a1cb30a151a1eda66fee2d17d",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Cutting.BoundarySurgery.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/BoundarySurgery.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/BoundarySurgery.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Seams.Handles": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Seams.Handles",
+      "exitCode": 0,
+      "durationSeconds": 1.679,
+      "sha256": "24bcebe3c1e5173e9f4d47e47991bf65805affb10abdebd8c3f0034aea5647ed",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Seams.Handles.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Seams/Handles.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Seams/Handles.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Seams.InverseSolution": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Seams.InverseSolution",
+      "exitCode": 0,
+      "durationSeconds": 2.264,
+      "sha256": "43e3d88790df824f986f23cdbd3efd858b1c490f1ad8bec440374b6d69dd96de",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Seams.InverseSolution.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Seams/InverseSolution.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Seams/InverseSolution.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.GraftCircuits": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.GraftCircuits",
+      "exitCode": 0,
+      "durationSeconds": 6.052,
+      "sha256": "b257bf1fc75bf0d4c42624391d4b9dc8ec54016b0f108d9d8490cef61d3c530f",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Cutting.GraftCircuits.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/GraftCircuits.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/GraftCircuits.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.RefinedDiagram": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.RefinedDiagram",
+      "exitCode": 0,
+      "durationSeconds": 24.76,
+      "sha256": "968d5a68cf0487fd29a48b074a4ba8b3fd9a0a3feab0b8f277cafba844907006",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Cutting.RefinedDiagram.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/RefinedDiagram.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/RefinedDiagram.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.BoundaryEnumeration": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.BoundaryEnumeration",
+      "exitCode": 0,
+      "durationSeconds": 4.448,
+      "sha256": "6c8de419da0e3eb6a5c55f89628d081b80cb989bff2225c20d72ed25785b749f",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Cutting.BoundaryEnumeration.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/BoundaryEnumeration.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/BoundaryEnumeration.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.GraftValues": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.GraftValues",
+      "exitCode": 0,
+      "durationSeconds": 6.177,
+      "sha256": "0f423745f885d9665ff35d8d4b66951369d69b6f470cd347219a53e21165391e",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Cutting.GraftValues.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/GraftValues.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/GraftValues.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Frames.CutFrames": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Frames.CutFrames",
+      "exitCode": 0,
+      "durationSeconds": 87.523,
+      "sha256": "6b23f5a126a70c69c61ab57ee205d963d2b95a7bea50a5df485b65b01b77e463",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Frames.CutFrames.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Frames/CutFrames.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Frames/CutFrames.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Frames.Mirror": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Frames.Mirror",
+      "exitCode": 0,
+      "durationSeconds": 87.87,
+      "sha256": "ce08de497540c1b014334b01a74a1cb50666e0383ce13f5c7bf8e36b4e274a25",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Frames.Mirror.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Frames/Mirror.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Frames/Mirror.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.MarkedDiagram": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.MarkedDiagram",
+      "exitCode": 0,
+      "durationSeconds": 298.658,
+      "sha256": "3191c4bbd5348c802eabe3c3c7b3ca01c7c3926d80aae5af85dcf45b7109b843",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Cutting.MarkedDiagram.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/MarkedDiagram.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/MarkedDiagram.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Frames.MarkedFrames": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Frames.MarkedFrames",
+      "exitCode": 0,
+      "durationSeconds": 191.265,
+      "sha256": "fdd053185deaac30577ce93f4b4a47e90775bd6351b571bcb13708807f6c6df7",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Frames.MarkedFrames.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Frames/MarkedFrames.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Frames/MarkedFrames.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Seams.BoundaryWords": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Seams.BoundaryWords",
+      "exitCode": 0,
+      "durationSeconds": 255.217,
+      "sha256": "b78b5c5ca2aa12591c2d0d1ca83b16a27fe33c991da8eb1767cc1b571a5662c1",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Seams.BoundaryWords.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Seams/BoundaryWords.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Seams/BoundaryWords.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Seams.MarkedSurface": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Seams.MarkedSurface",
+      "exitCode": 0,
+      "durationSeconds": 198.643,
+      "sha256": "daee1598370ce162cbb52ed6bf8184592f9dc0accd1016e0bca56e4ae33a5c79",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Seams.MarkedSurface.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Seams/MarkedSurface.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Seams/MarkedSurface.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Seams.ProducedDiagram": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Seams.ProducedDiagram",
+      "exitCode": 0,
+      "durationSeconds": 94.0,
+      "sha256": "5eac5b9103bec2d0f642d5bf56817afcab427bae742ef9b05962fae6a4c8329b",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Seams.ProducedDiagram.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Seams/ProducedDiagram.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Seams/ProducedDiagram.lean"
+      ]
+    },
+    "OAI.AlgebraicGeometry.CharacterVarieties.Seams.ProducedEquations": {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Seams.ProducedEquations",
+      "exitCode": 0,
+      "durationSeconds": 3.505,
+      "sha256": "2812714a68c122afd3cb5055bf256a61c797ebcfa90e9f211dd2e020604eb418",
+      "log": "support-logs/OAI.AlgebraicGeometry.CharacterVarieties.Seams.ProducedEquations.log",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/OAI/AlgebraicGeometry/CharacterVarieties/Seams/ProducedEquations.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/OAI/AlgebraicGeometry/CharacterVarieties/Seams/ProducedEquations.lean"
+      ]
+    }
+  },
+  "pending": [],
+  "running": [],
+  "allPassed": true
+}

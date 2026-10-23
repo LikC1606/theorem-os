@@ -1,0 +1,12 @@
+{
+  "exitCode": 0,
+  "durationSeconds": 2.9790890379808843,
+  "sha256": "945523379c50e84fc18dedc7ed264cf7b6cf8297f7cf87b60549b69f52353aac",
+  "sourceUnchanged": true,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/ParentWrapBandFlagV3.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentWrapBandFlagV3.lean"
+  ]
+}

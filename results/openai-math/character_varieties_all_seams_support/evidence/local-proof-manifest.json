@@ -1,0 +1,1433 @@
+{
+  "entryModule": "AllSeamsAssemblyInferredV2",
+  "target": "OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams",
+  "upstreamCommit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+  "allowedImport": "OAI.AlgebraicGeometry.CharacterVarieties.Seams.ProducedEquations",
+  "supportImports": [
+    "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.GraftValues",
+    "OAI.AlgebraicGeometry.CharacterVarieties.Frames.CutFrames",
+    "OAI.AlgebraicGeometry.CharacterVarieties.Frames.Endpoints",
+    "OAI.AlgebraicGeometry.CharacterVarieties.Frames.MarkedFrames",
+    "OAI.AlgebraicGeometry.CharacterVarieties.Frames.Mirror",
+    "OAI.AlgebraicGeometry.CharacterVarieties.Frames.NamedSeams",
+    "OAI.AlgebraicGeometry.CharacterVarieties.Seams.ProducedDiagram",
+    "OAI.AlgebraicGeometry.CharacterVarieties.Seams.ProducedEquations"
+  ],
+  "localModuleCount": 66,
+  "allModulesHaveSuccessfulReceiptsAndOleans": true,
+  "pendingModules": [],
+  "modules": [
+    {
+      "module": "SeamCases",
+      "source": "SeamCases.lean",
+      "sourceSha256": "0b066ee18599b59ffd8351bb3a338312cb2be5a825dfab4100cbeac94b7a6a4d",
+      "bytes": 2011,
+      "receipts": [
+        {
+          "file": "SeamCases.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1.582
+        },
+        {
+          "file": "SeamCases.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 1.325
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/SeamCases.olean",
+      "oleanSha256": "47f847c24d8cda2e704b795d1b28c517853944e06eafd2a7b1c8f3ce8bcedcc4",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "AllSeamsFromBranchesInferredV1",
+      "source": "AllSeamsFromBranchesInferredV1.lean",
+      "sourceSha256": "95cc34731f200cc2e6f80fdd06e80238bd153bdc0766b46b8d8be6aeaaf429d3",
+      "bytes": 1822,
+      "receipts": [
+        {
+          "file": "AllSeamsFromBranchesInferredV1.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 2.476
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/AllSeamsFromBranchesInferredV1.olean",
+      "oleanSha256": "53511607b29af5786b5cff5c238a5db975a07a7cd09ad6300068b13451066dda",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "FrameIndexBridge",
+      "source": "FrameIndexBridge.lean",
+      "sourceSha256": "475da8afedbec1ae6524e0e640bb33e85e47687fa5f574478273d29602a111ac",
+      "bytes": 3894,
+      "receipts": [
+        {
+          "file": "FrameIndexBridge.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 1.4315834045410156
+        },
+        {
+          "file": "FrameIndexBridge.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 1.36
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/FrameIndexBridge.olean",
+      "oleanSha256": "2cb7baa3ab62291869ac49df2963bc6ec7177c062c7159433b799ae4cdf2283e",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "NamedFramePortAt",
+      "source": "NamedFramePortAt.lean",
+      "sourceSha256": "03d12fb1317636bd026b9559bef39f683eba8f38ad020b5790c68eb1515f03c6",
+      "bytes": 3435,
+      "receipts": [
+        {
+          "file": "NamedFramePortAt.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 1.549
+        },
+        {
+          "file": "NamedFramePortAt.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 1.543
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/NamedFramePortAt.olean",
+      "oleanSha256": "e20972a1a1fa5f6bb9cf644903af1882a7f6a69b3ff1834b1a1e3ad967bdebdb",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "NamedEndpointFlag",
+      "source": "NamedEndpointFlag.lean",
+      "sourceSha256": "c884c292cca221afb8a9f0b8195525320599e5812fdfbb0d5c7f198cbfe3ce2d",
+      "bytes": 2542,
+      "receipts": [
+        {
+          "file": "NamedEndpointFlag.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 1.476
+        },
+        {
+          "file": "NamedEndpointFlag.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 1.371
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/NamedEndpointFlag.olean",
+      "oleanSha256": "082ea28bfd4fd59f03a778efd404d163e0118a676427d54d380aa7eed2252c0a",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "NamedEndpointCancel",
+      "source": "NamedEndpointCancel.lean",
+      "sourceSha256": "c9bcee017f8fe40d9b02169026b13e9bc44a123eca74df78252712d786d46e76",
+      "bytes": 1208,
+      "receipts": [
+        {
+          "file": "NamedEndpointCancel.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 2.4770760536193848
+        },
+        {
+          "file": "NamedEndpointCancel.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 2.507
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/NamedEndpointCancel.olean",
+      "oleanSha256": "bd79452d65dd45b8ad39e88534f618f793eb95ecc663a6e73dc43485536daf36",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "SigmaFinCoordinates",
+      "source": "SigmaFinCoordinates.lean",
+      "sourceSha256": "7262ddb91820f2912dfd88b0cfb85a7e6a84f267f53166e58a48884091ac8032",
+      "bytes": 1642,
+      "receipts": [
+        {
+          "file": "SigmaFinCoordinates.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1.554964303970337
+        },
+        {
+          "file": "SigmaFinCoordinates.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": false,
+          "sourceUnchanged": null,
+          "durationSeconds": 1.462
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/SigmaFinCoordinates.olean",
+      "oleanSha256": "bd00b04d12682dc794acb6b62453925e0e15da88546f3a43bde38a383900ba78",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "MatrixReindexCancel",
+      "source": "MatrixReindexCancel.lean",
+      "sourceSha256": "beb1704053b4342f71bb105139aad230fd94077a655e57e51f2e74793d4c693d",
+      "bytes": 672,
+      "receipts": [
+        {
+          "file": "MatrixReindexCancel.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1.3938031196594238
+        },
+        {
+          "file": "MatrixReindexCancel.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 1.495
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/MatrixReindexCancel.olean",
+      "oleanSha256": "fc405235e5eb6d2db8ffd889dce877414e8078abf1947986b2adf8283433f3e1",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "EndpointNormalization",
+      "source": "EndpointNormalization.lean",
+      "sourceSha256": "3db0a098c3c01ca71511c5510a03e240392e31b700b904531e5d4be1dcf62cce",
+      "bytes": 1315,
+      "receipts": [
+        {
+          "file": "EndpointNormalization.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1.9489076137542725
+        },
+        {
+          "file": "EndpointNormalization.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 1.615
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/EndpointNormalization.olean",
+      "oleanSha256": "0936d40cf4147d4fd8041ec52c5945c72ac49feb72efc36680dc545af44a1e4e",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "TransportedFrameNamed",
+      "source": "TransportedFrameNamed.lean",
+      "sourceSha256": "e2079591de4722b08db2ba6cc1f25585cc995d47130fdec0ece9373adca126e7",
+      "bytes": 1001,
+      "receipts": [
+        {
+          "file": "TransportedFrameNamed.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1.4176616668701172
+        },
+        {
+          "file": "TransportedFrameNamed.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 1.383
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/TransportedFrameNamed.olean",
+      "oleanSha256": "53a9fb288df08160f08eff4554ac79ed7d72d5236479259850bdc99a79d77a8e",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentSelectedOldPort",
+      "source": "ParentSelectedOldPort.lean",
+      "sourceSha256": "ac5511c85ed67aca4a0e513d9389363fb279f43083a1fb0b3d8d17486c899197",
+      "bytes": 5378,
+      "receipts": [
+        {
+          "file": "ParentSelectedOldPort.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1329.1220440270845
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentSelectedOldPort.olean",
+      "oleanSha256": "96ec88fcd1cee7fa2c83e8b0fc2de075d840625ebfce270b0079d97804d67cf9",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "OldEndpointAssemblyShared",
+      "source": "OldEndpointAssemblyShared.lean",
+      "sourceSha256": "96860ce4465fd6af1c35d9b86332d8c75ac880f95e350aa435669bb069196874",
+      "bytes": 8064,
+      "receipts": [
+        {
+          "file": "OldEndpointAssemblyShared.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 3353.385
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/OldEndpointAssemblyShared.olean",
+      "oleanSha256": "85001e0836360be24fd96c488f9cc0dbf6d00a03d0504421dc87ba280c026811",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentSelectedSideTransport",
+      "source": "ParentSelectedSideTransport.lean",
+      "sourceSha256": "db129c9a90659ad78c57e396ea18d68c7df159abfcf05a677a4487884a9af34e",
+      "bytes": 5976,
+      "receipts": [
+        {
+          "file": "ParentSelectedSideTransport.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1404.037568243919
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentSelectedSideTransport.olean",
+      "oleanSha256": "d5d89d2e23eac250d462cafd350eb55d8416403cbb6b768d696a5ca789949cc0",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "SeamCoordinateBridge",
+      "source": "SeamCoordinateBridge.lean",
+      "sourceSha256": "1aaf8df515755be3707a7fc7cfa074b8e47eed159d66c61634d4dcbc32d65b6d",
+      "bytes": 2791,
+      "receipts": [
+        {
+          "file": "SeamCoordinateBridge.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 2.638003963045776
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/SeamCoordinateBridge.olean",
+      "oleanSha256": "a3359790a88093da2599b81e5e25072a3e27b0167a9b48a5df9ee7c943c11029",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "NamedEndpointFlagFromFrames",
+      "source": "NamedEndpointFlagFromFrames.lean",
+      "sourceSha256": "9050d83150ba6dbb53c5932bfe98b71c901f93373483437f2c7b498ce0557579",
+      "bytes": 1664,
+      "receipts": [
+        {
+          "file": "NamedEndpointFlagFromFrames.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1.6534628868103027
+        },
+        {
+          "file": "NamedEndpointFlagFromFrames.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 1.453
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/NamedEndpointFlagFromFrames.olean",
+      "oleanSha256": "29e86e9652685a6d77203d233cc0430ae40f94c131451980f3f0f195667a7cce",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "EndpointActualMatrix",
+      "source": "EndpointActualMatrix.lean",
+      "sourceSha256": "60145c4602e7296525a0cc710efbeb670ec7f9430faf0f86c07c92731c9211fb",
+      "bytes": 1120,
+      "receipts": [
+        {
+          "file": "EndpointActualMatrix.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1.62384537095204
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/EndpointActualMatrix.olean",
+      "oleanSha256": "0634101904e9dc395b6fb6ddf3140da91ea0f4906098f87772b75987a45a9037",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "OldSeamFromValuesV2",
+      "source": "OldSeamFromValuesV2.lean",
+      "sourceSha256": "5f92e62d142e9539530811702dce9d9e9f2d1a11e981b2d314df91db3ab13ef2",
+      "bytes": 4878,
+      "receipts": [
+        {
+          "file": "OldSeamFromValuesV2.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1745.523
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/OldSeamFromValuesV2.olean",
+      "oleanSha256": "fd80a29e23064f4e1ab8232915022339c460a614aac3ce6a6d325672bf12ef30",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentMarkedValueDataV2",
+      "source": "ParentMarkedValueDataV2.lean",
+      "sourceSha256": "63c08d6a3d5e059f789d397c054c627e21dbd96981acc9a455fea39491b4c6fb",
+      "bytes": 5577,
+      "receipts": [
+        {
+          "file": "ParentMarkedValueDataV2.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 362.6375269670971
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentMarkedValueDataV2.olean",
+      "oleanSha256": "85d14bea4cb64c34abd8eade6927090c3d4d0af945155975d2425e14c3316b14",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "MarkedCutNamedBridge",
+      "source": "MarkedCutNamedBridge.lean",
+      "sourceSha256": "ffec3f070ace721b60494dba33083348f70c199bedffa2fb18e7774d8d225b8b",
+      "bytes": 4332,
+      "receipts": [
+        {
+          "file": "MarkedCutNamedBridge.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 520.756
+        },
+        {
+          "file": "MarkedCutNamedBridge.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 36.824
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/MarkedCutNamedBridge.olean",
+      "oleanSha256": "10c5968ac2a5ebc1fcacefdae3954b3f1ee5f73674b3e5d880ff38e7563c332b",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentMarkedCutLiftData",
+      "source": "ParentMarkedCutLiftData.lean",
+      "sourceSha256": "550f97ec651cd9809ba64ac3e9d7f359442fbb5a5b37eda38e4da2759831c780",
+      "bytes": 3481,
+      "receipts": [
+        {
+          "file": "ParentMarkedCutLiftData.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 280.5141374121886
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentMarkedCutLiftData.olean",
+      "oleanSha256": "184aeda26778ae2713373c5097118a8048c2eedf59607cb284c80b159b4440aa",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentProducedValueDataInferredV1",
+      "source": "ParentProducedValueDataInferredV1.lean",
+      "sourceSha256": "81c16ceeefaaa964b4d1cd3ce5d0135b3394aaedf928d14f2dcac858f594e3c7",
+      "bytes": 2378,
+      "receipts": [
+        {
+          "file": "ParentProducedValueDataInferredV1.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 90.69538106117398
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentProducedValueDataInferredV1.olean",
+      "oleanSha256": "3fcd2f16aa252fe771c0162e0261b3a0913d8e9ac84e8ec4e152f7a163cd793c",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ProducedOldSeamDataInferredV3",
+      "source": "ProducedOldSeamDataInferredV3.lean",
+      "sourceSha256": "74effecd9dcc3a88295a99b3cc579393f1d70692b607fb6f478b94dbeb90b0f0",
+      "bytes": 3898,
+      "receipts": [
+        {
+          "file": "ProducedOldSeamDataInferredV3.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 44.986
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ProducedOldSeamDataInferredV3.olean",
+      "oleanSha256": "c2fe3def8ffa5f70a931360df614fe7ea49a94524dec25b9ca116b37f883608f",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "NamedTransportOne",
+      "source": "NamedTransportOne.lean",
+      "sourceSha256": "0397ae833dd86cc4b5a618ee5f7183e691b9aa721ce478df7bf235f357aacaaa",
+      "bytes": 1618,
+      "receipts": [
+        {
+          "file": "NamedTransportOne.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 2.8578888811171055
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/NamedTransportOne.olean",
+      "oleanSha256": "a603156f5b303ee70d2fef177004a45d51245bcb2c9ef8f9b489868a3b9d7a25",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "UnitSideSeam",
+      "source": "UnitSideSeam.lean",
+      "sourceSha256": "05416863de7537b6ec793c494123d2e44e0a546128c2f279d8e6646418463c43",
+      "bytes": 1097,
+      "receipts": [
+        {
+          "file": "UnitSideSeam.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 2.3075599670410156
+        },
+        {
+          "file": "UnitSideSeam.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 1.421
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/UnitSideSeam.olean",
+      "oleanSha256": "fd6693b96a8fd4556d20e8282675de152b7224741105832bbf0f337ea31393af",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "OriginalInternalSeam",
+      "source": "OriginalInternalSeam.lean",
+      "sourceSha256": "edd0092f1828700d59ebc5fdf0879ad0b91f86392b4988765a2d32fee0e9c2c5",
+      "bytes": 9483,
+      "receipts": [
+        {
+          "file": "OriginalInternalSeam.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 2923.957
+        },
+        {
+          "file": "OriginalInternalSeam.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 148.477
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/OriginalInternalSeam.olean",
+      "oleanSha256": "221ddcd30db6db6d3c60d319075ca9b7ad3d73b867885d19c000e262c4d39186",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "InternalSideValues",
+      "source": "InternalSideValues.lean",
+      "sourceSha256": "d4a949bb6ba02c7ad260e969b59e6c57090974c2a41a60b5d69da298777d1505",
+      "bytes": 2576,
+      "receipts": [
+        {
+          "file": "InternalSideValues.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 173.736
+        },
+        {
+          "file": "InternalSideValues.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 7.941
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/InternalSideValues.olean",
+      "oleanSha256": "a084ae8954c6957986837d9794ec874eeb1a03c2dc2e88f21de36e71b78ea997",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ProducedOriginalInternalSeamDataInferredV2",
+      "source": "ProducedOriginalInternalSeamDataInferredV2.lean",
+      "sourceSha256": "4d8b66ffba935276b60b824670934c0af40d39dbc40fe29425f92b7d994792e4",
+      "bytes": 2948,
+      "receipts": [
+        {
+          "file": "ProducedOriginalInternalSeamDataInferredV2.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 45.431
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ProducedOriginalInternalSeamDataInferredV2.olean",
+      "oleanSha256": "2b2ff438e5c2c98f3b6399fd58a68f2145aec15f5dadf5cd665187faf2e05aae",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "MirrorInteriorFrame",
+      "source": "MirrorInteriorFrame.lean",
+      "sourceSha256": "aceedd28cf9fcf9a906c3607645a081e62b746eaf25005c90c141eed9dd24956",
+      "bytes": 4920,
+      "receipts": [
+        {
+          "file": "MirrorInteriorFrame.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1.971
+        },
+        {
+          "file": "MirrorInteriorFrame.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 1.803
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/MirrorInteriorFrame.olean",
+      "oleanSha256": "389aaa10298af4b57e703375216cfc509e1319448f6609a72a7032a50f3c04a0",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "MirrorInternalSeam",
+      "source": "MirrorInternalSeam.lean",
+      "sourceSha256": "299a5302c104836e317fe6abc243fab2468c2804bb91a4836b7566bee0a8a71b",
+      "bytes": 10885,
+      "receipts": [
+        {
+          "file": "MirrorInternalSeam.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 2928.594
+        },
+        {
+          "file": "MirrorInternalSeam.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 145.558
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/MirrorInternalSeam.olean",
+      "oleanSha256": "fc6ba2ddbbba198b15b655c5b05770d633c78e9bc715e3e560ea79c3d753794a",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ProducedMirrorInternalSeamDataInferredV2",
+      "source": "ProducedMirrorInternalSeamDataInferredV2.lean",
+      "sourceSha256": "f6698dbe38a8ac05dcbe304693e0ea3270bca87d6696837b644056f066b825fc",
+      "bytes": 2929,
+      "receipts": [
+        {
+          "file": "ProducedMirrorInternalSeamDataInferredV2.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 45.108
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ProducedMirrorInternalSeamDataInferredV2.olean",
+      "oleanSha256": "bbf361642896baccd80eb11812ca43cb8f94a9936ec7269f226fb3af04208d19",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "TransverseSeamV2",
+      "source": "TransverseSeamV2.lean",
+      "sourceSha256": "fc4f3ab91cf218d25b76ea05d62d2fd7f9291390f29e5f1035c119eeebf46239",
+      "bytes": 9819,
+      "receipts": [
+        {
+          "file": "TransverseSeamV2.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 4471.427
+        },
+        {
+          "file": "TransverseSeamV2.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 329.267
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/TransverseSeamV2.olean",
+      "oleanSha256": "2537a2f0eb50f7dd9ca9412eaf8bfb676a366a139ead210eb246d96af6d152d9",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "TransverseWiringGeneric",
+      "source": "TransverseWiringGeneric.lean",
+      "sourceSha256": "267e06b3f3a6233d7dd0969aba659fcd23dd3299f8a319d6534e4265ab015206",
+      "bytes": 2723,
+      "receipts": [
+        {
+          "file": "TransverseWiringGeneric.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1.977
+        },
+        {
+          "file": "TransverseWiringGeneric.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 1.755
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/TransverseWiringGeneric.olean",
+      "oleanSha256": "ff346d1372b20b7c1cf5a574669726ed4437e3503cf781c04c25f01dee5a61df",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "TransverseSideAttachGeneric",
+      "source": "TransverseSideAttachGeneric.lean",
+      "sourceSha256": "f11e886d28a9757528e4258e0679a866c5e16ba4d4d36fed792dee77d7289e28",
+      "bytes": 4228,
+      "receipts": [
+        {
+          "file": "TransverseSideAttachGeneric.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 3.112
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/TransverseSideAttachGeneric.olean",
+      "oleanSha256": "32589d249d9529b48b5ed0c9874171ea393c4c34aac1d76252104fd5b4fd454a",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "TransverseNonprincipal",
+      "source": "TransverseNonprincipal.lean",
+      "sourceSha256": "da8a8695d747ea4626b374548699188f345277e605f9edfe8c912c905d70789c",
+      "bytes": 2368,
+      "receipts": [
+        {
+          "file": "TransverseNonprincipal.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1.601
+        },
+        {
+          "file": "TransverseNonprincipal.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 1.398
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/TransverseNonprincipal.olean",
+      "oleanSha256": "db46bc75073ba2eaf5205f893c9384792362885e2bbe02eec2e0b5bf3ef6c922",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ProducedTransverseSeamsDataInferredV2",
+      "source": "ProducedTransverseSeamsDataInferredV2.lean",
+      "sourceSha256": "d565481a6b30f5a27c447a24273fede0602d23ccdd8f5c04951d8d85e8e230ac",
+      "bytes": 5533,
+      "receipts": [
+        {
+          "file": "ProducedTransverseSeamsDataInferredV2.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 39.976
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ProducedTransverseSeamsDataInferredV2.olean",
+      "oleanSha256": "9f6841246ec1a782e1e2183f4f8e0b988cd510311086535b75ffcfe462afb422",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "FirstCommonEqualityV3",
+      "source": "FirstCommonEqualityV3.lean",
+      "sourceSha256": "097a49b12a301c39e5f0e9128f781212b5366415249117b7492291792420360b",
+      "bytes": 12982,
+      "receipts": [
+        {
+          "file": "FirstCommonEqualityV3.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 4801.212042570114
+        },
+        {
+          "file": "FirstCommonEqualityV3.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 38.064
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/FirstCommonEqualityV3.olean",
+      "oleanSha256": "a3969a6dac59ec1e60d92cd3652c033d41942cd8fac0bcfee336eba9e1698856",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "FirstPortFrameShared",
+      "source": "FirstPortFrameShared.lean",
+      "sourceSha256": "42231460647173e8a451eab0b60b0fa5ce5d1d0521e5157cc9fd0791d7d1dcb6",
+      "bytes": 4771,
+      "receipts": [
+        {
+          "file": "FirstPortFrameShared.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 549.684
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/FirstPortFrameShared.olean",
+      "oleanSha256": "3bbadc03b1917d5826c65a10ff99f26a1f11bff1de971baaaa959606840e2f81",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "FirstNegativeFrameShared",
+      "source": "FirstNegativeFrameShared.lean",
+      "sourceSha256": "b6d726a97497ee226502e5a750a7183f5d520f89eee9a4d9e31138bf4cba132b",
+      "bytes": 3670,
+      "receipts": [
+        {
+          "file": "FirstNegativeFrameShared.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 518.836
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/FirstNegativeFrameShared.olean",
+      "oleanSha256": "ec834a170cbdb51cb1d3cce0801f60d2e0461089624386e71dd572b1df7d5ac2",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "FirstSeamShared",
+      "source": "FirstSeamShared.lean",
+      "sourceSha256": "dc498746e65e0640e005baa584cd46b2b6e06e9e105e49df8410a6a7a6865fb4",
+      "bytes": 6927,
+      "receipts": [
+        {
+          "file": "FirstSeamShared.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 2744.483
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/FirstSeamShared.olean",
+      "oleanSha256": "21c812cf98d9a8f4956ed29b706a69e67006112b24d639b89646f76535cf5616",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "GraftShortUnit",
+      "source": "GraftShortUnit.lean",
+      "sourceSha256": "9ce695f6b8b681905f6d5a2b721e4e510aecbc0a6de83c544100e504f24c99a4",
+      "bytes": 2138,
+      "receipts": [
+        {
+          "file": "GraftShortUnit.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 2.531326591037214
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/GraftShortUnit.olean",
+      "oleanSha256": "0af39d4a8ad9386a0dcec717d026d9f9fc901e9e4fbcb5538bfb43d9e04f69d1",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "BandFirstShortValues",
+      "source": "BandFirstShortValues.lean",
+      "sourceSha256": "6b0a2350d373eb4a3678bc58c13522003688d660699baa14d6eeb8705023ae75",
+      "bytes": 1342,
+      "receipts": [
+        {
+          "file": "BandFirstShortValues.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 2.139288350008428
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/BandFirstShortValues.olean",
+      "oleanSha256": "68280343dc51e39d205a1efce028fcb49408cb99a42c38b6b9693e235b369dbe",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "RefinedFirstShortAtPortV2",
+      "source": "RefinedFirstShortAtPortV2.lean",
+      "sourceSha256": "04e9617814e9bf722025c677584d4b5c49479449c12b41f6305be43308d7e381",
+      "bytes": 1737,
+      "receipts": [
+        {
+          "file": "RefinedFirstShortAtPortV2.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 81.98971453402191
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/RefinedFirstShortAtPortV2.olean",
+      "oleanSha256": "10e2fe89435569bcac1405befcfb0cf4b800537c1cdde1ecd9a552a92bec4956",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "MarkedLiftFirstSide",
+      "source": "MarkedLiftFirstSide.lean",
+      "sourceSha256": "523c4f6e2635ae848b96d6075e3499c1f0346f86d7c05b72777fb36bd5e14762",
+      "bytes": 2779,
+      "receipts": [
+        {
+          "file": "MarkedLiftFirstSide.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 22.998182773590088
+        },
+        {
+          "file": "MarkedLiftFirstSide.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 2.116
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/MarkedLiftFirstSide.olean",
+      "oleanSha256": "26ee2a91e5448a32a55197e0df0a31a407045e4bc05a9687b335866dd137614b",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ProducedFirstShortSharedInferredV2",
+      "source": "ProducedFirstShortSharedInferredV2.lean",
+      "sourceSha256": "082a84e860e425a6e0b769490a9964a6043a6754401e04f0bc54676ee9e88319",
+      "bytes": 2870,
+      "receipts": [
+        {
+          "file": "ProducedFirstShortSharedInferredV2.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 65.95
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ProducedFirstShortSharedInferredV2.olean",
+      "oleanSha256": "b52bc2a2543d418393d869ea3858dd03c22cd9b6b9953da00550c1ea74f228a0",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentSelectedLastPortFixed",
+      "source": "ParentSelectedLastPortFixed.lean",
+      "sourceSha256": "4636aa4116c3485d866abbc56ebb6929dc6721cb312ea99d72433a8969c814e5",
+      "bytes": 4478,
+      "receipts": [
+        {
+          "file": "ParentSelectedLastPortFixed.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1591.8147807179485
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentSelectedLastPortFixed.olean",
+      "oleanSha256": "ec74407bf4ca70697eb5832bb165c4987c7ed0b709fb5b67442821e755d502d9",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentSelectedEndpointsModular",
+      "source": "ParentSelectedEndpointsModular.lean",
+      "sourceSha256": "4c72b7fc9e729c478f36df74dcda02fb5f54fa303f2173e3c27efcfcdd579de0",
+      "bytes": 8516,
+      "receipts": [
+        {
+          "file": "ParentSelectedEndpointsModular.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 4272.611551623093
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentSelectedEndpointsModular.olean",
+      "oleanSha256": "652986c360bfede3f3467d3b47a9f82540fcd8304179eca27a6cd19603dce171",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentSelectedSeam",
+      "source": "ParentSelectedSeam.lean",
+      "sourceSha256": "62f5ae77def5e59c89a9d26af1bff03bb53512bbcdcd6fb6e20c698cd6c7a45c",
+      "bytes": 3631,
+      "receipts": [
+        {
+          "file": "ParentSelectedSeam.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1834.7570285152178
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentSelectedSeam.olean",
+      "oleanSha256": "75d0899f2ef9bb3fcc28b6d6e88b7446b32587725c32cf315e93a3bb58999462",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentSelectedSideEndpointCoordinates",
+      "source": "ParentSelectedSideEndpointCoordinates.lean",
+      "sourceSha256": "517b62aaa226145f8d1d8f6c7777cfab8c21d48a7dcdaa3d9e83d1bc0c3be89e",
+      "bytes": 1987,
+      "receipts": [
+        {
+          "file": "ParentSelectedSideEndpointCoordinates.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 99.63699337188154
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentSelectedSideEndpointCoordinates.olean",
+      "oleanSha256": "7ad16b861ef6072abcf251b7fa599045a3e8c33b3b34a9231604750f4cd4cba9",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentSelectedFromSides",
+      "source": "ParentSelectedFromSides.lean",
+      "sourceSha256": "d54e07e91834b7bf15ab8a3e63e9e4a5ad7416c0769c09d4c8ac514a6556f67d",
+      "bytes": 2696,
+      "receipts": [
+        {
+          "file": "ParentSelectedFromSides.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 739.4522869610228
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentSelectedFromSides.olean",
+      "oleanSha256": "b281251daae54ed02cd0ff1de6e8ba9fe7fd73de3b7a9c0497c7a72803fb3c6d",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentSelectedFlagAlgebra",
+      "source": "ParentSelectedFlagAlgebra.lean",
+      "sourceSha256": "b06b597d8421b669898b32c8d6098257d66ded413008bd86e86bd4b6a55221f0",
+      "bytes": 1391,
+      "receipts": [
+        {
+          "file": "ParentSelectedFlagAlgebra.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1.4600092279724777
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentSelectedFlagAlgebra.olean",
+      "oleanSha256": "a2bb1128047aaaf9e78b4cd4f800fe1a161bd967ad25790df184f31e67eba62a",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentSelectedBandFlag",
+      "source": "ParentSelectedBandFlag.lean",
+      "sourceSha256": "9bf752fca6ae8be64dc619e1e68da98de75977fc1f0edbf4c49696d1a48c5678",
+      "bytes": 1353,
+      "receipts": [
+        {
+          "file": "ParentSelectedBandFlag.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1.5249735920224339
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentSelectedBandFlag.olean",
+      "oleanSha256": "35e49d15c9ff7219f77d1adfc326a30d79320ab2630eb00ffa7ea62ee9465540",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentProducedSelectedSeamInferredV2",
+      "source": "ParentProducedSelectedSeamInferredV2.lean",
+      "sourceSha256": "80bf2e7ff659177f2827f7951f07782180050cfe36dfb5e8831abda131688f68",
+      "bytes": 2417,
+      "receipts": [
+        {
+          "file": "ParentProducedSelectedSeamInferredV2.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 43.05760717508383
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentProducedSelectedSeamInferredV2.olean",
+      "oleanSha256": "75a3ffd2395ce1599a53cbeab121ad276b6d49d3e177c5b9f6aaf642dff617fb",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "MirrorPrincipalBridge",
+      "source": "MirrorPrincipalBridge.lean",
+      "sourceSha256": "431048f2d42d3174224254a10058c1b811cb39b53548e597d9d816832fa4b2ed",
+      "bytes": 7182,
+      "receipts": [
+        {
+          "file": "MirrorPrincipalBridge.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 13.535661074100062
+        },
+        {
+          "file": "MirrorPrincipalBridge.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": null,
+          "durationSeconds": 3.6381528771016747
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/MirrorPrincipalBridge.olean",
+      "oleanSha256": "24e85ad9233891f29420c5023f2b61dc7e44824c70647d0ae049be53e5c933bf",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentMirrorPrincipalNormalizedV2",
+      "source": "ParentMirrorPrincipalNormalizedV2.lean",
+      "sourceSha256": "77ea5ebbefcf89c6c791a4a1af7f177cc6f5810d6f113f0f4ac9534f8e03c3d5",
+      "bytes": 3158,
+      "receipts": [
+        {
+          "file": "ParentMirrorPrincipalNormalizedV2.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 4.57999408710748
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentMirrorPrincipalNormalizedV2.olean",
+      "oleanSha256": "7fcc3235935e7e2d86b877889ccee25148ef47db58ca290cf62358062b8da33b",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentWrapRawFrames",
+      "source": "ParentWrapRawFrames.lean",
+      "sourceSha256": "08b85cff11d3afb3685a95930a9f87113a95562d336f288492ed66634f2ac458",
+      "bytes": 4282,
+      "receipts": [
+        {
+          "file": "ParentWrapRawFrames.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 2.9431887317914516
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentWrapRawFrames.olean",
+      "oleanSha256": "35566e33fc283a5984ed9caf2cc2ae87a141d6d42f4ef486e9133badf48714ed",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentWrapPortFrames",
+      "source": "ParentWrapPortFrames.lean",
+      "sourceSha256": "404f39b37cfc9c4de0a66d7c6e4fc41f42613ce375ba3362056a8cd88e4bc249",
+      "bytes": 5005,
+      "receipts": [
+        {
+          "file": "ParentWrapPortFrames.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1049.8276933280285
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentWrapPortFrames.olean",
+      "oleanSha256": "0f4a6d19892c1afdb5bab8598b1e6aa07a11d6d19c940fff37bcb760063f3404",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentWrapEndpoints",
+      "source": "ParentWrapEndpoints.lean",
+      "sourceSha256": "55b935f1064af6a6e4edfc8c95601701b8b17ce036ddc5b7d794dcda6b1ce61d",
+      "bytes": 6509,
+      "receipts": [
+        {
+          "file": "ParentWrapEndpoints.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1218.2735960709397
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentWrapEndpoints.olean",
+      "oleanSha256": "867048485eb2c3c796d1f205d5870f968d67b1c666056e4420980c1c66f54cd7",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentWrapSeam",
+      "source": "ParentWrapSeam.lean",
+      "sourceSha256": "cd1ee327a613b84cf71e587111f9c06f4420acae07f8eec2a9930a1091e7c4c3",
+      "bytes": 3569,
+      "receipts": [
+        {
+          "file": "ParentWrapSeam.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1811.6216447828338
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentWrapSeam.olean",
+      "oleanSha256": "984e37d14cd1fd23b80da8e0b2c7e9dc283bd2301a41850c0d6794804a27a821",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentWrapSideTransport",
+      "source": "ParentWrapSideTransport.lean",
+      "sourceSha256": "a0eb6d73c15df873f308dbab9f6fc342bd07d011a52bc2aa58dd2f3c809bca2d",
+      "bytes": 5168,
+      "receipts": [
+        {
+          "file": "ParentWrapSideTransport.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 969.5133418010082
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentWrapSideTransport.olean",
+      "oleanSha256": "e6c65d2b84942d1e96be9a01fe720f9cb847ae26c9d2e23ced16482f9a3f9393",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentBlockIdentity",
+      "source": "ParentBlockIdentity.lean",
+      "sourceSha256": "4591f70c6a9e043bdeb4b0a56e0f4c0b5fd1f9b8a0ac2426bf873a070db06c25",
+      "bytes": 946,
+      "receipts": [
+        {
+          "file": "ParentBlockIdentity.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1.5696031379047781
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentBlockIdentity.olean",
+      "oleanSha256": "8668dae0be60a9a1f8837aa8cd2605cf901c208a08c122a2a347704a2db2bf13",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentWrapSideEndpointCoordinates",
+      "source": "ParentWrapSideEndpointCoordinates.lean",
+      "sourceSha256": "1cad8c0e23f42a194fce8179ccaad46ff6139c2ed43171452fa6527296d0cbd5",
+      "bytes": 2553,
+      "receipts": [
+        {
+          "file": "ParentWrapSideEndpointCoordinates.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 708.438846108038
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentWrapSideEndpointCoordinates.olean",
+      "oleanSha256": "2bc42be5bb324cec70f215ff34f5197c27da0cbdfcc7ee1952140f246b205de5",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentWrapFromSides",
+      "source": "ParentWrapFromSides.lean",
+      "sourceSha256": "d4b1b5c85005d11d77b87a1a87b87a33c27e307c8456c9f332a949967cbf08f8",
+      "bytes": 2557,
+      "receipts": [
+        {
+          "file": "ParentWrapFromSides.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 583.8372642039321
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentWrapFromSides.olean",
+      "oleanSha256": "fee7f2064cc8bcdeac00d7ebe667c42084b9c960fe25b3f6e775505966c1c8ff",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentWrapFlagAlgebra",
+      "source": "ParentWrapFlagAlgebra.lean",
+      "sourceSha256": "73c134688d2f59c02a86019cf46bb7964230891a7d6aba689eece3cd8c18f553",
+      "bytes": 993,
+      "receipts": [
+        {
+          "file": "ParentWrapFlagAlgebra.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 1.5851402238477021
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentWrapFlagAlgebra.olean",
+      "oleanSha256": "23265e6c0516244342201ca431b2e992d810d1129b846af782e6153decd63291",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentWrapBandFlagV3",
+      "source": "ParentWrapBandFlagV3.lean",
+      "sourceSha256": "945523379c50e84fc18dedc7ed264cf7b6cf8297f7cf87b60549b69f52353aac",
+      "bytes": 3697,
+      "receipts": [
+        {
+          "file": "ParentWrapBandFlagV3.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 2.9790890379808843
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentWrapBandFlagV3.olean",
+      "oleanSha256": "2b151916acd9d1e93ffc44d7787f3904aefad243d27a436a81c58c98a75c440b",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "ParentProducedWrapSeamInferredV2",
+      "source": "ParentProducedWrapSeamInferredV2.lean",
+      "sourceSha256": "2188c57357afbd7561e1e2b0b98465fc608be7d9a1ceecc4a725e1cadd308ed0",
+      "bytes": 2415,
+      "receipts": [
+        {
+          "file": "ParentProducedWrapSeamInferredV2.receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 43.15054905298166
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/ParentProducedWrapSeamInferredV2.olean",
+      "oleanSha256": "ee553c4248ff66185ee5a3e783683ebee080ce2308c2dbf601c60bc8f0aee36a",
+      "logsWithProofHoles": []
+    },
+    {
+      "module": "AllSeamsAssemblyInferredV2",
+      "source": "AllSeamsAssemblyInferredV2.lean",
+      "sourceSha256": "7bc8f2708fafd2cd1effdc61c59c38a7e146727fbb8bc5c735d03b85522378bb",
+      "bytes": 2797,
+      "receipts": [
+        {
+          "file": "AllSeamsAssemblyInferredV2.build-receipt.json",
+          "exitCode": 0,
+          "sourceMatches": true,
+          "sourceUnchanged": true,
+          "durationSeconds": 17.736
+        }
+      ],
+      "successfulMatchingReceipt": true,
+      "olean": ".build/AllSeamsAssemblyInferredV2.olean",
+      "oleanSha256": "4d36209b97f570ebc9c3f6288f965f19a02d1e5fe054219e23c84fe32f9edbeb",
+      "logsWithProofHoles": []
+    }
+  ],
+  "flattenedSource": "AllSeamsArchiveFinalInferredV2.lean",
+  "flattenedSha256": "b112a1db4a012ec8449b1adf58d73de5f6e848229786868eb828a3e2a70cdfa2",
+  "flattenedBytes": 237563,
+  "flattenedVerified": false
+}

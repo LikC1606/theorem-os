@@ -1,0 +1,351 @@
+{
+  "upstreamCommit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+  "blockedSolutionModule": "OAI.AlgebraicGeometry.CharacterVarieties.Seams.ProducedSolution",
+  "targetNames": [
+    "OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams"
+  ],
+  "dependencies": [
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Seams.ProducedEquations",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams/ProducedEquations.lean",
+      "sha256": "2812714a68c122afd3cb5055bf256a61c797ebcfa90e9f211dd2e020604eb418",
+      "bytes": 2206
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Seams.ProducedDiagram",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams/ProducedDiagram.lean",
+      "sha256": "5eac5b9103bec2d0f642d5bf56817afcab427bae742ef9b05962fae6a4c8329b",
+      "bytes": 7943
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Frames.MarkedFrames",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/MarkedFrames.lean",
+      "sha256": "fdd053185deaac30577ce93f4b4a47e90775bd6351b571bcb13708807f6c6df7",
+      "bytes": 3635
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Seams.MarkedSurface",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams/MarkedSurface.lean",
+      "sha256": "daee1598370ce162cbb52ed6bf8184592f9dc0accd1016e0bca56e4ae33a5c79",
+      "bytes": 15386
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.MarkedDiagram",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/MarkedDiagram.lean",
+      "sha256": "3191c4bbd5348c802eabe3c3c7b3ca01c7c3926d80aae5af85dcf45b7109b843",
+      "bytes": 6902
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Frames.Mirror",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/Mirror.lean",
+      "sha256": "ce08de497540c1b014334b01a74a1cb50666e0383ce13f5c7bf8e36b4e274a25",
+      "bytes": 11316
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Frames.NamedSeams",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/NamedSeams.lean",
+      "sha256": "2c14619c012b0164533e13b64ca39c3beaa1e5fb0e487519553cd0b91320283f",
+      "bytes": 7141
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Seams.BoundaryWords",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams/BoundaryWords.lean",
+      "sha256": "b78b5c5ca2aa12591c2d0d1ca83b16a27fe33c991da8eb1767cc1b571a5662c1",
+      "bytes": 24313
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Seams.InverseSolution",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams/InverseSolution.lean",
+      "sha256": "43e3d88790df824f986f23cdbd3efd858b1c490f1ad8bec440374b6d69dd96de",
+      "bytes": 19493
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.GraftValues",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/GraftValues.lean",
+      "sha256": "0f423745f885d9665ff35d8d4b66951369d69b6f470cd347219a53e21165391e",
+      "bytes": 21120
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.DiskGauge",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/DiskGauge.lean",
+      "sha256": "df63a0038156c23043007bdd52691214122a063909e6ac6ebf3ed8ca311e10e0",
+      "bytes": 14084
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.GeneratorGauge",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/GeneratorGauge.lean",
+      "sha256": "bd702283534cde3f405705e7767cfa767c040c9a12692a685226d8e4a0ed4d8a",
+      "bytes": 11834
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Frames.BandBases",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/BandBases.lean",
+      "sha256": "b0acd4e240c053747a46a1967b453db85eb96d38dadd847c19d1053307f6c684",
+      "bytes": 9633
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Frames.CutFrames",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/CutFrames.lean",
+      "sha256": "6b23f5a126a70c69c61ab57ee205d963d2b95a7bea50a5df485b65b01b77e463",
+      "bytes": 6615
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Frames.Endpoints",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/Endpoints.lean",
+      "sha256": "b101181228f53dfeb10fba4c1308c0760ee5d27eff90612487f76b7f83fc3f3b",
+      "bytes": 21824
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Seams.Handles",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams/Handles.lean",
+      "sha256": "24bcebe3c1e5173e9f4d47e47991bf65805affb10abdebd8c3f0034aea5647ed",
+      "bytes": 8920
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.BoundaryEnumeration",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/BoundaryEnumeration.lean",
+      "sha256": "6c8de419da0e3eb6a5c55f89628d081b80cb989bff2225c20d72ed25785b749f",
+      "bytes": 15744
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.Grafting",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/Grafting.lean",
+      "sha256": "50d3fdaa1ffb7fddc4220578ea2644eb220d9166ee449e8171ae82b9411d20a8",
+      "bytes": 60512
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.RefinedDiagram",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/RefinedDiagram.lean",
+      "sha256": "968d5a68cf0487fd29a48b074a4ba8b3fd9a0a3feab0b8f277cafba844907006",
+      "bytes": 31815
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.SurfacePresentation",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SurfacePresentation.lean",
+      "sha256": "1030f673451af317691dec29b2ae4a8eb9e6c242e8723966dfccd5124497c5db",
+      "bytes": 31793
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.VertexGauge",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/VertexGauge.lean",
+      "sha256": "d8841ea315aa4ac972f7fea8f22cf9ca8c3c18a6d57ffea2e037544135025971",
+      "bytes": 16827
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Frames.AtomicFlags",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/AtomicFlags.lean",
+      "sha256": "0ffacc11715e24abff00fe2e27b40aacb0b1c6ca10620ea96025271093fe30de",
+      "bytes": 2265
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Frames.BandGauges",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/BandGauges.lean",
+      "sha256": "a459e8469de543859fd373fed747cad0ec2d63117cbe3187cada9f9893e4b40c",
+      "bytes": 13291
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Seams.CutWords",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams/CutWords.lean",
+      "sha256": "a231f656d6958d2a0c658acfdf8454fda45b7d2569cd58c7362dc66f4d75a47c",
+      "bytes": 17650
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.AtomicGallery",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/AtomicGallery.lean",
+      "sha256": "83b06889c39882e36f9f2bba052ab4fc5e6417122d483b9a1ac9c187ae8c7437",
+      "bytes": 30855
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.GraftCircuits",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/GraftCircuits.lean",
+      "sha256": "b257bf1fc75bf0d4c42624391d4b9dc8ec54016b0f108d9d8490cef61d3c530f",
+      "bytes": 45522
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BandCut",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCut.lean",
+      "sha256": "ebe9d957cc8a91f223a3fe09b66cff4aa6df869e7424fbee6aa366dbc2ce8618",
+      "bytes": 35890
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BandCycles",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCycles.lean",
+      "sha256": "398444074f4e7593382eb8a36840f450ab5294a9c4e439b51fda29d22b0c8cde",
+      "bytes": 11538
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BoundaryReordering",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryReordering.lean",
+      "sha256": "0890150d3f08276bd70dd81559fe7cabd22c982e1b1dc9efcebb5979c2f76f87",
+      "bytes": 9939
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.Incidence",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/Incidence.lean",
+      "sha256": "2fffa90d905943cea29115230b87fcdd93b2aaac3a33137265ad192e03a3a48a",
+      "bytes": 17101
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Frames.Graded",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/Graded.lean",
+      "sha256": "5a6a4b4913f7fdc5147d8eaf6e7dd53bfeeac313425fcb5ad78bf423ac12211c",
+      "bytes": 10832
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.AtomicFrames",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/AtomicFrames.lean",
+      "sha256": "c18e42ad63992b03784a72eb5d116891f91c20a9e6cd83e16bd727d38dec6b17",
+      "bytes": 9586
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.BoundarySurgery",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/BoundarySurgery.lean",
+      "sha256": "cacb010e82dd811b216bb72aaaf76ebd4efe2b0a1cb30a151a1eda66fee2d17d",
+      "bytes": 31693
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BandCutTopology",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCutTopology.lean",
+      "sha256": "be87cf0c88a2c31353d0caff8654294451d8d8d29ae78d1422b63f470d3bffca",
+      "bytes": 13262
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BoundaryBands",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryBands.lean",
+      "sha256": "695a05daf5bd698f836d8cae8cc056f7624df70a8d9863e33adb08df05106ad2",
+      "bytes": 15362
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.ComplementaryPatches",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/ComplementaryPatches.lean",
+      "sha256": "9a4296f8f0da290eeb43e492c3a09572a5932ee8f093f2804e9d144f3ed1daf9",
+      "bytes": 40251
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.CornerGauge",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/CornerGauge.lean",
+      "sha256": "0c18bfd3693e4b2c5fb40f2b542a1de619de808252c2f0dbe2c3f527cc28ec0c",
+      "bytes": 12441
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.MatrixExpressions",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/MatrixExpressions.lean",
+      "sha256": "ca37156a02617cfb605ca20f2743adb40dc5a094fef4a1d9890e87ccf7eb7d3f",
+      "bytes": 9416
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Frames.GradeMaps",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/GradeMaps.lean",
+      "sha256": "ae2e9a8e490bc740d0e2907ff8be7cce1a6a6a02b356aafe3cae0562edecc4df",
+      "bytes": 8072
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.FreshGallery",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/FreshGallery.lean",
+      "sha256": "03bc6dc8412236efb81ab1fb7555f3ff4e2a2b02c9904b256a12b4328b48d02d",
+      "bytes": 41798
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.StripFacets",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/StripFacets.lean",
+      "sha256": "83ff80de6bf61e89abfd8ffc618e7227b9d10eb4d707a225cf59a33029c0ecc9",
+      "bytes": 40122
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BandIncidence",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandIncidence.lean",
+      "sha256": "dd7d2c5925d600305a367ee020f08708322c25fd2f0e283a6a7a2896c4f04203",
+      "bytes": 22217
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.FlagGalleries",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/FlagGalleries.lean",
+      "sha256": "074f36a1e6824e12ac4eb5899c29a37bdb56a1b94ffdaf886edf7a895645efc7",
+      "bytes": 28721
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.Flags",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/Flags.lean",
+      "sha256": "0a5412a7d8bf468799a766580cd66647e299bb94b0f8ffc62ed15db3d0542fcb",
+      "bytes": 13837
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.MatrixPresentation",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/MatrixPresentation.lean",
+      "sha256": "d108c8d57e24295c8000ba6162e762a94ba86725b9a005d9058e4586505c2081",
+      "bytes": 7570
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.SurfaceSurgery",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SurfaceSurgery.lean",
+      "sha256": "3b73867f4099c938af3970ad6048c1d75a7c43ba59d84c33cca70bcb840c4b22",
+      "bytes": 10756
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.VertexFrames",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/VertexFrames.lean",
+      "sha256": "c7815746c9b3e76ccbaab66c637ad58619f848131339c2f913ef17448dda2ae4",
+      "bytes": 14606
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.PortSurgery",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/PortSurgery.lean",
+      "sha256": "f8457fca8ea3fe538b37ee8193385b729a75e5243454d7d65751f34d5ec71bed",
+      "bytes": 25851
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BoundaryFrames",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryFrames.lean",
+      "sha256": "7e2548494bc5cc1e3a93ea90abe2c456c81175eeb6abcaa286a7b0376e0deb77",
+      "bytes": 16978
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.CutCircleIndex",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/CutCircleIndex.lean",
+      "sha256": "fd1bba37345bcc08c5d42c412604c656a134c6a89194be77eabb9cb8480d0c37",
+      "bytes": 2778
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.PortPatches",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/PortPatches.lean",
+      "sha256": "7fc965a6b2cd6ee4202f888980c28570fa34aea1e429438efd7042e549270295",
+      "bytes": 20024
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.RoutedFamilies",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/RoutedFamilies.lean",
+      "sha256": "14cd1bab885fc0d6863b342445170b6d08ca9472697f7aaef39463bb2c2d6e5f",
+      "bytes": 28990
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.DoubledStrips",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/DoubledStrips.lean",
+      "sha256": "02b2a07bf24fa256f8de4e4c2d5017a6af04b10b391669e741a8d3e339f48b39",
+      "bytes": 25459
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.BoundaryCycles",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryCycles.lean",
+      "sha256": "c7dc483155d5f61ca1c7bab6c6e4997e2ec90f080d6ec40e4df030e3126f0bf4",
+      "bytes": 21485
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.PatchCycles",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/PatchCycles.lean",
+      "sha256": "9d1fe36c82a24db570b509412a6fb925c96cf38f61a290cad0e573266de00255",
+      "bytes": 26759
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Foundation.SplitFlags",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SplitFlags.lean",
+      "sha256": "e850306aae38bb29a2b5b894c2114f23b065eb80982f59a7f4294e8e0cf6d4f2",
+      "bytes": 16823
+    },
+    {
+      "module": "OAI.AlgebraicGeometry.CharacterVarieties.Cutting.StripForest",
+      "url": "https://raw.githubusercontent.com/openai/math/1581d4cbdd69a0faf34b2089614fe2a814316a6a/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/StripForest.lean",
+      "sha256": "97ff940793081084281700fbea546e6d749c7b95b488b0b9527e8ec490a82178",
+      "bytes": 22763
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "exitCode": 0,
+  "durationSeconds": 43.05760717508383,
+  "sha256": "80bf2e7ff659177f2827f7951f07782180050cfe36dfb5e8831abda131688f68",
+  "sourceUnchanged": true,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/ParentProducedSelectedSeamInferredV2.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentProducedSelectedSeamInferredV2.lean"
+  ]
+}

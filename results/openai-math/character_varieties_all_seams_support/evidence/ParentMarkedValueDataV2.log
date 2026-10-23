@@ -1,0 +1,59 @@
+OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_markedLiftSideValue {F S V R K : Type} {arity : S → ℕ}
+  [CommRing R] [Field K] (D : OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram F S V arity) (q : S) [Finite V]
+  {r : ℕ} (d : OAI.IntegralCharacterVarieties.TwoFlagBand.RankShape (arity q) (arity q) r)
+  (hp : D.rank (D.ports.facet ⟨q, none⟩) = r)
+  (hc :
+    ∀ (i : Fin (arity q)),
+      D.rank (D.ports.facet ⟨q, some i⟩) = d.secondaryRank (OAI.IntegralCharacterVarieties.TwoFlagBand.Secondary.row i))
+  (hc' :
+    ∀ (i : Fin (arity q)),
+      D.rank (D.ports.facet ⟨q, some i⟩) = d.secondaryRank (OAI.IntegralCharacterVarieties.TwoFlagBand.Secondary.col i))
+  (hpMark : D.Proper) (hmaxMark : ∀ (f : F), D.rank f ≤ D.rank (D.ports.facet ⟨q, none⟩)) (φ : R →+* K)
+  (seed : (z : D.Generator) → (Matrix (Fin (D.generatorRank z)) (Fin (D.generatorRank z)) K)ˣ)
+  (b0 : Fin (D.boundaryCount (D.bandCutParent q))) (i0 : Fin (D.boundaryLength (D.bandCutParent q) b0))
+  (t a : (Matrix (Fin (D.rank (D.bandCutParent q))) (Fin (D.rank (D.bandCutParent q))) K)ˣ)
+  (frames : (D.refinedMarkedDiagram q d hp hc hc' hpMark hmaxMark).PortFrames)
+  (side :
+    OAI.IntegralCharacterVarieties.OccurrenceIncidence.Side
+      (OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.wiring (D.ports.mapFacet Sum.inl) q
+          (D.ports.refinedBandForSeam q d)).Seam
+      (OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.wiring (D.ports.mapFacet Sum.inl) q
+          (D.ports.refinedBandForSeam q d)).seamArity) :
+  D.refinedMarkedLiftValues q d hp hc hc' hpMark hmaxMark φ seed b0 i0 t a frames
+      (OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.Generator.side side) =
+    have seed' := D.bandCutLiftGenerators q φ seed b0 t a;
+    D.refinedCutSideValues q d hp hc hc'
+      (fun z => seed' (OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.Generator.side z))
+      ((OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.rebaseUnit ⋯) (D.bandCutChosenJ q φ seed' b0 i0 a))
+      ((OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.rebaseUnit ⋯)
+        ((D.bandCutChosenT q φ seed' b0 i0 t)⁻¹ * (D.bandCutChosenJ q φ seed' b0 i0 a)⁻¹ * D.bandCutP q seed' *
+          D.bandCutChosenT q φ seed' b0 i0 t))
+      side
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_markedLiftSideValue' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_markedLiftPortFrame {F S V R K : Type} {arity : S → ℕ}
+  [CommRing R] [Field K] (D : OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram F S V arity) (q : S) [Finite V]
+  {r : ℕ} (d : OAI.IntegralCharacterVarieties.TwoFlagBand.RankShape (arity q) (arity q) r)
+  (hp : D.rank (D.ports.facet ⟨q, none⟩) = r)
+  (hc :
+    ∀ (i : Fin (arity q)),
+      D.rank (D.ports.facet ⟨q, some i⟩) = d.secondaryRank (OAI.IntegralCharacterVarieties.TwoFlagBand.Secondary.row i))
+  (hc' :
+    ∀ (i : Fin (arity q)),
+      D.rank (D.ports.facet ⟨q, some i⟩) = d.secondaryRank (OAI.IntegralCharacterVarieties.TwoFlagBand.Secondary.col i))
+  (hpMark : D.Proper) (hmaxMark : ∀ (f : F), D.rank f ≤ D.rank (D.ports.facet ⟨q, none⟩)) (φ : R →+* K)
+  (seed : (z : D.Generator) → (Matrix (Fin (D.generatorRank z)) (Fin (D.generatorRank z)) K)ˣ)
+  (b0 : Fin (D.boundaryCount (D.bandCutParent q))) (i0 : Fin (D.boundaryLength (D.bandCutParent q) b0))
+  (t a : (Matrix (Fin (D.rank (D.bandCutParent q))) (Fin (D.rank (D.bandCutParent q))) K)ˣ)
+  (frames : (D.refinedMarkedDiagram q d hp hc hc' hpMark hmaxMark).PortFrames)
+  (p :
+    OAI.IntegralCharacterVarieties.OccurrenceIncidence.LocalPort
+      (V ⊕ Fin ((D.ports.refinedBandForSeam q d).length + 1) ⊕ Fin ((D.ports.refinedBandForSeam q d).length + 1))
+      (D.refinedMarkedDiagram q d hp hc hc' hpMark hmaxMark).ports.kind) :
+  (D.refinedMarkedDiagram q d hp hc hc' hpMark hmaxMark).portFrame
+      (D.refinedMarkedLiftValues q d hp hc hc' hpMark hmaxMark φ seed b0 i0 t a frames) p =
+    frames p
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_markedLiftPortFrame' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

@@ -1,0 +1,12 @@
+/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ProducedOriginalInternalSeamDataInferredV2.lean:33:0: warning: Definition `external_producedOriginalInternalSide_one_data` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ProducedOriginalInternalSeamDataInferredV2.lean:39:0: warning: Definition `external_producedOriginalInternalSeam_data` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_producedOriginalInternalSide_one_data' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_producedOriginalInternalSeam_data' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

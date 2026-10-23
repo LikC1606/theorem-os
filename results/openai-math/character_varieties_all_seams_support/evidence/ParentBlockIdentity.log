@@ -1,0 +1,3 @@
+'OAI.IntegralCharacterVarieties.MatrixIso.parent_blockUnitOne_linear' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

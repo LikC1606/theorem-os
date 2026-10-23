@@ -1,0 +1,24 @@
+{
+  "observedAt": "2026-10-23T06:22:10.255688+00:00",
+  "wholeOriginalTargetKernelPassed": true,
+  "kernelExitCode": 0,
+  "entry": "AllSeamsAssemblyInferredV2.lean",
+  "entrySourceSHA256": "7bc8f2708fafd2cd1effdc61c59c38a7e146727fbb8bc5c735d03b85522378bb",
+  "entryDurationSeconds": 17.736,
+  "noAdditionalTargetPremises": true,
+  "permittedAxiomsOnly": true,
+  "axioms": [
+    "propext",
+    "Classical.choice",
+    "Quot.sound"
+  ],
+  "localModulesMatchingReceipts": 66,
+  "publicSupportModulesMatchingHashes": 57,
+  "singleFileKernel": "running; not yet passed",
+  "publisherComparatorPassed": false,
+  "nativeAccepted": false,
+  "officialHostedAcceptance": false,
+  "claimBoundary": "The full original theorem has passed modular pinned-kernel verification. Single-file, original comparator, native final evaluation and hosted acceptance are separate pending stages.",
+  "receipt": "evidence/AllSeamsAssemblyInferredV2.build-receipt.json",
+  "axiomOutput": "evidence/AllSeamsAssemblyInferredV2.build.log"
+}

@@ -1,0 +1,15 @@
+{
+  "exitCode": 0,
+  "sourceSha256": "dc498746e65e0640e005baa584cd46b2b6e06e9e105e49df8410a6a7a6865fb4",
+  "sourceUnchanged": true,
+  "durationSeconds": 2744.483,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-j1",
+    "-DElab.async=false",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/FirstSeamShared.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/FirstSeamShared.lean"
+  ],
+  "log": "FirstSeamShared.build.log"
+}

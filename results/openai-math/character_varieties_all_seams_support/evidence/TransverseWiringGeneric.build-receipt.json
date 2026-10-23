@@ -1,0 +1,14 @@
+{
+  "exitCode": 0,
+  "sourceSha256": "267e06b3f3a6233d7dd0969aba659fcd23dd3299f8a319d6534e4265ab015206",
+  "sourceUnchanged": true,
+  "durationSeconds": 1.977,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-j1",
+    "-DElab.async=false",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/TransverseWiringGeneric.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/TransverseWiringGeneric.lean"
+  ]
+}

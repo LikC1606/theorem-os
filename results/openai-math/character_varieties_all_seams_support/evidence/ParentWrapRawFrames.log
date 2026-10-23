@@ -1,0 +1,6 @@
+'OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.parent_mirrorFirstFrame' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.parent_mirrorLastFrame' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

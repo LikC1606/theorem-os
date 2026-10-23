@@ -1,0 +1,24 @@
+/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ProducedTransverseSeamsDataInferredV2.lean:36:0: warning: Definition `external_producedTransversePlus_dataSide_one` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ProducedTransverseSeamsDataInferredV2.lean:44:0: warning: Definition `external_producedTransversePlus_dataSeam` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ProducedTransverseSeamsDataInferredV2.lean:56:0: warning: Definition `external_producedTransverseMinus_dataSide_one` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ProducedTransverseSeamsDataInferredV2.lean:64:0: warning: Definition `external_producedTransverseMinus_dataSeam` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_producedTransversePlus_dataSide_one' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_producedTransversePlus_dataSeam' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_producedTransverseMinus_dataSide_one' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_producedTransverseMinus_dataSeam' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

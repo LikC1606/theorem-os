@@ -1,0 +1,16 @@
+OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstNegativePortFrame_eq {F S V K : Type}
+  {arity : S → ℕ} [Field K] (D : OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram F S V arity) (q : S)
+  [Finite V] {f h : ((i : Fin (arity q)) × Fin (D.childDim q i) → K) ≃ₗ[K] Fin (D.rank (D.ports.facet ⟨q, none⟩)) → K}
+  (w : OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand (D.childDim q) f h)
+  (g : (e : D.Generator) → (Matrix (Fin (D.generatorRank e)) (Fin (D.generatorRank e)) K)ˣ)
+  (T :
+    OAI.IntegralCharacterVarieties.MatrixIso K (Fin (D.rank (D.ports.facet ⟨q, none⟩)))
+      (Fin (D.rank (D.ports.facet ⟨q, none⟩)))) :
+  ((D.namedCutPortFrames q w (D.portFrame g) T
+            ↑(OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.oldPort (D.ports.mapFacet Sum.inl) q
+                (D.ports.refinedBandForSeam q w.shape) q false)).reindex
+        (D.external_firstNegativePortColumns q w).symm (finCongr ⋯).symm).linearEquiv =
+    D.namedSeamFrame q (g (OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.Generator.frame q false))
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstNegativePortFrame_eq' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

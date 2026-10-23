@@ -1,0 +1,13 @@
+{
+  "exitCode": 0,
+  "durationSeconds": 1.549,
+  "sourceSha256": "03d12fb1317636bd026b9559bef39f683eba8f38ad020b5790c68eb1515f03c6",
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-j1",
+    "-DElab.async=false",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/NamedFramePortAt.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/NamedFramePortAt.lean"
+  ]
+}

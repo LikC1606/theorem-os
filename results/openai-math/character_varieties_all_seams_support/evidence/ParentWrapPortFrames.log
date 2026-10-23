@@ -1,0 +1,6 @@
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapFirstPortFrame' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapLastPortFrame' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

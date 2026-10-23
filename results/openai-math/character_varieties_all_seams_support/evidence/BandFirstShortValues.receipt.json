@@ -1,0 +1,14 @@
+{
+  "exitCode": 0,
+  "sourceSha256": "6b0a2350d373eb4a3678bc58c13522003688d660699baa14d6eeb8705023ae75",
+  "durationSeconds": 2.139288350008428,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-j1",
+    "-DElab.async=false",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/BandFirstShortValues.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/BandFirstShortValues.lean"
+  ],
+  "log": "BandFirstShortValues.log"
+}

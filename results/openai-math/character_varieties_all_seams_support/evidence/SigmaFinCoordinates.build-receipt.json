@@ -1,0 +1,14 @@
+{
+  "exitCode": 0,
+  "sourceSha256": "7262ddb91820f2912dfd88b0cfb85a7e6a84f267f53166e58a48884091ac8032",
+  "sourceUnchanged": true,
+  "durationSeconds": 1.554964303970337,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-j1",
+    "-DElab.async=false",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/SigmaFinCoordinates.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/SigmaFinCoordinates.lean"
+  ]
+}

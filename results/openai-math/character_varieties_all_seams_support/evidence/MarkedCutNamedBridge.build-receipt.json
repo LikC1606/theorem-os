@@ -1,0 +1,15 @@
+{
+  "exitCode": 0,
+  "sourceSha256": "ffec3f070ace721b60494dba33083348f70c199bedffa2fb18e7774d8d225b8b",
+  "sourceUnchanged": true,
+  "durationSeconds": 520.756,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-j1",
+    "-DElab.async=false",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/MarkedCutNamedBridge.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/MarkedCutNamedBridge.lean"
+  ],
+  "log": "MarkedCutNamedBridge.build.log"
+}

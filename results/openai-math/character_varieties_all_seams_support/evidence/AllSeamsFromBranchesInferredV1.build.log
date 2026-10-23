@@ -1,0 +1,6 @@
+/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/AllSeamsFromBranchesInferredV1.lean:29:0: warning: Definition `external_allSeamsFromBranches` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_allSeamsFromBranches' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

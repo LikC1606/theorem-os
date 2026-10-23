@@ -1,0 +1,23 @@
+{
+  "observedAt": "2026-10-23T06:19:12.403038+00:00",
+  "entryModule": "AllSeamsAssemblyInferredV2",
+  "target": "OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams",
+  "entryExportVerified": true,
+  "entrySHA256": "7bc8f2708fafd2cd1effdc61c59c38a7e146727fbb8bc5c735d03b85522378bb",
+  "entryReceipt": "AllSeamsAssemblyInferredV2.build-receipt.json",
+  "flattenedSource": "AllSeamsArchiveFinalInferredV2.lean",
+  "flattenedSHA256": "b112a1db4a012ec8449b1adf58d73de5f6e848229786868eb828a3e2a70cdfa2",
+  "flattenedBytes": 237563,
+  "localModuleCount": 66,
+  "supportSourceCount": 57,
+  "allRecordedSourceAndOleanHashesMatch": true,
+  "imports": [
+    "OAI.AlgebraicGeometry.CharacterVarieties.Seams.ProducedEquations"
+  ],
+  "forbiddenTokens": [],
+  "errors": [],
+  "flattenedKernel": "running",
+  "publisherComparator": "pending",
+  "nativeAcceptance": false,
+  "campaignAcceptance": false
+}
