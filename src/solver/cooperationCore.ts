@@ -68,6 +68,7 @@ export abstract class CooperationCore {
   protected pendingPulse?: Promise<ReadonlyMap<string, Promise<void>>>;
   protected deliveryChecks = new Map<string, Promise<void>>();
   protected proofPublications = new Map<string, Promise<TaskProof | undefined>>();
+  protected proofDeliveryChecks = new Set<Promise<void>>();
   protected integrationQueue = Promise.resolve();
   protected leadEvidence = new WeakMap<CooperativeAction, string>();
   protected publishedPlans = new WeakMap<CooperativeAction, { plan: ReturnType<typeof parseCooperationPlan>; version: string; responseDigest: string }>();
@@ -505,6 +506,13 @@ export abstract class CooperationCore {
   }
   protected record(worker: ResearchWorker, task: CooperativeTask | undefined, kind: DeliveryRecord['kind'], status: DeliveryRecord['status'],
     summary: string, options: Partial<DeliveryRecord> = {}) {
+    const record = this.createDeliveryRecord(worker, task, kind, status, summary, options);
+    (this.archive.deliveries ??= []).push(record);
+    this.publishDeliveryRecord(record);
+    return record;
+  }
+  protected createDeliveryRecord(worker: ResearchWorker, task: CooperativeTask | undefined, kind: DeliveryRecord['kind'], status: DeliveryRecord['status'],
+    summary: string, options: Partial<DeliveryRecord> = {}): DeliveryRecord {
     if (options.mathematicalGap && task) options = { ...options, mathematicalGapScope: bindMathematicalGap(options.mathematicalGap, task,
       this.archive, { problemReceiptDigest: this.input.state.problem.receiptDigest, environmentDigest: this.input.state.environmentDigest }) };
     const inputs = task && status !== 'superseded' ? this.dependencies(task) : [];
@@ -522,9 +530,11 @@ export abstract class CooperationCore {
         results: results.map(({ receiptId }) => ({ receiptId })) } };
     }
     this.pin(record.commit); this.pin(record.artifacts?.commit); this.pin(record.evidence?.verification.targetCommit);
-    (this.archive.deliveries ??= []).push(record); this.changed();
-    if (status !== 'superseded') this.inform(record);
     return record;
+  }
+  protected publishDeliveryRecord(record: DeliveryRecord) {
+    this.changed();
+    if (record.status !== 'superseded') this.inform(record);
   }
   protected reportBlockers(task: CooperativeTask, value: unknown) {
     const proposals = validateBlockerProposals(value, task, this.archive.tasks);

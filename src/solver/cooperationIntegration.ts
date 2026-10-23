@@ -8,9 +8,9 @@ import { hasDeterministicLeanFailure } from './proofReuse';
 import { proofReferencesUnchanged } from './proofReferences';
 import { attributeTaskReferences } from './taskReferenceAttribution';
 import { hasTaskConnectionCheck } from './taskConnections';
-import { taskGroup, taskReferenceDependencies, hasTaskAcceptance, assignmentDeliveryFile, type CooperativeTask, type TaskAssignment, type TaskRecord } from './tasks';
+import { taskGroup, taskReferenceDependencies, hasTaskAcceptance, type CooperativeTask, type TaskAssignment, type TaskRecord } from './tasks';
 import { digest, taskSourceRejections, integrationRejections, rejectionCode, bounded } from './cooperationShared';
-import { CooperationTaskProofs } from './cooperationTaskProofs';
+import { CooperationTaskProofs, type ProofDeliveryAnnotation } from './cooperationTaskProofs';
 
 const recheckBatchFallbacks = new Set([...taskSourceRejections, 'math_task_batch_projection_mismatch', 'math_task_missing_declaration']);
 const integrationBatchFallbacks = new Set([...taskSourceRejections, 'math_task_integration_conflict', 'math_task_integration_missing_context',
@@ -35,30 +35,26 @@ export abstract class CooperationIntegration extends CooperationTaskProofs {
     this.integrationQueue = pending.then(() => {}, () => {});
     return pending;
   }
-  protected integrateReady() { return this.queueIntegration(() => this.integrateReadyNow()); }
-  protected async integrateReadyNow() {
-    const publish = (node: TaskRecord) => {
-      const producer = this.input.workers.find(worker => worker.id === node.assignment!.workerId) ?? this.lead;
-      this.record(producer, node.task, 'proof', node.status === 'integrated' ? 'verified' : 'failed',
-        node.feedback ?? 'Checked proof integrated with freshly validated dependencies.',
-        { assignmentKey: assignmentDeliveryFile(node.assignment!),
-          commit: node.integratedCheck?.commit ?? node.proof!.commit, sourceDigest: node.integratedCheck?.sourceDigest,
-          evidence: node.integratedCheck ?? node.proof, actualReferences: (node.integratedCheck ?? node.proof)?.references });
-    };
+  protected integrateReady() {
+    return this.settleProofDeliveries(annotations => this.queueIntegration(() => this.integrateReadyNow(annotations)));
+  }
+  protected async integrateReadyNow(annotations: ProofDeliveryAnnotation[] = []) {
     for (;;) {
       // A parent can reach canonical acceptance before a later snapshot or publication fails.
-      const unpublished = this.archive.tasks.find(item => !this.synchronizationBlocked(item.task) && item.status === 'integrated' && item.proof && item.assignment &&
+      const unpublished = this.archive.tasks.find(item => !this.synchronizationBlocked(item.task) && item.status === 'integrated' && this.proofDeliveryCurrent(item) && item.proof && item.assignment &&
         item.integratedCheck?.passed && item.integratedCheck.taskDigest === digest(item.task) && this.checkedDeliveries.has(item.integratedCheck) &&
         !this.archive.deliveries?.some(record => record.taskId === item.task.id && record.taskDigest === digest(item.task) &&
           record.kind === 'proof' && record.status === 'verified' &&
-          (record.commit === item.proof!.commit || record.commit === item.integratedCheck!.commit)));
+          (record.commit === item.proof!.commit || record.commit === item.integratedCheck!.commit) &&
+          !this.pendingProofDeliveryRecords.has(record)));
       if (unpublished) {
         const receipt = unpublished.integratedCheck, version = digest(unpublished.task);
         await this.syncPreparedStatements();
-        await this.input.exclusiveCheck(async () => {
-          if (this.archive.tasks.includes(unpublished) && unpublished.status === 'integrated' &&
-              unpublished.integratedCheck === receipt && digest(unpublished.task) === version) publish(unpublished);
-        });
+        if (this.archive.tasks.includes(unpublished) && unpublished.status === 'integrated' &&
+            unpublished.integratedCheck === receipt && digest(unpublished.task) === version) {
+          const annotate = await this.publishProofDelivery(unpublished);
+          if (annotate) annotations.push(annotate);
+        }
         continue;
       }
       const node = this.archive.tasks.find(item => ['delivered', 'conditional'].includes(item.status) && this.integrationAllowed(item) &&
@@ -66,9 +62,10 @@ export abstract class CooperationIntegration extends CooperationTaskProofs {
       if (!node) return;
       const proof = node.proof;
       await this.integrateNow(node);
-      await this.input.exclusiveCheck(async () => {
-        if (this.archive.tasks.includes(node) && node.proof === proof && ['integrated', 'blocked'].includes(node.status)) publish(node);
-      });
+      if (this.archive.tasks.includes(node) && node.proof === proof && ['integrated', 'blocked'].includes(node.status)) {
+        const annotate = await this.publishProofDelivery(node);
+        if (annotate) annotations.push(annotate);
+      }
     }
   }
   protected synchronizationPending() {

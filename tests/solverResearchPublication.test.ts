@@ -2,7 +2,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { SolverRunState } from '../src/solver/archive';
-import type { TaskProof } from '../src/solver/cooperativeProof';
 import { parseCooperationPlan, type CooperativeResearch } from '../src/solver/cooperation';
 import * as knowledgeApplications from '../src/solver/knowledgeApplications';
 import { buildResearchContext } from '../src/solver/modules/context';
@@ -30,13 +29,6 @@ const gateKnowledgeChecks = (count = 1) => {
   });
   return { entered: entered.promise, release: () => checking.resolve([]) };
 };
-const blockedProof = (checks = 1) => {
-  const node = state.cooperation!.tasks[0];
-  const proof = { taskDigest: taskVersion(node.task), passed: false, commit: state.problem.baseCommit,
-    sourceDigest: 'source', verification: { status: 'failed', targetCommit: state.problem.baseCommit, results: [] } } as unknown as TaskProof;
-  node.status = 'blocked'; node.proof = proof;
-  return { node, proof, ...gateKnowledgeChecks(checks) };
-};
 
 beforeEach(() => {
   const example = localExample('research-publication-', 'lead'), { workspace, problem } = example;
@@ -59,32 +51,6 @@ beforeEach(() => {
 afterEach(async () => {
   vi.restoreAllMocks();
   controller.abort(); await cooperative.stop(); fs.rmSync(directory, { recursive: true, force: true });
-});
-
-it.each(['task', 'status', 'assignment', 'proof', 'integrated-check', 'environment', 'removed'] as const)
-('does not publish an old proof when %s changes during application checking', async change => {
-  const { node, proof, entered, release } = blockedProof();
-  const pending = (cooperative as any).finishProofDelivery(workers[1], action, node, proof, 'Old proof result', {});
-  await entered;
-  if (change === 'task') node.task = { ...node.task, revision: node.task.revision + 1 };
-  if (change === 'status') node.status = 'running';
-  if (change === 'assignment') node.assignment = { ...node.assignment!, assignmentId: 'new-assignment' };
-  if (change === 'proof') node.proof = { ...proof, commit: 'another-check' };
-  if (change === 'integrated-check') node.integratedCheck = { ...proof };
-  if (change === 'environment') state.environmentDigest = 'changed-environment';
-  if (change === 'removed') state.cooperation!.tasks.shift();
-  release(); await pending;
-  expect(state.cooperation!.deliveries ?? []).toEqual([]);
-});
-
-it('publishes an unchanged proof once when duplicate application checks finish together', async () => {
-  const { node, proof, entered, release } = blockedProof(2);
-  const publications = [1, 2].map(() => (cooperative as any).finishProofDelivery(workers[1], action, node, proof, 'Same proof', {}));
-  await entered;
-  release(); await Promise.all(publications);
-  expect(state.cooperation!.deliveries).toHaveLength(1);
-  expect(state.cooperation!.deliveries![0]).toMatchObject({ taskDigest: taskVersion(node.task), status: 'failed',
-    commit: state.problem.baseCommit });
 });
 
 it('publishes to mandatory Lead input while proof remains active, without touching live files or granting acceptance', async () => {

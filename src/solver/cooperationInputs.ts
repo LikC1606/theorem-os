@@ -336,10 +336,26 @@ export abstract class CooperationInputs extends CooperationPlanning {
       return;
     }
     // Legacy automatic ids already bind the assignment; unscoped old ids cannot identify a new seed.
-    if (this.archive.deliveries?.some(record => record.producer === worker.id && record.submissionId === value.id &&
+    const duplicate = this.archive.deliveries?.find(record => record.producer === worker.id && record.submissionId === value.id &&
       record.taskId === action.task.id && record.taskDigest === action.assignment.taskDigest &&
-      (record.assignmentKey === assignmentKey || record.assignmentKey === undefined && scoped && value.id === automaticId))) {
-      if (value.kind === 'proof' && this.current(action)) await this.integrateReady();
+      (record.assignmentKey === assignmentKey || record.assignmentKey === undefined && scoped && value.id === automaticId));
+    if (duplicate) {
+      const replayed = this.node(action.task.id);
+      const resumable = replayed?.assignment === action.assignment && duplicate.status !== 'superseded' &&
+        this.proofDeliveryCurrent(replayed) &&
+        (duplicate.commit === replayed.proof?.commit || duplicate.commit === replayed.integratedCheck?.commit);
+      if (value.kind === 'proof' && duplicate.kind === 'proof' && (this.current(action) || resumable)) {
+        await this.settleProofDeliveries(annotations => this.queueIntegration(async () => {
+          const node = this.node(action.task.id);
+          // Resume the accepted submission, never a changed commit in the replayed line.
+          if (node?.assignment === action.assignment && duplicate.status !== 'superseded' &&
+              (duplicate.commit === node.proof?.commit || duplicate.commit === node.integratedCheck?.commit)) {
+            const annotate = await this.publishProofDelivery(node);
+            if (annotate) annotations.push(annotate);
+          }
+          await this.integrateReadyNow(annotations);
+        }));
+      }
       return;
     }
     if (!this.current(action)) {

@@ -185,6 +185,154 @@ describe('checked task integration recovery', () => {
     expectNoMathematicalFailure();
   });
 
+  it.each(['verified', 'failed'] as const)
+  ('reuses the %s core record when its first save fails and the same submission is replayed', async status => {
+    const commit = writeLemma(workers[1], 'lemma recovery_lemma : True := by trivial');
+    const prefixEnd = proofLog(commit), error = failureError('storage');
+    if (status === 'failed') host.verify.mockImplementation(async (request: MathematicsVerifierBatchRequest) =>
+      failedBatch(verified(request), { stdoutPreview: () => 'Submission.lean:3:1: error: Fixture proof failure.' }));
+    const input = (cooperative as any).input, save = input.save;
+    let interrupted = false;
+    vi.spyOn(input, 'save').mockImplementation(() => {
+      if (!interrupted && records().some(record => record.kind === 'proof')) {
+        interrupted = true; throw error;
+      }
+      save();
+    });
+
+    await expect(poll()).rejects.toBe(error);
+
+    const core = records().find(record => record.kind === 'proof')!, checked = node().proof;
+    expect(core).toMatchObject({ status, submissionId: 'proof', commit });
+    expect(node().status).toBe(status === 'verified' ? 'integrated' : 'pending');
+    expect(events.filter(item => item.event === 'delivery_published' && item.details?.kind === 'proof')).toHaveLength(0);
+    expect(cursors[key()]).toBe(prefixEnd);
+    expect(snapshots.at(-1)?.[key()]).toBe(prefixEnd);
+    const checks = host.verify.mock.calls.length;
+
+    await poll(); await poll();
+
+    expect(records().filter(record => record.kind === 'proof')).toEqual([core]);
+    expect(node().proof).toBe(checked);
+    expect(events.filter(item => item.event === 'delivery_published' && item.details?.kind === 'proof'))
+      .toMatchObject([{ details: { deliveryId: core.id, status } }]);
+    expect(host.verify).toHaveBeenCalledTimes(checks);
+    expect(cursors[key()]).toBe(fs.statSync(log()).size);
+    expect(records().filter(record => record.summary === 'Accepted suffix.')).toHaveLength(1);
+  });
+
+  it.each(['task', 'group'] as const)
+  ('restores an accepted unpublished proof after its %s is paused', async paused => {
+    (cooperative as any).input.access.get(workers[1].id).knowledgeSnapshot = {
+      digest: 'recovery-catalog', base: { entries: [{ id: 'saved-theorem' }] },
+    };
+    fs.writeFileSync(path.join(workers[1].worktree, 'RESEARCH.md'), JSON.stringify({
+      knowledgeUses: [{ id: 'saved-theorem', catalogDigest: 'recovery-catalog',
+        declaration: { name: 'Tutorial.recovery_lemma', file: 'Submission.lean' } }],
+    }));
+    const commit = writeLemma(workers[1], 'lemma recovery_lemma : True := by trivial');
+    proofLog(commit);
+    const error = failureError('storage');
+    vi.spyOn(cooperative as any, 'prepareStatementContexts').mockRejectedValueOnce(error);
+    await expect(poll()).rejects.toBe(error);
+    const source = canonicalSource();
+    expect(records().filter(record => record.kind === 'proof')).toHaveLength(0);
+    if (paused === 'task') node().task.status = 'paused';
+    else state.cooperation!.groups![0].group.status = 'paused';
+    // Restored submitted proofs have no process-local receipt authority.
+    node().proof = JSON.parse(JSON.stringify(node().proof));
+
+    await cooperative.restore();
+
+    expect(canonicalSource()).toBe(source);
+    expect(node()).toMatchObject({ status: 'integrated', integratedCheck: { passed: true } });
+    expect(records().filter(record => record.kind === 'proof')).toMatchObject([{ status: 'verified' }]);
+    expect(events.filter(item => item.event === 'delivery_published' && item.details?.kind === 'proof')).toHaveLength(1);
+    expect(events.filter(item => item.event === 'knowledge_use_observed')).toHaveLength(0);
+    expect(records().find(record => record.kind === 'proof')?.knowledgeUses).toMatchObject([{ id: 'saved-theorem' }]);
+    expectNoMathematicalFailure();
+  });
+
+  it('rolls back unsaved attachment metadata so the same accepted record can be retried', async () => {
+    const commit = writeLemma(workers[1], 'lemma recovery_lemma : True := by trivial');
+    proofLog(commit); await poll();
+    const core = records().find(record => record.kind === 'proof')!, checked = node().proof;
+    const input = (cooperative as any).input, save = input.save, error = failureError('storage');
+    const checks = host.verify.mock.calls.length;
+    expect(core.artifacts).toBeUndefined();
+    let interrupted = false;
+    vi.spyOn(input, 'save').mockImplementation(() => {
+      if (!interrupted && core.artifacts) { interrupted = true; throw error; }
+      save();
+    });
+
+    await expect(cooperative.deliver(workers[1], action, commit)).rejects.toBe(error);
+
+    expect(core.artifacts).toBeUndefined();
+    expect(node().proof).toBe(checked);
+
+    await cooperative.deliver(workers[1], action, commit);
+
+    expect(core.artifacts).toMatchObject({ commit });
+    expect(core.submissionId).toBe('proof');
+    expect(records().filter(record => record.kind === 'proof')).toEqual([core]);
+    expect(host.verify).toHaveBeenCalledTimes(checks);
+    expect(events.filter(item => item.event === 'delivery_published' && item.details?.kind === 'proof')).toHaveLength(1);
+  });
+
+  it('consumes an old assignment duplicate without retrying an unrelated unavailable integration', async () => {
+    const commit = writeLemma(workers[1], 'lemma recovery_lemma : True := by trivial');
+    proofLog(commit); await poll();
+    const childTask: CooperativeTask = { id: 'child', kind: 'lemma', objective: 'Prove an independent lemma.',
+      theoremName: 'Tutorial.recovery_child', proofPath: 'Submission.lean', type: 'True', dependsOn: [], revision: 0 };
+    const child = assign(childTask, workers[2]);
+    state.cooperation!.tasks.push({ task: childTask, assignment: child.assignment, status: 'running', attempts: 1 });
+    const childCommit = writeLemma(workers[2], 'lemma recovery_child : True := by trivial');
+    host.verify.mockImplementationOnce(async request => verified(request)).mockRejectedValue(failureError('unavailable'));
+    await expect(cooperative.deliver(workers[2], child, childCommit)).rejects.toThrow('math_verifier_unavailable');
+    expect(node('child').status).toBe('delivered');
+    const checks = host.verify.mock.calls.length;
+    node().assignment = { ...action.assignment, assignmentId: 'replacement-assignment' };
+    append({ id: 'proof', kind: 'proof', commit, summary: 'An old assignment replay.' });
+
+    await poll();
+
+    expect(cursors[key()]).toBe(fs.statSync(log()).size);
+    expect(node('child').status).toBe('delivered');
+    expect(host.verify).toHaveBeenCalledTimes(checks);
+    expect(events.filter(item => item.event === 'delivery_rejected')).toHaveLength(0);
+  });
+
+  it('retries an automatically published parent core after its save fails, without publishing a second record', async () => {
+    const { child } = await conditionalParent(true);
+    const childCommit = writeLemma(workers[2], 'lemma recovery_child : True := by trivial');
+    const input = (cooperative as any).input, save = input.save, error = failureError('storage');
+    let interrupted = false;
+    vi.spyOn(input, 'save').mockImplementation(() => {
+      if (!interrupted && records().some(record => record.taskId === 'recovery' && record.status === 'verified')) {
+        interrupted = true; throw error;
+      }
+      save();
+    });
+
+    await expect(cooperative.deliver(workers[2], child, childCommit)).rejects.toBe(error);
+
+    const core = records().find(record => record.taskId === 'recovery' && record.status === 'verified')!;
+    const accepted = state.cooperation!.canonicalCommit, checked = node().integratedCheck;
+    const checks = host.verify.mock.calls.length;
+    expect(core).toBeDefined();
+    expect(events.filter(item => item.event === 'delivery_published' && item.details?.deliveryId === core.id)).toHaveLength(0);
+
+    await cooperative.deliver(workers[2], child, childCommit);
+
+    expect(state.cooperation!.canonicalCommit).toBe(accepted);
+    expect(node().integratedCheck).toBe(checked);
+    expect(records().filter(record => record.taskId === 'recovery' && record.status === 'verified')).toEqual([core]);
+    expect(host.verify).toHaveBeenCalledTimes(checks);
+    expect(events.filter(item => item.event === 'delivery_published' && item.details?.deliveryId === core.id)).toHaveLength(1);
+    expectNoMathematicalFailure();
+  });
+
   it.each(['abort', 'storage', 'unavailable'] as const)
   ('propagates a direct delivery %s failure without rejecting the proved task and recovers on retry', async failure => {
     const commit = writeLemma(workers[1], 'lemma recovery_lemma : True := by trivial');

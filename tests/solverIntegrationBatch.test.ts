@@ -1,23 +1,33 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { LAKE_CONFIGURATION_FILES, mathLocalModuleBuildOrder } from '../src/math/mathConstructionSources';
+import { canonicalMathJson, mathDigest } from '../src/math/mathRuntimeIo';
 import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } from '../src/math/verifier';
 import type { SolverRunState } from '../src/solver/archive';
 import type { CooperativeResearch } from '../src/solver/cooperation';
+import { captureDeliveryArtifacts } from '../src/solver/deliveryArtifacts';
+import type { KnowledgeContextSnapshot } from '../src/solver/knowledgeContext';
 import { directSolverModules } from '../src/solver/modules';
 import type { ResearchWorker } from '../src/solver/modules/organization';
 import { committedSource, commitSolverSources, type SolverProblem } from '../src/solver/problem';
-import { taskVersion, type CooperativeTask, type TaskAssignment, type TaskRecord } from '../src/solver/tasks';
+import { assignmentDeliveryFile, taskVersion, type CooperativeAction, type CooperativeTask, type TaskAssignment, type TaskRecord } from '../src/solver/tasks';
 import { deferred } from './helpers/async';
-import { cooperativeResearch } from './helpers/cooperation';
+import { cooperativeResearch, workerAccess } from './helpers/cooperation';
 import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
 
-const host = vi.hoisted(() => ({ verify: vi.fn(), createSession: vi.fn() }));
+const host = vi.hoisted(() => ({ verify: vi.fn(), check: vi.fn(), identity: vi.fn(), createSession: vi.fn() }));
 vi.mock('../src/math/verifier', async importOriginal => ({
   ...await importOriginal<typeof import('../src/math/verifier')>(),
   checkManyFormalVerifications: host.verify,
   formalVerificationToolIdentity: () => undefined,
   resolveMathematicsLakePackagesCache: () => undefined,
+}));
+vi.mock('../src/math/leanTypeDiagnostics', async importOriginal => ({
+  ...await importOriginal<typeof import('../src/math/leanTypeDiagnostics')>(), checkLeanType: host.check,
+}));
+vi.mock('../src/math/leanResidualGoals', async importOriginal => ({
+  ...await importOriginal<typeof import('../src/math/leanResidualGoals')>(), leanDiagnosticEnvironmentIdentity: host.identity,
 }));
 vi.mock('../src/runtime/codexSession', () => ({ createCodexMathSession: host.createSession }));
 
@@ -26,6 +36,7 @@ type Fault = 'unavailable' | 'abort' | 'storage' | 'cleanup' | 'corrupt-receipt'
 describe('same-layer checked task integration batches', () => {
   let directory: string, workspace: string, problem: SolverProblem, state: SolverRunState;
   let workers: ResearchWorker[], cooperative: CooperativeResearch, controller: AbortController;
+  let access: ReturnType<typeof workerAccess>;
   let receipts: MathematicsVerifierBatchResult[], sequence: number, releases: (() => void)[], pending: Promise<unknown>[];
   let events: { event: string; details?: Record<string, unknown> }[];
 
@@ -72,7 +83,7 @@ describe('same-layer checked task integration batches', () => {
     host.verify.mockClear(); receipts = []; return proofs;
   };
   const integrate = (id = 'first') => track((cooperative as any).integrateNow(node(id)) as Promise<void>);
-  const drain = () => track((cooperative as any).integrateReadyNow() as Promise<void>);
+  const drain = () => track((cooperative as any).integrateReady() as Promise<void>);
   const gateBatch = (resultFor: (request: MathematicsVerifierBatchRequest) => MathematicsVerifierBatchResult = verified) => {
     const entered = deferred<MathematicsVerifierBatchRequest>(), result = deferred<MathematicsVerifierBatchResult>();
     let held: MathematicsVerifierBatchRequest | undefined;
@@ -105,6 +116,8 @@ describe('same-layer checked task integration batches', () => {
   beforeEach(() => {
     receipts = []; sequence = 0; releases = []; pending = []; events = [];
     host.verify.mockReset().mockImplementation(async request => verified(request));
+    host.check.mockReset().mockImplementation(() => { throw new Error('fixture_unexpected_knowledge_check'); });
+    host.identity.mockReset().mockReturnValue({ environmentDigest: mathDigest('diagnostic-environment'), toolIdentity: mathDigest('fixture-tools') });
     host.createSession.mockReset().mockImplementation(() => { throw new Error('fixture_real_models_forbidden'); });
     const example = localExample('solver-integration-batch-');
     ({ directory, workspace, problem } = example);
@@ -126,7 +139,8 @@ describe('same-layer checked task integration batches', () => {
         }))] } });
     controller = new AbortController();
     let queue = Promise.resolve();
-    cooperative = cooperativeResearch({ state, workers, retrievalRoot: directory, signal: controller.signal,
+    access = workerAccess(workers, directory);
+    cooperative = cooperativeResearch({ state, workers, access, retrievalRoot: directory, signal: controller.signal,
       emit: (event, details) => events.push({ event, details }),
       exclusiveCheck: async check => {
         const previous = queue, { promise, resolve } = deferred();
@@ -167,6 +181,95 @@ describe('same-layer checked task integration batches', () => {
     expect(calls()).toHaveLength(1);
     expect(state.cooperation!.deliveries?.filter(item => item.kind === 'proof' && item.status === 'verified')).toHaveLength(2);
     expect(events.filter(item => item.event === 'task_integrated')).toHaveLength(2);
+    expectNoFailure();
+  });
+
+  it('preserves a batched peer\'s incremental and direct metadata while publishing its knowledge once', async () => {
+    const first = node(), second = node('second'), firstWorker = workers[1]!, secondWorker = workers[2]!;
+    const firstAction: Extract<CooperativeAction, { kind: 'task' }> = { kind: 'task', task: first.task, assignment: first.assignment! };
+    const secondAction: typeof firstAction = { kind: 'task', task: second.task, assignment: second.assignment! };
+    const knowledge = { digest: 'batch-pinned-catalog', base: { entries: [{ id: 'saved-theorem' }] } } as KnowledgeContextSnapshot;
+    for (const value of access.values()) value.environment = { PATH: '/usr/bin:/bin', ELAN_HOME: '', LEAN_PATH: '', LEAN_SYSROOT: '',
+      DEEPSCIENTIST_MATH_ENV_FILE: path.join(directory, 'missing.env') };
+    access.get(secondWorker.id)!.knowledgeSnapshot = knowledge;
+    fs.writeFileSync(path.join(secondWorker.worktree, 'RESEARCH.md'), JSON.stringify({ summary: 'Second helper with selected experience.',
+      knowledgeUses: [{ id: 'saved-theorem', catalogDigest: knowledge.digest,
+        declaration: { name: 'Tutorial.batch_second', file: 'Submission.lean' },
+        application: { expression: 'True.intro', expectedType: 'True',
+          context: { file: 'Submission.lean', declaration: second.task.theoremName } } }] }));
+    const firstCommit = writeLemma(firstWorker, 'lemma batch_first : True := by trivial');
+    const secondCommit = writeLemma(secondWorker, 'lemma batch_second : True := by trivial');
+    const artifacts = captureDeliveryArtifacts({ problem, worktree: secondWorker.worktree, commit: secondCommit, assignment: second.assignment! });
+    type DiagnosticInput = Parameters<typeof import('../src/math/leanTypeDiagnostics').checkLeanType>[0];
+    host.check.mockImplementation(async (input: DiagnosticInput) => {
+      const files = [...mathLocalModuleBuildOrder(input.projectRoot, input.file).map(module => module.file),
+        ...LAKE_CONFIGURATION_FILES.filter(file => fs.existsSync(path.join(input.projectRoot, file)))]
+        .map(file => ({ file, digest: mathDigest(fs.readFileSync(path.join(input.projectRoot, file))) }));
+      const contents = canonicalMathJson({ files, expression: input.expression, type: input.type });
+      const artifact = { path: '.lake/batch-knowledge-application.json', digest: mathDigest(contents) };
+      fs.mkdirSync(path.join(input.projectRoot, '.lake'), { recursive: true });
+      fs.writeFileSync(path.join(input.projectRoot, artifact.path), contents);
+      return { status: 'elaborated', exitCode: 0, timedOut: false, sourceFiles: files, artifact,
+        sourceSnapshotDigest: mathDigest(canonicalMathJson(files)), projectionDigest: mathDigest('batch-application-projection'),
+        environment: host.identity(), type: input.type, constants: ['True.intro'], stdout: '', stderr: '' };
+    });
+    const firstCheck = deferred<MathematicsVerifierBatchResult>(), secondCheck = deferred<MathematicsVerifierBatchResult>();
+    const firstEntered = deferred<MathematicsVerifierBatchRequest>(), secondEntered = deferred<MathematicsVerifierBatchRequest>();
+    const checking = new Set<string>();
+    host.verify.mockImplementation((request: MathematicsVerifierBatchRequest) => {
+      const name = request.items.length === 1 ? request.items[0]!.theoremName : undefined;
+      if (name && name === first.task.theoremName && !checking.has(name)) {
+        checking.add(name); firstEntered.resolve(request); return firstCheck.promise;
+      }
+      if (name && name === second.task.theoremName && !checking.has(name)) {
+        checking.add(name); secondEntered.resolve(request); return secondCheck.promise;
+      }
+      return Promise.resolve(verified(request));
+    });
+    releases.push(() => {
+      const firstRequest = calls().find(request => request.items.length === 1 && request.items[0]!.theoremName === first.task.theoremName);
+      const secondRequest = calls().find(request => request.items.length === 1 && request.items[0]!.theoremName === second.task.theoremName);
+      if (firstRequest) firstCheck.resolve(verified(firstRequest));
+      if (secondRequest) secondCheck.resolve(verified(secondRequest));
+    });
+    const log = path.join(secondWorker.worktree, assignmentDeliveryFile(second.assignment!));
+    fs.writeFileSync(log, JSON.stringify({ id: 'incremental-second', kind: 'proof', commit: secondCommit,
+      summary: 'Second helper incremental evidence.', evidenceRefs: ['second-evidence-reference'] }) + '\n');
+    cooperative.activate(secondWorker, secondAction, async () => {}, async () => {});
+    const incremental = track(cooperative.pulse(secondWorker.id));
+    const secondRequest = await secondEntered.promise;
+    const direct = track(cooperative.deliver(secondWorker, secondAction, secondCommit));
+    const firstDelivery = track(cooperative.deliver(firstWorker, firstAction, firstCommit));
+    const firstRequest = await firstEntered.promise;
+    // Both checks finish together so the first canonical operation can integrate the ready pair.
+    firstCheck.resolve(verified(firstRequest)); secondCheck.resolve(verified(secondRequest));
+    await Promise.all([firstDelivery, incremental, direct]);
+
+    expect(calls().map(request => request.items.length)).toEqual([1, 1, 2]);
+    expect(events.filter(item => item.event === 'task_integration_batch_started').map(item => item.details?.taskIds))
+      .toEqual([['first', 'second']]);
+    expect(canonicalSource()).toContain('lemma batch_first : True := by trivial');
+    expect(canonicalSource()).toContain('lemma batch_second : True := by trivial');
+    const records = () => state.cooperation!.deliveries?.filter(item => item.kind === 'proof' && item.taskId === second.task.id) ?? [];
+    expect(records()).toHaveLength(1);
+    expect(records()[0]).toMatchObject({ status: 'verified', submissionId: 'incremental-second',
+      assignmentKey: assignmentDeliveryFile(second.assignment!), artifacts, evidenceRefs: ['second-evidence-reference'],
+      knowledgeUses: [{ consumer: { taskId: second.task.id, taskDigest: taskVersion(second.task) },
+        application: { check: { status: 'elaborated', proofAcceptance: 'not-assessed' } } }] });
+    expect(host.check).toHaveBeenCalledTimes(1);
+    expect(events.filter(item => item.event === 'knowledge_use_observed' && item.details?.taskId === second.task.id)).toHaveLength(1);
+    expect(events.filter(item => item.event === 'delivery_published' && item.details?.taskId === second.task.id)).toHaveLength(1);
+    const queueStarts = events.flatMap((item, index) => item.event === 'integration_queue_started' ? [index] : []);
+    expect(queueStarts).toHaveLength(2);
+    // The first operation publishes its batched peer before that peer's own canonical turn.
+    expect(events.findIndex(item => item.event === 'delivery_published' && item.details?.taskId === second.task.id)).toBeLessThan(queueStarts[1]!);
+
+    await track(cooperative.pulse(secondWorker.id));
+    await track(cooperative.deliver(secondWorker, secondAction, secondCommit));
+
+    expect(records()).toHaveLength(1); expect(host.check).toHaveBeenCalledTimes(1);
+    expect(events.filter(item => item.event === 'knowledge_use_observed' && item.details?.taskId === second.task.id)).toHaveLength(1);
+    expect(state.cooperation!.cursors?.[`${secondWorker.id}/${assignmentDeliveryFile(second.assignment!)}`]).toBe(fs.statSync(log).size);
     expectNoFailure();
   });
 

@@ -220,7 +220,9 @@ Lead 的三个自动检索目标先覆盖当前证据排序的首选路线，剩
 
 知识库必须由 `run --knowledge-base FILE` 显式绑定。`inspect` 区分未启用、旧记录覆盖未知、已检索及被上下文预算省略；检索观测保留 128 条和丢弃数量，完整事件仍保存。模型可在同一成果 JSON 中填写 `knowledgeUses:[{id,catalogDigest,declaration:{name,file}}]`；合法引用先记为 `reported-attempt`，只有固定检查的当前消费者证明实际引用精确声明和文件才记为 `checked-reference`。历史来源始终是 `model-reported-origin`，伪造或错误元数据只被丢弃，不影响证明检查。
 
-使用记录可附 `application:{expression,expectedType,context:{file,declaration},arguments?,additionalPremises?,typeclassIssues?,adaptationSteps?,remainingGoals?,reconsiderWhen?}`。宿主只对模型选择的应用做检查，每次发布最多四项新检查；记录 elaborated/failed/unavailable、实际引用、原始产物和完整输入身份。证明擦除副本中的局部声明可作为假设，应用展开不证明这些前提、不代替 M2 或原题闭合。精确匹配的目录、任务、提交源码、导入/配置闭包、环境、工具和产物才能复用旧检查；输入变化重新检查。M4 最多回忆四项同目录经验，超长内容保留完整本地 JSON 读取句柄。证明交付用短锁捕获固定检查输入，在全局锁外执行 Lean 应用检查，再用短锁复核任务、派发、证明和环境状态；过期结果及其观测事件不发布，同一次交付只记录一次。canonical 集成队列及其后续依赖集成仍按原顺序完成。
+使用记录可附 `application:{expression,expectedType,context:{file,declaration},arguments?,additionalPremises?,typeclassIssues?,adaptationSteps?,remainingGoals?,reconsiderWhen?}`。宿主只对模型选择的应用做检查，每次发布最多四项新检查；记录 elaborated/failed/unavailable、实际引用、原始产物和完整输入身份。证明擦除副本中的局部声明可作为假设，应用展开不证明这些前提、不代替 M2 或原题闭合。精确匹配的目录、任务、提交源码、导入/配置闭包、环境、工具和产物才能复用旧检查；输入变化重新检查。M4 最多回忆四项同目录经验，超长内容保留完整本地 JSON 读取句柄。
+
+证明交付先保存已验收的核心 `DeliveryRecord` 和规范化知识引用，再在 canonical 集成队列与全局锁外执行 Lean 应用检查；独立任务和就绪依赖可以继续集成。检查完成后用短锁复核任务、派发、证明、环境及记录身份，只补写同一记录的 `knowledgeUses`，不重复通知。过期结果及其观测事件不发布，先前核心记录仍作为历史保留。重复投递和日志重放复用原记录及已接受的提交身份，保存失败可重试；合批提前发布仍保留原提交编号、附件和证据引用。交付 Promise 与 `stop()` 均等待检查及清理结束后返回。
 
 `compare` 和 `sample-putnam` 的 prepare 阶段可显式绑定知识目录，将只读快照、digest、格式和 transfer/recovery 模式冻结到计划及每个 launch。默认 transfer 拒绝已记录的同题来源、目标条目/源码声明和同题路线记忆；这只核对身份，不判断任意数学表述等价。身份匹配且启用目录的运行报告 `knowledgeFunnel`，逐项区分搜索返回、提示候选、实际上下文、模型选择、应用检查和精确原题消费者闭合。旧记录缺失和历史截断保持未知，不能把 helper 完成数当原题完成数，也不将观测归因为收益。
 

@@ -238,7 +238,7 @@ export class CooperativeResearch extends CooperationInputs {
     let failure: unknown;
     for (;;) {
       const work = [...new Set<Promise<unknown>>([...(pending?.values() ?? []), ...(this.pendingPulse ? [this.pendingPulse] : []),
-        ...this.deliveryChecks.values(), ...this.proofPublications.values(), ...this.planSynchronizations,
+        ...this.deliveryChecks.values(), ...this.proofPublications.values(), ...this.proofDeliveryChecks, ...this.planSynchronizations,
         ...this.leadDeliveries, ...[...this.preparingTaskTypes.values()].map(pending => pending.settled),
         ...(this.preparingStatements ? [this.preparingStatements] : []), this.integrationQueue])]
         .filter(item => !drained.has(item));

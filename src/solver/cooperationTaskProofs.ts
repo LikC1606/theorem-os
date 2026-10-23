@@ -30,12 +30,21 @@ import { digest, FailedTaskInput, bounded, deliveryInputFields } from './coopera
 import { CooperationStatements } from './cooperationStatements';
 import { prepareResearchDelivery, ResearchAdmissionError } from './researchAdmission';
 
+type ProofDeliveryRequest = {
+  worker: ResearchWorker; action: Extract<CooperativeAction, { kind: 'task' }>;
+  commit: string; summary: string; options: Partial<DeliveryRecord>; record?: DeliveryRecord;
+};
+export type ProofDeliveryAnnotation = () => Promise<void>;
+
 /** Task proof checks, failed-input memory and research checkpoints. */
 export abstract class CooperationTaskProofs extends CooperationStatements {
   // Implemented by later layers; listed here because this layer calls them.
   protected abstract queueIntegration<T>(operation: () => Promise<T>): Promise<T>;
-  protected abstract integrateReadyNow(): Promise<void>;
+  protected abstract integrateReadyNow(annotations: ProofDeliveryAnnotation[]): Promise<void>;
   protected abstract integrateNow(node: TaskRecord): Promise<void>;
+  private proofDeliveryRequests = new Map<string, ProofDeliveryRequest>();
+  private proofDeliveryAnnotations = new WeakMap<DeliveryRecord, ProofDeliveryAnnotation>();
+  protected pendingProofDeliveryRecords = new WeakSet<DeliveryRecord>();
   abstract interrupted(worker: ResearchWorker, action: CooperativeAction): void;
   abstract rejected(action: CooperativeAction, feedback: string, commit?: string, incomplete?: boolean): void;
   private checkpointInputDigest(task: CooperativeTask, workerId: string) {
@@ -521,14 +530,28 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
     commit: string, summary: string, options: Partial<DeliveryRecord> = {}, recovering = false) {
     const key = canonicalMathJson([worker.id, assignmentDeliveryFile(action.assignment), commit]);
     const previous = this.proofPublications.get(key);
-    if (previous) return previous;
-    const pending = this.publishCheckedTaskProof(worker, action, commit, summary, options, recovering);
+    if (previous) {
+      const request = this.proofDeliveryRequests.get(key);
+      if (request) {
+        for (const [field, value] of Object.entries(options)) if (value !== undefined && request.options[field] === undefined)
+          request.options[field] = value;
+        if (options.evidenceRefs) request.options.evidenceRefs = [...new Set([...(request.options.evidenceRefs ?? []), ...options.evidenceRefs])];
+        if (request.record) await this.input.exclusiveCheck(async () => this.mergeProofDeliveryMetadata(request));
+      }
+      return previous;
+    }
+    const request: ProofDeliveryRequest = { worker, action, commit, summary, options: { ...options } };
+    this.proofDeliveryRequests.set(key, request);
+    const pending = this.publishCheckedTaskProof(request, recovering);
     this.proofPublications.set(key, pending);
     try { return await pending; }
-    finally { if (this.proofPublications.get(key) === pending) this.proofPublications.delete(key); }
+    finally {
+      if (this.proofPublications.get(key) === pending) this.proofPublications.delete(key);
+      if (this.proofDeliveryRequests.get(key) === request) this.proofDeliveryRequests.delete(key);
+    }
   }
-  private async publishCheckedTaskProof(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>,
-    commit: string, summary: string, options: Partial<DeliveryRecord>, recovering: boolean): Promise<TaskProof | undefined> {
+  private async publishCheckedTaskProof(request: ProofDeliveryRequest, recovering: boolean): Promise<TaskProof | undefined> {
+    const { worker, action, commit, options } = request;
     const previous = this.node(action.task.id);
     // Notes-only completion cannot renew obsolete conditional inputs after unconditional integration.
     const notesOnly = previous?.status === 'integrated' && previous.proof && taskReferenceDependencies(previous) &&
@@ -561,16 +584,17 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
       return { node, proof };
     });
     if (!staged?.node) return staged?.proof;
-    return this.queueIntegration(async () => {
+    return this.settleProofDeliveries(annotations => this.queueIntegration(async () => {
       const node = staged.node, submitted = staged.proof;
       if (submitted && this.current(action) && node.proof === submitted) {
         if (node.status === 'delivered') await this.integrateNow(node);
         else if (node.status === 'integrated') await this.syncPreparedStatements();
-        await this.finishProofDelivery(worker, action, node, submitted, summary, options);
+        const annotate = await this.publishProofDelivery(node, request);
+        if (annotate) annotations.push(annotate);
       }
-      await this.integrateReadyNow();
+      await this.integrateReadyNow(annotations);
       return submitted;
-    });
+    }));
   }
   protected currentTaskSourceRepair(node: TaskRecord) {
     const repair = node.sourceRepair, assignment = node.assignment;
@@ -662,40 +686,123 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
     this.input.emit('task_checked', { taskId: node.task.id, passed: proof.passed, conditional: Boolean(proof.conditions?.length), commit: proof.commit });
     this.changed();
   }
-  private async finishProofDelivery(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>,
-    node: TaskRecord, proof: TaskProof, summary: string, options: Partial<DeliveryRecord>) {
-    const snapshot = await this.input.exclusiveCheck(async () => {
-      if (!this.current(action) || this.node(action.task.id) !== node || node.proof !== proof) {
-        this.record(worker, action.task, 'proof', 'superseded', 'Assignment changed during canonical integration.',
-          { ...options, commit: proof.commit, taskDigest: action.assignment.taskDigest, dependencies: action.assignment.dependencies ?? [] });
-        return;
-      }
-      const task = structuredClone(node.task), taskDigest = digest(task), assignment = node.assignment;
-      const submittedProof = node.proof, integratedProof = node.integratedCheck, status = node.status;
+  /** Keep canonical failures authoritative, while draining all checks before a caller releases its workspace. */
+  protected async settleProofDeliveries<T>(operation: (annotations: ProofDeliveryAnnotation[]) => Promise<T>): Promise<T> {
+    const annotations: ProofDeliveryAnnotation[] = [];
+    let result: T, failure: unknown, failed = false;
+    try { result = await operation(annotations); }
+    catch (error) { failed = true; failure = error; }
+    const checks = await Promise.allSettled(annotations.map(annotate => annotate()));
+    if (failed) throw failure;
+    const rejected = checks.find(check => check.status === 'rejected');
+    if (rejected?.status === 'rejected') throw rejected.reason;
+    return result!;
+  }
+  private mergeProofDeliveryMetadata(request: ProofDeliveryRequest) {
+    const { record, action, options } = request;
+    if (!record || record.status === 'superseded' || !this.current(action) || !this.archive.deliveries?.includes(record)) return;
+    const metadata = {
+      submissionId: record.submissionId ?? options.submissionId,
+      assignmentKey: record.assignmentKey ?? options.assignmentKey,
+      artifacts: record.artifacts ?? options.artifacts,
+      artifactWarning: record.artifactWarning ?? options.artifactWarning,
+      evidenceRefs: [...new Set([...(record.evidenceRefs ?? []), ...(options.evidenceRefs ?? [])])],
+    };
+    if (Object.entries(metadata).every(([field, value]) => record[field] === value ||
+      record[field] !== undefined && value !== undefined && canonicalMathJson(record[field]) === canonicalMathJson(value))) return;
+    this.pin(metadata.artifacts?.commit);
+    const previous = Object.fromEntries(Object.keys(metadata).map(field => [field, record[field]]));
+    Object.assign(record, metadata);
+    try { this.changed(); }
+    catch (error) { Object.assign(record, previous); throw error; }
+  }
+  protected proofDeliveryCurrent(node: TaskRecord): boolean {
+    const { proof, assignment, integratedCheck, status } = node, version = digest(node.task);
+    return this.archive.tasks.includes(node) && !!proof && !!assignment && assignment.taskDigest === version && proof.taskDigest === version &&
+      (status === 'integrated' ? !!integratedCheck?.passed && integratedCheck.taskDigest === version && this.checkedDeliveries.has(integratedCheck)
+        : this.checkedDeliveries.has(proof));
+  }
+  /** Publish the proof now; return optional annotation work for the caller to await outside the canonical queue. */
+  protected async publishProofDelivery(node: TaskRecord, request?: ProofDeliveryRequest): Promise<ProofDeliveryAnnotation | undefined> {
+    return this.input.exclusiveCheck(async () => {
+      const proof = node.proof, assignment = node.assignment;
+      if (!proof || !assignment || !this.proofDeliveryCurrent(node)) return;
+      request ??= this.proofDeliveryRequests.get(canonicalMathJson([
+        assignment.workerId, assignmentDeliveryFile(assignment), proof.commit,
+      ]));
+      const worker = request?.worker ?? this.input.workers.find(worker => worker.id === assignment.workerId) ?? this.lead;
+      const action = request?.action ?? { kind: 'task' as const, task: node.task, assignment };
+      if (this.node(action.task.id) !== node || node.assignment !== action.assignment || digest(node.task) !== action.assignment.taskDigest) return;
+      const task = structuredClone(node.task), taskDigest = digest(task), integratedProof = node.integratedCheck, status = node.status;
       const environmentDigest = this.input.state.environmentDigest, problemReceiptDigest = this.input.state.problem.receiptDigest;
       const verdict: DeliveryRecord['status'] = status === 'integrated' ? 'verified' : status === 'conditional' ? 'conditional' :
         !proof.passed || status === 'blocked' ? 'failed' : undefined;
       if (!verdict) return;
-      const assignmentKey = options.assignmentKey ?? assignmentDeliveryFile(assignment!);
-      const duplicate = () => this.archive.deliveries?.some(record => record.producer === worker.id && record.kind === 'proof' && record.status === verdict &&
+      const options = request?.options ?? {}, assignmentKey = options.assignmentKey ?? assignmentDeliveryFile(assignment);
+      let record = this.archive.deliveries?.find(record => record.producer === worker.id && record.kind === 'proof' && record.status === verdict &&
         record.taskId === task.id && record.taskDigest === taskDigest && record.assignmentKey === assignmentKey &&
         (record.commit === proof.commit || verdict === 'verified' && record.commit === integratedProof?.commit));
-      if (duplicate()) return;
-      return { task, taskDigest, assignment, submittedProof, integratedProof, status, environmentDigest, problemReceiptDigest,
-        verdict, assignmentKey, duplicate, knowledge: this.captureKnowledgeUseCheck(worker, task, proof.commit, proof) };
-    });
-    if (!snapshot) return;
-    // Optional Lean elaboration must not hold the shared planning/publication lock.
-    const knowledgeUses = await checkKnowledgeApplications(snapshot.knowledge.uses, snapshot.knowledge.input);
-    await this.input.exclusiveCheck(async () => {
-      const { task, taskDigest, assignment, submittedProof, integratedProof, status, environmentDigest, problemReceiptDigest,
-        verdict, assignmentKey, duplicate, knowledge } = snapshot;
-      if (!this.current(action) || this.node(task.id) !== node || digest(node.task) !== taskDigest || node.status !== status ||
-          node.assignment !== assignment || node.proof !== submittedProof || node.integratedCheck !== integratedProof ||
-          this.input.state.environmentDigest !== environmentDigest || this.input.state.problem.receiptDigest !== problemReceiptDigest || duplicate()) return;
-      this.observeKnowledgeUses(task, proof.commit, knowledgeUses, knowledge.rejected);
-      this.record(worker, task, 'proof', verdict, node.feedback ?? summary,
-        { ...options, assignmentKey, commit: proof.commit, sourceDigest: proof.sourceDigest, evidence: proof, actualReferences: proof.references, knowledgeUses });
+      if (record && request) { request.record = record; this.mergeProofDeliveryMetadata(request); }
+      let knowledge: ReturnType<CooperationTaskProofs['captureKnowledgeUseCheck']> | undefined;
+      if (!record) {
+        knowledge = this.captureKnowledgeUseCheck(worker, task, proof.commit,
+          this.checkedDeliveries.has(proof) ? proof : integratedProof);
+        const evidence = request ? proof : integratedProof ?? proof;
+        record = this.createDeliveryRecord(worker, task, 'proof', verdict,
+          node.feedback ?? request?.summary ?? 'Checked proof integrated with freshly validated dependencies.',
+          { ...options, assignmentKey, commit: evidence.commit, sourceDigest: evidence.sourceDigest,
+            evidence, actualReferences: evidence.references, knowledgeUses: knowledge.uses });
+        (this.archive.deliveries ??= []).push(record);
+        this.pendingProofDeliveryRecords.add(record);
+        if (request) request.record = record;
+      }
+      if (this.pendingProofDeliveryRecords.has(record)) {
+        knowledge ??= this.captureKnowledgeUseCheck(worker, task, proof.commit,
+          this.checkedDeliveries.has(proof) ? proof : integratedProof);
+        this.publishDeliveryRecord(record);
+        this.pendingProofDeliveryRecords.delete(record);
+      }
+      const pendingAnnotation = this.proofDeliveryAnnotations.get(record);
+      if (pendingAnnotation) return pendingAnnotation;
+      if (!knowledge && record.knowledgeUses !== undefined && record.knowledgeUses.every(use => !use.application || use.application.check)) return;
+      knowledge ??= this.captureKnowledgeUseCheck(worker, task, proof.commit,
+        this.checkedDeliveries.has(proof) ? proof : integratedProof);
+      if (!knowledge.uses.some(use => use.application)) {
+        if (record.knowledgeUses !== knowledge.uses) { record.knowledgeUses = knowledge.uses; this.changed(); }
+        if (!this.input.signal.aborted && this.current(action))
+          this.observeKnowledgeUses(task, proof.commit, knowledge.uses, knowledge.rejected);
+        return;
+      }
+      const publication = record;
+      const capturedKnowledge = knowledge;
+      let pending: Promise<void> | undefined;
+      const annotate = () => {
+        if (pending) return pending;
+        pending = (async () => {
+          if (this.input.signal.aborted) return;
+          const knowledgeUses = await checkKnowledgeApplications(capturedKnowledge.uses, capturedKnowledge.input);
+          await this.input.exclusiveCheck(async () => {
+            if (this.input.signal.aborted || !this.current(action) || this.node(task.id) !== node || digest(node.task) !== taskDigest || node.status !== status ||
+                node.assignment !== assignment || node.proof !== proof || node.integratedCheck !== integratedProof ||
+                this.input.state.environmentDigest !== environmentDigest || this.input.state.problem.receiptDigest !== problemReceiptDigest ||
+                publication.status !== verdict || !this.archive.deliveries?.includes(publication)) return;
+            const previous = publication.knowledgeUses;
+            publication.knowledgeUses = knowledgeUses;
+            try { this.changed(); }
+            catch (error) { publication.knowledgeUses = previous; throw error; }
+            this.observeKnowledgeUses(task, proof.commit, knowledgeUses, capturedKnowledge.rejected);
+          });
+        })();
+        this.proofDeliveryChecks.add(pending);
+        void pending.then(() => {
+          this.proofDeliveryChecks.delete(pending!); this.proofDeliveryAnnotations.delete(publication);
+        }, () => {
+          this.proofDeliveryChecks.delete(pending!); this.proofDeliveryAnnotations.delete(publication);
+        });
+        return pending;
+      };
+      this.proofDeliveryAnnotations.set(publication, annotate);
+      return annotate;
     });
   }
   private captureKnowledgeUseCheck(worker: ResearchWorker, task: CooperativeTask, commit: string, proof?: ProofCheck & { references?: ProofReferences }) {
