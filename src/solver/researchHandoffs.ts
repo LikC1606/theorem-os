@@ -10,6 +10,7 @@ export type ResearchHandoffDecision = Readonly<{
 type HandoffState = Readonly<{
   tasks: readonly TaskRecord[]; deliveries?: readonly DeliveryRecord[];
   researchDecisions?: readonly ResearchHandoffDecision[];
+  history?: readonly { task: CooperativeTask }[];
 }>;
 export type ResearchHandoff = Readonly<{
   id: string; deliveryId: string; producer: string; sourceTaskId: string; sourceTaskDigest: string;
@@ -29,7 +30,7 @@ function freshlyChecked(nodes: ReadonlyMap<string, TaskRecord>, reference: { tas
 }
 
 /** Adoption creates a proof obligation; it never turns an advisory proposal into a checked lemma. */
-function sameProofTarget(proposal: CooperativeTask, task: CooperativeTask) {
+export function sameProofTarget(proposal: CooperativeTask, task: CooperativeTask) {
   return task.kind === 'lemma' && task.proofPath === proposal.proofPath && task.theoremName === proposal.theoremName &&
     task.type === proposal.type && taskGroup(task) === taskGroup(proposal) &&
     Boolean(task.conditional) === Boolean(proposal.conditional) &&
@@ -44,6 +45,10 @@ const normalizedDependencies = (delivery: DeliveryRecord) => [...new Map((delive
   .sort((left, right) => left.taskId.localeCompare(right.taskId));
 const deliveryContext = (delivery: DeliveryRecord) => ({ delivery, dependencies: normalizedDependencies(delivery),
   proposals: new Map(delivery.lemmaRequests?.map(task => [task.id, task])) });
+const adoptionInputVersion = (task: CooperativeTask) => {
+  const { sharing: _sharing, ...input } = task;
+  return taskVersion(input);
+};
 
 function handoffContext(context: ReturnType<typeof deliveryContext>, proposal: CooperativeTask,
   tasks: ReadonlyMap<string, CooperativeTask>) {
@@ -53,8 +58,14 @@ function handoffContext(context: ReturnType<typeof deliveryContext>, proposal: C
     return { taskId, taskDigest: current ? taskVersion(current) : null,
       ...(sibling ? { proposalDigest: taskVersion(sibling) } : {}) };
   });
-  return { digest: mathDigest(canonicalMathJson({ sourceTaskId: delivery.taskId, sourceTaskDigest: delivery.taskDigest,
-    proposalDigest: taskVersion(proposal), dependencies, inputs })),
+  const binding = { sourceTaskId: delivery.taskId, sourceTaskDigest: delivery.taskDigest,
+    proposalDigest: taskVersion(proposal), dependencies };
+  const adoptionInputs = inputs.map(input => {
+    const current = tasks.get(input.taskId) ?? proposals.get(input.taskId);
+    return { ...input, taskDigest: current ? adoptionInputVersion(current) : null };
+  });
+  return { digest: mathDigest(canonicalMathJson({ ...binding, inputs })),
+    adoptionDigest: mathDigest(canonicalMathJson({ ...binding, inputs: adoptionInputs })),
     unboundInputs: inputs.filter(input => input.taskDigest === null ||
       input.taskDigest !== input.proposalDigest && !dependencies.some(item =>
         item.taskId === input.taskId && item.taskDigest === input.taskDigest)) };
@@ -65,7 +76,7 @@ export function researchHandoffs(state: HandoffState): ResearchHandoff[] {
   const nodes = new Map(state.tasks.map(node => [node.task.id, node]));
   const tasks = new Map(state.tasks.map(node => [node.task.id, node.task]));
   const decisions = new Map(state.researchDecisions?.map(decision => [decision.id, decision]));
-  const groups = new Map<string, { proposal: CooperativeTask; unboundInputs: ReturnType<typeof handoffContext>['unboundInputs'];
+  const groups = new Map<string, { proposal: CooperativeTask; context: ReturnType<typeof handoffContext>;
     entries: Map<string, DeliveryRecord> }>();
   for (const delivery of state.deliveries ?? []) {
     const source = delivery.taskId && nodes.get(delivery.taskId);
@@ -75,7 +86,7 @@ export function researchHandoffs(state: HandoffState): ResearchHandoff[] {
     const inputs = deliveryContext(delivery);
     for (const proposal of delivery.lemmaRequests ?? []) {
       const context = handoffContext(inputs, proposal, tasks);
-      const group = groups.get(context.digest) ?? { proposal, unboundInputs: context.unboundInputs, entries: new Map() };
+      const group = groups.get(context.digest) ?? { proposal, context, entries: new Map() };
       group.entries.set(legacyHandoffId(delivery, proposal), delivery);
       groups.set(context.digest, group);
     }
@@ -88,9 +99,29 @@ export function researchHandoffs(state: HandoffState): ResearchHandoff[] {
       const decision = decisions.get(key);
       return decision?.deliveryId === item.id ? [decision] : [];
     });
+    let historicalAdoptions: Set<string> | undefined;
+    const matchesAdoption = (digest: string) => {
+      if (digest === group.context.adoptionDigest) return true;
+      if (!state.history?.length) return false;
+      if (!historicalAdoptions) {
+        historicalAdoptions = new Set<string>();
+        const previousTasks = new Map(tasks), inputs = new Set(group.proposal.dependsOn), context = deliveryContext(delivery);
+        // Reverse accepted plan edits to recognize old full-version bindings. Only
+        // sharing may differ; history never authorizes a changed proof contract.
+        for (let index = (state.history?.length ?? 0) - 1; index >= 0; index--) {
+          const previous = state.history![index].task;
+          if (!inputs.has(previous.id)) continue;
+          previousTasks.set(previous.id, previous);
+          const historical = handoffContext(context, group.proposal, previousTasks);
+          if (historical.adoptionDigest === group.context.adoptionDigest) historicalAdoptions.add(historical.digest);
+        }
+      }
+      return historicalAdoptions.has(digest);
+    };
     // Historical decisions require inputs fixed by their delivery or their explicit waiting contracts.
     const applicable = recorded.filter(decision => decision.contextDigest === contextDigest ||
-      decision.contextDigest === undefined && group.unboundInputs.every(input =>
+      decision.status === 'adopted' && decision.contextDigest !== undefined && matchesAdoption(decision.contextDigest) ||
+      decision.contextDigest === undefined && group.context.unboundInputs.every(input =>
         decision.waitsOn?.some(reference => reference.taskId === input.taskId && reference.taskDigest === input.taskDigest)))
       .filter(decision => {
         if (decision.status !== 'adopted') return true;
@@ -105,7 +136,7 @@ export function researchHandoffs(state: HandoffState): ResearchHandoff[] {
       applicable.find(decision => decision.id === id) ?? applicable[0] : undefined;
     const adoptedTask = decisionSource?.status === 'adopted' && decisionSource.taskId ? nodes.get(decisionSource.taskId) : undefined;
     const decision = decisionSource && { ...decisionSource, id, deliveryId: delivery.id,
-      ...(adoptedTask ? { taskDigest: taskVersion(adoptedTask.task) } : {}) };
+      ...(adoptedTask ? { taskDigest: taskVersion(adoptedTask.task), contextDigest: group.context.adoptionDigest } : {}) };
     const reopened = decision?.status === 'deferred' && Boolean(decision.waitsOn?.length) &&
       decision.waitsOn!.every(reference => freshlyChecked(nodes, reference));
     const decisionStates = [...new Set(recorded.map(({ id: _id, deliveryId: _deliveryId, ...value }) => canonicalMathJson(value)))].sort();
@@ -117,6 +148,43 @@ export function researchHandoffs(state: HandoffState): ResearchHandoff[] {
       status: reopened ? 'pending' : decision?.status ?? 'pending', ...(decision ? { decision } : {}),
       ...(reopened ? { reopened: 'checked-prerequisites' as const } : {}),
       ...(delivery.commit ? { source: { commit: delivery.commit, notesPath: 'RESEARCH.md' as const } } : {}) };
+  });
+}
+
+/** Persist recognized legacy adoptions without requiring task history on the next resume. */
+export function normalizedResearchHandoffDecisions(state: HandoffState): ResearchHandoffDecision[] {
+  if (!state.researchDecisions?.length) return [];
+  const adopted = new Map(researchHandoffs(state).flatMap(handoff => handoff.status === 'adopted' && handoff.decision ?
+    handoff.sources.map(source => [source.handoffId, { deliveryId: source.deliveryId, decision: handoff.decision! }] as const) : []));
+  return (state.researchDecisions ?? []).map(decision => {
+    const current = adopted.get(decision.id);
+    return decision.status === 'adopted' && current?.deliveryId === decision.deliveryId && current.decision.taskId === decision.taskId ?
+      { ...decision, contextDigest: current.decision.contextDigest, taskDigest: current.decision.taskDigest } : decision;
+  });
+}
+
+/** Project global dispositions through visible aliases without publishing hidden provenance or waiting inputs. */
+export function scopeResearchHandoffDecisions(state: HandoffState,
+  scope: Pick<HandoffState, 'tasks' | 'deliveries'>): ResearchHandoffDecision[] {
+  if (!state.researchDecisions?.length) return [];
+  const global = new Map(researchHandoffs(state).map(handoff => [handoff.contextDigest, handoff]));
+  const deliveryIds = new Set(scope.deliveries?.map(delivery => delivery.id));
+  const versions = new Map(scope.tasks.map(node => [node.task.id, taskVersion(node.task)]));
+  const visible = researchHandoffs({ ...scope,
+    researchDecisions: state.researchDecisions?.filter(decision => deliveryIds.has(decision.deliveryId)) });
+  return visible.flatMap(handoff => {
+    const resolved = global.get(handoff.contextDigest), decision = resolved?.decision;
+    // A local alias must not hide a global conflict, reactivation or changed input context.
+    if (!resolved || resolved.status === 'pending' || !decision) return [];
+    const status = resolved.status;
+    if (status === 'adopted' && (!decision.taskId || versions.get(decision.taskId) !== decision.taskDigest)) return [];
+    const reason = handoff.decision?.status === status ? handoff.decision.reason : undefined;
+    const waitsOn = status === 'deferred' && decision.waitsOn?.every(reference =>
+      versions.get(reference.taskId) === reference.taskDigest) ? decision.waitsOn : undefined;
+    return handoff.sources.map(source => ({ id: source.handoffId, deliveryId: source.deliveryId, status,
+      contextDigest: decision.contextDigest ?? resolved.contextDigest,
+      ...(status === 'adopted' ? { taskId: decision.taskId, taskDigest: decision.taskDigest } : {}),
+      ...(reason === undefined ? {} : { reason }), ...(waitsOn ? { waitsOn } : {}) }));
   });
 }
 
@@ -236,8 +304,9 @@ export function resolveResearchHandoffs(state: HandoffState, dispatchedIds: read
     else throw new Error('math_handoff_unresolved:' + id + ': adopt its exact typed target or record a rejected/deferred decision with a reason.');
     // Keep each immutable delivery's old key durable, including when only one alias was dispatched.
     for (const source of handoff.sources) {
+      const context = handoffContext(deliveries.get(source.deliveryId)!, handoff.proposal, proposed);
       resolved.push({ id: source.handoffId, deliveryId: source.deliveryId, ...result,
-        contextDigest: handoffContext(deliveries.get(source.deliveryId)!, handoff.proposal, proposed).digest });
+        contextDigest: result.status === 'adopted' ? context.adoptionDigest : context.digest });
     }
   }
   return resolved;

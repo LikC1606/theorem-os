@@ -10,6 +10,7 @@ import type { ResearchWorker } from '../src/solver/modules/organization';
 import { commitSolverSources, type SolverProblem } from '../src/solver/problem';
 import { pendingResearchChallenges } from '../src/solver/researchChallenges';
 import { pendingResearchHandoffs, researchHandoffs } from '../src/solver/researchHandoffs';
+import { validateLemmaRequests } from '../src/solver/taskProposals';
 import { leadPlanDeliveryFile, parseCooperationPlan, taskVersion, type CooperativeAction, type CooperativeTask } from '../src/solver/tasks';
 import { cooperativeResearch } from './helpers/cooperation';
 import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
@@ -239,6 +240,26 @@ describe('live explicit handoff publication', () => {
     expect(snapshot()).toEqual(before);
     expect(node(proposal.id)).toBe(original); expect(node(proposal.id).task).toEqual(existing);
     expect(inbox()).toHaveLength(1);
+  });
+
+  it.each([{ objective: 'Prove the bridge for the chosen route.' }, { sharing: 'problem' as const },
+    { revision: 1 }, { dependsOn: ['premise'] }])
+  ('adopts a valid late proposal when an earlier plan already scheduled the same proof target: %j', async change => {
+    // The researcher publishes before the independent plan adds this target.
+    [proposal] = validateLemmaRequests(problem, graph().tasks, graph().groups, node('question').task, [proposal]);
+    state.cooperation!.deliveries![0].lemmaRequests = [proposal];
+    const existing = { ...proposal, ...change, ownerId: workers[2].id };
+    addExistingTasks(existing);
+    const action = await start(), before = structuredClone(graph()), original = node(proposal.id);
+    await publish(action, event(action, [{ id: action.handoffIds![0], status: 'adopted', ownerId: existing.ownerId }]));
+
+    expect(researchHandoffs(state.cooperation!)[0]).toMatchObject({ status: 'adopted', decision: {
+      taskId: existing.id, taskDigest: taskVersion(existing),
+    } });
+    expect(graph()).toEqual(before);
+    expect(node(proposal.id)).toBe(original);
+    expect(node(proposal.id)).toMatchObject({ task: existing, status: 'pending' });
+    expect(events.filter(item => item.event === 'plan_publication_rejected')).toEqual([]);
   });
 
   it.each(['dispatchNonce', 'baseVersion'] as const)('rejects a wrong %s before changing the graph or recording a decision', async key => {

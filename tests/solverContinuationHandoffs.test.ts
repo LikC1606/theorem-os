@@ -244,6 +244,43 @@ describe('typed research handoff continuation seeds', () => {
       .toEqual(['Submission.Helpers.first_helper', 'Submission.Helpers.second_helper']);
   });
 
+  it.each(['sharing', 'contract'] as const)
+  ('checks the prerequisite %s edit when carrying a legacy adoption through successive builds', async change => {
+    const f = fixture(), archive = f.oldState.cooperation!, input = archive.tasks.find(node => node.task.id === 'second')!;
+    input.task = { ...input.task, sharing: 'group' };
+    const published = publishHandoff(f, addResearch(f), [typedProposal(), typedProposal('still_pending')]
+      .map(task => ({ ...task, dependsOn: [input.task.id] })));
+    const handoff = pendingResearchHandoffs(archive)[0];
+    archive.tasks.push({ task: handoff.proposal, status: 'pending', attempts: 0 });
+    archive.researchDecisions = resolveResearchHandoffs(archive, [handoff.id], archive.tasks.map(node => node.task), undefined)
+      .map(decision => ({ ...decision, contextDigest: handoff.contextDigest }));
+    archive.history = [{ task: input.task }]; input.task = { ...input.task, sharing: 'problem' };
+    expect(researchHandoffs(archive)[0].status).toBe('adopted');
+    saveSource(f); const sourceBytes = fs.readFileSync(f.sourceStateFile);
+
+    await f.seed();
+    const restoredState = readSolverRunState(f.stateFile), restored = restoredState.cooperation!;
+    expect(restored.history).toEqual([]);
+    expect(restored.researchDecisions![0].contextDigest).not.toBe(handoff.contextDigest);
+    expect(researchHandoffs(restored)).toMatchObject([{ deliveryId: published.delivery.id, status: 'adopted' }, { status: 'pending' }]);
+    expect(restored.tasks.find(node => node.task.id === handoff.proposal.id)).toMatchObject({ status: 'pending' });
+    expect(fs.readFileSync(f.sourceStateFile)).toEqual(sourceBytes);
+    const originalInputs = readHandoffAttachment(f.directory, restoredState.continuationDigest!).records[0].inputs;
+
+    const currentInput = restored.tasks.find(node => node.task.id === input.task.id)!;
+    restored.history = [{ task: currentInput.task }];
+    currentInput.task = { ...currentInput.task, ...(change === 'sharing' ? { sharing: 'group' as const } : { type: 'False' }) };
+    currentInput.proof = undefined; currentInput.integratedCheck = undefined; currentInput.status = 'pending';
+    expect(researchHandoffs(restored)[0].status).toBe(change === 'sharing' ? 'adopted' : 'pending');
+    writeSolverRunState(f.stateFile, restoredState);
+    const next = nextGeneration(f); await next.seed();
+    const latest = readSolverRunState(next.stateFile).cooperation!;
+    expect(latest.deliveries![0].status).toBe(change === 'sharing' ? 'advisory' : 'superseded');
+    expect(researchHandoffs(latest).map(item => item.status)).toEqual(change === 'sharing' ? ['adopted', 'pending'] : []);
+    const latestState = readSolverRunState(next.stateFile);
+    expect(readHandoffAttachment(next.directory, latestState.continuationDigest!).records[0].inputs).toEqual(originalInputs);
+  });
+
   it.each(['environment', 'source-revised', 'source-history', 'source-missing', 'dependency', 'superseded'] as const)(
     'keeps a stale %s publication as superseded provenance without blocking initialization', async reason => {
       const f = fixture(), published = publishHandoff(f);

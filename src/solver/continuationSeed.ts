@@ -15,7 +15,7 @@ import { rejectionCode, taskSourceRejections } from './cooperationShared';
 import { freezeContinuationInput, readContinuationSnapshot, type ContinuationManifest } from './continuationInput';
 import { readRunInspection } from './inspection';
 import type { DeliveryRecord } from './deliveries';
-import type { ResearchHandoffDecision } from './researchHandoffs';
+import { normalizedResearchHandoffDecisions, researchHandoffs, type ResearchHandoffDecision } from './researchHandoffs';
 import { researchWorkerCanNode, researchWorkerCanTask } from './modules/organization';
 import { CAPACITY_EXPLORATION_FOCUSES, currentCapacityExploration, plannedTaskRecords, type CapacityExploration } from './capacityExploration';
 import { assertSolverSources, committedSource, commitSolverSources, git, readSolverProblem, withSolverWorktree, type SolverProblem } from './problem';
@@ -213,7 +213,18 @@ function advisoryHandoffDelivery(delivery: DeliveryRecord): DeliveryRecord {
 }
 
 const handoffDeliveryOrigin = ({ status: _status, ...delivery }: DeliveryRecord) => delivery;
-function currentHandoffRecord(record: HandoffSource['records'][number], state: SolverRunState): boolean {
+function adoptedHandoffInputs(state: Parameters<typeof researchHandoffs>[0]) {
+  const inputs = new Map<string, Set<string>>();
+  if (!state.researchDecisions?.length) return inputs;
+  for (const handoff of researchHandoffs(state)) if (handoff.status === 'adopted') for (const source of handoff.sources) {
+    const current = inputs.get(source.deliveryId) ?? new Set<string>();
+    for (const id of handoff.proposal.dependsOn) current.add(id);
+    inputs.set(source.deliveryId, current);
+  }
+  return inputs;
+}
+function currentHandoffRecord(record: HandoffSource['records'][number], state: SolverRunState,
+  adoptedInputs: ReadonlyMap<string, ReadonlySet<string>>): boolean {
   const { delivery, sourceTask } = record, nodes = new Map(state.cooperation?.tasks.map(node => [node.task.id, node]));
   const source = nodes.get(delivery.taskId!);
   if (record.environmentDigest !== state.environmentDigest || record.problemReceiptDigest !== state.problem.receiptDigest ||
@@ -225,8 +236,10 @@ function currentHandoffRecord(record: HandoffSource['records'][number], state: S
   if (record.inputs.length !== inputs.length || new Set(record.inputs.map(input => input.taskId)).size !== inputs.length ||
       inputs.some(id => {
         const task = nodes.get(id)?.task ?? proposals.get(id);
+        // The original input pins remain provenance. A current, context-bound
+        // adoption can also retain its obligation after scheduling metadata edits.
         return !task || !record.inputs.some(reference => reference.taskId === id && reference.taskDigest !== null &&
-          reference.taskDigest === taskVersion(task));
+          (reference.taskDigest === taskVersion(task) || adoptedInputs.get(delivery.id)?.has(id)));
       })) return false;
   if (source.capacityExploration) {
     const owner = state.workers?.find(worker => worker.id === source.capacityExploration!.workerId);
@@ -237,8 +250,10 @@ function currentHandoffRecord(record: HandoffSource['records'][number], state: S
 }
 
 function restoredHandoffDeliveries(source: HandoffSource, state: SolverRunState): DeliveryRecord[] {
+  const adoptedInputs = adoptedHandoffInputs({ ...state.cooperation!,
+    deliveries: source.records.map(record => record.delivery), researchDecisions: source.decisions });
   return source.records.map(record => ({ ...record.delivery,
-    status: record.delivery.status === 'superseded' || !currentHandoffRecord(record, state) ? 'superseded' : 'advisory' }));
+    status: record.delivery.status === 'superseded' || !currentHandoffRecord(record, state, adoptedInputs) ? 'superseded' : 'advisory' }));
 }
 
 function capturedHandoffs(state: SolverRunState, previous?: HandoffSource): HandoffSource | undefined {
@@ -247,6 +262,7 @@ function capturedHandoffs(state: SolverRunState, previous?: HandoffSource): Hand
   const records = new Map<string, HandoffSource['records'][number]>(), originals = new Map(previous?.records.map(record =>
     [record.delivery.id, record]));
   const nodes = new Map(state.cooperation!.tasks.map(node => [node.task.id, node.task]));
+  const adoptedInputs = adoptedHandoffInputs(state.cooperation!);
   for (const item of deliveries) {
     const delivery = advisoryHandoffDelivery(item), original = originals.get(delivery.id);
     if (original && canonicalMathJson(handoffDeliveryOrigin(original.delivery)) !== canonicalMathJson(handoffDeliveryOrigin(delivery)))
@@ -261,13 +277,13 @@ function capturedHandoffs(state: SolverRunState, previous?: HandoffSource): Hand
         const task = nodes.get(taskId) ?? proposals.get(taskId);
         return { taskId, taskDigest: task ? taskVersion(task) : null };
       }) });
-    if (!currentHandoffRecord(record, state)) record.delivery = { ...record.delivery, status: 'superseded' };
+    if (!currentHandoffRecord(record, state, adoptedInputs)) record.delivery = { ...record.delivery, status: 'superseded' };
     records.set(delivery.id, record);
   }
   for (const record of previous?.records ?? []) if (!records.has(record.delivery.id))
     records.set(record.delivery.id, { ...record, delivery: { ...record.delivery, status: 'superseded' } });
   const decisions = new Map(previous?.decisions.map(decision => [decision.id, decision]));
-  for (const decision of state.cooperation!.researchDecisions ?? []) if (records.has(decision.deliveryId))
+  for (const decision of normalizedResearchHandoffDecisions(state.cooperation!)) if (records.has(decision.deliveryId))
     decisions.set(decision.id, handoffDecision.parse({ id: decision.id, deliveryId: decision.deliveryId, status: decision.status,
       taskId: decision.taskId, taskDigest: decision.taskDigest, reason: decision.reason, contextDigest: decision.contextDigest,
       waitsOn: decision.waitsOn }));

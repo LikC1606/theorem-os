@@ -9,6 +9,8 @@ import { MATHEMATICAL_GAP_CONTEXT_MAX_BYTES, mathematicalGapContext, type Mathem
 import { buildResearchContext } from '../src/solver/modules/context';
 import type { ResearchWorker } from '../src/solver/modules/organization';
 import { committedSource, commitSolverSources } from '../src/solver/problem';
+import { buildProofContinuation } from '../src/solver/progress';
+import { researchHandoffs, resolveResearchHandoffs } from '../src/solver/researchHandoffs';
 import { taskVersion, type CooperativeAction } from '../src/solver/tasks';
 import { importKnowledgeRuns } from '../src/solver/theoremKnowledgeRuns';
 import { deferred } from './helpers/async';
@@ -110,6 +112,41 @@ it.each(['recorded-private', 'currently-private'] as const)('hides %s consumers 
   const imported = importKnowledgeRuns([checkpoint], { includeFindings: true });
   expect(imported.findings).toEqual([]);
   expect(imported.skipped.some(item => item.reason === 'math_knowledge_run_finding_private')).toBe(true);
+});
+
+it.each(['adopted', 'rejected', 'deferred'] as const)
+('projects a %s handoff to a late public duplicate without publishing its private gap or decision source', async status => {
+  const archive = state.cooperation!, consumer = archive.tasks.find(node => node.task.kind === 'goal')!;
+  consumer.task = { ...consumer.task, sharing: 'group' };
+  await publish({ kind: 'research', finding: { summary: 'Exact bridge with private consumer context',
+    mathematicalGap: gap(), lemmaRequests: [{ id: 'public_bridge', kind: 'lemma', objective: 'Prove the public bridge',
+      theoremName: 'Tutorial.public_bridge', proofPath: 'Submission.lean', type: 'True', sharing: 'problem',
+      dependsOn: [], revision: 0 }] } });
+  const original = archive.deliveries![0], handoff = researchHandoffs(archive)[0];
+  const plan = parseCooperationPlan(state.problem, { groups: archive.groups!.map(item => item.group),
+    tasks: [...archive.tasks.map(node => status === 'adopted' && node.task.id === 'other' ?
+      { ...node.task, dependsOn: [handoff.proposal.id] } : node.task), ...(status === 'adopted' ? [handoff.proposal] : [])] });
+  archive.researchDecisions = resolveResearchHandoffs(archive, [handoff.id], plan.tasks,
+    status === 'adopted' ? undefined : [{ id: handoff.id, status, reason: 'PRIVATE_DECISION_REASON' }]);
+  const records = new Map(archive.tasks.map(node => [node.task.id, node]));
+  archive.tasks = plan.tasks.map(task => ({ ...(records.get(task.id) ?? { status: 'pending' as const, attempts: 0 }), task }));
+  const decisions = structuredClone(archive.researchDecisions);
+  await complete({ summary: 'Public final bridge request', mathematicalGap: undefined, lemmaRequests: [handoff.proposal] });
+  const duplicate = archive.deliveries!.find(item => item.id !== original.id)!;
+  expect(archive.tasks[0].status).toBe('completed');
+  expect(archive.deliveries).toHaveLength(2);
+  expect(researchHandoffs(archive)[0].status).toBe(status);
+
+  const scoped = cooperative.contextState(otherAction(), workers[2]), projected = researchHandoffs(scoped);
+  expect(scoped.deliveries!.map(item => item.id)).toEqual([duplicate.id]);
+  expect(projected).toMatchObject([{ status, sources: [{ deliveryId: duplicate.id }] }]);
+  expect(projected[0].sources).toHaveLength(1);
+  const continuation = buildProofContinuation(scoped.tasks, { researchHandoffs: projected });
+  expect(continuation.adoptedResearch).toHaveLength(status === 'adopted' ? 1 : 0);
+  if (status === 'adopted') expect(continuation.adoptedResearch[0]).toMatchObject({ taskId: handoff.proposal.id, recordedProof: 'none' });
+  for (const privateValue of [original.id, original.commit!, 'PRIVATE_GAP_REMAINDER', 'PRIVATE_CONSUMER_CONTRACT', 'PRIVATE_DECISION_REASON'])
+    expect(JSON.stringify(scoped)).not.toContain(privateValue);
+  expect(archive.researchDecisions).toEqual(decisions);
 });
 
 it('keeps original-problem deliveries visible to idle workers while applying separate gap privacy', () => {

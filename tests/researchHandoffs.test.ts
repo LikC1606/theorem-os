@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { canonicalMathJson, mathDigest } from '../src/math/mathRuntimeIo';
-import { pendingResearchHandoffs, retainedResearchHandoffs, researchHandoffs, researchHandoffContext, resolveResearchHandoffs, selectResearchHandoffBatch,
+import { pendingResearchHandoffs, retainedResearchHandoffs, researchHandoffs, researchHandoffContext,
+  normalizedResearchHandoffDecisions, resolveResearchHandoffs, scopeResearchHandoffDecisions, selectResearchHandoffBatch,
   type ResearchHandoffDecision } from '../src/solver/researchHandoffs';
 import type { TaskProof } from '../src/solver/cooperativeProof';
 import type { DeliveryRecord } from '../src/solver/deliveries';
@@ -13,7 +14,8 @@ const node = (task: CooperativeTask): TaskRecord => ({ task, status: 'pending', 
 const delivery: DeliveryRecord = { id: 'delivery', producer: 'researcher', taskId: research.id, taskDigest: taskVersion(research),
   kind: 'research', status: 'advisory', summary: 'A bridge is worth proving.', statement: '', premises: [],
   dependencies: [], remainingObligations: [], evidenceRefs: [], createdAt: 1, commit: 'a'.repeat(40), lemmaRequests: [proposal] };
-type TestState = { tasks: TaskRecord[]; deliveries: DeliveryRecord[]; researchDecisions?: ResearchHandoffDecision[] };
+type TestState = { tasks: TaskRecord[]; deliveries: DeliveryRecord[]; researchDecisions?: ResearchHandoffDecision[];
+  history?: { task: CooperativeTask }[] };
 const fixture = (): TestState => ({ tasks: [{ ...node(research), status: 'completed' }], deliveries: [structuredClone(delivery)] });
 
 it('reconstructs an unresolved exact proposal from its immutable delivery across restarts', () => {
@@ -62,6 +64,75 @@ it('keeps adoption durable when only scheduling metadata changes', () => {
     taskId: current.id, taskDigest: taskVersion(current),
   } }]);
   expect(pendingResearchHandoffs(state)).toEqual([]);
+});
+
+it.each([undefined, 'group'] as const)('keeps adoption after unpinned prerequisites change sharing from %s across a restart', sharing => {
+  const state = fixture(), inputs = ['left', 'right'].map(id => ({ ...proposal, id,
+    theoremName: `Original.${id}`, ...(sharing ? { sharing } : {}) }));
+  const requested = { ...proposal, dependsOn: inputs.map(task => task.id) };
+  state.tasks.push(...inputs.map(node)); state.deliveries[0].lemmaRequests = [requested];
+  const handoff = pendingResearchHandoffs(state)[0];
+  state.researchDecisions = resolveResearchHandoffs(state, [handoff.id], [research, ...inputs, requested], undefined);
+  state.tasks.push(node(requested));
+  for (const input of state.tasks.filter(item => inputs.some(task => task.id === item.task.id)))
+    input.task = { ...input.task, sharing: 'problem' };
+
+  expect(researchHandoffs(JSON.parse(JSON.stringify(state)))).toMatchObject([{ status: 'adopted',
+    decision: { taskId: requested.id } }]);
+  expect(pendingResearchHandoffs(state)).toEqual([]);
+});
+
+it('migrates legacy adoption bindings through recorded prerequisite sharing edits without mutating the archive', () => {
+  const state = fixture(), inputs = ['left', 'right'].map(id => ({ ...proposal, id,
+    theoremName: `Original.${id}`, sharing: 'group' as const }));
+  const requested = { ...proposal, dependsOn: inputs.map(task => task.id) };
+  state.tasks.push(...inputs.map(node)); state.deliveries[0].lemmaRequests = [requested];
+  const handoff = pendingResearchHandoffs(state)[0];
+  state.researchDecisions = resolveResearchHandoffs(state, [handoff.id], [research, ...inputs, requested], undefined)
+    .map(decision => ({ ...decision, contextDigest: handoff.contextDigest }));
+  state.tasks.push(node(requested));
+  expect(researchHandoffs(state)[0].status).toBe('adopted');
+  state.history = inputs.map(task => ({ task }));
+  for (const input of state.tasks.filter(item => inputs.some(task => task.id === item.task.id)))
+    input.task = { ...input.task, sharing: 'problem' };
+  const before = structuredClone(state);
+
+  expect(researchHandoffs(state)[0].status).toBe('adopted');
+  const decisions = normalizedResearchHandoffDecisions(state);
+  expect(decisions[0].contextDigest).not.toBe(handoff.contextDigest);
+  const restored = JSON.parse(JSON.stringify({ ...state, researchDecisions: decisions, history: [] }));
+  expect(researchHandoffs(restored)[0].status).toBe('adopted');
+  const scope = { tasks: state.tasks, deliveries: state.deliveries };
+  expect(researchHandoffs({ ...scope, researchDecisions: scopeResearchHandoffDecisions(state, scope) })[0].status).toBe('adopted');
+  expect(state).toEqual(before);
+  expect(researchHandoffs({ ...state, history: [] })[0].status).toBe('pending');
+});
+
+it.each([{ type: 'False' }, { theoremName: 'Original.changed' }, { conditional: true }, { premises: ['new assumption'] }])
+('does not migrate legacy adoption across a changed prerequisite contract: %j', change => {
+  const state = fixture(), input = { ...proposal, id: 'input', theoremName: 'Original.input', sharing: 'group' as const };
+  const requested = { ...proposal, dependsOn: [input.id] };
+  state.tasks.push(node(input)); state.deliveries[0].lemmaRequests = [requested];
+  const handoff = pendingResearchHandoffs(state)[0];
+  state.researchDecisions = resolveResearchHandoffs(state, [handoff.id], [research, input, requested], undefined)
+    .map(decision => ({ ...decision, contextDigest: handoff.contextDigest }));
+  state.tasks.push(node(requested)); state.history = [{ task: input }];
+  state.tasks[1].task = { ...input, sharing: 'problem', ...change };
+
+  expect(researchHandoffs(state)[0].status).toBe('pending');
+  expect(normalizedResearchHandoffDecisions(state)).toEqual(state.researchDecisions);
+});
+
+it.each(['rejected', 'deferred'] as const)('reopens a %s decision when a versioned prerequisite changes sharing', status => {
+  const state = fixture(), input = { ...proposal, id: 'input', theoremName: 'Original.input', sharing: 'group' as const };
+  const requested = { ...proposal, dependsOn: [input.id] };
+  state.tasks.push(node(input)); state.deliveries[0].lemmaRequests = [requested];
+  const handoff = pendingResearchHandoffs(state)[0];
+  state.researchDecisions = resolveResearchHandoffs(state, [handoff.id], [research, input], [{ id: handoff.id, status,
+    reason: 'Decided for the current prerequisite version.', ...(status === 'deferred' ? { waitsOn: [input.id] } : {}) }]);
+  state.history = [{ task: input }]; state.tasks[1].task = { ...input, sharing: 'problem' };
+
+  expect(researchHandoffs(state)[0].status).toBe('pending');
 });
 
 it.each([
@@ -224,6 +295,67 @@ it('reopens conflicting historical dispositions rather than silently choosing on
     { id: current.id, status: 'rejected', reason: 'Reconciled against the exact current target.' },
   ], { [current.id]: current.activationDigest });
   expect(pendingResearchHandoffs({ ...state, researchDecisions: decisions })).toEqual([]);
+});
+
+it('keeps globally conflicting dispositions pending when a peer can see only one decided duplicate', () => {
+  const state = fixture(), repeated = { ...structuredClone(delivery), id: 'public-duplicate' };
+  state.deliveries.push(repeated);
+  const handoff = researchHandoffs(state)[0];
+  state.researchDecisions = handoff.sources.map((source, index) => ({ id: source.handoffId, deliveryId: source.deliveryId,
+    status: index ? 'deferred' : 'rejected', reason: 'Historical dispositions conflict.', contextDigest: handoff.contextDigest }));
+  const scope = { tasks: state.tasks, deliveries: [repeated] };
+  expect(researchHandoffs({ ...scope, researchDecisions: [state.researchDecisions[1]] })[0].status).toBe('deferred');
+  const decisions = scopeResearchHandoffDecisions(state, scope);
+  expect(decisions).toEqual([]);
+  expect(researchHandoffs({ ...scope, researchDecisions: decisions })[0].status).toBe('pending');
+});
+
+it('projects a complete visible waiting contract and never wakes a private contract from only its visible subset', () => {
+  const { state, needed, other, defer } = waitingFixture();
+  defer(['needed', 'other']);
+  const repeated = { ...structuredClone(delivery), id: 'public-duplicate' };
+  state.deliveries.push(repeated); accept(needed);
+  const scope = { tasks: state.tasks.filter(item => item !== other), deliveries: [repeated] };
+  const before = structuredClone(state), decisions = scopeResearchHandoffDecisions(state, scope);
+  expect(decisions).toMatchObject([{ status: 'deferred', deliveryId: repeated.id }]);
+  expect(decisions[0]).not.toHaveProperty('waitsOn');
+  expect(decisions[0]).not.toHaveProperty('reason');
+  expect(JSON.stringify(decisions)).not.toContain(other.task.id);
+  expect(researchHandoffs({ ...scope, researchDecisions: decisions })[0].status).toBe('deferred');
+  const visibleScope = { ...scope, tasks: state.tasks };
+  expect(scopeResearchHandoffDecisions(state, visibleScope)[0].waitsOn).toEqual(state.researchDecisions![0].waitsOn);
+  expect(state).toEqual(before);
+
+  accept(other);
+  expect(researchHandoffs(state)[0].status).toBe('pending');
+  const reopened = scopeResearchHandoffDecisions(state, scope);
+  expect(reopened).toEqual([]);
+  expect(researchHandoffs({ ...scope, researchDecisions: reopened })[0].status).toBe('pending');
+});
+
+it('does not disclose an adopted task absent from the scoped graph', () => {
+  const state = fixture(), handoff = researchHandoffs(state)[0];
+  state.researchDecisions = resolveResearchHandoffs(state, [handoff.id], [research, proposal], undefined);
+  state.tasks.push(node(proposal));
+  const repeated = { ...structuredClone(delivery), id: 'public-duplicate' };
+  state.deliveries.push(repeated);
+  const scope = { tasks: state.tasks.filter(item => item.task.id !== proposal.id), deliveries: [repeated] };
+  const decisions = scopeResearchHandoffDecisions(state, scope);
+  expect(decisions).toEqual([]);
+  expect(researchHandoffs({ ...scope, researchDecisions: decisions })[0].status).toBe('pending');
+});
+
+it('does not project adoption onto a sibling fallback with a different current input context', () => {
+  const state = fixture(), input = node({ ...proposal, id: 'input', theoremName: 'Original.input' });
+  const requested = { ...proposal, dependsOn: [input.task.id] };
+  state.tasks.push(input); state.deliveries[0].lemmaRequests = [requested, input.task];
+  const handoff = researchHandoffs(state).find(item => item.proposal.id === requested.id)!;
+  state.researchDecisions = resolveResearchHandoffs(state, [handoff.id], [research, input.task, requested], undefined);
+  state.tasks.push(node(requested)); input.task = { ...input.task, type: 'False' };
+  const scope = { tasks: state.tasks.filter(item => item !== input), deliveries: state.deliveries };
+  expect(researchHandoffs({ ...scope, researchDecisions: state.researchDecisions })[0].status).toBe('adopted');
+  const decisions = scopeResearchHandoffDecisions(state, scope);
+  expect(researchHandoffs({ ...scope, researchDecisions: decisions })[0].status).toBe('pending');
 });
 
 it.each([{ type: 'True' }, { theoremName: 'Original.other' }, { premises: ['an extra premise'] },

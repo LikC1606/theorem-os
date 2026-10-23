@@ -19,7 +19,7 @@ import { assertStatementSnapshot, isStatementAction, resetStatementReview } from
 import { captureProofReferences } from './proofReferences';
 import { captureDeliveryArtifacts, type DeliveryArtifactManifest } from './deliveryArtifacts';
 import { attributeTaskReferences } from './taskReferenceAttribution';
-import { retainedResearchHandoffs, selectResearchHandoffBatch } from './researchHandoffs';
+import { normalizedResearchHandoffDecisions, retainedResearchHandoffs, scopeResearchHandoffDecisions, selectResearchHandoffBatch } from './researchHandoffs';
 import { pendingResearchChallenges, retainedResearchChallenges } from './researchChallenges';
 import { taskConsumerProjection } from './taskConsumers';
 import { hasRunningDuplicateQuestion, parallelQuestions } from './taskQuestions';
@@ -747,7 +747,9 @@ export class CooperativeResearch extends CooperationInputs {
       consumerInterfaces: task ? taskConsumerProjection(task, this.archive.tasks, this.archive.proofRoutes) : undefined,
       mathematicalGaps: mathematicalGaps(this.archive, { problemReceiptDigest: this.input.state.problem.receiptDigest,
         environmentDigest: this.input.state.environmentDigest }, gapViewer),
-      researchDecisions: this.archive.researchDecisions?.filter(item => deliveryIds.has(item.deliveryId)),
+      researchDecisions: this.archive.researchDecisions && (tasks === this.archive.tasks ?
+        normalizedResearchHandoffDecisions(this.archive).filter(item => deliveryIds.has(item.deliveryId)) :
+        scopeResearchHandoffDecisions(this.archive, { tasks: scopedTasks, deliveries })),
       challengeDecisions: this.archive.challengeDecisions?.filter(item => deliveryIds.has(item.deliveryId)),
       frontierRecoveries: tasks === this.archive.tasks ? this.archive.frontierRecoveries : undefined,
       failedTaskInputs: this.archive.failedTaskInputs?.filter(record => tasks === this.archive.tasks || visible(record.taskId, record.taskDigest)),
