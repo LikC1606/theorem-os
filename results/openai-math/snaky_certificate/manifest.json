@@ -1,6 +1,6 @@
 {
   "schema": "theorem-os.result-file-manifest.v1",
-  "generatedAt": "2026-10-23T18:04:36.674752+00:00",
+  "generatedAt": "2026-10-23T19:21:55.940340+00:00",
   "algorithm": "sha256",
   "excludes": [
     "manifest.json"
@@ -38,8 +38,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 2032,
-      "sha256": "f6f318c10b24790248a819591547163c03e5c7c4b70ca5191b6fe3d4f069b1c6"
+      "bytes": 2392,
+      "sha256": "6313194ec2efd55232cd3c2271e14f6784f0be42c8e806b7a9c1a1e885a1941f"
     },
     {
       "path": "evidence/CertificateData.receipt.json",
@@ -117,6 +117,16 @@
       "sha256": "b2f568dbd163885b675f0f3adca1454d64090a418e93bf1739e36c3e4faab658"
     },
     {
+      "path": "evidence/canonical-v5/native-full-original-target-check.json",
+      "bytes": 34181,
+      "sha256": "afcc86344cb1923a34d1c85b05097a0b4ed8e4a99231589c45535b345f440734"
+    },
+    {
+      "path": "evidence/canonical-v5/native-integration-check.json",
+      "bytes": 918,
+      "sha256": "4189d6be1223a8c3ed07a627619a05ec4cd9198f200cee4df22a8691bff3fa13"
+    },
+    {
       "path": "evidence/canonical-v5/native-original-goal-check.json",
       "bytes": 1284263,
       "sha256": "bfc9b60991dab4e5def2edb84c88661998ad056d514b7cefc4c65ecd913d4174"
@@ -153,8 +163,8 @@
     },
     {
       "path": "single-file/README.md",
-      "bytes": 1722,
-      "sha256": "c81d11affbb57320135084d35fe2cad13ba083d95fe7dde90a0078893e7a96d5"
+      "bytes": 1963,
+      "sha256": "fa540514c3036bf35f8a02f629dda5dd251a0c921f3363766e24e904629458eb"
     },
     {
       "path": "single-file/Submission.lean",
@@ -170,6 +180,11 @@
       "path": "single-file/SubmissionCanonicalV5.lean",
       "bytes": 898691,
       "sha256": "66d0cf5eecbcffcf0de7933acaec1c16da6f5ba8592173e1e9228c350663fdd7"
+    },
+    {
+      "path": "single-file/SubmissionCanonicalV5Integrated.lean",
+      "bytes": 896495,
+      "sha256": "b7dc0b2898b8d4ee8ed4a3b10394429f939ff9e4d73761dcd6968e46a4579751"
     },
     {
       "path": "single-file/isolated-evaluator-serial-entrypoint.sh",

@@ -1,0 +1,30 @@
+{
+  "observedAt": "2026-10-23T18:31:40.991795+00:00",
+  "runId": "6d22ec7c-5c2b-41a4-911d-dcf3f0b7ddf0",
+  "taskId": "initial_goal_1",
+  "taskStatus": "integrated",
+  "nativeIntegrationCheckPassed": true,
+  "nativeFinalAcceptance": false,
+  "sourceSHA256": "b7dc0b2898b8d4ee8ed4a3b10394429f939ff9e4d73761dcd6968e46a4579751",
+  "sourceBytes": 896495,
+  "sourceCommit": "d6d63ed5464947c3009f6dc864cb62860eb30731",
+  "conditions": [],
+  "conditionsFieldPresent": false,
+  "status": "kernel_verified",
+  "results": [
+    {
+      "receiptId": "lean-7044996350d4ba1ca7800291",
+      "theoremName": "OAI.SnakyCertificate.certificate_correct",
+      "status": "kernel_verified",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "error": null
+    }
+  ],
+  "externalMathematicalAssistance": true,
+  "fixedReviewCompleted": false,
+  "finalOriginalComparatorCompleted": false
+}

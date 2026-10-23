@@ -1,6 +1,6 @@
 {
   "schema": "theorem-os.external-assistance-progress.v1",
-  "observedAt": "2026-10-23T18:03:10.199206+00:00",
+  "observedAt": "2026-10-23T19:21:15.048771+00:00",
   "campaignCounts": {
     "accepted": 3,
     "blocked": 2,
@@ -22,7 +22,7 @@
     "knownMathematicalGap": "strip_growth_below_mu: strict finite-width strip exponential growth bound below 2*cos(pi/8)",
     "runId": "d7aa37e7-ff26-444e-86ba-f059c024a5fa",
     "runtimePhase": "running",
-    "lastConfirmedAt": "2026-10-23T18:03:10.199206+00:00",
+    "lastConfirmedAt": "2026-10-23T19:21:15.048771+00:00",
     "workerScheduling": [
       {
         "id": "solver",
@@ -105,7 +105,7 @@
     },
     {
       "id": "CharacterVarietiesAllSeamsSupport",
-      "status": "last_remaining_error_helper_replay_passed_remaining180_v9_default_cli_running",
+      "status": "v12_source_guard_passed_remaining180_default_cli_running",
       "wholeTargetPassed": true,
       "newKernelCheckedHelpers": [
         "external_endpointFlag",
@@ -211,10 +211,10 @@
       ],
       "remaining": "Finish V9 remaining180 default-CLI diagnostic, fresh complete single-file kernel, original-target audit, source guard, original sealed comparator, actual-source transport and native final evaluation.",
       "runningModules": [
-        "Single owning v4 repair chain running remaining180 V9 default-CLI closure",
-        "Existing parent verification gate waiting for full candidate and original-target audit"
+        "Single v7 owner running V12 remaining180 default-CLI diagnostic",
+        "Parent gate waiting for fresh full250 single-file kernel and original-target audit"
       ],
-      "knownIntegrationIssue": "V8 remaining180 diagnostic had one root heartbeat error and one dependent missing-constant diagnostic. The exact first-short tactic repair passed default CLI exit0; V9 remaining180 is running. No complete V9 kernel or native acceptance yet.",
+      "knownIntegrationIssue": "V9 and V11 remaining180 naturally failed with the same first-short heartbeat root. V12 rewrites only that proof through abstract composition and preserves the exact type and other249 declarations. Source guard passed; current remaining180 check has no terminal receipt.",
       "latestExportedHelpers": [
         {
           "exitCode": 0,
@@ -742,13 +742,13 @@
         "currentCandidate": false
       },
       "nextCompleteCandidate": {
-        "status": "remaining180-v9-default-cli-kernel",
+        "status": "remaining180-v12-default-cli-kernel",
         "willRequireFreshSourceGuardKernelAuditComparatorAndNative": true,
         "activeRepairOwner": "/root/independent_verification",
         "originalVerified16And54NotRecompiled": true,
-        "source": "validation/character-varieties-progress-20261023/GuardCompatibleAllSeamsV9.lean",
-        "sha256": "a38495ad4b0ae0622aa7342472462f34c267df0876607be970bb08a5e470f85f",
-        "bytes": 795796,
+        "source": "validation/character-varieties-progress-20261023/GuardCompatibleAllSeamsV12.lean",
+        "sha256": "80955a4045e2657b431ef2018b772783bd1e6935c9e6dc0267f0176e9c7ba4a6",
+        "bytes": 796560,
         "fullSingleFileKernelPassed": false,
         "auditPassed": false,
         "publisherComparatorPassed": false,
@@ -756,7 +756,17 @@
         "chainRecord": "validation/character-varieties-progress-20261023/current-independent-repair-chain-v1.json",
         "firstShortRepairReceipt": "validation/character-varieties-progress-20261023/GuardFirstShortTacticOverridesProbeV1.default-options-receipt.json",
         "firstShortRepairExitCode": 0,
-        "firstShortRepairDurationSeconds": 155.526
+        "firstShortRepairDurationSeconds": 155.526,
+        "originalSourceGuardPassed": true,
+        "sourceGuardReceipt": "validation/character-varieties-progress-20261023/GuardCompatibleAllSeamsV12.source-guard.json"
+      },
+      "historicalV9Remaining180Diagnostic": {
+        "remaining180ExitCode": 1,
+        "remaining180DurationSeconds": 342.034,
+        "remaining180RootErrorCount": 1,
+        "remaining180DependentDiagnosticCount": 1,
+        "remaining180Receipt": "validation/character-varieties-progress-20261023/GuardTypedRemainingFullClosureV9.default-options-receipt.json",
+        "remaining180Summary": "validation/character-varieties-progress-20261023/GuardTypedRemainingFullClosureV9.terminal-summary-v1.json"
       }
     }
   ],
@@ -768,9 +778,9 @@
     "HadamardCubeFiber",
     "CartierChartCompactnessSupport"
   ],
-  "publishedResultCommit": "43caaf9a1cbea8b583f0044072897c8d13da8f6f",
+  "publishedResultCommit": "3b5cdcec07a5f71359c9a4f3e8385287f7754c71",
   "snakyCertificate": {
-    "status": "v5_native_original_goal_passed_integration_check_running",
+    "status": "v5_native_integration_and_all_original_targets_passed_fixed_version_review_running",
     "tableValidityKernelPassed": true,
     "memoRowsVerified": 616,
     "memoRowsTotal": 616,
@@ -1019,8 +1029,8 @@
         "terminalReceiptObserved": false,
         "evidence": "owning agent process sample; no acceptance inferred from liveness"
       },
-      "currentStage": "native_original_goal_passed_integration_check_running",
-      "stageEvidence": "Normal native original-goal check kernel_verified with no conditions; integration host currently running. Fixed review and final original comparator not yet complete.",
+      "currentStage": "native-fixed-version-review-running",
+      "stageEvidence": "Normal native original goal, integration and all-original-target checks passed; fixed-version reviewer running, final original comparator pending.",
       "buildStageTransition": {
         "sourceLeanPID": 1903185,
         "sourceLeanRawWaitExitCode": null,
@@ -1031,7 +1041,7 @@
         "nativeAcceptance": false
       },
       "latestStatusRecord": "validation/snaky-native-followup-20261023/certificate-current-status.json",
-      "latestConfirmedAt": "2026-10-23T18:03:10.199206+00:00",
+      "latestConfirmedAt": "2026-10-23T19:21:15.048771+00:00",
       "terminalReceiptObserved": true,
       "latestObservedComparatorSample": {
         "observedAt": "2026-10-23T12:52:10+00:00",
@@ -1106,16 +1116,18 @@
         "queued": true,
         "record": "validation/snaky-native-followup-20261023/canonical-v5-direct-goal-delivery.json",
         "applied": true,
-        "currentNativePhase": "checking",
+        "currentNativePhase": "reviewing",
         "sourceSHA256": "66d0cf5eecbcffcf0de7933acaec1c16da6f5ba8592173e1e9228c350663fdd7",
         "normalResume": true,
         "nativeFormalHostPID": 481814,
         "nativeFormalHostCPUSeconds": 512.14,
-        "observationAt": "2026-10-23T18:03:10.199206+00:00",
+        "observationAt": "2026-10-23T19:21:15.048771+00:00",
         "ordinaryReviewAndFinalComparatorStillRequired": true,
         "nativeOriginalGoalCheckPassed": true,
         "nativeFormalHostCompleted": true,
-        "nativeIntegrationHostPID": 630904
+        "nativeIntegrationHostPID": 630904,
+        "nativeIntegrationCheckPassed": true,
+        "nativeFullOriginalTargetCheckPassed": true
       },
       "nativeTerminalStatusAppliesTo": "previous_indirect_helper_projection_attempt_only",
       "nativeTerminalReasonAppliesTo": "previous_indirect_helper_projection_attempt_only",
@@ -1159,14 +1171,23 @@
         "terminalReceiptExists": false,
         "nativeAcceptance": false,
         "observationIsNotAcceptance": true
-      }
+      },
+      "nativeIntegrationCheckPassed": true,
+      "nativeFullOriginalTargetCheckPassed": true,
+      "nativeIntegrationProofCommit": "d6d63ed5464947c3009f6dc864cb62860eb30731",
+      "nativeFullTargetProofCommit": "ed230f9c5d4458f2e4fb5c4f27a04614d62fbb49",
+      "nativeIntegrationProofReceipt": "validation/snaky-native-followup-20261023/canonical-v5-direct-native-integration-check.json",
+      "nativeFullTargetProofReceipt": "validation/snaky-native-followup-20261023/canonical-v5-direct-native-full-target-check.json",
+      "nativeFixedReviewStatus": "running"
     },
     "publisherComparatorPassedEvidenceAppliesToSHA256": "87a3c359ef740fe32fe1ac2fda0216d708421163bc04194aa48ca8be0d742cdb",
     "currentCandidatePublisherComparatorPassed": true,
     "currentCandidateSHA256": "66d0cf5eecbcffcf0de7933acaec1c16da6f5ba8592173e1e9228c350663fdd7",
     "currentCandidateHostPassed": true,
     "nativeOriginalGoalCheckPassed": true,
-    "nativeOriginalGoalProofReceipt": "validation/snaky-native-followup-20261023/canonical-v5-direct-native-original-goal-check.json"
+    "nativeOriginalGoalProofReceipt": "validation/snaky-native-followup-20261023/canonical-v5-direct-native-original-goal-check.json",
+    "nativeIntegrationCheckPassed": true,
+    "nativeFullOriginalTargetCheckPassed": true
   },
   "snakyConditional": {
     "wholeTargetKernelPassed": true,
@@ -1348,7 +1369,8 @@
         "sourceBuildStageClaim": "Original command advanced to its comparator subprocess; no full terminal comparator verdict inferred.",
         "publisherComparatorPassed": true,
         "publisherComparatorExitCode": 0,
-        "hostDriverPID": 631942
+        "hostDriverPID": 631942,
+        "lastProcessObservationAt": "2026-10-23T19:21:15.048771+00:00"
       },
       "publisherComparatorPassed": true,
       "publisherComparatorExitCode": 0,
@@ -1368,7 +1390,7 @@
   ],
   "completeOriginalKernelProofCount": 7,
   "nativeFinalAcceptanceCount": 4,
-  "publicationDelta": "New normal native original-goal pass for SnakyCertificate and exact original comparator pass for SnakyConditional; native final total remains4.",
+  "publicationDelta": "Archive SnakyCertificate normal native integration and all-original-target kernel pass receipts. Final native acceptance remains4.",
   "runtimeReliabilityFixes": {
     "observedAt": "2026-10-23T12:31:18.649834+00:00",
     "status": "implemented_and_verified_in_isolated_worktree",
@@ -1412,13 +1434,23 @@
   },
   "currentRepairOutcome": {
     "engineeringFixes": "implemented_and_verified",
-    "certificateCandidate": "Normal native original-goal check passed with no conditions; integration host running, final native acceptance pending",
+    "certificateCandidate": "Normal native original goal, integration and all-original-target checks passed; fixed-version review running, final original comparator pending",
     "conditionalCandidate": "Exact frozen original comparator passed exit0; same-source frozen host running, native queue not executed",
-    "characterCandidate": "V8 reduced to one root error; first-short exact repair passed default CLI, V9 remaining180 closure running",
+    "characterCandidate": "V12 source guard passed; abstract-composition first-short repair under sole remaining180 default-CLI check; fresh complete250 and audit not yet passed",
     "nativeFinalAcceptedTotal": 4,
     "allFiveSolveBudgetCaps": 0,
     "frozenAcceptanceAndResourcesChanged": false,
-    "resultsArchiveCommit": "4757628cf5019697fcf1d362807c7611b5164710",
-    "observedAt": "2026-10-23T18:03:10.199206+00:00"
+    "resultsArchiveCommit": "3b5cdcec07a5f71359c9a4f3e8385287f7754c71",
+    "observedAt": "2026-10-23T19:21:15.048771+00:00"
+  },
+  "latestResultsProgressArchive": {
+    "branch": "results/openai-truffet-20261023",
+    "commit": "3b5cdcec07a5f71359c9a4f3e8385287f7754c71",
+    "path": "results/openai-math/verification-progress-20261024",
+    "snapshotObservedAt": "2026-10-23T18:03:10.199206+00:00",
+    "pushed": true,
+    "remoteReadbackMatched": true,
+    "laterCharacterV9FailureRecordedLocallyAt": "2026-10-23T18:06:53.688287+00:00",
+    "nativeFinalAcceptanceDelta": 0
   }
 }
