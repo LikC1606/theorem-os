@@ -29,6 +29,7 @@ import { committedSource } from './problem';
 import type { ContinuationSnapshot } from './continuationInput';
 import { WorkerProofLifecycle } from './workerProofLifecycle';
 import type { TaskProof } from './cooperativeProof';
+import { captureResearchBasis, researchSourceDigest, type ResearchBasis } from './researchRecords';
 
 // Scheduling checkpoints preserve unlimited solving budgets and resume the same assignment/thread.
 const advisoryCheckpointNoticeMs = 90_000;
@@ -36,6 +37,13 @@ const advisoryCheckpointMs = 120_000;
 const advisoryInterruptGraceMs = 10_000;
 const advisoryProgressPollMs = 5_000;
 const advisoryNoProgressProtection = 3;
+
+/** Host publication provenance is never part of the model's mathematical responsibility. */
+function promptAction(action?: CooperativeAction): CooperativeAction | undefined {
+  if (action?.kind !== 'task') return action;
+  const { researchBasis: _basis, ...assignment } = action.assignment;
+  return { ...action, assignment };
+}
 
 export function advisoryCheckpointScope(assignment: CooperativeAction | undefined): string | undefined {
   if (assignment?.kind === 'lead') {
@@ -153,13 +161,40 @@ export async function runResearchWorkers(input: {
           recovery.waitedMs += Math.max(0, Date.now() - started); save();
         }
       };
+      const contextResearchBases = new WeakMap<ContextBundle, { basis: ResearchBasis; publishedBasis?: ResearchBasis }>();
       const context = (feedback?: string, previousCheck?: ProofCheck, previousFailures = research.failures,
-        assignment?: CooperativeAction) => modules.M4.build(state.problem,
-          { ...view(), ...(cooperation ? { cooperation: cooperation.contextState(assignment, worker) } : {}) }, {
+        assignment?: CooperativeAction) => {
+        const scoped = cooperation?.contextState(assignment, worker);
+        const currentContext = { ...modules.M4.build(state.problem,
+          { ...view(), ...(scoped ? { cooperation: scoped } : {}) }, {
           root: input.root, worktree: worker.worktree, taskText: input.taskText, ...access,
-          sourceFeedback: feedback, previousCheck, previousFailures, assignment,
+          sourceFeedback: feedback, previousCheck, previousFailures, assignment: promptAction(assignment),
           maxOptionalContextBytes: research.contextOverflow?.maxOptionalContextBytes,
-        });
+        }), ...(assignment ? { assignment } : {}) };
+        if (assignment?.kind === 'task' && scoped) {
+          const basis = captureResearchBasis(assignment.task, {
+            problemReceiptDigest: state.problem.receiptDigest, environmentDigest: state.environmentDigest,
+            retrievalDigest: state.retrievalDigest, knowledgeDigest: state.knowledgeDigest,
+            sourceDigest: researchSourceDigest(Object.fromEntries(state.problem.ownedFiles.map(file => [file,
+              committedSource(worker.worktree, assignment.assignment.seedCommit, `${state.problem.projectRelative}/${file}`)]))),
+            tasks: scoped.tasks, deliveries: scoped.deliveries,
+          });
+          const previous = assignment.assignment.researchBasis;
+          const included = new Set(currentContext.manifest?.included.map(item => item.id));
+          const missing = currentContext.manifest && basis.dependencies.some(input => {
+            const known = previous?.dependencies.find(item => item.taskId === input.taskId);
+            if (known && canonicalMathJson(known) === canonicalMathJson(input)) return false;
+            if (input.findingDigest && !included.has(`finding:${input.taskId}`)) return true;
+            return scoped.deliveries?.some(delivery => delivery.kind === 'research' && delivery.status !== 'superseded' &&
+              delivery.taskId === input.taskId && delivery.taskDigest === input.taskDigest &&
+              (!included.has(`delivery:${delivery.id}`) || delivery.finding &&
+                !included.has(`finding:delivery:${delivery.id}`) && !included.has(`finding:${input.taskId}`)));
+          });
+          // Omitted new advisory material cannot retroactively become a consumed input.
+          contextResearchBases.set(currentContext, { basis, publishedBasis: missing ? previous : basis });
+        }
+        return currentContext;
+      };
       let feedbackCheck: ProofCheck | undefined;
       let feedbackFailures = research.failures;
       let unstarted: CooperativeAction | undefined;
@@ -730,16 +765,18 @@ export async function runResearchWorkers(input: {
           }
           const repair = solverSourceFeedback(state.problem, worker.worktree);
           if (repair) research.check = undefined;
-          const currentContext = { ...context(repair, feedbackCheck, feedbackFailures, assignment),
-            ...(assignment ? { assignment } : {}) };
+          const currentContext = context(repair, feedbackCheck, feedbackFailures, assignment);
           const responsibility = assignment?.kind === 'lead' ? canonicalMathJson({ planVersion: assignment.planVersion,
             initial: Boolean(assignment.initialPlanNonce), recovery: assignment.recovery,
             problemReceiptDigest: state.problem.receiptDigest, environmentDigest: state.environmentDigest })
             : assignment?.kind === 'task' && !isFeasibilityReview(assignment.task) ? canonicalMathJson({
-              kind: 'task', task: assignment.task, assignment: assignment.assignment,
+              kind: 'task', task: assignment.task, assignment: promptAction(assignment),
               problemReceiptDigest: state.problem.receiptDigest, environmentDigest: state.environmentDigest,
               workContract: currentContext.workContract, instructions: currentContext.instructions }) : undefined;
-          const continuation = responsibility !== undefined && Boolean(research.threadId) &&
+          const contextBasis = contextResearchBases.get(currentContext);
+          const researchInputsChanged = assignment?.kind === 'task' && contextBasis &&
+            canonicalMathJson(assignment.assignment.researchBasis ?? null) !== canonicalMathJson(contextBasis.basis);
+          const continuation = !researchInputsChanged && responsibility !== undefined && Boolean(research.threadId) &&
             currentContext.continuationMessage !== undefined &&
             dispatchedContext?.threadId === research.threadId && dispatchedContext?.responsibility === responsibility;
           if (continuation) currentContext.message = currentContext.continuationMessage!;
@@ -760,6 +797,10 @@ export async function runResearchWorkers(input: {
           try {
             try {
               candidate = await modelTurn(started => modules.M1.execute(state.problem, currentContext, operation, worker, turnSession, signal, turnId => {
+                if (assignment?.kind === 'task' && contextBasis && cooperation!.current(assignment)) {
+                  assignment.assignment.researchBasis = contextBasis.publishedBasis;
+                  save();
+                }
                 dispatchedContext = responsibility === undefined ? undefined : { threadId: turnSession.threadId, responsibility };
                 emit('context_dispatched', { mode: continuation ? 'continuation' : 'full', threadId: turnSession.threadId,
                   messageBytes: Buffer.byteLength(currentContext.message), messageDigest: mathDigest(currentContext.message),

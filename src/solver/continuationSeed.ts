@@ -16,6 +16,9 @@ import { freezeContinuationInput, readContinuationSnapshot, type ContinuationMan
 import { readRunInspection } from './inspection';
 import type { DeliveryRecord } from './deliveries';
 import { normalizedResearchHandoffDecisions, researchHandoffs, type ResearchHandoffDecision } from './researchHandoffs';
+import { researchRecordSchema, researchSourceDigest, restoreResearch } from './researchRecords';
+import { researchSourceTasks, scopedResearchSources, type ResearchSourceTask } from './researchSources';
+import { mathematicalGapSchema } from './mathematicalGaps';
 import { researchWorkerCanNode, researchWorkerCanTask } from './modules/organization';
 import { CAPACITY_EXPLORATION_FOCUSES, currentCapacityExploration, plannedTaskRecords, type CapacityExploration } from './capacityExploration';
 import { assertSolverSources, committedSource, commitSolverSources, git, readSolverProblem, withSolverWorktree, type SolverProblem } from './problem';
@@ -63,24 +66,48 @@ const handoffTask = z.object({ id, kind: z.enum(['research', 'sketch', 'lemma', 
 }).strict().transform((value): CooperativeTask => ({ ...value, id: value.id, kind: value.kind,
   objective: value.objective, dependsOn: value.dependsOn, revision: value.revision }));
 const continuableResearch = (task: CooperativeTask) => isAdvisoryTask(task) && !task.reviewScope && !isFinalCandidateReview(task);
-const completedResearchRecord = z.object({ task: handoffTask.refine(continuableResearch, 'Completion requires ordinary advisory research'),
+const legacyCompletedResearchRecord = z.object({ task: handoffTask.refine(continuableResearch, 'Completion requires ordinary advisory research'),
   inputDigest: hash, finding: z.string().optional(), archived: z.literal(true).optional() }).strict();
+const immutableCompletedResearchRecord = z.object({ task: handoffTask.refine(continuableResearch, 'Completion requires ordinary advisory research'),
+  record: researchRecordSchema, finding: z.string().optional(), archived: z.literal(true).optional() }).strict();
+const unboundCompletedResearchRecord = z.object({ task: handoffTask.refine(continuableResearch, 'Completion requires ordinary advisory research'),
+  finding: z.string().optional(), archived: z.literal(true) }).strict();
+const completedResearchRecord = z.union([immutableCompletedResearchRecord, legacyCompletedResearchRecord, unboundCompletedResearchRecord]);
 type CompletedResearchRecord = z.infer<typeof completedResearchRecord>;
 const handoffReference = z.object({ taskId: id, taskDigest: hash }).strict()
   .transform(value => ({ taskId: value.taskId, taskDigest: value.taskDigest }));
-const handoffDelivery = z.object({ id: z.string().min(1), producer: id, taskId: id, taskDigest: hash,
+const researchDelivery = z.object({ id: z.string().min(1), producer: id, taskId: id, taskDigest: hash,
   groupId: id.optional(), kind: z.literal('research'), status: z.enum(['advisory', 'superseded']),
   statement: z.string(), premises: z.array(z.string()), dependencies: z.array(handoffReference),
   remainingObligations: z.array(z.string()), summary: z.string(), evidenceRefs: z.array(z.string()),
   createdAt: z.number().int().nonnegative(), commit: oid.optional(), sourceDigest: z.string().optional(),
   finding: z.string().optional(), findingDigest: hash.optional(),
+  researchRecord: researchRecordSchema.optional(), mathematicalGap: mathematicalGapSchema.optional(),
+  mathematicalGapScope: z.object({ problemReceiptDigest: hash, environmentDigest: hash,
+    source: handoffTask, consumer: handoffTask, dependencies: z.array(handoffReference) }).strict()
+    .transform(value => ({ ...value, problemReceiptDigest: value.problemReceiptDigest,
+      environmentDigest: value.environmentDigest, source: value.source, consumer: value.consumer,
+      dependencies: value.dependencies })).optional(),
   lemmaRequests: z.array(handoffTask.refine(task => task.kind === 'lemma' && Boolean(task.type?.trim()) &&
-    Boolean(task.proofPath) && Boolean(task.theoremName), 'Handoff requires an exact typed lemma')).nonempty(),
+    Boolean(task.proofPath) && Boolean(task.theoremName), 'Handoff requires an exact typed lemma')).optional(),
 }).strict().transform((value): DeliveryRecord => ({ ...value, id: value.id, producer: value.producer,
   taskId: value.taskId, taskDigest: value.taskDigest, kind: value.kind, status: value.status,
   statement: value.statement, premises: value.premises, dependencies: value.dependencies,
   remainingObligations: value.remainingObligations, summary: value.summary, evidenceRefs: value.evidenceRefs,
   createdAt: value.createdAt, lemmaRequests: value.lemmaRequests }));
+const handoffDelivery = researchDelivery.refine(value => Boolean(value.lemmaRequests?.length),
+  'Handoff requires an exact typed lemma');
+const researchProofInput = z.object({ passed: z.boolean(), taskDigest: hash,
+  conditions: z.array(handoffReference).optional() }).strict()
+  .transform(value => ({ ...value, passed: value.passed, taskDigest: value.taskDigest }));
+const researchTaskInput = z.object({ task: handoffTask,
+  status: z.enum(['pending', 'running', 'blocked', 'conditional', 'delivered', 'integrated', 'completed']),
+  finding: z.string().optional(), proof: researchProofInput.optional(), integratedCheck: researchProofInput.optional(),
+  visibleDependencies: z.array(id), sourceDependencies: z.array(id), sourceHelpers: z.array(z.string()),
+}).strict().transform((value): ResearchSourceTask => ({ ...value, task: value.task, status: value.status,
+  visibleDependencies: value.visibleDependencies, sourceDependencies: value.sourceDependencies, sourceHelpers: value.sourceHelpers }));
+const researchContext = z.object({ environmentDigest: hash, problemReceiptDigest: hash,
+  tasks: z.array(researchTaskInput), deliveries: z.array(researchDelivery) }).strict();
 const handoffDecision = z.object({ id: hash, deliveryId: z.string().min(1),
   status: z.enum(['adopted', 'rejected', 'deferred']), taskId: id.optional(), taskDigest: hash.optional(),
   reason: z.string().optional(), contextDigest: hash.optional(), waitsOn: z.array(handoffReference).nonempty().optional(),
@@ -116,6 +143,7 @@ const sourceSchema = z.object({
   capacityExplorations: capacitySource.optional(),
   researchHandoffs: handoffSource.optional(),
   completedResearch: z.array(completedResearchRecord).optional(),
+  researchContext: researchContext.optional(),
 }).strict();
 type SeedSource = z.infer<typeof sourceSchema>;
 
@@ -193,48 +221,68 @@ function capturedCapacityRecords(state: SolverRunState): CapacityRecord[] {
   return [...records.values()];
 }
 
-function completedResearchInput(task: CooperativeTask, state: SolverRunState, tasks: readonly CooperativeTask[],
-  sources: Record<string, string>): string {
-  const nodes = new Map(tasks.map(task => [task.id, task])), inputs = new Map<string, string | null>();
-  const visit = (id: string) => {
-    if (inputs.has(id)) return;
-    const input = nodes.get(id);
-    inputs.set(id, input ? taskVersion(input) : null);
-    input?.dependsOn.forEach(visit);
-  };
-  task.dependsOn.forEach(visit);
-  return mathDigest(canonicalMathJson({ taskDigest: taskVersion(task), problemReceiptDigest: state.problem.receiptDigest,
-    environmentDigest: state.environmentDigest, retrievalDigest: state.retrievalDigest ?? null,
-    knowledgeDigest: state.knowledgeDigest ?? null, sourcesDigest: mathDigest(canonicalMathJson(sources)),
-    inputs: [...inputs].sort(([left], [right]) => left.localeCompare(right)) }));
-}
-
-function capturedCompletedResearch(state: SolverRunState, sources: Record<string, string>,
+function capturedCompletedResearch(state: SolverRunState,
   previous: readonly CompletedResearchRecord[] = []): CompletedResearchRecord[] {
-  const planned = plannedTaskRecords(state.cooperation!.tasks), tasks = planned.map(node => node.task);
-  const key = (record: CompletedResearchRecord) => canonicalMathJson([taskVersion(record.task), record.inputDigest]);
+  const key = (record: CompletedResearchRecord) => 'record' in record ? `record:${record.record.id}` :
+    canonicalMathJson(['legacy', taskVersion(record.task), 'inputDigest' in record ? record.inputDigest : null, record.finding]);
   const records = new Map<string, CompletedResearchRecord>(previous.map(record => [key(record), { ...record, archived: true }]));
-  for (const node of planned) {
+  for (const node of state.cooperation!.history ?? []) if (continuableResearch(node.task) && node.researchCompletion) {
+    const record = immutableCompletedResearchRecord.parse({ task: node.task, finding: node.finding,
+      record: node.researchCompletion, archived: true });
+    records.set(key(record), record);
+  }
+  for (const node of plannedTaskRecords(state.cooperation!.tasks)) {
     if (!continuableResearch(node.task) || node.status !== 'completed') continue;
-    // Retain the original input binding when this is an inherited completion.
-    // A later proof/source change must not silently bless the old finding again.
-    const inherited = previous.findLast(record => !record.archived && taskVersion(record.task) === taskVersion(node.task) &&
-      record.finding === node.finding);
-    const currentAssignment = !node.assignment || node.assignment.taskDigest === taskVersion(node.task) &&
-      (node.assignment.dependencies ?? []).every(reference => tasks.some(task => task.id === reference.taskId &&
-        taskVersion(task) === reference.taskDigest));
-    const record = completedResearchRecord.parse({ task: node.task, finding: node.finding,
-      inputDigest: inherited?.inputDigest ?? completedResearchInput(node.task, state, tasks, sources),
-      ...(currentAssignment ? {} : { archived: true }) });
+    // A completion's inputs are fixed when it is published, never reconstructed
+    // from newer canonical sources or guessed from equal finding text.
+    const record = node.researchCompletion ? immutableCompletedResearchRecord.parse({ task: node.task, finding: node.finding,
+      record: node.researchCompletion }) : unboundCompletedResearchRecord.parse({ task: node.task, finding: node.finding, archived: true });
     records.set(key(record), record);
   }
   return [...records.values()];
 }
 
-function currentCompletedResearch(source: SeedSource, state: SolverRunState, tasks: readonly CooperativeTask[]) {
-  return new Map((source.completedResearch ?? []).filter(record => !record.archived &&
-    tasks.some(task => taskVersion(task) === taskVersion(record.task) && record.inputDigest ===
-      completedResearchInput(task, state, tasks, source.canonicalSources))).map(record => [record.task.id, record]));
+function currentCompletedResearch(source: SeedSource, state: SolverRunState, tasks: readonly CooperativeTask[],
+  checkedTasks?: readonly TaskRecord[], deliveries?: readonly DeliveryRecord[]) {
+  const context = source.researchContext;
+  if (!context) return new Map<string, z.infer<typeof immutableCompletedResearchRecord>>();
+  const view = { problemReceiptDigest: state.problem.receiptDigest, environmentDigest: state.environmentDigest,
+    retrievalDigest: state.retrievalDigest, knowledgeDigest: state.knowledgeDigest,
+    tasks: context.tasks, deliveries: context.deliveries };
+  const sourceDigest = (task: CooperativeTask) => researchSourceDigest(scopedResearchSources(state.problem, task,
+    source.canonicalSources, context.tasks));
+  const current = new Map<string, z.infer<typeof immutableCompletedResearchRecord>>();
+  for (const record of source.completedResearch ?? []) {
+    const task = tasks.find(task => task.id === record.task.id);
+    if (record.archived || !('record' in record) || !task ||
+        restoreResearch(record.record, task, { ...view, sourceDigest: sourceDigest(task) }, record.finding).status !== 'completed') continue;
+    current.set(task.id, record);
+  }
+  if (checkedTasks) {
+    // Rechecks may invalidate a previously passing dependency. Remove affected
+    // completions and their dependent findings until the advisory view is stable.
+    let changed: boolean;
+    do {
+      changed = false;
+      const checkedView = { ...view, deliveries: deliveries ?? context.deliveries,
+        tasks: checkedTasks.map(node => continuableResearch(node.task) && !node.capacityExploration ?
+          { ...node, status: current.has(node.task.id) ? 'completed' as const : 'pending' as const,
+            finding: current.get(node.task.id)?.finding } : node) };
+      for (const [id, record] of current) if (restoreResearch(record.record,
+        tasks.find(task => task.id === id)!, { ...checkedView,
+          sourceDigest: sourceDigest(tasks.find(task => task.id === id)!) }, record.finding).status !== 'completed') {
+        current.delete(id); changed = true;
+      }
+    } while (changed);
+  }
+  return current;
+}
+
+function completedResearchHistory(source: SeedSource,
+  current: ReturnType<typeof currentCompletedResearch> = new Map()) {
+  return (source.completedResearch ?? []).filter(record => current.get(record.task.id) !== record)
+    .map(record => ({ task: record.task, status: 'completed', finding: record.finding,
+      ...('record' in record ? { researchCompletion: record.record } : {}) }));
 }
 
 function capacityOrigin(records: readonly CapacityRecord[]) {
@@ -249,16 +297,27 @@ function archivedCapacity(record: CapacityRecord) {
     ...(record.finding === undefined ? {} : { finding: record.finding }) };
 }
 
-function advisoryHandoffDelivery(delivery: DeliveryRecord): DeliveryRecord {
+function advisoryResearchDelivery(delivery: DeliveryRecord): DeliveryRecord {
   // Publication provenance is useful; old proof evidence, references, artifacts,
   // assignment keys and acceptance statuses are never replayed into the new host.
-  return handoffDelivery.parse({ id: delivery.id, producer: delivery.producer, taskId: delivery.taskId,
+  return researchDelivery.parse({ id: delivery.id, producer: delivery.producer, taskId: delivery.taskId,
     taskDigest: delivery.taskDigest, groupId: delivery.groupId, kind: 'research',
     status: delivery.status === 'superseded' ? 'superseded' : 'advisory', statement: delivery.statement,
     premises: delivery.premises, dependencies: delivery.dependencies, remainingObligations: delivery.remainingObligations,
     summary: delivery.summary, evidenceRefs: delivery.evidenceRefs, createdAt: delivery.createdAt,
     commit: delivery.commit, sourceDigest: delivery.sourceDigest, finding: delivery.finding,
-    findingDigest: delivery.findingDigest, lemmaRequests: delivery.lemmaRequests });
+    findingDigest: delivery.findingDigest, researchRecord: delivery.researchRecord,
+    mathematicalGap: delivery.mathematicalGap, mathematicalGapScope: delivery.mathematicalGapScope,
+    lemmaRequests: delivery.lemmaRequests });
+}
+
+function capturedResearchContext(state: SolverRunState): z.infer<typeof researchContext> {
+  return researchContext.parse({ environmentDigest: state.environmentDigest, problemReceiptDigest: state.problem.receiptDigest,
+    tasks: researchSourceTasks(state.cooperation!.tasks).map(node => ({ ...node,
+      proof: node.proof?.taskDigest ? node.proof : undefined,
+      integratedCheck: node.integratedCheck?.taskDigest ? node.integratedCheck : undefined })),
+    deliveries: (state.cooperation!.deliveries ?? []).filter(delivery => delivery.kind === 'research' &&
+      delivery.taskId && delivery.taskDigest).map(advisoryResearchDelivery) });
 }
 
 const handoffDeliveryOrigin = ({ status: _status, ...delivery }: DeliveryRecord) => delivery;
@@ -305,6 +364,21 @@ function restoredHandoffDeliveries(source: HandoffSource, state: SolverRunState)
     status: record.delivery.status === 'superseded' || !currentHandoffRecord(record, state, adoptedInputs) ? 'superseded' : 'advisory' }));
 }
 
+function restoredResearchDeliveries(source: SeedSource, state: SolverRunState): DeliveryRecord[] {
+  const nodes = new Map(state.cooperation!.tasks.map(node => [node.task.id, node.task]));
+  const deliveries = new Map((source.researchContext?.deliveries ?? []).map(delivery => {
+    const task = nodes.get(delivery.taskId!);
+    const current = source.researchContext!.environmentDigest === state.environmentDigest &&
+      source.researchContext!.problemReceiptDigest === state.problem.receiptDigest && task &&
+      taskVersion(task) === delivery.taskDigest && delivery.dependencies.every(input =>
+        nodes.has(input.taskId) && taskVersion(nodes.get(input.taskId)!) === input.taskDigest);
+    return [delivery.id, { ...delivery, status: current ? delivery.status : 'superseded' as const }];
+  }));
+  for (const delivery of source.researchHandoffs ? restoredHandoffDeliveries(source.researchHandoffs, state) : [])
+    deliveries.set(delivery.id, delivery);
+  return [...deliveries.values()];
+}
+
 function capturedHandoffs(state: SolverRunState, previous?: HandoffSource): HandoffSource | undefined {
   const deliveries = state.cooperation!.deliveries?.filter(delivery => delivery.kind === 'research' && delivery.lemmaRequests?.length) ?? [];
   if (!deliveries.length && !previous) return undefined;
@@ -313,7 +387,7 @@ function capturedHandoffs(state: SolverRunState, previous?: HandoffSource): Hand
   const nodes = new Map(state.cooperation!.tasks.map(node => [node.task.id, node.task]));
   const adoptedInputs = adoptedHandoffInputs(state.cooperation!);
   for (const item of deliveries) {
-    const delivery = advisoryHandoffDelivery(item), original = originals.get(delivery.id);
+    const delivery = handoffDelivery.parse(advisoryResearchDelivery(item)), original = originals.get(delivery.id);
     if (original && canonicalMathJson(handoffDeliveryOrigin(original.delivery)) !== canonicalMathJson(handoffDeliveryOrigin(delivery)))
       throw new Error('math_continuation_seed_handoff_changed');
     const sourceTask = [...state.cooperation!.tasks, ...(state.cooperation!.history ?? [])].find(node =>
@@ -429,7 +503,8 @@ function captureSource(sourceStateFile: string, stateFile: string, state: Solver
       notes: committedSource(archived.worktree, delivery.commit, 'RESEARCH.md') });
   }
   const handoffs = capturedHandoffs(archived, previousHandoffs);
-  const completedResearch = capturedCompletedResearch(archived, canonicalSources, previousResearch);
+  const completedResearch = capturedCompletedResearch(archived, previousResearch);
+  const context = capturedResearchContext(archived);
   const conditionalCandidates = planned.filter(node => !isAdvisoryTask(node.task) &&
     !(node.proof?.passed && !node.proof.conditions?.length) &&
     !(node.integratedCheck?.passed && !node.integratedCheck.conditions?.length) &&
@@ -463,6 +538,7 @@ function captureSource(sourceStateFile: string, stateFile: string, state: Solver
       records: capacities, inputs: archived.cooperation.capacityExplorationInputs, notes: [...notes.values()] } } : {}),
     ...(handoffs ? { researchHandoffs: handoffs } : {}),
     ...(completedResearch.length ? { completedResearch } : {}),
+    ...(completedResearch.length || context.deliveries.length ? { researchContext: context } : {}),
     history: { evidence: 'recorded-not-replayed', sourcePhase: archived.phase,
       tasks: archived.cooperation.tasks.map(node => ({ taskId: node.task.id, taskDigest: taskVersion(node.task), status: node.status,
         attempts: node.attempts, assignment: node.assignment, finding: node.finding,
@@ -471,6 +547,7 @@ function captureSource(sourceStateFile: string, stateFile: string, state: Solver
         taskId: delivery.taskId, taskDigest: delivery.taskDigest, commit: delivery.commit, producer: delivery.producer,
         summary: delivery.summary, evidenceRefs: delivery.evidenceRefs })),
       history: archived.cooperation.history?.map(record => ({ task: record.task, producer: record.producer, finding: record.finding,
+        researchCompletion: record.researchCompletion,
         proof: proofHistory(record.proof), integratedCheck: record.integratedCheck && {
           commit: record.integratedCheck.commit, passed: record.integratedCheck.passed } })) },
   };
@@ -496,6 +573,8 @@ function freezeSource(source: SeedSource, directory: string) {
       text: canonicalMathJson(source.researchHandoffs), commit: null }] : []),
     ...(source.completedResearch ? [{ id: 'seed-completed-research', kind: 'research-notes' as const,
       text: canonicalMathJson(source.completedResearch), commit: null }] : []),
+    ...(source.researchContext ? [{ id: 'seed-research-context', kind: 'research-notes' as const,
+      text: canonicalMathJson(source.researchContext), commit: null }] : []),
   ];
   const manifest: ContinuationManifest = { schema: 'theorem-os.continuation-snapshot.v1', taskDigest: source.taskDigest,
     problemReceiptDigest: source.problemReceiptDigest, attachments: documents.map(document => {
@@ -552,19 +631,26 @@ export async function seedSolverContinuation(options: {
         canonicalMathJson(Object.keys(candidate.seedSources ?? {}).sort()) !==
           canonicalMathJson([...state.problem.ownedFiles].sort())))) throw new Error('math_continuation_seed_candidates_invalid');
     const planVersion = mathDigest(canonicalMathJson(plan));
-    const completedResearch = currentCompletedResearch(source, state, plan.tasks);
+    const pendingResearch = new Map<string, z.infer<typeof immutableCompletedResearchRecord>>();
+    const restoredResearch = state.cooperation ? currentCompletedResearch(source, state, plan.tasks,
+      state.cooperation.tasks, restoredResearchDeliveries(source, state)) : pendingResearch;
+    const matchesResearch = (node: TaskRecord, records: typeof pendingResearch) => {
+      const record = records.get(node.task.id);
+      return node.status === (record ? 'completed' : 'pending') && node.finding === record?.finding &&
+        canonicalMathJson(node.researchCompletion ?? null) === canonicalMathJson(record?.record ?? null);
+    };
     if (seeded && state.cooperation && (state.cooperation.planVersion !== planVersion ||
         canonicalMathJson(plannedTaskRecords(state.cooperation.tasks).map(node => node.task)) !== canonicalMathJson(plan.tasks) ||
         canonicalMathJson(capacityOrigin(capturedCapacityRecords(state))) !==
           canonicalMathJson(capacityOrigin(source.capacityExplorations?.records ?? [])) ||
         canonicalMathJson(state.cooperation.capacityExplorationInputs ?? []) !==
           canonicalMathJson(source.capacityExplorations?.inputs ?? []) ||
-        source.researchHandoffs && (canonicalMathJson(state.cooperation.deliveries ?? []) !==
-          canonicalMathJson(restoredHandoffDeliveries(source.researchHandoffs, state)) ||
-          canonicalMathJson(state.cooperation.researchDecisions ?? []) !== canonicalMathJson(source.researchHandoffs.decisions)) ||
-        source.completedResearch && state.cooperation.tasks.some(node => isAdvisoryTask(node.task) && !node.capacityExploration &&
-          (node.status !== (completedResearch.has(node.task.id) ? 'completed' : 'pending') ||
-            node.finding !== completedResearch.get(node.task.id)?.finding)) ||
+        (source.researchHandoffs || source.researchContext) && (canonicalMathJson(state.cooperation.deliveries ?? []) !==
+          canonicalMathJson(restoredResearchDeliveries(source, state)) ||
+          canonicalMathJson(state.cooperation.researchDecisions ?? []) !== canonicalMathJson(source.researchHandoffs?.decisions ?? [])) ||
+        source.completedResearch && ![pendingResearch, restoredResearch].some(records =>
+          state.cooperation.tasks.filter(node => isAdvisoryTask(node.task) && !node.capacityExploration)
+            .every(node => matchesResearch(node, records))) ||
         state.cooperation.tasks.some(node => node.assignment && !conditional.some(candidate =>
           candidate.taskId === node.task.id && node.status === 'conditional' &&
           node.assignment!.taskDigest === candidate.taskDigest && node.assignment!.workerId === 'continuation'))))
@@ -609,8 +695,7 @@ export async function seedSolverContinuation(options: {
       report.canonicalCommit = canonical; report.stage = 'installing'; saveReport();
       const capacities = source.capacityExplorations?.records ?? [];
       const tasks: TaskRecord[] = plan.tasks.map(task => ({ task, attempts: 0,
-        status: completedResearch.has(task.id) ? 'completed' : 'pending',
-        ...(completedResearch.get(task.id)?.finding === undefined ? {} : { finding: completedResearch.get(task.id)!.finding }),
+        status: 'pending',
         ...(plan.proofRoutes?.length ? { alternativeRoutes: plan.proofRoutes.filter(route => route.targetTaskId === task.id) } : {}) }));
       for (const record of capacities.filter(item => !item.archived)) tasks.push({ task: record.task as CooperativeTask,
         capacityExploration: record.capacityExploration, attempts: 0,
@@ -622,10 +707,9 @@ export async function seedSolverContinuation(options: {
         ...(source.capacityExplorations?.inputs === undefined ? {} : {
           capacityExplorationInputs: source.capacityExplorations.inputs.map(entry => ({ ...entry })) }),
         deliveries: [], history: [...capacities.filter(record => record.archived).map(archivedCapacity),
-          ...(source.completedResearch ?? []).filter(record => completedResearch.get(record.task.id) !== record)
-            .map(record => ({ task: record.task, status: 'completed', finding: record.finding }))], edits: [], cursors: {} };
+          ...completedResearchHistory(source)], edits: [], cursors: {} };
+      state.cooperation.deliveries = restoredResearchDeliveries(source, state);
       if (source.researchHandoffs) {
-        state.cooperation.deliveries = restoredHandoffDeliveries(source.researchHandoffs, state);
         state.cooperation.researchDecisions = source.researchHandoffs.decisions.map(decision => ({ ...decision }));
       }
       // Publish pending obligations before installing sources; interruption cannot manufacture acceptance.
@@ -720,7 +804,7 @@ export async function seedSolverContinuation(options: {
         if (node.status === 'blocked') report.failed.push(taskId);
         if (node.status === 'integrated') report.evidence = 'fresh-helper-receipts';
         state.cooperation.recheck.completed++; state.cooperation.recheck.taskId = undefined;
-        if (source.researchHandoffs) state.cooperation.deliveries = restoredHandoffDeliveries(source.researchHandoffs, state);
+        state.cooperation.deliveries = restoredResearchDeliveries(source, state);
         writeSolverRunState(stateFile, state); saveReport();
         emit('continuation_seed_checked', { taskId, passed: node.status === 'integrated' || node.status === 'conditional' });
       };
@@ -813,7 +897,15 @@ export async function seedSolverContinuation(options: {
         if (index >= 0) tasks.splice(index, 1);
         state.cooperation.history!.push(archivedCapacity(record));
       }
-      if (source.researchHandoffs) state.cooperation.deliveries = restoredHandoffDeliveries(source.researchHandoffs, state);
+      state.cooperation.deliveries = restoredResearchDeliveries(source, state);
+      const completedResearch = currentCompletedResearch(source, state, plan.tasks, tasks, state.cooperation.deliveries);
+      for (const node of tasks.filter(node => isAdvisoryTask(node.task) && !node.capacityExploration)) {
+        const completion = completedResearch.get(node.task.id);
+        node.status = completion ? 'completed' : 'pending';
+        node.finding = completion?.finding; node.researchCompletion = completion?.record;
+      }
+      state.cooperation.history = [...state.cooperation.history!.filter(record => 'capacityExploration' in record),
+        ...completedResearchHistory(source, completedResearch)];
       writeSolverRunState(stateFile, state);
       report.stage = 'complete'; saveReport();
       options.onSeeded?.(state, freshChecks);

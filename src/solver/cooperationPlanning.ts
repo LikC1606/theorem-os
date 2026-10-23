@@ -400,7 +400,8 @@ export abstract class CooperationPlanning extends CooperationIntegration {
     for (const id of invalidated) {
       const previous = current.get(id);
       if (previous) (this.archive.history ??= []).push(
-        { task: previous.task, producer: previous.assignment?.workerId, proof: previous.proof, integratedCheck: previous.integratedCheck, finding: previous.finding });
+        { task: previous.task, producer: previous.assignment?.workerId, proof: previous.proof, integratedCheck: previous.integratedCheck,
+          finding: previous.finding, researchCompletion: previous.researchCompletion });
     }
     this.archive.tasks = tasks.map(task => {
       const previous = current.get(task.id);

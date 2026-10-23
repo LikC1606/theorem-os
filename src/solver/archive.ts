@@ -13,6 +13,7 @@ import { knowledgeUseSchema } from './knowledgeUsage';
 import { z } from 'zod';
 import { deliveryReceiptSchema } from './deliveryReceipts';
 import { proofReadyRecordSchema } from './proofReady';
+import { researchBasisSchema, researchRecordSchema } from './researchRecords';
 
 const leadAssessmentFields = {
   requestId: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
@@ -192,9 +193,10 @@ const taskRecord = z.object({ task, status: z.enum(['pending', 'running', 'block
     .refine(value => !value.projectionReuse || value.status === 'elaborated', 'Only successful advisory elaboration can reuse a projection').optional(),
   pendingValidation: z.object({ id: z.string().min(1), taskDigest: z.string().min(1), canonicalCommit: z.string().min(1),
     environmentDigest: z.string().min(1), problemReceiptDigest: z.string().min(1), proof: z.boolean().optional() }).optional(),
+  researchCompletion: researchRecordSchema.optional(),
   attempts: count, proof: check.optional(), integratedCheck: check.optional(), assignment: z.object({ taskId: z.string(),
     taskDigest: z.string(), workerId: z.string(), seedCommit: z.string(), assignmentId: z.string().optional(),
-    connectionCheck: connectionCheck.optional() }).passthrough().optional() }).passthrough();
+    connectionCheck: connectionCheck.optional(), researchBasis: researchBasisSchema.optional() }).passthrough().optional() }).passthrough();
 const routeBlocker = z.object({ id: z.string(), taskId: z.string(), groupId: z.string(), taskDigest: z.string(),
   routeId: z.string().optional(),
   mechanism: z.string(), scope: z.string(), evidenceStatus: z.literal('advisory'), evidenceRefs: z.array(z.string()),
@@ -268,8 +270,10 @@ const runState = research.extend({ schema: z.literal('deepscientist.math.solver.
       action: z.string().optional(), taskId: z.string().optional() }).optional() })).optional(),
   cooperation: z.object({ tasks: z.array(taskRecord), groups: z.array(z.object({ group: z.object({ id: z.string(),
     status: z.enum(['active', 'paused', 'stopped']), revision: count }).passthrough(), turns: count }).passthrough()).optional(),
-    history: z.array(z.object({ task, proof: check.optional(), integratedCheck: check.optional() }).passthrough()).optional(),
-    deliveries: z.array(record).optional(), deliveryReceipts: z.array(deliveryReceiptSchema).optional(), blockers: z.array(routeBlocker).optional(),
+    history: z.array(z.object({ task, proof: check.optional(), integratedCheck: check.optional(),
+      researchCompletion: researchRecordSchema.optional() }).passthrough()).optional(),
+    deliveries: z.array(z.object({ researchRecord: researchRecordSchema.optional() }).passthrough()).optional(),
+    deliveryReceipts: z.array(deliveryReceiptSchema).optional(), blockers: z.array(routeBlocker).optional(),
     proofReadyRecords: z.array(proofReadyRecordSchema).optional(),
     researchDecisions: z.array(handoffDecision).optional(),
     challengeDecisions: z.array(challengeDecision).optional(),

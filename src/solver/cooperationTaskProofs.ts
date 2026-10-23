@@ -28,7 +28,8 @@ import { taskReferenceDependencies, assignmentDeliveryFile, markTaskReferences, 
   type TaskAssignment, type TaskRecord, type CooperativeAction } from './tasks';
 import { digest, FailedTaskInput, bounded, deliveryInputFields } from './cooperationShared';
 import { CooperationStatements } from './cooperationStatements';
-import { prepareResearchDelivery, ResearchAdmissionError } from './researchAdmission';
+import { prepareResearchDelivery, ResearchAdmissionError, type ResearchSubmission } from './researchAdmission';
+import { settleResearch } from './researchRecords';
 
 type ProofDeliveryRequest = {
   worker: ResearchWorker; action: Extract<CooperativeAction, { kind: 'task' }>;
@@ -351,21 +352,19 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
     } else this.interrupted(worker, action);
   }
   protected async publishResearchFinding(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>, commit: string,
-    finding: any, complete: boolean, options: Partial<DeliveryRecord> = {}) {
+    submission: ResearchSubmission, options: Partial<DeliveryRecord> = {}) {
+    // A publication belongs to the inputs dispatched to this writer, even if its live
+    // assignment gains a newer context while the asynchronous checks are running.
+    const assignment = structuredClone(action.assignment), basis = assignment.researchBasis;
+    const assignmentKey = assignmentDeliveryFile(assignment);
     const environmentDigest = this.input.state.environmentDigest, problemReceiptDigest = this.input.state.problem.receiptDigest;
-    const admission = prepareResearchDelivery({ kind: 'event', value: finding }, { source: action.task,
-      assignment: action.assignment, tasks: this.archive.tasks, deliveries: this.archive.deliveries,
-      identity: { problemReceiptDigest: this.input.state.problem.receiptDigest, environmentDigest: this.input.state.environmentDigest } });
+    const admission = prepareResearchDelivery(submission, { source: action.task,
+      assignment, tasks: this.archive.tasks, deliveries: this.archive.deliveries,
+      identity: { problemReceiptDigest, environmentDigest } });
     if (admission.status === 'rejected') throw new ResearchAdmissionError(admission);
-    finding = admission.finding;
+    const finding = structuredClone(admission.finding), text = JSON.stringify(finding);
+    const complete = submission.kind === 'notes';
     const node = this.node(action.task.id), details = deliveryDetails(finding);
-    if (details.mathematicalGap) bindMathematicalGap(details.mathematicalGap, node.task, this.archive,
-      { problemReceiptDigest: this.input.state.problem.receiptDigest, environmentDigest: this.input.state.environmentDigest });
-    if (finding.taskId !== node.task.id || !details.summary.trim() || !['supporting', 'refuted', 'inconclusive'].includes(finding.conclusion))
-      throw new Error('math_research_delivery_invalid');
-    let artifacts = options.artifacts ?? captureDeliveryArtifacts({ problem: this.input.state.problem, worktree: worker.worktree, commit, assignment: action.assignment });
-    artifacts = { ...artifacts, reportedChecks: validateDeliveryArtifactClaims(finding, artifacts) };
-    const artifactWarning = diagnoseUnbackedLeanClaims(finding, artifacts);
     const lemmaRequests = validateLemmaRequests(this.input.state.problem, this.archive.tasks.map(node => node.task),
       this.archive.groups?.map(route => route.group) ?? [], node.task, finding.lemmaRequests,
       this.archive.deliveries?.filter(delivery => delivery.kind === 'research' && delivery.status !== 'superseded' &&
@@ -373,32 +372,54 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
     const explorationIds = new Set(this.archive.tasks.filter(item => item.capacityExploration).map(item => item.task.id));
     if (lemmaRequests.some(proposal => proposal.dependsOn.some(id => explorationIds.has(id))))
       throw new Error('math_research_lemma_requests_invalid: advisory exploration IDs are provenance, not typed proof inputs.');
-    const knowledge = this.captureKnowledgeUseCheck(worker, node.task, commit);
-    const knowledgeUses = await checkKnowledgeApplications(knowledge.uses, knowledge.input);
-    if (!this.current(action) || environmentDigest !== this.input.state.environmentDigest ||
-        problemReceiptDigest !== this.input.state.problem.receiptDigest) return;
-    this.observeKnowledgeUses(node.task, commit, knowledgeUses, knowledge.rejected);
-    if (details.mathematicalGap) bindMathematicalGap(details.mathematicalGap, node.task, this.archive,
-      { problemReceiptDigest: this.input.state.problem.receiptDigest, environmentDigest: this.input.state.environmentDigest });
-    // A challenge alone is never a repeated-blocker report that parks the proof task.
-    this.reportBlockers(node.task, finding.blockers ?? (complete && finding.conclusion === 'refuted' ? [{
-      mechanism: 'reported-local-refutation', scope: 'assigned-local-inference', evidenceRefs: details.evidenceRefs,
-    }] : undefined));
-    const text = JSON.stringify(finding);
-    if (complete) {
-      node.finding = text; node.status = 'completed'; node.feedback = undefined;
-      if (this.archive.unchangedResearch) delete this.archive.unchangedResearch[node.task.id];
-      if (this.archive.researchCheckpoints) delete this.archive.researchCheckpoints[node.task.id];
+    const publish = async (fixedWorker: ResearchWorker, fixedCommit: string) => {
+      if (!this.current(action)) return;
+      let artifacts = options.artifacts ?? captureDeliveryArtifacts({ problem: this.input.state.problem,
+        worktree: fixedWorker.worktree, commit: fixedCommit, assignment });
+      artifacts = { ...artifacts, reportedChecks: validateDeliveryArtifactClaims(finding, artifacts) };
+      const artifactWarning = diagnoseUnbackedLeanClaims(finding, artifacts);
+      const knowledge = this.captureKnowledgeUseCheck(fixedWorker, node.task, fixedCommit);
+      const knowledgeUses = await checkKnowledgeApplications(knowledge.uses, knowledge.input);
+      if (!this.current(action) || this.node(action.task.id) !== node || worker.id !== assignment.workerId ||
+          assignmentDeliveryFile(action.assignment) !== assignmentKey || environmentDigest !== this.input.state.environmentDigest ||
+          problemReceiptDigest !== this.input.state.problem.receiptDigest) return;
+      if (details.mathematicalGap) bindMathematicalGap(details.mathematicalGap, node.task, this.archive,
+        { problemReceiptDigest, environmentDigest });
+      const remaining = [...new Set([...(details.remainingObligations ?? []),
+        ...this.dependencies(node.task).filter(dependency => !['integrated', 'completed'].includes(dependency.status)).map(dependency => dependency.task.id)])];
+      // Creating the delivery pins its immutable evidence before completed becomes
+      // observable. The delivery and its completion record publish together below.
+      const record = this.createDeliveryRecord(worker, node.task, 'research',
+        !remaining.length && node.task.kind !== 'sketch' ? 'advisory' : 'conditional', details.summary,
+        { ...details, ...options, assignmentKey, remainingObligations: remaining, commit: fixedCommit, artifacts,
+          lemmaRequests, finding: text, findingDigest: mathDigest(text), knowledgeUses,
+          ...(artifactWarning ? { artifactWarning } : {}) });
+      record.researchRecord = settleResearch({ id: record.id, assignment, basis, commit: fixedCommit, finding: text, complete });
+      // A challenge alone is never a repeated-blocker report that parks the proof task.
+      this.reportBlockers(node.task, finding.blockers ?? (complete && finding.conclusion === 'refuted' ? [{
+        mechanism: 'reported-local-refutation', scope: 'assigned-local-inference', evidenceRefs: details.evidenceRefs,
+      }] : undefined));
+      (this.archive.deliveries ??= []).push(record);
+      if (complete) {
+        node.finding = text; node.status = 'completed'; node.feedback = undefined;
+        node.researchCompletion = record.researchRecord;
+        if (this.archive.unchangedResearch) delete this.archive.unchangedResearch[node.task.id];
+        if (this.archive.researchCheckpoints) delete this.archive.researchCheckpoints[node.task.id];
+      }
+      if (finding.needsDecision === true || finding.conclusion === 'refuted' || lemmaRequests.length || artifactWarning) this.needsLead = true;
+      this.resolveDeliveryReceipts(worker, action, finding.replacesReceipt, complete);
+      this.publishDeliveryRecord(record);
+      this.observeKnowledgeUses(node.task, fixedCommit, knowledgeUses, knowledge.rejected);
+      this.input.emit('research_delivered', { taskId: node.task.id, conclusion: finding.conclusion, complete });
+    };
+    if (submission.kind === 'notes') await publish(worker, commit);
+    else {
+      // Explicit events leave the writer's live files and Git index untouched.
+      await withSolverWorktree(worker.worktree, commit, async checkout => {
+        fs.writeFileSync(path.join(checkout, 'RESEARCH.md'), text);
+        await publish({ ...worker, worktree: checkout }, commitSolverSources(this.input.state.problem, checkout));
+      });
     }
-    if (finding.needsDecision === true || finding.conclusion === 'refuted' || lemmaRequests.length || artifactWarning) this.needsLead = true;
-    const remaining = [...new Set([...(details.remainingObligations ?? []),
-      ...this.dependencies(node.task).filter(dependency => !['integrated', 'completed'].includes(dependency.status)).map(dependency => dependency.task.id)])];
-    this.record(worker, node.task, 'research', !remaining.length && node.task.kind !== 'sketch' ? 'advisory' : 'conditional', details.summary,
-      { ...details, ...options, remainingObligations: remaining, commit, artifacts, lemmaRequests, finding: text, findingDigest: mathDigest(text),
-        knowledgeUses, ...(artifactWarning ? { artifactWarning } : {}) });
-    this.resolveDeliveryReceipts(worker, action, finding.replacesReceipt, complete);
-    this.changed();
-    this.input.emit('research_delivered', { taskId: node.task.id, conclusion: finding.conclusion, complete });
   }
   private sourceProjector(worktree: string, commit: string) {
     const identity = mathDigest(canonicalMathJson({ problem: this.input.state.problem, worktree, commit }));

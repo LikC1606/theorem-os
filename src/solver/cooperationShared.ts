@@ -17,6 +17,7 @@ import { type ParallelQuestion } from './taskQuestions';
 import { mathematicalGaps } from './mathematicalGaps';
 import type { DeliveryReceipt } from './deliveryReceipts';
 import type { ProofReadyRecord } from './proofReady';
+import type { ResearchRecord } from './researchRecords';
 import { taskVersion, type CooperativeTask, type RouteRecord, type TaskRecord, type CooperativeAction } from './tasks';
 
 export const digest = taskVersion;
@@ -69,7 +70,8 @@ export type CooperationState = { tasks: TaskRecord[]; groups?: RouteRecord[]; ca
   mathematicalGaps?: ReturnType<typeof mathematicalGaps>;
   /** Context-only public in-flight metadata, without expanding task/source visibility. */
   parallelQuestions?: readonly ParallelQuestion[];
-  history?: { task: CooperativeTask; producer?: string; proof?: TaskProof; integratedCheck?: ProofCheck; finding?: string }[];
+  history?: { task: CooperativeTask; producer?: string; proof?: TaskProof; integratedCheck?: ProofCheck; finding?: string;
+    researchCompletion?: ResearchRecord }[];
   deliveries?: DeliveryRecord[]; cursors?: Record<string, number>; edits?: HumanEditRecord[];
   deliveryReceipts?: DeliveryReceipt[];
   proofReadyRecords?: ProofReadyRecord[];

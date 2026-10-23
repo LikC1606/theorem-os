@@ -9,6 +9,7 @@ import type { ResearchWorker } from '../src/solver/modules/organization';
 import { committedSource, commitSolverSources, git } from '../src/solver/problem';
 import { pendingResearchChallenges } from '../src/solver/researchChallenges';
 import { pendingResearchHandoffs } from '../src/solver/researchHandoffs';
+import { captureResearchBasis, researchSourceDigest } from '../src/solver/researchRecords';
 import { assignmentDeliveryFile, taskVersion, type CooperativeAction } from '../src/solver/tasks';
 import { deferred } from './helpers/async';
 import { cooperativeResearch } from './helpers/cooperation';
@@ -20,6 +21,20 @@ const finding = (summary = 'EXACT_LOCAL_COUNTEREXAMPLE') => ({ summary, conclusi
   evidenceRefs: ['nine-listed-constraints-only'], remainingObligations: ['original_goal_1'] });
 const publish = (value: unknown) => (cooperative as any).receive(workers[1], action, value, true);
 const create = () => cooperativeResearch({ state, workers, retrievalRoot: directory, signal: controller.signal });
+const freezeResearchBasis = () => action.assignment.researchBasis = captureResearchBasis(action.task, {
+  problemReceiptDigest: state.problem.receiptDigest, environmentDigest: state.environmentDigest,
+  sourceDigest: researchSourceDigest(Object.fromEntries(state.problem.ownedFiles.map(file => [file,
+    committedSource(workers[1].worktree, action.assignment.seedCommit, `${state.problem.projectRelative}/${file}`)]))),
+  tasks: state.cooperation!.tasks, deliveries: state.cooperation!.deliveries,
+});
+const ordinaryResearch = () => {
+  const node = state.cooperation!.tasks[0];
+  const task = { ...node.task, kind: 'research' as const, theoremName: undefined, type: undefined, proofPath: undefined,
+    objective: 'Retain the exact classification argument and remaining gap.' };
+  action = { kind: 'task', task, assignment: { ...action.assignment, taskDigest: taskVersion(task) } };
+  node.task = task; node.assignment = action.assignment; node.status = 'running';
+  return node;
+};
 const gateKnowledgeChecks = (count = 1) => {
   const checking = deferred<[]>(), entered = deferred();
   let calls = 0;
@@ -54,10 +69,13 @@ afterEach(async () => {
 });
 
 it('publishes to mandatory Lead input while proof remains active, without touching live files or granting acceptance', async () => {
+  const basis = freezeResearchBasis();
   const interrupt = vi.fn(async () => {});
   cooperative.activate(workers[1], action, interrupt, async () => {});
   const file = path.join(workers[1].worktree, 'RESEARCH.md');
   fs.writeFileSync(file, 'UNFINISHED_LIVE_PROOF_NOTES');
+  git(workers[1].worktree, ['add', 'RESEARCH.md']);
+  const index = git(workers[1].worktree, ['write-tree']);
   const head = git(workers[1].worktree, ['rev-parse', 'HEAD']);
   await publish({ kind: 'research', finding: finding() });
   const node = state.cooperation!.tasks[0], [delivery] = state.cooperation!.deliveries!;
@@ -65,8 +83,13 @@ it('publishes to mandatory Lead input while proof remains active, without touchi
   expect(node.status).toBe('running'); expect(node.proof).toBeUndefined(); expect(node.finding).toBeUndefined();
   expect(state.cooperation!.blockers ?? []).toEqual([]); expect(interrupt).not.toHaveBeenCalled();
   expect(git(workers[1].worktree, ['rev-parse', 'HEAD'])).toBe(head);
+  expect(git(workers[1].worktree, ['write-tree'])).toBe(index);
   expect(fs.readFileSync(file, 'utf8')).toBe('UNFINISHED_LIVE_PROOF_NOTES');
   expect(committedSource(workers[0].worktree, delivery.commit!, 'RESEARCH.md')).toBe(delivery.finding);
+  expect(delivery.researchRecord).toMatchObject({ id: delivery.id, complete: false, basis,
+    assignmentKey: assignmentDeliveryFile(action.assignment), seedCommit: action.assignment.seedCommit, commit: delivery.commit });
+  expect(node.researchCompletion).toBeUndefined();
+  expect(Object.isFrozen(delivery.researchRecord)).toBe(true);
   const context = buildResearchContext(state.problem, state, { taskText: 'Exact problem controls', root: directory,
     worktree: workers[0].worktree, environment: {}, retrievalRoot: directory, assignment: { kind: 'lead', seedCommit: head },
     frozenContexts: Object.fromEntries(state.problem.ownedFiles.filter(file => file.endsWith('.lean')).map(file => [file,
@@ -177,11 +200,8 @@ it('preserves notes-only Lean support under its actual commit independently of t
 });
 
 it('keeps a malformed final research report on its original assignment and accepts its corrected finding', async () => {
-  const node = state.cooperation!.tasks[0];
-  const task = { ...node.task, kind: 'research' as const, theoremName: undefined, type: undefined, proofPath: undefined,
-    objective: 'Retain the exact classification argument and remaining gap.' };
-  action = { kind: 'task', task, assignment: { ...action.assignment, taskDigest: taskVersion(task) } };
-  node.task = task; node.assignment = action.assignment; node.status = 'running';
+  const node = ordinaryResearch(), task = node.task;
+  freezeResearchBasis();
   state.workers = workers.map(worker => ({ ...worker, phase: 'running', turns: 0,
     ...(worker.id === workers[1].id ? { threadId: 'original-research-thread', sessionTaskId: task.id,
       sessionTaskVersion: taskVersion(task), sessionAssignmentId: action.assignment.assignmentId } : {}) }));
@@ -221,6 +241,76 @@ it('keeps a malformed final research report on its original assignment and accep
   const [delivery] = state.cooperation!.deliveries!.filter(item => item.kind === 'research');
   expect(JSON.parse(delivery.finding!)).toMatchObject({ ...corrected, taskId: task.id, taskDigest: taskVersion(task) });
   expect(delivery.commit).toBe(validCommit);
+  expect(node.researchCompletion).toBe(delivery.researchRecord);
+  expect(node.researchCompletion).toMatchObject({ id: delivery.id, complete: true,
+    basis: originalAssignment.researchBasis, commit: validCommit });
   expect(committedSource(workers[0].worktree, delivery.commit!, 'RESEARCH.md')).toBe(finalNotes);
   expect(node.proof).toBeUndefined(); expect(state.check).toBeUndefined();
+});
+
+it('records complete notes with their frozen dispatch inputs and persists completion together with its pinned delivery', async () => {
+  const node = ordinaryResearch(), basis = freezeResearchBasis();
+  const { entered, release } = gateKnowledgeChecks();
+  const notes = path.join(workers[1].worktree, 'RESEARCH.md');
+  fs.writeFileSync(notes, JSON.stringify({ summary: 'A complete exact derivation.', conclusion: 'supporting' }));
+  const commit = commitSolverSources(state.problem, workers[1].worktree);
+  const snapshots: SolverRunState[] = [];
+  (cooperative as any).input.save = () => snapshots.push(JSON.parse(JSON.stringify(state)));
+  const pending = cooperative.deliver(workers[1], action, commit);
+  await entered;
+  action.assignment.researchBasis = captureResearchBasis(action.task, { ...basis, sourceDigest: 'newer-unrelated-context',
+    tasks: state.cooperation!.tasks });
+  release(); await pending;
+  const [delivery] = state.cooperation!.deliveries!.filter(item => item.kind === 'research');
+  expect(node.status).toBe('completed');
+  expect(node.researchCompletion).toBe(delivery.researchRecord);
+  expect(delivery.researchRecord).toMatchObject({ id: delivery.id, taskId: action.task.id, complete: true,
+    seedCommit: action.assignment.seedCommit, commit, basis });
+  expect(delivery.researchRecord!.basis.sourceDigest).not.toBe(action.assignment.researchBasis.sourceDigest);
+  expect(Object.isFrozen(delivery.researchRecord)).toBe(true);
+  expect(Object.isFrozen(delivery.researchRecord!.basis)).toBe(true);
+  expect(git(workers[0].worktree, ['rev-parse', `refs/math/${state.runId}/evidence/${commit}`])).toBe(commit);
+  expect(snapshots.some(snapshot => snapshot.cooperation!.tasks[0].status === 'completed')).toBe(true);
+  for (const snapshot of snapshots) if (snapshot.cooperation!.tasks[0].status === 'completed') {
+    const completion = snapshot.cooperation!.tasks[0].researchCompletion!;
+    expect(snapshot.cooperation!.deliveries).toContainEqual(expect.objectContaining({ id: completion.id, researchRecord: completion }));
+  }
+});
+
+it('does not complete a research assignment superseded while knowledge applications are checked', async () => {
+  const node = ordinaryResearch(); freezeResearchBasis();
+  const { entered, release } = gateKnowledgeChecks();
+  fs.writeFileSync(path.join(workers[1].worktree, 'RESEARCH.md'), JSON.stringify({ summary: 'Old exact inputs.', conclusion: 'supporting' }));
+  const pending = cooperative.deliver(workers[1], action, commitSolverSources(state.problem, workers[1].worktree));
+  await entered;
+  node.assignment = { ...action.assignment, assignmentId: 'replacement-responsibility' };
+  release(); await pending;
+  expect(node.status).toBe('running'); expect(node.finding).toBeUndefined(); expect(node.researchCompletion).toBeUndefined();
+  expect(state.cooperation!.deliveries ?? []).toEqual([]);
+});
+
+it('does not invent a completion basis for legacy assignments when a newer context arrives during checking', async () => {
+  const node = ordinaryResearch();
+  expect(action.assignment.researchBasis).toBeUndefined();
+  const { entered, release } = gateKnowledgeChecks();
+  fs.writeFileSync(path.join(workers[1].worktree, 'RESEARCH.md'), JSON.stringify({ summary: 'Legacy saved work.', conclusion: 'inconclusive' }));
+  const pending = cooperative.deliver(workers[1], action, commitSolverSources(state.problem, workers[1].worktree));
+  await entered; freezeResearchBasis(); release(); await pending;
+  expect(node.status).toBe('completed');
+  expect(node.researchCompletion).toBeUndefined();
+  expect(state.cooperation!.deliveries!.find(item => item.kind === 'research')!.researchRecord).toBeUndefined();
+});
+
+it('freezes explicit finding content before asynchronous checks', async () => {
+  freezeResearchBasis();
+  const { entered, release } = gateKnowledgeChecks();
+  const output = { summary: 'Frozen exact argument.', conclusion: 'supporting', argument: { inference: 'Original inference' } };
+  const pending = publish({ kind: 'research', finding: output });
+  await entered;
+  output.summary = 'Changed after submission'; output.argument.inference = 'Later unrelated inference';
+  release(); await pending;
+  const [delivery] = state.cooperation!.deliveries!;
+  expect(JSON.parse(delivery.finding!)).toMatchObject({ summary: 'Frozen exact argument.', argument: { inference: 'Original inference' } });
+  expect(committedSource(workers[0].worktree, delivery.commit!, 'RESEARCH.md')).toBe(delivery.finding);
+  expect(delivery.researchRecord).toMatchObject({ complete: false, id: delivery.id });
 });

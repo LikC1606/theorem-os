@@ -7,6 +7,7 @@ import type { ProofReferences } from './proofReferences';
 import type { DeliveryArtifactManifest } from './deliveryArtifacts';
 import type { CooperativeTask } from './tasks';
 import type { KnowledgeUse } from './knowledgeUsage';
+import type { ResearchRecord } from './researchRecords';
 import { mathematicalGapSchema, type MathematicalGap, type MathematicalGapScope } from './mathematicalGaps';
 
 // Long-lived task graphs can exceed a short prompt's display allowance. Keep the
@@ -89,6 +90,7 @@ export type DeliveryRecord = {
   findingDigest?: string;
   /** Each publication retains its own complete finding, including during an active proof. */
   finding?: string;
+  researchRecord?: ResearchRecord;
   knowledgeUses?: readonly KnowledgeUse[];
   mathematicalGap?: MathematicalGap;
   mathematicalGapScope?: MathematicalGapScope;

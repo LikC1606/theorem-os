@@ -31,7 +31,7 @@ import { assignmentDeliveryFile, groupOpen, isFeasibilityReview, taskGroup, type
 import { digest, directDeliveryRejections, isTaskSourceRepairFeedback, rejectionCode, CooperationState, TaskVersions, DispatchBudget, RETRY_DISPATCH, DispatchResult, bounded,
   deliveryInputFields, readCooperationPlan } from './cooperationShared';
 import { CooperationInputs } from './cooperationInputs';
-import { prepareResearchDelivery, ResearchAdmissionError } from './researchAdmission';
+import { ResearchAdmissionError } from './researchAdmission';
 import type { CooperationPlanning } from './cooperationPlanning';
 export { parseCooperationPlan } from './tasks';
 export { taskGroup, taskVersion, taskReferenceDependencies, assignmentDeliveryFile } from './tasks';
@@ -1044,11 +1044,8 @@ export class CooperativeResearch extends CooperationInputs {
           unchangedNotesBlob = inherited;
           throw new Error('math_research_delivery_unchanged: Replace inherited RESEARCH.md with findings for the current task.');
         }
-        const admission = prepareResearchDelivery({ kind: 'notes', text: committedSource(worker.worktree, commit, 'RESEARCH.md') },
-          { source: node.task, assignment: action.assignment, tasks: this.archive.tasks, deliveries: this.archive.deliveries,
-            identity: { problemReceiptDigest: this.input.state.problem.receiptDigest, environmentDigest: this.input.state.environmentDigest } });
-        if (admission.status === 'rejected') throw new ResearchAdmissionError(admission);
-        await this.publishResearchFinding(worker, action, commit, admission.finding, true);
+        await this.publishResearchFinding(worker, action, commit,
+          { kind: 'notes', text: committedSource(worker.worktree, commit, 'RESEARCH.md') }, { artifacts });
       } else {
         const proof = await this.publishTaskProof(worker, action, commit,
           'Fixed declaration checked; unresolved lemma assumptions remain obligations.', { artifacts }, recovering);

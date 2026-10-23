@@ -14,7 +14,8 @@ import { type DeliveryRecord } from './deliveries';
 import { rejectedDeliveryReceipt, deliveryReceiptFeedback, type DeliveryReceipt } from './deliveryReceipts';
 import { proofReadyRecord, type ProofReadyRecord } from './proofReady';
 import type { ProofCheck } from './modules/evidence';
-import { createTaskSourceProjector, isAttributedTaskProof, omitTaskHelpers, ownedSourceDigest, TaskProofCache, type TaskProof } from './cooperativeProof';
+import { createTaskSourceProjector, isAttributedTaskProof, ownedSourceDigest, TaskProofCache, type TaskProof } from './cooperativeProof';
+import { researchSourceTasks, scopedResearchSources } from './researchSources';
 import { isStatementAction, statementReviewSummary } from './statementReview';
 import { type ProofReferences } from './proofReferences';
 import { attributeTaskReferences } from './taskReferenceAttribution';
@@ -278,7 +279,7 @@ export abstract class CooperationCore {
           status: node.status, owner: node.assignment?.workerId ?? node.task.ownerId, dependsOn: node.task.dependsOn,
           ...(visible.has(node.task.id) ? { objective: node.task.objective, feedback: node.feedback,
             actualReferences: (node.integratedCheck ?? node.proof)?.references } : {}) })),
-        deliveries: deliveries.map(({ evidence: _evidence, ...record }) => record),
+        deliveries: deliveries.map(({ evidence: _evidence, researchRecord: _researchRecord, ...record }) => record),
         deliveryReceipts: scoped.deliveryReceipts ?? [],
         proofReadyRecords: scoped.proofReadyRecords ?? [],
         researchHandoffs: handoffs,
@@ -601,16 +602,10 @@ export abstract class CooperationCore {
     const previousGroup = session?.sessionGroupId;
     if (task && (previousGroup && previousGroup !== taskGroup(task) || session?.sessionTaskId && session.sessionTaskId !== task.id) ||
         !task && worker.id !== this.lead.id) fs.writeFileSync(path.join(worker.worktree, 'RESEARCH.md'), '');
-    const visible = new Set(task ? this.visible(task) : this.archive.tasks);
-    // A shared wrapper keeps the private implementation prerequisites needed to compile its checked source.
-    for (const node of [...visible]) for (const dependency of this.dependencies(node.task)) visible.add(dependency);
-    const hidden = this.archive.tasks.filter(node => !visible.has(node)).flatMap(node => [
-      ...(node.task.kind === 'lemma' ? [node.task.theoremName!] : []),
-      ...(node.proof?.changes.filter(change => !change.before).map(change => change.name) ?? []),
-    ]);
-    for (const file of this.input.state.problem.ownedFiles) {
-      let source = committedSource(this.lead.worktree, commit, `${this.input.state.problem.projectRelative}/${file}`);
-      if (file.endsWith('.lean')) source = omitTaskHelpers(this.input.state.problem, file, source, hidden);
+    const sources = Object.fromEntries(this.input.state.problem.ownedFiles.map(file => [file,
+      committedSource(this.lead.worktree, commit, `${this.input.state.problem.projectRelative}/${file}`)]));
+    for (const [file, source] of Object.entries(scopedResearchSources(this.input.state.problem, task, sources,
+      researchSourceTasks(this.archive.tasks)))) {
       fs.writeFileSync(path.join(worker.worktree, this.input.state.problem.projectRelative, file), source);
     }
     const problem = this.input.state.problem;

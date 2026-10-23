@@ -1,10 +1,8 @@
 import { parseCooperationPlan, isAdvisoryTask as advisory } from './tasks';
-import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { canonicalMathJson, mathDigest } from '../math/mathRuntimeIo';
 import { mathGitResult } from '../math/mathGit';
-import { commitSolverSources, withSolverWorktree } from './problem';
 import { type ResearchWorker } from './modules/organization';
 import { taskCanStart } from './modules/search';
 import { deliveryDetails, readDeliveryLines } from './deliveries';
@@ -20,7 +18,6 @@ import { composeHandoffPublication } from './handoffPublication';
 import { finishLeadAssessment, type LeadAssessmentKind } from './leadAssessment';
 import { pendingResearchHandoffs } from './researchHandoffs';
 import { pendingResearchChallenges } from './researchChallenges';
-import { prepareResearchDelivery, ResearchAdmissionError } from './researchAdmission';
 
 /** Worker delivery intake. */
 export abstract class CooperationInputs extends CooperationPlanning {
@@ -366,13 +363,6 @@ export abstract class CooperationInputs extends CooperationPlanning {
     }
     const node = this.node(action.task.id);
     if (value.kind === 'research') {
-      if (!value.finding || typeof value.finding !== 'object' || Array.isArray(value.finding))
-        throw new Error('math_research_delivery_invalid');
-      const admission = prepareResearchDelivery({ kind: 'event', value: value.finding }, { source: node.task,
-        assignment: action.assignment, tasks: this.archive.tasks, deliveries: this.archive.deliveries,
-        identity: { problemReceiptDigest: this.input.state.problem.receiptDigest, environmentDigest: this.input.state.environmentDigest } });
-      if (admission.status === 'rejected') throw new ResearchAdmissionError(admission);
-      const finding = admission.finding;
       const base = value.commit ?? action.assignment.seedCommit;
       if (typeof base !== 'string' || !/^[a-f0-9]{40,64}$/u.test(base)) throw new Error('math_delivery_invalid_commit');
       const fixed = mathGitResult(worker.worktree, ['merge-base', '--is-ancestor', action.assignment.seedCommit, base], { maxBuffer: 4096 });
@@ -380,14 +370,8 @@ export abstract class CooperationInputs extends CooperationPlanning {
       if (fixed.status !== 0) throw new Error('math_delivery_invalid_commit');
       const supportingArtifacts = value.commit ? captureDeliveryArtifacts({ problem: this.input.state.problem,
         worktree: worker.worktree, commit: base, assignment: action.assignment }) : undefined;
-      // Freeze the explicit event in a disposable checkout; the worker keeps its live files and Git index.
-      await withSolverWorktree(worker.worktree, base, async checkout => {
-        fs.writeFileSync(path.join(checkout, 'RESEARCH.md'), JSON.stringify(finding));
-        const commit = commitSolverSources(this.input.state.problem, checkout);
-        if (!this.current(action)) return;
-        await this.publishResearchFinding({ ...worker, worktree: checkout }, action, commit, finding, false,
-          { submissionId: value.id, assignmentKey, ...(supportingArtifacts ? { artifacts: supportingArtifacts } : {}) });
-      });
+      await this.publishResearchFinding(worker, action, base, { kind: 'event', value: value.finding },
+        { submissionId: value.id, assignmentKey, ...(supportingArtifacts ? { artifacts: supportingArtifacts } : {}) });
       return;
     }
     if (value.kind === 'progress') {

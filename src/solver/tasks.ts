@@ -7,6 +7,7 @@ import type { StatementAction } from './statementReview';
 import type { TaskTypePreflight } from './taskTypePreflight';
 import { parseProofRoutes, type ProofRoute } from './proofRoutes';
 import type { CapacityExploration } from './capacityExploration';
+import type { ResearchBasis, ResearchRecord } from './researchRecords';
 
 export type CooperativeTask = Readonly<{ id: string; kind: 'research' | 'sketch' | 'lemma' | 'goal'; objective: string;
   dependsOn: readonly string[]; revision: number; proofPath?: string; theoremName?: string; type?: string;
@@ -25,11 +26,14 @@ export type TaskConnectionCheck = Readonly<{
   routeId?: string; routesDigest: string; problemReceiptDigest: string; environmentDigest: string; basisDigest: string;
 }>;
 export type TaskAssignment = { taskId: string; taskDigest: string; workerId: string; seedCommit: string; assignmentId?: string; groupId?: string; canonicalCommit?: string;
-  dependencies?: DeliveryRecord['dependencies']; routeId?: string; connectionCheck?: TaskConnectionCheck };
+  dependencies?: DeliveryRecord['dependencies']; routeId?: string; connectionCheck?: TaskConnectionCheck;
+  /** Actual prompt inputs, frozen when a research turn starts. */
+  researchBasis?: ResearchBasis };
 export type TaskRecord = { task: CooperativeTask; status: 'pending' | 'running' | 'blocked' | 'conditional' | 'delivered' | 'integrated' | 'completed';
   /** Host-owned advisory work; never supplied by a model plan. */
   capacityExploration?: CapacityExploration;
   attempts: number; assignment?: TaskAssignment; proof?: TaskProof; integratedCheck?: TaskProof; feedback?: string; finding?: string;
+  researchCompletion?: ResearchRecord;
   /** One source-contract correction belongs to this assignment, not equivalent mathematical tasks. */
   sourceRepair?: { taskDigest: string; workerId: string; assignmentId?: string; seedCommit: string;
     pending: boolean; startedAttempt?: number };
