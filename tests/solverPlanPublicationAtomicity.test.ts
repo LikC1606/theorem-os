@@ -139,6 +139,11 @@ describe('replacement plan checkpoint atomicity', () => {
     expect(state.cooperation!.error).toBeUndefined();
     expect(state.check).toBeUndefined();
     expect(events.filter(item => item.event === 'research_handoff_decided')).toHaveLength(1);
+    expect(events.find(item => item.event === 'research_handoff_decided')?.details).toMatchObject({
+      id: handoff.id, contextDigest: handoff.contextDigest, activationDigest: action.handoffActivations![handoff.id],
+      planVersion: firstCheckpoint!.cooperation!.planVersion,
+    });
+    expect(firstCheckpoint!.cooperation!.planVersion).not.toBe(action.planVersion);
     expect(events.filter(item => item.event === 'research_challenge_decided')).toHaveLength(1);
   });
 });

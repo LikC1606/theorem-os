@@ -119,7 +119,9 @@ export async function runSolver(args: string[], root: string, customModules?: So
   let continuationSeeding = false;
   let ownsRun = false;
   let publishedExit: number | undefined;
-  const emit = (event: string, details = {}) => console.log(JSON.stringify({ event, at: Date.now(), ...details }));
+  const emit = (event: string, details = {}) => console.log(JSON.stringify({ event, at: Date.now(), ...details,
+    ...(ownedState ? { runId: ownedState.runId, problemReceiptDigest: ownedState.problem.receiptDigest,
+      environmentDigest: ownedState.environmentDigest } : {}) }));
   const disposeProofEnvironment = async () => {
     const environment = proofEnvironment;
     proofEnvironment = undefined;

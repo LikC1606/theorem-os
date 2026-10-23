@@ -176,10 +176,21 @@ describe('same-layer checked task integration batches', () => {
       expect(check.verification.checkedAt).toBe(raw.checkedAt);
       expect(check.verification.results).toEqual([raw.results.find(item => item.theoremName === record.task.theoremName)]);
       expect(check.commit).toBe(state.cooperation!.canonicalCommit);
+      expect(events.find(item => item.event === 'task_integrated' && item.details?.taskId === record.task.id)?.details)
+        .toMatchObject({ taskId: record.task.id, taskDigest: taskVersion(record.task),
+          assignmentKey: assignmentDeliveryFile(record.assignment!), workerId: record.assignment!.workerId,
+          seedCommit: record.assignment!.seedCommit, commit: check.commit, sourceDigest: check.sourceDigest,
+          receiptIds: check.verification.results.map(result => result.receiptId) });
     }
     await drain(); await drain();
     expect(calls()).toHaveLength(1);
     expect(state.cooperation!.deliveries?.filter(item => item.kind === 'proof' && item.status === 'verified')).toHaveLength(2);
+    for (const delivery of state.cooperation!.deliveries!.filter(item => item.kind === 'proof' && item.status === 'verified'))
+      expect(events.find(item => item.event === 'delivery_published' && item.details?.deliveryId === delivery.id)?.details)
+        .toMatchObject({ deliveryId: delivery.id, producer: delivery.producer, workerId: delivery.producer,
+          taskId: delivery.taskId, taskDigest: delivery.taskDigest, assignmentKey: delivery.assignmentKey,
+          commit: delivery.commit, sourceDigest: delivery.sourceDigest,
+          receiptIds: delivery.evidence!.verification.results.map(result => result.receiptId) });
     expect(events.filter(item => item.event === 'task_integrated')).toHaveLength(2);
     expectNoFailure();
   });

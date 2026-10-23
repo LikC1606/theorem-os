@@ -76,6 +76,10 @@ describe('run failure checkpoint ownership', () => {
     expect(await runSolver(current.args, current.directory, modules)).toBe(1);
     expect(writes).toEqual([current.stateFile, current.output]);
     expect(readSolverRunState(current.stateFile).error).toBe('fixture_research_failed');
+    const state = readSolverRunState(current.stateFile);
+    expect(vi.mocked(console.log).mock.calls.map(([message]) => JSON.parse(String(message))))
+      .toContainEqual(expect.objectContaining({ event: 'finished', runId: state.runId,
+        problemReceiptDigest: state.problem.receiptDigest, environmentDigest: state.environmentDigest }));
     expect(JSON.parse(fs.readFileSync(current.output, 'utf8'))).toMatchObject({
       status: 'runtime_error', reason: 'fixture_research_failed',
     });

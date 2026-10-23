@@ -8,7 +8,7 @@ import { hasDeterministicLeanFailure } from './proofReuse';
 import { proofReferencesUnchanged } from './proofReferences';
 import { attributeTaskReferences } from './taskReferenceAttribution';
 import { hasTaskConnectionCheck } from './taskConnections';
-import { taskGroup, taskReferenceDependencies, hasTaskAcceptance, type CooperativeTask, type TaskAssignment, type TaskRecord } from './tasks';
+import { assignmentDeliveryFile, taskGroup, taskReferenceDependencies, hasTaskAcceptance, type CooperativeTask, type TaskAssignment, type TaskRecord } from './tasks';
 import { digest, taskSourceRejections, integrationRejections, rejectionCode, bounded } from './cooperationShared';
 import { CooperationTaskProofs, type ProofDeliveryAnnotation } from './cooperationTaskProofs';
 
@@ -480,7 +480,10 @@ export abstract class CooperationIntegration extends CooperationTaskProofs {
           canonicalMathJson(attributeTaskReferences(receipt.references, this.archive.tasks)))) return 'retry' as const;
       this.archive.canonicalCommit = merged;
       snapshots.forEach((snapshot, index) => { snapshot.node.integratedCheck = receipts[index]; snapshot.node.status = 'integrated'; });
-      snapshots.forEach(snapshot => this.input.emit('task_integrated', { taskId: snapshot.task.id,
+      snapshots.forEach((snapshot, index) => this.input.emit('task_integrated', { taskId: snapshot.task.id,
+        taskDigest: snapshot.taskDigest, assignmentKey: assignmentDeliveryFile(snapshot.assignment),
+        workerId: snapshot.assignment.workerId, seedCommit: snapshot.assignment.seedCommit,
+        sourceDigest: receipts[index].sourceDigest, receiptIds: receipts[index].verification.results.map(result => result.receiptId),
         groupId: taskGroup(snapshot.task), sharing: snapshot.task.sharing ?? 'problem', commit: merged, batchSize: snapshots.length }));
       this.changed();
       return 'integrated' as const;
@@ -564,7 +567,11 @@ export abstract class CooperationIntegration extends CooperationTaskProofs {
           this.changed(); return 'superseded';
         }
         node.integratedCheck = receipt; this.archive.canonicalCommit = merged; node.status = 'integrated';
-        this.input.emit('task_integrated', { taskId: node.task.id, groupId: taskGroup(node.task), sharing: node.task.sharing ?? 'problem', commit: merged });
+        this.input.emit('task_integrated', { taskId: node.task.id, taskDigest: snapshot.taskDigest,
+          assignmentKey: assignmentDeliveryFile(snapshot.assignment), workerId: snapshot.assignment.workerId,
+          seedCommit: snapshot.assignment.seedCommit, sourceDigest: receipt.sourceDigest,
+          receiptIds: receipt.verification.results.map(result => result.receiptId),
+          groupId: taskGroup(node.task), sharing: node.task.sharing ?? 'problem', commit: merged });
         this.changed(); return 'integrated';
       });
       if (result === 'retry') continue;

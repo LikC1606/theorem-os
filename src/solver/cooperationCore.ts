@@ -2,10 +2,10 @@ import { parseCooperationPlan } from './tasks';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { mathDigest, writeMathJsonDurable } from '../math/mathRuntimeIo';
+import { canonicalMathJson, mathDigest, writeMathJsonDurable } from '../math/mathRuntimeIo';
 import type { LeanStatementContext } from '../math/leanStatementContext';
 import { commitSolverSources, committedSource, git } from './problem';
-import type { SolverRunState } from './archive';
+import type { DispatchWaitObservation, SolverRunState } from './archive';
 import { independentFeasibilityWorker, type ResearchWorker } from './modules/organization';
 import type { WorkerAccess } from './research';
 import type { SolverModules } from './modules';
@@ -204,6 +204,33 @@ export abstract class CooperationCore {
   protected syncProofRoutes() {
     for (const node of this.archive.tasks) node.alternativeRoutes = this.archive.proofRoutes?.filter(route => route.targetTaskId === node.task.id);
   }
+  protected recordDispatchWait(worker: ResearchWorker,
+    observation: Omit<DispatchWaitObservation, 'observedAt' | 'endedAt' | 'planVersion'>) {
+    const record = this.input.state.workers?.find(item => item.id === worker.id);
+    if (!record) return;
+    const basis = { ...observation, planVersion: this.archive.planVersion ?? this.planVersion() };
+    const previous = record.scheduling?.wait;
+    if (previous) {
+      const { observedAt: _at, endedAt, ...prior } = previous;
+      if (endedAt === undefined && canonicalMathJson(prior) === canonicalMathJson(basis)) return;
+      this.clearDispatchWait(worker, 'changed');
+    }
+    const wait: DispatchWaitObservation = { ...basis, observedAt: Date.now() };
+    record.scheduling ??= { status: 'idle', since: wait.observedAt };
+    record.scheduling.wait = wait;
+    this.input.emit('dispatch_wait', { workerId: worker.id, ...wait });
+    this.changed();
+  }
+  protected clearDispatchWait(worker: ResearchWorker, reason: 'changed' | 'selected' | 'stopped') {
+    const scheduling = this.input.state.workers?.find(item => item.id === worker.id)?.scheduling;
+    if (!scheduling?.wait) return;
+    const wait = scheduling.wait;
+    if (reason !== 'stopped') delete scheduling.wait;
+    if (wait.endedAt !== undefined) return;
+    wait.endedAt = Date.now();
+    this.input.emit('dispatch_wait_ended', { workerId: worker.id, observedAt: wait.observedAt,
+      endedAt: wait.endedAt, planVersion: wait.planVersion, stage: wait.stage, reason });
+  }
   protected changed(edit?: HumanEditRecord) {
     this.refreshCapacityExplorations();
     this.refreshFeasibilityAssignments();
@@ -248,9 +275,10 @@ export abstract class CooperationCore {
       const taskId = work?.kind === 'task' ? work.task.id : preparation?.task.id;
       const record = this.input.state.workers?.find(worker => worker.id === peer.id);
       if (record) {
+        if (work || preparation) this.clearDispatchWait(peer, 'selected');
         const previous = record.scheduling;
         const same = previous?.status === status && previous.action === action && previous.taskId === taskId;
-        record.scheduling = { status, action, taskId, since: same ? previous.since : Date.now() };
+        record.scheduling = { status, action, taskId, since: same ? previous.since : Date.now(), wait: previous?.wait };
       }
       return { id: peer.id, role: work && (work.kind === 'review' || isStatementAction(work) ||
         work.kind === 'task' && isFeasibilityReview(work.task)) ? 'reviewer' : peer.role,
@@ -269,6 +297,13 @@ export abstract class CooperationCore {
         planVersion: this.archive.planVersion,
         edits: (this.archive.edits ?? []).slice(-16),
         agents,
+        dispatchWaits: (this.input.state.workers ?? []).flatMap(peer => {
+          const wait = peer.scheduling?.wait;
+          if (!wait) return [];
+          const candidates = wait.candidates.filter(item => visible.has(item.taskId));
+          return [{ workerId: peer.id, ...wait, candidates,
+            omittedCandidates: wait.omittedCandidates + wait.candidates.length - candidates.length }];
+        }),
         ...(worker.id === this.lead.id && scoped.lastCapacityRefill ? { lastCapacityRefill: scoped.lastCapacityRefill } : {}),
         ...(worker.id === this.lead.id && scoped.lastStagnationRecovery ? { lastStagnationRecovery: scoped.lastStagnationRecovery } : {}),
         capacityExplorations: scoped.tasks.filter(node => node.capacityExploration).map(node => ({
@@ -404,8 +439,12 @@ export abstract class CooperationCore {
     // Callers stop the writer first. Every read here addresses the host's immutable commit.
     const sourceDigest = ownedSourceDigest(this.input.state.problem, worker.worktree, commit);
     this.pin(commit);
-    Object.assign(record, { status: 'frozen', snapshotCommit: commit, sourceDigest });
-    this.changed(); return record;
+    Object.assign(record, { status: 'frozen', snapshotCommit: commit, sourceDigest, frozenAt: Date.now() });
+    this.changed();
+    this.input.emit('proof_ready_frozen', { readyId: record.id, taskId: record.taskId, taskDigest: record.taskDigest,
+      workerId: record.workerId, assignmentKey: record.assignmentKey, seedCommit: record.seedCommit,
+      commit, snapshotCommit: commit, sourceDigest, frozenAt: record.frozenAt });
+    return record;
   }
   proofReadyCompleted(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>,
     proof?: ProofCheck & { conditions?: TaskProof['conditions'] }, reason?: string): void {
@@ -497,7 +536,11 @@ export abstract class CooperationCore {
       const pending = active.notify(notice).catch(() => { this.input.emit('notification_deferred', { workerId: id, deliveryId: record.id }); });
       this.notifications.add(pending); void pending.finally(() => this.notifications.delete(pending));
     }
-    this.input.emit('delivery_published', { deliveryId: record.id, taskId: record.taskId, kind: record.kind, status: record.status });
+    this.input.emit('delivery_published', { deliveryId: record.id, producer: record.producer, workerId: record.producer,
+      taskId: record.taskId, taskDigest: record.taskDigest, assignmentKey: record.assignmentKey,
+      commit: record.commit, sourceDigest: record.sourceDigest,
+      receiptIds: record.evidence?.verification.results.map(result => result.receiptId),
+      kind: record.kind, status: record.status });
   }
   protected pin(commit?: string) {
     if (!commit || this.pinned.has(commit)) return;

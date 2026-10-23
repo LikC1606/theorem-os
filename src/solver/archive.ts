@@ -23,6 +23,20 @@ const leadAssessmentFields = {
   decisionReason: z.string().optional(),
 };
 
+/** A recorded dispatch observation, never a permission to dispatch or accept a proof. */
+export type DispatchWaitObservation = {
+  observedAt: number;
+  endedAt?: number;
+  planVersion?: string;
+  stage: 'm3-no-ready' | 'host-filtered' | 'm5-no-selection' | 'budget-gated' | 'lead-unavailable';
+  gate?: 'time-limit' | 'turn-limit' | 'model-disabled';
+  candidateCount: number;
+  omittedCandidates: number;
+  candidates: { taskId: string; taskDigest: string;
+    reason: 'role' | 'engineer' | 'owner' | 'saved-assignment' | 'review-independence' | 'running-duplicate' |
+      'preparing-type' | 'synchronizing' | 'capacity-expired' | 'policy-no-selection' }[];
+};
+
 export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | 'previousThreadIds' |
   'lastInputTokens' | 'lastActivity' | 'lastFailure' | 'recovery' | 'contextOverflow' | 'contextCheckpoint' | 'contextCheckpointBaseline' | 'advisoryCheckpoint' | 'lastContextManifest' | 'phase' | 'turns' | 'dispatchCounts' | 'usage' | 'usageBeforeThread' | 'usageAccounting' | 'requestUsageAccounting' | 'check' | 'candidate' | 'failures' | 'error' | 'writerStopUnconfirmed'> & {
   id: string;
@@ -34,7 +48,7 @@ export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | '
   sessionAssignmentId?: string;
   sessionStatementReview?: boolean;
   scheduling?: { status: 'working' | 'preparing' | 'stopping' | 'idle' | 'stopped'; since: number;
-    action?: string; taskId?: string };
+    action?: string; taskId?: string; wait?: DispatchWaitObservation };
 };
 
 export type ResearchRecovery = {
@@ -104,6 +118,14 @@ const phase = z.enum(['prepared', 'running', 'checking', 'evaluating', 'finished
 const count = z.number().int().nonnegative();
 const record = z.record(z.unknown());
 const safeCount = count.max(Number.MAX_SAFE_INTEGER);
+const dispatchWaitObservation = z.object({ observedAt: safeCount, endedAt: safeCount.optional(), planVersion: z.string().optional(),
+  stage: z.enum(['m3-no-ready', 'host-filtered', 'm5-no-selection', 'budget-gated', 'lead-unavailable']),
+  gate: z.enum(['time-limit', 'turn-limit', 'model-disabled']).optional(),
+  candidateCount: safeCount, omittedCandidates: safeCount,
+  candidates: z.array(z.object({ taskId: z.string(), taskDigest: z.string(),
+    reason: z.enum(['role', 'engineer', 'owner', 'saved-assignment', 'review-independence', 'running-duplicate',
+      'preparing-type', 'synchronizing', 'capacity-expired', 'policy-no-selection']) })).max(16),
+}).refine(value => value.candidateCount === value.candidates.length + value.omittedCandidates);
 const planPublication = z.object({ nonce: z.string().min(1), file: z.string().regex(/^DELIVERIES-[a-f0-9]{64}\.jsonl$/u),
   offset: safeCount, eventDigest: z.string().regex(/^[a-f0-9]{64}$/u), baseVersion: z.string(), planVersion: z.string(),
   acceptedAt: safeCount, finalized: z.boolean().optional() });
@@ -267,7 +289,7 @@ const runState = research.extend({ schema: z.literal('deepscientist.math.solver.
   workers: z.array(research.extend({ id: z.string(), role, sessionRole: role.optional(),
     sessionAssignmentId: z.string().optional(),
     scheduling: z.object({ status: z.enum(['working', 'preparing', 'stopping', 'idle', 'stopped']), since: safeCount,
-      action: z.string().optional(), taskId: z.string().optional() }).optional() })).optional(),
+      action: z.string().optional(), taskId: z.string().optional(), wait: dispatchWaitObservation.optional() }).optional() })).optional(),
   cooperation: z.object({ tasks: z.array(taskRecord), groups: z.array(z.object({ group: z.object({ id: z.string(),
     status: z.enum(['active', 'paused', 'stopped']), revision: count }).passthrough(), turns: count }).passthrough()).optional(),
     history: z.array(z.object({ task, proof: check.optional(), integratedCheck: check.optional(),

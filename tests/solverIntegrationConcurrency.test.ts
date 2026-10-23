@@ -6,7 +6,7 @@ import type { SolverRunState } from '../src/solver/archive';
 import type { CooperativeResearch } from '../src/solver/cooperation';
 import type { ResearchWorker } from '../src/solver/modules/organization';
 import { committedSource, commitSolverSources, type SolverProblem } from '../src/solver/problem';
-import { taskVersion, type CooperativeAction, type CooperativeTask } from '../src/solver/tasks';
+import { assignmentDeliveryFile, taskVersion, type CooperativeAction, type CooperativeTask } from '../src/solver/tasks';
 import { deferred } from './helpers/async';
 import { cooperativeResearch } from './helpers/cooperation';
 import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
@@ -180,6 +180,12 @@ describe('task integration with concurrent host control', () => {
     expect(host.verify).toHaveBeenCalledTimes(3);
     expect(records().filter(record => record.kind === 'proof')).toMatchObject([{ taskId: action.task.id, status: 'verified', commit }]);
     expect(events.filter(item => item.event === 'task_integrated')).toHaveLength(1);
+    expect(events.find(item => item.event === 'task_integrated')?.details).toMatchObject({
+      taskId: action.task.id, taskDigest: action.assignment.taskDigest, workerId: action.assignment.workerId,
+      assignmentKey: assignmentDeliveryFile(action.assignment), seedCommit: action.assignment.seedCommit,
+      commit: node().integratedCheck!.commit, sourceDigest: node().integratedCheck!.sourceDigest,
+      receiptIds: node().integratedCheck!.verification.results.map(result => result.receiptId),
+    });
     expectNoMathematicalFailure();
   });
 

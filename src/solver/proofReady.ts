@@ -9,6 +9,7 @@ export const proofReadyRecordSchema = z.object({
   id: z.string(), submissionId: z.string(), assignmentKey: z.string(), workerId: z.string(),
   taskId: z.string(), taskDigest: z.string(), seedCommit: commit, problemReceiptDigest: z.string(),
   environmentDigest: z.string(), requestedAt: z.number().int().nonnegative(),
+  frozenAt: z.number().int().nonnegative().optional(),
   status: z.enum(['awaiting-freeze', 'frozen', 'checked', 'failed', 'superseded']),
   snapshotCommit: commit.optional(), sourceDigest: z.string().optional(),
   evidence: z.enum(['conditional', 'unconditional']).optional(),

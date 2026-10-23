@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
-import { readSolverRunState, writeSolverRunState, type SolverRunState } from '../src/solver/archive';
+import { readSolverRunState, writeSolverRunState, type DispatchWaitObservation, type SolverRunState } from '../src/solver/archive';
 import { buildRunInspection, exportRunPlan, readRunInspection, renderRunInspection } from '../src/solver/inspection';
 import { queueRunEdit } from '../src/solver/humanEdit';
 import { taskVersion, type TaskRecord } from '../src/solver/tasks';
@@ -53,6 +53,85 @@ describe('run inspection', () => {
     expect(report.workers[0].task).toBeUndefined();
     expect(report.workers[1].task).toBe('goal');
     expect(renderRunInspection(report)).toContain('| solver | lead | — | idle | checking |');
+  });
+
+  it('restores and renders dispatch observations without replaying their reasons or changing proof progress', () => {
+    const { state, stateFile } = fixture(), task = state.cooperation!.tasks[0].task;
+    const observation: DispatchWaitObservation = { observedAt: 1234, endedAt: 2345, planVersion: state.cooperation!.planVersion,
+      stage: 'm5-no-selection', candidateCount: 3, omittedCandidates: 2,
+      candidates: [{ taskId: task.id, taskDigest: taskVersion(task), reason: 'owner' }] };
+    state.workers![1].scheduling = { status: 'stopped', since: 2345, wait: observation };
+    writeSolverRunState(stateFile, state);
+    const restored = readSolverRunState(stateFile), before = JSON.stringify(restored), report = buildRunInspection(restored);
+    // The task has no owner in this checkpoint. Inspection preserves the recorded
+    // reason rather than re-running current assignment policy to replace it.
+    expect(restored.workers![1].scheduling!.wait).toEqual(observation);
+    expect(report.workers[1].dispatchWait).toEqual({ status: 'recorded', observation });
+    expect(report.progress).toMatchObject({ checkedProofTasks: 0, conditionalProofTasks: 0, openProofTasks: ['goal'] });
+    const markdown = renderRunInspection(report);
+    expect(markdown).toContain('## Recorded dispatch waits');
+    expect(markdown).toContain(`| engineer | recorded | m5-no-selection | ${new Date(1234).toISOString()} | ${new Date(2345).toISOString()} | version-1 | 1 / 3 (2 omitted) | goal@${taskVersion(task)}: owner |`);
+    expect(markdown).toContain('Ended at timestamp marks a completed historical observation');
+    expect(markdown).toContain('scheduling is not replayed');
+    expect(markdown).toContain('not the start of a cause or a waiting duration');
+    expect(JSON.stringify(restored)).toBe(before);
+  });
+
+  it('leaves older idle records unknown without inferring a cause or observation time from scheduling.since', () => {
+    const { state, stateFile } = fixture();
+    state.workers![1].scheduling = { status: 'idle', since: 1000 };
+    writeSolverRunState(stateFile, state);
+    const report = buildRunInspection(readSolverRunState(stateFile)), markdown = renderRunInspection(report);
+    expect(report.workers[1].dispatchWait).toEqual({ status: 'unknown' });
+    expect(markdown).toContain('| engineer | unknown | — | — | — | — | — | not recorded |');
+    expect(markdown).not.toContain(new Date(1000).toISOString());
+    expect(markdown).toContain('absent observations remain unknown');
+  });
+
+  it.each(['plan-changed', 'task-revised', 'task-missing'] as const)
+  ('marks a recorded wait stale when %s while retaining the original observation', mode => {
+    const { state } = fixture(), task = state.cooperation!.tasks[0].task;
+    const observation: DispatchWaitObservation = { observedAt: 1234, planVersion: state.cooperation!.planVersion,
+      stage: 'host-filtered', candidateCount: 1, omittedCandidates: 0,
+      candidates: [{ taskId: task.id, taskDigest: taskVersion(task), reason: 'synchronizing' }] };
+    state.workers![1].scheduling = { status: 'idle', since: 1000, wait: observation };
+    if (mode === 'plan-changed') state.cooperation!.planVersion = 'version-2';
+    else if (mode === 'task-revised') state.cooperation!.tasks[0].task = { ...task, revision: 1 };
+    else state.cooperation!.tasks = [];
+    const report = buildRunInspection(state);
+    expect(report.workers[1].dispatchWait).toEqual({ status: 'stale', observation });
+    expect(renderRunInspection(report)).toContain('| engineer | stale | host-filtered |');
+    expect(report.progress.checkedProofTasks).toBe(0);
+  });
+
+  it('retains a recorded budget gate without claiming a plan identity was recorded', () => {
+    const { state, stateFile } = fixture();
+    const observation: DispatchWaitObservation = { observedAt: 1234, stage: 'budget-gated', gate: 'turn-limit',
+      candidateCount: 0, omittedCandidates: 0, candidates: [] };
+    state.cooperation = undefined;
+    state.workers![1].scheduling = { status: 'idle', since: 1000, wait: observation };
+    writeSolverRunState(stateFile, state);
+    const report = buildRunInspection(readSolverRunState(stateFile));
+    expect(report.workers[1].dispatchWait).toEqual({ status: 'recorded', observation });
+    expect(renderRunInspection(report)).toContain(`| engineer | recorded | budget-gated / turn-limit | ${new Date(1234).toISOString()} | — | unrecorded | 0 / 0 | none recorded |`);
+    expect(report.progress.checkedProofTasks).toBe(0);
+  });
+
+  it.each(['unknown-reason', 'missing-task-digest', 'negative-time', 'inconsistent-count', 'oversized-candidates'] as const)
+  ('rejects a malformed dispatch observation: %s', mode => {
+    const { state, stateFile } = fixture(), task = state.cooperation!.tasks[0].task;
+    const observation: DispatchWaitObservation = { observedAt: 1234, stage: 'm5-no-selection',
+      candidateCount: 1, omittedCandidates: 0,
+      candidates: [{ taskId: task.id, taskDigest: taskVersion(task), reason: 'owner' }] };
+    const invalid = JSON.parse(JSON.stringify(observation));
+    if (mode === 'unknown-reason') invalid.candidates[0].reason = 'dependencies';
+    else if (mode === 'missing-task-digest') delete invalid.candidates[0].taskDigest;
+    else if (mode === 'negative-time') invalid.observedAt = -1;
+    else if (mode === 'inconsistent-count') invalid.candidateCount = 2;
+    else { invalid.candidates = Array.from({ length: 17 }, () => invalid.candidates[0]); invalid.candidateCount = 17; }
+    state.workers![1].scheduling = { status: 'idle', since: 1000, wait: invalid };
+    writeSolverRunState(stateFile, state);
+    expect(() => readSolverRunState(stateFile)).toThrow('math_resume_state_invalid:workers.1.scheduling.wait');
   });
 
   it('shows pinned knowledge activation and observations after restore without claiming current proof acceptance', () => {

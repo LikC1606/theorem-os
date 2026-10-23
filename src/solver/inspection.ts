@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { readSolverRunState, type SolverRunState } from './archive';
+import { readSolverRunState, type DispatchWaitObservation, type SolverRunState } from './archive';
 import { canonicalMathJson, mathDigest, readMathJson } from '../math/mathRuntimeIo';
 import { taskGroup, taskVersion, type TaskRecord } from './tasks';
 import { researchFailureCategory } from './modules/search';
@@ -8,6 +8,8 @@ import { buildProofContinuation, recordedTaskProofStatus } from './progress';
 import { researchHandoffs } from './researchHandoffs';
 import { buildTokenBudget } from './usageBudget';
 import { captureObligationSnapshot } from './obligationProgress';
+import type { ContributionObservation, ResearchContributionFlow } from './contributionFlow';
+import type { StoredRunInspectionArtifacts } from './storedRunInspection';
 
 /** Binds a report to the stored observation; this does not replay or accept its proof evidence. */
 export function runInspectionSnapshot(state: SolverRunState, result?: Record<string, unknown>) {
@@ -39,6 +41,14 @@ function proofRecord(node: TaskRecord, state: SolverRunState) {
     receiptIds: proof.verification.results.map(result => result.receiptId).filter(Boolean),
     actualReferences: proof.references,
   };
+}
+
+function dispatchWaitRecord(state: SolverRunState, observation?: DispatchWaitObservation) {
+  if (!observation) return { status: 'unknown' as const };
+  const stale = observation.planVersion !== undefined && observation.planVersion !== state.cooperation?.planVersion ||
+    observation.candidates.some(candidate => !state.cooperation?.tasks.some(node =>
+      node.task.id === candidate.taskId && taskVersion(node.task) === candidate.taskDigest));
+  return { status: stale ? 'stale' as const : 'recorded' as const, observation };
 }
 
 export function buildRunInspection(state: SolverRunState, result?: Record<string, unknown>) {
@@ -111,6 +121,7 @@ export function buildRunInspection(state: SolverRunState, result?: Record<string
       id: worker.id, role: worker.role, sessionRole: 'sessionRole' in worker ? worker.sessionRole : undefined,
       phase: worker.phase, turns: worker.turns,
       scheduling: 'scheduling' in worker ? worker.scheduling : undefined,
+      dispatchWait: dispatchWaitRecord(state, 'scheduling' in worker ? worker.scheduling?.wait : undefined),
       usage: worker.usage,
       lastActivity: worker.lastActivity,
       lastFailure: worker.lastFailure && { ...worker.lastFailure, category: researchFailureCategory(worker.lastFailure.reason) },
@@ -138,11 +149,122 @@ export function exportRunPlan(state: SolverRunState) {
     ...(state.cooperation.proofRoutes?.length ? { proofRoutes: state.cooperation.proofRoutes } : {}) };
 }
 
-type Inspection = ReturnType<typeof buildRunInspection>;
+type Inspection = ReturnType<typeof buildRunInspection> & {
+  artifacts?: StoredRunInspectionArtifacts;
+  contributionFlow?: ResearchContributionFlow;
+};
 const cell = (value: unknown) => String(value ?? '—').replaceAll('|', '\\|').replace(/[\r\n]+/gu, ' ').replaceAll('`', "'");
 const table = (headers: string[], rows: unknown[][]) => [headers, headers.map(() => '---'), ...rows]
   .map(row => `| ${row.map(cell).join(' | ')} |`).join('\n');
 const section = (title: string, text: string) => `\n## ${title}\n\n${text}\n`;
+
+function observation(value: ContributionObservation<number>, suffix = ''): string {
+  return value.status === 'recorded' ? String(value.value) + suffix : value.status + ' (' + value.reason + ')';
+}
+
+function renderStoredArtifacts(artifacts: StoredRunInspectionArtifacts): string {
+  const journal = artifacts.journal;
+  let text = section('Stored artifacts', table(['State', 'Result', 'Journal source', 'Read status', 'Run binding', 'Coverage'], [[
+    artifacts.stateFile, artifacts.resultFile ?? 'absent', journal.source, journal.status, journal.runBinding, journal.coverage,
+  ]]));
+  if (journal.file) text += '\nJournal: ' + cell(journal.file) + '; prefix digest: ' + (journal.digest ?? 'unknown') +
+    '; bytes: ' + journal.bytesRead + '; ignored lines: ' + journal.ignoredLines +
+    '; prefix limited: ' + journal.truncated + '; incomplete tail bytes: ' + journal.incompleteTailBytes + '.\n';
+  if (journal.batchFile) text += '\nBatch mapping: ' + cell(journal.batchFile) + '.\n';
+  if (journal.diagnostics.length) text += '\nJournal diagnostics: ' + journal.diagnostics.map(cell).join(', ') + '.\n';
+  text += '\nState and journal are separate observations; the captured prefix does not establish complete event coverage.\n';
+  const continuation = artifacts.continuation;
+  if (continuation.status === 'recorded') {
+    text += section('Frozen continuation source', table(['Source run', 'Frozen state digest', 'Source build', 'Source method', 'Source commit', 'Source plan'], [[
+      continuation.source.runId, continuation.source.stateDigest, continuation.source.buildDigest, continuation.source.methodDigest,
+      continuation.source.canonicalCommit, continuation.source.planVersion,
+    ]]));
+    text += '\nSnapshot: ' + continuation.snapshotDigest + '; seed-history: ' + continuation.attachment.sha256 +
+      '; captured at: ' + continuation.capturedAt + '; evidence: ' + continuation.evidence + '.\n';
+    text += '\nSource state attribution: ' + cell(continuation.source.stateFile) +
+      '. Only frozen provenance is shown; historical execution is not merged into this run.\n';
+  } else if (continuation.status === 'unknown') text += section('Frozen continuation source',
+    'unknown (' + cell(continuation.reason) + '); snapshot: ' + continuation.snapshotDigest + '.');
+  return text;
+}
+
+function renderContributionFlow(flow: ResearchContributionFlow): string {
+  let text = section('Contribution flow', 'Evidence: ' + flow.evidence + '; journal binding: ' + flow.coverage.journal +
+    '; decision history: ' + flow.coverage.decisionHistory + '; execution history: ' + flow.coverage.executionHistory + '.');
+  text += '\nTimes are recorded Unix milliseconds; elapsed values require exact identities and both endpoints. ' +
+    'The first observed start belongs to the supplied journal prefix. Missing evidence and clock/order conflicts remain unknown or ambiguous.\n';
+  text += section('Research sources', flow.sources.length ? table([
+    'Delivery', 'Source task / version', 'Status', 'Current version', 'Created', 'Published in this run', 'Handoff aliases', 'Proposals',
+  ], flow.sources.map(source => [source.deliveryId, source.taskId + '@' + source.taskDigest, source.status, source.currentTaskVersion,
+    observation(source.created), observation(source.publication), source.handoffAliases.map(item => item.handoffId).join(', ') || 'none recorded',
+    source.proposals.map(item => item.task.id + '@' + item.taskDigest).join(', ') || 'none recorded',
+  ])) : 'No research deliveries recorded.');
+  if (flow.handoffs.length) text += section('Current handoffs', table([
+    'Handoff', 'Proposal', 'Status', 'Context', 'Activation', 'Source deliveries',
+  ], flow.handoffs.map(item => [item.id, item.proposal.id, item.status, item.contextDigest, item.activationDigest,
+    item.sources.map(source => source.deliveryId).join(', ')])));
+  text += section('Handoff decision observations', flow.decisionOccurrences.length || flow.storedDecisions.length ? table([
+    'Evidence', 'Handoff', 'Delivery', 'Decision', 'Context', 'Activation', 'Plan', 'Task / version', 'At',
+    'Publication to decision', 'Decision to first observed start',
+  ], [
+    ...flow.decisionOccurrences.map(item => ['journal line ' + item.evidence.line, item.id, item.deliveryId, item.status,
+      item.contextDigest, item.activationDigest, item.planVersion,
+      item.taskId ? item.taskId + '@' + item.taskDigest : 'none recorded', observation(item.at),
+      observation(item.publicationToDecisionMs, ' ms'), observation(item.decisionToFirstObservedStartMs, ' ms')]),
+    ...flow.storedDecisions.map(item => [item.evidence.path + ' (stored latest)', item.id, item.deliveryId, item.status,
+      item.contextDigest, 'unknown', 'unknown', item.taskId ? item.taskId + '@' + item.taskDigest : 'none recorded',
+      observation(item.at), 'unknown', 'unknown']),
+  ]) : 'No decision records available.');
+  text += '\nStored latest decisions are separate from journal occurrences. Deferred and repeated decisions remain separate; adoption creates a proof obligation.\n';
+  text += section('Versioned contribution obligations', flow.obligations.length ? table([
+    'Task / version', 'Current version', 'Execution', 'Assignments', 'Check IDs', 'Planned consumers',
+    'Proof consumers', 'Statement consumers', 'Conditional consumers', 'Reference coverage',
+  ], flow.obligations.map(item => [item.taskId + '@' + item.taskDigest, item.currentTaskVersion, item.status,
+    item.attempts.length, item.checkIds.join(', ') || 'none recorded', item.uses?.plannedConsumers.join(', ') || 'none recorded',
+    item.uses?.proofConsumers.join(', ') || 'none recorded', item.uses?.statementConsumers.join(', ') || 'none recorded',
+    item.uses?.conditionalConsumers.join(', ') || 'none recorded', item.referenceCoverage,
+  ])) : 'No typed contribution obligations recorded.');
+  const attempts = [...new Map([
+    ...flow.obligations.flatMap(item => item.attempts), ...flow.sources.flatMap(item => item.attempts),
+  ].map(attempt => [JSON.stringify([attempt.assignmentKey, attempt.taskId, attempt.taskDigest]), attempt])).values()];
+  if (attempts.length) {
+    text += section('Contribution execution observations', table([
+      'Task / version', 'Assignment', 'Worker', 'Identity', 'Assignment occurrences', 'Assigned',
+      'Observed starts', 'First observed start', 'Assignment to start',
+    ], attempts.map(item => [item.taskId + '@' + item.taskDigest, item.assignmentKey, item.workerId,
+      item.identity.status, item.assignments.length, observation(item.assigned), item.starts.length,
+      observation(item.firstObservedStart), observation(item.assignedToFirstObservedStartMs, ' ms')])));
+    const starts = attempts.flatMap(item => item.starts.map(start => [item.assignmentKey, start.turnId, start.threadId, observation(start.at),
+      start.evidence.kind === 'journal' ? 'journal line ' + start.evidence.line : start.evidence.path]));
+    if (starts.length) text += section('Recorded task starts', table(['Assignment', 'Turn', 'Thread', 'At', 'Evidence'], starts));
+    const readiness = attempts.flatMap(item => item.ready.map(ready => [ready.id, item.taskId + '@' + item.taskDigest,
+      item.assignmentKey, ready.status, ready.evidenceKind, JSON.stringify(ready.conditions), ready.snapshotCommit,
+      observation(ready.requested), observation(ready.frozen), ready.checkIds.join(', ') || 'none recorded',
+      observation(ready.readyToCheckMs, ' ms'), observation(ready.frozenToCheckMs, ' ms')]));
+    if (readiness.length) text += section('Readiness and frozen checks', table([
+      'Ready ID', 'Task / version', 'Assignment', 'Status', 'Evidence kind', 'Conditions', 'Snapshot',
+      'Requested', 'First frozen', 'Check IDs', 'Ready to verification start', 'Frozen to verification start',
+    ], readiness));
+  }
+  if (flow.checks.length) text += section('Contribution check observations', table([
+    'Check ID', 'Task / version', 'Source commit', 'Lean receipts', 'Stored as / proof status', 'Ready IDs',
+    'Evidence kind', 'Conditions', 'Verification start', 'Verification end', 'Integrated', 'Check duration', 'Check end to integration',
+  ], flow.checks.map(item => [item.id, item.taskId + '@' + (item.taskDigest ?? 'unknown'), item.commit,
+    item.receiptIds.join(', ') || 'unknown', item.storedAs.map(record => record.kind + ': ' + record.recordedProof).join('; '),
+    item.readyIds.join(', ') || 'none recorded', item.evidenceKind, JSON.stringify(item.conditions),
+    observation(item.started), observation(item.checked), observation(item.integrated),
+    observation(item.checkDurationMs, ' ms'), observation(item.checkedToIntegratedMs, ' ms')]))) +
+    '\nA stored check can appear at multiple paths under one Check ID. Ready IDs identify submissions; Lean receipts identify checks. ' +
+    'Worker snapshots and merged commits are connected only by their exact recorded check identities. Cached verification can predate readiness; no waiting time is inferred in that case.\n';
+  if (flow.modelReportedUses.length) text += section('Model-reported contribution origins', table([
+    'Entry', 'Consumer', 'Declaration', 'Status', 'Origin', 'Delivery',
+  ], flow.modelReportedUses.map(item => [item.id, item.consumer?.taskId, item.declaration?.name, item.status, item.attribution,
+    'deliveryId' in item ? item.deliveryId : 'run-original']))) +
+    '\nReported origins do not establish historical authorship. Recorded proof, statement and conditional consumers are shown separately above.\n';
+  if (flow.unresolved.length) text += section('Unresolved contribution records', table(['Event', 'Evidence', 'Reason'],
+    flow.unresolved.map(item => [item.event, item.evidence.kind === 'journal' ? 'journal line ' + item.evidence.line : item.evidence.path, item.reason])));
+  return text;
+}
 
 export function renderRunInspection(report: Inspection): string {
   let text = '# Mathematics research run\n\nStored evidence only; this report does not rerun Lean or grant proof acceptance.\n';
@@ -154,6 +276,8 @@ export function renderRunInspection(report: Inspection): string {
     report.tokenBudget.maxTotalTokens || 'unlimited', report.tokenBudget.reportedTotalTokens,
     report.tokenBudget.usageComplete, report.tokenBudget.overrunTokens, report.tokenBudget.status]]));
   text += '\nThe allowance stops new model turns using provider reports. In-flight turns may exceed it; missing reports leave consumption incomplete. No monetary cost is inferred.\n';
+  if (report.artifacts) text += renderStoredArtifacts(report.artifacts);
+  if (report.contributionFlow) text += renderContributionFlow(report.contributionFlow);
   const knowledgeUses = [...report.knowledge.originalUses, ...report.knowledge.uses];
   text += section('Knowledge observations', table(['Catalog', 'Retrieval coverage', 'Included sections', 'Omitted sections', 'Reported attempts', 'Checked references'], [[
     report.knowledge.status, report.knowledge.retrievalCoverage,
@@ -215,6 +339,19 @@ Waiting is a scheduling state, not a mathematical failure. An abandoned or rejec
   text += section('Workers', table(['Worker', 'Role', 'Session role', 'Scheduling', 'Phase', 'Task', 'Last activity', 'At'], report.workers.map(worker => [
     worker.id, worker.role, worker.sessionRole, worker.scheduling?.status ?? 'unknown', worker.phase, worker.task, worker.lastActivity?.event,
     worker.lastActivity ? new Date(worker.lastActivity.at).toISOString() : undefined])));
+  text += section('Recorded dispatch waits', table([
+    'Worker', 'Observation', 'Stage / gate', 'Observed at', 'Ended at', 'Plan version', 'Candidates shown / total', 'Recorded exclusions',
+  ], report.workers.map(worker => {
+    const wait = worker.dispatchWait.observation;
+    return [worker.id, worker.dispatchWait.status, wait && `${wait.stage}${wait.gate ? ` / ${wait.gate}` : ''}`,
+      wait && new Date(wait.observedAt).toISOString(), wait?.endedAt !== undefined ? new Date(wait.endedAt).toISOString() : undefined,
+      wait && (wait.planVersion ?? 'unrecorded'),
+      wait && `${wait.candidates.length} / ${wait.candidateCount}${wait.omittedCandidates ? ` (${wait.omittedCandidates} omitted)` : ''}`,
+      wait ? wait.candidates.map(candidate => `${candidate.taskId}@${candidate.taskDigest}: ${candidate.reason}`).join('; ') || 'none recorded'
+        : 'not recorded'];
+  }))) + '\nThese are stored dispatch observations; scheduling is not replayed. Stale means a recorded plan or task identity differs from this checkpoint. ' +
+    'An Ended at timestamp marks a completed historical observation. Observed at is an observation time, not the start of a cause or a waiting duration. ' +
+    'No reason is inferred from scheduling.since; absent observations remain unknown.\n';
   const recoveries = report.workers.filter(worker => worker.recovery);
   if (recoveries.length) text += section('Session recovery', table([
     'Worker', 'Recovery', 'Category', 'Reason', 'Cycles', 'Next retry', 'Waited ms',

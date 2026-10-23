@@ -24,11 +24,17 @@ import { currentCapacityExploration } from './capacityExploration';
 /** Lead plan acceptance, plan identity and original-goal frontier recovery. */
 export abstract class CooperationPlanning extends CooperationIntegration {
   /** Stage control decisions with the accepted graph before its first durable checkpoint. */
-  protected recordAdvisoryDecisions({ handoffs, challenges }: AdvisoryDecisions, save = true) {
+  protected recordAdvisoryDecisions({ handoffs, challenges }: AdvisoryDecisions, save = true,
+    action?: Extract<CooperativeAction, { kind: 'lead' | 'assemble' }>) {
     const upsert = <Decision extends { id: string }>(previous: readonly Decision[] | undefined, decisions: readonly Decision[],
       event: string) => {
       const records = new Map(previous?.map(item => [item.id, item]));
-      for (const decision of decisions) { records.set(decision.id, decision); this.input.emit(event, { ...decision }); }
+      for (const decision of decisions) {
+        records.set(decision.id, decision);
+        const activationDigest = event === 'research_handoff_decided' ? action?.handoffActivations?.[decision.id] : undefined;
+        this.input.emit(event, { ...decision, ...(event === 'research_handoff_decided'
+          ? { planVersion: this.archive.planVersion } : {}), ...(activationDigest ? { activationDigest } : {}) });
+      }
       return [...records.values()];
     };
     if (handoffs.length) {
@@ -368,7 +374,8 @@ export abstract class CooperationPlanning extends CooperationIntegration {
   }
   protected async acceptPlan(plan = readCooperationPlan(this.input.state.problem, this.lead.worktree), edit?: HumanEditRecord,
     publication?: { action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' }>;
-      receipt: Omit<InitialPlanPublication, 'planVersion'> }, decisions?: AdvisoryDecisions) {
+      receipt: Omit<InitialPlanPublication, 'planVersion'> }, decisions?: AdvisoryDecisions,
+    decisionAction?: Extract<CooperativeAction, { kind: 'lead' | 'assemble' }>) {
     this.includeCapacityExplorations(plan);
     const { tasks, groups, proofRoutes } = plan;
     const publicationResponseDigest = publication ? this.proposedPlanDigest(
@@ -456,7 +463,7 @@ export abstract class CooperationPlanning extends CooperationIntegration {
       this.publishedPlans.set(publication.action, { plan, version: this.archive.planVersion,
         responseDigest: publicationResponseDigest! });
     }
-    if (decisions) this.recordAdvisoryDecisions(decisions, false);
+    if (decisions) this.recordAdvisoryDecisions(decisions, false, publication?.action ?? decisionAction);
     // Preserve a Lead's own initial publication, but reclaim turns superseded by a newer plan.
     for (const active of this.active.values()) if (active.action.kind === 'lead' && !this.current(active.action) && !active.cancelled) {
       active.cancelled = true; void active.interrupt().catch(() => {});

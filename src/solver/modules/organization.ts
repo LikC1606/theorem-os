@@ -9,6 +9,14 @@ import { capacityExplorationWorkerCanTask } from '../capacityExploration';
 export const MAX_RESEARCH_WORKERS = 8;
 export type ResearchRole = 'lead' | 'researcher' | 'prover' | 'engineer' | 'reviewer';
 export type ResearchWorker = Readonly<{ id: string; role: ResearchRole; worktree: string; ownedFiles: readonly string[] }>;
+export type ResponsibilityContext = Readonly<{
+  tasks: readonly TaskRecord[];
+  groups?: readonly RouteRecord[];
+}>;
+export type ResponsibilityAssessment =
+  | Readonly<{ kind: 'matches' }>
+  | Readonly<{ kind: 'blocked'; reason: 'role' | 'engineer' | 'owner' | 'saved-assignment' |
+      'review-independence' | 'running-duplicate' }>;
 
 /** Researchers and the Engineer retain their general task eligibility; Provers write typed helpers. */
 export function researchWorkerCanTask(worker: Pick<ResearchWorker, 'role'>, task: CooperativeTask): boolean {
@@ -35,7 +43,7 @@ export function researchRouteGroups(groups: readonly RouteGroup[], workers: read
     ? { ...group, maxConcurrent: defaultResearchRouteConcurrency(workers) } : { ...group });
 }
 
-export function independentFeasibilityWorker(node: TaskRecord, worker: ResearchWorker,
+export function independentFeasibilityWorker(node: TaskRecord, worker: Pick<ResearchWorker, 'id' | 'role'>,
   tasks: readonly TaskRecord[], groups?: readonly RouteRecord[]): boolean {
   if (!isFeasibilityReview(node.task)) return true;
   if (worker.role === 'lead') return false;
@@ -47,14 +55,24 @@ export function independentFeasibilityWorker(node: TaskRecord, worker: ResearchW
   });
 }
 
+/** First responsibility mismatch only; matching does not establish readiness or proof acceptance. */
+export function assessTaskResponsibility(node: TaskRecord, worker: Pick<ResearchWorker, 'id' | 'role'>,
+  { tasks, groups }: ResponsibilityContext): ResponsibilityAssessment {
+  if (!researchWorkerCanNode(worker, node)) return { kind: 'blocked', reason: 'role' };
+  const engineerId = node.task.kind === 'goal'
+    ? groups?.find(route => route.group.id === taskGroup(node.task))?.group.engineerId : undefined;
+  if (engineerId && engineerId !== worker.id) return { kind: 'blocked', reason: 'engineer' };
+  if (node.task.ownerId && node.task.ownerId !== worker.id) return { kind: 'blocked', reason: 'owner' };
+  if (node.assignment && node.assignment.workerId !== worker.id) return { kind: 'blocked', reason: 'saved-assignment' };
+  if (!independentFeasibilityWorker(node, worker, tasks, groups)) return { kind: 'blocked', reason: 'review-independence' };
+  if (hasRunningDuplicateQuestion(node, tasks)) return { kind: 'blocked', reason: 'running-duplicate' };
+  return { kind: 'matches' };
+}
+
 function eligibleResearchTasks(ready: readonly TaskRecord[], worker: ResearchWorker, groups?: readonly RouteRecord[],
   tasks: readonly TaskRecord[] = ready): TaskRecord[] {
-  return ready.filter(node =>
-    researchWorkerCanNode(worker, node) &&
-    (node.task.kind !== 'goal' || !groups?.find(route => route.group.id === taskGroup(node.task))?.group.engineerId ||
-      groups.find(route => route.group.id === taskGroup(node.task))!.group.engineerId === worker.id) &&
-    (!node.task.ownerId || node.task.ownerId === worker.id) && (!node.assignment || node.assignment.workerId === worker.id) &&
-    independentFeasibilityWorker(node, worker, tasks, groups) && !hasRunningDuplicateQuestion(node, tasks));
+  const context = { tasks, groups };
+  return ready.filter(node => assessTaskResponsibility(node, worker, context).kind === 'matches');
 }
 
 /** Share ranked work, reserving a final available slot for independent work when the main frontier is occupied. */

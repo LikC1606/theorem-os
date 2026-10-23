@@ -179,13 +179,23 @@ bun run math continuation-seed \
 
 ```bash
 bun run math inspect --run "$MATH_RUN_ROOT/result.json"
+bun run math inspect --run "$MATH_RUN_ROOT/result.json" --batch /path/to/batch.json --format json
+bun run math inspect --run "$MATH_RUN_ROOT/result.json" --log /path/to/run.log
 bun run math inspect --run "$MATH_RUN_ROOT/result.json" \
   --format plan --output "$MATH_RUN_ROOT/plan.json"
 ```
 
 报告按路线和任务展示目标、负责人、已存档的证明检查、条件性依赖、声明回译、审阅与卡点。`inspect` 不调用模型或重跑 Lean；JSON 格式可用 `--format json` 导出。运行中尚未生成结果文件时，也可读取同一路径对应的 checkpoint。
 
+`contributionFlow` 串联研究 delivery、handoff alias、逐次决定、精确任务版本、assignment、启动、ready、冻结、检查、集成与消费者引用。`--batch` 只接受唯一匹配当前结果绝对路径的 job，并读取其中的绝对 log 路径；也可用互斥的 `--log` 指定日志。未提供日志时仍展示存档成果，缺失时间保持 `unknown`；冲突记录或重复派发保持 `ambiguous`。不按 worker 相似性或时间接近猜测连接，不将缺失耗时补为零。
+
+日志最多读取首次打开时已存在的 16 MiB 前缀，只解析完整行；无法读取、未绑定本 run、非 JSON 行、截断与尾部半行均在 `artifacts.journal` 中展示。历史 coverage 始终不承诺完整。决定到首次观察启动的耗时要求原 activation、context、相同已接纳 planVersion、精确 task/version 与 assignment/start 顺序；其他旧记录可能仍为未知。检查耗时来自固定 verification 回执，缓存回执早于 ready 时不推算排队耗时。
+
+`artifacts.continuation` 只从当前运行的冻结 snapshot 与 `seed-history` 展示源 run/state/build/commit 身份，不跟随旧 stateFile，也不合并同名任务执行史。消费者的计划依赖、证明引用、声明引用和条件性使用分别展示；模型自报来源单列。所有内容均为 `recorded-not-replayed`，不提供新的 M2/S3 验收。`--format plan` 保持原计划导出路径，不读取日志或续跑附件。
+
 协作报告的 `scheduling` 来自实际调度记录，区分执行、类型预检、停止中、空闲和已停止，并分别统计证明 assignment。`phase` 和上一线程的任务名不再充当活跃并发数。报告是存档观察；是否取得数学进展仍看新的检查收据与研究交付。
+
+`Recorded dispatch waits` 展示实际派发时记录的未选中原因，包括 owner／已保存 assignment 限制、宿主准备、策略未选中和预算门控。JSON 中为 `workers[].dispatchWait`：`recorded` 表示已有历史观察，`stale` 表示记录的计划或任务身份已不匹配，`unknown` 表示未记录。观察和结束时间不等于某个原因的完整持续时间，也不授权派发；旧运行不会通过重跑调度补写原因。实现与离线基线见 [Agensh 吸收计划](agensh-adoption-plan.md)。
 
 报告还会分别记录数学义务闭合、原题前沿变化、替代路线与局部障碍重开。局部阻塞、必需上下文与省略清单、`proofRoutes` 的 AND／OR 规则见[协作路线、上下文与数学进展](cooperative-proof-routes.md)。
 

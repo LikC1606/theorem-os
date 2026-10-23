@@ -82,7 +82,10 @@ export class WorkerProofLifecycle {
     const delivery = await cooperation.deliver(worker, assignment, ready.snapshotCommit);
     research.check = delivery.check;
     cooperation.proofReadyCompleted(worker, assignment, delivery.check);
-    emit('proof_ready_checked', { receiptId: ready.id, commit: ready.snapshotCommit,
+    emit('proof_ready_checked', { receiptId: ready.id, readyId: ready.id, taskId: ready.taskId, taskDigest: ready.taskDigest,
+      workerId: ready.workerId, assignmentKey: ready.assignmentKey, seedCommit: ready.seedCommit,
+      commit: ready.snapshotCommit, sourceDigest: ready.sourceDigest,
+      receiptIds: delivery.check?.verification.results.map(result => result.receiptId),
       passed: delivery.check?.passed === true, conditional: ready.evidence === 'conditional' });
     checked(); save();
   }

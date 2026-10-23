@@ -263,6 +263,13 @@ describe('capacity exploration continuation seeds', () => {
   it('carries complete immutable notes through another build after live delivery records were cleared', async () => {
     const f = fixture(), node = addExploration(f, 'interface', 'completed'), delivered = publishNotes(f, node); saveSource(f);
     await f.seed();
+    const seeded = readSolverRunState(f.stateFile);
+    expect(seeded.cooperation!.deliveries).toEqual([expect.objectContaining({ id: 'capacity-research-delivery',
+      taskId: node.task.id, taskDigest: taskVersion(node.task), kind: 'research', status: 'advisory', commit: delivered.notesCommit })]);
+    // Continuation preserves advisory publication provenance. Explicitly remove
+    // the live record to exercise recovery from the immutable notes attachment.
+    seeded.cooperation!.deliveries = [];
+    writeSolverRunState(f.stateFile, seeded);
     expect(readSolverRunState(f.stateFile).cooperation!.deliveries).toEqual([]);
     const directory = path.join(f.root, 'next.json.runtime'); fs.mkdirSync(directory, { mode: 0o700 });
     const worktree = path.join(directory, 'worktree');

@@ -8,7 +8,7 @@ import { canonicalMathJson, mathDigest, writeMathJsonDurable } from '../math/mat
 import type { SolverRunState, SolverWorkerState } from './archive';
 import { commitSolverSources, git } from './problem';
 import { CooperativeResearch } from './cooperation';
-import { isFeasibilityReview, taskGroup, type CooperativeAction } from './tasks';
+import { assignmentDeliveryFile, isFeasibilityReview, taskGroup, type CooperativeAction } from './tasks';
 import { isStatementAction } from './statementReview';
 import { rememberSolverFailure, solverSourceFeedback } from './feedback';
 import type { SolverModules } from './modules';
@@ -709,7 +709,10 @@ export async function runResearchWorkers(input: {
           emit('research_action', { operation: action.operation, reason: action.reason });
           readMathBuildManifest(input.buildFile, input.root, path.join(input.root, 'out', 'main'));
           const onStarted = (turnId: string) => {
-            emit('turn_started', { turnId, turn: research.turns, totalTurns: state.turns });
+            emit('turn_started', { turnId, threadId: session?.threadId, turn: research.turns, totalTurns: state.turns,
+              ...(assignment?.kind === 'task' ? { taskId: assignment.task.id, taskDigest: assignment.assignment.taskDigest,
+                assignmentKey: assignmentDeliveryFile(assignment.assignment), seedCommit: assignment.assignment.seedCommit }
+                : assignment ? { seedCommit: assignment.seedCommit } : {}) });
             if (assignment && cooperation && !cooperation.current(assignment)) void session?.interrupt().catch(() => {});
           };
           if (assignment && isStatementAction(assignment)) {

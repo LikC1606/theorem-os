@@ -24,10 +24,11 @@ describe('host-owned proof readiness intake', () => {
   let directory: string, problem: SolverProblem, state: SolverRunState, workers: ResearchWorker[];
   let cooperative: CooperativeResearch, action: TaskAction, callback: ReturnType<typeof vi.fn>;
   let instances: { cooperative: CooperativeResearch; controller: AbortController }[], saves: SolverRunState[];
+  let events: { event: string; details?: Record<string, unknown> }[];
   const create = () => {
     const controller = new AbortController();
     const value = cooperativeResearch({ state, workers, retrievalRoot: directory, signal: controller.signal,
-      save: () => saves.push(structuredClone(state)) });
+      save: () => saves.push(structuredClone(state)), emit: (event, details) => events.push({ event, details }) });
     instances.push({ cooperative: value, controller }); return value;
   };
   const source = () => path.join(workers[1].worktree, problem.projectRelative, 'Submission.lean');
@@ -59,9 +60,10 @@ describe('host-owned proof readiness intake', () => {
     state = solverState(problem, example.workspace, { runId: 'ready-intake', phase: 'running', failures: [],
       cooperation: { canonicalCommit: problem.baseCommit, tasks: plan.tasks.map(task => ({ task, status: 'pending', attempts: 0 })),
         groups: plan.groups.map(group => ({ group, turns: 0 })) } });
-    instances = []; saves = []; callback = vi.fn(async () => {});
+    instances = []; saves = []; events = []; callback = vi.fn(async () => {});
     host.verify.mockReset().mockImplementation(async request => verifiedBatch(request, { sessionId: 'ready-intake' }));
     cooperative = create();
+    state.cooperation!.planVersion = (cooperative as any).planVersion();
     const assigned = await cooperative.next(workers[1], { maxTurns: Infinity, remainingMs: Infinity });
     if (assigned?.kind !== 'task') throw new Error('fixture_missing_assignment');
     action = assigned; expect(cooperative.started(workers[1], action)).toBe(true); activate();
@@ -87,6 +89,10 @@ describe('host-owned proof readiness intake', () => {
   });
 
   it('freezes and checks one immutable snapshot and never rechecks duplicate completed ready events', async () => {
+    expect(events.find(item => item.event === 'task_assigned')?.details).toMatchObject({
+      taskId: action.task.id, taskDigest: action.assignment.taskDigest,
+      assignmentKey: assignmentDeliveryFile(action.assignment), planVersion: state.cooperation!.planVersion,
+    });
     append(); await cooperative.pulse(workers[1].id);
     const commit = saveHelper();
     expect(cooperative.proofReadyFrozen(workers[1], action, commit)).toMatchObject({ status: 'frozen', snapshotCommit: commit });
@@ -139,9 +145,20 @@ describe('host-owned proof readiness intake', () => {
 
   it('restores a fixed snapshot independently of later live edits and refuses to replace its commit', async () => {
     append(); await cooperative.pulse(workers[1].id); const commit = saveHelper();
-    cooperative.proofReadyFrozen(workers[1], action, commit); reload();
+    const frozen = cooperative.proofReadyFrozen(workers[1], action, commit)!;
+    expect(frozen.frozenAt).toEqual(expect.any(Number));
+    const frozenAt = frozen.frozenAt;
+    reload();
     fs.appendFileSync(source(), '\n-- a later live edit\n');
-    expect(cooperative.pendingProofReady(workers[1], action)).toMatchObject({ status: 'frozen', snapshotCommit: commit });
+    const now = vi.spyOn(Date, 'now').mockReturnValue(frozenAt! + 1000);
+    expect(cooperative.proofReadyFrozen(workers[1], action, commit)).toMatchObject({
+      status: 'frozen', snapshotCommit: commit, frozenAt });
+    now.mockRestore();
+    expect(events.filter(item => item.event === 'proof_ready_frozen')).toEqual([{ event: 'proof_ready_frozen', details: {
+      readyId: frozen.id, taskId: action.task.id, taskDigest: action.assignment.taskDigest, workerId: workers[1].id,
+      assignmentKey: assignmentDeliveryFile(action.assignment), seedCommit: action.assignment.seedCommit,
+      commit, snapshotCommit: commit, sourceDigest: frozen.sourceDigest, frozenAt,
+    } }]);
     expect(() => cooperative.proofReadyFrozen(workers[1], action, problem.baseCommit)).toThrow('math_proof_ready_snapshot_changed');
     expect(host.verify).not.toHaveBeenCalled();
   });

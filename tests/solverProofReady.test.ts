@@ -141,6 +141,18 @@ describe('runner proof readiness freeze barrier', () => {
     expect(committedSource(current.writer.worktree, request.targetCommit, current.problem.projectRelative + '/Submission.lean'))
       .toContain('by rfl');
     expect(current.state.cooperation!.tasks[0].proof?.passed).toBe(true);
+    const taskIdentity = { taskId: ready.taskId, taskDigest: ready.taskDigest, workerId: ready.workerId,
+      assignmentKey: ready.assignmentKey, seedCommit: ready.seedCommit };
+    expect(current.events.find(item => item.event === 'task_assigned')?.details).toMatchObject(taskIdentity);
+    expect(current.events.find(item => item.event === 'turn_started')?.details).toMatchObject({
+      ...taskIdentity, turnId: 'ready-turn-1', threadId: 'proof-ready-thread' });
+    expect(current.events.filter(item => item.event === 'proof_ready_frozen')).toMatchObject([{ details: {
+      ...taskIdentity, readyId: ready.id, commit: ready.snapshotCommit, sourceDigest: ready.sourceDigest, frozenAt: ready.frozenAt,
+    } }]);
+    const receiptIds = current.state.cooperation!.tasks[0].proof!.verification.results.map(result => result.receiptId);
+    expect(current.events.find(item => item.event === 'proof_ready_checked')?.details).toMatchObject({
+      ...taskIdentity, receiptId: ready.id, readyId: ready.id, receiptIds,
+      commit: ready.snapshotCommit, sourceDigest: ready.sourceDigest });
     expect(current.state.tokenBudget).toMatchObject({ maxTotalTokens: 0, status: 'unlimited' });
     expect(current.open.mock.calls.every(([access]) => access.turnTimeoutMs === undefined)).toBe(true);
   });
