@@ -1,0 +1,20 @@
+{
+  "schema": "theorem-os.result-file-manifest.v1",
+  "algorithm": "sha256",
+  "excludes": [
+    "manifest.json"
+  ],
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 1374,
+      "sha256": "ec23e99acaa7503dc8831b8af39f236dbdd7ae0c14a63938161e537aed0f97cd"
+    },
+    {
+      "path": "progress.json",
+      "bytes": 68842,
+      "sha256": "e91cb362f7c30fc1e95da2ffa0a99a96ef27b697638a24ff848765c9cf1ae4fa"
+    }
+  ],
+  "generatedAt": "2026-10-23T18:04:36.690902+00:00"
+}

@@ -1,6 +1,6 @@
 {
   "schema": "theorem-os.result-file-manifest.v1",
-  "generatedAt": "2026-10-22T21:22:48.429065+00:00",
+  "generatedAt": "2026-10-23T18:04:36.682541+00:00",
   "algorithm": "sha256",
   "excludes": [
     "manifest.json"
@@ -98,8 +98,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 1591,
-      "sha256": "53fde041b4341b33d70ecc59d026fe3e6749f77d187b6a559965656d19367184"
+      "bytes": 2066,
+      "sha256": "d8ee5438267c831f48acef5fb193fdba0a50f41cf2caebeae5b74305d958f30c"
     },
     {
       "path": "evidence/CertificateData.receipt.json",
@@ -182,6 +182,16 @@
       "sha256": "00dbeb959b3d605f06119871fa033add8e1d32eb9492582cfdb4582c57496ff2"
     },
     {
+      "path": "evidence/canonical-v6/original-comparator-receipt.json",
+      "bytes": 312812,
+      "sha256": "21930de4ad74c9137799542ebbeee174c86d5521e65b8c11509677e074f76009"
+    },
+    {
+      "path": "evidence/canonical-v6/publisher-pass-summary.json",
+      "bytes": 6547,
+      "sha256": "803a7e4cdb98748b681b4fbafc0a3fc1cb216624e083753debae8646b679caaf"
+    },
+    {
       "path": "lake-manifest.json",
       "bytes": 3551,
       "sha256": "9423cd5ba63b06d018d6955536ed03a4ce4087742d5cb7539c29c753729d42e8"
@@ -205,6 +215,11 @@
       "path": "provenance.json",
       "bytes": 2012,
       "sha256": "8dd110e4598e770b2bfad531a6199c166175a71aa3d0becef27387ae5551b167"
+    },
+    {
+      "path": "single-file/SubmissionCanonicalV6.lean",
+      "bytes": 968086,
+      "sha256": "94e1154db63070c8dd4b2344a5f040200fe9174937e578d95f327cd803cc9f77"
     },
     {
       "path": "verification.json",

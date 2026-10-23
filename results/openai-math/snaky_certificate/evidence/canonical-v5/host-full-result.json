@@ -1,0 +1,184 @@
+{
+  "startedAt": "2026-10-23T13:15:05.221Z",
+  "observedAt": "2026-10-23T13:58:09.380Z",
+  "standaloneHostApiCheck": true,
+  "nativeAcceptance": false,
+  "externalMathematicalAssistance": true,
+  "passed": true,
+  "sourceSHA256": "66d0cf5eecbcffcf0de7933acaec1c16da6f5ba8592173e1e9228c350663fdd7",
+  "sourceBytes": 898691,
+  "commit": "f4e136b90e15785aa63ddc052e7c8d2d52a09df7",
+  "unchangedFrozenRuntime": true,
+  "addressSpaceLimitKiB": 33554432,
+  "resourceLimitChanged": false,
+  "timeoutMs": "Infinity",
+  "entrypointControlsAdded": false,
+  "officialComparatorPassed": true,
+  "publisherReceipt": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-certificate-progress-20261023/sealed-canonical-v5-selective-native-entry-comparator-receipt.json",
+  "standaloneStageOrder": "publisher-before-host-for-complete-diagnostic-capture",
+  "verification": {
+    "schema": "deepscientist.mathematics.verification-batch/v1",
+    "sessionId": "d9027084-e33b-4f75-bb92-c5a866e7df39",
+    "status": "kernel_verified",
+    "targetCommit": "f4e136b90e15785aa63ddc052e7c8d2d52a09df7",
+    "results": [
+      {
+        "targetCommit": "f4e136b90e15785aa63ddc052e7c8d2d52a09df7",
+        "statementHash": "8f338384ede6bc495030597207cca14ecf199fb6dfd14090fb0f68cca925932f",
+        "leanStatementHash": "5ebf607f1d42c63cee7392feb23a20456ca03f4a25ee4393fb49042b5ab4d2bb",
+        "claim": "statement",
+        "proofHash": "66d0cf5eecbcffcf0de7933acaec1c16da6f5ba8592173e1e9228c350663fdd7",
+        "proofPath": "Submission.lean",
+        "theoremName": "OAI.SnakyCertificate.certificate_correct",
+        "theoremDeclarationHash": "931e30209d98b64584b6734a368f6f7312596f4c691d4bf2f02d625bf3570d17",
+        "elaboratedDeclarationType": "OAI.SnakyCertificate.certificate_correct : OAI.SnakyCertificate.TableValid ∧ OAI.SnakyCertificate.placementCount = 1837 ∧ OAI.SnakyCertificate.Output 557 (-1, 0) 118 19 {p | p.1 ≤ -3 ∧ p.2 ≤ -2} ∧ OAI.SnakyCertificate.Output 595 (-1, 0) 222 27 {p | p.1 = -2 ∧ p.2 ≤ -2} ∧ OAI.SnakyCertificate.Output 603 (-1, 0) 275 27 {p | p.1 ≤ -3 ∧ p.2 = 0} ∧ OAI.SnakyCertificate.Output 615 (1, 0) 686 34 {(1, -1)} ∧ OAI.SnakyCertificate.AllRows",
+        "sourceDeclarationHash": "ad19c4880680e09128a7d221e96514e93d68883254a4ecf27f99c4af0d6653f5",
+        "statementBinding": "caller-bound-to-committed-declaration",
+        "toolchain": {
+          "lean": "lake",
+          "lake": "lakefile.toml"
+        },
+        "goalsRemaining": 0,
+        "sorryCount": 0,
+        "admitCount": 0,
+        "axioms": [
+          "propext",
+          "Classical.choice",
+          "Quot.sound"
+        ],
+        "checkedAt": 1792763889365,
+        "checkId": "check-1",
+        "sessionId": "d9027084-e33b-4f75-bb92-c5a866e7df39",
+        "status": "kernel_verified",
+        "verifier": "lean-kernel",
+        "receiptId": "lean-e8b7b13f228efefd9bf3d47b",
+        "stdoutPreview": "DS_DECL_REFERENCES_c575e7b286d7579fa72254671f3c92c8:null\nDEEPSCIENTIST_DECL_BEGIN_5623d859f1a188dc\nOAI.SnakyCertificate.certificate_correct :\n  OAI.SnakyCertificate.TableValid ∧\n    OAI.SnakyCertificate.placementCount = 1837 ∧\n      OAI.SnakyCertificate.Output 557 (-1, 0) 118 19 {p | p.1 ≤ -3 ∧ p.2 ≤ -2} ∧\n        OAI.SnakyCertificate.Output 595 (-1, 0) 222 27 {p | p.1 = -2 ∧ p.2 ≤ -2} ∧\n          OAI.SnakyCertificate.Output 603 (-1, 0) 275 27 {p | p.1 ≤ -3 ∧ p.2 = 0} ∧\n            OAI.SnakyCertificate.Output 615 (1, 0) 686 34 {(1, -1)} ∧ OAI.SnakyCertificate.AllRows\nDEEPSCIENTIST_DECL_END_5623d859f1a188dc\nDEEPSCIENTIST_AXIOMS_BEGIN_5623d859f1a188dc\n'OAI.SnakyCertificate.certificate_correct' depends on axioms: [propext, Classical.choice, Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_5623d859f1a188dc",
+        "stderrPreview": "finition `mv_552` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13261:0: warning: Definition `mv_553` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13265:0: warning: Definition `mv_554` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13269:0: warning: Definition `mv_555` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13273:0: warning: Definition `mv_556` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13277:0: warning: Definition `mv_557` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13281:0: warning: Definition `mv_558` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13285:0: warning: Definition `mv_559` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13289:0: warning: Definition `mv_560` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13293:0: warning: Definition `mv_561` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13297:0: warning: Definition `mv_562` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13301:0: warning: Definition `mv_563` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13305:0: warning: Definition `mv_564` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13309:0: warning: Definition `mv_565` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13313:0: warning: Definition `mv_566` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13317:0: warning: Definition `mv_567` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13321:0: warning: Definition `mv_568` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13325:0: warning: Definition `mv_569` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13329:0: warning: Definition `mv_570` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13333:0: warning: Definition `mv_571` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13337:0: warning: Definition `mv_572` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13341:0: warning: Definition `mv_573` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13345:0: warning: Definition `mv_574` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13349:0: warning: Definition `mv_575` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13353:0: warning: Definition `mv_576` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13357:0: warning: Definition `mv_577` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13361:0: warning: Definition `mv_578` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13365:0: warning: Definition `mv_579` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13369:0: warning: Definition `mv_580` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13373:0: warning: Definition `mv_581` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13377:0: warning: Definition `mv_582` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13381:0: warning: Definition `mv_583` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13385:0: warning: Definition `mv_584` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13389:0: warning: Definition `mv_585` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13393:0: warning: Definition `mv_586` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13397:0: warning: Definition `mv_587` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13401:0: warning: Definition `mv_588` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13405:0: warning: Definition `mv_589` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13409:0: warning: Definition `mv_590` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13413:0: warning: Definition `mv_591` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13417:0: warning: Definition `mv_592` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13421:0: warning: Definition `mv_593` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13425:0: warning: Definition `mv_594` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13429:0: warning: Definition `mv_595` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13433:0: warning: Definition `mv_596` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13437:0: warning: Definition `mv_597` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13441:0: warning: Definition `mv_598` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13445:0: warning: Definition `mv_599` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13449:0: warning: Definition `mv_600` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13453:0: warning: Definition `mv_601` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13457:0: warning: Definition `mv_602` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13461:0: warning: Definition `mv_603` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13465:0: warning: Definition `mv_604` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13469:0: warning: Definition `mv_605` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13473:0: warning: Definition `mv_606` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13477:0: warning: Definition `mv_607` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13481:0: warning: Definition `mv_608` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13485:0: warning: Definition `mv_609` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13489:0: warning: Definition `mv_610` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13493:0: warning: Definition `mv_611` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13497:0: warning: Definition `mv_612` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13501:0: warning: Definition `mv_613` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13505:0: warning: Definition `mv_614` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13509:0: warning: Definition `mv_615` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13513:0: warning: Definition `mo_557` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13517:0: warning: Definition `mo_595` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13521:0: warning: Definition `mo_603` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13525:0: warning: Definition `mo_615` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+      }
+    ],
+    "events": [
+      {
+        "schema": "deepscientist.mathematics.verification_event.v1",
+        "eventId": "619d1a68-4ef6-4b8e-afc4-5e3364247c0b",
+        "sessionId": "d9027084-e33b-4f75-bb92-c5a866e7df39",
+        "timestamp": 1792761310441,
+        "kind": "session.opened",
+        "payload": {
+          "projectRoot": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-native-followup-20261023/guard-bootstrap-canonical-v5-selective-66d0cf/generated/problem",
+          "itemCount": 1,
+          "uniqueFileCount": 1
+        }
+      },
+      {
+        "schema": "deepscientist.mathematics.verification_event.v1",
+        "eventId": "4c35cfdd-6946-4cbb-8e0f-9f551396ded4",
+        "sessionId": "d9027084-e33b-4f75-bb92-c5a866e7df39",
+        "timestamp": 1792761310441,
+        "kind": "file.opened",
+        "payload": {
+          "proofPath": "Submission.lean",
+          "proofHash": "66d0cf5eecbcffcf0de7933acaec1c16da6f5ba8592173e1e9228c350663fdd7",
+          "bytes": 898691,
+          "checkCount": 1
+        }
+      },
+      {
+        "schema": "deepscientist.mathematics.verification_event.v1",
+        "eventId": "850aaa68-2843-43ef-81ae-ec0cf8f8644b",
+        "sessionId": "d9027084-e33b-4f75-bb92-c5a866e7df39",
+        "timestamp": 1792761310441,
+        "kind": "toolchain.resolved",
+        "payload": {
+          "command": "lake",
+          "executable": "lake",
+          "lakeFile": "lakefile.toml"
+        }
+      },
+      {
+        "schema": "deepscientist.mathematics.verification_event.v1",
+        "eventId": "7b97cefb-4d54-4045-bd18-5690fbe1e5aa",
+        "sessionId": "d9027084-e33b-4f75-bb92-c5a866e7df39",
+        "timestamp": 1792761310456,
+        "kind": "check.draft_checked",
+        "payload": {
+          "proofPath": "Submission.lean",
+          "status": "accepted",
+          "sorryCount": 0,
+          "admitCount": 0,
+          "axioms": []
+        }
+      },
+      {
+        "schema": "deepscientist.mathematics.verification_event.v1",
+        "eventId": "d175f621-9756-48f3-a76c-e78a2e152ea3",
+        "sessionId": "d9027084-e33b-4f75-bb92-c5a866e7df39",
+        "timestamp": 1792763889365,
+        "kind": "diagnostic.emitted",
+        "payload": {
+          "source": "stdout",
+          "severity": "info",
+          "message": "DS_DECL_REFERENCES_c575e7b286d7579fa72254671f3c92c8:null\nDEEPSCIENTIST_DECL_BEGIN_5623d859f1a188dc\nOAI.SnakyCertificate.certificate_correct :\n  OAI.SnakyCertificate.TableValid ∧\n    OAI.SnakyCertificate.placementCount = 1837 ∧\n      OAI.SnakyCertificate.Output 557 (-1, 0) 118 19 {p | p.1 ≤ -3 ∧ p.2 ≤ -2} ∧\n        OAI.SnakyCertificate.Output 595 (-1, 0) 222 27 {p | p.1 = -2 ∧ p.2 ≤ -2} ∧\n          OAI.SnakyCertificate.Output 603 (-1, 0) 275 27 {p | p.1 ≤ -3 ∧ p.2 = 0} ∧\n            OAI.SnakyCertificate.Output 615 (1, 0) 686 34 {(1, -1)} ∧ OAI.SnakyCertificate.AllRows\nDEEPSCIENTIST_DECL_END_5623d859f1a188dc\nDEEPSCIENTIST_AXIOMS_BEGIN_5623d859f1a188dc\n'OAI.SnakyCertificate.certificate_correct' depends on axioms: [propext, Classical.choice, Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_5623d859f1a188dc",
+          "proofPath": "Submission.lean"
+        }
+      },
+      {
+        "schema": "deepscientist.mathematics.verification_event.v1",
+        "eventId": "376e98da-c39b-45ce-848d-8bf5454273c1",
+        "sessionId": "d9027084-e33b-4f75-bb92-c5a866e7df39",
+        "timestamp": 1792763889365,
+        "kind": "diagnostic.emitted",
+        "payload": {
+          "source": "stderr",
+          "severity": "warning",
+          "message": "finition `mv_552` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13261:0: warning: Definition `mv_553` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13265:0: warning: Definition `mv_554` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13269:0: warning: Definition `mv_555` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13273:0: warning: Definition `mv_556` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13277:0: warning: Definition `mv_557` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13281:0: warning: Definition `mv_558` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13285:0: warning: Definition `mv_559` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13289:0: warning: Definition `mv_560` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13293:0: warning: Definition `mv_561` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13297:0: warning: Definition `mv_562` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13301:0: warning: Definition `mv_563` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13305:0: warning: Definition `mv_564` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13309:0: warning: Definition `mv_565` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13313:0: warning: Definition `mv_566` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13317:0: warning: Definition `mv_567` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13321:0: warning: Definition `mv_568` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13325:0: warning: Definition `mv_569` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13329:0: warning: Definition `mv_570` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13333:0: warning: Definition `mv_571` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13337:0: warning: Definition `mv_572` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13341:0: warning: Definition `mv_573` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13345:0: warning: Definition `mv_574` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13349:0: warning: Definition `mv_575` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13353:0: warning: Definition `mv_576` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13357:0: warning: Definition `mv_577` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13361:0: warning: Definition `mv_578` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13365:0: warning: Definition `mv_579` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13369:0: warning: Definition `mv_580` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13373:0: warning: Definition `mv_581` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13377:0: warning: Definition `mv_582` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13381:0: warning: Definition `mv_583` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13385:0: warning: Definition `mv_584` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13389:0: warning: Definition `mv_585` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13393:0: warning: Definition `mv_586` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13397:0: warning: Definition `mv_587` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13401:0: warning: Definition `mv_588` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13405:0: warning: Definition `mv_589` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13409:0: warning: Definition `mv_590` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13413:0: warning: Definition `mv_591` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13417:0: warning: Definition `mv_592` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13421:0: warning: Definition `mv_593` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13425:0: warning: Definition `mv_594` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13429:0: warning: Definition `mv_595` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13433:0: warning: Definition `mv_596` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13437:0: warning: Definition `mv_597` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13441:0: warning: Definition `mv_598` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13445:0: warning: Definition `mv_599` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13449:0: warning: Definition `mv_600` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13453:0: warning: Definition `mv_601` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13457:0: warning: Definition `mv_602` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13461:0: warning: Definition `mv_603` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13465:0: warning: Definition `mv_604` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13469:0: warning: Definition `mv_605` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13473:0: warning: Definition `mv_606` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13477:0: warning: Definition `mv_607` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13481:0: warning: Definition `mv_608` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13485:0: warning: Definition `mv_609` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13489:0: warning: Definition `mv_610` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13493:0: warning: Definition `mv_611` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13497:0: warning: Definition `mv_612` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13501:0: warning: Definition `mv_613` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13505:0: warning: Definition `mv_614` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13509:0: warning: Definition `mv_615` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13513:0: warning: Definition `mo_557` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13517:0: warning: Definition `mo_595` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13521:0: warning: Definition `mo_603` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:13525:0: warning: Definition `mo_615` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`",
+          "proofPath": "Submission.lean"
+        }
+      },
+      {
+        "schema": "deepscientist.mathematics.verification_event.v1",
+        "eventId": "6e142066-7d21-460b-92a4-cdbb2c4d8dd3",
+        "sessionId": "d9027084-e33b-4f75-bb92-c5a866e7df39",
+        "timestamp": 1792763889365,
+        "kind": "check.kernel_checked",
+        "payload": {
+          "proofPath": "Submission.lean",
+          "status": "kernel_verified",
+          "exitCode": 0,
+          "signal": null,
+          "timedOut": false,
+          "aborted": false,
+          "durationMs": 2578896
+        }
+      },
+      {
+        "schema": "deepscientist.mathematics.verification_event.v1",
+        "eventId": "5c583bf5-efe6-4086-8162-e55a926155a9",
+        "sessionId": "d9027084-e33b-4f75-bb92-c5a866e7df39",
+        "timestamp": 1792763889365,
+        "kind": "receipt.published",
+        "payload": {
+          "receiptId": "lean-e8b7b13f228efefd9bf3d47b",
+          "checkId": "check-1",
+          "proofPath": "Submission.lean",
+          "theoremName": "OAI.SnakyCertificate.certificate_correct",
+          "status": "kernel_verified"
+        }
+      },
+      {
+        "schema": "deepscientist.mathematics.verification_event.v1",
+        "eventId": "bec8a81a-26c3-4cc8-8ce7-1b52cbc5c077",
+        "sessionId": "d9027084-e33b-4f75-bb92-c5a866e7df39",
+        "timestamp": 1792763889378,
+        "kind": "session.closed",
+        "payload": {
+          "status": "kernel_verified",
+          "resultCount": 1,
+          "durationMs": 2578954
+        }
+      }
+    ],
+    "startedAt": 1792761310424,
+    "checkedAt": 1792763889378,
+    "durationMs": 2578954
+  }
+}

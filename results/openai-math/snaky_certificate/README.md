@@ -4,7 +4,7 @@
 
 完整原题已在固定 Lean v4.34.1 / Mathlib d13f23b723b8a846827a245b89c10fc7d3f11612 下通过模块化内核验证。最终公理输出仅有 propext、Classical.choice、Quot.sound；证明模块无 sorry、新增公理或内核绕过。Challenge.lean 单独保留发布方原题占位，不参与证明模块的 imports。
 
-完整单文件现已通过原隔离比较器：2026-10-23 08:13:38 UTC，在原 32 GiB 地址空间限制、单 CPU、无时间上限下自然 exit 0，完整构建、公理检查与两个成功标记均通过。源码见 [single-file/Submission.lean](single-file/Submission.lean)，原始回执见 [sealed comparator receipt](evidence/canonical-v2/sealed-canonical-v2-comparator-receipt.json)。TheoremOS 原生交付与最终验收仍在推进，尚不能计为原生 accepted；OpenAI 托管接受尚无确认。C 档为本项目判断。新增证明含外部代理辅助，不算模型从零独立发现。
+完整单文件已通过原隔离比较器。原 V2 源码见 [single-file/Submission.lean](single-file/Submission.lean)，原始回执见 [V2 comparator receipt](evidence/canonical-v2/sealed-canonical-v2-comparator-receipt.json)。后续 [V5 源码](single-file/SubmissionCanonicalV5.lean)在原 32 GiB 限制与冻结运行时下通过原比较器、同源宿主公理检查，并于 2026-10-23 17:43 UTC 通过正常原生目标检查，条件列表为空。回执见 [V5 evidence](evidence/canonical-v5/native-original-goal-check.json)。集成检查仍在运行，固定 review 和最终验收尚未完成，原生 accepted 仍为 false；OpenAI 托管接受尚无确认。C 档为本项目判断。新增证明含外部代理辅助，不算模型从零独立发现。
 
 源码顺序见 module-order.json，最终声明及公理输出见 CertificateFullKernel.lean 和 evidence/axioms.txt；各模块均有源码 SHA 与 exit 0 回执摘要。原始冗长 linter 输出未复制；回执记录原日志和原回执的 SHA。
 

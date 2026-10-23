@@ -1,6 +1,6 @@
 {
   "schema": "theorem-os.result-file-manifest.v1",
-  "generatedAt": "2026-10-23T08:19:16.694462+00:00",
+  "generatedAt": "2026-10-23T18:04:36.674752+00:00",
   "algorithm": "sha256",
   "excludes": [
     "manifest.json"
@@ -38,8 +38,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 1870,
-      "sha256": "164288d2320c45163399d7dd4161376a7d45245a8924082b8813930bba9b40cb"
+      "bytes": 2032,
+      "sha256": "f6f318c10b24790248a819591547163c03e5c7c4b70ca5191b6fe3d4f069b1c6"
     },
     {
       "path": "evidence/CertificateData.receipt.json",
@@ -107,6 +107,26 @@
       "sha256": "a142a76b93a509d946700fa545fab3e2cd3e18036ce1fca77bc770b178f756f3"
     },
     {
+      "path": "evidence/canonical-v5/host-full-result.json",
+      "bytes": 33458,
+      "sha256": "abe9093e30aef259a3ba14765f1d0ca843da8497ddebfe9d391d444fdcf116ad"
+    },
+    {
+      "path": "evidence/canonical-v5/integration-projection.json",
+      "bytes": 896,
+      "sha256": "b2f568dbd163885b675f0f3adca1454d64090a418e93bf1739e36c3e4faab658"
+    },
+    {
+      "path": "evidence/canonical-v5/native-original-goal-check.json",
+      "bytes": 1284263,
+      "sha256": "bfc9b60991dab4e5def2edb84c88661998ad056d514b7cefc4c65ecd913d4174"
+    },
+    {
+      "path": "evidence/canonical-v5/original-comparator-receipt.json",
+      "bytes": 494857,
+      "sha256": "c1f897d271992e5fc881e981eeb5af76f09cfeee87f781d549b6d604a16a4f3f"
+    },
+    {
       "path": "lake-manifest.json",
       "bytes": 3551,
       "sha256": "9423cd5ba63b06d018d6955536ed03a4ce4087742d5cb7539c29c753729d42e8"
@@ -133,8 +153,8 @@
     },
     {
       "path": "single-file/README.md",
-      "bytes": 1329,
-      "sha256": "137284f2d02aa1638818307f9c0180d1fa087d0773df1e9a6ea15376bb28e281"
+      "bytes": 1722,
+      "sha256": "c81d11affbb57320135084d35fe2cad13ba083d95fe7dde90a0078893e7a96d5"
     },
     {
       "path": "single-file/Submission.lean",
@@ -145,6 +165,11 @@
       "path": "single-file/SubmissionCanonicalV2Audit.lean",
       "bytes": 901452,
       "sha256": "2c1573bb7cdc9f3de819fba7ee031603be59970f1572d4c341f0b30661a67c13"
+    },
+    {
+      "path": "single-file/SubmissionCanonicalV5.lean",
+      "bytes": 898691,
+      "sha256": "66d0cf5eecbcffcf0de7933acaec1c16da6f5ba8592173e1e9228c350663fdd7"
     },
     {
       "path": "single-file/isolated-evaluator-serial-entrypoint.sh",

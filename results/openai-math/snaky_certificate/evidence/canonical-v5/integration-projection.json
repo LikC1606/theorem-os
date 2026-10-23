@@ -1,0 +1,17 @@
+{
+  "observedAt": "2026-10-23T17:47:10.339077+00:00",
+  "sourceSHA256": "b7dc0b2898b8d4ee8ed4a3b10394429f939ff9e4d73761dcd6968e46a4579751",
+  "sourceBytes": 896495,
+  "originalSourceSHA256": "66d0cf5eecbcffcf0de7933acaec1c16da6f5ba8592173e1e9228c350663fdd7",
+  "originalSourceBytes": 898691,
+  "nativeHostLeanPID": 630904,
+  "addressSpaceLimitBytes": 34359738368,
+  "sourceSnapshot": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-native-followup-20261023/canonical-v5-direct-integration-projection-Submission.lean",
+  "diffLines": 11083,
+  "diffFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-native-followup-20261023/canonical-v5-direct-integration-projection.diff",
+  "nativeAcceptance": false,
+  "externalMathematicalAssistance": true,
+  "identicalNonblankLines": true,
+  "onlyBlankLineDifferences": true,
+  "blankLinesRemoved": 2196
+}
