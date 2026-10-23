@@ -1,0 +1,53 @@
+{
+  "observedAt": "2026-10-23T08:13:38.356Z",
+  "passed": true,
+  "standaloneAudit": true,
+  "campaignAcceptance": false,
+  "entrypointResourceControls": {
+    "cpuAffinity": "one inherited allowed CPU",
+    "MALLOC_ARENA_MAX": "2",
+    "compilerCLI": [
+      "-j1",
+      "-DElab.async=false"
+    ],
+    "samePinnedKernelBinary": true,
+    "frozenVerifierUnmodified": true
+  },
+  "sealedEnvironment": true,
+  "networkIsolation": "frozen-runtime-sealed-policy",
+  "submissionSHA256": "87a3c359ef740fe32fe1ac2fda0216d708421163bc04194aa48ca8be0d742cdb",
+  "challengeSHA256": "591087a6b083d2b610bd863e0b5e7424f83d8ca8c3587cf77785570d06e8bedf",
+  "auditSHA256": "2c1573bb7cdc9f3de819fba7ee031603be59970f1572d4c341f0b30661a67c13",
+  "commandSHA256": "f94021f35d39424e2245902057a2db0bee2dbab27c256ed84bafd1e70041f7b7",
+  "officialConfigSHA256": "594eb123d7433a128fc55af281b7ad097a41d8adf188f230bc369d0064632f7e",
+  "comparatorConfig": {
+    "challenge_module": "Challenge",
+    "solution_module": "Submission",
+    "theorem_names": [
+      "OAI.SnakyCertificate.certificate_correct"
+    ],
+    "definition_names": [],
+    "permitted_axioms": [
+      "propext",
+      "Quot.sound",
+      "Classical.choice"
+    ],
+    "enable_nanoda": false
+  },
+  "exactThreeAxioms": true,
+  "axiomAudits": [
+    [
+      "Classical.choice",
+      "Quot.sound",
+      "propext"
+    ]
+  ],
+  "result": {
+    "started": true,
+    "exitCode": 0,
+    "timedOut": false,
+    "aborted": false,
+    "stdout": "⚠ [8924/8927] Built Submission (2735s)\nwarning: Submission.lean:10056:9: Variable name `bs` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _bs\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nwarning: Submission.lean:10068:29: This simp argument is unused:\n  or_assoc\n\nHint: Omit it from the simp argument list.\n  [apply] simp [qcompactStep, or_self_left]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\n⚠ [8926/8927] Built Challenge (7.0s)\nwarning: Challenge.lean:1387:8: declaration uses `sorry`\nBuild completed successfully (8927 jobs).\n'OAI.SnakyCertificate.certificate_correct' depends on axioms: [propext, Classical.choice, Quot.sound]\nBuilding Challenge\n⚠ [8924/8925] Replayed Challenge\nwarning: Challenge.lean:1387:8: declaration uses `sorry`\nBuild completed successfully (8925 jobs).\nExporting #[OAI.SnakyCertificate.certificate_correct, propext, Quot.sound, Classical.choice, Nat.add, Nat.sub, Nat.mul, Nat.pow, Nat.gcd, Nat.div, Nat.mod, Nat.beq, Nat.ble, Nat.land, Nat.lor, Nat.xor, Nat.shiftLeft, Nat.shiftRight, String.ofList] from Challenge\nBuilding Submission\n⚠ [8924/8925] Replayed Submission\nwarning: Submission.lean:10056:9: Variable name `bs` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _bs\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nwarning: Submission.lean:10068:29: This simp argument is unused:\n  or_assoc\n\nHint: Omit it from the simp argument list.\n  [apply] simp [qcompactStep, or_self_left]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nBuild completed successfully (8925 jobs).\nExporting #[OAI.SnakyCertificate.certificate_correct, propext, Quot.sound, Classical.choice, Nat.add, Nat.sub, Nat.mul, Nat.pow, Nat.gcd, Nat.div, Nat.mod, Nat.beq, Nat.ble, Nat.land, Nat.lor, Nat.xor, Nat.shiftLeft, Nat.shiftRight, String.ofList] from Submission\nRunning Lean default kernel on solution.\nLean default kernel accepts the solution\nYour solution is okay!\n",
+    "stderr": "pid 2's current affinity list: 0-127\npid 2's new affinity list: 0\nSEALED_RESOURCE_LIMITS\ntime(seconds)        unlimited\nfile(blocks)         unlimited\ndata(kbytes)         unlimited\nstack(kbytes)        8192\ncoredump(blocks)     0\nmemory(kbytes)       unlimited\nlocked memory(kbytes) 65979804\nprocess              2061555\nnofiles              4096\nvmemory(kbytes)      33554432\nlocks                unlimited\nrtprio               0\n"
+  }
+}

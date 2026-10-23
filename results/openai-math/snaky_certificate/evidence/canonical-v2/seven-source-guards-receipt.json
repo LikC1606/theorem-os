@@ -1,0 +1,60 @@
+{
+  "observedAt": "2026-10-23T06:31:35.970Z",
+  "schema": "theorem-os.snaky-capacity-guard.v1",
+  "candidateIsAdvisory": true,
+  "nativeAcceptance": false,
+  "kernelVerification": "not-performed-by-this-source-check",
+  "checks": [
+    {
+      "name": "all dependency environments remain identical",
+      "passed": true,
+      "detail": {
+        "environmentDigest": "13885dacf3f162feab001e999f6372c116222d4b30ee896f4f0e43bd04549e2b"
+      }
+    },
+    {
+      "name": "original source, every original declaration, sole target and receipt preserved",
+      "passed": true,
+      "detail": {
+        "declarations": 668,
+        "originalSourceSha256": "591087a6b083d2b610bd863e0b5e7424f83d8ca8c3587cf77785570d06e8bedf",
+        "targets": [
+          {
+            "name": "OAI.SnakyCertificate.certificate_correct",
+            "declarationHash": "ad19c4880680e09128a7d221e96514e93d68883254a4ecf27f99c4af0d6653f5"
+          }
+        ]
+      }
+    },
+    {
+      "name": "candidate preserves unchanged source guard",
+      "passed": true,
+      "detail": {
+        "candidatePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-certificate-progress-20261023/SubmissionCanonicalV2.lean",
+        "sha256": "87a3c359ef740fe32fe1ac2fda0216d708421163bc04194aa48ca8be0d742cdb",
+        "bytes": 901417
+      }
+    },
+    {
+      "name": "altered original entry is rejected",
+      "passed": true
+    },
+    {
+      "name": "altered original target header is rejected",
+      "passed": true
+    },
+    {
+      "name": "altered trusted Challenge and Lake configuration are rejected",
+      "passed": true
+    },
+    {
+      "name": "candidate fits unchanged committedSource read bound",
+      "passed": true,
+      "detail": {
+        "commit": "558a91b0864db1fc5dccdb775d54ce7e2f48b34d",
+        "bytes": 901417,
+        "kernelAcceptanceGranted": false
+      }
+    }
+  ]
+}

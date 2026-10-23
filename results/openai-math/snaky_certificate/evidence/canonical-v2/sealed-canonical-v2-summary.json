@@ -1,0 +1,37 @@
+{
+  "observedAt": "2026-10-23T08:13:38.356Z",
+  "candidateSHA256": "87a3c359ef740fe32fe1ac2fda0216d708421163bc04194aa48ca8be0d742cdb",
+  "passed": true,
+  "exitCode": 0,
+  "timedOut": false,
+  "aborted": false,
+  "exactThreeAxioms": true,
+  "axiomAudits": [
+    [
+      "Classical.choice",
+      "Quot.sound",
+      "propext"
+    ]
+  ],
+  "memoryLimitBytes": 34359738368,
+  "peakSampledRSS": {
+    "at": "2026-10-23T07:04:29.095524+00:00",
+    "pid": 271208,
+    "process": "lean",
+    "vmRSSKiB": 26865340
+  },
+  "peakSampledVirtualSize": {
+    "at": "2026-10-23T07:20:31.268148+00:00",
+    "pid": 271208,
+    "process": "lean",
+    "vmSizeKiB": 29881748
+  },
+  "sampleCount": 197,
+  "compilerErrors": [],
+  "receiptPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-certificate-progress-20261023/sealed-canonical-v2-comparator-receipt.json",
+  "receiptSHA256": "6744789dd897c1924a7ce5c2d16a42873c84949a161700d86d3c282e8867d8a9",
+  "diagnosticLog": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-certificate-progress-20261023/sealed-canonical-v2-full-diagnostic-output.log",
+  "diagnosticLogSHA256": "6f1ac89cb6a10ef0f38c91c0d7dd6584078e184a2556c39ef3510b33f8f4722d",
+  "nativeQueued": false,
+  "campaignAcceptance": false
+}

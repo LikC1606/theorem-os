@@ -1,0 +1,10 @@
+{
+  "observedAt": "2026-10-23T07:24:20.631396+00:00",
+  "candidateSHA256": "87a3c359ef740fe32fe1ac2fda0216d708421163bc04194aa48ca8be0d742cdb",
+  "phase": "original-official-comparator-running",
+  "pid": 479107,
+  "addressSpaceLimit": "Max address space         34359738368          34359738368          bytes",
+  "source": "/proc/479107/limits",
+  "fullAcceptance": false,
+  "nativeQueued": false
+}

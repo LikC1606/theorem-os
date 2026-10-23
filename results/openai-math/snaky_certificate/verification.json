@@ -1,6 +1,6 @@
 {
   "schema": "theorem-os.kernel-proof-result.v1",
-  "observedAt": "2026-10-22T21:22:48.429065+00:00",
+  "observedAt": "2026-10-23T08:19:16.694462+00:00",
   "challenge": "SnakyCertificate",
   "difficultyTier": "C",
   "manuscriptIds": [
@@ -13,13 +13,37 @@
     "Classical.choice",
     "Quot.sound"
   ],
-  "publisherComparatorPassed": false,
+  "publisherComparatorPassed": true,
   "nativeAcceptance": false,
   "officialHostedAcceptance": false,
-  "singleFileAccepted": false,
-  "status": "complete_modular_kernel_proof; portable_single_file_comparator_and_native_acceptance_pending",
+  "singleFileAccepted": true,
+  "status": "complete_modular_and_single_file_kernel_proof; original_isolated_comparator_passed; native_acceptance_pending",
   "moduleCount": 3,
   "finalModule": "CertificateFullKernel",
   "challengeSHA256": "591087a6b083d2b610bd863e0b5e7424f83d8ca8c3587cf77785570d06e8bedf",
-  "finalSourceSHA256": "efb41f264587a47d89ff9177d54fb98137580f3e6bbebbd31c7e2d6ce4a33f9a"
+  "finalSourceSHA256": "efb41f264587a47d89ff9177d54fb98137580f3e6bbebbd31c7e2d6ce4a33f9a",
+  "publisherComparatorExitCode": 0,
+  "singleFileKernelPassed": true,
+  "sealedComparatorPassed": true,
+  "singleFile": {
+    "path": "single-file/Submission.lean",
+    "sha256": "87a3c359ef740fe32fe1ac2fda0216d708421163bc04194aa48ca8be0d742cdb",
+    "bytes": 901417,
+    "originalSourcePreserved": true,
+    "sevenSourceGuardsPassed": true,
+    "receipt": "evidence/canonical-v2/sealed-canonical-v2-comparator-receipt.json",
+    "summary": "evidence/canonical-v2/sealed-canonical-v2-summary.json",
+    "memoryLimitBytes": 34359738368,
+    "timeoutSeconds": null,
+    "compilerCLI": [
+      "-j1",
+      "-DElab.async=false"
+    ],
+    "axioms": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "nativeAccepted": false
+  }
 }

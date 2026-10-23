@@ -1,0 +1,58 @@
+⚠ [8924/8927] Built Submission (2735s)
+warning: Submission.lean:10056:9: Variable name `bs` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _bs
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: Submission.lean:10068:29: This simp argument is unused:
+  or_assoc
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [qcompactStep, or_self_left]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+⚠ [8926/8927] Built Challenge (7.0s)
+warning: Challenge.lean:1387:8: declaration uses `sorry`
+Build completed successfully (8927 jobs).
+'OAI.SnakyCertificate.certificate_correct' depends on axioms: [propext, Classical.choice, Quot.sound]
+Building Challenge
+⚠ [8924/8925] Replayed Challenge
+warning: Challenge.lean:1387:8: declaration uses `sorry`
+Build completed successfully (8925 jobs).
+Exporting #[OAI.SnakyCertificate.certificate_correct, propext, Quot.sound, Classical.choice, Nat.add, Nat.sub, Nat.mul, Nat.pow, Nat.gcd, Nat.div, Nat.mod, Nat.beq, Nat.ble, Nat.land, Nat.lor, Nat.xor, Nat.shiftLeft, Nat.shiftRight, String.ofList] from Challenge
+Building Submission
+⚠ [8924/8925] Replayed Submission
+warning: Submission.lean:10056:9: Variable name `bs` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _bs
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+warning: Submission.lean:10068:29: This simp argument is unused:
+  or_assoc
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [qcompactStep, or_self_left]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+Build completed successfully (8925 jobs).
+Exporting #[OAI.SnakyCertificate.certificate_correct, propext, Quot.sound, Classical.choice, Nat.add, Nat.sub, Nat.mul, Nat.pow, Nat.gcd, Nat.div, Nat.mod, Nat.beq, Nat.ble, Nat.land, Nat.lor, Nat.xor, Nat.shiftLeft, Nat.shiftRight, String.ofList] from Submission
+Running Lean default kernel on solution.
+Lean default kernel accepts the solution
+Your solution is okay!
+pid 2's current affinity list: 0-127
+pid 2's new affinity list: 0
+SEALED_RESOURCE_LIMITS
+time(seconds)        unlimited
+file(blocks)         unlimited
+data(kbytes)         unlimited
+stack(kbytes)        8192
+coredump(blocks)     0
+memory(kbytes)       unlimited
+locked memory(kbytes) 65979804
+process              2061555
+nofiles              4096
+vmemory(kbytes)      33554432
+locks                unlimited
+rtprio               0
