@@ -17,6 +17,7 @@ import { readContinuationPage, readContinuationSnapshot } from '../src/solver/co
 import { committedSource, git, readSolverProblem } from '../src/solver/problem';
 import { taskVersion, type CooperativeTask } from '../src/solver/tasks';
 import type { TaskProof } from '../src/solver/cooperativeProof';
+import * as taskProofs from '../src/solver/cooperativeProof';
 import { hasTaskConnectionCheck } from '../src/solver/taskConnections';
 import { cooperativeResearch } from './helpers/cooperation';
 import { failedBatch, receiptBatch, verifiedBatch } from './helpers/verifier';
@@ -142,6 +143,21 @@ function freshReceipts(request: MathematicsVerifierBatchRequest) {
   return receiptBatch(request, { sessionId: 'fresh-seed', receiptId: (_, name) => `fresh-seed-${request.targetCommit}-${name}` });
 }
 
+function replaceHelperCandidates(f: ReturnType<typeof fixture>, count: number) {
+  const tasks: CooperativeTask[] = Array.from({ length: count }, (_, index) => ({ ...f.tasks[0]!,
+    id: `helper_${index}`, objective: `Prove helper ${index}`, theoremName: `Submission.Helpers.helper_${index}` }));
+  fs.writeFileSync(path.join(f.sourceWorktree, f.projectRelative, 'Submission/Helpers.lean'),
+    `namespace Submission.Helpers\n${tasks.map(task => `lemma ${task.id} : True := by trivial\n`).join('')}end Submission.Helpers\n`);
+  const canonical = commit(f.sourceWorktree, 'Historical helper batch');
+  const historical = f.oldState.cooperation!.tasks[0]!.integratedCheck!;
+  f.oldState.cooperation!.canonicalCommit = canonical;
+  f.oldState.cooperation!.tasks = [...tasks.map(task => ({ task, status: 'integrated' as const, attempts: 1,
+    integratedCheck: { ...historical, commit: canonical, taskDigest: taskVersion(task) } })),
+    { task: { ...f.tasks.at(-1)!, dependsOn: tasks.map(task => task.id) }, status: 'pending', attempts: 0 }];
+  writeSolverRunState(f.sourceStateFile, f.oldState);
+  return tasks;
+}
+
 function cooperationFor(f: ReturnType<typeof fixture>, state: SolverRunState, freshContinuationChecks: readonly TaskProof[] = []) {
   const workers = state.workers!.map(worker => ({ id: worker.id, role: worker.role, worktree: worker.worktree,
     ownedFiles: state.problem.ownedFiles }));
@@ -160,7 +176,7 @@ beforeEach(() => {
   host.verify.mockImplementation((request: MathematicsVerifierBatchRequest) => verifiedBatch(request,
     { sessionId: 'fresh-seed', receipt: 'fresh-seed', checks: true }));
 });
-afterEach(() => { vi.restoreAllMocks(); for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true }); });
 
 describe('explicit prepared-run continuation initialization', () => {
   it('owns a fresh proof environment without changing frozen settings or the static run identity', async () => {
@@ -191,7 +207,7 @@ describe('explicit prepared-run continuation initialization', () => {
     });
     const report = await f.seed(), state = readSolverRunState(f.stateFile);
     expect(report.failed).toEqual([]);
-    expect(lifecycle).toEqual(['resolve-packages', 'prepare', 'verify', 'verify', 'dispose']);
+    expect(lifecycle).toEqual(['resolve-packages', 'prepare', 'verify', 'dispose']);
     expect(host.prepare).toHaveBeenCalledExactlyOnceWith(path.join(f.worktree, f.projectRelative), host.packages,
       expect.objectContaining({ env: expect.objectContaining({ DEEPSCIENTIST_MATH_TRUSTED_CACHE_ROOTS: host.packages }),
         signal: expect.any(AbortSignal), cacheRoot: DEFAULT_MATH_PROOF_ENVIRONMENT_CACHE_ROOT,
@@ -254,7 +270,7 @@ describe('explicit prepared-run continuation initialization', () => {
     writeSolverRunState(f.sourceStateFile, f.oldState);
     const originalState = fs.readFileSync(f.sourceStateFile), oldSource = fs.readFileSync(path.join(f.sourceWorktree, f.projectRelative, 'Submission/Helpers.lean'));
     const report = await f.seed(), state = readSolverRunState(f.stateFile);
-    expect(report.stage).toBe('complete'); expect(report.failed).toEqual([]); expect(host.verify).toHaveBeenCalledTimes(2);
+    expect(report.stage).toBe('complete'); expect(report.failed).toEqual([]); expect(host.verify).toHaveBeenCalledOnce();
     expect(state.buildDigest).toBe(f.newState.buildDigest); expect(state.methodDigest).toBe('new-method');
     expect(state.workers).toEqual(f.newState.workers); expect(state.turns).toBe(0); expect(state.phase).toBe('prepared');
     expect(state.cooperation.tasks.map(node => taskVersion(node.task))).toEqual(f.tasks.map(taskVersion));
@@ -286,7 +302,7 @@ describe('explicit prepared-run continuation initialization', () => {
     const report = await f.seed(), state = readSolverRunState(f.stateFile);
     expect(report.failed).toEqual([]);
     expect(report.candidates).toEqual(['first', 'second', 'bridge']);
-    expect(host.verify).toHaveBeenCalledTimes(3);
+    expect(host.verify).toHaveBeenCalledTimes(2);
     const bridge = state.cooperation!.tasks.find(node => node.task.id === 'bridge')!;
     expect(bridge.status).toBe('conditional');
     expect(bridge.integratedCheck).toBeUndefined();
@@ -329,11 +345,11 @@ describe('explicit prepared-run continuation initialization', () => {
     const f = fixture(); host.verify.mockImplementation(freshReceipts);
     let state!: SolverRunState, proofs!: TaskProof[];
     await seedSolverContinuation({ ...f.options, onSeeded: (next, checks) => { state = next; proofs = checks; } });
-    expect(host.verify).toHaveBeenCalledTimes(2);
+    expect(host.verify).toHaveBeenCalledOnce();
     const cooperative = cooperationFor(f, state, proofs);
     try {
       await cooperative.restore();
-      expect(host.verify).toHaveBeenCalledTimes(2);
+      expect(host.verify).toHaveBeenCalledOnce();
       expect(state.cooperation!.tasks.slice(0, 2).map(node => node.integratedCheck)).toEqual(proofs);
       expect(state.cooperation!.tasks.slice(0, 2).every(node => node.status === 'integrated' && !node.pendingValidation)).toBe(true);
     } finally { f.controller.abort(); await cooperative.stop(); }
@@ -346,8 +362,8 @@ describe('explicit prepared-run continuation initialization', () => {
     const state = readSolverRunState(f.stateFile), cooperative = cooperationFor(f, state, proofs);
     try {
       await cooperative.restore();
-      expect(host.verify).toHaveBeenCalledTimes(3);
-      expect(host.verify.mock.calls[2][0].items.map(item => item.theoremName))
+      expect(host.verify).toHaveBeenCalledTimes(2);
+      expect(host.verify.mock.calls[1][0].items.map(item => item.theoremName))
         .toEqual(['Submission.Helpers.first_helper', 'Submission.Helpers.second_helper']);
       expect(state.cooperation!.tasks.slice(0, 2).every(node => node.status === 'integrated' && !node.pendingValidation)).toBe(true);
     } finally { f.controller.abort(); await cooperative.stop(); }
@@ -380,7 +396,7 @@ describe('explicit prepared-run continuation initialization', () => {
     writeSolverRunState(f.sourceStateFile, f.oldState);
     const report = await f.seed(), state = readSolverRunState(f.stateFile);
     expect(report.failed).toEqual([]); expect(report.candidates).toEqual(['first', 'second', 'bridge']);
-    expect(host.verify).toHaveBeenCalledTimes(3);
+    expect(host.verify).toHaveBeenCalledOnce();
     expect(state.cooperation!.tasks.find(node => node.task.id === 'bridge')).toMatchObject({ status: 'integrated',
       integratedCheck: { passed: true } });
     expect(state.cooperation!.tasks.find(node => node.task.id === 'bridge')!.proof).toBeUndefined();
@@ -391,7 +407,7 @@ describe('explicit prepared-run continuation initialization', () => {
     delete bridge.assignment!.dependencies;
     writeSolverRunState(f.sourceStateFile, f.oldState);
     const report = await f.seed(), state = readSolverRunState(f.stateFile);
-    expect(report.failed).toEqual(['bridge']); expect(host.verify).toHaveBeenCalledTimes(2);
+    expect(report.failed).toEqual(['bridge']); expect(host.verify).toHaveBeenCalledOnce();
     expect(state.cooperation!.tasks.find(node => node.task.id === 'bridge')).toMatchObject({ status: 'blocked',
       feedback: 'math_task_condition_version_invalid' });
     expect(state.cooperation!.tasks.slice(0, 2).every(node => node.status === 'integrated')).toBe(true);
@@ -403,7 +419,7 @@ describe('explicit prepared-run continuation initialization', () => {
     writeSolverRunState(f.sourceStateFile, f.oldState);
     const report = await f.seed(), state = readSolverRunState(f.stateFile);
     expect(report.failed).toEqual(['bridge']);
-    expect(host.verify).toHaveBeenCalledTimes(2);
+    expect(host.verify).toHaveBeenCalledOnce();
     expect(state.cooperation!.tasks.find(node => node.task.id === 'bridge')).toMatchObject({
       status: 'blocked', feedback: expect.stringContaining('math_task_source_unavailable') });
     const draft = JSON.parse(readContinuationPage(path.join(f.directory, 'continuation.json'), state.continuationDigest, 'draft-prover-1').text);
@@ -416,7 +432,7 @@ describe('explicit prepared-run continuation initialization', () => {
     writeSolverRunState(f.sourceStateFile, f.oldState);
     const report = await f.seed(), state = readSolverRunState(f.stateFile);
     expect(report.failed).toEqual(['bridge']);
-    expect(host.verify).toHaveBeenCalledTimes(2);
+    expect(host.verify).toHaveBeenCalledOnce();
     expect(state.cooperation!.tasks.find(node => node.task.id === 'bridge')).toMatchObject({
       status: 'blocked', feedback: 'math_task_condition_version_invalid' });
   });
@@ -431,7 +447,7 @@ describe('explicit prepared-run continuation initialization', () => {
     expect(second.failed).toEqual([]);
     expect(state.continuationDigest).toBe(snapshotDigest);
     expect(state.cooperation!.tasks.find(node => node.task.id === 'bridge')?.status).toBe('conditional');
-    expect(host.verify).toHaveBeenCalledTimes(6);
+    expect(host.verify).toHaveBeenCalledTimes(4);
     const frozen = JSON.parse(readContinuationPage(path.join(f.directory, 'continuation.json'), snapshotDigest, 'conditional-bridge').text);
     expect(frozen.sources['Submission/Helpers.lean']).toContain('bridge_helper');
   });
@@ -474,7 +490,8 @@ describe('explicit prepared-run continuation initialization', () => {
     host.verify.mockImplementation((request: MathematicsVerifierBatchRequest) => {
       const verified = verifiedBatch(request, { sessionId: 'fresh-seed', receipt: 'fresh-seed', checks: true });
       return request.items.some(item => item.theoremName.endsWith('second_helper'))
-        ? failedBatch(verified, { stdoutPreview: () => 'error: unsolved goals' }) : verified;
+        ? failedBatch(verified, { stdoutPreview: () => 'error: unsolved goals',
+          selected: result => result.theoremName === 'Submission.Helpers.second_helper' }) : verified;
     });
     const report = await f.seed(), state = readSolverRunState(f.stateFile);
     expect(report.failed).toEqual(['second']);
@@ -556,5 +573,173 @@ describe('explicit prepared-run continuation initialization', () => {
     fs.renameSync(notes, `${notes}.saved`); fs.symlinkSync(`${notes}.saved`, notes);
     await expect(f.seed()).rejects.toThrow('math_path_invalid');
     expect(readSolverRunState(f.stateFile).cooperation).toBeUndefined(); expect(host.verify).not.toHaveBeenCalled();
+  });
+});
+
+describe('bounded continuation verification batches', () => {
+  it('checks identical helper projections once and preserves each target receipt and type', async () => {
+    const f = fixture(); host.verify.mockImplementation(freshReceipts);
+    const report = await f.seed(), state = readSolverRunState(f.stateFile);
+    expect(report.failed).toEqual([]); expect(host.verify).toHaveBeenCalledOnce();
+    expect(host.verify.mock.calls[0][0].items.map(item => item.theoremName))
+      .toEqual(['Submission.Helpers.first_helper', 'Submission.Helpers.second_helper']);
+    expect(host.verify.mock.calls[0][1].expectedDeclarationTypes).toEqual({
+      'Submission.Helpers.first_helper': 'True', 'Submission.Helpers.second_helper': 'True' });
+    const proofs = state.cooperation!.tasks.slice(0, 2).map(node => node.integratedCheck!);
+    expect(proofs.map(proof => proof.verification.results.map(result => result.theoremName)))
+      .toEqual([['Submission.Helpers.first_helper'], ['Submission.Helpers.second_helper']]);
+    expect(proofs.map(proof => proof.taskDigest)).toEqual(f.tasks.slice(0, 2).map(taskVersion));
+    expect(new Set(proofs.map(proof => proof.verification.results[0]!.receiptId)).size).toBe(2);
+    expect(state.cooperation!.tasks.slice(0, 2).every(node => node.status === 'integrated')).toBe(true);
+  });
+
+  it('keeps different full projections separate even when candidates share the canonical commit', async () => {
+    const f = fixture();
+    fs.writeFileSync(path.join(f.sourceWorktree, f.projectRelative, 'Submission.lean'), original.replace('by sorry', 'by trivial'));
+    const canonical = commit(f.sourceWorktree, 'Historical original proof');
+    f.oldState.cooperation!.canonicalCommit = canonical;
+    const goal = f.oldState.cooperation!.tasks.find(node => node.task.kind === 'goal')!;
+    goal.status = 'integrated'; goal.integratedCheck = { ...f.oldState.cooperation!.tasks[0]!.integratedCheck!,
+      commit: canonical, taskDigest: taskVersion(goal.task) };
+    writeSolverRunState(f.sourceStateFile, f.oldState);
+    const check = vi.spyOn(taskProofs, 'checkTaskProofs');
+    host.verify.mockImplementation((request: MathematicsVerifierBatchRequest) => {
+      const source = committedSource(f.worktree, request.targetCommit!, `${f.projectRelative}/Submission.lean`);
+      if (request.items.some(item => item.theoremName === 'Submission.original')) expect(source).toContain('theorem original');
+      else expect(source).not.toContain('theorem original');
+      return freshReceipts(request);
+    });
+    const report = await f.seed();
+    expect(report.failed).toEqual([]);
+    expect(check.mock.calls.map(call => call[3].map(request => request.task.id))).toEqual([['first', 'second'], ['goal']]);
+    expect(new Set(check.mock.calls.map(call => call[2])).size).toBe(1);
+    expect(host.verify).toHaveBeenCalledTimes(2);
+    expect(readSolverRunState(f.stateFile).cooperation!.tasks.every(node => node.status === 'integrated')).toBe(true);
+  });
+
+  it('includes each conditional target and typed assumptions in the grouping projection', async () => {
+    // Reconstructed copies of identical saved sources must have the same commit
+    // identity, so this exercises projection grouping beyond the source commit.
+    vi.stubEnv('GIT_AUTHOR_DATE', '2000-01-01T00:00:00Z'); vi.stubEnv('GIT_COMMITTER_DATE', '2000-01-01T00:00:00Z');
+    const f = conditionalFixture(), worker = f.oldState.workers![1]!.worktree;
+    const file = path.join(worker, f.projectRelative, 'Submission/Helpers.lean');
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('end Submission.Helpers',
+      'lemma bridge_first_helper : True := by exact first_helper\nend Submission.Helpers'));
+    const proofCommit = commit(worker, 'Historical bridges with different assumptions');
+    const bridge = f.oldState.cooperation!.tasks.find(node => node.task.id === 'bridge')!;
+    bridge.proof!.commit = proofCommit;
+    const task = { ...f.task, id: 'bridge_first', theoremName: 'Submission.Helpers.bridge_first_helper', dependsOn: ['first'] };
+    const condition = { taskId: 'first', taskDigest: taskVersion(f.tasks[0]!) };
+    f.oldState.cooperation!.tasks.push({ task, status: 'conditional', attempts: 1,
+      assignment: { ...bridge.assignment!, taskId: task.id, taskDigest: taskVersion(task), dependencies: [condition] },
+      proof: { ...bridge.proof!, taskDigest: taskVersion(task), conditions: [condition] } });
+    writeSolverRunState(f.sourceStateFile, f.oldState);
+    const check = vi.spyOn(taskProofs, 'checkTaskProofs'); host.verify.mockImplementation(freshReceipts);
+    const report = await f.seed(), state = readSolverRunState(f.stateFile);
+    expect(report.failed).toEqual([]);
+    expect(check.mock.calls.map(call => call[3].map(request => request.task.id)))
+      .toEqual([['first', 'second'], ['bridge'], ['bridge_first']]);
+    const conditionalGroups = check.mock.calls.filter(call => call[3].some(request => request.conditions?.length));
+    expect(conditionalGroups).toHaveLength(2); expect(new Set(conditionalGroups.map(call => call[2])).size).toBe(1);
+    expect(host.verify.mock.calls.slice(1).map(([, options]) => options.expectedDeclarationType))
+      .toEqual(['∀ (second_helper : True), True', '∀ (first_helper : True), True']);
+    expect(state.cooperation!.tasks.filter(node => node.task.id.startsWith('bridge')).map(node => node.status))
+      .toEqual(['conditional', 'conditional']);
+  });
+
+  it('limits identical projections to batches of 32 and executes only one group at a time', async () => {
+    const f = fixture(), tasks = replaceHelperCandidates(f, 33), check = taskProofs.checkTaskProofs;
+    let active = 0, peak = 0;
+    vi.spyOn(taskProofs, 'checkTaskProofs').mockImplementation(async (...args) => {
+      active++; peak = Math.max(peak, active);
+      try { return await check(...args); } finally { active--; }
+    });
+    host.verify.mockImplementation(freshReceipts);
+    const report = await f.seed();
+    expect(report.failed).toEqual([]);
+    expect(host.verify.mock.calls.map(([request]) => request.items.length)).toEqual([32, 1]);
+    expect(host.verify.mock.calls.flatMap(([request]) => request.items.map(item => item.theoremName)))
+      .toEqual(tasks.map(task => task.theoremName));
+    expect(peak).toBe(1);
+    expect(readSolverRunState(f.stateFile).cooperation!.tasks.filter(node => node.status === 'integrated')).toHaveLength(33);
+  });
+
+  it('isolates a candidate that fails projection preflight while batching healthy helpers', async () => {
+    const f = fixture(), task = { ...f.tasks[0]!, id: 'missing', theoremName: 'Submission.Helpers.missing_helper' };
+    f.oldState.cooperation!.tasks.splice(1, 0, { task, status: 'integrated', attempts: 1,
+      integratedCheck: { ...f.oldState.cooperation!.tasks[0]!.integratedCheck!, taskDigest: taskVersion(task) } });
+    writeSolverRunState(f.sourceStateFile, f.oldState);
+    host.verify.mockImplementation(freshReceipts);
+    const report = await f.seed(), state = readSolverRunState(f.stateFile);
+    expect(report.failed).toEqual(['missing']); expect(report.checked).toHaveLength(3);
+    expect(host.verify).toHaveBeenCalledOnce();
+    expect(host.verify.mock.calls[0][0].items.map(item => item.theoremName))
+      .toEqual(['Submission.Helpers.first_helper', 'Submission.Helpers.second_helper']);
+    expect(state.cooperation!.tasks.find(node => node.task.id === 'missing')).toMatchObject({ status: 'blocked',
+      feedback: expect.stringContaining('math_task_missing_declaration') });
+    expect(state.cooperation!.tasks.filter(node => ['first', 'second'].includes(node.task.id))
+      .every(node => node.status === 'integrated')).toBe(true);
+  });
+
+  it('falls back to isolated checks when a planned batch rejects its projection match', async () => {
+    const f = fixture(), check = taskProofs.checkTaskProofs;
+    const attempts = vi.spyOn(taskProofs, 'checkTaskProofs').mockImplementation(async (...args) => {
+      if (args[3].length > 1) throw new Error('math_task_batch_projection_mismatch');
+      return check(...args);
+    });
+    host.verify.mockImplementation(freshReceipts);
+    const report = await f.seed(), state = readSolverRunState(f.stateFile);
+    expect(attempts.mock.calls.map(call => call[3].length)).toEqual([2, 1, 1]);
+    expect(host.verify.mock.calls.map(([request]) => request.items.length)).toEqual([1, 1]);
+    expect(report.failed).toEqual([]); expect(report.checked).toEqual(['first', 'second']);
+    expect(state.cooperation!.tasks.slice(0, 2).every(node => node.status === 'integrated')).toBe(true);
+  });
+
+  it('verifies every target again on initialization retry even when the saved report checked them all', async () => {
+    const f = fixture(); let verification = 0;
+    host.verify.mockImplementation((request: MathematicsVerifierBatchRequest) => {
+      const sessionId = `seed-attempt-${++verification}`;
+      return receiptBatch(request, { sessionId, receiptId: (_, name) => `${sessionId}-${name}` });
+    });
+    expect((await f.seed()).checked).toEqual(['first', 'second']);
+    const before = readSolverRunState(f.stateFile), frozenFile = path.join(f.directory, 'continuation-seed-source.json');
+    const frozen = fs.readFileSync(frozenFile), oldReceipt = before.cooperation!.tasks[0]!.integratedCheck!.verification.results[0]!.receiptId;
+    host.verify.mockClear();
+    const report = await f.seed(), state = readSolverRunState(f.stateFile);
+    expect(report.checked).toEqual(['first', 'second']); expect(host.verify).toHaveBeenCalledOnce();
+    expect(host.verify.mock.calls[0][0].items.map(item => item.theoremName))
+      .toEqual(['Submission.Helpers.first_helper', 'Submission.Helpers.second_helper']);
+    expect(state.cooperation!.tasks[0]!.integratedCheck!.verification.results[0]!.receiptId).not.toBe(oldReceipt);
+    expect(state.continuationDigest).toBe(before.continuationDigest); expect(fs.readFileSync(frozenFile)).toEqual(frozen);
+  });
+
+  it('retains the run lease and proof environment until an aborted batch verification settles', async () => {
+    const f = fixture();
+    let entered!: () => void, release!: () => void;
+    const checking = new Promise<void>(resolve => { entered = resolve; });
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    host.verify.mockImplementation(async (request: MathematicsVerifierBatchRequest) => {
+      entered(); await gate; return freshReceipts(request);
+    });
+    const running = f.seed(), settled = running.then(() => 'fulfilled', () => 'rejected');
+    try {
+      await Promise.race([checking, settled.then(status => { throw new Error(`seed_${status}_before_batch_verification`); })]);
+      expect(host.verify).toHaveBeenCalledOnce(); expect(host.verify.mock.calls[0][0].items).toHaveLength(2);
+      f.controller.abort();
+      await expect(withMathRuntimeLease({ lockPath: path.join(f.directory, 'run.lock'),
+        flockExecutable: '/usr/bin/flock' }, async () => undefined)).rejects.toThrow('math_runtime_lease_busy');
+      expect(host.dispose).not.toHaveBeenCalled();
+      expect(readSolverRunState(f.stateFile).cooperation!.tasks.every(node => node.status === 'pending')).toBe(true);
+    } finally {
+      release(); await settled;
+    }
+    await expect(running).rejects.toThrow();
+    expect(host.dispose).toHaveBeenCalledOnce();
+    const state = readSolverRunState(f.stateFile);
+    expect(state.phase).toBe('prepared');
+    expect(state.cooperation!.tasks.every(node => node.status === 'pending' && !node.integratedCheck && !node.proof)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(path.join(f.directory, 'continuation-seed.json'), 'utf8')).checked).toEqual([]);
+    await withMathRuntimeLease({ lockPath: path.join(f.directory, 'run.lock'),
+      flockExecutable: '/usr/bin/flock' }, async () => undefined);
   });
 });

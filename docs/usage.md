@@ -157,7 +157,7 @@ bun run math run \
 
 宿主持有同一个目标运行锁和 proof environment，核对题目、任务摘要、原始源码约束和新构建身份，冻结旧 canonical 源码、任务图及工人草稿，再生成新的 Lean 收据并开始求解。同进程继续使用刚验证的无条件辅助证明收据，避免初始化后立即重复检查；条件性证明保留原来的待证义务。旧线程和工人的 assignment 不复用。附件同步到每个工人的项目，原运行与原构建保持原样。`--prepare-timeout-seconds` 仍约束准备与初始化阶段，解题阶段独立使用原有预算参数。
 
-该入口只支持至少两个工人的协作运行，不能与 `--continuation-manifest` 同用。加 `--startup-only` 可以停在已初始化的零轮 checkpoint；初始化中断时，在原参数上加 `--resume` 重试，继续使用首次冻结的材料。开始过求解后，恢复时省略 `--continuation-source-run`，按普通 `--resume` 流程重新验证存档证明。
+该入口只支持至少两个工人的协作运行，不能与 `--continuation-manifest` 同用。加 `--startup-only` 可以停在已初始化的零轮 checkpoint；开始求解前，初始化、快照读取、工人附件分发或启动结果发布失败都保留可恢复的 `prepared` 状态，在原参数上加 `--resume` 重试，继续使用首次冻结的材料。开始过求解后，恢复时省略 `--continuation-source-run`，按普通 `--resume` 流程重新验证存档证明。
 
 也可以保留分步流程：先用新构建执行 `run --startup-only`，再运行独立初始化命令：
 
@@ -169,7 +169,7 @@ bun run math continuation-seed \
   --timeout-seconds 0
 ```
 
-独立命令只接受零轮、未开始求解的新预备运行。它创建并释放本次 proof environment，不复用已经结束的准备进程的临时 lease。新的无条件收据通过后才标记 `integrated`，失败项保持未验收，可在报告中查看。
+独立命令只接受零轮、未开始求解的新预备运行。它创建并释放本次 proof environment，不复用已经结束的准备进程的临时 lease。完整源码投影及前提相同的 helper 每批最多合并 32 项检查，各批顺序执行，每个目标仍生成独立收据并保存进度。新的无条件收据通过后才标记 `integrated`，失败项保持未验收，可在报告中查看。
 
 初始化成功后，以新预备运行的原参数加 `--resume` 开始求解。中断的初始化可以用相同命令重试，重试复用首次冻结的快照；源运行后来产生的成果不会自动加入该快照。正式切换前应让源运行保存退出，再捕获最终快照。更换构建后直接 `--resume` 旧 checkpoint 仍会被身份校验拒绝。
 

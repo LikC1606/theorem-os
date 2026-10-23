@@ -4,7 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { parseArgs } from 'node:util';
 import { readMathBuildManifest } from '../math/mathBuildManifest';
-import { canonicalMathJson, mathDigest, readMathJson, readMathText, withMathRuntimeLease, writeMathJsonDurable } from '../math/mathRuntimeIo';
+import { canonicalMathJson, mathDigest, readMathJson, readMathText, withMathRuntimeLease, writeMathJsonDurable, type MathLease } from '../math/mathRuntimeIo';
 import { projectMathematicsRuntimeEnvironment, resolveMathematicsRuntimeEnvironment } from '../math/mathRuntimeEnvironment';
 import { checkResolvedLeanToolchainReadiness } from '../math/leanToolchainReadiness';
 import { prepareMathProofEnvironment, MATH_PROOF_ENVIRONMENT_ENV } from '../math/mathProofEnvironment';
@@ -118,9 +118,15 @@ export async function runSolver(args: string[], root: string, customModules?: So
   let proofEnvironment: Awaited<ReturnType<typeof prepareMathProofEnvironment>> | undefined;
   let continuationSeeding = false;
   let ownsRun = false;
+  let publishedExit: number | undefined;
   const emit = (event: string, details = {}) => console.log(JSON.stringify({ event, at: Date.now(), ...details }));
-  try {
-    return await withMathRuntimeLease({ lockPath: path.join(directory, 'run.lock'), flockExecutable: '/usr/bin/flock', signal: controller.signal }, async lease => {
+  const disposeProofEnvironment = async () => {
+    const environment = proofEnvironment;
+    proofEnvironment = undefined;
+    await environment?.dispose();
+  };
+  const runWithLease = async (lease: MathLease): Promise<number> => {
+    const execute = async (): Promise<number> => {
       const signal = lease.signal;
       const buildFile = fs.realpathSync(required('build-manifest'));
       const bundleRoot = path.join(root, 'out', 'main');
@@ -216,7 +222,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
       ownsRun = true;
       ownedState = state;
       state.tokenBudget = buildTokenBudget(maxTotalTokens, state.workers ?? [state], state.tokenBudget?.enforcement);
-      const save = () => writeSolverRunState(stateFile, state);
+      const save = () => { lease.assertOwned(); writeSolverRunState(stateFile, state); };
       for (const worker of workers.slice(1)) {
         signal.throwIfAborted();
         if (!fs.existsSync(worker.worktree)) git(workspace, ['worktree', 'add', '--detach', worker.worktree, problem.baseCommit]);
@@ -408,28 +414,48 @@ export async function runSolver(args: string[], root: string, customModules?: So
       writeMathJsonDurable(output, result);
       emit('finished', { status, output });
       return status === 'evaluated_passed' ? 0 : status === 'evaluated_failed' ? 2 : status === 'runtime_error' ? 1 : 4;
-    });
-  } catch (error) {
-    if (!ownsRun) { emit('rejected', { reason: error instanceof Error ? error.message : 'math_runtime_error' }); return 1; }
-    const status = controller.signal.aborted ? 'limit_reached' : 'runtime_error';
-    // Initialization owns durable progress before its final in-memory handoff.
-    if (continuationSeeding) ownedState = readSolverRunState(stateFile);
-    if (ownedState) {
-      if (!continuationSeeding) ownedState.phase = 'finished';
-      if (ownedState.solveStartedAt && !ownedState.solveFinishedAt) ownedState.solveFinishedAt = Date.now();
-      ownedState.error = controller.signal.aborted ? undefined : error instanceof Error ? error.message : 'math_runtime_error';
-      writeSolverRunState(stateFile, ownedState);
+    };
+    try {
+      const code = await execute();
+      await disposeProofEnvironment();
+      publishedExit = code;
+      return code;
+    } catch (error) {
+      // Cleanup remains under the run lock; preserve the execution error if cleanup also fails.
+      try { await disposeProofEnvironment(); } catch { /* The original failure controls the checkpoint. */ }
+      if (!ownsRun) { emit('rejected', { reason: error instanceof Error ? error.message : 'math_runtime_error' }); return 1; }
+      lease.assertOwned();
+      const status = controller.signal.aborted ? 'limit_reached' : 'runtime_error';
+      // Initialization owns durable progress before its final in-memory handoff.
+      if (continuationSeeding) ownedState = readSolverRunState(stateFile);
+      if (ownedState) {
+        // A zero-turn continuation can retry any preparation step, including
+        // snapshot distribution and startup-only output after the seed handoff.
+        if (!(preparing && values['continuation-source-run'] && ownedState.phase === 'prepared'))
+          ownedState.phase = 'finished';
+        if (ownedState.solveStartedAt && !ownedState.solveFinishedAt) ownedState.solveFinishedAt = Date.now();
+        ownedState.error = controller.signal.aborted ? undefined : error instanceof Error ? error.message : 'math_runtime_error';
+        writeSolverRunState(stateFile, ownedState);
+      }
+      writeMathJsonDurable(output, { schema: 'deepscientist.math.run.v2', status, run_outcome: status,
+        reason: controller.signal.aborted ? preparing ? 'math_preparation_stopped' : 'math_run_stopped' : error instanceof Error ? error.message : 'math_runtime_error',
+        runId: ownedState?.runId, problemId: ownedState?.problem.contract.problemId, ...runSummary(ownedState),
+        evaluator: { status: 'skipped' }, stateFile });
+      publishedExit = controller.signal.aborted ? 4 : 1;
+      emit('finished', { status, output });
+      return publishedExit;
     }
-    writeMathJsonDurable(output, { schema: 'deepscientist.math.run.v2', status, run_outcome: status,
-      reason: controller.signal.aborted ? preparing ? 'math_preparation_stopped' : 'math_run_stopped' : error instanceof Error ? error.message : 'math_runtime_error',
-      runId: ownedState?.runId, problemId: ownedState?.problem.contract.problemId, ...runSummary(ownedState),
-      evaluator: { status: 'skipped' }, stateFile });
-    emit('finished', { status, output });
+  };
+  try {
+    return await withMathRuntimeLease({ lockPath: path.join(directory, 'run.lock'), flockExecutable: '/usr/bin/flock', signal: controller.signal }, runWithLease);
+  } catch (error) {
+    // The lease has ended. A cancelled operation can already have published its final checkpoint.
+    if (publishedExit !== undefined) return publishedExit;
+    emit('rejected', { reason: error instanceof Error ? error.message : 'math_runtime_error' });
     return controller.signal.aborted ? 4 : 1;
   } finally {
     clearTimeout(timer);
     process.removeListener('SIGINT', abort); process.removeListener('SIGTERM', abort);
-    await proofEnvironment?.dispose();
   }
 }
 

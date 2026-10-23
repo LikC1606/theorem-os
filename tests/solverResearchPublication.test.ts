@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { SolverRunState } from '../src/solver/archive';
 import type { TaskProof } from '../src/solver/cooperativeProof';
 import { parseCooperationPlan, type CooperativeResearch } from '../src/solver/cooperation';
+import * as knowledgeApplications from '../src/solver/knowledgeApplications';
 import { buildResearchContext } from '../src/solver/modules/context';
 import type { ResearchWorker } from '../src/solver/modules/organization';
 import { committedSource, commitSolverSources, git } from '../src/solver/problem';
@@ -20,14 +21,21 @@ const finding = (summary = 'EXACT_LOCAL_COUNTEREXAMPLE') => ({ summary, conclusi
   evidenceRefs: ['nine-listed-constraints-only'], remainingObligations: ['original_goal_1'] });
 const publish = (value: unknown) => (cooperative as any).receive(workers[1], action, value, true);
 const create = () => cooperativeResearch({ state, workers, retrievalRoot: directory, signal: controller.signal });
-const blockedProof = () => {
+const gateKnowledgeChecks = (count = 1) => {
+  const checking = deferred<[]>(), entered = deferred();
+  let calls = 0;
+  vi.spyOn(knowledgeApplications, 'checkKnowledgeApplications').mockImplementation(() => {
+    if (++calls === count) entered.resolve();
+    return checking.promise;
+  });
+  return { entered: entered.promise, release: () => checking.resolve([]) };
+};
+const blockedProof = (checks = 1) => {
   const node = state.cooperation!.tasks[0];
   const proof = { taskDigest: taskVersion(node.task), passed: false, commit: state.problem.baseCommit,
     sourceDigest: 'source', verification: { status: 'failed', targetCommit: state.problem.baseCommit, results: [] } } as unknown as TaskProof;
   node.status = 'blocked'; node.proof = proof;
-  const checking = deferred<[]>();
-  vi.spyOn(cooperative as any, 'knowledgeUses').mockReturnValue(checking.promise);
-  return { node, proof, release: () => checking.resolve([]) };
+  return { node, proof, ...gateKnowledgeChecks(checks) };
 };
 
 beforeEach(() => {
@@ -55,8 +63,9 @@ afterEach(async () => {
 
 it.each(['task', 'status', 'assignment', 'proof', 'integrated-check', 'environment', 'removed'] as const)
 ('does not publish an old proof when %s changes during application checking', async change => {
-  const { node, proof, release } = blockedProof();
-  const pending = (cooperative as any).finishProofDelivery(workers[1], node, proof, 'Old proof result', {});
+  const { node, proof, entered, release } = blockedProof();
+  const pending = (cooperative as any).finishProofDelivery(workers[1], action, node, proof, 'Old proof result', {});
+  await entered;
   if (change === 'task') node.task = { ...node.task, revision: node.task.revision + 1 };
   if (change === 'status') node.status = 'running';
   if (change === 'assignment') node.assignment = { ...node.assignment!, assignmentId: 'new-assignment' };
@@ -69,8 +78,9 @@ it.each(['task', 'status', 'assignment', 'proof', 'integrated-check', 'environme
 });
 
 it('publishes an unchanged proof once when duplicate application checks finish together', async () => {
-  const { node, proof, release } = blockedProof();
-  const publications = [1, 2].map(() => (cooperative as any).finishProofDelivery(workers[1], node, proof, 'Same proof', {}));
+  const { node, proof, entered, release } = blockedProof(2);
+  const publications = [1, 2].map(() => (cooperative as any).finishProofDelivery(workers[1], action, node, proof, 'Same proof', {}));
+  await entered;
   release(); await Promise.all(publications);
   expect(state.cooperation!.deliveries).toHaveLength(1);
   expect(state.cooperation!.deliveries![0]).toMatchObject({ taskDigest: taskVersion(node.task), status: 'failed',
@@ -163,13 +173,12 @@ it('resolves the explicitly replaced receipt only after a corrected finding is r
 });
 
 it.each(['environment', 'problem'] as const)('does not bind an old finding to a new %s after asynchronous application checking', async change => {
-  const checking = deferred<[]>(), entered = deferred();
-  vi.spyOn(cooperative as any, 'knowledgeUses').mockImplementation(() => { entered.resolve(); return checking.promise; });
+  const { entered, release } = gateKnowledgeChecks();
   const pending = publish({ kind: 'research', finding: finding() });
-  await entered.promise;
+  await entered;
   if (change === 'environment') state.environmentDigest = 'replacement-environment';
   else state.problem = { ...state.problem, receiptDigest: 'replacement-problem' };
-  checking.resolve([]); await pending;
+  release(); await pending;
   expect(state.cooperation!.deliveries ?? []).toEqual([]);
   expect(state.cooperation!.tasks[0].status).toBe('running');
 });

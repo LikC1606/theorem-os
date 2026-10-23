@@ -190,7 +190,9 @@ describe('typed research handoff continuation seeds', () => {
     const sourceBytes = fs.readFileSync(f.sourceStateFile), liveNotes = fs.readFileSync(path.join(f.sourceWorktree, 'RESEARCH.md'));
     const before = pendingResearchHandoffs(f.oldState.cooperation!).map(item => [item.id, item.contextDigest]);
     const report = await f.seed(), state = readSolverRunState(f.stateFile), archive = state.cooperation!;
-    expect(report.checked).toEqual(['first', 'second']); expect(host.verify).toHaveBeenCalledTimes(2);
+    expect(report.checked).toEqual(['first', 'second']); expect(host.verify).toHaveBeenCalledOnce();
+    expect(host.verify.mock.calls[0][0].items.map(item => item.theoremName))
+      .toEqual(['Submission.Helpers.first_helper', 'Submission.Helpers.second_helper']);
     expect(archive.deliveries).toHaveLength(1);
     expect(archive.deliveries![0]).toMatchObject({ id: published.delivery.id, status: 'advisory', kind: 'research',
       taskId: published.node.task.id, taskDigest: taskVersion(published.node.task), lemmaRequests: [second, first],
@@ -237,7 +239,9 @@ describe('typed research handoff continuation seeds', () => {
       expect(pendingResearchHandoffs(archive)).toMatchObject([{ status: 'pending', reopened: 'checked-prerequisites' }]);
       expect(pendingResearchHandoffs(readSolverRunState(f.stateFile).cooperation!)).toEqual([]);
     }
-    expect(host.verify).toHaveBeenCalledTimes(2);
+    expect(host.verify).toHaveBeenCalledOnce();
+    expect(host.verify.mock.calls[0][0].items.map(item => item.theoremName))
+      .toEqual(['Submission.Helpers.first_helper', 'Submission.Helpers.second_helper']);
   });
 
   it.each(['environment', 'source-revised', 'source-history', 'source-missing', 'dependency', 'superseded'] as const)(

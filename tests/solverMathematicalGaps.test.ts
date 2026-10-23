@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { mathDigest } from '../src/math/mathRuntimeIo';
 import { readSolverRunState, writeSolverRunState, type SolverRunState } from '../src/solver/archive';
 import { parseCooperationPlan, type CooperativeResearch } from '../src/solver/cooperation';
+import * as knowledgeApplications from '../src/solver/knowledgeApplications';
 import { MATHEMATICAL_GAP_CONTEXT_MAX_BYTES, mathematicalGapContext, type MathematicalGap } from '../src/solver/mathematicalGaps';
 import { buildResearchContext } from '../src/solver/modules/context';
 import type { ResearchWorker } from '../src/solver/modules/organization';
@@ -61,7 +62,7 @@ beforeEach(() => {
   controller = new AbortController(); cooperative = create();
 });
 afterEach(async () => {
-  controller.abort(); await cooperative.stop(); fs.rmSync(directory, { recursive: true, force: true });
+  controller.abort(); await cooperative.stop(); vi.restoreAllMocks(); fs.rmSync(directory, { recursive: true, force: true });
 });
 
 it('publishes a gap through the host and restores its mandatory mathematical scope after a route revision', async () => {
@@ -172,7 +173,10 @@ it('rejects an invalid progress consumer before writing a blocker or delivery', 
 
 it('revalidates the consumer after asynchronous knowledge checks before mutating research publication state', async () => {
   const ready = deferred(), waiting = deferred();
-  vi.spyOn(cooperative as any, 'knowledgeUses').mockImplementation(async () => { ready.resolve(); await waiting.promise; return []; });
+  const checkApplications = knowledgeApplications.checkKnowledgeApplications;
+  vi.spyOn(knowledgeApplications, 'checkKnowledgeApplications').mockImplementationOnce(async (...input) => {
+    ready.resolve(); await waiting.promise; return checkApplications(...input);
+  });
   const pending = publish({ kind: 'research', finding: { summary: 'Consumer changed during verification',
     conclusion: 'inconclusive', mathematicalGap: gap(),
     blockers: [{ mechanism: 'Must not persist', scope: 'A claimed local obstruction', evidenceRefs: [] }] } });

@@ -10,7 +10,8 @@ import { canonicalMathJson, mathDigest, readMathFile, readMathJson, withMathRunt
 import { resolveMathematicsRuntimeEnvironment } from '../math/mathRuntimeEnvironment';
 import { resolveMathematicsLakePackagesCache } from '../math/verifier';
 import { readSolverRunState, writeSolverRunState, type SolverRunState } from './archive';
-import { checkTaskProofs, isAttributedTaskProof, type TaskProof } from './cooperativeProof';
+import { checkTaskProofs, createTaskSourceProjector, isAttributedTaskProof, type TaskProof, type TaskProofRequest } from './cooperativeProof';
+import { rejectionCode, taskSourceRejections } from './cooperationShared';
 import { freezeContinuationInput, readContinuationSnapshot, type ContinuationManifest } from './continuationInput';
 import { readRunInspection } from './inspection';
 import type { DeliveryRecord } from './deliveries';
@@ -23,6 +24,9 @@ import { createTaskConnectionCheck } from './taskConnections';
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/u), oid = z.string().regex(/^[a-f0-9]{40,64}$/u);
 const id = z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/u);
+const seedBatchFallbacks = new Set([...taskSourceRejections, 'math_task_batch_projection_mismatch',
+  'math_task_missing_declaration', 'math_task_condition_version_invalid']);
+const maxSeedBatchSize = 32;
 // This project permits undefined at the type level. Materialize validated required
 // fields so Zod's optional-property inference does not weaken the runtime contract.
 const capacityMarker = z.object({ schema: z.literal('theorem-os.capacity-exploration.v1'),
@@ -574,57 +578,73 @@ export async function seedSolverContinuation(options: {
       state.cooperation.recheck = { canonicalCommit: canonical, total: candidateIds.length, completed: 0 };
       writeSolverRunState(stateFile, state);
       const freshChecks: TaskProof[] = [];
-      for (const taskId of candidateIds) {
-        lease.signal.throwIfAborted();
-        const node = tasks.find(node => node.task.id === taskId)!;
-        const savedConditional = conditional.find(candidate => candidate.taskId === taskId);
-        state.cooperation.recheck.taskId = taskId; writeSolverRunState(stateFile, state);
-        emit('continuation_seed_check', { taskId });
+      type Candidate = { node: TaskRecord; sourceCommit: string; request: TaskProofRequest;
+        savedConditional?: (typeof conditional)[number] };
+      const prepareCandidate = async (node: TaskRecord): Promise<Candidate> => {
+        const taskId = node.task.id, savedConditional = conditional.find(candidate => candidate.taskId === taskId);
+        let sourceCommit = canonical, assignment = { taskId, taskDigest: taskVersion(node.task),
+          workerId: 'continuation', seedCommit: canonical } as NonNullable<TaskRecord['assignment']>;
+        let conditions: CooperativeTask[] = [];
+        if (savedConditional) {
+          if (savedConditional.captureError) throw new Error(savedConditional.captureError);
+          if (savedConditional.taskDigest !== taskVersion(node.task) || !savedConditional.sources ||
+              !savedConditional.seedSources) throw new Error('math_task_condition_version_invalid');
+          const byId = new Map(tasks.map(item => [item.task.id, item.task]));
+          const references = (items: readonly { taskId: string; taskDigest: string }[]) => items.map(reference => {
+            const task = byId.get(reference.taskId);
+            if (!task || taskVersion(task) !== reference.taskDigest) throw new Error('math_task_condition_version_invalid');
+            return task;
+          });
+          conditions = references(savedConditional.conditions);
+          const dependencies = references(savedConditional.dependencies);
+          if (!conditions.every(task => task.kind === 'lemma' && task.type?.trim() &&
+              dependencies.some(dependency => dependency.id === task.id)) || new Set(conditions.map(task => task.id)).size !== conditions.length)
+            throw new Error('math_task_condition_version_invalid');
+          const frozen = await withSolverWorktree(state.worktree, state.problem.baseCommit, async checkout => {
+            const write = (sources: Record<string, string>) => {
+              for (const [file, text] of Object.entries(sources)) {
+                const target = path.join(checkout, state.problem.projectRelative, file);
+                assertMathCanonicalPath(target); fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, text);
+              }
+              return commitSolverSources(state.problem, checkout);
+            };
+            const seedCommit = write(savedConditional.seedSources!);
+            const proofCommit = write(savedConditional.sources!);
+            return { seedCommit, proofCommit };
+          });
+          assignment = { ...assignment, seedCommit: frozen.seedCommit, dependencies: savedConditional.dependencies };
+          if (!node.task.conditional) assignment.connectionCheck = createTaskConnectionCheck(node.task, assignment,
+            tasks.map(item => conditions.some(condition => condition.id === item.task.id) ? { ...item, status: 'pending' } : item),
+            { environmentDigest: state.environmentDigest, problemReceiptDigest: state.problem.receiptDigest },
+            task => savedConditional.seedSources![task.proofPath!] ?? '');
+          sourceCommit = frozen.proofCommit;
+          git(state.worktree, ['update-ref', `refs/math/${state.runId}/continuation/conditional/${taskId}`, sourceCommit]);
+        }
+        return { node, savedConditional, sourceCommit, request: { task: node.task, retainedGoals: [], assignment,
+          ...(conditions.length ? { conditions } : {}) } };
+      };
+      const blockCandidate = (node: TaskRecord, error: unknown) => {
+        lease.signal.throwIfAborted(); lease.assertHeld();
+        node.status = 'blocked'; node.integratedCheck = undefined; node.proof = undefined; node.assignment = undefined;
+        node.feedback = error instanceof Error ? error.message : 'math_continuation_seed_helper_check_failed';
+      };
+      const completeCandidate = (node: TaskRecord) => {
+        lease.signal.throwIfAborted(); lease.assertHeld();
+        const taskId = node.task.id;
+        report.checked.push(taskId);
+        if (node.status === 'blocked') report.failed.push(taskId);
+        if (node.status === 'integrated') report.evidence = 'fresh-helper-receipts';
+        state.cooperation.recheck.completed++; state.cooperation.recheck.taskId = undefined;
+        if (source.researchHandoffs) state.cooperation.deliveries = restoredHandoffDeliveries(source.researchHandoffs, state);
+        writeSolverRunState(stateFile, state); saveReport();
+        emit('continuation_seed_checked', { taskId, passed: node.status === 'integrated' || node.status === 'conditional' });
+      };
+      const publishCandidate = (candidate: Candidate, proof: TaskProof) => {
+        const { node, savedConditional, sourceCommit, request: { assignment } } = candidate;
         try {
-          let sourceCommit = canonical, assignment = { taskId, taskDigest: taskVersion(node.task),
-            workerId: 'continuation', seedCommit: canonical } as NonNullable<TaskRecord['assignment']>;
-          let conditions: CooperativeTask[] = [];
-          if (savedConditional) {
-            if (savedConditional.captureError) throw new Error(savedConditional.captureError);
-            if (savedConditional.taskDigest !== taskVersion(node.task) || !savedConditional.sources ||
-                !savedConditional.seedSources) throw new Error('math_task_condition_version_invalid');
-            const byId = new Map(tasks.map(item => [item.task.id, item.task]));
-            const references = (items: readonly { taskId: string; taskDigest: string }[]) => items.map(reference => {
-              const task = byId.get(reference.taskId);
-              if (!task || taskVersion(task) !== reference.taskDigest) throw new Error('math_task_condition_version_invalid');
-              return task;
-            });
-            conditions = references(savedConditional.conditions);
-            const dependencies = references(savedConditional.dependencies);
-            if (!conditions.every(task => task.kind === 'lemma' && task.type?.trim() &&
-                dependencies.some(dependency => dependency.id === task.id)) || new Set(conditions.map(task => task.id)).size !== conditions.length)
-              throw new Error('math_task_condition_version_invalid');
-            const frozen = await withSolverWorktree(state.worktree, state.problem.baseCommit, async checkout => {
-              const write = (sources: Record<string, string>) => {
-                for (const [file, text] of Object.entries(sources)) {
-                  const target = path.join(checkout, state.problem.projectRelative, file);
-                  assertMathCanonicalPath(target); fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, text);
-                }
-                return commitSolverSources(state.problem, checkout);
-              };
-              const seedCommit = write(savedConditional.seedSources!);
-              const proofCommit = write(savedConditional.sources!);
-              return { seedCommit, proofCommit };
-            });
-            assignment = { ...assignment, seedCommit: frozen.seedCommit, dependencies: savedConditional.dependencies };
-            if (!node.task.conditional) assignment.connectionCheck = createTaskConnectionCheck(node.task, assignment,
-              tasks.map(item => conditions.some(condition => condition.id === item.task.id) ? { ...item, status: 'pending' } : item),
-              { environmentDigest: state.environmentDigest, problemReceiptDigest: state.problem.receiptDigest },
-              task => savedConditional.seedSources![task.proofPath!] ?? '');
-            sourceCommit = frozen.proofCommit;
-            git(state.worktree, ['update-ref', `refs/math/${state.runId}/continuation/conditional/${taskId}`, sourceCommit]);
-          }
-          // The frozen source is reprojected and verified in the destination environment.
-          const [proof] = await checkTaskProofs(state.problem, state.worktree, sourceCommit, [{ task: node.task,
-            retainedGoals: [], assignment, ...(conditions.length ? { conditions } : {}) }],
-          env, lease.signal, timeoutMs, state.environmentDigest);
           lease.signal.throwIfAborted(); lease.assertHeld();
           const fresh = proof.passed && isAttributedTaskProof(proof) &&
+            proof.taskDigest === taskVersion(node.task) && proof.commit === sourceCommit && proof.seedCommit === assignment.seedCommit &&
             canonicalMathJson(proof.conditions ?? []) === canonicalMathJson(savedConditional?.conditions ?? []) &&
             proof.verification.status === 'kernel_verified' && proof.verification.results.length > 0 &&
             proof.verification.results.every(result => result.status === 'kernel_verified' && typeof result.receiptId === 'string' && result.receiptId);
@@ -643,17 +663,60 @@ export async function seedSolverContinuation(options: {
           }
           node.feedback = fresh ? undefined : 'math_continuation_seed_helper_not_verified';
         } catch (error) {
-          lease.signal.throwIfAborted();
-          node.status = 'blocked'; node.integratedCheck = undefined; node.proof = undefined; node.assignment = undefined;
-          node.feedback = error instanceof Error ? error.message : 'math_continuation_seed_helper_check_failed';
+          blockCandidate(node, error);
         }
-        report.checked.push(taskId);
-        if (node.status === 'blocked') report.failed.push(taskId);
-        if (node.status === 'integrated') report.evidence = 'fresh-helper-receipts';
-        state.cooperation.recheck.completed++; state.cooperation.recheck.taskId = undefined;
-        if (source.researchHandoffs) state.cooperation.deliveries = restoredHandoffDeliveries(source.researchHandoffs, state);
-        writeSolverRunState(stateFile, state); saveReport();
-        emit('continuation_seed_checked', { taskId, passed: node.status === 'integrated' || node.status === 'conditional' });
+        completeCandidate(node);
+      };
+      const projectors = new Map<string, ReturnType<typeof createTaskSourceProjector>>();
+      const groups = new Map<string, Candidate[]>();
+      const batches: (Candidate[] | { node: TaskRecord; error: unknown })[] = [];
+      for (const taskId of candidateIds) {
+        lease.signal.throwIfAborted(); lease.assertHeld();
+        const node = tasks.find(node => node.task.id === taskId)!;
+        try {
+          const candidate = await prepareCandidate(node), { sourceCommit, request } = candidate;
+          lease.signal.throwIfAborted(); lease.assertHeld();
+          let project = projectors.get(sourceCommit);
+          if (!project) {
+            project = createTaskSourceProjector(state.problem, state.worktree, sourceCommit);
+            projectors.set(sourceCommit, project);
+          }
+          const projection = project(request.task, request.retainedGoals, request.conditions);
+          const key = mathDigest(canonicalMathJson({ sourceCommit, sources: [...projection], retainedGoals: request.retainedGoals,
+            conditions: request.conditions?.map(task => ({ taskId: task.id, taskDigest: taskVersion(task) })) ?? [],
+            premises: request.task.premises ?? [], environmentDigest: state.environmentDigest, problemReceiptDigest: state.problem.receiptDigest }));
+          let group = groups.get(key);
+          if (!group || group.length === maxSeedBatchSize) { group = []; groups.set(key, group); batches.push(group); }
+          group.push(candidate);
+        } catch (error) {
+          lease.signal.throwIfAborted(); lease.assertHeld();
+          batches.push({ node, error });
+        }
+      }
+      const checkBatch = async (batch: Candidate[]): Promise<void> => {
+        lease.signal.throwIfAborted(); lease.assertHeld();
+        let proofs: TaskProof[];
+        try {
+          proofs = await checkTaskProofs(state.problem, state.worktree, batch[0].sourceCommit, batch.map(candidate => candidate.request),
+            env, lease.signal, timeoutMs, state.environmentDigest);
+        } catch (error) {
+          lease.signal.throwIfAborted(); lease.assertHeld();
+          if (batch.length > 1 && error instanceof Error && seedBatchFallbacks.has(rejectionCode(error))) {
+            for (const candidate of batch) await checkBatch([candidate]);
+          } else for (const { node } of batch) { blockCandidate(node, error); completeCandidate(node); }
+          return;
+        }
+        for (const [index, candidate] of batch.entries()) publishCandidate(candidate, proofs[index]);
+      };
+      // Groups run sequentially. A batch shares compilation, while every target
+      // still publishes its own fresh receipt and durable progress independently.
+      for (const batch of batches) {
+        lease.signal.throwIfAborted(); lease.assertHeld();
+        const nodes = Array.isArray(batch) ? batch.map(candidate => candidate.node) : [batch.node];
+        state.cooperation.recheck.taskId = nodes[0].task.id; writeSolverRunState(stateFile, state);
+        for (const node of nodes) emit('continuation_seed_check', { taskId: node.task.id, batchSize: nodes.length });
+        if (Array.isArray(batch)) await checkBatch(batch);
+        else { blockCandidate(batch.node, batch.error); completeCandidate(batch.node); }
       }
       // Rechecking typed inputs may retire a former investigation. Keep its frozen
       // provenance and tombstone without importing an old assignment or acceptance.
@@ -673,8 +736,7 @@ export async function seedSolverContinuation(options: {
     } catch (error) {
       report.stage = 'interrupted'; report.error = error instanceof Error ? error.message : 'math_continuation_seed_failed';
       // Already published helper checks are fresh; every unchecked obligation remains pending.
-      if (!lease.signal.aborted) saveReport();
-      else writeMathJsonDurable(reportFile, report);
+      lease.assertOwned(); writeMathJsonDurable(reportFile, report);
       throw error;
     } finally {
       await proofEnvironment?.dispose();

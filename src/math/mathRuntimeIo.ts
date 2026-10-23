@@ -134,6 +134,8 @@ export function mathArtifactCurrent(project: string, artifact: Readonly<{ path?:
 
 export type MathLease = Readonly<{
   signal: AbortSignal;
+  /** Check write ownership even after cancellation, until this operation exits. */
+  assertOwned: () => void;
   assertHeld: () => void;
   /** Explicitly inherit only into a runtime-owned supervisor that must outlive its caller. */
   inheritedDescriptor: number;
@@ -165,6 +167,7 @@ export async function withMathRuntimeLease<T>(
     throw new Error('math_runtime_integrity');
   }
   const controller = new AbortController();
+  let active = true;
   const abort = (): void => controller.abort();
   input.signal?.addEventListener('abort', abort, { once: true });
   try {
@@ -187,17 +190,25 @@ export async function withMathRuntimeLease<T>(
         else reject(new Error(code === 73 ? 'math_runtime_lease_busy' : 'math_runtime_os_lease_unavailable'));
       });
     });
+    const assertOwned = (): void => {
+      try {
+        if (!active) throw new Error('math_runtime_lease_lost');
+        const current = fs.lstatSync(input.lockPath), retained = fs.fstatSync(descriptor);
+        if (current.dev !== lockStat.dev || current.ino !== lockStat.ino || current.nlink !== 1 || !current.isFile() ||
+            retained.dev !== lockStat.dev || retained.ino !== lockStat.ino || retained.nlink !== 1)
+          throw new Error('math_runtime_lease_lost');
+      } catch { throw new Error('math_runtime_lease_lost'); }
+    };
     const assertHeld = (): void => {
+      assertOwned();
       if (controller.signal.aborted || input.signal?.aborted) throw new Error('math_runtime_lease_lost');
-      const current = fs.lstatSync(input.lockPath);
-      if (current.dev !== lockStat.dev || current.ino !== lockStat.ino || current.nlink !== 1 || !current.isFile())
-        throw new Error('math_runtime_lease_lost');
     };
     assertHeld();
-    const result = await operation({ signal: controller.signal, assertHeld, inheritedDescriptor: descriptor });
+    const result = await operation({ signal: controller.signal, assertOwned, assertHeld, inheritedDescriptor: descriptor });
     assertHeld();
     return result;
   } finally {
+    active = false;
     input.signal?.removeEventListener('abort', abort);
     fs.closeSync(descriptor);
     controller.abort();

@@ -167,7 +167,9 @@ describe('capacity exploration continuation seeds', () => {
     const delivered = publishNotes(f, complete); saveSource(f);
     const sourceBytes = fs.readFileSync(f.sourceStateFile), liveNotes = fs.readFileSync(path.join(f.sourceWorktree, 'RESEARCH.md'));
     const report = await f.seed(), state = readSolverRunState(f.stateFile), cooperation = state.cooperation!;
-    expect(report.checked).toEqual(['first', 'second']); expect(host.verify).toHaveBeenCalledTimes(2);
+    expect(report.checked).toEqual(['first', 'second']); expect(host.verify).toHaveBeenCalledOnce();
+    expect(host.verify.mock.calls[0][0].items.map(item => item.theoremName))
+      .toEqual(['Submission.Helpers.first_helper', 'Submission.Helpers.second_helper']);
     expect(cooperation.capacityExplorationInputs).toEqual(f.oldState.cooperation!.capacityExplorationInputs);
     for (const sourceNode of [unfinished, complete]) {
       const node = cooperation.tasks.find(item => item.task.id === sourceNode.task.id)!;
@@ -284,7 +286,10 @@ describe('capacity exploration continuation seeds', () => {
     expect(state.cooperation!.tasks.find(item => item.task.id === node.task.id)!.capacityExploration).toEqual(node.capacityExploration);
     expect(state.cooperation!.tasks.find(item => item.task.id === node.task.id)!.status).toBe('completed');
     expect(state.cooperation!.tasks.every(item => !item.assignment)).toBe(true);
-    expect(host.verify).toHaveBeenCalledTimes(4);
+    expect(host.verify).toHaveBeenCalledTimes(2);
+    expect(host.verify.mock.calls.map(([request]) => request.items.map(item => item.theoremName))).toEqual([
+      ['Submission.Helpers.first_helper', 'Submission.Helpers.second_helper'],
+      ['Submission.Helpers.first_helper', 'Submission.Helpers.second_helper']]);
   });
 
   it('refuses a changed destination capacity ledger before reinstalling the frozen seed', async () => {

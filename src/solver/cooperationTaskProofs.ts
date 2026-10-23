@@ -19,7 +19,7 @@ import { routeBlockerBasis, type BlockerBasis } from './routeControl';
 import { attributeTaskReferences } from './taskReferenceAttribution';
 import { captureObligationSnapshot } from './obligationProgress';
 import { checkpointCandidate } from './researchEvidence';
-import { inspectKnowledgeUses } from './knowledgeUsage';
+import { inspectKnowledgeUses, type KnowledgeUse } from './knowledgeUsage';
 import { checkKnowledgeApplications } from './knowledgeApplications';
 import { bindMathematicalGap, mathematicalGaps } from './mathematicalGaps';
 import { taskConnectionCheckCurrent, taskInputsMissingFromSeed } from './taskConnections';
@@ -364,9 +364,11 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
     const explorationIds = new Set(this.archive.tasks.filter(item => item.capacityExploration).map(item => item.task.id));
     if (lemmaRequests.some(proposal => proposal.dependsOn.some(id => explorationIds.has(id))))
       throw new Error('math_research_lemma_requests_invalid: advisory exploration IDs are provenance, not typed proof inputs.');
-    const knowledgeUses = await this.knowledgeUses(worker, node.task, commit);
+    const knowledge = this.captureKnowledgeUseCheck(worker, node.task, commit);
+    const knowledgeUses = await checkKnowledgeApplications(knowledge.uses, knowledge.input);
     if (!this.current(action) || environmentDigest !== this.input.state.environmentDigest ||
         problemReceiptDigest !== this.input.state.problem.receiptDigest) return;
+    this.observeKnowledgeUses(node.task, commit, knowledgeUses, knowledge.rejected);
     if (details.mathematicalGap) bindMathematicalGap(details.mathematicalGap, node.task, this.archive,
       { problemReceiptDigest: this.input.state.problem.receiptDigest, environmentDigest: this.input.state.environmentDigest });
     // A challenge alone is never a repeated-blocker report that parks the proof task.
@@ -564,14 +566,7 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
       if (submitted && this.current(action) && node.proof === submitted) {
         if (node.status === 'delivered') await this.integrateNow(node);
         else if (node.status === 'integrated') await this.syncPreparedStatements();
-        await this.input.exclusiveCheck(async () => {
-          if (this.current(action) && node.proof === submitted)
-            await this.finishProofDelivery(worker, node, submitted, summary, options);
-          else {
-            this.record(worker, action.task, 'proof', 'superseded', 'Assignment changed during canonical integration.',
-              { ...options, commit, taskDigest: action.assignment.taskDigest, dependencies: action.assignment.dependencies ?? [] });
-          }
-        });
+        await this.finishProofDelivery(worker, action, node, submitted, summary, options);
       }
       await this.integrateReadyNow();
       return submitted;
@@ -667,39 +662,60 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
     this.input.emit('task_checked', { taskId: node.task.id, passed: proof.passed, conditional: Boolean(proof.conditions?.length), commit: proof.commit });
     this.changed();
   }
-  private async finishProofDelivery(worker: ResearchWorker, node: TaskRecord, proof: TaskProof, summary: string, options: Partial<DeliveryRecord>) {
-    const task = node.task, taskDigest = digest(task), assignment = node.assignment;
-    const submittedProof = node.proof, integratedProof = node.integratedCheck;
-    const environmentDigest = this.input.state.environmentDigest;
-    const status = this.node(node.task.id).status;
-    const verdict = status === 'integrated' ? 'verified' : status === 'conditional' ? 'conditional' :
-      !proof.passed || status === 'blocked' ? 'failed' : undefined;
-    if (!verdict) return;
-    const assignmentKey = options.assignmentKey ?? assignmentDeliveryFile(node.assignment!);
-    const duplicate = () => this.archive.deliveries?.some(record => record.producer === worker.id && record.kind === 'proof' && record.status === verdict &&
-      record.taskId === task.id && record.taskDigest === taskDigest && record.assignmentKey === assignmentKey &&
-      (record.commit === proof.commit || verdict === 'verified' && record.commit === node.integratedCheck?.commit));
-    if (duplicate()) return;
-    const knowledgeUses = await this.knowledgeUses(worker, task, proof.commit, proof);
-    if (this.node(task.id) !== node || digest(node.task) !== taskDigest || node.status !== status ||
-        node.assignment !== assignment || node.proof !== submittedProof || node.integratedCheck !== integratedProof ||
-        this.input.state.environmentDigest !== environmentDigest || duplicate()) return;
-    this.record(worker, task, 'proof', verdict, node.feedback ?? summary,
-      { ...options, assignmentKey, commit: proof.commit, sourceDigest: proof.sourceDigest, evidence: proof, actualReferences: proof.references, knowledgeUses });
+  private async finishProofDelivery(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>,
+    node: TaskRecord, proof: TaskProof, summary: string, options: Partial<DeliveryRecord>) {
+    const snapshot = await this.input.exclusiveCheck(async () => {
+      if (!this.current(action) || this.node(action.task.id) !== node || node.proof !== proof) {
+        this.record(worker, action.task, 'proof', 'superseded', 'Assignment changed during canonical integration.',
+          { ...options, commit: proof.commit, taskDigest: action.assignment.taskDigest, dependencies: action.assignment.dependencies ?? [] });
+        return;
+      }
+      const task = structuredClone(node.task), taskDigest = digest(task), assignment = node.assignment;
+      const submittedProof = node.proof, integratedProof = node.integratedCheck, status = node.status;
+      const environmentDigest = this.input.state.environmentDigest, problemReceiptDigest = this.input.state.problem.receiptDigest;
+      const verdict: DeliveryRecord['status'] = status === 'integrated' ? 'verified' : status === 'conditional' ? 'conditional' :
+        !proof.passed || status === 'blocked' ? 'failed' : undefined;
+      if (!verdict) return;
+      const assignmentKey = options.assignmentKey ?? assignmentDeliveryFile(assignment!);
+      const duplicate = () => this.archive.deliveries?.some(record => record.producer === worker.id && record.kind === 'proof' && record.status === verdict &&
+        record.taskId === task.id && record.taskDigest === taskDigest && record.assignmentKey === assignmentKey &&
+        (record.commit === proof.commit || verdict === 'verified' && record.commit === integratedProof?.commit));
+      if (duplicate()) return;
+      return { task, taskDigest, assignment, submittedProof, integratedProof, status, environmentDigest, problemReceiptDigest,
+        verdict, assignmentKey, duplicate, knowledge: this.captureKnowledgeUseCheck(worker, task, proof.commit, proof) };
+    });
+    if (!snapshot) return;
+    // Optional Lean elaboration must not hold the shared planning/publication lock.
+    const knowledgeUses = await checkKnowledgeApplications(snapshot.knowledge.uses, snapshot.knowledge.input);
+    await this.input.exclusiveCheck(async () => {
+      const { task, taskDigest, assignment, submittedProof, integratedProof, status, environmentDigest, problemReceiptDigest,
+        verdict, assignmentKey, duplicate, knowledge } = snapshot;
+      if (!this.current(action) || this.node(task.id) !== node || digest(node.task) !== taskDigest || node.status !== status ||
+          node.assignment !== assignment || node.proof !== submittedProof || node.integratedCheck !== integratedProof ||
+          this.input.state.environmentDigest !== environmentDigest || this.input.state.problem.receiptDigest !== problemReceiptDigest || duplicate()) return;
+      this.observeKnowledgeUses(task, proof.commit, knowledgeUses, knowledge.rejected);
+      this.record(worker, task, 'proof', verdict, node.feedback ?? summary,
+        { ...options, assignmentKey, commit: proof.commit, sourceDigest: proof.sourceDigest, evidence: proof, actualReferences: proof.references, knowledgeUses });
+    });
   }
-  private async knowledgeUses(worker: ResearchWorker, task: CooperativeTask, commit: string, proof?: ProofCheck & { references?: ProofReferences }) {
+  private captureKnowledgeUseCheck(worker: ResearchWorker, task: CooperativeTask, commit: string, proof?: ProofCheck & { references?: ProofReferences }) {
+    task = structuredClone(task);
     let value: unknown;
     try { value = parseMathResponse(committedSource(worker.worktree, commit, 'RESEARCH.md'), 'math-result', {}, 'summary').knowledgeUses; }
-    catch { return []; }
+    catch { /* Missing optional usage reports have no observations. */ }
+    // Consume the pinned catalog now; only normalized uses cross the async seam.
     const { uses, rejected } = inspectKnowledgeUses(value, this.input.access.get(worker.id)?.knowledgeSnapshot, task, proof);
-    const observed = await checkKnowledgeApplications(uses, { task, projectRoot: path.join(worker.worktree, this.input.state.problem.projectRelative),
-      env: this.input.access.get(worker.id)?.environment ?? {}, environmentDigest: this.input.state.environmentDigest,
+    const worktree = worker.worktree, projectRelative = this.input.state.problem.projectRelative;
+    return { uses, rejected, input: { task, projectRoot: path.join(worktree, projectRelative),
+      env: { ...this.input.access.get(worker.id)?.environment }, environmentDigest: this.input.state.environmentDigest,
       commit, signal: this.input.signal, timeoutMs: this.input.timeoutMs,
-      originalContexts: this.input.state.problem.targets,
-      sourceAtCommit: file => committedSource(worker.worktree, commit, path.posix.join(this.input.state.problem.projectRelative, file)),
-      previous: this.archive.deliveries?.flatMap(delivery => delivery.knowledgeUses ?? []) });
+      originalContexts: this.input.state.problem.targets.map(({ proofPath, theoremName }) => ({ proofPath, theoremName })),
+      sourceAtCommit: (file: string) => committedSource(worktree, commit, path.posix.join(projectRelative, file)),
+      previous: uses.some(use => use.application)
+        ? structuredClone(this.archive.deliveries?.flatMap(delivery => delivery.knowledgeUses ?? [])) : undefined } };
+  }
+  private observeKnowledgeUses(task: CooperativeTask, commit: string, observed: readonly KnowledgeUse[], rejected: number) {
     if (rejected) this.input.emit('knowledge_use_rejected', { taskId: task.id, commit, rejected });
     for (const use of observed) this.input.emit('knowledge_use_observed', { ...use, taskId: task.id, commit });
-    return observed;
   }
 }
