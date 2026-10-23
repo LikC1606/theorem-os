@@ -157,6 +157,8 @@ bun run math run \
 
 宿主持有同一个目标运行锁和 proof environment，核对题目、任务摘要、原始源码约束和新构建身份，冻结旧 canonical 源码、任务图及工人草稿，再生成新的 Lean 收据并开始求解。同进程继续使用刚验证的无条件辅助证明收据，避免初始化后立即重复检查；条件性证明保留原来的待证义务。旧线程和工人的 assignment 不复用。附件同步到每个工人的项目，原运行与原构建保持原样。`--prepare-timeout-seconds` 仍约束准备与初始化阶段，解题阶段独立使用原有预算参数。
 
+已完成的普通 research/sketch 在任务、传递依赖、环境、检索/知识库和 canonical 自有源码均未变化时保留 `completed` 与 finding；输入变化会重开调查并保留旧 finding 的历史。该状态只结束研究，不授予任何证明验收。旧快照缺少完成输入身份时按待办恢复，原始 finding 仍保存在历史附件中。
+
 该入口只支持至少两个工人的协作运行，不能与 `--continuation-manifest` 同用。加 `--startup-only` 可以停在已初始化的零轮 checkpoint；开始求解前，初始化、快照读取、工人附件分发或启动结果发布失败都保留可恢复的 `prepared` 状态，在原参数上加 `--resume` 重试，继续使用首次冻结的材料。开始过求解后，恢复时省略 `--continuation-source-run`，按普通 `--resume` 流程重新验证存档证明。
 
 也可以保留分步流程：先用新构建执行 `run --startup-only`，再运行独立初始化命令：

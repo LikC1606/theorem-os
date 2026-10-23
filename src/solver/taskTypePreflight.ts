@@ -59,9 +59,13 @@ function prepare(input: Input) {
   const requested = input.task.theoremName!.replace(/^_root_\./u, '');
   const namespace = requested.includes('.') ? requested.slice(0, requested.lastIndexOf('.')) : undefined;
   const exact = declarations.filter(item => item.qualifiedName === requested);
-  const anchors = exact.length ? exact : declarations.filter(item => item.kind === 'theorem' &&
+  const originalAnchors = declarations.filter(item => item.kind === 'theorem' &&
     (namespace === undefined || item.namespace === namespace) && input.problem.targets.some(target =>
       target.proofPath === input.task.proofPath && target.theoremName === item.qualifiedName));
+  // Helper-only modules have no original target. Reuse an established namespace's
+  // context only when all its declarations agree on the restorable lookup scope.
+  const anchors = exact.length ? exact : originalAnchors.length ? originalAnchors :
+    declarations.filter(item => item.namespace === (namespace ?? ''));
   const anchor = anchors[0];
   let reason: string | undefined;
   if (!anchor || exact.length > 1 || !exact.length && new Set(anchors.map(item =>
@@ -98,7 +102,11 @@ function prepare(input: Input) {
 /** A normal compiler exit also carries resource, internal and IO errors; those do not invalidate a type. */
 function definiteTypeError(message: string): boolean {
   if (/\b(?:heartbeats?|deterministic\W+timeout|timeout|timed\s+out|deadline|recursion\s+depth|maxRecDepth|stack\s+overflow|out\s+of\s+memory|memory\s+limit|resource\s+(?:limit|exhausted)|internal\s+(?:error|exception)|uncaught\s+exception|panic|IO(?:[.\s]+error|[.\s]+exception)|system\s+error|permission\s+denied|no\s+space\s+left|input\/output|failed\s+to\s+(?:open|read|write|allocate))\b/iu.test(message)) return false;
-  return /^(?:(?:application\s+)?type mismatch|unknown (?:identifier|constant)|function expected|invalid (?:binder annotation|field(?: notation)?)|unexpected (?:token|identifier|end of input)|expected (?:token|term|type)|requested type must be closed)\b/iu.test(message.trim());
+  // runParserCategory reports its term-string position inside the query-local
+  // Lean diagnostic, for example "<input>:1:361: expected ')', ',' or ':'".
+  const diagnostic = message.trim().replace(/^<input>:\d+:\d+:\s*/u, '');
+  return /^expected\s+['"`]/iu.test(diagnostic) ||
+    /^(?:(?:application\s+)?type mismatch|unknown (?:identifier|constant)|function expected|invalid (?:binder annotation|field(?: notation)?)|unexpected (?:token|identifier|end of input)|expected (?:token|term|type)|requested type must be closed)\b/iu.test(diagnostic);
 }
 
 /** Process-local and content-bound; checkpoint JSON never authorizes skipping a new preflight. */

@@ -36,13 +36,16 @@ export type TaskRecord = { task: CooperativeTask; status: 'pending' | 'running' 
   pendingValidation?: { id: string; taskDigest: string; canonicalCommit: string; environmentDigest: string; problemReceiptDigest: string; proof?: boolean };
   typePreflight?: TaskTypePreflight;
   routeParking?: string[]; parkedRoutes?: Record<string, string[]>; alternativeRoutes?: readonly ProofRoute[] };
+export type CapacityOwnershipCandidate = Readonly<{ taskId: string; taskDigest: string; ownerId: string;
+  eligibleWorkerIds: readonly string[] }>;
 export type CooperativeAction = { kind: 'lead' | 'assemble'; seedCommit: string; planVersion?: string; planningInputDigest?: string;
   initialPlanNonce?: string;
   planNonce?: string;
   /** Stable mathematical responsibility, independent of inbox freshness or graph presentation. */
   responsibilityDigest?: string;
   /** Advisory capacity at dispatch; never infer this request from a later archive receipt. */
-  capacityRefill?: Readonly<{ requestId?: string; inputDigest: string; workerIds: readonly string[]; requestedAt: number }>;
+  capacityRefill?: Readonly<{ requestId?: string; inputDigest: string; workerIds: readonly string[]; requestedAt: number;
+    ownershipCandidates?: readonly CapacityOwnershipCandidate[] }>;
   /** Host scheduling recovery only; never a mathematical blocker or proof verdict. */
   stagnationRecovery?: Readonly<{ requestId?: string; inputDigest: string; taskIds: readonly string[]; workerIds: readonly string[]; requestedAt: number;
     reason: 'advisory-no-durable-progress' | 'frontier-not-decomposed' }>;

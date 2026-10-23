@@ -19,7 +19,7 @@ import { normalizedResearchHandoffDecisions, researchHandoffs, type ResearchHand
 import { researchWorkerCanNode, researchWorkerCanTask } from './modules/organization';
 import { CAPACITY_EXPLORATION_FOCUSES, currentCapacityExploration, plannedTaskRecords, type CapacityExploration } from './capacityExploration';
 import { assertSolverSources, committedSource, commitSolverSources, git, readSolverProblem, withSolverWorktree, type SolverProblem } from './problem';
-import { isAdvisoryTask, parseCooperationPlan, taskVersion, type CooperativeTask, type TaskRecord } from './tasks';
+import { isAdvisoryTask, isFinalCandidateReview, parseCooperationPlan, taskVersion, type CooperativeTask, type TaskRecord } from './tasks';
 import { createTaskConnectionCheck } from './taskConnections';
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/u), oid = z.string().regex(/^[a-f0-9]{40,64}$/u);
@@ -62,6 +62,10 @@ const handoffTask = z.object({ id, kind: z.enum(['research', 'sketch', 'lemma', 
   reviewScope: z.enum(['final-candidate', 'feasibility']).optional(),
 }).strict().transform((value): CooperativeTask => ({ ...value, id: value.id, kind: value.kind,
   objective: value.objective, dependsOn: value.dependsOn, revision: value.revision }));
+const continuableResearch = (task: CooperativeTask) => isAdvisoryTask(task) && !task.reviewScope && !isFinalCandidateReview(task);
+const completedResearchRecord = z.object({ task: handoffTask.refine(continuableResearch, 'Completion requires ordinary advisory research'),
+  inputDigest: hash, finding: z.string().optional(), archived: z.literal(true).optional() }).strict();
+type CompletedResearchRecord = z.infer<typeof completedResearchRecord>;
 const handoffReference = z.object({ taskId: id, taskDigest: hash }).strict()
   .transform(value => ({ taskId: value.taskId, taskDigest: value.taskDigest }));
 const handoffDelivery = z.object({ id: z.string().min(1), producer: id, taskId: id, taskDigest: hash,
@@ -111,6 +115,7 @@ const sourceSchema = z.object({
   history: z.unknown(),
   capacityExplorations: capacitySource.optional(),
   researchHandoffs: handoffSource.optional(),
+  completedResearch: z.array(completedResearchRecord).optional(),
 }).strict();
 type SeedSource = z.infer<typeof sourceSchema>;
 
@@ -186,6 +191,50 @@ function capturedCapacityRecords(state: SolverRunState): CapacityRecord[] {
   for (const item of state.cooperation?.history ?? []) add(item, true);
   for (const node of state.cooperation?.tasks ?? []) add(node);
   return [...records.values()];
+}
+
+function completedResearchInput(task: CooperativeTask, state: SolverRunState, tasks: readonly CooperativeTask[],
+  sources: Record<string, string>): string {
+  const nodes = new Map(tasks.map(task => [task.id, task])), inputs = new Map<string, string | null>();
+  const visit = (id: string) => {
+    if (inputs.has(id)) return;
+    const input = nodes.get(id);
+    inputs.set(id, input ? taskVersion(input) : null);
+    input?.dependsOn.forEach(visit);
+  };
+  task.dependsOn.forEach(visit);
+  return mathDigest(canonicalMathJson({ taskDigest: taskVersion(task), problemReceiptDigest: state.problem.receiptDigest,
+    environmentDigest: state.environmentDigest, retrievalDigest: state.retrievalDigest ?? null,
+    knowledgeDigest: state.knowledgeDigest ?? null, sourcesDigest: mathDigest(canonicalMathJson(sources)),
+    inputs: [...inputs].sort(([left], [right]) => left.localeCompare(right)) }));
+}
+
+function capturedCompletedResearch(state: SolverRunState, sources: Record<string, string>,
+  previous: readonly CompletedResearchRecord[] = []): CompletedResearchRecord[] {
+  const planned = plannedTaskRecords(state.cooperation!.tasks), tasks = planned.map(node => node.task);
+  const key = (record: CompletedResearchRecord) => canonicalMathJson([taskVersion(record.task), record.inputDigest]);
+  const records = new Map<string, CompletedResearchRecord>(previous.map(record => [key(record), { ...record, archived: true }]));
+  for (const node of planned) {
+    if (!continuableResearch(node.task) || node.status !== 'completed') continue;
+    // Retain the original input binding when this is an inherited completion.
+    // A later proof/source change must not silently bless the old finding again.
+    const inherited = previous.findLast(record => !record.archived && taskVersion(record.task) === taskVersion(node.task) &&
+      record.finding === node.finding);
+    const currentAssignment = !node.assignment || node.assignment.taskDigest === taskVersion(node.task) &&
+      (node.assignment.dependencies ?? []).every(reference => tasks.some(task => task.id === reference.taskId &&
+        taskVersion(task) === reference.taskDigest));
+    const record = completedResearchRecord.parse({ task: node.task, finding: node.finding,
+      inputDigest: inherited?.inputDigest ?? completedResearchInput(node.task, state, tasks, sources),
+      ...(currentAssignment ? {} : { archived: true }) });
+    records.set(key(record), record);
+  }
+  return [...records.values()];
+}
+
+function currentCompletedResearch(source: SeedSource, state: SolverRunState, tasks: readonly CooperativeTask[]) {
+  return new Map((source.completedResearch ?? []).filter(record => !record.archived &&
+    tasks.some(task => taskVersion(task) === taskVersion(record.task) && record.inputDigest ===
+      completedResearchInput(task, state, tasks, source.canonicalSources))).map(record => [record.task.id, record]));
 }
 
 function capacityOrigin(records: readonly CapacityRecord[]) {
@@ -337,6 +386,7 @@ function captureSource(sourceStateFile: string, stateFile: string, state: Solver
   const capacities = capturedCapacityRecords(archived);
   let previousCapacity: z.infer<typeof capacitySource> | undefined;
   let previousHandoffs: HandoffSource | undefined;
+  let previousResearch: CompletedResearchRecord[] | undefined;
   if (archived.continuationDigest) {
     const snapshot = readContinuationSnapshot(path.join(sourceDirectory, 'continuation.json'), archived.continuationDigest,
       { taskDigest: archived.taskDigest, problemReceiptDigest: archived.problem.receiptDigest });
@@ -357,6 +407,13 @@ function captureSource(sourceStateFile: string, stateFile: string, state: Solver
         throw new Error('math_continuation_content_changed');
       previousHandoffs = handoffSource.parse(JSON.parse(bytes.toString('utf8')));
     }
+    const research = snapshot.manifest.attachments.find(item => item.id === 'seed-completed-research');
+    if (research) {
+      const bytes = readMathFile(path.join(sourceDirectory, research.contentPath), research.bytes).bytes;
+      if (bytes.length !== research.bytes || mathDigest(bytes) !== research.sha256)
+        throw new Error('math_continuation_content_changed');
+      previousResearch = z.array(completedResearchRecord).parse(JSON.parse(bytes.toString('utf8')));
+    }
   }
   const capacityVersions = new Set(capacities.map(record =>
     canonicalMathJson([record.task.id, record.capacityExploration.taskDigest])));
@@ -372,6 +429,7 @@ function captureSource(sourceStateFile: string, stateFile: string, state: Solver
       notes: committedSource(archived.worktree, delivery.commit, 'RESEARCH.md') });
   }
   const handoffs = capturedHandoffs(archived, previousHandoffs);
+  const completedResearch = capturedCompletedResearch(archived, canonicalSources, previousResearch);
   const conditionalCandidates = planned.filter(node => !isAdvisoryTask(node.task) &&
     !(node.proof?.passed && !node.proof.conditions?.length) &&
     !(node.integratedCheck?.passed && !node.integratedCheck.conditions?.length) &&
@@ -404,6 +462,7 @@ function captureSource(sourceStateFile: string, stateFile: string, state: Solver
     ...(capacities.length || archived.cooperation.capacityExplorationInputs !== undefined ? { capacityExplorations: {
       records: capacities, inputs: archived.cooperation.capacityExplorationInputs, notes: [...notes.values()] } } : {}),
     ...(handoffs ? { researchHandoffs: handoffs } : {}),
+    ...(completedResearch.length ? { completedResearch } : {}),
     history: { evidence: 'recorded-not-replayed', sourcePhase: archived.phase,
       tasks: archived.cooperation.tasks.map(node => ({ taskId: node.task.id, taskDigest: taskVersion(node.task), status: node.status,
         attempts: node.attempts, assignment: node.assignment, finding: node.finding,
@@ -435,6 +494,8 @@ function freezeSource(source: SeedSource, directory: string) {
       text: canonicalMathJson(source.capacityExplorations), commit: null }] : []),
     ...(source.researchHandoffs ? [{ id: 'seed-research-handoffs', kind: 'research-notes' as const,
       text: canonicalMathJson(source.researchHandoffs), commit: null }] : []),
+    ...(source.completedResearch ? [{ id: 'seed-completed-research', kind: 'research-notes' as const,
+      text: canonicalMathJson(source.completedResearch), commit: null }] : []),
   ];
   const manifest: ContinuationManifest = { schema: 'theorem-os.continuation-snapshot.v1', taskDigest: source.taskDigest,
     problemReceiptDigest: source.problemReceiptDigest, attachments: documents.map(document => {
@@ -491,6 +552,7 @@ export async function seedSolverContinuation(options: {
         canonicalMathJson(Object.keys(candidate.seedSources ?? {}).sort()) !==
           canonicalMathJson([...state.problem.ownedFiles].sort())))) throw new Error('math_continuation_seed_candidates_invalid');
     const planVersion = mathDigest(canonicalMathJson(plan));
+    const completedResearch = currentCompletedResearch(source, state, plan.tasks);
     if (seeded && state.cooperation && (state.cooperation.planVersion !== planVersion ||
         canonicalMathJson(plannedTaskRecords(state.cooperation.tasks).map(node => node.task)) !== canonicalMathJson(plan.tasks) ||
         canonicalMathJson(capacityOrigin(capturedCapacityRecords(state))) !==
@@ -500,6 +562,9 @@ export async function seedSolverContinuation(options: {
         source.researchHandoffs && (canonicalMathJson(state.cooperation.deliveries ?? []) !==
           canonicalMathJson(restoredHandoffDeliveries(source.researchHandoffs, state)) ||
           canonicalMathJson(state.cooperation.researchDecisions ?? []) !== canonicalMathJson(source.researchHandoffs.decisions)) ||
+        source.completedResearch && state.cooperation.tasks.some(node => isAdvisoryTask(node.task) && !node.capacityExploration &&
+          (node.status !== (completedResearch.has(node.task.id) ? 'completed' : 'pending') ||
+            node.finding !== completedResearch.get(node.task.id)?.finding)) ||
         state.cooperation.tasks.some(node => node.assignment && !conditional.some(candidate =>
           candidate.taskId === node.task.id && node.status === 'conditional' &&
           node.assignment!.taskDigest === candidate.taskDigest && node.assignment!.workerId === 'continuation'))))
@@ -543,7 +608,9 @@ export async function seedSolverContinuation(options: {
       lease.signal.throwIfAborted();
       report.canonicalCommit = canonical; report.stage = 'installing'; saveReport();
       const capacities = source.capacityExplorations?.records ?? [];
-      const tasks: TaskRecord[] = plan.tasks.map(task => ({ task, attempts: 0, status: 'pending',
+      const tasks: TaskRecord[] = plan.tasks.map(task => ({ task, attempts: 0,
+        status: completedResearch.has(task.id) ? 'completed' : 'pending',
+        ...(completedResearch.get(task.id)?.finding === undefined ? {} : { finding: completedResearch.get(task.id)!.finding }),
         ...(plan.proofRoutes?.length ? { alternativeRoutes: plan.proofRoutes.filter(route => route.targetTaskId === task.id) } : {}) }));
       for (const record of capacities.filter(item => !item.archived)) tasks.push({ task: record.task as CooperativeTask,
         capacityExploration: record.capacityExploration, attempts: 0,
@@ -554,7 +621,9 @@ export async function seedSolverContinuation(options: {
         canonicalCommit: canonical, leadSeedCommit: canonical, planVersion, planEdited: true,
         ...(source.capacityExplorations?.inputs === undefined ? {} : {
           capacityExplorationInputs: source.capacityExplorations.inputs.map(entry => ({ ...entry })) }),
-        deliveries: [], history: capacities.filter(record => record.archived).map(archivedCapacity), edits: [], cursors: {} };
+        deliveries: [], history: [...capacities.filter(record => record.archived).map(archivedCapacity),
+          ...(source.completedResearch ?? []).filter(record => completedResearch.get(record.task.id) !== record)
+            .map(record => ({ task: record.task, status: 'completed', finding: record.finding }))], edits: [], cursors: {} };
       if (source.researchHandoffs) {
         state.cooperation.deliveries = restoredHandoffDeliveries(source.researchHandoffs, state);
         state.cooperation.researchDecisions = source.researchHandoffs.decisions.map(decision => ({ ...decision }));

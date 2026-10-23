@@ -64,7 +64,12 @@ it.each([false, true])('asks the Lead to return executable work promptly on ever
     taskText: 'Prove the target', retrievalRoot: '/library', frozenContexts: { 'Submission.lean': 'theorem target : True := /- body omitted -/' },
     assignment: { kind: 'lead', seedCommit: 'fixed-commit' } });
   expect(context.instructions).toContain('Once a complete plan has useful executable work, save the full current graph and return promptly so peers can start it.');
-  expect(context.instructions).toContain('Delegate unresolved library or mathematical searches as research tasks to Researchers.');
+  expect(context.instructions).toContain('Delegate unresolved library or mathematical searches as research tasks to eligible Researchers or the Engineer.');
+  for (const message of [context.instructions, context.continuationMessage]) {
+    expect(message).toContain('ready tasks reserved by ownerId to a busy worker');
+    expect(message).toContain('Explicitly reassign an unstarted, unassigned task through the complete plan');
+    expect(message).toContain('Preserve route gates, group scope, independent reviewer eligibility and running assignments');
+  }
   expect(context.instructions).toContain('Return the plan without running Lean diagnostics');
 });
 

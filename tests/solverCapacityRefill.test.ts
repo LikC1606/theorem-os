@@ -12,7 +12,7 @@ import { leadPlanDeliveryFile, parseCooperationPlan, taskVersion, type Cooperati
 import { cooperativeResearch } from './helpers/cooperation';
 import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
 
-describe('automatic typed proof capacity refill', () => {
+describe('automatic proof and ownership capacity refill', () => {
   const budget = { maxTurns: Infinity, remainingMs: Infinity };
   let directory: string, problem: SolverProblem, state: SolverRunState;
   let workers: ResearchWorker[], cooperative: CooperativeResearch;
@@ -30,7 +30,8 @@ describe('automatic typed proof capacity refill', () => {
     return instance;
   };
   const plan = () => ({ tasks: state.cooperation!.tasks.map(item => item.task),
-    groups: state.cooperation!.groups!.map(item => item.group) });
+    groups: state.cooperation!.groups!.map(item => item.group),
+    ...(state.cooperation!.proofRoutes?.length ? { proofRoutes: state.cooperation!.proofRoutes } : {}) });
   const refresh = () => (cooperative as any).changed();
   const nextLead = (dispatchBudget = budget) => track(cooperative.next(workers[0], dispatchBudget));
   const planning = (action: CooperativeAction | undefined) => {
@@ -88,6 +89,22 @@ describe('automatic typed proof capacity refill', () => {
     cooperative.activate(workers[3], { kind: 'task', task: busy.task, assignment: busy.assignment! },
       busyInterrupt, async () => {});
   };
+  const ownerCongestion = () => {
+    // No Prover is idle: the existing request must also recover reserved generalist work.
+    workers[1] = { ...workers[1], role: 'reviewer' };
+    workers[2] = { ...workers[2], role: 'researcher' };
+    state.cooperation!.proofRoutes = state.cooperation!.tasks.filter(item => item.task.kind === 'goal').map(goal => {
+      const route = { id: `checked_route_${goal.task.id}`, targetTaskId: goal.task.id,
+        closingTaskId: 'busy_helper', prerequisiteTaskIds: [] };
+      goal.alternativeRoutes = [route]; return route;
+    });
+    const task: CooperativeTask = { id: 'queued_research', kind: 'research', ownerId: workers[2].id,
+      objective: 'Investigate an independent construction while the original-goal input is proved.',
+      dependsOn: [], revision: 0 };
+    const queued: TaskRecord = { task, status: 'pending', attempts: 0 };
+    state.cooperation!.tasks.push(queued); refresh();
+    return queued;
+  };
 
   beforeEach(() => {
     const example = localExample('solver-capacity-refill-', 'lead');
@@ -144,7 +161,7 @@ describe('automatic typed proof capacity refill', () => {
     const section = compile.mock.calls.at(-1)![0].mandatory?.find(item => item.id === 'capacity-refill');
     expect(section).toMatchObject({ kind: 'assignment' });
     expect(section!.text).toContain(JSON.stringify(request));
-    expect(section!.text).toContain('these Provers had no assignable typed lemma work');
+    expect(section!.text).toContain('listed Provers had no assignable typed lemma work');
     expect(section!.text).toContain('Save and publish that graph promptly');
     expect(section!.text).toContain('waiting is valid');
     expect(section!.text).toContain('Do not manufacture helpers or duplicate in-flight questions');
@@ -472,6 +489,65 @@ describe('automatic typed proof capacity refill', () => {
     await waitsForInput();
     expect(state.cooperation!.lastCapacityRefill).toBeUndefined();
   });
+
+  it('asks Lead to release an unstarted owner reservation without an idle Prover and dispatches only after an explicit plan change', async () => {
+    const queued = ownerCongestion(), busyAssignment = node('busy_helper').assignment;
+    const before = structuredClone({ tasks: state.cooperation!.tasks, groups: state.cooperation!.groups });
+    expect((cooperative as any).capacityRefill()).toBeDefined();
+    const action = planning(await nextLead()), request = requestFor(action);
+    expect(request.workerIds).toEqual(['engineer']);
+    expect(request.ownershipCandidates).toEqual([{ taskId: queued.task.id, taskDigest: taskVersion(queued.task),
+      ownerId: workers[2].id, eligibleWorkerIds: ['engineer'] }]);
+    expect(Object.isFrozen(request.ownershipCandidates)).toBe(true);
+    expect(Object.isFrozen(request.ownershipCandidates![0])).toBe(true);
+    expect(Object.isFrozen(request.ownershipCandidates![0].eligibleWorkerIds)).toBe(true);
+    expect({ tasks: state.cooperation!.tasks, groups: state.cooperation!.groups }).toEqual(before);
+    expect(directSolverModules.M5.assign([queued], workers[3], workers.slice(1),
+      state.cooperation!.groups, state.cooperation!.tasks)).toBeUndefined();
+    const context = contextFor(action);
+    expect(context.workContract).toHaveProperty('capacityRefill', request);
+    expect(context.message).toContain('possible explicit plan reassignments');
+    expect(context.continuationMessage).toContain('ready tasks reserved by ownerId');
+    expect(context.continuationMessage).toContain('preserving its mathematical contract');
+
+    const proposal = plan();
+    proposal.tasks = proposal.tasks.map(task => task.id === queued.task.id ? { ...task, ownerId: workers[3].id } : task);
+    fs.writeFileSync(path.join(workers[0].worktree, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify(proposal) + '\n```\n');
+    await cooperative.deliver(workers[0], action, commitSolverSources(problem, workers[0].worktree));
+    expect(node(queued.task.id).task.ownerId).toBe('engineer');
+    expect(node('busy_helper').assignment).toBe(busyAssignment);
+    expect(busyInterrupt).not.toHaveBeenCalled();
+    expect(state.cooperation!.lastCapacityRefill?.status).toBe('assessed');
+    expect(await track(cooperative.next(workers[3], budget))).toMatchObject({ kind: 'task',
+      task: { id: queued.task.id, ownerId: 'engineer' }, assignment: { workerId: 'engineer' } });
+  });
+
+  it('does not repeat an assessed ownership-congestion request for an unchanged plan', async () => {
+    ownerCongestion();
+    const action = planning(await nextLead());
+    await assess(action);
+    expect((cooperative as any).capacityRefill()).toBeUndefined();
+    await waitsForInput();
+    expect(events.filter(item => item.event === 'capacity_refill_requested')).toHaveLength(1);
+  });
+
+  it.each(['route-parking', 'group-cap', 'saved-assignment', 'reviewer-independence', 'direct-work', 'cooldown', 'reserved-turn', 'duplicate-question'] as const)(
+    'does not propose owner reassignment through %s constraints', control => {
+      const queued = ownerCongestion();
+      if (control === 'route-parking') queued.routeParking = ['retained-route-blocker'];
+      else if (control === 'group-cap') state.cooperation!.groups![0].group.maxConcurrent = 1;
+      else if (control === 'saved-assignment') queued.assignment = { taskId: queued.task.id, taskDigest: taskVersion(queued.task),
+        workerId: workers[2].id, seedCommit: problem.baseCommit, assignmentId: 'retained-draft' };
+      else if (control === 'reviewer-independence') queued.task = { ...queued.task, reviewScope: 'feasibility', dependsOn: ['goal_0'] };
+      else if (control === 'direct-work') state.cooperation!.tasks.push({ task: { ...queued.task, id: 'unreserved_research',
+        objective: 'Investigate another independent construction.', ownerId: undefined }, status: 'pending', attempts: 0 });
+      else if (control === 'cooldown') state.workers = [{ id: workers[3].id,
+        recovery: { phase: 'cooling-down' } }] as SolverRunState['workers'];
+      else if (control === 'reserved-turn') cooperative.reserveTurn(workers[3]);
+      else state.cooperation!.tasks.push({ task: { ...queued.task, id: 'same_question_running' }, status: 'running', attempts: 1 });
+      expect((cooperative as any).capacityRefill()).toBeUndefined();
+      expect(queued.task.ownerId).toBe(workers[2].id);
+    });
 
   it('estimates existing typed capacity without consuming configurable scheduler callbacks or changing claims', () => {
     state.cooperation!.tasks.push(newLemma()); refresh();

@@ -167,6 +167,33 @@ function cooperationFor(f: ReturnType<typeof fixture>, state: SolverRunState, fr
     freshContinuationChecks, access: new Map(workers.map(worker => [worker.id, { environment, retrievalRoot: f.root }])) });
 }
 
+function completedResearchFixture(kind: 'research' | 'sketch' = 'research') {
+  const f = fixture(), task: CooperativeTask = { id: 'route_research', kind,
+    objective: 'Locate an exact route from the current helper to the original goal', dependsOn: ['first'], revision: 0 };
+  const finding = JSON.stringify({ taskId: task.id, taskDigest: taskVersion(task), conclusion: 'inconclusive',
+    summary: 'The helper does not close the original goal; the stated arithmetic gap remains.' });
+  f.oldState.cooperation!.tasks.push({ task, status: 'completed', attempts: 16, finding,
+    assignment: { taskId: task.id, taskDigest: taskVersion(task), workerId: 'solver', assignmentId: 'old-research',
+      seedCommit: f.oldState.cooperation!.canonicalCommit!,
+      dependencies: [{ taskId: 'first', taskDigest: taskVersion(f.tasks[0]!) }] } });
+  writeSolverRunState(f.sourceStateFile, f.oldState);
+  return { ...f, task, finding };
+}
+
+function nextContinuation(f: ReturnType<typeof fixture>, sourceStateFile: string, name: string) {
+  const directory = path.join(f.root, `${name}.json.runtime`); fs.mkdirSync(directory, { mode: 0o700 });
+  for (const part of ['worktree', 'worktree-2'])
+    git(f.workspace, ['worktree', 'add', '--quiet', '--detach', path.join(directory, part), f.base]);
+  const stateFile = path.join(directory, 'state.json');
+  writeSolverRunState(stateFile, { ...f.newState, runId: name, worktree: path.join(directory, 'worktree'),
+    workers: f.newState.workers!.map((worker, index) => ({ ...worker,
+      worktree: path.join(directory, index ? 'worktree-2' : 'worktree') })) });
+  const environmentFile = path.join(directory, 'environment-solver.json');
+  fs.writeFileSync(environmentFile, canonicalMathJson(projectMathematicsRuntimeEnvironment({ PATH: '/usr/bin:/bin',
+    DEEPSCIENTIST_MATH_ENV_FILE: environmentFile, DEEPSCIENTIST_MATH_TRUSTED_CACHE_ROOTS: host.packages })), { mode: 0o400 });
+  return { stateFile, directory, seed: () => seedSolverContinuation({ ...f.options, sourceRun: sourceStateFile, run: stateFile }) };
+}
+
 beforeEach(() => {
   host.build.mockReset(); host.verify.mockReset(); host.prepare.mockReset(); host.dispose.mockReset(); host.resolvePackages.mockReset();
   host.resolvePackages.mockImplementation(() => host.packages);
@@ -573,6 +600,110 @@ describe('explicit prepared-run continuation initialization', () => {
     fs.renameSync(notes, `${notes}.saved`); fs.symlinkSync(`${notes}.saved`, notes);
     await expect(f.seed()).rejects.toThrow('math_path_invalid');
     expect(readSolverRunState(f.stateFile).cooperation).toBeUndefined(); expect(host.verify).not.toHaveBeenCalled();
+  });
+});
+
+describe('completed advisory research continuation', () => {
+  it.each(['research', 'sketch'] as const)('retains unchanged completed %s and finding without replaying proof or session authority', async kind => {
+    const f = completedResearchFixture(kind), prior = f.oldState.cooperation!.tasks.at(-1)!;
+    prior.proof = prior.integratedCheck = f.oldState.cooperation!.tasks[0]!.integratedCheck;
+    writeSolverRunState(f.sourceStateFile, f.oldState);
+    const report = await f.seed(), state = readSolverRunState(f.stateFile);
+    const retained = state.cooperation!.tasks.find(node => node.task.id === f.task.id)!;
+    expect(retained).toMatchObject({ status: 'completed', attempts: 0, finding: f.finding });
+    expect(retained.assignment).toBeUndefined(); expect(retained.proof).toBeUndefined(); expect(retained.integratedCheck).toBeUndefined();
+    expect(state.workers!.every(worker => !worker.threadId && !worker.sessionTaskId && !worker.sessionAssignmentId)).toBe(true);
+    expect(report.checked).toEqual(['first', 'second']);
+    expect(state.cooperation!.tasks[0]!.integratedCheck!.verification.results[0]!.receiptId).not.toBe('old-first');
+    expect(state.cooperation!.tasks.find(node => node.task.id === 'goal')?.status).toBe('pending');
+    expect(JSON.parse(readContinuationPage(path.join(f.directory, 'continuation.json'), state.continuationDigest,
+      'seed-completed-research').text)[0]).toMatchObject({ task: { id: f.task.id }, finding: f.finding });
+    await f.seed();
+    expect(readSolverRunState(f.stateFile).cooperation!.tasks.find(node => node.task.id === f.task.id)?.status).toBe('completed');
+  });
+
+  it.each(['environmentDigest', 'retrievalDigest', 'knowledgeDigest'] as const)('reopens research for a changed %s and retains the finding as history', async field => {
+    const f = completedResearchFixture();
+    f.newState[field] = mathDigest(`changed-${field}`); writeSolverRunState(f.stateFile, f.newState);
+    await f.seed(); const state = readSolverRunState(f.stateFile);
+    expect(state.cooperation!.tasks.find(node => node.task.id === f.task.id)).toMatchObject({ status: 'pending', attempts: 0 });
+    expect(state.cooperation!.tasks.find(node => node.task.id === f.task.id)?.finding).toBeUndefined();
+    expect(state.cooperation!.history).toContainEqual(expect.objectContaining({ task: f.task, finding: f.finding }));
+  });
+
+  it('retains completed research across generations, but reopens it when its dependency or canonical sources change', async () => {
+    const f = completedResearchFixture(); await f.seed();
+    const second = nextContinuation(f, f.stateFile, 'second-generation'); await second.seed();
+    let state = readSolverRunState(second.stateFile);
+    expect(state.cooperation!.tasks.find(node => node.task.id === f.task.id)).toMatchObject({ status: 'completed', finding: f.finding });
+    const dependency = state.cooperation!.tasks.find(node => node.task.id === 'first')!;
+    dependency.task = { ...dependency.task, revision: dependency.task.revision + 1 };
+    writeSolverRunState(second.stateFile, state);
+    const third = nextContinuation(f, second.stateFile, 'third-generation'); await third.seed();
+    state = readSolverRunState(third.stateFile);
+    expect(state.cooperation!.tasks.find(node => node.task.id === f.task.id)?.status).toBe('pending');
+    expect(state.cooperation!.history).toContainEqual(expect.objectContaining({ task: f.task, finding: f.finding }));
+
+    state = readSolverRunState(f.stateFile);
+    fs.writeFileSync(path.join(state.worktree, f.projectRelative, 'Submission/Helpers.lean'),
+      helpers.replace('end Submission.Helpers', 'lemma new_input : True := by trivial\nend Submission.Helpers'));
+    state.cooperation!.canonicalCommit = commit(state.worktree, 'New canonical research input');
+    writeSolverRunState(f.stateFile, state);
+    const changedSources = nextContinuation(f, f.stateFile, 'changed-sources'); await changedSources.seed();
+    expect(readSolverRunState(changedSources.stateFile).cooperation!.tasks.find(node => node.task.id === f.task.id)?.status).toBe('pending');
+  });
+
+  it('does not revive an archived completion after a later explicit reopen', async () => {
+    const f = completedResearchFixture(); await f.seed();
+    const source = readSolverRunState(f.stateFile), node = source.cooperation!.tasks.find(node => node.task.id === f.task.id)!;
+    node.task = { ...node.task, revision: 1 }; node.status = 'pending'; node.finding = undefined;
+    writeSolverRunState(f.stateFile, source);
+    const second = nextContinuation(f, f.stateFile, 'reopened-generation'); await second.seed();
+    const third = nextContinuation(f, second.stateFile, 'still-reopened-generation'); await third.seed();
+    const state = readSolverRunState(third.stateFile);
+    expect(state.cooperation!.tasks.find(node => node.task.id === f.task.id)).toMatchObject({ task: { revision: 1 }, status: 'pending' });
+    expect(state.cooperation!.history).toContainEqual(expect.objectContaining({ task: f.task, finding: f.finding }));
+  });
+
+  it.each(['pending', 'running', 'blocked'] as const)('does not preserve a %s research attempt as completed', async status => {
+    const f = completedResearchFixture(); f.oldState.cooperation!.tasks.at(-1)!.status = status;
+    writeSolverRunState(f.sourceStateFile, f.oldState); await f.seed();
+    expect(readSolverRunState(f.stateFile).cooperation!.tasks.find(node => node.task.id === f.task.id))
+      .toMatchObject({ status: 'pending', attempts: 0 });
+  });
+
+  it.each(['task', 'dependency'] as const)('reopens a stale completed research assignment after a changed %s contract', async changed => {
+    const f = completedResearchFixture(), node = f.oldState.cooperation!.tasks.find(node => node.task.id ===
+      (changed === 'task' ? f.task.id : 'first'))!;
+    node.task = { ...node.task, revision: 1 };
+    writeSolverRunState(f.sourceStateFile, f.oldState); await f.seed();
+    const state = readSolverRunState(f.stateFile);
+    expect(state.cooperation!.tasks.find(node => node.task.id === f.task.id)?.status).toBe('pending');
+    expect(state.cooperation!.history).toContainEqual(expect.objectContaining({ finding: f.finding }));
+  });
+
+  it.each(['final-candidate', 'feasibility', 'legacy-final-candidate'] as const)('requires a new %s review', async scope => {
+    const f = completedResearchFixture(), node = f.oldState.cooperation!.tasks.at(-1)!;
+    node.task = scope === 'legacy-final-candidate' ? { ...node.task, id: 'independent_candidate_review' } :
+      { ...node.task, reviewScope: scope };
+    writeSolverRunState(f.sourceStateFile, f.oldState); await f.seed();
+    expect(readSolverRunState(f.stateFile).cooperation!.tasks.find(task => task.task.id === node.task.id)?.status).toBe('pending');
+  });
+
+  it('loads a legacy frozen source without completion identity conservatively', async () => {
+    const f = completedResearchFixture(), rename = fs.renameSync;
+    const fail = vi.spyOn(fs, 'renameSync').mockImplementation((from, to) => {
+      if (String(to) === path.join(f.directory, 'continuation.json')) throw new Error('stop before snapshot publication');
+      return rename(from, to);
+    });
+    await expect(f.seed()).rejects.toThrow('stop before snapshot publication'); fail.mockRestore();
+    const sourceFile = path.join(f.directory, 'continuation-seed-source.json');
+    const source = JSON.parse(fs.readFileSync(sourceFile, 'utf8')); delete source.completedResearch;
+    fs.chmodSync(sourceFile, 0o600); fs.writeFileSync(sourceFile, canonicalMathJson(source)); fs.chmodSync(sourceFile, 0o400);
+    await f.seed(); const state = readSolverRunState(f.stateFile);
+    expect(state.cooperation!.tasks.find(node => node.task.id === f.task.id)?.status).toBe('pending');
+    expect(state.cooperation!.tasks[0]!.status).toBe('integrated');
+    expect(readContinuationPage(path.join(f.directory, 'continuation.json'), state.continuationDigest, 'seed-history').text).toContain(f.finding.replaceAll('"', '\\"'));
   });
 });
 

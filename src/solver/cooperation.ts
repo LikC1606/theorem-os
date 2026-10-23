@@ -27,7 +27,7 @@ import { mathematicalGaps, mathematicalGapVisible } from './mathematicalGaps';
 import { automaticTaskConnection, createTaskConnectionCheck } from './taskConnections';
 import { taskTypePreflightEnvironmentIdentity, type TaskTypePreflight } from './taskTypePreflight';
 import { captureObligationSnapshot } from './obligationProgress';
-import { assignmentDeliveryFile, groupOpen, isFeasibilityReview, taskGroup, type CooperativeTask, type CooperativeAction, type TaskRecord } from './tasks';
+import { assignmentDeliveryFile, groupOpen, isFeasibilityReview, taskGroup, type CapacityOwnershipCandidate, type CooperativeTask, type CooperativeAction, type TaskRecord } from './tasks';
 import { digest, directDeliveryRejections, isTaskSourceRepairFeedback, rejectionCode, CooperationState, TaskVersions, DispatchBudget, RETRY_DISPATCH, DispatchResult, bounded,
   deliveryInputFields, readCooperationPlan } from './cooperationShared';
 import { CooperationInputs } from './cooperationInputs';
@@ -105,7 +105,33 @@ export class CooperativeResearch extends CooperationInputs {
     if (!recovery || leadAssessmentCovered(this.archive.lastStagnationRecovery, recovery.inputDigest)) return;
     return recovery;
   }
-  private capacityRefillInput() {
+  private capacityAvailability() {
+    const groups = this.archive.groups?.map(route => ({ ...route,
+      busy: route.busy ?? this.archive.tasks.filter(node => node.status === 'running' &&
+        taskGroup(node.task) === route.group.id).length }));
+    const occupied = new Set([...this.active.keys(), ...this.reservedTurns.keys(), ...this.deliveryChecks.keys(),
+      ...[...this.preparingTaskTypes.values()].map(pending => pending.workerId),
+      ...this.archive.tasks.filter(node => ['running', 'delivered'].includes(node.status) && node.assignment &&
+        node.assignment.taskDigest === digest(node.task)).map(node => node.assignment!.workerId)]);
+    const peers = this.allocationPeers;
+    const ready = readyResearchTasks(this.archive.tasks, groups)
+      .filter(node => !this.preparingTaskTypes.has(node) && !this.synchronizationBlocked(node.task));
+    return { groups, occupied, peers, ready };
+  }
+  /** Propose a Lead-owned reassignment; the actual task and every scheduling gate stay unchanged. */
+  private capacityOwnershipCandidates({ groups, occupied, peers, ready } = this.capacityAvailability()): CapacityOwnershipCandidate[] {
+    const idle = peers.filter(worker => ['researcher', 'engineer'].includes(worker.role) && !occupied.has(worker.id) &&
+      !assignSharedResearchTask(ready, worker, peers, groups, this.archive.tasks));
+    return ready.flatMap(node => {
+      if (!node.task.ownerId || !occupied.has(node.task.ownerId) || node.assignment || node.capacityExploration) return [];
+      const candidate = { ...node, task: { ...node.task, ownerId: undefined } };
+      const eligibleWorkerIds = idle.filter(worker =>
+        assignSharedResearchTask([candidate], worker, peers, groups, this.archive.tasks) === candidate).map(worker => worker.id).sort();
+      return eligibleWorkerIds.length ? [{ taskId: node.task.id, taskDigest: digest(node.task),
+        ownerId: node.task.ownerId, eligibleWorkerIds }] : [];
+    }).sort((a, b) => a.taskId.localeCompare(b.taskId));
+  }
+  private capacityRefillInput(ownershipCandidates = this.capacityOwnershipCandidates()) {
     const snapshot = captureObligationSnapshot(this.archive.tasks, { groups: this.archive.groups,
       environmentDigest: this.input.state.environmentDigest, proofRoutes: this.archive.proofRoutes, blockers: this.archive.blockers });
     const versions = this.taskVersions();
@@ -120,28 +146,21 @@ export class CooperativeResearch extends CooperationInputs {
       return canonicalMathJson(content);
     }))].sort();
     return { inputDigest: mathDigest(canonicalMathJson({ problem: this.input.state.problem.receiptDigest,
-      environment: this.input.state.environmentDigest, mathematics: snapshot.digest, source, findings })),
+      environment: this.input.state.environmentDigest, mathematics: snapshot.digest, source, findings,
+      ...(ownershipCandidates.length ? { ownershipCandidates } : {}) })),
     evidenceDigest: mathDigest(canonicalMathJson({ source, evidence })) };
   }
   private capacityRefill() {
     if (this.active.has(this.lead.id) || this.reservedTurns.has(this.lead.id) || this.leadDeliveries.size) return;
-    const groups = this.archive.groups?.map(route => ({ ...route,
-      busy: route.busy ?? this.archive.tasks.filter(node => node.status === 'running' &&
-        taskGroup(node.task) === route.group.id).length }));
+    const { groups, occupied, peers, ready } = this.capacityAvailability();
     const available = () => !groups || groups.some(route => groupOpen(route) &&
       (route.busy ?? 0) < (route.group.maxConcurrent ?? 3));
     if (!originalGoalTaskFocus(this.archive.tasks, this.archive.groups, this.input.state.environmentDigest).frontier.size ||
         !available()) return;
-    const occupied = new Set([...this.active.keys(), ...this.deliveryChecks.keys(),
-      ...[...this.preparingTaskTypes.values()].map(pending => pending.workerId),
-      ...this.archive.tasks.filter(node => ['running', 'delivered'].includes(node.status) && node.assignment &&
-        node.assignment.taskDigest === digest(node.task)).map(node => node.assignment!.workerId)]);
-    const peers = this.allocationPeers;
+    const ownershipCandidates = this.capacityOwnershipCandidates({ groups, occupied, peers, ready });
     const idle = peers.filter(worker => worker.role === 'prover' && !occupied.has(worker.id));
-    if (!idle.length) return;
+    if (!idle.length && !ownershipCandidates.length) return;
     // Capacity estimation is host-owned and must not consume a configurable scheduler's state.
-    const ready = readyResearchTasks(this.archive.tasks, groups)
-      .filter(node => !this.preparingTaskTypes.has(node) && !this.synchronizationBlocked(node.task));
     const workerIds: string[] = [];
     for (const worker of idle) {
       const candidates = ready.filter(node => routeAllowsTask(node.task, this.archive.tasks, groups));
@@ -152,12 +171,13 @@ export class CooperativeResearch extends CooperationInputs {
       const route = groups?.find(route => route.group.id === taskGroup(node.task));
       if (route) route.busy = (route.busy ?? 0) + 1;
     }
+    for (const id of new Set(ownershipCandidates.flatMap(candidate => candidate.eligibleWorkerIds))) workerIds.push(id);
     if (!workerIds.length || !available()) return;
-    const input = this.capacityRefillInput();
+    const input = this.capacityRefillInput(ownershipCandidates);
     const previous = this.archive.lastCapacityRefill;
     // An unfinished request can be retried after admission failure or process restore.
     if (leadAssessmentCovered(previous, input.inputDigest)) return;
-    return { ...input, workerIds };
+    return { ...input, workerIds, ...(ownershipCandidates.length ? { ownershipCandidates } : {}) };
   }
   /** Called after an accepted final or immutable live plan, before its normal save. */
   protected markCapacityRefillAssessed(action: CooperativeAction): void {
@@ -470,7 +490,9 @@ export class CooperativeResearch extends CooperationInputs {
           workerIds: [...refill.workerIds], requestedAt: Date.now(), status: 'requested' as const, evidenceDigest: refill.evidenceDigest },
           action.planNonce ?? action.initialPlanNonce!);
         action.capacityRefill = Object.freeze({ requestId: receipt.requestId, inputDigest: receipt.inputDigest,
-          workerIds: Object.freeze([...receipt.workerIds]), requestedAt: receipt.requestedAt });
+          workerIds: Object.freeze([...receipt.workerIds]), requestedAt: receipt.requestedAt,
+          ...(refill.ownershipCandidates ? { ownershipCandidates: Object.freeze(refill.ownershipCandidates.map(candidate =>
+            Object.freeze({ ...candidate, eligibleWorkerIds: Object.freeze([...candidate.eligibleWorkerIds]) }))) } : {}) });
         this.archive.lastCapacityRefill = receipt;
         this.input.emit(created ? 'capacity_refill_requested' : 'capacity_refill_resumed', { ...receipt, planVersion });
         this.changed();

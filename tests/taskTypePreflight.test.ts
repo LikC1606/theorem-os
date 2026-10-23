@@ -66,6 +66,47 @@ describe('content-bound typed helper preflight', () => {
     expect(check).toHaveBeenCalledTimes(2);
   });
 
+  it('checks and blocks a malformed new helper contract in an established helper-only namespace', async () => {
+    const helperOnlyProblem = { targets: [{ theoremName: 'Main.original', proofPath: 'Main.lean' }] } as SolverProblem;
+    check.mockImplementation(async () => failure({ firstBlocking: {
+      severity: 'error', format: 'lean-json', file: 'TypeDiagnostic.lean',
+      message: "<input>:1:361: expected ')', ',' or ':'" } }));
+    const first = await cache.check(request({ problem: helperOnlyProblem }));
+    expect(first.result).toMatchObject({ status: 'invalid', context: 'Geometry.original',
+      reason: expect.stringContaining("expected ')', ',' or ':'"), proofAcceptance: 'not-assessed' });
+    expect(check.mock.calls[0][0]).toMatchObject({ context: 'Geometry.original', type: task.type });
+    await cache.check(request({ problem: helperOnlyProblem }));
+    expect(check).toHaveBeenCalledOnce();
+  });
+
+  it('defers a new helper whose namespace has no established declaration', async () => {
+    const result = await cache.check(request({ task: { ...task, theoremName: 'UnknownNamespace.helper' } }));
+    expect(result.result).toMatchObject({ status: 'deferred', reason: 'declaration-context-unavailable' });
+    expect(check).not.toHaveBeenCalled();
+  });
+
+  it('does not infer an unqualified helper context from declarations in another namespace', async () => {
+    const result = await cache.check(request({ task: { ...task, theoremName: 'helper' }, problem: { targets: [] } }));
+    expect(result.result).toMatchObject({ status: 'deferred', reason: 'declaration-context-unavailable' });
+    expect(check).not.toHaveBeenCalled();
+  });
+
+  it('defers a helper-only namespace with conflicting established lookup scopes', async () => {
+    fs.writeFileSync(path.join(root, 'Submission.lean'), source.replace('end Geometry',
+      'section\nopen Nat\ntheorem other : True := by sorry\nend\nend Geometry'));
+    const result = await cache.check(request({ problem: { targets: [] } }));
+    expect(result.result).toMatchObject({ status: 'deferred', reason: 'declaration-context-unavailable' });
+    expect(check).not.toHaveBeenCalled();
+  });
+
+  it('defers a helper-only namespace with an unsupported active scope', async () => {
+    fs.writeFileSync(path.join(root, 'Submission.lean'), source.replace('theorem original',
+      'variable (P : Prop)\ntheorem original'));
+    const result = await cache.check(request({ problem: { targets: [] } }));
+    expect(result.result).toMatchObject({ status: 'deferred', reason: 'declaration-scope-not-reproducible' });
+    expect(check).not.toHaveBeenCalled();
+  });
+
   it('reuses a successful identical proof-erased query while preserving raw input and origin evidence', async () => {
     const first = await cache.check(request()), originSourceDigest = snapshot();
     fs.writeFileSync(path.join(root, 'Submission.lean'), source.replace('by sorry', 'by\n  -- proof-only revision\n  trivial'));
@@ -224,7 +265,9 @@ describe('content-bound typed helper preflight', () => {
   });
 
   it.each(['Unknown identifier `unboundType`', 'unexpected token ")"; expected term',
-    'Function expected at value', 'Requested type must be closed without free variables or metavariables'])
+    'Function expected at value', 'Requested type must be closed without free variables or metavariables',
+    "<input>:1:361: expected ')', ',' or ':'", "expected ')', ',' or ':'",
+    '<input>:2:10: unexpected token ")"; expected term'])
   ('blocks only an explicit type or parsing error: %s', async message => {
     check.mockImplementation(async () => failure({ firstBlocking: {
       severity: 'error', format: 'lean-json', file: 'TypeDiagnostic.lean', message } }));
@@ -236,7 +279,8 @@ describe('content-bound typed helper preflight', () => {
     'maximum recursion depth has been reached; use set_option maxRecDepth to increase the limit',
     'internal exception: unreachable code', 'IO error: failed to read object file',
     'out of memory', 'kernel exception: invalid memory access', 'unsolved goals\n|- True',
-    'Type mismatch while reporting an internal error', 'Unknown identifier after a deterministic timeout'])
+    'Type mismatch while reporting an internal error', 'Unknown identifier after a deterministic timeout',
+    "<input>:1:361: expected ')' after an internal exception"])
   ('defers query-local resource, infrastructure and unclassified errors without caching: %s', async message => {
     check.mockImplementation(async () => failure({ firstBlocking: {
       severity: 'error', format: 'lean-json', file: 'TypeDiagnostic.lean', message } }));
