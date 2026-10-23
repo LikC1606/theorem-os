@@ -44,6 +44,26 @@ it('records adoption as a pending typed task and reopens the handoff if that con
   expect(pendingResearchHandoffs({ ...planned, tasks: [...state.tasks, node({ ...adopted, type: 'False' })] })).toHaveLength(1);
 });
 
+it('keeps adoption durable when only scheduling metadata changes', () => {
+  const state = fixture();
+  state.deliveries.push({ ...structuredClone(delivery), id: 'repeated', createdAt: 2 });
+  const id = pendingResearchHandoffs(state)[0].id;
+  const oldVersion = { ...proposal, id: 'scheduled_bridge' };
+  const adopted = { ...oldVersion, sharing: 'group' as const };
+  const decisions = resolveResearchHandoffs(state, [id], [research, adopted], undefined);
+  state.researchDecisions = decisions.map((decision, index) => index === 0 ?
+    { ...decision, taskDigest: taskVersion(oldVersion) } : decision);
+  const current = { ...adopted, sharing: 'problem' as const };
+  state.tasks.push(node(current));
+
+  expect(taskVersion(current)).not.toBe(taskVersion(adopted));
+  expect(taskVersion(current)).not.toBe(taskVersion(oldVersion));
+  expect(researchHandoffs(state)).toMatchObject([{ status: 'adopted', decision: {
+    taskId: current.id, taskDigest: taskVersion(current),
+  } }]);
+  expect(pendingResearchHandoffs(state)).toEqual([]);
+});
+
 it.each([
   { type: 'True' }, { theoremName: 'Original.unrelated' }, { proofPath: 'Other.lean' },
   { conditional: true }, { premises: ['extra assumption'] }, { groupId: 'other-route' },

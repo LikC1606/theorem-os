@@ -95,13 +95,17 @@ export function researchHandoffs(state: HandoffState): ResearchHandoff[] {
       .filter(decision => {
         if (decision.status !== 'adopted') return true;
         const adopted = decision.taskId && nodes.get(decision.taskId);
-        return Boolean(adopted && taskVersion(adopted.task) === decision.taskDigest && sameProofTarget(group.proposal, adopted.task));
+        // A task digest also covers scheduling metadata such as sharing. Adoption remains
+        // valid across those edits as long as the exact proof target is still present.
+        return Boolean(adopted && sameProofTarget(group.proposal, adopted.task));
       });
     const equivalent = (decision: ResearchHandoffDecision) => canonicalMathJson({ status: decision.status, taskId: decision.taskId,
-      taskDigest: decision.taskDigest, waitsOn: decision.waitsOn ?? [] });
+      ...(decision.status === 'adopted' ? {} : { taskDigest: decision.taskDigest }), waitsOn: decision.waitsOn ?? [] });
     const decisionSource = applicable.length && applicable.every(item => equivalent(item) === equivalent(applicable[0])) ?
       applicable.find(decision => decision.id === id) ?? applicable[0] : undefined;
-    const decision = decisionSource && { ...decisionSource, id, deliveryId: delivery.id };
+    const adoptedTask = decisionSource?.status === 'adopted' && decisionSource.taskId ? nodes.get(decisionSource.taskId) : undefined;
+    const decision = decisionSource && { ...decisionSource, id, deliveryId: delivery.id,
+      ...(adoptedTask ? { taskDigest: taskVersion(adoptedTask.task) } : {}) };
     const reopened = decision?.status === 'deferred' && Boolean(decision.waitsOn?.length) &&
       decision.waitsOn!.every(reference => freshlyChecked(nodes, reference));
     const decisionStates = [...new Set(recorded.map(({ id: _id, deliveryId: _deliveryId, ...value }) => canonicalMathJson(value)))].sort();
