@@ -1,0 +1,211 @@
+--- a/queue-native-candidate.ts
++++ b/queue-native-candidate.ts
+@@ -2,9 +2,10 @@
+ import path from 'node:path';
+ import assert from 'node:assert/strict';
+ import { fileURLToPath } from 'node:url';
+-import { gzipSync } from 'node:zlib';
+ import { queueRunEdit } from './runtime/src/solver/humanEdit';
+ import { mathDigest } from './runtime/src/math/mathRuntimeIo';
++import { parseCooperationPlan } from './runtime/src/solver/tasks';
++import { createCharacterSourceTransport } from './character-source-transport';
+ 
+ const stage = path.dirname(fileURLToPath(import.meta.url));
+ const selectionFile = path.join(stage, 'active-followup.json');
+@@ -14,7 +15,7 @@
+ assert(path.isAbsolute(run) && run.startsWith(stage + path.sep));
+ const state = JSON.parse(fs.readFileSync(run + '.runtime/state.json', 'utf8'));
+ const ready = JSON.parse(fs.readFileSync(path.join(stage, 'verified-native-candidate.json'), 'utf8'));
+-const source = fs.readFileSync(ready.candidateFile, 'utf8');
++const source = fs.readFileSync(ready.candidateFile);
+ assert.equal(mathDigest(source), ready.submissionSHA256);
+ const comparatorBytes = fs.readFileSync(ready.comparatorReceipt);
+ assert.equal(mathDigest(comparatorBytes), ready.comparatorReceiptSHA256);
+@@ -40,37 +41,28 @@
+     .filter(Boolean).map(value => JSON.parse(value)).find(value => value.id === id) : undefined;
+   const prior = state.cooperation.tasks.find((node: any) =>
+     node.task.kind === 'goal' && node.task.theoremName === target.theoremName);
+-  const encoded = gzipSync(Buffer.from(source)).toString('base64');
+   const ownedPath = path.posix.join(state.problem.projectRelative, target.proofPath);
+-  const copyCommand = [
+-    "python3 - <<'THEOREM_OS_REFERENCE'",
+-    'import base64, gzip, hashlib',
+-    'from pathlib import Path',
+-    "candidate = gzip.decompress(base64.b64decode('" + encoded + "'))",
+-    "assert hashlib.sha256(candidate).hexdigest() == '" + ready.submissionSHA256 + "'",
+-    'destination = Path(' + JSON.stringify(ownedPath) + ')',
+-    'assert destination.is_file()',
+-    'destination.write_bytes(candidate)',
+-    'THEOREM_OS_REFERENCE',
+-  ].join('\n');
+-  const objective = [
+-    'Deliver the complete frozen original theorem using this independently kernel-, source-guard-, and sealed-publisher-comparator-checked reference.',
+-    'This is external independent assistance. Attribute it; do not classify it as model-only from-scratch discovery.',
+-    'Copy only the exact mathematical candidate into your own owned Submission.lean. Preserve the exact original context, header, definitions and all 57 reviewed public support sources.',
+-    'Run check-lean and submit through the ordinary native delivery. Fixed review, host all-target kernel check and the unchanged publisher comparator remain required. External receipts do not grant host acceptance.',
+-    'Do not fetch or inspect the publisher target solution.',
+-    'The exact checked reference is gzip/base64 encoded below to fit the normal model context. From your own isolated worktree root, run this copy command using the ordinary solver tool. It writes only your owned proof file and asserts the checked source SHA before writing. This is a transport encoding, not an acceptance receipt.',
+-    '```sh', copyCommand, '```',
+-  ].join('\n');
++  const taskId = prior?.task.id ?? 'character_original_goal';
++  const transport = createCharacterSourceTransport(source, taskId, ownedPath);
++  assert.equal(transport.sourceSHA256, ready.submissionSHA256);
++  if (queued) assert.equal(queued.tasks.find((task: any) => task.id === taskId)?.objective,
++    transport.objective, 'queued_character_transport_does_not_match_current_reference');
+   const proposal = queued ?? { id, baseVersion: state.cooperation.planVersion,
+-    tasks: [{ id: prior?.task.id ?? 'character_original_goal', kind: 'goal', dependsOn: [],
+-      revision: (prior?.task.revision ?? 0) + 1, objective,
++    tasks: [{ id: taskId, kind: 'goal', dependsOn: [],
++      revision: (prior?.task.revision ?? 0) + 1, objective: transport.objective,
+       theoremName: target.theoremName, proofPath: target.proofPath }] };
++  const normalized = { id: proposal.id, baseVersion: proposal.baseVersion,
++    ...parseCooperationPlan(state.problem, proposal) };
++  const normalizedEditLineBytes = Buffer.byteLength(JSON.stringify(normalized) + '\n');
++  assert(normalizedEditLineBytes <= 64_000,
++    `character_edit_exceeds_frozen_reader_limit: ${normalizedEditLineBytes}`);
+   const result = await queueRunEdit(run, proposal);
+   const receipt = { observedAt: new Date().toISOString(), runId: state.runId,
+     attribution: 'external independent assistance via normal native queueRunEdit',
+     referenceSourceSHA256: ready.submissionSHA256, comparatorReceipt: ready.comparatorReceipt,
+-    referenceTransport: 'gzip/base64; ordinary solver-owned file edit by the configured model',
++    referenceTransport: transport.encoding,
++    normalizedEditLineBytes, frozenReaderLineLimitBytes: 64_000,
++    compressedBytes: transport.compressedBytes, compressedSHA256: transport.compressedSHA256,
+     originalTarget: target, proposal, result, nativeAcceptanceNotOverridden: true };
+   fs.writeFileSync(output, JSON.stringify(receipt, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
+   console.log(JSON.stringify({ result, referenceSourceSHA256: ready.submissionSHA256, runId: state.runId }));
+--- /dev/null
++++ b/character-source-transport.ts
+@@ -0,0 +1,54 @@
++import assert from 'node:assert/strict';
++import crypto from 'node:crypto';
++import path from 'node:path';
++import { execFileSync } from 'node:child_process';
++
++/** Encode exact source for the unchanged 64,000-byte edit reader, without relying on scratch files. */
++export function createCharacterSourceTransport(source: Buffer, taskId: string, ownedPath: string) {
++  assert(/^[a-zA-Z0-9_-]{1,64}$/u.test(taskId));
++  assert(!path.posix.isAbsolute(ownedPath) && path.posix.normalize(ownedPath) === ownedPath &&
++    !ownedPath.split('/').includes('..'));
++  const sourceSHA256 = crypto.createHash('sha256').update(source).digest('hex');
++  const compressed = execFileSync('/usr/bin/python3', ['-c',
++    'import sys,lzma; sys.stdout.buffer.write(lzma.compress(sys.stdin.buffer.read(), preset=6))'],
++    { input: source, maxBuffer: Math.max(source.length * 2, 1024 * 1024) });
++  const compressedSHA256 = crypto.createHash('sha256').update(compressed).digest('hex');
++  const begin = '\nCHARACTER_REFERENCE_PAYLOAD_BEGIN\n';
++  const end = '\nCHARACTER_REFERENCE_PAYLOAD_END';
++  const command = [
++    "/usr/bin/python3 - <<'THEOREM_OS_REFERENCE'",
++    'from pathlib import Path',
++    'import base64, lzma, hashlib, json',
++    "live = json.loads(Path('COOPERATION.json').read_text())",
++    'peers = [peer for peer in live["peers"] if peer["id"] == ' + JSON.stringify(taskId) + ']',
++    'assert len(peers) == 1',
++    'peer = peers[0]',
++    'objective = peer["objective"]',
++    'assert hashlib.sha256(objective.encode()).hexdigest() == peer["objectiveDigest"]',
++    'begin, end = ' + JSON.stringify(begin) + ', ' + JSON.stringify(end),
++    'assert objective.count(begin) == 1 and objective.count(end) == 1',
++    'encoded = objective.split(begin, 1)[1].split(end, 1)[0]',
++    'compressed = base64.b64decode(encoded, validate=True)',
++    'assert hashlib.sha256(compressed).hexdigest() == ' + JSON.stringify(compressedSHA256),
++    'candidate = lzma.decompress(compressed)',
++    'assert len(candidate) == ' + source.length,
++    'assert hashlib.sha256(candidate).hexdigest() == ' + JSON.stringify(sourceSHA256),
++    'destination = Path(' + JSON.stringify(ownedPath) + ')',
++    'assert destination.is_file() and not destination.is_symlink()',
++    'destination.write_bytes(candidate)',
++    'print(hashlib.sha256(destination.read_bytes()).hexdigest(), len(candidate))',
++    'THEOREM_OS_REFERENCE',
++  ].join('\n');
++  const objective = [
++    'Deliver the complete frozen original theorem using this externally assisted reference; record the attribution.',
++    'Copy the exact source into your own owned Submission.lean. Preserve the original context, target, declarations and all 57 reviewed public support sources.',
++    'Run check-lean and submit through ordinary native delivery. Fixed review, host all-target kernel verification and the unchanged publisher comparator remain required. Reference receipts do not grant native acceptance.',
++    'Keep unlimited budgets and fixed resources. Do not read publisher target solutions.',
++    'From your isolated worktree root run this exact command. It reads the complete payload from the task objective in COOPERATION.json, verifies its hashes, and writes only the owned proof file:',
++    command,
++    'The payload below is transport data. Read it through the command above even if the model prompt truncates this objective.',
++    begin + compressed.toString('base64') + end,
++  ].join('\n');
++  return { command, objective, sourceSHA256, sourceBytes: source.length, compressedSHA256,
++    compressedBytes: compressed.length, encoding: 'xz/lzma + base64; COOPERATION.json peer objective' };
++}
+--- /dev/null
++++ b/check-character-source-transport.ts
+@@ -0,0 +1,75 @@
++import fs from 'node:fs';
++import path from 'node:path';
++import crypto from 'node:crypto';
++import assert from 'node:assert/strict';
++import { execFileSync, spawnSync } from 'node:child_process';
++import { gzipSync } from 'node:zlib';
++import { parseCooperationPlan } from './runtime/src/solver/tasks';
++import { readDeliveryLines } from './runtime/src/solver/deliveries';
++import { createCharacterSourceTransport } from './character-source-transport';
++
++const stage = import.meta.dir;
++const selection = JSON.parse(fs.readFileSync(path.join(stage, 'active-followup.json'), 'utf8'));
++const state = JSON.parse(fs.readFileSync(selection.output + '.runtime/state.json', 'utf8'));
++const sourceFile = path.resolve(process.argv[2] ?? path.join(stage,
++  '../character-varieties-progress-20261023/GuardCompatibleAllSeamsV3.lean'));
++const receiptFile = path.resolve(process.argv[3] ?? path.join(stage,
++  'character-source-transport-roundtrip-v1.json'));
++assert(!fs.existsSync(receiptFile));
++const source = fs.readFileSync(sourceFile);
++const digest = (bytes: Buffer | string) => crypto.createHash('sha256').update(bytes).digest('hex');
++const id = 'c'.repeat(64);
++const target = state.problem.targets[0];
++const ownedPath = path.posix.join(state.problem.projectRelative, target.proofPath);
++const payload = createCharacterSourceTransport(source, id, ownedPath);
++const proposal = { id, baseVersion: state.cooperation.planVersion, tasks: [{ id, kind: 'goal',
++  objective: payload.objective, dependsOn: [], revision: 999999999,
++  theoremName: target.theoremName, proofPath: target.proofPath }] };
++const normalized = { id, baseVersion: proposal.baseVersion, ...parseCooperationPlan(state.problem, proposal) };
++const line = JSON.stringify(normalized) + '\n';
++assert(Buffer.byteLength(line) <= 64_000);
++const workspace = fs.mkdtempSync(path.join(stage, 'character-transport-fixture-'));
++const destination = path.join(workspace, ownedPath);
++fs.mkdirSync(path.dirname(destination), { recursive: true });
++fs.writeFileSync(destination, '-- disposable owned proof\n');
++const cooperationFile = path.join(workspace, 'COOPERATION.json');
++const peers = [{ id: 'unrelated', objective: 'ordinary context', objectiveDigest: digest('ordinary context') },
++  { id, objective: payload.objective, objectiveDigest: digest(payload.objective) }];
++fs.writeFileSync(cooperationFile, JSON.stringify({ peers }));
++const editLog = path.join(workspace, 'edits.jsonl');
++fs.writeFileSync(editLog, line);
++const consumed = readDeliveryLines(editLog, 0);
++assert.equal(consumed.entries!.length, 1);
++assert.equal(JSON.parse(consumed.entries![0].line!).tasks[0].objective, payload.objective);
++const sandboxArgs = ['--die-with-parent', '--unshare-user', '--unshare-pid', '--unshare-net',
++  '--ro-bind', '/', '/', '--bind', workspace, workspace, '--proc', '/proc', '--chdir', workspace,
++  '/bin/sh', '-c', payload.command];
++const stdout = execFileSync('/usr/bin/bwrap', sandboxArgs, { cwd: workspace, encoding: 'utf8' });
++assert.deepEqual(fs.readFileSync(destination), source);
++const unchanged = fs.readFileSync(destination);
++peers[1].objectiveDigest = '0'.repeat(64);
++fs.writeFileSync(cooperationFile, JSON.stringify({ peers }));
++const rejected = spawnSync('/bin/sh', ['-c', payload.command], { cwd: workspace, encoding: 'utf8' });
++assert.notEqual(rejected.status, 0);
++assert.deepEqual(fs.readFileSync(destination), unchanged);
++const unicodeSource = Buffer.from('-- 中文校验："引号"、反斜线 \\ 与换行\n' + 'λ 中文\n'.repeat(200));
++const unicode = createCharacterSourceTransport(unicodeSource, id, ownedPath);
++fs.writeFileSync(cooperationFile, JSON.stringify({ peers: [{ id, objective: unicode.objective,
++  objectiveDigest: digest(unicode.objective) }] }));
++execFileSync('/bin/sh', ['-c', unicode.command], { cwd: workspace, encoding: 'utf8' });
++assert.deepEqual(fs.readFileSync(destination), unicodeSource);
++const receipt = { observedAt: new Date().toISOString(), passed: true, sourceFile,
++  sourceSHA256: payload.sourceSHA256, sourceBytes: source.length, encoding: payload.encoding,
++  gzipBase64Bytes: Buffer.byteLength(gzipSync(source).toString('base64')),
++  compressedBytes: payload.compressedBytes, compressedSHA256: payload.compressedSHA256,
++  base64Bytes: Math.ceil(payload.compressedBytes / 3) * 4,
++  commandBytes: Buffer.byteLength(payload.command), normalizedEditLineBytes: Buffer.byteLength(line),
++  frozenReaderLineLimitBytes: 64_000, exactFrozenDeliveryReaderConsumedLine: true,
++  sandboxPythonRoundtripPassed: true, sandboxCommand: ['/usr/bin/bwrap', ...sandboxArgs.slice(0, -1), '<generated loader>'],
++  loaderReadFullObjectiveFromCooperation: true, corruptObjectiveDigestRejectedBeforeWrite: true,
++  utf8QuotesAndNewlinesRoundtripPassed: true, workspace,
++  queueExecuted: false, modelInvoked: false, frozenRuntimeModified: false,
++  mathematicalAcceptance: false, nativeAcceptance: false,
++  claimBoundary: 'Exact-byte transport validation only. This source is a transport fixture; no mathematical success or delivery is claimed.' };
++fs.writeFileSync(receiptFile, JSON.stringify(receipt, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
++console.log(JSON.stringify(receipt));

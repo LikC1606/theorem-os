@@ -1,0 +1,174 @@
+{
+  "schema": "theorem-os.runtime-fix-validation.v1",
+  "observedAt": "2026-10-23T12:07:52.399191+00:00",
+  "worktree": "/home/lzh/theorem-os-validation-fixes-20261023",
+  "branch": "fix/validation-reliability-20261023",
+  "baseCommit": "b580d5a8fb4a4c8373c93befbebc2af05c049f25",
+  "sourceChangesCommitted": false,
+  "activeFrozenRuntimesReplaced": false,
+  "patch": {
+    "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/runtime-reliability-fixes-20261023/runtime-reliability-fixes.patch",
+    "sha256": "94e07687b1d480fded3a9f76c2074b8b142696ace1becfcd6755efc43447962b",
+    "reverseApplyCheck": "passed"
+  },
+  "fixes": [
+    "Host edits share a 1 MiB UTF-8 serialized-envelope limit, including final newline; ordinary worker delivery remains 64000 bytes.",
+    "Dry-run and actual enqueue reject the same oversized normalized envelope without writing.",
+    "Formal and comparator previews keep the first Lean error and bounded context alongside the output tail through a passive output observer.",
+    "Passive output observation preserves process deadlines, stdin behavior, sandbox fallback, output hashes and the frozen comparator command.",
+    "Host verification and advisory diagnostics use -j1 -DElab.async=false; their cache identities bind those arguments."
+  ],
+  "verification": {
+    "uniqueTestFiles": 16,
+    "uniqueTestCases": 344,
+    "allPassed": true,
+    "executions": [
+      {
+        "files": 10,
+        "cases": 214,
+        "status": "passed",
+        "note": "Official-manifest suite was then extended and rerun."
+      },
+      {
+        "files": 5,
+        "cases": 122,
+        "status": "passed"
+      },
+      {
+        "files": 2,
+        "cases": 24,
+        "status": "passed",
+        "note": "18 official-manifest cases plus 6 local-dependency cases; overlaps one earlier suite."
+      }
+    ],
+    "typescript": "passed",
+    "gitDiffCheck": "passed",
+    "headlessBuildManifest": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/runtime-reliability-fixes-20261023-build/builds/cd2d2a43-dec6-465c-9d40-f3d8b93fec8e/manifest.json",
+    "headlessBuildManifestSHA256": "bef87ae60a1e5ebe401cdb197e33b0f3e3ab75eff901925b70ee3b42736402e5",
+    "leanSmokeReport": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/runtime-reliability-fixes-20261023-lean-smoke.json",
+    "leanSmoke": "passed: valid proof exit 0; invalid proof exit 1; fixed Lean 4.34.1, 32 GiB, no timeout"
+  },
+  "acceptance": {
+    "newNativeFinalAcceptances": 0,
+    "nativeFinalAcceptedTotal": 4,
+    "completeOriginalModularKernelProofs": 7,
+    "officialHostedAcceptance": false,
+    "externalMathematicalAssistance": true,
+    "currentMathematicalFixesRemainSubjectToFullSourceGuardKernelComparatorAndNativeEvaluation": true
+  },
+  "changedFiles": [
+    {
+      "path": "docs/usage.md",
+      "bytes": 41562,
+      "sha256": "2000a03f9c4c39cad1a6fefc341e0e8c92ae122c4b66066c8526cbe0ffe0bd22"
+    },
+    {
+      "path": "src/math/leanDiagnostics.ts",
+      "bytes": 17266,
+      "sha256": "0dc6cbf537549d4a1fc61c94b5d4bda6ce72f620b6df6dc20c0ea83199319952"
+    },
+    {
+      "path": "src/math/leanResidualGoals.ts",
+      "bytes": 11029,
+      "sha256": "dc2abb168dc3b0a3b44d220fde83088fc79d1a9dde799f8b6cfbad75ecee4111"
+    },
+    {
+      "path": "src/math/mathProcess.ts",
+      "bytes": 11391,
+      "sha256": "3e16db6e1ed77544fe019ade24b5d921baeb11faca8ee7803f193d3c52a27c9f"
+    },
+    {
+      "path": "src/math/verifier.ts",
+      "bytes": 155544,
+      "sha256": "d42f4a3ac1630bfd247a70cd0b7934341a56fcc97f77377c0ffb5f8d0833c2d3"
+    },
+    {
+      "path": "src/solver/cooperationInputs.ts",
+      "bytes": 29846,
+      "sha256": "df26b069cacfb0efcd239fabbccd4798a88b8358cd17364dd2cfd5fb6953f104"
+    },
+    {
+      "path": "src/solver/deliveries.ts",
+      "bytes": 10545,
+      "sha256": "c738d3919e19704ce1a8d780a0b03db2265417726ed5a96dc7b0e54ae4d93457"
+    },
+    {
+      "path": "src/solver/humanEdit.ts",
+      "bytes": 3826,
+      "sha256": "c009dd5edd835738a87590fa17c401629c3e9fd22e65bf80abb11255e2226972"
+    },
+    {
+      "path": "src/math/leanErrorCapture.ts",
+      "bytes": 3023,
+      "sha256": "b162afec26f7f7defcb92ee4a8acef24b871c0cf6f07c1f1a7a0334b5291874c"
+    },
+    {
+      "path": "src/solver/humanEditLimits.ts",
+      "bytes": 135,
+      "sha256": "4bf58e9b2bb0be49a1d68de3833c0c35faf93c1de0ccc7a0630942adfa325961"
+    },
+    {
+      "path": "tests/inspection.test.ts",
+      "bytes": 29721,
+      "sha256": "ec1cf9547d2857c9cafd50753e406a215673f001640fe70dc08aa3929a6c0f2a"
+    },
+    {
+      "path": "tests/solverHumanEditRecovery.test.ts",
+      "bytes": 18033,
+      "sha256": "791a2eba70311c50eedd45c436f72bbd09c1ec81d4edfe355adb937228268931"
+    },
+    {
+      "path": "tests/verifierOfficialManifest.test.ts",
+      "bytes": 16105,
+      "sha256": "fe961cb5ae3afab251cf788ca2f503d928b20b0ad17e839a5ee92a1000206dd2"
+    },
+    {
+      "path": "tests/leanErrorCapture.test.ts",
+      "bytes": 3344,
+      "sha256": "e06b91f17a69997de1e0ef9f71af9aece5b86c5f392c5172e2326edcbf79ed12"
+    }
+  ],
+  "continuationTransportFix": {
+    "status": "implemented_and_verified_in_external_continuation_scripts",
+    "stage": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023",
+    "frozenRuntimeModified": false,
+    "runtimeSourcePatchChanged": false,
+    "mathematicalCandidateQueued": false,
+    "proofFixtureOnly": true,
+    "record": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/character-source-transport-roundtrip-v1.json",
+    "patch": {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/runtime-reliability-fixes-20261023/character-continuation-transport.patch",
+      "sha256": "6d347fd987037ce6e16c37b80d0b8e5d08ac6cb97ec8a757b68a0238654ec498",
+      "reverseApplyCheck": "passed"
+    },
+    "files": [
+      {
+        "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/queue-native-candidate.ts",
+        "bytes": 4529,
+        "sha256": "70a0bba90840bc5cd9484ce40a3aefe06cc4b2e2caa93503cb8aea7cf9a7b0da"
+      },
+      {
+        "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/character-source-transport.ts",
+        "bytes": 3609,
+        "sha256": "7bd72889b4ebc6d2f0f99098bc349633c770be543f562742898482d5dee67dcd"
+      },
+      {
+        "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/check-character-source-transport.ts",
+        "bytes": 5139,
+        "sha256": "d95acca5eb02bfdc81d479665a98dde3da24526b4cdb3ae28458fcd2ddad3e2d"
+      }
+    ],
+    "queueScriptBundleSyntaxCheck": "passed",
+    "newCompleteCandidateTransportVerification": {
+      "record": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/character-source-transport-roundtrip-v4-candidate.json",
+      "candidateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/GuardCompatibleAllSeamsV4.lean",
+      "sourceSHA256": "6c6aa7b347160883265dd210c22609a3cc148b031113c7d1a0b936cd63678341",
+      "sourceBytes": 751283,
+      "normalizedEditLineBytes": 45182,
+      "consumerLineLimitBytes": 64000,
+      "sandboxRoundtripPassed": true,
+      "mathematicalCandidatePassed": false,
+      "mathematicalCandidateQueued": false
+    }
+  }
+}

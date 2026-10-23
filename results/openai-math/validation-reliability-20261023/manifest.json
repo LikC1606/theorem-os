@@ -1,0 +1,61 @@
+{
+  "schema": "theorem-os.results.validation-reliability.v1",
+  "observedAt": "2026-10-23T12:33:45.591036+00:00",
+  "artifactPurpose": "reviewable engineering patches and existing verification receipts",
+  "runtimePatchBaseCommit": "b580d5a8fb4a4c8373c93befbebc2af05c049f25",
+  "runtimeSourceChangesMerged": false,
+  "activeFrozenRuntimesReplaced": false,
+  "uniqueTestsPassed": 344,
+  "nativeFinalAcceptedTotal": 4,
+  "newNativeFinalAcceptances": 0,
+  "officialHostedAcceptance": false,
+  "externalMathematicalAssistance": true,
+  "allFiveSolveBudgetCaps": 0,
+  "files": [
+    {
+      "path": "runtime-reliability-fixes.patch",
+      "bytes": 39957,
+      "sha256": "94e07687b1d480fded3a9f76c2074b8b142696ace1becfcd6755efc43447962b"
+    },
+    {
+      "path": "character-continuation-transport.patch",
+      "bytes": 14396,
+      "sha256": "6d347fd987037ce6e16c37b80d0b8e5d08ac6cb97ec8a757b68a0238654ec498"
+    },
+    {
+      "path": "validation.json",
+      "bytes": 7563,
+      "sha256": "4c5fc7d1dc8f8fe72f136f7bb66ce8a884477c0512098fc7075fddea89dfbbf0"
+    },
+    {
+      "path": "local-validation-notes.md",
+      "bytes": 3010,
+      "sha256": "d5b42f4fa10c897c36abcf18a753d82e7ca591729a34db4cf7ab1c395f184ad7"
+    },
+    {
+      "path": "lean-smoke.json",
+      "bytes": 928,
+      "sha256": "d3c6b58cbbac3dcb73e2b2b7afef26c926365c6dce0fbcea3ae05685ad75f635"
+    },
+    {
+      "path": "build-manifest.json",
+      "bytes": 37578,
+      "sha256": "bef87ae60a1e5ebe401cdb197e33b0f3e3ab75eff901925b70ee3b42736402e5"
+    },
+    {
+      "path": "character-transport-v3-fixture.json",
+      "bytes": 2072,
+      "sha256": "386512230705f39be4ee4178a0d2b02061b56eb4d6288db7fb29e56bdfc516ed"
+    },
+    {
+      "path": "character-transport-v4-candidate.json",
+      "bytes": 2072,
+      "sha256": "97b8deea9f1c756f0e88dcb0c1d27970fa2ce2c90b138f3a61b7b20a922ba389"
+    },
+    {
+      "path": "README.md",
+      "bytes": 2302,
+      "sha256": "186abc6aa37c8b88793ff9ad4198f7443e9f7d58bdbef7e9566eec3fbcb1bc65"
+    }
+  ]
+}

@@ -1,0 +1,630 @@
+diff --git a/docs/usage.md b/docs/usage.md
+index 6a14e16..4ede9af 100644
+--- a/docs/usage.md
++++ b/docs/usage.md
+@@ -368,7 +368,9 @@ bun run math check-lean \
+ 
+ `check-lean` 默认超时为 `0`（等待完成），保留失败退出码和最早错误；其诊断仅用于局部修复。
+ 
+-数学 worker 的临时目录为工作树根的 `.scratch/tmp`，由 shell 的 `TMPDIR` 指向；`/tmp` 在沙箱内只读。创建探针前运行 `mkdir -p "$TMPDIR"`，并把临时 Lean 文件、备份和诊断输出保存在该目录。宿主检查前会清理 `.scratch`，可复用代码和结论需先保存在根目录 `RESEARCH.md` 或已有的 owned Lean 文件中。
++数学 worker 的临时目录为工作树根的 `.scratch/tmp`，由 shell 的 `TMPDIR` 指向；`/tmp` 在沙箱内只读。创建探针前运行 `mkdir -p "$TMPDIR"`，并把临时 Lean 文件、备份和诊断输出保存在该目录。未跟踪的普通 scratch 文件在工作树中保留，仍不进入证明 checkpoint；已暂存或跟踪的 scratch 文件会被拒绝。需要提交的证明与结论放在根目录 `RESEARCH.md` 或已有的 owned Lean 文件中。
++
++宿主内核检查和 `check-lean` 使用单线程、同步证明展开，避免大量辅助定理创建过多异步 worker；编译参数也绑定到检查缓存身份。失败摘要优先保留首个 Lean 错误及其上下文，再附末尾输出，后续警告不会覆盖首错。官方比较器仍执行原冻结命令，验收条件与资源限制不变。
+ 
+ 返回的 `firstBlocking` 与 `messages` 来自 Lean JSON 消息，并保留文本兼容路径。摘要不完整时按 `diagnosticArtifacts` 回读绑定源码和环境的捕获材料；`captureComplete: false` 表示超过每流 4 MiB 窗口，`null` 表示完整性未知。
+ 
+diff --git a/src/math/leanDiagnostics.ts b/src/math/leanDiagnostics.ts
+index e8e125b..f3a208a 100644
+--- a/src/math/leanDiagnostics.ts
++++ b/src/math/leanDiagnostics.ts
+@@ -1,6 +1,6 @@
+ import fs from 'node:fs';
+ import path from 'node:path';
+-import { limitMathOutput, runLeanProcess } from './mathProcess';
++import { limitMathOutput, runLeanProcess, LEAN_VERIFICATION_ARGUMENTS } from './mathProcess';
+ import { assertMathConstructionSources, LAKE_CONFIGURATION_FILES as configurationFiles, mathLocalModuleBuildOrder } from './mathConstructionSources';
+ import { assertMathCanonicalPath } from './paths';
+ import { canonicalMathJson, mathDigest, writeMathJsonDurable } from './mathRuntimeIo';
+@@ -39,7 +39,7 @@ async function runWorkerLean(project: string, module: { file: string; sourceRoot
+       .filter(file => fs.existsSync(file));
+     fs.mkdirSync(path.dirname(path.join(project, output)), { recursive: true });
+     signal?.throwIfAborted();
+-    const result = await runLeanProcess(readiness.leanPath!, ['--json', '-j1', '-R', module.sourceRoot, '-o', output, module.file], {
++    const result = await runLeanProcess(readiness.leanPath!, ['--json', ...LEAN_VERIFICATION_ARGUMENTS, '-R', module.sourceRoot, '-o', output, module.file], {
+       cwd: project, env: { ...env, LEAN_PATH: libraries.join(path.delimiter), LEAN_NUM_THREADS: '1' },
+       timeoutMs: Math.max(0, deadlineAt - Date.now()), signal, outputCapture: 'head', outputLimit, stopGraceMs: 0,
+     });
+@@ -187,7 +187,7 @@ export async function runLeanDiagnostics(input: {
+     const result = env[MATH_PROOF_ENVIRONMENT_SANDBOX_ENV]
+       ? await runWorkerLean(project, module, output, env, remainingMs, input.signal, DIAGNOSTIC_CAPTURE_LIMIT)
+       : await runMathematicsSandboxedCommand({ checkoutRoot: project, command: 'lake',
+-      args: ['env', '/bin/sh', '-ceu', `mkdir -p ${quote(path.posix.dirname(output))}\nexec lean --json -j1 -R ${quote(module.sourceRoot)} -o ${quote(output)} ${quote(module.file)}`],
++      args: ['env', '/bin/sh', '-ceu', `mkdir -p ${quote(path.posix.dirname(output))}\nexec lean --json ${LEAN_VERIFICATION_ARGUMENTS.join(' ')} -R ${quote(module.sourceRoot)} -o ${quote(output)} ${quote(module.file)}`],
+       env, signal: input.signal, timeoutMs: remainingMs, outputCapture: 'head', outputLimit: DIAGNOSTIC_CAPTURE_LIMIT });
+     phases.push({ file: module.file, cached: false, durationMs: result.durationMs, exitCode: result.exitCode });
+     const retained = retain(module.file, result);
+diff --git a/src/math/leanResidualGoals.ts b/src/math/leanResidualGoals.ts
+index 0af2df6..5e3d5b8 100644
+--- a/src/math/leanResidualGoals.ts
++++ b/src/math/leanResidualGoals.ts
+@@ -9,6 +9,7 @@ import { mathDigest, readMathFile } from './mathRuntimeIo';
+ import { resolveMathematicsRuntimeEnvironment } from './mathRuntimeEnvironment';
+ import { assertMathCanonicalPath } from './paths';
+ import { formalVerificationToolIdentity } from './verifier';
++import { LEAN_VERIFICATION_ARGUMENTS } from './mathProcess';
+ import type { LeanDiagnosticMessage } from './leanTypes';
+ 
+ const digest = z.string().regex(/^[a-f0-9]{64}$/u);
+@@ -45,7 +46,7 @@ export function leanDiagnosticEnvironmentIdentity(projectRoot: string, source: N
+   const sealed = resolveMathProofEnvironment(projectRoot, env);
+   const toolIdentity = formalVerificationToolIdentity(projectRoot, env);
+   return { environmentDigest: mathDigest(JSON.stringify([
+-    'lean-json-diagnostics.v1', sealed?.identity, env.PATH, env.ELAN_HOME, env.LEAN_PATH, env.LEAN_SYSROOT, toolIdentity,
++    'lean-json-diagnostics.v1', LEAN_VERIFICATION_ARGUMENTS, sealed?.identity, env.PATH, env.ELAN_HOME, env.LEAN_PATH, env.LEAN_SYSROOT, toolIdentity,
+   ])), ...(toolIdentity ? { toolIdentity } : {}) };
+ }
+ 
+diff --git a/src/math/mathProcess.ts b/src/math/mathProcess.ts
+index 7abb48c..4a1952e 100644
+--- a/src/math/mathProcess.ts
++++ b/src/math/mathProcess.ts
+@@ -6,6 +6,8 @@ import type { Readable } from 'node:stream';
+ import { setTimeout as delay } from 'node:timers/promises';
+ 
+ export const MATH_PROCESS_OUTPUT_LIMIT = 12_000;
++// -j1 alone still lets Lean create asynchronous proof workers for every theorem.
++export const LEAN_VERIFICATION_ARGUMENTS = ['-j1', '-DElab.async=false'] as const;
+ 
+ export type MathProcessResult = {
+   started: boolean;
+@@ -131,6 +133,8 @@ export const runMathProcess = (
+     outputCapture?: 'head' | 'tail';
+     outputLimit?: number;
+     stopGraceMs?: number;
++    /** Observe output without taking ownership of stdin, timeouts, or process lifetime. */
++    onOutput?: (channel: 'stdout' | 'stderr', chunk: Buffer | string) => void;
+     onDuplexSpawn?: (child: ChildProcess) => void;
+     inheritedFds?: readonly number[];
+     onExtraPipe?: (stream: Readable) => void;
+@@ -231,11 +235,13 @@ export const runMathProcess = (
+       if (settled) return;
+       stdoutHash.update(chunk);
+       stdout = capture(stdout, chunk);
++      options.onOutput?.('stdout', chunk);
+     });
+     child.stderr?.on('data', (chunk: Buffer | string) => {
+       if (settled) return;
+       stderrHash.update(chunk);
+       stderr = capture(stderr, chunk);
++      options.onOutput?.('stderr', chunk);
+     });
+     child.once('spawn', () => { started = true; });
+     child.once('error', (error: NodeJS.ErrnoException) => {
+diff --git a/src/math/verifier.ts b/src/math/verifier.ts
+index b078918..17e97a4 100644
+--- a/src/math/verifier.ts
++++ b/src/math/verifier.ts
+@@ -1,4 +1,5 @@
+-import { runMathProcess as runProcess, runLeanProcess, limitMathOutput, MATH_PROCESS_OUTPUT_LIMIT, type MathProcessResult } from './mathProcess';
++import { runMathProcess as runProcess, runLeanProcess, limitMathOutput, MATH_PROCESS_OUTPUT_LIMIT, LEAN_VERIFICATION_ARGUMENTS, type MathProcessResult } from './mathProcess';
++import { createLeanErrorCapture } from './leanErrorCapture';
+ type ProcessResult = MathProcessResult & { sandboxBackend?: SandboxBackend };
+ import { declarationHashes, inspectLeanSource } from './leanSource';
+ export { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions, inspectLeanDeclarations, inspectLeanSource } from './leanSource';
+@@ -1197,6 +1198,7 @@ const runLeanSandboxed = async (input: {
+   lakePackagesMountPath?: string;
+   outputCapture?: 'head' | 'tail';
+   outputLimit?: number;
++  onOutput?: Parameters<typeof runProcess>[2]['onOutput'];
+   onDuplexSpawn?: (child: ChildProcess) => void;
+   sandboxCapability?: ReturnType<typeof inspectMathematicsSandboxBackends>;
+ }): Promise<ProcessResult> => {
+@@ -1457,7 +1459,8 @@ exec /runtime/pinned-lean/bin/lean "$@" -j1
+         return runLeanProcess(backend.executable, args, {
+           cwd: path.join(input.checkoutRoot, input.projectRelative), timeoutMs: input.timeoutMs,
+           signal: input.signal, env: { ...sandboxEnv, DEEPSCIENTIST_MATH_LEAN_LOCK: input.env?.DEEPSCIENTIST_MATH_LEAN_LOCK }, stdin: input.stdin,
+-          outputCapture: input.outputCapture, outputLimit: input.outputLimit, onDuplexSpawn: input.onDuplexSpawn,
++          outputCapture: input.outputCapture, outputLimit: input.outputLimit, onOutput: input.onOutput,
++          onDuplexSpawn: input.onDuplexSpawn,
+           ...(backend.kind === 'bwrap' && sealedRootFd !== undefined ? { inheritedFds: [sealedRootFd] } : {}),
+         });
+       };
+@@ -2182,6 +2185,7 @@ async function verifyFormalFile(file: PreparedFile, context: FormalFileVerificat
+       : undefined
+   );
+   const verificationPath = declarationQuery?.relativePath || file.relativeProofPath;
++  const capturedErrors = createLeanErrorCapture();
+   let processResult: ProcessResult;
+   const requestedTimeoutMs = clampTimeout(request.timeoutMs);
+   try {
+@@ -2191,14 +2195,15 @@ async function verifyFormalFile(file: PreparedFile, context: FormalFileVerificat
+       const modulesToBuild = helperModule ? localModules : localModules?.slice(0, -1);
+       // Keep dependency compilation and declaration queries under one sandbox
+       // invocation, so the shared compiler lock covers the entire check.
+-      let args = lakeFile ? ['env', 'lean', '-j', '1', verificationPath] : ['-j', '1', verificationPath];
++      let args = lakeFile ? ['env', 'lean', ...LEAN_VERIFICATION_ARGUMENTS, verificationPath]
++        : [...LEAN_VERIFICATION_ARGUMENTS, verificationPath];
+       if (modulesToBuild?.length) {
+         const quote = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`;
+         const commands = modulesToBuild.map(module => {
+           const output = `.lake/build/lib/lean/${path.posix.relative(module.sourceRoot, module.file).replace(/\.lean$/u, '.olean')}`;
+-          return `mkdir -p ${quote(path.posix.dirname(output))}\nlean -j1 -R ${quote(module.sourceRoot)} -o ${quote(output)} ${quote(module.file)} 1>&2`;
++          return `mkdir -p ${quote(path.posix.dirname(output))}\nlean ${LEAN_VERIFICATION_ARGUMENTS.join(' ')} -R ${quote(module.sourceRoot)} -o ${quote(output)} ${quote(module.file)} 1>&2`;
+         }).join('\n');
+-        args = ['env', '/bin/sh', '-ceu', `${commands}\nexec lean -j1 ${quote(verificationPath)}`];
++        args = ['env', '/bin/sh', '-ceu', `${commands}\nexec lean ${LEAN_VERIFICATION_ARGUMENTS.join(' ')} ${quote(verificationPath)}`];
+       }
+       return runLeanSandboxed({
+         checkoutRoot: checkoutRoot,
+@@ -2210,6 +2215,7 @@ async function verifyFormalFile(file: PreparedFile, context: FormalFileVerificat
+         signal: options.signal,
+         timeoutMs: Math.min(requestedTimeoutMs, availableMs),
+         outputLimit: MATH_PROCESS_OUTPUT_LIMIT * Math.min(64, verifiableItems.length),
++        onOutput: capturedErrors.onOutput,
+         lakePackagesPath,
+       });
+     }, options.signal);
+@@ -2225,8 +2231,8 @@ async function verifyFormalFile(file: PreparedFile, context: FormalFileVerificat
+   } finally {
+     if (declarationQuery) fs.rmSync(declarationQuery.absolutePath, { force: true });
+   }
+-  const stdoutPreview = preview(processResult.stdout);
+-  const stderrPreview = preview(processResult.stderr);
++  const stdoutPreview = capturedErrors.preview('stdout', processResult.stdout);
++  const stderrPreview = capturedErrors.preview('stderr', processResult.stderr);
+   if (stdoutPreview) diagnostic('stdout', processResult.exitCode === 0 ? 'info' : 'warning', stdoutPreview);
+   if (stderrPreview) diagnostic('stderr', processResult.exitCode === 0 ? 'warning' : 'error', stderrPreview);
+ 
+@@ -2838,6 +2844,7 @@ async function buildFormalVerificationCacheKey(
+       projectRootHash: mathDigest(projectRoot),
+       targetCommit: resolvedTarget,
+       verifierCommandPath: options.verifierCommandPath || null,
++      leanArguments: LEAN_VERIFICATION_ARGUMENTS,
+       prepareLocalDependencies: options.prepareLocalDependencies ?? false,
+       expectedDeclarationType: options.expectedDeclarationType ?? null,
+       expectedDeclarationTypes: options.expectedDeclarationTypes ?? null,
+@@ -3227,6 +3234,7 @@ async function runOfficialComparatorUnbounded(
+     throw new Error('Official comparator projectRoot must remain inside its Git repository.');
+   }
+   const cleanupFailures: string[] = [];
++  const capturedErrors = createLeanErrorCapture();
+   const checkout = await withVerifierCheckout({ repositoryRoot: repoRoot, targetCommit: requestedCommit,
+     temporaryPrefix: 'deepscientist-official-', env: options.env, signal: options.signal,
+     onCleanupFailure: failure => {
+@@ -3280,6 +3288,7 @@ async function runOfficialComparatorUnbounded(
+         'Official comparator timeoutMs'),
+       signal: options.signal,
+       env: runtimeEnvironment,
++      onOutput: capturedErrors.onOutput,
+       ...(lakePackagesPath ? { lakePackagesPath } : {}),
+     });
+     return { processResult, validatedManifest };
+@@ -3317,8 +3326,8 @@ async function runOfficialComparatorUnbounded(
+             : processResult.errorMessage
+               ? `Official comparator could not be executed: ${processResult.errorMessage}`
+               : `Official comparator exited with status ${processResult.exitCode ?? 'unknown'}.`;
+-  const stdoutPreview = preview(processResult.stdout);
+-  const stderrPreview = preview(processResult.stderr);
++  const stdoutPreview = capturedErrors.preview('stdout', processResult.stdout);
++  const stderrPreview = capturedErrors.preview('stderr', processResult.stderr);
+   return Object.freeze({
+     status: finalStatus,
+     targetCommit: requestedCommit,
+diff --git a/src/solver/cooperationInputs.ts b/src/solver/cooperationInputs.ts
+index a1d3e25..a29ae3a 100644
+--- a/src/solver/cooperationInputs.ts
++++ b/src/solver/cooperationInputs.ts
+@@ -8,6 +8,7 @@ import { commitSolverSources, withSolverWorktree } from './problem';
+ import { type ResearchWorker } from './modules/organization';
+ import { taskCanStart } from './modules/search';
+ import { deliveryDetails, readDeliveryLines } from './deliveries';
++import { MAX_RUN_EDIT_LINE_BYTES } from './humanEditLimits';
+ import { isStatementAction } from './statementReview';
+ import { captureDeliveryArtifacts } from './deliveryArtifacts';
+ import { researchHandoffs, resolveResearchHandoffs, type ResearchHandoffDecision } from './researchHandoffs';
+@@ -101,7 +102,7 @@ export abstract class CooperationInputs extends CooperationPlanning {
+       this.schedulePlanSynchronization();
+     const cursors = this.archive.cursors ??= {};
+     const file = path.join(path.dirname(this.lead.worktree), 'edits.jsonl');
+-    const edits = readDeliveryLines(file, cursors.edits ?? 0);
++    const edits = readDeliveryLines(file, cursors.edits ?? 0, undefined, MAX_RUN_EDIT_LINE_BYTES);
+     const advance = (offset: number) => { cursors.edits = offset; this.input.save(); };
+     for (const entry of edits.entries!) {
+       this.input.signal.throwIfAborted();
+diff --git a/src/solver/deliveries.ts b/src/solver/deliveries.ts
+index 84eb3f1..4e717a8 100644
+--- a/src/solver/deliveries.ts
++++ b/src/solver/deliveries.ts
+@@ -125,10 +125,11 @@ export function deliveryDetails(value: any): Pick<DeliveryRecord, 'summary' | 'e
+ type DeliveryLogEntry = { line?: string; error?: 'math_delivery_line_too_large'; offset: number; discardingOversized: boolean };
+ type DeliveryLogBatch = { lines: string[]; offset: number; entries?: DeliveryLogEntry[]; discardingOversized?: boolean };
+ 
+-/** Read complete appended lines only. The durable cursor survives restarts and partial writes. */
++/** Read complete lines with a durable byte cursor; the limit includes the terminating newline. */
+ export function readDeliveryLines(file: string, offset: number,
+-  recovery?: { discardingOversized: boolean }): DeliveryLogBatch {
+-  if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('math_delivery_log_invalid');
++  recovery?: { discardingOversized: boolean }, maxLineBytes = 64_000): DeliveryLogBatch {
++  if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(maxLineBytes) || maxLineBytes < 1)
++    throw new Error('math_delivery_log_invalid');
+   if (!fs.existsSync(file)) return { lines: [], offset, entries: [],
+     ...(recovery ? { discardingOversized: recovery.discardingOversized } : {}) };
+   assertMathCanonicalPath(file);
+@@ -136,7 +137,7 @@ export function readDeliveryLines(file: string, offset: number,
+   try {
+     const stat = fs.fstatSync(fd);
+     if (!stat.isFile() || stat.nlink !== 1 || stat.size < offset) throw new Error('math_delivery_log_invalid');
+-    const buffer = Buffer.alloc(Math.min(stat.size - offset, 64_000));
++    const buffer = Buffer.alloc(Math.min(stat.size - offset, maxLineBytes));
+     const size = fs.readSync(fd, buffer, 0, buffer.length, offset);
+     const entries: DeliveryLogEntry[] = [];
+     let start = 0, discarding = recovery?.discardingOversized ?? false;
+@@ -149,7 +150,7 @@ export function readDeliveryLines(file: string, offset: number,
+     while (start < size) {
+       const newline = buffer.subarray(0, size).indexOf(10, start);
+       if (newline < 0) {
+-        if (start === 0 && size === 64_000) {
++        if (start === 0 && size === maxLineBytes) {
+           if (!recovery) throw new Error('math_delivery_line_too_large');
+           start = size; discarding = true;
+           entries.push({ error: 'math_delivery_line_too_large', offset: offset + start, discardingOversized: true });
+diff --git a/src/solver/humanEdit.ts b/src/solver/humanEdit.ts
+index 039db24..d79f22e 100644
+--- a/src/solver/humanEdit.ts
++++ b/src/solver/humanEdit.ts
+@@ -5,6 +5,7 @@ import { canonicalMathJson, readMathText, withMathRuntimeLease } from '../math/m
+ import { parseCooperationPlan } from './tasks';
+ import { readRunInspection } from './inspection';
+ import { researchWorkerCanNode } from './modules/organization';
++import { MAX_RUN_EDIT_LINE_BYTES } from './humanEditLimits';
+ 
+ /** Queue an edit through the existing host protocol; never write the checkpoint. */
+ export async function queueRunEdit(run: string, proposal: unknown, dryRun = false) {
+@@ -30,6 +31,8 @@ export async function queueRunEdit(run: string, proposal: unknown, dryRun = fals
+     for (const group of plan.groups) if (group.engineerId && !workers.some(worker => worker.id === group.engineerId && worker.role === 'engineer'))
+       throw new Error('math_plan_group_engineer_unavailable');
+     const edit = { id, baseVersion: value.baseVersion, ...plan };
++    const bytes = Buffer.from(JSON.stringify(edit) + '\n', 'utf8');
++    if (bytes.length > MAX_RUN_EDIT_LINE_BYTES) throw new Error('math_edit_too_large');
+     const log = path.join(directory, 'edits.jsonl');
+     const existing = fs.existsSync(log) ? readMathText(log, 8 * 1024 * 1024) : '';
+     if (existing && !existing.endsWith('\n')) throw new Error('math_edit_incomplete_log');
+@@ -41,8 +44,6 @@ export async function queueRunEdit(run: string, proposal: unknown, dryRun = fals
+     if (state.cooperation.edits?.some(item => item.id === id)) throw new Error('math_edit_id_already_used');
+     if (value.baseVersion !== state.cooperation.planVersion) throw new Error('math_edit_version_conflict');
+     if (dryRun) return { id, status: 'validated', baseVersion: edit.baseVersion };
+-    const bytes = Buffer.from(JSON.stringify(edit) + '\n');
+-    if (bytes.length > 1024 * 1024) throw new Error('math_edit_too_large');
+     lease.assertHeld();
+     const fd = fs.openSync(log, fs.constants.O_CREAT | fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK, 0o600);
+     try {
+diff --git a/tests/inspection.test.ts b/tests/inspection.test.ts
+index 5d3f2ce..9cf2c60 100644
+--- a/tests/inspection.test.ts
++++ b/tests/inspection.test.ts
+@@ -6,7 +6,9 @@ import { afterEach, describe, expect, it } from 'vitest';
+ import { readSolverRunState, writeSolverRunState, type SolverRunState } from '../src/solver/archive';
+ import { buildRunInspection, exportRunPlan, readRunInspection, renderRunInspection } from '../src/solver/inspection';
+ import { queueRunEdit } from '../src/solver/humanEdit';
+-import { taskVersion, type TaskRecord } from '../src/solver/tasks';
++import { MAX_RUN_EDIT_LINE_BYTES } from '../src/solver/humanEditLimits';
++import { readDeliveryLines } from '../src/solver/deliveries';
++import { parseCooperationPlan, taskVersion, type TaskRecord } from '../src/solver/tasks';
+ import type { TaskProof } from '../src/solver/cooperativeProof';
+ import { researchFailureCategory } from '../src/solver/modules/search';
+ import type { RequestUsageAccounting } from '../src/solver/usageBudget';
+@@ -336,6 +338,54 @@ describe('run inspection', () => {
+ });
+ 
+ describe('human plan edits', () => {
++  function sizedEdit(f: ReturnType<typeof fixture>, size: number, unit: string) {
++    const proposal = { id: 'byte-boundary', baseVersion: f.state.cooperation!.planVersion!,
++      tasks: [{ id: 'goal', kind: 'goal', theoremName: 'Original.goal', objective: '证明 "\\\n' }] };
++    const serialized = () => JSON.stringify({ id: proposal.id, baseVersion: proposal.baseVersion,
++      ...parseCooperationPlan(f.state.problem, proposal) }) + '\n';
++    const remaining = size - Buffer.byteLength(serialized());
++    const unitBytes = Buffer.byteLength(JSON.stringify(unit)) - 2;
++    proposal.tasks[0].objective += unit.repeat(Math.floor(remaining / unitBytes)) + 'x'.repeat(remaining % unitBytes);
++    expect(Buffer.byteLength(serialized())).toBe(size);
++    return { proposal, serialized };
++  }
++
++  it.each(['x', '数学', '\n"\\'])('queues and consumes the exact edit byte limit with %j padding', async unit => {
++    const f = fixture(), before = fs.readFileSync(f.stateFile);
++    const { proposal, serialized } = sizedEdit(f, MAX_RUN_EDIT_LINE_BYTES, unit);
++    const log = path.join(path.dirname(f.stateFile), 'edits.jsonl');
++    expect(await queueRunEdit(f.run, proposal, true)).toMatchObject({ status: 'validated' });
++    expect(fs.existsSync(log)).toBe(false);
++    expect(await queueRunEdit(f.run, proposal)).toMatchObject({ status: 'queued' });
++    expect(fs.readFileSync(log, 'utf8')).toBe(serialized());
++    expect(fs.statSync(log).size).toBe(MAX_RUN_EDIT_LINE_BYTES);
++    const batch = readDeliveryLines(log, 0, undefined, MAX_RUN_EDIT_LINE_BYTES);
++    expect(batch.lines).toHaveLength(1);
++    expect(JSON.parse(batch.lines[0]).tasks[0].objective).toBe(proposal.tasks[0].objective);
++    expect(batch.offset).toBe(MAX_RUN_EDIT_LINE_BYTES);
++    expect(readDeliveryLines(log, batch.offset, undefined, MAX_RUN_EDIT_LINE_BYTES).lines).toEqual([]);
++    expect(await queueRunEdit(f.run, proposal)).toMatchObject({ status: 'already_queued' });
++    expect(fs.statSync(log).size).toBe(MAX_RUN_EDIT_LINE_BYTES);
++    expect(fs.readFileSync(f.stateFile)).toEqual(before);
++    // Worker delivery limits are independent of the host edit allowance.
++    expect(() => readDeliveryLines(log, 0)).toThrow('math_delivery_line_too_large');
++  });
++
++  it.each([true, false])('rejects the normalized envelope one byte over before writing (dryRun=%s)', async dryRun => {
++    const f = fixture(), log = path.join(path.dirname(f.stateFile), 'edits.jsonl');
++    const { proposal } = sizedEdit(f, MAX_RUN_EDIT_LINE_BYTES + 1, '数');
++    // Parser defaults add bytes: checking only the submitted JSON would accept this input.
++    expect(Buffer.byteLength(JSON.stringify(proposal) + '\n')).toBeLessThan(MAX_RUN_EDIT_LINE_BYTES);
++    await expect(queueRunEdit(f.run, proposal, dryRun)).rejects.toThrow('math_edit_too_large');
++    expect(fs.existsSync(log)).toBe(false);
++    const valid = { ...exportRunPlan(f.state), id: 'following-valid' };
++    expect(await queueRunEdit(f.run, valid)).toMatchObject({ status: 'queued' });
++    const prefix = fs.readFileSync(log);
++    await expect(queueRunEdit(f.run, proposal, dryRun)).rejects.toThrow('math_edit_too_large');
++    expect(fs.readFileSync(log)).toEqual(prefix);
++    expect(readDeliveryLines(log, 0, undefined, MAX_RUN_EDIT_LINE_BYTES).lines).toHaveLength(1);
++  });
++
+   it('validates and queues through the host log without changing the checkpoint', async () => {
+     const f = fixture(), before = fs.readFileSync(f.stateFile);
+     const plan = { ...exportRunPlan(f.state), id: 'pause-goal' };
+diff --git a/tests/solverHumanEditRecovery.test.ts b/tests/solverHumanEditRecovery.test.ts
+index 1e9b3a8..a1b0467 100644
+--- a/tests/solverHumanEditRecovery.test.ts
++++ b/tests/solverHumanEditRecovery.test.ts
+@@ -2,7 +2,7 @@ import fs from 'node:fs';
+ import path from 'node:path';
+ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+ import { canonicalMathJson, mathDigest } from '../src/math/mathRuntimeIo';
+-import type { SolverRunState } from '../src/solver/archive';
++import { writeSolverRunState, type SolverRunState } from '../src/solver/archive';
+ import type { CooperativeResearch, HumanEditRecord } from '../src/solver/cooperation';
+ import type { ResearchWorker } from '../src/solver/modules/organization';
+ import { git, type SolverProblem } from '../src/solver/problem';
+@@ -11,6 +11,8 @@ import { deferred } from './helpers/async';
+ import { cooperativeResearch } from './helpers/cooperation';
+ import { temporaryDirectory } from './helpers/files';
+ import { solverState } from './helpers/solver';
++import { queueRunEdit } from '../src/solver/humanEdit';
++import { MAX_RUN_EDIT_LINE_BYTES } from '../src/solver/humanEditLimits';
+ 
+ const host = vi.hoisted(() => ({ capture: vi.fn() }));
+ vi.mock('../src/solver/statementReview', async importOriginal => ({
+@@ -125,6 +127,37 @@ describe('human edit recovery', () => {
+     expect(events.some(event => event.event === 'edit_rejected')).toBe(false);
+   });
+ 
++  it('applies a queued edit at the byte limit once across a following partial write and resume', async () => {
++    const stateFile = path.join(directory, 'state.json');
++    const queuedTask = { ...route(1), objective: '数学 "\\\n' };
++    const proposal = { id: 'large-queued', baseVersion: state.cooperation!.planVersion!, tasks: [queuedTask] };
++    const envelope = () => JSON.stringify({ id: proposal.id, baseVersion: proposal.baseVersion,
++      ...parseCooperationPlan(problem, proposal) }) + '\n';
++    queuedTask.objective += '数'.repeat(Math.floor((MAX_RUN_EDIT_LINE_BYTES - Buffer.byteLength(envelope())) / 3));
++    queuedTask.objective += 'x'.repeat(MAX_RUN_EDIT_LINE_BYTES - Buffer.byteLength(envelope()));
++    writeSolverRunState(stateFile, state);
++    expect(await queueRunEdit(stateFile, proposal)).toMatchObject({ status: 'queued' });
++    expect(fs.statSync(editsFile()).size).toBe(MAX_RUN_EDIT_LINE_BYTES);
++    const nextVersion = mathDigest(canonicalMathJson(parseCooperationPlan(problem, proposal)));
++    const next = JSON.stringify({ id: 'following-large-edit', baseVersion: nextVersion, ...plan(2) }) + '\n';
++    fs.appendFileSync(editsFile(), next.slice(0, 20));
++    await cooperative.pulse();
++    expect(record('large-queued')).toMatchObject({ status: 'applied', planVersion: nextVersion });
++    expect(state.cooperation!.tasks[0].task.objective).toBe(queuedTask.objective);
++    expect(state.cooperation!.cursors?.edits).toBe(MAX_RUN_EDIT_LINE_BYTES);
++    expect(state.cooperation!.history).toHaveLength(1);
++    resume();
++    await cooperative.pulse();
++    expect(state.cooperation!.cursors?.edits).toBe(MAX_RUN_EDIT_LINE_BYTES);
++    fs.appendFileSync(editsFile(), next.slice(20));
++    await cooperative.pulse(); await cooperative.pulse();
++    expect(record('following-large-edit')).toMatchObject({ status: 'applied', planVersion: version(2) });
++    expect(state.cooperation!.history).toHaveLength(2);
++    expect(state.cooperation!.cursors?.edits).toBe(fs.statSync(editsFile()).size);
++    expect(events.filter(event => event.event === 'edit_received' && event.details?.id === 'large-queued')).toHaveLength(1);
++    expect(events.filter(event => event.event === 'edit_applied' && event.details?.id === 'large-queued')).toHaveLength(1);
++  });
++
+   it('persists a successful prefix without replaying it when the following edit must retry', async () => {
+     const prefixEnd = append('prefix', 1);
+     append('following-retry', 2, version(1));
+diff --git a/tests/verifierOfficialManifest.test.ts b/tests/verifierOfficialManifest.test.ts
+index ed7b929..c840cb0 100644
+--- a/tests/verifierOfficialManifest.test.ts
++++ b/tests/verifierOfficialManifest.test.ts
+@@ -196,4 +196,52 @@ describe('official verifier identity and cleanup', () => {
+     } }));
+     expect(result.events.at(-1)).toMatchObject({ kind: 'session.closed', payload: { status: 'failed', resultCount: 2 } });
+   });
++
++  it.runIf(process.platform === 'linux')('keeps the first local compiler error and disables asynchronous proof workers', async () => {
++    const input = request('committed');
++    const execute = vi.spyOn(processes, 'runLeanProcess').mockImplementation((_command, _args, settings) =>
++      processes.runMathProcess(process.execPath, ['-e', `const fs = require('node:fs');
++        fs.writeSync(2, 'Support.lean:1:1: error: primary host failure\\n');
++        fs.writeSync(2, 'Support.lean:2:1: warning: defProp warning\\n'.repeat(2000)); process.exitCode = 1;`],
++      { ...settings, cwd: directory, env: process.env }));
++    const result = await checkManyFormalVerifications({ projectRoot: root, targetCommit: input.targetCommit,
++      items: [{ proofPath: 'Support.lean', statementHash: manifest.statementHash }] }, { env: environment });
++    expect(result.status).toBe('failed');
++    expect(result.results[0].stderrPreview).toContain('primary host failure');
++    expect(result.events).toContainEqual(expect.objectContaining({ kind: 'diagnostic.emitted', payload:
++      expect.objectContaining({ source: 'stderr', message: expect.stringContaining('primary host failure') }) }));
++    expect(execute.mock.calls[0][1]).toContain('-DElab.async=false');
++    expect(Buffer.byteLength(result.results[0].stderrPreview!)).toBeLessThanOrEqual(processes.MATH_PROCESS_OUTPUT_LIMIT);
++  });
++
++  it.runIf(process.platform === 'linux')('preserves comparator build errors without changing the frozen command', async () => {
++    const input = request('committed');
++    const execute = vi.spyOn(processes, 'runLeanProcess').mockImplementation((_command, _args, settings) =>
++      processes.runMathProcess(process.execPath, ['-e', `const fs = require('node:fs');
++        fs.writeSync(1, 'Support.lean:1:1: error: primary comparator failure\\n');
++        fs.writeSync(1, 'Support.lean:2:1: warning: later warning\\n'.repeat(2000)); process.exitCode = 1;`],
++      { ...settings, cwd: directory, env: process.env }));
++    const result = await runOfficialComparator(input, { env: environment });
++    expect(result.status).toBe('failed');
++    expect(result.stdoutPreview).toContain('primary comparator failure');
++    expect(result.command).toBe(input.command);
++    expect(execute.mock.calls[0][1].join(' ')).not.toContain('Elab.async');
++    expect(Buffer.byteLength(result.stdoutPreview!)).toBeLessThanOrEqual(processes.MATH_PROCESS_OUTPUT_LIMIT);
++  });
++
++  it.runIf(process.platform === 'linux').each(['local', 'comparator'] as const)
++  ('keeps sandbox fallback available while observing %s output', async mode => {
++    const input = request('committed');
++    const tools = path.join(directory, 'tools/bin');
++    fs.writeFileSync(path.join(tools, 'unshare'),
++      "#!/bin/sh\nprintf '%s\\n' 'unshare: operation not permitted' >&2\nexit 1\n", { mode: 0o700 });
++    environment.DEEPSCIENTIST_MATH_SANDBOX_BACKEND = 'unshare';
++    const execute = vi.spyOn(processes, 'runLeanProcess');
++    const result = mode === 'local'
++      ? await checkManyFormalVerifications({ projectRoot: root, targetCommit: input.targetCommit,
++        items: [{ proofPath: 'Support.lean', statementHash: manifest.statementHash }] }, { env: environment })
++      : await runOfficialComparator(input, { env: environment });
++    expect(result.status).toBe(mode === 'local' ? 'kernel_verified' : 'official_verified');
++    expect(execute.mock.calls.map(([command]) => command)).toEqual([path.join(tools, 'unshare'), path.join(tools, 'bwrap')]);
++  });
+ });
+diff --git a/src/math/leanErrorCapture.ts b/src/math/leanErrorCapture.ts
+new file mode 100644
+index 0000000..cb56c3b
+--- /dev/null
++++ b/src/math/leanErrorCapture.ts
+@@ -0,0 +1,64 @@
++import { StringDecoder } from 'node:string_decoder';
++import { parseLeanDiagnosticOutput } from './leanDiagnosticMessages';
++import { limitMathOutput, MATH_PROCESS_OUTPUT_LIMIT } from './mathProcess';
++
++type Channel = 'stdout' | 'stderr';
++
++/** Keep the first compiler error even when later warnings displace the output tail. */
++export function createLeanErrorCapture(limit = MATH_PROCESS_OUTPUT_LIMIT) {
++  const errorLimit = Math.floor(limit / 2);
++  const streams = Object.fromEntries((['stdout', 'stderr'] as const).map(channel => [channel, {
++    decoder: new StringDecoder('utf8'), pending: '', firstError: undefined as string | undefined, collecting: false,
++  }])) as Record<Channel, { decoder: StringDecoder; pending: string; firstError?: string; collecting: boolean }>;
++  let finished = false;
++
++  const line = (channel: Channel, value: string) => {
++    const stream = streams[channel];
++    const message = parseLeanDiagnosticOutput(value).messages[0];
++    const processError = /^(?:error(?:\([^\n)]*\))?:|fatal error:|uncaught exception:|libc\+\+abi:)/u.test(value);
++    if (message || processError) {
++      stream.collecting = false;
++      if (stream.firstError === undefined && (message?.severity === 'error' || processError)) {
++        stream.firstError = limitMathOutput(value, errorLimit, 'head');
++        stream.collecting = message?.format !== 'lean-json';
++      }
++    } else if (stream.collecting) {
++      stream.firstError = limitMathOutput(`${stream.firstError}\n${value}`, errorLimit, 'head');
++    }
++  };
++  const text = (channel: Channel, value: string) => {
++    const stream = streams[channel];
++    if (stream.firstError !== undefined && !stream.collecting) return;
++    let start = 0;
++    for (;;) {
++      const end = value.indexOf('\n', start);
++      stream.pending = limitMathOutput(stream.pending + value.slice(start, end < 0 ? undefined : end), limit, 'head');
++      if (end < 0) return;
++      line(channel, stream.pending.replace(/\r$/u, ''));
++      stream.pending = '';
++      if (stream.firstError !== undefined && !stream.collecting) return;
++      start = end + 1;
++    }
++  };
++  const finish = () => {
++    if (finished) return;
++    finished = true;
++    for (const channel of ['stdout', 'stderr'] as const) {
++      text(channel, streams[channel].decoder.end());
++      if (streams[channel].pending) line(channel, streams[channel].pending);
++    }
++  };
++  return {
++    onOutput(channel: Channel, chunk: Buffer | string) {
++      if (!finished) text(channel, typeof chunk === 'string' ? chunk : streams[channel].decoder.write(chunk));
++    },
++    preview(channel: Channel, output: string): string | undefined {
++      finish();
++      const tail = limitMathOutput(output.trim(), limit);
++      const first = streams[channel].firstError?.trimEnd();
++      if (!first || tail.includes(first)) return tail || undefined;
++      const notice = '\n[... output omitted; final output follows ...]\n';
++      return first + notice + limitMathOutput(tail, Math.max(0, limit - Buffer.byteLength(first + notice)));
++    },
++  };
++}
+diff --git a/src/solver/humanEditLimits.ts b/src/solver/humanEditLimits.ts
+new file mode 100644
+index 0000000..1a15254
+--- /dev/null
++++ b/src/solver/humanEditLimits.ts
+@@ -0,0 +1,2 @@
++/** UTF-8 bytes in one serialized host edit, including its terminating newline. */
++export const MAX_RUN_EDIT_LINE_BYTES = 1024 * 1024;
+diff --git a/tests/leanErrorCapture.test.ts b/tests/leanErrorCapture.test.ts
+new file mode 100644
+index 0000000..0d82ad5
+--- /dev/null
++++ b/tests/leanErrorCapture.test.ts
+@@ -0,0 +1,59 @@
++import os from 'node:os';
++import { describe, expect, it } from 'vitest';
++import { createLeanErrorCapture } from '../src/math/leanErrorCapture';
++import { MATH_PROCESS_OUTPUT_LIMIT, runMathProcess } from '../src/math/mathProcess';
++
++describe('first Lean error retention', () => {
++  it.each(['stdout', 'stderr'] as const)('retains the first %s error between long warning streams', async channel => {
++    const capture = createLeanErrorCapture();
++    const script = `const fs = require('node:fs'), fd = ${channel === 'stdout' ? 1 : 2};
++      const warnings = 'Submission.lean:2:1: warning: later warning\\n'.repeat(2000);
++      fs.writeSync(fd, warnings);
++      fs.writeSync(fd, 'Submission.lean:614:1: error: first blocking error 数😀\\ncontext: impossible equality\\n');
++      fs.writeSync(fd, warnings);
++      fs.writeSync(fd, 'Submission.lean:615:1: error: secondary error\\n');
++      process.exitCode = 1;`;
++    const result = await runMathProcess(process.execPath, ['-e', script], {
++      cwd: os.tmpdir(), timeoutMs: 5000, onOutput: capture.onOutput,
++    });
++    expect(result.exitCode).toBe(1);
++    expect(result[channel]).not.toContain('first blocking error');
++    const retained = capture.preview(channel, result[channel])!;
++    expect(retained).toContain('Submission.lean:614:1: error: first blocking error 数😀');
++    expect(retained).toContain('context: impossible equality');
++    expect(retained).toContain('secondary error');
++    expect(retained).not.toContain('�');
++    expect(Buffer.byteLength(retained)).toBeLessThanOrEqual(MATH_PROCESS_OUTPUT_LIMIT);
++  });
++
++  it('handles split UTF-8, oversized earlier lines and an error without a final newline', () => {
++    const capture = createLeanErrorCapture();
++    capture.onOutput('stdout', Buffer.from('x'.repeat(200_000) + '\n'));
++    const error = 'Proof.lean:1:1: error: 数😀 type mismatch';
++    for (const byte of Buffer.from(error)) capture.onOutput('stdout', Buffer.from([byte]));
++    const retained = capture.preview('stdout', 'unrelated tail')!;
++    expect(retained).toContain(error);
++    expect(retained).not.toContain('�');
++    expect(Buffer.byteLength(retained)).toBeLessThanOrEqual(MATH_PROCESS_OUTPUT_LIMIT);
++  });
++
++  it('recognizes JSON errors and leaves warning-only output unchanged', () => {
++    const capture = createLeanErrorCapture();
++    const error = JSON.stringify({ severity: 'error', data: 'unknown identifier', fileName: 'Proof.lean', pos: { line: 1, column: 0 } });
++    capture.onOutput('stdout', error + '\n');
++    capture.onOutput('stderr', 'Proof.lean:2:1: warning: text mentioning error: does not make it an error\n');
++    expect(capture.preview('stdout', 'final output')).toContain(error);
++    expect(capture.preview('stderr', 'last warning')).toBe('last warning');
++  });
++
++  it('keeps process deadlines active while observing compiler output', async () => {
++    const capture = createLeanErrorCapture();
++    const result = await runMathProcess(process.execPath, ['-e',
++      "process.stdout.write('Proof.lean:1:1: error: waiting forever\\n'); setInterval(() => {}, 1000)"], {
++      cwd: os.tmpdir(), timeoutMs: 500, stopGraceMs: 0, onOutput: capture.onOutput,
++    });
++    expect(result.timedOut).toBe(true);
++    expect(result.exitCode).not.toBe(0);
++    expect(capture.preview('stdout', result.stdout)).toContain('waiting forever');
++  });
++});

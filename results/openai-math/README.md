@@ -20,3 +20,5 @@
 | [CharacterVarieties 全部 seam 方程](character_varieties_all_seams_support/README.md) | C | 027-01 | 完整原题与全部八分支；固定内核通过，仅标准三公理 | 单文件重检、隔离原比较器、原生验收 |
 
 这三项为外部辅助完成的本地内核证明，尚无 OpenAI 托管验收确认。
+
+[验收可靠性修复与验证回执](validation-reliability-20261023/README.md)：长载荷递送、首错摘要和宿主检查修复已通过 344 项测试；补丁归档，数学通过数不变。

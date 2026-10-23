@@ -1,0 +1,30 @@
+{
+  "checkedAt": "2026-10-23T11:06:15Z",
+  "lean": "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+  "arguments": [
+    "-j1",
+    "-DElab.async=false"
+  ],
+  "addressSpaceLimitBytes": 34359738368,
+  "timeout": null,
+  "checks": [
+    {
+      "case": "valid",
+      "expectedExitCode": 0,
+      "exitCode": 0,
+      "durationSeconds": 0.582,
+      "stdout": "'VerificationSmoke.addZero' depends on axioms: [propext]\n",
+      "stderr": ""
+    },
+    {
+      "case": "invalid",
+      "expectedExitCode": 1,
+      "exitCode": 1,
+      "durationSeconds": 0.568,
+      "stdout": "/tmp/theorem-os-reliability-smoke-to82hys0/invalid.lean:2:33: error: Type mismatch\n  True.intro\nhas type\n  True\nbut is expected to have type\n  False\n",
+      "stderr": ""
+    }
+  ],
+  "version": "Lean (version 4.34.1, x86_64-unknown-linux-gnu, commit 5045d0056413266e57c625dcd7c365b10e377c52, Release)",
+  "status": "passed"
+}
