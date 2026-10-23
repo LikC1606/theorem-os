@@ -42,7 +42,7 @@ describe('runner proof readiness freeze barrier', () => {
     vi.useRealTimers(); vi.restoreAllMocks();
   });
 
-  function fixture(options: { stop?: 'missing' | 'unconfirmed' | 'throw' } = {}) {
+  function fixture(options: { stop?: 'missing' | 'unconfirmed' | 'throw'; closeRejects?: boolean } = {}) {
     const example = localExample('solver-proof-ready-runner-', 'lead');
     const { directory, workspace, problem } = example;
     const writer = peerWorker(example, 'writer', { role: 'engineer' });
@@ -74,7 +74,7 @@ describe('runner proof readiness freeze barrier', () => {
       if (access.environment.DEEPSCIENTIST_MATH_WORKER_ID !== writer.id) throw new Error('fixture_unexpected_lead_dispatch');
       let active: ReturnType<typeof deferred<string>> | undefined;
       return { threadId: access.threadId ?? 'proof-ready-thread', interrupt, notify: async () => {},
-        close: async () => { closed(); active?.resolve('interrupted'); },
+        close: async () => { closed(); active?.resolve('interrupted'); if (options.closeRejects) throw new Error('fixture_close_failed'); },
         ...(options.stop === 'missing' ? {} : { stopForFreeze }),
         run: async (message, _id, _workspace, onStarted) => {
           const action = JSON.parse(message) as CooperativeAction;
@@ -163,6 +163,29 @@ describe('runner proof readiness freeze barrier', () => {
     const restored = readSolverRunState(archive);
     const reopened = vi.fn(async () => { throw new Error('fixture_must_not_reopen_quarantined_writer'); });
     await expect(runResearchWorkers({ state: restored, workers: current.workers,
+      access: workerAccess(current.workers, current.directory),
+      modules: { ...current.modules, M1: { ...current.modules.M1, open: reopened } }, root: current.directory,
+      buildFile: path.join(current.directory, 'build.json'), taskText: 'Prove the original goals.', executable: 'offline-fixture',
+      profile: 'offline-fixture', signal: new AbortController().signal, deadline: Infinity, maxTurns: Infinity, maxTurnMs: Infinity,
+      maxTotalTokens: 0, save: () => {}, emit: () => {},
+    })).rejects.toThrow('math_writer_stop_unconfirmed');
+    expect(reopened).not.toHaveBeenCalled();
+  });
+
+  it('quarantines before a failing close when writer stop is unconfirmed', async () => {
+    const current = fixture({ stop: 'unconfirmed', closeRejects: true }); await current.wait(current.started.promise);
+    const before = current.head(); current.writeProof(); current.appendReady(); await current.pulse();
+    current.turns[0].done.resolve('interrupted'); await current.waitEvent('proof_ready_freeze_deferred');
+    expect(current.head()).toBe(before);
+    expect(current.state.workers!.find(worker => worker.id === current.writer.id)?.writerStopUnconfirmed)
+      .toMatchObject({ reason: 'process-group-active' });
+    await expect(current.completion).rejects.toThrow('math_writer_stop_unconfirmed');
+    expect(host.verify).not.toHaveBeenCalled();
+    expect(current.state.cooperation!.proofReadyRecords).toMatchObject([{ status: 'failed' }]);
+    const archive = path.join(current.directory, 'failed-close-state.json');
+    writeSolverRunState(archive, current.state);
+    const reopened = vi.fn(async () => { throw new Error('fixture_must_not_reopen_quarantined_writer'); });
+    await expect(runResearchWorkers({ state: readSolverRunState(archive), workers: current.workers,
       access: workerAccess(current.workers, current.directory),
       modules: { ...current.modules, M1: { ...current.modules.M1, open: reopened } }, root: current.directory,
       buildFile: path.join(current.directory, 'build.json'), taskText: 'Prove the original goals.', executable: 'offline-fixture',

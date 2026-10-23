@@ -14,10 +14,12 @@ import type { MathematicsVerifierBatchRequest, MathematicsVerifierExecutionOptio
 import { readSolverRunState, writeSolverRunState, type SolverRunState } from '../src/solver/archive';
 import { seedSolverContinuation } from '../src/solver/continuationSeed';
 import { readContinuationPage, readContinuationSnapshot } from '../src/solver/continuationInput';
-import { git, readSolverProblem } from '../src/solver/problem';
+import { committedSource, git, readSolverProblem } from '../src/solver/problem';
 import { taskVersion, type CooperativeTask } from '../src/solver/tasks';
 import type { TaskProof } from '../src/solver/cooperativeProof';
-import { failedBatch, verifiedBatch } from './helpers/verifier';
+import { hasTaskConnectionCheck } from '../src/solver/taskConnections';
+import { cooperativeResearch } from './helpers/cooperation';
+import { failedBatch, receiptBatch, verifiedBatch } from './helpers/verifier';
 
 const host = vi.hoisted(() => ({ verify: vi.fn(), build: vi.fn(), prepare: vi.fn(), dispose: vi.fn(),
   resolvePackages: vi.fn(), packages: undefined as string | undefined }));
@@ -111,6 +113,42 @@ function fixture() {
   const options = { sourceRun: sourceStateFile, run: stateFile, root, buildManifest: buildFile, signal: controller.signal };
   return { root, directory, oldDirectory, workspace, worktree, sourceWorktree, projectRelative, stateFile, sourceStateFile,
     newState, oldState, tasks, notes, base, environmentFile, options, controller, seed: () => seedSolverContinuation(options) };
+}
+
+function conditionalFixture() {
+  const f = fixture(), worker = f.oldState.workers![1]!.worktree;
+  git(worker, ['reset', '--hard', f.oldState.cooperation!.canonicalCommit!]);
+  fs.writeFileSync(path.join(worker, f.projectRelative, 'Submission/Helpers.lean'),
+    helpers.replace('end Submission.Helpers', 'lemma bridge_helper : True := by exact second_helper\nend Submission.Helpers'));
+  const proofCommit = commit(worker, 'Historical conditional bridge');
+  fs.writeFileSync(path.join(worker, 'RESEARCH.md'), f.notes);
+  const task: CooperativeTask = { id: 'bridge', kind: 'lemma', objective: 'Reuse the missing typed lemma',
+    dependsOn: ['second'], revision: 0, ownerId: 'prover-1', proofPath: 'Submission/Helpers.lean',
+    theoremName: 'Submission.Helpers.bridge_helper', type: 'True' };
+  const condition = { taskId: 'second', taskDigest: taskVersion(f.tasks[1]!) };
+  f.oldState.cooperation!.tasks.push({ task, status: 'conditional', attempts: 1,
+    assignment: { taskId: task.id, taskDigest: taskVersion(task), workerId: 'prover-1', seedCommit: f.oldState.cooperation!.canonicalCommit!,
+      dependencies: [condition] },
+    proof: { commit: proofCommit, sourceDigest: 'old-conditional-source', passed: true, taskDigest: taskVersion(task),
+      seedCommit: f.oldState.cooperation!.canonicalCommit!, changes: [], conditions: [condition],
+      verification: { status: 'kernel_verified', targetCommit: proofCommit,
+        results: [{ status: 'kernel_verified', targetCommit: proofCommit, receiptId: 'old-bridge' }] } as TaskProof['verification'] } });
+  f.oldState.workers![1]!.sessionTaskId = task.id;
+  writeSolverRunState(f.sourceStateFile, f.oldState);
+  return { ...f, task, condition, proofCommit };
+}
+
+function freshReceipts(request: MathematicsVerifierBatchRequest) {
+  return receiptBatch(request, { sessionId: 'fresh-seed', receiptId: (_, name) => `fresh-seed-${request.targetCommit}-${name}` });
+}
+
+function cooperationFor(f: ReturnType<typeof fixture>, state: SolverRunState, freshContinuationChecks: readonly TaskProof[] = []) {
+  const workers = state.workers!.map(worker => ({ id: worker.id, role: worker.role, worktree: worker.worktree,
+    ownedFiles: state.problem.ownedFiles }));
+  const environment = { PATH: '/usr/bin:/bin', DEEPSCIENTIST_MATH_TRUSTED_CACHE_ROOTS: host.packages,
+    [MATH_PROOF_ENVIRONMENT_ENV]: 'live-host-proof-environment' };
+  return cooperativeResearch({ state, workers, retrievalRoot: f.root, signal: f.controller.signal,
+    freshContinuationChecks, access: new Map(workers.map(worker => [worker.id, { environment, retrievalRoot: f.root }])) });
 }
 
 beforeEach(() => {
@@ -239,6 +277,163 @@ describe('explicit prepared-run continuation initialization', () => {
     expect(draft.notes).toBe(f.notes); expect(draft.sources['Submission/Helpers.lean']).toContain('by sorry');
     expect(draft.assignment.taskId).toBe('second');
     expect(fs.statSync(path.join(f.directory, 'continuation-seed-source.json')).mode & 0o777).toBe(0o400);
+  });
+
+  it('rechecks a conditional declaration absent from canonical source with its exact typed obligation', async () => {
+    const f = conditionalFixture(), oldState = fs.readFileSync(f.sourceStateFile);
+    expect(fs.readFileSync(path.join(f.sourceWorktree, f.projectRelative, 'Submission/Helpers.lean'), 'utf8'))
+      .not.toContain('bridge_helper');
+    const report = await f.seed(), state = readSolverRunState(f.stateFile);
+    expect(report.failed).toEqual([]);
+    expect(report.candidates).toEqual(['first', 'second', 'bridge']);
+    expect(host.verify).toHaveBeenCalledTimes(3);
+    const bridge = state.cooperation!.tasks.find(node => node.task.id === 'bridge')!;
+    expect(bridge.status).toBe('conditional');
+    expect(bridge.integratedCheck).toBeUndefined();
+    expect(bridge.proof?.passed).toBe(true);
+    expect(bridge.proof?.conditions).toEqual([f.condition]);
+    expect(bridge.proof?.commit).not.toBe(f.proofCommit);
+    expect(bridge.proof?.verification.results[0]?.receiptId).toContain('fresh-seed-');
+    expect(bridge.proof?.changes.some(change => change.name === 'bridge_helper')).toBe(true);
+    expect(bridge.assignment?.seedCommit).not.toBe(f.oldState.cooperation!.canonicalCommit);
+    expect(hasTaskConnectionCheck(bridge.task, bridge.assignment!)).toBe(true);
+    expect(fs.readFileSync(f.sourceStateFile)).toEqual(oldState);
+    const snapshot = readContinuationSnapshot(path.join(f.directory, 'continuation.json'), state.continuationDigest);
+    const draft = JSON.parse(readContinuationPage(path.join(f.directory, 'continuation.json'), state.continuationDigest, 'draft-prover-1').text);
+    expect(snapshot.manifest.attachments.some(item => item.id === 'seed-history')).toBe(true);
+    expect(draft.notes).toBe(f.notes);
+    expect(draft.sources['Submission/Helpers.lean']).toContain('bridge_helper');
+  });
+
+  it('reuses a held lease and proof environment and hands off only fresh unconditional receipts', async () => {
+    const f = conditionalFixture(), seeded = vi.fn();
+    const environment = { PATH: '/usr/bin:/bin', DEEPSCIENTIST_MATH_TRUSTED_CACHE_ROOTS: host.packages,
+      [MATH_PROOF_ENVIRONMENT_ENV]: 'live-host-proof-environment' };
+    await withMathRuntimeLease({ lockPath: path.join(f.directory, 'run.lock'), flockExecutable: '/usr/bin/flock' }, async lease => {
+      const report = await seedSolverContinuation({ ...f.options, signal: lease.signal, lease,
+        preparedEnvironment: environment, onSeeded: seeded });
+      expect(report.stage).toBe('complete');
+    });
+    expect(host.prepare).not.toHaveBeenCalled();
+    expect(host.dispose).not.toHaveBeenCalled();
+    expect(host.verify.mock.calls.every(([, options]) => options.env[MATH_PROOF_ENVIRONMENT_ENV] === 'live-host-proof-environment')).toBe(true);
+    expect(seeded).toHaveBeenCalledOnce();
+    const [state, proofs] = seeded.mock.calls[0]!;
+    expect(proofs).toHaveLength(2);
+    expect(proofs).toContain(state.cooperation.tasks[0].integratedCheck);
+    expect(proofs).toContain(state.cooperation.tasks[1].integratedCheck);
+    expect(proofs).not.toContain(state.cooperation.tasks[3].proof);
+  });
+
+  it('reuses fresh seed receipts through cooperation restore in the same process', async () => {
+    const f = fixture(); host.verify.mockImplementation(freshReceipts);
+    let state!: SolverRunState, proofs!: TaskProof[];
+    await seedSolverContinuation({ ...f.options, onSeeded: (next, checks) => { state = next; proofs = checks; } });
+    expect(host.verify).toHaveBeenCalledTimes(2);
+    const cooperative = cooperationFor(f, state, proofs);
+    try {
+      await cooperative.restore();
+      expect(host.verify).toHaveBeenCalledTimes(2);
+      expect(state.cooperation!.tasks.slice(0, 2).map(node => node.integratedCheck)).toEqual(proofs);
+      expect(state.cooperation!.tasks.slice(0, 2).every(node => node.status === 'integrated' && !node.pendingValidation)).toBe(true);
+    } finally { f.controller.abort(); await cooperative.stop(); }
+  });
+
+  it('checks JSON-restored seed receipts again even when the original fresh objects are supplied', async () => {
+    const f = fixture(); host.verify.mockImplementation(freshReceipts);
+    let proofs!: TaskProof[];
+    await seedSolverContinuation({ ...f.options, onSeeded: (_next, checks) => { proofs = checks; } });
+    const state = readSolverRunState(f.stateFile), cooperative = cooperationFor(f, state, proofs);
+    try {
+      await cooperative.restore();
+      expect(host.verify).toHaveBeenCalledTimes(3);
+      expect(host.verify.mock.calls[2][0].items.map(item => item.theoremName))
+        .toEqual(['Submission.Helpers.first_helper', 'Submission.Helpers.second_helper']);
+      expect(state.cooperation!.tasks.slice(0, 2).every(node => node.status === 'integrated' && !node.pendingValidation)).toBe(true);
+    } finally { f.controller.abort(); await cooperative.stop(); }
+  });
+
+  it('discharges a freshly restored conditional proof through normal cooperation integration', async () => {
+    const f = conditionalFixture(); host.verify.mockImplementation(freshReceipts);
+    let state!: SolverRunState, proofs!: TaskProof[];
+    await seedSolverContinuation({ ...f.options, onSeeded: (next, checks) => { state = next; proofs = checks; } });
+    expect(state.cooperation!.tasks.find(node => node.task.id === 'bridge')!.status).toBe('conditional');
+    const cooperative = cooperationFor(f, state, proofs);
+    try {
+      await cooperative.restore();
+      const bridge = state.cooperation!.tasks.find(node => node.task.id === 'bridge')!;
+      expect(bridge).toMatchObject({ status: 'integrated', integratedCheck: { passed: true } });
+      expect(bridge.integratedCheck!.conditions).toBeUndefined();
+      expect(bridge.proof!.projection).toMatchObject({ environmentDigest: state.environmentDigest,
+        problemReceiptDigest: state.problem.receiptDigest });
+      expect(committedSource(f.worktree, state.cooperation!.canonicalCommit!, `${f.projectRelative}/Submission/Helpers.lean`))
+        .toContain('lemma bridge_helper : True := by exact second_helper');
+    } finally { f.controller.abort(); await cooperative.stop(); }
+  });
+
+  it('prefers an unconditional integrated check after an old conditional proof has been discharged', async () => {
+    const f = conditionalFixture(), bridge = f.oldState.cooperation!.tasks.find(node => node.task.id === 'bridge')!;
+    git(f.sourceWorktree, ['reset', '--hard', f.proofCommit]);
+    f.oldState.cooperation!.canonicalCommit = f.proofCommit;
+    bridge.status = 'integrated';
+    bridge.integratedCheck = { ...bridge.proof!, conditions: undefined };
+    writeSolverRunState(f.sourceStateFile, f.oldState);
+    const report = await f.seed(), state = readSolverRunState(f.stateFile);
+    expect(report.failed).toEqual([]); expect(report.candidates).toEqual(['first', 'second', 'bridge']);
+    expect(host.verify).toHaveBeenCalledTimes(3);
+    expect(state.cooperation!.tasks.find(node => node.task.id === 'bridge')).toMatchObject({ status: 'integrated',
+      integratedCheck: { passed: true } });
+    expect(state.cooperation!.tasks.find(node => node.task.id === 'bridge')!.proof).toBeUndefined();
+  });
+
+  it('blocks only a conditional candidate whose saved assignment lost its dependencies', async () => {
+    const f = conditionalFixture(), bridge = f.oldState.cooperation!.tasks.find(node => node.task.id === 'bridge')!;
+    delete bridge.assignment!.dependencies;
+    writeSolverRunState(f.sourceStateFile, f.oldState);
+    const report = await f.seed(), state = readSolverRunState(f.stateFile);
+    expect(report.failed).toEqual(['bridge']); expect(host.verify).toHaveBeenCalledTimes(2);
+    expect(state.cooperation!.tasks.find(node => node.task.id === 'bridge')).toMatchObject({ status: 'blocked',
+      feedback: 'math_task_condition_version_invalid' });
+    expect(state.cooperation!.tasks.slice(0, 2).every(node => node.status === 'integrated')).toBe(true);
+  });
+
+  it('keeps a conditional candidate blocked and its draft intact when the historical proof commit is unavailable', async () => {
+    const f = conditionalFixture(), bridge = f.oldState.cooperation!.tasks.find(node => node.task.id === 'bridge')!;
+    bridge.proof!.commit = 'f'.repeat(40);
+    writeSolverRunState(f.sourceStateFile, f.oldState);
+    const report = await f.seed(), state = readSolverRunState(f.stateFile);
+    expect(report.failed).toEqual(['bridge']);
+    expect(host.verify).toHaveBeenCalledTimes(2);
+    expect(state.cooperation!.tasks.find(node => node.task.id === 'bridge')).toMatchObject({
+      status: 'blocked', feedback: expect.stringContaining('math_task_source_unavailable') });
+    const draft = JSON.parse(readContinuationPage(path.join(f.directory, 'continuation.json'), state.continuationDigest, 'draft-prover-1').text);
+    expect(draft.sources['Submission/Helpers.lean']).toContain('bridge_helper');
+  });
+
+  it('rejects a changed conditional dependency contract without promoting its old receipt', async () => {
+    const f = conditionalFixture(), bridge = f.oldState.cooperation!.tasks.find(node => node.task.id === 'bridge')!;
+    bridge.proof!.conditions![0] = { taskId: 'second', taskDigest: mathDigest('changed condition') };
+    writeSolverRunState(f.sourceStateFile, f.oldState);
+    const report = await f.seed(), state = readSolverRunState(f.stateFile);
+    expect(report.failed).toEqual(['bridge']);
+    expect(host.verify).toHaveBeenCalledTimes(2);
+    expect(state.cooperation!.tasks.find(node => node.task.id === 'bridge')).toMatchObject({
+      status: 'blocked', feedback: 'math_task_condition_version_invalid' });
+  });
+
+  it('rechecks the same frozen conditional source after later old-run edits', async () => {
+    const f = conditionalFixture(), first = await f.seed();
+    expect(first.failed).toEqual([]);
+    const snapshotDigest = readSolverRunState(f.stateFile).continuationDigest;
+    fs.writeFileSync(path.join(f.oldState.workers![1]!.worktree, f.projectRelative, 'Submission/Helpers.lean'), emptyHelpers);
+    fs.writeFileSync(path.join(f.oldState.workers![1]!.worktree, 'RESEARCH.md'), 'Late historical edit');
+    const second = await f.seed(), state = readSolverRunState(f.stateFile);
+    expect(second.failed).toEqual([]);
+    expect(state.continuationDigest).toBe(snapshotDigest);
+    expect(state.cooperation!.tasks.find(node => node.task.id === 'bridge')?.status).toBe('conditional');
+    expect(host.verify).toHaveBeenCalledTimes(6);
+    const frozen = JSON.parse(readContinuationPage(path.join(f.directory, 'continuation.json'), snapshotDigest, 'conditional-bridge').text);
+    expect(frozen.sources['Submission/Helpers.lean']).toContain('bridge_helper');
   });
 
   it.each(['phase', 'turns', 'thread', 'worker-turns', 'worker-session', 'existing-plan'])('rejects nonfresh target state: %s', async kind => {

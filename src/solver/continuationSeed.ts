@@ -6,7 +6,7 @@ import { bindLeanPackages } from '../math/leanDiagnostics';
 import { MATH_PROOF_ENVIRONMENT_ENV, MATH_PROOF_ENVIRONMENT_SANDBOX_ENV, prepareMathProofEnvironment } from '../math/mathProofEnvironment';
 import { DEFAULT_MATH_PROOF_ENVIRONMENT_CACHE_ROOT } from '../math/mathProofEnvironmentCache';
 import { assertMathCanonicalPath, repositoryRelativePath } from '../math/paths';
-import { canonicalMathJson, mathDigest, readMathFile, readMathJson, withMathRuntimeLease, writeMathJsonDurable } from '../math/mathRuntimeIo';
+import { canonicalMathJson, mathDigest, readMathFile, readMathJson, withMathRuntimeLease, writeMathJsonDurable, type MathLease } from '../math/mathRuntimeIo';
 import { resolveMathematicsRuntimeEnvironment } from '../math/mathRuntimeEnvironment';
 import { resolveMathematicsLakePackagesCache } from '../math/verifier';
 import { readSolverRunState, writeSolverRunState, type SolverRunState } from './archive';
@@ -19,6 +19,7 @@ import { researchWorkerCanNode, researchWorkerCanTask } from './modules/organiza
 import { CAPACITY_EXPLORATION_FOCUSES, currentCapacityExploration, plannedTaskRecords, type CapacityExploration } from './capacityExploration';
 import { assertSolverSources, committedSource, commitSolverSources, git, readSolverProblem, withSolverWorktree, type SolverProblem } from './problem';
 import { isAdvisoryTask, parseCooperationPlan, taskVersion, type CooperativeTask, type TaskRecord } from './tasks';
+import { createTaskConnectionCheck } from './taskConnections';
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/u), oid = z.string().regex(/^[a-f0-9]{40,64}$/u);
 const id = z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/u);
@@ -98,6 +99,9 @@ const sourceSchema = z.object({
   source: z.object({ runId: z.string(), stateFile: z.string(), stateDigest: hash, buildDigest: z.string(),
     methodDigest: z.string().optional(), canonicalCommit: oid, planVersion: z.string().optional() }).strict(),
   plan: z.unknown(), candidateIds: z.array(id), canonicalSources: z.record(z.string()),
+  conditionalCandidates: z.array(z.object({ taskId: id, taskDigest: hash, commit: z.string(), seedCommit: z.string(),
+    conditions: z.array(handoffReference).nonempty(), dependencies: z.array(handoffReference),
+    sources: z.record(z.string()).optional(), seedSources: z.record(z.string()).optional(), captureError: z.string().optional() }).strict()).optional(),
   workers: z.array(z.object({ id, role: z.string(), headBefore: oid, headAfter: oid,
     sources: z.record(z.string()), notes: z.string().nullable(), assignment: z.unknown().optional() }).strict()),
   history: z.unknown(),
@@ -348,6 +352,24 @@ function captureSource(sourceStateFile: string, stateFile: string, state: Solver
       notes: committedSource(archived.worktree, delivery.commit, 'RESEARCH.md') });
   }
   const handoffs = capturedHandoffs(archived, previousHandoffs);
+  const conditionalCandidates = planned.filter(node => !isAdvisoryTask(node.task) &&
+    !(node.proof?.passed && !node.proof.conditions?.length) &&
+    !(node.integratedCheck?.passed && !node.integratedCheck.conditions?.length) &&
+    (node.proof?.passed && node.proof.conditions?.length || node.integratedCheck?.passed && node.integratedCheck.conditions?.length))
+    .map(node => {
+      const proof = node.proof?.passed && node.proof.conditions?.length ? node.proof : node.integratedCheck!;
+      const evidence = { taskId: node.task.id, taskDigest: proof.taskDigest, commit: proof.commit,
+        seedCommit: proof.seedCommit, conditions: proof.conditions!, dependencies: node.assignment?.dependencies ?? [] };
+      try {
+        if (!oid.safeParse(proof.commit).success || !oid.safeParse(proof.seedCommit).success)
+          throw new Error('math_continuation_seed_conditional_commit_invalid');
+        const read = (commit: string) => Object.fromEntries(state.problem.ownedFiles.map(file => [file,
+          committedSource(archived.worktree, commit, `${state.problem.projectRelative}/${file}`)]));
+        return { ...evidence, sources: read(proof.commit), seedSources: read(proof.seedCommit) };
+      } catch (error) {
+        return { ...evidence, captureError: error instanceof Error ? error.message : 'math_task_source_unavailable' };
+      }
+    });
   const value = { schema: 'theorem-os.continuation-seed-source.v1', capturedAt: Date.now(), taskDigest: state.taskDigest,
     problemReceiptDigest: state.problem.receiptDigest, sourcePolicyDigest: policyDigest(state.problem),
     destination: { runId: state.runId, stateFile, buildDigest: state.buildDigest,
@@ -355,9 +377,10 @@ function captureSource(sourceStateFile: string, stateFile: string, state: Solver
     source: { runId: archived.runId, stateFile: sourceStateFile, stateDigest: mathDigest(canonicalMathJson(archived)),
       buildDigest: archived.buildDigest, methodDigest: archived.methodDigest, canonicalCommit: archived.cooperation.canonicalCommit,
       planVersion: archived.cooperation.planVersion },
-    plan, canonicalSources, workers,
+    plan, canonicalSources, workers, conditionalCandidates,
     candidateIds: planned.filter(node => !isAdvisoryTask(node.task) &&
-      (node.proof?.passed || node.integratedCheck?.passed)).map(node => node.task.id),
+      ((node.proof?.passed && !node.proof.conditions?.length) ||
+        (node.integratedCheck?.passed && !node.integratedCheck.conditions?.length))).map(node => node.task.id),
     ...(capacities.length || archived.cooperation.capacityExplorationInputs !== undefined ? { capacityExplorations: {
       records: capacities, inputs: archived.cooperation.capacityExplorationInputs, notes: [...notes.values()] } } : {}),
     ...(handoffs ? { researchHandoffs: handoffs } : {}),
@@ -378,7 +401,7 @@ function captureSource(sourceStateFile: string, stateFile: string, state: Solver
 function freezeSource(source: SeedSource, directory: string) {
   const documents: { id: string; kind: ContinuationManifest['attachments'][number]['kind']; text: string; commit?: null }[] = [
     { id: 'seed-recovery-guide', kind: 'research-notes' as const, text:
-      'The canonical owned sources and exact task graph were explicitly initialized in this new run. Historical proof flags, threads and assignments do not authorize work or acceptance. Only freshly checked helpers are integrated.\n' +
+      'The canonical owned sources and exact task graph were explicitly initialized in this new run. Historical proof flags, threads and assignments do not authorize work or acceptance. Only freshly checked helpers are integrated; conditional proofs retain their typed obligations.\n' +
       'For an unfinished task, inspect draft-WORKER_ID for its complete source strings and RESEARCH.md notes. Match the captured task id and digest to your current assignment before recovering useful code. Preserve the current canonical proofs; recovered drafts still require ordinary typed host checks.\n' +
       'The original run may still be progressing. Its canonical sources are pinned to the recorded commit; worker files are individually stable captured bytes, not a globally atomic observation. Repeated initialization uses this same frozen capture.\n' },
     { id: 'seed-canonical', kind: 'proof-source' as const, text: canonicalMathJson({ sources: source.canonicalSources }) },
@@ -386,6 +409,8 @@ function freezeSource(source: SeedSource, directory: string) {
     { id: 'seed-history', kind: 'diagnostics' as const, text: canonicalMathJson({ source: source.source, history: source.history,
       capturedAt: source.capturedAt, capture: 'canonical-commit-and-individually-stable-advisory-worker-files' }) },
     ...source.workers.map(worker => ({ id: `draft-${worker.id}`, kind: 'proof-source' as const, text: canonicalMathJson(worker) })),
+    ...(source.conditionalCandidates ?? []).map(candidate => ({ id: `conditional-${candidate.taskId}`, kind: 'proof-source' as const,
+      text: canonicalMathJson(candidate) })),
     ...(source.capacityExplorations ? [{ id: 'seed-capacity-explorations', kind: 'research-notes' as const,
       text: canonicalMathJson(source.capacityExplorations), commit: null }] : []),
     ...(source.researchHandoffs ? [{ id: 'seed-research-handoffs', kind: 'research-notes' as const,
@@ -407,13 +432,15 @@ function freezeSource(source: SeedSource, directory: string) {
 export async function seedSolverContinuation(options: {
   sourceRun: string; run: string; root: string; buildManifest: string; signal: AbortSignal; timeoutMs?: number;
   onProgress?: (event: string, details: Record<string, unknown>) => void;
+  lease?: MathLease; preparedEnvironment?: NodeJS.ProcessEnv;
+  onSeeded?: (state: SolverRunState, freshChecks: TaskProof[]) => void;
 }): Promise<ContinuationSeedReport> {
   const target = readRunInspection(options.run), sourceStateFile = path.basename(path.resolve(options.sourceRun)) === 'state.json'
     ? path.resolve(options.sourceRun) : `${path.resolve(options.sourceRun)}.runtime/state.json`;
   const stateFile = target.stateFile, directory = path.dirname(stateFile);
   assertMathCanonicalPath(sourceStateFile);
   if (sourceStateFile === stateFile) throw new Error('math_continuation_seed_identity_changed');
-  return withMathRuntimeLease({ lockPath: path.join(directory, 'run.lock'), flockExecutable: '/usr/bin/flock', signal: options.signal }, async lease => {
+  const seedWithLease = async (lease: MathLease): Promise<ContinuationSeedReport> => {
     const state = readRunInspection(options.run).state;
     const sourceFile = path.join(directory, 'continuation-seed-source.json'), reportFile = path.join(directory, 'continuation-seed.json');
     const seeded = Boolean(fs.lstatSync(sourceFile, { throwIfNoEntry: false }));
@@ -435,8 +462,14 @@ export async function seedSolverContinuation(options: {
         canonicalMathJson(Object.keys(source.canonicalSources).sort()) !== canonicalMathJson([...state.problem.ownedFiles].sort()))
       throw new Error('math_continuation_seed_identity_changed');
     const plan = validatePlan(state, source.plan);
-    if (new Set(source.candidateIds).size !== source.candidateIds.length || source.candidateIds.some(candidate =>
-      !plan.tasks.some(task => task.id === candidate && !isAdvisoryTask(task)))) throw new Error('math_continuation_seed_candidates_invalid');
+    const conditional = source.conditionalCandidates ?? [];
+    const candidateIds = [...source.candidateIds, ...conditional.map(candidate => candidate.taskId)];
+    if (new Set(candidateIds).size !== candidateIds.length || candidateIds.some(candidate =>
+      !plan.tasks.some(task => task.id === candidate && !isAdvisoryTask(task))) || conditional.some(candidate =>
+      !candidate.captureError && (canonicalMathJson(Object.keys(candidate.sources ?? {}).sort()) !==
+        canonicalMathJson([...state.problem.ownedFiles].sort()) ||
+        canonicalMathJson(Object.keys(candidate.seedSources ?? {}).sort()) !==
+          canonicalMathJson([...state.problem.ownedFiles].sort())))) throw new Error('math_continuation_seed_candidates_invalid');
     const planVersion = mathDigest(canonicalMathJson(plan));
     if (seeded && state.cooperation && (state.cooperation.planVersion !== planVersion ||
         canonicalMathJson(plannedTaskRecords(state.cooperation.tasks).map(node => node.task)) !== canonicalMathJson(plan.tasks) ||
@@ -447,7 +480,10 @@ export async function seedSolverContinuation(options: {
         source.researchHandoffs && (canonicalMathJson(state.cooperation.deliveries ?? []) !==
           canonicalMathJson(restoredHandoffDeliveries(source.researchHandoffs, state)) ||
           canonicalMathJson(state.cooperation.researchDecisions ?? []) !== canonicalMathJson(source.researchHandoffs.decisions)) ||
-        state.cooperation.tasks.some(node => node.assignment))) throw new Error('math_continuation_seed_destination_changed');
+        state.cooperation.tasks.some(node => node.assignment && !conditional.some(candidate =>
+          candidate.taskId === node.task.id && node.status === 'conditional' &&
+          node.assignment!.taskDigest === candidate.taskDigest && node.assignment!.workerId === 'continuation'))))
+      throw new Error('math_continuation_seed_destination_changed');
     if (seeded && state.cooperation) {
       const previous = fs.existsSync(reportFile) ? readMathJson(reportFile) as Partial<ContinuationSeedReport> : undefined;
       const head = git(state.worktree, ['rev-parse', 'HEAD']);
@@ -463,7 +499,7 @@ export async function seedSolverContinuation(options: {
     if (!seeded) writeMathJsonDurable(sourceFile, source, 0o400);
     const report: ContinuationSeedReport = { schema: 'theorem-os.continuation-seed.v1', sourceRunId: source.source.runId,
       runId: state.runId, sourceStateFile, stateFile, sourceDigest: mathDigest(canonicalMathJson(source)), stage: 'frozen',
-      candidates: source.candidateIds, checked: [], failed: [], evidence: 'advisory-sources-require-recheck' };
+      candidates: candidateIds, checked: [], failed: [], evidence: 'advisory-sources-require-recheck' };
     const saveReport = () => { lease.assertHeld(); writeMathJsonDurable(reportFile, report); };
     const emit = (event: string, details: Record<string, unknown> = {}) => options.onProgress?.(event, details);
     let proofEnvironment: Awaited<ReturnType<typeof prepareMathProofEnvironment>> | undefined;
@@ -509,15 +545,18 @@ export async function seedSolverContinuation(options: {
       assertSolverSources(state.problem, state.worktree);
       report.sourcesInstalled = true; saveReport();
       emit('continuation_seed_installed', { sourceRunId: source.source.runId, runId: state.runId, tasks: tasks.length,
-        candidates: source.candidateIds.length, snapshotDigest: snapshot.digest });
+        candidates: candidateIds.length, snapshotDigest: snapshot.digest });
       const environmentFile = path.join(directory, 'environment-solver.json');
       assertMathCanonicalPath(environmentFile);
       if ((fs.lstatSync(environmentFile).mode & 0o777) !== 0o400) throw new Error('math_continuation_seed_environment_not_frozen');
-      const staticEnv = { ...resolveMathematicsRuntimeEnvironment({ DEEPSCIENTIST_MATH_ENV_FILE: environmentFile }) };
+      const staticEnv = { ...(options.preparedEnvironment ??
+        resolveMathematicsRuntimeEnvironment({ DEEPSCIENTIST_MATH_ENV_FILE: environmentFile })) };
       // Startup-only already disposed its lease. Keep the frozen static identity and
       // authorized cache settings, but never resolve or reuse that temporary descriptor.
-      delete staticEnv[MATH_PROOF_ENVIRONMENT_ENV];
-      delete staticEnv[MATH_PROOF_ENVIRONMENT_SANDBOX_ENV];
+      if (!options.preparedEnvironment) {
+        delete staticEnv[MATH_PROOF_ENVIRONMENT_ENV];
+        delete staticEnv[MATH_PROOF_ENVIRONMENT_SANDBOX_ENV];
+      }
       const project = path.join(state.worktree, state.problem.projectRelative);
       const packages = resolveMathematicsLakePackagesCache(project, staticEnv);
       if (!packages) throw new Error('math_lake_packages_unavailable');
@@ -526,38 +565,86 @@ export async function seedSolverContinuation(options: {
       assertMathCanonicalPath(overrides);
       fs.rmSync(overrides, { force: true });
       const timeoutMs = options.timeoutMs ?? 180_000;
-      proofEnvironment = await prepareMathProofEnvironment(project, packages, { env: staticEnv, signal: lease.signal,
+      if (!options.preparedEnvironment) proofEnvironment = await prepareMathProofEnvironment(project, packages, { env: staticEnv, signal: lease.signal,
         deadlineAt: Number.isFinite(timeoutMs) ? Date.now() + timeoutMs : undefined,
         cacheRoot: DEFAULT_MATH_PROOF_ENVIRONMENT_CACHE_ROOT,
         onProgress: phase => emit('continuation_seed_proof_environment', { phase }) });
-      const env = { ...staticEnv, [MATH_PROOF_ENVIRONMENT_ENV]: proofEnvironment.environmentValue };
+      const env = proofEnvironment ? { ...staticEnv, [MATH_PROOF_ENVIRONMENT_ENV]: proofEnvironment.environmentValue } : staticEnv;
       report.stage = 'checking'; saveReport();
-      state.cooperation.recheck = { canonicalCommit: canonical, total: source.candidateIds.length, completed: 0 };
+      state.cooperation.recheck = { canonicalCommit: canonical, total: candidateIds.length, completed: 0 };
       writeSolverRunState(stateFile, state);
-      for (const taskId of source.candidateIds) {
+      const freshChecks: TaskProof[] = [];
+      for (const taskId of candidateIds) {
         lease.signal.throwIfAborted();
         const node = tasks.find(node => node.task.id === taskId)!;
+        const savedConditional = conditional.find(candidate => candidate.taskId === taskId);
         state.cooperation.recheck.taskId = taskId; writeSolverRunState(stateFile, state);
         emit('continuation_seed_check', { taskId });
         try {
-          // Same projected task checker as snapshot recovery; no historical receipt enters this request.
-          const [proof] = await checkTaskProofs(state.problem, state.worktree, canonical, [{ task: node.task,
-            retainedGoals: [], assignment: { taskId, taskDigest: taskVersion(node.task), workerId: 'continuation', seedCommit: canonical } }],
+          let sourceCommit = canonical, assignment = { taskId, taskDigest: taskVersion(node.task),
+            workerId: 'continuation', seedCommit: canonical } as NonNullable<TaskRecord['assignment']>;
+          let conditions: CooperativeTask[] = [];
+          if (savedConditional) {
+            if (savedConditional.captureError) throw new Error(savedConditional.captureError);
+            if (savedConditional.taskDigest !== taskVersion(node.task) || !savedConditional.sources ||
+                !savedConditional.seedSources) throw new Error('math_task_condition_version_invalid');
+            const byId = new Map(tasks.map(item => [item.task.id, item.task]));
+            const references = (items: readonly { taskId: string; taskDigest: string }[]) => items.map(reference => {
+              const task = byId.get(reference.taskId);
+              if (!task || taskVersion(task) !== reference.taskDigest) throw new Error('math_task_condition_version_invalid');
+              return task;
+            });
+            conditions = references(savedConditional.conditions);
+            const dependencies = references(savedConditional.dependencies);
+            if (!conditions.every(task => task.kind === 'lemma' && task.type?.trim() &&
+                dependencies.some(dependency => dependency.id === task.id)) || new Set(conditions.map(task => task.id)).size !== conditions.length)
+              throw new Error('math_task_condition_version_invalid');
+            const frozen = await withSolverWorktree(state.worktree, state.problem.baseCommit, async checkout => {
+              const write = (sources: Record<string, string>) => {
+                for (const [file, text] of Object.entries(sources)) {
+                  const target = path.join(checkout, state.problem.projectRelative, file);
+                  assertMathCanonicalPath(target); fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, text);
+                }
+                return commitSolverSources(state.problem, checkout);
+              };
+              const seedCommit = write(savedConditional.seedSources!);
+              const proofCommit = write(savedConditional.sources!);
+              return { seedCommit, proofCommit };
+            });
+            assignment = { ...assignment, seedCommit: frozen.seedCommit, dependencies: savedConditional.dependencies };
+            if (!node.task.conditional) assignment.connectionCheck = createTaskConnectionCheck(node.task, assignment,
+              tasks.map(item => conditions.some(condition => condition.id === item.task.id) ? { ...item, status: 'pending' } : item),
+              { environmentDigest: state.environmentDigest, problemReceiptDigest: state.problem.receiptDigest },
+              task => savedConditional.seedSources![task.proofPath!] ?? '');
+            sourceCommit = frozen.proofCommit;
+            git(state.worktree, ['update-ref', `refs/math/${state.runId}/continuation/conditional/${taskId}`, sourceCommit]);
+          }
+          // The frozen source is reprojected and verified in the destination environment.
+          const [proof] = await checkTaskProofs(state.problem, state.worktree, sourceCommit, [{ task: node.task,
+            retainedGoals: [], assignment, ...(conditions.length ? { conditions } : {}) }],
           env, lease.signal, timeoutMs, state.environmentDigest);
           lease.signal.throwIfAborted(); lease.assertHeld();
-          const fresh = proof.passed && isAttributedTaskProof(proof) && !proof.conditions?.length &&
+          const fresh = proof.passed && isAttributedTaskProof(proof) &&
+            canonicalMathJson(proof.conditions ?? []) === canonicalMathJson(savedConditional?.conditions ?? []) &&
             proof.verification.status === 'kernel_verified' && proof.verification.results.length > 0 &&
             proof.verification.results.every(result => result.status === 'kernel_verified' && typeof result.receiptId === 'string' && result.receiptId);
           for (const commit of [proof.commit, proof.verification.targetCommit]) if (commit) {
             if (!oid.safeParse(commit).success) throw new Error('math_continuation_seed_invalid_receipt_commit');
             git(state.worktree, ['update-ref', `refs/math/${state.runId}/evidence/${commit}`, commit]);
           }
-          node.integratedCheck = proof;
-          node.status = fresh ? 'integrated' : 'blocked';
+          if (savedConditional) {
+            node.proof = proof;
+            node.assignment = fresh ? assignment : undefined;
+            node.status = fresh ? 'conditional' : 'blocked';
+          } else {
+            node.integratedCheck = proof;
+            node.status = fresh ? 'integrated' : 'blocked';
+            if (fresh) freshChecks.push(proof);
+          }
           node.feedback = fresh ? undefined : 'math_continuation_seed_helper_not_verified';
         } catch (error) {
           lease.signal.throwIfAborted();
-          node.status = 'blocked'; node.integratedCheck = undefined;
+          node.status = 'blocked'; node.integratedCheck = undefined; node.proof = undefined; node.assignment = undefined;
           node.feedback = error instanceof Error ? error.message : 'math_continuation_seed_helper_check_failed';
         }
         report.checked.push(taskId);
@@ -566,7 +653,7 @@ export async function seedSolverContinuation(options: {
         state.cooperation.recheck.completed++; state.cooperation.recheck.taskId = undefined;
         if (source.researchHandoffs) state.cooperation.deliveries = restoredHandoffDeliveries(source.researchHandoffs, state);
         writeSolverRunState(stateFile, state); saveReport();
-        emit('continuation_seed_checked', { taskId, passed: node.status === 'integrated' });
+        emit('continuation_seed_checked', { taskId, passed: node.status === 'integrated' || node.status === 'conditional' });
       }
       // Rechecking typed inputs may retire a former investigation. Keep its frozen
       // provenance and tombstone without importing an old assignment or acceptance.
@@ -581,6 +668,7 @@ export async function seedSolverContinuation(options: {
       if (source.researchHandoffs) state.cooperation.deliveries = restoredHandoffDeliveries(source.researchHandoffs, state);
       writeSolverRunState(stateFile, state);
       report.stage = 'complete'; saveReport();
+      options.onSeeded?.(state, freshChecks);
       return report;
     } catch (error) {
       report.stage = 'interrupted'; report.error = error instanceof Error ? error.message : 'math_continuation_seed_failed';
@@ -591,5 +679,7 @@ export async function seedSolverContinuation(options: {
     } finally {
       await proofEnvironment?.dispose();
     }
-  });
+  };
+  return options.lease ? seedWithLease(options.lease) :
+    withMathRuntimeLease({ lockPath: path.join(directory, 'run.lock'), flockExecutable: '/usr/bin/flock', signal: options.signal }, seedWithLease);
 }

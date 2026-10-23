@@ -143,7 +143,23 @@ bun run math run \
 
 恢复时可以省略原清单，继续读取已冻结的快照；显式再次提供清单时必须完全匹配。快照损坏或缺失会拒绝恢复。既有无附件运行不能静默添加附件；需要附加材料时应显式新建运行。盲法声明回译不接收附件。
 
-更换运行时代码或构建时，先用相同 workspace、receipt、task、模型与角色配置，以及新的输出路径执行 `run --startup-only`。再显式初始化接续材料：
+更换运行时代码或构建时，使用相同 workspace、receipt、task、模型与角色配置，以及新的输出路径，加 `--continuation-source-run` 在一次 CLI 运行中初始化并继续求解：
+
+```bash
+bun run math run \
+  --workspace "$MATH_RUN_ROOT/workspace" \
+  --task-file "$MATH_RUN_ROOT/task.md" \
+  --workers 4 \
+  --output /runs/continued/result.json \
+  --build-manifest "$MATH_BUILD_MANIFEST" \
+  --continuation-source-run /runs/previous/result.json
+```
+
+宿主持有同一个目标运行锁和 proof environment，核对题目、任务摘要、原始源码约束和新构建身份，冻结旧 canonical 源码、任务图及工人草稿，再生成新的 Lean 收据并开始求解。同进程继续使用刚验证的无条件辅助证明收据，避免初始化后立即重复检查；条件性证明保留原来的待证义务。旧线程和工人的 assignment 不复用。附件同步到每个工人的项目，原运行与原构建保持原样。`--prepare-timeout-seconds` 仍约束准备与初始化阶段，解题阶段独立使用原有预算参数。
+
+该入口只支持至少两个工人的协作运行，不能与 `--continuation-manifest` 同用。加 `--startup-only` 可以停在已初始化的零轮 checkpoint；初始化中断时，在原参数上加 `--resume` 重试，继续使用首次冻结的材料。开始过求解后，恢复时省略 `--continuation-source-run`，按普通 `--resume` 流程重新验证存档证明。
+
+也可以保留分步流程：先用新构建执行 `run --startup-only`，再运行独立初始化命令：
 
 ```bash
 bun run math continuation-seed \
@@ -153,7 +169,7 @@ bun run math continuation-seed \
   --timeout-seconds 0
 ```
 
-该命令只接受零轮、未开始求解的新预备运行，并持有目标运行锁。它核对同一题目、任务摘要、原始源码约束和新构建身份，冻结旧 canonical 源码、完整任务图、每个工人的源码与笔记，再为旧辅助证明生成新的 Lean 收据。验证会独立创建并释放本次 proof environment，不复用预备运行已经结束的临时 lease。新收据通过后才标记 `integrated`；旧线程、assignment 和验收标记不会被复制。失败项保持未验收，可在报告中查看。原运行与原构建保持原样。
+独立命令只接受零轮、未开始求解的新预备运行。它创建并释放本次 proof environment，不复用已经结束的准备进程的临时 lease。新的无条件收据通过后才标记 `integrated`，失败项保持未验收，可在报告中查看。
 
 初始化成功后，以新预备运行的原参数加 `--resume` 开始求解。中断的初始化可以用相同命令重试，重试复用首次冻结的快照；源运行后来产生的成果不会自动加入该快照。正式切换前应让源运行保存退出，再捕获最终快照。更换构建后直接 `--resume` 旧 checkpoint 仍会被身份校验拒绝。
 

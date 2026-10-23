@@ -31,6 +31,8 @@ import { selectedSub2apiProfile } from '../runtime/sub2api';
 import { copyKnowledgeSnapshot, readKnowledgeCatalog } from './theoremKnowledgeStore';
 import { copyContinuationSnapshot, freezeContinuationInput, readContinuationInput, readContinuationSnapshot,
   type ContinuationSnapshot } from './continuationInput';
+import { seedSolverContinuation } from './continuationSeed';
+import type { TaskProof } from './cooperativeProof';
 
 const runSummary = (state: SolverRunState | undefined) => ({ turns: state?.turns, dispatchCounts: state?.dispatchCounts,
   usage: state?.usage, tokenBudget: state?.tokenBudget, workers: state?.workers?.map(worker => ({ id: worker.id, role: worker.role,
@@ -47,6 +49,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
     'evaluator-command': { type: 'string' }, 'evaluator-timeout-seconds': { type: 'string', default: '1800' },
     'proof-environment-cache-dir': { type: 'string' }, 'startup-only': { type: 'boolean' }, help: { type: 'boolean' },
     'knowledge-base': { type: 'string' }, 'continuation-manifest': { type: 'string' },
+    'continuation-source-run': { type: 'string' },
     method: { type: 'string', default: 'direct' }, workers: { type: 'string', default: '4' },
     'module-plan': { type: 'string' },
     scheduler: { type: 'string', default: 'plan' }, coordination: { type: 'string', default: 'cooperative' },
@@ -55,6 +58,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
     console.log(`Usage: theorem-os run --workspace DIR --task-file FILE --output FILE --build-manifest FILE [--receipt-file FILE] [--resume] [--method direct] [--scheduler plan|critical-path|continuation] [--module-plan FILE] [--coordination cooperative|independent] [--workers 1..${MAX_RESEARCH_WORKERS}] [--model MODEL --effort LEVEL] [--max-run-seconds N --max-turns N --max-turn-seconds N] [--max-total-tokens N] [--prepare-timeout-seconds N] [--evaluator-command CMD --evaluator-timeout-seconds N] [--proof-environment-cache-dir DIR] [--startup-only]\n--module-plan loads the shared research-module plan JSON; use --scheduler plan.\nUse 0 for --max-run-seconds, --max-turns, --max-turn-seconds or --evaluator-timeout-seconds to disable that limit. Unlimited total solving time also disables proof verification deadlines.\n--max-total-tokens defaults to 0 (unlimited). A finite value stops new model turns after provider-reported consumption reaches it; in-flight turns finish and may exceed it. Resume retains cumulative usage and the saved allowance unless explicitly changed.`);
     console.log('--knowledge-base FILE attaches an immutable saved-theorem catalog. Resume requires the same catalog digest. Historical knowledge never grants proof acceptance.');
     console.log('--continuation-manifest FILE attaches explicit historical sources and notes without changing the verbatim task file. Resume retains the frozen attachment identity; historical material remains advisory.');
+    console.log('--continuation-source-run OLD_RESULT_OR_STATE initializes a new cooperative run from the old run, freshly checks its saved helpers, and starts solving in the same process. Use --resume to retry an interrupted zero-turn initialization; combine with --startup-only to retain a prepared checkpoint.');
     console.log('Cooperative Lead and ordinary research turns first yield a resumable scheduling checkpoint after 120 seconds, with a reminder after 90 seconds. Repeated checkpoints without saved content extend the interval and protect long reasoning until content is saved; this protection survives resume. Proof turns and total solving budgets are unchanged.');
     return 0;
   }
@@ -87,6 +91,10 @@ export async function runSolver(args: string[], root: string, customModules?: So
   const evaluatorMs = limit('evaluator-timeout-seconds', true) * 1000;
   const workerCount = limit('workers');
   if (workerCount > MAX_RESEARCH_WORKERS) throw new Error('invalid --workers');
+  if (values['continuation-source-run'] && (coordination !== 'cooperative' || workerCount < 2))
+    throw new Error('--continuation-source-run requires cooperative coordination and at least 2 workers');
+  if (values['continuation-source-run'] && values['continuation-manifest'])
+    throw new Error('--continuation-source-run cannot combine with --continuation-manifest');
   const workspace = fs.realpathSync(required('workspace'));
   const output = path.resolve(required('output'));
   assertMathCanonicalPath(output);
@@ -108,6 +116,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
   let timer: ReturnType<typeof setTimeout> | undefined = setTimeout(abort, preparationMs);
   let ownedState: SolverRunState | undefined;
   let proofEnvironment: Awaited<ReturnType<typeof prepareMathProofEnvironment>> | undefined;
+  let continuationSeeding = false;
   let ownsRun = false;
   const emit = (event: string, details = {}) => console.log(JSON.stringify({ event, at: Date.now(), ...details }));
   try {
@@ -341,6 +350,19 @@ export async function runSolver(args: string[], root: string, customModules?: So
       }));
       const failedPreparation = peerPreparation.find(result => result.status === 'rejected');
       if (failedPreparation?.status === 'rejected') throw failedPreparation.reason;
+      let freshContinuationChecks: readonly TaskProof[] | undefined;
+      if (values['continuation-source-run']) {
+        save(); continuationSeeding = true;
+        await seedSolverContinuation({ sourceRun: values['continuation-source-run'], run: stateFile, root, buildManifest: buildFile,
+          signal, lease, preparedEnvironment: env, timeoutMs: maxRunMs === Infinity ? Infinity : Math.max(1, preparationMs - (Date.now() - preparationStarted)),
+          onProgress: emit, onSeeded: (seeded, checks) => { state = ownedState = seeded; freshContinuationChecks = checks; } });
+        continuationSeeding = false;
+        continuation = readContinuationSnapshot(path.join(directory, 'continuation.json'), state.continuationDigest, continuationIdentity);
+        for (const worker of workers) {
+          const access = workerAccess.get(worker.id)!;
+          prepareAccess(worker.id, worker.worktree, path.join(worker.worktree, state.problem.projectRelative), access.corpusFile);
+        }
+      }
       emit('ready', { runId: state.runId, worktree: state.worktree, workers });
       emit('preparation_finished', { durationMs: Date.now() - preparationStarted, dependencies: diagnostics.phases });
       if (values['startup-only']) {
@@ -360,7 +382,8 @@ export async function runSolver(args: string[], root: string, customModules?: So
       const winner = await runResearchWorkers({ state, workers, access: workerAccess, modules, root, buildFile, taskText: task,
         executable: values.codex || process.env.DEEPSCIENTIST_MATH_CODEX_EXECUTABLE || 'codex',
         profile,
-        signal, deadline, maxTurns, maxTurnMs, maxTotalTokens, proofTimeoutMs: maxRunMs === Infinity ? Infinity : undefined, save, emit });
+        signal, deadline, maxTurns, maxTurnMs, maxTotalTokens, proofTimeoutMs: maxRunMs === Infinity ? Infinity : undefined,
+        freshContinuationChecks, save, emit });
       clearTimeout(timer);
       timer = undefined;
       state.solveFinishedAt = Date.now();
@@ -389,8 +412,10 @@ export async function runSolver(args: string[], root: string, customModules?: So
   } catch (error) {
     if (!ownsRun) { emit('rejected', { reason: error instanceof Error ? error.message : 'math_runtime_error' }); return 1; }
     const status = controller.signal.aborted ? 'limit_reached' : 'runtime_error';
+    // Initialization owns durable progress before its final in-memory handoff.
+    if (continuationSeeding) ownedState = readSolverRunState(stateFile);
     if (ownedState) {
-      ownedState.phase = 'finished';
+      if (!continuationSeeding) ownedState.phase = 'finished';
       if (ownedState.solveStartedAt && !ownedState.solveFinishedAt) ownedState.solveFinishedAt = Date.now();
       ownedState.error = controller.signal.aborted ? undefined : error instanceof Error ? error.message : 'math_runtime_error';
       writeSolverRunState(stateFile, ownedState);

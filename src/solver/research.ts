@@ -27,7 +27,8 @@ import { MAX_RESEARCH_NOTES_BYTES, parseMathResponse } from './deliveries';
 import { assertMathCanonicalPath } from '../math/paths';
 import { committedSource } from './problem';
 import type { ContinuationSnapshot } from './continuationInput';
-import type { ProofReadyRecord } from './proofReady';
+import { WorkerProofLifecycle } from './workerProofLifecycle';
+import type { TaskProof } from './cooperativeProof';
 
 // Scheduling checkpoints preserve unlimited solving budgets and resume the same assignment/thread.
 const advisoryCheckpointNoticeMs = 90_000;
@@ -60,6 +61,7 @@ export async function runResearchWorkers(input: {
   state: SolverRunState; workers: readonly ResearchWorker[]; access: ReadonlyMap<string, WorkerAccess>;
   modules: SolverModules; root: string; buildFile: string; taskText: string; executable: string; profile: string;
   signal: AbortSignal; deadline: number; maxTurns: number; maxTurnMs: number; maxTotalTokens: number; proofTimeoutMs?: number;
+  freshContinuationChecks?: readonly TaskProof[];
   save: () => void; emit: (event: string, details?: Record<string, unknown>) => void;
 }): Promise<{ worktree: string; check: ProofCheck } | undefined> {
   const { state, modules, save } = input;
@@ -593,16 +595,8 @@ export async function runResearchWorkers(input: {
         }
         if (['unavailable', 'blocked'].includes(research.check.verification.status)) throw new Error('math_verifier_unavailable');
       };
-      const checkReadySnapshot = async (assignment: Extract<CooperativeAction, { kind: 'task' }>, ready: ProofReadyRecord) => {
-        if (!ready.snapshotCommit) throw new Error('math_proof_ready_snapshot_missing');
-        state.phase = research.phase = 'checking'; save();
-        const delivery = await cooperation!.deliver(worker, assignment, ready.snapshotCommit);
-        research.check = delivery.check;
-        cooperation!.proofReadyCompleted(worker, assignment, delivery.check);
-        emit('proof_ready_checked', { receiptId: ready.id, commit: ready.snapshotCommit,
-          passed: delivery.check?.passed === true, conditional: ready.evidence === 'conditional' });
-        retries = 0; save();
-      };
+      const proofLifecycle = cooperation && new WorkerProofLifecycle({ state, research, worker, cooperation,
+        close, save, emit, checked: () => { retries = 0; } });
       try {
         await waitForRecovery(true);
         while (!signal.aborted) {
@@ -619,12 +613,7 @@ export async function runResearchWorkers(input: {
             });
             continue;
           }
-          const frozenReady = assignment?.kind === 'task' ? cooperation?.pendingProofReady(worker, assignment) : undefined;
-          if (frozenReady?.snapshotCommit && assignment?.kind === 'task') {
-            await close();
-            await checkReadySnapshot(assignment, frozenReady);
-            continue;
-          }
+          if (await proofLifecycle?.resumeFrozen(assignment)) continue;
           while ((pendingTurn = waitForTurn())) await pendingTurn;
           if (!dispatchAllowed() || state.turns >= input.maxTurns || budget().remainingMs <= 0) break;
           if (assignment) {
@@ -797,36 +786,7 @@ export async function runResearchWorkers(input: {
           const lastInputTokens = session?.lastInputTokens;
           const diagnostic = session?.lastFailureDiagnostic;
           const turnError = executionError ?? failureDetail(session?.lastError, undefined, diagnostic);
-          const ready = assignment?.kind === 'task' ? cooperation?.pendingProofReady(worker, assignment) : undefined;
-          if (ready && assignment?.kind === 'task') {
-            if (candidate.worktree !== worker.worktree || candidate.problemReceiptDigest !== state.problem.receiptDigest ||
-                candidate.operation !== action.operation || candidate.provenance.workerId !== worker.id)
-              throw new Error('math_candidate_identity_changed');
-            if (!ready.snapshotCommit) {
-              const stopped = await turnSession.stopForFreeze?.().catch(() => ({ status: 'unconfirmed' as const, reason: 'shutdown-failed' }));
-              await close();
-              if (stopped?.status !== 'stopped') {
-                const reason = stopped?.reason ?? 'writer-stop-confirmation-unavailable';
-                research.writerStopUnconfirmed = { at: Date.now(), reason };
-                cooperation!.proofReadyFailedFreeze(worker, assignment, reason);
-                cooperation!.interrupted(worker, assignment);
-                emit('proof_ready_freeze_deferred', { receiptId: ready.id, reason });
-                save();
-                throw new Error('math_writer_stop_unconfirmed:' + worker.id + ':' + reason);
-              }
-              // stopForFreeze closes the session but preserves its resumable thread.
-              if (!cooperation!.pendingProofReady(worker, assignment)) continue;
-              const sourceError = solverSourceFeedback(state.problem, worker.worktree);
-              if (sourceError) {
-                cooperation!.proofReadyFailedFreeze(worker, assignment, sourceError);
-                cooperation!.rejected(assignment, sourceError); continue;
-              }
-              const commit = commitSolverSources(state.problem, worker.worktree);
-              if (!cooperation!.proofReadyFrozen(worker, assignment, commit)) continue;
-            } else await close();
-            await checkReadySnapshot(assignment, ready);
-            continue;
-          }
+          if (await proofLifecycle?.settleTurn(assignment, candidate, operation, turnSession)) continue;
           // Closing can yield to a plan edit; check ownership after the writer has stopped.
           if (candidate.status === 'failed' || planningCheckpoint) await close();
           if (assignment && cooperation && !cooperation.current(assignment)) {
@@ -921,6 +881,10 @@ export async function runResearchWorkers(input: {
       }
     }));
     input.signal.throwIfAborted();
+    // Quarantine is the actionable failure even if ordinary session cleanup also failed.
+    const unconfirmedStop = errors.find(error => error instanceof Error &&
+      error.message.startsWith('math_writer_stop_unconfirmed:'));
+    if (unconfirmedStop) throw unconfirmedStop;
     if (cleanupErrors.length) throw cleanupErrors[0];
     if (!winner && errors.length) throw errors[0];
     return winner;

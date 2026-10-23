@@ -14,9 +14,10 @@ import { type DeliveryRecord } from './deliveries';
 import { rejectedDeliveryReceipt, deliveryReceiptFeedback, type DeliveryReceipt } from './deliveryReceipts';
 import { proofReadyRecord, type ProofReadyRecord } from './proofReady';
 import type { ProofCheck } from './modules/evidence';
-import { createTaskSourceProjector, omitTaskHelpers, ownedSourceDigest, TaskProofCache, type TaskProof } from './cooperativeProof';
+import { createTaskSourceProjector, isAttributedTaskProof, omitTaskHelpers, ownedSourceDigest, TaskProofCache, type TaskProof } from './cooperativeProof';
 import { isStatementAction, statementReviewSummary } from './statementReview';
 import { type ProofReferences } from './proofReferences';
+import { attributeTaskReferences } from './taskReferenceAttribution';
 import { buildProofContinuation } from './progress';
 import { recordRouteBlockers, refreshRouteBlockers, validateBlockerProposals } from './routeControl';
 import { parseProofRoutes } from './proofRoutes';
@@ -28,7 +29,7 @@ import { bindMathematicalGap, mathematicalGapVisible } from './mathematicalGaps'
 import { taskConnectionCheckCurrent } from './taskConnections';
 import { TaskTypePreflightCache } from './taskTypePreflight';
 import { currentCapacityExploration, plannedTaskRecords } from './capacityExploration';
-import { assignmentDeliveryFile, isFeasibilityReview, taskGroup, taskReferenceDependencies, type CooperativeTask, type TaskRecord, type CooperativeAction } from './tasks';
+import { assignmentDeliveryFile, isFeasibilityReview, markTaskAcceptance, markTaskReferences, taskGroup, taskReferenceDependencies, type CooperativeTask, type TaskRecord, type CooperativeAction } from './tasks';
 import { digest, ReviewRecord, HumanEditRecord, CooperationState, TaskVersions, RETRY_DISPATCH, bounded } from './cooperationShared';
 
 /** Shared cooperation state, scheduling primitives and the per-worker context projection. */
@@ -90,6 +91,8 @@ export abstract class CooperationCore {
   abstract contextState(action?: CooperativeAction, worker?: ResearchWorker, versions?: TaskVersions): CooperationState;
   constructor(protected readonly input: { state: SolverRunState; workers: readonly ResearchWorker[];
     access: ReadonlyMap<string, WorkerAccess>; signal: AbortSignal; timeoutMs?: number;
+    /** Fresh, unconditional continuation checks already verified in this process. */
+    freshContinuationChecks?: readonly TaskProof[];
     continuousResearch?: boolean;
     modelDispatchAllowed?: () => boolean;
     save: () => void; emit: (event: string, details?: Record<string, unknown>) => void;
@@ -101,6 +104,21 @@ export abstract class CooperationCore {
     if (!this.archive.canonicalCommit) {
       this.archive.canonicalCommit = git(this.lead.worktree, ['rev-parse', 'HEAD']);
       this.archive.leadSeedCommit ??= this.archive.canonicalCommit;
+    }
+    // Continuation seeding and this cooperation instance share the proof objects.
+    // Record only those exact objects that are attached to an integrated task; this
+    // keeps the restore path able to reuse a fresh receipt without trusting a
+    // deserialized or otherwise unrelated proof value.
+    for (const proof of input.freshContinuationChecks ?? []) {
+      const node = this.archive.tasks.find(node => node.status === 'integrated' && node.integratedCheck === proof);
+      if (!node || !proof.passed || proof.conditions?.length || proof.taskDigest !== digest(node.task) ||
+          proof.commit !== this.archive.canonicalCommit || !isAttributedTaskProof(proof) ||
+          proof.references && proof.references.environmentDigest !== input.state.environmentDigest) continue;
+      if (proof.references) {
+        proof.references.tasks = attributeTaskReferences(proof.references, this.archive.tasks);
+        markTaskReferences(proof);
+      }
+      this.checkedDeliveries.add(proof); markTaskAcceptance(proof);
     }
     this.liveWorkers = new Set(input.workers.map(worker => worker.id));
     this.needsLead = !this.archive.tasks.length || Boolean(this.archive.error) ||
