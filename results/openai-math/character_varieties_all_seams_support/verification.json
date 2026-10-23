@@ -1,5 +1,5 @@
 {
-  "observedAt": "2026-10-23T06:22:10.255688+00:00",
+  "observedAt": "2026-10-23T06:42:53.948353+00:00",
   "wholeOriginalTargetKernelPassed": true,
   "kernelExitCode": 0,
   "entry": "AllSeamsAssemblyInferredV2.lean",
@@ -18,7 +18,16 @@
   "publisherComparatorPassed": false,
   "nativeAccepted": false,
   "officialHostedAcceptance": false,
-  "claimBoundary": "The full original theorem has passed modular pinned-kernel verification. Single-file, original comparator, native final evaluation and hosted acceptance are separate pending stages.",
+  "claimBoundary": "The complete original theorem passed modular pinned-kernel verification. The current flattened candidate failed the unchanged native source-context guard and is ineligible for delivery. Single-file kernel, original comparator, native final evaluation and hosted acceptance have not passed.",
   "receipt": "evidence/AllSeamsAssemblyInferredV2.build-receipt.json",
-  "axiomOutput": "evidence/AllSeamsAssemblyInferredV2.build.log"
+  "axiomOutput": "evidence/AllSeamsAssemblyInferredV2.build.log",
+  "singleFileSourceGuard": {
+    "passed": false,
+    "submissionSHA256": "b112a1db4a012ec8449b1adf58d73de5f6e848229786868eb828a3e2a70cdfa2",
+    "error": "math_original_context_changed",
+    "receipt": "evidence/source-guard-b112a1db4a01-receipt.json",
+    "source": "rejected-single-file/AllSeamsArchiveFinalInferredV2.lean",
+    "deliveryEligible": false,
+    "repair": "Rewrite the helper declarations while preserving the complete frozen original theorem context; keep the guard unchanged."
+  }
 }

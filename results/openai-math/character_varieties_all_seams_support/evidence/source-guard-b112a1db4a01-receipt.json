@@ -1,0 +1,20 @@
+{
+  "observedAt": "2026-10-23T06:33:52.613Z",
+  "candidateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/AllSeamsArchiveFinalInferredV2.lean",
+  "submissionSHA256": "b112a1db4a012ec8449b1adf58d73de5f6e848229786868eb828a3e2a70cdfa2",
+  "bytes": 237563,
+  "originalTarget": {
+    "theoremName": "OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams",
+    "declarationHash": "fb95bc071af2179a40770979bb7e3eb978b53a19ec0691d8eaf4e38a4e3d50d8",
+    "proofPath": "Submission.lean"
+  },
+  "environmentDigest": "776e5201fa24ba3dba47f84d50336a9c3426372bd58f711b923b94219c4b632d",
+  "passed": false,
+  "error": {
+    "name": "Error",
+    "message": "math_original_context_changed",
+    "recovery": "Restore the original imports, namespace/section placement, variables, opens, scopes and options from the seed commit. Keep new helpers; move helper-specific scopes and instances inside their proofs. Added imports may use explicit Mathlib.* modules or frozen local modules already imported by the original owned sources; avoid import cycles."
+  },
+  "originalFixtureRestored": true,
+  "claim": "Source structure check only; grants no Lean, comparator or native acceptance."
+}

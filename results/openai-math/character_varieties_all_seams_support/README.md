@@ -4,7 +4,7 @@
 
 精确目标是 `OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams`。证明覆盖原题的全部八种 seam 分支，最终定理没有增加前提，公理仅有 `propext`、`Classical.choice` 和 `Quot.sound`。
 
-单文件重检仍在运行；原发布方比较器和 TheoremOS 原生最终验收尚未通过，也没有 OpenAI 托管验收记录。当前状态见 [verification.json](verification.json)。
+单文件重检仍在运行。该合并版本新增了模块作用域，被 TheoremOS 原有源码保护以 `math_original_context_changed` 拒绝；正在重排辅助声明以保留完整原题上下文。原发布方比较器和 TheoremOS 原生最终验收尚未通过，也没有 OpenAI 托管验收记录。当前状态见 [verification.json](verification.json)。
 
 ## 文件与证据
 
@@ -13,6 +13,7 @@
 - [原定理签名与公理输出](evidence/AllSeamsAssemblyInferredV2.build.log) 记录完整原题内核结果。
 - `OAI/` 收录原 import 的 57 个固定公开依赖，来源与 SHA 见 [公开依赖清单](public-support-manifest.json)。未包含发布方解答模块 `ProducedSolution`。
 - [证明模块清单](evidence/local-proof-manifest.json) 记录每个源码、成功回执和导出对象的 SHA；[文件清单](manifest.json) 覆盖本包实际归档文件。
+- [源码保护拒绝回执](evidence/source-guard-b112a1db4a01-receipt.json) 对应 [待重排的合并源码](rejected-single-file/AllSeamsArchiveFinalInferredV2.lean)。该版本未进入原生交付队列，不是可验收的提交文件。
 
 ## 复现
 
