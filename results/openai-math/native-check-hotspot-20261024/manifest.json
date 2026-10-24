@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-10-24T08:34:36.737547+00:00",
+  "capturedAt": "2026-10-24T08:43:07.196186+00:00",
   "nativeAccepted": false,
   "characterV1KernelCheck": "failed: two section-parameter application mismatches",
   "characterV2FullSourceCompile": "passed: exit0 in 635.028472 seconds",
@@ -10,8 +10,8 @@
   "files": [
     {
       "path": "README.md",
-      "bytes": 7562,
-      "sha256": "3b2505ca3f1536ccd232be6bf5316b3ea5161ffbe2efe9d9553e2a5a91b47fb6"
+      "bytes": 8247,
+      "sha256": "8231174956a7e9965f376a5498fda3ef1d858bde756052409dcc9ae117bb1df8"
     },
     {
       "path": "adopt-verified-character-candidate/README.md",
@@ -317,6 +317,56 @@
       "path": "guard-preflight-v2/receipt.json",
       "bytes": 3605,
       "sha256": "0d1e23e002ac2b51d4baf4d966cef308fdd314cc14d8ca9b74a16871b0e4c92d"
+    },
+    {
+      "path": "honeycomb-math-route-20261024/MATHEMATICAL-ROUTE.md",
+      "bytes": 11583,
+      "sha256": "5a407f09b73e11faf2551ed9d24e52265521a65c2a0fad07b7683e1c2a511cbf"
+    },
+    {
+      "path": "honeycomb-math-route-20261024/README.md",
+      "bytes": 1600,
+      "sha256": "ed7dcb5c60790bae12795f7ab4477bfc963dcb8de3b98f44cfdac04b1b63ad2d"
+    },
+    {
+      "path": "honeycomb-math-route-20261024/evidence-ledger.json",
+      "bytes": 3801,
+      "sha256": "65257216a87f1d187e2adcbfc704f4409a99ce58e821060c439e30d287d0dc83"
+    },
+    {
+      "path": "honeycomb-math-route-20261024/native-advisory-applied.json",
+      "bytes": 1928,
+      "sha256": "7b9dd60d624cfb6b15af5fdea3c59e36dae5b1868702f562a3775adb1ec3d6f2"
+    },
+    {
+      "path": "honeycomb-math-route-20261024/native-advisory-handoff.md",
+      "bytes": 4477,
+      "sha256": "dc06a50d851b9c2983154c2e7f1f11334645d7a7f404c4dc629ab78293ef1847"
+    },
+    {
+      "path": "honeycomb-math-route-20261024/native-advisory-preparation.json",
+      "bytes": 11813,
+      "sha256": "86979d20e481c9ee483736dcc2bac07a6cd0e1d67e7bf36c620492e3b8fdb5fd"
+    },
+    {
+      "path": "honeycomb-math-route-20261024/native-advisory-queue-receipt.json",
+      "bytes": 818,
+      "sha256": "7d31924139e9ae280be484c408e0fb2c7c0aa84686edeb3c0b80077afd2f7d06"
+    },
+    {
+      "path": "honeycomb-math-route-20261024/need-map.json",
+      "bytes": 2065,
+      "sha256": "0a974105e3be44669845b1b7f7db7142c0941e8b6c00a0d6ab4071b17e051d9c"
+    },
+    {
+      "path": "honeycomb-math-route-20261024/queue-research-route.ts",
+      "bytes": 6214,
+      "sha256": "c45dc1df51c5842cd2fd07a1bc46a6b584510d3283bfb7af7bfc56d18b7f5684"
+    },
+    {
+      "path": "honeycomb-math-route-20261024/report-validation.json",
+      "bytes": 210,
+      "sha256": "ddb8bfb6da810c51824f63ef0f61846ab28f4517a03b7ff76587886bf5b53a0c"
     },
     {
       "path": "honeycomb-scheduling-observation/README.md",
@@ -829,5 +879,6 @@
   "honeycombSumsReduction": "native kernel and integration passed; original goal resumed; growth estimate still unproved",
   "characterV2NativeDelivery": "exact V2 committed as aaaf7a217b8df185b467ec71348048b553dfe339; host compiling support modules; final acceptance pending",
   "latestProgressSnapshot": "continuation-progress-20261024T083132Z.json",
-  "honeycombCurrentProgress": "turn98: integrated reduction reused; no new general-width bound or proof receipt; no new scheduling fault confirmed"
+  "honeycombCurrentProgress": "turn98: integrated reduction reused; no new general-width bound or proof receipt; no new scheduling fault confirmed",
+  "honeycombAdvisoryRoute": "direct first-moment summability via exact finite-state encoding and finite-box mass; unproved geometric inputs; ordinary advisory edit applied at turn104"
 }

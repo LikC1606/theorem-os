@@ -1,0 +1,16 @@
+{
+  "observedAt": "2026-10-24T08:39:49.874Z",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "editId": "honeycomb-direct-summability-dc06a50d851b",
+  "result": {
+    "id": "honeycomb-direct-summability-dc06a50d851b",
+    "status": "queued",
+    "baseVersion": "77b7d42ad95450f1f0547b09e9f8d1e72caaf4e33e0ce14c53daf16cbc8246bc"
+  },
+  "preparationFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-math-route-20261024/native-advisory-preparation.json",
+  "preparationSHA256": "86979d20e481c9ee483736dcc2bac07a6cd0e1d67e7bf36c620492e3b8fdb5fd",
+  "attribution": "Unproved mathematical route supplied through ordinary advisory objective edit.",
+  "mathematicalAcceptance": false,
+  "directCheckpointWrites": false,
+  "directActiveSourceWrites": false
+}

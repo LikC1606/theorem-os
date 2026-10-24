@@ -1,0 +1,83 @@
+{
+  "schema": "theorem-os.honeycomb-math-route-evidence.v1",
+  "observedAt": "2026-10-24T08:41:23.451705+00:00",
+  "sourcePolicy": "local_only",
+  "mode": "Light Search with local source reads and new mathematical synthesis",
+  "sources": [
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/workspace/generated/problem/Challenge.lean",
+      "sha256": "6acaeab1940555d1df29856e504deae4f9edf7777231969b9b7d13515731d830",
+      "bytes": 2367,
+      "role": "original definitions"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-scheduling-observation/followup-20261024T0747Z/sums-reduction-proof-21c88246de18.lean",
+      "sha256": "6f81ffc481e22c8a189ced1d0de1d154c39e0edc57f17e9c1f492a271139f6e2",
+      "bytes": 8813,
+      "role": "parent-designated accepted reduction"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-3/RESEARCH.md",
+      "sha256": "022085324e88f185065e351eb6af80cdb1d3014343c1fcd658b234ac08ae2f97",
+      "bytes": 62779,
+      "role": "advisory current RESEARCH, selected sections only"
+    }
+  ],
+  "claims": [
+    {
+      "need": "N1",
+      "status": "E",
+      "claim": "Vertex adjacency, root/terminal/strip constraints, vertex-count fugacity and target six clauses are exactly in original source",
+      "locator": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/workspace/generated/problem/Challenge.lean:18"
+    },
+    {
+      "need": "N2",
+      "status": "E",
+      "claim": "Accepted helper converts per-width firstLengthWeight summability to all six original clauses",
+      "locator": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-scheduling-observation/followup-20261024T0747Z/sums-reduction-proof-21c88246de18.lean:171",
+      "acceptanceBasis": "Parent explicitly supplied this archive as already accepted; no new audit performed"
+    },
+    {
+      "need": "N3",
+      "status": "I",
+      "claim": "Two-column slab has 2h vertices and path length at most 2h times occupied span",
+      "premises": [
+        "original adjacency",
+        "Nodup",
+        "connected path occupies consecutive slabs"
+      ]
+    },
+    {
+      "need": "N3",
+      "status": "I",
+      "claim": "Trim finite nonnegative transfer Green finiteness implies first moment finiteness",
+      "proof": "Full conditional paper proof in MATHEMATICAL-ROUTE.md; not Lean checked"
+    },
+    {
+      "need": "N3",
+      "status": "?",
+      "claim": "Exact anchored-bridge finite-state encoding exists as described",
+      "missing": "Implement and prove acceptance bijection, reject disconnected cycles and empty padding, count vertices once"
+    },
+    {
+      "need": "N3",
+      "status": "?",
+      "claim": "Uniform finite-box bridge mass bound exists for each h",
+      "missing": "Finite-domain cancellation and planar boundary winding, or another genuine estimate"
+    },
+    {
+      "need": "N3",
+      "status": "?",
+      "claim": "Proposed finite-domain parafermionic identity would yield K_h=1 in current normalization",
+      "missing": "Complete local pairing, boundary winding, endpoint normalization and exact mid-edge/vertex-list correspondence; do not use numerical constant as established"
+    }
+  ],
+  "completionScope": "Research handoff complete; original mathematical goal remains open.",
+  "newLeanCompilation": false,
+  "publisherSolutionRead": false,
+  "hiddenReasoningRead": false,
+  "activeSourceModified": false,
+  "runtimeModified": false,
+  "checkpointModified": false,
+  "queueModified": false
+}

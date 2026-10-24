@@ -1,0 +1,53 @@
+{
+  "observedAt": "2026-10-24T08:40:41.457046+00:00",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "turns": 104,
+  "phase": "running",
+  "stateSHA256AtObservation": "a243c220fb613d9dbca04d52f6fb1a920ca328efac313eaab25d9b5313277517",
+  "edit": {
+    "affectedTasks": [
+      "initial_research_2"
+    ],
+    "appliedAt": 1792831189896,
+    "baseVersion": "77b7d42ad95450f1f0547b09e9f8d1e72caaf4e33e0ce14c53daf16cbc8246bc",
+    "id": "honeycomb-direct-summability-dc06a50d851b",
+    "planVersion": "9414591acc0f626ad8a24ee3cef0a36adc061409f804cecd05f8c3a966c6009b",
+    "receivedAt": 1792831189881,
+    "recheck": {
+      "status": "not-required",
+      "tasks": []
+    },
+    "status": "applied"
+  },
+  "fullAppliedTaskGraphMatchesValidatedProposal": true,
+  "groupAndRouteConfigurationPreserved": true,
+  "sumsReductionStatus": "integrated",
+  "sumsIntegrationCommit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+  "onlyAdvisoryTaskRevised": true,
+  "researcher2": {
+    "id": "researcher-2",
+    "phase": "running",
+    "sessionTaskId": "initial_research_2",
+    "sessionTaskVersion": "b931a3e5dec82b221a3e6e769806c42fa52bf5cbccb83dbb5e506e085124fd40",
+    "sessionAssignmentId": "e034f31d-dacd-438e-8c98-0ba6f806b763",
+    "threadId": "01a16d10-f527-7c23-a086-36c84429f7ab"
+  },
+  "otherMathematicalAssignments": [
+    {
+      "taskId": "strip_growth_below_mu",
+      "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+      "assignmentId": "65f1697f-fa42-4863-bc57-032cd0a476e9",
+      "workerId": "researcher-1"
+    },
+    {
+      "taskId": "initial_goal_1",
+      "taskDigest": "ab8c91c92c1d5d985ed03edfaee27bbef6df38455b84a82711d07d8d13e77890",
+      "assignmentId": "69b53b79-cb36-44e1-9d4c-e81bb99a0a4a",
+      "workerId": "engineer"
+    }
+  ],
+  "mathematicalAcceptance": false,
+  "nativeFinalPassCount": 5,
+  "directCheckpointWrites": false,
+  "directActiveSourceWrites": false
+}

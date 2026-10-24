@@ -85,4 +85,12 @@ Snaky V8 的原题检查已取得原始 `kernel_verified` 回执
 已有有限 DFS 不能覆盖全部长度，旧方格图实验也不适用于本题的 honeycomb 邻接。
 当前不据这些实验宣称已找到核心证明。
 
+第 104 轮已通过正常队列向 researcher-2 提供
+[直接可求和性替代路线](honeycomb-math-route-20261024/native-advisory-handoff.md)：
+研究有限矩形桥权重和的统一上界，以及保留连通信息的有限状态转移。
+有限矩阵论证可在精确编码和有限质量已证的前提下导出一阶矩；这些几何输入仍未证明，
+`K_h=1` 也未确立。该建议包含外部辅助归因，不是 proof delivery。
+[应用后核对](honeycomb-math-route-20261024/native-advisory-applied.json)确认只有 advisory 任务修订，
+研究员已处理新版任务，原增长界、主目标 assignment、已集成归约和全部数学合同保留。
+
 本目录不包含手写验收回执、伪造缓存或活动 checkpoint 修改。
