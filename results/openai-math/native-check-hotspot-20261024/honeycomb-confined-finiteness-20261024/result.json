@@ -1,0 +1,160 @@
+{
+  "schema": "honeycomb-confined-finiteness.v1",
+  "status": "local-kernel-verified",
+  "frozenAt": "2026-10-24T16:24:09.095112+00:00",
+  "sourceFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/ConfinedFiniteness.lean",
+  "sourceSHA256": "9dd59d27aa8ab3bec43bd0bd475153e2b52efa2f83a9b391f082a3c7f426d694",
+  "sourceBytes": 8668,
+  "incrementFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/ConfinedFiniteness.lean.inc",
+  "incrementSHA256": "d3a7f1e535391f26f8528a604f5ce8408116b7313c6a67d1abe5b728ef16762d",
+  "existingPrerequisitesFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/ExistingColumnCode.lean.inc",
+  "existingPrerequisitesSHA256": "2fa6e93c20a33565ab85a9cf1e6eed2f543dc4c8e2f55e2453842c8346eda067",
+  "theoremCount": 11,
+  "interfaces": [
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeBoxColumn_eq_twice_position",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeBoundedVertices_finite",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertex_finite",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList_map_val",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList_nodup",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList_injective",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedPath_finite",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_summable_weight",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_summable_firstLengthWeight",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_summable_normalizedFirstLengthWeight",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_sums",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    }
+  ],
+  "summaryTheorem": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_sums",
+  "summaryType": "∀ h : ℕ, Summable (fun p : ConfinedBridgePath h => weight p.val) ∧ Summable (fun p : ConfinedBridgePath h => firstLengthWeight p.val) ∧ Summable (fun p : ConfinedBridgePath h => firstLengthWeight p.val / confinedMass h)",
+  "validationResult": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/validation-01-result.json",
+  "validationResultSHA256": "d838e39610efdabf136207484828d124ff0223caf9d235ab2087040de8aeb6d9",
+  "actualExitCode": 0,
+  "durationSeconds": 18.681089841062203,
+  "finishedAt": "2026-10-24T14:35:41.970227+00:00",
+  "stdoutSHA256": "fb3abb4bd6337a275e4af67c97dd6cdd6e0c81ed5543e7a7b18b6e23bb3366b8",
+  "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stdoutWarnings": {
+    "count": 9,
+    "types": [
+      "unused simp argument",
+      "letI style",
+      "deprecated alias summable_of_finite_support"
+    ],
+    "proofErrors": 0
+  },
+  "leanToolchain": "leanprover/lean4:v4.34.1",
+  "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+  "sealedEnvironmentIdentity": "2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87",
+  "resourceLimits": {
+    "wallSeconds": null,
+    "cpuSoftSeconds": null,
+    "cpuHardSeconds": null,
+    "maxHeartbeats": 0,
+    "addressSpaceGiB": 32,
+    "leanMemoryMiB": 32768,
+    "threads": 1,
+    "cpus": [
+      0
+    ]
+  },
+  "invocationCap": null,
+  "newLeanInvocationDuringArchival": false,
+  "mathematicalOutcome": "For every natural height, ConfinedBridgePath is finite, so all three confined clauses of the canonical six-clause target are unconditionally summable.",
+  "proofOutline": [
+    "The integer column equals twice the canonical x coordinate.",
+    "Bounded x and finitely many strip layers give a finite set of layer-column codes, which injectively identify vertices.",
+    "Canonical confined paths inject into nodup lists over the resulting finite vertex type.",
+    "All real functions on a finite type have finite support, including the canonical weight, first-length weight and normalized first-length weight."
+  ],
+  "edgeCases": "All heights are included. No 1 ≤ h or confinedMass h > 0 is assumed; the normalized summability statement uses the canonical real division operation even when confinedMass is zero.",
+  "hostTaskProofAcceptance": false,
+  "originalTheoremAcceptance": false,
+  "queueUsed": false,
+  "gitUsed": false,
+  "activeRuntimeChanged": false,
+  "activeSourceChanged": false,
+  "publisherSolutionRead": false,
+  "hiddenReasoningRead": false,
+  "remainingGaps": [
+    "The first three full BridgePath summability clauses remain unresolved for general h.",
+    "This package does not prove strict sub-mu growth, the uniform full-strip mass bound or the exact transfer encoding.",
+    "The original theorem remains unresolved until all six clauses and native final acceptance pass."
+  ],
+  "provenanceNote": "provenance.json retains prior-package lineage fields; the direct canonical definition source and exact new/prerequisite fragments are independently checked in integrity-check.json."
+}

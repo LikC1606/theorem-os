@@ -1,0 +1,10 @@
+{
+  "observedAtUTC": "2026-10-24T16:23:55.572695+00:00",
+  "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+  "phase": "evaluating",
+  "resultStatus": "prepared",
+  "reviewStatus": "accepted",
+  "resultEvaluator": {
+    "status": "skipped"
+  }
+}

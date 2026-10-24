@@ -1,0 +1,210 @@
+{
+  "observedAtUTC": "2026-10-24T14:35:29.974902+00:00",
+  "observedAtUnix": 1792852529.9749017,
+  "rootPid": 4175461,
+  "processes": [
+    {
+      "pid": 543342,
+      "ppid": 4175461,
+      "comm": "bwrap",
+      "state": "S",
+      "cpuSeconds": 0.0,
+      "elapsedSeconds": 2700.4000000001397,
+      "rssBytes": 1048576,
+      "wchan": "do_poll.constprop.0",
+      "io": {
+        "rchar": 7021,
+        "wchar": 8,
+        "syscr": 17,
+        "syscw": 1,
+        "read_bytes": 0,
+        "write_bytes": 0,
+        "cancelled_write_bytes": 0
+      },
+      "threads": []
+    },
+    {
+      "pid": 543343,
+      "ppid": 543342,
+      "comm": "bwrap",
+      "state": "S",
+      "cpuSeconds": 0.0,
+      "elapsedSeconds": 2700.3900000001304,
+      "rssBytes": 1048576,
+      "wchan": "do_wait",
+      "io": {
+        "rchar": 264907,
+        "wchar": 23,
+        "syscr": 127,
+        "syscw": 3,
+        "read_bytes": 0,
+        "write_bytes": 0,
+        "cancelled_write_bytes": 0
+      },
+      "threads": []
+    },
+    {
+      "pid": 543344,
+      "ppid": 543343,
+      "comm": "lake",
+      "state": "S",
+      "cpuSeconds": 1.04,
+      "elapsedSeconds": 2700.3900000001304,
+      "rssBytes": 907276288,
+      "wchan": "futex_wait_queue",
+      "io": {
+        "rchar": 594820,
+        "wchar": 1482679,
+        "syscr": 5983,
+        "syscw": 12,
+        "read_bytes": 0,
+        "write_bytes": 1495040,
+        "cancelled_write_bytes": 0
+      },
+      "threads": []
+    },
+    {
+      "pid": 543387,
+      "ppid": 543344,
+      "comm": "sh",
+      "state": "S",
+      "cpuSeconds": 0.0,
+      "elapsedSeconds": 2699.340000000084,
+      "rssBytes": 1048576,
+      "wchan": "do_wait",
+      "io": {
+        "rchar": 10269,
+        "wchar": 1,
+        "syscr": 20,
+        "syscw": 1,
+        "read_bytes": 0,
+        "write_bytes": 0,
+        "cancelled_write_bytes": 0
+      },
+      "threads": []
+    },
+    {
+      "pid": 543389,
+      "ppid": 543387,
+      "comm": "lean",
+      "state": "S",
+      "cpuSeconds": 2694.73,
+      "elapsedSeconds": 2699.3300000000745,
+      "rssBytes": 10313424896,
+      "wchan": "futex_wait_queue",
+      "io": {
+        "rchar": 5740275,
+        "wchar": 53249,
+        "syscr": 53846,
+        "syscw": 14,
+        "read_bytes": 0,
+        "write_bytes": 0,
+        "cancelled_write_bytes": 0
+      },
+      "threads": [
+        {
+          "tid": 543389,
+          "state": "S",
+          "cpuSeconds": 0.02,
+          "wchan": "futex_wait_queue"
+        },
+        {
+          "tid": 543390,
+          "state": "S",
+          "cpuSeconds": 0.0,
+          "wchan": "io_sq_thread"
+        },
+        {
+          "tid": 543391,
+          "state": "S",
+          "cpuSeconds": 0.0,
+          "wchan": "ep_poll"
+        },
+        {
+          "tid": 543392,
+          "state": "S",
+          "cpuSeconds": 0.17,
+          "wchan": "futex_wait_queue"
+        },
+        {
+          "tid": 543393,
+          "state": "S",
+          "cpuSeconds": 78.62,
+          "wchan": "futex_wait_queue"
+        },
+        {
+          "tid": 544087,
+          "state": "S",
+          "cpuSeconds": 1300.07,
+          "wchan": "futex_wait_queue"
+        },
+        {
+          "tid": 544088,
+          "state": "R",
+          "cpuSeconds": 1315.81,
+          "wchan": "0"
+        }
+      ]
+    },
+    {
+      "pid": 4175461,
+      "ppid": 4175452,
+      "comm": "bun",
+      "state": "S",
+      "cpuSeconds": 771.73,
+      "elapsedSeconds": 36150.070000000065,
+      "rssBytes": 820355072,
+      "wchan": "ep_poll",
+      "io": {
+        "rchar": 21841833020,
+        "wchar": 5450577553,
+        "syscr": 37017337,
+        "syscw": 13410195,
+        "read_bytes": 4096,
+        "write_bytes": 5309820928,
+        "cancelled_write_bytes": 889065472
+      },
+      "threads": []
+    },
+    {
+      "pid": 4176432,
+      "ppid": 4175461,
+      "comm": "python3",
+      "state": "S",
+      "cpuSeconds": 6.44,
+      "elapsedSeconds": 36147.8600000001,
+      "rssBytes": 19419136,
+      "wchan": "do_select",
+      "io": {
+        "rchar": 4192115363,
+        "wchar": 2095350197,
+        "syscr": 4141,
+        "syscw": 2000,
+        "read_bytes": 0,
+        "write_bytes": 2095349760,
+        "cancelled_write_bytes": 0
+      },
+      "threads": []
+    },
+    {
+      "pid": 4177148,
+      "ppid": 4176432,
+      "comm": "snapfuse",
+      "state": "S",
+      "cpuSeconds": 44.14,
+      "elapsedSeconds": 36146.070000000065,
+      "rssBytes": 19922944,
+      "wchan": "fuse_dev_do_read",
+      "io": {
+        "rchar": 6203693216,
+        "wchar": 5784432458,
+        "syscr": 6959165,
+        "syscw": 4592413,
+        "read_bytes": 0,
+        "write_bytes": 0,
+        "cancelled_write_bytes": 0
+      },
+      "threads": []
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{"event":"proof_check_started","at":1792833429221,"workerId":"solver","turn":2}
+{"event":"proof_checked","at":1792841617605,"workerId":"solver","passed":true,"commit":"14d49c0f2bb94a8973471120f675554798126117","reused":false,"durationMs":8188384}
+{"event":"review_completed","at":1792849828833,"commit":"14d49c0f2bb94a8973471120f675554798126117","verdict":"accepted","workerId":"researcher-1"}
+{"event":"proof_check_started","at":1792849828974,"workerId":"solver","turn":2}
+{"event":"proof_checked","at":1792849829002,"workerId":"solver","passed":true,"commit":"14d49c0f2bb94a8973471120f675554798126117","reused":true,"durationMs":28}
+{"event":"candidate_selected","at":1792849829039,"workerId":"solver","commit":"14d49c0f2bb94a8973471120f675554798126117"}
+{"event":"evaluation_started","at":1792849829347,"workerId":"solver"}

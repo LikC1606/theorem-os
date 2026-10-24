@@ -1,0 +1,120 @@
+{
+  "schema": "theorem-os.snaky-final-gate-health.v1",
+  "observedAtUTC": "2026-10-24T14:35:29.974902+00:00",
+  "observedAtAsiaShanghai": "2026-10-24T22:35:29.974902+08:00",
+  "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+  "outcome": "normal_running_no_intervention_needed",
+  "phase": "evaluating",
+  "resultStatus": "prepared",
+  "fixedReview": {
+    "status": "accepted",
+    "assignmentId": "939143f3-e7bf-4f09-a80d-e61d5e11c13f",
+    "commit": "14d49c0f2bb94a8973471120f675554798126117",
+    "sourceDigest": "1a75c56a0beaa6df7578a0317d90f40fa2c6b1a9faf43511e1c69fa0bcee4f4f"
+  },
+  "currentGate": {
+    "name": "independent_host_whole_file_kernel_recheck",
+    "solverPid": 4175461,
+    "leanPid": 543389,
+    "leanParentPid": 543387,
+    "startedAtUTC": "2026-10-24T13:50:30.645089+00:00",
+    "elapsedSecondsAtSecondSample": 2699.3300000000745,
+    "cpuSecondsAtSecondSample": 2694.73,
+    "sampleIntervalSeconds": 82.85981249809265,
+    "cpuSecondsDelta": 82.86999999999989,
+    "singleCoreUtilizationFraction": 1.0001229486478438,
+    "rssBytesAtSecondSample": 10313424896,
+    "addressSpaceLimitBytes": 34359738368,
+    "leanThreadsOption": 1,
+    "leanVersion": "4.34.1",
+    "diskReadBytesDelta": 0,
+    "diskWriteBytesDelta": 0,
+    "readCharsDelta": 0,
+    "writeCharsDelta": 0,
+    "cpuBoundWithExpectedNoNewIO": true,
+    "activeLeanDescendants": [
+      543389
+    ],
+    "masterThreadSleepingIsNotADeadlock": "A Lean worker thread is runnable and process-wide CPU increased over the sample."
+  },
+  "sourceIdentity": {
+    "allThreeOwnedSubmissionCopiesMatch": true,
+    "proofSHA256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+    "bytes": 967683,
+    "canonicalCommit": "14d49c0f2bb94a8973471120f675554798126117",
+    "sourceDigest": "1a75c56a0beaa6df7578a0317d90f40fa2c6b1a9faf43511e1c69fa0bcee4f4f"
+  },
+  "gateSequence": [
+    {
+      "order": 1,
+      "name": "host whole-file recheck and declaration/axiom extraction",
+      "status": "running",
+      "requires": "commit and sourceDigest must equal accepted research receipt"
+    },
+    {
+      "order": 2,
+      "name": "frozen publisher workspace build: lake build Challenge Submission",
+      "status": "not_started",
+      "note": "The existing frozen evaluator copies project sources and dependencies into a clean publisher-eval directory. This can legitimately compile Submission again."
+    },
+    {
+      "order": 3,
+      "name": "unchanged official comparator command on exact target and permitted axioms",
+      "status": "not_started",
+      "target": "OAI.SnakyConditional.snaky_winning_strategy_with_legal_states",
+      "permittedAxioms": [
+        "propext",
+        "Quot.sound",
+        "Classical.choice"
+      ],
+      "enableNanoda": false
+    },
+    {
+      "order": 4,
+      "name": "persist final result and finished event",
+      "status": "not_started"
+    }
+  ],
+  "duplicateOrDeadlockFindings": {
+    "evaluationStartedEvents": 1,
+    "evaluationFinishedEvents": 0,
+    "activeOwnedLeanCompilers": 1,
+    "extraProofCheckImmediatelyBeforeEvaluation": {
+      "durationMs": 28,
+      "reused": true,
+      "compiledAgain": false
+    },
+    "unintendedConcurrentWholeFileCheckObserved": false,
+    "deadlockObserved": false,
+    "gateStatusLimitation": "No final pass is claimed while the active host check is still running."
+  },
+  "budgetsRemainUnlimited": {
+    "--max-run-seconds": "0",
+    "--max-turns": "0",
+    "--max-turn-seconds": "0",
+    "--max-total-tokens": "0",
+    "--evaluator-timeout-seconds": "0"
+  },
+  "intervention": {
+    "needed": false,
+    "performed": false,
+    "minimalAction": "Let the existing final gate finish. No active-state/runtime/config/source/receipt mutation, restart, signal, or compiler invocation was performed."
+  },
+  "claimBoundary": {
+    "localNativeFinalPassNewlyObserved": false,
+    "openaiHostedCertification": false,
+    "comparatorWillBeLocalOfficialCode": true,
+    "noProducedSolutionOrHiddenReasoningRead": true
+  },
+  "evidenceFiles": [
+    "events-index.json",
+    "events-safe-excerpt.jsonl",
+    "frozen-evaluator-command.sh",
+    "gate-source-index.json",
+    "lean-resource-limits.txt",
+    "process-after.json",
+    "process-before.json",
+    "source-identities.json",
+    "state-metadata.json"
+  ]
+}

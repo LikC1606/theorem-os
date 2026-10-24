@@ -1,0 +1,44 @@
+{
+  "sealedPackagesRoot": "/proc/1250131/fd/5",
+  "sealedEnvironmentIdentity": "2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87",
+  "leanToolchain": "leanprover/lean4:v4.34.1",
+  "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+  "createdAt": "2026-10-24T14:35:02.741311+00:00",
+  "currentSource": "/home/lzh/theorem-os-results-20261023/results/openai-math/native-check-hotspot-20261024/honeycomb-native-column-word-20261024/honeycomb/integrated-source/Submission.lean",
+  "currentSourceSHA256": "604e26660c6898ab1d76db11d98689c0ef57b6f08f001f94c4c11915a3222dd9",
+  "prefixLines": [
+    1,
+    177
+  ],
+  "prefixSHA256": "f55c042e447b853d775f3f6f164d94ab175cc328eabf324588117d8d436f0c45",
+  "priorSource": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-finite-box-reduction-20261024/prior-research-854-lines.lean",
+  "priorSourceSHA256": "14d52c1af8fa50f49ff7a8a6acd15a6acfecd3f88df7b0cd375fdc486a0449f2",
+  "priorExtractedRanges": [
+    [
+      298,
+      356
+    ],
+    [
+      404,
+      674
+    ]
+  ],
+  "scope": "Independent verification and packaging of existing unconditional width-one classification/counting plus current counting-to-summability adapters. Does not prove the all-width original target.",
+  "publisherSolutionsRead": false,
+  "hiddenReasoningRead": false,
+  "activeRuntimeChanged": false,
+  "activeSourceChanged": false,
+  "hostTaskProofAcceptance": false,
+  "firstFailure": "First extraction accidentally omitted the opening line of a two-line documentation comment at prior line 404. Lean exited 1; no proof failure. The retained validation-01 artifacts contain the exact source and error. Restored the comment opening and added declaration type output.",
+  "archivedAt": "2026-10-24T16:25:34.475417+00:00",
+  "sourceSHA256": "b433299aec2620b7b6dcad1e029f54133a41f255d831e9e73af699f754047aac",
+  "incrementSHA256": "34d8701c1c13598d4a96ca2f4044cb6aacbc8ccba88d771e381fbfb4d930a532",
+  "reusedPriorSourceVerifiedByteForByte": true,
+  "newAdapterDeclarations": [
+    "width_one_summability",
+    "finite_bridge_sums_at_one"
+  ],
+  "selectedNativeTask": "width_one_bridge_sums_b433299a",
+  "nativeTaskProofAcceptance": false,
+  "noLeanRerunDuringArchival": true
+}

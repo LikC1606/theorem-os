@@ -1,0 +1,119 @@
+{
+  "schema": "honeycomb-confined-finiteness-delivery.v1",
+  "directory": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024",
+  "status": "local-kernel-verified",
+  "frozenAt": "2026-10-24T16:24:09.095112+00:00",
+  "files": [
+    {
+      "name": "CanonicalDefinitions.lean.inc",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/CanonicalDefinitions.lean.inc",
+      "bytes": 2186,
+      "sha256": "b08be06c56ba9093486ac5e8730f7b0299775055f0cad8cbfc00ced633ceadb1"
+    },
+    {
+      "name": "ConfinedFiniteness.lean",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/ConfinedFiniteness.lean",
+      "bytes": 8668,
+      "sha256": "9dd59d27aa8ab3bec43bd0bd475153e2b52efa2f83a9b391f082a3c7f426d694"
+    },
+    {
+      "name": "ConfinedFiniteness.lean.inc",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/ConfinedFiniteness.lean.inc",
+      "bytes": 5170,
+      "sha256": "d3a7f1e535391f26f8528a604f5ce8408116b7313c6a67d1abe5b728ef16762d"
+    },
+    {
+      "name": "ExistingColumnCode.lean.inc",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/ExistingColumnCode.lean.inc",
+      "bytes": 627,
+      "sha256": "2fa6e93c20a33565ab85a9cf1e6eed2f543dc4c8e2f55e2453842c8346eda067"
+    },
+    {
+      "name": "HANDOFF.txt",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/HANDOFF.txt",
+      "bytes": 7393,
+      "sha256": "55872c86481ab4520736534cce7bc8d0bea76bc9f908cc0f69304427f5f4e4c7"
+    },
+    {
+      "name": "README.md",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/README.md",
+      "bytes": 3286,
+      "sha256": "145294b2e4979c6e1165a55be06c0fa553d4f3e093655c6323dfc305b347b204"
+    },
+    {
+      "name": "assemble.py",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/assemble.py",
+      "bytes": 977,
+      "sha256": "a6b7f0ddc58e76706e6f7664793691711b28fc55e6f6f5eaba4683a13d14b74c"
+    },
+    {
+      "name": "delivery-contract.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/delivery-contract.json",
+      "bytes": 2885,
+      "sha256": "68c1af3754e88aebf106e72548fb8831aaccfdffb8941d1c0c0bb1e7b28aeb7e"
+    },
+    {
+      "name": "integrity-check.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/integrity-check.json",
+      "bytes": 2945,
+      "sha256": "9884e4cc079725619e8833e3e64fd0f498675577be8430c6d0221f310559350c"
+    },
+    {
+      "name": "lean-toolchain",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/lean-toolchain",
+      "bytes": 25,
+      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "name": "provenance.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/provenance.json",
+      "bytes": 2421,
+      "sha256": "559101f02e265dd4f34f0464544a6b1bc4a70aaa1c8e395c91a1ada0d0ce5f84"
+    },
+    {
+      "name": "result.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/result.json",
+      "bytes": 6392,
+      "sha256": "40ffd6ab923478177bd3964d95713a352a2579c4237fdc52b6d3435c549eb5d8"
+    },
+    {
+      "name": "validate.py",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/validate.py",
+      "bytes": 3177,
+      "sha256": "b55328fd4440072223fa42c6cc46800d534f7897d82a0124d760ddcd7e0d50e4"
+    },
+    {
+      "name": "validation-01-launch.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/validation-01-launch.json",
+      "bytes": 1568,
+      "sha256": "0ce8494b5077652366da45a9766c21ec594e216af3cddcd26bb79a13bac2931a"
+    },
+    {
+      "name": "validation-01-result.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/validation-01-result.json",
+      "bytes": 2153,
+      "sha256": "d838e39610efdabf136207484828d124ff0223caf9d235ab2087040de8aeb6d9"
+    },
+    {
+      "name": "validation-01-source.lean",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/validation-01-source.lean",
+      "bytes": 8668,
+      "sha256": "9dd59d27aa8ab3bec43bd0bd475153e2b52efa2f83a9b391f082a3c7f426d694"
+    },
+    {
+      "name": "validation-01.stderr.log",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/validation-01.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "validation-01.stdout.log",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/validation-01.stdout.log",
+      "bytes": 3826,
+      "sha256": "fb3abb4bd6337a275e4af67c97dd6cdd6e0c81ed5543e7a7b18b6e23bb3366b8"
+    }
+  ],
+  "manifestFile": "delivery-files.json",
+  "checksumFile": "SHA256SUMS",
+  "note": "Payload manifest excludes itself and SHA256SUMS; SHA256SUMS checks all other files, including delivery-files.json."
+}

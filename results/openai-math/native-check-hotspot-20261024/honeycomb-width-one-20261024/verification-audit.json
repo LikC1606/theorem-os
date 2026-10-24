@@ -1,0 +1,66 @@
+{
+  "checkedAt": "2026-10-24T16:25:34.475417+00:00",
+  "validationWasRerunDuringArchival": false,
+  "sourceLaunchResultAndSnapshotSHA256Equal": true,
+  "sourceSHA256": "b433299aec2620b7b6dcad1e029f54133a41f255d831e9e73af699f754047aac",
+  "incrementSHA256": "34d8701c1c13598d4a96ca2f4044cb6aacbc8ccba88d771e381fbfb4d930a532",
+  "prefixSHA256": "f55c042e447b853d775f3f6f164d94ab175cc328eabf324588117d8d436f0c45",
+  "launchSHA256": "1b9980dec8c26e8da6ea6a4a28d0c9624f7b234b75d731681f1223830148bd76",
+  "resultSHA256": "7659dc4178be6fe90fab80d5b3bc4ad5370c826f5cd524abb57dd70ef6335554",
+  "stdoutSHA256": "46bef696c17754e3ff1145d51b0a5d0deee6bebc4b614300d58a0977fd69416d",
+  "stderrBytes": 0,
+  "actualExitCode": 0,
+  "durationSeconds": 20.635448274202645,
+  "toolchain": "leanprover/lean4:v4.34.1",
+  "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+  "sealedEnvironmentIdentity": "2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87",
+  "sourceContainsForbiddenProofKeywords": false,
+  "checkedDeclarationAxioms": {
+    "OAI.PolynomialVacuumBridge.Corridor.int_walk_monotone": [
+      "propext",
+      "Quot.sound"
+    ],
+    "OAI.PolynomialVacuumBridge.Corridor.bridge1_hexX": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "OAI.PolynomialVacuumBridge.Corridor.bridge1_card_le_two": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "OAI.PolynomialVacuumBridge.Corridor.stripGrowthAtOne": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "OAI.PolynomialVacuumBridge.Corridor.width_one_summability": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ]
+  },
+  "allAxiomsInWhitelist": true,
+  "currentCanonicalMatchesValidatedPrefix": true,
+  "newDeclarationNameCollisions": [],
+  "reusedPriorSourceSHA256": "14d52c1af8fa50f49ff7a8a6acd15a6acfecd3f88df7b0cd375fdc486a0449f2",
+  "reusedPriorLineRanges": [
+    [
+      298,
+      356
+    ],
+    [
+      404,
+      674
+    ]
+  ],
+  "priorExtractedBytesPreserved": true,
+  "nativeTaskProofAccepted": false,
+  "sourceTaskProposal": "width_one_bridge_sums_b433299a"
+}

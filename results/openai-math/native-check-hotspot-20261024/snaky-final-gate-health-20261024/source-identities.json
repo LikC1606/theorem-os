@@ -1,0 +1,17 @@
+[
+  {
+    "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/workspace/generated/problem/Submission.lean",
+    "sha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+    "bytes": 967683
+  },
+  {
+    "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/result.json.runtime/worktree/generated/problem/Submission.lean",
+    "sha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+    "bytes": 967683
+  },
+  {
+    "path": "/tmp/deepscientist-lean-63wdIs/checkout/generated/problem/Submission.lean",
+    "sha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+    "bytes": 967683
+  }
+]

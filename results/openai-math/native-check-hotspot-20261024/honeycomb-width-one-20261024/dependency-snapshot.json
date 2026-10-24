@@ -1,0 +1,41 @@
+{
+  "inspectedAt": "2026-10-24T16:25:34.475417+00:00",
+  "sourceState": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/state.json",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "canonicalCommit": "fac87fb460b0289bc48ad7341935e731c7c3bfb5",
+  "planVersion": "a963753d49c95b1f2b4abcdd578af5bfea1ba4d8023dac0b059522ae52171d19",
+  "canonicalSource": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree/generated/problem/Submission.lean",
+  "canonicalSourceSHA256": "604e26660c6898ab1d76db11d98689c0ef57b6f08f001f94c4c11915a3222dd9",
+  "newDeclarationNameCollisions": [],
+  "sourceDependency": {
+    "id": "sums_reduction",
+    "kind": "lemma",
+    "dependsOn": [],
+    "revision": 1,
+    "proofPath": "Submission.lean",
+    "theoremName": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_of_stripGrowthBelowMu",
+    "type": "(∀ h : ℕ, 1 ≤ h → ∃ C β : ℝ, 0 ≤ C ∧ 0 ≤ β ∧ β < 2 * Real.cos (Real.pi / 8) ∧ ∀ (n : ℕ) (s : Finset (BridgePath h)), (∀ p ∈ s, p.vertices.length = n) → (s.card : ℝ) ≤ C * β ^ n) → FiniteBridgeSums"
+  },
+  "dependencyStatus": "integrated",
+  "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+  "integratedCheckPassed": true,
+  "integratedCheckCommit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+  "dependencyReceipts": [
+    {
+      "receiptId": "lean-0289d782383448bdadd0ef5e",
+      "status": "kernel_verified",
+      "theoremName": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_of_stripGrowthBelowMu",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "goalsRemaining": 0,
+      "sorryCount": 0,
+      "admitCount": 0,
+      "proofHash": "150a3e1d61d099350082c29420601e041051f9213aefd82c94495333cc91cbb2",
+      "sourceDeclarationHash": "206923ef158e8e4426da35682c93fa69ff0fdac9ea661dac768e4da1e6830469"
+    }
+  ],
+  "liveStateChanged": false
+}

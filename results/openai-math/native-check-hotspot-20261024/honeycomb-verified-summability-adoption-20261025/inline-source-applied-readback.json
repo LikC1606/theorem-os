@@ -1,0 +1,52 @@
+{
+  "observedAt": "2026-10-24T16:28:52.941114+00:00",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "stateSHA256": "b9f32f1bf863e3c89c3c406ba0167da42e0f8fcbaf5765e66dabea829b355fec",
+  "phase": "checking",
+  "turns": 402,
+  "planVersion": "e6fa1e72bdb91b402d42277024a68a180ec7b6bb7184156498b4b5631a0b32f4",
+  "edit": {
+    "affectedTasks": [
+      "width_one_bridge_sums_b433299a"
+    ],
+    "appliedAt": 1792859282439,
+    "baseVersion": "2159309fdcf57f8dc2128f069dfb5188ee423273520f4ddaea051a26a96a23bf",
+    "id": "honeycomb-width-one-inline-source-20261025",
+    "planVersion": "e6fa1e72bdb91b402d42277024a68a180ec7b6bb7184156498b4b5631a0b32f4",
+    "receivedAt": 1792859282387,
+    "recheck": {
+      "status": "pending",
+      "tasks": [
+        {
+          "status": "pending",
+          "taskDigest": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+          "taskId": "width_one_bridge_sums_b433299a"
+        }
+      ]
+    },
+    "status": "applied"
+  },
+  "widthOneCompleteIncrementPresent": true,
+  "widthOneIncrementSHA256": "34d8701c1c13598d4a96ca2f4044cb6aacbc8ccba88d771e381fbfb4d930a532",
+  "taskMathematicsUnchanged": true,
+  "otherTaskDefinitionsAndAcceptedProofsPreserved": true,
+  "newTasks": [
+    {
+      "id": "confined_bridge_sums_all_heights_9dd59d27",
+      "status": "running",
+      "workerId": "researcher-1",
+      "assignmentId": "02d56a08-38cd-4d52-b534-b9339530748e",
+      "proofPassed": null,
+      "integrationPassed": null
+    },
+    {
+      "id": "width_one_bridge_sums_b433299a",
+      "status": "pending",
+      "workerId": null,
+      "assignmentId": null,
+      "proofPassed": null,
+      "integrationPassed": null
+    }
+  ],
+  "originalGoalSolved": false
+}

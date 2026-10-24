@@ -1,0 +1,49 @@
+{
+  "schema": "theorem-os.snaky-final-gate-followup.v1",
+  "observedAtUTC": "2026-10-24T16:23:55.572695+00:00",
+  "observedAtAsiaShanghai": "2026-10-25T00:23:55.572695+08:00",
+  "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+  "phase": "evaluating",
+  "resultStatus": "prepared",
+  "outcome": "normal_running_publisher_build",
+  "currentGate": "frozen publisher lake build Challenge Submission",
+  "activeLeanPid": 900064,
+  "activeLeanStartedAtUTC": "2026-10-24T16:11:15.485110+00:00",
+  "sampleIntervalSeconds": 46.677584409713745,
+  "cpuSecondsDelta": 46.66999999999996,
+  "singleCoreUtilizationFraction": 0.9998375149483484,
+  "rssBytes": 9091440640,
+  "ioDelta": {
+    "rchar": 0,
+    "wchar": 0,
+    "syscr": 0,
+    "syscw": 0,
+    "read_bytes": 0,
+    "write_bytes": 0,
+    "cancelled_write_bytes": 0
+  },
+  "activeLeanDescendants": [
+    900064
+  ],
+  "previousHostFinalLeanPid543389Exited": true,
+  "hostFinalGateCompleted": "Control has advanced past evaluateSolverProof host final check and commit/sourceDigest comparison to the frozen external publisher command. No separate finalCheck receipt is persisted yet.",
+  "nextGate": "After publisher build succeeds, run unchanged comparator comparator.json, then persist final result.",
+  "evaluationStartedEvents": 1,
+  "evaluationFinishedEvents": 0,
+  "finishedEvents": 0,
+  "unintendedDuplicateOrDeadlockObserved": false,
+  "frozenEvaluatorCommandSHA256": "7cb9c632ad7e9a8890d64357fe178bf996f28ada0cbc6fe50f32e1f4d01d766f",
+  "ownedSourceCopiesAllMatch": true,
+  "canonicalCommit": "14d49c0f2bb94a8973471120f675554798126117",
+  "sourceDigest": "1a75c56a0beaa6df7578a0317d90f40fa2c6b1a9faf43511e1c69fa0bcee4f4f",
+  "fiveBudgets": {
+    "--max-run-seconds": "0",
+    "--max-turns": "0",
+    "--max-turn-seconds": "0",
+    "--max-total-tokens": "0",
+    "--evaluator-timeout-seconds": "0"
+  },
+  "interventionPerformed": false,
+  "oldEvidenceModified": false,
+  "claimBoundary": "No final pass is claimed. The comparator is official code executed locally, not OpenAI hosted certification. No active file/configuration was modified; no compiler was invoked; no ProducedSolution, credentials or hidden reasoning was read."
+}

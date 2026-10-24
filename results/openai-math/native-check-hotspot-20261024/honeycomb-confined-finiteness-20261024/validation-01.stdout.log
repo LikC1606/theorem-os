@@ -1,0 +1,81 @@
+ConfinedFiniteness.lean:84:52: warning: This simp argument is unused:
+  Prod.fst
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [bridgeBoxColumn, position]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+ConfinedFiniteness.lean:149:2: warning: Try this: 
+  letI̵
+
+The goal is a proposition, so `let` is preferred over `letI`.
+The difference between `let` and `letI` is that `letI` inlines the value.
+But this is not relevant for proofs because of proof irrelevance.
+
+Note: This linter can be disabled with `set_option linter.style.haveILetI false`
+ConfinedFiniteness.lean:150:2: warning: Try this: 
+  letI̵
+
+The goal is a proposition, so `let` is preferred over `letI`.
+The difference between `let` and `letI` is that `letI` inlines the value.
+But this is not relevant for proofs because of proof irrelevance.
+
+Note: This linter can be disabled with `set_option linter.style.haveILetI false`
+ConfinedFiniteness.lean:160:2: warning: Try this: 
+  letI̵
+
+The goal is a proposition, so `let` is preferred over `letI`.
+The difference between `let` and `letI` is that `letI` inlines the value.
+But this is not relevant for proofs because of proof irrelevance.
+
+Note: This linter can be disabled with `set_option linter.style.haveILetI false`
+ConfinedFiniteness.lean:161:8: warning: `summable_of_finite_support` has been deprecated: Use `summable_of_hasFiniteSupport` instead
+ConfinedFiniteness.lean:166:2: warning: Try this: 
+  letI̵
+
+The goal is a proposition, so `let` is preferred over `letI`.
+The difference between `let` and `letI` is that `letI` inlines the value.
+But this is not relevant for proofs because of proof irrelevance.
+
+Note: This linter can be disabled with `set_option linter.style.haveILetI false`
+ConfinedFiniteness.lean:167:8: warning: `summable_of_finite_support` has been deprecated: Use `summable_of_hasFiniteSupport` instead
+ConfinedFiniteness.lean:173:2: warning: Try this: 
+  letI̵
+
+The goal is a proposition, so `let` is preferred over `letI`.
+The difference between `let` and `letI` is that `letI` inlines the value.
+But this is not relevant for proofs because of proof irrelevance.
+
+Note: This linter can be disabled with `set_option linter.style.haveILetI false`
+ConfinedFiniteness.lean:174:8: warning: `summable_of_finite_support` has been deprecated: Use `summable_of_hasFiniteSupport` instead
+'OAI.PolynomialVacuumBridge.Corridor.bridgeBoxColumn_eq_twice_position' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.PolynomialVacuumBridge.Corridor.bridgeBoundedVertices_finite' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertex_finite' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList_map_val' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList_nodup' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList_injective' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedPath_finite' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_summable_weight' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_summable_firstLengthWeight' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_summable_normalizedFirstLengthWeight' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_sums' depends on axioms: [propext, Classical.choice, Quot.sound]

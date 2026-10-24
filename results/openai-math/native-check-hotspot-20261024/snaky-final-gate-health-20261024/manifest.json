@@ -1,0 +1,61 @@
+{
+  "schema": "theorem-os.inspection-package.v1",
+  "observedAtUTC": "2026-10-24T14:35:29.974902+00:00",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 2046,
+      "sha256": "1f1ec283d62de11776ebef6a72d42b72063c9f96b4ca0733b923d350b6ea7d52"
+    },
+    {
+      "path": "events-index.json",
+      "bytes": 6351,
+      "sha256": "4ea44a16057f5fc3de33ffdcd73d42ded0449fbfcb205015cea1426dbb68f1f5"
+    },
+    {
+      "path": "events-safe-excerpt.jsonl",
+      "bytes": 1678,
+      "sha256": "9efdfce1c92419d532e09dad0f93688824544888a15c6a4fae5c1c09ebbf4338"
+    },
+    {
+      "path": "frozen-evaluator-command.sh",
+      "bytes": 2407,
+      "sha256": "7cb9c632ad7e9a8890d64357fe178bf996f28ada0cbc6fe50f32e1f4d01d766f"
+    },
+    {
+      "path": "gate-source-index.json",
+      "bytes": 7527,
+      "sha256": "d7d1716e22525c8258cb5725bf7d1cd45a7ab9f057664388d1357261a3a3197f"
+    },
+    {
+      "path": "lean-resource-limits.txt",
+      "bytes": 1323,
+      "sha256": "eaf5d3c5052a634b541899d69ce1a7c6ecdf4b206726e412b6071be900aa7e02"
+    },
+    {
+      "path": "process-after.json",
+      "bytes": 4763,
+      "sha256": "057dc0fe30af130331fa65a689c8c7fe71511212d8628d00322929dcf7f54e14"
+    },
+    {
+      "path": "process-before.json",
+      "bytes": 11951,
+      "sha256": "24a07a0c120dd6f2715e8b228ce0f99e11d4a67ff6e452d45960c0053a700c30"
+    },
+    {
+      "path": "report.json",
+      "bytes": 4297,
+      "sha256": "2ee68e67edf625a1ae41ff68e80cd4cb8aece4cda79c94be01f9641662e36f4f"
+    },
+    {
+      "path": "source-identities.json",
+      "bytes": 818,
+      "sha256": "17a820dcfef94000301796439971e2b6fc19a464236327de8ea764a26dc41810"
+    },
+    {
+      "path": "state-metadata.json",
+      "bytes": 2658,
+      "sha256": "e53c2f8368ca6933d09ce831d632e15a9d2972a08ae49ba50fe880fd692e307b"
+    }
+  ]
+}

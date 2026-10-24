@@ -1,0 +1,107 @@
+{
+  "schema": "honeycomb-confined-integrity.v1",
+  "checkedAt": "2026-10-24T16:24:09.095112+00:00",
+  "sourceMatchesLaunchAndResult": true,
+  "sourceMatchesLaunchSnapshot": true,
+  "sourceSHA256": "9dd59d27aa8ab3bec43bd0bd475153e2b52efa2f83a9b391f082a3c7f426d694",
+  "launchSHA256": "0ce8494b5077652366da45a9766c21ec594e216af3cddcd26bb79a13bac2931a",
+  "validationResultSHA256": "d838e39610efdabf136207484828d124ff0223caf9d235ab2087040de8aeb6d9",
+  "canonicalDefinitionsVerbatim": true,
+  "priorColumnCodeVerbatim": true,
+  "axiomStatementsChecked": 11,
+  "axioms": [
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeBoxColumn_eq_twice_position",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeBoundedVertices_finite",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertex_finite",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList_map_val",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList_nodup",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList_injective",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedPath_finite",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_summable_weight",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_summable_firstLengthWeight",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_summable_normalizedFirstLengthWeight",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_sums",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    }
+  ],
+  "sorryOrAdmitOrNewAxiomFound": false,
+  "stderrBytes": 0,
+  "stdoutWarningCount": 9,
+  "newLeanInvocationDuringArchival": false,
+  "boundary": "Local archive integrity only; no active queue, source, runtime, state, manifest or cache was modified."
+}

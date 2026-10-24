@@ -1,0 +1,43 @@
+{
+  "createdAt": "2026-10-24T14:34:43.157790+00:00",
+  "canonicalChallenge": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/metadata/challenges/HoneycombBridgeFiniteness.lean",
+  "canonicalChallengeSHA256": "6acaeab1940555d1df29856e504deae4f9edf7777231969b9b7d13515731d830",
+  "canonicalFragmentsSHA256": "14b087a55e62f52026238f9c75080ad07b2d7283b587cd690adebb7b00306e1a",
+  "copiedCanonicalDeclarations": [
+    "Vertex",
+    "position",
+    "adjacent",
+    "criticalActivity",
+    "layer",
+    "BridgePath",
+    "weight",
+    "firstLengthWeight",
+    "bridgeMass",
+    "InLogCorridor",
+    "ConfinedBridgePath",
+    "confinedMass",
+    "FiniteBridgeSums"
+  ],
+  "existingDefinitionsRead": [
+    "bridgeBoxColumn",
+    "bridgeInColumnBox"
+  ],
+  "existingIncrementFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-finite-box-reduction-20261024/FiniteBoxLemmas.lean.inc",
+  "existingIncrementSHA256": "5c24df9ec75f6ec7aa9c1a65a67ea54bec70dea7542a3759c677fdd6615ac542",
+  "sealedPackagesRoot": "/proc/1250131/fd/5",
+  "sealedEnvironmentIdentity": "2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87",
+  "leanToolchain": "leanprover/lean4:v4.34.1",
+  "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+  "publisherSolutionsRead": false,
+  "hiddenReasoningRead": false,
+  "activeRuntimeChanged": false,
+  "activeSourceChanged": false,
+  "hostTaskProofAcceptance": false,
+  "priorGeometryFragment": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-cardinality-followup-20261024/CanonicalGeometry.lean.inc",
+  "priorGeometryFragmentSHA256": "14b087a55e62f52026238f9c75080ad07b2d7283b587cd690adebb7b00306e1a",
+  "scope": "Unconditional finite ConfinedBridgePath type and its three summability clauses; no full BridgePath summability or original-goal proof.",
+  "canonicalDefinitionsSource": "/home/lzh/theorem-os-results-20261023/results/openai-math/native-check-hotspot-20261024/honeycomb-native-column-word-20261024/honeycomb/integrated-source/Submission.lean",
+  "canonicalDefinitionsSourceSHA256": "604e26660c6898ab1d76db11d98689c0ef57b6f08f001f94c4c11915a3222dd9",
+  "canonicalDefinitionsSHA256": "b08be06c56ba9093486ac5e8730f7b0299775055f0cad8cbfc00ced633ceadb1",
+  "existingColumnCodeSHA256": "2fa6e93c20a33565ab85a9cf1e6eed2f543dc4c8e2f55e2453842c8346eda067"
+}

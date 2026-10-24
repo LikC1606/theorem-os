@@ -1,0 +1,17 @@
+{
+  "capturedAt": "2026-10-24T16:25:48.521Z",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "editId": "honeycomb-verified-summability-subtasks-20261025",
+  "result": {
+    "id": "honeycomb-verified-summability-subtasks-20261025",
+    "status": "queued",
+    "baseVersion": "a963753d49c95b1f2b4abcdd578af5bfea1ba4d8023dac0b059522ae52171d19"
+  },
+  "addedTaskIds": [
+    "confined_bridge_sums_all_heights_9dd59d27",
+    "width_one_bridge_sums_b433299a"
+  ],
+  "localKernelVerified": true,
+  "newLeanInvocations": 0,
+  "nativeTaskProofAccepted": false
+}

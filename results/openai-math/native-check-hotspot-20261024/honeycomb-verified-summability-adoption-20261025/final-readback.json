@@ -1,0 +1,77 @@
+{
+  "observedAt": "2026-10-24T16:30:54.536419+00:00",
+  "origins": {
+    "honeycomb/state-final-readback.json": {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/state.json",
+      "sha256": "69221e5ba2f649786a0e3e7b5699493d89a3e29982e560ca6ceb9059362f5092",
+      "bytes": 1230680
+    },
+    "honeycomb/result-in-progress.json": {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json",
+      "sha256": "2c0d3f02c194a9af6a3b176ba09bd1c4e5830eac95db021291a203cb990fee07",
+      "bytes": 357
+    },
+    "honeycomb/launch.json": {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/launch.json",
+      "sha256": "11160ddd96cb3c4eaa4b92a9a0d15083cf73da3fd2a2a2066df383b26043ee15",
+      "bytes": 4845
+    },
+    "snaky/state-final-readback.json": {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/result.json.runtime/state.json",
+      "sha256": "b46e7ce756462e00601bcf06f64d6bffb1b7acfcf4e9a3eea3e34b4ba3e4180b",
+      "bytes": 3564978
+    },
+    "snaky/result-in-progress.json": {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/result.json",
+      "sha256": "ba842f431e3e1da99e0af896dbdcfb42b7b023321f9dda815e9bac67319ca9ed",
+      "bytes": 372
+    },
+    "snaky/launch.json": {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/launch.json",
+      "sha256": "7ece53853e37a39f69a41a4814c60041c16c65c1c285495f7661592a4e6180c1",
+      "bytes": 4621
+    }
+  },
+  "budgetCapsByRun": {
+    "honeycomb": {
+      "maxRunSeconds": 0,
+      "maxTurns": 0,
+      "maxTurnSeconds": 0,
+      "maxTotalTokens": 0,
+      "evaluatorTimeoutSeconds": 0
+    },
+    "snaky": {
+      "maxRunSeconds": 0,
+      "maxTurns": 0,
+      "maxTurnSeconds": 0,
+      "maxTotalTokens": 0,
+      "evaluatorTimeoutSeconds": 0
+    }
+  },
+  "newTasks": [
+    {
+      "id": "confined_bridge_sums_all_heights_9dd59d27",
+      "status": "running",
+      "workerId": "researcher-1",
+      "assignmentId": "02d56a08-38cd-4d52-b534-b9339530748e",
+      "proofPassed": null,
+      "integrationPassed": null
+    },
+    {
+      "id": "width_one_bridge_sums_b433299a",
+      "status": "pending",
+      "workerId": null,
+      "assignmentId": null,
+      "proofPassed": null,
+      "integrationPassed": null
+    }
+  ],
+  "honeycombCanonicalCommit": "fac87fb460b0289bc48ad7341935e731c7c3bfb5",
+  "honeycombPhase": "checking",
+  "honeycombTurns": 402,
+  "snakyPhase": "evaluating",
+  "snakyResultStatus": "prepared",
+  "snakyFixedReviewStatus": "accepted",
+  "originalGoalSolved": false,
+  "nativeFinalPassCount": 6
+}

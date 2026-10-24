@@ -1,0 +1,20 @@
+{
+  "observedAtUTC": "2026-10-24T16:23:08.895110+00:00",
+  "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+  "phase": "evaluating",
+  "resultStatus": "prepared",
+  "check": {
+    "commit": "14d49c0f2bb94a8973471120f675554798126117",
+    "sourceDigest": "1a75c56a0beaa6df7578a0317d90f40fa2c6b1a9faf43511e1c69fa0bcee4f4f",
+    "passed": true
+  },
+  "review": {
+    "status": "accepted",
+    "assignmentId": "939143f3-e7bf-4f09-a80d-e61d5e11c13f",
+    "commit": "14d49c0f2bb94a8973471120f675554798126117",
+    "sourceDigest": "1a75c56a0beaa6df7578a0317d90f40fa2c6b1a9faf43511e1c69fa0bcee4f4f"
+  },
+  "resultEvaluator": {
+    "status": "skipped"
+  }
+}

@@ -1,0 +1,26 @@
+@int_walk_monotone : ∀ {n : ℕ} {f : ℕ → ℤ},
+  (∀ (i j : ℕ), i < n → j < n → f i = f j → i = j) →
+    (∀ (i : ℕ), i + 1 < n → f (i + 1) = f i + 1 ∨ f (i + 1) = f i - 1) →
+      (∀ i < n, f i = f 0 + ↑i) ∨ ∀ i < n, f i = f 0 - ↑i
+'OAI.PolynomialVacuumBridge.Corridor.int_walk_monotone' depends on axioms: [propext, Quot.sound]
+bridge1_hexX : ∀ (p : BridgePath 1),
+  (∀ i < p.vertices.length, bridge1CoordFun p i = ↑i) ∨ ∀ i < p.vertices.length, bridge1CoordFun p i = -↑i
+'OAI.PolynomialVacuumBridge.Corridor.bridge1_hexX' depends on axioms: [propext, Classical.choice, Quot.sound]
+bridge1_card_le_two : ∀ (n : ℕ) (s : Finset (BridgePath 1)), (∀ p ∈ s, p.vertices.length = n) → s.card ≤ 2
+'OAI.PolynomialVacuumBridge.Corridor.bridge1_card_le_two' depends on axioms: [propext, Classical.choice, Quot.sound]
+stripGrowthAtOne : ∃ C β,
+  0 ≤ C ∧
+    0 ≤ β ∧
+      β < 2 * Real.cos (Real.pi / 8) ∧
+        ∀ (n : ℕ) (s : Finset (BridgePath 1)), (∀ p ∈ s, p.vertices.length = n) → ↑s.card ≤ C * β ^ n
+'OAI.PolynomialVacuumBridge.Corridor.stripGrowthAtOne' depends on axioms: [propext, Classical.choice, Quot.sound]
+width_one_summability : Summable weight ∧ Summable firstLengthWeight
+'OAI.PolynomialVacuumBridge.Corridor.width_one_summability' depends on axioms: [propext, Classical.choice, Quot.sound]
+finite_bridge_sums_at_one : Summable weight ∧
+  Summable firstLengthWeight ∧
+    (Summable fun p => firstLengthWeight p / bridgeMass 1) ∧
+      (Summable fun p => weight ↑p) ∧
+        (Summable fun p => firstLengthWeight ↑p) ∧ Summable fun p => firstLengthWeight ↑p / confinedMass 1
+'OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

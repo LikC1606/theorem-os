@@ -1,0 +1,56 @@
+{
+  "schema": "honeycomb-confined-finiteness-delivery-contract.v1",
+  "createdAt": "2026-10-24T16:24:09.095112+00:00",
+  "namespace": "OAI.PolynomialVacuumBridge.Corridor",
+  "summaryTheorem": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_sums",
+  "summaryType": "∀ h : ℕ, Summable (fun p : ConfinedBridgePath h => weight p.val) ∧ Summable (fun p : ConfinedBridgePath h => firstLengthWeight p.val) ∧ Summable (fun p : ConfinedBridgePath h => firstLengthWeight p.val / confinedMass h)",
+  "summaryProofTerm": "fun h => OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_sums h",
+  "quantifiedParameter": "h : ℕ",
+  "heightLowerBoundAssumption": null,
+  "positiveConfinedMassAssumption": false,
+  "taskType": "lemma",
+  "originalTargetClauses": [
+    4,
+    5,
+    6
+  ],
+  "canonicalDefinitionsUnchanged": true,
+  "requiredImports": [
+    "Mathlib"
+  ],
+  "proofInsertions": [
+    {
+      "file": "ExistingColumnCode.lean.inc",
+      "sha256": "2fa6e93c20a33565ab85a9cf1e6eed2f543dc4c8e2f55e2453842c8346eda067",
+      "order": 1,
+      "role": "Prior independently verified column definitions and injective coordinate code; include only if declarations absent."
+    },
+    {
+      "file": "ConfinedFiniteness.lean.inc",
+      "sha256": "d3a7f1e535391f26f8528a604f5ce8408116b7313c6a67d1abe5b728ef16762d",
+      "order": 2,
+      "role": "New finite-type construction and three confined sums."
+    }
+  ],
+  "newMathDependencies": [
+    "canonical Vertex, layer, position",
+    "canonical BridgePath.inStrip and BridgePath.distinct",
+    "canonical InLogCorridor property",
+    "Mathlib finite intervals, finite nodup lists and finite-support summability"
+  ],
+  "forbiddenProofInputsUsed": [],
+  "globalBridgeGrowthHypothesisUsed": false,
+  "integrationNotes": [
+    "Insert after the canonical definitions and before the new lemma declaration or original target.",
+    "If the integrated environment already defines bridgeBoxColumn, bridgeLayerColumnCode or bridgeLayerColumnCode_injective identically, reuse those declarations instead of redeclaring them.",
+    "The new mathematical increment does not depend on any prior task theorem beyond the copied and fully included column-code injection.",
+    "The exact binder theorem bridgeConfined_sums (h : ℕ) in the verified source has the forall type recorded above.",
+    "No new goal proof wrapper has been compiled locally; the forall proof term is the existing verified theorem with its explicit height binder. The native host must independently validate the typed task."
+  ],
+  "localKernelVerified": true,
+  "hostTaskProofAcceptance": false,
+  "originalTheoremAcceptance": false,
+  "sourceSHA256": "9dd59d27aa8ab3bec43bd0bd475153e2b52efa2f83a9b391f082a3c7f426d694",
+  "validationResult": "validation-01-result.json",
+  "validationResultSHA256": "d838e39610efdabf136207484828d124ff0223caf9d235ab2087040de8aeb6d9"
+}

@@ -1,0 +1,30 @@
+Selected ordinary typed task: width_one_bridge_sums_b433299a
+Theorem: OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one
+Proof path: Submission.lean
+Group: main
+Depends on: sums_reduction (currently integrated)
+Exact type:
+Summable (OAI.PolynomialVacuumBridge.Corridor.weight (h := 1)) ∧ Summable (OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (h := 1)) ∧ Summable (fun p : OAI.PolynomialVacuumBridge.Corridor.BridgePath 1 => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight p / OAI.PolynomialVacuumBridge.Corridor.bridgeMass 1) ∧ Summable (fun p : OAI.PolynomialVacuumBridge.Corridor.ConfinedBridgePath 1 => OAI.PolynomialVacuumBridge.Corridor.weight p.val) ∧ Summable (fun p : OAI.PolynomialVacuumBridge.Corridor.ConfinedBridgePath 1 => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight p.val) ∧ Summable (fun p : OAI.PolynomialVacuumBridge.Corridor.ConfinedBridgePath 1 => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight p.val / OAI.PolynomialVacuumBridge.Corridor.confinedMass 1)
+
+Delivery:
+Load native-task-proposal.json (or delivery-contract.json["task"]) through the normal parent-controlled task-plan edit. Its objective inlines the complete WidthOne.lean.inc increment. No queue was edited by this package.
+
+Insertion:
+Insert WidthOne.lean.inc once inside namespace OAI.PolynomialVacuumBridge.Corridor, after bridgeSummable_firstLengthWeight_of_mu_bound and bridgeSummable_weight_of_summable_firstLengthWeight. The current canonical source at inspection has all existing helpers and none of the 22 new declaration names. Preserve the original target and every existing declaration. The complete WidthOne.lean validation harness is not a replacement Submission.lean.
+
+Source dependency:
+The existing sums_reduction task supplies the unconditional helpers:
+- OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_firstLengthWeight_of_mu_bound
+- OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_weight_of_summable_firstLengthWeight
+The selected proof uses stripGrowthAtOne constructed in this increment with C=2 and beta=1. It never assumes strip_growth_below_mu, never applies an unproved original target, and does not change its all-width contract. dependency-snapshot.json records the exact inspected canonical commit and metadata.
+
+Evidence:
+Independent local Lean actual exit 0, 20.635448274202645 seconds.
+Source SHA256: b433299aec2620b7b6dcad1e029f54133a41f255d831e9e73af699f754047aac
+Increment SHA256: 34d8701c1c13598d4a96ca2f4044cb6aacbc8ccba88d771e381fbfb4d930a532
+Final stdout: validation-02-final.stdout.log
+Selected target axioms: propext, Classical.choice, Quot.sound; no sorryAx.
+The failed first extraction, final launch/result/source snapshot, complete source origins, resource policy and delivery hashes are preserved. No unmodified Lean rerun occurred during archival.
+
+Scope:
+All six summability clauses at h=1 only. Native typed TaskProof acceptance and integration remain to the host workflow. The h>=2/all-width gap is unresolved here. No active runtime/source/state/queue, old package or global setting was changed. No model call, commit or push.
