@@ -1,0 +1,506 @@
+--- canonical-baseline/Submission.lean
++++ sync-def-candidate/Submission.lean
+@@ -17 +17 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_graftPlus_cases :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_graftPlus_cases :
+@@ -41 +41 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_markedSeam_of_cut :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_markedSeam_of_cut :
+@@ -50 +50 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldSideArity :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldSideArity :
+@@ -59 +59 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldSideRank :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldSideRank :
+@@ -89 +89 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldEndpointChildRank :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldEndpointChildRank :
+@@ -131 +131 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldNegativeAttach :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldNegativeAttach :
+@@ -146 +146 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldEndpointNamedColumns_grade :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldEndpointNamedColumns_grade :
+@@ -155 +155 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldCommonColumns_grade :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldCommonColumns_grade :
+@@ -164 +164 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_seamColumnsTransport_snd :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_seamColumnsTransport_snd :
+@@ -173 +173 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_portColumns_snd :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_portColumns_snd :
+@@ -182 +182 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.external_sigmaFinCongr_symm_snd.{u_1, u_2} :
++def _root_.OAI.IntegralCharacterVarieties.external_sigmaFinCongr_symm_snd.{u_1, u_2} :
+@@ -191 +191 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldEndpointNamedColumns_snd :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldEndpointNamedColumns_snd :
+@@ -200 +200 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldEndpointPortParentRank :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldEndpointPortParentRank :
+@@ -224 +224 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_endpointNamedMatrix_reindex_cancel :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_endpointNamedMatrix_reindex_cancel :
+@@ -233 +233 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_endpointNamedMatrix_normalized :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_endpointNamedMatrix_normalized :
+@@ -242 +242 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.VertexTable.LocalRanks.external_transportFrames_reindex :
++def _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.VertexTable.LocalRanks.external_transportFrames_reindex :
+@@ -251 +251 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_namedFrame_port :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_namedFrame_port :
+@@ -260 +260 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_namedFrame_transport :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_namedFrame_transport :
+@@ -269 +269 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.MatrixIso.external_ofLinearEquiv_linearEquiv.{u_1, u_2, u_3} :
++def _root_.OAI.IntegralCharacterVarieties.MatrixIso.external_ofLinearEquiv_linearEquiv.{u_1, u_2, u_3} :
+@@ -278 +278 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_namedFrame_port_at :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_namedFrame_port_at :
+@@ -287 +287 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldEndpointPortFrame_eq :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldEndpointPortFrame_eq :
+@@ -328 +328 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldNegativeEndpoint_eq :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldNegativeEndpoint_eq :
+@@ -337 +337 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldPositiveAttach :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldPositiveAttach :
+@@ -346 +346 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldCommonColumns_positive :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldCommonColumns_positive :
+@@ -381 +381 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldPositiveEndpoint_eq :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldPositiveEndpoint_eq :
+@@ -414 +414 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_endpointActualMatrix :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_endpointActualMatrix :
+@@ -423 +423 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.MatrixIso.external_linearEquiv_trans.{u_1, u_2, u_3, u_4} :
++def _root_.OAI.IntegralCharacterVarieties.MatrixIso.external_linearEquiv_trans.{u_1, u_2, u_3, u_4} :
+@@ -432 +432 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_seam_of_commonCoordinates :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_seam_of_commonCoordinates :
+@@ -441 +441 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldSeamFromValues :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldSeamFromValues :
+@@ -516 +516 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_markedAsCutValues_portFrame :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_markedAsCutValues_portFrame :
+@@ -525 +525 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_markedBandPortFrame :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_markedBandPortFrame :
+@@ -534 +534 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_markedLiftPortFrame :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_markedLiftPortFrame :
+@@ -543 +543 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_markedLiftCutPortFrame :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_markedLiftCutPortFrame :
+@@ -558 +558 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_markedLiftSideValue :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_markedLiftSideValue :
+@@ -567 +567 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_markedLiftSide_rebased :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_markedLiftSide_rebased :
+@@ -582 +582 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldSideValue :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldSideValue :
+@@ -591 +591 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldSideValue_unselected :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldSideValue_unselected :
+@@ -605 +605 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldParentTransport :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldParentTransport :
+@@ -620 +620 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldChildInverseTransport :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_oldChildInverseTransport :
+@@ -672 +672 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedPositivePortParentRank :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedPositivePortParentRank :
+@@ -681 +681 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedPositiveAttach :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedPositiveAttach :
+@@ -702 +702 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedNegativeAttach :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedNegativeAttach :
+@@ -711 +711 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedLastPortParentRank :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedLastPortParentRank :
+@@ -720 +720 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedLastColumnRank :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedLastColumnRank :
+@@ -744 +744 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedCommonColumns_grade :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedCommonColumns_grade :
+@@ -753 +753 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedLastNamedColumns_grade :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedLastNamedColumns_grade :
+@@ -762 +762 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedPositiveNamedColumns_snd :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedPositiveNamedColumns_snd :
+@@ -771 +771 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedLastNamedColumns_snd :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedLastNamedColumns_snd :
+@@ -780 +780 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedCommonColumns_negative :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedCommonColumns_negative :
+@@ -815 +815 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.VertexTable.LocalRanks.external_transportFrames_reindex_extra.{u_1, u_2} :
++def _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.VertexTable.LocalRanks.external_transportFrames_reindex_extra.{u_1, u_2} :
+@@ -824 +824 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedLastPortFrame_eq :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedLastPortFrame_eq :
+@@ -861 +861 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedNegativeEndpoint_eq :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedNegativeEndpoint_eq :
+@@ -892 +892 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedPositiveEndpoint_eq :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedPositiveEndpoint_eq :
+@@ -901 +901 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedSeam :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedSeam :
+@@ -947 +947 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedSideParent_eq :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedSideParent_eq :
+@@ -956 +956 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedSideTransport :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedSideTransport :
+@@ -965 +965 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedSideColumns_eq :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedSideColumns_eq :
+@@ -974 +974 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedSeam_fromSides :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedSeam_fromSides :
+@@ -1037 +1037 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.parent_sameFramedFlag_post.{u_1, u_2, u_3, u_4} :
++def _root_.OAI.IntegralCharacterVarieties.parent_sameFramedFlag_post.{u_1, u_2, u_3, u_4} :
+@@ -1046 +1046 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.parent_sameFramedFlag_trans.{u_1, u_2, u_3} :
++def _root_.OAI.IntegralCharacterVarieties.parent_sameFramedFlag_trans.{u_1, u_2, u_3} :
+@@ -1055 +1055 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.parent_selectedFlag_algebra.{u_1, u_2, u_3} :
++def _root_.OAI.IntegralCharacterVarieties.parent_selectedFlag_algebra.{u_1, u_2, u_3} :
+@@ -1064 +1064 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedBandFlag :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_selectedBandFlag :
+@@ -1079 +1079 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_namedParentLinear_one :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_namedParentLinear_one :
+@@ -1088 +1088 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_namedChildInverse_one :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_namedChildInverse_one :
+@@ -1108 +1108 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_unitSideSeam :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_unitSideSeam :
+@@ -1117 +1117 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_endpointFlag_of_portFrame :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_endpointFlag_of_portFrame :
+@@ -1126 +1126 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_originalInternalPositiveAttach :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_originalInternalPositiveAttach :
+@@ -1135 +1135 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_originalInternalNegativeAttach :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_originalInternalNegativeAttach :
+@@ -1174 +1174 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_originalInternalNegativeFrame :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_originalInternalNegativeFrame :
+@@ -1183 +1183 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_originalInternalNegativeEndpoint :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_originalInternalNegativeEndpoint :
+@@ -1216 +1216 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_originalInternalNamedColumns_eq :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_originalInternalNamedColumns_eq :
+@@ -1243 +1243 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_originalInternalCommonParent_positive :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_originalInternalCommonParent_positive :
+@@ -1252 +1252 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_originalInternalPositiveFrame :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_originalInternalPositiveFrame :
+@@ -1261 +1261 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_originalInternalPositiveEndpoint :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_originalInternalPositiveEndpoint :
+@@ -1285 +1285 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_originalInternalSeam :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_originalInternalSeam :
+@@ -1313 +1313 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_originalInternalSide_one :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_originalInternalSide_one :
+@@ -1334 +1334 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_mirrorInternalPositiveAttach :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_mirrorInternalPositiveAttach :
+@@ -1343 +1343 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_mirrorInternalNegativeAttach :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_mirrorInternalNegativeAttach :
+@@ -1361 +1361 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.external_mirror_color :
++def _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.external_mirror_color :
+@@ -1370 +1370 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.external_mirrorInteriorChildColor :
++def _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.external_mirrorInteriorChildColor :
+@@ -1403 +1403 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.external_mirrorInteriorParent :
++def _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.external_mirrorInteriorParent :
+@@ -1436 +1436 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.external_mirrorInteriorFrame :
++def _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.external_mirrorInteriorFrame :
+@@ -1445 +1445 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_mirrorInternalNegativeFrame :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_mirrorInternalNegativeFrame :
+@@ -1454 +1454 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_mirrorInternalNegativeEndpoint :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_mirrorInternalNegativeEndpoint :
+@@ -1478 +1478 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_mirrorInternalNamedColumns_eq :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_mirrorInternalNamedColumns_eq :
+@@ -1533 +1533 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_mirrorInternalCommonParent_positive :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_mirrorInternalCommonParent_positive :
+@@ -1542 +1542 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_mirrorInternalPositiveFrame :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_mirrorInternalPositiveFrame :
+@@ -1551 +1551 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_mirrorInternalPositiveEndpoint :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_mirrorInternalPositiveEndpoint :
+@@ -1575 +1575 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_mirrorInternalSeam :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_mirrorInternalSeam :
+@@ -1603 +1603 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_mirrorInternalSide_one :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_mirrorInternalSide_one :
+@@ -1677 +1677 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_transverseOrigFrame :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_transverseOrigFrame :
+@@ -1686 +1686 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_transverseOrigEndpoint :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_transverseOrigEndpoint :
+@@ -1719 +1719 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_transverseNamedColumns_eq :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_transverseNamedColumns_eq :
+@@ -1773 +1773 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_transverseCommonParent_mirror :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_transverseCommonParent_mirror :
+@@ -1782 +1782 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_transverseMirrorFrame :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_transverseMirrorFrame :
+@@ -1791 +1791 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_transverseMirrorEndpoint :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_transverseMirrorEndpoint :
+@@ -1800 +1800 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_transverseSeam :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_transverseSeam :
+@@ -1835 +1835 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.external_transversePlusOrigAttach_generic :
++def _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.external_transversePlusOrigAttach_generic :
+@@ -1844 +1844 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.external_transversePlusWire :
++def _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.external_transversePlusWire :
+@@ -1853 +1853 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.external_transversePlusMirrorAttach_generic :
++def _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.external_transversePlusMirrorAttach_generic :
+@@ -1868 +1868 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.VariableGallery.external_positive_ne_input :
++def _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.VariableGallery.external_positive_ne_input :
+@@ -1892 +1892 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.VariableGallery.external_positive_ne_output :
++def _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.VariableGallery.external_positive_ne_output :
+@@ -1901 +1901 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.external_transversePlusSide_generic :
++def _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.external_transversePlusSide_generic :
+@@ -1922 +1922 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.external_transverseMinusWire :
++def _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.external_transverseMinusWire :
+@@ -1931 +1931 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.external_transverseMinusOrigAttach_generic :
++def _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.external_transverseMinusOrigAttach_generic :
+@@ -1940 +1940 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.external_transverseMinusMirrorAttach_generic :
++def _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.external_transverseMinusMirrorAttach_generic :
+@@ -1955 +1955 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.VariableGallery.external_negative_ne_input :
++def _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.VariableGallery.external_negative_ne_input :
+@@ -1964 +1964 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.VariableGallery.external_negative_ne_output :
++def _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.VariableGallery.external_negative_ne_output :
+@@ -1988 +1988 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.external_transverseMinusSide_generic :
++def _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.external_transverseMinusSide_generic :
+@@ -2009 +2009 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.external_graftSideValues_short_one :
++def _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.external_graftSideValues_short_one :
+@@ -2018 +2018 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.external_bandValues_first_one :
++def _root_.OAI.IntegralCharacterVarieties.OccurrenceIncidence.BandGraft.external_bandValues_first_one :
+@@ -2027 +2027 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_refinedFirstShortSideValuesAtPortV2 :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_refinedFirstShortSideValuesAtPortV2 :
+@@ -2036 +2036 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_markedBandFirstSide_one :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_markedBandFirstSide_one :
+@@ -2045 +2045 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_markedLiftFirstSide_one :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_markedLiftFirstSide_one :
+@@ -2060 +2060 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstAttach :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstAttach :
+@@ -2069 +2069 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstNegativeAttach_core :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstNegativeAttach_core :
+@@ -2084 +2084 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstNegativeChildRank :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstNegativeChildRank :
+@@ -2114 +2114 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstSeamParentRank :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstSeamParentRank :
+@@ -2129 +2129 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstNegativeNamedColumns_grade :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstNegativeNamedColumns_grade :
+@@ -2138 +2138 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstCommonColumns_grade :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstCommonColumns_grade :
+@@ -2147 +2147 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstNegativePortParentRank :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstNegativePortParentRank :
+@@ -2156 +2156 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstNegativePortFrame_eq :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstNegativePortFrame_eq :
+@@ -2197 +2197 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstNegativeEndpoint_eq :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstNegativeEndpoint_eq :
+@@ -2206 +2206 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstPortParentRank :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstPortParentRank :
+@@ -2215 +2215 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstColumnRank :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstColumnRank :
+@@ -2239 +2239 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstNamedColumns_grade :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstNamedColumns_grade :
+@@ -2248 +2248 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstNamedColumns_snd :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstNamedColumns_snd :
+@@ -2257 +2257 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstNegativeNamedColumns_snd :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstNegativeNamedColumns_snd :
+@@ -2266 +2266 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstCommonColumns_positive :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstCommonColumns_positive :
+@@ -2300 +2300 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstPortFrame_eq :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstPortFrame_eq :
+@@ -2335 +2335 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstPositiveEndpoint_eq :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstPositiveEndpoint_eq :
+@@ -2366 +2366 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstActualFlagFromPortFrames_shared :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_firstActualFlagFromPortFrames_shared :
+@@ -2402 +2402 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_producedFirstShortEquation_shared :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.external_producedFirstShortEquation_shared :
+@@ -2464 +2464 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapNegativeAttach :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapNegativeAttach :
+@@ -2506 +2506 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.external_principal_color :
++def _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.external_principal_color :
+@@ -2515 +2515 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.external_principal_rank :
++def _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.external_principal_rank :
+@@ -2524 +2524 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.external_mirror_basis_normalized :
++def _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.external_mirror_basis_normalized :
+@@ -2533 +2533 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.MatrixIso.external_reindex_injective.{u_1, u_2, u_3, u_4, u_5} :
++def _root_.OAI.IntegralCharacterVarieties.MatrixIso.external_reindex_injective.{u_1, u_2, u_3, u_4, u_5} :
+@@ -2542 +2542 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.external_mirror_principal_basis :
++def _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.external_mirror_principal_basis :
+@@ -2551 +2551 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.external_mirror_principal_frame :
++def _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.external_mirror_principal_frame :
+@@ -2582 +2582 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.parent_mirrorPrincipalNormalized :
++def _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.parent_mirrorPrincipalNormalized :
+@@ -2618 +2618 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.parent_mirrorFirstFrame :
++def _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.parent_mirrorFirstFrame :
+@@ -2627 +2627 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapFirstPortFrame :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapFirstPortFrame :
+@@ -2636 +2636 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapNegativeEndpoint :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapNegativeEndpoint :
+@@ -2645 +2645 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapPositiveAttach :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapPositiveAttach :
+@@ -2681 +2681 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapFirstNamedColumns_grade :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapFirstNamedColumns_grade :
+@@ -2690 +2690 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapLastNamedColumns_grade :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapLastNamedColumns_grade :
+@@ -2699 +2699 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapFirstNamedColumns_snd :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapFirstNamedColumns_snd :
+@@ -2708 +2708 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapLastNamedColumns_snd :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapLastNamedColumns_snd :
+@@ -2717 +2717 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapNamedColumns_eq :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapNamedColumns_eq :
+@@ -2744 +2744 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapCommonParent_positive :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapCommonParent_positive :
+@@ -2758 +2758 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.parent_mirrorLastFrame :
++def _root_.OAI.IntegralCharacterVarieties.NamedBandGrades.IdentifiedBand.parent_mirrorLastFrame :
+@@ -2767 +2767 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapLastPortFrame :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapLastPortFrame :
+@@ -2776 +2776 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapPositiveEndpoint :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapPositiveEndpoint :
+@@ -2785 +2785 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapSeam :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapSeam :
+@@ -2831 +2831 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapSideArity :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapSideArity :
+@@ -2840 +2840 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapSideRank :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapSideRank :
+@@ -2855 +2855 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapSideParent_eq :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapSideParent_eq :
+@@ -2864 +2864 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapSideValue :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapSideValue :
+@@ -2873 +2873 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapParentTransport :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapParentTransport :
+@@ -2891 +2891 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapSideColumns_eq :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapSideColumns_eq :
+@@ -2900 +2900 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapChildInverseTransport :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapChildInverseTransport :
+@@ -2943 +2943 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.MatrixIso.parent_blockUnitOne_linear.{u_1, u_2, u_3} :
++def _root_.OAI.IntegralCharacterVarieties.MatrixIso.parent_blockUnitOne_linear.{u_1, u_2, u_3} :
+@@ -2952 +2952 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapChildIdentity :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapChildIdentity :
+@@ -2961 +2961 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapSeam_fromSides :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_wrapSeam_fromSides :
+@@ -3017 +3017 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.parent_wrapFlag_algebra.{u_1, u_2, u_3} :
++def _root_.OAI.IntegralCharacterVarieties.parent_wrapFlag_algebra.{u_1, u_2, u_3} :
+@@ -3026 +3026 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.parent_wrapUnitFlag.{u_1, u_2, u_3} :
++def _root_.OAI.IntegralCharacterVarieties.parent_wrapUnitFlag.{u_1, u_2, u_3} :
+@@ -3035 +3035 @@
+-theorem _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_producedWrapFlag :
++def _root_.OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.parent_producedWrapFlag :

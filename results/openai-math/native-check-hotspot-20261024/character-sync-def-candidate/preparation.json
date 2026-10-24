@@ -1,0 +1,12 @@
+{
+  "preparedAt": "2026-10-24T06:51:46.739733+00:00",
+  "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-sync-def-candidate/Submission.lean",
+  "sourceSHA256": "f8f952feb2ac4894946e6f6cd4089e7e20320cc0312217597b91fde2e7e8f200",
+  "baselineSHA256": "0ec8e7e2fbe9ff7f2d4c849c7558c152e24d707d79943d6f7ac08d0b27fa98c9",
+  "changedAddedProofDeclarations": 168,
+  "change": "theorem to def within existing noncomputable section; all statement types and bodies byte-identical",
+  "originalTargetRemainsTheorem": true,
+  "activeSourceChanged": false,
+  "activeRuntimeChanged": false,
+  "nativeAcceptance": false
+}

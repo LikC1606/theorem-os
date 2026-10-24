@@ -1,0 +1,19 @@
+{
+  "startedAt": "2026-10-24T06:55:43.544781+00:00",
+  "supervisorPid": 1657235,
+  "leanPid": 1657236,
+  "sourceSHA256": "f8f952feb2ac4894946e6f6cd4089e7e20320cc0312217597b91fde2e7e8f200",
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-j1",
+    "-R",
+    ".",
+    "-o",
+    "Submission.olean",
+    "Submission.lean"
+  ],
+  "leanPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-sync-def-candidate:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-sync-def-candidate/dependencies:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/plausible/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/aesop/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/batteries/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/importGraph/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/Qq/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/mathlib/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/LeanSearchClient/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/proofwidgets/.lake/build/lib/lean",
+  "addressSpaceLimitBytes": 34359738368,
+  "timeLimitSeconds": 0,
+  "nativeAcceptance": false
+}

@@ -1,0 +1,1508 @@
+{
+  "observedAt": "2026-10-24T06:49:55.697460+00:00",
+  "pid": 1179438,
+  "tid": 1179441,
+  "frames": [
+    {
+      "depth": 0,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d88109"
+    },
+    {
+      "depth": 1,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 2,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 3,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 4,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 5,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 6,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 7,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 8,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 9,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 10,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 11,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 12,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 13,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 14,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 15,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 16,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 17,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 18,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 19,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 20,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 21,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 22,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 23,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 24,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 25,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 26,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 27,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 28,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 29,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 30,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 31,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 32,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 33,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 34,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 35,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 36,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 37,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_collectDeps_visit",
+      "pc": "0x7ba031d8818e"
+    },
+    {
+      "depth": 38,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_getFunInfoAux___lam__0",
+      "pc": "0x7ba031d8cccf"
+    },
+    {
+      "depth": 39,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_getFunInfoAux___lam__0___boxed",
+      "pc": "0x7ba031d8ce98"
+    },
+    {
+      "depth": 40,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515776"
+    },
+    {
+      "depth": 41,
+      "function": "l_Lean_Meta_forallTelescopeReducing___at___00__private_Lean_Meta_FunInfo_0__Lean_Meta_getFunInfoAux_spec__1___redArg___lam__0___boxed",
+      "pc": "0x7ba031d89594"
+    },
+    {
+      "depth": 42,
+      "function": "lean_apply_5",
+      "pc": "0x7ba03751276a"
+    },
+    {
+      "depth": 43,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_forallTelescopeReducingAuxAux_process___redArg",
+      "pc": "0x7ba031be5a00"
+    },
+    {
+      "depth": 44,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_forallTelescopeReducingAux___redArg",
+      "pc": "0x7ba031be3b5a"
+    },
+    {
+      "depth": 45,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_forallTelescopeReducingAux",
+      "pc": "0x7ba031be6453"
+    },
+    {
+      "depth": 46,
+      "function": "l_Lean_Meta_forallBoundedTelescope___at___00__private_Lean_Meta_FunInfo_0__Lean_Meta_getFunInfoAux_spec__5___redArg",
+      "pc": "0x7ba031d89cdd"
+    },
+    {
+      "depth": 47,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_getFunInfoAux___lam__1",
+      "pc": "0x7ba031d8d366"
+    },
+    {
+      "depth": 48,
+      "function": "l___private_Lean_Meta_FunInfo_0__Lean_Meta_getFunInfoAux",
+      "pc": "0x7ba031d932ce"
+    },
+    {
+      "depth": 49,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480d941"
+    },
+    {
+      "depth": 50,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480dae0"
+    },
+    {
+      "depth": 51,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480dae0"
+    },
+    {
+      "depth": 52,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480dae0"
+    },
+    {
+      "depth": 53,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480dae0"
+    },
+    {
+      "depth": 54,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 55,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 56,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 57,
+      "function": "lean_apply_6",
+      "pc": "0x7ba037513dfa"
+    },
+    {
+      "depth": 58,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withNewFVar___redArg",
+      "pc": "0x7ba031bf04b0"
+    },
+    {
+      "depth": 59,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 60,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 61,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 62,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 63,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 64,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 65,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 66,
+      "function": "lean_apply_6",
+      "pc": "0x7ba037513dfa"
+    },
+    {
+      "depth": 67,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withNewFVar___redArg",
+      "pc": "0x7ba031bf04b0"
+    },
+    {
+      "depth": 68,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 69,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 70,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 71,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 72,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 73,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 74,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 75,
+      "function": "lean_apply_6",
+      "pc": "0x7ba037513dfa"
+    },
+    {
+      "depth": 76,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withNewFVar___redArg",
+      "pc": "0x7ba031bf04b0"
+    },
+    {
+      "depth": 77,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 78,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 79,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 80,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 81,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 82,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 83,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 84,
+      "function": "lean_apply_6",
+      "pc": "0x7ba037513dfa"
+    },
+    {
+      "depth": 85,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withNewFVar___redArg",
+      "pc": "0x7ba031bf04b0"
+    },
+    {
+      "depth": 86,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 87,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 88,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 89,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 90,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 91,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 92,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 93,
+      "function": "lean_apply_6",
+      "pc": "0x7ba037513dfa"
+    },
+    {
+      "depth": 94,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withNewFVar___redArg",
+      "pc": "0x7ba031bf04b0"
+    },
+    {
+      "depth": 95,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 96,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 97,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 98,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 99,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 100,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 101,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 102,
+      "function": "lean_apply_6",
+      "pc": "0x7ba037513dfa"
+    },
+    {
+      "depth": 103,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withNewFVar___redArg",
+      "pc": "0x7ba031bf04b0"
+    },
+    {
+      "depth": 104,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 105,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 106,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 107,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 108,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 109,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 110,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 111,
+      "function": "lean_apply_6",
+      "pc": "0x7ba037513dfa"
+    },
+    {
+      "depth": 112,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withNewFVar___redArg",
+      "pc": "0x7ba031bf04b0"
+    },
+    {
+      "depth": 113,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 114,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 115,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 116,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 117,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 118,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 119,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 120,
+      "function": "lean_apply_6",
+      "pc": "0x7ba037513dfa"
+    },
+    {
+      "depth": 121,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withNewFVar___redArg",
+      "pc": "0x7ba031bf04b0"
+    },
+    {
+      "depth": 122,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 123,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 124,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 125,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 126,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 127,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 128,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 129,
+      "function": "lean_apply_6",
+      "pc": "0x7ba037513dfa"
+    },
+    {
+      "depth": 130,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withNewFVar___redArg",
+      "pc": "0x7ba031bf04b0"
+    },
+    {
+      "depth": 131,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 132,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 133,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 134,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 135,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 136,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 137,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 138,
+      "function": "lean_apply_6",
+      "pc": "0x7ba037513dfa"
+    },
+    {
+      "depth": 139,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withNewFVar___redArg",
+      "pc": "0x7ba031bf04b0"
+    },
+    {
+      "depth": 140,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 141,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 142,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 143,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 144,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 145,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 146,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 147,
+      "function": "lean_apply_6",
+      "pc": "0x7ba037513dfa"
+    },
+    {
+      "depth": 148,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withNewFVar___redArg",
+      "pc": "0x7ba031bf04b0"
+    },
+    {
+      "depth": 149,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 150,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 151,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 152,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 153,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 154,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 155,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 156,
+      "function": "lean_apply_6",
+      "pc": "0x7ba037513dfa"
+    },
+    {
+      "depth": 157,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withNewFVar___redArg",
+      "pc": "0x7ba031bf04b0"
+    },
+    {
+      "depth": 158,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 159,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 160,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 161,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 162,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 163,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 164,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 165,
+      "function": "lean_apply_6",
+      "pc": "0x7ba037513dfa"
+    },
+    {
+      "depth": 166,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withNewFVar___redArg",
+      "pc": "0x7ba031bf04b0"
+    },
+    {
+      "depth": 167,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 168,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 169,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 170,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 171,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 172,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 173,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 174,
+      "function": "lean_apply_5",
+      "pc": "0x7ba03751276a"
+    },
+    {
+      "depth": 175,
+      "function": "l_Lean_Meta_withNewLocalInstance___at___00__private_Lean_Meta_Basic_0__Lean_Meta_withNewLocalInstancesImp_spec__2___redArg",
+      "pc": "0x7ba031be2b33"
+    },
+    {
+      "depth": 176,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 177,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 178,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 179,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 180,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 181,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 182,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 183,
+      "function": "lean_apply_6",
+      "pc": "0x7ba037513dfa"
+    },
+    {
+      "depth": 184,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withNewFVar___redArg",
+      "pc": "0x7ba031bf04b0"
+    },
+    {
+      "depth": 185,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 186,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 187,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 188,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 189,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 190,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 191,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 192,
+      "function": "lean_apply_6",
+      "pc": "0x7ba037513dfa"
+    },
+    {
+      "depth": 193,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withNewFVar___redArg",
+      "pc": "0x7ba031bf04b0"
+    },
+    {
+      "depth": 194,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 195,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 196,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 197,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 198,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 199,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 200,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 201,
+      "function": "lean_apply_5",
+      "pc": "0x7ba03751276a"
+    },
+    {
+      "depth": 202,
+      "function": "l_Lean_Meta_withNewLocalInstance___at___00__private_Lean_Meta_Basic_0__Lean_Meta_withNewLocalInstancesImp_spec__2___redArg",
+      "pc": "0x7ba031be2b33"
+    },
+    {
+      "depth": 203,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 204,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 205,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 206,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 207,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 208,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 209,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 210,
+      "function": "lean_apply_6",
+      "pc": "0x7ba037513dfa"
+    },
+    {
+      "depth": 211,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withNewFVar___redArg",
+      "pc": "0x7ba031bf04b0"
+    },
+    {
+      "depth": 212,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 213,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 214,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 215,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 216,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 217,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 218,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 219,
+      "function": "lean_apply_6",
+      "pc": "0x7ba037513dfa"
+    },
+    {
+      "depth": 220,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withNewFVar___redArg",
+      "pc": "0x7ba031bf04b0"
+    },
+    {
+      "depth": 221,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 222,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 223,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 224,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 225,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 226,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 227,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 228,
+      "function": "lean_apply_6",
+      "pc": "0x7ba037513dfa"
+    },
+    {
+      "depth": 229,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withNewFVar___redArg",
+      "pc": "0x7ba031bf04b0"
+    },
+    {
+      "depth": 230,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 231,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 232,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 233,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 234,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 235,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 236,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 237,
+      "function": "lean_apply_6",
+      "pc": "0x7ba037513dfa"
+    },
+    {
+      "depth": 238,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withNewFVar___redArg",
+      "pc": "0x7ba031bf04b0"
+    },
+    {
+      "depth": 239,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 240,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 241,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 242,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 243,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg___lam__0___boxed",
+      "pc": "0x7ba03480d208"
+    },
+    {
+      "depth": 244,
+      "function": "lean_apply_7",
+      "pc": "0x7ba037515586"
+    },
+    {
+      "depth": 245,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ba03480bb2d"
+    },
+    {
+      "depth": 246,
+      "function": "lean_apply_6",
+      "pc": "0x7ba037513dfa"
+    },
+    {
+      "depth": 247,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withNewFVar___redArg",
+      "pc": "0x7ba031bf04b0"
+    },
+    {
+      "depth": 248,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp___redArg",
+      "pc": "0x7ba031bf09fb"
+    },
+    {
+      "depth": 249,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withLocalDeclImp",
+      "pc": "0x7ba031bf0e22"
+    },
+    {
+      "depth": 250,
+      "function": "l_Lean_Meta_withLocalDecl___at___00__private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit_spec__0___redArg",
+      "pc": "0x7ba03480bcbc"
+    },
+    {
+      "depth": 251,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit___redArg",
+      "pc": "0x7ba03480e88c"
+    },
+    {
+      "depth": 252,
+      "function": "l___private_Lean_LibrarySuggestions_Basic_0__Lean_Expr_FoldRelevantConstantsImpl_fold_visit",
+      "pc": "0x7ba03480fcc9"
+    },
+    {
+      "depth": 253,
+      "function": "l_Lean_LibrarySuggestions_localSymbolFrequencyMap___lam__1",
+      "pc": "0x7ba03738bd0d"
+    },
+    {
+      "depth": 254,
+      "function": "l_Lean_LibrarySuggestions_localSymbolFrequencyMap___lam__1___boxed",
+      "pc": "0x7ba03738bffd"
+    },
+    {
+      "depth": 255,
+      "function": "lean_apply_8",
+      "pc": "0x7ba037516e66"
+    },
+    {
+      "depth": 256,
+      "function": "l___private_Lean_Data_PersistentHashMap_0__Lean_PersistentHashMap_foldlMAux_traverse___at___00Lean_PersistentHashMap_foldlMAux___at___00Lean_PersistentHashMap_foldlM___at___00Lean_LibrarySuggestions_localSymbolFrequencyMap_spec__1_spec__1_spec__3___redArg",
+      "pc": "0x7ba03738c1cc"
+    },
+    {
+      "depth": 257,
+      "function": "l_Lean_PersistentHashMap_foldlMAux___at___00Lean_PersistentHashMap_foldlM___at___00Lean_LibrarySuggestions_localSymbolFrequencyMap_spec__1_spec__1___redArg",
+      "pc": "0x7ba03738c73a"
+    },
+    {
+      "depth": 258,
+      "function": "l___private_Init_Data_Array_Basic_0__Array_foldlMUnsafe_fold___at___00Lean_PersistentHashMap_foldlMAux___at___00Lean_PersistentHashMap_foldlM___at___00Lean_LibrarySuggestions_localSymbolFrequencyMap_spec__1_spec__1_spec__2___redArg",
+      "pc": "0x7ba03738cbaf"
+    },
+    {
+      "depth": 259,
+      "function": "l_Lean_PersistentHashMap_foldlMAux___at___00Lean_PersistentHashMap_foldlM___at___00Lean_LibrarySuggestions_localSymbolFrequencyMap_spec__1_spec__1___redArg",
+      "pc": "0x7ba03738c7f4"
+    },
+    {
+      "depth": 260,
+      "function": "l___private_Init_Data_Array_Basic_0__Array_foldlMUnsafe_fold___at___00Lean_PersistentHashMap_foldlMAux___at___00Lean_PersistentHashMap_foldlM___at___00Lean_LibrarySuggestions_localSymbolFrequencyMap_spec__1_spec__1_spec__2___redArg",
+      "pc": "0x7ba03738cbaf"
+    },
+    {
+      "depth": 261,
+      "function": "l_Lean_PersistentHashMap_foldlMAux___at___00Lean_PersistentHashMap_foldlM___at___00Lean_LibrarySuggestions_localSymbolFrequencyMap_spec__1_spec__1___redArg",
+      "pc": "0x7ba03738c7f4"
+    },
+    {
+      "depth": 262,
+      "function": "l_Lean_LibrarySuggestions_localSymbolFrequencyMap",
+      "pc": "0x7ba03738d098"
+    },
+    {
+      "depth": 263,
+      "function": "l___private_Lean_LibrarySuggestions_SymbolFrequency_0__Lean_LibrarySuggestions_cachedLocalSymbolFrequencyMap",
+      "pc": "0x7ba03738d93e"
+    },
+    {
+      "depth": 264,
+      "function": "l___private_Lean_LibrarySuggestions_SymbolFrequency_0__Lean_LibrarySuggestions_initFn___lam__2_00___x40_Lean_LibrarySuggestions_SymbolFrequency_3575993952____hygCtx___hyg_2_",
+      "pc": "0x7ba03738fa79"
+    },
+    {
+      "depth": 265,
+      "function": "l___private_Lean_LibrarySuggestions_SymbolFrequency_0__Lean_LibrarySuggestions_initFn___lam__2_00___x40_Lean_LibrarySuggestions_SymbolFrequency_3575993952____hygCtx___hyg_2____boxed",
+      "pc": "0x7ba03738fc09"
+    },
+    {
+      "depth": 266,
+      "function": "lean_apply_5",
+      "pc": "0x7ba037512079"
+    },
+    {
+      "depth": 267,
+      "function": "lean_apply_6",
+      "pc": "0x7ba037513b3f"
+    },
+    {
+      "depth": 268,
+      "function": "l_Lean_Meta_instMonadMetaM___lam__1",
+      "pc": "0x7ba031ba8d3e"
+    },
+    {
+      "depth": 269,
+      "function": "l_Lean_Meta_instMonadMetaM___lam__1___boxed",
+      "pc": "0x7ba031ba8f11"
+    },
+    {
+      "depth": 270,
+      "function": "lean_apply_5",
+      "pc": "0x7ba03751248e"
+    },
+    {
+      "depth": 271,
+      "function": "l_Lean_Meta_MetaM_run_x27",
+      "pc": "0x7ba031baba45"
+    },
+    {
+      "depth": 272,
+      "function": "l_Lean_Meta_MetaM_run_x27___boxed",
+      "pc": "0x7ba031babbff"
+    },
+    {
+      "depth": 273,
+      "function": "lean_apply_3",
+      "pc": "0x7ba03750f3fb"
+    },
+    {
+      "depth": 274,
+      "function": "l_Lean_Core_CoreM_run_x27",
+      "pc": "0x7ba0319224e1"
+    },
+    {
+      "depth": 275,
+      "function": "lean_apply_1",
+      "pc": "0x7ba03750b076"
+    },
+    {
+      "depth": 276,
+      "function": "l_EIO_toBaseIO",
+      "pc": "0x7ba0314851ee"
+    },
+    {
+      "depth": 277,
+      "function": "lean_apply_1",
+      "pc": "0x7ba03750b632"
+    },
+    {
+      "depth": 278,
+      "function": "l___private_Lean_LibrarySuggestions_SymbolFrequency_0__Lean_Environment_unsafeRunMetaM___redArg",
+      "pc": "0x7ba03738ea97"
+    },
+    {
+      "depth": 279,
+      "function": "l___private_Lean_LibrarySuggestions_SymbolFrequency_0__Lean_LibrarySuggestions_initFn___lam__3_00___x40_Lean_LibrarySuggestions_SymbolFrequency_3575993952____hygCtx___hyg_2_",
+      "pc": "0x7ba03738fcd1"
+    },
+    {
+      "depth": 280,
+      "function": "l___private_Lean_LibrarySuggestions_SymbolFrequency_0__Lean_LibrarySuggestions_initFn___lam__3_00___x40_Lean_LibrarySuggestions_SymbolFrequency_3575993952____hygCtx___hyg_2____boxed",
+      "pc": "0x7ba03738fd69"
+    },
+    {
+      "depth": 281,
+      "function": "lean_apply_2",
+      "pc": "0x7ba03750d4c1"
+    },
+    {
+      "depth": 282,
+      "function": "l___private_Init_Data_Array_Basic_0__Array_mapMUnsafe_map___at___00__private_Lean_Environment_0__Lean_computeExtEntries_spec__0",
+      "pc": "0x7ba031759f03"
+    },
+    {
+      "depth": 283,
+      "function": "l___private_Lean_Environment_0__Lean_computeExtEntries",
+      "pc": "0x7ba03175a12b"
+    },
+    {
+      "depth": 284,
+      "function": "l_Lean_mkModuleData",
+      "pc": "0x7ba03175b32e"
+    },
+    {
+      "depth": 285,
+      "function": "l_Lean_writeModule",
+      "pc": "0x7ba03175be17"
+    },
+    {
+      "depth": 286,
+      "function": "l_Lean_Elab_runFrontend___lam__2___boxed",
+      "pc": "0x7ba03415ec6f"
+    },
+    {
+      "depth": 287,
+      "function": "lean_apply_1",
+      "pc": "0x7ba03750ba3e"
+    },
+    {
+      "depth": 288,
+      "function": "l_Lean_profileitIOUnsafe___redArg___lam__0",
+      "pc": "0x7ba031829a4b"
+    },
+    {
+      "depth": 289,
+      "function": "lean_apply_1",
+      "pc": "0x7ba03750b76a"
+    },
+    {
+      "depth": 290,
+      "function": "lean_apply_1",
+      "pc": "0x7ba03750b76a"
+    },
+    {
+      "depth": 291,
+      "function": "lean_profileit",
+      "pc": "0x7ba0374dc0b3"
+    },
+    {
+      "depth": 292,
+      "function": "l_Lean_profileitIOUnsafe___redArg",
+      "pc": "0x7ba031829c12"
+    },
+    {
+      "depth": 293,
+      "function": "l_Lean_Elab_runFrontend",
+      "pc": "0x7ba0341623d2"
+    },
+    {
+      "depth": 294,
+      "function": "lean_shell_main",
+      "pc": "0x7ba0373de2fa"
+    },
+    {
+      "depth": 295,
+      "function": "lean::run_shell_main(int, char**, lean::object_ref const&)",
+      "pc": "0x7ba03100f83c"
+    },
+    {
+      "depth": 296,
+      "function": "std::__1::__function::__func<lean_main::$_0, void ()>::operator()()",
+      "pc": "0x7ba0310102ca"
+    },
+    {
+      "depth": 297,
+      "function": "lean::lthread::imp::_main(void*)",
+      "pc": "0x7ba0374fd055"
+    },
+    {
+      "depth": 298,
+      "function": "0x7ba02d89cb84",
+      "pc": "0x7ba02d89cb84"
+    },
+    {
+      "depth": 299,
+      "function": "0x0",
+      "pc": "0x0"
+    }
+  ],
+  "truncated": false
+}

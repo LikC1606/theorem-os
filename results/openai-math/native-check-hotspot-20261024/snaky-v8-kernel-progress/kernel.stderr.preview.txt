@@ -1,0 +1,198 @@
+n be disabled with `set_option linter.defProp false`
+Submission.lean:15606:0: warning: Definition `qmoveRow_threat` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15673:0: warning: Definition `qmem_moveRow_H_iff` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15685:0: warning: Definition `qnot_mem_unionH` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15752:0: warning: Definition `qescapeinitial` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15764:0: warning: Definition `qescapestep_1` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15772:0: warning: Definition `qescapestep_2` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15780:0: warning: Definition `qescapestep_3` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15788:0: warning: Definition `qescapestep_4` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15796:0: warning: Definition `qescapestep_5` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15804:0: warning: Definition `qescapestep_6` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15812:0: warning: Definition `qescapestep_7` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15820:0: warning: Definition `qescapestep_8` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15828:0: warning: Definition `qescapestep_9` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15836:0: warning: Definition `qescapestep_10` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15844:0: warning: Definition `qescapestep_11` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15848:0: warning: Definition `qescape_small_common` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15889:0: warning: Definition `qrootinitial` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15901:0: warning: Definition `qrootstep_1` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15909:0: warning: Definition `qrootstep_2` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15917:0: warning: Definition `qrootstep_3` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15925:0: warning: Definition `qrootstep_4` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15933:0: warning: Definition `qrootstep_5` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15941:0: warning: Definition `qrootstep_6` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15949:0: warning: Definition `qrootstep_7` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15957:0: warning: Definition `qrootstep_8` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15965:0: warning: Definition `qrootstep_9` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15973:0: warning: Definition `qrootstep_10` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15981:0: warning: Definition `qrootstep_11` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15989:0: warning: Definition `qrootstep_12` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:15997:0: warning: Definition `qrootstep_13` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16005:0: warning: Definition `qrootstep_14` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16013:0: warning: Definition `qrootstep_15` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16021:0: warning: Definition `qrootstep_16` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16029:0: warning: Definition `qrootstep_17` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16037:0: warning: Definition `qrootstep_18` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16045:0: warning: Definition `qrootstep_19` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16049:0: warning: Definition `qroot_small_common` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16074:0: warning: Definition `qescape_A_bound` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16078:0: warning: Definition `qescape_common_bound` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16082:0: warning: Definition `qescape_child_height` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16086:0: warning: Definition `qescape_missing_0` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16090:0: warning: Definition `qescape_missing_1` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16094:0: warning: Definition `qescape_missing_2` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16098:0: warning: Definition `qescape_missing_3` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16102:0: warning: Definition `qescape_missing_4` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16106:0: warning: Definition `qescape_missing_5` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16110:0: warning: Definition `qescape_missing_6` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16114:0: warning: Definition `qescape_missing_7` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16118:0: warning: Definition `qescape_missing_8` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16122:0: warning: Definition `qescape_missing_9` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16126:0: warning: Definition `qescape_missing_10` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16130:0: warning: Definition `qescape_missing_11` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16134:0: warning: Definition `qescape_child_missing` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16151:0: warning: Definition `qescape_diag_missing` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16163:0: warning: Definition `qescape_rotation_missing` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16174:0: warning: Definition `qroot_A_bound` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16178:0: warning: Definition `qroot_child_height` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16182:0: warning: Definition `qroot_common_bound` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16194:0: warning: Definition `qgoal_translation_cancel` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16203:0: warning: Definition `qempty_winning_of_opening_rows` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+Submission.lean:16225:53: warning: This simp argument is unused:
+  List.mem_singleton
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [qescapeChildren, List.mem_cons, List.not_mem_nil, or_false] at hd
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+Submission.lean:16266:51: warning: This simp argument is unused:
+  List.mem_singleton
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [qrootChildren, List.mem_cons, List.not_mem_nil, or_false] at hd
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+Submission.lean:16308:0: warning: Definition `qempty_winning_35` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`

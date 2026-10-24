@@ -1,0 +1,21 @@
+DS_DECL_REFERENCES_cecd622bde39ee1efaaf564bf4968658:null
+DEEPSCIENTIST_DECL_BEGIN_36ed16db82f63e10
+OAI.SnakyConditional.snaky_winning_strategy_with_legal_states :
+  ∃ σ,
+    (∀ (r : ℕ) (M B : Finset OAI.SnakyConditional.Cell), σ r M B ∉ M ∧ σ r M B ∉ B) ∧
+      ∀ (β : ℕ → OAI.SnakyConditional.Cell),
+        OAI.SnakyConditional.OrdinaryStrategy.LegalRepliesBeforeFinal σ 35 β ∅ ∅ →
+          OAI.SnakyConditional.HasSnaky (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ 35).1 ∧
+            (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ 35).1.card = 35 ∧
+              Disjoint (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ 35).1
+                  (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ 34).2 ∧
+                ∀ k < 35,
+                  Disjoint (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ k).1
+                      (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ k).2 ∧
+                    (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ k).2.card = k
+DEEPSCIENTIST_DECL_END_36ed16db82f63e10
+DEEPSCIENTIST_AXIOMS_BEGIN_36ed16db82f63e10
+'OAI.SnakyConditional.snaky_winning_strategy_with_legal_states' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+DEEPSCIENTIST_AXIOMS_END_36ed16db82f63e10

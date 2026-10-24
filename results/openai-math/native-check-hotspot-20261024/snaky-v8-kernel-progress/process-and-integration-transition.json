@@ -1,0 +1,59 @@
+{
+  "schema": "theorem-os.snaky-v8-process-and-integration-transition.v1",
+  "observedAt": "2026-10-24T07:00:36.875896+00:00",
+  "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+  "kernelEvent": {
+    "schema": "deepscientist.mathematics.verification_event.v1",
+    "eventId": "b6189f7f-b9ec-435d-9a2e-64f9d95df2fd",
+    "sessionId": "19b54abf-df07-4094-b8a3-71bf6e0254a6",
+    "timestamp": 1792824828133,
+    "kind": "check.kernel_checked",
+    "payload": {
+      "proofPath": "Submission.lean",
+      "status": "kernel_verified",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "aborted": false,
+      "durationMs": 8072025
+    }
+  },
+  "explicitOriginalGoalProcessExit": 0,
+  "integrationObservation": {
+    "observedAt": "2026-10-24T06:59:54.784297+00:00",
+    "phase": "checking",
+    "formalProcesses": [
+      {
+        "pid": 1659442,
+        "ppid": 1659440,
+        "state": "S",
+        "startTicks": 129168371,
+        "cpuSeconds": 177.06,
+        "command": [
+          "/runtime/pinned-lean/bin/lean",
+          "-j1",
+          "-R",
+          ".",
+          "-o",
+          ".lake/build/lib/lean/Submission.olean",
+          "Submission.lean",
+          "-j1"
+        ],
+        "sourceSHA256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+        "sourceBytes": 967683,
+        "isExactV8": false,
+        "addressSpaceLimit": "Max address space         34359738368          34359738368          bytes     ",
+        "verificationRole": "native-host"
+      }
+    ]
+  },
+  "actualMergedSource": {
+    "path": "/tmp/math-check-Fmiyxm/worktree/generated/problem/Submission.lean",
+    "bytes": 967683,
+    "sha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae"
+  },
+  "observedCacheBoundary": "The next native Lean process is actually recompiling merged dc40df source; this confirms no bypass of this gate by the original-goal cache.",
+  "scope": "Read-only observation and external evidence archive. No runtime, cache, checkpoint, source, or active process modified. No Lean invoked by observer.",
+  "nativeAcceptance": false,
+  "official": false
+}

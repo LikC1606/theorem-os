@@ -1,0 +1,293 @@
+{
+  "copiedAt": "2026-10-24T06:55:43.484178+00:00",
+  "source": "/proc/1179438/cwd/.lake/build/lib/lean/OAI",
+  "destination": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-sync-def-candidate/dependencies/OAI",
+  "excluded": "ProducedSolution*",
+  "files": [
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Cutting/AtomicFrames.olean",
+      "bytes": 304344,
+      "sha256": "127cf2c1938c360f701837a54d453026eacf2fe85ba5916b39eb0149fe623944"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Cutting/AtomicGallery.olean",
+      "bytes": 1094416,
+      "sha256": "3e9f53f50feba026fc8c69d42e3b169f69e93318e7b13d3a23812a234073ea28"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Cutting/BoundaryEnumeration.olean",
+      "bytes": 792496,
+      "sha256": "f4fbcad34284637cfd0087a5d5b6004db2d4736aa69ef926645fdd726e156ca0"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Cutting/BoundarySurgery.olean",
+      "bytes": 1139664,
+      "sha256": "7a884e1c4f52e4efcc1da82fbb585adeda86f93a83c726e3cb27a830d5e433e6"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Cutting/DoubledStrips.olean",
+      "bytes": 880472,
+      "sha256": "d174e76c6f9ef1233416e3a39d348c5e4f332fe731f478f3ead4f0543cf52128"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Cutting/FreshGallery.olean",
+      "bytes": 1928016,
+      "sha256": "25435418010b4598e8a49cb3234479e941ac1be01b530f511c15efcd539a027b"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Cutting/GraftCircuits.olean",
+      "bytes": 1730584,
+      "sha256": "50eab22ad45f002aa9226a05219cd3d9875d776f8243a868a03569b52f86574a"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Cutting/GraftValues.olean",
+      "bytes": 2098880,
+      "sha256": "678f1c370fd07835330a163fb459dc4bbf30faa81ae9f9981a9f6f5553d2d62c"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Cutting/Grafting.olean",
+      "bytes": 2530152,
+      "sha256": "e2f7efc5c739a643c67c0a423ce22817a6490b7929be2818ce91fc583dadc60e"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Cutting/MarkedDiagram.olean",
+      "bytes": 332784,
+      "sha256": "65926ab3b2d0d3eaec9c0950e9e397e2aa9039a8baaef193a2d200fee6de2478"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Cutting/PortSurgery.olean",
+      "bytes": 1147320,
+      "sha256": "c063ce7e1a9906178a08c48c2760983b9d4e6cc56091506eaa4724f563b3d1a0"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Cutting/RefinedDiagram.olean",
+      "bytes": 1460816,
+      "sha256": "61cf67960530893426e4d26015bd1668b956c0f727544b6d0573e3b49871f018"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Cutting/StripFacets.olean",
+      "bytes": 1132832,
+      "sha256": "ca1a75862e2df96b215cbd5967e29f755deb99494519bebbdf375b58cf2f48c4"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Cutting/StripForest.olean",
+      "bytes": 865576,
+      "sha256": "c2aded283c1a9389f6a0edddd275d30d923efb4556fcbfa50e60ff9041317906"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/BandCut.olean",
+      "bytes": 1777440,
+      "sha256": "d1634c2932c69b2685e40882f0b9bf436037d9a1fe7580247379618d4a128db9"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/BandCutTopology.olean",
+      "bytes": 605872,
+      "sha256": "b6c4604eb649ac875c7710f0935375d7b5ac09c6e3374bf95914bad315fa42c1"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/BandCycles.olean",
+      "bytes": 502272,
+      "sha256": "fabba5c740b09bcf87ece3a5f3f8f7caea4177b70ee31fc7eb87c54a3ab9645d"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/BandIncidence.olean",
+      "bytes": 1723904,
+      "sha256": "03ae2f9847f4f9619b9bc566c64fc0147efbc152ded8eaafbc289b76b60be4b1"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryBands.olean",
+      "bytes": 643904,
+      "sha256": "2a413d536da04cc0e264faeb0d35ae0b187e7a2300a20ed6a12e48043a4bb7a7"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryCycles.olean",
+      "bytes": 794360,
+      "sha256": "8c739959058024fd5f7a9ff1fc6c6c0cedc95e1cceffe955028083e4110e7769"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryFrames.olean",
+      "bytes": 896440,
+      "sha256": "a706a858ea9ebd257c0cde20f2cc81864eed5b3eeed8ed2807cb4a8a7fecbc60"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryReordering.olean",
+      "bytes": 464856,
+      "sha256": "236c8a5b02fe5d37b847ed9702d3aa83c68602900eb93d115e4e0d857edad65b"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/ComplementaryPatches.olean",
+      "bytes": 3674792,
+      "sha256": "4ce9474fbbbffc7d4f43415bcccc608a08bc6d5d9289beef5b4c8c61aa0c3069"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/CornerGauge.olean",
+      "bytes": 407240,
+      "sha256": "f8b52428835251ff3bceea31f4dd38ecb9a5f4d569f83718afb102fe74dfa8f3"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/CutCircleIndex.olean",
+      "bytes": 130864,
+      "sha256": "88bd22ae6acc0eee5ebd3174a0536610a4b7b95bb31484aaefafa235c78fcd12"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/DiskGauge.olean",
+      "bytes": 742944,
+      "sha256": "ec03dbf030e37ddf81de5e0cb513f84b675e349fe50ab686d7d917986d7da877"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/FlagGalleries.olean",
+      "bytes": 1479000,
+      "sha256": "ebad5bd0ec4367ce503cc574e6d276b913421f2382acbb946b04ef96e926b353"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/Flags.olean",
+      "bytes": 812768,
+      "sha256": "0c4a7f3cb33538ea1388c5bd9a7ac50d3b7e11a1944acf05245a18f69e5ed00b"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/GeneratorGauge.olean",
+      "bytes": 555648,
+      "sha256": "6cd32f6db480e2dd3b9bb16720d098578d2d56633aceeb69297b7d93e7710968"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/Incidence.olean",
+      "bytes": 1349368,
+      "sha256": "245e9983d9b0973ca9806a35fce55fe76ecd160e35a5f9480dfd805e3fed9ed4"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/MatrixExpressions.olean",
+      "bytes": 1068008,
+      "sha256": "19a69485573bef117a7a9cd532ca477ddd864b8e34265833c194c13d9408a082"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/MatrixPresentation.olean",
+      "bytes": 497232,
+      "sha256": "44150fd34df70764db02349b6c8d2bc11d2a9ab74c7fae8172335c2ff5db2728"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/PatchCycles.olean",
+      "bytes": 2333304,
+      "sha256": "68cea0e37fe25f033581aa7164466704c7b384143a6bd873986bb39f9b53c29b"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/PortPatches.olean",
+      "bytes": 888552,
+      "sha256": "17ed4d4053fa24875b471b38c3f71f7ae9f98464824543c8f35c439d08b5dc2f"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/RoutedFamilies.olean",
+      "bytes": 1258936,
+      "sha256": "4e6ec4d9685c46a46ddb94ad2b8d43416aa4d1630a2444ca37deb5209341b873"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/SplitFlags.olean",
+      "bytes": 937656,
+      "sha256": "1dcdabb8824ef8754701406014f4789e793d4190a2650ba103e39662cfd1823d"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/SurfacePresentation.olean",
+      "bytes": 2370432,
+      "sha256": "58809579dfbe70ddec9a470c3856af690b0272f5bdee0d651cc0e3b11619a6eb"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/SurfaceSurgery.olean",
+      "bytes": 499280,
+      "sha256": "667fb3fa0ffe06b3a1d6d9199737b4f0a70b8bb9d2b175e7b8818699671708e4"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/VertexFrames.olean",
+      "bytes": 4561704,
+      "sha256": "84fe4d23053f880db211e322c25a82f2891df7e9f67656b546ea522c71f2fe84"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Foundation/VertexGauge.olean",
+      "bytes": 1568368,
+      "sha256": "2e0b65819e41774fbb814849d4958d9e9e44bd3327ba8f6113ac58f5f1536797"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Frames/AtomicFlags.olean",
+      "bytes": 438400,
+      "sha256": "97bd1c7f94474fbeb008bba891a707171cac4357622582405827ac926a45bd9f"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Frames/BandBases.olean",
+      "bytes": 1082664,
+      "sha256": "77c16abe72fb5bedf6edc750f73a7e8bf97794420553451d37c0a8808cdd3a3a"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Frames/BandGauges.olean",
+      "bytes": 313104,
+      "sha256": "cdc5944271205b3df3515c8c56c8e45d28c391cddaa595f00ee0134097c6ed6e"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Frames/CutFrames.olean",
+      "bytes": 737328,
+      "sha256": "eb4c2505a9c09519ec21f6b7b2295f9f69364ed22d445875297f6a1faee6d3bb"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Frames/Endpoints.olean",
+      "bytes": 698152,
+      "sha256": "989a0aeb8d7789f12423d9a593a8cd17e1fd70c27a26f2427132b948eb6ebc39"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Frames/GradeMaps.olean",
+      "bytes": 613856,
+      "sha256": "96c7f57157702ecae02e54fac39e9cb350d6dd4609e023048413ba96dbafc362"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Frames/Graded.olean",
+      "bytes": 734000,
+      "sha256": "a76943f59124a7a670e92708c60824676c93111cb00411d4c3103aaa429472e4"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Frames/MarkedFrames.olean",
+      "bytes": 176760,
+      "sha256": "74b15e3fdc9f1e9e3740d4ec5c54b2899dac4629b2cc64b65ce7d040c4a48a82"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Frames/Mirror.olean",
+      "bytes": 1208976,
+      "sha256": "83ca27fcdd0776fe8a74cb2adf5faa5188a11b91dd4ffc6ba0dc55868af7ca09"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Frames/NamedSeams.olean",
+      "bytes": 327680,
+      "sha256": "41f744e1023fac51d45d0ba6ff9e68a864243dfd6673d682ba84297aa8bf0d39"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Seams/BoundaryWords.olean",
+      "bytes": 1422392,
+      "sha256": "92ca3ca9236ebab72c0989bdaa7a1025394d2867e75995c8eb227949ba2ef0f1"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Seams/CutWords.olean",
+      "bytes": 1059632,
+      "sha256": "c7d4e2afc02ba08adecc59e44f07157cf74bc0f06c8099aab22c2cb4c570222f"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Seams/Handles.olean",
+      "bytes": 425672,
+      "sha256": "61c2f590331fedc63d0636eef487e6f681d66833850fc45fcd0f57dd4a73805d"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Seams/InverseSolution.olean",
+      "bytes": 950608,
+      "sha256": "0ef32d4bbc906664eb179edb439d75521c1432aaf317cc01214c4d8b35bf0f4f"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Seams/MarkedSurface.olean",
+      "bytes": 1068608,
+      "sha256": "26d7b5095e9b4af72d029fc2d111217cd29cca8408a6fbb45f9c37e3148dfad3"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Seams/ProducedDiagram.olean",
+      "bytes": 477008,
+      "sha256": "dba83359d0e0cd8a5341d417eb111f97123b28e7e7d9fc245f019a59b8238365"
+    },
+    {
+      "path": "AlgebraicGeometry/CharacterVarieties/Seams/ProducedEquations.olean",
+      "bytes": 284232,
+      "sha256": "7675531792937d6d56a11a2f8262fe984ea9c5a9221d1149763688d2f33ec6d1"
+    }
+  ]
+}

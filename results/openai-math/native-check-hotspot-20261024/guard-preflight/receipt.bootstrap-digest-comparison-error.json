@@ -1,0 +1,38 @@
+{
+  "schema": "theorem-os.frozen-native-def-source-preflight.v1",
+  "observedAt": "2026-10-24T06:56:32.516Z",
+  "candidateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-sync-def-candidate/Submission.lean",
+  "sourceSHA256": "f8f952feb2ac4894946e6f6cd4089e7e20320cc0312217597b91fde2e7e8f200",
+  "sourceBytes": 795637,
+  "baselineFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-canonical-baseline.lean",
+  "baselineSHA256": "0ec8e7e2fbe9ff7f2d4c849c7558c152e24d707d79943d6f7ac08d0b27fa98c9",
+  "activeRunId": "be2c8bbd-71c7-4dc5-aa21-1c3a7550a2c6",
+  "activeStateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/native-followup/result.json.runtime/state.json",
+  "runtime": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime",
+  "frozenSources": {
+    "src/solver/problem.ts": "70801c6350ca32702bea9190d8f4b9b8d7249d9cf86fbe889f9395aa9f589900",
+    "src/solver/cooperativeProof.ts": "85d890f18f286d3b28923fe3af2a9949a85f2c9172b3c7b0632c750cda2fdc99",
+    "src/math/leanSource.ts": "bb9363807be6aa78a8010cdab004143b8a3e244fb904d26664efa7dcdacf00d1",
+    "src/math/leanTask.ts": "4c4d547484d05b0a04f1b11286b2406483cb57d8ce6044c782ff731923229515"
+  },
+  "passed": false,
+  "leanInvoked": false,
+  "modelInvoked": false,
+  "activeRuntimeModified": false,
+  "activeStateModified": false,
+  "kernelAcceptance": false,
+  "nativeAcceptance": false,
+  "changedTheorems": 168,
+  "declarationCount": 251,
+  "candidateTheorems": 1,
+  "candidateDefinitions": 250,
+  "onlyAddedKeywordsChanged": true,
+  "allHeadersByteEquivalent": true,
+  "allBodiesByteIdentical": true,
+  "failedPhase": "bootstrap",
+  "error": {
+    "name": "AssertionError",
+    "message": "Expected values to be strictly equal:\n+ actual - expected\n\n+ '776e5201fa24ba3dba47f84d50336a9c3426372bd58f711b923b94219c4b632d'\n- '8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d'\n"
+  },
+  "durationSeconds": 0.183054238
+}

@@ -1,0 +1,187 @@
+{
+  "schema": "theorem-os.snaky-v8-kernel-progress-evidence.v1",
+  "observedAt": "2026-10-24T06:57:41.007390+00:00",
+  "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+  "nativeResultArchive": {
+    "sourcePath": "/tmp/mathematics/formal-verification-v1/6bf1330510cebbbc13abe1fdd34116a0e9237907eab276776d209714e4435dff.json",
+    "archivePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-v8-kernel-progress/formal-verification-cache.original.json",
+    "sha256": "b3c946ed60d9c819755f2c54268b5dd73eae1bce2b004cdfccb32ccb5597b9a5",
+    "byteIdenticalArchive": true,
+    "role": "read-only evidence archive, never installed as a new cache entry or native receipt"
+  },
+  "kernelEvidence": {
+    "status": "kernel_verified",
+    "receiptId": "lean-9d717a842be4b918425377eb",
+    "sessionId": "19b54abf-df07-4094-b8a3-71bf6e0254a6",
+    "checkId": "check-1",
+    "targetCommit": "ca79e2d6809ed552b43e1c344bd3141136142e3a",
+    "proofPath": "Submission.lean",
+    "theoremName": "OAI.SnakyConditional.snaky_winning_strategy_with_legal_states",
+    "checkedAt": 1792824828133,
+    "durationMs": 8072109,
+    "sourceDeclarationHash": "86440ec197f3e88a1cda1d22672ff67a6390425412b08d418dde27bba4c81614",
+    "statementHash": "9cf4184cb210eff2e77b59dcd3eac6be25461694b0d320baa9b500d5629acf3f",
+    "leanStatementHash": "9cf4184cb210eff2e77b59dcd3eac6be25461694b0d320baa9b500d5629acf3f",
+    "proofHash": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab",
+    "axioms": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "sorryCount": 0,
+    "admitCount": 0,
+    "goalsRemaining": 0,
+    "explicitProcessExitCodeInReceipt": null,
+    "processExitCodeClaim": "The result.results[0] receipt has no raw exit-code field; result.events check.kernel_checked explicitly records exitCode=0, signal=null, timedOut=false and aborted=false.",
+    "explicitProcessExitCodeInEvent": 0
+  },
+  "verifiedCommittedSource": {
+    "command": [
+      "git",
+      "show",
+      "ca79e2d6809ed552b43e1c344bd3141136142e3a:generated/problem/Submission.lean"
+    ],
+    "repository": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/workspace",
+    "bytes": 968784,
+    "sha256": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab",
+    "exactV8": true
+  },
+  "actualMergedSource": {
+    "path": "/tmp/math-check-Fmiyxm/worktree/generated/problem/Submission.lean",
+    "bytes": 967683,
+    "sha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+    "mtime": 1792824938.8723369,
+    "matchesPriorFrozenMergeReplay": true,
+    "sameNonBlankLinesAsGoalSource": true
+  },
+  "cachedEventsSummary": [
+    {
+      "kind": "session.opened",
+      "timestamp": 1792816756058,
+      "payload": {
+        "projectRoot": "/tmp/math-check-aIotR7/worktree/generated/problem",
+        "itemCount": 1,
+        "uniqueFileCount": 1
+      }
+    },
+    {
+      "kind": "file.opened",
+      "timestamp": 1792816756059,
+      "payload": {
+        "proofPath": "Submission.lean",
+        "proofHash": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab",
+        "bytes": 968784,
+        "checkCount": 1
+      }
+    },
+    {
+      "kind": "toolchain.resolved",
+      "timestamp": 1792816756059,
+      "payload": {
+        "source": null,
+        "severity": null
+      }
+    },
+    {
+      "kind": "check.draft_checked",
+      "timestamp": 1792816756094,
+      "payload": {
+        "proofPath": "Submission.lean",
+        "status": "accepted",
+        "sorryCount": 0,
+        "admitCount": 0,
+        "axioms": []
+      }
+    },
+    {
+      "kind": "diagnostic.emitted",
+      "timestamp": 1792824828132,
+      "payload": {
+        "source": "stdout",
+        "severity": "info"
+      }
+    },
+    {
+      "kind": "diagnostic.emitted",
+      "timestamp": 1792824828132,
+      "payload": {
+        "source": "stderr",
+        "severity": "warning"
+      }
+    },
+    {
+      "kind": "check.kernel_checked",
+      "timestamp": 1792824828133,
+      "payload": {
+        "source": null,
+        "severity": null
+      }
+    },
+    {
+      "kind": "receipt.published",
+      "timestamp": 1792824828133,
+      "payload": {
+        "receiptId": "lean-9d717a842be4b918425377eb",
+        "checkId": "check-1",
+        "proofPath": "Submission.lean",
+        "theoremName": "OAI.SnakyConditional.snaky_winning_strategy_with_legal_states",
+        "status": "kernel_verified"
+      }
+    },
+    {
+      "kind": "session.closed",
+      "timestamp": 1792824828151,
+      "payload": {
+        "status": "kernel_verified",
+        "resultCount": 1,
+        "durationMs": 8072109
+      }
+    }
+  ],
+  "nativeLogEvents": [
+    {
+      "event": "integration_queue_started",
+      "at": 1792816386074,
+      "waitedMs": 0
+    },
+    {
+      "event": "task_checked",
+      "at": 1792824901632,
+      "taskId": "v8_original_goal",
+      "passed": true,
+      "conditional": false,
+      "commit": "012b6908e15fdec29108ed8fe2f4ccaeba97e2f7"
+    },
+    {
+      "event": "integration_queue_started",
+      "at": 1792824901647,
+      "waitedMs": 0
+    }
+  ],
+  "nativeCheckpointCopied": false,
+  "runtimeModified": false,
+  "cacheModified": false,
+  "sourceModified": false,
+  "leanInvoked": false,
+  "nativeAcceptance": false,
+  "official": false,
+  "claimBoundary": "Current exact V8 original-goal kernel receipt is observed. Actual native publication, merged-source integration, whole-target check, fixed review, S3 and publisher comparator remain separate obligations.",
+  "updatedAt": "2026-10-24T07:01:08.871150+00:00",
+  "kernelProcessEvent": {
+    "schema": "deepscientist.mathematics.verification_event.v1",
+    "eventId": "b6189f7f-b9ec-435d-9a2e-64f9d95df2fd",
+    "sessionId": "19b54abf-df07-4094-b8a3-71bf6e0254a6",
+    "timestamp": 1792824828133,
+    "kind": "check.kernel_checked",
+    "payload": {
+      "proofPath": "Submission.lean",
+      "status": "kernel_verified",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "aborted": false,
+      "durationMs": 8072025
+    }
+  },
+  "integrationTransitionEvidence": "process-and-integration-transition.json"
+}
