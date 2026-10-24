@@ -10,6 +10,7 @@ TheoremOS 使用 `gpt-5.6-sol`、`xhigh`、每题 4 个 worker，完成 Q1–Q6 
 | Q4 | 1/1 | 13.01 | [Submission.lean](Q4/Submission.lean) | [verification.json](Q4/verification.json) |
 | Q5 | 1/1 | 19.25 | [Submission.lean](Q5/Submission.lean) | [verification.json](Q5/verification.json) |
 | Q6 | 1/1 | 49.36 | [Submission.lean](Q6/Submission.lean) | [verification.json](Q6/verification.json) |
+| **总计** | **15/15** | **285.55** | — | — |
 
 表内用时均按原始记录换算为分钟并保留两位小数。所选成功链的计时合计 **285.55分钟**，共 2680 次客户端确认成功的响应。每题对这些请求的时间区间取并集，合并并发重叠，再将六题相加；包含正常首 token 等待，排除工具、Lean、环境准备、修复等待、重试退避及失败或未确认响应。它不是全部请求时长之和，也不是运行墙钟时间。
 

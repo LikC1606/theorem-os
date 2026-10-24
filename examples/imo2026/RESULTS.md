@@ -4,19 +4,21 @@
 
 所有用时单位均为分钟，按原始记录分别换算并保留两位小数。✓ 表示本方最终验收或外部作者报告通过；单位统一后，各方计时口径仍有差异，不是统一预算下的速度排名。
 
+总用时优先采用原报告总计；本方使用原始精确记录，AxiomProver按逐题记录相加。各项独立取整，总计可能与显示值之和略有差异；≈ 表示作者给出的近似总计。MIDAS 1.1 仅计已解的 3 题。
+
 ## 相同形式化题面
 
 本方题面固定在 humanfia/imo2026@834c01f2ecac89b648759b1c95bc6180b0ede149。Humanfia、AxiomProver、Hardy Appendix、Dirac 的六份题面均与其逐字节一致；EonMath 仅多一行来源注释。以下主表对齐同一形式化题面。
 
-| 方法 | Q1 | Q2 | Q3 | Q4 | Q5 | Q6 | 通过题数 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| [TheoremOS + GPT-5.6](https://github.com/LikC1606/theorem-os/tree/main/examples/imo2026/results/20261024) | ✓ 17.68 | ✓ 72.26 | ✓ 114.00 | ✓ 13.01 | ✓ 19.25 | ✓ 49.36 | 6/6 |
-| [Humanfia + GPT-5.6](https://github.com/humanfia/hoa-qed/blob/1c918ec9a96c7751ce9c283304e1aebd7ffb19a3/imo2026/README.md) | ✓ 38.10 | ✓ 100.40 | ✓ 187.10 | ✓ 58.70 | ✓ 46.50 | ✓ 66.90 | 6/6 |
-| [Humanfia + Kimi-K3 / Codex](https://github.com/humanfia/hoa-qed/blob/1c918ec9a96c7751ce9c283304e1aebd7ffb19a3/imo2026/README.md) | ✓ 87.10 | ✓ 224.30 | ✓ 343.70 | ✓ 75.60 | ✓ 91.90 | ✓ 212.40 | 6/6 |
-| [AxiomProver](https://github.com/AxiomMath/IMO2026/blob/c5a6a089d06d3619afe7ff45c5ccab9e2a30d5d2/README.md) | ✓ 24.00 | ✓ 360.00 | ✓ 869.00 | ✓ 39.00 | ✓ 65.00 | ✓ 139.00 | 6/6 |
-| [Hardy（AxiomMath Appendix轨）](https://github.com/pramaana-labs/imo2026-lean/blob/788fddc53c463d5d40d4680fb9bfd7b0f96f1063/README.md) | ✓ 20.43 | ✓ 173.00 | ✓ 184.00 | ✓ 16.33 | ✓ 31.15 | ✓ 112.00 | 6/6 |
-| [Dirac](https://github.com/Boundless-Intuition/IMO2026/blob/37259237016275044e3905e8d537efd0eead74d2/README.md) | ✓ 29.08 | ✓ 80.30 | ✓ 130.47 | ✓ 15.98 | ✓ 18.18 | ✓ 164.08 | 6/6 |
-| [EonMath（文本+形式证明）](https://github.com/MechMath/IMO2026/blob/47ff510110dd400c98aee2ead3be0f53f7b8ba04/README.md) | ✓ 74.13 | ✓ 244.58 | ✓ 305.80 | ✓ 60.58 | ✓ 141.65 | ✓ 351.68 | 6/6 |
+| 方法 | Q1 | Q2 | Q3 | Q4 | Q5 | Q6 | 总用时（分钟） | 通过题数 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| [TheoremOS + GPT-5.6](https://github.com/LikC1606/theorem-os/tree/main/examples/imo2026/results/20261024) | ✓ 17.68 | ✓ 72.26 | ✓ 114.00 | ✓ 13.01 | ✓ 19.25 | ✓ 49.36 | 285.55 | 6/6 |
+| [Humanfia + GPT-5.6](https://github.com/humanfia/hoa-qed/blob/1c918ec9a96c7751ce9c283304e1aebd7ffb19a3/imo2026/README.md) | ✓ 38.10 | ✓ 100.40 | ✓ 187.10 | ✓ 58.70 | ✓ 46.50 | ✓ 66.90 | 497.70 | 6/6 |
+| [Humanfia + Kimi-K3 / Codex](https://github.com/humanfia/hoa-qed/blob/1c918ec9a96c7751ce9c283304e1aebd7ffb19a3/imo2026/README.md) | ✓ 87.10 | ✓ 224.30 | ✓ 343.70 | ✓ 75.60 | ✓ 91.90 | ✓ 212.40 | 1034.90 | 6/6 |
+| [AxiomProver](https://github.com/AxiomMath/IMO2026/blob/c5a6a089d06d3619afe7ff45c5ccab9e2a30d5d2/README.md) | ✓ 24.00 | ✓ 360.00 | ✓ 869.00 | ✓ 39.00 | ✓ 65.00 | ✓ 139.00 | 1496.00 | 6/6 |
+| [Hardy（AxiomMath Appendix轨）](https://github.com/pramaana-labs/imo2026-lean/blob/788fddc53c463d5d40d4680fb9bfd7b0f96f1063/README.md) | ✓ 20.43 | ✓ 173.00 | ✓ 184.00 | ✓ 16.33 | ✓ 31.15 | ✓ 112.00 | ≈537.00 | 6/6 |
+| [Dirac](https://github.com/Boundless-Intuition/IMO2026/blob/37259237016275044e3905e8d537efd0eead74d2/README.md) | ✓ 29.08 | ✓ 80.30 | ✓ 130.47 | ✓ 15.98 | ✓ 18.18 | ✓ 164.08 | 438.10 | 6/6 |
+| [EonMath（文本+形式证明）](https://github.com/MechMath/IMO2026/blob/47ff510110dd400c98aee2ead3be0f53f7b8ba04/README.md) | ✓ 74.13 | ✓ 244.58 | ✓ 305.80 | ✓ 60.58 | ✓ 141.65 | ✓ 351.68 | 1178.43 | 6/6 |
 
 ## 如何理解结果与用时
 
@@ -38,11 +40,11 @@
 
 下表涉及不同或尚未核验等价的形式化，不能视作本项目原始15目标的验收结果。MIDAS 1.1是1.2报告中的历史对照，未解出的三题没有披露失败预算；math-ai-org逐题仅标记Proved，具体模型、时间与预算未披露。未披露不记作失败。
 
-| 方法 | Q1 | Q2 | Q3 | Q4 | Q5 | Q6 | 通过题数 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| [MIDAS 1.2（不同形式化）](https://github.com/midas-intelligence/IMO2026/blob/b476065a0a88a56ef8bb98e7ae5a9b33d6d12fd9/README.md) | ✓ 35.00 | ✓ 141.00 | ✓ 238.00 | ✓ 35.00 | ✓ 53.00 | ✓ 88.00 | 6/6 |
-| [MIDAS 1.1（历史对照）](https://github.com/midas-intelligence/IMO2026/blob/b476065a0a88a56ef8bb98e7ae5a9b33d6d12fd9/README.md) | ✓ 154.00 | 未解出 | 未解出 | ✓ 84.00 | ✓ 431.00 | 未解出 | 3/6 |
-| [math-ai-org（方法未注明）](https://github.com/math-ai-org/IMO2026/blob/a8912f36ed4f0a658bf5cc640daf8b1f88a50f48/README.md) | Proved / 未披露用时 | Proved / 未披露用时 | Proved / 未披露用时 | Proved / 未披露用时 | Proved / 未披露用时 | Proved / 未披露用时 | 6/6 |
+| 方法 | Q1 | Q2 | Q3 | Q4 | Q5 | Q6 | 总用时（分钟） | 通过题数 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| [MIDAS 1.2（不同形式化）](https://github.com/midas-intelligence/IMO2026/blob/b476065a0a88a56ef8bb98e7ae5a9b33d6d12fd9/README.md) | ✓ 35.00 | ✓ 141.00 | ✓ 238.00 | ✓ 35.00 | ✓ 53.00 | ✓ 88.00 | 590.00 | 6/6 |
+| [MIDAS 1.1（历史对照）](https://github.com/midas-intelligence/IMO2026/blob/b476065a0a88a56ef8bb98e7ae5a9b33d6d12fd9/README.md) | ✓ 154.00 | 未解出 | 未解出 | ✓ 84.00 | ✓ 431.00 | 未解出 | 669.00（仅3题） | 3/6 |
+| [math-ai-org（方法未注明）](https://github.com/math-ai-org/IMO2026/blob/a8912f36ed4f0a658bf5cc640daf8b1f88a50f48/README.md) | Proved / 未披露用时 | Proved / 未披露用时 | Proved / 未披露用时 | Proved / 未披露用时 | Proved / 未披露用时 | Proved / 未披露用时 | 未披露 | 6/6 |
 
 另外发现 dots-IMO2026 和 claude-opus-5-imo2026 的公开解答文件；定点读取的内容为自然语言证明，未取得逐题形式化验收或独立判分证据，因此未填成Lean通过成绩。本次为有界公开检索，未收录不代表没有结果。
 

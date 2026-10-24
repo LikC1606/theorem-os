@@ -29,7 +29,9 @@
         13.01,
         19.25,
         49.36
-      ]
+      ],
+      "total_time_cell": "285.55",
+      "total_time_basis": "sum of exact per-question API interval-union microseconds, rounded once"
     },
     {
       "id": "humanfia_gpt56",
@@ -56,7 +58,9 @@
         58.7,
         46.5,
         66.9
-      ]
+      ],
+      "total_time_cell": "497.70",
+      "total_time_basis": "first-party reported total; not recomputed from rounded display cells"
     },
     {
       "id": "humanfia_kimi_k3_codex_reviewer",
@@ -83,7 +87,9 @@
         75.6,
         91.9,
         212.4
-      ]
+      ],
+      "total_time_cell": "1034.90",
+      "total_time_basis": "first-party reported total; not recomputed from rounded display cells"
     },
     {
       "id": "axiomprover",
@@ -110,7 +116,9 @@
         39.0,
         65.0,
         139.0
-      ]
+      ],
+      "total_time_cell": "1496.00",
+      "total_time_basis": "sum of six first-party reported per-question minutes"
     },
     {
       "id": "hardy-axiom",
@@ -137,7 +145,9 @@
         16.33,
         31.15,
         112.0
-      ]
+      ],
+      "total_time_cell": "≈537.00",
+      "total_time_basis": "first-party reported total; not recomputed from rounded display cells"
     },
     {
       "id": "dirac",
@@ -164,7 +174,9 @@
         15.98,
         18.18,
         164.08
-      ]
+      ],
+      "total_time_cell": "438.10",
+      "total_time_basis": "first-party reported total; not recomputed from rounded display cells"
     },
     {
       "id": "eonmath",
@@ -191,7 +203,9 @@
         60.58,
         141.65,
         351.68
-      ]
+      ],
+      "total_time_cell": "1178.43",
+      "total_time_basis": "first-party reported total; not recomputed from rounded display cells"
     }
   ],
   "supplementaryRows": [
@@ -220,7 +234,9 @@
         35.0,
         53.0,
         88.0
-      ]
+      ],
+      "total_time_cell": "590.00",
+      "total_time_basis": "first-party reported total; not recomputed from rounded display cells"
     },
     {
       "id": "midas11",
@@ -247,7 +263,9 @@
         84.0,
         431.0,
         null
-      ]
+      ],
+      "total_time_cell": "669.00（仅3题）",
+      "total_time_basis": "first-party total for the three solved questions only; failed-question budget not published"
     },
     {
       "id": "math-ai-org",
@@ -274,7 +292,9 @@
         null,
         null,
         null
-      ]
+      ],
+      "total_time_cell": "未披露",
+      "total_time_basis": "not published"
     }
   ],
   "excludedNaturalLanguageSources": [
