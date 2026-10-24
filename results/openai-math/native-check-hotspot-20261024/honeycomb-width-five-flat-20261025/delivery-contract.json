@@ -1,0 +1,23 @@
+{
+  "existingTaskId": "width_five_summability_ba0a1c09",
+  "theoremName": "OAI.PolynomialVacuumBridge.Corridor.width_five_summability_diagnostic",
+  "type": "Summable (OAI.PolynomialVacuumBridge.Corridor.weight (h := 5)) ∧ Summable (OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (h := 5))",
+  "dependsOn": [
+    "sums_reduction"
+  ],
+  "targetContractUnchanged": true,
+  "increment": "WidthFiveFlat.lean.inc",
+  "incrementSHA256": "1ea208c68cea9922489f77d3976d865b24f17a25b7ea4fcd42734473288e4291",
+  "fullCandidate": "project/Submission.lean",
+  "sourceSHA256": "ff2840a46faa26cc36d2391cfbc7ef9b961283aa3ae6d72ea8933b6d155b9350",
+  "guardPreflight": "source-preflight-02-result.json",
+  "compileResult": "kernel-compile-01-result.json",
+  "probeResult": "exact-types-02-result.json",
+  "probeOutput": "exact-types-02.stdout.log",
+  "localGuardPassed": true,
+  "localKernelPassed": true,
+  "nativeTaskProofAcceptance": false,
+  "canonicalIntegration": false,
+  "allHeightsProved": false,
+  "doNotCopyBuildArtifacts": true
+}

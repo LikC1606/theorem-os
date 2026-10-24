@@ -1,0 +1,11 @@
+{
+  "observedAt": "2026-10-24T18:12:16.296Z",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "editId": "honeycomb-width-five-context-repair-20261025",
+  "result": {
+    "id": "honeycomb-width-five-context-repair-20261025",
+    "status": "queued",
+    "baseVersion": "4f641701cefa6dcccfb351f087907d066a3d498a021aef23e586dc0a2503e7a5"
+  },
+  "nativeTaskAcceptanceAddedByQueue": false
+}

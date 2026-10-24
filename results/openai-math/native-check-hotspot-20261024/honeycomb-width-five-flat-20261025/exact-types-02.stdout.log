@@ -1,0 +1,144 @@
+OAI.PolynomialVacuumBridge.Corridor.widthFiveTable_checked : ∀ (w : List OAI.PolynomialVacuumBridge.Corridor.Vertex),
+  @Membership.mem (List OAI.PolynomialVacuumBridge.Corridor.Vertex)
+      (List (List OAI.PolynomialVacuumBridge.Corridor.Vertex))
+      (@List.instMembership (List OAI.PolynomialVacuumBridge.Corridor.Vertex))
+      OAI.PolynomialVacuumBridge.Corridor.widthFiveStates w →
+    OAI.PolynomialVacuumBridge.Corridor.widthFiveRowOK w
+'OAI.PolynomialVacuumBridge.Corridor.widthFiveTable_checked' depends on axioms: [propext, Classical.choice, Quot.sound]
+OAI.PolynomialVacuumBridge.Corridor.widthFiveCount_weighted : ∀ (n : Nat)
+  (w : List OAI.PolynomialVacuumBridge.Corridor.Vertex),
+  @Membership.mem (List OAI.PolynomialVacuumBridge.Corridor.Vertex)
+      (List (List OAI.PolynomialVacuumBridge.Corridor.Vertex))
+      (@List.instMembership (List OAI.PolynomialVacuumBridge.Corridor.Vertex))
+      OAI.PolynomialVacuumBridge.Corridor.widthFiveStates (OAI.PolynomialVacuumBridge.Corridor.widthFiveNormalize w) →
+    @LE.le Real Real.instLE (@Nat.cast Real Real.instNatCast (OAI.PolynomialVacuumBridge.Corridor.widthFiveCount w n))
+      (@HMul.hMul Real Real Real (@instHMul Real Real.instMul)
+        (@Nat.cast Real Real.instNatCast
+          (OAI.PolynomialVacuumBridge.Corridor.widthFivePotential
+            (OAI.PolynomialVacuumBridge.Corridor.widthFiveNormalize w)))
+        (@HPow.hPow Real Nat Real (@instHPow Real Nat (@NPow.toPow Real (@Monoid.toNPow Real Real.instMonoid)))
+          OAI.PolynomialVacuumBridge.Corridor.widthFiveBeta n))
+'OAI.PolynomialVacuumBridge.Corridor.widthFiveCount_weighted' depends on axioms: [propext, Classical.choice, Quot.sound]
+OAI.PolynomialVacuumBridge.Corridor.widthFivePath_mem_allPaths : ∀
+  (p : OAI.PolynomialVacuumBridge.Corridor.BridgePath (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5)))),
+  @Membership.mem (List OAI.PolynomialVacuumBridge.Corridor.Vertex)
+    (Finset (List OAI.PolynomialVacuumBridge.Corridor.Vertex))
+    (@SetLike.instMembership (Finset (List OAI.PolynomialVacuumBridge.Corridor.Vertex))
+      (List OAI.PolynomialVacuumBridge.Corridor.Vertex)
+      (@Finset.instSetLike (List OAI.PolynomialVacuumBridge.Corridor.Vertex)))
+    (OAI.PolynomialVacuumBridge.Corridor.widthFiveAllPaths
+      (@List.length OAI.PolynomialVacuumBridge.Corridor.Vertex
+        (@OAI.PolynomialVacuumBridge.Corridor.BridgePath.vertices
+          (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5))) p)))
+    (@OAI.PolynomialVacuumBridge.Corridor.BridgePath.vertices (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5)))
+      p)
+'OAI.PolynomialVacuumBridge.Corridor.widthFivePath_mem_allPaths' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+OAI.PolynomialVacuumBridge.Corridor.widthFivePath_card_real : ∀ (n : Nat)
+  (s :
+    Finset (OAI.PolynomialVacuumBridge.Corridor.BridgePath (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5))))),
+  (∀ (p : OAI.PolynomialVacuumBridge.Corridor.BridgePath (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5)))),
+      @Membership.mem
+          (OAI.PolynomialVacuumBridge.Corridor.BridgePath (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5))))
+          (Finset
+            (OAI.PolynomialVacuumBridge.Corridor.BridgePath (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5)))))
+          (@SetLike.instMembership
+            (Finset
+              (OAI.PolynomialVacuumBridge.Corridor.BridgePath
+                (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5)))))
+            (OAI.PolynomialVacuumBridge.Corridor.BridgePath (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5))))
+            (@Finset.instSetLike
+              (OAI.PolynomialVacuumBridge.Corridor.BridgePath
+                (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5))))))
+          s p →
+        @Eq Nat
+          (@List.length OAI.PolynomialVacuumBridge.Corridor.Vertex
+            (@OAI.PolynomialVacuumBridge.Corridor.BridgePath.vertices
+              (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5))) p))
+          n) →
+    @LE.le Real Real.instLE
+      (@Nat.cast Real Real.instNatCast
+        (@Finset.card
+          (OAI.PolynomialVacuumBridge.Corridor.BridgePath (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5)))) s))
+      (@HMul.hMul Real Real Real (@instHMul Real Real.instMul)
+        (@Nat.cast Real Real.instNatCast
+          (OAI.PolynomialVacuumBridge.Corridor.widthFivePotential
+            (OAI.PolynomialVacuumBridge.Corridor.widthFiveNormalize
+              (@List.cons OAI.PolynomialVacuumBridge.Corridor.Vertex
+                (OAI.PolynomialVacuumBridge.Corridor.Vertex.up (@OfNat.ofNat Int (nat_lit 0) (@instOfNat (nat_lit 0)))
+                  (@OfNat.ofNat Int (nat_lit 0) (@instOfNat (nat_lit 0))))
+                (@List.nil OAI.PolynomialVacuumBridge.Corridor.Vertex)))))
+        (@HPow.hPow Real Nat Real (@instHPow Real Nat (@NPow.toPow Real (@Monoid.toNPow Real Real.instMonoid)))
+          OAI.PolynomialVacuumBridge.Corridor.widthFiveBeta n))
+'OAI.PolynomialVacuumBridge.Corridor.widthFivePath_card_real' depends on axioms: [propext, Classical.choice, Quot.sound]
+OAI.PolynomialVacuumBridge.Corridor.widthFiveStripGrowthAtFive : ∃ C β,
+  And (@LE.le Real Real.instLE (@OfNat.ofNat Real (nat_lit 0) (@Zero.toOfNat0 Real Real.instZero)) C)
+    (And (@LE.le Real Real.instLE (@OfNat.ofNat Real (nat_lit 0) (@Zero.toOfNat0 Real Real.instZero)) β)
+      (And
+        (@LT.lt Real Real.instLT β
+          (@HMul.hMul Real Real Real (@instHMul Real Real.instMul)
+            (@OfNat.ofNat Real (nat_lit 2) (@instOfNatAtLeastTwo Real (nat_lit 2) Real.instNatCast ⋯))
+            (Real.cos
+              (@HDiv.hDiv Real Real Real (@instHDiv Real (@DivInvMonoid.toDiv Real Real.instDivInvMonoid)) Real.pi
+                (@OfNat.ofNat Real (nat_lit 8) (@instOfNatAtLeastTwo Real (nat_lit 8) Real.instNatCast ⋯))))))
+        (∀ (n : Nat)
+          (s :
+            Finset
+              (OAI.PolynomialVacuumBridge.Corridor.BridgePath
+                (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5))))),
+          (∀
+              (p :
+                OAI.PolynomialVacuumBridge.Corridor.BridgePath
+                  (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5)))),
+              @Membership.mem
+                  (OAI.PolynomialVacuumBridge.Corridor.BridgePath
+                    (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5))))
+                  (Finset
+                    (OAI.PolynomialVacuumBridge.Corridor.BridgePath
+                      (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5)))))
+                  (@SetLike.instMembership
+                    (Finset
+                      (OAI.PolynomialVacuumBridge.Corridor.BridgePath
+                        (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5)))))
+                    (OAI.PolynomialVacuumBridge.Corridor.BridgePath
+                      (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5))))
+                    (@Finset.instSetLike
+                      (OAI.PolynomialVacuumBridge.Corridor.BridgePath
+                        (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5))))))
+                  s p →
+                @Eq Nat
+                  (@List.length OAI.PolynomialVacuumBridge.Corridor.Vertex
+                    (@OAI.PolynomialVacuumBridge.Corridor.BridgePath.vertices
+                      (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5))) p))
+                  n) →
+            @LE.le Real Real.instLE
+              (@Nat.cast Real Real.instNatCast
+                (@Finset.card
+                  (OAI.PolynomialVacuumBridge.Corridor.BridgePath
+                    (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5))))
+                  s))
+              (@HMul.hMul Real Real Real (@instHMul Real Real.instMul) C
+                (@HPow.hPow Real Nat Real (@instHPow Real Nat (@NPow.toPow Real (@Monoid.toNPow Real Real.instMonoid)))
+                  β n)))))
+'OAI.PolynomialVacuumBridge.Corridor.widthFiveStripGrowthAtFive' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+OAI.PolynomialVacuumBridge.Corridor.width_five_summability_diagnostic : And
+  (@Summable Real
+    (OAI.PolynomialVacuumBridge.Corridor.BridgePath (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5))))
+    Real.instAddCommMonoid
+    (@UniformSpace.toTopologicalSpace Real (@PseudoMetricSpace.toUniformSpace Real Real.pseudoMetricSpace))
+    (@OAI.PolynomialVacuumBridge.Corridor.weight (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5))))
+    (SummationFilter.unconditional
+      (OAI.PolynomialVacuumBridge.Corridor.BridgePath (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5))))))
+  (@Summable Real
+    (OAI.PolynomialVacuumBridge.Corridor.BridgePath (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5))))
+    Real.instAddCommMonoid
+    (@UniformSpace.toTopologicalSpace Real (@PseudoMetricSpace.toUniformSpace Real Real.pseudoMetricSpace))
+    (@OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5))))
+    (SummationFilter.unconditional
+      (OAI.PolynomialVacuumBridge.Corridor.BridgePath (@OfNat.ofNat Nat (nat_lit 5) (instOfNatNat (nat_lit 5))))))
+'OAI.PolynomialVacuumBridge.Corridor.width_five_summability_diagnostic' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

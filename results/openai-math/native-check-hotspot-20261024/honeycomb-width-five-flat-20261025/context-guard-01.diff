@@ -1,0 +1,41 @@
+--- baseline residual context
++++ first flat candidate residual context
+@@ -23,6 +23,38 @@
+ ConfinedBridgePath (h : ℕ)
+ noncomputable confinedMass (h : ℕ) : ℝ
+ FiniteBridgeSums : Prop
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++]
++/-- Unconditional height-five summability, using a checked six-vertex memory. -/
+ finite_bridge_sums : FiniteBridgeSums
+ end PolynomialVacuumBridge.Corridor
+ end OAI

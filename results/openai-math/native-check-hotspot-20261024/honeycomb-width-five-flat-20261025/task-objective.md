@@ -1,0 +1,821 @@
+Deliver the same unconditional height-five theorem for the existing task width_five_summability_ba0a1c09, with the exact target type unchanged. The previous namespaced delivery was rejected before Lean by math_original_context_changed. Use the complete flat increment below, which passed the active fixed assertSolverProjectSources using the exact four-field SolverSourceConstraints snapshot, then passed a new full Lean compile in 75.58311117207631 seconds. A short Probe imported only the newly compiled module and printed six exact theorem types and their axiom lists; each list contains only propext, Classical.choice and Quot.sound. The explicit target has height 5 for both weight and firstLengthWeight.
+
+Insert this exact block once inside the already existing OAI.PolynomialVacuumBridge.Corridor namespace before the original finite_bridge_sums declaration. It adds no namespace/end/section/open/global option commands. All 102 helpers have unique widthFive-prefixed names, and both Decidable instances are explicitly named. Preserve indentation of the 31 table-closing brackets; top-level closing brackets and added documentation comments were also left in the sourceStructure context by the fixed parser and caused the old rejection. Do not add comments or wrappers outside declarations. If a previous rejected h5 block remains in the assigned worktree, replace only that added h5 block and h5 target with this exact flat block; preserve all canonical declarations and the open all-height original theorem. Check collisions and reuse exact matching flat helpers. Do not replace the full Submission with this block or the diagnostic baseline, and do not insert Probe queries into the guarded Submission.
+
+The mathematics is unchanged: a six-vertex window over genuine frozen-adjacency strip neighbors, 361 checked positive integer potential rows, translation invariance, an unconditional weighted count, full canonical Nodup-path coverage, finite-set injection, beta=1847/1000<2*cos(pi/8), and the integrated unconditional counting-to-summability helpers from sums_reduction. Ordinary kernel decide rechecks all local row inequalities; Python is not a proof oracle. No growth hypothesis or original all-height theorem is used. No new mathematics or height-six work is requested. Complete ordinary typed delivery so the independent host performs native acceptance and integration. Local preflight and kernel success do not themselves constitute a native TaskProof or OpenAI-hosted certification.
+
+New full-source SHA256 ff2840a46faa26cc36d2391cfbc7ef9b961283aa3ae6d72ea8933b6d155b9350; exact increment SHA256 1ea208c68cea9922489f77d3976d865b24f17a25b7ea4fcd42734473288e4291; Probe import module SHA256 22988f47cef22d04fd5986da37d635280cd03fcd8082604f32a0af80d3fd1baa. Lean 4.34.1, fixed Mathlib d13f23b723b8a846827a245b89c10fc7d3f11612, one CPU/thread, 32 GiB, maxHeartbeats=0; no wall/CPU/invocation cap. Do not rerun standalone checks on this byte-identical passed source for formatting or linter warnings.
+
+```lean
+
+def widthFiveInside : Vertex → Prop
+  | .up _ j => 0 ≤ j ∧ j < 5
+  | .down _ j => 0 ≤ j ∧ j < 5
+
+lemma widthFiveInside_iff (v : Vertex) : widthFiveInside v ↔ 0 ≤ layer v ∧ layer v < 5 := by
+  cases v <;> rfl
+
+instance widthFiveDecidableInside (v : Vertex) : Decidable (widthFiveInside v) := by
+  cases v <;> unfold widthFiveInside <;> infer_instance
+
+def widthFiveRawNeighbors : Vertex → Finset Vertex
+  | .up i j => {.down i (j-1), .down i j, .down (i-1) j}
+  | .down i j => {.up i (j+1), .up i j, .up (i+1) j}
+
+def widthFiveNeighbors (v : Vertex) : Finset Vertex := (widthFiveRawNeighbors v).filter widthFiveInside
+
+lemma widthFiveMem_neighbors {a b : Vertex} :
+    b ∈ widthFiveNeighbors a ↔ adjacent a b ∧ widthFiveInside b := by
+  cases a <;> cases b <;>
+    simp [widthFiveNeighbors, widthFiveRawNeighbors, adjacent, widthFiveInside, Vertex.up.injEq, Vertex.down.injEq] <;> omega
+
+def widthFiveShift (t : ℤ) : Vertex → Vertex
+  | .up i j => .up (t+i) j
+  | .down i j => .down (t+i) j
+
+lemma widthFiveShift_injective (t : ℤ) : Function.Injective (widthFiveShift t) := by
+  intro a b he
+  cases a <;> cases b <;>
+    simp [widthFiveShift, Vertex.up.injEq, Vertex.down.injEq] at he ⊢ <;> tauto
+
+lemma widthFiveInside_shift (t : ℤ) (v : Vertex) : widthFiveInside (widthFiveShift t v) ↔ widthFiveInside v := by
+  cases v <;> rfl
+
+lemma widthFiveNeighbors_shift (t : ℤ) (b : Vertex) :
+    widthFiveNeighbors (widthFiveShift t b) = (widthFiveNeighbors b).image (widthFiveShift t) := by
+  have hr : widthFiveRawNeighbors (widthFiveShift t b) = (widthFiveRawNeighbors b).image (widthFiveShift t) := by
+    cases b <;> simp [widthFiveRawNeighbors, widthFiveShift, add_sub_assoc, add_assoc]
+  simp only [widthFiveNeighbors, hr, Finset.filter_image, widthFiveInside_shift]
+
+def widthFiveLast (w : List Vertex) : Vertex := w.getLastD (.up 0 0)
+
+lemma widthFiveLast_eq_getLast {w : List Vertex} (hne : w ≠ []) :
+    widthFiveLast w = w.getLast hne := by
+  simp [widthFiveLast, List.getLast?_eq_some_getLast hne]
+
+lemma widthFiveLast_shift (t : ℤ) {w : List Vertex} (hne : w ≠ []) :
+    widthFiveLast (w.map (widthFiveShift t)) = widthFiveShift t (widthFiveLast w) := by
+  simp [widthFiveLast, List.getLast?_map, List.getLast?_eq_some_getLast hne]
+
+def widthFiveHorizontal : Vertex → ℤ
+  | .up i _ => i
+  | .down i _ => i
+
+def widthFiveOrigin (w : List Vertex) : ℤ := widthFiveHorizontal (widthFiveLast w)
+
+def widthFiveNormalize (w : List Vertex) : List Vertex := w.map (widthFiveShift (-widthFiveOrigin w))
+
+lemma widthFiveNormalize_shift (t : ℤ) {w : List Vertex} (hne : w ≠ []) :
+    widthFiveNormalize (w.map (widthFiveShift t)) = widthFiveNormalize w := by
+  have ho : widthFiveOrigin (w.map (widthFiveShift t)) = t + widthFiveOrigin w := by
+    unfold widthFiveOrigin
+    rw [widthFiveLast_shift t hne]
+    cases widthFiveLast w <;> rfl
+  simp only [widthFiveNormalize, ho, List.map_map]
+  apply List.map_congr_left
+  intro v _
+  cases v <;> simp [widthFiveShift]
+
+def widthFiveCandidates (w : List Vertex) : Finset Vertex :=
+  (widthFiveNeighbors (widthFiveLast w)).filter (fun c => c ∉ w)
+
+lemma widthFiveCandidates_shift (t : ℤ) {w : List Vertex} (hne : w ≠ []) :
+    widthFiveCandidates (w.map (widthFiveShift t)) = (widthFiveCandidates w).image (widthFiveShift t) := by
+  rw [widthFiveCandidates, widthFiveLast_shift t hne, widthFiveNeighbors_shift]
+  ext v
+  constructor
+  · intro h
+    obtain ⟨hin,hnot⟩ := Finset.mem_filter.mp h
+    obtain ⟨c,hc,rfl⟩ := Finset.mem_image.mp hin
+    apply Finset.mem_image.mpr
+    refine ⟨c, Finset.mem_filter.mpr ⟨hc, ?_⟩, rfl⟩
+    intro hcw
+    exact hnot (List.mem_map_of_mem hcw)
+  · intro h
+    obtain ⟨c,hc,rfl⟩ := Finset.mem_image.mp h
+    obtain ⟨hin,hnot⟩ := Finset.mem_filter.mp hc
+    apply Finset.mem_filter.mpr
+    refine ⟨Finset.mem_image.mpr ⟨c,hin,rfl⟩, ?_⟩
+    intro hcw
+    obtain ⟨d,hd,hde⟩ := List.mem_map.mp hcw
+    exact hnot ((widthFiveShift_injective t hde) ▸ hd)
+
+def widthFiveSlide (w : List Vertex) (c : Vertex) : List Vertex :=
+  (if w.length < 6 then w else w.tail) ++ [c]
+
+lemma widthFiveSlide_ne_nil (w : List Vertex) (c : Vertex) : widthFiveSlide w c ≠ [] := by
+  simp [widthFiveSlide]
+
+lemma widthFiveSlide_shift (t : ℤ) (w : List Vertex) (c : Vertex) :
+    widthFiveSlide (w.map (widthFiveShift t)) (widthFiveShift t c) = (widthFiveSlide w c).map (widthFiveShift t) := by
+  simp only [widthFiveSlide, List.length_map]
+  split_ifs <;> simp [List.map_append]
+
+def widthFiveCount (w : List Vertex) : ℕ → ℕ
+  | 0 => 1
+  | n+1 => ∑ c ∈ widthFiveCandidates w, widthFiveCount (widthFiveSlide w c) n
+
+lemma widthFiveCount_shift (t : ℤ) (n : ℕ) (w : List Vertex) (hne : w ≠ []) :
+    widthFiveCount (w.map (widthFiveShift t)) n = widthFiveCount w n := by
+  induction n generalizing w with
+  | zero => rfl
+  | succ n ih =>
+    rw [widthFiveCount, widthFiveCandidates_shift t hne, Finset.sum_image]
+    · apply Finset.sum_congr rfl
+      intro c _
+      rw [widthFiveSlide_shift]
+      exact ih _ (widthFiveSlide_ne_nil w c)
+    · intro c hc d hd he
+      exact widthFiveShift_injective t he
+
+
+def widthFiveTable0 : List (List Vertex × ℕ) := [
+  ([.up (0) 0], 2374603323719682490247505795183),
+  ([.up (0) 0, .down (0) 0], 2192946169455126779743571601851),
+  ([.up (1) 0, .down (0) 0], 2192946169455126779743571601851),
+  ([.up (-1) 0, .down (-1) 0, .up (0) 0], 1196823800357469959127362198127),
+  ([.up (0) 0, .down (0) 0, .up (0) 1], 2853547774626149203059014550491),
+  ([.up (1) 0, .down (0) 0, .up (0) 0], 1196823800357469959127362198127),
+  ([.up (1) 0, .down (0) 0, .up (0) 1], 2853547774626149203059014550491),
+  ([.up (-1) 0, .down (-1) 0, .up (0) 0, .down (0) 0], 2210533559260247014508237979939),
+  ([.up (0) 0, .down (0) 0, .up (0) 1, .down (0) 1], 2655101866512709734489499937378),
+  ([.up (1) 0, .down (0) 0, .up (0) 1, .down (0) 1], 2615400873221787843560499937378),
+  ([.up (1) 0, .down (1) 0, .up (1) 1, .down (0) 1], 2615400873221787843560499937378),
+  ([.up (2) 0, .down (1) 0, .up (1) 0, .down (0) 0], 2210533559260247014508237979939)
+  ]
+
+def widthFiveTable1 : List (List Vertex × ℕ) := [
+  ([.up (2) 0, .down (1) 0, .up (1) 1, .down (0) 1], 2655101866512709734489499937378),
+  ([.up (-2) 0, .down (-2) 0, .up (-1) 0, .down (-1) 0, .up (0) 0], 1258124424490280717941286883036),
+  ([.up (-1) 0, .down (-1) 0, .up (-1) 1, .down (-1) 1, .up (0) 1], 2030759268254691082659042093089),
+  ([.up (-1) 0, .down (-1) 0, .up (0) 0, .down (0) 0, .up (0) 1], 2824731059463395517855428665910),
+  ([.up (0) 0, .down (-1) 0, .up (-1) 1, .down (-1) 1, .up (0) 1], 1957431533646358350113179093089),
+  ([.up (0) 0, .down (0) 0, .up (0) 1, .down (0) 1, .up (0) 2], 2873213879194283796943064291248),
+  ([.up (1) 0, .down (0) 0, .up (0) 1, .down (0) 1, .up (0) 2], 2873213879194283796943064291248),
+  ([.up (1) 0, .down (1) 0, .up (1) 1, .down (0) 1, .up (0) 1], 1957431533646358350113179093089),
+  ([.up (1) 0, .down (1) 0, .up (1) 1, .down (0) 1, .up (0) 2], 2873213879194283796943064291248),
+  ([.up (2) 0, .down (1) 0, .up (1) 0, .down (0) 0, .up (0) 0], 1258124424490280717941286883036),
+  ([.up (2) 0, .down (1) 0, .up (1) 0, .down (0) 0, .up (0) 1], 2824731059463395517855428665910),
+  ([.up (2) 0, .down (1) 0, .up (1) 1, .down (0) 1, .up (0) 1], 2030759268254691082659042093089)
+  ]
+
+def widthFiveTable2 : List (List Vertex × ℕ) := [
+  ([.up (2) 0, .down (1) 0, .up (1) 1, .down (0) 1, .up (0) 2], 2873213879194283796943064291248),
+  ([.up (-2) 0, .down (-2) 0, .up (-1) 0, .down (-1) 0, .up (0) 0, .down (0) 0], 2323755812033548486037556872967),
+  ([.up (-2) 1, .down (-2) 0, .up (-1) 0, .down (-1) 0, .up (0) 0, .down (0) 0], 2323755812033548486037556872967),
+  ([.up (-2) 1, .down (-2) 1, .up (-1) 1, .down (-1) 0, .up (0) 0, .down (0) 0], 2137778781428390588108556872967),
+  ([.up (-2) 1, .down (-2) 1, .up (-1) 1, .down (-1) 1, .up (0) 1, .down (0) 0], 1267436670724753038704693872967),
+  ([.up (-2) 1, .down (-2) 1, .up (-1) 1, .down (-1) 1, .up (0) 1, .down (0) 1], 2719015772532152021441419872967),
+  ([.up (-2) 2, .down (-2) 1, .up (-1) 1, .down (-1) 0, .up (0) 0, .down (0) 0], 2137778781428390588108556872967),
+  ([.up (-2) 2, .down (-2) 1, .up (-1) 1, .down (-1) 1, .up (0) 1, .down (0) 0], 1267436670724753038704693872967),
+  ([.up (-2) 2, .down (-2) 1, .up (-1) 1, .down (-1) 1, .up (0) 1, .down (0) 1], 2719015772532152021441419872967),
+  ([.up (-2) 2, .down (-2) 2, .up (-1) 2, .down (-1) 1, .up (0) 1, .down (0) 0], 1453413701329910936633693872967),
+  ([.up (-2) 2, .down (-2) 2, .up (-1) 2, .down (-1) 1, .up (0) 1, .down (0) 1], 2529344741926994123512419872967),
+  ([.up (-2) 2, .down (-2) 2, .up (-1) 2, .down (-1) 2, .up (0) 2, .down (0) 1], 2210507177606522109512419872967)
+  ]
+
+def widthFiveTable3 : List (List Vertex × ℕ) := [
+  ([.up (-2) 2, .down (-2) 2, .up (-1) 2, .down (-1) 2, .up (0) 2, .down (0) 2], 2710195842315500035441419872967),
+  ([.up (-2) 3, .down (-2) 2, .up (-1) 2, .down (-1) 1, .up (0) 1, .down (0) 0], 1453413701329910936633693872967),
+  ([.up (-2) 3, .down (-2) 2, .up (-1) 2, .down (-1) 1, .up (0) 1, .down (0) 1], 2529344741926994123512419872967),
+  ([.up (-2) 3, .down (-2) 2, .up (-1) 2, .down (-1) 2, .up (0) 2, .down (0) 1], 2210507177606522109512419872967),
+  ([.up (-2) 3, .down (-2) 2, .up (-1) 2, .down (-1) 2, .up (0) 2, .down (0) 2], 2710195842315500035441419872967),
+  ([.up (-2) 3, .down (-2) 3, .up (-1) 3, .down (-1) 2, .up (0) 2, .down (0) 1], 2400178208211680007441419872967),
+  ([.up (-2) 3, .down (-2) 3, .up (-1) 3, .down (-1) 2, .up (0) 2, .down (0) 2], 2542735629710342137512419872967),
+  ([.up (-2) 3, .down (-2) 3, .up (-1) 3, .down (-1) 3, .up (0) 3, .down (0) 2], 2725801690863466137512419872967),
+  ([.up (-2) 3, .down (-2) 3, .up (-1) 3, .down (-1) 3, .up (0) 3, .down (0) 3], 2241191740168712225583419872967),
+  ([.up (-2) 4, .down (-2) 3, .up (-1) 3, .down (-1) 2, .up (0) 2, .down (0) 1], 2400178208211680007441419872967),
+  ([.up (-2) 4, .down (-2) 3, .up (-1) 3, .down (-1) 2, .up (0) 2, .down (0) 2], 2542735629710342137512419872967),
+  ([.up (-2) 4, .down (-2) 3, .up (-1) 3, .down (-1) 3, .up (0) 3, .down (0) 2], 2725801690863466137512419872967)
+  ]
+
+def widthFiveTable4 : List (List Vertex × ℕ) := [
+  ([.up (-2) 4, .down (-2) 3, .up (-1) 3, .down (-1) 3, .up (0) 3, .down (0) 3], 2241191740168712225583419872967),
+  ([.up (-2) 4, .down (-2) 4, .up (-1) 4, .down (-1) 3, .up (0) 3, .down (0) 2], 2893261903468624035441419872967),
+  ([.up (-2) 4, .down (-2) 4, .up (-1) 4, .down (-1) 3, .up (0) 3, .down (0) 3], 2124440210774835327654419872967),
+  ([.up (-2) 4, .down (-2) 4, .up (-1) 4, .down (-1) 4, .up (0) 4, .down (0) 3], 2831243620824904137512419872967),
+  ([.up (-2) 4, .down (-2) 4, .up (-1) 4, .down (-1) 4, .up (0) 4, .down (0) 4], 1389704663166353495692484911967),
+  ([.up (-1) 0, .down (-1) 0, .up (-1) 1, .down (-1) 1, .up (0) 1, .down (0) 0], 1031796595934262408229830872967),
+  ([.up (-1) 0, .down (-1) 0, .up (-1) 1, .down (-1) 1, .up (0) 1, .down (0) 1], 2719015772532152021441419872967),
+  ([.up (-1) 0, .down (-1) 0, .up (0) 0, .down (0) 0, .up (0) 1, .down (0) 1], 2742680462955152021441419872967),
+  ([.up (-1) 1, .down (-1) 0, .up (0) 0, .down (0) 0, .up (0) 1, .down (0) 1], 2742680462955152021441419872967),
+  ([.up (-1) 1, .down (-1) 1, .up (-1) 2, .down (-1) 2, .up (0) 2, .down (0) 1], 1869208164924795472037556872967),
+  ([.up (-1) 1, .down (-1) 1, .up (-1) 2, .down (-1) 2, .up (0) 2, .down (0) 2], 2710195842315500035441419872967),
+  ([.up (-1) 1, .down (-1) 1, .up (0) 1, .down (0) 1, .up (0) 2, .down (0) 2], 2717889842315500035441419872967)
+  ]
+
+def widthFiveTable5 : List (List Vertex × ℕ) := [
+  ([.up (-1) 2, .down (-1) 1, .up (-1) 1, .down (-1) 0, .up (0) 0, .down (0) 0], 1732068387900663950633693872967),
+  ([.up (-1) 2, .down (-1) 1, .up (0) 1, .down (0) 1, .up (0) 2, .down (0) 2], 2717889842315500035441419872967),
+  ([.up (-1) 2, .down (-1) 2, .up (-1) 3, .down (-1) 3, .up (0) 3, .down (0) 2], 2331479297335739500037556872967),
+  ([.up (-1) 2, .down (-1) 2, .up (-1) 3, .down (-1) 3, .up (0) 3, .down (0) 3], 2241191740168712225583419872967),
+  ([.up (-1) 2, .down (-1) 2, .up (0) 2, .down (0) 1, .up (0) 1, .down (0) 0], 1453413701329910936633693872967),
+  ([.up (-1) 2, .down (-1) 2, .up (0) 2, .down (0) 2, .up (0) 3, .down (0) 3], 2239191740168712225583419872967),
+  ([.up (-1) 3, .down (-1) 2, .up (-1) 2, .down (-1) 1, .up (0) 1, .down (0) 0], 1453413701329910936633693872967),
+  ([.up (-1) 3, .down (-1) 2, .up (-1) 2, .down (-1) 1, .up (0) 1, .down (0) 1], 2168055984399267486037556872967),
+  ([.up (-1) 3, .down (-1) 2, .up (0) 2, .down (0) 1, .up (0) 1, .down (0) 0], 1453413701329910936633693872967),
+  ([.up (-1) 3, .down (-1) 2, .up (0) 2, .down (0) 2, .up (0) 3, .down (0) 3], 2239191740168712225583419872967),
+  ([.up (-1) 3, .down (-1) 3, .up (-1) 4, .down (-1) 4, .up (0) 4, .down (0) 3], 2443744045297177500037556872967),
+  ([.up (-1) 3, .down (-1) 3, .up (-1) 4, .down (-1) 4, .up (0) 4, .down (0) 4], 1389704663166353495692484911967)
+  ]
+
+def widthFiveTable6 : List (List Vertex × ℕ) := [
+  ([.up (-1) 3, .down (-1) 3, .up (0) 3, .down (0) 2, .up (0) 2, .down (0) 1], 2400178208211680007441419872967),
+  ([.up (-1) 3, .down (-1) 3, .up (0) 3, .down (0) 3, .up (0) 4, .down (0) 4], 1302548718063398488692484911967),
+  ([.up (-1) 4, .down (-1) 3, .up (-1) 3, .down (-1) 2, .up (0) 2, .down (0) 1], 2400178208211680007441419872967),
+  ([.up (-1) 4, .down (-1) 3, .up (-1) 3, .down (-1) 2, .up (0) 2, .down (0) 2], 2288558238605177500037556872967),
+  ([.up (-1) 4, .down (-1) 3, .up (0) 3, .down (0) 2, .up (0) 2, .down (0) 1], 2400178208211680007441419872967),
+  ([.up (-1) 4, .down (-1) 3, .up (0) 3, .down (0) 3, .up (0) 4, .down (0) 4], 1302548718063398488692484911967),
+  ([.up (-1) 4, .down (-1) 4, .up (0) 4, .down (0) 3, .up (0) 3, .down (0) 2], 2893261903468624035441419872967),
+  ([.up (0) 0, .down (-1) 0, .up (-1) 1, .down (-1) 1, .up (0) 1, .down (0) 0], 896360270112671851217621911967),
+  ([.up (0) 0, .down (-1) 0, .up (-1) 1, .down (-1) 1, .up (0) 1, .down (0) 1], 2719015772532152021441419872967),
+  ([.up (0) 0, .down (0) 0, .up (0) 1, .down (0) 1, .up (0) 2, .down (0) 2], 2717889842315500035441419872967),
+  ([.up (0) 0, .down (0) 0, .up (1) 0, .down (1) 0, .up (1) 1, .down (0) 1], 2474597803873739500037556872967),
+  ([.up (0) 1, .down (-1) 1, .up (-1) 1, .down (-1) 0, .up (0) 0, .down (0) 0], 936509671900952851217621911967)
+  ]
+
+def widthFiveTable7 : List (List Vertex × ℕ) := [
+  ([.up (0) 1, .down (-1) 1, .up (-1) 2, .down (-1) 2, .up (0) 2, .down (0) 1], 1367742523553556386621484911967),
+  ([.up (0) 1, .down (-1) 1, .up (-1) 2, .down (-1) 2, .up (0) 2, .down (0) 2], 2710195842315500035441419872967),
+  ([.up (0) 1, .down (0) 0, .up (1) 0, .down (1) 0, .up (1) 1, .down (0) 1], 1682886087874028400621484911967),
+  ([.up (0) 1, .down (0) 1, .up (0) 2, .down (0) 2, .up (0) 3, .down (0) 3], 2239191740168712225583419872967),
+  ([.up (0) 1, .down (0) 1, .up (1) 1, .down (1) 0, .up (1) 0, .down (0) 0], 936509671900952851217621911967),
+  ([.up (0) 1, .down (0) 1, .up (1) 1, .down (1) 1, .up (1) 2, .down (0) 2], 2247637179874615500037556872967),
+  ([.up (0) 2, .down (-1) 2, .up (-1) 2, .down (-1) 1, .up (0) 1, .down (0) 0], 1453413701329910936633693872967),
+  ([.up (0) 2, .down (-1) 2, .up (-1) 2, .down (-1) 1, .up (0) 1, .down (0) 1], 1367742523553556386621484911967),
+  ([.up (0) 2, .down (-1) 2, .up (-1) 3, .down (-1) 3, .up (0) 3, .down (0) 2], 1604178962182028400621484911967),
+  ([.up (0) 2, .down (-1) 2, .up (-1) 3, .down (-1) 3, .up (0) 3, .down (0) 3], 2241191740168712225583419872967),
+  ([.up (0) 2, .down (0) 1, .up (1) 1, .down (1) 0, .up (1) 0, .down (0) 0], 1732068387900663950633693872967),
+  ([.up (0) 2, .down (0) 1, .up (1) 1, .down (1) 1, .up (1) 2, .down (0) 2], 1447323719028904400621484911967)
+  ]
+
+def widthFiveTable8 : List (List Vertex × ℕ) := [
+  ([.up (0) 2, .down (0) 2, .up (0) 3, .down (0) 3, .up (0) 4, .down (0) 4], 1302548718063398488692484911967),
+  ([.up (0) 2, .down (0) 2, .up (1) 2, .down (1) 1, .up (1) 1, .down (0) 1], 1367742523553556386621484911967),
+  ([.up (0) 2, .down (0) 2, .up (1) 2, .down (1) 2, .up (1) 3, .down (0) 3], 1666586316035827690179556872967),
+  ([.up (0) 3, .down (-1) 3, .up (-1) 3, .down (-1) 2, .up (0) 2, .down (0) 1], 2400178208211680007441419872967),
+  ([.up (0) 3, .down (-1) 3, .up (-1) 3, .down (-1) 2, .up (0) 2, .down (0) 2], 1602178962182028400621484911967),
+  ([.up (0) 3, .down (-1) 3, .up (-1) 4, .down (-1) 4, .up (0) 4, .down (0) 3], 1608396948451466400621484911967),
+  ([.up (0) 3, .down (-1) 3, .up (-1) 4, .down (-1) 4, .up (0) 4, .down (0) 4], 1389704663166353495692484911967),
+  ([.up (0) 3, .down (0) 2, .up (0) 2, .down (0) 1, .up (0) 1, .down (0) 0], 1453413701329910936633693872967),
+  ([.up (0) 3, .down (0) 2, .up (1) 2, .down (1) 1, .up (1) 1, .down (0) 1], 2168055984399267486037556872967),
+  ([.up (0) 3, .down (0) 2, .up (1) 2, .down (1) 2, .up (1) 3, .down (0) 3], 980207039612678590763484911967),
+  ([.up (0) 3, .down (0) 3, .up (1) 3, .down (1) 2, .up (1) 2, .down (0) 2], 1602178962182028400621484911967),
+  ([.up (0) 3, .down (0) 3, .up (1) 3, .down (1) 3, .up (1) 4, .down (0) 4], 720378111930513953288621911967)
+  ]
+
+def widthFiveTable9 : List (List Vertex × ℕ) := [
+  ([.up (0) 4, .down (-1) 4, .up (-1) 4, .down (-1) 3, .up (0) 3, .down (0) 2], 2893261903468624035441419872967),
+  ([.up (0) 4, .down (-1) 4, .up (-1) 4, .down (-1) 3, .up (0) 3, .down (0) 3], 1598291539451466400621484911967),
+  ([.up (0) 4, .down (0) 3, .up (0) 3, .down (0) 2, .up (0) 2, .down (0) 1], 2400178208211680007441419872967),
+  ([.up (0) 4, .down (0) 3, .up (1) 3, .down (1) 2, .up (1) 2, .down (0) 2], 2288558238605177500037556872967),
+  ([.up (0) 4, .down (0) 3, .up (1) 3, .down (1) 3, .up (1) 4, .down (0) 4], 250150893792477758801549950967),
+  ([.up (0) 4, .down (0) 4, .up (1) 4, .down (1) 3, .up (1) 3, .down (0) 3], 1598291539451466400621484911967),
+  ([.up (1) 0, .down (0) 0, .up (0) 1, .down (0) 1, .up (0) 2, .down (0) 2], 2717889842315500035441419872967),
+  ([.up (1) 0, .down (1) 0, .up (1) 1, .down (0) 1, .up (0) 1, .down (0) 0], 896360270112671851217621911967),
+  ([.up (1) 0, .down (1) 0, .up (1) 1, .down (0) 1, .up (0) 2, .down (0) 2], 2588936192556342137512419872967),
+  ([.up (1) 0, .down (1) 0, .up (1) 1, .down (1) 1, .up (1) 2, .down (0) 2], 2588936192556342137512419872967),
+  ([.up (1) 1, .down (0) 1, .up (0) 2, .down (0) 2, .up (0) 3, .down (0) 3], 2239191740168712225583419872967),
+  ([.up (1) 1, .down (1) 0, .up (1) 0, .down (0) 0, .up (0) 1, .down (0) 1], 1682886087874028400621484911967)
+  ]
+
+def widthFiveTable10 : List (List Vertex × ℕ) := [
+  ([.up (1) 1, .down (1) 1, .up (1) 2, .down (0) 2, .up (0) 2, .down (0) 1], 1367742523553556386621484911967),
+  ([.up (1) 1, .down (1) 1, .up (1) 2, .down (0) 2, .up (0) 3, .down (0) 3], 2060908709563554327654419872967),
+  ([.up (1) 1, .down (1) 1, .up (1) 2, .down (1) 2, .up (1) 3, .down (0) 3], 2060908709563554327654419872967),
+  ([.up (1) 2, .down (0) 2, .up (0) 2, .down (0) 1, .up (0) 1, .down (0) 0], 1453413701329910936633693872967),
+  ([.up (1) 2, .down (0) 2, .up (0) 3, .down (0) 3, .up (0) 4, .down (0) 4], 1302548718063398488692484911967),
+  ([.up (1) 2, .down (1) 1, .up (1) 1, .down (0) 1, .up (0) 1, .down (0) 0], 1267436670724753038704693872967),
+  ([.up (1) 2, .down (1) 1, .up (1) 1, .down (0) 1, .up (0) 2, .down (0) 2], 1447323719028904400621484911967),
+  ([.up (1) 2, .down (1) 1, .up (1) 1, .down (1) 0, .up (1) 0, .down (0) 0], 2137778781428390588108556872967),
+  ([.up (1) 2, .down (1) 2, .up (1) 3, .down (0) 3, .up (0) 3, .down (0) 2], 1604178962182028400621484911967),
+  ([.up (1) 2, .down (1) 2, .up (1) 3, .down (0) 3, .up (0) 4, .down (0) 4], 1108877687458240590763484911967),
+  ([.up (1) 2, .down (1) 2, .up (1) 3, .down (1) 3, .up (1) 4, .down (0) 4], 1108877687458240590763484911967),
+  ([.up (1) 3, .down (0) 3, .up (0) 3, .down (0) 2, .up (0) 2, .down (0) 1], 2400178208211680007441419872967)
+  ]
+
+def widthFiveTable11 : List (List Vertex × ℕ) := [
+  ([.up (1) 3, .down (1) 2, .up (1) 2, .down (0) 2, .up (0) 2, .down (0) 1], 2210507177606522109512419872967),
+  ([.up (1) 3, .down (1) 2, .up (1) 2, .down (0) 2, .up (0) 3, .down (0) 3], 980207039612678590763484911967),
+  ([.up (1) 3, .down (1) 2, .up (1) 2, .down (1) 1, .up (1) 1, .down (0) 1], 2529344741926994123512419872967),
+  ([.up (1) 3, .down (1) 3, .up (1) 4, .down (0) 4, .up (0) 4, .down (0) 3], 1608396948451466400621484911967),
+  ([.up (1) 4, .down (0) 4, .up (0) 4, .down (0) 3, .up (0) 3, .down (0) 2], 2893261903468624035441419872967),
+  ([.up (1) 4, .down (1) 3, .up (1) 3, .down (0) 3, .up (0) 3, .down (0) 2], 2725801690863466137512419872967),
+  ([.up (1) 4, .down (1) 3, .up (1) 3, .down (0) 3, .up (0) 4, .down (0) 4], 250150893792477758801549950967),
+  ([.up (1) 4, .down (1) 3, .up (1) 3, .down (1) 2, .up (1) 2, .down (0) 2], 2542735629710342137512419872967),
+  ([.up (2) 0, .down (1) 0, .up (1) 0, .down (0) 0, .up (0) 1, .down (0) 1], 2474597803873739500037556872967),
+  ([.up (2) 0, .down (1) 0, .up (1) 1, .down (0) 1, .up (0) 1, .down (0) 0], 1031796595934262408229830872967),
+  ([.up (2) 0, .down (1) 0, .up (1) 1, .down (0) 1, .up (0) 2, .down (0) 2], 2588936192556342137512419872967),
+  ([.up (2) 0, .down (1) 0, .up (1) 1, .down (1) 1, .up (1) 2, .down (0) 2], 2588936192556342137512419872967)
+  ]
+
+def widthFiveTable12 : List (List Vertex × ℕ) := [
+  ([.up (2) 0, .down (2) 0, .up (2) 1, .down (1) 1, .up (1) 1, .down (0) 1], 2719015772532152021441419872967),
+  ([.up (2) 0, .down (2) 0, .up (2) 1, .down (1) 1, .up (1) 2, .down (0) 2], 2717889842315500035441419872967),
+  ([.up (2) 1, .down (1) 1, .up (1) 1, .down (0) 1, .up (0) 1, .down (0) 0], 1267436670724753038704693872967),
+  ([.up (2) 1, .down (1) 1, .up (1) 1, .down (0) 1, .up (0) 2, .down (0) 2], 2247637179874615500037556872967),
+  ([.up (2) 1, .down (1) 1, .up (1) 1, .down (1) 0, .up (1) 0, .down (0) 0], 2137778781428390588108556872967),
+  ([.up (2) 1, .down (1) 1, .up (1) 2, .down (0) 2, .up (0) 2, .down (0) 1], 1869208164924795472037556872967),
+  ([.up (2) 1, .down (1) 1, .up (1) 2, .down (0) 2, .up (0) 3, .down (0) 3], 2060908709563554327654419872967),
+  ([.up (2) 1, .down (1) 1, .up (1) 2, .down (1) 2, .up (1) 3, .down (0) 3], 2060908709563554327654419872967),
+  ([.up (2) 1, .down (2) 0, .up (2) 0, .down (1) 0, .up (1) 0, .down (0) 0], 2323755812033548486037556872967),
+  ([.up (2) 1, .down (2) 0, .up (2) 0, .down (1) 0, .up (1) 1, .down (0) 1], 2742680462955152021441419872967),
+  ([.up (2) 1, .down (2) 1, .up (2) 2, .down (1) 2, .up (1) 2, .down (0) 2], 2710195842315500035441419872967),
+  ([.up (2) 1, .down (2) 1, .up (2) 2, .down (1) 2, .up (1) 3, .down (0) 3], 2239191740168712225583419872967)
+  ]
+
+def widthFiveTable13 : List (List Vertex × ℕ) := [
+  ([.up (2) 2, .down (1) 2, .up (1) 2, .down (0) 2, .up (0) 2, .down (0) 1], 2210507177606522109512419872967),
+  ([.up (2) 2, .down (1) 2, .up (1) 2, .down (0) 2, .up (0) 3, .down (0) 3], 1666586316035827690179556872967),
+  ([.up (2) 2, .down (1) 2, .up (1) 2, .down (1) 1, .up (1) 1, .down (0) 1], 2529344741926994123512419872967),
+  ([.up (2) 2, .down (1) 2, .up (1) 3, .down (0) 3, .up (0) 3, .down (0) 2], 2331479297335739500037556872967),
+  ([.up (2) 2, .down (1) 2, .up (1) 3, .down (0) 3, .up (0) 4, .down (0) 4], 1108877687458240590763484911967),
+  ([.up (2) 2, .down (1) 2, .up (1) 3, .down (1) 3, .up (1) 4, .down (0) 4], 1108877687458240590763484911967),
+  ([.up (2) 2, .down (2) 1, .up (2) 1, .down (1) 1, .up (1) 1, .down (0) 1], 2719015772532152021441419872967),
+  ([.up (2) 2, .down (2) 1, .up (2) 1, .down (1) 1, .up (1) 2, .down (0) 2], 2717889842315500035441419872967),
+  ([.up (2) 2, .down (2) 2, .up (2) 3, .down (1) 3, .up (1) 3, .down (0) 3], 2241191740168712225583419872967),
+  ([.up (2) 2, .down (2) 2, .up (2) 3, .down (1) 3, .up (1) 4, .down (0) 4], 1302548718063398488692484911967),
+  ([.up (2) 3, .down (1) 3, .up (1) 3, .down (0) 3, .up (0) 3, .down (0) 2], 2725801690863466137512419872967),
+  ([.up (2) 3, .down (1) 3, .up (1) 3, .down (0) 3, .up (0) 4, .down (0) 4], 720378111930513953288621911967)
+  ]
+
+def widthFiveTable14 : List (List Vertex × ℕ) := [
+  ([.up (2) 3, .down (1) 3, .up (1) 3, .down (1) 2, .up (1) 2, .down (0) 2], 2542735629710342137512419872967),
+  ([.up (2) 3, .down (1) 3, .up (1) 4, .down (0) 4, .up (0) 4, .down (0) 3], 2443744045297177500037556872967),
+  ([.up (2) 3, .down (2) 2, .up (2) 2, .down (1) 2, .up (1) 2, .down (0) 2], 2710195842315500035441419872967),
+  ([.up (2) 3, .down (2) 2, .up (2) 2, .down (1) 2, .up (1) 3, .down (0) 3], 2239191740168712225583419872967),
+  ([.up (2) 3, .down (2) 3, .up (2) 4, .down (1) 4, .up (1) 4, .down (0) 4], 1389704663166353495692484911967),
+  ([.up (2) 4, .down (1) 4, .up (1) 4, .down (0) 4, .up (0) 4, .down (0) 3], 2831243620824904137512419872967),
+  ([.up (2) 4, .down (1) 4, .up (1) 4, .down (1) 3, .up (1) 3, .down (0) 3], 2124440210774835327654419872967),
+  ([.up (2) 4, .down (2) 3, .up (2) 3, .down (1) 3, .up (1) 3, .down (0) 3], 2241191740168712225583419872967),
+  ([.up (2) 4, .down (2) 3, .up (2) 3, .down (1) 3, .up (1) 4, .down (0) 4], 1302548718063398488692484911967),
+  ([.up (3) 0, .down (2) 0, .up (2) 0, .down (1) 0, .up (1) 0, .down (0) 0], 2323755812033548486037556872967),
+  ([.up (3) 0, .down (2) 0, .up (2) 0, .down (1) 0, .up (1) 1, .down (0) 1], 2742680462955152021441419872967),
+  ([.up (3) 0, .down (2) 0, .up (2) 1, .down (1) 1, .up (1) 1, .down (0) 1], 2719015772532152021441419872967)
+  ]
+
+def widthFiveTable15 : List (List Vertex × ℕ) := [
+  ([.up (3) 0, .down (2) 0, .up (2) 1, .down (1) 1, .up (1) 2, .down (0) 2], 2717889842315500035441419872967),
+  ([.up (3) 1, .down (2) 1, .up (2) 1, .down (1) 1, .up (1) 1, .down (0) 1], 2719015772532152021441419872967),
+  ([.up (3) 1, .down (2) 1, .up (2) 1, .down (1) 1, .up (1) 2, .down (0) 2], 2717889842315500035441419872967),
+  ([.up (3) 1, .down (2) 1, .up (2) 2, .down (1) 2, .up (1) 2, .down (0) 2], 2710195842315500035441419872967),
+  ([.up (3) 1, .down (2) 1, .up (2) 2, .down (1) 2, .up (1) 3, .down (0) 3], 2239191740168712225583419872967),
+  ([.up (3) 2, .down (2) 2, .up (2) 2, .down (1) 2, .up (1) 2, .down (0) 2], 2710195842315500035441419872967),
+  ([.up (3) 2, .down (2) 2, .up (2) 2, .down (1) 2, .up (1) 3, .down (0) 3], 2239191740168712225583419872967),
+  ([.up (3) 2, .down (2) 2, .up (2) 3, .down (1) 3, .up (1) 3, .down (0) 3], 2241191740168712225583419872967),
+  ([.up (3) 2, .down (2) 2, .up (2) 3, .down (1) 3, .up (1) 4, .down (0) 4], 1302548718063398488692484911967),
+  ([.up (3) 3, .down (2) 3, .up (2) 3, .down (1) 3, .up (1) 3, .down (0) 3], 2241191740168712225583419872967),
+  ([.up (3) 3, .down (2) 3, .up (2) 3, .down (1) 3, .up (1) 4, .down (0) 4], 1302548718063398488692484911967),
+  ([.up (3) 3, .down (2) 3, .up (2) 4, .down (1) 4, .up (1) 4, .down (0) 4], 1389704663166353495692484911967)
+  ]
+
+def widthFiveTable16 : List (List Vertex × ℕ) := [
+  ([.up (3) 4, .down (2) 4, .up (2) 4, .down (1) 4, .up (1) 4, .down (0) 4], 1389704663166353495692484911967),
+  ([.down (-3) 0, .up (-2) 0, .down (-2) 0, .up (-1) 0, .down (-1) 0, .up (0) 0], 1389704663166353495692484911967),
+  ([.down (-3) 1, .up (-2) 1, .down (-2) 0, .up (-1) 0, .down (-1) 0, .up (0) 0], 1389704663166353495692484911967),
+  ([.down (-3) 1, .up (-2) 1, .down (-2) 1, .up (-1) 1, .down (-1) 0, .up (0) 0], 1302548718063398488692484911967),
+  ([.down (-3) 1, .up (-2) 1, .down (-2) 1, .up (-1) 1, .down (-1) 1, .up (0) 1], 2241191740168712225583419872967),
+  ([.down (-3) 2, .up (-2) 2, .down (-2) 1, .up (-1) 1, .down (-1) 0, .up (0) 0], 1302548718063398488692484911967),
+  ([.down (-3) 2, .up (-2) 2, .down (-2) 1, .up (-1) 1, .down (-1) 1, .up (0) 1], 2241191740168712225583419872967),
+  ([.down (-3) 2, .up (-2) 2, .down (-2) 2, .up (-1) 2, .down (-1) 1, .up (0) 1], 2239191740168712225583419872967),
+  ([.down (-3) 2, .up (-2) 2, .down (-2) 2, .up (-1) 2, .down (-1) 2, .up (0) 2], 2710195842315500035441419872967),
+  ([.down (-3) 3, .up (-2) 3, .down (-2) 2, .up (-1) 2, .down (-1) 1, .up (0) 1], 2239191740168712225583419872967),
+  ([.down (-3) 3, .up (-2) 3, .down (-2) 2, .up (-1) 2, .down (-1) 2, .up (0) 2], 2710195842315500035441419872967),
+  ([.down (-3) 3, .up (-2) 3, .down (-2) 3, .up (-1) 3, .down (-1) 2, .up (0) 2], 2717889842315500035441419872967)
+  ]
+
+def widthFiveTable17 : List (List Vertex × ℕ) := [
+  ([.down (-3) 3, .up (-2) 3, .down (-2) 3, .up (-1) 3, .down (-1) 3, .up (0) 3], 2719015772532152021441419872967),
+  ([.down (-3) 4, .up (-2) 4, .down (-2) 3, .up (-1) 3, .down (-1) 2, .up (0) 2], 2717889842315500035441419872967),
+  ([.down (-3) 4, .up (-2) 4, .down (-2) 3, .up (-1) 3, .down (-1) 3, .up (0) 3], 2719015772532152021441419872967),
+  ([.down (-3) 4, .up (-2) 4, .down (-2) 4, .up (-1) 4, .down (-1) 3, .up (0) 3], 2742680462955152021441419872967),
+  ([.down (-3) 4, .up (-2) 4, .down (-2) 4, .up (-1) 4, .down (-1) 4, .up (0) 4], 2323755812033548486037556872967),
+  ([.down (-2) 0, .up (-2) 1, .down (-2) 1, .up (-1) 1, .down (-1) 0, .up (0) 0], 1302548718063398488692484911967),
+  ([.down (-2) 0, .up (-2) 1, .down (-2) 1, .up (-1) 1, .down (-1) 1, .up (0) 1], 2241191740168712225583419872967),
+  ([.down (-2) 0, .up (-1) 0, .down (-1) 0, .up (-1) 1, .down (-1) 1, .up (0) 1], 2124440210774835327654419872967),
+  ([.down (-2) 0, .up (-1) 0, .down (-1) 0, .up (0) 0, .down (0) 0, .up (0) 1], 2831243620824904137512419872967),
+  ([.down (-2) 1, .up (-2) 1, .down (-2) 0, .up (-1) 0, .down (-1) 0, .up (0) 0], 1389704663166353495692484911967),
+  ([.down (-2) 1, .up (-2) 2, .down (-2) 2, .up (-1) 2, .down (-1) 1, .up (0) 1], 2239191740168712225583419872967),
+  ([.down (-2) 1, .up (-2) 2, .down (-2) 2, .up (-1) 2, .down (-1) 2, .up (0) 2], 2710195842315500035441419872967)
+  ]
+
+def widthFiveTable18 : List (List Vertex × ℕ) := [
+  ([.down (-2) 1, .up (-1) 1, .down (-1) 0, .up (0) 0, .down (0) 0, .up (0) 1], 2443744045297177500037556872967),
+  ([.down (-2) 1, .up (-1) 1, .down (-1) 1, .up (-1) 2, .down (-1) 2, .up (0) 2], 2542735629710342137512419872967),
+  ([.down (-2) 1, .up (-1) 1, .down (-1) 1, .up (0) 1, .down (0) 0, .up (0) 0], 720378111930513953288621911967),
+  ([.down (-2) 1, .up (-1) 1, .down (-1) 1, .up (0) 1, .down (0) 1, .up (0) 2], 2725801690863466137512419872967),
+  ([.down (-2) 2, .up (-2) 2, .down (-2) 1, .up (-1) 1, .down (-1) 0, .up (0) 0], 1302548718063398488692484911967),
+  ([.down (-2) 2, .up (-2) 2, .down (-2) 1, .up (-1) 1, .down (-1) 1, .up (0) 1], 2241191740168712225583419872967),
+  ([.down (-2) 2, .up (-2) 3, .down (-2) 3, .up (-1) 3, .down (-1) 2, .up (0) 2], 2717889842315500035441419872967),
+  ([.down (-2) 2, .up (-2) 3, .down (-2) 3, .up (-1) 3, .down (-1) 3, .up (0) 3], 2719015772532152021441419872967),
+  ([.down (-2) 2, .up (-1) 2, .down (-1) 1, .up (-1) 1, .down (-1) 0, .up (0) 0], 1108877687458240590763484911967),
+  ([.down (-2) 2, .up (-1) 2, .down (-1) 1, .up (0) 1, .down (0) 0, .up (0) 0], 1108877687458240590763484911967),
+  ([.down (-2) 2, .up (-1) 2, .down (-1) 1, .up (0) 1, .down (0) 1, .up (0) 2], 2331479297335739500037556872967),
+  ([.down (-2) 2, .up (-1) 2, .down (-1) 2, .up (-1) 3, .down (-1) 3, .up (0) 3], 2529344741926994123512419872967)
+  ]
+
+def widthFiveTable19 : List (List Vertex × ℕ) := [
+  ([.down (-2) 2, .up (-1) 2, .down (-1) 2, .up (0) 2, .down (0) 1, .up (0) 1], 1666586316035827690179556872967),
+  ([.down (-2) 2, .up (-1) 2, .down (-1) 2, .up (0) 2, .down (0) 2, .up (0) 3], 2210507177606522109512419872967),
+  ([.down (-2) 3, .up (-2) 3, .down (-2) 2, .up (-1) 2, .down (-1) 1, .up (0) 1], 2239191740168712225583419872967),
+  ([.down (-2) 3, .up (-2) 3, .down (-2) 2, .up (-1) 2, .down (-1) 2, .up (0) 2], 2710195842315500035441419872967),
+  ([.down (-2) 3, .up (-2) 4, .down (-2) 4, .up (-1) 4, .down (-1) 3, .up (0) 3], 2742680462955152021441419872967),
+  ([.down (-2) 3, .up (-2) 4, .down (-2) 4, .up (-1) 4, .down (-1) 4, .up (0) 4], 2323755812033548486037556872967),
+  ([.down (-2) 3, .up (-1) 3, .down (-1) 2, .up (-1) 2, .down (-1) 1, .up (0) 1], 2060908709563554327654419872967),
+  ([.down (-2) 3, .up (-1) 3, .down (-1) 2, .up (0) 2, .down (0) 1, .up (0) 1], 2060908709563554327654419872967),
+  ([.down (-2) 3, .up (-1) 3, .down (-1) 2, .up (0) 2, .down (0) 2, .up (0) 3], 1869208164924795472037556872967),
+  ([.down (-2) 3, .up (-1) 3, .down (-1) 3, .up (-1) 4, .down (-1) 4, .up (0) 4], 2137778781428390588108556872967),
+  ([.down (-2) 3, .up (-1) 3, .down (-1) 3, .up (0) 3, .down (0) 2, .up (0) 2], 2247637179874615500037556872967),
+  ([.down (-2) 3, .up (-1) 3, .down (-1) 3, .up (0) 3, .down (0) 3, .up (0) 4], 1267436670724753038704693872967)
+  ]
+
+def widthFiveTable20 : List (List Vertex × ℕ) := [
+  ([.down (-2) 4, .up (-2) 4, .down (-2) 3, .up (-1) 3, .down (-1) 2, .up (0) 2], 2717889842315500035441419872967),
+  ([.down (-2) 4, .up (-2) 4, .down (-2) 3, .up (-1) 3, .down (-1) 3, .up (0) 3], 2719015772532152021441419872967),
+  ([.down (-2) 4, .up (-1) 4, .down (-1) 3, .up (-1) 3, .down (-1) 2, .up (0) 2], 2588936192556342137512419872967),
+  ([.down (-2) 4, .up (-1) 4, .down (-1) 3, .up (0) 3, .down (0) 2, .up (0) 2], 2588936192556342137512419872967),
+  ([.down (-2) 4, .up (-1) 4, .down (-1) 3, .up (0) 3, .down (0) 3, .up (0) 4], 1031796595934262408229830872967),
+  ([.down (-2) 4, .up (-1) 4, .down (-1) 4, .up (0) 4, .down (0) 3, .up (0) 3], 2474597803873739500037556872967),
+  ([.down (-1) 0, .up (-1) 1, .down (-1) 1, .up (-1) 2, .down (-1) 2, .up (0) 2], 2542735629710342137512419872967),
+  ([.down (-1) 0, .up (-1) 1, .down (-1) 1, .up (0) 1, .down (0) 0, .up (0) 0], 250150893792477758801549950967),
+  ([.down (-1) 0, .up (-1) 1, .down (-1) 1, .up (0) 1, .down (0) 1, .up (0) 2], 2725801690863466137512419872967),
+  ([.down (-1) 0, .up (0) 0, .down (0) 0, .up (0) 1, .down (0) 1, .up (0) 2], 2893261903468624035441419872967),
+  ([.down (-1) 1, .up (-1) 1, .down (-1) 0, .up (0) 0, .down (0) 0, .up (0) 1], 1608396948451466400621484911967),
+  ([.down (-1) 1, .up (-1) 2, .down (-1) 2, .up (-1) 3, .down (-1) 3, .up (0) 3], 2529344741926994123512419872967)
+  ]
+
+def widthFiveTable21 : List (List Vertex × ℕ) := [
+  ([.down (-1) 1, .up (-1) 2, .down (-1) 2, .up (0) 2, .down (0) 1, .up (0) 1], 980207039612678590763484911967),
+  ([.down (-1) 1, .up (-1) 2, .down (-1) 2, .up (0) 2, .down (0) 2, .up (0) 3], 2210507177606522109512419872967),
+  ([.down (-1) 1, .up (0) 1, .down (0) 1, .up (0) 2, .down (0) 2, .up (0) 3], 2400178208211680007441419872967),
+  ([.down (-1) 2, .up (-1) 2, .down (-1) 1, .up (-1) 1, .down (-1) 0, .up (0) 0], 1108877687458240590763484911967),
+  ([.down (-1) 2, .up (-1) 2, .down (-1) 1, .up (0) 1, .down (0) 0, .up (0) 0], 1108877687458240590763484911967),
+  ([.down (-1) 2, .up (-1) 2, .down (-1) 1, .up (0) 1, .down (0) 1, .up (0) 2], 1604178962182028400621484911967),
+  ([.down (-1) 2, .up (-1) 3, .down (-1) 3, .up (-1) 4, .down (-1) 4, .up (0) 4], 2137778781428390588108556872967),
+  ([.down (-1) 2, .up (-1) 3, .down (-1) 3, .up (0) 3, .down (0) 2, .up (0) 2], 1447323719028904400621484911967),
+  ([.down (-1) 2, .up (-1) 3, .down (-1) 3, .up (0) 3, .down (0) 3, .up (0) 4], 1267436670724753038704693872967),
+  ([.down (-1) 2, .up (0) 2, .down (0) 1, .up (0) 1, .down (0) 0, .up (0) 0], 1302548718063398488692484911967),
+  ([.down (-1) 2, .up (0) 2, .down (0) 2, .up (0) 3, .down (0) 3, .up (0) 4], 1453413701329910936633693872967),
+  ([.down (-1) 3, .up (-1) 3, .down (-1) 2, .up (-1) 2, .down (-1) 1, .up (0) 1], 2060908709563554327654419872967)
+  ]
+
+def widthFiveTable22 : List (List Vertex × ℕ) := [
+  ([.down (-1) 3, .up (-1) 3, .down (-1) 2, .up (0) 2, .down (0) 1, .up (0) 1], 2060908709563554327654419872967),
+  ([.down (-1) 3, .up (-1) 3, .down (-1) 2, .up (0) 2, .down (0) 2, .up (0) 3], 1367742523553556386621484911967),
+  ([.down (-1) 3, .up (-1) 4, .down (-1) 4, .up (0) 4, .down (0) 3, .up (0) 3], 1682886087874028400621484911967),
+  ([.down (-1) 3, .up (0) 3, .down (0) 2, .up (0) 2, .down (0) 1, .up (0) 1], 2239191740168712225583419872967),
+  ([.down (-1) 4, .up (-1) 4, .down (-1) 3, .up (-1) 3, .down (-1) 2, .up (0) 2], 2588936192556342137512419872967),
+  ([.down (-1) 4, .up (-1) 4, .down (-1) 3, .up (0) 3, .down (0) 2, .up (0) 2], 2588936192556342137512419872967),
+  ([.down (-1) 4, .up (-1) 4, .down (-1) 3, .up (0) 3, .down (0) 3, .up (0) 4], 896360270112671851217621911967),
+  ([.down (-1) 4, .up (0) 4, .down (0) 3, .up (0) 3, .down (0) 2, .up (0) 2], 2717889842315500035441419872967),
+  ([.down (0) 0, .up (0) 0, .down (-1) 0, .up (-1) 1, .down (-1) 1, .up (0) 1], 1598291539451466400621484911967),
+  ([.down (0) 0, .up (0) 1, .down (-1) 1, .up (-1) 1, .down (-1) 0, .up (0) 0], 250150893792477758801549950967),
+  ([.down (0) 0, .up (0) 1, .down (-1) 1, .up (-1) 2, .down (-1) 2, .up (0) 2], 2288558238605177500037556872967),
+  ([.down (0) 0, .up (0) 1, .down (0) 1, .up (0) 2, .down (0) 2, .up (0) 3], 2400178208211680007441419872967)
+  ]
+
+def widthFiveTable23 : List (List Vertex × ℕ) := [
+  ([.down (0) 0, .up (1) 0, .down (1) 0, .up (1) 1, .down (0) 1, .up (0) 1], 1598291539451466400621484911967),
+  ([.down (0) 0, .up (1) 0, .down (1) 0, .up (1) 1, .down (0) 1, .up (0) 2], 2893261903468624035441419872967),
+  ([.down (0) 1, .up (0) 1, .down (-1) 1, .up (-1) 1, .down (-1) 0, .up (0) 0], 720378111930513953288621911967),
+  ([.down (0) 1, .up (0) 1, .down (-1) 1, .up (-1) 2, .down (-1) 2, .up (0) 2], 1602178962182028400621484911967),
+  ([.down (0) 1, .up (0) 2, .down (-1) 2, .up (-1) 2, .down (-1) 1, .up (0) 1], 980207039612678590763484911967),
+  ([.down (0) 1, .up (0) 2, .down (-1) 2, .up (-1) 3, .down (-1) 3, .up (0) 3], 2168055984399267486037556872967),
+  ([.down (0) 1, .up (0) 2, .down (0) 2, .up (0) 3, .down (0) 3, .up (0) 4], 1453413701329910936633693872967),
+  ([.down (0) 1, .up (1) 1, .down (1) 0, .up (1) 0, .down (0) 0, .up (0) 0], 1389704663166353495692484911967),
+  ([.down (0) 1, .up (1) 1, .down (1) 0, .up (1) 0, .down (0) 0, .up (0) 1], 1608396948451466400621484911967),
+  ([.down (0) 1, .up (1) 1, .down (1) 1, .up (1) 2, .down (0) 2, .up (0) 2], 1602178962182028400621484911967),
+  ([.down (0) 1, .up (1) 1, .down (1) 1, .up (1) 2, .down (0) 2, .up (0) 3], 2400178208211680007441419872967),
+  ([.down (0) 2, .up (0) 2, .down (-1) 2, .up (-1) 2, .down (-1) 1, .up (0) 1], 1666586316035827690179556872967)
+  ]
+
+def widthFiveTable24 : List (List Vertex × ℕ) := [
+  ([.down (0) 2, .up (0) 2, .down (-1) 2, .up (-1) 3, .down (-1) 3, .up (0) 3], 1367742523553556386621484911967),
+  ([.down (0) 2, .up (0) 2, .down (0) 1, .up (0) 1, .down (0) 0, .up (0) 0], 1302548718063398488692484911967),
+  ([.down (0) 2, .up (0) 3, .down (-1) 3, .up (-1) 3, .down (-1) 2, .up (0) 2], 1447323719028904400621484911967),
+  ([.down (0) 2, .up (0) 3, .down (-1) 3, .up (-1) 4, .down (-1) 4, .up (0) 4], 1732068387900663950633693872967),
+  ([.down (0) 2, .up (1) 2, .down (1) 1, .up (1) 1, .down (0) 1, .up (0) 1], 2241191740168712225583419872967),
+  ([.down (0) 2, .up (1) 2, .down (1) 1, .up (1) 1, .down (0) 1, .up (0) 2], 1604178962182028400621484911967),
+  ([.down (0) 2, .up (1) 2, .down (1) 2, .up (1) 3, .down (0) 3, .up (0) 3], 1367742523553556386621484911967),
+  ([.down (0) 2, .up (1) 2, .down (1) 2, .up (1) 3, .down (0) 3, .up (0) 4], 1453413701329910936633693872967),
+  ([.down (0) 3, .up (0) 3, .down (-1) 3, .up (-1) 3, .down (-1) 2, .up (0) 2], 2247637179874615500037556872967),
+  ([.down (0) 3, .up (0) 3, .down (-1) 3, .up (-1) 4, .down (-1) 4, .up (0) 4], 936509671900952851217621911967),
+  ([.down (0) 3, .up (0) 3, .down (0) 2, .up (0) 2, .down (0) 1, .up (0) 1], 2239191740168712225583419872967),
+  ([.down (0) 3, .up (0) 4, .down (-1) 4, .up (-1) 4, .down (-1) 3, .up (0) 3], 1682886087874028400621484911967)
+  ]
+
+def widthFiveTable25 : List (List Vertex × ℕ) := [
+  ([.down (0) 3, .up (1) 3, .down (1) 2, .up (1) 2, .down (0) 2, .up (0) 2], 2710195842315500035441419872967),
+  ([.down (0) 3, .up (1) 3, .down (1) 2, .up (1) 2, .down (0) 2, .up (0) 3], 1367742523553556386621484911967),
+  ([.down (0) 3, .up (1) 3, .down (1) 3, .up (1) 4, .down (0) 4, .up (0) 4], 936509671900952851217621911967),
+  ([.down (0) 4, .up (0) 4, .down (-1) 4, .up (-1) 4, .down (-1) 3, .up (0) 3], 2474597803873739500037556872967),
+  ([.down (0) 4, .up (0) 4, .down (0) 3, .up (0) 3, .down (0) 2, .up (0) 2], 2717889842315500035441419872967),
+  ([.down (0) 4, .up (1) 4, .down (1) 3, .up (1) 3, .down (0) 3, .up (0) 3], 2719015772532152021441419872967),
+  ([.down (0) 4, .up (1) 4, .down (1) 3, .up (1) 3, .down (0) 3, .up (0) 4], 896360270112671851217621911967),
+  ([.down (1) 0, .up (1) 0, .down (0) 0, .up (0) 1, .down (0) 1, .up (0) 2], 2893261903468624035441419872967),
+  ([.down (1) 0, .up (1) 1, .down (0) 1, .up (0) 1, .down (0) 0, .up (0) 0], 1302548718063398488692484911967),
+  ([.down (1) 0, .up (1) 1, .down (0) 1, .up (0) 2, .down (0) 2, .up (0) 3], 2400178208211680007441419872967),
+  ([.down (1) 0, .up (1) 1, .down (1) 1, .up (1) 2, .down (0) 2, .up (0) 2], 2288558238605177500037556872967),
+  ([.down (1) 0, .up (1) 1, .down (1) 1, .up (1) 2, .down (0) 2, .up (0) 3], 2400178208211680007441419872967)
+  ]
+
+def widthFiveTable26 : List (List Vertex × ℕ) := [
+  ([.down (1) 1, .up (1) 1, .down (0) 1, .up (0) 1, .down (0) 0, .up (0) 0], 1302548718063398488692484911967),
+  ([.down (1) 1, .up (1) 1, .down (0) 1, .up (0) 2, .down (0) 2, .up (0) 3], 2400178208211680007441419872967),
+  ([.down (1) 1, .up (1) 1, .down (1) 0, .up (1) 0, .down (0) 0, .up (0) 0], 1389704663166353495692484911967),
+  ([.down (1) 1, .up (1) 1, .down (1) 0, .up (1) 0, .down (0) 0, .up (0) 1], 2443744045297177500037556872967),
+  ([.down (1) 1, .up (1) 2, .down (0) 2, .up (0) 2, .down (0) 1, .up (0) 1], 2239191740168712225583419872967),
+  ([.down (1) 1, .up (1) 2, .down (0) 2, .up (0) 3, .down (0) 3, .up (0) 4], 1453413701329910936633693872967),
+  ([.down (1) 1, .up (1) 2, .down (1) 2, .up (1) 3, .down (0) 3, .up (0) 3], 2168055984399267486037556872967),
+  ([.down (1) 1, .up (1) 2, .down (1) 2, .up (1) 3, .down (0) 3, .up (0) 4], 1453413701329910936633693872967),
+  ([.down (1) 2, .up (1) 2, .down (0) 2, .up (0) 2, .down (0) 1, .up (0) 1], 2239191740168712225583419872967),
+  ([.down (1) 2, .up (1) 2, .down (0) 2, .up (0) 3, .down (0) 3, .up (0) 4], 1453413701329910936633693872967),
+  ([.down (1) 2, .up (1) 2, .down (1) 1, .up (1) 1, .down (0) 1, .up (0) 1], 2241191740168712225583419872967),
+  ([.down (1) 2, .up (1) 2, .down (1) 1, .up (1) 1, .down (0) 1, .up (0) 2], 2331479297335739500037556872967)
+  ]
+
+def widthFiveTable27 : List (List Vertex × ℕ) := [
+  ([.down (1) 2, .up (1) 3, .down (0) 3, .up (0) 3, .down (0) 2, .up (0) 2], 2717889842315500035441419872967),
+  ([.down (1) 2, .up (1) 3, .down (1) 3, .up (1) 4, .down (0) 4, .up (0) 4], 1732068387900663950633693872967),
+  ([.down (1) 3, .up (1) 3, .down (0) 3, .up (0) 3, .down (0) 2, .up (0) 2], 2717889842315500035441419872967),
+  ([.down (1) 3, .up (1) 3, .down (1) 2, .up (1) 2, .down (0) 2, .up (0) 2], 2710195842315500035441419872967),
+  ([.down (1) 3, .up (1) 3, .down (1) 2, .up (1) 2, .down (0) 2, .up (0) 3], 1869208164924795472037556872967),
+  ([.down (1) 3, .up (1) 4, .down (0) 4, .up (0) 4, .down (0) 3, .up (0) 3], 2742680462955152021441419872967),
+  ([.down (1) 4, .up (1) 4, .down (0) 4, .up (0) 4, .down (0) 3, .up (0) 3], 2742680462955152021441419872967),
+  ([.down (1) 4, .up (1) 4, .down (1) 3, .up (1) 3, .down (0) 3, .up (0) 3], 2719015772532152021441419872967),
+  ([.down (1) 4, .up (1) 4, .down (1) 3, .up (1) 3, .down (0) 3, .up (0) 4], 1031796595934262408229830872967),
+  ([.down (2) 0, .up (2) 0, .down (1) 0, .up (1) 0, .down (0) 0, .up (0) 0], 1389704663166353495692484911967),
+  ([.down (2) 0, .up (2) 0, .down (1) 0, .up (1) 0, .down (0) 0, .up (0) 1], 2831243620824904137512419872967),
+  ([.down (2) 0, .up (2) 0, .down (1) 0, .up (1) 1, .down (0) 1, .up (0) 1], 2124440210774835327654419872967)
+  ]
+
+def widthFiveTable28 : List (List Vertex × ℕ) := [
+  ([.down (2) 0, .up (2) 0, .down (1) 0, .up (1) 1, .down (0) 1, .up (0) 2], 2893261903468624035441419872967),
+  ([.down (2) 0, .up (2) 1, .down (1) 1, .up (1) 1, .down (0) 1, .up (0) 1], 2241191740168712225583419872967),
+  ([.down (2) 0, .up (2) 1, .down (1) 1, .up (1) 1, .down (0) 1, .up (0) 2], 2725801690863466137512419872967),
+  ([.down (2) 0, .up (2) 1, .down (1) 1, .up (1) 2, .down (0) 2, .up (0) 2], 2542735629710342137512419872967),
+  ([.down (2) 0, .up (2) 1, .down (1) 1, .up (1) 2, .down (0) 2, .up (0) 3], 2400178208211680007441419872967),
+  ([.down (2) 1, .up (2) 1, .down (1) 1, .up (1) 1, .down (0) 1, .up (0) 1], 2241191740168712225583419872967),
+  ([.down (2) 1, .up (2) 1, .down (1) 1, .up (1) 1, .down (0) 1, .up (0) 2], 2725801690863466137512419872967),
+  ([.down (2) 1, .up (2) 1, .down (1) 1, .up (1) 2, .down (0) 2, .up (0) 2], 2542735629710342137512419872967),
+  ([.down (2) 1, .up (2) 1, .down (1) 1, .up (1) 2, .down (0) 2, .up (0) 3], 2400178208211680007441419872967),
+  ([.down (2) 1, .up (2) 2, .down (1) 2, .up (1) 2, .down (0) 2, .up (0) 2], 2710195842315500035441419872967),
+  ([.down (2) 1, .up (2) 2, .down (1) 2, .up (1) 2, .down (0) 2, .up (0) 3], 2210507177606522109512419872967),
+  ([.down (2) 1, .up (2) 2, .down (1) 2, .up (1) 3, .down (0) 3, .up (0) 3], 2529344741926994123512419872967)
+  ]
+
+def widthFiveTable29 : List (List Vertex × ℕ) := [
+  ([.down (2) 1, .up (2) 2, .down (1) 2, .up (1) 3, .down (0) 3, .up (0) 4], 1453413701329910936633693872967),
+  ([.down (2) 2, .up (2) 2, .down (1) 2, .up (1) 2, .down (0) 2, .up (0) 2], 2710195842315500035441419872967),
+  ([.down (2) 2, .up (2) 2, .down (1) 2, .up (1) 2, .down (0) 2, .up (0) 3], 2210507177606522109512419872967),
+  ([.down (2) 2, .up (2) 2, .down (1) 2, .up (1) 3, .down (0) 3, .up (0) 3], 2529344741926994123512419872967),
+  ([.down (2) 2, .up (2) 2, .down (1) 2, .up (1) 3, .down (0) 3, .up (0) 4], 1453413701329910936633693872967),
+  ([.down (2) 2, .up (2) 3, .down (1) 3, .up (1) 3, .down (0) 3, .up (0) 3], 2719015772532152021441419872967),
+  ([.down (2) 2, .up (2) 3, .down (1) 3, .up (1) 3, .down (0) 3, .up (0) 4], 1267436670724753038704693872967),
+  ([.down (2) 2, .up (2) 3, .down (1) 3, .up (1) 4, .down (0) 4, .up (0) 4], 2137778781428390588108556872967),
+  ([.down (2) 3, .up (2) 3, .down (1) 3, .up (1) 3, .down (0) 3, .up (0) 3], 2719015772532152021441419872967),
+  ([.down (2) 3, .up (2) 3, .down (1) 3, .up (1) 3, .down (0) 3, .up (0) 4], 1267436670724753038704693872967),
+  ([.down (2) 3, .up (2) 3, .down (1) 3, .up (1) 4, .down (0) 4, .up (0) 4], 2137778781428390588108556872967),
+  ([.down (2) 3, .up (2) 4, .down (1) 4, .up (1) 4, .down (0) 4, .up (0) 4], 2323755812033548486037556872967)
+  ]
+
+def widthFiveTable30 : List (List Vertex × ℕ) := [
+  ([.down (2) 4, .up (2) 4, .down (1) 4, .up (1) 4, .down (0) 4, .up (0) 4], 2323755812033548486037556872967)
+  ]
+
+def widthFiveTable : List (List Vertex × ℕ) :=
+  widthFiveTable0 ++ widthFiveTable1 ++ widthFiveTable2 ++ widthFiveTable3 ++ widthFiveTable4 ++ widthFiveTable5 ++ widthFiveTable6 ++ widthFiveTable7 ++ widthFiveTable8 ++ widthFiveTable9 ++ widthFiveTable10 ++ widthFiveTable11 ++ widthFiveTable12 ++ widthFiveTable13 ++ widthFiveTable14 ++ widthFiveTable15 ++ widthFiveTable16 ++ widthFiveTable17 ++ widthFiveTable18 ++ widthFiveTable19 ++ widthFiveTable20 ++ widthFiveTable21 ++ widthFiveTable22 ++ widthFiveTable23 ++ widthFiveTable24 ++ widthFiveTable25 ++ widthFiveTable26 ++ widthFiveTable27 ++ widthFiveTable28 ++ widthFiveTable29 ++ widthFiveTable30
+
+def widthFivePotential (w : List Vertex) : ℕ := (widthFiveTable.lookup w).getD 0
+
+def widthFiveStates : List (List Vertex) := widthFiveTable.map Prod.fst
+
+def widthFiveRowOK (w : List Vertex) : Prop :=
+  w ≠ [] ∧ 0 < widthFivePotential w ∧
+    (∀ c ∈ widthFiveCandidates w, widthFiveNormalize (widthFiveSlide w c) ∈ widthFiveStates) ∧
+    1000 * (∑ c ∈ widthFiveCandidates w, widthFivePotential (widthFiveNormalize (widthFiveSlide w c))) ≤ 1847 * widthFivePotential w
+
+instance widthFiveDecidableRowOK (w : List Vertex) : Decidable (widthFiveRowOK w) := by
+  unfold widthFiveRowOK
+  infer_instance
+
+
+
+lemma widthFiveChecked0 : ∀ w ∈ widthFiveTable0.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked1 : ∀ w ∈ widthFiveTable1.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked2 : ∀ w ∈ widthFiveTable2.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked3 : ∀ w ∈ widthFiveTable3.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked4 : ∀ w ∈ widthFiveTable4.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked5 : ∀ w ∈ widthFiveTable5.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked6 : ∀ w ∈ widthFiveTable6.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked7 : ∀ w ∈ widthFiveTable7.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked8 : ∀ w ∈ widthFiveTable8.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked9 : ∀ w ∈ widthFiveTable9.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked10 : ∀ w ∈ widthFiveTable10.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked11 : ∀ w ∈ widthFiveTable11.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked12 : ∀ w ∈ widthFiveTable12.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked13 : ∀ w ∈ widthFiveTable13.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked14 : ∀ w ∈ widthFiveTable14.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked15 : ∀ w ∈ widthFiveTable15.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked16 : ∀ w ∈ widthFiveTable16.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked17 : ∀ w ∈ widthFiveTable17.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked18 : ∀ w ∈ widthFiveTable18.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked19 : ∀ w ∈ widthFiveTable19.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked20 : ∀ w ∈ widthFiveTable20.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked21 : ∀ w ∈ widthFiveTable21.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked22 : ∀ w ∈ widthFiveTable22.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked23 : ∀ w ∈ widthFiveTable23.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked24 : ∀ w ∈ widthFiveTable24.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked25 : ∀ w ∈ widthFiveTable25.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked26 : ∀ w ∈ widthFiveTable26.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked27 : ∀ w ∈ widthFiveTable27.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked28 : ∀ w ∈ widthFiveTable28.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked29 : ∀ w ∈ widthFiveTable29.map Prod.fst, widthFiveRowOK w := by decide
+lemma widthFiveChecked30 : ∀ w ∈ widthFiveTable30.map Prod.fst, widthFiveRowOK w := by decide
+
+lemma widthFiveTable_checked : ∀ w ∈ widthFiveStates, widthFiveRowOK w := by
+  simp only [widthFiveStates, widthFiveTable, List.map_append, List.forall_mem_append]
+  exact ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨widthFiveChecked0, widthFiveChecked1⟩, widthFiveChecked2⟩, widthFiveChecked3⟩, widthFiveChecked4⟩, widthFiveChecked5⟩, widthFiveChecked6⟩, widthFiveChecked7⟩, widthFiveChecked8⟩, widthFiveChecked9⟩, widthFiveChecked10⟩, widthFiveChecked11⟩, widthFiveChecked12⟩, widthFiveChecked13⟩, widthFiveChecked14⟩, widthFiveChecked15⟩, widthFiveChecked16⟩, widthFiveChecked17⟩, widthFiveChecked18⟩, widthFiveChecked19⟩, widthFiveChecked20⟩, widthFiveChecked21⟩, widthFiveChecked22⟩, widthFiveChecked23⟩, widthFiveChecked24⟩, widthFiveChecked25⟩, widthFiveChecked26⟩, widthFiveChecked27⟩, widthFiveChecked28⟩, widthFiveChecked29⟩, widthFiveChecked30⟩
+
+lemma widthFiveSource_checked : widthFiveNormalize [Vertex.up 0 0] ∈ widthFiveStates := by decide
+
+noncomputable def widthFiveBeta : ℝ := 1847 / 1000
+
+lemma widthFiveCount_weighted (n : ℕ) (w : List Vertex) (hw : widthFiveNormalize w ∈ widthFiveStates) :
+    (widthFiveCount w n : ℝ) ≤ (widthFivePotential (widthFiveNormalize w) : ℝ) * widthFiveBeta ^ n := by
+  induction n generalizing w with
+  | zero =>
+    have hp := (widthFiveTable_checked (widthFiveNormalize w) hw).2.1
+    have hone : (1 : ℝ) ≤ (widthFivePotential (widthFiveNormalize w) : ℝ) := by exact_mod_cast hp
+    simpa only [widthFiveCount, Nat.cast_one, pow_zero, mul_one] using hone
+  | succ n ih =>
+    have cert := widthFiveTable_checked (widthFiveNormalize w) hw
+    have hne : w ≠ [] := by
+      intro he
+      exact cert.1 (by simp [he, widthFiveNormalize])
+    have heq : widthFiveCount (widthFiveNormalize w) (n+1) = widthFiveCount w (n+1) :=
+      widthFiveCount_shift (-widthFiveOrigin w) (n+1) w hne
+    have hstep : (∑ c ∈ widthFiveCandidates (widthFiveNormalize w),
+        (widthFivePotential (widthFiveNormalize (widthFiveSlide (widthFiveNormalize w) c)) : ℝ)) ≤
+          widthFiveBeta * (widthFivePotential (widthFiveNormalize w) : ℝ) := by
+      have hnat := cert.2.2.2
+      have hreal : (1000 : ℝ) * (∑ c ∈ widthFiveCandidates (widthFiveNormalize w),
+          (widthFivePotential (widthFiveNormalize (widthFiveSlide (widthFiveNormalize w) c)) : ℝ)) ≤
+            1847 * (widthFivePotential (widthFiveNormalize w) : ℝ) := by
+        exact_mod_cast hnat
+      dsimp [widthFiveBeta]
+      linarith
+    calc (widthFiveCount w (n+1) : ℝ)
+        = ∑ c ∈ widthFiveCandidates (widthFiveNormalize w), (widthFiveCount (widthFiveSlide (widthFiveNormalize w) c) n : ℝ) := by
+          rw [← heq, widthFiveCount, Nat.cast_sum]
+      _ ≤ ∑ c ∈ widthFiveCandidates (widthFiveNormalize w),
+          (widthFivePotential (widthFiveNormalize (widthFiveSlide (widthFiveNormalize w) c)) : ℝ) * widthFiveBeta ^ n := by
+          apply Finset.sum_le_sum
+          intro c hc
+          exact ih _ (cert.2.2.1 c hc)
+      _ = (∑ c ∈ widthFiveCandidates (widthFiveNormalize w),
+          (widthFivePotential (widthFiveNormalize (widthFiveSlide (widthFiveNormalize w) c)) : ℝ)) * widthFiveBeta ^ n := by
+          rw [Finset.sum_mul]
+      _ ≤ (widthFiveBeta * (widthFivePotential (widthFiveNormalize w) : ℝ)) * widthFiveBeta ^ n :=
+          mul_le_mul_of_nonneg_right hstep (pow_nonneg (by norm_num [widthFiveBeta]) n)
+      _ = (widthFivePotential (widthFiveNormalize w) : ℝ) * widthFiveBeta ^ (n+1) := by ring
+
+def widthFiveContinuations (w : List Vertex) : ℕ → Finset (List Vertex)
+  | 0 => {[]}
+  | n+1 => (widthFiveCandidates w).biUnion fun c =>
+      (widthFiveContinuations (widthFiveSlide w c) n).image fun l => c :: l
+
+lemma widthFiveContinuations_card (n : ℕ) (w : List Vertex) :
+    (widthFiveContinuations w n).card ≤ widthFiveCount w n := by
+  induction n generalizing w with
+  | zero => simp [widthFiveContinuations, widthFiveCount]
+  | succ n ih =>
+    calc (widthFiveContinuations w (n+1)).card
+        ≤ ∑ c ∈ widthFiveCandidates w,
+            ((widthFiveContinuations (widthFiveSlide w c) n).image fun l => c :: l).card := Finset.card_biUnion_le
+      _ ≤ ∑ c ∈ widthFiveCandidates w, widthFiveCount (widthFiveSlide w c) n := by
+          apply Finset.sum_le_sum
+          intro c _
+          exact Finset.card_image_le.trans (ih (widthFiveSlide w c))
+      _ = widthFiveCount w (n+1) := rfl
+
+lemma widthFiveSlide_append_eq (w : List Vertex) (c : Vertex) (l : List Vertex) (hne : w ≠ []) :
+    widthFiveSlide w c ++ l = if w.length < 6 then w ++ c :: l else (w ++ c :: l).tail := by
+  unfold widthFiveSlide
+  split_ifs <;> simp [List.append_assoc, List.tail_append_of_ne_nil hne]
+
+lemma widthFiveMem_continuations {w l : List Vertex} (hne : w ≠ [])
+    (hc : (w ++ l).IsChain adjacent) (hnd : (w ++ l).Nodup)
+    (hin : ∀ v ∈ w ++ l, widthFiveInside v) : l ∈ widthFiveContinuations w l.length := by
+  induction l generalizing w with
+  | nil => simp [widthFiveContinuations]
+  | cons c l ih =>
+    have hcin : widthFiveInside c := hin c (by simp)
+    have hcn : c ∉ w := by
+      intro hcw
+      exact ((List.nodup_append.mp hnd).2.2 c hcw c (by simp)) rfl
+    have hrel : adjacent (widthFiveLast w) c := by
+      have h := hc.rel_getLast_head_of_append hne (by simp)
+      simpa only [widthFiveLast_eq_getLast hne, List.head_cons] using h
+    have hnextc : (widthFiveSlide w c ++ l).IsChain adjacent := by
+      rw [widthFiveSlide_append_eq w c l hne]
+      split_ifs
+      · exact hc
+      · exact hc.tail
+    have hnextnd : (widthFiveSlide w c ++ l).Nodup := by
+      rw [widthFiveSlide_append_eq w c l hne]
+      split_ifs
+      · exact hnd
+      · exact hnd.tail
+    have hnextin : ∀ v ∈ widthFiveSlide w c ++ l, widthFiveInside v := by
+      intro v hv
+      rw [widthFiveSlide_append_eq w c l hne] at hv
+      split_ifs at hv
+      · exact hin v hv
+      · exact hin v (List.mem_of_mem_tail hv)
+    apply Finset.mem_biUnion.mpr
+    refine ⟨c, Finset.mem_filter.mpr ⟨widthFiveMem_neighbors.mpr ⟨hrel,hcin⟩,hcn⟩, ?_⟩
+    apply Finset.mem_image.mpr
+    exact ⟨l, ih (widthFiveSlide_ne_nil w c) hnextc hnextnd hnextin, rfl⟩
+
+def widthFiveAllPaths (n : ℕ) : Finset (List Vertex) :=
+  (widthFiveContinuations [Vertex.up 0 0] (n-1)).image fun l => Vertex.up 0 0 :: l
+
+lemma widthFivePath_mem_allPaths (p : BridgePath 5) : p.vertices ∈ widthFiveAllPaths p.vertices.length := by
+  have hsrc := p.source
+  cases hv : p.vertices with
+  | nil => simp [hv] at hsrc
+  | cons a l =>
+    have ha : a = .up 0 0 := by simpa [hv] using hsrc
+    subst a
+    have hc : ([Vertex.up 0 0] ++ l).IsChain adjacent := by
+      simpa only [hv, List.singleton_append] using p.connected
+    have hnd : ([Vertex.up 0 0] ++ l).Nodup := by
+      simpa only [hv, List.singleton_append] using p.distinct
+    have hin : ∀ v ∈ [Vertex.up 0 0] ++ l, widthFiveInside v := by
+      intro v h
+      have hvp : v ∈ p.vertices := by simpa only [hv, List.singleton_append] using h
+      exact (widthFiveInside_iff v).mpr (p.inStrip v hvp)
+    rw [widthFiveAllPaths]
+    apply Finset.mem_image.mpr
+    refine ⟨l, ?_, by simpa only [hv]⟩
+    simpa only [hv, List.length_cons, Nat.add_sub_cancel] using
+      widthFiveMem_continuations (by simp : [Vertex.up 0 0] ≠ []) hc hnd hin
+
+lemma widthFivePath_card_real (n : ℕ) (s : Finset (BridgePath 5))
+    (hlen : ∀ p ∈ s, p.vertices.length = n) :
+    (s.card : ℝ) ≤ (widthFivePotential (widthFiveNormalize [Vertex.up 0 0]) : ℝ) * widthFiveBeta ^ n := by
+  classical
+  have hm : Set.MapsTo (fun p : BridgePath 5 => p.vertices) (s : Set (BridgePath 5))
+      (widthFiveAllPaths n : Set (List Vertex)) := by
+    intro p hp
+    change p.vertices ∈ widthFiveAllPaths n
+    simpa only [hlen p hp] using widthFivePath_mem_allPaths p
+  have hi : Set.InjOn (fun p : BridgePath 5 => p.vertices) (s : Set (BridgePath 5)) := by
+    intro p hp q hq he
+    cases p
+    cases q
+    cases he
+    rfl
+  have hcard : (s.card : ℝ) ≤ ((widthFiveAllPaths n).card : ℝ) := by
+    exact_mod_cast Finset.card_le_card_of_injOn _ hm hi
+  have hcont : (widthFiveAllPaths n).card ≤ widthFiveCount [Vertex.up 0 0] (n-1) :=
+    Finset.card_image_le.trans (widthFiveContinuations_card (n-1) [Vertex.up 0 0])
+  calc (s.card : ℝ) ≤ ((widthFiveAllPaths n).card : ℝ) := hcard
+    _ ≤ (widthFiveCount [Vertex.up 0 0] (n-1) : ℝ) := by exact_mod_cast hcont
+    _ ≤ (widthFivePotential (widthFiveNormalize [Vertex.up 0 0]) : ℝ) * widthFiveBeta ^ (n-1) :=
+        widthFiveCount_weighted (n-1) _ widthFiveSource_checked
+    _ ≤ (widthFivePotential (widthFiveNormalize [Vertex.up 0 0]) : ℝ) * widthFiveBeta ^ n := by
+        apply mul_le_mul_of_nonneg_left
+        · exact pow_le_pow_right₀ (by norm_num [widthFiveBeta]) (by omega)
+        · exact Nat.cast_nonneg _
+
+lemma widthFiveBeta_lt_mu : widthFiveBeta < 2 * Real.cos (Real.pi / 8) := by
+  have hsq2 : Real.sqrt 2 ^ 2 = (2 : ℝ) := Real.sq_sqrt (by norm_num)
+  have h2 : (1414/1000 : ℝ) < Real.sqrt 2 := by
+    by_contra h
+    have hle : Real.sqrt 2 ≤ (1414/1000 : ℝ) := le_of_not_gt h
+    have hsqle := mul_le_mul hle hle (Real.sqrt_nonneg 2)
+      (by norm_num : (0 : ℝ) ≤ 1414/1000)
+    nlinarith
+  have hroot : Real.sqrt (widthFiveBeta^2) < Real.sqrt (2 + Real.sqrt 2) :=
+    Real.sqrt_lt_sqrt (sq_nonneg _) (by norm_num [widthFiveBeta] at *; linarith)
+  rw [Real.sqrt_sq (by norm_num [widthFiveBeta])] at hroot
+  rw [Real.cos_pi_div_eight]
+  nlinarith
+
+theorem widthFiveStripGrowthAtFive :
+    ∃ C β : ℝ, 0 ≤ C ∧ 0 ≤ β ∧ β < 2 * Real.cos (Real.pi / 8) ∧
+      ∀ (n : ℕ) (s : Finset (BridgePath 5)),
+        (∀ p ∈ s, p.vertices.length = n) → (s.card : ℝ) ≤ C * β ^ n := by
+  exact ⟨(widthFivePotential (widthFiveNormalize [Vertex.up 0 0]) : ℝ), widthFiveBeta,
+    Nat.cast_nonneg _, by norm_num [widthFiveBeta], widthFiveBeta_lt_mu, widthFivePath_card_real⟩
+
+theorem width_five_summability_diagnostic :
+    Summable (weight (h := 5)) ∧ Summable (firstLengthWeight (h := 5)) := by
+  obtain ⟨C, β, hC, hβ, hlt, hcount⟩ := widthFiveStripGrowthAtFive
+  have hL : Summable (firstLengthWeight (h := 5)) :=
+    bridgeSummable_firstLengthWeight_of_mu_bound hC hβ hlt hcount
+  exact ⟨bridgeSummable_weight_of_summable_firstLengthWeight hL, hL⟩
+
+```

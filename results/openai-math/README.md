@@ -29,11 +29,11 @@
 
 [2026-10-24 在途检查调度调整与源码试验](check-acceleration-followup-20261024/README.md)：两条正式 Lean 检查采用本地 CPU 核组，保留原调度及回读；两项源码试验未显示可靠收益，未采用新候选，尚无整题提速倍数。
 
-[2026-10-25 高度 5 的完整证明](native-check-hotspot-20261024/honeycomb-width-five-20261025/README.md)已无条件证明两项可和性，Lean 完整检查耗时 71.36 秒，同源码显式类型检查为 72.51 秒，六项关键声明仅含三项标准公理。证明已[正常入队并应用](native-check-hotspot-20261024/honeycomb-width-five-adoption-20261025/README.md)，researcher-2 已接手；自包含载入脚本减少转抄 361 态表的时间，正式原生验收仍待完成。
+[2026-10-25 高度 5 的完整证明](native-check-hotspot-20261024/honeycomb-width-five-20261025/README.md)已无条件证明两项可和性。首次正式递交在源码守卫阶段被拒，尚未进入原生 Lean 验收；[修复版](native-check-hotspot-20261024/honeycomb-width-five-flat-20261025/README.md)调整辅助声明命名与表格排版，已通过同一冻结守卫及新的完整 Lean 编译，耗时 75.58 秒，随后 7.86 秒完成六项显式类型与公理检查。证明已[通过正常队列重新递交并应用](native-check-hotspot-20261024/honeycomb-width-five-context-recovery-20261025/README.md)，同一数学合同及其它既有证明保留，正式原生验收仍待完成。
 
 [高度 3](native-check-hotspot-20261024/honeycomb-native-width-three-20261025/README.md)与[高度 4](native-check-hotspot-20261024/honeycomb-native-width-four-20261025/README.md)现均已通过原生任务检查并集成，每次约 26–28 秒，无附加条件，目标 sorry/admit/剩余目标均为 0，仅三项标准公理。回执缺少 declarationReferences 的边界已如实记录。此前[正常递交记录](native-check-hotspot-20261024/honeycomb-width-three-four-adoption-20261025/README.md)及[在途观察](native-check-hotspot-20261024/honeycomb-width-three-four-native-observation-20261025/README.md)保留原截点。
 
-[高度 1 的全部六项结论](native-check-hotspot-20261024/honeycomb-native-width-one-20261025/README.md)、[高度 2 的两项可和性](native-check-hotspot-20261024/honeycomb-native-width-two-20261025/README.md)及[所有高度 confined 三项](native-check-hotspot-20261024/honeycomb-native-confined-sums-20261025/README.md)均已通过原生任务检查并集成。一般高度 Honeycomb 仍未解。Snaky 的 publisher 构建持续单核计算约 98 分钟，[后续健康检查](native-check-hotspot-20261024/snaky-publisher-gate-health-followup-20261025/README.md)未发现新失败，尚待原比较器；原题最终通过仍为 6。见[01:50 北京时间状态](native-check-hotspot-20261024/optimization-progress-20261024T175051Z.json)。
+[高度 1 的全部六项结论](native-check-hotspot-20261024/honeycomb-native-width-one-20261025/README.md)、[高度 2 的两项可和性](native-check-hotspot-20261024/honeycomb-native-width-two-20261025/README.md)及[所有高度 confined 三项](native-check-hotspot-20261024/honeycomb-native-confined-sums-20261025/README.md)均已通过原生任务检查并集成。一般高度 Honeycomb 仍未解。Snaky 的 publisher 构建持续单核计算约 123 分钟，与[此前健康样本](native-check-hotspot-20261024/snaky-publisher-gate-health-followup-20261025/README.md)相比，1516.89 秒内 CPU 增加 1516.70 秒，尚待原比较器；原题最终通过仍为 6。见[02:14 北京时间状态](native-check-hotspot-20261024/optimization-progress-20261024T181420Z.json)。
 
 [2026-10-25 首次可求和性递交](native-check-hotspot-20261024/honeycomb-verified-summability-adoption-20261025/README.md)保留所有高度 confined 三项和宽度 1 六项结论的完整递交记录，以及当时两位研究员的领取状态。后续正式通过状态以本页最新进度为准。
 

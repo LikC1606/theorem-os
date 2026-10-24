@@ -1,0 +1,57 @@
+{
+  "exactTypesAndAxioms": "exact-types-02.stdout.log",
+  "declarations": [
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.widthFiveTable_checked",
+      "axioms": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.widthFiveCount_weighted",
+      "axioms": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.widthFivePath_mem_allPaths",
+      "axioms": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.widthFivePath_card_real",
+      "axioms": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.widthFiveStripGrowthAtFive",
+      "axioms": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.width_five_summability_diagnostic",
+      "axioms": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ]
+    }
+  ],
+  "target": {
+    "name": "OAI.PolynomialVacuumBridge.Corridor.width_five_summability_diagnostic",
+    "type": "Summable (OAI.PolynomialVacuumBridge.Corridor.weight (h := 5)) ∧ Summable (OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (h := 5))"
+  }
+}

@@ -1,0 +1,612 @@
+{
+  "schema": "theorem-os.optimization-progress.v3",
+  "observedAt": "2026-10-24T18:14:20.213242+00:00",
+  "previousProgress": "optimization-progress-20261024T175051Z.json",
+  "nativeFinalPassedCount": 6,
+  "openAIHostedAcceptance": false,
+  "claimReadback": {
+    "honeycomb": {
+      "stateSHA256": "cde1e83042a8dc8323862483ab7d5dc8f63e5120e87f87ed6aa1423fec9c7ea0",
+      "stateBytes": 1994987,
+      "resultSHA256": "2c0d3f02c194a9af6a3b176ba09bd1c4e5830eac95db021291a203cb990fee07",
+      "resultStatus": "prepared"
+    },
+    "snaky": {
+      "stateSHA256": "b46e7ce756462e00601bcf06f64d6bffb1b7acfcf4e9a3eea3e34b4ba3e4180b",
+      "stateBytes": 3564978,
+      "resultSHA256": "ba842f431e3e1da99e0af896dbdcfb42b7b023321f9dda815e9bac67319ca9ed",
+      "resultStatus": "prepared"
+    }
+  },
+  "actualProcessBudgets": {
+    "honeycomb": {
+      "pid": 1250029,
+      "caps": {
+        "--max-run-seconds": "0",
+        "--max-turns": "0",
+        "--max-turn-seconds": "0",
+        "--max-total-tokens": "0",
+        "--evaluator-timeout-seconds": "0"
+      }
+    },
+    "snaky": {
+      "pid": 4175461,
+      "caps": {
+        "--max-run-seconds": "0",
+        "--max-turns": "0",
+        "--max-turn-seconds": "0",
+        "--max-total-tokens": "0",
+        "--evaluator-timeout-seconds": "0"
+      }
+    }
+  },
+  "memoryGiB": 32,
+  "leanThreadsSetting": 1,
+  "fixedPublisherComparatorUnchanged": true,
+  "activeFrozenRuntimeModified": false,
+  "honeycomb": {
+    "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+    "phase": "running",
+    "turns": 456,
+    "canonicalCommit": "7061be826cef83e4924ebda357f35164fa97ddb8",
+    "planVersion": "7a7ebaa3a13fcafdc6e04db88286ce254f59a962a03fd763028805db0433edab",
+    "tasks": [
+      {
+        "taskId": "strip_growth_below_mu",
+        "status": "running",
+        "attempts": 10,
+        "workerId": "researcher-1",
+        "proof": null,
+        "integratedCheck": null
+      },
+      {
+        "taskId": "sums_reduction",
+        "status": "integrated",
+        "attempts": 2,
+        "workerId": "engineer",
+        "proof": {
+          "passed": true,
+          "commit": "21c88246de184c2366cdf7dde20f140a7147291c",
+          "sourceDigest": "5a01254fb71b99009e9a9119a92226b7f9b369fd74752d2b4cbf1fdd994bdaaf",
+          "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+          "conditions": [],
+          "receipts": [
+            {
+              "receiptId": "lean-0289d782383448bdadd0ef5e",
+              "status": "kernel_verified",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "sorryCount": 0,
+              "admitCount": 0,
+              "goalsRemaining": 0,
+              "statementBinding": "caller-bound-to-committed-declaration"
+            }
+          ]
+        },
+        "integratedCheck": {
+          "passed": true,
+          "commit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+          "sourceDigest": "d7464cb0895f9c7e360036300e0df311dae0bc3887b7dc6b70d9c06f6fbe26b7",
+          "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+          "conditions": [],
+          "receipts": [
+            {
+              "receiptId": "lean-c48c9c7223a04b1246cd7274",
+              "status": "kernel_verified",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "sorryCount": 0,
+              "admitCount": 0,
+              "goalsRemaining": 0,
+              "statementBinding": "caller-bound-to-committed-declaration"
+            }
+          ]
+        }
+      },
+      {
+        "taskId": "initial_goal_1",
+        "status": "conditional",
+        "attempts": 3,
+        "workerId": "engineer",
+        "proof": {
+          "passed": true,
+          "commit": "5b89b56b15fdd0be5d210462bae927cee23e7ad8",
+          "sourceDigest": "8905bc62634e42f26e64366e75fb2894db0ca08d3f76c37531bf091d82431a95",
+          "taskDigest": "ab8c91c92c1d5d985ed03edfaee27bbef6df38455b84a82711d07d8d13e77890",
+          "conditions": [
+            {
+              "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+              "taskId": "strip_growth_below_mu"
+            },
+            {
+              "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+              "taskId": "sums_reduction"
+            }
+          ],
+          "receipts": [
+            {
+              "receiptId": "lean-2c05340f5f91057112c7050a",
+              "status": "kernel_verified",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "sorryCount": 0,
+              "admitCount": 0,
+              "goalsRemaining": 0,
+              "statementBinding": "caller-bound-to-committed-declaration"
+            }
+          ]
+        },
+        "integratedCheck": null
+      },
+      {
+        "taskId": "bridge_column_step_unique_a0424391",
+        "status": "integrated",
+        "attempts": 1,
+        "workerId": "researcher-2",
+        "proof": {
+          "passed": true,
+          "commit": "a33722d373af78f27436e6cdc6c3ce4d373c41d2",
+          "sourceDigest": "92de37541f01803b434aa7bd2bbd7a68ea79ab9c1d8b4be7bdfab15fe39c3546",
+          "taskDigest": "8dda84d3d1fb05bf67d085e066ea3e2a00bf68794e69d75c571cb8f57494662f",
+          "conditions": [],
+          "receipts": [
+            {
+              "receiptId": "lean-e83a6b1407f4870dbd3a0b16",
+              "status": "kernel_verified",
+              "axioms": [
+                "propext",
+                "Quot.sound"
+              ],
+              "sorryCount": 0,
+              "admitCount": 0,
+              "goalsRemaining": 0,
+              "statementBinding": "caller-bound-to-committed-declaration"
+            }
+          ]
+        },
+        "integratedCheck": {
+          "passed": true,
+          "commit": "c86302c7813e5059b06c983ff3fd69bb740be47c",
+          "sourceDigest": "92de37541f01803b434aa7bd2bbd7a68ea79ab9c1d8b4be7bdfab15fe39c3546",
+          "taskDigest": "8dda84d3d1fb05bf67d085e066ea3e2a00bf68794e69d75c571cb8f57494662f",
+          "conditions": [],
+          "receipts": [
+            {
+              "receiptId": "lean-c7989226c081cd5d2eb57480",
+              "status": "kernel_verified",
+              "axioms": [
+                "propext",
+                "Quot.sound"
+              ],
+              "sorryCount": 0,
+              "admitCount": 0,
+              "goalsRemaining": 0,
+              "statementBinding": "caller-bound-to-committed-declaration"
+            }
+          ]
+        }
+      },
+      {
+        "taskId": "bridge_full_column_word_injective_a0424391",
+        "status": "integrated",
+        "attempts": 1,
+        "workerId": "researcher-2",
+        "proof": {
+          "passed": true,
+          "commit": "7cb68d262fd5ec86b49f017a24ee03d58f0ebced",
+          "sourceDigest": "596bdf3fb095f7c7db572a3a7bcaa3556c001ce61908653fa29beb0a43c3cae3",
+          "taskDigest": "53c6c87fadcb26f17de3ec17c4407a34037c7c5e965c450e2fe3b141bd886481",
+          "conditions": [],
+          "receipts": [
+            {
+              "receiptId": "lean-d1533e50af2bd394228d788c",
+              "status": "kernel_verified",
+              "axioms": [
+                "propext",
+                "Quot.sound"
+              ],
+              "sorryCount": 0,
+              "admitCount": 0,
+              "goalsRemaining": 0,
+              "statementBinding": "caller-bound-to-committed-declaration"
+            }
+          ]
+        },
+        "integratedCheck": {
+          "passed": true,
+          "commit": "fac87fb460b0289bc48ad7341935e731c7c3bfb5",
+          "sourceDigest": "596bdf3fb095f7c7db572a3a7bcaa3556c001ce61908653fa29beb0a43c3cae3",
+          "taskDigest": "53c6c87fadcb26f17de3ec17c4407a34037c7c5e965c450e2fe3b141bd886481",
+          "conditions": [],
+          "receipts": [
+            {
+              "receiptId": "lean-fa991c9b943987167a1b0eaf",
+              "status": "kernel_verified",
+              "axioms": [
+                "propext",
+                "Quot.sound"
+              ],
+              "sorryCount": 0,
+              "admitCount": 0,
+              "goalsRemaining": 0,
+              "statementBinding": "caller-bound-to-committed-declaration"
+            }
+          ]
+        }
+      },
+      {
+        "taskId": "confined_bridge_sums_all_heights_9dd59d27",
+        "status": "integrated",
+        "attempts": 1,
+        "workerId": "researcher-1",
+        "proof": {
+          "passed": true,
+          "commit": "5c383ba2ff4220cbb57aecb041127365d15ac35c",
+          "sourceDigest": "d69b7e407a85b48c9d5a4cac3628483b4937e7a7398b7f103aa4c2b074d08d84",
+          "taskDigest": "bbd5ff7596e1c5c92cc5b57a731b337a121a7911f52799695d0a5e4fa383ae75",
+          "conditions": [],
+          "receipts": [
+            {
+              "receiptId": "lean-14624c27faf85a6bc4e5a9f0",
+              "status": "kernel_verified",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "sorryCount": 0,
+              "admitCount": 0,
+              "goalsRemaining": 0,
+              "statementBinding": "caller-bound-to-committed-declaration"
+            }
+          ]
+        },
+        "integratedCheck": {
+          "passed": true,
+          "commit": "fa3012608614475df88d051503ad0cdaaf8f4be6",
+          "sourceDigest": "8d7fb4489e4e550650566d289035e19279da8edbbaac3ad68044ffe8813ae5ed",
+          "taskDigest": "bbd5ff7596e1c5c92cc5b57a731b337a121a7911f52799695d0a5e4fa383ae75",
+          "conditions": [],
+          "receipts": [
+            {
+              "receiptId": "lean-062ee507a3097c19b45fb262",
+              "status": "kernel_verified",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "sorryCount": 0,
+              "admitCount": 0,
+              "goalsRemaining": 0,
+              "statementBinding": "caller-bound-to-committed-declaration"
+            }
+          ]
+        }
+      },
+      {
+        "taskId": "width_one_bridge_sums_b433299a",
+        "status": "integrated",
+        "attempts": 1,
+        "workerId": "researcher-2",
+        "proof": {
+          "passed": true,
+          "commit": "3c08cbf9e691e7156540ed075ffc3de20edb6652",
+          "sourceDigest": "fbee705485fc4f39e2cf5ac08d15e0e307162f038fc4912a18493670f13d7f7d",
+          "taskDigest": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+          "conditions": [],
+          "receipts": [
+            {
+              "receiptId": "lean-b1c75a2ef3a0363767a6edd9",
+              "status": "kernel_verified",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "sorryCount": 0,
+              "admitCount": 0,
+              "goalsRemaining": 0,
+              "statementBinding": "caller-bound-to-committed-declaration"
+            }
+          ]
+        },
+        "integratedCheck": {
+          "passed": true,
+          "commit": "78602bd19dc2708c16543e3fe55edfe8407a8824",
+          "sourceDigest": "bc71d2556d58216850b3fa93dac287f0ac644bb88bb63132691833ffe2692724",
+          "taskDigest": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+          "conditions": [],
+          "receipts": [
+            {
+              "receiptId": "lean-909381d19f6680c1615fba09",
+              "status": "kernel_verified",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "sorryCount": 0,
+              "admitCount": 0,
+              "goalsRemaining": 0,
+              "statementBinding": "caller-bound-to-committed-declaration"
+            }
+          ]
+        }
+      },
+      {
+        "taskId": "width_two_summability_diagnostic",
+        "status": "integrated",
+        "attempts": 2,
+        "workerId": "researcher-2",
+        "proof": {
+          "passed": true,
+          "commit": "a862efb5ee31eaf58ca174b79730f960a7b89302",
+          "sourceDigest": "7b812d702cff88a697f17f02d60f2185f983f38d07a1cbf4cab63f5739d137aa",
+          "taskDigest": "47a80c33ba93a52c8f6e3ec8174472796ca761885865a1812e58a08b1aa2bcfd",
+          "conditions": [],
+          "receipts": [
+            {
+              "receiptId": "lean-30a9b8d0f88ea68d0cdfffd7",
+              "status": "kernel_verified",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "sorryCount": 0,
+              "admitCount": 0,
+              "goalsRemaining": 0,
+              "statementBinding": "caller-bound-to-committed-declaration"
+            }
+          ]
+        },
+        "integratedCheck": {
+          "passed": true,
+          "commit": "0d4bd1c55e8dff31f375e1d5dbe243c799489133",
+          "sourceDigest": "5754ff820e2d15b1bd4c4ed1c9812d280bfb4929dd539e3861bada08c40c87b7",
+          "taskDigest": "47a80c33ba93a52c8f6e3ec8174472796ca761885865a1812e58a08b1aa2bcfd",
+          "conditions": [],
+          "receipts": [
+            {
+              "receiptId": "lean-280acb880d3c011f61e534da",
+              "status": "kernel_verified",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "sorryCount": 0,
+              "admitCount": 0,
+              "goalsRemaining": 0,
+              "statementBinding": "caller-bound-to-committed-declaration"
+            }
+          ]
+        }
+      },
+      {
+        "taskId": "width_three_summability_e0dd3d96",
+        "status": "integrated",
+        "attempts": 1,
+        "workerId": "researcher-2",
+        "proof": {
+          "passed": true,
+          "commit": "c9c9dba2430cca6189a64793f620e1d9530ac12c",
+          "sourceDigest": "293c7ffe566359bb503ed88db29ae9e0c32c5faafcad87f9340d8c8e7c511e7f",
+          "taskDigest": "1d25b9fa6b1df2ff60c7e7c3d060e9860a5ad7f2a088c3826cace3c2d22e0c33",
+          "conditions": [],
+          "receipts": [
+            {
+              "receiptId": "lean-4bae72d27c6d83d9d29474cd",
+              "status": "kernel_verified",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "sorryCount": 0,
+              "admitCount": 0,
+              "goalsRemaining": 0,
+              "statementBinding": "caller-bound-to-committed-declaration"
+            }
+          ]
+        },
+        "integratedCheck": {
+          "passed": true,
+          "commit": "7061be826cef83e4924ebda357f35164fa97ddb8",
+          "sourceDigest": "810ff14a46d534bd2976a85d7c3173036747adacc45af0c7a030da13685a8d29",
+          "taskDigest": "1d25b9fa6b1df2ff60c7e7c3d060e9860a5ad7f2a088c3826cace3c2d22e0c33",
+          "conditions": [],
+          "receipts": [
+            {
+              "receiptId": "lean-57bf5d70cc019e03fa3fba3d",
+              "status": "kernel_verified",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "sorryCount": 0,
+              "admitCount": 0,
+              "goalsRemaining": 0,
+              "statementBinding": "caller-bound-to-committed-declaration"
+            }
+          ]
+        }
+      },
+      {
+        "taskId": "width_four_summability_a8462a19",
+        "status": "integrated",
+        "attempts": 1,
+        "workerId": "engineer",
+        "proof": {
+          "passed": true,
+          "commit": "1a82da7ff8a190d59684e9d8775a54d490a3faad",
+          "sourceDigest": "aa65dc872952c4673dc60135e61d7cb6d058966d427f92b85078a29da6d25caa",
+          "taskDigest": "d917d579b417751f32bb7ec8261b7adea2c79bd36866c4fd0de53ab4962811a4",
+          "conditions": [],
+          "receipts": [
+            {
+              "receiptId": "lean-504445e25f9c03d2440a36ef",
+              "status": "kernel_verified",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "sorryCount": 0,
+              "admitCount": 0,
+              "goalsRemaining": 0,
+              "statementBinding": "caller-bound-to-committed-declaration"
+            }
+          ]
+        },
+        "integratedCheck": {
+          "passed": true,
+          "commit": "ef7c4acdd975241b67f4ff616499021002f24e05",
+          "sourceDigest": "5d324396710ad7cff492bac70417270fde065a904c3b214f8db16212bd301ce0",
+          "taskDigest": "d917d579b417751f32bb7ec8261b7adea2c79bd36866c4fd0de53ab4962811a4",
+          "conditions": [],
+          "receipts": [
+            {
+              "receiptId": "lean-066bed21b62f14a43723a51f",
+              "status": "kernel_verified",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "sorryCount": 0,
+              "admitCount": 0,
+              "goalsRemaining": 0,
+              "statementBinding": "caller-bound-to-committed-declaration"
+            }
+          ]
+        }
+      },
+      {
+        "taskId": "width_five_summability_ba0a1c09",
+        "status": "pending",
+        "attempts": 2,
+        "workerId": null,
+        "proof": null,
+        "integratedCheck": null
+      },
+      {
+        "taskId": "initial_research_1",
+        "status": "pending",
+        "attempts": 2,
+        "workerId": "researcher-1",
+        "proof": null,
+        "integratedCheck": null
+      },
+      {
+        "taskId": "initial_research_2",
+        "status": "running",
+        "attempts": 67,
+        "workerId": "researcher-2",
+        "proof": null,
+        "integratedCheck": null
+      },
+      {
+        "taskId": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+        "status": "running",
+        "attempts": 68,
+        "workerId": "engineer",
+        "proof": null,
+        "integratedCheck": null
+      },
+      {
+        "taskId": "finite_box_zero_mass_reference",
+        "status": "pending",
+        "attempts": 0,
+        "workerId": null,
+        "proof": null,
+        "integratedCheck": null
+      }
+    ],
+    "allHeightOriginalGoalSolved": false,
+    "heightFive": {
+      "status": "pending",
+      "workerId": null,
+      "priorStatus": "blocked",
+      "priorFailureStage": "source guard before native Lean acceptance",
+      "priorError": "math_original_context_changed",
+      "repairReport": "honeycomb-width-five-flat-20261025/README.md",
+      "recoveryReport": "honeycomb-width-five-context-recovery-20261025/README.md",
+      "fixedGuardPassed": true,
+      "sourceSHA256": "ff2840a46faa26cc36d2391cfbc7ef9b961283aa3ae6d72ea8933b6d155b9350",
+      "incrementSHA256": "1ea208c68cea9922489f77d3976d865b24f17a25b7ea4fcd42734473288e4291",
+      "newFullCompileExitCode": 0,
+      "newFullCompileSeconds": 75.58311117207631,
+      "exactTypeAndAxiomProbeExitCode": 0,
+      "exactTypeAndAxiomProbeSeconds": 7.863234446151182,
+      "nativeProofPresent": false,
+      "nativeIntegrationPresent": false
+    },
+    "repairEdit": {
+      "affectedTasks": [
+        "width_five_summability_ba0a1c09"
+      ],
+      "appliedAt": 1792865536516,
+      "baseVersion": "4f641701cefa6dcccfb351f087907d066a3d498a021aef23e586dc0a2503e7a5",
+      "id": "honeycomb-width-five-context-repair-20261025",
+      "planVersion": "7a7ebaa3a13fcafdc6e04db88286ce254f59a962a03fd763028805db0433edab",
+      "receivedAt": 1792865536421,
+      "recheck": {
+        "status": "pending",
+        "tasks": [
+          {
+            "status": "pending",
+            "taskDigest": "a8d8f5f6cea0ed3b012a7cb4b57092de52f48c5318f454d779738af52dad9013",
+            "taskId": "width_five_summability_ba0a1c09"
+          }
+        ]
+      },
+      "status": "applied"
+    }
+  },
+  "snaky": {
+    "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+    "phase": "evaluating",
+    "resultStatus": "prepared",
+    "hostFinalCheckCompleted": true,
+    "currentGate": "frozen publisher lake build Challenge Submission",
+    "nextGate": "original comparator",
+    "publisherProcess": {
+      "pid": 900064,
+      "observedAt": "2026-10-24T18:14:20.213242+00:00",
+      "elapsedSeconds": 7384.75,
+      "cpuSeconds": 7384.78,
+      "status": {
+        "VmRSS": "15322308 kB",
+        "Threads": "7"
+      },
+      "comparisonSample": "snaky-publisher-gate-health-followup-20261025/report.json",
+      "elapsedDeltaSeconds": 1516.8900000001304,
+      "cpuDeltaSeconds": 1516.6999999999998,
+      "singleCoreUtilizationRelativeToSample": 0.9998747437189707
+    },
+    "finalAccepted": false
+  },
+  "campaignService": {
+    "NRestarts": "0",
+    "ActiveState": "active",
+    "SubState": "running"
+  },
+  "newCompilerInvocationsForRepair": {
+    "fullChangedSource": 1,
+    "importedModuleProbe": 1,
+    "unchangedFullProofRecompiled": false
+  },
+  "resultBoundary": "The new height-five repair has passed the unchanged source guard and local Lean checks, and its normal queue edit is applied. Native task and integration acceptance remain outstanding. Heights one through four stay integrated auxiliaries; the all-height original goal remains open. Snaky is still in the publisher build. All checks are local, with no OpenAI hosted certification."
+}

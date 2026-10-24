@@ -1,0 +1,50 @@
+[
+  {
+    "line": 33104,
+    "byteOffset": 8781699,
+    "bytes": 704,
+    "sha256": "013d00a0abf41062b815bbceaf7d94d5ca0074d9ac9af95c5f9fa5826c4349c0",
+    "event": "task_assigned",
+    "at": 1792864103187
+  },
+  {
+    "line": 33318,
+    "byteOffset": 8862668,
+    "bytes": 694,
+    "sha256": "bda1ce9d5f4846938d79177a28680899d7b0e7f83454610f7e54a0f130f78e19",
+    "event": "delivery_published",
+    "at": 1792864492404
+  },
+  {
+    "line": 33319,
+    "byteOffset": 8863362,
+    "bytes": 362,
+    "sha256": "93cc457403aa5ff86d6d764b4d1aeb8574d06ef4c1c1673460621b03f9156ee4",
+    "event": "research_delivered",
+    "at": 1792864492405
+  },
+  {
+    "line": 33334,
+    "byteOffset": 8869600,
+    "bytes": 704,
+    "sha256": "ab88c2713205ba6ebe3241266ff8d730ac70fbc3b5d6083fabf1f61e4b8064f1",
+    "event": "task_assigned",
+    "at": 1792864504147
+  },
+  {
+    "line": 33460,
+    "byteOffset": 8915022,
+    "bytes": 1241,
+    "sha256": "80a7874682ba9968ccff1b32e6bef27af77d08b841b92a2d026408dee3d3a238",
+    "event": "edit_recheck_updated",
+    "at": 1792864679798
+  },
+  {
+    "line": 33461,
+    "byteOffset": 8916263,
+    "bytes": 536,
+    "sha256": "dc695fda38ad98443b30892df0864b9f5df27aa1d60b41e0e2377afd566ea575",
+    "event": "delivery_published",
+    "at": 1792864679859
+  }
+]

@@ -1,0 +1,117 @@
+{
+  "schema": "theorem-os.checked-proof-recovery-readback.v1",
+  "observedAt": "2026-10-24T18:12:39.280814+00:00",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "phase": "running",
+  "turns": 456,
+  "canonicalCommit": "7061be826cef83e4924ebda357f35164fa97ddb8",
+  "planVersion": "7a7ebaa3a13fcafdc6e04db88286ce254f59a962a03fd763028805db0433edab",
+  "edit": {
+    "affectedTasks": [
+      "width_five_summability_ba0a1c09"
+    ],
+    "appliedAt": 1792865536516,
+    "baseVersion": "4f641701cefa6dcccfb351f087907d066a3d498a021aef23e586dc0a2503e7a5",
+    "id": "honeycomb-width-five-context-repair-20261025",
+    "planVersion": "7a7ebaa3a13fcafdc6e04db88286ce254f59a962a03fd763028805db0433edab",
+    "receivedAt": 1792865536421,
+    "recheck": {
+      "status": "pending",
+      "tasks": [
+        {
+          "status": "pending",
+          "taskDigest": "a8d8f5f6cea0ed3b012a7cb4b57092de52f48c5318f454d779738af52dad9013",
+          "taskId": "width_five_summability_ba0a1c09"
+        }
+      ]
+    },
+    "status": "applied"
+  },
+  "taskCount": 15,
+  "allOtherTaskContractsUnchanged": true,
+  "heightFiveMathematicalContractUnchanged": true,
+  "groupContractsAndRoutesUnchanged": true,
+  "naturalAssignmentComparisons": {
+    "strip_growth_below_mu": true,
+    "sums_reduction": true,
+    "initial_goal_1": true,
+    "bridge_column_step_unique_a0424391": true,
+    "bridge_full_column_word_injective_a0424391": true,
+    "confined_bridge_sums_all_heights_9dd59d27": true,
+    "width_one_bridge_sums_b433299a": true,
+    "width_two_summability_diagnostic": true,
+    "width_three_summability_e0dd3d96": true,
+    "width_four_summability_a8462a19": true,
+    "initial_research_1": true,
+    "initial_research_2": true,
+    "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51": true,
+    "finite_box_zero_mass_reference": true
+  },
+  "existingProofAndIntegrationComparisons": {
+    "strip_growth_below_mu": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "sums_reduction": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "initial_goal_1": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "bridge_column_step_unique_a0424391": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "bridge_full_column_word_injective_a0424391": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "confined_bridge_sums_all_heights_9dd59d27": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "width_one_bridge_sums_b433299a": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "width_two_summability_diagnostic": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "width_three_summability_e0dd3d96": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "width_four_summability_a8462a19": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "initial_research_1": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "initial_research_2": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "finite_box_zero_mass_reference": {
+      "proof": true,
+      "integratedCheck": true
+    }
+  },
+  "heightFiveCurrentRecord": {
+    "attempts": 2,
+    "parkedRoutes": {},
+    "routeParking": [],
+    "status": "pending"
+  },
+  "directActiveStateOrSourceWrites": false,
+  "nativeTaskAcceptanceAddedByQueue": false,
+  "stateSHA256": "2ae3b1b4e5cc28961c505103a0a84c01aafd92853e87db054696da0f281bc7d4"
+}

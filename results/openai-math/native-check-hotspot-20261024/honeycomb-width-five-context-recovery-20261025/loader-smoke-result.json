@@ -1,0 +1,42 @@
+{
+  "observedAt": "2026-10-24T18:10:24.779371+00:00",
+  "loaderSHA256": "5098b953d4bfd1d29fde00fdc06fb4ff9bd08489dbb1e4548b9aeafd40315811",
+  "incrementSHA256": "1ea208c68cea9922489f77d3976d865b24f17a25b7ea4fcd42734473288e4291",
+  "incrementBytes": 61787,
+  "baseCanonicalSourceSHA256": "d4947cdf5b6a5c985fbe0390b396ed64c634198934f18db04b8c96112c4e3020",
+  "insertedSourceSHA256": "2c962fe26b505e7cb97b84380f855960f831ea867197015469b693526642eb86",
+  "attempts": [
+    {
+      "exitCode": 0,
+      "stdout": {
+        "status": "inserted",
+        "beforeSHA256": "d4947cdf5b6a5c985fbe0390b396ed64c634198934f18db04b8c96112c4e3020",
+        "afterSHA256": "2c962fe26b505e7cb97b84380f855960f831ea867197015469b693526642eb86",
+        "incrementSHA256": "1ea208c68cea9922489f77d3976d865b24f17a25b7ea4fcd42734473288e4291",
+        "incrementBytes": 61787,
+        "preservedExistingSourceBytes": 69426
+      },
+      "stderr": ""
+    },
+    {
+      "exitCode": 0,
+      "stdout": {
+        "status": "already-present",
+        "incrementSHA256": "1ea208c68cea9922489f77d3976d865b24f17a25b7ea4fcd42734473288e4291",
+        "sourceSHA256": "2c962fe26b505e7cb97b84380f855960f831ea867197015469b693526642eb86"
+      },
+      "stderr": ""
+    }
+  ],
+  "idempotent": true,
+  "allPreviousSourceBytesPreserved": true,
+  "activeSourceChanged": false,
+  "fixedSourceGuardPassedAfterInsertion": true,
+  "fixedSourceGuardExitCode": 0,
+  "fixedSourceGuardStdout": "{\"passed\":true}\n",
+  "fixedSourceGuardStderr": "",
+  "leanInvocations": 0,
+  "temporaryFixtureRemovedOnCompletion": true,
+  "partialNameCheckUsesActualFlatPrefix": "widthFive",
+  "sourceBytesIdenticalToFixedGuardCheckedInsertion": true
+}

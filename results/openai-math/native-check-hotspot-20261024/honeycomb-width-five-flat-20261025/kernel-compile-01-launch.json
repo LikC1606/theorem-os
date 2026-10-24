@@ -1,0 +1,50 @@
+{
+  "startedAt": "2026-10-24T18:09:14.145184+00:00",
+  "mode": "compile",
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "--threads=1",
+    "--memory=32768",
+    "-DautoImplicit=false",
+    "-DmaxHeartbeats=0",
+    "-DmaxRecDepth=1000",
+    "-o",
+    "Submission.olean",
+    "Submission.lean"
+  ],
+  "cwd": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-width-five-flat-20261025/project",
+  "sourcePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-width-five-flat-20261025/project/Submission.lean",
+  "sourceSHA256": "ff2840a46faa26cc36d2391cfbc7ef9b961283aa3ae6d72ea8933b6d155b9350",
+  "sourceBytes": 119353,
+  "candidateSHA256": "ff2840a46faa26cc36d2391cfbc7ef9b961283aa3ae6d72ea8933b6d155b9350",
+  "guardPreflight": "source-preflight-02-result.json",
+  "leanToolchain": "leanprover/lean4:v4.34.1",
+  "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+  "sealedEnvironmentIdentity": "2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87",
+  "leanPath": [
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-width-five-flat-20261025/project",
+    "/proc/1250131/fd/5/LeanSearchClient/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/Qq/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/aesop/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/batteries/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/importGraph/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/mathlib/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/plausible/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/proofwidgets/.lake/build/lib/lean"
+  ],
+  "resourceLimits": {
+    "wallSeconds": null,
+    "cpuSoftSeconds": null,
+    "cpuHardSeconds": null,
+    "maxHeartbeats": 0,
+    "addressSpaceGiB": 32,
+    "leanMemoryMiB": 32768,
+    "threads": 1,
+    "cpus": [
+      0
+    ]
+  },
+  "activeRuntimeChanged": false,
+  "activeSourceChanged": false,
+  "nativeTaskProofAcceptance": false
+}

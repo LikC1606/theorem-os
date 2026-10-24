@@ -1,0 +1,22 @@
+{
+  "sourceSHA256": "ff2840a46faa26cc36d2391cfbc7ef9b961283aa3ae6d72ea8933b6d155b9350",
+  "incrementSHA256": "1ea208c68cea9922489f77d3976d865b24f17a25b7ea4fcd42734473288e4291",
+  "guardSameSourceAsCompiled": true,
+  "compileSnapshotMatches": true,
+  "probeImportsExactNewModule": true,
+  "allSixAxiomListsWhitelisted": true,
+  "heightFiveExplicitInPrintedTypes": true,
+  "originalBaseBytesPreserved": true,
+  "incrementPlaceholderFree": true,
+  "oldSuccessfulSourceRerun": false,
+  "newCandidateFullCompileCount": 1,
+  "noLeanRerunDuringArchival": true,
+  "oldFormalRejectedCandidateNotAvailable": true,
+  "failedGuardReproductionIsReconstructed": true,
+  "guardFailureEvidence": "source-preflight-result.json",
+  "guardPassEvidence": "source-preflight-02-result.json",
+  "firstFlatFailureSource": "project-guard-01-source.lean",
+  "firstFlatFailureContext": "project-context-diagnostic.txt",
+  "originalAllHeightTheoremStillContainsItsPreexistingPlaceholder": true,
+  "heightFiveAxiomsContainNoSorryAx": true
+}

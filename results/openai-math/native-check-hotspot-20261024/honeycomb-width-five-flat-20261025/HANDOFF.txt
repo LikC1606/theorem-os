@@ -1,0 +1,17 @@
+EXISTING TASK: width_five_summability_ba0a1c09
+THEOREM: OAI.PolynomialVacuumBridge.Corridor.width_five_summability_diagnostic
+TYPE: Summable (OAI.PolynomialVacuumBridge.Corridor.weight (h := 5)) ∧ Summable (OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (h := 5))
+
+INCREMENT: WidthFiveFlat.lean.inc
+INCREMENT SHA256: 1ea208c68cea9922489f77d3976d865b24f17a25b7ea4fcd42734473288e4291
+FULL CANDIDATE: project/Submission.lean
+SOURCE SHA256: ff2840a46faa26cc36d2391cfbc7ef9b961283aa3ae6d72ea8933b6d155b9350
+
+Actual guard pass: source-preflight-02-result.json
+New compile pass: kernel-compile-01-result.json
+Six exact types/axioms: exact-types-02.stdout.log
+Probe result: exact-types-02-result.json
+
+Insert the flat increment in the existing outer namespace before finite_bridge_sums; preserve bracket indentation and named instances. Do not add new namespace wrappers or top-level comments, and do not insert Probe commands into Submission. Preserve all current declarations and the unresolved all-height target.
+Update only the existing h5 objective through the normal queue; the type and other task contracts are unchanged. Local verification does not grant native acceptance.
+Copy only delivery-files.json entries. Never copy project/Submission.olean, other build products or links. No more Lean run is needed for archival.

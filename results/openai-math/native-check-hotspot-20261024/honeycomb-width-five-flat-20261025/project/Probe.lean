@@ -1,0 +1,14 @@
+import Submission
+
+#check @OAI.PolynomialVacuumBridge.Corridor.widthFiveTable_checked
+#print axioms OAI.PolynomialVacuumBridge.Corridor.widthFiveTable_checked
+#check @OAI.PolynomialVacuumBridge.Corridor.widthFiveCount_weighted
+#print axioms OAI.PolynomialVacuumBridge.Corridor.widthFiveCount_weighted
+#check @OAI.PolynomialVacuumBridge.Corridor.widthFivePath_mem_allPaths
+#print axioms OAI.PolynomialVacuumBridge.Corridor.widthFivePath_mem_allPaths
+#check @OAI.PolynomialVacuumBridge.Corridor.widthFivePath_card_real
+#print axioms OAI.PolynomialVacuumBridge.Corridor.widthFivePath_card_real
+#check @OAI.PolynomialVacuumBridge.Corridor.widthFiveStripGrowthAtFive
+#print axioms OAI.PolynomialVacuumBridge.Corridor.widthFiveStripGrowthAtFive
+#check @OAI.PolynomialVacuumBridge.Corridor.width_five_summability_diagnostic
+#print axioms OAI.PolynomialVacuumBridge.Corridor.width_five_summability_diagnostic

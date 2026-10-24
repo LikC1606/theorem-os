@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-10-24T17:52:06.548705+00:00",
+  "capturedAt": "2026-10-24T18:16:00.363102+00:00",
   "characterV1KernelCheck": "failed: two section-parameter application mismatches",
   "characterV2FullSourceCompile": "passed: exit0 in 635.028472 seconds",
   "characterV2AxiomAudit": "passed: only propext/Classical.choice/Quot.sound",
@@ -8,8 +8,8 @@
   "files": [
     {
       "path": "README.md",
-      "bytes": 24269,
-      "sha256": "afbd491d76031eca938c47685cd01aa37b9f1d6399a601b7ccdac76a4f993e62"
+      "bytes": 25067,
+      "sha256": "51435ada12ab80ef4b7406b041cb04ca851131f6b8a209d4c229dcc975ad1189"
     },
     {
       "path": "adopt-verified-character-candidate/README.md",
@@ -4082,6 +4082,451 @@
       "sha256": "e18bde81272a22a5fc322b88d1fc55620e3dff6f466d93b6c70f6ca1fc25aebc"
     },
     {
+      "path": "honeycomb-width-five-context-recovery-20261025/README.md",
+      "bytes": 3123,
+      "sha256": "7c1b133f5eab7f360ec53201414b158d9594a1942f42b5a9ab576bf0da5637f6"
+    },
+    {
+      "path": "honeycomb-width-five-context-recovery-20261025/SHA256SUMS",
+      "bytes": 1785,
+      "sha256": "7f3e2d87e8d8982c788883338aaa92ef0bf33a0afebc4bf4ff8a3e24b03c3800"
+    },
+    {
+      "path": "honeycomb-width-five-context-recovery-20261025/applied-readback.json",
+      "bytes": 3555,
+      "sha256": "022e82794f085b6139a439515ff231bb9d70f260af40dcdc0e48f2378ccf957c"
+    },
+    {
+      "path": "honeycomb-width-five-context-recovery-20261025/blocked-observation.json",
+      "bytes": 669,
+      "sha256": "d9479542394c8eecdb9861a32612ca3496285ddaf7f2e4c1390676a2dcd5eaaf"
+    },
+    {
+      "path": "honeycomb-width-five-context-recovery-20261025/complete-handoff.md",
+      "bytes": 75459,
+      "sha256": "eb4cada0967a000ecb9ddfd63d0ac5c1486d4484bfb1be669f4cb70e9e9b78cd"
+    },
+    {
+      "path": "honeycomb-width-five-context-recovery-20261025/context-availability-readback.json",
+      "bytes": 1881,
+      "sha256": "42917262323389fb2ea863cbb98023243ce3e23f79f74b092bc457fd66260943"
+    },
+    {
+      "path": "honeycomb-width-five-context-recovery-20261025/events-index.json",
+      "bytes": 1280,
+      "sha256": "223c62d81751009e7692c6f07658727608a9ce059d211b62cf9f0d3c6fd0c813"
+    },
+    {
+      "path": "honeycomb-width-five-context-recovery-20261025/events-safe-raw.jsonl",
+      "bytes": 4241,
+      "sha256": "e3776e2912a767e77fa81c2e394a7427222652819392b91d4c3ed271e7bae4c4"
+    },
+    {
+      "path": "honeycomb-width-five-context-recovery-20261025/first-research-delivery-source-capture.json",
+      "bytes": 876,
+      "sha256": "2b662f7dababef018adbfd40c458aa6cd04063096a438cd59afec842bebb10a4"
+    },
+    {
+      "path": "honeycomb-width-five-context-recovery-20261025/first-research-delivery-source.lean",
+      "bytes": 69426,
+      "sha256": "d4947cdf5b6a5c985fbe0390b396ed64c634198934f18db04b8c96112c4e3020"
+    },
+    {
+      "path": "honeycomb-width-five-context-recovery-20261025/fixed-source-constraints.json",
+      "bytes": 3511,
+      "sha256": "65f367e1b022234aefa1f3121fb319326de53d294ebfb9a208739f783d3986d5"
+    },
+    {
+      "path": "honeycomb-width-five-context-recovery-20261025/install-flat-increment.py",
+      "bytes": 12467,
+      "sha256": "5098b953d4bfd1d29fde00fdc06fb4ff9bd08489dbb1e4548b9aeafd40315811"
+    },
+    {
+      "path": "honeycomb-width-five-context-recovery-20261025/loader-smoke-result.json",
+      "bytes": 1687,
+      "sha256": "cf13914fe47f0e442e310a3fc39566e1d4711ec0ef57eee31435339cfcfcb6a0"
+    },
+    {
+      "path": "honeycomb-width-five-context-recovery-20261025/manifest.json",
+      "bytes": 3141,
+      "sha256": "0c55c3aca1edcd306d81392aad027e9d88eb2e19236482143de76837e2b0bdd2"
+    },
+    {
+      "path": "honeycomb-width-five-context-recovery-20261025/preparation.json",
+      "bytes": 214564,
+      "sha256": "f8b7971093b5f6ab1c85377873e0c98c2362caaea7db1a3a6dac34092b1305e2"
+    },
+    {
+      "path": "honeycomb-width-five-context-recovery-20261025/queue-flat-proof.ts",
+      "bytes": 8591,
+      "sha256": "7fdfff0a67bbdf4ef170c23bdcbc076aa2b50719b7577bb11fb5dddc482b0e36"
+    },
+    {
+      "path": "honeycomb-width-five-context-recovery-20261025/queue-receipt.json",
+      "bytes": 390,
+      "sha256": "58633898e93f11006ba48d617079925bbf9bc2243e9f522c9f3f8a6a68b9f1f0"
+    },
+    {
+      "path": "honeycomb-width-five-context-recovery-20261025/state-applied.json",
+      "bytes": 1995031,
+      "sha256": "2ae3b1b4e5cc28961c505103a0a84c01aafd92853e87db054696da0f281bc7d4"
+    },
+    {
+      "path": "honeycomb-width-five-context-recovery-20261025/state-before-requeue.json",
+      "bytes": 1918848,
+      "sha256": "4cd068b937c2199615de3c51fb978639835c013f636d9fcb8d42fa3d19fef18f"
+    },
+    {
+      "path": "honeycomb-width-five-context-recovery-20261025/state-blocked.json",
+      "bytes": 1918222,
+      "sha256": "5e5a17328ff7174fcd7436da7612b63b0d95f7a010a4923e7922c6cdbcb2e989"
+    },
+    {
+      "path": "honeycomb-width-five-context-recovery-20261025/task-blocked.json",
+      "bytes": 78600,
+      "sha256": "976334f215ef85436244a5aa9960b038463a8159b10f656916c42fcbe4dfcff6"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/BaseSubmission.lean",
+      "bytes": 57565,
+      "sha256": "de93672347098968dbf8352fa552c536681cac5b87b0090a4a837d902512ba19"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/HANDOFF.txt",
+      "bytes": 1331,
+      "sha256": "513a768e26447cc049eac8675df89590c431ab5219e65005247d75d36d67cd8f"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/OriginalWidthFive.lean.inc",
+      "bytes": 57660,
+      "sha256": "a33eef19ac38782883227589dc48e125ff7e3d4379da9f6cf4ebc20e9c8760ca"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/README.md",
+      "bytes": 4346,
+      "sha256": "2deaed94e26c655ad8604c92ac2e20c0bba3542f3ba01c0e60b66e1eb6c98c33"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/SHA256SUMS",
+      "bytes": 6121,
+      "sha256": "5f78efd12faf7817b53432be8573fe63840cd7ed7696ebc67b1e2c1301adbb8a"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/WidthFiveFlat-guard-01.lean.inc",
+      "bytes": 61806,
+      "sha256": "affedbed7f71c9690058195d3ca861c46cb442465f317dbcee6fa4815fbd7c6c"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/WidthFiveFlat.lean.inc",
+      "bytes": 61787,
+      "sha256": "1ea208c68cea9922489f77d3976d865b24f17a25b7ea4fcd42734473288e4291"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/archive.py",
+      "bytes": 16720,
+      "sha256": "425b1ef5bcef085600c7f6a357a382044fba44a5dedc7ec2e81c1d688eb204e8"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/baseline-context-diagnostic.txt",
+      "bytes": 1031,
+      "sha256": "2b42796e8512045c80a0ac6dcdeb78f804658ca32347c5ef89e5de91c3f7a13f"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/baseline/Challenge.lean",
+      "bytes": 2367,
+      "sha256": "6acaeab1940555d1df29856e504deae4f9edf7777231969b9b7d13515731d830"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/baseline/Submission.lean",
+      "bytes": 57565,
+      "sha256": "de93672347098968dbf8352fa552c536681cac5b87b0090a4a837d902512ba19"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/baseline/lake-manifest.json",
+      "bytes": 3571,
+      "sha256": "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/baseline/lakefile.toml",
+      "bytes": 321,
+      "sha256": "5626031b96b817d4ed6b2615ac3ebddeb0f1856208d6363bddea8b64cfe6e6b6"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/baseline/lean-toolchain",
+      "bytes": 25,
+      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/context-diagnostic.ts",
+      "bytes": 1586,
+      "sha256": "2d5c2e4782281b7d22437fe795b9fc74fbf7d8fae9e4216f2644540ef8cd9fb3"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/context-guard-01.diff",
+      "bytes": 450,
+      "sha256": "fa9f79b81e9e428374fbbc70abc671bea0ef75762eae6a6e874c5b3baabc2fd3"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/delivery-contract.json",
+      "bytes": 1034,
+      "sha256": "998abba5e0a868135354de0b51ba83db71f4682eef20d804a8243857b40f6ad4"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/delivery-files.json",
+      "bytes": 2364,
+      "sha256": "5be4184d0457166aa36f90a6454ab6d767633c75f40a4968bc84bbf40a441567"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/exact-types-02-launch.json",
+      "bytes": 2156,
+      "sha256": "86e0954785c8f89154bee4864a5006e816b5329f71edca2a7ac1d269e3901792"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/exact-types-02-result.json",
+      "bytes": 2734,
+      "sha256": "946f8323a2c1051ee0a1ea6303da9d15d072e861181e11116b442123c76fe240"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/exact-types-02-source.lean",
+      "bytes": 901,
+      "sha256": "b495447db5be399c9c0741b9ad7cdd109254c33af543a8371fd5c1cbd2f20031"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/exact-types-02.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/exact-types-02.stdout.log",
+      "bytes": 9424,
+      "sha256": "a3976b8ba49d033710b34b145ac2150d4d707644c7c9abd854ff69ca5313d65b"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/fixed-source-constraints.json",
+      "bytes": 3511,
+      "sha256": "65f367e1b022234aefa1f3121fb319326de53d294ebfb9a208739f783d3986d5"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/flat-anonymous-context-diagnostic.txt",
+      "bytes": 1397,
+      "sha256": "cc6f1f7a5d705b7ac7c53061d5dffc17e849ece0a1f7117f4d5f07a414d36f90"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/flat-anonymous/Challenge.lean",
+      "bytes": 2367,
+      "sha256": "6acaeab1940555d1df29856e504deae4f9edf7777231969b9b7d13515731d830"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/flat-anonymous/Submission.lean",
+      "bytes": 119331,
+      "sha256": "d5eacba88951bfcc4174892dc4b93ff9c9511664a5c083db166878703d786a92"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/flat-anonymous/lake-manifest.json",
+      "bytes": 3571,
+      "sha256": "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/flat-anonymous/lakefile.toml",
+      "bytes": 321,
+      "sha256": "5626031b96b817d4ed6b2615ac3ebddeb0f1856208d6363bddea8b64cfe6e6b6"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/flat-anonymous/lean-toolchain",
+      "bytes": 25,
+      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/flat-named-simp-context-diagnostic.txt",
+      "bytes": 1182,
+      "sha256": "5beaa9fa8df462a91fb4ac68c81e598eee508217772476ef6fc7cd4d72ebd2b7"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/flat-named-simp/Challenge.lean",
+      "bytes": 2367,
+      "sha256": "6acaeab1940555d1df29856e504deae4f9edf7777231969b9b7d13515731d830"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/flat-named-simp/Submission.lean",
+      "bytes": 119380,
+      "sha256": "d2d9f7702708c0b5131b759419d32a783f5461e3d90209736fd9cd1707ab9f20"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/flat-named-simp/lake-manifest.json",
+      "bytes": 3571,
+      "sha256": "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/flat-named-simp/lakefile.toml",
+      "bytes": 321,
+      "sha256": "5626031b96b817d4ed6b2615ac3ebddeb0f1856208d6363bddea8b64cfe6e6b6"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/flat-named-simp/lean-toolchain",
+      "bytes": 25,
+      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/kernel-compile-01-launch.json",
+      "bytes": 2085,
+      "sha256": "d313c84218746ee1353763f65300353a61230f54025a37190bf77cf7a5066eb5"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/kernel-compile-01-result.json",
+      "bytes": 2761,
+      "sha256": "4bd386543ac4c9a4b51be057a1f80460be66d7d3cadfef885b37856468f71166"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/kernel-compile-01-source.lean",
+      "bytes": 119353,
+      "sha256": "ff2840a46faa26cc36d2391cfbc7ef9b961283aa3ae6d72ea8933b6d155b9350"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/kernel-compile-01.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/kernel-compile-01.stdout.log",
+      "bytes": 1645,
+      "sha256": "c21fd85b736b98632cd9f129180108607e37090d127274a20c14e46481912d19"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/key-theorems.json",
+      "bytes": 1459,
+      "sha256": "e1c32e8661cd4f29f05d44ecb4b7f5fb080a04c19130e7612ad5e3b64a3c86fb"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/manifest.json",
+      "bytes": 10925,
+      "sha256": "4364395ed3d7e2d71e202f9bb23186e862c26ed1908e557ce375b61341d1cd5a"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/namespaced-context-diagnostic.txt",
+      "bytes": 1395,
+      "sha256": "2aa91ebb4a3c569410ee59c08bca7e7fae80a2f69044a20be7bfcda8fa16e966"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/namespaced/Challenge.lean",
+      "bytes": 2367,
+      "sha256": "6acaeab1940555d1df29856e504deae4f9edf7777231969b9b7d13515731d830"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/namespaced/Submission.lean",
+      "bytes": 115226,
+      "sha256": "b2a7c247a34f0b5280ae836799d84415cc47091f7770a25fd6f16c02de8d8984"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/namespaced/lake-manifest.json",
+      "bytes": 3571,
+      "sha256": "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/namespaced/lakefile.toml",
+      "bytes": 321,
+      "sha256": "5626031b96b817d4ed6b2615ac3ebddeb0f1856208d6363bddea8b64cfe6e6b6"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/namespaced/lean-toolchain",
+      "bytes": 25,
+      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/native-task-handoff.json",
+      "bytes": 66081,
+      "sha256": "fbb37edd9b5989b18892f1c101bb99609dfccf51051028dfa29ac05097c442ad"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/native-task-proposal.json",
+      "bytes": 66081,
+      "sha256": "fbb37edd9b5989b18892f1c101bb99609dfccf51051028dfa29ac05097c442ad"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/preflight.ts",
+      "bytes": 2048,
+      "sha256": "39e84f8f5c6d9542648d0f2757f9f54ee3ff409e3e90435ef6f74b0119f03028"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/prepare.py",
+      "bytes": 5250,
+      "sha256": "c1a9e6fb5826f0646e8884a4b5dbd837f3659b4266c2c0a58a5e87f0a253187c"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/project-context-diagnostic.txt",
+      "bytes": 1174,
+      "sha256": "a864ee280c670d361581175d5c6d0d9f728c334d5cc51e23aa655ca8023cb9c7"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/project-guard-01-source.lean",
+      "bytes": 119372,
+      "sha256": "15ffe80663c0647db144d5e86efbdd59ed9cad88ebbdd0c8731ef9b44b727557"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/project/Challenge.lean",
+      "bytes": 2367,
+      "sha256": "6acaeab1940555d1df29856e504deae4f9edf7777231969b9b7d13515731d830"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/project/Probe.lean",
+      "bytes": 901,
+      "sha256": "b495447db5be399c9c0741b9ad7cdd109254c33af543a8371fd5c1cbd2f20031"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/project/Submission.lean",
+      "bytes": 119353,
+      "sha256": "ff2840a46faa26cc36d2391cfbc7ef9b961283aa3ae6d72ea8933b6d155b9350"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/project/lake-manifest.json",
+      "bytes": 3571,
+      "sha256": "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/project/lakefile.toml",
+      "bytes": 321,
+      "sha256": "5626031b96b817d4ed6b2615ac3ebddeb0f1856208d6363bddea8b64cfe6e6b6"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/project/lean-toolchain",
+      "bytes": 25,
+      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/provenance.json",
+      "bytes": 2530,
+      "sha256": "de9e15c17e30b0fcbd9b3c38ba2e270769a04e8314b904886f792579fdfa18b0"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/rename-map.json",
+      "bytes": 4288,
+      "sha256": "c55ff6df02c5159ff5bd6b3e38999383ea4c99f118e4fe6c8f5e181171a39a5d"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/source-preflight-02-result.json",
+      "bytes": 3600,
+      "sha256": "5924e4ed8b13661f27cf19242c39e71c1e195068f095bd044025ce2a8eeb91dd"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/source-preflight-result.json",
+      "bytes": 4049,
+      "sha256": "9d112a63c1bfffb656d7c70f752e9326c32a213d45a2d5cd6ebf0072d2c78dda"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/task-objective.md",
+      "bytes": 64817,
+      "sha256": "57929921e9caaf0b335453ef4ba9d7e0da6a6c79fced65bc5e01d239469a3d71"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/validate.py",
+      "bytes": 4231,
+      "sha256": "945d0d171a4c8f668e7c8eb9e2d39be7285364d8d302b35ce6a219894c1f39e4"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/verification-audit.json",
+      "bytes": 1012,
+      "sha256": "10c0a4328767c6423507cd9baf9fc70ddd7d600b2d67d9be872cc8c5c8fc3b96"
+    },
+    {
       "path": "honeycomb-width-four-20261025/CurrentPrefix.lean.inc",
       "bytes": 8691,
       "sha256": "f55c042e447b853d775f3f6f164d94ab175cc328eabf324588117d8d436f0c45"
@@ -5312,6 +5757,11 @@
       "sha256": "1c01fe0c8c06a5d066259acb85c92cd2def4ef5f8e87f4f4022f2e4872dd8d52"
     },
     {
+      "path": "optimization-progress-20261024T181420Z.json",
+      "bytes": 21535,
+      "sha256": "a2ba3254c3639a3214af81a801cb0a7d54ff210f2d30e7109ddc877f149e16b0"
+    },
+    {
       "path": "run-character-candidate.py",
       "bytes": 3154,
       "sha256": "15c36940e430219505468f751b9a388a094908e4376a3eeab549f39e694a5652"
@@ -6136,8 +6586,8 @@
   "characterV2IndependentOriginalComparator": "passed: unchanged binary, original target and axioms; genuine prebuilt artifact; exit0 in 41.153155 seconds",
   "honeycombSumsReduction": "native kernel and integration passed; original goal resumed; growth estimate still unproved",
   "characterV2NativeDelivery": "evaluated_passed; fixed review, independent final check and fixed original comparator passed",
-  "latestProgressSnapshot": "optimization-progress-20261024T175051Z.json",
-  "honeycombCurrentProgress": "turn444: heights one through four native checked and integrated; height-five pair locally fully kernel-checked and running as a normal typed native task; all-height original goal remains conditional",
+  "latestProgressSnapshot": "optimization-progress-20261024T181420Z.json",
+  "honeycombCurrentProgress": "turn456: heights one through four stay integrated; height five was blocked by source guard, now repaired, local guard/kernel/probe checked and normal recovery edit applied, task pending; all-height original goal remains conditional",
   "honeycombAdvisoryRoute": "direct first-moment summability via exact finite-state encoding and finite-box mass; unproved geometric inputs; ordinary advisory edit applied at turn104",
   "characterV2NativeOriginalGoal": "passed: lean-adc266b0e003d64e5ebdf91b",
   "honeycombFiniteBoxHelpers": "four declarations locally kernel-checked; normal advisory edit applied; original goal unproved",
@@ -6176,7 +6626,7 @@
   "snakyAllTargetCheck": "passed: lean-63766151ffe8a0523a860487; fixed review accepted and independent final host check completed",
   "snakyNativeFinalAccepted": false,
   "honeycombOriginalGoalSolved": false,
-  "latestProgress": "optimization-progress-20261024T175051Z.json",
+  "latestProgress": "optimization-progress-20261024T181420Z.json",
   "newFixedSupportBuild": "46551899-4922-4905-b81e-0ff4503842e6",
   "newFixedSupportBuildActivated": false,
   "allFiveBudgetCaps": 0,
@@ -6218,21 +6668,19 @@
     "originalGoalSolved": false
   },
   "currentArchiveValidation": {
-    "checkedAt": "2026-10-24T17:52:06.548705+00:00",
-    "oldPayloadHashesVerifiedBeforeManifestUpdate": 1111,
-    "newPackageHashesVerified": 107,
-    "jsonFilesParsed": 635,
-    "changedMarkdownFilesChecked": 10,
-    "changedMarkdownLocalLinksChecked": 144,
+    "checkedAt": "2026-10-24T18:16:00.363102+00:00",
+    "oldPayloadHashesVerifiedBeforeManifestUpdate": 1225,
+    "newPackageHashesVerified": 87,
+    "jsonFilesParsed": 671,
+    "changedMarkdownFilesChecked": 6,
+    "changedMarkdownLocalLinksChecked": 126,
     "kernelTestsRepeatedForArchiving": false,
-    "rawLogsAndFailedAttemptOutputsPreserved": true,
-    "gitDiffCheck": "passed: preserve raw patch context, exact frozen EOF blank lines, and explicitly listed raw evidence whitespace",
-    "additionalRawWhitespaceExclusion": {
-      "path": "snaky-publisher-gate-health-followup-20261025/lean-resource-limits.txt",
-      "reason": "Unmodified /proc/PID/limits has kernel-formatted aligned trailing spaces. Preserve bytes and SHA; exclude only this raw file from whitespace lint."
-    }
+    "newRepairFullSourceCompilations": 1,
+    "newRepairImportedModuleProbes": 1,
+    "rawFailureAndGuardReproductionEvidencePreserved": true,
+    "gitDiffCheck": "passed: full staged diff, with only blank-at-eof disabled to preserve exact frozen increment bytes"
   },
-  "fileCount": 1225,
+  "fileCount": 1315,
   "honeycombNativeColumnWord": {
     "status": "integrated",
     "proofReceipt": "lean-d1533e50af2bd394228d788c",
@@ -6241,7 +6689,7 @@
   },
   "honeycombNativeColumnTasksIntegrated": 2,
   "snakyHostFinalGateCompleted": true,
-  "snakyCurrentGate": "frozen publisher lake build Challenge Submission; original comparator follows",
+  "snakyCurrentGate": "frozen publisher lake build Challenge Submission; same compiler active for about 123 minutes; original comparator follows",
   "snakyFinalGateHealth": "snaky-publisher-gate-health-followup-20261025/README.md",
   "honeycombNewSummability": {
     "heightOne": "native checked and integrated; full six clauses",
@@ -6430,11 +6878,55 @@
     "report": "honeycomb-width-five-adoption-20261025/README.md",
     "existingTaskContractsPreserved": 14,
     "existingAssignmentsPreservedAtReadback": 13,
-    "currentTaskStatus": "running",
+    "currentTaskStatus": "pending",
     "workerId": "researcher-2",
     "selfContainedLoaderSupplied": true,
     "loaderSmokeChecksPassed": true,
     "sourceOrStateDirectlyChangedByRoot": false,
-    "nativeTaskAcceptanceAddedByQueue": false
+    "nativeTaskAcceptanceAddedByQueue": false,
+    "subsequentNativeSourceGuardFailure": "math_original_context_changed; before native Lean acceptance; repair follows"
+  },
+  "snakyLatestPublisherProcessObservation": {
+    "pid": 900064,
+    "observedAt": "2026-10-24T18:14:20.213242+00:00",
+    "elapsedSeconds": 7384.75,
+    "cpuSeconds": 7384.78,
+    "status": {
+      "VmRSS": "15322308 kB",
+      "Threads": "7"
+    },
+    "comparisonSample": "snaky-publisher-gate-health-followup-20261025/report.json",
+    "elapsedDeltaSeconds": 1516.8900000001304,
+    "cpuDeltaSeconds": 1516.6999999999998,
+    "singleCoreUtilizationRelativeToSample": 0.9998747437189707
+  },
+  "honeycombHeightFiveSourceContextRepair": {
+    "status": "pending",
+    "workerId": null,
+    "priorStatus": "blocked",
+    "priorFailureStage": "source guard before native Lean acceptance",
+    "priorError": "math_original_context_changed",
+    "repairReport": "honeycomb-width-five-flat-20261025/README.md",
+    "recoveryReport": "honeycomb-width-five-context-recovery-20261025/README.md",
+    "fixedGuardPassed": true,
+    "sourceSHA256": "ff2840a46faa26cc36d2391cfbc7ef9b961283aa3ae6d72ea8933b6d155b9350",
+    "incrementSHA256": "1ea208c68cea9922489f77d3976d865b24f17a25b7ea4fcd42734473288e4291",
+    "newFullCompileExitCode": 0,
+    "newFullCompileSeconds": 75.58311117207631,
+    "exactTypeAndAxiomProbeExitCode": 0,
+    "exactTypeAndAxiomProbeSeconds": 7.863234446151182,
+    "nativeProofPresent": false,
+    "nativeIntegrationPresent": false,
+    "queuedEditId": "honeycomb-width-five-context-repair-20261025",
+    "queuedEditStatus": "applied",
+    "onlyAffectedTask": "width_five_summability_ba0a1c09",
+    "mathematicalContractUnchanged": true,
+    "onlyStandardAxioms": true,
+    "explicitHeightFiveChecked": true,
+    "guardImplementationChanged": false,
+    "currentCanonicalInsertionGuardPassed": true,
+    "canonicalInsertionSourceSHA256": "2c962fe26b505e7cb97b84380f855960f831ea867197015469b693526642eb86",
+    "formalNativeAcceptancePending": true,
+    "statusObservedAt": "2026-10-24T18:14:20.213242+00:00"
   }
 }

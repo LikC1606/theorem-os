@@ -1,0 +1,56 @@
+{
+  "guardModule": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/honeycomb-new-build-continuation-20261024/runtime/src/solver/problem.ts",
+  "guardModuleSHA256": "a4534329cacc15e246893540f5ac4ddb7066328394d26d79728d398603d7808b",
+  "fixedConstraintsSnapshotSHA256": "65f367e1b022234aefa1f3121fb319326de53d294ebfb9a208739f783d3986d5",
+  "guardImplementationChanged": false,
+  "activeSourceChanged": false,
+  "results": [
+    {
+      "name": "baseline",
+      "project": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-width-five-flat-20261025/baseline",
+      "sourceSHA256": "de93672347098968dbf8352fa552c536681cac5b87b0090a4a837d902512ba19",
+      "startedAt": "2026-10-24T18:06:46.512Z",
+      "passed": true
+    },
+    {
+      "name": "namespaced",
+      "project": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-width-five-flat-20261025/namespaced",
+      "sourceSHA256": "b2a7c247a34f0b5280ae836799d84415cc47091f7770a25fd6f16c02de8d8984",
+      "startedAt": "2026-10-24T18:06:46.519Z",
+      "passed": false,
+      "error": "math_original_context_changed",
+      "proofPath": "Submission.lean",
+      "recovery": "Restore the original imports, namespace/section placement, variables, opens, scopes and options from the seed commit. Keep new helpers; move helper-specific scopes and instances inside their proofs. Added imports may use explicit Mathlib.* modules or frozen local modules already imported by the original owned sources; avoid import cycles."
+    },
+    {
+      "name": "flat-anonymous",
+      "project": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-width-five-flat-20261025/flat-anonymous",
+      "sourceSHA256": "d5eacba88951bfcc4174892dc4b93ff9c9511664a5c083db166878703d786a92",
+      "startedAt": "2026-10-24T18:06:46.528Z",
+      "passed": false,
+      "error": "math_original_context_changed",
+      "proofPath": "Submission.lean",
+      "recovery": "Restore the original imports, namespace/section placement, variables, opens, scopes and options from the seed commit. Keep new helpers; move helper-specific scopes and instances inside their proofs. Added imports may use explicit Mathlib.* modules or frozen local modules already imported by the original owned sources; avoid import cycles."
+    },
+    {
+      "name": "flat-named-simp",
+      "project": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-width-five-flat-20261025/flat-named-simp",
+      "sourceSHA256": "d2d9f7702708c0b5131b759419d32a783f5461e3d90209736fd9cd1707ab9f20",
+      "startedAt": "2026-10-24T18:06:46.533Z",
+      "passed": false,
+      "error": "math_original_context_changed",
+      "proofPath": "Submission.lean",
+      "recovery": "Restore the original imports, namespace/section placement, variables, opens, scopes and options from the seed commit. Keep new helpers; move helper-specific scopes and instances inside their proofs. Added imports may use explicit Mathlib.* modules or frozen local modules already imported by the original owned sources; avoid import cycles."
+    },
+    {
+      "name": "project",
+      "project": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-width-five-flat-20261025/project",
+      "sourceSHA256": "15ffe80663c0647db144d5e86efbdd59ed9cad88ebbdd0c8731ef9b44b727557",
+      "startedAt": "2026-10-24T18:06:46.540Z",
+      "passed": false,
+      "error": "math_original_context_changed",
+      "proofPath": "Submission.lean",
+      "recovery": "Restore the original imports, namespace/section placement, variables, opens, scopes and options from the seed commit. Keep new helpers; move helper-specific scopes and instances inside their proofs. Added imports may use explicit Mathlib.* modules or frozen local modules already imported by the original owned sources; avoid import cycles."
+    }
+  ]
+}

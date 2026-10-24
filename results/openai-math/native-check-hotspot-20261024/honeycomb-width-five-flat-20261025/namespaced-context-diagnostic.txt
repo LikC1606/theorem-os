@@ -1,0 +1,67 @@
+import Mathlib
+namespace OAI
+namespace PolynomialVacuumBridge.Corridor
+inductive Vertex where
+| up (i j : ℤ)
+| down (i j : ℤ)
+deriving DecidableEq
+noncomputable position : Vertex → ℝ × ℝ
+adjacent : Vertex → Vertex → Prop
+noncomputable criticalActivity : ℝ
+noncomputable layer (vertex : Vertex) : ℤ
+structure BridgePath (h : ℕ) where
+vertices : List Vertex
+distinct : vertices.Nodup
+connected : vertices.IsChain adjacent
+source : vertices.head? = some (.up 0 0)
+terminal : ∃ i : ℤ, vertices.getLast? = some (.down i ((h : ℤ) - 1))
+inStrip : ∀ v ∈ vertices, 0 ≤ layer v ∧ layer v < (h : ℤ)
+noncomputable weight {h : ℕ} (p : BridgePath h) : ℝ
+noncomputable firstLengthWeight {h : ℕ} (p : BridgePath h) : ℝ
+noncomputable bridgeMass (h : ℕ) : ℝ
+noncomputable InLogCorridor {h : ℕ} (p : BridgePath h) : Prop
+ConfinedBridgePath (h : ℕ)
+noncomputable confinedMass (h : ℕ) : ℝ
+FiniteBridgeSums : Prop
+namespace WidthFive
+instance (v : Vertex) : Decidable (inside v) := by
+cases v <;> unfold inside <;> infer_instance
+@[simp] ]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+]
+instance (w : List Vertex) : Decidable (rowOK w) := by
+unfold rowOK
+infer_instance
+end WidthFive
+/-- Unconditional height-five summability, using a checked six-vertex memory. -/
+finite_bridge_sums : FiniteBridgeSums
+end PolynomialVacuumBridge.Corridor
+end OAI

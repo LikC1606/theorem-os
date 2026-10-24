@@ -1,0 +1,16 @@
+{
+  "observedAt": "2026-10-24T18:04:01.282013+00:00",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "buildDigest": "7e2c42e897361d27b0aa6bf216f74ed7ba71aa32987771ade075193bed54c19f",
+  "canonicalCommit": "7061be826cef83e4924ebda357f35164fa97ddb8",
+  "stateSHA256": "5e5a17328ff7174fcd7436da7612b63b0d95f7a010a4923e7922c6cdbcb2e989",
+  "taskStatus": "blocked",
+  "attempts": 2,
+  "nativeProofPresent": false,
+  "nativeIntegrationPresent": false,
+  "failureStage": "source guard before commit and Lean acceptance",
+  "error": "math_original_context_changed",
+  "localOriginalProofStillPassed": true,
+  "allHeightOriginalGoalSolved": false,
+  "eventsCaptured": 6
+}

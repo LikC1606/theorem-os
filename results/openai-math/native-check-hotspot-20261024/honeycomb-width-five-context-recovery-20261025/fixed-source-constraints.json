@@ -1,0 +1,93 @@
+{
+  "constraints": {
+    "trustedFiles": {
+      "Challenge.lean": "6acaeab1940555d1df29856e504deae4f9edf7777231969b9b7d13515731d830",
+      "lake-manifest.json": "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829",
+      "lakefile.toml": "5626031b96b817d4ed6b2615ac3ebddeb0f1856208d6363bddea8b64cfe6e6b6",
+      "lean-toolchain": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    "declarations": {
+      "Submission.lean": [
+        {
+          "body": "37743f203ef9cc055b1a564a463baf9bce47748e9e12988e7afbfd22312b2493",
+          "header": "position : Vertex → ℝ × ℝ",
+          "name": "position"
+        },
+        {
+          "body": "da8a3108ccf88f3a79cb5a6a8cc587f7a06d86206c43e0ed33588e21d46a704b",
+          "header": "adjacent : Vertex → Vertex → Prop",
+          "name": "adjacent"
+        },
+        {
+          "body": "b3dacbc79d896ad017bb3ea98836cbcd7bb9169399620d2356fd2bc261898fa6",
+          "header": "criticalActivity : ℝ",
+          "name": "criticalActivity"
+        },
+        {
+          "body": "5d5bcb6e6d5a9add4708a53978a649c428cf918af1b814e6a6d6ce631a294da1",
+          "header": "layer (vertex : Vertex) : ℤ",
+          "name": "layer"
+        },
+        {
+          "body": "200e80479d484a42d57ca02c304eb68cb05d352f2dc18401fad416eb4e70fcd9",
+          "header": "weight {h : ℕ} (p : BridgePath h) : ℝ",
+          "name": "weight"
+        },
+        {
+          "body": "9fa7744abc0c3a9ba0b4142417d90e06744acfa4abb92ad3bcae18096cb81797",
+          "header": "firstLengthWeight {h : ℕ} (p : BridgePath h) : ℝ",
+          "name": "firstLengthWeight"
+        },
+        {
+          "body": "dccdbd8dffb33f7d5c6d535257993ed809fe48e8bba10e095a85e77ce8abde81",
+          "header": "bridgeMass (h : ℕ) : ℝ",
+          "name": "bridgeMass"
+        },
+        {
+          "body": "627252eb3fcad752efbe8338d6adcfe9e1302098b65f5f28bb1a2cf4c2060fde",
+          "header": "InLogCorridor {h : ℕ} (p : BridgePath h) : Prop",
+          "name": "InLogCorridor"
+        },
+        {
+          "body": "5a3976af8cffba182750f58b146ffb61ae56c77ac229edcffddf12b856b39c9a",
+          "header": "ConfinedBridgePath (h : ℕ)",
+          "name": "ConfinedBridgePath"
+        },
+        {
+          "body": "eb57f9de996e73a6d7fcd1a4a3d028f31283a76cd9e9587bf692736041b3c170",
+          "header": "confinedMass (h : ℕ) : ℝ",
+          "name": "confinedMass"
+        },
+        {
+          "body": "79bc04457b3876ff874268daff798276da34ebad06906312a1e97a1a029dcb90",
+          "header": "FiniteBridgeSums : Prop",
+          "name": "FiniteBridgeSums"
+        },
+        {
+          "header": "finite_bridge_sums : FiniteBridgeSums",
+          "name": "finite_bridge_sums"
+        }
+      ]
+    },
+    "sourceStructure": {
+      "Submission.lean": "131e3e96937f1996114e192a739d2f0a8c23ab121c1465934bb13cd4402461a9"
+    },
+    "sourceImports": {
+      "Submission.lean": [
+        "Mathlib"
+      ]
+    }
+  },
+  "provenance": {
+    "observedAt": "2026-10-24T18:03:16.357136+00:00",
+    "stateSHA256": "aae2c1fcc9bef6467c72def934416d522d83d4565115e3368291d59c34dd90c5",
+    "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+    "buildDigest": "7e2c42e897361d27b0aa6bf216f74ed7ba71aa32987771ade075193bed54c19f",
+    "baseCommit": "72c3ac48330f6892bbb941350a9612ca15a1ac2f",
+    "projectRelative": "generated/problem",
+    "ownedFiles": [
+      "Submission.lean"
+    ],
+    "canonicalCommit": "7061be826cef83e4924ebda357f35164fa97ddb8"
+  }
+}
