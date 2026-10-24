@@ -1846,6 +1846,7 @@ describe('isolated solver and host acceptance', () => {
     while (pendingResearchHandoffs(state.cooperation).length) {
       const action = await cooperative.next(fixture.lead, { maxTurns: Infinity, remainingMs: Infinity });
       if (action?.kind !== 'lead') throw new Error('missing_next_handoff_batch');
+      expect(action.coordination).toBe(true);
       batches.push(action.handoffIds!.length);
       expect(action.handoffIds!.every(id => !seen.has(id))).toBe(true);
       action.handoffIds!.forEach(id => seen.add(id));
@@ -1855,7 +1856,7 @@ describe('isolated solver and host acceptance', () => {
       expect(state.cooperation.error).toBeUndefined();
       if (batches.length === 1) { state = JSON.parse(JSON.stringify(state)); cooperative = fixture.create(state); }
     }
-    expect(batches).toEqual([8, 8, 2]);
+    expect(batches).toEqual(Array(9).fill(2));
     expect(state.cooperation.researchDecisions).toHaveLength(18);
     expect(host.createSession).not.toHaveBeenCalled();
     expect(host.verify).not.toHaveBeenCalled();
@@ -2079,6 +2080,8 @@ describe('isolated solver and host acceptance', () => {
     writePlan(workspace, plan.tasks);
     await resumed.deliver(lead, action, commitSolverSources(problem, workspace));
     expect(state.cooperation.lastLeadInputDigest).toBe(action.planningInputDigest);
+    expect(state.cooperation.lastCapacityRefill).toMatchObject({ status: 'requested', workerIds: [peer.id] });
+    const requestId = state.cooperation.lastCapacityRefill.requestId;
     expect(state.cooperation.tasks[0].routeParking).toHaveLength(1);
     await resumed.stop(); state = JSON.parse(JSON.stringify(state));
     const completed = create(); await completed.restore();
@@ -2090,12 +2093,25 @@ describe('isolated solver and host acceptance', () => {
       recovery: { status: 'awaiting-input', reason: 'The unparked second construction needs a new mathematical premise.' },
     }) + '\n```');
     await completed.deliver(lead, recovery, commitSolverSources(problem, workspace));
+    const capacity = await completed.next(lead, budget);
+    expect(capacity).toMatchObject({ kind: 'lead', coordination: true,
+      capacityRefill: { requestId, workerIds: [peer.id] } });
+    if (capacity?.kind !== 'lead' || !capacity.capacityRefill) throw new Error('missing_idle_researcher_assessment');
+    expect(state.cooperation.lastCapacityRefill.status).toBe('requested');
+    fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), JSON.stringify({ kind: 'assessment',
+      baseVersion: capacity.planVersion, dispatchNonce: capacity.planNonce,
+      assessments: [{ kind: 'capacity', requestId: capacity.capacityRefill.requestId,
+        inputDigest: capacity.capacityRefill.inputDigest, outcome: 'no-independent-work',
+        reason: 'Both constructions require new mathematical premises; no distinct research step is known.' }] }));
+    await completed.deliver(lead, capacity, commitSolverSources(problem, workspace));
+    expect(state.cooperation.lastCapacityRefill).toMatchObject({ status: 'assessed', outcome: 'no-independent-work', requestId });
     expect(await completed.next(lead, budget)).toBeUndefined();
     expect(state.cooperation.tasks[0].routeParking).toHaveLength(1);
     await completed.stop();
     state = JSON.parse(JSON.stringify(state));
     const settled = create(); await settled.restore();
     expect(await settled.next(lead, budget)).toBeUndefined();
+    expect(state.cooperation.lastCapacityRefill).toMatchObject({ status: 'assessed', outcome: 'no-independent-work', requestId });
     expect(state.cooperation.frontierRecoveries).toEqual([expect.objectContaining({ status: 'awaiting-input' })]);
     await settled.stop();
     expect(host.createSession).not.toHaveBeenCalled();

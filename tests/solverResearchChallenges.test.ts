@@ -82,19 +82,24 @@ describe('deferred research challenge plan retention', () => {
     for (const node of state.cooperation!.tasks) if (node.task.kind !== 'research') node.task = { ...node.task, status: 'paused' };
     const source = state.cooperation!.deliveries![0]!;
     state.cooperation!.deliveries = Array.from({ length: 9 }, (_, index) => ({ ...source, id: `challenge_${index}` }));
-    const cooperative = create(), first = await cooperative.next(lead, budget);
-    if (first?.kind !== 'lead') throw new Error('fixture_expected_lead');
-    expect(first.challengeIds).toHaveLength(8);
-    notes({ ...plan(), challengeDecisions: first.challengeIds!.map(id => ({ id, status: 'disputed',
-      reason: 'The witness omits the positive-input premise.', evidenceRefs: ['fixed-counterargument'] })) });
-    await cooperative.deliver(lead, first, commitSolverSources(problem, lead.worktree));
-    expect(state.cooperation!.error).toBeUndefined();
-    expect(pendingResearchChallenges(state.cooperation!)).toHaveLength(1);
-    expect(state.cooperation!.lastLeadInputDigest).toBeTruthy();
-    const next = await cooperative.next(lead, budget);
-    if (next?.kind !== 'lead') throw new Error('fixture_expected_remaining_challenge_batch');
-    expect(next.challengeIds).toEqual(pendingResearchChallenges(state.cooperation!).map(item => item.id));
-    expect(next.challengeIds!.every(id => !first.challengeIds!.includes(id))).toBe(true);
+    const cooperative = create(), decided = new Set<string>();
+    for (const remaining of [9, 7, 5, 3, 1]) {
+      const action = await cooperative.next(lead, budget);
+      if (action?.kind !== 'lead') throw new Error('fixture_expected_remaining_challenge_batch');
+      const pending = pendingResearchChallenges(state.cooperation!);
+      expect(action.coordination).toBe(true);
+      expect(action.challengeIds).toEqual(pending.slice(0, 2).map(item => item.id));
+      expect(action.challengeIds).toHaveLength(Math.min(2, remaining));
+      expect(action.challengeIds!.every(id => !decided.has(id))).toBe(true);
+      notes({ ...plan(), challengeDecisions: action.challengeIds!.map(id => ({ id, status: 'disputed',
+        reason: 'The witness omits the positive-input premise.', evidenceRefs: ['fixed-counterargument'] })) });
+      await cooperative.deliver(lead, action, commitSolverSources(problem, lead.worktree));
+      action.challengeIds!.forEach(id => decided.add(id));
+      expect(state.cooperation!.error).toBeUndefined();
+      expect(pendingResearchChallenges(state.cooperation!)).toHaveLength(Math.max(remaining - 2, 0));
+      expect(state.cooperation!.lastLeadInputDigest).toBeTruthy();
+    }
+    expect(decided.size).toBe(9);
   });
 
   it('keeps a restored deferred challenge when a newer notes draft deletes its waiting proof task', async () => {

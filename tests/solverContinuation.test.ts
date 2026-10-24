@@ -113,7 +113,10 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
   let directory: string, seed: string, cooperative: CooperativeResearch, state: SolverRunState, record: TaskRecord;
   let lead: ResearchWorker, researcher: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>;
   let allowed: boolean;
-  const budget = { maxTurns: Infinity, remainingMs: Infinity };
+  // These fixtures exercise frontier/recovery under a finite solving deadline.
+  // Unlimited capacity refill is covered by solverCapacityRefill.test.ts;
+  // continuous investigation and waiting remain explicitly enabled below.
+  const budget = { maxTurns: Infinity, remainingMs: 60_000 };
   const resume = (state: SolverRunState, input: Partial<ConstructorParameters<typeof CooperativeResearch>[0]> = {}) =>
     cooperativeResearch({ state, workers: [lead, researcher], retrievalRoot: '', access: new Map(), ...input });
   const checkpoint = (notes: string) => {

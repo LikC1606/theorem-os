@@ -43,6 +43,8 @@ export type SolverWorkerState = Pick<SolverRunState, 'worktree' | 'threadId' | '
   id: string;
   role: ResearchRole;
   sessionRole?: ResearchRole;
+  /** Separate bounded coordination from the Lead's longer mathematical planning thread. */
+  sessionLeadMode?: 'planning' | 'coordination';
   sessionGroupId?: string;
   sessionTaskId?: string;
   sessionTaskVersion?: string;
@@ -290,6 +292,7 @@ const runState = research.extend({ schema: z.literal('deepscientist.math.solver.
   knowledgeUses: z.array(knowledgeUse.extend({ workerId: z.string(), commit: z.string() })).optional(),
   coordination: z.enum(['cooperative', 'independent']).optional(),
   workers: z.array(research.extend({ id: z.string(), role, sessionRole: role.optional(),
+    sessionLeadMode: z.enum(['planning', 'coordination']).optional(),
     sessionAssignmentId: z.string().optional(),
     scheduling: z.object({ status: z.enum(['working', 'preparing', 'stopping', 'idle', 'stopped']), since: safeCount,
       action: z.string().optional(), taskId: z.string().optional(), wait: dispatchWaitObservation.optional() }).optional() })).optional(),

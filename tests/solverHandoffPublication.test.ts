@@ -157,6 +157,64 @@ describe('live explicit handoff publication', () => {
     expect(state.cooperation!.tasks.every(item => !item.proof && !item.integratedCheck)).toBe(true);
   });
 
+  it('shows two proposals per coordination dispatch and preserves the unshown backlog for the next decision', async () => {
+    state.cooperation!.deliveries![0].lemmaRequests = [proposal, helper('second_bridge'), helper('third_bridge'), helper('fourth_bridge')];
+    const all = inbox(), action = await start();
+    expect(action.coordination).toBe(true);
+    expect(action.handoffIds).toHaveLength(2);
+    const shown = new Set(action.handoffIds), unshown = all.filter(item => !shown.has(item.id));
+    expect(unshown).toHaveLength(2);
+    const context = directSolverModules.M4.build(problem,
+      { ...state, cooperation: cooperative.contextState(action, workers[0]) },
+      { root: directory, worktree: workers[0].worktree, retrievalRoot: directory, environment: {},
+        taskText: 'Decide only the current bounded proposal batch.', assignment: action, maxOptionalContextBytes: 0 });
+    expect(context.workContract).toMatchObject({ stage: 'coordination-decision' });
+    expect(context.message).toContain('"queuedForLater":2');
+    for (const item of all.filter(item => shown.has(item.id))) expect(context.message).toContain(item.proposal.theoremName);
+    for (const item of unshown) expect(context.message).not.toContain(item.proposal.theoremName);
+
+    await publish(action, event(action, action.handoffIds!.map(id => ({ id, status: 'adopted' }))));
+    expect(inbox()).toEqual(unshown);
+    expect(state.cooperation!.researchDecisions?.map(item => item.id)).toEqual(action.handoffIds);
+    for (const item of unshown) expect(node(item.proposal.id)).toBeUndefined();
+    expect(events.filter(item => item.event === 'plan_publication_rejected')).toEqual([]);
+    cooperative.deactivate(workers[0]);
+    await cooperative.deliver(workers[0], action, commitSolverSources(problem, workers[0].worktree));
+    const next = await start();
+    expect(next.coordination).toBe(true);
+    expect(next.handoffIds).toEqual(unshown.map(item => item.id));
+    expect(next.planNonce).not.toBe(action.planNonce);
+    expect(state.cooperation!.tasks.every(item => !item.proof && !item.integratedCheck)).toBe(true);
+  });
+
+  it.each(['handoff', 'challenge'] as const)('supersedes an assessment-only dispatch when a new %s arrives', async kind => {
+    state.cooperation!.deliveries![0].lemmaRequests = [];
+    const action = await start(false), request = action.capacityRefill!;
+    expect(action.coordination).toBe(true);
+    expect(action.handoffIds).toEqual([]); expect(action.challengeIds).toEqual([]);
+    expect(request).toBeDefined(); expect(cooperative.current(action)).toBe(true);
+    const receipt = structuredClone(state.cooperation!.lastCapacityRefill);
+    if (kind === 'handoff') addProposal(helper('new_inbox_bridge'));
+    else addChallenge('new-inbox-challenge');
+    expect(cooperative.current(action)).toBe(false);
+    const acknowledgement = { kind: 'assessment', baseVersion: action.planVersion, dispatchNonce: action.planNonce,
+      assessments: [{ kind: 'capacity', requestId: request.requestId, inputDigest: request.inputDigest,
+        outcome: 'no-independent-work', reason: 'The exact construction is missing until a checked classification argument arrives.' }] };
+    await publish(action, acknowledgement);
+    expect(state.cooperation!.lastCapacityRefill).toEqual(receipt);
+    expect(state.cooperation!.planPublication).toBeUndefined();
+    fs.writeFileSync(path.join(workers[0].worktree, 'RESEARCH.md'), JSON.stringify(acknowledgement));
+    cooperative.deactivate(workers[0]);
+    await cooperative.deliver(workers[0], action, commitSolverSources(problem, workers[0].worktree));
+    expect(state.cooperation!.lastCapacityRefill).toEqual(receipt);
+    expect(events.some(item => item.event === 'capacity_refill_assessed')).toBe(false);
+    expect(inbox().length + pendingResearchChallenges(state.cooperation!).length).toBe(1);
+    const next = await start(kind === 'handoff');
+    expect(next.coordination).toBe(true);
+    expect((next.handoffIds?.length ?? 0) + (next.challengeIds?.length ?? 0)).toBe(1);
+    expect(next.planNonce).not.toBe(action.planNonce);
+  });
+
   it.each(['event', 'final-notes', 'checkpoint-notes'] as const)
   ('accepts full-plan explicit adoption through %s without treating it as proof acceptance', async source => {
     const action = await start(), adopted = { ...proposal, ownerId: workers[2].id };
@@ -235,18 +293,19 @@ describe('live explicit handoff publication', () => {
       { ...state, cooperation: cooperative.contextState(action, workers[0]) },
       { root: directory, worktree: workers[0].worktree, retrievalRoot: directory, environment: {},
         taskText: 'Decide the shown exact mathematical handoffs.', assignment: action, maxOptionalContextBytes: 0 });
-    const section = compile.mock.calls.at(-1)![0].mandatory?.find(item => item.id === 'handoff-publication');
+    const section = compile.mock.calls.at(-1)![0].mandatory?.find(item => item.id === 'coordination-decision');
     expect(section).toMatchObject({ kind: 'assignment' });
     expect(section!.text).toContain(leadPlanDeliveryFile(action));
-    expect(section!.text).toContain(JSON.stringify({ kind: 'handoff', dispatchNonce: action.planNonce,
-      baseVersion: action.planVersion, handoffDecisions: [{ id: action.handoffIds![0], status: 'adopted' }] }));
+    expect(context.instructions).toContain('"kind":"handoff"');
+    expect(context.instructions).toContain('"dispatchNonce":' + JSON.stringify(action.planNonce));
+    expect(context.instructions).toContain('"baseVersion":' + JSON.stringify(action.planVersion));
     expect(section!.text).toContain(JSON.stringify(action.handoffIds));
-    expect(section!.text).toContain('pending proof work');
-    expect(context.message).toContain(section!.text); expect(context.instructions).toContain(section!.text);
+    expect(context.instructions).toContain('separate proof assignment');
+    expect(context.message).toContain(section!.text);
     expect(context.message).toContain(proposal.type);
     expect(context.manifest).toMatchObject({ maxOptionalBytes: 0, optionalBytes: 0 });
-    expect(context.manifest!.included).toContainEqual(expect.objectContaining({ id: 'handoff-publication', required: true }));
-    expect(context.manifest!.omitted).not.toContainEqual(expect.objectContaining({ id: 'handoff-publication' }));
+    expect(context.manifest!.included).toContainEqual(expect.objectContaining({ id: 'coordination-decision', required: true }));
+    expect(context.manifest!.omitted).not.toContainEqual(expect.objectContaining({ id: 'coordination-decision' }));
   });
 
   it.each(['rejected', 'deferred'] as const)('records a %s decision without rewriting the graph or accepting any proof', async status => {
@@ -262,22 +321,23 @@ describe('live explicit handoff publication', () => {
     expect(state.check).toBeUndefined();
   });
 
-  it('atomically mixes exact adoption, rejection and a version-bound deferral in one displayed batch', async () => {
-    const rejected = helper('rejected_bridge'), deferred = helper('deferred_bridge');
-    state.cooperation!.deliveries![0].lemmaRequests = [proposal, rejected, deferred];
+  it.each(['rejected', 'deferred'] as const)('atomically mixes exact adoption and a %s decision in one displayed batch', async status => {
+    const other = helper(`${status}_bridge`);
+    state.cooperation!.deliveries![0].lemmaRequests = [proposal, other];
     const action = await start(), shown = new Map(inbox().map(item => [item.proposal.id, item.id]));
+    expect(action.handoffIds).toHaveLength(2);
     const before = structuredClone(graph());
     await publish(action, event(action, [{ id: shown.get(proposal.id), status: 'adopted', ownerId: workers[2].id },
-      { id: shown.get(rejected.id), status: 'rejected', reason: 'Its bound cannot close the original goal.' },
-      { id: shown.get(deferred.id), status: 'deferred', reason: 'The prerequisite is still unproved.', waitsOn: ['premise'] }]));
+      { id: shown.get(other.id), status, reason: 'The prerequisite is still unproved.',
+        ...(status === 'deferred' ? { waitsOn: ['premise'] } : {}) }]));
     expect(node(proposal.id)).toMatchObject({ task: { ...proposal, ownerId: workers[2].id }, status: 'pending' });
-    expect(node(rejected.id)).toBeUndefined(); expect(node(deferred.id)).toBeUndefined();
+    expect(node(other.id)).toBeUndefined();
     expect(graph().tasks.filter(task => task.id !== proposal.id)).toEqual(before.tasks);
     expect(graph().groups).toEqual(before.groups); expect(graph().proofRoutes).toEqual(before.proofRoutes);
     expect(state.cooperation!.researchDecisions).toMatchObject([
       { id: shown.get(proposal.id), status: 'adopted', taskId: proposal.id },
-      { id: shown.get(rejected.id), status: 'rejected' },
-      { id: shown.get(deferred.id), status: 'deferred', waitsOn: [{ taskId: 'premise', taskDigest: taskVersion(node('premise').task) }] },
+      { id: shown.get(other.id), status, ...(status === 'deferred'
+        ? { waitsOn: [{ taskId: 'premise', taskDigest: taskVersion(node('premise').task) }] } : {}) },
     ]);
     expect(inbox()).toEqual([]);
     expect(state.cooperation!.tasks.every(item => !item.proof && !item.integratedCheck)).toBe(true);

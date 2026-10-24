@@ -45,6 +45,8 @@ export type CapacityOwnershipCandidate = Readonly<{ taskId: string; taskDigest: 
 export type CooperativeAction = { kind: 'lead' | 'assemble'; seedCommit: string; planVersion?: string; planningInputDigest?: string;
   initialPlanNonce?: string;
   planNonce?: string;
+  /** A bounded inbox/capacity decision; the complete graph remains host-owned. */
+  coordination?: true;
   /** Stable mathematical responsibility, independent of inbox freshness or graph presentation. */
   responsibilityDigest?: string;
   /** Advisory capacity at dispatch; never infer this request from a later archive receipt. */

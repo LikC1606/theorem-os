@@ -52,6 +52,15 @@ describe('semantic advisory checkpoint inputs', () => {
       .not.toBe(advisoryCheckpointScope(lead()));
   });
 
+  it('resets the scheduling scope when entering coordination, then preserves it across dispatch refreshes', () => {
+    const coordination = lead({ coordination: true });
+    expect(advisoryCheckpointScope(coordination)).not.toBe(advisoryCheckpointScope(lead()));
+    expect(advisoryCheckpointScope(coordination)).toBe(advisoryCheckpointScope(lead({ coordination: true,
+      planNonce: 'next-admission', planVersion: 'new-graph-presentation', planningInputDigest: 'new-input',
+      handoffIds: ['new-handoff'], handoffActivations: { 'new-handoff': 'new-activation' },
+      capacityRefill: { requestId: 'new-request', inputDigest: 'new-capacity-input', workerIds: [], requestedAt: 20 } })));
+  });
+
   it('keeps recovery inputs stable when reordered but resets changed recovery contracts', () => {
     const original = lead({ recovery: { id: 'recovery-a', taskIds: ['a', 'b'], goalIds: ['x', 'y'] } });
     const same = lead({ planNonce: 'another-nonce', recovery: { id: 'recovery-a', taskIds: ['b', 'a', 'a'], goalIds: ['y', 'x'] } });
