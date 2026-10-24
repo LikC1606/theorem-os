@@ -1,0 +1,36 @@
+{
+  "schema": "theorem-os.exact-source-verification.v1",
+  "reports": [
+    {
+      "file": "exact-source-tests.json",
+      "passed": 10,
+      "failed": 0,
+      "pending": 0,
+      "durationMs": 762.2412109375
+    },
+    {
+      "file": "focused-regressions.json",
+      "passed": 115,
+      "failed": 0,
+      "pending": 0,
+      "durationMs": 37263.859619140625
+    },
+    {
+      "file": "snaky-tests.json",
+      "passed": 1,
+      "failed": 0,
+      "pending": 0,
+      "durationMs": 176770.88842773438
+    }
+  ],
+  "totalPassed": 126,
+  "totalFailed": 0,
+  "typecheckExitCode": 0,
+  "buildExitCode": 0,
+  "realLeanInvocations": 0,
+  "realModelInvocations": 0,
+  "mathAcceptanceAdded": false,
+  "realSnakySourceAndCompleteProjectionCacheKeysReproduced": true,
+  "verifierInMechanismTests": "mock-only; not new mathematical acceptance",
+  "initialFixtureFailures": "Preserved in exact-source-tests.initial.json/log; corrected seed fixture and post-host weak-map expectation; no product code change for those failures."
+}

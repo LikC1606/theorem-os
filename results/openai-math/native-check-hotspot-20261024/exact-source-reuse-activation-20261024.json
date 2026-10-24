@@ -1,0 +1,23 @@
+{
+  "schema": "theorem-os.runtime-activation-decision.v1",
+  "decidedAt": "2026-10-24T10:30:08.983002+00:00",
+  "buildId": "1537a457-5694-4896-99fe-f2e9248cb6fc",
+  "newBuildReady": true,
+  "activated": false,
+  "currentHoneycombRunId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "currentHoneycombBuildDigest": "7e2c42e897361d27b0aa6bf216f74ed7ba71aa32987771ade075193bed54c19f",
+  "reasons": [
+    "Honeycomb has three active mathematics assignments and its last measured integration took only 21.577 seconds; continuation would reopen their contexts and recheck helpers.",
+    "The corrected merge and sealed digest apply to delivery-to-integration reuse. Snaky and Character have already completed integration, so restarting their later acceptance stages would add work.",
+    "The verified mathematics increments were delivered through the current supported queue without changing these assignments."
+  ],
+  "futureScope": "Use the completed build for an appropriate future new run; its manifest cannot replace the frozen identity of a resumed active run.",
+  "constraints": {
+    "activeRuntimeChanged": false,
+    "activeStateRewritten": false,
+    "oldCachesRewritten": false,
+    "oldReceiptsRewritten": false,
+    "budgetCapsAdded": false,
+    "allTargetAndPublisherChecksRetained": true
+  }
+}

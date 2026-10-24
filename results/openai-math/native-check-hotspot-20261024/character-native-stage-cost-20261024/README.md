@@ -1,5 +1,12 @@
 # Character native stage cost: existing frozen run
 
+Update **2026-10-24T10:20:51Z**: the native lead all-target check passed, receipt
+`lean-7af748514c728f28377b0d13`, in 2340.955 seconds. The source hash is unchanged,
+and only `propext`, `Classical.choice`, `Quot.sound` occur in its axiom list.
+The normal fixed-version review is now running. Final native acceptance remains pending.
+See the [raw all-target verification](native-all-target-verification-20261024T102051Z.json)
+and [host transition events](native-all-target-transition-events-20261024T102051Z.json).
+
 Update **2026-10-24T09:02:33Z**: the ordinary native original-target check passed, without conditions; receipt `lean-adc266b0e003d64e5ebdf91b`, source SHA256 `5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3`. The complete batch took 2375.071 seconds and its original-goal axiom list is only `propext`, `Classical.choice`, `Quot.sound`. Integration started normally. The remaining analysis below is the earlier timestamped snapshot; final native acceptance is still pending. [Original native verification](native-task-verification-20261024T090233Z.json).
 
 **No supported immediate cache action was found that skips a remaining stage or imports the current compiled project outputs.** Continue the existing native process. This audit changed no active source, checkpoint, runtime, cache or affinity, launched no Lean/model run, and repeated neither the V2 fixedpoint checks nor the successful independent original comparator.

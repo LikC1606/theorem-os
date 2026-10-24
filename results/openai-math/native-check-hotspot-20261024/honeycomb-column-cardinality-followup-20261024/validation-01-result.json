@@ -1,0 +1,52 @@
+{
+  "startedAt": "2026-10-24T10:11:26.576736+00:00",
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "--threads=1",
+    "--memory=32768",
+    "-DautoImplicit=false",
+    "-DmaxHeartbeats=0",
+    "-DmaxRecDepth=1000",
+    "ColumnCardinality.lean"
+  ],
+  "cwd": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-cardinality-followup-20261024",
+  "sourceSHA256": "1cf9f955d7e15ecf7b09571fdd76814ff95f2d11919a30f917bed116333e799c",
+  "sourceBytes": 8060,
+  "leanToolchain": "leanprover/lean4:v4.34.1",
+  "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+  "leanPath": [
+    "/proc/1250131/fd/5/LeanSearchClient/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/Qq/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/aesop/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/batteries/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/importGraph/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/mathlib/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/plausible/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/proofwidgets/.lake/build/lib/lean"
+  ],
+  "sealedEnvironmentIdentity": "2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87",
+  "resourceLimits": {
+    "wallSeconds": null,
+    "cpuSoftSeconds": null,
+    "cpuHardSeconds": null,
+    "maxHeartbeats": 0,
+    "addressSpaceGiB": 32,
+    "leanMemoryMiB": 32768,
+    "threads": 1,
+    "cpus": [
+      0
+    ]
+  },
+  "activeRuntimeChanged": false,
+  "activeSourceChanged": false,
+  "hostTaskProofAcceptance": false,
+  "finishedAt": "2026-10-24T10:11:29.689261+00:00",
+  "durationSeconds": 3.112298314925283,
+  "actualExitCode": 1,
+  "timedOut": false,
+  "maxResidentSetKiB": 1711348,
+  "userCPUSeconds": 0.9966379999999999,
+  "systemCPUSeconds": 0.601318,
+  "stdoutLog": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-cardinality-followup-20261024/validation-01.stdout.log",
+  "stderrLog": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-cardinality-followup-20261024/validation-01.stderr.log"
+}

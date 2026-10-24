@@ -1,0 +1,13 @@
+{
+  "observedAt": "2026-10-24T10:26:15.986Z",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "editId": "honeycomb-profile-moment-d56b03cd4162",
+  "result": {
+    "id": "honeycomb-profile-moment-d56b03cd4162",
+    "status": "queued",
+    "baseVersion": "4739d167cce34527dbcee80f7ccc086348fd8849ca0b2cff9024e6ea77ffadcc"
+  },
+  "mathematicalAcceptance": false,
+  "localKernelVerified": true,
+  "sourceSHA256": "b6bba0d822be05bbad9084c66566e34cab4b160d9525d4909e2826dbee243fd8"
+}

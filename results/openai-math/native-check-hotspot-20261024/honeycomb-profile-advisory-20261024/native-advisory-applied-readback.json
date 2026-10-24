@@ -1,0 +1,54 @@
+{
+  "schema": "theorem-os.profile-helper-queue-readback.v1",
+  "observedAt": "2026-10-24T10:26:57.943087+00:00",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "sourceStateSHA256": "3c5cdfafb815e34fa6d32f6dbe9831f73842185744e0c1ad65af4efe3a1e7609",
+  "edit": {
+    "affectedTasks": [
+      "finite_box_zero_mass_reference"
+    ],
+    "appliedAt": 1792837576150,
+    "baseVersion": "4739d167cce34527dbcee80f7ccc086348fd8849ca0b2cff9024e6ea77ffadcc",
+    "id": "honeycomb-profile-moment-d56b03cd4162",
+    "planVersion": "e6afeb39b4109ae9c8282b80f886c39da80f20e1ccde64e3003c5358a07857e5",
+    "receivedAt": 1792837576132,
+    "recheck": {
+      "status": "not-required",
+      "tasks": []
+    },
+    "status": "applied"
+  },
+  "existingAssignmentsPreserved": true,
+  "otherTaskDefinitionsPreserved": true,
+  "groupsPreserved": true,
+  "proofRoutesPreserved": true,
+  "referenceStillPendingUnassigned": true,
+  "views": [
+    {
+      "workerId": "solver",
+      "fullHelperVisible": true,
+      "fileSHA256": "774ee6cd2324eafd182145afb809727477f828534cbd26797ce09ebb0de450a7"
+    },
+    {
+      "workerId": "researcher-1",
+      "fullHelperVisible": true,
+      "fileSHA256": "e6a0a34cca78da75b73d363475afd470222e5a986d9fc85627e9c69db3d975d5"
+    },
+    {
+      "workerId": "researcher-2",
+      "fullHelperVisible": true,
+      "fileSHA256": "be56b148a51d195aa9fc625bd7913b6199de47192ab48e31a055be30c963f493"
+    },
+    {
+      "workerId": "engineer",
+      "fullHelperVisible": true,
+      "fileSHA256": "e0380309eae8bd4dad0935f4ed3bdd382227743acc4300e576d61861a820eac7"
+    }
+  ],
+  "localKernelPassed": true,
+  "nativeTaskProofAcceptance": false,
+  "actualMathematicalUse": "not-established",
+  "originalGoalProved": false,
+  "activeRuntimeChanged": false,
+  "directStateWrites": false
+}

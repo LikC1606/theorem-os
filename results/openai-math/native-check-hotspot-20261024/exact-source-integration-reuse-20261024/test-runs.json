@@ -1,0 +1,47 @@
+{
+  "schema": "theorem-os.exact-source-test-runs.v1",
+  "cwd": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/runtime",
+  "runs": [
+    {
+      "name": "initial fixture validation",
+      "command": "PATH=/home/lzh/.local/share/theorem-os/runtime-tools/bin:/home/lzh/.local/node/bin:/home/lzh/.venvs/deepscientist-finance/.bun/bin:$PATH DEEPSCIENTIST_TEST_CODEX_SANDBOX=0 /home/lzh/.local/node/bin/node node_modules/vitest/vitest.mjs run tests/exactSourceIntegration.test.ts --reporter=json --outputFile=../exact-source-tests.json",
+      "passed": 8,
+      "failed": 2,
+      "report": "exact-source-tests.initial.json",
+      "supersededBy": "final exact-source integration"
+    },
+    {
+      "name": "final exact-source integration",
+      "command": "PATH=/home/lzh/.local/share/theorem-os/runtime-tools/bin:/home/lzh/.local/node/bin:/home/lzh/.venvs/deepscientist-finance/.bun/bin:$PATH DEEPSCIENTIST_TEST_CODEX_SANDBOX=0 /home/lzh/.local/node/bin/node node_modules/vitest/vitest.mjs run tests/exactSourceIntegration.test.ts --reporter=json --outputFile=../exact-source-tests.json",
+      "passed": 10,
+      "failed": 0,
+      "report": "exact-source-tests.json"
+    },
+    {
+      "name": "focused cache and integration regressions",
+      "command": "PATH=/home/lzh/.local/share/theorem-os/runtime-tools/bin:/home/lzh/.local/node/bin:/home/lzh/.venvs/deepscientist-finance/.bun/bin:$PATH DEEPSCIENTIST_TEST_CODEX_SANDBOX=0 /home/lzh/.local/node/bin/node node_modules/vitest/vitest.mjs run tests/solverConditionalIntegration.test.ts tests/solverIntegrationConcurrency.test.ts tests/solverIntegrationBatch.test.ts tests/solverProjectionReuse.test.ts tests/taskProofCache.test.ts --maxWorkers=2 --reporter=json --outputFile=../focused-regressions.json",
+      "passed": 115,
+      "failed": 0,
+      "report": "focused-regressions.json"
+    },
+    {
+      "name": "real Snaky source reproduction with mock verifier",
+      "command": "PATH=/home/lzh/.local/share/theorem-os/runtime-tools/bin:/home/lzh/.local/node/bin:/home/lzh/.venvs/deepscientist-finance/.bun/bin:$PATH DEEPSCIENTIST_TEST_CODEX_SANDBOX=0 DEEPSCIENTIST_SNAKY_SOURCE_FIXTURE=/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/snaky-fixture DEEPSCIENTIST_SNAKY_SOURCE_STATE=/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-integration-cost-20261024/native-state-20261024T0919Z.json DEEPSCIENTIST_SNAKY_SOURCE_REPORT=/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/snaky-reproduction.json /home/lzh/.local/node/bin/node node_modules/vitest/vitest.mjs run tests/snakyExactSourceReproduction.test.ts --maxWorkers=1 --reporter=json --outputFile=../snaky-tests.json",
+      "passed": 1,
+      "failed": 0,
+      "report": "snaky-tests.json"
+    },
+    {
+      "name": "typecheck",
+      "command": "/home/lzh/.local/node/bin/node node_modules/typescript/bin/tsc --noEmit",
+      "exitCode": 0,
+      "log": "typecheck.log"
+    },
+    {
+      "name": "headless build",
+      "command": "/home/lzh/.venvs/deepscientist-finance/.bun/bin/bun scripts/build.ts --state-root ../build-state",
+      "exitCode": 0,
+      "report": "headless-build.json"
+    }
+  ]
+}

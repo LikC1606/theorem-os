@@ -1,0 +1,107 @@
+{
+  "checkedAt": "2026-10-24T10:21:42.331023+00:00",
+  "standardAxioms": [
+    "Classical.choice",
+    "Quot.sound",
+    "propext"
+  ],
+  "newTheoremCount": 9,
+  "checks": [
+    {
+      "label": "validation-02",
+      "actualExitCode": 0,
+      "sourceSHA256": "b6bba0d822be05bbad9084c66566e34cab4b160d9525d4909e2826dbee243fd8",
+      "sourceSnapshotMatches": true,
+      "stdoutHasErrorsWarningsOrSorryAx": false,
+      "theorems": [
+        {
+          "fullyQualifiedName": "TheoremOS.ProfileSummability.summable_fiberMass_of_summable",
+          "axioms": [
+            "propext",
+            "Classical.choice",
+            "Quot.sound"
+          ]
+        },
+        {
+          "fullyQualifiedName": "TheoremOS.ProfileSummability.summable_profileScale_of_hasSum",
+          "axioms": [
+            "propext",
+            "Classical.choice",
+            "Quot.sound"
+          ]
+        },
+        {
+          "fullyQualifiedName": "TheoremOS.ProfileSummability.summable_sizeWeight_of_hasSum",
+          "axioms": [
+            "propext",
+            "Classical.choice",
+            "Quot.sound"
+          ]
+        },
+        {
+          "fullyQualifiedName": "OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_firstLengthWeight_of_profileFirstMoment",
+          "axioms": [
+            "propext",
+            "Classical.choice",
+            "Quot.sound"
+          ]
+        },
+        {
+          "fullyQualifiedName": "OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_firstLengthWeight_of_profileFactorization",
+          "axioms": [
+            "propext",
+            "Classical.choice",
+            "Quot.sound"
+          ]
+        },
+        {
+          "fullyQualifiedName": "OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_firstLengthWeight_of_matrixProfile",
+          "axioms": [
+            "propext",
+            "Classical.choice",
+            "Quot.sound"
+          ]
+        },
+        {
+          "fullyQualifiedName": "OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_firstLengthWeight_of_lengthProfileFactorization",
+          "axioms": [
+            "propext",
+            "Classical.choice",
+            "Quot.sound"
+          ]
+        },
+        {
+          "fullyQualifiedName": "OAI.PolynomialVacuumBridge.Corridor.bridgeFiniteBridgeSums_of_matrixProfiles",
+          "axioms": [
+            "propext",
+            "Classical.choice",
+            "Quot.sound"
+          ]
+        }
+      ],
+      "resultSHA256": "90c93e085c76656ec1d4be11eeb46fe14d5323d06f7897b29e7d3a8a9e62febf"
+    },
+    {
+      "label": "validation-03-occupied",
+      "actualExitCode": 0,
+      "sourceSHA256": "6a0771b40190c5cde3ef582e9d2964a17f97a90834934f7f3887427551da7ff0",
+      "sourceSnapshotMatches": true,
+      "stdoutHasErrorsWarningsOrSorryAx": false,
+      "theorems": [
+        {
+          "fullyQualifiedName": "OAI.PolynomialVacuumBridge.Corridor.bridgeFiniteBridgeSums_of_occupiedSlabMatrices",
+          "axioms": [
+            "propext",
+            "Classical.choice",
+            "Quot.sound"
+          ]
+        }
+      ],
+      "resultSHA256": "9731b9a483842dd676d1d3e4f05dd4385524f67c8d35fed249aac347859a4e54"
+    }
+  ],
+  "contextSourceAndOleanHashesMatch": true,
+  "priorMatrixIncrementReusedVerbatim": true,
+  "geometryIncrementReusedVerbatimInIntegrationHarness": true,
+  "sourceContainsSorryAdmitOrNewAxiom": false
+}

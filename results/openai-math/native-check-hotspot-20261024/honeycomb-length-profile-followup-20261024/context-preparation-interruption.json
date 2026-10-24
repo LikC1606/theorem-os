@@ -1,0 +1,8 @@
+{
+  "recordedAt": "2026-10-24T10:17:21.592083+00:00",
+  "pid": 2725788,
+  "reason": "The local context-preparation candidate lacks section diagnostics, so import vs proof elaboration cannot be located; stack diagnostics via gdb were refused by ptrace. Stop only this auxiliary attempt to add diagnostic markers and explicit minimal imports, preserving the exact canonical declarations and matrix proof. This is a diagnostic repair, not a time/cpu/invocation cap.",
+  "originalGoalIncluded": false,
+  "activeRunTouched": false,
+  "signal": "SIGTERM"
+}

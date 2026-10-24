@@ -1,0 +1,144 @@
+{
+  "schema": "honeycomb-column-cardinality.v1",
+  "frozenAt": "2026-10-24T10:14:29.252543+00:00",
+  "status": "local-kernel-verified",
+  "theoremCount": 9,
+  "sourceFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-cardinality-followup-20261024/ColumnCardinality.lean",
+  "sourceSHA256": "4b28aaf9a6976f4985dee98f98da3fb58aa11d4b850268ac675761ffc8588fe2",
+  "sourceBytes": 8085,
+  "incrementFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-cardinality-followup-20261024/ColumnCardinality.lean.inc",
+  "incrementSHA256": "c67b5cf4dabbaf84a7b3158406e055fc63442a404c6b9c16657a063e2cf2987f",
+  "incrementBytes": 6180,
+  "validationResult": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-cardinality-followup-20261024/validation-02-final-result.json",
+  "validationResultSHA256": "3e95a31d5b92302cbcfdfdef94e90adedfd833e9d7b227710d8e0e98af30aa5f",
+  "stdoutSHA256": "7e3c23c9e3a1b738b11bb94838b2dca78fd5311bf0ece7c3e4bdd36de295b000",
+  "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "actualExitCode": 0,
+  "durationSeconds": 2.8644451410509646,
+  "finishedAt": "2026-10-24T10:12:20.395376+00:00",
+  "leanToolchain": "leanprover/lean4:v4.34.1",
+  "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+  "sealedEnvironmentIdentity": "2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87",
+  "resourceLimits": {
+    "wallSeconds": null,
+    "cpuSoftSeconds": null,
+    "cpuHardSeconds": null,
+    "maxHeartbeats": 0,
+    "addressSpaceGiB": 32,
+    "leanMemoryMiB": 32768,
+    "threads": 1,
+    "cpus": [
+      0
+    ]
+  },
+  "invocationCap": null,
+  "interfaces": [
+    {
+      "name": "bridgeLayerColumnCode_injective",
+      "statement": "Function.Injective bridgeLayerColumnCode",
+      "axioms": [
+        "propext",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "bridgeVertexList_length_le_columnSet",
+      "statement": "vs.Nodup → (∀ v ∈ vs, 0 ≤ layer v ∧ layer v < (h : ℤ)) → (∀ v ∈ vs, bridgeBoxColumn v ∈ columns) → vs.length ≤ h * columns.card",
+      "note": "The actual Lean argument order is visible in the source. Only Nodup and inStrip geometry are used.",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "bridgeLength_le_columnSet",
+      "statement": "(∀ v ∈ p.vertices, bridgeBoxColumn v ∈ columns) → p.vertices.length ≤ h * columns.card",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "bridgeLength_le_columnInterval",
+      "statement": "(∀ v ∈ p.vertices, a ≤ bridgeBoxColumn v ∧ bridgeBoxColumn v ≤ b) → p.vertices.length ≤ h * (b + 1 - a).toNat",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "bridgeLength_le_columnBox",
+      "statement": "bridgeInColumnBox R p → p.vertices.length ≤ h * (4 * R + 2)",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "bridgeLength_le_slabSet",
+      "statement": "(∀ v ∈ p.vertices, bridgeBoxSlab v ∈ slabs) → p.vertices.length ≤ 2 * h * slabs.card",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "bridgeLength_le_occupiedSlabs",
+      "statement": "p.vertices.length ≤ 2 * h * (bridgeOccupiedSlabs p).card",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "bridgeColumn_natAbs_le_radius",
+      "statement": "v ∈ p.vertices → (bridgeBoxColumn v).natAbs ≤ bridgeColumnRadius p",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "bridgeLength_le_columnRadius",
+      "statement": "p.vertices.length ≤ h * (2 * bridgeColumnRadius p + 1)",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    }
+  ],
+  "sourcePolicy": "Canonical geometry declarations copied verbatim from frozen challenge; no original-goal proof included. Existing finite-box definitions copied only as prerequisites; no already-proved matrix or finite-box theorem reproved.",
+  "hostTaskProofAcceptance": false,
+  "originalTheoremAcceptance": false,
+  "publisherSolutionsRead": false,
+  "hiddenReasoningRead": false,
+  "activeRuntimeChanged": false,
+  "activeSourceChanged": false,
+  "queueUsed": false,
+  "gitUsed": false,
+  "remainingMathematicalGap": [
+    "A uniform finite-box total-mass bound or equivalent substantive mathematical input is not proved here.",
+    "An exact finite-state/transfer encoding and its weight/count identity are not proved here.",
+    "A connection from such an encoding and the finite-matrix first-moment theorem to the original unconditional target remains to be checked."
+  ],
+  "attemptHistory": [
+    {
+      "label": "validation-01",
+      "actualLeanExitCode": 1,
+      "reason": "Only the radius corollary failed: generic abs_le was unavailable under the minimal imports. Diagnostic source/output preserved; the final proof uses Int.le_natAbs instead."
+    },
+    {
+      "label": "validation-02-final",
+      "actualLeanExitCode": 0,
+      "reason": "All nine declarations passed with only standard axioms."
+    }
+  ]
+}

@@ -1,11 +1,37 @@
 # 原生检查热点与加速候选（2026-10-24）
 
-最新[三题进度及构建摘要](continuation-progress-20261024T095701Z.json)记录 Character 与
-SnakyConditional 集成通过，以及 Honeycomb 新辅助定理递送。原生最终通过总数仍为 5。
+最新[三题进度快照](continuation-progress-20261024T103051Z.json)记录实际状态、辅助证明递送和新构建；
+原生最终通过总数为 5，尚无 OpenAI 托管验收确认。
+
+Character 于 `10:20:51 UTC` 通过原生全目标内核检查，回执
+`lean-7af748514c728f28377b0d13`，整批耗时 2340.955 秒；原源码 SHA 和三项标准公理均保持一致。
+当前进入固定版本复审，原生最终通过总数仍为 5。见
+[全目标原始回执](character-native-stage-cost-20261024/native-all-target-verification-20261024T102051Z.json)。
+
+Honeycomb 本轮新增 18 条辅助定理通过固定 Lean 检查：
+[九条几何引理](honeycomb-column-cardinality-followup-20261024/README.md)给出有限列盒和占据 slab 的长度界；
+[九条分层与一阶矩接口](honeycomb-length-profile-followup-20261024/README.md)将这些长度界接到原六项结论。
+完整增量已分别于 `10:18:14 UTC`、`10:26:16 UTC` 通过正常队列共享给四个 worker，
+全部原任务与 assignment 保留。见[几何回读](honeycomb-geometry-advisory-20261024/native-advisory-applied-readback.json)
+和[分层回读](honeycomb-profile-advisory-20261024/native-advisory-applied-readback.json)。
+尚未证明桥总质量可和性与准确的有限转移系数恒等式，原题仍未完成；这些是辅助成果，没有新增原生 TaskProof。
+
+分层包的首次宽导入局部检查经诊断中断，精简依赖后上下文准备耗时 5.240 秒，
+主八接口耗时 3.372 秒、occupied-slab 组合推论耗时 3.994 秒。
+失败、诊断中断与最终成功记录均保留；没有给求解链新增预算上限或重启整题检查。
+
+[保留交付源码的集成修复](exact-source-integration-reuse-20261024/README.md)已完成：
+126 项测试、typecheck、三个 bundle 和只读 manifest 校验通过。
+真实 Snaky 源码样本中新路径保留了旧合并丢失的 1101 个换行，完整投影和缓存 key 与 delivery 相同。
+机制测试使用 mock verifier，没有新增数学验收；单次合并耗时由 28.36 秒降至 0.271 秒，
+没有测量完整 Lean 提速。见[根代理审查](exact-source-reuse-review-20261024.json)。
+新构建 `1537a457-5694-4896-99fe-f2e9248cb6fc` 已就绪，
+[本轮不迁移当前运行](exact-source-reuse-activation-20261024.json)：两条补验已完成集成，
+Honeycomb 上次集成仅 21.577 秒，而现有三项数学探索仍在继续。
 
 Character 又于 `09:41:50 UTC` 通过原生集成检查，回执
 `lean-7e3b44ab0595415016076711`，整批耗时 2339.924 秒，源码 SHA 与原目标交付一致，
-公理仍仅三项标准公理。当前进入 lead 全目标检查；见
+公理仍仅三项标准公理。随后进入 lead 全目标检查；见
 [集成原始回执](character-native-stage-cost-20261024/native-integration-verification-20261024T094150Z.json)。
 
 [Honeycomb 最新构建的缓存修复](honeycomb-runtime-reuse-fix-20261024/README.md)也已完成：

@@ -1,0 +1,26 @@
+{
+  "schema": "theorem-os.exact-source-build-verification.v1",
+  "buildId": "1537a457-5694-4896-99fe-f2e9248cb6fc",
+  "manifest": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/build-state/builds/1537a457-5694-4896-99fe-f2e9248cb6fc/manifest.json",
+  "manifestMode": "0400",
+  "sourceRoot": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/runtime",
+  "sourceInputs": 210,
+  "bundles": [
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/runtime/out/main/math-solver.js",
+      "bytes": 1714853,
+      "sha256": "b6fb606bb2c2c4f34be905b1ad3fdb60050e23bbbc80fa06adc293821f477a97"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/runtime/out/main/search-lean.js",
+      "bytes": 173934,
+      "sha256": "d20f80273318e2dd48b3b135f8a7113b8523def704673d421429cbefed750020"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/runtime/out/main/check-lean.js",
+      "bytes": 313715,
+      "sha256": "8f89e4d14a4aea047a55956f5070757dfd3bc8792ac8a4952c4bbc48a931d136"
+    }
+  ],
+  "readMathBuildManifest": "passed"
+}

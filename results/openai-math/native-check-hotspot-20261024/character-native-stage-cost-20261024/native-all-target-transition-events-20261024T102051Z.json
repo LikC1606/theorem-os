@@ -1,0 +1,44 @@
+[
+  {
+    "event": "assembly_started",
+    "at": 1792834910627,
+    "workerId": "solver",
+    "commit": "df8db6c4f2f872ff9c5d4a79a5c874d4707b48c0"
+  },
+  {
+    "event": "proof_check_started",
+    "at": 1792834910628,
+    "workerId": "solver",
+    "turn": 2
+  },
+  {
+    "event": "proof_checked",
+    "at": 1792837251764,
+    "workerId": "solver",
+    "passed": true,
+    "commit": "df8db6c4f2f872ff9c5d4a79a5c874d4707b48c0",
+    "reused": false,
+    "durationMs": 2341136
+  },
+  {
+    "event": "review_requested",
+    "at": 1792837251769,
+    "commit": "df8db6c4f2f872ff9c5d4a79a5c874d4707b48c0"
+  },
+  {
+    "event": "final_statement_review_scope",
+    "at": 1792837251770,
+    "commit": "df8db6c4f2f872ff9c5d4a79a5c874d4707b48c0",
+    "sourceDigest": "f31eba830cec592a226f58cc26fffe68daacb70d307ada71475ccdda914f67b5",
+    "referenceCoverage": "unknown",
+    "requiredTaskIds": [],
+    "unusedTaskIds": []
+  },
+  {
+    "event": "review_assigned",
+    "at": 1792837251841,
+    "workerId": "researcher-1",
+    "commit": "df8db6c4f2f872ff9c5d4a79a5c874d4707b48c0",
+    "role": "reviewer"
+  }
+]

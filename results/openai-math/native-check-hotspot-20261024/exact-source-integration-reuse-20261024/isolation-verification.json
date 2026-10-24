@@ -1,0 +1,33 @@
+{
+  "schema": "theorem-os.exact-source-isolation.v1",
+  "sourceRuntime": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/honeycomb-new-build-continuation-20261024/runtime",
+  "isolatedRuntime": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/runtime",
+  "baselineEntries": 1307,
+  "baselineContentSizeModeChanges": [],
+  "changedExistingFiles": [
+    "out/main/check-lean.js",
+    "out/main/math-solver.js",
+    "out/main/search-lean.js",
+    "src/solver/cooperationIntegration.ts",
+    "src/solver/cooperativeProof.ts",
+    "src/solver/proofReuse.ts"
+  ],
+  "newFiles": [
+    "tests/exactSourceIntegration.test.ts",
+    "tests/snakyExactSourceReproduction.test.ts"
+  ],
+  "sameInodeWithBaseline": [],
+  "runtimeSymlinks": [],
+  "dependenciesCopiedFrom": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-runtime-reuse-fix-20261024/runtime/node_modules",
+  "packageJsonMatchesBaseline": true,
+  "lockMatchesBaseline": true,
+  "proofReuseMatchesPriorSealedFix": true,
+  "snakyOriginalRepository": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/workspace",
+  "snakyClone": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/snaky-fixture",
+  "gitWritesOnlyToNewFixtureRepositories": true,
+  "existingRunStateCacheReceiptsNotWritten": true,
+  "activeBuildNotSwitched": true,
+  "mainCheckoutNotWritten": true,
+  "realLeanAndModelsNotInvoked": true,
+  "sourceAndBundlesIndependentlyCopied": true
+}

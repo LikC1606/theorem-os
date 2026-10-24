@@ -1,0 +1,13 @@
+{
+  "observedAt": "2026-10-24T10:18:14.146Z",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "editId": "honeycomb-column-geometry-84efbef08f80",
+  "result": {
+    "id": "honeycomb-column-geometry-84efbef08f80",
+    "status": "queued",
+    "baseVersion": "d487ab1d2595773b2deec8556dcce11d881cd34c274c79110c7f3480f9664c3b"
+  },
+  "mathematicalAcceptance": false,
+  "localKernelVerified": true,
+  "sourceSHA256": "4b28aaf9a6976f4985dee98f98da3fb58aa11d4b850268ac675761ffc8588fe2"
+}

@@ -1,0 +1,124 @@
+{
+  "createdAt": "2026-10-24T10:21:42.331023+00:00",
+  "status": "local_kernel_verified_auxiliary_delta_ready_for_serial_delivery",
+  "originalTarget": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums",
+  "originalGoalIncludedInChecks": false,
+  "originalGoalProved": false,
+  "hostTaskProofAcceptance": false,
+  "newTheoremCount": 9,
+  "baseCommit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+  "coreIncrement": {
+    "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-length-profile-followup-20261024/ProfileBridge.lean.inc",
+    "bytes": 8361,
+    "sha256": "e8f92f908039f61e25b447dad06f6294c0b01bd9338d66b408a3cef36584c585",
+    "namespacePolicy": "Contains its own TheoremOS.ProfileSummability and OAI.PolynomialVacuumBridge.Corridor namespaces; append at top level, not nested in an already-open Corridor namespace."
+  },
+  "occupiedSlabIncrement": {
+    "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-length-profile-followup-20261024/OccupiedSlabProfile.lean.inc",
+    "bytes": 1325,
+    "sha256": "c7b5d698aa720b3c3b27fe557a3b53edaad75e8190b82e14d14a271a3270b73d",
+    "namespacePolicy": "Insert inside OAI.PolynomialVacuumBridge.Corridor only after the main profile increment and the already verified column-cardinality increment."
+  },
+  "canonicalSource": {
+    "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-finite-matrix-followup-20261024/canonical-Submission.lean",
+    "sha256": "1274ab0b8f9c01548559d48d055fc92a20ebf2433f643bd8ad90a313b304b674"
+  },
+  "priorMatrixIncrement": {
+    "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-finite-matrix-followup-20261024/FiniteMatrixFirstMoment.lean.inc",
+    "sha256": "fa18397788fad96d9c54a45b51dc9f8aa338da30c5bd5108a0445c5437fd3fb6",
+    "reimplemented": false
+  },
+  "priorGeometryIncrement": {
+    "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-cardinality-followup-20261024/ColumnCardinality.lean.inc",
+    "sha256": "c67b5cf4dabbaf84a7b3158406e055fc63442a404c6b9c16657a063e2cf2987f",
+    "reimplemented": false
+  },
+  "verification": {
+    "coreResult": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-length-profile-followup-20261024/validation-02-result.json",
+    "coreResultSHA256": "90c93e085c76656ec1d4be11eeb46fe14d5323d06f7897b29e7d3a8a9e62febf",
+    "coreActualExitCode": 0,
+    "coreDurationSeconds": 3.3723122680094093,
+    "occupiedResult": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-length-profile-followup-20261024/validation-03-occupied-result.json",
+    "occupiedResultSHA256": "9731b9a483842dd676d1d3e4f05dd4385524f67c8d35fed249aac347859a4e54",
+    "occupiedActualExitCode": 0,
+    "occupiedDurationSeconds": 3.993500153068453,
+    "axiomsAudit": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-length-profile-followup-20261024/axioms-audit.json",
+    "axiomsAuditSHA256": "d0ba06233bb97af6093a15f1c09e1b36a3fbb8388d67b0925e57dd3fbe1f086e"
+  },
+  "fixedEnvironment": {
+    "leanToolchain": "leanprover/lean4:v4.34.1",
+    "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+    "sealedEnvironmentIdentity": "2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87",
+    "threads": 1,
+    "addressSpaceGiB": 32,
+    "maxHeartbeats": 0,
+    "wallSeconds": null,
+    "cpuSeconds": null,
+    "invocationLimit": null
+  },
+  "soundnessBoundary": "Exact fiber HasSum is required for the generic lift, or derived from whole-family Summable weight in the BridgePath API. No divergent tsum is treated as a valid coefficient merely because it defaults to zero.",
+  "profilePolicy": "Any BridgePath h -> Nat is supported; no assertion identifies a transfer exponent with vertices.length. The occupied-slab corollary uses the checked cardinality profile and C=2*h.",
+  "remainingMathematicalObligations": [
+    "Prove Summable (weight (h:=h)) for every h>=1, for example via a genuine uniform finite-box total-mass bound and the already verified finite-box reduction.",
+    "Construct the finite-state nonnegative transfer data and prove exact bridgeProfileMass(profile)(n)=matrixMass(A,u,v,n), or the alternative finite nonnegative factorization, including endpoint shifts and the n=0 coefficient.",
+    "For profiles other than the supplied occupied-slab instance, prove the actual length <= C*(profile+1) comparison for that exact encoding."
+  ],
+  "noWrites": {
+    "activeRun": true,
+    "activeSource": true,
+    "runtime": true,
+    "state": true,
+    "queue": true
+  },
+  "noExternalOracle": {
+    "publisherSolutionsRead": false,
+    "hiddenReasoningRead": false
+  },
+  "exactDeclarations": [
+    {
+      "fullyQualifiedName": "TheoremOS.ProfileSummability.summable_fiberMass_of_summable",
+      "exactLeanDeclarationHeader": "theorem summable_fiberMass_of_summable\n    {α : Type*} {w : α → ℝ} (profile : α → ℕ) (hw : Summable w) :\n    Summable (fiberMass w profile)",
+      "sourceFile": "ProfileBridge.lean.inc"
+    },
+    {
+      "fullyQualifiedName": "TheoremOS.ProfileSummability.summable_profileScale_of_hasSum",
+      "exactLeanDeclarationHeader": "theorem summable_profileScale_of_hasSum\n    {α : Type*} {w : α → ℝ} {profile : α → ℕ} {c scale : ℕ → ℝ}\n    (hw : ∀ a, 0 ≤ w a) (hscale : ∀ n, 0 ≤ scale n)\n    (hfiber : ∀ n, HasSum (fun a : {a : α // profile a = n} => w a.val) (c n))\n    (hc : Summable (fun n => scale n * c n)) :\n    Summable (fun a => scale (profile a) * w a)",
+      "sourceFile": "ProfileBridge.lean.inc"
+    },
+    {
+      "fullyQualifiedName": "TheoremOS.ProfileSummability.summable_sizeWeight_of_hasSum",
+      "exactLeanDeclarationHeader": "theorem summable_sizeWeight_of_hasSum\n    {α : Type*} {w : α → ℝ} {size profile : α → ℕ} {c : ℕ → ℝ} {C : ℝ}\n    (hw : ∀ a, 0 ≤ w a) (hC : 0 ≤ C)\n    (hsize : ∀ a, (size a : ℝ) ≤ C * ((profile a : ℝ) + 1))\n    (hfiber : ∀ n, HasSum (fun a : {a : α // profile a = n} => w a.val) (c n))\n    (hc : Summable c) (hmoment : Summable (fun n : ℕ => (n : ℝ) * c n)) :\n    Summable (fun a => (size a : ℝ) * w a)",
+      "sourceFile": "ProfileBridge.lean.inc"
+    },
+    {
+      "fullyQualifiedName": "OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_firstLengthWeight_of_profileFirstMoment",
+      "exactLeanDeclarationHeader": "theorem bridgeSummable_firstLengthWeight_of_profileFirstMoment\n    {h : ℕ} (profile : BridgePath h → ℕ) {C : ℝ} (hC : 0 ≤ C)\n    (hsize : ∀ p : BridgePath h,\n      (p.vertices.length : ℝ) ≤ C * ((profile p : ℝ) + 1))\n    (hw : Summable (weight (h := h)))\n    (hmoment : Summable (fun n : ℕ => (n : ℝ) * bridgeProfileMass profile n)) :\n    Summable (firstLengthWeight (h := h))",
+      "sourceFile": "ProfileBridge.lean.inc"
+    },
+    {
+      "fullyQualifiedName": "OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_firstLengthWeight_of_profileFactorization",
+      "exactLeanDeclarationHeader": "theorem bridgeSummable_firstLengthWeight_of_profileFactorization\n    {h : ℕ} {ι : Type*} [Fintype ι]\n    (profile : BridgePath h → ℕ) {C : ℝ} (hC : 0 ≤ C)\n    (hsize : ∀ p : BridgePath h,\n      (p.vertices.length : ℝ) ≤ C * ((profile p : ℝ) + 1))\n    (hw : Summable (weight (h := h))) (L R : ℕ → ι → ℝ)\n    (hL : ∀ n i, 0 ≤ L n i) (hR : ∀ n i, 0 ≤ R n i)\n    (hfactor : ∀ a b, bridgeProfileMass profile (a + b) = ∑ i, L a i * R b i) :\n    Summable (firstLengthWeight (h := h))",
+      "sourceFile": "ProfileBridge.lean.inc"
+    },
+    {
+      "fullyQualifiedName": "OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_firstLengthWeight_of_matrixProfile",
+      "exactLeanDeclarationHeader": "theorem bridgeSummable_firstLengthWeight_of_matrixProfile\n    {h : ℕ} {ι : Type*} [Fintype ι] [DecidableEq ι]\n    (profile : BridgePath h → ℕ) {C : ℝ} (hC : 0 ≤ C)\n    (hsize : ∀ p : BridgePath h,\n      (p.vertices.length : ℝ) ≤ C * ((profile p : ℝ) + 1))\n    (hw : Summable (weight (h := h)))\n    (A : Matrix ι ι ℝ) (u v : ι → ℝ)\n    (hA : ∀ i j, 0 ≤ A i j) (hu : ∀ i, 0 ≤ u i) (hv : ∀ i, 0 ≤ v i)\n    (hidentity : ∀ n, bridgeProfileMass profile n =\n      TheoremOS.FiniteMatrixFirstMoment.matrixMass A u v n) :\n    Summable (firstLengthWeight (h := h))",
+      "sourceFile": "ProfileBridge.lean.inc"
+    },
+    {
+      "fullyQualifiedName": "OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_firstLengthWeight_of_lengthProfileFactorization",
+      "exactLeanDeclarationHeader": "theorem bridgeSummable_firstLengthWeight_of_lengthProfileFactorization\n    {h : ℕ} {ι : Type*} [Fintype ι]\n    (hw : Summable (weight (h := h))) (L R : ℕ → ι → ℝ)\n    (hL : ∀ n i, 0 ≤ L n i) (hR : ∀ n i, 0 ≤ R n i)\n    (hfactor : ∀ a b,\n      bridgeProfileMass (fun p : BridgePath h => p.vertices.length) (a + b) =\n        ∑ i, L a i * R b i) : Summable (firstLengthWeight (h := h))",
+      "sourceFile": "ProfileBridge.lean.inc"
+    },
+    {
+      "fullyQualifiedName": "OAI.PolynomialVacuumBridge.Corridor.bridgeFiniteBridgeSums_of_matrixProfiles",
+      "exactLeanDeclarationHeader": "theorem bridgeFiniteBridgeSums_of_matrixProfiles\n    (ι : ℕ → Type*) [∀ h, Fintype (ι h)] [∀ h, DecidableEq (ι h)]\n    (profile : ∀ h, BridgePath h → ℕ) (C : ℕ → ℝ)\n    (A : ∀ h, Matrix (ι h) (ι h) ℝ) (u v : ∀ h, ι h → ℝ)\n    (hw : ∀ h, 1 ≤ h → Summable (weight (h := h)))\n    (hC : ∀ h, 1 ≤ h → 0 ≤ C h)\n    (hsize : ∀ h, 1 ≤ h → ∀ p : BridgePath h,\n      (p.vertices.length : ℝ) ≤ C h * (((profile h) p : ℝ) + 1))\n    (hA : ∀ h, 1 ≤ h → ∀ i j, 0 ≤ A h i j)\n    (hu : ∀ h, 1 ≤ h → ∀ i, 0 ≤ u h i)\n    (hv : ∀ h, 1 ≤ h → ∀ i, 0 ≤ v h i)\n    (hidentity : ∀ h, 1 ≤ h → ∀ n, bridgeProfileMass (profile h) n =\n      TheoremOS.FiniteMatrixFirstMoment.matrixMass (A h) (u h) (v h) n) :\n    FiniteBridgeSums",
+      "sourceFile": "ProfileBridge.lean.inc"
+    },
+    {
+      "fullyQualifiedName": "OAI.PolynomialVacuumBridge.Corridor.bridgeFiniteBridgeSums_of_occupiedSlabMatrices",
+      "exactLeanDeclarationHeader": "theorem bridgeFiniteBridgeSums_of_occupiedSlabMatrices\n    (ι : ℕ → Type*) [∀ h, Fintype (ι h)] [∀ h, DecidableEq (ι h)]\n    (A : ∀ h, Matrix (ι h) (ι h) ℝ) (u v : ∀ h, ι h → ℝ)\n    (hw : ∀ h, 1 ≤ h → Summable (weight (h := h)))\n    (hA : ∀ h, 1 ≤ h → ∀ i j, 0 ≤ A h i j)\n    (hu : ∀ h, 1 ≤ h → ∀ i, 0 ≤ u h i)\n    (hv : ∀ h, 1 ≤ h → ∀ i, 0 ≤ v h i)\n    (hidentity : ∀ h, 1 ≤ h → ∀ n,\n      bridgeProfileMass (fun p : BridgePath h => (bridgeOccupiedSlabs p).card) n =\n        TheoremOS.FiniteMatrixFirstMoment.matrixMass (A h) (u h) (v h) n) :\n    FiniteBridgeSums",
+      "sourceFile": "OccupiedSlabProfile.lean.inc"
+    }
+  ]
+}

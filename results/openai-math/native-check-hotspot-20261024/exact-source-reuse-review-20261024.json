@@ -1,0 +1,21 @@
+{
+  "schema": "theorem-os.exact-source-review.v1",
+  "reviewedAt": "2026-10-24T10:30:08.982911+00:00",
+  "sourceBuildId": "1537a457-5694-4896-99fe-f2e9248cb6fc",
+  "reviewedProducts": 3,
+  "scope": "single-task integration retains immutable delivery bytes only for an unchanged owned seed and matching full authorized declaration/import edits",
+  "retainedGuards": [
+    "all owned files equal seed",
+    "no resolved conditions",
+    "complete declaration changes match",
+    "imports match",
+    "assertSolverSources after copying",
+    "unchanged TaskProofCache full projection/environment/tool/request binding",
+    "original concurrent/conditional/batch merge behavior"
+  ],
+  "testEvidence": "exact-source-integration-reuse-20261024/verification-summary.json",
+  "conclusion": "No blocking issue found in the three product-file changes; focused mechanism and regression evidence match the implementation.",
+  "mathematicalAcceptanceAdded": false,
+  "realLeanSpeedupMeasured": false,
+  "reviewDoesNotRerunPassingTests": true
+}

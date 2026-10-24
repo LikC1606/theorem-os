@@ -1,0 +1,335 @@
+--- a/src/solver/proofReuse.ts
++++ b/src/solver/proofReuse.ts
+@@ -21,6 +21,8 @@
+         !sealed && (packages || runtime.DEEPSCIENTIST_MATH_TRUSTED_CACHE_ROOTS?.trim()))
+       return { env: runtime, reusable: false };
+     const configuration = LAKE_CONFIGURATION_FILES.map(file => {
++      // Verified sealed consumers use sandbox-generated overrides, not the source worktree paths.
++      if (sealed && file === '.lake/package-overrides.json') return [file, null];
+       try { return [file, mathDigest(fs.readFileSync(path.join(projectRoot, file)))]; }
+       catch (error) {
+         if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [file, null];
+--- a/src/solver/cooperativeProof.ts
++++ b/src/solver/cooperativeProof.ts
+@@ -424,7 +424,26 @@
+ 
+ /** Merge disjoint declaration edits, including helpers sharing a file, without overwriting peer work. */
+ export function applyTaskChanges(problem: SolverProblem, worktree: string, changes: readonly DeclarationChange[],
+-  imports: NonNullable<TaskProof['imports']> = [], conditions: readonly CooperativeTask[] = []): void {
++  imports: NonNullable<TaskProof['imports']> = [], conditions: readonly CooperativeTask[] = [],
++  delivery?: Pick<TaskProof, 'commit' | 'seedCommit'>): void {
++  if (delivery && !conditions.length) {
++    const sources = problem.ownedFiles.map(file => ({ file,
++      before: committedSource(worktree, delivery.seedCommit, `${problem.projectRelative}/${file}`),
++      after: committedSource(worktree, delivery.commit, `${problem.projectRelative}/${file}`) }));
++    const exactSeed = sources.every(({ file, before }) =>
++      fs.readFileSync(path.join(worktree, problem.projectRelative, file), 'utf8') === before);
++    const expectedImports = sources.filter(({ file }) => file.endsWith('.lean')).flatMap(({ file, before, after }) =>
++      solverProofImports(problem, after).filter(module => !solverProofImports(problem, before).includes(module))
++        .map(module => ({ file, module })));
++    // Preserve full bytes only when this is the exact authorized patch on its unchanged seed.
++    // Concurrent edits and discharged assumptions still require declaration-by-declaration merging.
++    if (exactSeed && canonicalMathJson(taskChanges(problem, worktree, delivery.commit, undefined, delivery)) === canonicalMathJson(changes) &&
++        canonicalMathJson(expectedImports) === canonicalMathJson(imports)) {
++      for (const { file, after } of sources) fs.writeFileSync(path.join(worktree, problem.projectRelative, file), after);
++      assertSolverSources(problem, worktree);
++      return;
++    }
++  }
+   const files = new Map<string, string>();
+   for (const change of changes) {
+     if (!problem.ownedFiles.includes(change.file)) throw new Error('math_task_source_outside_scope');
+--- a/src/solver/cooperationIntegration.ts
++++ b/src/solver/cooperationIntegration.ts
+@@ -529,7 +529,7 @@
+                 digest(input.task) !== condition.taskDigest) throw new Error('math_task_condition_version_invalid');
+             return input.task;
+           });
+-          applyTaskChanges(problem, checkout, submitted.changes, submitted.imports, resolvedConditions);
++          applyTaskChanges(problem, checkout, submitted.changes, submitted.imports, resolvedConditions, submitted);
+           merged = commitSolverSources(problem, checkout);
+           receipt = await check(merged, { taskId: snapshot.task.id, taskDigest: snapshot.taskDigest,
+             workerId: this.lead.id, seedCommit: merged }, []);
+--- /dev/null
++++ b/tests/exactSourceIntegration.test.ts
+@@ -0,0 +1,167 @@
++import fs from 'node:fs';
++import path from 'node:path';
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
++import { applyTaskChanges, taskChanges } from '../src/solver/cooperativeProof';
++import { committedSource, commitSolverSources, git, withSolverWorktree, type SolverProblem } from '../src/solver/problem';
++import { taskVersion, type CooperativeTask } from '../src/solver/tasks';
++import { cooperativeResearch } from './helpers/cooperation';
++import { leadWorker, localExample, peerWorker, solverState, type LocalExample } from './helpers/solver';
++import { receiptBatch } from './helpers/verifier';
++
++const host = vi.hoisted(() => ({ verify: vi.fn(), environment: vi.fn(), createSession: vi.fn() }));
++vi.mock('../src/math/verifier', async original => ({
++  ...await original<typeof import('../src/math/verifier')>(), checkManyFormalVerifications: host.verify,
++  formalVerificationToolIdentity: () => 'exact-source-fixture-tools',
++}));
++vi.mock('../src/math/mathProofEnvironment', async original => ({
++  ...await original<typeof import('../src/math/mathProofEnvironment')>(), resolveMathProofEnvironment: host.environment,
++}));
++vi.mock('../src/runtime/codexSession', () => ({ createCodexMathSession: host.createSession }));
++
++describe('exact source task integration', () => {
++  let example: LocalExample, directory: string, workspace: string, project: string, problem: SolverProblem;
++  let seed: string, candidate: string, delivery: string, task: CooperativeTask;
++  beforeEach(() => {
++    example = localExample('exact-source-integration-');
++    ({ directory, workspace, problem } = example); project = example.receipt.projectRoot;
++    seed = fs.readFileSync(path.join(project, 'Submission.lean'), 'utf8');
++    candidate = seed.replace('theorem add_zero',
++      'def preservedText : String := "alpha\\n\\n  beta"\n\n\nlemma helper : True := by\n  trivial\n\n\ntheorem add_zero');
++    task = { id: 'goal', kind: 'goal', objective: 'Prove the original target.', proofPath: problem.targets[0]!.proofPath,
++      theoremName: problem.targets[0]!.theoremName, dependsOn: [], revision: 0 };
++    host.verify.mockReset().mockImplementation(async request => receiptBatch(request,
++      { sessionId: 'exact-source-fixture', receiptId: index => `fixture-${request.targetCommit}-${index}` }));
++    host.environment.mockReset().mockReturnValue(undefined);
++    host.createSession.mockReset().mockImplementation(() => { throw new Error('fixture_real_models_forbidden'); });
++  });
++  afterEach(() => {
++    expect(host.createSession).not.toHaveBeenCalled();
++    vi.restoreAllMocks(); fs.rmSync(directory, { recursive: true, force: true });
++  });
++  const save = (seedCommit = problem.baseCommit) => {
++    fs.writeFileSync(path.join(project, 'Submission.lean'), candidate);
++    delivery = commitSolverSources(problem, workspace);
++    return taskChanges(problem, workspace, delivery, task, { seedCommit });
++  };
++
++  it('keeps every source byte when the current owned sources equal the delivery seed', async () => {
++    const changes = save();
++    await withSolverWorktree(workspace, problem.baseCommit, async checkout => {
++      const file = path.join(checkout, problem.projectRelative, 'Submission.lean');
++      applyTaskChanges(problem, checkout, changes);
++      expect(fs.readFileSync(file, 'utf8')).not.toBe(candidate);
++      fs.writeFileSync(file, seed);
++      applyTaskChanges(problem, checkout, changes, [], [], { commit: delivery, seedCommit: problem.baseCommit });
++      expect(fs.readFileSync(file)).toEqual(Buffer.from(candidate));
++    });
++  });
++
++  it('retains concurrent peer declarations through the original merge', async () => {
++    const changes = save();
++    await withSolverWorktree(workspace, problem.baseCommit, async checkout => {
++      const file = path.join(checkout, problem.projectRelative, 'Submission.lean');
++      fs.writeFileSync(file, seed.replace('theorem add_zero', 'lemma peer : True := by trivial\ntheorem add_zero'));
++      applyTaskChanges(problem, checkout, changes, [], [], { commit: delivery, seedCommit: problem.baseCommit });
++      const merged = fs.readFileSync(file, 'utf8');
++      expect(merged).toContain('lemma peer : True := by trivial');
++      expect(merged).toContain('lemma helper : True := by');
++    });
++  });
++
++  it('checks all owned files before replacing the complete delivery', async () => {
++    const helper = 'Helpers.lean', helperFile = path.join(project, helper);
++    fs.writeFileSync(helperFile, 'def count : Nat := 1\n');
++    problem = { ...problem, ownedFiles: [...problem.ownedFiles, helper] };
++    const seedCommit = commitSolverSources(problem, workspace);
++    const changes = save(seedCommit);
++    await withSolverWorktree(workspace, seedCommit, async checkout => {
++      fs.writeFileSync(path.join(checkout, problem.projectRelative, helper), 'def count : Nat := 2\n');
++      applyTaskChanges(problem, checkout, changes, [], [], { commit: delivery, seedCommit });
++      expect(fs.readFileSync(path.join(checkout, problem.projectRelative, helper), 'utf8')).toBe('def count : Nat := 2\n');
++    });
++  });
++
++  it('does not import an omitted candidate change through the complete-source path', async () => {
++    const changes = save().filter(change => change.name !== 'preservedText');
++    await withSolverWorktree(workspace, problem.baseCommit, async checkout => {
++      applyTaskChanges(problem, checkout, changes, [], [], { commit: delivery, seedCommit: problem.baseCommit });
++      expect(fs.readFileSync(path.join(checkout, problem.projectRelative, 'Submission.lean'), 'utf8')).not.toContain('def preservedText');
++    });
++  });
++
++  it('requires imported modules to match the authorized patch', async () => {
++    const module = 'Mathlib.Data.Nat.Basic';
++    candidate = `import ${module}\n` + candidate;
++    const changes = save();
++    await withSolverWorktree(workspace, problem.baseCommit, async checkout => {
++      applyTaskChanges(problem, checkout, changes, [], [], { commit: delivery, seedCommit: problem.baseCommit });
++      expect(fs.readFileSync(path.join(checkout, problem.projectRelative, 'Submission.lean'), 'utf8')).not.toContain(`import ${module}`);
++    });
++  });
++
++  it('uses the original merge when discharging assumptions and preserves the checked dependency', async () => {
++    const file = path.join(project, 'Submission.lean');
++    seed = seed.replace('theorem add_zero', 'lemma dependency : True := by trivial\ntheorem add_zero');
++    fs.writeFileSync(file, seed);
++    const seedCommit = commitSolverSources(problem, workspace);
++    candidate = seed.replace('dependency : True := by trivial', 'dependency : True := by sorry')
++      .replace('theorem add_zero', 'lemma consumer : True := by exact dependency\n\n\ntheorem add_zero');
++    const changes = save(seedCommit).filter(change => change.name !== 'dependency');
++    const dependency: CooperativeTask = { id: 'dependency', kind: 'lemma', objective: 'Prove the premise.', type: 'True',
++      proofPath: 'Submission.lean', theoremName: 'Tutorial.dependency', dependsOn: [], revision: 0 };
++    await withSolverWorktree(workspace, seedCommit, async checkout => {
++      applyTaskChanges(problem, checkout, changes, [], [dependency], { commit: delivery, seedCommit });
++      const merged = fs.readFileSync(path.join(checkout, problem.projectRelative, 'Submission.lean'), 'utf8');
++      expect(merged).toContain('lemma dependency : True := by trivial');
++      expect(merged).not.toContain('dependency : True := by sorry');
++      expect(merged).toContain('lemma consumer : True := by exact dependency');
++    });
++  });
++
++  it.each(['statement', 'context', 'unowned'] as const)('retains the %s source guard on the complete-source path', async kind => {
++    if (kind === 'statement') candidate = candidate.replace('n + 0 = n', 'n + 0 = 0');
++    if (kind === 'context') candidate = candidate.replace('namespace Tutorial', 'namespace Tutorial\nopen Nat');
++    fs.writeFileSync(path.join(project, 'Submission.lean'), candidate);
++    git(workspace, ['add', '--', `${problem.projectRelative}/Submission.lean`]);
++    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--quiet', '--no-gpg-sign', '-m', 'Untrusted source guard fixture']);
++    delivery = git(workspace, ['rev-parse', 'HEAD']);
++    const changes = taskChanges(problem, workspace, delivery, undefined, { seedCommit: problem.baseCommit });
++    await withSolverWorktree(workspace, problem.baseCommit, async checkout => {
++      if (kind === 'unowned') fs.writeFileSync(path.join(checkout, 'outside.txt'), 'outside ownership\n');
++      expect(() => applyTaskChanges(problem, checkout, changes, [], [], { commit: delivery, seedCommit: problem.baseCommit }))
++        .toThrow(kind === 'statement' ? 'math_original_declaration_changed' : kind === 'context' ? 'math_original_context_changed' : 'math_source_outside_ownership');
++    });
++  });
++
++  it('preserves the delivery projection and receipt through the actual single-task integration caller', async () => {
++    host.environment.mockReturnValue({ identity: 'sealed-fixture' });
++    const worker = peerWorker(example, 'engineer'), lead = leadWorker(problem, workspace);
++    const env = { PATH: '/usr/bin:/bin', DEEPSCIENTIST_MATH_ENV_FILE: path.join(directory, 'missing.env') };
++    fs.writeFileSync(path.join(worker.worktree, problem.projectRelative, 'Submission.lean'), candidate);
++    const lake = path.join(worker.worktree, problem.projectRelative, '.lake');
++    fs.mkdirSync(lake, { recursive: true });
++    fs.writeFileSync(path.join(lake, 'package-overrides.json'), '{"path":"/engineer/packages"}\n');
++    delivery = commitSolverSources(problem, worker.worktree);
++    const assignment = { taskId: task.id, taskDigest: taskVersion(task), workerId: worker.id, seedCommit: problem.baseCommit };
++    const node = { task, assignment, status: 'running' as const, attempts: 1 };
++    const state = solverState(problem, workspace, { runId: 'exact-source-fixture', phase: 'running',
++      cooperation: { canonicalCommit: problem.baseCommit, tasks: [node] } });
++    const controller = new AbortController();
++    const cooperative = cooperativeResearch({ state, workers: [lead, worker], retrievalRoot: directory,
++      signal: controller.signal, access: new Map([lead, worker].map(item => [item.id, { environment: env, retrievalRoot: directory }])) });
++    const cacheChecks = vi.spyOn((cooperative as any).taskProofCache, 'check');
++    try {
++      const proof = await (cooperative as any).check(task, assignment, worker.worktree, delivery);
++      Object.assign(node, { status: 'delivered', proof });
++      await (cooperative as any).integrateNow(node);
++      const integrated = state.cooperation!.tasks[0]!;
++      expect(integrated.status).toBe('integrated');
++      expect(committedSource(workspace, state.cooperation!.canonicalCommit!, `${problem.projectRelative}/Submission.lean`)).toBe(candidate);
++      expect(host.verify).toHaveBeenCalledOnce();
++      expect(integrated.integratedCheck!.verification).toEqual(proof.verification);
++      expect(cacheChecks).toHaveBeenCalledTimes(2);
++      expect(cacheChecks.mock.calls[1]![0]).toBe(cacheChecks.mock.calls[0]![0]);
++      expect(integrated.integratedCheck!.projectionReuse).toMatchObject({ checkedProjectionCommit: proof.verification.targetCommit });
++    } finally { controller.abort(); await cooperative.stop(); }
++  });
++});
+--- /dev/null
++++ b/tests/snakyExactSourceReproduction.test.ts
+@@ -0,0 +1,110 @@
++import fs from 'node:fs';
++import path from 'node:path';
++import { createHash } from 'node:crypto';
++import { expect, it, vi } from 'vitest';
++import { applyTaskChanges, checkTaskProofs, TaskProofCache, trustedTaskProjectionReuse, type TaskProof } from '../src/solver/cooperativeProof';
++import { committedSource, commitSolverSources, git, withSolverWorktree, type SolverProblem } from '../src/solver/problem';
++import { taskVersion, type CooperativeTask, type TaskAssignment } from '../src/solver/tasks';
++import { receiptBatch } from './helpers/verifier';
++
++const host = vi.hoisted(() => ({ verify: vi.fn(), models: vi.fn() }));
++vi.mock('../src/math/verifier', async original => ({
++  ...await original<typeof import('../src/math/verifier')>(), checkManyFormalVerifications: host.verify,
++  formalVerificationToolIdentity: () => 'snaky-byte-reproduction-fixture-tools',
++}));
++vi.mock('../src/math/mathProofEnvironment', async original => ({
++  ...await original<typeof import('../src/math/mathProofEnvironment')>(),
++  resolveMathProofEnvironment: () => ({ identity: 'snaky-byte-reproduction-fixture-sealed-environment' }),
++}));
++vi.mock('../src/runtime/codexSession', () => ({ createCodexMathSession: host.models }));
++
++const fixture = process.env.DEEPSCIENTIST_SNAKY_SOURCE_FIXTURE;
++const stateFile = process.env.DEEPSCIENTIST_SNAKY_SOURCE_STATE;
++const reportFile = process.env.DEEPSCIENTIST_SNAKY_SOURCE_REPORT;
++const summary = (source: string) => ({ bytes: Buffer.byteLength(source), newlines: source.split('\n').length - 1,
++  sha256: createHash('sha256').update(source).digest('hex') });
++
++it.skipIf(!fixture || !stateFile || !reportFile)('reproduces the real Snaky normalization and exact complete TaskProofCache keys without invoking Lean', async () => {
++  const state = JSON.parse(fs.readFileSync(stateFile!, 'utf8'));
++  expect(path.resolve(fixture!)).not.toBe(path.resolve(state.worktree));
++  const problem: SolverProblem = { ...state.problem, workspace: fixture!, activeProblemPath: path.join(fixture!, 'active-problem.json') };
++  const node = state.cooperation.tasks.find((item: { task: CooperativeTask }) => item.task.id === 'v8_original_goal');
++  const task: CooperativeTask = node.task, assignment: TaskAssignment = node.assignment, saved: TaskProof = node.proof;
++  expect(taskVersion(task)).toBe(assignment.taskDigest);
++  const relative = `${problem.projectRelative}/Submission.lean`;
++  const seed = committedSource(fixture!, problem.baseCommit, relative);
++  const assignedSeed = committedSource(fixture!, assignment.seedCommit, relative);
++  const delivered = committedSource(fixture!, saved.commit, relative);
++  const archivedMerge = committedSource(fixture!, '14d49c0f2bb94a8973471120f675554798126117', relative);
++  expect(assignedSeed).toBe(seed);
++  expect(summary(delivered).sha256).toBe('712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab');
++  expect(summary(archivedMerge).sha256).toBe('dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae');
++  expect(saved.conditions ?? []).toEqual([]);
++
++  const merge = async (exact: boolean) => withSolverWorktree(fixture!, problem.baseCommit, async checkout => {
++    const started = performance.now();
++    applyTaskChanges(problem, checkout, saved.changes, saved.imports, [], exact ? saved : undefined);
++    const source = fs.readFileSync(path.join(checkout, relative), 'utf8');
++    const commit = commitSolverSources(problem, checkout);
++    return { source, commit, durationMs: performance.now() - started };
++  });
++  const old = await merge(false);
++  expect(old.source).toBe(archivedMerge);
++  const fixed = await merge(true);
++  expect(fixed.source).toBe(delivered);
++  expect(summary(fixed.source).newlines - summary(old.source).newlines).toBe(1101);
++
++  host.models.mockImplementation(() => { throw new Error('fixture_real_models_forbidden'); });
++  host.verify.mockImplementation(async request => receiptBatch(request, {
++    sessionId: 'MOCK_ONLY_snaky_source_reproduction', receiptId: index => `MOCK_ONLY_${request.targetCommit}_${index}`,
++  }));
++  const cache = new TaskProofCache(), cacheChecks = vi.spyOn(cache, 'check');
++  const signal = new AbortController().signal;
++  const env = { PATH: '/usr/bin:/bin', DEEPSCIENTIST_MATH_ENV_FILE: path.join(fixture!, 'missing-fixture.env') };
++  const lake = path.join(fixture!, problem.projectRelative, '.lake');
++  fs.mkdirSync(lake, { recursive: true });
++  fs.writeFileSync(path.join(lake, 'package-overrides.json'), '{"path":"/fixture/engineer/packages"}\n');
++  const check = async (sourceCommit: string, delivery: boolean) => {
++    const currentAssignment: TaskAssignment = delivery ? assignment : {
++      taskId: task.id, taskDigest: taskVersion(task), workerId: 'solver', seedCommit: sourceCommit,
++    };
++    const run = async (checkout: string) => (await checkTaskProofs(problem, checkout, sourceCommit,
++      [{ task, assignment: currentAssignment, retainedGoals: [], conditions: [] }], env, signal, Infinity,
++      state.environmentDigest, cache))[0]!;
++    return delivery ? run(fixture!) : withSolverWorktree(fixture!, sourceCommit, run);
++  };
++  const checkedDelivery = await check(saved.commit, true);
++  expect(host.verify).toHaveBeenCalledTimes(1);
++  const checkedOld = await check(old.commit, false);
++  expect(host.verify).toHaveBeenCalledTimes(2);
++  const checkedFixed = await check(fixed.commit, false);
++  expect(host.verify).toHaveBeenCalledTimes(2);
++  expect(cacheChecks).toHaveBeenCalledTimes(3);
++  const keys = cacheChecks.mock.calls.map(call => call[0]);
++  expect(keys[1]).not.toBe(keys[0]);
++  expect(keys[2]).toBe(keys[0]);
++  expect(checkedFixed.verification).toEqual(checkedDelivery.verification);
++  const reuse = trustedTaskProjectionReuse(checkedFixed)!;
++  expect(reuse).toBeDefined();
++  expect(reuse.checkedProjectionCommit).toBe(checkedDelivery.verification.targetCommit);
++  const projections = [checkedDelivery.verification.targetCommit, checkedOld.verification.targetCommit, reuse.projectionCommit]
++    .map(commit => ({ commit, tree: git(fixture!, ['rev-parse', `${commit}^{tree}`]),
++      ...summary(committedSource(fixture!, commit, relative)) }));
++  expect(projections[0]!.tree).not.toBe(projections[1]!.tree);
++  expect(projections[2]!.tree).toBe(projections[0]!.tree);
++  expect(host.models).not.toHaveBeenCalled();
++  fs.writeFileSync(reportFile!, JSON.stringify({ schema: 'theorem-os.snaky-exact-source-reproduction.v1',
++    fixtureOnly: true, verifier: 'mock-only; actual checker/projector/cache code; no Lean or model runs',
++    originalState: stateFile, isolatedRepository: fixture,
++    target: task.theoremName, taskDigest: taskVersion(task), changes: saved.changes.length,
++    unchangedSeed: { canonicalCommit: problem.baseCommit, assignmentSeedCommit: assignment.seedCommit, ...summary(seed) },
++    delivery: { commit: saved.commit, ...summary(delivered) },
++    archivedMerge: { commit: '14d49c0f2bb94a8973471120f675554798126117', ...summary(archivedMerge) },
++    reproducedOldMerge: { commit: old.commit, durationMs: old.durationMs, ...summary(old.source) },
++    fixedMerge: { commit: fixed.commit, durationMs: fixed.durationMs, ...summary(fixed.source) },
++    projections: { delivery: projections[0], oldMerge: projections[1], fixedMerge: projections[2] },
++    actualTaskProofCacheKeys: { delivery: keys[0], oldMerge: keys[1], fixedMerge: keys[2] },
++    verifierInvocations: 2, callsAfterDelivery: 1, callsAfterOldMerge: 2, callsAfterFixedMerge: 2,
++    fixedReceiptEqualsDelivery: true, generatedOverrideOnlyOnDelivery: true, leanInvocations: 0, modelInvocations: 0,
++  }, null, 2) + '\n');
++}, 240_000);

@@ -1,0 +1,158 @@
+{
+  "schema": "theorem-os.exact-source-integration-delivery.v1",
+  "root": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024",
+  "sourceRuntime": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/honeycomb-new-build-continuation-20261024/runtime",
+  "buildId": "1537a457-5694-4896-99fe-f2e9248cb6fc",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 5955,
+      "sha256": "625235340166c17f5465172b3ea570f5fcff13af1528f9fd9778027cc165a2b7"
+    },
+    {
+      "path": "build-state/builds/1537a457-5694-4896-99fe-f2e9248cb6fc/manifest.json",
+      "bytes": 58946,
+      "sha256": "31e91d9a9875028bcbca6f2b25781c7cf5993370ffd70ba922b2ee1ff4f9e78e"
+    },
+    {
+      "path": "build-verification.json",
+      "bytes": 1515,
+      "sha256": "7fe653c83e8bc6e1271f2a9dbd4840b8cc2840c0bc1abed4f7acef5a89727b42"
+    },
+    {
+      "path": "exact-source-tests.initial.json",
+      "bytes": 7239,
+      "sha256": "36a5bd78704036f70b4b13a15d246399cf50342b64a9961630d14405abdd2012"
+    },
+    {
+      "path": "exact-source-tests.initial.log",
+      "bytes": 182,
+      "sha256": "00eb987b3bb826ade4b0fbdbe16efd8ca57ed315dff1732f939bc42e207ee3b4"
+    },
+    {
+      "path": "exact-source-tests.json",
+      "bytes": 4144,
+      "sha256": "6c3bffa99acc3a3db6069c6fcbb2bc768ac372b74102509df831d0a546cfbd11"
+    },
+    {
+      "path": "exact-source-tests.log",
+      "bytes": 182,
+      "sha256": "00eb987b3bb826ade4b0fbdbe16efd8ca57ed315dff1732f939bc42e207ee3b4"
+    },
+    {
+      "path": "focused-regressions.json",
+      "bytes": 45428,
+      "sha256": "d405ef460d5810e603b7b1c2111b9276154d8cc8cb15bef3deb2b12dd58c12cb"
+    },
+    {
+      "path": "focused-regressions.log",
+      "bytes": 183,
+      "sha256": "adcf95b21adb0a0900beff2c2e988743bc33792b881d7e920885959a349cbb4e"
+    },
+    {
+      "path": "headless-build.json",
+      "bytes": 460,
+      "sha256": "7ed3db12a3b72bbe3411d818e8c4774bca8c1c14e75e67e9b50f80da1622ed74"
+    },
+    {
+      "path": "headless-build.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "isolation-verification.json",
+      "bytes": 1722,
+      "sha256": "3b669e24284dd19268098d7ccfc52387118558149c4da162f12314f801a53ab6"
+    },
+    {
+      "path": "runtime.patch",
+      "bytes": 22831,
+      "sha256": "a83c46664039e597ac76eca9e844e8188b57cb36734407d6fbb068775b238eef"
+    },
+    {
+      "path": "runtime/out/main/check-lean.js",
+      "bytes": 313715,
+      "sha256": "8f89e4d14a4aea047a55956f5070757dfd3bc8792ac8a4952c4bbc48a931d136"
+    },
+    {
+      "path": "runtime/out/main/math-solver.js",
+      "bytes": 1714853,
+      "sha256": "b6fb606bb2c2c4f34be905b1ad3fdb60050e23bbbc80fa06adc293821f477a97"
+    },
+    {
+      "path": "runtime/out/main/search-lean.js",
+      "bytes": 173934,
+      "sha256": "d20f80273318e2dd48b3b135f8a7113b8523def704673d421429cbefed750020"
+    },
+    {
+      "path": "runtime/src/solver/cooperationIntegration.ts",
+      "bytes": 40418,
+      "sha256": "bbe5bd1e9844d955c1cd6f250fdf0f6e974293ae22338c8561c276bcf2e5b7be"
+    },
+    {
+      "path": "runtime/src/solver/cooperativeProof.ts",
+      "bytes": 36793,
+      "sha256": "d15a106b74dd05311204127e4c5e213501f3a12000e583931829a19b9e374878"
+    },
+    {
+      "path": "runtime/src/solver/proofReuse.ts",
+      "bytes": 4002,
+      "sha256": "6623834f05e3cea1794eb003b1d5dea5d9226f8b6d8add39e062980ea39d5ca3"
+    },
+    {
+      "path": "runtime/tests/exactSourceIntegration.test.ts",
+      "bytes": 11333,
+      "sha256": "233955bdc87eb2992c160fc89efe42ac3c0daa5fbdbb784103b2c26d2e06294a"
+    },
+    {
+      "path": "runtime/tests/snakyExactSourceReproduction.test.ts",
+      "bytes": 7558,
+      "sha256": "de16802bd6282fa9f48b4dee3bf83e3f2d64cc1efbb8e8db0e725eb28c39079e"
+    },
+    {
+      "path": "snaky-reproduction.json",
+      "bytes": 3321,
+      "sha256": "3845288616cc780eb0d496c7aed405a2eb1a300c91d27d21847fdd7d444d0ccc"
+    },
+    {
+      "path": "snaky-tests.json",
+      "bytes": 1116,
+      "sha256": "9730b78fcbd147cf1a7b051fdf98da6c80decb29e43ee397ed9ef3f4b81f6307"
+    },
+    {
+      "path": "snaky-tests.log",
+      "bytes": 175,
+      "sha256": "a9b3feeb73539886b3909a2ef79b07a817bd7ac4e64f814edabbdf3a14720015"
+    },
+    {
+      "path": "source-runtime-before.json",
+      "bytes": 286665,
+      "sha256": "b5bdc7dd9b6ecd7821abe1db76b1bf7f80e9b05ce15d700df89e913ad8e01bbd"
+    },
+    {
+      "path": "test-runs.json",
+      "bytes": 3435,
+      "sha256": "a97301235dfd04785ab4e8e96f60e9f02d0c457c6021328b53f78fef5ab7c431"
+    },
+    {
+      "path": "typecheck.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "verification-summary.json",
+      "bytes": 1028,
+      "sha256": "8157c0572f08890da9aa60d9daec1738bfec042d274a6be1121519e3567e6da7"
+    }
+  ],
+  "changedSourceAndTestFiles": 5,
+  "productFiles": 3,
+  "bundles": 3,
+  "buildManifest": "build-state/builds/1537a457-5694-4896-99fe-f2e9248cb6fc/manifest.json",
+  "completeRuntimeAndDependenciesExcludedFromArchive": true,
+  "snakyCloneAndOriginalRunStateExcludedFromArchive": true,
+  "fixtureVerifierNotMathematicalAcceptance": true,
+  "totalPassed": 126,
+  "totalFailed": 0,
+  "activeBuildNotSwitched": true
+}

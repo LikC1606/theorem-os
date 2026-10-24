@@ -1,0 +1,29 @@
+ProfileBridge.lean:64:4: error: `dsimp` made no progress
+'TheoremOS.ProfileSummability.summable_fiberMass_of_summable' depends on axioms: [propext, Classical.choice, Quot.sound]
+'TheoremOS.ProfileSummability.summable_profileScale_of_hasSum' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+'TheoremOS.ProfileSummability.summable_sizeWeight_of_hasSum' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]
+'OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_firstLengthWeight_of_profileFirstMoment' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]
+'OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_firstLengthWeight_of_profileFactorization' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]
+'OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_firstLengthWeight_of_matrixProfile' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]
+'OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_firstLengthWeight_of_lengthProfileFactorization' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]
+'OAI.PolynomialVacuumBridge.Corridor.bridgeFiniteBridgeSums_of_matrixProfiles' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]

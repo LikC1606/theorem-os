@@ -1,0 +1,45 @@
+{
+  "schema": "theorem-os.independent-helper-artifacts.v1",
+  "createdAt": "2026-10-24T10:27:57.009083+00:00",
+  "normalQueueReadback": "native-advisory-applied-readback.json",
+  "fileCount": 7,
+  "files": [
+    {
+      "file": "README.md",
+      "bytes": 1669,
+      "sha256": "b127a71a749fe5e085001d6dafcf5d6bd39705fe185afc7d4e6003b424f0c674"
+    },
+    {
+      "file": "native-advisory-applied-readback.json",
+      "bytes": 1795,
+      "sha256": "35a37f08126b63559df4784d75e4138f481ef12ac006d4e9ebfc2b682a891b19"
+    },
+    {
+      "file": "native-advisory-handoff.md",
+      "bytes": 13203,
+      "sha256": "d56b03cd4162951565708f04eba7152fa362cb4030da396506dee4494236a7a8"
+    },
+    {
+      "file": "native-advisory-preparation.json",
+      "bytes": 97143,
+      "sha256": "6ff51081a63765a0837ed9b7f4c95e2fd6e4567b17b8e02095795b04da06a73b"
+    },
+    {
+      "file": "native-advisory-queue-receipt.json",
+      "bytes": 483,
+      "sha256": "775ac2339cb14416f9382c9c2c2d0918f6f1486def627ba45ea07d32cfd702c6"
+    },
+    {
+      "file": "native-state-after-application.json",
+      "bytes": 619856,
+      "sha256": "3c5cdfafb815e34fa6d32f6dbe9831f73842185744e0c1ad65af4efe3a1e7609"
+    },
+    {
+      "file": "queue-profile-reference.ts",
+      "bytes": 6535,
+      "sha256": "e6958dcef4da84f378ba20309e7a2815d1ae770dac030a8d03c980391a08a85e"
+    }
+  ],
+  "indexSelfExcluded": true,
+  "kernelRetestedDuringIndexing": false
+}

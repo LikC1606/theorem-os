@@ -1,0 +1,79 @@
+{
+  "schema": "theorem-os.snaky-exact-source-reproduction.v1",
+  "fixtureOnly": true,
+  "verifier": "mock-only; actual checker/projector/cache code; no Lean or model runs",
+  "originalState": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/../snaky-integration-cost-20261024/native-state-20261024T0919Z.json",
+  "isolatedRepository": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/snaky-fixture",
+  "target": "OAI.SnakyConditional.snaky_winning_strategy_with_legal_states",
+  "taskDigest": "9cf4184cb210eff2e77b59dcd3eac6be25461694b0d320baa9b500d5629acf3f",
+  "changes": 2908,
+  "unchangedSeed": {
+    "canonicalCommit": "71280e0208b8e116fc4dafafb95ff49fc6b9173b",
+    "assignmentSeedCommit": "06f494c8d33c10cb4a89b138e69480b92d07bf91",
+    "bytes": 2069,
+    "newlines": 56,
+    "sha256": "3ab27d66779b557d0efcc3cfcf8317c40511e3cc655da29e61e95ba3f34d45ea"
+  },
+  "delivery": {
+    "commit": "012b6908e15fdec29108ed8fe2f4ccaeba97e2f7",
+    "bytes": 968784,
+    "newlines": 16371,
+    "sha256": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab"
+  },
+  "archivedMerge": {
+    "commit": "14d49c0f2bb94a8973471120f675554798126117",
+    "bytes": 967683,
+    "newlines": 15270,
+    "sha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae"
+  },
+  "reproducedOldMerge": {
+    "commit": "30ee1b215e23b40dc64db1b0f60c16d94fc4e5a3",
+    "durationMs": 28360.742755,
+    "bytes": 967683,
+    "newlines": 15270,
+    "sha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae"
+  },
+  "fixedMerge": {
+    "commit": "d9a7562b024153fcadd92bd9fbb19f398ba5324e",
+    "durationMs": 271.12356999999975,
+    "bytes": 968784,
+    "newlines": 16371,
+    "sha256": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab"
+  },
+  "projections": {
+    "delivery": {
+      "commit": "5151c32c4d3edae5205627d12696dd1135615388",
+      "tree": "9981650602a4bfb3ef3578c26d5f6df3711a6098",
+      "bytes": 968784,
+      "newlines": 16371,
+      "sha256": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab"
+    },
+    "oldMerge": {
+      "commit": "67a2393885d86542955eeea00451cb9f7e646db4",
+      "tree": "d8f3b11f7d2558918a8f1225992df2053427533a",
+      "bytes": 967683,
+      "newlines": 15270,
+      "sha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae"
+    },
+    "fixedMerge": {
+      "commit": "85b9d50be3b6e0c44c250f6b8eed68ddaebda7c9",
+      "tree": "9981650602a4bfb3ef3578c26d5f6df3711a6098",
+      "bytes": 968784,
+      "newlines": 16371,
+      "sha256": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab"
+    }
+  },
+  "actualTaskProofCacheKeys": {
+    "delivery": "f461a750969ed9436935eea6efa3381afcb84f5d3f5330f227725bd3d66697bd",
+    "oldMerge": "1157b9d177d79a3acfaca2d94448cd4c65cb03cf323e190f4cb8043a82e6ee02",
+    "fixedMerge": "f461a750969ed9436935eea6efa3381afcb84f5d3f5330f227725bd3d66697bd"
+  },
+  "verifierInvocations": 2,
+  "callsAfterDelivery": 1,
+  "callsAfterOldMerge": 2,
+  "callsAfterFixedMerge": 2,
+  "fixedReceiptEqualsDelivery": true,
+  "generatedOverrideOnlyOnDelivery": true,
+  "leanInvocations": 0,
+  "modelInvocations": 0
+}
