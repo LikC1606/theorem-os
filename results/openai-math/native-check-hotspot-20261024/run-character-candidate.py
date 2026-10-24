@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 """Run one isolated full-source Lean check without a time or heartbeat budget."""
 import hashlib
+import argparse
 import json
 import os
 from pathlib import Path
@@ -10,7 +11,11 @@ import time
 from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parent
-WORK = ROOT / "character-sync-def-candidate"
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--candidate-dir", default="character-sync-def-candidate")
+options = parser.parse_args()
+WORK = ROOT / options.candidate_dir
+assert WORK.parent == ROOT and WORK.is_dir()
 CAMPAIGN = ROOT.parent.parent
 LEAN = Path("/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean")
 
@@ -33,7 +38,8 @@ def limits():
 def main():
     source = WORK / "Submission.lean"
     source_sha = hashlib.sha256(source.read_bytes()).hexdigest()
-    assert source_sha == "f8f952feb2ac4894946e6f6cd4089e7e20320cc0312217597b91fde2e7e8f200"
+    preparation = json.loads((WORK / "preparation.json").read_text())
+    assert source_sha == preparation["sourceSHA256"]
     assert not (WORK / "build-started.json").exists(), "Check already started"
     package_root = CAMPAIGN / "environment/project/.lake/packages"
     package_names = ("plausible", "aesop", "batteries", "importGraph", "Qq", "mathlib", "LeanSearchClient", "proofwidgets")

@@ -1,0 +1,7 @@
+{
+  "observedAt": "2026-10-24T07:26:51.995693+00:00",
+  "exitCode": null,
+  "reason": "Initial audit parent did not wait for exit; output retained, no exit status claimed.",
+  "output": "audit.log",
+  "nativeAcceptance": false
+}

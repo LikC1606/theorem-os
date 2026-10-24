@@ -1,0 +1,14 @@
+{
+  "preparedAt": "2026-10-24T07:14:45.070323+00:00",
+  "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-sync-def-v2-candidate/Submission.lean",
+  "sourceSHA256": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3",
+  "baselineSHA256": "0ec8e7e2fbe9ff7f2d4c849c7558c152e24d707d79943d6f7ac08d0b27fa98c9",
+  "changedAddedProofDeclarations": 166,
+  "retainedOriginalTheorems": [
+    "OAI.IntegralCharacterVarieties.OccurrenceIncidence.VariableGallery.external_positive_ne_input",
+    "OAI.IntegralCharacterVarieties.OccurrenceIncidence.VariableGallery.external_negative_ne_output"
+  ],
+  "reason": "def elaboration changed automatically included section parameters for two proofs; restore their original theorem kind",
+  "allExplicitTypesAndBodiesUnchanged": true,
+  "nativeAcceptance": false
+}

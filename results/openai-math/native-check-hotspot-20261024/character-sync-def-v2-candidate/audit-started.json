@@ -1,0 +1,15 @@
+{
+  "startedAt": "2026-10-24T07:26:07.616298+00:00",
+  "leanPid": 1818397,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-j1",
+    "-R",
+    ".",
+    "Audit.lean"
+  ],
+  "sourceSHA256": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3",
+  "oleanSHA256": "11e1303a4cfc4153461ef42b62b5a1aaa03b437024a95d379253824bdefe62dc",
+  "addressSpaceLimitBytes": 34359738368,
+  "nativeAcceptance": false
+}

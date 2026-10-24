@@ -1,0 +1,24 @@
+{
+  "startedAt": "2026-10-24T07:26:51.995832+00:00",
+  "finishedAt": "2026-10-24T07:26:53.507268+00:00",
+  "elapsedSeconds": 1.5114519610069692,
+  "exitCode": 0,
+  "sourceSHA256": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3",
+  "oleanSHA256": "11e1303a4cfc4153461ef42b62b5a1aaa03b437024a95d379253824bdefe62dc",
+  "auditSourceSHA256": "e32ce9c940d5e1f87b1b678789104b0f73b26d9c3d930e67d601b7a65565fb7b",
+  "auditOutputSHA256": "ef1a4f0e4d80a9de7390a1a434701dd2df66c30b246d39c59d6328b5092890bf",
+  "axioms": [
+    "propext",
+    "Classical.choice",
+    "Quot.sound"
+  ],
+  "permittedAxioms": [
+    "Classical.choice",
+    "Quot.sound",
+    "propext"
+  ],
+  "passed": true,
+  "nativeAcceptance": false,
+  "originalTarget": "OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams",
+  "retryReason": "Missing process exit status for first unsupervised audit; it had already exited."
+}
