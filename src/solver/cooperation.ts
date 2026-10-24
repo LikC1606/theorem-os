@@ -21,7 +21,7 @@ import { captureProofReferences } from './proofReferences';
 import { captureDeliveryArtifacts, type DeliveryArtifactManifest } from './deliveryArtifacts';
 import { attributeTaskReferences } from './taskReferenceAttribution';
 import { normalizedResearchHandoffDecisions, retainedResearchHandoffs, scopeResearchHandoffDecisions, selectResearchHandoffBatch } from './researchHandoffs';
-import { pendingResearchChallenges, retainedResearchChallenges } from './researchChallenges';
+import { COORDINATION_INLINE_FINDING_BYTES, pendingResearchChallenges, retainedResearchChallenges } from './researchChallenges';
 import { taskConsumerProjection } from './taskConsumers';
 import { parallelQuestions } from './taskQuestions';
 import { mathematicalGaps, mathematicalGapVisible } from './mathematicalGaps';
@@ -516,7 +516,8 @@ export class CooperativeResearch extends CooperationInputs {
       const planVersion = this.archive.planVersion ??= this.planVersion();
       const coordination = this.archive.tasks.length > 0 &&
         Boolean(pendingHandoffs.length || pendingResearchChallenges(this.archive).length || refill || stagnation);
-      const limits = coordination ? { maxItems: 2, maxBytes: 12 * 1024 } : undefined;
+      const limits = coordination ? { maxItems: 2, maxBytes: 12 * 1024,
+        maxFindingBytes: COORDINATION_INLINE_FINDING_BYTES } : undefined;
       const action: CooperativeAction = { kind: 'lead', seedCommit: this.seed(worker, head), planVersion,
         planningInputDigest: inputDigest, responsibilityDigest: this.leadResponsibilityDigest(),
         ...this.handoffDispatch(coordination ? selectResearchHandoffBatch(this.archive, limits) : pendingHandoffs, limits),
@@ -953,8 +954,7 @@ export class CooperativeResearch extends CooperationInputs {
           this.input.emit('lead_checkpoint_saved', { commit, seedCommit: action.seedCommit,
             reason: 'unchanged-control-response' });
         } else if (assessmentResponse) {
-          this.acceptLeadAssessment(action, assessmentResponse);
-          assessmentDecision = true;
+          assessmentDecision = this.acceptLeadAssessment(action, assessmentResponse);
         } else if (publishedPlan && !hasFinalPlan) {
           // A published immutable event remains useful when the continued writer only saves notes.
           accepted = true;
@@ -1007,6 +1007,7 @@ export class CooperativeResearch extends CooperationInputs {
       if (accepted && (!recovering || decisionProgress)) this.rememberLeadDecision(action);
       if (accepted && (!recovering || decisionProgress)) this.markCapacityRefillAssessed(action);
       this.changed();
+      if (accepted) this.rememberCoordinationCompletion(action, decisionProgress);
       return { finished: false as const, sourceChanged, savedPlan, planVersion: this.archive.planVersion };
     });
     if (staged.finished) return { checkWhole: false };

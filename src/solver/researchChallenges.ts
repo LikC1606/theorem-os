@@ -80,23 +80,25 @@ export function researchChallenges(state: ChallengeState): ResearchChallenge[] {
 export const pendingResearchChallenges = (state: ChallengeState) => researchChallenges(state).filter(item => item.status === 'pending');
 export const retainedResearchChallenges = (state: ChallengeState) => researchChallenges(state).filter(item =>
   item.status === 'pending' || item.status === 'deferred' && Boolean(item.decision?.waitsOn?.length));
-export function researchChallengeContext(challenge: ResearchChallenge) {
+export const COORDINATION_INLINE_FINDING_BYTES = 2 * 1024;
+export function researchChallengeContext(challenge: ResearchChallenge, options: { maxFindingBytes?: number } = {}) {
   const { finding, ...identity } = challenge;
-  return Buffer.byteLength(finding) <= 16 * 1024 ? challenge : { ...identity,
+  return Buffer.byteLength(finding) <= (options.maxFindingBytes ?? 16 * 1024) ? challenge : { ...identity,
     findingBytes: Buffer.byteLength(finding), findingSource: {
       file: 'COOPERATION.json', collection: 'researchChallenges', id: challenge.id, findingDigest: challenge.findingDigest,
       retrieval: 'Read the complete finding by id and require UTF-8 SHA-256(finding) = findingDigest. The finding remains advisory.',
     } };
 }
 export function selectResearchChallengeBatch(state: ChallengeState,
-  options: { maxItems?: number; maxBytes?: number } = {}) {
+  options: { maxItems?: number; maxBytes?: number; maxFindingBytes?: number } = {}) {
   const maxItems = options.maxItems ?? 8, maxBytes = options.maxBytes ?? 32 * 1024;
-  for (const [name, value] of [['maxItems', maxItems], ['maxBytes', maxBytes]] as const)
+  const maxFindingBytes = options.maxFindingBytes ?? 16 * 1024;
+  for (const [name, value] of [['maxItems', maxItems], ['maxBytes', maxBytes], ['maxFindingBytes', maxFindingBytes]] as const)
     if (!Number.isSafeInteger(value) || value <= 0) throw new Error('math_challenge_invalid_batch_limit:' + name);
   const selected: ResearchChallenge[] = [];
   let bytes = 0;
   for (const item of pendingResearchChallenges(state)) {
-    const size = Buffer.byteLength(JSON.stringify(researchChallengeContext(item)));
+    const size = Buffer.byteLength(JSON.stringify(researchChallengeContext(item, { maxFindingBytes })));
     if (selected.length && (selected.length >= maxItems || bytes + size > maxBytes)) break;
     selected.push(item); bytes += size;
   }

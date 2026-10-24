@@ -23,8 +23,28 @@ import { acceptContextCheckpoint } from './contextCheckpoint';
 
 /** Worker delivery intake. */
 export abstract class CooperationInputs extends CooperationPlanning {
+  private completedCoordination = new WeakMap<CooperativeAction, {
+    eventDigest?: string; result: Readonly<{ progress: boolean }>;
+  }>();
+  /** This exact dispatch accepted and saved a decision in this process; old archived receipts cannot complete a new writer. */
+  coordinationResult(action: CooperativeAction): Readonly<{ progress: boolean }> | undefined {
+    return this.completedCoordination.get(action)?.result;
+  }
+  /** Call only after changed() has persisted the accepted decision. */
+  protected rememberCoordinationCompletion(action: CooperativeAction, progress: boolean, eventDigest?: string): void {
+    if (action.kind === 'lead' && action.coordination && !action.initialPlanNonce && !action.recovery &&
+        !this.completedCoordination.has(action)) this.completedCoordination.set(action, { eventDigest, result: { progress } });
+  }
+  private coordinationDecisionDigest(): string {
+    return canonicalMathJson({ planVersion: this.archive.planVersion,
+      handoffs: this.archive.researchDecisions ?? [], challenges: this.archive.challengeDecisions ?? [],
+      assessments: [this.archive.lastCapacityRefill, this.archive.lastStagnationRecovery].map(receipt =>
+        receipt?.status === 'assessed' ? { inputDigest: receipt.inputDigest, outcome: receipt.outcome,
+          decisionReason: receipt.decisionReason, fulfilledTaskIds: receipt.fulfilledTaskIds } : null) });
+  }
   /** A scheduling decision does not edit the task graph or grant proof acceptance. */
-  protected acceptLeadAssessment(action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' }>, response: any): void {
+  protected acceptLeadAssessment(action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' }>, response: any,
+    eventDigest?: string): boolean {
     const invalid = (reason: string) => new Error('math_plan_assessment_' + reason);
     const keys = (value: any, allowed: readonly string[]) => value && typeof value === 'object' && !Array.isArray(value) &&
       Object.keys(value).every(key => allowed.includes(key));
@@ -33,8 +53,10 @@ export abstract class CooperationInputs extends CooperationPlanning {
         response.dispatchNonce !== action.planNonce || response.baseVersion !== action.planVersion ||
         response.baseVersion !== this.archive.planVersion || !this.current(action) || !Array.isArray(response.assessments))
       throw invalid('invalid');
-    this.completeLeadAssessments(action, this.validateLeadAssessments(action, response.assessments));
+    const completed = this.completeLeadAssessments(action, this.validateLeadAssessments(action, response.assessments));
     this.changed();
+    if (completed) this.rememberCoordinationCompletion(action, true, eventDigest);
+    return completed;
   }
   /** Validate against the inbox decisions staged in the same transaction, before accepting its graph. */
   protected validateLeadAssessments(action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' }>, value: unknown,
@@ -68,13 +90,17 @@ export abstract class CooperationInputs extends CooperationPlanning {
   }
   protected completeLeadAssessments(action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' }>,
     completions: ReturnType<CooperationInputs['validateLeadAssessments']>) {
+    let completed = false;
     for (const { kind, request, receipt, reason } of completions) {
       if (finishLeadAssessment(receipt, request, action.planNonce,
-        { at: Date.now(), outcome: 'no-independent-work', reason, currentInput: this.leadAssessmentInput(kind) }))
+        { at: Date.now(), outcome: 'no-independent-work', reason, currentInput: this.leadAssessmentInput(kind) })) {
+        completed = true;
         this.input.emit(kind === 'capacity' ? 'capacity_refill_assessed' : 'stagnation_recovery_assessed',
           { ...receipt, evidenceStatus: 'advisory' });
+      }
     }
     this.rememberLeadDecision(action);
+    return completed;
   }
   protected syncEditChecks(nodes: ReadonlyMap<string, TaskRecord>, versions: TaskVersions) {
     for (const edit of this.archive.edits ?? []) {
@@ -220,6 +246,9 @@ export abstract class CooperationInputs extends CooperationPlanning {
                   throw new Error(code('invalid'));
                 const details = deliveryDetails(response);
                 await this.input.exclusiveCheck(async () => {
+                  const completed = this.completedCoordination.get(action);
+                  if (completed?.eventDigest === eventDigest) return;
+                  if (completed) throw new Error(code('superseded'));
                   const publication = this.archive.planPublication ?? this.archive.initialPlanPublication;
                   if (publication?.nonce === nonce && publication.eventDigest === eventDigest) return;
                   if (publication?.nonce === nonce || initial && (this.archive.initialPlanPublication || this.archive.tasks.length) || action.recovery ||
@@ -228,11 +257,12 @@ export abstract class CooperationInputs extends CooperationPlanning {
                   if (!action.planVersion || response.baseVersion !== action.planVersion ||
                       response.baseVersion !== this.archive.planVersion) throw new Error(code('version_conflict'));
                   if (response.kind === 'assessment') {
-                    this.acceptLeadAssessment(action, response);
+                    if (!this.acceptLeadAssessment(action, response, eventDigest)) return;
                     this.input.emit('lead_assessment_published', { workerId: this.lead.id, file, eventDigest,
                       dispatchNonce: nonce, summary: details.summary });
                     return;
                   }
+                  const previousDecision = this.coordinationDecisionDigest();
                   // Compose against the current graph only after acquiring the same CAS lock as full plans and human edits.
                   const handoff = response.kind === 'handoff' ? composeHandoffPublication(this.input.state.problem, this.archive, {
                     tasks: this.plannedTasks().map(node => node.task), groups: this.archive.groups?.map(route => route.group),
@@ -249,6 +279,7 @@ export abstract class CooperationInputs extends CooperationPlanning {
                   else this.markCapacityRefillAssessed(action);
                   this.rememberLeadDecision(action);
                   this.changed();
+                  this.rememberCoordinationCompletion(action, previousDecision !== this.coordinationDecisionDigest(), eventDigest);
                   this.input.emit(initial ? 'initial_plan_published' : 'plan_published', { ...this.archive.planPublication,
                     workerId: this.lead.id, summary: details.summary, taskIds: plan.tasks.map(task => task.id),
                     ...(handoff ? { publicationKind: 'handoff', adoptedTaskIds: handoff.adoptedTaskIds } : {}) });

@@ -7,7 +7,7 @@ import type { SolverProblem } from './problem';
 import { hasTaskAcceptance, taskGroup, taskVersion, type CooperativeAction, type TaskRecord } from './tasks';
 import { buildProofContinuation } from './progress';
 import { pendingResearchHandoffs, researchHandoffContext, selectResearchHandoffBatch } from './researchHandoffs';
-import { pendingResearchChallenges, researchChallengeContext, selectResearchChallengeBatch } from './researchChallenges';
+import { COORDINATION_INLINE_FINDING_BYTES, pendingResearchChallenges, researchChallengeContext, selectResearchChallengeBatch } from './researchChallenges';
 import { contextTaskConsumers } from './taskConsumers';
 import { mathematicalGapContext } from './mathematicalGaps';
 
@@ -430,10 +430,12 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
         'Host stagnation recovery request (advisory scheduling evidence; not proof failure or acceptance):',
         action.stagnationRecovery));
       const challenges = pendingResearchChallenges(input.cooperation);
-      const challengeIds = new Set(action.challengeIds ?? selectResearchChallengeBatch(input.cooperation).map(item => item.id));
+      const challengeContextOptions = action.coordination ? { maxFindingBytes: COORDINATION_INLINE_FINDING_BYTES } : {};
+      const challengeIds = new Set(action.challengeIds ?? selectResearchChallengeBatch(input.cooperation, challengeContextOptions).map(item => item.id));
       const shownChallenges = challenges.filter(item => challengeIds.has(item.id));
       if (shownChallenges.length) mandatory.push(section('research-challenges', 'assignment',
-        'Research challenges requiring a route decision (advisory, not proof acceptance):', shownChallenges.map(researchChallengeContext)));
+        'Research challenges requiring a route decision (advisory, not proof acceptance):',
+        shownChallenges.map(item => researchChallengeContext(item, challengeContextOptions))));
       if (challenges.length > shownChallenges.length) mandatory.push(section('research-challenge-backlog', 'assignment',
         'Queued challenges for later dispatches; preserve their source tasks and inputs. Full records are in COOPERATION.json researchChallenges:', {
           pending: challenges.length, shown: shownChallenges.length, remaining: challenges.length - shownChallenges.length,

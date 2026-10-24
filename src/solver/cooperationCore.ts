@@ -638,7 +638,7 @@ export abstract class CooperationCore {
     return RETRY_DISPATCH;
   }
   protected handoffDispatch(batch = selectResearchHandoffBatch(this.archive),
-    limits?: { maxItems?: number; maxBytes?: number }) {
+    limits?: { maxItems?: number; maxBytes?: number; maxFindingBytes?: number }) {
     const challenges = selectResearchChallengeBatch(this.archive, limits);
     return { handoffIds: batch.map(item => item.id),
       handoffActivations: Object.fromEntries(batch.map(item => [item.id, item.activationDigest])),

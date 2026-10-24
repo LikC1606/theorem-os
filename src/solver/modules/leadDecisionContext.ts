@@ -53,6 +53,8 @@ export function buildLeadDecisionContext(problem: SolverProblem, cooperation: Co
   const decisionRules = [
     'You are the Lead handling one bounded coordination decision. Resolve this dispatch before further mathematical investigation. A decision does not require proving the missing theorem.',
     'Use the fixed shown inbox, exact task interfaces and cited evidence below. Decide each shown item; do not wait for every other research task to finish. Preserve unshown items for subsequent dispatches.',
+    'First inspect the capacity request, eligible ownership candidates and shown evidence for executable new work or an ownership repair. If supported, publish the complete plan now with decisions for every shown inbox id; queuedForLater need not be zero. Otherwise resolve the shown inbox with a short decision. Only a no-independent-work assessment must wait for all pending inbox input.',
+    'Large finding bodies use exact digest-bound references to COOPERATION.json researchChallenges. The inline summary is advisory; retrieve and verify the complete referenced finding before relying on details absent from the summary. A reference is not a decision or permission to acknowledge an unshown id.',
     'Leave Lean sources unchanged and do not run Lean diagnostics during coordination. Keep existing RESEARCH.md and saved source drafts. A short publication does not require rewriting the complete plan or reproducing old research notes.',
     'Append one complete JSON line to worktree-root ' + file + ' and return promptly. Current response envelope (a schema example, not a recommendation to defer; replace statuses and placeholders with your supported decisions):\n' + JSON.stringify(response),
     ...(hasInbox ? [
