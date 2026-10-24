@@ -52,7 +52,8 @@ describe('Lead coordination liveness across checkpoints and restore', () => {
           groups: plan.groups.map(group => ({ group, turns: 0 })) } }),
       workers, check,
     };
-    const start = (leadModes?: readonly ('planning' | 'coordination')[], behavior: { stallLeadInterrupt?: boolean } = {}) => {
+    const start = (leadModes?: readonly ('planning' | 'coordination')[],
+      behavior: { stallLeadInterrupt?: boolean; saveResearchProgress?: boolean } = {}) => {
       const controller = new AbortController(); controllers.push(controller);
       const events: { event: string; details?: Record<string, unknown> }[] = [];
       const messages: { assignment: CooperativeAction; inbox: string[]; threadId: string }[] = [];
@@ -72,7 +73,7 @@ describe('Lead coordination liveness across checkpoints and restore', () => {
         }
         return action;
       });
-      let sessionsOpened = 0;
+      let sessionsOpened = 0, researchSlices = 0;
       const open = vi.fn(async (options: MathAgentOptions): Promise<MathAgentSession> => {
         let active: ReturnType<typeof deferred<string>> | undefined;
         const threadId = options.threadId ?? `${path.basename(options.workspace)}-offline-thread-${++sessionsOpened}`;
@@ -81,6 +82,10 @@ describe('Lead coordination liveness across checkpoints and restore', () => {
           interrupt: async () => {
             sessionInterrupts.push({ workerId, threadId });
             if (behavior.stallLeadInterrupt && workerId === workers[0].id) return new Promise<void>(() => {});
+            // Keep the research peer active without publishing a new Lead input on every slice.
+            if (behavior.saveResearchProgress && workerId === workers[2].id && ++researchSlices % 2 === 0)
+              fs.appendFileSync(path.join(workers[2].worktree, 'RESEARCH.md'),
+                `Construction candidate ${researchSlices / 2}: the draft is saved; its exact remaining case is unproved.\n`);
             active?.resolve('interrupted');
           },
           close: async () => { sessionCloses.push({ workerId, threadId }); active?.resolve('interrupted'); }, notify: async message => {
@@ -161,7 +166,8 @@ describe('Lead coordination liveness across checkpoints and restore', () => {
       return { completion, controller, events, messages, notifications, sessionInterrupts, sessionCloses,
         leads, latestLead, publish, assess, decideChallenges, stop, open,
         current: (action: CooperativeAction) => cooperation!.current(action),
-        ready: () => Promise.race([Promise.all([firstLead.promise, firstResearch.promise]), completion.then(() => {
+        ready: ({ research = true } = {}) => Promise.race([Promise.all(research
+          ? [firstLead.promise, firstResearch.promise] : [firstLead.promise]), completion.then(() => {
           throw new Error('fixture_finished_before_dispatch');
         })]) };
     };
@@ -190,11 +196,16 @@ describe('Lead coordination liveness across checkpoints and restore', () => {
     writeSolverRunState(saved, fixtureState.state);
     await run.stop(); fixtureState.state = readSolverRunState(saved);
     expect(fixtureState.state.workers![0].sessionLeadMode).toBe('coordination');
-    const resumed = fixtureState.start(); await resumed.ready();
+    const paused = fixtureState.state.cooperation!.tasks.find(node => node.task.id === 'investigate')!;
+    expect(paused).toMatchObject({ status: 'blocked', feedback: expect.stringContaining('math_research_checkpoint_unchanged') });
+    expect(fixtureState.state.cooperation!.researchCheckpoints!.investigate).toMatchObject({ count: 3, paused: true });
+    const resumed = fixtureState.start(); await resumed.ready({ research: false });
     expect(resumed.latestLead().threadId).toBe(first);
     expect(resumed.events.some(item => item.event === 'context_restarted' && item.details?.workerId === lead.id &&
       item.details?.reason === 'responsibility')).toBe(false);
     expect(fs.readFileSync(draft, 'utf8')).toContain('Saved mathematical construction');
+    expect(paused.status).toBe('blocked');
+    expect(resumed.messages.every(message => message.assignment.kind === 'lead')).toBe(true);
     expect(fixtureState.check).not.toHaveBeenCalled();
     await resumed.stop();
   });
@@ -249,7 +260,7 @@ describe('Lead coordination liveness across checkpoints and restore', () => {
   });
 
   it('keeps coordinating for hours without inventing an assessment, then reconsiders evidence arriving before an acknowledgement', async () => {
-    const fixtureState = fixture(), run = fixtureState.start(); await run.ready();
+    const fixtureState = fixture(), run = fixtureState.start(undefined, { saveResearchProgress: true }); await run.ready();
     const original = structuredClone(fixtureState.state.cooperation!.lastCapacityRefill!);
     expect(original).toMatchObject({ status: 'requested', workerIds: ['idle-prover'] });
     await vi.advanceTimersByTimeAsync(3 * 60 * 60_000);
@@ -259,6 +270,8 @@ describe('Lead coordination liveness across checkpoints and restore', () => {
     expect(fixtureState.state.cooperation!.lastCapacityRefill).toMatchObject({
       requestId: original.requestId, inputDigest: original.inputDigest, requestedAt: original.requestedAt, status: 'requested' });
     expect(run.events.some(item => item.event === 'capacity_refill_assessed')).toBe(false);
+    expect(fixtureState.state.cooperation!.tasks.find(node => node.task.id === 'investigate')!.status).toBe('running');
+    expect(fixtureState.state.cooperation!.researchCheckpoints?.investigate?.paused).not.toBe(true);
 
     const summary = 'A new scoped negative result identifies the exact missing construction.';
     await run.publish(summary);
@@ -280,7 +293,7 @@ describe('Lead coordination liveness across checkpoints and restore', () => {
   });
 
   it('routes a new needs-decision finding to the next Lead slice instead of letting a short acknowledgement swallow it', async () => {
-    const fixtureState = fixture(), run = fixtureState.start(); await run.ready();
+    const fixtureState = fixture(), run = fixtureState.start(undefined, { saveResearchProgress: true }); await run.ready();
     await vi.advanceTimersByTimeAsync(4 * 120_000);
     const superseded = run.latestLead().assignment;
     const summary = 'The new scoped obstruction requires an explicit route decision.';
@@ -311,7 +324,7 @@ describe('Lead coordination liveness across checkpoints and restore', () => {
   });
 
   it('settles a short challenge decision with an explicit no-work reason, waits, then wakes for new evidence', async () => {
-    const fixtureState = fixture(), run = fixtureState.start(); await run.ready();
+    const fixtureState = fixture(), run = fixtureState.start(undefined, { saveResearchProgress: true }); await run.ready();
     const superseded = run.latestLead().assignment;
     await run.publish('The scoped obstruction needs an explicit decision.', true);
     expect(run.current(superseded)).toBe(false);
