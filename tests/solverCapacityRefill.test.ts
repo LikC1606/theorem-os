@@ -555,13 +555,13 @@ describe('automatic proof and ownership capacity refill', () => {
     expect(events.filter(item => item.event === 'capacity_refill_resumed')).toHaveLength(1);
   });
 
-  it('keeps native scheduling drafts resumable while ordinary repeated checkpoints still pause unchanged research', async () => {
+  it('counts repeated scheduling checkpoints and pauses an unchanged research assignment after sustained stalling', async () => {
     const task: CooperativeTask = { id: 'ongoing_research', kind: 'research', ownerId: workers[3].id, revision: 0, dependsOn: [],
       objective: 'Investigate the exact missing construction and retain the unfinished argument.' };
     for (const item of state.cooperation!.tasks) if (item.task.kind === 'goal') item.task.status = 'paused';
     state.cooperation!.tasks.push({ task, status: 'pending', attempts: 0 }); refresh();
     let assignmentId: string | undefined;
-    for (let turn = 0; turn < 5; turn++) {
+    for (let turn = 0; turn < 3; turn++) {
       const action = (await track(cooperative.next(workers[3], budget)))!;
       if (action.kind !== 'task' || action.task.id !== task.id) throw new Error('fixture_expected_research_draft');
       assignmentId ??= action.assignment.assignmentId;
@@ -569,11 +569,11 @@ describe('automatic proof and ownership capacity refill', () => {
       fs.writeFileSync(path.join(workers[3].worktree, 'RESEARCH.md'), 'The same unfinished quantitative argument.\n');
       await cooperative.deliver(workers[3], action, commitSolverSources(problem, workers[3].worktree), true,
         turn < 3 ? 'scheduling-checkpoint' : 'checkpoint');
-      expect(node(task.id).status).toBe(turn === 4 ? 'blocked' : 'pending');
-      if (turn < 3) expect(state.cooperation!.researchCheckpoints?.[task.id]).toBeUndefined();
+      expect(node(task.id).status).toBe(turn === 2 ? 'blocked' : 'pending');
+      expect(state.cooperation!.researchCheckpoints?.[task.id]).toMatchObject({ count: turn + 1, paused: turn === 2 });
     }
     expect(state.cooperation!.researchDrafts?.[task.id]?.workerId).toBe(workers[3].id);
-    expect(state.cooperation!.researchCheckpoints?.[task.id]).toMatchObject({ count: 2, paused: true });
+    expect(state.cooperation!.researchCheckpoints?.[task.id]).toMatchObject({ count: 3, paused: true });
   });
 
   it.each(['active', 'admission-reserved'] as const)('does not duplicate an %s Lead refill', async phase => {

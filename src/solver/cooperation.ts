@@ -45,7 +45,7 @@ export class CooperativeResearch extends CooperationInputs {
   /** Optional advisory supply for otherwise idle expanded teams, without a Lead graph mutation. */
   private async requestCapacityExploration(worker: ResearchWorker, budget: DispatchBudget, previousReady: readonly TaskRecord[]) {
     if (!this.input.continuousResearch || this.input.workers.length <= 4 ||
-        !['prover', 'researcher'].includes(worker.role) || budget.maxTurns !== Infinity || budget.remainingMs !== Infinity) return false;
+        !['prover', 'researcher', 'engineer'].includes(worker.role) || budget.maxTurns !== Infinity || budget.remainingMs !== Infinity) return false;
     return this.input.exclusiveCheck(async () => {
       if (this.stopping || this.failure || this.input.signal.aborted || this.input.modelDispatchAllowed?.() === false ||
           !this.liveWorkers.has(this.lead.id) || !this.allocationPeers.some(peer => peer.id === worker.id) ||
@@ -85,7 +85,7 @@ export class CooperativeResearch extends CooperationInputs {
   shouldYieldCapacityExploration(worker: ResearchWorker, action: CooperativeAction): boolean {
     if (action.kind !== 'task' || !this.current(action)) return false;
     const node = this.node(action.task.id);
-    if (!node?.capacityExploration || worker.role !== 'prover') return false;
+    if (!node?.capacityExploration || !['prover', 'researcher', 'engineer'].includes(worker.role)) return false;
     const groups = this.archive.groups?.map(route => ({ ...route,
       busy: Math.max(0, (route.busy ?? 0) - Number(route.group.id === taskGroup(node.task))) }));
     const ready = readyResearchTasks(this.archive.tasks, groups).filter(candidate => !candidate.capacityExploration &&
@@ -1114,7 +1114,8 @@ export class CooperativeResearch extends CooperationInputs {
       if (advisory(node.task)) {
         if (recovering) {
           this.preserveResearchDraft(worker, action, commit, artifacts);
-          if (recoveryKind === 'checkpoint') this.researchCheckpoint(worker, action, commit);
+          if (recoveryKind === 'checkpoint' || recoveryKind === 'scheduling-checkpoint')
+            this.researchCheckpoint(worker, action, commit);
           else this.interrupted(worker, action);
           return { checkWhole: false };
         }

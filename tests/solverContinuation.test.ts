@@ -795,8 +795,11 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
     expect(record.status).toBe('pending');
     record.status = 'running';
     await cooperative.deliver(researcher, action, checkpoint('Inherited research notes.'), true);
+    expect(record.status).toBe('pending');
+    record.status = 'running';
+    await cooperative.deliver(researcher, action, checkpoint('Inherited research notes.'), true);
     expect(record.status).toBe('blocked');
-    expect(state.cooperation!.researchCheckpoints!.question).toMatchObject({ count: 2, paused: true });
+    expect(state.cooperation!.researchCheckpoints!.question).toMatchObject({ count: 3, unchangedEvidenceCount: 3, paused: true });
     expect(record.feedback).toContain('math_research_checkpoint_unchanged');
     expect(state.cooperation!.tasks.find(node => node.task.kind === 'goal')!.status).toBe('pending');
     expect(state.cooperation!.tasks[0].integratedCheck).toBeUndefined();
@@ -827,6 +830,8 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
     await cooperative.deliver(researcher, action, seed, true);
     record.status = 'running';
     await cooperative.deliver(researcher, action, seed, true);
+    record.status = 'running';
+    await cooperative.deliver(researcher, action, seed, true);
     expect(record.status).toBe('blocked');
     if (change === 'environment') state.environmentDigest = 'new-environment';
     else if (change === 'peer') {
@@ -847,12 +852,14 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
     await cooperative.deliver(researcher, action, seed, true);
     record.status = 'running';
     await cooperative.deliver(researcher, action, seed, true);
+    record.status = 'running';
+    await cooperative.deliver(researcher, action, seed, true);
     const restoredState = JSON.parse(JSON.stringify(state));
     const resumed = resume(restoredState);
     try {
       await resumed.restore();
       expect(restoredState.cooperation.tasks[0].status).toBe('blocked');
-      expect(restoredState.cooperation.researchCheckpoints.question).toMatchObject({ count: 2, paused: true });
+      expect(restoredState.cooperation.researchCheckpoints.question).toMatchObject({ count: 3, paused: true });
     } finally { await resumed.stop(); }
   });
 
@@ -861,6 +868,8 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
     fs.appendFileSync(path.join(directory, '.git/info/exclude'), '\nisolated-researcher/\n');
     git(directory, ['worktree', 'add', '--detach', '--quiet', proofWorkspace, seed]);
     (researcher as { worktree: string }).worktree = proofWorkspace;
+    await cooperative.deliver(researcher, action, seed, true);
+    record.status = 'running';
     await cooperative.deliver(researcher, action, seed, true);
     record.status = 'running';
     await cooperative.deliver(researcher, action, seed, true);
@@ -882,6 +891,8 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
       await cooperative.deliver(researcher, action, seed, true);
       record.status = 'running';
       await cooperative.deliver(researcher, action, seed, true);
+      record.status = 'running';
+      await cooperative.deliver(researcher, action, seed, true);
       if (responsibility === 'running-assignment') {
         const other = node('another-investigation', 'research'); other.status = 'running';
         other.assignment = { taskId: other.task.id, taskDigest: taskVersion(other.task), workerId: researcher.id, seedCommit: seed };
@@ -893,10 +904,12 @@ describe('unchanged research delivery recovery and budget wakeup', () => {
       checkpoint('Notes saved for a different assigned responsibility.');
       (cooperative as any).changed();
       expect(record.status).toBe('blocked');
-      expect(state.cooperation!.researchCheckpoints!.question).toMatchObject({ count: 2, paused: true });
+      expect(state.cooperation!.researchCheckpoints!.question).toMatchObject({ count: 3, paused: true });
     });
 
   it('reopens a checkpoint for new notes owned by the same task session and version', async () => {
+    await cooperative.deliver(researcher, action, seed, true);
+    record.status = 'running';
     await cooperative.deliver(researcher, action, seed, true);
     record.status = 'running';
     await cooperative.deliver(researcher, action, seed, true);

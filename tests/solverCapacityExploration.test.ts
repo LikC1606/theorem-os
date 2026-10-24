@@ -372,6 +372,34 @@ describe('host exploration for spare cooperative capacity', () => {
     expect(events.filter(item => item.event === 'capacity_exploration_requested')).toHaveLength(4);
   });
 
+  it('uses an idle Engineer for advisory exploration and yields when typed work becomes ready', async () => {
+    const engineer = workers.at(-1)!;
+    const busy = node('busy_helper');
+    busy.task = { ...busy.task, ownerId: provers()[3]!.id };
+    busy.status = 'running';
+    busy.assignment = { taskId: busy.task.id, taskDigest: taskVersion(busy.task), workerId: provers()[3]!.id,
+      seedCommit: problem.baseCommit, assignmentId: 'engineer-capacity-frontier' };
+    cooperative.deactivate(engineer);
+    state.cooperation!.groups![0]!.group = { ...state.cooperation!.groups![0]!.group, engineerId: undefined };
+    for (const goal of state.cooperation!.tasks.filter(item => item.task.kind === 'goal')) {
+      goal.task = { ...goal.task, ownerId: undefined };
+      goal.status = 'blocked';
+    }
+    refresh();
+
+    const ready = directSolverModules.M3.ready(state.cooperation!.tasks, state.cooperation!.groups);
+    expect(ready.some(item => directSolverModules.M5.assign([item], engineer, workers.slice(1),
+      state.cooperation!.groups, state.cooperation!.tasks) === item)).toBe(false);
+    const action = await claim(engineer);
+    expect(node(action.task.id).capacityExploration).toMatchObject({ workerId: engineer.id });
+
+    const typed: TaskRecord = { task: { id: 'engineer_typed_work', kind: 'lemma', ownerId: engineer.id,
+      objective: 'Prove the exact newly available typed input.', proofPath: 'Submission.lean',
+      theoremName: 'Tutorial.engineer_typed_work', type: 'True', dependsOn: [], revision: 0 }, status: 'pending', attempts: 0 };
+    state.cooperation!.tasks.push(typed); refresh();
+    expect(cooperative.shouldYieldCapacityExploration(engineer, action)).toBe(true);
+  });
+
   it('turns exhausted discovery into one explicit typed-decomposition assessment instead of more research', async () => {
     await startGeneralists();
     const actions = await Promise.all(provers().map(claim));

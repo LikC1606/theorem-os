@@ -353,14 +353,18 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
       ? previous.count + 1 : 1;
     const unchangedEvidenceCount = sameInput && previous.candidateOutputDigest === candidate.digest
       ? (previous.unchangedEvidenceCount ?? 1) + 1 : 1;
+    // Scheduling checkpoints can repeatedly resume the same assignment. Count them
+    // alongside ordinary checkpoints, but only pause after sustained unchanged
+    // output and repeated identical candidate evidence.
+    const paused = count >= 3 && unchangedEvidenceCount >= 2;
     const checkpoint = (this.archive.researchCheckpoints ??= {})[node.task.id] = { taskDigest, inputDigest, outputDigest,
-      localInputDigest, candidateOutputDigest: candidate.digest, candidateStatus: candidate.status, unchangedEvidenceCount, count, paused: count >= 2 };
+      localInputDigest, candidateOutputDigest: candidate.digest, candidateStatus: candidate.status, unchangedEvidenceCount, count, paused };
     this.input.emit('research_checkpoint_recorded', { taskId: node.task.id, ...checkpoint });
     if (checkpoint.paused) {
       const scope = `assigned-local-inference/checkpoint:${mathDigest(canonicalMathJson({ inputDigest, outputDigest }))}`;
       this.reportBlockers(node.task, [{ mechanism: 'unchanged-research-checkpoint', scope }]);
       Object.assign(checkpoint, { blockerId: this.archive.blockers?.find(record => record.taskId === node.task.id && record.scope === scope)?.id });
-      this.rejected(action, 'math_research_checkpoint_unchanged: The same checkpoint has no new saved notes, draft, or task input. Wait for new input or revise the investigation.', commit);
+      this.rejected(action, 'math_research_checkpoint_unchanged: The same checkpoint has no new saved notes, draft, or task input across repeated recoveries. Wait for new input or revise the investigation.', commit);
     } else this.interrupted(worker, action);
   }
   protected async publishResearchFinding(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>, commit: string,
