@@ -12,14 +12,15 @@ import { hashMathFormalSourceDeclaration, inspectLeanDeclarationRegions, leanDec
 
 describe('ordinary Lean declaration names', () => {
   it.each(['goal', '_helper', "Submission.helper'", 'Submission.ErdosSupersingularPrimes.k₀',
-    'Submission.桥梁₂', "Submission.α'", 'Submission.e\u0301', 'Submission.𝒜₁'])(
+    'Submission.桥梁₂', "Submission.α'", 'Submission.e\u0301', 'Submission.𝒜₁',
+    'Submission.helper?', 'Submission.helper!', "Submission.α'?!"])(
     'accepts ASCII and Unicode name components without changing their spelling: %s', name => {
       expect(isSimpleLeanName(name)).toBe(true);
     }
   );
 
   it.each([undefined, null, 12, {}, '', ' goal', 'goal ', '.goal', 'Submission.', 'Submission..goal',
-    '1goal', 'Submission.1goal', 'Submission.goal; theorem injected', 'Submission.goal\n#eval 0',
+    '1goal', 'Submission.1goal', '?goal', 'Submission.!goal', 'Submission.goal; theorem injected', 'Submission.goal\n#eval 0',
     'Submission.goal/name', 'Submission.\u0301goal', 'Submission.\u200bgoal'])(
     'rejects malformed or non-name input: %j', name => {
       expect(isSimpleLeanName(name)).toBe(false);

@@ -223,7 +223,12 @@ const taskRecord = z.object({ task, status: z.enum(['pending', 'running', 'block
   researchCompletion: researchRecordSchema.optional(),
   attempts: count, proof: check.optional(), integratedCheck: check.optional(), assignment: z.object({ taskId: z.string(),
     taskDigest: z.string(), workerId: z.string(), seedCommit: z.string(), assignmentId: z.string().optional(),
-    connectionCheck: connectionCheck.optional(), researchBasis: researchBasisSchema.optional() }).passthrough().optional() }).passthrough();
+    connectionCheck: connectionCheck.optional(), researchBasis: researchBasisSchema.optional(),
+    canonicalProbe: z.object({ evidence: z.literal('advisory-canonical-check'), proofAcceptance: z.literal('not-accepted'),
+      sourceCommit: z.string().min(1), environmentDigest: z.string().min(1),
+      verificationStatus: z.enum(['kernel_verified', 'failed', 'blocked', 'unavailable']),
+      receiptIds: z.array(z.string()), feedback: z.string().max(2000) }).strict().optional(),
+  }).passthrough().optional() }).passthrough();
 const routeBlocker = z.object({ id: z.string(), taskId: z.string(), groupId: z.string(), taskDigest: z.string(),
   routeId: z.string().optional(),
   mechanism: z.string(), scope: z.string(), evidenceStatus: z.literal('advisory'), evidenceRefs: z.array(z.string()),

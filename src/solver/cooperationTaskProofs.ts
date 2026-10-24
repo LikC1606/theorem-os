@@ -34,6 +34,8 @@ import { settleResearch } from './researchRecords';
 type ProofDeliveryRequest = {
   worker: ResearchWorker; action: Extract<CooperativeAction, { kind: 'task' }>;
   commit: string; summary: string; options: Partial<DeliveryRecord>; record?: DeliveryRecord;
+  /** Host-only candidate: validate again, then claim its still-current assignment atomically. */
+  prepared?: { proof: TaskProof; current: () => boolean; claim: () => void };
 };
 export type ProofDeliveryAnnotation = () => Promise<void>;
 
@@ -582,7 +584,8 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
   }
   /** Check isolated sources concurrently; only publishing and canonical integration are serialized. */
   protected async publishTaskProof(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>,
-    commit: string, summary: string, options: Partial<DeliveryRecord> = {}, recovering = false) {
+    commit: string, summary: string, options: Partial<DeliveryRecord> = {}, recovering = false,
+    prepared?: ProofDeliveryRequest['prepared']) {
     const key = canonicalMathJson([worker.id, assignmentDeliveryFile(action.assignment), commit]);
     const previous = this.proofPublications.get(key);
     if (previous) {
@@ -595,7 +598,7 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
       }
       return previous;
     }
-    const request: ProofDeliveryRequest = { worker, action, commit, summary, options: { ...options } };
+    const request: ProofDeliveryRequest = { worker, action, commit, summary, options: { ...options }, prepared };
     this.proofDeliveryRequests.set(key, request);
     const pending = this.publishCheckedTaskProof(request, recovering);
     this.proofPublications.set(key, pending);
@@ -606,7 +609,8 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
     }
   }
   private async publishCheckedTaskProof(request: ProofDeliveryRequest, recovering: boolean): Promise<TaskProof | undefined> {
-    const { worker, action, commit, options } = request;
+    const { worker, action, commit, options, prepared } = request;
+    if (prepared && !prepared.current()) return;
     const previous = this.node(action.task.id);
     // Notes-only completion cannot renew obsolete conditional inputs after unconditional integration.
     const notesOnly = previous?.status === 'integrated' && previous.proof && taskReferenceDependencies(previous) &&
@@ -616,8 +620,12 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
         .split('\0').filter(Boolean).every(file => file === 'RESEARCH.md');
     const proof = previous?.proof && (previous.proof.commit === commit || notesOnly) &&
       ['delivered', 'conditional', 'integrated'].includes(previous.status) && this.checkedDeliveries.has(previous.proof) ? previous.proof :
-      await this.check(action.task, action.assignment, worker.worktree, commit, undefined, undefined, true, recovering);
+      await this.check(action.task, action.assignment, worker.worktree, commit, undefined, prepared?.proof, true, recovering);
     const staged = await this.input.exclusiveCheck(async () => {
+      if (prepared) {
+        if (!prepared.current()) return;
+        prepared.claim();
+      }
       if (!this.current(action) || !(proof.references?.tasks ?? []).every(reference =>
           this.archive.tasks.some(node => node.task.id === reference.taskId && digest(node.task) === reference.taskDigest))) {
         this.record(worker, action.task, 'proof', 'superseded', 'Assignment changed while its proof was being checked.',

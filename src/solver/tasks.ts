@@ -27,6 +27,10 @@ export type TaskConnectionCheck = Readonly<{
 }>;
 export type TaskAssignment = { taskId: string; taskDigest: string; workerId: string; seedCommit: string; assignmentId?: string; groupId?: string; canonicalCommit?: string;
   dependencies?: DeliveryRecord['dependencies']; routeId?: string; connectionCheck?: TaskConnectionCheck;
+  /** Historical seed diagnostic for this assignment; never a model failure or accepted proof. */
+  canonicalProbe?: Readonly<{ evidence: 'advisory-canonical-check'; proofAcceptance: 'not-accepted';
+    sourceCommit: string; environmentDigest: string; verificationStatus: TaskProof['verification']['status'];
+    receiptIds: readonly string[]; feedback: string }>;
   /** Actual prompt inputs, frozen when a research turn starts. */
   researchBasis?: ResearchBasis };
 export type TaskRecord = { task: CooperativeTask; status: 'pending' | 'running' | 'blocked' | 'conditional' | 'delivered' | 'integrated' | 'completed';

@@ -124,7 +124,7 @@ export function createTaskSourceProjector(problem: SolverProblem, worktree: stri
     .map(([file, source]) => [file, inspectLeanDeclarationRegions(source)]));
   const key = (file: string, name: string) => `${file}\0${name}`;
   const identifiers = (source: string) => [...maskLeanCommentsAndStrings(source)
-    .matchAll(/[\p{L}_][\p{L}\p{M}\p{N}_']*(?:\.[\p{L}_][\p{L}\p{M}\p{N}_']*)*/gu)].map(match => match[0]);
+    .matchAll(/[\p{L}_][\p{L}\p{M}\p{N}_'?!]*(?:\.[\p{L}_][\p{L}\p{M}\p{N}_'?!]*)*/gu)].map(match => match[0]);
   const declarations = [...sourceSnapshot].filter(([file]) => file.endsWith('.lean')).flatMap(([file, source]) => {
     const scoped = inspectScopedLeanDeclarations(source);
     return regions.get(file)!.map(region => {
@@ -229,7 +229,7 @@ export function createTaskSourceProjector(problem: SolverProblem, worktree: stri
           if (!name || source.slice(region.bodyOffset - 2, region.bodyOffset) !== ':=') throw new Error('math_task_conditional_header_unsupported');
           let body = source.slice(region.bodyOffset, region.endOffset);
           // Qualified references must also refer to the explicit assumptions in this projection.
-          const references = [...maskLeanCommentsAndStrings(body).matchAll(/[\p{L}_][\p{L}\p{M}\p{N}_']*(?:\.[\p{L}_][\p{L}\p{M}\p{N}_']*)*/gu)];
+          const references = [...maskLeanCommentsAndStrings(body).matchAll(/[\p{L}_][\p{L}\p{M}\p{N}_'?!]*(?:\.[\p{L}_][\p{L}\p{M}\p{N}_'?!]*)*/gu)];
           for (const reference of references.reverse()) {
             const dependency = conditions.find(item => item.theoremName === reference[0]) ??
               assumptions.get(referenceKey(declaration, reference[0]) ?? '');
@@ -382,6 +382,28 @@ export async function checkTaskProofs(problem: SolverProblem, worktree: string, 
   });
 }
 
+/** Move an attached document comment with its declaration without changing archived patch text. */
+function declarationStartWithDoc(source: string, startOffset: number): number {
+  const lineStart = source.lastIndexOf('\n', startOffset - 1) + 1;
+  let cursor = lineStart;
+  while (cursor > 0 && /\s/u.test(source[cursor - 1])) cursor--;
+  if (source.slice(cursor - 2, cursor) !== '-/') return lineStart;
+  cursor -= 2;
+  let depth = 1;
+  while (cursor > 0) {
+    const pair = source.slice(cursor - 2, cursor);
+    if (pair === '-/') { depth++; cursor -= 2; }
+    else if (pair === '/-') {
+      cursor -= 2;
+      if (--depth === 0) {
+        const commentLine = source.lastIndexOf('\n', cursor - 1) + 1;
+        return source.startsWith('/--', cursor) && !source.slice(commentLine, cursor).trim() ? commentLine : lineStart;
+      }
+    } else cursor--;
+  }
+  return lineStart;
+}
+
 /** Discharge saved assumptions against declarations that may have arrived after the old insertion anchor. */
 function orderConditionalChanges(source: string, file: string, changes: readonly DeclarationChange[],
   conditions: readonly CooperativeTask[]): string {
@@ -394,7 +416,7 @@ function orderConditionalChanges(source: string, file: string, changes: readonly
     const region = regions.find(item => item.startOffset === declaration.startOffset)!;
     const context = canonicalMathJson(leanDeclarationContextCommands(source, declaration.qualifiedName));
     const text = source.slice(region.startOffset, region.endOffset);
-    const references = new Set([...maskLeanCommentsAndStrings(text).matchAll(/[\p{L}_][\p{L}\p{M}\p{N}_']*(?:\.[\p{L}_][\p{L}\p{M}\p{N}_']*)*/gu)]
+    const references = new Set([...maskLeanCommentsAndStrings(text).matchAll(/[\p{L}_][\p{L}\p{M}\p{N}_'?!]*(?:\.[\p{L}_][\p{L}\p{M}\p{N}_'?!]*)*/gu)]
       .map(match => match[0].replace(/^_root_\./u, '')));
     const inputs = conditions.filter(input => input.proofPath === file &&
       (references.has(input.theoremName!) || references.has(local(input.theoremName!))));
@@ -415,7 +437,7 @@ function orderConditionalChanges(source: string, file: string, changes: readonly
     if (canonicalMathJson(leanDeclarationContextCommands(source, anchor.qualifiedName)) !== context || maskLeanComments(between).trim())
       throw new Error('math_task_integration_missing_context\nA conditional consumer precedes its checked input across context commands. ' +
         'Move the consumer and its supporting helpers after that input while preserving the frozen source context.');
-    const start = source.lastIndexOf('\n', region.startOffset - 1) + 1;
+    const start = declarationStartWithDoc(source, region.startOffset);
     const moved = source.slice(start, region.endOffset);
     source = source.slice(0, start) + source.slice(region.endOffset, anchorRegion.endOffset) + moved + source.slice(anchorRegion.endOffset);
   }
@@ -440,10 +462,12 @@ export function applyTaskChanges(problem: SolverProblem, worktree: string, chang
         if (!anchor || canonicalMathJson(leanDeclarationContextCommands(source, change.name)) !==
             canonicalMathJson(leanDeclarationContextCommands(source, change.afterName)))
           throw new Error('math_task_integration_missing_context');
-        if (actual === change.after && anchor.endOffset === start) continue;
-        source = source.slice(0, start) + source.slice(existing.endOffset);
+        const moveStart = declarationStartWithDoc(source, existing.startOffset);
+        const documentation = source.slice(moveStart, start);
+        if (actual === change.after && anchor.endOffset === moveStart) continue;
+        source = source.slice(0, moveStart) + source.slice(existing.endOffset);
         const offset = inspectLeanDeclarationRegions(source).find(region => region.name === change.afterName)!.endOffset;
-        source = source.slice(0, offset) + change.after + source.slice(offset);
+        source = source.slice(0, offset) + documentation + change.after + source.slice(offset);
       } else {
         if (actual === change.after) continue;
         source = source.slice(0, start) + change.after + source.slice(existing.endOffset);
@@ -451,7 +475,7 @@ export function applyTaskChanges(problem: SolverProblem, worktree: string, chang
     } else {
       if (change.before) throw new Error('math_task_integration_missing_declaration');
       const anchor = change.beforeName && regions.find(region => region.name === change.beforeName);
-      const offset = anchor ? source.lastIndexOf('\n', anchor.startOffset - 1) + 1 :
+      const offset = anchor ? declarationStartWithDoc(source, anchor.startOffset) :
         change.tail !== undefined && source.endsWith(change.tail) ? source.length - change.tail.length : -1;
       if (offset < 0) throw new Error('math_task_integration_missing_context');
       source = source.slice(0, offset) + change.after + source.slice(offset);

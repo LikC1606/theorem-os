@@ -55,7 +55,7 @@ function inspectInput(input: LeanTaskInput) {
   if (!targets.length) throw new Error('lean_task_targets_missing');
   const targetOffsets = new Set(targets.map(item => item.startOffset));
   const keywords = maskLeanCommentsAndStrings(parsed.source).matchAll(
-    /(?<![\p{L}\p{M}\p{N}_'.])(?:theorem|lemma)(?![\p{L}\p{M}\p{N}_'.])/gu);
+    /(?<![\p{L}\p{M}\p{N}_'.?!])(?:theorem|lemma)(?![\p{L}\p{M}\p{N}_'.?!])/gu);
   for (const keyword of keywords) if (!targetOffsets.has(keyword.index)) throw new Error('lean_task_declaration_invalid');
   return { ...parsed,
     declarations: declarations.map(item => ({ name: item.qualifiedName, kind: item.kind,

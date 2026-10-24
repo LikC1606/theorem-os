@@ -43,6 +43,23 @@ function saveReceipt(receipt: ReturnType<typeof bootstrapLeanTask>, changes: Rec
 }
 
 describe('user-provided Lean task bootstrap', () => {
+  it('freezes punctuation variants without mistaking keyword-shaped names for commands', () => {
+    const input = `namespace User
+def lemma? : True := True.intro
+def theorem! : True := lemma?
+theorem goal? : True := theorem!
+theorem goal : True := by sorry
+theorem goal! : True := by sorry
+end User
+`;
+    const receipt = bootstrapLeanTask(path.join(rootDirectory(), 'workspace'), { source: input, task });
+    expect(receipt.publicObligations.map(item => item.name)).toEqual(['User.goal?', 'User.goal', 'User.goal!']);
+    expect(receipt.declarations.map(item => item.name)).toEqual([
+      'User.lemma?', 'User.theorem!', 'User.goal?', 'User.goal', 'User.goal!',
+    ]);
+    expect(readLeanTaskReceipt(receipt.activeProblemPath)).toEqual(receipt);
+  });
+
   it('freezes all named theorem and lemma targets, definitions, namespaces and a package-free toolchain', () => {
     const { receipt } = fixture();
     const reread = readLeanTaskReceipt(receipt.activeProblemPath);

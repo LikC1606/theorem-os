@@ -22,6 +22,16 @@ describe('Unicode proof targets in cooperative plans', () => {
     ]);
   });
 
+  it('keeps punctuation variants as distinct helper targets', () => {
+    const helpers = ['?', '', '!'].map((suffix, index) => ({ ...helper,
+      id: `bridge-${index}`, theoremName: `${helper.theoremName}${suffix}` }));
+    const closing = { ...goal, dependsOn: helpers.map(task => task.id) };
+    const plan = parseCooperationPlan(problem, { tasks: [...helpers, closing] });
+    expect(plan.tasks.slice(0, 3).map(task => task.theoremName)).toEqual(helpers.map(task => task.theoremName));
+    expect(() => parseCooperationPlan(problem, { tasks: [...helpers, { ...helper, id: 'duplicate',
+      theoremName: helpers[0].theoremName }, closing] })).toThrow('math_plan_duplicate_task');
+  });
+
   it.each(['Submission.ErdosSupersingularPrimes.k₁', 'Submission.ErdosSupersingularPrimes.k0',
     'Other.ErdosSupersingularPrimes.k₀'])(
     'rejects a changed original target even when it is a valid Lean name: %s', changedName => {

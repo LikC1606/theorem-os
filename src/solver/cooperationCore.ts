@@ -321,6 +321,7 @@ export abstract class CooperationCore {
           objectiveDigest: mathDigest(node.task.objective), groupId: taskGroup(node.task), kind: node.task.kind,
           status: node.status, owner: node.assignment?.workerId ?? node.task.ownerId, dependsOn: node.task.dependsOn,
           ...(visible.has(node.task.id) ? { objective: node.task.objective, feedback: node.feedback,
+            canonicalProbe: node.assignment?.canonicalProbe,
             actualReferences: (node.integratedCheck ?? node.proof)?.references } : {}) })),
         deliveries: deliveries.map(({ evidence: _evidence, researchRecord: _researchRecord, ...record }) => record),
         deliveryReceipts: scoped.deliveryReceipts ?? [],

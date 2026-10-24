@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { canonicalMathJson, mathDigest, readMathText, writeMathJsonDurable } from '../math/mathRuntimeIo';
-import { inspectLeanDeclarationRegions } from '../math/leanSource';
+import { inspectLeanDeclarationRegions, inspectLeanSource, inspectScopedLeanDeclarations } from '../math/leanSource';
 import { commitSolverSources, committedSource, git } from './problem';
 import { solverProofFeedback, solverSourceFeedback } from './feedback';
 import { assessTaskResponsibility, assignSharedResearchTask, independentFeasibilityWorker, type ResearchWorker } from './modules/organization';
@@ -15,7 +15,7 @@ import { finishLeadAssessment, leadAssessmentCovered, prepareLeadAssessment, reo
 import { hasFreshSolverCheck, proofReceiptsMatch, type ProofCheck } from './modules/evidence';
 import { originalGoalTaskFocus, readyResearchTasks, researchCanAdvance, routeAllowsTask, taskCanStart, taskDependenciesReady, selectedTaskRoute } from './modules/search';
 import { deliveryDetails, reviewVerdict, readMathResponse as block, MAX_RESEARCH_NOTES_BYTES } from './deliveries';
-import { ownedSourceDigest, taskChanges } from './cooperativeProof';
+import { checkTaskProof, ownedSourceDigest, taskChanges } from './cooperativeProof';
 import { assertStatementSnapshot, isStatementAction, resetStatementReview } from './statementReview';
 import { captureProofReferences } from './proofReferences';
 import { captureDeliveryArtifacts, type DeliveryArtifactManifest } from './deliveryArtifacts';
@@ -28,7 +28,7 @@ import { mathematicalGaps, mathematicalGapVisible } from './mathematicalGaps';
 import { automaticTaskConnection, createTaskConnectionCheck } from './taskConnections';
 import { taskTypePreflightEnvironmentIdentity, type TaskTypePreflight } from './taskTypePreflight';
 import { captureObligationSnapshot } from './obligationProgress';
-import { assignmentDeliveryFile, groupOpen, isFeasibilityReview, taskGroup, taskProofContractVersion, type CapacityOwnershipCandidate, type CooperativeTask, type CooperativeAction, type TaskRecord } from './tasks';
+import { assignmentDeliveryFile, groupOpen, isFeasibilityReview, taskGroup, taskProofContractVersion, type CapacityOwnershipCandidate, type CooperativeTask, type CooperativeAction, type TaskAssignment, type TaskRecord } from './tasks';
 import { digest, directDeliveryRejections, isTaskSourceRepairFeedback, rejectionCode, CooperationState, TaskVersions, DispatchBudget, RETRY_DISPATCH, DispatchResult, bounded,
   deliveryInputFields, readCooperationPlan } from './cooperationShared';
 import { CooperationInputs } from './cooperationInputs';
@@ -641,16 +641,22 @@ export class CooperativeResearch extends CooperationInputs {
     this.suspendResearchDrafts(worker, node.task.id);
     const seed = this.archive.canonicalCommit!;
     const scopedSeed = resuming ? seed : this.seed(worker, seed, node.task);
+    const dispatchAssignment: TaskAssignment = node.assignment ?? { taskId: node.task.id, taskDigest: digest(node.task), workerId: worker.id,
+      seedCommit: scopedSeed, assignmentId: crypto.randomUUID(), canonicalCommit: seed, groupId: taskGroup(node.task),
+      routeId: selectedRoute?.id,
+      dependencies: this.dependencies(node.task).map(item => ({ taskId: item.task.id, taskDigest: digest(item.task) })) };
     if (node.task.kind === 'lemma') {
       const task = node.task, taskDigest = digest(task), environment = this.input.state.environmentDigest;
       const dependencies = this.typePreflightDependencies(task), head = git(worker.worktree, ['rev-parse', 'HEAD']);
       const project = path.join(worker.worktree, this.input.state.problem.projectRelative), started = Date.now();
       const routeDigest = canonicalMathJson(selectedRoute ?? null);
-      const assignment = node.assignment, workerAccess = this.input.access.get(worker.id);
+      const assignment = node.assignment, workerAccess = this.input.access.get(worker.id), leadAccess = this.input.access.get(this.lead.id);
+      const problemReceipt = this.input.state.problem.receiptDigest;
       const controller = new AbortController(), signal = AbortSignal.any([this.input.signal, controller.signal]);
       const current = () => !signal.aborted && !this.stopping && !this.failure && this.liveWorkers.has(this.lead.id) &&
         this.archive.canonicalCommit === seed && this.archive.tasks.includes(node) && digest(node.task) === taskDigest &&
         this.typePreflightDependencies(task) === dependencies && this.input.access.get(worker.id) === workerAccess &&
+        this.input.access.get(this.lead.id) === leadAccess && this.input.state.problem.receiptDigest === problemReceipt &&
         this.input.state.environmentDigest === environment && node.status === 'pending' && node.assignment === assignment &&
         !this.synchronizationBlocked(node.task) && taskCanStart(node.task, this.archive.tasks, this.archive.groups) &&
         routeAllowsTask(node.task, this.archive.tasks, this.archive.groups) && this.liveWorkers.has(worker.id) &&
@@ -687,14 +693,49 @@ export class CooperativeResearch extends CooperationInputs {
             '\nRevise the closed helper type or its context before proving it. This is not proof acceptance or a mathematical refutation.';
           this.needsLead = true; this.changed(); return RETRY_DISPATCH;
         }
+        if (leadAccess && workerAccess && this.canonicalHelperCandidate(node, worker, scopedSeed)) {
+          // A failed probe is not a model delivery. Keep it outside failure memory and archive acceptance.
+          const checker = this.input.modules.M2.checkTask ?? checkTaskProof;
+          const retainedGoals = this.dependencies(task).filter(item => item.task.kind === 'goal' && item.status === 'integrated')
+            .map(item => item.task.theoremName!);
+          const probeStarted = Date.now();
+          let proof;
+          try {
+            proof = await checker(this.input.state.problem, worker.worktree, scopedSeed, task, dispatchAssignment,
+              retainedGoals, leadAccess.environment, signal, this.input.timeoutMs, [], environment,
+              ...(checker === checkTaskProof ? [this.taskProofCache] : []));
+          } catch (error) {
+            if (!current()) return RETRY_DISPATCH;
+            throw error;
+          }
+          const publishable = () => current() && checked.current() && taskDependenciesReady(task, this.archive.tasks) &&
+            git(worker.worktree, ['rev-parse', 'HEAD']) === head &&
+            this.input.modules.M5.assign([node], worker, this.allocationPeers, this.archive.groups, this.archive.tasks) === node;
+          if (!publishable()) return RETRY_DISPATCH;
+          const receiptIds = proof.verification.results.map(result => result.receiptId);
+          const feedback = !proof.passed ? bounded(solverProofFeedback(proof), 2000) : undefined;
+          this.input.emit('task_canonical_probe', { taskId: task.id, taskDigest, workerId: worker.id, seedCommit: scopedSeed,
+            passed: proof.passed, status: proof.verification.status, durationMs: Date.now() - probeStarted,
+            receiptIds, ...(feedback ? { feedback } : {}) });
+          if (proof.passed) {
+            await this.publishTaskProof(worker, { kind: 'task', task, assignment: dispatchAssignment }, scopedSeed,
+              'Existing canonical helper checked against this exact task before starting a model.', {}, false,
+              { proof, current: publishable, claim: () => {
+                // Publication owns cleanup from here; changing the assignment must not cancel its own preparation.
+                this.preparingTaskTypes.delete(node);
+                node.assignment = dispatchAssignment;
+              } });
+            return RETRY_DISPATCH;
+          }
+          dispatchAssignment.canonicalProbe = { evidence: 'advisory-canonical-check', proofAcceptance: 'not-accepted',
+            sourceCommit: scopedSeed, environmentDigest: environment, verificationStatus: proof.verification.status,
+            receiptIds, feedback: feedback! };
+        }
       } finally {
         this.preparingTaskTypes.delete(node); finishPreparation(); this.changed();
       }
     }
-    node.assignment ??= { taskId: node.task.id, taskDigest: digest(node.task), workerId: worker.id,
-      seedCommit: scopedSeed, assignmentId: crypto.randomUUID(), canonicalCommit: seed, groupId: taskGroup(node.task),
-      routeId: selectedRoute?.id,
-      dependencies: this.dependencies(node.task).map(item => ({ taskId: item.task.id, taskDigest: digest(item.task) })) };
+    node.assignment ??= dispatchAssignment;
     if (!node.assignment.connectionCheck && automaticTaskConnection(node.task, this.archive.tasks, this.archive.groups)) {
       // Upgrading an idle historical assignment keeps its saved draft but supersedes late publications.
       if (resuming) node.assignment = { ...node.assignment, assignmentId: crypto.randomUUID() };
@@ -731,6 +772,21 @@ export class CooperativeResearch extends CooperationInputs {
       planVersion: this.archive.planVersion, groupId: taskGroup(node.task), groupTurns: route?.turns,
       seedCommit: node.assignment.seedCommit });
     this.changed(); return { kind: 'task', assignment: node.assignment, task: node.task };
+  }
+  /** Declaration scanning only selects complete candidates; the checker still establishes proof and exact type. */
+  private canonicalHelperCandidate(node: TaskRecord, worker: ResearchWorker, seed: string): boolean {
+    const task = node.task;
+    if (node.assignment || task.conditional || !task.type?.trim() || !taskDependenciesReady(task, this.archive.tasks) ||
+        automaticTaskConnection(task, this.archive.tasks, this.archive.groups)) return false;
+    const source = committedSource(worker.worktree, seed, `${this.input.state.problem.projectRelative}/${task.proofPath}`);
+    // The current task projector also requires a unique leaf name within this file.
+    const declarations = inspectScopedLeanDeclarations(source).filter(item =>
+      item.name.split('.').at(-1) === task.theoremName!.split('.').at(-1));
+    if (declarations.length !== 1 || declarations[0].kind !== 'theorem' ||
+        declarations[0].qualifiedName !== task.theoremName) return false;
+    const region = inspectLeanDeclarationRegions(source).find(item => item.startOffset === declarations[0].startOffset)!;
+    const inspected = inspectLeanSource(source.slice(region.bodyOffset, region.endOffset));
+    return inspected.sorryCount === 0 && inspected.admitCount === 0;
   }
   private typePreflightDependencies(task: CooperativeTask) {
     return canonicalMathJson(this.dependencies(task).map(item => [item.task.id, digest(item.task)]));

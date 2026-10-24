@@ -64,6 +64,20 @@ describe('recoverable advisory delivery artifacts', () => {
     expect(fs.readFileSync(path.join(root, 'generated/p/Submission.lean'), 'utf8')).toBe(original);
   });
 
+  it('captures the Q3 getLast pair under distinct exact declaration names', () => {
+    fs.writeFileSync(path.join(root, 'generated/p', helper), `namespace LiuBangXiangYu
+lemma cumulativeSumsFrom_getLast? (a : ℝ) (xs : List ℝ) (hxs : xs ≠ []) :
+    (cumulativeSumsFrom a xs).getLast? = some (a + xs.sum) := by sorry
+lemma cumulativeSumsFrom_getLast (a : ℝ) (xs : List ℝ) (hxs : xs ≠ []) :
+    (cumulativeSumsFrom a xs).getLast
+        ((cumulativeSumsFrom_ne_nil a xs).2 hxs) = a + xs.sum := by sorry
+end LiuBangXiangYu
+`);
+    expect(capture().artifacts[0].declarations.map(item => item.name)).toEqual([
+      'LiuBangXiangYu.cumulativeSumsFrom_getLast?', 'LiuBangXiangYu.cumulativeSumsFrom_getLast',
+    ]);
+  });
+
   it('rejects an explicit success claim whose code was restored and never retained', () => {
     fs.writeFileSync(path.join(root, 'RESEARCH.md'), 'The saved temporary Helpers check passed with exitCode 0.\n');
     const manifest = capture();

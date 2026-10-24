@@ -38,7 +38,7 @@ export type MathematicsLeanSourceDeclaration = Readonly<{
 }>;
 
 const isLeanNameCharacter = (value: string | undefined): boolean =>
-  Boolean(value && /[\p{L}\p{M}\p{N}_'.]/u.test(value));
+  Boolean(value && /[\p{L}\p{M}\p{N}_'.?!]/u.test(value));
 
 export function inspectScopedLeanDeclarations(source: string) {
   const scopes: LeanScope[] = [], commands = leanScopeCommands(maskLeanCommentsAndStrings(source));
@@ -81,8 +81,8 @@ export function leanDeclarationContextCommands(source: string, theoremName: stri
  * as `(x : Nat := 0)` for the declaration/body boundary. This is deliberately
  * a small lexer rather than a regular expression: comments, strings, and
  * balanced delimiter groups are all skipped while searching for the top-level
- * `:=` or a line-leading equation clause `|`. Lean permits Unicode and
- * apostrophes in identifiers, so a single quote is not a string delimiter here.
+ * `:=` or a line-leading equation clause `|`. Lean permits Unicode,
+ * apostrophes, `?` and `!` in identifiers; a single quote is not a string delimiter here.
  */
 function* leanSourceDeclarations(source: string): Generator<LeanSourceDeclaration, void, void> {
   const declarationKeywords: Readonly<Record<string, string>> = {
@@ -161,7 +161,7 @@ function* leanSourceDeclarations(source: string): Generator<LeanSourceDeclaratio
         // Type relations and lambdas cannot be top-level equation patterns.
         if (/[=→≤≥≠∧∨↔∈∉]/u.test(value) || source.startsWith('->', cursor)) return false;
         if (!isLeanNameCharacter(codePointBefore(cursor)) &&
-            /^(?:fun|λ|match)(?![\p{L}\p{M}\p{N}_'.])/u.test(source.slice(cursor))) return false;
+            /^(?:fun|λ|match)(?![\p{L}\p{M}\p{N}_'.?!])/u.test(source.slice(cursor))) return false;
       }
       const opening = '([{'.indexOf(value);
       if (opening >= 0) delimiters.push(')]}'[opening]);
@@ -294,7 +294,7 @@ function* leanSourceDeclarations(source: string): Generator<LeanSourceDeclaratio
     const nameStart = skipTrivia(index + keyword.length);
     // A dot qualifies another name component; the dot in `name.{u, v}`
     // introduces universe parameters and is not part of the declaration name.
-    const name = /^[\p{L}\p{M}\p{N}_']+(?:\.[\p{L}\p{M}\p{N}_']+)*/u.exec(source.slice(nameStart))?.[0] ?? '';
+    const name = /^[\p{L}\p{M}\p{N}_'][\p{L}\p{M}\p{N}_'?!]*(?:\.[\p{L}\p{M}\p{N}_'][\p{L}\p{M}\p{N}_'?!]*)*/u.exec(source.slice(nameStart))?.[0] ?? '';
     const nameEnd = nameStart + name.length;
     if (!name) {
       index += keyword.length;

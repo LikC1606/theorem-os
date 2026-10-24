@@ -8,6 +8,51 @@ import {
   leanDeclarationContextCommands,
 } from '../src/math/leanSource';
 
+describe('Lean declaration names with punctuation', () => {
+  it('keeps question-mark, plain and exclamation-mark declarations distinct for exact lookup', () => {
+    const names = ['delivery_probe?', 'delivery_probe', 'delivery_probe!'];
+    const declarations = names.map(name => `lemma ${name} : True := by trivial\n`);
+    const source = declarations.join('');
+    expect(inspectLeanDeclarations(source).map(item => item.name)).toEqual(names);
+    expect(inspectLeanDeclarationRegions(source).map(item => item.name)).toEqual(names);
+    expect(declarationHashes(source).size).toBe(3);
+    expect(new Set(declarationHashes(source).values()).size).toBe(3);
+    for (const [index, name] of names.entries()) {
+      const expected = hashMathFormalSourceDeclaration(declarations[index], name);
+      expect(expected).toMatch(/^[a-f0-9]{64}$/u);
+      expect(declarationHashes(source).get(name)).toBe(expected);
+      expect(hashMathFormalSourceDeclaration(source, `Submission.${name}`)).toBe(expected);
+    }
+    expect(hashMathFormalSourceDeclaration(source, 'delivery_probe?!')).toBeUndefined();
+  });
+
+  it.each(['?', '!'])('preserves %s in qualified names beside universe parameters', suffix => {
+    const source = `namespace Outer
+theorem Algebra.α'${suffix}.{u} {K : Type u} (x : K) : x = x := by rfl
+theorem _root_.Submission.apply'${suffix}.{u} {K : Type u} (x : K) : x = x := by rfl
+end Outer
+`;
+    expect(inspectScopedLeanDeclarations(source).map(({ name, qualifiedName }) => ({ name, qualifiedName }))).toEqual([
+      { name: `Algebra.α'${suffix}`, qualifiedName: `Outer.Algebra.α'${suffix}` },
+      { name: `_root_.Submission.apply'${suffix}`, qualifiedName: `Submission.apply'${suffix}` },
+    ]);
+    expect(inspectLeanDeclarations(source)[0].declarationType).toContain(`Algebra.α'${suffix}.{u}`);
+    expect(leanDeclarationContextCommands(source, `Outer.Algebra.α'${suffix}`)).toEqual({
+      before: ['namespace Outer'], after: ['end Outer'],
+    });
+  });
+
+  it('does not treat keyword-shaped identifiers as declaration keywords', () => {
+    const source = `def theorem? : True := True.intro
+def lemma! : True := theorem?
+theorem goal : True := lemma!
+`;
+    expect(inspectLeanDeclarations(source).map(item => [item.name, item.kind])).toEqual([
+      ['theorem?', 'definition'], ['lemma!', 'definition'], ['goal', 'theorem'],
+    ]);
+  });
+});
+
 describe('Lean declaration universe parameters', () => {
   it('keeps distinct helper names usable for lookup and duplicate detection', () => {
     const source = `namespace Submission.Helpers

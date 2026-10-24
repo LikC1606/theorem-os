@@ -3354,6 +3354,103 @@ describe('isolated solver and host acceptance', () => {
     });
   });
 
+  it('moves an original goal with its document comment after existing helpers and preserves peer additions', async () => {
+    const file = path.join(project, 'Submission.lean');
+    const documentation = '/-- The original goal remains unchanged.\nA nested /- explanatory comment -/ belongs to this declaration.\nThe proof may use checked helpers. -/\n';
+    const frozen = original.replace('theorem first', documentation + 'theorem first');
+    fs.writeFileSync(file, frozen);
+    git(workspace, ['add', '--', 'generated/p/Submission.lean']);
+    commitFixture(workspace, 'Freeze the documented original goal');
+    problem = readSolverProblem(workspace, problem.activeProblemPath);
+    const helpers = 'lemma prerequisite : True := by trivial\nlemma closing : True := prerequisite\n';
+    const seed = frozen.replace('theorem second', helpers + 'theorem second');
+    fs.writeFileSync(file, seed);
+    const seedCommit = commitSolverSources(problem, workspace);
+    const task: CooperativeTask = { id: 'first', kind: 'goal', objective: 'Prove the first target', dependsOn: [], revision: 0,
+      proofPath: 'Submission.lean', theoremName: 'Submission.first' };
+    const proved = 'theorem first : True := by exact closing\n';
+    const candidate = frozen.replace(documentation + 'theorem first : True := by sorry\n', helpers + documentation + proved);
+    fs.writeFileSync(file, candidate);
+    const changes = taskChanges(problem, workspace, commitSolverSources(problem, workspace), task, { seedCommit });
+    expect(changes).toContainEqual(expect.objectContaining({ name: 'first', afterName: 'closing' }));
+    await withSolverWorktree(workspace, seedCommit, async checkout => {
+      const mergedFile = path.join(checkout, problem.projectRelative, 'Submission.lean');
+      fs.writeFileSync(mergedFile, seed.replace('end Submission', 'lemma peer : True := by trivial\nend Submission'));
+      applyTaskChanges(problem, checkout, changes);
+      const merged = fs.readFileSync(mergedFile, 'utf8');
+      expect(merged).toContain(documentation + proved);
+      expect(merged.indexOf('lemma closing')).toBeLessThan(merged.indexOf(documentation));
+      expect(merged).toContain('lemma peer : True := by trivial');
+      expect(merged.split(documentation)).toHaveLength(2);
+      expect(() => assertSolverSources(problem, checkout)).not.toThrow();
+      applyTaskChanges(problem, checkout, changes);
+      expect(fs.readFileSync(mergedFile, 'utf8')).toBe(merged);
+    });
+    expect(host.createSession).not.toHaveBeenCalled();
+  });
+
+  it('keeps an original goal document comment attached when discharging a later conditional input', async () => {
+    const file = path.join(project, 'Submission.lean');
+    const documentation = '/-- The original goal remains unchanged.\nIts checked input may arrive later.\nThis documentation belongs to the goal. -/\n';
+    const frozen = original.replace('theorem first', documentation + 'theorem first');
+    fs.writeFileSync(file, frozen);
+    git(workspace, ['add', '--', 'generated/p/Submission.lean']);
+    commitFixture(workspace, 'Freeze a documented conditional consumer');
+    problem = readSolverProblem(workspace, problem.activeProblemPath);
+    const seedCommit = problem.baseCommit;
+    const task: CooperativeTask = { id: 'first', kind: 'goal', objective: 'Prove the first target', dependsOn: ['prerequisite'], revision: 0,
+      proofPath: 'Submission.lean', theoremName: 'Submission.first', conditional: true };
+    const input: CooperativeTask = { id: 'prerequisite', kind: 'lemma', objective: 'Prove the input', dependsOn: [], revision: 0,
+      proofPath: 'Submission.lean', theoremName: 'Submission.prerequisite', type: 'True' };
+    const proved = 'theorem first : True := by exact prerequisite\n';
+    fs.writeFileSync(file, frozen.replace('theorem first : True := by sorry\n', proved));
+    const changes = taskChanges(problem, workspace, commitSolverSources(problem, workspace), task, { seedCommit });
+    expect(changes.every(change => !change.afterName)).toBe(true);
+    await withSolverWorktree(workspace, seedCommit, async checkout => {
+      const mergedFile = path.join(checkout, problem.projectRelative, 'Submission.lean');
+      fs.writeFileSync(mergedFile, frozen.replace('theorem second',
+        'lemma prerequisite : True := by trivial\nlemma peer : True := by trivial\ntheorem second'));
+      applyTaskChanges(problem, checkout, changes, [], [input]);
+      const merged = fs.readFileSync(mergedFile, 'utf8');
+      expect(merged).toContain(documentation + proved);
+      expect(merged.indexOf('lemma prerequisite')).toBeLessThan(merged.indexOf(documentation));
+      expect(merged).toContain('lemma peer : True := by trivial');
+      expect(() => assertSolverSources(problem, checkout)).not.toThrow();
+      applyTaskChanges(problem, checkout, changes, [], [input]);
+      expect(fs.readFileSync(mergedFile, 'utf8')).toBe(merged);
+    });
+    expect(host.createSession).not.toHaveBeenCalled();
+  });
+
+  it('inserts a new helper before an original goal document comment without stealing its documentation', async () => {
+    const file = path.join(project, 'Submission.lean');
+    const documentation = '/-- The original goal remains unchanged.\nThis is the original statement documentation.\nIt must stay attached to the goal. -/\n';
+    const frozen = original.replace('theorem first', documentation + 'theorem first');
+    fs.writeFileSync(file, frozen);
+    git(workspace, ['add', '--', 'generated/p/Submission.lean']);
+    commitFixture(workspace, 'Freeze a documented helper insertion anchor');
+    problem = readSolverProblem(workspace, problem.activeProblemPath);
+    const seedCommit = problem.baseCommit;
+    const helper = 'lemma prerequisite : True := by trivial\n';
+    fs.writeFileSync(file, frozen.replace(documentation, helper + documentation));
+    const task: CooperativeTask = { id: 'first', kind: 'goal', objective: 'Prove the first target', dependsOn: [], revision: 0,
+      proofPath: 'Submission.lean', theoremName: 'Submission.first' };
+    const changes = taskChanges(problem, workspace, commitSolverSources(problem, workspace), task, { seedCommit });
+    expect(changes).toMatchObject([{ name: 'prerequisite', beforeName: 'first' }]);
+    await withSolverWorktree(workspace, seedCommit, async checkout => {
+      const mergedFile = path.join(checkout, problem.projectRelative, 'Submission.lean');
+      fs.writeFileSync(mergedFile, frozen.replace('end Submission', 'lemma peer : True := by trivial\nend Submission'));
+      applyTaskChanges(problem, checkout, changes);
+      const merged = fs.readFileSync(mergedFile, 'utf8');
+      expect(merged).toContain(helper + documentation + 'theorem first');
+      expect(merged).toContain('lemma peer : True := by trivial');
+      expect(() => assertSolverSources(problem, checkout)).not.toThrow();
+      applyTaskChanges(problem, checkout, changes);
+      expect(fs.readFileSync(mergedFile, 'utf8')).toBe(merged);
+    });
+    expect(host.createSession).not.toHaveBeenCalled();
+  });
+
   it('merges independent helpers inside an initially empty namespace', async () => {
     const helper = 'Submission/Helpers.lean';
     const empty = 'import Mathlib.Data.Nat.Basic\n\nnamespace Submission.Helpers\n\nend Submission.Helpers\n';
@@ -3990,9 +4087,13 @@ describe('isolated solver and host acceptance', () => {
     writePlan(state.worktree, groupedTasks(), groups);
     expect(await runSolver([...parallelArgs, '--resume', '--max-turns', '9'], directory)).toBe(0);
     const resumed = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
-    expect(resumed.cooperation.tasks.map(node => node.attempts)).toEqual([1, 2, 2, 2]);
+    expect(resumed.cooperation.tasks.map(node => node.attempts)).toEqual([1, 1, 2, 2]);
     expect(resumed.cooperation.history.map(node => node.task.id)).toEqual(['b', 'first', 'second']);
-    expect(resumed.cooperation.groups[1].turns).toBe(2);
+    expect(resumed.cooperation.groups[1]).toMatchObject({ group: { revision: 1 }, turns: 1 });
+    const bridge = resumed.cooperation.tasks[1];
+    expect(bridge).toMatchObject({ status: 'integrated', proof: { passed: true },
+      integratedCheck: { passed: true, taskDigest: taskVersion(bridge.task) } });
+    expect(bridge.assignment.assignmentId).not.toBe(state.cooperation.tasks[1].assignment.assignmentId);
   });
 
   it.each(['unknown', 'private-dependency', 'concurrency', 'duplicate', 'budget'] as const)('rejects an invalid route plan (%s)', flaw => {
@@ -4086,7 +4187,7 @@ describe('isolated solver and host acceptance', () => {
     expect(host.officialGate).toHaveBeenCalledOnce();
   });
 
-  it('applies a local mathematical task revision on resume, invalidates consumers and keeps unrelated checked work', async () => {
+  it('rechecks a revised task on resume, invalidates consumers and keeps unrelated checked work', async () => {
     configureCooperation(undefined, waitingPlanTasks);
     const parallelArgs = [...args, '--workers', '4', '--max-turns', '3'];
     expect(await runSolver(parallelArgs, directory)).toBe(4);
@@ -4095,9 +4196,16 @@ describe('isolated solver and host acceptance', () => {
       ? { ...task, revision: 1, premises: ['Revised mathematical premise'] } : task));
     expect(await runSolver([...parallelArgs, '--resume', '--max-turns', '7'], directory)).toBe(0);
     const resumed = JSON.parse(fs.readFileSync(`${output}.runtime/state.json`, 'utf8'));
-    expect(resumed.cooperation.tasks.slice(0, 2).map(node => node.attempts)).toEqual([2, 1]);
+    expect(resumed.cooperation.tasks.slice(0, 2).map(node => node.attempts)).toEqual([1, 1]);
     expect(resumed.cooperation.history.map(node => node.task.id)).toEqual(['a', 'first', 'second']);
     expect(resumed.cooperation.tasks[0].task.revision).toBe(1);
+    const revised = resumed.cooperation.tasks[0];
+    expect(revised.proof.taskDigest).toBe(taskVersion(revised.task));
+    expect(revised.integratedCheck.taskDigest).toBe(taskVersion(revised.task));
+    expect(revised.proof.taskDigest).not.toBe(state.cooperation.tasks[0].proof.taskDigest);
+    expect(resumed.cooperation.deliveries).toContainEqual(expect.objectContaining({
+      taskId: 'a', taskDigest: taskVersion(revised.task), kind: 'proof', status: 'verified',
+    }));
   });
 
   it('rechecks modified canonical helpers and prevents consumers from using invalid evidence on resume', async () => {
@@ -5273,7 +5381,7 @@ describe('isolated solver and host acceptance', () => {
     expect(await runSolver([...args, '--workers', '2', '--max-turns', '12'], directory)).toBe(0);
     const state = cooperationState();
     expect(state.history.map((node: any) => node.task.id)).toEqual(['a', 'first', 'second']);
-    expect(state.tasks.map((node: any) => node.attempts)).toEqual([2, 1, 2, 2]);
+    expect(state.tasks.map((node: any) => node.attempts)).toEqual([1, 1, 2, 2]);
     for (const id of ['a', 'first', 'second']) {
       const statuses = state.deliveries.filter((record: any) => record.taskId === id && record.kind === 'proof')
         .map((record: any) => record.status);
