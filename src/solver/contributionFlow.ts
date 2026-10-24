@@ -201,10 +201,17 @@ export function buildResearchContributionFlow(state: SolverRunState, journal?: C
     const scopeMatches = (!proof.projection || proof.projection.environmentDigest === state.environmentDigest &&
       proof.projection.problemReceiptDigest === state.problem.receiptDigest) &&
       (!proof.references || proof.references.environmentDigest === state.environmentDigest);
+    // Failed readiness records do not retain receipt IDs. An exact host event can still bind their recorded check.
+    const failedReadyEvents = !proof.passed ? matching('proof_ready_checked', data => data.passed === false &&
+      data.taskId === taskId && data.taskDigest === proof.taskDigest && data.commit === proof.commit &&
+      data.sourceDigest === proof.sourceDigest && equalIds(strings(data.receiptIds), receiptIds)) : [];
     const boundReady = scopeMatches && text(proof.taskDigest) ? readyRecords.filter(({ ready, attempt }) =>
       attempt.identity.status !== 'ambiguous' && ready.taskId === taskId && ready.taskDigest === proof.taskDigest &&
       ready.snapshotCommit === proof.commit && ready.sourceDigest === proof.sourceDigest &&
-      ready.seedCommit === proof.seedCommit && equalIds(ready.receiptIds ?? [], receiptIds)) : [];
+      ready.seedCommit === proof.seedCommit && (equalIds(ready.receiptIds ?? [], receiptIds) ||
+        ready.status === 'failed' && ready.receiptIds === undefined && failedReadyEvents.some(({ data }) =>
+          (data.readyId ?? data.receiptId) === ready.id && data.assignmentKey === ready.assignmentKey &&
+          data.workerId === ready.workerId && data.seedCommit === ready.seedCommit))) : [];
     const checkedEvents = use(matching('proof_ready_checked', data => boundReady.some(({ ready }) =>
       (data.readyId ?? data.receiptId) === ready.id && data.commit === proof.commit &&
       compatible(data, { taskId, taskDigest: proof.taskDigest, assignmentKey: ready.assignmentKey,
@@ -259,7 +266,8 @@ export function buildResearchContributionFlow(state: SolverRunState, journal?: C
       created: observedTime([{ value: delivery.createdAt, evidence: stateRef('cooperation.deliveries[' + index + '].createdAt') }]),
       publication: observedTime(times(publications), journalReason), publicationInThisRun: publications.length > 0,
       publicationEvents: publications.map(eventRef), handoffAliases: [...aliases.values()],
-      attempts: [...attempts.values()].filter(attempt => attempt.taskId === delivery.taskId && attempt.taskDigest === delivery.taskDigest),
+      attempts: [...attempts.values()].filter(attempt => text(delivery.assignmentKey) &&
+        attempt.assignmentKey === delivery.assignmentKey && attempt.taskId === delivery.taskId && attempt.taskDigest === delivery.taskDigest),
     }];
   });
 

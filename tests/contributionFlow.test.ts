@@ -70,6 +70,16 @@ function fixture() {
   return { state, log, journal, assignment, assignmentKey, check, handoff };
 }
 
+function failedReadyFixture() {
+  const f = fixture(), node = f.state.cooperation!.tasks[1], ready = f.state.cooperation!.proofReadyRecords![0];
+  const check: TaskProof = { ...f.check, passed: false, verification: { ...f.check.verification, status: 'failed',
+    results: f.check.verification.results.map(result => ({ ...result, status: 'failed' })) } };
+  node.status = 'blocked'; node.proof = check; delete node.integratedCheck;
+  ready.status = 'failed'; delete ready.evidence; delete ready.receiptIds;
+  f.log[6].passed = false; f.log.pop();
+  return { ...f, check };
+}
+
 describe('research contribution flow', () => {
   it('projects multiple sources through one handoff, exact execution and a deduplicated recorded check', () => {
     const f = fixture(), before = structuredClone(f.state), report = buildResearchContributionFlow(f.state, f.journal());
@@ -150,6 +160,7 @@ describe('research contribution flow', () => {
     const f = fixture();
     const historical = { ...f.log[2], taskId: 'old-lemma', taskDigest: 'old-version', planVersion: 'old-plan', at: 90 };
     f.log.splice(2, 0, historical);
+    f.state.cooperation!.deliveries![0].assignmentKey = 'research-assignment';
     f.log.push({ event: 'task_assigned', taskId: research.id, taskDigest: taskVersion(research), workerId: 'researcher',
       seedCommit: seed, assignmentKey: 'research-assignment', at: 250 });
     f.state.cooperation!.tasks.shift();
@@ -159,6 +170,24 @@ describe('research contribution flow', () => {
     });
     expect(report.sources[0].attempts).toHaveLength(1);
     expect(report.obligations.some(item => item.taskId === research.id)).toBe(false);
+  });
+
+  it('attributes research sources only to their own saved assignment', () => {
+    const f = fixture(), deliveries = f.state.cooperation!.deliveries!;
+    for (const [index, delivery] of deliveries.entries()) {
+      const assignment = { taskId: research.id, taskDigest: taskVersion(research), workerId: 'researcher-' + index,
+        seedCommit: seed, assignmentId: 'research-attempt-' + index };
+      delivery.producer = assignment.workerId; delivery.assignmentKey = assignmentDeliveryFile(assignment);
+      f.log.push({ event: 'task_assigned', ...assignment, assignmentKey: delivery.assignmentKey, at: 250 + index });
+    }
+    const report = buildResearchContributionFlow(f.state, f.journal());
+    for (const source of report.sources) {
+      expect(source.attempts).toHaveLength(1);
+      expect(source.attempts[0]).toMatchObject({ assignmentKey: source.assignmentKey, workerId: source.producer });
+    }
+
+    delete deliveries[0].assignmentKey;
+    expect(buildResearchContributionFlow(f.state, f.journal()).sources[0].attempts).toEqual([]);
   });
 
   it('shows bare legacy history checks without manufacturing a task version', () => {
@@ -254,6 +283,37 @@ describe('research contribution flow', () => {
     expect(report.checks[0]).toMatchObject({ readyIds: ['ready-record'], receiptIds: ['lean-receipt'],
       checkObserved: { status: 'recorded', value: 190 } });
   });
+
+  it('links a failed ready check through its exact journal receipt without granting acceptance', () => {
+    const f = failedReadyFixture(), before = structuredClone(f.state);
+    const report = buildResearchContributionFlow(f.state, f.journal()), check = report.checks[0];
+    expect(check).toMatchObject({ readyIds: ['ready-record'], receiptIds: ['lean-receipt'],
+      storedAs: [{ recordedProof: 'failed' }], checkEvents: [{ kind: 'journal', line: 7 }],
+      checkObserved: { status: 'recorded', value: 190 } });
+    expect(report.obligations.find(item => item.taskId === helper.id)!.attempts[0].ready[0]).toMatchObject({
+      status: 'failed', checkIds: [check.id],
+      readyToCheckMs: { status: 'recorded', value: 40 }, frozenToCheckMs: { status: 'recorded', value: 20 },
+    });
+    expect(report.unresolved).toEqual([]);
+    expect(f.state).toEqual(before);
+    expect(hasTaskAcceptance(f.check)).toBe(false);
+    expect(freshlyAccepted(f.state.cooperation!.tasks[1], taskVersion(helper))).toBe(false);
+  });
+
+  it('leaves a failed ready check unbound without an exact journal observation or with conflicting stored receipts', () => {
+    const f = failedReadyFixture();
+    expect(buildResearchContributionFlow(f.state).checks[0].readyIds).toEqual([]);
+    f.state.cooperation!.proofReadyRecords![0].receiptIds = ['other-receipt'];
+    expect(buildResearchContributionFlow(f.state, f.journal()).checks[0].readyIds).toEqual([]);
+  });
+
+  it.each(['assignmentKey', 'workerId', 'seedCommit', 'sourceDigest', 'receiptIds', 'passed'] as const)(
+    'does not infer a failed check link from a journal observation missing %s', field => {
+      const f = failedReadyFixture(); delete f.log[6][field];
+      const report = buildResearchContributionFlow(f.state, f.journal());
+      expect(report.checks[0].readyIds).toEqual([]);
+      expect(report.obligations.find(item => item.taskId === helper.id)!.attempts[0].ready[0].readyToCheckMs.status).toBe('unknown');
+    });
 
   it('keeps worker-snapshot checking separate from checking and integrating a merged commit', () => {
     const f = fixture(), integrated = proof(helper, merged, 'merged-receipt');
