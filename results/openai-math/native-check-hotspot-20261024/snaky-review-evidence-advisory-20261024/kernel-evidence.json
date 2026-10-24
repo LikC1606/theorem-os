@@ -1,0 +1,36 @@
+{
+  "evidence": "recorded-not-replayed; advisory only; grants no acceptance",
+  "commit": "14d49c0f2bb94a8973471120f675554798126117",
+  "sourceDigest": "1a75c56a0beaa6df7578a0317d90f40fa2c6b1a9faf43511e1c69fa0bcee4f4f",
+  "allOriginalTargetsMatched": true,
+  "sourceFiles": [
+    {
+      "path": "Submission.lean",
+      "bytes": 967683,
+      "sha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae"
+    }
+  ],
+  "status": "kernel_verified",
+  "durationMs": 8188206,
+  "receipts": [
+    {
+      "receiptId": "lean-63766151ffe8a0523a860487",
+      "theoremName": "OAI.SnakyConditional.snaky_winning_strategy_with_legal_states",
+      "proofPath": "Submission.lean",
+      "proofHash": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+      "sourceDeclarationHash": "86440ec197f3e88a1cda1d22672ff67a6390425412b08d418dde27bba4c81614",
+      "statementHash": "142493d21a482fcccfcd8782178a767296b28158637758b22ce2ce5c55de5c88",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "goalsRemaining": 0,
+      "sorryCount": 0,
+      "admitCount": 0,
+      "checkedAt": 1792841617586,
+      "targetCommit": "14d49c0f2bb94a8973471120f675554798126117",
+      "status": "kernel_verified"
+    }
+  ]
+}

@@ -1,0 +1,107 @@
+{
+  "schema": "theorem-os.operational-evidence-manifest.v1",
+  "frozenAt": "2026-10-24T13:50:11.003208+00:00",
+  "files": [
+    {
+      "path": "HOST-REVIEW-EVIDENCE.json",
+      "bytes": 1923,
+      "sha256": "85cda09015a424fe7fcb2eb3de3696bfad91eb54739a85bc9350a30bad0a157a"
+    },
+    {
+      "path": "README.md",
+      "bytes": 2414,
+      "sha256": "821147ca9c97f8de3029aa14132afc03c47b5f8948a48d883974dd758595dbf8"
+    },
+    {
+      "path": "kernel-evidence.json",
+      "bytes": 1277,
+      "sha256": "4bac680afed92e8d211c82e42979e3dd06d7d526f9e06392f1c5ced7ff448529"
+    },
+    {
+      "path": "native-applied-readback.json",
+      "bytes": 1350,
+      "sha256": "9018530803fb138b55c83d9b00aaedb546fdfe82e248a35fe66f197f0f2d9f2f"
+    },
+    {
+      "path": "notice-preparation.json",
+      "bytes": 65274,
+      "sha256": "d793ee1e4b3ae3076c278cc72632f80b2cfa209b6ea9ad54004508fea50a6f9b"
+    },
+    {
+      "path": "notice-queue-receipt.json",
+      "bytes": 622,
+      "sha256": "315b9bb69d8de25d11ed22d133b91e18e390429763028f032ccc060709aae04e"
+    },
+    {
+      "path": "notice-state-before.json",
+      "bytes": 3525898,
+      "sha256": "78c9a7a0d06a2879e17e8b9d55c0358b64da0a9c5c17aa59cb9f5f56cfae017f"
+    },
+    {
+      "path": "poll-recovery-observation.json",
+      "bytes": 268,
+      "sha256": "7c977ced028c0ab79eb49d8a5a66e319c98318735572554a1be02c1d89ab7129"
+    },
+    {
+      "path": "preparation.json",
+      "bytes": 67429,
+      "sha256": "0a302ea205380223d7dc2fc26c88af681d560409cab4a8376c458fe298a5b8f3"
+    },
+    {
+      "path": "queue-evidence-notice.ts",
+      "bytes": 6008,
+      "sha256": "1b39c55e1734851ee6efae63762c23d8c645b9ccdb341fb673e87bf5f068c291"
+    },
+    {
+      "path": "queue-receipt.json",
+      "bytes": 502,
+      "sha256": "373d815573333dbc7d56a46d3368f198a8b2a96ce43c0af19fc6d1a4ac664915"
+    },
+    {
+      "path": "queue-review-evidence.ts",
+      "bytes": 7355,
+      "sha256": "9fb9413555eb81ede8304baa71628ce92b6deb4569031750d5488e665ecbb0fa"
+    },
+    {
+      "path": "recovery-event-lines.jsonl",
+      "bytes": 943,
+      "sha256": "51974287488db585b62d2b54e0f73e5acb105ac2bf17b2db24359b7944efec8c"
+    },
+    {
+      "path": "state-after.json",
+      "bytes": 3526251,
+      "sha256": "b73064507cb593acc1691d9172ce39bbbc2f0a4c5b27c88c0fda66ae99c29e74"
+    },
+    {
+      "path": "state-before.json",
+      "bytes": 3525905,
+      "sha256": "b8ce85097da525fc16ae5795f011b178e65cc7822b72f4e5835ef37bb97fc927"
+    },
+    {
+      "path": "state-readback.json",
+      "bytes": 3526251,
+      "sha256": "b73064507cb593acc1691d9172ce39bbbc2f0a4c5b27c88c0fda66ae99c29e74"
+    },
+    {
+      "path": "unconsumed-compact-edits.jsonl",
+      "bytes": 192520,
+      "sha256": "6a4c819cbc72ddcef5e706a1abb9e82a051ff550801e82557b9398afc2dc4846"
+    },
+    {
+      "path": "unconsumed-oversize-edits.jsonl",
+      "bytes": 193602,
+      "sha256": "6e3b449b0ddb518d31e85be1f9c739e3052da73478d107f2d7cb4120b0c9c3d7"
+    },
+    {
+      "path": "unconsumed-recovery.json",
+      "bytes": 66671,
+      "sha256": "6325a882d5c6185e9274d77ac77058724e01e9641809b286ae70dcf1f7578ea9"
+    },
+    {
+      "path": "unconsumed-rollback.json",
+      "bytes": 611,
+      "sha256": "df4f59df8380f68d769c17e9556bd71b8f6eda7532f66c54d9a35fc7b478b51d"
+    }
+  ],
+  "scope": "Local operational changes through normal edit protocol; exact receipts and task contracts preserved. No new mathematics acceptance claimed."
+}

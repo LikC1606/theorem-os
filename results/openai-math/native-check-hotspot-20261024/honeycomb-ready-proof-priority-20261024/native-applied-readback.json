@@ -1,0 +1,41 @@
+{
+  "schema": "theorem-os.native-edit-readback.v1",
+  "observedAt": "2026-10-24T13:46:27.734937+00:00",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "edit": {
+    "affectedTasks": [],
+    "appliedAt": 1792849177450,
+    "baseVersion": "b75c6a57a2e124da8db83ce007e43f6c15ad77db2f1f8682ff8efc87649a46dc",
+    "id": "honeycomb-ready-column-proof-priority-20261024",
+    "planVersion": "a963753d49c95b1f2b4abcdd578af5bfea1ba4d8023dac0b059522ae52171d19",
+    "receivedAt": 1792849177409,
+    "recheck": {
+      "status": "not-required",
+      "tasks": []
+    },
+    "status": "applied"
+  },
+  "sourceStateSHA256": "5bd19ef1c05d5378cf777971da992bb283e89be85287ec95de5362720fbb7ce5",
+  "taskObjectsPreserved": true,
+  "proofsPreserved": true,
+  "reviewPreserved": true,
+  "preservedAssignments": [
+    "strip_growth_below_mu",
+    "sums_reduction",
+    "initial_goal_1",
+    "initial_research_2",
+    "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51"
+  ],
+  "assignmentsNaturallyReleasedOrReplaced": [],
+  "newAssignments": [
+    {
+      "taskId": "bridge_column_step_unique_a0424391",
+      "workerId": "researcher-2",
+      "assignmentId": "f1e9ca4f-628a-4491-8a12-dd1fe841429e",
+      "status": "running"
+    }
+  ],
+  "canonicalCommitPreserved": true,
+  "frozenRuntimeModified": false,
+  "newNativeTaskProofs": false
+}

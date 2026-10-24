@@ -1,0 +1,9 @@
+{
+  "observedAt": "2026-10-24T13:47:34.446318+00:00",
+  "oversizeFailures": 1670,
+  "lastOversizeFailureAt": 1792849418829,
+  "appliedAt": 1792849511603,
+  "oversizeFailuresAfterApplied": 0,
+  "eventExcerpt": "recovery-event-lines.jsonl",
+  "reviewCompleted": false
+}

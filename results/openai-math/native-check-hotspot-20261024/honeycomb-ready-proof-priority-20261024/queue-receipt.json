@@ -1,0 +1,12 @@
+{
+  "capturedAt": "2026-10-24T13:39:37.322Z",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "editId": "honeycomb-ready-column-proof-priority-20261024",
+  "result": {
+    "id": "honeycomb-ready-column-proof-priority-20261024",
+    "status": "queued",
+    "baseVersion": "b75c6a57a2e124da8db83ce007e43f6c15ad77db2f1f8682ff8efc87649a46dc"
+  },
+  "newLeanInvocations": 0,
+  "nativeTaskProofAccepted": false
+}

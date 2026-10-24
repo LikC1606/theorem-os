@@ -1,0 +1,14 @@
+{
+  "capturedAt": "2026-10-24T13:43:38.900178+00:00",
+  "editId": "snaky-review-evidence-73002f0fe094",
+  "applied": false,
+  "originalFalseLimitAssumption": "65,536 bytes",
+  "actualNativeReaderBytes": 64000,
+  "compactTailBytes": 65155,
+  "action": "Removed sole never-consumed oversized queue record under edit writer lock; preserved all consumed queue bytes and the raw failed records.",
+  "preservedPrefixBytes": 127365,
+  "preservedPrefixSHA256": "9c6c5e4b11cf74e3ae64c3a3c4ba5cb958c26e09223cee56f548ae717ccaa18a",
+  "checkpointsModified": false,
+  "proofsModified": false,
+  "reviewInterrupted": false
+}

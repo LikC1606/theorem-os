@@ -1,0 +1,361 @@
+{
+  "capturedAt": "2026-10-24T13:39:37.304Z",
+  "run": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "stateSHA256": "b7f0af2a540d3e59c249e8d92028014e8677912d541c3b8ef24e15546c8708e3",
+  "proposal": {
+    "id": "honeycomb-ready-column-proof-priority-20261024",
+    "baseVersion": "b75c6a57a2e124da8db83ce007e43f6c15ad77db2f1f8682ff8efc87649a46dc",
+    "tasks": [
+      {
+        "dependsOn": [],
+        "id": "strip_growth_below_mu",
+        "kind": "lemma",
+        "objective": "Prove the finite-width hexagonal-strip SAW count bound and hand it to initial_goal_1 through the reduction. For every h >= 1, produce width-dependent C,beta with beta strictly below 2*cos(pi/8) and the stated cardinality answer for every finite set of length-n BridgePath h objects.",
+        "proofPath": "Submission.lean",
+        "revision": 0,
+        "theoremName": "OAI.PolynomialVacuumBridge.Corridor.strip_growth_below_mu",
+        "type": "∀ h : ℕ, 1 ≤ h → ∃ C β : ℝ, 0 ≤ C ∧ 0 ≤ β ∧ β < 2 * Real.cos (Real.pi / 8) ∧ ∀ (n : ℕ) (s : Finset (BridgePath h)), (∀ p ∈ s, p.vertices.length = n) → (s.card : ℝ) ≤ C * β ^ n"
+      },
+      {
+        "conditional": true,
+        "dependsOn": [],
+        "id": "sums_reduction",
+        "kind": "lemma",
+        "objective": "Integrate the already-checked summability reduction into Submission.lean and prove the conditional implication: the width-dependent strip growth interface implies FiniteBridgeSums. Consumer: initial_goal_1; this is the algebra and Finset-grouping glue, not another unproved estimate.\n\nExecution handoff: this exact task proves the closed conditional implication H -> FiniteBridgeSums. The source retained at checkpoint 0e6ec0cfff4aceb912de8009331ed5ca3ea4d794 contains the named reduction with the exact requested type; its local-check claims are worker reports, so native typed acceptance is still required. Use the following loader once in your newly assigned worktree and confirm its printed source SHA and byte count. Then finish this assigned lemma through ordinary completed proof delivery, allowing the host to run the native typed checker and integration. Use the current assignment-specific ready/proof protocol if an explicit delivery event is needed. The quantified strip-growth assumption is the antecedent of this lemma; its separate unresolved proof does not make this implication task inconclusive. Keep the original finite_bridge_sums target and strip_growth_below_mu task unchanged and report their remaining mathematical gap separately. The restored source retains the original goal sorry, so this handoff supplies no unconditional original-goal proof. Avoid extra standalone Lean, Lake, check-lean, or waiting loops in the model session; native host verification remains required.\n\n```sh\n/usr/bin/python3 - <<'PY'\nimport hashlib, subprocess\nfrom pathlib import Path\nsource = subprocess.check_output(['git', '--no-optional-locks', 'show', '0e6ec0cfff4aceb912de8009331ed5ca3ea4d794:generated/problem/Submission.lean'])\nassert len(source) == 8813\nassert hashlib.sha256(source).hexdigest() == '6f81ffc481e22c8a189ced1d0de1d154c39e0edc57f17e9c1f492a271139f6e2'\nPath('generated/problem/Submission.lean').write_bytes(source)\nprint('restored 6f81ffc481e22c8a189ced1d0de1d154c39e0edc57f17e9c1f492a271139f6e2 8813')\nPY\n```",
+        "ownerId": "engineer",
+        "proofPath": "Submission.lean",
+        "revision": 1,
+        "theoremName": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_of_stripGrowthBelowMu",
+        "type": "(∀ h : ℕ, 1 ≤ h → ∃ C β : ℝ, 0 ≤ C ∧ 0 ≤ β ∧ β < 2 * Real.cos (Real.pi / 8) ∧ ∀ (n : ℕ) (s : Finset (BridgePath h)), (∀ p ∈ s, p.vertices.length = n) → (s.card : ℝ) ≤ C * β ^ n) → FiniteBridgeSums"
+      },
+      {
+        "dependsOn": [
+          "strip_growth_below_mu",
+          "sums_reduction"
+        ],
+        "id": "initial_goal_1",
+        "kind": "goal",
+        "objective": "Prove the frozen original target OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums by applying the checked reduction to the proved width-dependent strip growth bound.",
+        "proofPath": "Submission.lean",
+        "revision": 0,
+        "theoremName": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums"
+      },
+      {
+        "dependsOn": [],
+        "groupId": "main",
+        "id": "bridge_column_step_unique_a0424391",
+        "kind": "lemma",
+        "objective": "Prove local uniqueness of an adjacent successor with a given full column code. This is an independently checkable atomic case analysis; it is strictly smaller than full-column-word injectivity and proves no count, finite-box bound, transfer identity, or summability.",
+        "proofPath": "Submission.lean",
+        "revision": 0,
+        "theoremName": "OAI.PolynomialVacuumBridge.Corridor.bridgeColumnStep_unique",
+        "type": "∀ {a b d : OAI.PolynomialVacuumBridge.Corridor.Vertex}, OAI.PolynomialVacuumBridge.Corridor.adjacent a b → OAI.PolynomialVacuumBridge.Corridor.adjacent a d → (match b with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) = (match d with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) → b = d"
+      },
+      {
+        "dependsOn": [],
+        "groupId": "main",
+        "id": "bridge_full_column_word_injective_a0424391",
+        "kind": "lemma",
+        "objective": "Prove that the full column coordinate word determines a BridgePath with the fixed source, eliminating horizontal-realization multiplicity from a future exact transfer encoding. This is an independently checkable structural sublemma; it does not prove any count, finite-box bound, transfer identity, or summability and does not close strip_growth_below_mu or the original target.",
+        "proofPath": "Submission.lean",
+        "revision": 0,
+        "theoremName": "OAI.PolynomialVacuumBridge.Corridor.bridgePath_eq_of_column_eq",
+        "type": "∀ {h : ℕ} {p q : OAI.PolynomialVacuumBridge.Corridor.BridgePath h}, p.vertices.map (fun v : OAI.PolynomialVacuumBridge.Corridor.Vertex => match v with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) = q.vertices.map (fun v : OAI.PolynomialVacuumBridge.Corridor.Vertex => match v with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) → p = q"
+      },
+      {
+        "dependsOn": [],
+        "id": "initial_research_1",
+        "kind": "research",
+        "objective": "Investigate proof routes and difficult library connections for OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums. Report concrete evidence and unresolved gaps; findings are advisory.",
+        "ownerId": "researcher-1",
+        "revision": 0
+      },
+      {
+        "dependsOn": [],
+        "id": "initial_research_2",
+        "kind": "research",
+        "objective": "Investigate proof routes and difficult library connections for the original targets. Report concrete evidence and unresolved gaps; findings are advisory.\n\nExternal advisory input; attribution: Codex mathematical route analysis, not a publisher solution.\n\nThis is advisory mathematical input, not a proof delivery or permission to assume a new theorem. First check the mathematical gaps below and extract an exact, independently verifiable sublemma. Preserve the frozen original goal and definitions. Do not treat the proposed transfer encoding, a finite K_h, or K_h = 1 as established. Do not read publisher ProducedSolution files or hidden reasoning.\n\nThe reduction has been accepted and integrated at canonical commit 96e89fbc7f26408eaaab99235481d1dd64ffcc1c. In particular, the verified helper bridgeFiniteBridgeSums_of_firstLengthWeight has input (forall h : Nat, 1 <= h -> Summable (firstLengthWeight (h := h))) and conclusion FiniteBridgeSums. It already reduces all six original clauses to this first-moment summability. Use the host-provided verified delivery and research basis for existing results. The original finite_bridge_sums still needs its unconditional mathematical input.\n\nA potentially smaller route is: prove only a uniform finite-box bound on total bridge weight at alpha = criticalActivity, then upgrade zeroth mass to its first length moment using an exact finite-state strip model. Proposed geometric input, NOT PROVED: for each fixed h >= 1 there is a finite K_h such that every finite set of BridgePath h paths contained in the column box -2R <= c <= 2R+1 has total alpha^(vertices.length) weight at most K_h, uniformly over R >= 0. Here c(up i j)=2i+j and c(down i j)=2i+j+1. Keep K_h unknown; the candidate value 1 is not established for the current vertex-path normalization.\n\nExact encoding obligation, NOT PROVED: use two-column slabs c=2k,2k+1, each containing exactly 2h possible vertices. Horizontal edges change c by +/-1; vertical edges keep c fixed and join (c,j) to (c,j+1) exactly when c-j is odd. The lattice repeats after two columns. An exact transfer state must retain the cut-port connectivity, root/terminal marks, and prevent closed cycles or prematurely discarded components. The source mark occurs exactly once at the first column, layer 0, of the distinguished slab; its position anchors that slab to k=0. The terminal is the unique marked down vertex at layer h-1. Do not replace the state by just crossing counts or column occupancy. Reject empty padding slabs so every accepted word with k transitions scans exactly the k occupied slabs of one connected bridge. Then Nodup gives vertices.length <= 2*h*k, and each transition must count each newly scanned vertex once with alpha raised to that count. Required identity: c_k = u^T A(alpha)^k v is exactly the total bridge mass of span k (not an unsupported upper bound or an encoding with unbounded multiplicity).\n\nFinite-matrix lemma worth isolating: A is a finite nonnegative matrix and u,v are nonnegative. First trim to states reachable from u AND able to reach v by positive-weight paths. Suppose M = sum_k u^T A^k v < infinity. For each retained i,j choose a_i,b_j with r_i=(u^T A^a_i)_i>0 and t_j=(A^b_j v)_j>0. Nonnegativity gives r_i*(A^n)_(i,j)*t_j <= c_(a_i+n+b_j), so every entry Green sum is finite. Set s_i=sum_n sum_j (A^n)_(i,j). Then 1<=s_i<infinity and A*s=s-1. Finiteness of the trim state set gives q=max_i(1-1/s_i)<1 and A*s<=q*s. With C=max_i(v_i/s_i), c_k<=C*(u^T*s)*q^k, hence sum_k k*c_k<infinity. Handle an empty trim set separately. Without trimming, the inference from a single u-to-v Green series to every row is false.\n\nIf both the exact encoding and finite K_h are proved, any finite collection of paths lies in one box, so total mass is finite; the matrix lemma and vertices.length <= 2*h*k give firstLengthWeight summability. This avoids requiring an explicit counting base beta_h or a Perron-root theorem, but does not make the missing mathematics solved or prove strip_growth_below_mu by itself.\n\nA source of the missing finite-box bound may be a finite-domain honeycomb parafermionic conservation law with spin sigma=5/8. The local algebra matches alpha: 1+2*alpha*cos(7*pi/8)=0 and 2*cos(3*pi/2)=0. Turning this into a positive boundary identity still requires a self-contained path pairing/cancellation argument, planar winding classification, and an exact correspondence from boundary-mid-edge paths to these vertex lists with weight alpha^(vertices.length). None of those geometric lemmas has been checked here. Treat them as research questions, not available premises. Prefer a concrete proved sublemma or a precise remaining obstruction; do not simply rename the unresolved full estimate.\n",
+        "ownerId": "researcher-2",
+        "revision": 1
+      },
+      {
+        "dependsOn": [
+          "strip_growth_below_mu",
+          "sums_reduction"
+        ],
+        "groupId": "main",
+        "id": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+        "kind": "research",
+        "objective": "Independently investigate new mathematical inputs for the unresolved original-goal frontier strip_growth_below_mu, sums_reduction. The previous recovery could not supply an executable step: math_frontier_recovery_no_executable_step Inspect relevant mathematical references, available library results, and distinct constructions. Report concrete evidence, exact hypotheses, and unresolved gaps; findings remain advisory. Do not resubmit the unchanged failed proof, rename the same obligation, or claim that a proposed input has been proved.",
+        "revision": 0
+      },
+      {
+        "dependsOn": [],
+        "groupId": "main",
+        "id": "finite_box_zero_mass_reference",
+        "kind": "research",
+        "objective": "This is a shared advisory reference for the ongoing engineer and researcher-2 work. It supplies only checked auxiliary lemmas for the already proposed finite-box route. It does not replace the existing research assignment, assert the finite-box bound, or prove the original goal. Preserve all existing objectives and frozen original declarations. Attribution: independently developed Codex helper proofs; no publisher solution or hidden reasoning was read.\n\nA finite family of finite vertex lists lies in one common column box. Consequently, for a fixed h, a bound K uniform over every radius R and every finite BridgePath h family in that box implies Summable (weight (h := h)) and bridgeMass h <= K. The input is exactly:\n\n    forall (R : Nat) (s : Finset (BridgePath h)),\n      (forall p in s, bridgeInColumnBox R p) -> sum p in s, weight p <= K\n\nThere is no extra h >= 1 premise in this logical reduction. No finite K, parafermionic cancellation, exact transfer encoding, first length moment, strict growth estimate, or original-goal solution is supplied. Do not claim those missing results or infer firstLengthWeight summability from this zeroth-mass reduction alone.\n\nChecked source base: canonical commit 96e89fbc7f26408eaaab99235481d1dd64ffcc1c. Full reference source: 12310 bytes, SHA256 1fbba78bad15173b4be8b033009ab80e7d892347cc4324b0baf608f07d44dca4. The full reference deliberately preserves the original finite_bridge_sums sorry; use only the increment below, never overwrite your current Submission.lean from that reference snapshot.\n\nReal local kernel result: actual exit code 0, 2026-10-24T09:05:08.037505+00:00, elapsed 13.472379584098235 seconds, Lean 4.34.1, Mathlib pin d13f23b723b8a846827a245b89c10fc7d3f11612, original read-only sealed-package identity 2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87. Invocation: lean --threads=1 --memory=32768 -DautoImplicit=false -DmaxHeartbeats=0 -DmaxRecDepth=1000 Submission.lean. There was no wall timeout, CPU time budget or invocation cap. Address-space limit remained 32 GiB, CPU affinity one core. Each of the four new declarations has exactly the printed axioms propext, Classical.choice, Quot.sound, with no sorryAx. The sole sorry warning belongs to the unchanged original target. Evidence file on the host: validation/native-check-hotspot-20261024/honeycomb-finite-box-reduction-20261024/validation-no-budget-result.json.\n\nThis is local kernel evidence, not native host TaskProof acceptance. Keep this as advisory progress and reuse the increment when useful. The engineer may adapt/merge the increment against current sources in its own normal worktree while preserving ongoing changes. Researcher-2 may cite these exact checked interfaces instead of reproving this already solved logical step; keep working on the remaining mathematical inputs. Any later formal integration or proof acceptance must use the ordinary host workflow. Do not launch redundant standalone Lean/Lake loops merely to recheck this reference. Host absolute paths are evidence indices only; the full increment is inline so no external path access is required.\n\nInsert the following increment inside namespace OAI.PolynomialVacuumBridge.Corridor, after the existing bridgeWeight_nonneg helper and before the original target. Check for name collisions and adapt the small addition, preserving all existing source work.\n\nIncrement SHA256: 5c24df9ec75f6ec7aa9c1a65a67ea54bec70dea7542a3759c677fdd6615ac542\n\n```lean\nopen scoped BigOperators\n\n/-- Integer column coordinate of the frozen honeycomb vertices. -/\ndef bridgeBoxColumn : Vertex → ℤ\n  | .up i j => 2 * i + j\n  | .down i j => 2 * i + j + 1\n\n/-- A path lies in the two-column-slab box indexed by `-R, ..., R`. -/\ndef bridgeInColumnBox {h : ℕ} (R : ℕ) (p : BridgePath h) : Prop :=\n  ∀ v ∈ p.vertices,\n    -(2 * (R : ℤ)) ≤ bridgeBoxColumn v ∧\n      bridgeBoxColumn v ≤ 2 * (R : ℤ) + 1\n\n/-- Every finite family of finite bridge paths lies in one common column box. -/\ntheorem bridgeFiniteSet_commonColumnBox {h : ℕ} (s : Finset (BridgePath h)) :\n    ∃ R : ℕ, ∀ p ∈ s, bridgeInColumnBox R p := by\n  classical\n  let radius : BridgePath h → ℕ := fun p =>\n    p.vertices.toFinset.sup (fun v => (bridgeBoxColumn v).natAbs)\n  let R : ℕ := s.sup radius\n  refine ⟨R, ?_⟩\n  intro p hp v hv\n  have hpR : radius p ≤ R := Finset.le_sup hp\n  have hvR : (bridgeBoxColumn v).natAbs ≤ radius p :=\n    Finset.le_sup (f := fun v : Vertex => (bridgeBoxColumn v).natAbs)\n      (List.mem_toFinset.mpr hv)\n  have hnat : (bridgeBoxColumn v).natAbs ≤ R := hvR.trans hpR\n  have hcast : ((bridgeBoxColumn v).natAbs : ℤ) ≤ (R : ℤ) := by\n    exact_mod_cast hnat\n  have habs : |bridgeBoxColumn v| ≤ (R : ℤ) := by\n    simpa only [Int.natCast_natAbs] using hcast\n  obtain ⟨hlo, hhi⟩ := abs_le.mp habs\n  constructor <;> omega\n\n/-- A bound uniform in the box radius bounds every finite bridge-family sum. -/\ntheorem bridgeFiniteSum_weight_le_of_uniformColumnBoxBound {h : ℕ} {K : ℝ}\n    (H : ∀ (R : ℕ) (s : Finset (BridgePath h)),\n      (∀ p ∈ s, bridgeInColumnBox R p) → ∑ p ∈ s, weight p ≤ K) :\n    ∀ s : Finset (BridgePath h), ∑ p ∈ s, weight p ≤ K := by\n  intro s\n  obtain ⟨R, hR⟩ := bridgeFiniteSet_commonColumnBox s\n  exact H R s hR\n\n/-- Conditional zeroth-mass reduction. The uniform finite-box bound is an input;\nthis theorem does not establish that bound or any first length moment. -/\ntheorem bridgeSummable_weight_of_uniformColumnBoxBound {h : ℕ} {K : ℝ}\n    (H : ∀ (R : ℕ) (s : Finset (BridgePath h)),\n      (∀ p ∈ s, bridgeInColumnBox R p) → ∑ p ∈ s, weight p ≤ K) :\n    Summable (weight (h := h)) := by\n  exact summable_of_sum_le (fun p => bridgeWeight_nonneg p)\n    (bridgeFiniteSum_weight_le_of_uniformColumnBoxBound H)\n\n/-- The same still-unproved finite-box input also bounds the full bridge mass. -/\ntheorem bridgeMass_le_of_uniformColumnBoxBound {h : ℕ} {K : ℝ}\n    (H : ∀ (R : ℕ) (s : Finset (BridgePath h)),\n      (∀ p ∈ s, bridgeInColumnBox R p) → ∑ p ∈ s, weight p ≤ K) :\n    bridgeMass h ≤ K := by\n  exact (bridgeSummable_weight_of_uniformColumnBoxBound H).tsum_le_of_sum_le\n    (bridgeFiniteSum_weight_le_of_uniformColumnBoxBound H)\n```\n\n\nLead scheduling advisory, 2026-10-24 (shared reference only): Preserve every current task assignment and mathematical investigation. With unchanged mathematical inputs, reuse the checked sums_reduction, the published conditional consumer connection, this finite-box helper reference, and the existing public research summaries. Avoid repeating the same consumer connection check, the same Mathlib search scope, or rereading the same public summary without new input. Reassess those steps when a new proof or research delivery supplies relevant evidence, a concrete new mathematical fact appears, or the environment changes. Continue the distinct unresolved mathematical investigations under their existing task contracts; this advisory adds no proof premise and supplies no unconditional original-goal proof. It is a scheduling suggestion, not a new worker assignment, and does not change the host's checkpoint or continuation policy.\n\n\nShared advisory input for the ongoing Honeycomb finite-box route. This is a newly kernel-checked reusable finite nonnegative matrix lemma. It does not replace ongoing objectives or assume an original-goal estimate. Attribution: independent Codex helper mathematics, with no publisher solution or hidden reasoning read.\n\nThe finite-matrix Green-to-first-moment step is now supplied: for a finite state type, A entrywise nonnegative and u,v nonnegative, define c_n = u dot (A^n * v). Summable c implies Summable (fun n => (n:Real)*c_n). No irreducibility, full-matrix Green summability, trimming construction, or spectral-radius theorem is needed.\n\nThe proof is shorter than the previous proposed trim-and-contract route. It first proves a generic finite nonnegative factorization theorem: if c_(a+b) = sum_i L_a(i)R_b(i), then Summable c implies the first moment. A state with an identically zero side contributes zero; otherwise a nonzero witness from the opposite side and a shifted c series prove both sides summable. Their Cauchy products sum to (n+1)c_n. The matrix instance uses L_a=u^T A^a and R_b=A^b v. Preserve the explicit f/g arguments to summable_sum_mul_antidiagonal_of_summable_mul in the code: omitting them caused a diagnosed elaboration-inference hotspot on this fixed version.\n\nPrecise real validation: exit 0 at 2026-10-24T09:53:49.489377+00:00, 4.673376955091953 seconds, peak RSS 2290528 KiB; Lean 4.34.1, Mathlib pin d13f23b723b8a846827a245b89c10fc7d3f11612; original sealed identity 2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87. Invocation uses --threads=1 --memory=32768 -DautoImplicit=false -DmaxHeartbeats=0 -DmaxRecDepth=1000, with 32 GiB address space and one core, and no wall/CPU/invocation budget. Both printed theorem axiom sets are exactly propext, Classical.choice, Quot.sound. Final stdout has no error, warning or sorryAx; stderr is empty. This is local kernel evidence, not native host TaskProof acceptance. Full standalone source is 4970 bytes, SHA256 bae1606a1e3ad7675bdfa043f99d08d1e5a9fb7e822fb31612a19eec63eff33f. Host evidence index: validation/native-check-hotspot-20261024/honeycomb-finite-matrix-followup-20261024/validation-04-final-result.json.\n\nDo not infer that a scalar Green series controls all entries of the untrimmed matrix: A=diag(1/2,2), u=v=(1,0) has summable scalar c_n=(1/2)^n but divergent second diagonal Green series 2^n. The supplied direct lemma avoids this false inference. The new theorem remains valid even with such invisible states or an empty state type.\n\nConnection to the original goal: canonical bridgeFiniteBridgeSums_of_firstLengthWeight already reduces all six original clauses to firstLengthWeight summability. For each fixed h, an exact finite transfer encoding must identify c_k with the total original anchored BridgePath h mass of span k, and prove vertices.length <= 2*h*k. The uniform finite-box weight bound (still unproved) plus the previously delivered finite-box lemmas yields zeroth bridge mass. Exact grouping then gives summable c_k, this new lemma gives summable k*c_k, and the length bound controls finite-family firstLengthWeight sums. Root/terminal marks, cut connectivity, no cycles, no empty padding, exact multiplicity, and exact alpha^vertices.length weighting are still obligations; a model with arbitrary extra accepted walks does not suffice. Keep K_h arbitrary and unproved. No first-moment or original-goal completion should be claimed before these encoding/geometric inputs are proved.\n\nThe increment below is complete and inline. It can be inserted as its own namespace after imports and before namespace OAI in a solver's normal worktree, or placed after end OAI. The current Submission import Mathlib already contains its dependency APIs. Do not overwrite current Submission.lean from a reference snapshot. Keep existing definitions and source changes. Reuse this analysis step when useful, and spend the remaining proof work on the actual geometric/encoding inputs. Any native integration or proof acceptance must use the normal host workflow; do not start redundant standalone Lean/Lake loops merely to recheck this reference.\n\nIncrement SHA256: fa18397788fad96d9c54a45b51dc9f8aa338da30c5bd5108a0445c5437fd3fb6\n\n```lean\nnamespace TheoremOS.FiniteMatrixFirstMoment\n\nopen scoped BigOperators Matrix\n\n/-- A finite nonnegative factorization of `c (a+b)` is enough to upgrade its\nzeroth moment to its first moment. States whose left or right sequence vanishes\ncontribute zero, so no reachability or trimming premise is required. -/\ntheorem summable_firstMoment_of_finite_nonneg_factorization\n    {ι : Type*} [Fintype ι] {c : ℕ → ℝ} {L R : ℕ → ι → ℝ}\n    (hL : ∀ n i, 0 ≤ L n i) (hR : ∀ n i, 0 ≤ R n i)\n    (hfactor : ∀ a b, c (a + b) = ∑ i, L a i * R b i)\n    (hc : Summable c) : Summable (fun n : ℕ => (n : ℝ) * c n) := by\n  classical\n  have hterm (a b : ℕ) (i : ι) : L a i * R b i ≤ c (a + b) := by\n    rw [hfactor a b]\n    exact Finset.single_le_sum (fun j _ => mul_nonneg (hL a j) (hR b j))\n      (Finset.mem_univ i)\n  have hprod (i : ι) : Summable (fun p : ℕ × ℕ => L p.1 i * R p.2 i) := by\n    by_cases hzeroL : ∀ a, L a i = 0\n    · simpa only [hzeroL, zero_mul] using\n        (summable_zero : Summable (fun _ : ℕ × ℕ => (0 : ℝ)))\n    by_cases hzeroR : ∀ b, R b i = 0\n    · simpa only [hzeroR, mul_zero] using\n        (summable_zero : Summable (fun _ : ℕ × ℕ => (0 : ℝ)))\n    push Not at hzeroL hzeroR\n    obtain ⟨a, ha⟩ := hzeroL\n    obtain ⟨b, hb⟩ := hzeroR\n    have hleftScaled : Summable (fun n : ℕ => L n i * R b i) :=\n      Summable.of_nonneg_of_le\n        (fun n => mul_nonneg (hL n i) (hR b i))\n        (fun n => hterm n b i) ((summable_nat_add_iff b).2 hc)\n    have hrightScaled : Summable (fun n : ℕ => L a i * R n i) := by\n      refine Summable.of_nonneg_of_le\n        (fun n => mul_nonneg (hL a i) (hR n i)) (fun n => hterm a n i) ?_\n      simpa only [Nat.add_comm] using ((summable_nat_add_iff a).2 hc)\n    have hleft : Summable (fun n : ℕ => L n i) :=\n      (summable_mul_right_iff hb).1 hleftScaled\n    have hright : Summable (fun n : ℕ => R n i) :=\n      (summable_mul_left_iff ha).1 hrightScaled\n    exact hleft.mul_of_nonneg hright (fun n => hL n i) (fun n => hR n i)\n  have hconv (i : ι) :\n      Summable (fun n : ℕ => ∑ p ∈ Finset.antidiagonal n, L p.1 i * R p.2 i) :=\n    summable_sum_mul_antidiagonal_of_summable_mul\n      (f := fun n : ℕ => L n i) (g := fun n : ℕ => R n i) (hprod i)\n  have hsum : Summable\n      (fun n : ℕ => ∑ i, ∑ p ∈ Finset.antidiagonal n, L p.1 i * R p.2 i) :=\n    summable_sum (fun i _ => hconv i)\n  have hweighted : Summable (fun n : ℕ => ((n + 1 : ℕ) : ℝ) * c n) := by\n    refine hsum.congr fun n => ?_\n    rw [Finset.sum_comm]\n    calc\n      (∑ p ∈ Finset.antidiagonal n, ∑ i, L p.1 i * R p.2 i) =\n          ∑ _p ∈ Finset.antidiagonal n, c n := by\n        apply Finset.sum_congr rfl\n        intro p hp\n        rw [← hfactor p.1 p.2, Finset.mem_antidiagonal.mp hp]\n      _ = ((n + 1 : ℕ) : ℝ) * c n := by\n        rw [Finset.sum_const, Finset.Nat.card_antidiagonal, nsmul_eq_mul]\n  refine (hweighted.sub hc).congr fun n => ?_\n  simp only [Nat.cast_add, Nat.cast_one]\n  ring\n\n/-- The scalar Green coefficients of a finite nonnegative transfer matrix. -/\ndef matrixMass {ι : Type*} [Fintype ι] [DecidableEq ι]\n    (A : Matrix ι ι ℝ) (u v : ι → ℝ) (n : ℕ) : ℝ :=\n  u ⬝ᵥ ((A ^ n) *ᵥ v)\n\n/-- For a finite entrywise nonnegative matrix and nonnegative endpoint vectors,\nsummability of the single scalar Green series implies its first-moment\nsummability, even when invisible states have divergent matrix Green series. -/\ntheorem summable_matrix_firstMoment\n    {ι : Type*} [Fintype ι] [DecidableEq ι]\n    (A : Matrix ι ι ℝ) (u v : ι → ℝ)\n    (hA : ∀ i j, 0 ≤ A i j) (hu : ∀ i, 0 ≤ u i) (hv : ∀ i, 0 ≤ v i)\n    (hc : Summable (matrixMass A u v)) :\n    Summable (fun n : ℕ => (n : ℝ) * matrixMass A u v n) := by\n  apply summable_firstMoment_of_finite_nonneg_factorization\n    (L := fun n => u ᵥ* (A ^ n)) (R := fun n => (A ^ n) *ᵥ v)\n    (hc := hc)\n  · intro n i\n    exact Finset.sum_nonneg fun j _ =>\n      mul_nonneg (hu j) (Matrix.pow_apply_nonneg hA n j i)\n  · intro n i\n    exact Finset.sum_nonneg fun j _ =>\n      mul_nonneg (Matrix.pow_apply_nonneg hA n i j) (hv j)\n  · intro a b\n    change u ⬝ᵥ ((A ^ (a + b)) *ᵥ v) =\n      (u ᵥ* (A ^ a)) ⬝ᵥ ((A ^ b) *ᵥ v)\n    rw [pow_add, ← Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec]\n\n\nend TheoremOS.FiniteMatrixFirstMoment\n```\n\n\nShared geometry delta only; independent auxiliary theorems, not native TaskProof acceptance or an original-goal proof. Attribution: independently developed Codex proof from the frozen canonical statement and pinned Mathlib; no publisher solution or hidden reasoning was read.\n\nThe honeycomb geometry step is now locally kernel-verified. The pair (layer, integer column) uniquely determines a Vertex, including the cross up/down case by parity. Nodup and inStrip therefore give length <= h * number_of_allowed_columns. Consequences below include the exact transfer-facing bound length <= 2*h*number_of_occupied_two-column_slabs, with bridgeBoxSlab v = bridgeBoxColumn v / 2. This handles negative columns using integer floor division. No connectivity, source/terminal, finite mass, spectral estimate, or unproved encoding premise is used for this geometric result.\n\nConsumer interface:\n  bridgeLength_le_slabSet (p : BridgePath h) (slabs : Finset Int)\n    (hslabs : forall v in p.vertices, bridgeBoxSlab v in slabs) :\n    p.vertices.length <= 2*h*slabs.card\n  bridgeLength_le_occupiedSlabs (p : BridgePath h) :\n    p.vertices.length <= 2*h*(bridgeOccupiedSlabs p).card\nHere bridgeOccupiedSlabs p is exactly p.vertices.toFinset.image bridgeBoxSlab. If a transfer word scans exactly these k slabs, substitute k=(bridgeOccupiedSlabs p).card; if it scans any finite covering slab set of cardinality k, use bridgeLength_le_slabSet. The correspondence from transfer words to canonical paths, multiplicities and weights still needs its own proof.\n\nOther proved consequences: arbitrary interval a<=column<=b gives length<=h*(b+1-a).toNat; the already defined box [-2R,2R+1] gives length<=h*(4R+2); the actual NatAbs maximum radius gives length<=h*(2*bridgeColumnRadius p+1).\n\nLocal evidence: actual Lean exit code 0 at 2026-10-24T10:12:20.395376+00:00, elapsed 2.8644451410509646 seconds. Lean 4.34.1, Mathlib d13f23b723b8a846827a245b89c10fc7d3f11612, sealed environment 2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87. Single thread/core, 32 GiB address-space and 32768 MiB Lean memory; maxHeartbeats=0; no wall, CPU or invocation cap. All nine new theorem axiom outputs use only propext, Classical.choice, Quot.sound (the injectivity proof omits Classical.choice); none uses sorryAx. Standalone source SHA256 4b28aaf9a6976f4985dee98f98da3fb58aa11d4b850268ac675761ffc8588fe2 (8085 bytes). Increment SHA256 c67b5cf4dabbaf84a7b3158406e055fc63442a404c6b9c16657a063e2cf2987f (6180 bytes). Validation result SHA256 3e95a31d5b92302cbcfdfdef94e90adedfd833e9d7b227710d8e0e98af30aa5f.\n\nThe inline increment assumes the exact canonical Vertex/layer/BridgePath declarations and the already shared bridgeBoxColumn/bridgeInColumnBox definitions. Add it once inside OAI.PolynomialVacuumBridge.Corridor after those definitions, preserve existing source work, and check for name collisions. If the two box definitions have not yet been merged, reuse their exact definitions from the existing finite-box reference; do not duplicate declarations or replace Submission.lean with the standalone harness. Native formal integration/acceptance must follow the normal host workflow. Do not rerun standalone Lean/Lake loops just to recheck this identical advisory.\n\nCurrent substantive gaps remain the uniform finite-box total-mass bound (or equivalent input) and exact finite-state/transfer encoding with the required count/weight identity; this delta closes only the geometric length inequality. Do not infer first-moment summability or the original theorem from this geometry alone. The previously checked matrix result remains a separate reusable theorem; no matrix code is repeated here.\n\n```lean\n/-- The frozen layer and integer column identify a honeycomb vertex uniquely. -/\nnoncomputable def bridgeLayerColumnCode (v : Vertex) : ℤ × ℤ :=\n  (layer v, bridgeBoxColumn v)\n\ntheorem bridgeLayerColumnCode_injective :\n    Function.Injective bridgeLayerColumnCode := by\n  intro v w h\n  cases v <;> cases w <;>\n    simp only [bridgeLayerColumnCode, layer, bridgeBoxColumn, Prod.mk.injEq] at h\n  · congr 1 <;> omega\n  · omega\n  · omega\n  · congr 1 <;> omega\n\n/-- A nodup strip list has at most one vertex for each allowed layer-column pair.\nNo connectivity, source, terminal, or unproved counting estimate is used. -/\ntheorem bridgeVertexList_length_le_columnSet\n    {h : ℕ} (vs : List Vertex) (hnodup : vs.Nodup)\n    (hstrip : ∀ v ∈ vs, 0 ≤ layer v ∧ layer v < (h : ℤ))\n    (columns : Finset ℤ)\n    (hcolumns : ∀ v ∈ vs, bridgeBoxColumn v ∈ columns) :\n    vs.length ≤ h * columns.card := by\n  classical\n  let image := vs.toFinset.image bridgeLayerColumnCode\n  let box := (Finset.Ico (0 : ℤ) (h : ℤ)) ×ˢ columns\n  have hsub : image ⊆ box := by\n    intro pair hpair\n    obtain ⟨v, hv, rfl⟩ := Finset.mem_image.mp hpair\n    have hvlist : v ∈ vs := List.mem_toFinset.mp hv\n    exact Finset.mem_product.mpr\n      ⟨Finset.mem_Ico.mpr (hstrip v hvlist), hcolumns v hvlist⟩\n  have hcard : image.card = vs.length := by\n    rw [Finset.card_image_of_injective _ bridgeLayerColumnCode_injective]\n    exact List.toFinset_card_of_nodup hnodup\n  have hboxcard : box.card = h * columns.card := by\n    simp only [box, Finset.card_product, Int.card_Ico, sub_zero, Int.toNat_natCast]\n  calc\n    vs.length = image.card := hcard.symm\n    _ ≤ box.card := Finset.card_le_card hsub\n    _ = h * columns.card := hboxcard\n\ntheorem bridgeLength_le_columnSet {h : ℕ} (p : BridgePath h)\n    (columns : Finset ℤ)\n    (hcolumns : ∀ v ∈ p.vertices, bridgeBoxColumn v ∈ columns) :\n    p.vertices.length ≤ h * columns.card :=\n  bridgeVertexList_length_le_columnSet p.vertices p.distinct p.inStrip columns hcolumns\n\n/-- The interval may even be empty; its natural cardinality handles that case. -/\ntheorem bridgeLength_le_columnInterval {h : ℕ} (p : BridgePath h) (a b : ℤ)\n    (hbox : ∀ v ∈ p.vertices, a ≤ bridgeBoxColumn v ∧ bridgeBoxColumn v ≤ b) :\n    p.vertices.length ≤ h * (b + 1 - a).toNat := by\n  have h := bridgeLength_le_columnSet p (Finset.Icc a b)\n    (fun v hv => Finset.mem_Icc.mpr (hbox v hv))\n  simpa only [Int.card_Icc] using h\n\n/-- Exact geometric size bound for the already defined symmetric slab box. -/\ntheorem bridgeLength_le_columnBox {h : ℕ} (p : BridgePath h) (R : ℕ)\n    (hbox : bridgeInColumnBox R p) :\n    p.vertices.length ≤ h * (4 * R + 2) := by\n  have hlength := bridgeLength_le_columnInterval p\n    (-(2 * (R : ℤ))) (2 * (R : ℤ) + 1) hbox\n  have hwidth : (2 * (R : ℤ) + 1 + 1 - -(2 * (R : ℤ))).toNat = 4 * R + 2 := by\n    omega\n  simpa only [hwidth] using hlength\n\n/-- Index of the two-column slab containing a vertex, using integer floor division. -/\ndef bridgeBoxSlab (v : Vertex) : ℤ := bridgeBoxColumn v / 2\n\n/-- A finite set of two-column slabs contains at most `2*h` vertices per slab. -/\ntheorem bridgeLength_le_slabSet {h : ℕ} (p : BridgePath h)\n    (slabs : Finset ℤ)\n    (hslabs : ∀ v ∈ p.vertices, bridgeBoxSlab v ∈ slabs) :\n    p.vertices.length ≤ 2 * h * slabs.card := by\n  classical\n  let slots := slabs ×ˢ Finset.Ico (0 : ℤ) 2\n  let columns := slots.image (fun q : ℤ × ℤ => 2 * q.1 + q.2)\n  have hcolumns : ∀ v ∈ p.vertices, bridgeBoxColumn v ∈ columns := by\n    intro v hv\n    refine Finset.mem_image.mpr\n      ⟨(bridgeBoxColumn v / 2, bridgeBoxColumn v % 2), ?_, ?_⟩\n    · exact Finset.mem_product.mpr\n        ⟨hslabs v hv, Finset.mem_Ico.mpr ⟨by omega, by omega⟩⟩\n    · omega\n  have hcard : columns.card ≤ slabs.card * 2 := by\n    calc\n      columns.card ≤ slots.card := Finset.card_image_le\n      _ = slabs.card * 2 := by\n        simp only [slots, Finset.card_product, Int.card_Ico]\n        rfl\n  calc\n    p.vertices.length ≤ h * columns.card := bridgeLength_le_columnSet p columns hcolumns\n    _ ≤ h * (slabs.card * 2) := Nat.mul_le_mul_left h hcard\n    _ = 2 * h * slabs.card := by ac_rfl\n\ndef bridgeOccupiedSlabs {h : ℕ} (p : BridgePath h) : Finset ℤ :=\n  p.vertices.toFinset.image bridgeBoxSlab\n\n/-- In particular, a transfer encoding counting occupied slabs has this length bound. -/\ntheorem bridgeLength_le_occupiedSlabs {h : ℕ} (p : BridgePath h) :\n    p.vertices.length ≤ 2 * h * (bridgeOccupiedSlabs p).card := by\n  apply bridgeLength_le_slabSet\n  intro v hv\n  exact Finset.mem_image.mpr ⟨v, List.mem_toFinset.mpr hv, rfl⟩\n\n/-- The actual maximum absolute column of a finite vertex list. -/\ndef bridgeColumnRadius {h : ℕ} (p : BridgePath h) : ℕ :=\n  p.vertices.toFinset.sup (fun v => (bridgeBoxColumn v).natAbs)\n\ntheorem bridgeColumn_natAbs_le_radius {h : ℕ} (p : BridgePath h)\n    (v : Vertex) (hv : v ∈ p.vertices) :\n    (bridgeBoxColumn v).natAbs ≤ bridgeColumnRadius p :=\n  Finset.le_sup (f := fun w : Vertex => (bridgeBoxColumn w).natAbs)\n    (List.mem_toFinset.mpr hv)\n\n/-- A length profile using the path's actual maximum absolute column. -/\ntheorem bridgeLength_le_columnRadius {h : ℕ} (p : BridgePath h) :\n    p.vertices.length ≤ h * (2 * bridgeColumnRadius p + 1) := by\n  have hbox : ∀ v ∈ p.vertices,\n      -(bridgeColumnRadius p : ℤ) ≤ bridgeBoxColumn v ∧\n        bridgeBoxColumn v ≤ (bridgeColumnRadius p : ℤ) := by\n    intro v hv\n    have hnat := bridgeColumn_natAbs_le_radius p v hv\n    have hcast : ((bridgeBoxColumn v).natAbs : ℤ) ≤ (bridgeColumnRadius p : ℤ) := by\n      omega\n    have hhi := Int.le_natAbs (a := bridgeBoxColumn v)\n    have hlo := Int.le_natAbs (a := -bridgeBoxColumn v)\n    simp only [Int.natAbs_neg] at hlo\n    constructor <;> omega\n  have hlength := bridgeLength_le_columnInterval p\n    (-(bridgeColumnRadius p : ℤ)) (bridgeColumnRadius p : ℤ) hbox\n  have hwidth : ((bridgeColumnRadius p : ℤ) + 1 - -(bridgeColumnRadius p : ℤ)).toNat =\n      2 * bridgeColumnRadius p + 1 := by omega\n  simpa only [hwidth] using hlength\n```\n\n\n# Honeycomb 已验分层接口增量：任意 profile → firstLengthWeight → 原六项\n\n本消息是可供现有共享 objective 采用的本地形式化建议及代码增量。未改活动源码/队列，也未请求重新运行原题。原题 `OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums` 仍未由本包证明。\n\n规范基底 commit 96e89fbc7f26408eaaab99235481d1dd64ffcc1c，canonical SHA256 1274ab0b8f9c01548559d48d055fc92a20ebf2433f643bd8ad90a313b304b674。主8接口真实 Lean exit0，3.372312 秒；occupied-slab 组合 exit0，3.993500 秒。9条公理逐项仅标准三项。证据：/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-length-profile-followup-20261024/validation-02-result.json、/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-length-profile-followup-20261024/validation-03-occupied-result.json、/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-length-profile-followup-20261024/axioms-audit.json。精确声明头、SHA256 和剩余义务见 /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-length-profile-followup-20261024/delivery-contract.json。\n\n主接口使用任意 `profile : BridgePath h → ℕ`。`bridgeProfileMass profile n` 是精确 profile 层的权重 tsum；Bridge 入口从 `hw : Summable weight` 自动取得每层 HasSum，通用入口则显式要求每层 HasSum。不要仅凭可能发散的 tsum 相等推断分层正确。`C≥0` 和 `length≤C*(profile+1)` 处理平移/零层，不把矩阵幂指标强行当成路径顶点数。\n\n依赖：已递送的 TheoremOS.FiniteMatrixFirstMoment 两条定理和 matrixMass；canonical 定义、bridgeWeight_nonneg、bridgeFiniteBridgeSums_of_firstLengthWeight。旧矩阵增量 SHA256 fa18397788fad96d9c54a45b51dc9f8aa338da30c5bd5108a0445c5437fd3fb6，本包逐字复用，下面不重复它。\n\n第一段完整主增量自带 namespace；加到顶层，已有 namespace 若打开须先正确闭合，不嵌套成重复的 OAI。\n\n```lean\nnamespace TheoremOS.ProfileSummability\n\nopen scoped BigOperators\n\n/-- The real mass of an exact profile fiber. Its use as a coefficient requires\nfiber convergence; the theorems below derive it from whole-family summability\nor request `HasSum`, rather than relying on a possibly divergent `tsum`. -/\nnoncomputable def fiberMass {α : Type*} (w : α → ℝ) (profile : α → ℕ) (n : ℕ) : ℝ :=\n  ∑' a : {a : α // profile a = n}, w a.val\n\ntheorem summable_fiberMass_of_summable\n    {α : Type*} {w : α → ℝ} (profile : α → ℕ) (hw : Summable w) :\n    Summable (fiberMass w profile) := by\n  exact (hw.hasSum.tsum_fiberwise profile).summable\n\n\n/-- Exact convergent fiber sums may be lifted through any nonnegative profile\nmultiplier. Fibers may be infinite; each is required to have the stated sum. -/\ntheorem summable_profileScale_of_hasSum\n    {α : Type*} {w : α → ℝ} {profile : α → ℕ} {c scale : ℕ → ℝ}\n    (hw : ∀ a, 0 ≤ w a) (hscale : ∀ n, 0 ≤ scale n)\n    (hfiber : ∀ n, HasSum (fun a : {a : α // profile a = n} => w a.val) (c n))\n    (hc : Summable (fun n => scale n * c n)) :\n    Summable (fun a => scale (profile a) * w a) := by\n  let f : (Σ n : ℕ, {a : α // profile a = n}) → ℝ :=\n    fun p => scale p.1 * w p.2.val\n  have hscaled (n : ℕ) :\n      HasSum (fun a : {a : α // profile a = n} => scale n * w a.val)\n        (scale n * c n) := (hfiber n).mul_left (scale n)\n  have hsigma : Summable f :=\n    (summable_sigma_of_nonneg (f := f)\n      (fun p => mul_nonneg (hscale p.1) (hw p.2.val))).2\n      ⟨fun n => (hscaled n).summable,\n        hc.congr (fun n => (hscaled n).tsum_eq.symm)⟩\n  have hreindex : Summable\n      (fun p : Σ n : ℕ, {a : α // profile a = n} =>\n        scale (profile p.2.val) * w p.2.val) := by\n    refine hsigma.congr fun p => ?_\n    change scale p.1 * w p.2.val = scale (profile p.2.val) * w p.2.val\n    rw [p.2.property]\n  exact (Equiv.sigmaFiberEquiv profile).summable_iff.mp hreindex\n\n\n/-- A first moment in an arbitrary natural profile dominates a size moment\nwhenever `size <= C * (profile+1)`. The shift handles zero/offset profiles. -/\ntheorem summable_sizeWeight_of_hasSum\n    {α : Type*} {w : α → ℝ} {size profile : α → ℕ} {c : ℕ → ℝ} {C : ℝ}\n    (hw : ∀ a, 0 ≤ w a) (hC : 0 ≤ C)\n    (hsize : ∀ a, (size a : ℝ) ≤ C * ((profile a : ℝ) + 1))\n    (hfiber : ∀ n, HasSum (fun a : {a : α // profile a = n} => w a.val) (c n))\n    (hc : Summable c) (hmoment : Summable (fun n : ℕ => (n : ℝ) * c n)) :\n    Summable (fun a => (size a : ℝ) * w a) := by\n  have hshift : Summable (fun n : ℕ => C * ((n : ℝ) + 1) * c n) := by\n    refine ((hmoment.add hc).mul_left C).congr fun n => ?_\n    ring\n  have hscale : ∀ n : ℕ, 0 ≤ C * ((n : ℝ) + 1) :=\n    fun n => mul_nonneg hC (add_nonneg (Nat.cast_nonneg n) zero_le_one)\n  have hdom : Summable (fun a => C * ((profile a : ℝ) + 1) * w a) :=\n    summable_profileScale_of_hasSum (w := w) (profile := profile) (c := c)\n      (scale := fun n => C * ((n : ℝ) + 1)) hw hscale hfiber hshift\n  exact Summable.of_nonneg_of_le\n    (fun a => mul_nonneg (Nat.cast_nonneg _) (hw a))\n    (fun a => mul_le_mul_of_nonneg_right (hsize a) (hw a)) hdom\n\n\nend TheoremOS.ProfileSummability\n\nnamespace OAI.PolynomialVacuumBridge.Corridor\n\nopen scoped BigOperators Matrix\n\n/-- Exact bridge mass in a caller-chosen profile fiber; the transfer exponent\nmay be occupied slab span, rather than the path's vertex length. -/\nnoncomputable def bridgeProfileMass {h : ℕ}\n    (profile : BridgePath h → ℕ) (n : ℕ) : ℝ :=\n  TheoremOS.ProfileSummability.fiberMass (weight (h := h)) profile n\n\ntheorem bridgeSummable_firstLengthWeight_of_profileFirstMoment\n    {h : ℕ} (profile : BridgePath h → ℕ) {C : ℝ} (hC : 0 ≤ C)\n    (hsize : ∀ p : BridgePath h,\n      (p.vertices.length : ℝ) ≤ C * ((profile p : ℝ) + 1))\n    (hw : Summable (weight (h := h)))\n    (hmoment : Summable (fun n : ℕ => (n : ℝ) * bridgeProfileMass profile n)) :\n    Summable (firstLengthWeight (h := h)) := by\n  change Summable (fun p : BridgePath h => (p.vertices.length : ℝ) * weight p)\n  refine TheoremOS.ProfileSummability.summable_sizeWeight_of_hasSum\n    (w := weight (h := h)) (size := fun p => p.vertices.length)\n    (profile := profile) (c := bridgeProfileMass profile)\n    bridgeWeight_nonneg hC hsize ?_\n    (TheoremOS.ProfileSummability.summable_fiberMass_of_summable profile hw) hmoment\n  intro n\n  exact (hw.subtype (fun p : BridgePath h => profile p = n)).hasSum\n\n\ntheorem bridgeSummable_firstLengthWeight_of_profileFactorization\n    {h : ℕ} {ι : Type*} [Fintype ι]\n    (profile : BridgePath h → ℕ) {C : ℝ} (hC : 0 ≤ C)\n    (hsize : ∀ p : BridgePath h,\n      (p.vertices.length : ℝ) ≤ C * ((profile p : ℝ) + 1))\n    (hw : Summable (weight (h := h))) (L R : ℕ → ι → ℝ)\n    (hL : ∀ n i, 0 ≤ L n i) (hR : ∀ n i, 0 ≤ R n i)\n    (hfactor : ∀ a b, bridgeProfileMass profile (a + b) = ∑ i, L a i * R b i) :\n    Summable (firstLengthWeight (h := h)) := by\n  apply bridgeSummable_firstLengthWeight_of_profileFirstMoment profile hC hsize hw\n  exact TheoremOS.FiniteMatrixFirstMoment.summable_firstMoment_of_finite_nonneg_factorization\n    (c := bridgeProfileMass profile) (L := L) (R := R) hL hR hfactor\n    (TheoremOS.ProfileSummability.summable_fiberMass_of_summable profile hw)\n\ntheorem bridgeSummable_firstLengthWeight_of_matrixProfile\n    {h : ℕ} {ι : Type*} [Fintype ι] [DecidableEq ι]\n    (profile : BridgePath h → ℕ) {C : ℝ} (hC : 0 ≤ C)\n    (hsize : ∀ p : BridgePath h,\n      (p.vertices.length : ℝ) ≤ C * ((profile p : ℝ) + 1))\n    (hw : Summable (weight (h := h)))\n    (A : Matrix ι ι ℝ) (u v : ι → ℝ)\n    (hA : ∀ i j, 0 ≤ A i j) (hu : ∀ i, 0 ≤ u i) (hv : ∀ i, 0 ≤ v i)\n    (hidentity : ∀ n, bridgeProfileMass profile n =\n      TheoremOS.FiniteMatrixFirstMoment.matrixMass A u v n) :\n    Summable (firstLengthWeight (h := h)) := by\n  have hc : Summable (TheoremOS.FiniteMatrixFirstMoment.matrixMass A u v) :=\n    (TheoremOS.ProfileSummability.summable_fiberMass_of_summable profile hw).congr hidentity\n  have hm := TheoremOS.FiniteMatrixFirstMoment.summable_matrix_firstMoment A u v hA hu hv hc\n  apply bridgeSummable_firstLengthWeight_of_profileFirstMoment profile hC hsize hw\n  refine hm.congr fun n => ?_\n  rw [hidentity n]\n\n\n/-- A special case only: this does not claim that a honeycomb transfer matrix\nis naturally indexed by vertex length. -/\ntheorem bridgeSummable_firstLengthWeight_of_lengthProfileFactorization\n    {h : ℕ} {ι : Type*} [Fintype ι]\n    (hw : Summable (weight (h := h))) (L R : ℕ → ι → ℝ)\n    (hL : ∀ n i, 0 ≤ L n i) (hR : ∀ n i, 0 ≤ R n i)\n    (hfactor : ∀ a b,\n      bridgeProfileMass (fun p : BridgePath h => p.vertices.length) (a + b) =\n        ∑ i, L a i * R b i) : Summable (firstLengthWeight (h := h)) := by\n  apply bridgeSummable_firstLengthWeight_of_profileFactorization\n    (fun p : BridgePath h => p.vertices.length) (C := 1) zero_le_one ?_ hw L R hL hR hfactor\n  intro p\n  simp only [one_mul]\n  linarith\n\n/-- Composition with the accepted canonical six-clause reduction. Each width\nmay use its own finite state type, profile and comparison constant. -/\ntheorem bridgeFiniteBridgeSums_of_matrixProfiles\n    (ι : ℕ → Type*) [∀ h, Fintype (ι h)] [∀ h, DecidableEq (ι h)]\n    (profile : ∀ h, BridgePath h → ℕ) (C : ℕ → ℝ)\n    (A : ∀ h, Matrix (ι h) (ι h) ℝ) (u v : ∀ h, ι h → ℝ)\n    (hw : ∀ h, 1 ≤ h → Summable (weight (h := h)))\n    (hC : ∀ h, 1 ≤ h → 0 ≤ C h)\n    (hsize : ∀ h, 1 ≤ h → ∀ p : BridgePath h,\n      (p.vertices.length : ℝ) ≤ C h * (((profile h) p : ℝ) + 1))\n    (hA : ∀ h, 1 ≤ h → ∀ i j, 0 ≤ A h i j)\n    (hu : ∀ h, 1 ≤ h → ∀ i, 0 ≤ u h i)\n    (hv : ∀ h, 1 ≤ h → ∀ i, 0 ≤ v h i)\n    (hidentity : ∀ h, 1 ≤ h → ∀ n, bridgeProfileMass (profile h) n =\n      TheoremOS.FiniteMatrixFirstMoment.matrixMass (A h) (u h) (v h) n) :\n    FiniteBridgeSums := by\n  apply bridgeFiniteBridgeSums_of_firstLengthWeight\n  intro h hh\n  exact bridgeSummable_firstLengthWeight_of_matrixProfile (profile h)\n    (hC h hh) (hsize h hh) (hw h hh) (A h) (u h) (v h)\n    (hA h hh) (hu h hh) (hv h hh) (hidentity h hh)\n\n\nend OAI.PolynomialVacuumBridge.Corridor\n```\n\n第二段是直接接已验几何的额外推论。它依赖已验 `bridgeLength_le_occupiedSlabs`、`bridgeOccupiedSlabs`；几何增量 SHA256 c67b5cf4dabbaf84a7b3158406e055fc63442a404c6b9c16657a063e2cf2987f，本包集成 harness 逐字复用。把下面这段加在 OAI.PolynomialVacuumBridge.Corridor namespace 内，位于几何和第一段之后。它将 profile 设为实际 occupied-slab 数、C 设为 2*h，已经通过 exact_mod_cast 与非负比较。\n\n```lean\n/-- The checked occupied-slab length estimate discharges every geometric\ncomparison premise. Only mass summability and the exact transfer encoding remain. -/\ntheorem bridgeFiniteBridgeSums_of_occupiedSlabMatrices\n    (ι : ℕ → Type*) [∀ h, Fintype (ι h)] [∀ h, DecidableEq (ι h)]\n    (A : ∀ h, Matrix (ι h) (ι h) ℝ) (u v : ∀ h, ι h → ℝ)\n    (hw : ∀ h, 1 ≤ h → Summable (weight (h := h)))\n    (hA : ∀ h, 1 ≤ h → ∀ i j, 0 ≤ A h i j)\n    (hu : ∀ h, 1 ≤ h → ∀ i, 0 ≤ u h i)\n    (hv : ∀ h, 1 ≤ h → ∀ i, 0 ≤ v h i)\n    (hidentity : ∀ h, 1 ≤ h → ∀ n,\n      bridgeProfileMass (fun p : BridgePath h => (bridgeOccupiedSlabs p).card) n =\n        TheoremOS.FiniteMatrixFirstMoment.matrixMass (A h) (u h) (v h) n) :\n    FiniteBridgeSums := by\n  refine bridgeFiniteBridgeSums_of_matrixProfiles ι\n    (fun h p => (bridgeOccupiedSlabs p).card) (fun h => 2 * (h : ℝ))\n    A u v hw ?_ ?_ hA hu hv hidentity\n  · intro h _hh\n    positivity\n  · intro h _hh p\n    have hlength : (p.vertices.length : ℝ) ≤\n        2 * (h : ℝ) * ((bridgeOccupiedSlabs p).card : ℝ) := by\n      exact_mod_cast bridgeLength_le_occupiedSlabs p\n    exact hlength.trans (mul_le_mul_of_nonneg_left\n      (le_add_of_nonneg_right zero_le_one)\n      (mul_nonneg zero_le_two (Nat.cast_nonneg h)))\n```\n\n剩余数学输入仍为：(1) 每 h≥1 的真实桥质量可和性，可由 uniform finite-box 总质量界加此前归约取得；(2) 有限非负 transfer/因子分解的精确 profile 系数恒等式，包括端点、n=0 和指标平移。对于 occupied-slab 实例，长度比较已由几何包及第二段消去；对其它 profile，使用第一段传入真实比较界。\n\n这是辅助定理及条件归约的内核通过，不是原题整体成功。固定 Lean/Mathlib/封存环境，32 GiB、单核 -j1、maxHeartbeats=0，无 wall/CPU/调用次数 cap。首次宽导入辅助准备被诊断性 SIGTERM（exit=-15，非timeout）中断，后精简依赖context exit0；首候选多余dsimp导致exit1的证据也保留。本次没有改原题活动进程、runtime、state 或队列。主代理可按正常流程串行递送本条具体增量。\n\n\nShared geometry delta only: fixed-source column-word injection. These are independent auxiliary theorems with local kernel evidence, not native TaskProof acceptance and not a proof of the original goal. Attribution: independently developed Codex proof from the frozen canonical statement; no publisher solution or hidden reasoning was read.\n\nTwo exact facts are now proved. First, from a given honeycomb vertex u, an adjacent destination is uniquely determined by the destination column: adjacent u v, adjacent u w and column(v)=column(w) imply v=w. Second, inducting over a connected chain from the canonical source up(0,0), its complete integer column sequence uniquely determines the vertex list and the BridgePath object. The Lean interface is Function.Injective (bridgeColumnWord (h := h)), where bridgeColumnWord p := p.vertices.map bridgeBoxColumn. The proof uses the frozen adjacency, chain and source; it does not need Nodup, inStrip, an enumeration hypothesis, a transfer matrix or an unproved growth estimate.\n\nUse the injection only when the encoded word is exactly this full column sequence, or after separately proving that another encoding determines this sequence. It does not by itself show that a finite cut-state encoding is exact, that an accepting language has bounded multiplicity, that transfer weights agree with path weights, or that total bridge mass is finite. The exact finite-state encoding/weight identity and a uniform finite-box mass bound (or equivalent substantive input) remain open. This delta supplies no sub-mu growth bound or unconditional original theorem.\n\nLocal kernel evidence: actual exit 0 at 2026-10-24T12:53:53.187541+00:00, elapsed 2.657527851872146 seconds; Lean 4.34.1, Mathlib d13f23b723b8a846827a245b89c10fc7d3f11612, sealed environment 2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87. Single core/thread, 32 GiB address-space, Lean memory 32768 MiB, maxHeartbeats=0, no wall/CPU/invocation cap. All four theorem axioms are exactly propext and Quot.sound; no sorryAx. Source SHA256 bcb5c4ca45ff3d4298f3ff8a0f0325856334ab167dcd33279877a3de0138c04b (4970 bytes), increment SHA256 2b0c4f2a47ae6a95e6a229b57bfc6281282945ad123eb8ff39f8f542c431fb0e (3315 bytes), validation-result SHA256 6e7a0ddbd33dc082c76c0677922b630b8d5695c09ac090ad763b7775dfd4a2a3.\n\nInsert this increment once inside OAI.PolynomialVacuumBridge.Corridor after the canonical declarations and the existing bridgeBoxColumn definition. Preserve existing source work and check name collisions; never replace Submission.lean with the standalone validation harness. This increment adds only one definition and four theorems; it does not repeat the previous finite-matrix or column-cardinality proofs. Native acceptance/integration must use the ordinary host workflow. Rechecking this unchanged advisory in standalone Lean/Lake loops is unnecessary.\n\n```lean\n/-- At a fixed honeycomb vertex, a neighboring vertex is determined by its column.\nThis checks all three edges of the frozen adjacency relation. -/\ntheorem bridgeAdjacent_unique_of_column {u v w : Vertex}\n    (huv : adjacent u v) (huw : adjacent u w)\n    (hcolumn : bridgeBoxColumn v = bridgeBoxColumn w) : v = w := by\n  cases u <;> cases v <;> cases w <;>\n    simp only [adjacent, bridgeBoxColumn] at huv huw hcolumn\n  all_goals\n    rcases huv with ⟨hv1, hv2⟩ | ⟨hv1, hv2⟩ | ⟨hv1, hv2⟩\n    all_goals\n      rcases huw with ⟨hw1, hw2⟩ | ⟨hw1, hw2⟩ | ⟨hw1, hw2⟩\n      all_goals congr 1 <;> omega\n\n/-- With a common initial vertex, the complete column word determines a chain's tail. -/\ntheorem bridgeChain_tail_eq_of_columnWord {root : Vertex} {vs ws : List Vertex}\n    (hvs : (root :: vs).IsChain adjacent)\n    (hws : (root :: ws).IsChain adjacent)\n    (hword : vs.map bridgeBoxColumn = ws.map bridgeBoxColumn) : vs = ws := by\n  induction vs generalizing root ws with\n  | nil =>\n      cases ws with\n      | nil => rfl\n      | cons w ws => cases hword\n  | cons v vs ih =>\n      cases ws with\n      | nil => cases hword\n      | cons w ws =>\n          have hwords : bridgeBoxColumn v = bridgeBoxColumn w ∧\n              vs.map bridgeBoxColumn = ws.map bridgeBoxColumn := by\n            simpa only [List.map_cons, List.cons.injEq] using hword\n          have hvw : v = w := bridgeAdjacent_unique_of_column\n            (List.isChain_cons_cons.mp hvs).1\n            (List.isChain_cons_cons.mp hws).1 hwords.1\n          subst w\n          exact congrArg (List.cons v) (ih\n            (List.isChain_cons_cons.mp hvs).2\n            (List.isChain_cons_cons.mp hws).2 hwords.2)\n\n/-- Absolute integer columns of the canonical vertex list, including the source. -/\ndef bridgeColumnWord {h : ℕ} (p : BridgePath h) : List ℤ :=\n  p.vertices.map bridgeBoxColumn\n\ntheorem bridgeVertices_eq_of_columnWord {h : ℕ} (p q : BridgePath h)\n    (hword : bridgeColumnWord p = bridgeColumnWord q) :\n    p.vertices = q.vertices := by\n  have hpsource := p.source\n  have hqsource := q.source\n  have hpchain := p.connected\n  have hqchain := q.connected\n  unfold bridgeColumnWord at hword\n  cases hp : p.vertices with\n  | nil => simp only [hp, List.head?_nil, reduceCtorEq] at hpsource\n  | cons v vs =>\n      cases hq : q.vertices with\n      | nil => simp only [hq, List.head?_nil, reduceCtorEq] at hqsource\n      | cons w ws =>\n          have hv : v = Vertex.up 0 0 := by\n            simpa only [hp, List.head?_cons, Option.some.injEq] using hpsource\n          have hw : w = Vertex.up 0 0 := by\n            simpa only [hq, List.head?_cons, Option.some.injEq] using hqsource\n          subst v\n          subst w\n          apply congrArg (List.cons (Vertex.up 0 0))\n          apply bridgeChain_tail_eq_of_columnWord\n            (by simpa only [hp] using hpchain)\n            (by simpa only [hq] using hqchain)\n          exact (List.cons.inj (by simpa only [hp, hq, List.map_cons] using hword)).2\n\n/-- Distinct canonical paths have distinct column words. No strip-count estimate is assumed. -/\ntheorem bridgeColumnWord_injective (h : ℕ) :\n    Function.Injective (bridgeColumnWord (h := h)) := by\n  intro p q hword\n  have hvertices := bridgeVertices_eq_of_columnWord p q hword\n  cases p\n  cases q\n  cases hvertices\n  rfl\n```\n\n\nTwo exact typed task adapters, validated once. The two complete task types are copied verbatim from the active cooperation task records; no conclusion, hypothesis, binder, or dependency has been changed. Exact task/type snapshot and header comparison are stored in task-snapshot.json, exact-task-types.json and exact-type-check.json.\n\nTasks:\n- bridge_full_column_word_injective_a0424391 -> OAI.PolynomialVacuumBridge.Corridor.bridgePath_eq_of_column_eq\n- bridge_column_step_unique_a0424391 -> OAI.PolynomialVacuumBridge.Corridor.bridgeColumnStep_unique\n\nInsert ColumnTaskAdapters.lean.inc once inside OAI.PolynomialVacuumBridge.Corridor after the existing bridgeAdjacent_unique_of_column and bridgeColumnWord_injective helpers from /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024. Check for names already implemented by a worker before insertion. The complete harness is validation-only and must not replace Submission.lean. These adapters discharge exactly the two local typed statements; ordinary native TaskProof acceptance remains for the parent/native workflow.\n\nLocal kernel actual exit 0, finished 2026-10-24T13:07:02.685999+00:00, duration 4.334369486896321 seconds. Both adapter axioms exactly [propext, Quot.sound]; no sorryAx or Classical.choice. Lean leanprover/lean4:v4.34.1; Mathlib d13f23b723b8a846827a245b89c10fc7d3f11612; sealed environment 2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87. One thread/core, 32 GiB address-space, memory 32768 MiB, maxHeartbeats=0, no wall, CPU or invocation cap. Source SHA256 e76fc2d68203b799ae54349300bcf5fb0c030681b100047fc227213b1ccbb72d; increment SHA256 ac75a6b702bf8df541a2b980b62caa8a764c90045a3095421573a20a24beb96b; validation-result SHA256 3634f848d3c1f0f22f4b8c589e983c82ce21ccaf30a00f5d26c192aa5023f94a.\n\nThis is auxiliary local evidence, not native TaskProof acceptance, OpenAI-hosted certification, or a proof of HoneycombBridgeFiniteness. Strict sub-mu growth, uniform finite-box mass and exact transfer encoding/weight identity remain unproved. No publisher solution or hidden reasoning was read. No previous package, active runtime/source, state or queue was changed. Queue delivery is reserved to the parent agent.\n\n```lean\ntheorem bridgePath_eq_of_column_eq : ∀ {h : ℕ} {p q : OAI.PolynomialVacuumBridge.Corridor.BridgePath h}, p.vertices.map (fun v : OAI.PolynomialVacuumBridge.Corridor.Vertex => match v with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) = q.vertices.map (fun v : OAI.PolynomialVacuumBridge.Corridor.Vertex => match v with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) → p = q := by\n  intro h p q hword\n  exact bridgeColumnWord_injective h hword\n\ntheorem bridgeColumnStep_unique : ∀ {a b d : OAI.PolynomialVacuumBridge.Corridor.Vertex}, OAI.PolynomialVacuumBridge.Corridor.adjacent a b → OAI.PolynomialVacuumBridge.Corridor.adjacent a d → (match b with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) = (match d with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) → b = d := by\n  intro a b d hab had hcolumn\n  exact bridgeAdjacent_unique_of_column hab had hcolumn\n\n```\n",
+        "ownerId": "researcher-2",
+        "revision": 0,
+        "sharing": "problem"
+      },
+      {
+        "dependsOn": [],
+        "groupId": "main",
+        "id": "width_two_summability_diagnostic",
+        "kind": "lemma",
+        "objective": "Prove the fixed width-two pair of summabilities as a strictly smaller diagnostic for the finite-width transfer route; this does not prove the original target or the full strip-growth frontier.",
+        "proofPath": "Submission.lean",
+        "revision": 0,
+        "theoremName": "OAI.PolynomialVacuumBridge.Corridor.width_two_summability_diagnostic",
+        "type": "Summable (OAI.PolynomialVacuumBridge.Corridor.weight (h := 2)) ∧ Summable (OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (h := 2))"
+      }
+    ],
+    "groups": [
+      {
+        "id": "main",
+        "objective": "Prove the original problem",
+        "revision": 0,
+        "status": "active"
+      }
+    ]
+  },
+  "validation": {
+    "id": "honeycomb-ready-column-proof-priority-20261024",
+    "status": "validated",
+    "baseVersion": "b75c6a57a2e124da8db83ce007e43f6c15ad77db2f1f8682ff8efc87649a46dc"
+  },
+  "oldTaskOrder": [
+    "strip_growth_below_mu",
+    "sums_reduction",
+    "initial_goal_1",
+    "initial_research_1",
+    "initial_research_2",
+    "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+    "finite_box_zero_mass_reference",
+    "width_two_summability_diagnostic",
+    "bridge_full_column_word_injective_a0424391",
+    "bridge_column_step_unique_a0424391"
+  ],
+  "newTaskOrder": [
+    "strip_growth_below_mu",
+    "sums_reduction",
+    "initial_goal_1",
+    "bridge_column_step_unique_a0424391",
+    "bridge_full_column_word_injective_a0424391",
+    "initial_research_1",
+    "initial_research_2",
+    "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+    "finite_box_zero_mass_reference",
+    "width_two_summability_diagnostic"
+  ],
+  "taskObjectsUnchanged": true,
+  "expectedInvalidatedTasks": [],
+  "assignmentsBefore": [
+    {
+      "taskId": "strip_growth_below_mu",
+      "assignment": {
+        "assignmentId": "65f1697f-fa42-4863-bc57-032cd0a476e9",
+        "canonicalCommit": "9a84d330aba29bffd88ae5e7bf9956f0048e457a",
+        "dependencies": [],
+        "groupId": "main",
+        "researchBasis": {
+          "dependencies": [],
+          "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+          "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+          "retrievalDigest": "f5fa7f00d04e495a9eb0089943ca9e6764e56ca67c96253410933e210be6dfad",
+          "schema": "theorem-os.research-basis.v1",
+          "sourceDigest": "849cdd79f26f89f0cd68dcd6ee1ab9ffe80e4e903afcacee8ad10aa479a7aeb5",
+          "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+          "taskId": "strip_growth_below_mu"
+        },
+        "seedCommit": "72c3ac48330f6892bbb941350a9612ca15a1ac2f",
+        "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+        "taskId": "strip_growth_below_mu",
+        "workerId": "researcher-1"
+      }
+    },
+    {
+      "taskId": "sums_reduction",
+      "assignment": {
+        "assignmentId": "a4887df1-cd13-409a-be47-8f79d5f94209",
+        "canonicalCommit": "9a84d330aba29bffd88ae5e7bf9956f0048e457a",
+        "dependencies": [],
+        "groupId": "main",
+        "researchBasis": {
+          "dependencies": [],
+          "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+          "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+          "retrievalDigest": "f5fa7f00d04e495a9eb0089943ca9e6764e56ca67c96253410933e210be6dfad",
+          "schema": "theorem-os.research-basis.v1",
+          "sourceDigest": "849cdd79f26f89f0cd68dcd6ee1ab9ffe80e4e903afcacee8ad10aa479a7aeb5",
+          "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+          "taskId": "sums_reduction"
+        },
+        "seedCommit": "e91efd3c840a5f3585db67f3c414291429590aed",
+        "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+        "taskId": "sums_reduction",
+        "workerId": "engineer"
+      }
+    },
+    {
+      "taskId": "initial_goal_1",
+      "assignment": {
+        "assignmentId": "69b53b79-cb36-44e1-9d4c-e81bb99a0a4a",
+        "canonicalCommit": "9a84d330aba29bffd88ae5e7bf9956f0048e457a",
+        "connectionCheck": {
+          "assignmentId": "69b53b79-cb36-44e1-9d4c-e81bb99a0a4a",
+          "assumedInputs": [
+            {
+              "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+              "taskId": "strip_growth_below_mu"
+            },
+            {
+              "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+              "taskId": "sums_reduction"
+            }
+          ],
+          "basisDigest": "da7f4387824491fa57bc65b6a8f77d5a5d89aee9719d30eee687cc99607ae267",
+          "consumer": {
+            "taskDigest": "ab8c91c92c1d5d985ed03edfaee27bbef6df38455b84a82711d07d8d13e77890",
+            "taskId": "initial_goal_1"
+          },
+          "dependenciesDigest": "ff09395ec6e87e8e16f0ba75e82a0f945dbe162d149608dab84961349f99d31f",
+          "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+          "inputs": [
+            {
+              "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+              "taskId": "strip_growth_below_mu"
+            },
+            {
+              "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+              "taskId": "sums_reduction"
+            }
+          ],
+          "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+          "routesDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+          "schema": "theorem-os.consumer-connection.v1",
+          "seedCommit": "e91efd3c840a5f3585db67f3c414291429590aed",
+          "workerId": "engineer"
+        },
+        "dependencies": [
+          {
+            "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+            "taskId": "strip_growth_below_mu"
+          },
+          {
+            "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+            "taskId": "sums_reduction"
+          }
+        ],
+        "groupId": "main",
+        "researchBasis": {
+          "dependencies": [
+            {
+              "deliveries": [
+                "a4178d3882beeef3e89b4a26a35d89372bf5a80f922786f0b0536726b2f006ba"
+              ],
+              "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+              "taskId": "strip_growth_below_mu"
+            },
+            {
+              "deliveries": [],
+              "proof": {
+                "conditions": [],
+                "state": "integrated",
+                "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292"
+              },
+              "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+              "taskId": "sums_reduction"
+            }
+          ],
+          "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+          "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+          "retrievalDigest": "f5fa7f00d04e495a9eb0089943ca9e6764e56ca67c96253410933e210be6dfad",
+          "schema": "theorem-os.research-basis.v1",
+          "sourceDigest": "849cdd79f26f89f0cd68dcd6ee1ab9ffe80e4e903afcacee8ad10aa479a7aeb5",
+          "taskDigest": "ab8c91c92c1d5d985ed03edfaee27bbef6df38455b84a82711d07d8d13e77890",
+          "taskId": "initial_goal_1"
+        },
+        "seedCommit": "e91efd3c840a5f3585db67f3c414291429590aed",
+        "taskDigest": "ab8c91c92c1d5d985ed03edfaee27bbef6df38455b84a82711d07d8d13e77890",
+        "taskId": "initial_goal_1",
+        "workerId": "engineer"
+      }
+    },
+    {
+      "taskId": "initial_research_2",
+      "assignment": {
+        "assignmentId": "e034f31d-dacd-438e-8c98-0ba6f806b763",
+        "canonicalCommit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+        "dependencies": [],
+        "groupId": "main",
+        "researchBasis": {
+          "dependencies": [],
+          "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+          "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+          "retrievalDigest": "f5fa7f00d04e495a9eb0089943ca9e6764e56ca67c96253410933e210be6dfad",
+          "schema": "theorem-os.research-basis.v1",
+          "sourceDigest": "d7464cb0895f9c7e360036300e0df311dae0bc3887b7dc6b70d9c06f6fbe26b7",
+          "taskDigest": "b931a3e5dec82b221a3e6e769806c42fa52bf5cbccb83dbb5e506e085124fd40",
+          "taskId": "initial_research_2"
+        },
+        "seedCommit": "b0d203f9e83f5076291037e6b1c3ed17ad6342e9",
+        "taskDigest": "b931a3e5dec82b221a3e6e769806c42fa52bf5cbccb83dbb5e506e085124fd40",
+        "taskId": "initial_research_2",
+        "workerId": "researcher-2"
+      }
+    },
+    {
+      "taskId": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+      "assignment": {
+        "assignmentId": "444ca639-b7bf-443c-888f-48c91187923c",
+        "canonicalCommit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+        "dependencies": [
+          {
+            "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+            "taskId": "strip_growth_below_mu"
+          },
+          {
+            "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+            "taskId": "sums_reduction"
+          }
+        ],
+        "groupId": "main",
+        "researchBasis": {
+          "dependencies": [
+            {
+              "deliveries": [
+                "a4178d3882beeef3e89b4a26a35d89372bf5a80f922786f0b0536726b2f006ba"
+              ],
+              "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+              "taskId": "strip_growth_below_mu"
+            },
+            {
+              "deliveries": [],
+              "proof": {
+                "conditions": [],
+                "state": "integrated",
+                "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292"
+              },
+              "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+              "taskId": "sums_reduction"
+            }
+          ],
+          "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+          "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+          "retrievalDigest": "f5fa7f00d04e495a9eb0089943ca9e6764e56ca67c96253410933e210be6dfad",
+          "schema": "theorem-os.research-basis.v1",
+          "sourceDigest": "d7464cb0895f9c7e360036300e0df311dae0bc3887b7dc6b70d9c06f6fbe26b7",
+          "taskDigest": "a566ecb30cfa77e4830a011cabf0228e09e2f0fe59b2557cd987ad6dbbac43ba",
+          "taskId": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51"
+        },
+        "seedCommit": "950eaafbb5a06536f484dd47659d07d5fb36dafe",
+        "taskDigest": "a566ecb30cfa77e4830a011cabf0228e09e2f0fe59b2557cd987ad6dbbac43ba",
+        "taskId": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+        "workerId": "engineer"
+      }
+    }
+  ]
+}

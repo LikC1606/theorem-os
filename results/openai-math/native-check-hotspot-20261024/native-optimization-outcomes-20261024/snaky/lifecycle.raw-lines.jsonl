@@ -1,0 +1,3 @@
+{"event":"edit_applied","at":1792849511693,"id":"READ-scratch-tmp-HOST-REVIEW-EVIDENCE-json","planVersion":"91cf040ffacb4918271bb9f9de949a6e5fe4eaf409c32e9fed90bff276307fbd","affectedTasks":[],"recheck":{"status":"not-required","tasks":[]}}
+{"event":"review_completed","at":1792849828833,"commit":"14d49c0f2bb94a8973471120f675554798126117","verdict":"accepted","workerId":"researcher-1"}
+{"event":"evaluation_started","at":1792849829347,"workerId":"solver"}

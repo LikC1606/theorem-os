@@ -1,0 +1,13 @@
+{
+  "capturedAt": "2026-10-24T13:45:11.444Z",
+  "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+  "editId": "READ-scratch-tmp-HOST-REVIEW-EVIDENCE-json",
+  "result": {
+    "id": "READ-scratch-tmp-HOST-REVIEW-EVIDENCE-json",
+    "status": "queued",
+    "baseVersion": "91cf040ffacb4918271bb9f9de949a6e5fe4eaf409c32e9fed90bff276307fbd"
+  },
+  "newLeanInvocations": 0,
+  "verdictSupplied": false,
+  "mechanism": "Unchanged complete plan through the normal edit queue triggers its existing active-session notification. The notification id points to the advisory scratch file; no task, proof, state or runtime is replaced."
+}

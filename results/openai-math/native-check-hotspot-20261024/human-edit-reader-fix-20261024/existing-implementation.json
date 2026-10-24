@@ -1,0 +1,31 @@
+{
+  "schema": "human-edit-existing-implementation.v1",
+  "baseline": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/runtime",
+  "honeycombRuntime": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/honeycomb-new-build-continuation-20261024/runtime",
+  "files": [
+    {
+      "file": "src/solver/deliveries.ts",
+      "baselineSHA256": "fcc8e8b7faed04eab3263f7e9a2f6e946f81d6062cac1eb5b9c913c3765acee3",
+      "honeycombSHA256": "fcc8e8b7faed04eab3263f7e9a2f6e946f81d6062cac1eb5b9c913c3765acee3",
+      "identical": true
+    },
+    {
+      "file": "src/solver/cooperationInputs.ts",
+      "baselineSHA256": "12c139af7ef18d39925804f85c2c804cdad17d12d26d5f522f97fc07bd8f7e42",
+      "honeycombSHA256": "12c139af7ef18d39925804f85c2c804cdad17d12d26d5f522f97fc07bd8f7e42",
+      "identical": true
+    },
+    {
+      "file": "src/solver/humanEdit.ts",
+      "baselineSHA256": "9e35ade500b072657506919f2024d4ebcf811186ab6a102d3cc64d2d8b96ca53",
+      "honeycombSHA256": "9e35ade500b072657506919f2024d4ebcf811186ab6a102d3cc64d2d8b96ca53",
+      "identical": true
+    }
+  ],
+  "baselineDefaultWorkerLineBytes": 16000000,
+  "baselineResearchNotesBytes": 1000000,
+  "baselineWriterRecordBytesIncludingNewline": 1048576,
+  "baselineHumanReaderRecoveryEnabled": false,
+  "reuse": "Reuse existing worker bounded line-discard state machine, with a human-only 1 MiB record bound and durable edits/discardingOversized cursor.",
+  "historicalOldSnaky64kReproductionClaimedForBaseline": false
+}

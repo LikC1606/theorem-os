@@ -1,0 +1,14 @@
+{
+  "capturedAt": "2026-10-24T13:38:04.235Z",
+  "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+  "editId": "snaky-review-evidence-73002f0fe094",
+  "result": {
+    "id": "snaky-review-evidence-73002f0fe094",
+    "status": "queued",
+    "baseVersion": "91cf040ffacb4918271bb9f9de949a6e5fe4eaf409c32e9fed90bff276307fbd"
+  },
+  "evidenceSHA256": "73002f0fe094a068f24fbaadd82e996dcb0235430c28ef66d3c4490ea4e418b2",
+  "newLeanInvocations": 0,
+  "verdictSupplied": false,
+  "nativeFinalAcceptance": false
+}

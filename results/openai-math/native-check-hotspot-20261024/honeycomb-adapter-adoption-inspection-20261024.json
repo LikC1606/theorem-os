@@ -1,0 +1,571 @@
+{
+  "schema": "theorem-os.honeycomb-adapter-adoption-inspection.v1",
+  "recordedAt": "2026-10-24T13:41:42.486254+00:00",
+  "scope": "Bounded read-only inspection of public task state, source declarations, scheduler source, and public context files. Only this JSON report is written.",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "initialDiagnosticPlanVersion": "b75c6a57a2e124da8db83ce007e43f6c15ad77db2f1f8682ff8efc87649a46dc",
+  "currentReadback": {
+    "statePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/state.json",
+    "stateSHA256": "b1069fccaf5f483df51e13fdd0f9f236cc1fa324974758f061306b0fcfc658ea",
+    "planVersion": "a963753d49c95b1f2b4abcdd578af5bfea1ba4d8023dac0b059522ae52171d19",
+    "phase": "running",
+    "taskOrder": [
+      "strip_growth_below_mu",
+      "sums_reduction",
+      "initial_goal_1",
+      "bridge_column_step_unique_a0424391",
+      "bridge_full_column_word_injective_a0424391",
+      "initial_research_1",
+      "initial_research_2",
+      "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+      "finite_box_zero_mass_reference",
+      "width_two_summability_diagnostic"
+    ],
+    "dispatchCounts": {
+      "planning": 191,
+      "proof": 7,
+      "research": 91
+    },
+    "workers": [
+      {
+        "id": "solver",
+        "role": "lead",
+        "sessionRole": "lead",
+        "phase": "checking",
+        "sessionTaskId": null,
+        "sessionAssignmentId": null,
+        "sessionTaskVersion": null,
+        "scheduling": {
+          "since": 1792848403153,
+          "status": "idle"
+        },
+        "dispatchCounts": {
+          "planning": 191
+        }
+      },
+      {
+        "id": "researcher-1",
+        "role": "researcher",
+        "sessionRole": "prover",
+        "phase": "running",
+        "sessionTaskId": "strip_growth_below_mu",
+        "sessionAssignmentId": "65f1697f-fa42-4863-bc57-032cd0a476e9",
+        "sessionTaskVersion": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+        "scheduling": {
+          "action": "task",
+          "since": 1792829102449,
+          "status": "working",
+          "taskId": "strip_growth_below_mu"
+        },
+        "dispatchCounts": {
+          "proof": 2
+        }
+      },
+      {
+        "id": "researcher-2",
+        "role": "researcher",
+        "sessionRole": "researcher",
+        "phase": "running",
+        "sessionTaskId": "initial_research_2",
+        "sessionAssignmentId": "e034f31d-dacd-438e-8c98-0ba6f806b763",
+        "sessionTaskVersion": "b931a3e5dec82b221a3e6e769806c42fa52bf5cbccb83dbb5e506e085124fd40",
+        "scheduling": {
+          "action": "task",
+          "since": 1792848471484,
+          "status": "working",
+          "taskId": "initial_research_2"
+        },
+        "dispatchCounts": {
+          "proof": 1,
+          "research": 48
+        }
+      },
+      {
+        "id": "engineer",
+        "role": "engineer",
+        "sessionRole": "researcher",
+        "phase": "running",
+        "sessionTaskId": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+        "sessionAssignmentId": "444ca639-b7bf-443c-888f-48c91187923c",
+        "sessionTaskVersion": "a566ecb30cfa77e4830a011cabf0228e09e2f0fe59b2557cd987ad6dbbac43ba",
+        "scheduling": {
+          "action": "task",
+          "since": 1792849089305,
+          "status": "working",
+          "taskId": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51"
+        },
+        "dispatchCounts": {
+          "proof": 4,
+          "research": 43
+        }
+      }
+    ],
+    "groups": [
+      {
+        "busy": 3,
+        "group": {
+          "id": "main",
+          "objective": "Prove the original problem",
+          "revision": 0,
+          "status": "active"
+        },
+        "turns": 98
+      }
+    ],
+    "adapterTasks": [
+      {
+        "attempts": 0,
+        "parkedRoutes": {},
+        "routeParking": [],
+        "status": "pending",
+        "task": {
+          "dependsOn": [],
+          "groupId": "main",
+          "id": "bridge_column_step_unique_a0424391",
+          "kind": "lemma",
+          "objective": "Prove local uniqueness of an adjacent successor with a given full column code. This is an independently checkable atomic case analysis; it is strictly smaller than full-column-word injectivity and proves no count, finite-box bound, transfer identity, or summability.",
+          "proofPath": "Submission.lean",
+          "revision": 0,
+          "theoremName": "OAI.PolynomialVacuumBridge.Corridor.bridgeColumnStep_unique",
+          "type": "∀ {a b d : OAI.PolynomialVacuumBridge.Corridor.Vertex}, OAI.PolynomialVacuumBridge.Corridor.adjacent a b → OAI.PolynomialVacuumBridge.Corridor.adjacent a d → (match b with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) = (match d with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) → b = d"
+        }
+      },
+      {
+        "attempts": 0,
+        "parkedRoutes": {},
+        "routeParking": [],
+        "status": "pending",
+        "task": {
+          "dependsOn": [],
+          "groupId": "main",
+          "id": "bridge_full_column_word_injective_a0424391",
+          "kind": "lemma",
+          "objective": "Prove that the full column coordinate word determines a BridgePath with the fixed source, eliminating horizontal-realization multiplicity from a future exact transfer encoding. This is an independently checkable structural sublemma; it does not prove any count, finite-box bound, transfer identity, or summability and does not close strip_growth_below_mu or the original target.",
+          "proofPath": "Submission.lean",
+          "revision": 0,
+          "theoremName": "OAI.PolynomialVacuumBridge.Corridor.bridgePath_eq_of_column_eq",
+          "type": "∀ {h : ℕ} {p q : OAI.PolynomialVacuumBridge.Corridor.BridgePath h}, p.vertices.map (fun v : OAI.PolynomialVacuumBridge.Corridor.Vertex => match v with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) = q.vertices.map (fun v : OAI.PolynomialVacuumBridge.Corridor.Vertex => match v with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) → p = q"
+        }
+      }
+    ],
+    "referenceMetadata": {
+      "dependsOn": [],
+      "groupId": "main",
+      "id": "finite_box_zero_mass_reference",
+      "kind": "research",
+      "ownerId": "researcher-2",
+      "revision": 0,
+      "sharing": "problem",
+      "recordStatus": "pending",
+      "objectiveSHA256": "8d3c9fd868073c662db818a64a6b1df4db2784048b18b55c7f2ca4d6209adee4"
+    },
+    "lastHumanEdits": [
+      {
+        "affectedTasks": [
+          "finite_box_zero_mass_reference"
+        ],
+        "appliedAt": 1792837576150,
+        "baseVersion": "4739d167cce34527dbcee80f7ccc086348fd8849ca0b2cff9024e6ea77ffadcc",
+        "id": "honeycomb-profile-moment-d56b03cd4162",
+        "planVersion": "e6afeb39b4109ae9c8282b80f886c39da80f20e1ccde64e3003c5358a07857e5",
+        "receivedAt": 1792837576132,
+        "recheck": {
+          "status": "not-required",
+          "tasks": []
+        },
+        "status": "applied"
+      },
+      {
+        "affectedTasks": [
+          "finite_box_zero_mass_reference"
+        ],
+        "appliedAt": 1792846721210,
+        "baseVersion": "9ae8ed937f5239d7a3159fc70c92a41bdc551a563bdcae5df0f2a6e072877092",
+        "id": "honeycomb-column-word-2edb21e9effd",
+        "planVersion": "b61039bd9cc1eface3fa6eb8aae4043220bf430ac9ec673b7a980ab330d2ca11",
+        "receivedAt": 1792846721149,
+        "recheck": {
+          "status": "not-required",
+          "tasks": []
+        },
+        "status": "applied"
+      },
+      {
+        "affectedTasks": [
+          "finite_box_zero_mass_reference"
+        ],
+        "appliedAt": 1792847392822,
+        "baseVersion": "b61039bd9cc1eface3fa6eb8aae4043220bf430ac9ec673b7a980ab330d2ca11",
+        "id": "honeycomb-column-adapters-e77fffa42afb",
+        "planVersion": "b75c6a57a2e124da8db83ce007e43f6c15ad77db2f1f8682ff8efc87649a46dc",
+        "receivedAt": 1792847392785,
+        "recheck": {
+          "status": "not-required",
+          "tasks": []
+        },
+        "status": "applied"
+      },
+      {
+        "affectedTasks": [],
+        "appliedAt": 1792849177450,
+        "baseVersion": "b75c6a57a2e124da8db83ce007e43f6c15ad77db2f1f8682ff8efc87649a46dc",
+        "id": "honeycomb-ready-column-proof-priority-20261024",
+        "planVersion": "a963753d49c95b1f2b4abcdd578af5bfea1ba4d8023dac0b059522ae52171d19",
+        "receivedAt": 1792849177409,
+        "recheck": {
+          "status": "not-required",
+          "tasks": []
+        },
+        "status": "applied"
+      }
+    ]
+  },
+  "findings": [
+    "At initial diagnostic snapshot both exact typed helpers were pending, attempts zero, with no owner, assignment, type-preflight, proof or native receipt.",
+    "The normal adapter-sharing edit was applied to finite_box_zero_mass_reference only. It published advisory Lean text but did not assign or accept either typed task.",
+    "The main group had busy=3 with all three non-Lead workers occupied. Lead has no proof-worker role. The two helpers were last in the plan, after a recurring advisory research task.",
+    "Actual plan scheduler uses stable task-list order for the present neutral rank ties. A naturally freed engineer or researcher-2 can therefore select its old advisory research again before either helper.",
+    "researcher-1 public source contains bridgeColumnStep_unique and bridgePath_eq_of_column_eq with proof bodies, while its assigned task remains strip_growth_below_mu. The host checks the assigned declaration; unrelated declarations are not automatically accepted as other task proofs. This inspection does not assert that the live proofs compile or satisfy frozen-source protection."
+  ],
+  "pureSchedulerVerification": {
+    "executed": true,
+    "processExitCode": 0,
+    "usedActualModules": true,
+    "calledLean": false,
+    "calledModels": false,
+    "calledQueue": false,
+    "diagnosticPlanVersion": "b75c6a57a2e124da8db83ce007e43f6c15ad77db2f1f8682ff8efc87649a46dc",
+    "originalOrder": [
+      "strip_growth_below_mu",
+      "sums_reduction",
+      "initial_goal_1",
+      "initial_research_1",
+      "initial_research_2",
+      "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+      "finite_box_zero_mass_reference",
+      "width_two_summability_diagnostic",
+      "bridge_full_column_word_injective_a0424391",
+      "bridge_column_step_unique_a0424391"
+    ],
+    "proposedOrder": [
+      "strip_growth_below_mu",
+      "sums_reduction",
+      "initial_goal_1",
+      "bridge_column_step_unique_a0424391",
+      "bridge_full_column_word_injective_a0424391",
+      "initial_research_1",
+      "initial_research_2",
+      "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+      "finite_box_zero_mass_reference",
+      "width_two_summability_diagnostic"
+    ],
+    "parserAcceptedTaskOrder": true,
+    "allTaskObjectsIdenticalById": true,
+    "invalidatedTaskIds": [],
+    "allAssignmentsRetainedInModel": true,
+    "groupsAndProofRoutesUnchanged": true,
+    "checkpointModel": "In cloned in-memory state only, return the selected worker advisory task from running to pending and decrement main busy by one, retaining its assignment. Call actual readyResearchTasks and assignSharedResearchTask.",
+    "selectionResults": [
+      {
+        "workerId": "engineer",
+        "baselinePicked": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+        "reorderedPicked": "bridge_column_step_unique_a0424391"
+      },
+      {
+        "workerId": "researcher-2",
+        "baselinePicked": "initial_research_2",
+        "reorderedPicked": "bridge_column_step_unique_a0424391"
+      }
+    ],
+    "interpretation": "This is a pure scheduler selection model, not evidence that a live dispatch or native proof acceptance has occurred."
+  },
+  "recommendedQueueEdit": {
+    "action": "Stable reorder only: move the two existing unassigned helper task objects before initial_research_1, preserving every object and every remaining relative order.",
+    "preferredHelperOrder": [
+      "bridge_column_step_unique_a0424391",
+      "bridge_full_column_word_injective_a0424391"
+    ],
+    "reasonForOrder": "The adjacent-successor uniqueness statement is atomic and supports the full-column-word argument. Formalize and integrate it first when only one worker naturally becomes available.",
+    "expectedInvalidatedTasks": [],
+    "preserve": [
+      "every task object including id/type/objective/dependsOn/revision/ownerId/status/sharing",
+      "all groups",
+      "all proofRoutes",
+      "all existing TaskRecord assignments and their IDs/seeds/dependencies",
+      "original goals and all frozen source bodies",
+      "all existing proof and verification receipts"
+    ],
+    "prequeueChecks": [
+      "Read fresh state and current baseVersion; retain runId guard",
+      "Require both helper task records still pending with no assignment; if already running or accepted, reassess instead of superseding",
+      "Compare parsed task objects by id for exact canonical JSON equality",
+      "Compare group/proofRoutes objects exactly",
+      "Use invalidatedTaskIds with current task, route and assignment dependencies and require an empty result",
+      "Use normal queue and ordinary readback; this inspection does not enqueue or mutate state"
+    ],
+    "expectedBehavior": "No active task is invalidated or interrupted by the reorder. At a natural advisory checkpoint, the next eligible worker can receive step_unique, followed by the full-column helper when capacity becomes available. Prior research assignment records remain available for normal restoration.",
+    "noExtraDependencyEdgesNeeded": true,
+    "noOwnershipReassignmentNeeded": true
+  },
+  "contextAvailability": {
+    "fullPayloadAvailableInAllPublicWorktrees": true,
+    "publicWorktreeEvidence": [
+      {
+        "workerId": "solver",
+        "cooperationPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree/COOPERATION.json",
+        "cooperationSHA256": "94007f90db074665e3a9ed8356fe06ac5b831ac324f81ac50d1370bb53a6e5b4",
+        "cooperationPlanVersion": "a963753d49c95b1f2b4abcdd578af5bfea1ba4d8023dac0b059522ae52171d19",
+        "referenceObjectiveJSONPath": "peers[id=finite_box_zero_mass_reference].objective",
+        "referenceTaskDigest": "2b3edb507c434623e06b400963dfb2fc40dd1968a498dd6ad6f24bd28a65802e",
+        "fullReferenceObjectivePresentAndExact": true,
+        "objectiveSHA256": "8d3c9fd868073c662db818a64a6b1df4db2784048b18b55c7f2ca4d6209adee4",
+        "objectiveBytes": 48340,
+        "adapterNeedlesPresent": {
+          "theorem bridgeColumnStep_unique :": 1,
+          "theorem bridgePath_eq_of_column_eq :": 1,
+          "exact bridgeColumnWord_injective h hword": 1,
+          "exact bridgeAdjacent_unique_of_column hab had hcolumn": 1,
+          "ac75a6b702bf8df541a2b980b62caa8a764c90045a3095421573a20a24beb96b": 1
+        },
+        "contextManifestPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree/CONTEXT-MANIFEST.json",
+        "contextManifestSHA256": "738e1edd52c888f9689ca98d1f18f18db7bd595ce059935b7223ff645b8ba6e1",
+        "referencePromptIncludedEntries": [],
+        "referencePromptOmittedEntries": [],
+        "sourcePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree/generated/problem/Submission.lean",
+        "sourceSHA256": "1274ab0b8f9c01548559d48d055fc92a20ebf2433f643bd8ad90a313b304b674",
+        "sourceBytes": 8797,
+        "publicDeclarationOccurrences": {
+          "bridgeAdjacent_unique_of_column": [],
+          "bridgeChain_tail_eq_of_columnWord": [],
+          "bridgeColumnWord": [],
+          "bridgeVertices_eq_of_columnWord": [],
+          "bridgeColumnWord_injective": [],
+          "bridgeColumnStep_unique": [],
+          "bridgePath_eq_of_column_eq": []
+        },
+        "publicSourceHasNotBeenKernelRecheckedByThisInspection": true
+      },
+      {
+        "workerId": "researcher-1",
+        "cooperationPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-2/COOPERATION.json",
+        "cooperationSHA256": "5b4c38f257fae2949f54af1516466654b29ccfd0b76d72d62b7eb27b4c7f9be3",
+        "cooperationPlanVersion": "a963753d49c95b1f2b4abcdd578af5bfea1ba4d8023dac0b059522ae52171d19",
+        "referenceObjectiveJSONPath": "peers[id=finite_box_zero_mass_reference].objective",
+        "referenceTaskDigest": "2b3edb507c434623e06b400963dfb2fc40dd1968a498dd6ad6f24bd28a65802e",
+        "fullReferenceObjectivePresentAndExact": true,
+        "objectiveSHA256": "8d3c9fd868073c662db818a64a6b1df4db2784048b18b55c7f2ca4d6209adee4",
+        "objectiveBytes": 48340,
+        "adapterNeedlesPresent": {
+          "theorem bridgeColumnStep_unique :": 1,
+          "theorem bridgePath_eq_of_column_eq :": 1,
+          "exact bridgeColumnWord_injective h hword": 1,
+          "exact bridgeAdjacent_unique_of_column hab had hcolumn": 1,
+          "ac75a6b702bf8df541a2b980b62caa8a764c90045a3095421573a20a24beb96b": 1
+        },
+        "contextManifestPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-2/CONTEXT-MANIFEST.json",
+        "contextManifestSHA256": "b12699049ac48f41784ee89b12794c1b0ac678a6e0aa166533ddb320e6881f1f",
+        "referencePromptIncludedEntries": [],
+        "referencePromptOmittedEntries": [],
+        "sourcePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-2/generated/problem/Submission.lean",
+        "sourceSHA256": "c64e8b86f13df6af95e200729a38d1c01abad7f871d30e9fc0cb5320e7f768f3",
+        "sourceBytes": 8922,
+        "publicDeclarationOccurrences": {
+          "bridgeAdjacent_unique_of_column": [],
+          "bridgeChain_tail_eq_of_columnWord": [],
+          "bridgeColumnWord": [],
+          "bridgeVertices_eq_of_columnWord": [],
+          "bridgeColumnWord_injective": [],
+          "bridgeColumnStep_unique": [
+            117
+          ],
+          "bridgePath_eq_of_column_eq": [
+            192
+          ]
+        },
+        "publicSourceHasNotBeenKernelRecheckedByThisInspection": true
+      },
+      {
+        "workerId": "researcher-2",
+        "cooperationPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-3/COOPERATION.json",
+        "cooperationSHA256": "e17cabf5b4f89558ab5cd60d0a3c396f84c501238cedcd4e2c4aa5416e21b957",
+        "cooperationPlanVersion": "a963753d49c95b1f2b4abcdd578af5bfea1ba4d8023dac0b059522ae52171d19",
+        "referenceObjectiveJSONPath": "peers[id=finite_box_zero_mass_reference].objective",
+        "referenceTaskDigest": "2b3edb507c434623e06b400963dfb2fc40dd1968a498dd6ad6f24bd28a65802e",
+        "fullReferenceObjectivePresentAndExact": true,
+        "objectiveSHA256": "8d3c9fd868073c662db818a64a6b1df4db2784048b18b55c7f2ca4d6209adee4",
+        "objectiveBytes": 48340,
+        "adapterNeedlesPresent": {
+          "theorem bridgeColumnStep_unique :": 1,
+          "theorem bridgePath_eq_of_column_eq :": 1,
+          "exact bridgeColumnWord_injective h hword": 1,
+          "exact bridgeAdjacent_unique_of_column hab had hcolumn": 1,
+          "ac75a6b702bf8df541a2b980b62caa8a764c90045a3095421573a20a24beb96b": 1
+        },
+        "contextManifestPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-3/CONTEXT-MANIFEST.json",
+        "contextManifestSHA256": "f3475810d5561e4571e18df1e145885747c106a944f0e2bf9a690a40bdcdca07",
+        "referencePromptIncludedEntries": [],
+        "referencePromptOmittedEntries": [
+          {
+            "id": "interface:finite_box_zero_mass_reference",
+            "kind": "interfaces",
+            "reason": "optional-budget"
+          }
+        ],
+        "sourcePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-3/generated/problem/Submission.lean",
+        "sourceSHA256": "1274ab0b8f9c01548559d48d055fc92a20ebf2433f643bd8ad90a313b304b674",
+        "sourceBytes": 8797,
+        "publicDeclarationOccurrences": {
+          "bridgeAdjacent_unique_of_column": [],
+          "bridgeChain_tail_eq_of_columnWord": [],
+          "bridgeColumnWord": [],
+          "bridgeVertices_eq_of_columnWord": [],
+          "bridgeColumnWord_injective": [],
+          "bridgeColumnStep_unique": [],
+          "bridgePath_eq_of_column_eq": []
+        },
+        "publicSourceHasNotBeenKernelRecheckedByThisInspection": true
+      },
+      {
+        "workerId": "engineer",
+        "cooperationPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-4/COOPERATION.json",
+        "cooperationSHA256": "96029002818200fc34617e06f1b0554d83d2f2af459e2e46fecfe111251e6484",
+        "cooperationPlanVersion": "a963753d49c95b1f2b4abcdd578af5bfea1ba4d8023dac0b059522ae52171d19",
+        "referenceObjectiveJSONPath": "peers[id=finite_box_zero_mass_reference].objective",
+        "referenceTaskDigest": "2b3edb507c434623e06b400963dfb2fc40dd1968a498dd6ad6f24bd28a65802e",
+        "fullReferenceObjectivePresentAndExact": true,
+        "objectiveSHA256": "8d3c9fd868073c662db818a64a6b1df4db2784048b18b55c7f2ca4d6209adee4",
+        "objectiveBytes": 48340,
+        "adapterNeedlesPresent": {
+          "theorem bridgeColumnStep_unique :": 1,
+          "theorem bridgePath_eq_of_column_eq :": 1,
+          "exact bridgeColumnWord_injective h hword": 1,
+          "exact bridgeAdjacent_unique_of_column hab had hcolumn": 1,
+          "ac75a6b702bf8df541a2b980b62caa8a764c90045a3095421573a20a24beb96b": 1
+        },
+        "contextManifestPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-4/CONTEXT-MANIFEST.json",
+        "contextManifestSHA256": "fb9bd0a8472519427e6551c7de6c14971eb98bd21e22428302e2ba02e59f1452",
+        "referencePromptIncludedEntries": [],
+        "referencePromptOmittedEntries": [
+          {
+            "id": "interface:finite_box_zero_mass_reference",
+            "kind": "interfaces",
+            "reason": "optional-budget"
+          }
+        ],
+        "sourcePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-4/generated/problem/Submission.lean",
+        "sourceSHA256": "1274ab0b8f9c01548559d48d055fc92a20ebf2433f643bd8ad90a313b304b674",
+        "sourceBytes": 8797,
+        "publicDeclarationOccurrences": {
+          "bridgeAdjacent_unique_of_column": [],
+          "bridgeChain_tail_eq_of_columnWord": [],
+          "bridgeColumnWord": [],
+          "bridgeVertices_eq_of_columnWord": [],
+          "bridgeColumnWord_injective": [],
+          "bridgeColumnStep_unique": [],
+          "bridgePath_eq_of_column_eq": []
+        },
+        "publicSourceHasNotBeenKernelRecheckedByThisInspection": true
+      }
+    ],
+    "stateReferenceObjectiveSHA256": "8d3c9fd868073c662db818a64a6b1df4db2784048b18b55c7f2ca4d6209adee4",
+    "payloadRetrieval": "Read worktree-root COOPERATION.json peers and select id finite_box_zero_mass_reference; verify peer.taskDigest against the current task and UTF-8 SHA256(peer.objective)=peer.objectiveDigest. The complete earlier helper increment and both exact adapter wrappers are inline in objective.",
+    "newTypedTaskVisibility": "Both helpers and the reference are in main. cooperationCore.visible includes same-group tasks without an active/paused status filter; changed dispatch therefore retains full reference objective in COOPERATION.json even when the advisory task is paused.",
+    "promptCaveat": "The shared reference is optional prompt context and may be omitted for optional-budget. Current engineer and researcher-2 manifests record that omission. Public file readability is proved; automatic full prompt inclusion or actual model reading is not proved.",
+    "freshReferenceStatusIsRecordedAbove": "No paused status was inferred from the record status pending. The active/paused task field is preserved exactly in currentReadback.referenceMetadata."
+  },
+  "evidenceSources": [
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/honeycomb-new-build-continuation-20261024/runtime/src/solver/modules/index.ts",
+      "line": 15,
+      "sourceSHA256": "b22b66124de0bfa76fe0855f2fdcbbed566d30739bfe2034c4f5c22384b803dd",
+      "finding": "direct-v1 M3.ready is readyResearchTasks; current state M3 version has no continuation suffix"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/honeycomb-new-build-continuation-20261024/runtime/src/solver/modules/search.ts",
+      "line": 122,
+      "sourceSHA256": "fcc156c267e0685cc67f0c9af0c7389d097d9f599843e38a190c51bb04cc2f09",
+      "finding": "pending, active, capacity and readiness gates remain in force; neutral ties preserve task-list order"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/honeycomb-new-build-continuation-20261024/runtime/src/solver/modules/organization.ts",
+      "line": 58,
+      "sourceSHA256": "cdeff7138eccc71311f22b22c71c7722221176a01f92b2f75ef1a98f733230d4",
+      "finding": "saved assignment and owner responsibility gates are retained"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/honeycomb-new-build-continuation-20261024/runtime/src/solver/modules/organization.ts",
+      "line": 81,
+      "sourceSHA256": "cdeff7138eccc71311f22b22c71c7722221176a01f92b2f75ef1a98f733230d4",
+      "finding": "assignSharedResearchTask selects the first eligible ranked task subject to independent-work rules"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/honeycomb-new-build-continuation-20261024/runtime/src/solver/cooperation.ts",
+      "line": 600,
+      "sourceSHA256": "1dfdf76c70cfb1a3f789f34aef20e2494e725b8dfee140ad96af5f0e525a7622",
+      "finding": "peer dispatch uses M3.ready then M5.assign"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/honeycomb-new-build-continuation-20261024/runtime/src/solver/cooperation.ts",
+      "line": 1173,
+      "sourceSHA256": "1dfdf76c70cfb1a3f789f34aef20e2494e725b8dfee140ad96af5f0e525a7622",
+      "finding": "a natural interrupted task checkpoint returns running to pending without deleting assignment"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/honeycomb-new-build-continuation-20261024/runtime/src/solver/cooperationPlanning.ts",
+      "line": 395,
+      "sourceSHA256": "9b7051f2cb46d4ff56f594305ff7e5d4832d6e0f6d56c55ca94ecb59f20f363f",
+      "finding": "empty invalidation retains each existing TaskRecord and assignment"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/honeycomb-new-build-continuation-20261024/runtime/src/solver/humanEdit.ts",
+      "line": 10,
+      "sourceSHA256": "9e35ade500b072657506919f2024d4ebcf811186ab6a102d3cc64d2d8b96ca53",
+      "finding": "normal queue uses complete plan and fresh baseVersion; no no-op order rejection"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/honeycomb-new-build-continuation-20261024/runtime/src/solver/cooperationCore.ts",
+      "line": 295,
+      "sourceSHA256": "6d067b5b72805a53da649cb6860ca83bee44805be76223722f138954699504a0",
+      "finding": "public COOPERATION projection derives visible tasks then includes full peer objective"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/honeycomb-new-build-continuation-20261024/runtime/src/solver/cooperationCore.ts",
+      "line": 314,
+      "sourceSHA256": "6d067b5b72805a53da649cb6860ca83bee44805be76223722f138954699504a0",
+      "finding": "peers.objective is copied verbatim for visible nodes"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/honeycomb-new-build-continuation-20261024/runtime/src/solver/cooperationCore.ts",
+      "line": 638,
+      "sourceSHA256": "6d067b5b72805a53da649cb6860ca83bee44805be76223722f138954699504a0",
+      "finding": "same-group visibility does not test task active/paused status"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/honeycomb-new-build-continuation-20261024/runtime/src/solver/contextCompiler.ts",
+      "line": 554,
+      "sourceSHA256": "713c9bdaf67bbdf9872265b1b304a2ec5c57d9027f515c0f910cf6724f79076d",
+      "finding": "other visible task objective enters optional context, and may be omitted for budget"
+    }
+  ],
+  "riskBoundaries": [
+    "Do not add helpers as assumptions to the original target or claim they prove strict sub-mu growth, uniform finite-box mass, an exact transfer identity, or HoneycombBridgeFiniteness.",
+    "Do not change the long-running researcher-1 proof assignment to force helper adoption. Wait for ordinary advisory checkpoints or natural returns.",
+    "The timing of a natural checkpoint is not guaranteed by this report; prolonged useful reasoning may retain its existing host protection.",
+    "New proof tasks still need ordinary typed preflight, frozen-source checks, TaskProof verification and integration. Existing local Lean evidence is advisory provenance, not native or OpenAI-hosted acceptance.",
+    "Use the inline proven delta after checking for declaration-name collisions; never replace active Submission.lean with the standalone harness, and do not copy the unvalidated live researcher-1 source wholesale.",
+    "The parent owns any actual queue edit and follow-up. Current plan may change between reads; rebase the stable reorder on fresh state."
+  ],
+  "writes": {
+    "reportOnly": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-adapter-adoption-inspection-20261024.json",
+    "activeRuntime": false,
+    "activeState": false,
+    "activeSources": false,
+    "queue": false,
+    "frozenPackages": false,
+    "verificationReceipts": false
+  },
+  "hiddenReasoningRead": false,
+  "publisherSolutionsRead": false,
+  "environmentDescriptorsRead": false,
+  "mathChecksRerun": false
+}

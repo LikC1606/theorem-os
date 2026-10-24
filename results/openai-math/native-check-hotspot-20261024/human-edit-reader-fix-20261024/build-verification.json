@@ -1,0 +1,24 @@
+{
+  "verified": true,
+  "buildId": "57d42932-8fa4-422c-9445-684ef0eb7a09",
+  "manifest": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/human-edit-reader-fix-20261024/build-state/builds/57d42932-8fa4-422c-9445-684ef0eb7a09/manifest.json",
+  "bundles": [
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/human-edit-reader-fix-20261024/runtime/out/main/math-solver.js",
+      "bytes": 1729946,
+      "sha256": "73b949a6b2b9a06880110ad56f5a862320e17cf8426577d4172809cdc8d5dd7d"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/human-edit-reader-fix-20261024/runtime/out/main/search-lean.js",
+      "bytes": 173934,
+      "sha256": "d20f80273318e2dd48b3b135f8a7113b8523def704673d421429cbefed750020"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/human-edit-reader-fix-20261024/runtime/out/main/check-lean.js",
+      "bytes": 323024,
+      "sha256": "79ca2a2203c016d231de92a3ed915490017b93ccd4128c6d8e35babb41d1a807"
+    }
+  ],
+  "manifestMode": "400",
+  "sourceInputs": 211
+}

@@ -1,0 +1,33 @@
+{
+  "schema": "theorem-os.native-edit-readback.v1",
+  "observedAt": "2026-10-24T13:46:27.726211+00:00",
+  "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+  "edit": {
+    "affectedTasks": [],
+    "appliedAt": 1792849511603,
+    "baseVersion": "91cf040ffacb4918271bb9f9de949a6e5fe4eaf409c32e9fed90bff276307fbd",
+    "id": "READ-scratch-tmp-HOST-REVIEW-EVIDENCE-json",
+    "planVersion": "91cf040ffacb4918271bb9f9de949a6e5fe4eaf409c32e9fed90bff276307fbd",
+    "receivedAt": 1792849511554,
+    "recheck": {
+      "status": "not-required",
+      "tasks": []
+    },
+    "status": "applied"
+  },
+  "sourceStateSHA256": "b73064507cb593acc1691d9172ce39bbbc2f0a4c5b27c88c0fda66ae99c29e74",
+  "taskObjectsPreserved": true,
+  "proofsPreserved": true,
+  "reviewPreserved": true,
+  "preservedAssignments": [
+    "v8_original_goal"
+  ],
+  "assignmentsNaturallyReleasedOrReplaced": [],
+  "newAssignments": [],
+  "canonicalCommitPreserved": true,
+  "frozenRuntimeModified": false,
+  "newNativeTaskProofs": false,
+  "advisoryScratchFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/result.json.runtime/worktree-2/.scratch/tmp/HOST-REVIEW-EVIDENCE.json",
+  "advisoryScratchSHA256": "85cda09015a424fe7fcb2eb3de3696bfad91eb54739a85bc9350a30bad0a157a",
+  "modelReadConfirmed": false
+}

@@ -1,0 +1,100 @@
+{
+  "schema": "human-edit-reader-delivery-files.v1",
+  "root": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/human-edit-reader-fix-20261024",
+  "buildId": "57d42932-8fa4-422c-9445-684ef0eb7a09",
+  "fileCount": 17,
+  "files": [
+    {
+      "path": "runtime/src/solver/deliveries.ts",
+      "bytes": 12575,
+      "sha256": "68942507f51cb7f71eba6533f4d515ef6eddbc7bfbfb0b473033fc9763ed7b21"
+    },
+    {
+      "path": "runtime/src/solver/cooperationInputs.ts",
+      "bytes": 32280,
+      "sha256": "4076d81f04a034eb851e8d2e65ca0364f42b8004ca6e0af87eb8b284cf42843c"
+    },
+    {
+      "path": "runtime/src/solver/humanEdit.ts",
+      "bytes": 3807,
+      "sha256": "3cf820fc32b4794be5778176af8dcd2de88a37f66c27540fff3f4f4822c1919c"
+    },
+    {
+      "path": "runtime/tests/solverHumanEditRecovery.test.ts",
+      "bytes": 22145,
+      "sha256": "f333435359de66591c3e8652b925e86d004c94225c0bcb69dbd1ccd5c0770773"
+    },
+    {
+      "path": "changes.patch",
+      "bytes": 14034,
+      "sha256": "06463744d0c7483d631c04ee6cdf70178273e613930924cf576f6bebc90bbf73"
+    },
+    {
+      "path": "source-runtime-before.json",
+      "bytes": 287671,
+      "sha256": "9022e826e53013ceb388498f57e8ae3d9d42c9edb91d199b602291650678e9b4"
+    },
+    {
+      "path": "existing-implementation.json",
+      "bytes": 1578,
+      "sha256": "c7ac70719eb01f240964f25c6c101b9cb2c69b2c370804af02a5ff334b93e2e7"
+    },
+    {
+      "path": "source-isolation.json",
+      "bytes": 984,
+      "sha256": "d253598b60024210eb37f06f5ddaf33d63542e185fc74b18634cbf1b7dd1d8fb"
+    },
+    {
+      "path": "focused-tests.json",
+      "bytes": 30096,
+      "sha256": "07404772b34618c358111e5bcabdca72f135cb34db5cab08936af7d03bf2519c"
+    },
+    {
+      "path": "build-output.json",
+      "bytes": 442,
+      "sha256": "6dc4414861875d10f402ce04c867c12da70c487083b00fb887de0f56bf9a64a3"
+    },
+    {
+      "path": "build-verification.json",
+      "bytes": 1238,
+      "sha256": "ffac1e356fc9a5dc82b1b391fb8253bbd14ab3f1d5570ba1514516cbcc8f3082"
+    },
+    {
+      "path": "README.md",
+      "bytes": 2456,
+      "sha256": "ad55cb103d1be7ce6c08d6f48110c77de47e9450a43988dfdea3738d0a8666cf"
+    },
+    {
+      "path": "validation-summary.json",
+      "bytes": 4284,
+      "sha256": "7fcb28c4a0a932b6ee0448205b035c74bb3fd6b4c07a6a044c160123d29a3e6f"
+    },
+    {
+      "path": "runtime/out/main/math-solver.js",
+      "bytes": 1729946,
+      "sha256": "73b949a6b2b9a06880110ad56f5a862320e17cf8426577d4172809cdc8d5dd7d"
+    },
+    {
+      "path": "runtime/out/main/search-lean.js",
+      "bytes": 173934,
+      "sha256": "d20f80273318e2dd48b3b135f8a7113b8523def704673d421429cbefed750020"
+    },
+    {
+      "path": "runtime/out/main/check-lean.js",
+      "bytes": 323024,
+      "sha256": "79ca2a2203c016d231de92a3ed915490017b93ccd4128c6d8e35babb41d1a807"
+    },
+    {
+      "path": "build-state/builds/57d42932-8fa4-422c-9445-684ef0eb7a09/manifest.json",
+      "bytes": 57279,
+      "sha256": "95012bdb4f237090cdb2bc32a58235a3601bcad60503ff7f7d0bc18953bb4aad"
+    }
+  ],
+  "checksumsIncludeDeliveryManifest": true,
+  "excluded": [
+    "complete runtime tree",
+    "node_modules",
+    "caches",
+    "SHA256SUMS self-hash"
+  ]
+}

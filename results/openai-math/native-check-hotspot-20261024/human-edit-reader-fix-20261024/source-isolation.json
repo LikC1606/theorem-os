@@ -1,0 +1,28 @@
+{
+  "schema": "human-edit-reader-source-isolation.v1",
+  "baseline": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/runtime",
+  "runtime": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/human-edit-reader-fix-20261024/runtime",
+  "frozenFilesChecked": 1312,
+  "frozenChanges": [],
+  "changedExistingFiles": [
+    "out/main/math-solver.js",
+    "src/solver/cooperationInputs.ts",
+    "src/solver/deliveries.ts",
+    "src/solver/humanEdit.ts",
+    "tests/solverHumanEditRecovery.test.ts"
+  ],
+  "addedFiles": [],
+  "deletedFiles": [],
+  "regularFilesChecked": 6226,
+  "sharedInodes": [],
+  "symlinks": [],
+  "multipleLinkFiles": [],
+  "unexpectedChanges": [],
+  "sourceDiffFiles": [
+    "src/solver/deliveries.ts",
+    "src/solver/cooperationInputs.ts",
+    "src/solver/humanEdit.ts",
+    "tests/solverHumanEditRecovery.test.ts"
+  ],
+  "pass": true
+}

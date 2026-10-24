@@ -1,0 +1,118 @@
+{
+  "schema": "human-edit-reader-validation.v1",
+  "status": "passed-isolated-candidate",
+  "baseline": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/runtime",
+  "runtime": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/human-edit-reader-fix-20261024/runtime",
+  "existingImplementation": {
+    "honeycombFilesIdenticalToBaseline": true,
+    "baselineWorkerLineBytes": 16000000,
+    "baselineResearchNotesBytes": 1000000,
+    "historical64kIncidentReproducedHere": false
+  },
+  "change": {
+    "productFiles": 3,
+    "testFiles": 1,
+    "humanRecordBytesIncludingNewline": 1048576,
+    "oversizedRejection": "math_edit_too_large",
+    "durableDiscardCursor": "edits/discardingOversized",
+    "genericWorkerDiscardStateMachineReused": true,
+    "workerDeliveryAndResearchLimitsChanged": false
+  },
+  "focusedTests": {
+    "passed": 85,
+    "failed": 0,
+    "files": [
+      {
+        "path": "runtime/tests/inspection.test.ts",
+        "tests": 42,
+        "status": "passed"
+      },
+      {
+        "path": "runtime/tests/solverHumanEditRecovery.test.ts",
+        "tests": 16,
+        "status": "passed"
+      },
+      {
+        "path": "runtime/tests/solverInputs.test.ts",
+        "tests": 9,
+        "status": "passed"
+      },
+      {
+        "path": "runtime/tests/workerDeliveryRecovery.test.ts",
+        "tests": 18,
+        "status": "passed"
+      }
+    ],
+    "newBehaviorCases": 7,
+    "legalWriterToReaderBytes": [
+      65155,
+      66237,
+      1048576
+    ],
+    "completeOversizedRecordBytes": [
+      1048577,
+      2097253
+    ],
+    "partialOversizeThenJsonLookingTailTested": true,
+    "stateResumeTested": true,
+    "assignmentAndRecordedReceiptPreserved": true,
+    "receiptFixtureUsesMockedVerification": true
+  },
+  "typecheck": {
+    "command": "node node_modules/typescript/bin/tsc --noEmit",
+    "exitCode": 0
+  },
+  "headlessBuild": {
+    "command": "bun scripts/build.ts --state-root ../build-state",
+    "exitCode": 0,
+    "verifiedUsing": "readMathBuildManifest",
+    "buildId": "57d42932-8fa4-422c-9445-684ef0eb7a09",
+    "manifest": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/human-edit-reader-fix-20261024/build-state/builds/57d42932-8fa4-422c-9445-684ef0eb7a09/manifest.json",
+    "bundles": [
+      {
+        "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/human-edit-reader-fix-20261024/runtime/out/main/math-solver.js",
+        "bytes": 1729946,
+        "sha256": "73b949a6b2b9a06880110ad56f5a862320e17cf8426577d4172809cdc8d5dd7d"
+      },
+      {
+        "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/human-edit-reader-fix-20261024/runtime/out/main/search-lean.js",
+        "bytes": 173934,
+        "sha256": "d20f80273318e2dd48b3b135f8a7113b8523def704673d421429cbefed750020"
+      },
+      {
+        "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/human-edit-reader-fix-20261024/runtime/out/main/check-lean.js",
+        "bytes": 323024,
+        "sha256": "79ca2a2203c016d231de92a3ed915490017b93ccd4128c6d8e35babb41d1a807"
+      }
+    ],
+    "sourceInputs": 211
+  },
+  "isolation": {
+    "pass": true,
+    "frozenFilesChecked": 1312,
+    "frozenChanges": [],
+    "regularFilesChecked": 6226,
+    "sharedInodes": [],
+    "symlinks": [],
+    "unexpectedChanges": []
+  },
+  "resolvedTestAttempt": {
+    "initialFailure": "New test used toMatchObject with an absent pendingValidation property and expected undefined.",
+    "resolution": "Use pendingValidation.toBeUndefined(); product implementation unchanged.",
+    "finalResult": "85 passed, 0 failed."
+  },
+  "limits": [
+    "Receipt-preservation checks use recorded fixture receipts; no new mathematical acceptance or real Lean verification was performed."
+  ],
+  "scope": {
+    "realModelCalls": 0,
+    "leanCalls": 0,
+    "activeRunWrites": false,
+    "sseChanges": false,
+    "globalConfigurationWrites": false,
+    "previousFrozenCandidateChanged": false,
+    "activated": false,
+    "committed": false,
+    "pushed": false
+  }
+}

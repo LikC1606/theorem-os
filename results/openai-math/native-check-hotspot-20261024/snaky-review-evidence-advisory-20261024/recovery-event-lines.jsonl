@@ -1,0 +1,5 @@
+{"event":"cooperation_poll_failed","at":1792849084290,"reason":"math_delivery_line_too_large"}
+{"event":"cooperation_poll_failed","at":1792849084490,"reason":"math_delivery_line_too_large"}
+{"event":"edit_received","at":1792849511601,"id":"READ-scratch-tmp-HOST-REVIEW-EVIDENCE-json","baseVersion":"91cf040ffacb4918271bb9f9de949a6e5fe4eaf409c32e9fed90bff276307fbd"}
+{"event":"plan_updated","at":1792849511648,"groups":[{"group":{"id":"main","objective":"Prove the exact original SnakyConditional theorem","status":"active","revision":0,"engineerId":"engineer"},"turns":2,"busy":0}],"tasks":[{"id":"v8_original_goal","kind":"goal","dependsOn":[],"groupId":"main","sharing":"problem"}],"invalidated":[]}
+{"event":"edit_applied","at":1792849511693,"id":"READ-scratch-tmp-HOST-REVIEW-EVIDENCE-json","planVersion":"91cf040ffacb4918271bb9f9de949a6e5fe4eaf409c32e9fed90bff276307fbd","affectedTasks":[],"recheck":{"status":"not-required","tasks":[]}}

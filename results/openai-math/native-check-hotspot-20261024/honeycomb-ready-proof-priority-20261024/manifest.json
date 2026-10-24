@@ -1,0 +1,47 @@
+{
+  "schema": "theorem-os.operational-evidence-manifest.v1",
+  "frozenAt": "2026-10-24T13:50:11.005528+00:00",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 1527,
+      "sha256": "ded2139789ab52bd6c251b0171994527cfaf4e6fc387477298b31c4563f3ca88"
+    },
+    {
+      "path": "native-applied-readback.json",
+      "bytes": 1331,
+      "sha256": "e18a1ada67dfb215cfd0ae204485bd268a58f7c0f8eb604bd65a66d7ab373bb9"
+    },
+    {
+      "path": "preparation.json",
+      "bytes": 73375,
+      "sha256": "2d3f462d86afa81e148372128c094b5e84cfad90800b6ffbe04a292dd1dedc65"
+    },
+    {
+      "path": "queue-ready-proofs.ts",
+      "bytes": 4267,
+      "sha256": "cf4d07cb62ed3aa51ba56bc5b6f52100f7e1f9a518dd987d44ef0cec68128232"
+    },
+    {
+      "path": "queue-receipt.json",
+      "bytes": 412,
+      "sha256": "e16b06f3032c55a265658630f9a9ef4600d5664bc38f482074a1104764ccf85a"
+    },
+    {
+      "path": "state-after.json",
+      "bytes": 916980,
+      "sha256": "c50520d89e06fbb4424bbfb791482694fb3cb1885cef8d83c15ea713f9b69796"
+    },
+    {
+      "path": "state-before.json",
+      "bytes": 914787,
+      "sha256": "b7f0af2a540d3e59c249e8d92028014e8677912d541c3b8ef24e15546c8708e3"
+    },
+    {
+      "path": "state-readback.json",
+      "bytes": 916928,
+      "sha256": "5bd19ef1c05d5378cf777971da992bb283e89be85287ec95de5362720fbb7ce5"
+    }
+  ],
+  "scope": "Local operational changes through normal edit protocol; exact receipts and task contracts preserved. No new mathematics acceptance claimed."
+}

@@ -1,0 +1,99 @@
+{
+  "observedAt": "2026-10-24T14:12:30.331543+00:00",
+  "origins": {
+    "honeycomb/native-state.json": {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/state.json",
+      "bytes": 1013638,
+      "sha256": "508059e83339b131d1e06ed13ecaf1d42cb87ed2282ad4ea4efe5264979e314b"
+    },
+    "honeycomb/native-result-in-progress.json": {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json",
+      "bytes": 357,
+      "sha256": "2c0d3f02c194a9af6a3b176ba09bd1c4e5830eac95db021291a203cb990fee07"
+    },
+    "honeycomb/launch.json": {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/launch.json",
+      "bytes": 4845,
+      "sha256": "11160ddd96cb3c4eaa4b92a9a0d15083cf73da3fd2a2a2066df383b26043ee15"
+    },
+    "snaky/native-state.json": {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/result.json.runtime/state.json",
+      "bytes": 3564978,
+      "sha256": "b46e7ce756462e00601bcf06f64d6bffb1b7acfcf4e9a3eea3e34b4ba3e4180b"
+    },
+    "snaky/native-result-in-progress.json": {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/result.json",
+      "bytes": 372,
+      "sha256": "ba842f431e3e1da99e0af896dbdcfb42b7b023321f9dda815e9bac67319ca9ed"
+    },
+    "snaky/launch.json": {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/launch.json",
+      "bytes": 4621,
+      "sha256": "7ece53853e37a39f69a41a4814c60041c16c65c1c285495f7661592a4e6180c1"
+    }
+  },
+  "sourceExports": [
+    {
+      "path": "honeycomb/proof-source/Submission.lean",
+      "commit": "a33722d373af78f27436e6cdc6c3ce4d373c41d2",
+      "gitPath": "generated/problem/Submission.lean",
+      "bytes": 10234,
+      "sha256": "e54c640523d67c92557d1b79be925f6c752a28fd5824c743437084215d0377b6"
+    },
+    {
+      "path": "honeycomb/integrated-source/Submission.lean",
+      "commit": "c86302c7813e5059b06c983ff3fd69bb740be47c",
+      "gitPath": "generated/problem/Submission.lean",
+      "bytes": 10234,
+      "sha256": "e54c640523d67c92557d1b79be925f6c752a28fd5824c743437084215d0377b6"
+    },
+    {
+      "path": "honeycomb/integrated-source/lean-toolchain",
+      "commit": "c86302c7813e5059b06c983ff3fd69bb740be47c",
+      "gitPath": "generated/problem/lean-toolchain",
+      "bytes": 25,
+      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "path": "honeycomb/integrated-source/lakefile.toml",
+      "commit": "c86302c7813e5059b06c983ff3fd69bb740be47c",
+      "gitPath": "generated/problem/lakefile.toml",
+      "bytes": 321,
+      "sha256": "5626031b96b817d4ed6b2615ac3ebddeb0f1856208d6363bddea8b64cfe6e6b6"
+    },
+    {
+      "path": "honeycomb/integrated-source/lake-manifest.json",
+      "commit": "c86302c7813e5059b06c983ff3fd69bb740be47c",
+      "gitPath": "generated/problem/lake-manifest.json",
+      "bytes": 3571,
+      "sha256": "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829"
+    }
+  ],
+  "honeycombNativeStepIntegrated": true,
+  "snakyFixedReviewAccepted": true,
+  "snakyPhase": "evaluating",
+  "snakyResultStatus": "prepared",
+  "budgetCaps": {
+    "honeycomb": {
+      "maxRunSeconds": 0,
+      "maxTurns": 0,
+      "maxTurnSeconds": 0,
+      "maxTotalTokens": 0,
+      "evaluatorTimeoutSeconds": 0
+    },
+    "snaky": {
+      "maxRunSeconds": 0,
+      "maxTurns": 0,
+      "maxTurnSeconds": 0,
+      "maxTotalTokens": 0,
+      "evaluatorTimeoutSeconds": 0
+    }
+  },
+  "campaignService": {
+    "NRestarts": "0",
+    "ExecMainPID": "1250004",
+    "ActiveState": "active",
+    "SubState": "running"
+  },
+  "progress": "../optimization-progress-20261024T141230Z.json"
+}

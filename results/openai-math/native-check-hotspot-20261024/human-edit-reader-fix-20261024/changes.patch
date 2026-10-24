@@ -1,0 +1,222 @@
+--- a/src/solver/deliveries.ts
++++ b/src/solver/deliveries.ts
+@@ -16,6 +16,8 @@
+ // Explicit research snapshots carry up to 1 MB of Lean sources alongside the
+ // complete finding. Allow bounded JSON escaping without rejecting existing files.
+ export const MAX_DELIVERY_LINE_BYTES = 16_000_000;
++/** Human control records retain their existing append limit, including the newline. */
++export const MAX_HUMAN_EDIT_BYTES = 1024 * 1024;
+ 
+ /** JSON for host decisions, optional Markdown for explanations; legacy fences remain readable. */
+ export function readMathResponse(worktree: string, legacyFence: string, bindings: Record<string, unknown> = {}, textField?: string): any {
+@@ -154,8 +156,11 @@
+ 
+ /** Read complete appended lines only. The durable cursor survives restarts and partial writes. */
+ export function readDeliveryLines(file: string, offset: number,
+-  recovery?: { discardingOversized: boolean }): DeliveryLogBatch {
++  recovery?: { discardingOversized: boolean; maxLineBytes?: number }): DeliveryLogBatch {
+   if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('math_delivery_log_invalid');
++  const maxLineBytes = recovery?.maxLineBytes ?? MAX_DELIVERY_LINE_BYTES;
++  if (!Number.isSafeInteger(maxLineBytes) || maxLineBytes < 1 || maxLineBytes > MAX_DELIVERY_LINE_BYTES)
++    throw new Error('math_delivery_log_invalid');
+   if (!fs.existsSync(file)) return { lines: [], offset, entries: [],
+     ...(recovery ? { discardingOversized: recovery.discardingOversized } : {}) };
+   assertMathCanonicalPath(file);
+@@ -163,7 +168,7 @@
+   try {
+     const stat = fs.fstatSync(fd);
+     if (!stat.isFile() || stat.nlink !== 1 || stat.size < offset) throw new Error('math_delivery_log_invalid');
+-    const buffer = Buffer.alloc(Math.min(stat.size - offset, MAX_DELIVERY_LINE_BYTES + 1));
++    const buffer = Buffer.alloc(Math.min(stat.size - offset, maxLineBytes + 1));
+     const size = fs.readSync(fd, buffer, 0, buffer.length, offset);
+     const entries: DeliveryLogEntry[] = [];
+     let start = 0, discarding = recovery?.discardingOversized ?? false;
+@@ -176,7 +181,7 @@
+     while (start < size) {
+       const newline = buffer.subarray(0, size).indexOf(10, start);
+       if (newline < 0) {
+-        if (start === 0 && size > MAX_DELIVERY_LINE_BYTES) {
++        if (start === 0 && size > maxLineBytes) {
+           if (!recovery) throw new Error('math_delivery_line_too_large');
+           start = size; discarding = true;
+           entries.push({ error: 'math_delivery_line_too_large', offset: offset + start, discardingOversized: true });
+--- a/src/solver/cooperationInputs.ts
++++ b/src/solver/cooperationInputs.ts
+@@ -5,7 +5,7 @@
+ import { mathGitResult } from '../math/mathGit';
+ import { type ResearchWorker } from './modules/organization';
+ import { taskCanStart } from './modules/search';
+-import { deliveryDetails, readDeliveryLines } from './deliveries';
++import { deliveryDetails, MAX_HUMAN_EDIT_BYTES, readDeliveryLines } from './deliveries';
+ import { isStatementAction } from './statementReview';
+ import { captureDeliveryArtifacts } from './deliveryArtifacts';
+ import { researchHandoffs, resolveResearchHandoffs, type ResearchHandoffDecision } from './researchHandoffs';
+@@ -112,13 +112,18 @@
+       this.schedulePlanSynchronization();
+     const cursors = this.archive.cursors ??= {};
+     const file = path.join(path.dirname(this.lead.worktree), 'edits.jsonl');
+-    const edits = readDeliveryLines(file, cursors.edits ?? 0);
+-    const advance = (offset: number) => { cursors.edits = offset; this.input.save(); };
++    const discardKey = 'edits/discardingOversized';
++    const edits = readDeliveryLines(file, cursors.edits ?? 0,
++      { discardingOversized: cursors[discardKey] === 1, maxLineBytes: MAX_HUMAN_EDIT_BYTES - 1 });
++    const advance = (offset: number, discardingOversized = false) => {
++      cursors.edits = offset; cursors[discardKey] = discardingOversized ? 1 : 0; this.input.save();
++    };
+     for (const entry of edits.entries!) {
+       this.input.signal.throwIfAborted();
+       let id = crypto.randomUUID();
+       let record: HumanEditRecord | undefined;
+       try {
++        if (entry.error) throw new Error('math_edit_too_large');
+         if (!entry.line?.trim()) { advance(entry.offset); continue; }
+         let edit: any;
+         try { edit = JSON.parse(entry.line); }
+@@ -156,14 +161,16 @@
+         this.input.signal.throwIfAborted();
+         const reason = error instanceof Error ? error.message : 'math_edit_invalid';
+         if (record?.status === 'applied' || !(error instanceof Error) || error.name === 'AbortError' ||
+-            !/^math_(?:edit_(?:invalid(?:_json|_id)?|version_conflict)$|plan_[a-z_]+(?:$|:))/u.test(reason)) throw error;
++            !/^math_(?:edit_(?:invalid(?:_json|_id)?|version_conflict|too_large)$|plan_[a-z_]+(?:$|:))/u.test(reason)) throw error;
+         if (record) { record.status = 'rejected'; record.reason = reason; }
+         else (this.archive.edits ??= []).push({ id, status: 'rejected', reason, receivedAt: Date.now() });
+         this.changed();
+         this.input.emit('edit_rejected', { id, reason });
+       }
+-      advance(entry.offset);
+-    }
++      advance(entry.offset, entry.discardingOversized);
++    }
++    if (cursors.edits !== edits.offset || (cursors[discardKey] === 1) !== edits.discardingOversized)
++      advance(edits.offset, edits.discardingOversized);
+     await this.readPlanDelivery(cursors);
+     for (const worker of this.input.workers) {
+       if (this.deliveryChecks.has(worker.id)) continue;
+--- a/src/solver/humanEdit.ts
++++ b/src/solver/humanEdit.ts
+@@ -5,6 +5,7 @@
+ import { parseCooperationPlan } from './tasks';
+ import { readRunInspection } from './inspection';
+ import { researchWorkerCanNode } from './modules/organization';
++import { MAX_HUMAN_EDIT_BYTES } from './deliveries';
+ 
+ /** Queue an edit through the existing host protocol; never write the checkpoint. */
+ export async function queueRunEdit(run: string, proposal: unknown, dryRun = false) {
+@@ -42,7 +43,7 @@
+     if (value.baseVersion !== state.cooperation.planVersion) throw new Error('math_edit_version_conflict');
+     if (dryRun) return { id, status: 'validated', baseVersion: edit.baseVersion };
+     const bytes = Buffer.from(JSON.stringify(edit) + '\n');
+-    if (bytes.length > 1024 * 1024) throw new Error('math_edit_too_large');
++    if (bytes.length > MAX_HUMAN_EDIT_BYTES) throw new Error('math_edit_too_large');
+     lease.assertHeld();
+     const fd = fs.openSync(log, fs.constants.O_CREAT | fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK, 0o600);
+     try {
+--- a/tests/solverHumanEditRecovery.test.ts
++++ b/tests/solverHumanEditRecovery.test.ts
+@@ -11,6 +11,11 @@
+ import { cooperativeResearch } from './helpers/cooperation';
+ import { temporaryDirectory } from './helpers/files';
+ import { solverState } from './helpers/solver';
++import { writeSolverRunState } from '../src/solver/archive';
++import { queueRunEdit } from '../src/solver/humanEdit';
++import { MAX_HUMAN_EDIT_BYTES } from '../src/solver/deliveries';
++import { receiptBatch } from './helpers/verifier';
++import type { TaskProof } from '../src/solver/cooperativeProof';
+ 
+ const host = vi.hoisted(() => ({ capture: vi.fn() }));
+ vi.mock('../src/solver/statementReview', async importOriginal => ({
+@@ -123,6 +128,94 @@
+     expect(state.cooperation!.history).toHaveLength(1);
+     expect(state.cooperation!.cursors?.edits).toBe(fs.statSync(editsFile()).size);
+     expect(events.some(event => event.event === 'edit_rejected')).toBe(false);
++  });
++
++  it.each([65_155, 66_237, MAX_HUMAN_EDIT_BYTES])(
++  'queues and consumes a legal %s-byte edit while preserving an existing assignment and receipt', async bytes => {
++    problem = { ...problem, ownedFiles: ['Submission.lean'] };
++    const kept = { id: 'proved', kind: 'lemma' as const, objective: 'Retain the checked lemma.', dependsOn: [], revision: 0,
++      proofPath: 'Submission.lean', theoremName: 'proved', type: 'True' };
++    const proof: TaskProof = { passed: true, commit: problem.baseCommit, seedCommit: problem.baseCommit,
++      sourceDigest: 'unchanged-source', taskDigest: taskVersion(kept), changes: [],
++      verification: receiptBatch({ projectRoot: directory, targetCommit: problem.baseCommit, items: [{
++        proofPath: 'Submission.lean', theoremName: 'proved', statementHash: mathDigest('True') }] },
++      { sessionId: 'recorded-fixture', receiptId: () => 'keep-existing-receipt' }) };
++    const assignment = { taskId: 'route', taskDigest: taskVersion(route(0)), workerId: 'peer', seedCommit: problem.baseCommit };
++    state.problem = problem;
++    state.cooperation!.tasks = [{ task: route(0), status: 'running', attempts: 1, assignment },
++      { task: kept, status: 'integrated', attempts: 1, proof, integratedCheck: proof }];
++    state.cooperation!.planVersion = undefined;
++    const peer = { id: 'peer', role: 'researcher' as const, worktree: path.join(directory, 'peer'), ownedFiles: [] };
++    fs.mkdirSync(peer.worktree); cooperative = create([peer]);
++    const action = { kind: 'task' as const, task: route(0), assignment }, interrupt = vi.fn(async () => {});
++    cooperative.activate(peer, action, interrupt, async () => {});
++    const originalReceipt = canonicalMathJson(proof.verification), stateFile = path.join(directory, 'state.json');
++    writeSolverRunState(stateFile, state);
++    const checkpoint = fs.readFileSync(stateFile);
++    const proposal = { id: 'large-unrelated', baseVersion: state.cooperation!.planVersion,
++      ...parseCooperationPlan(problem, { tasks: [route(0), kept, { id: 'new-note', kind: 'research', objective: 'N' }] }) };
++    const emptyBytes = Buffer.byteLength(JSON.stringify(proposal) + '\n');
++    proposal.tasks[2] = { ...proposal.tasks[2], objective: 'N'.repeat(bytes - emptyBytes + 1) };
++    expect(Buffer.byteLength(JSON.stringify(proposal) + '\n')).toBe(bytes);
++    expect(await queueRunEdit(stateFile, proposal)).toMatchObject({ status: 'queued' });
++    expect(fs.readFileSync(stateFile)).toEqual(checkpoint);
++    expect(fs.statSync(editsFile()).size).toBe(bytes);
++    await cooperative.pulse();
++    expect(record(proposal.id)).toMatchObject({ status: 'applied', affectedTasks: ['new-note'] });
++    expect(state.cooperation!.tasks[0]).toMatchObject({ status: 'running', assignment });
++    expect(state.cooperation!.tasks[0].assignment).toBe(assignment);
++    expect(cooperative.current(action)).toBe(true);
++    expect(interrupt).not.toHaveBeenCalled();
++    expect(state.cooperation!.tasks[1].status).toBe('integrated');
++    expect(state.cooperation!.tasks[1].pendingValidation).toBeUndefined();
++    expect(state.cooperation!.tasks[1].integratedCheck).toBe(proof);
++    expect(canonicalMathJson(proof.verification)).toBe(originalReceipt);
++    expect(state.cooperation!.cursors?.edits).toBe(bytes);
++    expect(events.some(event => event.event === 'edit_rejected')).toBe(false);
++  });
++
++  it('keeps the 1 MiB writer limit and leaves an oversized proposal unqueued', async () => {
++    const stateFile = path.join(directory, 'state.json'); writeSolverRunState(stateFile, state);
++    await expect(queueRunEdit(stateFile, { id: 'too-big', baseVersion: state.cooperation!.planVersion,
++      tasks: [{ ...route(1), objective: 'x'.repeat(MAX_HUMAN_EDIT_BYTES) }] })).rejects.toThrow('math_edit_too_large');
++    expect(fs.existsSync(editsFile())).toBe(false);
++  });
++
++  it.each([MAX_HUMAN_EDIT_BYTES + 1, MAX_HUMAN_EDIT_BYTES * 2 + 101])(
++  'rejects a complete %s-byte edit once, advances in bounded chunks, and consumes the following edit', async bytes => {
++    const prefixEnd = append('prefix-before-large', 1);
++    fs.appendFileSync(editsFile(), 'x'.repeat(bytes - 1) + '\n');
++    append('valid-after-large', 2, version(1));
++    const read = vi.spyOn(fs, 'readSync');
++    await cooperative.pulse();
++    expect(record('prefix-before-large')).toMatchObject({ status: 'applied' });
++    expect(state.cooperation!.cursors?.edits).toBe(prefixEnd);
++    await cooperative.pulse();
++    expect(state.cooperation!.cursors?.['edits/discardingOversized']).toBe(1);
++    expect(snapshots.at(-1)?.cursors?.['edits/discardingOversized']).toBe(1);
++    resume();
++    await cooperative.pulse(); await cooperative.pulse(); await cooperative.pulse();
++    expect(events.filter(event => event.event === 'edit_rejected').map(event => event.details?.reason)).toEqual(['math_edit_too_large']);
++    expect(record('valid-after-large')).toMatchObject({ status: 'applied', planVersion: version(2) });
++    expect(state.cooperation!.cursors?.edits).toBe(fs.statSync(editsFile()).size);
++    expect(state.cooperation!.cursors?.['edits/discardingOversized']).toBe(0);
++    expect(read.mock.calls.every(call => call[3] <= MAX_HUMAN_EDIT_BYTES)).toBe(true);
++  });
++
++  it('persists partial oversized-line discard across resume without treating a JSON-looking tail as a new edit', async () => {
++    fs.writeFileSync(editsFile(), 'x'.repeat(MAX_HUMAN_EDIT_BYTES));
++    await cooperative.pulse(); await cooperative.pulse();
++    expect(state.cooperation!.cursors?.edits).toBe(MAX_HUMAN_EDIT_BYTES);
++    expect(state.cooperation!.cursors?.['edits/discardingOversized']).toBe(1);
++    resume();
++    append('tail-fragment-must-not-apply', 9);
++    append('complete-after-tail', 1);
++    await cooperative.pulse(); await cooperative.pulse();
++    expect(record('tail-fragment-must-not-apply')).toBeUndefined();
++    expect(record('complete-after-tail')).toMatchObject({ status: 'applied', planVersion: version(1) });
++    expect(events.filter(event => event.event === 'edit_rejected').map(event => event.details?.reason)).toEqual(['math_edit_too_large']);
++    expect(state.cooperation!.cursors?.edits).toBe(fs.statSync(editsFile()).size);
++    expect(state.cooperation!.cursors?.['edits/discardingOversized']).toBe(0);
+   });
+ 
+   it('persists a successful prefix without replaying it when the following edit must retry', async () => {
