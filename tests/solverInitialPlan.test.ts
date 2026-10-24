@@ -159,9 +159,14 @@ describe('explicit initial Lead plan publication', () => {
     expect(interrupt).not.toHaveBeenCalled();
   });
 
-  it('restores the accepted graph without importing a newer unpublished valid notes draft', async () => {
+  it.each([false, true])('restores the accepted graph without importing a newer unpublished valid notes draft (finalized: %s)', async finalized => {
     const cooperative = create(), action = await startLead(cooperative);
     await publish(cooperative, action);
+    if (finalized) {
+      cooperative.deactivate(lead);
+      await cooperative.deliver(lead, action, commitSolverSources(problem, lead.worktree));
+      expect(state.cooperation!.initialPlanPublication?.finalized).toBe(true);
+    }
     fs.writeFileSync(path.join(lead.worktree, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify(plan('_unpublished')) + '\n```');
     const stateFile = path.join(directory, 'state.json');
     writeSolverRunState(stateFile, state); state = readSolverRunState(stateFile);
@@ -194,6 +199,13 @@ describe('explicit initial Lead plan publication', () => {
     expect(state.cooperation!.tasks.map(node => node.task.id)).toEqual(['goal_1_final', 'goal_2_final']);
     expect(state.cooperation!.initialPlanPublication?.finalized).toBe(true);
     expect(events.filter(item => item.event === 'plan_updated')).toHaveLength(2);
+    const version = state.cooperation!.planVersion;
+    expect(version).not.toBe(state.cooperation!.initialPlanPublication?.planVersion);
+    const stateFile = path.join(directory, 'final-replacement-state.json');
+    writeSolverRunState(stateFile, state); state = readSolverRunState(stateFile);
+    const restored = create(); await restored.restore();
+    expect(state.cooperation!.tasks.map(node => node.task.id)).toEqual(['goal_1_final', 'goal_2_final']);
+    expect(state.cooperation!.planVersion).toBe(version);
   });
 
   it('reports an invalid final plan without losing an earlier published plan', async () => {

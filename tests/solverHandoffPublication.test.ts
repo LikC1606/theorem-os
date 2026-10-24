@@ -3,7 +3,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mathDigest } from '../src/math/mathRuntimeIo';
 import { readSolverRunState, writeSolverRunState, type SolverRunState } from '../src/solver/archive';
-import type { CooperativeResearch } from '../src/solver/cooperation';
+import { readCooperationPlan, type CooperativeResearch } from '../src/solver/cooperation';
 import * as contextCompiler from '../src/solver/contextCompiler';
 import { directSolverModules } from '../src/solver/modules';
 import type { ResearchWorker } from '../src/solver/modules/organization';
@@ -560,6 +560,34 @@ describe('live explicit handoff publication', () => {
     expect(node('bridge').proof).toBeUndefined(); expect(node('bridge').integratedCheck).toBeUndefined();
     expect(state.cooperation!.planPublication).toMatchObject({ nonce: action.planNonce, finalized: true });
     expect(researchHandoffs(state.cooperation!)[0].status).toBe('adopted');
+    expect(state.cooperation!.error).toBeUndefined(); expect(state.check).toBeUndefined();
+  });
+
+  it.each([false, true])('keeps a finalized adoption across restore without replaying inherited plan notes (late proposal: %s)', async lateProposal => {
+    const draft = path.join(workers[0].worktree, 'RESEARCH.md');
+    fs.writeFileSync(draft, '```math-plan\n' + JSON.stringify(graph()) + '\n```\nSaved construction still needs its final inference.\n');
+    const action = await start(); await publish(action);
+    if (lateProposal) addProposal(helper('later_bridge'));
+    cooperative.deactivate(workers[0]);
+    await cooperative.deliver(workers[0], action, commitSolverSources(problem, workers[0].worktree));
+    expect(state.cooperation!.planPublication).toMatchObject({ nonce: action.planNonce, finalized: true });
+    const stateFile = path.join(directory, 'finalized-handoff-state.json'); writeSolverRunState(stateFile, state);
+    instances[0].controller.abort(); await instances[0].cooperative.stop();
+    state = readSolverRunState(stateFile);
+    const accepted = { graph: graph(), decisions: structuredClone(state.cooperation!.researchDecisions),
+      publication: structuredClone(state.cooperation!.planPublication), version: state.cooperation!.planVersion };
+    const restored = create(); await restored.restore();
+    expect(node(proposal.id)).toMatchObject({ task: proposal, status: 'pending', attempts: 0 });
+    expect(graph()).toEqual(accepted.graph);
+    expect(state.cooperation!.researchDecisions).toEqual(accepted.decisions);
+    expect(state.cooperation!.planPublication).toEqual(accepted.publication);
+    expect(state.cooperation!.planVersion).toBe(accepted.version);
+    expect(researchHandoffs(state.cooperation!).find(item => item.proposal.id === proposal.id)?.status).toBe('adopted');
+    expect(inbox().map(item => item.proposal.id)).toEqual(lateProposal ? ['later_bridge'] : []);
+    expect(fs.readFileSync(draft, 'utf8')).toContain('Saved construction still needs its final inference.');
+    expect(readCooperationPlan(problem, workers[0].worktree).tasks).toContainEqual(proposal);
+    expect(restored.current(action)).toBe(false);
+    expect(state.cooperation!.tasks.every(item => !item.proof && !item.integratedCheck)).toBe(true);
     expect(state.cooperation!.error).toBeUndefined(); expect(state.check).toBeUndefined();
   });
 

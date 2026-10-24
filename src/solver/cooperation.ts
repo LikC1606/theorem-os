@@ -352,7 +352,8 @@ export class CooperativeResearch extends CooperationInputs {
     // A resumed review must inspect the fixed version again.
     if (this.archive.review) { this.archive.review.status = 'pending'; this.archive.review.workerId = undefined; }
     const publication = this.archive.planPublication ?? this.archive.initialPlanPublication;
-    if (!(publication && !publication.finalized) &&
+    // A finalized dispatch can still leave inherited notes behind the accepted graph.
+    if (!publication &&
         !this.acknowledgedAssessmentDraft() &&
         !this.archive.frontierRecoveries?.some(record => record.status !== 'planned') &&
         fs.existsSync(path.join(this.lead.worktree, 'RESEARCH.md'))) {
@@ -391,7 +392,7 @@ export class CooperativeResearch extends CooperationInputs {
     await this.integrateReady();
     const statements = this.prepareStatementContexts(); if (statements) await statements;
     this.syncStatementReviews();
-    if (publication && !publication.finalized) {
+    if (publication) {
       // Preserve the draft in restoreLeadSources, then seed future decisions from the accepted graph.
       this.archive.planEdited = true; this.syncPlanNotes();
     }
