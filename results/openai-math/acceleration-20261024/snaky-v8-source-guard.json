@@ -1,0 +1,62 @@
+{
+  "observedAt": "2026-10-24T04:15:28.695Z",
+  "schema": "theorem-os.snaky-conditional-capacity-guard.v1",
+  "challengeId": "SnakyConditional",
+  "workspace": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/seven-guards-canonical-v8-1792815328367",
+  "candidateSha256": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab",
+  "campaignAcceptance": false,
+  "nativeAcceptance": false,
+  "kernelVerification": "not-performed-by-source-check",
+  "checks": [
+    {
+      "name": "official dependency environment is unchanged",
+      "passed": true,
+      "detail": {
+        "environmentDigest": "13885dacf3f162feab001e999f6372c116222d4b30ee896f4f0e43bd04549e2b"
+      }
+    },
+    {
+      "name": "exact original source, original declarations and sole target preserved",
+      "passed": true,
+      "detail": {
+        "originalSourceSha256": "3ab27d66779b557d0efcc3cfcf8317c40511e3cc655da29e61e95ba3f34d45ea",
+        "targets": [
+          {
+            "name": "OAI.SnakyConditional.snaky_winning_strategy_with_legal_states",
+            "declarationHash": "86440ec197f3e88a1cda1d22672ff67a6390425412b08d418dde27bba4c81614"
+          }
+        ]
+      }
+    },
+    {
+      "name": "candidate passes unchanged correct-scope source guard",
+      "passed": true,
+      "detail": {
+        "candidatePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8.lean",
+        "sha256": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab",
+        "bytes": 968784
+      }
+    },
+    {
+      "name": "altered frozen definition is rejected",
+      "passed": true
+    },
+    {
+      "name": "altered original target header is rejected",
+      "passed": true
+    },
+    {
+      "name": "altered trusted Challenge and Lake configuration rejected",
+      "passed": true
+    },
+    {
+      "name": "candidate fits unchanged committedSource one MiB bound",
+      "passed": true,
+      "detail": {
+        "commit": "d79e17957ea7368b4efeebba237bd816b39a4aa7",
+        "bytes": 968784,
+        "kernelAcceptanceGranted": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "observedAt": "2026-10-24T04:18:08.741335+00:00",
+  "passed": true,
+  "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/ConditionalV8IntegrationContextProbe.lean",
+  "sourceSHA256": "5772b98b9f5f7bbbc0e74834223bc5d1fb1e8a3820560a4743ef3aa1d0fcc981",
+  "sourceBytes": 17946,
+  "integrationProjectionSHA256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+  "exactIntegrationGenericBlock": true,
+  "exactOriginalTargetTypeWithWinningPremise": true,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "--json",
+    "-j1",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/ConditionalV8IntegrationContextProbe.lean"
+  ],
+  "exitCode": 0,
+  "durationSeconds": 3.4459091320168227,
+  "addressSpaceLimitBytes": 34359738368,
+  "timeoutAdded": false,
+  "asyncControlAdded": false,
+  "logPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/ConditionalV8IntegrationContextProbe.jsonl",
+  "logSHA256": "4e2627daed785ec75d9e7d31f76176bb0211dcefa10f6124c20535a87424afab",
+  "sourceUnchanged": true,
+  "official": false,
+  "fullV8KernelPassed": false,
+  "nativeAcceptance": false
+}

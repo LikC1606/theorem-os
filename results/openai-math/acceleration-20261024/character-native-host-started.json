@@ -1,0 +1,158 @@
+{
+  "schema": "theorem-os.accelerated-native-observation.v1",
+  "observedAt": "2026-10-24T05:24:30.624115+00:00",
+  "runId": "be2c8bbd-71c7-4dc5-aa21-1c3a7550a2c6",
+  "phase": "checking",
+  "turns": 36,
+  "expectedSourceSHA256": "0ec8e7e2fbe9ff7f2d4c849c7558c152e24d707d79943d6f7ac08d0b27fa98c9",
+  "nativeRoots": [
+    758785
+  ],
+  "planVersion": "2c9b0b615bb3d89086d92ccc5f9ea804cb84de31c2e036502ce2b92aa52137fc",
+  "edits": [
+    {
+      "affectedTasks": [
+        "initial_goal_1",
+        "initial_research_1",
+        "initial_research_2"
+      ],
+      "appliedAt": 1792819038368,
+      "baseVersion": "01443eb69c0610511ed77d5fe443cd877ed97de6ee039470b3de76dbb26c24dc",
+      "id": "character-native-v12-canonical-0ec8e7e2fbe9",
+      "planVersion": "2c9b0b615bb3d89086d92ccc5f9ea804cb84de31c2e036502ce2b92aa52137fc",
+      "receivedAt": 1792819038359,
+      "recheck": {
+        "status": "pending",
+        "tasks": [
+          {
+            "status": "pending",
+            "taskDigest": "3c32099cf2bd126dcb96d35580d2864517c36eef4b5edbbe5973109adc68469f",
+            "taskId": "initial_goal_1"
+          }
+        ]
+      },
+      "status": "applied"
+    }
+  ],
+  "tasks": [
+    {
+      "status": "running",
+      "attempts": 2,
+      "task": {
+        "id": "initial_goal_1",
+        "kind": "goal",
+        "revision": 1,
+        "ownerId": "engineer",
+        "theoremName": "OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams",
+        "dependsOn": []
+      },
+      "proofPassed": null,
+      "projectionReuse": null,
+      "feedback": null
+    }
+  ],
+  "workers": [
+    {
+      "id": "solver",
+      "phase": "checking",
+      "turns": 1,
+      "lastActivity": {
+        "at": 1792742233778,
+        "event": "item_completed",
+        "itemType": "reasoning"
+      },
+      "sourceSHA256": "ebc3129bfb5ef4a47e0de1d89f0f406ef6603df32355bdfbb9ce278627c1a1f1",
+      "sourceBytes": 900,
+      "exactCanonicalSource": false
+    },
+    {
+      "id": "researcher-1",
+      "phase": "finished",
+      "turns": 1,
+      "lastActivity": {
+        "at": 1792819030720,
+        "event": "item_started",
+        "itemType": "reasoning"
+      },
+      "sourceSHA256": "ebc3129bfb5ef4a47e0de1d89f0f406ef6603df32355bdfbb9ce278627c1a1f1",
+      "sourceBytes": 900,
+      "exactCanonicalSource": false
+    },
+    {
+      "id": "researcher-2",
+      "phase": "checking",
+      "turns": 33,
+      "lastActivity": {
+        "at": 1792773540370,
+        "event": "item_completed",
+        "itemType": "agentMessage"
+      },
+      "sourceSHA256": "ebc3129bfb5ef4a47e0de1d89f0f406ef6603df32355bdfbb9ce278627c1a1f1",
+      "sourceBytes": 900,
+      "exactCanonicalSource": false
+    },
+    {
+      "id": "engineer",
+      "phase": "checking",
+      "turns": 1,
+      "lastActivity": {
+        "at": 1792819395844,
+        "event": "item_completed",
+        "itemType": "agentMessage"
+      },
+      "sourceSHA256": "0ec8e7e2fbe9ff7f2d4c849c7558c152e24d707d79943d6f7ac08d0b27fa98c9",
+      "sourceBytes": 796309,
+      "exactCanonicalSource": true
+    }
+  ],
+  "formalProcesses": [
+    {
+      "pid": 1077064,
+      "ppid": 1077063,
+      "state": "S",
+      "startTicks": 128607367,
+      "cpuSeconds": 0.99,
+      "executable": "lake",
+      "sourceSHA256": "0ec8e7e2fbe9ff7f2d4c849c7558c152e24d707d79943d6f7ac08d0b27fa98c9",
+      "sourceBytes": 796309,
+      "exactCanonicalSource": true,
+      "command": [
+        "lake",
+        "env",
+        "/bin/sh",
+        "-ceu",
+        "mkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/CutCircleIndex.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/CutCircleIndex.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/Flags.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/Flags.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/GradeMaps.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Frames/GradeMaps.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/MatrixPresentation.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/MatrixPresentation.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/MatrixExpressions.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/MatrixExpressions.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/Incidence.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/Incidence.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SurfacePresentation.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SurfacePresentation.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryCycles.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryCycles.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/PortPatches.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/PortPatches.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/FlagGalleries.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/FlagGalleries.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/ComplementaryPatches.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/ComplementaryPatches.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/Graded.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Frames/Graded.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/PatchCycles.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/PatchCycles.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/RoutedFamilies.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/RoutedFamilies.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/FreshGallery.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Cutting/FreshGallery.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/VertexFrames.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/VertexFrames.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/AtomicFrames.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Cutting/AtomicFrames.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/AtomicGallery.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Cutting/AtomicGallery.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/AtomicFlags.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Frames/AtomicFlags.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/Grafting.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Cutting/Grafting.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SplitFlags.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SplitFlags.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryFrames.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryFrames.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/DiskGauge.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/DiskGauge.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SurfaceSurgery.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SurfaceSurgery.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryBands.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryBands.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCycles.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCycles.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/VertexGauge.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/VertexGauge.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/BandBases.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Frames/BandBases.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/BandGauges.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Frames/BandGauges.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/Endpoints.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Frames/Endpoints.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/StripForest.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Cutting/StripForest.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/DoubledStrips.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Cutting/DoubledStrips.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/PortSurgery.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Cutting/PortSurgery.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/StripFacets.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Cutting/StripFacets.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/BoundarySurgery.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Cutting/BoundarySurgery.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/GraftCircuits.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Cutting/GraftCircuits.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/GeneratorGauge.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/GeneratorGauge.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/CornerGauge.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/CornerGauge.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryReordering.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryReordering.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/RefinedDiagram.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Cutting/RefinedDiagram.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/CutFrames.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Frames/CutFrames.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/BoundaryEnumeration.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Cutting/BoundaryEnumeration.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/GraftValues.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Cutting/GraftValues.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/Mirror.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Frames/Mirror.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/MarkedDiagram.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Cutting/MarkedDiagram.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams/BoundaryWords.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Seams/BoundaryWords.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandIncidence.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandIncidence.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCutTopology.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCutTopology.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCut.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCut.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams/CutWords.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Seams/CutWords.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams/Handles.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Seams/Handles.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams/InverseSolution.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Seams/InverseSolution.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams/MarkedSurface.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Seams/MarkedSurface.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/NamedSeams.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Frames/NamedSeams.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/MarkedFrames.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Frames/MarkedFrames.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams/ProducedDiagram.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Seams/ProducedDiagram.lean' 1>&2\nmkdir -p '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams'\nlean -j1 -R '.' -o '.lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams/ProducedEquations.olean' 'OAI/AlgebraicGeometry/CharacterVarieties/Seams/ProducedEquations.lean' 1>&2\nmkdir -p '.lake/build/lib/lean'\nlean -j1 -R '.' -o '.lake/build/lib/lean/Submission.olean' 'Submission.lean' 1>&2\nexec lean -j1 '.deepscientist-declarations-0257db26-a1a7-4d98-bd22-62049a21b53e.lean'"
+      ],
+      "addressSpaceLimit": "Max address space         34359738368          34359738368          bytes     ",
+      "role": "model-local"
+    },
+    {
+      "pid": 1080635,
+      "ppid": 1077121,
+      "state": "S",
+      "startTicks": 128613914,
+      "cpuSeconds": 0.6,
+      "executable": "lean",
+      "sourceSHA256": "0ec8e7e2fbe9ff7f2d4c849c7558c152e24d707d79943d6f7ac08d0b27fa98c9",
+      "sourceBytes": 796309,
+      "exactCanonicalSource": true,
+      "command": [
+        "/runtime/pinned-lean/bin/lean",
+        "-j1",
+        "-R",
+        ".",
+        "-o",
+        ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/Graded.olean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Frames/Graded.lean",
+        "-j1"
+      ],
+      "addressSpaceLimit": "Max address space         34359738368          34359738368          bytes     ",
+      "role": "native-host"
+    }
+  ],
+  "nativeAcceptance": false,
+  "officialHostedAcceptance": false,
+  "allFiveSolveBudgets": 0,
+  "resourceLimitsChanged": false,
+  "claim": "Observation only; completed native S3 receipts are required for final acceptance."
+}

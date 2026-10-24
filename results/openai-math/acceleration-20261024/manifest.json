@@ -1,0 +1,105 @@
+{
+  "schema": "theorem-os.result-file-manifest.v1",
+  "algorithm": "sha256",
+  "excludes": [
+    "manifest.json"
+  ],
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 1433,
+      "sha256": "71a99c8dc4083b964c9a5bb96716c99af6869e37112d7a72dbe05b61503b89c2"
+    },
+    {
+      "path": "cache-analysis.md",
+      "bytes": 4434,
+      "sha256": "bb055aff7451a16aedee1962243c20e3b288fdac30d50ab6942f00426dece1b0"
+    },
+    {
+      "path": "cache-fixed-point.json",
+      "bytes": 4415,
+      "sha256": "3baeb01fc10686a44ff1e885639e22e39ac6d4ae52175bf013dae4d3b77b71be"
+    },
+    {
+      "path": "cache-real-lean-smoke.json",
+      "bytes": 4879,
+      "sha256": "679d6a4a0e9ed273a3f728a5035547e91d8343ab02eee76e85254c26883c3edf"
+    },
+    {
+      "path": "character-canonical-candidate.lean",
+      "bytes": 796309,
+      "sha256": "0ec8e7e2fbe9ff7f2d4c849c7558c152e24d707d79943d6f7ac08d0b27fa98c9"
+    },
+    {
+      "path": "character-delivery-preparation.json",
+      "bytes": 49128,
+      "sha256": "69fc2e4fa265ff5bfb3c2cc7ace70f6f5ef67fc65fa46991ec464de6b58810a5"
+    },
+    {
+      "path": "character-live-snapshot.json",
+      "bytes": 4781,
+      "sha256": "47d3772af725befe30c4d9c59b5e6bd83761ac29e91b0d5a0a2bb4617d470515"
+    },
+    {
+      "path": "character-merge-preflight.json",
+      "bytes": 1858,
+      "sha256": "11306119f36e9bf35cc9f9c46d6fd2b6d820fc203d3e77aedc8f3c177c60bc4b"
+    },
+    {
+      "path": "character-native-host-started.json",
+      "bytes": 20256,
+      "sha256": "20940ceffdab1a5831fe266af81ed56d4943d300441db9150b77d2aae27f2897"
+    },
+    {
+      "path": "character-queue-receipt.json",
+      "bytes": 917,
+      "sha256": "3171de26820a277c742f54dd7f99f7d7dc630b730b182ce909e6b86afce412ed"
+    },
+    {
+      "path": "character-retired-advisory-gates.json",
+      "bytes": 1451,
+      "sha256": "b809f1585c0d401c577ade5d04315c4de509b6f5031d57fba52f099fcb68e15b"
+    },
+    {
+      "path": "progress.json",
+      "bytes": 77315,
+      "sha256": "6217140d087b936befe564a7b75a86ecec45fef402af3b5583bc7b83e2e8dd37"
+    },
+    {
+      "path": "snaky-v8-candidate-closure.json",
+      "bytes": 1281,
+      "sha256": "86175722b7a34eaf6efa058044bd0447e2db4f75909a4e67d092749edade13bf"
+    },
+    {
+      "path": "snaky-v8-integration-closure.json",
+      "bytes": 1290,
+      "sha256": "3a9b3f65a120be2810c798498c86e325bd2c0dd18808c78d398e55f570319459"
+    },
+    {
+      "path": "snaky-v8-live-snapshot.json",
+      "bytes": 7720,
+      "sha256": "44cc3ff886c933f9893572f63be0ab72d28633712de1464e14ac5a6f3c11a56f"
+    },
+    {
+      "path": "snaky-v8-merge-replay.json",
+      "bytes": 922,
+      "sha256": "9a4a9c60e00f1f45f127fce46e18f87a7186a32b5ce5656ead1a91ef08d13e84"
+    },
+    {
+      "path": "snaky-v8-native-goal-started.json",
+      "bytes": 2010,
+      "sha256": "ae6df4172efda474950f471b687f88b9152e9d6d7f54cce0bc04e71f7183040b"
+    },
+    {
+      "path": "snaky-v8-source-guard.json",
+      "bytes": 2182,
+      "sha256": "58986e182156eb692f37b442d95913340ddf64c3b699d15ebaa2c8d91b0b0b15"
+    },
+    {
+      "path": "snaky-v8-source.lean",
+      "bytes": 968784,
+      "sha256": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab"
+    }
+  ],
+  "generatedAt": "2026-10-24T05:26:11.519973+00:00"
+}

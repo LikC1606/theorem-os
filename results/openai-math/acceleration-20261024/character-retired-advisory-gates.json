@@ -1,0 +1,33 @@
+{
+  "observedAt": "2026-10-24T05:17:13.672068+00:00",
+  "reason": "Start canonical source directly through native mathematical verification; eliminate serial advisory prerequisites and duplicate delayed queueing.",
+  "records": [
+    {
+      "pid": 363135,
+      "startTicks": 120536686,
+      "script": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/verify-when-ready.py",
+      "hadChildren": false,
+      "archivedReceipt": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/native-acceleration-20261024/before-verification-supervisor-receipt.json",
+      "archivedReceiptSHA256": "2142dfdba923adebf9d440308b9dd023cef74e377f7108ee2a4bbf1d370e1d4a",
+      "stopped": true,
+      "signal": "SIGTERM"
+    },
+    {
+      "pid": 349492,
+      "startTicks": 120515544,
+      "script": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/deliver-when-ready.py",
+      "hadChildren": false,
+      "stopped": true,
+      "signal": "SIGTERM"
+    }
+  ],
+  "allOwnedWaitingGatesStopped": true,
+  "localV12CheckPreserved": true,
+  "localV12LeanPID": 3384609,
+  "localV12StartTicks": 126990858,
+  "nativeProcessesStopped": false,
+  "nativeCheckpointModified": false,
+  "formalAcceptanceGatesChanged": false,
+  "frozenRuntimeModified": false,
+  "nativeAcceptance": false
+}

@@ -1,0 +1,93 @@
+{
+  "observedAt": "2026-10-24T05:17:48.279Z",
+  "schema": "theorem-os.source-only-fixed-point-cache-audit.v1",
+  "passed": true,
+  "leanInvoked": false,
+  "realModelInvoked": false,
+  "nativeFilesModified": false,
+  "frozenRuntimeModified": false,
+  "nativeAcceptance": false,
+  "official": false,
+  "mathematicalAcceptanceGranted": false,
+  "source": {
+    "originalSHA256": "3ab27d66779b557d0efcc3cfcf8317c40511e3cc655da29e61e95ba3f34d45ea",
+    "rawSHA256": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab",
+    "rawBytes": 968784,
+    "fixedSHA256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+    "fixedBytes": 967683,
+    "removedBlankBytes": 1101,
+    "sameNonBlankLines": true,
+    "sameQualifiedDeclarations": true
+  },
+  "sourceGuardPassed": true,
+  "frozenTaskIntakePassed": true,
+  "frozenMergePassed": true,
+  "frozenProjectionPassed": true,
+  "exactFixedPoint": true,
+  "changeCount": 2908,
+  "candidateCommit": "1a896fc68b468006428ac3ee883ad17cf4b3c085",
+  "integrationCommit": "6398042a42f28e58994b604ea222458caa835f43",
+  "candidateProjection": {
+    "commit": "0dd43d6b097de2c5425b621fb7d3e1a340566efd",
+    "tree": "d8f3b11f7d2558918a8f1225992df2053427533a",
+    "paths": [
+      "generated/problem/Challenge.lean",
+      "generated/problem/Submission.lean",
+      "generated/problem/lake-manifest.json",
+      "generated/problem/lakefile.toml",
+      "generated/problem/lean-toolchain"
+    ],
+    "sourceSHA256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+    "sourceBytes": 967683
+  },
+  "integrationProjection": {
+    "commit": "d5879cbf6452c4e23fde942f3278b90e574ac773",
+    "tree": "d8f3b11f7d2558918a8f1225992df2053427533a",
+    "paths": [
+      "generated/problem/Challenge.lean",
+      "generated/problem/Submission.lean",
+      "generated/problem/lake-manifest.json",
+      "generated/problem/lakefile.toml",
+      "generated/problem/lean-toolchain"
+    ],
+    "sourceSHA256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+    "sourceBytes": 967683
+  },
+  "rawProjection": {
+    "commit": "4dba44a144a7a39b6aa91ac7e5e77331f8aa5955",
+    "tree": "9981650602a4bfb3ef3578c26d5f6df3711a6098",
+    "paths": [
+      "generated/problem/Challenge.lean",
+      "generated/problem/Submission.lean",
+      "generated/problem/lake-manifest.json",
+      "generated/problem/lakefile.toml",
+      "generated/problem/lean-toolchain"
+    ],
+    "sourceSHA256": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab",
+    "sourceBytes": 968784
+  },
+  "wholeProjectionTreesEqual": true,
+  "researchJournalRemovedFromProjection": true,
+  "untrackedCooperationJournalExcluded": true,
+  "symbolicFullKeyEquality": true,
+  "symbolicFullKeyDigest": "c7c307a1e728b1c92be53bb2766939c29a4a3ec6fde82651966cfcc0b3bd512a",
+  "liveEnvironmentAndToolIdentityNotTested": true,
+  "frozenRuntimeHashes": {
+    "src/solver/cooperativeProof.ts": "85d890f18f286d3b28923fe3af2a9949a85f2c9172b3c7b0632c750cda2fdc99",
+    "src/solver/taskProofCache.ts": "eab35674e070a389e6e29bb1dc86c3ee2495b7dd94216b3ad8e79d054fd11350",
+    "src/solver/problem.ts": "70801c6350ca32702bea9190d8f4b9b8d7249d9cf86fbe889f9395aa9f589900",
+    "src/solver/cooperationTaskProofs.ts": "8d9432c211b60a8c4b78ddc78da05e8fb38240147154b442b02a057ca3afa54c",
+    "src/solver/cooperationIntegration.ts": "7734e4040278b95b9d55ec80f796b1fe37b48df8e293c50c3e8eff93fcff8675",
+    "src/math/verifier.ts": "c45ae8822a365b0ac24b31a08635efa508533ae23106c0205882933baebaf53c"
+  },
+  "requiredForActualCacheHit": [
+    "Same live CooperativeResearch TaskProofCache instance; no restart or eviction.",
+    "Same ordered requests/taskVersion/objective/revision, retainedGoals, dependencies, conditions and connection check.",
+    "Same whole projection Git tree and repository common directory.",
+    "Same reusable sealed environment, actual tool identities, environmentDigest, trusted roots and execution limits.",
+    "Original goal check completes with valid attributable kernel_verified artifact."
+  ],
+  "currentRawV8ReceiptCanHitFixedIntegration": false,
+  "reason": "The running 968784-byte candidate projects to a different whole Git tree. Its current task version cannot authorize a rewritten objective or source.",
+  "claimBoundary": "Pure frozen-source replay and conditional cache-key equality. This report is not a Lean receipt or a native acceptance."
+}

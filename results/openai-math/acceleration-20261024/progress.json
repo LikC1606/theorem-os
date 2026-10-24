@@ -1,0 +1,1565 @@
+{
+  "schema": "theorem-os.external-assistance-progress.v1",
+  "observedAt": "2026-10-24T05:26:11.519973+00:00",
+  "campaignCounts": {
+    "accepted": 3,
+    "blocked": 2,
+    "running": 1,
+    "pending": 410
+  },
+  "budgetCaps": {
+    "maxRunSeconds": 0,
+    "maxTurns": 0,
+    "maxTurnSeconds": 0,
+    "maxTotalTokens": 0,
+    "evaluatorTimeoutSeconds": 0
+  },
+  "nativeCurrent": {
+    "target": "HoneycombBridgeFiniteness",
+    "tier": "C",
+    "observedTurns": 112,
+    "lastError": null,
+    "knownMathematicalGap": "strip_growth_below_mu: strict finite-width strip exponential growth bound below 2*cos(pi/8)",
+    "runId": "d7aa37e7-ff26-444e-86ba-f059c024a5fa",
+    "runtimePhase": "running",
+    "lastConfirmedAt": "2026-10-24T04:09:24.770156+00:00",
+    "workerScheduling": [
+      {
+        "id": "solver",
+        "phaseLabel": "checking",
+        "actualSchedulingStatus": "idle",
+        "candidateStatus": "completed",
+        "lastActivity": {
+          "at": 1792741603105,
+          "event": "item_completed",
+          "itemType": "agentMessage"
+        }
+      },
+      {
+        "id": "researcher-1",
+        "phaseLabel": "checking",
+        "actualSchedulingStatus": "idle",
+        "candidateStatus": "completed",
+        "lastActivity": {
+          "at": 1792746353664,
+          "event": "item_completed",
+          "itemType": "agentMessage"
+        }
+      },
+      {
+        "id": "researcher-2",
+        "phaseLabel": "checking",
+        "actualSchedulingStatus": "idle",
+        "candidateStatus": "completed",
+        "lastActivity": {
+          "at": 1792748154150,
+          "event": "item_completed",
+          "itemType": "agentMessage"
+        }
+      },
+      {
+        "id": "engineer",
+        "phaseLabel": "running",
+        "actualSchedulingStatus": "working",
+        "candidateStatus": "checkpoint",
+        "lastActivity": {
+          "at": 1792759193767,
+          "event": "reasoning"
+        }
+      }
+    ],
+    "schedulingMeaning": "Three completed worker sessions are idle despite retained phase=checking labels. Only engineer is currently working; no active Lean child was found in the run process tree at the last direct inspection.",
+    "workerSchedulingObservedAt": "2026-10-23T17:08:00.969099+00:00"
+  },
+  "additionalProofs": [
+    {
+      "id": "CartierChartCompactnessSupport",
+      "kernelPassed": true,
+      "kernelExitCode": 0,
+      "axiomsOnlyPermitted": true,
+      "publisherComparator": "passed",
+      "campaignAcceptance": false,
+      "nativeBlocker": "None in independent followup; historical original campaign dependency block retained.",
+      "publisherComparatorPassed": true,
+      "publisherComparatorExitCode": 0,
+      "nativeFollowup": {
+        "phase": "evaluated_passed",
+        "environment": "openai-math-cartier-reviewed-v1",
+        "environmentDigest": "a8cdd8e06146d3a9695fd194f25aa8aeafc72d6ac7b6f819eb2769185b267cc7",
+        "nativeAccepted": true,
+        "sourceSHA256": "7e6a54b69a536f63b9f36a33cf616644f03d107f22e586bc59ddef1c55f6b797"
+      }
+    },
+    {
+      "id": "HadamardCubeFiber",
+      "kernelPassed": true,
+      "sourceGuardPassed": true,
+      "publisherComparatorPassed": true,
+      "publisherComparatorExitCode": 0,
+      "submissionSHA256": "1766d3c0915cf8358a64808fb12736dd4d0558f0a70c887b27723e9f0fd3cc91",
+      "campaignAcceptance": true,
+      "nativePhase": "evaluated_passed",
+      "supportedReferenceEdit": "applied",
+      "nativeSubmissionSHA256": "d818e4c8217e53057b254f92285bb22930f2b47504ed68d7e8def9d2547fa3a1",
+      "acceptanceReceipt": "validation/cartier-environment-adapter-20261023/hadamard-native-acceptance-receipt.json"
+    },
+    {
+      "id": "CharacterVarietiesAllSeamsSupport",
+      "status": "canonical_native_goal_running_full250_advisory_running",
+      "wholeTargetPassed": true,
+      "newKernelCheckedHelpers": [
+        "external_endpointFlag",
+        "external_endpointNamedMatrix",
+        "external_firstColumnGrade",
+        "external_firstPortFrame_eq",
+        "external_graftSideValues_short_one",
+        "external_mirror_principal_frame",
+        "external_namedChildInverse_one",
+        "external_namedParentLinear_one",
+        "first-negative actual frame equality",
+        "BandGraft.external_bandValues_first_one",
+        "external_refinedFirstShortSideValuesAtPortV2"
+      ],
+      "newCheckedThisPhase": [
+        {
+          "module": "ParentSelectedSideTransport",
+          "exitCode": 0,
+          "durationSeconds": 617.1464565091301,
+          "sha256": "db129c9a90659ad78c57e396ea18d68c7df159abfcf05a677a4487884a9af34e",
+          "sourceUnchanged": true
+        },
+        {
+          "module": "ParentWrapFlagAlgebra",
+          "exitCode": 0,
+          "durationSeconds": 1.5851402238477021,
+          "sha256": "73c134688d2f59c02a86019cf46bb7964230891a7d6aba689eece3cd8c18f553",
+          "sourceUnchanged": true
+        },
+        {
+          "module": "ParentWrapBandFlagV3",
+          "exitCode": 0,
+          "durationSeconds": 2.9790890379808843,
+          "sha256": "945523379c50e84fc18dedc7ed264cf7b6cf8297f7cf87b60549b69f52353aac",
+          "sourceUnchanged": true
+        },
+        {
+          "module": "OriginalInternalSeam",
+          "exitCode": 0,
+          "sourceSha256": "edd0092f1828700d59ebc5fdf0879ad0b91f86392b4988765a2d32fee0e9c2c5",
+          "durationSeconds": 148.477
+        },
+        {
+          "module": "MirrorInternalSeam",
+          "exitCode": 0,
+          "sourceSha256": "299a5302c104836e317fe6abc243fab2468c2804bb91a4836b7566bee0a8a71b",
+          "durationSeconds": 145.558
+        },
+        {
+          "module": "ProducedFirstShortEquation",
+          "exitCode": 0,
+          "durationSeconds": 2785.05,
+          "sourceSha256": "76dc22c149c2cd745ea6e351a63cfda0366bb56cc1961aa8928ed4f58e456620",
+          "wholeTargetResult": false
+        },
+        {
+          "module": "TransverseSeamV2",
+          "exitCode": 0,
+          "durationSeconds": 329.267,
+          "sourceSha256": "fc4f3ab91cf218d25b76ea05d62d2fd7f9291390f29e5f1035c119eeebf46239",
+          "wholeTargetResult": false
+        },
+        {
+          "module": "ParentWrapRawFrames",
+          "exitCode": 0,
+          "durationSeconds": 2.9431887317914516,
+          "sha256": "08b85cff11d3afb3685a95930a9f87113a95562d336f288492ed66634f2ac458",
+          "sourceUnchanged": true,
+          "wholeTargetResult": false
+        },
+        {
+          "module": "ParentMirrorPrincipalNormalizedV2",
+          "exitCode": 0,
+          "durationSeconds": 4.57999408710748,
+          "sha256": "77ea5ebbefcf89c6c791a4a1af7f177cc6f5810d6f113f0f4ac9534f8e03c3d5",
+          "sourceUnchanged": true,
+          "wholeTargetResult": false
+        },
+        {
+          "module": "ParentBlockIdentity",
+          "exitCode": 0,
+          "durationSeconds": 1.5742559698410332,
+          "sha256": "f1e353e01d149df1ed32e188235843a64525d564d8d632db8fa9785e75fd38a4",
+          "sourceUnchanged": true,
+          "wholeTargetResult": false
+        },
+        {
+          "module": "SeamCoordinateBridge",
+          "exitCode": 0,
+          "durationSeconds": 2.638003963045776,
+          "sha256": "1aaf8df515755be3707a7fc7cfa074b8e47eed159d66c61634d4dcbc32d65b6d",
+          "sourceUnchanged": true,
+          "wholeTargetResult": false
+        },
+        {
+          "module": "EndpointActualMatrix",
+          "exitCode": 0,
+          "durationSeconds": 1.62384537095204,
+          "sha256": "60145c4602e7296525a0cc710efbeb670ec7f9430faf0f86c07c92731c9211fb",
+          "sourceUnchanged": true,
+          "wholeTargetResult": false
+        }
+      ],
+      "remaining": "Native goal, integration, fixed review and final S3 comparator; supplementary full250 Lean check remains active.",
+      "runningModules": [
+        "Native formal host compiling fixed dependency closure for canonical V12; no terminal receipt",
+        "Original V12 full250 default Lean check still active"
+      ],
+      "knownIntegrationIssue": "Frozen source-only merge replay passes; native Lean integration is not yet terminal.",
+      "latestExportedHelpers": [
+        {
+          "exitCode": 0,
+          "durationSeconds": 1049.8276933280285,
+          "sha256": "404f39b37cfc9c4de0a66d7c6e4fc41f42613ce375ba3362056a8cd88e4bc249",
+          "sourceUnchanged": true,
+          "command": [
+            "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+            "-o",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/ParentWrapPortFrames.olean",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentWrapPortFrames.lean"
+          ],
+          "module": "ParentWrapPortFrames",
+          "wholeTargetResult": false
+        },
+        {
+          "exitCode": 0,
+          "durationSeconds": 969.5133418010082,
+          "sha256": "a0eb6d73c15df873f308dbab9f6fc342bd07d011a52bc2aa58dd2f3c809bca2d",
+          "sourceUnchanged": true,
+          "command": [
+            "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+            "-o",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/ParentWrapSideTransport.olean",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentWrapSideTransport.lean"
+          ],
+          "module": "ParentWrapSideTransport",
+          "wholeTargetResult": false
+        },
+        {
+          "exitCode": 0,
+          "durationSeconds": 1591.8147807179485,
+          "sha256": "4636aa4116c3485d866abbc56ebb6929dc6721cb312ea99d72433a8969c814e5",
+          "sourceUnchanged": true,
+          "command": [
+            "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+            "-o",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/ParentSelectedLastPortFixed.olean",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentSelectedLastPortFixed.lean"
+          ],
+          "module": "ParentSelectedLastPortFixed",
+          "wholeTargetResult": false
+        },
+        {
+          "exitCode": 0,
+          "durationSeconds": 1329.1220440270845,
+          "sha256": "ac5511c85ed67aca4a0e513d9389363fb279f43083a1fb0b3d8d17486c899197",
+          "sourceUnchanged": true,
+          "command": [
+            "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+            "-o",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/ParentSelectedOldPort.olean",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentSelectedOldPort.lean"
+          ],
+          "module": "ParentSelectedOldPort",
+          "wholeTargetResult": false
+        },
+        {
+          "exitCode": 0,
+          "durationSeconds": 1404.037568243919,
+          "sha256": "db129c9a90659ad78c57e396ea18d68c7df159abfcf05a677a4487884a9af34e",
+          "sourceUnchanged": true,
+          "command": [
+            "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+            "-o",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/ParentSelectedSideTransport.olean",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentSelectedSideTransport.lean"
+          ],
+          "module": "ParentSelectedSideTransport",
+          "wholeTargetResult": false
+        },
+        {
+          "exitCode": 0,
+          "durationSeconds": 4272.611551623093,
+          "sha256": "4c72b7fc9e729c478f36df74dcda02fb5f54fa303f2173e3c27efcfcdd579de0",
+          "sourceUnchanged": true,
+          "command": [
+            "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+            "-o",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/ParentSelectedEndpointsModular.olean",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentSelectedEndpointsModular.lean"
+          ],
+          "module": "ParentSelectedEndpointsModular",
+          "wholeTargetResult": false
+        },
+        {
+          "exitCode": 0,
+          "durationSeconds": 1834.7570285152178,
+          "sha256": "62f5ae77def5e59c89a9d26af1bff03bb53512bbcdcd6fb6e20c698cd6c7a45c",
+          "sourceUnchanged": true,
+          "command": [
+            "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+            "-o",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/ParentSelectedSeam.olean",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentSelectedSeam.lean"
+          ],
+          "module": "ParentSelectedSeam",
+          "wholeTargetResult": false
+        },
+        {
+          "exitCode": 0,
+          "durationSeconds": 99.63699337188154,
+          "sha256": "517b62aaa226145f8d1d8f6c7777cfab8c21d48a7dcdaa3d9e83d1bc0c3be89e",
+          "sourceUnchanged": true,
+          "command": [
+            "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+            "-o",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/ParentSelectedSideEndpointCoordinates.olean",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentSelectedSideEndpointCoordinates.lean"
+          ],
+          "module": "ParentSelectedSideEndpointCoordinates",
+          "wholeTargetResult": false
+        },
+        {
+          "exitCode": 0,
+          "durationSeconds": 1218.2735960709397,
+          "sha256": "55b935f1064af6a6e4edfc8c95601701b8b17ce036ddc5b7d794dcda6b1ce61d",
+          "sourceUnchanged": true,
+          "command": [
+            "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+            "-o",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/ParentWrapEndpoints.olean",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentWrapEndpoints.lean"
+          ],
+          "module": "ParentWrapEndpoints",
+          "wholeTargetResult": false
+        },
+        {
+          "exitCode": 0,
+          "durationSeconds": 1811.6216447828338,
+          "sha256": "cd1ee327a613b84cf71e587111f9c06f4420acae07f8eec2a9930a1091e7c4c3",
+          "sourceUnchanged": true,
+          "command": [
+            "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+            "-o",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/ParentWrapSeam.olean",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentWrapSeam.lean"
+          ],
+          "module": "ParentWrapSeam",
+          "wholeTargetResult": false
+        },
+        {
+          "exitCode": 0,
+          "durationSeconds": 362.6375269670971,
+          "sha256": "63c08d6a3d5e059f789d397c054c627e21dbd96981acc9a455fea39491b4c6fb",
+          "sourceUnchanged": true,
+          "command": [
+            "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+            "-o",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/ParentMarkedValueDataV2.olean",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentMarkedValueDataV2.lean"
+          ],
+          "module": "ParentMarkedValueDataV2",
+          "wholeTargetResult": false
+        }
+      ],
+      "latestGenericBridge": {
+        "exitCode": 0,
+        "durationSeconds": 280.5141374121886,
+        "sha256": "550f97ec651cd9809ba64ac3e9d7f359442fbb5a5b37eda38e4da2759831c780",
+        "sourceUnchanged": true,
+        "command": [
+          "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+          "-o",
+          "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/ParentMarkedCutLiftData.olean",
+          "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentMarkedCutLiftData.lean"
+        ]
+      },
+      "latestThisContinuation": [
+        {
+          "exitCode": 0,
+          "durationSeconds": 280.5141374121886,
+          "sha256": "550f97ec651cd9809ba64ac3e9d7f359442fbb5a5b37eda38e4da2759831c780",
+          "sourceUnchanged": true,
+          "command": [
+            "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+            "-o",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/ParentMarkedCutLiftData.olean",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentMarkedCutLiftData.lean"
+          ],
+          "module": "ParentMarkedCutLiftData",
+          "wholeTargetResult": false
+        },
+        {
+          "exitCode": 0,
+          "durationSeconds": 739.4522869610228,
+          "sha256": "d54e07e91834b7bf15ab8a3e63e9e4a5ad7416c0769c09d4c8ac514a6556f67d",
+          "sourceUnchanged": true,
+          "command": [
+            "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+            "-o",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/ParentSelectedFromSides.olean",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentSelectedFromSides.lean"
+          ],
+          "module": "ParentSelectedFromSides",
+          "wholeTargetResult": false
+        },
+        {
+          "exitCode": 0,
+          "durationSeconds": 1.5696031379047781,
+          "sha256": "4591f70c6a9e043bdeb4b0a56e0f4c0b5fd1f9b8a0ac2426bf873a070db06c25",
+          "sourceUnchanged": true,
+          "command": [
+            "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+            "-o",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/ParentBlockIdentity.olean",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentBlockIdentity.lean"
+          ],
+          "module": "ParentBlockIdentity",
+          "wholeTargetResult": false
+        },
+        {
+          "exitCode": 0,
+          "durationSeconds": 708.438846108038,
+          "sha256": "1cad8c0e23f42a194fce8179ccaad46ff6139c2ed43171452fa6527296d0cbd5",
+          "sourceUnchanged": true,
+          "command": [
+            "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+            "-o",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/ParentWrapSideEndpointCoordinates.olean",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentWrapSideEndpointCoordinates.lean"
+          ],
+          "module": "ParentWrapSideEndpointCoordinates",
+          "wholeTargetResult": false
+        },
+        {
+          "exitCode": 0,
+          "durationSeconds": 583.8372642039321,
+          "sha256": "d4b1b5c85005d11d77b87a1a87b87a33c27e307c8456c9f332a949967cbf08f8",
+          "sourceUnchanged": true,
+          "command": [
+            "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+            "-o",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/ParentWrapFromSides.olean",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentWrapFromSides.lean"
+          ],
+          "module": "ParentWrapFromSides",
+          "wholeTargetResult": false
+        },
+        {
+          "exitCode": 0,
+          "durationSeconds": 90.69538106117398,
+          "sha256": "81c16ceeefaaa964b4d1cd3ce5d0135b3394aaedf928d14f2dcac858f594e3c7",
+          "sourceUnchanged": true,
+          "command": [
+            "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+            "-o",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/ParentProducedValueDataInferredV1.olean",
+            "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/ParentProducedValueDataInferredV1.lean"
+          ],
+          "module": "ParentProducedValueDataInferredV1",
+          "wholeTargetResult": false
+        }
+      ],
+      "wholeTargetKernelPassed": true,
+      "kernelExitCode": 0,
+      "axiomsOnlyPermitted": true,
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "publisherComparatorPassed": false,
+      "nativeAccepted": false,
+      "officialHostedAcceptance": false,
+      "originalWholeTargetReceipt": "validation/character-varieties-progress-20261023/AllSeamsAssemblyInferredV2.build-receipt.json",
+      "originalWholeTargetSourceSha256": "7bc8f2708fafd2cd1effdc61c59c38a7e146727fbb8bc5c735d03b85522378bb",
+      "singleFileCandidate": {
+        "source": "validation/character-varieties-progress-20261023/AllSeamsArchiveFinalInferredV2.lean",
+        "sha256": "b112a1db4a012ec8449b1adf58d73de5f6e848229786868eb828a3e2a70cdfa2",
+        "bytes": 237563,
+        "kernelVerification": "no_terminal_receipt_observed_for_historical_candidate",
+        "comparatorPassed": false,
+        "sourceGuardPassed": false,
+        "sourceGuardError": "math_original_context_changed",
+        "sourceGuardReceipt": "validation/character-environment-adapter-20261023/source-guard-b112a1db4a01-receipt.json",
+        "deliveryEligible": false,
+        "repair": "Keep the frozen original context and rewrite each checked helper with closed binders and term-local scopes; do not change the guard.",
+        "historical": true,
+        "currentCandidate": false
+      },
+      "nativeFollowup": {
+        "environment": "openai-math-character-reviewed-v1",
+        "environmentDigest": "776e5201fa24ba3dba47f84d50336a9c3426372bd58f711b923b94219c4b632d",
+        "phase": "running",
+        "modelInvoked": true,
+        "nativeAccepted": false,
+        "changesToFrozenCampaign": false,
+        "continuationSupervisors": "validation/character-environment-adapter-20261023/unlimited-preparation-v2/continuation-supervisors.json",
+        "nativeAcceptanceNotOverridden": true,
+        "prepareTimeoutSeconds": 0,
+        "activeFollowup": "validation/character-environment-adapter-20261023/unlimited-preparation-v2/native-followup/result.json",
+        "newRuntimeBuildId": "d3369e50-0985-4155-804e-baba6801c575",
+        "runtimeAdaptation": "Four scheduling/CLI lines in an independent copy only; acceptance rules unchanged.",
+        "focusedTestsPassed": 6,
+        "typecheckExitCode": 0,
+        "headlessBundleCount": 3,
+        "previousAttempts": [
+          {
+            "receipt": "validation/character-environment-adapter-20261023/preflight-receipt.json",
+            "failure": "default 1800-second preparation limit reached before model invocation"
+          },
+          {
+            "receipt": "validation/character-environment-adapter-20261023/unlimited-preparation/preflight-receipt.json",
+            "failure": "optional helper IPC deadline Infinity overflow; repaired by passing no deadline"
+          }
+        ],
+        "verificationSupervisor": "validation/character-environment-adapter-20261023/verification-supervisor-launch.json",
+        "verificationPhase": "waiting_for_current_candidate_complete_kernel_and_audit",
+        "referenceTransport": "xz/lzma + base64; payload read from exact task objective in COOPERATION.json; normalized frozen-reader line and sandbox SHA roundtrip verified before queue",
+        "observedTurns": 22,
+        "runId": "be2c8bbd-71c7-4dc5-aa21-1c3a7550a2c6"
+      },
+      "publishedPackage": "results/openai-math/character_varieties_all_seams_support",
+      "guardCompatibleCandidate": {
+        "source": "validation/character-varieties-progress-20261023/GuardCompatibleAllSeamsV1.lean",
+        "sha256": "2b42c03a9d91432b9e9b9ca2e8b781332c3db256bdd28d1ada6899c3dbe65a39",
+        "bytes": 778899,
+        "originalSourceGuardPassed": true,
+        "sourceGuardReceipt": "validation/character-environment-adapter-20261023/source-guard-2b42c03a9d91-receipt.json",
+        "kernelVerification": "failed",
+        "sealedComparatorPassed": false,
+        "nativeAccepted": false,
+        "kernelExitCode": 1,
+        "kernelReceipt": "validation/character-varieties-progress-20261023/GuardCompatibleAllSeamsV1.build-receipt.json",
+        "sourceUnchanged": true,
+        "historical": true,
+        "currentCandidate": false
+      },
+      "currentRoundtripRepair": {
+        "phase": "v3_complete_kernel_failed_naturally_typed_repair_closures_running",
+        "checked": 250,
+        "total": 250,
+        "remaining": 0,
+        "allRequiredHelperRoundtripsPassed": true,
+        "exactReplayExitCode": 0,
+        "aggregateExportExitCode": 0,
+        "source": "GuardCompatibleAllSeamsV3.lean",
+        "sha256": "4a9e17fc40551afa8725bd5108aee52b517b77216bb4e82a1da49f51d4217ea4",
+        "bytes": 729113,
+        "originalSourceGuardPassed": true,
+        "wholeCandidateKernelPassed": false,
+        "auditPassed": false,
+        "nativeAccepted": false,
+        "workflowSessionID": 10986,
+        "kernelPID": 1393132,
+        "kernelReceiptPending": null,
+        "sourceGuardReceipt": "GuardCompatibleAllSeamsV3.source-guard.json",
+        "addressSpaceLimitBytes": 34359738368,
+        "timeoutSeconds": null,
+        "kernelExitCode": 1,
+        "kernelDurationSeconds": 6711.511,
+        "kernelReceipt": "GuardCompatibleAllSeamsV3.build-receipt.json",
+        "historical": true,
+        "currentCandidate": false,
+        "supersededBy": "currentTypedCompleteCandidate"
+      },
+      "nativePreparation": {
+        "observedAt": "2026-10-23T07:55:06.456656+00:00",
+        "target": "CharacterVarietiesAllSeamsSupport",
+        "phase": "preflight_finished",
+        "nativeAccepted": false,
+        "modelInvoked": false,
+        "originalCampaignChanged": false,
+        "environmentDigest": "776e5201fa24ba3dba47f84d50336a9c3426372bd58f711b923b94219c4b632d",
+        "pid": 349501,
+        "exitCode": 0,
+        "durationSeconds": 3621.316397149116
+      },
+      "nativeFollowupObservation": {
+        "observedAt": "2026-10-23T12:31:18.649834+00:00",
+        "target": "CharacterVarietiesAllSeamsSupport",
+        "phase": "running",
+        "nativeAccepted": false,
+        "originalCampaignChanged": false,
+        "modelInvoked": true,
+        "childPid": 758785,
+        "unlimitedBudgets": {
+          "maxRunSeconds": 0,
+          "maxTurns": 0,
+          "maxTurnSeconds": 0,
+          "maxTotalTokens": 0,
+          "evaluatorTimeoutSeconds": 0
+        },
+        "observedTurns": 22
+      },
+      "currentFullCandidateDiagnostics": {
+        "source": "GuardCompatibleAllSeamsV3.lean",
+        "sha256": "4a9e17fc40551afa8725bd5108aee52b517b77216bb4e82a1da49f51d4217ea4",
+        "observedErrorHeaders": 10,
+        "affectedHelpers": 7,
+        "logReceipt": "validation/character-varieties-progress-20261023/GuardCompatibleAllSeamsV3.observed-errors-v1.json",
+        "terminalReceiptObserved": true,
+        "nativeAccepted": false,
+        "repair": "explicit original type on declaration header, retaining checked lambda application boundaries",
+        "fullKernelReceipt": "validation/character-varieties-progress-20261023/GuardCompatibleAllSeamsV3.build-receipt.json",
+        "additionalHelpers": [
+          "external_positive_ne_input",
+          "external_negative_ne_output",
+          "external_firstCommonColumns_positive"
+        ],
+        "oldFirstSixErrorReceiptRemainsHistorical": true,
+        "meaning": "Natural exit1 with complete terminal output; not a cancelled or timed-out complete candidate.",
+        "appliesTo": "previous_v3_complete_candidate"
+      },
+      "typeBoundaryRepair": {
+        "status": "26_exact_repairs_passed_remaining54_v5_default_cli_running",
+        "declarationHeaderTypesRequired": true,
+        "internalLetHaveTypesAlsoRequiredForTwoLocatedSigmaExtProofs": true,
+        "rootCause": "mode0 was selected at the first individual roundtrip success, omitting internal let/have types; typed mode1 was already available but not selected for these two proofs",
+        "repair": "export these solver-owned proofs using pp.letVarTypes-preserving mode before fresh complete candidate",
+        "newCompleteCandidatePassed": false,
+        "nativeAccepted": false,
+        "twoMode20ExactRoundtripsPassed": true,
+        "proofProbeReceipt": "validation/character-varieties-progress-20261023/GuardSourceTypeBoundariesProbeV1.build-receipt.json",
+        "currentDefaultClosure": "GuardTypedOldCommonClosureV5.lean",
+        "currentClosureOwnerWatcher": "1207",
+        "allSevenKnownErrorHelpersMustBeCoveredBeforeFreshCompleteCandidate": true,
+        "fiveOverridesExactRoundtripPassed": true,
+        "overrideDataSHA256": "09b76e4b77c42b891ea4b9dff724da8058ca36bc3c29243f0ff3bcd5e2eeacf0",
+        "nonprincipalFourHelperDefaultClosurePassed": true,
+        "nonprincipalDefaultClosureReceipt": "validation/character-varieties-progress-20261023/GuardTypedNonprincipalClosureV2.default-options-receipt.json",
+        "allSevenErrorRootsJointClosure": "GuardTypedAllErrorClosureV1.lean",
+        "jointClosureHelperCount": 70,
+        "jointClosureBytes": 172330,
+        "jointClosureSHA256": "a3b1a7e84090a7b97cce7a8f312da93d880d10f62309cb89c45766a3a87d7cec",
+        "jointClosureStatus": "original70_uncompiled_replaced_by_modular16plus54_diagnostic_before_original_fresh250",
+        "automaticSequentialOwner": {
+          "pid": 2885244,
+          "ownerPTY": 68715,
+          "ownerWatcher": "1318",
+          "statusRecord": "validation/character-varieties-progress-20261023/context-boundary-repairs-workflow-v4.json",
+          "order": [
+            "existing16_default_cli_closure_real_receipt_and_axiom_check",
+            "remaining54_modular_default_cli_diagnostic_importing_exact_verified16_olean",
+            "full250_helper_original_imports_fresh_single_file_default_cli_kernel",
+            "original_target_axiom_audit"
+          ],
+          "existing16OwnerWatcher": "1207",
+          "sameDeclarationSHA256Across16_54_70_250": true,
+          "verified16OleanSHARequiredBeforeReuse": true,
+          "sealedAndNativeRemainParentOwned": true,
+          "failureStopsBeforeReady": true,
+          "noParallelDuplicateCompilation": true,
+          "status": "naturally_failed_after_full_v5_exit1",
+          "fullCandidateStarted": true,
+          "fullCandidateExitCode": 1,
+          "ownerExited": true
+        },
+        "priorSequentialOwner": {
+          "pid": 2138857,
+          "ownerPTY": 44251,
+          "ownerWatcher": "1234",
+          "statusRecord": "validation/character-varieties-progress-20261023/context-boundary-repairs-workflow-v1.json",
+          "order": [
+            "existing16_default_cli_closure",
+            "same_source_70_helper_default_cli_closure",
+            "full250_helper_default_cli_kernel",
+            "original_target_axiom_audit"
+          ],
+          "sameDeclarationsSHA256Across16_70_250": true,
+          "sealedAndNativeRemainParentOwned": true,
+          "failureStopsBeforeReady": true,
+          "status": "superseded_cancelled_while_idle_no_children",
+          "supersessionReceipt": "validation/character-varieties-progress-20261023/context-boundary-repairs-workflow-v1.supersession-signal.json"
+        },
+        "remaining54Diagnostic": {
+          "source": "GuardTypedRemainingErrorClosureV5.lean",
+          "sha256": "4d25e6790e3e4420f242106ad577159f55a66adfe475acb82cc7c76eff0196e9",
+          "bytes": 134865,
+          "status": "passed",
+          "declarationOrderChangesFromImport": true,
+          "claimBoundary": "Modular seven-root diagnostic only; not original70 single-file or complete-candidate acceptance.",
+          "receipt": "validation/character-varieties-progress-20261023/GuardTypedRemainingErrorClosureV5.default-options-receipt.json",
+          "repairOwner": "/root/independent_verification",
+          "typeMismatchErrorsRemaining": 0,
+          "sorryAxObserved": false,
+          "previousV4ExitCode": 1,
+          "previousV4RemainingDefaultHeartbeatErrorCount": 1,
+          "latestObservedAt": "2026-10-23T15:50:24.643937+00:00",
+          "leanPID": 2885330,
+          "cpuSeconds": 9500.56,
+          "elapsedSeconds": 9420.93,
+          "completeReplacementCandidateStarted": false,
+          "exitCode": 0,
+          "durationSeconds": 10866.477,
+          "sourceUnchanged": true,
+          "defaultCLI": true,
+          "allSevenRootAxiomsOnlyPermitted": true
+        },
+        "existing16DefaultCLI": {
+          "exitCode": 0,
+          "durationSeconds": 2638.378,
+          "sourceSHA256": "37efe4c377a45e07e7dd649df3fefbd95ea863850c7d2dac5faa287c490af891",
+          "receipt": "validation/character-varieties-progress-20261023/GuardTypedOldCommonClosureV5.default-options-receipt.json",
+          "axioms": [
+            "propext",
+            "Classical.choice",
+            "Quot.sound"
+          ],
+          "nativeAcceptance": false
+        },
+        "all19OriginalExplicitScalarParametersRestoredInDiagnostic": true,
+        "exactRepairReplayCount": 26,
+        "exactRepairReplayExitCode": 0,
+        "exactRepairReplayDurationSeconds": 22.882,
+        "exactRepairReplayReceipt": "validation/character-varieties-progress-20261023/GuardContextBoundaryOverridesProbeV5.build-receipt.json",
+        "exactRepairDataSHA256": "9758460139a7a29c8e2aceb97afd585e59566d131fbf9bb94afebaeb3f09302e"
+      },
+      "currentTypedCompleteCandidate": {
+        "source": "validation/character-varieties-progress-20261023/GuardCompatibleAllSeamsV5.lean",
+        "sha256": "eae07f22265ffe3c43b736b13f2e253d202c52451c57efe0d5995d3d1a3b0c1f",
+        "originalSourceGuardPassed": true,
+        "wholeCandidateKernel": "failed",
+        "kernelExitCode": 1,
+        "kernelDurationSeconds": 328.246,
+        "receipt": "validation/character-varieties-progress-20261023/GuardCompatibleAllSeamsV5.build-receipt.json",
+        "errorReport": "validation/character-varieties-progress-20261023/GuardCompatibleAllSeamsV5.terminal-errors-v1.json",
+        "formalErrorCount": 42,
+        "affectedDeclarations": 30,
+        "auditPassed": false,
+        "publisherComparatorPassed": false,
+        "nativeAccepted": false,
+        "historical": true,
+        "currentCandidate": false
+      },
+      "nextCompleteCandidate": {
+        "status": "fresh_full250_single_file_running",
+        "willRequireFreshSourceGuardKernelAuditComparatorAndNative": true,
+        "activeRepairOwner": "/root/independent_verification",
+        "originalVerified16And54NotRecompiled": true,
+        "source": "validation/character-varieties-progress-20261023/GuardCompatibleAllSeamsV12.lean",
+        "sha256": "80955a4045e2657b431ef2018b772783bd1e6935c9e6dc0267f0176e9c7ba4a6",
+        "bytes": 796560,
+        "fullSingleFileKernelPassed": false,
+        "auditPassed": false,
+        "publisherComparatorPassed": false,
+        "nativeAccepted": false,
+        "chainRecord": "validation/character-varieties-progress-20261023/current-independent-repair-chain-v1.json",
+        "firstShortRepairReceipt": "validation/character-varieties-progress-20261023/GuardFirstShortTacticOverridesProbeV1.default-options-receipt.json",
+        "firstShortRepairExitCode": 0,
+        "firstShortRepairDurationSeconds": 155.526,
+        "originalSourceGuardPassed": true,
+        "sourceGuardReceipt": "validation/character-varieties-progress-20261023/GuardCompatibleAllSeamsV12.source-guard.json",
+        "remaining180ExitCode": 0,
+        "remaining180DurationSeconds": 23844.391,
+        "remaining180Receipt": "validation/character-varieties-progress-20261023/GuardTypedRemainingFullClosureV12.default-options-receipt.json",
+        "remaining180Summary": "validation/character-varieties-progress-20261023/GuardTypedRemainingFullClosureV12.terminal-summary-v1.json"
+      },
+      "historicalV9Remaining180Diagnostic": {
+        "remaining180ExitCode": 1,
+        "remaining180DurationSeconds": 342.034,
+        "remaining180RootErrorCount": 1,
+        "remaining180DependentDiagnosticCount": 1,
+        "remaining180Receipt": "validation/character-varieties-progress-20261023/GuardTypedRemainingFullClosureV9.default-options-receipt.json",
+        "remaining180Summary": "validation/character-varieties-progress-20261023/GuardTypedRemainingFullClosureV9.terminal-summary-v1.json"
+      },
+      "acceleration": {
+        "observedAt": "2026-10-24T05:25:33.868314+00:00",
+        "preflightReceipt": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/native-merge-preflight-80955a4045e2/receipt.json",
+        "canonicalSubmissionSHA256": "0ec8e7e2fbe9ff7f2d4c849c7558c152e24d707d79943d6f7ac08d0b27fa98c9",
+        "nativeRunId": "be2c8bbd-71c7-4dc5-aa21-1c3a7550a2c6",
+        "queueStatus": "queued",
+        "nativePhase": "checking",
+        "engineerSourceExact": true,
+        "localFullCheckPreserved": true,
+        "serialAdvisoryGatesRetired": true,
+        "nativeAccepted": false,
+        "nativeHostStarted": true,
+        "nativeHostStartReceipt": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/native-acceleration-20261024/native-goal-check-started.json"
+      }
+    }
+  ],
+  "officialHostedAcceptance": false,
+  "externalAssistance": true,
+  "nativeAcceptedTargets": [
+    "TruffetCounterexample",
+    "SurfaceConeCandidateSupport",
+    "HadamardCubeFiber",
+    "CartierChartCompactnessSupport",
+    "SnakyCertificate"
+  ],
+  "publishedResultCommit": "9bb18e69cfdadb049db1e6dcc1a23e10f4c475ca",
+  "snakyCertificate": {
+    "status": "native_final_acceptance_passed",
+    "tableValidityKernelPassed": true,
+    "memoRowsVerified": 616,
+    "memoRowsTotal": 616,
+    "wholeTargetPassed": true,
+    "fourExplicitOutputsKernelPassed": true,
+    "sourceGuardPassed": true,
+    "submissionSHA256": "b7dc0b2898b8d4ee8ed4a3b10394429f939ff9e4d73761dcd6968e46a4579751",
+    "submissionBytes": 896495,
+    "nativeFollowupPrepared": true,
+    "nativeRunId": "6d22ec7c-5c2b-41a4-911d-dcf3f0b7ddf0",
+    "candidateDelivered": true,
+    "sealedResourceFailure": "Both 8a3285 and d39c4d sealed candidates naturally exited 1 with Lean INTERNAL PANIC: out of memory under unchanged 32GiB virtual-memory cap. No timeout or manual stop. They did not reach target axiom audit or comparator; neither was queued.",
+    "memoRowsVerifiedMeaning": "All616 row equalities and full original certificate_correct checked via CertificateRows plus CertificateFullKernel, permitted standard axioms only; single-file source guard/comparator/native acceptance still pending.",
+    "largeDefinitionsProbePassed": true,
+    "largeDefinitionsProbeRows": [
+      611,
+      612,
+      613,
+      614,
+      615
+    ],
+    "tailDeclarationFix": "Split H sets larger than 350 cells into 100-cell definitions; frozen challenge unchanged.",
+    "sealedResourceFix": "Independent compile entry uses pinned Lean -j1 -DElab.async=false; existing resource limits unchanged.",
+    "sourceGuardSevenChecksPassed": true,
+    "heartbeatFixProbePassed": true,
+    "heartbeatFix": "Options.maxHeartbeats=0 and Core.Context.maxHeartbeats=0 are both needed for large closed kernel decisions; full sealed result pending",
+    "supersededCandidate": {
+      "sha256": "0fb69fe7ada44c2088af432d99f391ab3f0c6e1db115489b2567b5bf1acef84e",
+      "passed": false,
+      "errors": [
+        "me_586 default heartbeat timeout",
+        "second default heartbeat timeout at source line 9827"
+      ],
+      "evidence": "snaky-certificate-progress-20261023/submission-chunked-kernel-failed-receipt.json"
+    },
+    "nextCandidate": {
+      "source": "validation/snaky-certificate-progress-20261023/SubmissionNext.lean",
+      "sha256": "418e8648762d804ee62470fb0db6661be971d146ed541f75eba52fc3798dd608",
+      "bytes": 968936,
+      "sourceGuardPassed": true,
+      "wholeTargetPassed": false,
+      "tailProbe": "TailPropertiesProbeV2.lean",
+      "fix": "Raise maxRecDepth on literal definitions; execute closed decision tactics with Core.Context.maxHeartbeats=0. Original definitions and target signature unchanged.",
+      "knownFailed": true
+    },
+    "tailProbeOld": {
+      "exitCode": 1,
+      "firstError": "mr_600 literal definition exceeded default maxRecDepth; also default Core.Context heartbeat limit on closed decisions.",
+      "notWholeTargetResult": true
+    },
+    "wholeTargetKernelPassed": true,
+    "modularKernelReceipt": "validation/snaky-certificate-progress-20261023/CertificateFullKernel.receipt.json",
+    "modularKernelSourceSHA256": "efb41f264587a47d89ff9177d54fb98137580f3e6bbebbd31c7e2d6ce4a33f9a",
+    "blocksCandidate": {
+      "source": "validation/snaky-certificate-progress-20261023/SubmissionBlocks.lean",
+      "sha256": "2c5eaca219bdd0a574020eec97a2a2ea83201d9660a49f0f2312a24698028db8",
+      "bytes": 1021383,
+      "status": "focused_tail_check_running"
+    },
+    "currentCandidateChecks": {
+      "tailAllDataValidityAndOmitted": {
+        "exitCode": 0,
+        "sha256": "62732517ff6076770101025127fcfd032873dd35baac7208c7738ae80612bd30",
+        "durationSeconds": 658.6431532979477
+      },
+      "defaultResourceFinalAssembly": {
+        "exitCode": 0,
+        "sha256": "8d04333df67751e14cbac24a76caeeb62250e3b229227eb22ce8670f8c574928",
+        "durationSeconds": 49.06325788493268
+      },
+      "independentSevenGuardsPassed": true,
+      "fullSealedComparator": "failed_out_of_memory",
+      "nativeAccepted": false,
+      "largestRowDefaultKernelProbe": {
+        "exitCode": 1,
+        "durationSeconds": 344.37410368886776,
+        "sha256": "43a3f7546bd8ba60b1446d4b53e5ec539c86a45de0a3d9438c36c70a818d644f",
+        "kernelError": "deterministic timeout at me615 final Eq, also duplicate imported helper at line9; distinct Options0 corrected probe in progress"
+      },
+      "largestRowOptionsKernelProbe": {
+        "exitCode": 0,
+        "sha256": "559e1ce9b99a0e6b4fa607e87bc141c3d1c405127c19ac70dacc49d56f22c34f",
+        "durationSeconds": 467.5851380690001,
+        "sourceUnchanged": true,
+        "command": [
+          "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+          "-j1",
+          "-DElab.async=false",
+          "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-certificate-progress-20261023/LastEqualityOptionsKernelProbe.lean"
+        ]
+      }
+    },
+    "optionsV3Candidate": {
+      "source": "validation/snaky-certificate-progress-20261023/SubmissionBlocksOptionsV3.lean",
+      "sha256": "d39c4dce37f1711ff813aa5a4f5eab590959028fb144697cc9d3dcb5fa0c10bf",
+      "sourceGuardsPassed": 7,
+      "fullSealedComparator": "failed_out_of_memory",
+      "nativeAccepted": false,
+      "receipt": "validation/snaky-certificate-progress-20261023/sealed-options-v3-comparator-receipt.json"
+    },
+    "canonicalV1Candidate": {
+      "source": "validation/snaky-certificate-progress-20261023/SubmissionCanonicalV1.lean",
+      "sha256": "9ea508939d593a72324899726a2314c27db64fbac527b58522fc22ec1b2bf988",
+      "bytes": 1043632,
+      "sourceGuardSevenChecksPassed": true,
+      "lastRowKernelPassed": true,
+      "fullSealedComparator": "failed_out_of_memory",
+      "nativeAccepted": false,
+      "meaning": "Full original sealed run naturally failed with Lean std::bad_alloc (Lean exit134, outer exit1); no timeout or manual abort. It did not reach target axiom audit or comparator and was not queued. Seven guards and last-row probe are partial evidence only.",
+      "receipt": "validation/snaky-certificate-progress-20261023/sealed-canonical-v1-comparator-receipt.json"
+    },
+    "canonicalV2Candidate": {
+      "source": "validation/snaky-certificate-progress-20261023/SubmissionCanonicalV2.lean",
+      "sha256": "87a3c359ef740fe32fe1ac2fda0216d708421163bc04194aa48ca8be0d742cdb",
+      "bytes": 901417,
+      "sourceGuardSevenChecksPassed": true,
+      "focusedIntegrationKernelPassed": true,
+      "fullSealedComparator": "passed",
+      "nativeAccepted": false,
+      "singleFileKernelCompilePassed": true,
+      "axiomAuditCommandCompleted": true,
+      "exactFinalAxiomsPendingReceipt": false,
+      "comparatorReceiptPresent": true,
+      "comparatorReceipt": "validation/snaky-certificate-progress-20261023/sealed-canonical-v2-comparator-receipt.json",
+      "originalMemoryLimitBytes": 34359738368,
+      "exitCode": 0,
+      "timedOut": false,
+      "aborted": false,
+      "exactThreeAxioms": true
+    },
+    "publisherComparatorPassed": true,
+    "publisherComparatorExitCode": 0,
+    "nativeAccepted": true,
+    "nativeDelivery": {
+      "normalResume": true,
+      "phase": "finished",
+      "turns": 24,
+      "persistentDeltaEditApplied": true,
+      "exactFinalSourceInstalled": true,
+      "submissionSHA256": "87a3c359ef740fe32fe1ac2fda0216d708421163bc04194aa48ca8be0d742cdb",
+      "sourceBytes": 901417,
+      "sourceObservedReceipt": "validation/snaky-native-followup-20261023/canonical-v2-delta-final-source-observed.json",
+      "modelOwnedLeanCheckRunning": false,
+      "nativeModelToolSessionID": 8420,
+      "nativeCheckAddressSpaceLimit": "unlimited; frozen original check-lean behavior",
+      "standaloneSealedAddressSpaceLimitBytes": 34359738368,
+      "nativeAccepted": false,
+      "previousRuntimeErrorResultIsResumeHistory": false,
+      "noDirectSourceOrCheckpointEdits": true,
+      "modelOwnedLeanCheckPassed": true,
+      "modelCheckExitCode": 0,
+      "reason": "math_verifier_unavailable",
+      "currentTerminalReceipt": "validation/snaky-native-followup-20261023/canonical-v2-native-terminal-receipt.json",
+      "hostProjectionReproductionError": "failed to create thread: Resource temporarily unavailable; exit 134",
+      "historical": true,
+      "currentCandidate": false,
+      "evidenceAppliesToSHA256": "87a3c359ef740fe32fe1ac2fda0216d708421163bc04194aa48ca8be0d742cdb"
+    },
+    "canonicalV3SyncCandidate": {
+      "source": "validation/snaky-certificate-progress-20261023/SubmissionCanonicalV3SyncHelpers.lean",
+      "sha256": "43e3ef02cb745b5a29436a7c791243abd76dac7202b9b2441fc031d6256fa761",
+      "bytes": 898683,
+      "sevenSourceGuardsPassed": true,
+      "fullFrozenHostVerification": "failed",
+      "sessionID": 47984,
+      "leanPID": 1379079,
+      "addressSpaceLimitBytes": 34359738368,
+      "nativeAccepted": false,
+      "nativeDelivered": false,
+      "change": "Added helper proofs use equivalent Prop-valued def declarations; original declarations, types and proof bodies preserved.",
+      "reason": "Actual frozen-host V2 projection failed to create a thread, exit134, with original resource limits.",
+      "exitCode": 1,
+      "firstBlockingHelpers": [
+        "qn614",
+        "qn615"
+      ],
+      "diagnosisReceipt": "validation/snaky-certificate-progress-20261023/canonical-v3-sync-failure-and-v4-repair-diagnosis.json"
+    },
+    "canonicalV4SelectiveCandidate": {
+      "source": "validation/snaky-certificate-progress-20261023/SubmissionCanonicalV4SelectiveTheorems.lean",
+      "sha256": "148fcaaa4e74484311f28dd6884d98bf13b5d35c23460d40bc151c3acc210c91",
+      "bytes": 898687,
+      "originalSourceGuardsPassed": true,
+      "focusedTwoHelperClosurePassed": true,
+      "fullOriginalComparator": "failed",
+      "comparatorSessionID": 70823,
+      "fullFrozenHost": "not_started_candidate_failed_original_comparator",
+      "resourceLimitBytes": 34359738368,
+      "timeoutSeconds": null,
+      "nativeAccepted": false,
+      "externallyAssisted": true,
+      "exitCode": 1,
+      "captureComplete": true,
+      "blockingHelpers": [
+        "qsmall_step11",
+        "table_valid_probe"
+      ],
+      "previouslyFixedHelpersNoLongerReported": [
+        "qn614",
+        "qn615"
+      ],
+      "terminalReceipt": "validation/snaky-certificate-progress-20261023/sealed-canonical-v4-selective-native-entry-comparator-receipt.json",
+      "nativeDelivered": false,
+      "comparatorProcessDurationSeconds": 2651.651,
+      "workflowWallSeconds": 2656.604,
+      "allSynchronousHelperDeclarationsCovered": true,
+      "synchronousHelpersAttempted": 1365,
+      "synchronousHelpersWithWarningsAndNoFormalError": 1363,
+      "formalErrorCount": 2
+    },
+    "currentFocusedRepair": {
+      "helpers": [
+        "qsmall_step11",
+        "table_valid_probe"
+      ],
+      "change": "restore only these solver-added Prop-valued defs to lemma declarations; exact proof bodies and original statements retained",
+      "status": "passed",
+      "nativeAccepted": false,
+      "durationSeconds": 116.66,
+      "sourceBytes": 77718,
+      "sameOriginalResourceLimit": true,
+      "sourceGuardChecksPassed": 7
+    },
+    "canonicalV5SelectiveCandidate": {
+      "source": "validation/snaky-certificate-progress-20261023/SubmissionCanonicalV5SelectiveTheorems.lean",
+      "sha256": "66d0cf5eecbcffcf0de7933acaec1c16da6f5ba8592173e1e9228c350663fdd7",
+      "bytes": 898691,
+      "sourceGuardsPassed": 7,
+      "focusedRepairPassed": true,
+      "fullOriginalComparator": "passed",
+      "comparatorSessionID": 76293,
+      "publisherDriverPID": 1900470,
+      "fullFrozenHost": "passed",
+      "resourceLimitBytes": 34359738368,
+      "timeoutSeconds": null,
+      "nativeAccepted": true,
+      "nativeDelivered": true,
+      "externallyAssisted": true,
+      "statusRecord": "validation/snaky-native-followup-20261023/certificate-current-status.json",
+      "processObservationRecord": "validation/snaky-native-followup-20261023/certificate-current-status.json",
+      "latestStatusObservedAt": "2026-10-23T12:18:23.993403+00:00",
+      "latestObservedCompilerSample": {
+        "observedAt": "2026-10-23T12:28:36+00:00",
+        "pid": 1903185,
+        "cumulativeCPUSeconds": 2548.8,
+        "threads": 7,
+        "peakVirtualGiB": 28.73,
+        "peakResidentGiB": 25.48,
+        "terminalReceiptObserved": false,
+        "evidence": "owning agent process sample; no acceptance inferred from liveness"
+      },
+      "currentStage": "native_final_acceptance_passed",
+      "stageEvidence": "Native original-goal, integration, all-original-target checks, fixed review and S3 original publisher comparator all passed; evaluated_passed and completion/ready signals verified.",
+      "buildStageTransition": {
+        "sourceLeanPID": 1903185,
+        "sourceLeanRawWaitExitCode": null,
+        "lakeBuildExit0InferredFromUnmodifiedSetEuCommand": true,
+        "comparatorLeanPID": 2306694,
+        "fullComparatorPassed": false,
+        "sameSHAHostStarted": false,
+        "nativeAcceptance": false
+      },
+      "latestStatusRecord": "validation/snaky-native-followup-20261023/certificate-current-status.json",
+      "latestConfirmedAt": "2026-10-24T04:09:24.770156+00:00",
+      "terminalReceiptObserved": true,
+      "latestObservedComparatorSample": {
+        "observedAt": "2026-10-23T12:52:10+00:00",
+        "pid": 2306694,
+        "elapsedMinutes": 21.53,
+        "cumulativeCPUMinutes": 21.32,
+        "threads": 4,
+        "currentResidentGiB": 4.86,
+        "peakResidentGiB": 17.97,
+        "peakVirtualGiB": 19.75,
+        "terminalReceiptObserved": false
+      },
+      "publisherComparatorPassed": true,
+      "publisherComparatorExitCode": 0,
+      "publisherComparatorDurationSeconds": 5268.165,
+      "publisherComparatorReceipt": "validation/snaky-certificate-progress-20261023/sealed-canonical-v5-selective-native-entry-comparator-receipt.json",
+      "hostContinuation": {
+        "statusRecord": "validation/snaky-native-followup-20261023/certificate-current-status.json",
+        "bunPID": 2973813,
+        "leanPID": 2976389,
+        "sourceUnchanged": true,
+        "nativeDeliveryQueued": false
+      },
+      "sameSourceHostPassed": true,
+      "hostObservedAt": "2026-10-23T13:58:09.380Z",
+      "hostStatus": "kernel_verified",
+      "hostAxioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "nativeTerminalStatus": "evaluated_passed",
+      "nativeTerminalReason": null,
+      "nativeTerminalReceipt": "validation/snaky-native-followup-20261023/canonical-v5-direct-native-terminal-receipt.json",
+      "exactProjectionDiagnostic": {
+        "rootPID": 3858549,
+        "leanPID": 3860558,
+        "sourceSHA256": "28d8c017f5bde026552e8b830eeb4d6fd06406cf94c56ef37fcccea1d8344419",
+        "latestObservedAt": "2026-10-23T15:50:24.643937+00:00",
+        "cpuSeconds": 1346.07,
+        "elapsedSeconds": 1356.97,
+        "nativeAcceptance": false,
+        "noRepeatedSuccessfulFullSourceCheck": true,
+        "statusRecord": "validation/snaky-native-followup-20261023/certificate-current-status.json",
+        "terminalReceiptObserved": false
+      },
+      "consumerQuotationFinding": {
+        "status": "exact_projection_error_confirmed",
+        "findingRecord": "validation/snaky-native-followup-20261023/canonical-v5-consumer-quotation-hygiene-finding.json",
+        "analogueError": "Unknown identifier memo_allRows with quotation hygiene suffix",
+        "repairAnalogueExitCode": 0,
+        "fullSourceRootCauseConfirmed": true,
+        "nativeAcceptance": false,
+        "exactProjectionExitCode": 1,
+        "completeDiagnostics": true,
+        "formalError": "Unknown identifier memo_allRows with quotation hygiene suffix",
+        "nativeTopLevelExceptionBranchUniquelyConfirmed": false,
+        "findingsReceipt": "validation/snaky-native-followup-20261023/canonical-v5-native-projection-diagnostic-findings.json"
+      },
+      "preparedV6Repair": {
+        "source": "SubmissionCanonicalV6ConsumerBinderRepair.lean",
+        "sha256": "545fb69bda2f6392609735c8acae2bce75caf7c8fbc9e8a53efe74e3cbbfb230",
+        "sourceGuardPassed": true,
+        "fullVerificationStarted": false,
+        "nativeQueued": false
+      },
+      "directGoalAlternative": {
+        "dryRunPassed": true,
+        "projectorOutputSHA256EqualsVerifiedV5": true,
+        "sourceTransportPassed": true,
+        "proofSourceChanged": false,
+        "queued": true,
+        "record": "validation/snaky-native-followup-20261023/canonical-v5-direct-goal-delivery.json",
+        "applied": true,
+        "currentNativePhase": "finished",
+        "sourceSHA256": "66d0cf5eecbcffcf0de7933acaec1c16da6f5ba8592173e1e9228c350663fdd7",
+        "normalResume": true,
+        "nativeFormalHostPID": 481814,
+        "nativeFormalHostCPUSeconds": 512.14,
+        "observationAt": "2026-10-24T04:09:24.770156+00:00",
+        "ordinaryReviewAndFinalComparatorStillRequired": true,
+        "nativeOriginalGoalCheckPassed": true,
+        "nativeFormalHostCompleted": true,
+        "nativeIntegrationHostPID": 630904,
+        "nativeIntegrationCheckPassed": true,
+        "nativeFullOriginalTargetCheckPassed": true,
+        "nativeFinalAcceptance": true
+      },
+      "nativeTerminalStatusAppliesTo": "previous_indirect_helper_projection_attempt_only",
+      "nativeTerminalReasonAppliesTo": "previous_indirect_helper_projection_attempt_only",
+      "nativeOriginalGoalCheckPassed": true,
+      "nativeOriginalGoalProofCommit": "6df5a70573bbbbe434e95fb56746e250070462ba",
+      "nativeOriginalGoalProofReceipt": "validation/snaky-native-followup-20261023/canonical-v5-direct-native-original-goal-check.json",
+      "nativeIntegrationSourceSHA256": "b7dc0b2898b8d4ee8ed4a3b10394429f939ff9e4d73761dcd6968e46a4579751",
+      "nativeIntegrationOnlyBlankLineDifferences": true,
+      "nativeIntegrationObservation": {
+        "observedAt": "2026-10-23T17:59:26.601834+00:00",
+        "runId": "6d22ec7c-5c2b-41a4-911d-dcf3f0b7ddf0",
+        "nativeRootPID": 397968,
+        "phase": "checking",
+        "turns": 26,
+        "engineerPhase": "checking",
+        "lastActivity": {
+          "at": 1792774258757,
+          "event": "item_completed",
+          "itemType": "reasoning"
+        },
+        "sourceSHA256": "66d0cf5eecbcffcf0de7933acaec1c16da6f5ba8592173e1e9228c350663fdd7",
+        "tasks": [
+          {
+            "id": "initial_goal_1",
+            "status": "delivered",
+            "proofRecorded": true
+          }
+        ],
+        "compilerProcesses": [
+          {
+            "pid": 630904,
+            "Name": "lean",
+            "State": "S (sleeping)",
+            "VmSize": "19558992 kB",
+            "VmRSS": "10327708 kB",
+            "Threads": "6",
+            "cpuTicks": 82040,
+            "ticksPerSecond": 100
+          }
+        ],
+        "terminalReceiptExists": false,
+        "nativeAcceptance": false,
+        "observationIsNotAcceptance": true
+      },
+      "nativeIntegrationCheckPassed": true,
+      "nativeFullOriginalTargetCheckPassed": true,
+      "nativeIntegrationProofCommit": "d6d63ed5464947c3009f6dc864cb62860eb30731",
+      "nativeFullTargetProofCommit": "ed230f9c5d4458f2e4fb5c4f27a04614d62fbb49",
+      "nativeIntegrationProofReceipt": "validation/snaky-native-followup-20261023/canonical-v5-direct-native-integration-check.json",
+      "nativeFullTargetProofReceipt": "validation/snaky-native-followup-20261023/canonical-v5-direct-native-full-target-check.json",
+      "nativeFixedReviewStatus": "accepted",
+      "nativeAcceptanceAudit": "validation/snaky-native-followup-20261023/canonical-v5-direct-native-acceptance-audit.json",
+      "finalSourceSHA256": "b7dc0b2898b8d4ee8ed4a3b10394429f939ff9e4d73761dcd6968e46a4579751",
+      "nativeSolutionCommit": "ed230f9c5d4458f2e4fb5c4f27a04614d62fbb49",
+      "finalOriginalComparatorExitCode": 0
+    },
+    "publisherComparatorPassedEvidenceAppliesToSHA256": "87a3c359ef740fe32fe1ac2fda0216d708421163bc04194aa48ca8be0d742cdb",
+    "currentCandidatePublisherComparatorPassed": true,
+    "currentCandidateSHA256": "b7dc0b2898b8d4ee8ed4a3b10394429f939ff9e4d73761dcd6968e46a4579751",
+    "currentCandidateHostPassed": true,
+    "nativeOriginalGoalCheckPassed": true,
+    "nativeOriginalGoalProofReceipt": "validation/snaky-native-followup-20261023/canonical-v5-direct-native-original-goal-check.json",
+    "nativeIntegrationCheckPassed": true,
+    "nativeFullOriginalTargetCheckPassed": true,
+    "nativeAcceptance": true,
+    "nativeStatus": "evaluated_passed",
+    "nativeAcceptedAt": "2026-10-23T22:15:51.288741+00:00",
+    "nativeAcceptanceReceipt": "validation/snaky-native-followup-20261023/canonical-v5-direct-native-acceptance-audit.json"
+  },
+  "snakyConditional": {
+    "wholeTargetKernelPassed": true,
+    "noSorryImportChainPassed": true,
+    "axioms": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "campaignAcceptance": false,
+    "publisherComparatorPassed": true,
+    "receipt": "validation/snaky-ordinary-bridge-20261023/CleanFullTarget.receipt.json",
+    "status": "v8_compatibility_checks_passed_fresh_same_frozen_build_recovery_in_preparation",
+    "nativeAccepted": false,
+    "singleFile923cStatus": "exit1; canonical last-row H and A replacement under repair; no native acceptance",
+    "canonicalV2Candidate": {
+      "source": "validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV2.lean",
+      "bytes": 1042693,
+      "sourceGuardSevenChecksPassed": true,
+      "lastRowKernelPassed": true,
+      "fullSealedComparator": "failed_out_of_memory",
+      "nativeAccepted": false,
+      "sourceSHA256": "89f7ed655834c6aca7db45b110b8217b70867db74685478f7834a34add1dbcf1",
+      "hostKernelPassed": true,
+      "hostAddressSpaceLimit": "unlimited",
+      "exitCode": 134,
+      "timedOut": false,
+      "aborted": false,
+      "receipt": "validation/snaky-ordinary-bridge-20261023/sealed-canonical-v2-comparator-receipt.json"
+    },
+    "canonicalV3Candidate": {
+      "source": "validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV3.lean",
+      "sourceSHA256": "8fd3b545011fc03968e75de736499f160c810cc61aa2493afbbae90d85c500ff",
+      "sourceGuardSevenChecksPassed": true,
+      "hostSessionID": 52644,
+      "sealedSessionID": 97380,
+      "fullSealedComparator": "failed_thread_creation_on_comparator_rebuild",
+      "nativeAccepted": false,
+      "hostKernelPassed": true,
+      "exitCode": 1,
+      "timedOut": false,
+      "aborted": false,
+      "serialIsolatedCompilePassed": true,
+      "exactTargetAxiomAuditPassed": true,
+      "receipt": "validation/snaky-ordinary-bridge-20261023/sealed-canonical-v3-comparator-receipt.json"
+    },
+    "canonicalV4SyncCandidate": {
+      "source": "validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV4.lean",
+      "sha256": "9d7e71a455e2629f7d698700185e3dee02db478760f86ce769ba49d0bd89ee2e",
+      "bytes": 968078,
+      "sevenSourceGuardsPassed": true,
+      "ordinaryBridgeProbePassed": true,
+      "fullFrozenHostVerification": "superseded_cancelled_after_reproduced_lean_error",
+      "sessionID": 13262,
+      "leanPID": 1411302,
+      "addressSpaceLimitBytes": 34359738368,
+      "publisherComparator": "not_started_superseded",
+      "nativeAccepted": false,
+      "nativeDelivered": false,
+      "localTwoHelperClosure": "failed",
+      "fullHostTerminalObserved": true,
+      "supersessionRequested": false,
+      "failureReceipt": "validation/snaky-ordinary-bridge-20261023/ConditionalLargeNodupDefaultDefsProbe.receipt.json",
+      "cancellationReceipt": "validation/snaky-conditional-native-followup-20261023/canonical-v4-superseded-cancellation.json",
+      "cancellationMeaning": "Exact original workflow safely cancelled after reproduced Lean error; not a natural Lean exit1 or timeout."
+    },
+    "canonicalV5SelectiveCandidate": {
+      "source": "validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV5.lean",
+      "sha256": "cb48f2dd6da8e15975709ee138775bab37cb1e798f3835e0c40a5ea042f8c5dc",
+      "bytes": 968082,
+      "originalSourceGuardsPassed": true,
+      "focusedTwoHelperClosurePassed": true,
+      "fullOriginalComparator": "superseded_cancelled_after_reproduced_lean_error",
+      "fullFrozenHost": "not_started_superseded",
+      "resourceLimitBytes": 34359738368,
+      "timeoutSeconds": null,
+      "nativeAccepted": false,
+      "externallyAssisted": true,
+      "diagnosisReceipt": "validation/snaky-ordinary-bridge-20261023/canonical-v4-local-heartbeat-and-v5-repair-diagnosis.json",
+      "comparatorSessionID": 62263,
+      "verificationSupervisorPID": 1792340,
+      "publisherDriverPID": 1792344,
+      "verificationPipelineReceipt": "validation/snaky-conditional-native-followup-20261023/canonical-v5-verification-pipeline.json",
+      "nativeContinuationGate": {
+        "status": "stopped_superseded_before_v6_started",
+        "pid": 1805217,
+        "sessionID": 74231,
+        "record": "validation/snaky-conditional-native-followup-20261023/canonical-v5-native-pipeline.json",
+        "normalQueueAndResumeAfterTwoActualPasses": true
+      },
+      "localTwoAdditionalHelperClosure": "failed",
+      "localTwoAdditionalHelperClosureErrors": [
+        "qtable_valid_probe",
+        "qsmall_step11"
+      ],
+      "localFailureReceipt": "validation/snaky-ordinary-bridge-20261023/ConditionalDeclarationKindsDefaultDefsProbe.receipt.json",
+      "cancellationReceipt": "validation/snaky-conditional-native-followup-20261023/canonical-v5-superseded-cancellation.json",
+      "cancellationMeaning": "External cancellation after exact minimal closure reproduced two Lean errors; no natural comparator exit1 or timeout claimed."
+    },
+    "canonicalV6SelectiveCandidate": {
+      "source": "validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV6.lean",
+      "sha256": "94e1154db63070c8dd4b2344a5f040200fe9174937e578d95f327cd803cc9f77",
+      "bytes": 968086,
+      "sourceGuardsPassed": 7,
+      "focusedTwoAdditionalHelperRepairPassed": true,
+      "focusedRepairHelpers": [
+        "qsmall_step11",
+        "qtable_valid_probe"
+      ],
+      "focusedRepairDurationSeconds": 113.09,
+      "fullOriginalComparator": "passed",
+      "comparatorSessionID": 59463,
+      "verificationSupervisorPID": 1919439,
+      "publisherDriverPID": 1919443,
+      "fullFrozenHost": "passed",
+      "resourceLimitBytes": 34359738368,
+      "timeoutSeconds": null,
+      "nativeAccepted": false,
+      "nativeDelivered": false,
+      "externallyAssisted": true,
+      "verificationPipelineReceipt": "validation/snaky-conditional-native-followup-20261023/canonical-v6-verification-pipeline.json",
+      "nativeContinuationGate": {
+        "status": "waiting_for_same_source_frozen_host_after_publisher_pass",
+        "pid": 3051125,
+        "sessionID": 11321,
+        "record": "validation/snaky-conditional-native-followup-20261023/canonical-v6-recovery1-native-pipeline.json",
+        "normalQueueAndResumeAfterTwoActualPasses": true,
+        "previousGateRetired": true
+      },
+      "transport": {
+        "record": "validation/snaky-conditional-native-followup-20261023/canonical-v6-payload-roundtrip.json",
+        "normalizedWithStringVersionAndMaximalIDsBytes": 63956,
+        "normalizedPreparedIdentityAndConservativeFutureIDsBytes": 63821,
+        "consumerLineLimitBytes": 64000,
+        "queueExecuted": false,
+        "preparedCooperationExists": false
+      },
+      "latestObservedCompilerSample": {
+        "observedAt": "2026-10-23T12:51:49.177529+00:00",
+        "pid": 1921613,
+        "startTicks": 122294552,
+        "cumulativeCPUSeconds": 3634.23,
+        "virtualKiB": 17535488,
+        "residentKiB": 10040648,
+        "threads": 7,
+        "terminalReceiptObserved": false,
+        "statusRecord": "validation/snaky-ordinary-bridge-20261023/canonical-v6-live-status.json"
+      },
+      "interruptedAttempt": {
+        "supervisorExitCode": 143,
+        "signal": "SIGTERM",
+        "cause": "unknown",
+        "naturalMathematicalVerdict": false,
+        "terminalComparatorReceiptExists": false,
+        "receipt": "validation/snaky-conditional-native-followup-20261023/canonical-v6-unexpected-interruption.json"
+      },
+      "recovery1": {
+        "phase": "complete_local_verification_passed",
+        "launchedAt": "2026-10-23T13:25:38+00:00",
+        "detachedSupervisorPID": 3051105,
+        "publisherPID": 3051106,
+        "nativeWaitingGatePID": 3051125,
+        "sourceSHA256": "94e1154db63070c8dd4b2344a5f040200fe9174937e578d95f327cd803cc9f77",
+        "sameEvaluatorRuntimeResourceCapAndBudgets": true,
+        "launchReceipt": "validation/snaky-conditional-native-followup-20261023/canonical-v6-recovery1-launch.json",
+        "pipelineReceipt": "validation/snaky-conditional-native-followup-20261023/canonical-v6-recovery1-verification-pipeline.json",
+        "queueExecuted": true,
+        "nativeTurns": 0,
+        "latestObservedAt": "2026-10-23T18:03:10.199206+00:00",
+        "leanPID": 3053661,
+        "cpuSeconds": 7527.8,
+        "elapsedSeconds": 7527.52,
+        "terminalReceiptExists": true,
+        "hostReceiptExists": true,
+        "sourceLeanExited": true,
+        "comparatorPID": null,
+        "comparatorCPUSeconds": 5242.27,
+        "comparatorElapsedSeconds": 5255.12,
+        "sourceBuildStageClaim": "Original command advanced to its comparator subprocess; no full terminal comparator verdict inferred.",
+        "publisherComparatorPassed": true,
+        "publisherComparatorExitCode": 0,
+        "hostDriverPID": 631942,
+        "lastProcessObservationAt": "2026-10-23T19:21:15.048771+00:00",
+        "hostPassed": true,
+        "nativeResultStatus": "runtime_error"
+      },
+      "publisherComparatorPassed": true,
+      "publisherComparatorExitCode": 0,
+      "publisherComparatorReceipt": "validation/snaky-ordinary-bridge-20261023/sealed-canonical-v6-recovery1-sync-native-entry-comparator-receipt.json",
+      "publisherComparatorCompletedAt": "2026-10-23T17:46:19.502Z",
+      "sameSourceThreeAxiomAuditPassed": true,
+      "historical": true,
+      "currentCandidate": false
+    },
+    "publisherComparatorExitCode": 0,
+    "nativeStatus": "runtime_error",
+    "nativeReason": "math_verifier_unavailable",
+    "currentCandidateSHA256": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab",
+    "currentCandidateBytes": 968784,
+    "currentCandidatePublisherComparatorPassed": false,
+    "currentCandidateNativeOriginalGoalCheckPassed": false,
+    "currentCandidateNativeIntegrationPassed": false,
+    "publisherComparatorPassedEvidenceAppliesToSHA256": "94e1154db63070c8dd4b2344a5f040200fe9174937e578d95f327cd803cc9f77",
+    "canonicalV7Candidate": {
+      "source": "validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV7.lean",
+      "sha256": "2edd54515230fd886561c1a79a37155c90162f85611567f2fbb63db9ea5284a3",
+      "bytes": 968236,
+      "nativeOriginalGoalCheckPassed": true,
+      "nativeOriginalGoalProofCommit": "7a72e75ada7a07b7ced54bd9d8629d5de45e49bf",
+      "nativeOriginalGoalCheckedAt": "2026-10-23T23:29:55.615000+00:00",
+      "nativeIntegrationPassed": false,
+      "nativeIntegrationStatus": "runtime_error",
+      "nativeReason": "math_verifier_unavailable",
+      "nativeAccepted": false,
+      "frozenRuntimeModified": false,
+      "V6StandaloneReceiptsInherited": false,
+      "repairOwner": "/root/map_official_targets",
+      "terminalDiagnosis": "cause_located_candidate_scope_repair_in_progress",
+      "nativeOriginalGoalTaskEventAt": "2026-10-23T23:31:05.436+00:00",
+      "nativeOriginalGoalProofReceipt": "validation/snaky-conditional-native-followup-20261023/canonical-v7-native-terminal-snapshot-20261024T040918Z/extracted-v7-native-goal-proof.json",
+      "terminalSummary": "validation/snaky-conditional-native-followup-20261023/canonical-v7-native-goal-pass-integration-error-summary.json",
+      "underlyingIntegrationDiagnosticRetained": false,
+      "integrationSourceSHA256": "c76335ec23c28cc63d8460d81057a7ddf1b10e4f2748af597ef251b57e851340",
+      "integrationRootCause": "Native applyTaskChanges moves generic added helpers after end OrdinaryStrategy, losing namespace-local type variable and DecidableEq instance scope.",
+      "integrationSourceAuditReceipt": "validation/snaky-conditional-native-followup-20261023/canonical-v7-native-integration-source-audit/IntegrationGenericClosure.receipt.json",
+      "integrationSourceAuditExitCode": 1,
+      "integrationSourceAuditDurationSeconds": 3.4230727900285274
+    },
+    "canonicalV8Candidate": {
+      "source": "validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8.lean",
+      "sha256": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab",
+      "bytes": 968784,
+      "sourceGuardsPassed": true,
+      "nativeIntakePassed": true,
+      "candidateFocusedClosurePassed": true,
+      "nativeMergeProjectionReplayPassed": true,
+      "integrationFocusedClosurePassed": true,
+      "nativeGoalPassed": false,
+      "nativeFinalAccepted": false,
+      "historicalV7ReceiptsInherited": false,
+      "oldResumeObstruction": "Frozen restore rechecks the historical delivered V7 proof before queued V8 edits can be consumed",
+      "recovery": "Archive and stop owned old resume, then start one fresh isolated attempt on exactly the same frozen build and evaluator through normal preparation and supported queue inputs",
+      "freshAttemptPath": "validation/snaky-conditional-native-followup-20261023/native-v8-recovery1",
+      "freshAttemptStarted": true,
+      "frozenBuildId": "5716a06e-c26f-4f09-a3a2-9f5d484b3818",
+      "allFiveSolveBudgets": 0,
+      "resourceLimitsChanged": false,
+      "freshAttemptRunId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+      "freshAttemptPhase": "checking",
+      "freshAttemptTurns": 4,
+      "freshAttemptSourceExact": true
+    }
+  },
+  "publishedKernelTargets": [
+    "SnakyCertificate",
+    "SnakyConditional",
+    "CharacterVarietiesAllSeamsSupport"
+  ],
+  "publishedResultBranches": [
+    "main",
+    "results/openai-truffet-20261023"
+  ],
+  "completeOriginalKernelProofCount": 7,
+  "nativeFinalAcceptanceCount": 5,
+  "publicationDelta": "Five native final accepted targets unchanged. Character canonical V12 queued and loaded; SnakyConditional V8 native goal check remains active.",
+  "runtimeReliabilityFixes": {
+    "observedAt": "2026-10-23T12:31:18.649834+00:00",
+    "status": "implemented_and_verified_in_isolated_worktree",
+    "sourceCommitted": false,
+    "activeFrozenRuntimeReplaced": false,
+    "uniqueTestsPassed": 344,
+    "testFiles": 16,
+    "typescript": "passed",
+    "headlessBuild": "passed",
+    "realPinnedLeanSmoke": "valid_exit0_invalid_exit1",
+    "worktree": "/home/lzh/theorem-os-validation-fixes-20261023",
+    "record": "validation/runtime-reliability-fixes-20261023/validation.json",
+    "reviewablePatch": "validation/runtime-reliability-fixes-20261023/runtime-reliability-fixes.patch",
+    "externalContinuationTransportFix": "validation/runtime-reliability-fixes-20261023/validation.json#continuationTransportFix",
+    "resultsArchive": {
+      "branch": "results/openai-truffet-20261023",
+      "commit": "4757628cf5019697fcf1d362807c7611b5164710",
+      "pushed": true,
+      "path": "results/openai-math/validation-reliability-20261023",
+      "sourceRuntimePatchMerged": false,
+      "nativeAcceptanceDelta": 0
+    }
+  },
+  "characterContinuationTransportFix": {
+    "observedAt": "2026-10-23T12:31:18.649834+00:00",
+    "status": "implemented_and_sandbox_roundtrip_verified",
+    "sourceScripts": "validation/character-environment-adapter-20261023",
+    "record": "validation/character-environment-adapter-20261023/character-source-transport-roundtrip-v1.json",
+    "sourceFixtureSHA256": "4a9e17fc40551afa8725bd5108aee52b517b77216bb4e82a1da49f51d4217ea4",
+    "sourceFixtureIsKnownMathematicalFailure": true,
+    "sourceBytes": 729113,
+    "normalizedEditLineBytes": 44674,
+    "frozenReaderLineLimitBytes": 64000,
+    "encoding": "xz/lzma + base64; full objective read from COOPERATION.json peers",
+    "newCandidateReencodedBeforeAnyQueue": true,
+    "sameSHAKernelGuardComparatorGatesPreserved": true,
+    "nativeCandidateQueued": false,
+    "frozenRuntimeChanged": false,
+    "newCompleteV4TransportReceipt": "validation/character-environment-adapter-20261023/character-source-transport-roundtrip-v4-candidate.json",
+    "newCompleteV4NormalizedEditBytes": 45182
+  },
+  "currentRepairOutcome": {
+    "engineeringFixes": "implemented_and_verified",
+    "certificateCandidate": "Native final evaluated_passed; all original checks, fixed review, S3 comparator and completion/ready signals verified",
+    "conditionalCandidate": "Exact V8 native host goal check active; no current candidate verdict.",
+    "characterCandidate": "Canonical V12 native host check started with fixed support sources and 32GiB; no native verdict.",
+    "nativeFinalAcceptedTotal": 5,
+    "allFiveSolveBudgetCaps": 0,
+    "frozenAcceptanceAndResourcesChanged": false,
+    "resultsArchiveCommit": "9bb18e69cfdadb049db1e6dcc1a23e10f4c475ca",
+    "observedAt": "2026-10-24T05:24:21.992389+00:00",
+    "delayFinding": "Long whole-file checks were scheduled before native source transformation compatibility was established; generic error capture hid the integration failure until retained sources were inspected. Fresh compatible V8 avoids another old delivered-proof restore cycle.",
+    "acceleration": "Merge preflight passed and real Lean smoke reused strict goal receipt during integration."
+  },
+  "latestResultsProgressArchive": {
+    "branch": "results/openai-truffet-20261023",
+    "commit": "9bb18e69cfdadb049db1e6dcc1a23e10f4c475ca",
+    "path": "results/openai-math/verification-progress-20261024",
+    "snapshotObservedAt": "2026-10-24T04:09:24.770156+00:00",
+    "pushed": true,
+    "remoteReadbackMatched": true,
+    "nativeFinalAcceptanceDelta": 1,
+    "publishedAt": "2026-10-24T04:14:36.355761+00:00"
+  },
+  "acceleration20261024": {
+    "observedAt": "2026-10-24T05:24:21.992389+00:00",
+    "sourcePreflightSeconds": 27.525786692999997,
+    "realLeanSmokePassed": true,
+    "smokeGoalMs": 648,
+    "smokeIntegrationMs": 34,
+    "smokeIntegrationFreshVerifierCalls": 0,
+    "characterNativeQueueStatus": "queued",
+    "nativeAcceptanceDelta": 0,
+    "allFiveSolveBudgetCaps": 0,
+    "frozenAcceptancesAndResourcesChanged": false,
+    "characterNativeHostStarted": true,
+    "characterNativeHostObservedAt": "2026-10-24T05:25:33.868314+00:00"
+  }
+}

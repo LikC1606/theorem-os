@@ -1,0 +1,218 @@
+{
+  "schema": "theorem-os.snaky-v8-recovery-observation.v1",
+  "observedAt": "2026-10-24T05:18:57.291684+00:00",
+  "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+  "runDirectory": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1",
+  "predecessorRunId": "50babc1c-5a5c-449b-8f99-a61fa1da2376",
+  "predecessorSupersededCancellationReceipt": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/canonical-v8-superseded-v7-resume-cancellation.json",
+  "phase": "checking",
+  "turns": 4,
+  "resultStatus": "prepared",
+  "expectedSourceSHA256": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab",
+  "engineerSourceExactV8": true,
+  "engineerSourceSHA256": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab",
+  "editApplied": true,
+  "edit": {
+    "affectedTasks": [
+      "v8_original_goal"
+    ],
+    "appliedAt": 1792816625512,
+    "baseVersion": "3bd8fceaabb92fa5fe7cb847457d003a7e805a24122bc707cb2dbf3c96a2036c",
+    "id": "snaky-conditional-v8-return-to-native",
+    "planVersion": "91cf040ffacb4918271bb9f9de949a6e5fe4eaf409c32e9fed90bff276307fbd",
+    "receivedAt": 1792816625501,
+    "recheck": {
+      "status": "pending",
+      "tasks": [
+        {
+          "status": "pending",
+          "taskDigest": "9cf4184cb210eff2e77b59dcd3eac6be25461694b0d320baa9b500d5629acf3f",
+          "taskId": "v8_original_goal"
+        }
+      ]
+    },
+    "status": "applied"
+  },
+  "edits": [
+    {
+      "affectedTasks": [
+        "v8_original_goal"
+      ],
+      "appliedAt": 1792816386484,
+      "baseVersion": "b8cce95f94bb3842447a35cad31d68789df636e11353ab4a75179d86761d804c",
+      "id": "snaky-conditional-v8-fresh-recovery1",
+      "planVersion": "3bd8fceaabb92fa5fe7cb847457d003a7e805a24122bc707cb2dbf3c96a2036c",
+      "receivedAt": 1792816386479,
+      "recheck": {
+        "status": "superseded",
+        "tasks": [
+          {
+            "status": "superseded",
+            "taskDigest": "d89104a05eb0ca2844d23630e154e26246f30832c278643e1c091955d9217d3d",
+            "taskId": "v8_original_goal"
+          }
+        ]
+      },
+      "status": "applied"
+    },
+    {
+      "affectedTasks": [
+        "v8_original_goal"
+      ],
+      "appliedAt": 1792816625512,
+      "baseVersion": "3bd8fceaabb92fa5fe7cb847457d003a7e805a24122bc707cb2dbf3c96a2036c",
+      "id": "snaky-conditional-v8-return-to-native",
+      "planVersion": "91cf040ffacb4918271bb9f9de949a6e5fe4eaf409c32e9fed90bff276307fbd",
+      "receivedAt": 1792816625501,
+      "recheck": {
+        "status": "pending",
+        "tasks": [
+          {
+            "status": "pending",
+            "taskDigest": "9cf4184cb210eff2e77b59dcd3eac6be25461694b0d320baa9b500d5629acf3f",
+            "taskId": "v8_original_goal"
+          }
+        ]
+      },
+      "status": "applied"
+    }
+  ],
+  "tasks": [
+    {
+      "status": "running",
+      "attempts": 2,
+      "feedback": null,
+      "task": {
+        "id": "v8_original_goal",
+        "kind": "goal",
+        "revision": 1,
+        "ownerId": "engineer",
+        "theoremName": "OAI.SnakyConditional.snaky_winning_strategy_with_legal_states",
+        "proofPath": "Submission.lean",
+        "dependsOn": []
+      }
+    }
+  ],
+  "workers": [
+    {
+      "workerId": "solver",
+      "phase": "checking",
+      "turns": 2,
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/result.json.runtime/worktree/generated/problem/Submission.lean",
+      "bytes": 2069,
+      "sha256": "3ab27d66779b557d0efcc3cfcf8317c40511e3cc655da29e61e95ba3f34d45ea",
+      "isExactV8": false
+    },
+    {
+      "workerId": "researcher-1",
+      "phase": "prepared",
+      "turns": 0,
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/result.json.runtime/worktree-2/generated/problem/Submission.lean",
+      "bytes": 2069,
+      "sha256": "3ab27d66779b557d0efcc3cfcf8317c40511e3cc655da29e61e95ba3f34d45ea",
+      "isExactV8": false
+    },
+    {
+      "workerId": "researcher-2",
+      "phase": "prepared",
+      "turns": 0,
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/result.json.runtime/worktree-3/generated/problem/Submission.lean",
+      "bytes": 2069,
+      "sha256": "3ab27d66779b557d0efcc3cfcf8317c40511e3cc655da29e61e95ba3f34d45ea",
+      "isExactV8": false
+    },
+    {
+      "workerId": "engineer",
+      "phase": "checking",
+      "turns": 2,
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/result.json.runtime/worktree-4/generated/problem/Submission.lean",
+      "bytes": 968784,
+      "sha256": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab",
+      "isExactV8": true
+    }
+  ],
+  "formalProcesses": [
+    {
+      "pid": 169941,
+      "ppid": 169924,
+      "state": "S",
+      "startTicks": 128342743,
+      "cpuSeconds": 2376.72,
+      "command": [
+        "/runtime/pinned-lean/bin/lean",
+        "-j1",
+        "-R",
+        ".",
+        "-o",
+        ".lake/build/lib/lean/Submission.olean",
+        "Submission.lean",
+        "-j1"
+      ],
+      "sourceSHA256": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab",
+      "sourceBytes": 968784,
+      "isExactV8": true,
+      "addressSpaceLimit": "Max address space         34359738368          34359738368          bytes     ",
+      "verificationRole": "native-host"
+    }
+  ],
+  "supervisorPid": 4175452,
+  "supervisorAlive": true,
+  "nativeSolverPid": 4175461,
+  "nativeSolverAlive": true,
+  "nativeEvents": [
+    {
+      "event": "integration_queue_started",
+      "at": 1792816386074,
+      "waitedMs": 0
+    },
+    {
+      "event": "edit_applied",
+      "at": 1792816386497,
+      "id": "snaky-conditional-v8-fresh-recovery1",
+      "planVersion": "3bd8fceaabb92fa5fe7cb847457d003a7e805a24122bc707cb2dbf3c96a2036c",
+      "affectedTasks": [
+        "v8_original_goal"
+      ],
+      "recheck": {
+        "status": "pending",
+        "tasks": [
+          {
+            "taskId": "v8_original_goal",
+            "taskDigest": "d89104a05eb0ca2844d23630e154e26246f30832c278643e1c091955d9217d3d",
+            "status": "pending"
+          }
+        ]
+      }
+    },
+    {
+      "event": "edit_applied",
+      "at": 1792816625529,
+      "id": "snaky-conditional-v8-return-to-native",
+      "planVersion": "91cf040ffacb4918271bb9f9de949a6e5fe4eaf409c32e9fed90bff276307fbd",
+      "affectedTasks": [
+        "v8_original_goal"
+      ],
+      "recheck": {
+        "status": "pending",
+        "tasks": [
+          {
+            "taskId": "v8_original_goal",
+            "taskDigest": "9cf4184cb210eff2e77b59dcd3eac6be25461694b0d320baa9b500d5629acf3f",
+            "status": "pending"
+          }
+        ]
+      }
+    }
+  ],
+  "frozenBuildId": "5716a06e-c26f-4f09-a3a2-9f5d484b3818",
+  "frozenBuildManifestSHA256": "3cf310891edf8cb396f218531e1eb6c5a997622adb6d835e4b368ffa1c8e637d",
+  "allFiveSolveBudgets": 0,
+  "historicalPassingReceiptsInherited": false,
+  "nativeSourceDirectlyModified": false,
+  "nativeCheckpointDirectlyModified": false,
+  "frozenRuntimeModified": false,
+  "resourceLimitsChanged": false,
+  "nativeAcceptance": false,
+  "official": false,
+  "claimBoundary": "Only current native receipts from this isolated run can grant acceptance; prior full V7/V6 passes are historical. Exact V8 source and compiler observations are reported separately from task application."
+}

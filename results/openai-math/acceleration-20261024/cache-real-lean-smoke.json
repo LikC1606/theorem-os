@@ -1,0 +1,133 @@
+{
+  "schema": "theorem-os.real-lean-task-cache-smoke.v1",
+  "observedAt": "2026-10-24T05:17:33.269Z",
+  "passed": true,
+  "durationMs": 2547,
+  "leanInvoked": true,
+  "realModelInvoked": false,
+  "packageDownloads": false,
+  "frozenRuntimeModified": false,
+  "activeNativeFilesModified": false,
+  "official": false,
+  "nativeTargetAcceptance": false,
+  "workspace": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/acceleration-cache-audit-20261024/real-smoke-fixed-point/real-smoke-workspace",
+  "toolchain": "leanprover/lean4:v4.33.0",
+  "leanRoot": "/home/lzh/.elan/toolchains/leanprover--lean4---v4.33.0",
+  "environmentReusable": true,
+  "environmentDigest": "f7ed17a09602baf2c01009e592d62e03f65a44f4cd789ec3b477f600ad39365b",
+  "sourceSHA256": "271bb4ae1f578cfb9e4c0274a82e460941789bf3558a3be0199df3419cf444c3",
+  "candidateCommit": "d91df7f33754749fb506edd42274d3b165e71b60",
+  "exactCandidateAndIntegrationVerifierCalls": 1,
+  "totalVerifierCalls": 4,
+  "checks": [
+    {
+      "stage": "goal",
+      "durationMs": 648,
+      "freshVerifierCalls": 1,
+      "cumulativeVerifierCalls": 1,
+      "cacheKey": "b0625bc23a67891d78ef6ae669e549ac9eac90e0004534d5965fb97e029ab047",
+      "proofCommit": "d91df7f33754749fb506edd42274d3b165e71b60",
+      "checkedProjectionCommit": "477195c98b4bd4c6c4ce37be74c1b3c58922388c",
+      "receiptIds": [
+        "lean-7ce2417c036bd31c50dd86a0"
+      ],
+      "originalKernelDurationMs": 597,
+      "trustedProjectionReuse": null,
+      "toolchain": {
+        "lean": "lake",
+        "lake": "lakefile.toml"
+      },
+      "axioms": []
+    },
+    {
+      "stage": "integration",
+      "durationMs": 34,
+      "freshVerifierCalls": 0,
+      "cumulativeVerifierCalls": 1,
+      "cacheKey": "b0625bc23a67891d78ef6ae669e549ac9eac90e0004534d5965fb97e029ab047",
+      "proofCommit": "36ea5ec4a527a4566249aa26a08fb7fb833e3ee3",
+      "checkedProjectionCommit": "477195c98b4bd4c6c4ce37be74c1b3c58922388c",
+      "receiptIds": [
+        "lean-7ce2417c036bd31c50dd86a0"
+      ],
+      "originalKernelDurationMs": 597,
+      "trustedProjectionReuse": {
+        "schema": "theorem-os.task-projection-reuse.v1",
+        "projectionCommit": "77cfbc5775a5726d77d2da118e0564c7a6b76da8",
+        "checkedProjectionCommit": "477195c98b4bd4c6c4ce37be74c1b3c58922388c",
+        "projectionTree": "20f727fb8e1613c27d6f12df504df523873661f1",
+        "inputDigest": "b0625bc23a67891d78ef6ae669e549ac9eac90e0004534d5965fb97e029ab047"
+      },
+      "toolchain": {
+        "lean": "lake",
+        "lake": "lakefile.toml"
+      },
+      "axioms": []
+    },
+    {
+      "stage": "source-change",
+      "durationMs": 601,
+      "freshVerifierCalls": 1,
+      "cumulativeVerifierCalls": 2,
+      "cacheKey": "6fa2659a5c3b9753a025a35a52b56116e8540c27f291f6c57175b757634fdb46",
+      "proofCommit": "0b624daca6dc593df87a131ae03507815ae68820",
+      "checkedProjectionCommit": "793f12bb8c864cd9b8e59a3d2ab069e2cd658cf9",
+      "receiptIds": [
+        "lean-7ad32fdd8665a810ae2f32e5"
+      ],
+      "originalKernelDurationMs": 560,
+      "trustedProjectionReuse": null,
+      "toolchain": {
+        "lean": "lake",
+        "lake": "lakefile.toml"
+      },
+      "axioms": []
+    },
+    {
+      "stage": "task-change",
+      "durationMs": 591,
+      "freshVerifierCalls": 1,
+      "cumulativeVerifierCalls": 3,
+      "cacheKey": "e563ee6ed528d88e0bb442767d3b04c97c1da4487b23e7e45748f683f4732e25",
+      "proofCommit": "0b624daca6dc593df87a131ae03507815ae68820",
+      "checkedProjectionCommit": "e9a4ba3c65e15e23744101ed3fcc0c273f480b21",
+      "receiptIds": [
+        "lean-31e8d332a634865a5e0c4015"
+      ],
+      "originalKernelDurationMs": 558,
+      "trustedProjectionReuse": null,
+      "toolchain": {
+        "lean": "lake",
+        "lake": "lakefile.toml"
+      },
+      "axioms": []
+    },
+    {
+      "stage": "environment-change",
+      "durationMs": 600,
+      "freshVerifierCalls": 1,
+      "cumulativeVerifierCalls": 4,
+      "cacheKey": "12d9f5983a6b38b544844ce162857c27dd8c613fb3de85864dc6aa30cb53e22b",
+      "proofCommit": "0b624daca6dc593df87a131ae03507815ae68820",
+      "checkedProjectionCommit": "e9a4ba3c65e15e23744101ed3fcc0c273f480b21",
+      "receiptIds": [
+        "lean-31e8d332a634865a5e0c4015"
+      ],
+      "originalKernelDurationMs": 564,
+      "trustedProjectionReuse": null,
+      "toolchain": {
+        "lean": "lake",
+        "lake": "lakefile.toml"
+      },
+      "axioms": []
+    }
+  ],
+  "sourceMutationMiss": true,
+  "taskMutationMiss": true,
+  "environmentMutationMiss": true,
+  "retainedOriginalReceipts": true,
+  "addressSpaceLimitBytesFromUnchangedVerifierConstant": 34359738368,
+  "timeoutMs": "unlimited",
+  "finalComparatorBypassed": false,
+  "claimBoundary": "Mechanism smoke on a tiny standard-library Lean4.33 task. It grants no acceptance for V8/CV, which remain under their frozen Lean4.34.1 checks."
+}

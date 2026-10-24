@@ -1,0 +1,21 @@
+{
+  "observedAt": "2026-10-24T04:17:17.577Z",
+  "passed": true,
+  "sourceSHA256": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab",
+  "sourceBytes": 968784,
+  "mergedSHA256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+  "mergedBytes": 967683,
+  "projectedSHA256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+  "projectedBytes": 967683,
+  "mergedCommit": "827561150e2514bd259b9a5bb859cb4dea8dc1a1",
+  "workspace": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/seven-guards-canonical-v8-1792815328367",
+  "sameQualifiedDeclarations": true,
+  "sameNonBlankSourceLines": true,
+  "unchangedFrozenApplyTaskChanges": true,
+  "unchangedFrozenSourceProjector": true,
+  "sourceGuardPassedAfterMerge": true,
+  "nativeFilesModified": false,
+  "leanInvoked": false,
+  "official": false,
+  "nativeAcceptance": false
+}

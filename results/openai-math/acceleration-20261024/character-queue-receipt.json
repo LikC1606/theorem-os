@@ -1,0 +1,18 @@
+{
+  "observedAt": "2026-10-24T05:17:18.226Z",
+  "runId": "be2c8bbd-71c7-4dc5-aa21-1c3a7550a2c6",
+  "sourceSHA256": "0ec8e7e2fbe9ff7f2d4c849c7558c152e24d707d79943d6f7ac08d0b27fa98c9",
+  "sourceBytes": 796309,
+  "result": {
+    "id": "character-native-v12-canonical-0ec8e7e2fbe9",
+    "status": "queued",
+    "baseVersion": "01443eb69c0610511ed77d5fe443cd877ed97de6ee039470b3de76dbb26c24dc"
+  },
+  "preparationFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/native-acceleration-20261024/preparation.json",
+  "preparationSHA256": "69fc2e4fa265ff5bfb3c2cc7ace70f6f5ef67fc65fa46991ec464de6b58810a5",
+  "attribution": "External candidate delivered through supported native queueRunEdit; no mathematical verdict supplied.",
+  "nativeAcceptance": false,
+  "frozenRuntimeModified": false,
+  "mathematicalAcceptance": false,
+  "nativeCheckpointModified": false
+}
