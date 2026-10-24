@@ -1,0 +1,47 @@
+{
+  "schema": "honeycomb-native-confined-sums.v1",
+  "frozenAt": "2026-10-24T16:57:59.846756+00:00",
+  "status": "native-task-integrated",
+  "taskId": "confined_bridge_sums_all_heights_9dd59d27",
+  "theoremName": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_sums",
+  "type": "∀ h : ℕ, Summable (fun p : ConfinedBridgePath h => weight p.val) ∧ Summable (fun p : ConfinedBridgePath h => firstLengthWeight p.val) ∧ Summable (fun p : ConfinedBridgePath h => firstLengthWeight p.val / confinedMass h)",
+  "scope": "The three confined summability clauses for every natural height only.",
+  "nativeProofPassed": true,
+  "nativeIntegratedCheckPassed": true,
+  "canonicalCommit": "fa3012608614475df88d051503ad0cdaaf8f4be6",
+  "proofCommit": "5c383ba2ff4220cbb57aecb041127365d15ac35c",
+  "conditions": [],
+  "axioms": [
+    "propext",
+    "Classical.choice",
+    "Quot.sound"
+  ],
+  "sorryCount": 0,
+  "admitCount": 0,
+  "goalsRemaining": 0,
+  "proofDurationMs": 20285,
+  "integratedCheckDurationMs": 20024,
+  "widthOneStatusAtSnapshot": "running",
+  "originalGoal": {
+    "taskId": "initial_goal_1",
+    "status": "conditional",
+    "proofConditional": true,
+    "conditions": [
+      {
+        "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+        "taskId": "strip_growth_below_mu"
+      },
+      {
+        "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+        "taskId": "sums_reduction"
+      }
+    ]
+  },
+  "originalTheoremAccepted": false,
+  "openAIHostedCertification": false,
+  "activeChainChangedByArchive": false,
+  "leanRerun": false,
+  "queueEdited": false,
+  "gitMutation": false,
+  "previousHealthPackageModified": false
+}

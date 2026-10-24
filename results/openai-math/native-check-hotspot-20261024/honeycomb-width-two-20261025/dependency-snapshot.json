@@ -1,0 +1,36 @@
+{
+  "inspectedAt": "2026-10-24T16:55:33.646135+00:00",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "canonicalCommit": "fac87fb460b0289bc48ad7341935e731c7c3bfb5",
+  "planVersion": "034781097e8334a6949e36ec8fc909e19ed9a5d7cba1e145a43a0eca4085b356",
+  "canonicalSource": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree/generated/problem/Submission.lean",
+  "canonicalSourceSHA256": "604e26660c6898ab1d76db11d98689c0ef57b6f08f001f94c4c11915a3222dd9",
+  "canonicalStartsWithValidatedPrefix": true,
+  "validatedPrefixSHA256": "f55c042e447b853d775f3f6f164d94ab175cc328eabf324588117d8d436f0c45",
+  "existingTask": {
+    "id": "width_two_summability_diagnostic",
+    "kind": "lemma",
+    "revision": 0,
+    "proofPath": "Submission.lean",
+    "theoremName": "OAI.PolynomialVacuumBridge.Corridor.width_two_summability_diagnostic",
+    "type": "Summable (OAI.PolynomialVacuumBridge.Corridor.weight (h := 2)) ∧ Summable (OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (h := 2))",
+    "dependsOn": []
+  },
+  "existingTaskStatus": "pending",
+  "canonicalSourceDependency": {
+    "id": "sums_reduction",
+    "kind": "lemma",
+    "revision": 1,
+    "theoremName": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_of_stripGrowthBelowMu",
+    "type": "(∀ h : ℕ, 1 ≤ h → ∃ C β : ℝ, 0 ≤ C ∧ 0 ≤ β ∧ β < 2 * Real.cos (Real.pi / 8) ∧ ∀ (n : ℕ) (s : Finset (BridgePath h)), (∀ p ∈ s, p.vertices.length = n) → (s.card : ℝ) ≤ C * β ^ n) → FiniteBridgeSums"
+  },
+  "canonicalSourceDependencyStatus": "integrated",
+  "canonicalSourceDependencyIntegratedCheckPassed": true,
+  "canonicalSourceDependencyIntegratedCheckCommit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+  "existingUnconditionalHelperDeclarations": [
+    "OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_firstLengthWeight_of_mu_bound",
+    "OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_weight_of_summable_firstLengthWeight"
+  ],
+  "newDeclarationNameCollisions": [],
+  "activeStateChanged": false
+}

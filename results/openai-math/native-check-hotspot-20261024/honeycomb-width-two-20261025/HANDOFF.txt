@@ -1,0 +1,26 @@
+Existing task: width_two_summability_diagnostic
+Theorem: OAI.PolynomialVacuumBridge.Corridor.width_two_summability_diagnostic
+Proof path: Submission.lean
+Exact existing type (unchanged):
+Summable (OAI.PolynomialVacuumBridge.Corridor.weight (h := 2)) ∧ Summable (OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (h := 2))
+
+Normal delivery:
+The existing task was pending at inspection. Parent may update only its objective to task-objective.md / native-task-handoff.json["objective"] and adjust priority through normal queueRunEdit. The full validated increment is inlined in that objective. Do not create a duplicate diagnostic, rewrite its conclusion, replace Submission.lean, or treat this local package as a native TaskProof receipt. This package did not edit the queue.
+
+Insert WidthTwo.lean.inc once inside namespace OAI.PolynomialVacuumBridge.Corridor, after these existing canonical unconditional declarations supplied by integrated sums_reduction:
+- OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_firstLengthWeight_of_mu_bound
+- OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_weight_of_summable_firstLengthWeight
+The increment opens and closes WidthTwo itself, then defines the target in the outer namespace. All 20 declaration names were absent from inspected canonical source. Preserve all existing declarations and the original finite_bridge_sums target. Existing task dependencies are unchanged; mentioning sums_reduction identifies the already integrated source helpers, not a new antecedent.
+
+Proof facts:
+Every width-two vertex has the explicitly enumerated neighbors; each incoming edge has at most 3 non-backtracking two-step extensions. continuations_card proves <=2*3^(m/2) by two-step induction. path_mem_allPaths proves inclusion of each frozen BridgePath 2. path_card proves <=4*3^(n/2), path_card_real upgrades to <=4*(sqrt3)^n. sqrt_three_lt_mu proves sqrt3<2*cos(pi/8), and stripGrowthAtTwo selects C=4, beta=sqrt3. The final diagnostic uses the existing counting-to-summability helper and its weight corollary. No strip_growth_below_mu assumption or original sorry is used.
+
+Final local verification:
+Actual Lean exit 0, 21.30641626403667 seconds; no timeout.
+Source SHA256 97a34151766af41dc81716bb199f5565d87b2e505f5be38f0a289c5b657c7027
+Increment SHA256 6946d27d61a5056762c4fd4e3b1cbc8e9ea7da84d78fef68aa008fa6ff99e1ef
+All 6 printed key declaration axioms exactly propext, Classical.choice, Quot.sound; no sorryAx.
+Source contains no sorry/admit/axiom/unsafe/native_decide. Exact source, result, launch, stdout/stderr and 5 failed elaboration histories retained. See verification-audit.json, provenance.json and SHA256SUMS. No unchanged Lean rerun during archival.
+
+Scope:
+Both summabilities at width 2 only. Widths h>=3 and the original all-width acceptance remain open here. No host task acceptance, hosted certification, activity mutation, model call, commit or push.

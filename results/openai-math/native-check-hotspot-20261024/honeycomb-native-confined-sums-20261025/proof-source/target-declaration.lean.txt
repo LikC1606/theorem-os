@@ -1,0 +1,6 @@
+theorem bridgeConfined_sums (h : ℕ) :
+    Summable (fun p : ConfinedBridgePath h => weight p.val) ∧
+    Summable (fun p : ConfinedBridgePath h => firstLengthWeight p.val) ∧
+    Summable (fun p : ConfinedBridgePath h => firstLengthWeight p.val / confinedMass h) :=
+  ⟨bridgeConfined_summable_weight h, bridgeConfined_summable_firstLengthWeight h,
+    bridgeConfined_summable_normalizedFirstLengthWeight h⟩

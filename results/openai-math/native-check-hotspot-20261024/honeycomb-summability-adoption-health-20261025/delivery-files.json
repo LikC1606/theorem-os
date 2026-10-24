@@ -1,0 +1,70 @@
+{
+  "schema": "honeycomb-summability-adoption-health-delivery.v1",
+  "files": [
+    {
+      "name": "README.md",
+      "bytes": 2069,
+      "sha256": "3851f3bc9cfb365c9956985983f3043983841560fda43776ebd658545dcf0236"
+    },
+    {
+      "name": "capture.json",
+      "bytes": 1041,
+      "sha256": "b47d385263b9bff2d847475dfcd32b4342b9a85504deffd0b38da2684c29d628"
+    },
+    {
+      "name": "capture.py",
+      "bytes": 12489,
+      "sha256": "2144b830deabf7cdfd91343a799cabf8392695ab96652a6759607d6c5f84b1e1"
+    },
+    {
+      "name": "event-summary.json",
+      "bytes": 1496,
+      "sha256": "3f58a5ef02fcc468f4d5c7342954b864ea5db8366d2a97ae15337b8dd9622675"
+    },
+    {
+      "name": "events-metadata.jsonl",
+      "bytes": 74743,
+      "sha256": "7c5af53688271f58f178102b106dd7e5d9002b8a1684d9035cde04f052b5cb79"
+    },
+    {
+      "name": "public-worker-artifacts.json",
+      "bytes": 2084,
+      "sha256": "05559b77624127f9953c10a6b7bcf610055988dbde265a2916ecdbe4be65ffbe"
+    },
+    {
+      "name": "researcher-1-public-proof-vs-verified.diff",
+      "bytes": 5121,
+      "sha256": "b7010d9021312410f5da0ab91e5094e9501ae943d28e141eaf051e0848f2d8e4"
+    },
+    {
+      "name": "researcher-1-target-declaration.lean.txt",
+      "bytes": 415,
+      "sha256": "40c4fc809c36615557d6eb4f2b874beb9257afff1a3733ff81ffc3a2a1ac018b"
+    },
+    {
+      "name": "researcher-2-public-proof-vs-verified.diff",
+      "bytes": 5079,
+      "sha256": "409dae4152d5fb30fa2fc7e95bf6fb2f69b61ec6fd970338519e8af959b91217"
+    },
+    {
+      "name": "researcher-2-target-declaration.lean.txt",
+      "bytes": 713,
+      "sha256": "254999473b5b6327430f4f0f315a98035da742862d6a8ee2f93e8d236edab635"
+    },
+    {
+      "name": "result.json",
+      "bytes": 1408,
+      "sha256": "5256129751f46d63d317024f71c1ace7eea0807a39e4c757a1816cd2c1b328f7"
+    },
+    {
+      "name": "source-adoption-check.json",
+      "bytes": 3319,
+      "sha256": "a719f813332545424c403e671d7bc258212519731556d8c66999553fc6553e5f"
+    },
+    {
+      "name": "task-state-summary.json",
+      "bytes": 7569,
+      "sha256": "7396e7e19cc3dd2c8e5bf4c6750232ad0aa8929aa6086e8537f15b0c00dcd178"
+    }
+  ]
+}

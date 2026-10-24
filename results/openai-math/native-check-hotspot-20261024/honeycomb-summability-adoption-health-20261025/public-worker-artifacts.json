@@ -1,0 +1,48 @@
+[
+  {
+    "workerId": "researcher-1",
+    "research": {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-2/RESEARCH.md",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "cooperation": {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-2/COOPERATION.json",
+      "bytes": 576807,
+      "sha256": "f10ba83d90b0a4af841b4078c1b869a4f3904972298759fa94237b17564318f2"
+    },
+    "peer": {
+      "id": "confined_bridge_sums_all_heights_9dd59d27",
+      "owner": "researcher-1",
+      "status": "running",
+      "taskDigest": "bbd5ff7596e1c5c92cc5b57a731b337a121a7911f52799695d0a5e4fa383ae75",
+      "dependsOn": []
+    },
+    "fullVerifiedInputInObjective": true,
+    "objectiveDigest": "3d06ce34d23fdeef7513ebef36c01669503d22e68a4f85b013f3db4a06df320f"
+  },
+  {
+    "workerId": "researcher-2",
+    "research": {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-3/RESEARCH.md",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "cooperation": {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-3/COOPERATION.json",
+      "bytes": 566230,
+      "sha256": "2d2fd792300544d5196fd13d0d1ecffca26801402fcb638165a587aa6e445916"
+    },
+    "peer": {
+      "id": "width_one_bridge_sums_b433299a",
+      "owner": "researcher-2",
+      "status": "running",
+      "taskDigest": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+      "dependsOn": [
+        "sums_reduction"
+      ]
+    },
+    "fullVerifiedInputInObjective": true,
+    "objectiveDigest": "874b33b667449ffc5f3471138b456affca405f5f2740d7f9e41ea6844c61fcbc"
+  }
+]

@@ -1,0 +1,16 @@
+{
+  "capturedAt": "2026-10-24T16:49:19.179590+00:00",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "stateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/state.json",
+  "stateBytes": 1286580,
+  "stateSHA256": "cd299b45f30fcb432c84af12934b195628ea6d4e586ed089e883279de99a0e3b",
+  "phase": "running",
+  "canonicalCommit": "fac87fb460b0289bc48ad7341935e731c7c3bfb5",
+  "planVersion": "469d5464e6396faef52c09cde02af67f162923b04248ed185c95f6d1991f0266",
+  "eventLog": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/solve.log",
+  "eventLogBytes": 7924704,
+  "eventLogSHA256": "110405d80c74336f46974851a9b115796d4881687fab8a7df43b505dc36cd610",
+  "captureStartAt": 1792859183833,
+  "captureLastEventAt": 1792860543028,
+  "policy": "Only public source/RESEARCH/COOPERATION and selected state metadata. Top-level event whitelist excludes command/model item/reasoning bodies. No full state/objective copied."
+}

@@ -1,0 +1,124 @@
+--- verified increment
++++ public worker source
+@@ -2,7 +2,6 @@
+   | .up i j => 2 * i + j
+   | .down i j => 2 * i + j + 1
+ 
+-/-- `(hexX, layer)` is injective, so the frozen vertex type *is* the brick-wall strip. -/
+ lemma eq_of_hexX_layer {v w : Vertex} (hX : hexX v = hexX w) (hj : layer v = layer w) :
+     v = w := by
+   cases v with
+@@ -27,7 +26,6 @@
+       have : i = i' := by omega
+       subst this; rfl
+ 
+-/-- A step between two vertices of the *same* layer moves `hexX` by exactly `±1`. -/
+ lemma hexX_step {a b : Vertex} (hl : layer a = layer b) (hab : adjacent a b) :
+     hexX b = hexX a + 1 ∨ hexX b = hexX a - 1 := by
+   cases a with
+@@ -57,10 +55,6 @@
+   rw [hnil] at hsrc
+   simp at hsrc
+ 
+-
+-/-- **Integer walk core lemma.** A finite injective walk on `ℤ` with steps `±1` is monotone:
+-it goes straight in one direction. This is the combinatorial fact that makes the width-one
+-strip a single line. -/
+ lemma int_walk_monotone {n : ℕ} {f : ℕ → ℤ}
+     (hinj : ∀ i j, i < n → j < n → f i = f j → i = j)
+     (hstep : ∀ i, i + 1 < n → f (i + 1) = f i + 1 ∨ f (i + 1) = f i - 1) :
+@@ -128,10 +122,6 @@
+           push_cast
+           ring
+ 
+-open scoped BigOperators
+-
+-/-- For a chain of adjacent vertices all on layer `0`, the `hexX` coordinates form an
+-injective `±1` walk. -/
+ lemma chain_hexX_walk {l : List Vertex}
+     (hchain : l.IsChain adjacent) (hnd : l.Nodup)
+     (hlay : ∀ v ∈ l, layer v = 0) :
+@@ -153,8 +143,6 @@
+     have hl2 : layer (l[i+1]'hi) = 0 := hlay _ (List.getElem_mem (l := l) (by omega))
+     exact hexX_step (by rw [hl1, hl2]) h1
+ 
+-open scoped BigOperators
+-
+ lemma BridgePath.ext_vertices {h : ℕ} {p q : BridgePath h} (hv : p.vertices = q.vertices) :
+     p = q := by
+   cases p with
+@@ -192,7 +180,6 @@
+   have hv : p.vertices[0]'h = .up 0 0 := Option.some.inj hsrc
+   rw [hv]; exact hexX_up_zero
+ 
+-/-- The `hexX` coordinate of a width-one bridge path is affine: `+i` or `-i`. -/
+ lemma bridge1_hexX (p : BridgePath 1) :
+     (∀ (i : ℕ) (_hi : i < p.vertices.length), bridge1CoordFun p i = (i : ℤ)) ∨
+     (∀ (i : ℕ) (_hi : i < p.vertices.length), bridge1CoordFun p i = -(i : ℤ)) := by
+@@ -224,7 +211,6 @@
+     rw [hc0] at h
+     simpa using h
+ 
+-/-- A width-one bridge path has at least two vertices (`up 0 0` is not `down i 0`). -/
+ lemma bridge1_length_ge_two (p : BridgePath 1) : 2 ≤ p.vertices.length := by
+   have hpos := length_pos_of_bridge p
+   obtain ⟨i, hi⟩ := p.terminal
+@@ -242,7 +228,6 @@
+     exact absurd hcontra (by simp)
+   · exact h
+ 
+-/-- The second `hexX` coordinate of a width-one bridge path is `±1`. -/
+ lemma bridge1_second (p : BridgePath 1) :
+     bridge1CoordFun p 1 = 1 ∨ bridge1CoordFun p 1 = -1 := by
+   have h2 := bridge1_length_ge_two p
+@@ -250,7 +235,6 @@
+   · left; have := hp 1 (by omega); simpa using this
+   · right; have := hp 1 (by omega); simpa using this
+ 
+-/-- **Determination by length and second coordinate.** -/
+ lemma bridge1_det {p q : BridgePath 1}
+     (hlen : p.vertices.length = q.vertices.length)
+     (hsecond : bridge1CoordFun p 1 = bridge1CoordFun q 1) :
+@@ -282,7 +266,6 @@
+   rw [← bridge1CoordFun_eq p hi, ← bridge1CoordFun_eq q hiq]
+   exact sign i hi
+ 
+-/-- **Width-one counting bound**: at most two bridge paths of any prescribed length. -/
+ theorem bridge1_card_le_two (n : ℕ) (s : Finset (BridgePath 1))
+     (hlen : ∀ p ∈ s, p.vertices.length = n) : s.card ≤ 2 := by
+   have hinj : Set.InjOn (fun p : BridgePath 1 => bridge1CoordFun p 1) (s : Set (BridgePath 1)) := by
+@@ -297,8 +280,6 @@
+   calc s.card ≤ ({-1, 1} : Finset ℤ).card := Finset.card_le_card_of_injOn _ hmaps hinj
+     _ ≤ 2 := Finset.card_le_two
+ 
+-/-- **Width-one instance of the missing strip-growth estimate.**  This is the `h = 1` case of
+-`StripGrowthBelowMu`, fully proved: `C = 2`, `β = 1`, and `1 < 2 cos (π/8)`. -/
+ theorem stripGrowthAtOne :
+     ∃ C β : ℝ, 0 ≤ C ∧ 0 ≤ β ∧ β < 2 * Real.cos (Real.pi / 8) ∧
+       ∀ (n : ℕ) (s : Finset (BridgePath 1)),
+@@ -326,11 +307,6 @@
+     have hcast : ((s.card : ℝ)) ≤ 2 := by exact_mod_cast hcard
+     simpa using hcast
+ 
+-
+-
+-open scoped BigOperators
+-
+-/-- A standalone width-one base case.  No all-width growth hypothesis is used. -/
+ theorem width_one_summability :
+     Summable (weight (h := 1)) ∧ Summable (firstLengthWeight (h := 1)) := by
+   obtain ⟨C, β, hC, hβ, hlt, hcount⟩ := stripGrowthAtOne
+@@ -338,7 +314,6 @@
+     bridgeSummable_firstLengthWeight_of_mu_bound hC hβ hlt hcount
+   exact ⟨bridgeSummable_weight_of_summable_firstLengthWeight hL, hL⟩
+ 
+-/-- All six summability clauses at width one, still only a fixed-width base case. -/
+ theorem finite_bridge_sums_at_one :
+     Summable (weight (h := 1)) ∧ Summable (firstLengthWeight (h := 1)) ∧
+     Summable (fun p : BridgePath 1 => firstLengthWeight p / bridgeMass 1) ∧
+@@ -350,3 +325,5 @@
+     hL.subtype (fun p : BridgePath 1 => InLogCorridor p)
+   exact ⟨hw, hL, hL.div_const (bridgeMass 1), hw.subtype _,
+     hc, hc.div_const (confinedMass 1)⟩
++
++

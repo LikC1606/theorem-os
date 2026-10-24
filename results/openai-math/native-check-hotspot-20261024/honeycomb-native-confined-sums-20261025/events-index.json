@@ -1,0 +1,34 @@
+[
+  {
+    "line": 31086,
+    "at": 1792860903693,
+    "event": "delivery_published",
+    "commit": "d879af0f25982785cb0261397672f1523f8bbd56",
+    "receiptIds": []
+  },
+  {
+    "line": 31115,
+    "at": 1792860924779,
+    "event": "task_checked",
+    "commit": "5c383ba2ff4220cbb57aecb041127365d15ac35c",
+    "receiptIds": []
+  },
+  {
+    "line": 31141,
+    "at": 1792860945135,
+    "event": "task_integrated",
+    "commit": "fa3012608614475df88d051503ad0cdaaf8f4be6",
+    "receiptIds": [
+      "lean-062ee507a3097c19b45fb262"
+    ]
+  },
+  {
+    "line": 31145,
+    "at": 1792860945261,
+    "event": "delivery_published",
+    "commit": "5c383ba2ff4220cbb57aecb041127365d15ac35c",
+    "receiptIds": [
+      "lean-14624c27faf85a6bc4e5a9f0"
+    ]
+  }
+]

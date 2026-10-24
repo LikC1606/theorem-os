@@ -1,0 +1,12 @@
+{
+  "observedAt": "2026-10-24T16:45:22.014Z",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "editId": "honeycomb-gap-consumer-shape-20261025",
+  "result": {
+    "id": "honeycomb-gap-consumer-shape-20261025",
+    "status": "queued",
+    "baseVersion": "e6fa1e72bdb91b402d42277024a68a180ec7b6bb7184156498b4b5631a0b32f4"
+  },
+  "leanInvocations": 0,
+  "mathematicalAcceptance": false
+}

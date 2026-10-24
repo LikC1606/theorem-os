@@ -1,0 +1,64 @@
+{
+  "schema": "theorem-os.width-two-proof-adoption.v1",
+  "capturedAt": "2026-10-24T16:57:25.813565+00:00",
+  "taskId": "width_two_summability_diagnostic",
+  "editId": "honeycomb-width-two-checked-proof-20261025",
+  "editStatus": "applied",
+  "taskStatus": "pending",
+  "localKernelPassed": true,
+  "nativeTaskProof": false,
+  "newLeanInvocations": 0,
+  "originalGoalSolved": false,
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 1917,
+      "sha256": "55cd93b26d0286722c74ac9bbe943f13e5c81566539bc337e0504ea904227aa0"
+    },
+    {
+      "path": "applied-readback.json",
+      "bytes": 3277,
+      "sha256": "902d7ad767c3b0fc87dabde11bf1bc73f42a6a56a9c6ffeb1f689f0ce9dba2a6"
+    },
+    {
+      "path": "complete-handoff.md",
+      "bytes": 12477,
+      "sha256": "d8fe88a8569884abbeba17dd27dc05a9d23f19fa00790d2795228be4dfa230a2"
+    },
+    {
+      "path": "context-availability-readback.json",
+      "bytes": 1670,
+      "sha256": "f5428b061fdf75d3af55d52401af77bbe4f494b9e2f181f901b45fb4ad1c6b46"
+    },
+    {
+      "path": "preflight-phase-race.json",
+      "bytes": 392,
+      "sha256": "3a1068181c0df371a688b632d1883373474042eaa760a05aec0a839d23af5717"
+    },
+    {
+      "path": "preparation.json",
+      "bytes": 106424,
+      "sha256": "8fcac0bfa7662f613bf5af29de272496f8c54c61908951cca0e62b3f50d5488a"
+    },
+    {
+      "path": "queue-receipt.json",
+      "bytes": 404,
+      "sha256": "cc3eb073a86a548a348daf3f3028518707495db5a4d30da0fc3684e93a6d8e79"
+    },
+    {
+      "path": "queue-width-two-proof.ts",
+      "bytes": 8158,
+      "sha256": "4dbf6b55bd1ee883c8cae89fabe22062726754e3388f4da406b1c01d74de918e"
+    },
+    {
+      "path": "state-applied.json",
+      "bytes": 1467009,
+      "sha256": "178cb7988e8389c3f6015faf0b2b2322d01ddf93a9953867c7fd822dbc3b49b4"
+    },
+    {
+      "path": "state-before.json",
+      "bytes": 1347970,
+      "sha256": "fa03811a1f76f95ea53c20d4a196cf89a385287a925ca47e89fd60302010327b"
+    }
+  ]
+}

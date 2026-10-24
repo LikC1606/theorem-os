@@ -1,0 +1,46 @@
+WidthTwo.lean:228:16: warning: this tactic is never executed
+
+Note: This linter can be disabled with `set_option linter.unreachableTactic false`
+WidthTwo.lean:228:6: warning: Unused tactic linter: `all_goals
+  first
+  | exact Finset.card_le_three
+  | exact Finset.card_le_two.trans (by omega)
+  | exact lt_of_le_of_lt Finset.card_le_two (by omega)` does nothing
+
+Note: This linter can be disabled with `set_option linter.unusedTactic false`
+WidthTwo.lean:235:38: warning: This simp argument is unused:
+  Vertex.down.injEq
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [neighbors, Vertex.up.injEq]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+WidthTwo.lean:369:22: warning: try 'simp' instead of 'simpa'
+
+Note: This linter can be disabled with `set_option linter.unnecessarySimpa false`
+@WidthTwo.nextPairs_card : ∀ {a b : Vertex},
+  WidthTwo.inside a → WidthTwo.inside b → adjacent a b → (WidthTwo.nextPairs a b).card ≤ 3
+'OAI.PolynomialVacuumBridge.Corridor.WidthTwo.nextPairs_card' depends on axioms: [propext, Classical.choice, Quot.sound]
+WidthTwo.continuations_card : ∀ (n : ℕ) (a b : Vertex),
+  WidthTwo.inside a → WidthTwo.inside b → adjacent a b → (WidthTwo.continuations a b n).card ≤ 2 * 3 ^ (n / 2)
+'OAI.PolynomialVacuumBridge.Corridor.WidthTwo.continuations_card' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+WidthTwo.path_mem_allPaths : ∀ (p : BridgePath 2), p.vertices ∈ WidthTwo.allPaths p.vertices.length
+'OAI.PolynomialVacuumBridge.Corridor.WidthTwo.path_mem_allPaths' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+WidthTwo.path_card : ∀ (n : ℕ) (s : Finset (BridgePath 2)), (∀ p ∈ s, p.vertices.length = n) → s.card ≤ 4 * 3 ^ (n / 2)
+'OAI.PolynomialVacuumBridge.Corridor.WidthTwo.path_card' depends on axioms: [propext, Classical.choice, Quot.sound]
+WidthTwo.stripGrowthAtTwo : ∃ C β,
+  0 ≤ C ∧
+    0 ≤ β ∧
+      β < 2 * Real.cos (Real.pi / 8) ∧
+        ∀ (n : ℕ) (s : Finset (BridgePath 2)), (∀ p ∈ s, p.vertices.length = n) → ↑s.card ≤ C * β ^ n
+'OAI.PolynomialVacuumBridge.Corridor.WidthTwo.stripGrowthAtTwo' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+width_two_summability_diagnostic : Summable weight ∧ Summable firstLengthWeight
+'OAI.PolynomialVacuumBridge.Corridor.width_two_summability_diagnostic' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

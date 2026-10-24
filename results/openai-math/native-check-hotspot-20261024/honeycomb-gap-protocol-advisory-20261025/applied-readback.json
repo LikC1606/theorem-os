@@ -1,0 +1,83 @@
+{
+  "observedAt": "2026-10-24T16:47:43.135052+00:00",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "phase": "running",
+  "turns": 404,
+  "edit": {
+    "affectedTasks": [
+      "finite_box_zero_mass_reference"
+    ],
+    "appliedAt": 1792860322099,
+    "baseVersion": "e6fa1e72bdb91b402d42277024a68a180ec7b6bb7184156498b4b5631a0b32f4",
+    "id": "honeycomb-gap-consumer-shape-20261025",
+    "planVersion": "469d5464e6396faef52c09cde02af67f162923b04248ed185c95f6d1991f0266",
+    "receivedAt": 1792860322052,
+    "recheck": {
+      "status": "not-required",
+      "tasks": []
+    },
+    "status": "applied"
+  },
+  "allOtherTaskObjectsUnchanged": [
+    "strip_growth_below_mu",
+    "sums_reduction",
+    "initial_goal_1",
+    "bridge_column_step_unique_a0424391",
+    "bridge_full_column_word_injective_a0424391",
+    "confined_bridge_sums_all_heights_9dd59d27",
+    "width_one_bridge_sums_b433299a",
+    "initial_research_1",
+    "initial_research_2",
+    "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+    "width_two_summability_diagnostic"
+  ],
+  "retainedAssignmentTasks": [
+    "strip_growth_below_mu",
+    "sums_reduction",
+    "initial_goal_1",
+    "bridge_column_step_unique_a0424391",
+    "bridge_full_column_word_injective_a0424391",
+    "confined_bridge_sums_all_heights_9dd59d27",
+    "width_one_bridge_sums_b433299a",
+    "initial_research_1",
+    "initial_research_2",
+    "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+    "width_two_summability_diagnostic"
+  ],
+  "retainedProofRecords": [
+    {
+      "taskId": "sums_reduction",
+      "kind": "proof"
+    },
+    {
+      "taskId": "sums_reduction",
+      "kind": "integratedCheck"
+    },
+    {
+      "taskId": "initial_goal_1",
+      "kind": "proof"
+    },
+    {
+      "taskId": "bridge_column_step_unique_a0424391",
+      "kind": "proof"
+    },
+    {
+      "taskId": "bridge_column_step_unique_a0424391",
+      "kind": "integratedCheck"
+    },
+    {
+      "taskId": "bridge_full_column_word_injective_a0424391",
+      "kind": "proof"
+    },
+    {
+      "taskId": "bridge_full_column_word_injective_a0424391",
+      "kind": "integratedCheck"
+    }
+  ],
+  "originalGoalUnchanged": true,
+  "activeSourceModifiedByAdvisory": false,
+  "directStateWrites": false,
+  "leanInvocations": 0,
+  "historicalReceiptResolved": false,
+  "mathematicalAcceptance": false
+}

@@ -1,8 +1,12 @@
 # 原生检查热点与加速候选（2026-10-24）
 
-最新状态见 [10 月 25 日 00:32 北京时间进度快照](optimization-progress-20261024T163251Z.json)。两个活动运行的五项预算均从 launch 逐项回读为 0，Honeycomb 持久服务正常运行。
+最新状态见 [10 月 25 日 00:58 北京时间进度快照](optimization-progress-20261024T165858Z.json)。两个活动运行的五项预算均为 0，Honeycomb 持久服务正常运行。
 
-新增两份独立数学证明已通过 Lean 检查并经正常队列递交：[所有高度的受限走廊三项结论](honeycomb-confined-finiteness-20261024/README.md)由有限顶点与 Nodup 路径族推出，检查耗时 18.681 秒；[宽度 1 的全部六项结论](honeycomb-width-one-20261024/README.md)复用已有路径分类与每长度至多两条的计数界，检查耗时 20.635 秒。两项现已分别由 researcher-1、researcher-2 领取，尚无新原生 TaskProof。源码内联、首次遗漏的补齐及旧证明保留见[递交和回读](honeycomb-verified-summability-adoption-20261025/README.md)。一般高度不受限桥族的增长界仍未证明，原题未解。
+新增[宽度 2 的无条件可和性证明](honeycomb-width-two-20261025/README.md)通过固定 Lean 完整检查，耗时 21.306 秒，六项关键声明公理仅标准白名单。任一入边之后至多三种两步非回退延续给出计数界 `4·3^(n/2) ≤ 4·(√3)^n`，再由 `√3 < 2 cos(π/8)` 推出 `weight` 和 `firstLengthWeight` 可和。[完整增量已递交现有宽度 2 任务](honeycomb-width-two-adoption-20261025/README.md)，编辑已应用，截点为 pending，尚无原生 TaskProof。h≥3 的一般增长界仍未证明。
+
+[所有高度的受限走廊三项结论](honeycomb-confined-finiteness-20261024/README.md)现已通过原生任务检查并集成；两次真实检查分别耗时 20.285 秒、20.024 秒，0 sorry/admit/剩余目标，无附加条件。见[正式回执与精确源码](honeycomb-native-confined-sums-20261025/README.md)。[宽度 1 的全部六项结论](honeycomb-width-one-20261024/README.md)仍在正式 worker 中处理；[只读采用检查](honeycomb-summability-adoption-health-20261025/README.md)确认两份先前证明均已完整保存、声明类型匹配且无重名或缺依赖，没有发现需要修复的采用错误。此前的[首次递交记录](honeycomb-verified-summability-adoption-20261025/README.md)保留原样。完整原题仍未解决。
+
+[缺口报告协议澄清](honeycomb-gap-protocol-advisory-20261025/README.md)经正常队列共享：`consumer` 只含 `taskId`、`taskDigest`，`kind:"goal"` 描述被引用任务。旧宽度 2 报告因此被入口拒收，不能视为数学证明失败；历史回执保留。另存[高度 1–4 非回退块的整数计数诊断](honeycomb-nonbacktracking-block-diagnostic-20261025/README.md)，它没有额外 Lean 或原生验收效力。
 
 Snaky 已完成宿主最终检查并推进到冻结 publisher 的 `lake build Challenge Submission`。当前单核满载、仅一个活动编译器；构建后仍需原 comparator，尚无原题最终通过。见[00:23 北京时间检查](snaky-final-gate-followup-20261025/README.md)；[此前健康检查](snaky-final-gate-health-20261024/README.md)保留原样。
 

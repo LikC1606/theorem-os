@@ -1,0 +1,9 @@
+{
+  "stage": "read-only preflight before dry-run, preparation files or queue write",
+  "initialAssertion": "state.phase === running",
+  "observedPhase": "checking",
+  "result": "assertion stopped without mutation",
+  "correction": "Accept active running or checking phases; retain exact pending-task, assignment, source and invalidation checks.",
+  "leanInvocations": 0,
+  "queueWrites": 0
+}

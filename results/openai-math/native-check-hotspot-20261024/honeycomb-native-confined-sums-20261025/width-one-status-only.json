@@ -1,0 +1,16 @@
+{
+  "taskId": "width_one_bridge_sums_b433299a",
+  "status": "running",
+  "attempts": 1,
+  "theoremName": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one",
+  "assignment": {
+    "workerId": "researcher-2",
+    "assignmentId": "3250e294-e889-4c06-8e44-0c99cc161662",
+    "taskDigest": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+    "canonicalCommit": "fac87fb460b0289bc48ad7341935e731c7c3bfb5",
+    "seedCommit": "84dac4a5063887bf27396015ccbfadf4269983f8"
+  },
+  "proofPassed": null,
+  "integratedPassed": null,
+  "note": "State only; no native pass claimed unless supported by this snapshot."
+}

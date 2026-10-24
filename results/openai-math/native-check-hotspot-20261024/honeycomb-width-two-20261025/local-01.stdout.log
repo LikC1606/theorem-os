@@ -1,0 +1,21 @@
+WidthTwo.lean:221:23: error: Tactic `cases` failed with a nested error:
+Dependent elimination failed: Failed to solve equation
+  Decidable.rec (fun h => (fun x => Vertex.down i 1 :: List.insert (Vertex.down (i - 1) 1) [Vertex.down i 0]) h)
+      (fun h => (fun x => List.insert (Vertex.down (i - 1) 1) [Vertex.down i 0]) h)
+      (instDecidableEqBool ((List.insert (Vertex.down (i - 1) 1) [Vertex.down i 0]).contains (Vertex.down i 1)) true) =
+    a :: as✝
+at case `List.Mem.head`
+WidthTwo.lean:221:23: error: Tactic `cases` failed with a nested error:
+Dependent elimination failed: Failed to solve equation
+  Decidable.rec (fun h => (fun x => [Vertex.up i 1, Vertex.up (i + 1) 1]) h)
+      (fun h => (fun x => [Vertex.up (i + 1) 1]) h)
+      (instDecidableEqBool ([Vertex.up (i + 1) 1].contains (Vertex.up i 1)) true) =
+    a :: as✝
+at case `List.Mem.head`
+WidthTwo.lean:223:34: warning: This simp argument is unused:
+  Finset.card_insert_of_notMem
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [nextPairs, neighbors]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`

@@ -1,0 +1,32 @@
+WidthTwo.lean:228:16: warning: this tactic is never executed
+
+Note: This linter can be disabled with `set_option linter.unreachableTactic false`
+WidthTwo.lean:228:6: warning: Unused tactic linter: `all_goals
+  first
+  | exact Finset.card_le_three
+  | exact Finset.card_le_two.trans (by omega)
+  | exact lt_of_le_of_lt Finset.card_le_two (by omega)` does nothing
+
+Note: This linter can be disabled with `set_option linter.unusedTactic false`
+WidthTwo.lean:235:38: warning: This simp argument is unused:
+  Vertex.down.injEq
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [neighbors, Vertex.up.injEq]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+WidthTwo.lean:255:59: error: Application type mismatch: The argument
+  hd
+has type
+  (c, d) ∈ Finset.image (fun d => (c, d)) ((neighbors c).erase b)
+but is expected to have type
+  ?m.96 ∈ (neighbors c).erase ?m.97
+in the application
+  Finset.mem_erase.mp hd
+WidthTwo.lean:271:31: error(lean.unknownIdentifier): Unknown constant `Nat.one_div_two`
+WidthTwo.lean:271:4: error: Type mismatch: After simplification, term
+  LE.le.trans Finset.card_image_le (erase_neighbors_card ha hb hab)
+ has type
+  @LE.le ℕ Nat.instPreorder.toLE (Finset.image (fun c => [c]) ((neighbors b).erase a)).card 2
+but is expected to have type
+  @LE.le ℕ instLENat (Finset.image (fun c => [c]) ((neighbors b).erase a)).card (2 * 3 ^ (1 / 2))

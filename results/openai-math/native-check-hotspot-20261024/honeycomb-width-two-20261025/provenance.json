@@ -1,0 +1,33 @@
+{
+  "sealedPackagesRoot": "/proc/1250131/fd/5",
+  "sealedEnvironmentIdentity": "2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87",
+  "leanToolchain": "leanprover/lean4:v4.34.1",
+  "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+  "createdAt": "2026-10-24T16:46:48.682127+00:00",
+  "currentSource": "/home/lzh/theorem-os-results-20261023/results/openai-math/native-check-hotspot-20261024/honeycomb-native-column-word-20261024/honeycomb/integrated-source/Submission.lean",
+  "currentSourceSHA256": "604e26660c6898ab1d76db11d98689c0ef57b6f08f001f94c4c11915a3222dd9",
+  "prefixLines": [
+    1,
+    177
+  ],
+  "prefixSHA256": "f55c042e447b853d775f3f6f164d94ab175cc328eabf324588117d8d436f0c45",
+  "scope": "Fixed width-two non-backtracking two-step counting and summability only. No all-width claim.",
+  "publisherSolutionsRead": false,
+  "hiddenReasoningRead": false,
+  "activeRuntimeChanged": false,
+  "activeSourceChanged": false,
+  "hostTaskProofAcceptance": false,
+  "nativeTaskProofAcceptance": false,
+  "noLeanRerunDuringArchival": true,
+  "previousSource": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-width-one-20261024/CurrentPrefix.lean.inc",
+  "previousSourceSHA256": "f55c042e447b853d775f3f6f164d94ab175cc328eabf324588117d8d436f0c45",
+  "archivedAt": "2026-10-24T16:55:33.646135+00:00",
+  "sourceSHA256": "97a34151766af41dc81716bb199f5565d87b2e505f5be38f0a289c5b657c7027",
+  "incrementSHA256": "6946d27d61a5056762c4fd4e3b1cbc8e9ea7da84d78fef68aa008fa6ff99e1ef",
+  "newProofRoute": "Explicit width-two neighbor enumeration and two-step non-backtracking continuation bound. Counting includes an overapproximation of all simple paths.",
+  "inheritedResearchProofReused": false,
+  "priorPublishedSolutionsRead": false,
+  "noPlaceholderProofs": true,
+  "activeStateQueueChanged": false,
+  "noModelCalled": true
+}

@@ -1,0 +1,493 @@
+{
+  "checkedAt": 1792860924685,
+  "durationMs": 20285,
+  "events": [
+    {
+      "eventId": "1aeea441-de7b-4df3-af72-147894c9a097",
+      "kind": "session.opened",
+      "payload": {
+        "itemCount": 1,
+        "projectRoot": "/tmp/math-check-PSubym/worktree/generated/problem",
+        "uniqueFileCount": 1
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "81480b62-2adb-4943-a6fc-95eecec3a2da",
+      "timestamp": 1792860904401
+    },
+    {
+      "eventId": "24339e4e-9c8d-4963-8e25-0bbad0d5801e",
+      "kind": "file.opened",
+      "payload": {
+        "bytes": 17936,
+        "checkCount": 1,
+        "proofHash": "3fe3167b10ee9d9dd226874b3558900dbd214876afdb1f7cce3a04838716949d",
+        "proofPath": "Submission.lean"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "81480b62-2adb-4943-a6fc-95eecec3a2da",
+      "timestamp": 1792860904401
+    },
+    {
+      "eventId": "61df60f5-fd78-470a-abf4-97f7e55b1a0c",
+      "kind": "toolchain.resolved",
+      "payload": {
+        "command": "lake",
+        "executable": "lake",
+        "lakeFile": "lakefile.toml"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "81480b62-2adb-4943-a6fc-95eecec3a2da",
+      "timestamp": 1792860904401
+    },
+    {
+      "eventId": "d5e4332c-ae98-436e-9e5c-474e8e41b795",
+      "kind": "check.draft_checked",
+      "payload": {
+        "admitCount": 0,
+        "axioms": [],
+        "proofPath": "Submission.lean",
+        "sorryCount": 0,
+        "status": "accepted"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "81480b62-2adb-4943-a6fc-95eecec3a2da",
+      "timestamp": 1792860904424
+    },
+    {
+      "eventId": "45ff15cc-1f3b-43c0-b7dd-7967d43f4a46",
+      "kind": "diagnostic.emitted",
+      "payload": {
+        "message": "DS_DECL_REFERENCES_2b792d3bfaf4957aae1479858d3f1dab:[[[\"OAI.PolynomialVacuumBridge.Corridor.confinedMass\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.criticalActivity._proof_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.criticalActivity\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.weight\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.position._proof_2\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.position._proof_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.rec\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.casesOn\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.down\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.up\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.position.match_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.position\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.BridgePath.vertices\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.InLogCorridor\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.BridgePath\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.ConfinedBridgePath\",\"Submission.lean\"]],[[\"OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_summable_normalizedFirstLengthWeight\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_summable_firstLengthWeight\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.BridgePath.rec\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.BridgePath.mk\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.adjacent._sparseCasesOn_2\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.adjacent._sparseCasesOn_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.adjacent.match_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.adjacent\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.BridgePath.casesOn\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList_injective\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.BridgePath.distinct\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList_map_val\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList_nodup\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.BridgePath.inStrip\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList._proof_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeBoxColumn_eq_twice_position\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode_injective._proof_1_11\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode_injective._proof_1_10\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode_injective._proof_1_9\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode_injective._proof_1_8\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_8\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.down.noConfusion\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_7\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_6\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_5\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.ctorIdx\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_4\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_3\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.noConfusionType\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.noConfusion\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.up.noConfusion\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_2\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq.match_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode_injective._proof_1_7\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode_injective._proof_1_6\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode_injective\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeBoxColumn\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeBoundedVertices_finite\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertex_finite\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.layer\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.ConfinedBridgeVertex\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedPath_finite\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_summable_weight\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.confinedMass\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.criticalActivity._proof_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.criticalActivity\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.weight\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.position._proof_2\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.position._proof_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.rec\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.casesOn\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.down\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.up\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.position.match_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.position\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.BridgePath.vertices\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.InLogCorridor\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.BridgePath\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.ConfinedBridgePath\",\"Submission.lean\"]]]\nDEEPSCIENTIST_DECL_BEGIN_f769beaba7755625\nOAI.PolynomialVacuumBridge.Corridor.bridgeConfined_sums (h : ℕ) :\n  (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.weight ↑p) ∧\n    (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p) ∧\n      Summable fun p =>\n        OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p / OAI.PolynomialVacuumBridge.Corridor.confinedMass h\nDEEPSCIENTIST_DECL_END_f769beaba7755625\nDEEPSCIENTIST_AXIOMS_BEGIN_f769beaba7755625\n'OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_sums' depends on axioms: [propext, Classical.choice, Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_f769beaba7755625",
+        "proofPath": "Submission.lean",
+        "severity": "info",
+        "source": "stdout"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "81480b62-2adb-4943-a6fc-95eecec3a2da",
+      "timestamp": 1792860924680
+    },
+    {
+      "eventId": "36e86b7f-335e-487d-a827-3c0ff9cd2b9e",
+      "kind": "check.kernel_checked",
+      "payload": {
+        "aborted": false,
+        "durationMs": 20106,
+        "exitCode": 0,
+        "proofPath": "Submission.lean",
+        "signal": null,
+        "status": "kernel_verified",
+        "timedOut": false
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "81480b62-2adb-4943-a6fc-95eecec3a2da",
+      "timestamp": 1792860924680
+    },
+    {
+      "eventId": "0aef7b87-bfcf-413f-90c2-ae52df5459e9",
+      "kind": "receipt.published",
+      "payload": {
+        "checkId": "check-1",
+        "proofPath": "Submission.lean",
+        "receiptId": "lean-14624c27faf85a6bc4e5a9f0",
+        "status": "kernel_verified",
+        "theoremName": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_sums"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "81480b62-2adb-4943-a6fc-95eecec3a2da",
+      "timestamp": 1792860924680
+    },
+    {
+      "eventId": "8f8541ac-76d2-49b0-9337-592c89308ad2",
+      "kind": "session.closed",
+      "payload": {
+        "durationMs": 20285,
+        "resultCount": 1,
+        "status": "kernel_verified"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "81480b62-2adb-4943-a6fc-95eecec3a2da",
+      "timestamp": 1792860924685
+    }
+  ],
+  "results": [
+    {
+      "admitCount": 0,
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "checkId": "check-1",
+      "checkedAt": 1792860924680,
+      "claim": "statement",
+      "declarationReferences": {
+        "proof": [
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.adjacent"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.adjacent._sparseCasesOn_1"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.adjacent._sparseCasesOn_2"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.adjacent.match_1"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeBoundedVertices_finite"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeBoxColumn"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeBoxColumn_eq_twice_position"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_summable_firstLengthWeight"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_summable_normalizedFirstLengthWeight"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_summable_weight"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedPath_finite"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertex_finite"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList_injective"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList_map_val"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList_nodup"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList._proof_1"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode_injective"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode_injective._proof_1_10"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode_injective._proof_1_11"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode_injective._proof_1_6"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode_injective._proof_1_7"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode_injective._proof_1_8"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode_injective._proof_1_9"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.BridgePath"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.BridgePath.casesOn"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.BridgePath.distinct"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.BridgePath.inStrip"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.BridgePath.mk"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.BridgePath.rec"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.BridgePath.vertices"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.ConfinedBridgePath"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.ConfinedBridgeVertex"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.confinedMass"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.criticalActivity"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.criticalActivity._proof_1"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.InLogCorridor"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_1"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_2"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_3"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_4"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_5"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_6"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_7"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_8"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq.match_1"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.layer"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.position"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.position._proof_1"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.position._proof_2"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.position.match_1"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.Vertex"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.Vertex.casesOn"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.Vertex.ctorIdx"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.Vertex.down"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.Vertex.down.noConfusion"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.Vertex.noConfusion"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.Vertex.noConfusionType"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.Vertex.rec"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.Vertex.up"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.Vertex.up.noConfusion"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.weight"
+          }
+        ],
+        "statement": [
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.BridgePath"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.BridgePath.vertices"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.ConfinedBridgePath"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.confinedMass"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.criticalActivity"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.criticalActivity._proof_1"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.InLogCorridor"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.position"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.position._proof_1"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.position._proof_2"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.position.match_1"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.Vertex"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.Vertex.casesOn"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.Vertex.down"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.Vertex.rec"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.Vertex.up"
+          },
+          {
+            "file": "Submission.lean",
+            "name": "OAI.PolynomialVacuumBridge.Corridor.weight"
+          }
+        ]
+      },
+      "elaboratedDeclarationType": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_sums (h : ℕ) : (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.weight ↑p) ∧ (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p) ∧ Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p / OAI.PolynomialVacuumBridge.Corridor.confinedMass h",
+      "goalsRemaining": 0,
+      "leanStatementHash": "bbd5ff7596e1c5c92cc5b57a731b337a121a7911f52799695d0a5e4fa383ae75",
+      "proofHash": "3fe3167b10ee9d9dd226874b3558900dbd214876afdb1f7cce3a04838716949d",
+      "proofPath": "Submission.lean",
+      "receiptId": "lean-14624c27faf85a6bc4e5a9f0",
+      "sessionId": "81480b62-2adb-4943-a6fc-95eecec3a2da",
+      "sorryCount": 0,
+      "sourceDeclarationHash": "84d020839bc0880918f5f2a09baec9728ec2250b621a28d122f122cfb148b400",
+      "statementBinding": "caller-bound-to-committed-declaration",
+      "statementHash": "bbd5ff7596e1c5c92cc5b57a731b337a121a7911f52799695d0a5e4fa383ae75",
+      "status": "kernel_verified",
+      "stdoutPreview": "DS_DECL_REFERENCES_2b792d3bfaf4957aae1479858d3f1dab:[[[\"OAI.PolynomialVacuumBridge.Corridor.confinedMass\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.criticalActivity._proof_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.criticalActivity\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.weight\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.position._proof_2\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.position._proof_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.rec\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.casesOn\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.down\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.up\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.position.match_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.position\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.BridgePath.vertices\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.InLogCorridor\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.BridgePath\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.ConfinedBridgePath\",\"Submission.lean\"]],[[\"OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_summable_normalizedFirstLengthWeight\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_summable_firstLengthWeight\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.BridgePath.rec\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.BridgePath.mk\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.adjacent._sparseCasesOn_2\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.adjacent._sparseCasesOn_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.adjacent.match_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.adjacent\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.BridgePath.casesOn\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList_injective\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.BridgePath.distinct\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList_map_val\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList_nodup\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.BridgePath.inStrip\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList._proof_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertexList\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeBoxColumn_eq_twice_position\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode_injective._proof_1_11\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode_injective._proof_1_10\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode_injective._proof_1_9\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode_injective._proof_1_8\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_8\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.down.noConfusion\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_7\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_6\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_5\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.ctorIdx\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_4\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_3\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.noConfusionType\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.noConfusion\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.up.noConfusion\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_2\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq._proof_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq.match_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex.decEq\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.instDecidableEqVertex\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode_injective._proof_1_7\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode_injective._proof_1_6\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode_injective\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeBoxColumn\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeLayerColumnCode\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeBoundedVertices_finite\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedVertex_finite\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.layer\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.ConfinedBridgeVertex\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeConfinedPath_finite\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_summable_weight\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.confinedMass\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.criticalActivity._proof_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.criticalActivity\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.weight\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.position._proof_2\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.position._proof_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.rec\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.casesOn\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.down\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex.up\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.position.match_1\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.position\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.BridgePath.vertices\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.Vertex\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.InLogCorridor\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.BridgePath\",\"Submission.lean\"],[\"OAI.PolynomialVacuumBridge.Corridor.ConfinedBridgePath\",\"Submission.lean\"]]]\nDEEPSCIENTIST_DECL_BEGIN_f769beaba7755625\nOAI.PolynomialVacuumBridge.Corridor.bridgeConfined_sums (h : ℕ) :\n  (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.weight ↑p) ∧\n    (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p) ∧\n      Summable fun p =>\n        OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p / OAI.PolynomialVacuumBridge.Corridor.confinedMass h\nDEEPSCIENTIST_DECL_END_f769beaba7755625\nDEEPSCIENTIST_AXIOMS_BEGIN_f769beaba7755625\n'OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_sums' depends on axioms: [propext, Classical.choice, Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_f769beaba7755625",
+      "targetCommit": "0e9f646a0f911ab438458bafcee114fa5ceb028a",
+      "theoremDeclarationHash": "f82295c59b1cba73950f9958b73ec00d37a14cffead8445e6866ffb8f1ab5f42",
+      "theoremName": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_sums",
+      "toolchain": {
+        "lake": "lakefile.toml",
+        "lean": "lake"
+      },
+      "verifier": "lean-kernel"
+    }
+  ],
+  "schema": "deepscientist.mathematics.verification-batch/v1",
+  "sessionId": "81480b62-2adb-4943-a6fc-95eecec3a2da",
+  "startedAt": 1792860904400,
+  "status": "kernel_verified",
+  "targetCommit": "0e9f646a0f911ab438458bafcee114fa5ceb028a"
+}

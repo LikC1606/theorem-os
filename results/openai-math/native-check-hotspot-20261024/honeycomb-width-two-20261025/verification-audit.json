@@ -1,0 +1,112 @@
+{
+  "checkedAt": "2026-10-24T16:55:33.646135+00:00",
+  "validationWasRerunDuringArchival": false,
+  "sourceLaunchResultSnapshotSHA256Equal": true,
+  "sourceSHA256": "97a34151766af41dc81716bb199f5565d87b2e505f5be38f0a289c5b657c7027",
+  "incrementSHA256": "6946d27d61a5056762c4fd4e3b1cbc8e9ea7da84d78fef68aa008fa6ff99e1ef",
+  "prefixSHA256": "f55c042e447b853d775f3f6f164d94ab175cc328eabf324588117d8d436f0c45",
+  "resultSHA256": "8a26bfd63dcb833d4e7e54bf94ac2baf76d674afc2f12ea1df75dc9eaa0d28ff",
+  "launchSHA256": "004a3d35920967043be8c8dd1a962986e8b048d0843a0732215d41905dfb2f46",
+  "stdoutSHA256": "c0703f66ee65a3ca32d7682fa419a31e887d4966bab720520643980cfc86060c",
+  "stderrBytes": 0,
+  "actualExitCode": 0,
+  "durationSeconds": 21.30641626403667,
+  "toolchain": "leanprover/lean4:v4.34.1",
+  "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+  "sealedEnvironmentIdentity": "2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87",
+  "sourceContainsForbiddenProofKeywords": false,
+  "checkedDeclarationAxioms": {
+    "OAI.PolynomialVacuumBridge.Corridor.WidthTwo.nextPairs_card": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "OAI.PolynomialVacuumBridge.Corridor.WidthTwo.continuations_card": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "OAI.PolynomialVacuumBridge.Corridor.WidthTwo.path_mem_allPaths": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "OAI.PolynomialVacuumBridge.Corridor.WidthTwo.path_card": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "OAI.PolynomialVacuumBridge.Corridor.WidthTwo.stripGrowthAtTwo": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "OAI.PolynomialVacuumBridge.Corridor.width_two_summability_diagnostic": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ]
+  },
+  "axiomsExactlyWhitelist": true,
+  "currentCanonicalStartsWithValidatedPrefix": true,
+  "newDeclarationNameCollisions": [],
+  "validationHistory": [
+    {
+      "label": "count-01",
+      "actualExitCode": 1,
+      "durationSeconds": 16.490988611010835,
+      "sourceSHA256": "f4d4bd7518d5367f73e11a2492ba983d61961168a73ffd84e2b2601e91afc787",
+      "resultFile": "count-01-result.json",
+      "stdoutLog": "count-01.stdout.log"
+    },
+    {
+      "label": "count-02",
+      "actualExitCode": 1,
+      "durationSeconds": 15.56769154407084,
+      "sourceSHA256": "b2de62a809a273a9cc2eb61d2bafe53a6700f848b1143d1b8b13391280f1b0fe",
+      "resultFile": "count-02-result.json",
+      "stdoutLog": "count-02.stdout.log"
+    },
+    {
+      "label": "local-01",
+      "actualExitCode": 1,
+      "durationSeconds": 13.985582363791764,
+      "sourceSHA256": "7440426f45368bb0a599e9b44a6d5ef7bdbf3ea727cc86642d81dd58bbc08894",
+      "resultFile": "local-01-result.json",
+      "stdoutLog": "local-01.stdout.log"
+    },
+    {
+      "label": "local-02",
+      "actualExitCode": 1,
+      "durationSeconds": 14.275518273934722,
+      "sourceSHA256": "250d6ac8d08aa0ec66e91d18f3dd21379938fcece0c515b09b36d21147908d27",
+      "resultFile": "local-02-result.json",
+      "stdoutLog": "local-02.stdout.log"
+    },
+    {
+      "label": "local-03",
+      "actualExitCode": 1,
+      "durationSeconds": 18.164655207190663,
+      "sourceSHA256": "cb008388bb8174e9ffcf675293b4dd843af0a0c4fac554eac87125dbae3fe5ad",
+      "resultFile": "local-03-result.json",
+      "stdoutLog": "local-03.stdout.log"
+    },
+    {
+      "label": "local-04",
+      "actualExitCode": 0,
+      "durationSeconds": 20.148493198910728,
+      "sourceSHA256": "e34ee105cf46d093385440fa4f0ff95dbbf298658d78c10cce8c463dc65f92f4",
+      "resultFile": "local-04-result.json",
+      "stdoutLog": "local-04.stdout.log"
+    },
+    {
+      "label": "summability-01",
+      "actualExitCode": 0,
+      "durationSeconds": 21.30641626403667,
+      "sourceSHA256": "97a34151766af41dc81716bb199f5565d87b2e505f5be38f0a289c5b657c7027",
+      "resultFile": "summability-01-result.json",
+      "stdoutLog": "summability-01.stdout.log"
+    }
+  ],
+  "nativeTaskProofAccepted": false
+}

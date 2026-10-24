@@ -1,0 +1,44 @@
+{
+  "observedAt": "2026-10-24T16:45:21.955Z",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "consumerReference": {
+    "taskId": "initial_goal_1",
+    "taskDigest": "ab8c91c92c1d5d985ed03edfaee27bbef6df38455b84a82711d07d8d13e77890"
+  },
+  "validTwoKeyConsumerAccepted": true,
+  "extraKindRejected": true,
+  "rejectionIssues": [
+    {
+      "code": "unrecognized_keys",
+      "keys": [
+        "kind"
+      ],
+      "path": [
+        "consumer"
+      ],
+      "message": "Unrecognized key(s) in object: 'kind'"
+    }
+  ],
+  "frozenSchemaSHA256": "b6d058437fb7b767da48dfa7eedd1ef23289823febcbf85f9646ae3fcac3555d",
+  "unresolvedHistoricalReceipt": {
+    "assignmentKey": "DELIVERIES-5655988263e79d77fe067e4611d66b96746538ddeecca46182f309f8ae6a9dce.jsonl",
+    "code": "math_delivery_invalid",
+    "createdAt": 1792857945702,
+    "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+    "id": "eced4598fb5fa5b08eee4698e63afdf2cf7b719548b4f8f0a2c3ea979af6637e",
+    "issues": [
+      {
+        "message": "Unrecognized key(s) in object: 'kind'",
+        "path": "mathematicalGap.consumer"
+      }
+    ],
+    "seedCommit": "c496d94f9b2c9b184f37a6e8f8be18ec07bc3414",
+    "status": "needs-correction",
+    "submissionDigest": "eb1a111061bc0ed970de5cc4cb423471c95de0460d127eee6109dacde5f16009",
+    "taskDigest": "bf49165b75e7db264e211063bd81698e85d3930a342ee90f10db0c2f452f73b5",
+    "taskId": "width_two_summability_diagnostic",
+    "workerId": "engineer"
+  },
+  "leanInvocations": 0,
+  "mathematicalAcceptance": false
+}

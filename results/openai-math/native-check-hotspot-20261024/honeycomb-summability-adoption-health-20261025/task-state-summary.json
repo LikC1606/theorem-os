@@ -1,0 +1,158 @@
+[
+  {
+    "taskId": "confined_bridge_sums_all_heights_9dd59d27",
+    "status": "running",
+    "attempts": 1,
+    "assignment": {
+      "assignmentId": "02d56a08-38cd-4d52-b534-b9339530748e",
+      "canonicalCommit": "fac87fb460b0289bc48ad7341935e731c7c3bfb5",
+      "dependencies": [],
+      "groupId": "main",
+      "researchBasis": {
+        "dependencies": [],
+        "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+        "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+        "retrievalDigest": "f5fa7f00d04e495a9eb0089943ca9e6764e56ca67c96253410933e210be6dfad",
+        "schema": "theorem-os.research-basis.v1",
+        "sourceDigest": "596bdf3fb095f7c7db572a3a7bcaa3556c001ce61908653fa29beb0a43c3cae3",
+        "taskDigest": "bbd5ff7596e1c5c92cc5b57a731b337a121a7911f52799695d0a5e4fa383ae75",
+        "taskId": "confined_bridge_sums_all_heights_9dd59d27"
+      },
+      "seedCommit": "6a3113b739faa92ce2604c249fe324f3e461668d",
+      "taskDigest": "bbd5ff7596e1c5c92cc5b57a731b337a121a7911f52799695d0a5e4fa383ae75",
+      "taskId": "confined_bridge_sums_all_heights_9dd59d27",
+      "workerId": "researcher-1"
+    },
+    "typePreflight": {
+      "artifact": {
+        "digest": "53be3259f6b32fd9e6ba6936651d7308868ae63d10a65c68de94a18022c34a2d",
+        "path": ".lake/type-diagnostics/3d3445fc-34f5-4a3b-8f6f-948f64125352/manifest.json"
+      },
+      "context": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums",
+      "evidence": "advisory-type-elaboration",
+      "inputDigest": "a11e4084b75cc0b197cfb99640c407b88459c05426a88e8e745947950efc0b9c",
+      "proofAcceptance": "not-assessed",
+      "reason": "closed-type-elaborated",
+      "status": "elaborated",
+      "taskDigest": "bbd5ff7596e1c5c92cc5b57a731b337a121a7911f52799695d0a5e4fa383ae75",
+      "type": "∀ (h : ℕ),\n  (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.weight ↑p) ∧\n    (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p) ∧\n      Summable fun p =>\n        OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p / OAI.PolynomialVacuumBridge.Corridor.confinedMass h"
+    },
+    "theoremName": "OAI.PolynomialVacuumBridge.Corridor.bridgeConfined_sums",
+    "type": "∀ h : ℕ, Summable (fun p : ConfinedBridgePath h => weight p.val) ∧ Summable (fun p : ConfinedBridgePath h => firstLengthWeight p.val) ∧ Summable (fun p : ConfinedBridgePath h => firstLengthWeight p.val / confinedMass h)",
+    "proofPath": "Submission.lean",
+    "dependsOn": [],
+    "dependenciesStatus": {},
+    "feedback": null,
+    "proof": null,
+    "receipts": {
+      "proofReadyRecords": [],
+      "deliveryReceipts": [],
+      "deliveries": []
+    },
+    "worker": {
+      "id": "researcher-1",
+      "phase": "running",
+      "sessionTaskId": "confined_bridge_sums_all_heights_9dd59d27",
+      "sessionAssignmentId": "02d56a08-38cd-4d52-b534-b9339530748e",
+      "scheduling": {
+        "action": "task",
+        "since": 1792859183833,
+        "status": "working",
+        "taskId": "confined_bridge_sums_all_heights_9dd59d27"
+      },
+      "lastActivity": {
+        "at": 1792860543028,
+        "event": "item_started",
+        "itemType": "reasoning"
+      }
+    }
+  },
+  {
+    "taskId": "width_one_bridge_sums_b433299a",
+    "status": "running",
+    "attempts": 1,
+    "assignment": {
+      "assignmentId": "3250e294-e889-4c06-8e44-0c99cc161662",
+      "canonicalCommit": "fac87fb460b0289bc48ad7341935e731c7c3bfb5",
+      "dependencies": [
+        {
+          "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+          "taskId": "sums_reduction"
+        }
+      ],
+      "groupId": "main",
+      "researchBasis": {
+        "dependencies": [
+          {
+            "deliveries": [],
+            "proof": {
+              "conditions": [],
+              "state": "integrated",
+              "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292"
+            },
+            "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+            "taskId": "sums_reduction"
+          }
+        ],
+        "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+        "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+        "retrievalDigest": "f5fa7f00d04e495a9eb0089943ca9e6764e56ca67c96253410933e210be6dfad",
+        "schema": "theorem-os.research-basis.v1",
+        "sourceDigest": "596bdf3fb095f7c7db572a3a7bcaa3556c001ce61908653fa29beb0a43c3cae3",
+        "taskDigest": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+        "taskId": "width_one_bridge_sums_b433299a"
+      },
+      "seedCommit": "84dac4a5063887bf27396015ccbfadf4269983f8",
+      "taskDigest": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+      "taskId": "width_one_bridge_sums_b433299a",
+      "workerId": "researcher-2"
+    },
+    "typePreflight": {
+      "artifact": {
+        "digest": "d951e490bcfea3f071a1a4a40e409e411ac06a2c887d2764302ade66059ca483",
+        "path": ".lake/type-diagnostics/0bcc2a3d-e5e6-4960-b9cf-490f5b2668fc/manifest.json"
+      },
+      "context": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums",
+      "evidence": "advisory-type-elaboration",
+      "inputDigest": "c0d4625da3fadca675b6100a9de8b970d6fa48f370032bda44979a5252e6f31d",
+      "proofAcceptance": "not-assessed",
+      "reason": "closed-type-elaborated",
+      "status": "elaborated",
+      "taskDigest": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+      "type": "Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧\n  Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ∧\n    (Summable fun p =>\n        OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight p / OAI.PolynomialVacuumBridge.Corridor.bridgeMass 1) ∧\n      (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.weight ↑p) ∧\n        (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p) ∧\n          Summable fun p =>\n            OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p /\n              OAI.PolynomialVacuumBridge.Corridor.confinedMass 1"
+    },
+    "theoremName": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one",
+    "type": "Summable (weight (h := 1)) ∧ Summable (firstLengthWeight (h := 1)) ∧ Summable (fun p : BridgePath 1 => firstLengthWeight p / bridgeMass 1) ∧ Summable (fun p : ConfinedBridgePath 1 => weight p.val) ∧ Summable (fun p : ConfinedBridgePath 1 => firstLengthWeight p.val) ∧ Summable (fun p : ConfinedBridgePath 1 => firstLengthWeight p.val / confinedMass 1)",
+    "proofPath": "Submission.lean",
+    "dependsOn": [
+      "sums_reduction"
+    ],
+    "dependenciesStatus": {
+      "sums_reduction": "integrated"
+    },
+    "feedback": null,
+    "proof": null,
+    "receipts": {
+      "proofReadyRecords": [],
+      "deliveryReceipts": [],
+      "deliveries": []
+    },
+    "worker": {
+      "id": "researcher-2",
+      "phase": "running",
+      "sessionTaskId": "width_one_bridge_sums_b433299a",
+      "sessionAssignmentId": "3250e294-e889-4c06-8e44-0c99cc161662",
+      "scheduling": {
+        "action": "task",
+        "since": 1792859503682,
+        "status": "working",
+        "taskId": "width_one_bridge_sums_b433299a"
+      },
+      "lastActivity": {
+        "at": 1792860456003,
+        "event": "item_started",
+        "itemType": "contextCompaction"
+      }
+    }
+  }
+]

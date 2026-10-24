@@ -1,0 +1,64 @@
+[
+  {
+    "taskId": "confined_bridge_sums_all_heights_9dd59d27",
+    "workerId": "researcher-1",
+    "sourcePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-2/generated/problem/Submission.lean",
+    "sourceBytes": 17997,
+    "sourceSHA256": "3936550767693a1fa5cf325873b1486ae1b412d2aa62f8ad97986e1289f11f9d",
+    "sourceMtimeUTC": "2026-10-24T16:47:27.152201+00:00",
+    "targetNamePresentOnce": true,
+    "duplicateDeclarationNames": [],
+    "matchModuloCommentsWhitespaceUnusedScopedOpen": false,
+    "matchAlsoAllowingThreeKnownWarningCleanups": true,
+    "knownWarningCleanups": [
+      "unused Prod.fst simp argument removed",
+      "letI replaced by let _",
+      "deprecated summable_of_finite_support replaced by summable_of_hasFiniteSupport"
+    ],
+    "verifiedFragments": [
+      {
+        "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/ExistingColumnCode.lean.inc",
+        "sha256": "2fa6e93c20a33565ab85a9cf1e6eed2f543dc4c8e2f55e2453842c8346eda067"
+      },
+      {
+        "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-confined-finiteness-20261024/ConfinedFiniteness.lean.inc",
+        "sha256": "d3a7f1e535391f26f8528a604f5ce8408116b7313c6a67d1abe5b728ef16762d"
+      }
+    ],
+    "canonicalDefinitionsMatch": true,
+    "incrementContainsSorryOrAdmit": false,
+    "originalGoalPlaceholderRemains": true,
+    "incrementReferencesOriginalGoal": false,
+    "targetExcerpt": "researcher-1-target-declaration.lean.txt",
+    "sourceDifference": "researcher-1-public-proof-vs-verified.diff",
+    "assignedTypeMatchesTargetHeader": true,
+    "checkScope": "Read-only header and source comparison; no new kernel proof check."
+  },
+  {
+    "taskId": "width_one_bridge_sums_b433299a",
+    "workerId": "researcher-2",
+    "sourcePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-3/generated/problem/Submission.lean",
+    "sourceBytes": 26566,
+    "sourceSHA256": "a233428a8596eca719895bf2523590fb281d72c09d02d3812a4009d3cf53db10",
+    "sourceMtimeUTC": "2026-10-24T16:36:59.738220+00:00",
+    "targetNamePresentOnce": true,
+    "duplicateDeclarationNames": [],
+    "matchModuloCommentsWhitespaceUnusedScopedOpen": true,
+    "matchAlsoAllowingThreeKnownWarningCleanups": true,
+    "knownWarningCleanups": [],
+    "verifiedFragments": [
+      {
+        "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-width-one-20261024/WidthOne.lean.inc",
+        "sha256": "34d8701c1c13598d4a96ca2f4044cb6aacbc8ccba88d771e381fbfb4d930a532"
+      }
+    ],
+    "canonicalDefinitionsMatch": true,
+    "incrementContainsSorryOrAdmit": false,
+    "originalGoalPlaceholderRemains": true,
+    "incrementReferencesOriginalGoal": false,
+    "targetExcerpt": "researcher-2-target-declaration.lean.txt",
+    "sourceDifference": "researcher-2-public-proof-vs-verified.diff",
+    "assignedTypeMatchesTargetHeader": true,
+    "checkScope": "Read-only header and source comparison; no new kernel proof check."
+  }
+]

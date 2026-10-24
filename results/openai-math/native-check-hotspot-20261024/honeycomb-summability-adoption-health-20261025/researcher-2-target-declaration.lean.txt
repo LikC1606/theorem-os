@@ -1,0 +1,11 @@
+theorem finite_bridge_sums_at_one :
+    Summable (weight (h := 1)) ∧ Summable (firstLengthWeight (h := 1)) ∧
+    Summable (fun p : BridgePath 1 => firstLengthWeight p / bridgeMass 1) ∧
+    Summable (fun p : ConfinedBridgePath 1 => weight p.val) ∧
+    Summable (fun p : ConfinedBridgePath 1 => firstLengthWeight p.val) ∧
+    Summable (fun p : ConfinedBridgePath 1 => firstLengthWeight p.val / confinedMass 1) := by
+  obtain ⟨hw, hL⟩ := width_one_summability
+  have hc : Summable (fun p : ConfinedBridgePath 1 => firstLengthWeight p.val) :=
+    hL.subtype (fun p : BridgePath 1 => InLogCorridor p)
+  exact ⟨hw, hL, hL.div_const (bridgeMass 1), hw.subtype _,
+    hc, hc.div_const (confinedMass 1)⟩

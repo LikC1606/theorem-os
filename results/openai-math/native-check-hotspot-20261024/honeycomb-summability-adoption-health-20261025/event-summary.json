@@ -1,0 +1,46 @@
+{
+  "eventCounts": {
+    "context_dispatched": 2,
+    "turn_started": 2,
+    "worker_activity": 358,
+    "context_compaction_started": 2,
+    "context_compaction_completed": 1,
+    "cooperative_checkpoint_interrupted": 1,
+    "turn_checkpoint": 1,
+    "cooperative_checkpoint_saved": 1,
+    "task_type_preflight": 1,
+    "task_assigned": 1,
+    "context_restarted": 1,
+    "research_action": 1,
+    "context_compiled": 1,
+    "context_checkpoint_requested": 2
+  },
+  "activityCounts": {
+    "researcher-1": {
+      "item_started:userMessage": 4,
+      "item_completed:userMessage": 4,
+      "item_started:reasoning": 25,
+      "item_completed:reasoning": 22,
+      "item_started:commandExecution": 32,
+      "item_completed:commandExecution": 32,
+      "item_started:fileChange": 2,
+      "item_completed:fileChange": 2,
+      "reasoning:": 14
+    },
+    "researcher-2": {
+      "item_started:reasoning": 40,
+      "item_completed:reasoning": 37,
+      "item_started:commandExecution": 61,
+      "item_completed:commandExecution": 61,
+      "reasoning:": 9,
+      "item_started:userMessage": 4,
+      "item_completed:userMessage": 4,
+      "item_started:contextCompaction": 2,
+      "item_completed:contextCompaction": 1,
+      "item_started:agentMessage": 1,
+      "item_completed:agentMessage": 1
+    }
+  },
+  "targetHostProofEvents": [],
+  "compilationInterpretation": "CommandExecution activity cannot identify Lean invocations; no duplicate compilation established from allowed metadata."
+}

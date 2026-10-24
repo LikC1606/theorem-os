@@ -1,0 +1,33 @@
+{
+  "observedAt": "2026-10-24T16:56:58.234292+00:00",
+  "workers": [
+    {
+      "workerId": "solver",
+      "contextPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree/COOPERATION.json",
+      "contextSHA256": "07dbfc2c1a8d3738316ea3b42be133712154235f8ea270649db1b1f9d62af047",
+      "completeIncrementPresent": true,
+      "modelReadingEstablished": false
+    },
+    {
+      "workerId": "researcher-1",
+      "contextPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-2/COOPERATION.json",
+      "contextSHA256": "43c24d8a661851f723116135cdd7e9f1e65d4455477327ab7b4e7c887bee605a",
+      "completeIncrementPresent": true,
+      "modelReadingEstablished": false
+    },
+    {
+      "workerId": "researcher-2",
+      "contextPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-3/COOPERATION.json",
+      "contextSHA256": "d0a338623d23849cd114982a46a41310d14ed7328e62854767cefd1c27463f51",
+      "completeIncrementPresent": true,
+      "modelReadingEstablished": false
+    },
+    {
+      "workerId": "engineer",
+      "contextPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-4/COOPERATION.json",
+      "contextSHA256": "4ad9321537f49b27958a81fb334e5ad06fd229232b7ffd331ebc952333d259d3",
+      "completeIncrementPresent": true,
+      "modelReadingEstablished": false
+    }
+  ]
+}
