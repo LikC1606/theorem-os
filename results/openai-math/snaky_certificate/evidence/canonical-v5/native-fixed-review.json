@@ -1,0 +1,17 @@
+{
+  "observedAt": "2026-10-23T20:06:00.990216+00:00",
+  "runId": "6d22ec7c-5c2b-41a4-911d-dcf3f0b7ddf0",
+  "nativeFixedVersionReviewPassed": true,
+  "nativeFinalAcceptance": false,
+  "sourceSHA256": "b7dc0b2898b8d4ee8ed4a3b10394429f939ff9e4d73761dcd6968e46a4579751",
+  "sourceBytes": 896495,
+  "review": {
+    "assignmentId": "1aba2a31-6fa1-43d4-b6c4-c5d5f92bd812",
+    "commit": "ed230f9c5d4458f2e4fb5c4f27a04614d62fbb49",
+    "sourceDigest": "cda297e22a5451e56ba50510eb0d506ee54fb2a74f67d88f5e5aec8cd30794e7",
+    "status": "accepted",
+    "summary": "Independent review of the frozen SnakyCertificate proof. (1) Original-context preservation: seed commit 0ec3c12 vs HEAD 5336885 shows generated/problem/Submission.lean changed only inside the file (11,204 insertions / 2 deletions). The deleted bytes are exactly the original final `sorry` and one blank line. The first 69,980 bytes (import Mathlib, namespace OAI / SnakyCertificate, all fixed definitions through AllRows) are byte-identical to the seed; helpers are inserted strictly after AllRows and before the theorem. The `theorem certificate_correct` statement is byte-identical (323 bytes, identical conjunction including placementCount = 1837 and all six Output/AllRows conjuncts). Challenge.lean is unmodified (sha256 591087a6...bedf, identical to the seed Submission.lean). Only the owned files RESEARCH.md and Submission.lean appear in git diff 0ec3c12..HEAD; no protected or package file changed. (2) Proof content: the only proof hole (`sorry`) is replaced. No `sorry`, `admit`, `native_decide`, `sorryAx`, `axiom`, `unsafe`, `partial`, `opaque`, `implemented_by`, `extern`, `addDecl`, `mkFreshExprMVar`, `run_cmd`, `#eval`, or `unsafeCast` occurs anywhere in Submission.lean (verified by token grep). The metaprogramming present is only three thin heartbeat-raising wrappers (`qhb`, `qhbGeometry`, `qhbSem`) plus `spEntryLookup`; each is a pure `evalTactic` call forwarding to ordinary tactics and adds no axiom or declaration. Real checking is still done by the kernel: 1,294 occurrences of `decide +kernel` produce proof terms rechecked by the kernel, and the sole non-decide reasoning is named-lemma rewriting (`me_*`/`mv_*`/`mo_*`, `rowData_ext`, interval_cases over 616 rows). (3) Environment evidence: the host check-lean run on the final saved source (sourceFiles digest b7dc0b28...9751, matching the on-disk file) returned exitCode 0, aborted false, timedOut false, sourceCurrent true, captureComplete true with 1,365 captured messages and zero errors (only linter.defProp/unusedVariables/unusedSimpArgs warnings). (4) Independent kernel axiom audit via `#print axioms` on the built olean: certificate_correct depends only on [propext, Classical.choice, Quot.sound] \u2014 the three standard Mathlib axioms, with no sorryAx and no added axioms. (5) Type fidelity: a separate probe re-derived the exact published conjunction type by assigning certificate_correct directly to the restated goal, confirming the proved statement is precisely the publisher target. (6) Arithmetic corroboration from the original seed text only (independent of helper code): exactly 610 entry definitions with indices contiguous 6..615, 31 table chunks totalling 610 entries (size 20 each, last 10), and total term count 1,837 matching the stated placementCount. Verdict: accepted. This review is advisory; the native fixed review, all-original-target host kernel recheck, and the unchanged publisher comparator remain mandatory."
+  },
+  "phase": "evaluating",
+  "externalMathematicalAssistance": true
+}

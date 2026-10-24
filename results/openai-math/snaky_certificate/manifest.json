@@ -1,6 +1,6 @@
 {
   "schema": "theorem-os.result-file-manifest.v1",
-  "generatedAt": "2026-10-23T19:21:55.940340+00:00",
+  "generatedAt": "2026-10-24T04:12:14.958946+00:00",
   "algorithm": "sha256",
   "excludes": [
     "manifest.json"
@@ -38,8 +38,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 2392,
-      "sha256": "6313194ec2efd55232cd3c2271e14f6784f0be42c8e806b7a9c1a1e885a1941f"
+      "bytes": 3014,
+      "sha256": "d8103efc735c179d198eae4166675b5ad0e971e9b4ec0fdbb5af0c6818bab5e2"
     },
     {
       "path": "evidence/CertificateData.receipt.json",
@@ -117,6 +117,21 @@
       "sha256": "b2f568dbd163885b675f0f3adca1454d64090a418e93bf1739e36c3e4faab658"
     },
     {
+      "path": "evidence/canonical-v5/native-acceptance-audit.json",
+      "bytes": 2166,
+      "sha256": "af631397a551f470f8da8d0064293f6227ba91679abbdfe502f27b6f7e2fb7d2"
+    },
+    {
+      "path": "evidence/canonical-v5/native-final-result.json",
+      "bytes": 14546,
+      "sha256": "c2fdb0c304217b1aadf10d1655849a1c25fdd5c5965e01b1be1a42ae18ad6eff"
+    },
+    {
+      "path": "evidence/canonical-v5/native-fixed-review.json",
+      "bytes": 3556,
+      "sha256": "a8b7af99b69c717a592f9697bc54e60573b7eab3b58b61f39e5b84b1a4037247"
+    },
+    {
       "path": "evidence/canonical-v5/native-full-original-target-check.json",
       "bytes": 34181,
       "sha256": "afcc86344cb1923a34d1c85b05097a0b4ed8e4a99231589c45535b345f440734"
@@ -130,6 +145,16 @@
       "path": "evidence/canonical-v5/native-original-goal-check.json",
       "bytes": 1284263,
       "sha256": "bfc9b60991dab4e5def2edb84c88661998ad056d514b7cefc4c65ecd913d4174"
+    },
+    {
+      "path": "evidence/canonical-v5/native-terminal-receipt.json",
+      "bytes": 1667,
+      "sha256": "5e94bea41d4e6df23d0172ee95a61e159ec7015c0c442a4194b67eeaedb63f5b"
+    },
+    {
+      "path": "evidence/canonical-v5/native-terminal-snapshot-manifest.json",
+      "bytes": 3561,
+      "sha256": "4f72d21ea970b2430ffdecee1bc745198af74b274b691df05091ba461a7713b6"
     },
     {
       "path": "evidence/canonical-v5/original-comparator-receipt.json",
@@ -163,8 +188,8 @@
     },
     {
       "path": "single-file/README.md",
-      "bytes": 1963,
-      "sha256": "fa540514c3036bf35f8a02f629dda5dd251a0c921f3363766e24e904629458eb"
+      "bytes": 2065,
+      "sha256": "cb47f7725593da1e7a54b974bed627a15742b4410ee7fdcea233ad477c246e1b"
     },
     {
       "path": "single-file/Submission.lean",

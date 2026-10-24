@@ -1,0 +1,12 @@
+{
+  "observedAt": "2026-10-23T18:29:20.444Z",
+  "candidateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/GuardCompatibleAllSeamsV12.lean",
+  "sourceSha256": "80955a4045e2657b431ef2018b772783bd1e6935c9e6dc0267f0176e9c7ba4a6",
+  "projectCopy": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/guard-compatible-static-projects/80955a4045e2657b431ef2018b772783bd1e6935c9e6dc0267f0176e9c7ba4a6",
+  "bytes": 796560,
+  "environmentDigest": "776e5201fa24ba3dba47f84d50336a9c3426372bd58f711b923b94219c4b632d",
+  "phase": "original-project-source-guard-and-original-target-declaration-hash",
+  "passed": true,
+  "originalWorkspaceReadOnly": true,
+  "claim": "Static source guard only; no target proof or native acceptance claimed."
+}

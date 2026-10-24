@@ -1,0 +1,185 @@
+{
+  "startedAt": "2026-10-23T17:46:20.711Z",
+  "observedAt": "2026-10-23T20:00:51.844Z",
+  "standaloneHostApiCheck": true,
+  "official": false,
+  "nativeAcceptance": false,
+  "campaignAcceptance": false,
+  "externalMathematicalAssistance": true,
+  "passed": true,
+  "sourceSHA256": "94e1154db63070c8dd4b2344a5f040200fe9174937e578d95f327cd803cc9f77",
+  "sourceBytes": 968086,
+  "commit": "0e5d85ba4c730c4b72ebb79bbdf59a2dd512840a",
+  "unchangedFrozenRuntime": true,
+  "addressSpaceLimitKiB": 33554432,
+  "resourceLimitChanged": false,
+  "timeoutMs": "Infinity",
+  "batchTimeoutMs": "Infinity",
+  "entrypointControlsAdded": false,
+  "officialComparatorPassed": false,
+  "verification": {
+    "schema": "deepscientist.mathematics.verification-batch/v1",
+    "sessionId": "313c60ab-d927-4c7c-a605-100fc5fbc499",
+    "status": "kernel_verified",
+    "targetCommit": "0e5d85ba4c730c4b72ebb79bbdf59a2dd512840a",
+    "results": [
+      {
+        "targetCommit": "0e5d85ba4c730c4b72ebb79bbdf59a2dd512840a",
+        "statementHash": "b5115abb43ed2e569b1f401058ed4e438ec9223c261c45808fde55e5b3aec1e3",
+        "leanStatementHash": "55408c43d926a78d97a7b1101338f45e28bddc9ca7f7eef42ee947f324c67000",
+        "claim": "statement",
+        "proofHash": "94e1154db63070c8dd4b2344a5f040200fe9174937e578d95f327cd803cc9f77",
+        "proofPath": "Submission.lean",
+        "theoremName": "OAI.SnakyConditional.snaky_winning_strategy_with_legal_states",
+        "theoremDeclarationHash": "e85fb8dc387f0aa8ff80d34a0b2214cf46194db1d634827e05b20e06690ae897",
+        "elaboratedDeclarationType": "OAI.SnakyConditional.snaky_winning_strategy_with_legal_states : ∃ σ, (∀ (r : ℕ) (M B : Finset OAI.SnakyConditional.Cell), σ r M B ∉ M ∧ σ r M B ∉ B) ∧ ∀ (β : ℕ → OAI.SnakyConditional.Cell), OAI.SnakyConditional.OrdinaryStrategy.LegalRepliesBeforeFinal σ 35 β ∅ ∅ → OAI.SnakyConditional.HasSnaky (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ 35).1 ∧ (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ 35).1.card = 35 ∧ Disjoint (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ 35).1 (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ 34).2 ∧ ∀ k < 35, Disjoint (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ k).1 (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ k).2 ∧ (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ k).2.card = k",
+        "sourceDeclarationHash": "86440ec197f3e88a1cda1d22672ff67a6390425412b08d418dde27bba4c81614",
+        "statementBinding": "caller-bound-to-committed-declaration",
+        "toolchain": {
+          "lean": "lake",
+          "lake": "lakefile.toml"
+        },
+        "goalsRemaining": 0,
+        "sorryCount": 0,
+        "admitCount": 0,
+        "axioms": [
+          "propext",
+          "Classical.choice",
+          "Quot.sound"
+        ],
+        "checkedAt": 1792785651828,
+        "checkId": "check-1",
+        "sessionId": "313c60ab-d927-4c7c-a605-100fc5fbc499",
+        "status": "kernel_verified",
+        "verifier": "lean-kernel",
+        "receiptId": "lean-2dac7a1d08f3e61f9f78605b",
+        "stdoutPreview": "DS_DECL_REFERENCES_63cfa1edd3f9e71afa662040d7d08571:null\nDEEPSCIENTIST_DECL_BEGIN_36ed16db82f63e10\nOAI.SnakyConditional.snaky_winning_strategy_with_legal_states :\n  ∃ σ,\n    (∀ (r : ℕ) (M B : Finset OAI.SnakyConditional.Cell), σ r M B ∉ M ∧ σ r M B ∉ B) ∧\n      ∀ (β : ℕ → OAI.SnakyConditional.Cell),\n        OAI.SnakyConditional.OrdinaryStrategy.LegalRepliesBeforeFinal σ 35 β ∅ ∅ →\n          OAI.SnakyConditional.HasSnaky (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ 35).1 ∧\n            (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ 35).1.card = 35 ∧\n              Disjoint (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ 35).1\n                  (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ 34).2 ∧\n                ∀ k < 35,\n                  Disjoint (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ k).1\n                      (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ k).2 ∧\n                    (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ k).2.card = k\nDEEPSCIENTIST_DECL_END_36ed16db82f63e10\nDEEPSCIENTIST_AXIOMS_BEGIN_36ed16db82f63e10\n'OAI.SnakyConditional.snaky_winning_strategy_with_legal_states' depends on axioms: [propext,\n Classical.choice,\n Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_36ed16db82f63e10",
+        "stderrPreview": "n be disabled with `set_option linter.defProp false`\nSubmission.lean:15611:0: warning: Definition `qmoveRow_threat` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15678:0: warning: Definition `qmem_moveRow_H_iff` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15690:0: warning: Definition `qnot_mem_unionH` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15757:0: warning: Definition `qescapeinitial` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15769:0: warning: Definition `qescapestep_1` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15777:0: warning: Definition `qescapestep_2` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15785:0: warning: Definition `qescapestep_3` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15793:0: warning: Definition `qescapestep_4` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15801:0: warning: Definition `qescapestep_5` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15809:0: warning: Definition `qescapestep_6` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15817:0: warning: Definition `qescapestep_7` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15825:0: warning: Definition `qescapestep_8` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15833:0: warning: Definition `qescapestep_9` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15841:0: warning: Definition `qescapestep_10` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15849:0: warning: Definition `qescapestep_11` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15853:0: warning: Definition `qescape_small_common` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15894:0: warning: Definition `qrootinitial` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15906:0: warning: Definition `qrootstep_1` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15914:0: warning: Definition `qrootstep_2` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15922:0: warning: Definition `qrootstep_3` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15930:0: warning: Definition `qrootstep_4` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15938:0: warning: Definition `qrootstep_5` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15946:0: warning: Definition `qrootstep_6` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15954:0: warning: Definition `qrootstep_7` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15962:0: warning: Definition `qrootstep_8` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15970:0: warning: Definition `qrootstep_9` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15978:0: warning: Definition `qrootstep_10` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15986:0: warning: Definition `qrootstep_11` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15994:0: warning: Definition `qrootstep_12` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16002:0: warning: Definition `qrootstep_13` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16010:0: warning: Definition `qrootstep_14` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16018:0: warning: Definition `qrootstep_15` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16026:0: warning: Definition `qrootstep_16` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16034:0: warning: Definition `qrootstep_17` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16042:0: warning: Definition `qrootstep_18` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16050:0: warning: Definition `qrootstep_19` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16054:0: warning: Definition `qroot_small_common` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16079:0: warning: Definition `qescape_A_bound` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16083:0: warning: Definition `qescape_common_bound` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16087:0: warning: Definition `qescape_child_height` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16091:0: warning: Definition `qescape_missing_0` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16095:0: warning: Definition `qescape_missing_1` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16099:0: warning: Definition `qescape_missing_2` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16103:0: warning: Definition `qescape_missing_3` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16107:0: warning: Definition `qescape_missing_4` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16111:0: warning: Definition `qescape_missing_5` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16115:0: warning: Definition `qescape_missing_6` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16119:0: warning: Definition `qescape_missing_7` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16123:0: warning: Definition `qescape_missing_8` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16127:0: warning: Definition `qescape_missing_9` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16131:0: warning: Definition `qescape_missing_10` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16135:0: warning: Definition `qescape_missing_11` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16139:0: warning: Definition `qescape_child_missing` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16156:0: warning: Definition `qescape_diag_missing` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16168:0: warning: Definition `qescape_rotation_missing` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16179:0: warning: Definition `qroot_A_bound` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16183:0: warning: Definition `qroot_child_height` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16187:0: warning: Definition `qroot_common_bound` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16199:0: warning: Definition `qgoal_translation_cancel` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16208:0: warning: Definition `qempty_winning_of_opening_rows` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16230:53: warning: This simp argument is unused:\n  List.mem_singleton\n\nHint: Omit it from the simp argument list.\n  [apply] simp only [qescapeChildren, List.mem_cons, List.not_mem_nil, or_false] at hd\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nSubmission.lean:16271:51: warning: This simp argument is unused:\n  List.mem_singleton\n\nHint: Omit it from the simp argument list.\n  [apply] simp only [qrootChildren, List.mem_cons, List.not_mem_nil, or_false] at hd\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nSubmission.lean:16313:0: warning: Definition `qempty_winning_35` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+      }
+    ],
+    "events": [
+      {
+        "schema": "deepscientist.mathematics.verification_event.v1",
+        "eventId": "7f82c0bd-50ae-4c1a-b6b8-c30b87b63724",
+        "sessionId": "313c60ab-d927-4c7c-a605-100fc5fbc499",
+        "timestamp": 1792777586122,
+        "kind": "session.opened",
+        "payload": {
+          "projectRoot": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/seven-guards-canonical-v6-1792755992383/generated/problem",
+          "itemCount": 1,
+          "uniqueFileCount": 1
+        }
+      },
+      {
+        "schema": "deepscientist.mathematics.verification_event.v1",
+        "eventId": "f214cbf9-e118-4a7e-a9a9-e554376e5739",
+        "sessionId": "313c60ab-d927-4c7c-a605-100fc5fbc499",
+        "timestamp": 1792777586122,
+        "kind": "file.opened",
+        "payload": {
+          "proofPath": "Submission.lean",
+          "proofHash": "94e1154db63070c8dd4b2344a5f040200fe9174937e578d95f327cd803cc9f77",
+          "bytes": 968086,
+          "checkCount": 1
+        }
+      },
+      {
+        "schema": "deepscientist.mathematics.verification_event.v1",
+        "eventId": "ea21ede7-155c-4be9-83b6-78c20e0d6414",
+        "sessionId": "313c60ab-d927-4c7c-a605-100fc5fbc499",
+        "timestamp": 1792777586122,
+        "kind": "toolchain.resolved",
+        "payload": {
+          "command": "lake",
+          "executable": "lake",
+          "lakeFile": "lakefile.toml"
+        }
+      },
+      {
+        "schema": "deepscientist.mathematics.verification_event.v1",
+        "eventId": "baa5f4e1-ff7a-4b9b-949a-5ba58fd639a6",
+        "sessionId": "313c60ab-d927-4c7c-a605-100fc5fbc499",
+        "timestamp": 1792777586141,
+        "kind": "check.draft_checked",
+        "payload": {
+          "proofPath": "Submission.lean",
+          "status": "accepted",
+          "sorryCount": 0,
+          "admitCount": 0,
+          "axioms": []
+        }
+      },
+      {
+        "schema": "deepscientist.mathematics.verification_event.v1",
+        "eventId": "7b026646-6cc7-4897-b8d0-7b32e09abd2f",
+        "sessionId": "313c60ab-d927-4c7c-a605-100fc5fbc499",
+        "timestamp": 1792785651827,
+        "kind": "diagnostic.emitted",
+        "payload": {
+          "source": "stdout",
+          "severity": "info",
+          "message": "DS_DECL_REFERENCES_63cfa1edd3f9e71afa662040d7d08571:null\nDEEPSCIENTIST_DECL_BEGIN_36ed16db82f63e10\nOAI.SnakyConditional.snaky_winning_strategy_with_legal_states :\n  ∃ σ,\n    (∀ (r : ℕ) (M B : Finset OAI.SnakyConditional.Cell), σ r M B ∉ M ∧ σ r M B ∉ B) ∧\n      ∀ (β : ℕ → OAI.SnakyConditional.Cell),\n        OAI.SnakyConditional.OrdinaryStrategy.LegalRepliesBeforeFinal σ 35 β ∅ ∅ →\n          OAI.SnakyConditional.HasSnaky (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ 35).1 ∧\n            (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ 35).1.card = 35 ∧\n              Disjoint (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ 35).1\n                  (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ 34).2 ∧\n                ∀ k < 35,\n                  Disjoint (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ k).1\n                      (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ k).2 ∧\n                    (OAI.SnakyConditional.OrdinaryStrategy.playState σ 35 β ∅ ∅ k).2.card = k\nDEEPSCIENTIST_DECL_END_36ed16db82f63e10\nDEEPSCIENTIST_AXIOMS_BEGIN_36ed16db82f63e10\n'OAI.SnakyConditional.snaky_winning_strategy_with_legal_states' depends on axioms: [propext,\n Classical.choice,\n Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_36ed16db82f63e10",
+          "proofPath": "Submission.lean"
+        }
+      },
+      {
+        "schema": "deepscientist.mathematics.verification_event.v1",
+        "eventId": "e210997d-d51e-487c-b7bd-737fc4cb239a",
+        "sessionId": "313c60ab-d927-4c7c-a605-100fc5fbc499",
+        "timestamp": 1792785651827,
+        "kind": "diagnostic.emitted",
+        "payload": {
+          "source": "stderr",
+          "severity": "warning",
+          "message": "n be disabled with `set_option linter.defProp false`\nSubmission.lean:15611:0: warning: Definition `qmoveRow_threat` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15678:0: warning: Definition `qmem_moveRow_H_iff` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15690:0: warning: Definition `qnot_mem_unionH` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15757:0: warning: Definition `qescapeinitial` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15769:0: warning: Definition `qescapestep_1` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15777:0: warning: Definition `qescapestep_2` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15785:0: warning: Definition `qescapestep_3` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15793:0: warning: Definition `qescapestep_4` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15801:0: warning: Definition `qescapestep_5` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15809:0: warning: Definition `qescapestep_6` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15817:0: warning: Definition `qescapestep_7` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15825:0: warning: Definition `qescapestep_8` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15833:0: warning: Definition `qescapestep_9` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15841:0: warning: Definition `qescapestep_10` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15849:0: warning: Definition `qescapestep_11` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15853:0: warning: Definition `qescape_small_common` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15894:0: warning: Definition `qrootinitial` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15906:0: warning: Definition `qrootstep_1` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15914:0: warning: Definition `qrootstep_2` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15922:0: warning: Definition `qrootstep_3` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15930:0: warning: Definition `qrootstep_4` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15938:0: warning: Definition `qrootstep_5` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15946:0: warning: Definition `qrootstep_6` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15954:0: warning: Definition `qrootstep_7` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15962:0: warning: Definition `qrootstep_8` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15970:0: warning: Definition `qrootstep_9` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15978:0: warning: Definition `qrootstep_10` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15986:0: warning: Definition `qrootstep_11` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:15994:0: warning: Definition `qrootstep_12` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16002:0: warning: Definition `qrootstep_13` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16010:0: warning: Definition `qrootstep_14` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16018:0: warning: Definition `qrootstep_15` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16026:0: warning: Definition `qrootstep_16` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16034:0: warning: Definition `qrootstep_17` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16042:0: warning: Definition `qrootstep_18` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16050:0: warning: Definition `qrootstep_19` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16054:0: warning: Definition `qroot_small_common` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16079:0: warning: Definition `qescape_A_bound` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16083:0: warning: Definition `qescape_common_bound` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16087:0: warning: Definition `qescape_child_height` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16091:0: warning: Definition `qescape_missing_0` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16095:0: warning: Definition `qescape_missing_1` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16099:0: warning: Definition `qescape_missing_2` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16103:0: warning: Definition `qescape_missing_3` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16107:0: warning: Definition `qescape_missing_4` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16111:0: warning: Definition `qescape_missing_5` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16115:0: warning: Definition `qescape_missing_6` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16119:0: warning: Definition `qescape_missing_7` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16123:0: warning: Definition `qescape_missing_8` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16127:0: warning: Definition `qescape_missing_9` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16131:0: warning: Definition `qescape_missing_10` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16135:0: warning: Definition `qescape_missing_11` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16139:0: warning: Definition `qescape_child_missing` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16156:0: warning: Definition `qescape_diag_missing` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16168:0: warning: Definition `qescape_rotation_missing` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16179:0: warning: Definition `qroot_A_bound` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16183:0: warning: Definition `qroot_child_height` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16187:0: warning: Definition `qroot_common_bound` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16199:0: warning: Definition `qgoal_translation_cancel` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16208:0: warning: Definition `qempty_winning_of_opening_rows` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:16230:53: warning: This simp argument is unused:\n  List.mem_singleton\n\nHint: Omit it from the simp argument list.\n  [apply] simp only [qescapeChildren, List.mem_cons, List.not_mem_nil, or_false] at hd\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nSubmission.lean:16271:51: warning: This simp argument is unused:\n  List.mem_singleton\n\nHint: Omit it from the simp argument list.\n  [apply] simp only [qrootChildren, List.mem_cons, List.not_mem_nil, or_false] at hd\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nSubmission.lean:16313:0: warning: Definition `qempty_winning_35` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`",
+          "proofPath": "Submission.lean"
+        }
+      },
+      {
+        "schema": "deepscientist.mathematics.verification_event.v1",
+        "eventId": "c286696a-9d1e-4e7b-a279-4263893393bf",
+        "sessionId": "313c60ab-d927-4c7c-a605-100fc5fbc499",
+        "timestamp": 1792785651828,
+        "kind": "check.kernel_checked",
+        "payload": {
+          "proofPath": "Submission.lean",
+          "status": "kernel_verified",
+          "exitCode": 0,
+          "signal": null,
+          "timedOut": false,
+          "aborted": false,
+          "durationMs": 8065671
+        }
+      },
+      {
+        "schema": "deepscientist.mathematics.verification_event.v1",
+        "eventId": "638fdb04-8198-411a-a52a-425a0a48de1b",
+        "sessionId": "313c60ab-d927-4c7c-a605-100fc5fbc499",
+        "timestamp": 1792785651828,
+        "kind": "receipt.published",
+        "payload": {
+          "receiptId": "lean-2dac7a1d08f3e61f9f78605b",
+          "checkId": "check-1",
+          "proofPath": "Submission.lean",
+          "theoremName": "OAI.SnakyConditional.snaky_winning_strategy_with_legal_states",
+          "status": "kernel_verified"
+        }
+      },
+      {
+        "schema": "deepscientist.mathematics.verification_event.v1",
+        "eventId": "5526a0cb-dfcf-44f5-872d-d5e4e92e4113",
+        "sessionId": "313c60ab-d927-4c7c-a605-100fc5fbc499",
+        "timestamp": 1792785651841,
+        "kind": "session.closed",
+        "payload": {
+          "status": "kernel_verified",
+          "resultCount": 1,
+          "durationMs": 8065734
+        }
+      }
+    ],
+    "startedAt": 1792777586107,
+    "checkedAt": 1792785651841,
+    "durationMs": 8065734
+  }
+}

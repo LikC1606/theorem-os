@@ -1,6 +1,6 @@
 {
   "schema": "theorem-os.external-assistance-progress.v1",
-  "observedAt": "2026-10-23T19:21:15.048771+00:00",
+  "observedAt": "2026-10-24T04:09:24.770156+00:00",
   "campaignCounts": {
     "accepted": 3,
     "blocked": 2,
@@ -17,12 +17,12 @@
   "nativeCurrent": {
     "target": "HoneycombBridgeFiniteness",
     "tier": "C",
-    "observedTurns": 84,
+    "observedTurns": 112,
     "lastError": null,
     "knownMathematicalGap": "strip_growth_below_mu: strict finite-width strip exponential growth bound below 2*cos(pi/8)",
     "runId": "d7aa37e7-ff26-444e-86ba-f059c024a5fa",
     "runtimePhase": "running",
-    "lastConfirmedAt": "2026-10-23T19:21:15.048771+00:00",
+    "lastConfirmedAt": "2026-10-24T04:09:24.770156+00:00",
     "workerScheduling": [
       {
         "id": "solver",
@@ -105,7 +105,7 @@
     },
     {
       "id": "CharacterVarietiesAllSeamsSupport",
-      "status": "v12_source_guard_passed_remaining180_default_cli_running",
+      "status": "v12_remaining180_passed_fresh_full_single_file_running",
       "wholeTargetPassed": true,
       "newKernelCheckedHelpers": [
         "external_endpointFlag",
@@ -209,12 +209,12 @@
           "wholeTargetResult": false
         }
       ],
-      "remaining": "Finish V9 remaining180 default-CLI diagnostic, fresh complete single-file kernel, original-target audit, source guard, original sealed comparator, actual-source transport and native final evaluation.",
+      "remaining": "Finish existing V12 fresh complete250 single-file kernel and original-target audit, then same-source sealed comparator, final-source transport and native final evaluation.",
       "runningModules": [
-        "Single v7 owner running V12 remaining180 default-CLI diagnostic",
-        "Parent gate waiting for fresh full250 single-file kernel and original-target audit"
+        "Sole v7 chain running fresh complete250 V12 with default CLI",
+        "Parent sealed/native gate waiting for full candidate and original-target audit"
       ],
-      "knownIntegrationIssue": "V9 and V11 remaining180 naturally failed with the same first-short heartbeat root. V12 rewrites only that proof through abstract composition and preserves the exact type and other249 declarations. Source guard passed; current remaining180 check has no terminal receipt.",
+      "knownIntegrationIssue": "V12 remaining180 naturally exit0 with zero errors after23844.391seconds; same-source fresh complete250 single-file is still running and has no terminal receipt. Original-target audit and native delivery remain pending.",
       "latestExportedHelpers": [
         {
           "exitCode": 0,
@@ -742,7 +742,7 @@
         "currentCandidate": false
       },
       "nextCompleteCandidate": {
-        "status": "remaining180-v12-default-cli-kernel",
+        "status": "fresh_full250_single_file_running",
         "willRequireFreshSourceGuardKernelAuditComparatorAndNative": true,
         "activeRepairOwner": "/root/independent_verification",
         "originalVerified16And54NotRecompiled": true,
@@ -758,7 +758,11 @@
         "firstShortRepairExitCode": 0,
         "firstShortRepairDurationSeconds": 155.526,
         "originalSourceGuardPassed": true,
-        "sourceGuardReceipt": "validation/character-varieties-progress-20261023/GuardCompatibleAllSeamsV12.source-guard.json"
+        "sourceGuardReceipt": "validation/character-varieties-progress-20261023/GuardCompatibleAllSeamsV12.source-guard.json",
+        "remaining180ExitCode": 0,
+        "remaining180DurationSeconds": 23844.391,
+        "remaining180Receipt": "validation/character-varieties-progress-20261023/GuardTypedRemainingFullClosureV12.default-options-receipt.json",
+        "remaining180Summary": "validation/character-varieties-progress-20261023/GuardTypedRemainingFullClosureV12.terminal-summary-v1.json"
       },
       "historicalV9Remaining180Diagnostic": {
         "remaining180ExitCode": 1,
@@ -776,19 +780,20 @@
     "TruffetCounterexample",
     "SurfaceConeCandidateSupport",
     "HadamardCubeFiber",
-    "CartierChartCompactnessSupport"
+    "CartierChartCompactnessSupport",
+    "SnakyCertificate"
   ],
-  "publishedResultCommit": "3b5cdcec07a5f71359c9a4f3e8385287f7754c71",
+  "publishedResultCommit": "353c3637df4f5f5f531ee6a7d55f2c1052c7125a",
   "snakyCertificate": {
-    "status": "v5_native_integration_and_all_original_targets_passed_fixed_version_review_running",
+    "status": "native_final_acceptance_passed",
     "tableValidityKernelPassed": true,
     "memoRowsVerified": 616,
     "memoRowsTotal": 616,
     "wholeTargetPassed": true,
     "fourExplicitOutputsKernelPassed": true,
     "sourceGuardPassed": true,
-    "submissionSHA256": "8a328581ebb67b42681fcd4966a4079adf6c9afae7efdcd90b9c3f77739b056d",
-    "submissionBytes": 1020779,
+    "submissionSHA256": "b7dc0b2898b8d4ee8ed4a3b10394429f939ff9e4d73761dcd6968e46a4579751",
+    "submissionBytes": 896495,
     "nativeFollowupPrepared": true,
     "nativeRunId": "6d22ec7c-5c2b-41a4-911d-dcf3f0b7ddf0",
     "candidateDelivered": true,
@@ -913,7 +918,7 @@
     },
     "publisherComparatorPassed": true,
     "publisherComparatorExitCode": 0,
-    "nativeAccepted": false,
+    "nativeAccepted": true,
     "nativeDelivery": {
       "normalResume": true,
       "phase": "finished",
@@ -934,7 +939,10 @@
       "modelCheckExitCode": 0,
       "reason": "math_verifier_unavailable",
       "currentTerminalReceipt": "validation/snaky-native-followup-20261023/canonical-v2-native-terminal-receipt.json",
-      "hostProjectionReproductionError": "failed to create thread: Resource temporarily unavailable; exit 134"
+      "hostProjectionReproductionError": "failed to create thread: Resource temporarily unavailable; exit 134",
+      "historical": true,
+      "currentCandidate": false,
+      "evidenceAppliesToSHA256": "87a3c359ef740fe32fe1ac2fda0216d708421163bc04194aa48ca8be0d742cdb"
     },
     "canonicalV3SyncCandidate": {
       "source": "validation/snaky-certificate-progress-20261023/SubmissionCanonicalV3SyncHelpers.lean",
@@ -1013,7 +1021,7 @@
       "fullFrozenHost": "passed",
       "resourceLimitBytes": 34359738368,
       "timeoutSeconds": null,
-      "nativeAccepted": false,
+      "nativeAccepted": true,
       "nativeDelivered": true,
       "externallyAssisted": true,
       "statusRecord": "validation/snaky-native-followup-20261023/certificate-current-status.json",
@@ -1029,8 +1037,8 @@
         "terminalReceiptObserved": false,
         "evidence": "owning agent process sample; no acceptance inferred from liveness"
       },
-      "currentStage": "native-fixed-version-review-running",
-      "stageEvidence": "Normal native original goal, integration and all-original-target checks passed; fixed-version reviewer running, final original comparator pending.",
+      "currentStage": "native_final_acceptance_passed",
+      "stageEvidence": "Native original-goal, integration, all-original-target checks, fixed review and S3 original publisher comparator all passed; evaluated_passed and completion/ready signals verified.",
       "buildStageTransition": {
         "sourceLeanPID": 1903185,
         "sourceLeanRawWaitExitCode": null,
@@ -1041,7 +1049,7 @@
         "nativeAcceptance": false
       },
       "latestStatusRecord": "validation/snaky-native-followup-20261023/certificate-current-status.json",
-      "latestConfirmedAt": "2026-10-23T19:21:15.048771+00:00",
+      "latestConfirmedAt": "2026-10-24T04:09:24.770156+00:00",
       "terminalReceiptObserved": true,
       "latestObservedComparatorSample": {
         "observedAt": "2026-10-23T12:52:10+00:00",
@@ -1073,9 +1081,9 @@
         "Classical.choice",
         "Quot.sound"
       ],
-      "nativeTerminalStatus": "runtime_error",
-      "nativeTerminalReason": "math_verifier_unavailable",
-      "nativeTerminalReceipt": "validation/snaky-native-followup-20261023/canonical-v5-native-terminal-receipt.json",
+      "nativeTerminalStatus": "evaluated_passed",
+      "nativeTerminalReason": null,
+      "nativeTerminalReceipt": "validation/snaky-native-followup-20261023/canonical-v5-direct-native-terminal-receipt.json",
       "exactProjectionDiagnostic": {
         "rootPID": 3858549,
         "leanPID": 3860558,
@@ -1116,18 +1124,19 @@
         "queued": true,
         "record": "validation/snaky-native-followup-20261023/canonical-v5-direct-goal-delivery.json",
         "applied": true,
-        "currentNativePhase": "reviewing",
+        "currentNativePhase": "finished",
         "sourceSHA256": "66d0cf5eecbcffcf0de7933acaec1c16da6f5ba8592173e1e9228c350663fdd7",
         "normalResume": true,
         "nativeFormalHostPID": 481814,
         "nativeFormalHostCPUSeconds": 512.14,
-        "observationAt": "2026-10-23T19:21:15.048771+00:00",
+        "observationAt": "2026-10-24T04:09:24.770156+00:00",
         "ordinaryReviewAndFinalComparatorStillRequired": true,
         "nativeOriginalGoalCheckPassed": true,
         "nativeFormalHostCompleted": true,
         "nativeIntegrationHostPID": 630904,
         "nativeIntegrationCheckPassed": true,
-        "nativeFullOriginalTargetCheckPassed": true
+        "nativeFullOriginalTargetCheckPassed": true,
+        "nativeFinalAcceptance": true
       },
       "nativeTerminalStatusAppliesTo": "previous_indirect_helper_projection_attempt_only",
       "nativeTerminalReasonAppliesTo": "previous_indirect_helper_projection_attempt_only",
@@ -1178,16 +1187,24 @@
       "nativeFullTargetProofCommit": "ed230f9c5d4458f2e4fb5c4f27a04614d62fbb49",
       "nativeIntegrationProofReceipt": "validation/snaky-native-followup-20261023/canonical-v5-direct-native-integration-check.json",
       "nativeFullTargetProofReceipt": "validation/snaky-native-followup-20261023/canonical-v5-direct-native-full-target-check.json",
-      "nativeFixedReviewStatus": "running"
+      "nativeFixedReviewStatus": "accepted",
+      "nativeAcceptanceAudit": "validation/snaky-native-followup-20261023/canonical-v5-direct-native-acceptance-audit.json",
+      "finalSourceSHA256": "b7dc0b2898b8d4ee8ed4a3b10394429f939ff9e4d73761dcd6968e46a4579751",
+      "nativeSolutionCommit": "ed230f9c5d4458f2e4fb5c4f27a04614d62fbb49",
+      "finalOriginalComparatorExitCode": 0
     },
     "publisherComparatorPassedEvidenceAppliesToSHA256": "87a3c359ef740fe32fe1ac2fda0216d708421163bc04194aa48ca8be0d742cdb",
     "currentCandidatePublisherComparatorPassed": true,
-    "currentCandidateSHA256": "66d0cf5eecbcffcf0de7933acaec1c16da6f5ba8592173e1e9228c350663fdd7",
+    "currentCandidateSHA256": "b7dc0b2898b8d4ee8ed4a3b10394429f939ff9e4d73761dcd6968e46a4579751",
     "currentCandidateHostPassed": true,
     "nativeOriginalGoalCheckPassed": true,
     "nativeOriginalGoalProofReceipt": "validation/snaky-native-followup-20261023/canonical-v5-direct-native-original-goal-check.json",
     "nativeIntegrationCheckPassed": true,
-    "nativeFullOriginalTargetCheckPassed": true
+    "nativeFullOriginalTargetCheckPassed": true,
+    "nativeAcceptance": true,
+    "nativeStatus": "evaluated_passed",
+    "nativeAcceptedAt": "2026-10-23T22:15:51.288741+00:00",
+    "nativeAcceptanceReceipt": "validation/snaky-native-followup-20261023/canonical-v5-direct-native-acceptance-audit.json"
   },
   "snakyConditional": {
     "wholeTargetKernelPassed": true,
@@ -1200,7 +1217,7 @@
     "campaignAcceptance": false,
     "publisherComparatorPassed": true,
     "receipt": "validation/snaky-ordinary-bridge-20261023/CleanFullTarget.receipt.json",
-    "status": "v6_recovery1_original_comparator_passed_same_source_frozen_host_running",
+    "status": "v7_native_original_goal_passed_integration_runtime_error",
     "nativeAccepted": false,
     "singleFile923cStatus": "exit1; canonical last-row H and A replacement under repair; no native acceptance",
     "canonicalV2Candidate": {
@@ -1302,7 +1319,7 @@
       "comparatorSessionID": 59463,
       "verificationSupervisorPID": 1919439,
       "publisherDriverPID": 1919443,
-      "fullFrozenHost": "running",
+      "fullFrozenHost": "passed",
       "resourceLimitBytes": 34359738368,
       "timeoutSeconds": null,
       "nativeAccepted": false,
@@ -1345,7 +1362,7 @@
         "receipt": "validation/snaky-conditional-native-followup-20261023/canonical-v6-unexpected-interruption.json"
       },
       "recovery1": {
-        "phase": "frozen_host_running_after_publisher_pass",
+        "phase": "complete_local_verification_passed",
         "launchedAt": "2026-10-23T13:25:38+00:00",
         "detachedSupervisorPID": 3051105,
         "publisherPID": 3051106,
@@ -1354,14 +1371,14 @@
         "sameEvaluatorRuntimeResourceCapAndBudgets": true,
         "launchReceipt": "validation/snaky-conditional-native-followup-20261023/canonical-v6-recovery1-launch.json",
         "pipelineReceipt": "validation/snaky-conditional-native-followup-20261023/canonical-v6-recovery1-verification-pipeline.json",
-        "queueExecuted": false,
+        "queueExecuted": true,
         "nativeTurns": 0,
         "latestObservedAt": "2026-10-23T18:03:10.199206+00:00",
         "leanPID": 3053661,
         "cpuSeconds": 7527.8,
         "elapsedSeconds": 7527.52,
         "terminalReceiptExists": true,
-        "hostReceiptExists": false,
+        "hostReceiptExists": true,
         "sourceLeanExited": true,
         "comparatorPID": null,
         "comparatorCPUSeconds": 5242.27,
@@ -1370,14 +1387,47 @@
         "publisherComparatorPassed": true,
         "publisherComparatorExitCode": 0,
         "hostDriverPID": 631942,
-        "lastProcessObservationAt": "2026-10-23T19:21:15.048771+00:00"
+        "lastProcessObservationAt": "2026-10-23T19:21:15.048771+00:00",
+        "hostPassed": true,
+        "nativeResultStatus": "runtime_error"
       },
       "publisherComparatorPassed": true,
       "publisherComparatorExitCode": 0,
       "publisherComparatorReceipt": "validation/snaky-ordinary-bridge-20261023/sealed-canonical-v6-recovery1-sync-native-entry-comparator-receipt.json",
-      "publisherComparatorCompletedAt": "2026-10-23T17:46:19.502Z"
+      "publisherComparatorCompletedAt": "2026-10-23T17:46:19.502Z",
+      "sameSourceThreeAxiomAuditPassed": true,
+      "historical": true,
+      "currentCandidate": false
     },
-    "publisherComparatorExitCode": 0
+    "publisherComparatorExitCode": 0,
+    "nativeStatus": "runtime_error",
+    "nativeReason": "math_verifier_unavailable",
+    "currentCandidateSHA256": "2edd54515230fd886561c1a79a37155c90162f85611567f2fbb63db9ea5284a3",
+    "currentCandidateBytes": 968236,
+    "currentCandidatePublisherComparatorPassed": false,
+    "currentCandidateNativeOriginalGoalCheckPassed": true,
+    "currentCandidateNativeIntegrationPassed": false,
+    "publisherComparatorPassedEvidenceAppliesToSHA256": "94e1154db63070c8dd4b2344a5f040200fe9174937e578d95f327cd803cc9f77",
+    "canonicalV7Candidate": {
+      "source": "validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV7.lean",
+      "sha256": "2edd54515230fd886561c1a79a37155c90162f85611567f2fbb63db9ea5284a3",
+      "bytes": 968236,
+      "nativeOriginalGoalCheckPassed": true,
+      "nativeOriginalGoalProofCommit": "7a72e75ada7a07b7ced54bd9d8629d5de45e49bf",
+      "nativeOriginalGoalCheckedAt": "2026-10-23T23:29:55.615000+00:00",
+      "nativeIntegrationPassed": false,
+      "nativeIntegrationStatus": "runtime_error",
+      "nativeReason": "math_verifier_unavailable",
+      "nativeAccepted": false,
+      "frozenRuntimeModified": false,
+      "V6StandaloneReceiptsInherited": false,
+      "repairOwner": "/root/map_official_targets",
+      "terminalDiagnosis": "in_progress",
+      "nativeOriginalGoalTaskEventAt": "2026-10-23T23:31:05.436+00:00",
+      "nativeOriginalGoalProofReceipt": "validation/snaky-conditional-native-followup-20261023/canonical-v7-native-terminal-snapshot-20261024T040918Z/extracted-v7-native-goal-proof.json",
+      "terminalSummary": "validation/snaky-conditional-native-followup-20261023/canonical-v7-native-goal-pass-integration-error-summary.json",
+      "underlyingIntegrationDiagnosticRetained": false
+    }
   },
   "publishedKernelTargets": [
     "SnakyCertificate",
@@ -1389,8 +1439,8 @@
     "results/openai-truffet-20261023"
   ],
   "completeOriginalKernelProofCount": 7,
-  "nativeFinalAcceptanceCount": 4,
-  "publicationDelta": "Archive SnakyCertificate normal native integration and all-original-target kernel pass receipts. Final native acceptance remains4.",
+  "nativeFinalAcceptanceCount": 5,
+  "publicationDelta": "SnakyCertificate is fifth native final accepted target. Character V12 remaining180 passed; Conditional V7 goal passed but integration failed, pending diagnosis.",
   "runtimeReliabilityFixes": {
     "observedAt": "2026-10-23T12:31:18.649834+00:00",
     "status": "implemented_and_verified_in_isolated_worktree",
@@ -1434,23 +1484,23 @@
   },
   "currentRepairOutcome": {
     "engineeringFixes": "implemented_and_verified",
-    "certificateCandidate": "Normal native original goal, integration and all-original-target checks passed; fixed-version review running, final original comparator pending",
-    "conditionalCandidate": "Exact frozen original comparator passed exit0; same-source frozen host running, native queue not executed",
-    "characterCandidate": "V12 source guard passed; abstract-composition first-short repair under sole remaining180 default-CLI check; fresh complete250 and audit not yet passed",
-    "nativeFinalAcceptedTotal": 4,
+    "certificateCandidate": "Native final evaluated_passed; all original checks, fixed review, S3 comparator and completion/ready signals verified",
+    "conditionalCandidate": "V7 native original goal passed; later integration terminated math_verifier_unavailable; owner diagnosing exact cause",
+    "characterCandidate": "V12 remaining180 passed exit0; sole fresh full250 source check still running, audit/ready pending",
+    "nativeFinalAcceptedTotal": 5,
     "allFiveSolveBudgetCaps": 0,
     "frozenAcceptanceAndResourcesChanged": false,
-    "resultsArchiveCommit": "3b5cdcec07a5f71359c9a4f3e8385287f7754c71",
-    "observedAt": "2026-10-23T19:21:15.048771+00:00"
+    "resultsArchiveCommit": "353c3637df4f5f5f531ee6a7d55f2c1052c7125a",
+    "observedAt": "2026-10-24T04:09:24.770156+00:00"
   },
   "latestResultsProgressArchive": {
     "branch": "results/openai-truffet-20261023",
-    "commit": "3b5cdcec07a5f71359c9a4f3e8385287f7754c71",
+    "commit": "353c3637df4f5f5f531ee6a7d55f2c1052c7125a",
     "path": "results/openai-math/verification-progress-20261024",
-    "snapshotObservedAt": "2026-10-23T18:03:10.199206+00:00",
+    "snapshotObservedAt": "2026-10-23T19:21:15.048771+00:00",
     "pushed": true,
     "remoteReadbackMatched": true,
-    "laterCharacterV9FailureRecordedLocallyAt": "2026-10-23T18:06:53.688287+00:00",
-    "nativeFinalAcceptanceDelta": 0
+    "nativeFinalAcceptanceDelta": 0,
+    "publishedAt": "2026-10-23T19:22:35.292407+00:00"
   }
 }

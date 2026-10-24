@@ -1,0 +1,15 @@
+{
+  "source": "GuardTypedRemainingFullClosureV12.lean",
+  "sourceSha256": "f48fa10aa0c564a9bcdd380c1317dfd467714c2bfe1a4687db5926e334bb66d0",
+  "receipt": "GuardTypedRemainingFullClosureV12.default-options-receipt.json",
+  "receiptSha256": "c854ed68328c22eaa7cfb557f689688ad44a190ae97c48c59af777bf9e2868cf",
+  "log": "GuardTypedRemainingFullClosureV12.default-options.log",
+  "logSha256": "4a881f27e25215c71ef84d753bd04d68bdcafca97a4a07fd174576e86dbca1e5",
+  "exitCode": 0,
+  "naturalTermination": true,
+  "durationSeconds": 23844.391,
+  "errorCount": 0,
+  "failedDeclarationCount": 0,
+  "errors": [],
+  "claim": "Remaining180 modular diagnostic only; final original single-file acceptance remains required."
+}

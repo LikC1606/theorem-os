@@ -1,6 +1,6 @@
 {
   "schema": "theorem-os.result-file-manifest.v1",
-  "generatedAt": "2026-10-23T06:42:53.964399+00:00",
+  "generatedAt": "2026-10-24T04:12:14.976247+00:00",
   "algorithm": "sha256",
   "excludes": [
     "manifest.json",
@@ -590,8 +590,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 2534,
-      "sha256": "5f5bfe0b5e0b3d7863bc0d58701645ba4a7f07c91eaf89bc69a5d3b214ee6ee5"
+      "bytes": 2970,
+      "sha256": "dde073c8dee7537f947f9f7b7b37bdb9c630a53cf4f3c4e744108e4c40edd122"
     },
     {
       "path": "RefinedFirstShortAtPortV2.lean",
@@ -642,6 +642,26 @@
       "path": "UnitSideSeam.lean",
       "bytes": 1097,
       "sha256": "05416863de7537b6ec793c494123d2e44e0a546128c2f279d8e6646418463c43"
+    },
+    {
+      "path": "candidates/v12/GuardCompatibleAllSeamsV12.lean",
+      "bytes": 796560,
+      "sha256": "80955a4045e2657b431ef2018b772783bd1e6935c9e6dc0267f0176e9c7ba4a6"
+    },
+    {
+      "path": "candidates/v12/remaining180-receipt.json",
+      "bytes": 966,
+      "sha256": "c854ed68328c22eaa7cfb557f689688ad44a190ae97c48c59af777bf9e2868cf"
+    },
+    {
+      "path": "candidates/v12/remaining180-summary.json",
+      "bytes": 711,
+      "sha256": "60a5f58948a81144a373c5749e3384f4753a84a2e9752eaf488f55dc01af9629"
+    },
+    {
+      "path": "candidates/v12/source-guard.json",
+      "bytes": 843,
+      "sha256": "9aef7c112bbe33b33a410a12ec1f76dee587aa225725f1ab335b230c1139856b"
     },
     {
       "path": "comparator.upstream.json",

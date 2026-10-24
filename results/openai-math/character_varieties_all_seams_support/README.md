@@ -4,7 +4,9 @@
 
 精确目标是 `OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams`。证明覆盖原题的全部八种 seam 分支，最终定理没有增加前提，公理仅有 `propext`、`Classical.choice` 和 `Quot.sound`。
 
-单文件重检仍在运行。该合并版本新增了模块作用域，被 TheoremOS 原有源码保护以 `math_original_context_changed` 拒绝；正在重排辅助声明以保留完整原题上下文。原发布方比较器和 TheoremOS 原生最终验收尚未通过，也没有 OpenAI 托管验收记录。当前状态见 [verification.json](verification.json)。
+当前 [V12 单文件候选](candidates/v12/GuardCompatibleAllSeamsV12.lean)保留原题上下文，已通过[原源码保护](candidates/v12/source-guard.json)；180 个辅助声明的默认 CLI 检查自然 exit 0、零报错，耗时约 6 小时 37 分钟，见[回执](candidates/v12/remaining180-receipt.json)与[终态摘要](candidates/v12/remaining180-summary.json)。同源码的完整单文件检查仍在运行，原目标公理审计尚未完成。原发布方比较器和 TheoremOS 原生最终验收尚未通过，也没有 OpenAI 托管验收记录。
+
+早期合并版本曾因新增模块作用域被源码保护以 math_original_context_changed 拒绝；该历史状态保留在 [verification.json](verification.json)及下述拒绝回执中，不代表当前 V12 的源码保护结果。
 
 ## 文件与证据
 

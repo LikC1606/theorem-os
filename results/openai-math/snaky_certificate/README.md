@@ -4,7 +4,11 @@
 
 完整原题已在固定 Lean v4.34.1 / Mathlib d13f23b723b8a846827a245b89c10fc7d3f11612 下通过模块化内核验证。最终公理输出仅有 propext、Classical.choice、Quot.sound；证明模块无 sorry、新增公理或内核绕过。Challenge.lean 单独保留发布方原题占位，不参与证明模块的 imports。
 
-完整单文件已通过原隔离比较器。原 V2 源码见 [single-file/Submission.lean](single-file/Submission.lean)，原始回执见 [V2 comparator receipt](evidence/canonical-v2/sealed-canonical-v2-comparator-receipt.json)。后续 [V5 源码](single-file/SubmissionCanonicalV5.lean)在原 32 GiB 限制与冻结运行时下通过原比较器、同源宿主公理检查，并于 2026-10-23 17:43 UTC 通过正常原生目标检查，条件列表为空。回执见 [V5 evidence](evidence/canonical-v5/native-original-goal-check.json)。集成检查于 18:30 UTC、全部原目标检查于 19:14 UTC 正式通过；两者源码均为 [V5 集成版](single-file/SubmissionCanonicalV5Integrated.lean)，仅删去空行。回执见 [集成检查](evidence/canonical-v5/native-integration-check.json)与[全部原目标检查](evidence/canonical-v5/native-full-original-target-check.json)，仅标准三公理。固定版本复审正在进行，最终验收尚未完成，原生 accepted 仍为 false；OpenAI 托管接受尚无确认。C 档为本项目判断。新增证明含外部代理辅助，不算模型从零独立发现。
+TheoremOS 原生最终验收已于 2026-10-23 22:15:51 UTC（北京时间 10 月 24 日 06:15）通过，status 与 run_outcome 均为 evaluated_passed。原目标、集成、全部原目标检查、固定版本复审和 S3 原发布比较器全部通过，最终 exit 0，无超时或中断，completion 与 solver-ready 标志均有效。见[验收审计](evidence/canonical-v5/native-acceptance-audit.json)与[原生最终结果](evidence/canonical-v5/native-final-result.json)。
+
+最终源码为 [V5 集成版](single-file/SubmissionCanonicalV5Integrated.lean)，SHA-256 b7dc0b2898b8d4ee8ed4a3b10394429f939ff9e4d73761dcd6968e46a4579751，896,495 字节；相对[模型安装的 V5](single-file/SubmissionCanonicalV5.lean)只删除空行，未改变原题或证明。原 32 GiB 限制、冻结运行时、比较器和五项无限求解预算保持不变，无假设辅助输入，公理仅 propext、Classical.choice、Quot.sound。原始阶段回执见 [原生目标](evidence/canonical-v5/native-original-goal-check.json)、[集成](evidence/canonical-v5/native-integration-check.json)、[全部原目标](evidence/canonical-v5/native-full-original-target-check.json)和[固定复审](evidence/canonical-v5/native-fixed-review.json)。原 V2 单文件及比较器回执亦保留。
+
+这是本机冻结原比较器与 TheoremOS 原生最终通过，OpenAI 托管接受尚无确认。最终运行时仅保留 stdout 尾部 12,000 字节与完整流 SHA；审计明确 storedStdoutIsComplete=false。本地 20 份只读快照全部核对哈希，results 包含关键回执和[原快照清单](evidence/canonical-v5/native-terminal-snapshot-manifest.json)。C 档为本项目判断。新增证明含外部代理辅助，不算模型从零独立发现。
 
 源码顺序见 module-order.json，最终声明及公理输出见 CertificateFullKernel.lean 和 evidence/axioms.txt；各模块均有源码 SHA 与 exit 0 回执摘要。原始冗长 linter 输出未复制；回执记录原日志和原回执的 SHA。
 

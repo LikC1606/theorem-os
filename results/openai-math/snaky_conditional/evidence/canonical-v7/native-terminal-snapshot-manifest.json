@@ -1,0 +1,84 @@
+{
+  "observedAt": "2026-10-24T04:09:18.177444+00:00",
+  "runId": "50babc1c-5a5c-449b-8f99-a61fa1da2376",
+  "files": [
+    {
+      "sourcePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-followup/result.json",
+      "relativePath": "native-followup/result.json",
+      "bytes": 1474,
+      "sha256": "b46a1f9a49466dd1031c79fb8f06b608f0c854b4de0f38cda6a0d6b0af6da961"
+    },
+    {
+      "sourcePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-followup/result.json.runtime/state.json",
+      "relativePath": "native-followup/result.json.runtime/state.json",
+      "bytes": 2325397,
+      "sha256": "499581f320f0a1aff19a9bca728483b5dfa4d062e3bb589a343d3d5bbeeaa07f"
+    },
+    {
+      "sourcePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-followup/solve.log",
+      "relativePath": "native-followup/solve.log",
+      "bytes": 74971,
+      "sha256": "cd8a8c9b52e830b5a929241cbb2545d30dff1e5599226dfb2f20758acf392d62"
+    },
+    {
+      "sourcePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-followup/launch.json",
+      "relativePath": "native-followup/launch.json",
+      "bytes": 4347,
+      "sha256": "f34c4f180b832ca5bc5c5af9d70ccf3ea215e3b1683f9a2d1a6e5cd3febef920"
+    },
+    {
+      "sourcePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-followup/task.md",
+      "relativePath": "native-followup/task.md",
+      "bytes": 1136,
+      "sha256": "a8eddca335867fda3a4e0f623fb1bc5c6285d78e62ad93fb349569cc398cd7ec"
+    },
+    {
+      "sourcePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-followup/result.json.runtime/edits.jsonl",
+      "relativePath": "native-followup/result.json.runtime/edits.jsonl",
+      "bytes": 190965,
+      "sha256": "2b16a708cfd74028fb0d8f4c61fb198c3928a01875079082ed72ed19d8591823"
+    },
+    {
+      "sourcePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-followup/result.json.runtime/worktree-4/generated/problem/Submission.lean",
+      "relativePath": "native-followup/result.json.runtime/worktree-4/generated/problem/Submission.lean",
+      "bytes": 968236,
+      "sha256": "2edd54515230fd886561c1a79a37155c90162f85611567f2fbb63db9ea5284a3"
+    },
+    {
+      "sourcePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-followup/result.json.runtime/worktree-4/RESEARCH.md",
+      "relativePath": "native-followup/result.json.runtime/worktree-4/RESEARCH.md",
+      "bytes": 4304,
+      "sha256": "392bf1f210ba4927277462493acfd75888906af691acf644369788010d3247a7"
+    },
+    {
+      "sourcePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/canonical-v6-recovery1-native-pipeline.json",
+      "relativePath": "canonical-v6-recovery1-native-pipeline.json",
+      "bytes": 1443,
+      "sha256": "43d568f3adc825376494bab71b7fdf546c1a7a41b7d40d098235ddff1a117082"
+    },
+    {
+      "sourcePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/followup-receipt.json",
+      "relativePath": "followup-receipt.json",
+      "bytes": 22177,
+      "sha256": "63fed70400282859eff5ce13b1cfe368fa5c3e90103df025914aaadfccc2eaf6"
+    },
+    {
+      "sourcePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/canonical-v7-native-assistance-summary.json",
+      "relativePath": "canonical-v7-native-assistance-summary.json",
+      "bytes": 9436,
+      "sha256": "2e5435cdaf1a6416dd0584f73e7bbc19d39c4562b517f2b70be9385445278643"
+    },
+    {
+      "sourcePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/CANONICAL-V7-CONTINUATION.md",
+      "relativePath": "CANONICAL-V7-CONTINUATION.md",
+      "bytes": 7539,
+      "sha256": "ee646eac98e398ed66a7e7819e27bfab9300e2fa78a4f0c17ba5d1c167f4f99a"
+    },
+    {
+      "relativePath": "extracted-v7-native-goal-proof.json",
+      "bytes": 1459289,
+      "sha256": "914145109374697f75654605038c67e785d214a7a3224d7d8e6f120fa1564fec",
+      "derivedFrom": "result.json.runtime/state.json cooperation.tasks.initial_goal_1.proof"
+    }
+  ]
+}

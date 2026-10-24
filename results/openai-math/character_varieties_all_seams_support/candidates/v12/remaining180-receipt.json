@@ -1,0 +1,21 @@
+{
+  "exitCode": 0,
+  "sourceSha256": "f48fa10aa0c564a9bcdd380c1317dfd467714c2bfe1a4687db5926e334bb66d0",
+  "sourceUnchanged": true,
+  "durationSeconds": 23844.391,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/default-options-probes/GuardTypedRemainingFullClosureV12.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/GuardTypedRemainingFullClosureV12.lean"
+  ],
+  "log": "GuardTypedRemainingFullClosureV12.default-options.log",
+  "addressSpaceSoftHardBytes": [
+    34359738368,
+    34359738368
+  ],
+  "commandLineElaborationOptions": [],
+  "errorInLog": false,
+  "sorryAxInLog": false,
+  "claim": "Bounded helper-closure check with default Lean CLI elaboration options; no original-target, comparator, or native acceptance claimed."
+}

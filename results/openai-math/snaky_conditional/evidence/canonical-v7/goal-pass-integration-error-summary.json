@@ -1,0 +1,77 @@
+{
+  "observedAt": "2026-10-24T04:10:18.286805+00:00",
+  "runId": "50babc1c-5a5c-449b-8f99-a61fa1da2376",
+  "sourceVersion": "V7",
+  "official": false,
+  "sourceSHA256": "2edd54515230fd886561c1a79a37155c90162f85611567f2fbb63db9ea5284a3",
+  "sourceBytes": 968236,
+  "originalTarget": "OAI.SnakyConditional.snaky_winning_strategy_with_legal_states",
+  "originalGoal": {
+    "passed": true,
+    "status": "kernel_verified",
+    "commit": "7a72e75ada7a07b7ced54bd9d8629d5de45e49bf",
+    "checkedAt": "2026-10-23T23:29:55.615000+00:00",
+    "durationMs": 8226389,
+    "receiptId": "lean-439aeec691669d31d1f7a664",
+    "goalsRemaining": 0,
+    "sorryCount": 0,
+    "admitCount": 0,
+    "axioms": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "rawProof": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/canonical-v7-native-terminal-snapshot-20261024T040918Z/extracted-v7-native-goal-proof.json"
+  },
+  "integration": {
+    "passed": false,
+    "recordedReceipt": null,
+    "diagnosticCode": "math_verifier_unavailable",
+    "actualProcessDiagnosticRetained": false,
+    "causeLocated": false,
+    "boundary": "integration_queue_started followed by worker_failed; runtime discarded underlying raw check object when raising generic verifier-unavailable error"
+  },
+  "runtimeTerminal": {
+    "status": "runtime_error",
+    "reason": "math_verifier_unavailable",
+    "phase": "finished",
+    "turns": 7,
+    "evaluatorStatus": "skipped",
+    "events": [
+      {
+        "event": "task_checked",
+        "at": 1792798265436,
+        "taskId": "initial_goal_1",
+        "passed": true,
+        "conditional": false,
+        "commit": "7a72e75ada7a07b7ced54bd9d8629d5de45e49bf",
+        "atISO": "2026-10-23T23:31:05.436000+00:00"
+      },
+      {
+        "event": "integration_queue_started",
+        "at": 1792798265461,
+        "waitedMs": 0,
+        "atISO": "2026-10-23T23:31:05.461000+00:00"
+      },
+      {
+        "event": "worker_failed",
+        "at": 1792806412874,
+        "workerId": "engineer",
+        "reason": "math_verifier_unavailable",
+        "atISO": "2026-10-24T01:46:52.874000+00:00"
+      },
+      {
+        "event": "finished",
+        "at": 1792806413050,
+        "status": "runtime_error",
+        "output": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-followup/result.json",
+        "atISO": "2026-10-24T01:46:53.050000+00:00"
+      }
+    ]
+  },
+  "nativeAcceptance": false,
+  "V6HistoricalEvidenceInherited": false,
+  "rawTerminalArchive": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/canonical-v7-native-terminal-snapshot-20261024T040918Z",
+  "rawTerminalManifestSHA256": "f304e7690102b73fec731eb3cb2831e687d1805b2fae2b22cc57a37127ae7e1a",
+  "claimBoundary": "V7 full original-goal kernel pass is real and source-bound; integration did not produce an accepted receipt and final evaluator was skipped. No native/campaign final acceptance."
+}
