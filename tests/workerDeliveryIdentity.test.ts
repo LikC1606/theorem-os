@@ -156,7 +156,8 @@ describe('assignment-bound worker delivery identities', () => {
     await cooperative.pulse(peer.id); cooperative.deactivate(peer);
     const firstVerification = state.cooperation!.tasks.find(node => node.task.id === 'a')!.integratedCheck!.verification;
     expect(host.verify).toHaveBeenCalledOnce();
-    await applyEdit(task => task.id === 'a' ? { ...task, revision: 1, premises: ['Revised mathematical premise'] } : task);
+    // Keep this identity test on the worker publication path; conditional tasks skip canonical adoption.
+    await applyEdit(task => task.id === 'a' ? { ...task, revision: 1, premises: ['Revised mathematical premise'], conditional: true } : task);
     const revised = await start('a');
     expect(revised.assignment.taskDigest).not.toBe(first.assignment.taskDigest);
     append(revised, log, { id: 'ready', kind: 'proof', commit: saveProof(revised) });

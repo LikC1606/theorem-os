@@ -4,12 +4,14 @@ import { inspectLeanDeclarations, inspectLeanDeclarationRegions } from '../math/
 import type { CooperationState } from './cooperation';
 import { deliveryFinding, type DeliveryRecord } from './deliveries';
 import type { SolverProblem } from './problem';
-import { hasTaskAcceptance, taskGroup, taskVersion, type CooperativeAction, type TaskRecord } from './tasks';
+import { assignmentDeliveryFile, hasTaskAcceptance, leadPlanDeliveryFile, taskGroup, taskVersion, type CooperativeAction, type TaskRecord } from './tasks';
 import { buildProofContinuation } from './progress';
 import { pendingResearchHandoffs, researchHandoffContext, selectResearchHandoffBatch } from './researchHandoffs';
 import { COORDINATION_INLINE_FINDING_BYTES, pendingResearchChallenges, researchChallengeContext, selectResearchChallengeBatch } from './researchChallenges';
 import { contextTaskConsumers } from './taskConsumers';
 import { mathematicalGapContext } from './mathematicalGaps';
+import { leadPlanPublicationFeedback } from './cooperationShared';
+import { contextCheckpointRejectionFeedback } from './contextCheckpoint';
 
 export const DEFAULT_TASK_CONTEXT_BYTES = 512 * 1024;
 export const DEFAULT_OPTIONAL_TASK_CONTEXT_BYTES = 64 * 1024;
@@ -499,6 +501,11 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
               ({ id, taskId, routeId, status, mechanism, scope, evidenceStatus, reopenOn })),
         }));
     }
+    const publicationFeedback = leadPlanPublicationFeedback(action, input.cooperation);
+    if (publicationFeedback) mandatory.push({ id: 'plan-publication-rejection', kind: 'feedback', text: publicationFeedback });
+    const checkpointFeedback = contextCheckpointRejectionFeedback(input.cooperation.contextCheckpointRejection,
+      action?.kind === 'task' ? assignmentDeliveryFile(action.assignment) : action && leadPlanDeliveryFile(action));
+    if (checkpointFeedback) mandatory.push({ id: 'context-checkpoint-rejection', kind: 'feedback', text: checkpointFeedback });
     if (action?.kind === 'lead' && input.cooperation.error) mandatory.push(section('plan-rejection', 'feedback',
       'Host rejected the proposed plan. Repair this error while preserving every exact original target:', {
         error: input.cooperation.error, rejection: input.cooperation.planRejection,

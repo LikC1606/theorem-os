@@ -12,17 +12,20 @@ import { researchHandoffs, resolveResearchHandoffs, type ResearchHandoffDecision
 import { preserveResearchChallengeBacklog, resolveResearchChallenges, type ResearchChallengeDecision } from './researchChallenges';
 import { bindMathematicalGap } from './mathematicalGaps';
 import { assignmentDeliveryFile, leadPlanDeliveryFile, type CooperativeTask, type TaskRecord, type CooperativeAction } from './tasks';
-import { digest, directDeliveryRejections, rejectionCode, HumanEditRecord, TaskVersions, bounded, type AdvisoryDecisions } from './cooperationShared';
+import { digest, directDeliveryRejections, rejectionCode, HumanEditRecord, TaskVersions, bounded, leadPlanPublicationFeedback,
+  type AdvisoryDecisions, type PlanPublicationRejection } from './cooperationShared';
 import { CooperationPlanning } from './cooperationPlanning';
 import { composeHandoffPublication } from './handoffPublication';
 import { finishLeadAssessment, type LeadAssessmentKind } from './leadAssessment';
 import { pendingResearchHandoffs } from './researchHandoffs';
 import { pendingResearchChallenges } from './researchChallenges';
 import { ResearchAdmissionError } from './researchAdmission';
-import { acceptContextCheckpoint } from './contextCheckpoint';
+import { acceptContextCheckpoint, contextCheckpointRejection, contextCheckpointRejectionFeedback, savedContextCheckpoint } from './contextCheckpoint';
 
 /** Worker delivery intake. */
 export abstract class CooperationInputs extends CooperationPlanning {
+  private planPublicationNotification?: PlanPublicationRejection;
+  private contextCheckpointNotifications?: WeakMap<object, object>;
   private completedCoordination = new WeakMap<CooperativeAction, {
     eventDigest?: string; result: Readonly<{ progress: boolean }>;
   }>();
@@ -99,6 +102,7 @@ export abstract class CooperationInputs extends CooperationPlanning {
           { ...receipt, evidenceStatus: 'advisory' });
       }
     }
+    if (completed) this.archive.planPublicationRejection = undefined;
     this.rememberLeadDecision(action);
     return completed;
   }
@@ -207,7 +211,7 @@ export abstract class CooperationInputs extends CooperationPlanning {
     return new Map(this.deliveryChecks);
   }
   private async readPlanDelivery(cursors: Record<string, number>) {
-    const action = this.active.get(this.lead.id)?.action;
+    const active = this.active.get(this.lead.id), action = active?.action;
     if (!action || action.kind !== 'lead') return;
     const file = leadPlanDeliveryFile(action);
     if (!file) return;
@@ -216,29 +220,43 @@ export abstract class CooperationInputs extends CooperationPlanning {
     const key = `${this.lead.id}/${file}`, discardKey = `${key}/discardingOversized`;
     const batch = readDeliveryLines(path.join(this.lead.worktree, file), cursors[key] ?? 0,
       { discardingOversized: cursors[discardKey] === 1 });
-    let advanced = false;
-    const reject = (reason: string) => this.input.emit(initial ? 'initial_plan_rejected' : 'plan_publication_rejected',
-      { workerId: this.lead.id, file, reason });
+    const research = this.input.state.workers?.find(record => record.id === this.lead.id) ?? this.input.state;
+    const current = () => this.active.get(this.lead.id) === active && !active.cancelled &&
+      !this.stopping && !this.input.signal.aborted && this.current(action);
+    const open = () => current() && !action.recovery && !this.completedCoordination.has(action) &&
+      (this.archive.planPublication ?? this.archive.initialPlanPublication)?.nonce !== nonce;
+    let advanced = false, feedbackChanged = false;
+    const reject = (reason: string, offset: number, checkpoint = false) => {
+      this.input.emit(initial ? 'initial_plan_rejected' : 'plan_publication_rejected', { workerId: this.lead.id, file, reason });
+      if (checkpoint) {
+        const checkpoint = this.currentContextCheckpoint(this.lead, action);
+        if (!checkpoint || savedContextCheckpoint(checkpoint.research, this.lead.worktree)) return;
+        checkpoint.request.rejection = { file, offset, reason: bounded(reason, 4000) };
+      } else {
+        if (!open()) return;
+        this.archive.planPublicationRejection = { nonce, file, offset, baseVersion: action.planVersion!, reason: bounded(reason, 4000) };
+      }
+      feedbackChanged = true;
+    };
     try {
       for (const entry of batch.entries!) {
         this.input.signal.throwIfAborted();
-        if (entry.error) reject(entry.error);
+        if (entry.error) reject(entry.error, entry.offset);
         else if (entry.line?.trim()) {
           // Only a complete explicit event is parsed; RESEARCH.md remains an unpublished draft.
           const eventDigest = mathDigest(entry.line);
           let response: any;
           try { response = JSON.parse(entry.line); }
-          catch { reject(code('invalid_json')); }
+          catch { reject(code('invalid_json'), entry.offset); }
           if (response !== undefined) {
             try {
               if (response?.kind === 'checkpoint') {
                 await this.input.exclusiveCheck(async () => {
-                  if (this.active.get(this.lead.id)?.action !== action || !this.current(action)) throw new Error(code('superseded'));
-                  const research = this.input.state.workers?.find(record => record.id === this.lead.id) ?? this.input.state;
+                  if (!current()) throw new Error(code('superseded'));
                   acceptContextCheckpoint(research, this.lead.worktree, response);
                   this.input.emit('context_checkpoint_published', { workerId: this.lead.id, threadId: research.threadId,
                     requestId: research.contextCheckpoint?.requestId, notesDigest: research.contextCheckpoint?.publishedNotesDigest });
-                  this.input.save();
+                  this.changed();
                 });
               } else {
                 if (!response || typeof response !== 'object' || Array.isArray(response) || !['plan', 'handoff', 'assessment'].includes(response.kind) ||
@@ -288,7 +306,7 @@ export abstract class CooperationInputs extends CooperationPlanning {
             } catch (error) {
               this.input.signal.throwIfAborted();
               if (!(error instanceof Error) || !/^math_(?:initial_plan_|plan_|handoff_|challenge_|delivery_invalid)/u.test(error.message)) throw error;
-              reject(error.message);
+              reject(error.message, entry.offset, response?.kind === 'checkpoint');
             }
           }
         }
@@ -296,7 +314,49 @@ export abstract class CooperationInputs extends CooperationPlanning {
       }
       if (cursors[key] !== batch.offset || (cursors[discardKey] === 1) !== batch.discardingOversized) advanced = true;
       cursors[key] = batch.offset; cursors[discardKey] = batch.discardingOversized ? 1 : 0;
-    } finally { if (advanced) this.input.save(); }
+    } finally { if (advanced) { if (feedbackChanged) this.changed(); else this.input.save(); } }
+    const rejection = this.archive.planPublicationRejection;
+    if (rejection && rejection.nonce === nonce && open() && this.planPublicationNotification !== rejection) {
+      this.planPublicationNotification = rejection;
+      const pending = Promise.resolve().then(async () => {
+        if (this.archive.planPublicationRejection !== rejection || !open()) return;
+        await active.notify(leadPlanPublicationFeedback(action, this.archive)!);
+      }).catch(() => {
+        if (this.planPublicationNotification === rejection) this.planPublicationNotification = undefined;
+        this.input.emit('notification_deferred', { workerId: this.lead.id, file, offset: rejection.offset });
+      });
+      this.notifications.add(pending); void pending.finally(() => this.notifications.delete(pending));
+    }
+    this.notifyContextCheckpointRejection(this.lead, action);
+  }
+  private currentContextCheckpoint(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' | 'task' }>) {
+    const active = this.active?.get(worker.id);
+    if (!active || active.action !== action || active.cancelled || this.stopping || this.input.signal.aborted ||
+        action.kind === 'task' && action.assignment.workerId !== worker.id || !this.current(action)) return;
+    const research = this.input.state.workers?.find(record => record.id === worker.id) ?? this.input.state;
+    const request = research.contextCheckpoint;
+    if (!research.threadId || request?.threadId !== research.threadId || !request.requestId) return;
+    return { active, research, request };
+  }
+  private notifyContextCheckpointRejection(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' | 'task' }>) {
+    const checkpoint = this.currentContextCheckpoint(worker, action), rejection = checkpoint?.request.rejection;
+    if (!checkpoint || !rejection || savedContextCheckpoint(checkpoint.research, worker.worktree)) return;
+    const file = action.kind === 'task' ? assignmentDeliveryFile(action.assignment) : leadPlanDeliveryFile(action);
+    if (!file) return;
+    const { active, request } = checkpoint;
+    const notified = this.contextCheckpointNotifications ??= new WeakMap<object, object>();
+    if (notified.get(rejection) === active) return;
+    notified.set(rejection, active);
+    const pending = Promise.resolve().then(async () => {
+      const current = this.currentContextCheckpoint(worker, action);
+      if (current?.active !== active || current.request !== request || request.rejection !== rejection ||
+          savedContextCheckpoint(current.research, worker.worktree)) return;
+      await active.notify(contextCheckpointRejectionFeedback(contextCheckpointRejection(current.research), file)!);
+    }).catch(() => {
+      if (notified.get(rejection) === active) notified.delete(rejection);
+      this.input.emit('notification_deferred', { workerId: worker.id, file, offset: rejection.offset });
+    });
+    this.notifications.add(pending); void pending.finally(() => this.notifications.delete(pending));
   }
   protected preserveHandoffBacklog(plan: ReturnType<typeof parseCooperationPlan>, decisions: readonly ResearchHandoffDecision[]) {
     const decided = new Map(decisions.map(decision => [decision.id, decision]));
@@ -338,10 +398,17 @@ export abstract class CooperationInputs extends CooperationPlanning {
   private async readWorkerDeliveries(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>, cursors: Record<string, number>) {
     const invalidInput = new Set([...directDeliveryRejections, 'math_delivery_invalid_commit',
       'math_delivery_requires_fixed_proof', 'math_delivery_unfinished_dependencies', 'math_route_blocker_invalid']);
+    const research = this.input.state.workers?.find(record => record.id === worker.id) ?? this.input.state;
+    const checkpointRejection = research.contextCheckpoint?.rejection;
     let advanced = false;
-    const reject = (reason: Error | string, submission: string) => {
+    const reject = (reason: Error | string, submission: string, checkpoint?: { file: string; offset: number }) => {
       const error = typeof reason === 'string' ? new Error(reason) : reason;
-      this.rejectWorkerDelivery(worker, action, submission, error);
+      if (checkpoint) {
+        const current = this.currentContextCheckpoint(worker, action);
+        if (current && checkpoint.file === assignmentDeliveryFile(action.assignment) &&
+            !savedContextCheckpoint(current.research, worker.worktree))
+          current.request.rejection = { ...checkpoint, reason: bounded(error.message, 4000) };
+      } else this.rejectWorkerDelivery(worker, action, submission, error);
       this.input.emit('delivery_rejected', { workerId: worker.id, reason: error.message });
     };
     try {
@@ -362,7 +429,7 @@ export abstract class CooperationInputs extends CooperationPlanning {
               catch (error) {
                 this.input.signal.throwIfAborted();
                 if (!(error instanceof Error) || !invalidInput.has(rejectionCode(error))) throw error;
-                reject(error, entry.line);
+                reject(error, entry.line, (value as { kind?: unknown })?.kind === 'checkpoint' ? { file: log, offset: entry.offset } : undefined);
               }
             }
           }
@@ -374,7 +441,13 @@ export abstract class CooperationInputs extends CooperationPlanning {
         cursors[key] = batch.offset;
         cursors[discardKey] = batch.discardingOversized ? 1 : 0;
       }
-    } finally { if (advanced) this.input.save(); }
+    } finally {
+      if (advanced) {
+        if (research.contextCheckpoint?.rejection !== checkpointRejection) this.changed();
+        else this.input.save();
+      }
+    }
+    this.notifyContextCheckpointRejection(worker, action);
     await this.notifyDeliveryReceipts(worker, action);
   }
   private async receive(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>, value: any, scoped = false) {

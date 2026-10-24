@@ -24,6 +24,7 @@ import { normalizedResearchHandoffDecisions, retainedResearchHandoffs, scopeRese
 import { COORDINATION_INLINE_FINDING_BYTES, pendingResearchChallenges, retainedResearchChallenges } from './researchChallenges';
 import { taskConsumerProjection } from './taskConsumers';
 import { parallelQuestions } from './taskQuestions';
+import { contextCheckpointRejection } from './contextCheckpoint';
 import { mathematicalGaps, mathematicalGapVisible } from './mathematicalGaps';
 import { automaticTaskConnection, createTaskConnectionCheck } from './taskConnections';
 import { taskTypePreflightEnvironmentIdentity, type TaskTypePreflight } from './taskTypePreflight';
@@ -862,6 +863,9 @@ export class CooperativeResearch extends CooperationInputs {
   }
   contextState(action?: CooperativeAction, worker?: ResearchWorker, versions: TaskVersions = this.taskVersions()): CooperationState {
     const record = worker && this.input.state.workers?.find(item => item.id === worker.id);
+    const checkpointWorkerId = worker?.id ?? (action?.kind === 'task' ? action.assignment.workerId : action?.kind === 'lead' ? this.lead.id : undefined);
+    const checkpointResearch = this.input.state.workers?.find(peer => peer.id === checkpointWorkerId) ??
+      (checkpointWorkerId === this.lead.id ? this.input.state : undefined);
     const ordinaryWorker = !action && worker && worker.id !== this.lead.id;
     const task = action?.kind === 'task' ? action.task : ordinaryWorker ?
       this.archive.tasks.find(node => node.status === 'running' && node.assignment?.workerId === worker.id)?.task ??
@@ -884,6 +888,9 @@ export class CooperativeResearch extends CooperationInputs {
     const scopedTasks = tasks.map(node => scopedFinding(node.alternativeRoutes?.length ? { ...node,
       alternativeRoutes: proofRoutes.filter(route => route.targetTaskId === node.task.id) } : node));
     return { ...this.archive, tasks: scopedTasks,
+      planPublicationRejection: (action?.kind === 'lead' || worker?.id === this.lead.id) &&
+        this.archive.planPublicationRejection?.baseVersion === this.archive.planVersion ? this.archive.planPublicationRejection : undefined,
+      contextCheckpointRejection: checkpointResearch ? contextCheckpointRejection(checkpointResearch) : undefined,
       deliveryReceipts: this.archive.deliveryReceipts?.filter(receipt => worker && receipt.workerId === worker.id &&
         receipt.environmentDigest === this.input.state.environmentDigest &&
         (action?.kind === 'task' ? receipt.assignmentKey === assignmentDeliveryFile(action.assignment) :
@@ -1027,7 +1034,7 @@ export class CooperativeResearch extends CooperationInputs {
         } else {
           const assessments = assessmentPlanResponse?.assessments === undefined ? undefined :
             this.validateLeadAssessments(action, assessmentPlanResponse.assessments);
-          await this.acceptPlan(recoveryPlan);
+          await this.acceptPlan(recoveryPlan, undefined, undefined, undefined, action);
           if (assessments) { this.completeLeadAssessments(action, assessments); assessmentDecision = true; }
         }
         if (!unchangedCheckpoint) accepted = true;

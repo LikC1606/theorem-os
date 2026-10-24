@@ -314,6 +314,8 @@ export abstract class CooperationCore {
         }),
         ...(worker.id === this.lead.id && scoped.lastCapacityRefill ? { lastCapacityRefill: scoped.lastCapacityRefill } : {}),
         ...(worker.id === this.lead.id && scoped.lastStagnationRecovery ? { lastStagnationRecovery: scoped.lastStagnationRecovery } : {}),
+        ...(scoped.planPublicationRejection ? { planPublicationRejection: scoped.planPublicationRejection } : {}),
+        ...(scoped.contextCheckpointRejection ? { contextCheckpointRejection: scoped.contextCheckpointRejection } : {}),
         capacityExplorations: scoped.tasks.filter(node => node.capacityExploration).map(node => ({
           taskId: node.task.id, status: node.status, ...node.capacityExploration })),
         parallelQuestions: scoped.parallelQuestions ?? [],

@@ -18,7 +18,8 @@ import { mathematicalGaps } from './mathematicalGaps';
 import type { DeliveryReceipt } from './deliveryReceipts';
 import type { ProofReadyRecord } from './proofReady';
 import type { ResearchRecord } from './researchRecords';
-import { taskVersion, type CooperativeTask, type RouteRecord, type TaskRecord, type CooperativeAction } from './tasks';
+import type { ContextCheckpointRejection } from './contextCheckpoint';
+import { leadPlanDeliveryFile, taskVersion, type CooperativeTask, type RouteRecord, type TaskRecord, type CooperativeAction } from './tasks';
 
 export const digest = taskVersion;
 /** Derived from stored task and failure records; the marker is never a separate acceptance state. */
@@ -57,6 +58,7 @@ export type HumanEditRecord = { id: string; status: 'received' | 'applied' | 're
 export type PlanPublication = { nonce: string; file: string; offset: number; eventDigest: string;
   baseVersion: string; planVersion: string; acceptedAt: number; finalized?: boolean };
 export type InitialPlanPublication = PlanPublication;
+export type PlanPublicationRejection = { nonce: string; file: string; offset: number; baseVersion: string; reason: string };
 export type AdvisoryDecisions = { handoffs: readonly ResearchHandoffDecision[]; challenges: readonly ResearchChallengeDecision[] };
 export type FailedTaskInput = { id: string; taskId: string; taskDigest: string; inputDigest: string; basis: BlockerBasis;
   attemptFingerprint?: string; relatedFailureIds?: string[];
@@ -81,6 +83,10 @@ export type CooperationState = { tasks: TaskRecord[]; groups?: RouteRecord[]; ca
   initialPlanPublication?: InitialPlanPublication;
   /** Last immutable live publication; its dispatch continuation is process-local. */
   planPublication?: PlanPublication;
+  /** Latest unresolved live intake error; it does not reject the accepted graph or change scheduling. */
+  planPublicationRejection?: PlanPublicationRejection;
+  /** Worker-private projection of the current checkpoint request's diagnostic. */
+  contextCheckpointRejection?: ContextCheckpointRejection;
   planRejection?: { proposalDigest: string; inputDigest: string; error: string; stalled: boolean };
   lastLeadInputDigest?: string;
   /** One capacity assessment per mathematical input, including across process restarts. */
@@ -115,6 +121,19 @@ export const RETRY_DISPATCH = Symbol('retry-dispatch');
 export type DispatchResult = CooperativeAction | typeof RETRY_DISPATCH | undefined;
 
 export const bounded = (text: string, bytes: number) => limitMathOutput(text, bytes, 'head');
+
+/** Reuse the saved diagnostic across turns while always targeting the current dispatch. */
+export function leadPlanPublicationFeedback(action: CooperativeAction | undefined,
+  state: Pick<CooperationState, 'planVersion' | 'planPublicationRejection'>): string | undefined {
+  const rejection = state.planPublicationRejection, file = action && leadPlanDeliveryFile(action);
+  if (action?.kind !== 'lead' || !file || !rejection || rejection.baseVersion !== state.planVersion) return;
+  return 'Host rejected a Lead publication before accepting it:\n' + JSON.stringify(rejection) + '\n' +
+    'Correct the reported error and append a new complete JSON event using the current publication target: ' +
+    JSON.stringify({ file, nonce: action.initialPlanNonce ?? action.planNonce, baseVersion: action.planVersion,
+      ...(action.planNonce ? { dispatchNonce: action.planNonce } : {}) }) + '. ' +
+    'Preserve the log and use the current assignment protocol; a saved rejection may come from an earlier dispatch. ' +
+    'Only the first valid publication in a dispatch is accepted. This intake feedback grants no proof acceptance.';
+}
 export const deliveryInputFields = (record: DeliveryRecord) => ({
   taskId: record.taskId, taskDigest: record.taskDigest, kind: record.kind, status: record.status,
   summary: record.summary, evidenceRefs: record.evidenceRefs, dependencies: record.dependencies,

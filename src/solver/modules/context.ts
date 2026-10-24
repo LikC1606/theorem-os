@@ -10,6 +10,8 @@ import type { ProofCheck } from './evidence';
 import { solverProofFeedback, type SolverFailure } from '../feedback';
 import { assignmentDeliveryFile, leadPlanDeliveryFile, isFeasibilityReview, taskGroup, taskVersion, type CooperativeAction } from '../tasks';
 import type { CooperationState } from '../cooperation';
+import { leadPlanPublicationFeedback } from '../cooperationShared';
+import { contextCheckpointRejectionFeedback } from '../contextCheckpoint';
 import { statementReviewSummary, type StatementAction, type StatementReview } from '../statementReview';
 import { buildProofContinuation } from '../progress';
 import { researchHandoffs } from '../researchHandoffs';
@@ -406,6 +408,8 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
     'Current cooperative assignment (replaces every previous dispatch nonce and receipt):\n' + JSON.stringify(action),
     'Current host work contract:\n' + JSON.stringify(workContract),
     compilation.feedback ? 'Current host feedback:\n' + compilation.feedback : '',
+    leadPlanPublicationFeedback(action, cooperation),
+    contextCheckpointRejectionFeedback(cooperation.contextCheckpointRejection, leadPlanDeliveryFile(action)),
     coordinationRules, checkpointRules, leadDeliveryRules, sharing, handoffPublicationRules, assessmentRules,
     'Act on the current capacity/stagnation requests and shown handoff/challenge activations. Publish a useful complete plan or explicit supported decisions promptly; retain the exact mathematical gap if it is unresolved. A checkpoint, unchanged control plan, or activity report does not establish decision progress or proof acceptance.',
   ].filter(Boolean).join('\n\n') : taskContinuation ? [
@@ -414,6 +418,8 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
     'Current host work contract:\n' + JSON.stringify(workContract),
     canonicalProbeRules,
     compilation.feedback ? 'Current host feedback:\n' + compilation.feedback : '',
+    contextCheckpointRejectionFeedback(cooperation.contextCheckpointRejection,
+      action.kind === 'task' ? assignmentDeliveryFile(action.assignment) : undefined),
     assignedNode?.feedback ? 'Current task feedback:\n' + assignedNode.feedback : '',
     ...(compilation.optional ?? []).filter(section => section.kind === 'feedback').map(section => section.text),
     'Current assignment delivery receipts (intake feedback, not proof acceptance):\n' + JSON.stringify(taskReceipts),

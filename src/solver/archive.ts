@@ -92,7 +92,8 @@ export type SolverRunState = {
   contextOverflow?: { maxOptionalContextBytes: number; failedFreshContextDigests: string[] };
   /** A checkpoint request is scheduling evidence only; it never grants proof acceptance. */
   contextCheckpoint?: { threadId: string; requestedAt: number; notesDigest?: string; deferredAt?: number;
-    requestId?: string; publishedNotesDigest?: string; publishedAt?: number };
+    requestId?: string; publishedNotesDigest?: string; publishedAt?: number;
+    rejection?: { file: string; offset: number; reason: string } };
   contextCheckpointBaseline?: { threadId: string; notesDigest?: string };
   /** Scheduling protection for one mathematical responsibility, independent of dispatch nonces. */
   advisoryCheckpoint?: { scope: string; noProgressStreak: number; contentDigest?: string };
@@ -187,7 +188,9 @@ const research = z.object({ worktree: z.string().min(1), phase, turns: count, th
     failedFreshContextDigests: z.array(z.string().regex(/^[a-f0-9]{64}$/u)) }).optional(),
   contextCheckpoint: z.object({ threadId: z.string().min(1), requestedAt: safeCount, deferredAt: safeCount.optional(),
     notesDigest: z.string().regex(/^[a-f0-9]{64}$/u).optional(), requestId: z.string().min(1).optional(),
-    publishedNotesDigest: z.string().regex(/^[a-f0-9]{64}$/u).optional(), publishedAt: safeCount.optional() }).optional(),
+    publishedNotesDigest: z.string().regex(/^[a-f0-9]{64}$/u).optional(), publishedAt: safeCount.optional(),
+    rejection: z.object({ file: z.string().regex(/^DELIVERIES-[a-f0-9]{64}\.jsonl$/u),
+      offset: safeCount, reason: z.string().min(1) }).optional() }).optional(),
   contextCheckpointBaseline: z.object({ threadId: z.string().min(1),
     notesDigest: z.string().regex(/^[a-f0-9]{64}$/u).optional() }).optional(),
   advisoryCheckpoint: z.object({ scope: z.string().regex(/^[a-f0-9]{64}$/u), noProgressStreak: safeCount,

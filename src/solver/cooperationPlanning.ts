@@ -460,6 +460,9 @@ export abstract class CooperationPlanning extends CooperationIntegration {
       this.archive.planEdited = true;
     }
     this.archive.planVersion = this.planVersion();
+    // Replaying unchanged saved notes during restore does not correct a rejected live event.
+    if (edit || publication || decisionAction || this.archive.planPublicationRejection?.baseVersion !== this.archive.planVersion)
+      this.archive.planPublicationRejection = undefined;
     if (publication) {
       // Publish the graph, receipt and dispatch continuation together before waking any peer.
       this.archive.planPublication = { ...publication.receipt, planVersion: this.archive.planVersion };
