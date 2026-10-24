@@ -1,0 +1,28 @@
+{
+  "observedAt": "2026-10-24T07:55:29.143Z",
+  "nativeEnvironmentIdentities": [
+    {
+      "workerId": "solver",
+      "environmentDigest": "b6cbd3acabb5efd8739f63e449d5b498c5b28877e44926cbd33c0ef245d03766",
+      "toolIdentity": "21df37a7a514a2c66258155422ec0a1101355dbb3c8fd7c50f3dfa67185a7d4e"
+    },
+    {
+      "workerId": "researcher-1",
+      "environmentDigest": "b6cbd3acabb5efd8739f63e449d5b498c5b28877e44926cbd33c0ef245d03766",
+      "toolIdentity": "21df37a7a514a2c66258155422ec0a1101355dbb3c8fd7c50f3dfa67185a7d4e"
+    },
+    {
+      "workerId": "researcher-2",
+      "environmentDigest": "b6cbd3acabb5efd8739f63e449d5b498c5b28877e44926cbd33c0ef245d03766",
+      "toolIdentity": "21df37a7a514a2c66258155422ec0a1101355dbb3c8fd7c50f3dfa67185a7d4e"
+    },
+    {
+      "workerId": "engineer",
+      "environmentDigest": "b6cbd3acabb5efd8739f63e449d5b498c5b28877e44926cbd33c0ef245d03766",
+      "toolIdentity": "21df37a7a514a2c66258155422ec0a1101355dbb3c8fd7c50f3dfa67185a7d4e"
+    }
+  ],
+  "source": "campaign.environment() values resolved through the frozen math.env; existing sealed descriptor validates; excludes model-side empty-string projection additions",
+  "leanInvoked": false,
+  "modelInvoked": false
+}

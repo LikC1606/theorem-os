@@ -1,0 +1,263 @@
+{
+  "observedAt": "2026-10-24T08:13:33.571305+00:00",
+  "snapshot": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-scheduling-observation/followup-20261024T0747Z/after-consumer-resume-20261024T081333Z.json",
+  "runPhase": "running",
+  "turns": 88,
+  "appliedEdit": {
+    "affectedTasks": [],
+    "appliedAt": 1792829563061,
+    "baseVersion": "e924b550f8be61227e667386f1f2d91aeb2a283f85735cb3d03b96d227689ea8",
+    "id": "honeycomb-consumer-resume-e924b550f8be",
+    "planVersion": "77b7d42ad95450f1f0547b09e9f8d1e72caaf4e33e0ce14c53daf16cbc8246bc",
+    "receivedAt": 1792829563039,
+    "recheck": {
+      "status": "not-required",
+      "tasks": []
+    },
+    "status": "applied"
+  },
+  "taskCount": 6,
+  "changedFields": [
+    {
+      "taskId": "initial_goal_1",
+      "field": "status",
+      "before": "paused",
+      "after": null
+    }
+  ],
+  "groupsPreserved": true,
+  "proofRoutesPreserved": true,
+  "mathematicalContractsPreserved": true,
+  "goal": {
+    "assignment": {
+      "assignmentId": "69b53b79-cb36-44e1-9d4c-e81bb99a0a4a",
+      "canonicalCommit": "9a84d330aba29bffd88ae5e7bf9956f0048e457a",
+      "connectionCheck": {
+        "assignmentId": "69b53b79-cb36-44e1-9d4c-e81bb99a0a4a",
+        "assumedInputs": [
+          {
+            "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+            "taskId": "strip_growth_below_mu"
+          },
+          {
+            "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+            "taskId": "sums_reduction"
+          }
+        ],
+        "basisDigest": "da7f4387824491fa57bc65b6a8f77d5a5d89aee9719d30eee687cc99607ae267",
+        "consumer": {
+          "taskDigest": "ab8c91c92c1d5d985ed03edfaee27bbef6df38455b84a82711d07d8d13e77890",
+          "taskId": "initial_goal_1"
+        },
+        "dependenciesDigest": "ff09395ec6e87e8e16f0ba75e82a0f945dbe162d149608dab84961349f99d31f",
+        "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+        "inputs": [
+          {
+            "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+            "taskId": "strip_growth_below_mu"
+          },
+          {
+            "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+            "taskId": "sums_reduction"
+          }
+        ],
+        "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+        "routesDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "schema": "theorem-os.consumer-connection.v1",
+        "seedCommit": "e91efd3c840a5f3585db67f3c414291429590aed",
+        "workerId": "engineer"
+      },
+      "dependencies": [
+        {
+          "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+          "taskId": "strip_growth_below_mu"
+        },
+        {
+          "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+          "taskId": "sums_reduction"
+        }
+      ],
+      "groupId": "main",
+      "researchBasis": {
+        "dependencies": [
+          {
+            "deliveries": [
+              "a4178d3882beeef3e89b4a26a35d89372bf5a80f922786f0b0536726b2f006ba"
+            ],
+            "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+            "taskId": "strip_growth_below_mu"
+          },
+          {
+            "deliveries": [],
+            "proof": {
+              "conditions": [],
+              "state": "integrated",
+              "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292"
+            },
+            "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+            "taskId": "sums_reduction"
+          }
+        ],
+        "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+        "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+        "retrievalDigest": "f5fa7f00d04e495a9eb0089943ca9e6764e56ca67c96253410933e210be6dfad",
+        "schema": "theorem-os.research-basis.v1",
+        "sourceDigest": "849cdd79f26f89f0cd68dcd6ee1ab9ffe80e4e903afcacee8ad10aa479a7aeb5",
+        "taskDigest": "ab8c91c92c1d5d985ed03edfaee27bbef6df38455b84a82711d07d8d13e77890",
+        "taskId": "initial_goal_1"
+      },
+      "seedCommit": "e91efd3c840a5f3585db67f3c414291429590aed",
+      "taskDigest": "ab8c91c92c1d5d985ed03edfaee27bbef6df38455b84a82711d07d8d13e77890",
+      "taskId": "initial_goal_1",
+      "workerId": "engineer"
+    },
+    "attempts": 2,
+    "parkedRoutes": {},
+    "routeParking": [],
+    "status": "running",
+    "task": {
+      "dependsOn": [
+        "strip_growth_below_mu",
+        "sums_reduction"
+      ],
+      "id": "initial_goal_1",
+      "kind": "goal",
+      "objective": "Prove the frozen original target OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums by applying the checked reduction to the proved width-dependent strip growth bound.",
+      "proofPath": "Submission.lean",
+      "revision": 0,
+      "theoremName": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums"
+    }
+  },
+  "taskStatuses": [
+    {
+      "taskId": "strip_growth_below_mu",
+      "status": "running",
+      "schedulingStatus": "active",
+      "assignment": {
+        "assignmentId": "65f1697f-fa42-4863-bc57-032cd0a476e9",
+        "seedCommit": "72c3ac48330f6892bbb941350a9612ca15a1ac2f",
+        "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+        "taskId": "strip_growth_below_mu",
+        "workerId": "researcher-1"
+      }
+    },
+    {
+      "taskId": "sums_reduction",
+      "status": "integrated",
+      "schedulingStatus": "active",
+      "assignment": {
+        "assignmentId": "a4887df1-cd13-409a-be47-8f79d5f94209",
+        "seedCommit": "e91efd3c840a5f3585db67f3c414291429590aed",
+        "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+        "taskId": "sums_reduction",
+        "workerId": "engineer"
+      }
+    },
+    {
+      "taskId": "initial_goal_1",
+      "status": "running",
+      "schedulingStatus": "active",
+      "assignment": {
+        "assignmentId": "69b53b79-cb36-44e1-9d4c-e81bb99a0a4a",
+        "seedCommit": "e91efd3c840a5f3585db67f3c414291429590aed",
+        "taskDigest": "ab8c91c92c1d5d985ed03edfaee27bbef6df38455b84a82711d07d8d13e77890",
+        "taskId": "initial_goal_1",
+        "workerId": "engineer"
+      }
+    },
+    {
+      "taskId": "initial_research_1",
+      "status": "pending",
+      "schedulingStatus": "active",
+      "assignment": {}
+    },
+    {
+      "taskId": "initial_research_2",
+      "status": "running",
+      "schedulingStatus": "active",
+      "assignment": {
+        "assignmentId": "4c49d375-0f1e-4625-bef9-ed77e841371f",
+        "seedCommit": "2f967225bf28759acba6f55a6ba6c534c0afbac2",
+        "taskDigest": "d3ee9175353ff80857b85331ad4cbd5f804574c36eba9e4564ee849696aac5e4",
+        "taskId": "initial_research_2",
+        "workerId": "researcher-2"
+      }
+    },
+    {
+      "taskId": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+      "status": "pending",
+      "schedulingStatus": "active",
+      "assignment": {
+        "assignmentId": "444ca639-b7bf-443c-888f-48c91187923c",
+        "seedCommit": "950eaafbb5a06536f484dd47659d07d5fb36dafe",
+        "taskDigest": "a566ecb30cfa77e4830a011cabf0228e09e2f0fe59b2557cd987ad6dbbac43ba",
+        "taskId": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+        "workerId": "engineer"
+      }
+    }
+  ],
+  "workers": [
+    {
+      "id": "solver",
+      "sessionTaskId": null,
+      "turns": 59,
+      "sessionId": null
+    },
+    {
+      "id": "researcher-1",
+      "sessionTaskId": "strip_growth_below_mu",
+      "turns": 2,
+      "sessionId": null
+    },
+    {
+      "id": "researcher-2",
+      "sessionTaskId": "initial_research_2",
+      "turns": 14,
+      "sessionId": null
+    },
+    {
+      "id": "engineer",
+      "sessionTaskId": "initial_goal_1",
+      "turns": 13,
+      "sessionId": null
+    }
+  ],
+  "supervisorExit": {
+    "startedAt": "2026-10-24T08:12:42.990Z",
+    "exitedAt": "2026-10-24T08:12:58.034Z",
+    "pid": 2198965,
+    "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+    "run": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json",
+    "reason": "consumer-already-restored-or-scheduled-externally",
+    "exitCode": 0,
+    "latest": {
+      "phase": "native-typed-proof-observed",
+      "runPhase": "running",
+      "turns": 87,
+      "planVersion": "77b7d42ad95450f1f0547b09e9f8d1e72caaf4e33e0ce14c53daf16cbc8246bc",
+      "sumsStatus": "integrated",
+      "sumsTaskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+      "sumsAssignmentId": "a4887df1-cd13-409a-be47-8f79d5f94209",
+      "engineerSessionTaskId": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+      "goalSchedulingStatus": "active",
+      "typedProof": {
+        "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+        "commit": "21c88246de184c2366cdf7dde20f140a7147291c",
+        "deliveryId": "da7f9896-1cff-4839-bf73-d0cefdf65fc6",
+        "deliveryStatus": "verified",
+        "verificationStatus": "kernel_verified",
+        "receipts": [
+          {
+            "receiptId": "lean-0289d782383448bdadd0ef5e",
+            "status": "kernel_verified",
+            "targetCommit": "38f99fd7828b297c25623c3cbcc6e4eb0736c5b0"
+          }
+        ]
+      },
+      "failure": null
+    }
+  },
+  "directStateWrites": false,
+  "leanStarted": false,
+  "modelsStarted": false
+}

@@ -1,0 +1,73 @@
+{
+  "observedAt": "2026-10-24T08:13:00.644010+00:00",
+  "scope": "Only the exact theorem H \u2192 FiniteBridgeSums; H is a local theorem input, and the all-width strict exponential growth bound remains open. This is not acceptance of the original Honeycomb problem.",
+  "sourceCommit": "21c88246de184c2366cdf7dde20f140a7147291c",
+  "sourcePath": "generated/problem/Submission.lean",
+  "sourceBytes": 8813,
+  "sourceSHA256": "6f81ffc481e22c8a189ced1d0de1d154c39e0edc57f17e9c1f492a271139f6e2",
+  "allowedAxioms": [
+    "propext",
+    "Classical.choice",
+    "Quot.sound"
+  ],
+  "nativeReceipts": [
+    {
+      "kind": "proof",
+      "commit": "21c88246de184c2366cdf7dde20f140a7147291c",
+      "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+      "passed": true,
+      "conditions": [],
+      "verificationStatus": "kernel_verified",
+      "receiptId": "lean-0289d782383448bdadd0ef5e",
+      "status": "kernel_verified",
+      "targetCommit": "38f99fd7828b297c25623c3cbcc6e4eb0736c5b0",
+      "sorryCount": 0,
+      "admitCount": 0,
+      "goalsRemaining": 0,
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "theoremName": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_of_stripGrowthBelowMu",
+      "elaboratedDeclarationType": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_of_stripGrowthBelowMu (H : \u2200 (h : \u2115), 1 \u2264 h \u2192 \u2203 C \u03b2, 0 \u2264 C \u2227 0 \u2264 \u03b2 \u2227 \u03b2 < 2 * Real.cos (Real.pi / 8) \u2227 \u2200 (n : \u2115) (s : Finset (OAI.PolynomialVacuumBridge.Corridor.BridgePath h)), (\u2200 p \u2208 s, p.vertices.length = n) \u2192 \u2191s.card \u2264 C * \u03b2 ^ n) : OAI.PolynomialVacuumBridge.Corridor.FiniteBridgeSums",
+      "checkedAt": 1792829223720
+    },
+    {
+      "kind": "integratedCheck",
+      "commit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+      "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+      "passed": true,
+      "conditions": [],
+      "verificationStatus": "kernel_verified",
+      "receiptId": "lean-c48c9c7223a04b1246cd7274",
+      "status": "kernel_verified",
+      "targetCommit": "159ffc03e85110a4ffe8c6ed47eb9d68e430fb62",
+      "sorryCount": 0,
+      "admitCount": 0,
+      "goalsRemaining": 0,
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "theoremName": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_of_stripGrowthBelowMu",
+      "elaboratedDeclarationType": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_of_stripGrowthBelowMu (H : \u2200 (h : \u2115), 1 \u2264 h \u2192 \u2203 C \u03b2, 0 \u2264 C \u2227 0 \u2264 \u03b2 \u2227 \u03b2 < 2 * Real.cos (Real.pi / 8) \u2227 \u2200 (n : \u2115) (s : Finset (OAI.PolynomialVacuumBridge.Corridor.BridgePath h)), (\u2200 p \u2208 s, p.vertices.length = n) \u2192 \u2191s.card \u2264 C * \u03b2 ^ n) : OAI.PolynomialVacuumBridge.Corridor.FiniteBridgeSums",
+      "checkedAt": 1792829245517
+    }
+  ],
+  "leanReopened": false,
+  "modelsStarted": false,
+  "wholeFileStatus": {
+    "originalGoalProved": false,
+    "originalGoalTheorem": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums",
+    "sorryTokenCount": 1,
+    "sorryLocations": [
+      {
+        "line": 195,
+        "text": "sorry"
+      }
+    ],
+    "explanation": "The exact source file retains the original-goal placeholder. Zero sorry/admit in the receipts applies only to the checked reduction declaration and its dependencies."
+  }
+}

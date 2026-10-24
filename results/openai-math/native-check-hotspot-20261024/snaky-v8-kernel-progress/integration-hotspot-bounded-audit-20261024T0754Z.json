@@ -1,0 +1,281 @@
+{
+  "schema": "theorem-os.snaky-v8-bounded-integration-hotspot-audit.v1",
+  "observedAt": "2026-10-24T07:53:46.447675+00:00",
+  "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+  "process": {
+    "pid": 1659442,
+    "present": true,
+    "ppid": 1659440,
+    "state": "S",
+    "startTicks": 129168371,
+    "cpuSeconds": 3408.85,
+    "command": "/runtime/pinned-lean/bin/lean -j1 -R . -o .lake/build/lib/lean/Submission.olean Submission.lean -j1",
+    "cwd": "/workspace/generated/problem",
+    "addressSpaceLimit": "Max address space         34359738368          34359738368          bytes     ",
+    "statusFields": [
+      "TracerPid:\t0",
+      "Uid:\t1001\t1001\t1001\t1001",
+      "VmRSS:\t 9451092 kB",
+      "Threads:\t7"
+    ],
+    "threads": [
+      {
+        "tid": 1659442,
+        "state": "S",
+        "cpuSeconds": 0.02,
+        "wchan": "futex_wait_queue"
+      },
+      {
+        "tid": 1659443,
+        "state": "S",
+        "cpuSeconds": 0.01,
+        "wchan": "io_sq_thread"
+      },
+      {
+        "tid": 1659444,
+        "state": "S",
+        "cpuSeconds": 0.0,
+        "wchan": "ep_poll"
+      },
+      {
+        "tid": 1659445,
+        "state": "S",
+        "cpuSeconds": 0.2,
+        "wchan": "futex_wait_queue"
+      },
+      {
+        "tid": 1659446,
+        "state": "S",
+        "cpuSeconds": 113.18,
+        "wchan": "futex_wait_queue"
+      },
+      {
+        "tid": 1659785,
+        "state": "S",
+        "cpuSeconds": 1657.14,
+        "wchan": "futex_wait_queue"
+      },
+      {
+        "tid": 1659787,
+        "state": "R",
+        "cpuSeconds": 1638.25,
+        "wchan": "0"
+      }
+    ]
+  },
+  "sources": {
+    "integrationProjection": {
+      "path": "/tmp/math-check-Fmiyxm/worktree/generated/problem/Submission.lean",
+      "sha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+      "bytes": 967683
+    },
+    "actualSandboxCopy": {
+      "path": "/tmp/deepscientist-lean-hO3Lv0/checkout/generated/problem/Submission.lean",
+      "sha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+      "bytes": 967683
+    }
+  },
+  "artifacts": [
+    {
+      "path": "/tmp/math-check-Fmiyxm/worktree/generated/problem/.lake/build/lib/lean/Submission.olean",
+      "exists": false,
+      "bytes": null
+    },
+    {
+      "path": "/tmp/math-check-Fmiyxm/worktree/generated/problem/.lake/build/lib/lean/Submission.ilean",
+      "exists": false,
+      "bytes": null
+    },
+    {
+      "path": "/tmp/math-check-Fmiyxm/worktree/generated/problem/.lake/build/lib/lean/Submission.olean.private",
+      "exists": false,
+      "bytes": null
+    },
+    {
+      "path": "/tmp/math-check-Fmiyxm/worktree/generated/problem/.lake/build/lib/lean/Submission.olean.server",
+      "exists": false,
+      "bytes": null
+    },
+    {
+      "path": "/tmp/deepscientist-lean-hO3Lv0/checkout/generated/problem/.lake/build/lib/lean/Submission.olean",
+      "exists": false,
+      "bytes": null
+    },
+    {
+      "path": "/tmp/deepscientist-lean-hO3Lv0/checkout/generated/problem/.lake/build/lib/lean/Submission.ilean",
+      "exists": false,
+      "bytes": null
+    },
+    {
+      "path": "/tmp/deepscientist-lean-hO3Lv0/checkout/generated/problem/.lake/build/lib/lean/Submission.olean.private",
+      "exists": false,
+      "bytes": null
+    },
+    {
+      "path": "/tmp/deepscientist-lean-hO3Lv0/checkout/generated/problem/.lake/build/lib/lean/Submission.olean.server",
+      "exists": false,
+      "bytes": null
+    }
+  ],
+  "nativeGate": {
+    "phase": "checking",
+    "resultStatus": "prepared",
+    "startupOnlyResult": true,
+    "evaluator": {
+      "status": "skipped"
+    },
+    "canonicalCheckpointCommit": "71280e0208b8e116fc4dafafb95ff49fc6b9173b",
+    "eventsSinceOriginalGoalPass": [
+      {
+        "event": "task_checked",
+        "at": 1792824901632,
+        "taskId": "v8_original_goal",
+        "passed": true,
+        "conditional": false,
+        "commit": "012b6908e15fdec29108ed8fe2f4ccaeba97e2f7"
+      },
+      {
+        "event": "obligation_progress",
+        "at": 1792824901633,
+        "receipt": {
+          "schema": "theoremos.obligation-progress.v1",
+          "evidence": "recorded-not-replayed",
+          "acceptance": "not-assessed",
+          "kind": "transition",
+          "at": 1792824901633,
+          "beforeDigest": "eddae366961418a4371983f2279e29535f940c79a7a556cbba46d1468afb11bd",
+          "afterDigest": "ae6a9317f37a4ec7099ada020b4866e13c4a901dff4955437b06e8a63cb10979",
+          "environmentChanged": false,
+          "obligations": {
+            "new": [],
+            "closed": [],
+            "reopened": [],
+            "removed": [],
+            "changed": [
+              {
+                "before": {
+                  "closed": false,
+                  "conditions": [],
+                  "groupId": "main",
+                  "kind": "goal",
+                  "recordedProof": "none",
+                  "referenceCoverage": "missing",
+                  "taskDigest": "9cf4184cb210eff2e77b59dcd3eac6be25461694b0d320baa9b500d5629acf3f",
+                  "taskId": "v8_original_goal"
+                },
+                "after": {
+                  "closed": false,
+                  "conditions": [],
+                  "evidenceDigest": "2f9c716d134d5990d8cd102fe5ddbf456b6cee3b02f63da1c5e3d9f9adac8620",
+                  "groupId": "main",
+                  "kind": "goal",
+                  "recordedProof": "unverified",
+                  "referenceCoverage": "missing",
+                  "taskDigest": "9cf4184cb210eff2e77b59dcd3eac6be25461694b0d320baa9b500d5629acf3f",
+                  "taskId": "v8_original_goal"
+                }
+              }
+            ]
+          },
+          "goalFrontiers": [],
+          "blockers": {
+            "new": [],
+            "parked": [],
+            "reopened": [],
+            "superseded": [],
+            "removed": [],
+            "changed": []
+          },
+          "routes": [],
+          "advisory": {
+            "proposed": [],
+            "completed": [],
+            "reopened": [],
+            "removed": [],
+            "changed": []
+          }
+        }
+      },
+      {
+        "event": "edit_recheck_updated",
+        "at": 1792824901634,
+        "id": "snaky-conditional-v8-return-to-native",
+        "recheck": {
+          "status": "pending",
+          "tasks": [
+            {
+              "taskId": "v8_original_goal",
+              "taskDigest": "9cf4184cb210eff2e77b59dcd3eac6be25461694b0d320baa9b500d5629acf3f",
+              "status": "pending",
+              "lastCheck": {
+                "commit": "012b6908e15fdec29108ed8fe2f4ccaeba97e2f7",
+                "sourceDigest": "423859076783e6c80a91fae42f9b6c49de237224fe193d171337fbb2ac68944a",
+                "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+                "passed": true,
+                "conditional": false,
+                "receiptIds": [
+                  "lean-9d717a842be4b918425377eb"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "event": "integration_queue_started",
+        "at": 1792824901647,
+        "waitedMs": 0
+      }
+    ],
+    "publisherDirectories": [],
+    "currentlyAwaited": "Native merged-task verification (checkTaskProof on merged source dc40df…), still within the initial lean -o Submission.olean command. The subsequent .deepscientist-declarations-*.lean query has not run because its parent shell awaits this compiler.",
+    "noObservedTaskIntegratedEvent": true,
+    "noObservedEvaluatedPassed": true,
+    "remainingAfterThisGate": [
+      "task_integrated publication",
+      "whole-target verification",
+      "fixed review as required by native flow",
+      "independent S3 check",
+      "unchanged publisher build/comparator and final supervisor completion"
+    ]
+  },
+  "hotspotEvidence": {
+    "singleStackAttempt": "integration-1659442-single-stack-attempt.json",
+    "elapsedSeconds": 0.13277397584170103,
+    "tracerPidAfter": "TracerPid:\t0",
+    "offlineSymbolization": "integration-stack-offline-symbolization.json",
+    "sampledWorkerTid": 1659785,
+    "observedTopFunction": "Lean C++ instantiate_lparams expression visitor",
+    "observedAdditionalRawFrameFunction": "lean::instantiate on universe levels",
+    "sharedLibrarySameMappedInode": true,
+    "LibrarySuggestionsExportChainObserved": false,
+    "attribution": "The sampled worker was executing Lean C++ expression/universe instantiation primitives. Because the debugger could not load the namespaced executable, the shallow backtrace cannot recover an enclosing elaborator, kernel checker, or LibrarySuggestions exporter caller. This sample does not establish the same metadata-export hotspot seen in Character, and does not establish that Snaky has completed proof checking."
+  },
+  "receiptReuse": {
+    "formalCacheFilesScanned": 256,
+    "scanErrors": [],
+    "exactIntegrationProofHashSuccessfulReceipts": [],
+    "historicalSnakyResultsFound": 3,
+    "existingMatchingHashReports": [
+      "canonical-v8-native-merge-projection-receipt.json (static merge/parser only)",
+      "canonical-v8-remaining-gates-preflight.json (static preflight only)",
+      "ConditionalV8IntegrationContextProbe.receipt.json (focused probe, not full candidate receipt)"
+    ],
+    "noSupportedSkipFound": true,
+    "reason": "No successful whole-source native receipt was found for the exact integrated bytes dc40df…. The successful original-goal receipt binds different bytes 712ecd…, task identity, commit and project root; static/source-equivalence and focused-probe reports cannot be promoted to this gate. No cache entry was installed, edited or relabeled."
+  },
+  "actions": {
+    "readOnlyProcessAndLogs": true,
+    "singleGdbAttachDetachedNaturally": true,
+    "stackAttemptSeconds": 0.13277397584170103,
+    "additionalAttach": false,
+    "newLeanCompilation": false,
+    "processTerminated": false,
+    "activeSourceModified": false,
+    "runtimeModified": false,
+    "cacheModified": false,
+    "nativeCheckpointModified": false
+  },
+  "nativeAcceptance": false,
+  "official": false
+}

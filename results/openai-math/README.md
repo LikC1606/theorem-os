@@ -10,14 +10,14 @@
 | [Cartier 图域回缩的紧致性](cartier_chart_compactness_support/README.md) | C | 066-02 | Lean、隔离原比较器、新受保护环境原生 evaluated_passed | 尚无确认 |
 | [Snaky 616 行证书](snaky_certificate/README.md) | C | 187-01 | 原目标、集成、全目标、固定复审和原比较器全部通过；原生 evaluated_passed | 尚无确认 |
 
-归档 7 个完整原题证明：5 个原生最终通过，SnakyCertificate 于北京时间 2026-10-24 06:15 完成原生最终验收。SnakyConditional V7 原生目标检查通过，集成错误已定位并修复源码作用域，V8 正在原生检查。CharacterVarieties V12 的 180 个辅助声明已全部通过，固定点候选已直接进入原生宿主检查，原完整单文件检查保留。这两题仍待原生最终验收（Cartier 与 SnakyCertificate 为独立补跑；主 campaign 保留历史状态）。保留源码、固定依赖、身份、SHA 和归因；不计入根目录 6 个 LeanEval 官方记录。新增证明含外部辅助，归因见各成果包。
+归档 7 个完整原题证明：5 个原生最终通过，SnakyCertificate 于北京时间 2026-10-24 06:15 完成原生最终验收。SnakyConditional V8 已通过原生原目标内核检查，正在集成验收。CharacterVarieties 的加速版完整单文件在 635.03 秒内编译成功，公理审计和独立原比较器检查均通过，已启动独立原生验收入口；旧检查仍保留。这两题仍待原生最终验收（Cartier 与 SnakyCertificate 为独立补跑；主 campaign 保留历史状态）。保留源码、固定依赖、身份、SHA 和归因；不计入根目录 6 个 LeanEval 官方记录。新增证明含外部辅助，归因见各成果包。
 
 ## 新增完整内核证明
 
 | 题目 | 档位 | 手稿 | 已完成 | 待完成 |
 | --- | --- | --- | --- | --- |
-| [Snaky 普通 35 步必胜策略](snaky_conditional/README.md) | C | 187-01 | 完整合法策略与棋子数；V6 本地双通过；V7 原生目标检查通过；V8 兼容预检通过 | V8 原生检查、集成及最终验收 |
-| [CharacterVarieties 全部 seam 方程](character_varieties_all_seams_support/README.md) | C | 027-01 | 完整原题与全部八分支的模块化证明；V12 的 180 个辅助声明及原生合并预检通过 | 固定点源码的原生宿主检查及最终验收 |
+| [Snaky 普通 35 步必胜策略](snaky_conditional/README.md) | C | 187-01 | 完整合法策略与棋子数；V8 原生原目标内核通过，exitCode=0 | V8 集成及最终验收 |
+| [CharacterVarieties 全部 seam 方程](character_varieties_all_seams_support/README.md) | C | 027-01 | 整份编译 635.03 秒通过；公理审计通过；复用真实编译产物的独立原比较器 41.15 秒通过；冻结守卫与合并固定点通过 | 加速版原生最终验收 |
 
 这两项为外部辅助完成的本地内核证明，尚无 OpenAI 托管验收确认。
 
@@ -28,5 +28,7 @@
 [2026-10-24 Honeycomb 切换新构建继续求解](honeycomb-workflow-migration-20261024/README.md)：保留旧 114 轮记录，正式续跑重验条件性证明，四个 worker 已在新构建开始工作，五项预算全部无限。
 
 [2026-10-24 在途检查调度调整与源码试验](check-acceleration-followup-20261024/README.md)：两条正式 Lean 检查采用本地 CPU 核组，保留原调度及回读；两项源码试验未显示可靠收益，未采用新候选，尚无整题提速倍数。
+
+[2026-10-24 验收热点定位与加速版](native-check-hotspot-20261024/README.md)：Character 的引理搜索元数据导出热点已定位，加速版整份编译、公理审计及独立原比较器均通过。新入口持续运行；Honeycomb 的归约已获原生内核验收并集成，总目标调度已恢复，核心增长率仍待证明。
 
 [验收可靠性修复与验证回执](validation-reliability-20261023/README.md)：长载荷递送、首错摘要和宿主检查修复已通过 344 项测试；补丁归档，数学通过数不变。

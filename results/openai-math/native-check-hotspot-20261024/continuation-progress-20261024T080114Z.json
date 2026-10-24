@@ -1,0 +1,205 @@
+{
+  "observedAt": "2026-10-24T08:01:14.225884+00:00",
+  "nativeFinalPassCount": 5,
+  "officialHostedAcceptanceConfirmed": false,
+  "character": {
+    "fullSourceCompile": {
+      "startedAt": "2026-10-24T07:14:56.841164+00:00",
+      "supervisorPid": 1701655,
+      "leanPid": 1701656,
+      "sourceSHA256": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-j1",
+        "-R",
+        ".",
+        "-o",
+        "Submission.olean",
+        "Submission.lean"
+      ],
+      "leanPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-sync-def-v2-candidate:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-sync-def-v2-candidate/dependencies:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/plausible/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/aesop/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/batteries/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/importGraph/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/Qq/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/mathlib/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/LeanSearchClient/.lake/build/lib/lean:/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages/proofwidgets/.lake/build/lib/lean",
+      "addressSpaceLimitBytes": 34359738368,
+      "timeLimitSeconds": 0,
+      "nativeAcceptance": false,
+      "finishedAt": "2026-10-24T07:25:31.868475+00:00",
+      "elapsedSeconds": 635.0284720240161,
+      "exitCode": 0,
+      "oleanExists": true,
+      "oleanSHA256": "11e1303a4cfc4153461ef42b62b5a1aaa03b437024a95d379253824bdefe62dc"
+    },
+    "axiomAudit": {
+      "startedAt": "2026-10-24T07:26:51.995832+00:00",
+      "finishedAt": "2026-10-24T07:26:53.507268+00:00",
+      "elapsedSeconds": 1.5114519610069692,
+      "exitCode": 0,
+      "sourceSHA256": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3",
+      "oleanSHA256": "11e1303a4cfc4153461ef42b62b5a1aaa03b437024a95d379253824bdefe62dc",
+      "auditSourceSHA256": "e32ce9c940d5e1f87b1b678789104b0f73b26d9c3d930e67d601b7a65565fb7b",
+      "auditOutputSHA256": "ef1a4f0e4d80a9de7390a1a434701dd2df66c30b246d39c59d6328b5092890bf",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "permittedAxioms": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ],
+      "passed": true,
+      "nativeAcceptance": false,
+      "originalTarget": "OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams",
+      "retryReason": "Missing process exit status for first unsupervised audit; it had already exited."
+    },
+    "continuation": {
+      "phase": "waiting_for_startup",
+      "startedAt": "2026-10-24T07:33:33.794925+00:00",
+      "nativeAccepted": false,
+      "sourceQueued": false,
+      "timeLimitSeconds": 0,
+      "observedAt": "2026-10-24T07:33:33.795184+00:00",
+      "sourceSHA256": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3"
+    },
+    "startup": {
+      "observedAt": "2026-10-24T07:18:16.216720+00:00",
+      "target": "CharacterVarietiesAllSeamsSupport",
+      "phase": "startup_running",
+      "buildId": "d3369e50-0985-4155-804e-baba6801c575",
+      "output": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/native-sync-def-attempt/native-followup/result.json",
+      "unlimitedBudgets": {
+        "maxRunSeconds": 0,
+        "maxTurns": 0,
+        "maxTurnSeconds": 0,
+        "maxTotalTokens": 0,
+        "evaluatorTimeoutSeconds": 0
+      },
+      "prepareTimeoutSeconds": 0,
+      "modelInvocationPossible": false,
+      "nativeAccepted": false,
+      "originalCampaignChanged": false,
+      "childPid": 1803747
+    },
+    "supportChecksStarted": {
+      "solver": 57,
+      "researcher-1": 45,
+      "researcher-2": 45,
+      "engineer": 45
+    },
+    "latestModule": {
+      "solver": "OAI/AlgebraicGeometry/CharacterVarieties/Seams/ProducedEquations.lean",
+      "researcher-1": "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/MarkedDiagram.lean",
+      "researcher-2": "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/MarkedDiagram.lean",
+      "engineer": "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/MarkedDiagram.lean"
+    }
+  },
+  "runs": {
+    "characterOld": {
+      "stateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/native-followup/result.json.runtime/state.json",
+      "stateSHA256AtObservation": "835e5b12eb57ef62f4919471919d1e4bd01c80a06c738eac20ef6d5a20c8f64d",
+      "runId": "be2c8bbd-71c7-4dc5-aa21-1c3a7550a2c6",
+      "phase": "checking",
+      "turns": 36,
+      "tasks": [
+        {
+          "id": "initial_goal_1",
+          "taskSchedulingStatus": null,
+          "runtimeStatus": "running",
+          "ownerId": "engineer",
+          "assignmentId": "aa60ff53-d823-426a-8c81-c0988517d3b7",
+          "workerId": "engineer",
+          "proofPassed": null,
+          "verificationStatus": null
+        }
+      ]
+    },
+    "snaky": {
+      "stateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/result.json.runtime/state.json",
+      "stateSHA256AtObservation": "1b8dc9e01ceb321c3dc27d50ef9c9ce6a9cc7a2814627eb937538397bd179438",
+      "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+      "phase": "checking",
+      "turns": 4,
+      "tasks": [
+        {
+          "id": "v8_original_goal",
+          "taskSchedulingStatus": "active",
+          "runtimeStatus": "delivered",
+          "ownerId": "engineer",
+          "assignmentId": "4f0116ef-91c2-478c-a2f5-8233dc4e9bf1",
+          "workerId": "engineer",
+          "proofPassed": true,
+          "verificationStatus": "kernel_verified"
+        }
+      ]
+    },
+    "honeycomb": {
+      "stateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/state.json",
+      "stateSHA256AtObservation": "2e82604de37ea340c7fad8c85727f74b23bf8fb762f53cd8563e90ad0599c5ec",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "phase": "running",
+      "turns": 75,
+      "tasks": [
+        {
+          "id": "strip_growth_below_mu",
+          "taskSchedulingStatus": null,
+          "runtimeStatus": "running",
+          "ownerId": null,
+          "assignmentId": "65f1697f-fa42-4863-bc57-032cd0a476e9",
+          "workerId": "researcher-1",
+          "proofPassed": null,
+          "verificationStatus": null
+        },
+        {
+          "id": "sums_reduction",
+          "taskSchedulingStatus": null,
+          "runtimeStatus": "running",
+          "ownerId": "engineer",
+          "assignmentId": "a4887df1-cd13-409a-be47-8f79d5f94209",
+          "workerId": "engineer",
+          "proofPassed": null,
+          "verificationStatus": null
+        },
+        {
+          "id": "initial_goal_1",
+          "taskSchedulingStatus": "paused",
+          "runtimeStatus": "pending",
+          "ownerId": null,
+          "assignmentId": "69b53b79-cb36-44e1-9d4c-e81bb99a0a4a",
+          "workerId": "engineer",
+          "proofPassed": null,
+          "verificationStatus": null
+        },
+        {
+          "id": "initial_research_1",
+          "taskSchedulingStatus": null,
+          "runtimeStatus": "pending",
+          "ownerId": "researcher-1",
+          "assignmentId": null,
+          "workerId": null,
+          "proofPassed": null,
+          "verificationStatus": null
+        },
+        {
+          "id": "initial_research_2",
+          "taskSchedulingStatus": null,
+          "runtimeStatus": "running",
+          "ownerId": "researcher-2",
+          "assignmentId": "4c49d375-0f1e-4625-bef9-ed77e841371f",
+          "workerId": "researcher-2",
+          "proofPassed": null,
+          "verificationStatus": null
+        },
+        {
+          "id": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+          "taskSchedulingStatus": null,
+          "runtimeStatus": "pending",
+          "ownerId": null,
+          "assignmentId": null,
+          "workerId": null,
+          "proofPassed": null,
+          "verificationStatus": null
+        }
+      ]
+    }
+  },
+  "processes": "    PID    PPID ELAPSED %CPU   RSS STAT COMMAND\n1179438 1077121    7737 99.9 4381648 Sl lean\n1250029 1250004    7211  1.2 340692 Ssl bun\n1659442 1659440    3860 99.8 10049028 Sl lean\n1803747 1803746    2578  0.5 211168 Ssl bun\n1832572       1    1660  0.0 11264 Ss   python3\n3384609 3384608   25635  101 4515836 Sl lean\n"
+}

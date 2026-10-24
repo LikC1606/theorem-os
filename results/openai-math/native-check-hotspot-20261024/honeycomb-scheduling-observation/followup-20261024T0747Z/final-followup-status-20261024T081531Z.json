@@ -1,0 +1,135 @@
+{
+  "observedAt": "2026-10-24T08:15:31.345336+00:00",
+  "runPhase": "running",
+  "turns": 89,
+  "planVersion": "77b7d42ad95450f1f0547b09e9f8d1e72caaf4e33e0ce14c53daf16cbc8246bc",
+  "tasks": [
+    {
+      "taskId": "strip_growth_below_mu",
+      "status": "running",
+      "schedulingStatus": "active",
+      "assignmentId": "65f1697f-fa42-4863-bc57-032cd0a476e9",
+      "proof": null,
+      "integratedCheck": null
+    },
+    {
+      "taskId": "sums_reduction",
+      "status": "integrated",
+      "schedulingStatus": "active",
+      "assignmentId": "a4887df1-cd13-409a-be47-8f79d5f94209",
+      "proof": {
+        "passed": true,
+        "commit": "21c88246de184c2366cdf7dde20f140a7147291c",
+        "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+        "conditions": null,
+        "verificationStatus": "kernel_verified",
+        "receiptIds": [
+          "lean-0289d782383448bdadd0ef5e"
+        ]
+      },
+      "integratedCheck": {
+        "passed": true,
+        "commit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+        "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+        "conditions": null,
+        "verificationStatus": "kernel_verified",
+        "receiptIds": [
+          "lean-c48c9c7223a04b1246cd7274"
+        ]
+      }
+    },
+    {
+      "taskId": "initial_goal_1",
+      "status": "running",
+      "schedulingStatus": "active",
+      "assignmentId": "69b53b79-cb36-44e1-9d4c-e81bb99a0a4a",
+      "proof": null,
+      "integratedCheck": null
+    },
+    {
+      "taskId": "initial_research_1",
+      "status": "pending",
+      "schedulingStatus": "active",
+      "assignmentId": null,
+      "proof": null,
+      "integratedCheck": null
+    },
+    {
+      "taskId": "initial_research_2",
+      "status": "running",
+      "schedulingStatus": "active",
+      "assignmentId": "4c49d375-0f1e-4625-bef9-ed77e841371f",
+      "proof": null,
+      "integratedCheck": null
+    },
+    {
+      "taskId": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+      "status": "pending",
+      "schedulingStatus": "active",
+      "assignmentId": "444ca639-b7bf-443c-888f-48c91187923c",
+      "proof": null,
+      "integratedCheck": null
+    }
+  ],
+  "workers": [
+    {
+      "id": "solver",
+      "sessionTaskId": null,
+      "turns": 60
+    },
+    {
+      "id": "researcher-1",
+      "sessionTaskId": "strip_growth_below_mu",
+      "turns": 2
+    },
+    {
+      "id": "researcher-2",
+      "sessionTaskId": "initial_research_2",
+      "turns": 14
+    },
+    {
+      "id": "engineer",
+      "sessionTaskId": "initial_goal_1",
+      "turns": 13
+    }
+  ],
+  "recentDeliveries": [
+    {
+      "id": "4d11a4a9-6997-4cff-ad32-a89476ff9ace",
+      "kind": "proof",
+      "taskId": "initial_goal_1",
+      "status": "superseded",
+      "commit": "e91efd3c840a5f3585db67f3c414291429590aed",
+      "createdAt": 1792828526668
+    },
+    {
+      "id": "6c9865a9-23fe-4075-8fb3-831cd197660e",
+      "kind": "research",
+      "taskId": "initial_research_2",
+      "status": "conditional",
+      "commit": "0a89192573f85da70dce47df9de9bb2d027b9111",
+      "createdAt": 1792828673449
+    },
+    {
+      "id": "da7f9896-1cff-4839-bf73-d0cefdf65fc6",
+      "kind": "proof",
+      "taskId": "sums_reduction",
+      "status": "verified",
+      "commit": "21c88246de184c2366cdf7dde20f140a7147291c",
+      "createdAt": 1792829245620
+    }
+  ],
+  "resumeEdit": {
+    "affectedTasks": [],
+    "appliedAt": 1792829563061,
+    "baseVersion": "e924b550f8be61227e667386f1f2d91aeb2a283f85735cb3d03b96d227689ea8",
+    "id": "honeycomb-consumer-resume-e924b550f8be",
+    "planVersion": "77b7d42ad95450f1f0547b09e9f8d1e72caaf4e33e0ce14c53daf16cbc8246bc",
+    "receivedAt": 1792829563039,
+    "recheck": {
+      "status": "not-required",
+      "tasks": []
+    },
+    "status": "applied"
+  }
+}

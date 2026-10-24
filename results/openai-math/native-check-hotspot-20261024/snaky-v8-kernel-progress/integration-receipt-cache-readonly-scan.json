@@ -1,0 +1,136 @@
+{
+  "observedAt": "2026-10-24T07:50:12.670368+00:00",
+  "directory": "/tmp/mathematics/formal-verification-v1",
+  "filesScanned": 256,
+  "matches": [
+    {
+      "path": "/tmp/mathematics/formal-verification-v1/dd0294b248a95d2382349754bb0b5da2643ee8fc9b4afe819b82dd57a8b34d1f.json",
+      "fileSHA256": "c7de320911c0f92a51accc624aeeb34528c50040682096598d9e3169e94756b1",
+      "expiresAt": 1792787451841,
+      "projectRootHash": "67fccc96b3436b79f1678a7a296949749159122d3097585998d2b7bea28e9774",
+      "sessionStatus": "kernel_verified",
+      "targetCommit": "0e5d85ba4c730c4b72ebb79bbdf59a2dd512840a",
+      "startedAt": 1792777586107,
+      "checkedAt": 1792785651841,
+      "durationMs": 8065734,
+      "items": [
+        {
+          "targetCommit": "0e5d85ba4c730c4b72ebb79bbdf59a2dd512840a",
+          "statementHash": "b5115abb43ed2e569b1f401058ed4e438ec9223c261c45808fde55e5b3aec1e3",
+          "leanStatementHash": "55408c43d926a78d97a7b1101338f45e28bddc9ca7f7eef42ee947f324c67000",
+          "claim": "statement",
+          "proofHash": "94e1154db63070c8dd4b2344a5f040200fe9174937e578d95f327cd803cc9f77",
+          "proofPath": "Submission.lean",
+          "theoremName": "OAI.SnakyConditional.snaky_winning_strategy_with_legal_states",
+          "theoremDeclarationHash": "e85fb8dc387f0aa8ff80d34a0b2214cf46194db1d634827e05b20e06690ae897",
+          "sourceDeclarationHash": "86440ec197f3e88a1cda1d22672ff67a6390425412b08d418dde27bba4c81614",
+          "toolchain": {
+            "lean": "lake",
+            "lake": "lakefile.toml"
+          },
+          "goalsRemaining": 0,
+          "sorryCount": 0,
+          "admitCount": 0,
+          "axioms": [
+            "propext",
+            "Classical.choice",
+            "Quot.sound"
+          ],
+          "checkedAt": 1792785651828,
+          "checkId": "check-1",
+          "sessionId": "313c60ab-d927-4c7c-a605-100fc5fbc499",
+          "status": "kernel_verified",
+          "verifier": "lean-kernel",
+          "receiptId": "lean-2dac7a1d08f3e61f9f78605b"
+        }
+      ]
+    },
+    {
+      "path": "/tmp/mathematics/formal-verification-v1/6bf1330510cebbbc13abe1fdd34116a0e9237907eab276776d209714e4435dff.json",
+      "fileSHA256": "b3c946ed60d9c819755f2c54268b5dd73eae1bce2b004cdfccb32ccb5597b9a5",
+      "expiresAt": 1792826628151,
+      "projectRootHash": "1e7386d686017158aa1b560ac73142fde5909393913ed2ce3ce95c6afb768856",
+      "sessionStatus": "kernel_verified",
+      "targetCommit": "ca79e2d6809ed552b43e1c344bd3141136142e3a",
+      "startedAt": 1792816756042,
+      "checkedAt": 1792824828151,
+      "durationMs": 8072109,
+      "items": [
+        {
+          "targetCommit": "ca79e2d6809ed552b43e1c344bd3141136142e3a",
+          "statementHash": "9cf4184cb210eff2e77b59dcd3eac6be25461694b0d320baa9b500d5629acf3f",
+          "leanStatementHash": "9cf4184cb210eff2e77b59dcd3eac6be25461694b0d320baa9b500d5629acf3f",
+          "claim": "statement",
+          "proofHash": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab",
+          "proofPath": "Submission.lean",
+          "theoremName": "OAI.SnakyConditional.snaky_winning_strategy_with_legal_states",
+          "theoremDeclarationHash": "e85fb8dc387f0aa8ff80d34a0b2214cf46194db1d634827e05b20e06690ae897",
+          "sourceDeclarationHash": "86440ec197f3e88a1cda1d22672ff67a6390425412b08d418dde27bba4c81614",
+          "toolchain": {
+            "lean": "lake",
+            "lake": "lakefile.toml"
+          },
+          "goalsRemaining": 0,
+          "sorryCount": 0,
+          "admitCount": 0,
+          "axioms": [
+            "propext",
+            "Classical.choice",
+            "Quot.sound"
+          ],
+          "checkedAt": 1792824828133,
+          "checkId": "check-1",
+          "sessionId": "19b54abf-df07-4094-b8a3-71bf6e0254a6",
+          "status": "kernel_verified",
+          "verifier": "lean-kernel",
+          "receiptId": "lean-9d717a842be4b918425377eb"
+        }
+      ]
+    },
+    {
+      "path": "/tmp/mathematics/formal-verification-v1/432b03e381f1b055a83c92cda89d358c1c1bbce6a91c6cd53441e1c40c4d7645.json",
+      "fileSHA256": "797646692e74a51de312f6df35cbe5076ca105df8536a721ac9703b5c2f524e4",
+      "expiresAt": 1792799995629,
+      "projectRootHash": "36e684fe905f492d9edfcb50eab15fc9276de6ebf5d6403e8b41c60c96c83fd7",
+      "sessionStatus": "kernel_verified",
+      "targetCommit": "1acd872219de95c18283879d3911292b10cd1b87",
+      "startedAt": 1792789969240,
+      "checkedAt": 1792798195629,
+      "durationMs": 8226389,
+      "items": [
+        {
+          "targetCommit": "1acd872219de95c18283879d3911292b10cd1b87",
+          "statementHash": "64d2b2b9b288b9560943f1fe2cf556cfbd9db3d0e835c66a3c1f6f58e4bddc4c",
+          "leanStatementHash": "64d2b2b9b288b9560943f1fe2cf556cfbd9db3d0e835c66a3c1f6f58e4bddc4c",
+          "claim": "statement",
+          "proofHash": "2edd54515230fd886561c1a79a37155c90162f85611567f2fbb63db9ea5284a3",
+          "proofPath": "Submission.lean",
+          "theoremName": "OAI.SnakyConditional.snaky_winning_strategy_with_legal_states",
+          "theoremDeclarationHash": "e85fb8dc387f0aa8ff80d34a0b2214cf46194db1d634827e05b20e06690ae897",
+          "sourceDeclarationHash": "86440ec197f3e88a1cda1d22672ff67a6390425412b08d418dde27bba4c81614",
+          "toolchain": {
+            "lean": "lake",
+            "lake": "lakefile.toml"
+          },
+          "goalsRemaining": 0,
+          "sorryCount": 0,
+          "admitCount": 0,
+          "axioms": [
+            "propext",
+            "Classical.choice",
+            "Quot.sound"
+          ],
+          "checkedAt": 1792798195615,
+          "checkId": "check-1",
+          "sessionId": "320a154b-cff1-450b-acf8-4a95a616a940",
+          "status": "kernel_verified",
+          "verifier": "lean-kernel",
+          "receiptId": "lean-439aeec691669d31d1f7a664"
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "readOnly": true,
+  "cacheModified": false
+}

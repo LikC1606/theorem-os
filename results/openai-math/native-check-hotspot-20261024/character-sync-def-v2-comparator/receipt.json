@@ -1,0 +1,41 @@
+{
+  "startedAt": "2026-10-24T07:51:43.221666+00:00",
+  "sourceSHA256": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3",
+  "oleanSHA256": "11e1303a4cfc4153461ef42b62b5a1aaa03b437024a95d379253824bdefe62dc",
+  "originalChallengeSHA256": "ebc3129bfb5ef4a47e0de1d89f0f406ef6603df32355bdfbb9ce278627c1a1f1",
+  "originalComparatorSHA256": "c6bc7eb2e8d770e64482e642a8a6f25f020d73a0df5927a0b6b03b835798fe8b",
+  "adaptedComparatorSHA256": "5595b215acb2ae391c990c12bd42200971b3d13a4da2746deb983a7e4e8f9c13",
+  "comparatorBinarySHA256": "104ea0297ecd090486b15eb8f2be590318eb58ccd552c2779b22f64c318070f1",
+  "submissionRecompiled": false,
+  "nativeAccepted": false,
+  "addressSpaceLimitBytes": 34359738368,
+  "timeLimitSeconds": 0,
+  "attribution": "Standalone original-comparator check of a genuine completed artifact; native pipeline acceptance remains separate.",
+  "commands": [
+    {
+      "label": "challenge",
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "-j1",
+        "-R",
+        ".",
+        "-o",
+        "Challenge.olean",
+        "Challenge.lean"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 1.5247168578207493
+    },
+    {
+      "label": "comparator",
+      "command": [
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/tools-v4.34.1/comparator",
+        "comparator.json"
+      ],
+      "exitCode": 1,
+      "elapsedSeconds": 0.1726300399750471
+    }
+  ],
+  "finishedAt": "2026-10-24T07:51:45.001099+00:00",
+  "passed": false
+}

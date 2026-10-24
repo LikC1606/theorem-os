@@ -15,7 +15,9 @@ Preparation already performed:
 
 `prepare.ts` is one-shot. `transport-preparation.json` records the disposable sandbox source roundtrip, frozen plan parser and 64,000-byte delivery-reader check. Offline validation is not native queue validation or mathematical acceptance.
 
-Remaining actions for the coordinating agent (the full isolated candidate check may proceed in parallel with the native host check):
+The full V2 source compile completed with exit code 0 in 635.03 seconds, and its supervised axiom audit also passed. Native startup is running. `continue-native.py` is already running as a persistent controller: it waits for the actual successful startup receipt, starts native resume, validates the fresh plan, submits the candidate through `queueRunEdit`, and records the actual terminal result. It imposes no time limit. `continuation-started.json` and `continuation-receipt.json` identify the controller and its current phase; inspect these and the startup/resume receipts before taking any manual recovery action. Do not launch a second controller or duplicate resume while they are active.
+
+The original manual launch sequence, now handled by that controller, is:
 
 1. Inspect the exact launch without executing it: `/usr/bin/python3 run-native.py startup --print`.
 2. Start fresh native preparation: `/usr/bin/python3 run-native.py startup`.

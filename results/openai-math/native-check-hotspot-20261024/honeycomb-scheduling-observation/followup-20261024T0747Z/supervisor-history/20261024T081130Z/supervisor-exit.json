@@ -1,0 +1,22 @@
+{
+  "startedAt": "2026-10-24T08:04:58.306Z",
+  "exitedAt": "2026-10-24T08:11:48.664Z",
+  "pid": 2171880,
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "run": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json",
+  "reason": "received-SIGTERM",
+  "exitCode": 143,
+  "latest": {
+    "phase": "waiting-for-native-typed-proof",
+    "runPhase": "running",
+    "turns": 85,
+    "planVersion": "e924b550f8be61227e667386f1f2d91aeb2a283f85735cb3d03b96d227689ea8",
+    "sumsStatus": "integrated",
+    "sumsTaskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+    "sumsAssignmentId": "a4887df1-cd13-409a-be47-8f79d5f94209",
+    "engineerSessionTaskId": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+    "goalSchedulingStatus": "paused",
+    "typedProof": null,
+    "failure": null
+  }
+}

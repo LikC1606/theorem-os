@@ -4,7 +4,9 @@
 
 精确目标是 `OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams`。证明覆盖原题的全部八种 seam 分支，最终定理没有增加前提，公理仅有 `propext`、`Classical.choice` 和 `Quot.sound`。
 
-当前 [V12 单文件候选](candidates/v12/GuardCompatibleAllSeamsV12.lean)保留原题上下文，已通过[原源码保护](candidates/v12/source-guard.json)；180 个辅助声明的默认 CLI 检查自然 exit 0、零报错，耗时约 6 小时 37 分钟，见[回执](candidates/v12/remaining180-receipt.json)与[终态摘要](candidates/v12/remaining180-summary.json)。同源码的完整单文件检查仍在运行，原目标公理审计尚未完成。原发布方比较器和 TheoremOS 原生最终验收尚未通过，也没有 OpenAI 托管验收记录。
+最新[加速版完整单文件](../native-check-hotspot-20261024/character-sync-def-v2-candidate/Submission.lean)在 635.03 秒内整份编译成功，原目标公理审计通过；复用真实编译产物的独立原比较器在 41.15 秒内通过，包含完整 Lean 内核回放。166 个新增辅助声明改用 `def`，其名称、显式类型、证明体与原题保持不变；另外两项保留 `theorem`。冻结源码守卫和合并固定点检查通过，见[全部证据](../native-check-hotspot-20261024/README.md)。加速版已启动完整原生验收入口，TheoremOS 原生最终验收尚待回执，没有 OpenAI 托管验收记录。
+
+早期 [V12 单文件候选](candidates/v12/GuardCompatibleAllSeamsV12.lean)保留原题上下文，已通过[原源码保护](candidates/v12/source-guard.json)；180 个辅助声明的默认 CLI 检查自然 exit 0、零报错，耗时约 6 小时 37 分钟，见[回执](candidates/v12/remaining180-receipt.json)与[终态摘要](candidates/v12/remaining180-summary.json)。该完整单文件长检查仍保留。
 
 早期合并版本曾因新增模块作用域被源码保护以 math_original_context_changed 拒绝；该历史状态保留在 [verification.json](verification.json)及下述拒绝回执中，不代表当前 V12 的源码保护结果。
 

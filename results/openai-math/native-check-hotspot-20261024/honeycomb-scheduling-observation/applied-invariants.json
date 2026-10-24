@@ -1,0 +1,45 @@
+{
+  "observedAt": "2026-10-24T07:31:58.894376+00:00",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "turns": 53,
+  "editId": "honeycomb-sums-typed-6f81ffc481e2-r1-664d9664",
+  "editStatus": "applied",
+  "planVersion": "77b7d42ad95450f1f0547b09e9f8d1e72caaf4e33e0ce14c53daf16cbc8246bc",
+  "originalProblemIdentical": true,
+  "frozenBuildIdentical": true,
+  "allSixTaskIdsAndOrderPreserved": true,
+  "allOtherTaskObjectsIdentical": true,
+  "sumsTaskExactlyMatchesValidatedProposal": true,
+  "groupsAndRoutesIdentical": true,
+  "exactlyOneQueueEntryForEdit": true,
+  "queueEntrySHA256": "f3c5daa45bfce6c30a3480a578ba45358d0f686e1862bc633223f02fe2b7f332",
+  "changedTaskFields": [
+    "ownerId",
+    "revision",
+    "objective"
+  ],
+  "nativeAffectedTasks": [
+    "sums_reduction",
+    "initial_goal_1",
+    "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51"
+  ],
+  "sumsStatus": "pending",
+  "sumsAssignmentWorker": null,
+  "hasSumsProof": false,
+  "hasSumsIntegratedCheck": false,
+  "nativeRecheck": {
+    "status": "pending",
+    "tasks": [
+      {
+        "status": "pending",
+        "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+        "taskId": "sums_reduction"
+      },
+      {
+        "status": "pending",
+        "taskDigest": "ab8c91c92c1d5d985ed03edfaee27bbef6df38455b84a82711d07d8d13e77890",
+        "taskId": "initial_goal_1"
+      }
+    ]
+  }
+}

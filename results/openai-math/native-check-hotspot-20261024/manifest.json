@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-10-24T07:28:58.266287+00:00",
+  "capturedAt": "2026-10-24T08:17:11.308900+00:00",
   "nativeAccepted": false,
   "characterV1KernelCheck": "failed: two section-parameter application mismatches",
   "characterV2FullSourceCompile": "passed: exit0 in 635.028472 seconds",
@@ -10,8 +10,53 @@
   "files": [
     {
       "path": "README.md",
-      "bytes": 4166,
-      "sha256": "5e7c13c4ca71da604bb3cdb178e9c77941f70b3412d3d08a2c1024d568746585"
+      "bytes": 6171,
+      "sha256": "995b60ae54ca325b8dc5ff65a1e3ba217c7f2731545a95dacd312ee5cb1fa7fe"
+    },
+    {
+      "path": "adopt-verified-character-candidate/README.md",
+      "bytes": 6917,
+      "sha256": "675295a828ded66ed271b71234b8fc5250a3b84098d4a7edd153bc858eff6935"
+    },
+    {
+      "path": "adopt-verified-character-candidate/dry-run.json",
+      "bytes": 51155,
+      "sha256": "ec8e1e5aebd6794e30c923e53df1c674e3a754a31ec2040f44546bf27b3eed7e"
+    },
+    {
+      "path": "adopt-verified-character-candidate/failure-control-flow.json",
+      "bytes": 9116,
+      "sha256": "b3675f16e30260def6f83c2b837cce2bcbe36d04541c57305980c88fbd7941d2"
+    },
+    {
+      "path": "adopt-verified-character-candidate/old-resume-cache-audit.json",
+      "bytes": 188541,
+      "sha256": "7917bb1d692b76edf9ca4cbb02e48c4653993ede039f87670b030edf5481ef02"
+    },
+    {
+      "path": "adopt-verified-character-candidate/old-resume-cache-audit.projection-environment-error.json",
+      "bytes": 185106,
+      "sha256": "2f404395f5c645e1c61a0be3d819bf057a1d1dd97bc8fd52dae449ae3b7a2145"
+    },
+    {
+      "path": "adopt-verified-character-candidate/old-resume-native-environment-identity.json",
+      "bytes": 1224,
+      "sha256": "34af072c7642adb31f63fb0e7e94f6a43227e10e28fb39051672452c86a9cd32"
+    },
+    {
+      "path": "adopt-verified-character-candidate/prepare-dry-run.ts",
+      "bytes": 16420,
+      "sha256": "dc3f481d6f726d0c6f6b986d9d2d724c419ad0a9b43416af89c5f9f08b89c1df"
+    },
+    {
+      "path": "adopt-verified-character-candidate/proposed-edit.jsonl",
+      "bytes": 47231,
+      "sha256": "7934059e4c2966d257ee12d246b1d92786fe683ae30c08738a6d51d96340f67f"
+    },
+    {
+      "path": "character-canonical-baseline.lean",
+      "bytes": 796309,
+      "sha256": "0ec8e7e2fbe9ff7f2d4c849c7558c152e24d707d79943d6f7ac08d0b27fa98c9"
     },
     {
       "path": "character-sync-def-candidate/Audit.lean",
@@ -114,9 +159,139 @@
       "sha256": "1113471d311203306db429faefdf6911b8823818cb0aabb3739c163b9024aed2"
     },
     {
+      "path": "character-sync-def-v2-comparator/README.md",
+      "bytes": 927,
+      "sha256": "3d4fa77b75c813f3c3429862705dee64d3b84a26f94fb023e294c9ea9920d522"
+    },
+    {
+      "path": "character-sync-def-v2-comparator/challenge.log",
+      "bytes": 55,
+      "sha256": "827451e39a296bd97ae5f9eb496cdc1b1a55de13738be72f6f92924a35cdd3fa"
+    },
+    {
+      "path": "character-sync-def-v2-comparator/comparator.json",
+      "bytes": 331,
+      "sha256": "5595b215acb2ae391c990c12bd42200971b3d13a4da2746deb983a7e4e8f9c13"
+    },
+    {
+      "path": "character-sync-def-v2-comparator/comparator.log",
+      "bytes": 408,
+      "sha256": "8eec1d003be5a4e5730e27cfb964ab5473352f1bda4ccced620651e376bf3228"
+    },
+    {
+      "path": "character-sync-def-v2-comparator/receipt.json",
+      "bytes": 1543,
+      "sha256": "3a0e924b7bf32e68203c20992c6eed4fe2b12b939df1a14a90f532682e60d844"
+    },
+    {
+      "path": "character-sync-def-v2-comparator/started.json",
+      "bytes": 892,
+      "sha256": "6c087c22963bd02bb097b2f4e1373adf70832ca7073fb0a11a2cf24a8c251e0e"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt/challenge.log",
+      "bytes": 55,
+      "sha256": "827451e39a296bd97ae5f9eb496cdc1b1a55de13738be72f6f92924a35cdd3fa"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt/comparator.json",
+      "bytes": 331,
+      "sha256": "5595b215acb2ae391c990c12bd42200971b3d13a4da2746deb983a7e4e8f9c13"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt/comparator.log",
+      "bytes": 393,
+      "sha256": "bf750222223c69362b872046ec04cb81c58d415f2eb4be3567cc64d6b2b96bad"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt/lakefile.toml",
+      "bytes": 157,
+      "sha256": "3473e5df58454921014ba24f351ed013d624b99605c4b6ff32052b44bbb7f32f"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt/lean-toolchain",
+      "bytes": 25,
+      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt/receipt.json",
+      "bytes": 1610,
+      "sha256": "bb8d69e10fc036eeca1e95fcac5bd79ba369f5170ad480b106e7e65b2d54d246"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt/started.json",
+      "bytes": 958,
+      "sha256": "222dc81a10111fa365b916b6e7e3ef6d92bcdc408423c7b382abefbf85ef175c"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt-v2/Challenge.lean",
+      "bytes": 900,
+      "sha256": "ebc3129bfb5ef4a47e0de1d89f0f406ef6603df32355bdfbb9ce278627c1a1f1"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt-v2/README.md",
+      "bytes": 1980,
+      "sha256": "4b7d28a2e1782d2a4e78b556296afc36c1387f94aef8c0a2f6c65b56abc9af00"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt-v2/challenge.log",
+      "bytes": 55,
+      "sha256": "827451e39a296bd97ae5f9eb496cdc1b1a55de13738be72f6f92924a35cdd3fa"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt-v2/comparator.json",
+      "bytes": 331,
+      "sha256": "5595b215acb2ae391c990c12bd42200971b3d13a4da2746deb983a7e4e8f9c13"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt-v2/comparator.log",
+      "bytes": 843,
+      "sha256": "dc646b1ed113a3ae27b57e858fa10583b015ffd45d5c7595465743614317852c"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt-v2/lake-manifest.json",
+      "bytes": 156,
+      "sha256": "899dc29db17a01b6b1de39149361b7d0951eebeb5804d57c9cbc1cdb1fce581a"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt-v2/lake-manifest.log",
+      "bytes": 128,
+      "sha256": "4eed8508414e577c5982ade770f7af418a9b981653df21868ef9c74b4c894962"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt-v2/lakefile.toml",
+      "bytes": 157,
+      "sha256": "3473e5df58454921014ba24f351ed013d624b99605c4b6ff32052b44bbb7f32f"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt-v2/lean-toolchain",
+      "bytes": 25,
+      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt-v2/receipt.json",
+      "bytes": 1838,
+      "sha256": "c2e4df5530aca86aaaafdfcf238a7463fb508c171ad7f3421359ea27ffadcd5b"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt-v2/started.json",
+      "bytes": 958,
+      "sha256": "0a220a9432cc9661d629c800c8c1686415603fb77a91e988862e9646286ec871"
+    },
+    {
+      "path": "continuation-progress-20261024T080114Z.json",
+      "bytes": 9192,
+      "sha256": "d63b8e0d67ac1aa04dad549225ae0123abc0b2f6e9a769be485acfa2e47d1d34"
+    },
+    {
       "path": "guard-preflight/check-source-v1.ts",
       "bytes": 9466,
       "sha256": "978b3e329a6779ff728feda39d077ce471ed59c8c4d1a35bed79e47273163673"
+    },
+    {
+      "path": "guard-preflight/check-source-v2.ts",
+      "bytes": 11079,
+      "sha256": "6ab5acb6d99ba9654243e1b1259443fbdbb9f778b61891e9e74a5593943a40a0"
     },
     {
       "path": "guard-preflight/check-source.ts",
@@ -139,14 +314,274 @@
       "sha256": "0d1e23e002ac2b51d4baf4d966cef308fdd314cc14d8ca9b74a16871b0e4c92d"
     },
     {
+      "path": "honeycomb-scheduling-observation/README.md",
+      "bytes": 4981,
+      "sha256": "c56e346be172024e0d5c84f6b42e162c70e7d4b0aad72cdf252784f490ed2919"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/applied-invariants.json",
+      "bytes": 1407,
+      "sha256": "0a2350e5d7190ad2d823bc86a546064c4ca4390d14203a892ef591b2ddb5e886"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/README.md",
+      "bytes": 7018,
+      "sha256": "43114385f7c1472af9874ce977c5c4c17391d7d6a61a1743dc525a8b813c389a"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/after-consumer-pause-20261024T075636Z.json",
+      "bytes": 17741,
+      "sha256": "fee25b42a793914518d5d85f65559b57cf296e6ea51d1f6fd738481076a3e8b7"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/after-consumer-resume-20261024T081333Z.json",
+      "bytes": 426843,
+      "sha256": "a77adebccebe282b5310bff022e27ce5e9359a4978cb8a6ceeaee938eab0890c"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/before-scheduling-repair.json",
+      "bytes": 18996,
+      "sha256": "cc1e698384478d871bdba628b1114e99e3cffc8da1163ecff34d57c1b2bf79b1"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/consumer-pause-edit-fixture.jsonl",
+      "bytes": 5174,
+      "sha256": "1b0e718cc9b75d48839bbeef12c05bf4faa77f3639686b240d08eb8fcd1d3a7f"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/consumer-pause-preparation.json",
+      "bytes": 11515,
+      "sha256": "e826de17bbc46d188d0dabea442ba40b780f4602ddb951d340e5abffb499796c"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/consumer-pause-queue-receipt.json",
+      "bytes": 917,
+      "sha256": "f853e90a6b920ff5e81aac5b5b19706dee4ac523cee075b03b0a62dd5c81653d"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/consumer-resume-applied-invariants.json",
+      "bytes": 9777,
+      "sha256": "7be078978b2a85b71abbc66cc2c122ecee80f4df49f266515ca165707896b82c"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/consumer-resume-edit-fixture.jsonl",
+      "bytes": 5157,
+      "sha256": "8477d47e4bd319fd08f7f0c162868041eca8ff64056e3e4d2ff58b641c5a1ee8"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/consumer-resume-preparation.json",
+      "bytes": 11296,
+      "sha256": "f5f38cf53eef16220bc0e1d37620438f1f07486c1c1384b37d4c79196a977ec4"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/final-followup-status-20261024T081531Z.json",
+      "bytes": 3841,
+      "sha256": "92c30d3a5e75320ecbc62a395c8ca7a23aa99668cdf1146d622bd8bdb16f86ed"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/followup-status-20261024T080709Z.json",
+      "bytes": 19272,
+      "sha256": "2306aee6b02e76c536c0dfed26da6cfa53e6f3c39430c859c02e48b732db2a19"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/gate-repair-history-path.txt",
+      "bytes": 188,
+      "sha256": "5340d332ea0a2b18061c7b762749acd97ada064477ee6769b0683fbc8f18a8ac"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/lean-0289d782383448bdadd0ef5e.json",
+      "bytes": 13329,
+      "sha256": "e73aa007e410d9f3d9b1edab9a934bd6ab2e3d202c10fabf832e2f5f1643f50b"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/lean-c48c9c7223a04b1246cd7274.json",
+      "bytes": 13329,
+      "sha256": "c7dd8700893008567674e83e246fd127e426e668a62b88bf57c18f4ea2c98cd7"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/queue-consumer-scheduling.ts",
+      "bytes": 11909,
+      "sha256": "9f3eae437de9ad90cb991ea3b05acfc768f4bab5e6ab0b9d9a5adab144265209"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/researcher-1-enum.cpp",
+      "bytes": 1457,
+      "sha256": "e4346cadbb9da5e9d2f41091cfaacd7b99a298eced08a96175d64cdd7c51e7ab"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/researcher-2-notes.md",
+      "bytes": 57845,
+      "sha256": "0db66848264589c0f4557b9896146b9debb32573c22168e709bb1bc9d2121eb9"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/restore-consumer-supervisor.ts",
+      "bytes": 10934,
+      "sha256": "217dc57b38f27c79c8f83ebbd0c89de1f49cb9a5623a45a4c8e1763f5c12b627"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/sums-integratedCheck-native.json",
+      "bytes": 34936,
+      "sha256": "30dcc501ba5038d992778b2f8dcc62ddc6631374ebe53f4c7031e2e3c83db336"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/sums-native-evidence-summary.json",
+      "bytes": 3549,
+      "sha256": "5d9d7329ce2ab3e82e4d89356fcbe6d819b0c1914e09dcf995ed80bd97ab179d"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/sums-proof-delivery.json",
+      "bytes": 18917,
+      "sha256": "5fa843d9e0429f22218d1380ddd31ca9c67b5e0e6e11cdb539f9a60a702b2481"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/sums-proof-native.json",
+      "bytes": 43628,
+      "sha256": "1c9795ef3eb3876351fd27b6ea2bb412718e159f979d1737b9b6ea50722ea05b"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/sums-reduction-proof-21c88246de18.lean",
+      "bytes": 8813,
+      "sha256": "6f81ffc481e22c8a189ced1d0de1d154c39e0edc57f17e9c1f492a271139f6e2"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor-exit.json",
+      "bytes": 1432,
+      "sha256": "a0f5a9891da2e5c003fddbbe83e6c52d87ff8a58ec424cb6f9b746850cd063a0"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor-history/20261024T080303Z/supervisor-exit.json",
+      "bytes": 854,
+      "sha256": "00a4da192f0ae7d246fabbdc50695b95e8ef13cc6663b7a223c6e465eea0fec2"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor-history/20261024T080303Z/supervisor-launch.json",
+      "bytes": 1766,
+      "sha256": "a9970c3ddccd4061de7a784aa24113f7f78bcd46ce3660e00b5ffe1f8555e86c"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor-history/20261024T080303Z/supervisor-status.json",
+      "bytes": 976,
+      "sha256": "448f5848039319c395bab56537d82d8648f5c0cc02b71db7b722b45e542eeef1"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor-history/20261024T081130Z/queue-consumer-scheduling.ts",
+      "bytes": 11688,
+      "sha256": "cfe04d684bf4673b3209874f1c85625654dfd5ea8cb4c47c9dafc58819f1bcb2"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor-history/20261024T081130Z/restore-consumer-supervisor.ts",
+      "bytes": 10713,
+      "sha256": "ad35b5cee5ba091733e14d83d8f481fdcbac2a994121c93c66aede9d2db98513"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor-history/20261024T081130Z/state-before-gate-repair.json",
+      "bytes": 425592,
+      "sha256": "45bbc624ada1baa306adf0518eaa9e96d60d3e0d2e6f375347b3026da5f603e4"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor-history/20261024T081130Z/supervisor-exit.json",
+      "bytes": 898,
+      "sha256": "eef586d1ca05602908742a2bdb67a8b61b881c357f2f036e265d42b41c16f08b"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor-history/20261024T081130Z/supervisor-launch.json",
+      "bytes": 2150,
+      "sha256": "86593767d6ec9681bce3faf334cfb4eccc57c02067c0d8a481e3db604fdd175a"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor-history/20261024T081130Z/supervisor-status.json",
+      "bytes": 1020,
+      "sha256": "2a6acad093f7e7c4bcbed7229b6b79e80d0be9aac169bbf38027c916673a317c"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor-launch.json",
+      "bytes": 2199,
+      "sha256": "061e574d0e29e062c49fd4f73cf9a93b2a638ad8efbecb23c04963a277325acc"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor-resume-honeycomb-consumer-resume-e924b550f8be.json",
+      "bytes": 7239,
+      "sha256": "b46f39a3b5e9761df206f77165700fcc68d45b821359739d75c256e216235a03"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor-status.json",
+      "bytes": 1497,
+      "sha256": "bbe28b7bee4ed2f4f8207f55113a4d11f43315ff76d234ba21f99a89c17a6dc6"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor.log",
+      "bytes": 9793,
+      "sha256": "e9269247cb192821636626bc82eafa4ec085d31bbef7b2d3b5a942332cab636b"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/human-edit-preparation.json",
+      "bytes": 11577,
+      "sha256": "6034ce1538873710bf0e281e9f38fe32c98e8376c0a95f35ab9ca1cf33731741"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/human-edit-proposal.json",
+      "bytes": 5683,
+      "sha256": "76d4dd21c92e1664975f211bcf260de52b76ece67b67457c4f2a219f1079dac4"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/human-edit-queue-receipt.json",
+      "bytes": 1366,
+      "sha256": "9278fec19c43131226fde48f37febd2882848864b0601c2db44dc06e624983bc"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/observation.json",
+      "bytes": 33074,
+      "sha256": "ef016dfb4c5bf997f91f779bd5da7b9c8b91b1d5e0f66d017b6b1292b6129f86"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/post-queue-observation.json",
+      "bytes": 12045,
+      "sha256": "dbb6843d790fa469c3b72afc278745edb9514ae3a9d51a8b33e7fe9fda0c27a4"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/queue-conditional-reduction.ts",
+      "bytes": 12146,
+      "sha256": "c766ef897af79713b17f4f6be26844bd43384aa5f38609454631a89b7e6b75cc"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/raw-research-delivery.jsonl",
+      "bytes": 3210,
+      "sha256": "f886ea250f32d232d82e5b9d83064b162f7c532a803d67d00bab12fa7a11c414"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/retained-reduction.lean",
+      "bytes": 8813,
+      "sha256": "6f81ffc481e22c8a189ced1d0de1d154c39e0edc57f17e9c1f492a271139f6e2"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/retained-worker-notes.md",
+      "bytes": 7504,
+      "sha256": "ada8eca69bfee7ca547dfb7ecd6a433cc3a38199e985af92da12ddb394768fb7"
+    },
+    {
       "path": "native-sync-def-attempt/README.md",
-      "bytes": 3494,
-      "sha256": "79bb1c4bf46d04e4943c7929a5dbf69cc10cba3f141915985f65afd9db9b20fa"
+      "bytes": 4131,
+      "sha256": "5e275a2582439c8f2231ff4f7bfa6ebed90df580dce0852c3cd2cfe8ab88d415"
     },
     {
       "path": "native-sync-def-attempt/build.json",
       "bytes": 465,
       "sha256": "7528c4ffbc467eeae89ef74cd4d94cbb402ee849d5c26283a74e3d8fa519a80b"
+    },
+    {
+      "path": "native-sync-def-attempt/continuation-receipt.json",
+      "bytes": 303,
+      "sha256": "964068e915114f00d9f9656727aed31ee50f874919de332099f7cd914e1875d8"
+    },
+    {
+      "path": "native-sync-def-attempt/continuation-started.json",
+      "bytes": 145,
+      "sha256": "07cc577ff2c8fe7ea41af4e70754afecf084316a101934192483a92689383bc6"
+    },
+    {
+      "path": "native-sync-def-attempt/continue-native.py",
+      "bytes": 3716,
+      "sha256": "8344eb995a7c15433f19370137b3e2fc98a2115e8938e163bd69c3035506f2ab"
     },
     {
       "path": "native-sync-def-attempt/preparation.json",
@@ -169,6 +604,11 @@
       "sha256": "230edaa63965f9a5212f30a1f871610b360137ba5dff736a9f68ac97a6b15b69"
     },
     {
+      "path": "native-sync-def-attempt/startup-receipt.json",
+      "bytes": 656,
+      "sha256": "a77e4923b2a51fad0f29cbc591136780a2c35b38ff974de3a15ad7ab3b79cfab"
+    },
+    {
       "path": "native-sync-def-attempt/transport-preparation.json",
       "bytes": 48699,
       "sha256": "450afc544a5995b3d58e13cab4bb9ac9fbe59756c349b2dc073f75bb1c517f94"
@@ -179,6 +619,16 @@
       "sha256": "15c36940e430219505468f751b9a388a094908e4376a3eeab549f39e694a5652"
     },
     {
+      "path": "run-character-prebuilt-comparator.py",
+      "bytes": 5157,
+      "sha256": "157ee7b7accb7e35087a8148284d54afc06ce72af701fb066906b5a78e835648"
+    },
+    {
+      "path": "snaky-v8-kernel-progress/INTEGRATION-HOTSPOT-BOUNDED-AUDIT.md",
+      "bytes": 2124,
+      "sha256": "acffed295d41b70a784fc1205cdbe53e4c7a2ecc59472c0cbc768c4fed29aa8c"
+    },
+    {
       "path": "snaky-v8-kernel-progress/ORIGINAL-INTEGRATION-IDENTITY.md",
       "bytes": 1498,
       "sha256": "a68e843761280e68c2619314e81d5b9090dd46830286f6814adaccbbef4b51da"
@@ -187,6 +637,26 @@
       "path": "snaky-v8-kernel-progress/formal-verification-cache.original.json",
       "bytes": 32748,
       "sha256": "b3c946ed60d9c819755f2c54268b5dd73eae1bce2b004cdfccb32ccb5597b9a5"
+    },
+    {
+      "path": "snaky-v8-kernel-progress/integration-1659442-single-stack-attempt.json",
+      "bytes": 3126,
+      "sha256": "baf4dd0aacd6b835837f8f23ea3d0300bcf601e5a121fdfda6a59ecaec09d281"
+    },
+    {
+      "path": "snaky-v8-kernel-progress/integration-hotspot-bounded-audit-20261024T0754Z.json",
+      "bytes": 10137,
+      "sha256": "551b8f20a8819a387c0270a1baadd0adafdeb342d12cecdf856626187270d63f"
+    },
+    {
+      "path": "snaky-v8-kernel-progress/integration-receipt-cache-readonly-scan.json",
+      "bytes": 5908,
+      "sha256": "962ae42c44dfdd24e4791fb2e902f405c1c5ca0b1eb64f794fa0ad4be9ed3c95"
+    },
+    {
+      "path": "snaky-v8-kernel-progress/integration-stack-offline-symbolization.json",
+      "bytes": 1419,
+      "sha256": "acc02a8a7cefc808b01d73574a1982095e4929ce06d89de38d49393d886e186b"
     },
     {
       "path": "snaky-v8-kernel-progress/kernel-progress-evidence.json",
@@ -223,5 +693,8 @@
       "bytes": 1297,
       "sha256": "f3a9ec8cbeaa88621bb3fb5e77a4e5107910c013256a7c669d0fc154468eead5"
     }
-  ]
+  ],
+  "nativeFinalPassCount": 5,
+  "characterV2IndependentOriginalComparator": "passed: unchanged binary, original target and axioms; genuine prebuilt artifact; exit0 in 41.153155 seconds",
+  "honeycombSumsReduction": "native kernel and integration passed; original goal resumed; growth estimate still unproved"
 }

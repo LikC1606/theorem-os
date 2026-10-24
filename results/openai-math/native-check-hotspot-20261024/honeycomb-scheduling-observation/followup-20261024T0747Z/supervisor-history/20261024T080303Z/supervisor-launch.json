@@ -1,0 +1,23 @@
+{
+  "launchedAt": "2026-10-24T08:03:03.772644+00:00",
+  "pid": 2166306,
+  "args": [
+    "/usr/bin/flock",
+    "--nonblock",
+    "--no-fork",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor.lock",
+    "/home/lzh/.venvs/deepscientist-finance/.bun/bin/bun",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-scheduling-observation/followup-20261024T0747Z/restore-consumer-supervisor.ts"
+  ],
+  "cwd": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-scheduling-observation/followup-20261024T0747Z",
+  "scriptSHA256": "c5acc5f3468493c9a2eccd83266596338a32a101660e9e06cf1ac7dd653dcd1e",
+  "stdoutAndStderr": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor.log",
+  "statusFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor-status.json",
+  "exitFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor-exit.json",
+  "singleInstanceLock": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor.lock",
+  "noTotalTimeLimit": true,
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "standaloneLeanStarted": false,
+  "modelsStarted": false,
+  "launcherImmediateExitCode": null
+}

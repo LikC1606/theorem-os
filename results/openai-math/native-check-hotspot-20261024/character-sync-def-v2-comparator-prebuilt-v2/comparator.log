@@ -1,0 +1,9 @@
+Building Challenge
+Build completed successfully (1 job).
+Exporting #[OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams, propext, Quot.sound, Classical.choice, Nat.add, Nat.sub, Nat.mul, Nat.pow, Nat.gcd, Nat.div, Nat.mod, Nat.beq, Nat.ble, Nat.land, Nat.lor, Nat.xor, Nat.shiftLeft, Nat.shiftRight, String.ofList] from Challenge
+Building Submission
+Build completed successfully (1 job).
+Exporting #[OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams, propext, Quot.sound, Classical.choice, Nat.add, Nat.sub, Nat.mul, Nat.pow, Nat.gcd, Nat.div, Nat.mod, Nat.beq, Nat.ble, Nat.land, Nat.lor, Nat.xor, Nat.shiftLeft, Nat.shiftRight, String.ofList] from Submission
+Running Lean default kernel on solution.
+Lean default kernel accepts the solution
+Your solution is okay!

@@ -1,0 +1,25 @@
+{
+  "observedAt": "2026-10-24T07:30:44.911Z",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "run": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json",
+  "editId": "honeycomb-sums-typed-6f81ffc481e2-r1-664d9664",
+  "result": {
+    "id": "honeycomb-sums-typed-6f81ffc481e2-r1-664d9664",
+    "status": "queued",
+    "baseVersion": "664d96644b07458f5082103be1859f985cfd7a53769ab5cc13696a4a2cd42872"
+  },
+  "preparationFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-scheduling-observation/human-edit-preparation.json",
+  "preparationSHA256": "6034ce1538873710bf0e281e9f38fe32c98e8376c0a95f35ab9ca1cf33731741",
+  "fullTaskGraphPreservedInProposal": true,
+  "exactMathematicalTaskContractPreserved": true,
+  "sourceCommit": "0e6ec0cfff4aceb912de8009331ed5ca3ea4d794",
+  "sourceSHA256": "6f81ffc481e22c8a189ced1d0de1d154c39e0edc57f17e9c1f492a271139f6e2",
+  "sourceBytes": 8813,
+  "attribution": "Instruction and ownership edit appended through the frozen queueRunEdit host protocol. No mathematical verdict supplied.",
+  "directStateWrites": false,
+  "directActiveSourceWrites": false,
+  "modelsStartedByThisScript": false,
+  "leanStartedByThisScript": false,
+  "mathematicalAcceptance": false,
+  "nativeAcceptance": false
+}

@@ -1,0 +1,38 @@
+{
+  "observedAt": "2026-10-24T07:51:25.860843+00:00",
+  "sourceStack": "integration-1659442-single-stack-attempt.json",
+  "sourceMaps": "integration-1659442-maps.txt",
+  "libraryPath": "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/lib/lean/libleanshared.so",
+  "libraryInode": 211552294,
+  "mappingLibraryInode": 211552294,
+  "mappingMatch": true,
+  "ELFExecutableSegment": {
+    "fileOffset": "0x340cdb8",
+    "virtualAddress": "0x340ddb8",
+    "pageVirtualAddressMinusPageFileOffset": "0x1000"
+  },
+  "symbolizationAddresses": [
+    {
+      "pc": "0x7ab2d6090855",
+      "fileRelativeOffset": "0x988f855",
+      "elfVirtualAddress": "0x9890855"
+    },
+    {
+      "pc": "0x7ab2d607fbb7",
+      "fileRelativeOffset": "0x987ebb7",
+      "elfVirtualAddress": "0x987fbb7"
+    }
+  ],
+  "command": [
+    "addr2line",
+    "-f",
+    "-C",
+    "-e",
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/lib/lean/libleanshared.so",
+    "0x9890855",
+    "0x987fbb7"
+  ],
+  "exitCode": 0,
+  "output": "std::__1::__function::__func<lean::instantiate_lparams(lean::expr const&, lean::list_ref<lean::name> const&, lean::list_ref<lean::level> const&)::$_0, std::__1::optional<lean::expr> (lean::expr const&)>::operator()(lean::expr const&)\ninstantiate.cpp:?\nlean::instantiate(lean::level const&, lean::list_ref<lean::name> const&, lean::list_ref<lean::level> const&)\nlevel.cpp:?\n",
+  "newProcessSample": false
+}

@@ -1,5 +1,9 @@
 # 原生检查热点与加速候选（2026-10-24）
 
+Character V2 已完成整份编译（635.03 秒、exitCode=0）、公理审计和独立原比较器检查
+（41.15 秒、exitCode=0）。原比较器真实输出 `Lean default kernel accepts the solution`
+和 `Your solution is okay!`。完整原生最终验收仍在运行，通过总数仍为 5。
+
 Character 的正式 Lean 进程在只读栈采样时已经进入模块写出：
 `writeModule → mkModuleData → computeExtEntries → localSymbolFrequencyMap → foldRelevantConstants → getFunInfoAux → collectDeps_visit`。
 这是引理搜索元数据的参数依赖扫描。采样事实不等于完整验证成功回执。
@@ -33,11 +37,21 @@ Lean 从证明体自动纳入了额外 section 参数，后续应用因参数不
 `propext`、`Classical.choice`、`Quot.sound`。首次公理打印未保存退出码，故保留其原始输出，
 待它退出后重新监督执行审计，以第二次有明确退出码的 `audit-receipt.json` 为准。
 
+独立比较器检查见 `character-sync-def-v2-comparator-prebuilt-v2/`。它直接使用这次真实编译的
+同 SHA 产物，独立编译原始 Challenge，保持原目标、公理白名单和 comparator 二进制不变。
+独立 Lake 工程将两个已编译模块登记为预构建模块；比较器仍执行声明导出、类型比较、公理检查
+和 Lean 内核回放。两次工程入口配置失败的原始记录也保留。活动原生 evaluator 的完整构建命令未改动。
+
 同题旧完整 V12 在新版本完成时已运行超过 6 小时仍未结束；旧正式 canonical 检查也仍在运行。
 这支持“新候选完整编译已在十多分钟内完成”的结论，没有把未结束的基线虚写成精确加速倍数。
 `native-sync-def-attempt/` 通过源码、可信文件、原 comparator 和完整递送载荷预检，
 现正以原冻结构建启动新的正式验收；五项预算和 preparation timeout 均为 0。
 独立完整编译、公理审计均已通过，原生最终验收仍待真实回执。旧正式链继续运行。
+
+`native-sync-def-attempt/continue-native.py` 已作为持久控制器启动；它等待真实 startup 成功，
+自动 resume、验证当前 plan 并通过正常队列递送 V2，记录真实终态，没有总时间上限。
+`adopt-verified-character-candidate/` 保存了完整旧链 dry-run 和逐模块缓存核查。
+同路径恢复旧链仍会触发约 29 分钟的依赖准备，故采用继续新入口的决策；旧链未停止、未恢复、未追加编辑。
 
 Snaky V8 的原题检查已取得原始 `kernel_verified` 回执
 `lean-9d717a842be4b918425377eb`：`exitCode=0`，耗时 `8072025 ms`，
@@ -48,4 +62,12 @@ Snaky V8 的原题检查已取得原始 `kernel_verified` 回执
 原始证据见 `snaky-v8-kernel-progress/`；当前不把原题内核成功等同于最终原生验收成功。
 
 现有正式检查继续运行，Honeycomb 继续使用新的冻结构建求解，预算不设上限。
+`honeycomb-scheduling-observation/` 记录已有归约源未正式交付及 engineer 被消费者占用的调度问题，
+以及通过正常完整 plan 队列修复后取得归约内核验收和集成成功的证据。
+原交付和集成回执分别为 `lean-0289d782383448bdadd0ef5e`、`lean-c48c9c7223a04b1246cd7274`。
+被验收的归约声明零 sorry/admit，仅三项标准公理；归档整题源码仍含原目标占位。
+监督器已在真实证明通过后通过正常队列恢复消费者，08:13:33 UTC 回读 engineer 已重新处理原目标，
+监督器完成后 exitCode=0。其提交编号匹配错误及修复前后记录均保留。
+核心增长率估计仍未证明；归约交付不等于 Honeycomb 整题完成。
+
 本目录不包含手写验收回执、伪造缓存或活动 checkpoint 修改。

@@ -1,0 +1,163 @@
+{
+  "schema": "theorem-os.external-check-termination-control-flow.v1",
+  "observedAt": "2026-10-24T07:56:56.083Z",
+  "fixturesOnly": true,
+  "notFormalVerificationReceipts": true,
+  "cases": [
+    {
+      "name": "child killed; null exit status",
+      "error": "Lean exited with status unknown.",
+      "output": "",
+      "expectedAttributable": false,
+      "actualAttributable": false,
+      "actualDeterministicFailure": false
+    },
+    {
+      "name": "wrapper reports SIGKILL as 137",
+      "error": "Lean exited with status 137.",
+      "output": "",
+      "expectedAttributable": false,
+      "actualAttributable": false,
+      "actualDeterministicFailure": false
+    },
+    {
+      "name": "wrapper reports SIGTERM as 143",
+      "error": "Lean exited with status 143.",
+      "output": "",
+      "expectedAttributable": false,
+      "actualAttributable": false,
+      "actualDeterministicFailure": false
+    },
+    {
+      "name": "exit 1 without Lean diagnostic",
+      "error": "Lean exited with status 1.",
+      "output": "",
+      "expectedAttributable": false,
+      "actualAttributable": false,
+      "actualDeterministicFailure": false
+    },
+    {
+      "name": "genuine Lean diagnostic control",
+      "error": "Lean exited with status 1.",
+      "output": "Submission.lean:1:1: error: synthetic control diagnostic",
+      "expectedAttributable": true,
+      "actualAttributable": true,
+      "actualDeterministicFailure": true
+    }
+  ],
+  "conclusion": "External termination of the in-flight Lean does not produce attributable proof evidence. The frozen task checker throws math_verifier_unavailable before stale-assignment handling; cooperative research aborts the entire old run.",
+  "gracefulWholeSolverResume": {
+    "supportedByFrozenCode": true,
+    "executed": false,
+    "snapshot": {
+      "phase": "checking",
+      "taskStatuses": [
+        {
+          "taskId": "initial_goal_1",
+          "status": "running",
+          "hasProof": false,
+          "hasIntegratedCheck": false,
+          "pendingValidation": false
+        }
+      ],
+      "pendingSyncEditIds": [],
+      "hasWholeCheck": false
+    },
+    "currentSnapshotHasNoMandatoryOldProofRecheck": true,
+    "conclusion": "A graceful SIGINT/SIGTERM handled by the top-level solver controller is a supported stop/resume path. It aborts the whole invocation coherently, saves limit_reached/math_run_stopped and retains the run/archive. Same-identity --resume accepts that outcome. For the current archive, restoration turns the sole running goal into pending without a saved proof to recheck; no signal-only proof is forced through the fatal attribution path before the normal edit reader resumes.",
+    "requiredConditions": [
+      "Signal the top-level native solver, not its isolated Lean child, and let its normal cleanup finish.",
+      "Inspect terminal math_run_stopped/limit_reached and release of the native run lease before starting the exact frozen launch with --resume.",
+      "Use normal queueRunEdit with a freshly read planVersion; a saved dry-run is not permission to bypass current-version validation.",
+      "Do not reuse the old resume-followup.py unchanged: its phase receipt explicitly rejects a previous solving/finished/resume_failed invocation.",
+      "All source guards, native proof checks, review and the original publisher comparator still run."
+    ],
+    "records": "The normal stop updates state/result phase metadata; it does not delete the archived deliveries/history or existing logs. Preserve external snapshots first if byte-for-byte pre-stop state/result evidence is required. The in-flight old check has no completed proof receipt to preserve.",
+    "performance": "Same-path resume avoids the path mismatch, but full cache hits are not guaranteed: current old researcher caches include a model-side diagnostic environment identity different from native startup.",
+    "scope": "Code-path assessment only; no stop, queue, resume, model or Lean was performed."
+  },
+  "sourceEvidence": [
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/math/mathProcess.ts",
+      "line": 140,
+      "meaning": "records child exit code and signal independently",
+      "sha256": "7bcd06cc307b09022723444cd63d026cdd93e8b8e65694d85da8874ab10a4188"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/math/verifier.ts",
+      "line": 2040,
+      "meaning": "ordinary external signal exit becomes failed/unknown or wrapper exit code",
+      "sha256": "c45ae8822a365b0ac24b31a08635efa508533ae23106c0205882933baebaf53c"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/solver/proofReuse.ts",
+      "line": 41,
+      "meaning": "deterministic failure requires real Lean error diagnostics and status 1",
+      "sha256": "dfe800cbec169c360f3ed63f630c5991c02c0d14c4e4d188241e8c9fe78c2881"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/solver/modules/evidence.ts",
+      "line": 71,
+      "meaning": "failed signal-only result is not attributable",
+      "sha256": "324eb4ffdaf828f619a6cf71e8510282f412144b33c4abf0126b084012826b54"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/solver/cooperationTaskProofs.ts",
+      "line": 427,
+      "meaning": "unattributed proof throws math_verifier_unavailable",
+      "sha256": "8d9432c211b60a8c4b78ddc78da05e8fb38240147154b442b02a057ca3afa54c"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/solver/cooperationTaskProofs.ts",
+      "line": 493,
+      "meaning": "stale-assignment handling runs only after that check returns",
+      "sha256": "8d9432c211b60a8c4b78ddc78da05e8fb38240147154b442b02a057ca3afa54c"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/solver/research.ts",
+      "line": 765,
+      "meaning": "math_verifier_unavailable aborts the cooperative run",
+      "sha256": "82415f4770f44d387805043b08e8ce3ac75b7312252500d5d16d4c3971596c79"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/solver/run.ts",
+      "line": 102,
+      "meaning": "top-level SIGINT/SIGTERM triggers the coherent solver AbortController",
+      "sha256": "85d8b2a6f3af9e01e1436337569cb71036c1eab618d10c529ce5e684f50ad4f3"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/solver/run.ts",
+      "line": 156,
+      "meaning": "--resume checks the same immutable identity and permits a stopped non-evaluated run",
+      "sha256": "85d8b2a6f3af9e01e1436337569cb71036c1eab618d10c529ce5e684f50ad4f3"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/solver/run.ts",
+      "line": 403,
+      "meaning": "coherent stop saves limit_reached with math_run_stopped and retains owned state",
+      "sha256": "85d8b2a6f3af9e01e1436337569cb71036c1eab618d10c529ce5e684f50ad4f3"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/solver/cooperation.ts",
+      "line": 211,
+      "meaning": "normal aborted cleanup preserves archive without promoting interrupted verification to fatal failure",
+      "sha256": "0e07d9980d9be187a4f38f7ce9f660f1431b93191e40487d9592465dcafab874"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/solver/cooperation.ts",
+      "line": 280,
+      "meaning": "restoration changes running tasks to pending; saved proofs alone require old proof rechecks",
+      "sha256": "0e07d9980d9be187a4f38f7ce9f660f1431b93191e40487d9592465dcafab874"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/solver/research.ts",
+      "line": 106,
+      "meaning": "restores cooperation and then starts its unchanged input poller",
+      "sha256": "82415f4770f44d387805043b08e8ce3ac75b7312252500d5d16d4c3971596c79"
+    }
+  ],
+  "queueAllowedByThisPreflight": false,
+  "signalSent": false,
+  "leanInvoked": false,
+  "modelInvoked": false
+}

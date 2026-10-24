@@ -1,0 +1,25 @@
+{
+  "launchedAt": "2026-10-24T08:04:58.278731+00:00",
+  "pid": 2171880,
+  "args": [
+    "/usr/bin/flock",
+    "--nonblock",
+    "--no-fork",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor.lock",
+    "/home/lzh/.venvs/deepscientist-finance/.bun/bin/bun",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-scheduling-observation/followup-20261024T0747Z/restore-consumer-supervisor.ts"
+  ],
+  "cwd": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-scheduling-observation/followup-20261024T0747Z",
+  "scriptSHA256": "ad35b5cee5ba091733e14d83d8f481fdcbac2a994121c93c66aede9d2db98513",
+  "stdoutAndStderr": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor.log",
+  "statusFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor-status.json",
+  "exitFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor-exit.json",
+  "singleInstanceLock": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor.lock",
+  "noTotalTimeLimit": true,
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "standaloneLeanStarted": false,
+  "modelsStarted": false,
+  "launcherImmediateExitCode": null,
+  "previousSupervisorExitRecord": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-scheduling-observation/followup-20261024T0747Z/supervisor-history/20261024T080303Z/supervisor-exit.json",
+  "restartReason": "Allow safe retry after transient queue errors; every attempt still rechecks existing queued/applied/rejected edits."
+}

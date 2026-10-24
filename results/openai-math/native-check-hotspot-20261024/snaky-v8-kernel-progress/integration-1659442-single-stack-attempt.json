@@ -1,0 +1,79 @@
+{
+  "schema": "theorem-os.snaky-v8-bounded-live-stack-sample.v1",
+  "observedAt": "2026-10-24T07:49:29.509939+00:00",
+  "pid": 1659442,
+  "threadsBefore": [
+    {
+      "tid": 1659442,
+      "state": "S",
+      "cpuTicks": 2,
+      "wchan": "futex_wait_queue"
+    },
+    {
+      "tid": 1659443,
+      "state": "S",
+      "cpuTicks": 0,
+      "wchan": "io_sq_thread"
+    },
+    {
+      "tid": 1659444,
+      "state": "S",
+      "cpuTicks": 0,
+      "wchan": "ep_poll"
+    },
+    {
+      "tid": 1659445,
+      "state": "S",
+      "cpuTicks": 18,
+      "wchan": "futex_wait_queue"
+    },
+    {
+      "tid": 1659446,
+      "state": "S",
+      "cpuTicks": 9913,
+      "wchan": "futex_wait_queue"
+    },
+    {
+      "tid": 1659785,
+      "state": "R",
+      "cpuTicks": 153408,
+      "wchan": "0"
+    },
+    {
+      "tid": 1659787,
+      "state": "S",
+      "cpuTicks": 151851,
+      "wchan": "futex_wait_queue"
+    }
+  ],
+  "maxSeconds": 15,
+  "singleAttempt": true,
+  "runtimeModified": false,
+  "sourceModified": false,
+  "cacheModified": false,
+  "command": [
+    "gdb",
+    "--nx",
+    "--batch",
+    "-iex",
+    "set debuginfod enabled off",
+    "-ex",
+    "set pagination off",
+    "-ex",
+    "set confirm off",
+    "-p",
+    "1659442",
+    "-ex",
+    "thread apply all bt 72",
+    "-ex",
+    "detach",
+    "-ex",
+    "quit"
+  ],
+  "exitCode": 0,
+  "output": "[New LWP 1659787]\n[New LWP 1659785]\n[New LWP 1659446]\n[New LWP 1659445]\n[New LWP 1659444]\n[New LWP 1659443]\n\nwarning: \"target:/proc/1659442/exe\": could not open as an executable file: Operation not permitted.\n\nwarning: `target:/proc/1659442/exe': can't open to read symbols: Operation not permitted.\n\nwarning: Could not load vsyscall page because no executable was specified\n\nwarning: Target and debugger are in different PID namespaces; thread lists and other data are likely unreliable.  Connect to gdbserver inside the container.\n0x00007ab2cc498e51 in ?? ()\n\nThread 7 (LWP 1659443 \"iou-sqp-1659442\"):\n#0  0x0000000000000000 in ?? ()\nBacktrace stopped: Cannot access memory at address 0x0\n\nThread 6 (LWP 1659444 \"lean\"):\n#0  0x00007ab2cc52a170 in ?? ()\n#1  0x0000000000000000 in ?? ()\n\nThread 5 (LWP 1659445 \"lean\"):\n#0  0x00007ab2cc498e51 in ?? ()\n#1  0x0000000000000001 in ?? ()\n#2  0x0000000000000000 in ?? ()\n\nThread 4 (LWP 1659446 \"lean\"):\n#0  0x00007ab2cc498e51 in ?? ()\n#1  0x00007ab23b525410 in ?? ()\n#2  0x0000000000000000 in ?? ()\n\nThread 3 (LWP 1659785 \"lean\"):\n#0  0x00007ab2d6090855 in ?? ()\n#1  0x00007ab28a7c0950 in ?? ()\n#2  0x00007ab2d607fbb7 in ?? ()\n#3  0x000031fc9d5234b0 in ?? ()\n#4  0x0000020d4dff1900 in ?? ()\n#5  0x000031fc9d5234b0 in ?? ()\n#6  0x0000020d4dff1900 in ?? ()\n#7  0x0000000000000000 in ?? ()\n\nThread 2 (LWP 1659787 \"lean\"):\n#0  0x00007ab2cc498e51 in ?? ()\n#1  0x0000000000000000 in ?? ()\n\nThread 1 (LWP 1659442 \"lean\"):\n#0  0x00007ab2cc498e51 in ?? ()\n#1  0x0000000000000000 in ?? ()\n[Inferior 1 (process 1659442) detached]\n",
+  "timedOut": false,
+  "elapsedSeconds": 0.13277397584170103,
+  "processStillPresent": true,
+  "tracerPidAfter": "TracerPid:\t0"
+}

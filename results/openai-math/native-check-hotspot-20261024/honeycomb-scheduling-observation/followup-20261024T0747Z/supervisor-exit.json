@@ -1,0 +1,35 @@
+{
+  "startedAt": "2026-10-24T08:12:42.990Z",
+  "exitedAt": "2026-10-24T08:12:58.034Z",
+  "pid": 2198965,
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "run": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json",
+  "reason": "consumer-already-restored-or-scheduled-externally",
+  "exitCode": 0,
+  "latest": {
+    "phase": "native-typed-proof-observed",
+    "runPhase": "running",
+    "turns": 87,
+    "planVersion": "77b7d42ad95450f1f0547b09e9f8d1e72caaf4e33e0ce14c53daf16cbc8246bc",
+    "sumsStatus": "integrated",
+    "sumsTaskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+    "sumsAssignmentId": "a4887df1-cd13-409a-be47-8f79d5f94209",
+    "engineerSessionTaskId": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+    "goalSchedulingStatus": "active",
+    "typedProof": {
+      "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+      "commit": "21c88246de184c2366cdf7dde20f140a7147291c",
+      "deliveryId": "da7f9896-1cff-4839-bf73-d0cefdf65fc6",
+      "deliveryStatus": "verified",
+      "verificationStatus": "kernel_verified",
+      "receipts": [
+        {
+          "receiptId": "lean-0289d782383448bdadd0ef5e",
+          "status": "kernel_verified",
+          "targetCommit": "38f99fd7828b297c25623c3cbcc6e4eb0736c5b0"
+        }
+      ]
+    },
+    "failure": null
+  }
+}

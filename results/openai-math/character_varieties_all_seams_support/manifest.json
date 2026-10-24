@@ -1,6 +1,6 @@
 {
   "schema": "theorem-os.result-file-manifest.v1",
-  "generatedAt": "2026-10-24T04:12:14.976247+00:00",
+  "generatedAt": "2026-10-24T08:17:11.308900+00:00",
   "algorithm": "sha256",
   "excludes": [
     "manifest.json",
@@ -590,8 +590,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 2970,
-      "sha256": "dde073c8dee7537f947f9f7b7b37bdb9c630a53cf4f3c4e744108e4c40edd122"
+      "bytes": 3475,
+      "sha256": "df514677b934edd3083a84e6c6b0246a34519da0a559c2b94d56e8deb713285f"
     },
     {
       "path": "RefinedFirstShortAtPortV2.lean",

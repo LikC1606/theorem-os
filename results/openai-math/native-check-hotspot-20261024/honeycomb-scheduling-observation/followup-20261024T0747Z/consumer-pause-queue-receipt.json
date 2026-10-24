@@ -1,0 +1,21 @@
+{
+  "observedAt": "2026-10-24T07:55:26.575Z",
+  "mode": "pause",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "editId": "honeycomb-consumer-pause-77b7d42ad954",
+  "preparationFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-scheduling-observation/followup-20261024T0747Z/consumer-pause-preparation.json",
+  "preparationSHA256": "e826de17bbc46d188d0dabea442ba40b780f4602ddb951d340e5abffb499796c",
+  "result": {
+    "id": "honeycomb-consumer-pause-77b7d42ad954",
+    "status": "queued",
+    "baseVersion": "77b7d42ad95450f1f0547b09e9f8d1e72caaf4e33e0ce14c53daf16cbc8246bc"
+  },
+  "originalGoalPreserved": true,
+  "fullTaskGraphPreserved": true,
+  "allMathematicalTaskContractsPreserved": true,
+  "directStateWrites": false,
+  "directActiveSourceWrites": false,
+  "leanStarted": false,
+  "modelsStarted": false,
+  "mathematicalAcceptance": false
+}

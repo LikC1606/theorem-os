@@ -1,0 +1,9 @@
+{
+  "phase": "waiting_for_startup",
+  "startedAt": "2026-10-24T07:33:33.794925+00:00",
+  "nativeAccepted": false,
+  "sourceQueued": false,
+  "timeLimitSeconds": 0,
+  "observedAt": "2026-10-24T07:33:33.795184+00:00",
+  "sourceSHA256": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3"
+}
