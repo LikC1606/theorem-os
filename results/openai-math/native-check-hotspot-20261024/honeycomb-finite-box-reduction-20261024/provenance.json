@@ -1,0 +1,24 @@
+{
+  "createdAt": "2026-10-24T08:52:22.246500+00:00",
+  "baseCommit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+  "baseFile": "generated/problem/Submission.lean",
+  "baseSHA256": "1274ab0b8f9c01548559d48d055fc92a20ebf2433f643bd8ad90a313b304b674",
+  "sourceSHA256": "1fbba78bad15173b4be8b033009ab80e7d892347cc4324b0baf608f07d44dca4",
+  "sourceBytes": 12310,
+  "originalTargetPreservedVerbatim": true,
+  "originalTargetSorryCount": 1,
+  "newDeclarations": [
+    "bridgeFiniteSet_commonColumnBox",
+    "bridgeFiniteSum_weight_le_of_uniformColumnBoxBound",
+    "bridgeSummable_weight_of_uniformColumnBoxBound",
+    "bridgeMass_le_of_uniformColumnBoxBound"
+  ],
+  "newRouteHandoff": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-math-route-20261024/native-advisory-handoff.md",
+  "prior854LineFenceSHA256": "14d52c1af8fa50f49ff7a8a6acd15a6acfecd3f88df7b0cd375fdc486a0449f2",
+  "priorFiniteBoxLemmaFound": false,
+  "publisherSolutionsRead": false,
+  "activeSourceChanged": false,
+  "firstSourceSHA256": "25a61210798b57a74c86a1c981efa05cb67996ca817b1e39051277c44b62c23c",
+  "updatedAt": "2026-10-24T08:58:56.624716+00:00",
+  "elaborationFix": "Specify the supremum map explicitly in Finset.le_sup; the mathematical statement and proof construction are unchanged."
+}

@@ -1,0 +1,20 @@
+{
+  "observedAt": "2026-10-24T08:55:40.057012+00:00",
+  "sealedPackagesRoot": "/proc/1250131/fd/5",
+  "sealedIdentity": "2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87",
+  "sealedRootReadable": true,
+  "cacheLibraryRoots": [
+    "/proc/1250131/fd/5/LeanSearchClient/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/Qq/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/aesop/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/batteries/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/importGraph/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/mathlib/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/plausible/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/proofwidgets/.lake/build/lib/lean"
+  ],
+  "mathlibCachePresent": true,
+  "hostPinnedIRFileReadable": true,
+  "hostPinnedIRSHA256": "934658851054e61ccedf366d29f5d2b40ec5dea22b2b0858c927f0a62ac78e6f",
+  "firstFailureInterpretation": "The named IR exists and is readable. The first process had RLIMIT_AS=6 GiB, so a mapping limit is a possible cause; missing dependency has not been established. No active dependency was changed."
+}

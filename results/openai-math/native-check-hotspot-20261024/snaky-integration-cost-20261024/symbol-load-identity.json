@@ -1,0 +1,14 @@
+[
+  {
+    "path": "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/lib/lean/libleanshared.so",
+    "bias": "0x7ab2cc800000",
+    "mappedInode": 211552294,
+    "localInode": 211552294
+  },
+  {
+    "path": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+    "bias": "0x7ab2cc400000",
+    "mappedInode": 25187900,
+    "localInode": 25187900
+  }
+]

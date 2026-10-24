@@ -1,0 +1,124 @@
+{
+  "schema": "theorem-os.character-stage-reuse-environment.v1",
+  "observedAt": "2026-10-24T08:54:55.652Z",
+  "accessEnvironmentSource": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/native-sync-def-attempt/native-followup/result.json.runtime/environment-solver.json",
+  "nativeParentPid": 2305626,
+  "method": "Calls actual frozen proofReuseEnvironment; reads only existing projects. The clean projection is an existing checkout, not a newly created integration or verifier run.",
+  "leanInvoked": false,
+  "modelInvoked": false,
+  "activeFilesModified": false,
+  "observations": [
+    {
+      "stage": "delivery-source-project",
+      "project": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/native-sync-def-attempt/native-followup/result.json.runtime/worktree-4/generated/problem",
+      "reusable": true,
+      "proofReuseEnvironmentDigest": "3336373af58fcc70d25216b2fb4741c243d67b34213bdd7b826af12593ac1139",
+      "configuration": [
+        [
+          "lean-toolchain",
+          "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+        ],
+        [
+          "lakefile.toml",
+          "4d10708d086bba27777fdcc3e32a4409c24c70f11e5ba9f1f5a0ea1fa2ea52f6"
+        ],
+        [
+          "lakefile.lean",
+          null
+        ],
+        [
+          "lake-manifest.json",
+          "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829"
+        ],
+        [
+          ".lake/package-overrides.json",
+          "a3eeb1bd82bb91ba9e4f24d2ae7296370743bebbb162812669f1dbf4c1e0b142"
+        ]
+      ]
+    },
+    {
+      "stage": "existing-clean-projection-as-integration-configuration",
+      "project": "/tmp/math-check-WmqJZg/worktree/generated/problem",
+      "reusable": true,
+      "proofReuseEnvironmentDigest": "e7d8bb593a02d613eed3ff293ca14dfcd6a69ca47958579069843cdb19f67056",
+      "configuration": [
+        [
+          "lean-toolchain",
+          "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+        ],
+        [
+          "lakefile.toml",
+          "4d10708d086bba27777fdcc3e32a4409c24c70f11e5ba9f1f5a0ea1fa2ea52f6"
+        ],
+        [
+          "lakefile.lean",
+          null
+        ],
+        [
+          "lake-manifest.json",
+          "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829"
+        ],
+        [
+          ".lake/package-overrides.json",
+          null
+        ]
+      ]
+    },
+    {
+      "stage": "lead-all-target-project",
+      "project": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/native-sync-def-attempt/native-followup/result.json.runtime/worktree/generated/problem",
+      "reusable": true,
+      "proofReuseEnvironmentDigest": "f5a7312d9ad4225ddb02962f27f161870adb5dd8a93388bcdeb11cf6d0a36430",
+      "configuration": [
+        [
+          "lean-toolchain",
+          "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+        ],
+        [
+          "lakefile.toml",
+          "4d10708d086bba27777fdcc3e32a4409c24c70f11e5ba9f1f5a0ea1fa2ea52f6"
+        ],
+        [
+          "lakefile.lean",
+          null
+        ],
+        [
+          "lake-manifest.json",
+          "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829"
+        ],
+        [
+          ".lake/package-overrides.json",
+          "b7ac14aaa55f3814410c506a244e625fcfca69465fc7c54f5de4c11e5cc007d0"
+        ]
+      ]
+    },
+    {
+      "stage": "final-workspace-project",
+      "project": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/native-sync-def-attempt/native-followup/workspace/generated/problem",
+      "reusable": true,
+      "proofReuseEnvironmentDigest": "e7d8bb593a02d613eed3ff293ca14dfcd6a69ca47958579069843cdb19f67056",
+      "configuration": [
+        [
+          "lean-toolchain",
+          "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+        ],
+        [
+          "lakefile.toml",
+          "4d10708d086bba27777fdcc3e32a4409c24c70f11e5ba9f1f5a0ea1fa2ea52f6"
+        ],
+        [
+          "lakefile.lean",
+          null
+        ],
+        [
+          "lake-manifest.json",
+          "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829"
+        ],
+        [
+          ".lake/package-overrides.json",
+          null
+        ]
+      ]
+    }
+  ]
+}

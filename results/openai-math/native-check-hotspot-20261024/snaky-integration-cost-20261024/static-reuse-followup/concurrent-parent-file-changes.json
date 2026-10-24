@@ -1,0 +1,19 @@
+{
+  "observedAt": "2026-10-24T09:21:44.971512+00:00",
+  "changes": [
+    {
+      "file": "DIAGNOSIS.md",
+      "beforeSha256": "63e6fc329dab2e190996d16ad01f8a67535a67e9290a9ea088fae52e42aad64b",
+      "afterSha256": "f41a1a94415a1e56a350913a50406a763099232fffc1973b459432edc486b678",
+      "taskWroteThisFile": false
+    }
+  ],
+  "action": "Recorded only; no edits or restoration to existing parent diagnostic files.",
+  "reason": "Read-only baseline comparison detected concurrent changes while parent campaign work continued.",
+  "finalCheckedAt": "2026-10-24T09:22:13.691516+00:00",
+  "parentConfirmedChange": true,
+  "parentExplanation": "Parent adjusted one sentence, then restored the exact originally validated bytes; subsequent integration progress is stored separately.",
+  "currentDiagnosisSha256": "f41a1a94415a1e56a350913a50406a763099232fffc1973b459432edc486b678",
+  "currentMatchesOriginalValidatedSha256": true,
+  "taskRestoredOrEditedParentFile": false
+}

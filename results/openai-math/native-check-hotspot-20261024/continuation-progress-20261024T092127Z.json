@@ -1,0 +1,221 @@
+{
+  "schema": "theorem-os.continuation-progress.v2",
+  "observedAt": "2026-10-24T09:21:27.255166+00:00",
+  "nativeFinalPassedCount": 5,
+  "openAIHostedAcceptance": false,
+  "character": {
+    "runId": "1f3bb9c1-c99f-4fad-b656-8010a82c265b",
+    "phase": "checking",
+    "turns": 3,
+    "buildDigest": "1bd8ea05b5bd769985b333237c75c649dbf072de821ea9a43bfeffd16cdeba4f",
+    "canonicalCommit": "8b5149e6368ab601adf6691609e70d307d79e244",
+    "sourceStateSHA256": "4bfc8f6f4da7b4333d0e95dbd78754fc631f752bd4923cabd083351a47521e08",
+    "nativeAccepted": false,
+    "tasks": [
+      {
+        "id": "character_original_goal",
+        "kind": "goal",
+        "status": "delivered",
+        "assignmentId": "4d86f8b9-527c-4ff0-af9e-1a9a2adc3177",
+        "proof": {
+          "passed": true,
+          "status": "kernel_verified",
+          "durationMs": 2375071,
+          "receiptIds": [
+            "lean-adc266b0e003d64e5ebdf91b"
+          ],
+          "proofHashes": [
+            "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3"
+          ],
+          "axioms": [
+            [
+              "propext",
+              "Classical.choice",
+              "Quot.sound"
+            ]
+          ]
+        }
+      }
+    ],
+    "nextStage": "native integration"
+  },
+  "snaky": {
+    "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+    "phase": "checking",
+    "turns": 4,
+    "buildDigest": "3cf310891edf8cb396f218531e1eb6c5a997622adb6d835e4b368ffa1c8e637d",
+    "canonicalCommit": "14d49c0f2bb94a8973471120f675554798126117",
+    "sourceStateSHA256": "4aa63c670d4b46bc0c1183ba37729d333668582da10ae3362725500feae524e8",
+    "nativeAccepted": false,
+    "tasks": [
+      {
+        "id": "v8_original_goal",
+        "kind": "goal",
+        "status": "integrated",
+        "assignmentId": "4f0116ef-91c2-478c-a2f5-8233dc4e9bf1",
+        "proof": {
+          "passed": true,
+          "status": "kernel_verified",
+          "durationMs": 8072109,
+          "receiptIds": [
+            "lean-9d717a842be4b918425377eb"
+          ],
+          "proofHashes": [
+            "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab"
+          ],
+          "axioms": [
+            [
+              "propext",
+              "Classical.choice",
+              "Quot.sound"
+            ]
+          ]
+        },
+        "integratedCheck": {
+          "passed": true,
+          "status": "kernel_verified",
+          "durationMs": 8343538,
+          "receiptIds": [
+            "lean-78b317b5823543bbdf5c270f"
+          ],
+          "proofHashes": [
+            "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae"
+          ],
+          "axioms": [
+            [
+              "propext",
+              "Classical.choice",
+              "Quot.sound"
+            ]
+          ]
+        }
+      }
+    ],
+    "nextStage": "lead all-target check"
+  },
+  "honeycomb": {
+    "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+    "phase": "running",
+    "turns": 130,
+    "buildDigest": "7e2c42e897361d27b0aa6bf216f74ed7ba71aa32987771ade075193bed54c19f",
+    "canonicalCommit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+    "sourceStateSHA256": "d6b43821e59bbd22edc0709589f2551df6ce645ab3094d2d4656353d79b2609d",
+    "nativeAccepted": false,
+    "tasks": [
+      {
+        "id": "strip_growth_below_mu",
+        "kind": "lemma",
+        "status": "running",
+        "assignmentId": "65f1697f-fa42-4863-bc57-032cd0a476e9"
+      },
+      {
+        "id": "sums_reduction",
+        "kind": "lemma",
+        "status": "integrated",
+        "assignmentId": "a4887df1-cd13-409a-be47-8f79d5f94209",
+        "proof": {
+          "passed": true,
+          "status": "kernel_verified",
+          "durationMs": 21088,
+          "receiptIds": [
+            "lean-0289d782383448bdadd0ef5e"
+          ],
+          "proofHashes": [
+            "150a3e1d61d099350082c29420601e041051f9213aefd82c94495333cc91cbb2"
+          ],
+          "axioms": [
+            [
+              "propext",
+              "Classical.choice",
+              "Quot.sound"
+            ]
+          ]
+        },
+        "integratedCheck": {
+          "passed": true,
+          "status": "kernel_verified",
+          "durationMs": 21577,
+          "receiptIds": [
+            "lean-c48c9c7223a04b1246cd7274"
+          ],
+          "proofHashes": [
+            "e539bd27d979de382c47abfbbfa2a1df982454555127eae366fc80589f3d40be"
+          ],
+          "axioms": [
+            [
+              "propext",
+              "Classical.choice",
+              "Quot.sound"
+            ]
+          ]
+        }
+      },
+      {
+        "id": "initial_goal_1",
+        "kind": "goal",
+        "status": "running",
+        "assignmentId": "69b53b79-cb36-44e1-9d4c-e81bb99a0a4a"
+      },
+      {
+        "id": "initial_research_1",
+        "kind": "research",
+        "status": "pending",
+        "assignmentId": null
+      },
+      {
+        "id": "initial_research_2",
+        "kind": "research",
+        "status": "running",
+        "assignmentId": "e034f31d-dacd-438e-8c98-0ba6f806b763"
+      },
+      {
+        "id": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+        "kind": "research",
+        "status": "pending",
+        "assignmentId": "444ca639-b7bf-443c-888f-48c91187923c"
+      },
+      {
+        "id": "finite_box_zero_mass_reference",
+        "kind": "research",
+        "status": "pending",
+        "assignmentId": null
+      }
+    ],
+    "originalGoalProved": false,
+    "finiteBoxHelpers": {
+      "localKernelExitCode": 0,
+      "sourceSHA256": "1fbba78bad15173b4be8b033009ab80e7d892347cc4324b0baf608f07d44dca4",
+      "durationSeconds": 13.472379584098235,
+      "nativeTaskProof": false,
+      "queueEditId": "honeycomb-finite-box-5e38146e7324",
+      "queueEditStatus": "applied",
+      "existingAssignmentsPreserved": true,
+      "missingInputs": [
+        "uniform finite box mass bound",
+        "exact finite-state transfer encoding",
+        "first moment or strict strip growth estimate"
+      ]
+    }
+  },
+  "futureCacheFix": {
+    "passedTests": 171,
+    "failedTests": 0,
+    "skippedTests": 1,
+    "buildId": "74fd563c-1e68-4d0d-83d0-14ebbd9f79f8",
+    "buildValidated": true,
+    "currentRunsSwitched": false,
+    "actualDigestComparisonPassed": true
+  },
+  "operatingConstraints": {
+    "campaignBudgetCaps": {
+      "maxRunSeconds": 0,
+      "maxTurns": 0,
+      "maxTurnSeconds": 0,
+      "maxTotalTokens": 0,
+      "evaluatorTimeoutSeconds": 0
+    },
+    "leanThreads": 1,
+    "addressSpaceGiB": 32,
+    "originalComparatorUnchanged": true
+  }
+}

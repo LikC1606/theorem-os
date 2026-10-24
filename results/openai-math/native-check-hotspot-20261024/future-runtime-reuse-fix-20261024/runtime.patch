@@ -1,0 +1,186 @@
+--- a/src/solver/proofReuse.ts
++++ b/src/solver/proofReuse.ts
+@@ -20,6 +20,8 @@
+         !sealed && (packages || runtime.DEEPSCIENTIST_MATH_TRUSTED_CACHE_ROOTS?.trim()))
+       return { env: runtime, reusable: false };
+     const configuration = LAKE_CONFIGURATION_FILES.map(file => {
++      // Verified sealed consumers use sandbox-generated overrides, not the source worktree paths.
++      if (sealed && file === '.lake/package-overrides.json') return [file, null];
+       try { return [file, mathDigest(fs.readFileSync(path.join(projectRoot, file)))]; }
+       catch (error) {
+         if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [file, null];
+--- /dev/null
++++ b/tests/proofReuseEnvironment.test.ts
+@@ -0,0 +1,129 @@
++import fs from 'node:fs';
++import os from 'node:os';
++import path from 'node:path';
++import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
++import { proofReuseEnvironment } from '../src/solver/proofReuse';
++import { prepareMathProofEnvironment, resolveMathProofEnvironment, MATH_PROOF_ENVIRONMENT_ENV } from '../src/math/mathProofEnvironment';
++
++const override = '.lake/package-overrides.json';
++const configure = (project: string) => {
++  fs.rmSync(project, { recursive: true, force: true });
++  fs.mkdirSync(path.join(project, '.lake'), { recursive: true });
++  fs.writeFileSync(path.join(project, 'lean-toolchain'), 'leanprover/lean4:v4.35.0-rc3\n');
++  fs.writeFileSync(path.join(project, 'lakefile.toml'), 'name = "reuse_fixture"\n');
++  fs.writeFileSync(path.join(project, 'lake-manifest.json'), JSON.stringify({ name: 'reuse_fixture', packages: [{ name: 'dependency', rev: 'first' }] }));
++};
++const writeOverride = (project: string, root: string) =>
++  fs.writeFileSync(path.join(project, override), JSON.stringify({ packages: [{ name: 'dependency', path: root }] }));
++
++describe('unsealed proof reuse environment', () => {
++  let directory: string, project: string, env: NodeJS.ProcessEnv;
++  beforeEach(() => {
++    directory = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'proof-reuse-unsealed-')));
++    project = path.join(directory, 'project');
++    configure(project);
++    env = { PATH: '/usr/bin:/bin', DEEPSCIENTIST_MATH_ENV_FILE: path.join(directory, 'missing.env') };
++  });
++  afterEach(() => fs.rmSync(directory, { recursive: true, force: true }));
++
++  it('continues binding overrides when no sealed environment was resolved', () => {
++    const absent = proofReuseEnvironment(project, env);
++    writeOverride(project, '/first/worktree/packages');
++    const first = proofReuseEnvironment(project, env);
++    writeOverride(project, '/second/worktree/packages');
++    const second = proofReuseEnvironment(project, env);
++    expect([absent, first, second].every(value => value.reusable)).toBe(true);
++    expect(new Set([absent.digest, first.digest, second.digest]).size).toBe(3);
++  });
++
++  it.each(['LEAN_PATH', 'LEAN_SYSROOT', 'DEEPSCIENTIST_MATH_TRUSTED_CACHE_ROOTS'] as const)
++  ('continues rejecting mutable %s', key => {
++    expect(proofReuseEnvironment(project, { ...env, [key]: '/mutable/packages' })).toMatchObject({ reusable: false });
++  });
++
++  it('continues rejecting mutable local packages', () => {
++    fs.mkdirSync(path.join(project, '.lake/packages'));
++    expect(proofReuseEnvironment(project, env)).toMatchObject({ reusable: false });
++  });
++
++  it('rejects an invalid descriptor instead of treating it as a sealed override exemption', () => {
++    writeOverride(project, '/generated/path');
++    expect(proofReuseEnvironment(project, { ...env, [MATH_PROOF_ENVIRONMENT_ENV]: '{}' }))
++      .toEqual({ env: expect.any(Object), reusable: false });
++  });
++});
++
++describe.skipIf(process.platform !== 'linux' || process.env.DEEPSCIENTIST_TEST_FUSE !== '1')('verified sealed proof reuse environment', () => {
++  let directory: string, packages: string, projects: string[], env: NodeJS.ProcessEnv;
++  let proof: Awaited<ReturnType<typeof prepareMathProofEnvironment>> | undefined;
++  beforeAll(async () => {
++    directory = fs.realpathSync(fs.mkdtempSync(path.join('/var/tmp', 'proof-reuse-sealed-')));
++    packages = path.join(directory, 'packages');
++    fs.mkdirSync(packages);
++    fs.writeFileSync(path.join(packages, 'Dependency.lean'), 'example : True := by trivial\n');
++    projects = ['delivery', 'integration', 'other-worker'].map(name => path.join(directory, name));
++    for (const project of projects) configure(project);
++    env = { PATH: process.env.PATH, DEEPSCIENTIST_MATH_ENV_FILE: path.join(directory, 'missing.env') };
++    proof = await prepareMathProofEnvironment(projects[0]!, packages, {
++      env, cacheRoot: path.join(directory, 'cache'), deadlineAt: Date.now() + 15_000,
++    });
++    env = { ...env, [MATH_PROOF_ENVIRONMENT_ENV]: proof.environmentValue };
++  }, 20_000);
++  beforeEach(() => { for (const project of projects) configure(project); });
++  afterAll(async () => {
++    await proof?.dispose();
++    if (directory) fs.rmSync(directory, { recursive: true, force: true });
++  });
++
++  it('normalizes absent and worktree-specific overrides only after actual sealed validation', () => {
++    writeOverride(projects[0]!, '/delivery/.lake/packages/dependency');
++    writeOverride(projects[2]!, '/other-worker/.lake/packages/dependency');
++    const sealed = projects.map(project => resolveMathProofEnvironment(project, env)!);
++    expect(sealed.every(value => value.identity === sealed[0]!.identity)).toBe(true);
++    const values = projects.map(project => proofReuseEnvironment(project, env));
++    expect(values.every(value => value.reusable && value.digest)).toBe(true);
++    expect(new Set(values.map(value => value.digest)).size).toBe(1);
++  });
++
++  it.each([
++    ['lean-toolchain', 'leanprover/lean4:v4.34.1\n'],
++    ['lakefile.toml', 'name = "reuse_fixture"\n[leanOptions]\nautoImplicit = false\n'],
++    ['lakefile.lean', 'import Lake\nopen Lake DSL\npackage reuse_fixture\n'],
++    ['lake-manifest.json', JSON.stringify({ name: 'reuse_fixture', packages: [{ name: 'dependency', rev: 'second' }] })],
++  ])('rejects changed semantic configuration in %s', (file, bytes) => {
++    fs.writeFileSync(path.join(projects[1]!, file), bytes);
++    expect(() => resolveMathProofEnvironment(projects[1]!, env)).toThrow('does not match the project configuration');
++    expect(proofReuseEnvironment(projects[1]!, env)).toMatchObject({ reusable: false });
++    expect(proofReuseEnvironment(projects[0]!, env).reusable).toBe(true);
++  });
++
++  it('binds reuse to a newly sealed package identity while the original sealed package stays immutable', async () => {
++    const first = proofReuseEnvironment(projects[0]!, env);
++    const sealed = resolveMathProofEnvironment(projects[0]!, env)!;
++    const original = fs.readFileSync(path.join(sealed.packagesRoot, 'Dependency.lean'), 'utf8');
++    fs.writeFileSync(path.join(packages, 'Dependency.lean'), 'example : True := by exact True.intro\n');
++    const second = await prepareMathProofEnvironment(projects[0]!, packages, {
++      env, cacheRoot: path.join(directory, 'cache'), deadlineAt: Date.now() + 15_000,
++    });
++    try {
++      const changedEnv = { ...env, [MATH_PROOF_ENVIRONMENT_ENV]: second.environmentValue };
++      expect(resolveMathProofEnvironment(projects[0]!, changedEnv)!.identity).not.toBe(sealed.identity);
++      expect(proofReuseEnvironment(projects[0]!, changedEnv).digest).not.toBe(first.digest);
++      expect(fs.readFileSync(path.join(sealed.packagesRoot, 'Dependency.lean'), 'utf8')).toBe(original);
++      expect(proofReuseEnvironment(projects[0]!, env).digest).toBe(first.digest);
++    } finally { await second.dispose(); }
++  }, 20_000);
++
++  it('rejects a tampered sealed identity before normalizing generated overrides', () => {
++    const descriptor = JSON.parse(env[MATH_PROOF_ENVIRONMENT_ENV]!);
++    descriptor.identity = 'f'.repeat(64);
++    writeOverride(projects[0]!, '/generated/path');
++    const invalid = { ...env, [MATH_PROOF_ENVIRONMENT_ENV]: JSON.stringify(descriptor) };
++    expect(() => resolveMathProofEnvironment(projects[0]!, invalid)).toThrow('binding changed');
++    expect(proofReuseEnvironment(projects[0]!, invalid)).toMatchObject({ reusable: false });
++  });
++
++  it.each(['LEAN_PATH', 'LEAN_SYSROOT'] as const)('continues rejecting mutable %s with a valid seal', key => {
++    expect(proofReuseEnvironment(projects[0]!, { ...env, [key]: '/mutable/packages' })).toMatchObject({ reusable: false });
++  });
++});
+--- a/tests/taskProofCache.test.ts
++++ b/tests/taskProofCache.test.ts
+@@ -210,6 +210,29 @@
+     expect(integrated!.references?.sourceCommit).toBe(integrationCommit);
+     expect(integrated!.verification).toEqual(delivery!.verification);
+     expect(trustedTaskProjectionReuse(integrated!)).toMatchObject({ checkedProjectionCommit: delivery!.verification.targetCommit });
++    expect(host.verify).toHaveBeenCalledOnce();
++  });
++
++  it.each(['absent', 'different-worker-path'] as const)
++  ('reuses a sealed delivery in integration with %s generated overrides', async overrides => {
++    host.environment.mockReturnValue({ identity: 'sealed-fixture' });
++    fs.mkdirSync(path.join(project, '.lake'), { recursive: true });
++    fs.writeFileSync(path.join(project, '.lake/package-overrides.json'), '{"path":"/delivery/packages"}\n');
++    const [delivery] = await check();
++    const integrationCommit = recommit();
++    const [integrated] = await withSolverWorktree(workspace, integrationCommit, checkout => {
++      if (overrides === 'different-worker-path') {
++        const lake = path.join(checkout, problem.projectRelative, '.lake');
++        fs.mkdirSync(lake, { recursive: true });
++        fs.writeFileSync(path.join(lake, 'package-overrides.json'), '{"path":"/integration/packages"}\n');
++      }
++      return checkTaskProofs(problem, checkout, integrationCommit, [{ ...requests[0]!, assignment: {
++        ...requests[0]!.assignment, workerId: 'integration', seedCommit: integrationCommit,
++      } }], env, signal, 180000, 'current-environment', cache);
++    });
++    expect(integrated!.verification).toEqual(delivery!.verification);
++    expect(trustedTaskProjectionReuse(integrated!)).toMatchObject({ checkedProjectionCommit: delivery!.verification.targetCommit });
++    expect(isAttributedTaskProof(integrated!)).toBe(true);
+     expect(host.verify).toHaveBeenCalledOnce();
+   });
+ 
+--- a/tests/solverProjectionReuse.test.ts
++++ b/tests/solverProjectionReuse.test.ts
+@@ -45,7 +45,7 @@
+     task = { id: 'helper', kind: 'lemma', objective: 'Prove the current helper.', proofPath: 'Submission.lean',
+       theoremName: 'Tutorial.helper', type: 'True', dependsOn: [], revision: 0 };
+     assignment = { taskId: task.id, taskDigest: taskVersion(task), seedCommit, workerId: 'solver' };
+-    controller = new AbortController(); environment = { PATH: '/usr/bin:/bin' };
++    controller = new AbortController(); environment = { PATH: '/usr/bin:/bin', DEEPSCIENTIST_MATH_ENV_FILE: path.join(directory, 'math.env') };
+     const cache = new TaskProofCache();
+     await checkTaskProof(problem, workspace, first, task, assignment, [], environment, controller.signal, Infinity, [], 'environment', cache);
+     git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--allow-empty', '--no-gpg-sign', '--quiet', '-m', 'Same content, new source commit']);

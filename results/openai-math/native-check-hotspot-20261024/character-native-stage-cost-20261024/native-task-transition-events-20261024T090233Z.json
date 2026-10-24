@@ -1,0 +1,40 @@
+[
+  {
+    "event": "task_checked",
+    "at": 1792832553630,
+    "taskId": "character_original_goal",
+    "passed": true,
+    "conditional": false,
+    "commit": "aaaf7a217b8df185b467ec71348048b553dfe339"
+  },
+  {
+    "event": "edit_recheck_updated",
+    "at": 1792832553632,
+    "id": "character-sync-def-5c0cbc35bd63",
+    "recheck": {
+      "status": "pending",
+      "tasks": [
+        {
+          "taskId": "character_original_goal",
+          "taskDigest": "0a7945b3864e77f995020b9e39dee6639011fcd0fcc2da7cf7d136bae5f8cacf",
+          "status": "pending",
+          "lastCheck": {
+            "commit": "aaaf7a217b8df185b467ec71348048b553dfe339",
+            "sourceDigest": "f31eba830cec592a226f58cc26fffe68daacb70d307ada71475ccdda914f67b5",
+            "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+            "passed": true,
+            "conditional": false,
+            "receiptIds": [
+              "lean-adc266b0e003d64e5ebdf91b"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "event": "integration_queue_started",
+    "at": 1792832553640,
+    "waitedMs": 0
+  }
+]

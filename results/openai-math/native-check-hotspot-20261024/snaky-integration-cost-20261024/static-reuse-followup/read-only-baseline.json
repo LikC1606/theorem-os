@@ -1,0 +1,31 @@
+{
+  "at": "2026-10-24T09:18:56.720976+00:00",
+  "source": {
+    "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean",
+    "bytes": 967683,
+    "sha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae"
+  },
+  "existingParentFiles": {
+    "DIAGNOSIS.md": "63e6fc329dab2e190996d16ad01f8a67535a67e9290a9ea088fae52e42aad64b",
+    "capture-symbolized-stack.gdb": "be033ed39956ae14a2ebfec23b68bc3cfe24b2d7442814c5f72030bb733ea73e",
+    "capture-symbolized-stack.py": "484696599933eaa0ad9d96409cfab530a1c9cad669c12387f1a4bc09429b7eea",
+    "diagnosis.json": "84787cfa0c2d6581e7cf3a5b5b87faba6c6948c26f78307db47dbe9ae3c1a575",
+    "final-process-and-gate-snapshot.json": "3ecd9e6be029f50c72d1d852016b665dc4c7829c7f66411fe4bad71b4fcf2aad",
+    "native-integration-progress-20261024T0919Z.json": "0a497429b558e74fb0025694a81102da52e1555e32735d96c6dc6fa86066e576",
+    "native-integration-transition-events-20261024T0917Z.json": "e3897f9d4deea831ab0a3be9cc27f2414b5d8efba1e9be312cf1d039b17d4367",
+    "native-integration-verification-20261024T0917Z.json": "aba51f499a06a634b826f9f65b432c123a6faac3884c05721536a86f8d73da5c",
+    "native-state-20261024T0919Z.json": "4aa63c670d4b46bc0c1183ba37729d333668582da10ae3362725500feae524e8",
+    "perf-attempt.json": "3c61a894984dfdd9e547284b55bc9876d082962bfdf79129a54e5ecf642daf91",
+    "perf-attempt.log": "3e16d8f851a488f8fd897a68f4b3bdf14c890916b53a59cf3456a56555dcb6bc",
+    "perf.data": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "proc-three-second-cpu-sample.json": "3d372b138aa234a0548159cd195d535deb4a33ff52187db6104278ce45279f84",
+    "report-validation.json": "2ddc7d90b684b06de26be40b0b4038a741e89c7da4e43cf4ec4a30950bb8af0a",
+    "source-static-context.json": "187a427ec98ed4d4c02e21fb2ea77a8e57b4b09b77b3c543c3cc5f0d3d9090ed",
+    "stack-excerpt.json": "4832bcbf05f346a541824984b35d519208d5ad37e5a1ffcb94f176b4232816b0",
+    "stack-excerpt.txt": "ca4e5cb64d0a508b221cd561db5cf1cc03b202d0f2e6cd7d2903ec088f586feb",
+    "symbol-load-identity.json": "47b21dae6f9b87e52e3a763e6f07aecde8459596922e6ef962c7005d2690aca6",
+    "symbolized-gdb-invocation.json": "168d7053a4f157abf4e83ea501682ef78cb8fe007b4d5c1a0e54d6cf8ed18cfc",
+    "symbolized-gdb.log": "be831dfaccf46a3923ae0db0563d57d331bc65819fbfe74c0d65ee4f30233347",
+    "symbolized-stack-sample.json": "7986fde8fb4a9c209800574b1d325f60771f23adbee38ec8256ad5882f3dd432"
+  }
+}

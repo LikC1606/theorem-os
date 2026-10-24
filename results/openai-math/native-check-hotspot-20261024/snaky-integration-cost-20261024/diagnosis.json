@@ -1,0 +1,110 @@
+{
+  "schema": "theorem-os.snaky.integration-cost-diagnosis.v1",
+  "writtenAt": "2026-10-24T08:57:57.564020+00:00",
+  "attribution": {
+    "official": false,
+    "kind": "read-only diagnostic assistance; no final acceptance"
+  },
+  "target": {
+    "pid": 1659442,
+    "tid": 1659446,
+    "sourceSha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+    "processStartTicks": 129168371,
+    "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d"
+  },
+  "conclusion": {
+    "phase": "tactic elaboration -> decide +kernel -> mkAuxLemma -> synchronous theorem kernel check",
+    "sampledOperation": "reference-count reclamation in kernel type_checker cache destruction",
+    "metadataExportObserved": false,
+    "liveAccelerationEvidence": "none within the unchanged-chain constraints",
+    "performancePercentageEstimate": null,
+    "sampledDeclarationName": null
+  },
+  "evidence": {
+    "stack": {
+      "observedAt": "2026-10-24T08:51:11.808246+00:00",
+      "frameCount": 5580,
+      "truncated": false,
+      "upperCallerDepth": 22,
+      "raw": "symbolized-stack-sample.json",
+      "excerpt": "stack-excerpt.json"
+    },
+    "detach": {
+      "attachedSeconds": 0.1523150559514761,
+      "invocationElapsedSeconds": 0.8141868519596756,
+      "exitCode": 0,
+      "detached": true,
+      "targetPresent": true,
+      "tracerPid": 0,
+      "source": "symbolized-gdb-invocation.json"
+    },
+    "cpuWindow": {
+      "elapsedSeconds": 3.000058945035562,
+      "cpuSeconds": 3.0,
+      "userSeconds": 2.82,
+      "systemSeconds": 0.18,
+      "hotThreadRunSeconds": 2.999910075,
+      "hotThreadRunQueueWaitSeconds": 6.1722e-05,
+      "source": "proc-three-second-cpu-sample.json"
+    },
+    "environment": {
+      "asOf": "2026-10-24T08:53:04.859355+00:00",
+      "cgroupCpuMax": "max 100000",
+      "cgroupNrThrottled": 0,
+      "majorFaults": 0,
+      "vmSwapKiB": 0,
+      "addressSpaceCapGiB": 32,
+      "source": "final-process-and-gate-snapshot.json"
+    },
+    "perf": {
+      "attempts": 1,
+      "exitCode": 255,
+      "perfEventParanoid": 4,
+      "escalationOrSysctlChange": false,
+      "source": "perf-attempt.json"
+    },
+    "metadataSymbolMatches": {
+      "LibrarySuggestions": [],
+      "localSymbolFrequencyMap": [],
+      "foldRelevantConstants": [],
+      "writeModule": [],
+      "mkModuleData": [],
+      "computeExtEntries": []
+    },
+    "staticSource": "source-static-context.json"
+  },
+  "limits": [
+    "One stack sample cannot establish total-runtime percentages or that reference-count cleanup dominated the whole run.",
+    "The destructor frame does not establish that this auxiliary theorem, the task or the integrated target succeeded.",
+    "No metadata-export symbols were present in this sample; other times are not profiled.",
+    "The shared cgroup historical oom_kill=1 cannot be attributed to this alive process.",
+    "Static counts do not identify the sampled declaration or establish repeated full-table computation."
+  ],
+  "gateAsOfSnapshot": {
+    "asOf": "2026-10-24T08:53:04.859355+00:00",
+    "originalGoalPassed": true,
+    "current": "merged-task native compiler",
+    "nativePhase": "checking",
+    "submissionOleanPresent": false,
+    "pending": [
+      "compiler exit and declaration query",
+      "task_integrated",
+      "whole-target and review gates",
+      "S3 and publisher acceptance"
+    ],
+    "finalAcceptance": false
+  },
+  "futureOfflineResearch": {
+    "status": "unimplemented and unmeasured",
+    "candidate": "Investigate smaller certificates and shared structural invariants across the 718 textual decide +kernel sites, with separately verified evidence and explicit kernel-cost measurement. The builtin same-type per-module auxiliary-lemma cache is already in use.",
+    "changesToActiveCandidate": false
+  },
+  "constraintCompliance": {
+    "newCompilation": false,
+    "sourceRuntimeCacheCheckpointChanges": false,
+    "parameterChanges": false,
+    "stoppedOrRestartedLongProcesses": false,
+    "additionalSamplingAfterThisCapture": false,
+    "publisherSolutionAccess": false
+  }
+}

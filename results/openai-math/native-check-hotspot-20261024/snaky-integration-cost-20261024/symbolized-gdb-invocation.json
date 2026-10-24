@@ -1,0 +1,16 @@
+{
+  "observedAt": "2026-10-24T08:51:12.169822+00:00",
+  "command": [
+    "gdb",
+    "--nx",
+    "--batch",
+    "-x",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-integration-cost-20261024/capture-symbolized-stack.gdb"
+  ],
+  "elapsedSeconds": 0.8141868519596756,
+  "exitCode": 0,
+  "interruptedAfterTimeLimit": false,
+  "targetPresent": true,
+  "targetTracerAfter": "TracerPid:\t0",
+  "targetStateAfter": "S"
+}

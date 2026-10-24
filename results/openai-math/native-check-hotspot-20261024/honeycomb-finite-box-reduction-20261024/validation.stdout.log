@@ -1,0 +1,45 @@
+Submission.lean:202:4: error: Type mismatch
+  Finset.le_sup (List.mem_toFinset.mpr hv)
+has type
+  ?m.55 v ≤ p.vertices.toFinset.sup ?m.55
+but is expected to have type
+  (bridgeBoxColumn v).natAbs ≤ radius p
+Submission.lean:238:8: warning: declaration uses `sorry`
+OAI.PolynomialVacuumBridge.Corridor.bridgeFiniteSet_commonColumnBox {h : ℕ}
+  (s : Finset (OAI.PolynomialVacuumBridge.Corridor.BridgePath h)) :
+  ∃ R, ∀ p ∈ s, OAI.PolynomialVacuumBridge.Corridor.bridgeInColumnBox R p
+'OAI.PolynomialVacuumBridge.Corridor.bridgeFiniteSet_commonColumnBox' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]
+OAI.PolynomialVacuumBridge.Corridor.bridgeFiniteSum_weight_le_of_uniformColumnBoxBound {h : ℕ} {K : ℝ}
+  (H :
+    ∀ (R : ℕ) (s : Finset (OAI.PolynomialVacuumBridge.Corridor.BridgePath h)),
+      (∀ p ∈ s, OAI.PolynomialVacuumBridge.Corridor.bridgeInColumnBox R p) →
+        ∑ p ∈ s, OAI.PolynomialVacuumBridge.Corridor.weight p ≤ K)
+  (s : Finset (OAI.PolynomialVacuumBridge.Corridor.BridgePath h)) :
+  ∑ p ∈ s, OAI.PolynomialVacuumBridge.Corridor.weight p ≤ K
+'OAI.PolynomialVacuumBridge.Corridor.bridgeFiniteSum_weight_le_of_uniformColumnBoxBound' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]
+OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_weight_of_uniformColumnBoxBound {h : ℕ} {K : ℝ}
+  (H :
+    ∀ (R : ℕ) (s : Finset (OAI.PolynomialVacuumBridge.Corridor.BridgePath h)),
+      (∀ p ∈ s, OAI.PolynomialVacuumBridge.Corridor.bridgeInColumnBox R p) →
+        ∑ p ∈ s, OAI.PolynomialVacuumBridge.Corridor.weight p ≤ K) :
+  Summable OAI.PolynomialVacuumBridge.Corridor.weight
+'OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_weight_of_uniformColumnBoxBound' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]
+OAI.PolynomialVacuumBridge.Corridor.bridgeMass_le_of_uniformColumnBoxBound {h : ℕ} {K : ℝ}
+  (H :
+    ∀ (R : ℕ) (s : Finset (OAI.PolynomialVacuumBridge.Corridor.BridgePath h)),
+      (∀ p ∈ s, OAI.PolynomialVacuumBridge.Corridor.bridgeInColumnBox R p) →
+        ∑ p ∈ s, OAI.PolynomialVacuumBridge.Corridor.weight p ≤ K) :
+  OAI.PolynomialVacuumBridge.Corridor.bridgeMass h ≤ K
+'OAI.PolynomialVacuumBridge.Corridor.bridgeMass_le_of_uniformColumnBoxBound' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]

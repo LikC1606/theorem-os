@@ -1,0 +1,76 @@
+{
+  "observedAt": "2026-10-24T08:53:04.859355+00:00",
+  "pid": 1659442,
+  "ppid": 1659440,
+  "state": "S",
+  "startTicks": 129168371,
+  "cpuSeconds": 6967.02,
+  "majorFaults": 0,
+  "priority": 20,
+  "nice": 0,
+  "statusFields": [
+    "TracerPid:\t0",
+    "VmRSS:\t 9794580 kB",
+    "VmSwap:\t       0 kB",
+    "Threads:\t7",
+    "Cpus_allowed_list:\t0-127",
+    "voluntary_ctxt_switches:\t165",
+    "nonvoluntary_ctxt_switches:\t1"
+  ],
+  "io": "rchar: 5946633\nwchar: 114689\nsyscr: 53849\nsyscw: 29\nread_bytes: 0\nwrite_bytes: 0\ncancelled_write_bytes: 0\n",
+  "cgroup": "0::/user.slice/user-1001.slice/session-11945.scope\n",
+  "cgroupMetrics": {
+    "/sys/fs/cgroup/user.slice/user-1001.slice/session-11945.scope/cpu.max": "max 100000\n",
+    "/sys/fs/cgroup/user.slice/user-1001.slice/session-11945.scope/cpu.stat": "usage_usec 914070522466\nuser_usec 789572165636\nsystem_usec 124498356830\ncore_sched.force_idle_usec 0\nnr_periods 0\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0\n",
+    "/sys/fs/cgroup/user.slice/user-1001.slice/session-11945.scope/cpu.pressure": "some avg10=0.00 avg60=0.00 avg300=0.00 total=807821148\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=353373415\n",
+    "/sys/fs/cgroup/user.slice/user-1001.slice/session-11945.scope/memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 1\noom_group_kill 0\n"
+  },
+  "source": {
+    "path": "/tmp/math-check-Fmiyxm/worktree/generated/problem/Submission.lean",
+    "bytes": 967683,
+    "sha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae"
+  },
+  "nativeEventsSinceOriginalGoal": [
+    {
+      "event": "task_checked",
+      "at": 1792824901632,
+      "taskId": "v8_original_goal",
+      "passed": true,
+      "conditional": false,
+      "commit": "012b6908e15fdec29108ed8fe2f4ccaeba97e2f7"
+    },
+    {
+      "event": "obligation_progress",
+      "at": 1792824901633
+    },
+    {
+      "event": "edit_recheck_updated",
+      "at": 1792824901634
+    },
+    {
+      "event": "integration_queue_started",
+      "at": 1792824901647,
+      "waitedMs": 0
+    }
+  ],
+  "nativeStatePhase": "checking",
+  "nativeResult": {
+    "evaluator": {
+      "status": "skipped"
+    },
+    "problemId": "lean-task-55408c43d926a78d",
+    "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+    "schema": "deepscientist.math.run.v2",
+    "startup_only": true,
+    "stateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/result.json.runtime/state.json",
+    "status": "prepared"
+  },
+  "compilerArtifactExists": false,
+  "sampledHotThreadSchedulerDelta": {
+    "tid": 1659446,
+    "runSeconds": 2.999910075,
+    "runQueueWaitSeconds": 6.1722e-05,
+    "timeslices": 5,
+    "windowSeconds": 3.000058945035562
+  }
+}

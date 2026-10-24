@@ -1,0 +1,33 @@
+{
+  "schema": "theorem-os.character-stage-existing-formal-cache.v1",
+  "observedAt": "2026-10-24T08:56:25.352846+00:00",
+  "cacheDirectory": "/tmp/mathematics/formal-verification-v1",
+  "nativePid": 2305626,
+  "readOnly": true,
+  "attestationValidation": "Not executed; no matching projectRootHash means no candidate can satisfy the full key regardless of attestation.",
+  "counts": {
+    "files": 256,
+    "parsed": 256,
+    "unexpired": 6,
+    "kernelVerified": 256
+  },
+  "projectRootHashes": {
+    "task-request-current": "c0a0ce3a0ac6eec970638dd04a9d0e7f8bfab633d15e7dc1b3adb1adf180b8db",
+    "lead-all-target": "e6edfd85b5667ce306c7dc52cfa8bb5d566458037d730a0d24cbacf332f13a68",
+    "final-workspace": "036ae3fe300f055124ea369eb723ca942e6292b79facd4bdc81f51341fabd16b"
+  },
+  "matchingEntries": {
+    "task-request-current": [],
+    "lead-all-target": [],
+    "final-workspace": []
+  },
+  "parseErrors": [],
+  "originalContractHashes": {
+    "statementHash": "dc49a3554616d6542f97317ca26235cf9b6092c82a68d7100bba3ce4ca042d28",
+    "leanStatementHash": "95078897d12b23cfecccae091c29c461b369dc72dfdc713c9af9fc2a22d92d94"
+  },
+  "taskDigest": "0a7945b3864e77f995020b9e39dee6639011fcd0fcc2da7cf7d136bae5f8cacf",
+  "futureIntegrationRoot": "The normal checker creates a fresh random /tmp/math-check-.../worktree; full formal cache keys bind that temporary projectRootHash as well as target commit and request items.",
+  "cacheModified": false,
+  "leanInvoked": false
+}

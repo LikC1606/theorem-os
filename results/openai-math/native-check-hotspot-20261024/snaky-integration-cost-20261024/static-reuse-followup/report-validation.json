@@ -1,0 +1,60 @@
+{
+  "validatedAt": "2026-10-24T09:21:44.977897+00:00",
+  "result": "passed for static candidate checks only",
+  "jsonFilesParsed": [
+    "candidate-assessment.json",
+    "concurrent-parent-file-changes.json",
+    "finite-input-identity.json",
+    "read-only-baseline.json",
+    "site-inventory.json",
+    "source-excerpts.json"
+  ],
+  "markdownLocalLinksChecked": [
+    "candidate.patch",
+    "qescapestep_11.replacement.lean.txt",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:14746",
+    "source-excerpts.txt",
+    "site-inventory.json",
+    "finite-input-identity.json",
+    "candidate-assessment.json"
+  ],
+  "sourceSha256Unchanged": true,
+  "existingParentFilesUnchangedCount": 20,
+  "existingParentFilesChangedConcurrently": [
+    {
+      "file": "DIAGNOSIS.md",
+      "beforeSha256": "63e6fc329dab2e190996d16ad01f8a67535a67e9290a9ea088fae52e42aad64b",
+      "afterSha256": "f41a1a94415a1e56a350913a50406a763099232fffc1973b459432edc486b678",
+      "taskWroteThisFile": false
+    }
+  ],
+  "existingParentFileWritesByThisTask": 0,
+  "patchHunks": 1,
+  "changedDeclarations": [
+    "qescapestep_11"
+  ],
+  "replacementStatementUnchanged": true,
+  "localOptionsUnchanged": true,
+  "finalTheoremBlockUnchanged": true,
+  "textualSitesBefore": 718,
+  "textualSitesAfter": 717,
+  "rootReferencesToSharedTableLemma": 15,
+  "candidateSourceSha256InMemory": "e079653d2a78f26ac1021c9ef86ec2cdff4ac3dd0fd4d46f083b8ab190b112ab",
+  "leanInvoked": false,
+  "kernelValidation": "not performed",
+  "speedupMeasurement": "not performed",
+  "activeSourceApplied": false,
+  "artifactSha256": {
+    "candidate.patch": "d930b9bc1ca4b5e7a802879b6670ed87406a56289bb79417d2dd6fd1843dd298",
+    "qescapestep_11.replacement.lean.txt": "bf9c008200dfffed9ce5d396f089d737ad41df209eded4d20f991191cfffa1dc",
+    "finite-input-identity.json": "b8abbbd87a94d9c87244732c0f949bcef276bde83a34f6b7d20973b1a7b4c5a7",
+    "STATIC-REUSE.md": "b87500dd32cd64f0c006ee8d638071e370a7234412e28773d9c649fd43c0168e"
+  },
+  "parentDiagnosticFinalCheck": {
+    "checkedAt": "2026-10-24T09:22:13.691516+00:00",
+    "currentSha256": "f41a1a94415a1e56a350913a50406a763099232fffc1973b459432edc486b678",
+    "matchesOriginalValidatedSha256": true,
+    "transientChangeParentConfirmed": true,
+    "taskWritesToExistingDiagnosticFiles": 0
+  }
+}

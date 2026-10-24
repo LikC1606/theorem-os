@@ -1,0 +1,58 @@
+{
+  "schema": "theorem-os.snaky.static-single-proof-reuse.v1",
+  "writtenAt": "2026-10-24T09:18:56.757020+00:00",
+  "official": false,
+  "status": "concrete uncompiled offline candidate",
+  "source": {
+    "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean",
+    "bytes": 967683,
+    "sha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae"
+  },
+  "candidate": {
+    "name": "transport-qescapestep_11-via-qsmall_step11",
+    "replacedDeclaration": "qescapestep_11",
+    "originalStartLine": 14746,
+    "originalEndLine": 14749,
+    "reusedOpaqueLemma": "qsmall_step11",
+    "lemmaLine": 14206,
+    "patchFile": "candidate.patch",
+    "replacementFile": "qescapestep_11.replacement.lean.txt",
+    "candidateSourceSha256InMemory": "e079653d2a78f26ac1021c9ef86ec2cdff4ac3dd0fd4d46f083b8ab190b112ab",
+    "textualKernelSitesBefore": 718,
+    "textualKernelSitesAfter": 717,
+    "theoremStatementUnchanged": true,
+    "finalTheoremBlockUnchanged": true,
+    "appliedToActiveSource": false,
+    "compiled": false
+  },
+  "finding": "A repeated finite geometric certificate was identified at one declaration, with identical qm614.H membership inputs after an explicit coordinate substitution. No repeated whole-table decide call was identified in the source inventory.",
+  "alreadySharedTableProof": {
+    "name": "qtable_valid_probe",
+    "line": 3091,
+    "sites": [
+      3096,
+      3102
+    ],
+    "laterUse": "qempty_winning_35 references this lemma at 15 row roots; it does not rerun the table decide tactic."
+  },
+  "pendingValidation": [
+    "Lean elaboration of the replacement in the exact pinned environment, including its simplification of equivalence inverses.",
+    "Kernel check of the replacement and declaration comparison with no new axioms or changed assumptions.",
+    "Whole-target, native integration, review and publisher gates for a separately authorized candidate.",
+    "Separate timing to establish whether eliminating this one decide call improves total checking cost."
+  ],
+  "limits": [
+    "No speedup was measured or established.",
+    "The running compiler declaration is unknown; this candidate is not tied to the sampled hot stack.",
+    "One finite source site is removed; dynamic invocation counts are not inferred from the 718 textual count.",
+    "This static correspondence cannot replace the full theorem check or final acceptance."
+  ],
+  "scope": {
+    "candidateCount": 1,
+    "leanCompilerInvocations": 0,
+    "processAttachments": 0,
+    "newProcessSamples": 0,
+    "activeSourceRuntimeCacheChanges": false,
+    "gitCommits": false
+  }
+}

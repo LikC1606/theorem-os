@@ -1,0 +1,23 @@
+{
+  "buildId": "74fd563c-1e68-4d0d-83d0-14ebbd9f79f8",
+  "bundleCount": 3,
+  "inputs": 200,
+  "sourceAndBundleValidationPassed": true,
+  "bundles": [
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/future-runtime-reuse-fix-20261024/runtime/out/main/math-solver.js",
+      "bytes": 2727460,
+      "sha256": "0b464edfbcf9765e208cf667f1445a8bee1a6a2366f5eb914328c35b92cb72c2"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/future-runtime-reuse-fix-20261024/runtime/out/main/search-lean.js",
+      "bytes": 173889,
+      "sha256": "6221047a92ec4d5cedef3b705fac1687db9254df644c59dc9eb08997374291fb"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/future-runtime-reuse-fix-20261024/runtime/out/main/check-lean.js",
+      "bytes": 1545721,
+      "sha256": "f85b37e09c30b79ff252fa342d93b80339d75d2c83b074ba5acafbdb0c002ac0"
+    }
+  ]
+}

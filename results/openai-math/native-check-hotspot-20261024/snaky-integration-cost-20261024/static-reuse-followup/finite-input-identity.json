@@ -1,0 +1,145 @@
+{
+  "sourceSha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+  "oldProof": {
+    "name": "qsmall_step11",
+    "kind": "lemma",
+    "line": 14206,
+    "kernelSiteLine": 14209
+  },
+  "newProof": {
+    "name": "qescapestep_11",
+    "kind": "def",
+    "line": 14746,
+    "kernelSiteLine": 14749
+  },
+  "sharedFiniteSet": {
+    "constant": "qm614.H",
+    "alias": "qo614.H",
+    "aliasDeclarationLine": 14567,
+    "aliasBodyLine": 14570,
+    "dataDeclarationLine": 13746
+  },
+  "coordinateMap": {
+    "T": "T(a) = (-a.y, a.x - 1) = qplacement 3 (0,-1) a",
+    "inverse": "a = (b.y + 1, -b.x)",
+    "oldPreimage": "(qplacementEquiv 1 (0,-1)).symm a = (a.y + 1, a.x)",
+    "newPreimage": "(qplacementEquiv 4 (1,-1)).symm b = (1 - b.x, b.y + 1)",
+    "preimageIdentity": "a=(b.y+1,-b.x) implies (a.y+1,a.x)=(1-b.x,b.y+1)"
+  },
+  "oldDomain": [
+    [
+      -1,
+      0
+    ],
+    [
+      0,
+      0
+    ],
+    [
+      1,
+      0
+    ]
+  ],
+  "newDomain": [
+    [
+      0,
+      -2
+    ],
+    [
+      0,
+      -1
+    ],
+    [
+      0,
+      0
+    ]
+  ],
+  "oldTarget": [
+    [
+      0,
+      0
+    ],
+    [
+      1,
+      0
+    ]
+  ],
+  "newTarget": [
+    [
+      0,
+      -1
+    ],
+    [
+      0,
+      0
+    ]
+  ],
+  "finiteRows": [
+    {
+      "b": [
+        0,
+        -2
+      ],
+      "a": [
+        -1,
+        0
+      ],
+      "oldHInput": [
+        1,
+        -1
+      ],
+      "newHInput": [
+        1,
+        -1
+      ],
+      "sameInput": true,
+      "oldConclusion": false,
+      "newConclusion": false
+    },
+    {
+      "b": [
+        0,
+        -1
+      ],
+      "a": [
+        0,
+        0
+      ],
+      "oldHInput": [
+        1,
+        0
+      ],
+      "newHInput": [
+        1,
+        0
+      ],
+      "sameInput": true,
+      "oldConclusion": true,
+      "newConclusion": true
+    },
+    {
+      "b": [
+        0,
+        0
+      ],
+      "a": [
+        1,
+        0
+      ],
+      "oldHInput": [
+        1,
+        1
+      ],
+      "newHInput": [
+        1,
+        1
+      ],
+      "sameInput": true,
+      "oldConclusion": true,
+      "newConclusion": true
+    }
+  ],
+  "verifiedBy": "Python integer arithmetic and source identity only; no Lean run, no evaluation of qm614.H",
+  "kernelVerification": false,
+  "actualShortCircuitQueryCount": null
+}

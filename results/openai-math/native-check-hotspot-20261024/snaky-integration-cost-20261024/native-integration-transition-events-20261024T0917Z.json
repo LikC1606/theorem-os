@@ -1,0 +1,47 @@
+[
+  {
+    "event": "task_integrated",
+    "at": 1792833429129,
+    "taskId": "v8_original_goal",
+    "groupId": "main",
+    "sharing": "problem",
+    "commit": "d1e7e43939add0899a88411c24f227e11ebf4112"
+  },
+  {
+    "event": "edit_recheck_updated",
+    "at": 1792833429130,
+    "id": "snaky-conditional-v8-return-to-native",
+    "recheck": {
+      "status": "passed",
+      "tasks": [
+        {
+          "taskId": "v8_original_goal",
+          "taskDigest": "9cf4184cb210eff2e77b59dcd3eac6be25461694b0d320baa9b500d5629acf3f",
+          "status": "passed",
+          "lastCheck": {
+            "commit": "d1e7e43939add0899a88411c24f227e11ebf4112",
+            "sourceDigest": "1a75c56a0beaa6df7578a0317d90f40fa2c6b1a9faf43511e1c69fa0bcee4f4f",
+            "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+            "passed": true,
+            "conditional": false,
+            "receiptIds": [
+              "lean-78b317b5823543bbdf5c270f"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "event": "assembly_started",
+    "at": 1792833429220,
+    "workerId": "solver",
+    "commit": "14d49c0f2bb94a8973471120f675554798126117"
+  },
+  {
+    "event": "proof_check_started",
+    "at": 1792833429221,
+    "workerId": "solver",
+    "turn": 2
+  }
+]

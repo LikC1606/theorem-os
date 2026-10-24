@@ -1,0 +1,23 @@
+{
+  "schema": "theorem-os.snaky-integration-progress.v1",
+  "observedAt": "2026-10-24T09:18:46.393936+00:00",
+  "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+  "canonicalCommit": "14d49c0f2bb94a8973471120f675554798126117",
+  "phase": "checking",
+  "turns": 4,
+  "taskId": "v8_original_goal",
+  "taskStatus": "integrated",
+  "integratedCommit": "d1e7e43939add0899a88411c24f227e11ebf4112",
+  "receiptId": "lean-78b317b5823543bbdf5c270f",
+  "verificationDurationSeconds": 8343.538,
+  "proofHash": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+  "axioms": [
+    "propext",
+    "Classical.choice",
+    "Quot.sound"
+  ],
+  "nextStage": "lead all-target check",
+  "nativeFinalAcceptance": false,
+  "allProblemsNativeFinalPassedCount": 5,
+  "sourceStateSHA256": "4aa63c670d4b46bc0c1183ba37729d333668582da10ae3362725500feae524e8"
+}

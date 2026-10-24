@@ -1,0 +1,36 @@
+
+ RUN  v4.1.0 /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/future-runtime-reuse-fix-20261024/runtime
+
+ ❯ tests/solverProjectionReuse.test.ts (6 tests | 6 failed) 960ms
+     × validates and pins both projections while keeping the checked receipt unchanged 178ms
+     × rejects clone evidence before adding host annotations 156ms
+     × rejects json evidence before adding host annotations 151ms
+     × rejects changed-map evidence before adding host annotations 152ms
+     × rejects removed-map evidence before adding host annotations 160ms
+     × rejects changed-reference evidence before adding host annotations 163ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/solverProjectionReuse.test.ts > host validation of content-equivalent task projections > validates and pins both projections while keeping the checked receipt unchanged
+ FAIL  tests/solverProjectionReuse.test.ts > host validation of content-equivalent task projections > rejects clone evidence before adding host annotations
+ FAIL  tests/solverProjectionReuse.test.ts > host validation of content-equivalent task projections > rejects json evidence before adding host annotations
+ FAIL  tests/solverProjectionReuse.test.ts > host validation of content-equivalent task projections > rejects changed-map evidence before adding host annotations
+ FAIL  tests/solverProjectionReuse.test.ts > host validation of content-equivalent task projections > rejects removed-map evidence before adding host annotations
+ FAIL  tests/solverProjectionReuse.test.ts > host validation of content-equivalent task projections > rejects changed-reference evidence before adding host annotations
+AssertionError: expected "vi.fn()" to be called once, but got 2 times
+ ❯ tests/solverProjectionReuse.test.ts:54:25
+     52|     sourceCommit = git(workspace, ['rev-parse', 'HEAD']);
+     53|     raw = await checkTaskProof(problem, workspace, sourceCommit, task,…
+     54|     expect(host.verify).toHaveBeenCalledOnce();
+       |                         ^
+     55|     expect(trustedTaskProjectionReuse(raw)).toBeDefined();
+     56|     const state = solverState(problem, workspace, { runId: 'projection…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+
+ Test Files  1 failed | 4 passed (5)
+      Tests  6 failed | 142 passed | 1 skipped (149)
+   Start at  17:10:57
+   Duration  8.81s (transform 1.20s, setup 0ms, import 1.53s, tests 11.27s, environment 0ms)
+

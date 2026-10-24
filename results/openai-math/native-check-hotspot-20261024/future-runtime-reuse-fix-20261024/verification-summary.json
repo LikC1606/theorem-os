@@ -1,0 +1,74 @@
+{
+  "schema": "theorem-os.focused-runtime-tests.v1",
+  "passed": 171,
+  "failed": 0,
+  "skipped": 1,
+  "files": [
+    {
+      "file": "tests/mathProofEnvironment.test.ts",
+      "tests": 9,
+      "status": "passed",
+      "counts": {
+        "passed": 8,
+        "skipped": 1
+      }
+    },
+    {
+      "file": "tests/proofReuseEnvironment.test.ts",
+      "tests": 15,
+      "status": "passed",
+      "counts": {
+        "passed": 15
+      }
+    },
+    {
+      "file": "tests/solverProjectionReuse.test.ts",
+      "tests": 6,
+      "status": "passed",
+      "counts": {
+        "passed": 6
+      }
+    },
+    {
+      "file": "tests/taskProofCache.test.ts",
+      "tests": 55,
+      "status": "passed",
+      "counts": {
+        "passed": 55
+      }
+    },
+    {
+      "file": "tests/taskTypePreflight.test.ts",
+      "tests": 64,
+      "status": "passed",
+      "counts": {
+        "passed": 64
+      }
+    },
+    {
+      "file": "tests/solverEvidenceReuse.test.ts",
+      "tests": 23,
+      "status": "passed",
+      "counts": {
+        "passed": 23
+      }
+    }
+  ],
+  "commands": {
+    "focusedTests": "DEEPSCIENTIST_TEST_FUSE=1 DEEPSCIENTIST_TEST_CODEX_SANDBOX=0 PATH=\"/home/lzh/.local/share/theorem-os/runtime-tools/bin:/home/lzh/.local/node/bin:/home/lzh/.venvs/deepscientist-finance/.bun/bin:$PATH\" /home/lzh/.local/node/bin/node node_modules/vitest/vitest.mjs run tests/proofReuseEnvironment.test.ts tests/taskProofCache.test.ts tests/solverProjectionReuse.test.ts tests/taskTypePreflight.test.ts tests/mathProofEnvironment.test.ts --reporter=json --outputFile=../focused-tests.json",
+    "headlessBuild": "/home/lzh/.venvs/deepscientist-finance/.bun/bin/bun scripts/build.ts --state-root ../build-state",
+    "realReadOnlyComparison": "/home/lzh/.venvs/deepscientist-finance/.bun/bin/bun read-real-reuse-environments.ts > reuse-environments.fixed.json",
+    "additionalCallerFile": "DEEPSCIENTIST_TEST_CODEX_SANDBOX=0 PATH=\"/home/lzh/.local/share/theorem-os/runtime-tools/bin:/home/lzh/.local/node/bin:/home/lzh/.venvs/deepscientist-finance/.bun/bin:$PATH\" /home/lzh/.local/node/bin/node node_modules/vitest/vitest.mjs run tests/solverEvidenceReuse.test.ts --reporter=json --outputFile=../solverEvidenceReuse-tests.json"
+  },
+  "originalFiveFiles": {
+    "passed": 148,
+    "failed": 0,
+    "skipped": 1
+  },
+  "additionalCallerFile": {
+    "passed": 23,
+    "failed": 0,
+    "skipped": 0,
+    "report": "solverEvidenceReuse-tests.json"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "schema": "theorem-os.continuation-progress.v1",
+  "observedAt": "2026-10-24T09:06:46.092703+00:00",
+  "nativeFinalPassedCount": 5,
+  "openAIHostedAcceptance": false,
+  "character": {
+    "runId": "1f3bb9c1-c99f-4fad-b656-8010a82c265b",
+    "phase": "checking",
+    "turns": 3,
+    "taskStatus": "delivered",
+    "taskPassed": true,
+    "taskReceiptId": "lean-adc266b0e003d64e5ebdf91b",
+    "proofHash": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3",
+    "sourceDigest": "f31eba830cec592a226f58cc26fffe68daacb70d307ada71475ccdda914f67b5",
+    "hostCommit": "aaaf7a217b8df185b467ec71348048b553dfe339",
+    "verificationDurationSeconds": 2375.071,
+    "axioms": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "nextStage": "canonical integration; native queue started",
+    "nativeAccepted": false,
+    "sourceStateSHA256": "4bfc8f6f4da7b4333d0e95dbd78754fc631f752bd4923cabd083351a47521e08"
+  },
+  "snaky": {
+    "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+    "phase": "checking",
+    "turns": 4,
+    "canonicalCommit": "71280e0208b8e116fc4dafafb95ff49fc6b9173b",
+    "sourceStateSHA256": "1b8dc9e01ceb321c3dc27d50ef9c9ce6a9cc7a2814627eb937538397bd179438",
+    "nativeAccepted": false,
+    "originalTaskPassed": true,
+    "integration": "running"
+  },
+  "honeycomb": {
+    "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+    "phase": "running",
+    "turns": 120,
+    "canonicalCommit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+    "sourceStateSHA256": "527f30c5503ea2443f16e2731ff5041e0a1a5903adae670e15aa04ba28fa7188",
+    "nativeAccepted": false,
+    "originalGoalProved": false,
+    "coreStripGrowthProved": false,
+    "canonicalReductionIntegrated": true
+  }
+}

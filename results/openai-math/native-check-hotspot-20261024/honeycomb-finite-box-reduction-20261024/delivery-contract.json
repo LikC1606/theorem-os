@@ -1,0 +1,56 @@
+{
+  "createdAt": "2026-10-24T09:00:54.875099+00:00",
+  "kind": "lemma",
+  "conditional": true,
+  "proofPath": "Submission.lean",
+  "theoremName": "OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_weight_of_uniformColumnBoxBound",
+  "type": "∀ {h : ℕ} {K : ℝ}, (∀ (R : ℕ) (s : Finset (BridgePath h)), (∀ p ∈ s, bridgeInColumnBox R p) → ∑ p ∈ s, weight p ≤ K) → Summable (weight (h := h))",
+  "sourceFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-finite-box-reduction-20261024/Submission.lean",
+  "sourceSHA256": "1fbba78bad15173b4be8b033009ab80e7d892347cc4324b0baf608f07d44dca4",
+  "sourceBytes": 12310,
+  "incrementFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-finite-box-reduction-20261024/FiniteBoxLemmas.lean.inc",
+  "baseCommit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+  "localKernelExitCode": 0,
+  "localKernelResult": "validation-no-budget-result.json",
+  "priorBudgetedSuccessResult": "validation-final-result.json",
+  "localKernelComputeBudget": null,
+  "localKernelMaxHeartbeats": 0,
+  "nativeTaskProofPublished": false,
+  "normalQueueDelivery": {
+    "kind": "advisory",
+    "editId": "honeycomb-finite-box-5e38146e7324",
+    "status": "applied",
+    "addedTaskId": "finite_box_zero_mass_reference",
+    "planVersion": "54e65a72a7df77c506a1f0425f35c71d388766da76e45a2c6cda55271fceca90",
+    "existingTaskInvalidations": [],
+    "existingTasksAndAssignmentsPreserved": true,
+    "inlineReferenceVisibleInEngineerAndResearcher2CooperationFiles": true,
+    "readback": "native-advisory-applied-readback.json"
+  },
+  "axiomsByDeclaration": {
+    "OAI.PolynomialVacuumBridge.Corridor.bridgeFiniteSet_commonColumnBox": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "OAI.PolynomialVacuumBridge.Corridor.bridgeFiniteSum_weight_le_of_uniformColumnBoxBound": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_weight_of_uniformColumnBoxBound": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "OAI.PolynomialVacuumBridge.Corridor.bridgeMass_le_of_uniformColumnBoxBound": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ]
+  },
+  "scope": "Only a conditional zeroth-mass summability reduction; uniform box bound is unproved and firstLengthWeight/original goal remain open.",
+  "originalGoalPreserved": true,
+  "originalGoalContainsSorry": true,
+  "activeFilesChanged": false
+}

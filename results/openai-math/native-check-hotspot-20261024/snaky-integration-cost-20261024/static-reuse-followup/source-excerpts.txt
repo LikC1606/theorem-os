@@ -1,0 +1,238 @@
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:363 (qCell)
+363: abbrev qCell := by
+364:   set_option maxHeartbeats 0 in
+365:     set_option maxRecDepth 100000 in
+366:       exact (ℤ × ℤ)
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:375 (qorient)
+375: def qorient (r : Fin 8) (p : qCell) : qCell := by
+376:   set_option maxHeartbeats 0 in
+377:     set_option maxRecDepth 100000 in
+378:       exact (match r.val with
+379:   | 0 => (p.1,p.2)
+380:   | 1 => (p.2,p.1)
+381:   | 2 => (p.1,-p.2)
+382:   | 3 => (-p.2,p.1)
+383:   | 4 => (-p.1,p.2)
+384:   | 5 => (p.2,-p.1)
+385:   | 6 => (-p.1,-p.2)
+386:   | _ => (-p.2,-p.1))
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:387 (qplacement)
+387: def qplacement (r : Fin 8) (t p : qCell) : qCell := by
+388:   set_option maxHeartbeats 0 in
+389:     set_option maxRecDepth 100000 in
+390:       exact (qorient r p + t)
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:403 (qT)
+403: abbrev qT := by
+404:   set_option maxHeartbeats 0 in
+405:     set_option maxRecDepth 100000 in
+406:       exact (ℕ × Fin 8 × Fin 10 × Fin 10)
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:411 (qT.rotation)
+411: def qT.rotation (x : qT) : Fin 8 := by
+412:   set_option maxHeartbeats 0 in
+413:     set_option maxRecDepth 100000 in
+414:       exact (x.2.1)
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:415 (qT.xDigit)
+415: def qT.xDigit (x : qT) : Fin 10 := by
+416:   set_option maxHeartbeats 0 in
+417:     set_option maxRecDepth 100000 in
+418:       exact (x.2.2.1)
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:419 (qT.yDigit)
+419: def qT.yDigit (x : qT) : Fin 10 := by
+420:   set_option maxHeartbeats 0 in
+421:     set_option maxRecDepth 100000 in
+422:       exact (x.2.2.2)
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:423 (qT.shift)
+423: def qT.shift (t : qT) : qCell := by
+424:   set_option maxHeartbeats 0 in
+425:     set_option maxRecDepth 100000 in
+426:       exact (((t.xDigit.val : ℤ) - 4,(t.yDigit.val : ℤ) - 4))
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:3025 (qR)
+3025: abbrev qR := by
+3026:   set_option maxHeartbeats 0 in
+3027:     set_option maxRecDepth 100000 in
+3028:       exact (Finset qCell × Finset qCell × ℕ)
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:3033 (qR.H)
+3033: def qR.H (x : qR) : Finset qCell := by
+3034:   set_option maxHeartbeats 0 in
+3035:     set_option maxRecDepth 100000 in
+3036:       exact (x.2.1)
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:3049 (qplaceRow)
+3049: def qplaceRow (t : qT) (d : qR) : qR := by
+3050:   set_option maxHeartbeats 0 in
+3051:     set_option maxRecDepth 100000 in
+3052:       exact (⟨d.A.image (qplacement t.rotation t.shift),
+3053:    d.H.image (qplacement t.rotation t.shift),d.height⟩)
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13746 (qm614)
+13746: def qm614 : qR := ⟨{(1,0),(1,1)},⟨(ql614 : Multiset qCell), Multiset.coe_nodup.mpr qn614⟩,33⟩
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:14200 (qsmall10)
+14200: def qsmall10 : Finset qCell := {(-1,0),(0,0),(1,0)}
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:14205 (qsmall11)
+14205: def qsmall11 : Finset qCell := {(0,0),(1,0)}
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:14206 (qsmall_step11)
+14206: lemma qsmall_step11 : ∀ b ∈ qsmall10,b ∈ (qplaceRow ⟨614,1,4,3⟩ qm614).H → b ∈ qsmall11 := by
+14207:   set_option maxHeartbeats 0 in
+14208:     set_option maxRecDepth 100000 in
+14209:       run_tac qhbGeometry (← `(tactic| decide +kernel))
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:14274 (qinverseRotation)
+14274: def qinverseRotation (r : Fin 8) : Fin 8 := by
+14275:   set_option maxHeartbeats 0 in
+14276:     set_option maxRecDepth 100000 in
+14277:       exact (if r = 3 then 5 else if r = 5 then 3 else r)
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:14288 (qorientEquiv)
+14288: def qorientEquiv (r : Fin 8) : qCell ≃ qCell := by
+14289:   set_option maxHeartbeats 0 in
+14290:     set_option maxRecDepth 100000 in
+14291:       exact (⟨qorient r,qorient (qinverseRotation r),qorient_inverse r,qorient_inverse' r⟩)
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:14292 (qplacementEquiv)
+14292: def qplacementEquiv (r : Fin 8) (t : qCell) : qCell ≃ qCell := by
+14293:   set_option maxHeartbeats 0 in
+14294:     set_option maxRecDepth 100000 in
+14295:       exact ((qorientEquiv r).trans (Equiv.addRight t))
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:14504 (qmoveRow)
+14504: def qmoveRow (r : Fin 8) (t : qCell) (d : qR) : qR := by
+14505:   set_option maxHeartbeats 0 in
+14506:     set_option maxRecDepth 100000 in
+14507:       exact (⟨d.A.image (qplacement r t),d.H.image (qplacement r t),d.height⟩)
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:14567 (qo614)
+14567: def qo614 : qR := by
+14568:   set_option maxHeartbeats 0 in
+14569:     set_option maxRecDepth 100000 in
+14570:       exact (qm614)
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:14575 (qmem_moveRow_H_iff)
+14575: def qmem_moveRow_H_iff (r : Fin 8) (t : qCell) (d : qR) (b : qCell) :
+14576:     b ∈ (qmoveRow r t d).H ↔ (qplacementEquiv r t).symm b ∈ d.H := by
+14577:   set_option maxHeartbeats 0 in
+14578:     set_option maxRecDepth 100000 in
+14579:       exact (by
+14580:           change b ∈ d.H.image (qplacementEquiv r t) ↔ _
+14581:           constructor
+14582:           · intro h
+14583:             obtain ⟨a,ha,hab⟩ := Finset.mem_image.mp h
+14584:             simpa only [← hab,Equiv.symm_apply_apply] using ha
+14585:           · intro h
+14586:             exact Finset.mem_image.mpr ⟨_,h,(qplacementEquiv r t).apply_symm_apply b⟩)
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:14734 (qescapeI_10)
+14734: def qescapeI_10 : Finset qCell := by
+14735:   set_option maxHeartbeats 0 in
+14736:     set_option maxRecDepth 100000 in
+14737:       exact ({(0,-2),(0,-1),(0,0)})
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:14742 (qescapeI_11)
+14742: def qescapeI_11 : Finset qCell := by
+14743:   set_option maxHeartbeats 0 in
+14744:     set_option maxRecDepth 100000 in
+14745:       exact ({(0,-1),(0,0)})
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:14746 (qescapestep_11)
+14746: def qescapestep_11 : ∀ b ∈ qescapeI_10,(qplacementEquiv 4 (1,-1)).symm b ∈ qo614.H → b ∈ qescapeI_11 := by
+14747:   set_option maxHeartbeats 0 in
+14748:     set_option maxRecDepth 100000 in
+14749:       run_tac qhb (← `(tactic| decide +kernel))
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13741 (ql614)
+13741: def ql614 : List qCell := ql614b0 ++ ql614b1 ++ ql614b2 ++ ql614b3 ++ ql614b4 ++ ql614b5 ++ ql614b6 ++ ql614b7 ++ ql614b8 ++ ql614b9 ++ ql614b10 ++ ql614b11 ++ ql614b12 ++ ql614b13 ++ ql614b14 ++ ql614b15 ++ ql614b16 ++ ql614b17 ++ ql614b18 ++ ql614b19 ++ ql614b20 ++ ql614b21 ++ ql614b22 ++ ql614b23 ++ ql614b24 ++ ql614b25 ++ ql614b26 ++ ql614b27
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13713 (ql614b0)
+13713: def ql614b0 : List qCell := [(-15,-2),(-15,0),(-15,2),(-14,-2),(-14,-1),(-14,0),(-14,1),(-14,2),(-13,-4),(-13,-3),(-13,-2),(-13,-1),(-13,0),(-13,1),(-13,2),(-13,3),(-13,4),(-13,5),(-13,6),(-12,-4),(-12,-3),(-12,-2),(-12,-1),(-12,0),(-12,1)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13714 (ql614b1)
+13714: def ql614b1 : List qCell := [(-12,2),(-12,3),(-12,4),(-12,5),(-12,6),(-11,-5),(-11,-4),(-11,-3),(-11,-2),(-11,-1),(-11,0),(-11,1),(-11,2),(-11,3),(-11,4),(-11,5),(-11,6),(-11,7),(-11,8),(-11,9),(-10,-7),(-10,-6),(-10,-5),(-10,-4),(-10,-3)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13723 (ql614b10)
+13723: def ql614b10 : List qCell := [(-2,8),(-2,9),(-2,10),(-2,11),(-2,12),(-2,13),(-2,14),(-1,-13),(-1,-12),(-1,-11),(-1,-10),(-1,-9),(-1,-8),(-1,-7),(-1,-6),(-1,-5),(-1,-4),(-1,-3),(-1,-2),(-1,-1),(-1,0),(-1,1),(-1,2),(-1,3),(-1,4)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13724 (ql614b11)
+13724: def ql614b11 : List qCell := [(-1,5),(-1,6),(-1,7),(-1,8),(-1,9),(-1,10),(-1,11),(-1,12),(-1,13),(-1,14),(-1,15),(-1,16),(0,-13),(0,-12),(0,-11),(0,-10),(0,-9),(0,-8),(0,-7),(0,-6),(0,-5),(0,-4),(0,-3),(0,-2),(0,-1)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13725 (ql614b12)
+13725: def ql614b12 : List qCell := [(0,0),(0,2),(0,3),(0,4),(0,5),(0,6),(0,7),(0,8),(0,9),(0,10),(0,11),(0,12),(0,13),(0,14),(0,15),(1,-13),(1,-12),(1,-11),(1,-10),(1,-9),(1,-8),(1,-7),(1,-6),(1,-5),(1,-4)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13726 (ql614b13)
+13726: def ql614b13 : List qCell := [(1,-3),(1,-2),(1,0),(1,1),(1,2),(1,3),(1,4),(1,5),(1,6),(1,7),(1,8),(1,9),(1,10),(1,11),(1,12),(1,13),(1,14),(1,15),(1,16),(1,17),(2,-13),(2,-12),(2,-11),(2,-10),(2,-9)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13727 (ql614b14)
+13727: def ql614b14 : List qCell := [(2,-8),(2,-7),(2,-6),(2,-5),(2,-4),(2,-3),(2,-2),(2,-1),(2,0),(2,1),(2,2),(2,3),(2,4),(2,5),(2,6),(2,7),(2,8),(2,9),(2,10),(2,11),(2,12),(2,13),(2,14),(2,15),(2,16)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13728 (ql614b15)
+13728: def ql614b15 : List qCell := [(3,-13),(3,-12),(3,-11),(3,-10),(3,-9),(3,-8),(3,-7),(3,-6),(3,-5),(3,-4),(3,-3),(3,-2),(3,-1),(3,0),(3,1),(3,2),(3,3),(3,4),(3,5),(3,6),(3,7),(3,8),(3,9),(3,10),(3,11)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13729 (ql614b16)
+13729: def ql614b16 : List qCell := [(3,12),(3,13),(3,14),(3,15),(3,16),(3,17),(4,-13),(4,-12),(4,-11),(4,-10),(4,-9),(4,-8),(4,-7),(4,-6),(4,-5),(4,-4),(4,-3),(4,-2),(4,-1),(4,0),(4,1),(4,2),(4,3),(4,4),(4,5)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13730 (ql614b17)
+13730: def ql614b17 : List qCell := [(4,6),(4,7),(4,8),(4,9),(4,10),(4,11),(4,12),(4,13),(4,14),(4,15),(5,-12),(5,-11),(5,-10),(5,-9),(5,-8),(5,-7),(5,-6),(5,-5),(5,-4),(5,-3),(5,-2),(5,-1),(5,0),(5,1),(5,2)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13731 (ql614b18)
+13731: def ql614b18 : List qCell := [(5,3),(5,4),(5,5),(5,6),(5,7),(5,8),(5,9),(5,10),(5,11),(5,12),(5,13),(5,14),(5,15),(6,-12),(6,-11),(6,-10),(6,-9),(6,-8),(6,-7),(6,-6),(6,-5),(6,-4),(6,-3),(6,-2),(6,-1)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13732 (ql614b19)
+13732: def ql614b19 : List qCell := [(6,0),(6,1),(6,2),(6,3),(6,4),(6,5),(6,6),(6,7),(6,8),(6,9),(6,10),(6,11),(6,12),(6,13),(6,14),(6,15),(7,-10),(7,-9),(7,-8),(7,-7),(7,-6),(7,-5),(7,-4),(7,-3),(7,-2)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13715 (ql614b2)
+13715: def ql614b2 : List qCell := [(-10,-2),(-10,-1),(-10,0),(-10,1),(-10,2),(-10,3),(-10,4),(-10,5),(-10,6),(-10,7),(-10,8),(-10,9),(-9,-8),(-9,-7),(-9,-6),(-9,-5),(-9,-4),(-9,-3),(-9,-2),(-9,-1),(-9,0),(-9,1),(-9,2),(-9,3),(-9,4)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13733 (ql614b20)
+13733: def ql614b20 : List qCell := [(7,-1),(7,0),(7,1),(7,2),(7,3),(7,4),(7,5),(7,6),(7,7),(7,8),(7,9),(7,10),(7,11),(7,12),(7,13),(7,14),(7,15),(8,-10),(8,-9),(8,-8),(8,-7),(8,-6),(8,-5),(8,-4),(8,-3)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13734 (ql614b21)
+13734: def ql614b21 : List qCell := [(8,-2),(8,-1),(8,0),(8,1),(8,2),(8,3),(8,4),(8,5),(8,6),(8,7),(8,8),(8,9),(8,10),(8,11),(8,12),(8,13),(9,-10),(9,-9),(9,-8),(9,-7),(9,-6),(9,-5),(9,-4),(9,-3),(9,-2)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13735 (ql614b22)
+13735: def ql614b22 : List qCell := [(9,-1),(9,0),(9,1),(9,2),(9,3),(9,4),(9,5),(9,6),(9,7),(9,8),(9,9),(9,10),(9,11),(9,12),(9,13),(10,-10),(10,-9),(10,-8),(10,-7),(10,-6),(10,-5),(10,-4),(10,-3),(10,-2),(10,-1)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13736 (ql614b23)
+13736: def ql614b23 : List qCell := [(10,0),(10,1),(10,2),(10,3),(10,4),(10,5),(10,6),(10,7),(10,8),(10,9),(10,10),(10,11),(10,12),(10,13),(11,-8),(11,-7),(11,-6),(11,-5),(11,-4),(11,-3),(11,-2),(11,-1),(11,0),(11,1),(11,2)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13737 (ql614b24)
+13737: def ql614b24 : List qCell := [(11,3),(11,4),(11,5),(11,6),(11,7),(11,8),(11,9),(11,10),(11,11),(12,-7),(12,-6),(12,-5),(12,-4),(12,-3),(12,-2),(12,-1),(12,0),(12,1),(12,2),(12,3),(12,4),(12,5),(12,6),(12,7),(12,8)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13738 (ql614b25)
+13738: def ql614b25 : List qCell := [(12,9),(12,10),(13,-5),(13,-4),(13,-3),(13,-2),(13,-1),(13,0),(13,1),(13,2),(13,3),(13,4),(13,5),(13,6),(13,7),(13,8),(13,9),(13,10),(14,-4),(14,-3),(14,-2),(14,-1),(14,0),(14,1),(14,2)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13739 (ql614b26)
+13739: def ql614b26 : List qCell := [(14,3),(14,4),(14,5),(14,6),(14,7),(15,-4),(15,-3),(15,-2),(15,-1),(15,0),(15,1),(15,2),(15,3),(15,4),(15,5),(15,6),(15,7),(16,-2),(16,-1),(16,0),(16,1),(16,2),(16,3),(17,-2),(17,0)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13740 (ql614b27)
+13740: def ql614b27 : List qCell := [(17,1),(17,2),(17,3)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13716 (ql614b3)
+13716: def ql614b3 : List qCell := [(-9,5),(-9,6),(-9,7),(-9,8),(-9,9),(-9,10),(-8,-10),(-8,-9),(-8,-8),(-8,-7),(-8,-6),(-8,-5),(-8,-4),(-8,-3),(-8,-2),(-8,-1),(-8,0),(-8,1),(-8,2),(-8,3),(-8,4),(-8,5),(-8,6),(-8,7),(-8,8)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13717 (ql614b4)
+13717: def ql614b4 : List qCell := [(-8,9),(-8,10),(-8,11),(-8,12),(-7,-10),(-7,-9),(-7,-8),(-7,-7),(-7,-6),(-7,-5),(-7,-4),(-7,-3),(-7,-2),(-7,-1),(-7,0),(-7,1),(-7,2),(-7,3),(-7,4),(-7,5),(-7,6),(-7,7),(-7,8),(-7,9),(-7,10)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13718 (ql614b5)
+13718: def ql614b5 : List qCell := [(-7,11),(-7,12),(-6,-10),(-6,-9),(-6,-8),(-6,-7),(-6,-6),(-6,-5),(-6,-4),(-6,-3),(-6,-2),(-6,-1),(-6,0),(-6,1),(-6,2),(-6,3),(-6,4),(-6,5),(-6,6),(-6,7),(-6,8),(-6,9),(-6,10),(-6,11),(-6,12)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13719 (ql614b6)
+13719: def ql614b6 : List qCell := [(-5,-10),(-5,-9),(-5,-8),(-5,-7),(-5,-6),(-5,-5),(-5,-4),(-5,-3),(-5,-2),(-5,-1),(-5,0),(-5,1),(-5,2),(-5,3),(-5,4),(-5,5),(-5,6),(-5,7),(-5,8),(-5,9),(-5,10),(-5,11),(-5,12),(-5,13),(-5,14)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13720 (ql614b7)
+13720: def ql614b7 : List qCell := [(-4,-12),(-4,-11),(-4,-10),(-4,-9),(-4,-8),(-4,-7),(-4,-6),(-4,-5),(-4,-4),(-4,-3),(-4,-2),(-4,-1),(-4,0),(-4,1),(-4,2),(-4,3),(-4,4),(-4,5),(-4,6),(-4,7),(-4,8),(-4,9),(-4,10),(-4,11),(-4,12)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13721 (ql614b8)
+13721: def ql614b8 : List qCell := [(-4,13),(-4,14),(-3,-12),(-3,-11),(-3,-10),(-3,-9),(-3,-8),(-3,-7),(-3,-6),(-3,-5),(-3,-4),(-3,-3),(-3,-2),(-3,-1),(-3,0),(-3,1),(-3,2),(-3,3),(-3,4),(-3,5),(-3,6),(-3,7),(-3,8),(-3,9),(-3,10)]
+
+SOURCE /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean:13722 (ql614b9)
+13722: def ql614b9 : List qCell := [(-3,11),(-3,12),(-3,13),(-3,14),(-2,-13),(-2,-12),(-2,-11),(-2,-10),(-2,-9),(-2,-8),(-2,-7),(-2,-6),(-2,-5),(-2,-4),(-2,-3),(-2,-2),(-2,-1),(-2,0),(-2,1),(-2,2),(-2,3),(-2,4),(-2,5),(-2,6),(-2,7)]

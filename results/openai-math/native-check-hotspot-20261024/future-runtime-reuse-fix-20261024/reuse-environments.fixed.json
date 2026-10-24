@@ -1,0 +1,123 @@
+{
+  "schema": "theorem-os.sealed-reuse-fix-observation.v1",
+  "observedAt": "2026-10-24T09:07:34.014Z",
+  "accessEnvironmentSource": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/native-sync-def-attempt/native-followup/result.json.runtime/environment-solver.json",
+  "nativeParentPid": 2305626,
+  "method": "Read-only calls to frozen and isolated fixed proofReuseEnvironment plus the actual sealed resolver on existing live project paths.",
+  "leanInvoked": false,
+  "modelInvoked": false,
+  "cacheLookupInvoked": false,
+  "verifierReceiptCreated": false,
+  "projectInputsUnchanged": true,
+  "fixedSealedDigestsEqual": true,
+  "observations": [
+    {
+      "stage": "delivery-source-project",
+      "project": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/native-sync-def-attempt/native-followup/result.json.runtime/worktree-4/generated/problem",
+      "submissionSha256": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3",
+      "configuration": [
+        [
+          "lean-toolchain",
+          "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+        ],
+        [
+          "lakefile.toml",
+          "4d10708d086bba27777fdcc3e32a4409c24c70f11e5ba9f1f5a0ea1fa2ea52f6"
+        ],
+        [
+          "lakefile.lean",
+          null
+        ],
+        [
+          "lake-manifest.json",
+          "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829"
+        ],
+        [
+          ".lake/package-overrides.json",
+          "a3eeb1bd82bb91ba9e4f24d2ae7296370743bebbb162812669f1dbf4c1e0b142"
+        ]
+      ],
+      "validatedSealedIdentity": "900fd1e9244b72b3131a752636e67f20341702d3490776cfe4b267bf2f9b2460",
+      "frozen": {
+        "reusable": true,
+        "digest": "3336373af58fcc70d25216b2fb4741c243d67b34213bdd7b826af12593ac1139"
+      },
+      "fixed": {
+        "reusable": true,
+        "digest": "e7d8bb593a02d613eed3ff293ca14dfcd6a69ca47958579069843cdb19f67056"
+      }
+    },
+    {
+      "stage": "clean-integration-projection",
+      "project": "/tmp/math-check-ahZooU/worktree/generated/problem",
+      "submissionSha256": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3",
+      "configuration": [
+        [
+          "lean-toolchain",
+          "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+        ],
+        [
+          "lakefile.toml",
+          "4d10708d086bba27777fdcc3e32a4409c24c70f11e5ba9f1f5a0ea1fa2ea52f6"
+        ],
+        [
+          "lakefile.lean",
+          null
+        ],
+        [
+          "lake-manifest.json",
+          "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829"
+        ],
+        [
+          ".lake/package-overrides.json",
+          null
+        ]
+      ],
+      "validatedSealedIdentity": "900fd1e9244b72b3131a752636e67f20341702d3490776cfe4b267bf2f9b2460",
+      "frozen": {
+        "reusable": true,
+        "digest": "e7d8bb593a02d613eed3ff293ca14dfcd6a69ca47958579069843cdb19f67056"
+      },
+      "fixed": {
+        "reusable": true,
+        "digest": "e7d8bb593a02d613eed3ff293ca14dfcd6a69ca47958579069843cdb19f67056"
+      }
+    },
+    {
+      "stage": "second-clean-projection",
+      "project": "/tmp/math-check-wLoT3a/worktree/generated/problem",
+      "submissionSha256": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3",
+      "configuration": [
+        [
+          "lean-toolchain",
+          "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+        ],
+        [
+          "lakefile.toml",
+          "4d10708d086bba27777fdcc3e32a4409c24c70f11e5ba9f1f5a0ea1fa2ea52f6"
+        ],
+        [
+          "lakefile.lean",
+          null
+        ],
+        [
+          "lake-manifest.json",
+          "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829"
+        ],
+        [
+          ".lake/package-overrides.json",
+          null
+        ]
+      ],
+      "validatedSealedIdentity": "900fd1e9244b72b3131a752636e67f20341702d3490776cfe4b267bf2f9b2460",
+      "frozen": {
+        "reusable": true,
+        "digest": "e7d8bb593a02d613eed3ff293ca14dfcd6a69ca47958579069843cdb19f67056"
+      },
+      "fixed": {
+        "reusable": true,
+        "digest": "e7d8bb593a02d613eed3ff293ca14dfcd6a69ca47958579069843cdb19f67056"
+      }
+    }
+  ]
+}

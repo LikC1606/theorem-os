@@ -1,0 +1,16 @@
+{
+  "capturedAt": "2026-10-24T08:58:18.373636+00:00",
+  "startup": {
+    "rawResult": "validation-result.json",
+    "stdout": "startup-failure.stdout.log",
+    "stderr": "startup-failure.stderr.log",
+    "captureMethod": "Exact output previously displayed by the read tool after the first execution; reconstructed after the second runner reused log filenames."
+  },
+  "firstActualElaboration": {
+    "rawResult": "validation-kernel-32g-result.json",
+    "stdout": "validation-kernel-32g.stdout.log",
+    "stderr": "validation-kernel-32g.stderr.log",
+    "captureMethod": "Byte-for-byte copied original second-execution logs before further work."
+  },
+  "originalRunnerLogCollisionExplained": true
+}

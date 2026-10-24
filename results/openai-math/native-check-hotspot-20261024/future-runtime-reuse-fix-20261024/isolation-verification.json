@@ -1,0 +1,55 @@
+{
+  "schema": "theorem-os.future-runtime-reuse-fix-isolation.v1",
+  "frozenRuntime": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime",
+  "isolatedRuntime": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/future-runtime-reuse-fix-20261024/runtime",
+  "frozenRuntimeFilesUnchanged": true,
+  "frozenRuntimeFileCount": 386,
+  "dependencyCopyIndependent": true,
+  "isolatedRuntimeSymlinks": [],
+  "sourceAndTestChanges": [
+    {
+      "path": "src/solver/proofReuse.ts",
+      "beforeSha256": "dfe800cbec169c360f3ed63f630c5991c02c0d14c4e4d188241e8c9fe78c2881",
+      "afterSha256": "f865158c68fa2b8ba5479c573cab9f266fdecb0213d102b3d606f028e3a5714c",
+      "beforeBytes": 3419,
+      "afterBytes": 3600
+    },
+    {
+      "path": "tests/proofReuseEnvironment.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "aad41b3de6a85b30ee2142eff89da2a662cc1f5c650794ce1aaa60ab6c9dd6fa",
+      "beforeBytes": 0,
+      "afterBytes": 7624
+    },
+    {
+      "path": "tests/taskProofCache.test.ts",
+      "beforeSha256": "04eedf56bfe9961585edd0cf9159f687c2de3c8f35a84b61da482dd35063b6b7",
+      "afterSha256": "d554848086ec8f8f73d7dd3445f2c7012d49e638a6e0e3a852113641aa540a21",
+      "beforeBytes": 32221,
+      "afterBytes": 33666
+    },
+    {
+      "path": "tests/solverProjectionReuse.test.ts",
+      "beforeSha256": "afdef4cd88f641c995d38d82cd0b66bbae661a47f0ceb08786cb069097e5612a",
+      "afterSha256": "fb5eb3bad5c03eb159f832182ff08bb3e603423a9f2e004e16e5803f359ffde6",
+      "beforeBytes": 6688,
+      "afterBytes": 6751
+    }
+  ],
+  "changedFilesIncludingBundles": [
+    "out/main/check-lean.js",
+    "out/main/math-solver.js",
+    "out/main/search-lean.js",
+    "src/solver/proofReuse.ts",
+    "tests/proofReuseEnvironment.test.ts",
+    "tests/solverProjectionReuse.test.ts",
+    "tests/taskProofCache.test.ts"
+  ],
+  "currentRunSwitched": false,
+  "activeStateWritten": false,
+  "existingCacheWritten": false,
+  "mainCheckoutWritten": false,
+  "leanInvoked": false,
+  "modelInvoked": false,
+  "resultsWritten": false
+}

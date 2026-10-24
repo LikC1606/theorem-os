@@ -1,0 +1,243 @@
+{
+  "source": "symbolized-stack-sample.json",
+  "pid": 1659442,
+  "tid": 1659446,
+  "observedAt": "2026-10-24T08:51:11.808246+00:00",
+  "frameCount": 5580,
+  "truncated": false,
+  "attachedSeconds": 0.1523150559514761,
+  "detached": true,
+  "targetTracerAfter": "TracerPid:\t0",
+  "frames": [
+    {
+      "depth": 0,
+      "function": "lean_dec_ref_cold",
+      "pc": "0x7ab2d60ff3e9"
+    },
+    {
+      "depth": 1,
+      "function": "std::__1::__hash_table<std::__1::__hash_value_type<lean::expr, lean::expr>, std::__1::__unordered_map_hasher<lean::expr, std::__1::pair<lean::expr const, lean::expr>, lean::expr_hash, std::__1::equal_to<lean::expr> >, std::__1::__unordered_map_equal<lean::expr, std::__1::pair<lean::expr const, lean::expr>, std::__1::equal_to<lean::expr>, lean::expr_hash>, mi_stl_allocator<std::__1::pair<lean::expr const, lean::expr> > >::__deallocate_node[abi:nqe220104](std::__1::__hash_node<std::__1::__hash_value_type<lean::expr, lean::expr>, void*>*)",
+      "pc": "0x7ab2d60a9fdb"
+    },
+    {
+      "depth": 2,
+      "function": "lean::type_checker::state::~state()",
+      "pc": "0x7ab2d60a9a7b"
+    },
+    {
+      "depth": 3,
+      "function": "lean::type_checker::~type_checker()",
+      "pc": "0x7ab2d60a698d"
+    },
+    {
+      "depth": 4,
+      "function": "lean::environment::add_theorem(lean::declaration const&, bool) const",
+      "pc": "0x7ab2d609263f"
+    },
+    {
+      "depth": 5,
+      "function": "lean::environment::add(lean::declaration const&, bool) const",
+      "pc": "0x7ab2d6093603"
+    },
+    {
+      "depth": 6,
+      "function": "lean::elab_environment::add(lean::declaration const&, bool) const",
+      "pc": "0x7ab2d60df0bc"
+    },
+    {
+      "depth": 7,
+      "function": "std::__1::__function::__func<lean_elab_add_decl::$_0, lean::elab_environment ()>::operator()()",
+      "pc": "0x7ab2d60df7d7"
+    },
+    {
+      "depth": 8,
+      "function": "lean_object* lean::catch_kernel_exceptions<lean::elab_environment>(std::__1::function<lean::elab_environment ()> const&)",
+      "pc": "0x7ab2d60e009f"
+    },
+    {
+      "depth": 9,
+      "function": "lean_elab_add_decl",
+      "pc": "0x7ab2d60df298"
+    },
+    {
+      "depth": 10,
+      "function": "l_Lean_Environment_addDeclCore",
+      "pc": "0x7ab2d033e90a"
+    },
+    {
+      "depth": 11,
+      "function": "l___private_Lean_AddDecl_0__Lean_addDeclCore_doAdd___lam__1",
+      "pc": "0x7ab2d08a713e"
+    },
+    {
+      "depth": 12,
+      "function": "l___private_Lean_AddDecl_0__Lean_addDeclCore_doAdd___lam__1___boxed",
+      "pc": "0x7ab2d08a846a"
+    },
+    {
+      "depth": 13,
+      "function": "lean_apply_1",
+      "pc": "0x7ab2d610ba3e"
+    },
+    {
+      "depth": 14,
+      "function": "l_Lean_profileitIOUnsafe___redArg___lam__0",
+      "pc": "0x7ab2d0429a4b"
+    },
+    {
+      "depth": 15,
+      "function": "lean_apply_1",
+      "pc": "0x7ab2d610b76a"
+    },
+    {
+      "depth": 16,
+      "function": "lean_apply_1",
+      "pc": "0x7ab2d610b76a"
+    },
+    {
+      "depth": 17,
+      "function": "lean_profileit",
+      "pc": "0x7ab2d60dc0b3"
+    },
+    {
+      "depth": 18,
+      "function": "l_Lean_profileitIOUnsafe___redArg",
+      "pc": "0x7ab2d0429c12"
+    },
+    {
+      "depth": 19,
+      "function": "l___private_Lean_AddDecl_0__Lean_addDeclCore",
+      "pc": "0x7ab2d08b665a"
+    },
+    {
+      "depth": 20,
+      "function": "l_Lean_addDecl",
+      "pc": "0x7ab2d08b82b6"
+    },
+    {
+      "depth": 21,
+      "function": "l_Lean_Meta_mkAuxLemma",
+      "pc": "0x7ab2d168acdf"
+    },
+    {
+      "depth": 22,
+      "function": "l___private_Lean_Elab_Tactic_Decide_0__Lean_Elab_Tactic_evalDecideCore_doKernel___redArg",
+      "pc": "0x7ab2d5136338"
+    },
+    {
+      "depth": 23,
+      "function": "l_Lean_Elab_Tactic_evalDecideCore___lam__0",
+      "pc": "0x7ab2d5137578"
+    },
+    {
+      "depth": 24,
+      "function": "l_Lean_Elab_Tactic_evalDecideCore___lam__0___boxed",
+      "pc": "0x7ab2d51377b2"
+    },
+    {
+      "depth": 25,
+      "function": "lean_apply_11",
+      "pc": "0x7ab2d6119826"
+    },
+    {
+      "depth": 26,
+      "function": "l_Lean_Elab_Tactic_closeMainGoalUsing___lam__0",
+      "pc": "0x7ab2d29f54dc"
+    },
+    {
+      "depth": 27,
+      "function": "l_Lean_Elab_Tactic_closeMainGoalUsing___lam__0___boxed",
+      "pc": "0x7ab2d29f704c"
+    },
+    {
+      "depth": 28,
+      "function": "lean_apply_9",
+      "pc": "0x7ab2d6117d23"
+    },
+    {
+      "depth": 29,
+      "function": "l_Lean_MVarId_withContext___at___00Lean_Elab_Tactic_closeMainGoalUsing_spec__0___redArg___lam__0___boxed",
+      "pc": "0x7ab2d29f4937"
+    },
+    {
+      "depth": 30,
+      "function": "lean_apply_5",
+      "pc": "0x7ab2d6112998"
+    },
+    {
+      "depth": 31,
+      "function": "l___private_Lean_Meta_Basic_0__Lean_Meta_withMVarContextImp___redArg",
+      "pc": "0x7ab2d07fbaa2"
+    },
+    {
+      "depth": 32,
+      "function": "l_Lean_MVarId_withContext___at___00Lean_Elab_Tactic_closeMainGoalUsing_spec__0___redArg",
+      "pc": "0x7ab2d29f4b11"
+    },
+    {
+      "depth": 33,
+      "function": "l_Lean_Elab_Tactic_closeMainGoalUsing",
+      "pc": "0x7ab2d29f72ed"
+    },
+    {
+      "depth": 34,
+      "function": "l_Lean_Elab_Tactic_evalDecideCore",
+      "pc": "0x7ab2d51383ac"
+    },
+    {
+      "depth": 35,
+      "function": "l_Lean_Elab_Tactic_evalDecide",
+      "pc": "0x7ab2d513c629"
+    }
+  ],
+  "frontendMarkers": [
+    {
+      "depth": 1046,
+      "function": "l___private_Lean_Language_Lean_0__Lean_Language_Lean_process_doElab___lam__0___boxed",
+      "pc": "0x7ab2d2d67a98"
+    },
+    {
+      "depth": 1048,
+      "function": "l_Lean_Elab_withLogging___at___00__private_Lean_Language_Lean_0__Lean_Language_Lean_process_doElab_spec__2",
+      "pc": "0x7ab2d2d69d01"
+    },
+    {
+      "depth": 1049,
+      "function": "l___private_Lean_Language_Lean_0__Lean_Language_Lean_process_doElab___lam__1",
+      "pc": "0x7ab2d2d69eb9"
+    },
+    {
+      "depth": 1050,
+      "function": "l___private_Lean_Language_Lean_0__Lean_Language_Lean_process_doElab___lam__1___boxed",
+      "pc": "0x7ab2d2d69ff3"
+    },
+    {
+      "depth": 1052,
+      "function": "l_IO_withStderr___at___00IO_FS_withIsolatedStreams___at___00__private_Lean_Language_Lean_0__Lean_Language_Lean_process_doElab_spec__3_spec__7___boxed",
+      "pc": "0x7ab2d2d6a200"
+    },
+    {
+      "depth": 1054,
+      "function": "l_IO_withStdout___at___00IO_FS_withIsolatedStreams___at___00__private_Lean_Language_Lean_0__Lean_Language_Lean_process_doElab_spec__3_spec__4___boxed",
+      "pc": "0x7ab2d2d6a4f0"
+    },
+    {
+      "depth": 1056,
+      "function": "l_IO_FS_withIsolatedStreams___at___00__private_Lean_Language_Lean_0__Lean_Language_Lean_process_doElab_spec__3___redArg",
+      "pc": "0x7ab2d2d6a671"
+    },
+    {
+      "depth": 1057,
+      "function": "l___private_Lean_Language_Lean_0__Lean_Language_Lean_process_doElab",
+      "pc": "0x7ab2d2d6ae19"
+    }
+  ],
+  "metadataSymbolMatchesAllThreads": {
+    "LibrarySuggestions": [],
+    "localSymbolFrequencyMap": [],
+    "foldRelevantConstants": [],
+    "writeModule": [],
+    "mkModuleData": [],
+    "computeExtEntries": []
+  }
+}

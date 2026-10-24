@@ -1,0 +1,568 @@
+{
+  "schema": "theorem-os.character-native-stage-cost.v1",
+  "observedAt": "2026-10-24T08:58:38.211811+00:00",
+  "runId": "1f3bb9c1-c99f-4fad-b656-8010a82c265b",
+  "statePhase": "checking",
+  "stateSnapshotSHA256": "e89521093e038f6c289d7ca7c1f67fa25e53e4e1289bc6dd52a41ffce41580aa",
+  "conclusion": "No supported immediate cache or compiled-output reuse action was found for this existing frozen chain. Keep its current verification running. Integration is predicted to miss the in-process task cache because generated package-overrides change proofReuseEnvironment; the full verifier cache binds roots/commit/items and has no existing entries for the relevant roots. The fixed publisher command starts with no project build outputs.",
+  "stages": [
+    {
+      "stage": "current-task-acceptance",
+      "checker": "checkTaskProofs -> checkProjectedDeclarations -> checkManyFormalVerifications",
+      "cache": "TaskProofCache plus exact formal-verification cache",
+      "currentState": "existing native pipeline running",
+      "coldCompilation": "57 support modules + Submission + declaration export"
+    },
+    {
+      "stage": "canonical-integration",
+      "checker": "cooperationIntegration.integrateNow -> checkTaskProof",
+      "cache": "same run-owned TaskProofCache supports identical projection trees",
+      "expectedHit": false,
+      "reason": "Delivery proofReuseEnvironment digest includes generated engineer package-overrides; fresh clean integration source checkout has that file absent. Actual frozen helper returns distinct digests.",
+      "coldCompilation": "57 support modules + Submission + declaration export"
+    },
+    {
+      "stage": "lead-all-target",
+      "checker": "research.checkWhole -> modules.M2.check -> checkSolverProof",
+      "cache": "exact full formal-verification cache",
+      "existingMatchingProjectRoots": 0,
+      "reason": "Stable lead projectRootHash has no existing entry; task digest also differs from original contract statement hashes. This call does not consult TaskProofCache.",
+      "coldCompilation": "57 support modules + Submission + declaration export"
+    },
+    {
+      "stage": "final-workspace-all-target",
+      "checker": "evaluateSolverProof -> checkSolverProof(problem.workspace)",
+      "cache": "exact full formal-verification cache",
+      "existingMatchingProjectRoots": 0,
+      "reason": "Final original workspace projectRootHash is distinct from lead worktree and has no existing entry. No previous check argument is supplied.",
+      "coldCompilation": "57 support modules + Submission + declaration export"
+    },
+    {
+      "stage": "publisher-command",
+      "checker": "fixed --evaluator-command via runMathematicsSandboxedCommand",
+      "cache": "No generic command result cache; only pinned dependency package caches are copied.",
+      "reason": "The command excludes .lake and .git while copying project sources, copies only .lake/packages, then invokes lake build Challenge Submission and comparator.",
+      "coldCompilation": "Lake rebuilds local support closure (57 public support modules), Challenge and Submission before comparator."
+    }
+  ],
+  "remainingWorkInterpretation": "On the ordinary successful path, after the current task check, three further cold host batches (integration, lead all-target, final workspace) and the cold publisher build remain. This is a code-path prediction, not a guarantee of success or a timing estimate; review, invalidation or repair can add work.",
+  "livePipeline": {
+    "shellPid": 2365103,
+    "commandSHA256": "3a52af53ef10026349ee240949f3a158bd4e7dd473796d4014134473f7e74f0e",
+    "orderedSourceFiles": [
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/CutCircleIndex.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/Flags.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Frames/GradeMaps.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/MatrixPresentation.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/MatrixExpressions.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/Incidence.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SurfacePresentation.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryCycles.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/PortPatches.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/FlagGalleries.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/ComplementaryPatches.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Frames/Graded.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/PatchCycles.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/RoutedFamilies.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/FreshGallery.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/VertexFrames.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/AtomicFrames.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/AtomicGallery.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Frames/AtomicFlags.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/Grafting.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SplitFlags.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryFrames.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/DiskGauge.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SurfaceSurgery.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryBands.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCycles.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/VertexGauge.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Frames/BandBases.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Frames/BandGauges.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Frames/Endpoints.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/StripForest.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/DoubledStrips.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/PortSurgery.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/StripFacets.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/BoundarySurgery.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/GraftCircuits.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/GeneratorGauge.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/CornerGauge.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryReordering.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/RefinedDiagram.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Frames/CutFrames.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/BoundaryEnumeration.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/GraftValues.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Frames/Mirror.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/MarkedDiagram.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Seams/BoundaryWords.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandIncidence.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCutTopology.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCut.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Seams/CutWords.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Seams/Handles.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Seams/InverseSolution.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Seams/MarkedSurface.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Frames/NamedSeams.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Frames/MarkedFrames.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Seams/ProducedDiagram.lean",
+      "OAI/AlgebraicGeometry/CharacterVarieties/Seams/ProducedEquations.lean",
+      "Submission.lean"
+    ],
+    "supportModules": 57,
+    "submissionCompilations": 1,
+    "declarationExport": "exec lean -j1 '.deepscientist-declarations-895a756d-df05-4adb-910e-622bdf605130.lean'"
+  },
+  "nativeProcesses": [
+    {
+      "pid": 2514282,
+      "ppid": 2365103,
+      "name": "lean",
+      "cwd": "/workspace/generated/problem",
+      "argv": [
+        "/runtime/pinned-lean/bin/lean",
+        "-j1",
+        "-R",
+        ".",
+        "-o",
+        ".lake/build/lib/lean/Submission.olean",
+        "Submission.lean",
+        "-j1"
+      ]
+    }
+  ],
+  "isolatedWorkspace": "/tmp/deepscientist-lean-Xqjuxr/checkout",
+  "observedSupportOleanCount": 57,
+  "observedSupportArtifacts": [
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/AtomicFrames.olean",
+      "bytes": 304344,
+      "mtimeNs": 1792830278176109917
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/AtomicGallery.olean",
+      "bytes": 1094416,
+      "mtimeNs": 1792830284758156347
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/BoundaryEnumeration.olean",
+      "bytes": 792496,
+      "mtimeNs": 1792830556043017348
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/BoundarySurgery.olean",
+      "bytes": 1139664,
+      "mtimeNs": 1792830389795888214
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/DoubledStrips.olean",
+      "bytes": 880472,
+      "mtimeNs": 1792830368921744050
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/FreshGallery.olean",
+      "bytes": 1928016,
+      "mtimeNs": 1792830258255968958
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/GraftCircuits.olean",
+      "bytes": 1730584,
+      "mtimeNs": 1792830404999992851
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/GraftValues.olean",
+      "bytes": 2098880,
+      "mtimeNs": 1792830567231092269
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/Grafting.olean",
+      "bytes": 2530152,
+      "mtimeNs": 1792830299778262032
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/MarkedDiagram.olean",
+      "bytes": 332784,
+      "mtimeNs": 1792831053659539516
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/PortSurgery.olean",
+      "bytes": 1147320,
+      "mtimeNs": 1792830374288781173
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/RefinedDiagram.olean",
+      "bytes": 1460816,
+      "mtimeNs": 1792830452126315305
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/StripFacets.olean",
+      "bytes": 1132832,
+      "mtimeNs": 1792830384188849548
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/StripForest.olean",
+      "bytes": 865576,
+      "mtimeNs": 1792830363719708029
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCut.olean",
+      "bytes": 1777440,
+      "mtimeNs": 1792831346894090562
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCutTopology.olean",
+      "bytes": 605872,
+      "mtimeNs": 1792831338906981950
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCycles.olean",
+      "bytes": 502272,
+      "mtimeNs": 1792830332789493054
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandIncidence.olean",
+      "bytes": 1723904,
+      "mtimeNs": 1792831334191917499
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryBands.olean",
+      "bytes": 643904,
+      "mtimeNs": 1792830328122460495
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryCycles.olean",
+      "bytes": 794360,
+      "mtimeNs": 1792830216230669287
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryFrames.olean",
+      "bytes": 896440,
+      "mtimeNs": 1792830310903340078
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryReordering.olean",
+      "bytes": 464856,
+      "mtimeNs": 1792830420412098611
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/ComplementaryPatches.olean",
+      "bytes": 3674792,
+      "mtimeNs": 1792830234161797540
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/CornerGauge.olean",
+      "bytes": 407240,
+      "mtimeNs": 1792830416014068463
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/CutCircleIndex.olean",
+      "bytes": 130864,
+      "mtimeNs": 1792830180564412362
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/DiskGauge.olean",
+      "bytes": 742944,
+      "mtimeNs": 1792830316504379297
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/FlagGalleries.olean",
+      "bytes": 1479000,
+      "mtimeNs": 1792830226930745891
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/Flags.olean",
+      "bytes": 812768,
+      "mtimeNs": 1792830185585448683
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/GeneratorGauge.olean",
+      "bytes": 555648,
+      "mtimeNs": 1792830410342029543
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/Incidence.olean",
+      "bytes": 1349368,
+      "mtimeNs": 1792830205301590821
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/MatrixExpressions.olean",
+      "bytes": 1068008,
+      "mtimeNs": 1792830200553556660
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/MatrixPresentation.olean",
+      "bytes": 497232,
+      "mtimeNs": 1792830195570520762
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/PatchCycles.olean",
+      "bytes": 2333304,
+      "mtimeNs": 1792830246052882268
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/PortPatches.olean",
+      "bytes": 888552,
+      "mtimeNs": 1792830220857702439
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/RoutedFamilies.olean",
+      "bytes": 1258936,
+      "mtimeNs": 1792830252242926274
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SplitFlags.olean",
+      "bytes": 937656,
+      "mtimeNs": 1792830304932298213
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SurfacePresentation.olean",
+      "bytes": 2370432,
+      "mtimeNs": 1792830211603636094
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SurfaceSurgery.olean",
+      "bytes": 499280,
+      "mtimeNs": 1792830322422420683
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/VertexFrames.olean",
+      "bytes": 4561704,
+      "mtimeNs": 1792830271285061231
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Foundation/VertexGauge.olean",
+      "bytes": 1568368,
+      "mtimeNs": 1792830339539540089
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/AtomicFlags.olean",
+      "bytes": 438400,
+      "mtimeNs": 1792830288609183478
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/BandBases.olean",
+      "bytes": 1082664,
+      "mtimeNs": 1792830344690575936
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/BandGauges.olean",
+      "bytes": 313104,
+      "mtimeNs": 1792830349858611862
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/CutFrames.olean",
+      "bytes": 737328,
+      "mtimeNs": 1792830547821962218
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/Endpoints.olean",
+      "bytes": 698152,
+      "mtimeNs": 1792830358868674404
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/GradeMaps.olean",
+      "bytes": 613856,
+      "mtimeNs": 1792830190267482506
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/Graded.olean",
+      "bytes": 734000,
+      "mtimeNs": 1792830238881831202
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/MarkedFrames.olean",
+      "bytes": 176760,
+      "mtimeNs": 1792831796032335382
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/Mirror.olean",
+      "bytes": 1208976,
+      "mtimeNs": 1792830658739700827
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/NamedSeams.olean",
+      "bytes": 327680,
+      "mtimeNs": 1792831600038221708
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams/BoundaryWords.olean",
+      "bytes": 1422392,
+      "mtimeNs": 1792831327961831956
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams/CutWords.olean",
+      "bytes": 1059632,
+      "mtimeNs": 1792831352706169156
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams/Handles.olean",
+      "bytes": 425672,
+      "mtimeNs": 1792831357163229179
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams/InverseSolution.olean",
+      "bytes": 950608,
+      "mtimeNs": 1792831363551314835
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams/MarkedSurface.olean",
+      "bytes": 1068608,
+      "mtimeNs": 1792831588584091105
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams/ProducedDiagram.olean",
+      "bytes": 477008,
+      "mtimeNs": 1792831899345374100
+    },
+    {
+      "file": ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Seams/ProducedEquations.olean",
+      "bytes": 284232,
+      "mtimeNs": 1792831905364433308
+    }
+  ],
+  "submissionOutput": {
+    "exists": false,
+    "bytes": null
+  },
+  "artifactLimit": "Live .olean metadata is evidence of native compilation progress, not a completed verification receipt. It is in a disposable checkout that the verifier cleans up.",
+  "cacheEvidenceFiles": [
+    "reuse-environments.json",
+    "existing-formal-cache.json"
+  ],
+  "publisherCommandSHA256": "8fc5775ca184697301d273e82692d3df19afb9f4442b431c894fe5b0458c0b0f",
+  "publisherCommandRelevantLines": [
+    "    case \"$publisher_entry\" in ./.lake|./.git) continue ;; esac",
+    "cp -a --reflink=auto -- \"$publisher_source/.lake/packages/.\" \"$publisher_eval/.lake/packages/\"",
+    "lake build Challenge Submission",
+    "lake env /bin/sh -c 'if [ -x /runtime/pinned-lean/bin/lean ]; then PATH=/runtime/pinned-lean/bin:$PATH; export PATH; fi; exec comparator comparator.json'"
+  ],
+  "codeEvidence": [
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/solver/proofReuse.ts",
+      "startLine": 10,
+      "endLine": 34,
+      "sha256": "dfe800cbec169c360f3ed63f630c5991c02c0d14c4e4d188241e8c9fe78c2881",
+      "excerpt": "/** Mutable search paths cannot establish that the same Lean input was checked. */\nexport function proofReuseEnvironment(projectRoot: string, env: NodeJS.ProcessEnv): {\n  env: NodeJS.ProcessEnv; digest?: string; reusable: boolean;\n} {\n  let runtime = env;\n  try {\n    runtime = resolveMathematicsRuntimeEnvironment(env);\n    const sealed = resolveMathProofEnvironment(projectRoot, runtime);\n    const packages = fs.lstatSync(path.join(projectRoot, '.lake', 'packages'), { throwIfNoEntry: false });\n    if (runtime.LEAN_PATH?.trim() || runtime.LEAN_SYSROOT?.trim() ||\n        !sealed && (packages || runtime.DEEPSCIENTIST_MATH_TRUSTED_CACHE_ROOTS?.trim()))\n      return { env: runtime, reusable: false };\n    const configuration = LAKE_CONFIGURATION_FILES.map(file => {\n      try { return [file, mathDigest(fs.readFileSync(path.join(projectRoot, file)))]; }\n      catch (error) {\n        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [file, null];\n        throw error;\n      }\n    });\n    return { env: runtime, reusable: true,\n      digest: mathDigest(canonicalMathJson({ environment: runtime, packages: sealed?.identity ?? null, configuration })) };\n  } catch {\n    // Cache preparation cannot replace the verifier's own environment checks.\n    return { env: runtime, reusable: false };\n  }"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/math/mathConstructionSources.ts",
+      "startLine": 6,
+      "endLine": 8,
+      "sha256": "33fc968aa33b212e249f5869b807cbd99ff886b27e7addf2cd0ddd24d78bafe2",
+      "excerpt": "/** Lake project configuration, in the order recorded by every environment digest. */\nexport const LAKE_CONFIGURATION_FILES: readonly string[] = ['lean-toolchain', 'lakefile.toml', 'lakefile.lean', 'lake-manifest.json',\n  '.lake/package-overrides.json'];"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/solver/taskProofCache.ts",
+      "startLine": 6,
+      "endLine": 45,
+      "sha256": "eab35674e070a389e6e29bb1dc86c3ee2495b7dd94216b3ad8e79d054fd11350",
+      "excerpt": "/** A run owns this cache; it retains verifier artifacts rather than task attribution. */\nexport class TaskProofCache {\n  private readonly entries = new Map<string, { value: TaskVerificationArtifact; bytes: number }>();\n  private readonly pending = new Map<string, { signal: AbortSignal; result: Promise<TaskVerificationArtifact> }>();\n  private bytes = 0;\n  constructor(private readonly maxEntries = 32, private readonly maxBytes = 32 * 1024 * 1024) {}\n\n  async check(key: string, signal: AbortSignal, valid: (artifact: TaskVerificationArtifact) => boolean,\n    run: () => Promise<TaskVerificationArtifact>): Promise<TaskVerificationArtifact> {\n    signal.throwIfAborted();\n    const cached = this.entries.get(key);\n    if (cached) {\n      this.entries.delete(key); this.bytes -= cached.bytes;\n      if (valid(cached.value)) {\n        this.entries.set(key, cached); this.bytes += cached.bytes;\n        return structuredClone(cached.value);\n      }\n    }\n    const pending = this.pending.get(key);\n    if (pending?.signal === signal) return structuredClone(await pending.result);\n    const result = run().then(value => {\n      signal.throwIfAborted();\n      if (value.cacheable !== false && valid(value) &&\n          (value.verification.status === 'kernel_verified' || hasDeterministicLeanFailure(value.verification))) {\n        const bytes = Buffer.byteLength(JSON.stringify(value));\n        if (this.maxEntries > 0 && bytes <= this.maxBytes) {\n          const previous = this.entries.get(key);\n          if (previous) { this.entries.delete(key); this.bytes -= previous.bytes; }\n          while (this.entries.size && (this.entries.size >= this.maxEntries || this.bytes + bytes > this.maxBytes)) {\n            const oldest = this.entries.keys().next().value!;\n            this.bytes -= this.entries.get(oldest)!.bytes; this.entries.delete(oldest);\n          }\n          this.entries.set(key, { value: structuredClone(value), bytes }); this.bytes += bytes;\n        }\n      }\n      return value;\n    });\n    const entry = { signal, result }; this.pending.set(key, entry);\n    try { return structuredClone(await result); }\n    finally { if (this.pending.get(key) === entry) this.pending.delete(key); }"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/solver/cooperativeProof.ts",
+      "startLine": 305,
+      "endLine": 355,
+      "sha256": "85d890f18f286d3b28923fe3af2a9949a85f2c9172b3c7b0632c750cda2fdc99",
+      "excerpt": "      ...(prepared.length === 1 ? { expectedDeclarationType: prepared[0]!.expectedType } : {\n        expectedDeclarationTypes: Object.fromEntries(prepared.filter(item => item.expectedType !== undefined)\n          .map(item => [item.task.theoremName!, item.expectedType!])) }) };\n    const targets = prepared.map(({ task, taskDigest }) => ({ proofPath: task.proofPath!, theoremName: task.theoremName!,\n      digest: taskDigest, missingError: 'math_task_missing_declaration' }));\n    const sourceProject = path.join(worktree, problem.projectRelative);\n    const environment = cache ? proofReuseEnvironment(sourceProject, env) : undefined;\n    const tools = environment && formalVerificationToolIdentity(project, environment.env);\n    const assertStableEnvironment = () => {\n      signal.throwIfAborted();\n      if (!environment) return;\n      const after = proofReuseEnvironment(sourceProject, env);\n      if (after.reusable !== environment.reusable || after.digest !== environment.digest ||\n          canonicalMathJson(after.env) !== canonicalMathJson(environment.env) ||\n          formalVerificationToolIdentity(project, after.env) !== tools) throw new Error('math_verifier_unavailable');\n    };\n    const run = async () => {\n      try {\n        return await checkProjectedDeclarations(problem, checkout, worktree, commit, targets,\n          { env: environment?.env ?? env, signal, timeoutMs, ...execution });\n      } finally { assertStableEnvironment(); }\n    };\n    let attributions: Awaited<ReturnType<typeof checkProjectedDeclarations>>['attributions'];\n    let projectionReuse: TaskProjectionReuse | undefined;\n    if (cache && environment?.reusable && tools) {\n      const projectionTree = git(checkout, ['rev-parse', `${commit}^{tree}`]);\n      const items: MathematicsVerifierBatchItem[] = targets.map(target => ({ proofPath: target.proofPath,\n        theoremName: target.theoremName, statementHash: target.digest, leanStatementHash: target.digest, claim: 'statement',\n        expectedSourceDeclarationHash: hashMathFormalSourceDeclaration(sources.get(target.proofPath)!, target.theoremName) }));\n      const inputDigest = mathDigest(canonicalMathJson({\n        repository: git(worktree, ['rev-parse', '--path-format=absolute', '--git-common-dir']),\n        projectionTree, problem, targets: items, environment: environment.digest, tools, environmentDigest,\n        execution: { ...execution, timeoutMs: timeoutMs === Infinity ? 'unlimited' : timeoutMs,\n          batchTimeoutMs: timeoutMs === Infinity ? 'unlimited' : 'default',\n          trustedLakePackagesRoots: (environment.env.DEEPSCIENTIST_MATH_TRUSTED_CACHE_ROOTS || '').split(path.delimiter).filter(Boolean) },\n        requests: prepared.map(({ taskDigest, assignment, retainedGoals, conditions }) => {\n          const { seedCommit: _seed, basisDigest: _basis, ...connection } = assignment.connectionCheck ?? {};\n          return { taskDigest, dependencies: assignment.dependencies ?? [], retainedGoals,\n            connectionCheck: assignment.connectionCheck ? connection : undefined, conditions: conditions.map(taskVersion) };\n        }),\n      }));\n      const valid = ({ projectionCommit, verification }: TaskVerificationArtifact) => {\n        try {\n          if (git(worktree, ['rev-parse', `${projectionCommit}^{tree}`]) !== projectionTree) return false;\n          return attributeProofEvidence(verification, projectionCommit, items).every(attribution =>\n            !attribution.verification.results.some(result => result.cleanupError) &&\n            (attribution.passed || attribution.attributable && hasDeterministicLeanFailure(attribution.verification)));\n        } catch { return false; }\n      };\n      let artifact: TaskVerificationArtifact;\n      try {"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/solver/cooperationIntegration.ts",
+      "startLine": 467,
+      "endLine": 502,
+      "sha256": "7734e4040278b95b9d55ec80f796b1fe37b48df8e293c50c3e8eff93fcff8675",
+      "excerpt": "      if (!snapshot) return;\n      let submitted = snapshot.proof, receipt: TaskProof | undefined, merged: string | undefined, failure: unknown;\n      try {\n        await withSolverWorktree(this.lead.worktree, snapshot.canonical, async checkout => {\n          const checker = this.input.modules.M2.checkTask ?? checkTaskProof;\n          const environment = this.input.access.get(this.lead.id)!.environment;\n          const check = async (commit: string, assignment: TaskAssignment, conditions: readonly CooperativeTask[]) => {\n            const raw = await checker(problem, checkout, commit, snapshot.task, assignment, snapshot.retainedGoals,\n              environment, this.input.signal, this.input.timeoutMs, conditions, snapshot.environmentDigest,\n              ...(checker === checkTaskProof ? [this.taskProofCache] : []));\n            return this.check(snapshot.task, assignment, checkout, commit, conditions, raw, false, false, snapshot.tasks);\n          };\n          // Restored JSON needs fresh delivery evidence before its changes can enter a merge.\n          if (!this.checkedDeliveries.has(submitted)) {\n            const conditions = (submitted.conditions ?? []).map(condition => {\n              const dependency = snapshot.tasks.find(item => item.task.id === condition.taskId);\n              if (!dependency || digest(dependency.task) !== condition.taskDigest) throw new Error('math_task_condition_version_invalid');\n              return dependency.task;\n            });\n            submitted = await check(submitted.commit, snapshot.assignment, conditions);\n          }\n          this.input.signal.throwIfAborted();\n          if (['unavailable', 'blocked'].includes(submitted.verification.status)) throw new Error('math_verifier_unavailable');\n          if (!submitted.passed) throw new Error('math_task_delivery_no_longer_checks');\n          if (!taskDependenciesReady(snapshot.task, snapshot.tasks)) throw new Error('math_task_dependency_invalidated');\n          applyTaskChanges(problem, checkout, submitted.changes, submitted.imports);\n          merged = commitSolverSources(problem, checkout);\n          receipt = await check(merged, { taskId: snapshot.task.id, taskDigest: snapshot.taskDigest,\n            workerId: this.lead.id, seedCommit: merged }, []);\n          this.input.signal.throwIfAborted();\n          if (['unavailable', 'blocked'].includes(receipt.verification.status)) throw new Error('math_verifier_unavailable');\n        });\n      } catch (error) { failure = error; }\n      const result = await this.input.exclusiveCheck(async () => {\n        this.input.signal.throwIfAborted();\n        if (!this.integrationTaskCurrent(snapshot)) {"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/solver/problem.ts",
+      "startLine": 273,
+      "endLine": 284,
+      "sha256": "70801c6350ca32702bea9190d8f4b9b8d7249d9cf86fbe889f9395aa9f589900",
+      "excerpt": "/** Use a disposable checkout of a fixed commit and release it on every exit path. */\nexport async function withSolverWorktree<T>(worktree: string, commit: string, run: (checkout: string) => Promise<T>): Promise<T> {\n  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'math-check-'));\n  const checkout = path.join(directory, 'worktree');\n  let added = false;\n  try {\n    git(worktree, ['worktree', 'add', '--quiet', '--detach', checkout, commit]); added = true;\n    return await run(checkout);\n  } finally {\n    try { if (added) git(worktree, ['worktree', 'remove', '--force', checkout]); }\n    finally { fs.rmSync(directory, { recursive: true, force: true }); }\n  }"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/solver/modules/evidence.ts",
+      "startLine": 123,
+      "endLine": 160,
+      "sha256": "324eb4ffdaf828f619a6cf71e8510282f412144b33c4abf0126b084012826b54",
+      "excerpt": "      .filter(entry => entry && entry.slice(entry.indexOf('\\t') + 1) !== 'RESEARCH.md'),\n    problem: problem.receiptDigest, kind: problem.kind, project: problem.projectRelative,\n    targets: problem.targets, statement: problem.contract.statementHash, leanStatement: problem.contract.leanStatementHash,\n    sourceDigest, environment: environment.digest,\n  })) : undefined;\n  const provenance = previous && checkedRejections.get(previous);\n  if (inputDigest && provenance?.inputDigest === inputDigest && previous && !previous.passed &&\n      previous.sourceDigest === sourceDigest && provenance.verificationDigest === proofVerificationDigest(previous.verification)) {\n    const reused = previous.commit === commit ? previous : { ...previous, commit };\n    checkedRejections.set(reused, provenance);\n    return reused;\n  }\n  const evidence = await checkProofEvidence({ projectRoot, targetCommit: commit, timeoutMs,\n    items: problem.targets.map(target => ({ proofPath: target.proofPath, theoremName: target.theoremName,\n      expectedSourceDeclarationHash: target.declarationHash, statementHash: problem.contract.statementHash,\n      leanStatementHash: problem.contract.leanStatementHash, claim: 'statement' as const })) },\n  { env: environment.env, signal, prepareLocalDependencies: problem.kind === 'lean-eval', collectDeclarationReferences: true });\n  const check = { commit, sourceDigest, ...evidence };\n  if (check.passed) checkedProofs.set(check, proofIdentity(check));\n  if (!check.passed && inputDigest && hasDeterministicLeanFailure(check.verification) &&\n      proofReuseEnvironment(projectRoot, environment.env).digest === environment.digest)\n    checkedRejections.set(check, { inputDigest, verificationDigest: proofVerificationDigest(check.verification) });\n  return check;\n}"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/solver/research.ts",
+      "startLine": 485,
+      "endLine": 494,
+      "sha256": "82415f4770f44d387805043b08e8ce3ac75b7312252500d5d16d4c3971596c79",
+      "excerpt": "      const checkWhole = async (candidate = research.candidate) => {\n        const previousFailures = research.failures;\n        const checkStarted = Date.now();\n        emit('proof_check_started', { turn: research.turns });\n        research.check = lastCheck?.passed && commitSolverSources(state.problem, worker.worktree) === lastCheck.commit ? lastCheck :\n          await modules.M2.check(state.problem, worker.worktree, access.environment, signal, lastCheck, input.proofTimeoutMs);\n        research.failures = rememberSolverFailure(research.check, previousFailures);\n        emit('proof_checked', { passed: research.check.passed, commit: research.check.commit,\n          reused: research.check === lastCheck || research.check.verification === lastCheck?.verification,\n          durationMs: Date.now() - checkStarted });"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/solver/evaluation.ts",
+      "startLine": 31,
+      "endLine": 43,
+      "sha256": "2ae89fd28e8cc553370fa3cf6aca18545080e90637c3721037c902c26cec5006",
+      "excerpt": "      throw new Error('math_main_workspace_changed');\n    git(problem.workspace, ['merge', '--ff-only', receipt.commit]);\n    assertActive();\n    const finalCheck = await checkSolverProof(problem, problem.workspace, env, evaluationSignal, undefined, options.timeoutMs);\n    assertActive();\n    if (!finalCheck.passed || finalCheck.commit !== receipt.commit || finalCheck.sourceDigest !== receipt.sourceDigest)\n      throw new Error('math_integrated_proof_mismatch');\n    if (options.command) {\n      const result = await runMathematicsSandboxedCommand({ checkoutRoot: worktree, projectRelative: problem.projectRelative,\n        command: '/bin/sh', args: ['-c', options.command], timeoutMs: options.timeoutMs, env, signal: evaluationSignal });\n      assertActive();\n      return { status: result.timedOut || result.aborted || !result.started ? 'error' : result.exitCode === 0 ? 'passed' : 'failed',\n        method: 'external-command', official: false, result };"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/math/verifier.ts",
+      "startLine": 470,
+      "endLine": 488,
+      "sha256": "c45ae8822a365b0ac24b31a08635efa508533ae23106c0205882933baebaf53c",
+      "excerpt": "  const packages = packageLockMatches\n    ? resolveVerifiedLakePackagesCache(sourceProjectRoot, targetProjectRoot, env)\n    : undefined;\n  if (packages) {\n    fs.mkdirSync(path.join(targetProjectRoot, '.lake', 'packages'), { recursive: true });\n    assertNoSymlinkTraversal(targetProjectRoot, path.join(targetProjectRoot, '.lake'), 'Lake cache directory');\n    const overridesPath = path.join(targetProjectRoot, '.lake', 'package-overrides.json');\n    if (fs.existsSync(overridesPath)) assertNoSymlinkTraversal(targetProjectRoot, overridesPath, 'Lake package overrides');\n    // The sandbox replaces these entries with paths to the verified cache.\n    fs.writeFileSync(overridesPath, JSON.stringify({ schemaVersion: '1.2.0', packages: [] }) + '\\n', { mode: 0o600 });\n  }\n  // Never copy generated build output into an immutable checkout.  Build\n  // products may contain artifacts produced by a different target commit;\n  // Lean/Lake must rebuild them in the disposable checkout instead.\n  return packages;\n};\n\n/** A missing module is infrastructure only when the pinned dependency really supplies it. */\nconst hasUnavailablePinnedLeanModule = ("
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/math/verifier.ts",
+      "startLine": 2155,
+      "endLine": 2166,
+      "sha256": "c45ae8822a365b0ac24b31a08635efa508533ae23106c0205882933baebaf53c",
+      "excerpt": "  // The temporary query is the exact committed proof plus #check markers,\n  // so one Lean kernel run both compiles the proof and exports declaration types.\n  // eslint-disable-next-line no-await-in-loop\n  const localModules = (options.prepareLocalDependencies || options.collectDeclarationReferences) && lakeFile\n    ? mathLocalModuleBuildOrder(verificationProjectRoot, file.relativeProofPath) : undefined;\n  const helperModule =\n    localModules && (options.expectedDeclarationType || options.expectedDeclarationTypes || options.forbiddenImportModules || options.dependencyCandidates || options.collectDeclarationReferences)\n      ? localModules!.at(-1)!.module\n      : undefined;\n  if (helperModule && !/^[A-Za-z_][A-Za-z0-9_']*(?:\\.[A-Za-z_][A-Za-z0-9_']*)*$/u.test(helperModule))\n    throw new Error('Helper proof path cannot be represented as a Lake module target.');\n  if ((options.dependencyCandidates || options.forbiddenImportModules) && !helperModule)"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/math/verifier.ts",
+      "startLine": 2191,
+      "endLine": 2223,
+      "sha256": "c45ae8822a365b0ac24b31a08635efa508533ae23106c0205882933baebaf53c",
+      "excerpt": "      const modulesToBuild = helperModule ? localModules : localModules?.slice(0, -1);\n      // Keep dependency compilation and declaration queries under one sandbox\n      // invocation, so the shared compiler lock covers the entire check.\n      let args = lakeFile ? ['env', 'lean', '-j', '1', verificationPath] : ['-j', '1', verificationPath];\n      if (modulesToBuild?.length) {\n        const quote = (value: string): string => `'${value.replaceAll(\"'\", \"'\\\\''\")}'`;\n        const commands = modulesToBuild.map(module => {\n          const output = `.lake/build/lib/lean/${path.posix.relative(module.sourceRoot, module.file).replace(/\\.lean$/u, '.olean')}`;\n          return `mkdir -p ${quote(path.posix.dirname(output))}\\nlean -j1 -R ${quote(module.sourceRoot)} -o ${quote(output)} ${quote(module.file)} 1>&2`;\n        }).join('\\n');\n        args = ['env', '/bin/sh', '-ceu', `${commands}\\nexec lean -j1 ${quote(verificationPath)}`];\n      }\n      return runLeanSandboxed({\n        checkoutRoot: checkoutRoot,\n        projectRelative: relativeProjectRoot,\n        command: verifierCommand,\n        args,\n        env: runtimeEnvironment,\n        sandboxCapability: context.sandboxCapability,\n        signal: options.signal,\n        timeoutMs: Math.min(requestedTimeoutMs, availableMs),\n        outputLimit: MATH_PROCESS_OUTPUT_LIMIT * Math.min(64, verifiableItems.length),\n        lakePackagesPath,\n      });\n    }, options.signal);\n  } catch (error) {\n    if (error instanceof FormalVerificationBatchDeadlineError) {\n      diagnostic('process', 'error', error.message);\n      publishResults(file, 'blocked', 'lean-kernel', error.message);\n      return;\n    }\n    if (!options.signal?.aborted) throw error;\n    publishResults(file, 'blocked', 'lean-kernel', 'Formal verification was aborted.');"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/math/verifier.ts",
+      "startLine": 2797,
+      "endLine": 2803,
+      "sha256": "c45ae8822a365b0ac24b31a08635efa508533ae23106c0205882933baebaf53c",
+      "excerpt": "  const dependencyPaths = [\n    ['.lake/packages', fingerprintLakePackages(projectRoot)],\n    // Lake build output is generated and is deliberately excluded from the\n    // sandbox; it cannot affect the cache key for a clean target commit.\n    ['.lake/build', 'generated-output-excluded'],\n  ];\n  const verifierCommand ="
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/math/verifier.ts",
+      "startLine": 2835,
+      "endLine": 2855,
+      "sha256": "c45ae8822a365b0ac24b31a08635efa508533ae23106c0205882933baebaf53c",
+      "excerpt": "  const cacheKey = mathDigest(\n    JSON.stringify({\n      schema: 'deepscientist.formal-verification-cache.v1',\n      projectRootHash: mathDigest(projectRoot),\n      targetCommit: resolvedTarget,\n      verifierCommandPath: options.verifierCommandPath || null,\n      prepareLocalDependencies: options.prepareLocalDependencies ?? false,\n      expectedDeclarationType: options.expectedDeclarationType ?? null,\n      expectedDeclarationTypes: options.expectedDeclarationTypes ?? null,\n      forbiddenImportModules: options.forbiddenImportModules ?? [],\n      dependencyCandidates: options.dependencyCandidates ?? null,\n      collectDeclarationReferences: options.collectDeclarationReferences ?? false,\n      verifierExecutable,\n      environment,\n      toolchainFiles,\n      dependencyPaths,\n      trustedLakePackages: (options.trustedLakePackagesRoots ?? []).map((root) => [\n        root,\n        fingerprintLakePackages(projectRoot, root),\n      ]),\n      items: fileInputs,"
+    },
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-environment-adapter-20261023/unlimited-preparation-v2/runtime/src/math/verifier.ts",
+      "startLine": 2885,
+      "endLine": 2926,
+      "sha256": "c45ae8822a365b0ac24b31a08635efa508533ae23106c0205882933baebaf53c",
+      "excerpt": "    runtimeOptions.signal\n  );\n  const cacheKey = cachePreparation?.cacheKey;\n  if (cacheKey) {\n    const cached = formalVerificationCache.get(cacheKey) ?? readDurableFormalVerificationCache(cacheKey);\n    if (cached && cached.expiresAt > Date.now()) {\n      formalVerificationCache.set(cacheKey, cached);\n      return cloneCachedVerification(cached.result, runtimeOptions.onEvent);\n    }\n    if (cached) formalVerificationCache.delete(cacheKey);\n    const inFlight = formalVerificationInFlight.get(cacheKey);\n    if (inFlight) return subscribeToFormalVerification(inFlight, runtimeOptions);\n    const controller = new AbortController();\n    const operation = withVerificationSlot(\n      () =>\n        checkManyFormalVerificationsUnbounded(\n          request,\n          {\n            ...runtimeOptions,\n            signal: controller.signal,\n            // Subscribers receive an isolated replay of the completed result.\n            // Do not let the first caller's observer become the operation's\n            // shared callback.\n            onEvent: undefined,\n          },\n          cachePreparation\n        ),\n      controller.signal\n    )\n      .then((result) => {\n        if (result.status === 'kernel_verified' && result.results.every((item) => item.status === 'kernel_verified')) {\n          const cachedResult = {\n            expiresAt: Date.now() + 30 * 60_000,\n            projectRootHash: mathDigest(canonicalProjectRoot(request.projectRoot)),\n            result,\n          };\n          formalVerificationCache.set(cacheKey, cachedResult);\n          try {\n            const attestation = attestDurableCache(cachedResult);\n            if (attestation) writeDurableFormalVerificationCache(cacheKey, { ...cachedResult, attestation });\n          } catch {\n            // A durable cache write is an optimization; the kernel receipt is"
+    }
+  ],
+  "immediateSupportedActions": [],
+  "futureMinimalFixSuggestion": {
+    "file": "src/solver/proofReuse.ts",
+    "lines": "25-31",
+    "scope": "Future reviewed runtime version only; do not modify this frozen run.",
+    "change": "When a sealed proof environment has successfully validated the pinned manifest/configuration, exclude or normalize generated .lake/package-overrides.json from the proofReuseEnvironment configuration digest. Retain every tracked configuration input and sealed package/tool identity.",
+    "expectedBenefit": "Lets the existing TaskProofCache reuse the genuinely checked projection for canonical integration when the already-proven projection/merge fixedpoint and all other keys agree.",
+    "limits": "Does not skip required original all-target requests or the fixed publisher build. Applying a patch now would not retroactively change the in-flight inputDigest or the existing bundled process. A live patch or cache-key rewrite is not an approved reuse interface."
+  },
+  "observerActions": {
+    "readOnlyActiveChain": true,
+    "activeSourceModified": false,
+    "checkpointModified": false,
+    "runtimeModified": false,
+    "cacheModified": false,
+    "receiptFabricated": false,
+    "leanInvoked": false,
+    "modelInvoked": false,
+    "affinityModified": false,
+    "sourceMergeFixedpointRepeated": false,
+    "comparatorRepeated": false
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "validatedAt": "2026-10-24T08:58:17.840757+00:00",
+  "parsedJsonFiles": [
+    "diagnosis.json",
+    "final-process-and-gate-snapshot.json",
+    "perf-attempt.json",
+    "proc-three-second-cpu-sample.json",
+    "source-static-context.json",
+    "stack-excerpt.json",
+    "symbol-load-identity.json",
+    "symbolized-gdb-invocation.json",
+    "symbolized-stack-sample.json"
+  ],
+  "markdownLocalLinks": [
+    {
+      "target": "stack-excerpt.txt",
+      "exists": true
+    },
+    {
+      "target": "symbolized-stack-sample.json",
+      "exists": true
+    },
+    {
+      "target": "proc-three-second-cpu-sample.json",
+      "exists": true
+    },
+    {
+      "target": "final-process-and-gate-snapshot.json",
+      "exists": true
+    },
+    {
+      "target": "symbolized-gdb-invocation.json",
+      "exists": true
+    },
+    {
+      "target": "perf-attempt.json",
+      "exists": true
+    },
+    {
+      "target": "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/src/lean/Lean/Elab/Tactic/Decide.lean:104",
+      "exists": true
+    },
+    {
+      "target": "source-static-context.json",
+      "exists": true
+    },
+    {
+      "target": "diagnosis.json",
+      "exists": true
+    }
+  ],
+  "selectedHotFrames": 36,
+  "frontendMarkerCount": 8,
+  "evidenceSha256": {
+    "symbolized-stack-sample.json": "7986fde8fb4a9c209800574b1d325f60771f23adbee38ec8256ad5882f3dd432",
+    "symbolized-gdb-invocation.json": "168d7053a4f157abf4e83ea501682ef78cb8fe007b4d5c1a0e54d6cf8ed18cfc",
+    "diagnosis.json": "84787cfa0c2d6581e7cf3a5b5b87faba6c6948c26f78307db47dbe9ae3c1a575",
+    "DIAGNOSIS.md": "f41a1a94415a1e56a350913a50406a763099232fffc1973b459432edc486b678"
+  },
+  "result": "passed",
+  "validationOnly": "No process sampling, compiler invocation or source changes."
+}

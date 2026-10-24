@@ -1,0 +1,16 @@
+{
+  "observedAt": "2026-10-24T09:09:16.440Z",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "editId": "honeycomb-finite-box-5e38146e7324",
+  "result": {
+    "id": "honeycomb-finite-box-5e38146e7324",
+    "status": "queued",
+    "baseVersion": "9414591acc0f626ad8a24ee3cef0a36adc061409f804cecd05f8c3a966c6009b"
+  },
+  "preparationFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-finite-box-reduction-20261024/native-advisory-preparation.json",
+  "preparationSHA256": "eb70cdb5b682b416728c332f7b30c9832f328c22cab0ffb5df5bca89c7a4ae87",
+  "attribution": "Locally kernel-checked conditional zeroth-mass helper increment delivered as shared advisory; not native TaskProof acceptance.",
+  "mathematicalAcceptance": false,
+  "directCheckpointWrites": false,
+  "directActiveSourceWrites": false
+}

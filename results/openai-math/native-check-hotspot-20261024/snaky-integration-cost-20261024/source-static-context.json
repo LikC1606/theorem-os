@@ -1,0 +1,157 @@
+{
+  "observedAt": "2026-10-24T08:57:57.540234+00:00",
+  "candidate": {
+    "path": "/tmp/math-check-Fmiyxm/worktree/generated/problem/Submission.lean",
+    "sha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+    "bytes": 967683,
+    "lineCount": 15270,
+    "literalDecideKernelOccurrences": 718,
+    "linesContainingWordDecide": 1331,
+    "nativeDecideOccurrences": 0,
+    "excerpts": [
+      {
+        "line": 3086,
+        "text": "  set_option maxHeartbeats 0 in"
+      },
+      {
+        "line": 3087,
+        "text": "    set_option maxRecDepth 100000 in"
+      },
+      {
+        "line": 3088,
+        "text": "      exact (∀ i,i < 616 →"
+      },
+      {
+        "line": 3089,
+        "text": "  (qr i).A ⊆ (qr i).H ∧ qorigin ∈ (qr i).H ∧"
+      },
+      {
+        "line": 3090,
+        "text": "  qorigin ∉ (qr i).A ∧ (qr i).height ≤ 34)"
+      },
+      {
+        "line": 3091,
+        "text": "lemma qtable_valid_probe : qTableValid := by"
+      },
+      {
+        "line": 3092,
+        "text": "  run_tac"
+      },
+      {
+        "line": 3093,
+        "text": "    withTheReader Lean.Core.Context (fun c => { c with maxHeartbeats := 0 }) do"
+      },
+      {
+        "line": 3094,
+        "text": "      Lean.Elab.Tactic.evalTactic (← `(tactic| ("
+      },
+      {
+        "line": 3095,
+        "text": "          constructor"
+      },
+      {
+        "line": 3096,
+        "text": "          · decide +kernel"
+      },
+      {
+        "line": 3097,
+        "text": "          · have h : ∀ k : Fin qtable.size,"
+      },
+      {
+        "line": 3098,
+        "text": "                let e := qtable[k.val]?.getD qemptyEntry"
+      },
+      {
+        "line": 3099,
+        "text": "                e.index = k.val + 6 ∧ e.terms ≠ [] ∧ ∀ t ∈ e.terms,t.child < e.index := by"
+      },
+      {
+        "line": 3100,
+        "text": "              run_tac"
+      },
+      {
+        "line": 3101,
+        "text": "                withTheReader Lean.Core.Context (fun c => { c with maxHeartbeats := 0 }) do"
+      },
+      {
+        "line": 3102,
+        "text": "                  Lean.Elab.Tactic.evalTactic (← `(tactic| decide +kernel))"
+      },
+      {
+        "line": 3103,
+        "text": "            intro k hk"
+      },
+      {
+        "line": 3104,
+        "text": "            exact h ⟨k,hk⟩)))"
+      }
+    ]
+  },
+  "pinnedDecideImplementation": {
+    "path": "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/src/lean/Lean/Elab/Tactic/Decide.lean",
+    "sha256": "99e84ce67778157e77d7261aa25b64ed72da16e9d1f60031cf2aa26f5ea6ee68",
+    "excerpts": [
+      {
+        "line": 104,
+        "text": "  doKernel (expectedType : Expr) : TacticM Expr := do"
+      },
+      {
+        "line": 105,
+        "text": "    let pf ← mkDecideProof expectedType"
+      },
+      {
+        "line": 106,
+        "text": "    -- Get instance from `pf`"
+      },
+      {
+        "line": 107,
+        "text": "    let s := pf.appFn!.appArg!"
+      },
+      {
+        "line": 108,
+        "text": "    -- Reduce the decidable instance to (hopefully!) `isTrue` by passing `pf` to the kernel."
+      },
+      {
+        "line": 109,
+        "text": "    -- The `mkAuxLemma` function caches the result in two ways:"
+      },
+      {
+        "line": 110,
+        "text": "    -- 1. First, the function makes use of a `type`-indexed cache per module."
+      },
+      {
+        "line": 111,
+        "text": "    -- 2. Second, once the proof is added to the environment, the kernel doesn't need to check the proof again."
+      },
+      {
+        "line": 112,
+        "text": "    let levelsInType := (collectLevelParams {} expectedType).params"
+      },
+      {
+        "line": 113,
+        "text": "    -- Level variables occurring in `expectedType`, in ambient order"
+      },
+      {
+        "line": 114,
+        "text": "    let lemmaLevels := (← Term.getLevelNames).reverse.filter levelsInType.contains"
+      },
+      {
+        "line": 115,
+        "text": "    try"
+      },
+      {
+        "line": 116,
+        "text": "      let lemmaName ← withOptions (Elab.async.set · false) do"
+      },
+      {
+        "line": 117,
+        "text": "        mkAuxLemma lemmaLevels expectedType pf"
+      },
+      {
+        "line": 118,
+        "text": "      return mkConst lemmaName (lemmaLevels.map .param)"
+      }
+    ]
+  },
+  "limits": "Counts are textual, not an executed-declaration or cost profile. The sampled declaration name is unknown."
+}

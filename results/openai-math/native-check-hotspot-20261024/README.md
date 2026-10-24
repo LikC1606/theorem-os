@@ -1,8 +1,28 @@
 # 原生检查热点与加速候选（2026-10-24）
 
+最新[三题进度及构建摘要](continuation-progress-20261024T092127Z.json)记录 Character 原目标通过、
+SnakyConditional 集成通过，以及 Honeycomb 辅助归约递送。原生最终通过总数仍为 5。
+
 Character V2 已完成整份编译（635.03 秒、exitCode=0）、公理审计和独立原比较器检查
 （41.15 秒、exitCode=0）。原比较器真实输出 `Lean default kernel accepts the solution`
-和 `Your solution is okay!`。加速版已通过正常递送进入独立宿主检查；完整原生最终验收仍在运行，通过总数仍为 5。
+和 `Your solution is okay!`。加速版于 `09:02:33 UTC` 通过原生原目标检查，
+回执 `lean-adc266b0e003d64e5ebdf91b`，原生事件为 `task_checked passed=true, conditional=false`。
+整批检查耗时 2375.071 秒，包含 57 个支持模块、主证明及声明查询；该回执不是原生最终验收。
+当前已进入集成检查，通过总数仍为 5。原始回执见
+[原目标验证](character-native-stage-cost-20261024/native-task-verification-20261024T090233Z.json)
+和[进度快照](continuation-progress-20261024T090646Z.json)。
+
+`08:53:13 UTC` 已将新 Character 原生进程树和线程限制到 NUMA 0 的 CPU 40–47，
+后续进程继承同一核组，保持单线程和 32 GiB。调整有完整前后回读，但未测得独立提速倍数。
+[阶段与缓存审查](character-native-stage-cost-20261024/README.md)确认生成的
+`.lake/package-overrides.json` 导致现有集成缓存身份失配；当前冻结链保留原规则，
+不能将已有 `.olean` 直接导入后续检查。
+
+[隔离缓存修复](future-runtime-reuse-fix-20261024/README.md)现已完成：仅在封存环境真实校验成功后，
+规范化该生成文件的摘要，保留实际包身份、语义配置和非封存环境的失效规则。
+真实交付源与两份干净投影的新摘要一致；171 项测试通过、0 失败、1 项按原约定跳过，
+三个 headless bundle 构建成功。补丁和已构建产物供审阅，完整本地隔离副本路径见该说明；
+results 仅保存列明的交付文件。新构建未切换进当前活动链，不能据此声称当前集成已免编译。
 
 截至 `08:31:32 UTC`，新入口环境准备已真实 exitCode=0（3629.13 秒），resume 准备命中缓存，耗时 6.432 秒。
 正常队列编辑已应用，engineer 仅执行一次载入，宿主提交 `aaaf7a217b8df185b467ec71348048b553dfe339`
@@ -69,7 +89,18 @@ Snaky V8 的原题检查已取得原始 `kernel_verified` 回执
 原生日志随后记录 `task_checked passed=true, conditional=false`，并进入集成检查。
 原验证源码 `712ecd…` 与集成源码 `dc40df…` 只相差删除 1101 个空行，
 15263 行非空源码逐字节相同；活动冻结链因字节身份不同，重新启动了完整 Lean 编译。
-原始证据见 `snaky-v8-kernel-progress/`；当前不把原题内核成功等同于最终原生验收成功。
+该集成检查现已通过，原始回执为 `lean-78b317b5823543bbdf5c270f`，
+耗时 8343.538 秒，仅三项标准公理。`09:17:09 UTC` 原生日志记录 `task_integrated`，
+随后进入 lead 全目标检查，见[完整验证](snaky-integration-cost-20261024/native-integration-verification-20261024T0917Z.json)
+和[阶段回读](snaky-integration-cost-20261024/native-integration-progress-20261024T0919Z.json)。
+原目标证据见 `snaky-v8-kernel-progress/`；集成成功仍不等同于最终原生验收成功。
+
+[Snaky 集成性能采样](snaky-integration-cost-20261024/DIAGNOSIS.md)定位到
+`decide +kernel → mkAuxLemma → 内核检查`，采样瞬间在回收类型检查器缓存引用。
+3 秒窗口取得 3 秒 CPU，未见调度等待、交换或 Character 的元数据导出调用链。
+没有由此得到即时提速方法，当前检查继续运行，未启动重复大编译。
+另有一个[单声明复用候选](snaky-integration-cost-20261024/static-reuse-followup/STATIC-REUSE.md)
+已完成静态坐标与补丁回放检查；尚未编译、应用或测得提速，保留供后续独立验证。
 
 现有正式检查继续运行，Honeycomb 继续使用新的冻结构建求解，预算不设上限。
 `honeycomb-scheduling-observation/` 记录已有归约源未正式交付及 engineer 被消费者占用的调度问题，
@@ -92,5 +123,16 @@ Snaky V8 的原题检查已取得原始 `kernel_verified` 回执
 `K_h=1` 也未确立。该建议包含外部辅助归因，不是 proof delivery。
 [应用后核对](honeycomb-math-route-20261024/native-advisory-applied.json)确认只有 advisory 任务修订，
 研究员已处理新版任务，原增长界、主目标 assignment、已集成归约和全部数学合同保留。
+
+新路线的[有限列盒辅助归约](honeycomb-finite-box-reduction-20261024/README.md)已有四个新声明通过
+真实 Lean 检查及三公理审计：任意有限桥族共处一列盒；统一有限盒权重上界推出任意有限和上界、
+`Summable(weight)` 和 `bridgeMass ≤ K`。无预算复验用时 13.47 秒，保持固定 Lean/Mathlib、
+32 GiB 和单线程。首次低内存 import 失败指向的工具链文件实际存在，相关失败及入口纠正记录均保留。
+
+`09:09:16 UTC` 已通过正常队列新增共享 advisory `finite_box_zero_mass_reference`，
+[回读](honeycomb-finite-box-reduction-20261024/native-advisory-applied-readback.json)确认原六个任务、
+完整 assignment、groups 和 proofRoutes 保留。engineer 与 researcher-2 的宿主上下文已包含完整增量，
+没有把上下文可见性当成模型已使用。此交付是辅助材料，尚无原生 TaskProof；统一有限上界、
+精确有限状态编码和一阶矩仍待证明，Honeycomb 原目标尚未解决。
 
 本目录不包含手写验收回执、伪造缓存或活动 checkpoint 修改。

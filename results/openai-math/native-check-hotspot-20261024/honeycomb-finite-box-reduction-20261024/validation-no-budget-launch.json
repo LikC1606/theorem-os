@@ -1,0 +1,42 @@
+{
+  "startedAt": "2026-10-24T09:04:54.564957+00:00",
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "--threads=1",
+    "--memory=32768",
+    "-DautoImplicit=false",
+    "-DmaxHeartbeats=0",
+    "-DmaxRecDepth=1000",
+    "Submission.lean"
+  ],
+  "cwd": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-finite-box-reduction-20261024",
+  "sourceSHA256": "1fbba78bad15173b4be8b033009ab80e7d892347cc4324b0baf608f07d44dca4",
+  "leanToolchain": "leanprover/lean4:v4.34.1",
+  "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+  "leanPath": [
+    "/proc/1250131/fd/5/LeanSearchClient/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/Qq/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/aesop/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/batteries/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/importGraph/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/mathlib/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/plausible/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/proofwidgets/.lake/build/lib/lean"
+  ],
+  "resourceLimits": {
+    "wallSeconds": null,
+    "cpuSoftSeconds": null,
+    "cpuHardSeconds": null,
+    "maxHeartbeats": 0,
+    "addressSpaceGiB": 32,
+    "leanMemoryMiB": 32768,
+    "threads": 1,
+    "cpus": [
+      0
+    ]
+  },
+  "activeRuntimeChanged": false,
+  "sealedEnvironmentIdentity": "2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87",
+  "priorBudgetedSuccessResult": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-finite-box-reduction-20261024/validation-final-result.json",
+  "reasonForRerun": "Remove inherited helper-entry wall, CPU and heartbeat budgets to honor the authorized unlimited-time policy; source and environment are unchanged."
+}

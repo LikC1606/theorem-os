@@ -1,0 +1,18 @@
+{
+  "command": [
+    "/home/lzh/.local/node/bin/node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "tests/solverProjectionReuse.test.ts",
+    "--reporter=json",
+    "--outputFile=../baseline-solverProjectionReuse.json"
+  ],
+  "frozenInputs": {
+    "src/solver/proofReuse.ts": "dfe800cbec169c360f3ed63f630c5991c02c0d14c4e4d188241e8c9fe78c2881",
+    "tests/solverProjectionReuse.test.ts": "afdef4cd88f641c995d38d82cd0b66bbae661a47f0ceb08786cb069097e5612a"
+  },
+  "exitCode": 1,
+  "failedTests": 6,
+  "passedTests": 0,
+  "finalFilesRestored": true
+}

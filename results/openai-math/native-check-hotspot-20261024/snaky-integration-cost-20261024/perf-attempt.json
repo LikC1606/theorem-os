@@ -1,0 +1,26 @@
+{
+  "observedAt": "2026-10-24T08:49:06.975949+00:00",
+  "command": [
+    "perf",
+    "record",
+    "-e",
+    "cpu-clock:u",
+    "-F",
+    "49",
+    "-g",
+    "-p",
+    "1659442",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-integration-cost-20261024/perf.data",
+    "--",
+    "sleep",
+    "3"
+  ],
+  "elapsedSeconds": 0.03869784204289317,
+  "exitCode": 255,
+  "timedOut": false,
+  "output": "Error:\nAccess to performance monitoring and observability operations is limited.\nConsider adjusting /proc/sys/kernel/perf_event_paranoid setting to open\naccess to performance monitoring and observability operations for processes\nwithout CAP_PERFMON, CAP_SYS_PTRACE or CAP_SYS_ADMIN Linux capability.\nMore information can be found at 'Perf events and tool security' document:\nhttps://www.kernel.org/doc/html/latest/admin-guide/perf-security.html\nperf_event_paranoid setting is 4:\n  -1: Allow use of (almost) all events by all users\n      Ignore mlock limit after perf_event_mlock_kb without CAP_IPC_LOCK\n>= 0: Disallow raw and ftrace function tracepoint access\n>= 1: Disallow CPU event access\n>= 2: Disallow kernel profiling\nTo make the adjusted perf_event_paranoid setting permanent preserve it\nin /etc/sysctl.conf (e.g. kernel.perf_event_paranoid = <setting>)\n",
+  "kernelPerfEventParanoid": 4,
+  "sysctlModified": false,
+  "pid": 1659442
+}

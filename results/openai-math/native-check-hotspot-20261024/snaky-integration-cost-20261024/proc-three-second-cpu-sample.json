@@ -1,0 +1,187 @@
+{
+  "before": {
+    "at": "2026-10-24T08:50:05.785031+00:00",
+    "ticks": 678824,
+    "userTicks": 657365,
+    "systemTicks": 21459,
+    "state": "S",
+    "processor": "52",
+    "threads": [
+      {
+        "tid": 1659442,
+        "state": "S",
+        "userTicks": 2,
+        "systemTicks": 0,
+        "processor": "52",
+        "schedstat": "27688066 50456 164"
+      },
+      {
+        "tid": 1659443,
+        "state": "S",
+        "userTicks": 0,
+        "systemTicks": 1,
+        "processor": "28",
+        "schedstat": "10406531 0 3"
+      },
+      {
+        "tid": 1659444,
+        "state": "S",
+        "userTicks": 0,
+        "systemTicks": 0,
+        "processor": "47",
+        "schedstat": "170785 0 3"
+      },
+      {
+        "tid": 1659445,
+        "state": "S",
+        "userTicks": 30,
+        "systemTicks": 5,
+        "processor": "51",
+        "schedstat": "356663960 1273507 53278"
+      },
+      {
+        "tid": 1659446,
+        "state": "R",
+        "userTicks": 102496,
+        "systemTicks": 4944,
+        "processor": "24",
+        "schedstat": "1074411461755 71078793 460499"
+      },
+      {
+        "tid": 1659785,
+        "state": "S",
+        "userTicks": 287222,
+        "systemTicks": 8585,
+        "processor": "32",
+        "schedstat": "2958085123582 80802560 18887"
+      },
+      {
+        "tid": 1659787,
+        "state": "S",
+        "userTicks": 267613,
+        "systemTicks": 7922,
+        "processor": "9",
+        "schedstat": "2755360254174 84576663 13097"
+      }
+    ],
+    "io": "rchar: 5946633\nwchar: 114689\nsyscr: 53849\nsyscw: 29\nread_bytes: 0\nwrite_bytes: 0\ncancelled_write_bytes: 0\n",
+    "schedstat": "27688066 50456 164"
+  },
+  "after": {
+    "at": "2026-10-24T08:50:08.785486+00:00",
+    "ticks": 679124,
+    "userTicks": 657647,
+    "systemTicks": 21477,
+    "state": "S",
+    "processor": "52",
+    "threads": [
+      {
+        "tid": 1659442,
+        "state": "S",
+        "userTicks": 2,
+        "systemTicks": 0,
+        "processor": "52",
+        "schedstat": "27688066 50456 164"
+      },
+      {
+        "tid": 1659443,
+        "state": "S",
+        "userTicks": 0,
+        "systemTicks": 1,
+        "processor": "28",
+        "schedstat": "10406531 0 3"
+      },
+      {
+        "tid": 1659444,
+        "state": "S",
+        "userTicks": 0,
+        "systemTicks": 0,
+        "processor": "47",
+        "schedstat": "170785 0 3"
+      },
+      {
+        "tid": 1659445,
+        "state": "S",
+        "userTicks": 30,
+        "systemTicks": 5,
+        "processor": "51",
+        "schedstat": "356663960 1273507 53278"
+      },
+      {
+        "tid": 1659446,
+        "state": "R",
+        "userTicks": 102778,
+        "systemTicks": 4963,
+        "processor": "24",
+        "schedstat": "1077411371830 71140515 460504"
+      },
+      {
+        "tid": 1659785,
+        "state": "S",
+        "userTicks": 287222,
+        "systemTicks": 8585,
+        "processor": "32",
+        "schedstat": "2958085123582 80802560 18887"
+      },
+      {
+        "tid": 1659787,
+        "state": "S",
+        "userTicks": 267613,
+        "systemTicks": 7922,
+        "processor": "9",
+        "schedstat": "2755360254174 84576663 13097"
+      }
+    ],
+    "io": "rchar: 5946633\nwchar: 114689\nsyscr: 53849\nsyscw: 29\nread_bytes: 0\nwrite_bytes: 0\ncancelled_write_bytes: 0\n",
+    "schedstat": "27688066 50456 164"
+  },
+  "elapsedSeconds": 3.000058945035562,
+  "clockTicksPerSecond": 100,
+  "cpuSecondsDelta": 3.0,
+  "userSecondsDelta": 2.82,
+  "systemSecondsDelta": 0.18,
+  "threadsDelta": [
+    {
+      "tid": 1659442,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "afterState": "S"
+    },
+    {
+      "tid": 1659443,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "afterState": "S"
+    },
+    {
+      "tid": 1659444,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "afterState": "S"
+    },
+    {
+      "tid": 1659445,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "afterState": "S"
+    },
+    {
+      "tid": 1659446,
+      "userSeconds": 2.82,
+      "systemSeconds": 0.19,
+      "afterState": "R"
+    },
+    {
+      "tid": 1659785,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "afterState": "S"
+    },
+    {
+      "tid": 1659787,
+      "userSeconds": 0.0,
+      "systemSeconds": 0.0,
+      "afterState": "S"
+    }
+  ]
+}

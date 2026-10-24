@@ -1,0 +1,47 @@
+PID 1659442; TID 1659446; sampled 2026-10-24T08:51:11.808246+00:00
+5580 frames, truncated=False; attached=0.152315056s; detached=True; TracerPid:	0
+
+#0 0x7ab2d60ff3e9 lean_dec_ref_cold
+#1 0x7ab2d60a9fdb std::__1::__hash_table<std::__1::__hash_value_type<lean::expr, lean::expr>, std::__1::__unordered_map_hasher<lean::expr, std::__1::pair<lean::expr const, lean::expr>, lean::expr_hash, std::__1::equal_to<lean::expr> >, std::__1::__unordered_map_equal<lean::expr, std::__1::pair<lean::expr const, lean::expr>, std::__1::equal_to<lean::expr>, lean::expr_hash>, mi_stl_allocator<std::__1::pair<lean::expr const, lean::expr> > >::__deallocate_node[abi:nqe220104](std::__1::__hash_node<std::__1::__hash_value_type<lean::expr, lean::expr>, void*>*)
+#2 0x7ab2d60a9a7b lean::type_checker::state::~state()
+#3 0x7ab2d60a698d lean::type_checker::~type_checker()
+#4 0x7ab2d609263f lean::environment::add_theorem(lean::declaration const&, bool) const
+#5 0x7ab2d6093603 lean::environment::add(lean::declaration const&, bool) const
+#6 0x7ab2d60df0bc lean::elab_environment::add(lean::declaration const&, bool) const
+#7 0x7ab2d60df7d7 std::__1::__function::__func<lean_elab_add_decl::$_0, lean::elab_environment ()>::operator()()
+#8 0x7ab2d60e009f lean_object* lean::catch_kernel_exceptions<lean::elab_environment>(std::__1::function<lean::elab_environment ()> const&)
+#9 0x7ab2d60df298 lean_elab_add_decl
+#10 0x7ab2d033e90a l_Lean_Environment_addDeclCore
+#11 0x7ab2d08a713e l___private_Lean_AddDecl_0__Lean_addDeclCore_doAdd___lam__1
+#12 0x7ab2d08a846a l___private_Lean_AddDecl_0__Lean_addDeclCore_doAdd___lam__1___boxed
+#13 0x7ab2d610ba3e lean_apply_1
+#14 0x7ab2d0429a4b l_Lean_profileitIOUnsafe___redArg___lam__0
+#15 0x7ab2d610b76a lean_apply_1
+#16 0x7ab2d610b76a lean_apply_1
+#17 0x7ab2d60dc0b3 lean_profileit
+#18 0x7ab2d0429c12 l_Lean_profileitIOUnsafe___redArg
+#19 0x7ab2d08b665a l___private_Lean_AddDecl_0__Lean_addDeclCore
+#20 0x7ab2d08b82b6 l_Lean_addDecl
+#21 0x7ab2d168acdf l_Lean_Meta_mkAuxLemma
+#22 0x7ab2d5136338 l___private_Lean_Elab_Tactic_Decide_0__Lean_Elab_Tactic_evalDecideCore_doKernel___redArg
+#23 0x7ab2d5137578 l_Lean_Elab_Tactic_evalDecideCore___lam__0
+#24 0x7ab2d51377b2 l_Lean_Elab_Tactic_evalDecideCore___lam__0___boxed
+#25 0x7ab2d6119826 lean_apply_11
+#26 0x7ab2d29f54dc l_Lean_Elab_Tactic_closeMainGoalUsing___lam__0
+#27 0x7ab2d29f704c l_Lean_Elab_Tactic_closeMainGoalUsing___lam__0___boxed
+#28 0x7ab2d6117d23 lean_apply_9
+#29 0x7ab2d29f4937 l_Lean_MVarId_withContext___at___00Lean_Elab_Tactic_closeMainGoalUsing_spec__0___redArg___lam__0___boxed
+#30 0x7ab2d6112998 lean_apply_5
+#31 0x7ab2d07fbaa2 l___private_Lean_Meta_Basic_0__Lean_Meta_withMVarContextImp___redArg
+#32 0x7ab2d29f4b11 l_Lean_MVarId_withContext___at___00Lean_Elab_Tactic_closeMainGoalUsing_spec__0___redArg
+#33 0x7ab2d29f72ed l_Lean_Elab_Tactic_closeMainGoalUsing
+#34 0x7ab2d51383ac l_Lean_Elab_Tactic_evalDecideCore
+#35 0x7ab2d513c629 l_Lean_Elab_Tactic_evalDecide
+#1046 0x7ab2d2d67a98 l___private_Lean_Language_Lean_0__Lean_Language_Lean_process_doElab___lam__0___boxed
+#1048 0x7ab2d2d69d01 l_Lean_Elab_withLogging___at___00__private_Lean_Language_Lean_0__Lean_Language_Lean_process_doElab_spec__2
+#1049 0x7ab2d2d69eb9 l___private_Lean_Language_Lean_0__Lean_Language_Lean_process_doElab___lam__1
+#1050 0x7ab2d2d69ff3 l___private_Lean_Language_Lean_0__Lean_Language_Lean_process_doElab___lam__1___boxed
+#1052 0x7ab2d2d6a200 l_IO_withStderr___at___00IO_FS_withIsolatedStreams___at___00__private_Lean_Language_Lean_0__Lean_Language_Lean_process_doElab_spec__3_spec__7___boxed
+#1054 0x7ab2d2d6a4f0 l_IO_withStdout___at___00IO_FS_withIsolatedStreams___at___00__private_Lean_Language_Lean_0__Lean_Language_Lean_process_doElab_spec__3_spec__4___boxed
+#1056 0x7ab2d2d6a671 l_IO_FS_withIsolatedStreams___at___00__private_Lean_Language_Lean_0__Lean_Language_Lean_process_doElab_spec__3___redArg
+#1057 0x7ab2d2d6ae19 l___private_Lean_Language_Lean_0__Lean_Language_Lean_process_doElab

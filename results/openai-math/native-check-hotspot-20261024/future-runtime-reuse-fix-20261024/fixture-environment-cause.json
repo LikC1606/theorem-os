@@ -1,0 +1,12 @@
+{
+  "defaultFixture": {
+    "leanPathSet": false,
+    "leanSysrootSet": false,
+    "trustedCacheRootsSet": true
+  },
+  "isolatedFixture": {
+    "leanPathSet": false,
+    "leanSysrootSet": false,
+    "trustedCacheRootsSet": false
+  }
+}

@@ -1,0 +1,433 @@
+{
+  "source": {
+    "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/SnakyConditionalCanonicalV8IntegrationMerged.lean",
+    "bytes": 967683,
+    "sha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae"
+  },
+  "declarations": [
+    {
+      "name": "qCell",
+      "kind": "abbrev",
+      "startLine": 363,
+      "endLine": 366,
+      "text": "abbrev qCell := by\n  set_option maxHeartbeats 0 in\n    set_option maxRecDepth 100000 in\n      exact (ℤ × ℤ)\n",
+      "sha256": "2c2a74ae8618d7615177d48bd52df3e17a4dc70e41a4ac025abcac3d2c5450f0"
+    },
+    {
+      "name": "qorient",
+      "kind": "def",
+      "startLine": 375,
+      "endLine": 386,
+      "text": "def qorient (r : Fin 8) (p : qCell) : qCell := by\n  set_option maxHeartbeats 0 in\n    set_option maxRecDepth 100000 in\n      exact (match r.val with\n  | 0 => (p.1,p.2)\n  | 1 => (p.2,p.1)\n  | 2 => (p.1,-p.2)\n  | 3 => (-p.2,p.1)\n  | 4 => (-p.1,p.2)\n  | 5 => (p.2,-p.1)\n  | 6 => (-p.1,-p.2)\n  | _ => (-p.2,-p.1))\n",
+      "sha256": "709c538def6b27e00a87459a16dbe32c31545af54ab58c7a22aa7f737940deed"
+    },
+    {
+      "name": "qplacement",
+      "kind": "def",
+      "startLine": 387,
+      "endLine": 390,
+      "text": "def qplacement (r : Fin 8) (t p : qCell) : qCell := by\n  set_option maxHeartbeats 0 in\n    set_option maxRecDepth 100000 in\n      exact (qorient r p + t)\n",
+      "sha256": "f48d3ac4c69f3ceb1e54a8f6dbbd473f1b41863fee43bd1d8508788cd3e4d250"
+    },
+    {
+      "name": "qT",
+      "kind": "abbrev",
+      "startLine": 403,
+      "endLine": 406,
+      "text": "abbrev qT := by\n  set_option maxHeartbeats 0 in\n    set_option maxRecDepth 100000 in\n      exact (ℕ × Fin 8 × Fin 10 × Fin 10)\n",
+      "sha256": "e45ca23b673b97df8aa75b3b9882107d9618c51a6030be345c3f3ad60eda1221"
+    },
+    {
+      "name": "qT.rotation",
+      "kind": "def",
+      "startLine": 411,
+      "endLine": 414,
+      "text": "def qT.rotation (x : qT) : Fin 8 := by\n  set_option maxHeartbeats 0 in\n    set_option maxRecDepth 100000 in\n      exact (x.2.1)\n",
+      "sha256": "d4784397c4dde7c92b0854c2a37d689073ca1ec9b0503369ceab296c04392a86"
+    },
+    {
+      "name": "qT.xDigit",
+      "kind": "def",
+      "startLine": 415,
+      "endLine": 418,
+      "text": "def qT.xDigit (x : qT) : Fin 10 := by\n  set_option maxHeartbeats 0 in\n    set_option maxRecDepth 100000 in\n      exact (x.2.2.1)\n",
+      "sha256": "05a0d03bebfd089638a529c9bea59567e8b4f892f5f87cba397223420f7911ea"
+    },
+    {
+      "name": "qT.yDigit",
+      "kind": "def",
+      "startLine": 419,
+      "endLine": 422,
+      "text": "def qT.yDigit (x : qT) : Fin 10 := by\n  set_option maxHeartbeats 0 in\n    set_option maxRecDepth 100000 in\n      exact (x.2.2.2)\n",
+      "sha256": "f9c743d1e9ef4085c4c791ef529f5c2e6de319702d5f90f410b7f684a32bd0f0"
+    },
+    {
+      "name": "qT.shift",
+      "kind": "def",
+      "startLine": 423,
+      "endLine": 426,
+      "text": "def qT.shift (t : qT) : qCell := by\n  set_option maxHeartbeats 0 in\n    set_option maxRecDepth 100000 in\n      exact (((t.xDigit.val : ℤ) - 4,(t.yDigit.val : ℤ) - 4))\n",
+      "sha256": "65c94c890c66a5b1835a4530fefebf4c854b013f8c1b4f95e40dce10266f71a9"
+    },
+    {
+      "name": "qR",
+      "kind": "abbrev",
+      "startLine": 3025,
+      "endLine": 3028,
+      "text": "abbrev qR := by\n  set_option maxHeartbeats 0 in\n    set_option maxRecDepth 100000 in\n      exact (Finset qCell × Finset qCell × ℕ)\n",
+      "sha256": "69e6be798d28f0620f24ca08a68dfa32884435b67321d5b1ff42c9e786b4ee84"
+    },
+    {
+      "name": "qR.H",
+      "kind": "def",
+      "startLine": 3033,
+      "endLine": 3036,
+      "text": "def qR.H (x : qR) : Finset qCell := by\n  set_option maxHeartbeats 0 in\n    set_option maxRecDepth 100000 in\n      exact (x.2.1)\n",
+      "sha256": "958d22919d4fb2a1b069d36bb6ab2c7399cea6c49ab3afab4185c93210f3d092"
+    },
+    {
+      "name": "qplaceRow",
+      "kind": "def",
+      "startLine": 3049,
+      "endLine": 3053,
+      "text": "def qplaceRow (t : qT) (d : qR) : qR := by\n  set_option maxHeartbeats 0 in\n    set_option maxRecDepth 100000 in\n      exact (⟨d.A.image (qplacement t.rotation t.shift),\n   d.H.image (qplacement t.rotation t.shift),d.height⟩)\n",
+      "sha256": "bcf7a91ce28ffbbe7fdb50c48feaed2a9f073fbcd1179aca13d7cb7551861bf4"
+    },
+    {
+      "name": "qm614",
+      "kind": "def",
+      "startLine": 13746,
+      "endLine": 13746,
+      "text": "def qm614 : qR := ⟨{(1,0),(1,1)},⟨(ql614 : Multiset qCell), Multiset.coe_nodup.mpr qn614⟩,33⟩\n",
+      "sha256": "aadf7f490bd719e4af4e9af9cf0d81ca5f7c02db9ebd663b3026f8654cf4fc60"
+    },
+    {
+      "name": "qsmall10",
+      "kind": "def",
+      "startLine": 14200,
+      "endLine": 14200,
+      "text": "def qsmall10 : Finset qCell := {(-1,0),(0,0),(1,0)}\n",
+      "sha256": "fa648a83451c75f5e5b13f8ab26290f69e1fe5a71b21cef1cae2cc230b16c8e0"
+    },
+    {
+      "name": "qsmall11",
+      "kind": "def",
+      "startLine": 14205,
+      "endLine": 14205,
+      "text": "def qsmall11 : Finset qCell := {(0,0),(1,0)}\n",
+      "sha256": "e98700677f39dae1225dd283b6744df98b264ffa83eaaa579e616f53176391a4"
+    },
+    {
+      "name": "qsmall_step11",
+      "kind": "lemma",
+      "startLine": 14206,
+      "endLine": 14209,
+      "text": "lemma qsmall_step11 : ∀ b ∈ qsmall10,b ∈ (qplaceRow ⟨614,1,4,3⟩ qm614).H → b ∈ qsmall11 := by\n  set_option maxHeartbeats 0 in\n    set_option maxRecDepth 100000 in\n      run_tac qhbGeometry (← `(tactic| decide +kernel))\n",
+      "sha256": "6e39b3ec2c5fba6caa5c82a53842a07acebd96a23f2b39c4be9eae82906018c7"
+    },
+    {
+      "name": "qinverseRotation",
+      "kind": "def",
+      "startLine": 14274,
+      "endLine": 14277,
+      "text": "def qinverseRotation (r : Fin 8) : Fin 8 := by\n  set_option maxHeartbeats 0 in\n    set_option maxRecDepth 100000 in\n      exact (if r = 3 then 5 else if r = 5 then 3 else r)\n",
+      "sha256": "86d6e4b6ac4c8cdfb77859d8c4910e7cddc855c597ae0642ecd8bfd243e7ad5f"
+    },
+    {
+      "name": "qorientEquiv",
+      "kind": "def",
+      "startLine": 14288,
+      "endLine": 14291,
+      "text": "def qorientEquiv (r : Fin 8) : qCell ≃ qCell := by\n  set_option maxHeartbeats 0 in\n    set_option maxRecDepth 100000 in\n      exact (⟨qorient r,qorient (qinverseRotation r),qorient_inverse r,qorient_inverse' r⟩)\n",
+      "sha256": "12538f1bc9cd8c783a618ec94f4e7ae35ba2ded8b5a04e4d721fef31657e75a4"
+    },
+    {
+      "name": "qplacementEquiv",
+      "kind": "def",
+      "startLine": 14292,
+      "endLine": 14295,
+      "text": "def qplacementEquiv (r : Fin 8) (t : qCell) : qCell ≃ qCell := by\n  set_option maxHeartbeats 0 in\n    set_option maxRecDepth 100000 in\n      exact ((qorientEquiv r).trans (Equiv.addRight t))\n",
+      "sha256": "cc0ca7d03f68ec252649d99e39940b4cf9717837dda37bebb96b8ebc43a2429c"
+    },
+    {
+      "name": "qmoveRow",
+      "kind": "def",
+      "startLine": 14504,
+      "endLine": 14507,
+      "text": "def qmoveRow (r : Fin 8) (t : qCell) (d : qR) : qR := by\n  set_option maxHeartbeats 0 in\n    set_option maxRecDepth 100000 in\n      exact (⟨d.A.image (qplacement r t),d.H.image (qplacement r t),d.height⟩)\n",
+      "sha256": "51cfcb491e361944259a410aab0e511dfe4fabc000cd5159daa65ccc9b55e0ac"
+    },
+    {
+      "name": "qo614",
+      "kind": "def",
+      "startLine": 14567,
+      "endLine": 14570,
+      "text": "def qo614 : qR := by\n  set_option maxHeartbeats 0 in\n    set_option maxRecDepth 100000 in\n      exact (qm614)\n",
+      "sha256": "7b88b32f51f19b84b011849e70165e9144a30e7dd5565b99aa19f42016e45f9b"
+    },
+    {
+      "name": "qmem_moveRow_H_iff",
+      "kind": "def",
+      "startLine": 14575,
+      "endLine": 14586,
+      "text": "def qmem_moveRow_H_iff (r : Fin 8) (t : qCell) (d : qR) (b : qCell) :\n    b ∈ (qmoveRow r t d).H ↔ (qplacementEquiv r t).symm b ∈ d.H := by\n  set_option maxHeartbeats 0 in\n    set_option maxRecDepth 100000 in\n      exact (by\n          change b ∈ d.H.image (qplacementEquiv r t) ↔ _\n          constructor\n          · intro h\n            obtain ⟨a,ha,hab⟩ := Finset.mem_image.mp h\n            simpa only [← hab,Equiv.symm_apply_apply] using ha\n          · intro h\n            exact Finset.mem_image.mpr ⟨_,h,(qplacementEquiv r t).apply_symm_apply b⟩)\n",
+      "sha256": "e6b4da607d05e15de5e8b3e8ec6dc82a8809ff4cf27b20145fa58b7b163a0516"
+    },
+    {
+      "name": "qescapeI_10",
+      "kind": "def",
+      "startLine": 14734,
+      "endLine": 14737,
+      "text": "def qescapeI_10 : Finset qCell := by\n  set_option maxHeartbeats 0 in\n    set_option maxRecDepth 100000 in\n      exact ({(0,-2),(0,-1),(0,0)})\n",
+      "sha256": "04aeda4302cb5f508919d449946f5f30c534fdb39e14e5be1e4ad851732a07d4"
+    },
+    {
+      "name": "qescapeI_11",
+      "kind": "def",
+      "startLine": 14742,
+      "endLine": 14745,
+      "text": "def qescapeI_11 : Finset qCell := by\n  set_option maxHeartbeats 0 in\n    set_option maxRecDepth 100000 in\n      exact ({(0,-1),(0,0)})\n",
+      "sha256": "0efdae11b420254f290e81564de67ca8eca3f505dda36ece4db84ba176d18150"
+    },
+    {
+      "name": "qescapestep_11",
+      "kind": "def",
+      "startLine": 14746,
+      "endLine": 14749,
+      "text": "def qescapestep_11 : ∀ b ∈ qescapeI_10,(qplacementEquiv 4 (1,-1)).symm b ∈ qo614.H → b ∈ qescapeI_11 := by\n  set_option maxHeartbeats 0 in\n    set_option maxRecDepth 100000 in\n      run_tac qhb (← `(tactic| decide +kernel))\n",
+      "sha256": "a7fc0666e4b57643391820bc955c1fafb4f94fd0a83d227cbeddc4ef757c87fd"
+    },
+    {
+      "name": "ql614",
+      "kind": "def",
+      "startLine": 13741,
+      "endLine": 13741,
+      "text": "def ql614 : List qCell := ql614b0 ++ ql614b1 ++ ql614b2 ++ ql614b3 ++ ql614b4 ++ ql614b5 ++ ql614b6 ++ ql614b7 ++ ql614b8 ++ ql614b9 ++ ql614b10 ++ ql614b11 ++ ql614b12 ++ ql614b13 ++ ql614b14 ++ ql614b15 ++ ql614b16 ++ ql614b17 ++ ql614b18 ++ ql614b19 ++ ql614b20 ++ ql614b21 ++ ql614b22 ++ ql614b23 ++ ql614b24 ++ ql614b25 ++ ql614b26 ++ ql614b27\n",
+      "sha256": "be2ad0841bd71ae5b9dbdc35de74409eb45280a757ea0b1710d7a86486e4bd08"
+    },
+    {
+      "name": "ql614b0",
+      "kind": "def",
+      "startLine": 13713,
+      "endLine": 13713,
+      "text": "def ql614b0 : List qCell := [(-15,-2),(-15,0),(-15,2),(-14,-2),(-14,-1),(-14,0),(-14,1),(-14,2),(-13,-4),(-13,-3),(-13,-2),(-13,-1),(-13,0),(-13,1),(-13,2),(-13,3),(-13,4),(-13,5),(-13,6),(-12,-4),(-12,-3),(-12,-2),(-12,-1),(-12,0),(-12,1)]\n",
+      "sha256": "112c0924464f5b05d13ca431aa08b3a9c5580842e90f1b37e7600d58b764fc92"
+    },
+    {
+      "name": "ql614b1",
+      "kind": "def",
+      "startLine": 13714,
+      "endLine": 13714,
+      "text": "def ql614b1 : List qCell := [(-12,2),(-12,3),(-12,4),(-12,5),(-12,6),(-11,-5),(-11,-4),(-11,-3),(-11,-2),(-11,-1),(-11,0),(-11,1),(-11,2),(-11,3),(-11,4),(-11,5),(-11,6),(-11,7),(-11,8),(-11,9),(-10,-7),(-10,-6),(-10,-5),(-10,-4),(-10,-3)]\n",
+      "sha256": "774c55d079836685518c8165be82c416bfcdc7b4989540a8233bbce9f476452c"
+    },
+    {
+      "name": "ql614b10",
+      "kind": "def",
+      "startLine": 13723,
+      "endLine": 13723,
+      "text": "def ql614b10 : List qCell := [(-2,8),(-2,9),(-2,10),(-2,11),(-2,12),(-2,13),(-2,14),(-1,-13),(-1,-12),(-1,-11),(-1,-10),(-1,-9),(-1,-8),(-1,-7),(-1,-6),(-1,-5),(-1,-4),(-1,-3),(-1,-2),(-1,-1),(-1,0),(-1,1),(-1,2),(-1,3),(-1,4)]\n",
+      "sha256": "e95fd5c969a386e08e9ecbe5a0ec56a5c303352795ebb12920d2855007267881"
+    },
+    {
+      "name": "ql614b11",
+      "kind": "def",
+      "startLine": 13724,
+      "endLine": 13724,
+      "text": "def ql614b11 : List qCell := [(-1,5),(-1,6),(-1,7),(-1,8),(-1,9),(-1,10),(-1,11),(-1,12),(-1,13),(-1,14),(-1,15),(-1,16),(0,-13),(0,-12),(0,-11),(0,-10),(0,-9),(0,-8),(0,-7),(0,-6),(0,-5),(0,-4),(0,-3),(0,-2),(0,-1)]\n",
+      "sha256": "0e2be8773651df4190bb5288c1951f278937a93e58cb698db8fb947d1a9e40d6"
+    },
+    {
+      "name": "ql614b12",
+      "kind": "def",
+      "startLine": 13725,
+      "endLine": 13725,
+      "text": "def ql614b12 : List qCell := [(0,0),(0,2),(0,3),(0,4),(0,5),(0,6),(0,7),(0,8),(0,9),(0,10),(0,11),(0,12),(0,13),(0,14),(0,15),(1,-13),(1,-12),(1,-11),(1,-10),(1,-9),(1,-8),(1,-7),(1,-6),(1,-5),(1,-4)]\n",
+      "sha256": "d952a5f86e4e65cd8260ea283b55efbf7246f848c2d21dbd80aa8f9682a9b66f"
+    },
+    {
+      "name": "ql614b13",
+      "kind": "def",
+      "startLine": 13726,
+      "endLine": 13726,
+      "text": "def ql614b13 : List qCell := [(1,-3),(1,-2),(1,0),(1,1),(1,2),(1,3),(1,4),(1,5),(1,6),(1,7),(1,8),(1,9),(1,10),(1,11),(1,12),(1,13),(1,14),(1,15),(1,16),(1,17),(2,-13),(2,-12),(2,-11),(2,-10),(2,-9)]\n",
+      "sha256": "f510c3eb40b8972f126bfddaee46266cd29c2b124949344a7ba3b9714a54fbfd"
+    },
+    {
+      "name": "ql614b14",
+      "kind": "def",
+      "startLine": 13727,
+      "endLine": 13727,
+      "text": "def ql614b14 : List qCell := [(2,-8),(2,-7),(2,-6),(2,-5),(2,-4),(2,-3),(2,-2),(2,-1),(2,0),(2,1),(2,2),(2,3),(2,4),(2,5),(2,6),(2,7),(2,8),(2,9),(2,10),(2,11),(2,12),(2,13),(2,14),(2,15),(2,16)]\n",
+      "sha256": "4d2c223985df31343c786bc212f768ad6cfd0e5f10daecc16853d0181a3b4212"
+    },
+    {
+      "name": "ql614b15",
+      "kind": "def",
+      "startLine": 13728,
+      "endLine": 13728,
+      "text": "def ql614b15 : List qCell := [(3,-13),(3,-12),(3,-11),(3,-10),(3,-9),(3,-8),(3,-7),(3,-6),(3,-5),(3,-4),(3,-3),(3,-2),(3,-1),(3,0),(3,1),(3,2),(3,3),(3,4),(3,5),(3,6),(3,7),(3,8),(3,9),(3,10),(3,11)]\n",
+      "sha256": "d1016ba8db521a905f3488bfe00a2b56efc3d2cf419ee377f454d476cb6807c8"
+    },
+    {
+      "name": "ql614b16",
+      "kind": "def",
+      "startLine": 13729,
+      "endLine": 13729,
+      "text": "def ql614b16 : List qCell := [(3,12),(3,13),(3,14),(3,15),(3,16),(3,17),(4,-13),(4,-12),(4,-11),(4,-10),(4,-9),(4,-8),(4,-7),(4,-6),(4,-5),(4,-4),(4,-3),(4,-2),(4,-1),(4,0),(4,1),(4,2),(4,3),(4,4),(4,5)]\n",
+      "sha256": "bacd7f06c23f43fccb595ff621687e9c9d1d09153fd5b73575525ddd613927e1"
+    },
+    {
+      "name": "ql614b17",
+      "kind": "def",
+      "startLine": 13730,
+      "endLine": 13730,
+      "text": "def ql614b17 : List qCell := [(4,6),(4,7),(4,8),(4,9),(4,10),(4,11),(4,12),(4,13),(4,14),(4,15),(5,-12),(5,-11),(5,-10),(5,-9),(5,-8),(5,-7),(5,-6),(5,-5),(5,-4),(5,-3),(5,-2),(5,-1),(5,0),(5,1),(5,2)]\n",
+      "sha256": "f4a13e70396a7763fb633961cedcdd128b8ced1ac3f4ad3446326236f469157f"
+    },
+    {
+      "name": "ql614b18",
+      "kind": "def",
+      "startLine": 13731,
+      "endLine": 13731,
+      "text": "def ql614b18 : List qCell := [(5,3),(5,4),(5,5),(5,6),(5,7),(5,8),(5,9),(5,10),(5,11),(5,12),(5,13),(5,14),(5,15),(6,-12),(6,-11),(6,-10),(6,-9),(6,-8),(6,-7),(6,-6),(6,-5),(6,-4),(6,-3),(6,-2),(6,-1)]\n",
+      "sha256": "59c12723dc41244996488753813062c00b84aae84b63a7d84ea83766666a0331"
+    },
+    {
+      "name": "ql614b19",
+      "kind": "def",
+      "startLine": 13732,
+      "endLine": 13732,
+      "text": "def ql614b19 : List qCell := [(6,0),(6,1),(6,2),(6,3),(6,4),(6,5),(6,6),(6,7),(6,8),(6,9),(6,10),(6,11),(6,12),(6,13),(6,14),(6,15),(7,-10),(7,-9),(7,-8),(7,-7),(7,-6),(7,-5),(7,-4),(7,-3),(7,-2)]\n",
+      "sha256": "68e6648e4f1104a12d74cf6f81b41bcf6758fa36724bb1437e601d0c695fd16d"
+    },
+    {
+      "name": "ql614b2",
+      "kind": "def",
+      "startLine": 13715,
+      "endLine": 13715,
+      "text": "def ql614b2 : List qCell := [(-10,-2),(-10,-1),(-10,0),(-10,1),(-10,2),(-10,3),(-10,4),(-10,5),(-10,6),(-10,7),(-10,8),(-10,9),(-9,-8),(-9,-7),(-9,-6),(-9,-5),(-9,-4),(-9,-3),(-9,-2),(-9,-1),(-9,0),(-9,1),(-9,2),(-9,3),(-9,4)]\n",
+      "sha256": "94f10ffde09a7834fdc4d8e3e3ec35dc515c62a8d4725a644a4cf00cc483f623"
+    },
+    {
+      "name": "ql614b20",
+      "kind": "def",
+      "startLine": 13733,
+      "endLine": 13733,
+      "text": "def ql614b20 : List qCell := [(7,-1),(7,0),(7,1),(7,2),(7,3),(7,4),(7,5),(7,6),(7,7),(7,8),(7,9),(7,10),(7,11),(7,12),(7,13),(7,14),(7,15),(8,-10),(8,-9),(8,-8),(8,-7),(8,-6),(8,-5),(8,-4),(8,-3)]\n",
+      "sha256": "a67fb7415ff3879251cbb4d0299d5b139ecf972ccf47d2d085fa53564e57a2bb"
+    },
+    {
+      "name": "ql614b21",
+      "kind": "def",
+      "startLine": 13734,
+      "endLine": 13734,
+      "text": "def ql614b21 : List qCell := [(8,-2),(8,-1),(8,0),(8,1),(8,2),(8,3),(8,4),(8,5),(8,6),(8,7),(8,8),(8,9),(8,10),(8,11),(8,12),(8,13),(9,-10),(9,-9),(9,-8),(9,-7),(9,-6),(9,-5),(9,-4),(9,-3),(9,-2)]\n",
+      "sha256": "3b6c133e068e0a6c4c65452f79062b24341d19269438391837f75b4a10af0f17"
+    },
+    {
+      "name": "ql614b22",
+      "kind": "def",
+      "startLine": 13735,
+      "endLine": 13735,
+      "text": "def ql614b22 : List qCell := [(9,-1),(9,0),(9,1),(9,2),(9,3),(9,4),(9,5),(9,6),(9,7),(9,8),(9,9),(9,10),(9,11),(9,12),(9,13),(10,-10),(10,-9),(10,-8),(10,-7),(10,-6),(10,-5),(10,-4),(10,-3),(10,-2),(10,-1)]\n",
+      "sha256": "2c4923e2cc6ee63f16ca33ecccd6fcb7934c2df775a669be4bd39d17be7cb594"
+    },
+    {
+      "name": "ql614b23",
+      "kind": "def",
+      "startLine": 13736,
+      "endLine": 13736,
+      "text": "def ql614b23 : List qCell := [(10,0),(10,1),(10,2),(10,3),(10,4),(10,5),(10,6),(10,7),(10,8),(10,9),(10,10),(10,11),(10,12),(10,13),(11,-8),(11,-7),(11,-6),(11,-5),(11,-4),(11,-3),(11,-2),(11,-1),(11,0),(11,1),(11,2)]\n",
+      "sha256": "76a3c9a8b2da248817e9018dca66cc84850e96a0effe2c70f4eeddc86dc83506"
+    },
+    {
+      "name": "ql614b24",
+      "kind": "def",
+      "startLine": 13737,
+      "endLine": 13737,
+      "text": "def ql614b24 : List qCell := [(11,3),(11,4),(11,5),(11,6),(11,7),(11,8),(11,9),(11,10),(11,11),(12,-7),(12,-6),(12,-5),(12,-4),(12,-3),(12,-2),(12,-1),(12,0),(12,1),(12,2),(12,3),(12,4),(12,5),(12,6),(12,7),(12,8)]\n",
+      "sha256": "f581df9abfc18ab99267f1c65b62a1a611d11f08017400ece7091b29ac759d38"
+    },
+    {
+      "name": "ql614b25",
+      "kind": "def",
+      "startLine": 13738,
+      "endLine": 13738,
+      "text": "def ql614b25 : List qCell := [(12,9),(12,10),(13,-5),(13,-4),(13,-3),(13,-2),(13,-1),(13,0),(13,1),(13,2),(13,3),(13,4),(13,5),(13,6),(13,7),(13,8),(13,9),(13,10),(14,-4),(14,-3),(14,-2),(14,-1),(14,0),(14,1),(14,2)]\n",
+      "sha256": "a180d973c2e5411b833e160396d280f5766137b6a0864e8bf4aa6767ca7c7ef7"
+    },
+    {
+      "name": "ql614b26",
+      "kind": "def",
+      "startLine": 13739,
+      "endLine": 13739,
+      "text": "def ql614b26 : List qCell := [(14,3),(14,4),(14,5),(14,6),(14,7),(15,-4),(15,-3),(15,-2),(15,-1),(15,0),(15,1),(15,2),(15,3),(15,4),(15,5),(15,6),(15,7),(16,-2),(16,-1),(16,0),(16,1),(16,2),(16,3),(17,-2),(17,0)]\n",
+      "sha256": "849710e005a0825f2a8b43ceb745ecbc1ad712b87abf56fba124c85c9ca65ac0"
+    },
+    {
+      "name": "ql614b27",
+      "kind": "def",
+      "startLine": 13740,
+      "endLine": 13740,
+      "text": "def ql614b27 : List qCell := [(17,1),(17,2),(17,3)]\n",
+      "sha256": "b53808ac4b7be8dd6307e74e54d20da5024c1e2103890d4b516b5956053694e9"
+    },
+    {
+      "name": "ql614b3",
+      "kind": "def",
+      "startLine": 13716,
+      "endLine": 13716,
+      "text": "def ql614b3 : List qCell := [(-9,5),(-9,6),(-9,7),(-9,8),(-9,9),(-9,10),(-8,-10),(-8,-9),(-8,-8),(-8,-7),(-8,-6),(-8,-5),(-8,-4),(-8,-3),(-8,-2),(-8,-1),(-8,0),(-8,1),(-8,2),(-8,3),(-8,4),(-8,5),(-8,6),(-8,7),(-8,8)]\n",
+      "sha256": "1b516c6e67b7c786bc21e4a4a3d6c3f507c9bd5265cf189162ba3b9452f2472b"
+    },
+    {
+      "name": "ql614b4",
+      "kind": "def",
+      "startLine": 13717,
+      "endLine": 13717,
+      "text": "def ql614b4 : List qCell := [(-8,9),(-8,10),(-8,11),(-8,12),(-7,-10),(-7,-9),(-7,-8),(-7,-7),(-7,-6),(-7,-5),(-7,-4),(-7,-3),(-7,-2),(-7,-1),(-7,0),(-7,1),(-7,2),(-7,3),(-7,4),(-7,5),(-7,6),(-7,7),(-7,8),(-7,9),(-7,10)]\n",
+      "sha256": "7c72a4f50d7fc42f8e69bbd7a41f3660d524eaae00766a4af2ffa1dbafea925a"
+    },
+    {
+      "name": "ql614b5",
+      "kind": "def",
+      "startLine": 13718,
+      "endLine": 13718,
+      "text": "def ql614b5 : List qCell := [(-7,11),(-7,12),(-6,-10),(-6,-9),(-6,-8),(-6,-7),(-6,-6),(-6,-5),(-6,-4),(-6,-3),(-6,-2),(-6,-1),(-6,0),(-6,1),(-6,2),(-6,3),(-6,4),(-6,5),(-6,6),(-6,7),(-6,8),(-6,9),(-6,10),(-6,11),(-6,12)]\n",
+      "sha256": "338a864e37ca09b94fc7942f02e8f2968222764152bc64cdcf6664096ae78249"
+    },
+    {
+      "name": "ql614b6",
+      "kind": "def",
+      "startLine": 13719,
+      "endLine": 13719,
+      "text": "def ql614b6 : List qCell := [(-5,-10),(-5,-9),(-5,-8),(-5,-7),(-5,-6),(-5,-5),(-5,-4),(-5,-3),(-5,-2),(-5,-1),(-5,0),(-5,1),(-5,2),(-5,3),(-5,4),(-5,5),(-5,6),(-5,7),(-5,8),(-5,9),(-5,10),(-5,11),(-5,12),(-5,13),(-5,14)]\n",
+      "sha256": "b39022d3c1173cdcf99fbbabf8498f346360ebee6294c9a1b0ac1f1896cfd9db"
+    },
+    {
+      "name": "ql614b7",
+      "kind": "def",
+      "startLine": 13720,
+      "endLine": 13720,
+      "text": "def ql614b7 : List qCell := [(-4,-12),(-4,-11),(-4,-10),(-4,-9),(-4,-8),(-4,-7),(-4,-6),(-4,-5),(-4,-4),(-4,-3),(-4,-2),(-4,-1),(-4,0),(-4,1),(-4,2),(-4,3),(-4,4),(-4,5),(-4,6),(-4,7),(-4,8),(-4,9),(-4,10),(-4,11),(-4,12)]\n",
+      "sha256": "71969892dd0f2b4da016568a5a30ff7a3a72d06180342f9f4d3deb55154dd000"
+    },
+    {
+      "name": "ql614b8",
+      "kind": "def",
+      "startLine": 13721,
+      "endLine": 13721,
+      "text": "def ql614b8 : List qCell := [(-4,13),(-4,14),(-3,-12),(-3,-11),(-3,-10),(-3,-9),(-3,-8),(-3,-7),(-3,-6),(-3,-5),(-3,-4),(-3,-3),(-3,-2),(-3,-1),(-3,0),(-3,1),(-3,2),(-3,3),(-3,4),(-3,5),(-3,6),(-3,7),(-3,8),(-3,9),(-3,10)]\n",
+      "sha256": "45f35e11090f7330539c5cf430098cb69407a8c8db29c5d3491344031ea1031d"
+    },
+    {
+      "name": "ql614b9",
+      "kind": "def",
+      "startLine": 13722,
+      "endLine": 13722,
+      "text": "def ql614b9 : List qCell := [(-3,11),(-3,12),(-3,13),(-3,14),(-2,-13),(-2,-12),(-2,-11),(-2,-10),(-2,-9),(-2,-8),(-2,-7),(-2,-6),(-2,-5),(-2,-4),(-2,-3),(-2,-2),(-2,-1),(-2,0),(-2,1),(-2,2),(-2,3),(-2,4),(-2,5),(-2,6),(-2,7)]\n",
+      "sha256": "90029c9f4e2551d28d99d534cad88d51e179d74fda63e18ec6aa5db34183a944"
+    }
+  ]
+}
