@@ -1,0 +1,339 @@
+{
+  "schema": "theorem-os.public-imo2026-results.v1",
+  "createdAt": "2026-10-24T12:11:14.453371+08:00",
+  "model": "gpt-5.6-sol",
+  "effort": "xhigh",
+  "passedQuestions": 6,
+  "verifiedTargets": 15,
+  "totalTargets": 15,
+  "selection": "Latest completed successful run for each question; use frozen solution_commit source and host-owned final evaluation receipts.",
+  "problems": [
+    {
+      "question": "Q1",
+      "title": "数论棋盘操作的终止性与不变量",
+      "description": "证明操作必定终止，终局恰有一个大于 1 的数；该数与操作顺序无关，并等于按各素数赋值的最大公约数构造的 Mval。",
+      "problemId": "imo2026_q1",
+      "status": "evaluated_passed",
+      "verifiedTargets": 5,
+      "totalTargets": 5,
+      "sorryCount": 0,
+      "admitCount": 0,
+      "axioms": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ],
+      "evaluatorMethod": "host-lean-kernel-all-targets",
+      "official": false,
+      "model": "gpt-5.6-sol",
+      "effort": "xhigh",
+      "workerCount": 4,
+      "runId": "3fc3d20a-b8a8-43b5-b4ba-8d181d601765",
+      "solutionCommit": "5b348248b2716040fab105b9f3bccff2c65deaaf",
+      "acceptedAt": "2026-10-23T03:46:07.220+08:00",
+      "proofFile": "Q1/Submission.lean",
+      "proofSha256": "b5d30501f98678ea29c35aaf503bb3c455eed24b1f165457a1fda2ab7f1dca77",
+      "proofBytes": 24081,
+      "proofLines": 494,
+      "leanToolchain": "leanprover/lean4:v4.31.0",
+      "mathlibCommit": "fabf563a7c95a166b8d7b6efca11c8b4dc9d911f",
+      "targetNames": [
+        "statement_a_termination",
+        "statement_a_unique_large",
+        "statement_b_invariance",
+        "terminal_value_eq_Mval",
+        "Mval_gt_one"
+      ],
+      "sourceRepositoryUrl": "https://github.com/humanfia/imo2026.git",
+      "sourceCommit": "834c01f2ecac89b648759b1c95bc6180b0ede149",
+      "sourceRelativePath": "base/IMO2026/Q1/problem.lean",
+      "apiTiming": {
+        "status": "available",
+        "effectiveApiElapsedUs": 1060524005,
+        "effectiveApiElapsedFormatted": "0h17m41s",
+        "confirmedResponses": 182,
+        "excludedUnconfirmedResponses": 24,
+        "includedRunIds": [
+          "3fc3d20a-b8a8-43b5-b4ba-8d181d601765"
+        ],
+        "scope": "selected successful run",
+        "reportFile": "Q1/timing.json"
+      },
+      "sourceFile": "Q1/problem.lean",
+      "sourceSha256": "98695afb49630475105d6a6abdfff173b8ef4ac16f66d5800c3c928ea40febc7",
+      "verificationFile": "Q1/verification.json"
+    },
+    {
+      "question": "Q2",
+      "title": "平面几何中的外心等距结论",
+      "description": "在冻结题面的三角形内点、角度相等和外心条件下，证明三角形 AKL 的外心 O 到 AB、AC 中点 M、N 的距离相等。",
+      "problemId": "imo2026_q2",
+      "status": "evaluated_passed",
+      "verifiedTargets": 1,
+      "totalTargets": 1,
+      "sorryCount": 0,
+      "admitCount": 0,
+      "axioms": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ],
+      "evaluatorMethod": "host-lean-kernel-all-targets",
+      "official": false,
+      "model": "gpt-5.6-sol",
+      "effort": "xhigh",
+      "workerCount": 4,
+      "runId": "fc4cfe15-ec0f-45e4-a2f7-adb8db80f839",
+      "solutionCommit": "6530fadbafa70a72c5d2510653acca77e571d088",
+      "acceptedAt": "2026-10-23T21:07:09.026+08:00",
+      "proofFile": "Q2/Submission.lean",
+      "proofSha256": "b3ebd5ebb82ad427947ee7b2e92df72508f6bdb24d03f7f70f6288e3a7235dfe",
+      "proofBytes": 31518,
+      "proofLines": 786,
+      "leanToolchain": "leanprover/lean4:v4.31.0",
+      "mathlibCommit": "fabf563a7c95a166b8d7b6efca11c8b4dc9d911f",
+      "targetNames": [
+        "main_theorem"
+      ],
+      "sourceRepositoryUrl": "https://github.com/humanfia/imo2026.git",
+      "sourceCommit": "834c01f2ecac89b648759b1c95bc6180b0ede149",
+      "sourceRelativePath": "base/IMO2026/Q2/problem.lean",
+      "apiTiming": {
+        "status": "available",
+        "effectiveApiElapsedUs": 4335312908,
+        "effectiveApiElapsedFormatted": "1h12m15s",
+        "confirmedResponses": 625,
+        "excludedUnconfirmedResponses": 179,
+        "includedRunIds": [
+          "a4a22995-07bc-40e6-902d-b796fd78ba20",
+          "fc4cfe15-ec0f-45e4-a2f7-adb8db80f839"
+        ],
+        "scope": "fresh Q2 run and its artifact-retention continuation, counted together",
+        "reportFile": "Q2/timing.json"
+      },
+      "sourceFile": "Q2/problem.lean",
+      "sourceSha256": "daeca5eca3b46b5a1e9768042925b37ea56e6f8899e055a6bf90064c4ef5c6f2",
+      "verificationFile": "Q2/verification.json"
+    },
+    {
+      "question": "Q3",
+      "title": "切分区间博弈的最优保证值",
+      "description": "证明切分后的长度总和、数量及得分界，并证明 n 为正整数时 V(n) = 2^n / (2^(n+1) - 1)，包括可实现下界和最优上界。",
+      "problemId": "imo2026_q3",
+      "status": "evaluated_passed",
+      "verifiedTargets": 6,
+      "totalTargets": 6,
+      "sorryCount": 0,
+      "admitCount": 0,
+      "axioms": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ],
+      "evaluatorMethod": "host-lean-kernel-all-targets",
+      "official": false,
+      "model": "gpt-5.6-sol",
+      "effort": "xhigh",
+      "workerCount": 4,
+      "runId": "b57422e3-f5a0-41c5-a952-553ad382aea0",
+      "solutionCommit": "2b5440b499e8d288e152f24ea3ed23623ac14b15",
+      "acceptedAt": "2026-10-24T05:33:35.923+08:00",
+      "proofFile": "Q3/Submission.lean",
+      "proofSha256": "fd169f19099caef81cec32f49ed33d5a324d3ad35c94bc4210b35ca6be1a816d",
+      "proofBytes": 105915,
+      "proofLines": 2440,
+      "leanToolchain": "leanprover/lean4:v4.31.0",
+      "mathlibCommit": "fabf563a7c95a166b8d7b6efca11c8b4dc9d911f",
+      "targetNames": [
+        "LiuBangXiangYu.pieceLengths_sum",
+        "LiuBangXiangYu.pieceLengths_length",
+        "LiuBangXiangYu.L_mem_Icc",
+        "LiuBangXiangYu.V_eq",
+        "LiuBangXiangYu.lower_bound",
+        "LiuBangXiangYu.upper_bound"
+      ],
+      "sourceRepositoryUrl": "https://github.com/humanfia/imo2026.git",
+      "sourceCommit": "834c01f2ecac89b648759b1c95bc6180b0ede149",
+      "sourceRelativePath": "base/IMO2026/Q3/problem.lean",
+      "apiTiming": {
+        "status": "available",
+        "effectiveApiElapsedUs": 6840029898,
+        "effectiveApiElapsedFormatted": "1h54m00s",
+        "confirmedResponses": 1382,
+        "excludedUnconfirmedResponses": 246,
+        "includedRunIds": [
+          "b57422e3-f5a0-41c5-a952-553ad382aea0"
+        ],
+        "scope": "same Q3 run before and after the runtime upgrade",
+        "reportFile": "Q3/timing.json"
+      },
+      "sourceFile": "Q3/problem.lean",
+      "sourceSha256": "e3526163de827c63b91eb7279b3625528075d2aae64ccf9597aa6fda4a99e255",
+      "verificationFile": "Q3/verification.json"
+    },
+    {
+      "question": "Q4",
+      "title": "三角形切割博弈的必胜角度分类",
+      "description": "证明对任意初始三角形均能有限步保证得到角 θ，当且仅当 θ = 180/n，n 为不小于 2 的自然数。",
+      "problemId": "imo2026_q4",
+      "status": "evaluated_passed",
+      "verifiedTargets": 1,
+      "totalTargets": 1,
+      "sorryCount": 0,
+      "admitCount": 0,
+      "axioms": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ],
+      "evaluatorMethod": "host-lean-kernel-all-targets",
+      "official": false,
+      "model": "gpt-5.6-sol",
+      "effort": "xhigh",
+      "workerCount": 4,
+      "runId": "143e002c-9e24-4580-a9e7-35fbc901b434",
+      "solutionCommit": "b5317b949c54440ff7e56fc479dc698b3ef5d0d1",
+      "acceptedAt": "2026-10-23T04:20:31.410+08:00",
+      "proofFile": "Q4/Submission.lean",
+      "proofSha256": "c24f3c493eaa5c2ec06b074a8a513df29c3035f86c5e4b6ad71c9fbb2f6fa10c",
+      "proofBytes": 13540,
+      "proofLines": 314,
+      "leanToolchain": "leanprover/lean4:v4.31.0",
+      "mathlibCommit": "fabf563a7c95a166b8d7b6efca11c8b4dc9d911f",
+      "targetNames": [
+        "TriangleGame.main_theorem"
+      ],
+      "sourceRepositoryUrl": "https://github.com/humanfia/imo2026.git",
+      "sourceCommit": "834c01f2ecac89b648759b1c95bc6180b0ede149",
+      "sourceRelativePath": "base/IMO2026/Q4/problem.lean",
+      "apiTiming": {
+        "status": "available",
+        "effectiveApiElapsedUs": 780671846,
+        "effectiveApiElapsedFormatted": "0h13m01s",
+        "confirmedResponses": 144,
+        "excludedUnconfirmedResponses": 30,
+        "includedRunIds": [
+          "143e002c-9e24-4580-a9e7-35fbc901b434"
+        ],
+        "scope": "selected successful run",
+        "reportFile": "Q4/timing.json"
+      },
+      "sourceFile": "Q4/problem.lean",
+      "sourceSha256": "fdcb9357fa1d806ba0032fad20a08b22e827eb9f1797e1a4800dfdeb67ccf52f",
+      "verificationFile": "Q4/verification.json"
+    },
+    {
+      "question": "Q5",
+      "title": "正实数函数双边不等式的解分类",
+      "description": "证明题设两侧平方根不等式成立，当且仅当 f(x) = x + c，其中 c ≥ 0。",
+      "problemId": "imo2026_q5",
+      "status": "evaluated_passed",
+      "verifiedTargets": 1,
+      "totalTargets": 1,
+      "sorryCount": 0,
+      "admitCount": 0,
+      "axioms": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ],
+      "evaluatorMethod": "host-lean-kernel-all-targets",
+      "official": false,
+      "model": "gpt-5.6-sol",
+      "effort": "xhigh",
+      "workerCount": 4,
+      "runId": "e6c2292f-a813-456c-8436-225ea3bcce00",
+      "solutionCommit": "c75d7dfa1d61e28272ccfeb897b75f2ce970a511",
+      "acceptedAt": "2026-10-23T04:54:19.263+08:00",
+      "proofFile": "Q5/Submission.lean",
+      "proofSha256": "02309aaedb8fbe0c0a110a7f6f47a0c521004b53bb09e8bebf2504e80b01a814",
+      "proofBytes": 23252,
+      "proofLines": 524,
+      "leanToolchain": "leanprover/lean4:v4.31.0",
+      "mathlibCommit": "fabf563a7c95a166b8d7b6efca11c8b4dc9d911f",
+      "targetNames": [
+        "main_theorem"
+      ],
+      "sourceRepositoryUrl": "https://github.com/humanfia/imo2026.git",
+      "sourceCommit": "834c01f2ecac89b648759b1c95bc6180b0ede149",
+      "sourceRelativePath": "base/IMO2026/Q5/problem.lean",
+      "apiTiming": {
+        "status": "available",
+        "effectiveApiElapsedUs": 1154716526,
+        "effectiveApiElapsedFormatted": "0h19m15s",
+        "confirmedResponses": 80,
+        "excludedUnconfirmedResponses": 4,
+        "includedRunIds": [
+          "e6c2292f-a813-456c-8436-225ea3bcce00"
+        ],
+        "scope": "selected successful run",
+        "reportFile": "Q5/timing.json"
+      },
+      "sourceFile": "Q5/problem.lean",
+      "sourceSha256": "7ee9e76cdd3bf1c3c10e2fe97624ffe3ff4706b756b59708c2581999a9a102b5",
+      "verificationFile": "Q5/verification.json"
+    },
+    {
+      "question": "Q6",
+      "title": "贪心公因数数列的差分周期性",
+      "description": "证明按题设最小性规则生成的数列存在正整数 T、L，使所有 n 均满足 a(n+T) = a(n) + L。",
+      "problemId": "imo2026_q6",
+      "status": "evaluated_passed",
+      "verifiedTargets": 1,
+      "totalTargets": 1,
+      "sorryCount": 0,
+      "admitCount": 0,
+      "axioms": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ],
+      "evaluatorMethod": "host-lean-kernel-all-targets",
+      "official": false,
+      "model": "gpt-5.6-sol",
+      "effort": "xhigh",
+      "workerCount": 4,
+      "runId": "afb9be56-ac0c-45a1-a40b-ffb719adcb2c",
+      "solutionCommit": "0892cbb02243b4745afd0e9bae7bc9747b69129b",
+      "acceptedAt": "2026-10-23T15:06:44.157+08:00",
+      "proofFile": "Q6/Submission.lean",
+      "proofSha256": "cc0566c4ea76df9401c24e67142b92458d0ef0a32008dd2cfcca35fb3f9cf33b",
+      "proofBytes": 24342,
+      "proofLines": 573,
+      "leanToolchain": "leanprover/lean4:v4.31.0",
+      "mathlibCommit": "fabf563a7c95a166b8d7b6efca11c8b4dc9d911f",
+      "targetNames": [
+        "main_theorem"
+      ],
+      "sourceRepositoryUrl": "https://github.com/humanfia/imo2026.git",
+      "sourceCommit": "834c01f2ecac89b648759b1c95bc6180b0ede149",
+      "sourceRelativePath": "base/IMO2026/Q6/problem.lean",
+      "apiTiming": {
+        "status": "available",
+        "effectiveApiElapsedUs": 2961490308,
+        "effectiveApiElapsedFormatted": "0h49m21s",
+        "confirmedResponses": 267,
+        "excludedUnconfirmedResponses": 99,
+        "includedRunIds": [
+          "afb9be56-ac0c-45a1-a40b-ffb719adcb2c"
+        ],
+        "scope": "selected successful run",
+        "reportFile": "Q6/timing.json"
+      },
+      "sourceFile": "Q6/problem.lean",
+      "sourceSha256": "ecf7b6d207bec0549f9c6b12f22f840a41ae71155573561ec863dcaf80fe0218",
+      "verificationFile": "Q6/verification.json"
+    }
+  ],
+  "apiTiming": {
+    "method": "Union of elapsed intervals for client-confirmed successful API requests, merging overlap across workers within each selected question.",
+    "perQuestionSumUs": 17132745491,
+    "perQuestionSumFormatted": "4h45m33s",
+    "allQuestionsCalendarUnionUs": 17132745491,
+    "confirmedResponses": 2680,
+    "scope": "Selected six successful runs; Q2 includes its fresh run and retained continuation, Q3 includes the same-run build reload. Earlier discarded attempts are not included.",
+    "excluded": "Tool execution, Lean checks, environment preparation, repair waits, retry backoff, ongoing calls and responses without client completion confirmation."
+  },
+  "publicationNote": "Proof and dependency files are byte-identical to the frozen successful collection. verification.json and timing.json are compact extracts of existing host records; publication does not rerun Lean or obtain third-party certification.",
+  "collectionRecordSha256": "92eee7c0c8c32cafd443fc58bedb9b91e036ccea1ab28332117a6a7357251cbb"
+}

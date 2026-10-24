@@ -3,6 +3,9 @@
 For paired single-agent, independent-parallel and cooperative experiments, see
 the [comparison protocol](COMPARISON.md).
 
+For archived GPT-5.6 results on all six questions, complete Lean proofs and
+first-party per-question comparisons, see [public results](RESULTS.md).
+
 This example runs the ordinary solver on all five public Q1 targets from
 `humanfia/imo2026` at commit `834c01f2ecac89b648759b1c95bc6180b0ede149`.
 The adapter copies public statements and project metadata. It starts with

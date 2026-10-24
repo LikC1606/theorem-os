@@ -1,0 +1,53 @@
+{
+  "schema": "theorem-os.public-kernel-verification-extract.v1",
+  "recordType": "compact extract of existing host verification; not a new verification",
+  "sourceRecordSha256": "23e331d5a37ac2217eeffd9312746edc62749077b1ed781a454c7f7559e6a020",
+  "resultRecordSha256": "454b26d78555d639778f9424d9bf4691ac3c24dc3cb7f0ac194a90d681e28c95",
+  "evaluatorMethod": "host-lean-kernel-all-targets",
+  "official": false,
+  "status": "evaluated_passed",
+  "runId": "143e002c-9e24-4580-a9e7-35fbc901b434",
+  "solutionCommit": "b5317b949c54440ff7e56fc479dc698b3ef5d0d1",
+  "sourceDigest": "13f9bb41a4fe8a72746af9ce24f733032d3cfca74656d55f32b325ebd013024d",
+  "checkedAt": 1792700431410,
+  "durationMs": 22067,
+  "source": {
+    "sourceRepositoryUrl": "https://github.com/humanfia/imo2026.git",
+    "sourceCommit": "834c01f2ecac89b648759b1c95bc6180b0ede149",
+    "sourceRelativePath": "base/IMO2026/Q4/problem.lean",
+    "sourceSha256": "fdcb9357fa1d806ba0032fad20a08b22e827eb9f1797e1a4800dfdeb67ccf52f"
+  },
+  "checks": [
+    {
+      "admitCount": 0,
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "checkId": "check-1",
+      "checkedAt": 1792700431406,
+      "claim": "statement",
+      "elaboratedDeclarationType": "TriangleGame.main_theorem (θ : ℝ) (hθ0 : 0 < θ) (hθ180 : θ < 180) : TriangleGame.MulanCanGuarantee θ ↔ ∃ n, 2 ≤ n ∧ θ = 180 / ↑n",
+      "goalsRemaining": 0,
+      "leanStatementHash": "450c78b83ab5780dfc854b5e35f8adcf2639013e19d9d246784aa025c417e090",
+      "proofHash": "c24f3c493eaa5c2ec06b074a8a513df29c3035f86c5e4b6ad71c9fbb2f6fa10c",
+      "proofPath": "Submission.lean",
+      "receiptId": "lean-a8d7ef10ced7e40ab4c31dcf",
+      "sessionId": "2dd897bc-e682-45a8-a7d5-16f7f9294b8c",
+      "sorryCount": 0,
+      "sourceDeclarationHash": "ea69d37f16f02a3b680e372a48fe2471b5836c32b90b93cb1ce4a9280a727987",
+      "statementBinding": "caller-bound-to-committed-declaration",
+      "statementHash": "38d4282a654c50b2a99af12c75b16a72fca2225234fc08d2dcc9ee0668f92fdb",
+      "status": "kernel_verified",
+      "targetCommit": "b5317b949c54440ff7e56fc479dc698b3ef5d0d1",
+      "theoremDeclarationHash": "0c21e34052e0a301818ef81a65840446eb5c5472933081155105e4e57d719e81",
+      "theoremName": "TriangleGame.main_theorem",
+      "toolchain": {
+        "lake": "lakefile.toml",
+        "lean": "lake"
+      },
+      "verifier": "lean-kernel"
+    }
+  ]
+}

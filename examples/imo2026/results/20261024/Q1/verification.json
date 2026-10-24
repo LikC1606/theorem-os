@@ -1,0 +1,176 @@
+{
+  "schema": "theorem-os.public-kernel-verification-extract.v1",
+  "recordType": "compact extract of existing host verification; not a new verification",
+  "sourceRecordSha256": "79f3bd3fee51a32260420d650aac23f3538775933ddc52c990478fb61b584b31",
+  "resultRecordSha256": "68d2faa39b8f0cabd0ffc3193be1fe112d78c44037ab66d09d6eb3f91a6c809d",
+  "evaluatorMethod": "host-lean-kernel-all-targets",
+  "official": false,
+  "status": "evaluated_passed",
+  "runId": "3fc3d20a-b8a8-43b5-b4ba-8d181d601765",
+  "solutionCommit": "5b348248b2716040fab105b9f3bccff2c65deaaf",
+  "sourceDigest": "d28c828d94d941bad3cf3d4ad3d8a90d5c704999b7cf27d05303280dc099966a",
+  "checkedAt": 1792698367220,
+  "durationMs": 20801,
+  "source": {
+    "sourceRepositoryUrl": "https://github.com/humanfia/imo2026.git",
+    "sourceCommit": "834c01f2ecac89b648759b1c95bc6180b0ede149",
+    "sourceRelativePath": "base/IMO2026/Q1/problem.lean",
+    "sourceSha256": "98695afb49630475105d6a6abdfff173b8ef4ac16f66d5800c3c928ea40febc7"
+  },
+  "checks": [
+    {
+      "admitCount": 0,
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "checkId": "check-1",
+      "checkedAt": 1792698367216,
+      "claim": "statement",
+      "elaboratedDeclarationType": "statement_a_termination (B₀ : Board) (hB₀ : IsInitial B₀) : ¬∃ f, f 0 = B₀ ∧ ∀ (k : ℕ), Move (f k) (f (k + 1))",
+      "goalsRemaining": 0,
+      "leanStatementHash": "2d436d28871fe9668173969e157979ff99a3dfea9ca3f5ae6b4dfc46e47c87e5",
+      "proofHash": "b5d30501f98678ea29c35aaf503bb3c455eed24b1f165457a1fda2ab7f1dca77",
+      "proofPath": "Submission.lean",
+      "receiptId": "lean-cf55d1700c8184fa17e476fb",
+      "sessionId": "7625f5d6-f055-496f-979f-801aadc6fc88",
+      "sorryCount": 0,
+      "sourceDeclarationHash": "16b08646075f15c38c443455e71812ba3c64bacff332b162ebdc420d050c9d28",
+      "statementBinding": "caller-bound-to-committed-declaration",
+      "statementHash": "b5bca03f2526c37c563258bf1ac7a93fabf36c0fca99585876006dc959344eec",
+      "status": "kernel_verified",
+      "targetCommit": "5b348248b2716040fab105b9f3bccff2c65deaaf",
+      "theoremDeclarationHash": "20059caa30d0eec3edc57ae25a0ca936ae29993054302f471af96c4bd94a4982",
+      "theoremName": "statement_a_termination",
+      "toolchain": {
+        "lake": "lakefile.toml",
+        "lean": "lake"
+      },
+      "verifier": "lean-kernel"
+    },
+    {
+      "admitCount": 0,
+      "axioms": [
+        "propext",
+        "Quot.sound"
+      ],
+      "checkId": "check-2",
+      "checkedAt": 1792698367216,
+      "claim": "statement",
+      "elaboratedDeclarationType": "statement_a_unique_large (B₀ : Board) (hB₀ : IsInitial B₀) (B' : Board) (hreach : Reachable B₀ B') (hterm : IsTerminal B') : HasUniqueLarge B'",
+      "goalsRemaining": 0,
+      "leanStatementHash": "2d436d28871fe9668173969e157979ff99a3dfea9ca3f5ae6b4dfc46e47c87e5",
+      "proofHash": "b5d30501f98678ea29c35aaf503bb3c455eed24b1f165457a1fda2ab7f1dca77",
+      "proofPath": "Submission.lean",
+      "receiptId": "lean-41a0e41a6dc1ba31d869f0de",
+      "sessionId": "7625f5d6-f055-496f-979f-801aadc6fc88",
+      "sorryCount": 0,
+      "sourceDeclarationHash": "869daad4660bf67f0a283acaf404a66d56a764882dcc4f01dc9e1ac3790d120c",
+      "statementBinding": "caller-bound-to-committed-declaration",
+      "statementHash": "b5bca03f2526c37c563258bf1ac7a93fabf36c0fca99585876006dc959344eec",
+      "status": "kernel_verified",
+      "targetCommit": "5b348248b2716040fab105b9f3bccff2c65deaaf",
+      "theoremDeclarationHash": "869daad4660bf67f0a283acaf404a66d56a764882dcc4f01dc9e1ac3790d120c",
+      "theoremName": "statement_a_unique_large",
+      "toolchain": {
+        "lake": "lakefile.toml",
+        "lean": "lake"
+      },
+      "verifier": "lean-kernel"
+    },
+    {
+      "admitCount": 0,
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "checkId": "check-3",
+      "checkedAt": 1792698367216,
+      "claim": "statement",
+      "elaboratedDeclarationType": "statement_b_invariance (B₀ : Board) (hB₀ : IsInitial B₀) (B₁ B₂ : Board) (h₁ : Reachable B₀ B₁) (h₂ : Reachable B₀ B₂) (t₁ : IsTerminal B₁) (t₂ : IsTerminal B₂) (M : ℕ) : 1 < M ∧ M ∈ B₁ ↔ 1 < M ∧ M ∈ B₂",
+      "goalsRemaining": 0,
+      "leanStatementHash": "2d436d28871fe9668173969e157979ff99a3dfea9ca3f5ae6b4dfc46e47c87e5",
+      "proofHash": "b5d30501f98678ea29c35aaf503bb3c455eed24b1f165457a1fda2ab7f1dca77",
+      "proofPath": "Submission.lean",
+      "receiptId": "lean-49e3d7e787b34edf998cbdf1",
+      "sessionId": "7625f5d6-f055-496f-979f-801aadc6fc88",
+      "sorryCount": 0,
+      "sourceDeclarationHash": "14a2675c2a5ae5e41efa973e558f78d158e0f3d0da9b6516b83f13552454c07b",
+      "statementBinding": "caller-bound-to-committed-declaration",
+      "statementHash": "b5bca03f2526c37c563258bf1ac7a93fabf36c0fca99585876006dc959344eec",
+      "status": "kernel_verified",
+      "targetCommit": "5b348248b2716040fab105b9f3bccff2c65deaaf",
+      "theoremDeclarationHash": "b5f133c6265210bab710d29f60a67d7a34233816ef6aa00721b79ccc411e7002",
+      "theoremName": "statement_b_invariance",
+      "toolchain": {
+        "lake": "lakefile.toml",
+        "lean": "lake"
+      },
+      "verifier": "lean-kernel"
+    },
+    {
+      "admitCount": 0,
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "checkId": "check-4",
+      "checkedAt": 1792698367216,
+      "claim": "statement",
+      "elaboratedDeclarationType": "terminal_value_eq_Mval (B₀ : Board) (hB₀ : IsInitial B₀) (B' : Board) (hreach : Reachable B₀ B') (hterm : IsTerminal B') (M : ℕ) (hM : 1 < M) (hMem : M ∈ B') : M = Mval B₀",
+      "goalsRemaining": 0,
+      "leanStatementHash": "2d436d28871fe9668173969e157979ff99a3dfea9ca3f5ae6b4dfc46e47c87e5",
+      "proofHash": "b5d30501f98678ea29c35aaf503bb3c455eed24b1f165457a1fda2ab7f1dca77",
+      "proofPath": "Submission.lean",
+      "receiptId": "lean-8076048c6aba13ca955066eb",
+      "sessionId": "7625f5d6-f055-496f-979f-801aadc6fc88",
+      "sorryCount": 0,
+      "sourceDeclarationHash": "b4441ac30a17382fef670b82670b9bb7e5869609935f58c4c3c659204792a4ca",
+      "statementBinding": "caller-bound-to-committed-declaration",
+      "statementHash": "b5bca03f2526c37c563258bf1ac7a93fabf36c0fca99585876006dc959344eec",
+      "status": "kernel_verified",
+      "targetCommit": "5b348248b2716040fab105b9f3bccff2c65deaaf",
+      "theoremDeclarationHash": "b4441ac30a17382fef670b82670b9bb7e5869609935f58c4c3c659204792a4ca",
+      "theoremName": "terminal_value_eq_Mval",
+      "toolchain": {
+        "lake": "lakefile.toml",
+        "lean": "lake"
+      },
+      "verifier": "lean-kernel"
+    },
+    {
+      "admitCount": 0,
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "checkId": "check-5",
+      "checkedAt": 1792698367216,
+      "claim": "statement",
+      "elaboratedDeclarationType": "Mval_gt_one (B₀ : Board) (hB₀ : IsInitial B₀) : 1 < Mval B₀",
+      "goalsRemaining": 0,
+      "leanStatementHash": "2d436d28871fe9668173969e157979ff99a3dfea9ca3f5ae6b4dfc46e47c87e5",
+      "proofHash": "b5d30501f98678ea29c35aaf503bb3c455eed24b1f165457a1fda2ab7f1dca77",
+      "proofPath": "Submission.lean",
+      "receiptId": "lean-e0c0923fee06a3e2e54ee38c",
+      "sessionId": "7625f5d6-f055-496f-979f-801aadc6fc88",
+      "sorryCount": 0,
+      "sourceDeclarationHash": "71bf52b5ff798f4a95cfd2a531793f01057d7c3c54c44cafa9db8f922efd4bd5",
+      "statementBinding": "caller-bound-to-committed-declaration",
+      "statementHash": "b5bca03f2526c37c563258bf1ac7a93fabf36c0fca99585876006dc959344eec",
+      "status": "kernel_verified",
+      "targetCommit": "5b348248b2716040fab105b9f3bccff2c65deaaf",
+      "theoremDeclarationHash": "71bf52b5ff798f4a95cfd2a531793f01057d7c3c54c44cafa9db8f922efd4bd5",
+      "theoremName": "Mval_gt_one",
+      "toolchain": {
+        "lake": "lakefile.toml",
+        "lean": "lake"
+      },
+      "verifier": "lean-kernel"
+    }
+  ]
+}

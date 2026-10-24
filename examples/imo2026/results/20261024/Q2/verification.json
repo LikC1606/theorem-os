@@ -1,0 +1,53 @@
+{
+  "schema": "theorem-os.public-kernel-verification-extract.v1",
+  "recordType": "compact extract of existing host verification; not a new verification",
+  "sourceRecordSha256": "d5fbac0181718fa427b99b71deb06e5f08e0e614975512fdc259adb530de4532",
+  "resultRecordSha256": "ef24506e06001ffceafd2cd57858787253845b1589444ca284caf138ed637f27",
+  "evaluatorMethod": "host-lean-kernel-all-targets",
+  "official": false,
+  "status": "evaluated_passed",
+  "runId": "fc4cfe15-ec0f-45e4-a2f7-adb8db80f839",
+  "solutionCommit": "6530fadbafa70a72c5d2510653acca77e571d088",
+  "sourceDigest": "8a19e459b593f2c1b6013f25af22b083843e8e654365fd4828c295a29da757d5",
+  "checkedAt": 1792760829026,
+  "durationMs": 42730,
+  "source": {
+    "sourceRepositoryUrl": "https://github.com/humanfia/imo2026.git",
+    "sourceCommit": "834c01f2ecac89b648759b1c95bc6180b0ede149",
+    "sourceRelativePath": "base/IMO2026/Q2/problem.lean",
+    "sourceSha256": "daeca5eca3b46b5a1e9768042925b37ea56e6f8899e055a6bf90064c4ef5c6f2"
+  },
+  "checks": [
+    {
+      "admitCount": 0,
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "checkId": "check-1",
+      "checkedAt": 1792760829020,
+      "claim": "statement",
+      "elaboratedDeclarationType": "main_theorem (A B C K L O : Plane) (hABC : ¬Collinear ℝ {A, B, C}) (M N : Plane) (hM : M = midpoint ℝ A B) (hN : N = midpoint ℝ A C) (hK : InsideTriangle B M C K) (hL : InsideTriangle B N C L) (hKangle : InsideAngle L B A K) (hLangle : InsideAngle A C K L) (h1 : EuclideanGeometry.angle K B A = EuclideanGeometry.angle A C L) (h2 : EuclideanGeometry.angle L B K = EuclideanGeometry.angle L N C) (h3 : EuclideanGeometry.angle L C K = EuclideanGeometry.angle B M K) (hO : IsCircumcentre A K L O) : dist O M = dist O N",
+      "goalsRemaining": 0,
+      "leanStatementHash": "e182865416b0b3ee72430b346e51895f8e9e33c526075637e30b141b53a581d7",
+      "proofHash": "b3ebd5ebb82ad427947ee7b2e92df72508f6bdb24d03f7f70f6288e3a7235dfe",
+      "proofPath": "Submission.lean",
+      "receiptId": "lean-ee6f26bb4ac2bb8eaea483af",
+      "sessionId": "d08ac2ba-957a-41b4-b371-0527defc4e30",
+      "sorryCount": 0,
+      "sourceDeclarationHash": "c16852e1486f15908ad75479965530cc99c14ccd78fa183895a3e1e1ec96e6ed",
+      "statementBinding": "caller-bound-to-committed-declaration",
+      "statementHash": "f7134c59e4ed65cc07ea24dc1dcdfd3ae755ece8ddbfcd188e735014613abe3b",
+      "status": "kernel_verified",
+      "targetCommit": "6530fadbafa70a72c5d2510653acca77e571d088",
+      "theoremDeclarationHash": "4955a8f79b6a65cb6a5d9fc0998536073da848a3acfd3b1092e05e83b7de1902",
+      "theoremName": "main_theorem",
+      "toolchain": {
+        "lake": "lakefile.toml",
+        "lean": "lake"
+      },
+      "verifier": "lean-kernel"
+    }
+  ]
+}

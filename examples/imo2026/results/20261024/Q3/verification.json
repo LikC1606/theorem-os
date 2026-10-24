@@ -1,0 +1,208 @@
+{
+  "schema": "theorem-os.public-kernel-verification-extract.v1",
+  "recordType": "compact extract of existing host verification; not a new verification",
+  "sourceRecordSha256": "db347a3362543ab71c8f65327e6456f5dfddb1af09fe12dea8b2a740f9f443de",
+  "resultRecordSha256": "823095c1531296c446852c810bcae64b72cc5868ba327f884c7b84403d3a1d0c",
+  "evaluatorMethod": "host-lean-kernel-all-targets",
+  "official": false,
+  "status": "evaluated_passed",
+  "runId": "b57422e3-f5a0-41c5-a952-553ad382aea0",
+  "solutionCommit": "2b5440b499e8d288e152f24ea3ed23623ac14b15",
+  "sourceDigest": "3e61ce3963595ce12d2afc6fa973771bfca134cc060af1352c7b290288b0140c",
+  "checkedAt": 1792791215923,
+  "durationMs": 29575,
+  "source": {
+    "sourceRepositoryUrl": "https://github.com/humanfia/imo2026.git",
+    "sourceCommit": "834c01f2ecac89b648759b1c95bc6180b0ede149",
+    "sourceRelativePath": "base/IMO2026/Q3/problem.lean",
+    "sourceSha256": "e3526163de827c63b91eb7279b3625528075d2aae64ccf9597aa6fda4a99e255"
+  },
+  "checks": [
+    {
+      "admitCount": 0,
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "checkId": "check-1",
+      "checkedAt": 1792791215918,
+      "claim": "statement",
+      "elaboratedDeclarationType": "LiuBangXiangYu.pieceLengths_sum (S : Finset ℝ) (hS : ↑S ⊆ Set.Ioo 0 1) : (LiuBangXiangYu.pieceLengths S).sum = 1",
+      "goalsRemaining": 0,
+      "leanStatementHash": "65bd721bbb75c63e520c3638038c37b944b692c92a98dbaaee64a1a3dd2ff050",
+      "proofHash": "fd169f19099caef81cec32f49ed33d5a324d3ad35c94bc4210b35ca6be1a816d",
+      "proofPath": "Submission.lean",
+      "receiptId": "lean-8170742b481f0154659cbe7a",
+      "sessionId": "9e6d8d12-df80-440f-9e44-1a219a65b0dc",
+      "sorryCount": 0,
+      "sourceDeclarationHash": "93304df3a3db223075af7ac2d27c14cdb9d19f4d4351f29ef35ebd0e795f4e66",
+      "statementBinding": "caller-bound-to-committed-declaration",
+      "statementHash": "5921d694d290671db72729adee564ad882208c0f5264f6a7e21a38c4e3e9e89f",
+      "status": "kernel_verified",
+      "targetCommit": "2b5440b499e8d288e152f24ea3ed23623ac14b15",
+      "theoremDeclarationHash": "206ece4db3bc3acf77a6099984b378226d7d982b5f9234762577c0e136ba333e",
+      "theoremName": "LiuBangXiangYu.pieceLengths_sum",
+      "toolchain": {
+        "lake": "lakefile.toml",
+        "lean": "lake"
+      },
+      "verifier": "lean-kernel"
+    },
+    {
+      "admitCount": 0,
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "checkId": "check-2",
+      "checkedAt": 1792791215918,
+      "claim": "statement",
+      "elaboratedDeclarationType": "LiuBangXiangYu.pieceLengths_length (S : Finset ℝ) : (LiuBangXiangYu.pieceLengths S).length = S.card + 1",
+      "goalsRemaining": 0,
+      "leanStatementHash": "65bd721bbb75c63e520c3638038c37b944b692c92a98dbaaee64a1a3dd2ff050",
+      "proofHash": "fd169f19099caef81cec32f49ed33d5a324d3ad35c94bc4210b35ca6be1a816d",
+      "proofPath": "Submission.lean",
+      "receiptId": "lean-7e83e8c23e09ff82582c4277",
+      "sessionId": "9e6d8d12-df80-440f-9e44-1a219a65b0dc",
+      "sorryCount": 0,
+      "sourceDeclarationHash": "ab59d19b1ca61ef4580a857a3ceeecc28e7ddd81a945174b20852f0ebdc016b1",
+      "statementBinding": "caller-bound-to-committed-declaration",
+      "statementHash": "5921d694d290671db72729adee564ad882208c0f5264f6a7e21a38c4e3e9e89f",
+      "status": "kernel_verified",
+      "targetCommit": "2b5440b499e8d288e152f24ea3ed23623ac14b15",
+      "theoremDeclarationHash": "619e8eee6e987e72b7bf5f999e5bac6d76a458102560b4abcddbbf9fd16276c3",
+      "theoremName": "LiuBangXiangYu.pieceLengths_length",
+      "toolchain": {
+        "lake": "lakefile.toml",
+        "lean": "lake"
+      },
+      "verifier": "lean-kernel"
+    },
+    {
+      "admitCount": 0,
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "checkId": "check-3",
+      "checkedAt": 1792791215918,
+      "claim": "statement",
+      "elaboratedDeclarationType": "LiuBangXiangYu.L_mem_Icc (A B : Finset ℝ) (hA : ↑A ⊆ Set.Ioo 0 1) (hB : ↑B ⊆ Set.Ioo 0 1) : LiuBangXiangYu.L A B ∈ Set.Icc 0 1",
+      "goalsRemaining": 0,
+      "leanStatementHash": "65bd721bbb75c63e520c3638038c37b944b692c92a98dbaaee64a1a3dd2ff050",
+      "proofHash": "fd169f19099caef81cec32f49ed33d5a324d3ad35c94bc4210b35ca6be1a816d",
+      "proofPath": "Submission.lean",
+      "receiptId": "lean-7eac5b4467f04bd4d40fa266",
+      "sessionId": "9e6d8d12-df80-440f-9e44-1a219a65b0dc",
+      "sorryCount": 0,
+      "sourceDeclarationHash": "945cbad786568a90553a2659e766b9f66226f768ba87a39aa78077d20331d5a6",
+      "statementBinding": "caller-bound-to-committed-declaration",
+      "statementHash": "5921d694d290671db72729adee564ad882208c0f5264f6a7e21a38c4e3e9e89f",
+      "status": "kernel_verified",
+      "targetCommit": "2b5440b499e8d288e152f24ea3ed23623ac14b15",
+      "theoremDeclarationHash": "40c0d10839761413e6fbc9bea7d6a7b4096ff063b09837fbc787ddb079c549a6",
+      "theoremName": "LiuBangXiangYu.L_mem_Icc",
+      "toolchain": {
+        "lake": "lakefile.toml",
+        "lean": "lake"
+      },
+      "verifier": "lean-kernel"
+    },
+    {
+      "admitCount": 0,
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "checkId": "check-4",
+      "checkedAt": 1792791215918,
+      "claim": "statement",
+      "elaboratedDeclarationType": "LiuBangXiangYu.V_eq (n : ℕ) (hn : 0 < n) : LiuBangXiangYu.V n = 2 ^ n / (2 ^ (n + 1) - 1)",
+      "goalsRemaining": 0,
+      "leanStatementHash": "65bd721bbb75c63e520c3638038c37b944b692c92a98dbaaee64a1a3dd2ff050",
+      "proofHash": "fd169f19099caef81cec32f49ed33d5a324d3ad35c94bc4210b35ca6be1a816d",
+      "proofPath": "Submission.lean",
+      "receiptId": "lean-95d6b1b3f8fb68175af4feef",
+      "sessionId": "9e6d8d12-df80-440f-9e44-1a219a65b0dc",
+      "sorryCount": 0,
+      "sourceDeclarationHash": "ea520408af5339c6d1b8932b24ff9b0b9484bf1069c8029dab4c7d16ea29d932",
+      "statementBinding": "caller-bound-to-committed-declaration",
+      "statementHash": "5921d694d290671db72729adee564ad882208c0f5264f6a7e21a38c4e3e9e89f",
+      "status": "kernel_verified",
+      "targetCommit": "2b5440b499e8d288e152f24ea3ed23623ac14b15",
+      "theoremDeclarationHash": "72090cece8f3304d27ed0429f290f99cf1b76f23857761c3776da7a1b1a2d1cc",
+      "theoremName": "LiuBangXiangYu.V_eq",
+      "toolchain": {
+        "lake": "lakefile.toml",
+        "lean": "lake"
+      },
+      "verifier": "lean-kernel"
+    },
+    {
+      "admitCount": 0,
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "checkId": "check-5",
+      "checkedAt": 1792791215918,
+      "claim": "statement",
+      "elaboratedDeclarationType": "LiuBangXiangYu.lower_bound (n : ℕ) (hn : 0 < n) : ∃ A, LiuBangXiangYu.AdmissibleMark n A ∧ ∀ (B : Finset ℝ), LiuBangXiangYu.AdmissibleMark n B → Disjoint A B → 2 ^ n / (2 ^ (n + 1) - 1) ≤ LiuBangXiangYu.L A B",
+      "goalsRemaining": 0,
+      "leanStatementHash": "65bd721bbb75c63e520c3638038c37b944b692c92a98dbaaee64a1a3dd2ff050",
+      "proofHash": "fd169f19099caef81cec32f49ed33d5a324d3ad35c94bc4210b35ca6be1a816d",
+      "proofPath": "Submission.lean",
+      "receiptId": "lean-02fabcec8c4bbae9cbb78f98",
+      "sessionId": "9e6d8d12-df80-440f-9e44-1a219a65b0dc",
+      "sorryCount": 0,
+      "sourceDeclarationHash": "8f07b435179562c5ce48fcba33b78f5ba27f3c4c0faf640aea698298df5f1f8d",
+      "statementBinding": "caller-bound-to-committed-declaration",
+      "statementHash": "5921d694d290671db72729adee564ad882208c0f5264f6a7e21a38c4e3e9e89f",
+      "status": "kernel_verified",
+      "targetCommit": "2b5440b499e8d288e152f24ea3ed23623ac14b15",
+      "theoremDeclarationHash": "7b90ad7255a548b5db5e5b8da337675a99925f6202e43dc0ac5d8292ea9c29cb",
+      "theoremName": "LiuBangXiangYu.lower_bound",
+      "toolchain": {
+        "lake": "lakefile.toml",
+        "lean": "lake"
+      },
+      "verifier": "lean-kernel"
+    },
+    {
+      "admitCount": 0,
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "checkId": "check-6",
+      "checkedAt": 1792791215918,
+      "claim": "statement",
+      "elaboratedDeclarationType": "LiuBangXiangYu.upper_bound (n : ℕ) (hn : 0 < n) (A : Finset ℝ) : LiuBangXiangYu.AdmissibleMark n A → ∃ B, LiuBangXiangYu.AdmissibleMark n B ∧ Disjoint A B ∧ LiuBangXiangYu.L A B ≤ 2 ^ n / (2 ^ (n + 1) - 1)",
+      "goalsRemaining": 0,
+      "leanStatementHash": "65bd721bbb75c63e520c3638038c37b944b692c92a98dbaaee64a1a3dd2ff050",
+      "proofHash": "fd169f19099caef81cec32f49ed33d5a324d3ad35c94bc4210b35ca6be1a816d",
+      "proofPath": "Submission.lean",
+      "receiptId": "lean-de6cd266768ff8d3e9dfb7ff",
+      "sessionId": "9e6d8d12-df80-440f-9e44-1a219a65b0dc",
+      "sorryCount": 0,
+      "sourceDeclarationHash": "19fd0e42e557d985bb2d8345b8aff13ad2bfb7d0d30ac08f061afa267d1691a2",
+      "statementBinding": "caller-bound-to-committed-declaration",
+      "statementHash": "5921d694d290671db72729adee564ad882208c0f5264f6a7e21a38c4e3e9e89f",
+      "status": "kernel_verified",
+      "targetCommit": "2b5440b499e8d288e152f24ea3ed23623ac14b15",
+      "theoremDeclarationHash": "e54ea618a9ca8cbc3b8b4a293e15f804ddf3f8b0041b04a3d5f4f729baff4943",
+      "theoremName": "LiuBangXiangYu.upper_bound",
+      "toolchain": {
+        "lake": "lakefile.toml",
+        "lean": "lake"
+      },
+      "verifier": "lean-kernel"
+    }
+  ]
+}

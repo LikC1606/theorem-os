@@ -1,0 +1,39 @@
+{
+  "schema": "theorem-os.client-confirmed-api-timing.v1",
+  "runId": "e6c2292f-a813-456c-8436-225ea3bcce00",
+  "snapshotCapturedAt": "2026-10-24T12:10:35.788028+08:00",
+  "threadCount": 4,
+  "clientConfirmed": {
+    "requestCount": 80,
+    "effectiveApiElapsedUs": 1154716526,
+    "effectiveApiElapsedFormatted": "0h19m15s",
+    "summedThreadApiMs": 1260276,
+    "summedThreadApiFormatted": "0h21m00s",
+    "outputTokens": 111966,
+    "latestCompletedRequestAt": "2026-10-23T04:53:35.039670+08:00"
+  },
+  "upstreamOutputWithoutClientConfirmation": {
+    "requestCount": 4,
+    "effectiveApiElapsedUs": 150475000,
+    "effectiveApiElapsedFormatted": "0h02m30s",
+    "summedThreadApiMs": 150475,
+    "summedThreadApiFormatted": "0h02m30s",
+    "outputTokens": 17682,
+    "latestCompletedRequestAt": "2026-10-23T04:33:19.091249+08:00"
+  },
+  "matchingRule": "Same state-listed thread/session ID, exact output token count, completion timestamps within 100 ms, one client response consumed once",
+  "intervalRule": "[gateway.created_at - duration_ms, gateway.created_at]; overlaps across all threads merged for effectiveApiElapsedUs",
+  "included": "Elapsed time of completed API requests, including their normal time to first token",
+  "excluded": "503/no-output failures, client retry backoff, cooldown, scheduler gaps, preparation, tool/Lean execution, ongoing calls, and upstream output lacking client completion confirmation",
+  "maxCompletionDeltaUs": 4121,
+  "partialTrailingRolloutLinesSkipped": 0,
+  "measurementStatus": "available",
+  "effectiveApiSeconds": 1154.716526,
+  "measurementBoundary": "Only gateway requests matched to client token_usage_record completions count; missing rollouts or unconfirmed gateway output are excluded. Zero matched requests means unmeasured, not zero API time.",
+  "recordType": "aggregate extract of existing API timing record",
+  "sourceRecordSha256": "20c9139347b2cdd4bbbf11dfebf398308ded48a9c5451b1351f342dc85007516",
+  "scope": "selected successful run",
+  "includedRunIds": [
+    "e6c2292f-a813-456c-8436-225ea3bcce00"
+  ]
+}

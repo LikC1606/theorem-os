@@ -1,0 +1,36 @@
+{
+  "schema": "theorem-os.client-confirmed-api-timing.v1",
+  "runId": "afb9be56-ac0c-45a1-a40b-ffb719adcb2c",
+  "snapshotCapturedAt": "2026-10-23T15:07:01.504344+08:00",
+  "threadCount": 15,
+  "clientConfirmed": {
+    "requestCount": 267,
+    "effectiveApiElapsedUs": 2961490308,
+    "effectiveApiElapsedFormatted": "0h49m21s",
+    "summedThreadApiMs": 6265756,
+    "summedThreadApiFormatted": "1h44m26s",
+    "outputTokens": 285230,
+    "latestCompletedRequestAt": "2026-10-23T15:06:24.504373+08:00"
+  },
+  "upstreamOutputWithoutClientConfirmation": {
+    "requestCount": 99,
+    "effectiveApiElapsedUs": 2866234786,
+    "effectiveApiElapsedFormatted": "0h47m46s",
+    "summedThreadApiMs": 6374674,
+    "summedThreadApiFormatted": "1h46m15s",
+    "outputTokens": 319218,
+    "latestCompletedRequestAt": "2026-10-23T15:06:40.111655+08:00"
+  },
+  "matchingRule": "Same state-listed thread/session ID, exact output token count, completion timestamps within 100 ms, one client response consumed once",
+  "intervalRule": "[gateway.created_at - duration_ms, gateway.created_at]; overlaps across all threads merged for effectiveApiElapsedUs",
+  "included": "Elapsed time of completed API requests, including their normal time to first token",
+  "excluded": "503/no-output failures, client retry backoff, cooldown, scheduler gaps, preparation, tool/Lean execution, ongoing calls, and upstream output lacking client completion confirmation",
+  "maxCompletionDeltaUs": 6607,
+  "partialTrailingRolloutLinesSkipped": 0,
+  "recordType": "aggregate extract of existing API timing record",
+  "sourceRecordSha256": "cb2b333786fcd3535d816124646e9d64913c0c74c85c299905b505f17fc21e70",
+  "scope": "selected successful run",
+  "includedRunIds": [
+    "afb9be56-ac0c-45a1-a40b-ffb719adcb2c"
+  ]
+}

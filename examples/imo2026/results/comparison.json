@@ -1,0 +1,214 @@
+{
+  "schema": "theorem-os.public-comparison.v1",
+  "checkedAt": "2026-10-24",
+  "scope": "Selected first-party public reports, not an exhaustive leaderboard; author-reported external passes, not independently reverified",
+  "timingComparable": false,
+  "mainRows": [
+    {
+      "id": "theoremos",
+      "name": "TheoremOS + GPT-5.6",
+      "source_url": "https://github.com/LikC1606/theorem-os/tree/main/examples/imo2026/results/20261024",
+      "cells": [
+        "✓ 17m41s",
+        "✓ 1h12m15s",
+        "✓ 1h54m",
+        "✓ 13m01s",
+        "✓ 19m15s",
+        "✓ 49m21s"
+      ],
+      "total": "6/6",
+      "statement_scope": "与冻结原题逐字节一致；15/15原始目标",
+      "verification": "本地独立 Lean 内核最终验收；official: false；证明与验收摘要公开",
+      "time_scope": "所选成功链的客户端确认成功API请求区间并集，题内合并并发重叠；排除工具、Lean、修复、失败和未确认响应及另行放弃的历史尝试",
+      "reported_total": "4h45m33s",
+      "configuration": "gpt-5.6-sol / xhigh / 每题4 workers；Q2计入fresh及续跑，Q3计入同run升级前后"
+    },
+    {
+      "id": "humanfia_gpt56",
+      "name": "Humanfia + GPT-5.6",
+      "source_url": "https://github.com/humanfia/hoa-qed/blob/1c918ec9a96c7751ce9c283304e1aebd7ffb19a3/imo2026/README.md",
+      "cells": [
+        "✓ 38.1m",
+        "✓ 100.4m",
+        "✓ 187.1m",
+        "✓ 58.7m",
+        "✓ 46.5m",
+        "✓ 66.9m"
+      ],
+      "total": "6/6",
+      "statement_scope": "六题与冻结原题逐字节一致",
+      "verification": "Author reports 6/6 formal Lean verification; all 6 proof files and verification script public; no independent per-question AXLE JSON receipts in current imo2026 tree; not independently recompiled in this task",
+      "time_scope": "API time consumption (time actually spent in model API calls); concurrency/interval aggregation and prior-attempt inclusion not specified in README",
+      "reported_total": "497.7m",
+      "source_commit": "1c918ec9a96c7751ce9c283304e1aebd7ffb19a3"
+    },
+    {
+      "id": "humanfia_kimi_k3_codex_reviewer",
+      "name": "Humanfia + Kimi-K3 / Codex",
+      "source_url": "https://github.com/humanfia/hoa-qed/blob/1c918ec9a96c7751ce9c283304e1aebd7ffb19a3/imo2026/README.md",
+      "cells": [
+        "✓ 87.1m",
+        "✓ 224.3m",
+        "✓ 343.7m",
+        "✓ 75.6m",
+        "✓ 91.9m",
+        "✓ 212.4m"
+      ],
+      "total": "6/6",
+      "statement_scope": "六题与冻结原题逐字节一致",
+      "verification": "Author reports 6/6 formal Lean verification; all 6 proof files and verification script public; no independent per-question AXLE JSON receipts in current imo2026 tree; not independently recompiled in this task",
+      "time_scope": "API time consumption; hybrid run worker+reviewer combined cost; exact aggregation/raw timings not published in current tree",
+      "reported_total": "1034.9m",
+      "source_commit": "1c918ec9a96c7751ce9c283304e1aebd7ffb19a3"
+    },
+    {
+      "id": "axiomprover",
+      "name": "AxiomProver",
+      "source_url": "https://github.com/AxiomMath/IMO2026/blob/c5a6a089d06d3619afe7ff45c5ccab9e2a30d5d2/README.md",
+      "cells": [
+        "✓ 24m",
+        "✓ 360m",
+        "✓ 869m",
+        "✓ 39m",
+        "✓ 65m",
+        "✓ 139m"
+      ],
+      "total": "6/6",
+      "statement_scope": "六题与冻结原题逐字节一致",
+      "verification": "Author reports verified formal proof files, README shows Q1-Q6 okay=True from AXLE and local Comparator validation; all 6 proof files plus verify.py public; no separate AXLE JSON receipts in current tree; not independently recompiled in this task",
+      "time_scope": "First-party repository README lists minutes but does not state whether wall-clock, API time or aggregate parallel time; external search did not resolve definition",
+      "reported_total": "1496m",
+      "source_commit": "c5a6a089d06d3619afe7ff45c5ccab9e2a30d5d2"
+    },
+    {
+      "id": "hardy-axiom",
+      "name": "Hardy（AxiomMath Appendix轨）",
+      "source_url": "https://github.com/pramaana-labs/imo2026-lean/blob/788fddc53c463d5d40d4680fb9bfd7b0f96f1063/README.md",
+      "cells": [
+        "✓ 20m26s",
+        "✓ 2h53m",
+        "✓ 3h04m",
+        "✓ 16m20s",
+        "✓ 31m09s",
+        "✓ 1h52m"
+      ],
+      "total": "6/6",
+      "statement_scope": "6份problem.lean逐字节等于我们humanfia固定源原题",
+      "verification": "作者声明全部solution.lean编译且使用leanprover Comparator核对；证明源码公开；此次未重新编译",
+      "time_scope": "作者报告runtime；与本项目有效API时间不同口径；外部题面轨与自形式化E2E轨不可混用",
+      "reported_total": "8h 57m",
+      "source_commit": "788fddc53c463d5d40d4680fb9bfd7b0f96f1063"
+    },
+    {
+      "id": "dirac",
+      "name": "Dirac",
+      "source_url": "https://github.com/Boundless-Intuition/IMO2026/blob/37259237016275044e3905e8d537efd0eead74d2/README.md",
+      "cells": [
+        "✓ 29m05s",
+        "✓ 1h20m18s",
+        "✓ 2h10m28s",
+        "✓ 15m59s",
+        "✓ 18m11s",
+        "✓ 2h44m05s"
+      ],
+      "total": "6/6",
+      "statement_scope": "6份problem.lean逐字节等于我们humanfia固定源原题",
+      "verification": "作者声明完整machine-checked Lean4证明；公开solution.lean和Comparator复验说明；此次未重新编译",
+      "time_scope": "作者报告runtime；与本项目有效API时间不同口径",
+      "reported_total": "7h 18m 06s",
+      "source_commit": "37259237016275044e3905e8d537efd0eead74d2"
+    },
+    {
+      "id": "eonmath",
+      "name": "EonMath（文本+形式证明）",
+      "source_url": "https://github.com/MechMath/IMO2026/blob/47ff510110dd400c98aee2ead3be0f53f7b8ba04/README.md",
+      "cells": [
+        "✓ 74.13m",
+        "✓ 244.58m",
+        "✓ 305.80m",
+        "✓ 60.58m",
+        "✓ 141.65m",
+        "✓ 351.68m"
+      ],
+      "total": "6/6",
+      "statement_scope": "6份problem.lean仅增加一行来源注释，余下与我们humanfia固定源原题完全相同",
+      "verification": "作者声明所有solution.lean无sorry/admit，#print axioms仅propext/Classical.choice/Quot.sound；源码和逐题PDF公开；此次未重新编译",
+      "time_scope": "作者分列自然语言证明、形式证明与总时间；主time_by_question为总时间；不能与纯形式证明或有效API时间直接排名",
+      "reported_total": "1178.43 min",
+      "source_commit": "47ff510110dd400c98aee2ead3be0f53f7b8ba04"
+    }
+  ],
+  "supplementaryRows": [
+    {
+      "id": "midas12",
+      "name": "MIDAS 1.2（不同形式化）",
+      "source_url": "https://github.com/midas-intelligence/IMO2026/blob/b476065a0a88a56ef8bb98e7ae5a9b33d6d12fd9/README.md",
+      "cells": [
+        "✓ 35m",
+        "✓ 141m",
+        "✓ 238m",
+        "✓ 35m",
+        "✓ 53m",
+        "✓ 88m"
+      ],
+      "total": "6/6",
+      "statement_scope": "重新定义题面；与本项目原始15目标不同，不作同固定题面通过结论",
+      "verification": "作者称六题machine-verified Lean4，公开problem/solution文件；此次未重新编译",
+      "time_scope": "作者报告runtime；预算未公开；不同形式化",
+      "reported_total": "590 min",
+      "source_commit": "b476065a0a88a56ef8bb98e7ae5a9b33d6d12fd9"
+    },
+    {
+      "id": "midas11",
+      "name": "MIDAS 1.1（历史对照）",
+      "source_url": "https://github.com/midas-intelligence/IMO2026/blob/b476065a0a88a56ef8bb98e7ae5a9b33d6d12fd9/README.md",
+      "cells": [
+        "✓ 154m",
+        "未解出",
+        "未解出",
+        "✓ 84m",
+        "✓ 431m",
+        "未解出"
+      ],
+      "total": "3/6",
+      "statement_scope": "历史对照题面版本未明确，不能声明同冻结目标",
+      "verification": "仅在1.2作者报告中有逐题历史结果，未见1.1独立证明目录；不可称此次独立验证",
+      "time_scope": "作者1.2README历史对照；失败题预算未公开，不是全部六题累计预算",
+      "reported_total": "669 min（仅三道已解题）",
+      "source_commit": "b476065a0a88a56ef8bb98e7ae5a9b33d6d12fd9"
+    },
+    {
+      "id": "math-ai-org",
+      "name": "math-ai-org（方法未注明）",
+      "source_url": "https://github.com/math-ai-org/IMO2026/blob/a8912f36ed4f0a658bf5cc640daf8b1f88a50f48/README.md",
+      "cells": [
+        "Proved / 未披露用时",
+        "Proved / 未披露用时",
+        "Proved / 未披露用时",
+        "Proved / 未披露用时",
+        "Proved / 未披露用时",
+        "Proved / 未披露用时"
+      ],
+      "total": "6/6",
+      "statement_scope": "自定义命名空间/定理；未核验与原始15目标等价",
+      "verification": "README逐题Proved；六份Lean源码公开；此次仅定点读取P1及README，未重编译",
+      "time_scope": "时间、预算、模型未公开",
+      "reported_total": null,
+      "source_commit": "a8912f36ed4f0a658bf5cc640daf8b1f88a50f48"
+    }
+  ],
+  "excludedNaturalLanguageSources": [
+    {
+      "repo": "studio-dots-ai/dots-IMO2026",
+      "commit": "710efb9fb6b33c350e1be37ac2d3a3509a4fe7b7",
+      "reason": "树列出六份ProblemN.pdf，README仅标题；定点读取Q1自然语言证明，未见Lean源码、验证结果表、模型预算或逐题判分，不能填6/6形式化通过",
+      "read_url": "https://github.com/studio-dots-ai/dots-IMO2026/blob/710efb9fb6b33c350e1be37ac2d3a3509a4fe7b7/Problem1.pdf"
+    },
+    {
+      "repo": "changjonathanc/claude-opus-5-imo2026",
+      "commit": "fbd6061c248eb62698246cb4d89b7ee3ce8709c7",
+      "reason": "树列出p1.txt至p6.txt，无README；读取p1为自然语言思考与解答，未见Lean、验收表或独立评分，仓库名不能作为成绩",
+      "read_url": "https://github.com/changjonathanc/claude-opus-5-imo2026/blob/fbd6061c248eb62698246cb4d89b7ee3ce8709c7/p1.txt"
+    }
+  ]
+}

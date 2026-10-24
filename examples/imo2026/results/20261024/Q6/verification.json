@@ -1,0 +1,53 @@
+{
+  "schema": "theorem-os.public-kernel-verification-extract.v1",
+  "recordType": "compact extract of existing host verification; not a new verification",
+  "sourceRecordSha256": "1fda7e76f77cb3729d7b18d8f0d050bbb86d6fc25a88310b1bbaa1e7a54c27a7",
+  "resultRecordSha256": "12ba0406bd9af72ca81f433ae3025dca0718c7a716fce24e2884cef1e7e0a82c",
+  "evaluatorMethod": "host-lean-kernel-all-targets",
+  "official": false,
+  "status": "evaluated_passed",
+  "runId": "afb9be56-ac0c-45a1-a40b-ffb719adcb2c",
+  "solutionCommit": "0892cbb02243b4745afd0e9bae7bc9747b69129b",
+  "sourceDigest": "1a354c3985a9edd34c063bd87a82b4d0e2c2956ae87b96cf4b19661ed5431717",
+  "checkedAt": 1792739204157,
+  "durationMs": 19266,
+  "source": {
+    "sourceRepositoryUrl": "https://github.com/humanfia/imo2026.git",
+    "sourceCommit": "834c01f2ecac89b648759b1c95bc6180b0ede149",
+    "sourceRelativePath": "base/IMO2026/Q6/problem.lean",
+    "sourceSha256": "ecf7b6d207bec0549f9c6b12f22f840a41ae71155573561ec863dcaf80fe0218"
+  },
+  "checks": [
+    {
+      "admitCount": 0,
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "checkId": "check-1",
+      "checkedAt": 1792739204153,
+      "claim": "statement",
+      "elaboratedDeclarationType": "main_theorem (a : ℕ → ℕ) (ha : IsValidSeq a) : ∃ T L, 0 < T ∧ 0 < L ∧ ∀ (n : ℕ), a (n + T) = a n + L",
+      "goalsRemaining": 0,
+      "leanStatementHash": "da0156f7eb0b0102357fdbc262e34da491bf6fa7711ce65da1f119dc053c57d0",
+      "proofHash": "cc0566c4ea76df9401c24e67142b92458d0ef0a32008dd2cfcca35fb3f9cf33b",
+      "proofPath": "Submission.lean",
+      "receiptId": "lean-92586404ca328d882b73ea8b",
+      "sessionId": "f17d2336-1657-4e8f-99da-186284239515",
+      "sorryCount": 0,
+      "sourceDeclarationHash": "ab639335a6823d4b43c77374d44a74da3284e68dcd8fec19a3eb9fae79324b16",
+      "statementBinding": "caller-bound-to-committed-declaration",
+      "statementHash": "8b8c2a1d0028c162869f66a809e81240d6e86f89265b995e7d828777281e4212",
+      "status": "kernel_verified",
+      "targetCommit": "0892cbb02243b4745afd0e9bae7bc9747b69129b",
+      "theoremDeclarationHash": "e37dc6fa6b33594d4fe6faf34362b24567a9462ea7bd66ac9fd2aa0b3516832a",
+      "theoremName": "main_theorem",
+      "toolchain": {
+        "lake": "lakefile.toml",
+        "lean": "lake"
+      },
+      "verifier": "lean-kernel"
+    }
+  ]
+}
