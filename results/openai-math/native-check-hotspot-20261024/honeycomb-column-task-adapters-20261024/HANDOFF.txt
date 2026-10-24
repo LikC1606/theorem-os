@@ -1,0 +1,22 @@
+Two exact typed task adapters, validated once. The two complete task types are copied verbatim from the active cooperation task records; no conclusion, hypothesis, binder, or dependency has been changed. Exact task/type snapshot and header comparison are stored in task-snapshot.json, exact-task-types.json and exact-type-check.json.
+
+Tasks:
+- bridge_full_column_word_injective_a0424391 -> OAI.PolynomialVacuumBridge.Corridor.bridgePath_eq_of_column_eq
+- bridge_column_step_unique_a0424391 -> OAI.PolynomialVacuumBridge.Corridor.bridgeColumnStep_unique
+
+Insert ColumnTaskAdapters.lean.inc once inside OAI.PolynomialVacuumBridge.Corridor after the existing bridgeAdjacent_unique_of_column and bridgeColumnWord_injective helpers from /home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024. Check for names already implemented by a worker before insertion. The complete harness is validation-only and must not replace Submission.lean. These adapters discharge exactly the two local typed statements; ordinary native TaskProof acceptance remains for the parent/native workflow.
+
+Local kernel actual exit 0, finished 2026-10-24T13:07:02.685999+00:00, duration 4.334369486896321 seconds. Both adapter axioms exactly [propext, Quot.sound]; no sorryAx or Classical.choice. Lean leanprover/lean4:v4.34.1; Mathlib d13f23b723b8a846827a245b89c10fc7d3f11612; sealed environment 2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87. One thread/core, 32 GiB address-space, memory 32768 MiB, maxHeartbeats=0, no wall, CPU or invocation cap. Source SHA256 e76fc2d68203b799ae54349300bcf5fb0c030681b100047fc227213b1ccbb72d; increment SHA256 ac75a6b702bf8df541a2b980b62caa8a764c90045a3095421573a20a24beb96b; validation-result SHA256 3634f848d3c1f0f22f4b8c589e983c82ce21ccaf30a00f5d26c192aa5023f94a.
+
+This is auxiliary local evidence, not native TaskProof acceptance, OpenAI-hosted certification, or a proof of HoneycombBridgeFiniteness. Strict sub-mu growth, uniform finite-box mass and exact transfer encoding/weight identity remain unproved. No publisher solution or hidden reasoning was read. No previous package, active runtime/source, state or queue was changed. Queue delivery is reserved to the parent agent.
+
+```lean
+theorem bridgePath_eq_of_column_eq : ∀ {h : ℕ} {p q : OAI.PolynomialVacuumBridge.Corridor.BridgePath h}, p.vertices.map (fun v : OAI.PolynomialVacuumBridge.Corridor.Vertex => match v with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) = q.vertices.map (fun v : OAI.PolynomialVacuumBridge.Corridor.Vertex => match v with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) → p = q := by
+  intro h p q hword
+  exact bridgeColumnWord_injective h hword
+
+theorem bridgeColumnStep_unique : ∀ {a b d : OAI.PolynomialVacuumBridge.Corridor.Vertex}, OAI.PolynomialVacuumBridge.Corridor.adjacent a b → OAI.PolynomialVacuumBridge.Corridor.adjacent a d → (match b with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) = (match d with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) → b = d := by
+  intro a b d hab had hcolumn
+  exact bridgeAdjacent_unique_of_column hab had hcolumn
+
+```

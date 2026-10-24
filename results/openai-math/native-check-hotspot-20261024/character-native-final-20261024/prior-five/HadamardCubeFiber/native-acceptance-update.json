@@ -1,0 +1,48 @@
+{
+  "schema": "theorem-os.native-accepted-proof-audit.v1",
+  "observedAt": "2026-10-22T19:39:18.170094+00:00",
+  "target": "HadamardCubeFiber",
+  "nativeAccepted": true,
+  "runId": "3f2c13eb-fbf3-47d4-bff5-aed2489d23aa",
+  "resultStatus": "evaluated_passed",
+  "resultPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HadamardCubeFiber/result.json",
+  "resultSha256": "d1fa77b46bfb98cd1aa4ec7d34d436714e05e48cf92414fb5acf7d75429b3d88",
+  "statePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HadamardCubeFiber/result.json.runtime/state.json",
+  "acceptedCommit": "be3ac1e85859e7f88229dd3eab02a492b9ca2d5a",
+  "submissionSha256": "d818e4c8217e53057b254f92285bb22930f2b47504ed68d7e8def9d2547fa3a1",
+  "submissionBytes": 5062,
+  "submissionPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HadamardCubeFiber/workspace/generated/problem/Submission.lean",
+  "committedSourceMatchesWorkspace": true,
+  "reviewStatus": "accepted",
+  "reviewCommit": "be3ac1e85859e7f88229dd3eab02a492b9ca2d5a",
+  "allOriginalTargetsKernelVerified": true,
+  "targetCount": 1,
+  "kernelReceipts": [
+    {
+      "theoremName": "OAI.HadamardSix.rowRatio_cubeFiber_sum_zero",
+      "status": "kernel_verified",
+      "receiptId": "lean-56712d405ce90b7537a528c4",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "targetCommit": "be3ac1e85859e7f88229dd3eab02a492b9ca2d5a"
+    }
+  ],
+  "publisherComparator": {
+    "status": "passed",
+    "method": "external-command",
+    "exitCode": 0,
+    "sandboxBackend": "bwrap",
+    "containsSuccessMessage": true,
+    "stderr": "",
+    "originalConfigSha256": "bcb65530d2cee7c6377770c945ff888b1b3534a42195091a9abbb92976178698"
+  },
+  "completionSignalValid": true,
+  "solverReadyReceiptValid": true,
+  "originalCampaignInputsUnchanged": true,
+  "attribution": "external independently verified assistance delivered through native queueRunEdit; not from-scratch model discovery",
+  "archiveOwnership": "parent agent",
+  "officialHostedAcceptance": false
+}

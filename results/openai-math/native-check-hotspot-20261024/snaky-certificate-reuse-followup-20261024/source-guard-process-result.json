@@ -1,0 +1,11 @@
+{
+  "checkedAt": "2026-10-24T12:49:31.669791+00:00",
+  "command": [
+    "/home/lzh/.venvs/deepscientist-finance/.bun/bin/bun",
+    "source-guard.ts"
+  ],
+  "actualExitCode": 0,
+  "durationSeconds": 0.23982766293920577,
+  "leanInvoked": false,
+  "allWritesInsideNewIsolatedDirectory": true
+}

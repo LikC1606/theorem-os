@@ -1,0 +1,7 @@
+{"event":"review_requested","at":1792841617617,"commit":"14d49c0f2bb94a8973471120f675554798126117"}
+{"event":"final_statement_review_scope","at":1792841617617,"commit":"14d49c0f2bb94a8973471120f675554798126117","sourceDigest":"1a75c56a0beaa6df7578a0317d90f40fa2c6b1a9faf43511e1c69fa0bcee4f4f","referenceCoverage":"unknown","requiredTaskIds":[],"unusedTaskIds":[]}
+{"event":"review_assigned","at":1792841617679,"workerId":"researcher-1","commit":"14d49c0f2bb94a8973471120f675554798126117","role":"reviewer"}
+{"event":"turn_failed","at":1792845208437,"workerId":"researcher-1","reason":"math_model_request_timeout","diagnostic":{"code":"other"}}
+{"event":"worker_recovering","at":1792845208537,"workerId":"researcher-1","reason":"math_model_request_timeout","attempt":1,"delayMs":10000}
+{"event":"turn_retry","at":1792845208537,"workerId":"researcher-1","reason":"math_model_request_timeout","attempt":1,"delayMs":10000}
+{"event":"review_assigned","at":1792845218576,"workerId":"researcher-1","commit":"14d49c0f2bb94a8973471120f675554798126117","role":"reviewer"}

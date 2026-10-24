@@ -1,0 +1,260 @@
+{
+  "status": "frozen_rejected_candidate",
+  "scope": "Single concrete static certificate-reuse candidate; no promotion, no whole-target rerun",
+  "files": [
+    {
+      "name": "BaselineCertificate.lean",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/BaselineCertificate.lean",
+      "bytes": 614,
+      "sha256": "ee03e381d3e9e34e1cf6b6b2d2449bd1dc462288ed9f7bf59a573f168d3de86e"
+    },
+    {
+      "name": "BaselineCertificate.olean",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/BaselineCertificate.olean",
+      "bytes": 15304,
+      "sha256": "a0cfa4b6b2996a657fbfe49044495ff3df60bee417aab648dc43eb69e49ef97e"
+    },
+    {
+      "name": "CertificateContext.lean",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/CertificateContext.lean",
+      "bytes": 1362,
+      "sha256": "f56c0fbbf14e03cd15bfe030198b1edf107b25bbf2946ac45d9d8626ec0573c3"
+    },
+    {
+      "name": "CertificateContext.olean",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/CertificateContext.olean",
+      "bytes": 43400,
+      "sha256": "65f41ac5ecce0d3298d606aea74fc36e72fae860bf30933a7972823fda8ff7b2"
+    },
+    {
+      "name": "REJECTION.md",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/REJECTION.md",
+      "bytes": 5721,
+      "sha256": "fb57c46a5142c3383b26f08a09cfa21c14128369e2b705a276bf9e1cd34d80f6"
+    },
+    {
+      "name": "ReuseCertificate.lean",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/ReuseCertificate.lean",
+      "bytes": 1555,
+      "sha256": "9033da73cac4346ae64399fb09201c9fd2a0c013eaec541010b69fc536903753"
+    },
+    {
+      "name": "assemble.py",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/assemble.py",
+      "bytes": 6036,
+      "sha256": "22a21588f10989cc7c78a78aaa8e422eac8849a94a2cd14b12cfbcebc051568a"
+    },
+    {
+      "name": "baseline-01-launch.json",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/baseline-01-launch.json",
+      "bytes": 3336,
+      "sha256": "f27f5bb0d2310bb830e7cd3dded1203708512204f0fdc127ca067a2219387641"
+    },
+    {
+      "name": "baseline-01-result.json",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/baseline-01-result.json",
+      "bytes": 4041,
+      "sha256": "edfba6adf7b1e10f26b9987b253763027d2197ce188cdff54b94fb6a340776b6"
+    },
+    {
+      "name": "baseline-01-source.lean",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/baseline-01-source.lean",
+      "bytes": 614,
+      "sha256": "ee03e381d3e9e34e1cf6b6b2d2449bd1dc462288ed9f7bf59a573f168d3de86e"
+    },
+    {
+      "name": "baseline-01.stderr.log",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/baseline-01.stderr.log",
+      "bytes": 106,
+      "sha256": "80036cc764667730f04e943842478a17daef21f2620c111d321b512de70f2e4a"
+    },
+    {
+      "name": "baseline-01.stdout.log",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/baseline-01.stdout.log",
+      "bytes": 288,
+      "sha256": "6e7dc6e1c7b886e8cabdb37ee996ca856f324e43f972ac68880f024c3538d010"
+    },
+    {
+      "name": "canonical-candidate.patch",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/canonical-candidate.patch",
+      "bytes": 1521,
+      "sha256": "735f980a23d72817d01feb57574a8bfdf93be3441f5b6812e7500c6dd12e3715"
+    },
+    {
+      "name": "canonical-reuse-candidate.lean",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/canonical-reuse-candidate.lean",
+      "bytes": 969731,
+      "sha256": "803b58f1690d2b885b2a0214dc8fa643d2095194f8757c7a14b3e4a13a50affd"
+    },
+    {
+      "name": "canonical-source.lean",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/canonical-source.lean",
+      "bytes": 968784,
+      "sha256": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab"
+    },
+    {
+      "name": "compiled-source-correspondence.json",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/compiled-source-correspondence.json",
+      "bytes": 14836,
+      "sha256": "86f0101ed2f067c8caff8e24c7e8ea44709408bfe48f9a32f6de52cfe2f48a31"
+    },
+    {
+      "name": "context-01-launch.json",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/context-01-launch.json",
+      "bytes": 3243,
+      "sha256": "1407082827263964b12485e7050d150c50e7bd201c954da2c7a2170ae7e6d41e"
+    },
+    {
+      "name": "context-01-result.json",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/context-01-result.json",
+      "bytes": 3958,
+      "sha256": "2bc6fa93ae7c167285be39994e578234c9dc4df8c259d2d52cd22467dca77788"
+    },
+    {
+      "name": "context-01-source.lean",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/context-01-source.lean",
+      "bytes": 1362,
+      "sha256": "f56c0fbbf14e03cd15bfe030198b1edf107b25bbf2946ac45d9d8626ec0573c3"
+    },
+    {
+      "name": "context-01.stderr.log",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/context-01.stderr.log",
+      "bytes": 105,
+      "sha256": "c42fe670d55380c44b4952ce2645fdb4c5b7634ddefd1778d41cb648801fc98b"
+    },
+    {
+      "name": "context-01.stdout.log",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/context-01.stdout.log",
+      "bytes": 391,
+      "sha256": "e2e9f17d7a0823abd8b04b9b555cf701dc22d8470f29d5724e92ce031a89aa4c"
+    },
+    {
+      "name": "lean-toolchain",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/lean-toolchain",
+      "bytes": 25,
+      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "name": "merged-candidate.patch",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/merged-candidate.patch",
+      "bytes": 1515,
+      "sha256": "0bc922dbf389102ffff44db17a2f95f4281153425786652c89fa4dba97009d88"
+    },
+    {
+      "name": "merged-reuse-candidate.lean",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/merged-reuse-candidate.lean",
+      "bytes": 968630,
+      "sha256": "e079653d2a78f26ac1021c9ef86ec2cdff4ac3dd0fd4d46f083b8ab190b112ab"
+    },
+    {
+      "name": "merged-source.lean",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/merged-source.lean",
+      "bytes": 967683,
+      "sha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae"
+    },
+    {
+      "name": "provenance.json",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/provenance.json",
+      "bytes": 2531,
+      "sha256": "e71a7c35f18d39d4c7d365082331864e9671bdf8499439f5ed26664f4443a138"
+    },
+    {
+      "name": "qescapestep_11.original.lean.txt",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/qescapestep_11.original.lean.txt",
+      "bytes": 236,
+      "sha256": "a7fc0666e4b57643391820bc955c1fafb4f94fd0a83d227cbeddc4ef757c87fd"
+    },
+    {
+      "name": "qescapestep_11.replacement.lean.txt",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/qescapestep_11.replacement.lean.txt",
+      "bytes": 1183,
+      "sha256": "bf9c008200dfffed9ce5d396f089d737ad41df209eded4d20f991191cfffa1dc"
+    },
+    {
+      "name": "result.json",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/result.json",
+      "bytes": 4071,
+      "sha256": "0bc62e1c4f6802f010c8c3d997f92f9af3178d9bd007729a90a2d82e01f18027"
+    },
+    {
+      "name": "reuse-01-launch.json",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/reuse-01-launch.json",
+      "bytes": 3331,
+      "sha256": "9bfd9f036847d0f183527102729159638afe283232fe744d5c333f3a8341e6c4"
+    },
+    {
+      "name": "reuse-01-rejection.json",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/reuse-01-rejection.json",
+      "bytes": 960,
+      "sha256": "90cb336c89b72eee5a5d6f6c84e0c55179d2036722c36a7e118c0e763a1011b4"
+    },
+    {
+      "name": "reuse-01-result.json",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/reuse-01-result.json",
+      "bytes": 3914,
+      "sha256": "ce1c5b9706a1905a894b41201aa73bc499b2516c858168ed7970b5fb4c3641c6"
+    },
+    {
+      "name": "reuse-01-source.lean",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/reuse-01-source.lean",
+      "bytes": 1555,
+      "sha256": "9033da73cac4346ae64399fb09201c9fd2a0c013eaec541010b69fc536903753"
+    },
+    {
+      "name": "reuse-01.stderr.log",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/reuse-01.stderr.log",
+      "bytes": 39,
+      "sha256": "e6939e7a261cde81d92269a0afae644c5b3c6a50a09cb2d3c596c5e6d53d87b4"
+    },
+    {
+      "name": "reuse-01.stdout.log",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/reuse-01.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "single-declaration-diff-audit.json",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/single-declaration-diff-audit.json",
+      "bytes": 1118,
+      "sha256": "b6e70b9c06d6469e8074fa8ee63daf4cf78b8ff1033309982c02ca162e6209cf"
+    },
+    {
+      "name": "source-guard-process-result.json",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/source-guard-process-result.json",
+      "bytes": 291,
+      "sha256": "cdd7ab7fc1e89ecc9aa798dfba88b85e56134cab9ecf0eb842455bc7f166aa61"
+    },
+    {
+      "name": "source-guard-result.json",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/source-guard-result.json",
+      "bytes": 1536,
+      "sha256": "9c91148bec9bd39051e13f9ad2ff9a30485976f51ddfd9ef9265818924b9867b"
+    },
+    {
+      "name": "source-guard.stderr.log",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/source-guard.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "source-guard.stdout.log",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/source-guard.stdout.log",
+      "bytes": 1348,
+      "sha256": "c8aef75e5b4a7a76e4c8029701a5036d7c66d90b10a1d6aab5cea846629e0e83"
+    },
+    {
+      "name": "source-guard.ts",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/source-guard.ts",
+      "bytes": 3389,
+      "sha256": "04cd8f17557b1621f69085caee21f8a6399b2acb89c6ffeaa33ddc65c156886f"
+    },
+    {
+      "name": "validate.py",
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/validate.py",
+      "bytes": 4031,
+      "sha256": "9605fa8cae902c08dcdaff20557b899a034515fb876bd50fa1be09e4f85deb0a"
+    }
+  ],
+  "sourceGuardFixture": "source-guard-fixture/",
+  "fixturePolicy": "Retained isolated guard fixture; root file checksums below do not recursively hash its disposable Git database. Exact candidate and original source hashes and guard receipt are included."
+}

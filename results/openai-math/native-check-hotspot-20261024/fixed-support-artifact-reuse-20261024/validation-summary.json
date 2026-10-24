@@ -1,0 +1,106 @@
+{
+  "schema": "fixed-support-validation.v1",
+  "observedAt": "2026-10-24T13:18:30.420087+00:00",
+  "runtime": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/runtime",
+  "baseline": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/runtime",
+  "status": "verified-isolated-not-activated",
+  "productFiles": [
+    "src/math/fixedLeanDependencies.ts",
+    "src/math/verifier.ts",
+    "src/solver/modules/evidence.ts",
+    "src/solver/modules/context.ts"
+  ],
+  "testFiles": [
+    "tests/fixedLeanDependencies.test.ts",
+    "tests/fixedLeanDependenciesSealed.test.ts",
+    "tests/solverEvidenceReuse.test.ts",
+    "tests/solverContext.test.ts"
+  ],
+  "focusedTests": {
+    "files": 11,
+    "passed": 261,
+    "failed": 0,
+    "report": "focused-tests.json",
+    "command": "node node_modules/vitest/vitest.mjs run tests/fixedLeanDependencies.test.ts tests/solverEvidenceReuse.test.ts tests/formalBatch.test.ts tests/leanLocalDependencies.test.ts tests/verifierToolIdentity.test.ts tests/verifierCheckout.test.ts tests/verifierOfficialManifest.test.ts tests/taskProofCache.test.ts tests/solverProjectionReuse.test.ts tests/solverContext.test.ts tests/contextCompiler.test.ts --reporter=json --outputFile=../focused-tests.json"
+  },
+  "realSealedTest": {
+    "files": 1,
+    "passed": 1,
+    "failed": 0,
+    "report": "real-fixture-tests.json",
+    "measurements": "real-fixture-report.json",
+    "toolchain": "leanprover/lean4:v4.34.1",
+    "targetCompilations": 7,
+    "supportCompilations": 4,
+    "coldMs": 2404.611348,
+    "crossProjectWarmMs": 1591.725605,
+    "firstThreeChecksSupportCompilations": 1,
+    "badTargetStatus": "failed",
+    "fixtureDirectoriesRemoved": true,
+    "command": "DEEPSCIENTIST_TEST_FUSE=1 DEEPSCIENTIST_FIXED_SUPPORT_REPORT=../real-fixture-report.json node node_modules/vitest/vitest.mjs run tests/fixedLeanDependenciesSealed.test.ts --reporter=json --outputFile=../real-fixture-tests.json"
+  },
+  "typecheck": {
+    "command": "node node_modules/typescript/bin/tsc --noEmit",
+    "exitCode": 0
+  },
+  "build": {
+    "verified": true,
+    "buildId": "46551899-4922-4905-b81e-0ff4503842e6",
+    "manifest": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/build-state/builds/46551899-4922-4905-b81e-0ff4503842e6/manifest.json",
+    "bundles": [
+      {
+        "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/runtime/out/main/math-solver.js",
+        "bytes": 1729188,
+        "sha256": "35d2651ecdec66902d30ff979f936e4cc37b1ac351771d05e9eeefd1ffadbebf"
+      },
+      {
+        "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/runtime/out/main/search-lean.js",
+        "bytes": 173934,
+        "sha256": "d20f80273318e2dd48b3b135f8a7113b8523def704673d421429cbefed750020"
+      },
+      {
+        "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/runtime/out/main/check-lean.js",
+        "bytes": 323024,
+        "sha256": "79ca2a2203c016d231de92a3ed915490017b93ccd4128c6d8e35babb41d1a807"
+      }
+    ],
+    "manifestMode": "400",
+    "sourceInputs": 211
+  },
+  "sourceIsolation": "source-isolation.json",
+  "sourceSHA256": {
+    "src/math/fixedLeanDependencies.ts": "689956fa64798a1bd9ca0157d9525bd6f4c1d8973c97af3fa6bdc985278c75aa",
+    "src/math/verifier.ts": "b33573ce8f426f544b6323c6005dbbc423c8be8da0da56bdc1554b6e8e639018",
+    "src/solver/modules/evidence.ts": "3aa410d388bfabce6aa8ed33ce3663f09456ee2bd7fe7801f234f26310c922ce",
+    "src/solver/modules/context.ts": "bdf6be3d90edd7a63ef1e36cbb38ab03adb849f5476e714e1414845e82ed44c5",
+    "tests/fixedLeanDependencies.test.ts": "fbc0c6fe752b1939cf5c6862157c116ef24e2736933e68bc33e355fc9054772f",
+    "tests/fixedLeanDependenciesSealed.test.ts": "7dd0144195746ab448f64278b390a792f0e5894e840d9f5bf341e44a5017714e",
+    "tests/solverEvidenceReuse.test.ts": "4d5f66a505d1ca9c2c82cdfb60793b24d20fe2b50f8aa1c35f10310a78ba1b4c",
+    "tests/solverContext.test.ts": "952007aa73aaf115a740203d049875c6ed182c8ae1177439366846612bba9e25"
+  },
+  "contextChecks": {
+    "promptOnlyHistorical": "prompt-check-result.json",
+    "finalBehavior": "fixed-review-context-test-result.json",
+    "historical97NotCountedAsFinal": true,
+    "final104IncludedIn261": true
+  },
+  "scope": {
+    "modelsCalled": 0,
+    "largeProblemRebuilds": 0,
+    "activeRuntimeChanged": false,
+    "receiptsOrTaskProofCacheChanged": false,
+    "officialComparatorChanged": false,
+    "activationOrPublishingPerformed": false,
+    "persistentCrossProcessCacheAdded": false
+  },
+  "limits": [
+    "512 MiB is the maximum retained process-private support-artifact capacity, not a solver resource budget.",
+    "The independent publisher comparator still recompiles through its existing path.",
+    "A tiny Lean fixture proves reuse mechanics, not speedup for the 57-module Character workload."
+  ],
+  "independentReview": {
+    "path": "../fixed-support-reuse-independent-review-20261024.json",
+    "sha256": "00acef4a41b86a693f7a5a1298b63226cdefd92e3844ce249a7c5a59e2c20427",
+    "result": "No concrete regression found by parent static review; separately archived."
+  }
+}

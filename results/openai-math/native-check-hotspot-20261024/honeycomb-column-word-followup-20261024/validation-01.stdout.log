@@ -1,0 +1,36 @@
+ColumnWordInjection.lean:52:2: warning: Unused tactic linter: `all_goals try contradiction` does nothing
+
+Note: This linter can be disabled with `set_option linter.unusedTactic false`
+ColumnWordInjection.lean:68:61: error(lean.unknownIdentifier): Unknown constant `List.nil_eq_cons`
+ColumnWordInjection.lean:68:18: error: unsolved goals
+case nil.cons
+root : Vertex
+hvs : List.IsChain adjacent [root]
+w : Vertex
+ws : List Vertex
+hws : List.IsChain adjacent (root :: w :: ws)
+hword : [] = bridgeBoxColumn w :: List.map bridgeBoxColumn ws
+⊢ [] = w :: ws
+ColumnWordInjection.lean:108:14: error: Tactic `rewrite` failed: Did not find an occurrence of the pattern
+  p.vertices
+in the target expression
+  Vertex.up 0 0 :: vs = Vertex.up 0 0 :: ws
+
+case cons.cons
+h : ℕ
+p q : BridgePath h
+hword : List.map bridgeBoxColumn p.vertices = List.map bridgeBoxColumn q.vertices
+hpsource : p.vertices.head? = some (Vertex.up 0 0)
+hqsource : q.vertices.head? = some (Vertex.up 0 0)
+hpchain : List.IsChain adjacent p.vertices
+hqchain : List.IsChain adjacent q.vertices
+vs ws : List Vertex
+hp : p.vertices = Vertex.up 0 0 :: vs
+hq : q.vertices = Vertex.up 0 0 :: ws
+⊢ Vertex.up 0 0 :: vs = Vertex.up 0 0 :: ws
+'OAI.PolynomialVacuumBridge.Corridor.bridgeAdjacent_unique_of_column' depends on axioms: [propext, Quot.sound]
+'OAI.PolynomialVacuumBridge.Corridor.bridgeChain_tail_eq_of_columnWord' depends on axioms: [propext,
+ sorryAx,
+ Quot.sound]
+'OAI.PolynomialVacuumBridge.Corridor.bridgeVertices_eq_of_columnWord' depends on axioms: [propext, sorryAx]
+'OAI.PolynomialVacuumBridge.Corridor.bridgeColumnWord_injective' depends on axioms: [propext, sorryAx]

@@ -1,0 +1,4 @@
+def qescapestep_11 : ∀ b ∈ qescapeI_10,(qplacementEquiv 4 (1,-1)).symm b ∈ qo614.H → b ∈ qescapeI_11 := by
+  set_option maxHeartbeats 0 in
+    set_option maxRecDepth 100000 in
+      run_tac qhb (← `(tactic| decide +kernel))

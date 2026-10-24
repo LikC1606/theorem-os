@@ -1,0 +1,143 @@
+{
+  "schema": "theorem-os.character-final-acceptance-archive.v1",
+  "capturedAt": "2026-10-24T12:47:32.010288+00:00",
+  "taskId": "CharacterVarietiesAllSeamsSupport",
+  "runId": "1f3bb9c1-c99f-4fad-b656-8010a82c265b",
+  "resultStatus": "evaluated_passed",
+  "runOutcome": "evaluated_passed",
+  "phase": "finished",
+  "theoremName": "OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams",
+  "targetDeclarationHash": "fb95bc071af2179a40770979bb7e3eb978b53a19ec0691d8eaf4e38a4e3d50d8",
+  "sourceRepository": "https://github.com/openai/math",
+  "officialSourceCommit": "1581d4cbdd69a0faf34b2089614fe2a814316a6a",
+  "officialChallengeSHA256": "ebc3129bfb5ef4a47e0de1d89f0f406ef6603df32355bdfbb9ce278627c1a1f1",
+  "officialComparatorConfigSHA256": "c6bc7eb2e8d770e64482e642a8a6f25f020d73a0df5927a0b6b03b835798fe8b",
+  "solutionCommit": "df8db6c4f2f872ff9c5d4a79a5c874d4707b48c0",
+  "solutionSHA256": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3",
+  "solutionBytes": 795645,
+  "aggregateCheckSourceDigest": "f31eba830cec592a226f58cc26fffe68daacb70d307ada71475ccdda914f67b5",
+  "commitBinding": "Cross-checked result.solution_commit, state.check, verification receipt, cooperation canonical/review and terminal candidate event; no new Git operation.",
+  "receiptId": "lean-7af748514c728f28377b0d13",
+  "axioms": [
+    "propext",
+    "Classical.choice",
+    "Quot.sound"
+  ],
+  "goalsRemaining": 0,
+  "sorryCount": 0,
+  "admitCount": 0,
+  "kernelExitCode": 0,
+  "fixedEvaluator": {
+    "method": "external-command",
+    "officialFlag": false,
+    "status": "passed",
+    "exitCode": 0,
+    "timedOut": false,
+    "aborted": false,
+    "sandboxBackend": "bwrap",
+    "durationMs": 2284959,
+    "successPhrases": [
+      "Lean default kernel accepts the solution",
+      "Your solution is okay!"
+    ],
+    "capturedOutput": {
+      "stdout": {
+        "storedBytes": 12000,
+        "storedTextSHA256": "cbc05d0f19adb51e19be9d24216c4adf25fbb17e5deca3e67d7343eeb87ae747",
+        "reportedFullStreamSHA256": "c90d164920a24b4128a53d12388464a5b9fca55f27824cb7d4ec72d8416a74b2",
+        "complete": false,
+        "capture": "tail",
+        "limitBytes": 12000
+      },
+      "stderr": {
+        "storedBytes": 0,
+        "storedTextSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "reportedFullStreamSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "complete": true
+      },
+      "implementation": "implementation/mathProcess.ts: bounded tail capture and separate streaming SHA256; no output sink in runMathProcess",
+      "fullStdoutRecovery": "No full stdout file exists in the recorded artifact paths; the existing result stores only the bounded tail. No rerun was performed."
+    },
+    "runtimeConfigChanges": [
+      "challenge_module → Challenge",
+      "solution_module → Submission"
+    ],
+    "otherOfficialComparatorConfigFieldsUnchanged": true,
+    "commandSHA256": "8fc5775ca184697301d273e82692d3df19afb9f4442b431c894fe5b0458c0b0f",
+    "comparatorTool": {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/tools-v4.34.1/comparator",
+      "commit": "71b52ec29e06d4b7d882726553b1ceb99a2499e0",
+      "sha256": "104ea0297ecd090486b15eb8f2be590318eb58ccd552c2779b22f64c318070f1",
+      "bytes": 107935256,
+      "matchesToolManifest": true
+    },
+    "interpretation": "Original official comparator run locally with the frozen target, permitted axioms and nanoda setting. This is not OpenAI-hosted certification; the runtime correctly records external-command / official:false."
+  },
+  "terminalEvent": {
+    "originalFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/native-sync-def-attempt/native-followup/resume.log",
+    "line": 351,
+    "at": 1792844815298,
+    "utc": "2026-10-24T12:26:55.298000+00:00",
+    "status": "evaluated_passed"
+  },
+  "campaignSummary": {
+    "acceptedCountAfterCharacter": 6,
+    "priorAcceptedCount": 5,
+    "priorAccepted": [
+      {
+        "id": "TruffetCounterexample",
+        "status": "evaluated_passed",
+        "runId": "de7a57e9-becf-4f94-9276-2090ab3f2738",
+        "evidence": "prior-five/TruffetCounterexample/native-acceptance-update.json",
+        "sha256": "481aa0ec696365e6ba48937f0a2af352e2cd58dd970d74f4b64839eb86440db3"
+      },
+      {
+        "id": "SurfaceConeCandidateSupport",
+        "status": "evaluated_passed",
+        "runId": "cbfa1f3c-2760-4d7e-987a-97b48698fd49",
+        "evidence": "prior-five/SurfaceConeCandidateSupport/native-acceptance-update.json",
+        "sha256": "488770f54fb34094be08f0a4d35041b645433998efdae8a7b8013e82f244d553"
+      },
+      {
+        "id": "HadamardCubeFiber",
+        "status": "evaluated_passed",
+        "runId": "3f2c13eb-fbf3-47d4-bff5-aed2489d23aa",
+        "evidence": "prior-five/HadamardCubeFiber/native-acceptance-update.json",
+        "sha256": "91976b292e30c50804cfe034b100a0c6c81e660746eeae638b7bbfa09287627a"
+      },
+      {
+        "id": "CartierChartCompactnessSupport",
+        "status": "evaluated_passed",
+        "runId": "8e9999f3-c1a1-4bfd-b4ef-5cb62364d34f",
+        "evidence": "prior-five/CartierChartCompactnessSupport/native-acceptance-update.json",
+        "sha256": "85435156e3528624bf577a9acfd3f1f8eedd3bba1931120c1b14914c69b84447"
+      },
+      {
+        "id": "SnakyCertificate",
+        "status": "evaluated_passed",
+        "runId": "6d22ec7c-5c2b-41a4-911d-dcf3f0b7ddf0",
+        "evidence": "prior-five/SnakyCertificate/native-acceptance-audit.json",
+        "sha256": "af631397a551f470f8da8d0064293f6227ba91679abbdfe502f27b6f7e2fb7d2"
+      }
+    ],
+    "SnakyConditionalCompleted": false,
+    "SnakyCertificatePreviouslyAccepted": true,
+    "basis": "Five prior evaluated_passed acceptance audits copied from the results repository, plus this Character evaluated_passed. SnakyConditional remains unfinished as reported by root; no Snaky activity or status was changed."
+  },
+  "intermediateCandidateField": {
+    "stateCandidateStatus": "failed",
+    "note": "Retained intermediate candidate metadata; final acceptance is established by check+review+fixed evaluator and terminal result/events. Original state bytes remain unchanged."
+  },
+  "archiveExclusions": [
+    "Model session transcripts and hidden reasoning bodies",
+    "Publisher ProducedSolution file contents",
+    "Environment capability descriptors, credentials, caches and active runtime worktrees"
+  ],
+  "newLeanOrModelInvocations": false,
+  "activeRuntimeChanged": false,
+  "existingArtifactPackagesChanged": false,
+  "resultsRepositoryChanged": false,
+  "queueUsed": false,
+  "gitUsed": false,
+  "frozenAt": "2026-10-24T12:49:58.715680+00:00"
+}

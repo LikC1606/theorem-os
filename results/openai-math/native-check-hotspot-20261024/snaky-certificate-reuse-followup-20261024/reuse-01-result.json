@@ -1,0 +1,84 @@
+{
+  "startedAt": "2026-10-24T12:47:58.917525+00:00",
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-j1",
+    "--memory=32768",
+    "-DmaxHeartbeats=0",
+    "-DmaxRecDepth=100000",
+    "-DElab.async=false",
+    "-o",
+    "ReuseCertificate.olean",
+    "ReuseCertificate.lean"
+  ],
+  "cwd": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024",
+  "sourceSHA256": "9033da73cac4346ae64399fb09201c9fd2a0c013eaec541010b69fc536903753",
+  "sourceBytes": 1555,
+  "leanToolchain": "leanprover/lean4:v4.34.1",
+  "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+  "sealedEnvironmentIdentity": "2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87",
+  "leanPath": [
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023",
+    "/proc/1250131/fd/5/LeanSearchClient/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/Qq/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/aesop/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/batteries/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/importGraph/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/mathlib/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/plausible/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/proofwidgets/.lake/build/lib/lean"
+  ],
+  "compiledDependenciesReused": [
+    {
+      "module": "CandidateLargestRowSmallCommon",
+      "sourceSHA256": "02589f3aca58108517f5f246a3c42a008b8ec0727ac05ff5c5598df0f17ea548",
+      "oleanSHA256": "c761e0b583043a944fea6aae75d7f43c9e940d963c48bdb98c0790e5cbcee044",
+      "receiptSHA256": "477767449256f80d0b3907e0f72582e6686d8200d880f46a0316f4422d2c85f3"
+    },
+    {
+      "module": "CandidateLargestRowChunkListData",
+      "sourceSHA256": "1c4937dabbd006e4861e2ebe2984cab732578a901120e1c75bcb9bbcaff06393",
+      "oleanSHA256": "f6025f43a8a9b2f599f9ccaa3a285f5085be4e07b42fc2f0a07580d1a4c9f647",
+      "receiptSHA256": "4dc744f55b8bb1460e8a153bc8144ab6576033f591ab25bcc6b8d0bf8db74739"
+    },
+    {
+      "module": "CandidateSemanticsCoreProbe",
+      "sourceSHA256": "c007cc757fb8d8af26b97ccf95a38cd72f4a5436bf0303637d5feb86ac0fa43f",
+      "oleanSHA256": "ba82cc2a32ecf3a5304df6e5bc6e040c355e8b7ef3921a9109e31fa6b162b99a",
+      "receiptSHA256": "a9eced4c9b4eecd8478b1c553d997597e178f3c2551f0d618bd735ddc2619242"
+    },
+    {
+      "module": "CandidateDataProbe",
+      "sourceSHA256": "1d6d12dd8e48241d7137d385fc380265fc24d0d28394fb3f472652f80109a64f",
+      "oleanSHA256": "0eca12987717fb563b40217ad193d615482d457a0ce5cbaaa3719527ceb442da",
+      "receiptSHA256": "dbc9672ac47b8867f886476d7933708dd0ca1752fe6029987f91c1538aa14fea"
+    }
+  ],
+  "resourceLimits": {
+    "wallSeconds": null,
+    "cpuSeconds": null,
+    "invocations": null,
+    "maxHeartbeats": 0,
+    "maxRecDepth": 100000,
+    "addressSpaceGiB": 32,
+    "leanMemoryMiB": 32768,
+    "threads": 1,
+    "cpus": [
+      0
+    ]
+  },
+  "originalGoalCompiled": false,
+  "nativeAcceptance": false,
+  "activeProcessSourceRuntimeStateQueueModified": false,
+  "contextOleanSHA256": "65f41ac5ecce0d3298d606aea74fc36e72fae860bf30933a7972823fda8ff7b2",
+  "finishedAt": "2026-10-24T12:50:39.930914+00:00",
+  "durationSeconds": 161.0131440809928,
+  "actualExitCode": -15,
+  "timedOut": false,
+  "userCPUSeconds": 152.32592,
+  "systemCPUSeconds": 3.377551,
+  "maxResidentSetKiB": 6953288,
+  "stdoutLog": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/reuse-01.stdout.log",
+  "stderrLog": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/reuse-01.stderr.log"
+}

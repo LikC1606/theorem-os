@@ -1,0 +1,4 @@
+'OAI.PolynomialVacuumBridge.Corridor.bridgeAdjacent_unique_of_column' depends on axioms: [propext, Quot.sound]
+'OAI.PolynomialVacuumBridge.Corridor.bridgeChain_tail_eq_of_columnWord' depends on axioms: [propext, Quot.sound]
+'OAI.PolynomialVacuumBridge.Corridor.bridgeVertices_eq_of_columnWord' depends on axioms: [propext, Quot.sound]
+'OAI.PolynomialVacuumBridge.Corridor.bridgeColumnWord_injective' depends on axioms: [propext, Quot.sound]

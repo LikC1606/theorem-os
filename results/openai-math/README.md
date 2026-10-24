@@ -9,19 +9,19 @@
 | [Hadamard 三次纤维消去](hadamard_cube_fiber/README.md) | C | 266-02 | Lean、源码保护、隔离原比较器、TheoremOS 原生 evaluated_passed | 尚无确认 |
 | [Cartier 图域回缩的紧致性](cartier_chart_compactness_support/README.md) | C | 066-02 | Lean、隔离原比较器、新受保护环境原生 evaluated_passed | 尚无确认 |
 | [Snaky 616 行证书](snaky_certificate/README.md) | C | 187-01 | 原目标、集成、全目标、固定复审和原比较器全部通过；原生 evaluated_passed | 尚无确认 |
+| [CharacterVarieties 全部 seam 方程](character_varieties_all_seams_support/README.md) | C | 027-01 | 原目标、集成、全目标、固定复审和原比较器全部通过；原生 evaluated_passed | 尚无确认 |
 
-归档 7 个完整原题证明：5 个原生最终通过，SnakyCertificate 于北京时间 2026-10-24 06:15 完成原生最终验收。SnakyConditional V8 已通过原目标与集成内核检查，正在 lead 全目标检查。CharacterVarieties 加速版已通过整份编译、公理审计、独立原比较器及原生原目标、集成、全目标内核检查，现进入固定版本复审；旧检查仍保留。这两题仍待原生最终验收（Cartier 与 SnakyCertificate 为独立补跑；主 campaign 保留历史状态）。保留源码、固定依赖、身份、SHA 和归因；不计入根目录 6 个 LeanEval 官方记录。新增证明含外部辅助，归因见各成果包。
+归档 7 个完整原题证明：**6 个原生最终通过**。CharacterVarieties 于北京时间 2026-10-24 20:26:55 完成原生最终验收，见[原始终态与比较器证据](native-check-hotspot-20261024/character-native-final-20261024/README.md)。SnakyConditional V8 已通过原目标、集成和全目标内核检查，正在固定版本复审；它仍待原生最终验收。上述记录为本地执行原官方比较器的结果，尚无 OpenAI 托管认证（主 campaign 保留历史状态）。保留源码、固定依赖、身份、SHA 和归因；不计入根目录 6 个 LeanEval 官方记录。新增证明含外部辅助，归因见各成果包。
 
 ## 新增完整内核证明
 
 | 题目 | 档位 | 手稿 | 已完成 | 待完成 |
 | --- | --- | --- | --- | --- |
-| [Snaky 普通 35 步必胜策略](snaky_conditional/README.md) | C | 187-01 | 完整合法策略与棋子数；V8 原目标与集成内核检查通过 | 全目标、复审及最终验收 |
-| [CharacterVarieties 全部 seam 方程](character_varieties_all_seams_support/README.md) | C | 027-01 | 整份编译、公理审计、独立原比较器及原生原目标、集成、全目标检查通过 | 固定复审及最终验收 |
+| [Snaky 普通 35 步必胜策略](snaky_conditional/README.md) | C | 187-01 | 完整合法策略与棋子数；V8 原目标、集成和全目标内核检查通过 | 固定复审及最终验收 |
 
-这两项为外部辅助完成的本地内核证明，尚无 OpenAI 托管验收确认。
+此项为外部辅助完成的本地内核证明，尚无 OpenAI 托管验收确认。
 
-[2026-10-24 阶段进度与回执](verification-progress-20261024/README.md)：原生最终通过总数为 5；阶段通过不计入最终通过数。
+[2026-10-24 阶段进度与回执](verification-progress-20261024/README.md)保留此前快照；最新总数为上列 6，阶段通过不计入最终通过数。
 
 [2026-10-24 验收加速与实际提交](acceleration-20261024/README.md)：提前检查合并兼容性、使用固定点源码复用严格缓存，消除额外串行检查；正式原生验收仍保留。
 
@@ -29,6 +29,6 @@
 
 [2026-10-24 在途检查调度调整与源码试验](check-acceleration-followup-20261024/README.md)：两条正式 Lean 检查采用本地 CPU 核组，保留原调度及回读；两项源码试验未显示可靠收益，未采用新候选，尚无整题提速倍数。
 
-[2026-10-24 验收热点定位与加速版](native-check-hotspot-20261024/README.md)：Character 加速版已通过原生全目标检查，进入固定复审。Honeycomb 新增 18 条几何与分层辅助定理已通过无预算 Lean 检查，并通过正常队列共享给四个 worker；桥总质量和精确转移编码仍待证明。
+[2026-10-24 验收热点定位与加速版](native-check-hotspot-20261024/README.md)：Character 加速版已完成原生最终验收。固定支持模块复用与复审回执传递修复已通过 261 项测试、真实 Lean 小型样例及构建检查；新构建尚未切入当前冻结链。Honeycomb 新增四条列 word 引理及两个任务包装已检查并正常共享，桥总质量和精确转移计数仍待证明。见[最新状态](native-check-hotspot-20261024/optimization-progress-20261024T131920Z.json)。
 
 [验收可靠性修复与验证回执](validation-reliability-20261023/README.md)：长载荷递送、首错摘要和宿主检查修复已通过 344 项测试；补丁归档，数学通过数不变。

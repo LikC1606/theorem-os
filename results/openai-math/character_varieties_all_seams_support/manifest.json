@@ -590,8 +590,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 4104,
-      "sha256": "cb99dc256bc6ed335dac6e71b2044477d8834a7cf53763b8fe10a73b3b4955dc"
+      "bytes": 4470,
+      "sha256": "2fa2c6ec40a4ee3fd33929f3cb4263732bf06b9d45cd8e5da904fbe6b8e2c54b"
     },
     {
       "path": "RefinedFirstShortAtPortV2.lean",
@@ -1498,5 +1498,6 @@
       "bytes": 2417,
       "sha256": "392fd217980838fa0eb4e1f69bd575d474a392a62ed6f934456ae0aabf9738e2"
     }
-  ]
+  ],
+  "readmeUpdatedAt": "2026-10-24T13:12:10.139781+00:00"
 }

@@ -1,0 +1,39 @@
+import CertificateContext
+
+set_option Elab.async false
+set_option stderrAsMessages false
+
+namespace OAI.SnakyConditional
+open OrdinaryStrategy
+
+run_cmd do IO.eprintln s!"Reuse: proof started monoMs={← IO.monoMsNow}"
+
+def qescapestep_11 : ∀ b ∈ qescapeI_10,(qplacementEquiv 4 (1,-1)).symm b ∈ qo614.H → b ∈ qescapeI_11 := by
+  set_option maxHeartbeats 0 in
+    set_option maxRecDepth 100000 in
+      exact (by
+        intro b hb hm
+        rcases b with ⟨x,y⟩
+        let a : qCell := (y + 1,-x)
+        have ha : a ∈ qsmall10 := by
+          simp only [qescapeI_10,Finset.mem_insert,Finset.mem_singleton,Prod.mk.injEq] at hb
+          simp only [qsmall10,a,Finset.mem_insert,Finset.mem_singleton,Prod.mk.injEq]
+          omega
+        have hpre : (qplacementEquiv 1 (0,-1)).symm a =
+            (qplacementEquiv 4 (1,-1)).symm (x,y) := by
+          ext <;> simp [a,qplacementEquiv,qorientEquiv,qinverseRotation,qorient] <;> ring
+        have haH : a ∈ (qplaceRow ⟨614,1,4,3⟩ qm614).H := by
+          change a ∈ (qmoveRow 1 (0,-1) qm614).H
+          apply (qmem_moveRow_H_iff 1 (0,-1) qm614 a).mpr
+          rw [hpre]
+          exact hm
+        have hsmall := qsmall_step11 a ha haH
+        simp only [qsmall11,a,Finset.mem_insert,Finset.mem_singleton,Prod.mk.injEq] at hsmall
+        simp only [qescapeI_11,Finset.mem_insert,Finset.mem_singleton,Prod.mk.injEq]
+        omega)
+
+run_cmd do IO.eprintln s!"Reuse: proof elaborated and kernel checked monoMs={← IO.monoMsNow}"
+
+#print axioms qescapestep_11
+
+end OAI.SnakyConditional

@@ -1,5 +1,7 @@
 # Character native stage cost: existing frozen run
 
+Update **2026-10-24T12:26:55Z**: native final acceptance completed with `evaluated_passed`, fixed review accepted and the original comparator exit code 0. See the [complete final archive](../character-native-final-20261024/README.md). The timestamped stage observations below remain historical evidence.
+
 Update **2026-10-24T10:20:51Z**: the native lead all-target check passed, receipt
 `lean-7af748514c728f28377b0d13`, in 2340.955 seconds. The source hash is unchanged,
 and only `propext`, `Classical.choice`, `Quot.sound` occur in its axiom list.

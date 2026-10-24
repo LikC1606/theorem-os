@@ -1,0 +1,41 @@
+{
+  "schema": "theorem-os.archive-manifest.v1",
+  "observedAt": "2026-10-24T12:53:22.004430+00:00",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 1137,
+      "sha256": "a25602db296102d67b8a93132c30fb055d1a56ad450add02493658da090ae4c5"
+    },
+    {
+      "path": "native-all-target-check.json",
+      "bytes": 34388,
+      "sha256": "0df8a1b821b6b7807e4e06be952dca17ae2b1e9124483823a5a95ef853e7d583"
+    },
+    {
+      "path": "native-all-target-verification.json",
+      "bytes": 33878,
+      "sha256": "f7f7c0c51bc0c4f1494f041026811d0cc13015ed92dd5321f2c5c60cabf53f91"
+    },
+    {
+      "path": "native-result-in-progress.json",
+      "bytes": 372,
+      "sha256": "ba842f431e3e1da99e0af896dbdcfb42b7b023321f9dda815e9bac67319ca9ed"
+    },
+    {
+      "path": "native-stage-event-lines.jsonl",
+      "bytes": 1384,
+      "sha256": "c338432d86185e452a3f09c0bcfc2b7568a090937b3caecfdb860ff0b7a179da"
+    },
+    {
+      "path": "native-state.json",
+      "bytes": 3525864,
+      "sha256": "93db5777b390923c8d98c01267fff5fc4cb6ce68de1daa40c6850d79bfb7c65f"
+    },
+    {
+      "path": "progress.json",
+      "bytes": 2049,
+      "sha256": "ea779e5dc8681ed1fdb680d50fb69b4cc269cce20e6879471c7d5c5228c04b33"
+    }
+  ]
+}

@@ -1,0 +1,236 @@
+{
+  "schema": "theorem-os.fixed-support-independent-static-review.v1",
+  "reviewedAt": "2026-10-24T13:15:26.941656+00:00",
+  "reviewer": "inspect_campaign_runner",
+  "candidateRuntime": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/runtime",
+  "baselineRuntime": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/runtime",
+  "scope": [
+    "src/math/fixedLeanDependencies.ts",
+    "src/math/verifier.ts",
+    "src/solver/modules/evidence.ts",
+    "src/solver/modules/context.ts",
+    "tests/fixedLeanDependencies.test.ts",
+    "tests/fixedLeanDependenciesSealed.test.ts",
+    "tests/solverContext.test.ts",
+    "tests/solverEvidenceReuse.test.ts"
+  ],
+  "method": "Bounded read-only static review of the four source files, their scoped diffs, and the two new plus two changed test files. Existing verifier tool identity and dependency-staging wrappers were inspected where used by the new path.",
+  "verdict": "no_concrete_findings_in_reviewed_diff",
+  "summaryZh": "在所审差异中未发现具体信任边界或正确性回归。此结论只绑定下列文件哈希，不代表真实 smoke 已由本审查执行。",
+  "findings": [],
+  "checkedBoundaries": [
+    {
+      "boundary": "complete host-trusted local closure",
+      "outcome": "No concrete regression found.",
+      "evidence": [
+        "src/solver/modules/evidence.ts:26",
+        "src/solver/modules/evidence.ts:111",
+        "src/solver/modules/evidence.ts:140",
+        "src/math/fixedLeanDependencies.ts:22",
+        "src/math/verifier.ts:2202"
+      ],
+      "reason": "Both host evidence routes derive hashes only from frozen non-owned Lean files. The cache recomputes the complete local closure and requires the supplied module descriptors to match, then matches every source hash. Requested proof files cannot be dependency-cache candidates. Untrusted or unsupported inputs fall back."
+    },
+    {
+      "boundary": "private artifact publication before target code runs",
+      "outcome": "No concrete regression found.",
+      "evidence": [
+        "src/math/fixedLeanDependencies.ts:17",
+        "src/math/fixedLeanDependencies.ts:59",
+        "src/math/fixedLeanDependencies.ts:66",
+        "src/math/fixedLeanDependencies.ts:108",
+        "src/math/verifier.ts:2209"
+      ],
+      "reason": "A fresh dependency-only builder receives frozen configuration and trusted support sources, without solver target sources. Successful support compilation and matching original/builder snapshots precede artifact capture. The companion set includes .olean.private, .olean.server, .ir and .ir.sig. Publication verifies all retained artifact bytes and copies independent buffers; no worker-provided metadata or target-produced artifact is admitted to the process cache."
+    },
+    {
+      "boundary": "command, tool, package, source and configuration identity",
+      "outcome": "No concrete regression found.",
+      "evidence": [
+        "src/math/fixedLeanDependencies.ts:23",
+        "src/math/fixedLeanDependencies.ts:37",
+        "src/math/verifier.ts:328",
+        "src/math/verifier.ts:916",
+        "src/math/verifier.ts:2204"
+      ],
+      "reason": "Eligibility requires sealed package identity, available executable fingerprints, TOML configuration and no custom verifier command or external LEAN_PATH/LEAN_SYSROOT. The key binds the fixed dependency command profile, module/source-root identity, source hashes, configuration bytes, tool identity, sealed package identity and selected environment values including PATH and locale. The dependency-only builder is rechecked against the same key before publication."
+    },
+    {
+      "boundary": "invalidation, corruption, failure and fallback",
+      "outcome": "No concrete regression found.",
+      "evidence": [
+        "src/math/fixedLeanDependencies.ts:66",
+        "src/math/fixedLeanDependencies.ts:93",
+        "src/math/fixedLeanDependencies.ts:113",
+        "src/math/fixedLeanDependencies.ts:130",
+        "src/math/fixedLeanDependencies.ts:147"
+      ],
+      "reason": "A corrupt cached artifact triggers eviction and rebuild; absent optional companions remove stale destination files. Missing mandatory oleans cannot publish. Changed source/environment snapshots invalidate restored artifacts. Unsupported cache cases and cache-internal errors return to normal compilation, while an actual failed support compilation is returned as failed rather than hidden by reuse."
+    },
+    {
+      "boundary": "fresh target compilation and declaration query",
+      "outcome": "No concrete regression found.",
+      "evidence": [
+        "src/math/verifier.ts:2115",
+        "src/math/verifier.ts:2158",
+        "src/math/verifier.ts:2191",
+        "src/math/verifier.ts:2215",
+        "src/math/verifier.ts:2222"
+      ],
+      "reason": "The new support-cache ready path only removes fixed dependencies from the compile list. It still compiles the current target directly, or compiles the target module followed by its generated declaration query. Existing immutable-source checks, declaration/axiom processing and kernel-result publication remain in the ordinary verifier path. The shared process slot spans both support preparation and target/query work. This statement concerns the new dependency cache, not the pre-existing full-result attestation cache."
+    },
+    {
+      "boundary": "advisory review evidence and acceptance separation",
+      "outcome": "No concrete regression found.",
+      "evidence": [
+        "src/solver/modules/context.ts:157",
+        "src/solver/modules/context.ts:163",
+        "src/solver/modules/context.ts:177",
+        "src/solver/modules/context.ts:250",
+        "src/solver/modules/evidence.ts:19",
+        "src/solver/modules/evidence.ts:37"
+      ],
+      "reason": "The mandatory review section requires passed state evidence, exact review commit and source digest, and a full ordered receipt match for the original target paths, theorem names, declaration hashes and statement identities. It exposes a limited field projection and explicitly grants no acceptance. The diff changes reviewer evidence/instructions and trusted dependency inputs; it does not alter the existing process-local freshness check, acceptance gate or final evaluator."
+    }
+  ],
+  "testsRead": [
+    {
+      "path": "tests/fixedLeanDependencies.test.ts",
+      "coverageObserved": [
+        "dependency-only builder",
+        "warm copy reuse and companion handling",
+        "source/configuration/tool/package/PATH/locale invalidation",
+        "incomplete or untrusted closure fallback",
+        "artifact corruption or missing mandatory artifact",
+        "real compile failure preservation",
+        "builder identity mismatch",
+        "source mutation during restore",
+        "cache capacity"
+      ]
+    },
+    {
+      "path": "tests/fixedLeanDependenciesSealed.test.ts",
+      "coverageObserved": [
+        "real sealed toy fixture definition",
+        "cross-project cold/warm support reuse",
+        "fresh target marker and changed receipt/proof identities",
+        "bad target rejection on support hit",
+        "source/configuration/package invalidation",
+        "owned dependency fallback",
+        "warning retention"
+      ]
+    },
+    {
+      "path": "tests/solverContext.test.ts",
+      "coverageObserved": [
+        "matching worker evidence survives zero optional budget",
+        "stale global evidence ignored",
+        "commit/source/target/result/statement/passed mismatch filtering",
+        "no full log repetition",
+        "advisory acceptance disclaimer"
+      ]
+    },
+    {
+      "path": "tests/solverEvidenceReuse.test.ts",
+      "coverageObserved": [
+        "host-supplied frozen non-owned support hashes at both evidence routes"
+      ]
+    }
+  ],
+  "verificationPerformed": {
+    "staticReview": true,
+    "testExecution": false,
+    "leanInvocations": 0,
+    "modelsCalled": 0,
+    "runtimeEdits": false,
+    "activeRunEdits": false,
+    "queueEdits": false
+  },
+  "limitations": [
+    "The real sealed smoke test and test execution belong to the independent verification agent; no such execution result is claimed here.",
+    "Existing imported closure, canonical-path and sealed-environment implementations were treated as existing contracts, not re-audited beyond the scoped caller behavior.",
+    "This bounded static review is not a formal proof and does not certify unrelated runtime code or mathematics results."
+  ],
+  "fileManifest": [
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/runtime/src/math/fixedLeanDependencies.ts",
+      "sha256": "689956fa64798a1bd9ca0157d9525bd6f4c1d8973c97af3fa6bdc985278c75aa",
+      "exists": true
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/runtime/src/math/verifier.ts",
+      "sha256": "b33573ce8f426f544b6323c6005dbbc423c8be8da0da56bdc1554b6e8e639018",
+      "exists": true
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/runtime/src/solver/modules/evidence.ts",
+      "sha256": "3aa410d388bfabce6aa8ed33ce3663f09456ee2bd7fe7801f234f26310c922ce",
+      "exists": true
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/runtime/src/solver/modules/context.ts",
+      "sha256": "bdf6be3d90edd7a63ef1e36cbb38ab03adb849f5476e714e1414845e82ed44c5",
+      "exists": true
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/runtime/tests/fixedLeanDependencies.test.ts",
+      "sha256": "fbc0c6fe752b1939cf5c6862157c116ef24e2736933e68bc33e355fc9054772f",
+      "exists": true
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/runtime/tests/fixedLeanDependenciesSealed.test.ts",
+      "sha256": "7dd0144195746ab448f64278b390a792f0e5894e840d9f5bf341e44a5017714e",
+      "exists": true
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/runtime/tests/solverContext.test.ts",
+      "sha256": "952007aa73aaf115a740203d049875c6ed182c8ae1177439366846612bba9e25",
+      "exists": true
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/runtime/tests/solverEvidenceReuse.test.ts",
+      "sha256": "4d5f66a505d1ca9c2c82cdfb60793b24d20fe2b50f8aa1c35f10310a78ba1b4c",
+      "exists": true
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/runtime/src/math/fixedLeanDependencies.ts",
+      "sha256": null,
+      "exists": false
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/runtime/src/math/verifier.ts",
+      "sha256": "c45ae8822a365b0ac24b31a08635efa508533ae23106c0205882933baebaf53c",
+      "exists": true
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/runtime/src/solver/modules/evidence.ts",
+      "sha256": "569e1287d21b07d8ab2d59a1351b27ef999eb6a7a66018cff1c6763793df6c3d",
+      "exists": true
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/runtime/src/solver/modules/context.ts",
+      "sha256": "9649ecd627ea896007f9732bcdc50879f406aa899dfff0c60d0e7620c8625422",
+      "exists": true
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/runtime/tests/fixedLeanDependencies.test.ts",
+      "sha256": null,
+      "exists": false
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/runtime/tests/fixedLeanDependenciesSealed.test.ts",
+      "sha256": null,
+      "exists": false
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/runtime/tests/solverContext.test.ts",
+      "sha256": "816b71dfcd5593a3beedf1ab08eabea2f853d8aefe891c434f4905096ac447a4",
+      "exists": true
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/runtime/tests/solverEvidenceReuse.test.ts",
+      "sha256": "6748a5e63464dd5bd57bbff29e34adeb0424946b278a535809649d9cde88312b",
+      "exists": true
+    }
+  ]
+}

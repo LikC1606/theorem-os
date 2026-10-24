@@ -1,0 +1,89 @@
+Shared geometry delta only: fixed-source column-word injection. These are independent auxiliary theorems with local kernel evidence, not native TaskProof acceptance and not a proof of the original goal. Attribution: independently developed Codex proof from the frozen canonical statement; no publisher solution or hidden reasoning was read.
+
+Two exact facts are now proved. First, from a given honeycomb vertex u, an adjacent destination is uniquely determined by the destination column: adjacent u v, adjacent u w and column(v)=column(w) imply v=w. Second, inducting over a connected chain from the canonical source up(0,0), its complete integer column sequence uniquely determines the vertex list and the BridgePath object. The Lean interface is Function.Injective (bridgeColumnWord (h := h)), where bridgeColumnWord p := p.vertices.map bridgeBoxColumn. The proof uses the frozen adjacency, chain and source; it does not need Nodup, inStrip, an enumeration hypothesis, a transfer matrix or an unproved growth estimate.
+
+Use the injection only when the encoded word is exactly this full column sequence, or after separately proving that another encoding determines this sequence. It does not by itself show that a finite cut-state encoding is exact, that an accepting language has bounded multiplicity, that transfer weights agree with path weights, or that total bridge mass is finite. The exact finite-state encoding/weight identity and a uniform finite-box mass bound (or equivalent substantive input) remain open. This delta supplies no sub-mu growth bound or unconditional original theorem.
+
+Local kernel evidence: actual exit 0 at 2026-10-24T12:53:53.187541+00:00, elapsed 2.657527851872146 seconds; Lean 4.34.1, Mathlib d13f23b723b8a846827a245b89c10fc7d3f11612, sealed environment 2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87. Single core/thread, 32 GiB address-space, Lean memory 32768 MiB, maxHeartbeats=0, no wall/CPU/invocation cap. All four theorem axioms are exactly propext and Quot.sound; no sorryAx. Source SHA256 bcb5c4ca45ff3d4298f3ff8a0f0325856334ab167dcd33279877a3de0138c04b (4970 bytes), increment SHA256 2b0c4f2a47ae6a95e6a229b57bfc6281282945ad123eb8ff39f8f542c431fb0e (3315 bytes), validation-result SHA256 6e7a0ddbd33dc082c76c0677922b630b8d5695c09ac090ad763b7775dfd4a2a3.
+
+Insert this increment once inside OAI.PolynomialVacuumBridge.Corridor after the canonical declarations and the existing bridgeBoxColumn definition. Preserve existing source work and check name collisions; never replace Submission.lean with the standalone validation harness. This increment adds only one definition and four theorems; it does not repeat the previous finite-matrix or column-cardinality proofs. Native acceptance/integration must use the ordinary host workflow. Rechecking this unchanged advisory in standalone Lean/Lake loops is unnecessary.
+
+```lean
+/-- At a fixed honeycomb vertex, a neighboring vertex is determined by its column.
+This checks all three edges of the frozen adjacency relation. -/
+theorem bridgeAdjacent_unique_of_column {u v w : Vertex}
+    (huv : adjacent u v) (huw : adjacent u w)
+    (hcolumn : bridgeBoxColumn v = bridgeBoxColumn w) : v = w := by
+  cases u <;> cases v <;> cases w <;>
+    simp only [adjacent, bridgeBoxColumn] at huv huw hcolumn
+  all_goals
+    rcases huv with ⟨hv1, hv2⟩ | ⟨hv1, hv2⟩ | ⟨hv1, hv2⟩
+    all_goals
+      rcases huw with ⟨hw1, hw2⟩ | ⟨hw1, hw2⟩ | ⟨hw1, hw2⟩
+      all_goals congr 1 <;> omega
+
+/-- With a common initial vertex, the complete column word determines a chain's tail. -/
+theorem bridgeChain_tail_eq_of_columnWord {root : Vertex} {vs ws : List Vertex}
+    (hvs : (root :: vs).IsChain adjacent)
+    (hws : (root :: ws).IsChain adjacent)
+    (hword : vs.map bridgeBoxColumn = ws.map bridgeBoxColumn) : vs = ws := by
+  induction vs generalizing root ws with
+  | nil =>
+      cases ws with
+      | nil => rfl
+      | cons w ws => cases hword
+  | cons v vs ih =>
+      cases ws with
+      | nil => cases hword
+      | cons w ws =>
+          have hwords : bridgeBoxColumn v = bridgeBoxColumn w ∧
+              vs.map bridgeBoxColumn = ws.map bridgeBoxColumn := by
+            simpa only [List.map_cons, List.cons.injEq] using hword
+          have hvw : v = w := bridgeAdjacent_unique_of_column
+            (List.isChain_cons_cons.mp hvs).1
+            (List.isChain_cons_cons.mp hws).1 hwords.1
+          subst w
+          exact congrArg (List.cons v) (ih
+            (List.isChain_cons_cons.mp hvs).2
+            (List.isChain_cons_cons.mp hws).2 hwords.2)
+
+/-- Absolute integer columns of the canonical vertex list, including the source. -/
+def bridgeColumnWord {h : ℕ} (p : BridgePath h) : List ℤ :=
+  p.vertices.map bridgeBoxColumn
+
+theorem bridgeVertices_eq_of_columnWord {h : ℕ} (p q : BridgePath h)
+    (hword : bridgeColumnWord p = bridgeColumnWord q) :
+    p.vertices = q.vertices := by
+  have hpsource := p.source
+  have hqsource := q.source
+  have hpchain := p.connected
+  have hqchain := q.connected
+  unfold bridgeColumnWord at hword
+  cases hp : p.vertices with
+  | nil => simp only [hp, List.head?_nil, reduceCtorEq] at hpsource
+  | cons v vs =>
+      cases hq : q.vertices with
+      | nil => simp only [hq, List.head?_nil, reduceCtorEq] at hqsource
+      | cons w ws =>
+          have hv : v = Vertex.up 0 0 := by
+            simpa only [hp, List.head?_cons, Option.some.injEq] using hpsource
+          have hw : w = Vertex.up 0 0 := by
+            simpa only [hq, List.head?_cons, Option.some.injEq] using hqsource
+          subst v
+          subst w
+          apply congrArg (List.cons (Vertex.up 0 0))
+          apply bridgeChain_tail_eq_of_columnWord
+            (by simpa only [hp] using hpchain)
+            (by simpa only [hq] using hqchain)
+          exact (List.cons.inj (by simpa only [hp, hq, List.map_cons] using hword)).2
+
+/-- Distinct canonical paths have distinct column words. No strip-count estimate is assumed. -/
+theorem bridgeColumnWord_injective (h : ℕ) :
+    Function.Injective (bridgeColumnWord (h := h)) := by
+  intro p q hword
+  have hvertices := bridgeVertices_eq_of_columnWord p q hword
+  cases p
+  cases q
+  cases hvertices
+  rfl
+```

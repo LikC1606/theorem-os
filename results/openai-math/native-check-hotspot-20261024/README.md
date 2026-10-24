@@ -1,12 +1,20 @@
 # 原生检查热点与加速候选（2026-10-24）
 
-最新[三题进度快照](continuation-progress-20261024T103051Z.json)记录实际状态、辅助证明递送和新构建；
-原生最终通过总数为 5，尚无 OpenAI 托管验收确认。
+最新状态见 [21:19 北京时间进度快照](optimization-progress-20261024T131920Z.json)。五项预算仍全部为 0，Honeycomb 持久服务正常运行。
 
-Character 于 `10:20:51 UTC` 通过原生全目标内核检查，回执
-`lean-7af748514c728f28377b0d13`，整批耗时 2340.955 秒；原源码 SHA 和三项标准公理均保持一致。
-当前进入固定版本复审，原生最终通过总数仍为 5。见
-[全目标原始回执](character-native-stage-cost-20261024/native-all-target-verification-20261024T102051Z.json)。
+最新本地原生最终通过总数为 **6**，尚无 OpenAI 托管认证。Character 于北京时间 2026-10-24 20:26:55 完成完整验收，`result.status=evaluated_passed`、固定复审 accepted、原比较器 exit 0；见[冻结终态包](character-native-final-20261024/README.md)。
+
+本轮[固定支持模块复用及复审上下文修复](fixed-support-artifact-reuse-20261024/README.md)已完成：261 项聚焦测试、typecheck、三个 headless bundle 和只读构建 manifest 校验通过。真实 Lean 4.34.1 小型封存样例中，冷检查 2.405 秒、跨工作区暖检查 1.592 秒；前 3 次检查只编译一次支持模块，每次当前目标仍真实编译，错误目标在缓存命中时仍被拒绝。支持源码、配置及包身份变化均触发重新编译；含非可信 owned 依赖时回退原路径。复审上下文只展示匹配 commit、源码摘要及全部原目标的回执，宿主最终验收权限不变。见[独立静态审查](fixed-support-reuse-independent-review-20261024.json)。
+
+新构建 `46551899-4922-4905-b81e-0ff4503842e6` 基于隔离的 exact-source 修复构建，[尚未切入当前冻结链](fixed-support-reuse-activation-20261024.json)。Snaky 长检查和 Honeycomb 数学探索继续运行；上述小型样例不代表整题提速倍数。
+
+SnakyConditional 已通过原目标、集成和全目标内核检查，全目标回执 `lean-63766151ffe8a0523a860487`，耗时 8188.206 秒。当前在固定版本复审；此前一轮模型请求超时后已自动恢复，见[全目标及重试原始事件](snaky-all-target-review-20261024/README.md)。仍需最终工作区检查和原比较器，不计入最终通过数。
+
+[单条 Snaky 证书复用实测](snaky-certificate-reuse-followup-20261024/REJECTION.md)未带来收益：原声明证明段 340 ms；复用候选至少 150268 ms 未完成，故只终止并否决该隔离候选，没有递送或重跑整题。静态减少 `decide +kernel` 次数不能代替实测。
+
+Honeycomb 又新增[四条完整列 word 结构引理](honeycomb-column-word-followup-20261024/README.md)和[两个精确任务包装](honeycomb-column-task-adapters-20261024/README.md)，真实 Lean 检查分别耗时 2.658 秒、4.334 秒，公理仅 `propext/Quot.sound`。两批完整增量已通过正常队列共享，分别于 `12:58:41 UTC`、`13:09:52 UTC` 应用；见[结构引理递送回读](honeycomb-column-word-advisory-20261024/native-advisory-applied-readback.json)和[任务包装递送回读](honeycomb-column-adapters-advisory-20261024/native-advisory-applied-readback.json)。尚无新增 native TaskProof；严格增长界、统一有限盒质量界和精确有限转移编码仍待证明，原题未解。
+
+以下为先前各阶段的时间截点；最新验收状态以上述终态包为准。
 
 Honeycomb 本轮新增 18 条辅助定理通过固定 Lean 检查：
 [九条几何引理](honeycomb-column-cardinality-followup-20261024/README.md)给出有限列盒和占据 slab 的长度界；

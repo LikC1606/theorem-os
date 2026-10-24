@@ -1,0 +1,87 @@
+{
+  "schema": "honeycomb-exact-task-adapters/v1",
+  "frozenAt": "2026-10-24T13:08:05.030469+00:00",
+  "fileCountExcludingManifestAndChecksums": 16,
+  "files": [
+    {
+      "path": "ColumnTaskAdapters.lean",
+      "bytes": 5950,
+      "sha256": "e76fc2d68203b799ae54349300bcf5fb0c030681b100047fc227213b1ccbb72d"
+    },
+    {
+      "path": "ColumnTaskAdapters.lean.inc",
+      "bytes": 900,
+      "sha256": "ac75a6b702bf8df541a2b980b62caa8a764c90045a3095421573a20a24beb96b"
+    },
+    {
+      "path": "ColumnWordInjection.base.lean",
+      "bytes": 4970,
+      "sha256": "bcb5c4ca45ff3d4298f3ff8a0f0325856334ab167dcd33279877a3de0138c04b"
+    },
+    {
+      "path": "HANDOFF.txt",
+      "bytes": 3201,
+      "sha256": "e77fffa42afbbf0068ba8516b52e3e3c57a68768ed9cdf87fa454d47116ddc35"
+    },
+    {
+      "path": "README.md",
+      "bytes": 1153,
+      "sha256": "f104064db5ef91632b9b531a30d74cbab602358c1474e8df0c1d84eb6dc4e249"
+    },
+    {
+      "path": "exact-task-types.json",
+      "bytes": 1166,
+      "sha256": "a6ec58104078f6f2e7d26d5ada3b37175c6a009fcef5f433c41a62cfbca00e0d"
+    },
+    {
+      "path": "exact-type-check.json",
+      "bytes": 1095,
+      "sha256": "76a1350ec1fb86ab4b9d47c02256510cc61d4b316c034075c9686501d8ebe530"
+    },
+    {
+      "path": "provenance.json",
+      "bytes": 2734,
+      "sha256": "300320898a8d0d9a36e607ec8afbff90ec4427c7de44ff0a4db647f3f13a30db"
+    },
+    {
+      "path": "result.json",
+      "bytes": 2506,
+      "sha256": "6635981470b2e07393b881f831f92ffaa98e9dcc0aac103925c0427ba25b5ba2"
+    },
+    {
+      "path": "task-snapshot.json",
+      "bytes": 2715,
+      "sha256": "2f11951815d1e31fb981b92b85c6305b22dfd9e5e42f22bc14cc61d21704c557"
+    },
+    {
+      "path": "validate.py",
+      "bytes": 3177,
+      "sha256": "258728df243b401cb9a5f8e11e32226904c4e3581de6508c4150acc505dda945"
+    },
+    {
+      "path": "validation-01-launch.json",
+      "bytes": 1569,
+      "sha256": "0876e004ce8436396b214efaa5e7e4f1a0af191aa3c42b166a820fc3594f10c3"
+    },
+    {
+      "path": "validation-01-result.json",
+      "bytes": 2165,
+      "sha256": "3634f848d3c1f0f22f4b8c589e983c82ce21ccaf30a00f5d26c192aa5023f94a"
+    },
+    {
+      "path": "validation-01-source.lean",
+      "bytes": 5950,
+      "sha256": "e76fc2d68203b799ae54349300bcf5fb0c030681b100047fc227213b1ccbb72d"
+    },
+    {
+      "path": "validation-01.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "validation-01.stdout.log",
+      "bytes": 650,
+      "sha256": "b99a56f48dbfa3d01816172513eb6baee99dbefe8acd35841ef877eae0f999e8"
+    }
+  ]
+}

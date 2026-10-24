@@ -1,0 +1,317 @@
+[
+  {
+    "declaration": "qsmall10",
+    "compiledModule": "CandidateLargestRowSmallCommon",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "af391714c30afb48eebc7e9733c8017978447fd3f7a88e18e9150ca603d3cdea",
+    "compiledNormalizedSHA256": "af391714c30afb48eebc7e9733c8017978447fd3f7a88e18e9150ca603d3cdea"
+  },
+  {
+    "declaration": "qsmall11",
+    "compiledModule": "CandidateLargestRowSmallCommon",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "10fd762c9f644013b4bf13ebb15f6d9778694363578909f1b6e84c1253973b8d",
+    "compiledNormalizedSHA256": "10fd762c9f644013b4bf13ebb15f6d9778694363578909f1b6e84c1253973b8d"
+  },
+  {
+    "declaration": "qsmall_step11",
+    "compiledModule": "CandidateLargestRowSmallCommon",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "addd3d4bda0cafcfa9d93384c84e72c72bcdccaf2176f16bbcc954fbb43ac91e",
+    "compiledNormalizedSHA256": "addd3d4bda0cafcfa9d93384c84e72c72bcdccaf2176f16bbcc954fbb43ac91e"
+  },
+  {
+    "declaration": "ql614b0",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "894404398a10dee5b64e6cef8ef15569ff8258e98b88f26427c9762d3a88f4f1",
+    "compiledNormalizedSHA256": "894404398a10dee5b64e6cef8ef15569ff8258e98b88f26427c9762d3a88f4f1"
+  },
+  {
+    "declaration": "ql614b1",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "ba9a6446f053f732f949988da797da794b29be418561fd3c501a2f7fb07913bf",
+    "compiledNormalizedSHA256": "ba9a6446f053f732f949988da797da794b29be418561fd3c501a2f7fb07913bf"
+  },
+  {
+    "declaration": "ql614b2",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "4f8d5f0ebdda0a67308af1ba13f31a03af2052d66676e9d0b84d637f6cf27e1f",
+    "compiledNormalizedSHA256": "4f8d5f0ebdda0a67308af1ba13f31a03af2052d66676e9d0b84d637f6cf27e1f"
+  },
+  {
+    "declaration": "ql614b3",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "02f19d5e847638f3b6cfc9a4b15a6a18bc8ce30731190aba6473b1364540d652",
+    "compiledNormalizedSHA256": "02f19d5e847638f3b6cfc9a4b15a6a18bc8ce30731190aba6473b1364540d652"
+  },
+  {
+    "declaration": "ql614b4",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "b0a853c1128c61b7c97641b94d33ce89c9fdf7e2f4eb1d380e339bea7088ec79",
+    "compiledNormalizedSHA256": "b0a853c1128c61b7c97641b94d33ce89c9fdf7e2f4eb1d380e339bea7088ec79"
+  },
+  {
+    "declaration": "ql614b5",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "97bffcd4137a12715fdb97daf0be9b666684c713bf446e042bbbc9b6d96f699d",
+    "compiledNormalizedSHA256": "97bffcd4137a12715fdb97daf0be9b666684c713bf446e042bbbc9b6d96f699d"
+  },
+  {
+    "declaration": "ql614b6",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "6e5cebf1ebc64b8999d795d66c90786044f69305a854f1ae3f7b87b57e05b398",
+    "compiledNormalizedSHA256": "6e5cebf1ebc64b8999d795d66c90786044f69305a854f1ae3f7b87b57e05b398"
+  },
+  {
+    "declaration": "ql614b7",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "c3dea30e9f0085ec93e114fdc50078833957371cf8521ac0e8191fdc6f79a23c",
+    "compiledNormalizedSHA256": "c3dea30e9f0085ec93e114fdc50078833957371cf8521ac0e8191fdc6f79a23c"
+  },
+  {
+    "declaration": "ql614b8",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "16eb156c62f73bdacc25792848d3020ceb2eac53a8f7058533387080fda406a2",
+    "compiledNormalizedSHA256": "16eb156c62f73bdacc25792848d3020ceb2eac53a8f7058533387080fda406a2"
+  },
+  {
+    "declaration": "ql614b9",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "ff49131f2a9b33a31850425fe8298e40ed7d8b102ad7486e5a47fcc50601657f",
+    "compiledNormalizedSHA256": "ff49131f2a9b33a31850425fe8298e40ed7d8b102ad7486e5a47fcc50601657f"
+  },
+  {
+    "declaration": "ql614b10",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "0698ea999ab19427eb61f09308b2926e0b7edaf7d59582460ca3efee69d4edd6",
+    "compiledNormalizedSHA256": "0698ea999ab19427eb61f09308b2926e0b7edaf7d59582460ca3efee69d4edd6"
+  },
+  {
+    "declaration": "ql614b11",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "c4416668be1cfefec74b74dc027149a07554b70d63ec3c22bea9983bbbb707df",
+    "compiledNormalizedSHA256": "c4416668be1cfefec74b74dc027149a07554b70d63ec3c22bea9983bbbb707df"
+  },
+  {
+    "declaration": "ql614b12",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "84948bc28e29f79b9b7b2e224d0298ddfff1c16c6dd9a4d1dd3742b7d2ce15d6",
+    "compiledNormalizedSHA256": "84948bc28e29f79b9b7b2e224d0298ddfff1c16c6dd9a4d1dd3742b7d2ce15d6"
+  },
+  {
+    "declaration": "ql614b13",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "09702c3d70ee80e46eb6add4bf2b8c0f87bb45393aed5ad61b8e795d4afe217c",
+    "compiledNormalizedSHA256": "09702c3d70ee80e46eb6add4bf2b8c0f87bb45393aed5ad61b8e795d4afe217c"
+  },
+  {
+    "declaration": "ql614b14",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "346110005457eff0a0af9c47d6c5ba4389168327e29b577c4817af6cf04297cb",
+    "compiledNormalizedSHA256": "346110005457eff0a0af9c47d6c5ba4389168327e29b577c4817af6cf04297cb"
+  },
+  {
+    "declaration": "ql614b15",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "6bb1ecb16bae49c2ab790c2ae039c4f6825c11b451b11d2141232ef082abf40b",
+    "compiledNormalizedSHA256": "6bb1ecb16bae49c2ab790c2ae039c4f6825c11b451b11d2141232ef082abf40b"
+  },
+  {
+    "declaration": "ql614b16",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "bffdeafca6cbb6002e5ee0cf0a68751ebdd9eebfff2f55ec9b342e4393dcf843",
+    "compiledNormalizedSHA256": "bffdeafca6cbb6002e5ee0cf0a68751ebdd9eebfff2f55ec9b342e4393dcf843"
+  },
+  {
+    "declaration": "ql614b17",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "c4706bbfa29bea9d4cc6e1877375b5daa78773efa3c0e289f22205596ab8a46c",
+    "compiledNormalizedSHA256": "c4706bbfa29bea9d4cc6e1877375b5daa78773efa3c0e289f22205596ab8a46c"
+  },
+  {
+    "declaration": "ql614b18",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "1ac2e3e5b7520e809d1fc701899788d4623ec1a5d73c1876d4ffd8d1c759823e",
+    "compiledNormalizedSHA256": "1ac2e3e5b7520e809d1fc701899788d4623ec1a5d73c1876d4ffd8d1c759823e"
+  },
+  {
+    "declaration": "ql614b19",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "669f6a10d46f1354868bc62496210c8ad8e6f8e9c18fd683fc4c222d2b980bc4",
+    "compiledNormalizedSHA256": "669f6a10d46f1354868bc62496210c8ad8e6f8e9c18fd683fc4c222d2b980bc4"
+  },
+  {
+    "declaration": "ql614b20",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "4cedb769e123931cb77aa57c14ca8dbb083071ce3d054b2fedc39651b646084e",
+    "compiledNormalizedSHA256": "4cedb769e123931cb77aa57c14ca8dbb083071ce3d054b2fedc39651b646084e"
+  },
+  {
+    "declaration": "ql614b21",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "a3a53349eb301696ec9e1b6b8e4971e675e0dab564da561b9746c6ab432105d5",
+    "compiledNormalizedSHA256": "a3a53349eb301696ec9e1b6b8e4971e675e0dab564da561b9746c6ab432105d5"
+  },
+  {
+    "declaration": "ql614b22",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "a813b7643681f7393dae907a666a8ac0d55401cc0d9c3ff041e5e1b0110bf64b",
+    "compiledNormalizedSHA256": "a813b7643681f7393dae907a666a8ac0d55401cc0d9c3ff041e5e1b0110bf64b"
+  },
+  {
+    "declaration": "ql614b23",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "5db24188df392ff5d3aa15820a887cefa3da919d1f55a046d755c3ce22200f88",
+    "compiledNormalizedSHA256": "5db24188df392ff5d3aa15820a887cefa3da919d1f55a046d755c3ce22200f88"
+  },
+  {
+    "declaration": "ql614b24",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "ab638876c261c4c297262ff5b35db72f16297da1d020434e83d2c07c7ca85b59",
+    "compiledNormalizedSHA256": "ab638876c261c4c297262ff5b35db72f16297da1d020434e83d2c07c7ca85b59"
+  },
+  {
+    "declaration": "ql614b25",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "67719f96b453b8fab199471c5098a1fd077abde9c243f05a2839aaed0d767c1d",
+    "compiledNormalizedSHA256": "67719f96b453b8fab199471c5098a1fd077abde9c243f05a2839aaed0d767c1d"
+  },
+  {
+    "declaration": "ql614b26",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "269c009e5b8c67b8f430ee7dcf18b71312f6ecca2bf505fd67900f6b226035db",
+    "compiledNormalizedSHA256": "269c009e5b8c67b8f430ee7dcf18b71312f6ecca2bf505fd67900f6b226035db"
+  },
+  {
+    "declaration": "ql614b27",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "2a31e730eb4609e8642482f09033652031794a435ac1dd9c73e4714e567dd868",
+    "compiledNormalizedSHA256": "2a31e730eb4609e8642482f09033652031794a435ac1dd9c73e4714e567dd868"
+  },
+  {
+    "declaration": "ql614",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "9db6c3a0f70b3f7e0de55569bd5884ab29703a107dda26ac6e7ecd87caa41572",
+    "compiledNormalizedSHA256": "9db6c3a0f70b3f7e0de55569bd5884ab29703a107dda26ac6e7ecd87caa41572"
+  },
+  {
+    "declaration": "qm614",
+    "compiledModule": "CandidateLargestRowChunkListData",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "4224ada3bc2a4adc7fc166638f875fd917cfec13373a6724e4527df3a8ba2b53",
+    "compiledNormalizedSHA256": "4224ada3bc2a4adc7fc166638f875fd917cfec13373a6724e4527df3a8ba2b53"
+  },
+  {
+    "declaration": "qinverseRotation",
+    "compiledModule": "CandidateSemanticsCoreProbe",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "a470c52108f796b7e4b7a464e4230eea44e61d2cd42581bdbc7f57ea3e17d2f1",
+    "compiledNormalizedSHA256": "a470c52108f796b7e4b7a464e4230eea44e61d2cd42581bdbc7f57ea3e17d2f1"
+  },
+  {
+    "declaration": "qorientEquiv",
+    "compiledModule": "CandidateSemanticsCoreProbe",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "2d0d1d2272368021a45f56cfb2f9d3455104dc785340b56efcd62ba90c38474d",
+    "compiledNormalizedSHA256": "2d0d1d2272368021a45f56cfb2f9d3455104dc785340b56efcd62ba90c38474d"
+  },
+  {
+    "declaration": "qplacementEquiv",
+    "compiledModule": "CandidateSemanticsCoreProbe",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "75c60e0c4ae4277b5d569ba8bef6069bd42f799ca58171d75af0f8a968b899b4",
+    "compiledNormalizedSHA256": "75c60e0c4ae4277b5d569ba8bef6069bd42f799ca58171d75af0f8a968b899b4"
+  },
+  {
+    "declaration": "qmoveRow",
+    "compiledModule": "CandidateSemanticsCoreProbe",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "49a023cbeda5b83ded0f66fa521ec19c89a05e16c335cca286690272939e08ac",
+    "compiledNormalizedSHA256": "49a023cbeda5b83ded0f66fa521ec19c89a05e16c335cca286690272939e08ac"
+  },
+  {
+    "declaration": "qCell",
+    "compiledModule": "CandidateDataProbe",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "2a7a2d4d568605521a6957708e0f6fcde617107e87a0a67091e3c456111988c7",
+    "compiledNormalizedSHA256": "2a7a2d4d568605521a6957708e0f6fcde617107e87a0a67091e3c456111988c7"
+  },
+  {
+    "declaration": "qR",
+    "compiledModule": "CandidateDataProbe",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "63c6d3b726f3985a5479450df26dec8030f03424781a970068a38cadc991c148",
+    "compiledNormalizedSHA256": "63c6d3b726f3985a5479450df26dec8030f03424781a970068a38cadc991c148"
+  },
+  {
+    "declaration": "qR.A",
+    "compiledModule": "CandidateDataProbe",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "ec3aca0895006fcf918128df9aefe075793ad9b1925871c0df2e2cc06b148460",
+    "compiledNormalizedSHA256": "ec3aca0895006fcf918128df9aefe075793ad9b1925871c0df2e2cc06b148460"
+  },
+  {
+    "declaration": "qR.H",
+    "compiledModule": "CandidateDataProbe",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "9113de8dbcd1c0a2be983bdfd5b4ad145b14809dbd83026b5d5f56dbb87de011",
+    "compiledNormalizedSHA256": "9113de8dbcd1c0a2be983bdfd5b4ad145b14809dbd83026b5d5f56dbb87de011"
+  },
+  {
+    "declaration": "qR.height",
+    "compiledModule": "CandidateDataProbe",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "0f1eb41b297394fa26d8d935aa426e53caca0f21c3e5e12b224f94a484948027",
+    "compiledNormalizedSHA256": "0f1eb41b297394fa26d8d935aa426e53caca0f21c3e5e12b224f94a484948027"
+  },
+  {
+    "declaration": "qT",
+    "compiledModule": "CandidateDataProbe",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "2e32a6d8b5caecbc0b6615f3a9f8854de702d0c6c5280f49067bbc9026197bcf",
+    "compiledNormalizedSHA256": "2e32a6d8b5caecbc0b6615f3a9f8854de702d0c6c5280f49067bbc9026197bcf"
+  },
+  {
+    "declaration": "qorient",
+    "compiledModule": "CandidateDataProbe",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "93f137f5e6c407d81c316f809c76e252b4702f48f7a3b5bfcde512f1bdaef544",
+    "compiledNormalizedSHA256": "93f137f5e6c407d81c316f809c76e252b4702f48f7a3b5bfcde512f1bdaef544"
+  },
+  {
+    "declaration": "qplaceRow",
+    "compiledModule": "CandidateDataProbe",
+    "normalizedSourceEqual": true,
+    "canonicalNormalizedSHA256": "628cc5dd7162fb3a26a9acdc2d4f9bb32a5bc03fd0ecb2b845a12659b0ef4a67",
+    "compiledNormalizedSHA256": "628cc5dd7162fb3a26a9acdc2d4f9bb32a5bc03fd0ecb2b845a12659b0ef4a67"
+  }
+]

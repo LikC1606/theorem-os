@@ -1,0 +1,41 @@
+{
+  "createdAt": "2026-10-24T13:06:31.610035+00:00",
+  "canonicalChallenge": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/metadata/challenges/HoneycombBridgeFiniteness.lean",
+  "canonicalChallengeSHA256": "6acaeab1940555d1df29856e504deae4f9edf7777231969b9b7d13515731d830",
+  "canonicalFragmentsSHA256": "14b087a55e62f52026238f9c75080ad07b2d7283b587cd690adebb7b00306e1a",
+  "copiedCanonicalDeclarations": [
+    "Vertex",
+    "adjacent",
+    "layer",
+    "BridgePath"
+  ],
+  "existingDefinitionsRead": [
+    "bridgeBoxColumn",
+    "bridgeInColumnBox"
+  ],
+  "existingIncrementFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-finite-box-reduction-20261024/FiniteBoxLemmas.lean.inc",
+  "existingIncrementSHA256": "5c24df9ec75f6ec7aa9c1a65a67ea54bec70dea7542a3759c677fdd6615ac542",
+  "sealedPackagesRoot": "/proc/1250131/fd/5",
+  "sealedEnvironmentIdentity": "2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87",
+  "leanToolchain": "leanprover/lean4:v4.34.1",
+  "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+  "publisherSolutionsRead": false,
+  "hiddenReasoningRead": false,
+  "activeRuntimeChanged": false,
+  "activeSourceChanged": false,
+  "hostTaskProofAcceptance": false,
+  "priorGeometryFragment": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-cardinality-followup-20261024/CanonicalGeometry.lean.inc",
+  "priorGeometryFragmentSHA256": "14b087a55e62f52026238f9c75080ad07b2d7283b587cd690adebb7b00306e1a",
+  "scope": "Two exact typed task adapters over the previously frozen fixed-source column-word helpers.",
+  "priorPackage": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024",
+  "priorSourcePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/ColumnWordInjection.lean",
+  "priorSourceSHA256": "bcb5c4ca45ff3d4298f3ff8a0f0325856334ab167dcd33279877a3de0138c04b",
+  "priorValidationResultPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/validation-02-final-result.json",
+  "priorValidationResultSHA256": "6e7a0ddbd33dc082c76c0677922b630b8d5695c09ac090ad763b7775dfd4a2a3",
+  "taskSnapshotPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-task-adapters-20261024/task-snapshot.json",
+  "taskIds": [
+    "bridge_full_column_word_injective_a0424391",
+    "bridge_column_step_unique_a0424391"
+  ],
+  "activeQueueChanged": false
+}

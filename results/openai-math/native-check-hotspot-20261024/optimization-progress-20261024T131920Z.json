@@ -1,0 +1,817 @@
+{
+  "schema": "theorem-os.optimization-progress.v1",
+  "observedAt": "2026-10-24T13:19:20.938912+00:00",
+  "nativeFinalPassedCount": 6,
+  "nativeFinalPassedProblems": [
+    "Truffet",
+    "SurfaceCone",
+    "Hadamard",
+    "Cartier",
+    "SnakyCertificate",
+    "CharacterVarieties"
+  ],
+  "openAIHostedAcceptance": false,
+  "character": {
+    "runId": "1f3bb9c1-c99f-4fad-b656-8010a82c265b",
+    "phase": "finished",
+    "turns": 4,
+    "buildDigest": "1bd8ea05b5bd769985b333237c75c649dbf072de821ea9a43bfeffd16cdeba4f",
+    "canonicalCommit": "df8db6c4f2f872ff9c5d4a79a5c874d4707b48c0",
+    "planVersion": "2a02fe96bcb56350fbce4bd613962f16afbfe2a51604e0df525890bc1fe1997f",
+    "stateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/native-sync-def-attempt/native-followup/result.json.runtime/state.json",
+    "sourceStateSHA256": "4f9d25ebfb5e0e63cb2b51184929a4599d869904f402e24c866689952f511edf",
+    "sourceResultSHA256": "5880abc4bac55e30bd543ca009fea19da8704601aa86f7268686144d7a5d7fce",
+    "resultStatus": "evaluated_passed",
+    "nativeFinalPassed": true,
+    "check": {
+      "passed": true,
+      "commit": "df8db6c4f2f872ff9c5d4a79a5c874d4707b48c0",
+      "sourceDigest": "f31eba830cec592a226f58cc26fffe68daacb70d307ada71475ccdda914f67b5",
+      "status": "kernel_verified",
+      "durationMs": 2340955,
+      "checkedAt": 1792837251762,
+      "results": [
+        {
+          "receiptId": "lean-7af748514c728f28377b0d13",
+          "targetCommit": "df8db6c4f2f872ff9c5d4a79a5c874d4707b48c0",
+          "proofPath": "Submission.lean",
+          "proofHash": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3",
+          "theoremName": "OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams",
+          "sourceDeclarationHash": "fb95bc071af2179a40770979bb7e3eb978b53a19ec0691d8eaf4e38a4e3d50d8",
+          "statementHash": "dc49a3554616d6542f97317ca26235cf9b6092c82a68d7100bba3ce4ca042d28",
+          "axioms": [
+            "propext",
+            "Classical.choice",
+            "Quot.sound"
+          ],
+          "goalsRemaining": 0,
+          "sorryCount": 0,
+          "admitCount": 0,
+          "status": "kernel_verified"
+        }
+      ]
+    },
+    "tasks": [
+      {
+        "id": "character_original_goal",
+        "kind": "goal",
+        "status": "integrated",
+        "assignmentId": "4d86f8b9-527c-4ff0-af9e-1a9a2adc3177",
+        "workerId": "engineer",
+        "proof": {
+          "passed": true,
+          "commit": "aaaf7a217b8df185b467ec71348048b553dfe339",
+          "sourceDigest": "f31eba830cec592a226f58cc26fffe68daacb70d307ada71475ccdda914f67b5",
+          "status": "kernel_verified",
+          "durationMs": 2375071,
+          "checkedAt": 1792832546672,
+          "results": [
+            {
+              "receiptId": "lean-adc266b0e003d64e5ebdf91b",
+              "targetCommit": "a2e9290dcca12fea7a7bb51a91fb240f17527699",
+              "proofPath": "Submission.lean",
+              "proofHash": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3",
+              "theoremName": "OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams",
+              "sourceDeclarationHash": "fb95bc071af2179a40770979bb7e3eb978b53a19ec0691d8eaf4e38a4e3d50d8",
+              "statementHash": "0a7945b3864e77f995020b9e39dee6639011fcd0fcc2da7cf7d136bae5f8cacf",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "goalsRemaining": 0,
+              "sorryCount": 0,
+              "admitCount": 0,
+              "status": "kernel_verified"
+            }
+          ]
+        },
+        "integratedCheck": {
+          "passed": true,
+          "commit": "e49bd527e08c5129e1d372a36741ce9c841a6183",
+          "sourceDigest": "f31eba830cec592a226f58cc26fffe68daacb70d307ada71475ccdda914f67b5",
+          "status": "kernel_verified",
+          "durationMs": 2339924,
+          "checkedAt": 1792834903543,
+          "results": [
+            {
+              "receiptId": "lean-7e3b44ab0595415016076711",
+              "targetCommit": "e79bb6bff241bf540fd4700723af7ddbdb5d7678",
+              "proofPath": "Submission.lean",
+              "proofHash": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3",
+              "theoremName": "OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams",
+              "sourceDeclarationHash": "fb95bc071af2179a40770979bb7e3eb978b53a19ec0691d8eaf4e38a4e3d50d8",
+              "statementHash": "0a7945b3864e77f995020b9e39dee6639011fcd0fcc2da7cf7d136bae5f8cacf",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "goalsRemaining": 0,
+              "sorryCount": 0,
+              "admitCount": 0,
+              "status": "kernel_verified"
+            }
+          ]
+        }
+      }
+    ],
+    "workers": [
+      {
+        "id": "solver",
+        "phase": "finished",
+        "turns": 2,
+        "scheduling": {
+          "since": 1792840193492,
+          "status": "stopped"
+        },
+        "lastActivity": {
+          "at": 1792829935167,
+          "event": "item_completed",
+          "itemType": "userMessage"
+        },
+        "check": {
+          "passed": true,
+          "commit": "df8db6c4f2f872ff9c5d4a79a5c874d4707b48c0",
+          "sourceDigest": "f31eba830cec592a226f58cc26fffe68daacb70d307ada71475ccdda914f67b5",
+          "status": "kernel_verified",
+          "durationMs": 2340955,
+          "checkedAt": 1792837251762,
+          "results": [
+            {
+              "receiptId": "lean-7af748514c728f28377b0d13",
+              "targetCommit": "df8db6c4f2f872ff9c5d4a79a5c874d4707b48c0",
+              "proofPath": "Submission.lean",
+              "proofHash": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3",
+              "theoremName": "OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams",
+              "sourceDeclarationHash": "fb95bc071af2179a40770979bb7e3eb978b53a19ec0691d8eaf4e38a4e3d50d8",
+              "statementHash": "dc49a3554616d6542f97317ca26235cf9b6092c82a68d7100bba3ce4ca042d28",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "goalsRemaining": 0,
+              "sorryCount": 0,
+              "admitCount": 0,
+              "status": "kernel_verified"
+            }
+          ]
+        }
+      },
+      {
+        "id": "researcher-1",
+        "phase": "finished",
+        "turns": 1,
+        "scheduling": {
+          "since": 1792840193545,
+          "status": "stopped"
+        },
+        "lastActivity": {
+          "at": 1792840193227,
+          "event": "item_completed",
+          "itemType": "agentMessage"
+        },
+        "check": null
+      },
+      {
+        "id": "researcher-2",
+        "phase": "finished",
+        "turns": 0,
+        "scheduling": {
+          "since": 1792840193518,
+          "status": "stopped"
+        },
+        "lastActivity": null,
+        "check": null
+      },
+      {
+        "id": "engineer",
+        "phase": "finished",
+        "turns": 1,
+        "scheduling": {
+          "since": 1792840193570,
+          "status": "stopped"
+        },
+        "lastActivity": {
+          "at": 1792830164066,
+          "event": "item_completed",
+          "itemType": "agentMessage"
+        },
+        "check": {
+          "passed": true,
+          "commit": "aaaf7a217b8df185b467ec71348048b553dfe339",
+          "sourceDigest": "f31eba830cec592a226f58cc26fffe68daacb70d307ada71475ccdda914f67b5",
+          "status": "kernel_verified",
+          "durationMs": 2375071,
+          "checkedAt": 1792832546672,
+          "results": [
+            {
+              "receiptId": "lean-adc266b0e003d64e5ebdf91b",
+              "targetCommit": "a2e9290dcca12fea7a7bb51a91fb240f17527699",
+              "proofPath": "Submission.lean",
+              "proofHash": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3",
+              "theoremName": "OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams",
+              "sourceDeclarationHash": "fb95bc071af2179a40770979bb7e3eb978b53a19ec0691d8eaf4e38a4e3d50d8",
+              "statementHash": "0a7945b3864e77f995020b9e39dee6639011fcd0fcc2da7cf7d136bae5f8cacf",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "goalsRemaining": 0,
+              "sorryCount": 0,
+              "admitCount": 0,
+              "status": "kernel_verified"
+            }
+          ]
+        }
+      }
+    ],
+    "fixedVersionReview": {
+      "assignmentId": "b3baaa27-a7a8-47d6-804b-84066a299a40",
+      "commit": "df8db6c4f2f872ff9c5d4a79a5c874d4707b48c0",
+      "sourceDigest": "f31eba830cec592a226f58cc26fffe68daacb70d307ada71475ccdda914f67b5",
+      "status": "accepted",
+      "workerId": null
+    },
+    "tokenBudget": {
+      "maxTotalTokens": 0,
+      "status": "unlimited",
+      "reportedTotalTokens": 4868292,
+      "usageComplete": false
+    },
+    "evaluator": {
+      "method": "external-command",
+      "official": false,
+      "status": "passed",
+      "result": {
+        "exitCode": 0,
+        "durationMs": 2284959,
+        "timedOut": false,
+        "aborted": false,
+        "stdoutSha256": "c90d164920a24b4128a53d12388464a5b9fca55f27824cb7d4ec72d8416a74b2",
+        "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  },
+  "snaky": {
+    "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+    "phase": "running",
+    "turns": 6,
+    "buildDigest": "3cf310891edf8cb396f218531e1eb6c5a997622adb6d835e4b368ffa1c8e637d",
+    "canonicalCommit": "14d49c0f2bb94a8973471120f675554798126117",
+    "planVersion": "91cf040ffacb4918271bb9f9de949a6e5fe4eaf409c32e9fed90bff276307fbd",
+    "stateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/result.json.runtime/state.json",
+    "sourceStateSHA256": "e01e3e89400993b134d69766531d01bb10330a766fe70c130b1147d61f4a6716",
+    "sourceResultSHA256": "ba842f431e3e1da99e0af896dbdcfb42b7b023321f9dda815e9bac67319ca9ed",
+    "resultStatus": "prepared",
+    "nativeFinalPassed": false,
+    "check": null,
+    "tasks": [
+      {
+        "id": "v8_original_goal",
+        "kind": "goal",
+        "status": "integrated",
+        "assignmentId": "4f0116ef-91c2-478c-a2f5-8233dc4e9bf1",
+        "workerId": "engineer",
+        "proof": {
+          "passed": true,
+          "commit": "012b6908e15fdec29108ed8fe2f4ccaeba97e2f7",
+          "sourceDigest": "423859076783e6c80a91fae42f9b6c49de237224fe193d171337fbb2ac68944a",
+          "status": "kernel_verified",
+          "durationMs": 8072109,
+          "checkedAt": 1792824828151,
+          "results": [
+            {
+              "receiptId": "lean-9d717a842be4b918425377eb",
+              "targetCommit": "ca79e2d6809ed552b43e1c344bd3141136142e3a",
+              "proofPath": "Submission.lean",
+              "proofHash": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab",
+              "theoremName": "OAI.SnakyConditional.snaky_winning_strategy_with_legal_states",
+              "sourceDeclarationHash": "86440ec197f3e88a1cda1d22672ff67a6390425412b08d418dde27bba4c81614",
+              "statementHash": "9cf4184cb210eff2e77b59dcd3eac6be25461694b0d320baa9b500d5629acf3f",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "goalsRemaining": 0,
+              "sorryCount": 0,
+              "admitCount": 0,
+              "status": "kernel_verified"
+            }
+          ]
+        },
+        "integratedCheck": {
+          "passed": true,
+          "commit": "d1e7e43939add0899a88411c24f227e11ebf4112",
+          "sourceDigest": "1a75c56a0beaa6df7578a0317d90f40fa2c6b1a9faf43511e1c69fa0bcee4f4f",
+          "status": "kernel_verified",
+          "durationMs": 8343538,
+          "checkedAt": 1792833355853,
+          "results": [
+            {
+              "receiptId": "lean-78b317b5823543bbdf5c270f",
+              "targetCommit": "1b786558f13b9d20aa8cb1794dd7da04b688d919",
+              "proofPath": "Submission.lean",
+              "proofHash": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+              "theoremName": "OAI.SnakyConditional.snaky_winning_strategy_with_legal_states",
+              "sourceDeclarationHash": "86440ec197f3e88a1cda1d22672ff67a6390425412b08d418dde27bba4c81614",
+              "statementHash": "9cf4184cb210eff2e77b59dcd3eac6be25461694b0d320baa9b500d5629acf3f",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "goalsRemaining": 0,
+              "sorryCount": 0,
+              "admitCount": 0,
+              "status": "kernel_verified"
+            }
+          ]
+        }
+      }
+    ],
+    "workers": [
+      {
+        "id": "solver",
+        "phase": "checking",
+        "turns": 2,
+        "scheduling": {
+          "since": 1792816506980,
+          "status": "idle"
+        },
+        "lastActivity": {
+          "at": 1792816412592,
+          "event": "item_started",
+          "itemType": "contextCompaction"
+        },
+        "check": {
+          "passed": true,
+          "commit": "14d49c0f2bb94a8973471120f675554798126117",
+          "sourceDigest": "1a75c56a0beaa6df7578a0317d90f40fa2c6b1a9faf43511e1c69fa0bcee4f4f",
+          "status": "kernel_verified",
+          "durationMs": 8188206,
+          "checkedAt": 1792841617603,
+          "results": [
+            {
+              "receiptId": "lean-63766151ffe8a0523a860487",
+              "targetCommit": "14d49c0f2bb94a8973471120f675554798126117",
+              "proofPath": "Submission.lean",
+              "proofHash": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+              "theoremName": "OAI.SnakyConditional.snaky_winning_strategy_with_legal_states",
+              "sourceDeclarationHash": "86440ec197f3e88a1cda1d22672ff67a6390425412b08d418dde27bba4c81614",
+              "statementHash": "142493d21a482fcccfcd8782178a767296b28158637758b22ce2ce5c55de5c88",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "goalsRemaining": 0,
+              "sorryCount": 0,
+              "admitCount": 0,
+              "status": "kernel_verified"
+            }
+          ]
+        }
+      },
+      {
+        "id": "researcher-1",
+        "phase": "running",
+        "turns": 2,
+        "scheduling": {
+          "action": "review",
+          "since": 1792845218926,
+          "status": "working"
+        },
+        "lastActivity": {
+          "at": 1792847613368,
+          "event": "item_completed",
+          "itemType": "commandExecution"
+        },
+        "check": null
+      },
+      {
+        "id": "researcher-2",
+        "phase": "prepared",
+        "turns": 0,
+        "scheduling": {
+          "since": 1792816386076,
+          "status": "idle"
+        },
+        "lastActivity": null,
+        "check": null
+      },
+      {
+        "id": "engineer",
+        "phase": "checking",
+        "turns": 2,
+        "scheduling": {
+          "since": 1792816682901,
+          "status": "idle"
+        },
+        "lastActivity": {
+          "at": 1792816682888,
+          "event": "item_completed",
+          "itemType": "agentMessage"
+        },
+        "check": {
+          "passed": true,
+          "commit": "012b6908e15fdec29108ed8fe2f4ccaeba97e2f7",
+          "sourceDigest": "423859076783e6c80a91fae42f9b6c49de237224fe193d171337fbb2ac68944a",
+          "status": "kernel_verified",
+          "durationMs": 8072109,
+          "checkedAt": 1792824828151,
+          "results": [
+            {
+              "receiptId": "lean-9d717a842be4b918425377eb",
+              "targetCommit": "ca79e2d6809ed552b43e1c344bd3141136142e3a",
+              "proofPath": "Submission.lean",
+              "proofHash": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab",
+              "theoremName": "OAI.SnakyConditional.snaky_winning_strategy_with_legal_states",
+              "sourceDeclarationHash": "86440ec197f3e88a1cda1d22672ff67a6390425412b08d418dde27bba4c81614",
+              "statementHash": "9cf4184cb210eff2e77b59dcd3eac6be25461694b0d320baa9b500d5629acf3f",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "goalsRemaining": 0,
+              "sorryCount": 0,
+              "admitCount": 0,
+              "status": "kernel_verified"
+            }
+          ]
+        }
+      }
+    ],
+    "fixedVersionReview": {
+      "assignmentId": "9a84a716-a927-4ba9-b3e7-ed9dea78eac6",
+      "commit": "14d49c0f2bb94a8973471120f675554798126117",
+      "sourceDigest": "1a75c56a0beaa6df7578a0317d90f40fa2c6b1a9faf43511e1c69fa0bcee4f4f",
+      "status": "running",
+      "workerId": "researcher-1"
+    },
+    "tokenBudget": {
+      "maxTotalTokens": 0,
+      "status": "unlimited",
+      "reportedTotalTokens": 6648021,
+      "usageComplete": false
+    },
+    "evaluator": {
+      "method": null,
+      "official": null,
+      "status": "skipped",
+      "result": {
+        "exitCode": null,
+        "durationMs": null,
+        "timedOut": null,
+        "aborted": null,
+        "stdoutSha256": null,
+        "stderrSha256": null
+      }
+    }
+  },
+  "honeycomb": {
+    "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+    "phase": "running",
+    "turns": 283,
+    "buildDigest": "7e2c42e897361d27b0aa6bf216f74ed7ba71aa32987771ade075193bed54c19f",
+    "canonicalCommit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+    "planVersion": "b75c6a57a2e124da8db83ce007e43f6c15ad77db2f1f8682ff8efc87649a46dc",
+    "stateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/state.json",
+    "sourceStateSHA256": "acce0006b52170d2855ef401dfcc4f403a960b69b1de221720d59fa3c7ea2f67",
+    "sourceResultSHA256": "2c0d3f02c194a9af6a3b176ba09bd1c4e5830eac95db021291a203cb990fee07",
+    "resultStatus": "prepared",
+    "nativeFinalPassed": false,
+    "check": null,
+    "tasks": [
+      {
+        "id": "strip_growth_below_mu",
+        "kind": "lemma",
+        "status": "running",
+        "assignmentId": "65f1697f-fa42-4863-bc57-032cd0a476e9",
+        "workerId": "researcher-1",
+        "proof": null,
+        "integratedCheck": null
+      },
+      {
+        "id": "sums_reduction",
+        "kind": "lemma",
+        "status": "integrated",
+        "assignmentId": "a4887df1-cd13-409a-be47-8f79d5f94209",
+        "workerId": "engineer",
+        "proof": {
+          "passed": true,
+          "commit": "21c88246de184c2366cdf7dde20f140a7147291c",
+          "sourceDigest": "5a01254fb71b99009e9a9119a92226b7f9b369fd74752d2b4cbf1fdd994bdaaf",
+          "status": "kernel_verified",
+          "durationMs": 21088,
+          "checkedAt": 1792829223724,
+          "results": [
+            {
+              "receiptId": "lean-0289d782383448bdadd0ef5e",
+              "targetCommit": "38f99fd7828b297c25623c3cbcc6e4eb0736c5b0",
+              "proofPath": "Submission.lean",
+              "proofHash": "150a3e1d61d099350082c29420601e041051f9213aefd82c94495333cc91cbb2",
+              "theoremName": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_of_stripGrowthBelowMu",
+              "sourceDeclarationHash": "206923ef158e8e4426da35682c93fa69ff0fdac9ea661dac768e4da1e6830469",
+              "statementHash": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "goalsRemaining": 0,
+              "sorryCount": 0,
+              "admitCount": 0,
+              "status": "kernel_verified"
+            }
+          ]
+        },
+        "integratedCheck": {
+          "passed": true,
+          "commit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+          "sourceDigest": "d7464cb0895f9c7e360036300e0df311dae0bc3887b7dc6b70d9c06f6fbe26b7",
+          "status": "kernel_verified",
+          "durationMs": 21577,
+          "checkedAt": 1792829245522,
+          "results": [
+            {
+              "receiptId": "lean-c48c9c7223a04b1246cd7274",
+              "targetCommit": "159ffc03e85110a4ffe8c6ed47eb9d68e430fb62",
+              "proofPath": "Submission.lean",
+              "proofHash": "e539bd27d979de382c47abfbbfa2a1df982454555127eae366fc80589f3d40be",
+              "theoremName": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_of_stripGrowthBelowMu",
+              "sourceDeclarationHash": "206923ef158e8e4426da35682c93fa69ff0fdac9ea661dac768e4da1e6830469",
+              "statementHash": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "goalsRemaining": 0,
+              "sorryCount": 0,
+              "admitCount": 0,
+              "status": "kernel_verified"
+            }
+          ]
+        }
+      },
+      {
+        "id": "initial_goal_1",
+        "kind": "goal",
+        "status": "conditional",
+        "assignmentId": "69b53b79-cb36-44e1-9d4c-e81bb99a0a4a",
+        "workerId": "engineer",
+        "proof": {
+          "passed": true,
+          "commit": "5b89b56b15fdd0be5d210462bae927cee23e7ad8",
+          "sourceDigest": "8905bc62634e42f26e64366e75fb2894db0ca08d3f76c37531bf091d82431a95",
+          "status": "kernel_verified",
+          "durationMs": 16920,
+          "checkedAt": 1792835112553,
+          "results": [
+            {
+              "receiptId": "lean-2c05340f5f91057112c7050a",
+              "targetCommit": "da677add3f286148ebec3d57f30fdbe631cc9645",
+              "proofPath": "Submission.lean",
+              "proofHash": "85548cbe9f4a5483c0c7b5a72f7cb8c357cb6d71bf6a6df1ddd3a186d6527eb2",
+              "theoremName": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums",
+              "sourceDeclarationHash": "1d0d437bab2e8be5fa2ea00ccd80d15d2165ace5b2d7ee5eb1f437ab6bf82d3a",
+              "statementHash": "ab8c91c92c1d5d985ed03edfaee27bbef6df38455b84a82711d07d8d13e77890",
+              "axioms": [
+                "propext",
+                "Classical.choice",
+                "Quot.sound"
+              ],
+              "goalsRemaining": 0,
+              "sorryCount": 0,
+              "admitCount": 0,
+              "status": "kernel_verified"
+            }
+          ]
+        },
+        "integratedCheck": null
+      },
+      {
+        "id": "initial_research_1",
+        "kind": "research",
+        "status": "pending",
+        "assignmentId": null,
+        "workerId": null,
+        "proof": null,
+        "integratedCheck": null
+      },
+      {
+        "id": "initial_research_2",
+        "kind": "research",
+        "status": "running",
+        "assignmentId": "e034f31d-dacd-438e-8c98-0ba6f806b763",
+        "workerId": "researcher-2",
+        "proof": null,
+        "integratedCheck": null
+      },
+      {
+        "id": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+        "kind": "research",
+        "status": "running",
+        "assignmentId": "444ca639-b7bf-443c-888f-48c91187923c",
+        "workerId": "engineer",
+        "proof": null,
+        "integratedCheck": null
+      },
+      {
+        "id": "finite_box_zero_mass_reference",
+        "kind": "research",
+        "status": "pending",
+        "assignmentId": null,
+        "workerId": null,
+        "proof": null,
+        "integratedCheck": null
+      },
+      {
+        "id": "width_two_summability_diagnostic",
+        "kind": "lemma",
+        "status": "pending",
+        "assignmentId": null,
+        "workerId": null,
+        "proof": null,
+        "integratedCheck": null
+      },
+      {
+        "id": "bridge_full_column_word_injective_a0424391",
+        "kind": "lemma",
+        "status": "pending",
+        "assignmentId": null,
+        "workerId": null,
+        "proof": null,
+        "integratedCheck": null
+      },
+      {
+        "id": "bridge_column_step_unique_a0424391",
+        "kind": "lemma",
+        "status": "pending",
+        "assignmentId": null,
+        "workerId": null,
+        "proof": null,
+        "integratedCheck": null
+      }
+    ],
+    "workers": [
+      {
+        "id": "solver",
+        "phase": "checking",
+        "turns": 190,
+        "scheduling": {
+          "since": 1792846842154,
+          "status": "idle"
+        },
+        "lastActivity": {
+          "at": 1792846837698,
+          "event": "item_started",
+          "itemType": "reasoning"
+        },
+        "check": null
+      },
+      {
+        "id": "researcher-1",
+        "phase": "running",
+        "turns": 2,
+        "scheduling": {
+          "action": "task",
+          "since": 1792829102449,
+          "status": "working",
+          "taskId": "strip_growth_below_mu"
+        },
+        "lastActivity": {
+          "at": 1792847947554,
+          "event": "reasoning"
+        },
+        "check": null
+      },
+      {
+        "id": "researcher-2",
+        "phase": "running",
+        "turns": 48,
+        "scheduling": {
+          "action": "task",
+          "since": 1792847728490,
+          "status": "working",
+          "taskId": "initial_research_2"
+        },
+        "lastActivity": {
+          "at": 1792847933375,
+          "event": "item_started",
+          "itemType": "reasoning"
+        },
+        "check": null
+      },
+      {
+        "id": "engineer",
+        "phase": "running",
+        "turns": 43,
+        "scheduling": {
+          "action": "task",
+          "since": 1792847357913,
+          "status": "working",
+          "taskId": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51"
+        },
+        "lastActivity": {
+          "at": 1792847942354,
+          "event": "reasoning"
+        },
+        "check": null
+      }
+    ],
+    "fixedVersionReview": null,
+    "tokenBudget": {
+      "maxTotalTokens": 0,
+      "status": "unlimited",
+      "reportedTotalTokens": 55400412,
+      "usageComplete": false
+    },
+    "evaluator": {
+      "method": null,
+      "official": null,
+      "status": "skipped",
+      "result": {
+        "exitCode": null,
+        "durationMs": null,
+        "timedOut": null,
+        "aborted": null,
+        "stdoutSha256": null,
+        "stderrSha256": null
+      }
+    }
+  },
+  "newFixedSupportBuild": {
+    "buildId": "46551899-4922-4905-b81e-0ff4503842e6",
+    "solverSHA256": "35d2651ecdec66902d30ff979f936e4cc37b1ac351771d05e9eeefd1ffadbebf",
+    "focusedTestsPassed": 261,
+    "focusedTestsFailed": 0,
+    "typecheckPassed": true,
+    "bundles": 3,
+    "sealedFixtureTargetCompilations": 7,
+    "sealedFixtureSupportCompilations": 4,
+    "coldSeconds": 2.404611348,
+    "crossProjectWarmSeconds": 1.5917256050000002,
+    "badTargetRejectedOnWarmSupport": true,
+    "sourceConfigPackageMisses": [
+      true,
+      true,
+      true
+    ],
+    "ownedDependencyFallback": true,
+    "reviewContextUsesMatchingOriginalGoalReceipts": true,
+    "activated": false,
+    "wholeProblemSpeedupMeasured": false,
+    "report": "fixed-support-artifact-reuse-20261024/README.md",
+    "independentStaticReview": "fixed-support-reuse-independent-review-20261024.json"
+  },
+  "honeycombNewSharedAuxiliaryEvidence": {
+    "columnWordTheorems": 4,
+    "exactTaskAdapters": 2,
+    "nativeTaskProofAccepted": false,
+    "originalGoalSolved": false,
+    "columnWordAdvisoryAppliedAt": 1792846721210,
+    "adaptersAdvisoryAppliedAt": 1792847392822,
+    "evidence": [
+      "honeycomb-column-word-followup-20261024/README.md",
+      "honeycomb-column-word-advisory-20261024/native-advisory-applied-readback.json",
+      "honeycomb-column-task-adapters-20261024/README.md",
+      "honeycomb-column-adapters-advisory-20261024/native-advisory-applied-readback.json"
+    ]
+  },
+  "snakyCertificateReuseTrial": {
+    "accepted": false,
+    "delivered": false,
+    "baselineProofMs": 340,
+    "candidateObservedLowerBoundMs": 150268,
+    "candidateTerminatedByHost": true,
+    "evidence": "snaky-certificate-reuse-followup-20261024/REJECTION.md"
+  },
+  "campaignService": {
+    "MainPID": "1250004",
+    "NRestarts": "0",
+    "ActiveState": "active",
+    "SubState": "running"
+  },
+  "constraints": {
+    "allFiveBudgetCaps": {
+      "maxRunSeconds": 0,
+      "maxTurns": 0,
+      "maxTurnSeconds": 0,
+      "maxTotalTokens": 0,
+      "evaluatorTimeoutSeconds": 0
+    },
+    "leanThreads": 1,
+    "memoryGiB": 32,
+    "fixedPublisherComparator": true,
+    "publisherSolutionAccess": false,
+    "hiddenReasoningAccess": false,
+    "activeFrozenRuntimeModified": false
+  },
+  "measurementScope": "Lean 4.34.1 sealed toy fixture only; not a whole-problem benchmark. Current long-running tasks retain their original frozen runtimes."
+}

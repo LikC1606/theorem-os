@@ -1,5 +1,7 @@
 # Snaky 普通 35 步必胜策略
 
+最新进度：V8 已通过原目标、集成和全目标内核检查；全目标回执 `lean-63766151ffe8a0523a860487`，整批耗时 8188.206 秒，仅三项标准公理。当前固定版本复审中，仍待最终工作区检查与原比较器，尚未计入最终通过数。见[原始全目标回执与复审事件](../native-check-hotspot-20261024/snaky-all-target-review-20261024/README.md)。以下保留早期版本记录。
+
 证明覆盖原题的全局合法策略、35 步获得 Snaky、Maker/Breaker 集合不交与每步棋子数要求。先由 616 行证书建立威胁语义，再组合开局几何，最后构造合法普通策略。最终声明使用原目标名 OAI.SnakyConditional.snaky_winning_strategy_with_legal_states。
 
 完整原题已在固定 Lean v4.34.1 / Mathlib d13f23b723b8a846827a245b89c10fc7d3f11612 下通过模块化内核验证。最终公理输出仅有 propext、Classical.choice、Quot.sound；证明模块无 sorry、新增公理或内核绕过。Challenge.lean 单独保留发布方原题占位，不参与证明模块的 imports。

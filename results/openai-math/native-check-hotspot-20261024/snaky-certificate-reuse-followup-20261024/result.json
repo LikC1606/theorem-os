@@ -1,0 +1,77 @@
+{
+  "writtenAt": "2026-10-24T12:52:18.726740+00:00",
+  "status": "rejected_performance_candidate",
+  "candidateCount": 1,
+  "candidateDescription": "transport qescapestep_11 through qsmall_step11 using the existing exact static coordinate substitution",
+  "baseline": {
+    "result": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/baseline-01-result.json",
+    "actualExitCode": 0,
+    "proofSegmentMs": 340,
+    "wholeProcessSeconds": 10.94116275315173,
+    "outputOleanBytes": 15304,
+    "axioms": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ]
+  },
+  "reuse": {
+    "result": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/reuse-01-result.json",
+    "actualExitCode": -15,
+    "proofSegmentElapsedLowerBoundMs": 150268,
+    "relativeProofWallLowerBound": 441.9647058823529,
+    "wholeProcessSecondsBeforeRejection": 161.0131440809928,
+    "observedCPUSeconds": 155.703471,
+    "completed": false,
+    "outputOleanPresent": false,
+    "kernelAcceptance": false,
+    "timedOut": false,
+    "deliberatelyRejected": true,
+    "parentDirectedTermination": true,
+    "newAxiomsAudit": "unavailable because candidate did not finish"
+  },
+  "sourcePreflight": {
+    "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/source-guard-result.json",
+    "bothOriginalIdentitiesPassed": true,
+    "sameQualifiedDeclarations": true,
+    "allOtherBytesAndTargetBlockPreserved": true,
+    "textualDecideKernelSitesBefore": 718,
+    "textualDecideKernelSitesAfter": 717,
+    "speedupImpliedByStaticCount": false
+  },
+  "compiledContext": {
+    "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-certificate-reuse-followup-20261024/CertificateContext.olean",
+    "sha256": "65f41ac5ecce0d3298d606aea74fc36e72fae860bf30933a7972823fda8ff7b2",
+    "actualExitCode": 0,
+    "matchedCanonicalDeclarations": 45,
+    "repeatedLargeCertificateCompilation": false
+  },
+  "conclusion": "No positive optimization benefit was established. The concrete coordinate-reuse candidate is rejected: its observed synchronous proof wall time already exceeds the completed baseline by more than 441 times. Preserve the original qescapestep_11; do not deliver or promote this replacement.",
+  "limits": [
+    "The replacement never completed, so it is not a verified alternate proof, and no final runtime is claimed.",
+    "The wall-time ratio is a single-run lower bound for this isolated declaration, not an end-to-end Snaky speed estimate.",
+    "The exact tactic responsible inside the replacement was not instrumented or established.",
+    "The canonical and merged whole-target checks were not restarted.",
+    "The source guard is syntactic boundary evidence, not kernel acceptance."
+  ],
+  "minimalAlternativeDirection": {
+    "candidate": "Reuse a completed compiled check only when exact whole-source SHA, pinned environment identity, target query and permitted-axiom evidence match.",
+    "status": "protocol consideration only; not implemented here; no weakening or replacement of final required gates",
+    "sourceEvidence": "The source inventory already shows qtable_valid_probe is proved once and reused by 15 roots, and 615 qmeq proofs concern distinct output equalities. It does not establish a second exact same-type large decide call to remove inside this source."
+  },
+  "constraints": {
+    "addressSpaceGiB": 32,
+    "threads": 1,
+    "maxHeartbeats": 0,
+    "wallLimit": null,
+    "cpuLimit": null,
+    "invocationLimit": null,
+    "allWritesInsideThisNewStage": true,
+    "activeReviewOrOriginalChainModified": false,
+    "runtimeStateQueueModified": false,
+    "existingCacheOrReceiptsModified": false,
+    "mainRepositoryModified": false,
+    "ProducedSolutionRead": false,
+    "additionalLeanRunsAfterRejection": false
+  }
+}

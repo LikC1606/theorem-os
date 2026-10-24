@@ -1,0 +1,39 @@
+{
+  "schema": "fixed-support-source-isolation.v1",
+  "baseline": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/exact-source-integration-reuse-20261024/runtime",
+  "runtime": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/runtime",
+  "baselineFilesChecked": 1309,
+  "frozenChanges": [],
+  "changedExistingFiles": [
+    "out/main/check-lean.js",
+    "out/main/math-solver.js",
+    "src/math/verifier.ts",
+    "src/solver/modules/context.ts",
+    "src/solver/modules/evidence.ts",
+    "tests/solverContext.test.ts",
+    "tests/solverEvidenceReuse.test.ts"
+  ],
+  "sourceDiffFiles": [
+    "src/math/fixedLeanDependencies.ts",
+    "src/math/verifier.ts",
+    "src/solver/modules/evidence.ts",
+    "src/solver/modules/context.ts",
+    "tests/fixedLeanDependencies.test.ts",
+    "tests/fixedLeanDependenciesSealed.test.ts",
+    "tests/solverEvidenceReuse.test.ts",
+    "tests/solverContext.test.ts"
+  ],
+  "regularFilesChecked": 6226,
+  "sharedInodes": [],
+  "symlinks": [],
+  "multipleLinkFiles": [],
+  "pass": true,
+  "baselineExtraOrMissingFiles": [],
+  "addedFiles": [
+    "src/math/fixedLeanDependencies.ts",
+    "tests/fixedLeanDependencies.test.ts",
+    "tests/fixedLeanDependenciesSealed.test.ts"
+  ],
+  "deletedFiles": [],
+  "unexpectedChanges": []
+}

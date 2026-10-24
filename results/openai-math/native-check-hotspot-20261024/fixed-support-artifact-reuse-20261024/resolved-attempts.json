@@ -1,0 +1,23 @@
+{
+  "schema": "fixed-support-resolved-attempts.v1",
+  "finalUnresolvedFailures": [],
+  "attempts": [
+    {
+      "scope": "historical context runner",
+      "source": "prompt-check-result.json",
+      "failure": "Copied .bin wrapper could not resolve dist/cli.js; Bun Vitest startup hit zod ESM/CJS mismatch.",
+      "resolution": "Used the existing Node vitest/vitest.mjs entry. No dependency installation or global changes."
+    },
+    {
+      "scope": "new host-source-filter test fixture",
+      "failure": "Fabricated trusted hashes triggered the existing math_trusted_source_changed preflight.",
+      "resolution": "Created and committed an actual support source, then bound real hashes and the new base commit. Product source protections remain unchanged."
+    },
+    {
+      "scope": "new real Lean 4.34.1 fixture",
+      "failure": "Initial manifest lacked schemaVersion; the external toy module was not registered in Lake require/manifest.",
+      "resolution": "Used schemaVersion 1.2.0 and an actual path package with lakefile.toml, require and package entry. Final test compiled real external .olean and performed seven public formal checks."
+    }
+  ],
+  "passedCountsPolicy": "Only final focused-tests.json (261) and real-fixture-tests.json (1) are current acceptance. Earlier failures and historical 97/104 checks are retained as provenance, not added to that count."
+}

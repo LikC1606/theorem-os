@@ -1,0 +1,44 @@
+{
+  "capturedAt": "2026-10-24T13:06:31.609325+00:00",
+  "statePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/state.json",
+  "stateSHA256": "307337f8cfab91adc62754f74744d7c5fadd01cdbef26dac315edbb0e7bd6ed4",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "phase": "checking",
+  "planVersion": "b61039bd9cc1eface3fa6eb8aae4043220bf430ac9ec673b7a980ab330d2ca11",
+  "tasks": [
+    {
+      "attempts": 0,
+      "parkedRoutes": {},
+      "routeParking": [],
+      "status": "pending",
+      "task": {
+        "dependsOn": [],
+        "groupId": "main",
+        "id": "bridge_full_column_word_injective_a0424391",
+        "kind": "lemma",
+        "objective": "Prove that the full column coordinate word determines a BridgePath with the fixed source, eliminating horizontal-realization multiplicity from a future exact transfer encoding. This is an independently checkable structural sublemma; it does not prove any count, finite-box bound, transfer identity, or summability and does not close strip_growth_below_mu or the original target.",
+        "proofPath": "Submission.lean",
+        "revision": 0,
+        "theoremName": "OAI.PolynomialVacuumBridge.Corridor.bridgePath_eq_of_column_eq",
+        "type": "∀ {h : ℕ} {p q : OAI.PolynomialVacuumBridge.Corridor.BridgePath h}, p.vertices.map (fun v : OAI.PolynomialVacuumBridge.Corridor.Vertex => match v with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) = q.vertices.map (fun v : OAI.PolynomialVacuumBridge.Corridor.Vertex => match v with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) → p = q"
+      }
+    },
+    {
+      "attempts": 0,
+      "parkedRoutes": {},
+      "routeParking": [],
+      "status": "pending",
+      "task": {
+        "dependsOn": [],
+        "groupId": "main",
+        "id": "bridge_column_step_unique_a0424391",
+        "kind": "lemma",
+        "objective": "Prove local uniqueness of an adjacent successor with a given full column code. This is an independently checkable atomic case analysis; it is strictly smaller than full-column-word injectivity and proves no count, finite-box bound, transfer identity, or summability.",
+        "proofPath": "Submission.lean",
+        "revision": 0,
+        "theoremName": "OAI.PolynomialVacuumBridge.Corridor.bridgeColumnStep_unique",
+        "type": "∀ {a b d : OAI.PolynomialVacuumBridge.Corridor.Vertex}, OAI.PolynomialVacuumBridge.Corridor.adjacent a b → OAI.PolynomialVacuumBridge.Corridor.adjacent a d → (match b with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) = (match d with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) → b = d"
+      }
+    }
+  ]
+}

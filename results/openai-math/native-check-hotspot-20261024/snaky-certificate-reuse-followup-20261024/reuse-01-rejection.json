@@ -1,0 +1,14 @@
+{
+  "recordedAt": "2026-10-24T12:50:39.491157+00:00",
+  "candidateSHA256": "9033da73cac4346ae64399fb09201c9fd2a0c013eaec541010b69fc536903753",
+  "pid": 141578,
+  "observedCandidateCPUSeconds": 155.25,
+  "observedProofElapsedLowerBoundMs": 150268,
+  "baselineCompletedProofMs": 340,
+  "reuseCompleted": false,
+  "signal": "SIGTERM",
+  "timedOut": false,
+  "reason": "Reject this concrete performance candidate after the completed baseline cost only 340 ms, while the reused-coordinate proof remains in its synchronous proof segment for multiple minutes. Parent instructed to retain the negative result and end this candidate; no additional full-target compilation or speculative retry. This is deliberate candidate rejection, not a wall/CPU/invocation budget.",
+  "parentInstruction": "If reuse is slower, retain the counterevidence, do not promote to whole-target or delivery, and promptly end this candidate.",
+  "activeReviewOrOriginalChainTouched": false
+}

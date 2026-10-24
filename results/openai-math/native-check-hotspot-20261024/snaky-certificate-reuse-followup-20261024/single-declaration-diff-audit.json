@@ -1,0 +1,30 @@
+[
+  {
+    "label": "canonical",
+    "sourceSHA256": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab",
+    "candidateSHA256": "803b58f1690d2b885b2a0214dc8fa643d2095194f8757c7a14b3e4a13a50affd",
+    "sourceBytes": 968784,
+    "candidateBytes": 969731,
+    "onlyDeclarationChanged": "OAI.SnakyConditional.qescapestep_11",
+    "unchangedHeader": true,
+    "allOtherBytesPreserved": true,
+    "targetFinalBlockPreserved": true,
+    "beforeTextualDecideKernelSites": 718,
+    "afterTextualDecideKernelSites": 717,
+    "withinOneMiBBound": true
+  },
+  {
+    "label": "merged",
+    "sourceSHA256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae",
+    "candidateSHA256": "e079653d2a78f26ac1021c9ef86ec2cdff4ac3dd0fd4d46f083b8ab190b112ab",
+    "sourceBytes": 967683,
+    "candidateBytes": 968630,
+    "onlyDeclarationChanged": "OAI.SnakyConditional.qescapestep_11",
+    "unchangedHeader": true,
+    "allOtherBytesPreserved": true,
+    "targetFinalBlockPreserved": true,
+    "beforeTextualDecideKernelSites": 718,
+    "afterTextualDecideKernelSites": 717,
+    "withinOneMiBBound": true
+  }
+]

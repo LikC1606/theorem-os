@@ -1,0 +1,4 @@
+BaselineCertificate.lean:11:0: warning: Definition `qescapestep_11` is a proposition; use `theorem` instead of `def`
+
+Note: This linter can be disabled with `set_option linter.defProp false`
+'OAI.SnakyConditional.qescapestep_11' depends on axioms: [propext, Classical.choice, Quot.sound]

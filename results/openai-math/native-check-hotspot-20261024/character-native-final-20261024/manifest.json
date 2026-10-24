@@ -1,0 +1,255 @@
+{
+  "schema": "theorem-os.character-native-final-manifest.v1",
+  "directory": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024",
+  "frozenAt": "2026-10-24T12:49:58.715680+00:00",
+  "taskId": "CharacterVarietiesAllSeamsSupport",
+  "runId": "1f3bb9c1-c99f-4fad-b656-8010a82c265b",
+  "status": "evaluated_passed",
+  "files": [
+    {
+      "path": "README.md",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/README.md",
+      "bytes": 5684,
+      "sha256": "d568ae636ab7569bf3ebd29cb8dbfad0dfcf687199cbf01694e552a8114dcc61"
+    },
+    {
+      "path": "accepted-source/Challenge.lean",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/accepted-source/Challenge.lean",
+      "bytes": 900,
+      "sha256": "ebc3129bfb5ef4a47e0de1d89f0f406ef6603df32355bdfbb9ce278627c1a1f1"
+    },
+    {
+      "path": "accepted-source/Submission.lean",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/accepted-source/Submission.lean",
+      "bytes": 795645,
+      "sha256": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3"
+    },
+    {
+      "path": "accepted-source/lake-manifest.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/accepted-source/lake-manifest.json",
+      "bytes": 3571,
+      "sha256": "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829"
+    },
+    {
+      "path": "accepted-source/lakefile.toml",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/accepted-source/lakefile.toml",
+      "bytes": 443,
+      "sha256": "4d10708d086bba27777fdcc3e32a4409c24c70f11e5ba9f1f5a0ea1fa2ea52f6"
+    },
+    {
+      "path": "accepted-source/lean-toolchain",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/accepted-source/lean-toolchain",
+      "bytes": 25,
+      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "path": "archive-origins.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/archive-origins.json",
+      "bytes": 16216,
+      "sha256": "0ae604b58d4f73afb533276556c107b857315dcf552e2cc0b4c47080b4de31d9"
+    },
+    {
+      "path": "events/acceptance-index.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/events/acceptance-index.json",
+      "bytes": 2200,
+      "sha256": "bb56a9f9efba9e4bb7928a97a56db796938485dca7f726615a04b3e253d8790c"
+    },
+    {
+      "path": "events/acceptance.raw-lines.jsonl",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/events/acceptance.raw-lines.jsonl",
+      "bytes": 1579,
+      "sha256": "c636a411ca1d13080ba2b7bad34ab05df71cdbfe97104158ac48312a4a5f197b"
+    },
+    {
+      "path": "fixed-evaluator/command.sh",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/fixed-evaluator/command.sh",
+      "bytes": 2434,
+      "sha256": "8fc5775ca184697301d273e82692d3df19afb9f4442b431c894fe5b0458c0b0f"
+    },
+    {
+      "path": "fixed-evaluator/comparator.runtime-config.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/fixed-evaluator/comparator.runtime-config.json",
+      "bytes": 331,
+      "sha256": "5595b215acb2ae391c990c12bd42200971b3d13a4da2746deb983a7e4e8f9c13"
+    },
+    {
+      "path": "fixed-evaluator/record.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/fixed-evaluator/record.json",
+      "bytes": 12681,
+      "sha256": "758f1534ad947ee844e785c4f3ed1a68c28c5613c5780eac3fbc4d258871f001"
+    },
+    {
+      "path": "fixed-evaluator/stderr-captured.txt",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/fixed-evaluator/stderr-captured.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "fixed-evaluator/stdout-captured.txt",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/fixed-evaluator/stdout-captured.txt",
+      "bytes": 12000,
+      "sha256": "cbc05d0f19adb51e19be9d24216c4adf25fbb17e5deca3e67d7343eeb87ae747"
+    },
+    {
+      "path": "implementation/evaluation.ts",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/implementation/evaluation.ts",
+      "bytes": 3693,
+      "sha256": "2ae89fd28e8cc553370fa3cf6aca18545080e90637c3721037c902c26cec5006"
+    },
+    {
+      "path": "implementation/mathProcess.ts",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/implementation/mathProcess.ts",
+      "bytes": 9454,
+      "sha256": "7bcd06cc307b09022723444cd63d026cdd93e8b8e65694d85da8874ab10a4188"
+    },
+    {
+      "path": "native-verification/batch.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/native-verification/batch.json",
+      "bytes": 32838,
+      "sha256": "d6c1fd518deaaae5f1f1d5aaa9e5dcb4ce197b77c93f466b96b2333ff740f7d9"
+    },
+    {
+      "path": "native-verification/receipt.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/native-verification/receipt.json",
+      "bytes": 15052,
+      "sha256": "b0e47477f393313f7006e76112cde25a2b7f8ff46045e80134bb61d88d7bc4b2"
+    },
+    {
+      "path": "native-verification/stderr-preview.txt",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/native-verification/stderr-preview.txt",
+      "bytes": 11999,
+      "sha256": "f527db3e54cbef46c839e541a778444c086ad8344c0082f52dda8c8db7122900"
+    },
+    {
+      "path": "native-verification/stdout-preview.txt",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/native-verification/stdout-preview.txt",
+      "bytes": 982,
+      "sha256": "cff113683c8fe4107a26003a89216cabbceacae65d1a69ea938891adace6dbe7"
+    },
+    {
+      "path": "official/CharacterVarietiesAllSeamsSupport.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/official/CharacterVarietiesAllSeamsSupport.json",
+      "bytes": 429,
+      "sha256": "c6bc7eb2e8d770e64482e642a8a6f25f020d73a0df5927a0b6b03b835798fe8b"
+    },
+    {
+      "path": "official/CharacterVarietiesAllSeamsSupport.lean",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/official/CharacterVarietiesAllSeamsSupport.lean",
+      "bytes": 900,
+      "sha256": "ebc3129bfb5ef4a47e0de1d89f0f406ef6603df32355bdfbb9ce278627c1a1f1"
+    },
+    {
+      "path": "official/target-map-entry.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/official/target-map-entry.json",
+      "bytes": 3047,
+      "sha256": "9341202004cc5c611d559216ff86b555189c8033794cc9afb7821e6cc953accb"
+    },
+    {
+      "path": "prior-five/CartierChartCompactnessSupport/native-acceptance-update.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/prior-five/CartierChartCompactnessSupport/native-acceptance-update.json",
+      "bytes": 2547,
+      "sha256": "85435156e3528624bf577a9acfd3f1f8eedd3bba1931120c1b14914c69b84447"
+    },
+    {
+      "path": "prior-five/HadamardCubeFiber/native-acceptance-update.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/prior-five/HadamardCubeFiber/native-acceptance-update.json",
+      "bytes": 2071,
+      "sha256": "91976b292e30c50804cfe034b100a0c6c81e660746eeae638b7bbfa09287627a"
+    },
+    {
+      "path": "prior-five/SnakyCertificate/native-acceptance-audit.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/prior-five/SnakyCertificate/native-acceptance-audit.json",
+      "bytes": 2166,
+      "sha256": "af631397a551f470f8da8d0064293f6227ba91679abbdfe502f27b6f7e2fb7d2"
+    },
+    {
+      "path": "prior-five/SnakyCertificate/native-terminal-snapshot-manifest.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/prior-five/SnakyCertificate/native-terminal-snapshot-manifest.json",
+      "bytes": 3561,
+      "sha256": "4f72d21ea970b2430ffdecee1bc745198af74b274b691df05091ba461a7713b6"
+    },
+    {
+      "path": "prior-five/SurfaceConeCandidateSupport/native-acceptance-update.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/prior-five/SurfaceConeCandidateSupport/native-acceptance-update.json",
+      "bytes": 8695,
+      "sha256": "488770f54fb34094be08f0a4d35041b645433998efdae8a7b8013e82f244d553"
+    },
+    {
+      "path": "prior-five/TruffetCounterexample/native-acceptance-update.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/prior-five/TruffetCounterexample/native-acceptance-update.json",
+      "bytes": 14357,
+      "sha256": "481aa0ec696365e6ba48937f0a2af352e2cd58dd970d74f4b64839eb86440db3"
+    },
+    {
+      "path": "raw/active-problem.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/raw/active-problem.json",
+      "bytes": 7650,
+      "sha256": "24511f4ac2a724d51aa26cef2ee284160a6915429c94360442692a62e0c9ca0b"
+    },
+    {
+      "path": "raw/build.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/raw/build.json",
+      "bytes": 465,
+      "sha256": "7528c4ffbc467eeae89ef74cd4d94cbb402ee849d5c26283a74e3d8fa519a80b"
+    },
+    {
+      "path": "raw/launch.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/raw/launch.json",
+      "bytes": 4360,
+      "sha256": "5e241be06f3ead78c96e8587f6a240ebd12d099d856b716a9bc226282cd72131"
+    },
+    {
+      "path": "raw/preparation.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/raw/preparation.json",
+      "bytes": 4924,
+      "sha256": "33180a811171caa97e3761fd52df8dbc55110950b3941a13803b77186adecbf4"
+    },
+    {
+      "path": "raw/result.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/raw/result.json",
+      "bytes": 14161,
+      "sha256": "5880abc4bac55e30bd543ca009fea19da8704601aa86f7268686144d7a5d7fce"
+    },
+    {
+      "path": "raw/resume.log",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/raw/resume.log",
+      "bytes": 57295,
+      "sha256": "f7128fc8e998190452a4a4f0cade0a93bc456ca8290ed914d388d71086696e7e"
+    },
+    {
+      "path": "raw/startup.log",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/raw/startup.log",
+      "bytes": 42927,
+      "sha256": "20054ca3bce96d0e84a893b29885ed77214ea57d4d81b0b2f209b0670d3c3c95"
+    },
+    {
+      "path": "raw/state.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/raw/state.json",
+      "bytes": 2353888,
+      "sha256": "4f9d25ebfb5e0e63cb2b51184929a4599d869904f402e24c866689952f511edf"
+    },
+    {
+      "path": "raw/task.md",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/raw/task.md",
+      "bytes": 751,
+      "sha256": "b438cba6a8ca8773fb691147835f4cc26646a9cd8d5bee47d077bb8e3a9b0977"
+    },
+    {
+      "path": "raw/tools-manifest.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/raw/tools-manifest.json",
+      "bytes": 758,
+      "sha256": "7eded4a0ed533eaf6b1520ed6d5b8f2187d995586164abfd00a6f6177f31360e"
+    },
+    {
+      "path": "verification.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/character-native-final-20261024/verification.json",
+      "bytes": 6768,
+      "sha256": "8848ae03a09dcd38b00e645aae26fa1d420f2d13acdcdd5b7e07f285b20a0f73"
+    }
+  ],
+  "manifestExclusions": [
+    "manifest.json",
+    "SHA256SUMS"
+  ],
+  "checksumPolicy": "SHA256SUMS checks all payload files and manifest.json; SHA256SUMS excludes itself."
+}

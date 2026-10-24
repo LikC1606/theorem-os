@@ -1,0 +1,56 @@
+{
+  "schema": "theorem-os.native-accepted-proof-audit.v1",
+  "observedAt": "2026-10-22T19:47:44.859432+00:00",
+  "target": "CartierChartCompactnessSupport",
+  "nativeAccepted": true,
+  "runId": "8e9999f3-c1a1-4bfd-b4ef-5cb62364d34f",
+  "resultStatus": "evaluated_passed",
+  "resultPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-environment-adapter-20261023/native-followup/result.json",
+  "resultSha256": "d699730f7959681014523afc4def558a7abe029f83157af6331461e4c39ef8f2",
+  "statePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-environment-adapter-20261023/native-followup/result.json.runtime/state.json",
+  "acceptedCommit": "1dbd33666801d79b0bc99be6a8e719409e86795e",
+  "submissionSha256": "7e6a54b69a536f63b9f36a33cf616644f03d107f22e586bc59ddef1c55f6b797",
+  "submissionBytes": 1665,
+  "submissionPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/cartier-environment-adapter-20261023/native-followup/workspace/generated/problem/Submission.lean",
+  "committedSourceMatchesWorkspace": true,
+  "reviewStatus": "accepted",
+  "reviewCommit": "1dbd33666801d79b0bc99be6a8e719409e86795e",
+  "allOriginalTargetsKernelVerified": true,
+  "targetCount": 1,
+  "kernelReceipts": [
+    {
+      "theoremName": "OAI.CartierSections.isCompact_closedChartFieldRetraction_cone",
+      "status": "kernel_verified",
+      "receiptId": "lean-85632aa9c9f86f8dca932c2f",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "targetCommit": "1dbd33666801d79b0bc99be6a8e719409e86795e"
+    }
+  ],
+  "publisherComparator": {
+    "status": "passed",
+    "method": "external-command",
+    "exitCode": 0,
+    "sandboxBackend": "bwrap",
+    "containsSuccessMessage": true,
+    "stderr": "",
+    "originalConfigSha256": "242cadf7dd3f4675b1db7043075221e2044ddc7786837ed97971138a31b62c0f"
+  },
+  "completionSignalValid": true,
+  "solverReadyReceiptValid": true,
+  "originalCampaignInputsUnchanged": true,
+  "attribution": "external independently verified assistance delivered through native queueRunEdit; not from-scratch model discovery",
+  "archiveOwnership": "parent agent",
+  "officialHostedAcceptance": false,
+  "originalCampaignDependencyBlockRetained": true,
+  "environment": {
+    "name": "openai-math-cartier-reviewed-v1",
+    "digest": "a8cdd8e06146d3a9695fd194f25aa8aeafc72d6ac7b6f819eb2769185b267cc7",
+    "buildId": "2bce5bbc-ad37-4ebb-af79-335f835810e3",
+    "supportModules": 12,
+    "trustedSourceGuardUnchanged": true
+  }
+}

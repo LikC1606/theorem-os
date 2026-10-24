@@ -1,0 +1,31 @@
+{
+  "observedAt": "2026-10-24T13:00:30.903968+00:00",
+  "command": [
+    "node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "tests/solverContext.test.ts",
+    "tests/contextCompiler.test.ts"
+  ],
+  "testFilesPassed": 2,
+  "testsPassed": 97,
+  "testsFailed": 0,
+  "exitCode": 0,
+  "durationSeconds": 1.51,
+  "sourceFileSHA256": "a2de1d1c5092d9879ba61ab1e212a040e02bc3dbad8e4facc44b51745de115fe",
+  "setupAttempts": [
+    {
+      "command": "bun x vitest run tests/solverContext.test.ts tests/contextCompiler.test.ts",
+      "exitCode": 1,
+      "reason": "copied regular .bin wrapper resolves wrong relative dist/cli.js path"
+    },
+    {
+      "command": "bun node_modules/vitest/vitest.mjs run tests/solverContext.test.ts tests/contextCompiler.test.ts",
+      "exitCode": 1,
+      "reason": "Bun Vitest ESM/CJS zod import startup fails; no tests collected"
+    }
+  ],
+  "newTestsAdded": false,
+  "runtimeDependenciesChanged": false,
+  "modelOrLeanInvocations": 0
+}

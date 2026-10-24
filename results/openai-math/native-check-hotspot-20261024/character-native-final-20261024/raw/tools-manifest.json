@@ -1,0 +1,21 @@
+{
+  "schema": "deepscientist.mathematics.lean-eval-tools/v1",
+  "tools": {
+    "landrun": {
+      "commit": "5ed4a3db3a4ad930d577215c6b9abaa19df7f99f",
+      "sha256": "1a3565079f60260d9f80fd958e2e41dea5c682ce656b9f5b248f20eb3cb96fe3"
+    },
+    "lean4export": {
+      "commit": "15f6055e299ad5b89345e533cc2192f4cc00f659",
+      "sha256": "41b768b7a540c0efd20246627231d7a2a1488ba2e656ed5082978d8debe87cbb"
+    },
+    "comparator": {
+      "commit": "71b52ec29e06d4b7d882726553b1ceb99a2499e0",
+      "sha256": "104ea0297ecd090486b15eb8f2be590318eb58ccd552c2779b22f64c318070f1"
+    },
+    "nanoda_bin": {
+      "commit": "68d5ca9db226849b41a6fff59d796ff19d0a8840",
+      "sha256": "72402d61fcede6c36ecf6f8086fc56c4a7d96bf7ae8fdb703db0abe8c2a6224f"
+    }
+  }
+}

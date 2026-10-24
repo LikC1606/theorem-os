@@ -1,0 +1,41 @@
+{
+  "schema": "theorem-os.archive-manifest.v1",
+  "capturedAt": "2026-10-24T13:12:10.133352+00:00",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 1015,
+      "sha256": "93083d43935578372107a180450f9469cc3376925cb634223f0e98956124b04b"
+    },
+    {
+      "path": "native-advisory-applied-readback.json",
+      "bytes": 2467,
+      "sha256": "e28566fcb63f00d8c7fab10140f82062cfcdd27f011acf0fab0a0a2203ddd3ee"
+    },
+    {
+      "path": "preparation.json",
+      "bytes": 63142,
+      "sha256": "8981455f3f1df84d1388af6347a63bbc02d1479af16b87e28741811f490b8e16"
+    },
+    {
+      "path": "queue-column-adapters.ts",
+      "bytes": 4797,
+      "sha256": "b486931f66b102371bc2ad60e57d5c91c572045e4934d0c87f068cdfb11ba477"
+    },
+    {
+      "path": "queue-receipt.json",
+      "bytes": 402,
+      "sha256": "53356cf0f32f05e998ba49ceb002ca8b0b5b6ae498cd0d0dbef5f25015beefba"
+    },
+    {
+      "path": "state-after.json",
+      "bytes": 892969,
+      "sha256": "9a2707de6b656f720518595f343cc6bfaae43a961fa647454f409d314c586ed3"
+    },
+    {
+      "path": "state-before.json",
+      "bytes": 842459,
+      "sha256": "20d2e06b5cb10c855c2906708785af688ccd30ee3b04e8232df5badf8781d081"
+    }
+  ]
+}

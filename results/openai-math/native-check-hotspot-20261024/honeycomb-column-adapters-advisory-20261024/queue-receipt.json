@@ -1,0 +1,12 @@
+{
+  "capturedAt": "2026-10-24T13:09:52.666Z",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "editId": "honeycomb-column-adapters-e77fffa42afb",
+  "result": {
+    "id": "honeycomb-column-adapters-e77fffa42afb",
+    "status": "queued",
+    "baseVersion": "b61039bd9cc1eface3fa6eb8aae4043220bf430ac9ec673b7a980ab330d2ca11"
+  },
+  "localKernelVerified": true,
+  "nativeTaskProofAcceptance": false
+}

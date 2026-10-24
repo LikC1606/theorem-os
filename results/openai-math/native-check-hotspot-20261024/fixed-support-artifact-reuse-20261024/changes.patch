@@ -1,0 +1,710 @@
+--- /dev/null
++++ b/src/math/fixedLeanDependencies.ts
+@@ -0,0 +1,158 @@
++import fs from 'node:fs';
++import os from 'node:os';
++import path from 'node:path';
++import { LAKE_CONFIGURATION_FILES, mathLocalModuleBuildOrder } from './mathConstructionSources';
++import { resolveMathProofEnvironment } from './mathProofEnvironment';
++import { canonicalMathJson, mathDigest, readMathFile } from './mathRuntimeIo';
++import { assertMathCanonicalPath } from './paths';
++
++type Module = { file: string; sourceRoot: string; module: string };
++type Input = { projectRoot: string; modules: readonly Module[]; trustedFiles: Readonly<Record<string, string>>;
++  env: NodeJS.ProcessEnv; toolIdentity: (projectRoot: string) => string | undefined; signal?: AbortSignal };
++type Compilation = { started: boolean; exitCode: number | null; timedOut: boolean; aborted?: boolean;
++  errorCode?: string; stdout: string; stderr: string; durationMs: number };
++type Artifact = { file: string; sha256: string | null; bytes: number };
++type Entry = { directory: string; artifacts: Artifact[]; bytes: number; stdout: string; stderr: string };
++
++const outputs = (module: Module) => {
++  const output = `.lake/build/lib/lean/${path.posix.relative(module.sourceRoot, module.file).replace(/\.lean$/u, '.olean')}`;
++  return [output, output + '.private', output + '.server', output.replace(/\.olean$/u, '.ir'), output.replace(/\.olean$/u, '.ir.sig')];
++};
++
++function snapshot(input: Input) {
++  if (!input.modules.length || input.env.LEAN_PATH?.trim() || input.env.LEAN_SYSROOT?.trim()) return;
++  // The supported task environment uses a frozen TOML configuration, not an executable Lake script.
++  if (!fs.existsSync(path.join(input.projectRoot, 'lakefile.toml')) || fs.existsSync(path.join(input.projectRoot, 'lakefile.lean'))) return;
++  const sealed = resolveMathProofEnvironment(input.projectRoot, input.env), tools = input.toolIdentity(input.projectRoot);
++  if (!sealed || !tools) return;
++  const closure = mathLocalModuleBuildOrder(input.projectRoot, input.modules.map(module => module.file));
++  if (canonicalMathJson(closure) !== canonicalMathJson(input.modules)) return;
++  const sources = input.modules.map(module => {
++    const bytes = readMathFile(path.join(input.projectRoot, module.file)).bytes;
++    if (mathDigest(bytes) !== input.trustedFiles[module.file]) throw new Error('math_fixed_dependency_source_not_trusted');
++    return { ...module, bytes, sha256: mathDigest(bytes) };
++  });
++  const files = sources.flatMap(outputs);
++  if (new Set(files).size !== files.length) return;
++  const configuration = LAKE_CONFIGURATION_FILES.filter(file => file !== '.lake/package-overrides.json').map(file => {
++    try { return { file, bytes: readMathFile(path.join(input.projectRoot, file)).bytes }; }
++    catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { file, bytes: null }; throw error; }
++  });
++  const environment = Object.fromEntries(['PATH', 'LANG', 'LC_ALL', 'ELAN_HOME', 'LAKE_HOME', 'LEAN_PATH', 'LEAN_SYSROOT',
++    'DEEPSCIENTIST_MATH_SANDBOX_BACKEND', 'DEEPSCIENTIST_MATH_SANDBOX_IMAGE', 'DEEPSCIENTIST_TEST_LEAN_AXIOMS']
++    .map(name => [name, input.env[name] ?? null]));
++  const key = mathDigest(canonicalMathJson({ schema: 'theorem-os.fixed-lean-dependencies.v1',
++    profile: 'sealed-dependency-only;lean-j1-R-o;no-target-sources', packages: sealed.identity, tools, environment,
++    configuration: configuration.map(({ file, bytes }) => [file, bytes && mathDigest(bytes)]),
++    sources: sources.map(({ file, sourceRoot, module, sha256 }) => ({ file, sourceRoot, module, sha256 })) }));
++  return { key, sources, configuration };
++}
++
++/** Process-owned dependency artifacts. No worker path or serialized metadata can publish an entry. */
++export class FixedLeanDependencyCache {
++  private readonly entries = new Map<string, Entry>();
++  private root?: string;
++  private bytes = 0;
++  constructor(private readonly maxBytes = 512 * 1024 * 1024) {}
++  private readonly cleanup = () => { if (this.root) fs.rmSync(this.root, { recursive: true, force: true }); };
++  dispose() { this.cleanup(); this.root = undefined; this.entries.clear(); this.bytes = 0; process.off('exit', this.cleanup); }
++  private directory() {
++    if (!this.root) {
++      this.root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'math-fixed-dependencies-')));
++      fs.chmodSync(this.root, 0o700); process.once('exit', this.cleanup);
++    }
++    return fs.mkdtempSync(path.join(this.root, 'entry-'));
++  }
++  private restore(entry: Entry, project: string) {
++    // Read and verify the complete set before exposing any artifact to a target sandbox.
++    const files = entry.artifacts.map(artifact => {
++      if (artifact.sha256 === null) return { ...artifact, data: null };
++      const data = readMathFile(path.join(entry.directory, artifact.file), artifact.bytes).bytes;
++      if (data.length !== artifact.bytes || mathDigest(data) !== artifact.sha256) throw new Error('math_fixed_dependency_artifact_changed');
++      return { ...artifact, data };
++    });
++    for (const { file, data } of files) {
++      const output = path.join(project, file); assertMathCanonicalPath(output);
++      if (data) { fs.mkdirSync(path.dirname(output), { recursive: true }); fs.writeFileSync(output, data, { mode: 0o600 }); }
++      else fs.rmSync(output, { force: true });
++    }
++  }
++  private clearRestored(input: Input) {
++    for (const file of input.modules.flatMap(outputs)) {
++      const output = path.join(input.projectRoot, file);
++      assertMathCanonicalPath(path.dirname(output)); fs.rmSync(output, { force: true });
++    }
++  }
++  async prepare<T extends Compilation>(input: Input, compile: (project: string) => Promise<T>): Promise<
++    { kind: 'ready'; hit: boolean; stdout: string; stderr: string; durationMs: number } |
++    { kind: 'failed'; result: T } | undefined> {
++    input.signal?.throwIfAborted();
++    let before: ReturnType<typeof snapshot>;
++    try { before = snapshot(input); } catch { return; }
++    if (!before) return;
++    const cached = this.entries.get(before.key);
++    if (cached) {
++      try {
++        this.restore(cached, input.projectRoot);
++        if (snapshot(input)?.key !== before.key) { this.clearRestored(input); return; }
++        this.entries.delete(before.key); this.entries.set(before.key, cached);
++        return { kind: 'ready', hit: true, stdout: cached.stdout, stderr: cached.stderr, durationMs: 0 };
++      } catch {
++        try { this.clearRestored(input); } catch { /* The original compiler remains authoritative. */ }
++        this.entries.delete(before.key); this.bytes -= cached.bytes;
++        try { fs.rmSync(cached.directory, { recursive: true, force: true }); } catch { /* Retried at process exit. */ }
++      }
++    }
++    let directory: string | undefined, retained = false, restoring = false;
++    try {
++      directory = this.directory();
++      const project = path.join(directory, 'project');
++      for (const { file, bytes } of [...before.configuration, ...before.sources]) if (bytes) {
++        const output = path.join(project, file); fs.mkdirSync(path.dirname(output), { recursive: true }); fs.writeFileSync(output, bytes);
++      }
++      const result = await compile(project);
++      input.signal?.throwIfAborted();
++      if (result.exitCode !== 0 || result.timedOut || result.aborted || !result.started || result.errorCode) return { kind: 'failed', result };
++      if (snapshot(input)?.key !== before.key || snapshot({ ...input, projectRoot: project })?.key !== before.key) return;
++      const artifacts: Artifact[] = [];
++      for (const module of input.modules) for (const file of outputs(module)) {
++        try {
++          const source = path.join(project, file); assertMathCanonicalPath(source);
++          const data = readMathFile(source).bytes;
++          const output = path.join(directory, file); fs.mkdirSync(path.dirname(output), { recursive: true }); fs.writeFileSync(output, data, { mode: 0o400 });
++          artifacts.push({ file, sha256: mathDigest(data), bytes: data.length });
++        } catch (error) {
++          if ((error as NodeJS.ErrnoException).code !== 'ENOENT' || file.endsWith('.olean')) throw error;
++          artifacts.push({ file, sha256: null, bytes: 0 });
++        }
++      }
++      const entry: Entry = { directory, artifacts, bytes: artifacts.reduce((sum, item) => sum + item.bytes, 0), stdout: result.stdout, stderr: result.stderr };
++      restoring = true;
++      this.restore(entry, input.projectRoot);
++      if (snapshot(input)?.key !== before.key) { this.clearRestored(input); return; }
++      fs.rmSync(project, { recursive: true, force: true });
++      if (entry.bytes <= this.maxBytes) {
++        const replaced = this.entries.get(before.key);
++        if (replaced) {
++          this.entries.delete(before.key); this.bytes -= replaced.bytes;
++          fs.rmSync(replaced.directory, { recursive: true, force: true });
++        }
++        while (this.entries.size && this.bytes + entry.bytes > this.maxBytes) {
++          const [key, oldest] = this.entries.entries().next().value!;
++          this.entries.delete(key); this.bytes -= oldest.bytes; fs.rmSync(oldest.directory, { recursive: true, force: true });
++        }
++        this.entries.set(before.key, entry); this.bytes += entry.bytes; retained = true;
++      }
++      return { kind: 'ready', hit: false, stdout: entry.stdout, stderr: entry.stderr, durationMs: result.durationMs };
++    } catch (error) {
++      if (input.signal?.aborted) throw error;
++      // Artifact reuse is optional. The caller still compiles the complete closure on a miss.
++      if (restoring) try { this.clearRestored(input); } catch { /* The original compiler remains authoritative. */ }
++      return;
++    } finally {
++      if (!retained && directory) try { fs.rmSync(directory, { recursive: true, force: true }); } catch { /* Retried at process exit. */ }
++    }
++  }
++}
++
++export const fixedLeanDependencyCache = new FixedLeanDependencyCache();
+--- a/src/math/verifier.ts
++++ b/src/math/verifier.ts
+@@ -27,6 +27,7 @@
+ import { leanReferenceCommands, parseLeanReferences, type LeanDeclarationReferences } from './leanReferences';
+ import { leanDeclarationContextCommands } from './leanSource';
+ import { withVerifierCheckout, type VerifierCheckoutCleanupFailure } from './verifierCheckout';
++import { fixedLeanDependencyCache } from './fixedLeanDependencies';
+ 
+ export type MathematicsVerifierBatchItem = {
+   id?: string;
+@@ -66,6 +67,8 @@
+   onEvent?: (event: MathematicsVerificationEvent) => void;
+   /** Compile project-local imports in the disposable checkout without rebuilding packages. */
+   prepareLocalDependencies?: boolean;
++  /** Host-frozen support source hashes, excluding every solver-owned file. Never accepted from a worker. */
++  trustedLocalDependencyFiles?: Readonly<Record<string, string>>;
+   /** Restrict source staging to construction files while preserving verifier source checks. */
+   constructionSourcesOnly?: boolean;
+   /** Exact closed type checked outside the source section, inline or after a module import. */
+@@ -2188,19 +2191,40 @@
+     processResult = await withLeanProcessSlot(async () => {
+       const availableMs = batchDeadlineAt - Date.now();
+       if (availableMs < MIN_TIMEOUT_MS) throw new FormalVerificationBatchDeadlineError();
+-      const modulesToBuild = helperModule ? localModules : localModules?.slice(0, -1);
+-      // Keep dependency compilation and declaration queries under one sandbox
+-      // invocation, so the shared compiler lock covers the entire check.
++      const deadlineAt = Date.now() + Math.min(requestedTimeoutMs, availableMs);
++      let modulesToBuild = helperModule ? localModules : localModules?.slice(0, -1);
++      const quote = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`;
++      const buildCommands = (modules: NonNullable<typeof localModules>) => modules.map(module => {
++        const output = `.lake/build/lib/lean/${path.posix.relative(module.sourceRoot, module.file).replace(/\.lean$/u, '.olean')}`;
++        return `mkdir -p ${quote(path.posix.dirname(output))}\nlean -j1 -R ${quote(module.sourceRoot)} -o ${quote(output)} ${quote(module.file)} 1>&2`;
++      }).join('\n');
++      const outputLimit = MATH_PROCESS_OUTPUT_LIMIT * Math.min(64, verifiableItems.length);
++      const dependencies = localModules?.slice(0, -1);
++      const requestedProofs = new Set(request.items.map(item => path.resolve(verificationProjectRoot, item.proofPath)));
++      const support = !options.verifierCommandPath && options.trustedLocalDependencyFiles && dependencies?.length &&
++        dependencies.every(module => !requestedProofs.has(path.resolve(verificationProjectRoot, module.file)))
++        ? await fixedLeanDependencyCache.prepare({ projectRoot: verificationProjectRoot, modules: dependencies,
++          trustedFiles: options.trustedLocalDependencyFiles, env: runtimeEnvironment, signal: options.signal,
++          toolIdentity: root => formalVerificationToolIdentity(root, runtimeEnvironment) }, async project => {
++          const packages = seedDetachedLakeCache(verificationProjectRoot, project, runtimeEnvironment);
++          return runLeanSandboxed({ checkoutRoot: project, projectRelative: '.', command: verifierCommand,
++            args: ['env', '/bin/sh', '-ceu', buildCommands(dependencies)], env: runtimeEnvironment,
++            sandboxCapability: context.sandboxCapability, signal: options.signal,
++            timeoutMs: Math.max(1, deadlineAt - Date.now()), outputLimit, lakePackagesPath: packages });
++        }) : undefined;
++      if (support?.kind === 'failed') return support.result;
++      if (support?.kind === 'ready') {
++        modulesToBuild = helperModule ? localModules!.slice(-1) : [];
++        const supportStdout = preview(support.stdout), supportStderr = preview(support.stderr);
++        if (supportStdout) diagnostic('stdout', 'info', supportStdout);
++        if (supportStderr) diagnostic('stderr', 'warning', supportStderr);
++      }
++      // The slot still covers dependency preparation, a fresh target compilation and the declaration query.
+       let args = lakeFile ? ['env', 'lean', '-j', '1', verificationPath] : ['-j', '1', verificationPath];
+       if (modulesToBuild?.length) {
+-        const quote = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`;
+-        const commands = modulesToBuild.map(module => {
+-          const output = `.lake/build/lib/lean/${path.posix.relative(module.sourceRoot, module.file).replace(/\.lean$/u, '.olean')}`;
+-          return `mkdir -p ${quote(path.posix.dirname(output))}\nlean -j1 -R ${quote(module.sourceRoot)} -o ${quote(output)} ${quote(module.file)} 1>&2`;
+-        }).join('\n');
+-        args = ['env', '/bin/sh', '-ceu', `${commands}\nexec lean -j1 ${quote(verificationPath)}`];
++        args = ['env', '/bin/sh', '-ceu', `${buildCommands(modulesToBuild)}\nexec lean -j1 ${quote(verificationPath)}`];
+       }
+-      return runLeanSandboxed({
++      const result = await runLeanSandboxed({
+         checkoutRoot: checkoutRoot,
+         projectRelative: relativeProjectRoot,
+         command: verifierCommand,
+@@ -2208,10 +2232,12 @@
+         env: runtimeEnvironment,
+         sandboxCapability: context.sandboxCapability,
+         signal: options.signal,
+-        timeoutMs: Math.min(requestedTimeoutMs, availableMs),
+-        outputLimit: MATH_PROCESS_OUTPUT_LIMIT * Math.min(64, verifiableItems.length),
++        timeoutMs: Math.max(1, deadlineAt - Date.now()),
++        outputLimit,
+         lakePackagesPath,
+       });
++      if (support?.kind !== 'ready') return result;
++      return { ...result, durationMs: support.durationMs + result.durationMs };
+     }, options.signal);
+   } catch (error) {
+     if (error instanceof FormalVerificationBatchDeadlineError) {
+--- a/src/solver/modules/evidence.ts
++++ b/src/solver/modules/evidence.ts
+@@ -22,6 +22,9 @@
+ 
+ const solverSourceDigest = (problem: SolverProblem, worktree: string) => mathDigest(canonicalMathJson(problem.ownedFiles
+   .map(file => [file, mathDigest(fs.readFileSync(path.join(worktree, problem.projectRelative, file)))])));
++
++const fixedSupportSources = (problem: SolverProblem) => Object.fromEntries(Object.entries(problem.trustedFiles)
++  .filter(([file]) => file.endsWith('.lean') && !problem.ownedFiles.includes(file)));
+ 
+ /** Reuse binds a recorded check to the current files as well as its committed tree. */
+ export function solverProofIsCurrent(problem: SolverProblem, worktree: string, check: ProofCheck): boolean {
+@@ -105,7 +108,8 @@
+   const packages = path.join(sourceWorktree, problem.projectRelative, '.lake', 'packages');
+   if (fs.existsSync(packages)) bindLeanPackages(projectRoot, packages);
+   const { timeoutMs, ...execution } = options;
+-  const evidence = await checkProofEvidence({ projectRoot, targetCommit: commit, timeoutMs, items }, execution);
++  const evidence = await checkProofEvidence({ projectRoot, targetCommit: commit, timeoutMs, items },
++    { ...execution, trustedLocalDependencyFiles: fixedSupportSources(problem) });
+   options.signal?.throwIfAborted();
+   return { ...evidence, attributions: attributeProofEvidence(evidence.verification, commit, items) };
+ }
+@@ -136,7 +140,8 @@
+     items: problem.targets.map(target => ({ proofPath: target.proofPath, theoremName: target.theoremName,
+       expectedSourceDeclarationHash: target.declarationHash, statementHash: problem.contract.statementHash,
+       leanStatementHash: problem.contract.leanStatementHash, claim: 'statement' as const })) },
+-  { env: environment.env, signal, prepareLocalDependencies: problem.kind === 'lean-eval', collectDeclarationReferences: true });
++  { env: environment.env, signal, prepareLocalDependencies: problem.kind === 'lean-eval', collectDeclarationReferences: true,
++    trustedLocalDependencyFiles: fixedSupportSources(problem) });
+   // Advisory scratch and diagnostic logs stay in the worker. The strict verifier receives
+   // only the fixed commit and the same pinned packages, without weakening its clean-tree gate.
+   const evidence = git(worktree, ['status', '--porcelain=v1', '--untracked-files=all'])
+--- a/src/solver/modules/context.ts
++++ b/src/solver/modules/context.ts
+@@ -6,7 +6,7 @@
+ import { mathematicsRuntimeInstruction } from '../../math/mathRuntimeEnvironment';
+ import type { SolverRunState } from '../archive';
+ import { committedSource, type SolverProblem } from '../problem';
+-import type { ProofCheck } from './evidence';
++import { proofReceiptsMatch, type ProofCheck } from './evidence';
+ import { solverProofFeedback, type SolverFailure } from '../feedback';
+ import { assignmentDeliveryFile, leadPlanDeliveryFile, isFeasibilityReview, taskGroup, taskVersion, type CooperativeAction } from '../tasks';
+ import type { CooperationState } from '../cooperation';
+@@ -154,12 +154,27 @@
+     tasks: cooperation?.tasks.map(node => node.task) ?? task.targets.map((target, index) => ({ id: `original_goal_${index + 1}`,
+       kind: 'goal' as const, revision: 0, objective: `Prove ${target.theoremName}`, dependsOn: [], ...target })),
+   }) : [];
++  const review = access.assignment?.kind === 'review' ? access.assignment : undefined;
++  const reviewCheck = review && task.targets.length ? [state.check, ...(state.workers ?? []).map(worker => worker.check)]
++    .find(check => check?.passed && check.commit === review.seedCommit && check.sourceDigest === review.sourceDigest &&
++      proofReceiptsMatch(check.verification, review.seedCommit, task.targets.map(target => ({
++        proofPath: target.proofPath, theoremName: target.theoremName, expectedSourceDeclarationHash: target.declarationHash,
++        statementHash: task.contract.statementHash, leanStatementHash: task.contract.leanStatementHash })))) : undefined;
++  const reviewEvidence: ContextSection[] = reviewCheck ? [{ id: 'fixed-candidate-kernel-evidence', kind: 'sources',
++    text: 'Recorded kernel evidence matching this fixed review commit and source digest (not replayed; grants no acceptance):\n' +
++      JSON.stringify({ commit: reviewCheck.commit, sourceDigest: reviewCheck.sourceDigest,
++        status: reviewCheck.verification.status, targetCommit: reviewCheck.verification.targetCommit,
++        receipts: reviewCheck.verification.results.map(result => ({ receiptId: result.receiptId,
++          theoremName: result.theoremName, proofPath: result.proofPath, proofHash: result.proofHash,
++          sourceDeclarationHash: result.sourceDeclarationHash, status: result.status, axioms: result.axioms,
++          goalsRemaining: result.goalsRemaining, sorryCount: result.sorryCount, admitCount: result.admitCount,
++          checkedAt: result.checkedAt })) }) }] : [];
+   const compilation = { problem: task, cooperation, action: access.assignment, taskText: access.taskText,
+     feedback: message.startsWith(originalProblem) ? message.slice(originalProblem.length).trim() || undefined : message, checkpoint,
+     frozenContexts: readFrozenContexts(task, access),
+     maxContextBytes: access.maxContextBytes, maxOptionalContextBytes: access.maxOptionalContextBytes,
+     environmentDigest: state.environmentDigest,
+-    ...(continuation ? { mandatory: [continuationContextSection(continuation, command, task.projectRelative)] } : {}),
++    mandatory: [...(continuation ? [continuationContextSection(continuation, command, task.projectRelative)] : []), ...reviewEvidence],
+     optional: [...residualSections, ...knowledgeSections, ...applicationSections] };
+   const compiled = access.assignment && cooperation ? buildCooperativeContext(task, cooperation, bundle, access.assignment,
+     compilation, state.workers) : { ...bundle, ...compileTaskContext({ ...compilation, instructions }) };
+@@ -232,7 +247,7 @@
+     ? 'Once a complete plan has useful executable work, save the full current graph and return promptly so peers can start it. Delegate unresolved library or mathematical searches as research tasks to eligible Researchers or the Engineer. For new, unstarted helpers that need no worker-specific context, omit ownerId so eligible peers can claim them. Keep explicit reservations when needed; removing ownerId never releases a saved assignment. Before adding work, inspect ready tasks reserved by ownerId to a busy worker while an eligible generalist is idle. Explicitly reassign an unstarted, unassigned task through the complete plan when useful, preserving its mathematical contract. Preserve route gates, group scope, independent reviewer eligibility and running assignments; an idle Engineer can do research while its original goal waits on a genuine route prerequisite. Apply this on every decision, including later replanning. Include every original target and preserve checked task contracts and active independent task definitions in the single math-plan JSON fence in RESEARCH.md. Add only mathematically useful executable tasks.\n'
+     : '';
+   const rules = action.kind === 'review'
+-    ? 'You are the Independent Reviewer. Leave Lean sources unchanged. Check this fixed proof against the original question, assumptions and Lean evidence. Write one JSON object in RESEARCH.md: {"verdict":"accepted|changes_requested"}. Optional summary and evidenceRefs explain the decision.\n'
++    ? 'You are the Independent Reviewer. Leave Lean sources unchanged. Check this fixed proof against the original question, assumptions and Lean evidence. Inspect the exact seedCommit/sourceDigest, target statements, hypotheses, proof dependencies and source-matched kernel receipts first. Use those receipts as evidence for the already checked bytes; focus your independent review on the mathematical claim, assumptions and applicability. Run additional Lean diagnostics only to resolve a concrete missing check, source mismatch or suspected defect. Do not repeat an unchanged full-file compilation merely to obtain another successful diagnostic receipt. Record the specific uncertainty if evidence is missing. The host retains its independent final target check and fixed evaluator; your review never replaces kernel acceptance. Write one JSON object in RESEARCH.md: {"verdict":"accepted|changes_requested"}. Optional summary and evidenceRefs explain the decision.\n'
+     : action.kind !== 'task'
+     ? `You are the Lead. Develop a mathematically plausible route from the exact original statement, definitions and relevant saved findings before choosing a task graph. Identify the central construction or estimate and how it would close each target. Save a concise mathematical route justification as Markdown before a single math-plan JSON fence in RESEARCH.md; include each new task's intended inference and consumer in its objective. Keep direct original-goal proof work when decomposition adds no mathematical benefit. Delegate a specific uncertain inference as research instead of inventing a helper proposition. Return the plan without running Lean diagnostics; leave Lean sources unchanged during planning. Write one JSON object in RESEARCH.md: {"tasks":[{"id":"helper","kind":"lemma","objective":"...","proofPath":${JSON.stringify(problem.ownedFiles.find(file => file.endsWith('.lean')))},"theoremName":"Namespace.helper","type":"∀ (P : Prop), P → P"},{"id":"goal","kind":"goal","objective":"...","theoremName":"Original.target","dependsOn":["helper"]}]}. Include every original target once. This example shows the schema only: replace its names, objectives and sample type with actual tasks and full closed Lean types, including all parameters and hypotheses. Never copy placeholder types. If no exact helper proposition is known, use an untyped research/sketch task. Choose proofPath from ${JSON.stringify(problem.ownedFiles.filter(file => file.endsWith('.lean')))}; goals infer it from theoremName, and lemmas may omit it only when one Lean file is owned. Use lemma tasks whenever workers should save proofs; research/sketch tasks without an exact typed target only return advisory findings and restore temporary probes. Typed research tasks are normalized to lemma tasks. dependsOn defaults to []; revision to 0. Keep accepted task definitions stable; record progress in notes rather than rewriting objectives, which invalidates their checked deliveries. Revise a mathematical contract to change a route; changing only prose or revision does not resolve a recorded blocker. conditional:true allows fixed typed lemma premises. statementReview:true with informalStatement requests meaning review. Optional groups set ownership, sharing and budgets.\n`
+     : ['research', 'sketch'].includes(action.task.kind)
+--- /dev/null
++++ b/tests/fixedLeanDependencies.test.ts
+@@ -0,0 +1,141 @@
++import fs from 'node:fs';
++import os from 'node:os';
++import path from 'node:path';
++import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
++import { FixedLeanDependencyCache } from '../src/math/fixedLeanDependencies';
++import { mathLocalModuleBuildOrder } from '../src/math/mathConstructionSources';
++import { mathDigest } from '../src/math/mathRuntimeIo';
++
++vi.mock('../src/math/mathProofEnvironment', () => ({ resolveMathProofEnvironment: (_root: string, env: NodeJS.ProcessEnv) =>
++  env.FIXTURE_PACKAGES ? { identity: env.FIXTURE_PACKAGES } : undefined }));
++
++describe('host-owned fixed Lean dependency artifacts', () => {
++  let root: string, cache: FixedLeanDependencyCache, tools: string;
++  const write = (project: string, file: string, bytes: string) => {
++    const output = path.join(project, file); fs.mkdirSync(path.dirname(output), { recursive: true }); fs.writeFileSync(output, bytes);
++  };
++  const artifact = (project: string, suffix = '') => path.join(project, `.lake/build/lib/lean/Support.olean${suffix}`);
++  const input = () => ({ projectRoot: root, modules: mathLocalModuleBuildOrder(root, 'Support.lean'),
++    trustedFiles: Object.fromEntries(['Base.lean', 'Support.lean'].map(file => [file, mathDigest(fs.readFileSync(path.join(root, file)))])),
++    env: { PATH: '/fixture/tools', FIXTURE_PACKAGES: 'sealed-v1' } as NodeJS.ProcessEnv,
++    toolIdentity: (_project: string): string | undefined => tools });
++  const compile = vi.fn(async (project: string) => {
++    expect(fs.existsSync(path.join(project, 'Submission.lean'))).toBe(false);
++    expect(mathLocalModuleBuildOrder(project, 'Support.lean').map(module => module.file)).toEqual(['Base.lean', 'Support.lean']);
++    for (const name of ['Base', 'Support']) {
++      write(project, `.lake/build/lib/lean/${name}.olean`, `kernel-${name}`);
++      write(project, `.lake/build/lib/lean/${name}.olean.private`, `private-${name}`);
++    }
++    return { started: true, exitCode: 0, timedOut: false, stdout: '', stderr: 'support warning\n', durationMs: 19 };
++  });
++  beforeEach(() => {
++    root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'fixed-lean-dependencies-')));
++    cache = new FixedLeanDependencyCache(); tools = 'tools-v1'; compile.mockClear();
++    write(root, 'lean-toolchain', 'fixture:v1\n'); write(root, 'lakefile.toml', 'name = "fixed_fixture"\n');
++    write(root, 'lake-manifest.json', '{"packages":[]}\n');
++    write(root, 'Base.lean', 'def base : Nat := 1\n'); write(root, 'Support.lean', 'import Base\ndef fixedValue : Nat := base\n');
++    write(root, 'Submission.lean', 'import Support\ntheorem result : fixedValue = 1 := rfl\n');
++  });
++  afterEach(() => { vi.restoreAllMocks(); cache.dispose(); fs.rmSync(root, { recursive: true, force: true }); });
++
++  it('builds only fixed supports, restores copies across target changes, and preserves companions and warnings', async () => {
++    expect(await cache.prepare(input(), compile)).toMatchObject({ kind: 'ready', hit: false, durationMs: 19 });
++    write(root, 'Submission.lean', 'import Support\ntheorem result : True := True.intro\n');
++    fs.writeFileSync(artifact(root), 'worker corruption');
++    fs.rmSync(artifact(root, '.private'));
++    write(root, '.lake/build/lib/lean/Support.ir', 'stale worker companion');
++    expect(await cache.prepare(input(), compile)).toMatchObject({ kind: 'ready', hit: true, durationMs: 0, stderr: 'support warning\n' });
++    expect(compile).toHaveBeenCalledOnce();
++    expect(fs.readFileSync(artifact(root), 'utf8')).toBe('kernel-Support');
++    expect(fs.readFileSync(artifact(root, '.private'), 'utf8')).toBe('private-Support');
++    expect(fs.existsSync(path.join(root, '.lake/build/lib/lean/Support.ir'))).toBe(false);
++    const entry = [...(cache as any).entries.values()][0];
++    expect(fs.statSync(artifact(root)).ino).not.toBe(fs.statSync(artifact(entry.directory)).ino);
++    expect(fs.existsSync(path.join(entry.directory, 'project'))).toBe(false);
++  });
++
++  it.each(['source', 'configuration', 'toolchain', 'packages', 'environment', 'locale'] as const)('misses on changed %s identity', async change => {
++    await cache.prepare(input(), compile);
++    if (change === 'source') write(root, 'Base.lean', 'def base : Nat := 2\n');
++    if (change === 'configuration') fs.appendFileSync(path.join(root, 'lakefile.toml'), '# exact configuration changed\n');
++    if (change === 'toolchain') tools = 'tools-v2';
++    const next = input();
++    if (change === 'packages') next.env.FIXTURE_PACKAGES = 'sealed-v2';
++    if (change === 'environment') next.env.PATH = '/other/tools';
++    if (change === 'locale') next.env.LC_ALL = 'C';
++    expect(await cache.prepare(next, compile)).toMatchObject({ kind: 'ready', hit: false });
++    expect(compile).toHaveBeenCalledTimes(2);
++  });
++
++  it.each(['untrusted', 'incomplete-closure', 'solver-dependency', 'unsealed', 'unknown-tools', 'LEAN_PATH', 'LEAN_SYSROOT', 'lake-script'] as const)
++  ('falls back without compiling or publishing for %s inputs', async change => {
++    const next = input();
++    if (change === 'untrusted') next.trustedFiles['Base.lean'] = '0'.repeat(64);
++    if (change === 'incomplete-closure') next.modules = next.modules.slice(-1);
++    if (change === 'solver-dependency') {
++      write(root, 'Owned.lean', 'def owned : Nat := 1\n');
++      write(root, 'Base.lean', 'import Owned\ndef base : Nat := owned\n');
++      next.modules = mathLocalModuleBuildOrder(root, 'Support.lean');
++      next.trustedFiles['Base.lean'] = mathDigest(fs.readFileSync(path.join(root, 'Base.lean')));
++    }
++    if (change === 'unsealed') next.env.FIXTURE_PACKAGES = '';
++    if (change === 'unknown-tools') next.toolIdentity = () => undefined;
++    if (change === 'LEAN_PATH' || change === 'LEAN_SYSROOT') (next.env as NodeJS.ProcessEnv)[change] = '/mutable';
++    if (change === 'lake-script') write(root, 'lakefile.lean', 'import Lake\n');
++    expect(await cache.prepare(next, compile)).toBeUndefined();
++    expect(compile).not.toHaveBeenCalled();
++  });
++
++  it('rebuilds corrupted host artifacts and never accepts a missing mandatory olean', async () => {
++    await cache.prepare(input(), compile);
++    let entry = [...(cache as any).entries.values()][0];
++    fs.chmodSync(artifact(entry.directory, '.private'), 0o600);
++    fs.writeFileSync(artifact(entry.directory, '.private'), 'corrupted-private');
++    expect(await cache.prepare(input(), compile)).toMatchObject({ kind: 'ready', hit: false });
++    entry = [...(cache as any).entries.values()][0]; fs.rmSync(artifact(entry.directory));
++    expect(await cache.prepare(input(), compile)).toMatchObject({ kind: 'ready', hit: false });
++    expect(compile).toHaveBeenCalledTimes(3);
++  });
++
++  it('preserves an actual failed compile and publishes nothing until a later successful compile', async () => {
++    const failed = { started: true, exitCode: 1, timedOut: false, stdout: 'Lean rejection', stderr: '', durationMs: 3 };
++    expect(await cache.prepare(input(), async () => failed)).toEqual({ kind: 'failed', result: failed });
++    expect(await cache.prepare(input(), compile)).toMatchObject({ kind: 'ready', hit: false });
++  });
++
++  it.each(['compile', 'artifact', 'builder-toolchain', 'builder-source'] as const)('falls back after optional cache %s failure', async failure => {
++    const next = input();
++    if (failure === 'builder-toolchain') next.toolIdentity = project => project === root ? tools : 'different-builder-tools';
++    expect(await cache.prepare(next, async project => {
++      if (failure === 'compile') throw new Error('fixture_builder_unavailable');
++      const result = await compile(project);
++      if (failure === 'artifact') fs.rmSync(artifact(project));
++      if (failure === 'builder-source') write(project, 'Base.lean', 'def base : Nat := 4\n');
++      return result;
++    })).toBeUndefined();
++    expect(fs.existsSync(artifact(root))).toBe(false);
++    expect(await cache.prepare(input(), compile)).toMatchObject({ kind: 'ready', hit: false });
++  });
++
++  it('clears restored artifacts when source identity changes during a warm restore', async () => {
++    await cache.prepare(input(), compile);
++    const next = input(), save = fs.writeFileSync;
++    let mutated = false;
++    vi.spyOn(fs, 'writeFileSync').mockImplementation((file, bytes, options) => {
++      save(file, bytes, options);
++      if (String(file) === artifact(root) && !mutated) {
++        mutated = true; save(path.join(root, 'Base.lean'), 'def base : Nat := 3\n');
++      }
++    });
++    expect(await cache.prepare(next, compile)).toBeUndefined();
++    expect(fs.existsSync(artifact(root))).toBe(false);
++    expect(fs.existsSync(artifact(root, '.private'))).toBe(false);
++  });
++
++  it('does not retain artifacts above the process cache capacity', async () => {
++    cache.dispose(); cache = new FixedLeanDependencyCache(1);
++    expect(await cache.prepare(input(), compile)).toMatchObject({ kind: 'ready', hit: false });
++    expect(await cache.prepare(input(), compile)).toMatchObject({ kind: 'ready', hit: false });
++    expect(compile).toHaveBeenCalledTimes(2);
++  });
++});
+--- /dev/null
++++ b/tests/fixedLeanDependenciesSealed.test.ts
+@@ -0,0 +1,143 @@
++import fs from 'node:fs';
++import os from 'node:os';
++import path from 'node:path';
++import { spawnSync } from 'node:child_process';
++import { expect, it, vi } from 'vitest';
++import { fixedLeanDependencyCache } from '../src/math/fixedLeanDependencies';
++import { checkManyFormalVerifications, hashMathFormalSourceDeclaration } from '../src/math/verifier';
++import { prepareMathProofEnvironment, MATH_PROOF_ENVIRONMENT_ENV, resolveMathProofEnvironment } from '../src/math/mathProofEnvironment';
++import { mathDigest } from '../src/math/mathRuntimeIo';
++import { runLeanProcess } from '../src/math/mathProcess';
++
++it.skipIf(process.env.DEEPSCIENTIST_TEST_FUSE !== '1')(
++  'reuses real sealed supports across projects while rechecking each changed target and rejecting a bad target', async () => {
++    const directory = fs.realpathSync(fs.mkdtempSync(path.join('/var/tmp', 'fixed-support-sealed-')));
++    const toolchain = 'leanprover/lean4:v4.34.1';
++    const bin = path.join(os.homedir(), '.elan/toolchains/leanprover--lean4---v4.34.1/bin');
++    const env = { ...process.env, ELAN_HOME: path.join(os.homedir(), '.elan'),
++      PATH: `${bin}:${process.env.PATH ?? '/usr/bin:/bin'}:/usr/sbin`,
++      DEEPSCIENTIST_MATH_ENV_FILE: path.join(directory, 'math.env'), DEEPSCIENTIST_MATH_SANDBOX_BACKEND: 'bwrap' };
++    const first = path.join(directory, 'task-projection/project'), second = path.join(directory, 'canonical/project');
++    const packages = path.join(directory, 'packages'), library = path.join(packages, 'toy');
++    const output = path.join(library, '.lake/build/lib/lean/SealedFixture.olean');
++    const proofs: Awaited<ReturnType<typeof prepareMathProofEnvironment>>[] = [];
++    const measurements: Record<string, unknown>[] = [];
++    const preparations: { kind: string; hit?: boolean; compiled: boolean; durationMs: number }[] = [];
++    let supportCompilations = 0;
++    const prepare = fixedLeanDependencyCache.prepare.bind(fixedLeanDependencyCache);
++    const spy = vi.spyOn(fixedLeanDependencyCache, 'prepare').mockImplementation(async (input, compile) => {
++      let compiled = false;
++      const result = await prepare(input, async project => {
++        expect(fs.existsSync(path.join(project, 'Submission.lean'))).toBe(false);
++        supportCompilations++; compiled = true;
++        return compile(project);
++      });
++      preparations.push({ kind: result?.kind ?? 'fallback', hit: result?.kind === 'ready' ? result.hit : undefined,
++        compiled, durationMs: result?.kind === 'ready' ? result.durationMs : 0 });
++      return result;
++    });
++    const git = (root: string, args: string[]) => {
++      const result = spawnSync('git', ['-C', root, ...args], { encoding: 'utf8', timeout: 5000 });
++      if (result.status !== 0) throw result.error ?? new Error(result.stderr);
++      return result.stdout.trim();
++    };
++    const source = (marker: string, proof = 'rfl') => 'import Lean\nimport Support\n' +
++      `run_cmd Lean.logInfo "TARGET_${marker}"\ntheorem result : fixedValue = 7 := by ${proof}\n`;
++    const check = async (root: string, marker: string, environment: NodeJS.ProcessEnv, proof = 'rfl') => {
++      const contents = source(marker, proof);
++      fs.writeFileSync(path.join(root, 'Submission.lean'), contents);
++      git(root, ['add', '.']); git(root, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost',
++        'commit', '--quiet', '--no-gpg-sign', '-m', marker]);
++      const commit = git(root, ['rev-parse', 'HEAD']), started = performance.now();
++      const trusted = { 'Support.lean': mathDigest(fs.readFileSync(path.join(root, 'Support.lean'))) };
++      const result = await checkManyFormalVerifications({ projectRoot: root, targetCommit: commit,
++        timeoutMs: 20_000, batchTimeoutMs: 30_000, items: [{ proofPath: 'Submission.lean', theoremName: 'result',
++          statementHash: mathDigest('fixedValue = 7'), leanStatementHash: mathDigest('fixedValue = 7'),
++          expectedSourceDeclarationHash: hashMathFormalSourceDeclaration(contents, 'result') }] },
++      { env: environment, prepareLocalDependencies: true, collectDeclarationReferences: true, trustedLocalDependencyFiles: trusted });
++      const durationMs = performance.now() - started;
++      expect(result.events.filter(event => event.kind === 'check.kernel_checked')).toHaveLength(1);
++      const targetCompilations = result.events.filter(event => event.kind === 'diagnostic.emitted' &&
++        JSON.stringify(event).includes(`TARGET_${marker}`)).length;
++      expect(targetCompilations, JSON.stringify(result)).toBe(1);
++      measurements.push({ marker, projectRoot: root, targetCommit: commit, status: result.status, durationMs,
++        supportCompilations, targetCompilations, receiptId: result.results[0]?.receiptId, sessionId: result.sessionId,
++        proofHash: result.results[0]?.proofHash, axioms: result.results[0]?.axioms, preparation: preparations.at(-1),
++        kernelEvents: result.events.filter(event => event.kind === 'check.kernel_checked') });
++      return result;
++    };
++    try {
++      fs.writeFileSync(env.DEEPSCIENTIST_MATH_ENV_FILE, '');
++      fs.mkdirSync(path.dirname(output), { recursive: true });
++      fs.writeFileSync(path.join(library, 'lakefile.toml'), 'name = "toy"\n[[lean_lib]]\nname = "SealedFixture"\n');
++      fs.writeFileSync(path.join(library, 'SealedFixture.lean'), 'def externalValue : Nat := 7\n');
++      const compiled = await runLeanProcess(path.join(bin, 'lean'), ['-R', library, '-o', output, 'SealedFixture.lean'],
++        { cwd: library, env, timeoutMs: 10_000 });
++      expect(compiled.exitCode, compiled.stdout + compiled.stderr).toBe(0);
++      for (const root of [first, second]) {
++        fs.mkdirSync(root, { recursive: true });
++        fs.writeFileSync(path.join(root, '.gitignore'), '.lake/\n');
++        fs.writeFileSync(path.join(root, 'lean-toolchain'), toolchain + '\n');
++        fs.writeFileSync(path.join(root, 'lakefile.toml'), 'name = "fixed_support_fixture"\n[[require]]\nname = "toy"\npath = ".lake/packages/toy"\n');
++        fs.writeFileSync(path.join(root, 'lake-manifest.json'), JSON.stringify({ schemaVersion: '1.2.0',
++          name: 'fixed_support_fixture', packages: [{ name: 'toy', type: 'path', inherited: false,
++            configFile: 'lakefile.toml', dir: '.lake/packages/toy' }] }) + '\n');
++        fs.writeFileSync(path.join(root, 'Support.lean'), 'import Lean\nimport SealedFixture\n' +
++          'run_cmd Lean.logWarning "FIXED_SUPPORT_WARNING"\ndef fixedValue : Nat := externalValue\n');
++        git(root, ['init', '--quiet']);
++      }
++      fixedLeanDependencyCache.dispose();
++      const sealed = await prepareMathProofEnvironment(first, packages, { env, cacheRoot: path.join(directory, 'sealed-cache') });
++      proofs.push(sealed);
++      const host = { ...env, [MATH_PROOF_ENVIRONMENT_ENV]: sealed.environmentValue };
++      expect(resolveMathProofEnvironment(first, host)!.identity).toBe(resolveMathProofEnvironment(second, host)!.identity);
++      const cold = await check(first, 'COLD', host), warm = await check(second, 'OTHER_PROJECT', host);
++      expect(cold.status, JSON.stringify(cold)).toBe('kernel_verified');
++      expect(warm.status, JSON.stringify(warm)).toBe('kernel_verified');
++      expect(preparations.slice(0, 2).map(item => [item.kind, item.hit, item.compiled])).toEqual([
++        ['ready', false, true], ['ready', true, false],
++      ]);
++      expect(supportCompilations).toBe(1);
++      expect(cold.targetCommit).not.toBe(warm.targetCommit);
++      expect(cold.results[0]!.receiptId).not.toBe(warm.results[0]!.receiptId);
++      expect(cold.results[0]!.proofHash).not.toBe(warm.results[0]!.proofHash);
++      for (const result of [cold, warm])
++        expect(result.events.some(event => event.kind === 'diagnostic.emitted' && JSON.stringify(event).includes('FIXED_SUPPORT_WARNING'))).toBe(true);
++      const bad = await check(second, 'BAD_TARGET', host, 'exact False.elim (by decide)');
++      expect(bad.status).toBe('failed'); expect(supportCompilations).toBe(1);
++      expect(preparations.at(-1)).toMatchObject({ kind: 'ready', hit: true, compiled: false });
++
++      fs.appendFileSync(path.join(second, 'Support.lean'), '\n-- frozen support revision\n');
++      expect((await check(second, 'NEW_SUPPORT', host)).status).toBe('kernel_verified');
++      expect(preparations.at(-1)).toMatchObject({ kind: 'ready', hit: false, compiled: true });
++      fs.appendFileSync(path.join(second, 'lakefile.toml'), '# exact configuration revision\n');
++      expect((await check(second, 'NEW_CONFIG', host)).status).toBe('kernel_verified');
++      expect(preparations.at(-1)).toMatchObject({ kind: 'ready', hit: false, compiled: true });
++
++      fs.writeFileSync(path.join(library, 'sealed-revision.txt'), 'new frozen external package bytes\n');
++      const changed = await prepareMathProofEnvironment(second, packages, { env, cacheRoot: path.join(directory, 'new-sealed-cache') });
++      proofs.push(changed);
++      const changedHost = { ...env, [MATH_PROOF_ENVIRONMENT_ENV]: changed.environmentValue };
++      expect(resolveMathProofEnvironment(second, changedHost)!.identity).not.toBe(resolveMathProofEnvironment(second, host)!.identity);
++      expect((await check(second, 'NEW_PACKAGES', changedHost)).status).toBe('kernel_verified');
++      expect(preparations.at(-1)).toMatchObject({ kind: 'ready', hit: false, compiled: true });
++
++      fs.writeFileSync(path.join(second, 'Owned.lean'), 'def ownedValue : Nat := 7\n');
++      fs.writeFileSync(path.join(second, 'Support.lean'), 'import Owned\ndef fixedValue : Nat := ownedValue\n');
++      const beforeFallback = supportCompilations;
++      expect((await check(second, 'OWNED_DEPENDENCY', changedHost)).status).toBe('kernel_verified');
++      expect(supportCompilations).toBe(beforeFallback);
++      expect(preparations.at(-1)).toMatchObject({ kind: 'fallback', compiled: false });
++      const report = { schema: 'fixed-support-real-fixture.v1', toolchain, supportCompilations,
++        targetChecks: measurements.length, targetCompilations: measurements.reduce((sum, item) => sum + Number(item.targetCompilations), 0),
++        measurements, preparations, modelsCalled: 0, activeRunsModified: false };
++      if (process.env.DEEPSCIENTIST_FIXED_SUPPORT_REPORT)
++        fs.writeFileSync(process.env.DEEPSCIENTIST_FIXED_SUPPORT_REPORT, JSON.stringify(report, null, 2) + '\n');
++      console.info(JSON.stringify(report));
++    } finally {
++      spy.mockRestore(); fixedLeanDependencyCache.dispose();
++      for (const proof of proofs.reverse()) await proof.dispose();
++      fs.rmSync(directory, { recursive: true, force: true });
++    }
++  }, 90_000,
++);
+--- a/tests/solverEvidenceReuse.test.ts
++++ b/tests/solverEvidenceReuse.test.ts
+@@ -2,10 +2,11 @@
+ import path from 'node:path';
+ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+ import type { MathematicsVerifierBatchRequest, MathematicsVerifierBatchResult } from '../src/math/verifier';
+-import { checkSolverProof, type ProofCheck } from '../src/solver/modules/evidence';
++import { checkProjectedDeclarations, checkSolverProof, type ProofCheck } from '../src/solver/modules/evidence';
+ import { git, type SolverProblem } from '../src/solver/problem';
+ import { localExample } from './helpers/solver';
+ import { failedBatch } from './helpers/verifier';
++import { mathDigest } from '../src/math/mathRuntimeIo';
+ 
+ const host = vi.hoisted(() => ({ verify: vi.fn(), environment: vi.fn() }));
+ vi.mock('../src/math/verifier', async importOriginal => ({
+@@ -41,6 +42,25 @@
+     env = { DEEPSCIENTIST_MATH_ENV_FILE: path.join(directory, 'math.env'), PATH: '/usr/bin:/bin' };
+   });
+   afterEach(() => { vi.restoreAllMocks(); fs.rmSync(directory, { recursive: true, force: true }); });
++
++  it('supplies only frozen non-owned Lean supports at both host formal-check routes', async () => {
++    fs.writeFileSync(path.join(project, 'Support.lean'), 'def fixedValue : Nat := 7\n');
++    git(workspace, ['add', '--', path.join(problem.projectRelative, 'Support.lean')]);
++    git(workspace, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@localhost', 'commit', '--quiet', '--no-gpg-sign', '-m', 'Freeze support']);
++    problem = { ...problem, baseCommit: git(workspace, ['rev-parse', 'HEAD']), trustedFiles: { ...problem.trustedFiles,
++      ...Object.fromEntries(['Support.lean', problem.ownedFiles[0]!].map(file =>
++        [file, mathDigest(fs.readFileSync(path.join(project, file)))])) } };
++    await check();
++    const expected = Object.fromEntries(Object.entries(problem.trustedFiles)
++      .filter(([file]) => file.endsWith('.lean') && !problem.ownedFiles.includes(file)));
++    expect(host.verify.mock.calls[0]![1].trustedLocalDependencyFiles).toEqual(expected);
++    const target = problem.targets[0]!;
++    await checkProjectedDeclarations(problem, workspace, workspace, git(workspace, ['rev-parse', 'HEAD']),
++      [{ ...target, digest: problem.contract.statementHash, missingError: 'fixture_target_missing' }], { env, timeoutMs: 1000 });
++    expect(host.verify.mock.calls[1]![1].trustedLocalDependencyFiles).toEqual(expected);
++    expect(expected).toHaveProperty('Support.lean', problem.trustedFiles['Support.lean']);
++    for (const file of problem.ownedFiles) expect(expected).not.toHaveProperty(file);
++  });
+ 
+   it('preserves original receipts across a notes-only commit and bypasses reuse without a previous check', async () => {
+     const first = await check();
+--- a/tests/solverContext.test.ts
++++ b/tests/solverContext.test.ts
+@@ -177,6 +177,49 @@
+   expect(gapContext('review').continuationMessage).toBeUndefined();
+ });
+ 
++const fixedEvidenceContext = (change?: 'commit' | 'source' | 'target' | 'missing' | 'statement' | 'failed') => {
++  const problem = { projectRelative: '.', ownedFiles: ['Submission.lean'], declarations: {}, receiptDigest: 'problem',
++    baseCommit: 'base-commit', targets: [{ proofPath: 'Submission.lean', theoremName: 'target', declarationHash: 'frozen-header' }],
++    contract: { formalStatement: 'theorem target : True := by sorry', assumptions: [], statementHash: 'original-statement',
++      leanStatementHash: 'lean-statement' } } as unknown as SolverProblem;
++  const check = { passed: true, commit: 'review-commit', sourceDigest: 'review-source', verification: {
++    status: 'kernel_verified', targetCommit: 'review-commit', results: [{ status: 'kernel_verified', targetCommit: 'review-commit',
++      proofPath: 'Submission.lean', theoremName: 'target', claim: 'statement', sourceDeclarationHash: 'frozen-header',
++      statementHash: 'original-statement', leanStatementHash: 'lean-statement', receiptId: 'lean-fixed-proof',
++      proofHash: 'exact-source-sha', axioms: ['propext'], goalsRemaining: 0, sorryCount: 0, admitCount: 0, checkedAt: 1 }],
++    stdoutPreview: 'FULL_LOG_SHOULD_NOT_BE_REPEATED' } };
++  if (change === 'commit') check.commit = 'other-commit';
++  if (change === 'source') check.sourceDigest = 'other-source';
++  if (change === 'target') check.verification.targetCommit = 'other-commit';
++  if (change === 'missing') check.verification.results = [];
++  if (change === 'statement') check.verification.results[0]!.statementHash = 'different-statement';
++  if (change === 'failed') check.passed = false;
++  const state = { cooperation: { tasks: [] }, check: { ...check, sourceDigest: 'stale-global-source' },
++    workers: [{ id: 'solver', check }] } as unknown as SolverRunState;
++  return buildResearchContext(problem, state, { root: '/runtime', worktree: '/proof', environment: {},
++    taskText: 'Review the target', retrievalRoot: '/library', maxOptionalContextBytes: 0,
++    frozenContexts: { 'Submission.lean': 'theorem target : True := /- body omitted -/' },
++    assignment: { kind: 'review', seedCommit: 'review-commit', sourceDigest: 'review-source' } });
++};
++
++it('gives the fixed reviewer matching lead receipts even with no optional context budget', () => {
++  const context = fixedEvidenceContext();
++  expect(context.manifest!.optionalBytes).toBe(0);
++  expect(context.manifest!.included.some(item => item.id === 'fixed-candidate-kernel-evidence')).toBe(true);
++  expect(context.message).toContain('lean-fixed-proof');
++  expect(context.message).toContain('exact-source-sha');
++  expect(context.message).not.toContain('stale-global-source');
++  expect(context.message).not.toContain('FULL_LOG_SHOULD_NOT_BE_REPEATED');
++  expect(context.message).toContain('grants no acceptance');
++});
++
++it.each(['commit', 'source', 'target', 'missing', 'statement', 'failed'] as const)(
++  'does not present %s-mismatched evidence as the fixed candidate check', change => {
++    const context = fixedEvidenceContext(change);
++    expect(context.manifest!.included.some(item => item.id === 'fixed-candidate-kernel-evidence')).toBe(false);
++    expect(context.message).not.toContain('lean-fixed-proof');
++  });
++
+ 
+ it('keeps current task feedback and scoped intake receipts inline without repeating full finding bodies', () => {
+   const task: CooperativeTask = { id: 'investigate', kind: 'research', objective: 'Resolve the exact classification gap.',

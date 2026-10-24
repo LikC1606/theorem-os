@@ -1,0 +1,312 @@
+{
+  "schema": "fixed-support-real-fixture.v1",
+  "toolchain": "leanprover/lean4:v4.34.1",
+  "supportCompilations": 4,
+  "targetChecks": 7,
+  "targetCompilations": 7,
+  "measurements": [
+    {
+      "marker": "COLD",
+      "projectRoot": "/var/tmp/fixed-support-sealed-3c9E87/task-projection/project",
+      "targetCommit": "9eaca55c96786d7d8c624ab90ef9b19537d89b61",
+      "status": "kernel_verified",
+      "durationMs": 2404.611348,
+      "supportCompilations": 1,
+      "targetCompilations": 1,
+      "receiptId": "lean-41bc58db8a2b7b2506a298a3",
+      "sessionId": "7c1666a6-8969-41db-8c0d-64270c1fc98a",
+      "proofHash": "9f1c94f74d51fe5d706aaf62626380f6d5c3487955c4d5a682baf7bfbab475fc",
+      "axioms": [],
+      "preparation": {
+        "kind": "ready",
+        "hit": false,
+        "compiled": true,
+        "durationMs": 722
+      },
+      "kernelEvents": [
+        {
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "eventId": "489cedfe-eaad-432e-99bd-20e016f4fc0a",
+          "sessionId": "7c1666a6-8969-41db-8c0d-64270c1fc98a",
+          "timestamp": 1792847592821,
+          "kind": "check.kernel_checked",
+          "payload": {
+            "proofPath": "Submission.lean",
+            "status": "kernel_verified",
+            "exitCode": 0,
+            "signal": null,
+            "timedOut": false,
+            "aborted": false,
+            "durationMs": 2211
+          }
+        }
+      ]
+    },
+    {
+      "marker": "OTHER_PROJECT",
+      "projectRoot": "/var/tmp/fixed-support-sealed-3c9E87/canonical/project",
+      "targetCommit": "e1a826a9aee37f0c5aaa3cd3977d3920dc00b193",
+      "status": "kernel_verified",
+      "durationMs": 1591.725605,
+      "supportCompilations": 1,
+      "targetCompilations": 1,
+      "receiptId": "lean-2273d8d42d738e45f8b916b7",
+      "sessionId": "484006cb-bbd1-46b3-8d5a-f6e46aed186d",
+      "proofHash": "3b4561bdd71beb4843ae8bcd42f61cff163ca2fcdf9ca5b4956b417e855f3387",
+      "axioms": [],
+      "preparation": {
+        "kind": "ready",
+        "hit": true,
+        "compiled": false,
+        "durationMs": 0
+      },
+      "kernelEvents": [
+        {
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "eventId": "81227f25-5bde-46a7-b8be-633e098fd1fe",
+          "sessionId": "484006cb-bbd1-46b3-8d5a-f6e46aed186d",
+          "timestamp": 1792847594428,
+          "kind": "check.kernel_checked",
+          "payload": {
+            "proofPath": "Submission.lean",
+            "status": "kernel_verified",
+            "exitCode": 0,
+            "signal": null,
+            "timedOut": false,
+            "aborted": false,
+            "durationMs": 1469
+          }
+        }
+      ]
+    },
+    {
+      "marker": "BAD_TARGET",
+      "projectRoot": "/var/tmp/fixed-support-sealed-3c9E87/canonical/project",
+      "targetCommit": "5f243dfba73d4131b8cae2fd4a7e623eee3f93b3",
+      "status": "failed",
+      "durationMs": 839.4740620000002,
+      "supportCompilations": 1,
+      "targetCompilations": 1,
+      "receiptId": "lean-a21ae5882ca701229573aac3",
+      "sessionId": "bcbead7a-e1ca-4597-81d6-6c043014e2c1",
+      "proofHash": "38385843146b87e208b60871219ebb11305f1f1dda077fb102b94b0bf2d4001f",
+      "axioms": [],
+      "preparation": {
+        "kind": "ready",
+        "hit": true,
+        "compiled": false,
+        "durationMs": 0
+      },
+      "kernelEvents": [
+        {
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "eventId": "cb0560b6-b24d-41af-9fba-6575f2a7bddb",
+          "sessionId": "bcbead7a-e1ca-4597-81d6-6c043014e2c1",
+          "timestamp": 1792847595285,
+          "kind": "check.kernel_checked",
+          "payload": {
+            "proofPath": "Submission.lean",
+            "status": "failed",
+            "exitCode": 1,
+            "signal": null,
+            "timedOut": false,
+            "aborted": false,
+            "durationMs": 711
+          }
+        }
+      ]
+    },
+    {
+      "marker": "NEW_SUPPORT",
+      "projectRoot": "/var/tmp/fixed-support-sealed-3c9E87/canonical/project",
+      "targetCommit": "ad5af3ff4bf14fdb23d2f232ce1e3dbe7d164f1f",
+      "status": "kernel_verified",
+      "durationMs": 2271.1036509999994,
+      "supportCompilations": 2,
+      "targetCompilations": 1,
+      "receiptId": "lean-b23b135b10a564fb5c3acc48",
+      "sessionId": "c864e1a0-57d6-4f6a-85f1-715920b7e852",
+      "proofHash": "641e9f60ec22bc0d817737964d231f770cf27cf706dcf55a77b4e4e47d81c977",
+      "axioms": [],
+      "preparation": {
+        "kind": "ready",
+        "hit": false,
+        "compiled": true,
+        "durationMs": 660
+      },
+      "kernelEvents": [
+        {
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "eventId": "fbe5e4e4-11f1-48d4-90f2-3e399c63b7ea",
+          "sessionId": "c864e1a0-57d6-4f6a-85f1-715920b7e852",
+          "timestamp": 1792847597569,
+          "kind": "check.kernel_checked",
+          "payload": {
+            "proofPath": "Submission.lean",
+            "status": "kernel_verified",
+            "exitCode": 0,
+            "signal": null,
+            "timedOut": false,
+            "aborted": false,
+            "durationMs": 2089
+          }
+        }
+      ]
+    },
+    {
+      "marker": "NEW_CONFIG",
+      "projectRoot": "/var/tmp/fixed-support-sealed-3c9E87/canonical/project",
+      "targetCommit": "502bf661ba438ea816eafad48fad418cc6166779",
+      "status": "kernel_verified",
+      "durationMs": 2345.8829000000005,
+      "supportCompilations": 3,
+      "targetCompilations": 1,
+      "receiptId": "lean-67293ebae80bd2b4ddc024ae",
+      "sessionId": "ebea7564-de06-48b6-b60b-3ff713e0d86c",
+      "proofHash": "b64adf8d4646787d4cae53ce03a13278b4f2555a659edbd6e68d2f6d56618b08",
+      "axioms": [],
+      "preparation": {
+        "kind": "ready",
+        "hit": false,
+        "compiled": true,
+        "durationMs": 713
+      },
+      "kernelEvents": [
+        {
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "eventId": "14f5a278-0879-4143-8216-8f0859e300c2",
+          "sessionId": "ebea7564-de06-48b6-b60b-3ff713e0d86c",
+          "timestamp": 1792847599931,
+          "kind": "check.kernel_checked",
+          "payload": {
+            "proofPath": "Submission.lean",
+            "status": "kernel_verified",
+            "exitCode": 0,
+            "signal": null,
+            "timedOut": false,
+            "aborted": false,
+            "durationMs": 2169
+          }
+        }
+      ]
+    },
+    {
+      "marker": "NEW_PACKAGES",
+      "projectRoot": "/var/tmp/fixed-support-sealed-3c9E87/canonical/project",
+      "targetCommit": "1b4e4542778061b2ca28639f16e3ee902d891619",
+      "status": "kernel_verified",
+      "durationMs": 2302.0871580000003,
+      "supportCompilations": 4,
+      "targetCompilations": 1,
+      "receiptId": "lean-5d9182f3400783aa3b02660a",
+      "sessionId": "a35e4035-23df-476e-a9f6-4a187dbf1b96",
+      "proofHash": "be1a7df3ce8d0066caab42aa18f6890cb95740124a27be2c68d2b70d340224ef",
+      "axioms": [],
+      "preparation": {
+        "kind": "ready",
+        "hit": false,
+        "compiled": true,
+        "durationMs": 697
+      },
+      "kernelEvents": [
+        {
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "eventId": "02c36dfc-217d-4e9d-91bf-65fdb6aa99f9",
+          "sessionId": "a35e4035-23df-476e-a9f6-4a187dbf1b96",
+          "timestamp": 1792847602401,
+          "kind": "check.kernel_checked",
+          "payload": {
+            "proofPath": "Submission.lean",
+            "status": "kernel_verified",
+            "exitCode": 0,
+            "signal": null,
+            "timedOut": false,
+            "aborted": false,
+            "durationMs": 2119
+          }
+        }
+      ]
+    },
+    {
+      "marker": "OWNED_DEPENDENCY",
+      "projectRoot": "/var/tmp/fixed-support-sealed-3c9E87/canonical/project",
+      "targetCommit": "0c2c7c1a5520b71b53e43142945d52a1791a4bf4",
+      "status": "kernel_verified",
+      "durationMs": 1877.170768,
+      "supportCompilations": 4,
+      "targetCompilations": 1,
+      "receiptId": "lean-42289d0c636d1718bcbfe918",
+      "sessionId": "1ba79b56-8a3e-452c-8da3-cefb01a9f97c",
+      "proofHash": "15d2cee9952a12c65e186e8048955e7785fcb79dbe761346756aa892c6af914a",
+      "axioms": [],
+      "preparation": {
+        "kind": "fallback",
+        "compiled": false,
+        "durationMs": 0
+      },
+      "kernelEvents": [
+        {
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "eventId": "f09023e9-82c1-4e62-9f67-0ce589c7c170",
+          "sessionId": "1ba79b56-8a3e-452c-8da3-cefb01a9f97c",
+          "timestamp": 1792847604294,
+          "kind": "check.kernel_checked",
+          "payload": {
+            "proofPath": "Submission.lean",
+            "status": "kernel_verified",
+            "exitCode": 0,
+            "signal": null,
+            "timedOut": false,
+            "aborted": false,
+            "durationMs": 1783
+          }
+        }
+      ]
+    }
+  ],
+  "preparations": [
+    {
+      "kind": "ready",
+      "hit": false,
+      "compiled": true,
+      "durationMs": 722
+    },
+    {
+      "kind": "ready",
+      "hit": true,
+      "compiled": false,
+      "durationMs": 0
+    },
+    {
+      "kind": "ready",
+      "hit": true,
+      "compiled": false,
+      "durationMs": 0
+    },
+    {
+      "kind": "ready",
+      "hit": false,
+      "compiled": true,
+      "durationMs": 660
+    },
+    {
+      "kind": "ready",
+      "hit": false,
+      "compiled": true,
+      "durationMs": 713
+    },
+    {
+      "kind": "ready",
+      "hit": false,
+      "compiled": true,
+      "durationMs": 697
+    },
+    {
+      "kind": "fallback",
+      "compiled": false,
+      "durationMs": 0
+    }
+  ],
+  "modelsCalled": 0,
+  "activeRunsModified": false
+}

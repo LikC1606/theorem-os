@@ -1,0 +1,29 @@
+{
+  "checkedAt": "2026-10-24T13:08:05.030190+00:00",
+  "sourceSHA256": "e76fc2d68203b799ae54349300bcf5fb0c030681b100047fc227213b1ccbb72d",
+  "tasks": [
+    {
+      "taskId": "bridge_full_column_word_injective_a0424391",
+      "theoremName": "OAI.PolynomialVacuumBridge.Corridor.bridgePath_eq_of_column_eq",
+      "originalTypeSHA256": "d2bab16e4076b32dd22b5b9b786e743dfa7781b7486722d68102fa4251b3ae43",
+      "generatedTypeSHA256": "d2bab16e4076b32dd22b5b9b786e743dfa7781b7486722d68102fa4251b3ae43",
+      "exactTypeTextPreserved": true,
+      "axioms": [
+        "propext",
+        "Quot.sound"
+      ]
+    },
+    {
+      "taskId": "bridge_column_step_unique_a0424391",
+      "theoremName": "OAI.PolynomialVacuumBridge.Corridor.bridgeColumnStep_unique",
+      "originalTypeSHA256": "50064ccf4bea6bce5336c709937fe1dfa3375da1e01d172f6f6be7ece428298e",
+      "generatedTypeSHA256": "50064ccf4bea6bce5336c709937fe1dfa3375da1e01d172f6f6be7ece428298e",
+      "exactTypeTextPreserved": true,
+      "axioms": [
+        "propext",
+        "Quot.sound"
+      ]
+    }
+  ],
+  "activeStateWritten": false
+}

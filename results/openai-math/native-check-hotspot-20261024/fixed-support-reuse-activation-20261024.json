@@ -1,0 +1,41 @@
+{
+  "schema": "theorem-os.build-activation-decision.v1",
+  "observedAt": "2026-10-24T13:20:43.034086+00:00",
+  "buildId": "46551899-4922-4905-b81e-0ff4503842e6",
+  "activated": false,
+  "decision": "Keep current frozen solver and verifier chains running; retain the isolated build for a later compatible run.",
+  "baseline": "exact-source-integration-reuse-20261024/runtime",
+  "reasons": [
+    "SnakyConditional already passed original, integrated and all-target kernel checks; its current fixed-version review is running. Changing the build cannot safely replace that in-flight review.",
+    "Honeycomb is exploring missing mathematics on its newer workflow runtime. This candidate extends the separate exact-source runtime and is not a feature-complete replacement for that workflow.",
+    "The support-cache benefit was measured on a sealed small fixture. No whole-problem performance measurement justifies restarting these sessions."
+  ],
+  "retainedRequirements": [
+    "Independent host acceptance and fixed publisher comparator",
+    "Original goals, trusted files, Lean 4.34.1 and Mathlib pin",
+    "Single Lean thread and 32 GiB memory",
+    "All five run/turn/token/evaluator budget caps remain 0"
+  ],
+  "reviewFile": "fixed-support-reuse-independent-review-20261024.json",
+  "reviewSHA256": "00acef4a41b86a693f7a5a1298b63226cdefd92e3844ce249a7c5a59e2c20427",
+  "bundles": [
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/runtime/out/main/math-solver.js",
+      "bytes": 1729188,
+      "sha256": "35d2651ecdec66902d30ff979f936e4cc37b1ac351771d05e9eeefd1ffadbebf"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/runtime/out/main/search-lean.js",
+      "bytes": 173934,
+      "sha256": "d20f80273318e2dd48b3b135f8a7113b8523def704673d421429cbefed750020"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/runtime/out/main/check-lean.js",
+      "bytes": 323024,
+      "sha256": "79ca2a2203c016d231de92a3ed915490017b93ccd4128c6d8e35babb41d1a807"
+    }
+  ],
+  "sourceHashAndBuildCheckPassed": true,
+  "activeFrozenRuntimeModified": false,
+  "wholeProblemSpeedupMeasured": false
+}

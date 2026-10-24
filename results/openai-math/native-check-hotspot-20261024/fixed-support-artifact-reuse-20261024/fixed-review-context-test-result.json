@@ -1,0 +1,21 @@
+{
+  "observedAt": "2026-10-24T13:11:11.532006+00:00",
+  "command": [
+    "node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "tests/solverContext.test.ts",
+    "tests/contextCompiler.test.ts"
+  ],
+  "sourceFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/fixed-support-artifact-reuse-20261024/runtime/src/solver/modules/context.ts",
+  "sourceSHA256": "bdf6be3d90edd7a63ef1e36cbb38ab03adb849f5476e714e1414845e82ed44c5",
+  "testFileSHA256": "952007aa73aaf115a740203d049875c6ed182c8ae1177439366846612bba9e25",
+  "testFilesPassed": 2,
+  "testsPassed": 104,
+  "testsFailed": 0,
+  "exitCode": 0,
+  "durationSeconds": 1.69,
+  "newBehaviorCases": 7,
+  "evidenceSelection": "Exact review commit/sourceDigest and complete original-target receipt binding; recorded-not-replayed mandatory context, no acceptance privilege.",
+  "activeRuntimeChanged": false
+}

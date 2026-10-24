@@ -1,0 +1,14 @@
+[
+  {
+    "taskId": "bridge_full_column_word_injective_a0424391",
+    "theoremName": "OAI.PolynomialVacuumBridge.Corridor.bridgePath_eq_of_column_eq",
+    "type": "∀ {h : ℕ} {p q : OAI.PolynomialVacuumBridge.Corridor.BridgePath h}, p.vertices.map (fun v : OAI.PolynomialVacuumBridge.Corridor.Vertex => match v with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) = q.vertices.map (fun v : OAI.PolynomialVacuumBridge.Corridor.Vertex => match v with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) → p = q",
+    "typeSHA256": "d2bab16e4076b32dd22b5b9b786e743dfa7781b7486722d68102fa4251b3ae43"
+  },
+  {
+    "taskId": "bridge_column_step_unique_a0424391",
+    "theoremName": "OAI.PolynomialVacuumBridge.Corridor.bridgeColumnStep_unique",
+    "type": "∀ {a b d : OAI.PolynomialVacuumBridge.Corridor.Vertex}, OAI.PolynomialVacuumBridge.Corridor.adjacent a b → OAI.PolynomialVacuumBridge.Corridor.adjacent a d → (match b with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) = (match d with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) → b = d",
+    "typeSHA256": "50064ccf4bea6bce5336c709937fe1dfa3375da1e01d172f6f6be7ece428298e"
+  }
+]

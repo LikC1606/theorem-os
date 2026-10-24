@@ -1,0 +1,22 @@
+{
+  "capturedAt": "2026-10-24T12:51:59.469240+00:00",
+  "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/solve.log",
+  "sourceBytesAtCapture": 55733,
+  "sourceSHA256AtCapture": "927847b7acf4b5cd7bc2a50bf992d077422ae94b055167dd730c25a2818c164b",
+  "eventLineNumbers": [
+    114,
+    115,
+    116,
+    215,
+    217,
+    218,
+    219
+  ],
+  "observation": "Fixed-review first dispatch failed with math_model_request_timeout and was reassigned; no claim about the underlying timeout source. Unchanged full-file diagnostics observed in the fixed reviewer worktree.",
+  "promptOnlyChange": true,
+  "activeRuntimeChanged": false,
+  "hostFinalCheckAndComparatorChanged": false,
+  "baselineSHA256": "9649ecd627ea896007f9732bcdc50879f406aa899dfff0c60d0e7620c8625422",
+  "updatedSHA256": "a2de1d1c5092d9879ba61ab1e212a040e02bc3dbad8e4facc44b51745de115fe",
+  "newModelOrLeanCallsForPromptChange": 0
+}

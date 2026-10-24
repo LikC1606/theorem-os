@@ -1,0 +1,14 @@
+DS_DECL_REFERENCES_9185eae2a9ed13eeaa659bc75fd54946:null
+DEEPSCIENTIST_DECL_BEGIN_449fa7e0100c093f
+OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams {F S V R K : Type}
+  {arity : S → ℕ} [CommRing R] [Field K] [Algebra R K]
+  (D : OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram F S V arity) (q : S) [Finite V] (hproper : D.Proper)
+  (hmax : ∀ (f : F), D.rank f ≤ D.rank (D.ports.facet ⟨q, none⟩)) (hg : 0 < D.genus (D.bandCutParent q))
+  (P : D.Punctures R) (x : D.Solution P K) (b0 : Fin (D.boundaryCount (D.bandCutParent q)))
+  (i0 : Fin (D.boundaryLength (D.bandCutParent q) b0)) : D.ProducedMarkedSeamEquations q hproper hmax hg P x b0 i0
+DEEPSCIENTIST_DECL_END_449fa7e0100c093f
+DEEPSCIENTIST_AXIOMS_BEGIN_449fa7e0100c093f
+'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+DEEPSCIENTIST_AXIOMS_END_449fa7e0100c093f

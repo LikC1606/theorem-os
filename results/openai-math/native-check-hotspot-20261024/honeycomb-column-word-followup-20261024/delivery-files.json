@@ -1,0 +1,131 @@
+{
+  "schema": "honeycomb-column-word-delivery.v1",
+  "directory": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024",
+  "status": "local-kernel-verified",
+  "frozenAt": "2026-10-24T12:55:41.881353+00:00",
+  "files": [
+    {
+      "name": "CanonicalGeometry.lean.inc",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/CanonicalGeometry.lean.inc",
+      "bytes": 1224,
+      "sha256": "14b087a55e62f52026238f9c75080ad07b2d7283b587cd690adebb7b00306e1a"
+    },
+    {
+      "name": "ColumnWordInjection.lean",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/ColumnWordInjection.lean",
+      "bytes": 4970,
+      "sha256": "bcb5c4ca45ff3d4298f3ff8a0f0325856334ab167dcd33279877a3de0138c04b"
+    },
+    {
+      "name": "ColumnWordInjection.lean.inc",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/ColumnWordInjection.lean.inc",
+      "bytes": 3315,
+      "sha256": "2b0c4f2a47ae6a95e6a229b57bfc6281282945ad123eb8ff39f8f542c431fb0e"
+    },
+    {
+      "name": "HANDOFF.txt",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/HANDOFF.txt",
+      "bytes": 6204,
+      "sha256": "2edb21e9effd669161ff75d6668181a7764c1fc77eacfcae5188f626465fb2b2"
+    },
+    {
+      "name": "README.md",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/README.md",
+      "bytes": 4537,
+      "sha256": "b3efd4b02828fcf79eb6dad64921bd9200531df585092a9674bd9158beb8b262"
+    },
+    {
+      "name": "assemble.py",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/assemble.py",
+      "bytes": 785,
+      "sha256": "99acf2a060e7c122fc55b533b9e92762cc6199e8c564686e59d4d85497b27ad7"
+    },
+    {
+      "name": "lean-toolchain",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/lean-toolchain",
+      "bytes": 25,
+      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "name": "provenance.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/provenance.json",
+      "bytes": 1751,
+      "sha256": "c54ebcc59f2f0dda00ce0a77ddf3ca52a04c74b18ed12367007462ea3b9154ef"
+    },
+    {
+      "name": "result.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/result.json",
+      "bytes": 3901,
+      "sha256": "c8c9ca41967c77e6fe07d179942006ebd96479af1a23e599ab33f7386899b51b"
+    },
+    {
+      "name": "validate.py",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/validate.py",
+      "bytes": 3178,
+      "sha256": "e9c52cfb87c765f9a2b954e7413495ccb3146aca7ec737d66505f6c6328e6d61"
+    },
+    {
+      "name": "validation-01-launch.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/validation-01-launch.json",
+      "bytes": 1570,
+      "sha256": "45fd9a7b99eb9e8d29ec082b0f53aa2146a431eb38f8ea4b2a23120da172a369"
+    },
+    {
+      "name": "validation-01-result.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/validation-01-result.json",
+      "bytes": 2155,
+      "sha256": "5387f2102a70177425c9aa026247162ff43a3a33fe11d6a8c8d3ca6380f16008"
+    },
+    {
+      "name": "validation-01-source.lean",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/validation-01-source.lean",
+      "bytes": 5132,
+      "sha256": "23fd7f262f697bead17312476abc1b81e1594d9529ae2a2158b61c182b600c9a"
+    },
+    {
+      "name": "validation-01.stderr.log",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/validation-01.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "validation-01.stdout.log",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/validation-01.stdout.log",
+      "bytes": 1643,
+      "sha256": "00e4a25db9a09679e0ed42c7fd6eb17dd272d046c8543ab13e6fa1a8978d444a"
+    },
+    {
+      "name": "validation-02-final-launch.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/validation-02-final-launch.json",
+      "bytes": 1570,
+      "sha256": "0d2807a5266160f6937376d6b1a6937b224e57e4f54cf28f0000a76256c05b28"
+    },
+    {
+      "name": "validation-02-final-result.json",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/validation-02-final-result.json",
+      "bytes": 2167,
+      "sha256": "6e7a0ddbd33dc082c76c0677922b630b8d5695c09ac090ad763b7775dfd4a2a3"
+    },
+    {
+      "name": "validation-02-final-source.lean",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/validation-02-final-source.lean",
+      "bytes": 4970,
+      "sha256": "bcb5c4ca45ff3d4298f3ff8a0f0325856334ab167dcd33279877a3de0138c04b"
+    },
+    {
+      "name": "validation-02-final.stderr.log",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/validation-02-final.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "validation-02-final.stdout.log",
+      "absolutePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-column-word-followup-20261024/validation-02-final.stdout.log",
+      "bytes": 441,
+      "sha256": "8115eb410075db61def6b28c1c959e0e7b95e622f498df8db9f9ef217b58b62e"
+    }
+  ],
+  "manifestFile": "delivery-files.json",
+  "checksumFile": "SHA256SUMS",
+  "note": "Payload manifest excludes itself and SHA256SUMS; SHA256SUMS checks all other files."
+}
