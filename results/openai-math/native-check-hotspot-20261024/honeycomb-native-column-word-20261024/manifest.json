@@ -1,0 +1,66 @@
+{
+  "schema": "theorem-os.honeycomb-native-column-word.v1",
+  "capturedAt": "2026-10-24T14:18:58.461269+00:00",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 1255,
+      "sha256": "74deaa73aa7a26087f7dc43a82fb13933b35619354df8700899bb2901dab4677"
+    },
+    {
+      "path": "honeycomb/column-word-integration.json",
+      "bytes": 35804,
+      "sha256": "3c452ab2a3a5dac9ebb03592bbc57519fdfbdbc46a64d9fd9c931aa0db3c4e5d"
+    },
+    {
+      "path": "honeycomb/column-word-proof.json",
+      "bytes": 39331,
+      "sha256": "48eb5854f626f6f4557aa7d0a326f51f80be4524a053729194e8fb80d762fa33"
+    },
+    {
+      "path": "honeycomb/column-word-task.json",
+      "bytes": 81271,
+      "sha256": "009aaaa0a6351fc1868a93494170ca9c7eb1126894f2e61fbf59f8edb044ad31"
+    },
+    {
+      "path": "honeycomb/integrated-source/Submission.lean",
+      "bytes": 13374,
+      "sha256": "604e26660c6898ab1d76db11d98689c0ef57b6f08f001f94c4c11915a3222dd9"
+    },
+    {
+      "path": "honeycomb/native-result-in-progress.json",
+      "bytes": 357,
+      "sha256": "2c0d3f02c194a9af6a3b176ba09bd1c4e5830eac95db021291a203cb990fee07"
+    },
+    {
+      "path": "honeycomb/native-state.json",
+      "bytes": 1061739,
+      "sha256": "18490d7f757f95b5a00659d665847fab156a4f37510517a73bbc9a6a32ece1ae"
+    },
+    {
+      "path": "honeycomb/proof-source/Submission.lean",
+      "bytes": 13374,
+      "sha256": "604e26660c6898ab1d76db11d98689c0ef57b6f08f001f94c4c11915a3222dd9"
+    },
+    {
+      "path": "readback.json",
+      "bytes": 4444,
+      "sha256": "f3bbe429051f843a93186ccdd456d14ccfb3bb126d90d92155c8b9b3b678f613"
+    },
+    {
+      "path": "snaky/accepted-fixed-review.json",
+      "bytes": 1462,
+      "sha256": "f62e504ffb054daa953d3ce780ffee7f3ac959ee585c8551df5aeff4a328d792"
+    },
+    {
+      "path": "snaky/native-result-in-progress.json",
+      "bytes": 372,
+      "sha256": "ba842f431e3e1da99e0af896dbdcfb42b7b023321f9dda815e9bac67319ca9ed"
+    },
+    {
+      "path": "snaky/native-state.json",
+      "bytes": 3564978,
+      "sha256": "b46e7ce756462e00601bcf06f64d6bffb1b7acfcf4e9a3eea3e34b4ba3e4180b"
+    }
+  ]
+}

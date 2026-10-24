@@ -1,0 +1,103 @@
+{
+  "observedAt": "2026-10-24T14:18:58.461269+00:00",
+  "origins": {
+    "honeycomb/native-state.json": {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/state.json",
+      "sha256": "18490d7f757f95b5a00659d665847fab156a4f37510517a73bbc9a6a32ece1ae",
+      "bytes": 1061739
+    },
+    "honeycomb/native-result-in-progress.json": {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json",
+      "sha256": "2c0d3f02c194a9af6a3b176ba09bd1c4e5830eac95db021291a203cb990fee07",
+      "bytes": 357
+    },
+    "snaky/native-state.json": {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/result.json.runtime/state.json",
+      "sha256": "b46e7ce756462e00601bcf06f64d6bffb1b7acfcf4e9a3eea3e34b4ba3e4180b",
+      "bytes": 3564978
+    },
+    "snaky/native-result-in-progress.json": {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/result.json",
+      "sha256": "ba842f431e3e1da99e0af896dbdcfb42b7b023321f9dda815e9bac67319ca9ed",
+      "bytes": 372
+    }
+  },
+  "sourceExports": [
+    {
+      "path": "honeycomb/proof-source/Submission.lean",
+      "commit": "7cb68d262fd5ec86b49f017a24ee03d58f0ebced",
+      "gitPath": "generated/problem/Submission.lean",
+      "sha256": "604e26660c6898ab1d76db11d98689c0ef57b6f08f001f94c4c11915a3222dd9",
+      "bytes": 13374
+    },
+    {
+      "path": "honeycomb/integrated-source/Submission.lean",
+      "commit": "fac87fb460b0289bc48ad7341935e731c7c3bfb5",
+      "gitPath": "generated/problem/Submission.lean",
+      "sha256": "604e26660c6898ab1d76db11d98689c0ef57b6f08f001f94c4c11915a3222dd9",
+      "bytes": 13374
+    }
+  ],
+  "taskDefinitionUnchanged": true,
+  "assignmentUnchanged": true,
+  "bothColumnTasksIntegrated": true,
+  "newWordTaskProof": {
+    "passed": true,
+    "commit": "7cb68d262fd5ec86b49f017a24ee03d58f0ebced",
+    "sourceDigest": "596bdf3fb095f7c7db572a3a7bcaa3556c001ce61908653fa29beb0a43c3cae3",
+    "taskDigest": "53c6c87fadcb26f17de3ec17c4407a34037c7c5e965c450e2fe3b141bd886481",
+    "status": "kernel_verified",
+    "durationMs": 19135,
+    "checkedAt": 1792851288701,
+    "results": [
+      {
+        "receiptId": "lean-d1533e50af2bd394228d788c",
+        "targetCommit": "5561a9893d8abab9f405006eb9df3e5355ed6bfd",
+        "proofPath": "Submission.lean",
+        "proofHash": "58075a4ae5328cff5ace896e3e2b60d67c9595ef644bf4da1298e6ccc93548e4",
+        "theoremName": "OAI.PolynomialVacuumBridge.Corridor.bridgePath_eq_of_column_eq",
+        "sourceDeclarationHash": "7c4d0c679766e3810c951ac091de90fd610988a0fa6ddd90cf8957ae1930ccb2",
+        "statementHash": "53c6c87fadcb26f17de3ec17c4407a34037c7c5e965c450e2fe3b141bd886481",
+        "axioms": [
+          "propext",
+          "Quot.sound"
+        ],
+        "goalsRemaining": 0,
+        "sorryCount": 0,
+        "admitCount": 0,
+        "status": "kernel_verified"
+      }
+    ]
+  },
+  "newWordTaskIntegration": {
+    "passed": true,
+    "commit": "fac87fb460b0289bc48ad7341935e731c7c3bfb5",
+    "sourceDigest": "596bdf3fb095f7c7db572a3a7bcaa3556c001ce61908653fa29beb0a43c3cae3",
+    "taskDigest": "53c6c87fadcb26f17de3ec17c4407a34037c7c5e965c450e2fe3b141bd886481",
+    "status": "kernel_verified",
+    "durationMs": 20008,
+    "checkedAt": 1792851308982,
+    "results": [
+      {
+        "receiptId": "lean-fa991c9b943987167a1b0eaf",
+        "targetCommit": "6b1292c5f4a371f53bc83fc736dec15175b755b8",
+        "proofPath": "Submission.lean",
+        "proofHash": "58075a4ae5328cff5ace896e3e2b60d67c9595ef644bf4da1298e6ccc93548e4",
+        "theoremName": "OAI.PolynomialVacuumBridge.Corridor.bridgePath_eq_of_column_eq",
+        "sourceDeclarationHash": "7c4d0c679766e3810c951ac091de90fd610988a0fa6ddd90cf8957ae1930ccb2",
+        "statementHash": "53c6c87fadcb26f17de3ec17c4407a34037c7c5e965c450e2fe3b141bd886481",
+        "axioms": [
+          "propext",
+          "Quot.sound"
+        ],
+        "goalsRemaining": 0,
+        "sorryCount": 0,
+        "admitCount": 0,
+        "status": "kernel_verified"
+      }
+    ]
+  },
+  "snakyPhase": "evaluating",
+  "snakyResultStatus": "prepared",
+  "progress": "../optimization-progress-20261024T141858Z.json"
+}

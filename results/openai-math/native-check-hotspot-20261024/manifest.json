@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-10-24T14:16:25.312434+00:00",
+  "capturedAt": "2026-10-24T14:19:44.017580+00:00",
   "characterV1KernelCheck": "failed: two section-parameter application mismatches",
   "characterV2FullSourceCompile": "passed: exit0 in 635.028472 seconds",
   "characterV2AxiomAudit": "passed: only propext/Classical.choice/Quot.sound",
@@ -8,8 +8,8 @@
   "files": [
     {
       "path": "README.md",
-      "bytes": 20199,
-      "sha256": "f7dddf30bcab762b6a9fad5c85e6bd595b5e49f102bfcf505e38adef62b5e102"
+      "bytes": 20265,
+      "sha256": "2a543c5fb3ba1ca566aa2da0274feca7b7137bb0fc56268b7530d7d84fc5d48c"
     },
     {
       "path": "adopt-verified-character-candidate/README.md",
@@ -2182,6 +2182,76 @@
       "sha256": "ddb8bfb6da810c51824f63ef0f61846ab28f4517a03b7ff76587886bf5b53a0c"
     },
     {
+      "path": "honeycomb-native-column-word-20261024/README.md",
+      "bytes": 1255,
+      "sha256": "74deaa73aa7a26087f7dc43a82fb13933b35619354df8700899bb2901dab4677"
+    },
+    {
+      "path": "honeycomb-native-column-word-20261024/SHA256SUMS",
+      "bytes": 1246,
+      "sha256": "7e978b84c7c0a5d861e400f50c3518c36129196286ab54416ced63904d9a09bd"
+    },
+    {
+      "path": "honeycomb-native-column-word-20261024/honeycomb/column-word-integration.json",
+      "bytes": 35804,
+      "sha256": "3c452ab2a3a5dac9ebb03592bbc57519fdfbdbc46a64d9fd9c931aa0db3c4e5d"
+    },
+    {
+      "path": "honeycomb-native-column-word-20261024/honeycomb/column-word-proof.json",
+      "bytes": 39331,
+      "sha256": "48eb5854f626f6f4557aa7d0a326f51f80be4524a053729194e8fb80d762fa33"
+    },
+    {
+      "path": "honeycomb-native-column-word-20261024/honeycomb/column-word-task.json",
+      "bytes": 81271,
+      "sha256": "009aaaa0a6351fc1868a93494170ca9c7eb1126894f2e61fbf59f8edb044ad31"
+    },
+    {
+      "path": "honeycomb-native-column-word-20261024/honeycomb/integrated-source/Submission.lean",
+      "bytes": 13374,
+      "sha256": "604e26660c6898ab1d76db11d98689c0ef57b6f08f001f94c4c11915a3222dd9"
+    },
+    {
+      "path": "honeycomb-native-column-word-20261024/honeycomb/native-result-in-progress.json",
+      "bytes": 357,
+      "sha256": "2c0d3f02c194a9af6a3b176ba09bd1c4e5830eac95db021291a203cb990fee07"
+    },
+    {
+      "path": "honeycomb-native-column-word-20261024/honeycomb/native-state.json",
+      "bytes": 1061739,
+      "sha256": "18490d7f757f95b5a00659d665847fab156a4f37510517a73bbc9a6a32ece1ae"
+    },
+    {
+      "path": "honeycomb-native-column-word-20261024/honeycomb/proof-source/Submission.lean",
+      "bytes": 13374,
+      "sha256": "604e26660c6898ab1d76db11d98689c0ef57b6f08f001f94c4c11915a3222dd9"
+    },
+    {
+      "path": "honeycomb-native-column-word-20261024/manifest.json",
+      "bytes": 2121,
+      "sha256": "c33f2fd998a5affc222fe311ba30dc1fcc7f9dd2a7f477db93778c49ed5ab385"
+    },
+    {
+      "path": "honeycomb-native-column-word-20261024/readback.json",
+      "bytes": 4444,
+      "sha256": "f3bbe429051f843a93186ccdd456d14ccfb3bb126d90d92155c8b9b3b678f613"
+    },
+    {
+      "path": "honeycomb-native-column-word-20261024/snaky/accepted-fixed-review.json",
+      "bytes": 1462,
+      "sha256": "f62e504ffb054daa953d3ce780ffee7f3ac959ee585c8551df5aeff4a328d792"
+    },
+    {
+      "path": "honeycomb-native-column-word-20261024/snaky/native-result-in-progress.json",
+      "bytes": 372,
+      "sha256": "ba842f431e3e1da99e0af896dbdcfb42b7b023321f9dda815e9bac67319ca9ed"
+    },
+    {
+      "path": "honeycomb-native-column-word-20261024/snaky/native-state.json",
+      "bytes": 3564978,
+      "sha256": "b46e7ce756462e00601bcf06f64d6bffb1b7acfcf4e9a3eea3e34b4ba3e4180b"
+    },
+    {
       "path": "honeycomb-profile-advisory-20261024/README.md",
       "bytes": 1669,
       "sha256": "b127a71a749fe5e085001d6dafcf5d6bd39705fe185afc7d4e6003b424f0c674"
@@ -3167,6 +3237,11 @@
       "sha256": "ca4c79758a804d43e103eb9b0125df39d281775e04d778de5ac1a1c10a8e9a4d"
     },
     {
+      "path": "optimization-progress-20261024T141858Z.json",
+      "bytes": 23202,
+      "sha256": "739c2b94d6a896a4b2038642e2ebdc32c466e426a3d71b4376fa3ae794b29da7"
+    },
+    {
       "path": "run-character-candidate.py",
       "bytes": 3154,
       "sha256": "15c36940e430219505468f751b9a388a094908e4376a3eeab549f39e694a5652"
@@ -3786,8 +3861,8 @@
   "characterV2IndependentOriginalComparator": "passed: unchanged binary, original target and axioms; genuine prebuilt artifact; exit0 in 41.153155 seconds",
   "honeycombSumsReduction": "native kernel and integration passed; original goal resumed; growth estimate still unproved",
   "characterV2NativeDelivery": "evaluated_passed; fixed review, independent final check and fixed original comparator passed",
-  "latestProgressSnapshot": "optimization-progress-20261024T141230Z.json",
-  "honeycombCurrentProgress": "turn303: column-step lemma integrated; column-word injectivity running; reduction retained; original goal conditional",
+  "latestProgressSnapshot": "optimization-progress-20261024T141858Z.json",
+  "honeycombCurrentProgress": "turn308: both column structural lemmas integrated; reduction retained; original goal conditional",
   "honeycombAdvisoryRoute": "direct first-moment summability via exact finite-state encoding and finite-box mass; unproved geometric inputs; ordinary advisory edit applied at turn104",
   "characterV2NativeOriginalGoal": "passed: lean-adc266b0e003d64e5ebdf91b",
   "honeycombFiniteBoxHelpers": "four declarations locally kernel-checked; normal advisory edit applied; original goal unproved",
@@ -3826,7 +3901,7 @@
   "snakyAllTargetCheck": "passed: lean-63766151ffe8a0523a860487; fixed review accepted; final host acceptance in progress",
   "snakyNativeFinalAccepted": false,
   "honeycombOriginalGoalSolved": false,
-  "latestProgress": "optimization-progress-20261024T141230Z.json",
+  "latestProgress": "optimization-progress-20261024T141858Z.json",
   "newFixedSupportBuild": "46551899-4922-4905-b81e-0ff4503842e6",
   "newFixedSupportBuildActivated": false,
   "allFiveBudgetCaps": 0,
@@ -3864,17 +3939,25 @@
     "status": "integrated",
     "proofReceipt": "lean-e83a6b1407f4870dbd3a0b16",
     "integrationReceipt": "lean-c7989226c081cd5d2eb57480",
-    "nextTaskStatus": "running",
+    "nextTaskStatus": "integrated",
     "originalGoalSolved": false
   },
   "currentArchiveValidation": {
-    "checkedAt": "2026-10-24T14:16:25.312469+00:00",
-    "newPackageShaChecks": 71,
-    "jsonFilesParsed": 398,
+    "checkedAt": "2026-10-24T14:19:44.017611+00:00",
+    "newPackageShaChecks": 84,
+    "jsonFilesParsed": 409,
     "markdownFilesChecked": 6,
     "markdownLocalLinksChecked": 66,
     "newRuntimeTestsRerun": false,
-    "reasonTestsNotRerun": "Final isolated source and bundles match the passing 85-test delivery; only evidence and index documents changed."
+    "reasonTestsNotRerun": "Final isolated source and bundles match the passing 85-test delivery; only evidence and index documents changed.",
+    "followupMarkdownLocalLinksChecked": 66
   },
-  "fileCount": 755
+  "fileCount": 770,
+  "honeycombNativeColumnWord": {
+    "status": "integrated",
+    "proofReceipt": "lean-d1533e50af2bd394228d788c",
+    "integrationReceipt": "lean-fa991c9b943987167a1b0eaf",
+    "originalGoalSolved": false
+  },
+  "honeycombNativeColumnTasksIntegrated": 2
 }

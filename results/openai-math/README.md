@@ -29,6 +29,6 @@
 
 [2026-10-24 在途检查调度调整与源码试验](check-acceleration-followup-20261024/README.md)：两条正式 Lean 检查采用本地 CPU 核组，保留原调度及回读；两项源码试验未显示可靠收益，未采用新候选，尚无整题提速倍数。
 
-[2026-10-24 验收热点定位与加速版](native-check-hotspot-20261024/README.md)：Character 加速版已完成原生最终验收。两项队列调整已生效，Honeycomb 首项列结构引理已原生集成、第二项正在处理；Snaky 固定复审已接受。编辑队列恢复修复通过 85 项测试和构建验证，保留为独立候选版。见[实际回执与源码](native-check-hotspot-20261024/native-optimization-outcomes-20261024/README.md)及[最新状态](native-check-hotspot-20261024/optimization-progress-20261024T141230Z.json)。
+[2026-10-24 验收热点定位与加速版](native-check-hotspot-20261024/README.md)：Character 加速版已完成原生最终验收。两项队列调整已生效，Honeycomb 两项列结构引理均已原生集成；Snaky 固定复审已接受。编辑队列恢复修复通过 85 项测试和构建验证，保留为独立候选版。见[第一项回执](native-check-hotspot-20261024/native-optimization-outcomes-20261024/README.md)、[第二项回执](native-check-hotspot-20261024/honeycomb-native-column-word-20261024/README.md)及[最新状态](native-check-hotspot-20261024/optimization-progress-20261024T141858Z.json)。
 
 [验收可靠性修复与验证回执](validation-reliability-20261023/README.md)：长载荷递送、首错摘要和宿主检查修复已通过 344 项测试；补丁归档，数学通过数不变。

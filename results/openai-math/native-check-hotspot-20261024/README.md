@@ -1,8 +1,8 @@
 # 原生检查热点与加速候选（2026-10-24）
 
-最新状态见 [22:12 北京时间进度快照](optimization-progress-20261024T141230Z.json)。两个活动运行的五项预算均从 launch 逐项回读为 0，Honeycomb 持久服务正常运行。
+最新状态见 [22:18 北京时间进度快照](optimization-progress-20261024T141858Z.json)。两个活动运行的五项预算均从 launch 逐项回读为 0，Honeycomb 持久服务正常运行。
 
-本轮两项正常队列调整均已应用，`affectedTasks=[]`。Honeycomb 第一项列结构引理已通过原生任务检查并集成，回执分别为 `lean-e83a6b1407f4870dbd3a0b16`、`lean-c7989226c081cd5d2eb57480`；下一项完整列 word 单射任务正在处理。Snaky 第三轮固定版本复审已接受，进入 `evaluating` 阶段，宿主最终检查和原比较器仍待完成。见[原始状态、回执与源码](native-optimization-outcomes-20261024/README.md)、[任务顺序调整](honeycomb-ready-proof-priority-20261024/README.md)和[复审证据通知与队列恢复](snaky-review-evidence-advisory-20261024/README.md)。原题最终通过数尚未增加。
+本轮两项正常队列调整均已应用，`affectedTasks=[]`。Honeycomb 两项列结构引理现均已通过原生任务检查并集成：[第一项回执与源码](native-optimization-outcomes-20261024/README.md)，[第二项完整列 word 单射回执与源码](honeycomb-native-column-word-20261024/README.md)。第二项任务与集成检查分别耗时 19.135 秒、20.008 秒，无 sorry、admit 或剩余目标。Snaky 第三轮固定版本复审已接受，进入 `evaluating` 阶段，宿主最终检查和原比较器仍待完成。见[任务顺序调整](honeycomb-ready-proof-priority-20261024/README.md)和[复审证据通知与队列恢复](snaky-review-evidence-advisory-20261024/README.md)。原题最终通过数尚未增加。
 
 [编辑队列读取与恢复修复](human-edit-reader-fix-20261024/README.md)已通过 85 项聚焦测试、typecheck、三个 headless bundle 和实际 manifest 校验。合法 1 MiB 编辑可完整消费，超限记录只拒绝一次并可跨恢复跳过尾段。构建 `57d42932-8fa4-422c-9445-684ef0eb7a09` 保留为隔离候选，尚未切入活动冻结链；worker 原有 16,000,000 字节限制保持不变。旧 Snaky 的 64,000 字节事故及两次 SSE 故障另有原始记录，不能据此宣称新版存在同一限制或传输故障已修复。
 
