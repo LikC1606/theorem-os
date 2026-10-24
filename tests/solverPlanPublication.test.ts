@@ -186,7 +186,13 @@ describe('live replacement plan publication', () => {
       expect(goalInterrupt).not.toHaveBeenCalled();
     }
     const finalAssessment = await start();
-    fs.writeFileSync(path.join(workers[0].worktree, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify(graph()) + '\n```');
+    fs.writeFileSync(path.join(workers[0].worktree, 'RESEARCH.md'), JSON.stringify({ kind: 'assessment',
+      dispatchNonce: finalAssessment.planNonce, baseVersion: finalAssessment.planVersion,
+      assessments: ([['capacity', finalAssessment.capacityRefill], ['stagnation', finalAssessment.stagnationRecovery]] as const)
+        .flatMap(([kind, request]) => request ? [{ kind, requestId: request.requestId, inputDigest: request.inputDigest,
+          outcome: 'no-independent-work',
+          reason: 'The three independent helpers are integrated; no further closed helper for the active original-goal proof has been identified.' }] : []),
+    }));
     cooperative.deactivate(workers[0]);
     await cooperative.deliver(workers[0], finalAssessment, commitSolverSources(problem, workers[0].worktree));
     let dispatched = false;
@@ -197,7 +203,7 @@ describe('live replacement plan publication', () => {
     expect(events.filter(event => event.event === 'capacity_refill_requested')).toHaveLength(4);
     expect(events.filter(event => event.event === 'plan_published')).toHaveLength(3);
     expect(state.cooperation!.tasks.filter(node => node.task.id.startsWith('wave_') && node.status === 'integrated')).toHaveLength(3);
-    expect(state.cooperation!.lastCapacityRefill?.status).toBe('assessed');
+    expect(state.cooperation!.lastCapacityRefill).toMatchObject({ status: 'assessed', outcome: 'no-independent-work' });
     expect(state.check).toBeUndefined();
   });
 });

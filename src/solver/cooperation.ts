@@ -11,7 +11,7 @@ import type { DispatchWaitObservation } from './archive';
 import { CAPACITY_EXPLORATION_FOCUSES, capacityExplorationInput, createCapacityExploration,
   currentCapacityExploration } from './capacityExploration';
 import { advisoryStagnation } from './advisoryStagnation';
-import { finishLeadAssessment, leadAssessmentCovered, prepareLeadAssessment } from './leadAssessment';
+import { finishLeadAssessment, leadAssessmentCovered, prepareLeadAssessment, reopenLegacyLeadAssessment } from './leadAssessment';
 import { hasFreshSolverCheck, proofReceiptsMatch, type ProofCheck } from './modules/evidence';
 import { originalGoalTaskFocus, readyResearchTasks, researchCanAdvance, routeAllowsTask, taskCanStart, taskDependenciesReady, selectedTaskRoute } from './modules/search';
 import { deliveryDetails, reviewVerdict, readMathResponse as block, MAX_RESEARCH_NOTES_BYTES } from './deliveries';
@@ -28,7 +28,7 @@ import { mathematicalGaps, mathematicalGapVisible } from './mathematicalGaps';
 import { automaticTaskConnection, createTaskConnectionCheck } from './taskConnections';
 import { taskTypePreflightEnvironmentIdentity, type TaskTypePreflight } from './taskTypePreflight';
 import { captureObligationSnapshot } from './obligationProgress';
-import { assignmentDeliveryFile, groupOpen, isFeasibilityReview, taskGroup, type CapacityOwnershipCandidate, type CooperativeTask, type CooperativeAction, type TaskRecord } from './tasks';
+import { assignmentDeliveryFile, groupOpen, isFeasibilityReview, taskGroup, taskProofContractVersion, type CapacityOwnershipCandidate, type CooperativeTask, type CooperativeAction, type TaskRecord } from './tasks';
 import { digest, directDeliveryRejections, isTaskSourceRepairFeedback, rejectionCode, CooperationState, TaskVersions, DispatchBudget, RETRY_DISPATCH, DispatchResult, bounded,
   deliveryInputFields, readCooperationPlan } from './cooperationShared';
 import { CooperationInputs } from './cooperationInputs';
@@ -180,15 +180,50 @@ export class CooperativeResearch extends CooperationInputs {
     if (leadAssessmentCovered(previous, input.inputDigest)) return;
     return { ...input, workerIds, ...(ownershipCandidates.length ? { ownershipCandidates } : {}) };
   }
-  /** Called after an accepted final or immutable live plan, before its normal save. */
+  private leadExecutableWork = new WeakMap<CooperativeAction, Set<string>>();
+  private executableWork() {
+    const { groups, peers, ready } = this.capacityAvailability();
+    return this.archive.tasks.filter(node => !node.capacityExploration && (node.status === 'running' && node.assignment &&
+      node.assignment.taskDigest === digest(node.task) && (node.task.status ?? 'active') === 'active' ||
+      ready.includes(node) && peers.some(worker =>
+        assignSharedResearchTask([node], worker, peers, groups, this.archive.tasks) === node)));
+  }
+  private capacityRequestWork(action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' }>): string[] | undefined {
+    if (!action.capacityRefill) return;
+    const { groups, occupied, peers, ready } = this.capacityAvailability();
+    const fulfilled: string[] = [];
+    for (const id of action.capacityRefill.workerIds) {
+      const running = this.archive.tasks.find(node => node.status === 'running' && node.assignment?.workerId === id &&
+        node.assignment.taskDigest === digest(node.task) && !node.capacityExploration);
+      if (running) { fulfilled.push(running.task.id); continue; }
+      const worker = peers.find(worker => worker.id === id);
+      if (!worker || occupied.has(id)) return;
+      const node = assignSharedResearchTask(ready.filter(node => !node.capacityExploration), worker, peers, groups, this.archive.tasks);
+      if (!node) return;
+      fulfilled.push(node.task.id);
+      ready.splice(ready.indexOf(node), 1);
+      const route = groups?.find(route => route.group.id === taskGroup(node.task));
+      if (route) route.busy = (route.busy ?? 0) + 1;
+    }
+    return fulfilled;
+  }
+  protected leadAssessmentInput(kind: 'capacity' | 'stagnation') {
+    return kind === 'capacity' ? this.capacityRefillInput() : this.stagnationInput();
+  }
+  /** Publishing a graph resolves only the scheduling obligation it actually fulfills. */
   protected markCapacityRefillAssessed(action: CooperativeAction): void {
     if (action.kind !== 'lead') return;
     const nonce = action.planNonce ?? action.initialPlanNonce;
-    if (finishLeadAssessment(this.archive.lastStagnationRecovery, action.stagnationRecovery, nonce,
-      { at: Date.now(), outcome: 'plan-published', currentInput: this.stagnationInput() }))
+    const previous = this.leadExecutableWork.get(action);
+    const support = originalGoalTaskFocus(this.archive.tasks, this.archive.groups, this.input.state.environmentDigest).support;
+    const decomposed = previous && this.executableWork().filter(node => !advisory(node.task) && support.has(node.task.id) &&
+      !previous.has(taskProofContractVersion(node.task))).map(node => node.task.id);
+    if (decomposed?.length && finishLeadAssessment(this.archive.lastStagnationRecovery, action.stagnationRecovery, nonce,
+      { at: Date.now(), outcome: 'plan-published', fulfilledTaskIds: decomposed, currentInput: this.stagnationInput() }))
       this.input.emit('stagnation_recovery_assessed', { ...this.archive.lastStagnationRecovery, evidenceStatus: 'advisory' });
-    if (finishLeadAssessment(this.archive.lastCapacityRefill, action.capacityRefill, nonce,
-      { at: Date.now(), outcome: 'plan-published', currentInput: this.capacityRefillInput() }))
+    const filled = this.capacityRequestWork(action);
+    if (filled?.length && finishLeadAssessment(this.archive.lastCapacityRefill, action.capacityRefill, nonce,
+      { at: Date.now(), outcome: 'plan-published', fulfilledTaskIds: filled, currentInput: this.capacityRefillInput() }))
       this.input.emit('capacity_refill_assessed', { ...this.archive.lastCapacityRefill });
   }
   private leadResponsibilityDigest(): string {
@@ -286,6 +321,9 @@ export class CooperativeResearch extends CooperationInputs {
     if (failed?.status === 'rejected') throw failed.reason;
   }
   async restore() {
+    for (const [kind, receipt] of [['capacity', this.archive.lastCapacityRefill], ['stagnation', this.archive.lastStagnationRecovery]] as const)
+      if (reopenLegacyLeadAssessment(receipt)) this.input.emit('lead_assessment_reopened', {
+        kind, requestId: receipt!.requestId, reason: 'legacy-publication-without-executable-work' });
     if (this.refreshFeasibilityAssignments()) this.changed();
     for (const node of this.archive.tasks) if (['pending', 'running'].includes(node.status)) this.restoreTaskSourceRepair(node);
     for (const failed of this.archive.failedTaskInputs ?? []) {
@@ -479,6 +517,8 @@ export class CooperativeResearch extends CooperationInputs {
         ...(!this.archive.tasks.length && !this.archive.initialPlanPublication ? { initialPlanNonce: crypto.randomUUID() } : {}),
         ...(this.archive.tasks.length ? { planNonce: crypto.randomUUID() } : {}) };
       this.leadEvidence.set(action, this.planningEvidenceDigest());
+      this.leadExecutableWork.set(action, new Set(this.executableWork().filter(node => !advisory(node.task))
+        .map(node => taskProofContractVersion(node.task))));
       if (stagnation) {
         const { receipt, created } = prepareLeadAssessment('stagnation', this.archive.lastStagnationRecovery, { inputDigest: stagnation.inputDigest,
           taskIds: [...stagnation.taskIds], workerIds: [...stagnation.workerIds], reason: stagnation.reason,
@@ -891,11 +931,12 @@ export class CooperativeResearch extends CooperationInputs {
         const notes = savedNotes.trimStart();
         const hasFinalPlan = this.publishedPlans.get(action)?.responseDigest !== this.proposedPlanDigest() &&
           (notes.startsWith('{') || /```(?:math|json|math-plan)\s*\n/u.test(notes));
-        let assessmentResponse: any;
+        let assessmentResponse: any, assessmentPlanResponse: any;
         if (!unchangedCheckpoint && action.kind === 'lead' && (action.capacityRefill || action.stagnationRecovery)) {
           try {
             const response = block(worker.worktree, 'math-plan');
             if (response.kind === 'assessment') assessmentResponse = response;
+            else assessmentPlanResponse = response;
           } catch { /* The ordinary final-plan path owns non-assessment response validation. */ }
         }
         if (unchangedCheckpoint) {
@@ -915,8 +956,16 @@ export class CooperativeResearch extends CooperationInputs {
           const response = block(worker.worktree, 'math-plan');
           const plan = recoveryPlan ?? parseCooperationPlan(this.input.state.problem, response);
           const decided = this.resolveAdvisoryDecisions(action, plan.tasks, response, plan);
+          const assessments = response.assessments === undefined ? undefined :
+            this.validateLeadAssessments(action, response.assessments, decided);
           await this.acceptPlan(plan, undefined, undefined, decided, action);
-        } else await this.acceptPlan(recoveryPlan);
+          if (assessments) { this.completeLeadAssessments(action, assessments); assessmentDecision = true; }
+        } else {
+          const assessments = assessmentPlanResponse?.assessments === undefined ? undefined :
+            this.validateLeadAssessments(action, assessmentPlanResponse.assessments);
+          await this.acceptPlan(recoveryPlan);
+          if (assessments) { this.completeLeadAssessments(action, assessments); assessmentDecision = true; }
+        }
         if (!unchangedCheckpoint) accepted = true;
       } catch (error) {
         if (recovering) {
@@ -948,8 +997,7 @@ export class CooperativeResearch extends CooperationInputs {
           taskIds: resolution.recovery.taskIds, readyTaskIds: resolution.taskIds });
         this.changed();
       }
-      if (accepted && !recovering && action.planningInputDigest) this.archive.lastLeadInputDigest =
-        this.leadEvidence.get(action) === this.planningEvidenceDigest() ? this.planningInputDigest() : action.planningInputDigest;
+      if (accepted && (!recovering || decisionProgress)) this.rememberLeadDecision(action);
       if (accepted && (!recovering || decisionProgress)) this.markCapacityRefillAssessed(action);
       this.changed();
       return { finished: false as const, sourceChanged, savedPlan, planVersion: this.archive.planVersion };

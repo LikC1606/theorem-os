@@ -258,6 +258,10 @@ export function resolveResearchHandoffs(state: HandoffState, dispatchedIds: read
   const proposed = new Map(tasks.map(task => [task.id, task])), nodes = new Map(state.tasks.map(node => [node.task.id, node]));
   const deliveries = new Map(state.deliveries?.map(delivery => [delivery.id, deliveryContext(delivery)]));
   const responses = new Map<string, Pick<ResearchHandoffDecision, 'status' | 'reason' | 'waitsOn'>>();
+  const adoptions = new Set<string>();
+  const adoptedTask = (handoff: ResearchHandoff) =>
+    tasks.find(task => task.id === handoff.proposal.id && sameProofTarget(handoff.proposal, task)) ??
+    tasks.find(task => sameProofTarget(handoff.proposal, task));
   const checkActivation = (handoff: ResearchHandoff) => {
     if (activations === undefined && !handoff.reopened) return;
     for (const id of shown.get(handoff.id) ?? []) if (activations?.[id] !== handoff.activationDigest)
@@ -265,14 +269,32 @@ export function resolveResearchHandoffs(state: HandoffState, dispatchedIds: read
   };
   const seen = new Set<string>();
   for (const decision of (value ?? []) as any[]) {
-    if (!decision || typeof decision.id !== 'string' || seen.has(decision.id) || !['rejected', 'deferred'].includes(decision.status) ||
-        typeof decision.reason !== 'string' || !decision.reason.trim()) throw new Error('math_handoff_decision_invalid');
+    if (!decision || typeof decision.id !== 'string' || seen.has(decision.id) || !['adopted', 'rejected', 'deferred'].includes(decision.status) ||
+        (decision.status === 'adopted' ? Object.keys(decision).some(key => !['id', 'status'].includes(key)) :
+          typeof decision.reason !== 'string' || !decision.reason.trim())) throw new Error('math_handoff_decision_invalid');
     seen.add(decision.id);
     const handoff = byAlias.get(decision.id), id = handoff?.id ?? decision.id;
     if (pending.has(id) && shown.has(id)) checkActivation(handoff!);
+    const recorded = handoff?.decision ?? previous.get(decision.id);
+    if (decision.status === 'adopted') {
+      // A full plan may acknowledge adoption explicitly, just like a short handoff
+      // event. The declaration never supplies a task or bypasses its typed target.
+      if (!handoff || !(pending.has(id) && shown.has(id) || handoff.status === 'adopted'))
+        throw new Error('math_handoff_decision_invalid');
+      const adopted = adoptedTask(handoff);
+      if (!adopted) throw new Error('math_handoff_unresolved:' + id +
+        ': copy its immutable typed proposal verbatim into the complete task graph, including type notation; ' +
+        'or use kind:"handoff" to let the host materialize the proposal.');
+      if (handoff.status === 'adopted') {
+        if (recorded?.taskId !== adopted.id) throw new Error('math_handoff_decision_invalid');
+        continue;
+      }
+      if (responses.has(id)) throw new Error('math_handoff_decision_conflict:' + id);
+      adoptions.add(id);
+      continue;
+    }
     const waitsOn = parseWaitsOn(decision.waitsOn, decision.status === 'deferred', id => proposed.get(id),
       'math_handoff_waits_on_invalid', 'math_handoff_waits_on_invalid:')?.sort((left, right) => left.taskId.localeCompare(right.taskId));
-    const recorded = handoff?.decision ?? previous.get(decision.id);
     const response = { status: decision.status as 'rejected' | 'deferred', reason: decision.reason.trim(), ...(waitsOn ? { waitsOn } : {}) };
     // A response may restate an already recorded decision unchanged.
     if (!pending.has(id) && recorded?.status === response.status && recorded.reason === response.reason &&
@@ -280,7 +302,7 @@ export function resolveResearchHandoffs(state: HandoffState, dispatchedIds: read
     if (!(shown.has(id) && pending.has(id)) && !waiting.has(id))
       throw new Error('math_handoff_decision_invalid');
     if (waitsOn?.every(reference => freshlyChecked(nodes, reference))) throw new Error('math_handoff_waits_on_satisfied:' + decision.id);
-    if (responses.has(id) && canonicalMathJson(responses.get(id)) !== canonicalMathJson(response))
+    if (adoptions.has(id) || responses.has(id) && canonicalMathJson(responses.get(id)) !== canonicalMathJson(response))
       throw new Error('math_handoff_decision_conflict:' + id);
     responses.set(id, response);
   }
@@ -289,8 +311,7 @@ export function resolveResearchHandoffs(state: HandoffState, dispatchedIds: read
     const handoff = pending.get(id) ?? (responses.has(id) ? waiting.get(id) : undefined);
     if (!handoff) continue; // A concurrent plan edit may have superseded its source.
     if (pending.has(id)) checkActivation(handoff);
-    const adopted = tasks.find(task => task.id === handoff.proposal.id && sameProofTarget(handoff.proposal, task)) ??
-      tasks.find(task => sameProofTarget(handoff.proposal, task));
+    const adopted = adoptedTask(handoff);
     const response = responses.get(id);
     if (adopted && response) throw new Error('math_handoff_decision_conflict:' + id);
     let result: Pick<ResearchHandoffDecision, 'status' | 'taskId' | 'taskDigest' | 'reason' | 'waitsOn'>;

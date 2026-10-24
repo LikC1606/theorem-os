@@ -46,6 +46,57 @@ it('records adoption as a pending typed task and reopens the handoff if that con
   expect(pendingResearchHandoffs({ ...planned, tasks: [...state.tasks, node({ ...adopted, type: 'False' })] })).toHaveLength(1);
 });
 
+it('accepts explicit full-plan adoption only through the same exact typed task as inferred adoption', () => {
+  const state = fixture(), handoff = pendingResearchHandoffs(state)[0], before = structuredClone(state);
+  const adopted = { ...proposal, revision: 1, ownerId: 'prover', sharing: 'problem' as const };
+  const tasks = [research, adopted], response = [{ id: handoff.id, status: 'adopted' }];
+  const decisions = resolveResearchHandoffs(state, [handoff.id], tasks, response,
+    { [handoff.id]: handoff.activationDigest });
+
+  expect(decisions).toEqual(resolveResearchHandoffs(state, [handoff.id], tasks, undefined));
+  expect(decisions).toMatchObject([{ status: 'adopted', taskId: adopted.id, taskDigest: taskVersion(adopted) }]);
+  const restored = JSON.parse(JSON.stringify({ ...state, tasks: [...state.tasks, node(adopted)], researchDecisions: decisions }));
+  expect(resolveResearchHandoffs(restored, [], tasks, response)).toEqual([]);
+  expect(state).toEqual(before);
+});
+
+it.each([undefined, { type: 'False' }, { theoremName: 'Original.other' }, { groupId: 'other-route' },
+  { proofPath: 'Other.lean' }, { conditional: true }, { premises: ['new premise'] }])
+('does not let an explicit adopted declaration replace its missing or changed typed target: %j', change => {
+  const state = fixture(), handoff = pendingResearchHandoffs(state)[0];
+  const tasks = change ? [research, { ...proposal, ...change }] : [research];
+  expect(() => resolveResearchHandoffs(state, [handoff.id], tasks, [{ id: handoff.id, status: 'adopted' }]))
+    .toThrow('math_handoff_unresolved:' + handoff.id);
+  expect(state.researchDecisions).toBeUndefined();
+});
+
+it('keeps dispatch and source activation checks for explicit full-plan adoption', () => {
+  const state = fixture(), handoff = pendingResearchHandoffs(state)[0], tasks = [research, proposal];
+  const response = [{ id: handoff.id, status: 'adopted' }];
+  expect(() => resolveResearchHandoffs(state, [], tasks, response)).toThrow('math_handoff_decision_invalid');
+  expect(() => resolveResearchHandoffs(state, [handoff.id], tasks, response, { [handoff.id]: 'old-activation' }))
+    .toThrow('math_handoff_dispatch_superseded:' + handoff.id);
+  expect(() => resolveResearchHandoffs({ ...state, deliveries: [{ ...delivery, status: 'superseded' }] },
+    [handoff.id], tasks, response)).toThrow('math_handoff_decision_invalid');
+});
+
+it.each([{ ownerId: 'different-writer' }, { type: 'False' }, { waitsOn: ['invented'] }])
+('rejects task or waiting fields supplied inside a full-plan adoption declaration: %j', extra => {
+  const state = fixture(), handoff = pendingResearchHandoffs(state)[0];
+  expect(() => resolveResearchHandoffs(state, [handoff.id], [research, proposal],
+    [{ id: handoff.id, status: 'adopted', ...extra }])).toThrow('math_handoff_decision_invalid');
+});
+
+it.each([false, true])('rejects conflicting adoption and rejection across delivery aliases (adoption first: %s)', first => {
+  const state = fixture(); state.deliveries.push({ ...structuredClone(delivery), id: 'duplicate' });
+  const handoff = pendingResearchHandoffs(state)[0];
+  const responses = [{ id: handoff.sources[0].handoffId, status: 'adopted' },
+    { id: handoff.sources[1].handoffId, status: 'rejected', reason: 'This proposal cannot close the goal.' }];
+  if (!first) responses.reverse();
+  expect(() => resolveResearchHandoffs(state, [handoff.id], [research, proposal], responses))
+    .toThrow('math_handoff_decision_conflict:' + handoff.id);
+});
+
 it('keeps adoption durable when only scheduling metadata changes', () => {
   const state = fixture();
   state.deliveries.push({ ...structuredClone(delivery), id: 'repeated', createdAt: 2 });

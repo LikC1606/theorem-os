@@ -760,6 +760,22 @@ describe('completed advisory research continuation', () => {
     expect(state.cooperation!.history).toContainEqual(expect.objectContaining({ task: f.task, finding: f.finding }));
   });
 
+  it('retains legacy completed research without a finding as history through successive continuations', async () => {
+    const f = completedResearchFixture(), prior = f.oldState.cooperation!.tasks.at(-1)!;
+    delete prior.researchCompletion; delete prior.finding;
+    writeSolverRunState(f.sourceStateFile, f.oldState);
+    await f.seed();
+    const next = nextContinuation(f, f.stateFile, 'legacy-without-finding');
+    await next.seed();
+    for (const file of [f.stateFile, next.stateFile]) {
+      const state = readSolverRunState(file);
+      const task = state.cooperation!.tasks.find(node => node.task.id === f.task.id)!;
+      expect(task).toMatchObject({ status: 'pending', attempts: 0 });
+      expect(task.finding).toBeUndefined(); expect(task.researchCompletion).toBeUndefined();
+      expect(state.cooperation!.history).toContainEqual(expect.objectContaining({ task: f.task }));
+    }
+  });
+
   it.each(['environmentDigest', 'retrievalDigest', 'knowledgeDigest'] as const)('reopens research for a changed %s and retains the finding as history', async field => {
     const f = completedResearchFixture();
     f.newState[field] = mathDigest(`changed-${field}`); writeSolverRunState(f.stateFile, f.newState);

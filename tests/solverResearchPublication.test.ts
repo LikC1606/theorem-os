@@ -161,6 +161,38 @@ it('resolves the explicitly replaced receipt only after a corrected finding is r
   expect(state.cooperation!.tasks[0].proof).toBeUndefined();
 });
 
+it('resolves a gap correction that fails again before its complete replacement is recorded', async () => {
+  const goal = state.cooperation!.tasks.find(node => node.task.kind === 'goal')!.task;
+  const gap = { consumer: { taskId: goal.id, taskDigest: taskVersion(goal) }, previousGap: 'The original missing inference',
+    reduced: 'The checked special case', remaining: 'The uniform classification', evidenceScope: 'Checked special-case sources',
+    reconsiderWhen: ['A uniform classification lemma is available'] };
+  const log = path.join(workers[1].worktree, assignmentDeliveryFile(action.assignment)), cursors = {};
+  const append = (value: unknown) => fs.appendFileSync(log, JSON.stringify({ kind: 'research', finding: value }) + '\n');
+  const poll = () => (cooperative as any).readWorkerDeliveries(workers[1], action, cursors);
+  append({ ...finding(), mathematicalGap: { ...gap, previousDeliveryId: 'ordinary-research-is-not-a-gap' } });
+  await poll();
+  const first = state.cooperation!.deliveryReceipts![0];
+  expect(first.issues[0].path).toBe('mathematicalGap.previousDeliveryId');
+  const { previousGap: _omitted, ...incompleteGap } = gap;
+  append({ ...finding(), replacesReceipt: first.id, mathematicalGap: incompleteGap });
+  await poll();
+  const second = state.cooperation!.deliveryReceipts![1];
+  expect(second).toMatchObject({ status: 'needs-correction', replacesReceipt: first.id,
+    issues: [{ path: 'mathematicalGap.previousGap' }] });
+  expect(first.status).toBe('needs-correction');
+  expect(state.cooperation!.deliveries ?? []).toEqual([]);
+  // The verified link must survive durable archive serialization before correction.
+  state.cooperation!.deliveryReceipts = JSON.parse(JSON.stringify(state.cooperation!.deliveryReceipts));
+  append({ ...finding(), replacesReceipt: second.id, mathematicalGap: gap });
+  await poll();
+  expect(state.cooperation!.deliveryReceipts!.map(receipt => receipt.status)).toEqual(['recorded', 'recorded']);
+  expect(state.cooperation!.tasks[0].feedback).toBeUndefined();
+  expect(state.cooperation!.deliveries).toHaveLength(1);
+  expect(state.cooperation!.deliveries![0].mathematicalGap).toEqual(gap);
+  expect(state.cooperation!.tasks[0].status).toBe('running');
+  expect(state.cooperation!.tasks[0].proof).toBeUndefined();
+});
+
 it.each(['environment', 'problem'] as const)('does not bind an old finding to a new %s after asynchronous application checking', async change => {
   const { entered, release } = gateKnowledgeChecks();
   const pending = publish({ kind: 'research', finding: finding() });
@@ -197,6 +229,76 @@ it('preserves notes-only Lean support under its actual commit independently of t
     reportedChecks: [{ status: 'passed', path: 'RESEARCH.md' }] });
   expect(committedSource(workers[0].worktree, support, 'RESEARCH.md')).toContain(code);
   expect(committedSource(workers[0].worktree, record.commit!, 'RESEARCH.md')).toBe(record.finding);
+});
+
+it('freezes a complete source event larger than 114 KB without reading or changing its active writer', async () => {
+  const relative = 'Submission.lean', file = path.join(workers[1].worktree, state.problem.projectRelative, relative);
+  const original = fs.readFileSync(file, 'utf8');
+  const saved = original + '\ntheorem retained_support : True := by\n' +
+    ('  -- Complete supporting proof retained in this immutable event.\n'.repeat(2000)) + '  trivial\n';
+  fs.writeFileSync(file, saved);
+  const head = git(workers[1].worktree, ['rev-parse', 'HEAD']);
+  const index = git(workers[1].worktree, ['write-tree']);
+  const notes = path.join(workers[1].worktree, 'RESEARCH.md');
+  fs.writeFileSync(notes, 'The active proof notes remain writable.');
+  const event = { kind: 'research', sources: { [relative]: saved }, finding: {
+    ...finding(), leanChecks: [{ status: 'passed', path: relative, declarations: ['retained_support'] }],
+  } };
+  const line = JSON.stringify(event) + '\n';
+  expect(Buffer.byteLength(line)).toBeGreaterThan(114_000);
+  fs.writeFileSync(path.join(workers[1].worktree, assignmentDeliveryFile(action.assignment)), line);
+  const { entered, release } = gateKnowledgeChecks();
+  const pending = (cooperative as any).readWorkerDeliveries(workers[1], action, {});
+  await entered;
+  const newer = saved + '\nlemma later_support : True := by trivial\n';
+  fs.writeFileSync(file, newer);
+  fs.writeFileSync(notes, 'Later live notes.');
+  release(); await pending;
+  const [record] = state.cooperation!.deliveries!;
+  expect(committedSource(workers[0].worktree, record.commit!, `${state.problem.projectRelative}/${relative}`)).toBe(saved);
+  expect(record.artifacts).toMatchObject({ scope: 'advisory-unverified', commit: record.commit,
+    artifacts: [{ proofPath: relative, declarations: [{ name: 'retained_support', draft: false }] }],
+    reportedChecks: [{ status: 'passed', path: relative, declarations: ['retained_support'] }] });
+  expect(record.artifactWarning).toBeUndefined();
+  expect(git(workers[1].worktree, ['rev-parse', 'HEAD'])).toBe(head);
+  expect(git(workers[1].worktree, ['write-tree'])).toBe(index);
+  expect(fs.readFileSync(file, 'utf8')).toBe(newer);
+  expect(fs.readFileSync(notes, 'utf8')).toBe('Later live notes.');
+  expect(state.cooperation!.tasks[0].status).toBe('running');
+  expect(state.cooperation!.tasks[0].proof).toBeUndefined();
+  expect(state.cooperation!.tasks[0].researchCompletion).toBeUndefined();
+  expect(state.check).toBeUndefined();
+});
+
+it.each([null, [], {}, { 'Submission.lean': 42 }, { '../Submission.lean': 'outside' },
+  { 'Submission.lean': '', 'Other.lean': '' }, { 'Submission.lean': '数'.repeat(333_334) }])(
+  'rejects invalid or oversized source snapshots without changing the live writer (%#)', async sources => {
+    const head = git(workers[1].worktree, ['rev-parse', 'HEAD']);
+    await expect(publish({ kind: 'research', sources, finding: finding() })).rejects.toMatchObject({
+      message: 'math_delivery_invalid', issues: [{ path: 'sources' }],
+    });
+    expect(git(workers[1].worktree, ['rev-parse', 'HEAD'])).toBe(head);
+    expect(state.cooperation!.deliveries ?? []).toEqual([]);
+  });
+
+it('requires every owned Lean file and refuses to combine source bytes with a commit', async () => {
+  const source = committedSource(workers[1].worktree, action.assignment.seedCommit, `${state.problem.projectRelative}/Submission.lean`);
+  const sources = { 'Submission.lean': source };
+  await expect(publish({ kind: 'research', sources, commit: action.assignment.seedCommit, finding: finding() }))
+    .rejects.toMatchObject({ message: 'math_delivery_invalid', issues: [{ path: 'sources' }] });
+  state.problem = { ...state.problem, ownedFiles: [...state.problem.ownedFiles, 'Submission/Helpers.lean'] };
+  await expect(publish({ kind: 'research', sources, finding: finding() }))
+    .rejects.toMatchObject({ message: 'math_delivery_invalid', issues: [{ path: 'sources' }] });
+  expect(state.cooperation!.deliveries ?? []).toEqual([]);
+});
+
+it('checks the frozen original declarations before retaining an explicit source snapshot', async () => {
+  const file = `${state.problem.projectRelative}/Submission.lean`;
+  const original = committedSource(workers[1].worktree, action.assignment.seedCommit, file);
+  await expect(publish({ kind: 'research', sources: { 'Submission.lean': original.replace('n + 0 = n', 'n + 0 = 0') },
+    finding: finding() })).rejects.toThrow('math_original_declaration_changed');
+  expect(committedSource(workers[1].worktree, git(workers[1].worktree, ['rev-parse', 'HEAD']), file)).toBe(original);
+  expect(state.cooperation!.deliveries ?? []).toEqual([]);
 });
 
 it('keeps a malformed final research report on its original assignment and accepts its corrected finding', async () => {

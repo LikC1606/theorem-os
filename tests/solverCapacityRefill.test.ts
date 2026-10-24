@@ -62,7 +62,7 @@ describe('automatic proof and ownership capacity refill', () => {
     return { waiting, settled: () => settled };
   };
   const assess = async (action: CooperativeAction) => {
-    fs.writeFileSync(path.join(workers[0].worktree, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify(plan()) + '\n```\n');
+    fs.writeFileSync(path.join(workers[0].worktree, 'RESEARCH.md'), JSON.stringify(noIndependentWork(action)));
     cooperative.deactivate(workers[0]);
     await cooperative.deliver(workers[0], action, commitSolverSources(problem, workers[0].worktree));
     expect(state.cooperation!.lastCapacityRefill?.status).toBe('assessed');
@@ -215,6 +215,36 @@ describe('automatic proof and ownership capacity refill', () => {
     expect(context.manifest!.included).toContainEqual(expect.objectContaining({ id: 'capacity-refill', required: true }));
     expect(context.message).toContain('frozen at this Lead dispatch');
     expect(context.message).toContain(JSON.stringify(snapshot));
+    const assigned = await cooperative.next(workers[1], budget);
+    expect(assigned).toMatchObject({ kind: 'task', task: { id: 'new_helper' } });
+    expect(cooperative.started(workers[1], assigned!)).toBe(true);
+  });
+
+  it.each(['live', 'final', 'scheduling-checkpoint'] as const)('does not settle capacity with an unchanged %s plan', async mode => {
+    const action = planning(await nextLead());
+    const response = { kind: 'plan', dispatchNonce: action.planNonce, baseVersion: action.planVersion, ...plan() };
+    if (mode === 'live') {
+      expect(cooperative.started(workers[0], action)).toBe(true);
+      cooperative.activate(workers[0], action, async () => {}, async () => {});
+      fs.appendFileSync(path.join(workers[0].worktree, leadPlanDeliveryFile(action)!), JSON.stringify(response) + '\n');
+      await cooperative.pulse();
+    } else {
+      fs.writeFileSync(path.join(workers[0].worktree, 'RESEARCH.md'), JSON.stringify(response));
+      await cooperative.deliver(workers[0], action, commitSolverSources(problem, workers[0].worktree),
+        mode === 'scheduling-checkpoint', 'scheduling-checkpoint');
+    }
+    expect(state.cooperation!.lastCapacityRefill).toMatchObject({ status: 'requested' });
+    expect(events.some(item => item.event === 'capacity_refill_assessed')).toBe(false);
+  });
+
+  it('does not settle capacity by adding a task owned by the already occupied prover', async () => {
+    const action = planning(await nextLead()), response = plan(), added = newLemma();
+    added.task.ownerId = workers[2].id; response.tasks.push(added.task);
+    fs.writeFileSync(path.join(workers[0].worktree, 'RESEARCH.md'), JSON.stringify(response));
+    await cooperative.deliver(workers[0], action, commitSolverSources(problem, workers[0].worktree));
+    expect(node('new_helper')).toMatchObject({ status: 'pending', task: { ownerId: workers[2].id } });
+    expect(state.cooperation!.lastCapacityRefill).toMatchObject({ status: 'requested' });
+    expect(events.some(item => item.event === 'capacity_refill_assessed')).toBe(false);
   });
 
   it.each(['requested', 'assessed'] as const)('does not attach a global %s receipt to an unrelated Lead decision', async status => {
@@ -329,7 +359,7 @@ describe('automatic proof and ownership capacity refill', () => {
 
   it.each(['request-failure', 'checkpoint', 'scheduling-checkpoint'] as const)('accepts a complete new plan saved before %s as one assessed decision', async recovery => {
     const action = (await nextLead())!;
-    const proposal = plan(), added = newLemma(); added.task.ownerId = workers[2].id;
+    const proposal = plan(), added = newLemma();
     proposal.tasks.push(added.task);
     fs.writeFileSync(path.join(workers[0].worktree, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify(proposal) + '\n```\n');
     const result = await cooperative.deliver(workers[0], action, commitSolverSources(problem, workers[0].worktree), true, recovery);
@@ -606,7 +636,7 @@ describe('automatic proof and ownership capacity refill', () => {
     expect(state.cooperation!.lastCapacityRefill).toBeUndefined();
   });
 
-  it('keeps an assessed no-op plan waiting through scheduling changes, ordinary notes and empty progress checkpoints', async () => {
+  it('keeps an explicit no-work decision waiting through scheduling changes, ordinary notes and empty progress checkpoints', async () => {
     const action = (await nextLead())!;
     await assess(action);
     const receipt = structuredClone(state.cooperation!.lastCapacityRefill);
@@ -657,7 +687,7 @@ describe('automatic proof and ownership capacity refill', () => {
     expect((cooperative as any).leadResponsibilityDigest()).not.toBe(responsibility);
   });
 
-  it('marks the post-plan contract once so the Lead cannot trigger itself by extending the graph', async () => {
+  it('covers the current graph only after an explicit no-work decision for its remaining idle worker', async () => {
     const action = (await nextLead())!;
     const added = newLemma(); added.task.ownerId = workers[2].id;
     const originalBasis = requestFor(action).inputDigest;
@@ -683,6 +713,46 @@ describe('automatic proof and ownership capacity refill', () => {
     expect(events.filter(item => item.event === 'capacity_refill_requested')).toHaveLength(1);
   });
 
+  it.each(['capacity', 'stagnation'] as const)('reopens an old publication-only %s receipt once across two restores', async kind => {
+    if (kind === 'stagnation') stalledResearch();
+    planning(await nextLead());
+    const receipt = kind === 'capacity' ? state.cooperation!.lastCapacityRefill! : state.cooperation!.lastStagnationRecovery!;
+    Object.assign(receipt, { status: 'assessed', outcome: 'plan-published', assessedAt: Date.now(),
+      coveredInputDigest: receipt.inputDigest });
+    state.cooperation!.lastLeadInputDigest = (cooperative as any).planningInputDigest();
+    fs.writeFileSync(path.join(workers[0].worktree, 'RESEARCH.md'), JSON.stringify(plan()));
+    const file = path.join(directory, 'legacy-assessment-state.json');
+    for (let attempt = 0; attempt < 2; attempt++) {
+      writeSolverRunState(file, state);
+      instances.at(-1)!.controller.abort(); await cooperative.stop();
+      state = readSolverRunState(file); cooperative = create(); await cooperative.restore();
+      const current = kind === 'capacity' ? state.cooperation!.lastCapacityRefill! : state.cooperation!.lastStagnationRecovery!;
+      expect(current).toMatchObject({ requestId: receipt.requestId, inputDigest: receipt.inputDigest, status: 'requested' });
+      expect(current.outcome).toBeUndefined(); expect(current.coveredInputDigest).toBeUndefined();
+    }
+    expect(events.filter(item => item.event === 'lead_assessment_reopened')).toEqual([{ event: 'lead_assessment_reopened',
+      details: { kind, requestId: receipt.requestId, reason: 'legacy-publication-without-executable-work' } }]);
+    const next = planning(await nextLead());
+    expect(kind === 'capacity' ? next.capacityRefill : next.stagnationRecovery).toBeDefined();
+    if (kind === 'capacity') await assess(next); else await assessStagnation(next);
+    publish('research', 'A fresh construction arrives after migrating the old receipt.');
+    const reconsidered = planning(await nextLead());
+    expect(kind === 'capacity' ? reconsidered.capacityRefill : reconsidered.stagnationRecovery).toBeDefined();
+  });
+
+  it('keeps a new automatic capacity receipt with executable-work evidence settled across restore', async () => {
+    const action = planning(await nextLead()), response = plan(); response.tasks.push(newLemma().task);
+    fs.writeFileSync(path.join(workers[0].worktree, 'RESEARCH.md'), JSON.stringify(response));
+    await cooperative.deliver(workers[0], action, commitSolverSources(problem, workers[0].worktree));
+    const receipt = structuredClone(state.cooperation!.lastCapacityRefill!);
+    expect(receipt).toMatchObject({ status: 'assessed', outcome: 'plan-published', fulfilledTaskIds: ['new_helper'] });
+    const file = path.join(directory, 'work-backed-assessment-state.json'); writeSolverRunState(file, state);
+    instances.at(-1)!.controller.abort(); await cooperative.stop();
+    state = readSolverRunState(file); cooperative = create(); await cooperative.restore();
+    expect(state.cooperation!.lastCapacityRefill).toEqual(receipt);
+    expect(events.some(item => item.event === 'lead_assessment_reopened')).toBe(false);
+  });
+
   const stalledResearch = () => {
     workers[1] = { ...workers[1], role: 'researcher' };
     const task: CooperativeTask = { id: 'stalled_research', kind: 'research', objective: 'Find an independent decomposition.',
@@ -695,12 +765,35 @@ describe('automatic proof and ownership capacity refill', () => {
     refresh();
   };
   const assessStagnation = async (action: CooperativeAction) => {
-    fs.writeFileSync(path.join(workers[0].worktree, 'RESEARCH.md'), JSON.stringify(plan()));
+    const lead = planning(action), request = lead.stagnationRecovery!;
+    fs.writeFileSync(path.join(workers[0].worktree, 'RESEARCH.md'), JSON.stringify({ kind: 'assessment',
+      dispatchNonce: lead.planNonce, baseVersion: lead.planVersion,
+      assessments: [{ kind: 'stagnation', requestId: request.requestId, inputDigest: request.inputDigest,
+        outcome: 'no-independent-work', reason: 'The exact classification argument is still needed.' }],
+    }));
     cooperative.deactivate(workers[0]);
     await cooperative.deliver(workers[0], action, commitSolverSources(problem, workers[0].worktree));
     expect(events.filter(item => item.event === 'plan_rejected')).toEqual([]);
     expect(state.cooperation!.lastStagnationRecovery?.status).toBe('assessed');
   };
+
+  it.each(['unchanged', 'unrelated', 'paused', 'ready-support'] as const)(
+    'settles stagnation only when a published plan produces executable typed frontier work (%s)', async change => {
+      stalledResearch();
+      const action = planning(await nextLead()), response = plan();
+      if (change !== 'unchanged') {
+        const added = newLemma(); added.task.ownerId = workers[3].id;
+        if (change === 'paused') added.task.status = 'paused';
+        response.tasks.push(added.task);
+        if (change !== 'unrelated') response.tasks = response.tasks.map(task => task.kind === 'goal'
+          ? { ...task, dependsOn: [...task.dependsOn, added.task.id] } : task);
+      }
+      fs.writeFileSync(path.join(workers[0].worktree, 'RESEARCH.md'), JSON.stringify(response));
+      await cooperative.deliver(workers[0], action, commitSolverSources(problem, workers[0].worktree));
+      expect(state.cooperation!.lastStagnationRecovery).toMatchObject({
+        status: change === 'ready-support' ? 'assessed' : 'requested' });
+      expect(events.filter(item => item.event === 'stagnation_recovery_assessed')).toHaveLength(change === 'ready-support' ? 1 : 0);
+    });
 
   it('resumes one pending stagnation request and admits its explicit no-work receipt', async () => {
     stalledResearch();
@@ -739,7 +832,7 @@ describe('automatic proof and ownership capacity refill', () => {
     expect(events.filter(item => item.event === 'stagnation_recovery_requested')).toHaveLength(1);
   });
 
-  it('assesses the same graph once, retains the visible unresolved request and reactivates on new external evidence', async () => {
+  it('settles an explicit no-work decision once and reactivates on new external evidence', async () => {
     stalledResearch();
     const first = planning(await nextLead()), request = structuredClone(first.stagnationRecovery);
     await assessStagnation(first);

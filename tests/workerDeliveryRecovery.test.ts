@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CooperativeResearch } from '../src/solver/cooperation';
-import { readDeliveryLines, type DeliveryRecord } from '../src/solver/deliveries';
+import { MAX_DELIVERY_LINE_BYTES, readDeliveryLines, type DeliveryRecord } from '../src/solver/deliveries';
 import { git } from '../src/solver/problem';
 import { assignmentDeliveryFile, taskVersion, type CooperativeAction, type CooperativeTask } from '../src/solver/tasks';
 
@@ -159,7 +159,7 @@ describe('worker delivery log recovery', () => {
   });
 
   it('discards a complete oversized line in bounded chunks and keeps both log streams usable', async () => {
-    fs.appendFileSync(path.join(directory, log()), JSON.stringify({ summary: 'x'.repeat(140_000) }) + '\n');
+    fs.appendFileSync(path.join(directory, log()), JSON.stringify({ summary: 'x'.repeat(MAX_DELIVERY_LINE_BYTES * 2 + 100) }) + '\n');
     append({ summary: 'Scoped progress after the oversized line.' });
     append({ id: 'legacy', kind: 'progress', summary: 'Legacy progress.' }, true);
     const read = vi.spyOn(fs, 'readSync');
@@ -172,11 +172,11 @@ describe('worker delivery log recovery', () => {
     expect(events.map(event => event.reason)).toEqual(['math_delivery_line_too_large']);
     expect(records.map(record => record.summary)).toEqual(['Legacy progress.', 'Scoped progress after the oversized line.']);
     expect(cursors[`${key()}/discardingOversized`]).toBe(0);
-    expect(read.mock.calls.every(call => call[3] <= 64_000)).toBe(true);
+    expect(read.mock.calls.every(call => call[3] <= MAX_DELIVERY_LINE_BYTES + 1)).toBe(true);
   });
 
   it('remembers an oversized partial write across resume and never parses its trailing fragment', async () => {
-    fs.appendFileSync(path.join(directory, log()), 'x'.repeat(64_000));
+    fs.appendFileSync(path.join(directory, log()), 'x'.repeat(MAX_DELIVERY_LINE_BYTES + 1));
     await poll(); await poll();
     expect(events.map(event => event.reason)).toEqual(['math_delivery_line_too_large']);
     cursors = JSON.parse(JSON.stringify(cursors)); cooperative = create();
@@ -188,7 +188,7 @@ describe('worker delivery log recovery', () => {
   });
 
   it('keeps the existing strict line reader behavior for callers without recovery state', () => {
-    const file = path.join(directory, log()); fs.writeFileSync(file, 'x'.repeat(64_000));
+    const file = path.join(directory, log()); fs.writeFileSync(file, 'x'.repeat(MAX_DELIVERY_LINE_BYTES + 1));
     expect(() => readDeliveryLines(file, 0)).toThrow('math_delivery_line_too_large');
   });
 });

@@ -82,6 +82,11 @@ export abstract class CooperationPlanning extends CooperationIntegration {
       deliveries: (this.archive.deliveries ?? []).filter(record => record.producer !== this.lead.id)
         .map(({ status: _status, evidence: _evidence, ...record }) => record) }));
   }
+  /** A completed decision covers its own bookkeeping, but never evidence arriving during that dispatch. */
+  protected rememberLeadDecision(action: CooperativeAction) {
+    if (action.kind === 'lead' && action.planningInputDigest) this.archive.lastLeadInputDigest =
+      this.leadEvidence.get(action) === this.planningEvidenceDigest() ? this.planningInputDigest() : action.planningInputDigest;
+  }
   protected activeGoalFrontier() {
     const focus = originalGoalTaskFocus(this.archive.tasks, this.archive.groups, this.input.state.environmentDigest, { includeParkedTasks: true });
     return [...focus.frontier].map(taskId => {

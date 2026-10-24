@@ -12,12 +12,14 @@ import { researchHandoffs, resolveResearchHandoffs, type ResearchHandoffDecision
 import { preserveResearchChallengeBacklog, resolveResearchChallenges, type ResearchChallengeDecision } from './researchChallenges';
 import { bindMathematicalGap } from './mathematicalGaps';
 import { assignmentDeliveryFile, leadPlanDeliveryFile, type CooperativeTask, type TaskRecord, type CooperativeAction } from './tasks';
-import { digest, directDeliveryRejections, rejectionCode, HumanEditRecord, TaskVersions, bounded } from './cooperationShared';
+import { digest, directDeliveryRejections, rejectionCode, HumanEditRecord, TaskVersions, bounded, type AdvisoryDecisions } from './cooperationShared';
 import { CooperationPlanning } from './cooperationPlanning';
 import { composeHandoffPublication } from './handoffPublication';
 import { finishLeadAssessment, type LeadAssessmentKind } from './leadAssessment';
 import { pendingResearchHandoffs } from './researchHandoffs';
 import { pendingResearchChallenges } from './researchChallenges';
+import { ResearchAdmissionError } from './researchAdmission';
+import { acceptContextCheckpoint } from './contextCheckpoint';
 
 /** Worker delivery intake. */
 export abstract class CooperationInputs extends CooperationPlanning {
@@ -31,16 +33,27 @@ export abstract class CooperationInputs extends CooperationPlanning {
         response.dispatchNonce !== action.planNonce || response.baseVersion !== action.planVersion ||
         response.baseVersion !== this.archive.planVersion || !this.current(action) || !Array.isArray(response.assessments))
       throw invalid('invalid');
-    if (action.handoffIds?.length || action.challengeIds?.length || pendingResearchHandoffs(this.archive).length ||
-        pendingResearchChallenges(this.archive).length) throw invalid('inbox_unresolved');
+    this.completeLeadAssessments(action, this.validateLeadAssessments(action, response.assessments));
+    this.changed();
+  }
+  /** Validate against the inbox decisions staged in the same transaction, before accepting its graph. */
+  protected validateLeadAssessments(action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' }>, value: unknown,
+    decisions: AdvisoryDecisions = { handoffs: [], challenges: [] }) {
+    const invalid = (reason: string) => new Error('math_plan_assessment_' + reason);
+    if (!Array.isArray(value) || action.kind !== 'lead' || action.initialPlanNonce || action.recovery || !action.planNonce)
+      throw invalid('invalid');
+    const handoffs = new Set(decisions.handoffs.map(item => item.id)), challenges = new Set(decisions.challenges.map(item => item.id));
+    if (pendingResearchHandoffs(this.archive).some(item => !handoffs.has(item.id)) ||
+        pendingResearchChallenges(this.archive).some(item => !challenges.has(item.id))) throw invalid('inbox_unresolved');
     const requests = [['capacity', action.capacityRefill, this.archive.lastCapacityRefill],
       ['stagnation', action.stagnationRecovery, this.archive.lastStagnationRecovery]] as const;
     const expected = requests.filter(([, request]) => request);
-    if (!expected.length || response.assessments.length !== expected.length) throw invalid('request_count');
+    if (!expected.length || value.length !== expected.length) throw invalid('request_count');
     const seen = new Set<LeadAssessmentKind>();
-    for (const item of response.assessments) {
+    for (const item of value) {
       const entry = expected.find(([kind]) => kind === item?.kind);
-      if (!entry || seen.has(item.kind) || !keys(item, ['kind', 'requestId', 'inputDigest', 'outcome', 'reason']) ||
+      if (!entry || seen.has(item.kind) || !item || typeof item !== 'object' || Array.isArray(item) ||
+          Object.keys(item).some(key => !['kind', 'requestId', 'inputDigest', 'outcome', 'reason'].includes(key)) ||
           item.outcome !== 'no-independent-work' || typeof item.reason !== 'string' || !item.reason.trim() ||
           item.reason.length > 12000) throw invalid('invalid');
       const [, request, receipt] = entry;
@@ -50,17 +63,18 @@ export abstract class CooperationInputs extends CooperationPlanning {
           (receipt.outcome !== 'no-independent-work' || receipt.decisionReason !== item.reason)) throw invalid('superseded');
       seen.add(item.kind);
     }
-    // Validate the complete batch before acknowledging any request.
-    for (const [kind, request, receipt] of expected) {
-      const item = response.assessments.find((item: any) => item.kind === kind);
+    return expected.map(([kind, request, receipt]) => ({ kind, request, receipt,
+      reason: value.find((item: any) => item.kind === kind).reason as string }));
+  }
+  protected completeLeadAssessments(action: Extract<CooperativeAction, { kind: 'lead' | 'assemble' }>,
+    completions: ReturnType<CooperationInputs['validateLeadAssessments']>) {
+    for (const { kind, request, receipt, reason } of completions) {
       if (finishLeadAssessment(receipt, request, action.planNonce,
-        { at: Date.now(), outcome: 'no-independent-work', reason: item.reason }))
+        { at: Date.now(), outcome: 'no-independent-work', reason, currentInput: this.leadAssessmentInput(kind) }))
         this.input.emit(kind === 'capacity' ? 'capacity_refill_assessed' : 'stagnation_recovery_assessed',
           { ...receipt, evidenceStatus: 'advisory' });
     }
-    if (action.planningInputDigest) this.archive.lastLeadInputDigest =
-      this.leadEvidence.get(action) === this.planningEvidenceDigest() ? this.planningInputDigest() : action.planningInputDigest;
-    this.changed();
+    this.rememberLeadDecision(action);
   }
   protected syncEditChecks(nodes: ReadonlyMap<string, TaskRecord>, versions: TaskVersions) {
     for (const edit of this.archive.edits ?? []) {
@@ -191,40 +205,55 @@ export abstract class CooperationInputs extends CooperationPlanning {
           catch { reject(code('invalid_json')); }
           if (response !== undefined) {
             try {
-              if (!response || typeof response !== 'object' || Array.isArray(response) || !['plan', 'handoff', 'assessment'].includes(response.kind) ||
-                  typeof response.baseVersion !== 'string' || !initial && response.dispatchNonce !== nonce)
-                throw new Error(code('invalid'));
-              const details = deliveryDetails(response);
-              await this.input.exclusiveCheck(async () => {
-                const publication = this.archive.planPublication ?? this.archive.initialPlanPublication;
-                if (publication?.nonce === nonce && publication.eventDigest === eventDigest) return;
-                if (publication?.nonce === nonce || initial && (this.archive.initialPlanPublication || this.archive.tasks.length) || action.recovery ||
-                    this.active.get(this.lead.id)?.action !== action || !this.current(action))
-                  throw new Error(code('superseded'));
-                if (!action.planVersion || response.baseVersion !== action.planVersion ||
-                    response.baseVersion !== this.archive.planVersion) throw new Error(code('version_conflict'));
-                if (response.kind === 'assessment') {
-                  this.acceptLeadAssessment(action, response);
-                  this.input.emit('lead_assessment_published', { workerId: this.lead.id, file, eventDigest,
-                    dispatchNonce: nonce, summary: details.summary });
-                  return;
-                }
-                // Compose against the current graph only after acquiring the same CAS lock as full plans and human edits.
-                const handoff = response.kind === 'handoff' ? composeHandoffPublication(this.input.state.problem, this.archive, {
-                  tasks: this.plannedTasks().map(node => node.task), groups: this.archive.groups?.map(route => route.group),
-                  proofRoutes: this.archive.proofRoutes,
-                }, action, response) : undefined;
-                const plan = handoff?.plan ?? parseCooperationPlan(this.input.state.problem, response);
-                const decisions = handoff?.decisions ?? this.resolveAdvisoryDecisions(action, plan.tasks, response, plan);
-                if (handoff) this.preserveAdvisoryBacklogs(plan, decisions.handoffs, []);
-                await this.acceptPlan(plan, undefined, { action, receipt: { nonce, file,
-                  offset: entry.offset, eventDigest, baseVersion: response.baseVersion, acceptedAt: Date.now() } }, decisions);
-                this.markCapacityRefillAssessed(action);
-                this.changed();
-                this.input.emit(initial ? 'initial_plan_published' : 'plan_published', { ...this.archive.planPublication,
-                  workerId: this.lead.id, summary: details.summary, taskIds: plan.tasks.map(task => task.id),
-                  ...(handoff ? { publicationKind: 'handoff', adoptedTaskIds: handoff.adoptedTaskIds } : {}) });
-              });
+              if (response?.kind === 'checkpoint') {
+                await this.input.exclusiveCheck(async () => {
+                  if (this.active.get(this.lead.id)?.action !== action || !this.current(action)) throw new Error(code('superseded'));
+                  const research = this.input.state.workers?.find(record => record.id === this.lead.id) ?? this.input.state;
+                  acceptContextCheckpoint(research, this.lead.worktree, response);
+                  this.input.emit('context_checkpoint_published', { workerId: this.lead.id, threadId: research.threadId,
+                    requestId: research.contextCheckpoint?.requestId, notesDigest: research.contextCheckpoint?.publishedNotesDigest });
+                  this.input.save();
+                });
+              } else {
+                if (!response || typeof response !== 'object' || Array.isArray(response) || !['plan', 'handoff', 'assessment'].includes(response.kind) ||
+                    typeof response.baseVersion !== 'string' || !initial && response.dispatchNonce !== nonce)
+                  throw new Error(code('invalid'));
+                const details = deliveryDetails(response);
+                await this.input.exclusiveCheck(async () => {
+                  const publication = this.archive.planPublication ?? this.archive.initialPlanPublication;
+                  if (publication?.nonce === nonce && publication.eventDigest === eventDigest) return;
+                  if (publication?.nonce === nonce || initial && (this.archive.initialPlanPublication || this.archive.tasks.length) || action.recovery ||
+                      this.active.get(this.lead.id)?.action !== action || !this.current(action))
+                    throw new Error(code('superseded'));
+                  if (!action.planVersion || response.baseVersion !== action.planVersion ||
+                      response.baseVersion !== this.archive.planVersion) throw new Error(code('version_conflict'));
+                  if (response.kind === 'assessment') {
+                    this.acceptLeadAssessment(action, response);
+                    this.input.emit('lead_assessment_published', { workerId: this.lead.id, file, eventDigest,
+                      dispatchNonce: nonce, summary: details.summary });
+                    return;
+                  }
+                  // Compose against the current graph only after acquiring the same CAS lock as full plans and human edits.
+                  const handoff = response.kind === 'handoff' ? composeHandoffPublication(this.input.state.problem, this.archive, {
+                    tasks: this.plannedTasks().map(node => node.task), groups: this.archive.groups?.map(route => route.group),
+                    proofRoutes: this.archive.proofRoutes,
+                  }, action, response) : undefined;
+                  const plan = handoff?.plan ?? parseCooperationPlan(this.input.state.problem, response);
+                  const decisions = handoff?.decisions ?? this.resolveAdvisoryDecisions(action, plan.tasks, response, plan);
+                  if (handoff) this.preserveAdvisoryBacklogs(plan, decisions.handoffs, decisions.challenges);
+                  const assessments = response.assessments === undefined ? undefined :
+                    this.validateLeadAssessments(action, response.assessments, decisions);
+                  await this.acceptPlan(plan, undefined, { action, receipt: { nonce, file,
+                    offset: entry.offset, eventDigest, baseVersion: response.baseVersion, acceptedAt: Date.now() } }, decisions);
+                  if (assessments) this.completeLeadAssessments(action, assessments);
+                  else this.markCapacityRefillAssessed(action);
+                  this.rememberLeadDecision(action);
+                  this.changed();
+                  this.input.emit(initial ? 'initial_plan_published' : 'plan_published', { ...this.archive.planPublication,
+                    workerId: this.lead.id, summary: details.summary, taskIds: plan.tasks.map(task => task.id),
+                    ...(handoff ? { publicationKind: 'handoff', adoptedTaskIds: handoff.adoptedTaskIds } : {}) });
+                });
+              }
             } catch (error) {
               this.input.signal.throwIfAborted();
               if (!(error instanceof Error) || !/^math_(?:initial_plan_|plan_|handoff_|challenge_|delivery_invalid)/u.test(error.message)) throw error;
@@ -325,7 +354,16 @@ export abstract class CooperationInputs extends CooperationPlanning {
       taskDigest: action.assignment.taskDigest, ...value };
     const details = deliveryDetails(value);
     if (!value || typeof value.id !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/u.test(value.id) ||
-        !['progress', 'proof', 'research', 'ready'].includes(value.kind) || value.taskId !== action.task.id || value.taskDigest !== action.assignment.taskDigest) throw new Error('math_delivery_invalid');
+        !['progress', 'proof', 'research', 'ready', 'checkpoint'].includes(value.kind) || value.taskId !== action.task.id || value.taskDigest !== action.assignment.taskDigest) throw new Error('math_delivery_invalid');
+    if (value.kind === 'checkpoint') {
+      if (!scoped || !this.current(action) || worker.id !== action.assignment.workerId) throw new Error('math_delivery_invalid');
+      const research = this.input.state.workers?.find(record => record.id === worker.id) ?? this.input.state;
+      acceptContextCheckpoint(research, worker.worktree, value);
+      this.input.emit('context_checkpoint_published', { workerId: worker.id, threadId: research.threadId,
+        requestId: value.requestId, notesDigest: value.notesDigest });
+      this.input.save();
+      return;
+    }
     if (value.kind === 'ready') {
       if (!scoped || advisory(action.task) || value.commit !== undefined || value.targets !== undefined)
         throw new Error('math_delivery_invalid');
@@ -363,6 +401,10 @@ export abstract class CooperationInputs extends CooperationPlanning {
     }
     const node = this.node(action.task.id);
     if (value.kind === 'research') {
+      if (value.sources !== undefined && value.commit !== undefined)
+        throw new ResearchAdmissionError({ status: 'rejected', code: 'math_delivery_invalid',
+          issues: [{ path: 'sources', message: 'Use either an explicit source snapshot or a fixed supporting commit, not both.' }],
+          recovery: 'correct-and-resubmit' });
       const base = value.commit ?? action.assignment.seedCommit;
       if (typeof base !== 'string' || !/^[a-f0-9]{40,64}$/u.test(base)) throw new Error('math_delivery_invalid_commit');
       const fixed = mathGitResult(worker.worktree, ['merge-base', '--is-ancestor', action.assignment.seedCommit, base], { maxBuffer: 4096 });
@@ -371,7 +413,7 @@ export abstract class CooperationInputs extends CooperationPlanning {
       const supportingArtifacts = value.commit ? captureDeliveryArtifacts({ problem: this.input.state.problem,
         worktree: worker.worktree, commit: base, assignment: action.assignment }) : undefined;
       await this.publishResearchFinding(worker, action, base, { kind: 'event', value: value.finding },
-        { submissionId: value.id, assignmentKey, ...(supportingArtifacts ? { artifacts: supportingArtifacts } : {}) });
+        { submissionId: value.id, assignmentKey, ...(supportingArtifacts ? { artifacts: supportingArtifacts } : {}) }, value.sources);
       return;
     }
     if (value.kind === 'progress') {

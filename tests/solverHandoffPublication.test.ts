@@ -45,10 +45,10 @@ describe('live explicit handoff publication', () => {
       save: () => saveCheckpoint?.(current), emit: (event, details) => events.push({ event, details }) });
     instances.push({ cooperative: result, controller }); return result;
   };
-  const start = async () => {
+  const start = async (requireHandoff = true) => {
     const action = await cooperative.next(workers[0], budget);
     if (action?.kind !== 'lead' || !action.planNonce) throw new Error('fixture_expected_handoff_publication_dispatch');
-    expect(action.handoffIds?.length).toBeGreaterThan(0);
+    if (requireHandoff) expect(action.handoffIds?.length).toBeGreaterThan(0);
     expect(cooperative.started(workers[0], action)).toBe(true);
     cooperative.activate(workers[0], action, interrupt, async () => {});
     return action;
@@ -65,6 +65,15 @@ describe('live explicit handoff publication', () => {
     ...structuredClone(state.cooperation!.deliveries![0]), id: `proposal-${task.id}`, createdAt: 2,
     lemmaRequests: [task],
   });
+  const addChallenge = (id: string) => {
+    const finding = JSON.stringify({ conclusion: 'inconclusive', needsDecision: true,
+      summary: `The exact ${id} construction remains unresolved.` });
+    state.cooperation!.deliveries!.push({ ...structuredClone(state.cooperation!.deliveries![0]), id,
+      lemmaRequests: undefined, finding, findingDigest: mathDigest(finding), createdAt: 2 });
+    return pendingResearchChallenges(state.cooperation!).find(item => item.deliveryId === id)!;
+  };
+  const challengeDecision = (id: string) => ({ id, status: 'deferred',
+    reason: 'The exact closed construction is still needed.', reopenOn: 'An independently checked finite construction is available.' });
   const addExistingTasks = (...tasks: CooperativeTask[]) => {
     const plan = parseCooperationPlan(problem, { ...graph(), tasks: [...graph().tasks, ...tasks] });
     const records = new Map(state.cooperation!.tasks.map(item => [item.task.id, item]));
@@ -145,6 +154,58 @@ describe('live explicit handoff publication', () => {
     expect(node(next.id)).toMatchObject({ task: next, status: 'pending', attempts: 0 });
     expect(pendingResearchHandoffs(state.cooperation!)).toEqual([]);
     expect(state.cooperation!.researchDecisions).toHaveLength(2);
+    expect(state.cooperation!.tasks.every(item => !item.proof && !item.integratedCheck)).toBe(true);
+  });
+
+  it.each(['event', 'final-notes', 'checkpoint-notes'] as const)
+  ('accepts full-plan explicit adoption through %s without treating it as proof acceptance', async source => {
+    const action = await start(), adopted = { ...proposal, ownerId: workers[2].id };
+    const plan = { ...graph(), tasks: [...graph().tasks, adopted],
+      handoffDecisions: [{ id: action.handoffIds![0], status: 'adopted' }] };
+    if (source === 'event') {
+      await publish(action, { ...event(action), ...plan, kind: 'plan' });
+      expect(state.cooperation!.planPublication).toMatchObject({ nonce: action.planNonce });
+    } else {
+      fs.writeFileSync(path.join(workers[0].worktree, 'RESEARCH.md'), '```math-plan\n' + JSON.stringify(plan) + '\n```');
+      cooperative.deactivate(workers[0]);
+      const result = await cooperative.deliver(workers[0], action, commitSolverSources(problem, workers[0].worktree),
+        source === 'checkpoint-notes', source === 'checkpoint-notes' ? 'scheduling-checkpoint' : undefined);
+      expect(state.cooperation!.error).toBeUndefined();
+      expect(result).toEqual({ checkWhole: false });
+    }
+    expect(node(proposal.id)).toMatchObject({ task: adopted, status: 'pending', attempts: 0 });
+    expect(researchHandoffs(state.cooperation!)[0]).toMatchObject({ status: 'adopted', decision: {
+      taskId: adopted.id, taskDigest: taskVersion(adopted),
+    } });
+    expect(inbox()).toEqual([]);
+    expect(state.cooperation!.error).toBeUndefined();
+    expect(state.cooperation!.tasks.every(item => !item.proof && !item.integratedCheck)).toBe(true);
+    expect(events.filter(item => ['plan_rejected', 'plan_publication_rejected'].includes(item.event))).toEqual([]);
+  });
+
+  it.each([undefined, 'False'])('rejects full-plan adoption with a missing or changed target (%s) atomically', async type => {
+    const action = await start(), before = snapshot();
+    const tasks = [...graph().tasks, ...(type ? [{ ...proposal, type }] : [])];
+    await publish(action, { ...event(action), ...graph(), tasks, kind: 'plan' });
+    expect(snapshot()).toEqual(before);
+    expect(inbox()).toHaveLength(1);
+    expect(events).toContainEqual(expect.objectContaining({ event: 'plan_publication_rejected',
+      details: expect.objectContaining({ reason: expect.stringContaining('math_handoff_unresolved:') }) }));
+  });
+
+  it('requires immutable type notation in a full-plan adoption and accepts a corrected retry', async () => {
+    proposal = { ...proposal, type: '∀ M : Matrix (Fin 2) (Fin 2) ℝ, Mᵀ = M.transpose' };
+    state.cooperation!.deliveries![0].lemmaRequests = [proposal];
+    const action = await start(), before = snapshot();
+    const plan = { ...graph(), tasks: [...graph().tasks, { ...proposal,
+      type: '∀ M : Matrix (Fin 2) (Fin 2) ℝ, M.transpose = M.transpose' }] };
+    await publish(action, { ...event(action), ...plan, kind: 'plan' });
+    expect(snapshot()).toEqual(before);
+    expect(events).toContainEqual(expect.objectContaining({ event: 'plan_publication_rejected',
+      details: expect.objectContaining({ reason: expect.stringContaining('including type notation') }) }));
+    await publish(action, { ...event(action), ...graph(), tasks: [...graph().tasks, proposal], kind: 'plan' });
+    expect(node(proposal.id)).toMatchObject({ task: proposal, status: 'pending' });
+    expect(inbox()).toEqual([]);
     expect(state.cooperation!.tasks.every(item => !item.proof && !item.integratedCheck)).toBe(true);
   });
 
@@ -362,6 +423,72 @@ describe('live explicit handoff publication', () => {
     expect(state.cooperation!.deliveries![1]).toEqual(originalDelivery);
     expect(pendingResearchChallenges(state.cooperation!)).toEqual([challenge]);
     expect(state.cooperation!.challengeDecisions).toBeUndefined();
+  });
+
+  it('accepts a challenge-only short publication without rewriting the task graph or accepting a proof', async () => {
+    state.cooperation!.deliveries![0].lemmaRequests = [];
+    const challenge = addChallenge('challenge-only'), action = await start(false), before = structuredClone(graph());
+    expect(action.challengeIds).toEqual([challenge.id]);
+    await publish(action, { kind: 'handoff', dispatchNonce: action.planNonce, baseVersion: action.planVersion,
+      challengeDecisions: [challengeDecision(challenge.id)] });
+    expect(graph()).toEqual(before);
+    expect(pendingResearchChallenges(state.cooperation!)).toEqual([]);
+    expect(state.cooperation!.challengeDecisions).toContainEqual(expect.objectContaining({ id: challenge.id, status: 'deferred' }));
+    expect(state.cooperation!.lastLeadInputDigest).toBe((cooperative as any).planningInputDigest());
+    expect(state.cooperation!.lastCapacityRefill).toMatchObject({ status: 'requested' });
+    expect(state.check).toBeUndefined();
+  });
+
+  it('rejects partial shown challenge decisions atomically with the handoff adoption', async () => {
+    const first = addChallenge('first-challenge'), second = addChallenge('second-challenge'), action = await start();
+    const before = snapshot();
+    expect(action.challengeIds).toEqual([first.id, second.id]);
+    await publish(action, event(action, undefined, { challengeDecisions: [challengeDecision(first.id)] }));
+    expect(snapshot()).toEqual(before);
+    expect(pendingResearchChallenges(state.cooperation!).map(item => item.id)).toEqual([first.id, second.id]);
+    expect(state.cooperation!.challengeDecisions).toBeUndefined();
+    expect(events).toContainEqual({ event: 'plan_publication_rejected', details: expect.objectContaining({
+      reason: 'math_challenge_unresolved:' + second.id }) });
+  });
+
+  it('applies combined shown decisions while preserving a challenge arriving after dispatch', async () => {
+    const shown = addChallenge('shown-challenge'), action = await start();
+    const later = addChallenge('later-challenge');
+    await publish(action, event(action, undefined, { challengeDecisions: [challengeDecision(shown.id)] }));
+    expect(node('bridge')).toMatchObject({ status: 'pending' });
+    expect(pendingResearchChallenges(state.cooperation!).map(item => item.id)).toEqual([later.id]);
+    expect(state.cooperation!.lastLeadInputDigest).toBe(action.planningInputDigest);
+    expect(state.cooperation!.lastLeadInputDigest).not.toBe((cooperative as any).planningInputDigest());
+  });
+
+  it('rejects a combined no-work acknowledgement before changing the graph when a later challenge remains unseen', async () => {
+    const shown = addChallenge('shown-before-no-work'), action = await start();
+    const later = addChallenge('unseen-before-no-work'), request = action.capacityRefill!;
+    expect(request).toBeDefined();
+    const before = snapshot();
+    await publish(action, event(action, [{ id: action.handoffIds![0], status: 'rejected',
+      reason: 'This proposal does not remove the missing construction.' }], {
+      challengeDecisions: [challengeDecision(shown.id)],
+      assessments: [{ kind: 'capacity', requestId: request.requestId, inputDigest: request.inputDigest,
+        outcome: 'no-independent-work', reason: 'No independently executable construction has been identified.' }],
+    }));
+    expect(snapshot()).toEqual(before);
+    expect(pendingResearchChallenges(state.cooperation!).map(item => item.id)).toEqual([shown.id, later.id]);
+    expect(state.cooperation!.lastCapacityRefill).toMatchObject({ status: 'requested' });
+    expect(events).toContainEqual({ event: 'plan_publication_rejected', details: expect.objectContaining({
+      reason: 'math_plan_assessment_inbox_unresolved' }) });
+  });
+
+  it('remembers a complete challenge decision recovered at a scheduling checkpoint', async () => {
+    state.cooperation!.deliveries![0].lemmaRequests = [];
+    const challenge = addChallenge('checkpoint-challenge'), action = await start(false);
+    fs.writeFileSync(path.join(workers[0].worktree, 'RESEARCH.md'), JSON.stringify({ ...graph(),
+      challengeDecisions: [challengeDecision(challenge.id)] }));
+    cooperative.deactivate(workers[0]);
+    await cooperative.deliver(workers[0], action, commitSolverSources(problem, workers[0].worktree), true, 'scheduling-checkpoint');
+    expect(pendingResearchChallenges(state.cooperation!)).toEqual([]);
+    expect(state.cooperation!.lastLeadInputDigest).toBe((cooperative as any).planningInputDigest());
+    expect(state.cooperation!.lastCapacityRefill).toMatchObject({ status: 'requested' });
   });
 
   it('keeps the published obligation when inherited plan notes are delivered at the end of the same dispatch', async () => {

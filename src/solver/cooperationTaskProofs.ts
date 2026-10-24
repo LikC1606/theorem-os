@@ -10,7 +10,7 @@ import { solverProofFeedback, solverSourceFeedback } from './feedback';
 import { independentFeasibilityWorker, type ResearchWorker } from './modules/organization';
 import { proofReceiptsMatch, type ProofCheck } from './modules/evidence';
 import { routeAllowsTask, taskCanStart, selectedTaskRoute } from './modules/search';
-import { deliveryDetails, deliveryFinding, parseMathResponse, type DeliveryRecord } from './deliveries';
+import { deliveryDetails, deliveryFinding, MAX_RESEARCH_NOTES_BYTES, parseMathResponse, type DeliveryRecord } from './deliveries';
 import { checkTaskProof, createTaskSourceProjector, isAttributedTaskProof, ownedSourceDigest, trustedTaskProjectionReuse, type TaskProof } from './cooperativeProof';
 import { proofReferencesUnchanged, type ProofReferences } from './proofReferences';
 import { captureDeliveryArtifacts, diagnoseUnbackedLeanClaims, validateDeliveryArtifactClaims, type DeliveryArtifactManifest } from './deliveryArtifacts';
@@ -175,7 +175,7 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
   private reportedTaskMathematicalBlocker(node: TaskRecord, candidate: ReturnType<CooperationTaskProofs['failedTaskInput']>) {
     const assignment = node.assignment;
     if (!assignment || assignment.taskDigest !== candidate.taskDigest || digest(node.task) !== candidate.taskDigest ||
-        candidate.sourceDigest !== candidate.seedSourceDigest || candidate.targetDigest !== 'declaration-count:0') return false;
+        candidate.targetDigest !== 'declaration-count:0') return false;
     const gaps = mathematicalGaps(this.archive, { problemReceiptDigest: this.input.state.problem.receiptDigest,
       environmentDigest: this.input.state.environmentDigest }, node.task);
     return gaps.some(gap => {
@@ -259,6 +259,18 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
       seedCommit: action.assignment.seedCommit, canonicalCommit: action.assignment.canonicalCommit,
       commit, outputDigest: this.checkpointOutputDigest(worker.worktree, commit), artifacts };
     this.pin(commit);
+  }
+  /** A context handoff retains candidate code without submitting an unfinished assigned declaration. */
+  retainContextDraft(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>, commit: string) {
+    if (!this.current(action)) return;
+    const artifacts = captureDeliveryArtifacts({ problem: this.input.state.problem,
+      worktree: worker.worktree, commit, assignment: action.assignment });
+    this.preserveResearchDraft(worker, action, commit, artifacts);
+    if (!artifacts.artifacts.length || this.archive.deliveries?.some(record => record.producer === worker.id &&
+        record.taskId === action.task.id && record.taskDigest === action.assignment.taskDigest && record.commit === commit)) return;
+    this.record(worker, action.task, 'progress', 'advisory',
+      'Supporting code saved at a context checkpoint. Inspect the retained commit and exact declarations before adopting typed work; the assigned proof remains unfinished.',
+      { commit, artifacts, remainingObligations: [action.task.id] });
   }
   protected suspendResearchDrafts(worker: ResearchWorker, taskId?: string) {
     let changed = false;
@@ -352,12 +364,28 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
     } else this.interrupted(worker, action);
   }
   protected async publishResearchFinding(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>, commit: string,
-    submission: ResearchSubmission, options: Partial<DeliveryRecord> = {}) {
+    submission: ResearchSubmission, options: Partial<DeliveryRecord> = {}, sources?: unknown) {
     // A publication belongs to the inputs dispatched to this writer, even if its live
     // assignment gains a newer context while the asynchronous checks are running.
     const assignment = structuredClone(action.assignment), basis = assignment.researchBasis;
     const assignmentKey = assignmentDeliveryFile(assignment);
     const environmentDigest = this.input.state.environmentDigest, problemReceiptDigest = this.input.state.problem.receiptDigest;
+    // Explicit bytes form one immutable event snapshot. Never read the live writer's
+    // source files or index while publishing advisory support.
+    let sourceSnapshot: [string, string][] | undefined;
+    if (sources !== undefined) {
+      const owned = this.input.state.problem.ownedFiles.filter(file => file.endsWith('.lean'));
+      const invalid = (message: string) => new ResearchAdmissionError({ status: 'rejected', code: 'math_delivery_invalid',
+        issues: [{ path: 'sources', message }], recovery: 'correct-and-resubmit' });
+      if (submission.kind !== 'event' || !sources || typeof sources !== 'object' || Array.isArray(sources))
+        throw invalid('Provide the complete owned Lean sources as an object of file paths to source strings.');
+      const entries = Object.entries(sources);
+      if (entries.length !== owned.length || entries.some(([file, source]) => !owned.includes(file) || typeof source !== 'string'))
+        throw invalid('Include every owned .lean file exactly once, using problem-relative paths and complete source strings.');
+      sourceSnapshot = entries as [string, string][];
+      if (sourceSnapshot.reduce((bytes, [, source]) => bytes + Buffer.byteLength(source), 0) > MAX_RESEARCH_NOTES_BYTES)
+        throw invalid('The combined owned Lean source snapshot must not exceed ' + MAX_RESEARCH_NOTES_BYTES + ' UTF-8 bytes.');
+    }
     const admission = prepareResearchDelivery(submission, { source: action.task,
       assignment, tasks: this.archive.tasks, deliveries: this.archive.deliveries,
       identity: { problemReceiptDigest, environmentDigest } });
@@ -416,6 +444,8 @@ export abstract class CooperationTaskProofs extends CooperationStatements {
     else {
       // Explicit events leave the writer's live files and Git index untouched.
       await withSolverWorktree(worker.worktree, commit, async checkout => {
+        for (const [file, source] of sourceSnapshot ?? [])
+          fs.writeFileSync(path.join(checkout, this.input.state.problem.projectRelative, file), source);
         fs.writeFileSync(path.join(checkout, 'RESEARCH.md'), text);
         await publish({ ...worker, worktree: checkout }, commitSolverSources(this.input.state.problem, checkout));
       });

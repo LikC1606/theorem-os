@@ -1771,13 +1771,10 @@ describe('isolated solver and host acceptance', () => {
     return { state, question, proposals, lead, peer, emit, create, cooperative: create() };
   }
 
-  it('recovers a failed Lead request when a prerequisite change requires re-adopting the current task revision', async () => {
-    const { state, proposals, lead, cooperative } = handoffQueue(1);
-    const input = { ...planTasks()[0], id: 'bridge_input', theoremName: 'Submission.bridge_input' };
-    const proposal = { ...proposals[0], dependsOn: [input.id] };
-    state.cooperation.deliveries[0].lemmaRequests = [proposal];
+  it('keeps an adopted handoff resolved across a scheduling-only task revision', () => {
+    const { state, proposals } = handoffQueue(1);
     const plan = parseCooperationPlan(problem, { tasks: [
-      ...state.cooperation.tasks.map((node: TaskRecord) => node.task), input, { ...proposal, revision: 1 },
+      ...state.cooperation.tasks.map((node: TaskRecord) => node.task), { ...proposals[0], revision: 1 },
     ] });
     state.cooperation.tasks = plan.tasks.map(task => ({ task,
       status: task.id === 'question' ? 'completed' : 'pending', attempts: 0 }));
@@ -1785,31 +1782,54 @@ describe('isolated solver and host acceptance', () => {
     const [handoff] = pendingResearchHandoffs(state.cooperation);
     const bridge = plan.tasks.find(task => task.id === proposals[0].id)!;
     const previous = { id: handoff.id, deliveryId: handoff.deliveryId, status: 'adopted',
-      taskId: bridge.id, taskDigest: taskVersion({ ...bridge, revision: 0 }), contextDigest: handoff.contextDigest };
+      taskId: bridge.id, taskDigest: taskVersion({ ...bridge, revision: 0 }) };
+    state.cooperation.researchDecisions = [previous];
+
+    expect(pendingResearchHandoffs(state.cooperation)).toEqual([]);
+    expect(researchHandoffs(state.cooperation)[0].decision).toEqual({
+      ...previous, taskDigest: taskVersion(bridge), contextDigest: handoff.contextDigest,
+    });
+  });
+
+  it('recovers a failed Lead request when an adopted handoff needs a fresh input binding', async () => {
+    const { state, proposals, lead, cooperative } = handoffQueue(1);
+    const upstream = { ...planTasks()[0], id: 'upstream', theoremName: 'Submission.upstream', status: 'paused' as const };
+    const proposal = { ...proposals[0], dependsOn: [upstream.id] };
+    state.cooperation.deliveries[0].lemmaRequests = [proposal];
+    const previousPlan = parseCooperationPlan(problem, { tasks: [
+      ...state.cooperation.tasks.map((node: TaskRecord) => node.task), upstream, proposal,
+    ] });
+    state.cooperation.tasks = previousPlan.tasks.map(task => ({ task,
+      status: task.id === 'question' ? 'completed' : 'pending', attempts: 0 }));
+    const [previousHandoff] = pendingResearchHandoffs(state.cooperation);
+    const previous = { id: previousHandoff.id, deliveryId: previousHandoff.deliveryId, status: 'adopted',
+      taskId: proposal.id, taskDigest: taskVersion(previousPlan.tasks.find(task => task.id === proposal.id)!),
+      contextDigest: previousHandoff.contextDigest };
     state.cooperation.researchDecisions = [previous];
     expect(pendingResearchHandoffs(state.cooperation)).toEqual([]);
-    expect(researchHandoffs(state.cooperation)[0]).toMatchObject({ status: 'adopted',
-      decision: { taskId: bridge.id, taskDigest: taskVersion(bridge) } });
-
-    const prerequisite = state.cooperation.tasks.find((node: TaskRecord) => node.task.id === input.id)!;
-    prerequisite.task = { ...prerequisite.task, type: 'False', revision: 1 };
-    const revisedPlan = parseCooperationPlan(problem, { tasks: state.cooperation.tasks.map((node: TaskRecord) => node.task),
-      groups: plan.groups });
-    const planVersion = state.cooperation.planVersion = mathDigest(canonicalMathJson({ tasks: revisedPlan.tasks, groups: revisedPlan.groups }));
+    const plan = parseCooperationPlan(problem, { tasks: previousPlan.tasks.map(task => task.id === upstream.id ?
+      { ...task, type: 'True ∧ True', revision: 1 } : task) });
+    state.cooperation.tasks = plan.tasks.map(task => ({ task,
+      status: task.id === 'question' ? 'completed' : 'pending', attempts: 0 }));
+    state.cooperation.groups = plan.groups.map(group => ({ group, turns: 0 }));
+    const planVersion = state.cooperation.planVersion = mathDigest(canonicalMathJson({ tasks: plan.tasks, groups: plan.groups }));
+    const [handoff] = pendingResearchHandoffs(state.cooperation);
+    const bridge = plan.tasks.find(task => task.id === proposal.id)!;
     expect(pendingResearchHandoffs(state.cooperation)).toHaveLength(1);
-    const [reopened] = pendingResearchHandoffs(state.cooperation);
-    expect(reopened.id).toBe(handoff.id);
-    expect(reopened.contextDigest).not.toBe(handoff.contextDigest);
+    expect(handoff.id).toBe(previousHandoff.id);
+    expect(handoff.contextDigest).not.toBe(previousHandoff.contextDigest);
     const action = await cooperative.next(lead, { maxTurns: Infinity, remainingMs: Infinity });
     if (action?.kind !== 'lead') throw new Error('missing_revised_handoff_decision');
     expect(action.handoffIds).toEqual([handoff.id]);
-    writePlan(workspace, revisedPlan.tasks, revisedPlan.groups);
+    writePlan(workspace, plan.tasks, plan.groups);
 
     const saved = await cooperative.deliver(lead, action, commitSolverSources(problem, workspace), true, 'request-failure');
 
     expect(saved).toEqual({ checkWhole: false, savedPlan: true });
     expect(state.cooperation.planVersion).toBe(planVersion);
-    expect(state.cooperation.researchDecisions).toEqual([{ ...previous, taskDigest: taskVersion(bridge), contextDigest: reopened.contextDigest }]);
+    expect(state.cooperation.researchDecisions).toEqual([{ ...previous,
+      taskDigest: taskVersion(bridge), contextDigest: expect.any(String) }]);
+    expect(state.cooperation.researchDecisions[0].contextDigest).not.toBe(previous.contextDigest);
     expect(pendingResearchHandoffs(state.cooperation)).toEqual([]);
     const unchanged = await cooperative.deliver(lead, { ...action, handoffIds: [] },
       commitSolverSources(problem, workspace), true, 'request-failure');

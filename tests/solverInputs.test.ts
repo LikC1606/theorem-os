@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
-import { readDeliveryLines, readMathResponse } from '../src/solver/deliveries';
+import { MAX_DELIVERY_LINE_BYTES, readDeliveryLines, readMathResponse } from '../src/solver/deliveries';
 import { readMathText } from '../src/math/mathRuntimeIo';
 
 const roots: string[] = [];
@@ -46,7 +46,7 @@ describe('solver input boundaries', () => {
   });
 
   it.each([false, true])('rereads an incomplete UTF-8 line crossing the chunk boundary (recovery=%s)', recovery => {
-    const file = path.join(temp(), 'edits.jsonl'), prefix = 'x'.repeat(63_997) + '\n', tail = '\u6570\u5b66\n';
+    const file = path.join(temp(), 'edits.jsonl'), prefix = 'x'.repeat(MAX_DELIVERY_LINE_BYTES - 2) + '\n', tail = '\u6570\u5b66\n';
     const read = (offset: number) => readDeliveryLines(file, offset, recovery ? { discardingOversized: false } : undefined);
     fs.writeFileSync(file, prefix + tail);
     const batch = read(0);
@@ -56,11 +56,11 @@ describe('solver input boundaries', () => {
   });
 
   it.each([false, true])('accepts a complete line filling the read chunk (recovery=%s)', recovery => {
-    const file = path.join(temp(), 'edits.jsonl'), line = 'x'.repeat(63_999);
+    const file = path.join(temp(), 'edits.jsonl'), line = 'x'.repeat(MAX_DELIVERY_LINE_BYTES);
     fs.writeFileSync(file, line + '\n');
     expect(readDeliveryLines(file, 0, recovery ? { discardingOversized: false } : undefined))
-      .toMatchObject({ lines: [line], offset: 64_000,
-        entries: [{ line, offset: 64_000, discardingOversized: false }] });
+      .toMatchObject({ lines: [line], offset: MAX_DELIVERY_LINE_BYTES + 1,
+        entries: [{ line, offset: MAX_DELIVERY_LINE_BYTES + 1, discardingOversized: false }] });
   });
 
   it.skipIf(process.platform === 'win32')('rejects FIFOs without waiting for a writer', () => {

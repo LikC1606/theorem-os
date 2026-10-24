@@ -147,10 +147,10 @@ describe('persistent typed delivery failure guards', () => {
     expect(candidate.status).toBe('blocked'); expect(checker).toHaveBeenCalledTimes(1);
   });
 
-  const publishGap = async (extra: Record<string, unknown> = {}) => {
+  const publishGap = async (extra: Record<string, unknown> = {}, sources?: Record<string, string>) => {
     const consumer = state.cooperation!.tasks.find(node => node.task.kind === 'goal')!.task;
     await (cooperative as any).receive(researcher, action, { id: 'mathematical-gap', kind: 'research',
-      taskId: action.task.id, taskDigest: action.assignment.taskDigest, finding: {
+      taskId: action.task.id, taskDigest: action.assignment.taskDigest, ...(sources ? { sources } : {}), finding: {
       summary: 'The classification input is unavailable; no declaration was proved.', conclusion: 'inconclusive', needsDecision: true,
       mathematicalGap: { consumer: { taskId: consumer.id, taskDigest: taskVersion(consumer) }, previousGap: 'Critical-set sufficiency',
         reduced: 'Only elementary rank reduction is checked', remaining: 'The independent classification theorem is still missing',
@@ -190,6 +190,40 @@ describe('persistent typed delivery failure guards', () => {
     await resumed.restore();
     expect(restored.cooperation!.tasks[0].status).toBe('blocked');
     expect(restored.cooperation!.failedTaskInputs![0].repair).toBeUndefined();
+  });
+
+  it('hands a missing declaration with frozen new supporting sources and a current gap to Lead', async () => {
+    missingCandidate();
+    fs.appendFileSync(sourceFile(), 'lemma supporting : True := by trivial\n');
+    const source = fs.readFileSync(sourceFile(), 'utf8'), head = git(directory, ['rev-parse', 'HEAD']);
+    await publishGap({}, { 'Submission.lean': source });
+    expect(git(directory, ['rev-parse', 'HEAD'])).toBe(head);
+    const [report] = state.cooperation!.deliveries!;
+    expect(report.artifacts?.artifacts[0].declarations).toMatchObject([{ name: 'supporting', draft: false }]);
+    seed = commit('The target is still unproved; supporting code and its exact gap are retained.');
+    await cooperative.deliver(researcher, action, seed);
+    expect(candidate.status).toBe('blocked'); expect(candidate.attempts).toBe(1);
+    expect(state.cooperation!.failedTaskInputs![0].repair).toBeUndefined();
+    expect(candidate.proof).toBeUndefined(); expect(candidate.integratedCheck).toBeUndefined();
+    expect(emit.mock.calls.some(([event]) => event === 'task_repair_requested')).toBe(false);
+    expect(await cooperative.next(lead, budget)).toMatchObject({ kind: 'lead' });
+    const restored = JSON.parse(JSON.stringify(state)) as SolverRunState, resumed = create(restored);
+    await resumed.restore();
+    expect(restored.cooperation!.tasks[0].status).toBe('blocked');
+    expect(restored.cooperation!.failedTaskInputs![0].repair).toBeUndefined();
+  });
+
+  it('keeps local repair when a source snapshot gap predates further Lean source edits', async () => {
+    missingCandidate();
+    fs.appendFileSync(sourceFile(), 'lemma supporting : True := by trivial\n');
+    await publishGap({}, { 'Submission.lean': fs.readFileSync(sourceFile(), 'utf8') });
+    fs.appendFileSync(sourceFile(), 'lemma later_support : True := by trivial\n');
+    seed = commit();
+    await cooperative.deliver(researcher, action, seed);
+    expect(candidate.status).toBe('pending');
+    expect(state.cooperation!.failedTaskInputs![0].repair?.pending).toBe(true);
+    expect(candidate.proof).toBeUndefined(); expect(candidate.integratedCheck).toBeUndefined();
+    expect(emit.mock.calls.some(([event]) => event === 'task_mathematical_gap_blocked')).toBe(false);
   });
 
   it.each(['checkpoint', 'request-failure'] as const)('keeps a current mathematical gap blocked after %s recovery', async recovery => {

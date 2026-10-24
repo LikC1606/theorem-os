@@ -260,7 +260,7 @@ describe('typed research handoff continuation seeds', () => {
 
     await f.seed();
     const restoredState = readSolverRunState(f.stateFile), restored = restoredState.cooperation!;
-    expect(restored.history).toEqual([]);
+    expect(restored.history).toEqual([{ task: published.node.task, status: 'completed' }]);
     expect(restored.researchDecisions![0].contextDigest).not.toBe(handoff.contextDigest);
     expect(researchHandoffs(restored)).toMatchObject([{ deliveryId: published.delivery.id, status: 'adopted' }, { status: 'pending' }]);
     expect(restored.tasks.find(node => node.task.id === handoff.proposal.id)).toMatchObject({ status: 'pending' });

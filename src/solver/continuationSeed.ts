@@ -224,7 +224,7 @@ function capturedCapacityRecords(state: SolverRunState): CapacityRecord[] {
 function capturedCompletedResearch(state: SolverRunState,
   previous: readonly CompletedResearchRecord[] = []): CompletedResearchRecord[] {
   const key = (record: CompletedResearchRecord) => 'record' in record ? `record:${record.record.id}` :
-    canonicalMathJson(['legacy', taskVersion(record.task), 'inputDigest' in record ? record.inputDigest : null, record.finding]);
+    canonicalMathJson(['legacy', taskVersion(record.task), 'inputDigest' in record ? record.inputDigest : null, record.finding ?? null]);
   const records = new Map<string, CompletedResearchRecord>(previous.map(record => [key(record), { ...record, archived: true }]));
   for (const node of state.cooperation!.history ?? []) if (continuableResearch(node.task) && node.researchCompletion) {
     const record = immutableCompletedResearchRecord.parse({ task: node.task, finding: node.finding,

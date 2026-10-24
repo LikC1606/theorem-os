@@ -49,6 +49,11 @@ it('deduplicates repeated findings and progress while preserving exact Lean type
   expect(context.continuationMessage).toContain('COOPERATION.json');
   expect(context.continuationMessage).toContain('complete current math-plan');
   expect(context.continuationMessage).toContain('proof acceptance');
+  for (const message of [context.instructions, context.continuationMessage]) {
+    expect(message).toContain('Resolve the shown coordination requests before extended mathematical investigation');
+    expect(message).toContain('A coordination decision does not require solving the missing theorem');
+    expect(message).toContain('Lead scheduling checkpoints yield every two minutes even when notes are unchanged');
+  }
   expect(context.manifest!.usedBytes).toBeLessThanOrEqual(context.manifest!.maxBytes);
   const graph = context.message.split('Lead task graph and host feedback:\n')[1].split('\n\nRoute groups')[0];
   expect(JSON.parse(graph)[0].type).toBe(exactType);
@@ -107,6 +112,9 @@ it('asks researchers to save scoped negative evidence and publish a schema-valid
     remainingObligations: ['precise unresolved mathematical inference'] });
   expect(context.instructions).toContain('publishing does not finish or park your proof task');
   expect(context.instructions).toContain('leave Lean sources unchanged');
+  expect(context.instructions).toContain('visible kind:"goal" original consumer');
+  expect(context.instructions).toContain('ordinary research delivery IDs are not prior gap references');
+  expect(context.instructions).toContain('omit only previousDeliveryId and keep the required previousGap description');
 });
 
 it.each(['research', 'lemma', 'goal'] as const)('keeps scoped no-rescan and durable reasoning guidance for %s work', kind => {
@@ -120,6 +128,15 @@ it.each(['research', 'lemma', 'goal'] as const)('keeps scoped no-rescan and dura
   expect(context.instructions).toContain('actual consumer with explicit dependsOn or proofRoutes');
   expect(context.instructions).toContain('Renaming the whole theorem, assuming the core result or proving a conditional wrapper is not a reduction');
   expect(context.manifest!.optionalBytes).toBe(0);
+  for (const message of [context.instructions, context.continuationMessage]) {
+    if (kind === 'research') expect(message).not.toContain('add a top-level sources object');
+    else {
+      expect(message).toContain('add a top-level sources object');
+      expect(message).toContain('Omit commit when using sources');
+      expect(message).toContain('Source changes after that report require a fresh source-bound finding');
+      expect(message).toContain('Auxiliary code and a reported gap never accept the assigned proof');
+    }
+  }
 });
 
 it('asks the Lead for a real reduction and preserves the dispatch recovery packet with zero optional context', () => {

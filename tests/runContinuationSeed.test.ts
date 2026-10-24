@@ -67,6 +67,7 @@ function fixture() {
   const sourceStateFile = path.join(oldDirectory, 'state.json');
   writeSolverRunState(sourceStateFile, solverState(problem, sourceWorkers[0].worktree, {
     runId: 'historical-run', phase: 'running', taskDigest: mathDigest(taskText), turns: 2,
+    environmentDigest: mathDigest('historical-proof-environment'),
     workerCount: 2, workers: sourceWorkers, coordination: 'cooperative', cooperation: { canonicalCommit: canonical,
       tasks: tasks.map(task => ({ task, status: task.kind === 'lemma' ? 'integrated' : 'pending', attempts: 1,
         ...(task.kind === 'lemma' ? { integratedCheck: historical } : {}) })),

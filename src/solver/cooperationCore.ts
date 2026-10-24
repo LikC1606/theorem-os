@@ -85,6 +85,8 @@ export abstract class CooperationCore {
   protected abstract refreshFeasibilityAssignments(): boolean;
   protected abstract planningInputDigest(): string;
   protected abstract markCapacityRefillAssessed(action: CooperativeAction): void;
+  protected abstract leadAssessmentInput(kind: import('./leadAssessment').LeadAssessmentKind):
+    { inputDigest: string; evidenceDigest: string } | undefined;
   protected abstract refreshFailedTaskInputs(): boolean;
   protected abstract refreshResearchCheckpoints(): void;
   protected abstract suspendResearchDrafts(worker: ResearchWorker, taskId?: string): void;
@@ -347,7 +349,8 @@ export abstract class CooperationCore {
   protected rejectWorkerDelivery(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>,
     submission: string, error: Error): DeliveryReceipt {
     const receipt = rejectedDeliveryReceipt({ assignment: action.assignment, workerId: worker.id,
-      environmentDigest: this.input.state.environmentDigest, submission, error, now: Date.now() });
+      environmentDigest: this.input.state.environmentDigest, submission, error, now: Date.now(),
+      receipts: this.archive.deliveryReceipts });
     const receipts = this.archive.deliveryReceipts ??= [];
     const previous = receipts.find(item => item.id === receipt.id);
     if (previous) return previous;
@@ -369,11 +372,20 @@ export abstract class CooperationCore {
   }
   protected resolveDeliveryReceipts(worker: ResearchWorker, action: Extract<CooperativeAction, { kind: 'task' }>,
     replacesReceipt?: unknown, complete = false) {
-    for (const receipt of this.archive.deliveryReceipts ?? []) {
-      if (receipt.status !== 'needs-correction' || receipt.workerId !== worker.id ||
-          receipt.assignmentKey !== assignmentDeliveryFile(action.assignment) ||
-          receipt.environmentDigest !== this.input.state.environmentDigest ||
-          !complete && receipt.id !== replacesReceipt) continue;
+    const scoped = (this.archive.deliveryReceipts ?? []).filter(receipt => receipt.workerId === worker.id &&
+      receipt.assignmentKey === assignmentDeliveryFile(action.assignment) && receipt.taskId === action.assignment.taskId &&
+      receipt.taskDigest === action.assignment.taskDigest && receipt.seedCommit === action.assignment.seedCommit &&
+      receipt.environmentDigest === this.input.state.environmentDigest);
+    const byId = new Map(scoped.map(receipt => [receipt.id, receipt]));
+    const replaced = new Set<string>();
+    let id = typeof replacesReceipt === 'string' ? replacesReceipt : undefined;
+    while (id && !replaced.has(id)) {
+      const receipt = byId.get(id);
+      if (!receipt || receipt.status === 'superseded') break;
+      replaced.add(id); id = receipt.replacesReceipt;
+    }
+    for (const receipt of scoped) {
+      if (receipt.status !== 'needs-correction' || !complete && !replaced.has(receipt.id)) continue;
       receipt.status = 'recorded';
       const node = this.node(action.task.id);
       if (node.feedback === deliveryReceiptFeedback({ ...receipt, status: 'needs-correction' }))

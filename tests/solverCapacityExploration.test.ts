@@ -383,10 +383,16 @@ describe('host exploration for spare cooperative capacity', () => {
     const lead = await startLead();
     expect(lead.stagnationRecovery).toMatchObject({ taskIds: ['busy_helper'], reason: 'frontier-not-decomposed' });
     const receipt = structuredClone(lead.stagnationRecovery);
-    fs.writeFileSync(path.join(workers[0].worktree, 'RESEARCH.md'), JSON.stringify(plan()));
+    fs.writeFileSync(path.join(workers[0].worktree, 'RESEARCH.md'), JSON.stringify({ kind: 'assessment',
+      dispatchNonce: lead.planNonce, baseVersion: lead.planVersion,
+      assessments: ([['capacity', lead.capacityRefill], ['stagnation', lead.stagnationRecovery]] as const)
+        .flatMap(([kind, request]) => request ? [{ kind, requestId: request.requestId, inputDigest: request.inputDigest,
+          outcome: 'no-independent-work',
+          reason: 'The four completed investigations have not identified a closed helper for the remaining busy_helper proof.' }] : []),
+    }));
     cooperative.deactivate(workers[0]);
     await cooperative.deliver(workers[0], lead, commitSolverSources(problem, workers[0].worktree));
-    expect(state.cooperation!.lastStagnationRecovery).toMatchObject({ ...receipt, status: 'assessed' });
+    expect(state.cooperation!.lastStagnationRecovery).toMatchObject({ ...receipt, status: 'assessed', outcome: 'no-independent-work' });
     expect((cooperative as any).stagnationRecovery()).toBeUndefined();
     await waitForCapacity(provers()[0]);
     expect(overlays()).toHaveLength(4);

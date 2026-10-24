@@ -265,7 +265,8 @@ describe('capacity exploration continuation seeds', () => {
     await f.seed();
     const seeded = readSolverRunState(f.stateFile);
     expect(seeded.cooperation!.deliveries).toEqual([expect.objectContaining({ id: 'capacity-research-delivery',
-      taskId: node.task.id, taskDigest: taskVersion(node.task), kind: 'research', status: 'advisory', commit: delivered.notesCommit })]);
+      taskId: node.task.id, taskDigest: taskVersion(node.task), kind: 'research', status: 'advisory',
+      commit: delivered.notesCommit, finding: node.finding })]);
     // Continuation preserves advisory publication provenance. Explicitly remove
     // the live record to exercise recovery from the immutable notes attachment.
     seeded.cooperation!.deliveries = [];

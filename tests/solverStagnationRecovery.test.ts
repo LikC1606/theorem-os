@@ -8,7 +8,7 @@ import { CooperativeResearch } from '../src/solver/cooperation';
 import { directSolverModules, type SolverModules } from '../src/solver/modules';
 import { committedSource, git } from '../src/solver/problem';
 import { runResearchWorkers } from '../src/solver/research';
-import { parseCooperationPlan } from '../src/solver/tasks';
+import { assignmentDeliveryFile, parseCooperationPlan } from '../src/solver/tasks';
 import { deferred } from './helpers/async';
 import { workerAccess } from './helpers/cooperation';
 import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
@@ -66,7 +66,17 @@ describe('durable checkpoint before context rotation', () => {
       });
       running.push(completion); void completion.catch(() => {}); return completion;
     };
-    return { state, workers, problem, check, events, run };
+    const publishCheckpoint = () => {
+      const request = state.workers![1].contextCheckpoint!;
+      expect(request.requestId).toBeTypeOf('string');
+      const assignment = state.cooperation!.tasks.find(node => node.task.id === 'investigate')!.assignment!;
+      const log = path.join(workers[1].worktree, assignmentDeliveryFile(assignment));
+      fs.appendFileSync(log, JSON.stringify({ kind: 'progress',
+        summary: 'The exact unresolved inference is retained in the saved mathematical checkpoint.' }) + '\n');
+      fs.appendFileSync(log, JSON.stringify({ kind: 'checkpoint', requestId: request.requestId,
+        notesDigest: mathDigest(fs.readFileSync(path.join(workers[1].worktree, 'RESEARCH.md'))) }) + '\n');
+    };
+    return { state, workers, problem, check, events, run, publishCheckpoint };
   }
 
   function sessions(firstOutput: (workspace: string) => void = () => {}, inheritedNotes?: string) {
@@ -84,7 +94,10 @@ describe('durable checkpoint before context rotation', () => {
         run: async (message, _messageId, _workspace, onStarted) => {
           messages.push(message);
           executedThreads.push(threadId); onStarted(`checkpoint-turn-${++turns}`);
-          if (turns === 1) { firstOutput(options.workspace); return 'checkpoint'; }
+          if (turns === 1) {
+            options.onActivity?.({ event: 'reasoning' });
+            firstOutput(options.workspace); return 'checkpoint';
+          }
           if (turns !== 2) throw new Error('fixture_unexpected_extra_turn');
           secondStarted.resolve(); return finish.promise;
         } };
@@ -94,7 +107,7 @@ describe('durable checkpoint before context rotation', () => {
     return { open, notify, close, executedThreads, messages, finish, waitSecond };
   }
 
-  it.each(['none', 'metadata', 'scratch'] as const)(
+  it.each(['none', 'metadata', 'scratch', 'notes'] as const)(
     'retains the same over-threshold thread when the checkpoint saves only %s output', async output => {
       const { state, workers, problem, check, events, run } = fixture();
       const held = sessions(workspace => {
@@ -107,6 +120,8 @@ describe('durable checkpoint before context rotation', () => {
           fs.mkdirSync(path.dirname(scratch), { recursive: true });
           fs.writeFileSync(scratch, '-- Unchecked exploration, not a durable mathematical checkpoint.\n#check Nat.add_zero\n');
         }
+        if (output === 'notes') fs.writeFileSync(path.join(workspace, 'RESEARCH.md'),
+          'The current argument is saved, but the report and checkpoint control event have not been published.\n');
       });
       const completion = run(held.open); await held.waitSecond(completion);
       expect(held.executedThreads).toEqual(['checkpoint-thread-1', 'checkpoint-thread-1']);
@@ -118,7 +133,7 @@ describe('durable checkpoint before context rotation', () => {
           reason: 'context-threshold', lastInputTokens: 100_000 },
       }]);
       expect(events).toContainEqual({ event: 'context_rotation_deferred', details: { workerId: 'researcher',
-        threadId: 'checkpoint-thread-1', reason: 'checkpoint-not-saved', lastInputTokens: 100_000 } });
+        threadId: 'checkpoint-thread-1', reason: 'checkpoint-not-published', lastInputTokens: 100_000 } });
       expect(held.messages[1]).toMatch(/RESEARCH\.md/u);
       expect(held.messages[1]).toMatch(/needsDecision/u);
       expect(check).not.toHaveBeenCalled(); expect(state.check).toBeUndefined();
@@ -133,14 +148,21 @@ describe('durable checkpoint before context rotation', () => {
     });
 
   it('rotates only after the exact mathematical checkpoint is committed and available to the replacement thread', async () => {
-    const { state, workers, problem, check, events, run } = fixture();
+    const { state, workers, problem, check, events, run, publishCheckpoint } = fixture();
     const notes = 'The existing reduction preserves positive definiteness and integral representation.\n' +
       'The unresolved step is a least-truant classification; the conditional bridge does not prove it.\n';
-    const held = sessions(workspace => fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), notes));
+    const held = sessions(workspace => {
+      fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), notes); publishCheckpoint();
+    });
     const completion = run(held.open); await held.waitSecond(completion);
     expect(held.executedThreads).toEqual(['checkpoint-thread-1', 'checkpoint-thread-2']);
     expect(state.workers![1].previousThreadIds).toEqual(['checkpoint-thread-1']);
     expect(events.filter(item => item.event === 'context_restarted')).toHaveLength(1);
+    const published = events.findIndex(item => item.event === 'context_checkpoint_published');
+    expect(published).toBeGreaterThan(events.findIndex(item => item.event === 'delivery_published' && item.details?.kind === 'progress'));
+    expect(events.findIndex(item => item.event === 'context_restarted')).toBeGreaterThan(published);
+    expect(state.cooperation!.deliveries).toContainEqual(expect.objectContaining({ kind: 'progress',
+      summary: 'The exact unresolved inference is retained in the saved mathematical checkpoint.' }));
     expect(events).toContainEqual({ event: 'context_checkpoint_ready', details: { workerId: 'researcher',
       threadId: 'checkpoint-thread-1', notesDigest: expect.stringMatching(/^[a-f0-9]{64}$/u) } });
     const draft = state.cooperation!.researchDrafts!.investigate;
@@ -169,10 +191,12 @@ describe('durable checkpoint before context rotation', () => {
   });
 
   it('accepts a current-thread update to inherited notes while retaining the actual saved draft', async () => {
-    const { state, workers, check, events, run } = fixture();
+    const { state, workers, check, events, run, publishCheckpoint } = fixture();
     const revised = 'Current assignment: searched the pinned declaration corpus without a classification theorem.\n' +
       'The remaining input is least-truant classification, and the wrapper only consumes that input.\n';
-    const held = sessions(workspace => fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), revised),
+    const held = sessions(workspace => {
+      fs.writeFileSync(path.join(workspace, 'RESEARCH.md'), revised); publishCheckpoint();
+    },
       'An inherited earlier mathematical checkpoint.\n');
     const completion = run(held.open); await held.waitSecond(completion);
     expect(held.executedThreads).toEqual(['checkpoint-thread-1', 'checkpoint-thread-2']);
@@ -293,8 +317,8 @@ describe('durable checkpoint before context rotation', () => {
     finish.resolve('checkpoint'); await expect(completion).resolves.toBeUndefined();
   });
 
-  it('keeps an early checkpoint after the 90k request until new notes are saved for the 96k rotation', async () => {
-    const { state, workers, check, events, run } = fixture();
+  it('retains early and updated notes until the report and current checkpoint are explicitly published', async () => {
+    const { state, workers, check, events, run, publishCheckpoint } = fixture();
     const started = Array.from({ length: 3 }, () => deferred());
     const done = Array.from({ length: 3 }, () => deferred<string>());
     const executedThreads: string[] = [], messages: string[] = [];
@@ -307,7 +331,8 @@ describe('durable checkpoint before context rotation', () => {
     const open = vi.fn(async (options: MathAgentOptions): Promise<MathAgentSession> => {
       activity = options.onActivity;
       const threadId = options.threadId ?? `checkpoint-window-${++threads}`;
-      return { threadId, get lastInputTokens() { return inputTokens; }, notify, interrupt, close: async () => {},
+      return { threadId, get lastInputTokens() { return inputTokens; }, notify, interrupt,
+        close: async () => { done[turns - 1]?.resolve('interrupted'); },
         run: async (message, _messageId, _workspace, onStarted) => {
           const turn = turns++;
           if (turn >= 3) throw new Error('fixture_unexpected_fourth_turn');
@@ -326,7 +351,13 @@ describe('durable checkpoint before context rotation', () => {
     expect(events.filter(item => item.event === 'context_restarted')).toEqual([]);
     expect(messages[1]).toMatch(/RESEARCH\.md/u);
     expect(state.workers![1].threadId).toBe('checkpoint-window-1');
-    fs.writeFileSync(notes, current); done[1].resolve('checkpoint');
+    fs.writeFileSync(notes, current);
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(interrupt).not.toHaveBeenCalled();
+    expect(executedThreads).toEqual(['checkpoint-window-1', 'checkpoint-window-1']);
+    expect(events.filter(item => item.event === 'context_restarted')).toEqual([]);
+    expect(state.workers![1].contextCheckpoint?.publishedNotesDigest).toBeUndefined();
+    publishCheckpoint(); done[1].resolve('checkpoint');
     await Promise.race([started[2].promise, completion.then(() => { throw new Error('fixture_missing_replacement_turn'); })]);
     expect(executedThreads).toEqual(['checkpoint-window-1', 'checkpoint-window-1', 'checkpoint-window-2']);
     expect(events.filter(item => item.event === 'context_restarted')).toHaveLength(1);
@@ -358,7 +389,7 @@ describe('durable checkpoint before context rotation', () => {
   });
 
   it.each([false, true])('preserves a legacy thread without checkpoint metadata until a requested handoff is saved (%s)', async hasNotes => {
-    const { state, workers, check, events, run } = fixture();
+    const { state, workers, check, events, run, publishCheckpoint } = fixture();
     const held = sessions();
     await expect(run(held.open, 1)).resolves.toBeUndefined();
     const notes = path.join(workers[1].worktree, 'RESEARCH.md');
@@ -373,6 +404,7 @@ describe('durable checkpoint before context rotation', () => {
     expect(state.workers![1].contextCheckpoint).toMatchObject({ threadId: 'checkpoint-thread-1' });
     expect(check).not.toHaveBeenCalled();
     fs.writeFileSync(notes, 'A requested current handoff preserves the precise unresolved classification step.\n');
+    publishCheckpoint();
     held.finish.resolve('checkpoint'); await expect(completion).resolves.toBeUndefined();
     const reopened = deferred(), finish = deferred<string>();
     const open = vi.fn(async (options: MathAgentOptions): Promise<MathAgentSession> => {

@@ -2,13 +2,13 @@ import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import type { MathAgentFailureDiagnostic, MathAgentSession } from '../runtime/codexSession';
+import type { MathAgentActivity, MathAgentFailureDiagnostic, MathAgentSession } from '../runtime/codexSession';
 import { readMathBuildManifest } from '../math/mathBuildManifest';
 import { canonicalMathJson, mathDigest, writeMathJsonDurable } from '../math/mathRuntimeIo';
 import type { SolverRunState, SolverWorkerState } from './archive';
 import { commitSolverSources, git } from './problem';
 import { CooperativeResearch } from './cooperation';
-import { assignmentDeliveryFile, isFeasibilityReview, taskGroup, type CooperativeAction } from './tasks';
+import { assignmentDeliveryFile, leadPlanDeliveryFile, isFeasibilityReview, taskGroup, type CooperativeAction } from './tasks';
 import { isStatementAction } from './statementReview';
 import { rememberSolverFailure, solverSourceFeedback } from './feedback';
 import type { SolverModules } from './modules';
@@ -23,8 +23,8 @@ import { aggregateUsage, buildTokenBudget, initializeUsageAccounting, modelDispa
 import { ResearchUsage } from './researchUsage';
 import { inspectKnowledgeUses } from './knowledgeUsage';
 import { checkKnowledgeApplications } from './knowledgeApplications';
-import { MAX_RESEARCH_NOTES_BYTES, parseMathResponse } from './deliveries';
-import { assertMathCanonicalPath } from '../math/paths';
+import { parseMathResponse } from './deliveries';
+import { readCheckpointNotesDigest, savedContextCheckpoint } from './contextCheckpoint';
 import { committedSource } from './problem';
 import type { ContinuationSnapshot } from './continuationInput';
 import { WorkerProofLifecycle } from './workerProofLifecycle';
@@ -36,7 +36,9 @@ const advisoryCheckpointNoticeMs = 90_000;
 const advisoryCheckpointMs = 120_000;
 const advisoryInterruptGraceMs = 10_000;
 const advisoryProgressPollMs = 5_000;
-const advisoryNoProgressProtection = 3;
+const advisoryMaxBackoff = 3;
+// Compaction is maintenance, not a mathematical attempt. A stalled operation restarts from saved work.
+const compactionRecoveryMs = 10 * 60_000;
 
 /** Host publication provenance is never part of the model's mathematical responsibility. */
 function promptAction(action?: CooperativeAction): CooperativeAction | undefined {
@@ -202,6 +204,10 @@ export async function runResearchWorkers(input: {
       let pendingTurn: Promise<void> | undefined;
       let planningCheckpoint = false;
       let cooperativeCheckpoint = false;
+      let contextSchedulingCheckpoint = false;
+      let compactionRestart = false;
+      let turnActivity: ((activity: MathAgentActivity) => void) | undefined;
+      let turnAssignment: CooperativeAction | undefined;
       let advisoryTurn: { scope: string; contentDigest?: string } | undefined;
       let turnContext: { digest: string; fresh: boolean } | undefined;
       let dispatchedContext: { threadId: string; responsibility: string } | undefined;
@@ -221,36 +227,28 @@ export async function runResearchWorkers(input: {
           ]));
         } catch { return undefined; }
       };
-      const checkpointNotesDigest = (): string | undefined => {
-        const file = path.join(worker.worktree, 'RESEARCH.md');
-        let fd: number | undefined;
-        try {
-          assertMathCanonicalPath(file);
-          fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
-          const stat = fs.fstatSync(fd);
-          if (!stat.isFile() || stat.nlink !== 1 || stat.size > MAX_RESEARCH_NOTES_BYTES) return undefined;
-          const text = fs.readFileSync(fd, 'utf8');
-          return text.trim() ? mathDigest(text) : undefined;
-        } catch { return undefined; } finally { if (fd !== undefined) fs.closeSync(fd); }
-      };
-      const currentCheckpointNotesDigest = (): string | undefined => {
-        const digest = checkpointNotesDigest();
-        const baseline = research.contextCheckpointBaseline;
+      const checkpointNotesDigest = () => readCheckpointNotesDigest(worker.worktree);
+      const currentCheckpointNotesDigest = () => savedContextCheckpoint(research, worker.worktree);
+      const contextCheckpointInstruction = (assignment?: CooperativeAction) => {
+        const file = assignment?.kind === 'task' ? assignmentDeliveryFile(assignment.assignment) :
+          assignment && leadPlanDeliveryFile(assignment);
         const request = research.contextCheckpoint;
-        return digest && research.threadId &&
-          (baseline?.threadId === research.threadId || request?.threadId === research.threadId) &&
-          (baseline?.threadId !== research.threadId || digest !== baseline.notesDigest) &&
-          (request?.threadId !== research.threadId || digest !== request.notesDigest) ? digest : undefined;
-      };
-      const contextCheckpointInstruction = 'Before further searches or experiments, save the exact current argument, ' +
+        return 'Before further searches or experiments, save the exact current argument, ' +
         'attempted methods and negative search scope, useful declaration/file references, and the precise unresolved inference in RESEARCH.md. ' +
         'Use the current assignment delivery protocol to publish an honest needsDecision finding and a mathematicalGap when blocked. ' +
         'Propose independently checkable, strictly smaller typed obligations when possible; do not rename the original hard theorem or ' +
-        'assume it in a wrapper. Scratch experiments and an activity report alone are not a durable handoff or an accepted proof.';
+        'assume it in a wrapper. Scratch experiments and an activity report alone are not a durable handoff or an accepted proof. ' +
+        (file && request?.requestId ? 'After saving all notes and source drafts and publishing any findings or planning decisions, ' +
+          'finish this checkpoint by appending one complete JSON line to ' + JSON.stringify(path.join(worker.worktree, file)) +
+          ': ' + JSON.stringify({ kind: 'checkpoint', requestId: request.requestId, notesDigest: 'SHA256_OF_SAVED_RESEARCH_MD' }) +
+          '. Compute notesDigest from the exact saved RESEARCH.md bytes in a local script. Append this control event last, then stop editing and return. ' +
+          'Unchanged but accurate notes and an unfinished argument are allowed; this event yields writing and never claims a proof. ' +
+          'A notes save alone is not checkpoint completion.' : '');
+      };
       const requestContextCheckpoint = (lastInputTokens: number) => {
         const threadId = research.threadId;
-        if (!threadId || research.contextCheckpoint?.threadId === threadId) return false;
-        research.contextCheckpoint = { threadId, requestedAt: Date.now(), notesDigest: checkpointNotesDigest() };
+        if (!threadId || research.contextCheckpoint?.threadId === threadId && research.contextCheckpoint.requestId) return false;
+        research.contextCheckpoint = { threadId, requestId: crypto.randomUUID(), requestedAt: Date.now(), notesDigest: checkpointNotesDigest() };
         emit('context_checkpoint_requested', { threadId, reason: 'context-threshold', lastInputTokens });
         save(); return true;
       };
@@ -264,7 +262,7 @@ export async function runResearchWorkers(input: {
         research.advisoryCheckpoint = { scope: previous.scope, noProgressStreak,
           contentDigest: contentDigest ?? previous.contentDigest };
         if (checkpoint) emit('cooperative_checkpoint_saved', { noProgressStreak, progress,
-          protected: noProgressStreak >= advisoryNoProgressProtection });
+          protected: false });
         save();
       };
       const modelTurn = async <T>(run: (started: (turnId: string) => void) => Promise<T>,
@@ -282,6 +280,7 @@ export async function runResearchWorkers(input: {
         cooperation?.settleTurn(worker);
         planningCheckpoint = false;
         cooperativeCheckpoint = false;
+        contextSchedulingCheckpoint = false;
         advisoryTurn = undefined;
         usage.begin(assignment);
         const activeSession = session!;
@@ -291,6 +290,13 @@ export async function runResearchWorkers(input: {
         let checkpointTimer: ReturnType<typeof setTimeout> | undefined;
         let interruptTimer: ReturnType<typeof setTimeout> | undefined;
         let capacityTimer: ReturnType<typeof setInterval> | undefined;
+        let contextTimer: ReturnType<typeof setInterval> | undefined;
+        let compactionTimer: ReturnType<typeof setTimeout> | undefined;
+        let compactionStartedAt: number | undefined;
+        let sliceStartedAt: number | undefined;
+        let activeSliceMs = 0, noticeSent = false;
+        let scheduleSlice: (() => void) | undefined;
+        turnAssignment = assignment;
         const current = () => !finished && !signal.aborted && session === activeSession &&
           Boolean(assignment && cooperation?.current(assignment));
         const closeStalledTurn = () => {
@@ -300,6 +306,47 @@ export async function runResearchWorkers(input: {
             { reason: 'interrupt-not-settled' });
           // close() retains research.threadId; the next session resumes the saved thread.
           void close().catch(() => {});
+        };
+        const interruptForCheckpoint = (event: string, details: Record<string, unknown>) => {
+          if (!current() || checkpointRequested || readyRequested) return false;
+          checkpointRequested = true;
+          emit(event, details);
+          interruptTimer = setTimeout(closeStalledTurn, advisoryInterruptGraceMs);
+          interruptTimer.unref();
+          void Promise.resolve().then(async () => {
+            if (current()) await activeSession.interrupt();
+          }).catch(closeStalledTurn);
+          return true;
+        };
+        const watchCompaction = () => {
+          if (!current() || compactionStartedAt === undefined || compactionTimer) return;
+          compactionTimer = setTimeout(() => {
+            if (!current() || compactionStartedAt === undefined) return;
+            if (interruptForCheckpoint('context_compaction_recovery_requested',
+              { threadId: research.threadId, maintenanceMs: Date.now() - compactionStartedAt })) {
+              compactionRestart = true;
+              contextSchedulingCheckpoint = true;
+            }
+          }, Math.max(0, compactionRecoveryMs - (Date.now() - compactionStartedAt)));
+          compactionTimer.unref();
+        };
+        turnActivity = activity => {
+          if (!current() || activity.itemType !== 'contextCompaction') return;
+          if (activity.event === 'item_started') {
+            if (compactionStartedAt !== undefined) return;
+            compactionStartedAt = Date.now();
+            if (sliceStartedAt !== undefined) activeSliceMs += Date.now() - sliceStartedAt;
+            sliceStartedAt = undefined;
+            clearTimeout(noticeTimer); clearTimeout(checkpointTimer);
+            emit('context_compaction_started', { threadId: research.threadId });
+            watchCompaction();
+          } else if (activity.event === 'item_completed' && compactionStartedAt !== undefined) {
+            const maintenanceMs = Date.now() - compactionStartedAt;
+            compactionStartedAt = undefined;
+            clearTimeout(compactionTimer); compactionTimer = undefined;
+            emit('context_compaction_completed', { threadId: research.threadId, maintenanceMs });
+            scheduleSlice?.();
+          }
         };
         if (assignment) cooperation!.activate(worker, assignment,
           async () => { await activeSession.interrupt(); },
@@ -315,57 +362,68 @@ export async function runResearchWorkers(input: {
           });
         const started = (turnId: string) => {
           onStarted(turnId);
-          if (!advisoryScope) {
-            if (research.advisoryCheckpoint) { research.advisoryCheckpoint = undefined; save(); }
-            return;
-          }
           if (armed || !current()) return;
           armed = true;
+          if (assignment && !isStatementAction(assignment)) {
+            contextTimer = setInterval(() => {
+              if (!current() || research.contextCheckpoint?.threadId !== research.threadId) return;
+              const notesDigest = currentCheckpointNotesDigest();
+              if (!notesDigest) return;
+              // Only the final, host-consumed control event yields writing; notes may precede publication.
+              contextSchedulingCheckpoint = interruptForCheckpoint('context_checkpoint_interrupted',
+                { turnId, threadId: research.threadId, notesDigest }) || contextSchedulingCheckpoint;
+            }, advisoryProgressPollMs);
+            contextTimer.unref();
+          }
+          if (!advisoryScope) {
+            if (research.advisoryCheckpoint) { research.advisoryCheckpoint = undefined; save(); }
+            watchCompaction();
+            return;
+          }
           const contentDigest = advisoryContentDigest(), previous = research.advisoryCheckpoint;
           const noProgressStreak = previous?.scope === advisoryScope &&
             (contentDigest === undefined || contentDigest === previous.contentDigest) ? previous.noProgressStreak : 0;
           research.advisoryCheckpoint = { scope: advisoryScope, contentDigest, noProgressStreak };
           advisoryTurn = { scope: advisoryScope, contentDigest };
           save();
-          const protectedTurn = noProgressStreak >= advisoryNoProgressProtection;
-          const checkpointAfterMs = advisoryCheckpointMs * 2 ** Math.min(noProgressStreak, advisoryNoProgressProtection);
+          // Lead owns coordination and must reconsider its inbox on a fixed cadence.
+          // Other advisory work gets bounded backoff, never an unlimited exclusive turn.
+          const checkpointAfterMs = advisoryCheckpointMs * (assignment?.kind === 'lead' ? 1 :
+            2 ** Math.min(noProgressStreak, advisoryMaxBackoff));
           const noticeAfterMs = checkpointAfterMs * advisoryCheckpointNoticeMs / advisoryCheckpointMs;
-          emit('cooperative_checkpoint_scheduled', { turnId, checkpointAfterMs, noticeAfterMs, noProgressStreak, protected: protectedTurn });
+          emit('cooperative_checkpoint_scheduled', { turnId, checkpointAfterMs, noticeAfterMs, noProgressStreak,
+            protected: false, backoffCapped: assignment?.kind !== 'lead' && noProgressStreak >= advisoryMaxBackoff });
           if (noProgressStreak) emit('cooperative_checkpoint_deferred', { turnId, checkpointAfterMs,
-            noProgressStreak, protected: protectedTurn, reason: 'no-durable-progress' });
-          noticeTimer = setTimeout(() => {
-            if (!current()) return;
-            emit('cooperative_checkpoint_requested', { turnId, checkpointAfterMs, noProgressStreak, protected: protectedTurn });
+            noProgressStreak, protected: false, reason: 'no-durable-progress' });
+          const sendNotice = () => {
+            if (!current() || noticeSent) return;
+            noticeSent = true;
+            emit('cooperative_checkpoint_requested', { turnId, checkpointAfterMs, noProgressStreak, protected: false });
             void Promise.resolve().then(() => {
               if (!current()) return;
               return activeSession.notify?.('Save the current mathematical argument, exact unresolved step and useful references in RESEARCH.md now. ' +
                 'For planning, save or publish the smallest valid complete task graph using this assignment\'s delivery protocol. ' +
-                (protectedTurn ? 'This turn remains protected while no new content is saved; once content is saved it may yield a scheduling checkpoint. ' :
-                  'This advisory turn will yield a scheduling checkpoint shortly; ') +
-                'Saved work and this thread will remain available for continuation.');
+                'This advisory turn will yield a scheduling checkpoint shortly, including when no new notes are saved. ' +
+                'The same thread and saved work will remain available for continuation; this does not end the solving budget.');
             }).catch(() => { if (current()) emit('cooperative_checkpoint_notice_failed'); });
-          }, noticeAfterMs);
-          let deferred = false;
-          const checkpoint = (yieldForProof = false) => {
-            if (!current() || checkpointRequested) return;
-            const content = protectedTurn ? advisoryContentDigest() : undefined;
-            if (!yieldForProof && protectedTurn && (content === undefined || content === contentDigest)) {
-              if (!deferred) emit('cooperative_checkpoint_deferred', { turnId, checkpointAfterMs, noProgressStreak,
-                protected: true, reason: 'awaiting-durable-progress' });
-              deferred = true;
-              checkpointTimer = setTimeout(() => checkpoint(), advisoryProgressPollMs); checkpointTimer.unref();
-              return;
-            }
-            checkpointRequested = true;
-            if (yieldForProof) emit('capacity_exploration_yielded', { turnId, reason: 'typed-work-ready' });
-            emit('cooperative_checkpoint_interrupted', { turnId, checkpointAfterMs, noProgressStreak, protected: protectedTurn });
-            interruptTimer = setTimeout(closeStalledTurn, advisoryInterruptGraceMs);
-            interruptTimer.unref();
-            void Promise.resolve().then(async () => {
-              if (current()) await activeSession.interrupt();
-            }).catch(closeStalledTurn);
           };
-          checkpointTimer = setTimeout(() => checkpoint(), checkpointAfterMs);
+          const checkpoint = (yieldForProof = false) => {
+            if (compactionStartedAt !== undefined) return;
+            if (interruptForCheckpoint('cooperative_checkpoint_interrupted',
+              { turnId, checkpointAfterMs, noProgressStreak, protected: false }) && yieldForProof)
+              emit('capacity_exploration_yielded', { turnId, reason: 'typed-work-ready' });
+          };
+          scheduleSlice = () => {
+            if (!current() || compactionStartedAt !== undefined || checkpointRequested || readyRequested) return;
+            sliceStartedAt = Date.now();
+            if (!noticeSent) {
+              noticeTimer = setTimeout(sendNotice, Math.max(0, noticeAfterMs - activeSliceMs));
+              noticeTimer.unref();
+            }
+            checkpointTimer = setTimeout(() => checkpoint(), Math.max(0, checkpointAfterMs - activeSliceMs));
+            checkpointTimer.unref();
+          };
+          scheduleSlice(); watchCompaction();
           if (assignment?.kind === 'task' && state.cooperation?.tasks.some(node =>
               node.task.id === assignment.task.id && node.capacityExploration)) {
             capacityTimer = setInterval(() => {
@@ -373,7 +431,6 @@ export async function runResearchWorkers(input: {
             }, advisoryProgressPollMs);
             capacityTimer.unref();
           }
-          noticeTimer.unref(); checkpointTimer.unref();
         };
         let completed = false;
         try {
@@ -398,7 +455,8 @@ export async function runResearchWorkers(input: {
         finally {
           finished = true;
           clearTimeout(noticeTimer); clearTimeout(checkpointTimer); clearTimeout(interruptTimer);
-          clearInterval(capacityTimer);
+          clearTimeout(compactionTimer); turnActivity = undefined; turnAssignment = undefined;
+          clearInterval(capacityTimer); clearInterval(contextTimer);
           // A transport failure may settle run() before process-group teardown finishes.
           // Do not freeze sources or reopen this thread until the writer is fully closed.
           try {
@@ -504,9 +562,10 @@ export async function runResearchWorkers(input: {
                 instructions: currentContext.instructions, onActivity: activity => {
                   research.lastActivity = { ...activity, at: Date.now() };
                   emit('worker_activity', { activity: activity.event, itemType: activity.itemType }); save();
+                  turnActivity?.(activity);
                   const lastInputTokens = Math.max(session?.lastInputTokens ?? 0, research.lastInputTokens ?? 0);
-                  if (cooperation && assignment && !statement && session && lastInputTokens >= 90_000 && requestContextCheckpoint(lastInputTokens))
-                    void session.notify?.(contextCheckpointInstruction).catch(() => emit('context_checkpoint_notice_failed'));
+                  if (cooperation && turnAssignment && !statement && session && lastInputTokens >= 90_000 && requestContextCheckpoint(lastInputTokens))
+                    void session.notify?.(contextCheckpointInstruction(turnAssignment)).catch(() => emit('context_checkpoint_notice_failed'));
                 }, ...usageCallbacks });
               usage.sessionOpened(session);
             } catch (error) {
@@ -635,6 +694,10 @@ export async function runResearchWorkers(input: {
       try {
         await waitForRecovery(true);
         while (!signal.aborted) {
+          if (compactionRestart) {
+            await rotateSession('context');
+            compactionRestart = false;
+          }
           const assignment = await cooperation?.next(worker, budget());
           unstarted = assignment?.kind === 'assemble' ? undefined : assignment;
           if (cooperation && !assignment) break;
@@ -680,7 +743,10 @@ export async function runResearchWorkers(input: {
             record.sessionAssignmentId = sessionAssignmentId;
             record.sessionStatementReview = isStatementAction(assignment);
           }
-          if (research.threadId && Math.max(session?.lastInputTokens ?? 0, research.lastInputTokens ?? 0) >= 96_000) {
+          if (research.threadId && research.contextCheckpoint?.threadId === research.threadId && !research.contextCheckpoint.requestId)
+            requestContextCheckpoint(Math.max(session?.lastInputTokens ?? 0, research.lastInputTokens ?? 0));
+          if (research.threadId && (Math.max(session?.lastInputTokens ?? 0, research.lastInputTokens ?? 0) >= 96_000 ||
+              research.contextCheckpoint?.threadId === research.threadId && currentCheckpointNotesDigest())) {
             const threadId = research.threadId, lastInputTokens = Math.max(session?.lastInputTokens ?? 0, research.lastInputTokens ?? 0);
             const notesDigest = currentCheckpointNotesDigest();
             if (!cooperation || !assignment) {
@@ -695,7 +761,7 @@ export async function runResearchWorkers(input: {
               // existing bounded recovery path and can rotate it when necessary.
               if (research.contextCheckpoint && research.contextCheckpoint.deferredAt === undefined) {
                 research.contextCheckpoint.deferredAt = Date.now();
-                emit('context_rotation_deferred', { threadId, reason: 'checkpoint-not-saved', lastInputTokens });
+                emit('context_rotation_deferred', { threadId, reason: 'checkpoint-not-published', lastInputTokens });
                 save();
               }
             }
@@ -784,7 +850,7 @@ export async function runResearchWorkers(input: {
             dispatchedContext?.threadId === research.threadId && dispatchedContext?.responsibility === responsibility;
           if (continuation) currentContext.message = currentContext.continuationMessage!;
           if (research.threadId && research.contextCheckpoint?.threadId === research.threadId && !currentCheckpointNotesDigest())
-            currentContext.message = contextCheckpointInstruction + '\n\n' + currentContext.message;
+            currentContext.message = contextCheckpointInstruction(assignment) + '\n\n' + currentContext.message;
           // Resume the same thread with new instructions, preserving its history and cumulative usage.
           if (session && sessionInstructions !== currentContext.instructions) await close();
           if (!await beginTurn(currentContext, assignment, operation)) {
@@ -826,6 +892,11 @@ export async function runResearchWorkers(input: {
               break;
             }
             await cooperation?.pulse(worker.id);
+            // The writer may publish its final control event and return before the polling timer fires.
+            if (candidate.status !== 'failed' && currentCheckpointNotesDigest()) {
+              contextSchedulingCheckpoint = true;
+              candidate = { ...candidate, status: 'checkpoint' };
+            }
           } finally { cooperation?.deactivate(worker); }
           const lastInputTokens = session?.lastInputTokens;
           const diagnostic = session?.lastFailureDiagnostic;
@@ -851,7 +922,8 @@ export async function runResearchWorkers(input: {
           if (turn !== 'failed') retries = 0;
           if (turn === 'checkpoint') emit('turn_checkpoint', { turn: research.turns,
             ...(planningCheckpoint ? { reason: 'math_initial_planning_limit' } :
-              cooperativeCheckpoint ? { reason: 'math_cooperative_scheduling_checkpoint' } : {}) });
+              contextSchedulingCheckpoint ? { reason: 'math_context_scheduling_checkpoint' } :
+                cooperativeCheckpoint ? { reason: 'math_cooperative_scheduling_checkpoint' } : {}) });
           if (turn === 'failed') emit('turn_failed', { reason: researchFailureReason(turnError), ...(diagnostic ? { diagnostic } : {}) });
           const sourceError = solverSourceFeedback(state.problem, worker.worktree);
           if (sourceError) {
@@ -860,6 +932,15 @@ export async function runResearchWorkers(input: {
             save(); emit('source_rejected');
             if (turn === 'failed' || planningCheckpoint) throw new Error(sourceError);
             continue;
+          }
+          if (cooperation && assignment?.kind === 'task' && turn === 'checkpoint' && contextSchedulingCheckpoint &&
+              !['research', 'sketch'].includes(assignment.task.kind)) {
+            // Context maintenance is not a proof submission. Preserve the draft without failing an unfinished declaration.
+            const commit = commitSolverSources(state.problem, worker.worktree);
+            cooperation.retainContextDraft(worker, assignment, commit);
+            cooperation.interrupted(worker, assignment);
+            emit('context_checkpoint_saved', { threadId: turnSession.threadId, commit });
+            save(); continue;
           }
           if (cooperation && assignment && turn === 'failed' &&
               ((assignment.kind !== 'task' && assignment.kind !== 'lead') ||

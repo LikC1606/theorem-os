@@ -13,6 +13,9 @@ import { mathematicalGapSchema, type MathematicalGap, type MathematicalGapScope 
 // Long-lived task graphs can exceed a short prompt's display allowance. Keep the
 // complete host response bounded by the committed-source reader's byte allowance.
 export const MAX_RESEARCH_NOTES_BYTES = 1_000_000;
+// Explicit research snapshots carry up to 1 MB of Lean sources alongside the
+// complete finding. Allow bounded JSON escaping without rejecting existing files.
+export const MAX_DELIVERY_LINE_BYTES = 16_000_000;
 
 /** JSON for host decisions, optional Markdown for explanations; legacy fences remain readable. */
 export function readMathResponse(worktree: string, legacyFence: string, bindings: Record<string, unknown> = {}, textField?: string): any {
@@ -47,12 +50,34 @@ function researchResponse(text: string, textField?: string): unknown {
   return textField && text ? { [textField]: text } : undefined;
 }
 
+/** Select the Lead control object without counting illustrative mathematical JSON as a plan. */
+function planResponse(text: string): unknown {
+  const blocks = [...text.matchAll(/```([a-z-]+)\s*\n([\s\S]*?)\n```/gu)];
+  const explicit = blocks.filter(block => block[1] === 'math-plan');
+  if (explicit.length > 1) throw new Error('math_math-plan_requires_one_block');
+  if (explicit.length) return JSON.parse(explicit[0][2]);
+  if (/```math-[a-z-]+\s*\n/u.test(text)) throw new Error('math_math-plan_requires_one_block');
+  if (text.startsWith('{')) return JSON.parse(text);
+  const planKeys = /"(?:tasks|groups|proofRoutes|recovery|handoffDecisions|challengeDecisions|assessments|dispatchNonce|baseVersion)"\s*:/u;
+  const legacy = blocks.filter(block => {
+    if (!['math', 'json'].includes(block[1]) || !block[2].trimStart().startsWith('{')) return false;
+    try {
+      const value = JSON.parse(block[2]);
+      return value && typeof value === 'object' && !Array.isArray(value) &&
+        (Object.keys(value).some(key => planKeys.test(JSON.stringify(key) + ':')) ||
+          ['plan', 'handoff', 'assessment'].includes(value.kind));
+    } catch { return planKeys.test(block[2]); }
+  });
+  if (legacy.length > 1) throw new Error('math_math-plan_requires_one_block');
+  return legacy.length ? JSON.parse(legacy[0][2]) : undefined;
+}
+
 /** The same parser also reads immutable checkpoint text without consulting a live workspace. */
 export function parseMathResponse(text: string, legacyFence: string, bindings: Record<string, unknown> = {}, textField?: string): any {
   const errorPrefix = `math_${legacyFence}`;
   text = text.trim();
-  if (legacyFence === 'math-result') {
-    const value = researchResponse(text, textField);
+  if (legacyFence === 'math-result' || legacyFence === 'math-plan') {
+    const value = legacyFence === 'math-plan' ? planResponse(text) : researchResponse(text, textField);
     if (value === undefined) throw new Error(errorPrefix + '_requires_one_block');
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('math_response_invalid');
     return { ...bindings, ...value };
@@ -138,7 +163,7 @@ export function readDeliveryLines(file: string, offset: number,
   try {
     const stat = fs.fstatSync(fd);
     if (!stat.isFile() || stat.nlink !== 1 || stat.size < offset) throw new Error('math_delivery_log_invalid');
-    const buffer = Buffer.alloc(Math.min(stat.size - offset, 64_000));
+    const buffer = Buffer.alloc(Math.min(stat.size - offset, MAX_DELIVERY_LINE_BYTES + 1));
     const size = fs.readSync(fd, buffer, 0, buffer.length, offset);
     const entries: DeliveryLogEntry[] = [];
     let start = 0, discarding = recovery?.discardingOversized ?? false;
@@ -151,7 +176,7 @@ export function readDeliveryLines(file: string, offset: number,
     while (start < size) {
       const newline = buffer.subarray(0, size).indexOf(10, start);
       if (newline < 0) {
-        if (start === 0 && size === 64_000) {
+        if (start === 0 && size > MAX_DELIVERY_LINE_BYTES) {
           if (!recovery) throw new Error('math_delivery_line_too_large');
           start = size; discarding = true;
           entries.push({ error: 'math_delivery_line_too_large', offset: offset + start, discardingOversized: true });

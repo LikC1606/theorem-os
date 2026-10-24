@@ -1,6 +1,7 @@
 import { canonicalMathJson } from '../math/mathRuntimeIo';
 import type { SolverProblem } from './problem';
 import { researchHandoffs, resolveResearchHandoffs, sameProofTarget } from './researchHandoffs';
+import { resolveResearchChallenges } from './researchChallenges';
 import { parseCooperationPlan, type CooperativeAction } from './tasks';
 
 /** An explicit decision materializes the immutable proposal, never model-supplied proof or task fields. */
@@ -11,15 +12,19 @@ export function composeHandoffPublication(problem: SolverProblem, state: Paramet
   const invalid = () => new Error('math_handoff_publication_invalid');
   const keys = (value: any, allowed: readonly string[]) => value && typeof value === 'object' && !Array.isArray(value) &&
     Object.keys(value).every(key => allowed.includes(key));
-  if (action.kind !== 'lead' || action.initialPlanNonce || action.recovery || !action.handoffIds?.length ||
-      !keys(response, ['kind', 'dispatchNonce', 'baseVersion', 'summary', 'handoffDecisions']) ||
-      response.kind !== 'handoff' || !Array.isArray(response.handoffDecisions)) throw invalid();
+  if (action.kind !== 'lead' || action.initialPlanNonce || action.recovery ||
+      response?.dispatchNonce !== action.planNonce || response?.baseVersion !== action.planVersion ||
+      !action.handoffIds?.length && !action.challengeIds?.length ||
+      !keys(response, ['kind', 'dispatchNonce', 'baseVersion', 'summary', 'handoffDecisions', 'challengeDecisions', 'assessments']) ||
+      response.kind !== 'handoff' || response.handoffDecisions !== undefined && !Array.isArray(response.handoffDecisions) ||
+      response.challengeDecisions !== undefined && !Array.isArray(response.challengeDecisions) ||
+      !action.handoffIds?.length && response.challengeDecisions === undefined) throw invalid();
   const handoffs = researchHandoffs(state), byAlias = new Map(handoffs.flatMap(item =>
     item.sources.map(source => [source.handoffId, item] as const)));
-  const shown = new Set(action.handoffIds), seen = new Set<string>(), seenTargets = new Set<string>();
+  const shown = new Set(action.handoffIds ?? []), seen = new Set<string>(), seenTargets = new Set<string>();
   const tasks = [...base.tasks], adoptedTaskIds: string[] = [];
   const responses: unknown[] = [];
-  for (const decision of response.handoffDecisions) {
+  for (const decision of response.handoffDecisions ?? []) {
     if (!keys(decision, decision?.status === 'adopted' ? ['id', 'status', 'ownerId'] :
       decision?.status === 'deferred' ? ['id', 'status', 'reason', 'waitsOn'] : ['id', 'status', 'reason']) ||
         typeof decision.id !== 'string' || !shown.has(decision.id) || seen.has(decision.id) ||
@@ -44,6 +49,10 @@ export function composeHandoffPublication(problem: SolverProblem, state: Paramet
   // Parsing must leave all existing mathematical contracts and ownership untouched.
   for (const task of base.tasks) if (canonicalMathJson(task) !== canonicalMathJson(plan.tasks.find(item => item.id === task.id)))
     throw new Error('math_handoff_base_changed:' + task.id);
-  const handoffDecisions = resolveResearchHandoffs(state, action.handoffIds, plan.tasks, responses, action.handoffActivations);
-  return { plan, decisions: { handoffs: handoffDecisions, challenges: [] }, adoptedTaskIds };
+  const handoffDecisions = resolveResearchHandoffs(state, action.handoffIds ?? [], plan.tasks, responses, action.handoffActivations);
+  // A legacy handoff-only publication may leave challenges queued. A short challenge
+  // response must explicitly resolve every challenge shown in its frozen dispatch.
+  const challenges = response.challengeDecisions === undefined ? [] : resolveResearchChallenges(state,
+    action.challengeIds ?? [], action.challengeActivations ?? {}, plan.tasks, response.challengeDecisions);
+  return { plan, decisions: { handoffs: handoffDecisions, challenges }, adoptedTaskIds };
 }
