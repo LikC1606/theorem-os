@@ -50,14 +50,15 @@
       "apiTiming": {
         "status": "available",
         "effectiveApiElapsedUs": 1060524005,
-        "effectiveApiElapsedFormatted": "0h17m41s",
+        "effectiveApiElapsedFormatted": "17.68分钟",
         "confirmedResponses": 182,
         "excludedUnconfirmedResponses": 24,
         "includedRunIds": [
           "3fc3d20a-b8a8-43b5-b4ba-8d181d601765"
         ],
         "scope": "selected successful run",
-        "reportFile": "Q1/timing.json"
+        "reportFile": "Q1/timing.json",
+        "effectiveApiMinutes": 17.68
       },
       "sourceFile": "Q1/problem.lean",
       "sourceSha256": "98695afb49630475105d6a6abdfff173b8ef4ac16f66d5800c3c928ea40febc7",
@@ -101,7 +102,7 @@
       "apiTiming": {
         "status": "available",
         "effectiveApiElapsedUs": 4335312908,
-        "effectiveApiElapsedFormatted": "1h12m15s",
+        "effectiveApiElapsedFormatted": "72.26分钟",
         "confirmedResponses": 625,
         "excludedUnconfirmedResponses": 179,
         "includedRunIds": [
@@ -109,7 +110,8 @@
           "fc4cfe15-ec0f-45e4-a2f7-adb8db80f839"
         ],
         "scope": "fresh Q2 run and its artifact-retention continuation, counted together",
-        "reportFile": "Q2/timing.json"
+        "reportFile": "Q2/timing.json",
+        "effectiveApiMinutes": 72.26
       },
       "sourceFile": "Q2/problem.lean",
       "sourceSha256": "daeca5eca3b46b5a1e9768042925b37ea56e6f8899e055a6bf90064c4ef5c6f2",
@@ -158,14 +160,15 @@
       "apiTiming": {
         "status": "available",
         "effectiveApiElapsedUs": 6840029898,
-        "effectiveApiElapsedFormatted": "1h54m00s",
+        "effectiveApiElapsedFormatted": "114.00分钟",
         "confirmedResponses": 1382,
         "excludedUnconfirmedResponses": 246,
         "includedRunIds": [
           "b57422e3-f5a0-41c5-a952-553ad382aea0"
         ],
         "scope": "same Q3 run before and after the runtime upgrade",
-        "reportFile": "Q3/timing.json"
+        "reportFile": "Q3/timing.json",
+        "effectiveApiMinutes": 114.0
       },
       "sourceFile": "Q3/problem.lean",
       "sourceSha256": "e3526163de827c63b91eb7279b3625528075d2aae64ccf9597aa6fda4a99e255",
@@ -209,14 +212,15 @@
       "apiTiming": {
         "status": "available",
         "effectiveApiElapsedUs": 780671846,
-        "effectiveApiElapsedFormatted": "0h13m01s",
+        "effectiveApiElapsedFormatted": "13.01分钟",
         "confirmedResponses": 144,
         "excludedUnconfirmedResponses": 30,
         "includedRunIds": [
           "143e002c-9e24-4580-a9e7-35fbc901b434"
         ],
         "scope": "selected successful run",
-        "reportFile": "Q4/timing.json"
+        "reportFile": "Q4/timing.json",
+        "effectiveApiMinutes": 13.01
       },
       "sourceFile": "Q4/problem.lean",
       "sourceSha256": "fdcb9357fa1d806ba0032fad20a08b22e827eb9f1797e1a4800dfdeb67ccf52f",
@@ -260,14 +264,15 @@
       "apiTiming": {
         "status": "available",
         "effectiveApiElapsedUs": 1154716526,
-        "effectiveApiElapsedFormatted": "0h19m15s",
+        "effectiveApiElapsedFormatted": "19.25分钟",
         "confirmedResponses": 80,
         "excludedUnconfirmedResponses": 4,
         "includedRunIds": [
           "e6c2292f-a813-456c-8436-225ea3bcce00"
         ],
         "scope": "selected successful run",
-        "reportFile": "Q5/timing.json"
+        "reportFile": "Q5/timing.json",
+        "effectiveApiMinutes": 19.25
       },
       "sourceFile": "Q5/problem.lean",
       "sourceSha256": "7ee9e76cdd3bf1c3c10e2fe97624ffe3ff4706b756b59708c2581999a9a102b5",
@@ -311,14 +316,15 @@
       "apiTiming": {
         "status": "available",
         "effectiveApiElapsedUs": 2961490308,
-        "effectiveApiElapsedFormatted": "0h49m21s",
+        "effectiveApiElapsedFormatted": "49.36分钟",
         "confirmedResponses": 267,
         "excludedUnconfirmedResponses": 99,
         "includedRunIds": [
           "afb9be56-ac0c-45a1-a40b-ffb719adcb2c"
         ],
         "scope": "selected successful run",
-        "reportFile": "Q6/timing.json"
+        "reportFile": "Q6/timing.json",
+        "effectiveApiMinutes": 49.36
       },
       "sourceFile": "Q6/problem.lean",
       "sourceSha256": "ecf7b6d207bec0549f9c6b12f22f840a41ae71155573561ec863dcaf80fe0218",
@@ -328,11 +334,12 @@
   "apiTiming": {
     "method": "Union of elapsed intervals for client-confirmed successful API requests, merging overlap across workers within each selected question.",
     "perQuestionSumUs": 17132745491,
-    "perQuestionSumFormatted": "4h45m33s",
+    "perQuestionSumFormatted": "285.55分钟",
     "allQuestionsCalendarUnionUs": 17132745491,
     "confirmedResponses": 2680,
     "scope": "Selected six successful runs; Q2 includes its fresh run and retained continuation, Q3 includes the same-run build reload. Earlier discarded attempts are not included.",
-    "excluded": "Tool execution, Lean checks, environment preparation, repair waits, retry backoff, ongoing calls and responses without client completion confirmation."
+    "excluded": "Tool execution, Lean checks, environment preparation, repair waits, retry backoff, ongoing calls and responses without client completion confirmation.",
+    "perQuestionSumMinutes": 285.55
   },
   "publicationNote": "Proof and dependency files are byte-identical to the frozen successful collection. verification.json and timing.json are compact extracts of existing host records; publication does not rerun Lean or obtain third-party certification.",
   "collectionRecordSha256": "92eee7c0c8c32cafd443fc58bedb9b91e036ccea1ab28332117a6a7357251cbb"

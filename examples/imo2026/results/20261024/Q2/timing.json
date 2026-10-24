@@ -6,18 +6,18 @@
   "clientConfirmed": {
     "requestCount": 625,
     "effectiveApiElapsedUs": 4335312908,
-    "effectiveApiElapsedFormatted": "1h12m15s",
+    "effectiveApiElapsedFormatted": "72.26分钟",
     "summedThreadApiMs": 9476057,
-    "summedThreadApiFormatted": "2h37m56s",
+    "summedThreadApiFormatted": "157.93分钟",
     "outputTokens": 565781,
     "latestCompletedRequestAt": "2026-10-23T21:06:26.064814+08:00"
   },
   "upstreamOutputWithoutClientConfirmation": {
     "requestCount": 179,
     "effectiveApiElapsedUs": 2582850250,
-    "effectiveApiElapsedFormatted": "0h43m03s",
+    "effectiveApiElapsedFormatted": "43.05分钟",
     "summedThreadApiMs": 5062276,
-    "summedThreadApiFormatted": "1h24m22s",
+    "summedThreadApiFormatted": "84.37分钟",
     "outputTokens": 364753,
     "latestCompletedRequestAt": "2026-10-23T21:04:27.781765+08:00"
   },

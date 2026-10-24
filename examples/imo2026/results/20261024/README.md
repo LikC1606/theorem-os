@@ -2,16 +2,16 @@
 
 TheoremOS 使用 `gpt-5.6-sol`、`xhigh`、每题 4 个 worker，完成 Q1–Q6 的 **6/6 道题、15/15 个原始目标**。与其他公开方法的逐题比较见 [结果对比](../../RESULTS.md)。
 
-| 题目 | 原始目标 | 确认成功 API 区间并集 | 证明 | 验收摘要 |
+| 题目 | 原始目标 | 确认成功 API 区间并集（分钟） | 证明 | 验收摘要 |
 | --- | ---: | ---: | --- | --- |
-| Q1 | 5/5 | 17分41秒 | [Submission.lean](Q1/Submission.lean) | [verification.json](Q1/verification.json) |
-| Q2 | 1/1 | 1小时12分15秒 | [Submission.lean](Q2/Submission.lean) | [verification.json](Q2/verification.json) |
-| Q3 | 6/6 | 1小时54分00秒 | [Submission.lean](Q3/Submission.lean) | [verification.json](Q3/verification.json) |
-| Q4 | 1/1 | 13分01秒 | [Submission.lean](Q4/Submission.lean) | [verification.json](Q4/verification.json) |
-| Q5 | 1/1 | 19分15秒 | [Submission.lean](Q5/Submission.lean) | [verification.json](Q5/verification.json) |
-| Q6 | 1/1 | 49分21秒 | [Submission.lean](Q6/Submission.lean) | [verification.json](Q6/verification.json) |
+| Q1 | 5/5 | 17.68 | [Submission.lean](Q1/Submission.lean) | [verification.json](Q1/verification.json) |
+| Q2 | 1/1 | 72.26 | [Submission.lean](Q2/Submission.lean) | [verification.json](Q2/verification.json) |
+| Q3 | 6/6 | 114.00 | [Submission.lean](Q3/Submission.lean) | [verification.json](Q3/verification.json) |
+| Q4 | 1/1 | 13.01 | [Submission.lean](Q4/Submission.lean) | [verification.json](Q4/verification.json) |
+| Q5 | 1/1 | 19.25 | [Submission.lean](Q5/Submission.lean) | [verification.json](Q5/verification.json) |
+| Q6 | 1/1 | 49.36 | [Submission.lean](Q6/Submission.lean) | [verification.json](Q6/verification.json) |
 
-所选成功链的计时合计 **4小时45分33秒**，共 2680 次客户端确认成功的响应。每题对这些请求的时间区间取并集，合并并发重叠，再将六题相加；包含正常首 token 等待，排除工具、Lean、环境准备、修复等待、重试退避及失败或未确认响应。它不是全部请求时长之和，也不是运行墙钟时间。
+表内用时均按原始记录换算为分钟并保留两位小数。所选成功链的计时合计 **285.55分钟**，共 2680 次客户端确认成功的响应。每题对这些请求的时间区间取并集，合并并发重叠，再将六题相加；包含正常首 token 等待，排除工具、Lean、环境准备、修复等待、重试退避及失败或未确认响应。它不是全部请求时长之和，也不是运行墙钟时间。
 
 Q2 计入 fresh 运行及保留成果的续跑，Q3 计入同一运行升级前后；另行放弃的历史尝试未计入。部分运行经过系统修复，因此这份成功合集不能用于估计一次运行成功率，也不能作为与其他方法等预算的速度实验。
 
