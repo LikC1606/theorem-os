@@ -1,0 +1,32 @@
+{
+  "schema": "theorem-os.honeycomb-reuse-port-verification.v1",
+  "freshResult": {
+    "passed": 27,
+    "failed": 0,
+    "deselected": 67
+  },
+  "reports": [
+    {
+      "file": "tests/proofReuseEnvironment.test.ts",
+      "status": "passed",
+      "passed": 15,
+      "deselected": 0
+    },
+    {
+      "file": "tests/solverEvidenceReuse.test.ts",
+      "status": "passed",
+      "passed": 10,
+      "deselected": 14
+    },
+    {
+      "file": "tests/taskProofCache.test.ts",
+      "status": "passed",
+      "passed": 2,
+      "deselected": 53
+    }
+  ],
+  "full171TestsRepeated": false,
+  "testCommands": "test-runs.json",
+  "historicalEvidenceReuse": "evidence-reuse.json",
+  "headlessBuildCommand": "/home/lzh/.venvs/deepscientist-finance/.bun/bin/bun scripts/build.ts --state-root ../build-state"
+}

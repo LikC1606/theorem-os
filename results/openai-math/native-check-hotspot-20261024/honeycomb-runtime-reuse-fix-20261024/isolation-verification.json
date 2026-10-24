@@ -1,0 +1,74 @@
+{
+  "schema": "theorem-os.honeycomb-reuse-port-isolation.v1",
+  "sourceRuntime": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/honeycomb-new-build-continuation-20261024/runtime",
+  "isolatedRuntime": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-runtime-reuse-fix-20261024/runtime",
+  "sourceRuntimeUnchanged": true,
+  "checkedSourceEntries": 1307,
+  "isolatedRuntimeSymlinks": [],
+  "dependenciesCopiedFrom": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/future-runtime-reuse-fix-20261024/runtime/node_modules",
+  "dependencyManifestAndLockMatchSource": true,
+  "changes": [
+    {
+      "path": "src/solver/proofReuse.ts",
+      "beforeSha256": "34a8a84e1ffd63e73df3fa4626c7576dd425f8c155a314271d93319020619439",
+      "afterSha256": "6623834f05e3cea1794eb003b1d5dea5d9226f8b6d8add39e062980ea39d5ca3",
+      "beforeBytes": 3821,
+      "afterBytes": 4002
+    },
+    {
+      "path": "tests/proofReuseEnvironment.test.ts",
+      "beforeSha256": null,
+      "afterSha256": "aad41b3de6a85b30ee2142eff89da2a662cc1f5c650794ce1aaa60ab6c9dd6fa",
+      "beforeBytes": 0,
+      "afterBytes": 7624
+    },
+    {
+      "path": "tests/taskProofCache.test.ts",
+      "beforeSha256": "04eedf56bfe9961585edd0cf9159f687c2de3c8f35a84b61da482dd35063b6b7",
+      "afterSha256": "d554848086ec8f8f73d7dd3445f2c7012d49e638a6e0e3a852113641aa540a21",
+      "beforeBytes": 32221,
+      "afterBytes": 33666
+    }
+  ],
+  "changedFilesIncludingBundles": [
+    "out/main/check-lean.js",
+    "out/main/math-solver.js",
+    "out/main/search-lean.js",
+    "src/solver/proofReuse.ts",
+    "tests/proofReuseEnvironment.test.ts",
+    "tests/taskProofCache.test.ts"
+  ],
+  "latestBehaviorSourcePreserved": [
+    {
+      "path": "src/solver/cooperativeProof.ts",
+      "sha256": "36bb222f5f370f52e104a4ffa3f95dc838e0312afc74d70338750c4b77987b8e",
+      "unchangedFromHoneycombLatestSource": true
+    },
+    {
+      "path": "src/solver/cooperationIntegration.ts",
+      "sha256": "12ec5d2357943d8015afaaebeda531269c5a64d5adca9e6d0661f74c962b5947",
+      "unchangedFromHoneycombLatestSource": true
+    },
+    {
+      "path": "src/solver/modules/evidence.ts",
+      "sha256": "569e1287d21b07d8ab2d59a1351b27ef999eb6a7a66018cff1c6763793df6c3d",
+      "unchangedFromHoneycombLatestSource": true
+    },
+    {
+      "path": "src/math/mathRuntimeEnvironment.ts",
+      "sha256": "28131fbe77132732eb0b409db06640c3723189756a5cce56ca01dfe9fef6bd48",
+      "unchangedFromHoneycombLatestSource": true
+    },
+    {
+      "path": "src/math/mathRuntimeIo.ts",
+      "sha256": "7e3c233b9d3b170cb7420a49b4618d3a82c9269c5793370f17394db100816937",
+      "unchangedFromHoneycombLatestSource": true
+    }
+  ],
+  "activeRuntimeWritten": false,
+  "mainCheckoutWritten": false,
+  "existingStateOrCacheWritten": false,
+  "newRunStarted": false,
+  "leanCompilationInvoked": false,
+  "realModelInvoked": false
+}

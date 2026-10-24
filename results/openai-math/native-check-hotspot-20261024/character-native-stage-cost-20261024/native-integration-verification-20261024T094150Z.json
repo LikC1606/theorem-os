@@ -1,0 +1,165 @@
+{
+  "checkedAt": 1792834903543,
+  "durationMs": 2339924,
+  "events": [
+    {
+      "eventId": "a11c718f-f4bb-4fc7-938e-387cafde7a6c",
+      "kind": "session.opened",
+      "payload": {
+        "itemCount": 1,
+        "projectRoot": "/tmp/math-check-ahZooU/worktree/generated/problem",
+        "uniqueFileCount": 1
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "82a04738-c328-453e-ac84-976d69249ab3",
+      "timestamp": 1792832563633
+    },
+    {
+      "eventId": "54446dd1-4ad0-4671-877a-bcd6a4428af7",
+      "kind": "file.opened",
+      "payload": {
+        "bytes": 795645,
+        "checkCount": 1,
+        "proofHash": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3",
+        "proofPath": "Submission.lean"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "82a04738-c328-453e-ac84-976d69249ab3",
+      "timestamp": 1792832563634
+    },
+    {
+      "eventId": "373f0892-0e77-4243-8e53-4657adc18998",
+      "kind": "toolchain.resolved",
+      "payload": {
+        "command": "lake",
+        "executable": "lake",
+        "lakeFile": "lakefile.toml"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "82a04738-c328-453e-ac84-976d69249ab3",
+      "timestamp": 1792832563634
+    },
+    {
+      "eventId": "b1a4a483-79a9-4b31-90d0-04cabb334a71",
+      "kind": "check.draft_checked",
+      "payload": {
+        "admitCount": 0,
+        "axioms": [],
+        "proofPath": "Submission.lean",
+        "sorryCount": 0,
+        "status": "accepted"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "82a04738-c328-453e-ac84-976d69249ab3",
+      "timestamp": 1792832563664
+    },
+    {
+      "eventId": "ba833dea-8796-48ed-b98f-825d8b66d6bd",
+      "kind": "diagnostic.emitted",
+      "payload": {
+        "message": "DS_DECL_REFERENCES_e0d7a512f51999e3f5c3065851ed7e6c:null\nDEEPSCIENTIST_DECL_BEGIN_449fa7e0100c093f\nOAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams {F S V R K : Type}\n  {arity : S → ℕ} [CommRing R] [Field K] [Algebra R K]\n  (D : OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram F S V arity) (q : S) [Finite V] (hproper : D.Proper)\n  (hmax : ∀ (f : F), D.rank f ≤ D.rank (D.ports.facet ⟨q, none⟩)) (hg : 0 < D.genus (D.bandCutParent q))\n  (P : D.Punctures R) (x : D.Solution P K) (b0 : Fin (D.boundaryCount (D.bandCutParent q)))\n  (i0 : Fin (D.boundaryLength (D.bandCutParent q) b0)) : D.ProducedMarkedSeamEquations q hproper hmax hg P x b0 i0\nDEEPSCIENTIST_DECL_END_449fa7e0100c093f\nDEEPSCIENTIST_AXIOMS_BEGIN_449fa7e0100c093f\n'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams' depends on axioms: [propext,\n Classical.choice,\n Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_449fa7e0100c093f",
+        "proofPath": "Submission.lean",
+        "severity": "info",
+        "source": "stdout"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "82a04738-c328-453e-ac84-976d69249ab3",
+      "timestamp": 1792834903528
+    },
+    {
+      "eventId": "b890759c-5e57-421b-9bc6-64a262e3256f",
+      "kind": "diagnostic.emitted",
+      "payload": {
+        "message": "y referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _hp\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2870:201: warning: Variable name `hc` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _hc\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2870:314: warning: Variable name `hc'` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _hc'\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2864:0: warning: Definition `parent_wrapSideValue` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:2876:39: warning: Variable name `inst` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2876:90: warning: Variable name `inst_1` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_1\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2873:0: warning: Definition `parent_wrapParentTransport` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:2885:77: warning: Variable name `inst` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2894:39: warning: Variable name `inst` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2894:90: warning: Variable name `inst_1` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_1\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2891:0: warning: Definition `parent_wrapSideColumns_eq` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:2903:41: warning: Variable name `inst` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2903:96: warning: Variable name `inst_1` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_1\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2903:1709: warning: Variable name `i` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _i\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2900:0: warning: Definition `parent_wrapChildInverseTransport` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:2946:36: warning: Variable name `inst` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2946:53: warning: Variable name `inst_1` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_1\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2946:93: warning: Variable name `inst_2` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_2\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2946:128: warning: Variable name `inst_3` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_3\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2946:189: warning: Variable name `i` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _i\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2943:0: warning: Definition `MatrixIso.parent_blockUnitOne_linear` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:2955:39: warning: Variable name `inst` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2955:90: warning: Variable name `inst_1` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_1\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2952:0: warning: Definition `parent_wrapChildIdentity` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:2964:41: warning: Variable name `inst` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2964:96: warning: Variable name `inst_1` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_1\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2964:371: warning: Variable name `inst_2` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_2\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2961:0: warning: Definition `parent_wrapSeam_fromSides` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:3020:51: warning: Variable name `inst` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:3020:71: warning: Variable name `inst_1` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_1\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:3020:97: warning: Variable name `inst_2` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_2\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:3017:0: warning: Definition `parent_wrapFlag_algebra` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:3029:51: warning: Variable name `inst` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:3029:68: warning: Variable name `inst_1` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_1\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:3029:89: warning: Variable name `inst_2` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_2\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:3026:0: warning: Definition `parent_wrapUnitFlag` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:3038:41: warning: Variable name `inst` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:3038:65: warning: Variable name `inst_1` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_1\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:3038:88: warning: Variable name `inst_2` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_2\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:3035:0: warning: Definition `parent_producedWrapFlag` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:3044:0: warning: Definition `parent_producedWrapSeamComplete` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`",
+        "proofPath": "Submission.lean",
+        "severity": "warning",
+        "source": "stderr"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "82a04738-c328-453e-ac84-976d69249ab3",
+      "timestamp": 1792834903528
+    },
+    {
+      "eventId": "f39457e7-1fba-40b9-bcc3-c99346ae33c2",
+      "kind": "check.kernel_checked",
+      "payload": {
+        "aborted": false,
+        "durationMs": 2339853,
+        "exitCode": 0,
+        "proofPath": "Submission.lean",
+        "signal": null,
+        "status": "kernel_verified",
+        "timedOut": false
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "82a04738-c328-453e-ac84-976d69249ab3",
+      "timestamp": 1792834903528
+    },
+    {
+      "eventId": "06fddcaa-b227-4358-89bf-2f24957f973d",
+      "kind": "receipt.published",
+      "payload": {
+        "checkId": "check-1",
+        "proofPath": "Submission.lean",
+        "receiptId": "lean-7e3b44ab0595415016076711",
+        "status": "kernel_verified",
+        "theoremName": "OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "82a04738-c328-453e-ac84-976d69249ab3",
+      "timestamp": 1792834903528
+    },
+    {
+      "eventId": "4b12719c-9b57-487f-9c34-80277dc31b55",
+      "kind": "session.closed",
+      "payload": {
+        "durationMs": 2339924,
+        "resultCount": 1,
+        "status": "kernel_verified"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "82a04738-c328-453e-ac84-976d69249ab3",
+      "timestamp": 1792834903543
+    }
+  ],
+  "results": [
+    {
+      "admitCount": 0,
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "checkId": "check-1",
+      "checkedAt": 1792834903528,
+      "claim": "statement",
+      "elaboratedDeclarationType": "OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams {F S V R K : Type} {arity : S → ℕ} [CommRing R] [Field K] [Algebra R K] (D : OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram F S V arity) (q : S) [Finite V] (hproper : D.Proper) (hmax : ∀ (f : F), D.rank f ≤ D.rank (D.ports.facet ⟨q, none⟩)) (hg : 0 < D.genus (D.bandCutParent q)) (P : D.Punctures R) (x : D.Solution P K) (b0 : Fin (D.boundaryCount (D.bandCutParent q))) (i0 : Fin (D.boundaryLength (D.bandCutParent q) b0)) : D.ProducedMarkedSeamEquations q hproper hmax hg P x b0 i0",
+      "goalsRemaining": 0,
+      "leanStatementHash": "0a7945b3864e77f995020b9e39dee6639011fcd0fcc2da7cf7d136bae5f8cacf",
+      "proofHash": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3",
+      "proofPath": "Submission.lean",
+      "receiptId": "lean-7e3b44ab0595415016076711",
+      "sessionId": "82a04738-c328-453e-ac84-976d69249ab3",
+      "sorryCount": 0,
+      "sourceDeclarationHash": "fb95bc071af2179a40770979bb7e3eb978b53a19ec0691d8eaf4e38a4e3d50d8",
+      "statementBinding": "caller-bound-to-committed-declaration",
+      "statementHash": "0a7945b3864e77f995020b9e39dee6639011fcd0fcc2da7cf7d136bae5f8cacf",
+      "status": "kernel_verified",
+      "stderrPreview": "y referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _hp\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2870:201: warning: Variable name `hc` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _hc\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2870:314: warning: Variable name `hc'` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _hc'\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2864:0: warning: Definition `parent_wrapSideValue` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:2876:39: warning: Variable name `inst` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2876:90: warning: Variable name `inst_1` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_1\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2873:0: warning: Definition `parent_wrapParentTransport` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:2885:77: warning: Variable name `inst` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2894:39: warning: Variable name `inst` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2894:90: warning: Variable name `inst_1` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_1\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2891:0: warning: Definition `parent_wrapSideColumns_eq` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:2903:41: warning: Variable name `inst` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2903:96: warning: Variable name `inst_1` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_1\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2903:1709: warning: Variable name `i` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _i\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2900:0: warning: Definition `parent_wrapChildInverseTransport` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:2946:36: warning: Variable name `inst` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2946:53: warning: Variable name `inst_1` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_1\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2946:93: warning: Variable name `inst_2` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_2\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2946:128: warning: Variable name `inst_3` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_3\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2946:189: warning: Variable name `i` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _i\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2943:0: warning: Definition `MatrixIso.parent_blockUnitOne_linear` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:2955:39: warning: Variable name `inst` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2955:90: warning: Variable name `inst_1` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_1\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2952:0: warning: Definition `parent_wrapChildIdentity` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:2964:41: warning: Variable name `inst` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2964:96: warning: Variable name `inst_1` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_1\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2964:371: warning: Variable name `inst_2` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_2\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:2961:0: warning: Definition `parent_wrapSeam_fromSides` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:3020:51: warning: Variable name `inst` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:3020:71: warning: Variable name `inst_1` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_1\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:3020:97: warning: Variable name `inst_2` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_2\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:3017:0: warning: Definition `parent_wrapFlag_algebra` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:3029:51: warning: Variable name `inst` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:3029:68: warning: Variable name `inst_1` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_1\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:3029:89: warning: Variable name `inst_2` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_2\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:3026:0: warning: Definition `parent_wrapUnitFlag` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:3038:41: warning: Variable name `inst` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:3038:65: warning: Variable name `inst_1` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_1\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:3038:88: warning: Variable name `inst_2` is not explicitly referenced.\n\nHint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:\n  [apply] _inst_2\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`\nSubmission.lean:3035:0: warning: Definition `parent_producedWrapFlag` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`\nSubmission.lean:3044:0: warning: Definition `parent_producedWrapSeamComplete` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`",
+      "stdoutPreview": "DS_DECL_REFERENCES_e0d7a512f51999e3f5c3065851ed7e6c:null\nDEEPSCIENTIST_DECL_BEGIN_449fa7e0100c093f\nOAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams {F S V R K : Type}\n  {arity : S → ℕ} [CommRing R] [Field K] [Algebra R K]\n  (D : OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram F S V arity) (q : S) [Finite V] (hproper : D.Proper)\n  (hmax : ∀ (f : F), D.rank f ≤ D.rank (D.ports.facet ⟨q, none⟩)) (hg : 0 < D.genus (D.bandCutParent q))\n  (P : D.Punctures R) (x : D.Solution P K) (b0 : Fin (D.boundaryCount (D.bandCutParent q)))\n  (i0 : Fin (D.boundaryLength (D.bandCutParent q) b0)) : D.ProducedMarkedSeamEquations q hproper hmax hg P x b0 i0\nDEEPSCIENTIST_DECL_END_449fa7e0100c093f\nDEEPSCIENTIST_AXIOMS_BEGIN_449fa7e0100c093f\n'OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams' depends on axioms: [propext,\n Classical.choice,\n Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_449fa7e0100c093f",
+      "targetCommit": "e79bb6bff241bf540fd4700723af7ddbdb5d7678",
+      "theoremDeclarationHash": "c9503e6d53b28cca1757fd7889e142f8adffb29b9bd845b9b7157f24e2c0510e",
+      "theoremName": "OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams",
+      "toolchain": {
+        "lake": "lakefile.toml",
+        "lean": "lake"
+      },
+      "verifier": "lean-kernel"
+    }
+  ],
+  "schema": "deepscientist.mathematics.verification-batch/v1",
+  "sessionId": "82a04738-c328-453e-ac84-976d69249ab3",
+  "startedAt": 1792832563619,
+  "status": "kernel_verified",
+  "targetCommit": "e79bb6bff241bf540fd4700723af7ddbdb5d7678"
+}

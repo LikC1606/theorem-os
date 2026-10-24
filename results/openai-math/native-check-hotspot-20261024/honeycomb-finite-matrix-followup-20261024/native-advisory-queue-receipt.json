@@ -1,0 +1,13 @@
+{
+  "observedAt": "2026-10-24T09:55:44.940Z",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "editId": "honeycomb-finite-matrix-e56599f0c366",
+  "result": {
+    "id": "honeycomb-finite-matrix-e56599f0c366",
+    "status": "queued",
+    "baseVersion": "d26d924cd221c33f79fcc96a3b180937c4505155028a4d9ef15af8bad3749685"
+  },
+  "mathematicalAcceptance": false,
+  "localKernelVerified": true,
+  "sourceSHA256": "bae1606a1e3ad7675bdfa043f99d08d1e5a9fb7e822fb31612a19eec63eff33f"
+}

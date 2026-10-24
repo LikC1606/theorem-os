@@ -1,0 +1,89 @@
+{
+  "createdAt": "2026-10-24T09:55:19.626871+00:00",
+  "kind": "advisory-reference",
+  "conditionalOnStatedPremises": true,
+  "sourceFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-finite-matrix-followup-20261024/FiniteMatrixFirstMoment.lean",
+  "sourceSHA256": "bae1606a1e3ad7675bdfa043f99d08d1e5a9fb7e822fb31612a19eec63eff33f",
+  "sourceBytes": 4970,
+  "incrementFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-finite-matrix-followup-20261024/FiniteMatrixFirstMoment.lean.inc",
+  "incrementSHA256": "fa18397788fad96d9c54a45b51dc9f8aa338da30c5bd5108a0445c5437fd3fb6",
+  "namespace": "TheoremOS.FiniteMatrixFirstMoment",
+  "declarations": [
+    {
+      "name": "TheoremOS.FiniteMatrixFirstMoment.summable_firstMoment_of_finite_nonneg_factorization",
+      "type": "∀ {ι : Type*} [Fintype ι] {c : ℕ → ℝ} {L R : ℕ → ι → ℝ}, (∀ n i, 0 ≤ L n i) → (∀ n i, 0 ≤ R n i) → (∀ a b, c (a + b) = ∑ i, L a i * R b i) → Summable c → Summable (fun n : ℕ => (n : ℝ) * c n)"
+    },
+    {
+      "name": "TheoremOS.FiniteMatrixFirstMoment.summable_matrix_firstMoment",
+      "type": "∀ {ι : Type*} [Fintype ι] [DecidableEq ι] (A : Matrix ι ι ℝ) (u v : ι → ℝ), (∀ i j, 0 ≤ A i j) → (∀ i, 0 ≤ u i) → (∀ i, 0 ≤ v i) → Summable (matrixMass A u v) → Summable (fun n : ℕ => (n : ℝ) * matrixMass A u v n)"
+    }
+  ],
+  "matrixMassDefinition": "matrixMass A u v n = u ⬝ᵥ ((A ^ n) *ᵥ v)",
+  "localKernelResult": "validation-04-final-result.json",
+  "localKernelExitCode": 0,
+  "durationSeconds": 4.673376955091953,
+  "localKernelComputeBudget": null,
+  "resourceLimits": {
+    "wallSeconds": null,
+    "cpuSoftSeconds": null,
+    "cpuHardSeconds": null,
+    "maxHeartbeats": 0,
+    "addressSpaceGiB": 32,
+    "leanMemoryMiB": 32768,
+    "threads": 1,
+    "cpus": [
+      0
+    ]
+  },
+  "axiomsByDeclaration": {
+    "TheoremOS.FiniteMatrixFirstMoment.summable_firstMoment_of_finite_nonneg_factorization": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "TheoremOS.FiniteMatrixFirstMoment.summable_matrix_firstMoment": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ]
+  },
+  "hostTaskProofAcceptance": false,
+  "normalQueueDelivery": {
+    "status": "applied",
+    "kind": "shared-advisory-reference",
+    "editId": "honeycomb-finite-matrix-e56599f0c366",
+    "planVersion": "d487ab1d2595773b2deec8556dcce11d881cd34c274c79110c7f3480f9664c3b",
+    "affectedTasks": [
+      "finite_box_zero_mass_reference"
+    ],
+    "existingAssignmentsPreserved": true,
+    "otherTaskDefinitionsPreserved": true,
+    "groupsPreserved": true,
+    "proofRoutesPreserved": true,
+    "referenceStillPendingUnassigned": true,
+    "fullHelperVisibleForWorkers": [
+      "solver",
+      "researcher-1",
+      "researcher-2",
+      "engineer"
+    ],
+    "actualMathematicalUse": "not-established",
+    "readback": "native-advisory-applied-readback.json",
+    "queueScript": "queue-matrix-reference.ts",
+    "preparation": "native-advisory-preparation.json",
+    "receipt": "native-advisory-queue-receipt.json",
+    "executor": "Parent/root agent via normal queueRunEdit, serialized after other edits."
+  },
+  "activeSourcesChanged": false,
+  "runtimeChanged": false,
+  "gitWritesPerformed": false,
+  "canonicalReadMethod": "git --no-optional-locks show of the known canonical source",
+  "remainingHoneycombObligations": [
+    "Uniform finite-box mass bound for each fixed h",
+    "Exact finite-state transfer encoding preserving anchored original paths and critical vertex weights",
+    "A checked span/length bound and grouped finite-family firstLengthWeight estimate"
+  ],
+  "scope": "A reusable scalar finite-matrix Green-to-first-moment theorem. No unconditional original theorem, no strip_growth_below_mu proof, no full untrimmed entrywise Green claim.",
+  "directActiveStateWrites": false,
+  "hostAppliedQueueEdit": true
+}

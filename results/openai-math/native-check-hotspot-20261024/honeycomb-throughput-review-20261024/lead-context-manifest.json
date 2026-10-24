@@ -1,0 +1,303 @@
+{
+  "contentDigest": "2e94d8444974b858db8a8562fb844dc2f2cdbcb4441a94689bfdc0bfcccbfd20",
+  "evidence": "recorded-not-replayed",
+  "included": [
+    {
+      "bytes": 3417,
+      "id": "original-problem",
+      "kind": "problem",
+      "required": true
+    },
+    {
+      "bytes": 1379,
+      "id": "original-assumptions",
+      "kind": "problem",
+      "required": true
+    },
+    {
+      "bytes": 5393,
+      "id": "frozen-sources",
+      "kind": "sources",
+      "required": true
+    },
+    {
+      "bytes": 1091,
+      "id": "assignment",
+      "kind": "assignment",
+      "required": true
+    },
+    {
+      "bytes": 3878,
+      "id": "mathematical-gaps",
+      "kind": "finding",
+      "required": true
+    },
+    {
+      "bytes": 22156,
+      "id": "research-challenges",
+      "kind": "assignment",
+      "required": true
+    },
+    {
+      "bytes": 18008,
+      "id": "task-interfaces",
+      "kind": "interfaces",
+      "required": true
+    },
+    {
+      "bytes": 612,
+      "id": "task-objective-reference-encoding",
+      "kind": "sources",
+      "required": true
+    },
+    {
+      "bytes": 687,
+      "id": "original-goal-frontier",
+      "kind": "continuation",
+      "required": true
+    },
+    {
+      "bytes": 143,
+      "id": "groups",
+      "kind": "groups",
+      "required": true
+    },
+    {
+      "bytes": 6827,
+      "id": "evidence-reference-dictionary",
+      "kind": "sources",
+      "required": true
+    },
+    {
+      "bytes": 1057,
+      "id": "proof-source-reference-encoding",
+      "kind": "sources",
+      "required": true
+    },
+    {
+      "bytes": 238,
+      "id": "declaration-order",
+      "kind": "sources",
+      "required": true
+    },
+    {
+      "bytes": 207,
+      "id": "original-targets",
+      "kind": "problem",
+      "required": true
+    },
+    {
+      "bytes": 12033,
+      "id": "continuation-input:47fac66d72b0747006daec32e3379b7b194c68878c1e2123bbe6e4f88248e8d3",
+      "kind": "continuation",
+      "required": true
+    },
+    {
+      "bytes": 1088,
+      "id": "work-contract",
+      "kind": "assignment",
+      "required": true
+    },
+    {
+      "bytes": 2544,
+      "id": "handoff-publication",
+      "kind": "assignment",
+      "required": true
+    },
+    {
+      "bytes": 61,
+      "id": "assignment-policy",
+      "kind": "assignment",
+      "required": true
+    },
+    {
+      "bytes": 6307,
+      "id": "parallel-questions",
+      "kind": "assignment",
+      "required": true
+    },
+    {
+      "bytes": 132,
+      "id": "frontier-focus",
+      "kind": "continuation",
+      "required": true
+    },
+    {
+      "bytes": 5944,
+      "id": "finding:delivery:502c3949-7672-46a0-98ed-89c7d347c44a",
+      "kind": "finding",
+      "required": false
+    },
+    {
+      "bytes": 5053,
+      "id": "finding:delivery:e61a5a53-da17-4e5a-9df5-da5f9f74af60",
+      "kind": "finding",
+      "required": false
+    },
+    {
+      "bytes": 9857,
+      "id": "finding:delivery:457c5ce2-c0ca-4deb-89bb-6f6a734106cc",
+      "kind": "finding",
+      "required": false
+    },
+    {
+      "bytes": 2874,
+      "id": "finding:delivery:7d06f325-c932-473d-b070-cbdfb6d33b40",
+      "kind": "finding",
+      "required": false
+    },
+    {
+      "bytes": 4006,
+      "id": "delivery:d118a015-edd0-47e1-9971-c020f58bdc95",
+      "kind": "delivery",
+      "required": false
+    },
+    {
+      "bytes": 4883,
+      "id": "delivery:502c3949-7672-46a0-98ed-89c7d347c44a",
+      "kind": "delivery",
+      "required": false
+    },
+    {
+      "bytes": 4006,
+      "id": "delivery:208ddbea-a105-4c0a-9130-8b1c57149c0e",
+      "kind": "delivery",
+      "required": false
+    },
+    {
+      "bytes": 4794,
+      "id": "delivery:e61a5a53-da17-4e5a-9df5-da5f9f74af60",
+      "kind": "delivery",
+      "required": false
+    },
+    {
+      "bytes": 4208,
+      "id": "delivery:da7f9896-1cff-4839-bf73-d0cefdf65fc6",
+      "kind": "delivery",
+      "required": false
+    },
+    {
+      "bytes": 949,
+      "id": "delivery:457c5ce2-c0ca-4deb-89bb-6f6a734106cc",
+      "kind": "delivery",
+      "required": false
+    },
+    {
+      "bytes": 1366,
+      "id": "delivery:7d06f325-c932-473d-b070-cbdfb6d33b40",
+      "kind": "delivery",
+      "required": false
+    },
+    {
+      "bytes": 347,
+      "id": "feedback:strip_growth_below_mu",
+      "kind": "feedback",
+      "required": false
+    },
+    {
+      "bytes": 6603,
+      "id": "history:finite_box_zero_mass_reference:3351e6a1b6f4557751abd14ba6a1d6c033434020ce4fe3bebb194fb0347c402a:0",
+      "kind": "history",
+      "required": false
+    },
+    {
+      "bytes": 413,
+      "id": "history:initial_research_2:d3ee9175353ff80857b85331ad4cbd5f804574c36eba9e4564ee849696aac5e4:1",
+      "kind": "history",
+      "required": false
+    },
+    {
+      "bytes": 832,
+      "id": "history:frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51:a566ecb30cfa77e4830a011cabf0228e09e2f0fe59b2557cd987ad6dbbac43ba:2",
+      "kind": "history",
+      "required": false
+    },
+    {
+      "bytes": 716,
+      "id": "history:initial_goal_1:ab8c91c92c1d5d985ed03edfaee27bbef6df38455b84a82711d07d8d13e77890:3",
+      "kind": "history",
+      "required": false
+    },
+    {
+      "bytes": 539,
+      "id": "history:sums_reduction:9dc59a25560dac27093dfb2f02a3aeb453e87ebd4a7945f3082d23436f3a5872:4",
+      "kind": "history",
+      "required": false
+    },
+    {
+      "bytes": 12,
+      "id": "plan-feedback",
+      "kind": "feedback",
+      "required": false
+    },
+    {
+      "bytes": 991,
+      "id": "proof-continuation",
+      "kind": "continuation",
+      "required": false
+    },
+    {
+      "bytes": 21,
+      "id": "statement-reviews",
+      "kind": "statement-review",
+      "required": false
+    }
+  ],
+  "mandatoryBytes": 118145,
+  "maxBytes": 524288,
+  "maxOptionalBytes": 65536,
+  "omitted": [
+    {
+      "id": "objective:sums_reduction",
+      "kind": "interfaces",
+      "reason": "advisory-details-by-reference"
+    },
+    {
+      "id": "delivery:d118a015-edd0-47e1-9971-c020f58bdc95:details",
+      "kind": "delivery",
+      "reason": "advisory-details-by-reference"
+    },
+    {
+      "id": "delivery:502c3949-7672-46a0-98ed-89c7d347c44a:details",
+      "kind": "delivery",
+      "reason": "advisory-details-by-reference"
+    },
+    {
+      "id": "delivery:208ddbea-a105-4c0a-9130-8b1c57149c0e:details",
+      "kind": "delivery",
+      "reason": "advisory-details-by-reference"
+    },
+    {
+      "id": "delivery:e61a5a53-da17-4e5a-9df5-da5f9f74af60:details",
+      "kind": "delivery",
+      "reason": "advisory-details-by-reference"
+    },
+    {
+      "id": "delivery:da7f9896-1cff-4839-bf73-d0cefdf65fc6:details",
+      "kind": "delivery",
+      "reason": "advisory-details-by-reference"
+    },
+    {
+      "id": "history:initial_research_2:d3ee9175353ff80857b85331ad4cbd5f804574c36eba9e4564ee849696aac5e4:5",
+      "kind": "history",
+      "reason": "optional-budget"
+    },
+    {
+      "id": "history:initial_research_1:342803c12b003c7b244fd1bd74061b4e17d5739989ee01a8004030754a481677:6",
+      "kind": "history",
+      "reason": "optional-budget"
+    }
+  ],
+  "optionalBytes": 58454,
+  "requiredTaskIds": [
+    "strip_growth_below_mu",
+    "initial_goal_1",
+    "sums_reduction",
+    "initial_research_1",
+    "initial_research_2",
+    "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+    "finite_box_zero_mass_reference"
+  ],
+  "schema": "theorem-os.task-context.v1",
+  "usedBytes": 177823
+}

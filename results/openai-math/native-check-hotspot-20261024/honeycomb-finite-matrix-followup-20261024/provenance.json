@@ -1,0 +1,17 @@
+{
+  "createdAt": "2026-10-24T09:39:37.950244+00:00",
+  "baseCommit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+  "canonicalSourceSHA256": "1274ab0b8f9c01548559d48d055fc92a20ebf2433f643bd8ad90a313b304b674",
+  "canonicalSourceBytes": 8797,
+  "sourcePolicy": "local_only",
+  "publicNotesRead": [
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-3/RESEARCH.md",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-4/RESEARCH.md"
+  ],
+  "sealedPackagesRoot": "/proc/1250131/fd/5",
+  "sealedEnvironmentIdentity": "2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87",
+  "leanToolchain": "leanprover/lean4:v4.34.1",
+  "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+  "publisherSolutionsRead": false,
+  "hiddenReasoningRead": false
+}

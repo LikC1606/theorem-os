@@ -1,0 +1,23 @@
+[
+  {
+    "event": "task_checked",
+    "at": 1792832553630,
+    "taskId": "character_original_goal",
+    "passed": true,
+    "conditional": false,
+    "commit": "aaaf7a217b8df185b467ec71348048b553dfe339"
+  },
+  {
+    "event": "integration_queue_started",
+    "at": 1792832553640,
+    "waitedMs": 0
+  },
+  {
+    "event": "task_integrated",
+    "at": 1792834910556,
+    "taskId": "character_original_goal",
+    "groupId": "main",
+    "sharing": "problem",
+    "commit": "e49bd527e08c5129e1d372a36741ce9c841a6183"
+  }
+]

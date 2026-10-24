@@ -1,0 +1,16 @@
+{
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "integrationCount": 1,
+  "integrations": [
+    {
+      "taskId": "sums_reduction",
+      "checkedLine": 18098,
+      "integratedLine": 18103,
+      "checkedToIntegratedSeconds": 21.804,
+      "commit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c"
+    }
+  ],
+  "decision": "Keep the active build and long mathematical investigations.",
+  "basis": "The validated cache patch saves future same-run/same-projection rechecks; current-run repeated integrations are too rare to justify migration and restoration costs.",
+  "boundary": "No build switch, runtime code modification, or migration was performed; the cache patch does not address the 120-second lead checkpoint policy."
+}

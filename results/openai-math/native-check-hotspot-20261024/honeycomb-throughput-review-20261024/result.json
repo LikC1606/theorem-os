@@ -1,0 +1,92 @@
+{
+  "schema": "honeycomb-throughput-review.v1",
+  "capturedAt": "2026-10-24T09:51:46.118348+00:00",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "cutoffLine": 20133,
+  "cutoffUtc": "2026-10-24T09:51:44.140000+00:00",
+  "edit": {
+    "affectedTasks": [
+      "finite_box_zero_mass_reference"
+    ],
+    "appliedAt": 1792835274471,
+    "baseVersion": "54e65a72a7df77c506a1f0425f35c71d388766da76e45a2c6cda55271fceca90",
+    "id": "honeycomb-lead-reuse-advisory-20261024",
+    "planVersion": "d26d924cd221c33f79fcc96a3b180937c4505155028a4d9ef15af8bad3749685",
+    "receivedAt": 1792835274456,
+    "recheck": {
+      "status": "not-required",
+      "tasks": []
+    },
+    "status": "applied"
+  },
+  "delivery": {
+    "queued": true,
+    "applied": true,
+    "leadContextAvailable": true,
+    "actualAdoption": "not-established",
+    "performanceEffect": "not-established; 120-second checkpoint policy continued in the bounded observation"
+  },
+  "invariants": {
+    "onlySharedReferenceChanged": true,
+    "existingAssignmentsPreserved": true,
+    "groupDefinitionsPreserved": true,
+    "proofRoutesPreserved": true,
+    "referenceRemainedUnassigned": true
+  },
+  "nativeProtocolEffects": {
+    "supersededEventsAfterEdit": [
+      {
+        "line": 20069,
+        "workerId": null,
+        "event": "lead_decision_superseded"
+      },
+      {
+        "line": 20070,
+        "workerId": "solver",
+        "event": "assignment_superseded"
+      }
+    ],
+    "note": "A new plan version superseded the previous lead decision and restarted its context; no mathematical task assignment was invalidated by this edit."
+  },
+  "postEditObservationSeconds": 229.669,
+  "mainTheoremAcceptance": "not-established",
+  "buildDecision": "retain-current-build",
+  "postEditCheckpointEvidence": [
+    {
+      "line": 20077,
+      "event": "cooperative_checkpoint_scheduled",
+      "at": 1792835274962,
+      "workerId": "solver",
+      "turnId": "01a16d4f-48cd-7a21-8e91-757575d0e11c",
+      "checkpointAfterMs": 120000,
+      "noticeAfterMs": 90000,
+      "noProgressStreak": 0,
+      "protected": false,
+      "backoffCapped": false,
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3"
+    },
+    {
+      "line": 20103,
+      "event": "cooperative_checkpoint_saved",
+      "at": 1792835395009,
+      "workerId": "solver",
+      "noProgressStreak": 1,
+      "progress": false,
+      "protected": false,
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3"
+    },
+    {
+      "line": 20109,
+      "event": "cooperative_checkpoint_scheduled",
+      "at": 1792835395464,
+      "workerId": "solver",
+      "turnId": "01a16d51-1f80-7682-9d07-34daf86ffd46",
+      "checkpointAfterMs": 120000,
+      "noticeAfterMs": 90000,
+      "noProgressStreak": 1,
+      "protected": false,
+      "backoffCapped": false,
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3"
+    }
+  ]
+}

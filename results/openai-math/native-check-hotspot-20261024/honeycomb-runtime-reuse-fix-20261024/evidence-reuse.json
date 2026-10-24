@@ -1,0 +1,49 @@
+{
+  "schema": "theorem-os.honeycomb-reuse-port-evidence.v1",
+  "previousVerificationRoot": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/future-runtime-reuse-fix-20261024",
+  "previous171TestResultIsHistoricalNotRerun": true,
+  "identicalCoreFiles": [
+    {
+      "path": "src/math/mathProofEnvironment.ts",
+      "sha256": "492724f8326636ce1310add28aa7d904dabf038423b05c9d24632a616de724ec",
+      "unchangedFromPriorVerifiedFix": true
+    },
+    {
+      "path": "src/math/mathConstructionSources.ts",
+      "sha256": "33fc968aa33b212e249f5869b807cbd99ff886b27e7addf2cd0ddd24d78bafe2",
+      "unchangedFromPriorVerifiedFix": true
+    },
+    {
+      "path": "src/solver/taskProofCache.ts",
+      "sha256": "eab35674e070a389e6e29bb1dc86c3ee2495b7dd94216b3ad8e79d054fd11350",
+      "unchangedFromPriorVerifiedFix": true
+    },
+    {
+      "path": "package.json",
+      "sha256": "0b0d97e580b2e25c31654dd094fd165adcd5cf0baf3da6c51f4d866469a68043",
+      "unchangedFromPriorVerifiedFix": true
+    },
+    {
+      "path": "bun.lock",
+      "sha256": "a089f8469351814319c17d098467aa6c9ad3d09389b81a957c7d23c8e4f7cb00",
+      "unchangedFromPriorVerifiedFix": true
+    },
+    {
+      "path": "scripts/build.ts",
+      "sha256": "190353719a399cfc1b9da4b9d8f2feb52dbabebe5e1a63d9f2026675f9ed80d1",
+      "unchangedFromPriorVerifiedFix": true
+    },
+    {
+      "path": "src/math/mathBuildManifest.ts",
+      "sha256": "4d1a36430d56f5a79d6edc38e6dd04e7ebd1ccdd7c9dd35c7d5c71cce3b391ff",
+      "unchangedFromPriorVerifiedFix": true
+    }
+  ],
+  "proofReuseEnvironmentFunctionIdenticalToPriorFix": true,
+  "changedDependenciesRetested": [
+    "mathRuntimeEnvironment optional verifier concurrency setting",
+    "mathRuntimeIo lease ownership changes"
+  ],
+  "latestFailureClassifierRetested": true,
+  "historicalLiveProjectDigestObservationNotRepeatedForHoneycomb": true
+}

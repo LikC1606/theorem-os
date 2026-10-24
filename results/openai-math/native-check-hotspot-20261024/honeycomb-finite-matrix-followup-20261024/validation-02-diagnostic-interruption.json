@@ -1,0 +1,10 @@
+{
+  "observedAt": "2026-10-24T09:52:47.602799+00:00",
+  "pid": 2658166,
+  "signal": "SIGINT",
+  "reason": "Live stderr markers pinpoint elaboration at the next hconv Cauchy-product API application; prior steps completed. Interrupt only this diagnostic helper and make f/g/Nat/Real arguments explicit.",
+  "lastProgressLog": "finite-matrix diagnostic: imports ready\nfinite-factorization: start\nfinite-factorization: individual term bound\nfinite-factorization: nonzero witnesses\nfinite-factorization: left scaled sum\nfinite-factorization: right scaled sum\nfinite-factorization: product sum\n",
+  "io": "rchar: 1816826\nwchar: 264\nsyscr: 15837\nsyscw: 8\nread_bytes: 0\nwrite_bytes: 4096\ncancelled_write_bytes: 0\n",
+  "command": "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean --threads=1 --memory=32768 -DautoImplicit=false -DmaxHeartbeats=0 -DmaxRecDepth=1000 FiniteMatrixFirstMoment.lean ",
+  "originalSolvingChainsTouched": false
+}

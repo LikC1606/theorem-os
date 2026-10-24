@@ -1,0 +1,25 @@
+{
+  "buildId": "554d6726-fa7b-4b1c-b84b-f846f20b609d",
+  "manifest": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-runtime-reuse-fix-20261024/build-state/builds/554d6726-fa7b-4b1c-b84b-f846f20b609d/manifest.json",
+  "manifestMode": "400",
+  "sourceRoot": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-runtime-reuse-fix-20261024/runtime",
+  "sourceInputs": 210,
+  "sourceAndBundleValidationPassed": true,
+  "bundles": [
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-runtime-reuse-fix-20261024/runtime/out/main/math-solver.js",
+      "bytes": 1713608,
+      "sha256": "4f3b1b0feb48fe24001719d49eec473d6b77c0f2171b5ffe7d039f5dd049c7f7"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-runtime-reuse-fix-20261024/runtime/out/main/search-lean.js",
+      "bytes": 173934,
+      "sha256": "d20f80273318e2dd48b3b135f8a7113b8523def704673d421429cbefed750020"
+    },
+    {
+      "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-runtime-reuse-fix-20261024/runtime/out/main/check-lean.js",
+      "bytes": 313715,
+      "sha256": "8f89e4d14a4aea047a55956f5070757dfd3bc8792ac8a4952c4bbc48a931d136"
+    }
+  ]
+}

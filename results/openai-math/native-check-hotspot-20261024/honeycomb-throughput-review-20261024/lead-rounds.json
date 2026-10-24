@@ -1,0 +1,494 @@
+{
+  "turns": [
+    {
+      "turn": 88,
+      "startLine": 19345,
+      "startAt": 1792832956897,
+      "startUtc": "2026-10-24T09:09:16.897000+00:00",
+      "nextStartDeltaSeconds": 120.488,
+      "commandExecutionsCompleted": 0,
+      "checkpointSaved": [
+        {
+          "line": 19379,
+          "at": 1792833076943,
+          "progress": false,
+          "noProgressStreak": 1
+        }
+      ],
+      "checkpointCommits": [
+        {
+          "line": 19380,
+          "commit": "3eed8828de0fa4f15f45848ceb934cf37b85ae74"
+        }
+      ],
+      "planUpdates": 0,
+      "publishedDeliveries": 0
+    },
+    {
+      "turn": 89,
+      "startLine": 19384,
+      "startAt": 1792833077385,
+      "startUtc": "2026-10-24T09:11:17.385000+00:00",
+      "nextStartDeltaSeconds": 120.496,
+      "commandExecutionsCompleted": 0,
+      "checkpointSaved": [
+        {
+          "line": 19403,
+          "at": 1792833197440,
+          "progress": false,
+          "noProgressStreak": 2
+        }
+      ],
+      "checkpointCommits": [
+        {
+          "line": 19404,
+          "commit": "3eed8828de0fa4f15f45848ceb934cf37b85ae74"
+        }
+      ],
+      "planUpdates": 0,
+      "publishedDeliveries": 0
+    },
+    {
+      "turn": 90,
+      "startLine": 19408,
+      "startAt": 1792833197881,
+      "startUtc": "2026-10-24T09:13:17.881000+00:00",
+      "nextStartDeltaSeconds": 120.512,
+      "commandExecutionsCompleted": 0,
+      "checkpointSaved": [
+        {
+          "line": 19424,
+          "at": 1792833317932,
+          "progress": false,
+          "noProgressStreak": 3
+        }
+      ],
+      "checkpointCommits": [
+        {
+          "line": 19425,
+          "commit": "3eed8828de0fa4f15f45848ceb934cf37b85ae74"
+        }
+      ],
+      "planUpdates": 0,
+      "publishedDeliveries": 0
+    },
+    {
+      "turn": 91,
+      "startLine": 19429,
+      "startAt": 1792833318393,
+      "startUtc": "2026-10-24T09:15:18.393000+00:00",
+      "nextStartDeltaSeconds": 120.507,
+      "commandExecutionsCompleted": 0,
+      "checkpointSaved": [
+        {
+          "line": 19450,
+          "at": 1792833438443,
+          "progress": false,
+          "noProgressStreak": 4
+        }
+      ],
+      "checkpointCommits": [
+        {
+          "line": 19451,
+          "commit": "3eed8828de0fa4f15f45848ceb934cf37b85ae74"
+        }
+      ],
+      "planUpdates": 0,
+      "publishedDeliveries": 0
+    },
+    {
+      "turn": 92,
+      "startLine": 19455,
+      "startAt": 1792833438900,
+      "startUtc": "2026-10-24T09:17:18.900000+00:00",
+      "nextStartDeltaSeconds": 120.503,
+      "commandExecutionsCompleted": 0,
+      "checkpointSaved": [
+        {
+          "line": 19485,
+          "at": 1792833558947,
+          "progress": false,
+          "noProgressStreak": 5
+        }
+      ],
+      "checkpointCommits": [
+        {
+          "line": 19486,
+          "commit": "3eed8828de0fa4f15f45848ceb934cf37b85ae74"
+        }
+      ],
+      "planUpdates": 0,
+      "publishedDeliveries": 0
+    },
+    {
+      "turn": 93,
+      "startLine": 19490,
+      "startAt": 1792833559403,
+      "startUtc": "2026-10-24T09:19:19.403000+00:00",
+      "nextStartDeltaSeconds": 120.499,
+      "commandExecutionsCompleted": 0,
+      "checkpointSaved": [
+        {
+          "line": 19509,
+          "at": 1792833679450,
+          "progress": false,
+          "noProgressStreak": 6
+        }
+      ],
+      "checkpointCommits": [
+        {
+          "line": 19510,
+          "commit": "3eed8828de0fa4f15f45848ceb934cf37b85ae74"
+        }
+      ],
+      "planUpdates": 0,
+      "publishedDeliveries": 0
+    },
+    {
+      "turn": 94,
+      "startLine": 19514,
+      "startAt": 1792833679902,
+      "startUtc": "2026-10-24T09:21:19.902000+00:00",
+      "nextStartDeltaSeconds": 120.527,
+      "commandExecutionsCompleted": 0,
+      "checkpointSaved": [
+        {
+          "line": 19544,
+          "at": 1792833799953,
+          "progress": false,
+          "noProgressStreak": 7
+        }
+      ],
+      "checkpointCommits": [
+        {
+          "line": 19545,
+          "commit": "3eed8828de0fa4f15f45848ceb934cf37b85ae74"
+        }
+      ],
+      "planUpdates": 0,
+      "publishedDeliveries": 0
+    },
+    {
+      "turn": 95,
+      "startLine": 19549,
+      "startAt": 1792833800429,
+      "startUtc": "2026-10-24T09:23:20.429000+00:00",
+      "nextStartDeltaSeconds": 120.508,
+      "commandExecutionsCompleted": 0,
+      "checkpointSaved": [
+        {
+          "line": 19569,
+          "at": 1792833920480,
+          "progress": false,
+          "noProgressStreak": 8
+        }
+      ],
+      "checkpointCommits": [
+        {
+          "line": 19570,
+          "commit": "3eed8828de0fa4f15f45848ceb934cf37b85ae74"
+        }
+      ],
+      "planUpdates": 0,
+      "publishedDeliveries": 0
+    },
+    {
+      "turn": 96,
+      "startLine": 19575,
+      "startAt": 1792833920937,
+      "startUtc": "2026-10-24T09:25:20.937000+00:00",
+      "nextStartDeltaSeconds": 120.514,
+      "commandExecutionsCompleted": 0,
+      "checkpointSaved": [
+        {
+          "line": 19613,
+          "at": 1792834040988,
+          "progress": false,
+          "noProgressStreak": 9
+        }
+      ],
+      "checkpointCommits": [
+        {
+          "line": 19614,
+          "commit": "3eed8828de0fa4f15f45848ceb934cf37b85ae74"
+        }
+      ],
+      "planUpdates": 0,
+      "publishedDeliveries": 0
+    },
+    {
+      "turn": 97,
+      "startLine": 19618,
+      "startAt": 1792834041451,
+      "startUtc": "2026-10-24T09:27:21.451000+00:00",
+      "nextStartDeltaSeconds": 120.513,
+      "commandExecutionsCompleted": 0,
+      "checkpointSaved": [
+        {
+          "line": 19638,
+          "at": 1792834161504,
+          "progress": false,
+          "noProgressStreak": 10
+        }
+      ],
+      "checkpointCommits": [
+        {
+          "line": 19639,
+          "commit": "3eed8828de0fa4f15f45848ceb934cf37b85ae74"
+        }
+      ],
+      "planUpdates": 0,
+      "publishedDeliveries": 0
+    },
+    {
+      "turn": 98,
+      "startLine": 19643,
+      "startAt": 1792834161964,
+      "startUtc": "2026-10-24T09:29:21.964000+00:00",
+      "nextStartDeltaSeconds": 120.546,
+      "commandExecutionsCompleted": 3,
+      "checkpointSaved": [
+        {
+          "line": 19701,
+          "at": 1792834282020,
+          "progress": false,
+          "noProgressStreak": 11
+        }
+      ],
+      "checkpointCommits": [
+        {
+          "line": 19702,
+          "commit": "3eed8828de0fa4f15f45848ceb934cf37b85ae74"
+        }
+      ],
+      "planUpdates": 0,
+      "publishedDeliveries": 0
+    },
+    {
+      "turn": 99,
+      "startLine": 19706,
+      "startAt": 1792834282510,
+      "startUtc": "2026-10-24T09:31:22.510000+00:00",
+      "nextStartDeltaSeconds": 120.526,
+      "commandExecutionsCompleted": 3,
+      "checkpointSaved": [
+        {
+          "line": 19746,
+          "at": 1792834402558,
+          "progress": false,
+          "noProgressStreak": 12
+        }
+      ],
+      "checkpointCommits": [
+        {
+          "line": 19747,
+          "commit": "3eed8828de0fa4f15f45848ceb934cf37b85ae74"
+        }
+      ],
+      "planUpdates": 0,
+      "publishedDeliveries": 0
+    },
+    {
+      "turn": 100,
+      "startLine": 19751,
+      "startAt": 1792834403036,
+      "startUtc": "2026-10-24T09:33:23.036000+00:00",
+      "nextStartDeltaSeconds": 120.513,
+      "commandExecutionsCompleted": 0,
+      "checkpointSaved": [
+        {
+          "line": 19776,
+          "at": 1792834523085,
+          "progress": false,
+          "noProgressStreak": 13
+        }
+      ],
+      "checkpointCommits": [
+        {
+          "line": 19777,
+          "commit": "3eed8828de0fa4f15f45848ceb934cf37b85ae74"
+        }
+      ],
+      "planUpdates": 0,
+      "publishedDeliveries": 0
+    },
+    {
+      "turn": 101,
+      "startLine": 19781,
+      "startAt": 1792834523549,
+      "startUtc": "2026-10-24T09:35:23.549000+00:00",
+      "nextStartDeltaSeconds": 120.497,
+      "commandExecutionsCompleted": 0,
+      "checkpointSaved": [
+        {
+          "line": 19813,
+          "at": 1792834643594,
+          "progress": false,
+          "noProgressStreak": 14
+        }
+      ],
+      "checkpointCommits": [
+        {
+          "line": 19814,
+          "commit": "3eed8828de0fa4f15f45848ceb934cf37b85ae74"
+        }
+      ],
+      "planUpdates": 0,
+      "publishedDeliveries": 0
+    },
+    {
+      "turn": 102,
+      "startLine": 19818,
+      "startAt": 1792834644046,
+      "startUtc": "2026-10-24T09:37:24.046000+00:00",
+      "nextStartDeltaSeconds": 120.504,
+      "commandExecutionsCompleted": 0,
+      "checkpointSaved": [
+        {
+          "line": 19844,
+          "at": 1792834764097,
+          "progress": false,
+          "noProgressStreak": 15
+        }
+      ],
+      "checkpointCommits": [
+        {
+          "line": 19845,
+          "commit": "3eed8828de0fa4f15f45848ceb934cf37b85ae74"
+        }
+      ],
+      "planUpdates": 0,
+      "publishedDeliveries": 0
+    },
+    {
+      "turn": 103,
+      "startLine": 19849,
+      "startAt": 1792834764550,
+      "startUtc": "2026-10-24T09:39:24.550000+00:00",
+      "nextStartDeltaSeconds": 120.506,
+      "commandExecutionsCompleted": 0,
+      "checkpointSaved": [
+        {
+          "line": 19884,
+          "at": 1792834884597,
+          "progress": false,
+          "noProgressStreak": 16
+        }
+      ],
+      "checkpointCommits": [
+        {
+          "line": 19885,
+          "commit": "3eed8828de0fa4f15f45848ceb934cf37b85ae74"
+        }
+      ],
+      "planUpdates": 0,
+      "publishedDeliveries": 0
+    },
+    {
+      "turn": 104,
+      "startLine": 19889,
+      "startAt": 1792834885056,
+      "startUtc": "2026-10-24T09:41:25.056000+00:00",
+      "nextStartDeltaSeconds": 120.513,
+      "commandExecutionsCompleted": 0,
+      "checkpointSaved": [
+        {
+          "line": 19937,
+          "at": 1792835005101,
+          "progress": false,
+          "noProgressStreak": 17
+        }
+      ],
+      "checkpointCommits": [
+        {
+          "line": 19938,
+          "commit": "3eed8828de0fa4f15f45848ceb934cf37b85ae74"
+        }
+      ],
+      "planUpdates": 0,
+      "publishedDeliveries": 0
+    },
+    {
+      "turn": 105,
+      "startLine": 19942,
+      "startAt": 1792835005569,
+      "startUtc": "2026-10-24T09:43:25.569000+00:00",
+      "nextStartDeltaSeconds": 120.516,
+      "commandExecutionsCompleted": 0,
+      "checkpointSaved": [
+        {
+          "line": 20006,
+          "at": 1792835125615,
+          "progress": false,
+          "noProgressStreak": 18
+        }
+      ],
+      "checkpointCommits": [
+        {
+          "line": 20007,
+          "commit": "3eed8828de0fa4f15f45848ceb934cf37b85ae74"
+        }
+      ],
+      "planUpdates": 0,
+      "publishedDeliveries": 2
+    },
+    {
+      "turn": 106,
+      "startLine": 20011,
+      "startAt": 1792835126085,
+      "startUtc": "2026-10-24T09:45:26.085000+00:00",
+      "nextStartDeltaSeconds": 120.503,
+      "commandExecutionsCompleted": 0,
+      "checkpointSaved": [
+        {
+          "line": 20054,
+          "at": 1792835246129,
+          "progress": false,
+          "noProgressStreak": 19
+        }
+      ],
+      "checkpointCommits": [
+        {
+          "line": 20055,
+          "commit": "3eed8828de0fa4f15f45848ceb934cf37b85ae74"
+        }
+      ],
+      "planUpdates": 0,
+      "publishedDeliveries": 0
+    },
+    {
+      "turn": 107,
+      "startLine": 20059,
+      "startAt": 1792835246588,
+      "startUtc": "2026-10-24T09:47:26.588000+00:00",
+      "nextStartDeltaSeconds": 28.371,
+      "commandExecutionsCompleted": 0,
+      "checkpointSaved": [],
+      "checkpointCommits": [],
+      "planUpdates": 1,
+      "publishedDeliveries": 0
+    }
+  ],
+  "turn88to102": {
+    "medianStartIntervalSeconds": 120.508,
+    "completedCommands": 6,
+    "planUpdates": 0,
+    "publishedDeliveries": 0,
+    "checkpointCommits": [
+      "3eed8828de0fa4f15f45848ceb934cf37b85ae74"
+    ],
+    "lastCheckpoint": [
+      {
+        "line": 19844,
+        "at": 1792834764097,
+        "progress": false,
+        "noProgressStreak": 15
+      }
+    ]
+  },
+  "limits": [
+    "Completed command events do not reveal command bodies or mathematical value.",
+    "Context included/omitted fields are counts, not hashes or evidence-set identities.",
+    "Different content/message digests preclude claiming byte-identical contexts."
+  ]
+}

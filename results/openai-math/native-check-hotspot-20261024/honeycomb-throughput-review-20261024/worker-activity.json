@@ -1,0 +1,74 @@
+{
+  "windowEndAt": 1792835274471,
+  "windowEndUtc": "2026-10-24T09:47:54.471000+00:00",
+  "workers": [
+    {
+      "workerId": "solver",
+      "role": "lead",
+      "currentScheduling": {
+        "action": "lead",
+        "since": 1792835395445,
+        "status": "working"
+      },
+      "completedCommands30mBeforeEdit": 6,
+      "completedCommands15mBeforeEdit": 0,
+      "lastCommandBeforeEdit": {
+        "line": 19722,
+        "at": 1792834332529,
+        "utc": "2026-10-24T09:32:12.529000+00:00"
+      }
+    },
+    {
+      "workerId": "researcher-1",
+      "role": "researcher",
+      "currentScheduling": {
+        "action": "task",
+        "since": 1792829102449,
+        "status": "working",
+        "taskId": "strip_growth_below_mu"
+      },
+      "completedCommands30mBeforeEdit": 22,
+      "completedCommands15mBeforeEdit": 17,
+      "lastCommandBeforeEdit": {
+        "line": 19982,
+        "at": 1792835107135,
+        "utc": "2026-10-24T09:45:07.135000+00:00"
+      }
+    },
+    {
+      "workerId": "researcher-2",
+      "role": "researcher",
+      "currentScheduling": {
+        "action": "task",
+        "since": 1792834911212,
+        "status": "working",
+        "taskId": "initial_research_2"
+      },
+      "completedCommands30mBeforeEdit": 9,
+      "completedCommands15mBeforeEdit": 2,
+      "lastCommandBeforeEdit": {
+        "line": 19868,
+        "at": 1792834832829,
+        "utc": "2026-10-24T09:40:32.829000+00:00"
+      }
+    },
+    {
+      "workerId": "engineer",
+      "role": "engineer",
+      "currentScheduling": {
+        "action": "task",
+        "since": 1792835473265,
+        "status": "working",
+        "taskId": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51"
+      },
+      "completedCommands30mBeforeEdit": 25,
+      "completedCommands15mBeforeEdit": 13,
+      "lastCommandBeforeEdit": {
+        "line": 20031,
+        "at": 1792835155596,
+        "utc": "2026-10-24T09:45:55.596000+00:00"
+      }
+    }
+  ],
+  "limit": "Tool activity alone does not establish useful new mathematics."
+}

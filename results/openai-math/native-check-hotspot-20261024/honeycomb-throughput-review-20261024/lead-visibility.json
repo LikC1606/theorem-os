@@ -1,0 +1,23 @@
+{
+  "planVersion": "d26d924cd221c33f79fcc96a3b180937c4505155028a4d9ef15af8bad3749685",
+  "cooperationFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree/COOPERATION.json",
+  "cooperationMtimeNs": 1792835473269405652,
+  "advisoryMatches": [
+    {
+      "jsonPointer": "/peers/6/objective",
+      "stringSha256": "a02d28e787b74b5f277dc4a4b2ddf2bbcc933fdb1ca3f19af5299a05a2e44340",
+      "bytes": 7214,
+      "advisoryExactTextPresent": true
+    }
+  ],
+  "manifestFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree/CONTEXT-MANIFEST.json",
+  "manifestContentDigest": "2e94d8444974b858db8a8562fb844dc2f2cdbcb4441a94689bfdc0bfcccbfd20",
+  "referenceInRequiredTaskIds": true,
+  "compiledEventLines": [
+    20106
+  ],
+  "dispatchedEventLines": [
+    20107
+  ],
+  "scope": "Advice is available through the lead shared context/reference; this does not prove model attention or adoption."
+}

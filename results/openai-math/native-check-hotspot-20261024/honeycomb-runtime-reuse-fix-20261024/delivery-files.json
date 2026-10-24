@@ -1,0 +1,128 @@
+{
+  "schema": "theorem-os.honeycomb-reuse-fix-delivery.v1",
+  "root": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-runtime-reuse-fix-20261024",
+  "sourceRuntime": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/honeycomb-new-build-continuation-20261024/runtime",
+  "buildId": "554d6726-fa7b-4b1c-b84b-f846f20b609d",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 6072,
+      "sha256": "3eb594bb9bdea581f933d82f906a3aa939b4ca74628e9424273766ca5648ecd0"
+    },
+    {
+      "path": "activation-decision.json",
+      "bytes": 1042,
+      "sha256": "22226b159d444c3707f36ad8cb683b08adaeb06b212180a5fa4e75271deeca5b"
+    },
+    {
+      "path": "build-state/builds/554d6726-fa7b-4b1c-b84b-f846f20b609d/manifest.json",
+      "bytes": 58301,
+      "sha256": "bc6be9552df46a0b09d59ac79725fe9e1fc258a3f27811e0a29ba5c75ff62bf2"
+    },
+    {
+      "path": "build-verification.json",
+      "bytes": 1444,
+      "sha256": "3bab5afda7482745e8fb148312a67d5a3061380a3f0d77d8e30acd477720ca4a"
+    },
+    {
+      "path": "caller-tests.json",
+      "bytes": 27019,
+      "sha256": "ba0482b09e58d05cbf32b3b1b440dc22790eff0b570d495222be6ca063395adb"
+    },
+    {
+      "path": "caller-tests.log",
+      "bytes": 173,
+      "sha256": "a6fed36ce0bd4510e6c390a194113ca8da7f87831c0eaef0f3ae67626858fc42"
+    },
+    {
+      "path": "continuation-launch-proposal.json",
+      "bytes": 5488,
+      "sha256": "1ec65aed35ec72e7fe987389c9eb75d096888ac44cd5be6079ef3844c0245a62"
+    },
+    {
+      "path": "environment-tests.json",
+      "bytes": 5794,
+      "sha256": "79c54b7ac8d68df32cec8925eae443a2572bf31336e9eada6c39445c70ec8251"
+    },
+    {
+      "path": "environment-tests.log",
+      "bytes": 178,
+      "sha256": "0b9a0bbcb6d42c340064bdd450b6fca26a49284a08a53f23a7b253b43632cf3f"
+    },
+    {
+      "path": "evidence-reuse.json",
+      "bytes": 1908,
+      "sha256": "d8edc5c4e6b30ffffe55d36cb4ee01370fcfbc6105e5453ef3e41094f0a83493"
+    },
+    {
+      "path": "headless-build.json",
+      "bytes": 454,
+      "sha256": "676a2f5280ad267e6279fb3e5a341310e76a9e8751d5e88a4abb2aff98e98995"
+    },
+    {
+      "path": "headless-build.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "isolation-verification.json",
+      "bytes": 2975,
+      "sha256": "5711455decd3110a9140d9176e097a9b935bbe6e9e9e0a7f1a2723dd77419727"
+    },
+    {
+      "path": "runtime/out/main/check-lean.js",
+      "bytes": 313715,
+      "sha256": "8f89e4d14a4aea047a55956f5070757dfd3bc8792ac8a4952c4bbc48a931d136"
+    },
+    {
+      "path": "runtime/out/main/math-solver.js",
+      "bytes": 1713608,
+      "sha256": "4f3b1b0feb48fe24001719d49eec473d6b77c0f2171b5ffe7d039f5dd049c7f7"
+    },
+    {
+      "path": "runtime/out/main/search-lean.js",
+      "bytes": 173934,
+      "sha256": "d20f80273318e2dd48b3b135f8a7113b8523def704673d421429cbefed750020"
+    },
+    {
+      "path": "runtime/src/solver/proofReuse.ts",
+      "bytes": 4002,
+      "sha256": "6623834f05e3cea1794eb003b1d5dea5d9226f8b6d8add39e062980ea39d5ca3"
+    },
+    {
+      "path": "runtime/tests/proofReuseEnvironment.test.ts",
+      "bytes": 7624,
+      "sha256": "aad41b3de6a85b30ee2142eff89da2a662cc1f5c650794ce1aaa60ab6c9dd6fa"
+    },
+    {
+      "path": "runtime/tests/taskProofCache.test.ts",
+      "bytes": 33666,
+      "sha256": "d554848086ec8f8f73d7dd3445f2c7012d49e638a6e0e3a852113641aa540a21"
+    },
+    {
+      "path": "runtime.patch",
+      "bytes": 10390,
+      "sha256": "bb1daa5670fcc03c13e960df378741addb031487d0f6bc5ac8a02634e70cda60"
+    },
+    {
+      "path": "source-runtime-before.json",
+      "bytes": 286665,
+      "sha256": "b5bdc7dd9b6ecd7821abe1db76b1bf7f80e9b05ce15d700df89e913ad8e01bbd"
+    },
+    {
+      "path": "test-runs.json",
+      "bytes": 1086,
+      "sha256": "344287d036fc0e000601d6065ec89da48dfaa95383fa00383c321909cda67148"
+    },
+    {
+      "path": "verification-summary.json",
+      "bytes": 806,
+      "sha256": "81461f4c41d513a5014bd1cb321ea794643551b4acb3ce13e025b3ce2353f9f3"
+    }
+  ],
+  "changedSourceAndTestFiles": 3,
+  "bundles": 3,
+  "buildManifest": "build-state/builds/554d6726-fa7b-4b1c-b84b-f846f20b609d/manifest.json",
+  "completeRuntimeAndDependenciesExcludedFromArchive": true,
+  "activationProposalAndDecisionAreParentOwnedUnexecutedRecords": true
+}

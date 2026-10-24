@@ -1,0 +1,66 @@
+{
+  "sameTaskIds": true,
+  "changedTaskDefinitions": [
+    "finite_box_zero_mass_reference"
+  ],
+  "allExistingAssignmentsEqual": {
+    "strip_growth_below_mu": true,
+    "sums_reduction": true,
+    "initial_goal_1": true,
+    "initial_research_1": true,
+    "initial_research_2": true,
+    "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51": true,
+    "finite_box_zero_mass_reference": true
+  },
+  "allOtherTaskDefinitionsEqual": true,
+  "referenceObjectiveAppendOnly": true,
+  "referenceStillUnassigned": true,
+  "referenceAttempts": 0,
+  "groupDefinitionsEqual": true,
+  "groupCounters": {
+    "before": [
+      {
+        "busy": 3,
+        "group": {
+          "id": "main",
+          "objective": "Prove the original problem",
+          "revision": 0,
+          "status": "active"
+        },
+        "turns": 40
+      }
+    ],
+    "after": [
+      {
+        "busy": 3,
+        "group": {
+          "id": "main",
+          "objective": "Prove the original problem",
+          "revision": 0,
+          "status": "active"
+        },
+        "turns": 41
+      }
+    ],
+    "note": "busy and turns are live runtime counters, not plan definitions"
+  },
+  "proofRoutesEqualAsPlan": true,
+  "taskDefinitionDigestsAfter": {
+    "strip_growth_below_mu": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+    "sums_reduction": "b8445d829733c39ec480e763c5086262ec3fcbbf65455d3fe5d810007037b063",
+    "initial_goal_1": "ab8c91c92c1d5d985ed03edfaee27bbef6df38455b84a82711d07d8d13e77890",
+    "initial_research_1": "28a1e0d8f8865e716dc0fa7cd04ccfd86fe94f8891d5d232afdf4c77b4e32472",
+    "initial_research_2": "17932cd7e006be6bc8361d38efc79a74263bd524e1b033f28030996bff09a85c",
+    "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51": "a566ecb30cfa77e4830a011cabf0228e09e2f0fe59b2557cd987ad6dbbac43ba",
+    "finite_box_zero_mass_reference": "73e9c061660b37fa648a18b1405617d22140596d88ced03c337d49f6c3cae9b7"
+  },
+  "assignmentTaskDigestsAfter": {
+    "strip_growth_below_mu": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+    "sums_reduction": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+    "initial_goal_1": "ab8c91c92c1d5d985ed03edfaee27bbef6df38455b84a82711d07d8d13e77890",
+    "initial_research_1": null,
+    "initial_research_2": "b931a3e5dec82b221a3e6e769806c42fa52bf5cbccb83dbb5e506e085124fd40",
+    "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51": "a566ecb30cfa77e4830a011cabf0228e09e2f0fe59b2557cd987ad6dbbac43ba",
+    "finite_box_zero_mass_reference": null
+  }
+}

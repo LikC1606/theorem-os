@@ -1,0 +1,43 @@
+FiniteMatrixFirstMoment.lean:38:4: warning: `push_neg` has been deprecated. Prefer using `push Not` instead.
+If you'd rather continue using `push_neg` in your project, you can implement it as follows:
+```
+open Lean.Parser.Tactic in
+macro "push_neg" cfg:optConfig loc:(location)? : tactic =>
+  `(tactic| push $cfg:optConfig Not $[$loc]?)
+```
+FiniteMatrixFirstMoment.lean:77:30: error(lean.unknownIdentifier): Unknown constant `Finset.card_antidiagonal`
+FiniteMatrixFirstMoment.lean:76:37: error: unsolved goals
+ι : Type u_1
+inst✝ : Fintype ι
+c : ℕ → ℝ
+L R : ℕ → ι → ℝ
+hL : ∀ (n : ℕ) (i : ι), 0 ≤ L n i
+hR : ∀ (n : ℕ) (i : ι), 0 ≤ R n i
+hfactor : ∀ (a b : ℕ), c (a + b) = ∑ i, L a i * R b i
+hc : Summable c
+hterm : ∀ (a b : ℕ) (i : ι), L a i * R b i ≤ c (a + b)
+hprod : ∀ (i : ι), Summable fun p => L p.1 i * R p.2 i
+hconv : ∀ (i : ι), Summable fun n => ∑ p ∈ Finset.antidiagonal n, L p.1 i * R p.2 i
+hsum : Summable fun n => ∑ i, ∑ p ∈ Finset.antidiagonal n, L p.1 i * R p.2 i
+n : ℕ
+⊢ (Finset.antidiagonal n).card • c n = ↑(n + 1) * c n
+FiniteMatrixFirstMoment.lean:97:2: warning: Unused tactic linter: `run_tac
+  do
+    IO.eprintln "matrix instance: start"` does nothing
+
+Note: This linter can be disabled with `set_option linter.unusedTactic false`
+TheoremOS.FiniteMatrixFirstMoment.summable_firstMoment_of_finite_nonneg_factorization.{u_1} {ι : Type u_1} [Fintype ι]
+  {c : ℕ → ℝ} {L R : ℕ → ι → ℝ} (hL : ∀ (n : ℕ) (i : ι), 0 ≤ L n i) (hR : ∀ (n : ℕ) (i : ι), 0 ≤ R n i)
+  (hfactor : ∀ (a b : ℕ), c (a + b) = ∑ i, L a i * R b i) (hc : Summable c) : Summable fun n => ↑n * c n
+'TheoremOS.FiniteMatrixFirstMoment.summable_firstMoment_of_finite_nonneg_factorization' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]
+TheoremOS.FiniteMatrixFirstMoment.summable_matrix_firstMoment.{u_1} {ι : Type u_1} [Fintype ι] [DecidableEq ι]
+  (A : Matrix ι ι ℝ) (u v : ι → ℝ) (hA : ∀ (i j : ι), 0 ≤ A i j) (hu : ∀ (i : ι), 0 ≤ u i) (hv : ∀ (i : ι), 0 ≤ v i)
+  (hc : Summable (TheoremOS.FiniteMatrixFirstMoment.matrixMass A u v)) :
+  Summable fun n => ↑n * TheoremOS.FiniteMatrixFirstMoment.matrixMass A u v n
+'TheoremOS.FiniteMatrixFirstMoment.summable_matrix_firstMoment' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]

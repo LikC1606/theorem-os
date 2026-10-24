@@ -1,7 +1,31 @@
 # 原生检查热点与加速候选（2026-10-24）
 
-最新[三题进度及构建摘要](continuation-progress-20261024T092127Z.json)记录 Character 原目标通过、
-SnakyConditional 集成通过，以及 Honeycomb 辅助归约递送。原生最终通过总数仍为 5。
+最新[三题进度及构建摘要](continuation-progress-20261024T095701Z.json)记录 Character 与
+SnakyConditional 集成通过，以及 Honeycomb 新辅助定理递送。原生最终通过总数仍为 5。
+
+Character 又于 `09:41:50 UTC` 通过原生集成检查，回执
+`lean-7e3b44ab0595415016076711`，整批耗时 2339.924 秒，源码 SHA 与原目标交付一致，
+公理仍仅三项标准公理。当前进入 lead 全目标检查；见
+[集成原始回执](character-native-stage-cost-20261024/native-integration-verification-20261024T094150Z.json)。
+
+[Honeycomb 最新构建的缓存修复](honeycomb-runtime-reuse-fix-20261024/README.md)也已完成：
+保留最新工作流，仅加入两行产品修复；27 项聚焦检查通过、0 失败，三份 bundle 和只读 manifest 校验通过。
+构建 `554d6726-fa7b-4b1c-b84b-f846f20b609d` 已可供新的续跑使用，
+但[当前未切换](honeycomb-runtime-reuse-fix-20261024/activation-decision.json)：
+Honeycomb 最近一次集成只耗时 21.577 秒，尚无证据证明中断长探索并重建会话可以带来净提速。
+原有三个活动验核/求解链继续运行，未用新构建改写其缓存或回执。
+
+[Honeycomb 吞吐审查](honeycomb-throughput-review-20261024/README.md)发现 lead 连续 15 轮
+没有新进展，而三名数学 worker 均有新的工具活动。减少重复检查的共享建议已通过正常队列应用，
+lead 上下文可见；全部数学 assignment 保留。尚未测得性能改善，原生 120 秒检查点规则未改。
+
+[有限矩阵一阶矩引理](honeycomb-finite-matrix-followup-20261024/README.md)已独立检查成功：
+有限非负矩阵的单个标量 Green 级数可和，足以推出其一阶长度矩可和，无需先证明全矩阵可和或谱半径界。
+两个定理的最终检查 `exitCode=0`，4.673 秒，仅三项标准公理；
+完整增量已于 `09:55:44 UTC` 通过正常队列追加到共享参考，四个 worker 的上下文均可见，
+全部现有 assignment、其它任务、groups 和 proofRoutes 保留。
+这关闭了所提有限状态路线中的分析步骤；桥路径的精确状态编码和有限盒总质量界仍待证明，
+不是原题通过或原生 TaskProof。见[回读](honeycomb-finite-matrix-followup-20261024/native-advisory-applied-readback.json)。
 
 Character V2 已完成整份编译（635.03 秒、exitCode=0）、公理审计和独立原比较器检查
 （41.15 秒、exitCode=0）。原比较器真实输出 `Lean default kernel accepts the solution`

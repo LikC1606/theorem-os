@@ -1,0 +1,16 @@
+{
+  "schema": "theorem-os.cache-fix-activation-decision.v1",
+  "observedAt": "2026-10-24T09:40:24.073246+00:00",
+  "newBuildId": "554d6726-fa7b-4b1c-b84b-f846f20b609d",
+  "activated": false,
+  "activeRunKept": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "observedIntegratedHelperDurationMs": 21577,
+  "observedIntegratedHelperTask": "sums_reduction",
+  "reason": "The fix affects future identical task projections only. The active Honeycomb integration cost was 21.577 seconds, while all three non-lead workers are in ongoing mathematical exploration. New-run continuation must rebuild session context and recheck accepted helpers; no measured net speedup justifies interrupting those sessions now. Retain the verified new build for the next suitable new-run boundary.",
+  "currentProofChecksAcceleratedByThisBuild": false,
+  "currentNativeChecksRestarted": false,
+  "newWholeProblemSolveStarted": false,
+  "launchProposal": "continuation-launch-proposal.json",
+  "campaignSelectorModified": false,
+  "fiveSolverBudgetsRemainUnlimited": true
+}

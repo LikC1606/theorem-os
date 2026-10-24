@@ -1,0 +1,14 @@
+{
+  "capturedAt": "2026-10-24T09:51:46.118348+00:00",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "sourceLog": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/solve.log",
+  "sourceBytes": 3727217,
+  "sourceTotalLines": 20133,
+  "sourceSnapshotSha256": "4ea864b7bd8989b7416f17377f3711bc50f35434d051b608ef7017072ef59be1",
+  "firstMatchingLine": 15546,
+  "lastMatchingLine": 20133,
+  "cutoffAt": 1792835504140,
+  "cutoffUtc": "2026-10-24T09:51:44.140000+00:00",
+  "persistedEvents": 4278,
+  "eventPolicy": "Exact top-level runId match; whitelisted public metadata only; no command or reasoning bodies"
+}

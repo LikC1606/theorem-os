@@ -1,0 +1,41 @@
+{
+  "runs": [
+    {
+      "name": "environment-tests",
+      "command": [
+        "/home/lzh/.local/node/bin/node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "tests/proofReuseEnvironment.test.ts",
+        "--reporter=json",
+        "--outputFile=../environment-tests.json"
+      ],
+      "exitCode": 0,
+      "durationSeconds": 0.7146921157836914,
+      "passed": 15,
+      "failed": 0,
+      "deselectedOrSkipped": 0
+    },
+    {
+      "name": "caller-tests",
+      "command": [
+        "/home/lzh/.local/node/bin/node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "tests/taskProofCache.test.ts",
+        "tests/solverEvidenceReuse.test.ts",
+        "-t",
+        "reuses a sealed delivery|interruption keyword|failed batch containing|current sealed identity",
+        "--reporter=json",
+        "--outputFile=../caller-tests.json"
+      ],
+      "exitCode": 0,
+      "durationSeconds": 1.1653313636779785,
+      "passed": 12,
+      "failed": 0,
+      "deselectedOrSkipped": 67
+    }
+  ],
+  "realModels": false,
+  "leanCompilation": false
+}

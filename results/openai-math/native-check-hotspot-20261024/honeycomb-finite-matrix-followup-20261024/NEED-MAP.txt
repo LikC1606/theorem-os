@@ -1,0 +1,7 @@
+Deliverable: A checked reusable finite nonnegative matrix first-moment lemma, or a precise obstruction, with the exact missing connection to HoneycombBridgeFiniteness.
+Target: canonical 96e89fbc7f26408eaaab99235481d1dd64ffcc1c, Lean 4.34.1, Mathlib d13f23b723b8a846827a245b89c10fc7d3f11612.
+Constraints: Write only in this fresh isolated directory; no active state/source/runtime edits, no ProducedSolution or hidden reasoning, no repeat of the four finite-box lemmas. Only a small local Lean check with original read-only sealed cache, 32 GiB, one thread/core, maxHeartbeats=0, no wall/CPU/invocation budget. Any later delivery must preserve all ongoing tasks and assignments.
+Need 1: Is scalar Green summability sufficient for the first moment for a finite nonnegative matrix? A proof changes whether the proposed route is mathematically sound. Evidence: direct Cauchy-product identity plus positive-witness domination, then actual Lean kernel check.
+Need 2: Which pinned Mathlib APIs implement the proof? Evidence: read exact theorem bodies in Matrix/Mul, InfiniteSum/Ring and Normed/Ring/InfiniteSum.
+Need 3: How does this reduce the original residual? Evidence: canonical firstLengthWeight definition and checked bridgeFiniteBridgeSums_of_firstLengthWeight; separate exact transfer encoding, span length bound, and uniform box bound remain explicit obligations.
+Mode: Light local research. Only canonical source, public RESEARCH.md, prior advisory route, and pinned library sources are used. No online queries.
