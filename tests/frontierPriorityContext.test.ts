@@ -208,6 +208,16 @@ it.each([10, 100, 500])('keeps local mandatory route focus bounded across %i alt
   const cooperation: CooperationState = { canonicalCommit: seedCommit, tasks: [...inputs, ...closing, goal], proofRoutes };
   const context = contextFor(cooperation, actionFor(active)), focus = packet(context.message);
   expect(context.manifest!.mandatoryBytes).toBeLessThan(20 * 1024);
+  const inline = JSON.parse(context.message.split('Context compilation manifest:\n')[1]);
+  expect(inline.manifestRef).toBe('CONTEXT-MANIFEST.json');
+  expect(inline.contentDigest).toBe(context.manifest!.contentDigest);
+  expect(inline.omitted).toEqual(context.manifest!.omitted.slice(0, 16));
+  expect(inline).not.toHaveProperty('included');
+  expect(inline).not.toHaveProperty('requiredTaskIds');
+  expect(context.manifest!.requiredTaskIds).toEqual([active.task.id]);
+  expect(context.message).toContain(formal);
+  expect(context.message).toContain(seedCommit);
+  expect(context.message).toContain(taskVersion(active.task));
   expect((context.instructions + context.message).match(/Prioritize a ready typed step/g)).toHaveLength(1);
   expect(focus.routePriority).toMatchObject({ selection: 'bounded-preview', totalCount: count, selectedCount: 4,
     omittedCount: count - 4, index: { path: 'COOPERATION.json', field: 'routePriority.routes', count } });

@@ -23,6 +23,7 @@ import { compileTaskContext, frozenSourceContext, TaskContextError,
   type ContextManifest, type ContextSection, type TaskContextInput } from '../contextCompiler';
 import type { CustomResearchModule, ResearchModuleSlot } from './policy';
 import { defaultResearchRouteConcurrency, researchTaskRole, type ResearchWorker } from './organization';
+import { buildLeadDecisionContext } from './leadDecisionContext';
 
 export type ContextAccess = Readonly<{
   root: string;
@@ -205,6 +206,8 @@ function readFrozenContexts(problem: SolverProblem, access: ContextAccess): Read
 function buildCooperativeContext(problem: SolverProblem, cooperation: CooperationState, context: ContextBundle,
   action: CooperativeAction, compilation: Omit<TaskContextInput, 'instructions'>,
   workers: readonly Pick<ResearchWorker, 'id' | 'role'>[] = []): ContextBundle {
+  if (action.kind === 'lead' && action.coordination && !action.initialPlanNonce && !action.recovery)
+    return buildLeadDecisionContext(problem, cooperation, context, action, compilation, workers);
   const workContract = cooperativeWorkContract(action, cooperation.tasks, cooperation);
   const capacityExploration = action.kind === 'task'
     ? cooperation.tasks.find(node => node.task.id === action.task.id)?.capacityExploration : undefined;
@@ -432,7 +435,7 @@ function buildCooperativeContext(problem: SolverProblem, cooperation: Cooperatio
             'Typed proof work has priority; scheduling checkpoints preserve this draft for continuation. Use /usr/bin/python3 for Python on this host.\n' }] : []),
         ...(action.kind === 'lead' && action.capacityRefill ? [{ id: 'capacity-refill', kind: 'assignment' as const,
           text: 'Host capacity refill request (advisory; frozen at this Lead dispatch):\n' + JSON.stringify(action.capacityRefill) + '\n' +
-            'At dispatch, listed Provers had no assignable typed lemma work; listed generalists had ready work reserved to busy owners. Review ownershipCandidates before creating new obligations: these are possible explicit plan reassignments, not authorization to bypass ownerId. Reassign a useful unstarted, unassigned task to one of its eligibleWorkerIds through the complete plan, preserving its mathematical contract, route gates, group scope and independent reviewer eligibility. Preserve running assignments. Review the original-goal frontier, retained findings and current in-flight questions before further investigation. ' +
+            'At dispatch, listed eligible Provers, Researchers and Engineers had no distinct assignable task. Review ownershipCandidates before creating new obligations: these are possible explicit plan reassignments, not authorization to bypass ownerId. Reassign a useful unstarted, unassigned task to one of its eligibleWorkerIds through the complete plan, preserving its mathematical contract, route gates, group scope and independent reviewer eligibility. Preserve running assignments. Review the original-goal frontier, retained findings and current in-flight questions before further investigation. ' +
             'When a mathematically useful independent proof obligation is available, give it a full closed Lean type, stable theoremName, owned proofPath and exact dependencies in the complete current task graph. ' +
             'Save and publish that graph promptly using this dispatch\'s delivery protocol so peers can start while other work continues. Preserve checked contracts and active independent task definitions. ' +
             'If no independent executable typed obligation is known, retain the graph and state the specific missing mathematical input in RESEARCH.md; waiting is valid. ' +

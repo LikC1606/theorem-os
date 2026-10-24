@@ -88,12 +88,16 @@ export function researchChallengeContext(challenge: ResearchChallenge) {
       retrieval: 'Read the complete finding by id and require UTF-8 SHA-256(finding) = findingDigest. The finding remains advisory.',
     } };
 }
-export function selectResearchChallengeBatch(state: ChallengeState) {
+export function selectResearchChallengeBatch(state: ChallengeState,
+  options: { maxItems?: number; maxBytes?: number } = {}) {
+  const maxItems = options.maxItems ?? 8, maxBytes = options.maxBytes ?? 32 * 1024;
+  for (const [name, value] of [['maxItems', maxItems], ['maxBytes', maxBytes]] as const)
+    if (!Number.isSafeInteger(value) || value <= 0) throw new Error('math_challenge_invalid_batch_limit:' + name);
   const selected: ResearchChallenge[] = [];
   let bytes = 0;
   for (const item of pendingResearchChallenges(state)) {
     const size = Buffer.byteLength(JSON.stringify(researchChallengeContext(item)));
-    if (selected.length && (selected.length >= 8 || bytes + size > 32 * 1024)) break;
+    if (selected.length && (selected.length >= maxItems || bytes + size > maxBytes)) break;
     selected.push(item); bytes += size;
   }
   return selected;

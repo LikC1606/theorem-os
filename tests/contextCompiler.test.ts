@@ -13,6 +13,7 @@ import { canonicalMathJson, mathDigest } from '../src/math/mathRuntimeIo';
 import { buildProofContinuation } from '../src/solver/progress';
 import { pendingResearchHandoffs } from '../src/solver/researchHandoffs';
 import { pendingResearchChallenges } from '../src/solver/researchChallenges';
+import { createCapacityExploration } from '../src/solver/capacityExploration';
 
 const baseCommit = 'a'.repeat(40), proofCommit = 'b'.repeat(40);
 const formal = 'namespace Original\nvariable (n : Nat)\ntheorem target (h : n > 0) : n > 0 := by sorry\nend Original';
@@ -247,6 +248,64 @@ it('dispatches one explicit work contract while retaining exact proof inputs and
     .toMatchObject({ stage: 'integration', owner: 'host', output: 'fixed-original-proof-check', sourcePolicy: 'read-only',
       acceptance: 'independent-exact-source-check', input: { seedCommit: proofCommit } });
 });
+
+it.each([false, true])('keeps executable parallel-work guidance mandatory for initial and resumed Lead decisions (coordination=%s)', coordination => {
+  const state = { environmentDigest: 'environment', cooperation: { tasks: [node(lemma('bridge'))] } } as SolverRunState;
+  const context = buildResearchContext(problem, state, { root: '/runtime', worktree: '/proof', environment: {},
+    taskText: 'Prove the original target', retrievalRoot: '/library',
+    assignment: { kind: 'lead', seedCommit: baseCommit, planVersion: 'v1', planNonce: 'dispatch', ...(coordination ? { coordination: true } : {}) },
+    frozenContexts: input([]).frozenContexts, maxOptionalContextBytes: 0 });
+  expect(context.workContract).toMatchObject(coordination
+    ? { stage: 'coordination-decision', output: 'version-bound-inbox-or-capacity-decision',
+      acceptance: 'host-coordination-validation', sourcePolicy: 'read-only' }
+    : { stage: 'route-planning', output: 'validated-task-graph-and-handoff-decisions', acceptance: 'host-plan-validation' });
+  const guidance = context.workContract && 'deliveryGuidance' in context.workContract ? context.workContract.deliveryGuidance : '';
+  expect(guidance).toContain('distinct scope relative to in-flight work');
+  expect(guidance).toContain('concrete first construction, proof step or discriminating check');
+  expect(guidance).toContain('intended consumer with its application');
+  expect(guidance).toContain('give the Engineer executable proof work');
+  expect(guidance).toContain('no task is required merely to occupy an idle worker');
+  expect(guidance).toContain('infinite family of objects');
+  if (coordination) {
+    expect(guidance).toContain('current planVersion and dispatchNonce');
+    expect(guidance).toContain('Prefer the offered short decision event');
+    expect(guidance).toContain('does not require rewriting the complete task graph');
+    expect(context.workContract).not.toHaveProperty('output', 'validated-task-graph-and-handoff-decisions');
+  }
+  expect(context.message).toContain(JSON.stringify(context.workContract));
+  expect(context.continuationMessage).toContain(JSON.stringify(context.workContract));
+  expect(context.manifest).toMatchObject({ maxOptionalBytes: 0, optionalBytes: 0 });
+  expect(context.manifest!.included).toContainEqual(expect.objectContaining({ id: 'work-contract', required: true }));
+});
+
+it.each(['research', 'sketch', 'capacity-exploration'] as const)(
+  'keeps prompt typed-proposal handoff available to %s without granting proof acceptance or source access', kind => {
+    const target = node(lemma('target'));
+    const question: CooperativeTask = { id: 'question', kind: kind === 'sketch' ? 'sketch' : 'research',
+      objective: 'Find the smallest useful typed step and its application', dependsOn: [], revision: 0 };
+    const assigned = kind === 'capacity-exploration' ? createCapacityExploration(target, { id: 'researcher' }, [target],
+      { environmentDigest: 'environment', problemReceiptDigest: problem.receiptDigest }, 'interface') : node(question);
+    const tasks = kind === 'capacity-exploration' ? [target, assigned] : [assigned];
+    const state = { environmentDigest: 'environment', cooperation: { tasks } } as SolverRunState;
+    const context = buildResearchContext(problem, state, { root: '/runtime', worktree: '/proof', environment: {},
+      taskText: 'Prove the original target', retrievalRoot: '/library', assignment: assign(assigned.task),
+      frozenContexts: input([]).frozenContexts, maxOptionalContextBytes: 0 });
+    expect(context.workContract).toMatchObject({ stage: kind === 'capacity-exploration' ? kind : 'investigation',
+      acceptance: 'advisory-only', sourcePolicy: 'read-only' });
+    const guidance = context.workContract && 'deliveryGuidance' in context.workContract ? context.workContract.deliveryGuidance : '';
+    expect(guidance).toContain('publish it promptly in lemmaRequests');
+    expect(guidance).toContain('full closed Lean type and actual typed input dependencies');
+    expect(guidance).toContain('distinct scope, first construction or Lean step, and intended consumer');
+    expect(guidance).toContain('do not keep researching an already implementable step');
+    expect(guidance).toContain('finite reduction or a uniform argument');
+    expect(guidance).toContain('separate proof assignment and independent checking');
+    expect(context.message).toContain(JSON.stringify(context.workContract));
+    expect(context.continuationMessage).toContain(JSON.stringify(context.workContract));
+    expect(context.manifest).toMatchObject({ maxOptionalBytes: 0, optionalBytes: 0 });
+    expect(context.manifest!.included).toContainEqual(expect.objectContaining({ id: 'work-contract', required: true }));
+    expect(assigned).toMatchObject({ status: 'pending', attempts: 0 });
+    expect(assigned).not.toHaveProperty('proof');
+  });
 
 it('keeps a goal worker on its assigned proof when unrelated seed goals are unfinished', () => {
   const task: CooperativeTask = { id: 'goal', kind: 'goal', objective: 'Prove the original target',

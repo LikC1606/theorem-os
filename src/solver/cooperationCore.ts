@@ -267,6 +267,12 @@ export abstract class CooperationCore {
     this.archive.planVersion ??= this.planVersion();
     if (edit?.status === 'applied') edit.planVersion = this.archive.planVersion;
     this.syncEditChecks(nodes, versions);
+    // A new inbox can supersede an assessment-only Lead without publishing a plan.
+    // Reclaim its running turn as well as rejecting stale decisions.
+    const lead = this.active.get(this.lead.id);
+    if (lead?.action.kind === 'lead' && !lead.cancelled && !this.current(lead.action)) {
+      lead.cancelled = true; void lead.interrupt().catch(() => {});
+    }
     const agents = this.input.workers.map(peer => {
       const active = this.active.get(peer.id), work = active?.action;
       const preparation = [...this.preparingTaskTypes].find(([, item]) => item.workerId === peer.id)?.[0];
@@ -488,6 +494,9 @@ export abstract class CooperationCore {
   current(action: CooperativeAction) {
     if (action.kind === 'assemble') return !this.failure && !this.stopping && this.liveWorkers.has(this.lead.id) && this.canAssemble(action.seedCommit);
     if (action.kind === 'lead' && (action.planNonce || action.initialPlanNonce) && !this.leadEvidence.has(action)) return false;
+    if (action.kind === 'lead' && action.coordination && !action.handoffIds?.length && !action.challengeIds?.length &&
+        !this.publishedPlans.has(action) && (pendingResearchHandoffs(this.archive).length || pendingResearchChallenges(this.archive).length))
+      return false; // An assessment-only dispatch must yield to newly arrived inbox work before consuming another turn.
     if (action.kind === 'lead' && action.handoffActivations) {
       const pending = new Map(pendingResearchHandoffs(this.archive).flatMap(item =>
         item.sources.map(source => [source.handoffId, item.activationDigest] as const)));
@@ -628,8 +637,9 @@ export abstract class CooperationCore {
     await this.wait();
     return RETRY_DISPATCH;
   }
-  protected handoffDispatch(batch = selectResearchHandoffBatch(this.archive)) {
-    const challenges = selectResearchChallengeBatch(this.archive);
+  protected handoffDispatch(batch = selectResearchHandoffBatch(this.archive),
+    limits?: { maxItems?: number; maxBytes?: number }) {
+    const challenges = selectResearchChallengeBatch(this.archive, limits);
     return { handoffIds: batch.map(item => item.id),
       handoffActivations: Object.fromEntries(batch.map(item => [item.id, item.activationDigest])),
       challengeIds: challenges.map(item => item.id),

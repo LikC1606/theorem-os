@@ -159,26 +159,28 @@ export class CooperativeResearch extends CooperationInputs {
     if (!originalGoalTaskFocus(this.archive.tasks, this.archive.groups, this.input.state.environmentDigest).frontier.size ||
         !available()) return;
     const ownershipCandidates = this.capacityOwnershipCandidates({ groups, occupied, peers, ready });
-    const idle = peers.filter(worker => worker.role === 'prover' && !occupied.has(worker.id));
+    const idle = peers.filter(worker => ['prover', 'researcher', 'engineer'].includes(worker.role) && !occupied.has(worker.id))
+      // Estimate the narrow Prover responsibility before generalists can claim the same helper.
+      .sort((a, b) => Number(b.role === 'prover') - Number(a.role === 'prover'));
     if (!idle.length && !ownershipCandidates.length) return;
     // Capacity estimation is host-owned and must not consume a configurable scheduler's state.
-    const workerIds: string[] = [];
+    const workerIds = new Set<string>();
     for (const worker of idle) {
       const candidates = ready.filter(node => routeAllowsTask(node.task, this.archive.tasks, groups));
       const node = assignSharedResearchTask(candidates, worker, peers, groups, this.archive.tasks);
-      if (!node) { workerIds.push(worker.id); continue; }
-      // Simulate distinct claims so one shared task cannot occupy several idle Provers.
+      if (!node) { workerIds.add(worker.id); continue; }
+      // Simulate distinct claims so one shared task cannot occupy several idle workers.
       ready.splice(ready.indexOf(node), 1);
       const route = groups?.find(route => route.group.id === taskGroup(node.task));
       if (route) route.busy = (route.busy ?? 0) + 1;
     }
-    for (const id of new Set(ownershipCandidates.flatMap(candidate => candidate.eligibleWorkerIds))) workerIds.push(id);
-    if (!workerIds.length || !available()) return;
+    for (const candidate of ownershipCandidates) for (const id of candidate.eligibleWorkerIds) workerIds.add(id);
+    if (!workerIds.size || !available()) return;
     const input = this.capacityRefillInput(ownershipCandidates);
     const previous = this.archive.lastCapacityRefill;
     // An unfinished request can be retried after admission failure or process restore.
     if (leadAssessmentCovered(previous, input.inputDigest)) return;
-    return { ...input, workerIds, ...(ownershipCandidates.length ? { ownershipCandidates } : {}) };
+    return { ...input, workerIds: [...workerIds], ...(ownershipCandidates.length ? { ownershipCandidates } : {}) };
   }
   private leadExecutableWork = new WeakMap<CooperativeAction, Set<string>>();
   private executableWork() {
@@ -512,8 +514,13 @@ export class CooperativeResearch extends CooperationInputs {
       }
       this.syncPlanNotes();
       const planVersion = this.archive.planVersion ??= this.planVersion();
+      const coordination = this.archive.tasks.length > 0 &&
+        Boolean(pendingHandoffs.length || pendingResearchChallenges(this.archive).length || refill || stagnation);
+      const limits = coordination ? { maxItems: 2, maxBytes: 12 * 1024 } : undefined;
       const action: CooperativeAction = { kind: 'lead', seedCommit: this.seed(worker, head), planVersion,
-        planningInputDigest: inputDigest, responsibilityDigest: this.leadResponsibilityDigest(), ...this.handoffDispatch(pendingHandoffs),
+        planningInputDigest: inputDigest, responsibilityDigest: this.leadResponsibilityDigest(),
+        ...this.handoffDispatch(coordination ? selectResearchHandoffBatch(this.archive, limits) : pendingHandoffs, limits),
+        ...(coordination ? { coordination: true as const } : {}),
         ...(!this.archive.tasks.length && !this.archive.initialPlanPublication ? { initialPlanNonce: crypto.randomUUID() } : {}),
         ...(this.archive.tasks.length ? { planNonce: crypto.randomUUID() } : {}) };
       this.leadEvidence.set(action, this.planningEvidenceDigest());

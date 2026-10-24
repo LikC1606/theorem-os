@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { mathDigest } from '../src/math/mathRuntimeIo';
 import { pendingResearchChallenges, preserveResearchChallengeBacklog, researchChallenges, resolveResearchChallenges,
-  retainedResearchChallenges, researchChallengeContext } from '../src/solver/researchChallenges';
+  retainedResearchChallenges, researchChallengeContext, selectResearchChallengeBatch } from '../src/solver/researchChallenges';
 import { markTaskAcceptance, taskVersion, type CooperativeTask, type TaskRecord } from '../src/solver/tasks';
 import type { DeliveryRecord } from '../src/solver/deliveries';
 import type { TaskProof } from '../src/solver/cooperativeProof';
@@ -44,6 +44,16 @@ it('keeps oversized complete findings retrievable without overflowing mandatory 
   expect(context).toMatchObject({ findingBytes: Buffer.byteLength(finding),
     findingSource: { id: challenge.id, findingDigest: mathDigest(finding) } });
   expect(Buffer.byteLength(JSON.stringify(context))).toBeLessThan(4096);
+});
+
+it('bounds a coordination batch without truncating its first finding or consuming later challenges', () => {
+  const state = fixture();
+  state.deliveries = Array.from({ length: 5 }, (_, index) => ({ ...state.deliveries[0]!, id: 'finding-' + index }));
+  const pending = pendingResearchChallenges(state);
+  expect(selectResearchChallengeBatch(state, { maxItems: 2, maxBytes: 12 * 1024 })).toEqual(pending.slice(0, 2));
+  expect(selectResearchChallengeBatch(state, { maxItems: 2, maxBytes: 1 })).toEqual([pending[0]]);
+  expect(selectResearchChallengeBatch(state)).toEqual(pending);
+  expect(pendingResearchChallenges(state)).toEqual(pending);
 });
 
 it('persists a specific response through serialization without granting proof acceptance', () => {

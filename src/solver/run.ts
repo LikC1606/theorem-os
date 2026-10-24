@@ -59,7 +59,7 @@ export async function runSolver(args: string[], root: string, customModules?: So
     console.log('--knowledge-base FILE attaches an immutable saved-theorem catalog. Resume requires the same catalog digest. Historical knowledge never grants proof acceptance.');
     console.log('--continuation-manifest FILE attaches explicit historical sources and notes without changing the verbatim task file. Resume retains the frozen attachment identity; historical material remains advisory.');
     console.log('--continuation-source-run OLD_RESULT_OR_STATE initializes a new cooperative run from the old run, freshly checks its saved helpers, and starts solving in the same process. Use --resume to retry an interrupted zero-turn initialization; combine with --startup-only to retain a prepared checkpoint.');
-    console.log('Cooperative Lead and ordinary research turns first yield a resumable scheduling checkpoint after 120 seconds, with a reminder after 90 seconds. Repeated checkpoints without saved content extend the interval and protect long reasoning until content is saved; this protection survives resume. Proof turns and total solving budgets are unchanged.');
+    console.log('Lead planning and ordinary research first yield a resumable scheduling checkpoint after 120 seconds, with a reminder after 90 seconds. Unchanged coordination decisions use 120/240/480-second slices; ordinary research backs off to at most 960 seconds. Saved threads and drafts survive resume. Proof turns and total solving budgets are unchanged.');
     return 0;
   }
   const configured = configuredSolverModules(values.method!, values.scheduler!);

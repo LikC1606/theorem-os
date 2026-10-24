@@ -164,6 +164,7 @@ function requiredTasks(input: TaskContextInput, omitted: ContextManifest['omitte
   const required = new Set<string>(), visiting = new Set<string>();
   const action = input.action;
   const scopedLead = action?.kind === 'lead' && tasks.some(node => node.task.kind === 'goal');
+  const coordination = action?.kind === 'lead' && action.coordination;
   if (action?.kind === 'task') {
     if (action.assignment.taskId !== action.task.id || action.assignment.taskDigest !== taskVersion(action.task))
       return stale(`assignment:${action.task.id}`);
@@ -197,15 +198,49 @@ function requiredTasks(input: TaskContextInput, omitted: ContextManifest['omitte
       if (taskVersion(dependency.task) !== condition.taskDigest) return stale(`condition:${condition.taskId}`);
       visit(condition.taskId);
     }
-    if (!scopedLead || !closedLeadHelper(node)) {
+    if ((!scopedLead || !closedLeadHelper(node)) && !(coordination && node.task.kind === 'goal')) {
       for (const dependency of node.task.dependsOn) visit(dependency, node);
-      if (action?.kind === 'lead') for (const route of [
+      if (action?.kind === 'lead' && !coordination) for (const route of [
         ...(input.cooperation?.proofRoutes ?? []), ...(node.alternativeRoutes ?? []),
       ]) if (route.targetTaskId === id) [...route.prerequisiteTaskIds, route.closingTaskId].forEach(dependency => visit(dependency));
     }
     visiting.delete(id);
   };
   if (action?.kind === 'task') visit(action.task.id);
+  else if (coordination) {
+    // Coordination consumes a fixed inbox, not every open mathematical investigation.
+    // The complete archive remains available for an explicit full-plan replacement.
+    tasks.filter(node => node.task.kind === 'goal').forEach(node => visit(node.task.id));
+    const visitDeliveryInputs = (deliveryId: string) => {
+      const delivery = input.cooperation?.deliveries?.find(item => item.id === deliveryId);
+      if (!delivery) return missing(`delivery:${deliveryId}`);
+      for (const dependency of delivery.dependencies) {
+        const node = byId.get(dependency.taskId);
+        if (!node) return missing(`dependency:${dependency.taskId}`);
+        if (taskVersion(node.task) !== dependency.taskDigest) return stale(`dependency:${dependency.taskId}`);
+        visit(dependency.taskId);
+      }
+    };
+    action.stagnationRecovery?.taskIds.forEach(id => visit(id));
+    action.capacityRefill?.ownershipCandidates?.forEach(item => visit(item.taskId));
+    const handoffIds = new Set(action.handoffIds ?? []);
+    for (const item of pendingResearchHandoffs(input.cooperation!)) if (handoffIds.has(item.id) ||
+        item.sources.some(source => handoffIds.has(source.handoffId))) {
+      visit(item.sourceTaskId);
+      item.sources.forEach(source => visitDeliveryInputs(source.deliveryId));
+      item.proposal.dependsOn.filter(id => byId.has(id)).forEach(id => visit(id));
+    }
+    const challengeIds = new Set(action.challengeIds ?? []);
+    for (const item of pendingResearchChallenges(input.cooperation!))
+      if (challengeIds.has(item.id)) { visit(item.sourceTaskId); visitDeliveryInputs(item.deliveryId); }
+    if (!handoffIds.size && !challengeIds.size) {
+      const continuation = buildProofContinuation(tasks, { groups: input.cooperation?.groups,
+        environmentDigest: input.environmentDigest, proofRoutes: input.cooperation?.proofRoutes });
+      continuation.frontier.forEach(item => visit(item.taskId));
+    }
+    for (const node of tasks) if (!required.has(node.task.id))
+      omitted.push({ id: `interface:${node.task.id}`, kind: 'interfaces', reason: 'outside-task-scope' });
+  }
   else if (scopedLead) {
     for (const node of tasks) if (node.task.kind === 'goal' || !closedLeadHelper(node)) visit(node.task.id);
   }
@@ -228,7 +263,7 @@ function requiredTasks(input: TaskContextInput, omitted: ContextManifest['omitte
     }
   }
   return { tasks: tasks.filter(node => required.has(node.task.id)),
-    deferred: scopedLead ? tasks.filter(node => !required.has(node.task.id) && closedLeadHelper(node)) : [], byId, required, route };
+    deferred: scopedLead && !coordination ? tasks.filter(node => !required.has(node.task.id) && closedLeadHelper(node)) : [], byId, required, route };
 }
 
 function checkedHelperReference(input: TaskContextInput, node: TaskRecord) {
@@ -439,7 +474,7 @@ export function compileTaskContext(input: TaskContextInput): { message: string; 
         helpers: deferred.map(node => checkedHelperReference(input, node)),
       }));
     if (action?.kind === 'lead') {
-      const continuation = buildProofContinuation(tasks, { groups: input.cooperation.groups,
+      const continuation = buildProofContinuation(action.coordination ? input.cooperation.tasks : tasks, { groups: input.cooperation.groups,
         environmentDigest: input.environmentDigest, proofRoutes: input.cooperation.proofRoutes });
       const goals = continuation.goals.filter(goal => goal.status !== 'integrated' || goal.recordedProof !== 'checked');
       const frontierIds = new Set(goals.flatMap(goal => goal.frontier));
@@ -608,11 +643,14 @@ function compileSections(instructions: string, mandatory: readonly ContextSectio
       omissionSet: { selection: 'bounded-preview', count: manifest.omitted.length,
         digest: mathDigest(canonicalMathJson(manifest.omitted)),
         reference: { path: 'CONTEXT-MANIFEST.json', field: 'omitted' },
-        retrieval: 'Read the complete omitted array from this manifest file; require its length and canonical JSON SHA-256 to match. ' +
-          'The inline entries are only a preview, not the complete omission inventory.' } };
+        retrieval: 'Read the full manifest file; require matching contentDigest, omitted count and canonical JSON SHA-256. ' +
+          'Inline omissions are a preview.' } };
     let message: string;
     do {
-      const inlineManifest = omissionPreview ? { ...manifest, ...omissionPreview } : manifest;
+      // Large audit inventories already live in the durable worker manifest. Keep the
+      // byte accounting and omission preview inline without repeating section metadata.
+      const { included: _included, requiredTaskIds: _requiredTaskIds, ...summary } = manifest;
+      const inlineManifest = omissionPreview ? { ...summary, manifestRef: 'CONTEXT-MANIFEST.json', ...omissionPreview } : manifest;
       message = content + '\n\nContext compilation manifest:\n' + json(inlineManifest);
       const usedBytes = Buffer.byteLength(instructions) + Buffer.byteLength(message);
       if (usedBytes === manifest.usedBytes) break;

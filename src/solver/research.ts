@@ -37,6 +37,7 @@ const advisoryCheckpointMs = 120_000;
 const advisoryInterruptGraceMs = 10_000;
 const advisoryProgressPollMs = 5_000;
 const advisoryMaxBackoff = 3;
+const leadCoordinationMaxBackoff = 2;
 // Compaction is maintenance, not a mathematical attempt. A stalled operation restarts from saved work.
 const compactionRecoveryMs = 10 * 60_000;
 
@@ -51,7 +52,8 @@ export function advisoryCheckpointScope(assignment: CooperativeAction | undefine
   if (assignment?.kind === 'lead') {
     // New inbox content warrants reconsideration, but does not change the mathematical responsibility.
     return mathDigest(canonicalMathJson({ kind: 'lead',
-      phase: assignment.initialPlanNonce ? 'initial' : assignment.recovery ? 'recovery' : 'revision',
+      phase: assignment.initialPlanNonce ? 'initial' : assignment.recovery ? 'recovery' :
+        assignment.coordination ? 'coordination' : 'revision',
       responsibility: assignment.responsibilityDigest,
       recovery: assignment.recovery && { id: assignment.recovery.id,
         taskIds: [...new Set(assignment.recovery.taskIds)].sort(),
@@ -297,10 +299,11 @@ export async function runResearchWorkers(input: {
         let activeSliceMs = 0, noticeSent = false;
         let scheduleSlice: (() => void) | undefined;
         turnAssignment = assignment;
-        const current = () => !finished && !signal.aborted && session === activeSession &&
-          Boolean(assignment && cooperation?.current(assignment));
+        const live = () => !finished && !signal.aborted && session === activeSession;
+        const current = () => live() && Boolean(assignment && cooperation?.current(assignment));
         const closeStalledTurn = () => {
-          if (!current() || checkpointClosing) return;
+          // A superseded assignment still owns a live writer until it actually stops.
+          if (!live() || checkpointClosing) return;
           checkpointClosing = true;
           emit(readyRequested ? 'proof_ready_session_closed' : 'cooperative_checkpoint_session_closed',
             { reason: 'interrupt-not-settled' });
@@ -349,7 +352,12 @@ export async function runResearchWorkers(input: {
           }
         };
         if (assignment) cooperation!.activate(worker, assignment,
-          async () => { await activeSession.interrupt(); },
+          async () => {
+            if (!live()) return;
+            interruptTimer ??= setTimeout(closeStalledTurn, advisoryInterruptGraceMs);
+            interruptTimer.unref();
+            try { await activeSession.interrupt(); } catch { closeStalledTurn(); }
+          },
           async message => { if (!isStatementAction(assignment)) await activeSession.notify?.(message); },
           async () => {
             if (!current() || readyRequested) return;
@@ -386,13 +394,15 @@ export async function runResearchWorkers(input: {
           research.advisoryCheckpoint = { scope: advisoryScope, contentDigest, noProgressStreak };
           advisoryTurn = { scope: advisoryScope, contentDigest };
           save();
-          // Lead owns coordination and must reconsider its inbox on a fixed cadence.
-          // Other advisory work gets bounded backoff, never an unlimited exclusive turn.
-          const checkpointAfterMs = advisoryCheckpointMs * (assignment?.kind === 'lead' ? 1 :
-            2 ** Math.min(noProgressStreak, advisoryMaxBackoff));
+          // Compact coordination decisions may need a longer uninterrupted slice after
+          // unchanged checkpoints. Initial planning and ordinary Lead work retain their cadence.
+          const coordination = assignment?.kind === 'lead' && assignment.coordination;
+          const maxBackoff = coordination ? leadCoordinationMaxBackoff : advisoryMaxBackoff;
+          const backoff = assignment?.kind !== 'lead' || coordination;
+          const checkpointAfterMs = advisoryCheckpointMs * (backoff ? 2 ** Math.min(noProgressStreak, maxBackoff) : 1);
           const noticeAfterMs = checkpointAfterMs * advisoryCheckpointNoticeMs / advisoryCheckpointMs;
           emit('cooperative_checkpoint_scheduled', { turnId, checkpointAfterMs, noticeAfterMs, noProgressStreak,
-            protected: false, backoffCapped: assignment?.kind !== 'lead' && noProgressStreak >= advisoryMaxBackoff });
+            protected: false, backoffCapped: Boolean(backoff) && noProgressStreak >= maxBackoff });
           if (noProgressStreak) emit('cooperative_checkpoint_deferred', { turnId, checkpointAfterMs,
             noProgressStreak, protected: false, reason: 'no-durable-progress' });
           const sendNotice = () => {
@@ -401,8 +411,11 @@ export async function runResearchWorkers(input: {
             emit('cooperative_checkpoint_requested', { turnId, checkpointAfterMs, noProgressStreak, protected: false });
             void Promise.resolve().then(() => {
               if (!current()) return;
-              return activeSession.notify?.('Save the current mathematical argument, exact unresolved step and useful references in RESEARCH.md now. ' +
-                'For planning, save or publish the smallest valid complete task graph using this assignment\'s delivery protocol. ' +
+              return activeSession.notify?.((coordination
+                ? 'Publish the shown coordination decisions using this assignment\'s short handoff or assessment protocol. ' +
+                  'Preserve the exact unresolved input and saved draft; deciding the batch does not require proving the missing theorem. '
+                : 'Save the current mathematical argument, exact unresolved step and useful references in RESEARCH.md now. ' +
+                  'For planning, save or publish the smallest valid complete task graph using this assignment\'s delivery protocol. ') +
                 'This advisory turn will yield a scheduling checkpoint shortly, including when no new notes are saved. ' +
                 'The same thread and saved work will remain available for continuation; this does not end the solving budget.');
             }).catch(() => { if (current()) emit('cooperative_checkpoint_notice_failed'); });
@@ -721,6 +734,11 @@ export async function runResearchWorkers(input: {
               assignment.kind === 'task' ? researchTaskRole(assignment.task) : worker.role;
             const groupId = assignment.kind === 'task' ? taskGroup(assignment.task) : undefined;
             const roleChanged = record.sessionRole && record.sessionRole !== role;
+            const leadMode = assignment.kind === 'lead' ? assignment.coordination ? 'coordination' : 'planning' : undefined;
+            // A legacy saved Lead thread was mathematical planning. Entering coordination
+            // starts a new responsibility once; refreshed inboxes and nonces reuse that thread.
+            const leadModeChanged = leadMode !== undefined && record.sessionLeadMode !== leadMode &&
+              (record.sessionLeadMode !== undefined || leadMode === 'coordination');
             const groupChanged = record.sessionGroupId && record.sessionGroupId !== groupId;
             const versionChanged = assignment.kind === 'task' && record.sessionTaskId === assignment.task.id &&
               record.sessionTaskVersion && record.sessionTaskVersion !== assignment.assignment.taskDigest;
@@ -729,7 +747,8 @@ export async function runResearchWorkers(input: {
             const reviewAssignmentChanged = feasibility && record.sessionAssignmentId !== sessionAssignmentId;
             const reviewTargetChanged = (feasibility || record.sessionRole === 'reviewer') &&
               (record.sessionTaskId !== (assignment.kind === 'task' ? assignment.task.id : undefined) || versionChanged);
-            if (isStatementAction(assignment) || record.sessionStatementReview || roleChanged || reviewTargetChanged || reviewAssignmentChanged)
+            if (isStatementAction(assignment) || record.sessionStatementReview || roleChanged || leadModeChanged ||
+                reviewTargetChanged || reviewAssignmentChanged)
               await rotateSession('responsibility');
             else if (groupChanged) await rotateSession('route');
             else if (versionChanged) await rotateSession('context');
@@ -737,6 +756,7 @@ export async function runResearchWorkers(input: {
               research.check = undefined; feedbackCheck = undefined;
             }
             record.sessionRole = role;
+            record.sessionLeadMode = leadMode;
             record.sessionGroupId = groupId;
             record.sessionTaskId = assignment.kind === 'task' ? assignment.task.id : undefined;
             record.sessionTaskVersion = assignment.kind === 'task' ? assignment.assignment.taskDigest : undefined;

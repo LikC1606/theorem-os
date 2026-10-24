@@ -8,6 +8,7 @@ import * as contextCompiler from '../src/solver/contextCompiler';
 import { directSolverModules } from '../src/solver/modules';
 import type { ResearchWorker } from '../src/solver/modules/organization';
 import { committedSource, commitSolverSources, type SolverProblem } from '../src/solver/problem';
+import { pendingResearchHandoffs } from '../src/solver/researchHandoffs';
 import { leadPlanDeliveryFile, parseCooperationPlan, taskVersion, type CooperativeAction, type CooperativeTask, type TaskRecord } from '../src/solver/tasks';
 import { cooperativeResearch } from './helpers/cooperation';
 import { leadWorker, localExample, peerWorker, solverState } from './helpers/solver';
@@ -89,15 +90,18 @@ describe('automatic proof and ownership capacity refill', () => {
     cooperative.activate(workers[3], { kind: 'task', task: busy.task, assignment: busy.assignment! },
       busyInterrupt, async () => {});
   };
-  const ownerCongestion = () => {
-    // No Prover is idle: the existing request must also recover reserved generalist work.
-    workers[1] = { ...workers[1], role: 'reviewer' };
-    workers[2] = { ...workers[2], role: 'researcher' };
+  const requireCheckedFrontier = () => {
     state.cooperation!.proofRoutes = state.cooperation!.tasks.filter(item => item.task.kind === 'goal').map(goal => {
       const route = { id: `checked_route_${goal.task.id}`, targetTaskId: goal.task.id,
         closingTaskId: 'busy_helper', prerequisiteTaskIds: [] };
       goal.alternativeRoutes = [route]; return route;
     });
+  };
+  const ownerCongestion = () => {
+    // No Prover is idle: the existing request must also recover reserved generalist work.
+    workers[1] = { ...workers[1], role: 'reviewer' };
+    workers[2] = { ...workers[2], role: 'researcher' };
+    requireCheckedFrontier();
     const task: CooperativeTask = { id: 'queued_research', kind: 'research', ownerId: workers[2].id,
       objective: 'Investigate an independent construction while the original-goal input is proved.',
       dependsOn: [], revision: 0 };
@@ -153,28 +157,93 @@ describe('automatic proof and ownership capacity refill', () => {
     expect(events.filter(item => item.event === 'capacity_refill_requested')).toHaveLength(1);
   });
 
+  it.each(['researcher', 'engineer'] as const)('reports an idle %s even when no Prover is idle', async role => {
+    workers[1] = { ...workers[1], role };
+    cooperative.reserveTurn(workers[3]);
+    const assignment = node('busy_helper').assignment;
+    const request = requestFor(await nextLead());
+    expect(request.workerIds).toEqual([workers[1].id]);
+    expect(request.ownershipCandidates).toBeUndefined();
+    expect(node('busy_helper').assignment).toBe(assignment);
+    expect(busyInterrupt).not.toHaveBeenCalled();
+  });
+
+  it('reports every idle generalist without ready work in the same request', async () => {
+    workers[1] = { ...workers[1], role: 'researcher' };
+    requireCheckedFrontier();
+    expect(requestFor(await nextLead()).workerIds).toEqual([workers[1].id, workers[3].id]);
+  });
+
+  it('uses ready work for both generalists before asking Lead for more tasks', async () => {
+    workers[1] = { ...workers[1], role: 'researcher' };
+    requireCheckedFrontier();
+    const research: CooperativeTask = { id: 'ready_research', kind: 'research', ownerId: workers[1].id,
+      objective: 'Find a concrete construction for the exact remaining frontier.', dependsOn: [], revision: 0 };
+    const helper = newLemma(); helper.task.ownerId = workers[3].id;
+    state.cooperation!.tasks.push({ task: research, status: 'pending', attempts: 0 }, helper); refresh();
+    await waitsForInput();
+    expect(state.cooperation!.lastCapacityRefill).toBeUndefined();
+    expect(await track(cooperative.next(workers[1], budget))).toMatchObject({ kind: 'task',
+      task: { id: research.id }, assignment: { workerId: workers[1].id } });
+    expect(helper.status).toBe('pending'); expect(helper.assignment).toBeUndefined();
+  });
+
+  it('counts one shared research task once across idle generalists', async () => {
+    workers[1] = { ...workers[1], role: 'researcher' };
+    requireCheckedFrontier();
+    const shared: TaskRecord = { task: { id: 'shared_research', kind: 'research',
+      objective: 'Investigate a single independent classification question.', dependsOn: [], revision: 0 },
+    status: 'pending', attempts: 0 };
+    state.cooperation!.tasks.push(shared); refresh();
+    expect(requestFor(await nextLead()).workerIds).toEqual([workers[3].id]);
+    expect(shared.status).toBe('pending'); expect(shared.assignment).toBeUndefined();
+    expect(state.cooperation!.groups![0].busy).toBe(1);
+  });
+
+  it('leaves shared typed work to the idle Prover before estimating generalist capacity', async () => {
+    moveBusyTaskToEngineer();
+    workers[1] = { ...workers[1], role: 'researcher' };
+    const shared = newLemma(); delete shared.task.ownerId;
+    state.cooperation!.tasks.push(shared); refresh();
+    expect(requestFor(await nextLead()).workerIds).toEqual([workers[1].id]);
+    expect(shared.status).toBe('pending'); expect(shared.assignment).toBeUndefined();
+    expect(busyInterrupt).not.toHaveBeenCalled();
+  });
+
+  it('keeps a generalist no-work assessment settled until new external evidence arrives', async () => {
+    workers[1] = { ...workers[1], role: 'researcher' };
+    requireCheckedFrontier();
+    const action = planning(await nextLead()), first = requestFor(action).inputDigest;
+    await assess(action);
+    const waiting = await waitsForInput();
+    expect(events.filter(item => item.event === 'capacity_refill_requested')).toHaveLength(1);
+    publish('research', 'A concrete new classification lemma can split the original frontier.');
+    const reconsidered = planning(await waiting.waiting);
+    expect(requestFor(reconsidered)).toMatchObject({ workerIds: [workers[1].id, workers[3].id] });
+    expect(requestFor(reconsidered).inputDigest).not.toBe(first);
+    expect(events.filter(item => item.event === 'capacity_refill_requested')).toHaveLength(2);
+  });
+
   it('delivers the actual capacity request through default M4 as mandatory assignment context with no optional allowance', async () => {
     const action = planning(await nextLead()), request = requestFor(action);
     expect(request).toEqual(archivedRequest());
     const compile = vi.spyOn(contextCompiler, 'compileTaskContext');
     const context = contextFor(action);
-    const section = compile.mock.calls.at(-1)![0].mandatory?.find(item => item.id === 'capacity-refill');
+    const section = compile.mock.calls.at(-1)![0].mandatory?.find(item => item.id === 'coordination-decision');
     expect(section).toMatchObject({ kind: 'assignment' });
     expect(section!.text).toContain(JSON.stringify(request));
-    expect(section!.text).toContain('listed Provers had no assignable typed lemma work');
-    expect(section!.text).toContain('Save and publish that graph promptly');
-    expect(section!.text).toContain('waiting is valid');
-    expect(section!.text).toContain('Do not manufacture helpers or duplicate in-flight questions');
+    expect(section!.text).toContain('"role":"prover"');
+    expect(section!.text).toContain('"role":"engineer"');
     expect(context.message).toContain(section!.text);
     expect(context.manifest).toMatchObject({ maxOptionalBytes: 0, optionalBytes: 0 });
     expect(context.manifest!.included).toContainEqual(expect.objectContaining({
-      id: 'capacity-refill', kind: 'assignment', required: true,
+      id: 'coordination-decision', kind: 'assignment', required: true,
     }));
-    expect(context.manifest!.omitted).not.toContainEqual(expect.objectContaining({ id: 'capacity-refill' }));
+    expect(context.manifest!.omitted).not.toContainEqual(expect.objectContaining({ id: 'coordination-decision' }));
     expect(context.workContract).toHaveProperty('capacityRefill', request);
-    expect(context.instructions).toContain('let Provers wait');
-    expect(context.instructions).toContain('Do not manufacture helpers.');
-    expect(context.instructions).toContain('Once a complete plan has useful executable work');
+    expect(context.instructions).toContain('only if no independent executable work');
+    expect(context.instructions).toContain('manufacture work to fill slots');
+    expect(context.instructions).toContain('ownership repair');
     expect(context.instructions).toContain('dispatchNonce');
   });
 
@@ -212,8 +281,7 @@ describe('automatic proof and ownership capacity refill', () => {
     expect(requestFor(action)).toEqual(snapshot);
     const context = contextFor(action);
     expect(context.workContract).toHaveProperty('capacityRefill', snapshot);
-    expect(context.manifest!.included).toContainEqual(expect.objectContaining({ id: 'capacity-refill', required: true }));
-    expect(context.message).toContain('frozen at this Lead dispatch');
+    expect(context.manifest!.included).toContainEqual(expect.objectContaining({ id: 'coordination-decision', required: true }));
     expect(context.message).toContain(JSON.stringify(snapshot));
     const assigned = await cooperative.next(workers[1], budget);
     expect(assigned).toMatchObject({ kind: 'task', task: { id: 'new_helper' } });
@@ -289,6 +357,8 @@ describe('automatic proof and ownership capacity refill', () => {
     { control: 'finite turns', maxTurns: 12, remainingMs: Infinity },
     { control: 'finite time', maxTurns: Infinity, remainingMs: 10_000 },
   ])('preserves the original Lead cadence with $control while still honoring an explicit replan', async limited => {
+    workers[1] = { ...workers[1], role: 'researcher' };
+    requireCheckedFrontier();
     const refill = vi.spyOn(cooperative as any, 'capacityRefill');
     const assignment = node('busy_helper').assignment;
     const waiting = await waitsForInput(limited);
@@ -536,9 +606,9 @@ describe('automatic proof and ownership capacity refill', () => {
       state.cooperation!.groups, state.cooperation!.tasks)).toBeUndefined();
     const context = contextFor(action);
     expect(context.workContract).toHaveProperty('capacityRefill', request);
-    expect(context.message).toContain('possible explicit plan reassignments');
-    expect(context.continuationMessage).toContain('ready tasks reserved by ownerId');
-    expect(context.continuationMessage).toContain('preserving its mathematical contract');
+    expect(context.message).toContain(JSON.stringify(request.ownershipCandidates));
+    expect(context.continuationMessage).toContain('ownership repair');
+    expect(context.continuationMessage).toContain('preserve checked contracts, running assignments');
 
     const proposal = plan();
     proposal.tasks = proposal.tasks.map(task => task.id === queued.task.id ? { ...task, ownerId: workers[3].id } : task);
@@ -575,7 +645,11 @@ describe('automatic proof and ownership capacity refill', () => {
         recovery: { phase: 'cooling-down' } }] as SolverRunState['workers'];
       else if (control === 'reserved-turn') cooperative.reserveTurn(workers[3]);
       else state.cooperation!.tasks.push({ task: { ...queued.task, id: 'same_question_running' }, status: 'running', attempts: 1 });
-      expect((cooperative as any).capacityRefill()).toBeUndefined();
+      const refill = (cooperative as any).capacityRefill();
+      expect(refill?.ownershipCandidates).toBeUndefined();
+      if (['route-parking', 'saved-assignment', 'reviewer-independence', 'duplicate-question'].includes(control))
+        expect(refill).toMatchObject({ workerIds: [workers[3].id] });
+      else expect(refill).toBeUndefined();
       expect(queued.task.ownerId).toBe(workers[2].id);
     });
 
@@ -926,17 +1000,28 @@ describe('automatic proof and ownership capacity refill', () => {
 
   it('does not let a short assessment swallow a newly arrived handoff', async () => {
     const action = planning(await nextLead()), response = noIndependentWork(action);
+    expect(cooperative.started(workers[0], action)).toBe(true);
+    const interrupt = vi.fn(async () => {});
+    cooperative.activate(workers[0], action, interrupt, async () => {});
     const finding = 'A fully typed smaller bridge requires an explicit Lead decision.';
     (cooperative as any).record(workers[2], node('busy_helper').task, 'research', 'advisory', finding,
       { finding, findingDigest: mathDigest(finding), lemmaRequests: [newLemma().task] });
-    expect(cooperative.started(workers[0], action)).toBe(true);
-    cooperative.activate(workers[0], action, async () => {}, async () => {});
+    expect(cooperative.current(action)).toBe(false);
+    expect(interrupt).toHaveBeenCalledOnce();
     fs.appendFileSync(path.join(workers[0].worktree, leadPlanDeliveryFile(action)!), JSON.stringify(response) + '\n');
     await cooperative.pulse();
     expect(state.cooperation!.lastCapacityRefill!.status).toBe('requested');
     expect(state.cooperation!.researchDecisions).toBeUndefined();
+    expect(events.some(item => item.event === 'capacity_refill_assessed')).toBe(false);
     expect(events).toContainEqual(expect.objectContaining({ event: 'plan_publication_rejected',
-      details: expect.objectContaining({ reason: 'math_plan_assessment_inbox_unresolved' }) }));
+      details: expect.objectContaining({ reason: 'math_plan_publication_superseded' }) }));
+    const pending = pendingResearchHandoffs(state.cooperation!);
+    expect(pending).toMatchObject([{ proposal: { id: 'new_helper' }, status: 'pending' }]);
+    cooperative.deactivate(workers[0]);
+    const next = planning(await nextLead());
+    expect(next.planNonce).not.toBe(action.planNonce);
+    expect(next.handoffIds).toEqual(pending.map(item => item.id));
+    expect(state.cooperation!.tasks.every(item => !item.proof && !item.integratedCheck)).toBe(true);
   });
 
   it('restores a requested but unassessed refill and retries it until a plan is accepted', async () => {
