@@ -8,7 +8,7 @@ import { buildProofContinuation, recordedTaskProofStatus } from './progress';
 import { researchHandoffs } from './researchHandoffs';
 import { buildTokenBudget } from './usageBudget';
 import { captureObligationSnapshot } from './obligationProgress';
-import type { ContributionObservation, ResearchContributionFlow } from './contributionFlow';
+import { contributionExecutionAttempts, type ContributionObservation, type ResearchContributionFlow } from './contributionFlow';
 import type { StoredRunInspectionArtifacts } from './storedRunInspection';
 
 /** Binds a report to the stored observation; this does not replay or accept its proof evidence. */
@@ -224,9 +224,7 @@ function renderContributionFlow(flow: ResearchContributionFlow): string {
     item.uses?.proofConsumers.join(', ') || 'none recorded', item.uses?.statementConsumers.join(', ') || 'none recorded',
     item.uses?.conditionalConsumers.join(', ') || 'none recorded', item.referenceCoverage,
   ])) : 'No typed contribution obligations recorded.');
-  const attempts = [...new Map([
-    ...flow.obligations.flatMap(item => item.attempts), ...flow.sources.flatMap(item => item.attempts),
-  ].map(attempt => [JSON.stringify([attempt.assignmentKey, attempt.taskId, attempt.taskDigest]), attempt])).values()];
+  const attempts = contributionExecutionAttempts(flow);
   if (attempts.length) {
     text += section('Contribution execution observations', table([
       'Task / version', 'Assignment', 'Worker', 'Identity', 'Assignment occurrences', 'Assigned',

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { SolverRunState } from '../src/solver/archive';
 import type { TaskProof } from '../src/solver/cooperativeProof';
 import type { DeliveryRecord } from '../src/solver/deliveries';
-import { buildResearchContributionFlow, type ContributionJournal } from '../src/solver/contributionFlow';
+import { buildResearchContributionFlow, contributionExecutionAttempts, type ContributionJournal } from '../src/solver/contributionFlow';
 import { researchHandoffs } from '../src/solver/researchHandoffs';
 import { assignmentDeliveryFile, freshlyAccepted, hasTaskAcceptance, taskVersion, type CooperativeTask } from '../src/solver/tasks';
 import { buildRunInspection, renderRunInspection } from '../src/solver/inspection';
@@ -78,6 +78,20 @@ function failedReadyFixture() {
   ready.status = 'failed'; delete ready.evidence; delete ready.receiptIds;
   f.log[6].passed = false; f.log.pop();
   return { ...f, check };
+}
+
+function sourceAttemptsFixture() {
+  const f = fixture(), deliveries = f.state.cooperation!.deliveries!;
+  const first = { taskId: research.id, taskDigest: taskVersion(research), workerId: 'researcher-1',
+    seedCommit: seed, assignmentId: 'research-first' };
+  const second = { ...first, workerId: 'researcher-2', assignmentId: 'research-second' };
+  const firstKey = assignmentDeliveryFile(first), secondKey = assignmentDeliveryFile(second);
+  for (const delivery of deliveries) { delivery.producer = first.workerId; delivery.assignmentKey = firstKey; }
+  deliveries.push({ ...deliveries[0], id: 'finding-3', producer: second.workerId, assignmentKey: secondKey });
+  // Execution order differs from source order; the report keeps obligations first, then source associations.
+  for (const [index, assignment] of [second, first].entries()) f.log.push({ event: 'task_assigned',
+    ...assignment, assignmentKey: assignmentDeliveryFile(assignment), at: 250 + index });
+  return { ...f, firstKey, secondKey };
 }
 
 describe('research contribution flow', () => {
@@ -188,6 +202,36 @@ describe('research contribution flow', () => {
 
     delete deliveries[0].assignmentKey;
     expect(buildResearchContributionFlow(f.state, f.journal()).sources[0].attempts).toEqual([]);
+  });
+
+  it('reads each reachable execution once in obligation and source order without changing v1 JSON', () => {
+    const f = sourceAttemptsFixture(), flow = buildResearchContributionFlow(f.state, f.journal());
+    const before = JSON.stringify(flow), attempts = contributionExecutionAttempts(flow);
+    expect(flow.sources.map(source => source.attempts.map(attempt => attempt.assignmentKey)))
+      .toEqual([[f.firstKey], [f.firstKey], [f.secondKey]]);
+    expect(attempts.map(attempt => [attempt.taskId, attempt.taskDigest, attempt.assignmentKey])).toEqual([
+      [helper.id, taskVersion(helper), f.assignmentKey],
+      [research.id, taskVersion(research), f.firstKey],
+      [research.id, taskVersion(research), f.secondKey],
+    ]);
+    expect(contributionExecutionAttempts(flow)).toEqual(attempts);
+    expect(flow.schema).toBe('theoremos.contribution-flow.v1');
+    expect(flow).not.toHaveProperty('attempts');
+    expect(JSON.stringify(flow)).toBe(before);
+  });
+
+  it('renders repeated source execution once and keeps journal-only research attempts out of execution rows', () => {
+    const f = sourceAttemptsFixture(), orphanKey = 'research-without-delivery';
+    f.log.push({ event: 'task_assigned', taskId: research.id, taskDigest: taskVersion(research),
+      workerId: 'researcher-3', seedCommit: seed, assignmentKey: orphanKey, at: 300 });
+    const flow = buildResearchContributionFlow(f.state, f.journal());
+    expect(contributionExecutionAttempts(flow).map(attempt => attempt.assignmentKey))
+      .toEqual([f.assignmentKey, f.firstKey, f.secondKey]);
+    const text = renderRunInspection({ ...buildRunInspection(f.state), contributionFlow: flow });
+    const execution = text.split('## Contribution execution observations\n')[1].split('\n## ')[0];
+    const rows = execution.split('\n').filter(line => line.startsWith('|')).slice(2);
+    expect(rows.map(row => row.split('|')[2].trim())).toEqual([f.assignmentKey, f.firstKey, f.secondKey]);
+    expect(execution).not.toContain(orphanKey);
   });
 
   it('shows bare legacy history checks without manufacturing a task version', () => {
@@ -314,6 +358,29 @@ describe('research contribution flow', () => {
       expect(report.checks[0].readyIds).toEqual([]);
       expect(report.obligations.find(item => item.taskId === helper.id)!.attempts[0].ready[0].readyToCheckMs.status).toBe('unknown');
     });
+
+  it.each(['assignmentKey', 'workerId', 'seedCommit', 'sourceDigest', 'receiptIds', 'passed', 'passed:true'] as const)(
+    'keeps a later failed-check observation with invalid %s unresolved after an exact association', field => {
+      const f = failedReadyFixture(), later: Record<string, unknown> = { ...f.log[6], at: 195 };
+      if (field === 'passed:true') later.passed = true;
+      else delete later[field];
+      f.log.push(later);
+      const report = buildResearchContributionFlow(f.state, f.journal());
+      expect(report.checks[0]).toMatchObject({ checkEvents: [{ kind: 'journal', line: 7 }],
+        checkObserved: { status: 'recorded', value: 190 } });
+      expect(report.checks[0].checkEvents).toHaveLength(1);
+      expect(report.unresolved).toContainEqual({ event: 'proof_ready_checked', evidence: { kind: 'journal', line: 8 },
+        reason: 'exact-record-match-unavailable' });
+    });
+
+  it('keeps conflicting complete failed-check observations ambiguous', () => {
+    const f = failedReadyFixture(); f.log.push({ ...f.log[6], at: 195 });
+    const report = buildResearchContributionFlow(f.state, f.journal());
+    expect(report.checks[0]).toMatchObject({ checkEvents: [{ kind: 'journal', line: 7 }, { kind: 'journal', line: 8 }],
+      checkObserved: { status: 'ambiguous', reason: 'conflicting-records' } });
+    expect(report.checks[0].checkEvents).toHaveLength(2);
+    expect(report.unresolved).toEqual([]);
+  });
 
   it('keeps worker-snapshot checking separate from checking and integrating a merged commit', () => {
     const f = fixture(), integrated = proof(helper, merged, 'merged-receipt');

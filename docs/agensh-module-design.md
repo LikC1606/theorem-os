@@ -193,6 +193,10 @@ inspectStoredRun(run, { journal: { batchFile } }); // 或 { logFile }，也可�
 
 纯 implementation 位于 [contributionFlow.ts](../src/solver/contributionFlow.ts)：输入已读取的 state 与可选 journal，输出带证据路径或行号的 `recorded | unknown | ambiguous`。它复用 researchHandoffs、buildProofContinuation 和 recordedTaskProofStatus，隐藏多源 alias、逐次决定、任务版本与 assignment/start、ready/frozen/check/integration 的关联。删除这个 module 后，这些知识会重新散落到 CLI、展示和测试，符合 deletion test。
 
+关联规则集中在 module 内部的 ready/check、check/integration、source/attempt、adoption/execution 四个具名函数。已保存 Lean receipts 的路径保留旧日志字段兼容；失败 ready 缺少 receipts 时，绑定与每条检查观察共用严格失败事件规则，不能先精确绑定、再放宽后续事件。缺字段或冲突成功状态的事件留在 unresolved，完整事件的时间冲突仍为 ambiguous。
+
+展示通过 `contributionExecutionAttempts(flow)` 读取已关联的执行尝试，按 obligations 后 sources 的顺序去重；渲染器不再自行组合 assignment/task/version 身份。v1 JSON 保留原有嵌套字段，日志中尚未关联来源的 advisory 执行不额外纳入展示。
+
 `sources` 保留被替换 delivery 的提案；`decisionOccurrences` 保留全部可读日志决定，`storedDecisions` 单列无时间戳的最新存档；`obligations` 按 taskId/taskDigest 分组。相同检查存于多个字段时只展示一个 check 与多个存放路径。M3/M5、模型会话和证明验收路径不读取该派生报告。
 
 耗时只用精确身份和可核对的两端。决定到启动还要求原 activation/context、同一已接纳 planVersion、唯一决定及有序 assignment/start。重复派发不选择一个“最像”的时间；缺失、时钟反转和事件顺序矛盾不补零。worker 快照与合并检查按各自 commit/source/Lean receipts 记录；集成事件的 producer seed 与 canonical check seed 含义不同。ready ID 与 Lean receipt ID 保持分离。缓存检查早于 ready 时，回执时间仍可见，等待耗时未知。

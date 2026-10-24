@@ -19,11 +19,13 @@ export type ContributionJournal = Readonly<{
 
 type Event = ContributionJournal['events'][number];
 type TaskRef = { taskId: string; taskDigest: string };
+type AttemptRef = TaskRef & { assignmentKey: string };
 type TimedEvidence = { value: unknown; evidence: ContributionEvidence };
 // Older history entries were typed and stored as bare ProofCheck records.
 type StoredProof = ProofCheck & Partial<Omit<TaskProof, keyof ProofCheck>>;
-type Attempt = TaskRef & {
-  assignmentKey: string; workerId?: string; seedCommit?: string;
+type StoredCheck = { taskId: string; proof: StoredProof; receiptIds: readonly string[]; scopeMatches: boolean };
+type Attempt = AttemptRef & {
+  workerId?: string; seedCommit?: string;
   identity: ContributionObservation<{ workerId: string; seedCommit: string }>;
   identityRecords: { workerId?: string; seedCommit?: string; evidence: ContributionEvidence }[];
   assigned: ContributionObservation<number>;
@@ -38,6 +40,7 @@ type Attempt = TaskRef & {
     checkIds: string[]; readyToCheckMs: ContributionObservation<number>; frozenToCheckMs: ContributionObservation<number>;
   }[];
 };
+type ReadyObservation = { ready: ProofReadyRecord; entry: Attempt['ready'][number]; attempt: Attempt };
 
 const stateRef = (path: string) => ({ kind: 'state' as const, path });
 const eventRef = (event: Event) => ({ kind: 'journal' as const, line: event.line });
@@ -48,6 +51,7 @@ const recorded = <T>(value: T, evidence: ContributionEvidence[]): ContributionOb
 const ambiguous = <T>(reason: string, evidence: ContributionEvidence[]): ContributionObservation<T> =>
   ({ status: 'ambiguous', reason, evidence });
 const taskKey = (task: TaskRef) => canonicalMathJson([task.taskId, task.taskDigest]);
+const attemptKey = (attempt: AttemptRef) => canonicalMathJson([attempt.assignmentKey, attempt.taskId, attempt.taskDigest]);
 const ref = (task: CooperativeTask): TaskRef => ({ taskId: task.id, taskDigest: taskVersion(task) });
 const strings = (value: unknown): string[] => Array.isArray(value) && value.every(text) ? value : [];
 const equalIds = (left: readonly string[], right: readonly string[]) => left.length > 0 &&
@@ -69,6 +73,86 @@ function elapsed(start: ContributionObservation<number>, end: ContributionObserv
   if (start.status !== 'recorded' || end.status !== 'recorded') return unknown('endpoint-unavailable');
   if (end.value < start.value) return unknown('time-order-conflict');
   return recorded(end.value - start.value, [...start.evidence, ...end.evidence]);
+}
+
+function associateReadyCheck(check: StoredCheck, readyRecords: readonly ReadyObservation[], events: readonly Event[]): {
+  boundReady: ReadyObservation[]; checkedEvents: Event[];
+} {
+  const { taskId, proof, receiptIds, scopeMatches } = check;
+  if (!scopeMatches || !text(proof.taskDigest)) return { boundReady: [], checkedEvents: [] };
+  const checkEvents = events.filter(event => event.data.event === 'proof_ready_checked');
+  // Failed readiness records do not retain receipt IDs. Only an exact host event can supply that link.
+  const exactFailedReadyEvent = (data: Event['data'], ready: ProofReadyRecord) =>
+    !proof.passed && ready.status === 'failed' && ready.receiptIds === undefined && data.passed === false &&
+    (data.readyId ?? data.receiptId) === ready.id && data.assignmentKey === ready.assignmentKey &&
+    data.workerId === ready.workerId && data.seedCommit === ready.seedCommit && data.taskId === taskId &&
+    data.taskDigest === proof.taskDigest && data.commit === proof.commit && data.sourceDigest === proof.sourceDigest &&
+    equalIds(strings(data.receiptIds), receiptIds);
+  const boundReady = readyRecords.filter(({ ready, attempt }) =>
+    attempt.identity.status !== 'ambiguous' && ready.taskId === taskId && ready.taskDigest === proof.taskDigest &&
+    ready.snapshotCommit === proof.commit && ready.sourceDigest === proof.sourceDigest &&
+    ready.seedCommit === proof.seedCommit && (equalIds(ready.receiptIds ?? [], receiptIds) ||
+      checkEvents.some(({ data }) => exactFailedReadyEvent(data, ready))));
+  // Saved receipts support legacy observations; a journal-only link must remain exact for every observation.
+  const checkedEvents = checkEvents.filter(({ data }) => boundReady.some(({ ready }) =>
+    equalIds(ready.receiptIds ?? [], receiptIds)
+      ? (data.readyId ?? data.receiptId) === ready.id && data.commit === proof.commit &&
+        compatible(data, { taskId, taskDigest: proof.taskDigest, assignmentKey: ready.assignmentKey,
+          workerId: ready.workerId, seedCommit: ready.seedCommit, sourceDigest: proof.sourceDigest }) &&
+        (data.receiptIds === undefined || equalIds(strings(data.receiptIds), receiptIds))
+      : exactFailedReadyEvent(data, ready)));
+  return { boundReady, checkedEvents };
+}
+
+function associateIntegrationCheck({ taskId, proof, receiptIds, scopeMatches }: StoredCheck, events: readonly Event[]): Event[] {
+  if (!scopeMatches || !text(proof.taskDigest)) return [];
+  return events.filter(({ data }) => data.event === 'task_integrated' && data.taskId === taskId &&
+    data.taskDigest === proof.taskDigest && data.commit === proof.commit && equalIds(strings(data.receiptIds), receiptIds) &&
+    // The event's producer seed and a canonical recheck's merged-commit seed have different meanings.
+    compatible(data, { sourceDigest: proof.sourceDigest }));
+}
+
+function associateSourceAttempt(source: Partial<AttemptRef>, attempts: ReadonlyMap<string, Attempt>): Attempt[] {
+  const { assignmentKey, taskId, taskDigest } = source;
+  if (!text(assignmentKey) || !text(taskId) || !text(taskDigest)) return [];
+  const attempt = attempts.get(attemptKey({ assignmentKey, taskId, taskDigest }));
+  return attempt ? [attempt] : [];
+}
+
+function associateAdoptionExecution(event: Event, source: { deliveryId: string } | undefined,
+  decisionEvents: readonly Event[], attempts: Iterable<Attempt>): {
+    executionAssignmentKey?: string; decisionToFirstObservedStartMs: ContributionObservation<number>;
+  } {
+  const data = event.data;
+  const unavailable = { decisionToFirstObservedStartMs: unknown<number>('decision-execution-link-unavailable') };
+  if (!source || source.deliveryId !== data.deliveryId || !text(data.id) || data.status !== 'adopted' ||
+      !text(data.taskId) || !text(data.taskDigest) || !text(data.planVersion) ||
+      !text(data.contextDigest) || !text(data.activationDigest)) return unavailable;
+  const decisions = decisionEvents.filter(item => item.data.status === 'adopted' && item.data.taskId === data.taskId &&
+    item.data.taskDigest === data.taskDigest && item.data.planVersion === data.planVersion);
+  const candidates = [...attempts].filter(attempt => attempt.taskId === data.taskId &&
+    attempt.taskDigest === data.taskDigest && attempt.assignments.some(assigned =>
+      assigned.planVersion === data.planVersion && assigned.evidence.kind === 'journal' && assigned.evidence.line > event.line));
+  if (decisions.length > 1) return {
+    decisionToFirstObservedStartMs: ambiguous('multiple-decisions-for-execution', decisions.map(eventRef)),
+  };
+  if (candidates.some(attempt => attempt.identity.status === 'ambiguous' || attempt.assignments.length > 1)) return {
+    decisionToFirstObservedStartMs: ambiguous('ambiguous-assignment', candidates.flatMap(attempt =>
+      attempt.identityRecords.map(item => item.evidence))),
+  };
+  const first = candidates.flatMap(attempt => {
+    const assigned = attempt.assignments[0], start = attempt.starts[0];
+    return start && assigned.evidence.kind === 'journal' && start.evidence.kind === 'journal' &&
+      start.evidence.line > assigned.evidence.line ? [{ attempt, assigned, start, line: start.evidence.line }] : [];
+  }).toSorted((left, right) => left.line - right.line)[0];
+  if (!first) return unavailable;
+  const at = observedTime([{ value: data.at, evidence: eventRef(event) }]);
+  const decisionToFirstObservedStartMs = first.attempt.assignedToFirstObservedStartMs.status === 'recorded' &&
+    elapsed(at, first.assigned.at).status === 'recorded'
+    ? elapsed(at, first.start.at) : unknown<number>('assignment-start-order-unavailable');
+  if (decisionToFirstObservedStartMs.status === 'recorded')
+    decisionToFirstObservedStartMs.evidence.push(first.assigned.evidence);
+  return { executionAssignmentKey: first.attempt.assignmentKey, decisionToFirstObservedStartMs };
 }
 
 const trackedEvents = new Set(['delivery_published', 'research_handoff_decided', 'task_assigned', 'turn_started',
@@ -112,8 +196,8 @@ export function buildResearchContributionFlow(state: SolverRunState, journal?: C
   }
 
   const attempts = new Map<string, Attempt>();
-  const ensureAttempt = (input: TaskRef & { assignmentKey: string; workerId?: string; seedCommit?: string }, evidence: ContributionEvidence) => {
-    const key = canonicalMathJson([input.assignmentKey, input.taskId, input.taskDigest]);
+  const ensureAttempt = (input: AttemptRef & { workerId?: string; seedCommit?: string }, evidence: ContributionEvidence) => {
+    const key = attemptKey(input);
     let attempt = attempts.get(key);
     if (!attempt) {
       attempt = { taskId: input.taskId, taskDigest: input.taskDigest, assignmentKey: input.assignmentKey,
@@ -201,27 +285,10 @@ export function buildResearchContributionFlow(state: SolverRunState, journal?: C
     const scopeMatches = (!proof.projection || proof.projection.environmentDigest === state.environmentDigest &&
       proof.projection.problemReceiptDigest === state.problem.receiptDigest) &&
       (!proof.references || proof.references.environmentDigest === state.environmentDigest);
-    // Failed readiness records do not retain receipt IDs. An exact host event can still bind their recorded check.
-    const failedReadyEvents = !proof.passed ? matching('proof_ready_checked', data => data.passed === false &&
-      data.taskId === taskId && data.taskDigest === proof.taskDigest && data.commit === proof.commit &&
-      data.sourceDigest === proof.sourceDigest && equalIds(strings(data.receiptIds), receiptIds)) : [];
-    const boundReady = scopeMatches && text(proof.taskDigest) ? readyRecords.filter(({ ready, attempt }) =>
-      attempt.identity.status !== 'ambiguous' && ready.taskId === taskId && ready.taskDigest === proof.taskDigest &&
-      ready.snapshotCommit === proof.commit && ready.sourceDigest === proof.sourceDigest &&
-      ready.seedCommit === proof.seedCommit && (equalIds(ready.receiptIds ?? [], receiptIds) ||
-        ready.status === 'failed' && ready.receiptIds === undefined && failedReadyEvents.some(({ data }) =>
-          (data.readyId ?? data.receiptId) === ready.id && data.assignmentKey === ready.assignmentKey &&
-          data.workerId === ready.workerId && data.seedCommit === ready.seedCommit))) : [];
-    const checkedEvents = use(matching('proof_ready_checked', data => boundReady.some(({ ready }) =>
-      (data.readyId ?? data.receiptId) === ready.id && data.commit === proof.commit &&
-      compatible(data, { taskId, taskDigest: proof.taskDigest, assignmentKey: ready.assignmentKey,
-        workerId: ready.workerId, seedCommit: ready.seedCommit, sourceDigest: proof.sourceDigest })) &&
-      (data.receiptIds === undefined || equalIds(strings(data.receiptIds), receiptIds))));
-    const integrationEvents = scopeMatches ? use(matching('task_integrated', data => data.taskId === taskId &&
-      text(proof.taskDigest) && data.taskDigest === proof.taskDigest && data.commit === proof.commit &&
-      equalIds(strings(data.receiptIds), receiptIds) &&
-      // The event carries the producer assignment seed; a canonical recheck can use the merged commit as its seed.
-      compatible(data, { sourceDigest: proof.sourceDigest }))) : [];
+    const storedCheck = { taskId, proof, receiptIds, scopeMatches };
+    const association = associateReadyCheck(storedCheck, readyRecords, events);
+    const boundReady = association.boundReady, checkedEvents = use(association.checkedEvents);
+    const integrationEvents = use(associateIntegrationCheck(storedCheck, events));
     const started = observedTime(storedAs.map(item => ({
       value: proof.verification.startedAt, evidence: stateRef((item.evidence as { path: string }).path + '.verification.startedAt'),
     })));
@@ -266,8 +333,7 @@ export function buildResearchContributionFlow(state: SolverRunState, journal?: C
       created: observedTime([{ value: delivery.createdAt, evidence: stateRef('cooperation.deliveries[' + index + '].createdAt') }]),
       publication: observedTime(times(publications), journalReason), publicationInThisRun: publications.length > 0,
       publicationEvents: publications.map(eventRef), handoffAliases: [...aliases.values()],
-      attempts: [...attempts.values()].filter(attempt => text(delivery.assignmentKey) &&
-        attempt.assignmentKey === delivery.assignmentKey && attempt.taskId === delivery.taskId && attempt.taskDigest === delivery.taskDigest),
+      attempts: associateSourceAttempt(delivery, attempts),
     }];
   });
 
@@ -275,35 +341,8 @@ export function buildResearchContributionFlow(state: SolverRunState, journal?: C
     const data = event.data, at = observedTime([{ value: data.at, evidence: eventRef(event) }]);
     const handoff = handoffs.find(item => item.sources.some(source => source.handoffId === data.id && source.deliveryId === data.deliveryId));
     const source = sources.find(item => item.deliveryId === data.deliveryId);
-    let decisionToFirstObservedStartMs = unknown<number>('decision-execution-link-unavailable');
-    let executionAssignmentKey: string | undefined;
-    if (source && text(data.id) && data.status === 'adopted' && text(data.taskId) && text(data.taskDigest) && text(data.planVersion) &&
-        text(data.contextDigest) && text(data.activationDigest)) {
-      const decisions = decisionEvents.filter(item => item.data.status === 'adopted' && item.data.taskId === data.taskId &&
-        item.data.taskDigest === data.taskDigest && item.data.planVersion === data.planVersion);
-      const candidates = [...attempts.values()].filter(attempt => attempt.taskId === data.taskId &&
-        attempt.taskDigest === data.taskDigest && attempt.assignments.some(assigned =>
-          assigned.planVersion === data.planVersion && assigned.evidence.kind === 'journal' && assigned.evidence.line > event.line));
-      if (decisions.length > 1) decisionToFirstObservedStartMs = ambiguous('multiple-decisions-for-execution', decisions.map(eventRef));
-      else if (candidates.some(attempt => attempt.identity.status === 'ambiguous' || attempt.assignments.length > 1))
-        decisionToFirstObservedStartMs = ambiguous('ambiguous-assignment', candidates.flatMap(attempt =>
-          attempt.identityRecords.map(item => item.evidence)));
-      else {
-        const first = candidates.flatMap(attempt => {
-          const assigned = attempt.assignments[0], start = attempt.starts[0];
-          return start && assigned.evidence.kind === 'journal' && start.evidence.kind === 'journal' &&
-            start.evidence.line > assigned.evidence.line ? [{ attempt, assigned, start, line: start.evidence.line }] : [];
-        }).toSorted((left, right) => left.line - right.line)[0];
-        if (first) {
-          executionAssignmentKey = first.attempt.assignmentKey;
-          decisionToFirstObservedStartMs = first.attempt.assignedToFirstObservedStartMs.status === 'recorded' &&
-            elapsed(at, first.assigned.at).status === 'recorded'
-            ? elapsed(at, first.start.at) : unknown('assignment-start-order-unavailable');
-          if (decisionToFirstObservedStartMs.status === 'recorded')
-            decisionToFirstObservedStartMs.evidence.push(first.assigned.evidence);
-        }
-      }
-    }
+    const { executionAssignmentKey, decisionToFirstObservedStartMs } =
+      associateAdoptionExecution(event, source, decisionEvents, attempts.values());
     return { id: data.id, deliveryId: data.deliveryId, status: data.status, contextDigest: data.contextDigest,
       activationDigest: data.activationDigest, planVersion: data.planVersion, taskId: data.taskId, taskDigest: data.taskDigest,
       reason: data.reason, waitsOn: data.waitsOn, currentHandoffId: handoff?.id,
@@ -378,3 +417,10 @@ export function buildResearchContributionFlow(state: SolverRunState, journal?: C
 }
 
 export type ResearchContributionFlow = ReturnType<typeof buildResearchContributionFlow>;
+
+/** Reported executions in presentation order: obligations first, then sources, once per exact assignment identity. */
+export function contributionExecutionAttempts(flow: ResearchContributionFlow): readonly Attempt[] {
+  return [...new Map([
+    ...flow.obligations.flatMap(item => item.attempts), ...flow.sources.flatMap(item => item.attempts),
+  ].map(attempt => [attemptKey(attempt), attempt])).values()];
+}
