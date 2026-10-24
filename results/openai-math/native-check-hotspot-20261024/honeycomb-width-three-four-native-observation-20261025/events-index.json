@@ -1,0 +1,28 @@
+{
+  "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/solve.log",
+  "sourceBytesAtCapture": 8628167,
+  "sourceSHA256": "3e3fc991f669b58f34158ef801b939d43f2ab1f975f831bf2eed0a2b893b4eff",
+  "events": [
+    {
+      "line": 32129,
+      "byteOffset": 8407779,
+      "lineBytes": 705,
+      "rawLineSHA256": "3e181e3979fc1cf7b07e0f7de22ee7672e2501a798c0717154f18c09cb5043b2",
+      "event": "task_assigned",
+      "at": 1792862728066,
+      "taskId": "width_three_summability_e0dd3d96",
+      "workerId": "researcher-2"
+    },
+    {
+      "line": 32251,
+      "byteOffset": 8455770,
+      "lineBytes": 700,
+      "rawLineSHA256": "b05242596dae911be532411dfc3fbbf2339e2a58c27d453e68787436986c39aa",
+      "event": "task_assigned",
+      "at": 1792862895025,
+      "taskId": "width_four_summability_a8462a19",
+      "workerId": "engineer"
+    }
+  ],
+  "excluded": "Worker activity payloads, model message text and hidden reasoning are excluded."
+}

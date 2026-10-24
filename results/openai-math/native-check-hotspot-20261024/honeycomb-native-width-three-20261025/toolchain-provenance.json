@@ -1,0 +1,19 @@
+{
+  "commit": "7061be826cef83e4924ebda357f35164fa97ddb8",
+  "leanToolchain": "leanprover/lean4:v4.34.1",
+  "leanToolchainFileSHA256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b",
+  "lakeManifestSHA256": "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829",
+  "mathlibPackage": {
+    "url": "https://github.com/leanprover-community/mathlib4.git",
+    "type": "git",
+    "subDir": null,
+    "scope": "leanprover-community",
+    "rev": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+    "name": "mathlib",
+    "manifestFile": "lake-manifest.json",
+    "inputRev": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+    "inherited": false,
+    "configFile": "lakefile.lean"
+  },
+  "captureMethod": "Read-only git show of exact integration commit; no Lean invocation."
+}

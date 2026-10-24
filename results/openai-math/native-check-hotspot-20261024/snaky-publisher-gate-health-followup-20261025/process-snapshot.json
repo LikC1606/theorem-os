@@ -1,0 +1,47 @@
+{
+  "observedAtUTC": "2026-10-24T17:49:03.340189+00:00",
+  "observedAtUnix": 1792864143.3401895,
+  "rootPid": 4175461,
+  "processes": [
+    {
+      "pid": 899989,
+      "ppid": 899450,
+      "comm": "lake",
+      "state": "S",
+      "cpuSeconds": 4.6,
+      "elapsedSeconds": 5871.739999999991,
+      "startedAtUTC": "2026-10-24T16:11:11.600189+00:00",
+      "rssBytes": 1050259456,
+      "args": [
+        "lake",
+        "build",
+        "Challenge",
+        "Submission"
+      ]
+    },
+    {
+      "pid": 900064,
+      "ppid": 899989,
+      "comm": "lean",
+      "state": "S",
+      "cpuSeconds": 5868.08,
+      "elapsedSeconds": 5867.85999999987,
+      "startedAtUTC": "2026-10-24T16:11:15.480189+00:00",
+      "rssBytes": 10556661760,
+      "args": [
+        "/runtime/pinned-lean/bin/lean",
+        "/workspace/generated/problem/.lake/publisher-eval.n2lgvkzJ/Submission.lean",
+        "-o",
+        "/workspace/generated/problem/.lake/publisher-eval.n2lgvkzJ/.lake/build/lib/lean/Submission.olean",
+        "-i",
+        "/workspace/generated/problem/.lake/publisher-eval.n2lgvkzJ/.lake/build/lib/lean/Submission.ilean",
+        "-c",
+        "/workspace/generated/problem/.lake/publisher-eval.n2lgvkzJ/.lake/build/ir/Submission.c",
+        "--setup",
+        "/workspace/generated/problem/.lake/publisher-eval.n2lgvkzJ/.lake/build/ir/Submission.setup.json",
+        "--json",
+        "-j1"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "schema": "honeycomb-bounded-observation-delivery.v1",
+  "frozenAt": "2026-10-24T17:39:31.584880+00:00",
+  "files": [
+    {
+      "name": "README.md",
+      "bytes": 1007,
+      "sha256": "c30cefcc1b7ab319a59ab70e067a1545a067ab1d9873dbd198155aa028343af5"
+    },
+    {
+      "name": "events-index.json",
+      "bytes": 989,
+      "sha256": "ca0c07ef504da9fa503f5b9b086057f65f971bd7e0611ee4ac8e1bc9a54a7e13"
+    },
+    {
+      "name": "events-safe-raw.jsonl",
+      "bytes": 1405,
+      "sha256": "5fef81279ef4b4dfedb0fa81bd1a8565c65ad3b3654a9871da77becdfc39a518"
+    },
+    {
+      "name": "report.json",
+      "bytes": 1646,
+      "sha256": "de175cd5be520f2d2e13f756262d450b2cf9c620dc73bc336c940b56c7e08a2a"
+    },
+    {
+      "name": "task-state.json",
+      "bytes": 3452,
+      "sha256": "830c81b4f96c3d485b3ef4be430d2a1a603ac5dfed76c7b4af8d7a9cf130d43a"
+    }
+  ]
+}

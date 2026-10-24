@@ -1,0 +1,587 @@
+{
+  "schema": "theorem-os.optimization-progress.v2",
+  "observedAt": "2026-10-24T17:50:51.474069+00:00",
+  "previousProgress": "optimization-progress-20261024T172839Z.json",
+  "nativeFinalPassedCount": 6,
+  "nativeFinalPassedProblems": [
+    "Truffet",
+    "SurfaceCone",
+    "Hadamard",
+    "Cartier",
+    "SnakyCertificate",
+    "CharacterVarieties"
+  ],
+  "openAIHostedAcceptance": false,
+  "constraints": {
+    "allFiveBudgetCaps": {
+      "maxRunSeconds": 0,
+      "maxTurns": 0,
+      "maxTurnSeconds": 0,
+      "maxTotalTokens": 0,
+      "evaluatorTimeoutSeconds": 0
+    },
+    "leanThreads": 1,
+    "memoryGiB": 32,
+    "fixedPublisherComparator": true,
+    "publisherSolutionAccess": false,
+    "hiddenReasoningAccess": false,
+    "activeFrozenRuntimeModified": false,
+    "allFiveBudgetCapsByRun": {
+      "honeycomb": {
+        "maxRunSeconds": 0,
+        "maxTurns": 0,
+        "maxTurnSeconds": 0,
+        "maxTotalTokens": 0,
+        "evaluatorTimeoutSeconds": 0
+      },
+      "snaky": {
+        "maxRunSeconds": 0,
+        "maxTurns": 0,
+        "maxTurnSeconds": 0,
+        "maxTotalTokens": 0,
+        "evaluatorTimeoutSeconds": 0
+      }
+    },
+    "currentProcessBudgetReadback": {
+      "honeycomb": [
+        {
+          "pid": 1250029,
+          "caps": {
+            "--max-run-seconds": "0",
+            "--max-turns": "0",
+            "--max-turn-seconds": "0",
+            "--max-total-tokens": "0",
+            "--evaluator-timeout-seconds": "0"
+          }
+        }
+      ],
+      "snaky": [
+        {
+          "pid": 4175461,
+          "caps": {
+            "--max-run-seconds": "0",
+            "--max-turns": "0",
+            "--max-turn-seconds": "0",
+            "--max-total-tokens": "0",
+            "--evaluator-timeout-seconds": "0"
+          }
+        }
+      ]
+    }
+  },
+  "claimReadback": {
+    "honeycomb": {
+      "stateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/state.json",
+      "stateBytes": 1823365,
+      "stateSHA256": "ee2cef0d6f8b1dcf714565d02097c7f6c5a61ce91c1d74df924c0e887195dfb5",
+      "resultFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json",
+      "resultSHA256": "2c0d3f02c194a9af6a3b176ba09bd1c4e5830eac95db021291a203cb990fee07"
+    },
+    "snaky": {
+      "stateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/result.json.runtime/state.json",
+      "stateBytes": 3564978,
+      "stateSHA256": "b46e7ce756462e00601bcf06f64d6bffb1b7acfcf4e9a3eea3e34b4ba3e4180b",
+      "resultFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/result.json",
+      "resultSHA256": "ba842f431e3e1da99e0af896dbdcfb42b7b023321f9dda815e9bac67319ca9ed"
+    }
+  },
+  "honeycomb": {
+    "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+    "buildDigest": "7e2c42e897361d27b0aa6bf216f74ed7ba71aa32987771ade075193bed54c19f",
+    "phase": "running",
+    "turns": 444,
+    "planVersion": "4f641701cefa6dcccfb351f087907d066a3d498a021aef23e586dc0a2503e7a5",
+    "canonicalCommit": "7061be826cef83e4924ebda357f35164fa97ddb8",
+    "taskStates": [
+      {
+        "taskId": "strip_growth_below_mu",
+        "type": "∀ h : ℕ, 1 ≤ h → ∃ C β : ℝ, 0 ≤ C ∧ 0 ≤ β ∧ β < 2 * Real.cos (Real.pi / 8) ∧ ∀ (n : ℕ) (s : Finset (BridgePath h)), (∀ p ∈ s, p.vertices.length = n) → (s.card : ℝ) ≤ C * β ^ n",
+        "status": "running",
+        "workerId": "researcher-1",
+        "attempts": 10,
+        "proof": null,
+        "integratedCheck": null
+      },
+      {
+        "taskId": "sums_reduction",
+        "type": "(∀ h : ℕ, 1 ≤ h → ∃ C β : ℝ, 0 ≤ C ∧ 0 ≤ β ∧ β < 2 * Real.cos (Real.pi / 8) ∧ ∀ (n : ℕ) (s : Finset (BridgePath h)), (∀ p ∈ s, p.vertices.length = n) → (s.card : ℝ) ≤ C * β ^ n) → FiniteBridgeSums",
+        "status": "integrated",
+        "workerId": "engineer",
+        "attempts": 2,
+        "proof": {
+          "passed": true,
+          "commit": "21c88246de184c2366cdf7dde20f140a7147291c",
+          "sourceDigest": "5a01254fb71b99009e9a9119a92226b7f9b369fd74752d2b4cbf1fdd994bdaaf",
+          "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+          "conditions": [],
+          "receipts": []
+        },
+        "integratedCheck": {
+          "passed": true,
+          "commit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+          "sourceDigest": "d7464cb0895f9c7e360036300e0df311dae0bc3887b7dc6b70d9c06f6fbe26b7",
+          "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+          "conditions": [],
+          "receipts": []
+        }
+      },
+      {
+        "taskId": "initial_goal_1",
+        "type": null,
+        "status": "conditional",
+        "workerId": "engineer",
+        "attempts": 3,
+        "proof": {
+          "passed": true,
+          "commit": "5b89b56b15fdd0be5d210462bae927cee23e7ad8",
+          "sourceDigest": "8905bc62634e42f26e64366e75fb2894db0ca08d3f76c37531bf091d82431a95",
+          "taskDigest": "ab8c91c92c1d5d985ed03edfaee27bbef6df38455b84a82711d07d8d13e77890",
+          "conditions": [
+            {
+              "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+              "taskId": "strip_growth_below_mu"
+            },
+            {
+              "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+              "taskId": "sums_reduction"
+            }
+          ],
+          "receipts": []
+        },
+        "integratedCheck": null
+      },
+      {
+        "taskId": "bridge_column_step_unique_a0424391",
+        "type": "∀ {a b d : OAI.PolynomialVacuumBridge.Corridor.Vertex}, OAI.PolynomialVacuumBridge.Corridor.adjacent a b → OAI.PolynomialVacuumBridge.Corridor.adjacent a d → (match b with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) = (match d with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) → b = d",
+        "status": "integrated",
+        "workerId": "researcher-2",
+        "attempts": 1,
+        "proof": {
+          "passed": true,
+          "commit": "a33722d373af78f27436e6cdc6c3ce4d373c41d2",
+          "sourceDigest": "92de37541f01803b434aa7bd2bbd7a68ea79ab9c1d8b4be7bdfab15fe39c3546",
+          "taskDigest": "8dda84d3d1fb05bf67d085e066ea3e2a00bf68794e69d75c571cb8f57494662f",
+          "conditions": [],
+          "receipts": []
+        },
+        "integratedCheck": {
+          "passed": true,
+          "commit": "c86302c7813e5059b06c983ff3fd69bb740be47c",
+          "sourceDigest": "92de37541f01803b434aa7bd2bbd7a68ea79ab9c1d8b4be7bdfab15fe39c3546",
+          "taskDigest": "8dda84d3d1fb05bf67d085e066ea3e2a00bf68794e69d75c571cb8f57494662f",
+          "conditions": [],
+          "receipts": []
+        }
+      },
+      {
+        "taskId": "bridge_full_column_word_injective_a0424391",
+        "type": "∀ {h : ℕ} {p q : OAI.PolynomialVacuumBridge.Corridor.BridgePath h}, p.vertices.map (fun v : OAI.PolynomialVacuumBridge.Corridor.Vertex => match v with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) = q.vertices.map (fun v : OAI.PolynomialVacuumBridge.Corridor.Vertex => match v with | .up i j => 2 * i + j | .down i j => 2 * i + j + 1) → p = q",
+        "status": "integrated",
+        "workerId": "researcher-2",
+        "attempts": 1,
+        "proof": {
+          "passed": true,
+          "commit": "7cb68d262fd5ec86b49f017a24ee03d58f0ebced",
+          "sourceDigest": "596bdf3fb095f7c7db572a3a7bcaa3556c001ce61908653fa29beb0a43c3cae3",
+          "taskDigest": "53c6c87fadcb26f17de3ec17c4407a34037c7c5e965c450e2fe3b141bd886481",
+          "conditions": [],
+          "receipts": []
+        },
+        "integratedCheck": {
+          "passed": true,
+          "commit": "fac87fb460b0289bc48ad7341935e731c7c3bfb5",
+          "sourceDigest": "596bdf3fb095f7c7db572a3a7bcaa3556c001ce61908653fa29beb0a43c3cae3",
+          "taskDigest": "53c6c87fadcb26f17de3ec17c4407a34037c7c5e965c450e2fe3b141bd886481",
+          "conditions": [],
+          "receipts": []
+        }
+      },
+      {
+        "taskId": "confined_bridge_sums_all_heights_9dd59d27",
+        "type": "∀ h : ℕ, Summable (fun p : ConfinedBridgePath h => weight p.val) ∧ Summable (fun p : ConfinedBridgePath h => firstLengthWeight p.val) ∧ Summable (fun p : ConfinedBridgePath h => firstLengthWeight p.val / confinedMass h)",
+        "status": "integrated",
+        "workerId": "researcher-1",
+        "attempts": 1,
+        "proof": {
+          "passed": true,
+          "commit": "5c383ba2ff4220cbb57aecb041127365d15ac35c",
+          "sourceDigest": "d69b7e407a85b48c9d5a4cac3628483b4937e7a7398b7f103aa4c2b074d08d84",
+          "taskDigest": "bbd5ff7596e1c5c92cc5b57a731b337a121a7911f52799695d0a5e4fa383ae75",
+          "conditions": [],
+          "receipts": []
+        },
+        "integratedCheck": {
+          "passed": true,
+          "commit": "fa3012608614475df88d051503ad0cdaaf8f4be6",
+          "sourceDigest": "8d7fb4489e4e550650566d289035e19279da8edbbaac3ad68044ffe8813ae5ed",
+          "taskDigest": "bbd5ff7596e1c5c92cc5b57a731b337a121a7911f52799695d0a5e4fa383ae75",
+          "conditions": [],
+          "receipts": []
+        }
+      },
+      {
+        "taskId": "width_one_bridge_sums_b433299a",
+        "type": "Summable (weight (h := 1)) ∧ Summable (firstLengthWeight (h := 1)) ∧ Summable (fun p : BridgePath 1 => firstLengthWeight p / bridgeMass 1) ∧ Summable (fun p : ConfinedBridgePath 1 => weight p.val) ∧ Summable (fun p : ConfinedBridgePath 1 => firstLengthWeight p.val) ∧ Summable (fun p : ConfinedBridgePath 1 => firstLengthWeight p.val / confinedMass 1)",
+        "status": "integrated",
+        "workerId": "researcher-2",
+        "attempts": 1,
+        "proof": {
+          "passed": true,
+          "commit": "3c08cbf9e691e7156540ed075ffc3de20edb6652",
+          "sourceDigest": "fbee705485fc4f39e2cf5ac08d15e0e307162f038fc4912a18493670f13d7f7d",
+          "taskDigest": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+          "conditions": [],
+          "receipts": []
+        },
+        "integratedCheck": {
+          "passed": true,
+          "commit": "78602bd19dc2708c16543e3fe55edfe8407a8824",
+          "sourceDigest": "bc71d2556d58216850b3fa93dac287f0ac644bb88bb63132691833ffe2692724",
+          "taskDigest": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+          "conditions": [],
+          "receipts": []
+        }
+      },
+      {
+        "taskId": "width_two_summability_diagnostic",
+        "type": "Summable (OAI.PolynomialVacuumBridge.Corridor.weight (h := 2)) ∧ Summable (OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (h := 2))",
+        "status": "integrated",
+        "workerId": "researcher-2",
+        "attempts": 2,
+        "proof": {
+          "passed": true,
+          "commit": "a862efb5ee31eaf58ca174b79730f960a7b89302",
+          "sourceDigest": "7b812d702cff88a697f17f02d60f2185f983f38d07a1cbf4cab63f5739d137aa",
+          "taskDigest": "47a80c33ba93a52c8f6e3ec8174472796ca761885865a1812e58a08b1aa2bcfd",
+          "conditions": [],
+          "receipts": []
+        },
+        "integratedCheck": {
+          "passed": true,
+          "commit": "0d4bd1c55e8dff31f375e1d5dbe243c799489133",
+          "sourceDigest": "5754ff820e2d15b1bd4c4ed1c9812d280bfb4929dd539e3861bada08c40c87b7",
+          "taskDigest": "47a80c33ba93a52c8f6e3ec8174472796ca761885865a1812e58a08b1aa2bcfd",
+          "conditions": [],
+          "receipts": []
+        }
+      },
+      {
+        "taskId": "width_three_summability_e0dd3d96",
+        "type": "Summable (OAI.PolynomialVacuumBridge.Corridor.weight (h := 3)) ∧ Summable (OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (h := 3))",
+        "status": "integrated",
+        "workerId": "researcher-2",
+        "attempts": 1,
+        "proof": {
+          "passed": true,
+          "commit": "c9c9dba2430cca6189a64793f620e1d9530ac12c",
+          "sourceDigest": "293c7ffe566359bb503ed88db29ae9e0c32c5faafcad87f9340d8c8e7c511e7f",
+          "taskDigest": "1d25b9fa6b1df2ff60c7e7c3d060e9860a5ad7f2a088c3826cace3c2d22e0c33",
+          "conditions": [],
+          "receipts": []
+        },
+        "integratedCheck": {
+          "passed": true,
+          "commit": "7061be826cef83e4924ebda357f35164fa97ddb8",
+          "sourceDigest": "810ff14a46d534bd2976a85d7c3173036747adacc45af0c7a030da13685a8d29",
+          "taskDigest": "1d25b9fa6b1df2ff60c7e7c3d060e9860a5ad7f2a088c3826cace3c2d22e0c33",
+          "conditions": [],
+          "receipts": []
+        }
+      },
+      {
+        "taskId": "width_four_summability_a8462a19",
+        "type": "Summable (OAI.PolynomialVacuumBridge.Corridor.weight (h := 4)) ∧ Summable (OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (h := 4))",
+        "status": "integrated",
+        "workerId": "engineer",
+        "attempts": 1,
+        "proof": {
+          "passed": true,
+          "commit": "1a82da7ff8a190d59684e9d8775a54d490a3faad",
+          "sourceDigest": "aa65dc872952c4673dc60135e61d7cb6d058966d427f92b85078a29da6d25caa",
+          "taskDigest": "d917d579b417751f32bb7ec8261b7adea2c79bd36866c4fd0de53ab4962811a4",
+          "conditions": [],
+          "receipts": []
+        },
+        "integratedCheck": {
+          "passed": true,
+          "commit": "ef7c4acdd975241b67f4ff616499021002f24e05",
+          "sourceDigest": "5d324396710ad7cff492bac70417270fde065a904c3b214f8db16212bd301ce0",
+          "taskDigest": "d917d579b417751f32bb7ec8261b7adea2c79bd36866c4fd0de53ab4962811a4",
+          "conditions": [],
+          "receipts": []
+        }
+      },
+      {
+        "taskId": "width_five_summability_ba0a1c09",
+        "type": "Summable (OAI.PolynomialVacuumBridge.Corridor.weight (h := 5)) ∧ Summable (OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (h := 5))",
+        "status": "running",
+        "workerId": "researcher-2",
+        "attempts": 1,
+        "proof": null,
+        "integratedCheck": null
+      },
+      {
+        "taskId": "initial_research_1",
+        "type": null,
+        "status": "pending",
+        "workerId": "researcher-1",
+        "attempts": 2,
+        "proof": null,
+        "integratedCheck": null
+      },
+      {
+        "taskId": "initial_research_2",
+        "type": null,
+        "status": "pending",
+        "workerId": "researcher-2",
+        "attempts": 64,
+        "proof": null,
+        "integratedCheck": null
+      },
+      {
+        "taskId": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+        "type": null,
+        "status": "running",
+        "workerId": "engineer",
+        "attempts": 67,
+        "proof": null,
+        "integratedCheck": null
+      },
+      {
+        "taskId": "finite_box_zero_mass_reference",
+        "type": null,
+        "status": "pending",
+        "workerId": null,
+        "attempts": 0,
+        "proof": null,
+        "integratedCheck": null
+      }
+    ],
+    "heightThreeAndFourNativeAcceptance": {
+      "height3": {
+        "status": "integrated",
+        "report": "honeycomb-native-width-three-20261025/README.md",
+        "stages": [
+          {
+            "stage": "proof",
+            "commit": "c9c9dba2430cca6189a64793f620e1d9530ac12c",
+            "receiptId": "lean-4bae72d27c6d83d9d29474cd",
+            "durationMs": 25788,
+            "axioms": [
+              "propext",
+              "Classical.choice",
+              "Quot.sound"
+            ],
+            "conditions": [],
+            "status": "kernel_verified",
+            "referenceCoverage": {
+              "taskRecordReferencesPresent": false,
+              "resultDeclarationReferencesPresent": false,
+              "stdoutReferenceMarkerIsNull": true,
+              "rootReferenceSHACrosscheckPerformed": false
+            }
+          },
+          {
+            "stage": "integratedCheck",
+            "commit": "7061be826cef83e4924ebda357f35164fa97ddb8",
+            "receiptId": "lean-57bf5d70cc019e03fa3fba3d",
+            "durationMs": 27590,
+            "axioms": [
+              "propext",
+              "Classical.choice",
+              "Quot.sound"
+            ],
+            "conditions": [],
+            "status": "kernel_verified",
+            "referenceCoverage": {
+              "taskRecordReferencesPresent": false,
+              "resultDeclarationReferencesPresent": false,
+              "stdoutReferenceMarkerIsNull": true,
+              "rootReferenceSHACrosscheckPerformed": false
+            }
+          }
+        ]
+      },
+      "height4": {
+        "status": "integrated",
+        "report": "honeycomb-native-width-four-20261025/README.md",
+        "stages": [
+          {
+            "stage": "proof",
+            "commit": "1a82da7ff8a190d59684e9d8775a54d490a3faad",
+            "receiptId": "lean-504445e25f9c03d2440a36ef",
+            "durationMs": 25912,
+            "axioms": [
+              "propext",
+              "Classical.choice",
+              "Quot.sound"
+            ],
+            "conditions": [],
+            "status": "kernel_verified",
+            "referenceCoverage": {
+              "taskRecordReferencesPresent": false,
+              "resultDeclarationReferencesPresent": false,
+              "stdoutReferenceMarkerIsNull": true,
+              "rootReferenceSHACrosscheckPerformed": false
+            }
+          },
+          {
+            "stage": "integratedCheck",
+            "commit": "ef7c4acdd975241b67f4ff616499021002f24e05",
+            "receiptId": "lean-066bed21b62f14a43723a51f",
+            "durationMs": 26023,
+            "axioms": [
+              "propext",
+              "Classical.choice",
+              "Quot.sound"
+            ],
+            "conditions": [],
+            "status": "kernel_verified",
+            "referenceCoverage": {
+              "taskRecordReferencesPresent": false,
+              "resultDeclarationReferencesPresent": false,
+              "stdoutReferenceMarkerIsNull": true,
+              "rootReferenceSHACrosscheckPerformed": false
+            }
+          }
+        ]
+      }
+    },
+    "heightFive": {
+      "status": "running",
+      "report": "honeycomb-width-five-20261025/README.md",
+      "adoptionReport": "honeycomb-width-five-adoption-20261025/README.md",
+      "sourceSHA256": "ba0a1c09a7ff973ccb68198c1d01428684e8dd49cbaee5df3dc7e83338582750",
+      "localFullCheckExitCode": 0,
+      "localFullCheckSeconds": 71.36151630082168,
+      "sameSourceExplicitTypesCheckSeconds": 72.50562026002444,
+      "nativeProofPresent": false,
+      "nativeIntegrationPresent": false
+    },
+    "allHeightOriginalGoalSolved": false
+  },
+  "snaky": {
+    "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+    "phase": "evaluating",
+    "resultStatus": "prepared",
+    "canonicalCommit": "14d49c0f2bb94a8973471120f675554798126117",
+    "fixedReview": {
+      "status": "accepted",
+      "assignmentId": "939143f3-e7bf-4f09-a80d-e61d5e11c13f",
+      "commit": "14d49c0f2bb94a8973471120f675554798126117",
+      "sourceDigest": "1a75c56a0beaa6df7578a0317d90f40fa2c6b1a9faf43511e1c69fa0bcee4f4f"
+    },
+    "hostFinalCheckCompleted": true,
+    "currentGate": "frozen publisher lake build Challenge Submission",
+    "currentGateEvidenceObservedAt": "2026-10-24T17:49:03.340189+00:00",
+    "currentGateHealthReport": "snaky-publisher-gate-health-followup-20261025/README.md",
+    "publisherProcess": {
+      "leanPid": 900064,
+      "leanStartedAtUTC": "2026-10-24T16:11:15.480189+00:00",
+      "leanElapsedSeconds": 5867.85999999987,
+      "leanCPUSeconds": 5868.08,
+      "leanRSSBytes": 10556661760,
+      "cpuProgressComparedToExistingFrozenSample": {
+        "sampleFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-publisher-gate-health-20261025/sample-after.json",
+        "sampleFileSHA256": "2edbfda89d6bb0f01ff4e437f131b62d449bffd6d1b0002d11df1d24fc1eef08",
+        "sampleObservedAtUTC": "2026-10-24T17:14:08.441941+00:00",
+        "intervalSeconds": 2094.898248910904,
+        "cpuSecondsDelta": 2095.0,
+        "singleCoreUtilizationFraction": 1.0000485708979656,
+        "newBlockingWaitPerformed": false
+      }
+    },
+    "finalAccepted": false
+  },
+  "queuedEdits": {
+    "honeycomb-width-three-four-checked-proofs-20261025": {
+      "affectedTasks": [
+        "width_three_summability_e0dd3d96",
+        "width_four_summability_a8462a19"
+      ],
+      "appliedAt": 1792862636729,
+      "baseVersion": "034781097e8334a6949e36ec8fc909e19ed9a5d7cba1e145a43a0eca4085b356",
+      "id": "honeycomb-width-three-four-checked-proofs-20261025",
+      "planVersion": "acd1f46432b0dae6f7cfe750cf020b31ddb9c01191b2482caab95b45ebaef021",
+      "receivedAt": 1792862636675,
+      "recheck": {
+        "status": "passed",
+        "tasks": [
+          {
+            "lastCheck": {
+              "commit": "7061be826cef83e4924ebda357f35164fa97ddb8",
+              "conditional": false,
+              "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+              "passed": true,
+              "receiptIds": [
+                "lean-57bf5d70cc019e03fa3fba3d"
+              ],
+              "sourceDigest": "810ff14a46d534bd2976a85d7c3173036747adacc45af0c7a030da13685a8d29"
+            },
+            "status": "passed",
+            "taskDigest": "1d25b9fa6b1df2ff60c7e7c3d060e9860a5ad7f2a088c3826cace3c2d22e0c33",
+            "taskId": "width_three_summability_e0dd3d96"
+          },
+          {
+            "lastCheck": {
+              "commit": "ef7c4acdd975241b67f4ff616499021002f24e05",
+              "conditional": false,
+              "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+              "passed": true,
+              "receiptIds": [
+                "lean-066bed21b62f14a43723a51f"
+              ],
+              "sourceDigest": "5d324396710ad7cff492bac70417270fde065a904c3b214f8db16212bd301ce0"
+            },
+            "status": "passed",
+            "taskDigest": "d917d579b417751f32bb7ec8261b7adea2c79bd36866c4fd0de53ab4962811a4",
+            "taskId": "width_four_summability_a8462a19"
+          }
+        ]
+      },
+      "status": "applied"
+    },
+    "honeycomb-width-five-checked-proof-20261025": {
+      "affectedTasks": [
+        "width_five_summability_ba0a1c09"
+      ],
+      "appliedAt": 1792864052271,
+      "baseVersion": "acd1f46432b0dae6f7cfe750cf020b31ddb9c01191b2482caab95b45ebaef021",
+      "id": "honeycomb-width-five-checked-proof-20261025",
+      "planVersion": "4f641701cefa6dcccfb351f087907d066a3d498a021aef23e586dc0a2503e7a5",
+      "receivedAt": 1792864052211,
+      "recheck": {
+        "status": "pending",
+        "tasks": [
+          {
+            "status": "pending",
+            "taskDigest": "3a856ca2364c00bdd423a06f5687230794c1892c552728fa58bef184b124ccdf",
+            "taskId": "width_five_summability_ba0a1c09"
+          }
+        ]
+      },
+      "status": "applied"
+    }
+  },
+  "campaignService": {
+    "unit": "theoremos-openai-math-d-to-s.service",
+    "NRestarts": "0",
+    "ActiveState": "active",
+    "SubState": "running"
+  },
+  "campaign": {
+    "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/campaign-state.json",
+    "sha256": "6efc9fb2c83fd5d0f7797b1254f7e9a82983cee35930136db3615ead7237bd33",
+    "status": "running",
+    "currentTier": "C",
+    "currentTarget": "HoneycombBridgeFiniteness",
+    "counts": {
+      "accepted": 3,
+      "blocked": 2,
+      "running": 1,
+      "pending": 410
+    }
+  },
+  "resultBoundary": "Heights one through four are integrated auxiliary results; height five is locally fully kernel-checked and was delivered through the normal queue. The all-height original Honeycomb goal is still open. Snaky remains in the frozen publisher build before the original comparator. These are local checks, not OpenAI hosted certification.",
+  "newLeanInvocationsForArchiving": 0
+}

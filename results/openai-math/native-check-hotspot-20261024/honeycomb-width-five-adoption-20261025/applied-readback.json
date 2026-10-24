@@ -1,0 +1,226 @@
+{
+  "schema": "theorem-os.checked-proof-adoption-readback.v1",
+  "observedAt": "2026-10-24T17:48:32.360125+00:00",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "phase": "running",
+  "turns": 442,
+  "planVersion": "4f641701cefa6dcccfb351f087907d066a3d498a021aef23e586dc0a2503e7a5",
+  "canonicalCommit": "7061be826cef83e4924ebda357f35164fa97ddb8",
+  "edit": {
+    "affectedTasks": [
+      "width_five_summability_ba0a1c09"
+    ],
+    "appliedAt": 1792864052271,
+    "baseVersion": "acd1f46432b0dae6f7cfe750cf020b31ddb9c01191b2482caab95b45ebaef021",
+    "id": "honeycomb-width-five-checked-proof-20261025",
+    "planVersion": "4f641701cefa6dcccfb351f087907d066a3d498a021aef23e586dc0a2503e7a5",
+    "receivedAt": 1792864052211,
+    "recheck": {
+      "status": "pending",
+      "tasks": [
+        {
+          "status": "pending",
+          "taskDigest": "3a856ca2364c00bdd423a06f5687230794c1892c552728fa58bef184b124ccdf",
+          "taskId": "width_five_summability_ba0a1c09"
+        }
+      ]
+    },
+    "status": "applied"
+  },
+  "previousTaskCount": 14,
+  "newTaskCount": 15,
+  "allExistingTaskContractsUnchanged": true,
+  "existingAssignmentComparisons": {
+    "strip_growth_below_mu": {
+      "beforePresent": true,
+      "afterPresent": true,
+      "unchanged": true
+    },
+    "sums_reduction": {
+      "beforePresent": true,
+      "afterPresent": true,
+      "unchanged": true
+    },
+    "initial_goal_1": {
+      "beforePresent": true,
+      "afterPresent": true,
+      "unchanged": true
+    },
+    "bridge_column_step_unique_a0424391": {
+      "beforePresent": true,
+      "afterPresent": true,
+      "unchanged": true
+    },
+    "bridge_full_column_word_injective_a0424391": {
+      "beforePresent": true,
+      "afterPresent": true,
+      "unchanged": true
+    },
+    "confined_bridge_sums_all_heights_9dd59d27": {
+      "beforePresent": true,
+      "afterPresent": true,
+      "unchanged": true
+    },
+    "width_one_bridge_sums_b433299a": {
+      "beforePresent": true,
+      "afterPresent": true,
+      "unchanged": true
+    },
+    "width_two_summability_diagnostic": {
+      "beforePresent": true,
+      "afterPresent": true,
+      "unchanged": true
+    },
+    "width_three_summability_e0dd3d96": {
+      "beforePresent": true,
+      "afterPresent": true,
+      "unchanged": true
+    },
+    "width_four_summability_a8462a19": {
+      "beforePresent": true,
+      "afterPresent": true,
+      "unchanged": true
+    },
+    "initial_research_1": {
+      "beforePresent": true,
+      "afterPresent": true,
+      "unchanged": true
+    },
+    "initial_research_2": {
+      "beforePresent": true,
+      "afterPresent": true,
+      "unchanged": true
+    },
+    "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51": {
+      "beforePresent": true,
+      "afterPresent": true,
+      "unchanged": true
+    },
+    "finite_box_zero_mass_reference": {
+      "beforePresent": false,
+      "afterPresent": false,
+      "unchanged": true
+    }
+  },
+  "existingProofAndIntegrationComparisons": {
+    "strip_growth_below_mu": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "sums_reduction": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "initial_goal_1": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "bridge_column_step_unique_a0424391": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "bridge_full_column_word_injective_a0424391": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "confined_bridge_sums_all_heights_9dd59d27": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "width_one_bridge_sums_b433299a": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "width_two_summability_diagnostic": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "width_three_summability_e0dd3d96": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "width_four_summability_a8462a19": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "initial_research_1": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "initial_research_2": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "finite_box_zero_mass_reference": {
+      "proof": true,
+      "integratedCheck": true
+    }
+  },
+  "groupContractsAndRoutesUnchanged": true,
+  "groupSchedulingCountersMayAdvanceNaturally": true,
+  "newTaskState": {
+    "assignment": {
+      "assignmentId": "1a69a8c2-bac7-426e-bdcd-1a465235af37",
+      "canonicalCommit": "7061be826cef83e4924ebda357f35164fa97ddb8",
+      "dependencies": [
+        {
+          "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+          "taskId": "sums_reduction"
+        }
+      ],
+      "groupId": "main",
+      "researchBasis": {
+        "dependencies": [
+          {
+            "deliveries": [],
+            "proof": {
+              "conditions": [],
+              "state": "integrated",
+              "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292"
+            },
+            "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+            "taskId": "sums_reduction"
+          }
+        ],
+        "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+        "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+        "retrievalDigest": "f5fa7f00d04e495a9eb0089943ca9e6764e56ca67c96253410933e210be6dfad",
+        "schema": "theorem-os.research-basis.v1",
+        "sourceDigest": "810ff14a46d534bd2976a85d7c3173036747adacc45af0c7a030da13685a8d29",
+        "taskDigest": "3a856ca2364c00bdd423a06f5687230794c1892c552728fa58bef184b124ccdf",
+        "taskId": "width_five_summability_ba0a1c09"
+      },
+      "seedCommit": "b187a51c4ed681451a8c08eb90719b7a8c1f8a18",
+      "taskDigest": "3a856ca2364c00bdd423a06f5687230794c1892c552728fa58bef184b124ccdf",
+      "taskId": "width_five_summability_ba0a1c09",
+      "workerId": "researcher-2"
+    },
+    "attempts": 1,
+    "parkedRoutes": {},
+    "routeParking": [],
+    "status": "running",
+    "typePreflight": {
+      "artifact": {
+        "digest": "44538d495d3d55ea5a63c5f15d713a5782370b8973530b11b3ed15662e0516fa",
+        "path": ".lake/type-diagnostics/0f1c91f0-5b17-44f5-9881-fff9eaf4561a/manifest.json"
+      },
+      "context": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums",
+      "evidence": "advisory-type-elaboration",
+      "inputDigest": "fd1d92831dc09e030f8b96cd7317fbb5de16c77a33a50b0e69340b692bfd3c1b",
+      "proofAcceptance": "not-assessed",
+      "reason": "closed-type-elaborated",
+      "status": "elaborated",
+      "taskDigest": "3a856ca2364c00bdd423a06f5687230794c1892c552728fa58bef184b124ccdf",
+      "type": "Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧ Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight"
+    }
+  },
+  "newTaskContractSHA256": "3a856ca2364c00bdd423a06f5687230794c1892c552728fa58bef184b124ccdf",
+  "nativeTaskAcceptanceAddedByQueue": false,
+  "newLeanInvocationsByRoot": 0,
+  "directActiveStateOrSourceWrites": false,
+  "stateSHA256": "176a52b6bdd0912daf079710002f78213a8780de1d8417e7adbf8bc40f108110"
+}

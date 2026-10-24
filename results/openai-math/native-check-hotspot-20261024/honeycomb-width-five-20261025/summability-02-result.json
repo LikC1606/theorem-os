@@ -1,0 +1,52 @@
+{
+  "startedAt": "2026-10-24T17:35:53.730899+00:00",
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "--threads=1",
+    "--memory=32768",
+    "-DautoImplicit=false",
+    "-DmaxHeartbeats=0",
+    "-DmaxRecDepth=1000",
+    "WidthFive.lean"
+  ],
+  "cwd": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-width-five-20261025",
+  "sourceSHA256": "8ebc18ef619e6ae63a6e13e510b47ed3f30924803472b0d712c22cd803a7fded",
+  "sourceBytes": 66843,
+  "leanToolchain": "leanprover/lean4:v4.34.1",
+  "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+  "leanPath": [
+    "/proc/1250131/fd/5/LeanSearchClient/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/Qq/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/aesop/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/batteries/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/importGraph/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/mathlib/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/plausible/.lake/build/lib/lean",
+    "/proc/1250131/fd/5/proofwidgets/.lake/build/lib/lean"
+  ],
+  "sealedEnvironmentIdentity": "2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87",
+  "resourceLimits": {
+    "wallSeconds": null,
+    "cpuSoftSeconds": null,
+    "cpuHardSeconds": null,
+    "maxHeartbeats": 0,
+    "addressSpaceGiB": 32,
+    "leanMemoryMiB": 32768,
+    "threads": 1,
+    "cpus": [
+      0
+    ]
+  },
+  "activeRuntimeChanged": false,
+  "activeSourceChanged": false,
+  "hostTaskProofAcceptance": false,
+  "finishedAt": "2026-10-24T17:37:06.545795+00:00",
+  "durationSeconds": 72.81447333516553,
+  "actualExitCode": 1,
+  "timedOut": false,
+  "maxResidentSetKiB": 7458656,
+  "userCPUSeconds": 65.938835,
+  "systemCPUSeconds": 3.173189,
+  "stdoutLog": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-width-five-20261025/summability-02.stdout.log",
+  "stderrLog": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-width-five-20261025/summability-02.stderr.log"
+}

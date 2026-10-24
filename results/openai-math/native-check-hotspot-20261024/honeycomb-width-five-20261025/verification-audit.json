@@ -1,0 +1,24 @@
+{
+  "actualExitCode": 0,
+  "sourceMatchesSavedSnapshot": true,
+  "sourceMatchesLaunchAndResultSHA256": true,
+  "sourceMatchesComponents": true,
+  "canonicalPrefixSHA256": "f55c042e447b853d775f3f6f164d94ab175cc328eabf324588117d8d436f0c45",
+  "sourceSHA256": "ba0a1c09a7ff973ccb68198c1d01428684e8dd49cbaee5df3dc7e83338582750",
+  "incrementSHA256": "a33eef19ac38782883227589dc48e125ff7e3d4379da9f6cf4ebc20e9c8760ca",
+  "allSixAxiomListsWhitelisted": true,
+  "heightExplicitInFinalPrintedType": true,
+  "placeholderFreeIncrement": true,
+  "noLeanRerunDuringArchival": true,
+  "failuresPreserved": [
+    "local-certificate-01",
+    "summability-02"
+  ],
+  "passedRuns": [
+    "summability-03",
+    "explicit-types-04"
+  ],
+  "finalPrettyPrinterOnlyRerunReason": "Expose implicit height and all six exact types",
+  "pythonIsProofOracle": false,
+  "nativeTaskProofAcceptance": false
+}

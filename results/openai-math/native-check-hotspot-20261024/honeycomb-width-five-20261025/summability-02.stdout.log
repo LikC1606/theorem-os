@@ -1,0 +1,85 @@
+WidthFive.lean:200:89: warning: Used `tac1 <;> tac2` where `(tac1; tac2)` would suffice
+
+Note: This linter can be disabled with `set_option linter.unnecessarySeqFocus false`
+WidthFive.lean:808:9: error: Application type mismatch: The argument
+  checked0
+has type
+  ∀ w ∈ List.map Prod.fst table0, rowOK w
+but is expected to have type
+  (((((((((((((((((((((((((((((∀ x ∈ List.map Prod.fst table0, rowOK x) ∧ ∀ x ∈ List.map Prod.fst table1, rowOK x) ∧
+                                                          ∀ x ∈ List.map Prod.fst table2, rowOK x) ∧
+                                                        ∀ x ∈ List.map Prod.fst table3, rowOK x) ∧
+                                                      ∀ x ∈ List.map Prod.fst table4, rowOK x) ∧
+                                                    ∀ x ∈ List.map Prod.fst table5, rowOK x) ∧
+                                                  ∀ x ∈ List.map Prod.fst table6, rowOK x) ∧
+                                                ∀ x ∈ List.map Prod.fst table7, rowOK x) ∧
+                                              ∀ x ∈ List.map Prod.fst table8, rowOK x) ∧
+                                            ∀ x ∈ List.map Prod.fst table9, rowOK x) ∧
+                                          ∀ x ∈ List.map Prod.fst table10, rowOK x) ∧
+                                        ∀ x ∈ List.map Prod.fst table11, rowOK x) ∧
+                                      ∀ x ∈ List.map Prod.fst table12, rowOK x) ∧
+                                    ∀ x ∈ List.map Prod.fst table13, rowOK x) ∧
+                                  ∀ x ∈ List.map Prod.fst table14, rowOK x) ∧
+                                ∀ x ∈ List.map Prod.fst table15, rowOK x) ∧
+                              ∀ x ∈ List.map Prod.fst table16, rowOK x) ∧
+                            ∀ x ∈ List.map Prod.fst table17, rowOK x) ∧
+                          ∀ x ∈ List.map Prod.fst table18, rowOK x) ∧
+                        ∀ x ∈ List.map Prod.fst table19, rowOK x) ∧
+                      ∀ x ∈ List.map Prod.fst table20, rowOK x) ∧
+                    ∀ x ∈ List.map Prod.fst table21, rowOK x) ∧
+                  ∀ x ∈ List.map Prod.fst table22, rowOK x) ∧
+                ∀ x ∈ List.map Prod.fst table23, rowOK x) ∧
+              ∀ x ∈ List.map Prod.fst table24, rowOK x) ∧
+            ∀ x ∈ List.map Prod.fst table25, rowOK x) ∧
+          ∀ x ∈ List.map Prod.fst table26, rowOK x) ∧
+        ∀ x ∈ List.map Prod.fst table27, rowOK x) ∧
+      ∀ x ∈ List.map Prod.fst table28, rowOK x) ∧
+    ∀ x ∈ List.map Prod.fst table29, rowOK x
+in the application
+  And.intro checked0
+WidthFive.lean:808:19: error: Invalid `⟨...⟩` notation: The expected type
+  ∀ x ∈ List.map Prod.fst table30, rowOK x
+is not an inductive type
+
+Note: This notation can only be used when the expected type is an inductive type with a single constructor
+WidthFive.lean:812:4: error(lean.dependsOnNoncomputable): failed to compile definition, consider marking it as 'noncomputable' because it depends on 'Real.instDivInvMonoid', which is 'noncomputable'
+WidthFive.lean:931:22: warning: try 'simp' instead of 'simpa'
+
+Note: This linter can be disabled with `set_option linter.unnecessarySimpa false`
+WidthFive.table_checked : ∀ w ∈ WidthFive.states, WidthFive.rowOK w
+'OAI.PolynomialVacuumBridge.Corridor.WidthFive.table_checked' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]
+WidthFive.count_weighted : ∀ (n : ℕ) (w : List Vertex),
+  WidthFive.normalize w ∈ WidthFive.states →
+    ↑(WidthFive.count w n) ≤ ↑(WidthFive.potential (WidthFive.normalize w)) * WidthFive.beta ^ n
+'OAI.PolynomialVacuumBridge.Corridor.WidthFive.count_weighted' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]
+WidthFive.path_mem_allPaths : ∀ (p : BridgePath 5), p.vertices ∈ WidthFive.allPaths p.vertices.length
+'OAI.PolynomialVacuumBridge.Corridor.WidthFive.path_mem_allPaths' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+WidthFive.path_card_real : ∀ (n : ℕ) (s : Finset (BridgePath 5)),
+  (∀ p ∈ s, p.vertices.length = n) →
+    ↑s.card ≤ ↑(WidthFive.potential (WidthFive.normalize [Vertex.up 0 0])) * WidthFive.beta ^ n
+'OAI.PolynomialVacuumBridge.Corridor.WidthFive.path_card_real' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]
+WidthFive.stripGrowthAtFive : ∃ C β,
+  0 ≤ C ∧
+    0 ≤ β ∧
+      β < 2 * Real.cos (Real.pi / 8) ∧
+        ∀ (n : ℕ) (s : Finset (BridgePath 5)), (∀ p ∈ s, p.vertices.length = n) → ↑s.card ≤ C * β ^ n
+'OAI.PolynomialVacuumBridge.Corridor.WidthFive.stripGrowthAtFive' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]
+width_five_summability_diagnostic : Summable weight ∧ Summable firstLengthWeight
+'OAI.PolynomialVacuumBridge.Corridor.width_five_summability_diagnostic' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]

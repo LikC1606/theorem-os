@@ -1,0 +1,6 @@
+theorem width_three_summability_diagnostic :
+    Summable (weight (h := 3)) ∧ Summable (firstLengthWeight (h := 3)) := by
+  obtain ⟨C, β, hC, hβ, hlt, hcount⟩ := widthThreeStripGrowthAtThree
+  have hL : Summable (firstLengthWeight (h := 3)) :=
+    bridgeSummable_firstLengthWeight_of_mu_bound hC hβ hlt hcount
+  exact ⟨bridgeSummable_weight_of_summable_firstLengthWeight hL,hL⟩

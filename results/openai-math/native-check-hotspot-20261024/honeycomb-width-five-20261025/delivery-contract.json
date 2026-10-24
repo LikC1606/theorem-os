@@ -1,0 +1,20 @@
+{
+  "theoremName": "OAI.PolynomialVacuumBridge.Corridor.width_five_summability_diagnostic",
+  "type": "Summable (OAI.PolynomialVacuumBridge.Corridor.weight (h := 5)) ∧ Summable (OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (h := 5))",
+  "dependsOn": [
+    "sums_reduction"
+  ],
+  "source": "WidthFive.lean",
+  "sourceSHA256": "ba0a1c09a7ff973ccb68198c1d01428684e8dd49cbaee5df3dc7e83338582750",
+  "increment": "WidthFive.lean.inc",
+  "incrementSHA256": "a33eef19ac38782883227589dc48e125ff7e3d4379da9f6cf4ebc20e9c8760ca",
+  "validatedPrefixSHA256": "f55c042e447b853d775f3f6f164d94ab175cc328eabf324588117d8d436f0c45",
+  "finalValidation": "explicit-types-04-result.json",
+  "localKernelProved": true,
+  "nativeTaskProofAcceptance": false,
+  "canonicalIntegration": false,
+  "allHeightsProved": false,
+  "insertionNamespace": "OAI.PolynomialVacuumBridge.Corridor",
+  "standaloneHarnessMustNotReplaceSubmission": true,
+  "activeSourceReinspectedDuringArchival": false
+}

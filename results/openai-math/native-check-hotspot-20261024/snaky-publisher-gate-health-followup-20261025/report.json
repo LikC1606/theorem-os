@@ -1,0 +1,55 @@
+{
+  "schema": "snaky-publisher-gate-health-followup.v1",
+  "capturedAtUTC": "2026-10-24T17:49:03.340189+00:00",
+  "capturedAtAsiaShanghai": "2026-10-25T01:49:03.340189+08:00",
+  "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+  "phase": "evaluating",
+  "resultStatus": "prepared",
+  "stateFileSHA256": "b46e7ce756462e00601bcf06f64d6bffb1b7acfcf4e9a3eea3e34b4ba3e4180b",
+  "resultFileSHA256": "ba842f431e3e1da99e0af896dbdcfb42b7b023321f9dda815e9bac67319ca9ed",
+  "fixedReview": {
+    "status": "accepted",
+    "assignmentId": "939143f3-e7bf-4f09-a80d-e61d5e11c13f",
+    "commit": "14d49c0f2bb94a8973471120f675554798126117",
+    "sourceDigest": "1a75c56a0beaa6df7578a0317d90f40fa2c6b1a9faf43511e1c69fa0bcee4f4f"
+  },
+  "currentGate": "frozen publisher lake build Challenge Submission",
+  "leanPid": 900064,
+  "leanStartedAtUTC": "2026-10-24T16:11:15.480189+00:00",
+  "leanElapsedSeconds": 5867.85999999987,
+  "leanCPUSeconds": 5868.08,
+  "leanRSSBytes": 10556661760,
+  "cpuProgressComparedToExistingFrozenSample": {
+    "sampleFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/snaky-publisher-gate-health-20261025/sample-after.json",
+    "sampleFileSHA256": "2edbfda89d6bb0f01ff4e437f131b62d449bffd6d1b0002d11df1d24fc1eef08",
+    "sampleObservedAtUTC": "2026-10-24T17:14:08.441941+00:00",
+    "intervalSeconds": 2094.898248910904,
+    "cpuSecondsDelta": 2095.0,
+    "singleCoreUtilizationFraction": 1.0000485708979656,
+    "newBlockingWaitPerformed": false
+  },
+  "activeOwnedLeanCompilers": [
+    900064
+  ],
+  "activeComparatorProcesses": [],
+  "evaluationStartedEvents": 1,
+  "evaluationFinishedEvents": 0,
+  "finishedEvents": 0,
+  "actualBudgets": {
+    "--max-run-seconds": "0",
+    "--max-turns": "0",
+    "--max-turn-seconds": "0",
+    "--max-total-tokens": "0",
+    "--evaluator-timeout-seconds": "0"
+  },
+  "allFiveBudgetsZero": true,
+  "frozenEvaluatorCommandSHA256": "7cb9c632ad7e9a8890d64357fe178bf996f28ada0cbc6fe50f32e1f4d01d766f",
+  "frozenEvaluatorCommandUnchanged": true,
+  "addressSpaceLimitBytes": 34359738368,
+  "nextGate": "The existing frozen command runs comparator after publisher build, then writes final result.",
+  "claimBoundary": "Still in flight; no final acceptance or failure claimed. Official comparator code executes locally, not OpenAI hosted certification. No ProducedSolution/credentials/hidden reasoning read.",
+  "interventionPerformed": false,
+  "activeSourceStateRuntimeCacheOrConfigModified": false,
+  "previousEvidenceOrResultsWorkspaceModified": false,
+  "compilerInvoked": false
+}

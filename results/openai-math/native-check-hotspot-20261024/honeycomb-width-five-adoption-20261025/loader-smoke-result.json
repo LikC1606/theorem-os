@@ -1,0 +1,39 @@
+{
+  "schema": "theorem-os.checked-increment-loader-smoke.v1",
+  "observedAt": "2026-10-24T17:43:56.888083+00:00",
+  "canonicalCommit": "ef7c4acdd975241b67f4ff616499021002f24e05",
+  "canonicalSourceSHA256": "fd04b36bf0bff9c03c9f84eec7adafd93401d041bbcdd3d6f180e64c1dfa163c",
+  "incrementSHA256": "a33eef19ac38782883227589dc48e125ff7e3d4379da9f6cf4ebc20e9c8760ca",
+  "loaderSHA256": "f2e0413bea5136411e6622dc959ae517083593c471beaa9f12a7c171f5101b5b",
+  "incrementBytes": 57660,
+  "compressedBase64Bytes": 10196,
+  "samples": [
+    {
+      "actualExitCode": 0,
+      "stdout": {
+        "status": "inserted",
+        "beforeSHA256": "fd04b36bf0bff9c03c9f84eec7adafd93401d041bbcdd3d6f180e64c1dfa163c",
+        "afterSHA256": "55befdcab32c2da645c2bf1839d1041d7d359d0207169ec73647d797722bffbf",
+        "incrementSHA256": "a33eef19ac38782883227589dc48e125ff7e3d4379da9f6cf4ebc20e9c8760ca",
+        "incrementBytes": 57660,
+        "preservedExistingSourceBytes": 54632
+      },
+      "stderr": ""
+    },
+    {
+      "actualExitCode": 0,
+      "stdout": {
+        "status": "already-present",
+        "incrementSHA256": "a33eef19ac38782883227589dc48e125ff7e3d4379da9f6cf4ebc20e9c8760ca",
+        "sourceSHA256": "55befdcab32c2da645c2bf1839d1041d7d359d0207169ec73647d797722bffbf"
+      },
+      "stderr": ""
+    }
+  ],
+  "allPreviousSourceBytesPreserved": true,
+  "idempotent": true,
+  "temporaryLocalFixtureRemoved": true,
+  "activeSourceChanged": false,
+  "leanInvocations": 0,
+  "nativeAcceptanceAdded": false
+}

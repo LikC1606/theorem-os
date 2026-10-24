@@ -1,0 +1,36 @@
+WidthFive.lean:200:89: warning: Used `tac1 <;> tac2` where `(tac1; tac2)` would suffice
+
+Note: This linter can be disabled with `set_option linter.unnecessarySeqFocus false`
+WidthFive.lean:931:22: warning: try 'simp' instead of 'simpa'
+
+Note: This linter can be disabled with `set_option linter.unnecessarySimpa false`
+WidthFive.table_checked : ∀ w ∈ WidthFive.states, WidthFive.rowOK w
+'OAI.PolynomialVacuumBridge.Corridor.WidthFive.table_checked' depends on axioms: [propext, Classical.choice, Quot.sound]
+WidthFive.count_weighted : ∀ (n : ℕ) (w : List Vertex),
+  WidthFive.normalize w ∈ WidthFive.states →
+    ↑(WidthFive.count w n) ≤ ↑(WidthFive.potential (WidthFive.normalize w)) * WidthFive.beta ^ n
+'OAI.PolynomialVacuumBridge.Corridor.WidthFive.count_weighted' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+WidthFive.path_mem_allPaths : ∀ (p : BridgePath 5), p.vertices ∈ WidthFive.allPaths p.vertices.length
+'OAI.PolynomialVacuumBridge.Corridor.WidthFive.path_mem_allPaths' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+WidthFive.path_card_real : ∀ (n : ℕ) (s : Finset (BridgePath 5)),
+  (∀ p ∈ s, p.vertices.length = n) →
+    ↑s.card ≤ ↑(WidthFive.potential (WidthFive.normalize [Vertex.up 0 0])) * WidthFive.beta ^ n
+'OAI.PolynomialVacuumBridge.Corridor.WidthFive.path_card_real' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+WidthFive.stripGrowthAtFive : ∃ C β,
+  0 ≤ C ∧
+    0 ≤ β ∧
+      β < 2 * Real.cos (Real.pi / 8) ∧
+        ∀ (n : ℕ) (s : Finset (BridgePath 5)), (∀ p ∈ s, p.vertices.length = n) → ↑s.card ≤ C * β ^ n
+'OAI.PolynomialVacuumBridge.Corridor.WidthFive.stripGrowthAtFive' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+width_five_summability_diagnostic : Summable weight ∧ Summable firstLengthWeight
+'OAI.PolynomialVacuumBridge.Corridor.width_five_summability_diagnostic' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

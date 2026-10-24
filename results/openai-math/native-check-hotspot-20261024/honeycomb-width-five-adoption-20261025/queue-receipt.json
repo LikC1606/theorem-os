@@ -1,0 +1,12 @@
+{
+  "observedAt": "2026-10-24T17:47:32.202Z",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "editId": "honeycomb-width-five-checked-proof-20261025",
+  "result": {
+    "id": "honeycomb-width-five-checked-proof-20261025",
+    "status": "queued",
+    "baseVersion": "acd1f46432b0dae6f7cfe750cf020b31ddb9c01191b2482caab95b45ebaef021"
+  },
+  "newLeanInvocations": 0,
+  "nativeTaskAcceptanceAdded": false
+}

@@ -1,0 +1,16 @@
+UNCONDITIONAL HEIGHT-FIVE LOCAL KERNEL PROOF
+
+Theorem: OAI.PolynomialVacuumBridge.Corridor.width_five_summability_diagnostic
+Type: Summable (OAI.PolynomialVacuumBridge.Corridor.weight (h := 5)) ∧ Summable (OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (h := 5))
+Task ID: width_five_summability_ba0a1c09
+Depends on: sums_reduction
+
+Insert WidthFive.lean.inc once in namespace OAI.PolynomialVacuumBridge.Corridor, after bridgeSummable_firstLengthWeight_of_mu_bound and bridgeSummable_weight_of_summable_firstLengthWeight. Do not replace Submission with the standalone harness. Preserve existing tasks/declarations and the open all-height original theorem. Check collisions before normal native submission.
+
+Source SHA256: ba0a1c09a7ff973ccb68198c1d01428684e8dd49cbaee5df3dc7e83338582750
+Increment SHA256: a33eef19ac38782883227589dc48e125ff7e3d4379da9f6cf4ebc20e9c8760ca
+Final actual exit: 0; duration: 72.50562026002444 seconds
+Final launch/result: explicit-types-04-launch.json / explicit-types-04-result.json
+Six exact types/axiom lists are in the final stdout with pp.explicit=true. Allowed axioms only: propext, Classical.choice, Quot.sound.
+
+Python witness generation is not mathematical proof; Lean checks every finite certificate row and the full canonical path connection. Height five only. Native host acceptance and integration remain with the parent; no active chain or results repository was modified here.

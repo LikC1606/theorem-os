@@ -1,0 +1,27 @@
+{
+  "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/solve.log",
+  "sourceBytesAtCapture": 240565,
+  "sourceSHA256": "49feebb7448694640398656c022c183f8182ef342dc26979f681c49a2c0ef0c9",
+  "events": [
+    {
+      "line": 2233,
+      "byteOffset": 239727,
+      "lineBytes": 147,
+      "rawLineSHA256": "4fdaac152637c9b749e987c28291ebc67f7b3cd028e35e0a0107e80546c49241",
+      "event": "review_completed",
+      "at": 1792849828833,
+      "workerId": "researcher-1",
+      "commit": "14d49c0f2bb94a8973471120f675554798126117",
+      "verdict": "accepted"
+    },
+    {
+      "line": 2239,
+      "byteOffset": 240495,
+      "lineBytes": 70,
+      "rawLineSHA256": "9fa3caa81bdd77db2f56e12bc0897b5f1e299b6c9618e636e2575aed5eb36ceb",
+      "event": "evaluation_started",
+      "at": 1792849829347,
+      "workerId": "solver"
+    }
+  ]
+}

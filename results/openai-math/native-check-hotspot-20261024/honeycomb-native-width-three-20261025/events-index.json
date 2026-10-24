@@ -1,0 +1,36 @@
+[
+  {
+    "line": 33029,
+    "byteOffset": 8743632,
+    "lineBytes": 398,
+    "rawLineSHA256": "0465be01cbccedec7c4275eeb974c46c51213e396c8d28ff0081781c3ff61329",
+    "at": 1792863931815,
+    "event": "task_checked",
+    "commit": "c9c9dba2430cca6189a64793f620e1d9530ac12c",
+    "receiptIds": []
+  },
+  {
+    "line": 33047,
+    "byteOffset": 8753562,
+    "lineBytes": 795,
+    "rawLineSHA256": "15f59767650e5839844849a0fd757018a6be79d1cc49c16ac666defde16157b9",
+    "at": 1792863960490,
+    "event": "task_integrated",
+    "commit": "7061be826cef83e4924ebda357f35164fa97ddb8",
+    "receiptIds": [
+      "lean-57bf5d70cc019e03fa3fba3d"
+    ]
+  },
+  {
+    "line": 33049,
+    "byteOffset": 8755650,
+    "lineBytes": 818,
+    "rawLineSHA256": "1c507989bb7277f1aff08dfda1d165a0303146b2c43ac2b2111fe9d43ac2b693",
+    "at": 1792863960648,
+    "event": "delivery_published",
+    "commit": "c9c9dba2430cca6189a64793f620e1d9530ac12c",
+    "receiptIds": [
+      "lean-4bae72d27c6d83d9d29474cd"
+    ]
+  }
+]

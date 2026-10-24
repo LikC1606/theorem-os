@@ -1,0 +1,233 @@
+WidthFive.lean:183:0: error(lean.dependsOnNoncomputable): failed to compile definition, consider marking it as 'noncomputable' because it depends on 'layer', which is 'noncomputable'
+WidthFive.lean:187:4: error(lean.dependsOnNoncomputable): failed to compile definition, consider marking it as 'noncomputable' because it depends on 'instDecidableInside', which is 'noncomputable'
+WidthFive.lean:194:82: warning: Used `tac1 <;> tac2` where `(tac1; tac2)` would suffice
+
+Note: This linter can be disabled with `set_option linter.unnecessarySeqFocus false`
+WidthFive.lean:220:6: error: `grind` failed
+case grind.1
+t i j i_1 j_1 : ℤ
+h : Vertex.down i_1 j_1 ∈ neighbors (shift t (Vertex.up i j))
+hc : (i_1 = t + i ∧ j_1 = j - 1 ∨ i_1 = t + i ∧ j_1 = j ∨ i_1 = t + i - 1 ∧ j_1 = j) ∧ 0 ≤ j_1 ∧ j_1 < 5
+h_1 :
+  ∀ (a : Vertex),
+    ¬a = Vertex.down i (j + -1) ∧ ¬a = Vertex.down i j ∧ ¬a = Vertex.down (i + -1) j ∨
+      Vertex.rec (fun x vertical => vertical) (fun x vertical => vertical) a + 1 ≤ 0 ∨
+        -1 * Vertex.rec (fun x vertical => vertical) (fun x vertical => vertical) a + 5 ≤ 0 ∨
+          ¬(match a with
+              | Vertex.up i j => Vertex.up (t + i) j
+              | Vertex.down i j => Vertex.down (t + i) j) =
+              Vertex.down i_1 j_1
+left : -1 * t + -1 * i + i_1 = 0
+right : -1 * j + j_1 + 1 = 0
+⊢ False
+[grind] Goal diagnostics
+  [facts] Asserted facts
+    [prop] Vertex.down i_1 j_1 ∈ neighbors (shift t (Vertex.up i j))
+    [prop] (-1 * t + -1 * i + i_1 = 0 ∧ -1 * j + j_1 + 1 = 0 ∨
+            -1 * t + -1 * i + i_1 = 0 ∧ j_1 = j ∨ -1 * t + -1 * i + i_1 + 1 = 0 ∧ j_1 = j) ∧
+          -1 * j_1 ≤ 0 ∧ j_1 + -4 ≤ 0
+    [prop] ∀ (a : Vertex),
+          ¬a = Vertex.down i (j + -1) ∧ ¬a = Vertex.down i j ∧ ¬a = Vertex.down (i + -1) j ∨
+            Vertex.rec (fun x vertical => vertical) (fun x vertical => vertical) a + 1 ≤ 0 ∨
+              -1 * Vertex.rec (fun x vertical => vertical) (fun x vertical => vertical) a + 5 ≤ 0 ∨
+                ¬(match a with
+                    | Vertex.up i j => Vertex.up (t + i) j
+                    | Vertex.down i j => Vertex.down (t + i) j) =
+                    Vertex.down i_1 j_1
+    [prop] -1 * t + -1 * i + i_1 = 0
+    [prop] -1 * j + j_1 + 1 = 0
+  [eqc] True propositions
+    [prop] (-1 * t + -1 * i + i_1 = 0 ∧ -1 * j + j_1 + 1 = 0 ∨
+            -1 * t + -1 * i + i_1 = 0 ∧ j_1 = j ∨ -1 * t + -1 * i + i_1 + 1 = 0 ∧ j_1 = j) ∧
+          -1 * j_1 ≤ 0 ∧ j_1 + -4 ≤ 0
+    [prop] -1 * t + -1 * i + i_1 = 0 ∧ -1 * j + j_1 + 1 = 0
+    [prop] -1 * j_1 ≤ 0 ∧ j_1 + -4 ≤ 0
+    [prop] -1 * t + -1 * i + i_1 = 0 ∧ -1 * j + j_1 + 1 = 0 ∨
+          -1 * t + -1 * i + i_1 = 0 ∧ j_1 = j ∨ -1 * t + -1 * i + i_1 + 1 = 0 ∧ j_1 = j
+    [prop] -1 * t + -1 * i + i_1 = 0
+    [prop] -1 * j + j_1 + 1 = 0
+    [prop] j_1 + -4 ≤ 0
+    [prop] -1 * j_1 ≤ 0
+    [prop] Vertex.down i_1 j_1 ∈ neighbors (shift t (Vertex.up i j))
+    [prop] ∀ (a : Vertex),
+          ¬a = Vertex.down i (j + -1) ∧ ¬a = Vertex.down i j ∧ ¬a = Vertex.down (i + -1) j ∨
+            Vertex.rec (fun x vertical => vertical) (fun x vertical => vertical) a + 1 ≤ 0 ∨
+              -1 * Vertex.rec (fun x vertical => vertical) (fun x vertical => vertical) a + 5 ≤ 0 ∨
+                ¬(match a with
+                    | Vertex.up i j => Vertex.up (t + i) j
+                    | Vertex.down i j => Vertex.down (t + i) j) =
+                    Vertex.down i_1 j_1
+  [eqc] Equivalence classes
+    [eqc] {-1 * t + -1 * i + i_1 = 0 ∧ j_1 = j, j_1 = j}
+    [eqc] {0, -1 * t + -1 * i + i_1, -1 * j + j_1 + 1}
+    [eqc] {1, -1 * t + -1 * i + i_1 + 1}
+    [eqc] {fun i => Vertex.down (t + i), fun i j => Vertex.down (t + i) j}
+    [eqc] {fun i => Vertex.up (t + i), fun i j => Vertex.up (t + i) j}
+  [cases] Case analyses
+    [cases] [1/2]: -1 * t + -1 * i + i_1 = 0 ∧ -1 * j + j_1 + 1 = 0 ∨
+          -1 * t + -1 * i + i_1 = 0 ∧ j_1 = j ∨ -1 * t + -1 * i + i_1 + 1 = 0 ∧ j_1 = j
+      [cases] source: Initial goal
+  [ematch] E-matching patterns
+    [thm] Inclusion.IntervalDyadicReal.mem_iff_mem_map: [@Membership.mem `[ℝ] `[Inclusion.Interval
+           Dyadic] `[Inclusion.instMembershipOfToSet] #0 #1]
+    [thm] Inclusion.Interval.mem_def: [@Membership.mem #3 (Inclusion.Interval _) _ #0 #1]
+    [thm] Multiset.mem_add: [@Membership.mem #3 _ _ (@HAdd.hAdd _ _ _ _ #1 #0) #2]
+    [thm] Finset.subset_iff: [@LE.le (Finset #2) _ #1 #0]
+    [thm] Set.subset_def: [@LE.le _ _ #1 #0]
+    [thm] h_1: [@LE.le `[ℤ] `[Int.instLEInt] (@HAdd.hAdd `[ℤ] `[ℤ] `[ℤ] `[instHAdd] (@Vertex.rec `[fun x =>
+             ℤ] `[fun x vertical => vertical] `[fun x vertical => vertical] #0) `[1]) `[0]]
+    [thm] h_1: [@Vertex.rec `[fun x => ℤ] `[fun x vertical => vertical] `[fun x vertical => vertical] #0]
+    [thm] h_1: [@LE.le `[ℤ] `[Int.instLEInt] (@HAdd.hAdd `[ℤ] `[ℤ] `[ℤ] `[instHAdd] (@HMul.hMul `[ℤ] `[ℤ] `[ℤ] `[instHMul] `[-1] (@Vertex.rec `[fun
+                x =>
+              ℤ] `[fun x vertical => vertical] `[fun x vertical => vertical] #0)) `[5]) `[0]]
+    [thm] h_1: [position.match_1 `[fun x =>
+           Vertex] #0 `[fun i j => Vertex.up (t + i) j] `[fun i j => Vertex.down (t + i) j]]
+  [cutsat] Assignment satisfying linear constraints
+    [assign] t := 0
+    [assign] i := 0
+    [assign] j := 1
+    [assign] i_1 := 0
+    [assign] j_1 := 0
+  [ring] Ring `ℤ`
+    [basis] Basis
+      [_] t + i + -1 * i_1 = 0
+      [_] j + -1 * j_1 + -1 = 0
+WidthFive.lean:220:6: error: `grind` failed
+case grind.1
+t i j i_1 j_1 : ℤ
+h : Vertex.up i_1 j_1 ∈ neighbors (shift t (Vertex.down i j))
+hc : (t + i = i_1 ∧ j = j_1 - 1 ∨ t + i = i_1 ∧ j = j_1 ∨ t + i = i_1 - 1 ∧ j = j_1) ∧ 0 ≤ j_1 ∧ j_1 < 5
+h_1 :
+  ∀ (a : Vertex),
+    ¬a = Vertex.up i (j + 1) ∧ ¬a = Vertex.up i j ∧ ¬a = Vertex.up (i + 1) j ∨
+      Vertex.rec (fun x vertical => vertical) (fun x vertical => vertical) a + 1 ≤ 0 ∨
+        -1 * Vertex.rec (fun x vertical => vertical) (fun x vertical => vertical) a + 5 ≤ 0 ∨
+          ¬(match a with
+              | Vertex.up i j => Vertex.up (t + i) j
+              | Vertex.down i j => Vertex.down (t + i) j) =
+              Vertex.up i_1 j_1
+left : t + i + -1 * i_1 = 0
+right : j + -1 * j_1 + 1 = 0
+⊢ False
+[grind] Goal diagnostics
+  [facts] Asserted facts
+    [prop] Vertex.up i_1 j_1 ∈ neighbors (shift t (Vertex.down i j))
+    [prop] (t + i + -1 * i_1 = 0 ∧ j + -1 * j_1 + 1 = 0 ∨
+            t + i + -1 * i_1 = 0 ∧ j = j_1 ∨ t + i + -1 * i_1 + 1 = 0 ∧ j = j_1) ∧
+          -1 * j_1 ≤ 0 ∧ j_1 + -4 ≤ 0
+    [prop] ∀ (a : Vertex),
+          ¬a = Vertex.up i (j + 1) ∧ ¬a = Vertex.up i j ∧ ¬a = Vertex.up (i + 1) j ∨
+            Vertex.rec (fun x vertical => vertical) (fun x vertical => vertical) a + 1 ≤ 0 ∨
+              -1 * Vertex.rec (fun x vertical => vertical) (fun x vertical => vertical) a + 5 ≤ 0 ∨
+                ¬(match a with
+                    | Vertex.up i j => Vertex.up (t + i) j
+                    | Vertex.down i j => Vertex.down (t + i) j) =
+                    Vertex.up i_1 j_1
+    [prop] t + i + -1 * i_1 = 0
+    [prop] j + -1 * j_1 + 1 = 0
+  [eqc] True propositions
+    [prop] (t + i + -1 * i_1 = 0 ∧ j + -1 * j_1 + 1 = 0 ∨
+            t + i + -1 * i_1 = 0 ∧ j = j_1 ∨ t + i + -1 * i_1 + 1 = 0 ∧ j = j_1) ∧
+          -1 * j_1 ≤ 0 ∧ j_1 + -4 ≤ 0
+    [prop] t + i + -1 * i_1 = 0 ∧ j + -1 * j_1 + 1 = 0
+    [prop] -1 * j_1 ≤ 0 ∧ j_1 + -4 ≤ 0
+    [prop] t + i + -1 * i_1 = 0 ∧ j + -1 * j_1 + 1 = 0 ∨
+          t + i + -1 * i_1 = 0 ∧ j = j_1 ∨ t + i + -1 * i_1 + 1 = 0 ∧ j = j_1
+    [prop] t + i + -1 * i_1 = 0
+    [prop] j + -1 * j_1 + 1 = 0
+    [prop] j_1 + -4 ≤ 0
+    [prop] -1 * j_1 ≤ 0
+    [prop] Vertex.up i_1 j_1 ∈ neighbors (shift t (Vertex.down i j))
+    [prop] ∀ (a : Vertex),
+          ¬a = Vertex.up i (j + 1) ∧ ¬a = Vertex.up i j ∧ ¬a = Vertex.up (i + 1) j ∨
+            Vertex.rec (fun x vertical => vertical) (fun x vertical => vertical) a + 1 ≤ 0 ∨
+              -1 * Vertex.rec (fun x vertical => vertical) (fun x vertical => vertical) a + 5 ≤ 0 ∨
+                ¬(match a with
+                    | Vertex.up i j => Vertex.up (t + i) j
+                    | Vertex.down i j => Vertex.down (t + i) j) =
+                    Vertex.up i_1 j_1
+  [eqc] Equivalence classes
+    [eqc] {t + i + -1 * i_1 = 0 ∧ j = j_1, j = j_1}
+    [eqc] {0, t + i + -1 * i_1, j + -1 * j_1 + 1}
+    [eqc] {1, t + i + -1 * i_1 + 1}
+    [eqc] {fun i => Vertex.down (t + i), fun i j => Vertex.down (t + i) j}
+    [eqc] {fun i => Vertex.up (t + i), fun i j => Vertex.up (t + i) j}
+  [cases] Case analyses
+    [cases] [1/2]: t + i + -1 * i_1 = 0 ∧ j + -1 * j_1 + 1 = 0 ∨
+          t + i + -1 * i_1 = 0 ∧ j = j_1 ∨ t + i + -1 * i_1 + 1 = 0 ∧ j = j_1
+      [cases] source: Initial goal
+  [ematch] E-matching patterns
+    [thm] Inclusion.IntervalDyadicReal.mem_iff_mem_map: [@Membership.mem `[ℝ] `[Inclusion.Interval
+           Dyadic] `[Inclusion.instMembershipOfToSet] #0 #1]
+    [thm] Inclusion.Interval.mem_def: [@Membership.mem #3 (Inclusion.Interval _) _ #0 #1]
+    [thm] Multiset.mem_add: [@Membership.mem #3 _ _ (@HAdd.hAdd _ _ _ _ #1 #0) #2]
+    [thm] Finset.subset_iff: [@LE.le (Finset #2) _ #1 #0]
+    [thm] Set.subset_def: [@LE.le _ _ #1 #0]
+    [thm] h_1: [@LE.le `[ℤ] `[Int.instLEInt] (@HAdd.hAdd `[ℤ] `[ℤ] `[ℤ] `[instHAdd] (@Vertex.rec `[fun x =>
+             ℤ] `[fun x vertical => vertical] `[fun x vertical => vertical] #0) `[1]) `[0]]
+    [thm] h_1: [@Vertex.rec `[fun x => ℤ] `[fun x vertical => vertical] `[fun x vertical => vertical] #0]
+    [thm] h_1: [@LE.le `[ℤ] `[Int.instLEInt] (@HAdd.hAdd `[ℤ] `[ℤ] `[ℤ] `[instHAdd] (@HMul.hMul `[ℤ] `[ℤ] `[ℤ] `[instHMul] `[-1] (@Vertex.rec `[fun
+                x =>
+              ℤ] `[fun x vertical => vertical] `[fun x vertical => vertical] #0)) `[5]) `[0]]
+    [thm] h_1: [position.match_1 `[fun x =>
+           Vertex] #0 `[fun i j => Vertex.up (t + i) j] `[fun i j => Vertex.down (t + i) j]]
+  [cutsat] Assignment satisfying linear constraints
+    [assign] t := 0
+    [assign] i := 0
+    [assign] j := -1
+    [assign] i_1 := 0
+    [assign] j_1 := 0
+  [ring] Ring `ℤ`
+    [basis] Basis
+      [_] t + i + -1 * i_1 = 0
+      [_] j + -1 * j_1 + 1 = 0
+WidthFive.lean:226:70: error: omega could not prove the goal:
+No usable constraints found. You may need to unfold definitions so `omega` can see linear arithmetic facts about `Nat` and `Int`, which may also involve multiplication, division, and modular remainder by constants.
+WidthFive.lean:226:70: error: omega could not prove the goal:
+No usable constraints found. You may need to unfold definitions so `omega` can see linear arithmetic facts about `Nat` and `Int`, which may also involve multiplication, division, and modular remainder by constants.
+WidthFive.lean:218:30: warning: This simp argument is unused:
+  Vertex.up.injEq
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [neighbors, Finset.mem_image, Finset.mem_filter, Finset.mem_insert, Finset.mem_singleton,
+    Vertex.down.injEq, shift]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+WidthFive.lean:218:47: warning: This simp argument is unused:
+  Vertex.down.injEq
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [neighbors, Finset.mem_image, Finset.mem_filter, Finset.mem_insert, Finset.mem_singleton,
+    Vertex.up.injEq, shift]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+WidthFive.lean:256:20: warning: This simp argument is unused:
+  Function.comp_def
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [shift]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+WidthFive.lean:256:50: warning: this tactic is never executed
+
+Note: This linter can be disabled with `set_option linter.unreachableTactic false`
+WidthFive.lean:256:62: warning: this tactic is never executed
+
+Note: This linter can be disabled with `set_option linter.unreachableTactic false`
+WidthFive.lean:256:50: warning: Unused tactic linter: `congr 1` does nothing
+
+Note: This linter can be disabled with `set_option linter.unusedTactic false`
+WidthFive.lean:256:62: warning: Unused tactic linter: `omega` does nothing
+
+Note: This linter can be disabled with `set_option linter.unusedTactic false`
+WidthFive.lean:258:4: error(lean.dependsOnNoncomputable): failed to compile definition, consider marking it as 'noncomputable' because it depends on 'neighbors', which is 'noncomputable'
+WidthFive.lean:293:4: error(lean.dependsOnNoncomputable): failed to compile definition, consider marking it as 'noncomputable' because it depends on 'candidates', which is 'noncomputable'
+WidthFive.lean:684:0: error(lean.dependsOnNoncomputable): failed to compile definition, consider marking it as 'noncomputable' because it depends on 'candidates', which is 'noncomputable'
+WidthFive.lean:688:50: error: maximum recursion depth has been reached
+use `set_option maxRecDepth <num>` to increase limit
+use `set_option diagnostics true` to get diagnostic information
+WidthFive.table_checked : ∀ w ∈ WidthFive.states, WidthFive.rowOK w
+'OAI.PolynomialVacuumBridge.Corridor.WidthFive.table_checked' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]

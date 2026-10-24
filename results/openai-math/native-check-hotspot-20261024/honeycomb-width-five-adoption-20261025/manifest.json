@@ -1,0 +1,61 @@
+{
+  "schema": "theorem-os.frozen-adoption-manifest.v1",
+  "capturedAt": "2026-10-24T17:49:03.083279+00:00",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 2050,
+      "sha256": "c56e41223a1bb7509baf22dfde96dac51ee5ba3fa929f1577647d3ab2a3d9493"
+    },
+    {
+      "path": "applied-readback.json",
+      "bytes": 7307,
+      "sha256": "395c13ab185923d1a08d7059f21e6a4f064de673c5f09b89547d54601616da3c"
+    },
+    {
+      "path": "complete-handoff.md",
+      "bytes": 74037,
+      "sha256": "35e0bb9a1c257a032ba0219949679041497b3fe10ac6c4b7e9c3f98692cc681a"
+    },
+    {
+      "path": "context-availability-readback.json",
+      "bytes": 1957,
+      "sha256": "f7e2ca7113a54f3fd335b82506ae4e224b8b0bb4756113cf3d57bdd1a6df84ce"
+    },
+    {
+      "path": "install-increment.py",
+      "bytes": 12284,
+      "sha256": "f2e0413bea5136411e6622dc959ae517083593c471beaa9f12a7c171f5101b5b"
+    },
+    {
+      "path": "loader-smoke-result.json",
+      "bytes": 1507,
+      "sha256": "ed58b31ce8671c7ae4849f59bcca90124f1aeea05176a090046183a00702de39"
+    },
+    {
+      "path": "preparation.json",
+      "bytes": 213459,
+      "sha256": "f4d0d8d2d83575657a65a384b833ea83ac8468740d23603b6cd056556a73b2d6"
+    },
+    {
+      "path": "queue-receipt.json",
+      "bytes": 408,
+      "sha256": "dd60b0c917bfbeb06db3fde0998a1e3f19be3385685d9f187b5f56ab9f32a11d"
+    },
+    {
+      "path": "queue-width-five-proof.ts",
+      "bytes": 8215,
+      "sha256": "720bbe7b46d225f9a9555e4fa9bfb706bf7b67a30d4c9d2dc458f5ff185cc660"
+    },
+    {
+      "path": "state-applied.json",
+      "bytes": 1822778,
+      "sha256": "176a52b6bdd0912daf079710002f78213a8780de1d8417e7adbf8bc40f108110"
+    },
+    {
+      "path": "state-before.json",
+      "bytes": 1769943,
+      "sha256": "e18bde81272a22a5fc322b88d1fc55620e3dff6f466d93b6c70f6ca1fc25aebc"
+    }
+  ]
+}

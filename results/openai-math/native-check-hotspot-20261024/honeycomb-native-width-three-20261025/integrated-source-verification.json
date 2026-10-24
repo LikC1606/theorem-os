@@ -1,0 +1,165 @@
+{
+  "checkedAt": 1792863960039,
+  "durationMs": 27590,
+  "events": [
+    {
+      "eventId": "fd978621-85d5-4422-b5d7-863760476b76",
+      "kind": "session.opened",
+      "payload": {
+        "itemCount": 1,
+        "projectRoot": "/tmp/math-check-aE6fOZ/worktree/generated/problem",
+        "uniqueFileCount": 1
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "fb26f16c-c3bd-4fdf-bf03-b2b991174e54",
+      "timestamp": 1792863932451
+    },
+    {
+      "eventId": "10a2baa3-8e9e-4032-805e-7ebb4d440d79",
+      "kind": "file.opened",
+      "payload": {
+        "bytes": 69365,
+        "checkCount": 1,
+        "proofHash": "ed4fbef1a8a97953d6bd19ccf63fc974f297e72574c6d16066c255cce8fc41a3",
+        "proofPath": "Submission.lean"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "fb26f16c-c3bd-4fdf-bf03-b2b991174e54",
+      "timestamp": 1792863932451
+    },
+    {
+      "eventId": "f6878f0e-1ee1-43b2-9a8d-b8320e4e7e9f",
+      "kind": "toolchain.resolved",
+      "payload": {
+        "command": "lake",
+        "executable": "lake",
+        "lakeFile": "lakefile.toml"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "fb26f16c-c3bd-4fdf-bf03-b2b991174e54",
+      "timestamp": 1792863932451
+    },
+    {
+      "eventId": "0ef9b937-3869-471b-a0fe-52adc522eceb",
+      "kind": "check.draft_checked",
+      "payload": {
+        "admitCount": 0,
+        "axioms": [],
+        "proofPath": "Submission.lean",
+        "sorryCount": 0,
+        "status": "accepted"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "fb26f16c-c3bd-4fdf-bf03-b2b991174e54",
+      "timestamp": 1792863932466
+    },
+    {
+      "eventId": "13e38e1b-8671-4373-a27c-be1f245486a4",
+      "kind": "diagnostic.emitted",
+      "payload": {
+        "message": "DS_DECL_REFERENCES_8f3a1482474fa0053bfa132866c2fac2:null\nDEEPSCIENTIST_DECL_BEGIN_fde53132d51363a6\nOAI.PolynomialVacuumBridge.Corridor.width_three_summability_diagnostic :\n  Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧ Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight\nDEEPSCIENTIST_DECL_END_fde53132d51363a6\nDEEPSCIENTIST_AXIOMS_BEGIN_fde53132d51363a6\n'OAI.PolynomialVacuumBridge.Corridor.width_three_summability_diagnostic' depends on axioms: [propext,\n Classical.choice,\n Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_fde53132d51363a6",
+        "proofPath": "Submission.lean",
+        "severity": "info",
+        "source": "stdout"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "fb26f16c-c3bd-4fdf-bf03-b2b991174e54",
+      "timestamp": 1792863960033
+    },
+    {
+      "eventId": "58296bc3-7e86-45e3-b642-e66930f95220",
+      "kind": "diagnostic.emitted",
+      "payload": {
+        "message": "Submission.lean:356:22: warning: try 'simp' instead of 'simpa'\n\nNote: This linter can be disabled with `set_option linter.unnecessarySimpa false`\nSubmission.lean:486:46: warning: This simp argument is unused:\n  Vertex.down.injEq\n\nHint: Omit it from the simp argument list.\n  [apply] simp [widthThreeNeighbors, Vertex.up.injEq]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nSubmission.lean:628:22: warning: try 'simp' instead of 'simpa'\n\nNote: This linter can be disabled with `set_option linter.unnecessarySimpa false`\nSubmission.lean:1240:16: warning: this tactic is never executed\n\nNote: This linter can be disabled with `set_option linter.unreachableTactic false`\nSubmission.lean:1240:6: warning: Unused tactic linter: `all_goals\n  first\n  | exact Finset.card_le_three\n  | exact Finset.card_le_two.trans (by omega)\n  | exact lt_of_le_of_lt Finset.card_le_two (by omega)` does nothing\n\nNote: This linter can be disabled with `set_option linter.unusedTactic false`\nSubmission.lean:1246:46: warning: This simp argument is unused:\n  Vertex.down.injEq\n\nHint: Omit it from the simp argument list.\n  [apply] simp [widthTwoNeighbors, Vertex.up.injEq]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nSubmission.lean:1372:22: warning: try 'simp' instead of 'simpa'\n\nNote: This linter can be disabled with `set_option linter.unnecessarySimpa false`",
+        "proofPath": "Submission.lean",
+        "severity": "warning",
+        "source": "stderr"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "fb26f16c-c3bd-4fdf-bf03-b2b991174e54",
+      "timestamp": 1792863960033
+    },
+    {
+      "eventId": "bbcae1b8-9e03-4851-aef4-87d57a214b97",
+      "kind": "check.kernel_checked",
+      "payload": {
+        "aborted": false,
+        "durationMs": 27553,
+        "exitCode": 0,
+        "proofPath": "Submission.lean",
+        "signal": null,
+        "status": "kernel_verified",
+        "timedOut": false
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "fb26f16c-c3bd-4fdf-bf03-b2b991174e54",
+      "timestamp": 1792863960033
+    },
+    {
+      "eventId": "5eeb2ee5-1c45-4583-bd59-fb3641f833c0",
+      "kind": "receipt.published",
+      "payload": {
+        "checkId": "check-1",
+        "proofPath": "Submission.lean",
+        "receiptId": "lean-57bf5d70cc019e03fa3fba3d",
+        "status": "kernel_verified",
+        "theoremName": "OAI.PolynomialVacuumBridge.Corridor.width_three_summability_diagnostic"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "fb26f16c-c3bd-4fdf-bf03-b2b991174e54",
+      "timestamp": 1792863960034
+    },
+    {
+      "eventId": "a5e5f200-cb2f-4db3-b943-542f22e33615",
+      "kind": "session.closed",
+      "payload": {
+        "durationMs": 27590,
+        "resultCount": 1,
+        "status": "kernel_verified"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "fb26f16c-c3bd-4fdf-bf03-b2b991174e54",
+      "timestamp": 1792863960039
+    }
+  ],
+  "results": [
+    {
+      "admitCount": 0,
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "checkId": "check-1",
+      "checkedAt": 1792863960033,
+      "claim": "statement",
+      "elaboratedDeclarationType": "OAI.PolynomialVacuumBridge.Corridor.width_three_summability_diagnostic : Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧ Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight",
+      "goalsRemaining": 0,
+      "leanStatementHash": "1d25b9fa6b1df2ff60c7e7c3d060e9860a5ad7f2a088c3826cace3c2d22e0c33",
+      "proofHash": "ed4fbef1a8a97953d6bd19ccf63fc974f297e72574c6d16066c255cce8fc41a3",
+      "proofPath": "Submission.lean",
+      "receiptId": "lean-57bf5d70cc019e03fa3fba3d",
+      "sessionId": "fb26f16c-c3bd-4fdf-bf03-b2b991174e54",
+      "sorryCount": 0,
+      "sourceDeclarationHash": "b238811c922ab0b853ccfe4c81ca38a8d2c3a41d1462d9d8e04db43f5e4c25ec",
+      "statementBinding": "caller-bound-to-committed-declaration",
+      "statementHash": "1d25b9fa6b1df2ff60c7e7c3d060e9860a5ad7f2a088c3826cace3c2d22e0c33",
+      "status": "kernel_verified",
+      "stderrPreview": "Submission.lean:356:22: warning: try 'simp' instead of 'simpa'\n\nNote: This linter can be disabled with `set_option linter.unnecessarySimpa false`\nSubmission.lean:486:46: warning: This simp argument is unused:\n  Vertex.down.injEq\n\nHint: Omit it from the simp argument list.\n  [apply] simp [widthThreeNeighbors, Vertex.up.injEq]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nSubmission.lean:628:22: warning: try 'simp' instead of 'simpa'\n\nNote: This linter can be disabled with `set_option linter.unnecessarySimpa false`\nSubmission.lean:1240:16: warning: this tactic is never executed\n\nNote: This linter can be disabled with `set_option linter.unreachableTactic false`\nSubmission.lean:1240:6: warning: Unused tactic linter: `all_goals\n  first\n  | exact Finset.card_le_three\n  | exact Finset.card_le_two.trans (by omega)\n  | exact lt_of_le_of_lt Finset.card_le_two (by omega)` does nothing\n\nNote: This linter can be disabled with `set_option linter.unusedTactic false`\nSubmission.lean:1246:46: warning: This simp argument is unused:\n  Vertex.down.injEq\n\nHint: Omit it from the simp argument list.\n  [apply] simp [widthTwoNeighbors, Vertex.up.injEq]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nSubmission.lean:1372:22: warning: try 'simp' instead of 'simpa'\n\nNote: This linter can be disabled with `set_option linter.unnecessarySimpa false`",
+      "stdoutPreview": "DS_DECL_REFERENCES_8f3a1482474fa0053bfa132866c2fac2:null\nDEEPSCIENTIST_DECL_BEGIN_fde53132d51363a6\nOAI.PolynomialVacuumBridge.Corridor.width_three_summability_diagnostic :\n  Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧ Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight\nDEEPSCIENTIST_DECL_END_fde53132d51363a6\nDEEPSCIENTIST_AXIOMS_BEGIN_fde53132d51363a6\n'OAI.PolynomialVacuumBridge.Corridor.width_three_summability_diagnostic' depends on axioms: [propext,\n Classical.choice,\n Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_fde53132d51363a6",
+      "targetCommit": "a83ba810aa177597cad5083e32c65131a5653109",
+      "theoremDeclarationHash": "c847bc45eadebd563d3e27c7c7cab531eb2974a9ac7adf98a7bdd2ade41273c1",
+      "theoremName": "OAI.PolynomialVacuumBridge.Corridor.width_three_summability_diagnostic",
+      "toolchain": {
+        "lake": "lakefile.toml",
+        "lean": "lake"
+      },
+      "verifier": "lean-kernel"
+    }
+  ],
+  "schema": "deepscientist.mathematics.verification-batch/v1",
+  "sessionId": "fb26f16c-c3bd-4fdf-bf03-b2b991174e54",
+  "startedAt": 1792863932449,
+  "status": "kernel_verified",
+  "targetCommit": "a83ba810aa177597cad5083e32c65131a5653109"
+}

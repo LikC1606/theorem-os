@@ -1,0 +1,165 @@
+{
+  "checkedAt": 1792863830695,
+  "durationMs": 26023,
+  "events": [
+    {
+      "eventId": "337505b9-a487-4fc3-90c8-b5d937f9e472",
+      "kind": "session.opened",
+      "payload": {
+        "itemCount": 1,
+        "projectRoot": "/tmp/math-check-zkGTZH/worktree/generated/problem",
+        "uniqueFileCount": 1
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+      "timestamp": 1792863804673
+    },
+    {
+      "eventId": "5a72e3f5-2ea9-494c-afee-b006f330e9a5",
+      "kind": "file.opened",
+      "payload": {
+        "bytes": 54571,
+        "checkCount": 1,
+        "proofHash": "5347380fc6b81ddeda17dd6363170b7def20b36fb9658d049cbc5f063ddb6dc3",
+        "proofPath": "Submission.lean"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+      "timestamp": 1792863804673
+    },
+    {
+      "eventId": "46a9fe1d-dcf2-4e86-a501-fbea3e39065c",
+      "kind": "toolchain.resolved",
+      "payload": {
+        "command": "lake",
+        "executable": "lake",
+        "lakeFile": "lakefile.toml"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+      "timestamp": 1792863804673
+    },
+    {
+      "eventId": "c580983a-115d-4ca4-86b2-3a814ca051c9",
+      "kind": "check.draft_checked",
+      "payload": {
+        "admitCount": 0,
+        "axioms": [],
+        "proofPath": "Submission.lean",
+        "sorryCount": 0,
+        "status": "accepted"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+      "timestamp": 1792863804686
+    },
+    {
+      "eventId": "415a8eb0-8ecb-41f4-88aa-ccd8dc564d8f",
+      "kind": "diagnostic.emitted",
+      "payload": {
+        "message": "DS_DECL_REFERENCES_e130381060bdc45c6c40f0270976233f:null\nDEEPSCIENTIST_DECL_BEGIN_1f22f11922aa8898\nOAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic :\n  Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧ Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight\nDEEPSCIENTIST_DECL_END_1f22f11922aa8898\nDEEPSCIENTIST_AXIOMS_BEGIN_1f22f11922aa8898\n'OAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic' depends on axioms: [propext,\n Classical.choice,\n Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_1f22f11922aa8898",
+        "proofPath": "Submission.lean",
+        "severity": "info",
+        "source": "stdout"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+      "timestamp": 1792863830689
+    },
+    {
+      "eventId": "35eb6028-fb9d-44d3-ba32-d575e593ca69",
+      "kind": "diagnostic.emitted",
+      "payload": {
+        "message": "Submission.lean:356:22: warning: try 'simp' instead of 'simpa'\n\nNote: This linter can be disabled with `set_option linter.unnecessarySimpa false`\nSubmission.lean:964:16: warning: this tactic is never executed\n\nNote: This linter can be disabled with `set_option linter.unreachableTactic false`\nSubmission.lean:964:6: warning: Unused tactic linter: `all_goals\n  first\n  | exact Finset.card_le_three\n  | exact Finset.card_le_two.trans (by omega)\n  | exact lt_of_le_of_lt Finset.card_le_two (by omega)` does nothing\n\nNote: This linter can be disabled with `set_option linter.unusedTactic false`\nSubmission.lean:970:46: warning: This simp argument is unused:\n  Vertex.down.injEq\n\nHint: Omit it from the simp argument list.\n  [apply] simp [widthTwoNeighbors, Vertex.up.injEq]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nSubmission.lean:1096:22: warning: try 'simp' instead of 'simpa'\n\nNote: This linter can be disabled with `set_option linter.unnecessarySimpa false`",
+        "proofPath": "Submission.lean",
+        "severity": "warning",
+        "source": "stderr"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+      "timestamp": 1792863830689
+    },
+    {
+      "eventId": "f155fb68-2d16-4ceb-85f9-2e81b2e1cb45",
+      "kind": "check.kernel_checked",
+      "payload": {
+        "aborted": false,
+        "durationMs": 25993,
+        "exitCode": 0,
+        "proofPath": "Submission.lean",
+        "signal": null,
+        "status": "kernel_verified",
+        "timedOut": false
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+      "timestamp": 1792863830690
+    },
+    {
+      "eventId": "97033b7e-2239-4ef5-8bb1-94522565767f",
+      "kind": "receipt.published",
+      "payload": {
+        "checkId": "check-1",
+        "proofPath": "Submission.lean",
+        "receiptId": "lean-066bed21b62f14a43723a51f",
+        "status": "kernel_verified",
+        "theoremName": "OAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+      "timestamp": 1792863830690
+    },
+    {
+      "eventId": "dd83b13f-5414-425e-a08e-7ce834958b9c",
+      "kind": "session.closed",
+      "payload": {
+        "durationMs": 26023,
+        "resultCount": 1,
+        "status": "kernel_verified"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+      "timestamp": 1792863830695
+    }
+  ],
+  "results": [
+    {
+      "admitCount": 0,
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "checkId": "check-1",
+      "checkedAt": 1792863830690,
+      "claim": "statement",
+      "elaboratedDeclarationType": "OAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic : Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧ Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight",
+      "goalsRemaining": 0,
+      "leanStatementHash": "d917d579b417751f32bb7ec8261b7adea2c79bd36866c4fd0de53ab4962811a4",
+      "proofHash": "5347380fc6b81ddeda17dd6363170b7def20b36fb9658d049cbc5f063ddb6dc3",
+      "proofPath": "Submission.lean",
+      "receiptId": "lean-066bed21b62f14a43723a51f",
+      "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+      "sorryCount": 0,
+      "sourceDeclarationHash": "1f8cff9dcc2be29304e831f3a9ea5ffa64351769431cda3e6e7afd6177671e3c",
+      "statementBinding": "caller-bound-to-committed-declaration",
+      "statementHash": "d917d579b417751f32bb7ec8261b7adea2c79bd36866c4fd0de53ab4962811a4",
+      "status": "kernel_verified",
+      "stderrPreview": "Submission.lean:356:22: warning: try 'simp' instead of 'simpa'\n\nNote: This linter can be disabled with `set_option linter.unnecessarySimpa false`\nSubmission.lean:964:16: warning: this tactic is never executed\n\nNote: This linter can be disabled with `set_option linter.unreachableTactic false`\nSubmission.lean:964:6: warning: Unused tactic linter: `all_goals\n  first\n  | exact Finset.card_le_three\n  | exact Finset.card_le_two.trans (by omega)\n  | exact lt_of_le_of_lt Finset.card_le_two (by omega)` does nothing\n\nNote: This linter can be disabled with `set_option linter.unusedTactic false`\nSubmission.lean:970:46: warning: This simp argument is unused:\n  Vertex.down.injEq\n\nHint: Omit it from the simp argument list.\n  [apply] simp [widthTwoNeighbors, Vertex.up.injEq]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nSubmission.lean:1096:22: warning: try 'simp' instead of 'simpa'\n\nNote: This linter can be disabled with `set_option linter.unnecessarySimpa false`",
+      "stdoutPreview": "DS_DECL_REFERENCES_e130381060bdc45c6c40f0270976233f:null\nDEEPSCIENTIST_DECL_BEGIN_1f22f11922aa8898\nOAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic :\n  Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧ Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight\nDEEPSCIENTIST_DECL_END_1f22f11922aa8898\nDEEPSCIENTIST_AXIOMS_BEGIN_1f22f11922aa8898\n'OAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic' depends on axioms: [propext,\n Classical.choice,\n Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_1f22f11922aa8898",
+      "targetCommit": "bac4810869dccb7ec49986256e53e511119c6f2a",
+      "theoremDeclarationHash": "f2c27f2a714140fbd5ffc11cd058bf44403bcb56f44fb2ad2d0aa33c634aa9d4",
+      "theoremName": "OAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic",
+      "toolchain": {
+        "lake": "lakefile.toml",
+        "lean": "lake"
+      },
+      "verifier": "lean-kernel"
+    }
+  ],
+  "schema": "deepscientist.mathematics.verification-batch/v1",
+  "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+  "startedAt": 1792863804672,
+  "status": "kernel_verified",
+  "targetCommit": "bac4810869dccb7ec49986256e53e511119c6f2a"
+}

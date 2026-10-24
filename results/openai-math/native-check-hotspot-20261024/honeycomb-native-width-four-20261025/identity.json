@@ -1,0 +1,34 @@
+{
+  "capturedAt": "2026-10-24T17:48:13.028282+00:00",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "phase": "checking",
+  "turns": 441,
+  "model": "deepseek-flash",
+  "buildDigest": "7e2c42e897361d27b0aa6bf216f74ed7ba71aa32987771ade075193bed54c19f",
+  "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+  "taskDigest": "2865c6e8f42bfb4baba7abb9b180d522ec7fba0c93930546a2e95e15f3c03495",
+  "methodDigest": "65232ed956b4aa2b9e6d3ad202e31a6dd290ad08b40514e50568c86505e62ae1",
+  "evaluatorDigest": "176b413eb472af460b4fac6a8e3e1a4b2b351ff971443d32f500460648080546",
+  "providerProfileDigest": "6d83f4676845d045708c7e8dfbd2bea87dd334852ed06c80414ede43da463d54",
+  "canonicalCommitAtSnapshot": "7061be826cef83e4924ebda357f35164fa97ddb8",
+  "integratedTaskCanonicalCommit": "ef7c4acdd975241b67f4ff616499021002f24e05",
+  "taskId": "width_four_summability_a8462a19",
+  "nativeTaskDigest": "d917d579b417751f32bb7ec8261b7adea2c79bd36866c4fd0de53ab4962811a4",
+  "assignmentId": "fe085950-3825-4dcc-b9f0-69f2f45f470b",
+  "dependencies": [
+    {
+      "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+      "taskId": "sums_reduction"
+    }
+  ],
+  "stateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/state.json",
+  "stateBytes": 1820714,
+  "stateSHA256": "dcb1db76a4e83e0f8c5e9c9caabc46ae2dbc3f115af33638c683f3c4888f2469",
+  "rawEventLog": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/solve.log",
+  "rawEventLogBytes": 8780699,
+  "rawEventLogSHA256": "b9812af999e5d5d354fbad082951c09d51db07119c1a28e7a20eb8aadf8e4857",
+  "auxiliaryStatement": "Summable (OAI.PolynomialVacuumBridge.Corridor.weight (h := 4)) ∧ Summable (OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (h := 4))",
+  "proofPath": "Submission.lean",
+  "leanToolchain": "leanprover/lean4:v4.34.1",
+  "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612"
+}

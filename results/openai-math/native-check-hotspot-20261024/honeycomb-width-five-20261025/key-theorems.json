@@ -1,0 +1,58 @@
+{
+  "printedTypesAndAxioms": "explicit-types-04.stdout.log",
+  "prettyPrinterExplicit": true,
+  "target": {
+    "name": "OAI.PolynomialVacuumBridge.Corridor.width_five_summability_diagnostic",
+    "type": "Summable (OAI.PolynomialVacuumBridge.Corridor.weight (h := 5)) ∧ Summable (OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (h := 5))"
+  },
+  "declarations": [
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.WidthFive.table_checked",
+      "axioms": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.WidthFive.count_weighted",
+      "axioms": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.WidthFive.path_mem_allPaths",
+      "axioms": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.WidthFive.path_card_real",
+      "axioms": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.WidthFive.stripGrowthAtFive",
+      "axioms": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.width_five_summability_diagnostic",
+      "axioms": [
+        "Classical.choice",
+        "Quot.sound",
+        "propext"
+      ]
+    }
+  ]
+}

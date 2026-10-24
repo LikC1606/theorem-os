@@ -1,0 +1,537 @@
+{
+  "assignment": {
+    "assignmentId": "fe085950-3825-4dcc-b9f0-69f2f45f470b",
+    "canonicalCommit": "0d4bd1c55e8dff31f375e1d5dbe243c799489133",
+    "dependencies": [
+      {
+        "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+        "taskId": "sums_reduction"
+      }
+    ],
+    "groupId": "main",
+    "researchBasis": {
+      "dependencies": [
+        {
+          "deliveries": [],
+          "proof": {
+            "conditions": [],
+            "state": "integrated",
+            "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292"
+          },
+          "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+          "taskId": "sums_reduction"
+        }
+      ],
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "retrievalDigest": "f5fa7f00d04e495a9eb0089943ca9e6764e56ca67c96253410933e210be6dfad",
+      "schema": "theorem-os.research-basis.v1",
+      "sourceDigest": "5754ff820e2d15b1bd4c4ed1c9812d280bfb4929dd539e3861bada08c40c87b7",
+      "taskDigest": "d917d579b417751f32bb7ec8261b7adea2c79bd36866c4fd0de53ab4962811a4",
+      "taskId": "width_four_summability_a8462a19"
+    },
+    "seedCommit": "cdaeaa25424111054018d70d7d9c4d048d3f8248",
+    "taskDigest": "d917d579b417751f32bb7ec8261b7adea2c79bd36866c4fd0de53ab4962811a4",
+    "taskId": "width_four_summability_a8462a19",
+    "workerId": "engineer"
+  },
+  "attempts": 1,
+  "integratedCheck": {
+    "changes": [],
+    "commit": "ef7c4acdd975241b67f4ff616499021002f24e05",
+    "passed": true,
+    "seedCommit": "ef7c4acdd975241b67f4ff616499021002f24e05",
+    "sourceDigest": "5d324396710ad7cff492bac70417270fde065a904c3b214f8db16212bd301ce0",
+    "taskDigest": "d917d579b417751f32bb7ec8261b7adea2c79bd36866c4fd0de53ab4962811a4",
+    "verification": {
+      "checkedAt": 1792863830695,
+      "durationMs": 26023,
+      "events": [
+        {
+          "eventId": "337505b9-a487-4fc3-90c8-b5d937f9e472",
+          "kind": "session.opened",
+          "payload": {
+            "itemCount": 1,
+            "projectRoot": "/tmp/math-check-zkGTZH/worktree/generated/problem",
+            "uniqueFileCount": 1
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+          "timestamp": 1792863804673
+        },
+        {
+          "eventId": "5a72e3f5-2ea9-494c-afee-b006f330e9a5",
+          "kind": "file.opened",
+          "payload": {
+            "bytes": 54571,
+            "checkCount": 1,
+            "proofHash": "5347380fc6b81ddeda17dd6363170b7def20b36fb9658d049cbc5f063ddb6dc3",
+            "proofPath": "Submission.lean"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+          "timestamp": 1792863804673
+        },
+        {
+          "eventId": "46a9fe1d-dcf2-4e86-a501-fbea3e39065c",
+          "kind": "toolchain.resolved",
+          "payload": {
+            "command": "lake",
+            "executable": "lake",
+            "lakeFile": "lakefile.toml"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+          "timestamp": 1792863804673
+        },
+        {
+          "eventId": "c580983a-115d-4ca4-86b2-3a814ca051c9",
+          "kind": "check.draft_checked",
+          "payload": {
+            "admitCount": 0,
+            "axioms": [],
+            "proofPath": "Submission.lean",
+            "sorryCount": 0,
+            "status": "accepted"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+          "timestamp": 1792863804686
+        },
+        {
+          "eventId": "415a8eb0-8ecb-41f4-88aa-ccd8dc564d8f",
+          "kind": "diagnostic.emitted",
+          "payload": {
+            "message": "DS_DECL_REFERENCES_e130381060bdc45c6c40f0270976233f:null\nDEEPSCIENTIST_DECL_BEGIN_1f22f11922aa8898\nOAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic :\n  Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧ Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight\nDEEPSCIENTIST_DECL_END_1f22f11922aa8898\nDEEPSCIENTIST_AXIOMS_BEGIN_1f22f11922aa8898\n'OAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic' depends on axioms: [propext,\n Classical.choice,\n Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_1f22f11922aa8898",
+            "proofPath": "Submission.lean",
+            "severity": "info",
+            "source": "stdout"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+          "timestamp": 1792863830689
+        },
+        {
+          "eventId": "35eb6028-fb9d-44d3-ba32-d575e593ca69",
+          "kind": "diagnostic.emitted",
+          "payload": {
+            "message": "Submission.lean:356:22: warning: try 'simp' instead of 'simpa'\n\nNote: This linter can be disabled with `set_option linter.unnecessarySimpa false`\nSubmission.lean:964:16: warning: this tactic is never executed\n\nNote: This linter can be disabled with `set_option linter.unreachableTactic false`\nSubmission.lean:964:6: warning: Unused tactic linter: `all_goals\n  first\n  | exact Finset.card_le_three\n  | exact Finset.card_le_two.trans (by omega)\n  | exact lt_of_le_of_lt Finset.card_le_two (by omega)` does nothing\n\nNote: This linter can be disabled with `set_option linter.unusedTactic false`\nSubmission.lean:970:46: warning: This simp argument is unused:\n  Vertex.down.injEq\n\nHint: Omit it from the simp argument list.\n  [apply] simp [widthTwoNeighbors, Vertex.up.injEq]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nSubmission.lean:1096:22: warning: try 'simp' instead of 'simpa'\n\nNote: This linter can be disabled with `set_option linter.unnecessarySimpa false`",
+            "proofPath": "Submission.lean",
+            "severity": "warning",
+            "source": "stderr"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+          "timestamp": 1792863830689
+        },
+        {
+          "eventId": "f155fb68-2d16-4ceb-85f9-2e81b2e1cb45",
+          "kind": "check.kernel_checked",
+          "payload": {
+            "aborted": false,
+            "durationMs": 25993,
+            "exitCode": 0,
+            "proofPath": "Submission.lean",
+            "signal": null,
+            "status": "kernel_verified",
+            "timedOut": false
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+          "timestamp": 1792863830690
+        },
+        {
+          "eventId": "97033b7e-2239-4ef5-8bb1-94522565767f",
+          "kind": "receipt.published",
+          "payload": {
+            "checkId": "check-1",
+            "proofPath": "Submission.lean",
+            "receiptId": "lean-066bed21b62f14a43723a51f",
+            "status": "kernel_verified",
+            "theoremName": "OAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+          "timestamp": 1792863830690
+        },
+        {
+          "eventId": "dd83b13f-5414-425e-a08e-7ce834958b9c",
+          "kind": "session.closed",
+          "payload": {
+            "durationMs": 26023,
+            "resultCount": 1,
+            "status": "kernel_verified"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+          "timestamp": 1792863830695
+        }
+      ],
+      "results": [
+        {
+          "admitCount": 0,
+          "axioms": [
+            "propext",
+            "Classical.choice",
+            "Quot.sound"
+          ],
+          "checkId": "check-1",
+          "checkedAt": 1792863830690,
+          "claim": "statement",
+          "elaboratedDeclarationType": "OAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic : Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧ Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight",
+          "goalsRemaining": 0,
+          "leanStatementHash": "d917d579b417751f32bb7ec8261b7adea2c79bd36866c4fd0de53ab4962811a4",
+          "proofHash": "5347380fc6b81ddeda17dd6363170b7def20b36fb9658d049cbc5f063ddb6dc3",
+          "proofPath": "Submission.lean",
+          "receiptId": "lean-066bed21b62f14a43723a51f",
+          "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+          "sorryCount": 0,
+          "sourceDeclarationHash": "1f8cff9dcc2be29304e831f3a9ea5ffa64351769431cda3e6e7afd6177671e3c",
+          "statementBinding": "caller-bound-to-committed-declaration",
+          "statementHash": "d917d579b417751f32bb7ec8261b7adea2c79bd36866c4fd0de53ab4962811a4",
+          "status": "kernel_verified",
+          "stderrPreview": "Submission.lean:356:22: warning: try 'simp' instead of 'simpa'\n\nNote: This linter can be disabled with `set_option linter.unnecessarySimpa false`\nSubmission.lean:964:16: warning: this tactic is never executed\n\nNote: This linter can be disabled with `set_option linter.unreachableTactic false`\nSubmission.lean:964:6: warning: Unused tactic linter: `all_goals\n  first\n  | exact Finset.card_le_three\n  | exact Finset.card_le_two.trans (by omega)\n  | exact lt_of_le_of_lt Finset.card_le_two (by omega)` does nothing\n\nNote: This linter can be disabled with `set_option linter.unusedTactic false`\nSubmission.lean:970:46: warning: This simp argument is unused:\n  Vertex.down.injEq\n\nHint: Omit it from the simp argument list.\n  [apply] simp [widthTwoNeighbors, Vertex.up.injEq]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nSubmission.lean:1096:22: warning: try 'simp' instead of 'simpa'\n\nNote: This linter can be disabled with `set_option linter.unnecessarySimpa false`",
+          "stdoutPreview": "DS_DECL_REFERENCES_e130381060bdc45c6c40f0270976233f:null\nDEEPSCIENTIST_DECL_BEGIN_1f22f11922aa8898\nOAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic :\n  Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧ Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight\nDEEPSCIENTIST_DECL_END_1f22f11922aa8898\nDEEPSCIENTIST_AXIOMS_BEGIN_1f22f11922aa8898\n'OAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic' depends on axioms: [propext,\n Classical.choice,\n Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_1f22f11922aa8898",
+          "targetCommit": "bac4810869dccb7ec49986256e53e511119c6f2a",
+          "theoremDeclarationHash": "f2c27f2a714140fbd5ffc11cd058bf44403bcb56f44fb2ad2d0aa33c634aa9d4",
+          "theoremName": "OAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic",
+          "toolchain": {
+            "lake": "lakefile.toml",
+            "lean": "lake"
+          },
+          "verifier": "lean-kernel"
+        }
+      ],
+      "schema": "deepscientist.mathematics.verification-batch/v1",
+      "sessionId": "1c51ccec-c42e-47ad-99b9-e1de8b2d1dfe",
+      "startedAt": 1792863804672,
+      "status": "kernel_verified",
+      "targetCommit": "bac4810869dccb7ec49986256e53e511119c6f2a"
+    }
+  },
+  "parkedRoutes": {},
+  "proof": {
+    "changes": [
+      {
+        "after": "def widthFourInside (v : Vertex) : Prop := 0 ≤ layer v ∧ layer v < 4\n",
+        "beforeName": "bridgeColumnStep_unique",
+        "file": "Submission.lean",
+        "name": "widthFourInside"
+      },
+      {
+        "after": "noncomputable def widthFourNeighbors : Vertex → Finset Vertex\n  | .up i j => if j = 0 then {.down i 0, .down (i-1) 0}\n      else if j = 1 then {.down i 1, .down (i-1) 1, .down i 0}\n      else if j = 2 then {.down i 2, .down (i-1) 2, .down i 1}\n      else if j = 3 then {.down i 3, .down (i-1) 3, .down i 2} else ∅\n  | .down i j => if j = 0 then {.up i 0, .up (i+1) 0, .up i 1}\n      else if j = 1 then {.up i 1, .up (i+1) 1, .up i 2}\n      else if j = 2 then {.up i 2, .up (i+1) 2, .up i 3}\n      else if j = 3 then {.up i 3, .up (i+1) 3} else ∅\n",
+        "beforeName": "bridgeColumnStep_unique",
+        "file": "Submission.lean",
+        "name": "widthFourNeighbors"
+      },
+      {
+        "after": "lemma widthFour_inside_cases {v : Vertex} (h : widthFourInside v) :\n    (∃ i, v = .up i 0) ∨ (∃ i, v = .down i 0) ∨\n    (∃ i, v = .up i 1) ∨ (∃ i, v = .down i 1) ∨\n    (∃ i, v = .up i 2) ∨ (∃ i, v = .down i 2) ∨\n    (∃ i, v = .up i 3) ∨ (∃ i, v = .down i 3) := by\n  cases v with\n  | up i j =>\n    have hj : j = 0 ∨ j = 1 ∨ j = 2 ∨ j = 3 := by\n      simp only [widthFourInside, layer] at h\n      omega\n    rcases hj with rfl | rfl | rfl | rfl <;> tauto\n  | down i j =>\n    have hj : j = 0 ∨ j = 1 ∨ j = 2 ∨ j = 3 := by\n      simp only [widthFourInside, layer] at h\n      omega\n    rcases hj with rfl | rfl | rfl | rfl <;> tauto\n",
+        "beforeName": "bridgeColumnStep_unique",
+        "file": "Submission.lean",
+        "name": "widthFour_inside_cases"
+      },
+      {
+        "after": "lemma widthFour_mem_neighbors {a b : Vertex} (ha : widthFourInside a) :\n    b ∈ widthFourNeighbors a ↔ adjacent a b ∧ widthFourInside b := by\n  rcases widthFour_inside_cases ha with ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩ |\n    ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩ <;>\n  cases b <;> simp [widthFourNeighbors, adjacent, widthFourInside, layer,\n    Vertex.up.injEq, Vertex.down.injEq] <;> omega\n",
+        "beforeName": "bridgeColumnStep_unique",
+        "file": "Submission.lean",
+        "name": "widthFour_mem_neighbors"
+      },
+      {
+        "after": "noncomputable def widthFourBeta : ℝ := 1847 / 1000\n",
+        "beforeName": "bridgeColumnStep_unique",
+        "file": "Submission.lean",
+        "name": "widthFourBeta"
+      },
+      {
+        "after": "noncomputable def widthFourEdgeWeight (a b : Vertex) : ℝ :=\n  match b with\n  | .up _ j => if layer a = j-1 then\n        (if j = 1 then 64 else if j = 2 then 56 else 33)\n      else (if j = 0 then 29 else if j = 1 then 50 else if j = 2 then 58 else 52)\n  | .down _ j => if layer a = j+1 then\n        (if j = 0 then 33 else if j = 1 then 56 else 64)\n      else (if j = 0 then 52 else if j = 1 then 58 else if j = 2 then 50 else 29)\n",
+        "beforeName": "bridgeColumnStep_unique",
+        "file": "Submission.lean",
+        "name": "widthFourEdgeWeight"
+      },
+      {
+        "after": "lemma widthFour_edgeWeight_ge_one (a b : Vertex) : 1 ≤ widthFourEdgeWeight a b := by\n  cases b <;> simp only [widthFourEdgeWeight] <;> split_ifs <;> norm_num\n",
+        "beforeName": "bridgeColumnStep_unique",
+        "file": "Submission.lean",
+        "name": "widthFour_edgeWeight_ge_one"
+      },
+      {
+        "after": "lemma widthFour_edgeWeight_le_sixtyFour (a b : Vertex) : widthFourEdgeWeight a b ≤ 64 := by\n  cases b <;> simp only [widthFourEdgeWeight] <;> split_ifs <;> norm_num\n",
+        "beforeName": "bridgeColumnStep_unique",
+        "file": "Submission.lean",
+        "name": "widthFour_edgeWeight_le_sixtyFour"
+      },
+      {
+        "after": "lemma widthFour_beta_ge_one : 1 ≤ widthFourBeta := by norm_num [widthFourBeta]\n",
+        "beforeName": "bridgeColumnStep_unique",
+        "file": "Submission.lean",
+        "name": "widthFour_beta_ge_one"
+      },
+      {
+        "after": "lemma widthFour_potential_step {a b : Vertex} (ha : widthFourInside a) (hb : widthFourInside b)\n    (hab : adjacent a b) :\n    ∑ c ∈ (widthFourNeighbors b).erase a, widthFourEdgeWeight b c ≤\n      widthFourBeta * widthFourEdgeWeight a b := by\n  classical\n  have ha_mem : a ∈ widthFourNeighbors b := (widthFour_mem_neighbors hb).2 ⟨by\n    cases a <;> cases b <;> exact hab, ha⟩\n  rcases widthFour_inside_cases hb with ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩ |\n    ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩\n  all_goals\n    simp [widthFourNeighbors] at ha_mem\n    rcases ha_mem with rfl | rfl | rfl\n    all_goals\n      have h₁ : i - 1 ≠ i := by omega\n      have h₂ : i ≠ i - 1 := by omega\n      have h₃ : i + 1 ≠ i := by omega\n      have h₄ : i ≠ i + 1 := by omega\n      norm_num [widthFourNeighbors, widthFourEdgeWeight, layer, widthFourBeta,\n        Vertex.up.injEq, Vertex.down.injEq, h₁, h₂, h₃, h₄]\n",
+        "beforeName": "bridgeColumnStep_unique",
+        "file": "Submission.lean",
+        "name": "widthFour_potential_step"
+      },
+      {
+        "after": "noncomputable def widthFourContinuations (a b : Vertex) : ℕ → Finset (List Vertex)\n  | 0 => {[]}\n  | n + 1 => ((widthFourNeighbors b).erase a).biUnion fun c =>\n      (widthFourContinuations b c n).image fun l => c :: l\n",
+        "beforeName": "bridgeColumnStep_unique",
+        "file": "Submission.lean",
+        "name": "widthFourContinuations"
+      },
+      {
+        "after": "lemma widthFour_continuations_card (n : ℕ) (a b : Vertex)\n    (ha : widthFourInside a) (hb : widthFourInside b) (hab : adjacent a b) :\n    ((widthFourContinuations a b n).card : ℝ) ≤ widthFourEdgeWeight a b * widthFourBeta ^ n := by\n  classical\n  induction n generalizing a b with\n  | zero => simpa only [widthFourContinuations, Finset.card_singleton, Nat.cast_one, pow_zero,\n      mul_one] using widthFour_edgeWeight_ge_one a b\n  | succ n ih =>\n    calc ((widthFourContinuations a b (n+1)).card : ℝ)\n        ≤ ∑ c ∈ (widthFourNeighbors b).erase a,\n            (((widthFourContinuations b c n).image fun l => c :: l).card : ℝ) := by\n          exact_mod_cast (Finset.card_biUnion_le :\n            (((widthFourNeighbors b).erase a).biUnion fun c =>\n              (widthFourContinuations b c n).image fun l => c :: l).card ≤ _)\n      _ ≤ ∑ c ∈ (widthFourNeighbors b).erase a,\n            widthFourEdgeWeight b c * widthFourBeta ^ n := by\n          apply Finset.sum_le_sum\n          intro c hc\n          have hcin := (widthFour_mem_neighbors hb).1 (Finset.mem_erase.mp hc).2\n          have hcard : (((widthFourContinuations b c n).image fun l => c :: l).card : ℝ)\n              ≤ ((widthFourContinuations b c n).card : ℝ) := by\n            exact_mod_cast Finset.card_image_le\n          exact hcard.trans (ih b c hb hcin.2 hcin.1)\n      _ = (∑ c ∈ (widthFourNeighbors b).erase a, widthFourEdgeWeight b c) *\n            widthFourBeta ^ n := by\n          rw [Finset.sum_mul]\n      _ ≤ (widthFourBeta * widthFourEdgeWeight a b) * widthFourBeta ^ n :=\n          mul_le_mul_of_nonneg_right (widthFour_potential_step ha hb hab)\n            (pow_nonneg (le_trans (by norm_num) widthFour_beta_ge_one) n)\n      _ = widthFourEdgeWeight a b * widthFourBeta ^ (n+1) := by rw [pow_succ]; ring\n",
+        "beforeName": "bridgeColumnStep_unique",
+        "file": "Submission.lean",
+        "name": "widthFour_continuations_card"
+      },
+      {
+        "after": "lemma widthFour_mem_continuations {a b : Vertex} {l : List Vertex}\n    (hc : (a :: b :: l).IsChain adjacent)\n    (hnd : (a :: b :: l).Nodup)\n    (hin : ∀ v ∈ a :: b :: l, widthFourInside v) :\n    l ∈ widthFourContinuations a b l.length := by\n  classical\n  induction l generalizing a b with\n  | nil => simp [widthFourContinuations]\n  | cons c l ih =>\n    have hcin : widthFourInside c := hin c (by simp)\n    have hcn : c ≠ a := by\n      intro h\n      exact (List.nodup_cons.mp hnd).1 (by simp [h])\n    have hmem : c ∈ (widthFourNeighbors b).erase a :=\n      Finset.mem_erase.mpr ⟨hcn,(widthFour_mem_neighbors (hin b (by simp))).2\n        ⟨hc.tail.rel,hcin⟩⟩\n    apply Finset.mem_biUnion.mpr\n    refine ⟨c,hmem,Finset.mem_image.mpr ⟨l,?_,rfl⟩⟩\n    apply ih hc.tail hnd.tail\n    intro v hv\n    exact hin v (by simp only [List.mem_cons] at hv ⊢; tauto)\n",
+        "beforeName": "bridgeColumnStep_unique",
+        "file": "Submission.lean",
+        "name": "widthFour_mem_continuations"
+      },
+      {
+        "after": "noncomputable def widthFourAllPaths (n : ℕ) : Finset (List Vertex) :=\n  (widthFourNeighbors (.up 0 0)).biUnion fun b =>\n    (widthFourContinuations (.up 0 0) b (n-2)).image fun l => (.up 0 0) :: b :: l\n",
+        "beforeName": "bridgeColumnStep_unique",
+        "file": "Submission.lean",
+        "name": "widthFourAllPaths"
+      },
+      {
+        "after": "lemma widthFour_allPaths_card (n : ℕ) :\n    ((widthFourAllPaths n).card : ℝ) ≤ 128 * widthFourBeta ^ n := by\n  classical\n  have hs : widthFourInside (.up 0 0) := by simp [widthFourInside,layer]\n  calc ((widthFourAllPaths n).card : ℝ)\n      ≤ ∑ b ∈ widthFourNeighbors (.up 0 0),\n          (((widthFourContinuations (.up 0 0) b (n-2)).image\n            fun l => (.up 0 0) :: b :: l).card : ℝ) := by\n        exact_mod_cast (Finset.card_biUnion_le :\n          ((widthFourNeighbors (.up 0 0)).biUnion fun b =>\n            (widthFourContinuations (.up 0 0) b (n-2)).image\n              fun l => (.up 0 0) :: b :: l).card ≤ _)\n    _ ≤ ∑ b ∈ widthFourNeighbors (.up 0 0), 64 * widthFourBeta ^ (n-2) := by\n        apply Finset.sum_le_sum\n        intro b hb\n        obtain ⟨hadj,hbin⟩ := (widthFour_mem_neighbors hs).1 hb\n        have hcard : (((widthFourContinuations (.up 0 0) b (n-2)).image\n              fun l => (.up 0 0) :: b :: l).card : ℝ)\n            ≤ ((widthFourContinuations (.up 0 0) b (n-2)).card : ℝ) := by\n          exact_mod_cast Finset.card_image_le\n        exact (hcard.trans (widthFour_continuations_card (n-2) _ _ hs hbin hadj)).trans\n          (mul_le_mul_of_nonneg_right (widthFour_edgeWeight_le_sixtyFour _ _)\n            (pow_nonneg (le_trans (by norm_num) widthFour_beta_ge_one) _))\n    _ = 128 * widthFourBeta ^ (n-2) := by simp [widthFourNeighbors]; ring\n    _ ≤ 128 * widthFourBeta ^ n :=\n        mul_le_mul_of_nonneg_left\n          (pow_le_pow_right₀ widthFour_beta_ge_one (by omega)) (by norm_num)\n",
+        "beforeName": "bridgeColumnStep_unique",
+        "file": "Submission.lean",
+        "name": "widthFour_allPaths_card"
+      },
+      {
+        "after": "lemma widthFour_path_mem_allPaths (p : BridgePath 4) :\n    p.vertices ∈ widthFourAllPaths p.vertices.length := by\n  classical\n  have hsrc := p.source\n  have hterm := p.terminal\n  cases hv : p.vertices with\n  | nil => simp [hv] at hsrc\n  | cons a l =>\n    have ha : a = .up 0 0 := by simpa [hv] using hsrc\n    subst a\n    cases l with\n    | nil =>\n      rcases hterm with ⟨i,hi⟩\n      simp [hv] at hi\n    | cons b l =>\n      have hc : ((.up 0 0) :: b :: l).IsChain adjacent := by\n        simpa only [hv] using p.connected\n      have hnd : ((.up 0 0) :: b :: l).Nodup := by\n        simpa only [hv] using p.distinct\n      have hin : ∀ v ∈ (.up 0 0) :: b :: l, widthFourInside v := by\n        intro v h\n        have hvp : v ∈ p.vertices := by simpa only [hv] using h\n        simpa only [widthFourInside, Nat.cast_ofNat] using p.inStrip v hvp\n      rw [widthFourAllPaths]\n      apply Finset.mem_biUnion.mpr\n      refine ⟨b,(widthFour_mem_neighbors (hin _ (by simp))).2\n        ⟨hc.rel,hin b (by simp)⟩,?_⟩\n      apply Finset.mem_image.mpr\n      refine ⟨l,?_,by simpa only [hv]⟩\n      have hlen : l.length + 1 + 1 - 2 = l.length := by omega\n      simpa only [hv,List.length_cons,hlen] using\n        widthFour_mem_continuations hc hnd hin\n",
+        "beforeName": "bridgeColumnStep_unique",
+        "file": "Submission.lean",
+        "name": "widthFour_path_mem_allPaths"
+      },
+      {
+        "after": "lemma widthFour_path_card_real (n : ℕ) (s : Finset (BridgePath 4))\n    (hlen : ∀ p ∈ s, p.vertices.length = n) :\n    (s.card : ℝ) ≤ 128 * widthFourBeta ^ n := by\n  classical\n  have hm : Set.MapsTo (fun p : BridgePath 4 => p.vertices) (s : Set (BridgePath 4))\n      (widthFourAllPaths n : Set (List Vertex)) := by\n    intro p hp\n    change p.vertices ∈ widthFourAllPaths n\n    simpa only [hlen p hp] using widthFour_path_mem_allPaths p\n  have hi : Set.InjOn (fun p : BridgePath 4 => p.vertices) (s : Set (BridgePath 4)) := by\n    intro p hp q hq he\n    cases p\n    cases q\n    cases he\n    rfl\n  have hcard : (s.card : ℝ) ≤ ((widthFourAllPaths n).card : ℝ) := by\n    exact_mod_cast Finset.card_le_card_of_injOn _ hm hi\n  exact hcard.trans (widthFour_allPaths_card n)\n",
+        "beforeName": "bridgeColumnStep_unique",
+        "file": "Submission.lean",
+        "name": "widthFour_path_card_real"
+      },
+      {
+        "after": "lemma widthFour_beta_lt_mu : widthFourBeta < 2 * Real.cos (Real.pi / 8) := by\n  have hs2 : Real.sqrt 2 ^ 2 = (2 : ℝ) := Real.sq_sqrt (by norm_num)\n  have hs2non : 0 ≤ Real.sqrt 2 := Real.sqrt_nonneg 2\n  have hbr : widthFourBeta ^ 2 - 2 < Real.sqrt 2 := by\n    have hbpos : 0 < widthFourBeta ^ 2 - 2 := by norm_num [widthFourBeta]\n    have hbsq : (widthFourBeta ^ 2 - 2) ^ 2 < (2 : ℝ) := by norm_num [widthFourBeta]\n    nlinarith\n  have hrnon : 0 ≤ Real.sqrt (2 + Real.sqrt 2) := Real.sqrt_nonneg _\n  have hrsq : Real.sqrt (2 + Real.sqrt 2) ^ 2 = 2 + Real.sqrt 2 :=\n    Real.sq_sqrt (by positivity)\n  have hroot : widthFourBeta < Real.sqrt (2 + Real.sqrt 2) := by\n    have hbpos : 0 ≤ widthFourBeta := le_trans (by norm_num) widthFour_beta_ge_one\n    nlinarith\n  rw [Real.cos_pi_div_eight]\n  nlinarith\n",
+        "beforeName": "bridgeColumnStep_unique",
+        "file": "Submission.lean",
+        "name": "widthFour_beta_lt_mu"
+      },
+      {
+        "after": "theorem widthFour_stripGrowthAtFour :\n    ∃ C β : ℝ, 0 ≤ C ∧ 0 ≤ β ∧ β < 2 * Real.cos (Real.pi / 8) ∧\n      ∀ (n : ℕ) (s : Finset (BridgePath 4)),\n        (∀ p ∈ s, p.vertices.length = n) → (s.card : ℝ) ≤ C * β ^ n := by\n  exact ⟨128, widthFourBeta, by norm_num, le_trans (by norm_num) widthFour_beta_ge_one,\n    widthFour_beta_lt_mu, widthFour_path_card_real⟩\n",
+        "beforeName": "bridgeColumnStep_unique",
+        "file": "Submission.lean",
+        "name": "widthFour_stripGrowthAtFour"
+      },
+      {
+        "after": "theorem width_four_summability_diagnostic :\n    Summable (weight (h := 4)) ∧ Summable (firstLengthWeight (h := 4)) := by\n  obtain ⟨C, β, hC, hβ, hlt, hcount⟩ := widthFour_stripGrowthAtFour\n  have hL : Summable (firstLengthWeight (h := 4)) :=\n    bridgeSummable_firstLengthWeight_of_mu_bound hC hβ hlt hcount\n  exact ⟨bridgeSummable_weight_of_summable_firstLengthWeight hL,hL⟩\n",
+        "beforeName": "bridgeColumnStep_unique",
+        "file": "Submission.lean",
+        "name": "width_four_summability_diagnostic"
+      }
+    ],
+    "commit": "1a82da7ff8a190d59684e9d8775a54d490a3faad",
+    "passed": true,
+    "seedCommit": "cdaeaa25424111054018d70d7d9c4d048d3f8248",
+    "sourceDigest": "aa65dc872952c4673dc60135e61d7cb6d058966d427f92b85078a29da6d25caa",
+    "taskDigest": "d917d579b417751f32bb7ec8261b7adea2c79bd36866c4fd0de53ab4962811a4",
+    "verification": {
+      "checkedAt": 1792863803942,
+      "durationMs": 25912,
+      "events": [
+        {
+          "eventId": "cfc24101-c3ce-42f2-a225-32e770809308",
+          "kind": "session.opened",
+          "payload": {
+            "itemCount": 1,
+            "projectRoot": "/tmp/math-check-aCjFZ9/worktree/generated/problem",
+            "uniqueFileCount": 1
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "48c41d1c-e6f0-49b8-be6d-d073cd34044a",
+          "timestamp": 1792863778031
+        },
+        {
+          "eventId": "b3ec4615-2d37-4b79-a71f-18cc0438e5da",
+          "kind": "file.opened",
+          "payload": {
+            "bytes": 54591,
+            "checkCount": 1,
+            "proofHash": "23001bf8decb6b4971167b98f5ffa82e74cf86c24222d434d40d68bddfe1868a",
+            "proofPath": "Submission.lean"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "48c41d1c-e6f0-49b8-be6d-d073cd34044a",
+          "timestamp": 1792863778031
+        },
+        {
+          "eventId": "2caf7214-ff5b-4298-be30-3f8a52b4913a",
+          "kind": "toolchain.resolved",
+          "payload": {
+            "command": "lake",
+            "executable": "lake",
+            "lakeFile": "lakefile.toml"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "48c41d1c-e6f0-49b8-be6d-d073cd34044a",
+          "timestamp": 1792863778031
+        },
+        {
+          "eventId": "74282882-c052-4529-b565-ccc8873a145d",
+          "kind": "check.draft_checked",
+          "payload": {
+            "admitCount": 0,
+            "axioms": [],
+            "proofPath": "Submission.lean",
+            "sorryCount": 0,
+            "status": "accepted"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "48c41d1c-e6f0-49b8-be6d-d073cd34044a",
+          "timestamp": 1792863778056
+        },
+        {
+          "eventId": "038c6e99-ec0e-4cbf-977c-11bf6ce9d48b",
+          "kind": "diagnostic.emitted",
+          "payload": {
+            "message": "DS_DECL_REFERENCES_296dd98ba87892b62f85e0c7a117c9ae:null\nDEEPSCIENTIST_DECL_BEGIN_1f22f11922aa8898\nOAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic :\n  Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧ Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight\nDEEPSCIENTIST_DECL_END_1f22f11922aa8898\nDEEPSCIENTIST_AXIOMS_BEGIN_1f22f11922aa8898\n'OAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic' depends on axioms: [propext,\n Classical.choice,\n Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_1f22f11922aa8898",
+            "proofPath": "Submission.lean",
+            "severity": "info",
+            "source": "stdout"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "48c41d1c-e6f0-49b8-be6d-d073cd34044a",
+          "timestamp": 1792863803936
+        },
+        {
+          "eventId": "bf4c92dc-8d19-416b-a17e-497f9600ca29",
+          "kind": "diagnostic.emitted",
+          "payload": {
+            "message": "Submission.lean:371:22: warning: try 'simp' instead of 'simpa'\n\nNote: This linter can be disabled with `set_option linter.unnecessarySimpa false`\nSubmission.lean:984:16: warning: this tactic is never executed\n\nNote: This linter can be disabled with `set_option linter.unreachableTactic false`\nSubmission.lean:984:6: warning: Unused tactic linter: `all_goals\n  first\n  | exact Finset.card_le_three\n  | exact Finset.card_le_two.trans (by omega)\n  | exact lt_of_le_of_lt Finset.card_le_two (by omega)` does nothing\n\nNote: This linter can be disabled with `set_option linter.unusedTactic false`\nSubmission.lean:990:46: warning: This simp argument is unused:\n  Vertex.down.injEq\n\nHint: Omit it from the simp argument list.\n  [apply] simp [widthTwoNeighbors, Vertex.up.injEq]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nSubmission.lean:1116:22: warning: try 'simp' instead of 'simpa'\n\nNote: This linter can be disabled with `set_option linter.unnecessarySimpa false`",
+            "proofPath": "Submission.lean",
+            "severity": "warning",
+            "source": "stderr"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "48c41d1c-e6f0-49b8-be6d-d073cd34044a",
+          "timestamp": 1792863803936
+        },
+        {
+          "eventId": "01b9c4ec-1915-4b65-8b50-6011829ddd2a",
+          "kind": "check.kernel_checked",
+          "payload": {
+            "aborted": false,
+            "durationMs": 25867,
+            "exitCode": 0,
+            "proofPath": "Submission.lean",
+            "signal": null,
+            "status": "kernel_verified",
+            "timedOut": false
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "48c41d1c-e6f0-49b8-be6d-d073cd34044a",
+          "timestamp": 1792863803936
+        },
+        {
+          "eventId": "072e2619-3f5e-44c6-bb38-92263e8fcb4d",
+          "kind": "receipt.published",
+          "payload": {
+            "checkId": "check-1",
+            "proofPath": "Submission.lean",
+            "receiptId": "lean-504445e25f9c03d2440a36ef",
+            "status": "kernel_verified",
+            "theoremName": "OAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "48c41d1c-e6f0-49b8-be6d-d073cd34044a",
+          "timestamp": 1792863803936
+        },
+        {
+          "eventId": "934da0c8-58dd-4daf-883c-a04afae57032",
+          "kind": "session.closed",
+          "payload": {
+            "durationMs": 25912,
+            "resultCount": 1,
+            "status": "kernel_verified"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "48c41d1c-e6f0-49b8-be6d-d073cd34044a",
+          "timestamp": 1792863803942
+        }
+      ],
+      "results": [
+        {
+          "admitCount": 0,
+          "axioms": [
+            "propext",
+            "Classical.choice",
+            "Quot.sound"
+          ],
+          "checkId": "check-1",
+          "checkedAt": 1792863803936,
+          "claim": "statement",
+          "elaboratedDeclarationType": "OAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic : Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧ Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight",
+          "goalsRemaining": 0,
+          "leanStatementHash": "d917d579b417751f32bb7ec8261b7adea2c79bd36866c4fd0de53ab4962811a4",
+          "proofHash": "23001bf8decb6b4971167b98f5ffa82e74cf86c24222d434d40d68bddfe1868a",
+          "proofPath": "Submission.lean",
+          "receiptId": "lean-504445e25f9c03d2440a36ef",
+          "sessionId": "48c41d1c-e6f0-49b8-be6d-d073cd34044a",
+          "sorryCount": 0,
+          "sourceDeclarationHash": "1f8cff9dcc2be29304e831f3a9ea5ffa64351769431cda3e6e7afd6177671e3c",
+          "statementBinding": "caller-bound-to-committed-declaration",
+          "statementHash": "d917d579b417751f32bb7ec8261b7adea2c79bd36866c4fd0de53ab4962811a4",
+          "status": "kernel_verified",
+          "stderrPreview": "Submission.lean:371:22: warning: try 'simp' instead of 'simpa'\n\nNote: This linter can be disabled with `set_option linter.unnecessarySimpa false`\nSubmission.lean:984:16: warning: this tactic is never executed\n\nNote: This linter can be disabled with `set_option linter.unreachableTactic false`\nSubmission.lean:984:6: warning: Unused tactic linter: `all_goals\n  first\n  | exact Finset.card_le_three\n  | exact Finset.card_le_two.trans (by omega)\n  | exact lt_of_le_of_lt Finset.card_le_two (by omega)` does nothing\n\nNote: This linter can be disabled with `set_option linter.unusedTactic false`\nSubmission.lean:990:46: warning: This simp argument is unused:\n  Vertex.down.injEq\n\nHint: Omit it from the simp argument list.\n  [apply] simp [widthTwoNeighbors, Vertex.up.injEq]\n\nNote: This linter can be disabled with `set_option linter.unusedSimpArgs false`\nSubmission.lean:1116:22: warning: try 'simp' instead of 'simpa'\n\nNote: This linter can be disabled with `set_option linter.unnecessarySimpa false`",
+          "stdoutPreview": "DS_DECL_REFERENCES_296dd98ba87892b62f85e0c7a117c9ae:null\nDEEPSCIENTIST_DECL_BEGIN_1f22f11922aa8898\nOAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic :\n  Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧ Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight\nDEEPSCIENTIST_DECL_END_1f22f11922aa8898\nDEEPSCIENTIST_AXIOMS_BEGIN_1f22f11922aa8898\n'OAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic' depends on axioms: [propext,\n Classical.choice,\n Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_1f22f11922aa8898",
+          "targetCommit": "e1d3f9766c033335f051ce7f6f1504ef2d9ec28a",
+          "theoremDeclarationHash": "f2c27f2a714140fbd5ffc11cd058bf44403bcb56f44fb2ad2d0aa33c634aa9d4",
+          "theoremName": "OAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic",
+          "toolchain": {
+            "lake": "lakefile.toml",
+            "lean": "lake"
+          },
+          "verifier": "lean-kernel"
+        }
+      ],
+      "schema": "deepscientist.mathematics.verification-batch/v1",
+      "sessionId": "48c41d1c-e6f0-49b8-be6d-d073cd34044a",
+      "startedAt": 1792863778030,
+      "status": "kernel_verified",
+      "targetCommit": "e1d3f9766c033335f051ce7f6f1504ef2d9ec28a"
+    }
+  },
+  "routeParking": [],
+  "status": "integrated",
+  "task": {
+    "dependsOn": [
+      "sums_reduction"
+    ],
+    "groupId": "main",
+    "id": "width_four_summability_a8462a19",
+    "kind": "lemma",
+    "objective": "Prove the exact unconditional height-four weight and first-length-weight summability lemma and deliver it via the ordinary typed proof protocol. The complete increment below has passed local Lean 4.34.1 kernel checking. Native host verification and canonical integration remain required. Preserve the original all-height target and every existing declaration; do not infer an all-width result.\n\nThe proof uses the canonical geometry at h=4. It enumerates the eight vertex kinds and all 22 incoming-edge cases, and proves a one-step potential inequality with beta=1847/1000 and positive integer weights between 29 and 64. It then inductively bounds continuation counts by edgeWeight*beta^n, covers every canonical BridgePath 4 by the enumerator using the actual connectedness, Nodup, source, terminal and strip fields, and derives the finite-family count bound card <=128*beta^n. It proves beta<2*cos(pi/8) by exact rational/root inequalities, then uses the already integrated unconditional counting-to-summability helpers. No growth hypothesis, unresolved original theorem, additional axiom, native_decide or publisher solution is used. There is no 14-step enumeration.\n\nInsert the entire WidthFour.lean.inc once inside namespace OAI.PolynomialVacuumBridge.Corridor after the existing bridgeSummable_firstLengthWeight_of_mu_bound and bridgeSummable_weight_of_summable_firstLengthWeight helpers from sums_reduction. The increment opens/closes WidthFour and declares width_four_summability_diagnostic in the outer namespace. Reuse identical names if a prior delivery has already integrated them. The standalone WidthFour.lean validation harness must not replace Submission.lean. The exact theorem/type/proofPath in the task must be delivered; an advisory report is not a formal proof delivery.\n\nLocal evidence: actual Lean exit 0 in 11.999551268992946 seconds. Source SHA256 a8462a1922c107fde21cde91cb10c505f57860c5d926b3bb30df2869cd804e91, increment SHA256 db6e35bfe5eba4bfae490a63997874ce18953292e266c8351410097cbdae41b0. Fixed Mathlib d13f23b723b8a846827a245b89c10fc7d3f11612, one CPU/thread, 32 GiB, maxHeartbeats=0 and no wall/CPU/call cap. All 12 printed key declarations including the exact target use only propext, Classical.choice and Quot.sound. A single unnecessarySimpa style warning remains; no proof error or stderr. No unchanged-source rerun was performed during archival. This evidence is local; native task acceptance and OpenAI-hosted certification are not claimed.\n\nComplete independently checked Lean increment:\n```lean\nnamespace WidthFour\n\ndef inside (v : Vertex) : Prop := 0 ≤ layer v ∧ layer v < 4\n\nnoncomputable def neighbors : Vertex → Finset Vertex\n  | .up i j => if j = 0 then {.down i 0, .down (i-1) 0}\n      else if j = 1 then {.down i 1, .down (i-1) 1, .down i 0}\n      else if j = 2 then {.down i 2, .down (i-1) 2, .down i 1}\n      else if j = 3 then {.down i 3, .down (i-1) 3, .down i 2} else ∅\n  | .down i j => if j = 0 then {.up i 0, .up (i+1) 0, .up i 1}\n      else if j = 1 then {.up i 1, .up (i+1) 1, .up i 2}\n      else if j = 2 then {.up i 2, .up (i+1) 2, .up i 3}\n      else if j = 3 then {.up i 3, .up (i+1) 3} else ∅\n\nlemma inside_cases {v : Vertex} (h : inside v) :\n    (∃ i, v = .up i 0) ∨ (∃ i, v = .down i 0) ∨\n    (∃ i, v = .up i 1) ∨ (∃ i, v = .down i 1) ∨\n    (∃ i, v = .up i 2) ∨ (∃ i, v = .down i 2) ∨\n    (∃ i, v = .up i 3) ∨ (∃ i, v = .down i 3) := by\n  cases v with\n  | up i j =>\n    have hj : j = 0 ∨ j = 1 ∨ j = 2 ∨ j = 3 := by simp only [inside, layer] at h; omega\n    rcases hj with rfl | rfl | rfl | rfl <;> tauto\n  | down i j =>\n    have hj : j = 0 ∨ j = 1 ∨ j = 2 ∨ j = 3 := by simp only [inside, layer] at h; omega\n    rcases hj with rfl | rfl | rfl | rfl <;> tauto\n\nlemma mem_neighbors {a b : Vertex} (ha : inside a) :\n    b ∈ neighbors a ↔ adjacent a b ∧ inside b := by\n  rcases inside_cases ha with ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩ |\n    ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩ <;>\n  cases b <;> simp [neighbors, adjacent, inside, layer, Vertex.up.injEq, Vertex.down.injEq] <;> omega\n\n/-- Positive rational comparison rate strictly below the canonical connective constant. -/\nnoncomputable def beta : ℝ := 1847 / 1000\n\n/-- Integer potentials for each valid incoming edge of the four-layer strip.\nThe potential is translation invariant and distinguishes vertical from horizontal arrivals. -/\nnoncomputable def edgeWeight (a b : Vertex) : ℝ :=\n  match b with\n  | .up _ j => if layer a = j-1 then\n        (if j = 1 then 64 else if j = 2 then 56 else 33)\n      else (if j = 0 then 29 else if j = 1 then 50 else if j = 2 then 58 else 52)\n  | .down _ j => if layer a = j+1 then\n        (if j = 0 then 33 else if j = 1 then 56 else 64)\n      else (if j = 0 then 52 else if j = 1 then 58 else if j = 2 then 50 else 29)\n\nlemma edgeWeight_ge_one (a b : Vertex) : 1 ≤ edgeWeight a b := by\n  cases b <;> simp only [edgeWeight] <;> split_ifs <;> norm_num\n\nlemma edgeWeight_le_sixtyFour (a b : Vertex) : edgeWeight a b ≤ 64 := by\n  cases b <;> simp only [edgeWeight] <;> split_ifs <;> norm_num\n\nlemma beta_ge_one : 1 ≤ beta := by norm_num [beta]\n\n/-- Every incoming edge obeys the finite rational potential certificate. -/\nlemma potential_step {a b : Vertex} (ha : inside a) (hb : inside b)\n    (hab : adjacent a b) :\n    ∑ c ∈ (neighbors b).erase a, edgeWeight b c ≤ beta * edgeWeight a b := by\n  classical\n  have ha_mem : a ∈ neighbors b := (mem_neighbors hb).2 ⟨by\n    cases a <;> cases b <;> exact hab, ha⟩\n  rcases inside_cases hb with ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩ |\n    ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩\n  all_goals\n    simp [neighbors] at ha_mem\n    rcases ha_mem with rfl | rfl | rfl\n    all_goals\n      have h₁ : i - 1 ≠ i := by omega\n      have h₂ : i ≠ i - 1 := by omega\n      have h₃ : i + 1 ≠ i := by omega\n      have h₄ : i ≠ i + 1 := by omega\n      norm_num [neighbors, edgeWeight, layer, beta, Vertex.up.injEq,\n        Vertex.down.injEq, h₁, h₂, h₃, h₄]\n\nnoncomputable def continuations (a b : Vertex) : ℕ → Finset (List Vertex)\n  | 0 => {[]}\n  | n + 1 => ((neighbors b).erase a).biUnion fun c =>\n      (continuations b c n).image fun l => c :: l\n\nlemma continuations_card (n : ℕ) (a b : Vertex)\n    (ha : inside a) (hb : inside b) (hab : adjacent a b) :\n    ((continuations a b n).card : ℝ) ≤ edgeWeight a b * beta ^ n := by\n  classical\n  induction n generalizing a b with\n  | zero => simpa only [continuations, Finset.card_singleton, Nat.cast_one, pow_zero, mul_one]\n      using edgeWeight_ge_one a b\n  | succ n ih =>\n    calc ((continuations a b (n+1)).card : ℝ)\n        ≤ ∑ c ∈ (neighbors b).erase a,\n            (((continuations b c n).image fun l => c :: l).card : ℝ) := by\n          exact_mod_cast (Finset.card_biUnion_le :\n            (((neighbors b).erase a).biUnion fun c =>\n              (continuations b c n).image fun l => c :: l).card ≤ _)\n      _ ≤ ∑ c ∈ (neighbors b).erase a, edgeWeight b c * beta ^ n := by\n          apply Finset.sum_le_sum\n          intro c hc\n          have hcin := (mem_neighbors hb).1 (Finset.mem_erase.mp hc).2\n          have hcard : (((continuations b c n).image fun l => c :: l).card : ℝ)\n              ≤ ((continuations b c n).card : ℝ) := by exact_mod_cast Finset.card_image_le\n          exact hcard.trans (ih b c hb hcin.2 hcin.1)\n      _ = (∑ c ∈ (neighbors b).erase a, edgeWeight b c) * beta ^ n := by\n          rw [Finset.sum_mul]\n      _ ≤ (beta * edgeWeight a b) * beta ^ n :=\n          mul_le_mul_of_nonneg_right (potential_step ha hb hab)\n            (pow_nonneg (le_trans (by norm_num) beta_ge_one) n)\n      _ = edgeWeight a b * beta ^ (n+1) := by rw [pow_succ]; ring\n\nlemma mem_continuations {a b : Vertex} {l : List Vertex}\n    (hc : (a :: b :: l).IsChain adjacent)\n    (hnd : (a :: b :: l).Nodup)\n    (hin : ∀ v ∈ a :: b :: l, inside v) :\n    l ∈ continuations a b l.length := by\n  classical\n  induction l generalizing a b with\n  | nil => simp [continuations]\n  | cons c l ih =>\n    have hcin : inside c := hin c (by simp)\n    have hcn : c ≠ a := by\n      intro h\n      exact (List.nodup_cons.mp hnd).1 (by simp [h])\n    have hmem : c ∈ (neighbors b).erase a :=\n      Finset.mem_erase.mpr ⟨hcn,(mem_neighbors (hin b (by simp))).2 ⟨hc.tail.rel,hcin⟩⟩\n    apply Finset.mem_biUnion.mpr\n    refine ⟨c,hmem,Finset.mem_image.mpr ⟨l,?_,rfl⟩⟩\n    apply ih hc.tail hnd.tail\n    intro v hv\n    exact hin v (by simp only [List.mem_cons] at hv ⊢; tauto)\n\nnoncomputable def allPaths (n : ℕ) : Finset (List Vertex) :=\n  (neighbors (.up 0 0)).biUnion fun b =>\n    (continuations (.up 0 0) b (n-2)).image fun l => (.up 0 0) :: b :: l\n\nlemma allPaths_card (n : ℕ) : ((allPaths n).card : ℝ) ≤ 128 * beta ^ n := by\n  classical\n  have hs : inside (.up 0 0) := by simp [inside,layer]\n  calc ((allPaths n).card : ℝ)\n      ≤ ∑ b ∈ neighbors (.up 0 0),\n          (((continuations (.up 0 0) b (n-2)).image fun l => (.up 0 0) :: b :: l).card : ℝ) := by\n        exact_mod_cast (Finset.card_biUnion_le :\n          ((neighbors (.up 0 0)).biUnion fun b =>\n            (continuations (.up 0 0) b (n-2)).image fun l => (.up 0 0) :: b :: l).card ≤ _)\n    _ ≤ ∑ b ∈ neighbors (.up 0 0), 64 * beta ^ (n-2) := by\n        apply Finset.sum_le_sum\n        intro b hb\n        obtain ⟨hadj,hbin⟩ := (mem_neighbors hs).1 hb\n        have hcard : (((continuations (.up 0 0) b (n-2)).image\n              fun l => (.up 0 0) :: b :: l).card : ℝ)\n            ≤ ((continuations (.up 0 0) b (n-2)).card : ℝ) := by exact_mod_cast Finset.card_image_le\n        exact (hcard.trans (continuations_card (n-2) _ _ hs hbin hadj)).trans\n          (mul_le_mul_of_nonneg_right (edgeWeight_le_sixtyFour _ _)\n            (pow_nonneg (le_trans (by norm_num) beta_ge_one) _))\n    _ = 128 * beta ^ (n-2) := by simp [neighbors]; ring\n    _ ≤ 128 * beta ^ n :=\n        mul_le_mul_of_nonneg_left (pow_le_pow_right₀ beta_ge_one (by omega)) (by norm_num)\n\nlemma path_mem_allPaths (p : BridgePath 4) : p.vertices ∈ allPaths p.vertices.length := by\n  classical\n  have hsrc := p.source\n  have hterm := p.terminal\n  cases hv : p.vertices with\n  | nil => simp [hv] at hsrc\n  | cons a l =>\n    have ha : a = .up 0 0 := by simpa [hv] using hsrc\n    subst a\n    cases l with\n    | nil =>\n      rcases hterm with ⟨i,hi⟩\n      simp [hv] at hi\n    | cons b l =>\n      have hc : ((.up 0 0) :: b :: l).IsChain adjacent := by simpa only [hv] using p.connected\n      have hnd : ((.up 0 0) :: b :: l).Nodup := by simpa only [hv] using p.distinct\n      have hin : ∀ v ∈ (.up 0 0) :: b :: l, inside v := by\n        intro v h\n        have hvp : v ∈ p.vertices := by simpa only [hv] using h\n        simpa only [inside, Nat.cast_ofNat] using p.inStrip v hvp\n      rw [allPaths]\n      apply Finset.mem_biUnion.mpr\n      refine ⟨b,(mem_neighbors (hin _ (by simp))).2 ⟨hc.rel,hin b (by simp)⟩,?_⟩\n      apply Finset.mem_image.mpr\n      refine ⟨l,?_,by simpa only [hv]⟩\n      have hlen : l.length + 1 + 1 - 2 = l.length := by omega\n      simpa only [hv,List.length_cons,hlen] using mem_continuations hc hnd hin\n\nlemma path_card_real (n : ℕ) (s : Finset (BridgePath 4))\n    (hlen : ∀ p ∈ s, p.vertices.length = n) :\n    (s.card : ℝ) ≤ 128 * beta ^ n := by\n  classical\n  have hm : Set.MapsTo (fun p : BridgePath 4 => p.vertices) (s : Set (BridgePath 4))\n      (allPaths n : Set (List Vertex)) := by\n    intro p hp\n    change p.vertices ∈ allPaths n\n    simpa only [hlen p hp] using path_mem_allPaths p\n  have hi : Set.InjOn (fun p : BridgePath 4 => p.vertices) (s : Set (BridgePath 4)) := by\n    intro p hp q hq he\n    cases p\n    cases q\n    cases he\n    rfl\n  have hcard : (s.card : ℝ) ≤ ((allPaths n).card : ℝ) := by\n    exact_mod_cast Finset.card_le_card_of_injOn _ hm hi\n  exact hcard.trans (allPaths_card n)\n\nlemma beta_lt_mu : beta < 2 * Real.cos (Real.pi / 8) := by\n  have hs2 : Real.sqrt 2 ^ 2 = (2 : ℝ) := Real.sq_sqrt (by norm_num)\n  have hs2non : 0 ≤ Real.sqrt 2 := Real.sqrt_nonneg 2\n  have hbr : beta ^ 2 - 2 < Real.sqrt 2 := by\n    have hbpos : 0 < beta ^ 2 - 2 := by norm_num [beta]\n    have hbsq : (beta ^ 2 - 2) ^ 2 < (2 : ℝ) := by norm_num [beta]\n    nlinarith\n  have hrnon : 0 ≤ Real.sqrt (2 + Real.sqrt 2) := Real.sqrt_nonneg _\n  have hrsq : Real.sqrt (2 + Real.sqrt 2) ^ 2 = 2 + Real.sqrt 2 :=\n    Real.sq_sqrt (by positivity)\n  have hroot : beta < Real.sqrt (2 + Real.sqrt 2) := by\n    have hbpos : 0 ≤ beta := le_trans (by norm_num) beta_ge_one\n    nlinarith\n  rw [Real.cos_pi_div_eight]\n  linarith\n\ntheorem stripGrowthAtFour :\n    ∃ C β : ℝ, 0 ≤ C ∧ 0 ≤ β ∧ β < 2 * Real.cos (Real.pi / 8) ∧\n      ∀ (n : ℕ) (s : Finset (BridgePath 4)),\n        (∀ p ∈ s, p.vertices.length = n) → (s.card : ℝ) ≤ C * β ^ n := by\n  exact ⟨128, beta, by norm_num, le_trans (by norm_num) beta_ge_one,\n    beta_lt_mu, path_card_real⟩\n\nend WidthFour\n\n/-- Fixed height four only; no all-height growth hypothesis is used. -/\ntheorem width_four_summability_diagnostic :\n    Summable (weight (h := 4)) ∧ Summable (firstLengthWeight (h := 4)) := by\n  obtain ⟨C, β, hC, hβ, hlt, hcount⟩ := WidthFour.stripGrowthAtFour\n  have hL : Summable (firstLengthWeight (h := 4)) :=\n    bridgeSummable_firstLengthWeight_of_mu_bound hC hβ hlt hcount\n  exact ⟨bridgeSummable_weight_of_summable_firstLengthWeight hL,hL⟩\n```\n",
+    "proofPath": "Submission.lean",
+    "revision": 0,
+    "sharing": "problem",
+    "theoremName": "OAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic",
+    "type": "Summable (OAI.PolynomialVacuumBridge.Corridor.weight (h := 4)) ∧ Summable (OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (h := 4))"
+  },
+  "typePreflight": {
+    "artifact": {
+      "digest": "4bee0fc3ce1f32ad74e91694bc8e55cc254c7e18e9f0c3fb01d384482837649a",
+      "path": ".lake/type-diagnostics/6241902a-67f9-4fcd-8a19-be966746545a/manifest.json"
+    },
+    "context": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums",
+    "evidence": "advisory-type-elaboration",
+    "inputDigest": "6e444092d8112cda6b225a49cd8b6adcf2e453bc7f0010a6a28367c464a431b2",
+    "proofAcceptance": "not-assessed",
+    "reason": "closed-type-elaborated",
+    "status": "elaborated",
+    "taskDigest": "d917d579b417751f32bb7ec8261b7adea2c79bd36866c4fd0de53ab4962811a4",
+    "type": "Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧ Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight"
+  }
+}

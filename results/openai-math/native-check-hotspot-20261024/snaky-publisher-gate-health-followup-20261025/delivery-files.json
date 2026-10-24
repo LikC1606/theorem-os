@@ -1,0 +1,36 @@
+{
+  "schema": "snaky-publisher-followup-delivery.v1",
+  "frozenAt": "2026-10-24T17:49:03.340189+00:00",
+  "files": [
+    {
+      "name": "README.md",
+      "bytes": 987,
+      "sha256": "f1c8a892c3b1c547a953b4143c7074b679d0e72144a1c3726d306644ed572ecf"
+    },
+    {
+      "name": "events-index.json",
+      "bytes": 920,
+      "sha256": "d8825426f50cf1c2621a259bfe44ec45795f781354d6acc7ebb1e44d66221392"
+    },
+    {
+      "name": "events-safe-raw.jsonl",
+      "bytes": 217,
+      "sha256": "d888f9e65779ccf7c26c8f8e20db82e884791255ee5ea5cccc190d215a4f15cd"
+    },
+    {
+      "name": "lean-resource-limits.txt",
+      "bytes": 1323,
+      "sha256": "eaf5d3c5052a634b541899d69ce1a7c6ecdf4b206726e412b6071be900aa7e02"
+    },
+    {
+      "name": "process-snapshot.json",
+      "bytes": 1417,
+      "sha256": "f7942b1f7aff06152162deb5f784c3472d925d44c4cdb639a7ad8756b0106703"
+    },
+    {
+      "name": "report.json",
+      "bytes": 2578,
+      "sha256": "dadc04c710fe0edd1e75f32338763698beb6ae51b274bfa6e72d403b4ff0ee74"
+    }
+  ]
+}

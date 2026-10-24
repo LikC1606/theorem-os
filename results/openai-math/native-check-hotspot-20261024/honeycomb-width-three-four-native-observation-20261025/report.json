@@ -1,0 +1,45 @@
+{
+  "schema": "honeycomb-width-three-four-native-observation.v1",
+  "capturedAtUTC": "2026-10-24T17:39:31.584880+00:00",
+  "capturedAtAsiaShanghai": "2026-10-25T01:39:31.661985+08:00",
+  "observationFirstReadUTC": "2026-10-24T17:34:17.163930+00:00",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "phase": "running",
+  "turns": 434,
+  "canonicalCommit": "0d4bd1c55e8dff31f375e1d5dbe243c799489133",
+  "taskStages": [
+    {
+      "taskId": "width_three_summability_e0dd3d96",
+      "status": "running",
+      "workerPhase": "running",
+      "proofPresent": false,
+      "integratedCheckPresent": false,
+      "proofReceiptIds": [],
+      "integrationReceiptIds": []
+    },
+    {
+      "taskId": "width_four_summability_a8462a19",
+      "status": "running",
+      "workerPhase": "running",
+      "proofPresent": false,
+      "integratedCheckPresent": false,
+      "proofReceiptIds": [],
+      "integrationReceiptIds": []
+    }
+  ],
+  "outcome": "both_assigned_sessions_running_without_task_or_integration_receipts",
+  "acceptedTaskPackagesCreated": false,
+  "originalGoal": {
+    "taskId": "initial_goal_1",
+    "status": "conditional"
+  },
+  "originalTheoremAccepted": false,
+  "openAIHostedCertification": false,
+  "intervention": {
+    "activeStateSourceRuntimeCacheOrQueueModified": false,
+    "compilerInvoked": false,
+    "restartedOrKilledProcess": false,
+    "previousPackagesOrResultsRepositoryModified": false
+  },
+  "claimBoundary": "Public state and native safe events only. Worker lastActivity is metadata, not hidden reasoning content. No accepted task, axiom report or source-to-receipt identity is claimed without receipts."
+}
