@@ -1,0 +1,90 @@
+{
+  "observedAt": "2026-10-24T18:52:18.252Z",
+  "comparisons": [
+    {
+      "id": "strip_growth_below_mu",
+      "contract": true,
+      "proof": true,
+      "integration": true
+    },
+    {
+      "id": "sums_reduction",
+      "contract": true,
+      "proof": true,
+      "integration": true
+    },
+    {
+      "id": "initial_goal_1",
+      "contract": true,
+      "proof": true,
+      "integration": true
+    },
+    {
+      "id": "bridge_column_step_unique_a0424391",
+      "contract": true,
+      "proof": true,
+      "integration": true
+    },
+    {
+      "id": "bridge_full_column_word_injective_a0424391",
+      "contract": true,
+      "proof": true,
+      "integration": true
+    },
+    {
+      "id": "confined_bridge_sums_all_heights_9dd59d27",
+      "contract": true,
+      "proof": true,
+      "integration": true
+    },
+    {
+      "id": "width_one_bridge_sums_b433299a",
+      "contract": true,
+      "proof": true,
+      "integration": true
+    },
+    {
+      "id": "width_two_summability_diagnostic",
+      "contract": true,
+      "proof": true,
+      "integration": true
+    },
+    {
+      "id": "width_three_summability_e0dd3d96",
+      "contract": true,
+      "proof": true,
+      "integration": true
+    },
+    {
+      "id": "width_four_summability_a8462a19",
+      "contract": true,
+      "proof": true,
+      "integration": true
+    },
+    {
+      "id": "initial_research_1",
+      "contract": true,
+      "proof": true,
+      "integration": true
+    },
+    {
+      "id": "initial_research_2",
+      "contract": true,
+      "proof": true,
+      "integration": true
+    },
+    {
+      "id": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+      "contract": true,
+      "proof": true,
+      "integration": true
+    },
+    {
+      "id": "finite_box_zero_mass_reference",
+      "contract": true,
+      "proof": true,
+      "integration": true
+    }
+  ],
+  "allPreserved": true
+}

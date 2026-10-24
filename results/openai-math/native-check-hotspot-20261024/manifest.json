@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-10-24T18:16:00.363102+00:00",
+  "capturedAt": "2026-10-24T18:54:26.615789+00:00",
   "characterV1KernelCheck": "failed: two section-parameter application mismatches",
   "characterV2FullSourceCompile": "passed: exit0 in 635.028472 seconds",
   "characterV2AxiomAudit": "passed: only propext/Classical.choice/Quot.sound",
@@ -8,8 +8,8 @@
   "files": [
     {
       "path": "README.md",
-      "bytes": 25067,
-      "sha256": "51435ada12ab80ef4b7406b041cb04ca851131f6b8a209d4c229dcc975ad1189"
+      "bytes": 25549,
+      "sha256": "d4fd0d919e20e452cf85bc71a55ff864c0cb3ccb71e85fe89153cbe8d3a092ea"
     },
     {
       "path": "adopt-verified-character-candidate/README.md",
@@ -452,6 +452,71 @@
       "sha256": "1113471d311203306db429faefdf6911b8823818cb0aabb3739c163b9024aed2"
     },
     {
+      "path": "character-sync-def-v2-comparator/README.md",
+      "bytes": 927,
+      "sha256": "3d4fa77b75c813f3c3429862705dee64d3b84a26f94fb023e294c9ea9920d522"
+    },
+    {
+      "path": "character-sync-def-v2-comparator/challenge.log",
+      "bytes": 55,
+      "sha256": "827451e39a296bd97ae5f9eb496cdc1b1a55de13738be72f6f92924a35cdd3fa"
+    },
+    {
+      "path": "character-sync-def-v2-comparator/comparator.json",
+      "bytes": 331,
+      "sha256": "5595b215acb2ae391c990c12bd42200971b3d13a4da2746deb983a7e4e8f9c13"
+    },
+    {
+      "path": "character-sync-def-v2-comparator/comparator.log",
+      "bytes": 408,
+      "sha256": "8eec1d003be5a4e5730e27cfb964ab5473352f1bda4ccced620651e376bf3228"
+    },
+    {
+      "path": "character-sync-def-v2-comparator/receipt.json",
+      "bytes": 1543,
+      "sha256": "3a0e924b7bf32e68203c20992c6eed4fe2b12b939df1a14a90f532682e60d844"
+    },
+    {
+      "path": "character-sync-def-v2-comparator/started.json",
+      "bytes": 892,
+      "sha256": "6c087c22963bd02bb097b2f4e1373adf70832ca7073fb0a11a2cf24a8c251e0e"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt/challenge.log",
+      "bytes": 55,
+      "sha256": "827451e39a296bd97ae5f9eb496cdc1b1a55de13738be72f6f92924a35cdd3fa"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt/comparator.json",
+      "bytes": 331,
+      "sha256": "5595b215acb2ae391c990c12bd42200971b3d13a4da2746deb983a7e4e8f9c13"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt/comparator.log",
+      "bytes": 393,
+      "sha256": "bf750222223c69362b872046ec04cb81c58d415f2eb4be3567cc64d6b2b96bad"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt/lakefile.toml",
+      "bytes": 157,
+      "sha256": "3473e5df58454921014ba24f351ed013d624b99605c4b6ff32052b44bbb7f32f"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt/lean-toolchain",
+      "bytes": 25,
+      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt/receipt.json",
+      "bytes": 1610,
+      "sha256": "bb8d69e10fc036eeca1e95fcac5bd79ba369f5170ad480b106e7e65b2d54d246"
+    },
+    {
+      "path": "character-sync-def-v2-comparator-prebuilt/started.json",
+      "bytes": 958,
+      "sha256": "222dc81a10111fa365b916b6e7e3ef6d92bcdc408423c7b382abefbf85ef175c"
+    },
+    {
       "path": "character-sync-def-v2-comparator-prebuilt-v2/Challenge.lean",
       "bytes": 900,
       "sha256": "ebc3129bfb5ef4a47e0de1d89f0f406ef6603df32355bdfbb9ce278627c1a1f1"
@@ -505,71 +570,6 @@
       "path": "character-sync-def-v2-comparator-prebuilt-v2/started.json",
       "bytes": 958,
       "sha256": "0a220a9432cc9661d629c800c8c1686415603fb77a91e988862e9646286ec871"
-    },
-    {
-      "path": "character-sync-def-v2-comparator-prebuilt/challenge.log",
-      "bytes": 55,
-      "sha256": "827451e39a296bd97ae5f9eb496cdc1b1a55de13738be72f6f92924a35cdd3fa"
-    },
-    {
-      "path": "character-sync-def-v2-comparator-prebuilt/comparator.json",
-      "bytes": 331,
-      "sha256": "5595b215acb2ae391c990c12bd42200971b3d13a4da2746deb983a7e4e8f9c13"
-    },
-    {
-      "path": "character-sync-def-v2-comparator-prebuilt/comparator.log",
-      "bytes": 393,
-      "sha256": "bf750222223c69362b872046ec04cb81c58d415f2eb4be3567cc64d6b2b96bad"
-    },
-    {
-      "path": "character-sync-def-v2-comparator-prebuilt/lakefile.toml",
-      "bytes": 157,
-      "sha256": "3473e5df58454921014ba24f351ed013d624b99605c4b6ff32052b44bbb7f32f"
-    },
-    {
-      "path": "character-sync-def-v2-comparator-prebuilt/lean-toolchain",
-      "bytes": 25,
-      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
-    },
-    {
-      "path": "character-sync-def-v2-comparator-prebuilt/receipt.json",
-      "bytes": 1610,
-      "sha256": "bb8d69e10fc036eeca1e95fcac5bd79ba369f5170ad480b106e7e65b2d54d246"
-    },
-    {
-      "path": "character-sync-def-v2-comparator-prebuilt/started.json",
-      "bytes": 958,
-      "sha256": "222dc81a10111fa365b916b6e7e3ef6d92bcdc408423c7b382abefbf85ef175c"
-    },
-    {
-      "path": "character-sync-def-v2-comparator/README.md",
-      "bytes": 927,
-      "sha256": "3d4fa77b75c813f3c3429862705dee64d3b84a26f94fb023e294c9ea9920d522"
-    },
-    {
-      "path": "character-sync-def-v2-comparator/challenge.log",
-      "bytes": 55,
-      "sha256": "827451e39a296bd97ae5f9eb496cdc1b1a55de13738be72f6f92924a35cdd3fa"
-    },
-    {
-      "path": "character-sync-def-v2-comparator/comparator.json",
-      "bytes": 331,
-      "sha256": "5595b215acb2ae391c990c12bd42200971b3d13a4da2746deb983a7e4e8f9c13"
-    },
-    {
-      "path": "character-sync-def-v2-comparator/comparator.log",
-      "bytes": 408,
-      "sha256": "8eec1d003be5a4e5730e27cfb964ab5473352f1bda4ccced620651e376bf3228"
-    },
-    {
-      "path": "character-sync-def-v2-comparator/receipt.json",
-      "bytes": 1543,
-      "sha256": "3a0e924b7bf32e68203c20992c6eed4fe2b12b939df1a14a90f532682e60d844"
-    },
-    {
-      "path": "character-sync-def-v2-comparator/started.json",
-      "bytes": 892,
-      "sha256": "6c087c22963bd02bb097b2f4e1373adf70832ca7073fb0a11a2cf24a8c251e0e"
     },
     {
       "path": "continuation-progress-20261024T080114Z.json",
@@ -672,11 +672,6 @@
       "sha256": "3b669e24284dd19268098d7ccfc52387118558149c4da162f12314f801a53ab6"
     },
     {
-      "path": "exact-source-integration-reuse-20261024/runtime.patch",
-      "bytes": 22831,
-      "sha256": "a83c46664039e597ac76eca9e844e8188b57cb36734407d6fbb068775b238eef"
-    },
-    {
       "path": "exact-source-integration-reuse-20261024/runtime/out/main/check-lean.js",
       "bytes": 313715,
       "sha256": "8f89e4d14a4aea047a55956f5070757dfd3bc8792ac8a4952c4bbc48a931d136"
@@ -715,6 +710,11 @@
       "path": "exact-source-integration-reuse-20261024/runtime/tests/snakyExactSourceReproduction.test.ts",
       "bytes": 7558,
       "sha256": "de16802bd6282fa9f48b4dee3bf83e3f2d64cc1efbb8e8db0e725eb28c39079e"
+    },
+    {
+      "path": "exact-source-integration-reuse-20261024/runtime.patch",
+      "bytes": 22831,
+      "sha256": "a83c46664039e597ac76eca9e844e8188b57cb36734407d6fbb068775b238eef"
     },
     {
       "path": "exact-source-integration-reuse-20261024/snaky-reproduction.json",
@@ -1002,11 +1002,6 @@
       "sha256": "07f8e807e860400551f1aa05ea499c99dd4261d7722ab697b30e86da75337ff7"
     },
     {
-      "path": "future-runtime-reuse-fix-20261024/runtime.patch",
-      "bytes": 11386,
-      "sha256": "f5d11d9bd860235e90b4113fbd40bcced66cfc73a81bcf46366e7cee43cfc270"
-    },
-    {
       "path": "future-runtime-reuse-fix-20261024/runtime/out/main/check-lean.js",
       "bytes": 1545721,
       "sha256": "f85b37e09c30b79ff252fa342d93b80339d75d2c83b074ba5acafbdb0c002ac0"
@@ -1042,6 +1037,11 @@
       "sha256": "d554848086ec8f8f73d7dd3445f2c7012d49e638a6e0e3a852113641aa540a21"
     },
     {
+      "path": "future-runtime-reuse-fix-20261024/runtime.patch",
+      "bytes": 11386,
+      "sha256": "f5d11d9bd860235e90b4113fbd40bcced66cfc73a81bcf46366e7cee43cfc270"
+    },
+    {
       "path": "future-runtime-reuse-fix-20261024/solverEvidenceReuse-tests.json",
       "bytes": 8581,
       "sha256": "a501ab10b9573de41505a2fa944c602f42b26170ced08ea2c7ab6c2ee228a882"
@@ -1055,11 +1055,6 @@
       "path": "future-runtime-reuse-fix-20261024/verification-summary.json",
       "bytes": 2457,
       "sha256": "ff6fae497e81ac4795db585074d175e2f4ec80363c7596ca82898d27466b3c59"
-    },
-    {
-      "path": "guard-preflight-v2/receipt.json",
-      "bytes": 3605,
-      "sha256": "0d1e23e002ac2b51d4baf4d966cef308fdd314cc14d8ca9b74a16871b0e4c92d"
     },
     {
       "path": "guard-preflight/check-source-v1.ts",
@@ -1085,6 +1080,11 @@
       "path": "guard-preflight/receipt.json",
       "bytes": 3370,
       "sha256": "592ca99a45021d4c1d8f73b1f46786e3155900ae2814bc7c02b6744f79561378"
+    },
+    {
+      "path": "guard-preflight-v2/receipt.json",
+      "bytes": 3605,
+      "sha256": "0d1e23e002ac2b51d4baf4d966cef308fdd314cc14d8ca9b74a16871b0e4c92d"
     },
     {
       "path": "honeycomb-adapter-adoption-inspection-20261024.json",
@@ -2447,11 +2447,6 @@
       "sha256": "ee7efacab075c5570c0a0a2fab963bda4b5900c5992047cf3b045d07fe5e5633"
     },
     {
-      "path": "honeycomb-native-confined-sums-20261025/integrated-source-verification.json",
-      "bytes": 33547,
-      "sha256": "b2400cc102f1c2f973e8bbd21156b91f6d807fcdae3232e7deb4be750d9d7f04"
-    },
-    {
       "path": "honeycomb-native-confined-sums-20261025/integrated-source/Submission.lean",
       "bytes": 17981,
       "sha256": "60abf3438b021bc9b5f4c4ed091f8ed8f1f49584c89562c7ebc7fd6e3fc38869"
@@ -2467,9 +2462,9 @@
       "sha256": "40c4fc809c36615557d6eb4f2b874beb9257afff1a3733ff81ffc3a2a1ac018b"
     },
     {
-      "path": "honeycomb-native-confined-sums-20261025/proof-source-verification.json",
+      "path": "honeycomb-native-confined-sums-20261025/integrated-source-verification.json",
       "bytes": 33547,
-      "sha256": "778d5a57f679317071df8b1a1f30f0eca38b441a3f66de91ce4e2009c5c6597c"
+      "sha256": "b2400cc102f1c2f973e8bbd21156b91f6d807fcdae3232e7deb4be750d9d7f04"
     },
     {
       "path": "honeycomb-native-confined-sums-20261025/proof-source/Submission.lean",
@@ -2485,6 +2480,11 @@
       "path": "honeycomb-native-confined-sums-20261025/proof-source/target-declaration.lean.txt",
       "bytes": 415,
       "sha256": "40c4fc809c36615557d6eb4f2b874beb9257afff1a3733ff81ffc3a2a1ac018b"
+    },
+    {
+      "path": "honeycomb-native-confined-sums-20261025/proof-source-verification.json",
+      "bytes": 33547,
+      "sha256": "778d5a57f679317071df8b1a1f30f0eca38b441a3f66de91ce4e2009c5c6597c"
     },
     {
       "path": "honeycomb-native-confined-sums-20261025/result.json",
@@ -2547,11 +2547,6 @@
       "sha256": "c60ccdb1766433275fde61dd5e7afe1b8d4c2d1d90d79c7e03c2093318b51b5f"
     },
     {
-      "path": "honeycomb-native-width-four-20261025/integrated-source-verification.json",
-      "bytes": 9000,
-      "sha256": "00015fa2d2e9d03c3551d73b87e5f09ae70ae2d3cbd2b352ea48355e0a71f03f"
-    },
-    {
       "path": "honeycomb-native-width-four-20261025/integrated-source/Submission.lean",
       "bytes": 54632,
       "sha256": "fd04b36bf0bff9c03c9f84eec7adafd93401d041bbcdd3d6f180e64c1dfa163c"
@@ -2567,9 +2562,9 @@
       "sha256": "1d28a2526095297515d9d543c2397c7e8e30a2ad362769bf438c7441fed7f9e0"
     },
     {
-      "path": "honeycomb-native-width-four-20261025/proof-source-verification.json",
+      "path": "honeycomb-native-width-four-20261025/integrated-source-verification.json",
       "bytes": 9000,
-      "sha256": "759fdb773deab552401ec81a1807ef1b6559fc1c2958e0c8ff8079fb5a5822cf"
+      "sha256": "00015fa2d2e9d03c3551d73b87e5f09ae70ae2d3cbd2b352ea48355e0a71f03f"
     },
     {
       "path": "honeycomb-native-width-four-20261025/proof-source/Submission.lean",
@@ -2585,6 +2580,11 @@
       "path": "honeycomb-native-width-four-20261025/proof-source/target-declaration.lean.txt",
       "bytes": 389,
       "sha256": "1d28a2526095297515d9d543c2397c7e8e30a2ad362769bf438c7441fed7f9e0"
+    },
+    {
+      "path": "honeycomb-native-width-four-20261025/proof-source-verification.json",
+      "bytes": 9000,
+      "sha256": "759fdb773deab552401ec81a1807ef1b6559fc1c2958e0c8ff8079fb5a5822cf"
     },
     {
       "path": "honeycomb-native-width-four-20261025/result.json",
@@ -2652,11 +2652,6 @@
       "sha256": "7c3a329dc6ba22bb17b6505e9bf4f1ce2bd3705077af2927e291ecb43cd998e2"
     },
     {
-      "path": "honeycomb-native-width-one-20261025/integrated-source-verification.json",
-      "bytes": 7901,
-      "sha256": "6501817a6db10841112e10c4125c5c08b486b4d675553037d3d802280fb725ae"
-    },
-    {
       "path": "honeycomb-native-width-one-20261025/integrated-source/Submission.lean",
       "bytes": 31150,
       "sha256": "9154be44746b3e5c2180e78722686a3f9cd5bcbc0b04c497ed127f60b4bd2ba6"
@@ -2672,9 +2667,9 @@
       "sha256": "254999473b5b6327430f4f0f315a98035da742862d6a8ee2f93e8d236edab635"
     },
     {
-      "path": "honeycomb-native-width-one-20261025/proof-source-verification.json",
+      "path": "honeycomb-native-width-one-20261025/integrated-source-verification.json",
       "bytes": 7901,
-      "sha256": "de1176fd1cc9fb740b9c4906133bd1ed53ae42758dda5717ace869c41fdef7b0"
+      "sha256": "6501817a6db10841112e10c4125c5c08b486b4d675553037d3d802280fb725ae"
     },
     {
       "path": "honeycomb-native-width-one-20261025/proof-source/Submission.lean",
@@ -2690,6 +2685,11 @@
       "path": "honeycomb-native-width-one-20261025/proof-source/target-declaration.lean.txt",
       "bytes": 713,
       "sha256": "254999473b5b6327430f4f0f315a98035da742862d6a8ee2f93e8d236edab635"
+    },
+    {
+      "path": "honeycomb-native-width-one-20261025/proof-source-verification.json",
+      "bytes": 7901,
+      "sha256": "de1176fd1cc9fb740b9c4906133bd1ed53ae42758dda5717ace869c41fdef7b0"
     },
     {
       "path": "honeycomb-native-width-one-20261025/result.json",
@@ -2747,11 +2747,6 @@
       "sha256": "dc8f28b75bd9ed555504ead6f3e5a55cc2c185609bde250fb1f0f61f06815d49"
     },
     {
-      "path": "honeycomb-native-width-three-20261025/integrated-source-verification.json",
-      "bytes": 9849,
-      "sha256": "533cd990b64e8a77b2bba3cf0601b05d0313d4620418fe57a3849faa78063e5b"
-    },
-    {
       "path": "honeycomb-native-width-three-20261025/integrated-source/Submission.lean",
       "bytes": 69426,
       "sha256": "d4947cdf5b6a5c985fbe0390b396ed64c634198934f18db04b8c96112c4e3020"
@@ -2767,9 +2762,9 @@
       "sha256": "cd58ee019e3fda0629b9a1c735e672bc7738a918c5b7f06342bedb4943268834"
     },
     {
-      "path": "honeycomb-native-width-three-20261025/proof-source-verification.json",
-      "bytes": 9551,
-      "sha256": "da0526f8548ffb554019a7ca02e0fabdd10141d31e26fb1463095a182cd34a44"
+      "path": "honeycomb-native-width-three-20261025/integrated-source-verification.json",
+      "bytes": 9849,
+      "sha256": "533cd990b64e8a77b2bba3cf0601b05d0313d4620418fe57a3849faa78063e5b"
     },
     {
       "path": "honeycomb-native-width-three-20261025/proof-source/Submission.lean",
@@ -2785,6 +2780,11 @@
       "path": "honeycomb-native-width-three-20261025/proof-source/target-declaration.lean.txt",
       "bytes": 391,
       "sha256": "cd58ee019e3fda0629b9a1c735e672bc7738a918c5b7f06342bedb4943268834"
+    },
+    {
+      "path": "honeycomb-native-width-three-20261025/proof-source-verification.json",
+      "bytes": 9551,
+      "sha256": "da0526f8548ffb554019a7ca02e0fabdd10141d31e26fb1463095a182cd34a44"
     },
     {
       "path": "honeycomb-native-width-three-20261025/result.json",
@@ -2847,11 +2847,6 @@
       "sha256": "176aa34b0bfac813c637b56ec26460917e22657b5a7496fb20d66e9fd2e0fbb7"
     },
     {
-      "path": "honeycomb-native-width-two-20261025/integrated-source-verification.json",
-      "bytes": 8693,
-      "sha256": "61d6bb2e8fc4840143e561009f4bfe69daecc8c613471f573070a7c744984bcb"
-    },
-    {
       "path": "honeycomb-native-width-two-20261025/integrated-source/Submission.lean",
       "bytes": 42744,
       "sha256": "a4888da5bc50de13b4308d8e82f35c24146064a6c7c1d28c935354a3b119742d"
@@ -2867,9 +2862,9 @@
       "sha256": "c3b98f2b8b470cf267dc6ca84891a0e9993ddd90da432969990b90cc648a3fd4"
     },
     {
-      "path": "honeycomb-native-width-two-20261025/proof-source-verification.json",
+      "path": "honeycomb-native-width-two-20261025/integrated-source-verification.json",
       "bytes": 8693,
-      "sha256": "d21224ed7c1d1852f159505774b355ea28b6835c148482a5c6ac548f1ea8f83d"
+      "sha256": "61d6bb2e8fc4840143e561009f4bfe69daecc8c613471f573070a7c744984bcb"
     },
     {
       "path": "honeycomb-native-width-two-20261025/proof-source/Submission.lean",
@@ -2885,6 +2880,11 @@
       "path": "honeycomb-native-width-two-20261025/proof-source/target-declaration.lean.txt",
       "bytes": 386,
       "sha256": "c3b98f2b8b470cf267dc6ca84891a0e9993ddd90da432969990b90cc648a3fd4"
+    },
+    {
+      "path": "honeycomb-native-width-two-20261025/proof-source-verification.json",
+      "bytes": 8693,
+      "sha256": "d21224ed7c1d1852f159505774b355ea28b6835c148482a5c6ac548f1ea8f83d"
     },
     {
       "path": "honeycomb-native-width-two-20261025/result.json",
@@ -3122,11 +3122,6 @@
       "sha256": "5711455decd3110a9140d9176e097a9b935bbe6e9e9e0a7f1a2723dd77419727"
     },
     {
-      "path": "honeycomb-runtime-reuse-fix-20261024/runtime.patch",
-      "bytes": 10390,
-      "sha256": "bb1daa5670fcc03c13e960df378741addb031487d0f6bc5ac8a02634e70cda60"
-    },
-    {
       "path": "honeycomb-runtime-reuse-fix-20261024/runtime/out/main/check-lean.js",
       "bytes": 313715,
       "sha256": "8f89e4d14a4aea047a55956f5070757dfd3bc8792ac8a4952c4bbc48a931d136"
@@ -3155,6 +3150,11 @@
       "path": "honeycomb-runtime-reuse-fix-20261024/runtime/tests/taskProofCache.test.ts",
       "bytes": 33666,
       "sha256": "d554848086ec8f8f73d7dd3445f2c7012d49e638a6e0e3a852113641aa540a21"
+    },
+    {
+      "path": "honeycomb-runtime-reuse-fix-20261024/runtime.patch",
+      "bytes": 10390,
+      "sha256": "bb1daa5670fcc03c13e960df378741addb031487d0f6bc5ac8a02634e70cda60"
     },
     {
       "path": "honeycomb-runtime-reuse-fix-20261024/source-runtime-before.json",
@@ -4082,6 +4082,61 @@
       "sha256": "e18bde81272a22a5fc322b88d1fc55620e3dff6f466d93b6c70f6ca1fc25aebc"
     },
     {
+      "path": "honeycomb-width-five-context-compact-20261025/README.md",
+      "bytes": 1946,
+      "sha256": "eb589567d0042808f68209932a82b75684067c73fc046b22471da775cc17e7d7"
+    },
+    {
+      "path": "honeycomb-width-five-context-compact-20261025/SHA256SUMS",
+      "bytes": 874,
+      "sha256": "7f3ed058ab30658b5b1c76a9408adce3cb2036d1aeb78b614b42a5eb17e511c1"
+    },
+    {
+      "path": "honeycomb-width-five-context-compact-20261025/applied-readback.json",
+      "bytes": 1379,
+      "sha256": "60fb3be944f90fc2d03515b71096564bc9f006dd1c44699142ce46cc51429dcf"
+    },
+    {
+      "path": "honeycomb-width-five-context-compact-20261025/compact-handoff.md",
+      "bytes": 13778,
+      "sha256": "046d33c79612aff76a77eac02aa3c2a90cd90ec7b20c52a59cc42cb8a599c341"
+    },
+    {
+      "path": "honeycomb-width-five-context-compact-20261025/events-safe-projection.jsonl",
+      "bytes": 12182,
+      "sha256": "3b886ac1d7422da067715f1fc11c29da03ffb0e78db57a983e8c407d24144d6c"
+    },
+    {
+      "path": "honeycomb-width-five-context-compact-20261025/preparation.json",
+      "bytes": 157042,
+      "sha256": "2aa181526274e556fb3fe46e008bc295e33fdc5a248f6b86c400acdda4435657"
+    },
+    {
+      "path": "honeycomb-width-five-context-compact-20261025/preservation-readback.json",
+      "bytes": 1906,
+      "sha256": "beb0574ee1f0e4a61bc7b9bad5fc804d859583018158029e3f2ea9ebd671f7ee"
+    },
+    {
+      "path": "honeycomb-width-five-context-compact-20261025/public-delivery-source-audit.json",
+      "bytes": 2450,
+      "sha256": "c36cb82ceb135b476b5eb237e354af4b3ebc884d01bd9f4d8cec0b18d3675337"
+    },
+    {
+      "path": "honeycomb-width-five-context-compact-20261025/queue-compact-handoff.ts",
+      "bytes": 7280,
+      "sha256": "fdd36ee59eda6e856fc4e6647d09ab8f8f84baa18ec41ea8da9eb6997d99aacf"
+    },
+    {
+      "path": "honeycomb-width-five-context-compact-20261025/queue-receipt.json",
+      "bytes": 388,
+      "sha256": "57bd03509efb9d639369fdf9cce033bee9cc014c02bf822fe55b2cc8eaacc720"
+    },
+    {
+      "path": "honeycomb-width-five-context-compact-20261025/report.json",
+      "bytes": 3627,
+      "sha256": "bcae5c0d47c7772f187c085a3f3bf055d0657b8665d3c90be6ed21967b65388d"
+    },
+    {
       "path": "honeycomb-width-five-context-recovery-20261025/README.md",
       "bytes": 3123,
       "sha256": "7c1b133f5eab7f360ec53201414b158d9594a1942f42b5a9ab576bf0da5637f6"
@@ -4227,11 +4282,6 @@
       "sha256": "425b1ef5bcef085600c7f6a357a382044fba44a5dedc7ec2e81c1d688eb204e8"
     },
     {
-      "path": "honeycomb-width-five-flat-20261025/baseline-context-diagnostic.txt",
-      "bytes": 1031,
-      "sha256": "2b42796e8512045c80a0ac6dcdeb78f804658ca32347c5ef89e5de91c3f7a13f"
-    },
-    {
       "path": "honeycomb-width-five-flat-20261025/baseline/Challenge.lean",
       "bytes": 2367,
       "sha256": "6acaeab1940555d1df29856e504deae4f9edf7777231969b9b7d13515731d830"
@@ -4255,6 +4305,11 @@
       "path": "honeycomb-width-five-flat-20261025/baseline/lean-toolchain",
       "bytes": 25,
       "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/baseline-context-diagnostic.txt",
+      "bytes": 1031,
+      "sha256": "2b42796e8512045c80a0ac6dcdeb78f804658ca32347c5ef89e5de91c3f7a13f"
     },
     {
       "path": "honeycomb-width-five-flat-20261025/context-diagnostic.ts",
@@ -4307,11 +4362,6 @@
       "sha256": "65f367e1b022234aefa1f3121fb319326de53d294ebfb9a208739f783d3986d5"
     },
     {
-      "path": "honeycomb-width-five-flat-20261025/flat-anonymous-context-diagnostic.txt",
-      "bytes": 1397,
-      "sha256": "cc6f1f7a5d705b7ac7c53061d5dffc17e849ece0a1f7117f4d5f07a414d36f90"
-    },
-    {
       "path": "honeycomb-width-five-flat-20261025/flat-anonymous/Challenge.lean",
       "bytes": 2367,
       "sha256": "6acaeab1940555d1df29856e504deae4f9edf7777231969b9b7d13515731d830"
@@ -4337,9 +4387,9 @@
       "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
     },
     {
-      "path": "honeycomb-width-five-flat-20261025/flat-named-simp-context-diagnostic.txt",
-      "bytes": 1182,
-      "sha256": "5beaa9fa8df462a91fb4ac68c81e598eee508217772476ef6fc7cd4d72ebd2b7"
+      "path": "honeycomb-width-five-flat-20261025/flat-anonymous-context-diagnostic.txt",
+      "bytes": 1397,
+      "sha256": "cc6f1f7a5d705b7ac7c53061d5dffc17e849ece0a1f7117f4d5f07a414d36f90"
     },
     {
       "path": "honeycomb-width-five-flat-20261025/flat-named-simp/Challenge.lean",
@@ -4365,6 +4415,11 @@
       "path": "honeycomb-width-five-flat-20261025/flat-named-simp/lean-toolchain",
       "bytes": 25,
       "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/flat-named-simp-context-diagnostic.txt",
+      "bytes": 1182,
+      "sha256": "5beaa9fa8df462a91fb4ac68c81e598eee508217772476ef6fc7cd4d72ebd2b7"
     },
     {
       "path": "honeycomb-width-five-flat-20261025/kernel-compile-01-launch.json",
@@ -4402,11 +4457,6 @@
       "sha256": "4364395ed3d7e2d71e202f9bb23186e862c26ed1908e557ce375b61341d1cd5a"
     },
     {
-      "path": "honeycomb-width-five-flat-20261025/namespaced-context-diagnostic.txt",
-      "bytes": 1395,
-      "sha256": "2aa91ebb4a3c569410ee59c08bca7e7fae80a2f69044a20be7bfcda8fa16e966"
-    },
-    {
       "path": "honeycomb-width-five-flat-20261025/namespaced/Challenge.lean",
       "bytes": 2367,
       "sha256": "6acaeab1940555d1df29856e504deae4f9edf7777231969b9b7d13515731d830"
@@ -4432,6 +4482,11 @@
       "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
     },
     {
+      "path": "honeycomb-width-five-flat-20261025/namespaced-context-diagnostic.txt",
+      "bytes": 1395,
+      "sha256": "2aa91ebb4a3c569410ee59c08bca7e7fae80a2f69044a20be7bfcda8fa16e966"
+    },
+    {
       "path": "honeycomb-width-five-flat-20261025/native-task-handoff.json",
       "bytes": 66081,
       "sha256": "fbb37edd9b5989b18892f1c101bb99609dfccf51051028dfa29ac05097c442ad"
@@ -4450,16 +4505,6 @@
       "path": "honeycomb-width-five-flat-20261025/prepare.py",
       "bytes": 5250,
       "sha256": "c1a9e6fb5826f0646e8884a4b5dbd837f3659b4266c2c0a58a5e87f0a253187c"
-    },
-    {
-      "path": "honeycomb-width-five-flat-20261025/project-context-diagnostic.txt",
-      "bytes": 1174,
-      "sha256": "a864ee280c670d361581175d5c6d0d9f728c334d5cc51e23aa655ca8023cb9c7"
-    },
-    {
-      "path": "honeycomb-width-five-flat-20261025/project-guard-01-source.lean",
-      "bytes": 119372,
-      "sha256": "15ffe80663c0647db144d5e86efbdd59ed9cad88ebbdd0c8731ef9b44b727557"
     },
     {
       "path": "honeycomb-width-five-flat-20261025/project/Challenge.lean",
@@ -4490,6 +4535,16 @@
       "path": "honeycomb-width-five-flat-20261025/project/lean-toolchain",
       "bytes": 25,
       "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/project-context-diagnostic.txt",
+      "bytes": 1174,
+      "sha256": "a864ee280c670d361581175d5c6d0d9f728c334d5cc51e23aa655ca8023cb9c7"
+    },
+    {
+      "path": "honeycomb-width-five-flat-20261025/project-guard-01-source.lean",
+      "bytes": 119372,
+      "sha256": "15ffe80663c0647db144d5e86efbdd59ed9cad88ebbdd0c8731ef9b44b727557"
     },
     {
       "path": "honeycomb-width-five-flat-20261025/provenance.json",
@@ -5762,6 +5817,16 @@
       "sha256": "a2ba3254c3639a3214af81a801cb0a7d54ff210f2d30e7109ddc877f149e16b0"
     },
     {
+      "path": "optimization-progress-20261024T183819Z.json",
+      "bytes": 1843,
+      "sha256": "f621c2d5de08c44703732f21b7eef1978a636c9826f662ad673afd984de85bfc"
+    },
+    {
+      "path": "optimization-progress-20261024T185426Z.json",
+      "bytes": 1522,
+      "sha256": "d46c7665760c8cc5e716d5f3fab8222453a7aaf159f6f234a2122c58e221449f"
+    },
+    {
       "path": "run-character-candidate.py",
       "bytes": 3154,
       "sha256": "15c36940e430219505468f751b9a388a094908e4376a3eeab549f39e694a5652"
@@ -6030,6 +6095,41 @@
       "path": "snaky-certificate-reuse-followup-20261024/validate.py",
       "bytes": 4031,
       "sha256": "9605fa8cae902c08dcdaff20557b899a034515fb876bd50fa1be09e4f85deb0a"
+    },
+    {
+      "path": "snaky-comparator-inflight-20261025/README.md",
+      "bytes": 1081,
+      "sha256": "bc4ded22b2a64b04a5dd8c9f1845162b81de896b2e3da437d4c668305820882f"
+    },
+    {
+      "path": "snaky-comparator-inflight-20261025/SHA256SUMS",
+      "bytes": 511,
+      "sha256": "2fca0cc3033cd90fded9444c0dd5f3db2a4c4f70eeb35040774c5517d83e82b4"
+    },
+    {
+      "path": "snaky-comparator-inflight-20261025/comparator-resource-limits.txt",
+      "bytes": 1323,
+      "sha256": "eaf5d3c5052a634b541899d69ce1a7c6ecdf4b206726e412b6071be900aa7e02"
+    },
+    {
+      "path": "snaky-comparator-inflight-20261025/events-index.json",
+      "bytes": 214,
+      "sha256": "7485339e6915991526217fb2fa517c1b0d0bd14f835a1c62d16f7aabcdb8d866"
+    },
+    {
+      "path": "snaky-comparator-inflight-20261025/events-safe-raw.jsonl",
+      "bytes": 70,
+      "sha256": "9fa3caa81bdd77db2f56e12bc0897b5f1e299b6c9618e636e2575aed5eb36ceb"
+    },
+    {
+      "path": "snaky-comparator-inflight-20261025/process-snapshot.json",
+      "bytes": 553,
+      "sha256": "967ad14633f294a446f469f6a79d9fdb810a932de85cde9b5eaf499908a3b39d"
+    },
+    {
+      "path": "snaky-comparator-inflight-20261025/report.json",
+      "bytes": 1379,
+      "sha256": "8919e7dd70cc98fc90dfe2b908e796e5b624c1484023725f907a220b5abcc8cb"
     },
     {
       "path": "snaky-final-gate-followup-20261025/README.md",
@@ -6586,8 +6686,8 @@
   "characterV2IndependentOriginalComparator": "passed: unchanged binary, original target and axioms; genuine prebuilt artifact; exit0 in 41.153155 seconds",
   "honeycombSumsReduction": "native kernel and integration passed; original goal resumed; growth estimate still unproved",
   "characterV2NativeDelivery": "evaluated_passed; fixed review, independent final check and fixed original comparator passed",
-  "latestProgressSnapshot": "optimization-progress-20261024T181420Z.json",
-  "honeycombCurrentProgress": "turn456: heights one through four stay integrated; height five was blocked by source guard, now repaired, local guard/kernel/probe checked and normal recovery edit applied, task pending; all-height original goal remains conditional",
+  "latestProgressSnapshot": "optimization-progress-20261024T185426Z.json",
+  "honeycombCurrentProgress": "height-five compact handoff applied after research-only checkpoint loop; attempt 8 running without native proof; heights 1-4 integrated; all-height goal unsolved",
   "honeycombAdvisoryRoute": "direct first-moment summability via exact finite-state encoding and finite-box mass; unproved geometric inputs; ordinary advisory edit applied at turn104",
   "characterV2NativeOriginalGoal": "passed: lean-adc266b0e003d64e5ebdf91b",
   "honeycombFiniteBoxHelpers": "four declarations locally kernel-checked; normal advisory edit applied; original goal unproved",
@@ -6626,7 +6726,7 @@
   "snakyAllTargetCheck": "passed: lean-63766151ffe8a0523a860487; fixed review accepted and independent final host check completed",
   "snakyNativeFinalAccepted": false,
   "honeycombOriginalGoalSolved": false,
-  "latestProgress": "optimization-progress-20261024T181420Z.json",
+  "latestProgress": "optimization-progress-20261024T185426Z.json",
   "newFixedSupportBuild": "46551899-4922-4905-b81e-0ff4503842e6",
   "newFixedSupportBuildActivated": false,
   "allFiveBudgetCaps": 0,
@@ -6668,19 +6768,18 @@
     "originalGoalSolved": false
   },
   "currentArchiveValidation": {
-    "checkedAt": "2026-10-24T18:16:00.363102+00:00",
-    "oldPayloadHashesVerifiedBeforeManifestUpdate": 1225,
-    "newPackageHashesVerified": 87,
-    "jsonFilesParsed": 671,
-    "changedMarkdownFilesChecked": 6,
-    "changedMarkdownLocalLinksChecked": 126,
+    "checkedAt": "2026-10-24T18:55:39.431257+00:00",
+    "oldPayloadHashesVerifiedBeforeManifestUpdate": 1323,
+    "newPackageHashesVerified": 16,
     "kernelTestsRepeatedForArchiving": false,
-    "newRepairFullSourceCompilations": 1,
-    "newRepairImportedModuleProbes": 1,
-    "rawFailureAndGuardReproductionEvidencePreserved": true,
-    "gitDiffCheck": "passed: full staged diff, with only blank-at-eof disabled to preserve exact frozen increment bytes"
+    "rawLogsAndFailureEvidencePreserved": true,
+    "gitDiffCheck": "passed with blank-at-eof disabled and only byte-exact comparator-resource-limits.txt excluded for preserved /proc alignment whitespace",
+    "allPayloadHashesVerified": 1335,
+    "jsonFilesParsed": 681,
+    "changedMarkdownFilesChecked": 4,
+    "changedMarkdownLocalLinksChecked": 112
   },
-  "fileCount": 1315,
+  "fileCount": 1335,
   "honeycombNativeColumnWord": {
     "status": "integrated",
     "proofReceipt": "lean-d1533e50af2bd394228d788c",
@@ -6689,13 +6788,13 @@
   },
   "honeycombNativeColumnTasksIntegrated": 2,
   "snakyHostFinalGateCompleted": true,
-  "snakyCurrentGate": "frozen publisher lake build Challenge Submission; same compiler active for about 123 minutes; original comparator follows",
-  "snakyFinalGateHealth": "snaky-publisher-gate-health-followup-20261025/README.md",
+  "snakyCurrentGate": "original frozen comparator in flight after publisher build",
+  "snakyFinalGateHealth": "snaky-comparator-inflight-20261025/README.md",
   "honeycombNewSummability": {
     "heightOne": "native checked and integrated; full six clauses",
     "heightTwo": "native checked and integrated; unconfined pair",
-    "heightThree": "local full kernel proof; normal typed task running",
-    "heightFour": "local full kernel proof; normal typed task running",
+    "heightThree": "native checked and integrated; unconfined pair",
+    "heightFour": "native checked and integrated; unconfined pair",
     "allHeightConfined": "native checked and integrated",
     "allHeightOriginalSolved": false
   },
@@ -6928,5 +7027,34 @@
     "canonicalInsertionSourceSHA256": "2c962fe26b505e7cb97b84380f855960f831ea867197015469b693526642eb86",
     "formalNativeAcceptancePending": true,
     "statusObservedAt": "2026-10-24T18:14:20.213242+00:00"
+  },
+  "snakyComparatorInFlightReport": "snaky-comparator-inflight-20261025/README.md",
+  "honeycombHeightFiveContextCompact": {
+    "report": "honeycomb-width-five-context-compact-20261025/README.md",
+    "editId": "honeycomb-width-five-compact-handoff-20261025",
+    "status": "applied",
+    "attempts": 8,
+    "oldObjectiveBytes": 75459,
+    "objectiveBytes": 13778,
+    "reductionPercent": 81.741,
+    "otherTaskContractsAndProofReceiptsPreserved": 14,
+    "nativeProofPresent": false,
+    "nativeIntegrationPresent": false,
+    "originalGoalSolved": false
+  },
+  "snakyLatestComparatorProcessObservation": {
+    "observedAt": "2026-10-24T18:54:26.615789+00:00",
+    "pid": 1638100,
+    "argv": [
+      "comparator",
+      "comparator.json"
+    ],
+    "elapsedSeconds": 1535.0999999998603,
+    "cpuSeconds": 1522.51,
+    "status": {
+      "State": "S (sleeping)",
+      "VmRSS": "6505536 kB",
+      "Threads": "4"
+    }
   }
 }

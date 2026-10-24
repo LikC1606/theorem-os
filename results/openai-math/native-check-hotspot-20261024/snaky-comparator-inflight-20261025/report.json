@@ -1,0 +1,31 @@
+{
+  "schema": "theorem-os.snaky-comparator-inflight.v1",
+  "observedAt": "2026-10-24T18:36:58.306845+00:00",
+  "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+  "phase": "evaluating",
+  "resultStatus": "prepared",
+  "stateSHA256": "b46e7ce756462e00601bcf06f64d6bffb1b7acfcf4e9a3eea3e34b4ba3e4180b",
+  "resultSHA256": "ba842f431e3e1da99e0af896dbdcfb42b7b023321f9dda815e9bac67319ca9ed",
+  "canonicalCommit": "14d49c0f2bb94a8973471120f675554798126117",
+  "currentGate": "original frozen comparator",
+  "publisherBuildCompleted": true,
+  "publisherBuildExitReceiptAvailable": false,
+  "buildCompletionEvidence": "The existing frozen evaluator process chain has advanced past lake build to the comparator process. No separate build stdout/exit receipt has been published yet.",
+  "comparatorPid": 1638100,
+  "processSnapshot": "process-snapshot.json",
+  "frozenEvaluatorCommandSHA256": "7cb9c632ad7e9a8890d64357fe178bf996f28ada0cbc6fe50f32e1f4d01d766f",
+  "frozenEvaluatorCommandUnchanged": true,
+  "actualBudgets": {
+    "--max-run-seconds": "0",
+    "--max-turns": "0",
+    "--max-turn-seconds": "0",
+    "--max-total-tokens": "0",
+    "--evaluator-timeout-seconds": "0"
+  },
+  "allFiveBudgetsZero": true,
+  "nativeFinalAccepted": false,
+  "openAIHostedAcceptance": false,
+  "sourcesRuntimeStateCacheModified": false,
+  "newCompilerInvocations": 0,
+  "processSignalsSent": false
+}

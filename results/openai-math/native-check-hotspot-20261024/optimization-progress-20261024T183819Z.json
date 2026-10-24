@@ -1,0 +1,45 @@
+{
+  "schema": "theorem-os.optimization-progress.v4",
+  "observedAt": "2026-10-24T18:38:19.265330+00:00",
+  "previousProgress": "optimization-progress-20261024T181420Z.json",
+  "nativeFinalPassedCount": 6,
+  "openAIHostedAcceptance": false,
+  "honeycomb": {
+    "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+    "phase": "running",
+    "turns": 469,
+    "canonicalCommit": "7061be826cef83e4924ebda357f35164fa97ddb8",
+    "heightFive": {
+      "status": "running",
+      "attempts": 6,
+      "workerId": "researcher-2",
+      "proofPresent": false,
+      "integratedCheckPresent": false,
+      "repairEditId": "honeycomb-width-five-context-repair-20261025",
+      "repairEditStatus": "applied"
+    },
+    "generalHeightTask": "strip_growth_below_mu",
+    "generalHeightStatus": "running",
+    "allHeightOriginalGoalSolved": false
+  },
+  "snaky": {
+    "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+    "phase": "evaluating",
+    "resultStatus": "prepared",
+    "currentGate": "original frozen comparator",
+    "publisherBuildCompleted": true,
+    "comparatorInflight": true,
+    "comparatorReport": "snaky-comparator-inflight-20261025/README.md",
+    "comparatorPid": 1638100,
+    "comparatorElapsedSeconds": 486.7699999997858,
+    "evaluationFinishedEvents": 0,
+    "finishedEvents": 0,
+    "finalAccepted": false
+  },
+  "campaignService": {
+    "NRestarts": "0",
+    "ActiveState": "active",
+    "SubState": "running"
+  },
+  "resultBoundary": "Heights one through four remain integrated auxiliary results. Height five local proof and fixed-source repair checks pass, but normal native proof/integration acceptance is still pending. The all-height Honeycomb goal remains open. Snaky publisher build has completed and the original comparator is in flight; no final result yet. All evidence is local and not OpenAI hosted certification."
+}

@@ -1,0 +1,21 @@
+{
+  "observedAt": "2026-10-24T18:36:58.306845+00:00",
+  "pid": 1638100,
+  "parentPid": 1638096,
+  "argv": [
+    "comparator",
+    "comparator.json"
+  ],
+  "cwd": "/workspace/generated/problem/.lake/publisher-eval.n2lgvkzJ",
+  "startedAtUTC": "2026-10-24T18:28:51.536845+00:00",
+  "elapsedSeconds": 486.7699999997858,
+  "cpuSeconds": 474.25,
+  "status": {
+    "State": "S (sleeping)",
+    "VmRSS": "6494716 kB",
+    "Threads": "4",
+    "Cpus_allowed_list": "0-127"
+  },
+  "addressSpaceLimitBytes": 34359738368,
+  "publisherLeanPid900064Present": false
+}

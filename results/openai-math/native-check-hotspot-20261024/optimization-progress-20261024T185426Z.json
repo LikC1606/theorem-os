@@ -1,0 +1,50 @@
+{
+  "schema": "theorem-os.progress.v1",
+  "observedAt": "2026-10-24T18:54:26.615789+00:00",
+  "nativeFinalPassedCount": 6,
+  "openAIHostedAcceptance": false,
+  "allFiveBudgetCaps": 0,
+  "honeycomb": {
+    "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+    "phase": "running",
+    "turns": 479,
+    "canonicalCommit": "7061be826cef83e4924ebda357f35164fa97ddb8",
+    "heightsOneThroughFourNativeIntegrated": true,
+    "heightFive": {
+      "status": "running",
+      "attempts": 8,
+      "proofPresent": false,
+      "integrationPresent": false,
+      "compactEditStatus": "applied",
+      "oldObjectiveBytes": 75459,
+      "newObjectiveBytes": 13778,
+      "report": "honeycomb-width-five-context-compact-20261025/README.md"
+    },
+    "allHeightOriginalSolved": false,
+    "stripGrowthStatus": "running"
+  },
+  "snaky": {
+    "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+    "phase": "evaluating",
+    "resultStatus": "prepared",
+    "publisherBuildCompletedByObservedComparatorTransition": true,
+    "originalComparatorInFlight": true,
+    "comparator": {
+      "pid": 1638100,
+      "argv": [
+        "comparator",
+        "comparator.json"
+      ],
+      "elapsedSeconds": 1535.0999999998603,
+      "cpuSeconds": 1522.51,
+      "status": {
+        "State": "S (sleeping)",
+        "VmRSS": "6505536 kB",
+        "Threads": "4"
+      }
+    },
+    "finalAcceptancePending": true,
+    "frozenComparatorReport": "snaky-comparator-inflight-20261025/README.md"
+  },
+  "rootDirectlyModifiedActiveSourceOrState": false
+}

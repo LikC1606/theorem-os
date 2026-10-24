@@ -1,0 +1,72 @@
+{
+  "observedAt": "2026-10-24T18:51:47.693697+00:00",
+  "sourcePath": "generated/problem/Submission.lean",
+  "seedCommit": "e1ac29bd612eb9246a6c36b33c724f8e0f80633f",
+  "seedSourceSHA256": "d4947cdf5b6a5c985fbe0390b396ed64c634198934f18db04b8c96112c4e3020",
+  "seedBytes": 69426,
+  "deliveries": [
+    {
+      "commit": "262b16cfd1089ff311e6344b263c5081490cb692",
+      "createdAt": 1792865958099,
+      "deliveryStatus": "superseded",
+      "changedFiles": [
+        "RESEARCH.md"
+      ],
+      "sourceBytes": 69426,
+      "sourceSHA256": "d4947cdf5b6a5c985fbe0390b396ed64c634198934f18db04b8c96112c4e3020",
+      "heightFiveTargetInSource": false,
+      "flatHelpersInSource": false
+    },
+    {
+      "commit": "64bcd3dd1e1128309b409f86cb97bf40a19d207c",
+      "createdAt": 1792866207639,
+      "deliveryStatus": "superseded",
+      "changedFiles": [
+        "RESEARCH.md"
+      ],
+      "sourceBytes": 69426,
+      "sourceSHA256": "d4947cdf5b6a5c985fbe0390b396ed64c634198934f18db04b8c96112c4e3020",
+      "heightFiveTargetInSource": false,
+      "flatHelpersInSource": false
+    },
+    {
+      "commit": "8bde00965f9ccefcec1c6bea58317276004f1135",
+      "createdAt": 1792866729991,
+      "deliveryStatus": "superseded",
+      "changedFiles": [
+        "RESEARCH.md"
+      ],
+      "sourceBytes": 69426,
+      "sourceSHA256": "d4947cdf5b6a5c985fbe0390b396ed64c634198934f18db04b8c96112c4e3020",
+      "heightFiveTargetInSource": false,
+      "flatHelpersInSource": false
+    },
+    {
+      "commit": "905bed2df642bbccaa1a19e449db91894e1a0f7a",
+      "createdAt": 1792867169809,
+      "deliveryStatus": "superseded",
+      "changedFiles": [
+        "RESEARCH.md"
+      ],
+      "sourceBytes": 69426,
+      "sourceSHA256": "d4947cdf5b6a5c985fbe0390b396ed64c634198934f18db04b8c96112c4e3020",
+      "heightFiveTargetInSource": false,
+      "flatHelpersInSource": false
+    },
+    {
+      "commit": "362a2b1995b6f83fe218ba698190fb37aef2282f",
+      "createdAt": 1792867834680,
+      "deliveryStatus": "superseded",
+      "changedFiles": [
+        "RESEARCH.md",
+        "generated/problem/Submission.lean"
+      ],
+      "sourceBytes": 131215,
+      "sourceSHA256": "2c962fe26b505e7cb97b84380f855960f831ea867197015469b693526642eb86",
+      "heightFiveTargetInSource": true,
+      "flatHelpersInSource": true
+    }
+  ],
+  "allComparedDeliveriesSameAsSeed": false,
+  "scope": "Public Git source and changed filenames only; no model reasoning inspected."
+}

@@ -1,5 +1,7 @@
 # 原生检查热点与加速候选（2026-10-24）
 
+最新进度（北京时间 2026-10-25 02:54:26）：[高度 5 交接循环诊断与压缩](honeycomb-width-five-context-compact-20261025/README.md)已应用，交接由 75,459 缩至 13,778 字节，第 8 次尝试已领取，尚无原生证明回执。此前第 3–7 次交付只保存研究报告。Snaky 原比较器仍运行；完整原题最终通过仍为 6。见[最新快照](optimization-progress-20261024T185426Z.json)。
+
 最新状态见 [10 月 25 日 02:14 北京时间进度快照](optimization-progress-20261024T181420Z.json)。两个活动运行的实际进程五项预算均为 0，Honeycomb 持久服务正常运行。
 
 高度 5 的首次正式递交在源码预检阶段被 `math_original_context_changed` 拒收，尚未进入原生 Lean 验收。[修复版](honeycomb-width-five-flat-20261025/README.md)将辅助声明改为唯一前缀、具名实例，移除新增 namespace 和全局 simp 属性，并调整表格括号缩进及注释，以符合原冻结源码守卫。新完整源实际通过同一守卫和 Lean 编译，耗时 75.583 秒；只导入刚生成模块的 Probe 在 7.863 秒完成六项显式类型与公理检查，最终两项均明确为高度 5，仅三项标准公理。[正常重递交](honeycomb-width-five-context-recovery-20261025/README.md)已应用，唯一 affected task 为高度 5；同一数学合同与其它所有既有证明保留。02:14 截点待 worker 领取，尚无原生 proof 或集成回执；后续状态以新回读为准。原失败事件和先前成功的本地证明证据均保留。
@@ -14,7 +16,7 @@
 
 [缺口报告协议澄清](honeycomb-gap-protocol-advisory-20261025/README.md)经正常队列共享：`consumer` 只含 `taskId`、`taskDigest`，`kind:"goal"` 描述被引用任务。旧宽度 2 报告因此被入口拒收，不能视为数学证明失败；历史回执保留。另存[高度 1–4 非回退块的整数计数诊断](honeycomb-nonbacktracking-block-diagnostic-20261025/README.md)，它没有额外 Lean 或原生验收效力。
 
-Snaky 已完成宿主最终检查并推进到冻结 publisher 的 `lake build Challenge Submission`。[02:14 北京时间快照](optimization-progress-20261024T181420Z.json)确认该编译器连续计算约 123 分钟；与[01:49 冻结样本](snaky-publisher-gate-health-followup-20261025/README.md)相比，1516.89 秒内 CPU 增加 1516.70 秒，保持单核满载。构建后仍需原 comparator，尚无原题最终通过，冻结验证约束保持。[01:14 检查](snaky-publisher-gate-health-20261025/README.md)、[00:23 检查](snaky-final-gate-followup-20261025/README.md)与[此前健康检查](snaky-final-gate-health-20261024/README.md)保留原样。
+Snaky 已完成 publisher 构建并[进入原 comparator](snaky-comparator-inflight-20261025/README.md)，比较器进程始于北京时间 02:28:51。新采样记录比较器运行约 8 分钟、CPU 累计 474.25 秒，冻结 evaluator 命令 SHA 与原启动身份一致，五项预算均为 0，32 GiB 约束保持。原 Lean PID 已退出，进程链已推进至 comparator；尚无单独发布的 build 退出回执或比较器返回，完整原题最终通过仍为 6。[02:14 构建快照](optimization-progress-20261024T181420Z.json)、[01:49 样本](snaky-publisher-gate-health-followup-20261025/README.md)、[01:14 检查](snaky-publisher-gate-health-20261025/README.md)和更早健康记录保留原样。
 
 此前两项正常队列调整均已应用，`affectedTasks=[]`。Honeycomb 两项列结构引理现均已通过原生任务检查并集成：[第一项回执与源码](native-optimization-outcomes-20261024/README.md)，[第二项完整列 word 单射回执与源码](honeycomb-native-column-word-20261024/README.md)。第二项任务与集成检查分别耗时 19.135 秒、20.008 秒，无 sorry、admit 或剩余目标。Snaky 第三轮固定版本复审已接受。见[任务顺序调整](honeycomb-ready-proof-priority-20261024/README.md)和[复审证据通知与队列恢复](snaky-review-evidence-advisory-20261024/README.md)。原题最终通过数尚未增加。
 
@@ -26,7 +28,7 @@ Snaky 已完成宿主最终检查并推进到冻结 publisher 的 `lake build Ch
 
 新构建 `46551899-4922-4905-b81e-0ff4503842e6` 基于隔离的 exact-source 修复构建，[尚未切入当前冻结链](fixed-support-reuse-activation-20261024.json)。Snaky 长检查和 Honeycomb 数学探索继续运行；上述小型样例不代表整题提速倍数。
 
-SnakyConditional 已通过原目标、集成和全目标内核检查，全目标回执 `lean-63766151ffe8a0523a860487`，耗时 8188.206 秒。第三轮固定版本复审于 `13:50:28 UTC` 接受；前两轮的底层错误均为 SSE idle timeout，见[独立定位](snaky-review-timeout-inspection-20261024.json)。宿主最终检查已完成，当前 publisher 构建和原比较器尚未完成，不计入最终通过数。此前的[全目标及重试原始事件](snaky-all-target-review-20261024/README.md)作为历史快照保留。
+SnakyConditional 已通过原目标、集成和全目标内核检查，全目标回执 `lean-63766151ffe8a0523a860487`，耗时 8188.206 秒。第三轮固定版本复审于 `13:50:28 UTC` 接受；前两轮的底层错误均为 SSE idle timeout，见[独立定位](snaky-review-timeout-inspection-20261024.json)。宿主最终检查和 publisher 构建已完成，原比较器仍在运行，不计入最终通过数。此前的[全目标及重试原始事件](snaky-all-target-review-20261024/README.md)作为历史快照保留。
 
 [单条 Snaky 证书复用实测](snaky-certificate-reuse-followup-20261024/REJECTION.md)未带来收益：原声明证明段 340 ms；复用候选至少 150268 ms 未完成，故只终止并否决该隔离候选，没有递送或重跑整题。静态减少 `decide +kernel` 次数不能代替实测。
 

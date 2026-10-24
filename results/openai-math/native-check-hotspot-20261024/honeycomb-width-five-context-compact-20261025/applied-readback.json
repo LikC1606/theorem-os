@@ -1,0 +1,41 @@
+{
+  "observedAt": "2026-10-24T18:51:47.693697+00:00",
+  "stateSHA256": "631fdbb540ccfc0b92294f7f8d6832d4ad510b2c6133098ddd6aa4510dfd6a3d",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "phase": "running",
+  "turns": 477,
+  "canonicalCommit": "7061be826cef83e4924ebda357f35164fa97ddb8",
+  "planVersion": "7e245b7cafba8cc722489ebc47998f81ca63b8e099a56deae98fe07900d668c8",
+  "edit": {
+    "affectedTasks": [
+      "width_five_summability_ba0a1c09"
+    ],
+    "appliedAt": 1792867834375,
+    "baseVersion": "7a7ebaa3a13fcafdc6e04db88286ce254f59a962a03fd763028805db0433edab",
+    "id": "honeycomb-width-five-compact-handoff-20261025",
+    "planVersion": "7e245b7cafba8cc722489ebc47998f81ca63b8e099a56deae98fe07900d668c8",
+    "receivedAt": 1792867834278,
+    "recheck": {
+      "status": "pending",
+      "tasks": [
+        {
+          "status": "pending",
+          "taskDigest": "aac1bc6d86ea8851cc8482f0cd833e7387fa03360b5af6398fa703b6bf057d1d",
+          "taskId": "width_five_summability_ba0a1c09"
+        }
+      ]
+    },
+    "status": "applied"
+  },
+  "heightFive": {
+    "id": "width_five_summability_ba0a1c09",
+    "status": "running",
+    "attempts": 8,
+    "proofPresent": false,
+    "integratedCheckPresent": false,
+    "feedbackPresent": false,
+    "objectiveBytes": 13778
+  },
+  "otherTaskContractsPreserved": true,
+  "nativeTaskAcceptanceAddedByQueue": false
+}

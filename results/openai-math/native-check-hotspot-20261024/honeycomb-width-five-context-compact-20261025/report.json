@@ -1,0 +1,83 @@
+{
+  "schema": "theorem-os.height-five-context-compact.v1",
+  "observedAt": "2026-10-24T18:51:47.693697+00:00",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "taskId": "width_five_summability_ba0a1c09",
+  "checkpointThresholdEvents": [
+    {
+      "sourceLine": 34117,
+      "event": "context_checkpoint_requested",
+      "at": 1792865769050,
+      "workerId": "researcher-2",
+      "reason": "context-threshold",
+      "lastInputTokens": 92521,
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "sourceLine": 34295,
+      "event": "context_checkpoint_requested",
+      "at": 1792865994790,
+      "workerId": "researcher-2",
+      "reason": "context-threshold",
+      "lastInputTokens": 111219,
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "sourceLine": 34556,
+      "event": "context_checkpoint_requested",
+      "at": 1792866350900,
+      "workerId": "researcher-2",
+      "reason": "context-threshold",
+      "lastInputTokens": 93639,
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "sourceLine": 34830,
+      "event": "context_checkpoint_requested",
+      "at": 1792866773069,
+      "workerId": "researcher-2",
+      "reason": "context-threshold",
+      "lastInputTokens": 94143,
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "sourceLine": 35156,
+      "event": "context_checkpoint_requested",
+      "at": 1792867219427,
+      "workerId": "researcher-2",
+      "reason": "context-threshold",
+      "lastInputTokens": 110480,
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    }
+  ],
+  "publicProofDeliveriesCompared": 5,
+  "proofCodeNotSavedInComparedDeliveries": false,
+  "hostNativeProofPresent": false,
+  "hostNativeIntegrationPresent": false,
+  "priorObjectiveBytes": 75459,
+  "compactObjectiveBytes": 13778,
+  "reductionFraction": 0.8174107793636279,
+  "queueEditId": "honeycomb-width-five-compact-handoff-20261025",
+  "queueApplied": true,
+  "onlyExpectedAffectedTask": "width_five_summability_ba0a1c09",
+  "unchangedMathematicalContract": true,
+  "unchangedLoaderSHA256": "5098b953d4bfd1d29fde00fdc06fb4ff9bd08489dbb1e4548b9aeafd40315811",
+  "activeSourceOrStateDirectlyModified": false,
+  "leanInvokedForThisDiagnosis": false,
+  "nativeOriginalFinalPassCount": 6,
+  "openAIHostedAcceptance": false,
+  "evidenceBoundary": "Checkpoint events and unchanged public source show stalled proof delivery. They do not prove the loader was never executed. Compact handoff is an attempted operational fix, not proof acceptance.",
+  "queueReadbackAt": "2026-10-24T18:54:26.615789+00:00",
+  "currentAttempt": 8,
+  "currentTaskStatus": "running"
+}

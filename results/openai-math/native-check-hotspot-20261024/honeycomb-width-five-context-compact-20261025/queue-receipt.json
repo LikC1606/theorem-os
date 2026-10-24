@@ -1,0 +1,11 @@
+{
+  "observedAt": "2026-10-24T18:50:34.113Z",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "editId": "honeycomb-width-five-compact-handoff-20261025",
+  "result": {
+    "id": "honeycomb-width-five-compact-handoff-20261025",
+    "status": "queued",
+    "baseVersion": "7a7ebaa3a13fcafdc6e04db88286ce254f59a962a03fd763028805db0433edab"
+  },
+  "nativeAcceptanceAddedByQueue": false
+}
