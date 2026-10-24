@@ -1,0 +1,96 @@
+{
+  "observedAtUTC": "2026-10-24T17:13:58.498709+00:00",
+  "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+  "frozenReview": {
+    "status": "accepted",
+    "assignmentId": "939143f3-e7bf-4f09-a80d-e61d5e11c13f",
+    "commit": "14d49c0f2bb94a8973471120f675554798126117",
+    "sourceDigest": "1a75c56a0beaa6df7578a0317d90f40fa2c6b1a9faf43511e1c69fa0bcee4f4f"
+  },
+  "canonicalCommit": "14d49c0f2bb94a8973471120f675554798126117",
+  "sourceDigest": "1a75c56a0beaa6df7578a0317d90f40fa2c6b1a9faf43511e1c69fa0bcee4f4f",
+  "stateBuildDigest": "3cf310891edf8cb396f218531e1eb6c5a997622adb6d835e4b368ffa1c8e637d",
+  "launchBudgets": {
+    "--max-run-seconds": "0",
+    "--max-turns": "0",
+    "--max-turn-seconds": "0",
+    "--max-total-tokens": "0",
+    "--evaluator-timeout-seconds": "0"
+  },
+  "actualBudgets": {
+    "--max-run-seconds": "0",
+    "--max-turns": "0",
+    "--max-turn-seconds": "0",
+    "--max-total-tokens": "0",
+    "--evaluator-timeout-seconds": "0"
+  },
+  "allFiveBudgetsZero": true,
+  "frozenEvaluator": {
+    "launchSHA256": "7cb9c632ad7e9a8890d64357fe178bf996f28ada0cbc6fe50f32e1f4d01d766f",
+    "actualProcessSHA256": "7cb9c632ad7e9a8890d64357fe178bf996f28ada0cbc6fe50f32e1f4d01d766f",
+    "previousFrozenCommandSHA256": "7cb9c632ad7e9a8890d64357fe178bf996f28ada0cbc6fe50f32e1f4d01d766f",
+    "allEqual": true
+  },
+  "sandboxPinnedConstraints": [
+    {
+      "option": "--unshare-user"
+    },
+    {
+      "option": "--unshare-net"
+    },
+    {
+      "option": "--unshare-pid"
+    },
+    {
+      "option": "--die-with-parent"
+    },
+    {
+      "option": "--clearenv"
+    },
+    {
+      "option": "--ro-bind-fd",
+      "target": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/project/.lake/packages"
+    },
+    {
+      "option": "--ro-bind",
+      "source": "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1",
+      "target": "/toolchains/elan"
+    },
+    {
+      "option": "--ro-bind",
+      "source": "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1",
+      "target": "/runtime/pinned-lean"
+    },
+    {
+      "option": "--setenv",
+      "name": "LEAN_NUM_THREADS",
+      "value": "1"
+    },
+    {
+      "option": "--setenv",
+      "name": "LEAN_STACK_SIZE_KB",
+      "value": "8192"
+    }
+  ],
+  "maxAddressSpaceLimitBytes": 34359738368,
+  "comparator": {
+    "challenge_module": "Challenge",
+    "solution_module": "Submission",
+    "theorem_names": [
+      "OAI.SnakyConditional.snaky_winning_strategy_with_legal_states"
+    ],
+    "definition_names": [],
+    "permitted_axioms": [
+      "propext",
+      "Quot.sound",
+      "Classical.choice"
+    ],
+    "enable_nanoda": false
+  },
+  "sameByRelativePath": {
+    "Submission.lean": true,
+    "Challenge.lean": true,
+    "lake-manifest.json": true,
+    "lean-toolchain": true
+  }
+}

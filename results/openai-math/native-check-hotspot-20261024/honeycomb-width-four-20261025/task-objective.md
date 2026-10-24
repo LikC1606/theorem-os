@@ -1,0 +1,246 @@
+Prove the exact unconditional height-four weight and first-length-weight summability lemma and deliver it via the ordinary typed proof protocol. The complete increment below has passed local Lean 4.34.1 kernel checking. Native host verification and canonical integration remain required. Preserve the original all-height target and every existing declaration; do not infer an all-width result.
+
+The proof uses the canonical geometry at h=4. It enumerates the eight vertex kinds and all 22 incoming-edge cases, and proves a one-step potential inequality with beta=1847/1000 and positive integer weights between 29 and 64. It then inductively bounds continuation counts by edgeWeight*beta^n, covers every canonical BridgePath 4 by the enumerator using the actual connectedness, Nodup, source, terminal and strip fields, and derives the finite-family count bound card <=128*beta^n. It proves beta<2*cos(pi/8) by exact rational/root inequalities, then uses the already integrated unconditional counting-to-summability helpers. No growth hypothesis, unresolved original theorem, additional axiom, native_decide or publisher solution is used. There is no 14-step enumeration.
+
+Insert the entire WidthFour.lean.inc once inside namespace OAI.PolynomialVacuumBridge.Corridor after the existing bridgeSummable_firstLengthWeight_of_mu_bound and bridgeSummable_weight_of_summable_firstLengthWeight helpers from sums_reduction. The increment opens/closes WidthFour and declares width_four_summability_diagnostic in the outer namespace. Reuse identical names if a prior delivery has already integrated them. The standalone WidthFour.lean validation harness must not replace Submission.lean. The exact theorem/type/proofPath in the task must be delivered; an advisory report is not a formal proof delivery.
+
+Local evidence: actual Lean exit 0 in 11.999551268992946 seconds. Source SHA256 a8462a1922c107fde21cde91cb10c505f57860c5d926b3bb30df2869cd804e91, increment SHA256 db6e35bfe5eba4bfae490a63997874ce18953292e266c8351410097cbdae41b0. Fixed Mathlib d13f23b723b8a846827a245b89c10fc7d3f11612, one CPU/thread, 32 GiB, maxHeartbeats=0 and no wall/CPU/call cap. All 12 printed key declarations including the exact target use only propext, Classical.choice and Quot.sound. A single unnecessarySimpa style warning remains; no proof error or stderr. No unchanged-source rerun was performed during archival. This evidence is local; native task acceptance and OpenAI-hosted certification are not claimed.
+
+Complete independently checked Lean increment:
+```lean
+namespace WidthFour
+
+def inside (v : Vertex) : Prop := 0 ≤ layer v ∧ layer v < 4
+
+noncomputable def neighbors : Vertex → Finset Vertex
+  | .up i j => if j = 0 then {.down i 0, .down (i-1) 0}
+      else if j = 1 then {.down i 1, .down (i-1) 1, .down i 0}
+      else if j = 2 then {.down i 2, .down (i-1) 2, .down i 1}
+      else if j = 3 then {.down i 3, .down (i-1) 3, .down i 2} else ∅
+  | .down i j => if j = 0 then {.up i 0, .up (i+1) 0, .up i 1}
+      else if j = 1 then {.up i 1, .up (i+1) 1, .up i 2}
+      else if j = 2 then {.up i 2, .up (i+1) 2, .up i 3}
+      else if j = 3 then {.up i 3, .up (i+1) 3} else ∅
+
+lemma inside_cases {v : Vertex} (h : inside v) :
+    (∃ i, v = .up i 0) ∨ (∃ i, v = .down i 0) ∨
+    (∃ i, v = .up i 1) ∨ (∃ i, v = .down i 1) ∨
+    (∃ i, v = .up i 2) ∨ (∃ i, v = .down i 2) ∨
+    (∃ i, v = .up i 3) ∨ (∃ i, v = .down i 3) := by
+  cases v with
+  | up i j =>
+    have hj : j = 0 ∨ j = 1 ∨ j = 2 ∨ j = 3 := by simp only [inside, layer] at h; omega
+    rcases hj with rfl | rfl | rfl | rfl <;> tauto
+  | down i j =>
+    have hj : j = 0 ∨ j = 1 ∨ j = 2 ∨ j = 3 := by simp only [inside, layer] at h; omega
+    rcases hj with rfl | rfl | rfl | rfl <;> tauto
+
+lemma mem_neighbors {a b : Vertex} (ha : inside a) :
+    b ∈ neighbors a ↔ adjacent a b ∧ inside b := by
+  rcases inside_cases ha with ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩ |
+    ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩ <;>
+  cases b <;> simp [neighbors, adjacent, inside, layer, Vertex.up.injEq, Vertex.down.injEq] <;> omega
+
+/-- Positive rational comparison rate strictly below the canonical connective constant. -/
+noncomputable def beta : ℝ := 1847 / 1000
+
+/-- Integer potentials for each valid incoming edge of the four-layer strip.
+The potential is translation invariant and distinguishes vertical from horizontal arrivals. -/
+noncomputable def edgeWeight (a b : Vertex) : ℝ :=
+  match b with
+  | .up _ j => if layer a = j-1 then
+        (if j = 1 then 64 else if j = 2 then 56 else 33)
+      else (if j = 0 then 29 else if j = 1 then 50 else if j = 2 then 58 else 52)
+  | .down _ j => if layer a = j+1 then
+        (if j = 0 then 33 else if j = 1 then 56 else 64)
+      else (if j = 0 then 52 else if j = 1 then 58 else if j = 2 then 50 else 29)
+
+lemma edgeWeight_ge_one (a b : Vertex) : 1 ≤ edgeWeight a b := by
+  cases b <;> simp only [edgeWeight] <;> split_ifs <;> norm_num
+
+lemma edgeWeight_le_sixtyFour (a b : Vertex) : edgeWeight a b ≤ 64 := by
+  cases b <;> simp only [edgeWeight] <;> split_ifs <;> norm_num
+
+lemma beta_ge_one : 1 ≤ beta := by norm_num [beta]
+
+/-- Every incoming edge obeys the finite rational potential certificate. -/
+lemma potential_step {a b : Vertex} (ha : inside a) (hb : inside b)
+    (hab : adjacent a b) :
+    ∑ c ∈ (neighbors b).erase a, edgeWeight b c ≤ beta * edgeWeight a b := by
+  classical
+  have ha_mem : a ∈ neighbors b := (mem_neighbors hb).2 ⟨by
+    cases a <;> cases b <;> exact hab, ha⟩
+  rcases inside_cases hb with ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩ |
+    ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩ | ⟨i,rfl⟩
+  all_goals
+    simp [neighbors] at ha_mem
+    rcases ha_mem with rfl | rfl | rfl
+    all_goals
+      have h₁ : i - 1 ≠ i := by omega
+      have h₂ : i ≠ i - 1 := by omega
+      have h₃ : i + 1 ≠ i := by omega
+      have h₄ : i ≠ i + 1 := by omega
+      norm_num [neighbors, edgeWeight, layer, beta, Vertex.up.injEq,
+        Vertex.down.injEq, h₁, h₂, h₃, h₄]
+
+noncomputable def continuations (a b : Vertex) : ℕ → Finset (List Vertex)
+  | 0 => {[]}
+  | n + 1 => ((neighbors b).erase a).biUnion fun c =>
+      (continuations b c n).image fun l => c :: l
+
+lemma continuations_card (n : ℕ) (a b : Vertex)
+    (ha : inside a) (hb : inside b) (hab : adjacent a b) :
+    ((continuations a b n).card : ℝ) ≤ edgeWeight a b * beta ^ n := by
+  classical
+  induction n generalizing a b with
+  | zero => simpa only [continuations, Finset.card_singleton, Nat.cast_one, pow_zero, mul_one]
+      using edgeWeight_ge_one a b
+  | succ n ih =>
+    calc ((continuations a b (n+1)).card : ℝ)
+        ≤ ∑ c ∈ (neighbors b).erase a,
+            (((continuations b c n).image fun l => c :: l).card : ℝ) := by
+          exact_mod_cast (Finset.card_biUnion_le :
+            (((neighbors b).erase a).biUnion fun c =>
+              (continuations b c n).image fun l => c :: l).card ≤ _)
+      _ ≤ ∑ c ∈ (neighbors b).erase a, edgeWeight b c * beta ^ n := by
+          apply Finset.sum_le_sum
+          intro c hc
+          have hcin := (mem_neighbors hb).1 (Finset.mem_erase.mp hc).2
+          have hcard : (((continuations b c n).image fun l => c :: l).card : ℝ)
+              ≤ ((continuations b c n).card : ℝ) := by exact_mod_cast Finset.card_image_le
+          exact hcard.trans (ih b c hb hcin.2 hcin.1)
+      _ = (∑ c ∈ (neighbors b).erase a, edgeWeight b c) * beta ^ n := by
+          rw [Finset.sum_mul]
+      _ ≤ (beta * edgeWeight a b) * beta ^ n :=
+          mul_le_mul_of_nonneg_right (potential_step ha hb hab)
+            (pow_nonneg (le_trans (by norm_num) beta_ge_one) n)
+      _ = edgeWeight a b * beta ^ (n+1) := by rw [pow_succ]; ring
+
+lemma mem_continuations {a b : Vertex} {l : List Vertex}
+    (hc : (a :: b :: l).IsChain adjacent)
+    (hnd : (a :: b :: l).Nodup)
+    (hin : ∀ v ∈ a :: b :: l, inside v) :
+    l ∈ continuations a b l.length := by
+  classical
+  induction l generalizing a b with
+  | nil => simp [continuations]
+  | cons c l ih =>
+    have hcin : inside c := hin c (by simp)
+    have hcn : c ≠ a := by
+      intro h
+      exact (List.nodup_cons.mp hnd).1 (by simp [h])
+    have hmem : c ∈ (neighbors b).erase a :=
+      Finset.mem_erase.mpr ⟨hcn,(mem_neighbors (hin b (by simp))).2 ⟨hc.tail.rel,hcin⟩⟩
+    apply Finset.mem_biUnion.mpr
+    refine ⟨c,hmem,Finset.mem_image.mpr ⟨l,?_,rfl⟩⟩
+    apply ih hc.tail hnd.tail
+    intro v hv
+    exact hin v (by simp only [List.mem_cons] at hv ⊢; tauto)
+
+noncomputable def allPaths (n : ℕ) : Finset (List Vertex) :=
+  (neighbors (.up 0 0)).biUnion fun b =>
+    (continuations (.up 0 0) b (n-2)).image fun l => (.up 0 0) :: b :: l
+
+lemma allPaths_card (n : ℕ) : ((allPaths n).card : ℝ) ≤ 128 * beta ^ n := by
+  classical
+  have hs : inside (.up 0 0) := by simp [inside,layer]
+  calc ((allPaths n).card : ℝ)
+      ≤ ∑ b ∈ neighbors (.up 0 0),
+          (((continuations (.up 0 0) b (n-2)).image fun l => (.up 0 0) :: b :: l).card : ℝ) := by
+        exact_mod_cast (Finset.card_biUnion_le :
+          ((neighbors (.up 0 0)).biUnion fun b =>
+            (continuations (.up 0 0) b (n-2)).image fun l => (.up 0 0) :: b :: l).card ≤ _)
+    _ ≤ ∑ b ∈ neighbors (.up 0 0), 64 * beta ^ (n-2) := by
+        apply Finset.sum_le_sum
+        intro b hb
+        obtain ⟨hadj,hbin⟩ := (mem_neighbors hs).1 hb
+        have hcard : (((continuations (.up 0 0) b (n-2)).image
+              fun l => (.up 0 0) :: b :: l).card : ℝ)
+            ≤ ((continuations (.up 0 0) b (n-2)).card : ℝ) := by exact_mod_cast Finset.card_image_le
+        exact (hcard.trans (continuations_card (n-2) _ _ hs hbin hadj)).trans
+          (mul_le_mul_of_nonneg_right (edgeWeight_le_sixtyFour _ _)
+            (pow_nonneg (le_trans (by norm_num) beta_ge_one) _))
+    _ = 128 * beta ^ (n-2) := by simp [neighbors]; ring
+    _ ≤ 128 * beta ^ n :=
+        mul_le_mul_of_nonneg_left (pow_le_pow_right₀ beta_ge_one (by omega)) (by norm_num)
+
+lemma path_mem_allPaths (p : BridgePath 4) : p.vertices ∈ allPaths p.vertices.length := by
+  classical
+  have hsrc := p.source
+  have hterm := p.terminal
+  cases hv : p.vertices with
+  | nil => simp [hv] at hsrc
+  | cons a l =>
+    have ha : a = .up 0 0 := by simpa [hv] using hsrc
+    subst a
+    cases l with
+    | nil =>
+      rcases hterm with ⟨i,hi⟩
+      simp [hv] at hi
+    | cons b l =>
+      have hc : ((.up 0 0) :: b :: l).IsChain adjacent := by simpa only [hv] using p.connected
+      have hnd : ((.up 0 0) :: b :: l).Nodup := by simpa only [hv] using p.distinct
+      have hin : ∀ v ∈ (.up 0 0) :: b :: l, inside v := by
+        intro v h
+        have hvp : v ∈ p.vertices := by simpa only [hv] using h
+        simpa only [inside, Nat.cast_ofNat] using p.inStrip v hvp
+      rw [allPaths]
+      apply Finset.mem_biUnion.mpr
+      refine ⟨b,(mem_neighbors (hin _ (by simp))).2 ⟨hc.rel,hin b (by simp)⟩,?_⟩
+      apply Finset.mem_image.mpr
+      refine ⟨l,?_,by simpa only [hv]⟩
+      have hlen : l.length + 1 + 1 - 2 = l.length := by omega
+      simpa only [hv,List.length_cons,hlen] using mem_continuations hc hnd hin
+
+lemma path_card_real (n : ℕ) (s : Finset (BridgePath 4))
+    (hlen : ∀ p ∈ s, p.vertices.length = n) :
+    (s.card : ℝ) ≤ 128 * beta ^ n := by
+  classical
+  have hm : Set.MapsTo (fun p : BridgePath 4 => p.vertices) (s : Set (BridgePath 4))
+      (allPaths n : Set (List Vertex)) := by
+    intro p hp
+    change p.vertices ∈ allPaths n
+    simpa only [hlen p hp] using path_mem_allPaths p
+  have hi : Set.InjOn (fun p : BridgePath 4 => p.vertices) (s : Set (BridgePath 4)) := by
+    intro p hp q hq he
+    cases p
+    cases q
+    cases he
+    rfl
+  have hcard : (s.card : ℝ) ≤ ((allPaths n).card : ℝ) := by
+    exact_mod_cast Finset.card_le_card_of_injOn _ hm hi
+  exact hcard.trans (allPaths_card n)
+
+lemma beta_lt_mu : beta < 2 * Real.cos (Real.pi / 8) := by
+  have hs2 : Real.sqrt 2 ^ 2 = (2 : ℝ) := Real.sq_sqrt (by norm_num)
+  have hs2non : 0 ≤ Real.sqrt 2 := Real.sqrt_nonneg 2
+  have hbr : beta ^ 2 - 2 < Real.sqrt 2 := by
+    have hbpos : 0 < beta ^ 2 - 2 := by norm_num [beta]
+    have hbsq : (beta ^ 2 - 2) ^ 2 < (2 : ℝ) := by norm_num [beta]
+    nlinarith
+  have hrnon : 0 ≤ Real.sqrt (2 + Real.sqrt 2) := Real.sqrt_nonneg _
+  have hrsq : Real.sqrt (2 + Real.sqrt 2) ^ 2 = 2 + Real.sqrt 2 :=
+    Real.sq_sqrt (by positivity)
+  have hroot : beta < Real.sqrt (2 + Real.sqrt 2) := by
+    have hbpos : 0 ≤ beta := le_trans (by norm_num) beta_ge_one
+    nlinarith
+  rw [Real.cos_pi_div_eight]
+  linarith
+
+theorem stripGrowthAtFour :
+    ∃ C β : ℝ, 0 ≤ C ∧ 0 ≤ β ∧ β < 2 * Real.cos (Real.pi / 8) ∧
+      ∀ (n : ℕ) (s : Finset (BridgePath 4)),
+        (∀ p ∈ s, p.vertices.length = n) → (s.card : ℝ) ≤ C * β ^ n := by
+  exact ⟨128, beta, by norm_num, le_trans (by norm_num) beta_ge_one,
+    beta_lt_mu, path_card_real⟩
+
+end WidthFour
+
+/-- Fixed height four only; no all-height growth hypothesis is used. -/
+theorem width_four_summability_diagnostic :
+    Summable (weight (h := 4)) ∧ Summable (firstLengthWeight (h := 4)) := by
+  obtain ⟨C, β, hC, hβ, hlt, hcount⟩ := WidthFour.stripGrowthAtFour
+  have hL : Summable (firstLengthWeight (h := 4)) :=
+    bridgeSummable_firstLengthWeight_of_mu_bound hC hβ hlt hcount
+  exact ⟨bridgeSummable_weight_of_summable_firstLengthWeight hL,hL⟩
+```

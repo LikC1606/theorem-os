@@ -1,0 +1,86 @@
+[
+  {
+    "role": "host",
+    "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/workspace/generated/problem/Submission.lean",
+    "relativePath": "Submission.lean",
+    "bytes": 967683,
+    "sha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae"
+  },
+  {
+    "role": "canonical",
+    "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/result.json.runtime/worktree/generated/problem/Submission.lean",
+    "relativePath": "Submission.lean",
+    "bytes": 967683,
+    "sha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae"
+  },
+  {
+    "role": "publisher",
+    "path": "/proc/900064/root/workspace/generated/problem/.lake/publisher-eval.n2lgvkzJ/Submission.lean",
+    "relativePath": "Submission.lean",
+    "bytes": 967683,
+    "sha256": "dc40df160330f9058ff0af4e85adac6ed1be8be0b2d54c7fba5f10f71450eaae"
+  },
+  {
+    "role": "host",
+    "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/workspace/generated/problem/Challenge.lean",
+    "relativePath": "Challenge.lean",
+    "bytes": 2069,
+    "sha256": "3ab27d66779b557d0efcc3cfcf8317c40511e3cc655da29e61e95ba3f34d45ea"
+  },
+  {
+    "role": "canonical",
+    "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/result.json.runtime/worktree/generated/problem/Challenge.lean",
+    "relativePath": "Challenge.lean",
+    "bytes": 2069,
+    "sha256": "3ab27d66779b557d0efcc3cfcf8317c40511e3cc655da29e61e95ba3f34d45ea"
+  },
+  {
+    "role": "publisher",
+    "path": "/proc/900064/root/workspace/generated/problem/.lake/publisher-eval.n2lgvkzJ/Challenge.lean",
+    "relativePath": "Challenge.lean",
+    "bytes": 2069,
+    "sha256": "3ab27d66779b557d0efcc3cfcf8317c40511e3cc655da29e61e95ba3f34d45ea"
+  },
+  {
+    "role": "host",
+    "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/workspace/generated/problem/lake-manifest.json",
+    "relativePath": "lake-manifest.json",
+    "bytes": 3571,
+    "sha256": "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829"
+  },
+  {
+    "role": "canonical",
+    "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/result.json.runtime/worktree/generated/problem/lake-manifest.json",
+    "relativePath": "lake-manifest.json",
+    "bytes": 3571,
+    "sha256": "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829"
+  },
+  {
+    "role": "publisher",
+    "path": "/proc/900064/root/workspace/generated/problem/.lake/publisher-eval.n2lgvkzJ/lake-manifest.json",
+    "relativePath": "lake-manifest.json",
+    "bytes": 3571,
+    "sha256": "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829"
+  },
+  {
+    "role": "host",
+    "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/workspace/generated/problem/lean-toolchain",
+    "relativePath": "lean-toolchain",
+    "bytes": 25,
+    "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+  },
+  {
+    "role": "canonical",
+    "path": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-conditional-native-followup-20261023/native-v8-recovery1/result.json.runtime/worktree/generated/problem/lean-toolchain",
+    "relativePath": "lean-toolchain",
+    "bytes": 25,
+    "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+  },
+  {
+    "role": "publisher",
+    "path": "/proc/900064/root/workspace/generated/problem/.lake/publisher-eval.n2lgvkzJ/lean-toolchain",
+    "relativePath": "lean-toolchain",
+    "bytes": 25,
+    "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+  }
+]

@@ -1,0 +1,536 @@
+{
+  "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-rational-potential-certificates-20261025/certificates.json",
+  "sourceSHA256": "f186f6ee1ba8a1730c32828b5155f81f7344ba26afc0e61e792f18e45b831162",
+  "certificate": {
+    "height": 4,
+    "stateCount": 22,
+    "beta": {
+      "numerator": 1847,
+      "denominator": 1000
+    },
+    "weights": [
+      29,
+      29,
+      64,
+      50,
+      50,
+      56,
+      58,
+      58,
+      33,
+      52,
+      52,
+      33,
+      52,
+      52,
+      56,
+      58,
+      58,
+      64,
+      50,
+      50,
+      29,
+      29
+    ],
+    "minWeight": 29,
+    "maxWeight": 64,
+    "rows": [
+      {
+        "index": 0,
+        "normalizedIncomingEdge": [
+          [
+            "down",
+            0,
+            0
+          ],
+          [
+            "up",
+            0,
+            0
+          ]
+        ],
+        "weight": 29,
+        "successors": [
+          13
+        ],
+        "successorWeightSum": 52,
+        "scaledSlack": 1563
+      },
+      {
+        "index": 1,
+        "normalizedIncomingEdge": [
+          [
+            "down",
+            -1,
+            0
+          ],
+          [
+            "up",
+            0,
+            0
+          ]
+        ],
+        "weight": 29,
+        "successors": [
+          12
+        ],
+        "successorWeightSum": 52,
+        "scaledSlack": 1563
+      },
+      {
+        "index": 2,
+        "normalizedIncomingEdge": [
+          [
+            "down",
+            0,
+            0
+          ],
+          [
+            "up",
+            0,
+            1
+          ]
+        ],
+        "weight": 64,
+        "successors": [
+          15,
+          16
+        ],
+        "successorWeightSum": 116,
+        "scaledSlack": 2208
+      },
+      {
+        "index": 3,
+        "normalizedIncomingEdge": [
+          [
+            "down",
+            0,
+            1
+          ],
+          [
+            "up",
+            0,
+            1
+          ]
+        ],
+        "weight": 50,
+        "successors": [
+          11,
+          16
+        ],
+        "successorWeightSum": 91,
+        "scaledSlack": 1350
+      },
+      {
+        "index": 4,
+        "normalizedIncomingEdge": [
+          [
+            "down",
+            -1,
+            1
+          ],
+          [
+            "up",
+            0,
+            1
+          ]
+        ],
+        "weight": 50,
+        "successors": [
+          11,
+          15
+        ],
+        "successorWeightSum": 91,
+        "scaledSlack": 1350
+      },
+      {
+        "index": 5,
+        "normalizedIncomingEdge": [
+          [
+            "down",
+            0,
+            1
+          ],
+          [
+            "up",
+            0,
+            2
+          ]
+        ],
+        "weight": 56,
+        "successors": [
+          18,
+          19
+        ],
+        "successorWeightSum": 100,
+        "scaledSlack": 3432
+      },
+      {
+        "index": 6,
+        "normalizedIncomingEdge": [
+          [
+            "down",
+            0,
+            2
+          ],
+          [
+            "up",
+            0,
+            2
+          ]
+        ],
+        "weight": 58,
+        "successors": [
+          14,
+          19
+        ],
+        "successorWeightSum": 106,
+        "scaledSlack": 1126
+      },
+      {
+        "index": 7,
+        "normalizedIncomingEdge": [
+          [
+            "down",
+            -1,
+            2
+          ],
+          [
+            "up",
+            0,
+            2
+          ]
+        ],
+        "weight": 58,
+        "successors": [
+          14,
+          18
+        ],
+        "successorWeightSum": 106,
+        "scaledSlack": 1126
+      },
+      {
+        "index": 8,
+        "normalizedIncomingEdge": [
+          [
+            "down",
+            0,
+            2
+          ],
+          [
+            "up",
+            0,
+            3
+          ]
+        ],
+        "weight": 33,
+        "successors": [
+          20,
+          21
+        ],
+        "successorWeightSum": 58,
+        "scaledSlack": 2951
+      },
+      {
+        "index": 9,
+        "normalizedIncomingEdge": [
+          [
+            "down",
+            0,
+            3
+          ],
+          [
+            "up",
+            0,
+            3
+          ]
+        ],
+        "weight": 52,
+        "successors": [
+          17,
+          21
+        ],
+        "successorWeightSum": 93,
+        "scaledSlack": 3044
+      },
+      {
+        "index": 10,
+        "normalizedIncomingEdge": [
+          [
+            "down",
+            -1,
+            3
+          ],
+          [
+            "up",
+            0,
+            3
+          ]
+        ],
+        "weight": 52,
+        "successors": [
+          17,
+          20
+        ],
+        "successorWeightSum": 93,
+        "scaledSlack": 3044
+      },
+      {
+        "index": 11,
+        "normalizedIncomingEdge": [
+          [
+            "up",
+            0,
+            1
+          ],
+          [
+            "down",
+            0,
+            0
+          ]
+        ],
+        "weight": 33,
+        "successors": [
+          0,
+          1
+        ],
+        "successorWeightSum": 58,
+        "scaledSlack": 2951
+      },
+      {
+        "index": 12,
+        "normalizedIncomingEdge": [
+          [
+            "up",
+            0,
+            0
+          ],
+          [
+            "down",
+            0,
+            0
+          ]
+        ],
+        "weight": 52,
+        "successors": [
+          2,
+          1
+        ],
+        "successorWeightSum": 93,
+        "scaledSlack": 3044
+      },
+      {
+        "index": 13,
+        "normalizedIncomingEdge": [
+          [
+            "up",
+            1,
+            0
+          ],
+          [
+            "down",
+            0,
+            0
+          ]
+        ],
+        "weight": 52,
+        "successors": [
+          2,
+          0
+        ],
+        "successorWeightSum": 93,
+        "scaledSlack": 3044
+      },
+      {
+        "index": 14,
+        "normalizedIncomingEdge": [
+          [
+            "up",
+            0,
+            2
+          ],
+          [
+            "down",
+            0,
+            1
+          ]
+        ],
+        "weight": 56,
+        "successors": [
+          3,
+          4
+        ],
+        "successorWeightSum": 100,
+        "scaledSlack": 3432
+      },
+      {
+        "index": 15,
+        "normalizedIncomingEdge": [
+          [
+            "up",
+            0,
+            1
+          ],
+          [
+            "down",
+            0,
+            1
+          ]
+        ],
+        "weight": 58,
+        "successors": [
+          5,
+          4
+        ],
+        "successorWeightSum": 106,
+        "scaledSlack": 1126
+      },
+      {
+        "index": 16,
+        "normalizedIncomingEdge": [
+          [
+            "up",
+            1,
+            1
+          ],
+          [
+            "down",
+            0,
+            1
+          ]
+        ],
+        "weight": 58,
+        "successors": [
+          5,
+          3
+        ],
+        "successorWeightSum": 106,
+        "scaledSlack": 1126
+      },
+      {
+        "index": 17,
+        "normalizedIncomingEdge": [
+          [
+            "up",
+            0,
+            3
+          ],
+          [
+            "down",
+            0,
+            2
+          ]
+        ],
+        "weight": 64,
+        "successors": [
+          6,
+          7
+        ],
+        "successorWeightSum": 116,
+        "scaledSlack": 2208
+      },
+      {
+        "index": 18,
+        "normalizedIncomingEdge": [
+          [
+            "up",
+            0,
+            2
+          ],
+          [
+            "down",
+            0,
+            2
+          ]
+        ],
+        "weight": 50,
+        "successors": [
+          8,
+          7
+        ],
+        "successorWeightSum": 91,
+        "scaledSlack": 1350
+      },
+      {
+        "index": 19,
+        "normalizedIncomingEdge": [
+          [
+            "up",
+            1,
+            2
+          ],
+          [
+            "down",
+            0,
+            2
+          ]
+        ],
+        "weight": 50,
+        "successors": [
+          8,
+          6
+        ],
+        "successorWeightSum": 91,
+        "scaledSlack": 1350
+      },
+      {
+        "index": 20,
+        "normalizedIncomingEdge": [
+          [
+            "up",
+            0,
+            3
+          ],
+          [
+            "down",
+            0,
+            3
+          ]
+        ],
+        "weight": 29,
+        "successors": [
+          10
+        ],
+        "successorWeightSum": 52,
+        "scaledSlack": 1563
+      },
+      {
+        "index": 21,
+        "normalizedIncomingEdge": [
+          [
+            "up",
+            1,
+            3
+          ],
+          [
+            "down",
+            0,
+            3
+          ]
+        ],
+        "weight": 29,
+        "successors": [
+          9
+        ],
+        "successorWeightSum": 52,
+        "scaledSlack": 1563
+      }
+    ],
+    "allExactTransitionInequalitiesPassed": true,
+    "muComparison": {
+      "betaSquaredMinusTwo": "1411409/1000000",
+      "squareOfBetaSquaredMinusTwo": "1992075365281/1000000000000",
+      "strictlyLessThanTwo": true
+    },
+    "intendedInduction": "N(n,a,b) <= w(a,b)/min(w) * beta^n",
+    "leanConnectionProved": false
+  },
+  "leanConnectionNowProved": true,
+  "leanTheorems": [
+    "WidthFour.potential_step",
+    "WidthFour.continuations_card",
+    "WidthFour.path_card_real",
+    "WidthFour.stripGrowthAtFour"
+  ],
+  "pythonCertificateTreatedAsAxiom": false
+}

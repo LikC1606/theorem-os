@@ -1,0 +1,23 @@
+{
+  "schema": "theorem-os.frozen-diagnostic-manifest.v1",
+  "capturedAt": "2026-10-24T17:17:54.520924+00:00",
+  "originalGoalSolved": false,
+  "leanAcceptance": false,
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 1278,
+      "sha256": "d19501d819c4dd03cab964e0941a07c929881161aa73216ec073c473295d987b"
+    },
+    {
+      "path": "certificates.json",
+      "bytes": 18235,
+      "sha256": "f186f6ee1ba8a1730c32828b5155f81f7344ba26afc0e61e792f18e45b831162"
+    },
+    {
+      "path": "check_certificates.py",
+      "bytes": 4848,
+      "sha256": "470d589c57c90e36374daf85da24ba91d63a41fb41f2cb5aad00f355afefa4fb"
+    }
+  ]
+}

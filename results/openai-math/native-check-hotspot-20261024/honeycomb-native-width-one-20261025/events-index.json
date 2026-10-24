@@ -1,0 +1,27 @@
+[
+  {
+    "line": 31459,
+    "at": 1792861477330,
+    "event": "task_checked",
+    "commit": "3c08cbf9e691e7156540ed075ffc3de20edb6652",
+    "receiptIds": []
+  },
+  {
+    "line": 31466,
+    "at": 1792861495973,
+    "event": "task_integrated",
+    "commit": "78602bd19dc2708c16543e3fe55edfe8407a8824",
+    "receiptIds": [
+      "lean-909381d19f6680c1615fba09"
+    ]
+  },
+  {
+    "line": 31468,
+    "at": 1792861496107,
+    "event": "delivery_published",
+    "commit": "3c08cbf9e691e7156540ed075ffc3de20edb6652",
+    "receiptIds": [
+      "lean-b1c75a2ef3a0363767a6edd9"
+    ]
+  }
+]

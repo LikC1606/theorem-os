@@ -1,0 +1,18 @@
+WidthThree.lean:273:36: warning: This simp argument is unused:
+  Vertex.down.injEq
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [neighbors, Vertex.up.injEq]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+WidthThree.lean:326:6: error: Type mismatch: After simplification, term
+  LE.le.trans hd hpow
+ has type
+  @LE.le ℕ Nat.instPreorder.toLE (count a b n) (2 ^ 4)
+but is expected to have type
+  @LE.le ℕ instLENat (count a b n) 16
+'OAI.PolynomialVacuumBridge.Corridor.WidthThree.count_five' depends on axioms: [propext, Classical.choice, Quot.sound]
+'OAI.PolynomialVacuumBridge.Corridor.WidthThree.count_block_bound' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]

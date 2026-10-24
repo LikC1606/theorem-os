@@ -1,0 +1,5 @@
+DEEPSCIENTIST_AXIOMS_BEGIN_7013e65ade5b345b
+'OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+DEEPSCIENTIST_AXIOMS_END_7013e65ade5b345b

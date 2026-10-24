@@ -1,0 +1,521 @@
+{
+  "assignment": {
+    "assignmentId": "3250e294-e889-4c06-8e44-0c99cc161662",
+    "canonicalCommit": "fac87fb460b0289bc48ad7341935e731c7c3bfb5",
+    "dependencies": [
+      {
+        "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+        "taskId": "sums_reduction"
+      }
+    ],
+    "groupId": "main",
+    "researchBasis": {
+      "dependencies": [
+        {
+          "deliveries": [],
+          "proof": {
+            "conditions": [],
+            "state": "integrated",
+            "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292"
+          },
+          "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+          "taskId": "sums_reduction"
+        }
+      ],
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "retrievalDigest": "f5fa7f00d04e495a9eb0089943ca9e6764e56ca67c96253410933e210be6dfad",
+      "schema": "theorem-os.research-basis.v1",
+      "sourceDigest": "596bdf3fb095f7c7db572a3a7bcaa3556c001ce61908653fa29beb0a43c3cae3",
+      "taskDigest": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+      "taskId": "width_one_bridge_sums_b433299a"
+    },
+    "seedCommit": "84dac4a5063887bf27396015ccbfadf4269983f8",
+    "taskDigest": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+    "taskId": "width_one_bridge_sums_b433299a",
+    "workerId": "researcher-2"
+  },
+  "attempts": 1,
+  "integratedCheck": {
+    "changes": [],
+    "commit": "78602bd19dc2708c16543e3fe55edfe8407a8824",
+    "passed": true,
+    "seedCommit": "78602bd19dc2708c16543e3fe55edfe8407a8824",
+    "sourceDigest": "bc71d2556d58216850b3fa93dac287f0ac644bb88bb63132691833ffe2692724",
+    "taskDigest": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+    "verification": {
+      "checkedAt": 1792861495826,
+      "durationMs": 18179,
+      "events": [
+        {
+          "eventId": "50aa3913-c0ca-4587-98e5-437d728e6b13",
+          "kind": "session.opened",
+          "payload": {
+            "itemCount": 1,
+            "projectRoot": "/tmp/math-check-3aBQ5d/worktree/generated/problem",
+            "uniqueFileCount": 1
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "1a1962b0-62ec-4d3e-b480-29d08e6832f5",
+          "timestamp": 1792861477648
+        },
+        {
+          "eventId": "b9e048f0-a74e-47ad-88d4-f606760d969f",
+          "kind": "file.opened",
+          "payload": {
+            "bytes": 31089,
+            "checkCount": 1,
+            "proofHash": "a96702367fcb0ccd066e8140ebd17f8b8931771f4305ded03226ab77d458716a",
+            "proofPath": "Submission.lean"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "1a1962b0-62ec-4d3e-b480-29d08e6832f5",
+          "timestamp": 1792861477648
+        },
+        {
+          "eventId": "44b78f91-4033-48c0-903d-9c59f42492e3",
+          "kind": "toolchain.resolved",
+          "payload": {
+            "command": "lake",
+            "executable": "lake",
+            "lakeFile": "lakefile.toml"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "1a1962b0-62ec-4d3e-b480-29d08e6832f5",
+          "timestamp": 1792861477648
+        },
+        {
+          "eventId": "46b9d5f9-5b4f-4b23-a499-8cb8ed77d517",
+          "kind": "check.draft_checked",
+          "payload": {
+            "admitCount": 0,
+            "axioms": [],
+            "proofPath": "Submission.lean",
+            "sorryCount": 0,
+            "status": "accepted"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "1a1962b0-62ec-4d3e-b480-29d08e6832f5",
+          "timestamp": 1792861477660
+        },
+        {
+          "eventId": "9ffd61cb-6fb0-4b0f-bf43-8177b5b07189",
+          "kind": "diagnostic.emitted",
+          "payload": {
+            "message": "DS_DECL_REFERENCES_2723dbda6840c3dea2bbbe14f4cbe52f:null\nDEEPSCIENTIST_DECL_BEGIN_7013e65ade5b345b\nOAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one :\n  Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧\n    Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ∧\n      (Summable fun p =>\n          OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight p / OAI.PolynomialVacuumBridge.Corridor.bridgeMass 1) ∧\n        (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.weight ↑p) ∧\n          (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p) ∧\n            Summable fun p =>\n              OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p /\n                OAI.PolynomialVacuumBridge.Corridor.confinedMass 1\nDEEPSCIENTIST_DECL_END_7013e65ade5b345b\nDEEPSCIENTIST_AXIOMS_BEGIN_7013e65ade5b345b\n'OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one' depends on axioms: [propext,\n Classical.choice,\n Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_7013e65ade5b345b",
+            "proofPath": "Submission.lean",
+            "severity": "info",
+            "source": "stdout"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "1a1962b0-62ec-4d3e-b480-29d08e6832f5",
+          "timestamp": 1792861495820
+        },
+        {
+          "eventId": "a0589d3d-2642-4d82-b7ea-8fa6f0faf399",
+          "kind": "check.kernel_checked",
+          "payload": {
+            "aborted": false,
+            "durationMs": 18145,
+            "exitCode": 0,
+            "proofPath": "Submission.lean",
+            "signal": null,
+            "status": "kernel_verified",
+            "timedOut": false
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "1a1962b0-62ec-4d3e-b480-29d08e6832f5",
+          "timestamp": 1792861495820
+        },
+        {
+          "eventId": "eb95b8bc-d9c2-4826-bb73-eead4daa2025",
+          "kind": "receipt.published",
+          "payload": {
+            "checkId": "check-1",
+            "proofPath": "Submission.lean",
+            "receiptId": "lean-909381d19f6680c1615fba09",
+            "status": "kernel_verified",
+            "theoremName": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "1a1962b0-62ec-4d3e-b480-29d08e6832f5",
+          "timestamp": 1792861495820
+        },
+        {
+          "eventId": "523ffa85-b1e5-43e1-bd7d-4a9dc577b54e",
+          "kind": "session.closed",
+          "payload": {
+            "durationMs": 18179,
+            "resultCount": 1,
+            "status": "kernel_verified"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "1a1962b0-62ec-4d3e-b480-29d08e6832f5",
+          "timestamp": 1792861495826
+        }
+      ],
+      "results": [
+        {
+          "admitCount": 0,
+          "axioms": [
+            "propext",
+            "Classical.choice",
+            "Quot.sound"
+          ],
+          "checkId": "check-1",
+          "checkedAt": 1792861495820,
+          "claim": "statement",
+          "elaboratedDeclarationType": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one : Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧ Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ∧ (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight p / OAI.PolynomialVacuumBridge.Corridor.bridgeMass 1) ∧ (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.weight ↑p) ∧ (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p) ∧ Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p / OAI.PolynomialVacuumBridge.Corridor.confinedMass 1",
+          "goalsRemaining": 0,
+          "leanStatementHash": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+          "proofHash": "a96702367fcb0ccd066e8140ebd17f8b8931771f4305ded03226ab77d458716a",
+          "proofPath": "Submission.lean",
+          "receiptId": "lean-909381d19f6680c1615fba09",
+          "sessionId": "1a1962b0-62ec-4d3e-b480-29d08e6832f5",
+          "sorryCount": 0,
+          "sourceDeclarationHash": "af74243ccbe40e2813dccf55fd7030f6f81f884e49a1be09d7a375ccdad7f3e0",
+          "statementBinding": "caller-bound-to-committed-declaration",
+          "statementHash": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+          "status": "kernel_verified",
+          "stdoutPreview": "DS_DECL_REFERENCES_2723dbda6840c3dea2bbbe14f4cbe52f:null\nDEEPSCIENTIST_DECL_BEGIN_7013e65ade5b345b\nOAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one :\n  Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧\n    Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ∧\n      (Summable fun p =>\n          OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight p / OAI.PolynomialVacuumBridge.Corridor.bridgeMass 1) ∧\n        (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.weight ↑p) ∧\n          (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p) ∧\n            Summable fun p =>\n              OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p /\n                OAI.PolynomialVacuumBridge.Corridor.confinedMass 1\nDEEPSCIENTIST_DECL_END_7013e65ade5b345b\nDEEPSCIENTIST_AXIOMS_BEGIN_7013e65ade5b345b\n'OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one' depends on axioms: [propext,\n Classical.choice,\n Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_7013e65ade5b345b",
+          "targetCommit": "9279a4520a2e8d5a959a4fb7fafba4937e74c399",
+          "theoremDeclarationHash": "df3a528a46573be50724e2e92143b008196c7a7654681aaadea0a8abea833591",
+          "theoremName": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one",
+          "toolchain": {
+            "lake": "lakefile.toml",
+            "lean": "lake"
+          },
+          "verifier": "lean-kernel"
+        }
+      ],
+      "schema": "deepscientist.mathematics.verification-batch/v1",
+      "sessionId": "1a1962b0-62ec-4d3e-b480-29d08e6832f5",
+      "startedAt": 1792861477647,
+      "status": "kernel_verified",
+      "targetCommit": "9279a4520a2e8d5a959a4fb7fafba4937e74c399"
+    }
+  },
+  "parkedRoutes": {},
+  "proof": {
+    "changes": [
+      {
+        "after": "def hexX : Vertex → ℤ\n  | .up i j => 2 * i + j\n  | .down i j => 2 * i + j + 1\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "hexX"
+      },
+      {
+        "after": "lemma eq_of_hexX_layer {v w : Vertex} (hX : hexX v = hexX w) (hj : layer v = layer w) :\n    v = w := by\n  cases v with\n  | up i j =>\n    cases w with\n    | up i' j' =>\n      simp only [hexX, layer] at hX hj\n      subst hj\n      have : i = i' := by omega\n      subst this; rfl\n    | down i' j' =>\n      simp only [hexX, layer] at hX hj\n      omega\n  | down i j =>\n    cases w with\n    | up i' j' =>\n      simp only [hexX, layer] at hX hj\n      omega\n    | down i' j' =>\n      simp only [hexX, layer] at hX hj\n      subst hj\n      have : i = i' := by omega\n      subst this; rfl\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "eq_of_hexX_layer"
+      },
+      {
+        "after": "lemma hexX_step {a b : Vertex} (hl : layer a = layer b) (hab : adjacent a b) :\n    hexX b = hexX a + 1 ∨ hexX b = hexX a - 1 := by\n  cases a with\n  | up i j => cases b with\n    | up _ _ => simp [adjacent] at hab\n    | down k l =>\n      simp only [adjacent] at hab\n      have hl' : j = l := hl\n      simp only [hexX]\n      rcases hab with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;> omega\n  | down k l => cases b with\n    | down _ _ => simp [adjacent] at hab\n    | up i j =>\n      simp only [adjacent] at hab\n      have hl' : l = j := hl\n      simp only [hexX]\n      rcases hab with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;> omega\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "hexX_step"
+      },
+      {
+        "after": "lemma hexX_up_zero : hexX (.up 0 0) = 0 := rfl\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "hexX_up_zero"
+      },
+      {
+        "after": "lemma head?_eq_getElem?_zero {α : Type*} (l : List α) : l.head? = l[0]? := by\n  cases l <;> rfl\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "head"
+      },
+      {
+        "after": "lemma ne_nil_of_vertices_nonempty {h : ℕ} (p : BridgePath h) : p.vertices ≠ [] := by\n  intro hnil\n  have hsrc := p.source\n  rw [hnil] at hsrc\n  simp at hsrc\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "ne_nil_of_vertices_nonempty"
+      },
+      {
+        "after": "lemma int_walk_monotone {n : ℕ} {f : ℕ → ℤ}\n    (hinj : ∀ i j, i < n → j < n → f i = f j → i = j)\n    (hstep : ∀ i, i + 1 < n → f (i + 1) = f i + 1 ∨ f (i + 1) = f i - 1) :\n    (∀ i, i < n → f i = f 0 + (i : ℤ)) ∨ (∀ i, i < n → f i = f 0 - (i : ℤ)) := by\n  have no_flip : ∀ k, k + 2 < n → ¬(f (k+1) = f k + 1 ∧ f (k+2) = f (k+1) - 1) ∧\n      ¬(f (k+1) = f k - 1 ∧ f (k+2) = f (k+1) + 1) := by\n    intro k hk\n    constructor\n    · rintro ⟨h1, h2⟩\n      have hval : f (k+2) = f k := by rw [h2, h1]; ring\n      exact absurd (hinj (k+2) k (by omega) (by omega) hval) (by omega)\n    · rintro ⟨h1, h2⟩\n      have hval : f (k+2) = f k := by rw [h2, h1]; ring\n      exact absurd (hinj (k+2) k (by omega) (by omega) hval) (by omega)\n  rcases Nat.lt_or_ge n 2 with hn | hn\n  · left\n    intro i hi\n    have hi0 : i = 0 := by omega\n    subst hi0; simp\n  · rcases hstep 0 (by omega) with hplus | hminus\n    · left\n      have allplus : ∀ j, j + 1 < n → f (j+1) = f j + 1 := by\n        intro j\n        induction j with\n        | zero => intro _; exact hplus\n        | succ k ihk =>\n          intro hjk\n          have hprev : f (k+1) = f k + 1 := ihk (by omega)\n          rcases hstep (k+1) hjk with h | h\n          · exact h\n          · exact absurd ⟨hprev, h⟩ (no_flip k (by omega)).1\n      intro i\n      induction i using Nat.strong_induction_on with\n      | _ i ih =>\n        intro hi\n        match i with\n        | 0 => simp\n        | k + 1 =>\n          have hk : f (k+1) = f k + 1 := allplus k (by omega)\n          have hk' : f k = f 0 + (k : ℤ) := ih k (by omega) (by omega)\n          rw [hk, hk']\n          push_cast\n          ring\n    · right\n      have allminus : ∀ j, j + 1 < n → f (j+1) = f j - 1 := by\n        intro j\n        induction j with\n        | zero => intro _; exact hminus\n        | succ k ihk =>\n          intro hjk\n          have hprev : f (k+1) = f k - 1 := ihk (by omega)\n          rcases hstep (k+1) hjk with h | h\n          · exact absurd ⟨hprev, h⟩ (no_flip k (by omega)).2\n          · exact h\n      intro i\n      induction i using Nat.strong_induction_on with\n      | _ i ih =>\n        intro hi\n        match i with\n        | 0 => simp\n        | k + 1 =>\n          have hk : f (k+1) = f k - 1 := allminus k (by omega)\n          have hk' : f k = f 0 - (k : ℤ) := ih k (by omega) (by omega)\n          rw [hk, hk']\n          push_cast\n          ring\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "int_walk_monotone"
+      },
+      {
+        "after": "lemma chain_hexX_walk {l : List Vertex}\n    (hchain : l.IsChain adjacent) (hnd : l.Nodup)\n    (hlay : ∀ v ∈ l, layer v = 0) :\n    (∀ (i j : ℕ) (hi : i < l.length) (hj : j < l.length),\n        hexX (l[i]'hi) = hexX (l[j]'hj) → i = j) ∧\n    (∀ (i : ℕ) (hi : i + 1 < l.length),\n        hexX (l[i+1]'hi) = hexX (l[i]'(by omega)) + 1 ∨\n        hexX (l[i+1]'hi) = hexX (l[i]'(by omega)) - 1) := by\n  constructor\n  · intro i j hi hj hX\n    have hli : layer (l[i]'hi) = 0 := hlay _ (List.getElem_mem (l := l) hi)\n    have hlj : layer (l[j]'hj) = 0 := hlay _ (List.getElem_mem (l := l) hj)\n    have hveq : l[i]'hi = l[j]'hj := eq_of_hexX_layer hX (by rw [hli, hlj])\n    by_contra hne\n    exact absurd hveq (fun h => hne ((hnd.getElem_inj (hi := hi) (hj := hj)).mp h))\n  · intro i hi\n    have h1 : adjacent (l[i]'(by omega)) (l[i+1]'hi) := hchain.getElem i hi\n    have hl1 : layer (l[i]'(by omega)) = 0 := hlay _ (List.getElem_mem (l := l) (by omega))\n    have hl2 : layer (l[i+1]'hi) = 0 := hlay _ (List.getElem_mem (l := l) (by omega))\n    exact hexX_step (by rw [hl1, hl2]) h1\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "chain_hexX_walk"
+      },
+      {
+        "after": "lemma BridgePath.ext_vertices {h : ℕ} {p q : BridgePath h} (hv : p.vertices = q.vertices) :\n    p = q := by\n  cases p with\n  | mk vp dp cp sp tp ip =>\n    cases q with\n    | mk vq dq cq sq tq iq =>\n      simp only at hv\n      subst hv\n      congr 1\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "BridgePath.ext_vertices"
+      },
+      {
+        "after": "lemma layer_eq_zero_of_bridge1 {p : BridgePath 1} (v : Vertex) (hv : v ∈ p.vertices) :\n    layer v = 0 := by\n  have h := p.inStrip v hv\n  have h1 : layer v < ((1 : ℕ) : ℤ) := h.2\n  have h2 : 0 ≤ layer v := h.1\n  omega\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "layer_eq_zero_of_bridge1"
+      },
+      {
+        "after": "lemma length_pos_of_bridge {h : ℕ} (p : BridgePath h) : 0 < p.vertices.length :=\n  List.length_pos_iff.mpr (ne_nil_of_vertices_nonempty p)\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "length_pos_of_bridge"
+      },
+      {
+        "after": "noncomputable def bridge1CoordFun (p : BridgePath 1) : ℕ → ℤ :=\n  fun i => hexX (p.vertices.getD i (.up 0 0))\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "bridge1CoordFun"
+      },
+      {
+        "after": "lemma bridge1CoordFun_eq (p : BridgePath 1) {i : ℕ} (hi : i < p.vertices.length) :\n    bridge1CoordFun p i = hexX (p.vertices[i]'hi) := by\n  unfold bridge1CoordFun\n  rw [List.getD_eq_getElem]\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "bridge1CoordFun_eq"
+      },
+      {
+        "after": "lemma bridge1_start (p : BridgePath 1) {h : 0 < p.vertices.length} :\n    hexX (p.vertices[0]'h) = 0 := by\n  have hsrc : p.vertices[0]? = some (.up 0 0) := by\n    rw [← head?_eq_getElem?_zero]; exact p.source\n  have e1 : p.vertices[0]? = some (p.vertices[0]'h) := List.getElem?_eq_getElem h\n  rw [e1] at hsrc\n  have hv : p.vertices[0]'h = .up 0 0 := Option.some.inj hsrc\n  rw [hv]; exact hexX_up_zero\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "bridge1_start"
+      },
+      {
+        "after": "lemma bridge1_hexX (p : BridgePath 1) :\n    (∀ (i : ℕ) (_hi : i < p.vertices.length), bridge1CoordFun p i = (i : ℤ)) ∨\n    (∀ (i : ℕ) (_hi : i < p.vertices.length), bridge1CoordFun p i = -(i : ℤ)) := by\n  have hlen : 0 < p.vertices.length := length_pos_of_bridge p\n  obtain ⟨hinj, hstep⟩ :=\n    chain_hexX_walk p.connected p.distinct (fun v hv => layer_eq_zero_of_bridge1 v hv)\n  have hinj' : ∀ i j, i < p.vertices.length → j < p.vertices.length →\n      bridge1CoordFun p i = bridge1CoordFun p j → i = j := by\n    intro i j hi hj hf\n    rw [bridge1CoordFun_eq p hi, bridge1CoordFun_eq p hj] at hf\n    exact hinj i j hi hj hf\n  have hstep' : ∀ i, i + 1 < p.vertices.length →\n      bridge1CoordFun p (i+1) = bridge1CoordFun p i + 1 ∨\n      bridge1CoordFun p (i+1) = bridge1CoordFun p i - 1 := by\n    intro i hi\n    rw [bridge1CoordFun_eq p hi, bridge1CoordFun_eq p (by omega)]\n    exact hstep i hi\n  have hc0 : bridge1CoordFun p 0 = 0 := by\n    rw [bridge1CoordFun_eq p hlen]; exact bridge1_start p\n  obtain hm | hm := int_walk_monotone (n := p.vertices.length) hinj' hstep'\n  · left\n    intro i hi\n    have h := hm i hi\n    rw [hc0] at h\n    simpa using h\n  · right\n    intro i hi\n    have h := hm i hi\n    rw [hc0] at h\n    simpa using h\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "bridge1_hexX"
+      },
+      {
+        "after": "lemma bridge1_length_ge_two (p : BridgePath 1) : 2 ≤ p.vertices.length := by\n  have hpos := length_pos_of_bridge p\n  obtain ⟨i, hi⟩ := p.terminal\n  rcases Nat.lt_or_ge p.vertices.length 2 with h | h\n  · have hlen1 : p.vertices.length = 1 := by omega\n    obtain ⟨a, ha⟩ := List.length_eq_one_iff.mp hlen1\n    have hhead : p.vertices.head? = some a := by rw [ha]; rfl\n    rw [p.source] at hhead\n    have hav : a = Vertex.up 0 0 := Option.some.inj hhead.symm\n    have hlast : p.vertices.getLast? = some a := by rw [ha]; rfl\n    rw [hi] at hlast\n    have hcontra : Vertex.down i (((1 : ℕ) : ℤ) - 1) = Vertex.up 0 0 := by\n      have hd : Vertex.down i (((1 : ℕ) : ℤ) - 1) = a := Option.some.inj hlast\n      rw [hd, hav]\n    exact absurd hcontra (by simp)\n  · exact h\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "bridge1_length_ge_two"
+      },
+      {
+        "after": "lemma bridge1_second (p : BridgePath 1) :\n    bridge1CoordFun p 1 = 1 ∨ bridge1CoordFun p 1 = -1 := by\n  have h2 := bridge1_length_ge_two p\n  rcases bridge1_hexX p with hp | hp\n  · left; have := hp 1 (by omega); simpa using this\n  · right; have := hp 1 (by omega); simpa using this\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "bridge1_second"
+      },
+      {
+        "after": "lemma bridge1_det {p q : BridgePath 1}\n    (hlen : p.vertices.length = q.vertices.length)\n    (hsecond : bridge1CoordFun p 1 = bridge1CoordFun q 1) :\n    p.vertices = q.vertices := by\n  have h2q : 2 ≤ q.vertices.length := by have := bridge1_length_ge_two q; omega\n  have hlen' : 2 ≤ p.vertices.length := bridge1_length_ge_two p\n  have sign : ∀ i, i < p.vertices.length → bridge1CoordFun p i = bridge1CoordFun q i := by\n    intro i hi\n    rcases bridge1_hexX p with hp | hp <;> rcases bridge1_hexX q with hq | hq\n    · rw [hp i hi, hq i (by omega)]\n    · exfalso\n      have h1 := hp 1 (by omega)\n      have h2' := hq 1 (by omega)\n      rw [h1, h2'] at hsecond\n      omega\n    · exfalso\n      have h1 := hp 1 (by omega)\n      have h2' := hq 1 (by omega)\n      rw [h1, h2'] at hsecond\n      omega\n    · rw [hp i hi, hq i (by omega)]\n  refine List.ext_getElem hlen ?_\n  intro i hi hiq\n  have hlp : layer (p.vertices[i]'hi) = 0 :=\n    layer_eq_zero_of_bridge1 _ (List.getElem_mem (l := p.vertices) hi)\n  have hlq : layer (q.vertices[i]'hiq) = 0 :=\n    layer_eq_zero_of_bridge1 _ (List.getElem_mem (l := q.vertices) hiq)\n  refine eq_of_hexX_layer ?_ (by rw [hlp, hlq])\n  rw [← bridge1CoordFun_eq p hi, ← bridge1CoordFun_eq q hiq]\n  exact sign i hi\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "bridge1_det"
+      },
+      {
+        "after": "theorem bridge1_card_le_two (n : ℕ) (s : Finset (BridgePath 1))\n    (hlen : ∀ p ∈ s, p.vertices.length = n) : s.card ≤ 2 := by\n  have hinj : Set.InjOn (fun p : BridgePath 1 => bridge1CoordFun p 1) (s : Set (BridgePath 1)) := by\n    intro p hp q hq heq\n    have hpn : p.vertices.length = n := hlen p hp\n    have hqn : q.vertices.length = n := hlen q hq\n    exact BridgePath.ext_vertices (bridge1_det (by omega) heq)\n  have hmaps : Set.MapsTo (fun p : BridgePath 1 => bridge1CoordFun p 1) (s : Set (BridgePath 1))\n      ({-1, 1} : Finset ℤ) := by\n    intro p _\n    rcases bridge1_second p with h | h <;> simp [h]\n  calc s.card ≤ ({-1, 1} : Finset ℤ).card := Finset.card_le_card_of_injOn _ hmaps hinj\n    _ ≤ 2 := Finset.card_le_two\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "bridge1_card_le_two"
+      },
+      {
+        "after": "theorem stripGrowthAtOne :\n    ∃ C β : ℝ, 0 ≤ C ∧ 0 ≤ β ∧ β < 2 * Real.cos (Real.pi / 8) ∧\n      ∀ (n : ℕ) (s : Finset (BridgePath 1)),\n        (∀ p ∈ s, p.vertices.length = n) → (s.card : ℝ) ≤ C * β ^ n := by\n  refine ⟨2, 1, by norm_num, by norm_num, ?_, ?_⟩\n  · have hpos : 0 < Real.cos (Real.pi / 8) := by\n      apply Real.cos_pos_of_mem_Ioo\n      constructor <;> nlinarith [Real.pi_pos]\n    have h2 : Real.sqrt 2 < 2 := by\n      calc Real.sqrt 2 < Real.sqrt 4 := Real.sqrt_lt_sqrt (by norm_num) (by norm_num)\n        _ = 2 := by norm_num\n    have hle : Real.sqrt (2 + Real.sqrt 2) < 2 := by\n      calc Real.sqrt (2 + Real.sqrt 2) < Real.sqrt 4 :=\n            Real.sqrt_lt_sqrt (by positivity) (by linarith)\n        _ = 2 := by norm_num\n    have hgt : 1 < Real.sqrt (2 + Real.sqrt 2) := by\n      have h1 : (1 : ℝ) < 2 + Real.sqrt 2 := by\n        have := Real.sqrt_nonneg 2; linarith\n      calc (1 : ℝ) = Real.sqrt 1 := by simp\n        _ < Real.sqrt (2 + Real.sqrt 2) := Real.sqrt_lt_sqrt (by norm_num) h1\n    rw [Real.cos_pi_div_eight]\n    linarith\n  · intro n s hs\n    have hcard : s.card ≤ 2 := bridge1_card_le_two n s hs\n    have hcast : ((s.card : ℝ)) ≤ 2 := by exact_mod_cast hcard\n    simpa using hcast\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "stripGrowthAtOne"
+      },
+      {
+        "after": "theorem width_one_summability :\n    Summable (weight (h := 1)) ∧ Summable (firstLengthWeight (h := 1)) := by\n  obtain ⟨C, β, hC, hβ, hlt, hcount⟩ := stripGrowthAtOne\n  have hL : Summable (firstLengthWeight (h := 1)) :=\n    bridgeSummable_firstLengthWeight_of_mu_bound hC hβ hlt hcount\n  exact ⟨bridgeSummable_weight_of_summable_firstLengthWeight hL, hL⟩\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "width_one_summability"
+      },
+      {
+        "after": "theorem finite_bridge_sums_at_one :\n    Summable (weight (h := 1)) ∧ Summable (firstLengthWeight (h := 1)) ∧\n    Summable (fun p : BridgePath 1 => firstLengthWeight p / bridgeMass 1) ∧\n    Summable (fun p : ConfinedBridgePath 1 => weight p.val) ∧\n    Summable (fun p : ConfinedBridgePath 1 => firstLengthWeight p.val) ∧\n    Summable (fun p : ConfinedBridgePath 1 => firstLengthWeight p.val / confinedMass 1) := by\n  obtain ⟨hw, hL⟩ := width_one_summability\n  have hc : Summable (fun p : ConfinedBridgePath 1 => firstLengthWeight p.val) :=\n    hL.subtype (fun p : BridgePath 1 => InLogCorridor p)\n  exact ⟨hw, hL, hL.div_const (bridgeMass 1), hw.subtype _,\n    hc, hc.div_const (confinedMass 1)⟩\n",
+        "beforeName": "finite_bridge_sums",
+        "file": "Submission.lean",
+        "name": "finite_bridge_sums_at_one"
+      }
+    ],
+    "commit": "3c08cbf9e691e7156540ed075ffc3de20edb6652",
+    "passed": true,
+    "seedCommit": "84dac4a5063887bf27396015ccbfadf4269983f8",
+    "sourceDigest": "fbee705485fc4f39e2cf5ac08d15e0e307162f038fc4912a18493670f13d7f7d",
+    "taskDigest": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+    "verification": {
+      "checkedAt": 1792861477219,
+      "durationMs": 21382,
+      "events": [
+        {
+          "eventId": "85298243-d1c3-4f82-a5f4-9b8f383ec11b",
+          "kind": "session.opened",
+          "payload": {
+            "itemCount": 1,
+            "projectRoot": "/tmp/math-check-LKOErP/worktree/generated/problem",
+            "uniqueFileCount": 1
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "c0d3e866-ddd2-4ac8-b3be-bb1b0119ad29",
+          "timestamp": 1792861455838
+        },
+        {
+          "eventId": "1f0f0160-ccfd-479d-ad32-275a5f5df1c6",
+          "kind": "file.opened",
+          "payload": {
+            "bytes": 26505,
+            "checkCount": 1,
+            "proofHash": "f79a86b5d9b51ff4f2afa3308c59922e47883da8b40365dd310421d8180d1d7d",
+            "proofPath": "Submission.lean"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "c0d3e866-ddd2-4ac8-b3be-bb1b0119ad29",
+          "timestamp": 1792861455838
+        },
+        {
+          "eventId": "367bafcc-1eee-41f1-81c9-6f0e3088d3ea",
+          "kind": "toolchain.resolved",
+          "payload": {
+            "command": "lake",
+            "executable": "lake",
+            "lakeFile": "lakefile.toml"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "c0d3e866-ddd2-4ac8-b3be-bb1b0119ad29",
+          "timestamp": 1792861455838
+        },
+        {
+          "eventId": "de36d6ff-380f-49fa-b01e-29cbc403216a",
+          "kind": "check.draft_checked",
+          "payload": {
+            "admitCount": 0,
+            "axioms": [],
+            "proofPath": "Submission.lean",
+            "sorryCount": 0,
+            "status": "accepted"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "c0d3e866-ddd2-4ac8-b3be-bb1b0119ad29",
+          "timestamp": 1792861455853
+        },
+        {
+          "eventId": "6c6a88ed-5d94-41a7-b65f-64ff3f769668",
+          "kind": "diagnostic.emitted",
+          "payload": {
+            "message": "DS_DECL_REFERENCES_38c45a75bb0f02c00265006e1bd0704f:null\nDEEPSCIENTIST_DECL_BEGIN_7013e65ade5b345b\nOAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one :\n  Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧\n    Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ∧\n      (Summable fun p =>\n          OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight p / OAI.PolynomialVacuumBridge.Corridor.bridgeMass 1) ∧\n        (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.weight ↑p) ∧\n          (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p) ∧\n            Summable fun p =>\n              OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p /\n                OAI.PolynomialVacuumBridge.Corridor.confinedMass 1\nDEEPSCIENTIST_DECL_END_7013e65ade5b345b\nDEEPSCIENTIST_AXIOMS_BEGIN_7013e65ade5b345b\n'OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one' depends on axioms: [propext,\n Classical.choice,\n Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_7013e65ade5b345b",
+            "proofPath": "Submission.lean",
+            "severity": "info",
+            "source": "stdout"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "c0d3e866-ddd2-4ac8-b3be-bb1b0119ad29",
+          "timestamp": 1792861477214
+        },
+        {
+          "eventId": "bb9e22da-52be-4c04-89cb-af5de6ea83b9",
+          "kind": "check.kernel_checked",
+          "payload": {
+            "aborted": false,
+            "durationMs": 21351,
+            "exitCode": 0,
+            "proofPath": "Submission.lean",
+            "signal": null,
+            "status": "kernel_verified",
+            "timedOut": false
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "c0d3e866-ddd2-4ac8-b3be-bb1b0119ad29",
+          "timestamp": 1792861477214
+        },
+        {
+          "eventId": "98d80486-adb3-43fa-95f1-de50c2e02554",
+          "kind": "receipt.published",
+          "payload": {
+            "checkId": "check-1",
+            "proofPath": "Submission.lean",
+            "receiptId": "lean-b1c75a2ef3a0363767a6edd9",
+            "status": "kernel_verified",
+            "theoremName": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "c0d3e866-ddd2-4ac8-b3be-bb1b0119ad29",
+          "timestamp": 1792861477214
+        },
+        {
+          "eventId": "9700ab34-87d3-4f10-afaf-e8c2298487b9",
+          "kind": "session.closed",
+          "payload": {
+            "durationMs": 21382,
+            "resultCount": 1,
+            "status": "kernel_verified"
+          },
+          "schema": "deepscientist.mathematics.verification_event.v1",
+          "sessionId": "c0d3e866-ddd2-4ac8-b3be-bb1b0119ad29",
+          "timestamp": 1792861477219
+        }
+      ],
+      "results": [
+        {
+          "admitCount": 0,
+          "axioms": [
+            "propext",
+            "Classical.choice",
+            "Quot.sound"
+          ],
+          "checkId": "check-1",
+          "checkedAt": 1792861477214,
+          "claim": "statement",
+          "elaboratedDeclarationType": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one : Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧ Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ∧ (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight p / OAI.PolynomialVacuumBridge.Corridor.bridgeMass 1) ∧ (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.weight ↑p) ∧ (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p) ∧ Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p / OAI.PolynomialVacuumBridge.Corridor.confinedMass 1",
+          "goalsRemaining": 0,
+          "leanStatementHash": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+          "proofHash": "f79a86b5d9b51ff4f2afa3308c59922e47883da8b40365dd310421d8180d1d7d",
+          "proofPath": "Submission.lean",
+          "receiptId": "lean-b1c75a2ef3a0363767a6edd9",
+          "sessionId": "c0d3e866-ddd2-4ac8-b3be-bb1b0119ad29",
+          "sorryCount": 0,
+          "sourceDeclarationHash": "af74243ccbe40e2813dccf55fd7030f6f81f884e49a1be09d7a375ccdad7f3e0",
+          "statementBinding": "caller-bound-to-committed-declaration",
+          "statementHash": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+          "status": "kernel_verified",
+          "stdoutPreview": "DS_DECL_REFERENCES_38c45a75bb0f02c00265006e1bd0704f:null\nDEEPSCIENTIST_DECL_BEGIN_7013e65ade5b345b\nOAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one :\n  Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧\n    Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ∧\n      (Summable fun p =>\n          OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight p / OAI.PolynomialVacuumBridge.Corridor.bridgeMass 1) ∧\n        (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.weight ↑p) ∧\n          (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p) ∧\n            Summable fun p =>\n              OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p /\n                OAI.PolynomialVacuumBridge.Corridor.confinedMass 1\nDEEPSCIENTIST_DECL_END_7013e65ade5b345b\nDEEPSCIENTIST_AXIOMS_BEGIN_7013e65ade5b345b\n'OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one' depends on axioms: [propext,\n Classical.choice,\n Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_7013e65ade5b345b",
+          "targetCommit": "02be17aa170097a65fc9235cd76f9018f0e3fe93",
+          "theoremDeclarationHash": "df3a528a46573be50724e2e92143b008196c7a7654681aaadea0a8abea833591",
+          "theoremName": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one",
+          "toolchain": {
+            "lake": "lakefile.toml",
+            "lean": "lake"
+          },
+          "verifier": "lean-kernel"
+        }
+      ],
+      "schema": "deepscientist.mathematics.verification-batch/v1",
+      "sessionId": "c0d3e866-ddd2-4ac8-b3be-bb1b0119ad29",
+      "startedAt": 1792861455837,
+      "status": "kernel_verified",
+      "targetCommit": "02be17aa170097a65fc9235cd76f9018f0e3fe93"
+    }
+  },
+  "routeParking": [],
+  "status": "integrated",
+  "task": {
+    "dependsOn": [
+      "sums_reduction"
+    ],
+    "groupId": "main",
+    "id": "width_one_bridge_sums_b433299a",
+    "kind": "lemma",
+    "objective": "Integrate the existing unconditional width-one classification and its checked counting-to-summability adapter. This proves the six clauses only at height one; the all-height growth frontier remains unresolved.\n\nExternal auxiliary input, not a publisher solution. The complete independently checked increment follows. Integrate it into the current namespace before the original target, retaining all canonical definitions and existing work. Reuse identical declarations that are already present. Save the exact assigned theorem and deliver it through the normal typed proof protocol; an advisory report alone is not a proof delivery. Host verification and canonical integration are still required. Do not assume or claim the unresolved original theorem.\n\nSelected ordinary typed task: finite_bridge_sums_at_one_b433299a\nTheorem: OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one\nProof path: Submission.lean\nGroup: main\nDepends on: sums_reduction (currently integrated)\nExact type:\nSummable (OAI.PolynomialVacuumBridge.Corridor.weight (h := 1)) ∧ Summable (OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (h := 1)) ∧ Summable (fun p : OAI.PolynomialVacuumBridge.Corridor.BridgePath 1 => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight p / OAI.PolynomialVacuumBridge.Corridor.bridgeMass 1) ∧ Summable (fun p : OAI.PolynomialVacuumBridge.Corridor.ConfinedBridgePath 1 => OAI.PolynomialVacuumBridge.Corridor.weight p.val) ∧ Summable (fun p : OAI.PolynomialVacuumBridge.Corridor.ConfinedBridgePath 1 => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight p.val) ∧ Summable (fun p : OAI.PolynomialVacuumBridge.Corridor.ConfinedBridgePath 1 => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight p.val / OAI.PolynomialVacuumBridge.Corridor.confinedMass 1)\n\nDelivery:\nLoad native-task-proposal.json (or delivery-contract.json[\"task\"]) through the normal parent-controlled task-plan edit. Its objective inlines the complete WidthOne.lean.inc increment. No queue was edited by this package.\n\nInsertion:\nInsert WidthOne.lean.inc once inside namespace OAI.PolynomialVacuumBridge.Corridor, after bridgeSummable_firstLengthWeight_of_mu_bound and bridgeSummable_weight_of_summable_firstLengthWeight. The current canonical source at inspection has all existing helpers and none of the 22 new declaration names. Preserve the original target and every existing declaration. The complete WidthOne.lean validation harness is not a replacement Submission.lean.\n\nSource dependency:\nThe existing sums_reduction task supplies the unconditional helpers:\n- OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_firstLengthWeight_of_mu_bound\n- OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_weight_of_summable_firstLengthWeight\nThe selected proof uses stripGrowthAtOne constructed in this increment with C=2 and beta=1. It never assumes strip_growth_below_mu, never applies an unproved original target, and does not change its all-width contract. dependency-snapshot.json records the exact inspected canonical commit and metadata.\n\nEvidence:\nIndependent local Lean actual exit 0, 20.635448274202645 seconds.\nSource SHA256: b433299aec2620b7b6dcad1e029f54133a41f255d831e9e73af699f754047aac\nIncrement SHA256: 34d8701c1c13598d4a96ca2f4044cb6aacbc8ccba88d771e381fbfb4d930a532\nFinal stdout: validation-02-final.stdout.log\nSelected target axioms: propext, Classical.choice, Quot.sound; no sorryAx.\nThe failed first extraction, final launch/result/source snapshot, complete source origins, resource policy and delivery hashes are preserved. No unmodified Lean rerun occurred during archival.\n\nScope:\nAll six summability clauses at h=1 only. Native typed TaskProof acceptance and integration remain to the host workflow. The h>=2/all-width gap is unresolved here. No active runtime/source/state/queue, old package or global setting was changed. No model call, commit or push.\n\n\nComplete verified Lean increment (insert once in the canonical namespace):\n```lean\ndef hexX : Vertex → ℤ\n  | .up i j => 2 * i + j\n  | .down i j => 2 * i + j + 1\n\n/-- `(hexX, layer)` is injective, so the frozen vertex type *is* the brick-wall strip. -/\nlemma eq_of_hexX_layer {v w : Vertex} (hX : hexX v = hexX w) (hj : layer v = layer w) :\n    v = w := by\n  cases v with\n  | up i j =>\n    cases w with\n    | up i' j' =>\n      simp only [hexX, layer] at hX hj\n      subst hj\n      have : i = i' := by omega\n      subst this; rfl\n    | down i' j' =>\n      simp only [hexX, layer] at hX hj\n      omega\n  | down i j =>\n    cases w with\n    | up i' j' =>\n      simp only [hexX, layer] at hX hj\n      omega\n    | down i' j' =>\n      simp only [hexX, layer] at hX hj\n      subst hj\n      have : i = i' := by omega\n      subst this; rfl\n\n/-- A step between two vertices of the *same* layer moves `hexX` by exactly `±1`. -/\nlemma hexX_step {a b : Vertex} (hl : layer a = layer b) (hab : adjacent a b) :\n    hexX b = hexX a + 1 ∨ hexX b = hexX a - 1 := by\n  cases a with\n  | up i j => cases b with\n    | up _ _ => simp [adjacent] at hab\n    | down k l =>\n      simp only [adjacent] at hab\n      have hl' : j = l := hl\n      simp only [hexX]\n      rcases hab with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;> omega\n  | down k l => cases b with\n    | down _ _ => simp [adjacent] at hab\n    | up i j =>\n      simp only [adjacent] at hab\n      have hl' : l = j := hl\n      simp only [hexX]\n      rcases hab with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;> omega\n\nlemma hexX_up_zero : hexX (.up 0 0) = 0 := rfl\n\nlemma head?_eq_getElem?_zero {α : Type*} (l : List α) : l.head? = l[0]? := by\n  cases l <;> rfl\n\nlemma ne_nil_of_vertices_nonempty {h : ℕ} (p : BridgePath h) : p.vertices ≠ [] := by\n  intro hnil\n  have hsrc := p.source\n  rw [hnil] at hsrc\n  simp at hsrc\n\n\n/-- **Integer walk core lemma.** A finite injective walk on `ℤ` with steps `±1` is monotone:\nit goes straight in one direction. This is the combinatorial fact that makes the width-one\nstrip a single line. -/\nlemma int_walk_monotone {n : ℕ} {f : ℕ → ℤ}\n    (hinj : ∀ i j, i < n → j < n → f i = f j → i = j)\n    (hstep : ∀ i, i + 1 < n → f (i + 1) = f i + 1 ∨ f (i + 1) = f i - 1) :\n    (∀ i, i < n → f i = f 0 + (i : ℤ)) ∨ (∀ i, i < n → f i = f 0 - (i : ℤ)) := by\n  have no_flip : ∀ k, k + 2 < n → ¬(f (k+1) = f k + 1 ∧ f (k+2) = f (k+1) - 1) ∧\n      ¬(f (k+1) = f k - 1 ∧ f (k+2) = f (k+1) + 1) := by\n    intro k hk\n    constructor\n    · rintro ⟨h1, h2⟩\n      have hval : f (k+2) = f k := by rw [h2, h1]; ring\n      exact absurd (hinj (k+2) k (by omega) (by omega) hval) (by omega)\n    · rintro ⟨h1, h2⟩\n      have hval : f (k+2) = f k := by rw [h2, h1]; ring\n      exact absurd (hinj (k+2) k (by omega) (by omega) hval) (by omega)\n  rcases Nat.lt_or_ge n 2 with hn | hn\n  · left\n    intro i hi\n    have hi0 : i = 0 := by omega\n    subst hi0; simp\n  · rcases hstep 0 (by omega) with hplus | hminus\n    · left\n      have allplus : ∀ j, j + 1 < n → f (j+1) = f j + 1 := by\n        intro j\n        induction j with\n        | zero => intro _; exact hplus\n        | succ k ihk =>\n          intro hjk\n          have hprev : f (k+1) = f k + 1 := ihk (by omega)\n          rcases hstep (k+1) hjk with h | h\n          · exact h\n          · exact absurd ⟨hprev, h⟩ (no_flip k (by omega)).1\n      intro i\n      induction i using Nat.strong_induction_on with\n      | _ i ih =>\n        intro hi\n        match i with\n        | 0 => simp\n        | k + 1 =>\n          have hk : f (k+1) = f k + 1 := allplus k (by omega)\n          have hk' : f k = f 0 + (k : ℤ) := ih k (by omega) (by omega)\n          rw [hk, hk']\n          push_cast\n          ring\n    · right\n      have allminus : ∀ j, j + 1 < n → f (j+1) = f j - 1 := by\n        intro j\n        induction j with\n        | zero => intro _; exact hminus\n        | succ k ihk =>\n          intro hjk\n          have hprev : f (k+1) = f k - 1 := ihk (by omega)\n          rcases hstep (k+1) hjk with h | h\n          · exact absurd ⟨hprev, h⟩ (no_flip k (by omega)).2\n          · exact h\n      intro i\n      induction i using Nat.strong_induction_on with\n      | _ i ih =>\n        intro hi\n        match i with\n        | 0 => simp\n        | k + 1 =>\n          have hk : f (k+1) = f k - 1 := allminus k (by omega)\n          have hk' : f k = f 0 - (k : ℤ) := ih k (by omega) (by omega)\n          rw [hk, hk']\n          push_cast\n          ring\n\nopen scoped BigOperators\n\n/-- For a chain of adjacent vertices all on layer `0`, the `hexX` coordinates form an\ninjective `±1` walk. -/\nlemma chain_hexX_walk {l : List Vertex}\n    (hchain : l.IsChain adjacent) (hnd : l.Nodup)\n    (hlay : ∀ v ∈ l, layer v = 0) :\n    (∀ (i j : ℕ) (hi : i < l.length) (hj : j < l.length),\n        hexX (l[i]'hi) = hexX (l[j]'hj) → i = j) ∧\n    (∀ (i : ℕ) (hi : i + 1 < l.length),\n        hexX (l[i+1]'hi) = hexX (l[i]'(by omega)) + 1 ∨\n        hexX (l[i+1]'hi) = hexX (l[i]'(by omega)) - 1) := by\n  constructor\n  · intro i j hi hj hX\n    have hli : layer (l[i]'hi) = 0 := hlay _ (List.getElem_mem (l := l) hi)\n    have hlj : layer (l[j]'hj) = 0 := hlay _ (List.getElem_mem (l := l) hj)\n    have hveq : l[i]'hi = l[j]'hj := eq_of_hexX_layer hX (by rw [hli, hlj])\n    by_contra hne\n    exact absurd hveq (fun h => hne ((hnd.getElem_inj (hi := hi) (hj := hj)).mp h))\n  · intro i hi\n    have h1 : adjacent (l[i]'(by omega)) (l[i+1]'hi) := hchain.getElem i hi\n    have hl1 : layer (l[i]'(by omega)) = 0 := hlay _ (List.getElem_mem (l := l) (by omega))\n    have hl2 : layer (l[i+1]'hi) = 0 := hlay _ (List.getElem_mem (l := l) (by omega))\n    exact hexX_step (by rw [hl1, hl2]) h1\n\nopen scoped BigOperators\n\nlemma BridgePath.ext_vertices {h : ℕ} {p q : BridgePath h} (hv : p.vertices = q.vertices) :\n    p = q := by\n  cases p with\n  | mk vp dp cp sp tp ip =>\n    cases q with\n    | mk vq dq cq sq tq iq =>\n      simp only at hv\n      subst hv\n      congr 1\n\nlemma layer_eq_zero_of_bridge1 {p : BridgePath 1} (v : Vertex) (hv : v ∈ p.vertices) :\n    layer v = 0 := by\n  have h := p.inStrip v hv\n  have h1 : layer v < ((1 : ℕ) : ℤ) := h.2\n  have h2 : 0 ≤ layer v := h.1\n  omega\n\nlemma length_pos_of_bridge {h : ℕ} (p : BridgePath h) : 0 < p.vertices.length :=\n  List.length_pos_iff.mpr (ne_nil_of_vertices_nonempty p)\n\nnoncomputable def bridge1CoordFun (p : BridgePath 1) : ℕ → ℤ :=\n  fun i => hexX (p.vertices.getD i (.up 0 0))\n\nlemma bridge1CoordFun_eq (p : BridgePath 1) {i : ℕ} (hi : i < p.vertices.length) :\n    bridge1CoordFun p i = hexX (p.vertices[i]'hi) := by\n  unfold bridge1CoordFun\n  rw [List.getD_eq_getElem]\n\nlemma bridge1_start (p : BridgePath 1) {h : 0 < p.vertices.length} :\n    hexX (p.vertices[0]'h) = 0 := by\n  have hsrc : p.vertices[0]? = some (.up 0 0) := by\n    rw [← head?_eq_getElem?_zero]; exact p.source\n  have e1 : p.vertices[0]? = some (p.vertices[0]'h) := List.getElem?_eq_getElem h\n  rw [e1] at hsrc\n  have hv : p.vertices[0]'h = .up 0 0 := Option.some.inj hsrc\n  rw [hv]; exact hexX_up_zero\n\n/-- The `hexX` coordinate of a width-one bridge path is affine: `+i` or `-i`. -/\nlemma bridge1_hexX (p : BridgePath 1) :\n    (∀ (i : ℕ) (_hi : i < p.vertices.length), bridge1CoordFun p i = (i : ℤ)) ∨\n    (∀ (i : ℕ) (_hi : i < p.vertices.length), bridge1CoordFun p i = -(i : ℤ)) := by\n  have hlen : 0 < p.vertices.length := length_pos_of_bridge p\n  obtain ⟨hinj, hstep⟩ :=\n    chain_hexX_walk p.connected p.distinct (fun v hv => layer_eq_zero_of_bridge1 v hv)\n  have hinj' : ∀ i j, i < p.vertices.length → j < p.vertices.length →\n      bridge1CoordFun p i = bridge1CoordFun p j → i = j := by\n    intro i j hi hj hf\n    rw [bridge1CoordFun_eq p hi, bridge1CoordFun_eq p hj] at hf\n    exact hinj i j hi hj hf\n  have hstep' : ∀ i, i + 1 < p.vertices.length →\n      bridge1CoordFun p (i+1) = bridge1CoordFun p i + 1 ∨\n      bridge1CoordFun p (i+1) = bridge1CoordFun p i - 1 := by\n    intro i hi\n    rw [bridge1CoordFun_eq p hi, bridge1CoordFun_eq p (by omega)]\n    exact hstep i hi\n  have hc0 : bridge1CoordFun p 0 = 0 := by\n    rw [bridge1CoordFun_eq p hlen]; exact bridge1_start p\n  obtain hm | hm := int_walk_monotone (n := p.vertices.length) hinj' hstep'\n  · left\n    intro i hi\n    have h := hm i hi\n    rw [hc0] at h\n    simpa using h\n  · right\n    intro i hi\n    have h := hm i hi\n    rw [hc0] at h\n    simpa using h\n\n/-- A width-one bridge path has at least two vertices (`up 0 0` is not `down i 0`). -/\nlemma bridge1_length_ge_two (p : BridgePath 1) : 2 ≤ p.vertices.length := by\n  have hpos := length_pos_of_bridge p\n  obtain ⟨i, hi⟩ := p.terminal\n  rcases Nat.lt_or_ge p.vertices.length 2 with h | h\n  · have hlen1 : p.vertices.length = 1 := by omega\n    obtain ⟨a, ha⟩ := List.length_eq_one_iff.mp hlen1\n    have hhead : p.vertices.head? = some a := by rw [ha]; rfl\n    rw [p.source] at hhead\n    have hav : a = Vertex.up 0 0 := Option.some.inj hhead.symm\n    have hlast : p.vertices.getLast? = some a := by rw [ha]; rfl\n    rw [hi] at hlast\n    have hcontra : Vertex.down i (((1 : ℕ) : ℤ) - 1) = Vertex.up 0 0 := by\n      have hd : Vertex.down i (((1 : ℕ) : ℤ) - 1) = a := Option.some.inj hlast\n      rw [hd, hav]\n    exact absurd hcontra (by simp)\n  · exact h\n\n/-- The second `hexX` coordinate of a width-one bridge path is `±1`. -/\nlemma bridge1_second (p : BridgePath 1) :\n    bridge1CoordFun p 1 = 1 ∨ bridge1CoordFun p 1 = -1 := by\n  have h2 := bridge1_length_ge_two p\n  rcases bridge1_hexX p with hp | hp\n  · left; have := hp 1 (by omega); simpa using this\n  · right; have := hp 1 (by omega); simpa using this\n\n/-- **Determination by length and second coordinate.** -/\nlemma bridge1_det {p q : BridgePath 1}\n    (hlen : p.vertices.length = q.vertices.length)\n    (hsecond : bridge1CoordFun p 1 = bridge1CoordFun q 1) :\n    p.vertices = q.vertices := by\n  have h2q : 2 ≤ q.vertices.length := by have := bridge1_length_ge_two q; omega\n  have hlen' : 2 ≤ p.vertices.length := bridge1_length_ge_two p\n  have sign : ∀ i, i < p.vertices.length → bridge1CoordFun p i = bridge1CoordFun q i := by\n    intro i hi\n    rcases bridge1_hexX p with hp | hp <;> rcases bridge1_hexX q with hq | hq\n    · rw [hp i hi, hq i (by omega)]\n    · exfalso\n      have h1 := hp 1 (by omega)\n      have h2' := hq 1 (by omega)\n      rw [h1, h2'] at hsecond\n      omega\n    · exfalso\n      have h1 := hp 1 (by omega)\n      have h2' := hq 1 (by omega)\n      rw [h1, h2'] at hsecond\n      omega\n    · rw [hp i hi, hq i (by omega)]\n  refine List.ext_getElem hlen ?_\n  intro i hi hiq\n  have hlp : layer (p.vertices[i]'hi) = 0 :=\n    layer_eq_zero_of_bridge1 _ (List.getElem_mem (l := p.vertices) hi)\n  have hlq : layer (q.vertices[i]'hiq) = 0 :=\n    layer_eq_zero_of_bridge1 _ (List.getElem_mem (l := q.vertices) hiq)\n  refine eq_of_hexX_layer ?_ (by rw [hlp, hlq])\n  rw [← bridge1CoordFun_eq p hi, ← bridge1CoordFun_eq q hiq]\n  exact sign i hi\n\n/-- **Width-one counting bound**: at most two bridge paths of any prescribed length. -/\ntheorem bridge1_card_le_two (n : ℕ) (s : Finset (BridgePath 1))\n    (hlen : ∀ p ∈ s, p.vertices.length = n) : s.card ≤ 2 := by\n  have hinj : Set.InjOn (fun p : BridgePath 1 => bridge1CoordFun p 1) (s : Set (BridgePath 1)) := by\n    intro p hp q hq heq\n    have hpn : p.vertices.length = n := hlen p hp\n    have hqn : q.vertices.length = n := hlen q hq\n    exact BridgePath.ext_vertices (bridge1_det (by omega) heq)\n  have hmaps : Set.MapsTo (fun p : BridgePath 1 => bridge1CoordFun p 1) (s : Set (BridgePath 1))\n      ({-1, 1} : Finset ℤ) := by\n    intro p _\n    rcases bridge1_second p with h | h <;> simp [h]\n  calc s.card ≤ ({-1, 1} : Finset ℤ).card := Finset.card_le_card_of_injOn _ hmaps hinj\n    _ ≤ 2 := Finset.card_le_two\n\n/-- **Width-one instance of the missing strip-growth estimate.**  This is the `h = 1` case of\n`StripGrowthBelowMu`, fully proved: `C = 2`, `β = 1`, and `1 < 2 cos (π/8)`. -/\ntheorem stripGrowthAtOne :\n    ∃ C β : ℝ, 0 ≤ C ∧ 0 ≤ β ∧ β < 2 * Real.cos (Real.pi / 8) ∧\n      ∀ (n : ℕ) (s : Finset (BridgePath 1)),\n        (∀ p ∈ s, p.vertices.length = n) → (s.card : ℝ) ≤ C * β ^ n := by\n  refine ⟨2, 1, by norm_num, by norm_num, ?_, ?_⟩\n  · have hpos : 0 < Real.cos (Real.pi / 8) := by\n      apply Real.cos_pos_of_mem_Ioo\n      constructor <;> nlinarith [Real.pi_pos]\n    have h2 : Real.sqrt 2 < 2 := by\n      calc Real.sqrt 2 < Real.sqrt 4 := Real.sqrt_lt_sqrt (by norm_num) (by norm_num)\n        _ = 2 := by norm_num\n    have hle : Real.sqrt (2 + Real.sqrt 2) < 2 := by\n      calc Real.sqrt (2 + Real.sqrt 2) < Real.sqrt 4 :=\n            Real.sqrt_lt_sqrt (by positivity) (by linarith)\n        _ = 2 := by norm_num\n    have hgt : 1 < Real.sqrt (2 + Real.sqrt 2) := by\n      have h1 : (1 : ℝ) < 2 + Real.sqrt 2 := by\n        have := Real.sqrt_nonneg 2; linarith\n      calc (1 : ℝ) = Real.sqrt 1 := by simp\n        _ < Real.sqrt (2 + Real.sqrt 2) := Real.sqrt_lt_sqrt (by norm_num) h1\n    rw [Real.cos_pi_div_eight]\n    linarith\n  · intro n s hs\n    have hcard : s.card ≤ 2 := bridge1_card_le_two n s hs\n    have hcast : ((s.card : ℝ)) ≤ 2 := by exact_mod_cast hcard\n    simpa using hcast\n\n\n\nopen scoped BigOperators\n\n/-- A standalone width-one base case.  No all-width growth hypothesis is used. -/\ntheorem width_one_summability :\n    Summable (weight (h := 1)) ∧ Summable (firstLengthWeight (h := 1)) := by\n  obtain ⟨C, β, hC, hβ, hlt, hcount⟩ := stripGrowthAtOne\n  have hL : Summable (firstLengthWeight (h := 1)) :=\n    bridgeSummable_firstLengthWeight_of_mu_bound hC hβ hlt hcount\n  exact ⟨bridgeSummable_weight_of_summable_firstLengthWeight hL, hL⟩\n\n/-- All six summability clauses at width one, still only a fixed-width base case. -/\ntheorem finite_bridge_sums_at_one :\n    Summable (weight (h := 1)) ∧ Summable (firstLengthWeight (h := 1)) ∧\n    Summable (fun p : BridgePath 1 => firstLengthWeight p / bridgeMass 1) ∧\n    Summable (fun p : ConfinedBridgePath 1 => weight p.val) ∧\n    Summable (fun p : ConfinedBridgePath 1 => firstLengthWeight p.val) ∧\n    Summable (fun p : ConfinedBridgePath 1 => firstLengthWeight p.val / confinedMass 1) := by\n  obtain ⟨hw, hL⟩ := width_one_summability\n  have hc : Summable (fun p : ConfinedBridgePath 1 => firstLengthWeight p.val) :=\n    hL.subtype (fun p : BridgePath 1 => InLogCorridor p)\n  exact ⟨hw, hL, hL.div_const (bridgeMass 1), hw.subtype _,\n    hc, hc.div_const (confinedMass 1)⟩\n\n```\n",
+    "proofPath": "Submission.lean",
+    "revision": 0,
+    "sharing": "problem",
+    "theoremName": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one",
+    "type": "Summable (weight (h := 1)) ∧ Summable (firstLengthWeight (h := 1)) ∧ Summable (fun p : BridgePath 1 => firstLengthWeight p / bridgeMass 1) ∧ Summable (fun p : ConfinedBridgePath 1 => weight p.val) ∧ Summable (fun p : ConfinedBridgePath 1 => firstLengthWeight p.val) ∧ Summable (fun p : ConfinedBridgePath 1 => firstLengthWeight p.val / confinedMass 1)"
+  },
+  "typePreflight": {
+    "artifact": {
+      "digest": "d951e490bcfea3f071a1a4a40e409e411ac06a2c887d2764302ade66059ca483",
+      "path": ".lake/type-diagnostics/0bcc2a3d-e5e6-4960-b9cf-490f5b2668fc/manifest.json"
+    },
+    "context": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums",
+    "evidence": "advisory-type-elaboration",
+    "inputDigest": "c0d4625da3fadca675b6100a9de8b970d6fa48f370032bda44979a5252e6f31d",
+    "proofAcceptance": "not-assessed",
+    "reason": "closed-type-elaborated",
+    "status": "elaborated",
+    "taskDigest": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+    "type": "Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧\n  Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ∧\n    (Summable fun p =>\n        OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight p / OAI.PolynomialVacuumBridge.Corridor.bridgeMass 1) ∧\n      (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.weight ↑p) ∧\n        (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p) ∧\n          Summable fun p =>\n            OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p /\n              OAI.PolynomialVacuumBridge.Corridor.confinedMass 1"
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "checkedAt": "2026-10-24T17:20:27.416872+00:00",
+  "validationWasRerunDuringArchival": false,
+  "sourceLaunchResultSnapshotSHA256Equal": true,
+  "sourceSHA256": "e0dd3d9678d060cd719c52092bed9a15244b6fdd357956779a9fa38a6f0fdf63",
+  "incrementSHA256": "375739ea3473e164e586091370a0bac3c03aab5a52a17e6a3cc46a3b7460cfc7",
+  "prefixSHA256": "f55c042e447b853d775f3f6f164d94ab175cc328eabf324588117d8d436f0c45",
+  "resultSHA256": "9a1ed45ea789bbad5aefedf5f34b892f1d564e4c98cc288760093d26419f039f",
+  "launchSHA256": "97f26567b5cbb8ef7f7eeebcaa63d222c13a9586c37d8b84e43696ee9f9a28cf",
+  "stdoutSHA256": "d91a6d4b63fde1e27e92dcffebe82872ab862d1db342cab9e2e93c69485f2dc1",
+  "stderrBytes": 0,
+  "actualExitCode": 0,
+  "durationSeconds": 10.050331623060629,
+  "toolchain": "leanprover/lean4:v4.34.1",
+  "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+  "sealedEnvironmentIdentity": "2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87",
+  "sourceContainsForbiddenProofKeywords": false,
+  "ordinaryDecideIsKernelReduction": true,
+  "pythonDiagnosticImportedAsProof": false,
+  "checkedDeclarationAxioms": {
+    "OAI.PolynomialVacuumBridge.Corridor.WidthThree.count_five": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "OAI.PolynomialVacuumBridge.Corridor.WidthThree.count_block_bound": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "OAI.PolynomialVacuumBridge.Corridor.WidthThree.path_mem_allPaths": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "OAI.PolynomialVacuumBridge.Corridor.WidthThree.path_card": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "OAI.PolynomialVacuumBridge.Corridor.WidthThree.stripGrowthAtThree": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "OAI.PolynomialVacuumBridge.Corridor.width_three_summability_diagnostic": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ]
+  },
+  "axiomsExactlyWhitelist": true,
+  "currentCanonicalStartsWithValidatedPrefix": true,
+  "newDeclarationNameCollisions": [],
+  "validationHistory": [
+    {
+      "label": "count-01",
+      "actualExitCode": 1,
+      "durationSeconds": 8.690283736912534,
+      "sourceSHA256": "78ba82753a67924d02ab48ce3aa66f5e011ade94e41f09e717fc12b5b9d78df3",
+      "resultFile": "count-01-result.json",
+      "stdoutLog": "count-01.stdout.log"
+    },
+    {
+      "label": "local-01",
+      "actualExitCode": 1,
+      "durationSeconds": 8.780247007962316,
+      "sourceSHA256": "56635ba8c7d049ca8763631a4b28d2adb65f54ac3db6ba033aa3d6adcd38a2a8",
+      "resultFile": "local-01-result.json",
+      "stdoutLog": "local-01.stdout.log"
+    },
+    {
+      "label": "summability-01",
+      "actualExitCode": 0,
+      "durationSeconds": 10.050331623060629,
+      "sourceSHA256": "e0dd3d9678d060cd719c52092bed9a15244b6fdd357956779a9fa38a6f0fdf63",
+      "resultFile": "summability-01-result.json",
+      "stdoutLog": "summability-01.stdout.log"
+    }
+  ],
+  "nativeTaskProofAccepted": false
+}

@@ -1,0 +1,26 @@
+{
+  "capturedAt": "2026-10-24T17:22:19.999262+00:00",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "canonicalCommit": "0d4bd1c55e8dff31f375e1d5dbe243c799489133",
+  "planVersion": "034781097e8334a6949e36ec8fc909e19ed9a5d7cba1e145a43a0eca4085b356",
+  "stateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/state.json",
+  "stateSHA256": "692c4fe607dbf6bc1a30171dcdd4bd6712adfce03dbb0401331ef5d36679341e",
+  "canonicalSource": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree/generated/problem/Submission.lean",
+  "canonicalSourceSHA256": "a4888da5bc50de13b4308d8e82f35c24146064a6c7c1d28c935354a3b119742d",
+  "prefixMatchesCurrentCanonical": true,
+  "dependencyTask": {
+    "id": "sums_reduction",
+    "status": "integrated",
+    "theoremName": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_of_stripGrowthBelowMu",
+    "type": "(∀ h : ℕ, 1 ≤ h → ∃ C β : ℝ, 0 ≤ C ∧ 0 ≤ β ∧ β < 2 * Real.cos (Real.pi / 8) ∧ ∀ (n : ℕ) (s : Finset (BridgePath h)), (∀ p ∈ s, p.vertices.length = n) → (s.card : ℝ) ≤ C * β ^ n) → FiniteBridgeSums",
+    "integratedCheckPassed": true,
+    "integratedCheckCommit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c"
+  },
+  "requiredUnconditionalHelpers": [
+    "bridgeSummable_firstLengthWeight_of_mu_bound",
+    "bridgeSummable_weight_of_summable_firstLengthWeight"
+  ],
+  "allRequiredHelpersPresent": true,
+  "newNameCollisions": [],
+  "activeSourceChanged": false
+}

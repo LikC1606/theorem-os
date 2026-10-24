@@ -1,0 +1,61 @@
+WidthFour.lean:213:4: error(lean.dependsOnNoncomputable): failed to compile definition, consider marking it as 'noncomputable' because it depends on 'Real.instDivInvMonoid', which is 'noncomputable'
+WidthFour.lean:359:22: warning: try 'simp' instead of 'simpa'
+
+Note: This linter can be disabled with `set_option linter.unnecessarySimpa false`
+@WidthFour.mem_neighbors : ∀ {a b : Vertex},
+  WidthFour.inside a → (b ∈ WidthFour.neighbors a ↔ adjacent a b ∧ WidthFour.inside b)
+'OAI.PolynomialVacuumBridge.Corridor.WidthFour.mem_neighbors' depends on axioms: [propext, Classical.choice, Quot.sound]
+WidthFour.edgeWeight_ge_one : ∀ (a b : Vertex), 1 ≤ WidthFour.edgeWeight a b
+'OAI.PolynomialVacuumBridge.Corridor.WidthFour.edgeWeight_ge_one' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+WidthFour.edgeWeight_le_sixtyFour : ∀ (a b : Vertex), WidthFour.edgeWeight a b ≤ 64
+'OAI.PolynomialVacuumBridge.Corridor.WidthFour.edgeWeight_le_sixtyFour' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+@WidthFour.potential_step : ∀ {a b : Vertex},
+  WidthFour.inside a →
+    WidthFour.inside b →
+      adjacent a b →
+        ∑ c ∈ (WidthFour.neighbors b).erase a, WidthFour.edgeWeight b c ≤ WidthFour.beta * WidthFour.edgeWeight a b
+'OAI.PolynomialVacuumBridge.Corridor.WidthFour.potential_step' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+WidthFour.continuations_card : ∀ (n : ℕ) (a b : Vertex),
+  WidthFour.inside a →
+    WidthFour.inside b →
+      adjacent a b → ↑(WidthFour.continuations a b n).card ≤ WidthFour.edgeWeight a b * WidthFour.beta ^ n
+'OAI.PolynomialVacuumBridge.Corridor.WidthFour.continuations_card' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+@WidthFour.mem_continuations : ∀ {a b : Vertex} {l : List Vertex},
+  List.IsChain adjacent (a :: b :: l) →
+    (a :: b :: l).Nodup → (∀ v ∈ a :: b :: l, WidthFour.inside v) → l ∈ WidthFour.continuations a b l.length
+'OAI.PolynomialVacuumBridge.Corridor.WidthFour.mem_continuations' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+WidthFour.allPaths_card : ∀ (n : ℕ), ↑(WidthFour.allPaths n).card ≤ 128 * WidthFour.beta ^ n
+'OAI.PolynomialVacuumBridge.Corridor.WidthFour.allPaths_card' depends on axioms: [propext, Classical.choice, Quot.sound]
+WidthFour.path_mem_allPaths : ∀ (p : BridgePath 4), p.vertices ∈ WidthFour.allPaths p.vertices.length
+'OAI.PolynomialVacuumBridge.Corridor.WidthFour.path_mem_allPaths' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+WidthFour.path_card_real : ∀ (n : ℕ) (s : Finset (BridgePath 4)),
+  (∀ p ∈ s, p.vertices.length = n) → ↑s.card ≤ 128 * WidthFour.beta ^ n
+'OAI.PolynomialVacuumBridge.Corridor.WidthFour.path_card_real' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+WidthFour.beta_lt_mu : WidthFour.beta < 2 * Real.cos (Real.pi / 8)
+'OAI.PolynomialVacuumBridge.Corridor.WidthFour.beta_lt_mu' depends on axioms: [propext, Classical.choice, Quot.sound]
+WidthFour.stripGrowthAtFour : ∃ C β,
+  0 ≤ C ∧
+    0 ≤ β ∧
+      β < 2 * Real.cos (Real.pi / 8) ∧
+        ∀ (n : ℕ) (s : Finset (BridgePath 4)), (∀ p ∈ s, p.vertices.length = n) → ↑s.card ≤ C * β ^ n
+'OAI.PolynomialVacuumBridge.Corridor.WidthFour.stripGrowthAtFour' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+width_four_summability_diagnostic : Summable weight ∧ Summable firstLengthWeight
+'OAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

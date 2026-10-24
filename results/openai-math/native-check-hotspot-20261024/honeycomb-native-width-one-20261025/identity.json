@@ -1,0 +1,34 @@
+{
+  "capturedAt": "2026-10-24T17:14:39.477255+00:00",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "phase": "running",
+  "model": "deepseek-flash",
+  "buildDigest": "7e2c42e897361d27b0aa6bf216f74ed7ba71aa32987771ade075193bed54c19f",
+  "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+  "taskDigest": "2865c6e8f42bfb4baba7abb9b180d522ec7fba0c93930546a2e95e15f3c03495",
+  "methodDigest": "65232ed956b4aa2b9e6d3ad202e31a6dd290ad08b40514e50568c86505e62ae1",
+  "evaluatorDigest": "176b413eb472af460b4fac6a8e3e1a4b2b351ff971443d32f500460648080546",
+  "providerProfileDigest": "6d83f4676845d045708c7e8dfbd2bea87dd334852ed06c80414ede43da463d54",
+  "canonicalCommitAtSnapshot": "78602bd19dc2708c16543e3fe55edfe8407a8824",
+  "integratedTaskCanonicalCommit": "78602bd19dc2708c16543e3fe55edfe8407a8824",
+  "taskId": "width_one_bridge_sums_b433299a",
+  "nativeTaskDigest": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+  "assignmentId": "3250e294-e889-4c06-8e44-0c99cc161662",
+  "dependencies": [
+    {
+      "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+      "taskId": "sums_reduction"
+    }
+  ],
+  "stateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/state.json",
+  "stateBytes": 1581206,
+  "stateSHA256": "6936a346f6197340ec626307515f03e083c07deab8af0d8e328f66b8b0585b62",
+  "rawEventLog": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/solve.log",
+  "rawEventLogBytes": 8265843,
+  "rawEventLogSHA256": "048cd2c4bb2969cd033ca0d79c45fb97d31e91989facf6138f3df20bb6213406",
+  "auxiliaryStatement": "Summable (weight (h := 1)) ∧ Summable (firstLengthWeight (h := 1)) ∧ Summable (fun p : BridgePath 1 => firstLengthWeight p / bridgeMass 1) ∧ Summable (fun p : ConfinedBridgePath 1 => weight p.val) ∧ Summable (fun p : ConfinedBridgePath 1 => firstLengthWeight p.val) ∧ Summable (fun p : ConfinedBridgePath 1 => firstLengthWeight p.val / confinedMass 1)",
+  "proofPath": "Submission.lean",
+  "leanToolchain": "leanprover/lean4:v4.34.1",
+  "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+  "toolchainIdentitySource": "Inherited fixed run environment; independently checked width-one package provenance corroborates versions."
+}

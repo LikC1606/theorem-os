@@ -29,7 +29,9 @@
 
 [2026-10-24 在途检查调度调整与源码试验](check-acceleration-followup-20261024/README.md)：两条正式 Lean 检查采用本地 CPU 核组，保留原调度及回读；两项源码试验未显示可靠收益，未采用新候选，尚无整题提速倍数。
 
-[2026-10-25 宽度 2 完整证明](native-check-hotspot-20261024/honeycomb-width-two-20261025/README.md)已通过 Lean 检查，21.306 秒，无附加假设，现已[递交正式任务](native-check-hotspot-20261024/honeycomb-width-two-adoption-20261025/README.md)。全高度 confined 三项也已[通过原生任务检查并集成](native-check-hotspot-20261024/honeycomb-native-confined-sums-20261025/README.md)。宽度 1 的正式验核和 Snaky 的 publisher 构建继续进行；原题最终通过仍为 6，一般高度 Honeycomb 未解。见[最新状态](native-check-hotspot-20261024/optimization-progress-20261024T165858Z.json)。
+[2026-10-25 高度 3](native-check-hotspot-20261024/honeycomb-width-three-20261025/README.md)与[高度 4](native-check-hotspot-20261024/honeycomb-width-four-20261025/README.md)的完整可和性证明均已通过 Lean，分别耗时 10.05 秒、12.00 秒，无附加假设，公理仅标准白名单。两份完整增量已[通过正常队列递交](native-check-hotspot-20261024/honeycomb-width-three-four-adoption-20261025/README.md)，现均由正式 worker 处理；全部原任务与 assignment 保留。
+
+[高度 1 的全部六项结论](native-check-hotspot-20261024/honeycomb-native-width-one-20261025/README.md)、[高度 2 的两项可和性](native-check-hotspot-20261024/honeycomb-native-width-two-20261025/README.md)及[所有高度 confined 三项](native-check-hotspot-20261024/honeycomb-native-confined-sums-20261025/README.md)均已通过原生任务检查并集成。高度 5 正在探索六点窗口证明，一般高度 Honeycomb 仍未解。Snaky 的 publisher 构建持续计算，尚待原比较器；原题最终通过仍为 6。见[01:28 北京时间状态](native-check-hotspot-20261024/optimization-progress-20261024T172839Z.json)。
 
 [2026-10-25 首次可求和性递交](native-check-hotspot-20261024/honeycomb-verified-summability-adoption-20261025/README.md)保留所有高度 confined 三项和宽度 1 六项结论的完整递交记录，以及当时两位研究员的领取状态。后续正式通过状态以本页最新进度为准。
 

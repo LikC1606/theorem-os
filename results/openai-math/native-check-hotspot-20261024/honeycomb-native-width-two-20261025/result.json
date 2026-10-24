@@ -1,0 +1,47 @@
+{
+  "schema": "honeycomb-native-width-two.v1",
+  "frozenAt": "2026-10-24T17:21:48.454468+00:00",
+  "status": "native-task-integrated",
+  "taskId": "width_two_summability_diagnostic",
+  "theoremName": "OAI.PolynomialVacuumBridge.Corridor.width_two_summability_diagnostic",
+  "type": "Summable (OAI.PolynomialVacuumBridge.Corridor.weight (h := 2)) ∧ Summable (OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (h := 2))",
+  "scope": "Only width-two full BridgePath weight and firstLengthWeight summability; helper supplies the explicit bound 4*(sqrt(3))^n.",
+  "nativeProofPassed": true,
+  "nativeIntegratedCheckPassed": true,
+  "canonicalCommit": "0d4bd1c55e8dff31f375e1d5dbe243c799489133",
+  "proofCommit": "a862efb5ee31eaf58ca174b79730f960a7b89302",
+  "conditions": [],
+  "axioms": [
+    "propext",
+    "Classical.choice",
+    "Quot.sound"
+  ],
+  "sorryCount": 0,
+  "admitCount": 0,
+  "goalsRemaining": 0,
+  "proofDurationMs": 23908,
+  "integratedCheckDurationMs": 24130,
+  "referenceCoverage": "No references/declarationReferences in either host receipt; stdout DS_DECL_REFERENCES is null. No root-reference SHA equality claimed. Exact git source and committed-declaration binding are preserved.",
+  "originalGoal": {
+    "taskId": "initial_goal_1",
+    "status": "conditional",
+    "conditions": [
+      {
+        "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+        "taskId": "strip_growth_below_mu"
+      },
+      {
+        "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+        "taskId": "sums_reduction"
+      }
+    ]
+  },
+  "originalTheoremAccepted": false,
+  "openAIHostedCertification": false,
+  "activeChainChangedByArchive": false,
+  "leanRerun": false,
+  "queueEdited": false,
+  "gitMutation": false,
+  "previousPackagesModified": false,
+  "topLevelResultsReadmeOrManifestChanged": false
+}

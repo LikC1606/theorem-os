@@ -1,0 +1,151 @@
+{
+  "checkedAt": 1792861495826,
+  "durationMs": 18179,
+  "events": [
+    {
+      "eventId": "50aa3913-c0ca-4587-98e5-437d728e6b13",
+      "kind": "session.opened",
+      "payload": {
+        "itemCount": 1,
+        "projectRoot": "/tmp/math-check-3aBQ5d/worktree/generated/problem",
+        "uniqueFileCount": 1
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "1a1962b0-62ec-4d3e-b480-29d08e6832f5",
+      "timestamp": 1792861477648
+    },
+    {
+      "eventId": "b9e048f0-a74e-47ad-88d4-f606760d969f",
+      "kind": "file.opened",
+      "payload": {
+        "bytes": 31089,
+        "checkCount": 1,
+        "proofHash": "a96702367fcb0ccd066e8140ebd17f8b8931771f4305ded03226ab77d458716a",
+        "proofPath": "Submission.lean"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "1a1962b0-62ec-4d3e-b480-29d08e6832f5",
+      "timestamp": 1792861477648
+    },
+    {
+      "eventId": "44b78f91-4033-48c0-903d-9c59f42492e3",
+      "kind": "toolchain.resolved",
+      "payload": {
+        "command": "lake",
+        "executable": "lake",
+        "lakeFile": "lakefile.toml"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "1a1962b0-62ec-4d3e-b480-29d08e6832f5",
+      "timestamp": 1792861477648
+    },
+    {
+      "eventId": "46b9d5f9-5b4f-4b23-a499-8cb8ed77d517",
+      "kind": "check.draft_checked",
+      "payload": {
+        "admitCount": 0,
+        "axioms": [],
+        "proofPath": "Submission.lean",
+        "sorryCount": 0,
+        "status": "accepted"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "1a1962b0-62ec-4d3e-b480-29d08e6832f5",
+      "timestamp": 1792861477660
+    },
+    {
+      "eventId": "9ffd61cb-6fb0-4b0f-bf43-8177b5b07189",
+      "kind": "diagnostic.emitted",
+      "payload": {
+        "message": "DS_DECL_REFERENCES_2723dbda6840c3dea2bbbe14f4cbe52f:null\nDEEPSCIENTIST_DECL_BEGIN_7013e65ade5b345b\nOAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one :\n  Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧\n    Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ∧\n      (Summable fun p =>\n          OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight p / OAI.PolynomialVacuumBridge.Corridor.bridgeMass 1) ∧\n        (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.weight ↑p) ∧\n          (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p) ∧\n            Summable fun p =>\n              OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p /\n                OAI.PolynomialVacuumBridge.Corridor.confinedMass 1\nDEEPSCIENTIST_DECL_END_7013e65ade5b345b\nDEEPSCIENTIST_AXIOMS_BEGIN_7013e65ade5b345b\n'OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one' depends on axioms: [propext,\n Classical.choice,\n Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_7013e65ade5b345b",
+        "proofPath": "Submission.lean",
+        "severity": "info",
+        "source": "stdout"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "1a1962b0-62ec-4d3e-b480-29d08e6832f5",
+      "timestamp": 1792861495820
+    },
+    {
+      "eventId": "a0589d3d-2642-4d82-b7ea-8fa6f0faf399",
+      "kind": "check.kernel_checked",
+      "payload": {
+        "aborted": false,
+        "durationMs": 18145,
+        "exitCode": 0,
+        "proofPath": "Submission.lean",
+        "signal": null,
+        "status": "kernel_verified",
+        "timedOut": false
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "1a1962b0-62ec-4d3e-b480-29d08e6832f5",
+      "timestamp": 1792861495820
+    },
+    {
+      "eventId": "eb95b8bc-d9c2-4826-bb73-eead4daa2025",
+      "kind": "receipt.published",
+      "payload": {
+        "checkId": "check-1",
+        "proofPath": "Submission.lean",
+        "receiptId": "lean-909381d19f6680c1615fba09",
+        "status": "kernel_verified",
+        "theoremName": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "1a1962b0-62ec-4d3e-b480-29d08e6832f5",
+      "timestamp": 1792861495820
+    },
+    {
+      "eventId": "523ffa85-b1e5-43e1-bd7d-4a9dc577b54e",
+      "kind": "session.closed",
+      "payload": {
+        "durationMs": 18179,
+        "resultCount": 1,
+        "status": "kernel_verified"
+      },
+      "schema": "deepscientist.mathematics.verification_event.v1",
+      "sessionId": "1a1962b0-62ec-4d3e-b480-29d08e6832f5",
+      "timestamp": 1792861495826
+    }
+  ],
+  "results": [
+    {
+      "admitCount": 0,
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ],
+      "checkId": "check-1",
+      "checkedAt": 1792861495820,
+      "claim": "statement",
+      "elaboratedDeclarationType": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one : Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧ Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ∧ (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight p / OAI.PolynomialVacuumBridge.Corridor.bridgeMass 1) ∧ (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.weight ↑p) ∧ (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p) ∧ Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p / OAI.PolynomialVacuumBridge.Corridor.confinedMass 1",
+      "goalsRemaining": 0,
+      "leanStatementHash": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+      "proofHash": "a96702367fcb0ccd066e8140ebd17f8b8931771f4305ded03226ab77d458716a",
+      "proofPath": "Submission.lean",
+      "receiptId": "lean-909381d19f6680c1615fba09",
+      "sessionId": "1a1962b0-62ec-4d3e-b480-29d08e6832f5",
+      "sorryCount": 0,
+      "sourceDeclarationHash": "af74243ccbe40e2813dccf55fd7030f6f81f884e49a1be09d7a375ccdad7f3e0",
+      "statementBinding": "caller-bound-to-committed-declaration",
+      "statementHash": "a65bf4b7cf0713bea6c2ed334ecf0662e3e93ba4c5eba6e588b5cb380660879e",
+      "status": "kernel_verified",
+      "stdoutPreview": "DS_DECL_REFERENCES_2723dbda6840c3dea2bbbe14f4cbe52f:null\nDEEPSCIENTIST_DECL_BEGIN_7013e65ade5b345b\nOAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one :\n  Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧\n    Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ∧\n      (Summable fun p =>\n          OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight p / OAI.PolynomialVacuumBridge.Corridor.bridgeMass 1) ∧\n        (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.weight ↑p) ∧\n          (Summable fun p => OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p) ∧\n            Summable fun p =>\n              OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight ↑p /\n                OAI.PolynomialVacuumBridge.Corridor.confinedMass 1\nDEEPSCIENTIST_DECL_END_7013e65ade5b345b\nDEEPSCIENTIST_AXIOMS_BEGIN_7013e65ade5b345b\n'OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one' depends on axioms: [propext,\n Classical.choice,\n Quot.sound]\nDEEPSCIENTIST_AXIOMS_END_7013e65ade5b345b",
+      "targetCommit": "9279a4520a2e8d5a959a4fb7fafba4937e74c399",
+      "theoremDeclarationHash": "df3a528a46573be50724e2e92143b008196c7a7654681aaadea0a8abea833591",
+      "theoremName": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums_at_one",
+      "toolchain": {
+        "lake": "lakefile.toml",
+        "lean": "lake"
+      },
+      "verifier": "lean-kernel"
+    }
+  ],
+  "schema": "deepscientist.mathematics.verification-batch/v1",
+  "sessionId": "1a1962b0-62ec-4d3e-b480-29d08e6832f5",
+  "startedAt": 1792861477647,
+  "status": "kernel_verified",
+  "targetCommit": "9279a4520a2e8d5a959a4fb7fafba4937e74c399"
+}

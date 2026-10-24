@@ -1,0 +1,261 @@
+{
+  "observedAtUTC": "2026-10-24T17:13:58.441848+00:00",
+  "observedAtUnix": 1792862038.441848,
+  "rootPid": 4175461,
+  "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+  "phase": "evaluating",
+  "resultStatus": "prepared",
+  "evaluator": {
+    "status": "skipped"
+  },
+  "processes": [
+    {
+      "pid": 899447,
+      "ppid": 4175461,
+      "comm": "bwrap",
+      "state": "S",
+      "cpuSeconds": 0.0,
+      "elapsedSeconds": 3791.8000000000466,
+      "startedAtUTC": "2026-10-24T16:10:46.641848+00:00",
+      "rssBytes": 1048576,
+      "args": [
+        "/usr/bin/bwrap",
+        "<arguments omitted>"
+      ],
+      "wchan": "do_poll.constprop.0",
+      "io": {
+        "rchar": 7021,
+        "wchar": 8,
+        "syscr": 17,
+        "syscw": 1,
+        "read_bytes": 0,
+        "write_bytes": 0,
+        "cancelled_write_bytes": 0
+      }
+    },
+    {
+      "pid": 899448,
+      "ppid": 899447,
+      "comm": "bwrap",
+      "state": "S",
+      "cpuSeconds": 0.0,
+      "elapsedSeconds": 3791.8000000000466,
+      "startedAtUTC": "2026-10-24T16:10:46.641848+00:00",
+      "rssBytes": 1048576,
+      "args": [
+        "/usr/bin/bwrap",
+        "<arguments omitted>"
+      ],
+      "wchan": "do_wait",
+      "io": {
+        "rchar": 269855,
+        "wchar": 23,
+        "syscr": 127,
+        "syscw": 3,
+        "read_bytes": 0,
+        "write_bytes": 0,
+        "cancelled_write_bytes": 0
+      }
+    },
+    {
+      "pid": 899450,
+      "ppid": 899448,
+      "comm": ".deepscientist-",
+      "state": "S",
+      "cpuSeconds": 0.0,
+      "elapsedSeconds": 3791.7900000000373,
+      "startedAtUTC": "2026-10-24T16:10:46.651848+00:00",
+      "rssBytes": 1048576,
+      "args": [
+        "/workspace/.deepscientist-verifier-f310b690-8c53-4d77-91ab-db73b07ac64f",
+        "<arguments omitted>"
+      ],
+      "wchan": "do_wait",
+      "io": {
+        "rchar": 7137985146,
+        "wchar": 7137259593,
+        "syscr": 328237,
+        "syscw": 184075,
+        "read_bytes": 2076672,
+        "write_bytes": 7592062976,
+        "cancelled_write_bytes": 0
+      }
+    },
+    {
+      "pid": 899989,
+      "ppid": 899450,
+      "comm": "lake",
+      "state": "S",
+      "cpuSeconds": 4.44,
+      "elapsedSeconds": 3766.840000000084,
+      "startedAtUTC": "2026-10-24T16:11:11.601848+00:00",
+      "rssBytes": 1050259456,
+      "args": [
+        "lake",
+        "build",
+        "Challenge",
+        "Submission"
+      ],
+      "wchan": "futex_wait_queue",
+      "io": {
+        "rchar": 106611446,
+        "wchar": 8973808,
+        "syscr": 172582,
+        "syscw": 15,
+        "read_bytes": 823296,
+        "write_bytes": 9003008,
+        "cancelled_write_bytes": 16384
+      }
+    },
+    {
+      "pid": 900064,
+      "ppid": 899989,
+      "comm": "lean",
+      "state": "S",
+      "cpuSeconds": 3763.08,
+      "elapsedSeconds": 3762.9599999999627,
+      "startedAtUTC": "2026-10-24T16:11:15.481848+00:00",
+      "rssBytes": 9994846208,
+      "args": [
+        "/runtime/pinned-lean/bin/lean",
+        "/workspace/generated/problem/.lake/publisher-eval.n2lgvkzJ/Submission.lean",
+        "-o",
+        "/workspace/generated/problem/.lake/publisher-eval.n2lgvkzJ/.lake/build/lib/lean/Submission.olean",
+        "-i",
+        "/workspace/generated/problem/.lake/publisher-eval.n2lgvkzJ/.lake/build/lib/lean/Submission.ilean",
+        "-c",
+        "/workspace/generated/problem/.lake/publisher-eval.n2lgvkzJ/.lake/build/ir/Submission.c",
+        "--setup",
+        "/workspace/generated/problem/.lake/publisher-eval.n2lgvkzJ/.lake/build/ir/Submission.setup.json",
+        "--json",
+        "-j1"
+      ],
+      "wchan": "futex_wait_queue",
+      "io": {
+        "rchar": 13231373,
+        "wchar": 176130,
+        "syscr": 53849,
+        "syscw": 45,
+        "read_bytes": 0,
+        "write_bytes": 0,
+        "cancelled_write_bytes": 0
+      },
+      "threads": [
+        {
+          "tid": 900064,
+          "state": "S",
+          "cpuSeconds": 0.01,
+          "wchan": "futex_wait_queue"
+        },
+        {
+          "tid": 900066,
+          "state": "S",
+          "cpuSeconds": 0.0,
+          "wchan": "io_sq_thread"
+        },
+        {
+          "tid": 900067,
+          "state": "S",
+          "cpuSeconds": 0.0,
+          "wchan": "ep_poll"
+        },
+        {
+          "tid": 900068,
+          "state": "S",
+          "cpuSeconds": 0.26,
+          "wchan": "futex_wait_queue"
+        },
+        {
+          "tid": 900069,
+          "state": "S",
+          "cpuSeconds": 137.13,
+          "wchan": "futex_wait_queue"
+        },
+        {
+          "tid": 900113,
+          "state": "R",
+          "cpuSeconds": 1824.54,
+          "wchan": "0"
+        },
+        {
+          "tid": 900114,
+          "state": "S",
+          "cpuSeconds": 1801.1,
+          "wchan": "futex_wait_queue"
+        }
+      ]
+    },
+    {
+      "pid": 4175461,
+      "ppid": 4175452,
+      "comm": "bun",
+      "state": "S",
+      "cpuSeconds": 802.04,
+      "elapsedSeconds": 45658.54000000004,
+      "startedAtUTC": "2026-10-24T04:32:59.901848+00:00",
+      "rssBytes": 821399552,
+      "args": [
+        "/home/lzh/.venvs/deepscientist-finance/.bun/bin/bun",
+        "<arguments omitted>"
+      ],
+      "wchan": "ep_poll",
+      "io": {
+        "rchar": 21842395742,
+        "wchar": 5450744018,
+        "syscr": 37018494,
+        "syscw": 13410201,
+        "read_bytes": 4096,
+        "write_bytes": 5309997056,
+        "cancelled_write_bytes": 974606336
+      }
+    },
+    {
+      "pid": 4176432,
+      "ppid": 4175461,
+      "comm": "python3",
+      "state": "S",
+      "cpuSeconds": 7.45,
+      "elapsedSeconds": 45656.330000000075,
+      "startedAtUTC": "2026-10-24T04:33:02.111848+00:00",
+      "rssBytes": 19419136,
+      "args": [
+        "/usr/bin/python3",
+        "<arguments omitted>"
+      ],
+      "wchan": "do_select",
+      "io": {
+        "rchar": 4192115363,
+        "wchar": 2095350197,
+        "syscr": 4141,
+        "syscw": 2000,
+        "read_bytes": 0,
+        "write_bytes": 2095349760,
+        "cancelled_write_bytes": 0
+      }
+    },
+    {
+      "pid": 4177148,
+      "ppid": 4176432,
+      "comm": "snapfuse",
+      "state": "S",
+      "cpuSeconds": 66.23,
+      "elapsedSeconds": 45654.54000000004,
+      "startedAtUTC": "2026-10-24T04:33:03.901848+00:00",
+      "rssBytes": 36700160,
+      "args": [
+        "/home/lzh/.local/share/theorem-os/runtime-tools/bin/snapfuse",
+        "<arguments omitted>"
+      ],
+      "wchan": "fuse_dev_do_read",
+      "io": {
+        "rchar": 9012541566,
+        "wchar": 7390762084,
+        "syscr": 10136997,
+        "syscw": 6269403,
+        "read_bytes": 0,
+        "write_bytes": 0,
+        "cancelled_write_bytes": 0
+      }
+    }
+  ]
+}

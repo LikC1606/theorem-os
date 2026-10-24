@@ -1,0 +1,43 @@
+WidthThree.lean:223:61: error: unsolved goals
+case up
+t i✝ j✝ : ℤ
+⊢ (if j✝ = 0 then {Vertex.down (t + i✝) 0, Vertex.down (t + (i✝ - 1)) 0}
+    else
+      if j✝ = 1 then {Vertex.down (t + i✝) 1, Vertex.down (t + (i✝ - 1)) 1, Vertex.down (t + i✝) 0}
+      else if j✝ = 2 then {Vertex.down (t + i✝) 2, Vertex.down (t + (i✝ - 1)) 2, Vertex.down (t + i✝) 1} else ∅) =
+    Finset.image (shift t)
+      (if j✝ = 0 then {Vertex.down i✝ 0, Vertex.down (i✝ - 1) 0}
+      else
+        if j✝ = 1 then {Vertex.down i✝ 1, Vertex.down (i✝ - 1) 1, Vertex.down i✝ 0}
+        else if j✝ = 2 then {Vertex.down i✝ 2, Vertex.down (i✝ - 1) 2, Vertex.down i✝ 1} else ∅)
+
+case down
+t i✝ j✝ : ℤ
+⊢ (if j✝ = 0 then {Vertex.up (t + i✝) 0, Vertex.up (t + (i✝ + 1)) 0, Vertex.up (t + i✝) 1}
+    else
+      if j✝ = 1 then {Vertex.up (t + i✝) 1, Vertex.up (t + (i✝ + 1)) 1, Vertex.up (t + i✝) 2}
+      else if j✝ = 2 then {Vertex.up (t + i✝) 2, Vertex.up (t + (i✝ + 1)) 2} else ∅) =
+    Finset.image (shift t)
+      (if j✝ = 0 then {Vertex.up i✝ 0, Vertex.up (i✝ + 1) 0, Vertex.up i✝ 1}
+      else
+        if j✝ = 1 then {Vertex.up i✝ 1, Vertex.up (i✝ + 1) 1, Vertex.up i✝ 2}
+        else if j✝ = 2 then {Vertex.up i✝ 2, Vertex.up (i✝ + 1) 2} else ∅)
+WidthThree.lean:266:41: error: don't know how to synthesize placeholder for argument `b`
+context:
+i : ℤ
+hb : inside (Vertex.up i 0)
+ha : inside (Vertex.down i 0)
+hab : adjacent (Vertex.down i 0) (Vertex.up i 0)
+⊢ Vertex
+WidthThree.lean:266:39: error: don't know how to synthesize placeholder for argument `a`
+context:
+i : ℤ
+hb : inside (Vertex.up i 0)
+ha : inside (Vertex.down i 0)
+hab : adjacent (Vertex.down i 0) (Vertex.up i 0)
+⊢ Vertex
+WidthThree.lean:266:11: error: failed to infer `have` declaration type
+'OAI.PolynomialVacuumBridge.Corridor.WidthThree.count_five' depends on axioms: [propext,
+ sorryAx,
+ Classical.choice,
+ Quot.sound]

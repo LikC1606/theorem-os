@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-10-24T17:00:46.227791+00:00",
+  "capturedAt": "2026-10-24T17:30:45.321017+00:00",
   "characterV1KernelCheck": "failed: two section-parameter application mismatches",
   "characterV2FullSourceCompile": "passed: exit0 in 635.028472 seconds",
   "characterV2AxiomAudit": "passed: only propext/Classical.choice/Quot.sound",
@@ -8,8 +8,8 @@
   "files": [
     {
       "path": "README.md",
-      "bytes": 22341,
-      "sha256": "a9f151ae70ba9d29a3bb4ef88215c6f73db90b64d5a2b71dfd9f1a8e80b2aace"
+      "bytes": 23133,
+      "sha256": "a0432debfa96d4bcde85e4684ab0874323c986eb79838155235ce08f8b5a4027"
     },
     {
       "path": "adopt-verified-character-candidate/README.md",
@@ -2507,6 +2507,206 @@
       "sha256": "b882ec4ff00daec210feb5e8f90126c8c7dbf4a7cc3aa2d9ec360a7baf894ae3"
     },
     {
+      "path": "honeycomb-native-width-one-20261025/README.md",
+      "bytes": 2581,
+      "sha256": "16d9a97185fbda7bd0b3ece906e437e5938aa176dad8441b22d144085f6378bd"
+    },
+    {
+      "path": "honeycomb-native-width-one-20261025/SHA256SUMS",
+      "bytes": 1737,
+      "sha256": "70c2b99ac591bed38d85b65f27d40a0d394737e3c2089383785f8108ee84d430"
+    },
+    {
+      "path": "honeycomb-native-width-one-20261025/confined-status-only.json",
+      "bytes": 304,
+      "sha256": "f34e128160a0bccb481e97c7d6474fb62e071e8738a35902812233073aafe260"
+    },
+    {
+      "path": "honeycomb-native-width-one-20261025/delivery-files.json",
+      "bytes": 2996,
+      "sha256": "2024790ff7199b67d5694195b004dc6ee8d7e017be235effab9cc65e3ebe5d2b"
+    },
+    {
+      "path": "honeycomb-native-width-one-20261025/events-index.json",
+      "bytes": 581,
+      "sha256": "e0ede87d167efa20c5f69d53ae5f220cbb8546a0ee3d9d6d171f487adba9c85f"
+    },
+    {
+      "path": "honeycomb-native-width-one-20261025/events-safe-raw.jsonl",
+      "bytes": 2005,
+      "sha256": "9d33363be3668a8f866c8ad1e1e789e2ebe443a36ac166d3c8b8c80bfac9ba60"
+    },
+    {
+      "path": "honeycomb-native-width-one-20261025/freeze.py",
+      "bytes": 12845,
+      "sha256": "99bb544d134c7bb0d687b71c32aa6b1916ac22ff788b8627a98e67f1435e10a2"
+    },
+    {
+      "path": "honeycomb-native-width-one-20261025/git-source-capture.json",
+      "bytes": 923,
+      "sha256": "a2c7d77a6e1e1f3595aeeb2e2a8b01b741a3da9ab197affcd6a63996e17d5bc7"
+    },
+    {
+      "path": "honeycomb-native-width-one-20261025/identity.json",
+      "bytes": 2375,
+      "sha256": "7c3a329dc6ba22bb17b6505e9bf4f1ce2bd3705077af2927e291ecb43cd998e2"
+    },
+    {
+      "path": "honeycomb-native-width-one-20261025/integrated-source/Submission.lean",
+      "bytes": 31150,
+      "sha256": "9154be44746b3e5c2180e78722686a3f9cd5bcbc0b04c497ed127f60b4bd2ba6"
+    },
+    {
+      "path": "honeycomb-native-width-one-20261025/integrated-source/axioms-output.txt",
+      "bytes": 211,
+      "sha256": "0d8daad51aa7e583919f64e21d465ad2804e66b57fbb1632ae7b40e79ec78937"
+    },
+    {
+      "path": "honeycomb-native-width-one-20261025/integrated-source/target-declaration.lean.txt",
+      "bytes": 713,
+      "sha256": "254999473b5b6327430f4f0f315a98035da742862d6a8ee2f93e8d236edab635"
+    },
+    {
+      "path": "honeycomb-native-width-one-20261025/integrated-source-verification.json",
+      "bytes": 7901,
+      "sha256": "6501817a6db10841112e10c4125c5c08b486b4d675553037d3d802280fb725ae"
+    },
+    {
+      "path": "honeycomb-native-width-one-20261025/proof-source/Submission.lean",
+      "bytes": 26566,
+      "sha256": "a233428a8596eca719895bf2523590fb281d72c09d02d3812a4009d3cf53db10"
+    },
+    {
+      "path": "honeycomb-native-width-one-20261025/proof-source/axioms-output.txt",
+      "bytes": 211,
+      "sha256": "0d8daad51aa7e583919f64e21d465ad2804e66b57fbb1632ae7b40e79ec78937"
+    },
+    {
+      "path": "honeycomb-native-width-one-20261025/proof-source/target-declaration.lean.txt",
+      "bytes": 713,
+      "sha256": "254999473b5b6327430f4f0f315a98035da742862d6a8ee2f93e8d236edab635"
+    },
+    {
+      "path": "honeycomb-native-width-one-20261025/proof-source-verification.json",
+      "bytes": 7901,
+      "sha256": "de1176fd1cc9fb740b9c4906133bd1ed53ae42758dda5717ace869c41fdef7b0"
+    },
+    {
+      "path": "honeycomb-native-width-one-20261025/result.json",
+      "bytes": 2005,
+      "sha256": "f227af9a4a02dad1ad7071a0e1f1f1123ae51af3ddb56ab1879cf68f431df6a5"
+    },
+    {
+      "path": "honeycomb-native-width-one-20261025/task-record.json",
+      "bytes": 57059,
+      "sha256": "5b650719fd2d47a1be1f995b30d1bc29b678615fd07ec2493a9cede3a826f403"
+    },
+    {
+      "path": "honeycomb-native-width-one-20261025/verification-summary.json",
+      "bytes": 5625,
+      "sha256": "f031c1c3b1ef6f35a9b6d7afb1cb896895f8bedc2acaad58648483ca1a1f12bb"
+    },
+    {
+      "path": "honeycomb-native-width-two-20261025/README.md",
+      "bytes": 2620,
+      "sha256": "add22d28f7335baf94aedbfa9adf75d882db4561d955584d70bd39058af13908"
+    },
+    {
+      "path": "honeycomb-native-width-two-20261025/SHA256SUMS",
+      "bytes": 1737,
+      "sha256": "f1e229a100ee19e417c1276180592fd9e345d279c15f377c40f0609aa4b5ceaa"
+    },
+    {
+      "path": "honeycomb-native-width-two-20261025/delivery-files.json",
+      "bytes": 2997,
+      "sha256": "77a782421f29f38a6e7dc9aae9a9063ab1aff1a698850d411f68e19a5627e792"
+    },
+    {
+      "path": "honeycomb-native-width-two-20261025/events-index.json",
+      "bytes": 995,
+      "sha256": "f5654f5f68355b05c6eed8e88fb42fb514b8b52c2c98f25afbc704bbd0560c63"
+    },
+    {
+      "path": "honeycomb-native-width-two-20261025/events-safe-raw.jsonl",
+      "bytes": 2011,
+      "sha256": "5f8bf301397d128980098e86cf1e59fd5b509dae130db9b3f29f2660cd3ee0b3"
+    },
+    {
+      "path": "honeycomb-native-width-two-20261025/freeze.py",
+      "bytes": 15419,
+      "sha256": "422d56026a79828f20095fe92808bb9632a5edf10bbb642b26993a33b48a70a4"
+    },
+    {
+      "path": "honeycomb-native-width-two-20261025/git-source-capture.json",
+      "bytes": 1841,
+      "sha256": "b99f4c328fd28c75a496d0d3853a96b90cc9cf482db688f5adf57943601e37d5"
+    },
+    {
+      "path": "honeycomb-native-width-two-20261025/identity.json",
+      "bytes": 1993,
+      "sha256": "176aa34b0bfac813c637b56ec26460917e22657b5a7496fb20d66e9fd2e0fbb7"
+    },
+    {
+      "path": "honeycomb-native-width-two-20261025/integrated-source/Submission.lean",
+      "bytes": 42744,
+      "sha256": "a4888da5bc50de13b4308d8e82f35c24146064a6c7c1d28c935354a3b119742d"
+    },
+    {
+      "path": "honeycomb-native-width-two-20261025/integrated-source/axioms-output.txt",
+      "bytes": 218,
+      "sha256": "60bbf64e61af861fbaa29ace27d6689e084c27d3bf7f29d1b0a4a4d832f68bb6"
+    },
+    {
+      "path": "honeycomb-native-width-two-20261025/integrated-source/target-declaration.lean.txt",
+      "bytes": 386,
+      "sha256": "c3b98f2b8b470cf267dc6ca84891a0e9993ddd90da432969990b90cc648a3fd4"
+    },
+    {
+      "path": "honeycomb-native-width-two-20261025/integrated-source-verification.json",
+      "bytes": 8693,
+      "sha256": "61d6bb2e8fc4840143e561009f4bfe69daecc8c613471f573070a7c744984bcb"
+    },
+    {
+      "path": "honeycomb-native-width-two-20261025/proof-source/Submission.lean",
+      "bytes": 42767,
+      "sha256": "922b44e2e3eb299e094594404d3ba251e309f4f35f8bfcb86d47d1fcce6f20b9"
+    },
+    {
+      "path": "honeycomb-native-width-two-20261025/proof-source/axioms-output.txt",
+      "bytes": 218,
+      "sha256": "60bbf64e61af861fbaa29ace27d6689e084c27d3bf7f29d1b0a4a4d832f68bb6"
+    },
+    {
+      "path": "honeycomb-native-width-two-20261025/proof-source/target-declaration.lean.txt",
+      "bytes": 386,
+      "sha256": "c3b98f2b8b470cf267dc6ca84891a0e9993ddd90da432969990b90cc648a3fd4"
+    },
+    {
+      "path": "honeycomb-native-width-two-20261025/proof-source-verification.json",
+      "bytes": 8693,
+      "sha256": "d21224ed7c1d1852f159505774b355ea28b6835c148482a5c6ac548f1ea8f83d"
+    },
+    {
+      "path": "honeycomb-native-width-two-20261025/result.json",
+      "bytes": 1881,
+      "sha256": "e32316255aed6264471363066e4b2ff086f5b5ebb10e61a72f443864c62ff387"
+    },
+    {
+      "path": "honeycomb-native-width-two-20261025/task-record.json",
+      "bytes": 49710,
+      "sha256": "7bb8b60cde399599a77905d98ddeb8243a993c6fb63792ca1485ac4ef397c80f"
+    },
+    {
+      "path": "honeycomb-native-width-two-20261025/toolchain-provenance.json",
+      "bytes": 793,
+      "sha256": "ce5be02e8b7f74f8f9eaf1845acc7766306447b75f544fe56ae418fef16a9a7e"
+    },
+    {
+      "path": "honeycomb-native-width-two-20261025/verification-summary.json",
+      "bytes": 4769,
+      "sha256": "b999cb54472aa65dadd244f912b4495d9d0a2641dbda629c5de345cff1e18aa4"
+    },
+    {
       "path": "honeycomb-nonbacktracking-block-diagnostic-20261025/README.md",
       "bytes": 1357,
       "sha256": "55e8c9aaea767246f9c9e127197cc5f0527a7d47a5f6404e2aecc5f6e9839c37"
@@ -2570,6 +2770,31 @@
       "path": "honeycomb-profile-advisory-20261024/queue-profile-reference.ts",
       "bytes": 6535,
       "sha256": "e6958dcef4da84f378ba20309e7a2815d1ae770dac030a8d03c980391a08a85e"
+    },
+    {
+      "path": "honeycomb-rational-potential-certificates-20261025/README.md",
+      "bytes": 1278,
+      "sha256": "d19501d819c4dd03cab964e0941a07c929881161aa73216ec073c473295d987b"
+    },
+    {
+      "path": "honeycomb-rational-potential-certificates-20261025/SHA256SUMS",
+      "bytes": 328,
+      "sha256": "87678368b078d7a91f144b002842bee28ee722de5e9157cc6456f884cc91cd10"
+    },
+    {
+      "path": "honeycomb-rational-potential-certificates-20261025/certificates.json",
+      "bytes": 18235,
+      "sha256": "f186f6ee1ba8a1730c32828b5155f81f7344ba26afc0e61e792f18e45b831162"
+    },
+    {
+      "path": "honeycomb-rational-potential-certificates-20261025/check_certificates.py",
+      "bytes": 4848,
+      "sha256": "470d589c57c90e36374daf85da24ba91d63a41fb41f2cb5aad00f355afefa4fb"
+    },
+    {
+      "path": "honeycomb-rational-potential-certificates-20261025/manifest.json",
+      "bytes": 639,
+      "sha256": "5c9698f3cd5968d446c7e3a309d5dfbfb28f781731fd8392f493cfbf58152c20"
     },
     {
       "path": "honeycomb-ready-proof-priority-20261024/README.md",
@@ -3367,6 +3592,146 @@
       "sha256": "05818a585d188ec783c672d427a4de2c27c9e2cf1be28b22106f40b9e317fc01"
     },
     {
+      "path": "honeycomb-width-four-20261025/CurrentPrefix.lean.inc",
+      "bytes": 8691,
+      "sha256": "f55c042e447b853d775f3f6f164d94ab175cc328eabf324588117d8d436f0c45"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/HANDOFF.txt",
+      "bytes": 12488,
+      "sha256": "73c09fd7414a6f54a1d3eb6e5ef8ab820440dd1633de652e6a996cb4274db1b1"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/README.md",
+      "bytes": 3028,
+      "sha256": "2133aa322d136ddc21c8cd4c1dd35a89b5b8f17da1ca6e61644eb44e4c18bff0"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/SHA256SUMS",
+      "bytes": 2373,
+      "sha256": "d8c34f56b453ea8a0a4cfe3639d1e7fe47e2a379aa46f87f8a4ec64877940692"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/WidthFour.lean",
+      "bytes": 20635,
+      "sha256": "a8462a1922c107fde21cde91cb10c505f57860c5d926b3bb30df2869cd804e91"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/WidthFour.lean.inc",
+      "bytes": 10978,
+      "sha256": "db6e35bfe5eba4bfae490a63997874ce18953292e266c8351410097cbdae41b0"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/assemble.py",
+      "bytes": 665,
+      "sha256": "0648ae3a3a4f53e735ef6e20aac65fe1b9c9e9f7b900aebc925fdc2dc036e81a"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/certificate-input.json",
+      "bytes": 9471,
+      "sha256": "abc441ec9daec23a1eb66a143d502c9c5e845eccd4b75c95972777fac3d899a2"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/delivery-contract.json",
+      "bytes": 16725,
+      "sha256": "a726dece3b206728d981da87b5dfab54de8b166a2ec532775e45c88ad4a6d8b0"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/delivery-files.json",
+      "bytes": 4177,
+      "sha256": "42a8865bbecd30928d457abc5b5ef291bded1fbff3ca6566233c5ba7fe3798c8"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/dependency-snapshot.json",
+      "bytes": 1629,
+      "sha256": "5adbb0659ca6432dc9eafa3de17acc5ee764e5c7f8470cc6b30c53cc400d0b06"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/lean-toolchain",
+      "bytes": 25,
+      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/native-task-proposal.json",
+      "bytes": 14233,
+      "sha256": "295f0ccc624a38d1b080ea3e27e13c13913bc4e5099543bd9615e77d8a747ee6"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/potential-01-launch.json",
+      "bytes": 1551,
+      "sha256": "40b1dadc723d0796631b3db4bf2294561e326f2225f3f120d337f0717817712d"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/potential-01-result.json",
+      "bytes": 2116,
+      "sha256": "93b653890fe62db672767c73b773a0727242ea69ebd99b86333dac04a375b79a"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/potential-01-source.lean",
+      "bytes": 20621,
+      "sha256": "f0f7412de9cc48d1bcd1aa184c6c661932671042b682fac036ced0e1f5f62a13"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/potential-01.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/potential-01.stdout.log",
+      "bytes": 3605,
+      "sha256": "b8503d8372d84a80e25271b1c3a0ed50bba4980364db19cd4b6b80a3f285afe8"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/provenance.json",
+      "bytes": 2086,
+      "sha256": "2ffcfb395d6b6de46c5d83f3659ec8a3f6570525f54bb9096b6d6724de842ff8"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/result.json",
+      "bytes": 5893,
+      "sha256": "60058a55387110980c70acf3687fe6df85bb1db4e23057a196eff62a24b06e41"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/summability-02-final-launch.json",
+      "bytes": 1551,
+      "sha256": "eebe3c639abc7cc474304c01a3c855677c84446efcba22fac304ee2356f21b3c"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/summability-02-final-result.json",
+      "bytes": 2132,
+      "sha256": "c152087fc41750fc241a237ae2ffd8897cb9f957a2ab9c423b07f981f96513c2"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/summability-02-final-source.lean",
+      "bytes": 20635,
+      "sha256": "a8462a1922c107fde21cde91cb10c505f57860c5d926b3bb30df2869cd804e91"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/summability-02-final.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/summability-02-final.stdout.log",
+      "bytes": 3406,
+      "sha256": "eeac59003498b71ac055e821507d592cf7f1e4196e3eacfdf40c5c974f53ee64"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/task-objective.md",
+      "bytes": 13520,
+      "sha256": "68e0fa501aab50bf9104bce52ee3d723a2cb77b48f2024c37f00342800390cf4"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/validate.py",
+      "bytes": 3168,
+      "sha256": "2c761ebdc47ef3528d8b09f8be19725bc684b9691061614a69b1e704871e1fc6"
+    },
+    {
+      "path": "honeycomb-width-four-20261025/verification-audit.json",
+      "bytes": 721,
+      "sha256": "b97374408232caf108a0d234a250c363ca934ea83dfb1fc2cec8dab20dcec63d"
+    },
+    {
       "path": "honeycomb-width-one-20261024/CurrentPrefix.lean.inc",
       "bytes": 8691,
       "sha256": "f55c042e447b853d775f3f6f164d94ab175cc328eabf324588117d8d436f0c45"
@@ -3485,6 +3850,236 @@
       "path": "honeycomb-width-one-20261024/verification-audit.json",
       "bytes": 2270,
       "sha256": "b0d463a33530a40d007e147f328486275cecfd9a25e7325db49fe64037c15495"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/CountBounds.lean.inc",
+      "bytes": 3127,
+      "sha256": "2579324ae85f8e99161e07dc421e942a460d55ca968ef238fdb5b2da902bf07a"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/Coverage.lean.inc",
+      "bytes": 5882,
+      "sha256": "91280720ec396ba4115e45dbb54091cc53125fceb8042bc812e8fe3755a2f7ec"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/CurrentPrefix.lean.inc",
+      "bytes": 8691,
+      "sha256": "f55c042e447b853d775f3f6f164d94ab175cc328eabf324588117d8d436f0c45"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/HANDOFF.txt",
+      "bytes": 2814,
+      "sha256": "932e2b75a8167021393a542f8de1c34a43e9dc467139d020805a29e228875916"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/README.md",
+      "bytes": 4567,
+      "sha256": "96a4359455f81c645ddf0872fbbbd06866e11ea19a3263bb567eb5264b2751cb"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/SHA256SUMS",
+      "bytes": 2930,
+      "sha256": "5e3c59c87da63561388f0691f57471f7d1bb65eb3e129323198705f175d1d440"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/WidthThree.lean",
+      "bytes": 22521,
+      "sha256": "e0dd3d9678d060cd719c52092bed9a15244b6fdd357956779a9fa38a6f0fdf63"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/WidthThree.lean.inc",
+      "bytes": 13320,
+      "sha256": "375739ea3473e164e586091370a0bac3c03aab5a52a17e6a3cc46a3b7460cfc7"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/archive.py",
+      "bytes": 18381,
+      "sha256": "932fcbe16ac7297b28cc790c7414a9b0e1b74793d7c7e7f9bde0edac959e9c95"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/assemble.py",
+      "bytes": 526,
+      "sha256": "a18ff5b43310d52e022399223802de79f79f49aff5e9c7e498ab7bb40a6e6dc4"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/count-01-launch.json",
+      "bytes": 1553,
+      "sha256": "91e288ed890269f9b0e53bc95e3bd45acb48bbf22513891cf7b11f31103768e0"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/count-01-result.json",
+      "bytes": 2111,
+      "sha256": "44a5ec2891746e5b2700b39280d597a5b908724fa9a4cf05e73c6aba0fcd6b1a"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/count-01-source.lean",
+      "bytes": 15787,
+      "sha256": "78ba82753a67924d02ab48ce3aa66f5e011ade94e41f09e717fc12b5b9d78df3"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/count-01.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/count-01.stdout.log",
+      "bytes": 739,
+      "sha256": "dbdac2721e84759cc3dfbb1d4d2d48077a6cc0e0c183aa328a418cfebf34db46"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/delivery-contract.json",
+      "bytes": 19738,
+      "sha256": "71dc7449b7af3979d46bc4e3025bc09b7026e7716e068c900678792df5148d2d"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/delivery-files.json",
+      "bytes": 5324,
+      "sha256": "e0bcf868c666d9f8c0d76ec7c7f651281cc750222675419e11d98a3796f6736b"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/dependency-snapshot.json",
+      "bytes": 1659,
+      "sha256": "1622727cbfe8ad545896621b34949c0bba0570c27f692e3ddef81bce813fbae7"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/lean-toolchain",
+      "bytes": 25,
+      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/local-01-launch.json",
+      "bytes": 1553,
+      "sha256": "c3ecc7b0e07cbb0017d9915203b90fd191fcbae07947cd057dd0f9f89487d71a"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/local-01-result.json",
+      "bytes": 2111,
+      "sha256": "1455586cf71ff04bc6d4b3662055714d018297720cd217ec593786b6315bacae"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/local-01-source.lean",
+      "bytes": 12586,
+      "sha256": "56635ba8c7d049ca8763631a4b28d2adb65f54ac3db6ba033aa3d6adcd38a2a8"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/local-01.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/local-01.stdout.log",
+      "bytes": 1981,
+      "sha256": "963819d8b722d005607f1e0d7ce8b6fc40d4daa68efc813b4fc6a1254c5246c8"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/native-task-handoff.json",
+      "bytes": 16877,
+      "sha256": "3327210743d62b35dc4801b89688c83b6ec8b2401bcd92908676c3789557b5e3"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/native-task-proposal.json",
+      "bytes": 16877,
+      "sha256": "3327210743d62b35dc4801b89688c83b6ec8b2401bcd92908676c3789557b5e3"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/provenance.json",
+      "bytes": 1981,
+      "sha256": "cbecf8de4e0774e8cc1dcb3eaed777a1b0fe74833095e9d43398540605e94d98"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/summability-01-launch.json",
+      "bytes": 1553,
+      "sha256": "97f26567b5cbb8ef7f7eeebcaa63d222c13a9586c37d8b84e43696ee9f9a28cf"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/summability-01-result.json",
+      "bytes": 2124,
+      "sha256": "9a1ed45ea789bbad5aefedf5f34b892f1d564e4c98cc288760093d26419f039f"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/summability-01-source.lean",
+      "bytes": 22521,
+      "sha256": "e0dd3d9678d060cd719c52092bed9a15244b6fdd357956779a9fa38a6f0fdf63"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/summability-01.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/summability-01.stdout.log",
+      "bytes": 2031,
+      "sha256": "d91a6d4b63fde1e27e92dcffebe82872ab862d1db342cab9e2e93c69485f2dc1"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/task-objective.md",
+      "bytes": 16119,
+      "sha256": "6fa83be93885e9ae53320f2f5d89b301126b647befd64c33b56a0289c7dfd1f9"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/validate.py",
+      "bytes": 3169,
+      "sha256": "11f87e614be394b6606ada8378aebbf780c57147c83dfeb5b1bb6d0d870ae648"
+    },
+    {
+      "path": "honeycomb-width-three-20261025/verification-audit.json",
+      "bytes": 3045,
+      "sha256": "08c50909ac5edb0fb3ab61623f3b733205223d263890c2c9d6387e9fc7f0d855"
+    },
+    {
+      "path": "honeycomb-width-three-four-adoption-20261025/README.md",
+      "bytes": 1854,
+      "sha256": "e1a41e88375d2a5ccde35b86ec217a1901ad3b05236ebf90cc3c82fe015b9365"
+    },
+    {
+      "path": "honeycomb-width-three-four-adoption-20261025/SHA256SUMS",
+      "bytes": 860,
+      "sha256": "d7cae44d5de0e0c5408621968eafbf303695062f26821de30a50a48c1329c610"
+    },
+    {
+      "path": "honeycomb-width-three-four-adoption-20261025/applied-readback.json",
+      "bytes": 6231,
+      "sha256": "f063cb216e75fa2ba7d628434c438dc56ef1a145742b956964b495e4f4839a2c"
+    },
+    {
+      "path": "honeycomb-width-three-four-adoption-20261025/complete-handoff.md",
+      "bytes": 29665,
+      "sha256": "da23bb52486da205440351962c48799fbdaab032d0c818eee5110c68ef74dcf4"
+    },
+    {
+      "path": "honeycomb-width-three-four-adoption-20261025/context-availability-readback.json",
+      "bytes": 1955,
+      "sha256": "d3e5e78463e0fa09fdeccda58fe4128bb51fbbbd908afb89c91421722c602b66"
+    },
+    {
+      "path": "honeycomb-width-three-four-adoption-20261025/manifest.json",
+      "bytes": 1526,
+      "sha256": "9d9f147a23519ebf289612565d58a399e5ca94bca50b8f9dc386ab2dec3e0b43"
+    },
+    {
+      "path": "honeycomb-width-three-four-adoption-20261025/preparation.json",
+      "bytes": 138160,
+      "sha256": "f793aa0cbd76acb47d076d502699e8469aa7a5c00ae8b628d208e5757a86fa44"
+    },
+    {
+      "path": "honeycomb-width-three-four-adoption-20261025/queue-receipt.json",
+      "bytes": 422,
+      "sha256": "1d29e18b7196dd87c4aa9d11221fda12348ea0e8a65e5656ac58b7d34cae93a7"
+    },
+    {
+      "path": "honeycomb-width-three-four-adoption-20261025/queue-width-three-four.ts",
+      "bytes": 7658,
+      "sha256": "b3519863db4d3d7971f4b21ca01dc7e35b7d1bed72d5bdedb7b1a0bcfd587c55"
+    },
+    {
+      "path": "honeycomb-width-three-four-adoption-20261025/state-applied.json",
+      "bytes": 1636248,
+      "sha256": "e9dcfb66d54aaabd526215cb85fba1035ff512a9d699fa8bb52df6bd6c6d9963"
+    },
+    {
+      "path": "honeycomb-width-three-four-adoption-20261025/state-before.json",
+      "bytes": 1600132,
+      "sha256": "eeb91022ee1eeddc53c6d6cb622b36e4852e6f1691e747b1ae50d7cc60cc7e9e"
     },
     {
       "path": "honeycomb-width-two-20261025/CompleteCount.lean.inc",
@@ -4182,6 +4777,11 @@
       "sha256": "6e014113176e4ad9a7b2103aba65fd6faf32c0aa8e01ad915d0ebd182c87b5bd"
     },
     {
+      "path": "optimization-progress-20261024T172839Z.json",
+      "bytes": 233028,
+      "sha256": "343572131322a80bb986d2db462c50ea08f5de3f3c5782db83325012415fd165"
+    },
+    {
       "path": "run-character-candidate.py",
       "bytes": 3154,
       "sha256": "15c36940e430219505468f751b9a388a094908e4376a3eeab549f39e694a5652"
@@ -4722,6 +5322,61 @@
       "sha256": "7986fde8fb4a9c209800574b1d325f60771f23adbee38ec8256ad5882f3dd432"
     },
     {
+      "path": "snaky-publisher-gate-health-20261025/README.md",
+      "bytes": 1325,
+      "sha256": "b23f86a9317353765b0a6ecba3f4935e6e9e9bc9e3bf89b352459b5db76e8de1"
+    },
+    {
+      "path": "snaky-publisher-gate-health-20261025/constraints.json",
+      "bytes": 2785,
+      "sha256": "434b1840045ee8022b5456a6836e06c32a5fb15e7013f254258cdf2ec580da7a"
+    },
+    {
+      "path": "snaky-publisher-gate-health-20261025/events-index.json",
+      "bytes": 3886,
+      "sha256": "fbbd3b1f82351a08f2066e6c72a12a2fd01c07a05c4058b79fad8501f8a0dc82"
+    },
+    {
+      "path": "snaky-publisher-gate-health-20261025/events-safe-excerpt.jsonl",
+      "bytes": 827,
+      "sha256": "e5efefbe672c683c6a41b2a9a7aba3afb38b532204dbf0a7f09528f7d8c836fb"
+    },
+    {
+      "path": "snaky-publisher-gate-health-20261025/lean-resource-limits.txt",
+      "bytes": 1323,
+      "sha256": "eaf5d3c5052a634b541899d69ce1a7c6ecdf4b206726e412b6071be900aa7e02"
+    },
+    {
+      "path": "snaky-publisher-gate-health-20261025/manifest.json",
+      "bytes": 1655,
+      "sha256": "0b3e5ce16d66d361570a142b6c870ab1b3436bbd1c651802bf99b56bc90cc7db"
+    },
+    {
+      "path": "snaky-publisher-gate-health-20261025/publisher-comparator.json",
+      "bytes": 304,
+      "sha256": "6f57fd04134fde866b0d0babcdcf0a2f09f2c81690c72395a0f92196129bbcdc"
+    },
+    {
+      "path": "snaky-publisher-gate-health-20261025/report.json",
+      "bytes": 2170,
+      "sha256": "c6d7be1b11c00acb20ef635cc4791977b729bbc07d47ebad7c87de50f3c2d8d7"
+    },
+    {
+      "path": "snaky-publisher-gate-health-20261025/sample-after.json",
+      "bytes": 6696,
+      "sha256": "2edbfda89d6bb0f01ff4e437f131b62d449bffd6d1b0002d11df1d24fc1eef08"
+    },
+    {
+      "path": "snaky-publisher-gate-health-20261025/sample-before.json",
+      "bytes": 6693,
+      "sha256": "6f83b74bd72b03301c318b954b1be38b0a945723d77a523c34a670f766b7000f"
+    },
+    {
+      "path": "snaky-publisher-gate-health-20261025/source-identities.json",
+      "bytes": 4065,
+      "sha256": "b53ff094e33b952aa1ffd226ec641d46e4a43cbf7b3ba1fd797e4ce9521f97d3"
+    },
+    {
       "path": "snaky-review-evidence-advisory-20261024/HOST-REVIEW-EVIDENCE.json",
       "bytes": 1923,
       "sha256": "85cda09015a424fe7fcb2eb3de3696bfad91eb54739a85bc9350a30bad0a157a"
@@ -4911,8 +5566,8 @@
   "characterV2IndependentOriginalComparator": "passed: unchanged binary, original target and axioms; genuine prebuilt artifact; exit0 in 41.153155 seconds",
   "honeycombSumsReduction": "native kernel and integration passed; original goal resumed; growth estimate still unproved",
   "characterV2NativeDelivery": "evaluated_passed; fixed review, independent final check and fixed original comparator passed",
-  "latestProgressSnapshot": "optimization-progress-20261024T165858Z.json",
-  "honeycombCurrentProgress": "turn409: confined all-height summability native checked and integrated; width-one proof running; complete width-two local proof queued and pending; general all-height original goal remains conditional",
+  "latestProgressSnapshot": "optimization-progress-20261024T172839Z.json",
+  "honeycombCurrentProgress": "turn430: confined all-height auxiliary, height-one six clauses and height-two pair native checked and integrated; height-three and height-four pairs locally kernel-checked and now running as typed native tasks; general all-height original goal remains conditional",
   "honeycombAdvisoryRoute": "direct first-moment summability via exact finite-state encoding and finite-box mass; unproved geometric inputs; ordinary advisory edit applied at turn104",
   "characterV2NativeOriginalGoal": "passed: lean-adc266b0e003d64e5ebdf91b",
   "honeycombFiniteBoxHelpers": "four declarations locally kernel-checked; normal advisory edit applied; original goal unproved",
@@ -4951,7 +5606,7 @@
   "snakyAllTargetCheck": "passed: lean-63766151ffe8a0523a860487; fixed review accepted; final host acceptance in progress",
   "snakyNativeFinalAccepted": false,
   "honeycombOriginalGoalSolved": false,
-  "latestProgress": "optimization-progress-20261024T165858Z.json",
+  "latestProgress": "optimization-progress-20261024T172839Z.json",
   "newFixedSupportBuild": "46551899-4922-4905-b81e-0ff4503842e6",
   "newFixedSupportBuildActivated": false,
   "allFiveBudgetCaps": 0,
@@ -4993,40 +5648,21 @@
     "originalGoalSolved": false
   },
   "currentArchiveValidation": {
-    "checkedAt": "2026-10-24T17:00:46.492259+00:00",
-    "newPackageHashesVerified": 112,
-    "jsonFilesParsed": 519,
-    "markdownFilesChecked": 11,
-    "markdownLinksChecked": 120,
-    "leanChecksReused": 2,
-    "unchangedLeanChecksRerun": false,
-    "gitDiffCheck": "passed with raw .patch context excluded, blank-at-eof disabled for frozen increments, and four exact raw-evidence files excluded for original trailing whitespace",
-    "gitDiffCheckObservedAt": "2026-10-24T17:02:05.908058+00:00",
-    "preservedRawEvidenceTrailingWhitespace": [
-      {
-        "path": "honeycomb-confined-finiteness-20261024/validation-01.stdout.log",
-        "reason": "Original Lean Try this warning output; preserve frozen bytes and SHA256."
-      },
-      {
-        "path": "snaky-final-gate-health-20261024/lean-resource-limits.txt",
-        "reason": "Original /proc resource-limit alignment; preserve frozen bytes and SHA256."
-      },
-      {
-        "path": "honeycomb-summability-adoption-health-20261025/researcher-1-public-proof-vs-verified.diff",
-        "reason": "Original unified diff uses a single space for blank context lines; retain exact evidence bytes and SHA256."
-      },
-      {
-        "path": "honeycomb-summability-adoption-health-20261025/researcher-2-public-proof-vs-verified.diff",
-        "reason": "Original unified diff uses a single space for blank context lines; retain exact evidence bytes and SHA256."
-      }
-    ],
-    "newPackageFilesArchived": 118,
-    "localWidthTwoKernelCheckReused": true,
-    "payloadHashesRecorded": 980,
-    "allPayloadFilesPresentInGitIndex": true,
-    "exactIgnoredEvidenceLogsAdded": 14
+    "checkedAt": "2026-10-24T17:30:45.321017+00:00",
+    "oldPayloadHashesVerifiedBeforeManifestUpdate": 979,
+    "newPackageHashesVerified": 123,
+    "jsonFilesParsed": 582,
+    "changedMarkdownFilesChecked": 12,
+    "changedMarkdownLocalLinksChecked": 145,
+    "kernelTestsRepeatedForArchiving": false,
+    "rawLogsAndFailedAttemptOutputsPreserved": true,
+    "gitDiffCheck": "passed: preserve raw patch context, exact frozen EOF blank lines, and explicitly listed raw evidence whitespace",
+    "additionalRawWhitespaceExclusion": {
+      "path": "snaky-publisher-gate-health-20261025/lean-resource-limits.txt",
+      "reason": "Unmodified /proc/PID/limits contains kernel-formatted aligned trailing spaces. Preserve original bytes and SHA; exclude only this raw file from whitespace lint."
+    }
   },
-  "fileCount": 980,
+  "fileCount": 1111,
   "honeycombNativeColumnWord": {
     "status": "integrated",
     "proofReceipt": "lean-d1533e50af2bd394228d788c",
@@ -5035,72 +5671,15 @@
   },
   "honeycombNativeColumnTasksIntegrated": 2,
   "snakyHostFinalGateCompleted": true,
-  "snakyCurrentGate": "frozen publisher lake build Challenge Submission; comparator pending",
-  "snakyFinalGateHealth": "snaky-final-gate-followup-20261025/README.md",
+  "snakyCurrentGate": "publisher lake build Challenge Submission; original comparator remains pending",
+  "snakyFinalGateHealth": "snaky-publisher-gate-health-20261025/README.md",
   "honeycombNewSummability": {
-    "confinedClausesAllHeights": {
-      "clauses": [
-        4,
-        5,
-        6
-      ],
-      "localKernelExitCode": 0,
-      "seconds": 18.681089841062203,
-      "axiomOutputs": 11,
-      "report": "honeycomb-confined-finiteness-20261024/README.md"
-    },
-    "widthOneAllClauses": {
-      "clauses": [
-        1,
-        2,
-        3,
-        4,
-        5,
-        6
-      ],
-      "localKernelExitCode": 0,
-      "seconds": 20.635448274202645,
-      "keyAxiomOutputs": 6,
-      "reusesExistingResearchProof": true,
-      "report": "honeycomb-width-one-20261024/README.md"
-    },
-    "typedTasks": [
-      {
-        "id": "confined_bridge_sums_all_heights_9dd59d27",
-        "status": "integrated",
-        "workerId": "researcher-1",
-        "assignmentId": "02d56a08-38cd-4d52-b534-b9339530748e",
-        "proofPassed": true,
-        "integrationPassed": true,
-        "proofReceipt": "lean-14624c27faf85a6bc4e5a9f0",
-        "integrationReceipt": "lean-062ee507a3097c19b45fb262"
-      },
-      {
-        "id": "width_one_bridge_sums_b433299a",
-        "status": "running",
-        "workerId": "researcher-2",
-        "assignmentId": "3250e294-e889-4c06-8e44-0c99cc161662",
-        "proofPassed": null,
-        "integrationPassed": null
-      }
-    ],
-    "adoptionReport": "honeycomb-verified-summability-adoption-20261025/README.md",
-    "fullOriginalGoalSolved": false,
-    "solverModelReadCompleteSource": null,
-    "widthTwoPair": {
-      "sourceSHA256": "97a34151766af41dc81716bb199f5565d87b2e505f5be38f0a289c5b657c7027",
-      "incrementSHA256": "6946d27d61a5056762c4fd4e3b1cbc8e9ea7da84d78fef68aa008fa6ff99e1ef",
-      "actualExitCode": 0,
-      "durationSeconds": 21.30641626403667,
-      "keyAxiomOutputs": 6,
-      "bound": "4 * 3^(n/2) <= 4 * (sqrt 3)^n",
-      "allWidthsSolved": false,
-      "proofReport": "honeycomb-width-two-20261025/README.md",
-      "adoptionReport": "honeycomb-width-two-adoption-20261025/README.md",
-      "taskStatus": "pending",
-      "nativeTaskProofAccepted": false,
-      "originalGoalSolved": false
-    }
+    "heightOne": "native checked and integrated; full six clauses",
+    "heightTwo": "native checked and integrated; unconfined pair",
+    "heightThree": "local full kernel proof; normal typed task running",
+    "heightFour": "local full kernel proof; normal typed task running",
+    "allHeightConfined": "native checked and integrated",
+    "allHeightOriginalSolved": false
   },
   "honeycombSummabilityEdits": {
     "honeycomb-verified-summability-subtasks-20261025": {
@@ -5175,5 +5754,61 @@
     "arithmetic": "exact integers",
     "kernelAcceptance": false,
     "report": "honeycomb-nonbacktracking-block-diagnostic-20261025/README.md"
+  },
+  "honeycombNativeWidthOne": {
+    "status": "integrated",
+    "proofReceipt": "lean-b1c75a2ef3a0363767a6edd9",
+    "integrationReceipt": "lean-909381d19f6680c1615fba09",
+    "proofDurationMs": 21382,
+    "integrationDurationMs": 18179,
+    "referencesAbsentAsRecorded": true,
+    "report": "honeycomb-native-width-one-20261025/README.md",
+    "originalAllHeightGoalSolved": false
+  },
+  "honeycombNativeWidthTwo": {
+    "status": "integrated",
+    "proofReceipt": "lean-30a9b8d0f88ea68d0cdfffd7",
+    "integrationReceipt": "lean-280acb880d3c011f61e534da",
+    "proofDurationMs": 23908,
+    "integrationDurationMs": 24130,
+    "referencesAbsentAsRecorded": true,
+    "report": "honeycomb-native-width-two-20261025/README.md",
+    "originalAllHeightGoalSolved": false
+  },
+  "honeycombHeightThreeAndFourLocalProofs": {
+    "height3": {
+      "sourceSHA256": "e0dd3d9678d060cd719c52092bed9a15244b6fdd357956779a9fa38a6f0fdf63",
+      "actualExitCode": 0,
+      "durationSeconds": 10.050331623060629,
+      "incrementSHA256": "375739ea3473e164e586091370a0bac3c03aab5a52a17e6a3cc46a3b7460cfc7",
+      "report": "honeycomb-width-three-20261025/README.md",
+      "nativeAdoptionReport": "honeycomb-width-three-four-adoption-20261025/README.md",
+      "originalAllHeightGoalProved": false
+    },
+    "height4": {
+      "sourceSHA256": "a8462a1922c107fde21cde91cb10c505f57860c5d926b3bb30df2869cd804e91",
+      "actualExitCode": 0,
+      "durationSeconds": 11.999551268992946,
+      "incrementSHA256": "db6e35bfe5eba4bfae490a63997874ce18953292e266c8351410097cbdae41b0",
+      "report": "honeycomb-width-four-20261025/README.md",
+      "nativeAdoptionReport": "honeycomb-width-three-four-adoption-20261025/README.md",
+      "originalAllHeightGoalProved": false
+    }
+  },
+  "honeycombHeightThreeAndFourAdoption": {
+    "editId": "honeycomb-width-three-four-checked-proofs-20261025",
+    "status": "applied",
+    "existingTaskContractsPreserved": 12,
+    "existingAssignmentsPreserved": 11,
+    "report": "honeycomb-width-three-four-adoption-20261025/README.md",
+    "currentNativeTaskStatus": {
+      "height3": "running",
+      "height4": "running"
+    },
+    "nativeTaskAcceptanceYet": false
+  },
+  "honeycombRationalPotentialDiagnostic": {
+    "report": "honeycomb-rational-potential-certificates-20261025/README.md",
+    "scope": "exact rational tables only; subsequent height-four full Lean proof archived separately"
   }
 }

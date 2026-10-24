@@ -1,14 +1,16 @@
 # 原生检查热点与加速候选（2026-10-24）
 
-最新状态见 [10 月 25 日 00:58 北京时间进度快照](optimization-progress-20261024T165858Z.json)。两个活动运行的五项预算均为 0，Honeycomb 持久服务正常运行。
+最新状态见 [10 月 25 日 01:28 北京时间进度快照](optimization-progress-20261024T172839Z.json)。两个活动运行的实际进程五项预算均为 0，Honeycomb 持久服务正常运行。
 
-新增[宽度 2 的无条件可和性证明](honeycomb-width-two-20261025/README.md)通过固定 Lean 完整检查，耗时 21.306 秒，六项关键声明公理仅标准白名单。任一入边之后至多三种两步非回退延续给出计数界 `4·3^(n/2) ≤ 4·(√3)^n`，再由 `√3 < 2 cos(π/8)` 推出 `weight` 和 `firstLengthWeight` 可和。[完整增量已递交现有宽度 2 任务](honeycomb-width-two-adoption-20261025/README.md)，编辑已应用，截点为 pending，尚无原生 TaskProof。h≥3 的一般增长界仍未证明。
+新增[高度 3 的无条件可和性证明](honeycomb-width-three-20261025/README.md)通过固定 Lean 完整检查，耗时 10.050 秒。五步非回退延续至多 20 条，得到计数界 `32·20^(n/5) ≤ 32·(11/6)^n`，且 `11/6 < 2 cos(π/8)`。[高度 4](honeycomb-width-four-20261025/README.md)采用 22 个有向入边状态的小整数势能，得到 `128·(1847/1000)^n` 的计数界及两项可和性，完整检查耗时 12.000 秒。六项与十二项关键声明的公理均仅标准白名单；两份增量已[通过正常队列新增 typed lemma](honeycomb-width-three-four-adoption-20261025/README.md)，当前均在正式 worker 处理，尚无原生 TaskProof 或集成回执。
 
-[所有高度的受限走廊三项结论](honeycomb-confined-finiteness-20261024/README.md)现已通过原生任务检查并集成；两次真实检查分别耗时 20.285 秒、20.024 秒，0 sorry/admit/剩余目标，无附加条件。见[正式回执与精确源码](honeycomb-native-confined-sums-20261025/README.md)。[宽度 1 的全部六项结论](honeycomb-width-one-20261024/README.md)仍在正式 worker 中处理；[只读采用检查](honeycomb-summability-adoption-health-20261025/README.md)确认两份先前证明均已完整保存、声明类型匹配且无重名或缺依赖，没有发现需要修复的采用错误。此前的[首次递交记录](honeycomb-verified-summability-adoption-20261025/README.md)保留原样。完整原题仍未解决。
+[高度 1 的全部六项结论](honeycomb-native-width-one-20261025/README.md)现已通过原生任务与集成检查，分别耗时 21.382 秒、18.179 秒。[高度 2 的两项可和性](honeycomb-native-width-two-20261025/README.md)也已原生通过并集成，分别耗时 23.908 秒、24.130 秒。两项任务均无附加条件，目标 sorry/admit/剩余目标全为 0，仅三项标准公理；两份回执缺少 declarationReferences 的边界按实记录，没有将整份源码 SHA 与投影 proofHash 混同。[所有高度 confined 三项](honeycomb-native-confined-sums-20261025/README.md)的既有原生通过证据保留。一般高度完整 BridgePath 的可和性仍未证明，完整原题未解决。
+
+[高度 3、4 的有理势能候选](honeycomb-rational-potential-certificates-20261025/README.md)保留此前精确算术诊断；高度 4 后续已在上述完整 Lean 证明中接通 canonical 路径。高度 5 正在探索保留最近六个顶点的有限状态方法，尚无通过声明。此前的[采用健康检查](honeycomb-summability-adoption-health-20261025/README.md)、[首次递交记录](honeycomb-verified-summability-adoption-20261025/README.md)保持原冻结截点。
 
 [缺口报告协议澄清](honeycomb-gap-protocol-advisory-20261025/README.md)经正常队列共享：`consumer` 只含 `taskId`、`taskDigest`，`kind:"goal"` 描述被引用任务。旧宽度 2 报告因此被入口拒收，不能视为数学证明失败；历史回执保留。另存[高度 1–4 非回退块的整数计数诊断](honeycomb-nonbacktracking-block-diagnostic-20261025/README.md)，它没有额外 Lean 或原生验收效力。
 
-Snaky 已完成宿主最终检查并推进到冻结 publisher 的 `lake build Challenge Submission`。当前单核满载、仅一个活动编译器；构建后仍需原 comparator，尚无原题最终通过。见[00:23 北京时间检查](snaky-final-gate-followup-20261025/README.md)；[此前健康检查](snaky-final-gate-health-20261024/README.md)保留原样。
+Snaky 已完成宿主最终检查并推进到冻结 publisher 的 `lake build Challenge Submission`。当前仅一个活动编译器，连续计算约 77 分钟；构建后仍需原 comparator，尚无原题最终通过。[01:14 北京时间健康检查](snaky-publisher-gate-health-20261025/README.md)的 10 秒样本内 CPU 增加 10 秒，冻结验证约束保持，没有重复编译或停止计算的迹象。[00:23 检查](snaky-final-gate-followup-20261025/README.md)与[此前健康检查](snaky-final-gate-health-20261024/README.md)保留原样。
 
 此前两项正常队列调整均已应用，`affectedTasks=[]`。Honeycomb 两项列结构引理现均已通过原生任务检查并集成：[第一项回执与源码](native-optimization-outcomes-20261024/README.md)，[第二项完整列 word 单射回执与源码](honeycomb-native-column-word-20261024/README.md)。第二项任务与集成检查分别耗时 19.135 秒、20.008 秒，无 sorry、admit 或剩余目标。Snaky 第三轮固定版本复审已接受。见[任务顺序调整](honeycomb-ready-proof-priority-20261024/README.md)和[复审证据通知与队列恢复](snaky-review-evidence-advisory-20261024/README.md)。原题最终通过数尚未增加。
 

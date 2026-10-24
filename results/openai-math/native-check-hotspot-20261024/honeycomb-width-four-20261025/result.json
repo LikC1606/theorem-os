@@ -1,0 +1,182 @@
+{
+  "schema": "honeycomb-width-four.v1",
+  "status": "local-kernel-verified",
+  "frozenAt": "2026-10-24T17:22:19.999262+00:00",
+  "sourceFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-width-four-20261025/WidthFour.lean",
+  "sourceSHA256": "a8462a1922c107fde21cde91cb10c505f57860c5d926b3bb30df2869cd804e91",
+  "sourceBytes": 20635,
+  "incrementFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/honeycomb-width-four-20261025/WidthFour.lean.inc",
+  "incrementSHA256": "db6e35bfe5eba4bfae490a63997874ce18953292e266c8351410097cbdae41b0",
+  "incrementBytes": 10978,
+  "validationResult": "summability-02-final-result.json",
+  "validationResultSHA256": "c152087fc41750fc241a237ae2ffd8897cb9f957a2ab9c423b07f981f96513c2",
+  "actualExitCode": 0,
+  "durationSeconds": 11.999551268992946,
+  "finishedAt": "2026-10-24T17:20:10.638321+00:00",
+  "stdoutSHA256": "eeac59003498b71ac055e821507d592cf7f1e4196e3eacfdf40c5c974f53ee64",
+  "stderrSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "printedKeyTheoremCount": 12,
+  "newDeclarationCount": 20,
+  "theorems": [
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.WidthFour.mem_neighbors",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.WidthFour.edgeWeight_ge_one",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.WidthFour.edgeWeight_le_sixtyFour",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.WidthFour.potential_step",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.WidthFour.continuations_card",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.WidthFour.mem_continuations",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.WidthFour.allPaths_card",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.WidthFour.path_mem_allPaths",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.WidthFour.path_card_real",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.WidthFour.beta_lt_mu",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.WidthFour.stripGrowthAtFour",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    },
+    {
+      "name": "OAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic",
+      "axioms": [
+        "propext",
+        "Classical.choice",
+        "Quot.sound"
+      ]
+    }
+  ],
+  "theoremName": "OAI.PolynomialVacuumBridge.Corridor.width_four_summability_diagnostic",
+  "type": "Summable (OAI.PolynomialVacuumBridge.Corridor.weight (h := 4)) ∧ Summable (OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (h := 4))",
+  "countingBound": {
+    "C": 128,
+    "beta": "1847/1000",
+    "allLengths": true,
+    "allFiniteCanonicalBridgePath4Families": true
+  },
+  "strictComparison": "1847/1000 < 2*cos(pi/8)",
+  "potentialStateCount": 22,
+  "potentialWeightRange": [
+    29,
+    64
+  ],
+  "proofOutline": [
+    "Formalize exact four-layer neighbors and all 22 incoming-edge weighted inequalities.",
+    "Induct on continuation length to bound card by edgeWeight*beta^n.",
+    "Use every canonical BridgePath field to cover its vertex list in the finite non-backtracking overapproximation.",
+    "Inject finite path families into these lists to prove card<=128*beta^n.",
+    "Prove the rational beta is below the canonical critical reciprocal, then apply existing unconditional first-moment summability reduction."
+  ],
+  "leanToolchain": "leanprover/lean4:v4.34.1",
+  "mathlibCommit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+  "sealedEnvironmentIdentity": "2d808da67c8ab8ad74458d8a53ecc2ee8da9c63a825e0429439ebf56a9a78c87",
+  "resourceLimits": {
+    "wallSeconds": null,
+    "cpuSoftSeconds": null,
+    "cpuHardSeconds": null,
+    "maxHeartbeats": 0,
+    "addressSpaceGiB": 32,
+    "leanMemoryMiB": 32768,
+    "threads": 1,
+    "cpus": [
+      0
+    ]
+  },
+  "invocationCap": null,
+  "warningCount": 1,
+  "warningKinds": [
+    "unnecessarySimpa style suggestion"
+  ],
+  "sorryAdmitNewAxiomNativeDecideFound": false,
+  "nativeTaskProofAccepted": false,
+  "originalAllHeightTargetProved": false,
+  "openAIHostedCertification": false,
+  "activeRuntimeSourceStateQueueChanged": false,
+  "publisherSolutionsRead": false,
+  "hiddenReasoningRead": false,
+  "modelCalled": false,
+  "gitMutation": false,
+  "attemptHistory": [
+    {
+      "label": "potential-01",
+      "exitCode": 1,
+      "reason": "All proof obligations and key axiom prints succeeded; beta real constant definition needed noncomputable for code generation."
+    },
+    {
+      "label": "summability-02-final",
+      "exitCode": 0,
+      "reason": "Added only noncomputable to beta; full source passes."
+    }
+  ],
+  "noUnchangedSourceRerunDuringArchival": true,
+  "remainingGap": "General heights h>=5 are not proved by this fixed-height-four theorem."
+}

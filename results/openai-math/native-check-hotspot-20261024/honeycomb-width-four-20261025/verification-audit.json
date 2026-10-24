@@ -1,0 +1,23 @@
+{
+  "checkedAt": "2026-10-24T17:22:19.999262+00:00",
+  "sourceLaunchResultAndSnapshotMatch": true,
+  "sourceSHA256": "a8462a1922c107fde21cde91cb10c505f57860c5d926b3bb30df2869cd804e91",
+  "finalActualExitCode": 0,
+  "sourceContainsCanonicalPrefixVerbatim": true,
+  "prefixCopiedVerbatimFromVerifiedWidthTwoPackage": true,
+  "finalIncrementIncludedVerbatim": true,
+  "axiomWhitelist": [
+    "propext",
+    "Classical.choice",
+    "Quot.sound"
+  ],
+  "allPrintedKeyAxiomsPass": true,
+  "printedKeyTheoremCount": 12,
+  "noSorryAdmitNewAxiomNativeDecide": true,
+  "stderrBytes": 0,
+  "proofErrors": 0,
+  "warnings": 1,
+  "newLeanInvocationDuringArchival": false,
+  "newModelInvocation": false,
+  "activeSiteModified": false
+}

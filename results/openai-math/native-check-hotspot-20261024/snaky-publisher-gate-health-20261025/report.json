@@ -1,0 +1,63 @@
+{
+  "schema": "theorem-os.snaky-publisher-gate-health.v1",
+  "observedAtUTC": "2026-10-24T17:14:08.441941+00:00",
+  "observedAtAsiaShanghai": "2026-10-25T01:14:08.441941+08:00",
+  "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+  "phase": "evaluating",
+  "resultStatus": "prepared",
+  "evaluator": {
+    "status": "skipped"
+  },
+  "outcome": "normal_running_publisher_build",
+  "currentGate": "frozen publisher lake build Challenge Submission",
+  "activeLeanPid": 900064,
+  "activeLeanStartedAtUTC": "2026-10-24T16:11:15.481848+00:00",
+  "activeLeanElapsedSeconds": 3772.9599999999627,
+  "sampleIntervalSeconds": 10.000092506408691,
+  "cpuSecondsDelta": 10.0,
+  "singleCoreUtilizationFraction": 0.9999907494447045,
+  "rssBytes": 10025144320,
+  "ioDelta": {
+    "rchar": 0,
+    "wchar": 0,
+    "syscr": 0,
+    "syscw": 0,
+    "read_bytes": 0,
+    "write_bytes": 0,
+    "cancelled_write_bytes": 0
+  },
+  "activeOwnedLeanCompilers": [
+    900064
+  ],
+  "activeComparatorProcesses": [],
+  "eventCounts": {
+    "evaluation_started": 1,
+    "evaluation_finished": 0,
+    "finished": 0
+  },
+  "nextGate": "Once publisher build succeeds, the same frozen external command runs comparator comparator.json, then final result is persisted.",
+  "constraintSummary": {
+    "allFiveBudgetsZero": true,
+    "frozenEvaluatorCommandUnchanged": true,
+    "sourceAndLakeManifestsMatchAcrossHostCanonicalPublisher": true,
+    "addressSpaceLimitBytes": 34359738368,
+    "fixedReviewAccepted": true,
+    "comparatorExactTarget": [
+      "OAI.SnakyConditional.snaky_winning_strategy_with_legal_states"
+    ],
+    "comparatorPermittedAxioms": [
+      "propext",
+      "Quot.sound",
+      "Classical.choice"
+    ],
+    "enableNanoda": false
+  },
+  "intervention": {
+    "performed": false,
+    "restartOrSignal": false,
+    "compilerInvoked": false,
+    "activeStateSourceRuntimeCacheOrConfigModified": false,
+    "previousEvidenceModified": false
+  },
+  "claimBoundary": "No final pass or failure is claimed while publisher build is still running. Official comparator code is local; this is not OpenAI hosted certification. No ProducedSolution content, credentials or hidden reasoning read."
+}

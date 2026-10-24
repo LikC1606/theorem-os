@@ -1,0 +1,28 @@
+New auxiliary task: width_three_summability_e0dd3d96
+Theorem: OAI.PolynomialVacuumBridge.Corridor.width_three_summability_diagnostic
+Proof path: Submission.lean
+Depends on existing integrated source task: sums_reduction
+Exact type:
+Summable (OAI.PolynomialVacuumBridge.Corridor.weight (h := 3)) ∧ Summable (OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (h := 3))
+
+Normal delivery:
+Parent may add native-task-proposal.json through its normal task-plan queue edit and prioritize it at a natural assignment boundary. task-objective.md / native-task-proposal.json["objective"] inlines the full passed WidthThree.lean.inc code. No queue mutation was performed by this package. Use ordinary native proof delivery/check/integration; this independent local check is not itself a TaskProof receipt.
+
+Insertion:
+Insert WidthThree.lean.inc exactly once inside namespace OAI.PolynomialVacuumBridge.Corridor, after these already integrated unconditional helpers:
+- OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_firstLengthWeight_of_mu_bound
+- OAI.PolynomialVacuumBridge.Corridor.bridgeSummable_weight_of_summable_firstLengthWeight
+The increment opens/closes WidthThree and then defines width_three_summability_diagnostic in the outer namespace. All 27 new declaration names were absent at inspection. Preserve existing declarations and the original finite_bridge_sums target. Do not replace Submission.lean with standalone WidthThree.lean.
+
+Mathematics:
+Exact width-three neighbors and horizontal-shift invariance are proved from frozen adjacency. Each normalized incoming edge has <=20 five-step non-backtracking continuations, proved by ordinary decide. count_add_bound and strong induction give count a b n<=16*20^(n/5). The canonical BridgePath 3 lists inject into a finite enumerator whose card<=32*20^(n/5). Since 20<=(11/6)^5, the real count is <=32*(11/6)^n. beta_lt_mu proves 11/6<2*cos(pi/8). The two summabilities follow from existing unconditional helpers. No all-width growth assumption or original sorry is used. Height three alone is settled here.
+
+Local verification:
+Actual Lean exit0, 10.050331623060629 seconds, no timeout.
+Source SHA256 e0dd3d9678d060cd719c52092bed9a15244b6fdd357956779a9fa38a6f0fdf63
+Increment SHA256 375739ea3473e164e586091370a0bac3c03aab5a52a17e6a3cc46a3b7460cfc7
+All six printed key declarations have exactly propext, Classical.choice, Quot.sound; no sorryAx.
+No sorry/admit/axiom/unsafe/native_decide in the complete source. All three actual checks and both failed exact source histories are preserved. The final source was not recompiled during archival.
+
+Scope:
+Host native TaskProof acceptance and integration remain pending. The all-height original theorem is not proved. No active runtime/source/state/queue/cache/frozen package change, model call, commit or push.

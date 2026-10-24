@@ -1,0 +1,37 @@
+WidthThree.lean:273:36: warning: This simp argument is unused:
+  Vertex.down.injEq
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [neighbors, Vertex.up.injEq]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+WidthThree.lean:425:22: warning: try 'simp' instead of 'simpa'
+
+Note: This linter can be disabled with `set_option linter.unnecessarySimpa false`
+@WidthThree.count_five : ∀ {a b : Vertex},
+  WidthThree.inside a → WidthThree.inside b → adjacent a b → WidthThree.count a b 5 ≤ 20
+'OAI.PolynomialVacuumBridge.Corridor.WidthThree.count_five' depends on axioms: [propext, Classical.choice, Quot.sound]
+WidthThree.count_block_bound : ∀ (n : ℕ) (a b : Vertex),
+  WidthThree.inside a → WidthThree.inside b → adjacent a b → WidthThree.count a b n ≤ 16 * 20 ^ (n / 5)
+'OAI.PolynomialVacuumBridge.Corridor.WidthThree.count_block_bound' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+WidthThree.path_mem_allPaths : ∀ (p : BridgePath 3), p.vertices ∈ WidthThree.allPaths p.vertices.length
+'OAI.PolynomialVacuumBridge.Corridor.WidthThree.path_mem_allPaths' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+WidthThree.path_card : ∀ (n : ℕ) (s : Finset (BridgePath 3)),
+  (∀ p ∈ s, p.vertices.length = n) → s.card ≤ 32 * 20 ^ (n / 5)
+'OAI.PolynomialVacuumBridge.Corridor.WidthThree.path_card' depends on axioms: [propext, Classical.choice, Quot.sound]
+WidthThree.stripGrowthAtThree : ∃ C β,
+  0 ≤ C ∧
+    0 ≤ β ∧
+      β < 2 * Real.cos (Real.pi / 8) ∧
+        ∀ (n : ℕ) (s : Finset (BridgePath 3)), (∀ p ∈ s, p.vertices.length = n) → ↑s.card ≤ C * β ^ n
+'OAI.PolynomialVacuumBridge.Corridor.WidthThree.stripGrowthAtThree' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+width_three_summability_diagnostic : Summable weight ∧ Summable firstLengthWeight
+'OAI.PolynomialVacuumBridge.Corridor.width_three_summability_diagnostic' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]

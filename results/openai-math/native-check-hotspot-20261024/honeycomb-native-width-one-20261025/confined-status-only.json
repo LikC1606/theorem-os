@@ -1,0 +1,8 @@
+{
+  "taskId": "confined_bridge_sums_all_heights_9dd59d27",
+  "status": "integrated",
+  "proofPassed": true,
+  "integratedPassed": true,
+  "integratedCommit": "fa3012608614475df88d051503ad0cdaaf8f4be6",
+  "note": "State only. Full native confined evidence remains in the prior separate frozen package."
+}

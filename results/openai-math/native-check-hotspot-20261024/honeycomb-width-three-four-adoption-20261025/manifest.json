@@ -1,0 +1,51 @@
+{
+  "schema": "theorem-os.frozen-adoption-manifest.v1",
+  "capturedAt": "2026-10-24T17:26:48.509700+00:00",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 1854,
+      "sha256": "e1a41e88375d2a5ccde35b86ec217a1901ad3b05236ebf90cc3c82fe015b9365"
+    },
+    {
+      "path": "applied-readback.json",
+      "bytes": 6231,
+      "sha256": "f063cb216e75fa2ba7d628434c438dc56ef1a145742b956964b495e4f4839a2c"
+    },
+    {
+      "path": "complete-handoff.md",
+      "bytes": 29665,
+      "sha256": "da23bb52486da205440351962c48799fbdaab032d0c818eee5110c68ef74dcf4"
+    },
+    {
+      "path": "context-availability-readback.json",
+      "bytes": 1955,
+      "sha256": "d3e5e78463e0fa09fdeccda58fe4128bb51fbbbd908afb89c91421722c602b66"
+    },
+    {
+      "path": "preparation.json",
+      "bytes": 138160,
+      "sha256": "f793aa0cbd76acb47d076d502699e8469aa7a5c00ae8b628d208e5757a86fa44"
+    },
+    {
+      "path": "queue-receipt.json",
+      "bytes": 422,
+      "sha256": "1d29e18b7196dd87c4aa9d11221fda12348ea0e8a65e5656ac58b7d34cae93a7"
+    },
+    {
+      "path": "queue-width-three-four.ts",
+      "bytes": 7658,
+      "sha256": "b3519863db4d3d7971f4b21ca01dc7e35b7d1bed72d5bdedb7b1a0bcfd587c55"
+    },
+    {
+      "path": "state-applied.json",
+      "bytes": 1636248,
+      "sha256": "e9dcfb66d54aaabd526215cb85fba1035ff512a9d699fa8bb52df6bd6c6d9963"
+    },
+    {
+      "path": "state-before.json",
+      "bytes": 1600132,
+      "sha256": "eeb91022ee1eeddc53c6d6cb622b36e4852e6f1691e747b1ae50d7cc60cc7e9e"
+    }
+  ]
+}

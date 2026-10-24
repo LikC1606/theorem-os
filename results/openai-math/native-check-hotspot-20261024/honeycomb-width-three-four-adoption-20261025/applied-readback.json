@@ -1,0 +1,157 @@
+{
+  "schema": "theorem-os.checked-proof-adoption-readback.v1",
+  "observedAt": "2026-10-24T17:25:57.514468+00:00",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "phase": "running",
+  "turns": 427,
+  "planVersion": "acd1f46432b0dae6f7cfe750cf020b31ddb9c01191b2482caab95b45ebaef021",
+  "canonicalCommit": "0d4bd1c55e8dff31f375e1d5dbe243c799489133",
+  "edit": {
+    "affectedTasks": [
+      "width_three_summability_e0dd3d96",
+      "width_four_summability_a8462a19"
+    ],
+    "appliedAt": 1792862636729,
+    "baseVersion": "034781097e8334a6949e36ec8fc909e19ed9a5d7cba1e145a43a0eca4085b356",
+    "id": "honeycomb-width-three-four-checked-proofs-20261025",
+    "planVersion": "acd1f46432b0dae6f7cfe750cf020b31ddb9c01191b2482caab95b45ebaef021",
+    "receivedAt": 1792862636675,
+    "recheck": {
+      "status": "pending",
+      "tasks": [
+        {
+          "status": "pending",
+          "taskDigest": "1d25b9fa6b1df2ff60c7e7c3d060e9860a5ad7f2a088c3826cace3c2d22e0c33",
+          "taskId": "width_three_summability_e0dd3d96"
+        },
+        {
+          "status": "pending",
+          "taskDigest": "d917d579b417751f32bb7ec8261b7adea2c79bd36866c4fd0de53ab4962811a4",
+          "taskId": "width_four_summability_a8462a19"
+        }
+      ]
+    },
+    "status": "applied"
+  },
+  "previousTaskCount": 12,
+  "newTaskCount": 14,
+  "allExistingTaskObjectsUnchanged": true,
+  "existingAssignmentCount": 11,
+  "existingAssignmentsUnchanged": {
+    "strip_growth_below_mu": true,
+    "sums_reduction": true,
+    "initial_goal_1": true,
+    "bridge_column_step_unique_a0424391": true,
+    "bridge_full_column_word_injective_a0424391": true,
+    "confined_bridge_sums_all_heights_9dd59d27": true,
+    "width_one_bridge_sums_b433299a": true,
+    "width_two_summability_diagnostic": true,
+    "initial_research_1": true,
+    "initial_research_2": true,
+    "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51": true
+  },
+  "existingProofAndIntegrationRecordsUnchanged": {
+    "sums_reduction": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "initial_goal_1": {
+      "proof": true
+    },
+    "bridge_column_step_unique_a0424391": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "bridge_full_column_word_injective_a0424391": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "confined_bridge_sums_all_heights_9dd59d27": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "width_one_bridge_sums_b433299a": {
+      "proof": true,
+      "integratedCheck": true
+    },
+    "width_two_summability_diagnostic": {
+      "proof": true,
+      "integratedCheck": true
+    }
+  },
+  "groupContractsAndRoutesUnchanged": true,
+  "groupSchedulingCountersMayAdvanceNaturally": true,
+  "newTaskStates": [
+    {
+      "assignment": {
+        "assignmentId": "9fe2b4a4-d0bb-4242-8795-0614ce941ff2",
+        "canonicalCommit": "0d4bd1c55e8dff31f375e1d5dbe243c799489133",
+        "dependencies": [
+          {
+            "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+            "taskId": "sums_reduction"
+          }
+        ],
+        "groupId": "main",
+        "researchBasis": {
+          "dependencies": [
+            {
+              "deliveries": [],
+              "proof": {
+                "conditions": [],
+                "state": "integrated",
+                "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292"
+              },
+              "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+              "taskId": "sums_reduction"
+            }
+          ],
+          "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+          "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+          "retrievalDigest": "f5fa7f00d04e495a9eb0089943ca9e6764e56ca67c96253410933e210be6dfad",
+          "schema": "theorem-os.research-basis.v1",
+          "sourceDigest": "5754ff820e2d15b1bd4c4ed1c9812d280bfb4929dd539e3861bada08c40c87b7",
+          "taskDigest": "1d25b9fa6b1df2ff60c7e7c3d060e9860a5ad7f2a088c3826cace3c2d22e0c33",
+          "taskId": "width_three_summability_e0dd3d96"
+        },
+        "seedCommit": "98dd664bc4bca9049e25693eb0d1482381e2752d",
+        "taskDigest": "1d25b9fa6b1df2ff60c7e7c3d060e9860a5ad7f2a088c3826cace3c2d22e0c33",
+        "taskId": "width_three_summability_e0dd3d96",
+        "workerId": "researcher-2"
+      },
+      "attempts": 1,
+      "parkedRoutes": {},
+      "routeParking": [],
+      "status": "running",
+      "typePreflight": {
+        "artifact": {
+          "digest": "89c24ea8225a51b6a9ea89c36cb10ad0007d5d61f6ae9c3978e71b148f8ee959",
+          "path": ".lake/type-diagnostics/76a25abc-7b1b-46b3-9c77-02ce40536327/manifest.json"
+        },
+        "context": "OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums",
+        "evidence": "advisory-type-elaboration",
+        "inputDigest": "344586ba03726bbb4bfb68bd285722860cc97a6f34326e1c5639b8d060c9715b",
+        "proofAcceptance": "not-assessed",
+        "reason": "closed-type-elaborated",
+        "status": "elaborated",
+        "taskDigest": "1d25b9fa6b1df2ff60c7e7c3d060e9860a5ad7f2a088c3826cace3c2d22e0c33",
+        "type": "Summable OAI.PolynomialVacuumBridge.Corridor.weight ∧ Summable OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight"
+      },
+      "id": "width_three_summability_e0dd3d96",
+      "taskSHA256": "fd840499ca1208d40f16273e13d5e368c61356ca11ed3f824a5d377b543f5e15"
+    },
+    {
+      "attempts": 0,
+      "parkedRoutes": {},
+      "routeParking": [],
+      "status": "pending",
+      "id": "width_four_summability_a8462a19",
+      "taskSHA256": "aff13565b62c313203890684fa1103b9652dc15308dd1c037265c23945464b24"
+    }
+  ],
+  "nativeTaskAcceptanceAddedByQueue": false,
+  "leanInvocations": 0,
+  "directActiveStateOrSourceWrites": false,
+  "stateSHA256": "e9dcfb66d54aaabd526215cb85fba1035ff512a9d699fa8bb52df6bd6c6d9963",
+  "readOnlyCaptureCorrection": "An initial pre-write assertion compared the live group scheduling turn counter as well as its contract. No files were written. The final check compares unchanged group contracts and records natural scheduling progress separately."
+}
