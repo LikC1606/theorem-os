@@ -1,0 +1,20 @@
+{
+  "candidates": [
+    "initial_goal_1"
+  ],
+  "canonicalCommit": "72c3ac48330f6892bbb941350a9612ca15a1ac2f",
+  "checked": [
+    "initial_goal_1"
+  ],
+  "evidence": "advisory-sources-require-recheck",
+  "failed": [],
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "schema": "theorem-os.continuation-seed.v1",
+  "snapshotDigest": "47fac66d72b0747006daec32e3379b7b194c68878c1e2123bbe6e4f88248e8d3",
+  "sourceDigest": "d11d02b697597dcd9f97e453b2fc6645f0d49a67e05afe3be6f9a66431add93b",
+  "sourceRunId": "d7aa37e7-ff26-444e-86ba-f059c024a5fa",
+  "sourceStateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/result.json.runtime/state.json",
+  "sourcesInstalled": true,
+  "stage": "complete",
+  "stateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/state.json"
+}

@@ -1,0 +1,504 @@
+{
+  "schema": "theorem-os.honeycomb-workflow-live-switch.v1",
+  "observedAt": "2026-10-24T06:02:52.228476+00:00",
+  "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+  "buildDigest": "7e2c42e897361d27b0aa6bf216f74ed7ba71aa32987771ade075193bed54c19f",
+  "phase": "running",
+  "turns": 4,
+  "solveStartedAt": 1792821699134,
+  "dispatchCounts": {
+    "planning": 1,
+    "proof": 2,
+    "research": 1
+  },
+  "supervisorPid": 1250004,
+  "solverPid": 1250029,
+  "service": {
+    "MainPID": "1250004",
+    "NRestarts": "0",
+    "ActiveState": "active",
+    "SubState": "running",
+    "InvocationID": "fc10add918a740399376396f0960c466"
+  },
+  "actualCommandMatchesFrozenLaunchAndContinuation": true,
+  "sourceCheckpointSha256Unchanged": true,
+  "frozenTaskEnvironmentEvaluatorAndNonbuildArgumentsUnchanged": true,
+  "continuation": {
+    "candidates": [
+      "initial_goal_1"
+    ],
+    "canonicalCommit": "72c3ac48330f6892bbb941350a9612ca15a1ac2f",
+    "checked": [
+      "initial_goal_1"
+    ],
+    "evidence": "advisory-sources-require-recheck",
+    "failed": [],
+    "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+    "schema": "theorem-os.continuation-seed.v1",
+    "snapshotDigest": "47fac66d72b0747006daec32e3379b7b194c68878c1e2123bbe6e4f88248e8d3",
+    "sourceDigest": "d11d02b697597dcd9f97e453b2fc6645f0d49a67e05afe3be6f9a66431add93b",
+    "sourceRunId": "d7aa37e7-ff26-444e-86ba-f059c024a5fa",
+    "sourceStateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/result.json.runtime/state.json",
+    "sourcesInstalled": true,
+    "stage": "complete",
+    "stateFile": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/state.json"
+  },
+  "workers": [
+    {
+      "id": "solver",
+      "role": "lead",
+      "phase": "running",
+      "turns": 1,
+      "scheduling": {
+        "action": "lead",
+        "since": 1792821719737,
+        "status": "working"
+      },
+      "lastActivity": {
+        "at": 1792821762838,
+        "event": "item_started",
+        "itemType": "reasoning"
+      },
+      "lastFailure": null
+    },
+    {
+      "id": "researcher-1",
+      "role": "researcher",
+      "phase": "running",
+      "turns": 1,
+      "scheduling": {
+        "action": "task",
+        "since": 1792821744329,
+        "status": "working",
+        "taskId": "strip_growth_below_mu"
+      },
+      "lastActivity": {
+        "at": 1792821744461,
+        "event": "item_completed",
+        "itemType": "userMessage"
+      },
+      "lastFailure": null
+    },
+    {
+      "id": "researcher-2",
+      "role": "researcher",
+      "phase": "running",
+      "turns": 1,
+      "scheduling": {
+        "action": "task",
+        "since": 1792821744221,
+        "status": "working",
+        "taskId": "sums_reduction"
+      },
+      "lastActivity": {
+        "at": 1792821744354,
+        "event": "item_completed",
+        "itemType": "userMessage"
+      },
+      "lastFailure": null
+    },
+    {
+      "id": "engineer",
+      "role": "engineer",
+      "phase": "running",
+      "turns": 1,
+      "scheduling": {
+        "action": "task",
+        "since": 1792821719776,
+        "status": "working",
+        "taskId": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51"
+      },
+      "lastActivity": {
+        "at": 1792821751819,
+        "event": "reasoning"
+      },
+      "lastFailure": null
+    }
+  ],
+  "tasks": [
+    {
+      "id": "strip_growth_below_mu",
+      "status": "running",
+      "proofPassed": null,
+      "conditions": []
+    },
+    {
+      "id": "sums_reduction",
+      "status": "running",
+      "proofPassed": null,
+      "conditions": []
+    },
+    {
+      "id": "initial_goal_1",
+      "status": "conditional",
+      "proofPassed": true,
+      "conditions": [
+        {
+          "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+          "taskId": "strip_growth_below_mu"
+        },
+        {
+          "taskDigest": "9dc59a25560dac27093dfb2f02a3aeb453e87ebd4a7945f3082d23436f3a5872",
+          "taskId": "sums_reduction"
+        }
+      ]
+    },
+    {
+      "id": "initial_research_1",
+      "status": "pending",
+      "proofPassed": null,
+      "conditions": []
+    },
+    {
+      "id": "initial_research_2",
+      "status": "pending",
+      "proofPassed": null,
+      "conditions": []
+    },
+    {
+      "id": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+      "status": "running",
+      "proofPassed": null,
+      "conditions": []
+    }
+  ],
+  "events": [
+    {
+      "event": "continuation_seed_installed",
+      "at": 1792821668623,
+      "sourceRunId": "d7aa37e7-ff26-444e-86ba-f059c024a5fa",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "tasks": 6,
+      "candidates": 1,
+      "snapshotDigest": "47fac66d72b0747006daec32e3379b7b194c68878c1e2123bbe6e4f88248e8d3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "continuation_seed_check",
+      "at": 1792821668678,
+      "taskId": "initial_goal_1",
+      "batchSize": 1,
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "continuation_seed_checked",
+      "at": 1792821699109,
+      "taskId": "initial_goal_1",
+      "passed": true,
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "solve_started",
+      "at": 1792821699134,
+      "budgetMs": null,
+      "maxTurnMs": null,
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "task_assigned",
+      "at": 1792821719473,
+      "taskId": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+      "workerId": "engineer",
+      "kind": "research",
+      "taskDigest": "a566ecb30cfa77e4830a011cabf0228e09e2f0fe59b2557cd987ad6dbbac43ba",
+      "assignmentKey": "DELIVERIES-1aad88485579f8514e34a08b4c61033cd490bdb4ead76991f34a12f1ad6f21bd.jsonl",
+      "planVersion": "664d96644b07458f5082103be1859f985cfd7a53769ab5cc13696a4a2cd42872",
+      "groupId": "main",
+      "groupTurns": 0,
+      "seedCommit": "72c3ac48330f6892bbb941350a9612ca15a1ac2f",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "turn_started",
+      "at": 1792821719748,
+      "workerId": "solver",
+      "turnId": "01a16c80-72c2-7b81-b34c-555c780f2353",
+      "threadId": "01a16c80-7298-7280-a86b-1c5e37481395",
+      "turn": 1,
+      "totalTurns": 2,
+      "seedCommit": "9a84d330aba29bffd88ae5e7bf9956f0048e457a",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "turn_started",
+      "at": 1792821719788,
+      "workerId": "engineer",
+      "turnId": "01a16c80-72e7-7672-a07f-6b4e73e854a4",
+      "threadId": "01a16c80-72c4-7d43-b1c5-9892bb0f11c5",
+      "turn": 1,
+      "totalTurns": 2,
+      "taskId": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+      "taskDigest": "a566ecb30cfa77e4830a011cabf0228e09e2f0fe59b2557cd987ad6dbbac43ba",
+      "assignmentKey": "DELIVERIES-1aad88485579f8514e34a08b4c61033cd490bdb4ead76991f34a12f1ad6f21bd.jsonl",
+      "seedCommit": "72c3ac48330f6892bbb941350a9612ca15a1ac2f",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "worker_activity",
+      "at": 1792821719867,
+      "workerId": "solver",
+      "activity": "item_started",
+      "itemType": "userMessage",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "worker_activity",
+      "at": 1792821719873,
+      "workerId": "solver",
+      "activity": "item_completed",
+      "itemType": "userMessage",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "worker_activity",
+      "at": 1792821719901,
+      "workerId": "engineer",
+      "activity": "item_started",
+      "itemType": "userMessage",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "worker_activity",
+      "at": 1792821719905,
+      "workerId": "engineer",
+      "activity": "item_completed",
+      "itemType": "userMessage",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "worker_activity",
+      "at": 1792821721698,
+      "workerId": "engineer",
+      "activity": "item_started",
+      "itemType": "reasoning",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "worker_activity",
+      "at": 1792821726015,
+      "workerId": "solver",
+      "activity": "item_started",
+      "itemType": "reasoning",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "task_assigned",
+      "at": 1792821743968,
+      "taskId": "sums_reduction",
+      "workerId": "researcher-2",
+      "kind": "lemma",
+      "taskDigest": "9dc59a25560dac27093dfb2f02a3aeb453e87ebd4a7945f3082d23436f3a5872",
+      "assignmentKey": "DELIVERIES-7bd162e8305b20cbcc679130dfb8fa3e06f3aef865c81f21f54505e61814cfd1.jsonl",
+      "planVersion": "664d96644b07458f5082103be1859f985cfd7a53769ab5cc13696a4a2cd42872",
+      "groupId": "main",
+      "groupTurns": 1,
+      "seedCommit": "72c3ac48330f6892bbb941350a9612ca15a1ac2f",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "task_assigned",
+      "at": 1792821744085,
+      "taskId": "strip_growth_below_mu",
+      "workerId": "researcher-1",
+      "kind": "lemma",
+      "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+      "assignmentKey": "DELIVERIES-5bfee59a07907c219b38939a227a01329d42cd55975e1f13e662c260d8edfdf7.jsonl",
+      "planVersion": "664d96644b07458f5082103be1859f985cfd7a53769ab5cc13696a4a2cd42872",
+      "groupId": "main",
+      "groupTurns": 1,
+      "seedCommit": "72c3ac48330f6892bbb941350a9612ca15a1ac2f",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "turn_started",
+      "at": 1792821744233,
+      "workerId": "researcher-2",
+      "turnId": "01a16c80-d265-7582-af33-9aabad907e5d",
+      "threadId": "01a16c80-d23c-7842-8981-07b4a910fb5f",
+      "turn": 1,
+      "totalTurns": 4,
+      "taskId": "sums_reduction",
+      "taskDigest": "9dc59a25560dac27093dfb2f02a3aeb453e87ebd4a7945f3082d23436f3a5872",
+      "assignmentKey": "DELIVERIES-7bd162e8305b20cbcc679130dfb8fa3e06f3aef865c81f21f54505e61814cfd1.jsonl",
+      "seedCommit": "72c3ac48330f6892bbb941350a9612ca15a1ac2f",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "turn_started",
+      "at": 1792821744340,
+      "workerId": "researcher-1",
+      "turnId": "01a16c80-d2d1-76f0-8a1e-feb34d5275c8",
+      "threadId": "01a16c80-d2aa-7363-bec5-63ff7a2ec01b",
+      "turn": 1,
+      "totalTurns": 4,
+      "taskId": "strip_growth_below_mu",
+      "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+      "assignmentKey": "DELIVERIES-5bfee59a07907c219b38939a227a01329d42cd55975e1f13e662c260d8edfdf7.jsonl",
+      "seedCommit": "72c3ac48330f6892bbb941350a9612ca15a1ac2f",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "worker_activity",
+      "at": 1792821744349,
+      "workerId": "researcher-2",
+      "activity": "item_started",
+      "itemType": "userMessage",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "worker_activity",
+      "at": 1792821744354,
+      "workerId": "researcher-2",
+      "activity": "item_completed",
+      "itemType": "userMessage",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "worker_activity",
+      "at": 1792821744458,
+      "workerId": "researcher-1",
+      "activity": "item_started",
+      "itemType": "userMessage",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "worker_activity",
+      "at": 1792821744461,
+      "workerId": "researcher-1",
+      "activity": "item_completed",
+      "itemType": "userMessage",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "worker_activity",
+      "at": 1792821751819,
+      "workerId": "engineer",
+      "activity": "reasoning",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "worker_activity",
+      "at": 1792821753353,
+      "workerId": "solver",
+      "activity": "item_completed",
+      "itemType": "reasoning",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "worker_activity",
+      "at": 1792821762349,
+      "workerId": "solver",
+      "activity": "item_started",
+      "itemType": "commandExecution",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "worker_activity",
+      "at": 1792821762352,
+      "workerId": "solver",
+      "activity": "item_completed",
+      "itemType": "commandExecution",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "worker_activity",
+      "at": 1792821762354,
+      "workerId": "solver",
+      "activity": "item_started",
+      "itemType": "commandExecution",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "worker_activity",
+      "at": 1792821762356,
+      "workerId": "solver",
+      "activity": "item_completed",
+      "itemType": "commandExecution",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "worker_activity",
+      "at": 1792821762360,
+      "workerId": "solver",
+      "activity": "item_started",
+      "itemType": "commandExecution",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "worker_activity",
+      "at": 1792821762362,
+      "workerId": "solver",
+      "activity": "item_completed",
+      "itemType": "commandExecution",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    },
+    {
+      "event": "worker_activity",
+      "at": 1792821762838,
+      "workerId": "solver",
+      "activity": "item_started",
+      "itemType": "reasoning",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d"
+    }
+  ],
+  "nativeAcceptanceAdded": 0
+}

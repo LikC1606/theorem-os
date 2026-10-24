@@ -1,0 +1,164 @@
+{
+  "schema": "theorem-os.honeycomb-migration-snapshot.v1",
+  "stage": "after-stop",
+  "at": "2026-10-24T05:59:44.806748+00:00",
+  "runId": "d7aa37e7-ff26-444e-86ba-f059c024a5fa",
+  "phase": "finished",
+  "turns": 114,
+  "workers": [
+    {
+      "id": "solver",
+      "worktree": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/result.json.runtime/worktree",
+      "head": "c2456bd9ca62b2f9a6d068f9ccc019fb66bd8618",
+      "phase": "finished",
+      "turns": 26,
+      "owned": [
+        {
+          "path": "Submission.lean",
+          "sha256": "6acaeab1940555d1df29856e504deae4f9edf7777231969b9b7d13515731d830",
+          "bytes": 2367
+        }
+      ],
+      "researchBytes": 10217
+    },
+    {
+      "id": "researcher-1",
+      "worktree": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/result.json.runtime/worktree-2",
+      "head": "324a4536fdc477451f41ec4b516cc6dd650f48ed",
+      "phase": "finished",
+      "turns": 16,
+      "owned": [
+        {
+          "path": "Submission.lean",
+          "sha256": "6acaeab1940555d1df29856e504deae4f9edf7777231969b9b7d13515731d830",
+          "bytes": 2367
+        }
+      ],
+      "researchBytes": 9064
+    },
+    {
+      "id": "researcher-2",
+      "worktree": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/result.json.runtime/worktree-3",
+      "head": "91e0fb7fa368168bf66d1f91c15f67b3e2ed5e7c",
+      "phase": "finished",
+      "turns": 30,
+      "owned": [
+        {
+          "path": "Submission.lean",
+          "sha256": "6acaeab1940555d1df29856e504deae4f9edf7777231969b9b7d13515731d830",
+          "bytes": 2367
+        }
+      ],
+      "researchBytes": 57845
+    },
+    {
+      "id": "engineer",
+      "worktree": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/result.json.runtime/worktree-4",
+      "head": "e37130df48636a1c88d9bd855a65a73e53ad5aaa",
+      "phase": "finished",
+      "turns": 42,
+      "owned": [
+        {
+          "path": "Submission.lean",
+          "sha256": "6acaeab1940555d1df29856e504deae4f9edf7777231969b9b7d13515731d830",
+          "bytes": 2367
+        }
+      ],
+      "researchBytes": 30816
+    }
+  ],
+  "saved": [
+    {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/campaign-state.json",
+      "snapshot": "after-stop/campaign-state.json",
+      "sha256": "94a3541aad612c637ff424b83b7ba5d1a3576e66038e7920799cf877443d5359",
+      "bytes": 133710
+    },
+    {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/campaign.py",
+      "snapshot": "after-stop/campaign.py",
+      "sha256": "f58eb20cc318832af7eee1a52694f73812e6d2ed14905b3c59c388d156d6f386",
+      "bytes": 28496
+    },
+    {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/test_campaign.py",
+      "snapshot": "after-stop/test_campaign.py",
+      "sha256": "85dcb61c42cf57b1be780f90a71067ab9a2bf5cc54577db37592a90567737447",
+      "bytes": 47867
+    },
+    {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/build.json",
+      "snapshot": "after-stop/build.json",
+      "sha256": "187ae10357917b450252160bccd888837de3b08cdbcea5ed60f5a0c23735bba6",
+      "bytes": 321
+    },
+    {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/task.md",
+      "snapshot": "after-stop/tasks/HoneycombBridgeFiniteness/task.md",
+      "sha256": "2865c6e8f42bfb4baba7abb9b180d522ec7fba0c93930546a2e95e15f3c03495",
+      "bytes": 1030
+    },
+    {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/launch.json",
+      "snapshot": "after-stop/tasks/HoneycombBridgeFiniteness/launch.json",
+      "sha256": "b883b1e5c75118096f3790756604329c07ff26c1380bc7fa92a5531fea506b6b",
+      "bytes": 3859
+    },
+    {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/provenance.json",
+      "snapshot": "after-stop/tasks/HoneycombBridgeFiniteness/provenance.json",
+      "sha256": "8f2a2399982ba100426693e47b5e778980f33dcb222211f31bbd452e2991c85d",
+      "bytes": 1569
+    },
+    {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/result.json",
+      "snapshot": "after-stop/tasks/HoneycombBridgeFiniteness/result.json",
+      "sha256": "652d4be9bcdcb156168896330bffd443d6437e31a2f1a95d15fd9ae78840f12a",
+      "bytes": 1777
+    },
+    {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/stop-intent.json",
+      "snapshot": "after-stop/tasks/HoneycombBridgeFiniteness/stop-intent.json",
+      "sha256": "f9dc40a1b6fcf18be4f7b50f42270555332083aab4dde331098028cae2fad433",
+      "bytes": 321
+    },
+    {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/workspace/active-problem.json",
+      "snapshot": "after-stop/tasks/HoneycombBridgeFiniteness/workspace/active-problem.json",
+      "sha256": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+      "bytes": 7019
+    },
+    {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/result.json.runtime/state.json",
+      "snapshot": "after-stop/tasks/HoneycombBridgeFiniteness/result.json.runtime/state.json",
+      "sha256": "ab589698c9817b866d1cbb3d40032e9345c9f09aeb133eef8164fd19887b9e3b",
+      "bytes": 398024
+    },
+    {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/result.json.runtime/environment-researcher-2.json",
+      "snapshot": "after-stop/tasks/HoneycombBridgeFiniteness/result.json.runtime/environment-researcher-2.json",
+      "sha256": "65cc4d6235c313a7409d4f81d4b1a1267384b7953b6660ea2f440796fdfdc5fe",
+      "bytes": 2225
+    },
+    {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/result.json.runtime/environment-researcher-1.json",
+      "snapshot": "after-stop/tasks/HoneycombBridgeFiniteness/result.json.runtime/environment-researcher-1.json",
+      "sha256": "7ea1f09e9518a47b90649d77e0fda66571c822f03d989d10fa526a4c1c129ff1",
+      "bytes": 2225
+    },
+    {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/result.json.runtime/environment-engineer.json",
+      "snapshot": "after-stop/tasks/HoneycombBridgeFiniteness/result.json.runtime/environment-engineer.json",
+      "sha256": "ea9e981d098eef56ada1720a520d3d3992676d58ea4a8d4191ebce7357f94476",
+      "bytes": 2221
+    },
+    {
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/result.json.runtime/environment-solver.json",
+      "snapshot": "after-stop/tasks/HoneycombBridgeFiniteness/result.json.runtime/environment-solver.json",
+      "sha256": "dff26577f6f11ac8af78f4f1344c84f190432c7c7061e75d3980a1a9212040f1",
+      "bytes": 2217
+    }
+  ],
+  "mathEnvSha256": "13760db05f02a828ef76c321ffb233e1bba762c73c0c21f1991a848e1e78cc0e",
+  "originalRepositoryRetained": true
+}

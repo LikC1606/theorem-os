@@ -1,0 +1,10 @@
+{
+  "schema": "theorem-os.campaign-attempt-runtime.v1",
+  "target": "HoneycombBridgeFiniteness",
+  "sourceRunId": "d7aa37e7-ff26-444e-86ba-f059c024a5fa",
+  "sourceState": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/result.json.runtime/state.json",
+  "binary": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/honeycomb-new-build-continuation-20261024/runtime/out/main/math-solver.js",
+  "binarySha256": "34540aad6642ce57a72b75b674626bb95dc192bd364c6911e9d1bf8104f40961",
+  "buildManifestRef": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/honeycomb-new-build-continuation-20261024/build-state/builds/fa645e84-e9c8-4308-bf49-b06cebf108f8/manifest.json",
+  "buildManifestSha256": "7e2c42e897361d27b0aa6bf216f74ed7ba71aa32987771ade075193bed54c19f"
+}

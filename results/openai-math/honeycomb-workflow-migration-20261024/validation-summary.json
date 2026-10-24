@@ -1,0 +1,15 @@
+{
+  "at": "2026-10-24T05:58:10.638239+00:00",
+  "typecheckExitCode": 0,
+  "testsPassed": 277,
+  "testsFailed": 0,
+  "suitesPassed": 17,
+  "testsSuccess": true,
+  "buildId": "fa645e84-e9c8-4308-bf49-b06cebf108f8",
+  "manifestSha256": "7e2c42e897361d27b0aa6bf216f74ed7ba71aa32987771ade075193bed54c19f",
+  "sourceInputsAndBundlesMatch": true,
+  "baselineReleaseTestsPassed": 2085,
+  "policyDigest": "3564b0e325680cb7fd054a88fcd3ae39067026458ff9f992a74ae33105fe1943",
+  "policyUnchanged": true,
+  "memoryAddressSpaceGiB": 32
+}

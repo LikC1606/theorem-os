@@ -1,0 +1,12 @@
+{
+  "verifiedAt": "2026-10-24T05:17:04.445381+00:00",
+  "testsPassed": 2085,
+  "crossRegressionFiles": 77,
+  "crossRegressionPassed": 1641,
+  "solverPassed": 444,
+  "typecheck": 0,
+  "buildId": "1f46a972-36e3-4189-b3c4-46c32cef79c2",
+  "buildInputsMatch": true,
+  "preflightExitCode": 0,
+  "integrationBase": "ca272328c32540b76cc85e57a3fb24922fa39b37"
+}

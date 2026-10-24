@@ -1,0 +1,75 @@
+{
+  "at": "2026-10-24T05:59:15.650150+00:00",
+  "service": "theoremos-openai-math-d-to-s.service",
+  "properties": {
+    "MainPID": "3776380",
+    "NRestarts": "0",
+    "ControlGroup": "/user.slice/user-1001.slice/user@1001.service/app.slice/theoremos-openai-math-d-to-s.service",
+    "ActiveState": "active",
+    "InvocationID": "85b45a547723410e9189e1861420a3fb"
+  },
+  "processes": [
+    {
+      "pid": 3776380,
+      "starttime": "116043175",
+      "exe": "/usr/bin/python3.12"
+    },
+    {
+      "pid": 1016370,
+      "starttime": "116471510",
+      "exe": "/home/lzh/.venvs/deepscientist-finance/.bun/bin/bun"
+    },
+    {
+      "pid": 1016527,
+      "starttime": "116471721",
+      "exe": "/usr/bin/python3.12"
+    },
+    {
+      "pid": 1016765,
+      "starttime": "116471899",
+      "exe": "/home/lzh/.local/share/theorem-os/runtime-tools/bin/squashfuse"
+    },
+    {
+      "pid": 746156,
+      "starttime": "120866388",
+      "exe": "/home/lzh/.local/node-v24.20.0/bin/node"
+    },
+    {
+      "pid": 746163,
+      "starttime": "120866390",
+      "exe": "/home/lzh/.local/node-v24.20.0/lib/node_modules/@openai/.codex-ZSwJZECS/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex (deleted)"
+    },
+    {
+      "pid": 747318,
+      "starttime": "120867383",
+      "exe": "/home/lzh/.local/node-v24.20.0/bin/node"
+    },
+    {
+      "pid": 747325,
+      "starttime": "120867385",
+      "exe": "/home/lzh/.local/node-v24.20.0/lib/node_modules/@openai/.codex-ZSwJZECS/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex (deleted)"
+    },
+    {
+      "pid": 125273,
+      "starttime": "128334907",
+      "exe": "/home/lzh/.local/node-v24.20.0/bin/node"
+    },
+    {
+      "pid": 125286,
+      "starttime": "128334909",
+      "exe": "/home/lzh/.local/node-v24.20.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex"
+    },
+    {
+      "pid": 782546,
+      "starttime": "128476258",
+      "exe": "/home/lzh/.local/node-v24.20.0/bin/node"
+    },
+    {
+      "pid": 782553,
+      "starttime": "128476260",
+      "exe": "/home/lzh/.local/node-v24.20.0/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex"
+    }
+  ],
+  "oldSolverPid": 1016370,
+  "oldSupervisorPid": 3776380
+}

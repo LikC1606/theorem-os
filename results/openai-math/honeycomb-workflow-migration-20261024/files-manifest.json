@@ -1,0 +1,96 @@
+{
+  "schema": "theorem-os.result-files.v1",
+  "createdAt": "2026-10-24T06:04:15.216584+00:00",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 2266,
+      "sha256": "4dea4d1c264f0dc5197512dab60de5da66c2aa91d31c0c97be9541a3e0d2e5c8"
+    },
+    {
+      "path": "adapter-tests.json",
+      "bytes": 109059,
+      "sha256": "aaa5ec812733e5a84abe26aecf6f946a964448be91214f913355486c8d9f5d09"
+    },
+    {
+      "path": "baseline-release-validation.json",
+      "bytes": 354,
+      "sha256": "92993f88047eb1a37da4cd61eec4fff68369ed91bdda654f23316f60ab65154b"
+    },
+    {
+      "path": "build-manifest.json",
+      "bytes": 52926,
+      "sha256": "7e2c42e897361d27b0aa6bf216f74ed7ba71aa32987771ade075193bed54c19f"
+    },
+    {
+      "path": "build.json",
+      "bytes": 506,
+      "sha256": "0f97e393bb74a88f5f9ac23e40add35eb38f8638a39297907f0be98a5c0d3663"
+    },
+    {
+      "path": "campaign-adapter-validation.json",
+      "bytes": 511,
+      "sha256": "8e409b404ee55d1433da20dcfd251ab77aaa01b3badf4cae901c1d555eb9c1f6"
+    },
+    {
+      "path": "continuation-seed.json",
+      "bytes": 902,
+      "sha256": "6b6159d26b26b4b625fc2a85d60f5bdc9edbf75087182d21ce513f196958ccdc"
+    },
+    {
+      "path": "launch.json",
+      "bytes": 4845,
+      "sha256": "11160ddd96cb3c4eaa4b92a9a0d15083cf73da3fd2a2a2066df383b26043ee15"
+    },
+    {
+      "path": "live-switch.json",
+      "bytes": 19665,
+      "sha256": "65026aedf8ffd8b7607ee421a53538aa4d535cdecd3da80a6ec78c73d626c0f4"
+    },
+    {
+      "path": "migration.json",
+      "bytes": 2007,
+      "sha256": "5484995a05cdbf47d1980eadd7808e653e5830a54b9aae30a9840096bfb0df9a"
+    },
+    {
+      "path": "old-service-after-stop.json",
+      "bytes": 292,
+      "sha256": "fc12d4f1f0a928a9ef752f8ad3c6579044e3c41c4fa610f1f340f754d73be00b"
+    },
+    {
+      "path": "old-service-before-stop.json",
+      "bytes": 2349,
+      "sha256": "e2c3c3d48de1ece3a3736cf607a78d6c220584a38e37c4c0e71a67f7a9316b79"
+    },
+    {
+      "path": "preflight.json",
+      "bytes": 3923,
+      "sha256": "0105ea6c1340071f8072987294bf309f51b139007ce33bb47c7e7a9469a5cd86"
+    },
+    {
+      "path": "preflight.log",
+      "bytes": 3763,
+      "sha256": "a315e584491333c032f54758c0d42b3a495e89480a49651166b4a066f17099bd"
+    },
+    {
+      "path": "runtime.json",
+      "bytes": 827,
+      "sha256": "73b9befb990ad42165e745e5f47917af58ecbccc5cf98ceb37b2d0add6c2bedb"
+    },
+    {
+      "path": "source-preservation.json",
+      "bytes": 7186,
+      "sha256": "31600c9b0253a109eb1e150fde85f3e56970df7767866eedd79af467e2a1f0b5"
+    },
+    {
+      "path": "typecheck.json",
+      "bytes": 340,
+      "sha256": "92255480775719ffddae1b6d8ce566f68bdf60d8d7daa1ae521f9935d7a53ce3"
+    },
+    {
+      "path": "validation-summary.json",
+      "bytes": 523,
+      "sha256": "4b4650a18986d238c5f4f4735c50a71535b5dc0e70724e4b9dc00bb26450fa52"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "command": [
+    "/usr/bin/python3",
+    "-B",
+    "-m",
+    "unittest",
+    "test_campaign",
+    "-v"
+  ],
+  "cwd": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022",
+  "testsPassed": 31,
+  "testsFailed": 0,
+  "exitCode": 0,
+  "durationSeconds": 0.458,
+  "reportedBy": "independent_verification agent",
+  "files": {
+    "campaign.py": "f58eb20cc318832af7eee1a52694f73812e6d2ed14905b3c59c388d156d6f386",
+    "test_campaign.py": "8e849213995da4c2008d19b36b2d3ad204a22da83ee804ba6b5ea84198a75ce4"
+  }
+}
