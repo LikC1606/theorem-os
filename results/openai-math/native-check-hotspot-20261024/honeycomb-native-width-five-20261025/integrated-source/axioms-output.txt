@@ -1,0 +1,5 @@
+DEEPSCIENTIST_AXIOMS_BEGIN_4bcd742e292e30f9
+'OAI.PolynomialVacuumBridge.Corridor.width_five_summability_diagnostic' depends on axioms: [propext,
+ Classical.choice,
+ Quot.sound]
+DEEPSCIENTIST_AXIOMS_END_4bcd742e292e30f9

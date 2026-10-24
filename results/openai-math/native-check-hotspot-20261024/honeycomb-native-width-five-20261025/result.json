@@ -1,0 +1,52 @@
+{
+  "schema": "honeycomb-native-width-five.v1",
+  "frozenAt": "2026-10-24T18:57:03.126290+00:00",
+  "status": "native-task-integrated",
+  "taskId": "width_five_summability_ba0a1c09",
+  "theoremName": "OAI.PolynomialVacuumBridge.Corridor.width_five_summability_diagnostic",
+  "type": "Summable (OAI.PolynomialVacuumBridge.Corridor.weight (h := 5)) ∧ Summable (OAI.PolynomialVacuumBridge.Corridor.firstLengthWeight (h := 5))",
+  "scope": "Only width 5 full BridgePath weight and firstLengthWeight summability.",
+  "nativeProofPassed": true,
+  "nativeIntegratedCheckPassed": true,
+  "canonicalCommit": "5d2165a5ca78f10d630ae578127b9396f6c2ac33",
+  "proofCommit": "1482b21571128ae53f208612c3114469e1c35204",
+  "conditions": [],
+  "axioms": [
+    "propext",
+    "Classical.choice",
+    "Quot.sound"
+  ],
+  "sorryCount": 0,
+  "admitCount": 0,
+  "goalsRemaining": 0,
+  "proofDurationMs": 92107,
+  "integratedCheckDurationMs": 91932,
+  "referenceCoverage": {
+    "taskRecordReferencesPresent": false,
+    "resultDeclarationReferencesPresent": false,
+    "stdoutReferenceMarkerIsNull": true,
+    "rootReferenceSHACrosscheckPerformed": false
+  },
+  "originalGoal": {
+    "taskId": "initial_goal_1",
+    "status": "conditional",
+    "conditions": [
+      {
+        "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+        "taskId": "strip_growth_below_mu"
+      },
+      {
+        "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+        "taskId": "sums_reduction"
+      }
+    ]
+  },
+  "originalTheoremAccepted": false,
+  "openAIHostedCertification": false,
+  "activeChainChangedByArchive": false,
+  "leanRerun": false,
+  "queueEdited": false,
+  "gitMutation": false,
+  "previousPackagesModified": false,
+  "topLevelResultsReadmeOrManifestChanged": false
+}

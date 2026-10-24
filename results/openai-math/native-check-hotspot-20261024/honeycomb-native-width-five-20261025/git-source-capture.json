@@ -1,0 +1,54 @@
+[
+  {
+    "command": [
+      "git",
+      "-C",
+      "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree",
+      "show",
+      "1482b21571128ae53f208612c3114469e1c35204:generated/problem/Submission.lean"
+    ],
+    "exitCode": 0,
+    "stdoutBytes": 131215,
+    "stdoutSHA256": "2c962fe26b505e7cb97b84380f855960f831ea867197015469b693526642eb86",
+    "stderrBytes": 0
+  },
+  {
+    "command": [
+      "git",
+      "-C",
+      "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree",
+      "show",
+      "5d2165a5ca78f10d630ae578127b9396f6c2ac33:generated/problem/Submission.lean"
+    ],
+    "exitCode": 0,
+    "stdoutBytes": 131134,
+    "stdoutSHA256": "2b75a39f22e09158714b9aa732347fd26ecc2124326ceb7f4d2c61f893034608",
+    "stderrBytes": 0
+  },
+  {
+    "command": [
+      "git",
+      "-C",
+      "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree",
+      "show",
+      "5d2165a5ca78f10d630ae578127b9396f6c2ac33:generated/problem/lean-toolchain"
+    ],
+    "exitCode": 0,
+    "stdoutBytes": 25,
+    "stdoutSHA256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b",
+    "stderrBytes": 0
+  },
+  {
+    "command": [
+      "git",
+      "-C",
+      "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree",
+      "show",
+      "5d2165a5ca78f10d630ae578127b9396f6c2ac33:generated/problem/lake-manifest.json"
+    ],
+    "exitCode": 0,
+    "stdoutBytes": 3571,
+    "stdoutSHA256": "56b918a082b3903ef9071b7a550747f47221eceaece153c346310cfe38408829",
+    "stderrBytes": 0
+  }
+]

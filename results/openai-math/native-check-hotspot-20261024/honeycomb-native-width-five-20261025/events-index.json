@@ -1,0 +1,96 @@
+[
+  {
+    "line": 33318,
+    "byteOffset": 8862668,
+    "lineBytes": 694,
+    "rawLineSHA256": "bda1ce9d5f4846938d79177a28680899d7b0e7f83454610f7e54a0f130f78e19",
+    "at": 1792864492404,
+    "event": "delivery_published",
+    "commit": "e4f76e7427501ebed11a4daa3a6be5f186b5e286",
+    "receiptIds": []
+  },
+  {
+    "line": 33461,
+    "byteOffset": 8916263,
+    "lineBytes": 536,
+    "rawLineSHA256": "dc695fda38ad98443b30892df0864b9f5df27aa1d60b41e0e2377afd566ea575",
+    "at": 1792864679859,
+    "event": "delivery_published",
+    "commit": null,
+    "receiptIds": []
+  },
+  {
+    "line": 34249,
+    "byteOffset": 9212990,
+    "lineBytes": 694,
+    "rawLineSHA256": "0963fd9efcfe63604ce556f3c4ed9e35db3fde95438deab9c61e1e6c9278d20c",
+    "at": 1792865958174,
+    "event": "delivery_published",
+    "commit": "262b16cfd1089ff311e6344b263c5081490cb692",
+    "receiptIds": []
+  },
+  {
+    "line": 34486,
+    "byteOffset": 9300198,
+    "lineBytes": 694,
+    "rawLineSHA256": "507e9df2f7c8770f828bc5b97840ba54cd0a5b93ed36ade4d9bd2f1125b0d368",
+    "at": 1792866207720,
+    "event": "delivery_published",
+    "commit": "64bcd3dd1e1128309b409f86cb97bf40a19d207c",
+    "receiptIds": []
+  },
+  {
+    "line": 34770,
+    "byteOffset": 9406869,
+    "lineBytes": 694,
+    "rawLineSHA256": "92d66eee53e9297c25028fd3cbbf94473c95a2655de00ae5b72145824998f8fb",
+    "at": 1792866730079,
+    "event": "delivery_published",
+    "commit": "8bde00965f9ccefcec1c6bea58317276004f1135",
+    "receiptIds": []
+  },
+  {
+    "line": 35060,
+    "byteOffset": 9514937,
+    "lineBytes": 694,
+    "rawLineSHA256": "9ce6a7b834cbd9ab3371d500f75033cee36939475176fc36882716cc3ce96047",
+    "at": 1792867169907,
+    "event": "delivery_published",
+    "commit": "905bed2df642bbccaa1a19e449db91894e1a0f7a",
+    "receiptIds": []
+  },
+  {
+    "line": 35726,
+    "byteOffset": 9776032,
+    "lineBytes": 397,
+    "rawLineSHA256": "75af2bae7d4be4702776387edb096175cf7516812377338b962b160378bafe9a",
+    "at": 1792868069967,
+    "event": "task_checked",
+    "commit": "1482b21571128ae53f208612c3114469e1c35204",
+    "receiptIds": []
+  },
+  {
+    "line": 35752,
+    "byteOffset": 9786724,
+    "lineBytes": 794,
+    "rawLineSHA256": "84d5a58b97406c3cfed44708dfc2b4108f259cc79012110906059e2b1b91ab92",
+    "at": 1792868164488,
+    "event": "task_integrated",
+    "commit": "5d2165a5ca78f10d630ae578127b9396f6c2ac33",
+    "receiptIds": [
+      "lean-006d971ade008f7c8714d28e"
+    ]
+  },
+  {
+    "line": 35754,
+    "byteOffset": 9788346,
+    "lineBytes": 817,
+    "rawLineSHA256": "adadb0d9e706ff9dbecb38f8d7ac8d2c47eef0b03b26c45e5d36911e60742d89",
+    "at": 1792868164681,
+    "event": "delivery_published",
+    "commit": "1482b21571128ae53f208612c3114469e1c35204",
+    "receiptIds": [
+      "lean-0d91b0f6ab266dd3c6c2e409"
+    ]
+  }
+]
