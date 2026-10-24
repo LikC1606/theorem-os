@@ -1,9 +1,16 @@
 {
-  "phase": "waiting_for_startup",
+  "phase": "native_running",
   "startedAt": "2026-10-24T07:33:33.794925+00:00",
   "nativeAccepted": false,
-  "sourceQueued": false,
+  "sourceQueued": true,
   "timeLimitSeconds": 0,
-  "observedAt": "2026-10-24T07:33:33.795184+00:00",
-  "sourceSHA256": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3"
+  "observedAt": "2026-10-24T08:18:54.562802+00:00",
+  "sourceSHA256": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3",
+  "resumeSupervisorPid": 2305617,
+  "runId": "1f3bb9c1-c99f-4fad-b656-8010a82c265b",
+  "queueResult": {
+    "id": "character-sync-def-5c0cbc35bd63",
+    "status": "queued",
+    "baseVersion": "b8cce95f94bb3842447a35cad31d68789df636e11353ab4a75179d86761d804c"
+  }
 }

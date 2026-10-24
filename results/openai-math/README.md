@@ -10,7 +10,7 @@
 | [Cartier 图域回缩的紧致性](cartier_chart_compactness_support/README.md) | C | 066-02 | Lean、隔离原比较器、新受保护环境原生 evaluated_passed | 尚无确认 |
 | [Snaky 616 行证书](snaky_certificate/README.md) | C | 187-01 | 原目标、集成、全目标、固定复审和原比较器全部通过；原生 evaluated_passed | 尚无确认 |
 
-归档 7 个完整原题证明：5 个原生最终通过，SnakyCertificate 于北京时间 2026-10-24 06:15 完成原生最终验收。SnakyConditional V8 已通过原生原目标内核检查，正在集成验收。CharacterVarieties 的加速版完整单文件在 635.03 秒内编译成功，公理审计和独立原比较器检查均通过，已启动独立原生验收入口；旧检查仍保留。这两题仍待原生最终验收（Cartier 与 SnakyCertificate 为独立补跑；主 campaign 保留历史状态）。保留源码、固定依赖、身份、SHA 和归因；不计入根目录 6 个 LeanEval 官方记录。新增证明含外部辅助，归因见各成果包。
+归档 7 个完整原题证明：5 个原生最终通过，SnakyCertificate 于北京时间 2026-10-24 06:15 完成原生最终验收。SnakyConditional V8 已通过原生原目标内核检查，正在集成验收。CharacterVarieties 的加速版完整单文件在 635.03 秒内编译成功，公理审计和独立原比较器检查均通过，已正常递送至独立原生宿主检查；旧检查仍保留。这两题仍待原生最终验收（Cartier 与 SnakyCertificate 为独立补跑；主 campaign 保留历史状态）。保留源码、固定依赖、身份、SHA 和归因；不计入根目录 6 个 LeanEval 官方记录。新增证明含外部辅助，归因见各成果包。
 
 ## 新增完整内核证明
 

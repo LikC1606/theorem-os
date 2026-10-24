@@ -1,0 +1,50 @@
+[
+  {
+    "workerId": "researcher-1",
+    "livePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-2/generated/problem/Submission.lean",
+    "bytes": 2367,
+    "sha256": "6acaeab1940555d1df29856e504deae4f9edf7777231969b9b7d13515731d830",
+    "lastModifiedUTC": "2026-10-24T06:01:59.313534+00:00",
+    "HEAD": "72c3ac48330f6892bbb941350a9612ca15a1ac2f",
+    "canonicalCommit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+    "canonicalFileSHA256": "1274ab0b8f9c01548559d48d055fc92a20ebf2433f643bd8ad90a313b304b674",
+    "equalsCanonicalFile": false,
+    "hasReductionDeclaration": false,
+    "hasGrowthDeclaration": false,
+    "sorryTokenLocations": [
+      61
+    ]
+  },
+  {
+    "workerId": "researcher-2",
+    "livePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-3/generated/problem/Submission.lean",
+    "bytes": 2367,
+    "sha256": "6acaeab1940555d1df29856e504deae4f9edf7777231969b9b7d13515731d830",
+    "lastModifiedUTC": "2026-10-24T06:49:24.381067+00:00",
+    "HEAD": "c1aee81e25940fdbe0ebfdc97840090df2ad6cdb",
+    "canonicalCommit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+    "canonicalFileSHA256": "1274ab0b8f9c01548559d48d055fc92a20ebf2433f643bd8ad90a313b304b674",
+    "equalsCanonicalFile": false,
+    "hasReductionDeclaration": false,
+    "hasGrowthDeclaration": false,
+    "sorryTokenLocations": [
+      61
+    ]
+  },
+  {
+    "workerId": "engineer",
+    "livePath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-4/generated/problem/Submission.lean",
+    "bytes": 8797,
+    "sha256": "1274ab0b8f9c01548559d48d055fc92a20ebf2433f643bd8ad90a313b304b674",
+    "lastModifiedUTC": "2026-10-24T08:07:25.641853+00:00",
+    "HEAD": "950eaafbb5a06536f484dd47659d07d5fb36dafe",
+    "canonicalCommit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+    "canonicalFileSHA256": "1274ab0b8f9c01548559d48d055fc92a20ebf2433f643bd8ad90a313b304b674",
+    "equalsCanonicalFile": true,
+    "hasReductionDeclaration": true,
+    "hasGrowthDeclaration": false,
+    "sorryTokenLocations": [
+      179
+    ]
+  }
+]

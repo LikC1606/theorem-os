@@ -1,0 +1,359 @@
+{
+  "schema": "theorem-os.character-v2-delivery-observation.v1",
+  "observedAt": "2026-10-24T08:27:30.796743+00:00",
+  "runId": "1f3bb9c1-c99f-4fad-b656-8010a82c265b",
+  "nativePid": 2305626,
+  "scope": "Bounded read-only observation of visible tool calls/outputs, visible final response, native events, source byte hashes and process metadata. Model reasoning content was excluded.",
+  "conclusion": "The candidate loaded exactly once and matches the verified V2. The explicit JSONL entry was rejected for kind=delivery, but the engineer subsequently completed its normal model turn. The frozen host then committed the sources and entered its ordinary task-proof check. Verification and native acceptance remain pending.",
+  "stateSnapshot": {
+    "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/native-sync-def-attempt/native-followup/result.json.runtime/state.json",
+    "sha256": "e89521093e038f6c289d7ca7c1f67fa25e53e4e1289bc6dd52a41ffce41580aa",
+    "phase": "checking",
+    "engineer": {
+      "id": "engineer",
+      "phase": "checking",
+      "turns": 1,
+      "threadId": "01a16cfd-cd1e-7952-bb88-c8971b018b04",
+      "sessionTaskId": "character_original_goal",
+      "sessionAssignmentId": "4d86f8b9-527c-4ff0-af9e-1a9a2adc3177",
+      "sessionTaskVersion": "0a7945b3864e77f995020b9e39dee6639011fcd0fcc2da7cf7d136bae5f8cacf",
+      "candidate": {
+        "operation": "direct",
+        "problemReceiptDigest": "24511f4ac2a724d51aa26cef2ee284160a6915429c94360442692a62e0c9ca0b",
+        "provenance": {
+          "threadId": "01a16cfd-cd1e-7952-bb88-c8971b018b04",
+          "workerId": "engineer"
+        },
+        "status": "completed",
+        "worktree": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/native-sync-def-attempt/native-followup/result.json.runtime/worktree-4"
+      }
+    },
+    "taskStatus": "running",
+    "taskAttempts": 1,
+    "savedTaskProof": null,
+    "savedIntegratedCheck": null
+  },
+  "visibleSessionEvidence": {
+    "file": "/home/lzh/.config/deepscientist/math-sol-codex/runtime/sessions/2026/10/24/rollout-2026-10-24T16-18-54-01a16cfd-cd1e-7952-bb88-c8971b018b04.jsonl",
+    "sha256": "4be8ebf3419feb214c58f72da909f4ad51c6655845ce9aecba389db21bc23e4d",
+    "loaderCallCount": 1,
+    "loaderCalls": [
+      {
+        "line": 62,
+        "timestamp": "2026-10-24T08:21:22.587Z",
+        "callId": "chatcmpl-tool-a1ac0b32fa9f3f8b",
+        "name": "exec_command",
+        "command": "/usr/bin/python3 - <<'THEOREM_OS_REFERENCE'\nfrom pathlib import Path\nimport base64, lzma, hashlib, json\nlive = json.loads(Path('COOPERATION.json').read_text())\npeers = [peer for peer in live[\"peers\"] if peer[\"id\"] == \"character_original_goal\"]\nassert len(peers) == 1\npeer = peers[0]\nobjective = peer[\"objective\"]\nassert hashlib.sha256(objective.encode()).hexdigest() == peer[\"objectiveDigest\"]\nbegin, end = \"\\nCHARACTER_REFERENCE_PAYLOAD_BEGIN\\n\", \"\\nCHARACTER_REFERENCE_PAYLOAD_END\"\nassert objective.count(begin) == 1 and objective.count(end) == 1\nencoded = objective.split(begin, 1)[1].split(end, 1)[0]\ncompressed = base64.b64decode(encoded, validate=True)\nassert hashlib.sha256(compressed).hexdigest() == \"b7e19ac1e0d33da22c004cd083c7a2e93fc7b3ee2888e0dcc6595f4adc2e77e1\"\ncandidate = lzma.decompress(compressed)\nassert len(candidate) == 795645\nassert hashlib.sha256(candidate).hexdigest() == \"5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3\"\ndestination = Path(\"generated/problem/Submission.lean\")\nassert destination.is_file() and not destination.is_symlink()\ndestination.write_bytes(candidate)\nprint(hashlib.sha256(destination.read_bytes()).hexdigest(), len(candidate))\nTHEOREM_OS_REFERENCE",
+        "workdir": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/native-sync-def-attempt/native-followup/result.json.runtime/worktree-4"
+      }
+    ],
+    "loaderOutputs": [
+      {
+        "line": 65,
+        "timestamp": "2026-10-24T08:21:22.786Z",
+        "callId": "chatcmpl-tool-a1ac0b32fa9f3f8b",
+        "output": "Chunk ID: b4bb75\nWall time: 0.0000 seconds\nProcess exited with code 0\nOriginal token count: 18\nOutput:\n5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3 795645\n"
+      }
+    ],
+    "finalResponse": {
+      "line": 129,
+      "timestamp": "2026-10-24T08:22:44.065Z",
+      "text": "Delivered.\n\n**What was done**\n- Located the host-injected, externally assisted reference payload in `COOPERATION.json` for peer `character_original_goal`.\n- Executed the supplied loader **exactly once**. Its guards passed:\n  - objective digest matched\n  - compressed SHA-256: `b7e19ac1…c2e77e1`\n  - decompressed length: `795645`\n  - decompressed/saved SHA-256: `5c0cbc35…0396d3`\n- Wrote the complete proof to `generated/problem/Submission.lean` (3,069 lines) and confirmed the printed digest with an independent `sha256sum`.\n\n**Preservation / static guards**\n- Original import, frozen `variable` block, target theorem header, and namespace/`end` suffix are byte-for-byte preserved.\n- Exactly one occurrence of `producedMarkedValues_allSeams` and one occurrence of its target type.\n- Zero occurrences of `sorry`, `admit`, `native_decide`, `unsafe`, or `axiom`.\n- 248 supporting `_root_.OAI…` helper definitions, all preceding the target; the target itself is substantively closed via `external_allSeamsFromBranches` plus the eight branch proofs.\n\n**Attribution**\n- Proof source: the host-supplied external reference payload. It was not authored in this session and is not the publisher solution.\n\n**Saved artifacts**\n- `RESEARCH.md` — checkpoint, digest evidence, guards, attribution, remaining host checks.\n- `DELIVERIES-efa38268…3863a6e.jsonl` — ordinary completed native delivery entry with proof path, SHA-256, and byte length.\n\nPer the assignment protocol I did not run local Lean/Lake/`check-lean`; independent host kernel verification, axiom audit, original-source guards, and the publisher comparator remain the acceptance gates."
+    }
+  },
+  "sourceSnapshots": [
+    {
+      "worktree": "worktree",
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/native-sync-def-attempt/native-followup/result.json.runtime/worktree/generated/problem/Submission.lean",
+      "bytes": 900,
+      "sha256": "ebc3129bfb5ef4a47e0de1d89f0f406ef6603df32355bdfbb9ce278627c1a1f1",
+      "mtimeNs": 1792829934778561162
+    },
+    {
+      "worktree": "worktree-2",
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/native-sync-def-attempt/native-followup/result.json.runtime/worktree-2/generated/problem/Submission.lean",
+      "bytes": 900,
+      "sha256": "ebc3129bfb5ef4a47e0de1d89f0f406ef6603df32355bdfbb9ce278627c1a1f1",
+      "mtimeNs": 1792826296402039906
+    },
+    {
+      "worktree": "worktree-3",
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/native-sync-def-attempt/native-followup/result.json.runtime/worktree-3/generated/problem/Submission.lean",
+      "bytes": 900,
+      "sha256": "ebc3129bfb5ef4a47e0de1d89f0f406ef6603df32355bdfbb9ce278627c1a1f1",
+      "mtimeNs": 1792826296411039971
+    },
+    {
+      "worktree": "worktree-4",
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/native-sync-def-attempt/native-followup/result.json.runtime/worktree-4/generated/problem/Submission.lean",
+      "bytes": 795645,
+      "sha256": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3",
+      "mtimeNs": 1792830082652693283
+    }
+  ],
+  "engineerCommittedSubmission": {
+    "commit": "aaaf7a217b8df185b467ec71348048b553dfe339",
+    "bytes": 795645,
+    "sha256": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3"
+  },
+  "nativeLogEvidence": {
+    "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/native-sync-def-attempt/native-followup/resume.log",
+    "sha256": "7ef935098feb9e49d9527e8edf04039838eba07f901256989353970e611d6118",
+    "selectedEvents": [
+      {
+        "line": 23,
+        "event": "task_assigned",
+        "at": 1792829934664,
+        "taskId": "character_original_goal",
+        "workerId": "engineer",
+        "kind": "goal",
+        "groupId": "main",
+        "groupTurns": 0,
+        "seedCommit": "8b5149e6368ab601adf6691609e70d307d79e244"
+      },
+      {
+        "line": 50,
+        "event": "turn_failed",
+        "at": 1792829965230,
+        "workerId": "solver",
+        "reason": "math_model_concurrency_limit",
+        "diagnostic": {
+          "code": "other"
+        }
+      },
+      {
+        "line": 106,
+        "event": "delivery_rejected",
+        "at": 1792830145537,
+        "workerId": "engineer",
+        "reason": "math_delivery_invalid"
+      }
+    ]
+  },
+  "explicitDeliveryLogs": [
+    {
+      "file": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/native-sync-def-attempt/native-followup/result.json.runtime/worktree-4/DELIVERIES-efa38268a34bb7de4320d326e35e7da78c4d4f9ecce1b9a11af6627593863a6e.jsonl",
+      "bytes": 1023,
+      "sha256": "5f3e911f4bcbcc13f26257d5e1e1be48242110fd7d91a434cc942c20cb2f8923",
+      "entries": [
+        {
+          "summary": "Complete target saved in generated/problem/Submission.lean via the single host-supplied externally assisted reference loader. Verified guards: objectiveDigest match; compressed sha256 b7e19ac1e0d33da22c004cd083c7a2e93fc7b3ee2888e0dcc6595f4adc2e77e1; decompressed length 795645; decompressed/saved sha256 5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3; original import/header/suffix preserved; forbidden tokens sorry/admit/native_decide/unsafe/axiom all zero. Per assignment protocol no local Lean/Lake/check-lean run was performed. Attribution: host-injected external reference payload. Independent host kernel verification, axiom audit, source guards and publisher comparator remain required.",
+          "kind": "delivery",
+          "taskId": "character_original_goal",
+          "theoremName": "OAI.IntegralCharacterVarieties.SurfacePresentation.Diagram.producedMarkedValues_allSeams",
+          "proofPath": "generated/problem/Submission.lean",
+          "sha256": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3",
+          "bytes": 795645
+        }
+      ]
+    }
+  ],
+  "exactFormatGap": {
+    "observedKind": "delivery",
+    "allowedKinds": [
+      "progress",
+      "proof",
+      "research"
+    ],
+    "source": "cooperationInputs.ts:263-267",
+    "scopedDefaults": "Assignment-scoped logs automatically receive id, kind=progress, taskId and taskDigest; supplied fields override these defaults. The explicit kind=delivery therefore fails the kind enum.",
+    "additionalProofRequirement": "For kind=proof, a fixed existing commit with valid ancestry is required by cooperationInputs.ts:314-325. proofPath, theoremName, sha256 and bytes do not substitute for that commit. A status field is not the cause of this rejection."
+  },
+  "normalCompletionPath": {
+    "source": "research.ts:726-737; cooperation.ts:910-912; cooperationTaskProofs.ts:467-493",
+    "meaning": "After the writer stops, the host commits solver sources and calls cooperation.deliver. A non-advisory goal enters publishTaskProof and host checking without requiring the rejected JSONL record. candidate.status=completed describes model-turn completion only."
+  },
+  "currentNativeProcesses": [
+    {
+      "pid": 2365054,
+      "ppid": 2365053,
+      "name": "lake",
+      "cwd": "/workspace/generated/problem",
+      "argv": [
+        "lake",
+        "env",
+        "/bin/sh"
+      ]
+    },
+    {
+      "pid": 2386168,
+      "ppid": 2365103,
+      "name": "lean",
+      "cwd": "/workspace/generated/problem",
+      "argv": [
+        "/runtime/pinned-lean/bin/lean",
+        "-j1",
+        "-R",
+        ".",
+        "-o",
+        ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Cutting/RefinedDiagram.olean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/RefinedDiagram.lean",
+        "-j1"
+      ],
+      "shellCommandBytes": null,
+      "sandboxSubmission": {
+        "bytes": 795645,
+        "sha256": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3"
+      }
+    }
+  ],
+  "interpretationLimits": [
+    "The main solver worktree remains the 900-byte original until canonical integration; its size alone does not describe the engineer candidate.",
+    "Support-module compilation in a disposable native check is progress, not a completed proof receipt.",
+    "No native success, integration, review or publisher acceptance is claimed by this observation."
+  ],
+  "observerActions": {
+    "activeSourceModified": false,
+    "stateModified": false,
+    "runtimeModified": false,
+    "cacheModified": false,
+    "editQueued": false,
+    "leanInvoked": false,
+    "modelInvoked": false,
+    "signalSent": false,
+    "filesWritten": [
+      "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/native-sync-def-attempt/delivery-observation.json",
+      "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/native-sync-def-attempt/delivery-observation.md"
+    ]
+  },
+  "nativeCheckNamespaceSnapshot": {
+    "observedAt": "2026-10-24T08:29:04.895207+00:00",
+    "rootNativePid": 2305626,
+    "bindings": [
+      {
+        "pid": 2365052,
+        "ppid": 2305626,
+        "option": "--bind",
+        "hostSource": "/tmp/deepscientist-lean-Xqjuxr/checkout",
+        "sandboxTarget": "/workspace"
+      },
+      {
+        "pid": 2365053,
+        "ppid": 2365052,
+        "option": "--bind",
+        "hostSource": "/tmp/deepscientist-lean-Xqjuxr/checkout",
+        "sandboxTarget": "/workspace"
+      }
+    ],
+    "pipeline": {
+      "pid": 2365054,
+      "ppid": 2365053,
+      "cwd": "/workspace/generated/problem",
+      "shellCommandBytes": 15480,
+      "shellCommandSHA256": "3a52af53ef10026349ee240949f3a158bd4e7dd473796d4014134473f7e74f0e",
+      "scheduledLeanOutputs": 58,
+      "scheduledSupportModules": 57,
+      "orderedSourceFiles": [
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/CutCircleIndex.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/Flags.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Frames/GradeMaps.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/MatrixPresentation.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/MatrixExpressions.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/Incidence.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SurfacePresentation.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryCycles.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/PortPatches.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/FlagGalleries.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/ComplementaryPatches.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Frames/Graded.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/PatchCycles.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/RoutedFamilies.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/FreshGallery.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/VertexFrames.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/AtomicFrames.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/AtomicGallery.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Frames/AtomicFlags.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/Grafting.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SplitFlags.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryFrames.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/DiskGauge.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/SurfaceSurgery.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryBands.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCycles.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/VertexGauge.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Frames/BandBases.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Frames/BandGauges.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Frames/Endpoints.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/StripForest.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/DoubledStrips.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/PortSurgery.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/StripFacets.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/BoundarySurgery.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/GraftCircuits.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/GeneratorGauge.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/CornerGauge.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BoundaryReordering.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/RefinedDiagram.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Frames/CutFrames.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/BoundaryEnumeration.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/GraftValues.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Frames/Mirror.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Cutting/MarkedDiagram.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Seams/BoundaryWords.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandIncidence.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCutTopology.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Foundation/BandCut.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Seams/CutWords.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Seams/Handles.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Seams/InverseSolution.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Seams/MarkedSurface.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Frames/NamedSeams.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Frames/MarkedFrames.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Seams/ProducedDiagram.lean",
+        "OAI/AlgebraicGeometry/CharacterVarieties/Seams/ProducedEquations.lean",
+        "Submission.lean"
+      ],
+      "submissionCommand": "lean -j1 -R '.' -o '.lake/build/lib/lean/Submission.olean' 'Submission.lean' 1>&2",
+      "finalDeclarationCommand": "exec lean -j1 '.deepscientist-declarations-895a756d-df05-4adb-910e-622bdf605130.lean'"
+    },
+    "activeLean": [
+      {
+        "pid": 2387714,
+        "ppid": 2365103,
+        "cwd": "/workspace/generated/problem",
+        "argv": [
+          "/runtime/pinned-lean/bin/lean",
+          "-j1",
+          "-R",
+          ".",
+          "-o",
+          ".lake/build/lib/lean/OAI/AlgebraicGeometry/CharacterVarieties/Frames/CutFrames.olean",
+          "OAI/AlgebraicGeometry/CharacterVarieties/Frames/CutFrames.lean",
+          "-j1"
+        ],
+        "sourceFile": "OAI/AlgebraicGeometry/CharacterVarieties/Frames/CutFrames.lean",
+        "pipelineCommandOrdinal": 41,
+        "stage": "support-module"
+      }
+    ],
+    "isolatedCheckoutSubmission": {
+      "file": "/tmp/deepscientist-lean-Xqjuxr/checkout/generated/problem/Submission.lean",
+      "bytes": 795645,
+      "sha256": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3"
+    },
+    "isolatedCheckoutCommit": "a2e9290dcca12fea7a7bb51a91fb240f17527699",
+    "stageInterpretation": "The observed sequential host pipeline is compiling a support module; its one Submission.lean compilation follows all 57 support modules, then the declaration-export command. No completed Submission check is evidenced by this snapshot.",
+    "isolatedCheckoutCommitMetadata": "a2e9290dcca12fea7a7bb51a91fb240f17527699\naaaf7a217b8df185b467ec71348048b553dfe339\nCheck cooperative tasks character_original_goal",
+    "isolatedCheckoutCommittedSubmission": {
+      "bytes": 795645,
+      "sha256": "5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3"
+    },
+    "changedPathsFromEngineerCommit": "D\tRESEARCH.md",
+    "commitIdentityLimitation": "The isolated check has a distinct checkout HEAD from the engineer delivery commit. Both exact commit IDs are recorded; source equality is established by byte hashes, not by assuming these commits are identical.",
+    "isolatedCheckoutRelationship": {
+      "parentCommit": "aaaf7a217b8df185b467ec71348048b553dfe339",
+      "checkCommit": "a2e9290dcca12fea7a7bb51a91fb240f17527699",
+      "commitSubject": "Check cooperative tasks character_original_goal",
+      "onlyChangedPath": "RESEARCH.md",
+      "change": "deleted",
+      "submissionBytesUnchanged": true
+    }
+  },
+  "deliveryStatus": {
+    "explicitJSONLEntryAccepted": false,
+    "normalCompletionHostDeliveryEntered": true,
+    "nativeProofVerification": "pending",
+    "taskProofSavedAtStateSnapshot": false,
+    "publisherAcceptance": "not evidenced"
+  }
+}

@@ -1,0 +1,281 @@
+{
+  "observedAt": "2026-10-24T08:31:34.040207+00:00",
+  "runPhase": "running",
+  "turns": 98,
+  "canonicalCommit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+  "stateSHA256": "e6df5228964475897a17ea29a186230588b27a09eb229e71188df70535bbd877",
+  "planVersion": "77b7d42ad95450f1f0547b09e9f8d1e72caaf4e33e0ce14c53daf16cbc8246bc",
+  "tasks": [
+    {
+      "taskId": "strip_growth_below_mu",
+      "status": "running",
+      "schedulingStatus": "active",
+      "dependsOn": [],
+      "assignmentId": "65f1697f-fa42-4863-bc57-032cd0a476e9",
+      "proof": null,
+      "integratedCheck": null,
+      "pendingValidation": null,
+      "feedback": "math_task_missing_declaration\nFile: generated/problem/Submission.lean\nTarget: OAI.PolynomialVacuumBridge.Corridor.strip_growth_below_mu\nThe assigned theorem is absent. Save it with the requested name and type, or report supporting results and the remaining gap as progress. No Lean proof check has started."
+    },
+    {
+      "taskId": "sums_reduction",
+      "status": "integrated",
+      "schedulingStatus": "active",
+      "dependsOn": [],
+      "assignmentId": "a4887df1-cd13-409a-be47-8f79d5f94209",
+      "proof": {
+        "commit": "21c88246de184c2366cdf7dde20f140a7147291c",
+        "passed": true,
+        "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+        "conditions": null,
+        "verificationStatus": "kernel_verified",
+        "receiptIds": [
+          "lean-0289d782383448bdadd0ef5e"
+        ]
+      },
+      "integratedCheck": {
+        "commit": "96e89fbc7f26408eaaab99235481d1dd64ffcc1c",
+        "passed": true,
+        "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+        "conditions": null,
+        "verificationStatus": "kernel_verified",
+        "receiptIds": [
+          "lean-c48c9c7223a04b1246cd7274"
+        ]
+      },
+      "pendingValidation": null,
+      "feedback": null
+    },
+    {
+      "taskId": "initial_goal_1",
+      "status": "running",
+      "schedulingStatus": "active",
+      "dependsOn": [
+        "strip_growth_below_mu",
+        "sums_reduction"
+      ],
+      "assignmentId": "69b53b79-cb36-44e1-9d4c-e81bb99a0a4a",
+      "proof": null,
+      "integratedCheck": null,
+      "pendingValidation": null,
+      "feedback": null
+    },
+    {
+      "taskId": "initial_research_1",
+      "status": "pending",
+      "schedulingStatus": "active",
+      "dependsOn": [],
+      "assignmentId": null,
+      "proof": null,
+      "integratedCheck": null,
+      "pendingValidation": null,
+      "feedback": null
+    },
+    {
+      "taskId": "initial_research_2",
+      "status": "running",
+      "schedulingStatus": "active",
+      "dependsOn": [],
+      "assignmentId": "4c49d375-0f1e-4625-bef9-ed77e841371f",
+      "proof": null,
+      "integratedCheck": null,
+      "pendingValidation": null,
+      "feedback": null
+    },
+    {
+      "taskId": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+      "status": "pending",
+      "schedulingStatus": "active",
+      "dependsOn": [
+        "strip_growth_below_mu",
+        "sums_reduction"
+      ],
+      "assignmentId": "444ca639-b7bf-443c-888f-48c91187923c",
+      "proof": null,
+      "integratedCheck": null,
+      "pendingValidation": null,
+      "feedback": null
+    }
+  ],
+  "workers": [
+    {
+      "id": "solver",
+      "phase": "running",
+      "sessionTaskId": null,
+      "sessionAssignmentId": null,
+      "threadId": "01a16cf8-2233-74f2-be73-f963f7a806b0",
+      "turns": 68,
+      "lastActivity": {
+        "at": 1792830648342,
+        "event": "item_completed",
+        "itemType": "userMessage"
+      },
+      "scheduling": {
+        "action": "lead",
+        "since": 1792830648313,
+        "status": "working"
+      },
+      "advisoryCheckpoint": {
+        "contentDigest": "84b5e77d2e76cfc25b0be712cc29cc5c188078261263df706c0e4a19953fca7d",
+        "noProgressStreak": 9,
+        "scope": "8a3a7468b9f5100e9330fc12579b6034b720824aa434288e2c52e6590db8bff8"
+      },
+      "proofDeliveryIncluded": false,
+      "proofDeliveryOmission": [
+        {
+          "id": "delivery:da7f9896-1cff-4839-bf73-d0cefdf65fc6:details",
+          "kind": "delivery",
+          "reason": "advisory-details-by-reference"
+        },
+        {
+          "id": "delivery:da7f9896-1cff-4839-bf73-d0cefdf65fc6",
+          "kind": "delivery",
+          "reason": "optional-budget"
+        }
+      ],
+      "requiredTaskIds": [
+        "strip_growth_below_mu",
+        "initial_goal_1",
+        "sums_reduction",
+        "initial_research_1",
+        "initial_research_2",
+        "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51"
+      ],
+      "contextEvidence": "recorded-not-replayed"
+    },
+    {
+      "id": "researcher-1",
+      "phase": "running",
+      "sessionTaskId": "strip_growth_below_mu",
+      "sessionAssignmentId": "65f1697f-fa42-4863-bc57-032cd0a476e9",
+      "threadId": "01a16cf1-194a-73c3-89ff-ec84334afdb1",
+      "turns": 2,
+      "lastActivity": {
+        "at": 1792830692983,
+        "event": "reasoning"
+      },
+      "scheduling": {
+        "action": "task",
+        "since": 1792829102449,
+        "status": "working",
+        "taskId": "strip_growth_below_mu"
+      },
+      "advisoryCheckpoint": null,
+      "proofDeliveryIncluded": false,
+      "proofDeliveryOmission": [],
+      "requiredTaskIds": [
+        "strip_growth_below_mu"
+      ],
+      "contextEvidence": "recorded-not-replayed"
+    },
+    {
+      "id": "researcher-2",
+      "phase": "running",
+      "sessionTaskId": "initial_research_2",
+      "sessionAssignmentId": "4c49d375-0f1e-4625-bef9-ed77e841371f",
+      "threadId": "01a16cea-967d-7ec2-91b5-e82ccea04d5a",
+      "turns": 15,
+      "lastActivity": {
+        "at": 1792830682794,
+        "event": "reasoning"
+      },
+      "scheduling": {
+        "action": "task",
+        "since": 1792830476384,
+        "status": "working",
+        "taskId": "initial_research_2"
+      },
+      "advisoryCheckpoint": {
+        "contentDigest": "9570b48182ebf6bfcab44c660ea276a272b6fbf8a655b53e62a25c51893a04a1",
+        "noProgressStreak": 4,
+        "scope": "b720cdb6ece926082e57e048bd76abbaf3c3a399dcb79423b2365fc50b2dfa3e"
+      },
+      "proofDeliveryIncluded": false,
+      "proofDeliveryOmission": [
+        {
+          "id": "delivery:da7f9896-1cff-4839-bf73-d0cefdf65fc6:details",
+          "kind": "delivery",
+          "reason": "advisory-details-by-reference"
+        },
+        {
+          "id": "delivery:da7f9896-1cff-4839-bf73-d0cefdf65fc6",
+          "kind": "delivery",
+          "reason": "optional-budget"
+        }
+      ],
+      "requiredTaskIds": [
+        "initial_research_2"
+      ],
+      "contextEvidence": "recorded-not-replayed"
+    },
+    {
+      "id": "engineer",
+      "phase": "running",
+      "sessionTaskId": "initial_goal_1",
+      "sessionAssignmentId": "69b53b79-cb36-44e1-9d4c-e81bb99a0a4a",
+      "threadId": "01a16cf8-ca1b-72a3-abeb-7453c1508895",
+      "turns": 13,
+      "lastActivity": {
+        "at": 1792830687653,
+        "event": "item_started",
+        "itemType": "reasoning"
+      },
+      "scheduling": {
+        "action": "task",
+        "since": 1792829606468,
+        "status": "working",
+        "taskId": "initial_goal_1"
+      },
+      "advisoryCheckpoint": null,
+      "proofDeliveryIncluded": true,
+      "proofDeliveryOmission": [
+        {
+          "id": "delivery:da7f9896-1cff-4839-bf73-d0cefdf65fc6:details",
+          "kind": "delivery",
+          "reason": "advisory-details-by-reference"
+        }
+      ],
+      "requiredTaskIds": [
+        "initial_goal_1",
+        "strip_growth_below_mu",
+        "sums_reduction"
+      ],
+      "contextEvidence": "recorded-not-replayed"
+    }
+  ],
+  "blockers": [],
+  "recentDeliveries": [
+    {
+      "id": "4d11a4a9-6997-4cff-ad32-a89476ff9ace",
+      "taskId": "initial_goal_1",
+      "kind": "proof",
+      "status": "superseded",
+      "createdAt": 1792828526668,
+      "commit": "e91efd3c840a5f3585db67f3c414291429590aed",
+      "summary": "Delivery belongs to a superseded assignment."
+    },
+    {
+      "id": "6c9865a9-23fe-4075-8fb3-831cd197660e",
+      "taskId": "initial_research_2",
+      "kind": "research",
+      "status": "conditional",
+      "createdAt": 1792828673449,
+      "commit": "0a89192573f85da70dce47df9de9bb2d027b9111",
+      "summary": "Advisory resume checkpoint for HoneycombBridgeFiniteness. The original theorem OAI.PolynomialVacuumBridge.Corridor.finite_bridge_sums is NOT proved: generated/problem/Submission.lean remains the pristine seed (sha256 6acaeab1940555d1df29856e504deae4f9edf7777231969b9b7d13515731d830) with the original sorry. The retained 854-line Lean fence (sha256 14d52c1af8fa50f49ff7a8a6acd15a6acfecd3f88df7b0cd375fdc486a0449f2, inline in RESEARCH.md) contains the reduction from a per-width strict sub-mu cardinality bound to all six FiniteBridgeSums clauses, the unconditional width-one case, width monotonicity via a +2 extension, and structural honeycomb-strip lemmas. Its prior compile/axiom report is recorded but was not replayed in this resume turn. Exact residual inference: for every h >= 2 produce C_h, beta_h with 0 <= C_h, 0 <= beta_h, beta_h < 2*cos(pi/8), and card(s) <= C_h*beta_h^n for every finite set s of BridgePath h objects all of length n; equivalently, for every fixed h >= 2, Summable (weight (h := h)) and Summable (firstLengthWeight (h := h)). Constants may depend on h, no uniformity is required, and the strict inequality is essential. No counterexample was found. Smallest valid complete task graph remains strip_growth_below_mu -> initial_goal_1; they are not separately smaller sufficient obligations. Unchanged negative search scope: the pinned local corpus has no honeycomb/SAW connective-constant, transfer-matrix, Perron-root or finite-width subcriticality theorem; do not rescan without new mathematical input. Reopen on an exact finite-width transfer-matrix/cut-state certificate, a new local library theorem, or a changed frozen contract/environment."
+    },
+    {
+      "id": "da7f9896-1cff-4839-bf73-d0cefdf65fc6",
+      "taskId": "sums_reduction",
+      "kind": "proof",
+      "status": "verified",
+      "createdAt": 1792829245620,
+      "commit": "21c88246de184c2366cdf7dde20f140a7147291c",
+      "summary": "Fixed declaration checked; unresolved lemma assumptions remain obligations."
+    }
+  ],
+  "noModelCalls": true,
+  "noLeanStarted": true,
+  "noQueueEdits": true,
+  "noActiveFileWrites": true,
+  "hiddenReasoningRead": false
+}

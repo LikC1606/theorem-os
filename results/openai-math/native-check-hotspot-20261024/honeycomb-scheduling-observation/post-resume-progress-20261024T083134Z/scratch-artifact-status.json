@@ -1,0 +1,26 @@
+[
+  {
+    "workerId": "researcher-1",
+    "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-2/.scratch/tmp/enum_fast.cpp",
+    "archive": "researcher-1-enum_fast.cpp",
+    "bytes": 1439,
+    "sha256": "136b4a97191092a37ed8b3e199809aafa8fbc64ce19ccc9371e572be7a7d8bcd",
+    "lastModifiedUTC": "2026-10-24T07:52:09.753799+00:00"
+  },
+  {
+    "workerId": "researcher-1",
+    "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-2/.scratch/tmp/enum.cpp",
+    "archive": "researcher-1-enum.cpp",
+    "bytes": 1457,
+    "sha256": "e4346cadbb9da5e9d2f41091cfaacd7b99a298eced08a96175d64cdd7c51e7ab",
+    "lastModifiedUTC": "2026-10-24T07:34:29.261639+00:00"
+  },
+  {
+    "workerId": "engineer",
+    "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/tasks/HoneycombBridgeFiniteness/attempts/workflow-20261024/result.json.runtime/worktree-4/.scratch/tmp/strip_dfs.py",
+    "archive": "engineer-strip_dfs.py",
+    "bytes": 969,
+    "sha256": "7cbb175477e08fd8e8108dee6a87a2628683962ae1e84ea28e0f06b46676d20e",
+    "lastModifiedUTC": "2026-10-24T07:18:22.011080+00:00"
+  }
+]

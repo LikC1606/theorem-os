@@ -2,7 +2,17 @@
 
 Character V2 已完成整份编译（635.03 秒、exitCode=0）、公理审计和独立原比较器检查
 （41.15 秒、exitCode=0）。原比较器真实输出 `Lean default kernel accepts the solution`
-和 `Your solution is okay!`。完整原生最终验收仍在运行，通过总数仍为 5。
+和 `Your solution is okay!`。加速版已通过正常递送进入独立宿主检查；完整原生最终验收仍在运行，通过总数仍为 5。
+
+截至 `08:31:32 UTC`，新入口环境准备已真实 exitCode=0（3629.13 秒），resume 准备命中缓存，耗时 6.432 秒。
+正常队列编辑已应用，engineer 仅执行一次载入，宿主提交 `aaaf7a217b8df185b467ec71348048b553dfe339`
+中的 795645 字节与已验证 V2 的 SHA 完全一致。独立宿主已有 44/57 个依赖模块产物，随后才编译主文件。
+精确记录见 [递送核查](native-sync-def-attempt/delivery-observation.md)和
+[进度快照](continuation-progress-20261024T083132Z.json)。
+
+模型手写的一条 JSONL 曾因 `kind=delivery` 被冻结协议拒绝；协议仅接受 `progress/proof/research`，
+proof 还须绑定 commit。随后模型正常结束，宿主自动提交源码并启动原生验证，故该拒绝未阻断当前检查。
+没有为此重复载入、重启或修改活动现场；`candidate.status=completed` 仍只表示模型回合完成。
 
 Character 的正式 Lean 进程在只读栈采样时已经进入模块写出：
 `writeModule → mkModuleData → computeExtEntries → localSymbolFrequencyMap → foldRelevantConstants → getFunInfoAux → collectDeps_visit`。
@@ -45,11 +55,11 @@ Lean 从证明体自动纳入了额外 section 参数，后续应用因参数不
 同题旧完整 V12 在新版本完成时已运行超过 6 小时仍未结束；旧正式 canonical 检查也仍在运行。
 这支持“新候选完整编译已在十多分钟内完成”的结论，没有把未结束的基线虚写成精确加速倍数。
 `native-sync-def-attempt/` 通过源码、可信文件、原 comparator 和完整递送载荷预检，
-现正以原冻结构建启动新的正式验收；五项预算和 preparation timeout 均为 0。
+已用原冻结构建完成新环境准备并进入正式验收；五项预算和 preparation timeout 均为 0。
 独立完整编译、公理审计均已通过，原生最终验收仍待真实回执。旧正式链继续运行。
 
-`native-sync-def-attempt/continue-native.py` 已作为持久控制器启动；它等待真实 startup 成功，
-自动 resume、验证当前 plan 并通过正常队列递送 V2，记录真实终态，没有总时间上限。
+`native-sync-def-attempt/continue-native.py` 已作为持久控制器启动；它已在真实 startup 成功后
+自动 resume、验证当前 plan 并通过正常队列递送 V2，继续等待并记录真实终态，没有总时间上限。
 `adopt-verified-character-candidate/` 保存了完整旧链 dry-run 和逐模块缓存核查。
 同路径恢复旧链仍会触发约 29 分钟的依赖准备，故采用继续新入口的决策；旧链未停止、未恢复、未追加编辑。
 
@@ -69,5 +79,10 @@ Snaky V8 的原题检查已取得原始 `kernel_verified` 回执
 监督器已在真实证明通过后通过正常队列恢复消费者，08:13:33 UTC 回读 engineer 已重新处理原目标，
 监督器完成后 exitCode=0。其提交编号匹配错误及修复前后记录均保留。
 核心增长率估计仍未证明；归约交付不等于 Honeycomb 整题完成。
+
+[恢复后的核查](honeycomb-scheduling-observation/post-resume-progress-20261024T083134Z/README.md)
+确认第 98 轮仍复用已集成归约，没有新调度故障；一般宽度增长界暂无新源码或验收回执。
+已有有限 DFS 不能覆盖全部长度，旧方格图实验也不适用于本题的 honeycomb 邻接。
+当前不据这些实验宣称已找到核心证明。
 
 本目录不包含手写验收回执、伪造缓存或活动 checkpoint 修改。

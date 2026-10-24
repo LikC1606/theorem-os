@@ -1,0 +1,19 @@
+{
+  "observedAt": "2026-10-24T08:18:46.087428+00:00",
+  "target": "CharacterVarietiesAllSeamsSupport",
+  "phase": "resume_running",
+  "buildId": "d3369e50-0985-4155-804e-baba6801c575",
+  "output": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/native-check-hotspot-20261024/native-sync-def-attempt/native-followup/result.json",
+  "unlimitedBudgets": {
+    "maxRunSeconds": 0,
+    "maxTurns": 0,
+    "maxTurnSeconds": 0,
+    "maxTotalTokens": 0,
+    "evaluatorTimeoutSeconds": 0
+  },
+  "prepareTimeoutSeconds": 0,
+  "modelInvocationPossible": true,
+  "nativeAccepted": false,
+  "originalCampaignChanged": false,
+  "childPid": 2305626
+}

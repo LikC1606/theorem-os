@@ -1,17 +1,17 @@
 {
-  "capturedAt": "2026-10-24T08:17:11.308900+00:00",
+  "capturedAt": "2026-10-24T08:34:36.737547+00:00",
   "nativeAccepted": false,
   "characterV1KernelCheck": "failed: two section-parameter application mismatches",
   "characterV2FullSourceCompile": "passed: exit0 in 635.028472 seconds",
   "characterV2AxiomAudit": "passed: only propext/Classical.choice/Quot.sound",
-  "characterV2NativePreparation": "running",
+  "characterV2NativePreparation": "passed: startup exit0 in 3629.133803 seconds; resume preparation 6.432 seconds; ordinary queue edit applied",
   "snakyOriginalKernelCheck": "passed",
   "snakyIntegrationCheck": "running",
   "files": [
     {
       "path": "README.md",
-      "bytes": 6171,
-      "sha256": "995b60ae54ca325b8dc5ff65a1e3ba217c7f2731545a95dacd312ee5cb1fa7fe"
+      "bytes": 7562,
+      "sha256": "3b2505ca3f1536ccd232be6bf5316b3ea5161ffbe2efe9d9553e2a5a91b47fb6"
     },
     {
       "path": "adopt-verified-character-candidate/README.md",
@@ -284,6 +284,11 @@
       "sha256": "d63b8e0d67ac1aa04dad549225ae0123abc0b2f6e9a769be485acfa2e47d1d34"
     },
     {
+      "path": "continuation-progress-20261024T083132Z.json",
+      "bytes": 57488,
+      "sha256": "b0ece8d7d55ad27b24988d22e598f35176eb037a283ef2ea20194ee6b8ae1e19"
+    },
+    {
       "path": "guard-preflight/check-source-v1.ts",
       "bytes": 9466,
       "sha256": "978b3e329a6779ff728feda39d077ce471ed59c8c4d1a35bed79e47273163673"
@@ -539,6 +544,81 @@
       "sha256": "dbb6843d790fa469c3b72afc278745edb9514ae3a9d51a8b33e7fe9fda0c27a4"
     },
     {
+      "path": "honeycomb-scheduling-observation/post-resume-progress-20261024T083134Z/README.md",
+      "bytes": 5099,
+      "sha256": "4ee7e8ffcaf97967ead5bce065e195289e1f02b5488cf9e098623b367740d138"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/post-resume-progress-20261024T083134Z/engineer-Submission.lean",
+      "bytes": 8797,
+      "sha256": "1274ab0b8f9c01548559d48d055fc92a20ebf2433f643bd8ad90a313b304b674"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/post-resume-progress-20261024T083134Z/engineer-strip_dfs.py",
+      "bytes": 969,
+      "sha256": "7cbb175477e08fd8e8108dee6a87a2628683962ae1e84ea28e0f06b46676d20e"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/post-resume-progress-20261024T083134Z/goal-assignment.json",
+      "bytes": 3307,
+      "sha256": "94048344e0aff6cd4cc14393f9d848a95b95a33f327451f3e85b8dd4014d2d57"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/post-resume-progress-20261024T083134Z/latest-native-progress-transition.json",
+      "bytes": 2715,
+      "sha256": "81609fa77adc9adacc61f645a11ba399884c9b0cba6f974223d04aa54e824895"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/post-resume-progress-20261024T083134Z/native-progress-snapshot.json",
+      "bytes": 2365,
+      "sha256": "094e9491dc32dba3d53105678860daa65f051ce4af5e6cca46c261b5bf8dd618"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/post-resume-progress-20261024T083134Z/observation.json",
+      "bytes": 10493,
+      "sha256": "7b86904a3e11ae61dcd064a19f31b03387abc590466eb5972236ecc14a824daa"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/post-resume-progress-20261024T083134Z/process-observation.json",
+      "bytes": 328,
+      "sha256": "c40494e323a964ae2758b19cf52f8b31bc898e244b89abd1ec1b41713fe30679"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/post-resume-progress-20261024T083134Z/researcher-1-Submission.lean",
+      "bytes": 2367,
+      "sha256": "6acaeab1940555d1df29856e504deae4f9edf7777231969b9b7d13515731d830"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/post-resume-progress-20261024T083134Z/researcher-1-enum.cpp",
+      "bytes": 1457,
+      "sha256": "e4346cadbb9da5e9d2f41091cfaacd7b99a298eced08a96175d64cdd7c51e7ab"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/post-resume-progress-20261024T083134Z/researcher-1-enum_fast.cpp",
+      "bytes": 1439,
+      "sha256": "136b4a97191092a37ed8b3e199809aafa8fbc64ce19ccc9371e572be7a7d8bcd"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/post-resume-progress-20261024T083134Z/researcher-2-Submission.lean",
+      "bytes": 2367,
+      "sha256": "6acaeab1940555d1df29856e504deae4f9edf7777231969b9b7d13515731d830"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/post-resume-progress-20261024T083134Z/researcher-2-notes-excerpts.json",
+      "bytes": 15919,
+      "sha256": "ed80cca6f61382899db7ead9fa0495dd6632d975295b652897e01912e9383640"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/post-resume-progress-20261024T083134Z/scratch-artifact-status.json",
+      "bytes": 1281,
+      "sha256": "ba8305f01ae8d191980cb3190474635a0aa3bf0b2762eed32f225ebf4e4e02a5"
+    },
+    {
+      "path": "honeycomb-scheduling-observation/post-resume-progress-20261024T083134Z/source-status.json",
+      "bytes": 2299,
+      "sha256": "07a4da12717be5db0f0c86d4999346d1759ee0587bd8b0722b8a6e79968109e7"
+    },
+    {
       "path": "honeycomb-scheduling-observation/queue-conditional-reduction.ts",
       "bytes": 12146,
       "sha256": "c766ef897af79713b17f4f6be26844bd43384aa5f38609454631a89b7e6b75cc"
@@ -560,8 +640,8 @@
     },
     {
       "path": "native-sync-def-attempt/README.md",
-      "bytes": 4131,
-      "sha256": "5e275a2582439c8f2231ff4f7bfa6ebed90df580dce0852c3cd2cfe8ab88d415"
+      "bytes": 5177,
+      "sha256": "f62931b7f3197383a413c93e3aa9d7c8dc6798ddc412c2ff7572922d83b23693"
     },
     {
       "path": "native-sync-def-attempt/build.json",
@@ -569,9 +649,24 @@
       "sha256": "7528c4ffbc467eeae89ef74cd4d94cbb402ee849d5c26283a74e3d8fa519a80b"
     },
     {
+      "path": "native-sync-def-attempt/continuation-dry-run.log",
+      "bytes": 583,
+      "sha256": "4330e275e00cb34dc85f97ecbd10585a4bf4c14fcd056ce1bd735836f20e62e0"
+    },
+    {
+      "path": "native-sync-def-attempt/continuation-queue.log",
+      "bytes": 994,
+      "sha256": "cebeff38d068c33ae15c5f56c2d3ab00d3a6e16c4b2ea9183a38fc628222253b"
+    },
+    {
       "path": "native-sync-def-attempt/continuation-receipt.json",
-      "bytes": 303,
-      "sha256": "964068e915114f00d9f9656727aed31ee50f874919de332099f7cd914e1875d8"
+      "bytes": 561,
+      "sha256": "ee232d89e84ae70e35532ee1dd9cb4355ef1472ce416c2256ab4b7a3c44734db"
+    },
+    {
+      "path": "native-sync-def-attempt/continuation-resume.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
       "path": "native-sync-def-attempt/continuation-started.json",
@@ -582,6 +677,26 @@
       "path": "native-sync-def-attempt/continue-native.py",
       "bytes": 3716,
       "sha256": "8344eb995a7c15433f19370137b3e2fc98a2115e8938e163bd69c3035506f2ab"
+    },
+    {
+      "path": "native-sync-def-attempt/delivery-observation.json",
+      "bytes": 21586,
+      "sha256": "ac89c116868f8d751c58aa582778ef1e952d5a24948c093f85925ee1767f8eaa"
+    },
+    {
+      "path": "native-sync-def-attempt/delivery-observation.md",
+      "bytes": 3968,
+      "sha256": "6361364d63813f888dfd83e56dc61cb0f871ca6f25bd0ca0b5bfe0f42a82d0dd"
+    },
+    {
+      "path": "native-sync-def-attempt/native-events-20261024T083132Z/resume.log",
+      "bytes": 25334,
+      "sha256": "7ef935098feb9e49d9527e8edf04039838eba07f901256989353970e611d6118"
+    },
+    {
+      "path": "native-sync-def-attempt/native-events-20261024T083132Z/startup.log",
+      "bytes": 42927,
+      "sha256": "20054ca3bce96d0e84a893b29885ed77214ea57d4d81b0b2f209b0670d3c3c95"
     },
     {
       "path": "native-sync-def-attempt/preparation.json",
@@ -599,14 +714,29 @@
       "sha256": "9d505937c506847ca71e3f3d50a7f09208206ebb0929e61ca19d0537fbc32bb2"
     },
     {
+      "path": "native-sync-def-attempt/queue-dry-run.json",
+      "bytes": 49018,
+      "sha256": "256bc6eba67fef1fc8db0968f8d43ea52404e4058938444f22cf06798ef58f02"
+    },
+    {
+      "path": "native-sync-def-attempt/queue-receipt.json",
+      "bytes": 1072,
+      "sha256": "28fd91f6435bb8883dce413900cb97052f063ace65fc804eafb025b91cad2d1b"
+    },
+    {
+      "path": "native-sync-def-attempt/resume-receipt.json",
+      "bytes": 654,
+      "sha256": "5e260527934fc4562d28a190fc59737f77d712f3b1700badda0cb640a9df0a7d"
+    },
+    {
       "path": "native-sync-def-attempt/run-native.py",
       "bytes": 4887,
       "sha256": "230edaa63965f9a5212f30a1f871610b360137ba5dff736a9f68ac97a6b15b69"
     },
     {
       "path": "native-sync-def-attempt/startup-receipt.json",
-      "bytes": 656,
-      "sha256": "a77e4923b2a51fad0f29cbc591136780a2c35b38ff974de3a15ad7ab3b79cfab"
+      "bytes": 715,
+      "sha256": "9ec50777bb303941a92863f1504f66c03917ed456df89a926822f23b602d6cb5"
     },
     {
       "path": "native-sync-def-attempt/transport-preparation.json",
@@ -696,5 +826,8 @@
   ],
   "nativeFinalPassCount": 5,
   "characterV2IndependentOriginalComparator": "passed: unchanged binary, original target and axioms; genuine prebuilt artifact; exit0 in 41.153155 seconds",
-  "honeycombSumsReduction": "native kernel and integration passed; original goal resumed; growth estimate still unproved"
+  "honeycombSumsReduction": "native kernel and integration passed; original goal resumed; growth estimate still unproved",
+  "characterV2NativeDelivery": "exact V2 committed as aaaf7a217b8df185b467ec71348048b553dfe339; host compiling support modules; final acceptance pending",
+  "latestProgressSnapshot": "continuation-progress-20261024T083132Z.json",
+  "honeycombCurrentProgress": "turn98: integrated reduction reused; no new general-width bound or proof receipt; no new scheduling fault confirmed"
 }

@@ -1,0 +1,9 @@
+{
+  "observedAt": "2026-10-24T08:31:34.078689+00:00",
+  "systemCountsByCommandName": {
+    "lake": 3,
+    "lean": 4
+  },
+  "processesWhoseWorkingDirectoryIsInThisHoneycombRun": [],
+  "limit": "A point-in-time host process observation is not a transcript of past tool calls; no corresponding session tool logs were inspected."
+}

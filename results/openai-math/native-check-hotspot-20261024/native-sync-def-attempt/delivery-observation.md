@@ -1,0 +1,19 @@
+# Character V2 delivery observation
+
+Observation time: 2026-10-24T08:27:30.796743+00:00. Native run: `1f3bb9c1-c99f-4fad-b656-8010a82c265b`. See the [structured observation](delivery-observation.json) for exact visible tool outputs, event offsets and hashes.
+
+V2 loaded successfully **once** in engineer's `worktree-4`. The visible loader output at **2026-10-24T08:21:22.786Z** records exit `0` and `5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3 795645`. Independent file hashing matches. The host has also committed those exact bytes as `aaaf7a217b8df185b467ec71348048b553dfe339`. The main solver worktree is still the original 900 bytes because canonical integration has not yet happened.
+
+The hand-written scoped `DELIVERIES-*.jsonl` entry was rejected at **2026-10-24T08:22:25.537Z**, [resume log line 106](native-followup/resume.log), with `math_delivery_invalid`. The precise cause is `kind: "delivery"`: the frozen reader only allows `progress`, `proof` or `research` (`cooperationInputs.ts:263–267`). In an assignment-scoped file, omitted identity fields are filled automatically, but explicitly supplied `kind` overrides the default. A proof entry would additionally require a fixed valid `commit` (`cooperationInputs.ts:314–325`); `proofPath`/SHA/byte count alone do not meet that requirement. A missing `status` field is not the cause.
+
+The engineer then completed its normal model turn at **2026-10-24T08:22:44.065Z**. The frozen host's ordinary completion path commits saved sources and calls `cooperation.deliver` (`research.ts:726–737`), which routes this goal to `publishTaskProof` (`cooperation.ts:910–912`). Thus the rejected explicit log did **not** prevent the normal completion path from starting native verification.
+
+At the snapshot, `engineer.phase=checking`, `candidate.status=completed` and the task remains `running`. The candidate status records model-turn completion. Native process observations show the isolated host compiling support modules before `Submission.lean`; no successful task-proof, integration or publisher receipt is asserted. No intervention is needed for the earlier JSONL rejection while this normal check is progressing.
+
+Only visible tool calls/outputs, visible final response, native event records and filesystem/process metadata were inspected; model reasoning content was excluded. This observation changed no active source, state, runtime, cache or edit queue, sent no signal and started no Lean/model run. Its only writes are this note and `delivery-observation.json` outside the runtime directory.
+
+The automatic completion froze commit `aaaf7a217b8df185b467ec71348048b553dfe339`. Namespace mapping observed at **2026-10-24T08:29:04.895207+00:00**: host PID `2305626` → bwrap `2365052` / `2365053` → lake `2365054`; bwrap binds `/tmp/deepscientist-lean-Xqjuxr/checkout` to `/workspace`. The actual isolated checkout has commit `a2e9290dcca12fea7a7bb51a91fb240f17527699` and `generated/problem/Submission.lean` hashes to `5c0cbc35bd6335ab7c6d8d57bdece22a3065c6fdc7dee871d2577826b50396d3` (795,645 bytes), matching engineer's saved and committed V2 exactly.
+
+The pipeline schedules **57 support compilations**, then **one Submission.lean compilation**, then declaration export. The latest active Lean is PID `2387714`, compiling `OAI/AlgebraicGeometry/CharacterVarieties/Frames/CutFrames.lean` (command 41/58). This is support-module checking; the observed pipeline has not yet reached its Submission command. These are bounded observations of the existing native process, with no extra compilation launched.
+
+The isolated-check commit `a2e9290dcca12fea7a7bb51a91fb240f17527699` is a direct child of the engineer delivery commit `aaaf7a217b8df185b467ec71348048b553dfe339`, with subject `Check cooperative tasks character_original_goal`. The only recorded path change is deletion of `RESEARCH.md`; committed Submission bytes remain identical. Both commit IDs are recorded separately.

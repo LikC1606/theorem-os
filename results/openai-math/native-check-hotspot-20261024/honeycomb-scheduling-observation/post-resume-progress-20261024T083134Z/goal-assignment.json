@@ -1,0 +1,82 @@
+{
+  "assignmentId": "69b53b79-cb36-44e1-9d4c-e81bb99a0a4a",
+  "canonicalCommit": "9a84d330aba29bffd88ae5e7bf9956f0048e457a",
+  "connectionCheck": {
+    "assignmentId": "69b53b79-cb36-44e1-9d4c-e81bb99a0a4a",
+    "assumedInputs": [
+      {
+        "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+        "taskId": "strip_growth_below_mu"
+      },
+      {
+        "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+        "taskId": "sums_reduction"
+      }
+    ],
+    "basisDigest": "da7f4387824491fa57bc65b6a8f77d5a5d89aee9719d30eee687cc99607ae267",
+    "consumer": {
+      "taskDigest": "ab8c91c92c1d5d985ed03edfaee27bbef6df38455b84a82711d07d8d13e77890",
+      "taskId": "initial_goal_1"
+    },
+    "dependenciesDigest": "ff09395ec6e87e8e16f0ba75e82a0f945dbe162d149608dab84961349f99d31f",
+    "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+    "inputs": [
+      {
+        "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+        "taskId": "strip_growth_below_mu"
+      },
+      {
+        "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+        "taskId": "sums_reduction"
+      }
+    ],
+    "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+    "routesDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "schema": "theorem-os.consumer-connection.v1",
+    "seedCommit": "e91efd3c840a5f3585db67f3c414291429590aed",
+    "workerId": "engineer"
+  },
+  "dependencies": [
+    {
+      "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+      "taskId": "strip_growth_below_mu"
+    },
+    {
+      "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+      "taskId": "sums_reduction"
+    }
+  ],
+  "groupId": "main",
+  "researchBasis": {
+    "dependencies": [
+      {
+        "deliveries": [
+          "a4178d3882beeef3e89b4a26a35d89372bf5a80f922786f0b0536726b2f006ba"
+        ],
+        "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+        "taskId": "strip_growth_below_mu"
+      },
+      {
+        "deliveries": [],
+        "proof": {
+          "conditions": [],
+          "state": "integrated",
+          "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292"
+        },
+        "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+        "taskId": "sums_reduction"
+      }
+    ],
+    "environmentDigest": "8bb02b80b9a30617b8d03aeaa67465db33534491566f19301f3ae51ac494093d",
+    "problemReceiptDigest": "288f5d5aa511a456e7c9b4e2b2bed14521b39e76f27c1fbf51c9ac980cc0d37c",
+    "retrievalDigest": "f5fa7f00d04e495a9eb0089943ca9e6764e56ca67c96253410933e210be6dfad",
+    "schema": "theorem-os.research-basis.v1",
+    "sourceDigest": "849cdd79f26f89f0cd68dcd6ee1ab9ffe80e4e903afcacee8ad10aa479a7aeb5",
+    "taskDigest": "ab8c91c92c1d5d985ed03edfaee27bbef6df38455b84a82711d07d8d13e77890",
+    "taskId": "initial_goal_1"
+  },
+  "seedCommit": "e91efd3c840a5f3585db67f3c414291429590aed",
+  "taskDigest": "ab8c91c92c1d5d985ed03edfaee27bbef6df38455b84a82711d07d8d13e77890",
+  "taskId": "initial_goal_1",
+  "workerId": "engineer"
+}

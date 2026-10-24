@@ -1,0 +1,91 @@
+{
+  "acceptance": "not-assessed",
+  "advisory": {
+    "changed": [],
+    "completed": [],
+    "proposed": [],
+    "removed": [],
+    "reopened": []
+  },
+  "afterDigest": "10e24c97680ec9cd319a98a0a76dfe5028a68903625257156453f018529d1f93",
+  "at": 1792829245595,
+  "beforeDigest": "278ecb63b15345165b7939b7ecefcf38318c0d50f21ae4c9059c38bb8e61e622",
+  "blockers": {
+    "changed": [],
+    "new": [],
+    "parked": [],
+    "removed": [],
+    "reopened": [],
+    "superseded": []
+  },
+  "environmentChanged": false,
+  "evidence": "recorded-not-replayed",
+  "goalFrontiers": [
+    {
+      "after": {
+        "closed": false,
+        "frontier": [
+          {
+            "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+            "taskId": "strip_growth_below_mu"
+          }
+        ],
+        "missingDependencies": [],
+        "taskDigest": "ab8c91c92c1d5d985ed03edfaee27bbef6df38455b84a82711d07d8d13e77890",
+        "taskId": "initial_goal_1"
+      },
+      "before": {
+        "closed": false,
+        "frontier": [
+          {
+            "taskDigest": "0df24217733e68cf5ba68a5cbd29ff2d807dd1aadcdf514e4f50a64645ebd92e",
+            "taskId": "strip_growth_below_mu"
+          },
+          {
+            "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+            "taskId": "sums_reduction"
+          }
+        ],
+        "missingDependencies": [],
+        "taskDigest": "ab8c91c92c1d5d985ed03edfaee27bbef6df38455b84a82711d07d8d13e77890",
+        "taskId": "initial_goal_1"
+      },
+      "goalId": "initial_goal_1"
+    }
+  ],
+  "kind": "transition",
+  "obligations": {
+    "changed": [],
+    "closed": [
+      {
+        "after": {
+          "closed": true,
+          "conditions": [],
+          "evidenceDigest": "4d50cf8ea6173bbf70041bfab843357c96f7401a34cb1bc4241161885826499f",
+          "groupId": "main",
+          "kind": "lemma",
+          "recordedProof": "checked",
+          "referenceCoverage": "available",
+          "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+          "taskId": "sums_reduction"
+        },
+        "before": {
+          "closed": false,
+          "conditions": [],
+          "evidenceDigest": "e53f6a2e0c3e7ec152dcc8ca7c789807357a284d1fa6568f94002b07732a0aee",
+          "groupId": "main",
+          "kind": "lemma",
+          "recordedProof": "checked",
+          "referenceCoverage": "available",
+          "taskDigest": "caf1fd7e121b5f286bce86821799c5f9f9f413d62a17b45d602c850e32ee3292",
+          "taskId": "sums_reduction"
+        }
+      }
+    ],
+    "new": [],
+    "removed": [],
+    "reopened": []
+  },
+  "routes": [],
+  "schema": "theoremos.obligation-progress.v1"
+}
