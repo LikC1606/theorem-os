@@ -64,7 +64,8 @@ describe('research basis at actual model dispatch', () => {
     };
     const check = vi.fn(async () => { throw new Error('fixture_unexpected_proof_acceptance'); });
     const contexts: { assignment: CooperativeAction; dependencyFinding?: string }[] = [];
-    const settings = { omitFinding: false };
+    const settings = { omitFinding: false, realContext: false, maxOptionalContextBytes: 0 };
+    const manifests: ContextManifest[] = [];
     const events: { event: string; details?: Record<string, unknown> }[] = [];
     const controller = new AbortController(); controllers.push(controller);
     const run = (open: (options: MathAgentOptions) => Promise<MathAgentSession>, maxTurns = 1) => {
@@ -74,6 +75,12 @@ describe('research basis at actual model dispatch', () => {
           const inputs = { assignment: access.assignment!,
             dependencyFinding: settings.omitFinding ? undefined : view.cooperation!.tasks.find(node => node.task.id === 'prior')?.finding };
           contexts.push(structuredClone(inputs));
+          if (settings.realContext) {
+            const compiled = directSolverModules.M4.build(_problem, view,
+              { ...access, maxOptionalContextBytes: settings.maxOptionalContextBytes });
+            manifests.push(compiled.manifest!);
+            return compiled;
+          }
           const manifest: ContextManifest | undefined = settings.omitFinding ? {
             schema: 'theorem-os.task-context.v1', evidence: 'recorded-not-replayed', contentDigest: 'omitted-finding-fixture',
             maxBytes: 4096, usedBytes: 100, mandatoryBytes: 100, maxOptionalBytes: 0, optionalBytes: 0,
@@ -94,8 +101,106 @@ describe('research basis at actual model dispatch', () => {
       running.push(completion); void completion.catch(() => {});
       return completion;
     };
-    return { state, workers, contexts, events, settings, controller, run, check, investigate, prior, sourcesAt, advanceCanonical };
+    return { state, workers, contexts, manifests, events, settings, controller, run, check, investigate, prior, sourcesAt, advanceCanonical };
   }
+
+  function heldResearchTurns(count: number) {
+    const started = Array.from({ length: count }, () => deferred());
+    const done = Array.from({ length: count }, () => deferred<string>());
+    releases.push(() => done.forEach(turn => turn.resolve('interrupted')));
+    const messages: string[] = [], threads: string[] = [];
+    let nextThread = 0, active: ReturnType<typeof deferred<string>> | undefined;
+    const open = vi.fn(async (options: MathAgentOptions): Promise<MathAgentSession> => {
+      const threadId = options.threadId ?? `real-context-thread-${++nextThread}`;
+      return { threadId, close: async () => { active?.resolve('interrupted'); },
+        interrupt: async () => { active?.resolve('interrupted'); }, notify: async () => {},
+        run: async (message, _id, worktree, onStarted) => {
+          const index = messages.length;
+          if (index >= count) throw new Error('fixture_unexpected_real_context_turn');
+          messages.push(message); threads.push(threadId); active = done[index];
+          onStarted(`real-context-turn-${index}`);
+          fs.writeFileSync(path.join(worktree, 'RESEARCH.md'), `An unfinished derivation retains its exact remaining inference at step ${index}.\n`);
+          started[index].resolve(); return done[index].promise;
+        } };
+    });
+    const wait = (turn: number, completion: Promise<unknown>) => Promise.race([started[turn].promise,
+      completion.then(() => { throw new Error('fixture_finished_before_real_context_turn:' + turn); })]);
+    return { open, messages, threads, done, wait };
+  }
+
+  it('continues omitted real-context input briefly and dispatches newly visible evidence in full before consuming it', async () => {
+    const { state, settings, manifests, events, run, check, investigate, prior, sourcesAt } = fixture();
+    settings.realContext = true;
+    const held = heldResearchTurns(4), completion = run(held.open, 4);
+    await held.wait(0, completion);
+    const finding = prior().finding!;
+    expect(manifests.at(-1)!.omitted).toContainEqual({ id: 'finding:prior', kind: 'finding', reason: 'optional-budget' });
+    expect(held.messages[0]).not.toContain(finding);
+    expect(investigate().assignment!.researchBasis).toBeUndefined();
+
+    await vi.advanceTimersByTimeAsync(120_000); await held.wait(1, completion);
+    expect(held.messages[1]).toContain('Continue the current task responsibility');
+    expect(held.messages[1]).not.toContain(finding);
+    expect(investigate().assignment!.researchBasis).toBeUndefined();
+
+    settings.maxOptionalContextBytes = 64 * 1024;
+    await vi.advanceTimersByTimeAsync(120_000); await held.wait(2, completion);
+    expect(manifests.at(-1)!.included).toContainEqual(expect.objectContaining({ id: 'finding:prior' }));
+    expect(held.messages[2]).toContain(finding);
+    const visibleBasis = investigate().assignment!.researchBasis!;
+    expect(visibleBasis.dependencies).toContainEqual(expect.objectContaining({ taskId: 'prior', findingDigest: mathDigest(finding) }));
+
+    await vi.advanceTimersByTimeAsync(120_000); await held.wait(3, completion);
+    expect(held.messages[3]).toContain('Continue the current task responsibility');
+    expect(investigate().assignment!.researchBasis).toBe(visibleBasis);
+    expect(events.filter(item => item.event === 'context_dispatched').map(item => item.details?.mode))
+      .toEqual(['full', 'continuation', 'full', 'continuation']);
+    expect(held.open).toHaveBeenCalledOnce();
+    held.done[3].resolve('completed'); await expect(completion).resolves.toBeUndefined();
+    expect(restoreResearch(investigate().researchCompletion, investigate().task, {
+      sourceDigest: sourcesAt(investigate().assignment!.seedCommit), problemReceiptDigest: state.problem.receiptDigest,
+      environmentDigest: state.environmentDigest, tasks: state.cooperation!.tasks,
+      deliveries: state.cooperation!.deliveries }, investigate().finding).status).toBe('completed');
+    expect(check).not.toHaveBeenCalled(); expect(state.check).toBeUndefined();
+  });
+
+  it('notifies a changed hidden dependency once without claiming it was consumed', async () => {
+    const { state, settings, events, run, check, investigate, prior, sourcesAt } = fixture();
+    settings.realContext = true;
+    const held = heldResearchTurns(4), completion = run(held.open, 4);
+    await held.wait(0, completion);
+    await vi.advanceTimersByTimeAsync(120_000); await held.wait(1, completion);
+    prior().finding = 'A new hidden dependency construction requires its complete saved argument.';
+    await vi.advanceTimersByTimeAsync(120_000); await held.wait(2, completion);
+    expect(held.messages[2]).not.toContain(prior().finding!);
+    expect(investigate().assignment!.researchBasis).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(120_000); await held.wait(3, completion);
+    expect(events.filter(item => item.event === 'context_dispatched').map(item => item.details?.mode))
+      .toEqual(['full', 'continuation', 'full', 'continuation']);
+    expect(investigate().assignment!.researchBasis).toBeUndefined();
+    held.done[3].resolve('completed'); await expect(completion).resolves.toBeUndefined();
+    expect(restoreResearch(investigate().researchCompletion, investigate().task, {
+      sourceDigest: sourcesAt(investigate().assignment!.seedCommit), problemReceiptDigest: state.problem.receiptDigest,
+      environmentDigest: state.environmentDigest, tasks: state.cooperation!.tasks,
+      deliveries: state.cooperation!.deliveries }, investigate().finding).status).toBe('pending');
+    expect(check).not.toHaveBeenCalled(); expect(state.check).toBeUndefined();
+  });
+
+  it('sends full real context after rotating an omitted-input thread', async () => {
+    const { settings, events, run, check, investigate } = fixture();
+    settings.realContext = true;
+    const held = heldResearchTurns(3), completion = run(held.open, 3);
+    await held.wait(0, completion);
+    await vi.advanceTimersByTimeAsync(120_000); await held.wait(1, completion);
+    held.open.mock.calls[0][0].onActivity!({ event: 'item_started', itemType: 'contextCompaction' });
+    await vi.advanceTimersByTimeAsync(10 * 60_000); await held.wait(2, completion);
+    expect(held.threads).toEqual(['real-context-thread-1', 'real-context-thread-1', 'real-context-thread-2']);
+    expect(events.filter(item => item.event === 'context_dispatched').map(item => item.details?.mode))
+      .toEqual(['full', 'continuation', 'full']);
+    expect(investigate().assignment!.researchBasis).toBeUndefined();
+    held.done[2].resolve('completed'); await expect(completion).resolves.toBeUndefined();
+    expect(check).not.toHaveBeenCalled();
+  });
 
   it('settles the exact context prepared before a session opens and freezes its basis only when the request starts', async () => {
     const { state, workers, contexts, run, check, investigate, prior, sourcesAt, advanceCanonical } = fixture();
