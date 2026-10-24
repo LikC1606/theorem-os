@@ -1,0 +1,10 @@
+{
+  "observedAt": "2026-10-24T06:36:19.598Z",
+  "phase": "source-intake",
+  "passed": true,
+  "sourceSHA256": "9c4819515e664832e910f165b7a46b14a1771e6a6e8e782bb9bd046fd6ea73e4",
+  "helperCount": 15,
+  "changes": 2908,
+  "asyncWrapperError": "math_original_context_changed",
+  "leanInvoked": false
+}

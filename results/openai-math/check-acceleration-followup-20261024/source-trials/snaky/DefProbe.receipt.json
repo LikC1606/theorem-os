@@ -1,0 +1,96 @@
+{
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "--json",
+    "-j1",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/proof-opacity-audit-20261024/DefProbe.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/proof-opacity-audit-20261024/DefProbe.lean"
+  ],
+  "exitCode": 0,
+  "durationSeconds": 3.6556446610484272,
+  "logPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/proof-opacity-audit-20261024/DefProbe.jsonl",
+  "logSHA256": "813d344fb399ce2aa9ea476578c549ca30bac195af1f3a5f93d27432241f9bff",
+  "addressSpaceLimitBytes": 34359738368,
+  "timeoutAdded": false,
+  "asyncControlAdded": false,
+  "threadsArgument": "-j1",
+  "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/proof-opacity-audit-20261024/DefProbe.lean",
+  "sourceSHA256": "5772b98b9f5f7bbbc0e74834223bc5d1fb1e8a3820560a4743ef3aa1d0fcc981",
+  "sourceBytes": 17946,
+  "sourceUnchanged": true,
+  "diagnostics": [
+    {
+      "severity": "warning",
+      "data": "Definition `freshCell_legal` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+    },
+    {
+      "severity": "warning",
+      "data": "Definition `winningPolicy_legal` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+    },
+    {
+      "severity": "warning",
+      "data": "`dif_pos` has been deprecated: Use `dite_eq_left` instead"
+    },
+    {
+      "severity": "warning",
+      "data": "Definition `winningPolicy_step` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+    },
+    {
+      "severity": "warning",
+      "data": "Definition `playState_card_maker` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+    },
+    {
+      "severity": "warning",
+      "data": "Definition `playState_legal_before_final` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+    },
+    {
+      "severity": "warning",
+      "data": "Definition `playState_final_disjoint` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+    },
+    {
+      "severity": "warning",
+      "data": "Definition `winningPolicy_play_invariant` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+    },
+    {
+      "severity": "warning",
+      "data": "Definition `winningPolicy_wins` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+    },
+    {
+      "severity": "warning",
+      "data": "Definition `ordinary_policy_of_winning` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+    },
+    {
+      "severity": "warning",
+      "data": "Definition `winning_of_goal` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+    },
+    {
+      "severity": "warning",
+      "data": "Definition `winning_mono_time` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+    },
+    {
+      "severity": "warning",
+      "data": "Definition `threat_leaf` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+    },
+    {
+      "severity": "warning",
+      "data": "Definition `winning_map` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+    },
+    {
+      "severity": "warning",
+      "data": "Definition `threat_map` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+    },
+    {
+      "severity": "warning",
+      "data": "`push_neg` has been deprecated. Prefer using `push Not` instead.\nIf you'd rather continue using `push_neg` in your project, you can implement it as follows:\n```\nopen Lean.Parser.Tactic in\nmacro \"push_neg\" cfg:optConfig loc:(location)? : tactic =>\n  `(tactic| push $cfg:optConfig Not $[$loc]?)\n```\n"
+    },
+    {
+      "severity": "warning",
+      "data": "Definition `threat_fork` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+    },
+    {
+      "severity": "information",
+      "data": "'OAI.SnakyConditional.generic_bridge_probe' depends on axioms: [propext, Classical.choice, Quot.sound]"
+    }
+  ]
+}

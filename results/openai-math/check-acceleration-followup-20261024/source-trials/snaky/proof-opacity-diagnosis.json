@@ -1,0 +1,124 @@
+{
+  "schema": "theorem-os.snaky-proof-opacity-diagnosis.v1",
+  "observedAt": "2026-10-24T06:39:00.129204+00:00",
+  "decision": "Do not adopt a new full candidate; single-pair difference is too small to establish improvement.",
+  "scope": "One existing 15-helper generic bridge closure; only newly added explicitly typed Prop proof helpers changed def to opaque.",
+  "baselineSeconds": 3.6556446610484272,
+  "opaqueSeconds": 3.6219037750270218,
+  "observedRelativeTimeReduction": 0.00922980463088241,
+  "bothLeanExitCodeZero": true,
+  "bothBridgeAxioms": [
+    "propext",
+    "Classical.choice",
+    "Quot.sound"
+  ],
+  "addressSpaceLimitBytes": 34359738368,
+  "leanArguments": [
+    "--json",
+    "-j1"
+  ],
+  "newTimeoutAdded": false,
+  "newHeartbeatsOrBudgetAdded": false,
+  "newAsyncOptionAdded": false,
+  "smallClosureCompilations": 2,
+  "additionalProofExperiments": 0,
+  "frozenSourceGuardPassedForOpaque": true,
+  "frozenTaskChangesPassedForOpaque": true,
+  "frozenSourceIntake": {
+    "observedAt": "2026-10-24T06:36:19.598Z",
+    "phase": "source-intake",
+    "passed": true,
+    "sourceSHA256": "9c4819515e664832e910f165b7a46b14a1771e6a6e8e782bb9bd046fd6ea73e4",
+    "helperCount": 15,
+    "changes": 2908,
+    "asyncWrapperError": "math_original_context_changed",
+    "leanInvoked": false
+  },
+  "frozenMergeProjection": {
+    "complete": false,
+    "passed": null,
+    "status": "Stopped at parent request during isolated static applyTaskChanges; process exit 143.",
+    "ownStaticProcessTerminated": 1611028,
+    "activeProcessesTouched": false
+  },
+  "outerAsyncWrapper": {
+    "sourceGuardPassed": false,
+    "error": "math_original_context_changed",
+    "explanation": "The wrapper command remains outside the declaration region in sourceStructure. Body-local options are evaluated after MutualDef selects asynchronous elaboration."
+  },
+  "leanMechanism": {
+    "source": "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/src/lean/Lean/Elab/MutualDef.lean:1237",
+    "fact": "The asynchronous branch requires view.kind.isTheorem; opaque elaborates synchronously.",
+    "kernel": "Lean/Elab/PreDefinition/Basic.lean:202 constructs Declaration.opaqueDecl."
+  },
+  "comparatorStaticSupport": {
+    "source": "environment/tools/comparator/Comparator/Util.lean:10",
+    "fact": "runForUsedConsts visits info.value? (allowOpaque := true); opaque proofs do not hide axiom dependencies.",
+    "fullComparatorInvoked": false
+  },
+  "completedExporterObservation": {
+    "command": [
+      "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/tools-v4.34.1/lean4export",
+      "OpaqueProbe",
+      "--",
+      "OAI.SnakyConditional.freshCell_legal",
+      "OAI.SnakyConditional.winningPolicy_legal",
+      "OAI.SnakyConditional.winningPolicy_step",
+      "OAI.SnakyConditional.playState_card_maker",
+      "OAI.SnakyConditional.playState_legal_before_final",
+      "OAI.SnakyConditional.playState_final_disjoint",
+      "OAI.SnakyConditional.winningPolicy_play_invariant",
+      "OAI.SnakyConditional.winningPolicy_wins",
+      "OAI.SnakyConditional.ordinary_policy_of_winning",
+      "OAI.SnakyConditional.winning_of_goal",
+      "OAI.SnakyConditional.winning_mono_time",
+      "OAI.SnakyConditional.threat_leaf",
+      "OAI.SnakyConditional.winning_map",
+      "OAI.SnakyConditional.threat_map",
+      "OAI.SnakyConditional.threat_fork"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 3.1567469311412424,
+    "logPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/proof-opacity-audit-20261024/opaque-export.ndjson",
+    "logSHA256": "0fb06cc833a9750f653af6871803147107c367d4cb471b8f73f4686c70db7d53",
+    "addressSpaceLimitBytes": 34359738368,
+    "timeoutAdded": false,
+    "asyncControlAdded": false,
+    "threadsArgument": null,
+    "invoked": true,
+    "pinnedBinarySHA256": "41b768b7a540c0efd20246627231d7a2a1488ba2e656ed5082978d8debe87cbb",
+    "exportedOpaqueCount": 17,
+    "unsafeOpaqueCount": 0,
+    "pinnedLeanBinAddedToPATH": "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin",
+    "initialPathSetupFailureReceipt": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/proof-opacity-audit-20261024/opaque-export-without-pinned-path.receipt.json"
+  },
+  "exporterQualification": "The already-started pinned exporter finished before closure, with 17 safe opaque records including dependencies. Initial missing lean on PATH failure was retained. No exporter or proof checks followed the stop request.",
+  "historicalReasonForProofDefs": {
+    "receipt": "../canonical-v4-sync-preparation.json",
+    "fact": "V3 comparator internally rebuilt Submission without -j1 and failed to create thread. V4 changed 843 added proof declarations to synchronous Prop-valued defs without altering types or bodies."
+  },
+  "historicalSelectiveRepairsPreserved": [
+    "qn614",
+    "qn615",
+    "qsmall_step11",
+    "qtable_valid_probe"
+  ],
+  "baselineFullV8SHA256": "712ecd4ee1a6cf29e5dc08a07510910addc1870b4039327836646b7a0f16daab",
+  "fullCandidateCompiled": false,
+  "activeRuntimeModified": false,
+  "activeStateModified": false,
+  "activeSourceModified": false,
+  "activeValidationRestarted": false,
+  "publishedSolutionRead": false,
+  "campaignAcceptance": false,
+  "official": false,
+  "nativeAcceptance": false,
+  "artifacts": {
+    "pairedProbe": "paired-probe.json",
+    "staticIntake": "native-static-intake.json",
+    "baselineSource": "DefProbe.lean",
+    "opaqueSource": "OpaqueProbe.lean",
+    "baselineReceipt": "DefProbe.receipt.json",
+    "opaqueReceipt": "OpaqueProbe.receipt.json"
+  }
+}

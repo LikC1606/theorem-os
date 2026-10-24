@@ -1,0 +1,18 @@
+{
+  "README.md": "f6fc4a29b0b2114beee59488521b29e25cffac00dba41f120949e549ace27cda",
+  "apply-locality.py": "57b87b72a2f6078dc2b53649cc601eb2f5dda77d1cf652e95403dd87ac391890",
+  "locality-receipt.json": "5aa4260dcd9c1b184368f48142ba47eed9bd84158db1d4808cd1c2e99377aa4d",
+  "source-trials/character/GuardHelperCostWrapLocalIrreducibleV1.receipt.json": "a356b7a457acd0bf02dd5ab5aa517b239915f5b13459a5e680fb45cc2911ccc9",
+  "source-trials/character/opaque-helper-diagnosis.json": "51ed727e4d188afe444e1d0dd7fc21b15220063de99c165ed61713a3f1e5c67e",
+  "source-trials/character/wrap-only-change.patch": "4993de6ca688f09bf0ec864ab769a50b49f4d91a38010cedd6f37766a66cc826",
+  "source-trials/snaky/DefProbe.jsonl": "813d344fb399ce2aa9ea476578c549ca30bac195af1f3a5f93d27432241f9bff",
+  "source-trials/snaky/DefProbe.lean": "5772b98b9f5f7bbbc0e74834223bc5d1fb1e8a3820560a4743ef3aa1d0fcc981",
+  "source-trials/snaky/DefProbe.receipt.json": "bbc9a8b12d9d89233b3494768b05a6d2584c2e3454bd71cd721c0c2852341907",
+  "source-trials/snaky/OpaqueProbe.jsonl": "a200e9f004df25f929abaa9a5d024165413c6b79d055de745ce7344c50760832",
+  "source-trials/snaky/OpaqueProbe.lean": "9cba75918af471d05d7956eb1e2de4a8553e6fe1691bc55e619128c0c9809e9d",
+  "source-trials/snaky/OpaqueProbe.receipt.json": "c4b6d13d07544c40b850d4b350286ebd1db1071bc7f5c638ba6690b62bd0114e",
+  "source-trials/snaky/native-static-intake.json": "f9de095514e41482cfe269e24b199075d8f097b875292ff9eb22bcdb26f50cf4",
+  "source-trials/snaky/paired-probe.json": "cfaeefe0114f1f5527d98ead48ee209e06a1a0a15a1fc8fa5a5afc4cc5d2f37a",
+  "source-trials/snaky/proof-opacity-diagnosis.json": "9356cb54b4d5afc9e73b908a38d765e73e9a5fd9419528f1578f3d0e7281537e",
+  "status-summary.json": "df5050f6e8033144022e237f5101c6f68dd367e0d437dd4fb0c11169e567c8cc"
+}

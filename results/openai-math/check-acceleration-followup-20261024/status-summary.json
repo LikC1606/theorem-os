@@ -1,0 +1,234 @@
+{
+  "observedAt": "2026-10-24T06:39:15.320171+00:00",
+  "nativeFinalPassedTotal": 5,
+  "newNativeFinalPassesThisFollowup": 0,
+  "officialHostedAcceptance": false,
+  "runs": [
+    {
+      "target": "SnakyConditional",
+      "runId": "e2b78e94-e26d-4b02-a8e5-53375547ef4d",
+      "phase": "checking",
+      "turns": 4,
+      "nativeSolverPid": 4175461,
+      "limits": {
+        "--max-run-seconds": 0,
+        "--max-turns": 0,
+        "--max-turn-seconds": 0,
+        "--max-total-tokens": 0,
+        "--evaluator-timeout-seconds": 0
+      },
+      "maxTotalTokensState": 0,
+      "tasks": [
+        {
+          "id": "v8_original_goal",
+          "kind": "goal",
+          "status": "running",
+          "proofPassed": false
+        }
+      ],
+      "leanPid": 169941,
+      "threadAffinities": {
+        "169941": [
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87
+        ],
+        "169950": [
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87
+        ],
+        "169951": [
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87
+        ],
+        "169987": [
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87
+        ],
+        "170004": [
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87
+        ],
+        "181149": [
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87
+        ],
+        "181258": [
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86,
+          87
+        ]
+      }
+    },
+    {
+      "target": "CharacterVarieties",
+      "runId": "be2c8bbd-71c7-4dc5-aa21-1c3a7550a2c6",
+      "phase": "checking",
+      "turns": 36,
+      "nativeSolverPid": 758785,
+      "limits": {
+        "--max-run-seconds": 0,
+        "--max-turns": 0,
+        "--max-turn-seconds": 0,
+        "--max-total-tokens": 0,
+        "--evaluator-timeout-seconds": 0
+      },
+      "maxTotalTokensState": 0,
+      "tasks": [
+        {
+          "id": "initial_goal_1",
+          "kind": "goal",
+          "status": "running",
+          "proofPassed": false
+        }
+      ],
+      "leanPid": 1179438,
+      "threadAffinities": {
+        "1179438": [
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ],
+        "1179439": [
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ],
+        "1179440": [
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ],
+        "1179441": [
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ],
+        "1179442": [
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23
+        ]
+      }
+    },
+    {
+      "target": "HoneycombBridgeFiniteness",
+      "runId": "8bd4a613-c70e-4e96-b298-c9d22cfafaf3",
+      "phase": "running",
+      "turns": 24,
+      "nativeSolverPid": 1250029,
+      "limits": {
+        "--max-run-seconds": 0,
+        "--max-turns": 0,
+        "--max-turn-seconds": 0,
+        "--max-total-tokens": 0,
+        "--evaluator-timeout-seconds": 0
+      },
+      "maxTotalTokensState": 0,
+      "tasks": [
+        {
+          "id": "strip_growth_below_mu",
+          "kind": "lemma",
+          "status": "running",
+          "proofPassed": false
+        },
+        {
+          "id": "sums_reduction",
+          "kind": "lemma",
+          "status": "running",
+          "proofPassed": false
+        },
+        {
+          "id": "initial_goal_1",
+          "kind": "goal",
+          "status": "conditional",
+          "proofPassed": true
+        },
+        {
+          "id": "initial_research_1",
+          "kind": "research",
+          "status": "pending",
+          "proofPassed": false
+        },
+        {
+          "id": "initial_research_2",
+          "kind": "research",
+          "status": "pending",
+          "proofPassed": false
+        },
+        {
+          "id": "frontier_input_a566b95879bcff8e245ce923826d7c6ed33fcb51",
+          "kind": "research",
+          "status": "running",
+          "proofPassed": false
+        }
+      ]
+    }
+  ],
+  "throughputSpeedupMeasured": false
+}

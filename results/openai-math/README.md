@@ -27,4 +27,6 @@
 
 [2026-10-24 Honeycomb 切换新构建继续求解](honeycomb-workflow-migration-20261024/README.md)：保留旧 114 轮记录，正式续跑重验条件性证明，四个 worker 已在新构建开始工作，五项预算全部无限。
 
+[2026-10-24 在途检查调度调整与源码试验](check-acceleration-followup-20261024/README.md)：两条正式 Lean 检查采用本地 CPU 核组，保留原调度及回读；两项源码试验未显示可靠收益，未采用新候选，尚无整题提速倍数。
+
 [验收可靠性修复与验证回执](validation-reliability-20261023/README.md)：长载荷递送、首错摘要和宿主检查修复已通过 344 项测试；补丁归档，数学通过数不变。

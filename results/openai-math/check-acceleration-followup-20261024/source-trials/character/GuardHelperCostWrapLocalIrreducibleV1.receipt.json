@@ -1,0 +1,28 @@
+{
+  "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/opaque-helper-audit-20261024/GuardHelperCostWrapLocalIrreducibleV1.lean",
+  "sourceSha256": "30c251b70f3ebfd4d6400610cc3fa8f25f3310346106245cd7a691fefc282600",
+  "sourceUnchanged": true,
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/opaque-helper-audit-20261024/GuardHelperCostWrapLocalIrreducibleV1.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/opaque-helper-audit-20261024/GuardHelperCostWrapLocalIrreducibleV1.lean"
+  ],
+  "exitCode": 0,
+  "naturalLeanTerminal": true,
+  "timedOut": false,
+  "timeoutSeconds": 75,
+  "durationSeconds": 42.762302,
+  "userCPUSeconds": 42.171794,
+  "systemCPUSeconds": 0.680915,
+  "addressSpaceBytes": 34359738368,
+  "commandLineElaborationOptions": [],
+  "importOlean": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/default-options-probes/GuardTypedRemainingFullClosureV12.olean",
+  "importOleanSha256": "408c83baa07b3e95b3f3707de1314aefb17762b9e5a195b1737faa8fbcc7a2dd",
+  "importReceiptSha256": "c854ed68328c22eaa7cfb557f689688ad44a190ae97c48c59af777bf9e2868cf",
+  "log": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/opaque-helper-audit-20261024/GuardHelperCostWrapLocalIrreducibleV1.log",
+  "logSha256": "afe6622ceb78f9a5e62bada653c287306129cd6e822e06d0c48135b402441e96",
+  "errorInLog": false,
+  "sorryAxInLog": false,
+  "claim": "Bounded isolated inference/opacity diagnostic using existing compiled components, not original single-file target, host, or comparator acceptance."
+}

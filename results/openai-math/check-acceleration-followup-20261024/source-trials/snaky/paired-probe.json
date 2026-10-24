@@ -1,0 +1,199 @@
+{
+  "observedAt": "2026-10-24T06:36:26.729624+00:00",
+  "schema": "theorem-os.snaky-proof-opacity-small-probe.v1",
+  "compilations": [
+    {
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "--json",
+        "-j1",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/proof-opacity-audit-20261024/DefProbe.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/proof-opacity-audit-20261024/DefProbe.lean"
+      ],
+      "exitCode": 0,
+      "durationSeconds": 3.6556446610484272,
+      "logPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/proof-opacity-audit-20261024/DefProbe.jsonl",
+      "logSHA256": "813d344fb399ce2aa9ea476578c549ca30bac195af1f3a5f93d27432241f9bff",
+      "addressSpaceLimitBytes": 34359738368,
+      "timeoutAdded": false,
+      "asyncControlAdded": false,
+      "threadsArgument": "-j1",
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/proof-opacity-audit-20261024/DefProbe.lean",
+      "sourceSHA256": "5772b98b9f5f7bbbc0e74834223bc5d1fb1e8a3820560a4743ef3aa1d0fcc981",
+      "sourceBytes": 17946,
+      "sourceUnchanged": true,
+      "diagnostics": [
+        {
+          "severity": "warning",
+          "data": "Definition `freshCell_legal` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+        },
+        {
+          "severity": "warning",
+          "data": "Definition `winningPolicy_legal` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+        },
+        {
+          "severity": "warning",
+          "data": "`dif_pos` has been deprecated: Use `dite_eq_left` instead"
+        },
+        {
+          "severity": "warning",
+          "data": "Definition `winningPolicy_step` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+        },
+        {
+          "severity": "warning",
+          "data": "Definition `playState_card_maker` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+        },
+        {
+          "severity": "warning",
+          "data": "Definition `playState_legal_before_final` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+        },
+        {
+          "severity": "warning",
+          "data": "Definition `playState_final_disjoint` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+        },
+        {
+          "severity": "warning",
+          "data": "Definition `winningPolicy_play_invariant` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+        },
+        {
+          "severity": "warning",
+          "data": "Definition `winningPolicy_wins` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+        },
+        {
+          "severity": "warning",
+          "data": "Definition `ordinary_policy_of_winning` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+        },
+        {
+          "severity": "warning",
+          "data": "Definition `winning_of_goal` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+        },
+        {
+          "severity": "warning",
+          "data": "Definition `winning_mono_time` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+        },
+        {
+          "severity": "warning",
+          "data": "Definition `threat_leaf` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+        },
+        {
+          "severity": "warning",
+          "data": "Definition `winning_map` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+        },
+        {
+          "severity": "warning",
+          "data": "Definition `threat_map` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+        },
+        {
+          "severity": "warning",
+          "data": "`push_neg` has been deprecated. Prefer using `push Not` instead.\nIf you'd rather continue using `push_neg` in your project, you can implement it as follows:\n```\nopen Lean.Parser.Tactic in\nmacro \"push_neg\" cfg:optConfig loc:(location)? : tactic =>\n  `(tactic| push $cfg:optConfig Not $[$loc]?)\n```\n"
+        },
+        {
+          "severity": "warning",
+          "data": "Definition `threat_fork` is a proposition; use `theorem` instead of `def`\n\nNote: This linter can be disabled with `set_option linter.defProp false`"
+        },
+        {
+          "severity": "information",
+          "data": "'OAI.SnakyConditional.generic_bridge_probe' depends on axioms: [propext, Classical.choice, Quot.sound]"
+        }
+      ]
+    },
+    {
+      "command": [
+        "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+        "--json",
+        "-j1",
+        "-o",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/proof-opacity-audit-20261024/OpaqueProbe.olean",
+        "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/proof-opacity-audit-20261024/OpaqueProbe.lean"
+      ],
+      "exitCode": 0,
+      "durationSeconds": 3.6219037750270218,
+      "logPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/proof-opacity-audit-20261024/OpaqueProbe.jsonl",
+      "logSHA256": "a200e9f004df25f929abaa9a5d024165413c6b79d055de745ce7344c50760832",
+      "addressSpaceLimitBytes": 34359738368,
+      "timeoutAdded": false,
+      "asyncControlAdded": false,
+      "threadsArgument": "-j1",
+      "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/proof-opacity-audit-20261024/OpaqueProbe.lean",
+      "sourceSHA256": "9cba75918af471d05d7956eb1e2de4a8553e6fe1691bc55e619128c0c9809e9d",
+      "sourceBytes": 17991,
+      "sourceUnchanged": true,
+      "diagnostics": [
+        {
+          "severity": "warning",
+          "data": "`dif_pos` has been deprecated: Use `dite_eq_left` instead"
+        },
+        {
+          "severity": "warning",
+          "data": "`push_neg` has been deprecated. Prefer using `push Not` instead.\nIf you'd rather continue using `push_neg` in your project, you can implement it as follows:\n```\nopen Lean.Parser.Tactic in\nmacro \"push_neg\" cfg:optConfig loc:(location)? : tactic =>\n  `(tactic| push $cfg:optConfig Not $[$loc]?)\n```\n"
+        },
+        {
+          "severity": "information",
+          "data": "'OAI.SnakyConditional.generic_bridge_probe' depends on axioms: [propext, Classical.choice, Quot.sound]"
+        }
+      ]
+    }
+  ],
+  "export": {
+    "command": [
+      "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/environment/tools-v4.34.1/lean4export",
+      "OpaqueProbe",
+      "--",
+      "OAI.SnakyConditional.freshCell_legal",
+      "OAI.SnakyConditional.winningPolicy_legal",
+      "OAI.SnakyConditional.winningPolicy_step",
+      "OAI.SnakyConditional.playState_card_maker",
+      "OAI.SnakyConditional.playState_legal_before_final",
+      "OAI.SnakyConditional.playState_final_disjoint",
+      "OAI.SnakyConditional.winningPolicy_play_invariant",
+      "OAI.SnakyConditional.winningPolicy_wins",
+      "OAI.SnakyConditional.ordinary_policy_of_winning",
+      "OAI.SnakyConditional.winning_of_goal",
+      "OAI.SnakyConditional.winning_mono_time",
+      "OAI.SnakyConditional.threat_leaf",
+      "OAI.SnakyConditional.winning_map",
+      "OAI.SnakyConditional.threat_map",
+      "OAI.SnakyConditional.threat_fork"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 3.1567469311412424,
+    "logPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/proof-opacity-audit-20261024/opaque-export.ndjson",
+    "logSHA256": "0fb06cc833a9750f653af6871803147107c367d4cb471b8f73f4686c70db7d53",
+    "addressSpaceLimitBytes": 34359738368,
+    "timeoutAdded": false,
+    "asyncControlAdded": false,
+    "threadsArgument": null,
+    "invoked": true,
+    "pinnedBinarySHA256": "41b768b7a540c0efd20246627231d7a2a1488ba2e656ed5082978d8debe87cbb",
+    "exportedOpaqueCount": 17,
+    "unsafeOpaqueCount": 0,
+    "pinnedLeanBinAddedToPATH": "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin",
+    "initialPathSetupFailureReceipt": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/proof-opacity-audit-20261024/opaque-export-without-pinned-path.receipt.json"
+  },
+  "helpers": [
+    "freshCell_legal",
+    "winningPolicy_legal",
+    "winningPolicy_step",
+    "playState_card_maker",
+    "playState_legal_before_final",
+    "playState_final_disjoint",
+    "winningPolicy_play_invariant",
+    "winningPolicy_wins",
+    "ordinary_policy_of_winning",
+    "winning_of_goal",
+    "winning_mono_time",
+    "threat_leaf",
+    "winning_map",
+    "threat_map",
+    "threat_fork"
+  ],
+  "changedHelperCount": 15,
+  "onlyDeclarationKeywordsChanged": true,
+  "sameSmallClosure": true,
+  "fullCandidateCompiled": false,
+  "campaignAcceptance": false,
+  "official": false,
+  "nativeAcceptance": false,
+  "additionalExperimentsPlanned": false
+}

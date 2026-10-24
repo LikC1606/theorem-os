@@ -1,0 +1,36 @@
+{
+  "command": [
+    "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+    "--json",
+    "-j1",
+    "-o",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/proof-opacity-audit-20261024/OpaqueProbe.olean",
+    "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/proof-opacity-audit-20261024/OpaqueProbe.lean"
+  ],
+  "exitCode": 0,
+  "durationSeconds": 3.6219037750270218,
+  "logPath": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/proof-opacity-audit-20261024/OpaqueProbe.jsonl",
+  "logSHA256": "a200e9f004df25f929abaa9a5d024165413c6b79d055de745ce7344c50760832",
+  "addressSpaceLimitBytes": 34359738368,
+  "timeoutAdded": false,
+  "asyncControlAdded": false,
+  "threadsArgument": "-j1",
+  "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/snaky-ordinary-bridge-20261023/proof-opacity-audit-20261024/OpaqueProbe.lean",
+  "sourceSHA256": "9cba75918af471d05d7956eb1e2de4a8553e6fe1691bc55e619128c0c9809e9d",
+  "sourceBytes": 17991,
+  "sourceUnchanged": true,
+  "diagnostics": [
+    {
+      "severity": "warning",
+      "data": "`dif_pos` has been deprecated: Use `dite_eq_left` instead"
+    },
+    {
+      "severity": "warning",
+      "data": "`push_neg` has been deprecated. Prefer using `push Not` instead.\nIf you'd rather continue using `push_neg` in your project, you can implement it as follows:\n```\nopen Lean.Parser.Tactic in\nmacro \"push_neg\" cfg:optConfig loc:(location)? : tactic =>\n  `(tactic| push $cfg:optConfig Not $[$loc]?)\n```\n"
+    },
+    {
+      "severity": "information",
+      "data": "'OAI.SnakyConditional.generic_bridge_probe' depends on axioms: [propext, Classical.choice, Quot.sound]"
+    }
+  ]
+}

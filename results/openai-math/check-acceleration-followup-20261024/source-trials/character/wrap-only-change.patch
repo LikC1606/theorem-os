@@ -1,0 +1,11 @@
+--- baseline-wrapper
++++ local-irreducible-wrapper
+@@ -5,6 +5,8 @@
+ namespace IntegralCharacterVarieties.SurfacePresentation.Diagram
+ open scoped Classical Matrix
+ open OccurrenceIncidence VertexTable MatrixExpression NamedBandGrades HomTransport
++
++attribute [local irreducible] parent_producedCutPortFrame parent_producedMarkedSideValue
+ 
+ noncomputable def helperCostWrapInferredV1 :=
+   @(set_option maxHeartbeats 0 in @(

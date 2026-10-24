@@ -1,0 +1,109 @@
+{
+  "schema": "theorem-os.character-opaque-helper-audit.v1",
+  "observedAt": "2026-10-24T06:25:23.318351+00:00",
+  "scope": "Read original declarations and existing compiled modules; compile only standalone micro examples and one 2686-byte wrapper. No original full target, native run, comparator, runtime or state changed.",
+  "runtimeToolchain": "leanprover/lean4:v4.34.1",
+  "candidate": {
+    "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/GuardCompatibleAllSeamsV12.lean",
+    "sha256": "80955a4045e2657b431ef2018b772783bd1e6935c9e6dc0267f0176e9c7ba4a6",
+    "bytes": 796560,
+    "unchangedFromPreviousDiagnostic": true
+  },
+  "syntaxFindings": [
+    {
+      "syntax": "opaque helper := body",
+      "supported": false,
+      "failure": "parser requires colon/type",
+      "evidence": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/opaque-helper-audit-20261024/OpaqueMissingType.log"
+    },
+    {
+      "syntax": "opaque helper : _ := body",
+      "supported": false,
+      "failure": "lean.inferDefTypeFailed; header type hole must be resolved before body is processed",
+      "evidence": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/opaque-helper-audit-20261024/OpaqueInference.log"
+    },
+    {
+      "syntax": "theorem helper : _ := body",
+      "supported": false,
+      "failure": "lean.inferDefTypeFailed; theorem header must be resolved before proof is processed",
+      "evidence": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/opaque-helper-audit-20261024/OpaqueInference.log"
+    },
+    {
+      "syntax": "@[irreducible] def helper := body",
+      "supported": true,
+      "meaning": "inferred type retained; declaration remains definition, not kernel opaque",
+      "evidence": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/opaque-helper-audit-20261024/ReducibilityValid.log"
+    },
+    {
+      "syntax": "attribute [local irreducible] helper",
+      "supported": true,
+      "meaning": "locally controls elaborator unfolding of existing definition; does not turn it into opaque/theorem",
+      "evidence": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/opaque-helper-audit-20261024/ReducibilityValid.log"
+    }
+  ],
+  "validMicro": {
+    "source": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/opaque-helper-audit-20261024/ReducibilityValid.lean",
+    "sourceSha256": "40a7f5842641b20262e6bc829e9af07c0ea140d813e1480baeac237c5e72ad71",
+    "sourceUnchanged": true,
+    "command": [
+      "/home/lzh/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean",
+      "-o",
+      "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/opaque-helper-audit-20261024/ReducibilityValid.olean",
+      "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/opaque-helper-audit-20261024/ReducibilityValid.lean"
+    ],
+    "exitCode": 0,
+    "naturalLeanTerminal": true,
+    "timedOut": false,
+    "timeoutSeconds": 75,
+    "durationSeconds": 0.665673,
+    "userCPUSeconds": 0.399157,
+    "systemCPUSeconds": 0.262811,
+    "addressSpaceBytes": 34359738368,
+    "commandLineElaborationOptions": [],
+    "importOlean": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/.build/default-options-probes/GuardTypedRemainingFullClosureV12.olean",
+    "importOleanSha256": "408c83baa07b3e95b3f3707de1314aefb17762b9e5a195b1737faa8fbcc7a2dd",
+    "importReceiptSha256": "c854ed68328c22eaa7cfb557f689688ad44a190ae97c48c59af777bf9e2868cf",
+    "log": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/opaque-helper-audit-20261024/ReducibilityValid.log",
+    "logSha256": "11c9ed0a5aae401680ecb52d7c4050ed733ca6cad840bf1a6db65b4a5972cb4d",
+    "errorInLog": false,
+    "sorryAxInLog": false,
+    "claim": "Bounded isolated inference/opacity diagnostic using existing compiled components, not original single-file target, host, or comparator acceptance."
+  },
+  "sameImportedContextWrapComparison": {
+    "baselineReceipt": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/GuardHelperCostWrapInferredV1.cost-receipt.json",
+    "baselineSeconds": 42.661289,
+    "variantReceipt": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/opaque-helper-audit-20261024/GuardHelperCostWrapLocalIrreducibleV1.receipt.json",
+    "variantSeconds": 42.762302,
+    "wallTimeRatio": 1.0023677906216102,
+    "variantUserCPUSeconds": 42.171794,
+    "variantSystemCPUSeconds": 0.680915,
+    "change": "Only adds local irreducible to parent_producedCutPortFrame and parent_producedMarkedSideValue before otherwise byte-identical wrapper definition; same declaration name and body.",
+    "diff": "/home/lzh/theorem-os-runs/openai-math-d-to-s-20261022/validation/character-varieties-progress-20261023/opaque-helper-audit-20261024/wrap-only-change.patch",
+    "sameImportOleanSha256": true,
+    "sameImportReceiptSha256": true,
+    "sameCompiler": true,
+    "sameDefaultCLIElaborationOptions": true,
+    "addressSpaceBytes": 34359738368,
+    "variantNaturalExitCode": 0,
+    "variantAxioms": [
+      "propext",
+      "Classical.choice",
+      "Quot.sound"
+    ],
+    "noSorryAxInSuccessfulVariant": true,
+    "result": "No observed speedup; 1.0024x baseline wall time, approximately 0.24 percent slower. A single prior baseline and single new sample do not establish a general performance effect."
+  },
+  "decision": "Do not use this change for current acceptance. No measured acceleration justifies changing or restarting the active candidate.",
+  "limits": [
+    "Existing remaining180 module is imported; this cannot substitute for original single-file, host, or publisher comparator acceptance.",
+    "No original per-declaration timings were collected. This comparison does not locate the live full-file hotspot.",
+    "The failure fixtures intentionally do not compile and provide no proof acceptance.",
+    "Only two high-fanout proposition helpers were locally marked; no blanket change of all 17 proposition helpers or 28 data/type helpers was tested or proposed.",
+    "No standalone opaque replacement of real helpers was attempted: syntax cannot infer header type from body, and the prior explicit-header theorem experiment already failed to demonstrate a speedup."
+  ],
+  "originalFullCompileStarted": false,
+  "processesSignaledOrPolled": false,
+  "activeCandidateEdited": false,
+  "runtimeOrStateEdited": false,
+  "additionalExperimentsPlanned": false
+}
